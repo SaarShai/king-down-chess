@@ -62,3 +62,8 @@ body[data-page='profile'] .frame dialog#over.badge-sheet { position: fixed; inse
 }
 
 #profile-blocks button { overflow-wrap: anywhere; }
+
+#profile-notices article { padding: var(--space-2) 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+#profile-notices h4, #profile-notices p { margin: 0 0 var(--space-1); }
+#profile-notices time, #profile-notices small { display: block; color: var(--ink-soft); font-size: var(--fs-xs); }
+#profile-notices p { white-space: pre-wrap; }

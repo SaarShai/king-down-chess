@@ -10,6 +10,7 @@ import { MAX_REVISION, PRESETS, type Action, type View } from '../match/protocol
 import { DEFAULT_OPTIONS } from '../match/setup';
 import { choiceSchema, optionsSchema } from '../match/setup-schema';
 import { REPORT_CATEGORIES } from '../account/profile';
+import { noticesBeforeSchema } from '../online/accounts';
 import { settingsSchema } from './settings';
 import { ending } from './ending';
 import { handleSchema, TOOL_LIMITS } from './service';
@@ -221,9 +222,9 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     return { content: text('Your settings are ready.'), _meta: { settings, me: { handle, icon } } };
   });
   // ChatGPT tells connected accounts apart by this ID; an invalid reply can stop the account from connecting.
-  register('kingdown_profile', 'Use this when the player asks for their King Down rating, totals or badges in text. Give the rating, the totals and the badge count from the reply. For "show my King Down profile", open kingdown_open with screen "profile".', { before: z.string().max(100).optional(), blocks_after: z.uuid().optional() }, { visibility: ['model', 'app'], readOnly: true, meta: { 'openai/profile': true }, output: { id: z.string(), name: z.string().optional() } }, async args => {
-    const [{ user_id, handle, icon }, record, history, blocks] = await Promise.all([service.profile(actorId), service.record(actorId), service.history(actorId, args.before), service.blocks(actorId, args.blocks_after)]);
-    return { content: text(recordText(record)), structuredContent: { id: user_id, ...(handle && { name: handle }) }, _meta: { handle, icon, record, blocks: blocks.slice(0, 50), next_blocks_after: blocks.length > 50 ? blocks[49].user_id : null, history: history.games, next_before: history.next_before } };
+  register('kingdown_profile', 'Use this when the player asks for their King Down rating, totals or badges in text. Give the rating, the totals and the badge count from the reply. For "show my King Down profile", open kingdown_open with screen "profile".', { before: z.string().max(100).optional(), blocks_after: z.uuid().optional(), notices_before: noticesBeforeSchema.optional() }, { visibility: ['model', 'app'], readOnly: true, meta: { 'openai/profile': true }, output: { id: z.string(), name: z.string().optional() } }, async args => {
+    const [{ user_id, handle, icon }, record, history, blocks, notices] = await Promise.all([service.profile(actorId), service.record(actorId), service.history(actorId, args.before), service.blocks(actorId, args.blocks_after), service.notices(actorId, args.notices_before)]);
+    return { content: text(recordText(record)), structuredContent: { id: user_id, ...(handle && { name: handle }) }, _meta: { handle, icon, record, ...notices, blocks: blocks.slice(0, 50), next_blocks_after: blocks.length > 50 ? blocks[49].user_id : null, history: history.games, next_before: history.next_before } };
   });
   return server;
 }

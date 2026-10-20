@@ -225,6 +225,42 @@ async function friend(host: string, guest: string) {
    { reporter_id: a, reported_id: b, content: input.handle }, { reporter_id: a, reported_id: b, content: input.handle }]);
  }, 30000);
 
+ it('reads only the actor’s moderation and appeal notices with safe fields and exact bigint pages', async () => {
+  const [a, b] = [await user('notice-a'), await user('notice-b')];
+  const report = await safety.report(a, { target: 'player', user_id: b, category: 'other' });
+  const { action_id } = await owner.act(report.id, { action: 'warning', facts: 'A recorded incident.', rule: 'Terms: play fairly.' });
+  await owner.appeal(action_id!, { status: 'upheld', note: 'We reviewed the supplied information.' });
+  const initial = await accounts.notices(b);
+  expect(initial.notices.map(row => row.kind)).toEqual(['appeal', 'moderation']);
+  expect(initial.notices).toEqual([
+   { id: expect.any(String), created_at: expect.any(String), kind: 'appeal', action_id, status: 'upheld', text: 'We reviewed the supplied information.' },
+   { id: expect.any(String), created_at: expect.any(String), kind: 'moderation', action_id, action: 'warning', text: `What happened: A recorded incident.\nThe rule: Terms: play fairly.\n${APPEAL}`, ends_at: null },
+  ]);
+  await admin.query("insert into public.notifications(user_id,kind,payload) values($1,'turn',$2)", [b, { secret: 'unrelated-game' }]);
+  await admin.query(`insert into public.notifications(id,user_id,kind,payload,created_at)
+   select 9007199254740993+i,$1,'moderation',$2,'2026-10-20T12:00:00Z' from generate_series(0,22) i`, [b, { action_id: 7, action: 'warning', statement: '<b>Reason</b>', ends_at: null, report_id: report.id, user_id: a, private_mark: 'private-note', evidence: 'private-evidence' }]);
+  const first = await accounts.notices(b), ids = Array.from({ length: 23 }, (_, i) => String(9007199254741015n-BigInt(i)));
+  expect(first.notices.map(row => row.id)).toEqual(ids.slice(0,20));
+  expect(first.next_notices_before).toBe(ids[19]);
+  const last = await accounts.notices(b, first.next_notices_before!);
+  expect(last.notices.map(row => row.id)).toEqual([...ids.slice(20), ...initial.notices.map(row=>row.id)]);
+  expect(last.next_notices_before).toBeNull();
+  expect(await accounts.notices(a)).toEqual({ notices: [], next_notices_before: null });
+  expect(await accounts.notices(b, '1')).toEqual({ notices: [], next_notices_before: null });
+  const visible = JSON.stringify(first);
+  for (const secret of [a, b, 'private-note', 'private-evidence', 'unrelated-game', 'report_id', 'payload']) expect(visible).not.toContain(secret);
+  expect(Object.keys(first.notices[0]).sort()).toEqual(['action','action_id','created_at','ends_at','id','kind','text']);
+  for (const cursor of ['0', '-1', '01', '1.2', '1e3', '9223372036854775808', 'x', '1'.repeat(100)]) await expect(accounts.notices(b,cursor)).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  await expect(accounts.notices(b,'9223372036854775807')).resolves.toEqual(first);
+  for (const column of ['read_at','expires_at']) await expect(runtime.query(`select ${column} from public.notifications limit 0`)).rejects.toMatchObject({code:'42501'});
+ }, 30000);
+
+ it('refuses malformed stored notice text without exposing its payload', async () => {
+  const actor = await user('notice-bad');
+  await admin.query("insert into public.notifications(user_id,kind,payload) values($1,'moderation',$2)", [actor, { action_id: 1, action: 'warning', statement: { evidence: 'private' }, ends_at: null }]);
+  await expect(accounts.notices(actor)).rejects.toMatchObject({ code: 'UNAVAILABLE', message: 'An account notice could not be read' });
+ });
+
  it('writes a statement of reasons with each action, applies it, and reverses it on appeal', async () => {
   const [a, b] = [await user('ma'), await user('nasty')];
   const id = await friend(a, b), old = (await handleOf(b))!;

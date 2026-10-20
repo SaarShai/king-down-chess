@@ -59,7 +59,7 @@ async function serve(options: Partial<ApiOptions> = {}, internal: { secret?: str
  sign = (claims = {}, key = pair.privateKey) => { const now = Math.floor(Date.now() / 1000);
   return new SignJWT({ iss: issuer, aud: 'authenticated', sub: alice, role: 'authenticated', is_anonymous: false, session_id: 's', iat: now, exp: now + 300, ...claims }).setProtectedHeader({ alg: 'ES256', kid: 'test' }).sign(key); };
  games = { create: vi.fn(async () => view), view: vi.fn(async () => view), command: vi.fn(async () => view), inbox: vi.fn(async () => []), invite: vi.fn(), join: vi.fn(async () => view), preview: vi.fn(async () => ({ code: 'ABC234', options: DEFAULT_OPTIONS, kind: 'friend', colour: 'black', creator: { handle: 'host', icon: null }, expires_at: 'soon' })), find: vi.fn(async () => view), accept: vi.fn(async () => view), cancel: vi.fn(async () => view), lobby: vi.fn(async () => ({ games: [] })), record: vi.fn(async () => ({ total: 3 })), history: vi.fn(async () => ({ games: [], next_before: null })), seen: vi.fn(), sweep: vi.fn(async () => 0) };
- accounts = { profile: vi.fn(async () => ({ user_id: alice })), relate: vi.fn(async () => undefined), ...Object.fromEntries(['updateSettings', 'setHandle', 'requestDeletion', 'cancelDeletion', 'notificationPrefs', 'setNotificationPrefs', 'relations', 'unrelate'].map(name => [name, vi.fn()])) };
+ accounts = { notices: vi.fn(async () => ({ notices: [], next_notices_before: null })), profile: vi.fn(async () => ({ user_id: alice })), relate: vi.fn(async () => undefined), ...Object.fromEntries(['updateSettings', 'setHandle', 'requestDeletion', 'cancelDeletion', 'notificationPrefs', 'setNotificationPrefs', 'relations', 'unrelate'].map(name => [name, vi.fn()])) };
  safety = { report: vi.fn() };
  players = { profile: vi.fn(async () => ({ user_id: alice, handle: 'alice', icon: null })), settings: vi.fn(async () => ({ symbols_only: false, show_threats: true, online_visible_to: 'mutual', last_setup: null })), handle: vi.fn(async () => ({ user_id: alice, handle: 'alice', icon: null })), block: vi.fn(async () => true), blocks: vi.fn(async () => []), toolTry: vi.fn() };
  defaults = { games: games as never, accounts: accounts as never, safety: safety as never, players: players as never, publicOrigin: address, operations, webAccountAccess, admit: () => () => {}, currentUser: async () => {}, verify: sessionVerifier(supabase, keys), ...options };
@@ -290,10 +290,11 @@ describe('website API boundary', () => {
   expect(await available.json()).toEqual({ me, available: true }); expect(players.handle).toHaveBeenLastCalledWith(alice, { handle: 'alice', check: true });
   for (const [path, method, body] of [['/api/me/settings', 'PATCH', { actor: alice }], ['/api/me/handle', 'POST', { handle: 'alice', actor: alice }]] as const) expect((await call(path, { token, method, body })).status).toBe(400);
   const blocks = Array.from({ length: 51 }, (_, i) => ({ user_id: `player-${i}`, handle: null })); players.blocks.mockResolvedValueOnce(blocks);
-  const response = await call(`/api/me/record?before=cursor&blocks_after=${gameId}`, { token });
-  expect(await response.json()).toEqual({ ...me, record: { total: 3 }, blocks: blocks.slice(0, 50), next_blocks_after: blocks[49].user_id, history: [], next_before: null });
+  const response = await call(`/api/me/record?before=cursor&blocks_after=${gameId}&notices_before=9007199254740993`, { token });
+  expect(await response.json()).toEqual({ ...me, record: { total: 3 }, blocks: blocks.slice(0, 50), next_blocks_after: blocks[49].user_id, history: [], next_before: null, notices: [], next_notices_before: null });
+  expect(accounts.notices).toHaveBeenLastCalledWith(alice, '9007199254740993');
   expect(players.blocks).toHaveBeenLastCalledWith(alice, gameId); expect(games.history).toHaveBeenLastCalledWith(alice, 'cursor');
-  for (const query of ['blocks_after=bad', 'actor=a', '__proto__=bad', 'before=a&before=b']) expect((await call('/api/me/record?' + query, { token })).status).toBe(400);
+  for (const query of ['blocks_after=bad', 'actor=a', '__proto__=bad', 'before=a&before=b', 'notices_before=0', 'notices_before=9223372036854775808', 'notices_before=1&notices_before=2']) expect((await call('/api/me/record?' + query, { token })).status).toBe(400);
  });
  it('validates block targets and reads state without write admission', async () => {
   const token = await sign(), admit = vi.fn(() => () => {}); useApi({ admit });

@@ -6,6 +6,7 @@ const PROBES = `select id,actor_id,match_id,game_selected,created_at from public
  select choice,ready from public.game_players limit 0;
  select handle_changed_at,quiet_mode from public.profiles limit 0;
  select requested_at from public.account_deletions limit 0;
+ select id,user_id,kind,payload,created_at from public.notifications limit 0;
  select user_id,tries from public.invite_code_tries limit 0;
  select user_id,tool,window_start,tries from public.plugin_tool_tries limit 0;
  select user_id,rating,rd,volatility,last_game_at from public.player_ratings limit 0;

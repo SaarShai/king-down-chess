@@ -26,6 +26,13 @@ it('persists the full command before sending, then retries the exact input after
   expect(saved.records.size).toBe(0);
 });
 
+it('reads private account notices through the existing profile adapter without persistence', async () => {
+  const saved = storage(), page = {notices:[{id:'9007199254740993',text:'A private reason.'}],next_notices_before:null}, record = vi.fn(async()=>page);
+  const result = await createWebTransport({record} as unknown as OnlineClient,'account-a',saved).call('kingdown_profile',{notices_before:'9007199254740993'},{});
+  expect(record).toHaveBeenCalledWith({notices_before:'9007199254740993'});
+  expect(result._meta).toEqual(page); expect(result.structuredContent ?? {}).toEqual({}); expect(saved.records.size).toBe(0);
+});
+
 it('keeps receipts in their account and refuses another payload until the uncertain command settles', async () => {
   const saved = storage(), command = vi.fn(async () => { throw new TypeError('offline'); });
   const first = createWebTransport({ command } as unknown as OnlineClient, 'account-a', saved);
@@ -76,6 +83,15 @@ function browserAt(path: string) {
   vi.stubGlobal('window', browser);
   return { browser, back(path: string) { browser.location = new URL(path, browser.location); browser.dispatchEvent(new Event('popstate')); } };
 }
+it('opens Support through ordinary website navigation without storing notice content', async () => {
+  const {browser}=browserAt('/play/profile'), assign=vi.fn(); Object.assign(browser.location,{assign});
+  try {
+    const host=createBrowserRuntime({} as OnlineClient,'a');
+    await expect(host.openLink({url:'https://kingdown.dev/support.html#appeals'})).resolves.toEqual({});
+    expect(assign).toHaveBeenCalledWith('https://kingdown.dev/support.html#appeals');
+    expect(browser.localStorage.records.size).toBe(0);
+  } finally {vi.unstubAllGlobals();}
+});
 function held<T>() {
   let resolve!: (value: T) => void, reject!: (error: Error) => void;
   const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });

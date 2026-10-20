@@ -187,6 +187,28 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   expect((await rows('select used_by from public.game_invites where game_id=$1', [made.view.game_id]))[0].used_by).toBeNull();
  }, 60_000);
 
+ it('shares actor-only notice pages between the private HTTP and MCP profile reads', async () => {
+  const actor = await player('notice-owner'), other = await player('notice-other');
+  await admin.query(`insert into public.notifications(user_id,kind,payload) select $1,'moderation',$2 from generate_series(1,23)`, [actor.id, { action_id: 7, action: 'warning', statement: 'Private decision text.', ends_at: null, report_id: 88, evidence: 'private evidence', private_mark: 'private mark', user_id: other.id }]);
+  const mcp = createPluginServer({ service: new PluginService(new PostgresMatchStore(runtime), secret), actorId: actor.id, resourceHtml: '<html>board</html>', publicOrigin: address });
+  const client = new Client({ name: 'http-notice-test', version: '1' }), [a,b] = InMemoryTransport.createLinkedPair();
+  await mcp.connect(a); await client.connect(b);
+  try {
+   const first = await actor.api.record(), result = await client.callTool({name:'kingdown_profile',arguments:{}});
+   expect(result.isError).not.toBe(true);
+   expect(result._meta).toMatchObject({notices:first.notices,next_notices_before:first.next_notices_before});
+   expect(first.notices).toHaveLength(20); expect(first.next_notices_before).toBe(first.notices[19].id);
+   const last = await actor.api.record({notices_before:first.next_notices_before!}), mcpLast = await client.callTool({name:'kingdown_profile',arguments:{notices_before:first.next_notices_before}});
+   expect(last.notices).toHaveLength(3); expect(last.next_notices_before).toBeNull();
+   expect(mcpLast._meta).toMatchObject({notices:last.notices,next_notices_before:null});
+   expect((await other.api.record()).notices).toEqual([]);
+   for (const secret of ['Private decision text.', 'private evidence', 'private mark']) expect(JSON.stringify([result.content,result.structuredContent])).not.toContain(secret);
+   for (const secret of ['private evidence','private mark','report_id',other.id]) expect(JSON.stringify(first.notices)).not.toContain(secret);
+   expect((await client.callTool({name:'kingdown_profile',arguments:{notices_before:'9223372036854775808'}})).isError).toBe(true);
+   await expect(actor.api.record({notices_before:'0'})).rejects.toMatchObject({code:'INVALID_INPUT'});
+  } finally { await client.close(); await mcp.close(); }
+ }, 30000);
+
  it('shares one HTTP and MCP game with private setup and one effect for a lost turn reply', async () => {
   const host = await player('cross-host'), guest = await player('cross-guest'), startId = randomUUID().replaceAll('-', '');
   const gameOptions = { ...CLASSIC_OPTIONS, kingPowers: true }, store = new PostgresMatchStore(runtime);

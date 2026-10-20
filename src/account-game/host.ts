@@ -19,6 +19,7 @@ export interface AccountGameHost {
   dispose?(): void;
   getHostContext(): RuntimeContext | undefined;
   requestDisplayMode(input: { mode: 'fullscreen' }): Promise<{ mode: string }>;
+  openLink(input: { url: string }): Promise<{ isError?: boolean }>;
   updateModelContext?(input: { structuredContent: { status: string; your_turn: boolean } }): Promise<unknown>;
   route?(screen: Screen, gameId?: string): void;
 }

@@ -3,7 +3,7 @@
  * keeps one game's view by the rules of report part 03, section 4.3. It imports types only, so the website
  * bundle gets no zod and no server code.
  */
-import type { MyProfile, NotifyKind, ReportCategory, Settings } from '../account/profile';
+import type { AccountNotices, MyProfile, NotifyKind, ReportCategory, Settings } from '../account/profile';
 import type { Action, CreateOptions, ErrorCode, InboxEntry, Preset, Reply, View, JoinPreview, HistoryEntry, PlayerRecord } from '../match/protocol';
 import type { PlayerSettings } from '../plugin/settings';
 import type { Icon } from '../account/profile';
@@ -54,7 +54,7 @@ export function onlineClient({ token, origin = '', fetch: send = (...args) => fe
     preview: (key: { token: string } | { code: string }) => call<JoinPreview>('POST', '/api/invites/preview', key),
     settings: (changes?: Partial<PlayerSettings>) => call<{ settings: PlayerSettings; me: { handle: string | null; icon: Icon | null } }>(changes && Object.keys(changes).length ? 'PATCH' : 'GET', '/api/me/settings', changes && Object.keys(changes).length ? changes : undefined),
     handle: (input: { handle: string; icon?: Icon; check?: boolean }) => call<{ me: { handle: string | null; icon: Icon | null }; available?: boolean }>('POST', '/api/me/handle', input),
-    record: (cursor: { before?: string; blocks_after?: string } = {}) => call<{ handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null }>('GET', '/api/me/record' + (Object.keys(cursor).length ? '?' + new URLSearchParams(cursor) : '')),
+    record: (cursor: { before?: string; blocks_after?: string; notices_before?: string } = {}) => call<{ handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null } & AccountNotices>('GET', '/api/me/record' + (Object.keys(cursor).length ? '?' + new URLSearchParams(cursor) : '')),
     lobby: () => call<{ games: InboxEntry[]; server_now: string }>('GET', '/api/lobby'),
     find: (input: Record<string, unknown>) => call<View>('POST', '/api/games/find', input),
     accept: (gameId: string) => call<View>('POST', `/api/games/${encodeURIComponent(gameId)}/accept`, {}),

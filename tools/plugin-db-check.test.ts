@@ -7,7 +7,8 @@ describe('plugin startup checks and safe diagnostics', () => {
  it('checks every table the server uses, the board key and the exact audience allowlist', async () => {
   const query=vi.fn().mockResolvedValueOnce(probes()).mockResolvedValueOnce({rows:[{confdeltype:'n',games:true}]}).mockResolvedValueOnce({rows:[{client_id:'client'}]});
   await checkPluginDatabase({query},{clientIds:['client']},'https://example/mcp');
-  for (const table of ['public.plugin_boards','public.games','kingdown_jobs.delete_account','public.profiles','public.account_deletions','public.invite_code_tries','public.plugin_tool_tries','kingdown_jobs.request_deletion','public.player_ratings','public.rating_history','public.player_badges','public.player_settings']) expect(query.mock.calls[0][0]).toContain(table);
+  for (const table of ['public.plugin_boards','public.games','kingdown_jobs.delete_account','public.profiles','public.account_deletions','public.invite_code_tries','public.plugin_tool_tries','kingdown_jobs.request_deletion','public.player_ratings','public.rating_history','public.player_badges','public.player_settings','public.notifications']) expect(query.mock.calls[0][0]).toContain(table);
+  expect(query.mock.calls[0][0]).toContain('select id,user_id,kind,payload,created_at from public.notifications limit 0');
   expect(query.mock.calls[0][0]).not.toContain("to_regprocedure('kingdown_jobs.user_email(uuid)')");
   expect(query.mock.calls[0][0]).not.toContain('select kingdown_jobs.user_email(');
   expect(query.mock.calls[2][1]).toEqual([['client'],'https://example/mcp']);

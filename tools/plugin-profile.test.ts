@@ -7,6 +7,7 @@ import sharp from 'sharp';
 import { startHarness } from './plugin-ui-harness';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { randomUUID } from 'node:crypto';
+import type { AccountNotice } from '../src/account/profile';
 import type { HistoryEntry } from '../src/match/protocol';
 import { BADGES } from '../src/match/badges';
 import { LETTERS, NAMES, type PieceType } from '../src/rules/engine';
@@ -89,6 +90,75 @@ it('names game features and each history result for screen readers', async () =>
     }
     expect(await frame.locator('#profile-history .res').allTextContents()).toEqual(['W', 'D', 'L']);
   } finally { await page.close(); }
+});
+const accountNotices: AccountNotice[] = Array.from({length:23},(_,i)=>({id:String(9007199254741015n-BigInt(i)),created_at:'2026-10-20T12:00:00Z',action_id:7,...(i%2 ? {kind:'appeal' as const,status:'upheld' as const,text:'Appeal decision.'} : {kind:'moderation' as const,action:'warning' as const,text:'<img src=x onerror=alert(1)> Reason.',ends_at:null})}));
+it('shows dated safe account notices and pages independently of game history', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.request.post(new URL('/fixture-seed',harness.url).href,{data:{data:{notices:accountNotices,history,record}}});
+    await frame.locator('html').evaluate(()=>(window as any).harnessApp.navigate('profile'));
+    await expect.poll(()=>frame.locator('#profile-notices article').count()).toBe(20);
+    expect(await frame.locator('#profile-notices article').first().textContent()).toContain('<img src=x onerror=alert(1)> Reason.');
+    expect(await frame.locator('#profile-notices img').count()).toBe(0);
+    expect(await frame.locator('#profile-notices time').first().textContent()).toBe('Oct 20, 2026');
+    expect(await frame.locator('#profile-notices time').first().getAttribute('datetime')).toBe('2026-10-20T12:00:00Z');
+    expect(await frame.locator('#profile-notices small').first().textContent()).toBe('Action #7');
+    expect(await frame.locator('#profile-notices a').first().getAttribute('href')).toBe('https://kingdown.dev/support.html#appeals');
+    const support = frame.locator('#profile-notices a').first();
+    await support.focus(); await support.press('Enter');
+    await expect.poll(()=>page.evaluate(()=>(window as any).harnessOpenLinks ?? [])).toEqual([{url:'https://kingdown.dev/support.html#appeals'}]);
+    await page.evaluate(()=>{(window as any).denyOpenLinkNext=true;}); await support.click();
+    await frame.locator('#profile-status').filter({hasText:'Open https://kingdown.dev/support.html#appeals in your browser.'}).waitFor();
+    expect(await page.evaluate(()=>(window as any).harnessOpenLinks)).toEqual([{url:'https://kingdown.dev/support.html#appeals'},{url:'https://kingdown.dev/support.html#appeals'}]);
+    const first = await tool(page,'kingdown_profile');
+    await frame.locator('#profile-notices-more').click();
+    await expect.poll(()=>frame.locator('#profile-notices article').count()).toBe(23);
+    expect(await frame.locator('#profile-notices-more').isVisible()).toBe(false);
+    expect(await page.evaluate(()=>(window as any).harnessCalls.findLast((c:any)=>c.name==='kingdown_profile').arguments)).toEqual({notices_before:first._meta.next_notices_before});
+    expect(await frame.locator('#profile-history li').count()).toBe(20);
+  } finally {await page.close();}
+});
+it('shows empty notices and keeps a failed More cursor available for retry', async () => {
+  const isolated = await startHarness({boardPath:join(folder,'board.html'),sourcePage:true});
+  const page = await browser.newPage({timezoneId:'UTC'}); page.setDefaultTimeout(5000);
+  try {
+    await page.goto(isolated.url); const frame=page.frameLocator('iframe'); await frame.locator('#home-play:not(:disabled)').waitFor();
+    await page.evaluate(()=>(window as any).harnessSetContext({displayMode:'fullscreen'}));
+    await frame.locator('html').evaluate(()=>(window as any).harnessApp.navigate('profile'));
+    await frame.locator('#profile-notices-empty:not([hidden])').waitFor();
+    await page.request.post(new URL('/fixture-seed',isolated.url).href,{data:{data:{notices:accountNotices}}});
+    await frame.locator('html').evaluate(()=>(window as any).harnessApp.navigate('profile'));
+    await expect.poll(()=>frame.locator('#profile-notices article').count()).toBe(20);
+    await page.route('**/fixture-tool',async route=>{
+      const input=route.request().postDataJSON();
+      if(input.name==='kingdown_profile' && input.arguments.notices_before) return route.fulfill({json:{isError:true,content:[{type:'text',text:'Notice read failed.'}]}});
+      await route.continue();
+    });
+    await frame.locator('#profile-notices-more').click();
+    await frame.locator('#profile-status').filter({hasText:'Notice read failed.'}).waitFor();
+    expect(await frame.locator('#profile-notices article').count()).toBe(20);
+    await frame.locator('#profile-notices-more:not(:disabled)').waitFor(); await page.unroute('**/fixture-tool');
+    await frame.locator('#profile-notices-more').click();
+    await expect.poll(()=>frame.locator('#profile-notices article').count()).toBe(23);
+    expect(await frame.locator('#profile-status').textContent()).toBe('');
+  } finally {await page.close();await isolated.close();}
+});
+it('drops a held notice page after SDK teardown without changing DOM or saved state', async () => {
+  const page=await open(),frame=page.frameLocator('iframe');
+  try {
+    await page.request.post(new URL('/fixture-seed',harness.url).href,{data:{data:{notices:accountNotices}}});
+    await frame.locator('html').evaluate(()=>(window as any).harnessApp.navigate('profile'));
+    await expect.poll(()=>frame.locator('#profile-notices article').count()).toBe(20);
+    await page.evaluate(()=>{(window as any).holdNext='kingdown_profile';});
+    await frame.locator('#profile-notices-more').click();
+    await page.waitForFunction(()=>typeof(window as any).releaseHeld==='function');
+    await page.evaluate(()=>(window as any).harnessTeardown());
+    const before=await frame.locator('#profile-sheet').innerHTML(), saved=await page.evaluate(()=>(window as any).harnessWidgetStates.length);
+    await page.evaluate(()=>(window as any).releaseHeld());
+    await expect.poll(()=>frame.locator('html').evaluate(()=>(window as any).harnessApp.client.inflight)).toBe(0);
+    expect(await frame.locator('#profile-sheet').innerHTML()).toBe(before);
+    expect(await page.evaluate(()=>(window as any).harnessWidgetStates.length)).toBe(saved);
+  } finally {await page.evaluate(()=>(window as any).releaseHeld?.()).catch(()=>{});await page.close();}
 });
 it('reads the profile name, picture, rounded rating and totals from the server', async () => {
   const page = await open(), frame = page.frameLocator('iframe');

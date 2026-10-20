@@ -40,6 +40,7 @@ export class PluginService {
   /** Read-only: finished games and the actor's record. */
   history(actor: string, before?: string, limit = 20) { return this.games.history(actor, before, limit); }
   record(actor: string) { return this.games.record(actor); }
+  notices(actor: string, before?: string) { return this.accounts.notices(actor, before); }
   command(actor: string, gameId: string, input: unknown) { return this.games.command(actor, gameId, input, 'chatgpt'); }
   invite(actor: string, gameId: string) { return this.games.invite(actor, gameId); }
   join(actor: string, invitation: unknown) { return this.games.join(actor, invitation); }

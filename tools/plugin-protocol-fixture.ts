@@ -7,13 +7,14 @@ import { createSchema, commandSchema, type CreateOptions, type InboxEntry, type 
 import { buildSetup, defaultChoice, draw, seatChoicesNeeded, switches, validateChoice, type Draw, type Choice } from '../src/match/setup';
 import { handleSchema, type PluginService } from '../src/plugin/service';
 import { settingsSchema, type PlayerSettings } from '../src/plugin/settings';
-import { handleProblem, type Icon } from '../src/account/profile';
+import { handleProblem, type Icon, type AccountNotice } from '../src/account/profile';
+import { noticesBeforeSchema } from '../src/online/accounts';
 
 const CODE = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', DAY = 86_400_000;
 const fail = (code: MatchServiceError['code'], status: number, message: string): never => { throw new MatchServiceError(code, status, message); };
 const parse = <T>(schema: {safeParse(input:unknown):{success:boolean;data?:T}}, input:unknown):T => { const value = schema.safeParse(input); return value.success ? value.data! : fail('INVALID_INPUT',400,'Invalid input'); };
 interface Game { id:string; creator:string; input:CreateOptions; match?:LocalMatch; engine?:string; players:(string|null)[]; choices:[Choice|null,Choice|null]; ready:[boolean,boolean]; drawn?:Draw; turns:[number,number]; revision:number; status:View['status']; result?:View['result']; commands:Map<string,string>; log:LoggedCommand[]; invite?:{token:string;code:string;expires_at:string;used_by?:string}; draw_offer:Seat|null; rematch_offer:Seat|null; rematch_game_id:string|null; created:number; updated:number; setup_deadline:string|null; deadline:string|null }
-export interface FixtureSeed { history?:HistoryEntry[]; games?:InboxEntry[]; record?:PlayerRecord; views?:Record<string,Partial<View>> }
+export interface FixtureSeed { notices?: AccountNotice[]; history?:HistoryEntry[]; games?:InboxEntry[]; record?:PlayerRecord; views?:Record<string,Partial<View>> }
 export function fixtureService(): Pick<PluginService,keyof PluginService> & { seedPosition(setup:MatchSetup,black:boolean):Promise<string>; seed(actor:string,data:FixtureSeed):void; deleteMatch(id:string):Promise<void>; close():Promise<void> } {
  // A start command ID names the game it made, joined or reused, with its input, as the database's start receipt does.
  const games = new Map<string,Game>(), starts = new Map<string,{game:string;input:string}>(), boards = new Map<string,{actor:string;game:string|null;selected:boolean}>(), profiles = new Map<string,{user_id:string;handle:string|null;icon:Icon|null}>(), settings = new Map<string,PlayerSettings>(), seeds = new Map<string,FixtureSeed>();
@@ -127,6 +128,7 @@ export function fixtureService(): Pick<PluginService,keyof PluginService> & { se
   async report() {return {id:++reports,created_at:new Date().toISOString()};},
   async handle(actor,input) { const change = parse(handleSchema,input), me = await profile(actor); if (change.check && (!change.handle || change.icon)) fail('INVALID_INPUT',400,'Check one handle'); if (change.handle !== undefined) {const value = change.handle.trim().toLowerCase(), problem = handleProblem(value); if (problem) fail('INVALID_INPUT',400,problem); if ([...profiles.values()].some(p=>p.user_id !== me.user_id && p.handle === value)) fail('HANDLE_TAKEN',409,'This handle is in use'); if (!change.check) me.handle = value;} if (!change.check && change.icon) me.icon = change.icon; profiles.set(actor,me); return me; },
   async settings(actor,input={}) { const change = parse(settingsSchema,input), value = {...settings.get(actor) ?? {symbols_only:false,show_threats:false,online_visible_to:'mutual',last_setup:null},...change}; settings.set(actor,value); return structuredClone(value); },
+  async notices(actor,before) { const cursor = parse(noticesBeforeSchema.optional(), before), rows = [...seeds.get(actor)?.notices ?? []].sort((a,b)=>BigInt(a.id)>BigInt(b.id)?-1:1).filter(row=>cursor === undefined || BigInt(row.id)<BigInt(cursor)), notices=rows.slice(0,20); return {notices,next_notices_before:rows.length>20?notices.at(-1)!.id:null}; },
   async history(actor,before) { const rows = [...seeds.get(actor)?.history ?? []].sort((a,b)=>b.finished_at.localeCompare(a.finished_at) || b.game_id.localeCompare(a.game_id)).filter(r=>!before || `${r.finished_at}|${r.game_id}`<before), page = rows.slice(0,20); return {games:page,next_before:rows.length>20 ? `${page.at(-1)!.finished_at}|${page.at(-1)!.game_id}` : null}; },
   async record(actor) {return structuredClone(seeds.get(actor)?.record ?? {totals:{played:0,won:0,drawn:0,lost:0},rating:{rating:1500,rd:350,volatility:0.06,provisional:true},badges:[]});},
   async openBoard(actor,id) { if (id) seatOf(load(id),actor); const board = randomUUID(); boards.set(board,{actor,game:id ?? null,selected:!!id}); return board; },

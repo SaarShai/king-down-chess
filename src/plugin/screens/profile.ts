@@ -3,7 +3,7 @@ import { call, client, navigate, queue } from '../../account-game/runtime';
 import { art, symbols } from '../../account-game/art';
 import { WHY } from '../ending';
 import { BADGES, type Badge } from '../../match/badges';
-import { ICONS, type Icon } from '../../account/profile';
+import { ICONS, type Icon, type AccountNotice, type AccountNotices } from '../../account/profile';
 import type { HistoryEntry, InboxEntry, PlayerRecord } from '../../match/protocol';
 import { DEFAULT_OPTIONS } from '../../match/setup';
 import { features } from '../../account-game/features';
@@ -11,26 +11,28 @@ import './profile.css';
 import { confirmBoardAction } from './board-actions';
 import { errorText } from '../../account-game/types';
 import { onStop } from './friend';
-type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null };
+import { runtimeHost } from '../../account-game/host';
+type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null } & AccountNotices;
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 let request = 0, stopped = false;
 const active = () => !stopped && !queue.closed() && client.state.screen === 'profile';
 onStop(() => { stopped = true; ++request; });
-let before: string | null = null, blocksAfter: string | null = null;
+let before: string | null = null, blocksAfter: string | null = null, noticesBefore: string | null = null;
 const date = (at: string) => formatDate(at, { day: 'numeric', month: 'short' });
 const fullDate = (at: string) => formatDate(at, { day: 'numeric', month: 'short', year: 'numeric' });
 const GOALS: Record<Badge, string> = { first_win: 'Win a game.', friend_match: 'Finish a game with a friend.', stranger_match: 'Finish a game with a random player.', purist: 'Win a Classic game.', fairy_tale: 'Win with fairy pieces.', architect: 'Win with your own arrangement.', card_sharp: 'Win a game with cards.', crowned: 'Win with a king power.', royal_collection: 'Win with all six kings.', giant_slayer: 'Beat the Strong computer.' };
 const badgeArt = (badge: Badge) => art(`assets/badge-${badge.replaceAll('_', '-')}.webp`);
-export function profileScreen() { if (!active()) return; $('profile-blocks-more').onclick = () => void readMoreBlocks(); $('profile-name').onclick = () => navigate('handle'); $('profile-more').onclick = () => { if (before) void readProfile(before); }; void readProfile(); }
+export function profileScreen() { if (!active()) return; $('profile-blocks-more').onclick = () => void readMoreBlocks(); $('profile-notices-more').onclick = () => void readMoreNotices(); $('profile-name').onclick = () => navigate('handle'); $('profile-more').onclick = () => { if (before) void readProfile(before); }; void readProfile(); }
 async function readProfile(cursor?: string) {
   if (!active()) return;
   const reading = ++request;
-  if (!cursor) { before = null; $('profile-more').hidden = true; }
+  if (!cursor) { before = noticesBefore = null; $('profile-more').hidden = $('profile-notices-more').hidden = true; $('profile-notices').replaceChildren(); $('profile-notices-empty').hidden = true; }
   // Keep the rollers in view while More waits.
   $('profile-status').textContent = cursor ? '' : 'Loading profile…';
   try {
     $('profile-more').setAttribute('disabled', '');
     $('profile-blocks-more').setAttribute('disabled', '');
+    $('profile-notices-more').setAttribute('disabled', '');
     const [result, games] = await Promise.all([client.call('kingdown_profile', cursor ? { before: cursor } : {}), cursor ? undefined : client.call('kingdown_games')]);
     if (reading !== request || !active()) return;
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
@@ -52,10 +54,49 @@ async function readProfile(cursor?: string) {
     $('profile-history').append(...profile.history.map(historyRow));
     before = profile.next_before; $('profile-more').hidden = before === null;
     renderBadges(record);
-    if (!cursor) renderBlocks(profile);
+    if (!cursor) { renderBlocks(profile); renderNotices(profile); }
     $('profile-status').textContent = '';
   } catch (error) { if (reading === request && active()) $('profile-status').textContent = errorText(error); }
-  finally { if (reading === request && active()) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); } }
+  finally { if (reading === request && active()) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); $('profile-notices-more').removeAttribute('disabled'); } }
+}
+function renderNotices(profile: AccountNotices, append = false) {
+  if (!append) $('profile-notices').replaceChildren();
+  $('profile-notices').append(...profile.notices.map(noticeRow));
+  $('profile-notices-empty').hidden = $('profile-notices').childElementCount > 0;
+  noticesBefore = profile.next_notices_before;
+  $('profile-notices-more').hidden = noticesBefore === null;
+}
+function noticeRow(notice: AccountNotice) {
+  const row = document.createElement('article'), title = document.createElement('h4'), when = document.createElement('time'), reason = document.createElement('p'), reference = document.createElement('small');
+  title.textContent = notice.kind === 'appeal' ? `Appeal ${notice.status}` : { warning: 'Warning', rename: 'Name changed', hide: 'Name hidden', suspension: 'Suspension' }[notice.action];
+  when.dateTime = notice.created_at; when.textContent = fullDate(notice.created_at);
+  reference.textContent = `Action #${notice.action_id}`;
+  reason.textContent = notice.text;
+  row.append(title, when, reference, reason);
+  if (notice.kind === 'moderation' && notice.ends_at) { const ends = document.createElement('p'); ends.textContent = `Ends ${fullDate(notice.ends_at)}`; row.append(ends); }
+  const support = document.createElement('a'); support.href = 'https://kingdown.dev/support.html#appeals'; support.target = '_blank'; support.rel = 'noopener'; support.textContent = 'Support and appeals'; support.onclick = event => void openSupport(event); row.append(support);
+  return row;
+}
+async function openSupport(event: MouseEvent) {
+  event.preventDefault();
+  if (!active()) return;
+  const reading = request;
+  try {
+    const result = await runtimeHost().openLink({ url: 'https://kingdown.dev/support.html#appeals' });
+    if (result.isError) throw new Error('The host refused the link');
+  } catch { if (reading === request && active()) $('profile-status').textContent = 'Open https://kingdown.dev/support.html#appeals in your browser.'; }
+}
+async function readMoreNotices() {
+  if (!active() || !noticesBefore) return;
+  const reading = ++request;
+  $('profile-more').setAttribute('disabled', ''); $('profile-blocks-more').setAttribute('disabled', ''); $('profile-notices-more').setAttribute('disabled', '');
+  try {
+    const result = await client.call('kingdown_profile', { notices_before: noticesBefore });
+    if (reading !== request || !active()) return;
+    if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+    renderNotices(result._meta as Profile, true); $('profile-status').textContent = '';
+  } catch (error) { if (reading === request && active()) $('profile-status').textContent = errorText(error); }
+  finally { if (reading === request && active()) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); $('profile-notices-more').removeAttribute('disabled'); } }
 }
 function renderBlocks(profile: Profile, append = false) {
   const rows = profile.blocks.map(player => {
@@ -75,6 +116,7 @@ async function readMoreBlocks() {
   const reading = ++request;
   $('profile-more').setAttribute('disabled', '');
   $('profile-blocks-more').setAttribute('disabled', '');
+    $('profile-notices-more').setAttribute('disabled', '');
   try {
     const result = await client.call('kingdown_profile', { blocks_after: blocksAfter });
     if (reading !== request || !active()) return;
@@ -82,7 +124,7 @@ async function readMoreBlocks() {
     renderBlocks(result._meta as Profile, true);
     $('profile-status').textContent = '';
   } catch (error) { if (reading === request && active()) $('profile-status').textContent = errorText(error); }
-  finally { if (reading === request && active()) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); } }
+  finally { if (reading === request && active()) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); $('profile-notices-more').removeAttribute('disabled'); } }
 }
 function renderBadges(record: PlayerRecord) {
   $('profile-badge-count').textContent = `${record.badges.length} of 10`;

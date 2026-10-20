@@ -101,8 +101,9 @@ async function mount(widget: Widget) {
     fresh.removeAttribute('src'); widget.frame.replaceWith(fresh); widget.frame = fresh;
   }
   await widget.bridge?.close();
-  const bridge = widget.bridge = new AppBridge(null, { name: 'King Down local harness', version: '1' }, { serverTools: {}, updateModelContext: {} }, { hostContext: { displayMode: host.harnessDisplayMode ?? 'inline', availableDisplayModes: ['inline', 'fullscreen'], ...host.harnessHostContext } });
+  const bridge = widget.bridge = new AppBridge(null, { name: 'King Down local harness', version: '1' }, { serverTools: {}, updateModelContext: {}, openLinks: {} }, { hostContext: { displayMode: host.harnessDisplayMode ?? 'inline', availableDisplayModes: ['inline', 'fullscreen'], ...host.harnessHostContext } });
   bridge.onrequestdisplaymode = async ({ mode }) => { (host.harnessDisplayRequests ??= []).push(mode); if (host.denyDisplayNext) { host.denyDisplayNext = false; return { mode: host.harnessDisplayMode ?? 'inline' }; } if (host.holdDisplayNext) { host.holdDisplayNext = false; await new Promise(resolve => { host.releaseDisplay = resolve; }); } host.harnessDisplayMode = mode; await bridge.setHostContext({ displayMode: mode }); return { mode }; };
+  bridge.onopenlink = async input => { (host.harnessOpenLinks ??= []).push(input); const isError = !!host.denyOpenLinkNext; host.denyOpenLinkNext = false; return { isError }; };
   widget.held = widget.inflight = 0;
   bridge.oncalltool = params => callTool(widget, params);
   // ChatGPT's standard context write replaces its widget-state snapshot.

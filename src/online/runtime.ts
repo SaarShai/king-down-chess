@@ -51,7 +51,7 @@ export function createWebTransport(api: OnlineClient, userId: string, storage: P
         case 'kingdown_games': reply = result({ games: await api.games(options.signal) }); break;
         case 'kingdown_settings': reply = result(await api.settings(args as Partial<PlayerSettings>)); break;
         case 'kingdown_handle': { const value = await api.handle(args as { handle: string; icon?: Icon; check?: boolean }); reply = result({ me: value.me }, args.check ? { available: value.available } : undefined); break; }
-        case 'kingdown_profile': reply = result(await api.record(args as { before?: string; blocks_after?: string })); break;
+        case 'kingdown_profile': reply = result(await api.record(args as { before?: string; blocks_after?: string; notices_before?: string })); break;
         case 'kingdown_join': reply = args.preview ? result({ preview: await api.preview(inviteKey(String(args.code))) }, { screen: 'join' }) : gameResult(await api.redeem(inviteKey(String(args.code)))); break;
         case 'kingdown_invite': reply = result({}, await api.invite(game)); break;
         case 'kingdown_seen': await api.seen(game); reply = result(); break;
@@ -131,6 +131,7 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
     async connect() { window.addEventListener('popstate', fromLocation); window.addEventListener('pagehide', event => { if (!event.persisted) close(); }); queueMicrotask(() => { fromLocation(); started = true; }); },
     getHostContext: () => ({ displayMode: 'fullscreen', availableDisplayModes: ['fullscreen'], deviceCapabilities: { touch: page.viewport().touch }, safeAreaInsets: page.viewport().safe, theme: 'light' }),
     requestDisplayMode: async () => ({ mode: 'fullscreen' }),
+    async openLink({ url }) { window.location.assign(url); return {}; },
     route(screen, gameId) {
       if (!started) return;
       routeGeneration++;

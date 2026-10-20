@@ -239,7 +239,7 @@ it('advertises the irreversible writes and repeat effects for review', async () 
 
 it('uses singular and plural words for badge and lobby counts', async () => {
  let count = 0;
- const service = {blocks:async()=>[],profile:async()=>({user_id:'alice'}),record:async()=>({rating:{rating:1500,provisional:true},totals:{played:0,won:0,drawn:0,lost:0},badges:Array(count).fill({})}),history:async()=>({games:[],next_before:null}),lobby:async()=>({games:Array(count).fill({})})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const service = {notices:async()=>({notices:[],next_notices_before:null}),blocks:async()=>[],profile:async()=>({user_id:'alice'}),record:async()=>({rating:{rating:1500,provisional:true},totals:{played:0,won:0,drawn:0,lost:0},badges:Array(count).fill({})}),history:async()=>({games:[],next_before:null}),lobby:async()=>({games:Array(count).fill({})})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
  const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
  const client = new Client({name:'plural-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
  await server.connect(a); await client.connect(b);

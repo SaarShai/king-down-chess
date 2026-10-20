@@ -25,6 +25,12 @@ describe('online client', () => {
   expect(new Headers(fetch.mock.calls[0][1]!.headers).get('Authorization')).toBe('Bearer jwt');
   expect(wait.mock.calls).toEqual([[500], [1000]]);
  });
+ it('keeps the separate notice cursor intact in the private profile read', async () => {
+  const page = { notices: [{ id: '9007199254740993', created_at: '2026-10-20T12:00:00Z', kind: 'appeal', action_id: 7, status: 'upheld', text: 'A reason.' }], next_notices_before: null };
+  const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(json(200,page)), api = onlineClient({token:async()=>'jwt',fetch});
+  expect(await api.record({notices_before:'9007199254740993'})).toEqual(page);
+  expect(fetch.mock.calls[0][0]).toBe('/api/me/record?notices_before=9007199254740993');
+ });
  it('does not retry a refusal, stops after its tries and needs a session', async () => {
   const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(json(409, { code: 'STALE_REVISION', message: 'The game changed' }));
   const api = onlineClient({ token: async () => 'jwt', fetch, wait: async () => {} });

@@ -15,6 +15,7 @@ const host: AccountGameHost = {
   },
   getHostContext: () => app.getHostContext(),
   requestDisplayMode: input => app.requestDisplayMode(input),
+  openLink: input => app.openLink(input),
   updateModelContext: input => app.updateModelContext(input),
 };
 configureRuntime(host);

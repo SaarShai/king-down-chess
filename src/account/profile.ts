@@ -68,3 +68,10 @@ export function handleProblem(handle: string): string | null {
   if (STEMS.test(plain) || parts.some(part => PARTS.has(part.replace(/[013457]/g, c => LEET[c])))) return 'This handle is not available.';
   return null;
 }
+
+/** A player's own dated moderation or appeal notice; no report evidence or other account IDs. */
+export type AccountNotice = { id: string; created_at: string; action_id: number } & (
+  { kind: 'moderation'; action: 'warning' | 'rename' | 'hide' | 'suspension'; text: string; ends_at: string | null }
+  | { kind: 'appeal'; status: 'upheld' | 'reversed'; text: string }
+);
+export type AccountNotices = { notices: AccountNotice[]; next_notices_before: string | null };

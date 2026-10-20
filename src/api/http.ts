@@ -11,7 +11,7 @@ import { commandSchema, createSchema, type Invite } from '../match/protocol';
 import { optionsSchema } from '../match/setup-schema';
 import { handleSchema, type PluginService } from '../plugin/service';
 import { settingsSchema } from '../plugin/settings';
-import type { AccountService } from '../online/accounts';
+import { noticesBeforeSchema, type AccountService } from '../online/accounts';
 import type { SafetyService } from '../online/safety';
 import { cleanup, runDeletions, sweepDeadlines } from '../online/jobs';
 import { ACTOR_UUID, AuthenticationError, AuthenticationUnavailable, pluginOrigin } from '../plugin/auth';
@@ -77,7 +77,7 @@ export type InviteLink = Invite & { url: string };
 const emptySchema = z.strictObject({}).optional();
 const startSchema = createSchema.safeExtend({ command_id: commandSchema.shape.command_id });
 const findSchema = z.strictObject({ options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), any_rules: z.boolean().optional(), command_id: commandSchema.shape.command_id });
-const recordSchema = z.strictObject({ before: z.string().max(100).optional(), blocks_after: z.uuid().optional() });
+const recordSchema = z.strictObject({ before: z.string().max(100).optional(), blocks_after: z.uuid().optional(), notices_before: noticesBeforeSchema.optional() });
 const blockTarget = { game_id: z.uuid().optional(), user_id: z.uuid().optional() };
 const blockReadSchema = z.strictObject(blockTarget).refine(target => Number(target.game_id !== undefined) + Number(target.user_id !== undefined) === 1);
 const blockSchema = z.strictObject({ ...blockTarget, blocked: z.boolean().optional() }).refine(target => Number(target.game_id !== undefined) + Number(target.user_id !== undefined) === 1);
@@ -146,9 +146,9 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
   'PATCH /api/me/settings': (actor, _, body) => settings(actor, body),
   'POST /api/me/handle': async (actor, _, body) => { const input = parse(handleSchema, body), { handle, icon } = await playerService().handle(actor, input); return { me: { handle, icon }, ...(input.check && { available: true }) }; },
   'GET /api/me/record': async (actor, _, __, query) => {
-   const { before, blocks_after } = parse(recordSchema, queryInput(query)), service = playerService();
-   const [{ handle, icon }, record, history, blocks] = await Promise.all([service.profile(actor), games.record(actor), games.history(actor, before), service.blocks(actor, blocks_after)]);
-   return { handle, icon, record, blocks: blocks.slice(0, 50), next_blocks_after: blocks.length > 50 ? blocks[49].user_id : null, history: history.games, next_before: history.next_before };
+   const { before, blocks_after, notices_before } = parse(recordSchema, queryInput(query)), service = playerService();
+   const [{ handle, icon }, record, history, blocks, notices] = await Promise.all([service.profile(actor), games.record(actor), games.history(actor, before), service.blocks(actor, blocks_after), accounts.notices(actor, notices_before)]);
+   return { handle, icon, record, ...notices, blocks: blocks.slice(0, 50), next_blocks_after: blocks.length > 50 ? blocks[49].user_id : null, history: history.games, next_before: history.next_before };
   },
   'GET /api/blocks': (actor, _, __, query) => block(actor, parse(blockReadSchema, queryInput(query))),
   'POST /api/blocks': (actor, _, body) => block(actor, parse(blockSchema, body)),

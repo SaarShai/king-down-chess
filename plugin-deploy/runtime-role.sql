@@ -68,7 +68,7 @@ commit;
 -- Migration 0015 removes the email helper. This role cannot read or delete auth.users itself.
 begin;
 grant select, delete, update (attempts, available_at, done_at) on public.outbox to kingdown_plugin_runtime;
-grant select (user_id, kind, payload) on public.notifications to kingdown_plugin_runtime;
+grant select (id, user_id, kind, payload, created_at) on public.notifications to kingdown_plugin_runtime;
 grant select on public.notification_prefs to kingdown_plugin_runtime;
 grant select, insert (user_id), update (turn_email_sent_at) on public.alert_state to kingdown_plugin_runtime;
 grant select (quiet_mode) on public.profiles to kingdown_plugin_runtime;
