@@ -316,3 +316,7 @@ The selected tile has a solid gold fill under all figures. A dark gold square ed
 ### A18 build
 
 Empty move lists have no text in the plugin or web game. The web empty-state CSS and empty last-move words are removed too. The plugin region keeps its Moves name. Both sheets keep their names. A27 still keeps the phone band closed until sent history exists. New phone and desktop cases check empty text and accessible names. The capture check still checks the full empty sheet. M1 and web screen checks follow.
+
+### Y3 build
+
+The seat line says Spirit · Mercy, or the chosen king and power. It has no coin instruction. The help below the strip still says Choose your king, then press Ready. A new case checks both the choosing and ready states and the visible coin. No taste choice is needed. M1 checks follow.

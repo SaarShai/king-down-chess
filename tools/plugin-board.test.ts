@@ -2014,3 +2014,14 @@ it.each([390, 1280])('A18: keeps an empty named moves list with no words at %i p
     expect(await frame.getByRole('dialog', { name: 'Moves', exact: true }).isVisible()).toBe(true);
   } finally { await page.close(); }
 });
+
+
+it.each([false, true])('Y3: shows only the king and power in the seat strip (ready %s)', async ready => {
+  const page = await open(view('', {}, { status: 'setup', options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true, cards: false },
+    draw: 'RNBQKBNR', deal: [], ready: [ready, false], choices: [{ king: { king: 'Spirit', power: 'Mercy' }, order: 'RNBQKBNR' }, null] })), frame = page.frameLocator('iframe');
+  try {
+    expect(await frame.locator('#seat-me-line').textContent()).toBe('Spirit · Mercy');
+    expect(await frame.locator('#seat-context').textContent()).toBe(ready ? 'Waiting for the other player.' : 'Choose your king, then press Ready.');
+    expect(await frame.locator('#seat-king').isVisible()).toBe(true);
+  } finally { await page.close(); }
+});
