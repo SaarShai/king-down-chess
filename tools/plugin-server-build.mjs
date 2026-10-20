@@ -10,6 +10,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRuntime } from './plugin-runtime-build.mjs';
 import { ART_HEADERS, ART_TYPES } from './plugin-art-headers.mjs';
+import { STAGING_ORIGIN, STAGING_PROJECT_ID, STAGING_SUPABASE_URL } from './staging-config.mjs';
 
 /** Site routes keep the domain challenge separate from the plugin function. */
 export function vercelRoutes(site) {
@@ -23,6 +24,7 @@ export function vercelRoutes(site) {
     }
     routes.push({ src: '^/internal/.+$', dest: '/internal' });
     routes.push({ src: '^/api(?:/.*)?$', dest: '/mcp' });
+    routes.push({ src: '^/(?:play(?:/.*)?|g/[^/]+/?|j/?)$', dest: '/index.html' });
   }
   return routes;
 }
@@ -30,6 +32,8 @@ export function vercelRoutes(site) {
 export async function buildPluginServer(outDir = resolve('plugin-server-dist'), { vercel = false, site } = {}) {
   vercel ||= Boolean(site);
   const routes = vercel ? vercelRoutes(site) : [];
+  const staging = process.env.KINGDOWN_STAGE === 'staging';
+  if (staging && (!site || process.env.VITE_KINGDOWN_STAGE !== 'staging' || process.env.VITE_SUPABASE_URL !== STAGING_SUPABASE_URL || !/^sb_publishable_[A-Za-z0-9_-]+$/.test(process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? ''))) throw new Error('Staging build requires explicit isolated browser settings and the combined site');
   const root = fileURLToPath(new URL('../', import.meta.url));
   const output = vercel ? resolve(outDir, '.vercel/output') : outDir;
   const functionDir = vercel ? resolve(output, 'functions/mcp.func') : output;
@@ -74,6 +78,9 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
       await symlink('mcp.func', resolve(output, 'functions/internal.func'));
     }
     await writeFile(resolve(output, 'config.json'), JSON.stringify({ version: 3, routes }) + '\n');
+    if (staging) {
+      await writeFile(resolve(output, 'staging.json'), JSON.stringify({ stage: 'staging', supabaseUrl: STAGING_SUPABASE_URL, publicOrigin: STAGING_ORIGIN, projectId: STAGING_PROJECT_ID }) + '\n');
+    }
   }
   return output;
 }

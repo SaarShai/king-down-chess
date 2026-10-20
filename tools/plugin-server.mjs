@@ -19,9 +19,12 @@ import { createWebAccountAccess } from '../src/api/account-access.ts';
 import { AccountService } from '../src/online/accounts.ts';
 import { SafetyService } from '../src/online/safety.ts';
 import { ART_HEADERS, artType } from './plugin-art-headers.mjs';
+import { stagingConfig } from './staging-config.mjs';
+import { createAdmission } from '../src/api/admission.ts';
+import { createCurrentUserCheck } from '../src/api/current-user.ts';
 
 const WEB_OPERATIONS = new Set();
-const TEST_WEB_OPERATIONS = new Set([
+const ENABLED_WEB_OPERATIONS = new Set([
   'GET /api/status',
   'POST /api/games',
   'GET /api/games/:id',
@@ -41,15 +44,28 @@ const TEST_WEB_OPERATIONS = new Set([
   'POST /api/relations',
   'DELETE /api/relations',
   'POST /api/reports',
+  'POST /api/invites/preview',
+  'GET /api/lobby',
+  'POST /api/games/find',
+  'POST /api/games/:id/accept',
+  'POST /api/games/:id/cancel',
+  'GET /api/me/settings',
+  'PATCH /api/me/settings',
+  'GET /api/me/record',
+  'GET /api/blocks',
+  'POST /api/blocks',
 ]);
 
-export async function configurePlugin(env = process.env, { localDev = false, websiteKeys } = {}) {
+export async function configurePlugin(env = process.env, { localDev = false, websiteKeys, websiteCurrentUser } = {}) {
   const publicOrigin = pluginOrigin(env.KINGDOWN_PLUGIN_ORIGIN || (localDev ? 'http://127.0.0.1:3100' : ''));
   const connectionString = env.KINGDOWN_PLUGIN_DATABASE_URL;
   if (!connectionString) throw new Error('KINGDOWN_PLUGIN_DATABASE_URL is required');
   let db;
   try { db = new URL(connectionString); } catch { throw new Error('Expected a PostgreSQL connection URL'); }
   if (!['postgres:', 'postgresql:'].includes(db.protocol)) throw new Error('Expected a PostgreSQL connection URL');
+  const staging = stagingConfig(env, { publicOrigin, database: db });
+  if (staging && localDev) throw new Error('Staging cannot enable local personas');
+  if (websiteCurrentUser !== undefined && (websiteKeys === undefined || typeof websiteCurrentUser !== 'function')) throw new Error('Website current-user test hook requires website test keys');
   if (websiteKeys !== undefined) {
     if (localDev !== true || env.NODE_ENV !== 'test' || !isLoopback(new URL(publicOrigin).hostname) || !env.SUPABASE_URL || typeof websiteKeys !== 'function') throw new Error('Website test keys require local development, NODE_ENV=test, a loopback origin and SUPABASE_URL');
     testDatabase(connectionString);
@@ -79,11 +95,14 @@ export async function configurePlugin(env = process.env, { localDev = false, web
   try { await checkPluginDatabase(pool, config, auth?.resource); }
   catch (error) { await pool.end(); throw error; }
   const store = new PostgresMatchStore(pool), secret = env.KINGDOWN_INTERNAL_SECRET ?? '', games = new GameService(store, secret);
-  const mcp = createPluginHandler({ consent, service: new PluginService(store, secret), publicOrigin, resourceHtml, auth, localDev });
+  const service = new PluginService(store, secret);
+  const mcp = createPluginHandler({ consent, service, publicOrigin, resourceHtml, auth, localDev });
   const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET });
-  const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), publicOrigin,
+  const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), players: service, publicOrigin,
+    admit: createAdmission(),
+    currentUser: websiteCurrentUser ?? (page ? createCurrentUserCheck({ supabaseUrl: page.supabaseUrl, publishableKey: page.publishableKey }) : undefined),
     webAccountAccess: createWebAccountAccess(pool),
-    verify: env.SUPABASE_URL ? sessionVerifier(env.SUPABASE_URL, websiteKeys) : undefined, operations: websiteKeys === undefined ? WEB_OPERATIONS : TEST_WEB_OPERATIONS });
+    verify: env.SUPABASE_URL ? sessionVerifier(env.SUPABASE_URL, websiteKeys) : undefined, operations: staging || websiteKeys !== undefined ? ENABLED_WEB_OPERATIONS : WEB_OPERATIONS });
   const handler = async (req, res) => {
     const path = req.url?.startsWith('/') && URL.canParse(req.url, publicOrigin) ? new URL(req.url, publicOrigin).pathname : '';
     if (/^\/internal(\/|$)/.test(path)) return internal(req, res);

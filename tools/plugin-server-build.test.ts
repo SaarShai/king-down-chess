@@ -21,13 +21,20 @@ it('routes only the site API boundary to the one MCP function for every method',
   } finally { rmSync(site, { recursive: true, force: true }); }
 });
 
+it('serves account routes from the shared browser entry', () => {
+  const routes = vercelRoutes('/missing/site'), rule = routes.find(route => route.dest === '/index.html')!;
+  for (const path of ['/play', '/play/', '/play/settings', '/play/profile', '/g/uuid', '/j', '/j/']) expect(new RegExp(rule.src).test(path), path).toBe(true);
+  for (const path of ['/', '/api/status', '/mcp', '/j/token', '/player', '/game/uuid', '/g/a/b']) expect(new RegExp(rule.src).test(path), path).toBe(false);
+  expect(vercelRoutes().some(route => route.dest === '/index.html')).toBe(false);
+});
+
 it('keeps every isolated operation set equal to the handler route keys', () => {
   const http = readFileSync(new URL('../src/api/http.ts', import.meta.url), 'utf8');
   const keys = [...http.matchAll(/^  '([A-Z]+ \/api[^']*)':/gm)].map(match => match[1]).sort();
   expect(keys.length).toBeGreaterThan(0);
   for (const file of ['./plugin-server.mjs', '../src/api/http.test.ts', '../src/api/http.db.test.ts']) {
     const source = readFileSync(new URL(file, import.meta.url), 'utf8');
-    const set = /const (?:TEST_WEB_OPERATIONS|operations) = new Set\(\[([\s\S]*?)\]\);/.exec(source)![1];
+    const set = /const (?:ENABLED_WEB_OPERATIONS|operations) = new Set\(\[([\s\S]*?)\]\);/.exec(source)![1];
     expect([...set.matchAll(/'([^']+)'/g)].map(match => match[1]).sort(), file).toEqual(keys);
   }
 });

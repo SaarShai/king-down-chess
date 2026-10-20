@@ -6,9 +6,7 @@
 import { createClient, type Session } from '@supabase/supabase-js';
 import type { Remote, Row } from './sync';
 import type { AccountSession } from './session';
-
-const SUPABASE_URL = 'https://utqzovjmclfyojedmwok.supabase.co';
-const PUBLISHABLE_KEY = 'sb_publishable_8jB5OXiSB56JSJBfPjLvbQ_cKIemhX9';
+import { publicAccountConfig } from './public-config';
 
 export type Provider = 'google' | 'github' | 'facebook';
 
@@ -20,7 +18,8 @@ function accountSession(session: Session | null): AccountSession | null {
 
 export function connect(storageKey: string, { manualCallback = false }: { manualCallback?: boolean } = {}) {
   // PKCE: the sign-in page sends back a one-time code; this browser exchanges it with a verifier it kept.
-  const sb = createClient(SUPABASE_URL, PUBLISHABLE_KEY, { auth: {
+  const { url, publishableKey } = publicAccountConfig(import.meta.env);
+  const sb = createClient(url, publishableKey, { auth: {
     flowType: 'pkce', persistSession: true, storageKey,
     ...(manualCallback ? { detectSessionInUrl: false, experimental: { appendPkceFlowIdToRedirects: true } } : {}),
   } });

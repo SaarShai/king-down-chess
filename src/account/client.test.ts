@@ -15,6 +15,8 @@ const unsubscribe = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv('VITE_SUPABASE_URL', 'https://project.supabase.co');
+  vi.stubEnv('VITE_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_test');
   vi.useFakeTimers();
   vi.stubGlobal('location', new URL('https://kingdown.test/?local=1'));
   sdk.auth.onAuthStateChange.mockImplementation(cb => { emit = cb; return { data: { subscription: { unsubscribe } } }; });
@@ -22,9 +24,14 @@ beforeEach(() => {
   sdk.auth.signInWithOAuth.mockResolvedValue({ data: { url: 'https://provider.test/start', flowId }, error: null });
   sdk.auth.exchangeCodeForSession.mockResolvedValue({ data: { session: session() }, error: null });
 });
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe('account identity client', () => {
+  it('refuses missing public config before it creates an SDK client', () => {
+    vi.stubEnv('VITE_SUPABASE_URL', '');
+    expect(() => connect(AUTH_KEY)).toThrow('VITE_SUPABASE_URL');
+    expect(createClient).not.toHaveBeenCalled();
+  });
   it('A01 reads token and user together, keeps the user on refresh and returns null without a complete session', async () => {
     const client = connect(AUTH_KEY);
     expect(await client.readSession()).toEqual({ userId: 'user-a', accessToken: 'token-a' });

@@ -29,6 +29,10 @@ plugin_project_id=prj_2H4LcrzOXCQbFuKbq0z0G7lCFFC6
 plugin_origin=https://kingdown-plugin.vercel.app
 
 die() { echo "deploy: $*" >&2; exit 2; }
+# This independent project has no production release path.
+if [ -f "$(git rev-parse --show-toplevel 2>/dev/null)/docs/specs/staging-first-game/plan.md" ]; then
+  die "production deploy is disabled in this staging repository; use node tools/deploy-staging.mjs"
+fi
 usage="usage: tools/deploy.sh [--target website|plugin] [--publish] | --configure <private-env-file> | --setup-plugin | --configure-plugin <private-env-file>"
 
 # Parse the arguments before anything changes on disk.
