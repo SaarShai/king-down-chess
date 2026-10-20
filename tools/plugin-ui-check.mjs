@@ -926,7 +926,7 @@ try {
     await seatTool('kingdown_abort', { game_id: sheetSeat.game_id });
     let v = await friendSeat();
     assert.equal(v.choices[1], null, 'The other choice stays hidden');
-    assert.equal(await frame.locator('#seat-me-line').innerText(), 'Mud · March · select the coin to change', 'Cards clean the remembered power to the same king');
+    assert.equal(await frame.locator('#seat-me-line').innerText(), 'Mud · March', 'Cards clean the remembered power to the same king');
     assert((await frame.locator('#seat-them-picture').getAttribute('src')).includes('/shadow-b-'), 'The other strip shows the plain Black king');
     await frame.locator('#seat-king').click();
     assert(await frame.locator('[data-power="Leap"]').isDisabled()); assert(await frame.locator('[data-king="Frost"]').isDisabled());

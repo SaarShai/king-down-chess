@@ -320,3 +320,14 @@ Empty move lists have no text in the plugin or web game. The web empty-state CSS
 ### Y3 build
 
 The seat line says Spirit · Mercy, or the chosen king and power. It has no coin instruction. The help below the strip still says Choose your king, then press Ready. A new case checks both the choosing and ready states and the visible coin. No taste choice is needed. M1 checks follow.
+
+### First check results
+
+The M1 unit suite passes at `0599dad7`: 186 files pass, 12 database files skip, 3,142 tests pass, and 164 tests skip. It takes 353.02 seconds. All 167 board cases pass. The type check and commit gates pass.
+
+The first browser run passes A14, A15, A18, and Y3. Two failures have clear causes:
+
+- Y3: the main plugin check still expects the removed coin instruction. Its exact text assertion now expects Mud · March.
+- A8: the restored marker wave keeps a draw timer active after Motion becomes Off. Reduced motion now clears that timer. A new live-board case starts a wave, selects Off, and checks that frames stop. The existing one-frame hover guard stays unchanged.
+
+No assertion, touch floor, time limit, or retry changes. The fixed code needs the M1 suite and the two failed browser checks again.

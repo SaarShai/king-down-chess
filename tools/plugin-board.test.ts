@@ -2045,3 +2045,20 @@ it('A8: keeps the full main gait at Normal and Fast for every quiet move type', 
     }
   } finally { await page.close(); }
 });
+
+
+it('A8: Off ends the active marker draw timer', async () => {
+  const page = await open(view('7k/8/8/8/8/8/A7/K7 w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await frame.locator('html').evaluate(() => {
+      const board = (window as any).testBoard;
+      board.setPace('normal'); board.highlight({ selected:8, moves:[9,16] }); board.setPace('off');
+    });
+    await page.clock.runFor(100);
+    const frames = await frame.locator('html').evaluate(() => (window as any).testBoard.scene.frames);
+    await page.clock.runFor(500);
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.frames)).toBe(frames);
+  } finally { await page.close(); }
+});
