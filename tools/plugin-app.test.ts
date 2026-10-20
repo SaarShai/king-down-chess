@@ -49,6 +49,55 @@ it('takes a new player from the home card to a draft move and the turn press', a
     await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } });
   } finally { await page.close(); }
 });
+it('preserves the website game URL while fullscreen startup waits for the first view', async () => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } }); page.setDefaultTimeout(5000);
+  const seeded = await (await page.request.post(new URL('/fixture-position?case=haste', harness.url).href)).json();
+  const game = seeded._meta.view.game_id, path = `/g/${game}`;
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  const html = (await readFile('src/plugin/index.html', 'utf8')).replace('<script type="module" src="./app.ts"></script>', `<script type="module">
+    import { createBrowserRuntime } from '/src/online/runtime.ts';
+    import { configureRuntime } from '/src/account-game/host.ts';
+    import '/src/online/page-host.css';
+    const tool = async (name, args = {}) => {
+      const reply = await (await fetch('/fixture-tool', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, arguments: args }) })).json();
+      if (reply.isError) throw new Error('Fixture tool failed: ' + name);
+      return reply._meta;
+    };
+    let held = false;
+    const host = createBrowserRuntime({
+      settings: args => tool('kingdown_settings', args),
+      games: async () => (await tool('kingdown_games')).games,
+      game: async (game_id, since_revision) => {
+        if (!held) { held = true; await new Promise(resolve => { window.releaseFirstView = resolve; }); }
+        return (await tool('kingdown_get', { game_id, ...(since_revision === undefined ? {} : { since_revision }) })).view;
+      },
+      previewDraft: async (game_id, input) => (await tool('kingdown_preview', { game_id, ...input })).draft,
+      seen: async () => {},
+    }, 'website-bootstrap-proof');
+    configureRuntime(host);
+    window.harnessApp = await import('/src/account-game/runtime.ts');
+  </script>`);
+  await page.route(`**${path}`, route => route.fulfill({ contentType: 'text/html', body: html }));
+  try {
+    await page.goto(new URL(path, harness.url).href);
+    for (const reload of [false, true]) {
+      if (reload) await page.reload();
+      await page.waitForFunction(() => typeof (window as any).releaseFirstView === 'function');
+      expect(new URL(page.url()).pathname).toBe(path);
+      await page.evaluate(() => (window as any).releaseFirstView());
+      await page.locator('[data-screen="board"]:not([hidden]) #board-menu:not(:disabled)').waitFor();
+      expect(await page.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(game);
+      expect(new URL(page.url()).pathname).toBe(path);
+    }
+    await page.getByRole('button', { name: 'Back to Play', exact: true }).click();
+    await page.locator('[data-screen="play"]:not([hidden])').waitFor();
+    expect(new URL(page.url()).pathname).toBe('/play/');
+    expect(errors).toEqual([]);
+  } finally {
+    await page.close();
+    await (await fetch(new URL('/fixture-delete-match', harness.url), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game_id: game }) })).text();
+  }
+});
 // These two run before any game waits for the player.
 it('opens the Play hall from the inline Choose a game action', async () => {
   const page = await open(), frame = page.frameLocator('iframe');

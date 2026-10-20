@@ -135,8 +135,11 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
     async openLink({ url }) { window.location.assign(url); return {}; },
     route(screen, gameId) {
       if (!started) return;
+      const gameScreen = ['board', 'seat', 'friend', 'wait', 'end'].includes(screen);
+      // Fullscreen startup restores the screen before the first authoritative game view arrives.
+      if (gameScreen && !gameId) return;
       routeGeneration++;
-      const route: AccountEntryRoute = ['board', 'seat', 'friend', 'wait', 'end'].includes(screen) && gameId ? { screen: 'game', gameId } : screen === 'join' ? { screen: 'join', key: null } : { screen: screen === 'profile' || screen === 'settings' ? screen : 'play' };
+      const route: AccountEntryRoute = gameScreen && gameId ? { screen: 'game', gameId } : screen === 'join' ? { screen: 'join', key: null } : { screen: screen === 'profile' || screen === 'settings' ? screen : 'play' };
       const path = accountPath(route);
       if (window.location.pathname + window.location.hash !== path) window.history.pushState(null, '', path);
       if (route.screen !== 'join') page.save(route);

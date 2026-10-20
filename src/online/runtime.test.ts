@@ -83,6 +83,29 @@ function browserAt(path: string) {
   vi.stubGlobal('window', browser);
   return { browser, back(path: string) { browser.location = new URL(path, browser.location); browser.dispatchEvent(new Event('popstate')); } };
 }
+it.each(['board', 'seat', 'friend', 'wait', 'end'] as const)('keeps the selected game URL while %s waits for its first view', async screen => {
+  const game = '11111111-1111-4111-8111-111111111111';
+  const { browser } = browserAt(`/g/${game}`), host = createBrowserRuntime({} as OnlineClient, 'a');
+  const results = vi.fn(); host.onResult = results;
+  try {
+    await host.connect();
+    host.route!(screen);
+    expect(browser.location.pathname).toBe(`/g/${game}`);
+    expect(browser.history.pushState).not.toHaveBeenCalled();
+    expect(results).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ structuredContent: { screen: 'board', game_id: game } }));
+  } finally { host.dispose?.(); vi.unstubAllGlobals(); }
+});
+it('still routes explicit Play and Home, account menus and identified game screens', async () => {
+  const game = '11111111-1111-4111-8111-111111111111', other = '22222222-2222-4222-8222-222222222222';
+  const { browser } = browserAt(`/g/${game}`), host = createBrowserRuntime({} as OnlineClient, 'a');
+  try {
+    await host.connect();
+    for (const [screen, game, path] of [['play', undefined, '/play/'], ['board', other, `/g/${other}`], ['profile', undefined, '/play/profile'], ['settings', undefined, '/play/settings'], ['end', other, `/g/${other}`], ['home', undefined, '/play/']] as const) {
+      host.route!(screen, game);
+      expect(browser.location.pathname).toBe(path);
+    }
+  } finally { host.dispose?.(); vi.unstubAllGlobals(); }
+});
 it('opens Support through ordinary website navigation without storing notice content', async () => {
   const {browser}=browserAt('/play/profile'), assign=vi.fn(); Object.assign(browser.location,{assign});
   try {
