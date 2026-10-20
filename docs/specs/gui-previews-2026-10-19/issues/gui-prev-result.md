@@ -170,3 +170,6 @@ Plan:
 3. Run `npm test` here with the local test database. Commit the repair. Run `w6-parts`, `plugin-ui` and `end` through the supplied runner, one check per call.
 
 Pass criteria: the full unit suite and all three browser checks pass. No time limit changes. No server code changes, so `plugin-ui-http` is not required. This request replaces the prior CI-only check instruction for this repair.
+
+
+The first `w6-parts` run at 7780e7bc fails at the initial harness wait. The current `PaintedView.ready()` waits for a frame after art load. The check holds all frames until the harness is ready, so neither side can continue. Advance the manual frame clock during that readiness wait. Keep its 30 s limit. The run does not reach the ceremony tests.

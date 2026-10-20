@@ -24,7 +24,7 @@ try {
   await page.goto(`${server.resolvedUrls.local[0]}tools/w6-parts.html`);
   // State waits use wall time; only step() advances the scene clock.
   console.log('check harness ready');
-  await page.waitForFunction(() => window.parts, null, { polling: 20 });
+  await page.waitForFunction(() => { window.step(16); return window.parts; }, null, { polling: 20 });
 
   // A captured piece returns at the end of the backward move.
   const reverse = await page.evaluate(async () => {
