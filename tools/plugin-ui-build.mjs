@@ -28,7 +28,7 @@ shared.walkAtRules('media', rule => {
     media.append(rule);
   }
 });
-const gameStyle = shared.toString().replaceAll("'/fonts/", "'../../public/fonts/").replaceAll("'/ui/", "'../../public/ui/");
+const gameStyle = shared.toString().replaceAll("'./plugin/assets/", "'./assets/").replaceAll("'/fonts/", "'../../public/fonts/").replaceAll("'/ui/", "'../../public/ui/");
 // The art leaves the page: hashed files under plugin-art/, loaded by absolute URL. The board scene asks for each
 // image in CORS mode (crossOrigin 'anonymous'), so its getImageData works on art from the plugin origin.
 await build({ configFile: false, root: resolve('src/plugin'), base: './', publicDir: false, plugins: [pluginSymbols(), { name: 'game-style-assets', enforce: 'pre', transform(code, id) {

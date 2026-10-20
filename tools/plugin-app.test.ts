@@ -420,7 +420,7 @@ it('uses the approved flat face on a disabled control', async () => {
   try {
     expect(await frame.locator('#board-menu').evaluate(button => {
       (button as HTMLButtonElement).disabled = true;
-      return getComputedStyle(button).backgroundImage;
+      return getComputedStyle(button, '::before').backgroundImage;
     })).toBe('none');
   } finally { await page.close(); }
 });

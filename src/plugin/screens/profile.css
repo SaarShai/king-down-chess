@@ -14,7 +14,7 @@
 #profile-sheet .totals b { display: block; font-family: var(--font-display); font-size: min(var(--fs-xl), 11cqi); }
 #profile-sheet .totals span { font-size: var(--fs-xs); color: var(--ink-soft); text-transform: uppercase; letter-spacing: .1em; }
 #profile-sheet .rows { list-style: none; margin: 0; padding: 0; }
-#profile-sheet .rows li, #profile-open button { display: flex; align-items: center; gap: 4px; min-height: 52px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+#profile-sheet .rows li, #profile-open button { display: flex; align-items: center; gap: 4px; min-height: 48px; padding: 4px 12px; border-bottom: 1px solid var(--line); }
 #profile-sheet .rows .when { width: 48px; flex: none; font-size: var(--fs-xs); color: var(--ink-soft); }
 #profile-open button { width: 100%; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; text-align: left; font-weight: 400; }
 #profile-open .when b { padding: 2px 6px; text-align: center; }

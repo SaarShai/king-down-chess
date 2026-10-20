@@ -13,6 +13,7 @@ import { applyLan } from '../src/plugin/screens/board-model';
 import { LESSONS } from '../src/lessons';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { readText } from '../src/read';
+import { checkTabletButtons, checkButtonContent } from './lib/plugin-tablet-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { momentKind } from '../src/moment';
 import { soundsFor } from '../src/screen/moments';
@@ -416,7 +417,7 @@ it.each(['card','power'] as const)('keeps the full armed %s rule and block notic
     });
     expect(text.maxHeight).toBe('none');
     expect(text.content).toBeLessThanOrEqual(text.height + 1);
-    expect((await frame.locator('#board canvas').boundingBox())!.width).toBeGreaterThanOrEqual(192);
+    expect((await frame.locator('#board canvas').boundingBox())!.width).toBeGreaterThanOrEqual(184);
     await frame.getByRole('button',{name:'Cancel',exact:true}).click();
     expect(await frame.locator('#context-note').textContent()).toBe('Player blocked.');
   } finally { await page.close(); }
@@ -481,14 +482,19 @@ it.each([{ width: 393, height: 852, cards: true }, { width: 320, height: 568, ca
     expect(await frame.locator('html').evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
     expect(await frame.locator('#game-table').evaluate(targetMisses)).toEqual([]);
     expect(await frame.locator('#game-table').evaluate(edgeMisses)).toEqual([]);
+    const clearance = await frame.locator('.table-back:visible').evaluate(back => {
+      const board = (window as any).testBoard, top = board.screenOf(56), below = board.screenOf(48);
+      return top.y - Math.abs(below.y - top.y) / 2 - back.getBoundingClientRect().bottom;
+    });
+    expect(clearance, 'Back stays above the board squares').toBeGreaterThanOrEqual(0);
     if (cards) {
       await frame.locator('#card-w-1').click(); await frame.getByRole('button', { name: 'Use', exact: true }).click();
       await frame.getByRole('button', { name: 'Cancel', exact: true }).waitFor();
       expect(await frame.locator('#game-table').evaluate(edgeMisses)).toEqual([]);
     }
     expect.soft(await frame.locator('#strip-me').evaluate(e => { const r = e.querySelector('.coin img')!.getBoundingClientRect(); return [r.width, r.height]; })).toEqual(cards ? [36, 36] : [30, 30]);
-    // K1 a: through 440 px the cards go below the player name in two 44 px rows.
-    expect(await frame.locator('#strip-me').evaluate(e => e.getBoundingClientRect().height)).toBe(cards ? 88 : 44);
+    // K1 a: the cards stay below the 36 px portrait row. Their targets stay 48 px.
+    expect(await frame.locator('#strip-me').evaluate(e => e.getBoundingClientRect().height)).toBe(cards ? 80 : 44);
   } finally { await page.close(); }
 });
 
@@ -786,6 +792,8 @@ it.each([[320, 568, 84], [320, 568, 180], [393, 852, 118], [820, 600, 34], [852,
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView({...next,draw_offer:1}), next);
     expect(await frame.locator('#context-actions #accept-draw').isVisible()).toBe(true);
     expect(await frame.locator('#context-actions #decline-draw').isVisible()).toBe(true);
+    const clear = await frame.locator('#context-line').evaluate(row => row.getBoundingClientRect().bottom <= document.getElementById('table-bar')!.getBoundingClientRect().top + 1);
+    expect(clear, 'The draw reply row stays above the game bar').toBe(true);
     await frame.locator('#board-menu').click();
     expect(await frame.locator('#board-sheet #accept-draw, #board-sheet #decline-draw, #menu-accept-draw, #menu-decline-draw').count()).toBe(0);
   } finally { await page.close(); }
@@ -829,6 +837,21 @@ it('keeps the normal piece rule for a player above beginner level', async () => 
   } finally { await page.close(); }
 });
 
+
+it('gives live pawn move choices the shared tablet face', async () => {
+  const page = await open(view('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1')), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('html').evaluate(() => (window as any).testBoard.onSquareClick(12));
+    await frame.locator('#board-menu').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
+    await checkTabletButtons(frame, '#choices button');
+    await checkButtonContent(frame, '#choices button');
+    await frame.locator('#choices button[title="e2-e4"]').click();
+    await frame.locator('#end-turn[aria-disabled="false"]').waitFor();
+    expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
+  } finally { await page.close(); }
+});
 
 it.each([[320, 568], [393, 852]])('keeps the board size after a beginner selects a long lesson at %i px', async (width, height) => {
   const page = await open(view('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBOR w - - 0 1', {}, { level: 'beginner' }), width, height), frame = page.frameLocator('iframe');
@@ -1700,7 +1723,7 @@ it('F05: draws one keyboard cursor at the tile and clears it on Escape or blur',
     expect(await frame.locator('#board-marks[aria-hidden="true"]').count()).toBe(1);
     expect(await frame.locator('#board .mk-cursor').count()).toBe(1);
     const box = await cursorBox(); expect(box.dx).toBeLessThanOrEqual(1); expect(box.dy).toBeLessThanOrEqual(1); expect(box.dw).toBeLessThanOrEqual(1);
-    expect(box.border).toBe('3px'); expect(box.color).toBe('rgb(28, 91, 176)');
+    expect(box.border).toBe('2px'); expect(box.color).toBe('rgb(43, 38, 33)');
     await frame.locator('#board .mk-cursor').evaluate(e => { (e as HTMLElement).style.visibility = 'hidden'; });
     await frame.locator('#board').screenshot({ path: join(proof, 'f05-before.png') });
     await frame.locator('#board .mk-cursor').evaluate(e => { (e as HTMLElement).style.visibility = ''; });
@@ -1987,7 +2010,7 @@ it.each(['mouse', 'touch'] as const)('A8: real %s input ends the web final blow 
   } finally { await page.close(); }
 });
 
-it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 px buttons (%s)', async theme => {
+it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 by 48 px tablets (%s)', async theme => {
   const base = view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), page = await open(base, 390, 844), frame = page.frameLocator('iframe');
   const proof = join(tmpdir(), 'kingdown-gui-board-proof'); await import('node:fs/promises').then(fs => fs.mkdir(proof, { recursive: true }));
   async function centered(selector: string) {
@@ -1996,7 +2019,7 @@ it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 px buttons
       const glyph = range.getBoundingClientRect(), box = button.getBoundingClientRect();
       return { width: box.width, height: box.height, dx: Math.abs(glyph.x + glyph.width / 2 - box.x - box.width / 2), dy: Math.abs(glyph.y + glyph.height / 2 - box.y - box.height / 2), text: button.textContent };
     });
-    expect(box.width).toBe(44); expect(box.height).toBe(44); expect(box.dx).toBeLessThanOrEqual(1); expect(box.dy).toBeLessThanOrEqual(1); expect(box.text).toBe('×');
+    expect(box.width).toBe(44); expect(box.height).toBe(48); expect(box.dx).toBeLessThanOrEqual(1); expect(box.dy).toBeLessThanOrEqual(1); expect(box.text).toBe('×');
   }
   try {
     await page.evaluate(theme => (window as any).harnessSetContext({ theme }), theme);

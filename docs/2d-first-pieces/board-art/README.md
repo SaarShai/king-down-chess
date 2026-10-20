@@ -6,4 +6,14 @@
 - `source/light-stone.png`, `source/dark-stone.png` — cream limestone and charcoal slate textures from Codex built-in image generation, with the capital crop as reference. Exact prompts in `source/*-prompt.txt`; generator output paths in `source/*-generated-source.txt`. Unmodified.
 - `compose-board.py` cuts the 64 squares from those textures (varied crop, rotation and tone; fixed seed) and adds the capital's chamfered corners, thin red-brown outline, soft bevel and dark grout. The grid is exact because the script, not the image model, lays it out. `../web-art.py` writes the WebP.
 
+The A10 filter keeps 75% of each full-size crop's RGB contrast about its own
+mean: `mean + 0.75 * (pixel - mean)`. Float channels keep that gain through the
+resize. The tone, bevel, outline, grout, crops, and turns stay the same. The
+source PNGs stay as they are. The final 8-bit and lossy exports can change the
+measured contrast by a small amount.
+
+Run `compose-board.py` to export only the board: the 1024 px PNG, the 1024 px
+WebP at quality 86, and `public/ui/stone-board.webp` at 640 px and quality 80.
+Both WebP exports use method 6. Each file stays within its old byte count.
+
 Not used: the marble chess side of the original board (`board-front_back.ai` page 2, `board-2500x2500px.png`). Its marble comes from textures.com stock photos (`FloorsCheckerboard0037`), whose licence forbids distributing the content by itself; those files were removed from the public repository history on 2026-09-26. The full biome board was used briefly on 2026-09-27 and replaced by this stone board at the owner's request.

@@ -814,7 +814,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       h += `<div class="sentence">${seal(pick, 44)}<p class="say">${l1 ? `<span class="l1">${l1}</span>` : ''}${P.say.map(still).join('')}</p>`
         // An event rule can change no square on this board: then the example says what it does (ticket 03, Risks).
         + (why ? `<p class="needs">${esc(why)}</p>` : added ? '' : `<p class="pg-ex">${esc(b.example)}</p>`)
-        + `<div class="pg-act"><button type="button" class="pg-stamp" data-act="stamp"${why ? ' disabled' : ''}>Stamp</button></div></div>`;
+        + `<div class="pg-act"><button type="button" class="pg-stamp primary" data-act="stamp"${why ? ' disabled' : ''}>Stamp</button></div></div>`;
     }
     shelfEl.innerHTML = h;
   }
@@ -1322,7 +1322,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     toolsEl.innerHTML = !brush ? '' : `<button type="button" class="tool" data-brush="shot" aria-pressed="${brush === 'shot'}" title="Shot: takes from where it stands"><span class="tb">${tile('shot', 44)}</span><small>Shot</small></button>`
       + `<button type="button" class="tool" data-brush="erase" aria-pressed="${brush === 'erase'}" title="Eraser"><span class="tb">${sigil('eraser', 24)}</span><small>Eraser</small></button>`
       + `<button type="button" class="tool" data-act="mirror" aria-label="Paint on: ${MIRROR[mirror]}"><span class="tb">${mirrorIcon(mirror)}</span><small>${MIRROR[mirror]}</small></button>`
-      + '<button type="button" class="pg-done" data-act="done">Done</button>';
+      + '<button type="button" class="pg-done primary" data-act="done">Done</button>';
     hintEl.textContent = brush && !phone ? (brush === 'erase' ? 'Tap a square to clear it.' : 'Tap a square to paint it.') : '';
     const kinds = new Map<string, [string, string]>();
     const add = (k: string, svg: () => string, w: string): void => { if (!kinds.has(k)) kinds.set(k, [svg(), w]); };

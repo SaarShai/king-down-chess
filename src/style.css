@@ -39,7 +39,8 @@
   --gold-bright: #e9c071;  /* the lit gold edge: ornament, never text on parchment */
   --gold-ink: #7a5712;     /* gold as text on parchment: 5.5:1 */
   --danger: #b0251b;
-  --focus: #1c5bb0;        /* focus ring: 5.5:1 on parchment */
+  --focus: #2b2621;        /* warm ink: 12.5:1 on parchment */
+  --focus-gold: #e9c071;   /* the outer ring stays clear on dark faces */
   --check: #e02828;        /* matches renderer CHECK_RING on the king square */
   --night: #221d18;        /* dark stone (no screen stands on it: the base look is light only) */
   --on-night: #f3ead7;
@@ -133,14 +134,15 @@ body { background-color: var(--floor-base); background-image: var(--floor); }
 /* ---- board ---- */
 #board canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
 #board:focus { outline: none; }
-#board:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+#board:focus-visible { outline: 2px solid var(--focus); outline-offset: -4px; }
+#board:focus-visible::after { content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none; border: 2px solid var(--focus-gold); }
 
 /* The keyboard cursor (screen/play.ts drawMarks); never catches a tap. */
 #board-marks { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 1; }
 #board-marks i { position: absolute; display: block; }
 .mk-cursor {
-  border: 3px solid var(--focus); border-radius: var(--radius-sm);
-  box-shadow: 0 0 0 2px var(--vellum), inset 0 0 0 2px var(--vellum);
+  border: 2px solid var(--focus); border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 2px var(--focus-gold), inset 0 0 0 2px var(--focus-gold);
 }
 
 section { display: flex; flex-direction: column; gap: var(--space-2); }
@@ -174,11 +176,6 @@ button > span { min-width: 0; }
 /* Touch screens keep :hover after a tap, which left a tapped button dark. */
 @media (hover: hover) { button:hover { background: linear-gradient(#fffdf6, #f5ebd5); } }
 button:active { transform: translateY(2px); box-shadow: 0 0 0 var(--stone-700), inset 0 1px 0 rgba(255, 255, 255, 0.8); }
-button.primary {
-  color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent));
-  border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255, 220, 200, 0.35);
-}
-@media (hover: hover) { button.primary:hover { background: linear-gradient(#a8422f, #8f3124); } }
 button.quiet { background: transparent; box-shadow: none; border-color: var(--stone-500); font-weight: 400; }
 @media (hover: hover) { button.quiet:hover { background: rgba(255, 255, 255, 0.5); } }
 button:disabled:not(:where(.coin)), button:disabled:hover:not(:where(.coin)) {
@@ -308,7 +305,7 @@ dialog small { color: var(--ink-soft); }
 #game-table #board.choosing-move { align-self: start; margin-block: 0; }
 #move-choice::backdrop { background: rgba(29, 25, 21, 0.16); backdrop-filter: none; }
 #move-choice, #promo { max-width: min(460px, calc(100vw - 32px)); }
-#move-choice button, #promo button { min-height: var(--tap); }
+#promo button { min-height: var(--tap); }
 #cancel-choice, #cancel-promo { margin-top: var(--space-4); justify-content: center; }
 
 /* ---- New game sheet ---- */
@@ -339,7 +336,7 @@ label.mode:has(input:checked) { color: var(--ink); background: var(--parchment-d
 .mode-art .face-left { transform: scaleX(-1); margin-left: -4px; }
 .emblem-fan img { margin: 0 -3px; }
 .mode-text b { font-size: var(--fs-sm); line-height: 1.2; }
-label.mode:has(input:focus-visible), .seg-row label:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
+label.mode:has(input:focus-visible), .seg-row label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 0; }
 
 /* Segmented choices: the computer's level, and the side you play. */
 .seg { margin-top: var(--space-4); }
@@ -356,7 +353,7 @@ label.mode:has(input:focus-visible), .seg-row label:has(input:focus-visible) { o
 .seg-row label:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
 @media (hover: hover) { .seg-row label:hover { background: #fffdf6; } }
 .seg-row label:has(input:checked) { color: var(--ink); background: var(--parchment-deep); }
-.seg-row label:has(input:focus-visible) { outline-offset: -3px; outline-color: var(--focus); }
+.seg-row label:has(input:focus-visible) { outline-offset: -4px; outline-color: var(--focus); }
 
 label.check {
   justify-content: flex-start; gap: var(--space-3); margin-top: var(--space-4); padding: 8px 12px; cursor: pointer;
@@ -390,10 +387,6 @@ button.emblem[aria-pressed='true'] {
 button.emblem[aria-pressed='true'] img { opacity: 1; filter: drop-shadow(0 2px 3px rgba(43, 38, 33, 0.35)) drop-shadow(0 0 6px rgba(201, 154, 62, 0.55)); }
 .power-choice { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
 .power-choice button { justify-content: center; padding: 6px 4px; text-align: center; font-size: var(--fs-sm); }
-.power-choice button[aria-pressed='true'] {
-  color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent));
-  border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255, 220, 200, 0.35);
-}
 .power-text { min-height: 2.9em; margin: var(--space-2) 0 0; font-size: var(--fs-sm); line-height: 1.45; }
 
 #more-options { margin-top: var(--space-4); padding-top: var(--space-1); border-top: 1px solid var(--stone-300); }
@@ -411,8 +404,8 @@ button.emblem[aria-pressed='true'] img { opacity: 1; filter: drop-shadow(0 2px 3
 #side-army-value { margin-left: auto; text-align: right; }
 #other-armies { margin-top: 12px; }
 #new-game button.emblem { min-height: 44px; }
-#new-game :is(label.mode, .seg-row label, .power-choice button, button.emblem) { border: 2px solid transparent; box-shadow: none; }
-#new-game :is(label.mode:has(input:checked), .seg-row label:has(input:checked), .power-choice button[aria-pressed='true'], button.emblem[aria-pressed='true']) { color: var(--ink); background: var(--parchment-deep); border-color: var(--stone-700); }
+#new-game :is(label.mode, .seg-row label, button.emblem) { border: 2px solid transparent; box-shadow: none; }
+#new-game :is(label.mode:has(input:checked), .seg-row label:has(input:checked), button.emblem[aria-pressed='true']) { color: var(--ink); background: var(--parchment-deep); border-color: var(--stone-700); }
 #more-options .seg { margin-top: var(--space-2); }
 label.army { flex-direction: column; align-items: stretch; gap: 6px; margin-top: var(--space-4); font-weight: 700; }
 label.army select { width: 100%; font-weight: 400; }
@@ -507,9 +500,9 @@ label.army select { width: 100%; font-weight: 400; }
 .coin .notches { position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%); display: flex; gap: 3px; }
 .coin .notch { width: 9px; height: 9px; transform: rotate(45deg); background: #7fb2ff; border: 1.5px solid var(--frost-ink); }
 .coin .notch.is-spent { background: var(--stone-300); border-color: var(--stone-500); }
-.coin:focus-visible { outline-offset: -3px; }
+.coin:focus-visible { outline-offset: 0; transition: none; }
 .coin[aria-current='true'] { outline: 1px solid var(--ink); outline-offset: -3px; }
-.coin[aria-current='true']:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+.coin[aria-current='true']:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
 .coin[data-state='armed'] { box-shadow: var(--lift), inset 0 0 0 2px var(--ink), inset 0 0 0 5px var(--gold-bright); }
 .coin[data-state='used'] { filter: grayscale(1); opacity: 0.7; }
 .coin-row { --frost-ink: #2c5a8f; position: relative; display: flex; align-items: center; gap: 6px; }
@@ -576,7 +569,6 @@ label.army select { width: 100%; font-weight: 400; }
 }
 .title-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); margin-top: var(--space-2); }
 .title-actions button { width: auto; min-width: 200px; min-height: 52px; justify-content: center; font-size: var(--fs-lg); padding: 10px 22px; }
-.title-actions button.primary { border-color: var(--gold-bright); box-shadow: 0 2px 0 var(--accent-deep), 0 0 0 1px rgba(233, 192, 113, 0.5); }
 /* The lineup: every piece on a stone ledge, alternating armies, sized as they stand on the board. */
 .title-lineup {
   --fig: 112px; /* the tallest figure (the Ogre); the others scale by --h */
@@ -631,8 +623,8 @@ label.army select { width: 100%; font-weight: 400; }
 
 /* ---- focus & motion ---- */
 :focus { outline: none; }
-:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-#moves [data-ply]:focus-visible { outline: 3px solid var(--focus); outline-offset: 0; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
+#moves [data-ply]:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
 
 /* ---- phones ---- */
 @media (max-width: 720px) {
@@ -706,3 +698,90 @@ button[aria-disabled="true"], button[aria-disabled="true"]:hover {
   .coin { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.5); }
   .coin[data-state='armed'] { box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 5px var(--gold-bright); }
 }
+
+/* Tablet actions: clip the face only. Text, hit areas, and focus stay whole. */
+:is(.title-actions button, .new-game-foot button, .new-game-head button, .wide-btn, .code-row button, dialog > form button, .power-choice button, label.check.toggle .all, :where(#menu-sheet) [data-go='menu'], #over-review, #table-bar > button, #context-actions button, .sheet-head button, .game-action, .table-back, .sheet-body > button, #copy, #choices button, #move-choice button, #games-start, #profile-more, #profile-blocks-more, #retry, button.primary) {
+  --tablet-face: var(--stone-100);
+  --tablet-image: url('./plugin/assets/stone-control.webp');
+  --tablet-blend: normal;
+  --tablet-edge: var(--stone-700);
+  --tablet-top: var(--vellum);
+  --disabled-ink: var(--stone-700);
+  position: relative; isolation: isolate; align-self: center;
+  min-height: 48px; padding: 8px 20px;
+  font-size: var(--fs-lg); font-weight: 700; color: var(--ink);
+  background: transparent; border: 0; border-radius: 0; box-shadow: none;
+  transition: transform 120ms ease-out;
+  &:is(.power-choice button) { align-self: stretch; }
+
+  &::before {
+    content: ''; position: absolute; z-index: -1; inset: 0; pointer-events: none;
+    clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px);
+    background: var(--tablet-face) var(--tablet-image) var(--grain-position, 50% 25%) / max(100%, 384px) auto no-repeat;
+    background-blend-mode: var(--tablet-blend);
+    border: 1px solid var(--tablet-edge);
+    box-shadow: inset 0 1px 0 var(--tablet-top), inset 0 -2px 0 var(--tablet-edge);
+  }
+  &[aria-pressed='true']:not(.primary) {
+    --tablet-face: var(--stone-700); --tablet-blend: multiply;
+    --tablet-edge: var(--gold-bright); --tablet-top: var(--gold-bright);
+    color: var(--vellum);
+    &::before { box-shadow: inset 0 0 0 1px var(--tablet-edge), inset 0 -2px 0 var(--tablet-edge); }
+  }
+  &.primary {
+    --tablet-face: var(--accent); --tablet-blend: normal;
+    --tablet-image: linear-gradient(90deg, rgb(0 0 0 / 12%), transparent 18%, transparent 82%, rgb(0 0 0 / 12%));
+    --tablet-edge: var(--accent-deep); --tablet-top: var(--accent-bright);
+    --disabled-ink: var(--vellum);
+    min-height: 52px; color: var(--vellum);
+    &::before {
+      clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, calc(50% + 9px) 100%, 50% calc(100% - 6px), calc(50% - 9px) 100%, 0 100%, 0 4px);
+      background-size: 100% 100%;
+    }
+    @media (max-width: 360px) { --tablet-image: none; }
+  }
+  &:not(:disabled, [aria-disabled='true']):active {
+    transform: translateY(2px); transition-duration: 80ms; background: transparent; box-shadow: none;
+  }
+  &:not(:disabled, [aria-disabled='true']):active::before { bottom: 2px; }
+  &:is(:disabled, [aria-disabled='true']) {
+    --tablet-face: var(--stone-300); --tablet-image: none; --tablet-top: transparent;
+    color: var(--disabled-ink, var(--stone-700)); opacity: 1;
+    background: transparent; box-shadow: none; transform: none;
+    &.primary { --tablet-face: #795e57; }
+    .icon { opacity: 1; }
+  }
+  @media (hover: hover) {
+    &:hover { background: transparent; }
+    &.primary:not(:disabled, [aria-disabled='true']):hover { --tablet-face: var(--accent-bright); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:not(:disabled, [aria-disabled='true']):active { transform: none; }
+    &:not(:disabled, [aria-disabled='true']):active::before { bottom: 0; }
+  }
+}
+
+button:is([aria-label='Close'], #menu-close, #seat-menu-close, .table-back) { padding: 0; }
+/* One boundary around each choice group. Selection is dark ink with a gold ring. */
+:is(.seg-row, .modes) { gap: 0; padding: 0; background: transparent; border: 1px solid var(--stone-700); border-radius: var(--radius-sm); box-shadow: none; }
+:is(.seg-row label, label.mode) { min-height: 48px; border: 0; border-inline-start: 1px solid var(--line); border-radius: 0; }
+:is(.seg-row label, label.mode):first-child { border-inline-start: 0; border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+:is(.seg-row label, label.mode):last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+:is(.seg-row label, label.mode):has(input:checked), #new-game :is(.seg-row label, label.mode):has(input:checked) {
+  color: var(--vellum); background: var(--stone-700); border-color: transparent; box-shadow: inset 0 0 0 2px var(--gold-bright);
+}
+.fields > label:has(input[type='checkbox']) { min-height: 48px; border-bottom: 1px solid var(--line); padding-inline: 12px; }
+
+#new-game :is(.seg-row label, label.mode) { border: 0; border-inline-start: 1px solid var(--line); }
+#new-game :is(.seg-row label, label.mode):first-child { border-inline-start: 0; }
+
+/* Keyboard focus must stay clear over every control finish. */
+:focus-visible { box-shadow: 0 0 0 4px var(--focus-gold) !important; }
+:is(.seg-row label, label.mode):has(input:focus-visible), #new-game :is(.seg-row label, label.mode):has(input:focus-visible) {
+  outline: 2px solid var(--focus); outline-offset: -2px;
+  box-shadow: inset 0 0 0 4px var(--focus-gold) !important;
+}
+#board:focus-visible { box-shadow: none !important; }
+
+.coin[data-state='used']:focus-visible { filter: none; }
+.coin[data-state='used']:focus-visible img { filter: grayscale(1); }
