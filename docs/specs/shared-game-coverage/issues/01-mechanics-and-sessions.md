@@ -41,7 +41,15 @@ The first integrated run passes 398 tests and finds 11 failures. Six assertions 
 
 Repairs keep the product identity guard, use the real AppBridge teardown, refresh visible action metadata, and reread the existing cached command window. The service still caps this window at 50 commands. There is no second polling state store or extra API request.
 
-The repaired combined run passes all ten selected files and all 54 artwork checks, with no skip; see `/tmp/kingdown-u05-final-focused-2.log`. It includes source browser checks for input, motion and disposal. An independent reader finds no should-fix in the product lifecycle/privacy change; a final polling-delta review follows. Compiled interface checks and actual staging remain pending.
+The repaired combined run passes 420 tests in ten selected files and all 54 artwork checks, with no skip; see `/tmp/kingdown-u05-final-focused-2.log`. It includes source browser checks for input, motion and disposal. Two independent readers find no should-fix in the product lifecycle/privacy change, including the final polling delta. Actual staging remains pending.
+
+## Compiled verification
+
+The first run (`app-4e06nb`) exposes three test setup faults and one unexplained browser error. The mechanics runner renames the same test accounts twice. The painted driver opens Menu while a move animation still takes that click. The web recovery driver expects obsolete 404 responses from public account entry routes. Repairs initialize each test actor once, wait for the ready action state, and preserve private route/cache assertions while accepting current public routes.
+
+The second run (`app-UkYmgo`) passes `painted-game` (111.2 s) and `web-online` (113.5 s). This supplies current-tree Review, Today, local input, offline practice, offline lesson/Workshop, private-cache and recovery evidence. The archived worker `d1eb413b…` passes 142 archive checks, typecheck and 54 artwork checks.
+
+The full mechanics matrix still fails before its first command. Its response timeout hides the earlier UI failure; the next run captures that failure and its board. The embedded check completes its functional assertions but reports six blocked connections to two artwork paths. A test-only initiator probe is in the local harness. Do not change CSP or waive errors without the caller evidence. Remove the probe after diagnosis. Neither check is accepted yet.
 
 ## Limits
 
