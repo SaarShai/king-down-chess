@@ -8,6 +8,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import pg from 'pg';
+import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
 if (!connectionString) throw new Error('Set PLUGIN_TEST_DATABASE_URL to a disposable loopback PostgreSQL database');
@@ -27,8 +28,44 @@ try {
   for (const actor of actors) await pool.query('insert into auth.users(id) values($1)', [actor]);
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const origin = `http://127.0.0.1:${server.address().port}`;
-  app = await configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: secret }, { localDev: true });
+  const webEnv = { NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: secret,
+    SUPABASE_URL: 'https://project.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: randomUUID() };
+  const pair = await generateKeyPair('ES256'), websiteKeys = createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'website', alg: 'ES256' }] });
+  const sign = (claims = {}) => new SignJWT({ iss: `${webEnv.SUPABASE_URL}/auth/v1`, aud: 'authenticated', sub: actors[0], role: 'authenticated', is_anonymous: false, exp: Math.floor(Date.now() / 1000) + 300, ...claims }).setProtectedHeader({ alg: 'ES256', kid: 'website' }).sign(pair.privateKey);
+  const token = await sign();
+  let unsafeCases = 0, providerCalls = 0;
+  const providerFetch = globalThis.fetch;
+  globalThis.fetch = async () => { providerCalls++; throw new Error('Unexpected provider call'); };
+  try {
+    for (const [changes, localDev] of [
+      [{}, false], [{ NODE_ENV: 'production' }, true], [{ NODE_ENV: undefined }, true],
+      [{ KINGDOWN_PLUGIN_ORIGIN: 'https://plugin.example' }, true],
+      [{ KINGDOWN_PLUGIN_DATABASE_URL: 'postgresql://test@db.example/kingdown_test' }, true],
+      [{ KINGDOWN_PLUGIN_DATABASE_URL: 'postgresql://test@127.0.0.1/kingdown' }, true],
+      [{ KINGDOWN_PLUGIN_DATABASE_URL: `${connectionString}?application_name=test` }, true],
+      [{ SUPABASE_URL: undefined }, true],
+    ]) {
+      await assert.rejects(configurePlugin({ ...webEnv, ...changes }, { localDev, websiteKeys }), /Website test keys require|disposable loopback database|no query or fragment/);
+      unsafeCases++;
+    }
+  } finally { globalThis.fetch = providerFetch; }
+  assert.equal(providerCalls, 0);
+  app = await configurePlugin(webEnv, { localDev: true });
   server.on('request', (req, res) => { void app.handler(req, res).catch(() => { res.statusCode = 500; res.end(); }); });
+  let queries = 0, connections = 0, closedCases = 0;
+  const query = app.pool.query, connect = app.pool.connect;
+  app.pool.query = function (...args) { queries++; return query.apply(this, args); };
+  app.pool.connect = function (...args) { connections++; return connect.apply(this, args); };
+  try {
+    for (const [method, path] of [['GET', '/api'], ['GET', '/api/'], ['GET', '/api/me/games'], ['GET', `/api/games/${randomUUID()}?since=0`], ['GET', '/api/unknown'], ['POST', '/api/games'], ['POST', `/api/games/${randomUUID()}/commands`], ['OPTIONS', '/api/me/profile'], ['HEAD', '/api/me/games']]) {
+      const response = await fetch(origin + path, { method, headers: { Authorization: `Bearer ${token}`, 'X-Kingdown-Dev-Actor': actors[0] }, ...(!['GET', 'HEAD'].includes(method) && { body: '{broken' }), redirect: 'manual' });
+      assert.equal(response.status, 404, `${method} ${path}`); assert.equal(response.headers.get('cache-control'), 'no-store'); assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+      assert.match(response.headers.get('content-type'), /^application\/json/); assert.equal(response.headers.get('location'), null);
+      assert.deepEqual(method === 'HEAD' ? await response.text() : await response.json(), method === 'HEAD' ? '' : { code: 'NOT_FOUND', message: 'Not found' });
+      closedCases++;
+    }
+    assert.equal(queries, 0); assert.equal(connections, 0);
+  } finally { app.pool.query = query; app.pool.connect = connect; }
   async function rpc(actor, method, params) {
     const response = await fetch(`${origin}/mcp`, { method: 'POST', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method, params }) });
     assert.equal(response.status, 200); assert(!response.headers.has('mcp-session-id'));
@@ -65,6 +102,23 @@ try {
   assert(!recovered.isError); assert.equal(recovered._meta.board_id,recoveryBoard.board_id);
   assert.equal((await tool(actors[1], 'kingdown_get', {game_id:waiting.game_id,board_id:recoveryBoard.board_id})).structuredContent.game_id,recovered.structuredContent.game_id);
   assert.equal((await tool(actors[0], 'kingdown_create', {kind:'solo',options,board_id:recoveryBoard.board_id}))._meta.code,'FORBIDDEN');
+  await app.pool.end(); app = undefined;
+  app = await configurePlugin(webEnv, { localDev: true, websiteKeys });
+  for (const [headers, status] of [[{}, 401], [{ 'X-Kingdown-Dev-Actor': actors[0] }, 401], [{ Authorization: `Bearer ${await sign({ exp: Math.floor(Date.now() / 1000) - 60 })}` }, 401], [{ Authorization: `Bearer ${await sign({ aud: `${origin}/mcp`, client_id: randomUUID() })}` }, 401], [{ Authorization: `Bearer ${token}` }, 200]]) {
+    const response = await fetch(`${origin}/api/me/profile`, { headers });
+    assert.equal(response.status, status); assert.equal(response.headers.get('cache-control'), 'no-store');
+    if (status === 401) { assert.equal(response.headers.get('www-authenticate'), 'Bearer'); assert.equal((await response.json()).code, 'UNAUTHENTICATED'); }
+    else assert.equal((await response.json()).user_id, actors[0]);
+  }
+  const full = await (await fetch(`${origin}/api/games/${initial.game_id}`, { headers: { Authorization: `Bearer ${token}` } })).json();
+  const sinceResponse = await fetch(`${origin}/api/games/${initial.game_id}?since=0`, { headers: { Authorization: `Bearer ${token}` } });
+  assert.equal(sinceResponse.status, 200); const since = await sinceResponse.json();
+  assert.equal(full.game_id, initial.game_id); assert(full.rules); assert.equal(since.game_id, full.game_id); assert.equal(since.rules, undefined); assert.equal(since.last_commands.length, 2);
+  const invalidSince = await fetch(`${origin}/api/games/${initial.game_id}?since=-1`, { headers: { Authorization: `Bearer ${token}` } });
+  assert.equal(invalidSince.status, 400); assert.equal((await invalidSince.json()).code, 'INVALID_INPUT');
+  for (const path of ['/apix', '/apiary']) {
+    const response = await fetch(origin + path); assert.equal(response.status, 404); assert.deepEqual(await response.json(), { error: 'Not found' });
+  }
   const tools = (await rpc(actors[0], 'tools/list', {})).result.tools;
   const uri = tools.find(tool => tool.name === 'kingdown_open')._meta.ui.resourceUri;
   assert.match(uri, /^ui:\/\/kingdown\/board-[a-f0-9]{64}\.html$/);
@@ -87,7 +141,7 @@ try {
   assert.equal((await fetch(`${origin}/plugin-art/missing.webp`)).status, 404); assert.equal((await fetch(`${origin}/plugin-art/..%2fserver.mjs`)).status, 404);
   await assert.rejects(configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: 'https://plugin.example', KINGDOWN_PLUGIN_DATABASE_URL: connectionString, SUPABASE_URL: 'https://project.supabase.co', KINGDOWN_PLUGIN_OAUTH_READY: '0' }), /Enable Supabase OAuth/);
   await assert.rejects(configurePlugin({ NODE_ENV: 'production', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: secret }, { localDev: true }), /Local personas/);
-  console.log(`Compiled HTTP + real PostgreSQL: open, move, AI, retry, foreign seat rejection, service restart/resume, friend code/join, board recovery, resource (${resource.bytes} JSON bytes), ${art.length} art files (${JSON.stringify(counts)}), and production auth gate passed`);
+  console.log(`Compiled HTTP + real PostgreSQL: ${closedCases} default API closures with zero pool calls, ${unsafeCases} unsafe website-key refusals, isolated website identity and full/since reads, open, move, AI, retry, foreign seat rejection, service restart/resume, friend code/join, board recovery, resource (${resource.bytes} JSON bytes), ${art.length} art files (${JSON.stringify(counts)}), and production auth gate passed`);
 } finally {
   server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
   await app?.pool.end();

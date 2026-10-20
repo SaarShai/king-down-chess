@@ -71,7 +71,7 @@ if (!(limit >= 0)) fault('DEPLOY_LIVE_TIMEOUT_MS must be a number of millisecond
 async function get(path, method = 'GET') {
   try {
     const res = await fetch(base + path, { method, credentials: 'omit', redirect: 'manual', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15_000) });
-    return { status: res.status, location: res.headers.get('location'), type: (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase(), bytes: Buffer.from(await res.arrayBuffer()) };
+    return { status: res.status, location: res.headers.get('location'), type: (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase(), cache: res.headers.get('cache-control'), bytes: Buffer.from(await res.arrayBuffer()) };
   } catch (error) {
     return { error: `${method} ${path}: fetch failed (${error.cause?.code ?? error.message})` };
   }
@@ -93,9 +93,14 @@ async function differences() {
     if (!bytes.equals(expected.bytes)) found.push(`${path.slice(1) || 'index.html'}: the live page differs from the build (live ${bytes.length} bytes, build ${expected.bytes.length} bytes)`);
   });
   closed.forEach(({ path, method }, i) => {
-    const { error, status, location } = results[paths.length + i];
+    const { error, status, location, type, cache, bytes } = results[paths.length + i];
     if (error) found.push(error);
     else if (status !== 404 || location) found.push(`${method} ${path}: expected 404 without redirect, got HTTP ${status}${location ? ' with a redirect' : ''}`);
+    else if (/^\/api(?:\/|$)/.test(path)) {
+      let code;
+      try { code = JSON.parse(bytes.toString('utf8'))?.code; } catch { /* Invalid JSON fails the closure check. */ }
+      if (type !== 'application/json' || cache !== 'no-store' || code !== 'NOT_FOUND') found.push(`${method} ${path}: expected JSON NOT_FOUND with no-store, got ${type || 'no content type'}, ${cache || 'no cache policy'}, ${code ?? 'no code'}`);
+    }
   });
   return found;
 }

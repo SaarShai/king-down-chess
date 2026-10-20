@@ -58,13 +58,13 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw failure('INVALID_INPUT', 400, 'Malformed JSON'); }
 }
 
-export interface ApiOptions { games: GameService; accounts: AccountService; safety: SafetyService; publicOrigin: string; /** undefined: website sign-in is not configured */ verify?: (token: string) => Promise<string> }
+export interface ApiOptions { games: GameService; accounts: AccountService; safety: SafetyService; publicOrigin: string; operations?: ReadonlySet<string>; /** undefined: website sign-in is not configured */ verify?: (token: string) => Promise<string> }
 type Route = (actor: string, id: string, body: unknown, query: URLSearchParams) => Promise<unknown>;
 /** The invitation as the website shares it: a link built from the fixed origin, and the short code. */
 export type InviteLink = Invite & { url: string };
 const redeemSchema = z.union([z.strictObject({ token: z.string().max(100) }), z.strictObject({ code: z.string().max(20) })]);
 
-export function createApiHandler({ games, accounts, safety, publicOrigin, verify }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
+export function createApiHandler({ games, accounts, safety, publicOrigin, verify, operations }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
  const origin = pluginOrigin(publicOrigin);
  const link = async (actor: string, id: string): Promise<InviteLink> => { const invite = await games.invite(actor, id); return { ...invite, url: `${origin}/j/${invite.token}` }; };
  const routes: Record<string, Route> = {
@@ -97,13 +97,20 @@ export function createApiHandler({ games, accounts, safety, publicOrigin, verify
  const table = Object.entries(routes).map(([key, run]) => { const [method, path] = key.split(' '); return { key, method, pattern: new RegExp(`^${path.replace(':id', '([^/]+)')}$`), run }; });
  let active = 0;
  return async (req, res) => {
-  const path = guard(req, res, origin); if (path === undefined) return;
+  const notFound = () => {
+   res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff');
+   req.resume(); respond(res, 404, { code: 'NOT_FOUND', message: 'Not found' });
+  };
+  if (!operations?.size) { notFound(); return; }
+  const path = req.url?.startsWith('/') && URL.canParse(req.url, origin) ? new URL(req.url, origin).pathname : '';
+  const matches = table.flatMap(route => { const found = route.pattern.exec(path); return found ? [{ ...route, id: found[1] ?? '' }] : []; });
+  const route = matches.find(r => r.method === req.method), allowed = matches.filter(r => operations.has(r.key));
+  if (route ? !operations.has(route.key) : !allowed.length) { notFound(); return; }
+  if (guard(req, res, origin) === undefined) return;
   // Same origin only, so no CORS headers ever: a browser sends Origin on a cross-site call (and every preflight).
   const site = req.headers['sec-fetch-site'];
   if (req.headers.origin !== undefined && req.headers.origin !== origin || site !== undefined && site !== 'same-origin' && site !== 'none') { respond(res, 403, { code: 'FORBIDDEN', message: 'Cross-origin requests are refused' }); return; }
-  const matches = table.flatMap(route => { const found = route.pattern.exec(path); return found ? [{ ...route, id: found[1] ?? '' }] : []; });
-  const route = matches.find(r => r.method === req.method);
-  if (!route) { if (matches.length) res.setHeader('Allow', matches.map(r => r.method).join(', ')); respond(res, matches.length ? 405 : 404, matches.length ? { code: 'NOT_ALLOWED', message: 'Method not allowed' } : { code: 'NOT_FOUND', message: 'Not found' }); return; }
+  if (!route) { req.resume(); res.setHeader('Allow', allowed.map(r => r.method).join(', ')); respond(res, 405, { code: 'NOT_ALLOWED', message: 'Method not allowed' }); return; }
   const engine = route.key === 'POST /api/games' || route.key === 'POST /api/games/:id/commands';
   let body: unknown;
   try {

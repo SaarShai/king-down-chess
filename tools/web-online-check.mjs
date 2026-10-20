@@ -24,6 +24,22 @@ export function siteRoute(config, path) {
   };
 }
 
+/** Serve the selected output's files and function with its own routes. */
+export async function serveSite({ root, config, handler }, req, res) {
+  const path = new URL(req.url, 'http://fixture').pathname;
+  const { dest, headers } = siteRoute(config, path);
+  for (const [name, value] of Object.entries(headers)) res.setHeader(name, value);
+  const exists = path => stat(path).catch(error => { if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') throw error; });
+  const file = join(root, 'static', dest.endsWith('/') ? `${dest}index.html` : dest);
+  if (['GET', 'HEAD'].includes(req.method) && (await exists(file))?.isFile()) {
+    const types = { ...ART_TYPES, html: 'text/html', js: 'text/javascript', mjs: 'text/javascript', css: 'text/css', json: 'application/json', wasm: 'application/wasm' };
+    if (!res.hasHeader('Content-Type')) res.setHeader('Content-Type', types[extname(file).slice(1)] ?? 'application/octet-stream');
+    res.end(req.method === 'HEAD' ? undefined : await readFile(file));
+  } else if (await exists(join(root, 'functions', `${dest}.func`))) {
+    await handler(req, res);
+  } else { res.writeHead(404).end(); }
+}
+
 /** An external recovery input must be a complete combined output. */
 export async function recoveryOutput(path) {
   const root = resolve(path);
@@ -76,7 +92,8 @@ export async function buildWorkerProbe() {
 export async function main() {
   const connectionString = testDatabase(process.env.PLUGIN_TEST_DATABASE_URL);
   const work = await mkdtemp(join(tmpdir(), 'kingdown-web-check-'));
-  let browser, persistent, server, app, cleaning;
+  let browser, persistent, server, cleaning;
+  const outputs = new Map();
   const started = performance.now(), events = [], signal = new EventEmitter();
   const record = event => { events.push(event); signal.emit('record'); };
   let served, old = false, instrument = false, deleteMode = 'ok', holdReply = false, failPrecache = false, offline = false;
@@ -89,7 +106,7 @@ export async function main() {
         () => persistent?.close(),
         () => { for (const response of held) response.end(); held.clear(); },
         async () => { if (server?.listening) { server.closeAllConnections(); await new Promise((done, reject) => server.close(error => error ? reject(error) : done())); } },
-        () => app?.pool.end(),
+        ...[...outputs.values()].map(app => () => app.pool.end()),
         () => rm(work, { recursive: true, force: true }),
       ]) { try { await finish(); } catch (error) { failures.push(error); } }
       if (failures.length) throw new AggregateError(failures, 'Web check cleanup failed');
@@ -124,10 +141,6 @@ export async function main() {
     await writeFile(join(env('PLAYABLE_OUT'), 'worker-outputs.json'), JSON.stringify({ pair, release, recovery }, null, 2));
     // Vite sets NODE_ENV during the build; the server below is a local test process.
     process.env.NODE_ENV = 'test';
-    const configs = new Map(await Promise.all([tree, recovery.root].map(async output => [output, JSON.parse(await readFile(join(output, 'config.json'), 'utf8'))])));
-    const { configurePlugin } = await import(pathToFileURL(join(tree, 'functions/mcp.func/server.mjs')).href);
-    const types = { ...ART_TYPES, html: 'text/html', js: 'text/javascript', mjs: 'text/javascript', css: 'text/css', json: 'application/json', wasm: 'application/wasm' };
-    const exists = path => stat(path).catch(error => { if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') throw error; });
     server = createServer((req, res) => {
       void (async () => {
         const url = new URL(req.url, origin), path = url.pathname;
@@ -168,20 +181,17 @@ export async function main() {
           res.end(old ? oldWorker + "\nself.addEventListener('message', event => { if (event.data?.type === 'fixture-version') event.ports[0].postMessage({ version: VERSION }); });" : (instrument ? faults : '') + await readFile(join(served, 'static/sw.js'), 'utf8')); return;
         }
         res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-        const { dest, headers } = siteRoute(configs.get(served), path);
-        for (const [name, value] of Object.entries(headers)) res.setHeader(name, value);
-        const file = join(served, 'static', dest.endsWith('/') ? `${dest}index.html` : dest);
-        if (['GET', 'HEAD'].includes(req.method) && (await exists(file))?.isFile()) {
-          if (!res.hasHeader('Content-Type')) res.setHeader('Content-Type', types[extname(file).slice(1)] ?? 'application/octet-stream');
-          res.end(req.method === 'HEAD' ? undefined : await readFile(file));
-        } else if (await exists(join(tree, 'functions', `${dest}.func`))) {
-          await app.handler(req, res);
-        } else { res.writeHead(404).end(); }
+        await serveSite(outputs.get(served), req, res);
       })().catch(() => { if (!res.headersSent) res.writeHead(500); res.end(); });
     });
     server.listen(0, '127.0.0.1'); await once(server, 'listening');
     const origin = `http://127.0.0.1:${server.address().port}`;
-    app = await configurePlugin({ NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: randomUUID() }, { localDev: true });
+    for (const root of [tree, recovery.root]) {
+      const config = JSON.parse(await readFile(join(root, 'config.json'), 'utf8'));
+      const { configurePlugin } = await import(pathToFileURL(join(root, 'functions/mcp.func/server.mjs')).href);
+      const app = await configurePlugin({ NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: randomUUID() }, { localDev: true });
+      outputs.set(root, { root, config, ...app });
+    }
 
     browser = await launch();
     await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify({ engine: env('PLAYABLE_BROWSER'), version: browser.version(), node: process.version, platform: process.platform, osRelease: osRelease(), arch: process.arch }, null, 2));
@@ -224,10 +234,20 @@ export async function main() {
       const response = await page.request.get(origin + path, { maxRedirects: 0 });
       assert.equal(response.status(), 404, `${path} has no account page`);
     }
-    for (const path of ['/api', '/api/games', '/api/me/games']) {
+    const apiClosed = async (page, path, method) => {
+      const response = await page.request.fetch(origin + path, { method, maxRedirects: 0, ...(method === 'POST' ? { data: {} } : {}) });
+      assert.equal(response.status(), 404, `${method} ${path} stays closed`);
+      assert.equal(response.headers().location, undefined, path);
+      const pathname = new URL(path, origin).pathname;
+      if (served === tree || siteRoute(outputs.get(served).config, pathname).dest !== pathname) {
+        assert.match(response.headers()['content-type'], /^application\/json/);
+        assert.equal(response.headers()['cache-control'], 'no-store');
+        assert.deepEqual(await response.json(), { code: 'NOT_FOUND', message: 'Not found' });
+      }
+    };
+    for (const path of ['/api', '/api/games', '/api/me/games', '/api/unknown']) {
       for (const method of ['GET', 'POST']) {
-        const response = await page.request.fetch(origin + path, { method, maxRedirects: 0, ...(method === 'POST' ? { data: {} } : {}) });
-        assert.equal(response.status(), 404, `${method} ${path} stays closed`);
+        for (const query of ['', '?probe=1']) await apiClosed(page, path + query, method);
       }
     }
     assertNoErrors(errors);
@@ -344,7 +364,8 @@ export async function main() {
     };
     const probe = async (page, marker, safety = true) => {
       const after = events.length;
-      assert.deepEqual(await page.evaluate(marker => window.privateProbe(marker), marker), { status: 404, code: 'UNAVAILABLE' }, `${marker}: API stays closed`);
+      const mounted = served === tree || siteRoute(outputs.get(served).config, '/api/me/games').dest !== '/api/me/games';
+      assert.deepEqual(await page.evaluate(marker => window.privateProbe(marker), marker), { status: 404, code: mounted ? 'NOT_FOUND' : 'UNAVAILABLE' }, `${marker}: API stays closed`);
       if (safety) assertProbeOrder(events, marker, after);
       else assert.equal(events.slice(after).filter(event => event.event === 'probe' && event.marker === marker).length, 1);
     };
@@ -444,6 +465,7 @@ export async function main() {
         const response = await active.request.get(origin + path, { maxRedirects: 0 });
         assert.equal(response.status(), 404, `${path}: release and recovery keep account routes closed`);
       }
+      for (const path of ['/api', '/api/games', '/api/me/games', '/api/unknown']) for (const query of ['', '?probe=1']) for (const method of ['GET', 'POST']) await apiClosed(active, path + query, method);
       const allowlist = JSON.parse((await readFile(join(output, 'static/sw.js'), 'utf8')).match(/const ALLOWLIST = (.+);/)[1]);
       const asset = allowlist.find(file => file.startsWith('assets/') && file.endsWith('.js'));
       const paths = ['/api', '/mcp', '/authorize', '/consent', '/consent.mjs', '/auth', '/oauth', '/login', '/logout', '/signin', '/signout', '/callback', '/internal', '/play', '/play.html', '/g', '/j', '/.well-known/', '/unknown'];

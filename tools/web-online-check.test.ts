@@ -4,7 +4,9 @@ import { runInNewContext } from 'node:vm';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { assertInterruptedPurge, assertProbeOrder, buildWorkerProbe, recoveryOutput, siteRoute } from './web-online-check.mjs';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { assertInterruptedPurge, assertProbeOrder, buildWorkerProbe, recoveryOutput, serveSite, siteRoute } from './web-online-check.mjs';
 import { vercelRoutes } from './plugin-server-build.mjs';
 import { ART_HEADERS } from './plugin-art-headers.mjs';
 
@@ -28,6 +30,46 @@ describe('web check site routes', () => {
     ];
     expect(siteRoute({ routes }, '/internal/tick')).toEqual({ dest: '/internal', headers: { 'Cache-Control': 'no-store' } });
   });
+});
+
+it('serves each selected output with its own files, API routes and function', async () => {
+  const work = await mkdtemp(join(tmpdir(), 'web-output-test-'));
+  const output = async (name: string, dest: string, src: string) => {
+    const root = join(work, name);
+    await mkdir(join(root, 'static'), { recursive: true });
+    await writeFile(join(root, 'static/index.html'), name);
+    await mkdir(join(root, 'functions', `${dest}.func`), { recursive: true });
+    const handler = vi.fn(async (req: IncomingMessage, res: ServerResponse) => {
+      let body = ''; for await (const part of req) body += part;
+      res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify({ code: 'NOT_FOUND', output: name, url: req.url, method: req.method, body }));
+    });
+    return { root, config: { routes: [{ src, dest: `/${dest}` }] }, handler };
+  };
+  const release = await output('release', 'mcp', '^/api(?:/.*)?$');
+  const recovery = await output('recovery', 'recovery', '^/api/recovery$');
+  let selected = release;
+  const server = createServer((req, res) => { void serveSite(selected, req, res).catch(() => res.writeHead(500).end()); });
+  try {
+    await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
+    const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    for (const current of [release, recovery]) {
+      selected = current;
+      expect(await (await fetch(origin)).text()).toBe(current === release ? 'release' : 'recovery');
+      expect(await (await fetch(origin, { method: 'HEAD' })).text()).toBe('');
+      expect((await fetch(origin, { method: 'POST' })).status).toBe(404);
+      const path = '/api/recovery?keep=a%2Bb&since=0';
+      const response = await fetch(origin + path, { method: 'POST', body: '{broken' });
+      expect(response.status).toBe(404); expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(await response.json()).toEqual({ code: 'NOT_FOUND', output: current === release ? 'release' : 'recovery', url: path, method: 'POST', body: '{broken' });
+      const closed = await fetch(origin + '/api/me/games');
+      expect(closed.status).toBe(404);
+      expect(closed.headers.get('content-type')).toBe(current === release ? 'application/json' : null);
+    }
+    expect(release.handler).toHaveBeenCalledTimes(2); expect(recovery.handler).toHaveBeenCalledOnce();
+  } finally {
+    server.closeAllConnections(); await new Promise<void>(done => server.close(() => done()));
+    await rm(work, { recursive: true, force: true });
+  }
 });
 
 describe('worker probe order', () => {

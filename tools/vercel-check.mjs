@@ -1,14 +1,15 @@
 /** Check the site build in a local copy with a disposable PostgreSQL database.
- * The MVP serves MCP, OAuth and internal jobs. It exposes no website API. */
+ * The default API stays closed. Local test keys enable the dispatch probes. */
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { createServer } from 'node:http';
+import { createServer, request } from 'node:http';
 import { once } from 'node:events';
 import { cp, mkdtemp, readdir, readFile, realpath, rm, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import pg from 'pg';
+import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { ENGINES } from './plugin-runtime-build.mjs';
 
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
@@ -29,7 +30,13 @@ try {
   assert.equal(JSON.parse(await readFile(join(fn, '.vc-config.json'), 'utf8')).handler, 'server.mjs');
   for (const path of ['authorize', 'consent.mjs', 'internal', '.well-known/oauth-protected-resource', '.well-known/oauth-protected-resource/mcp']) assert.equal(await realpath(join(tree, `functions/${path}.func`)), await realpath(fn), `${path} is the one function`);
   assert.equal(await exists(join(tree, 'functions/api.func')), undefined, 'No website API function');
-  assert(!config.routes.some(route => new RegExp(route.src).test('/api/games')), 'No website API route');
+  const apiRule = { src: '^/api(?:/.*)?$', dest: '/mcp' };
+  assert.deepEqual(config.routes.filter(route => new RegExp(route.src).test('/api/games')), [apiRule]);
+  for (const path of ['/api', '/api/', '/api/games', '/api/me/games']) assert(new RegExp(apiRule.src).test(path), path);
+  for (const path of ['/apix', '/apiary', '/play', '/unrelated-path']) assert(!new RegExp(apiRule.src).test(path), path);
+  for (const path of (await readdir(join(tree, 'functions'), { recursive: true })).filter(path => path.endsWith('.func'))) {
+    assert.equal(await realpath(join(tree, 'functions', path)), await realpath(fn), `${path} is the one function`);
+  }
   const worker = await readFile(join(tree, 'static/sw.js'), 'utf8');
   const version = /^const VERSION = '([a-f0-9]{12})';$/m.exec(worker)?.[1];
   assert(version, 'The worker has a built content version');
@@ -70,7 +77,11 @@ try {
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const origin = `http://127.0.0.1:${server.address().port}`;
   const { configurePlugin } = await import(pathToFileURL(join(fn, 'server.mjs')).href);
-  app = await configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, SUPABASE_URL: 'https://project.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_vercelcheck', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: clientId, KINGDOWN_INTERNAL_SECRET: secret }, { localDev: true });
+  const webEnv = { NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, SUPABASE_URL: 'https://project.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_vercelcheck', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: clientId, KINGDOWN_INTERNAL_SECRET: secret };
+  const pair = await generateKeyPair('ES256'), websiteKeys = createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'website', alg: 'ES256' }] });
+  const sign = (claims = {}) => new SignJWT({ iss: `${webEnv.SUPABASE_URL}/auth/v1`, aud: 'authenticated', sub: actor, role: 'authenticated', is_anonymous: false, exp: Math.floor(Date.now() / 1000) + 300, ...claims }).setProtectedHeader({ alg: 'ES256', kid: 'website' }).sign(pair.privateKey);
+  const token = await sign();
+  app = await configurePlugin(webEnv, { localDev: true });
   const served = new Set();
   server.on('request', async (req, res) => {
     try {
@@ -80,14 +91,37 @@ try {
       // A `continue` route adds its headers and goes on to the next match.
       for (const route of routes) if (route.headers) for (const [name, value] of Object.entries(route.headers)) res.setHeader(name, value);
       const file = join(tree, 'static', dest.endsWith('/') ? `${dest}index.html` : dest);
-      if ((await exists(file))?.isFile()) { served.add(`static ${path.startsWith('/plugin-art/') ? '/plugin-art/*' : path}`); res.end(await readFile(file)); return; }
+      if (['GET', 'HEAD'].includes(req.method) && (await exists(file))?.isFile()) { served.add(`static ${path.startsWith('/plugin-art/') ? '/plugin-art/*' : path}`); res.end(req.method === 'HEAD' ? undefined : await readFile(file)); return; }
       // Vercel gives the function the original request path, also after a route.
       if (await exists(join(tree, 'functions', `${dest}.func`))) { served.add(`function ${path}`); await app.handler(req, res); return; }
       res.writeHead(404).end();
     } catch { if (!res.headersSent) res.writeHead(500); res.end(); }
   });
 
+  const closedApi = [['GET', '/api'], ['GET', '/api/'], ['GET', '/api/me/games'], ['GET', `/api/games/${randomUUID()}?since=0`], ['GET', '/api/unknown'], ['POST', '/api/games'], ['POST', '/api/games/inert/commands'], ['OPTIONS', '/api/me/profile'], ['HEAD', '/api/me/games']];
+  let queries = 0, connections = 0, closedCases = 0;
+  const query = app.pool.query, connect = app.pool.connect;
+  app.pool.query = function (...args) { queries++; return query.apply(this, args); };
+  app.pool.connect = function (...args) { connections++; return connect.apply(this, args); };
+  const assertClosure = async (response, method = 'GET') => {
+    assert.equal(response.status, 404); assert.equal(response.headers.get('location'), null);
+    assert.match(response.headers.get('content-type'), /^application\/json/);
+    assert.equal(response.headers.get('cache-control'), 'no-store'); assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+    assert.deepEqual(method === 'HEAD' ? await response.text() : await response.json(), method === 'HEAD' ? '' : { code: 'NOT_FOUND', message: 'Not found' });
+  };
+  try {
+    for (const [method, path] of closedApi) for (const headers of [{}, { Authorization: `Bearer ${token}`, 'X-Kingdown-Dev-Actor': actor }]) {
+      await assertClosure(await fetch(origin + path, { method, headers, ...(!['GET', 'HEAD'].includes(method) && { body: '{broken' }), redirect: 'manual' }), method);
+      closedCases++;
+    }
+    assert.equal(queries, 0); assert.equal(connections, 0);
+  } finally { app.pool.query = query; app.pool.connect = connect; }
+
   for (const path of ['/', '/sw.js', '/privacy.html']) assert.equal((await fetch(origin + path)).status, 200, path);
+  for (const path of ['/', '/sw.js']) {
+    const head = await fetch(origin + path, { method: 'HEAD' }); assert.equal(head.status, 200); assert.equal(await head.text(), '');
+    assert.equal((await fetch(origin + path, { method: 'POST' })).status, 404);
+  }
   assert((await (await fetch(origin)).text()).includes('<html'));
   const publicPaths = allowlist.map(file => new URL(file, origin + '/').pathname);
   for (const path of publicPaths) {
@@ -132,20 +166,21 @@ try {
   assert.equal(authorize.status, 200); assert.match(authorize.headers.get('content-type'), /^text\/html/);
   assert((await authorize.text()).includes(clientId)); assert.match(authorize.headers.get('content-security-policy'), /frame-ancestors 'none'/);
   const script = await fetch(`${origin}/consent.mjs`); assert.equal(script.status, 200); assert.match(script.headers.get('content-type'), /^text\/javascript/);
-  for (const [path, status] of [['/internal/sweep', 403], ['/.well-known/oauth-protected-resource/mcp', 404]]) {
+  for (const [path, status] of [['/internal/sweep', 403], ['/.well-known/oauth-protected-resource', 404], ['/.well-known/oauth-protected-resource/mcp', 404]]) {
     const response = await fetch(origin + path);
     assert.equal(response.status, status, path); assert.match(response.headers.get('content-type'), /^application\/json/, `${path} reaches the function`);
   }
 
   for (const path of ['/api', '/api/games', '/api/me/games']) {
-    assert.equal((await fetch(origin + path)).status, 404, path);
-    assert.equal((await fetch(origin + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'random', speed: 'live', setup: { fen: '7k/8/8/8/8/8/8/K7 w - - 0 1' } }) })).status, 404, path);
+    await assertClosure(await fetch(origin + path));
+    await assertClosure(await fetch(origin + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'random', speed: 'live', setup: { fen: '7k/8/8/8/8/8/8/K7 w - - 0 1' } }) }));
   }
   const closedPaths = ['/play', '/play/', '/play/profile', '/play/settings', '/play.html', '/g/test-id', '/j', '/j/', '/j/inert-token', '/unrelated-path'];
   for (const path of [...closedPaths, '/api', '/api/games', '/api/me/games']) for (const query of ['', '?probe=1']) {
     const response = await fetch(origin + path + query, { redirect: 'manual' });
     assert.equal(response.status, 404, path + query);
     assert.equal(response.headers.get('location'), null, path + query);
+    if (path.startsWith('/api')) await assertClosure(response);
   }
 
   // /internal runs a job only with the secret; email stays off without its settings.
@@ -153,8 +188,61 @@ try {
   assert.equal((await job('/internal/tick')).status, 403); assert.equal((await job('/internal/tick', `${secret}x`)).status, 403);
   const tick = await job('/internal/tick', secret); assert.equal(tick.status, 200); assert.equal(typeof (await tick.json()).ended, 'number');
   assert.equal((await job('/internal/outbox', secret)).status, 503);
-  assert.deepEqual([...served].sort(), [...new Set(['function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /mcp', 'static /', 'static /plugin-art/*', 'static /privacy.html', 'static /sw.js', ...publicPaths.map(path => `static ${path}`), ...(hasChallenge ? [`static ${challenge}`] : [])])].sort());
-  console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${closedPaths.length} closed account/unknown paths, ${art.length} board art files, MCP open and move, OAuth, API refusal, internal jobs and ${archive.length} archived engine(s) passed`);
+  const unknownJob = await job('/internal/unknown', secret); assert.equal(unknownJob.status, 404);
+  assert.deepEqual([...served].sort(), [...new Set(['function /.well-known/oauth-protected-resource', 'function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /internal/unknown', 'function /mcp', 'function /api/games', ...closedApi.map(([, path]) => `function ${new URL(path, origin).pathname}`), 'static /', 'static /plugin-art/*', 'static /privacy.html', 'static /sw.js', ...publicPaths.map(path => `static ${path}`), ...(hasChallenge ? [`static ${challenge}`] : [])])].sort(), 'Closed/default served paths');
+
+  await app.pool.end(); app = undefined;
+  app = await configurePlugin(webEnv, { localDev: true, websiteKeys });
+  served.clear();
+  let enabledCases = 0;
+  const checkApi = response => {
+    enabledCases++;
+    assert.match(response.headers.get('content-type'), /^application\/json/);
+    assert.equal(response.headers.get('cache-control'), 'no-store'); assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(response.headers.get('location'), null);
+    return response;
+  };
+  const api = (path, init) => fetch(origin + path, { redirect: 'manual', ...init }).then(checkApi);
+  const signed = { Authorization: `Bearer ${token}` };
+  for (const [headers, status] of [[{}, 401], [{ 'X-Kingdown-Dev-Actor': actor }, 401], [{ Authorization: `Bearer ${await sign({ exp: Math.floor(Date.now() / 1000) - 60 })}` }, 401], [{ Authorization: `Bearer ${await sign({ aud: `${origin}/mcp`, client_id: clientId })}` }, 401], [signed, 200]]) {
+    const response = await api('/api/me/profile', { headers });
+    assert.equal(response.status, status);
+    if (status === 401) { assert.equal(response.headers.get('www-authenticate'), 'Bearer'); assert.equal((await response.json()).code, 'UNAUTHENTICATED'); }
+    else assert.equal((await response.json()).user_id, actor);
+  }
+  for (const headers of [{ Origin: 'https://foreign.example' }, { Origin: 'null' }, { 'Sec-Fetch-Site': 'cross-site' }]) {
+    const response = await api('/api/me/profile', { headers: { ...signed, ...headers } });
+    assert.equal(response.status, 403); assert.equal(response.headers.get('access-control-allow-origin'), null); assert.equal((await response.json()).code, 'FORBIDDEN');
+  }
+  const raw = (path, headers, chunks = []) => new Promise((done, reject) => {
+    const req = request(origin + path, { method: chunks.length ? 'POST' : 'GET', headers }, res => {
+      const body = []; res.on('data', part => body.push(part)); res.on('error', reject);
+      res.on('end', () => done(new Response(Buffer.concat(body), { status: res.statusCode, headers: res.headers })));
+    });
+    req.on('error', reject); for (const chunk of chunks) req.write(chunk); req.end();
+  }).then(checkApi);
+  const foreignHost = await raw('/api/me/profile', { ...signed, Host: 'foreign.example' });
+  assert.equal(foreignHost.status, 403); assert.equal(foreignHost.headers.get('access-control-allow-origin'), null); assert.equal((await foreignHost.json()).code, 'FORBIDDEN');
+  const wrongMethod = await api('/api/me/games', { method: 'POST', headers: signed });
+  assert.equal(wrongMethod.status, 405); assert.equal(wrongMethod.headers.get('allow'), 'GET'); assert.equal((await wrongMethod.json()).code, 'NOT_ALLOWED');
+  for (const path of ['/api', '/api/', '/api/unknown?probe=1']) await assertClosure(await api(path));
+  const fullResponse = await api(`/api/games/${game_id}`, { headers: signed }); assert.equal(fullResponse.status, 200); const full = await fullResponse.json();
+  const sinceResponse = await api(`/api/games/${game_id}?since=0`, { headers: signed }); assert.equal(sinceResponse.status, 200); const since = await sinceResponse.json();
+  assert.equal(full.game_id, game_id); assert(full.rules); assert.equal(since.game_id, game_id); assert.equal(since.rules, undefined); assert.equal(since.revision, full.revision); assert.deepEqual(since.last_commands.at(-1), moved._meta.view.last_commands.at(-1));
+  const invalidSince = await api(`/api/games/${game_id}?since=-1`, { headers: signed });
+  assert.equal(invalidSince.status, 400); assert.equal((await invalidSince.json()).code, 'INVALID_INPUT');
+  const gameRows = () => pool.query('select to_jsonb(g) as game from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=$1) order by g.id', [actor]);
+  const before = (await gameRows()).rows;
+  const malformed = await api('/api/games', { method: 'POST', headers: { ...signed, 'Content-Type': 'application/json' }, body: '{broken' });
+  assert.equal(malformed.status, 400); assert.equal((await malformed.json()).code, 'INVALID_INPUT');
+  const large = 'x'.repeat(32 * 1024);
+  for (const headers of [{ 'Content-Length': String(Buffer.byteLength(large)) }, { 'Transfer-Encoding': 'chunked' }]) {
+    const response = await raw('/api/games', { ...signed, 'Content-Type': 'application/json', ...headers }, [large.slice(0, 8192), large.slice(8192)]);
+    assert.equal(response.status, 413); assert.equal((await response.json()).code, 'INVALID_INPUT');
+  }
+  assert.deepEqual((await gameRows()).rows, before, 'Refused bodies have no game effect');
+  assert.deepEqual([...served].sort(), ['/api', '/api/', '/api/games', `/api/games/${game_id}`, '/api/me/games', '/api/me/profile', '/api/unknown'].map(path => `function ${path}`).sort(), 'Enabled/test served paths');
+  console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${closedPaths.length} closed account/unknown paths, ${art.length} board art files, MCP open and move, OAuth, ${closedCases} closed/default API probes with zero pool calls, ${enabledCases} enabled/test API probes, internal jobs and ${archive.length} archived engine(s) passed`);
 } finally {
   server.closeAllConnections(); await new Promise(done => server.close(done));
   await app?.pool.end();

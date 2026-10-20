@@ -405,6 +405,7 @@ const pages = (bundle = 'index-Abc123_x', terms = 'Terms v1') => ({
 });
 const closedPages = ['/play', '/play/', '/play/profile', '/play/settings', '/play.html', '/g/00000000-0000-4000-8000-000000000000', '/j', '/j/', '/j/deploy-check-inert-token', '/deploy-check-unknown'];
 const apiPaths = ['/api', '/api/games', '/api/me/games'];
+const apiClosure = JSON.stringify({ code: 'NOT_FOUND', message: 'Not found' });
 const contentType = (path: string) => ({ js: 'text/javascript', css: 'text/css', woff2: 'font/woff2', png: 'image/png', webp: 'image/webp', svg: 'image/svg+xml', webmanifest: 'application/manifest+json' })[path.split('.').at(-1)!] ?? 'text/html';
 
 /** A build folder with the given pages. */
@@ -419,7 +420,7 @@ function buildFolder(files: Record<string, string>) {
 }
 
 /** A local site. `files` can change between requests; `/` serves `index.html`. */
-async function site(files: () => Record<string, string>, challengeReply: { status?: number; type?: string | null; location?: string; path?: string } = {}) {
+async function site(files: () => Record<string, string>, challengeReply: { status?: number; type?: string | null; location?: string; path?: string; body?: string; cache?: string | null } = {}) {
   const requests: { path: string; method?: string; cookie?: string }[] = [];
   const server = createServer((req, res) => {
     const path = (req.url ?? '/').split('?')[0];
@@ -427,10 +428,13 @@ async function site(files: () => Record<string, string>, challengeReply: { statu
     if (req.headers.cookie !== undefined) { res.writeHead(400).end('cookie sent'); return; }
     const body = files()[path === '/' ? 'index.html' : path.slice(1)];
     if (path === (challengeReply.path ?? '/.well-known/openai-apps-challenge')) {
-      const type = challengeReply.type === undefined ? 'text/plain; charset=utf-8' : challengeReply.type;
-      res.writeHead(challengeReply.status ?? (body === undefined ? 404 : 200), { ...(type ? { 'content-type': type } : {}), ...(challengeReply.location ? { location: challengeReply.location } : {}) }).end(body);
+      const api = apiPaths.includes(path);
+      const type = challengeReply.type === undefined ? (api ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8') : challengeReply.type;
+      const cache = challengeReply.cache === undefined && api ? 'no-store' : challengeReply.cache;
+      res.writeHead(challengeReply.status ?? (body === undefined ? 404 : 200), { ...(type ? { 'content-type': type } : {}), ...(cache ? { 'cache-control': cache } : {}), ...(challengeReply.location ? { location: challengeReply.location } : {}) }).end(challengeReply.body ?? body);
       return;
     }
+    if (body === undefined && apiPaths.includes(path)) { res.writeHead(404, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }).end(apiClosure); return; }
     if (body === undefined) { res.writeHead(404).end('not found'); return; }
     res.writeHead(200, { 'content-type': contentType(path), 'set-cookie': 'visit=1; Path=/' }).end(body);
   });
@@ -541,6 +545,22 @@ describe('deploy-live-check.mjs', () => {
     expect(result.stderr).toContain(`GET ${path}: expected 404 without redirect, got HTTP 200`);
   });
 
+  it.each([
+    { name: 'HTML 404', type: 'text/html', body: '<html>Not found</html>' },
+    { name: 'missing JSON type', type: null, body: apiClosure },
+    { name: 'empty 404', body: '' },
+    { name: 'malformed JSON', body: '{broken' },
+    { name: 'wrong code', body: JSON.stringify({ code: 'UNAVAILABLE' }) },
+    { name: 'missing no-store', body: apiClosure, cache: null },
+    { name: 'cacheable closure', body: apiClosure, cache: 'max-age=60' },
+    { name: 'verifier 503', status: 503, body: JSON.stringify({ code: 'UNAVAILABLE' }) },
+  ])('rejects $name for GET and POST API probes', async fault => {
+    const live = await site(() => pages(), { path: '/api/games', ...fault });
+    const result = await check(buildFolder(pages()), live.url, 0);
+    expect(result.status).toBe(1);
+    for (const method of ['GET', 'POST']) expect(result.stderr).toContain(`${method} /api/games:`);
+  });
+
   it.each([302, 404])('rejects a closed-route redirect header with HTTP %s and does not follow it', async status => {
     const live = await site(() => pages(), { path: '/play/', status, location: '/redirect-target' });
     const result = await check(buildFolder(pages()), live.url, 0);
@@ -641,6 +661,7 @@ async function pluginSite(fault = '', files?: Record<string, string>) {
       if (fault === 'cors') delete headers['Access-Control-Allow-Origin'];
       res.writeHead(200, headers).end(fault === 'art' ? 'stale-art' : 'art-v1');
     } else if (path === '/consent.mjs') res.end(fault === 'script' ? 'old-consent' : 'consent-v1');
+    else if (apiPaths.includes(path)) res.writeHead(404, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }).end(apiClosure);
     else res.writeHead(404).end();
   });
   await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
