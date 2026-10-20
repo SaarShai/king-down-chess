@@ -26,4 +26,7 @@ Read-only GitHub checks on 2026-10-20 return `Branch not protected` (HTTP 404) f
 
 ## Results
 
-The build and checks are in progress.
+- `npx tsc --noEmit`: pass on this Mac. The commit hook also passes the type check.
+- `plugin-ui`: pass on Chromium through the required runner, at `9e6d406b`, in 204.0 s. No outer site build or preview starts. Log: `checks-plugin-ui-1.txt` in the lane output folder.
+- The M1 timing tests still need the shared runner lock. The full suite follows them.
+- No server or product code changes. No database browser check is required.

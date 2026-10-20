@@ -26,7 +26,7 @@ function run(names: string[], failBuild = false) {
       return { resolvedUrls: { local: ['http://127.0.0.1:1234/'] }, close: async () => appendFileSync(process.env.RUNNER_EVENTS, '"close"\\n') };
     }
   `);
-  for (const file of ['check.mjs', 'lib/checks.mjs', 'lib/first-fault.mjs', 'lib/lock.mjs', 'lib/registry.mjs', 'lib/tree-status.mjs']) {
+  for (const file of ['check.mjs', 'lib/checks.mjs', 'lib/first-fault.mjs', 'lib/lock.mjs', 'lib/registry.mjs', 'lib/tree-status.mjs', 'lib/temp-repo.mjs']) {
     mkdirSync(join(repo.dir, 'tools', file, '..'), { recursive: true });
     cpSync(new URL(file, import.meta.url), join(repo.dir, 'tools', file));
   }

@@ -1,6 +1,6 @@
 # 13: The Darkness random-board test stays under its 5 s limit under load
 
-**What to build:** `src/rules/power-fixes.test.ts` > "Darkness readings, round 16" > "on random boards each reading changes exactly what its sentence says, no more and no less" goes past the 5 s vitest limit in a full `npm test` when the Mac is under load. The pre-push hook runs `npm test`, so this one test can block a sound push. Make the test fast enough to stay well under 5 s under load. Do not raise the limit. Do not make the check weaker: keep the same boards and the same checks.
+**What to build:** `src/rules/power-fixes.test.ts` > "Darkness readings, round 16" > "on random boards each reading changes exactly what its sentence says, no more and no less" goes past the 5 s vitest limit in a full `npm test` when the Mac is under load. At the first build, the pre-push suite lets this test block a sound push. The [CI update](../../retro-2026-10-20/issues/01-retro-ci.md) removes that hook step. Make the test fast enough to stay well under 5 s under load. Do not raise the limit. Do not make the check weaker: keep the same boards and the same checks.
 
 **Blocked by:** none
 

@@ -49,8 +49,10 @@ describe('synchronous child limits', () => {
   it('stops a child that does not end at a configured limit', () => {
     const timeout = timeouts('results-store.test.ts')[0];
     const start = Date.now();
-    expect(() => execFileSync(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { timeout }))
-      .toThrow(expect.objectContaining({ code: 'ETIMEDOUT', signal: 'SIGTERM' }));
+    let failure: unknown;
+    try { execFileSync(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { timeout }); }
+    catch (error) { failure = error; }
+    expect(failure).toMatchObject({ code: 'ETIMEDOUT', signal: 'SIGTERM' });
     console.log(`Child probe: ETIMEDOUT at ${timeout} ms; elapsed ${Date.now() - start} ms`);
   });
 });
