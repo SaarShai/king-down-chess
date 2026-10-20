@@ -185,6 +185,14 @@ describe('isInside', () => {
 });
 
 describe('trapErrors', () => {
+  it('keeps the caller stack without widening an allowed message pattern', () => {
+    const listeners = new Map<string, (value: any) => void>();
+    const page = { on: (name: string, listener: (value: any) => void) => listeners.set(name, listener) };
+    const errors = trapErrors(page, [{ pattern: 'expected disconnect', reason: 'An intentional transport fault' }]);
+    listeners.get('pageerror')!({ message: 'Cannot read scale', stack: 'Cannot read scale\nat expected disconnect.js:12:3' });
+    listeners.get('pageerror')!({ message: 'expected disconnect', stack: 'expected disconnect\nat app.js:1:2' });
+    expect(errors).toEqual(['pageerror: Cannot read scale\nat expected disconnect.js:12:3']);
+  });
   // Playwright holds a handle to each console argument, and the page keeps the object until the handle is disposed.
   // A long check page kept every widget document that its host logged (chatgpt-mvp ticket 53).
   it('lets the page free an object that it logged', async () => {

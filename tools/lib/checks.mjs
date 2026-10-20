@@ -184,8 +184,8 @@ const trapped = [];
 export function trapErrors(page, allow = []) {
   for (const a of allow) if (!a.reason?.trim()) throw new Error(`trapErrors: the allowed pattern ${a.pattern} has no reason`);
   const errors = [];
-  const add = (kind, text) => { if (!allow.some(a => new RegExp(a.pattern).test(text))) errors.push(`${kind}: ${text}`); };
-  page.on('pageerror', e => add('pageerror', e.message));
+  const add = (kind, text, detail = text) => { if (!allow.some(a => new RegExp(a.pattern).test(text))) errors.push(`${kind}: ${detail}`); };
+  page.on('pageerror', e => add('pageerror', e.message, e.stack || e.message));
   // Playwright gives each console argument as a handle, and the page keeps that object until the handle is disposed.
   // The check reads only the text, so it disposes each handle at once. Else a long-lived page keeps every object it
   // logged: the plugin host logs each message event, and each event keeps its old widget document (chatgpt-mvp 53).

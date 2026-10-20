@@ -202,6 +202,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
           await closeSheet(ui);
           states.push({ fen: resumed.fen, turn: resumed.turn, history: resumed.history.actions, status: resumed.status, result: resumed.result });
           reports.push({ id: row.id, surface, game_id: id, revision: resumed.revision, ...states.at(-1) });
+          failures.forEach(assertNoErrors);
           console.log(`PASS shared-mechanics ${row.id} ${surface}`);
         } finally { await match.close(); }
       }
