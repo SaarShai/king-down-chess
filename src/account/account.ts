@@ -33,8 +33,8 @@ export function userOf(u: AuthUser | null | undefined): User | null {
 
 /** The Account section's content. The name and picture come from outside the game, so both are escaped. */
 export function accountHtml(user: User | null, facebook: boolean): string {
-  const links = '<p class="account-links"><a href="./privacy.html" target="_blank" rel="noopener">Privacy</a>'
-    + '<a href="./terms.html" target="_blank" rel="noopener">Terms</a></p>';
+  const links = '<p class="account-links"><a href="/privacy.html" target="_blank" rel="noopener">Privacy</a>'
+    + '<a href="/terms.html" target="_blank" rel="noopener">Terms</a></p>';
   if (!user) {
     return '<p>Sign in to save your games on every device.</p>'
       + PROVIDERS.filter(([p]) => facebook || p !== 'facebook')

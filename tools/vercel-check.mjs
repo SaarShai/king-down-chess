@@ -57,7 +57,7 @@ try {
     assert((await exists(join(tree, 'static', file === './' ? 'index.html' : file)))?.isFile(), `Offline file exists: ${file}`);
   }
   const index = await readFile(join(tree, 'static/index.html'), 'utf8');
-  const entryFiles = [...index.matchAll(/(?:src|href)="\.\/(assets\/[^"?]+)"/g)].map(match => match[1]);
+  const entryFiles = [...index.matchAll(/(?:src|href)="(?:\.\/|\/)(assets\/[^"?]+)"/g)].map(match => match[1]);
   assert(entryFiles.length > 0, 'The local page has a build entry');
   for (const file of entryFiles) assert(precache.includes(file), `The local entry is offline: ${file}`);
   const archive = (await readdir(ENGINES)).filter(file => file.endsWith('.mjs')).sort();

@@ -10,8 +10,8 @@ describe('Settings → Account', () => {
     const html = accountHtml(null, false);
     expect(html).toContain('Sign in to save your games on every device');
     expect(buttons(html)).toEqual(['Continue with Google', 'Continue with GitHub']);
-    expect(html).toContain('href="./privacy.html"');
-    expect(html).toContain('href="./terms.html"');
+    expect(html).toContain('href="/privacy.html"');
+    expect(html).toContain('href="/terms.html"');
   });
 
   it('Facebook shows only with its flag', () => {
@@ -25,7 +25,7 @@ describe('Settings → Account', () => {
     expect(html).toContain('Signed in with Google');
     expect(buttons(html)).toEqual(['Sign out', 'Delete my account']);
     expect(html).not.toContain('Continue with');
-    expect(html).toContain('href="./privacy.html"');
+    expect(html).toContain('href="/privacy.html"');
   });
 
   it('a name from the sign-in service cannot inject markup', () => {
