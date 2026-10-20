@@ -16,7 +16,7 @@ Open pieces, cards and king sheets plus seat king, menu and Abort survive SDK te
 
 ## Cause and change
 
-The host now uses the SDK teardown before removing an iframe. The raw screen stop callback runs before the runtime saves the client. Setup and Seat close handlers removed their DOM, then cleared the saved sheet and saved again. They now remove DOM and listeners on disposal, but leave user state, completion callbacks and focus alone. Normal Close keeps its previous behavior.
+The host now uses the SDK teardown before removing an iframe. The raw screen stop callback runs before the runtime saves the client. Setup and Seat close handlers removed their DOM, then cleared the saved sheet and saved again. They now remove DOM and listeners on disposal, but leave user state and focus alone. The guarded completion callbacks either return or settle the waiting king picker without saving a close. Normal Close keeps its previous behavior.
 
 Profile now stops and invalidates its request number. Its held reads, error/finally handlers, badge controls and Unblock continuation check the existing closed state. Join has the same stopped/closed guard for preview, its changed-code continuation and its send reply. No late screen can start another call after stop.
 
@@ -27,3 +27,9 @@ Profile now stops and invalidates its request number. Its held reads, error/fina
 - After the change, `KINGDOWN_TEST_FILE=tools/plugin-screen-lifecycle.test.ts KINGDOWN_TEST_LOCK_WAIT=180 npm test` passes: full typecheck, 11 tests and 54 artwork checks. Log: `/tmp/kingdown-screen-lifecycle-green.log`.
 - The six sheet cases also remount through the SDK and check restoration, then press normal Close and check that the saved sheet clears.
 - The focused suite reuses the existing source harness and its real SDK bridge. No compiled build or deploy runs here. Main-task compiled HTTP acceptance and independent review remain open.
+
+## Review corrections
+
+The independent reader found that the king picker must settle its promise on stop. The existing screen lifecycle unit test catches this. The completion callback now runs during disposal; the Cards callback returns before its focus work. The main task also identified that badge Close must clear its saved sheet after ordinary navigation away from Profile. That close handler now checks only stopped/closed lifetime, while Profile reads retain their active-screen checks.
+
+The combined regression run fails before these corrections: 18 pass, the existing picker-settlement test times out, and badge Close on Play keeps the old sheet. After the corrections, `KINGDOWN_TEST_FILE='{src/plugin/screens/lifecycle,tools/plugin-screen-lifecycle}.test.ts' KINGDOWN_TEST_LOCK_WAIT=180 npm test` passes all 20 cases in two files, full typecheck and 54 artwork checks. Logs: `/tmp/kingdown-screen-settlement-red.log` and `/tmp/kingdown-screen-settlement-green.log`. The unit also checks that disposal retains the king sheet and saves nothing extra.

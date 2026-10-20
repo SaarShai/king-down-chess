@@ -105,8 +105,11 @@ it('closes the setup king sheet and releases its document listener on stop', asy
   const setup = await import('./setup'), { stopAll } = await import('./friend');
   const picking = setup.kingSheet({ ...DEFAULT_OPTIONS, kingPowers: true }, { king: 'Spirit', power: 'Mercy' });
   expect(listeners.get('keydown')?.size).toBe(1);
+  const saves = runtime.client.save.mock.calls.length;
   runtime.closed = true; stopAll(); removed = true;
   await expect(picking).resolves.toEqual({ king: 'Spirit', power: 'Mercy' });
+  expect(runtime.client.state.sheet).toBe('king');
+  expect(runtime.client.save).toHaveBeenCalledTimes(saves);
   expect(listeners.get('keydown')?.size).toBe(0);
 });
 

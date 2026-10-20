@@ -107,7 +107,7 @@ function showBadge(badge: Badge, detail: string) {
   dialog.className = 'over-sheet badge-sheet'; dialog.setAttribute('aria-labelledby', 'badge-title');
   dialog.innerHTML = '<header class="new-game-head"><h2 id="badge-title"></h2></header><div class="new-game-body"><img id="badge-art" alt=""><p id="badge-detail"></p></div><footer class="new-game-foot"><button id="badge-close">Close</button></footer>';
   $('badge-title').textContent = BADGES[badge]; $<HTMLImageElement>('badge-art').src = badgeArt(badge); $('badge-detail').textContent = detail;
-  $('badge-close').onclick = () => dialog.close(); dialog.onclose = () => { scrim.remove(); if (!active()) return; client.state.sheet = undefined; client.save(); $('profile-badges').querySelector<HTMLButtonElement>(`[data-badge="${badge}"] button`)?.focus(); };
+  $('badge-close').onclick = () => dialog.close(); dialog.onclose = () => { scrim.remove(); if (stopped || queue.closed()) return; client.state.sheet = undefined; client.save(); $('profile-badges').querySelector<HTMLButtonElement>(`[data-badge="${badge}"] button`)?.focus(); };
   client.state.sheet = `badge:${badge}`; client.save(); dialog.showModal();
 }
 function openRow(entry: InboxEntry) {

@@ -95,7 +95,7 @@ function sheet(name: string, title: string, done: () => void) {
   scrim.className = 'scrim'; dialog.id = 'menu-sheet'; dialog.className = 'over-sheet setup-sheet'; dialog.setAttribute('aria-labelledby', 'menu-title'); dialog.setAttribute('aria-modal', 'true');
   dialog.innerHTML = `<header class="sheet-head"><h2 id="menu-title">${title}</h2><button id="menu-close" aria-label="Close">×</button></header><div class="sheet-body"></div><footer class="new-game-foot"><p class="foot-count"></p><button id="setup-done" class="primary">Done</button></footer>`;
   page.inert = true; frame.append(scrim, dialog); dialog.show(); client.state.sheet = name; client.save();
-  const close = () => { dialog.close(); dialog.remove(); scrim.remove(); page.inert = false; closeSheet = undefined; document.removeEventListener('keydown', key); if (stopped || queue.closed()) return; if (client.state.sheet === name) client.state.sheet = undefined; client.save(); done(); focus?.focus(); };
+  const close = () => { dialog.close(); dialog.remove(); scrim.remove(); page.inert = false; closeSheet = undefined; document.removeEventListener('keydown', key); if (stopped || queue.closed()) { done(); return; } if (client.state.sheet === name) client.state.sheet = undefined; client.save(); done(); focus?.focus(); };
   const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); close(); }
     else if (event.key === 'Tab') { const controls = [...dialog.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)')]; const index = controls.indexOf(document.activeElement as HTMLElement); if (event.shiftKey && index <= 0 || !event.shiftKey && index === controls.length - 1) { event.preventDefault(); controls[event.shiftKey ? controls.length - 1 : 0]?.focus(); } } };
   document.addEventListener('keydown', key); $('menu-close').onclick = $('setup-done').onclick = scrim.onclick = close; closeSheet = close;
@@ -117,6 +117,7 @@ function cardsSheet(card?: CardName) {
   let edited = draft!, mode = cardMode;
   const allPool = cardMode === 'all' ? draft!.options.cardPool : [...DEAL_CARDS];
   const dialog = sheet('cards', 'Cards', () => {
+    if (stopped || queue.closed()) return;
     render();
     if (card) ($('setup-card-grid').querySelector<HTMLButtonElement>(`[data-card="${card}"]`) ?? $('setup-cards')).focus();
   }), body = dialog.querySelector<HTMLElement>('.sheet-body')!, count = dialog.querySelector('.foot-count')!;
