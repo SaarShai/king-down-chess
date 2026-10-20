@@ -7,11 +7,11 @@ import { preview } from 'vite';
 import { chromium } from 'playwright';
 const unregister = register();
 const { startHarness } = await import('../../../tools/plugin-ui-harness.ts');
-const root = process.env.KD_GUI_PREVIEW_ROOT || '/tmp/kd-gui-prev-board-previews';
-const out = join(root, 'previews'); await mkdir(out, { recursive: true });
+const root = process.env.KD_GUI_PREVIEW_ROOT || '/tmp/kd-gui-prev-board-picks';
+const out = join(root, 'shots'); await mkdir(out, { recursive: true });
 const item = process.argv[3] || process.env.KD_GUI_PREVIEW;
 assert(item, 'Name the preview item');
-assert(['A14','A15','A17','A18','A27','A39','A8'].includes(item), 'Name a board preview item');
+assert(['A14','A15','A17','A18','A27','A39','A8','Y3'].includes(item), 'Name a board preview item');
 const browser = await chromium.launch({ headless: true });
 let current, web;
 const notes = [];
@@ -47,7 +47,7 @@ try {
   assert(existsSync(pluginPath), `Missing saved preview build: ${pluginPath}`);
   current = await startHarness({ boardPath: pluginPath });
   const savedWeb = join(root, `${snapshot}-web`);
-  if (['A15','base'].includes(snapshot)) {
+  if (process.argv[4] === 'before' && ['A15','base'].includes(snapshot)) {
     assert(existsSync(savedWeb), `Missing saved web build: ${savedWeb}`);
     web = await preview({ configFile: false, logLevel: 'error', build: { outDir: savedWeb }, preview: { host: '127.0.0.1', port: 0, strictPort: true } });
   }
@@ -79,7 +79,7 @@ try {
       }
       async function shot(id, screen) {
         await p.waitForTimeout(400);
-        const file = `${id}-plugin-${screen}-${width}x${height}-${theme}-${phase}.png`;
+        const file = `${id}-plugin-${screen}-${width}x${height}-${theme}.png`;
         await p.locator('iframe').screenshot({ path: join(out,file) }); notes.push(file);
       }
       for (const id of items) {
@@ -117,6 +117,13 @@ try {
             assert.equal(await f.locator('#board').evaluate(b => b === document.activeElement), true, 'Cancel returns focus to the board');
             assert.equal(await f.locator('#undo').getAttribute('aria-disabled'), 'true', 'Cancel plays no move');
           }
+        }
+        if (id === 'Y3') {
+          await seed(undefined, { status:'setup', kind:'solo', options:{ fairy:false, pool:[], arrangement:false, classic:false, cards:false, cardPool:[], kingPowers:true },
+            draw:'RNBQKBNR', deal:[], ready:[false,false], choices:[{king:{king:'Spirit',power:'Mercy'},order:'RNBQKBNR'},null] });
+          assert.equal(await f.locator('#seat-me-line').innerText(), 'Spirit · Mercy');
+          assert.equal(await f.locator('#seat-context').innerText(), 'Choose your king, then press Ready.');
+          await shot(id,'seat');
         }
         if (id === 'A14') {
           await tap(12); await tap(28); await shot(id,'turn-computer');
@@ -169,16 +176,24 @@ try {
       }
       await ctx.close();
     }
-    for (const width of [390,1440]) {
-      const height=width===390?844:900;
-      const ctx=await browser.newContext({viewport:{width,height},deviceScaleFactor:2,serviceWorkers:'block'});
+    for (const width of [390,1280,1440]) for (const theme of ['light','dark']) {
+      const height=width===390?844:width===1280?800:900;
+      const ctx=await browser.newContext({viewport:{width,height},deviceScaleFactor:2,colorScheme:theme,serviceWorkers:'block'});
       const p=await ctx.newPage();p.setDefaultTimeout(10000);
       if (item === 'A8' && phase === 'after') await p.clock.install();
       if (item === 'A17') await p.addInitScript(watchFrost);
       async function open(fen, args='') { await p.goto(webURL+'?title=0&players=human,human&fen='+encodeURIComponent(fen)+args);await p.waitForFunction(()=>window.view?.ready);await p.evaluate(()=>window.view.ready());await p.evaluate(()=>document.fonts.ready); }
       async function tap(sq){ const point=await p.evaluate(sq=>window.view.screenOf(sq),sq);await p.mouse.click(point.x,point.y);await p.waitForTimeout(400); }
-      async function shot(id,screen){const file=`${id}-web-${screen}-${width}x${height}-light-${phase}.png`;await p.screenshot({path:join(out,file)});notes.push(file);}
+      async function shot(id,screen){const file=`${id}-web-${screen}-${width}x${height}-${theme}.png`;await p.screenshot({path:join(out,file)});notes.push(file);}
       for(const id of items) {
+        if (id === 'A18') {
+          await open('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1');
+          await p.locator('#moves-line').click();
+          assert.equal(await p.locator('#moves').textContent(), '');
+          assert.match(await p.locator('#moves').getAttribute('aria-label'), /^Moves/);
+          assert(['none','normal','""'].includes(await p.locator('#moves').evaluate(e => getComputedStyle(e,'::before').content)), 'No CSS empty-list words');
+          await shot(id,'moves-empty');
+        }
         if(id==='A15'){await open('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1');await tap(12);await shot(id,'selected-behind');}
         if (id === 'A17') {
           await open('7k/8/8/4p3/8/8/P7/K7 w - - 0 1', '&kings=Frost:Freeze,none');

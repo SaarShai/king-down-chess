@@ -78,10 +78,10 @@ try {
     harness = await startHarness({ boardPath: join(build, 'board.html'), endpoint, actor: actors[0], friendActor: actors[1], laterFriendActor: actors[2], seedPosition, deleteMatch });
   }
   if (mode === 'preview') {
-    const { items } = JSON.parse(readFileSync('docs/specs/gui-previews-2026-10-19/capture.json', 'utf8'));
+    const items = process.argv[3] ? [process.argv[3]] : JSON.parse(readFileSync('docs/specs/gui-previews-2026-10-19/capture.json', 'utf8')).items;
     for (const entry of items) {
       const [item, phase = 'after'] = entry.split('-');
-      child = spawn(process.execPath, ['docs/specs/gui-previews-2026-10-19/capture.mjs', build, item, phase], { stdio: 'inherit', env: process.env });
+      child = spawn('bash', ['tools/test-lock.sh', process.execPath, 'docs/specs/gui-previews-2026-10-19/capture.mjs', build, item, phase], { stdio: 'inherit', env: process.env });
       const [previewCode] = await once(child, 'exit');
       assert.equal(previewCode, 0, 'Board preview checks pass');
     }
