@@ -1,0 +1,125 @@
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { DEFAULT_OPTIONS } from '../../match/setup';
+import type { View } from '../../match/protocol';
+
+const runtime = vi.hoisted(() => ({
+  closed: false, call: vi.fn(), clientCall: vi.fn(), navigate: vi.fn(), renderRows: vi.fn(), routeView: vi.fn(),
+  client: { state: { screen: 'wait', sheet: undefined as string | undefined, pending: undefined }, save: vi.fn() },
+  memory: { view: undefined as View | undefined, games: [] as any[], settings: undefined as any, me: undefined },
+  board: { ready: vi.fn(), setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), setPreview: vi.fn(), screenOf: () => ({ x: 0, y: 0 }), onSquareClick: () => {}, onDragSelect: () => {}, onSquareHover: () => {} },
+}));
+vi.mock('../../account-game/runtime', () => ({
+  call: runtime.call, client: { ...runtime.client, call: runtime.clientCall }, memory: runtime.memory,
+  queue: { closed: () => runtime.closed, current: () => !runtime.closed },
+  navigate: runtime.navigate, renderGameRows: runtime.renderRows, routeView: runtime.routeView,
+  gameActionsBlocked: () => false, pollUpdate() {}, start: vi.fn(), showNewGame() {}, actions() {},
+  store: { page: () => ({ screen: runtime.client.state.screen, connected: true, mounting: false, writing: false }) },
+}));
+vi.mock('../../account-game/art', () => ({ art: (path: string) => path }));
+vi.mock('../board-view', () => ({ board: runtime.board, highlight() {} }));
+vi.mock('./board', () => ({ boardGame: () => runtime.memory.view, closeBoardSheet() {}, sendBoardCommand() {}, skipBoardCeremony() {} }));
+vi.mock('./board-actions', () => ({ playerBlockButton: () => [] }));
+
+const listeners = new Map<string, Set<EventListener>>();
+const observers: { disconnect: ReturnType<typeof vi.fn> }[] = [];
+const nodes = new Map<string, any>();
+let removed = false;
+function node(): any {
+  return { dataset: {}, style: {}, innerHTML: '', textContent: '', disabled: false, hidden: false, open: false,
+    classList: { add() {}, remove() {}, contains: () => false, toggle() {} }, getAttribute: () => null,
+    setAttribute() {}, removeAttribute() {}, append() {}, prepend() {}, replaceChildren() {}, replaceWith() {}, remove() {}, insertBefore() {},
+    show() { this.open = true; }, close() { this.open = false; }, focus: vi.fn(),
+    querySelector: () => node(), querySelectorAll: () => [], getBoundingClientRect: () => ({ left: 0, top: 0, width: 960 }),
+    firstElementChild: { style: {} }, childElementCount: 1,
+  };
+}
+function lookup(id: string) {
+  if (removed) throw new Error('Account DOM was removed');
+  if (!nodes.has(id)) nodes.set(id, node());
+  return nodes.get(id);
+}
+beforeEach(() => {
+  vi.resetModules(); vi.useFakeTimers(); vi.clearAllMocks();
+  runtime.closed = false; runtime.client.state.screen = 'wait'; runtime.client.state.sheet = undefined;
+  runtime.memory.view = undefined; runtime.memory.games = []; runtime.memory.settings = undefined;
+  runtime.board.ready.mockReturnValue(new Promise(() => {}));
+  listeners.clear(); observers.length = 0; nodes.clear(); removed = false;
+  const add = (name: string, fn: EventListener, options?: AddEventListenerOptions) => {
+    const bucket = listeners.get(name) ?? new Set(); bucket.add(fn); listeners.set(name, bucket);
+    options?.signal?.addEventListener('abort', () => bucket.delete(fn), { once: true });
+  };
+  const remove = (name: string, fn: EventListener) => listeners.get(name)?.delete(fn);
+  vi.stubGlobal('addEventListener', add); vi.stubGlobal('parent', {});
+  vi.stubGlobal('document', { getElementById: lookup, createElement: node, querySelectorAll: () => [],
+    querySelector: (selector: string) => selector.startsWith('#seat-screen') ? null : lookup(selector),
+    addEventListener: add, removeEventListener: remove, activeElement: null, body: node() });
+  vi.stubGlobal('MutationObserver', class { disconnect = vi.fn(); constructor() { observers.push(this); } observe() {} });
+  vi.stubGlobal('ResizeObserver', class { disconnect = vi.fn(); constructor() { observers.push(this); } observe() {} });
+  vi.stubGlobal('requestAnimationFrame', (fn: FrameRequestCallback) => setTimeout(fn, 16));
+  vi.stubGlobal('cancelAnimationFrame', clearTimeout);
+});
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+it('stops registered screen work once and removes the shared page listeners', async () => {
+  const { onStop, stopAll } = await import('./friend'), stop = vi.fn();
+  onStop(stop); expect(listeners.get('pagehide')?.size).toBe(1); expect(listeners.get('message')?.size).toBe(1);
+  stopAll(); stopAll();
+  expect(stop).toHaveBeenCalledOnce(); expect(listeners.get('pagehide')?.size).toBe(0); expect(listeners.get('message')?.size).toBe(0);
+});
+
+it('stops the wait clock and observer before the account DOM is removed', async () => {
+  const wait = await import('./wait'), { stopAll } = await import('./friend');
+  runtime.memory.view = { game_id: 'waiting', kind: 'random', status: 'waiting', created_at: new Date().toISOString(), server_now: new Date().toISOString() } as View;
+  wait.waitScreen(); expect(vi.getTimerCount()).toBe(1); expect(wait.waitPoll()).toBeDefined();
+  runtime.closed = true; stopAll(); removed = true;
+  expect(observers[0].disconnect).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(() => wait.waitScreen()).not.toThrow(); expect(() => wait.waitSync()).not.toThrow(); expect(wait.waitPoll()).toBeUndefined();
+});
+
+it('ignores an end poll that returns after close and DOM removal', async () => {
+  const end = await import('./end'), { stopAll } = await import('./friend');
+  runtime.client.state.screen = 'end';
+  runtime.memory.view = { game_id: 'ended', revision: 4, kind: 'friend', status: 'finished', opponent: { deleted: false } } as View;
+  let release!: () => void; runtime.call.mockImplementationOnce(() => new Promise<void>(resolve => { release = resolve; }));
+  const reading = end.endPoll()!.read();
+  runtime.closed = true; stopAll(); removed = true; release();
+  await expect(reading).resolves.toBeUndefined();
+  expect(() => end.updateEnd()).not.toThrow(); expect(() => end.endScreen()).not.toThrow(); expect(end.endPoll()).toBeUndefined();
+});
+
+it('releases the seat observer and pending artwork callback before DOM removal', async () => {
+  const seat = await import('./seat'), { stopAll } = await import('./friend');
+  runtime.client.state.screen = 'seat';
+  runtime.memory.view = { game_id: 'seat', status: 'setup', seat: 0, draw: 'RNBQKBNR', options: { ...DEFAULT_OPTIONS, arrangement: false }, ready: [false, false], choices: [{ order: 'RNBQKBNR', king: null }, null] } as View;
+  let loaded!: () => void; runtime.board.ready.mockReturnValueOnce(new Promise<void>(resolve => { loaded = resolve; }));
+  lookup('board').parentElement = lookup('game-table');
+  seat.seatScreen(); expect(runtime.board.ready).toHaveBeenCalledOnce();
+  runtime.closed = true; stopAll(); removed = true; loaded();
+  await vi.advanceTimersByTimeAsync(20);
+  expect(observers[0].disconnect).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
+  expect(() => seat.seatScreen()).not.toThrow();
+});
+
+it('closes the setup king sheet and releases its document listener on stop', async () => {
+  const setup = await import('./setup'), { stopAll } = await import('./friend');
+  const picking = setup.kingSheet({ ...DEFAULT_OPTIONS, kingPowers: true }, { king: 'Spirit', power: 'Mercy' });
+  expect(listeners.get('keydown')?.size).toBe(1);
+  runtime.closed = true; stopAll(); removed = true;
+  await expect(picking).resolves.toEqual({ king: 'Spirit', power: 'Mercy' });
+  expect(listeners.get('keydown')?.size).toBe(0);
+});
+
+
+it.each([false, true])('ignores a pending friend invite after stop (failure: %s)', async failed => {
+  const friend = await import('./friend');
+  runtime.client.state.screen = 'friend';
+  runtime.memory.view = { game_id: 'friend', kind: 'friend', status: 'waiting' } as View;
+  let resolve!: (value: unknown) => void, reject!: (error: Error) => void;
+  runtime.clientCall.mockReturnValueOnce(new Promise((yes, no) => { resolve = yes; reject = no; }));
+  friend.friendScreen(); expect(runtime.clientCall).toHaveBeenCalledOnce();
+  runtime.closed = true; friend.stopAll(); removed = true;
+  if (failed) reject(new Error('Invite failed')); else resolve({ content: [], structuredContent: { code: 'ABC123' } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(runtime.renderRows).not.toHaveBeenCalled();
+});

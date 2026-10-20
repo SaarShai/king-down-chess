@@ -10,6 +10,7 @@ import { POWER_NAME, cardName, cardCost, cardText, powerText, powerOptions, powe
 import type { View } from '../../match/protocol';
 import { locks, type Page } from '../../account-game/state';
 import { availablePowers, cleanKing, createArguments, gameSetup, pieceLocked, quickSetup, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, type SetupState } from './setup-model';
+import { onStop } from './friend';
 import './setup.css';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
@@ -21,6 +22,7 @@ const levelLines = { beginner: 'New to King Down? Start here.', casual: 'Makes s
 const pieceLines = { A: 'Shoots without moving.', L: 'Jumps over its own pieces.', G: 'Only a king takes it.', M: 'Swaps with a friend.', S: 'Bites in a chain.', O: 'Shoves a neighbour.', R: 'Moves in straight lines.', B: 'Moves on diagonals.', N: 'Jumps in an L.', Q: 'Moves in any line.' };
 /** The rules of a game with king powers; a game without them plays DEFAULT_RULES (src/match/worker.ts). */
 export const kingRules = powersRules({ ...DEFAULT_RULES, ...POWERS_BALANCED });
+let stopped = false;
 let cardMode: 'all' | 'four' = 'all';
 // anyRules: 'Any rules' under A random player (owner item D1 a). It applies to this start only and is not saved.
 let draft: SetupState | undefined, anyRules = false, starting = false, late = false, closeSheet: (() => void) | undefined;
@@ -59,6 +61,7 @@ function build() {
   $('join-form').onsubmit = event => { event.preventDefault(); memory.code = $<HTMLInputElement>('token').value.trim(); navigate('join'); };
 }
 function render() {
+  if (stopped || queue.closed()) return;
   if (!draft) return;
   const setup = client.state.pending?.quick ? quickSetup(memory.settings?.last_setup) : draft, o = setup.options;
   for (const key of ['mode','level','colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.checked = input.value === (key === 'mode' ? setup.kind : setup[key]); });
@@ -92,7 +95,7 @@ function sheet(name: string, title: string, done: () => void) {
   scrim.className = 'scrim'; dialog.id = 'menu-sheet'; dialog.className = 'over-sheet setup-sheet'; dialog.setAttribute('aria-labelledby', 'menu-title'); dialog.setAttribute('aria-modal', 'true');
   dialog.innerHTML = `<header class="sheet-head"><h2 id="menu-title">${title}</h2><button id="menu-close" aria-label="Close">×</button></header><div class="sheet-body"></div><footer class="new-game-foot"><p class="foot-count"></p><button id="setup-done" class="primary">Done</button></footer>`;
   page.inert = true; frame.append(scrim, dialog); dialog.show(); client.state.sheet = name; client.save();
-  const close = () => { dialog.close(); dialog.remove(); scrim.remove(); page.inert = false; closeSheet = undefined; if (client.state.sheet === name) client.state.sheet = undefined; client.save(); document.removeEventListener('keydown', key); done(); focus?.focus(); };
+  const close = () => { dialog.close(); dialog.remove(); scrim.remove(); page.inert = false; closeSheet = undefined; if (client.state.sheet === name) client.state.sheet = undefined; client.save(); document.removeEventListener('keydown', key); done(); if (!stopped && !queue.closed()) focus?.focus(); };
   const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); close(); }
     else if (event.key === 'Tab') { const controls = [...dialog.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)')]; const index = controls.indexOf(document.activeElement as HTMLElement); if (event.shiftKey && index <= 0 || !event.shiftKey && index === controls.length - 1) { event.preventDefault(); controls[event.shiftKey ? controls.length - 1 : 0]?.focus(); } } };
   document.addEventListener('keydown', key); $('menu-close').onclick = $('setup-done').onclick = scrim.onclick = close; closeSheet = close;
@@ -138,6 +141,7 @@ function cardsSheet(card?: CardName) {
   if (card) body.querySelector<HTMLInputElement>(`input[value="${card}"]`)!.focus();
 }
 export function kingSheet(options: Options, pick: KingChoice): Promise<KingChoice> {
+  if (stopped || queue.closed()) return Promise.resolve(pick);
   const cleaned = cleanKing(options, pick) ?? shownKing({ colour: 'white', king: null });
   let chosen = cleaned.king === pick.king && cleaned.power === pick.power ? pick : cleaned;
   return new Promise(resolve => {
@@ -153,6 +157,7 @@ export function kingSheet(options: Options, pick: KingChoice): Promise<KingChoic
 }
 async function pickKing() {
   const shown = shownKing(draft!), picked = await kingSheet(setupOptions(draft!.options), shown);
+  if (stopped || queue.closed()) return;
   if (draft!.king || picked !== shown) draft!.king = picked;
   render();
 }
@@ -174,6 +179,8 @@ async function launch(setup = draft, saveSetup = true) {
   let left = false; const leave = () => { left = true; };
   exits.forEach(button => button.addEventListener('click', leave));
   const wait = setTimeout(() => { if (!queue.current(origin)) return; exits.forEach(button => { button.dataset.free = ''; button.disabled = false; }); }, 5_000);
+  const cleanup = () => { exits.forEach(button => button.removeEventListener('click', leave)); clearTimeout(words); clearTimeout(wait); };
+  const unstop = onStop(cleanup);
   try {
     const last_setup = { ...setup, options: setupOptions(setup.options) };
     if (saveSetup) {
@@ -186,7 +193,7 @@ async function launch(setup = draft, saveSetup = true) {
     const args = { ...createArguments(last_setup), ...(last_setup.kind === 'random' && anyRules && { any_rules: true }) };
     await start(last_setup.kind, args, { route: false, origin, king: last_setup.king, ...scope, then: (view, origin) => finish(view, last_setup.king, origin, scope) });
   } catch (error) { if (queue.current(origin) && !left) store.dispatch({ type: 'error', text: errorText(error) }); }
-  finally { exits.forEach(button => button.removeEventListener('click', leave)); clearTimeout(words); clearTimeout(wait); starting = late = false; if (!queue.closed()) { exits.forEach(button => { delete button.dataset.free; }); render(); } }
+  finally { cleanup(); unstop(); starting = late = false; if (!queue.closed()) { exits.forEach(button => { delete button.dataset.free; }); render(); } }
 }
 /** The continuation of a resent start or setup step (design §5.2): it finishes the start. */
 export const finishStart = (view: View, origin: Job, king: KingChoice | null, scope: Pick<JobOptions, 'screen' | 'quick'>) => finish(view, king, origin, scope);
@@ -194,6 +201,7 @@ export const finishStart = (view: View, origin: Job, king: KingChoice | null, sc
 export function playNow() { if (memory.settings) void launch(quickSetup(memory.settings.last_setup), false); }
 // The store's subscriber replaces the data-page and #retry observers.
 export function setupSync(page: Page) {
+  if (stopped || queue.closed()) return;
   if (page.screen !== 'play' && !(page.screen === 'seat' && client.state.sheet === 'king')) {
     if (closeSheet) closeSheet();
     else if (['pieces','cards','king'].includes(client.state.sheet ?? '')) { client.state.sheet = undefined; client.save(); }
@@ -211,6 +219,7 @@ export function draftFromGame(view: View) {
   draft = gameSetup(view); cardMode = draft.options.cardPool.length === 4 ? 'four' : 'all'; memory.kind = draft.kind;
 }
 export function setupScreen() {
+  if (stopped || queue.closed()) return;
   if (!memory.settings) return;
   if (!draft) {
     draft = readDraft();
@@ -225,3 +234,5 @@ export function setupScreen() {
     else if (client.state.sheet === 'king') void pickKing();
   }
 }
+
+onStop(() => { stopped = true; closeSheet?.(); draft = undefined; });

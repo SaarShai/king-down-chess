@@ -1,5 +1,5 @@
 import { features, icon } from '../../account-game/features';
-import { call, client, memory, navigate, renderGameRows, routeView } from '../../account-game/runtime';
+import { call, client, memory, navigate, renderGameRows, routeView, queue } from '../../account-game/runtime';
 import { art } from '../../account-game/art';
 import { formatDate } from '../../account-game/games-list';
 import { friendInvites as codes, inviteText, sendInvite } from '../invite';
@@ -30,6 +30,7 @@ export function showError(error: unknown, target = $('error')) { target.textCont
 const attempted = new Set<string>();
 let making = false;
 export function friendScreen() {
+  if (stopped || queue.closed()) return;
   const view = memory.view;
   $('page-title').textContent = 'Your game code';
   if (view?.kind === 'friend' && view.status !== 'waiting') { routeView(view); return; }
@@ -54,20 +55,22 @@ export function friendScreen() {
   if (!invite && !attempted.has(view.game_id) && !memory.games.some(game => game.game_id === view.game_id)) void makeCode(view);
 }
 async function makeCode(view: View) {
-  if (making) return; making = true; attempted.add(view.game_id); $('friend-new').setAttribute('disabled', '');
+  if (stopped || queue.closed() || making) return; making = true; attempted.add(view.game_id); $('friend-new').setAttribute('disabled', '');
   try {
     const result = await client.call('kingdown_invite', { game_id: view.game_id });
+    if (stopped || queue.closed()) return;
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     codes.set(view.game_id, result.structuredContent as { code: string; expires_at: string });
     renderGameRows();
     if (client.state.screen === 'friend' && memory.view?.game_id === view.game_id) friendScreen();
-  } catch (error) { showError(error, $('friend-status')); }
-  finally { making = false; $('friend-new').removeAttribute('disabled'); }
+  } catch (error) { if (!stopped && !queue.closed()) showError(error, $('friend-status')); }
+  finally { making = false; if (!stopped && !queue.closed()) $('friend-new').removeAttribute('disabled'); }
 }
 // These screens own no App instance. Stop their runners on the host teardown and page close. A pagehide with
 // persisted: true puts the page in the back-forward cache: its timers freeze, and the page can come back with them.
-const stops = new Set<() => void>();
+let stopped = false;
+const stops = new Set<() => void>(), events = new AbortController();
 export function onStop(stop: () => void) { stops.add(stop); return () => stops.delete(stop); }
-function stopAll() { for (const stop of stops) stop(); stops.clear(); }
-addEventListener('pagehide', event => { if (!event.persisted) stopAll(); });
-addEventListener('message', event => { if (event.source === parent && event.data?.method === 'ui/resource-teardown') stopAll(); });
+export function stopAll() { stopped = true; events.abort(); for (const stop of stops) stop(); stops.clear(); }
+addEventListener('pagehide', event => { if (!event.persisted) stopAll(); }, { signal: events.signal });
+addEventListener('message', event => { if (event.source === parent && event.data?.method === 'ui/resource-teardown') stopAll(); }, { signal: events.signal });
