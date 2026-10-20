@@ -11,7 +11,8 @@ async function ready(ui, finished = false) {
   await ui.locator(`[data-screen="${finished ? 'end' : 'board'}"]:not([hidden])`).waitFor();
   if (finished) await ui.locator('#over').getByRole('button', { name: 'See the board', exact: true }).click();
   await ui.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
-  await ui.locator('#board-menu:not(:disabled)').waitFor();
+  // See the board leaves the table on End, where the play menu stays hidden.
+  await ui.locator(finished ? '#end-result' : '#board-menu:not(:disabled)').waitFor();
 }
 
 async function closeSheet(ui) {
@@ -160,7 +161,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
             assert.equal(after.fen, expected.fen, `${row.id}/${surface}: authoritative state`);
             assert.equal(after.turn, expected.turn, `${row.id}/${surface}: next actor`);
             assert.equal(after.status, expected.status === 'playing' ? 'playing' : 'finished', `${row.id}/${surface}: game status`);
-            if (expected.status !== 'playing') assert.equal(after.result?.reason, expected.status, `${row.id}/${surface}: result reason`);
+            assert.deepEqual(after.result, expected.status === 'playing' ? undefined : { winner: expected.status === 'checkmate' ? 1 - expected.turn : null, reason: expected.status }, `${row.id}/${surface}: result`);
             assert.deepEqual([...after.legal].sort(), [...expected.legal].sort(), `${row.id}/${surface}: legal continuation`);
             assert.deepEqual(after.history.actions, applied, `${row.id}/${surface}: accepted history`);
             assert.deepEqual(after.last_commands.at(-1).action, { type: 'turn', actions }, `${row.id}/${surface}: complete command`);
@@ -176,13 +177,16 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
           await ready(ui, expected.status !== 'playing');
           const resumed = await read(expected.turn, id);
           assert.equal(resumed.fen, expected.fen, `${row.id}/${surface}: reload state`);
+          assert.equal(resumed.turn, expected.turn, `${row.id}/${surface}: reload actor`);
+          assert.equal(resumed.status, expected.status === 'playing' ? 'playing' : 'finished', `${row.id}/${surface}: reload status`);
+          assert.deepEqual(resumed.result, expected.status === 'playing' ? undefined : { winner: expected.status === 'checkmate' ? 1 - expected.turn : null, reason: expected.status }, `${row.id}/${surface}: reload result`);
           assert.deepEqual(resumed.history.actions, row.actions, `${row.id}/${surface}: reload history`);
           assertMechanicExpected(resumed, row.expected, `${row.id}/${surface}`);
           const commands = (await pool.query("select surface, actions from public.game_commands where game_id=$1 and kind='turn' order by seq", [id])).rows;
           assert.deepEqual(commands.map(command => command.surface), turns.map(() => surface), `${row.id}/${surface}: real transport`);
           assert.deepEqual(commands.map(command => command.actions), turns, `${row.id}/${surface}: saved complete turns`);
-          await ui.locator('#board-menu').click();
-          await ui.locator('#board-sheet').getByRole('button', { name: 'Moves', exact: true }).click();
+          await ui.locator('#moves-line').click();
+          await ui.locator('#board-sheet[open]').getByRole('heading', { name: 'Moves', exact: true }).waitFor();
           assert.equal(await ui.locator('#board-sheet p').count(), row.actions.length, `${row.id}/${surface}: reloaded UI history`);
           await closeSheet(ui);
           states.push({ fen: resumed.fen, turn: resumed.turn, history: resumed.history.actions, status: resumed.status, result: resumed.result });
