@@ -1,18 +1,22 @@
+import { acceptedView, createHall, createHallMemory } from '../account-game/hall';
+import type { PageHost, ReadRoute } from '../account-game/client';
+import { decorateFriendRows } from './invite';
 import { App, type McpUiHostContext } from '@modelcontextprotocol/ext-apps';
 import type { PlayerSettings } from './settings';
 import { setRules } from '../rules/engine';
-import { nextGame } from './next-game';
-import { gameTitle, gamesList, waitingLine } from './games-list';
-import type { InboxEntry, JoinPreview, View } from '../match/protocol';
-import { CANNOT_CONNECT, createClient, errorText, knownScreen, SELECTION_TOOLS, type WidgetHost, type Screen, type Pending } from './client';
-import { art } from './art';
+import { nextGame } from '../account-game/next-game';
+import { gameTitle, waitingLine } from '../account-game/games-list';
+import type { JoinPreview, View } from '../match/protocol';
+import { createClient, pluginGameClient, SELECTION_TOOLS, type WidgetHost } from './client';
+import { CANNOT_CONNECT, errorText, knownScreen, type Screen, type Pending } from '../account-game/types';
+import { art } from '../account-game/art';
 import { handleProblem, ICONS, type Icon } from '../account/profile';
 import { boardScreen, rollbackBoardMove } from './screens/board';
 import { setSettings } from './board-view';
 import { setSound, snd } from '../render/sfx';
 import { runPoll, type PollTarget } from './poll';
 import { createRouter } from './router';
-import { applyLocks, createStore, isStart, isStartStep, locks, messageLine } from './state';
+import { applyLocks, createStore, isStart, isStartStep, locks, messageLine } from '../account-game/state';
 import { createQueue, EMPTY, REFUSALS, resultCode, resultText, type Job, type JobOptions, type Kind, type Outcome, userCommand } from './queue';
 import { draftFromGame, finishStart, playNow, setupBusy, setupScreen, setupStarting, setupSync } from './screens/setup';
 import { readSetup } from './screens/setup-model';
@@ -25,12 +29,8 @@ import { endPoll, endSync, endScreen } from './screens/end';
 import { profileScreen } from './screens/profile';
 import { collectionScreen } from './screens/collection';
 import './app.css';
+import '../account-game/content.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
-// WebKit does not focus a button on a pointer click. Focus it before its handler runs, so a sheet returns focus to its opener.
-window.addEventListener('click', event => {
-  const button = event.isTrusted && (event.target as Element | null)?.closest?.('button');
-  if (button && document.activeElement !== button) button.focus({ preventScroll: true });
-}, true);
 const extension = (window as Window & { openai?: WidgetHost }).openai;
 const savedScreen = knownScreen(extension?.widgetState?.privateContent?.screen);
 const app = new App({ name: 'King Down', version: '1.0.0' }, { availableDisplayModes: ['inline', 'fullscreen'] });
@@ -40,7 +40,7 @@ const queuedAtStart = state.queued;
 let awaitingInitialResult = true;
 let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
-let polling = false, gamesDirty = false, newGameFirst = false;
+let polling = false, newGameFirst = false;
 let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0;
 let handleBack: Screen = state.handle_back ?? state.pending?.screen ?? 'settings';
 // A command the page does not keep (Accept, Join) asked for the name: Save goes back to its screen, which sends it again.
@@ -72,7 +72,26 @@ const router = createRouter(call, navigate, next => {
 });
 export const { routeView, start } = router;
 const screens = { play: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen, collection: collectionScreen };
-export const memory = { kind: 'solo' as 'solo' | 'friend' | 'random', code: '', blockNotice: '', settings: undefined as PlayerSettings | undefined, me: undefined as { handle: string | null; icon: Icon | null } | undefined, games: [] as InboxEntry[], preview: undefined as JoinPreview | undefined, joinError: undefined as { code: string; message: string } | undefined, get view() { return view; } };
+export const memory = { ...createHallMemory(), dirty: false, kind: 'solo' as 'solo' | 'friend' | 'random', code: '', blockNotice: '', settings: undefined as PlayerSettings | undefined, me: undefined as { handle: string | null; icon: Icon | null } | undefined, preview: undefined as JoinPreview | undefined, joinError: undefined as { code: string; message: string } | undefined, get view() { return view; } };
+let enterRead: ((route: ReadRoute) => void) | undefined;
+const pageHost: PageHost = {
+  start(enter) { enterRead = enter; return () => { enterRead = undefined; }; },
+  navigate(route) { if (route.screen === 'game') enterRead?.(route); else navigate(route.screen); },
+  save() { client.save(); return true; },
+  viewport() {
+    const context = app.getHostContext();
+    return { touch: context?.deviceCapabilities?.touch ?? false, safe: {
+      top: Math.max(0, context?.safeAreaInsets?.top ?? 0), right: Math.max(0, context?.safeAreaInsets?.right ?? 0),
+      bottom: Math.max(0, context?.safeAreaInsets?.bottom ?? 0), left: Math.max(0, context?.safeAreaInsets?.left ?? 0),
+    } };
+  },
+};
+const hall = createHall(memory, pluginGameClient(client, queue, send), pageHost, store, next => routeView(next));
+store.subscribe((page, before) => {
+  turnLine(memory.games.filter(entry => entry.action === 'ready').length);
+  decorateFriendRows(memory.games);
+  if (page.screen === before.screen) scrollNewGame();
+});
 /** A command's error stays on the screen where the command started, so its Retry shows there, also after the player leaves. */
 function failPending(message: string, command = state.pending!, origin?: Job) {
   command.error = message; command.error_screen = command.screen ?? state.screen; client.save();
@@ -101,17 +120,18 @@ export function actions() {
 /** A reply can reach its caller before the full read supplies the rules for drawing. */
 function acceptsView(next: View | undefined, job?: Job): next is View {
   if (!next || job && !queue.current(job) && next.game_id !== view?.game_id) return false;
-  if (next.game_id === view?.game_id && next.revision < view.revision) return false;
+  if (!acceptedView(view, next)) return false;
   return true;
 }
 /** Draws one seat's view (the tool result's `_meta`, which the model never sees). */
 function show(next: View | undefined, job?: Job) {
   if (!acceptsView(next, job)) return false;
+  // End needs the reply's rules marker. The board keeps its cached rules.
   const before = view;
   if (next.rules) rules = { game: next.game_id, value: next.rules };
   // A full read carries the rules; a reply without them is for a game this board no longer shows.
   if (next.fen && rules?.game !== next.game_id) return false;
-  if (view?.game_id !== next.game_id || view.revision !== next.revision || view.status !== next.status || view.action !== next.action) gamesDirty = true;
+  if (view?.game_id !== next.game_id || view.revision !== next.revision || view.status !== next.status || view.action !== next.action) memory.dirty = true;
   if (view?.game_id !== next.game_id || view.revision !== next.revision) memory.blockNotice = '';
   if (view?.game_id !== next.game_id) $('invitation').textContent = '';
   view = next;
@@ -211,6 +231,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
     store.sync();
   }
   let followup: Pending | undefined, received: View | undefined, refused: { text: string; code: string; game?: string } | undefined;
+  let code: string | undefined;
   if (quiet) polling = true;
   const body = async (): Promise<Outcome> => {
     try {
@@ -243,7 +264,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
         if (late()) { settleLate(result); return { status: 'superseded' }; }
       }
       if (result.isError) {
-        const text = resultText(result), code = resultCode(result);
+        const text = resultText(result); code = resultCode(result);
         if (code === 'HANDLE_NEEDED') {
           // A retained command keeps state.pending with its error (design §2); a selection keeps its own continuation.
           if (own && state.pending === own) failPending(text, own, job);
@@ -291,7 +312,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       // Three failed polls in a row (or one failed foreground read) mark the board stale: "Not current", the lock and Try again.
       else if (name === 'kingdown_get' && state.board_id) store.dispatch({ type: 'failed-read', text: message, ...(view?.game_id && { game: view.game_id }) });
       else if (queue.current(job) && state.screen === commandScreen) store.dispatch({ type: 'error', text: message });
-      return refused ? { status: 'refused', code: refused.code, text: refused.text, result: EMPTY } : { status: 'failed', text: message };
+      return refused ? { status: 'refused', code: refused.code, text: refused.text, result: EMPTY } : { status: 'failed', code, text: message };
     } finally { if (quiet) polling = false; }
   };
   const outcome = await body();
@@ -315,16 +336,7 @@ $('retry').onclick = () => {
 $('computer').onclick = () => { if (view) void call('kingdown_computer', { game_id: view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision }, true); };
 $('invite').onclick = () => { if (view) void call('kingdown_invite', { game_id: view.game_id }); };
 type ToolResult = Awaited<ReturnType<typeof client.call>>;
-function renderGames(entries: InboxEntry[]) {
-  memory.games = entries; gamesDirty = false;
-  $('games-status').textContent = ''; $('games-empty').hidden = !!entries.length;
-  turnLine(entries.filter(entry => entry.action === 'ready').length);
-  renderGameRows();
-}
-export function renderGameRows() {
-  gamesList($('games-list'), memory.games, (name, args) => call(name, args, false, false, false), routeView);
-  actions(); scrollNewGame();
-}
+export function renderGameRows() { hall.render(); }
 function remember(result: ToolResult, job?: Job) {
   if (result._meta?.settings) memory.settings = result._meta.settings as PlayerSettings;
   if (result._meta?.me) {
@@ -332,7 +344,7 @@ function remember(result: ToolResult, job?: Job) {
     if (me.handle !== before?.handle || me.icon !== before?.icon) renderIdentity();
   }
   if (job && !queue.current(job)) return;
-  if (Array.isArray(result._meta?.games)) renderGames(result._meta.games as InboxEntry[]);
+  if (Array.isArray(result._meta?.games)) hall.acceptGames(result._meta.games as typeof memory.games);
   const value = result.structuredContent as Record<string, unknown> | undefined;
   if (value && typeof value.your_turn_count === 'number') turnLine(value.your_turn_count);
 }
@@ -348,7 +360,12 @@ app.ontoolresult = result => {
   // the mount waits for a selection or a settings read (design §2 and §3.3).
   store.sync();
   // render() unlocks the controls after the job settles: `mounting` stays true through the body (design §2).
-  void queue.run(job, () => mountBody(job, result, abort.signal)).then(outcome => { if (outcome.status !== 'superseded') store.sync(); });
+  void queue.run(job, () => mountBody(job, result, abort.signal)).then(outcome => {
+    if (outcome.status === 'superseded') return;
+    store.sync();
+    const screen = state.screen;
+    if (!memory.dirty && (screen === 'play' || screen === 'profile' || screen === 'settings')) enterRead?.({ screen });
+  });
 };
 async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
   const initial = job.options.initial === true;
@@ -359,12 +376,12 @@ async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
     if (stale()) return;
     const value = result.structuredContent as Record<string, unknown> | undefined, board = result._meta?.board_id;
     if (!initial || !state.board_id) state.board_id = typeof board === 'string' ? board : typeof value?.game_id === 'string' ? state.board_id : undefined;
-    remember(result);
+    remember(result, job);
     if (initial || !memory.settings || !memory.me) {
       const settings = await client.call('kingdown_settings', {}, { limit: false, signal });
       if (stale()) return;
       if (settings.isError) throw new Error(resultText(settings));
-      remember(settings); await applySettings(); store.dispatch({ type: 'connected' });
+      remember(settings, job); await applySettings(); store.dispatch({ type: 'connected' });
     }
     if (stale()) return;
     if (result.isError) {
@@ -376,7 +393,7 @@ async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
       if (home.isError) throw new Error(resultText(home));
       // The empty Open gives this board its own board; the mount keeps it (design §1.2, the mount selects the board).
       state.board_id = (home._meta?.board_id as string | undefined) ?? state.board_id;
-      remember(home); client.save(); return;
+      remember(home, job); client.save(); return;
     }
     if (!initial && value?.screen === 'home') openHallOnExpand = false;
     if (value?.screen === 'join') { memory.preview = result._meta?.preview as JoinPreview | undefined; memory.code = memory.preview?.code ?? ''; memory.joinError = undefined; }
@@ -386,7 +403,7 @@ async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
       const selected = await client.call('kingdown_open', { game_id: value.game_id }, { limit: false, background: true, signal });
       if (stale()) return;
       if (selected.isError) throw new Error(resultText(selected));
-      state.board_id = selected._meta?.board_id as string | undefined; remember(selected);
+      state.board_id = selected._meta?.board_id as string | undefined; remember(selected, job);
     }
     // A saved game follows its status. Keep its state.pending command on its screen unless the game ends.
     const savedGame = !!(initial && savedScreen && GAME_SCREENS.includes(queuedAtStart ?? savedScreen));
@@ -445,8 +462,8 @@ function pollTarget(): PollTarget | undefined {
   } };
 }
 export const pollUpdate = () => poll?.update();
-app.onclose = () => { connected = false; poll?.stop(); stopHandleCheck(); queue.close(); };
-app.onteardown = async () => { connected = false; poll?.stop(); stopHandleCheck(); client.save(); queue.close(); return {}; };
+app.onclose = () => { connected = false; poll?.stop(); stopHandleCheck(); hall.dispose(); queue.close(); };
+app.onteardown = async () => { connected = false; poll?.stop(); stopHandleCheck(); client.save(); hall.dispose(); queue.close(); return {}; };
 const connection = app.connect().then(() => {
   connected = true; store.dispatch({ type: 'connected' });
   const context = app.getHostContext(); hostContext(context);
@@ -481,7 +498,7 @@ async function fullscreen(screen: Screen, back?: Screen) {
 }
 export function showNewGame() { newGameFirst = true; navigate('play'); }
 function scrollNewGame() {
-  if (!newGameFirst || state.screen !== 'play' || gamesDirty || mounting()) return;
+  if (!newGameFirst || state.screen !== 'play' || memory.dirty || mounting()) return;
   const heading = $('new-game-head'), body = heading.closest<HTMLElement>('.new-game-body')!;
   body.scrollTop += heading.getBoundingClientRect().top - body.getBoundingClientRect().top;
   newGameFirst = false;
@@ -513,9 +530,9 @@ export function navigate(screen: Screen, queued?: Screen) {
   if (screen === 'play') document.querySelectorAll<HTMLElement>('[data-screen="play"] .new-game-body').forEach(el => { el.scrollTop = 0; });
   if (!mounting() && screen in screens) screens[screen as keyof typeof screens]();
   client.save(); poll?.update();
-  if (['home', 'play'].includes(screen) && !mounting()) {
-    if (gamesDirty) void games(); else if (screen === 'play') renderGameRows();
-  }
+  if (screen === 'play' || screen === 'profile' || screen === 'settings') {
+    if (!mounting()) enterRead?.({ screen });
+  } else if (screen === 'home' && !mounting() && memory.dirty) void games();
   if (screen === 'play') scrollNewGame();
   if (screen === 'play' && gamesFirst) { gamesFirst = false; $('games-list').closest<HTMLElement>('.new-game-body')!.scrollTop = 0; }
   if (screen === 'settings') void applySettings();
@@ -536,27 +553,11 @@ function hostContext(context: McpUiHostContext | undefined) {
   if (displayMode === 'fullscreen' && resume && !asking) { const screen = resume; resume = undefined; collapsed = false; navigate(screen); }
   else if (showHall && state.screen === 'home' && !asking) navigate('play');
 }
-let listRead = 0;
-/** Only the newest list read in the current epoch can write its result. */
+/** The origin and the shared read must both remain current. */
 async function games(origin?: Job, signal = origin?.options.signal) {
   if (queue.closed() || origin && !queue.current(origin)) return false;
-  const job = queue.command('read', 'kingdown_games', {}, { user: false, origin });
-  const read = ++listRead, current = () => read === listRead && queue.current(job);
-  $('games-status').textContent = 'Loading games…';
-  const outcome = await queue.run(job, async () => {
-    try {
-      const result = await client.call('kingdown_games', {}, { ...(origin?.options.mount && { limit: false }), signal });
-      if (!current()) return { status: 'superseded' };
-      if (result.isError) throw new Error(resultText(result));
-      renderGames((result._meta?.games as InboxEntry[] | undefined) ?? []);
-      return { status: 'done', result };
-    } catch (error) {
-      if (!current()) return { status: 'superseded' };
-      const text = errorText(error); $('games-status').textContent = text;
-      return { status: 'failed', text };
-    }
-  });
-  return outcome.status === 'done' && current();
+  const current = await hall.refresh(signal);
+  return current && (!origin || queue.current(origin));
 }
 let picture: Icon = 'spirit';
 document.querySelectorAll<HTMLImageElement>('[data-art]').forEach(img => { img.src = art(img.dataset.art!); });
@@ -624,7 +625,7 @@ $('home-play').onclick = () => {
 };
 $('home-games').onclick = () => { collapsed = false; resume = undefined; gamesFirst = true; void fullscreen('play'); };
 $('hall-play').onclick = $('games-start').onclick = () => playNow();
-document.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button => { button.onclick = () => navigate(button.dataset.nav as Screen); });
+document.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button => { if (!button.onclick) button.onclick = () => navigate(button.dataset.nav as Screen); });
 $('page-back').onclick = () => navigate(state.screen === 'handle' ? handleBack : state.screen === 'collection' ? 'profile' : state.screen === 'settings' ? state.settings_back ?? 'play' : 'play');
 app.onhostcontextchanged = () => hostContext(app.getHostContext());
 navigate(state.screen, queuedAtStart);

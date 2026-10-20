@@ -1,9 +1,9 @@
 import { call, client, memory, pollUpdate, routeView, showNewGame, store } from '../app';
-import { art } from '../art';
+import { art } from '../../account-game/art';
 import { ending, endReason } from '../ending';
 import type { PollTarget } from '../poll';
 import { PLAIN_KINGS } from '../../rules/engine';
-import { pendingHere, staleRead, type Page } from '../state';
+import { pendingHere, staleRead, type Page } from '../../account-game/state';
 import { boardGame, closeBoardSheet, sendBoardCommand, skipBoardCeremony } from './board';
 import { playerBlockButton } from './board-actions';
 import { rematchChoices } from './end-model';

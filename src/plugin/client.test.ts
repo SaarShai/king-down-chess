@@ -166,3 +166,44 @@ it('saves the draft with a short tag and its LANs, never the game ID, and brings
   const older = createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState: { privateContent: { screen: 'board', draft: { game_tag: 'aa', fen: 'f', lans: [1, 2] } } } as any });
   expect(older.state.draft).toEqual({ game_tag: 'aa', fen: 'f', lans: ['1', '2'] });
 });
+
+it('reads complete private games and views through the typed adapter', async () => {
+  const { pluginGameClient } = await import('./client'), { createQueue } = await import('./queue');
+  const games = [{ game_id: 'full-id', options: { cards: true }, created_at: 'now' }];
+  const view = { game_id: 'full-id', revision: 4, rules: { kings: [] }, opponent: { handle: 'friend' }, server_now: 'now' };
+  const callServerTool = vi.fn(async () => ({ content: [], structuredContent: { games: ['short'] }, _meta: { games } }));
+  const send = vi.fn(async () => ({ status: 'done' as const, result: { content: [], structuredContent: { game: 'short' }, _meta: { view } } }));
+  const client = pluginGameClient(createClient({ callServerTool }), createQueue(), send), { signal } = new AbortController();
+  expect(await client.games(signal)).toBe(games); expect(await client.game('full-id', signal)).toBe(view);
+  expect(callServerTool).toHaveBeenCalledExactlyOnceWith({ name: 'kingdown_games', arguments: {} }, { timeout: 10_000, signal });
+  expect(send).toHaveBeenCalledExactlyOnceWith('kingdown_resume', { game_id: 'full-id' }, { route: false, signal });
+});
+it('keeps the mount timeout rule and rejects an old list after a new epoch', async () => {
+  const { pluginGameClient } = await import('./client'), { createQueue } = await import('./queue');
+  let release!: (value: { content: [] }) => void;
+  const callServerTool = vi.fn(async () => new Promise<{ content: [] }>(resolve => { release = resolve; }));
+  const queue = createQueue(), mount = queue.chatResult(true), { signal } = new AbortController();
+  const read = pluginGameClient(createClient({ callServerTool }), queue, vi.fn()).games(signal);
+  expect(callServerTool).toHaveBeenCalledExactlyOnceWith({ name: 'kingdown_games', arguments: {} }, { signal });
+  queue.chatResult();
+  await expect(read).rejects.toMatchObject({ name: 'AbortError' });
+  expect(queue.current(mount)).toBe(false); release({ content: [] });
+});
+it.each(['games', 'game'] as const)('keeps service errors, transport errors and aborts in %s', async method => {
+  const { pluginGameClient } = await import('./client'), { createQueue } = await import('./queue');
+  const callServerTool = vi.fn().mockResolvedValue({ isError: true, content: [{ type: 'text', text: 'No game' }], _meta: { code: 'NOT_FOUND' } });
+  const send = vi.fn().mockResolvedValue({ status: 'failed', code: 'NOT_FOUND', text: 'No game' });
+  const client = pluginGameClient(createClient({ callServerTool }), createQueue(), send), abort = new AbortController();
+  const read = () => method === 'games' ? client.games(abort.signal) : client.game('full-id', abort.signal);
+  await expect(read()).rejects.toMatchObject({ name: 'GameReadError', code: 'NOT_FOUND', message: 'No game' });
+  callServerTool.mockRejectedValue(new Error('Transport lost')); send.mockResolvedValue({ status: 'failed', text: 'Transport lost' });
+  await expect(read()).rejects.toMatchObject({ code: 'UNAVAILABLE', message: 'Transport lost' });
+  abort.abort(); await expect(read()).rejects.toMatchObject({ name: 'AbortError' });
+  expect(callServerTool).toHaveBeenCalledTimes(method === 'games' ? 2 : 0); expect(send).toHaveBeenCalledTimes(method === 'game' ? 2 : 0);
+});
+
+it('does not send a call with an already aborted signal', async () => {
+  const callServerTool = vi.fn(), client = createClient({ callServerTool }), abort = new AbortController();
+  abort.abort(); await expect(client.call('kingdown_resume', {}, { signal: abort.signal })).rejects.toMatchObject({ name: 'AbortError' });
+  expect(callServerTool).not.toHaveBeenCalled(); expect(client.inflight).toBe(0);
+});

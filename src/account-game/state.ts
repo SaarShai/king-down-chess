@@ -1,6 +1,6 @@
 // The client's one state slot (design §1 and §3, ticket 19 S2): the notice reducer, the message line,
 // the scoped locks and render(). This file holds no transport code, so its selectors are pure.
-import type { Pending, Screen } from './client';
+import type { Pending, Screen } from './types';
 import type { View } from '../match/protocol';
 
 /** The four notice kinds (design §1.1). One slot; the first match wins in the message line. */

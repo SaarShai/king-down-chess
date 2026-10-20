@@ -1,5 +1,5 @@
 import type { View } from '../match/protocol';
-import type { Screen } from './client';
+import type { Screen } from '../account-game/types';
 import type { JobOptions } from './queue';
 export function createRouter(call: (name: string, args: Record<string, unknown>, options: JobOptions) => Promise<View | undefined>, navigate: (screen: Screen) => void, show: (view: View) => boolean | void) {
   function routeView(view: View) {

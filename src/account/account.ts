@@ -6,9 +6,7 @@
  */
 import { Sync, stamp, type Section } from './sync';
 import type { Client, Provider } from './client';
-
-/** Where the Supabase client keeps the session in localStorage. */
-export const AUTH_KEY = 'kingdown.auth';
+import { AUTH_KEY } from './session';
 export type User = { name: string; avatar: string | null; provider: string };
 type AuthUser = { user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> };
 
