@@ -7,6 +7,100 @@ Type: task
 
 Scope: picks-1020, lane controls. The owner approves A2 b, A30 b, and A34 a.
 
+### A10 a: reduce board grain contrast by 25%
+
+Scope: `picks-1020-followups`, lane `picks-controls-a10`. The owner permits a
+code filter on the full-size source. Keep all other picks on this branch.
+
+Plan: scale each full-size tile crop's RGB values about its own mean by 0.75,
+before the resize, tone, bevel, outline, and grout. Keep the source images and
+the fixed layout. Export only the board PNG and its two WebP copies. Add tests
+for the filter, tile colours, edges, dimensions, and file size limits.
+
+Pass: the float grain contrast is 75% of the source. Each tile's mean changes
+by less than 1 unit per channel. Record the decoded export contrast as well.
+Keep each file within its old byte count and the plugin page below 1,000,000
+bytes. Run the type check, the full M1 unit and art suite, and `plugin-ui` with
+`KD_RUNNER=m1`. Capture the changed board at phone and desktop sizes, one
+browser at a time through `tools/test-lock.sh`.
+
+The filter reads the same 330 x 330 crops from the two 1254 x 1254 source
+PNGs. It scales each RGB channel about that crop's mean by 0.75. Float
+channels keep the exact gain through the resize. The final export has one
+8-bit conversion. No source PNG, game rule, CSS, control, or other pick
+changes. This follow-up clears the prior A10 art block below.
+
+Grain contrast is the population standard deviation in each RGB channel.
+The values below are the mean of the 32 full-size crops for each stone.
+
+| Stone | RGB contrast before | RGB contrast after | RGB mean before and after |
+| --- | --- | --- | --- |
+| Light | 11.360811, 10.744278, 10.039595 | 8.520608, 8.058208, 7.529696 | 219.252336, 203.833749, 172.090044 |
+| Dark | 5.414679, 4.574133, 3.893488 | 4.061009, 3.430600, 2.920116 | 55.157484, 48.105585, 40.938825 |
+
+All 192 tile/channel source ratios are 0.75 within 0.000000000001.
+The largest source mean change is less than 0.000000001 of 255.
+
+The decoded export check excludes grout, outline, and bevel from each tile's
+flat face. It compares each old file at `5947e1a2` with its new file.
+
+| File | Pixels | Bytes before | Bytes after | Largest tile mean change in R, G, B |
+| --- | --- | ---: | ---: | --- |
+| Board PNG | 1024 x 1024 | 1,478,995 | 1,313,265 | 0.516, 0.514, 0.505 |
+| Board WebP | 1024 x 1024 | 112,300 | 86,066 | 0.598, 0.481, 0.685 |
+| UI WebP | 640 x 640 | 29,566 | 26,566 | 0.655, 0.654, 0.954 |
+
+The median decoded contrast ratios are 0.751131, 0.735663, and 0.751350 in
+that order. The 8-bit conversion and WebP compression affect these ratios.
+The exact 25% cut applies to the full-size source values. Every decoded tile
+keeps its mean change below 1 unit per channel. `grain-measure.json` in the
+`picks-controls-a10` lane folder has every before and after mean and contrast.
+
+The board WebP keeps quality 86. The UI WebP uses quality 80 and method 6 to
+fit its old byte limit and keep each tile colour within the required limit.
+Taste choice: none. The filter uses each tile's own mean and keeps the same
+grain pattern, crop, turn, tone, bevel, outline, and grout.
+
+#### A10 check results
+
+Status: built; the final M1 unit and browser checks are blocked.
+
+- The type check and both builds pass. The plugin HTML is 909,409 bytes.
+  Its resource payload is 913,292 bytes. Both stay below 1,000,000 bytes.
+  Logs: `typecheck-a10-1.txt`, `build-plugin-a10.txt`, and `build-web-a10.txt`.
+- The capture passes with 54 before and after pairs at 2x scale. The plugin
+  uses 390 x 844 and 1280 x 800. The web adds 1440 x 900. Both themes show
+  the board, staged move, home, and result. The plugin also shows Seat and
+  Wait. The web also shows the Workshop. All 54 after images pass the visual
+  review. Each capture uses `bash tools/test-lock.sh`, one browser at a time.
+  Proof: `capture-proof.json`, `shots/`, and the seven `review-*.jpg` sheets.
+- Each before image uses the board bytes from `5947e1a2`. The after images
+  use the A10 exports. The app source and all other art stay the same.
+  Two Workshop capture attempts use hidden menu controls. The final helper
+  uses `pressMenu` and passes. No app change or time limit change is needed.
+- The full M1 helper starts at `ed8e48fd`. The shipped-image tests pass:
+  all 64 tile colours, the grid, a fresh PNG export, both WebP copies,
+  dimensions, and byte limits. The synthetic precision test fails because
+  its fractional mean has a summation error of 0.000000000327. Its fixture
+  now has whole-number means. Both exact assertions stay the same.
+- The same full run has broad module-load failures and screen timeouts.
+  The M1 reports 116 MiB free and 100% disk use. The lane verifies its own
+  test PID and sends an interrupt. The helper ends with exit 130. The art
+  command does not start. Log: `unit-a10-1.txt`. This is not a full-suite pass.
+- The lane removes only the transfer bundle that this run creates, after
+  the copy ends. The M1 still has too little free space. At `c718fffb`, the
+  focused unit helper and the required `KD_RUNNER=m1` browser helper both
+  stop with exit 2: SCP cannot write `/tmp/kd-gui-prev-controls.bundle`.
+  Neither starts its tests. Logs: `unit-a10-focused-2.txt` and
+  `checks-a10-1.txt`. The corrected precision fixture remains unverified.
+- No test runs on this Mac. No assertion, test limit, check limit, or retry
+  setting changes. No server code changes, so `plugin-ui-http` does not apply.
+
+The remaining check work needs free space on the M1, then the full unit and
+art helper and the required `KD_RUNNER=m1` `plugin-ui` helper at the final
+commit. No command from this lane remains active. The work stays on this
+branch. No scoped build part is omitted.
+
 Plan:
 1. A2: change each red action to a short cloth banner. Keep the full touch box.
 2. A30: keep each disabled action's frame and lower shadow. Dull its face only.
