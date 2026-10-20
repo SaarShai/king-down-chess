@@ -158,6 +158,7 @@ it.each(['Skip mouse', 'Skip touch', 'Finish'])('keeps the king fall running whe
     expect(await frame.locator('html').evaluate(() => (window as any).falls)).toEqual([true]);
     if (ending !== 'Finish') {
       expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.falling)).toBe(true);
+      await frame.locator('#over').evaluate(async el => { await Promise.all(el.getAnimations().map(a => a.finished)); });
       const box = (await frame.locator('#end-skip').boundingBox())!;
       if (ending === 'Skip touch') await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
       else await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
