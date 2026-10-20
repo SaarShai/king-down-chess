@@ -1,7 +1,7 @@
 # Preserve screen state and stop late work on teardown
 
 Type: bug
-Status: claimed
+Status: resolved
 
 ## Plan
 
@@ -33,3 +33,7 @@ Profile now stops and invalidates its request number. Its held reads, error/fina
 The independent reader found that the king picker must settle its promise on stop. The existing screen lifecycle unit test catches this. The completion callback now runs during disposal; the Cards callback returns before its focus work. The main task also identified that badge Close must clear its saved sheet after ordinary navigation away from Profile. That close handler now checks only stopped/closed lifetime, while Profile reads retain their active-screen checks.
 
 The combined regression run fails before these corrections: 18 pass, the existing picker-settlement test times out, and badge Close on Play keeps the old sheet. After the corrections, `KINGDOWN_TEST_FILE='{src/plugin/screens/lifecycle,tools/plugin-screen-lifecycle}.test.ts' KINGDOWN_TEST_LOCK_WAIT=180 npm test` passes all 20 cases in two files, full typecheck and 54 artwork checks. Logs: `/tmp/kingdown-screen-settlement-red.log` and `/tmp/kingdown-screen-settlement-green.log`. The unit also checks that disposal retains the king sheet and saves nothing extra.
+
+## Integrated acceptance
+
+Compiled `plugin-ui-http` passes on source `9f719633`, run `app-dpkaQp`, in 235.8 seconds. It passes the complete journey and final browser error assertion. The run log and phone/desktop failed-rematch images are retained in the parent project `evidence/staging-shared-mechanics/`. This resolves the focused fault; the U05 parent still owns final staging acceptance.

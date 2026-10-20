@@ -1,7 +1,7 @@
 # Tear down the widget before a host remount
 
 Type: bug
-Status: claimed
+Status: resolved
 
 ## Plan
 
@@ -39,3 +39,7 @@ The host now records an explicit state injection until a later accepted live wri
 No new check, browser, build or test runs in this follow-up before the main task frees the test lane.
 
 The compiled HTTP run `app-Dfr0Y7/plugin-ui-http.log` reaches the Seat case but loses an injected old-game retained read at driver line 1026. Its setup directly mutates `privateContent.pending`, so it bypasses the setter. The fixture now assigns a copied full widget state through that existing setter. The original saved-tag, Ready-enabled and hidden-Retry assertions remain the exact regression. No product, host fallback or assertion changes. Syntax and diff checks pass; the main task runs the compiled acceptance after integration.
+
+## Integrated acceptance
+
+Compiled `plugin-ui-http` passes on source `9f719633`, run `app-dpkaQp`, in 235.8 seconds. It passes the complete journey and final browser error assertion. The run log and phone/desktop failed-rematch images are retained in the parent project `evidence/staging-shared-mechanics/`. This resolves the focused fault; the U05 parent still owns final staging acceptance.

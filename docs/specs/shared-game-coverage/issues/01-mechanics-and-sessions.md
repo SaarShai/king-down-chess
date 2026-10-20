@@ -80,3 +80,13 @@ The compiled matrix checks complete-turn boundaries and the final state on both 
 Run `app-iyECZN` on source `43b6f40e` passes all 55 named cases on both surfaces (110 executions, 126 seconds) and writes `shared-mechanics.json`. Accepted state, history, uses, reload and browser error assertions all pass. The report and log are preserved in the parent project evidence folder. This is local compiled HTTP/MCP coverage, not 110 actual ChatGPT host opens.
 
 The same run exposes a failed-rematch Resume loop in the full embedded journey. U07 ticket 04 owns its minimal retained-Retry fix and 30 passing source checks. The broader source app suite passes 131 of 133 cases; its two failures identify a missing Next game refresh and an invalid same-identity rules mutation in the power-focus test. Both remain explicit gates before the next compiled journey and staging verification. No matrix rerun is required for rematch-only recovery changes.
+
+## Compiled journey pass and actual staging finding
+
+The two source app failures are repaired in `9f719633`: the next ready-game candidate refreshes the action row, and the focus regression uses an actual Haste game with a presence-only update. Both selected cases pass; the other 131 are deliberately excluded in that focused run, not newly claimed as passing.
+
+The complete compiled `plugin-ui-http` run `app-dpkaQp` passes in 235.8 seconds, including SDK remount, phone/desktop rematch recovery, account journeys and the final browser error assertion. All current U05 compiled gates now have evidence.
+
+Source `9f719633` is deployed only to staging as `dpl_DcfdH39aR1MN387bX7YsxdLpJshX`. The staging alias index hash matches the built artifact. Native ChatGPT opens and resumes the preserved game without Try again. Native website startup also succeeds; an earlier debugger-attached reload fails the cache access gate. Preserve that tooling limit rather than weakening the gate.
+
+The preserved game accepts website Freeze plus knight movement, then ChatGPT Ice Wall plus knight movement. Both surfaces show the same 15 accepted actions after reload, including the computer Ice Wall and stationary archer capture. This live check also finds an empty Choose a move list after a card step. Direct board continuation works; the picker reopens cleared DOM instead of current choices. The source fix and final staging recheck remain open. U05 is not complete.

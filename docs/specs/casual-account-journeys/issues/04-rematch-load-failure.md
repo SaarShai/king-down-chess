@@ -1,7 +1,7 @@
 # Keep the result when a rematch board load fails
 
 Type: task
-Status: claimed
+Status: resolved
 
 ## Plan and scope
 
@@ -38,3 +38,7 @@ Two focused source-harness cases reproduce the missing Retry before the product 
 Independent review identifies the permanent-refusal case: Resume names the new game, but its error must appear on the old result. A third source case reproduces the hidden refusal (`/tmp/kingdown-u07-rematch-refusal-red.log`). Scope that notice to the finished game that names this rematch. Keep no pending retry after a definitive refusal and send no automatic Resume loop.
 
 The repaired source checks pass all 30 tests in `src/account-game/state.test.ts` and `tools/plugin-rematch-recovery.test.ts`, full typecheck and 54 artwork checks. Independent review finds no remaining should-fix in refusal scope, saved-ID privacy, late reply handling or retry. The full compiled journey and staging remain the closure gate.
+
+## Integrated acceptance
+
+Compiled `plugin-ui-http` passes on source `9f719633`, run `app-dpkaQp`, in 235.8 seconds. It passes the complete journey and final browser error assertion. The run log and phone/desktop failed-rematch images are retained in the parent project `evidence/staging-shared-mechanics/`. This resolves the focused fault; the U05 parent still owns final staging acceptance.
