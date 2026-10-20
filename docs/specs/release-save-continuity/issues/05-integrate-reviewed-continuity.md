@@ -1,6 +1,6 @@
 # Integrate reviewed setup and browser-save continuity
 
-Status: source checks passed; parent final review and integrated acceptance remain open.
+Status: integrated and independently reviewed; combined compiled acceptance remains open.
 
 ## Plan and acceptance
 
@@ -36,3 +36,17 @@ Result: exit 0, full typecheck, 19 files / 486 tests with no skips, and 54 art c
 - Root's read-only staging preflight reports zero unstamped pending games, four playing games and all seven required archives retained. It reports that `setup_admission` is absent. These are root's preflight observations, not a database operation by this worktree.
 - Apply the add-only, nullable `supabase/migrations/0017_setup_admission.sql` through the root's approved staging process before serving this account setup code. Existing initialized games retain their saved state; do not infer an old pending setup or delete an archive.
 - Root performs final review, combines the later preview candidate, and runs integrated compiled/native acceptance once. This source bundle authorizes no staging database change, deployment or public matching change.
+
+## Root integration and staging schema
+
+Root integrates the unchanged aggregate as `c6ffec4d`. Independent review confirms that the setup and save product files equal the accepted candidates. The HTTP test merge preserves private account notice and hidden-choice checks. No manual conflict resolution is needed.
+
+The owner-authorized staging process applies `0017_setup_admission.sql` only to `puhspsyjyzaghmgtkzqd`, before deployment of this server. The SQL editor returns `setup_admission`, `jsonb`, `YES` for the column name, type and nullable property. The change adds no default, backfill or broader grant. The parent evidence folder retains `continuity-staging-migration.png`, `continuity-integration.json` and the combined source log.
+
+The source is not deployed yet. Root will combine the stored-engine draft preview and run the changed compiled journeys before publishing a new staging artifact.
+
+## Combined browser acceptance plan
+
+The existing 55-row mechanics driver covers the current worker. Add one fixed `bab22e94` Haste continuation to the same driver, on both emitted clients. Require an actual initial HTTP/MCP draft-preview response with the archived identity and accepted base before the normal move, commit, history and reload checks. Keep the 55 mechanic cases distinct from this one archive case in the receipt: 56 cases, 112 surface executions. Do not count a source-page transport fixture as this compiled proof.
+
+After the preview candidate passes source checks and independent review, run `npm run check:browser shared-mechanics plugin-ui-http web-online painted-game` once on the combined tree with the disposable loopback database. These changed paths justify the integrated rerun. Preserve unchanged U04 evidence. Review any failure before adding checks or repeating the run.

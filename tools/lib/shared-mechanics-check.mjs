@@ -83,11 +83,14 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
   const { toLan } = await import('../../src/rules/setup.ts');
   const { cardCoins } = await import('../../src/plugin/screens/board-model.ts');
   const { startHarness } = await import('../plugin-ui-harness.ts');
-  const { createMatch } = await import(pathToFileURL(join(root, 'functions/mcp.func/runtime/index.mjs')).href);
+  const { createMatch, createPinnedMatch } = await import(pathToFileURL(join(root, 'functions/mcp.func/runtime/index.mjs')).href);
+  const haste = SHARED_MECHANICS.find(row => row.id === 'power-haste');
+  assert(haste, 'The archived continuation reuses the Haste fixture');
+  const rows = [...SHARED_MECHANICS, { ...haste, id: 'archived-power-haste', engine: 'sha256:bab22e94d4df81591374763a7f3abe703c30534f80ce771ee3fe7e095dcec7da' }];
   const harnesses = [], contexts = [], reports = [], failures = [];
   const read = async (seat, id) => (await tool(seat, 'kingdown_get', { game_id: id }))._meta.view;
-  async function seed(setup) {
-    const match = await createMatch(setup), id = randomUUID();
+  async function seed(setup, engine) {
+    const match = engine ? await createPinnedMatch(setup, engine) : await createMatch(setup), id = randomUUID();
     try {
       const snapshot = await match.snapshot(), state = await match.exportSave();
       await pool.query(`insert into public.games(id,kind,speed,category,colour_rule,engine_fingerprint,setup,rules,status,turn,revision,state,snapshot,created_by,started_at)
@@ -124,11 +127,11 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
       page.setDefaultTimeout(15_000); failures.push(trapErrors(page));
       await page.emulateMedia({ reducedMotion: 'reduce' });
     }
-    for (const row of SHARED_MECHANICS) {
+    for (const row of rows) {
       const states = [];
       for (const surface of ['web', 'chatgpt']) {
         console.log(`START shared-mechanics ${row.id} ${surface}`);
-        const { id, match } = await seed(row.setup);
+        const { id, match } = await seed(row.setup, row.engine);
         try {
           let expected = await match.snapshot(), applied = [], finalSeat = expected.turn;
           const turns = row.turns ?? [row.actions];
@@ -136,6 +139,15 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
             const seat = expected.turn, before = await read(seat, id), page = (surface === 'web' ? webPages : pluginPages)[seat];
             finalSeat = seat;
             const ui = surface === 'web' ? page : page.frameLocator('iframe');
+            const previewed = row.engine && page.waitForResponse(response => {
+              const request = response.request();
+              if (request.method() !== 'POST') return false;
+              const input = request.postDataJSON();
+              return surface === 'web'
+                ? new URL(response.url()).pathname === `/api/games/${id}/preview` && input?.actions?.length === 0
+                : new URL(response.url()).pathname === '/fixture-tool' && input?.name === 'kingdown_preview' && input.arguments?.game_id === id && input.arguments?.actions?.length === 0;
+            });
+            if (previewed) void previewed.catch(() => {});
             if (surface === 'web') await page.goto(`${origin}/g/${id}`);
             else {
               const mounted = page.waitForResponse(response => readsGame(response, id));
@@ -147,6 +159,14 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
               await shot(page, `shared-mechanics-${row.id}-${surface}-mount-failure`);
               console.error(`${row.id}/${surface} mount: ${await ui.locator('body').innerText()}`);
               throw error;
+            }
+            if (previewed) {
+              const response = await previewed, body = await response.json(), preview = surface === 'web' ? body : body._meta?.draft;
+              assert.equal(response.status(), 200, `${row.id}/${surface}: stored-engine preview response`);
+              assert.equal(preview?.engine_fingerprint, row.engine, `${row.id}/${surface}: preview uses the retained archive`);
+              assert.equal(preview?.revision, before.revision, `${row.id}/${surface}: preview uses the current base`);
+              assert.equal(preview?.positions[0]?.fen, before.fen, `${row.id}/${surface}: preview starts at the accepted board`);
+              await ui.locator(`#power-${seat ? 'b' : 'w'}[data-state="ready"]`).waitFor();
             }
             const committed = page.waitForResponse(response => {
               const request = response.request();
@@ -201,7 +221,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
           assert.equal(await ui.locator('#board-sheet p').count(), row.actions.length, `${row.id}/${surface}: reloaded UI history`);
           await closeSheet(ui);
           states.push({ fen: resumed.fen, turn: resumed.turn, history: resumed.history.actions, status: resumed.status, result: resumed.result });
-          reports.push({ id: row.id, surface, game_id: id, revision: resumed.revision, ...states.at(-1) });
+          reports.push({ id: row.id, surface, game_id: id, revision: resumed.revision, ...(row.engine && { engine: row.engine, server_preview: true }), ...states.at(-1) });
           failures.forEach(assertNoErrors);
           console.log(`PASS shared-mechanics ${row.id} ${surface}`);
         } finally { await match.close(); }
@@ -214,7 +234,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
     }
     failures.forEach(assertNoErrors);
     await mkdir(env('PLAYABLE_OUT'), { recursive: true });
-    await writeFile(join(env('PLAYABLE_OUT'), 'shared-mechanics.json'), JSON.stringify({ cases: SHARED_MECHANICS.length, reports }, null, 2));
+    await writeFile(join(env('PLAYABLE_OUT'), 'shared-mechanics.json'), JSON.stringify({ cases: rows.length, mechanics_cases: SHARED_MECHANICS.length, archived_cases: rows.length - SHARED_MECHANICS.length, reports }, null, 2));
   } finally {
     for (const context of contexts) await context.close();
     for (const harness of harnesses) await harness.close();
