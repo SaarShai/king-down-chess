@@ -1,5 +1,5 @@
 import { formatDate, gameDetail, waitingLine } from '../../account-game/games-list';
-import { call, client, navigate } from '../../account-game/runtime';
+import { call, client, navigate, queue } from '../../account-game/runtime';
 import { art, symbols } from '../../account-game/art';
 import { WHY } from '../ending';
 import { BADGES, type Badge } from '../../match/badges';
@@ -10,16 +10,20 @@ import { features } from '../../account-game/features';
 import './profile.css';
 import { confirmBoardAction } from './board-actions';
 import { errorText } from '../../account-game/types';
+import { onStop } from './friend';
 type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null };
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
-let request = 0;
+let request = 0, stopped = false;
+const active = () => !stopped && !queue.closed() && client.state.screen === 'profile';
+onStop(() => { stopped = true; ++request; });
 let before: string | null = null, blocksAfter: string | null = null;
 const date = (at: string) => formatDate(at, { day: 'numeric', month: 'short' });
 const fullDate = (at: string) => formatDate(at, { day: 'numeric', month: 'short', year: 'numeric' });
 const GOALS: Record<Badge, string> = { first_win: 'Win a game.', friend_match: 'Finish a game with a friend.', stranger_match: 'Finish a game with a random player.', purist: 'Win a Classic game.', fairy_tale: 'Win with fairy pieces.', architect: 'Win with your own arrangement.', card_sharp: 'Win a game with cards.', crowned: 'Win with a king power.', royal_collection: 'Win with all six kings.', giant_slayer: 'Beat the Strong computer.' };
 const badgeArt = (badge: Badge) => art(`assets/badge-${badge.replaceAll('_', '-')}.webp`);
-export function profileScreen() { $('profile-blocks-more').onclick = () => void readMoreBlocks(); $('profile-name').onclick = () => navigate('handle'); $('profile-more').onclick = () => { if (before) void readProfile(before); }; void readProfile(); }
+export function profileScreen() { if (!active()) return; $('profile-blocks-more').onclick = () => void readMoreBlocks(); $('profile-name').onclick = () => navigate('handle'); $('profile-more').onclick = () => { if (before) void readProfile(before); }; void readProfile(); }
 async function readProfile(cursor?: string) {
+  if (!active()) return;
   const reading = ++request;
   if (!cursor) { before = null; $('profile-more').hidden = true; }
   // Keep the rollers in view while More waits.
@@ -28,7 +32,7 @@ async function readProfile(cursor?: string) {
     $('profile-more').setAttribute('disabled', '');
     $('profile-blocks-more').setAttribute('disabled', '');
     const [result, games] = await Promise.all([client.call('kingdown_profile', cursor ? { before: cursor } : {}), cursor ? undefined : client.call('kingdown_games')]);
-    if (reading !== request || client.state.screen !== 'profile') return;
+    if (reading !== request || !active()) return;
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     if (games?.isError) throw new Error(games.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     const profile = result._meta as Profile, { record } = profile;
@@ -50,8 +54,8 @@ async function readProfile(cursor?: string) {
     renderBadges(record);
     if (!cursor) renderBlocks(profile);
     $('profile-status').textContent = '';
-  } catch (error) { if (reading === request && client.state.screen === 'profile') $('profile-status').textContent = errorText(error); }
-  finally { if (reading === request) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); } }
+  } catch (error) { if (reading === request && active()) $('profile-status').textContent = errorText(error); }
+  finally { if (reading === request && active()) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); } }
 }
 function renderBlocks(profile: Profile, append = false) {
   const rows = profile.blocks.map(player => {
@@ -67,18 +71,18 @@ function renderBlocks(profile: Profile, append = false) {
   $('profile-blocks-more').hidden = blocksAfter === null;
 }
 async function readMoreBlocks() {
-  if (!blocksAfter) return;
+  if (!active() || !blocksAfter) return;
   const reading = ++request;
   $('profile-more').setAttribute('disabled', '');
   $('profile-blocks-more').setAttribute('disabled', '');
   try {
     const result = await client.call('kingdown_profile', { blocks_after: blocksAfter });
-    if (reading !== request || client.state.screen !== 'profile') return;
+    if (reading !== request || !active()) return;
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     renderBlocks(result._meta as Profile, true);
     $('profile-status').textContent = '';
-  } catch (error) { if (reading === request && client.state.screen === 'profile') $('profile-status').textContent = errorText(error); }
-  finally { if (reading === request) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); } }
+  } catch (error) { if (reading === request && active()) $('profile-status').textContent = errorText(error); }
+  finally { if (reading === request && active()) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); } }
 }
 function renderBadges(record: PlayerRecord) {
   $('profile-badge-count').textContent = `${record.badges.length} of 10`;
@@ -95,6 +99,7 @@ function renderBadges(record: PlayerRecord) {
   if (selected in BADGES) $('profile-badges').querySelector<HTMLButtonElement>(`[data-badge="${selected}"] button`)!.click();
 }
 function showBadge(badge: Badge, detail: string) {
+  if (!active()) return;
   const dialog = $<HTMLDialogElement>('over');
   if (dialog.open && client.state.sheet === `badge:${badge}`) { $('badge-detail').textContent = detail; return; }
   if (dialog.open) dialog.close();
@@ -102,7 +107,7 @@ function showBadge(badge: Badge, detail: string) {
   dialog.className = 'over-sheet badge-sheet'; dialog.setAttribute('aria-labelledby', 'badge-title');
   dialog.innerHTML = '<header class="new-game-head"><h2 id="badge-title"></h2></header><div class="new-game-body"><img id="badge-art" alt=""><p id="badge-detail"></p></div><footer class="new-game-foot"><button id="badge-close">Close</button></footer>';
   $('badge-title').textContent = BADGES[badge]; $<HTMLImageElement>('badge-art').src = badgeArt(badge); $('badge-detail').textContent = detail;
-  $('badge-close').onclick = () => dialog.close(); dialog.onclose = () => { scrim.remove(); client.state.sheet = undefined; client.save(); $('profile-badges').querySelector<HTMLButtonElement>(`[data-badge="${badge}"] button`)?.focus(); };
+  $('badge-close').onclick = () => dialog.close(); dialog.onclose = () => { scrim.remove(); if (!active()) return; client.state.sheet = undefined; client.save(); $('profile-badges').querySelector<HTMLButtonElement>(`[data-badge="${badge}"] button`)?.focus(); };
   client.state.sheet = `badge:${badge}`; client.save(); dialog.showModal();
 }
 function openRow(entry: InboxEntry) {
@@ -132,9 +137,11 @@ function historyRow(entry: HistoryEntry) {
 }
 
 async function unblock(user_id: string) {
+  if (!active()) return;
   try {
     const result = await client.call('kingdown_block', { user_id, blocked: false });
+    if (!active()) return;
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
-    if (client.state.screen === 'profile') await readProfile();
-  } catch (error) { if (client.state.screen === 'profile') $('profile-status').textContent = errorText(error); }
+    if (active()) await readProfile();
+  } catch (error) { if (active()) $('profile-status').textContent = errorText(error); }
 }
