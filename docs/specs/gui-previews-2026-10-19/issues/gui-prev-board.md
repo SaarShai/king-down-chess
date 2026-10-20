@@ -289,7 +289,7 @@ The review fix is complete. Owner approval for the original previews stays open.
 
 ## Owner picks 2026-10-20
 
-Status: in progress. The owner authorizes picks-1020, Lane board.
+Status: complete. The owner authorizes picks-1020, Lane board.
 
 Plan and pass criteria:
 
@@ -335,3 +335,27 @@ No assertion, touch floor, time limit, or retry changes. The fixed code needs th
 The next run passes A8. The main plugin check clicks Menu while the computer piece still moves. A8 consumes that click, as required. The menu helper now waits for the board move to end before it opens Menu. The separate A8 checks still prove that a skip tap cannot open a menu or act on a square. No assertion or time limit changes.
 
 The menu wait must not require a visible board. The failed-load case hides the board and keeps Menu available. The wait now checks only that board motion ends. The failed-load assertions stay in place.
+
+### Final check results
+
+All five parts are built. Each part has its own first commit: A8 `38fbba11`, A14 `dd64c7f1`, A15 `6adcdd80`, A18 `135d994c`, and Y3 `b8bcebe3`. Later commits add the capture matrix and fix the check failures above.
+
+| Check | Code commit | Result |
+| --- | --- | --- |
+| Full M1 unit suite through m1-unit.sh | `0677b599` | Pass, 313.54 seconds. 186 files pass and 12 database files skip. 3,143 tests pass and 164 skip. |
+| plugin-ui | `0677b599` | Pass, 257.9 seconds. Runner exit 0. |
+| gui-board-a8 | `215a32ee` | Pass, 24.3 seconds. |
+| gui-board-a14 | `0599dad7` | Pass, 25.6 seconds. |
+| gui-board-a15 | `0599dad7` | Pass, 24.2 seconds. |
+| gui-board-a18 | `0599dad7` | Pass, 30.4 seconds. |
+| gui-board-y3 | `0599dad7` | Pass, 13.1 seconds. |
+
+The later code changes do not change the four screens checked at `0599dad7`. The two commits after `215a32ee` change the menu check and this record only. All 168 board tests, 13 PaintedView tests, 11 marks tests, and 31 phone size tests pass in the final suite. The type check, commit gates, and whitespace check pass. The board resource is 907,534 JSON bytes, which includes the HTML and stays below the 1,000,000-byte limit.
+
+All 42 after captures pass visual review: A8 10, A14 8, A15 10, A18 10, and Y3 4. They cover 390 × 844 and 1280 × 800 in both themes. The web also has 1440 × 900 captures. Each image has device scale 2. The gold tile stays visible behind the front figure and differs from green move tiles and the pale last-move wash. The sword, empty sheets, settings, and seat line have no new fit fault.
+
+The taste choice is a solid gold tile (`#d8aa43`) with a dark gold edge (`#684819`) at 2 CSS pixels. It has no foot glow. The other four parts need no new taste choice.
+
+The ticket's M1 helper replaces the requested local npm test command. It runs the Vitest suite, not the separate Node art phase. The skips include database cases and existing engine and balance cases. No local unit suite or browser check runs. No server code changes, so plugin-ui-http is not required. No part remains unbuilt. No assertion, touch floor, time limit, or retry is weakened. Nothing is pushed, merged to main, or deployed.
+
+Evidence is in the lane output folder: `unit-5.txt`, `checks-picks-5.txt`, `plugin-ui-final.log`, the earlier pick-check logs, `shots-review.json`, and `shots/`. The complete handoff is `picks-board-build.md` in that folder.
