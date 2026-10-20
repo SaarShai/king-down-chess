@@ -2535,13 +2535,31 @@ try {
   await tapEndAtZoom('Play again');
   await frame.locator('#over #retry').waitFor();
   const pendingRematch=await page.evaluate(()=>window.harnessWidgetState.privateContent.pending);
+  await page.evaluate(()=>{window.rejectNextAction={name:'kingdown_resume',code:'UNAVAILABLE',text:'Harness rematch board load failed'};});
   await tapEndAtZoom('Retry');
-  await page.waitForFunction(id=>window.harnessView.game_id!==id,ended.game_id); await idleBoard();
+  await frame.locator('#over #error').filter({hasText:'Harness rematch board load failed'}).waitFor();
+  const rematchGame = await page.evaluate(()=>window.harnessView.rematch_game_id);
+  assert(rematchGame && rematchGame!==ended.game_id,'The accepted rematch already names one new game');
+  assert.equal(await page.evaluate(()=>window.harnessView.game_id),ended.game_id,'A failed rematch board load keeps the finished game');
+  assert.equal(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen),'end','A failed rematch board load keeps the result screen');
+  for (const [width,height] of [[390,844],[1280,800]]) {
+    await page.setViewportSize({width,height});
+    assert(await frame.locator('#over[open] #retry').isVisible(),'The old result keeps board-load recovery visible');
+    assert.equal(await frame.locator('#over-title').innerText(),'You lose');
+    assert.equal(await frame.locator('#end-reason').innerText(),'You resigned.');
+    await shot(page,`rematch-load-failure-${width}-${mode}`);
+  }
+  await frame.locator('#over #retry').click();
+  await page.waitForFunction(id=>window.harnessView.game_id===id,rematchGame); await idleBoard();
   assert.equal(await page.evaluate(()=>window.harnessView.seat),ended.seat,'Play again keeps the player colour');
   const rematchSent = await page.evaluate(n=>window.harnessCalls.slice(n),rematchCalls);
   assert.equal(rematchSent.find(c=>c.name==='kingdown_rematch').arguments.choice,'offer','Solo rematch offers, never accepts');
   assert.deepEqual(rematchSent.filter(c=>c.name==='kingdown_rematch').map(c=>c.arguments.command_id),[pendingRematch.args.command_id,pendingRematch.args.command_id],'A lost rematch reply retries the same command');
   const resumedCall = rematchSent.find(c=>c.name==='kingdown_resume'); assert(resumedCall && resumedCall.arguments.board_id,'The new game resumes on the same board');
+  const resumes = rematchSent.filter(c=>c.name==='kingdown_resume');
+  assert.equal(resumes.length,2,'Board-load recovery retries Resume without another rematch');
+  assert.deepEqual(resumes[1].arguments,resumes[0].arguments,'Board-load recovery opens the same new game on the same board');
+  assert.equal(resumedCall.arguments.game_id,rematchGame);
   assert(!rematchSent.some(c=>c.name==='kingdown_get' && c.arguments.game_id===resumedCall.arguments.game_id),'Rematch never reads the new game by ID');
   assert(['board','seat'].includes(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen)));
   await legacyStart('solo'); await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
