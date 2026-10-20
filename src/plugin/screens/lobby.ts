@@ -2,9 +2,10 @@ import { call, client, memory, navigate, routeView, send, start } from '../app';
 import { DEFAULT_OPTIONS, switches } from '../../match/setup';
 import type { InboxEntry, Lobby, View } from '../../match/protocol';
 import type { PollTarget } from '../poll';
-import type { Page } from '../state';
+import type { Page } from '../../account-game/state';
 import { ANY_RULES } from './setup';
-import { $, featureNames, features, icon, onStop, portrait, row, showError } from './friend';
+import { $, onStop, portrait, row, showError } from './friend';
+import { featureNames, features, icon } from '../../account-game/features';
 let finding = false, accepting = false, afterHandle: string | undefined;
 // The list uses the runner's visible 15-second schedule, with no board position.
 const listClock = { kind: 'random', status: 'playing', speed: 'live', seat: 0, turn: 0, opponent: null, last_commands: [], server_now: '' } as unknown as View;

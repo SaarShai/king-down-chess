@@ -1,6 +1,6 @@
 import { call, client, gameActionsBlocked, memory, navigate, routeView } from '../app';
 import type { Job } from '../queue';
-import { art } from '../art';
+import { art } from '../../account-game/art';
 import { board, highlight } from '../board-view';
 import { ending } from '../ending';
 import { fromFen } from '../../rules/setup';
@@ -10,7 +10,7 @@ import { seatChoicesNeeded, validateChoice, type Choice } from '../../match/setu
 import type { View } from '../../match/protocol';
 import { ICONS } from '../../account/profile';
 import { POWER_NAME } from '../../powers-ui';
-import type { Page } from '../state';
+import type { Page } from '../../account-game/state';
 import { playerBlockButton } from './board-actions';
 import { kingSheet } from './setup';
 import { legalSwaps, seatChoice, seatFen, seatIndex, seatSquare, shuffleOrder, submitReady, swapOrder } from './seat-model';

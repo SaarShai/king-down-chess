@@ -1,11 +1,12 @@
 import { call, client, gameActionsBlocked, memory, navigate, pollUpdate, queue, routeView, start } from '../app';
 import { setupBusy } from './setup';
 import type { Job } from '../queue';
-import { art } from '../art';
+import { art } from '../../account-game/art';
 import type { PollTarget } from '../poll';
 import { DEFAULT_OPTIONS, defaultChoice } from '../../match/setup';
 import type { View } from '../../match/protocol';
-import { $, features, onStop, portrait, showError } from './friend';
+import { $, onStop, portrait, showError } from './friend';
+import { features } from '../../account-game/features';
 let open: View | undefined, began = 0, timer: ReturnType<typeof setInterval> | undefined;
 let watched: string | undefined, offering = false, switching = false, background = false;
 const dismissed = new Set<string>();
