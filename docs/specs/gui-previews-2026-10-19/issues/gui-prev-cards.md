@@ -204,3 +204,5 @@ Pass criteria: each new test rejects the old fault and passes with the fix. The 
 The type check, script syntax check and diff check pass. The first focused test stays in the shared test queue and starts no test. This lane stops that one owned queue process and starts the required full `npm test` with the local test database. The full suite is in the shared queue. No other process, test limit or check limit changes.
 
 The final code check finds no smaller complete fix. The sheet uses one update function and changes only its action or reason. The engine and game rules have no change. The unit and browser results follow below.
+
+The first required browser check, at `f8d48c78`, stops in the new Workshop step. The test looks for Spawn K before it opens more cards. The check now opens that list before it reads the two Spawn K cards. No product fix or time limit changes for this test fault.

@@ -35,6 +35,7 @@ export async function checkCardDetails(browser, base) {
           await visibleDiagram(page.locator(`.pg-plinth > .card-diagram:has(.pm-${card})`));
           await shot(page, `repair-A5-workshop-${card}-${width}x${height}-${theme}`);
         }
+        if (!await page.locator('[data-lab="SpawnK"]').count()) await page.locator('[data-act="cardsall"]').click();
         for (const card of ['SpawnK', 'SpawnK2']) {
           await page.locator(`[data-lab="${card}"]`).click();
           const picture = page.locator(`.pg-plinth [data-card-picture="${card}"]`);
