@@ -47,3 +47,13 @@ Restore: `git checkout 1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5 -- docs/graphics
 Restore: `git checkout 1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5 -- tools/parked.test.ts`.
 
 For a full clay return, also restore `package.json`, `package-lock.json`, `tools/gate/size-allowlist.txt` and `tools/gate.test.ts` from the base commit. Then use the restored README.
+
+### Part 3: rejected Archer studies
+
+Remove `docs/2d-first-pieces/rendered-study/` (15 files, 5,974,524 bytes). Remove the rejected SVG rig (12 files, 2,550,358 bytes), including `rig-motion.test.mjs`. Keep the research note, ledger entries and all live art. The art test glob now excludes the removed rig test because that file is absent.
+
+Restore: `git checkout 1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5 -- docs/2d-first-pieces/rendered-study/`.
+
+Restore: `git checkout 1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5 -- docs/2d-first-pieces/RIG.md docs/2d-first-pieces/archer-arms.png docs/2d-first-pieces/archer-parts.png docs/2d-first-pieces/arm-correction-prompt.json docs/2d-first-pieces/arm-parts.json docs/2d-first-pieces/rig-motion.mjs docs/2d-first-pieces/rig-motion.test.mjs docs/2d-first-pieces/rig-parts.json docs/2d-first-pieces/rig-prompt.json docs/2d-first-pieces/rig-tests.log docs/2d-first-pieces/rig.html docs/2d-first-pieces/rig.js`.
+
+The render sources use the [MakeHuman asset licence](https://github.com/makehumancommunity/makehuman/blob/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/LICENSE.ASSETS.md). The source licence also stays in Git at `1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5:docs/2d-first-pieces/rendered-study/source/LICENSE.ASSETS.md`.
