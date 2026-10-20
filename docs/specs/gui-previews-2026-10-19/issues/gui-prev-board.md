@@ -229,3 +229,5 @@ Kind b, A8: `src/plugin/app.test.ts` now gives the board mock its `animations` a
 Kind a, A14: the six Menu cases in `tools/plugin-board.test.ts` expect the visible person-game label, `Send your turn`. The W7 case expects the visible computer-game label, `End turn`. The sword, menu fit, single send, and focus checks stay in place.
 
 Kind a, A8: the two Settings cases in `tools/plugin-ios-size.test.ts` expect four rows. A new check names all four controls, with Animations last. Every row still has the 44 px floor. The three online choices keep the same count and floor.
+
+Kind c, A14: `src/plugin/app.css` uses `var(--fs-body)` for the turn label. This is the existing 16 px token. The type-scale guard stays as it is. This repair does not change the rendered size or screen layout.
