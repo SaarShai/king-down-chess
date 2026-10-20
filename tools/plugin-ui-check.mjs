@@ -2891,7 +2891,7 @@ try {
       const line = frame.locator('#last-move:visible, #short-move-words:visible');
       await line.waitFor();
       if (await frame.locator('#short-move-words').isVisible()) {
-        const last = (replayHistory(value,sampleRules) ?? replayLans({...snapshot,fen:initial_fen},value,sampleRules))?.at(-1);
+        const last = (replayHistory(value,sampleRules) ?? replayLans({...snapshot,game_id:value.game_id,fen:initial_fen},value,sampleRules))?.at(-1);
         assert.equal(await line.innerText(), last ? shortMove(last.pre,last.move) : `Move ${positionMoveNumber(fromFen(value.fen))}.`, 'The visible compact line names the current move');
       }
       await idleBoard(); await boardBox();
