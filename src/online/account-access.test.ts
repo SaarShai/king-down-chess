@@ -42,7 +42,7 @@ describe('account status contract', () => {
  it('starts the lease after worker proof and refuses a lease that ends during final proof', async () => {
   let now = 100; vi.spyOn(performance, 'now').mockImplementation(() => now);
   let reply!: () => void;
-  const controller = { state: 'activated', postMessage: vi.fn((request, ports) => { reply = () => ports[0].postMessage({ ...request, policy: 'public-build-v1', version: 'test' }); }) };
+  const controller = Object.assign(new EventTarget(), { state: 'activated', postMessage: vi.fn((request, ports) => { reply = () => ports[0].postMessage({ ...request, policy: 'public-build-v1', version: 'test' }); }) });
   vi.stubGlobal('window', {});
   vi.stubGlobal('navigator', { serviceWorker: Object.assign(new EventTarget(), { controller, register: async () => ({ update: async () => {} }) }) });
   const fetch = vi.fn(async () => json({ account_access: 'open', valid_for_ms: 1000 })); vi.stubGlobal('fetch', fetch);
@@ -59,8 +59,8 @@ describe('account status contract', () => {
  });
  it.each([true, false])('requires fresh proof after a controller change (safe replacement: %s)', async safe => {
   let reply!: () => void;
-  const old = { state: 'activated', postMessage: vi.fn((request, ports) => { reply = () => ports[0].postMessage({ ...request, policy: 'public-build-v1', version: 'old' }); }) };
-  const replacement = { state: 'activated', postMessage: vi.fn((request, ports) => ports[0].postMessage({ ...request, policy: safe ? 'public-build-v1' : 'unsafe', version: 'new' })) };
+  const old = Object.assign(new EventTarget(), { state: 'activated', postMessage: vi.fn((request, ports) => { reply = () => ports[0].postMessage({ ...request, policy: 'public-build-v1', version: 'old' }); }) });
+  const replacement = Object.assign(new EventTarget(), { state: 'activated', postMessage: vi.fn((request, ports) => ports[0].postMessage({ ...request, policy: safe ? 'public-build-v1' : 'unsafe', version: 'new' })) });
   const workers = Object.assign(new EventTarget(), { controller: old, register: async () => ({ update: async () => {} }) });
   vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: workers });
   const fetch = vi.fn(async () => json({ account_access: 'open', valid_for_ms: 1000 })); vi.stubGlobal('fetch', fetch);

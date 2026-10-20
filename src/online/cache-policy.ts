@@ -19,6 +19,7 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
     const start = (controller: ServiceWorker | null) => {
       if (ended) return;
       if ((workers?.controller ?? null) !== controller) return false;
+      if (controller && controller.state !== 'activated') return false;
       ended = true; close(); clearTimeout(timer);
       // No await can separate the last controller check from the send.
       try { resolve(send()); } catch (error) { reject(error); }
@@ -26,10 +27,11 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
     };
     const proof = (controller: ServiceWorker) => new Promise<boolean>((done, bad) => {
       const channel = new MessageChannel(), requestId = crypto.randomUUID();
-      const cleanup = () => { channel.port1.onmessage = null; channel.port1.close(); channel.port2.close(); workers.removeEventListener('controllerchange', changed); };
+      const cleanup = () => { channel.port1.onmessage = null; channel.port1.close(); channel.port2.close(); workers.removeEventListener('controllerchange', changed); controller.removeEventListener('statechange', changed); };
       close = cleanup;
       const changed = () => { cleanup(); done(false); };
       workers.addEventListener('controllerchange', changed);
+      controller.addEventListener('statechange', changed);
       channel.port1.onmessage = ({ data }) => {
         cleanup();
         if (data?.type !== TYPE || data.requestId !== requestId || data.policy !== POLICY || typeof data.version !== 'string' || !data.version) bad(new CachePolicyUnavailable());
@@ -79,15 +81,18 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
           }
           if (await proof(controller) && start(controller)) return;
         } else if (registration) {
-          if (registration.active?.state === 'activated') {
-            if (await proof(registration.active) && start(null)) return;
+          const active = registration.active;
+          if (active?.state === 'activated') {
+            if (await proof(active) && registration.active === active && active.state === 'activated' && start(null)) return;
             continue;
           }
           await new Promise<void>(done => {
-            const changed = () => { close(); done(); };
-            close = () => workers.removeEventListener('controllerchange', changed);
+            // A hard-reloaded page can stay uncontrolled while its active registration changes.
+            const changed = () => { if (workers.controller || registration.active !== active || active?.state === 'activated') { close(); done(); } };
+            close = () => { workers.removeEventListener('controllerchange', changed); active?.removeEventListener('statechange', changed); };
             workers.addEventListener('controllerchange', changed);
-            if (workers.controller) changed();
+            active?.addEventListener('statechange', changed);
+            changed();
           });
         } else {
           for (const key of await caches.keys()) if (key.startsWith('kingdown-')) await caches.delete(key);

@@ -184,6 +184,30 @@ describe('private cache policy', () => {
     await vi.advanceTimersByTimeAsync(8000); await refusal; expect(requests).toBe(1); reply(active); await flush();
     expect(send).not.toHaveBeenCalled(); expect(storage.delete).not.toHaveBeenCalled();
   });
+  it('requires new proof when an uncontrolled active registration retires just after its reply', async () => {
+    change(null); const old = worker(), next = worker(), send = vi.fn();
+    const registration = { active: old, update: vi.fn().mockResolvedValue(undefined) };
+    workers.register.mockResolvedValue(registration);
+    const result = withPrivateCachePolicy(send); await flush();
+    reply(old); registration.active = next; old.state = 'redundant'; old.dispatchEvent(new Event('statechange'));
+    await flush(); expect(send).not.toHaveBeenCalled(); expect(next.postMessage).toHaveBeenCalledOnce();
+    reply(next); await result; expect(send).toHaveBeenCalledOnce();
+  });
+  it('keeps the original deadline while an uncontrolled replacement activates and ignores late events', async () => {
+    change(null); const active = worker(); active.state = 'activating';
+    workers.register.mockResolvedValue({ active, update: vi.fn().mockResolvedValue(undefined) });
+    const send = vi.fn(), result = withPrivateCachePolicy(send), refusal = expect(result).rejects.toBeInstanceOf(CachePolicyUnavailable);
+    await vi.advanceTimersByTimeAsync(8000); await refusal;
+    active.state = 'activated'; active.dispatchEvent(new Event('statechange')); await flush();
+    expect(active.postMessage).not.toHaveBeenCalled(); expect(send).not.toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0);
+  });
+  it('does not send on a now redundant controller even before controllerchange arrives', async () => {
+    const old = workers.controller, send = vi.fn(), result = withPrivateCachePolicy(send); await flush();
+    reply(old); old.state = 'redundant'; old.dispatchEvent(new Event('statechange')); await flush();
+    expect(send).not.toHaveBeenCalled();
+    const next = worker(); change(next); await flush(); reply(next); await result;
+    expect(send).toHaveBeenCalledOnce();
+  });
   it('starts each update without waiting for it or replacing fresh proof', async () => {
     const update = vi.fn(() => new Promise(() => {})), controller = workers.controller, send = vi.fn();
     workers.register.mockResolvedValue({ update });

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
+import { withPrivateCachePolicy } from '../src/online/cache-policy';
 import { describe, expect, it, vi } from 'vitest';
 
 const origin = 'https://kingdown.test';
@@ -93,6 +94,56 @@ function worker(caches = storage(), build = version, buildFiles = files, registr
   };
   return { caches, registration, fetch, claim, skipWaiting, fire, request, message, timers, timerStarted, saved, storageAccess };
 }
+
+it('proves a replacement active registration after entry when a reloaded page stays uncontrolled', async () => {
+  vi.useFakeTimers();
+  const old = Object.assign(new EventTarget(), { scriptURL: url('/sw.js'), state: 'activated' as ServiceWorkerState, postMessage: vi.fn() });
+  const next = Object.assign(new EventTarget(), { scriptURL: url('/sw.js'), state: 'installing' as ServiceWorkerState, postMessage: vi.fn() });
+  const registration = { scope: `${origin}/`, active: old as WorkerState | null, installing: null as WorkerState | null, waiting: null as WorkerState | null, update: vi.fn(async () => {}) };
+  const workers = Object.assign(new EventTarget(), { controller: null, register: vi.fn(async () => registration) });
+  const a = worker(storage(), version, files, registration);
+  await a.fire('install').done(); await a.fire('activate').done();
+  const deliveries: Promise<unknown>[] = [];
+  const connect = (target: typeof old, runtime: ReturnType<typeof worker>) => target.postMessage.mockImplementation((data, ports) => {
+    const event = runtime.fire('message', { data, source: { type: 'window', url: `${origin}/play/` }, ports });
+    deliveries.push(event.done().catch(error => error));
+  });
+  class Port {
+    onmessage: ((event: { data: unknown }) => void) | null = null;
+    peer!: Port;
+    close() { this.onmessage = null; }
+    postMessage(data: unknown) { this.peer.onmessage?.({ data }); }
+  }
+  class Channel {
+    port1 = new Port(); port2 = new Port();
+    constructor() { this.port1.peer = this.port2; this.port2.peer = this.port1; }
+  }
+  const flush = async () => { for (let i = 0; i < 40; i++) await Promise.resolve(); await Promise.all(deliveries); };
+  vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: workers }); vi.stubGlobal('MessageChannel', Channel);
+  connect(old, a);
+  try {
+    const entry = vi.fn(() => 'account entry allowed');
+    expect(await withPrivateCachePolicy(entry)).toBe('account entry allowed');
+    expect(entry).toHaveBeenCalledOnce();
+    registration.installing = next;
+    const b = worker(a.caches, 'next-build', files, registration); connect(next, b);
+    const send = vi.fn(() => 'game read sent');
+    const result = withPrivateCachePolicy(send).catch(error => error.message);
+    await flush(); expect(send).not.toHaveBeenCalled();
+    expect(await deliveries.at(-1)).toMatchObject({ message: 'Worker update in progress' }); // The retiring worker refuses a purge during installation.
+    await vi.advanceTimersByTimeAsync(1000);
+    await b.fire('install').done();
+    registration.installing = null; registration.active = next;
+    old.state = 'redundant'; old.dispatchEvent(new Event('statechange'));
+    next.state = 'activating'; await b.fire('activate').done();
+    next.state = 'activated'; next.dispatchEvent(new Event('statechange'));
+    const available = b.message(); await available.done(); expect(available.postMessage).toHaveBeenCalledOnce();
+    await flush(); await vi.advanceTimersByTimeAsync(7000);
+    expect(await result).toBe('game read sent');
+    expect(workers.controller).toBeNull(); expect(next.postMessage).toHaveBeenCalledOnce(); expect(send).toHaveBeenCalledOnce();
+    expect(a.caches.entries.has(current)).toBe(false);
+  } finally { vi.useRealTimers(); vi.unstubAllGlobals(); }
+});
 
 const privatePaths = ['/api', '/mcp', '/authorize', '/auth', '/oauth', '/consent', '/login', '/logout', '/signin', '/signout', '/callback', '/.well-known', '/internal', '/play', '/g', '/j'];
 

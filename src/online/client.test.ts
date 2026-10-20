@@ -38,10 +38,10 @@ describe('online client', () => {
  });
  it('guards reads, writes and every retry after the token work, even with an injected fetch', async () => {
   const order: string[] = [], ids: string[] = [];
-  const controller = { state: 'activated', postMessage: vi.fn((request, ports) => {
+  const controller = Object.assign(new EventTarget(), { state: 'activated', postMessage: vi.fn((request, ports) => {
    order.push('proof'); ids.push(request.requestId);
    ports[0].postMessage({ ...request, policy: 'public-build-v1', version: 'test' });
-  }) };
+  }) });
   const workers = Object.assign(new EventTarget(), { controller, register: async () => ({}) });
   vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: workers });
   const fetch = vi.fn<typeof globalThis.fetch>(async () => { order.push('send'); return json(200, []); });
@@ -54,7 +54,7 @@ describe('online client', () => {
   expect(fetch.mock.calls.slice(3).map(([, init]) => JSON.parse(init!.body as string).command_id)).toEqual(['fixed', 'fixed']);
  });
  it('returns a clear unavailable error without a private send when proof fails', async () => {
-  const controller = { state: 'activated', postMessage: (request: object, ports: MessagePort[]) => ports[0].postMessage({ ...request, policy: 'old', version: 'old' }) };
+  const controller = Object.assign(new EventTarget(), { state: 'activated', postMessage: (request: object, ports: MessagePort[]) => ports[0].postMessage({ ...request, policy: 'old', version: 'old' }) });
   vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: Object.assign(new EventTarget(), { controller, register: async () => ({}) }) });
   const fetch = vi.fn();
   await expect(onlineClient({ token: async () => 'jwt', fetch }).games()).rejects.toMatchObject({ code: 'UNAVAILABLE', status: 503 });
@@ -114,9 +114,9 @@ it('passes each read signal to the protected fetch', async () => {
 });
 it.each([['games', 'token'], ['games', 'policy'], ['game', 'token'], ['game', 'policy']] as const)('does not send an obsolete %s read after the %s wait', async (method, phase) => {
   const abort = new AbortController(), fetch = vi.fn();
-  const controller = { state: 'activated', postMessage: vi.fn((request: object, ports: MessagePort[]) => {
+  const controller = Object.assign(new EventTarget(), { state: 'activated', postMessage: vi.fn((request: object, ports: MessagePort[]) => {
     abort.abort(); ports[0].postMessage({ ...request, policy: 'public-build-v1', version: 'test' });
-  }) };
+  }) });
   const register = vi.fn(async () => ({}));
   vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: Object.assign(new EventTarget(), { controller, register }) });
   const api = onlineClient({ token: async () => { if (phase === 'token') abort.abort(); return 'jwt'; }, fetch });
