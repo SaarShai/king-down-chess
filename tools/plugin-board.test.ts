@@ -7,7 +7,7 @@ import type { Browser, Locator, Page } from 'playwright';
 import { launch, STEP } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
-import { inCheck, legalMoves, makeMove, parseRule, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
+import { P, R, N, L, inCheck, legalMoves, makeMove, parseRule, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import type { View } from '../src/match/protocol';
 import { applyLan } from '../src/plugin/screens/board-model';
 import { LESSONS } from '../src/lessons';
@@ -1992,9 +1992,9 @@ it.each(['mouse', 'touch'] as const)('A8: a %s skip keeps the capture and does n
     await expect.poll(() => frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('false');
     expect(await frame.locator('html').evaluate(() => {
       const board = (window as any).testBoard;
-      return [board.scene.position.board[0], board.scene.position.board[8], board.marks.selected];
+      return [board.scene.position.board[0], board.scene.position.board[8], board.marks.selected ?? null];
     })).toEqual([0, 4, null]);
-    expect((await savedDraft(page)).actions).toEqual(['a1xa2']);
+    expect((await savedDraft(page)).lans).toEqual(['Ra1xa2']);
     await frame.locator('#board-menu').dispatchEvent('click');
     expect(await frame.locator('#board-sheet[open]').count()).toBe(1);
   } finally { await page.close(); }
@@ -2023,5 +2023,25 @@ it.each([false, true])('Y3: shows only the king and power in the seat strip (rea
     expect(await frame.locator('#seat-me-line').textContent()).toBe('Spirit · Mercy');
     expect(await frame.locator('#seat-context').textContent()).toBe(ready ? 'Waiting for the other player.' : 'Choose your king, then press Ready.');
     expect(await frame.locator('#seat-king').isVisible()).toBe(true);
+  } finally { await page.close(); }
+});
+
+
+it('A8: keeps the full main gait at Normal and Fast for every quiet move type', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    for (const pace of ['normal', 'fast']) for (const [piece, duration] of [[P,420],[R,480],[N,1350],[L,1450]]) {
+      await frame.locator('html').evaluate((_, {piece, pace}) => {
+        const host = window as any, board = host.testBoard, pos = { ...board.pos, board: new Uint8Array(board.pos.board) };
+        pos.board[8] = piece; board.setPace(pace); host.quietDone = false;
+        void board.animateMove(pos, {from:8,to:48,captures:[]}).then(() => { host.quietDone = true; });
+      }, {piece, pace});
+      await page.clock.fastForward(duration * (pace === 'fast' ? .5 : 1) - 40);
+      expect(await frame.locator('html').evaluate(() => (window as any).quietDone)).toBe(false);
+      await page.clock.fastForward(80);
+      expect(await frame.locator('html').evaluate(() => (window as any).quietDone)).toBe(true);
+    }
   } finally { await page.close(); }
 });

@@ -48,13 +48,13 @@ test('with passive effects lively (resting pawns, a selected pawn), the draw loo
 });
 
 test('quiet pawn, rook, knight and paladin moves keep their full gait at both speeds',async()=>{
- for(const speed of [1,.5])for(const value of [P,R,N,L]){
+ for(const speed of [1,.5])for(const [value,duration] of [[P,420],[R,480],[N,1350],[L,1450]]){
   const scene=createScene({canvas:canvas(),pieces:{P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName},kings:['plain','plain']});
   await scene.load().catch(()=>{});scene.setLively({moves:true});
   const pos=createPosition('king');pos.board=Array(64).fill(0);pos.board[8]=value;scene.setPosition(pos);
   let done=false;const play=scene.play({from:8,to:48,captures:[]},{speed});play.then(()=>{done=true;});
-  run(420*speed);await Promise.resolve();assert.equal(done,false,'the move has not snapped');
-  run(20000);await play;assert.equal(done,true,'the full gait ends');
+  run(duration*speed-40);await Promise.resolve();assert.equal(done,false,'the move has not snapped');
+  run(80);await play;assert.equal(done,true,'the full gait ends');
  }
 });
 
