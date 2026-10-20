@@ -142,3 +142,5 @@ Pass criteria: each finding has a fix and a test; the full unit suite, art tests
 - Review B, finding 2: confirmed. Both paths are absent. The status page now names `d6021674:docs/releases/v0.7.0/` and `1476f55c:docs/takeover/baseline.json`. The test checks both history objects and the absence of both checkout paths.
 
 No finding is refuted. No server code changes. The required browser check is `plugin-ui`.
+
+The first full suite at `9eb05221` has one failure: the document lint treats the 46-character ticket path as a secret value. All four dashboard tests pass. The lint now excludes only valid local Markdown link targets from that length check. It still checks labels, unknown paths, remote targets and known key prefixes. A new test checks each case. No test limit changes.

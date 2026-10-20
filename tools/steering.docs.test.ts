@@ -759,8 +759,16 @@ function factFaults(file: string, text: string | undefined): Fault[] {
   const spec = FACT_FILES.find(f => f.file === file)!;
   if (text === undefined) return [{ file, section: '(file)', where: 'count 0', what: 'the file must exist' }];
   const lines = markdownLines(text);
-  const at = (pattern: RegExp, what: (word: string) => string): Fault[] => lines.flatMap(l =>
+  const at = (pattern: RegExp, what: (word: string) => string, source = lines): Fault[] => source.flatMap(l =>
     [...l.text.matchAll(pattern)].map(m => ({ file, section: l.section, where: `line ${l.line}`, what: what(m[0]) })));
+  // A link to an existing local Markdown file can have more than 32 path characters.
+  const secretLines = lines.map(l => ({ ...l, text: l.text.replace(LINK, (link, angle, plain) => {
+    const target: string = angle ?? plain;
+    const path = target.replace(/#.*$/, '');
+    const localDoc = !/^[a-z][a-z0-9+.-]*:|^\//i.test(path) && path.endsWith('.md')
+      && existsSync(join(root, dirname(file), path));
+    return localDoc && !/\b(?:pk1_|sk1_|KGAT_)/.test(target) ? link.replace(target, '') : link;
+  }) }));
   return [
     ...spec.must.filter(phrase => !text.includes(phrase)).map(phrase => ({
       file, section: '(file)', where: 'count 0', what: `the file must hold "${phrase}"`,
@@ -770,7 +778,7 @@ function factFaults(file: string, text: string | undefined): Fault[] {
       file, section: lines.find(l => l.line === line)?.section ?? '(fenced code)', where: `line ${line}`,
       what: `the file must not hold the model name "${word}"`,
     })),
-    ...at(SECRET_LIKE, word => `the file must not hold a text that looks like a secret value (${word.length} characters)`),
+    ...at(SECRET_LIKE, word => `the file must not hold a text that looks like a secret value (${word.length} characters)`, secretLines),
     ...twoHourFaults(file, text),
   ];
 }
@@ -830,6 +838,17 @@ describe('COMPUTE.md, HOSTING.md and the AGENTS.md pointers', () => {
 
   it('the AGENTS.md Compute and Hosting sections are short pointers to COMPUTE.md and HOSTING.md', () => {
     expect(pointerFaults(read('AGENTS.md')).map(show)).toEqual([]);
+  });
+
+  it('accepts long local Markdown links and still checks labels, unknown targets and key prefixes', () => {
+    const target = 'specs/retro-2026-10-20/issues/04-retro-records.md';
+    const secrets = (text: string) => factFaults('docs/COMPUTE.md', text)
+      .filter(fault => fault.what.includes('looks like a secret value'));
+    expect(secrets(`[record](${target}) [record](<${target}#review-fixes>)`)).toEqual([]);
+    expect(secrets(`[${'a'.repeat(32)}](${target})`)).toHaveLength(1);
+    expect(secrets(`[record](specs/${'a'.repeat(32)}.md)`)).toHaveLength(1);
+    expect(secrets(`[record](https://example.com/${'a'.repeat(32)})`)).toHaveLength(1);
+    expect(secrets(`[record](sk1_${'a'.repeat(10)}.md)`)).toHaveLength(1);
   });
 
   it('COMPUTE.md and HOSTING.md hold their facts, no deploy command, no model name and no secret value', () => {
