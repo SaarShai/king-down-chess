@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { seatIndex, seatSquare, screenOrder, legalSwaps, swapOrder, shuffleOrder, seatChoice, seatFen, chooseArguments, submitReady } from './seat-model';
+import { seatIndex, seatSquare, legalSwaps, swapOrder, shuffleOrder, seatChoice, seatFen, chooseArguments, submitReady } from './seat-model';
 import { DEFAULT_OPTIONS, validateChoice } from '../../match/setup';
 import type { View } from '../../match/protocol';
 import { fromFen } from '../../rules/setup';
@@ -7,7 +7,7 @@ import { fromFen } from '../../rules/setup';
 const view = (seat: 0 | 1 = 0): View => ({ game_id: 'game', revision: 1, created_at: '2026-10-11T00:00:00Z', abort_open: true, seat, kind: 'friend', speed: 'daily', days_per_move: 3, status: 'setup', turn: 0, action: 'ready', fen: '', in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: null, server_now: '2026-10-11T00:00:00Z', options: { ...DEFAULT_OPTIONS, kingPowers: true, cards: true }, draw: 'RBBNGKNR', deal: ['Flight','March','Leap','Salvation'], ready: [false,false], choices: seat === 0 ? [{ king: { king: 'Spirit', power: 'Mercy' }, order: 'RBBNGKNR' }, null] : [null, { king: { king: 'Shadow', power: 'Darkness' }, order: 'RBBNGKNR' }] });
 
 describe('seat arrangement', () => {
-  it('maps the back rank by file for both seats and reads Black in screen order', () => {
+  it('maps the back rank by file for both seats', () => {
     expect(seatIndex(0, 0)).toBe(0);
     expect(seatIndex(0, 7)).toBe(7);
     expect(seatIndex(1, 56)).toBe(0);
@@ -16,8 +16,6 @@ describe('seat arrangement', () => {
     expect(seatIndex(1, 55)).toBeNull();
     expect(seatSquare(1, 0)).toBe(56);
     expect(seatSquare(0, 7)).toBe(7);
-    expect(screenOrder('RNBGKMAL', 0)).toBe('R N B G K M A L');
-    expect(screenOrder('RNBGKMAL', 1)).toBe('L A M K G B N R');
   });
   it('marks only legal swaps but lets the player repair an invalid draft', () => {
     const draw = { army: 'RBBNGKNR', hand: [] }, choice = { king: null, order: draw.army };
