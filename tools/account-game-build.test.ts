@@ -3,6 +3,7 @@ import { build } from 'vite';
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { sharedSeatSelectors } from '../vite.config';
 import { pluginSymbols } from './lib/plugin-symbols.mjs';
 
 vi.setConfig({ testTimeout: 60_000 });
@@ -82,5 +83,23 @@ it('builds the complete web game runtime without the MCP SDK or server modules',
       `window.accountGame = { configureRuntime, createBrowserRuntime, load: () => import(${JSON.stringify(join(root, 'src/account-game/runtime.ts'))}) };`,
     ].join('\n'));
     await compile(entry, join(folder, 'out'));
+  } finally { await rm(folder, { recursive: true, force: true }); }
+});
+
+it('applies setup selectors after CSS imports expand', async () => {
+  const folder = await mkdtemp(join(tmpdir(), 'kingdown-seat-style-')), entry = join(folder, 'entry.js'), stylesheet = join(folder, 'entry.css');
+  try {
+    await writeFile(stylesheet, `@import ${JSON.stringify(join(root, 'src/ui/table.css'))};`);
+    await writeFile(entry, `import ${JSON.stringify(stylesheet)};`);
+    const out = join(folder, 'out');
+    await build({ configFile: false, envFile: false, root, publicDir: false, logLevel: 'silent',
+      css: { postcss: { plugins: [sharedSeatSelectors(), sharedSeatSelectors()] } },
+      build: { outDir: out, emptyOutDir: true, rolldownOptions: { input: entry } } });
+    const files = await readdir(join(out, 'assets'));
+    const css = (await Promise.all(files.filter(file => file.endsWith('.css')).map(file => readFile(join(out, 'assets', file), 'utf8')))).join('');
+    expect(css).toMatch(/:is\(#game-table,\[data-seat-id=game-table\]\)\{[^}]*display:grid/);
+    expect(css).toContain('[data-seat-id=strip-me]');
+    expect(css).toContain('[data-seat-id=table-bar]');
+    expect(css).not.toContain(':is(:is(');
   } finally { await rm(folder, { recursive: true, force: true }); }
 });

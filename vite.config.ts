@@ -72,6 +72,13 @@ function offlineBuild(): Plugin {
   };
 }
 
+/** Imported table rules must reach both the playing board and the setup board. */
+export function sharedSeatSelectors() {
+  return { postcssPlugin: 'shared-seat-selectors', Rule(rule: { selector: string }) {
+    rule.selector = rule.selector.replace(/#(game-table|strip-me|strip-them|context-line|context-text|moves-line|last-move|table-bar)\b(?!,\[data-seat-id=)/g, ':is(#$1,[data-seat-id="$1"])');
+  } };
+}
+
 export default defineConfig({
   // Account routes share the site root; their assets must not resolve below /play/ or /g/.
   base: '/',
@@ -80,10 +87,8 @@ export default defineConfig({
   preview: { host: '127.0.0.1' },
   worker: { format: 'es' },
   build: { copyPublicDir: false },
-  plugins: [pluginSymbols(), { name: 'shared-seat-selectors', enforce: 'pre', transform(code, id) {
-    if (!id.endsWith('.css')) return;
-    return code.replace(/#(game-table|strip-me|strip-them|context-line|context-text|moves-line|last-move|table-bar)\b/g, ':is(#$1,[data-seat-id="$1"])');
-  } }, offlineBuild()],
+  css: { postcss: { plugins: [sharedSeatSelectors()] } },
+  plugins: [pluginSymbols(), offlineBuild()],
   // Vitest collects the source, tools and Claude hook tests. docs/2d-first-pieces uses node:test (npm test).
   // Browser and engine checks share CPU; excess workers cause false timeouts.
   test: { maxWorkers: 4, environment: 'node', env: { KINGDOWN_INTERNAL_SECRET: 'kingdown-test-internal-secret-not-for-live-use' }, include: process.env.KINGDOWN_TEST_FILE ? [process.env.KINGDOWN_TEST_FILE] : ['src/**/*.test.ts', 'tools/**/*.test.ts', '.claude/hooks/**/*.test.ts'] },
