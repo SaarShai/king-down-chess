@@ -15,9 +15,9 @@ Source: docs/specs/retro-2026-10-06/retro.md items 2, 4, 24
 
 1. As the owner, I want a type error or an unused name to fail `npm test` and the commit. Check: `npm test`; git-hook test.
 2. As an agent, I want `npm ci` to start the hooks, and to pass in the Kaggle sparse checkout. Check: git-hook test.
-3. As the owner, I want each push to run the full `npm test` on the pushed commit. Check: git-hook test.
+3. As the owner, I want each push to run the repo gate. CI and the deploy run the suite. Check: git-hook test.
 4. As the owner, I want the pre-push hook to refuse a direct push to main that touches a protected path (decision 10). Check: git-hook test.
-5. As an agent, I want each refusal to name the fix, such as "fetch first" or the worktree script. Check: git-hook test.
+5. As an agent, I want each refusal to name the fix, such as "fetch first" or a pull request. Check: git-hook test.
 6. As the owner, I want the commit-msg hook to refuse a model name and show the word (decision 4). Check: git-hook test.
 7. As the owner, I want each agent commit to end once with its tool's neutral trailer and to hold no `Claude-Session:` line. Check: git-hook test.
 8. As a reviewer, I want the commit-msg hook to refuse an unnamed removal of an assertion call, so that no rewrite drops checks in silence. Check: git-hook test.
@@ -47,7 +47,7 @@ Source: docs/specs/retro-2026-10-06/retro.md items 2, 4, 24
 **Runner.** The lock and the output root changed on 2026-10-10: one run a worktree, two machine slots, one folder a run. The current design is in the [after-redesign spec, §3](../after-redesign/spec.md#3-part-a-parallel-check-runs); the lines below record the first build.
 - A registry names the 13 checks and the self-test, each with a time limit and an optional channel. With no names, it runs all.
 - The runner makes one lock file with exclusive create in git's common directory, which all worktrees share. A second runner waits, says so once, and takes a dead process's lock.
-- The runner builds and starts Vite's preview on 127.0.0.1, port 0.
+- The runner builds and starts Vite's preview on 127.0.0.1, port 0, when a selected check needs the site. Plugin-only checks build and serve their own artifact.
 - The output root is one fixed system temp folder. The runner prints it, refuses a root inside the checkout, and empties it.
 - Each check runs as a child process with a time limit, a log and the three settings; the registry's channel sets `PLAYABLE_BROWSER`.
 - Before and after, the runner hashes each path in the git working-tree status, untracked files included. A difference fails the run and names the paths.
@@ -61,12 +61,12 @@ Source: docs/specs/retro-2026-10-06/retro.md items 2, 4, 24
 - `commit-msg` also counts removed assertion calls (`assert`, `expect` or a shared assertion) in each registered check. A line the commit also adds does not count. Each counted line needs one `Removed-check:` trailer.
 - `prepare-commit-msg` removes each `Claude-Session:` line, then adds a trailer only when the message has none. The Codex marker wins, because Codex inherits `CLAUDECODE` from Claude Code shells. Codex gets `Co-Authored-By: Codex <noreply@openai.com>`; Claude Code gets `Co-Authored-By: Claude Code <noreply@anthropic.com>`; no marker gets none.
 - The builder finds the Codex marker in a Codex shell; until then, Codex briefs write their trailer.
-- `pre-push` skips deletions and refuses when a pushed commit is not HEAD or tracked files differ from HEAD. For main, it refuses a protected path among the files changed from the remote head. With an unknown remote head, it refuses and says "fetch first". Then it runs `npm test` and the gate in `push` mode.
+- `pre-push` skips deletions. For main, it refuses a protected path among the files changed from the remote head. With an unknown remote head, it refuses and says "fetch first". Then it runs the gate in `push` mode. It runs no suite and does not require HEAD or a clean work tree.
 - Protected paths: `src/`, `public/`, `index.html`, the package files, `supabase/` (decision 10), the hook folder, the Claude settings folder and `tools/`.
 
 **Gate interface.** The `gate` script is the entry point: `gate -- staged` from pre-commit, and `gate -- push <remote> <url>` with git's stdin from pre-push. Exit 0 passes. Any other exit or a missing script refuses; the hook shows stderr. This spec ships a stub `gate` that exits 0; the secrets spec replaces it.
 
-**Test workflow.** One workflow file runs on pull requests into main: Node 22, `npm ci` without browser downloads, `npm test`. It has no push trigger, because the pre-push hook tests each push.
+**Test workflow.** `plugin-checks.yml` runs on every pull request and on pushes to main. Its Node 24 job runs `npm test` with PostgreSQL. Its browser jobs stay separate.
 
 **Shared files.** The Workshop finish spec owns the judge test and gives its seeded case "never lowers W" a 30 s limit; the 5 s default fails under load.
 
@@ -75,7 +75,7 @@ Source: docs/specs/retro-2026-10-06/retro.md items 2, 4, 24
 - A good test drives the real hook, runner or page from outside and asserts the verdict, reason, trailer and exit code.
 - The git-hook test runs the hooks in `tempRepo()` with a fixture gate and package. It covers stories 1 to 9, both markers set, `prepare` in a sparse checkout with the Kaggle paths, and hooks-off.
 - Unit tests cover the lock, the status comparison, `env` defaults, the name matcher, the assertion counter, the changed-file list and the known-red classifier.
-- The check lint fails on a port or channel literal, or on a registered check without `env`, `trapErrors` and `assertNoErrors`. The ticket lint fails on a missing or resolved ticket. The workflow lint asserts the triggers, `npm test` and no browser download.
+- The check lint fails on a port or channel literal, or on a registered check without `env`, `trapErrors` and `assertNoErrors`. The ticket lint fails on a missing or resolved ticket. The workflow lint checks the triggers, Node 24, PostgreSQL and the browser jobs.
 - The runner self-test builds pages with `page.setContent`; each assertion fails on its bad page and passes on its good page. Bad pages: a wide row, a box below the fold, a 30 px button, overlapping boxes, a cut label, a running animation, a thrown error, a wrong image name. `imageIs` passes under relative and absolute bases.
 - A second self-test entry writes a scratch file in the checkout; the run must fail and name it.
 - Prior art: `src/account/account.test.ts`, `src/workshop/judge.test.ts`, `tools/new-game-ui.mjs`, `tools/king-effects-preview.mjs`.

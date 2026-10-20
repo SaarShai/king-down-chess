@@ -4,9 +4,9 @@ Status: done (PR #40 merged 2026-10-10)
 
 ## Scope
 
-- vitest's default limit is 5 s a case. Under load (two `npm test` runs at once, load average above 10) the cases that drive the real git hooks, `gate.mjs`, `wt.sh`, `push-main.sh`, `deploy.sh`, the lock module and the two Claude hooks through real `git` and `node` child processes took 5.3 to 6.7 s, so the pre-push hook refused three sound pushes (owner, 2026-10-10: "give those hook tests their own timeout").
+- vitest's default limit is 5 s a case. Under load (two `npm test` runs at once, load average above 10) the cases that drive the real git hooks, `gate.mjs`, `wt.sh`, the old clean-worktree push tool (now removed; ticket 03), `deploy.sh`, the lock module and the two Claude hooks through real `git` and `node` child processes took 5.3 to 6.7 s, so the pre-push hook refused three sound pushes (owner, 2026-10-10: "give those hook tests their own timeout").
 - Each of those files sets its own limit at the top, right after the vitest import: `vi.setConfig({ testTimeout: 60_000 })` with a one-line comment. The local `{ timeout: … }` options on single describes and cases in the same files go, so each file has one limit. `vite.config.ts` keeps no global value: unit tests stay at 5 s.
-- Files: `tools/gate.test.ts`, `tools/wt.test.ts`, `tools/push-main.test.ts`, `tools/deploy.test.ts`, `tools/lib/lock.test.ts`, `tools/git-hooks/{commit-msg,pre-commit,pre-push,prepare-commit-msg}.test.ts`, `.claude/hooks/{session-facts,tool-gate}.test.ts`, and `src/sim/piece-activity.test.ts` (plays whole games; the one failure outside the hook tests).
+- Files: `tools/gate.test.ts`, `tools/wt.test.ts`, `tools/deploy.test.ts`, `tools/lib/lock.test.ts`, `tools/git-hooks/{commit-msg,pre-commit,pre-push,prepare-commit-msg}.test.ts`, `.claude/hooks/{session-facts,tool-gate}.test.ts`, and `src/sim/piece-activity.test.ts` (plays whole games; the one failure outside the hook tests).
 
 ## Done when
 

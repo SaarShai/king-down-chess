@@ -29,7 +29,8 @@ suite('migrations run again on a database in use', () => {
    const board = await new PluginService(store).openBoard(users[0], game.game_id);
    // The owner's two paths: npm run plugin:db:migrate (0002-0009), then 0001 in the SQL editor.
    await withRoleLock(own.href, async () => {
-    execFileSync(process.execPath, ['--import', 'tsx', fileURLToPath(new URL('./migrate.ts', import.meta.url))], { env: { ...process.env, PLUGIN_DATABASE_URL: own.href } });
+    // Normal migration: 384 ms on the M1 through the test database tunnel.
+    execFileSync(process.execPath, ['--import', 'tsx', fileURLToPath(new URL('./migrate.ts', import.meta.url))], { env: { ...process.env, PLUGIN_DATABASE_URL: own.href }, timeout: 60_000 });
     await admin.query(await readFile(new URL('../../supabase/migrations/0001_accounts.sql', import.meta.url), 'utf8'));
    });
    expect(await rows('select match_id from public.plugin_boards where id=$1', [board])).toEqual([{ match_id: game.game_id }]);

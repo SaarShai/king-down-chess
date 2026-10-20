@@ -5,7 +5,7 @@
 #   tools/test-lock.sh <command> [args]     (package.json "test" wraps "test:unlocked" with it)
 #
 # The lock is a file in the git common dir, so every worktree of the clone shares it: a session's
-# worktree, the push-main worktree and the deploy worktree. Perl takes flock(2) on it and then becomes
+# worktree and the deploy worktree. Perl takes flock(2) on it and then becomes
 # the command, with the file still open: the command and each process it starts hold the lock until
 # the last of them ends, so a run that loses its parent cannot overlap the next run. A process that a
 # run leaves behind (a stray server) holds it too. With no perl, or outside git, the command runs with
