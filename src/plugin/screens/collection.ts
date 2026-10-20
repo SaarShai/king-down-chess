@@ -1,5 +1,5 @@
 import { client } from '../app';
-import { art } from '../art';
+import { art } from '../../account-game/art';
 import { DEAL_CARDS, POOL_KINDS } from '../../match/setup';
 import { LETTERS, NAMES, type PieceType } from '../../rules/engine';
 import { pieceGuide } from '../../read';

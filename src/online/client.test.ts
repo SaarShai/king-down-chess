@@ -103,3 +103,37 @@ describe('online client', () => {
   } finally { feed.stop(); }
  });
 });
+
+it('passes each read signal to the protected fetch', async () => {
+  const fetch = vi.fn<typeof globalThis.fetch>(async () => json(200, [])), { signal } = new AbortController();
+  const api = onlineClient({ token: async () => 'jwt', fetch });
+  await api.games(signal); await api.game(gameId, undefined, signal); await api.game(gameId, 2, signal);
+  expect(fetch.mock.calls.map(([path, init]) => [path, init!.signal, init!.cache])).toEqual([
+    ['/api/me/games', signal, 'no-store'], [`/api/games/${gameId}`, signal, 'no-store'], [`/api/games/${gameId}?since=2`, signal, 'no-store'],
+  ]);
+});
+it.each([['games', 'token'], ['games', 'policy'], ['game', 'token'], ['game', 'policy']] as const)('does not send an obsolete %s read after the %s wait', async (method, phase) => {
+  const abort = new AbortController(), fetch = vi.fn();
+  const controller = { state: 'activated', postMessage: vi.fn((request: object, ports: MessagePort[]) => {
+    abort.abort(); ports[0].postMessage({ ...request, policy: 'public-build-v1', version: 'test' });
+  }) };
+  const register = vi.fn(async () => ({}));
+  vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: Object.assign(new EventTarget(), { controller, register }) });
+  const api = onlineClient({ token: async () => { if (phase === 'token') abort.abort(); return 'jwt'; }, fetch });
+  await expect(method === 'games' ? api.games(abort.signal) : api.game(gameId, undefined, abort.signal)).rejects.toMatchObject({ name: 'AbortError' });
+  expect(fetch).not.toHaveBeenCalled();
+  if (phase === 'token') { expect(register).not.toHaveBeenCalled(); expect(controller.postMessage).not.toHaveBeenCalled(); }
+  else { expect(register).toHaveBeenCalledTimes(1); expect(controller.postMessage).toHaveBeenCalledTimes(1); }
+});
+
+it.each(['list', 'full', 'since'] as const)('rejects a %s read cancelled while its body arrives', async kind => {
+  const abort = new AbortController(), response = json(200, kind === 'list' ? [] : view(2, [2]));
+  let reading!: () => void, reject!: (reason: unknown) => void;
+  const started = new Promise<void>(resolve => { reading = resolve; });
+  vi.spyOn(response, 'json').mockImplementation(() => { reading(); return new Promise((_resolve, fail) => { reject = fail; }); });
+  const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(response), api = onlineClient({ token: async () => 'jwt', fetch });
+  const result = kind === 'list' ? api.games(abort.signal) : api.game(gameId, kind === 'since' ? 1 : undefined, abort.signal);
+  const rejected = expect(result).rejects.toMatchObject({ name: 'AbortError' });
+  await started; abort.abort(); reject(abort.signal.reason);
+  await rejected; expect(fetch).toHaveBeenCalledTimes(1);
+});

@@ -2,7 +2,7 @@
 // lane, first in first out and one at a time. A read runs beside the lane, and waits only when it is a
 // read of the page board. Each job keeps the epoch it started in; a newer chat result or user command
 // makes an older job stale, and an older job writes only what the older-job rules allow.
-import { errorText, type Screen } from './client';
+import { errorText, type Screen } from '../account-game/types';
 import type { View } from '../match/protocol';
 import type { KingChoice } from '../rules/rules';
 

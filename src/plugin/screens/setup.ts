@@ -1,14 +1,14 @@
 import { actions, call, client, memory, navigate, queue, routeView, start, store } from '../app';
 import type { Job, JobOptions } from '../queue';
-import { art } from '../art';
+import { art } from '../../account-game/art';
 import { cardArt } from '../card-face';
-import { errorText } from '../client';
+import { errorText } from '../../account-game/types';
 import { DEAL_CARDS, POOL_KINDS, type Options } from '../../match/setup';
 import { LETTERS, NAMES } from '../../rules/engine';
 import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, type CardName, type PowerName } from '../../rules/rules';
 import { POWER_NAME, cardName, cardCost, cardText, powerText, powerOptions, powersRules, ruleLine } from '../../powers-ui';
 import type { View } from '../../match/protocol';
-import { locks, type Page } from '../state';
+import { locks, type Page } from '../../account-game/state';
 import { availablePowers, cleanKing, createArguments, gameSetup, pieceLocked, quickSetup, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, type SetupState } from './setup-model';
 import './setup.css';
 

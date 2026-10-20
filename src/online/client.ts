@@ -29,15 +29,20 @@ export interface ClientOptions {
 const retryable = (error: unknown) => !(error instanceof OnlineError) || error.status >= 500;
 
 export function onlineClient({ token, origin = '', fetch: send = (...args) => fetch(...args), tries = 4, wait = ms => new Promise(done => setTimeout(done, ms)) }: ClientOptions) {
-  async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async function call<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
     const bearer = await token();
+    signal?.throwIfAborted();
     if (!bearer) throw new OnlineError('UNAUTHENTICATED', 401, 'Sign in to play online');
-    const response = await withPrivateCachePolicy(() => send(origin + path, { method, cache: 'no-store', headers: { Authorization: `Bearer ${bearer}`, ...(body !== undefined && { 'Content-Type': 'application/json' }) }, ...(body !== undefined && { body: JSON.stringify(body) }) })).catch(error => {
+    const response = await withPrivateCachePolicy(() => {
+      signal?.throwIfAborted();
+      return send(origin + path, { method, ...(signal && { signal }), cache: 'no-store', headers: { Authorization: `Bearer ${bearer}`, ...(body !== undefined && { 'Content-Type': 'application/json' }) }, ...(body !== undefined && { body: JSON.stringify(body) }) });
+    }).catch(error => {
       if (error instanceof CachePolicyUnavailable) throw new OnlineError('UNAVAILABLE', 503, error.message);
       throw error;
     });
     if (response.status === 204) return undefined as T;
     const value = await response.json().catch(() => null);
+    signal?.throwIfAborted();
     if (!response.ok) throw new OnlineError(value?.code ?? 'UNAVAILABLE', response.status, value?.message ?? `Request failed (${response.status})`);
     return value as T;
   }
@@ -45,7 +50,7 @@ export function onlineClient({ token, origin = '', fetch: send = (...args) => fe
     /** A friend game comes with its invitation. */
     create: (options: CreateOptions) => call<{ view: View; invite?: InviteLink }>('POST', '/api/games', options),
     /** The full view (with the rules), or the commands after `since`. */
-    game: (gameId: string, since?: number) => call<View>('GET', `/api/games/${encodeURIComponent(gameId)}${since === undefined ? '' : `?since=${since}`}`),
+    game: (gameId: string, since?: number, signal?: AbortSignal) => call<View>('GET', `/api/games/${encodeURIComponent(gameId)}${since === undefined ? '' : `?since=${since}`}`, undefined, signal),
     /** Records activity only when the caller asks for it. */
     seen: (gameId: string) => call<void>('POST', `/api/games/${encodeURIComponent(gameId)}/seen`),
     /** One command; a lost reply sends it again with the same command_id, and the server applies it once. */
@@ -59,7 +64,7 @@ export function onlineClient({ token, origin = '', fetch: send = (...args) => fe
     invite: (gameId: string) => call<InviteLink>('POST', `/api/games/${encodeURIComponent(gameId)}/invite`),
     redeem: (key: { token: string } | { code: string }) => call<View>('POST', '/api/invites/redeem', key),
     /** Your active games: your turn first, then the nearest deadline. */
-    games: () => call<InboxEntry[]>('GET', '/api/me/games'),
+    games: (signal?: AbortSignal) => call<InboxEntry[]>('GET', '/api/me/games', undefined, signal),
     profile: () => call<MyProfile>('GET', '/api/me/profile'),
     updateProfile: (changes: Partial<Settings>) => call<MyProfile>('PATCH', '/api/me/profile', changes),
     setHandle: (handle: string) => call<MyProfile>('POST', '/api/me/handle', { handle }),

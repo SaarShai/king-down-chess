@@ -3,7 +3,7 @@ import { DEAL_CARDS } from '../match/setup';
 import { cardArt } from './card-face';
 
 const painted = ['Freeze','IceWall','Sacrifice','March','Leap','Salvation','Mimic','Vault','SkyLift'];
-vi.mock('./art', () => ({ art: (path: string) => ['freeze','icewall','sacrifice','march','leap','salvation','mimic','vault','skylift'].some(c => path === `ui/cards/${c}.webp`) ? path : undefined }));
+vi.mock('../account-game/art', () => ({ art: (path: string) => ['freeze','icewall','sacrifice','march','leap','salvation','mimic','vault','skylift'].some(c => path === `ui/cards/${c}.webp`) ? path : undefined }));
 
 it('uses the nine paintings, three power scenes and nine plain names', () => {
   for (const card of DEAL_CARDS) {

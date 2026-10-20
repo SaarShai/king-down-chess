@@ -1,4 +1,4 @@
-import { errorText } from '../client';
+import { errorText } from '../../account-game/types';
 import { call, client, memory } from '../app';
 import type { View } from '../../match/protocol';
 import { boardSheet, closeBoardSheet, sendBoardCommand } from './board';

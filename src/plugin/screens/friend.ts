@@ -1,23 +1,15 @@
+import { features, icon } from '../../account-game/features';
 import { call, client, memory, navigate, renderGameRows, routeView } from '../app';
-import { art } from '../art';
-import { formatDate } from '../games-list';
-import { featureNames, friendInvites as codes, inviteText, ruleNames, sendInvite } from '../invite';
+import { art } from '../../account-game/art';
+import { formatDate } from '../../account-game/games-list';
+import { friendInvites as codes, inviteText, sendInvite } from '../invite';
 import { ICONS, type Icon } from '../../account/profile';
-import type { Options } from '../../match/setup';
 import type { View } from '../../match/protocol';
 import './lobby.css';
-import { errorText } from '../client';
+import { errorText } from '../../account-game/types';
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
-export const icon = (name: string) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
-export { featureNames };
 /** After Cancel: drop the game's code and go to Play. A retried Cancel runs it as its continuation. */
 export function finishCancel(next: View) { codes.delete(next.game_id); navigate('play'); return Promise.resolve(); }
-export function features(options: Options | null | undefined, words = false) {
-  const span = document.createElement('span'); span.className = 'feats';
-  if (words) { span.textContent = ruleNames(options); return span; }
-  for (const [field, name, label] of featureNames) if (options?.[field]) { const mark = document.createElement('span'); mark.title = label; mark.setAttribute('role', 'img'); mark.setAttribute('aria-label', label); mark.innerHTML = icon(name); span.append(mark); }
-  return span;
-}
 export function portrait(key: Icon | null | undefined, big = false) {
   const span = document.createElement('span'); span.className = `portrait${big ? ' big' : ''}`;
   key = key && Object.hasOwn(ICONS, key) ? key : 'spirit';

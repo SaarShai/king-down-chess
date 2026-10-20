@@ -1,7 +1,7 @@
 import { cardName } from '../powers-ui';
 import { powerArt } from '../power-motion';
 import type { CardName } from '../rules/rules';
-import { art } from './art';
+import { art } from '../account-game/art';
 
 /** Use a painting, an existing power scene, or a plain name. */
 export function cardArt(card: CardName): string {
