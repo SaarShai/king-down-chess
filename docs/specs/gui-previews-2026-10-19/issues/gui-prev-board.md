@@ -266,3 +266,23 @@ Review A has two confirmed faults. Review B has no finding.
 Pass criteria: each confirmed fault has a test. Both mutation checks fail for the correct cause. The unit suite and browser checks pass at the fixed code. No server code changes are needed.
 
 The first check at `52fff956` passes `plugin-ui` in 225.0 seconds. The preview check passes A18 and A27 on the current build. It also captures all eight plugin A39 screens after the layout, resize, focus, and Cancel checks pass. The combined preview check reaches its fixed 180 second limit. Remove saved before builds from the routine check list. The before capture mode and saved samples stay available. All current-build checks stay in the list.
+
+## Second review fix results
+
+Both Review A findings are confirmed and fixed. Review B supplies no finding.
+
+- A1, A39: the plugin move choice uses the shared board-foot position code. It reserves the measured choice height below the board. A long list can scroll. The light veil leaves the squares in view. The check covers both seats, both host themes, 390 × 844 and 1280 × 800, and a viewport 100 px shorter. It checks the full board, both move choices, resize, Tab and Shift+Tab, Escape, Close, restored focus, and no played move after Cancel. All eight new plugin screens pass visual review. The piece, target, and landing square stay clear.
+- A2, A18 and A27: all plugin after checks use the current build. Saved builds serve only historical samples. The routine check list contains current samples only. No current assertion is removed. Removing both A18 word changes makes the check fail on the old empty-list text in 5.1 seconds. Removing the A27 history guard makes the check fail on the open empty band in 3.5 seconds. Both fault checks run through the lane runner on the M1. The fixed files and full check list are restored before the final checks. The temporary fault commits do not stay on the branch.
+
+Checks:
+
+- `plugin-ui`: passes on this Mac at `52fff956` in 225.0 seconds. Later changes affect the check list and this ticket only.
+- `gui-board-preview`: passes on this Mac at `d065bffe` in 125.1 seconds. The final run passes on the M1 at the same commit in 132.7 seconds. Both lane runs end with exit 0.
+- `npm test`: passes here at `d065bffe` with the local test database. All 198 files pass: 3,289 tests pass and 8 skip. All 53 art tests also pass. The unit phase takes 223.25 seconds. The command ends with exit 0.
+- The first unit run has 5 failures, 3,284 passes, and 8 skips. Its package link points to the removed `release-main` installation. The failures name missing `tsx` or `vitest`, or the missing link target. `tools/wt.sh add` repairs only this worktree's link to the main checkout's matching packages. The full second run clears every failure. No tracked package file changes.
+- The type check, commit hooks, JavaScript syntax check, and whitespace check pass. No test or check time limit changes.
+- `plugin-ui-http` is not required. No server code changes.
+
+This Mac briefly runs out of disk space between the fault checks. Only PNG output from this run's completed `plugin-ui` check is removed. Its text logs stay in place. The eight new A39 proof screens stay in the preview folder. The unit request is paused only during the fault checks, then resumes on the restored fixed code. No process from another lane is stopped.
+
+The review fix is complete. Owner approval for the original previews stays open. Nothing is pushed, merged to main, or deployed.
