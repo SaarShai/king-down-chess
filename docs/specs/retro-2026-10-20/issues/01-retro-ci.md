@@ -17,6 +17,13 @@ Before removal, `.github/workflows/test.yml` has workflow name `Test` and job ID
 
 Read-only GitHub checks on 2026-10-20 return `Branch not protected` (HTTP 404) for the main branch required-status endpoint. The branch rules endpoint returns an empty list. No required status check names apply to main. No GitHub setting changes.
 
+## Scope notes
+
+- `KINGDOWN_TEST_FILE` stays. The WebKit CI job and the test filter in `vite.config.ts` still use it.
+- The ten listed calls get limits. The same change also bounds the Python import probe in `stone-control.test.ts`.
+- No lobby poll assertion changes. No deploy test changes. The test lock and M1 runner stay.
+- `docs/lessons/agents-and-tools.md` is a main-only tracker file. This branch cannot edit it. Its old clean-worktree push lesson needs this rule on main: “The pre-push hook runs the repo gate. CI and the deploy run the suite. A push does not require HEAD or a clean work tree. Use a branch and PR for protected paths.” The old test-lock lesson also needs to stop listing the pre-push suite as a current lock user.
+
 ## Results
 
 The build and checks are in progress.

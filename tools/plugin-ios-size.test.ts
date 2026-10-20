@@ -14,7 +14,7 @@ vi.setConfig({ testTimeout: 120_000 * STEP, hookTimeout: 120_000 * STEP, expect:
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-ios-size-'));
-  execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe' });
+  execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe', timeout: 30_000 });
   harness = await startHarness({ boardPath: join(folder, 'board.html') }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });

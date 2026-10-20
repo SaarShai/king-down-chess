@@ -13,7 +13,7 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 // harness serves the source page, which shows the app to the test as window.harnessApp; built serves the build.
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, built: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => { folder = await mkdtemp(join(tmpdir(), 'kingdown-real-host-test-'));
-  execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe' });
+  execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe', timeout: 30_000 });
   const boardPath = join(folder, 'board.html');
   harness = await startHarness({ boardPath, sourcePage: true }); built = await startHarness({ boardPath });
   browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' }); });

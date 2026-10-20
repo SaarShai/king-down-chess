@@ -1,8 +1,7 @@
-// pre-push: runs `npm test`, then the repo gate in `push` mode. Any failure refuses the push.
+// pre-push: runs the repo gate in `push` mode. Any failure refuses the push.
 // Git starts the hook in the top folder of the work tree, with the arguments <remote> <url>, and
 // writes one line for each ref on stdin: <local ref> <local object name> <remote ref> <remote object name>.
-// The test starts without git's GIT_ variables, so that a git command in it uses its own repository.
-// The gate keeps them, and gets git's stdin lines.
+// The gate keeps git's GIT_ variables and gets git's stdin lines.
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { changedFiles } from '../tools/lib/changed-files.mjs';
@@ -26,31 +25,12 @@ const refuse = message => { console.error(`pre-push: ${message}`); process.exit(
 const scripts = () => { try { return JSON.parse(readFileSync('package.json', 'utf8')).scripts ?? {}; } catch { return {}; } };
 
 const zero = /^0+$/;
-// A deletion sends no commit, so it needs no test.
+// A deletion sends no commit, so it needs no gate.
 const updates = stdin.split('\n').filter(Boolean).map(line => {
   const [localRef, localSha, remoteRef, remoteSha] = line.split(' ');
   return { localRef, localSha, remoteRef, remoteSha };
 }).filter(update => !zero.test(update.localSha));
 if (updates.length === 0) process.exit(0);
-
-// The test runs on the work tree, so the result describes the pushed commit only when that
-// commit is HEAD and no tracked file differs from HEAD.
-const head = git('rev-parse', 'HEAD');
-for (const { localRef, localSha } of updates) {
-  if (git('rev-parse', '--verify', '-q', `${localSha}^{commit}`) === head) continue;
-  const branch = localRef.startsWith('refs/heads/') ? localRef.slice('refs/heads/'.length) : null;
-  refuse(`${localRef} is not HEAD, so npm test cannot run on the commit that goes out.
-  Check it out and push it alone:
-    ${branch ? `git switch ${branch}` : `git switch --detach ${localRef}`}
-    git push ${remote} ${branch ?? localRef}`);
-}
-const dirty = git('diff', '--name-only', 'HEAD', '--');
-if (dirty) {
-  refuse(`these tracked files differ from HEAD, so npm test would not run on the commit that goes out:
-${dirty.split('\n').map(line => `    ${line}`).join('\n')}
-  Commit or stash them, then push again. When the edits are another session's and the commit is on main,
-  tools/push-main.sh [<commit>] pushes it from a clean worktree.`);
-}
 
 // Decision 10: a direct push to main may change docs and trackers, but no file under a protected
 // path. Such a change goes through a branch and a pull request.
@@ -75,8 +55,6 @@ ${hits.map(path => `    ${path}`).join('\n')}
   }
 }
 
-const noGit = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
-if (npm('test', [], noGit) !== 0) refuse('npm test failed. Fix the faults above, commit, then push again.');
 if (!scripts().gate) refuse('the repo gate is missing: package.json has no `gate` script. Merge the branch that adds it, then push again.');
 const gate = npm('gate', ['push', remote, url], process.env, stdin);
 if (gate !== 0) refuse(`the repo gate refused the push (exit ${gate}). Its reason is above.`);

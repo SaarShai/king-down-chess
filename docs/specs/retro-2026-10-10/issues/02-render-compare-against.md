@@ -18,7 +18,7 @@ Status: done (PR #38 merged 2026-10-10)
 ## Comments
 
 - 2026-10-10, branch `claude/retro-tools` on main 10fa1bc8. The first run of the new form stopped on a `ReferenceError`: two `const` helpers stood below the top-level `await`, so a hoisted function read them before their line ran. They now stand above the dispatch.
-- **Review 1** (GPT via Codex, read-only, run inside the worktree with `-C`, so it read the neighbours itself): merge after fixes; six should-fix items, two notes; no fault in `push-main.sh`. What changed:
+- **Review 1** (GPT via Codex, read-only, run inside the worktree with `-C`, so it read the neighbours itself): merge after fixes; six should-fix items, two notes; no fault in the old clean-worktree push tool (now removed; ticket 03). What changed:
   - A capture that cannot start left the promise open and the cleanup unreached; a SIGINT left the capture child running. Now the child's `error` event ends the capture with exit 1 and a log line, and the cleanup kills a running child.
   - A reused `--out` folder passed off stale renders and a stale report; a non-zero capture exit with a report of no faults went unseen. Now each capture gets a fresh folder, and such an exit counts as a fault.
   - The second render of the revision gave only its pixel differences: a missing render or a fault in that pass did not mark the state unstable. Now a state is unstable when the two renders of the revision differ, one lacks it, or their faults differ.

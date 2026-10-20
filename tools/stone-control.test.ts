@@ -7,7 +7,7 @@ import sharp from 'sharp';
 
 const ASSET = 'src/plugin/assets/stone-control.webp';
 // The export needs numpy and Pillow, which the CI runners do not install.
-const canExport = (() => { try { execFileSync('python3', ['-c', 'import numpy, PIL']); return true; } catch { return false; } })();
+const canExport = (() => { try { execFileSync('python3', ['-c', 'import numpy, PIL'], { timeout: 4000 }); return true; } catch { return false; } })();
 
 it('ships stone with two pixels per CSS pixel at the widest 528 px control', async () => {
   const meta = await sharp(ASSET).metadata();
@@ -19,7 +19,7 @@ it.skipIf(!canExport)('matches a fresh export from the full source', async () =>
   const folder = await mkdtemp(join(tmpdir(), 'kingdown-stone-'));
   try {
     const output = join(folder, 'stone.webp');
-    execFileSync('python3', ['tools/export-stone-control.py', output]);
+    execFileSync('python3', ['tools/export-stone-control.py', output], { timeout: 4000 });
     const [a, b] = await Promise.all([output, ASSET].map(p => sharp(p).raw().toBuffer()));
     expect(a.length).toBe(b.length);
     // Lossy encoders of other libwebp versions differ by a few levels, never by a different picture.

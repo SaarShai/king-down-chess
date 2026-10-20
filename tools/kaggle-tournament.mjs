@@ -9,7 +9,7 @@ import { resultsRoot } from './lib/results-root.mjs';
  *   node tools/kaggle-tournament.mjs pull   --id kp2-r13
  *
  * Each notebook fetches this public repository at one pushed commit (src/ and the package files),
- * installs Node 22 (official build, checksum checked) and the locked packages, and plays
+ * installs Node 24 (official build, checksum checked) and the locked packages, and plays
  * `--shard i/n` with one worker per CPU. `pull` copies each shard's games and log into sim/out/,
  * where `tournament.ts report --id <id>` reads them with any shards played here: shards never
  * overlap, so `--first 2` pushes only shards 2.. and this machine can play 0 and 1 itself.
@@ -197,8 +197,8 @@ def cpus():
 status = {'exit': None, 'cpus': cpus(), 'id': CFG['id'], 'sha': CFG['sha'], 'shard': CFG['shard']}
 try:
     sh('nproc; grep -m1 "model name" /proc/cpuinfo; cat /sys/fs/cgroup/cpu.max || true; free -g | head -2; git --version')
-    # Node 22, the official build, checked against the published checksum.
-    base = 'https://nodejs.org/dist/latest-v22.x/'
+    # Node 24, the official build, checked against the published checksum.
+    base = 'https://nodejs.org/dist/latest-v24.x/'
     sums = urllib.request.urlopen(base + 'SHASUMS256.txt').read().decode()
     digest, name = next(l.split() for l in sums.splitlines() if l.endswith('-linux-x64.tar.xz'))
     data = urllib.request.urlopen(base + name).read()
