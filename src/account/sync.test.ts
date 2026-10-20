@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { merge, readLocal, stamp, Sync, type Remote, type Row, type Section } from './sync';
+import { merge, readLocal, stamp, Sync, type Remote, type Row, type SavedGameAccess, type Section } from './sync';
+import { savedGame } from '../screen/save';
 
 /** localStorage stand-in. */
 const store = (init: Record<string, unknown> = {}) => {
@@ -33,13 +34,67 @@ const save = (moves: string[], sound = true) => ({
 /** A settings stamp from a version that kept `think` in the settings. */
 const oldSettings = (sound = true) => JSON.stringify(Object.fromEntries(Object.entries({ ...readLocal(store({ 'kingdown.save': save([], sound) })).settings as object, think: 800 })
   .sort(([a], [b]) => (a < b ? -1 : 1))));
-const device = (s: Record<string, unknown>, c: ReturnType<typeof cloud>) => {
+const device = (s: Record<string, unknown>, c: ReturnType<typeof cloud>, access: SavedGameAccess = { blocked: () => false, accepts: () => true }) => {
   const st = store(s), applied: Section[][] = [];
-  return { st, applied, sync: new Sync(st, c.remote, d => applied.push(d)) };
+  return { st, applied, sync: new Sync(st, c.remote, d => applied.push(d), access) };
 };
 
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(1_000_000); });
 afterEach(() => { vi.useRealTimers(); });
+
+describe('saved-game validation before cloud writes', () => {
+  const supported = (moves: string[]) => ({ back: 'RNBQKBNR', fen: '', moves, white: 'human', black: 'human', resigned: null });
+  const accepts = (value: unknown): boolean => { try { savedGame(value); return true; } catch { return false; } };
+
+  it.each([
+    supported(['e2-e4', 'e7-e5', 'Qd1-d8']), { moves: 'future-format' }, 'unreadable',
+  ])('keeps a valid local game and its stamp when a newer remote game is unreadable (%s)', async bad => {
+    const c = cloud({ saved_game: { at: 9_000_000, v: bad } }), d = device({ 'kingdown.save': supported(['e2-e4']) }, c, { blocked: () => false, accepts });
+    const before = stamp(d.st), raw = d.st.getItem('kingdown.save');
+    await d.sync.pull();
+    expect(d.st.getItem('kingdown.save')).toBe(raw);
+    expect(stamp(d.st).saved_game).toEqual(before.saved_game);
+    expect(d.applied).toEqual([]);
+    expect(c.row?.saved_game).toEqual({ at: 9_000_000, v: bad });
+    // The valid game remains playable; its next saved move supersedes the rejected future timestamp.
+    d.st.setItem('kingdown.save', JSON.stringify(supported(['e2-e4', 'e7-e5'])));
+    d.sync.changed();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(c.row?.saved_game).toMatchObject({ at: 9_000_001, v: { moves: ['e2-e4', 'e7-e5'] } });
+  });
+
+  it('keeps unreadable raw local bytes through settings/game pulls and pushes until an explicit replacement', async () => {
+    let blocked = true;
+    const c = cloud({ settings: { at: 8_000_000, v: { sound: false } }, saved_game: { at: 9_000_000, v: supported(['e2-e4']) } });
+    const d = device({}, c, { blocked: () => blocked, accepts });
+    d.st.setItem('kingdown.save', '{saved raw data');
+    await d.sync.pull();
+    d.sync.changed(); await d.sync.flush();
+    expect(d.st.getItem('kingdown.save')).toBe('{saved raw data');
+    expect(d.applied).toEqual([]);
+    expect(c.pushes).toBe(0);
+    blocked = false;
+    d.st.setItem('kingdown.save', JSON.stringify(supported([])));
+    d.sync.changed(); await d.sync.flush();
+    expect(c.row?.saved_game).toMatchObject({ at: 9_000_001, v: { moves: [] } });
+  });
+
+  it('still applies a newer supported remote game', async () => {
+    const c = cloud({ saved_game: { at: 500, v: supported(['e2-e4', 'e7-e5']) } });
+    const d = device({ 'kingdown.save': supported(['d2-d4']) }, c, { blocked: () => false, accepts });
+    await d.sync.pull();
+    expect(readLocal(d.st).saved_game).toMatchObject({ moves: ['e2-e4', 'e7-e5'] });
+    expect(d.applied).toEqual([['saved_game']]);
+  });
+
+  it('never pushes an unreadable game that another local writer placed in storage', async () => {
+    const c = cloud(), bad = supported(['e2-e4', 'bad']);
+    const d = device({ 'kingdown.save': bad }, c, { blocked: () => false, accepts });
+    await d.sync.pull();
+    expect(c.row?.saved_game).toBeUndefined();
+    expect(JSON.parse(d.st.getItem('kingdown.save')!)).toEqual(bad);
+  });
+});
 
 describe('stamp', () => {
   it('gives data that was here before syncing existed 0, and a later change the time it happened', () => {

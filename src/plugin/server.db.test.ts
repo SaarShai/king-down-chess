@@ -380,7 +380,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   for (const result of [read, aborted]) {
    expect(view(result).choices?.[1]).toBeNull();
    expect(view(result).last_commands.at(-2)?.action.type === 'hidden' || view(result).last_commands.at(-1)?.action.type === 'hidden').toBe(true);
-   expect(JSON.stringify(result)).not.toContain('Flame');
+   expect(JSON.stringify(result, (key, value) => key === 'setup_admission' ? undefined : value)).not.toContain('Flame');
   }
   const solo = await host.ok('kingdown_create', { kind: 'solo', options: { ...DEFAULT_OPTIONS, arrangement: false }, board_id });
   const old = view(solo).game_id;

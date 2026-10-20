@@ -1,11 +1,11 @@
 /** The one write path for online games (report part 03, section 5.2). Actor IDs come from verified identity, never from input. */
 import { createHash, createHmac, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { createMatch, loadMatch, MatchError, type MatchSnapshot } from './index';
+import { createMatch, createPinnedMatch, loadMatch, MatchError, type MatchSnapshot } from './index';
 import { commandSchema, createSchema, MAX_REVISION, type Command, type CreateOptions, type EndReason, type InboxEntry, type Invite, type JoinPreview, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
 import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Outgoing, type Player } from './store';
 import { diagnostic } from '../plugin/diagnostics';
-import { buildSetup, defaultChoice, draw, seatChoicesNeeded, switches, validateChoice } from './setup';
+import { buildSetup, defaultChoice, draw, seatChoicesNeeded, switches, setupAdmission, validateChoice } from './setup';
 import type { HistoryPage, PlayerRecord } from './protocol';
 import { gameHistory, gameOutcome, opponentRating, playerRecord, recordResult } from './results';
 export { MatchServiceError } from './store';
@@ -169,31 +169,44 @@ export class GameService {
   const game: Game = {
    id: gameId, kind: input.kind, speed, days_per_move: days, category: `${speed}${days ? `-${days}d` : ''}/${powers ? 'powers' : 'no-powers'}/${options?.cards ? 'cards' : 'no-cards'}`,
    readings: powers ? 'POWERS_BALANCED' : null, colour_rule: input.colour ?? 'white', engine_fingerprint: null, setup: input.setup ?? {}, rules: null,
-   options, draw: drawn?.army ?? null, deal: drawn?.hand ?? null, level: input.level ?? 'club', setup_deadline_at: null, rematch_offer: null, rematch_game_id: null,
+   setup_admission: options ? setupAdmission(options) : null, options, draw: drawn?.army ?? null, deal: drawn?.hand ?? null, level: input.level ?? 'club', setup_deadline_at: null, rematch_offer: null, rematch_game_id: null,
    status: solo ? needs ? 'setup' : 'playing' : 'waiting', result: null, end_reason: null, turn: 0, revision: 0, draw_offer: null, state: null, snapshot: null,
    deadline_at: null, deadline_kind: null, moves: null, created_by: actor, created_at: at, started_at: null, finished_at: null, updated_at: at,
    players: [player(0), player(1)],
   };
+  if (options) {
+   let probe;
+   try {
+    probe = await createMatch(buildSetup(options, drawn!, [game.players[0].choice!, game.players[1].choice!], game.setup_admission!));
+    game.engine_fingerprint = JSON.parse(await probe.exportSave()).engine;
+   } catch { fail('UNAVAILABLE', 503, 'The game worker is unavailable. Retry.'); }
+   finally { await probe?.close(); }
+  }
   if (!options || solo && !needs) await this.start(game, at);
   return game;
  }
  private async start(game: Game, at: Date): Promise<void> {
-  if (game.options) game.setup = buildSetup(game.options, { army: game.draw!, hand: game.deal! }, [game.players[0].choice!, game.players[1].choice!]);
+  if (game.options) {
+   if (!game.engine_fingerprint || !game.setup_admission) fail('MATCH_INCOMPATIBLE', 409, 'This unfinished setup has no fixed game version.');
+   game.setup = buildSetup(game.options, { army: game.draw!, hand: game.deal! }, [game.players[0].choice!, game.players[1].choice!], game.setup_admission!);
+  }
   let match;
   try {
-   match = await createMatch(game.setup);
+   match = game.options ? await createPinnedMatch(game.setup, game.engine_fingerprint!) : await createMatch(game.setup);
    const snapshot = await match.snapshot(), state = await match.exportSave(), powers = snapshot.rules.kings.some(Boolean);
    Object.assign(game, { snapshot, state, rules: snapshot.rules, turn: snapshot.turn, engine_fingerprint: JSON.parse(state).engine, setup_deadline_at: null });
    if (game.status !== 'waiting') Object.assign(game, { status: 'playing', started_at: at });
    if (!game.options) Object.assign(game, { readings: powers ? 'POWERS_BALANCED' : null, category: `${game.speed}${game.days_per_move ? `-${game.days_per_move}d` : ''}/${powers ? 'powers' : 'no-powers'}/no-cards` });
    for (const p of game.players) p.power = snapshot.rules.kings[p.seat]?.power ?? 'none';
   } catch (error) {
+   if (error instanceof MatchError && error.code === 'MATCH_INCOMPATIBLE') fail('MATCH_INCOMPATIBLE', 409, 'This unfinished setup uses an unavailable game version.');
    if (error instanceof MatchError && /^(Malformed |Noncanonical FEN|Unsupported or malformed power state|Private card data unsupported)/.test(error.message)) fail('INVALID_INPUT', 400, 'Invalid game setup');
    fail('UNAVAILABLE', 503, 'The game worker is unavailable. Retry.');
   } finally { await match?.close(); }
  }
  private async enterSetup(game: Game, at: Date): Promise<void> {
-  if (!game.options) { Object.assign(game, { status: 'playing', started_at: at }); return; }
+  if (!game.options || game.snapshot) { Object.assign(game, { status: 'playing', started_at: at }); return; }
+  if (!game.engine_fingerprint || !game.setup_admission) fail('MATCH_INCOMPATIBLE', 409, 'This unfinished setup has no fixed game version.');
   game.status = 'setup';
   if (game.players.every(p => p.ready)) await this.start(game, at);
   else game.setup_deadline_at = new Date(at.getTime() + FIRST_TURN_DAYS * DAY);
@@ -339,7 +352,8 @@ export class GameService {
      next.rematch_offer = null; next.rematch_game_id = rematch.id;
     }
    } else if (action.type === 'choose') {
-    const error = validateChoice(game.options!, { army: game.draw!, hand: game.deal! }, action.choice);
+    if (!game.engine_fingerprint || !game.setup_admission) fail('MATCH_INCOMPATIBLE', 409, 'This unfinished setup has no fixed game version.');
+   const error = validateChoice(game.options!, { army: game.draw!, hand: game.deal! }, action.choice, game.setup_admission!);
     if (error) fail('INVALID_INPUT', 400, error);
     Object.assign(next.players[seat], { choice: action.choice, ready: action.ready });
     if (next.players.every(p => p.ready)) { await this.start(next, at); turnTo(next, out, at, actor); }
@@ -458,7 +472,7 @@ export class GameService {
    last_commands: commands.map(entry => entry.seat === opponent.seat && (entry.action.type === 'choose' && !game.players.every(p => p.ready) || entry.action.type === 'say' && !sees.presets) ? { ...entry, action: { type: 'hidden' as const } } : entry),
    opponent: vacant ? null : { handle: opponent.handle, icon: opponent.icon ?? null, ...(rating && { rating }), computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: sees.online ? opponent.last_seen_ms : null },
    rematch_allowed: sees.unblocked, draw_offer: game.draw_offer, rematch_offer: game.rematch_offer, rematch_game_id: game.rematch_game_id,
-   ...(game.options && { options: game.options, draw: game.draw!, deal: game.deal!, level: game.level,
+   ...(game.options && { options: game.options, ...(game.setup_admission && { setup_admission: game.setup_admission }), draw: game.draw!, deal: game.deal!, level: game.level,
     choices: game.players.map(p => p.seat === seat || game.players.every(s => s.ready) ? p.choice : null) as View['choices'],
     ready: game.players.map(p => p.ready) as [boolean, boolean], setup_deadline_at: game.setup_deadline_at?.toISOString() ?? null }),
    ...(game.snapshot && { kings: game.snapshot.rules.kings, hands: game.snapshot.rules.hands }),

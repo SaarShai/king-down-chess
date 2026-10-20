@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { seatIndex, seatSquare, legalSwaps, swapOrder, shuffleOrder, seatChoice, seatFen, chooseArguments, submitReady } from './seat-model';
-import { DEFAULT_OPTIONS, validateChoice } from '../../match/setup';
+import { DEFAULT_OPTIONS, setupAdmission, validateChoice } from '../../match/setup';
 import type { View } from '../../match/protocol';
 import { fromFen } from '../../rules/setup';
 
@@ -43,6 +43,17 @@ describe('seat arrangement', () => {
       const order = shuffleOrder(v);
       expect(validateChoice(v.options!, { army: v.draw!, hand: v.deal! }, { ...choice, order })).toBeNull();
     }
+  });
+  it('uses the stored admission for remembered kings, swaps and shuffle', () => {
+    const v = view(), own = v.choices![0]!;
+    v.setup_admission = { ...setupAdmission(v.options!), kings: [{ king: 'Mud', power: 'March' }], bishopsOpposite: false, guardAdjacent: false };
+    expect(seatChoice(v, { king: 'Spirit', power: 'Mercy' })).toEqual(own);
+    expect(seatChoice(v, { king: 'Mud', power: 'Leap' })!.king).toEqual({ king: 'Mud', power: 'March' });
+    expect(seatChoice(v, { king: 'Mud', power: 'Freeze' })).toEqual(own);
+    const choice = { order: v.draw!, king: v.setup_admission.kings[0] };
+    expect(legalSwaps(v.options!, { army: v.draw!, hand: [] }, choice, 0, 2, v.setup_admission)).toContain(3);
+    const order = shuffleOrder(v, () => 0);
+    expect(validateChoice(v.options!, { army: v.draw!, hand: [] }, { ...choice, order }, v.setup_admission)).toBeNull();
   });
   it('keeps the draft after a stale revision and leaves a lost reply to the same-ID pending retry', async () => {
     const v = view(), choice = { ...seatChoice(v, null)!, order: 'RNKGNBBR' }, fresh = { ...v, revision: 2 };

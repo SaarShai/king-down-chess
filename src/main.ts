@@ -146,7 +146,7 @@ initTable(() => { void play.showPly(null, false); });
 const keys = connectKeys($('board'), play, play.commands);
 
 /** A plain `?fen=` wins over the autosave; restore player settings before loading the game. */
-const saved = params.has('fen') && !link ? null : readSave();
+const stored = params.has('fen') && !link ? { save: null, unreadable: false } : readSave(), saved = stored.save;
 if (saved) {
   play.seat(saved.white, saved.black);
   settings.applySettings(saved);
@@ -180,6 +180,7 @@ if (gameLink) { // a reload then resumes the autosave
   history.replaceState(null, '', url);
 }
 play.restore(saved, { link: openLink, continues, urlRules: !!(preset || kings || (openLink && linkDesign)), title: showTitle,
+  unreadable: stored.unreadable,
   notice: unread ? `The game link holds a piece that this version cannot read.${saved ? ' Your saved game stays.' : ''}` : '' });
 await view.ready();
 if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
@@ -189,7 +190,7 @@ play.moments.restore();
 play.refresh();
 if (showHome) home.open();
 if (!fen) play.save(); // pin the random back rank so a reload keeps this game (and keep an opened link's game)
-void import('./account/account').then(m => { account = m; m.changed(); m.startAccount(play.fromAccount); })
+void import('./account/account').then(m => { account = m; m.changed(); m.startAccount(play.fromAccount, play.savedGames); })
   .catch(() => { /* offline on a first visit: play on without an account */ });
 const designLink = gameLink ? null : params.get('design'); // without a game link, `?design=` opens the Workshop
 if (designLink) {

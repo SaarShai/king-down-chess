@@ -8,7 +8,7 @@ import { KINGS } from '../rules/rules';
 export const lastSetupSchema = z.strictObject({
  kind: z.enum(['solo', 'friend', 'random']), options: optionsSchema, colour: z.enum(['white', 'black', 'random']),
  level: z.enum(['beginner', 'casual', 'club', 'strong']),
- king: choiceSchema.shape.king.refine(king => !king || KINGS[king.king].includes(king.power)),
+ king: choiceSchema.shape.king.refine(king => !king || Object.hasOwn(KINGS, king.king) && KINGS[king.king].includes(king.power)),
 });
 /** `online_visible_to` is not stored here: PluginService.settings() writes it to profiles.online_visible_to. */
 export const settingsSchema = z.strictObject({ symbols_only: z.boolean().optional(), show_threats: z.boolean().optional(), online_visible_to: z.enum(ONLINE_VISIBLE_TO).optional(), last_setup: lastSetupSchema.optional() });

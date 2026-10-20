@@ -1,4 +1,4 @@
-import { ALWAYS_ON, DEFAULT_OPTIONS, DEAL_CARDS, POOL_KINDS, validate, type Options } from '../../match/setup';
+import { ALWAYS_ON, DEFAULT_OPTIONS, DEAL_CARDS, POOL_KINDS, validate, type Options, type SetupAdmission } from '../../match/setup';
 import { KINGS, type CardName, type KingChoice, type KingName } from '../../rules/rules';
 import type { View } from '../../match/protocol';
 
@@ -51,8 +51,13 @@ export function createArguments(state: SetupState) {
   return { options: setupOptions(state.options), colour: state.colour, ...(state.kind === 'solo' ? { level: state.level } : {}) };
 }
 const defaultKing = (colour: SetupState['colour']): KingChoice => colour === 'black' ? { king: 'Shadow', power: 'Darkness' } : { king: 'Spirit', power: 'Mercy' };
-export const availablePowers = (o: Options, king: KingName) => KINGS[king].filter(power => !o.cards || ALWAYS_ON.includes(power));
-export function cleanKing(o: Options, pick: KingChoice | null, colour: SetupState['colour'] = 'white'): KingChoice | null {
+export const availablePowers = (o: Options, king: KingName, admission?: SetupAdmission) => admission ? admission.kings.filter(pick => pick.king === king).map(pick => pick.power) : KINGS[king].filter(power => !o.cards || ALWAYS_ON.includes(power));
+export function cleanKing(o: Options, pick: KingChoice | null, colour: SetupState['colour'] = 'white', admission?: SetupAdmission): KingChoice | null {
+  if (admission) {
+    if (pick && availablePowers(o, pick.king, admission).includes(pick.power)) return { ...pick };
+    const cleaned = cleanKing(o, pick, colour);
+    return cleaned && availablePowers(o, cleaned.king, admission).includes(cleaned.power) ? cleaned : null;
+  }
   if (!pick || !Object.hasOwn(KINGS, pick.king) || !KINGS[pick.king].includes(pick.power)) return null;
   if (!o.cards || ALWAYS_ON.includes(pick.power)) return { ...pick };
   const [power] = availablePowers(o, pick.king);
@@ -62,7 +67,7 @@ export const shownKing = (state: Pick<SetupState, 'king' | 'colour'>): KingChoic
 export function soloChoice(view: View, pick: KingChoice | null) {
   const o = view.options;
   if (view.kind !== 'solo' || view.status !== 'setup' || !o?.kingPowers || !view.draw || view.ready?.[view.seat] || o.arrangement && !pick) return null;
-  const king = cleanKing(o, pick, view.seat === 1 ? 'black' : 'white') ?? view.choices?.[view.seat]?.king;
+  const king = cleanKing(o, pick, view.seat === 1 ? 'black' : 'white', view.setup_admission) ?? view.choices?.[view.seat]?.king;
   if (!king) return null;
   return { game_id: view.game_id, expected_revision: view.revision, king, order: view.draw, ready: !o.arrangement };
 }

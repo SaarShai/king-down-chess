@@ -4,7 +4,7 @@
  * main.ts loads this after the board is drawn; the Supabase client loads only for a sign-in or a
  * saved session. Without a network, or without an account, the game plays exactly as before.
  */
-import { Sync, stamp, type Section } from './sync';
+import { Sync, stamp, type SavedGameAccess, type Section } from './sync';
 import type { Client, Provider } from './client';
 import { AUTH_KEY } from './session';
 export type User = { name: string; avatar: string | null; provider: string };
@@ -60,7 +60,7 @@ export function changed(): void {
 }
 
 /** Draws the Account section and starts the cloud save; `onApply` gets the sections the account had newer. */
-export function startAccount(onApply: (down: Section[]) => void): void {
+export function startAccount(onApply: (down: Section[]) => void, savedGame: SavedGameAccess): void {
   const $ = (id: string) => document.getElementById(id)!;
   const body = $('account-body'), note = $('account-note'), ask = $('delete-account') as HTMLDialogElement;
   const params = new URLSearchParams(location.search);
@@ -82,7 +82,7 @@ export function startAccount(onApply: (down: Section[]) => void): void {
       sync?.stop();
       sync = null;
       userId = s?.user.id ?? '';
-      if (s) { sync = new Sync(localStorage, c.remote(s.user.id), onApply); lastPull = Date.now(); void sync.pull(); }
+      if (s) { sync = new Sync(localStorage, c.remote(s.user.id), onApply, savedGame); lastPull = Date.now(); void sync.pull(); }
     });
     return c;
   }, e => { client = null; throw e; }); // offline before this part was cached: a later tap tries again

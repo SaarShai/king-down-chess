@@ -21,5 +21,5 @@ it('keeps the migration lists ordered with one number per migration', () => {
   const listed = (file: string) => [...read(file).matchAll(/'(\d{4}_\w+\.sql)'/g)].map(match => match[1]);
   expect(listed('tools/plugin-db/bootstrap-test.mjs')).toEqual(files);
   expect(listed('tools/plugin-db/migrate.ts')).toEqual(files.slice(1));
-  expect(files.slice(-2)).toEqual(['0015_remove_email.sql', '0016_web_account_access.sql']);
+  expect(files.slice(-2)).toEqual(['0016_web_account_access.sql', '0017_setup_admission.sql']);
 });

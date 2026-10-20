@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createMatch, loadMatch, LocalMatch } from './index';
+import { createMatch, createPinnedMatch, loadMatch, LocalMatch } from './index';
 import { fromFen, toFen } from '../rules/setup';
 import type { Position } from '../rules/engine';
 const matches: LocalMatch[] = [];
@@ -25,6 +25,13 @@ describe('isolated local matches', () => {
     before.rules.kings = [null, null];
     expect((await m.snapshot()).moves[0].move.from).not.toBe(99);
     expect((await m.snapshot()).rules.kings).not.toEqual([null, null]);
+  });
+  it('uses the current worker only when its exact identity is the pending setup pin', async () => {
+    const current = await create(), engine = JSON.parse(await current.exportSave()).engine;
+    const pinned = await createPinnedMatch({}, engine); matches.push(pinned);
+    expect(await pinned.snapshot()).toEqual(await current.snapshot());
+    expect(JSON.parse(await pinned.exportSave()).engine).toBe(engine);
+    await expect(createPinnedMatch({}, `sha256:${'f'.repeat(64)}`)).rejects.toMatchObject({ code: 'MATCH_INCOMPATIBLE' });
   });
   it('selects bounded legal moves repeatedly without mutating or persisting search state', async () => {
     const m = await create(), before = await m.snapshot(), save = await m.exportSave();

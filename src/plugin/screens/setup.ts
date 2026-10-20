@@ -3,10 +3,11 @@ import type { Job, JobOptions } from '../queue';
 import { art } from '../../account-game/art';
 import { cardArt } from '../card-face';
 import { errorText } from '../../account-game/types';
-import { DEAL_CARDS, POOL_KINDS, type Options } from '../../match/setup';
+import { ALWAYS_ON, DEAL_CARDS, POOL_KINDS, type Options } from '../../match/setup';
 import { LETTERS, NAMES } from '../../rules/engine';
+import type { SetupAdmission } from '../../match/setup';
 import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, type CardName, type PowerName } from '../../rules/rules';
-import { POWER_NAME, cardName, cardCost, cardText, powerText, powerOptions, powersRules, ruleLine } from '../../powers-ui';
+import { POWER_NAME, cardName, cardCost, cardText, powerText, powerTitle, powerOptions, powersRules, ruleLine } from '../../powers-ui';
 import type { View } from '../../match/protocol';
 import { locks, type Page } from '../../account-game/state';
 import { availablePowers, cleanKing, createArguments, gameSetup, pieceLocked, quickSetup, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, type SetupState } from './setup-model';
@@ -141,17 +142,22 @@ function cardsSheet(card?: CardName) {
   draw();
   if (card) body.querySelector<HTMLInputElement>(`input[value="${card}"]`)!.focus();
 }
-export function kingSheet(options: Options, pick: KingChoice): Promise<KingChoice> {
+export function kingSheet(options: Options, pick: KingChoice, admission?: SetupAdmission): Promise<KingChoice> {
   if (stopped || queue.closed()) return Promise.resolve(pick);
-  const cleaned = cleanKing(options, pick) ?? shownKing({ colour: 'white', king: null });
+  const cleaned = cleanKing(options, pick, 'white', admission) ?? shownKing({ colour: 'white', king: null });
   let chosen = cleaned.king === pick.king && cleaned.power === pick.power ? pick : cleaned;
   return new Promise(resolve => {
-    const dialog = sheet('king', 'Your king', () => resolve(chosen)), body = dialog.querySelector<HTMLElement>('.sheet-body')!, count = dialog.querySelector('.foot-count')!, groups = powerOptions(kingRules);
+    const dialog = sheet('king', 'Your king', () => resolve(chosen)), body = dialog.querySelector<HTMLElement>('.sheet-body')!, count = dialog.querySelector('.foot-count')!;
+    const kingNames = [...new Set([...(Object.keys(KINGS) as KingName[]), ...(admission?.kings.map(p => p.king) ?? [])])];
+    const groups = admission ? kingNames.map(king => {
+      const powers = [...new Set([...(KINGS[king] ?? []), ...admission.kings.filter(p => p.king === king).map(p => p.power)])];
+      return { king, options: powers.map(power => ({ value: `${king}:${power}`, label: powerTitle(power, kingRules), title: powerText(power, kingRules) })) };
+    }) : powerOptions(kingRules);
     const draw = () => {
-      const powers = groups.find(group => group.king === chosen.king)!.options, allowed = availablePowers(options, chosen.king);
-      body.innerHTML = `${options.cards ? `<p class="lock-note">${icon('cards')}<span>Cards are on, so only the powers that are always on can play.</span></p>` : ''}<div id="king-picker"><div class="king-pick"><h3>King · <span class="who">${chosen.king}</span></h3><div class="emblems" role="group" aria-label="King">${(Object.keys(KINGS) as KingName[]).map(king => { const out = !availablePowers(options, king).length; return `<button class="emblem${out ? ' is-out' : ''}" data-king="${king}" aria-pressed="${king === chosen.king}" aria-disabled="${out}" ${out ? 'disabled' : ''} title="${king} king: ${KINGS[king].map(p => POWER_NAME[p]).join(' or ')}">${image(`ui/emblems/${king.toLowerCase()}.webp`)}<span class="em-name">${king}</span></button>`; }).join('')}</div><div class="power-choice two">${powers.map(power => { const p = power.value.split(':')[1] as PowerName, out = !allowed.includes(p); return `<button data-power="${p}" title="${ruleLine(power.title)}" aria-pressed="${chosen.power === p}" aria-disabled="${out}" ${out ? 'disabled' : ''}>${power.label}</button>`; }).join('')}</div><p class="power-text"><b>${POWER_NAME[chosen.power]}:</b> ${ruleLine(powerText(chosen.power, kingRules))}${options.cards ? ' Always on.' : ''}</p>${powers.filter(power => !allowed.includes(power.value.split(':')[1] as PowerName)).map(power => `<p class="power-text off"><b>${POWER_NAME[power.value.split(':')[1] as PowerName]}</b> has uses, so it cannot play with cards.</p>`).join('')}</div></div>`;
+      const powers = groups.find(group => group.king === chosen.king)!.options, allowed = availablePowers(options, chosen.king, admission);
+      body.innerHTML = `${options.cards ? `<p class="lock-note">${icon('cards')}<span>Cards are on, so only the powers that are always on can play.</span></p>` : ''}<div id="king-picker"><div class="king-pick"><h3>King · <span class="who">${chosen.king}</span></h3><div class="emblems" role="group" aria-label="King">${kingNames.map(king => { const out = !availablePowers(options, king, admission).length; return `<button class="emblem${out ? ' is-out' : ''}" data-king="${king}" aria-pressed="${king === chosen.king}" aria-disabled="${out}" ${out ? 'disabled' : ''} title="${king} king: ${groups.find(group => group.king === king)!.options.map(p => POWER_NAME[p.value.split(':')[1] as PowerName]).join(' or ')}">${image(`ui/emblems/${king.toLowerCase()}.webp`)}<span class="em-name">${king}</span></button>`; }).join('')}</div><div class="power-choice two">${powers.map(power => { const p = power.value.split(':')[1] as PowerName, out = !allowed.includes(p); return `<button data-power="${p}" title="${ruleLine(power.title)}" aria-pressed="${chosen.power === p}" aria-disabled="${out}" ${out ? 'disabled' : ''}>${power.label}</button>`; }).join('')}</div><p class="power-text"><b>${POWER_NAME[chosen.power]}:</b> ${ruleLine(powerText(chosen.power, kingRules))}${options.cards ? ' Always on.' : ''}</p>${powers.filter(power => !allowed.includes(power.value.split(':')[1] as PowerName)).map(power => `<p class="power-text off"><b>${POWER_NAME[power.value.split(':')[1] as PowerName]}</b> ${options.cards && !ALWAYS_ON.includes(power.value.split(':')[1] as PowerName) ? 'has uses, so it cannot play with cards.' : 'is not available in this game.'}</p>`).join('')}</div></div>`;
       count.textContent = `${chosen.king} · ${POWER_NAME[chosen.power]}`;
-      body.querySelectorAll<HTMLButtonElement>('[data-king]').forEach(button => { button.onclick = () => { const king = button.dataset.king as KingName, [power] = availablePowers(options, king); if (power) { const changed = king !== chosen.king; chosen = { king, power }; draw(); const pick = body.querySelector<HTMLButtonElement>(`[data-king="${king}"]`); pick?.focus(); if (changed) pick?.classList.add('is-flip'); } }; });
+      body.querySelectorAll<HTMLButtonElement>('[data-king]').forEach(button => { button.onclick = () => { const king = button.dataset.king as KingName, [power] = availablePowers(options, king, admission); if (power) { const changed = king !== chosen.king; chosen = { king, power }; draw(); const pick = body.querySelector<HTMLButtonElement>(`[data-king="${king}"]`); pick?.focus(); if (changed) pick?.classList.add('is-flip'); } }; });
       body.querySelectorAll<HTMLButtonElement>('[data-power]').forEach(button => { button.onclick = () => { const power = button.dataset.power as PowerName; if (allowed.includes(power)) { chosen = { king: chosen.king, power }; draw(); body.querySelector<HTMLButtonElement>(`[data-power="${power}"]`)?.focus(); } }; });
     }; draw();
   });

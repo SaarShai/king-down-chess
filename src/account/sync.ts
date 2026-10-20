@@ -14,6 +14,12 @@ export type Row = Partial<Record<Section, Stamped | null>>;
  * the row as the database kept it: it keeps a section only when the one sent is newer (0001_accounts.sql).
  */
 export interface Remote { pull(): Promise<Row | null>; push(row: Row): Promise<Row | null> }
+/** Supplied by the game page, so this storage/sync module does not import the engine. */
+export interface SavedGameAccess {
+  /** Rechecks the current local save, including changes made after boot. */
+  blocked(): boolean;
+  accepts(value: unknown): boolean;
+}
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
 /** When each section last changed here, and its value then (to see the next change). */
 type Stamps = Partial<Record<Section, { at: number; json: string }>>;
@@ -100,8 +106,9 @@ export class Sync {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private retryMs = 0;
   private queue: Promise<void> = Promise.resolve();
+  private rejectedGame: { at: number; local: string } | undefined;
 
-  constructor(private store: Store, private remote: Remote, private onApply: (down: Section[]) => void, private delayMs = 2000) {}
+  constructor(private store: Store, private remote: Remote, private onApply: (down: Section[]) => void, private savedGame: SavedGameAccess, private delayMs = 2000) {}
 
   /** Takes each section the cloud has newer, then sends each this device has newer. */
   pull(): Promise<void> {
@@ -117,7 +124,13 @@ export class Sync {
   /** A local change: stamped now, sent after a quiet moment, so a burst of moves is one write. */
   changed(): void {
     if (this.stopped) return;
-    stamp(this.store);
+    const stamps = stamp(this.store), local = readLocal(this.store).saved_game;
+    // An explicit replacement or a new local move can supersede a rejected copy, even with a future clock.
+    if (!this.savedGame.blocked() && this.rejectedGame && local != null && canon(local) !== this.rejectedGame.local && stamps.saved_game) {
+      stamps.saved_game.at = Math.max(stamps.saved_game.at, this.rejectedGame.at + 1);
+      this.store.setItem(STAMPS, JSON.stringify(stamps));
+      this.rejectedGame = undefined;
+    }
     this.later(this.delayMs);
   }
 
@@ -132,8 +145,12 @@ export class Sync {
   private async send(): Promise<void> {
     const stamps = stamp(this.store), local = readLocal(this.store), row: Row = {};
     for (const s of SECTIONS) {
+      if (s !== 'lessons' && this.savedGame.blocked()) continue;
       const l = stamps[s];
-      if (l && local[s] != null && l.at > (this.cloudAt[s] ?? -1)) row[s] = { at: l.at, v: local[s] };
+      if (l && local[s] != null && l.at > (this.cloudAt[s] ?? -1)) {
+        if (s === 'saved_game' && !this.savedGame.accepts(local[s])) continue;
+        row[s] = { at: l.at, v: local[s] };
+      }
     }
     if (this.stopped || !Object.keys(row).length) return;
     const kept = await this.remote.push(row);
@@ -147,8 +164,19 @@ export class Sync {
     const stamps = stamp(this.store), { down } = merge(stamps, row);
     this.cloudAt = {};
     for (const s of SECTIONS) if (typeof row?.[s]?.at === 'number') this.cloudAt[s] = row[s]!.at;
+    const remoteGame = row?.saved_game;
+    if (remoteGame && typeof remoteGame.at === 'number' && remoteGame.at > (stamps.saved_game?.at ?? -1) && !usable('saved_game', remoteGame.v)) {
+      if (!this.savedGame.blocked()) this.savedGame.accepts(remoteGame.v);
+      this.rejectGame(remoteGame.at);
+    }
+    const applied: Section[] = [];
     for (const s of down) {
       const { at, v } = row![s]!;
+      if (s === 'saved_game' && (this.savedGame.blocked() || !this.savedGame.accepts(v))) {
+        this.rejectGame(at);
+        continue;
+      }
+      if (s === 'settings' && this.savedGame.blocked()) continue;
       if (s === 'lessons') {
         // Lessons done only add up: keep the ones done only here. Then this copy differs from the
         // cloud's, so it counts as a new change and goes up.
@@ -158,8 +186,14 @@ export class Sync {
         if (more.length) this.later(this.delayMs);
       } else writeLocal(this.store, s, v);
       stamps[s] = { at, json: canon(s === 'lessons' ? v : readLocal(this.store)[s]) };
+      if (s === 'saved_game') this.rejectedGame = undefined;
+      applied.push(s);
     }
-    if (down.length) { this.store.setItem(STAMPS, JSON.stringify(stamps)); this.onApply(down); }
+    if (applied.length) { this.store.setItem(STAMPS, JSON.stringify(stamps)); this.onApply(applied); }
+  }
+
+  private rejectGame(at: number): void {
+    this.rejectedGame = { at: Math.max(at, this.rejectedGame?.at ?? at), local: canon(readLocal(this.store).saved_game) };
   }
 
   private later(ms: number): void {

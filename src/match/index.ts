@@ -85,6 +85,17 @@ export class LocalMatch {
 export async function createMatch(setup: MatchSetup = {}): Promise<LocalMatch> {
   const match = new LocalMatch(); try { await match.initialize(setup); return match; } catch (e) { await match.close(); throw e; }
 }
+/** Finish a drawn account setup with its fixed archive; never substitute the current worker. */
+export async function createPinnedMatch(setup: MatchSetup, engine: string): Promise<LocalMatch> {
+  const url = archivedEngine(JSON.stringify({ engine }));
+  // Source workers need no archive while their exact identity is still running. A changed identity refuses below.
+  const match = new LocalMatch(url);
+  try {
+    await match.initialize(setup);
+    if (JSON.parse(await match.exportSave()).engine !== engine) throw new MatchError('Incompatible setup engine', 'MATCH_INCOMPATIBLE');
+    return match;
+  } catch (e) { await match.close(); throw e; }
+}
 /** An unknown fingerprint falls to the current engine, which refuses it with MATCH_INCOMPATIBLE. */
 export async function loadMatch(save: string): Promise<LocalMatch> {
   const match = new LocalMatch(archivedEngine(save)); try { await match.initialize(save, true); return match; } catch (e) { await match.close(); throw e; }

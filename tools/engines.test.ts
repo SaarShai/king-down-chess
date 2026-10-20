@@ -12,6 +12,7 @@ import { loadMatch, LocalMatch, type MatchSnapshot } from '../src/match/index';
 import { checkRuntime, enginesInUse, missingEngines, summarizeEngines } from './engines-check.mjs';
 import { testDatabase } from './plugin-db-config.mjs';
 import { ENGINE_STAMP, ENGINES } from './plugin-runtime-build.mjs';
+import { setupAdmission, DEFAULT_OPTIONS } from '../src/match/setup';
 import { ARCHIVE_CAPABILITIES, CARD_CASES, CLASSIC_CASES, ORDINARY_CASES, PRE_ENGINE_RECOVERY_STATES, RECOVERY_RECEIPT } from './fixtures/engine-continuation';
 import { inCheck, legalMoves, setRules, status, type Position } from '../src/rules/engine';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
@@ -94,7 +95,7 @@ const stamp = `sha256:${bundles[0]}`;
 const alias = `sha256:${Object.keys(sourceAliases)[0]}`;
 const save = (engine: unknown) => JSON.stringify({ ...JSON.parse(fixture(bundles[0])), engine });
 const game = (engine: unknown = stamp, state: unknown = save(engine), status = 'playing') => ({ engine, state, status });
-const reportFor = (rows: ReturnType<typeof game>[]) => ({ tables: [summarizeEngines('games', rows)], engines: summarizeEngines('games', rows).engines });
+const reportFor = (rows: (ReturnType<typeof game> & { admission?: unknown })[]) => ({ tables: [summarizeEngines('games', rows)], engines: summarizeEngines('games', rows).engines });
 
 describe('engine report', () => {
   it.each([
@@ -109,11 +110,19 @@ describe('engine report', () => {
     expect(report.tables[0].malformedState).toBe(1); expect(report.ok).toBe(false);
   });
 
-  it('counts empty recovery setup states without an engine', () => {
+  it('refuses unstamped pending states until their baseline is explicitly mapped', () => {
     const report = checkRuntime(reportFor(PRE_ENGINE_RECOVERY_STATES), ENGINES);
-    expect(report.ok).toBe(true);
+    expect(report.ok).toBe(false);
     expect(report.tables[0]).toMatchObject({ unfinished: 2, emptySetup: 2, initialized: 0, malformedEngine: 0 });
     expect(report.engines).toEqual([]);
+  });
+
+  it('retains the required archive for a drawn setup before a position exists', () => {
+    const report = checkRuntime(reportFor([{ ...game(stamp, null, 'setup'), admission: setupAdmission(DEFAULT_OPTIONS) }]), ENGINES);
+    expect(report.ok).toBe(true);
+    expect(report.tables[0]).toMatchObject({ pendingSetup: 1, initialized: 0, emptySetup: 0, malformedState: 0 });
+    expect(report.engines).toEqual([{ engine: stamp, games: 1 }]);
+    expect(checkRuntime({ ...report, engines: [{ engine: `sha256:${'f'.repeat(64)}`, games: 1 }] }, ENGINES).ok).toBe(false);
   });
 
   it.each(['save', 'column', 'both'])('rejects a bare hash in the initialized %s', field => {
@@ -226,7 +235,7 @@ if (url) {
     try {
       // This session sees only its own temporary tables.
       await client.query('set search_path = pg_temp');
-      if (tables.includes('games')) await client.query('create temp table games(engine_fingerprint text, state text, status text)');
+      if (tables.includes('games')) await client.query('create temp table games(engine_fingerprint text, state text, status text, setup_admission jsonb)');
       if (tables.includes('plugin_matches')) await client.query('create temp table plugin_matches(save text, snapshot jsonb)');
       await check(client);
     } finally { await client.end(); }
@@ -234,13 +243,14 @@ if (url) {
 
   it.each([['games'], ['plugin_matches'], ['games', 'plugin_matches']])('reads all present tables: %j', async (...tables) => {
     await withTables(tables, async client => {
-      if (tables.includes('games')) await client.query("insert into games values ($1,$2,'playing'),($1,$2,'waiting'),(null,null,'setup')", [stamp, save(stamp)]);
+      if (tables.includes('games')) await client.query("insert into games(engine_fingerprint,state,status) values ($1,$2,'playing'),($1,$2,'waiting'),($1,null,'setup')", [stamp, save(stamp)]);
+      if (tables.includes('games')) await client.query("update games set setup_admission=$1 where state is null", [setupAdmission(DEFAULT_OPTIONS)]);
       if (tables.includes('plugin_matches')) await client.query(`insert into plugin_matches values ($1,'{"status":"playing"}'),($1,'{"status":"playing"}'),($2,'{"status":"checkmate"}')`, [save(alias), 'bad finished save']);
       const report = await enginesInUse(client);
       expect(report.database).toBe(new URL(url!).pathname.slice(1));
       expect(report.time).toMatch(/^\d{4}-\d\d-\d\dT.*Z$/);
       expect(report.tables.map(row => [row.table, row.present])).toEqual(['games', 'plugin_matches'].map(table => [table, tables.includes(table)]));
-      if (tables.includes('games')) expect(report.tables[0]).toMatchObject({ unfinished: 3, emptySetup: 1, initialized: 2, agreement: 2, mismatch: 0, malformedState: 0, malformedEngine: 0 });
+      if (tables.includes('games')) expect(report.tables[0]).toMatchObject({ unfinished: 3, emptySetup: 0, pendingSetup: 1, initialized: 2, agreement: 2, mismatch: 0, malformedState: 0, malformedEngine: 0 });
       if (tables.includes('plugin_matches')) expect(report.tables[1]).toMatchObject({ unfinished: 2, initialized: 2, engines: [{ engine: alias, games: 2 }] });
       expect(checkRuntime(report, ENGINES).ok).toBe(true);
       expect(report.engines).toHaveLength(tables.length);
@@ -263,9 +273,9 @@ if (url) {
     });
   });
 
-  it('accepts only null state and null column as empty waiting or setup', async () => {
+  it('reports unmapped pending rows and malformed initialized state separately', async () => {
     await withTables(['games'], async client => {
-      await client.query("insert into games values (null,null,'waiting'),(null,null,'setup'),(null,$1,'setup'),($2,null,'waiting'),(null,null,'playing'),($2,$1,'playing')", [save(stamp), stamp]);
+      await client.query("insert into games(engine_fingerprint,state,status) values (null,null,'waiting'),(null,null,'setup'),(null,$1,'setup'),($2,null,'waiting'),(null,null,'playing'),($2,$1,'playing')", [save(stamp), stamp]);
       const report = checkRuntime(await enginesInUse(client), ENGINES);
       expect(report.tables[0]).toMatchObject({ unfinished: 6, emptySetup: 2, initialized: 4, malformedState: 2, malformedEngine: 3, agreement: 1, mismatch: 3 });
       expect(report.ok).toBe(false);
@@ -274,7 +284,7 @@ if (url) {
 
   it('counts save and column disagreement and retains both full stamps', async () => {
     await withTables(['games'], async client => {
-      await client.query("insert into games values ($1,$2,'playing')", [stamp, save(alias)]);
+      await client.query("insert into games(engine_fingerprint,state,status) values ($1,$2,'playing')", [stamp, save(alias)]);
       const report = checkRuntime(await enginesInUse(client), ENGINES);
       expect(report.tables[0]).toMatchObject({ agreement: 0, mismatch: 1, malformedEngine: 0 });
       expect(report.engines.map(row => row.engine).sort()).toEqual([stamp, alias].sort());
@@ -284,7 +294,7 @@ if (url) {
 
   it('excludes finished, aborted and annulled games and finished plugin matches', async () => {
     await withTables(['games', 'plugin_matches'], async client => {
-      await client.query("insert into games values (null,'bad','finished'),(null,'bad','aborted'),(null,'bad','annulled')");
+      await client.query("insert into games(engine_fingerprint,state,status) values (null,'bad','finished'),(null,'bad','aborted'),(null,'bad','annulled')");
       await client.query(`insert into plugin_matches values ('bad','{"status":"checkmate"}'),('bad','{"status":"stalemate"}')`);
       const report = checkRuntime(await enginesInUse(client), ENGINES);
       expect(report.ok).toBe(true);

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { PublicMatchRules } from './index';
 import type { Status } from '../rules/engine';
 import { choiceSchema, optionsSchema } from './setup-schema';
-import type { Choice, Options } from './setup';
+import type { Choice, Options, SetupAdmission } from './setup';
 import type { CardName, KingChoice, KingName, PowerName } from '../rules/rules';
 import type { SkillName } from '../ai/skill';
 import type { Icon } from '../account/profile';
@@ -72,7 +72,7 @@ export interface Opponent { handle: string | null; icon: Icon | null; rating?: {
 export interface View {
   game_id: string;
   revision: number;
-  /** The game's fixed engine implementation; null before the engine starts. */
+  /** The game's fixed engine implementation, including unfinished drawn setup. */
   engine_fingerprint?: string | null;
   created_at: string;
   abort_open: boolean;
@@ -104,6 +104,7 @@ export interface View {
   level?: SkillName;
   /** Your choice; the other choice is null until both seats are ready. */
   choices?: [Choice | null, Choice | null];
+  setup_admission?: SetupAdmission;
   ready?: [boolean, boolean];
   setup_deadline_at?: string | null;
   /** The public king choices and dealt hands once the engine starts. */

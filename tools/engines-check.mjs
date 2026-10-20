@@ -13,10 +13,16 @@ const engineRows = counts => [...counts].sort(([a], [b]) => a.localeCompare(b)).
 /** Count bad states without putting saves or game identifiers in the report. */
 export function summarizeEngines(table, rows) {
   const counts = new Map();
-  const report = { table, present: true, unfinished: rows.length, emptySetup: 0, initialized: 0, malformedState: 0, malformedEngine: 0, agreement: 0, mismatch: 0 };
+  const report = { table, present: true, unfinished: rows.length, emptySetup: 0, pendingSetup: 0, initialized: 0, malformedState: 0, malformedEngine: 0, agreement: 0, mismatch: 0 };
   for (const row of rows) {
     if (table === 'games' && ['waiting', 'setup'].includes(row.status) && row.state === null && row.engine === null) {
       report.emptySetup++;
+      continue;
+    }
+    if (table === 'games' && ['waiting', 'setup'].includes(row.status) && row.state === null && engineHex(row.engine) &&
+      row.admission && Array.isArray(row.admission.kings) && ['arrangement', 'bishopsOpposite', 'guardAdjacent'].every(key => typeof row.admission[key] === 'boolean')) {
+      report.pendingSetup++;
+      counts.set(row.engine, (counts.get(row.engine) ?? 0) + 1);
       continue;
     }
     report.initialized++;
@@ -52,7 +58,7 @@ export async function enginesInUse(client) {
       let rows;
       try {
         ({ rows } = await client.query(table === 'games'
-          ? "select engine_fingerprint as engine, state, status from games where status not in ('finished','aborted','annulled')"
+          ? "select engine_fingerprint as engine, state, status, setup_admission as admission from games where status not in ('finished','aborted','annulled')"
           : "select save as state from plugin_matches where snapshot->>'status' = 'playing'"));
       } catch (error) { throw new Error(`Cannot read ${table} (SQLSTATE ${error.code ?? 'unknown'})`); }
       tables.push({ ...summarizeEngines(table, rows), schema: relation.schema });
@@ -75,7 +81,7 @@ export function checkRuntime(report, dir) {
   const bundles = report.engines.map(row => ({ ...row, file: engineHex(row.engine) ? `${engineHex(row.engine)}.mjs` : null,
     sha256: missing.includes(row) ? null : createHash('sha256').update(readFileSync(resolve(runtimeFolder, `${engineHex(row.engine)}.mjs`))).digest('hex') }));
   const ok = report.tables.some(table => table.present) && !missing.length &&
-    report.tables.every(table => !table.present || !(table.malformedState || table.malformedEngine || table.mismatch));
+    report.tables.every(table => !table.present || !(table.emptySetup || table.malformedState || table.malformedEngine || table.mismatch));
   return { ...report, runtimeFolder, bundles, missingEngines: missing.length, ok };
 }
 

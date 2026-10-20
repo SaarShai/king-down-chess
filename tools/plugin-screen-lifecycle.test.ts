@@ -32,6 +32,29 @@ async function stopHeld(page: Page, selector: string) {
   expect(await page.evaluate(() => ({ calls: (window as any).harnessCalls.length, writes: (window as any).harnessWidgetStates.length }))).toEqual(before);
   expect(await frame.locator(selector).innerHTML()).toBe(html);
 }
+it('uses neutral copy for a pinned unavailable power when cards are off', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.route('**/fixture-tool', async route => {
+      const response = await route.fetch(), result = await response.json(), view = result._meta?.view;
+      if (view?.status === 'setup' && view.options?.kingPowers && !view.options.cards) {
+        view.setup_admission = { kings: [{ king: 'Spirit', power: 'Mercy' }, { king: 'Shadow', power: 'Darkness' }], arrangement: true, bishopsOpposite: true, guardAdjacent: true };
+        view.choices[view.seat].king = { king: 'Spirit', power: 'Mercy' };
+      }
+      await route.fulfill({ json: result });
+    });
+    await page.evaluate(async options => {
+      const w = window as any, result = await w.harnessTool({ name: 'kingdown_create', arguments: { kind: 'solo', colour: 'white', options } });
+      if (result.isError) throw new Error(JSON.stringify(result.content));
+      await w.harnessShow(result, true);
+    }, { ...DEFAULT_OPTIONS, cards: false, arrangement: true, kingPowers: true });
+    await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    await frame.locator('#seat-king:not(:disabled)').click();
+    expect(await frame.locator('[data-power="HolyLight"]').isDisabled()).toBe(true);
+    expect(await frame.locator('[data-power="Mercy"]').isEnabled()).toBe(true);
+    expect(await frame.locator('.power-text.off').allTextContents()).toEqual(['Holy Light is not available in this game.']);
+  } finally { await page.close(); }
+});
 it.each(['pieces', 'cards', 'king', 'seat-king', 'seat-menu', 'seat-abort'])('preserves %s through SDK teardown and restores it on remount', async name => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

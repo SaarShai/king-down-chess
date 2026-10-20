@@ -72,7 +72,7 @@ function tap(square: number, swap = true) {
 }
 function locks() {
   const view = current(); if (!view?.options || !choice) return;
-  const error = validateChoice(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice), lock = locked();
+  const error = validateChoice(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice, view.setup_admission), lock = locked();
   for (const [id, blocked] of [['seat-shuffle', lock], ['seat-king', lock], ['seat-ready', lock || !!error]] as const) {
     const button = $<HTMLButtonElement>(id); button.setAttribute('aria-disabled', String(blocked)); if (button.disabled !== blocked) button.disabled = blocked;
   }
@@ -92,14 +92,14 @@ function render() {
   $('seat-me-line').textContent = choice.king ? `${choice.king.king} · ${POWER_NAME[choice.king.power]}` : view.seat === 0 ? 'White · Spirit King' : 'Black · Shadow King';
   $('strip-me').classList.toggle('is-turn', !ready); $('seat-king').hidden = !needs.king; $('seat-shuffle').hidden = !needs.order;
   if (choice.king) $<HTMLImageElement>('seat-king').querySelector('img')!.src = art(`ui/emblems/${choice.king.king.toLowerCase()}.webp`);
-  const error = validateChoice(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice);
+  const error = validateChoice(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice, view.setup_admission);
   const piece = selected === null ? '' : NAMES[LETTERS.indexOf(choice.order[selected % 8])];
   $('seat-context').textContent = ready ? 'Waiting for the other player.' : error ?? (selected === null ? needs.order ? 'Select one back-rank piece, then another, to swap them.' : 'Choose your king, then press Ready.' : `Select a marked piece to swap the ${piece} with it.`);
   $('seat-note').textContent = ready ? days === null ? '' : `${them} has ${days} ${days === 1 ? 'day' : 'days'} to choose.` : choice.order.includes('G') && needs.order ? 'The guard stays next to the king.' : '';
   $('last-move').textContent = '';
   const kings: [KingChoice | null, KingChoice | null] = [null,null]; kings[view.seat] = choice.king; const context = new GameRules({ kings }); board.setRules(context);
   const pos = context.fromFen(seatFen(choice.order, view.seat)); pos.turn = view.seat; board.sync(pos); board.flip(view.seat === 1);
-  highlight({ selected: ready ? null : selected, swaps: !ready && selected !== null ? legalSwaps(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice, view.seat, selected) : [] });
+  highlight({ selected: ready ? null : selected, swaps: !ready && selected !== null ? legalSwaps(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice, view.seat, selected, view.setup_admission) : [] });
   locks(); scheduleVeil();
 }
 async function finish(next: View, origin?: Job) {
@@ -113,7 +113,7 @@ async function finish(next: View, origin?: Job) {
   } else routeView(next);
 }
 async function ready() {
-  const view = current(); if (!view?.options || !choice || locked() || validateChoice(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice)) return;
+  const view = current(); if (!view?.options || !choice || locked() || validateChoice(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice, view.setup_admission)) return;
   sending = true; locks();
   try {
     const next = await submitReady(view, { ...choice }, { send: args => call('kingdown_choose', args, true, false, false), read: () => call('kingdown_get', {}, false, false, false), pending: gameActionsBlocked, id: uuid });
@@ -123,7 +123,7 @@ async function ready() {
 async function pickKing() {
   const view = current(); if (!view?.options || !choice?.king || locked()) return;
   picking = true; locks();
-  try { const pick = await kingSheet(view.options, choice.king); if (current()?.game_id === view.game_id && choice && !current()?.ready?.[view.seat]) choice.king = pick; }
+  try { const pick = await kingSheet(view.options, choice.king, view.setup_admission); if (current()?.game_id === view.game_id && choice && !current()?.ready?.[view.seat]) choice.king = pick; }
   // The sheet gives focus back while the coin is still locked, and a disabled coin cannot take it.
   finally { picking = false; render(); if (current() && (!document.activeElement || document.activeElement === document.body)) $('seat-king').focus({ preventScroll: true }); }
 }

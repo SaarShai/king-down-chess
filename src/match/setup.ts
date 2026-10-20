@@ -54,36 +54,41 @@ export interface Choice { king: KingChoice | null; order: string }
 /** The powers with no uses under `POWERS_BALANCED`: the only ones a hand allows (`setRules`; spec Q19). A test holds it to the engine. */
 export const ALWAYS_ON: readonly PowerName[] = ['HolyLight', 'Mercy', 'DeathTouch', 'Darkness', 'March'];
 
+/** The finite admission rules fixed when an account game draws. No hidden seat choice is stored here. */
+export interface SetupAdmission { kings: readonly KingChoice[]; arrangement: boolean; bishopsOpposite: boolean; guardAdjacent: boolean }
+export function setupAdmission(o: Options): SetupAdmission {
+  return { kings: o.kingPowers ? Object.entries(KINGS).flatMap(([king, powers]) => powers.filter(power => !o.cards || ALWAYS_ON.includes(power)).map(power => ({ king: king as KingChoice['king'], power }))) : [], arrangement: o.arrangement, bishopsOpposite: true, guardAdjacent: true };
+}
+
 /** Why `row` is not a legal order of `army`: the same letters, bishops on opposite colours, the guard next to the king (spec Q8). */
-function arrangementError(row: string, army: string): string | null {
+function arrangementError(row: string, army: string, admission: SetupAdmission): string | null {
   if ([...row].sort().join('') !== [...army].sort().join('')) return 'Use the same pieces as the army.';
   const bishops = [...row].flatMap((p, i) => (p === 'B' ? [i] : []));
-  if (bishops.length === 2 && (bishops[0] + bishops[1]) % 2 === 0) return 'Bishops must stand on opposite colours.';
-  if (row.includes('G') && Math.abs(row.indexOf('G') - row.indexOf('K')) !== 1) return 'The guard must stand next to the king.';
+  if (admission.bishopsOpposite && bishops.length === 2 && (bishops[0] + bishops[1]) % 2 === 0) return 'Bishops must stand on opposite colours.';
+  if (admission.guardAdjacent && row.includes('G') && Math.abs(row.indexOf('G') - row.indexOf('K')) !== 1) return 'The guard must stand next to the king.';
   return null;
 }
 
 /** Why a seat's choice is not legal for these options and this draw, or null. */
-export function validateChoice(o: Options, d: Draw, c: Choice): string | null {
-  const orderError = o.arrangement ? arrangementError(c.order, d.army) : c.order === d.army ? null : 'Use the drawn order.';
+export function validateChoice(o: Options, d: Draw, c: Choice, admission = setupAdmission(o)): string | null {
+  const orderError = admission.arrangement ? arrangementError(c.order, d.army, admission) : c.order === d.army ? null : 'Use the drawn order.';
   if (orderError) return orderError;
-  if (!o.kingPowers) return c.king ? 'King powers are off.' : null;
-  if (!c.king || !(Object.hasOwn(KINGS, c.king.king) && KINGS[c.king.king].includes(c.king.power))) return 'Pick a king and one of its two powers.';
-  if (o.cards && !ALWAYS_ON.includes(c.king.power)) return 'With cards, pick a power that is always on.';
+  if (!admission.kings.length) return c.king ? 'King powers are off.' : null;
+  if (!c.king || !admission.kings.some(k => k.king === c.king!.king && k.power === c.king!.power)) return o.cards ? 'With cards, pick a power that is always on.' : 'Pick a king and one of its two powers.';
   return null;
 }
 
 /** The seat's choice when it makes none: Spirit/Mercy for White, Shadow/Darkness for Black; a computer arranges at random. */
-export function defaultChoice(o: Options, d: Draw, seat: 0 | 1, rng: () => number, computer: boolean): Choice {
+export function defaultChoice(o: Options, d: Draw, seat: 0 | 1, rng: () => number, computer: boolean, admission = setupAdmission(o)): Choice {
   const king: KingChoice | null = !o.kingPowers ? null : seat === 0 ? { king: 'Spirit', power: 'Mercy' } : { king: 'Shadow', power: 'Darkness' };
   let order = d.army;
-  if (o.arrangement && computer) do order = shuffle([...d.army], rng).join(''); while (arrangementError(order, d.army));
+  if (admission.arrangement && computer) do order = shuffle([...d.army], rng).join(''); while (arrangementError(order, d.army, admission));
   return { king, order };
 }
 
 /** The match setup from the options, the draw and both seats' choices. */
-export function buildSetup(o: Options, d: Draw, seats: readonly [Choice, Choice]): MatchSetup {
-  for (const c of seats) { const error = validateChoice(o, d, c); if (error) throw new Error(error); }
+export function buildSetup(o: Options, d: Draw, seats: readonly [Choice, Choice], admission = setupAdmission(o)): MatchSetup {
+  for (const c of seats) { const error = validateChoice(o, d, c, admission); if (error) throw new Error(error); }
   const [w, b] = seats, kings = `${kingLabel(w.king)},${kingLabel(b.king)}`;
   const match: MatchSetup = w.order === b.order ? { backRank: w.order, kings } : { fen: `${b.order.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${w.order} w - - 0 1`, kings };
   return { ...match, ...(o.classic ? { classic: true } : {}), ...(d.hand.length ? { hand: [...d.hand] } : {}) };

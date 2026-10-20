@@ -232,7 +232,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
    const secretChoice: Choice = { king: { king: 'Flame', power: 'Haste' }, order: 'RNBQKBNR' };
    await host.api.command(game_id, joined._meta.view.revision, { type: 'choose', choice: secretChoice, ready: true });
    const hidden = await guestMcp.call('kingdown_get', { game_id });
-   expect(hidden._meta.view.choices?.[0]).toBeNull(); expect(hidden._meta.view.last_commands.at(-1)?.action).toEqual({ type: 'hidden' }); expect(JSON.stringify(hidden)).not.toContain('Flame');
+   expect(hidden._meta.view.choices?.[0]).toBeNull(); expect(hidden._meta.view.last_commands.at(-1)?.action).toEqual({ type: 'hidden' }); expect(JSON.stringify(hidden, (key, value) => key === 'setup_admission' ? undefined : value)).not.toContain('Flame');
    const ready = await guestMcp.call('kingdown_choose', { game_id, command_id: randomUUID(), expected_revision: hidden._meta.view.revision, king: { king: 'Shadow', power: 'Darkness' }, order: 'RNBQKBNR', ready: true });
    const before = await host.api.game(game_id), command_id = randomUUID(), actions = [plain(before)];
    expect(ready._meta.view.status).toBe('playing');
@@ -312,7 +312,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
     if (since === view.revision) expect(result.last_commands).toEqual([]);
     if (view.status === 'setup') {
      expect(result.choices?.[0]).toBeNull(); expect(result.kings).toBeUndefined();
-     for (const secret of [choice.king!.king, choice.king!.power, choice.order]) expect(JSON.stringify(result)).not.toContain(secret);
+     for (const secret of [choice.king!.king, choice.king!.power, choice.order]) expect(JSON.stringify(result, (key, value) => key === 'setup_admission' ? undefined : value)).not.toContain(secret);
      if (since !== view.revision) expect(result.last_commands.at(-1)?.action).toEqual({ type: 'hidden' });
     }
     if (view.status === 'playing') expect(result.legal.length).toBeGreaterThan(0);
