@@ -1,4 +1,4 @@
-import { startupCacheDebugState, withPrivateCachePolicy } from './cache-policy';
+import { withPrivateCachePolicy } from './cache-policy';
 
 export type WebAccountStatus =
  | { account_access: 'open'; valid_for_ms: number }
@@ -15,24 +15,15 @@ export function parseWebAccountStatus(value: unknown): WebAccountStatus {
 }
 
 export async function readWebAccountAccess(): Promise<CheckedWebAccountAccess> {
- const began = performance.now();
- let phase = 'proof', reason = 'cache-proof', responseStatus: number | undefined, lease: number | undefined;
  try {
   let start = 0;
   const response = await withPrivateCachePolicy(() => {
-   phase = 'statusfetch'; reason = 'fetch';
    start = performance.now();
    return fetch('/api/status', { cache: 'no-store', credentials: 'omit', referrer: '', referrerPolicy: 'no-referrer', redirect: 'error' });
   });
-  responseStatus = response.status;
-  if (!response.ok || !/^application\/json(?:\s*;|$)/i.test(response.headers.get('Content-Type') ?? '')) { reason = !response.ok ? 'http-status' : 'content-type'; throw new TypeError('Account status is unavailable'); }
-  phase = 'statusparse'; reason = 'invalid-status';
+  if (!response.ok || !/^application\/json(?:\s*;|$)/i.test(response.headers.get('Content-Type') ?? '')) throw new TypeError('Account status is unavailable');
   const status = parseWebAccountStatus(await response.json()), expiresAt = start + status.valid_for_ms;
-  lease = status.valid_for_ms; phase = 'statuslease'; reason = status.account_access === 'closed' ? 'closed' : 'expired';
   if (status.account_access === 'open' && performance.now() < expiresAt) return { enabled: true, expiresAt };
  } catch { /* Failed proof or status closes access. */ }
- if (typeof window !== 'undefined') {
-  try { console.warn('[DEBUG-U05-startup] ' + JSON.stringify({ boundary: 'account-status', elapsed_ms: Math.round(performance.now() - began), phase, reason, response_status: responseStatus, parsed_lease_ms: lease, ...startupCacheDebugState() })); } catch { /* Diagnostics cannot change closed access. */ }
- }
  return { enabled: false, expiresAt: 0 };
 }
