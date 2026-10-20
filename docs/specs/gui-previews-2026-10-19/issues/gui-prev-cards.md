@@ -169,3 +169,16 @@ A5, kind a: `src/workshop/powers.test.ts` checks the old set of 11 WebP files. A
 A40, kind a: `tools/plugin-profile.test.ts` expects the visible label `Status`. The existing card style renders it as `STATUS`. The M1 output proves that Locked, Unlocked and STATUS return. Change all three rendered status-label checks to `STATUS`, so the hidden-label checks also test the actual text. Keep the DOM text checks as `Status`. No product code or screen changes.
 
 First M1 suite, merge commit `a1dab464`: 184 files pass, 2 fail, 12 skip; 3,133 tests pass, 2 fail, 164 skip. Time: 325.91 seconds. The two failures are A5 and A40 above. Search (18 tests) and judge (12 tests) both pass. The two earlier timed failures do not recur after the merge. Change no time limit or test work. Log: `scratchpad/lanes/prev-green-cards/unit-1.txt` in the task scratch folder.
+
+Focused M1 checks at repair commit `987c6559`:
+
+- `src/workshop/powers.test.ts`: 8 pass; no failure or skip. Time: 0.232 seconds. Log: `unit-powers-1.txt`.
+- `tools/plugin-profile.test.ts`: 23 pass; no failure or skip. Time: 34.31 seconds. The locked-entry test passes. Log: `unit-profile-1.txt`.
+
+Both logs are in `scratchpad/lanes/prev-green-cards/` in the task scratch folder. The local `npx tsc --noEmit` and `git diff --check` also pass. No guard, assertion, time limit or STEP is removed or reduced. The two test expectation repairs share one kind-a commit. No kind-b or kind-c repair is needed. No screen changes, new captures or new taste choices are needed in this step.
+
+Final M1 suite at repair commit `987c6559`: exit 0. Files: 186 pass, no failure, 12 skip. Tests: 3,135 pass, no failure, 164 skip. Time: 347.74 seconds. Log: `scratchpad/lanes/prev-green-cards/unit-2.txt` in the task scratch folder. Search (18 tests), judge (12), card pictures (8), and Profile (23) all pass. The earlier search and judge timing failures do not recur in either full M1 run. This lane changes neither file.
+
+Skip detail: 156 checks need PostgreSQL. Another 8 balance drift checks require `KINGDOWN_BALANCE_DRIFT`; the default suite leaves them off on both branches. No skip is added. This step uses only the required M1 unit helper. It runs no local `npm test`, browser check or capture. Browser checks remain with CI, as `prev-green` requires. The prior preview browser proof is recorded above.
+
+All five previews remain built. No repair is left open. The merge keeps both test sets at its one conflict. The final check of the repair diff finds no smaller complete change: one exact art list and three rendered-label expectations. The final record commit changes this ticket only. The owner still approves the previews before a merge to main.
