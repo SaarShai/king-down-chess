@@ -12,4 +12,4 @@ Extend the real Vite build test to resolve emitted HTML, CSS and public art from
 
 ## Evidence
 
-Source inspection finds the common cause: `base: './'` resolves built entry imports beneath the current account path. The new root base applies to Vite's HTML, CSS, module and runtime public URLs. The service worker and legal links also use root URLs. No `<base>` element changes fragment references. Syntax and diff checks pass. Required unit/build/browser evidence is recorded by the integration task after this commit lands.
+Source inspection finds the common cause: `base: './'` resolves built entry imports beneath the current account path. The root base applies to built CSS, module and runtime public URLs. Browser proof then finds that authored public references remain relative in the index. The source index now uses root paths for fonts, UI art, icons and the manifest; a source regression check covers every authored resource reference. The service worker and legal links also use root URLs. No `<base>` element changes fragment references. Syntax and diff checks pass. Required unit/build/browser evidence is recorded by the integration task after this commit lands.

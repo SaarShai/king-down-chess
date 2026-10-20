@@ -9,10 +9,10 @@
     <title>King Down Chess</title>
     <meta name="description" content="A chess variant with archers, guards, maesters, beasts, ogres and paladins." />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232b2621'/%3E%3Cpath d='M6 12l5 5 5-8 5 8 5-5-2 13H8z' fill='%23d9a441' stroke='%23f3ead7' stroke-width='1.5' stroke-linejoin='round' transform='rotate(-14 16 16)'/%3E%3C/svg%3E" />
-    <link rel="preload" href="./fonts/cinzel-latin.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="./fonts/alegreya-sans-regular-latin.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <link rel="preload" href="/fonts/cinzel-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/alegreya-sans-regular-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   </head>
   <body>
     <!-- Icons (24 px, stroked in currentColor). Buttons show them beside their labels; the label is the accessible name. -->
@@ -78,32 +78,32 @@
     <div id="cursor-say" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     <dialog id="title-screen" aria-labelledby="title-word">
       <div class="title-stage" aria-hidden="true">
-        <img class="title-floor" src="./ui/stone-board.webp" alt="" width="640" height="640" />
+        <img class="title-floor" src="/ui/stone-board.webp" alt="" width="640" height="640" />
         <!-- The six kings in a shallow arc: Spirit and Shadow (the kings with no power) in the middle.
              Once risen, each shows his resting effect (board/title-kings.mjs, started by main.ts). -->
         <div class="title-kings">
-          <img class="tk-outer" src="./ui/kings/mud.webp" alt="" data-king="mud" />
-          <img class="tk-inner" src="./ui/kings/flame.webp" alt="" data-king="flame" />
-          <img class="tk-centre" src="./ui/kings/spirit.webp" alt="" data-king="spirit" />
-          <img class="tk-centre tk-right" src="./ui/kings/shadow.webp" alt="" data-king="shadow" />
-          <img class="tk-inner tk-right" src="./ui/kings/frost.webp" alt="" data-king="frost" />
-          <img class="tk-outer tk-right" src="./ui/kings/stratus.webp" alt="" data-king="stratus" />
+          <img class="tk-outer" src="/ui/kings/mud.webp" alt="" data-king="mud" />
+          <img class="tk-inner" src="/ui/kings/flame.webp" alt="" data-king="flame" />
+          <img class="tk-centre" src="/ui/kings/spirit.webp" alt="" data-king="spirit" />
+          <img class="tk-centre tk-right" src="/ui/kings/shadow.webp" alt="" data-king="shadow" />
+          <img class="tk-inner tk-right" src="/ui/kings/frost.webp" alt="" data-king="frost" />
+          <img class="tk-outer tk-right" src="/ui/kings/stratus.webp" alt="" data-king="stratus" />
         </div>
       </div>
       <!-- Every piece in the game, alternating the two armies; sized as they stand on the board. -->
       <ul class="title-lineup" aria-label="The twelve pieces">
-          <li style="--h:0.74;--i:0"><img src="./ui/pieces/pawn-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/pawn.svg#icon"/></svg>Pawn</span></li>
-          <li style="--h:0.79;--i:1"><img src="./ui/pieces/knight-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/knight.svg#icon"/></svg>Knight</span></li>
-          <li style="--h:0.87;--i:2"><img src="./ui/pieces/bishop-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/bishop.svg#icon"/></svg>Bishop</span></li>
-          <li style="--h:0.96;--i:3"><img src="./ui/pieces/rook-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/rook.svg#icon"/></svg>Rook</span></li>
-          <li style="--h:0.79;--i:4"><img src="./ui/pieces/queen-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/queen.svg#icon"/></svg>Queen</span></li>
-          <li style="--h:0.81;--i:5"><img src="./ui/kings/spirit.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/king.svg#icon"/></svg>King</span></li>
-          <li style="--h:0.72;--i:6"><img src="./ui/pieces/archer-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/archer.svg#icon"/></svg>Archer</span></li>
-          <li style="--h:0.86;--i:7"><img src="./ui/pieces/paladin-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/paladin.svg#icon"/></svg>Paladin</span></li>
-          <li style="--h:0.78;--i:8"><img src="./ui/pieces/guard-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/guard.svg#icon"/></svg>Guard</span></li>
-          <li style="--h:0.66;--i:9"><img src="./ui/pieces/maester-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/maester.svg#icon"/></svg>Maester</span></li>
-          <li style="--h:0.87;--i:10"><img src="./ui/pieces/beast-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/beast.svg#icon"/></svg>Beast</span></li>
-          <li style="--h:1;--i:11"><img src="./ui/pieces/ogre-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/ogre.svg#icon"/></svg>Ogre</span></li>
+          <li style="--h:0.74;--i:0"><img src="/ui/pieces/pawn-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/pawn.svg#icon"/></svg>Pawn</span></li>
+          <li style="--h:0.79;--i:1"><img src="/ui/pieces/knight-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/knight.svg#icon"/></svg>Knight</span></li>
+          <li style="--h:0.87;--i:2"><img src="/ui/pieces/bishop-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/bishop.svg#icon"/></svg>Bishop</span></li>
+          <li style="--h:0.96;--i:3"><img src="/ui/pieces/rook-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/rook.svg#icon"/></svg>Rook</span></li>
+          <li style="--h:0.79;--i:4"><img src="/ui/pieces/queen-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/queen.svg#icon"/></svg>Queen</span></li>
+          <li style="--h:0.81;--i:5"><img src="/ui/kings/spirit.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/king.svg#icon"/></svg>King</span></li>
+          <li style="--h:0.72;--i:6"><img src="/ui/pieces/archer-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/archer.svg#icon"/></svg>Archer</span></li>
+          <li style="--h:0.86;--i:7"><img src="/ui/pieces/paladin-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/paladin.svg#icon"/></svg>Paladin</span></li>
+          <li style="--h:0.78;--i:8"><img src="/ui/pieces/guard-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/guard.svg#icon"/></svg>Guard</span></li>
+          <li style="--h:0.66;--i:9"><img src="/ui/pieces/maester-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/maester.svg#icon"/></svg>Maester</span></li>
+          <li style="--h:0.87;--i:10"><img src="/ui/pieces/beast-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/beast.svg#icon"/></svg>Beast</span></li>
+          <li style="--h:1;--i:11"><img src="/ui/pieces/ogre-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="/ui/icons/ogre.svg#icon"/></svg>Ogre</span></li>
       </ul>
       <div class="title-copy">
         <h1 id="title-word" class="wordmark"><svg class="wordmark-crown" aria-hidden="true"><use href="#i-crown"/></svg><span class="wm-king">King</span> <span class="wm-down">Down</span><span class="wm-chess">Chess</span></h1>
@@ -125,13 +125,13 @@
         <fieldset class="modes" id="modes">
           <legend class="sr-only">Choose a game</legend>
           <label class="mode"><input type="radio" name="mode" value="computer" id="mode-computer" aria-label="Play the computer" />
-            <span class="mode-art" aria-hidden="true"><img src="./ui/kings/spirit.webp" alt="" /></span>
+            <span class="mode-art" aria-hidden="true"><img src="/ui/kings/spirit.webp" alt="" /></span>
             <span class="mode-text"><b>Computer</b></span></label>
           <label class="mode"><input type="radio" name="mode" value="powers" id="mode-powers" />
-            <span class="mode-art emblem-fan" aria-hidden="true"><img src="./ui/emblems/frost.webp" alt="" /><img src="./ui/emblems/flame.webp" alt="" /><img src="./ui/emblems/stratus.webp" alt="" /></span>
+            <span class="mode-art emblem-fan" aria-hidden="true"><img src="/ui/emblems/frost.webp" alt="" /><img src="/ui/emblems/flame.webp" alt="" /><img src="/ui/emblems/stratus.webp" alt="" /></span>
             <span class="mode-text"><b>Kings' powers</b></span></label>
           <label class="mode"><input type="radio" name="mode" value="two" id="mode-two" />
-            <span class="mode-art" aria-hidden="true"><img src="./ui/kings/spirit.webp" alt="" /><img class="face-left" src="./ui/kings/shadow-b.webp" alt="" /></span>
+            <span class="mode-art" aria-hidden="true"><img src="/ui/kings/spirit.webp" alt="" /><img class="face-left" src="/ui/kings/shadow-b.webp" alt="" /></span>
             <span class="mode-text"><b>Two players</b></span></label>
         </fieldset>
         <fieldset class="seg" id="level" aria-describedby="level-line">
@@ -215,7 +215,7 @@
         <h3>Play and make</h3>
         <button id="tricks-row" class="menu-row" data-go="tricks" hidden>Tricks<b id="tricks-seal-dot" class="seal-dot" aria-hidden="true" hidden></b><span id="tricks-count">The tricks you find get seals.</span><i>›</i></button>
         <button id="today-army" class="menu-row">Today's army<i>›</i></button>
-        <button id="workshop-btn" class="menu-row"><img class="menu-fox" src="./ui/workshop/fox-pathfinder-w.webp" alt="" />Workshop<span>Make your own piece.</span><i>›</i></button>
+        <button id="workshop-btn" class="menu-row"><img class="menu-fox" src="/ui/workshop/fox-pathfinder-w.webp" alt="" />Workshop<span>Make your own piece.</span><i>›</i></button>
         <h3>Board and game</h3>
         <button class="menu-row" data-go="game">This game<i>›</i></button>
         <button class="menu-row" data-go="account">Account<i>›</i></button>
@@ -266,8 +266,8 @@
     <dialog id="over" aria-labelledby="over-title" aria-describedby="over-detail">
       <!-- The kings that played (screen/moments.ts showOver); Spirit and Shadow, the kings without powers, until then. -->
       <div class="over-art" aria-hidden="true">
-        <img class="over-king over-w" src="./ui/kings/spirit.webp" alt="" />
-        <img class="over-king over-b" src="./ui/kings/shadow-b.webp" alt="" />
+        <img class="over-king over-w" src="/ui/kings/spirit.webp" alt="" />
+        <img class="over-king over-b" src="/ui/kings/shadow-b.webp" alt="" />
       </div>
       <p id="over-words" class="over-words" hidden>King Down</p>
       <h2 id="over-title" tabindex="-1"></h2>

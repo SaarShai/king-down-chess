@@ -95,7 +95,7 @@ function site() {
   mkdirSync(join(dir, 'public'));
   cpSync(resolve('public/sw.js'), join(dir, 'public/sw.js'), { recursive: true });
   write('public/ui/pawn.webp', 'public art');
-  write('index.html', '<!doctype html><html><head><script type="module" src="/src/entry.ts"></script></head><body><svg><symbol id="piece"><path d="M0 0h1v1z"/></symbol><use href="#piece"/></svg><img src="./ui/pawn.webp"/><a href="/privacy.html">Privacy</a></body></html>');
+  write('index.html', '<!doctype html><html><head><script type="module" src="/src/entry.ts"></script></head><body><svg><symbol id="piece"><path d="M0 0h1v1z"/></symbol><use href="#piece"/></svg><img src="/ui/pawn.webp"/><a href="/privacy.html">Privacy</a></body></html>');
   write('play.html', '<script type="module" src="/src/private.ts"></script>');
   write('src/entry.ts', "await import('./main');");
   write('src/main.ts', "import './local.css'; import './shared'; new Worker(new URL('./ai/worker.ts', import.meta.url), { type: 'module' }); window.publicArt = import.meta.env.BASE_URL + 'ui/pawn.webp'; window.openWorkshop = () => import('./workshop'); window.signIn = () => import('./account/client');");
