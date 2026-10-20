@@ -298,7 +298,9 @@ export async function main() {
     assert.match(mcp.headers()['content-type'], /^application\/json/, 'The compiled server answers with JSON');
     for (const path of ['/play/', `/g/${randomUUID()}`, '/j']) {
       const response = await page.request.get(origin + path, { maxRedirects: 0 });
-      assert.equal(response.status(), 404, `${path} has no account page`);
+      assert.equal(response.status(), 200, `${path} serves the public account entry`);
+      assert.match(response.headers()['content-type'], /^text\/html/);
+      assert.equal(response.headers().location, undefined, path);
     }
     const apiClosed = async (page, path, method) => {
       const response = await page.request.fetch(origin + path, { method, maxRedirects: 0, ...(method === 'POST' ? { data: {} } : {}) });
@@ -541,9 +543,11 @@ export async function main() {
         assertLocalData(beforeStatus, await localData(active));
       } finally { statusFixture = false; statusFailure = false; }
 
-      for (const path of ['/play/', '/play.html', '/g/inert', '/j/inert', '/api/games']) {
+      for (const path of ['/play/', '/play.html', '/g/inert', '/j', '/j/inert', '/api/games']) {
         const response = await active.request.get(origin + path, { maxRedirects: 0 });
-        assert.equal(response.status(), 404, `${path}: release and recovery keep account routes closed`);
+        const entry = siteRoute(outputs.get(output).config, path).dest === '/index.html';
+        assert.equal(response.status(), entry ? 200 : 404, `${path}: public entries follow this output's routes`);
+        if (entry) assert.match(response.headers()['content-type'], /^text\/html/);
       }
       for (const path of ['/api', '/api/status', '/api/games', '/api/me/games', '/api/unknown']) for (const query of ['', '?probe=1']) for (const method of ['GET', 'POST']) await apiClosed(active, path + query, method);
       const allowlist = JSON.parse((await readFile(join(output, 'static/sw.js'), 'utf8')).match(/const ALLOWLIST = (.+);/)[1]);

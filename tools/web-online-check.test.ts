@@ -52,6 +52,7 @@ it('serves each selected output with its own files, API routes and function', as
     return { root, config: { routes: [{ src, dest: `/${dest}` }] }, handler };
   };
   const release = await output('release', 'mcp', '^/api(?:/.*)?$');
+  release.config.routes.push(...vercelRoutes(join(release.root, 'static')).filter(route => route.dest === '/index.html'));
   const recovery = await output('recovery', 'recovery', '^/api/recovery$');
   let selected = release;
   const server = createServer((req, res) => { void serveSite(selected, req, res).catch(() => res.writeHead(500).end()); });
@@ -63,6 +64,15 @@ it('serves each selected output with its own files, API routes and function', as
       expect(await (await fetch(origin)).text()).toBe(current === release ? 'release' : 'recovery');
       expect(await (await fetch(origin, { method: 'HEAD' })).text()).toBe('');
       expect((await fetch(origin, { method: 'POST' })).status).toBe(404);
+      for (const path of ['/play/', '/g/game-id', '/j']) {
+        const entry = await fetch(origin + path, { redirect: 'manual' });
+        expect(entry.status).toBe(current === release ? 200 : 404);
+        if (current === release) {
+          expect(entry.headers.get('content-type')).toBe('text/html');
+          expect(await entry.text()).toBe('release');
+        }
+      }
+      for (const path of ['/play.html', '/j/inert']) expect((await fetch(origin + path)).status).toBe(404);
       const path = '/api/recovery?keep=a%2Bb&since=0';
       const response = await fetch(origin + path, { method: 'POST', body: '{broken' });
       expect(response.status).toBe(404); expect(response.headers.get('cache-control')).toBe('no-store');
