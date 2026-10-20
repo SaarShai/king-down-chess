@@ -225,3 +225,7 @@ Pass criteria: all M1 tests pass, except database tests that need the local data
 The merge takes `origin/main` at `0a7ec40b`. It has no conflicts. The automatic merge keeps the board, seat, cursor, and keyboard fault fixes with their tests.
 
 Kind b, A8: `src/plugin/app.test.ts` now gives the board mock its `animations` and `setAnimations` exports. The app tests keep their real client, queue, and router. Three new cases check the initial select value and each motion choice.
+
+Kind a, A14: the six Menu cases in `tools/plugin-board.test.ts` expect the visible person-game label, `Send your turn`. The W7 case expects the visible computer-game label, `End turn`. The sword, menu fit, single send, and focus checks stay in place.
+
+Kind a, A8: the two Settings cases in `tools/plugin-ios-size.test.ts` expect four rows. A new check names all four controls, with Animations last. Every row still has the 44 px floor. The three online choices keep the same count and floor.

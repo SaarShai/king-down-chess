@@ -754,7 +754,7 @@ it.each([[320, 568, 84], [320, 568, 180], [393, 852, 118], [820, 600, 34], [852,
   const next = view('4k3/7p/8/8/8/8/P7/K7 w - - 0 1', {}, {kind:'friend',abort_open:true,opponent:{handle:'Bob',icon:null,computer:false,deleted:false,last_seen_ms:null,rating:{rating:1500,provisional:true}}});
   const page = await open(next, width, height), frame = page.frameLocator('iframe');
   try {
-    expect(await frame.locator('#table-bar button').allTextContents()).toEqual(['Undo','','Menu']);
+    expect(await frame.locator('#table-bar button').allTextContents()).toEqual(['Undo','Send your turn','Menu']);
     expect(await frame.locator('#end-turn').getAttribute('aria-label')).toBe('Send your turn');
     expect(await frame.locator('#end-turn').getAttribute('title')).toBe('Send your turn');
     expect(await frame.locator('#context-actions #abort').count()).toBe(0);
@@ -1241,7 +1241,7 @@ it('W7: stages a move, sends once, and starts the computer only after the press'
     expect(await frame.locator('#status').textContent()).toBe('Your turn is ready. Select End turn.');
     expect(await frame.locator('#end-turn').getAttribute('aria-label')).toBe('End turn');
     expect(await frame.locator('#end-turn').getAttribute('title')).toBe('End turn');
-    expect(await frame.locator('#end-turn').innerText()).toBe('');
+    expect(await frame.locator('#end-turn .turn-label').innerText()).toBe('End turn');
     expect(await frame.locator('#end-turn use').getAttribute('href')).toBe('#i-sword');
     await page.emulateMedia({reducedMotion:'reduce'});
     expect(await frame.locator('#end-turn').evaluate(e => getComputedStyle(e).animationName)).toBe('none');
