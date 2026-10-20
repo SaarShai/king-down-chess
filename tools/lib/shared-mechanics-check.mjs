@@ -103,7 +103,11 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
       const pluginContext = await browser.newContext({ viewport: { width: 1100, height: 1000 }, reducedMotion: 'reduce' }); contexts.push(pluginContext);
       const page = await pluginContext.newPage(); pluginPages.push(page);
       await page.goto(harness.url);
-      await page.frameLocator('iframe').locator('#home-card').waitFor();
+      const ui = page.frameLocator('iframe');
+      await ui.locator('#home-play:not(:disabled)').waitFor();
+      // Inline hosts keep the board behind Home until the host opens its full game surface.
+      await ui.getByRole('button', { name: 'Choose a game', exact: true }).click();
+      await ui.locator('[data-screen="play"]:not([hidden])').waitFor();
     }
     for (const page of [...webPages, ...pluginPages]) {
       page.setDefaultTimeout(15_000); failures.push(trapErrors(page));
@@ -125,9 +129,14 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
             else {
               const mounted = page.waitForResponse(response => new URL(response.url()).pathname === '/fixture-tool' && response.request().postDataJSON()?.name === 'kingdown_get');
               await page.evaluate(result => window.harnessShow(result), await tool(seat, 'kingdown_open', { game_id: id }));
-              await mounted;
+              assert.equal((await (await mounted).json())._meta?.view?.game_id, id, `${row.id}: the mounted board reads the selected game`);
             }
-            await ready(ui);
+            try { await ready(ui); }
+            catch (error) {
+              await shot(page, `shared-mechanics-${row.id}-${surface}-mount-failure`);
+              console.error(`${row.id}/${surface} mount: ${await ui.locator('body').innerText()}`);
+              throw error;
+            }
             const committed = page.waitForResponse(response => {
               const request = response.request();
               if (request.method() !== 'POST') return false;
