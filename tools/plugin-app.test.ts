@@ -2042,6 +2042,47 @@ it('keeps focus on a power coin through a presence update (an equal-revision pol
   } finally { await page.close(); }
 });
 
+it('offers ordinary continuation choices after a Freeze card without another piece selection', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page); await page.emulateMedia({ reducedMotion: 'reduce' });
+    const tool = async (name: string, args: Record<string, unknown>) => (await page.request.post(new URL('/fixture-tool', harness.url).href, { data: { name, arguments: args } })).json();
+    const created = await tool('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: true, cardPool: ['Freeze', 'MorphP', 'Vault', 'IceWall'], kingPowers: true } });
+    expect(created.isError).not.toBe(true);
+    const setup = created._meta.view;
+    const chosen = await tool('kingdown_choose', { game_id: setup.game_id, command_id: crypto.randomUUID(), expected_revision: setup.revision, king: { king: 'Mud', power: 'March' }, order: setup.choices[0].order, ready: true });
+    expect(chosen.isError, JSON.stringify(chosen)).not.toBe(true);
+    const opened = await tool('kingdown_open', { game_id: setup.game_id });
+    expect(opened.isError).not.toBe(true);
+    const seeded = { game_id: opened._meta.view.game_id, freeze: opened._meta.view.rules.hands[0].indexOf('Freeze') };
+    await page.evaluate(result => (window as any).harnessShow(result), opened);
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    const writes = await sent(page, 'kingdown_move');
+    await frame.locator(`#card-w-${seeded.freeze}`).click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
+    await frame.locator('#board-menu').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
+    await frame.locator('#choices button[title="!F:a7"]').click();
+    await frame.locator('#board:not([data-animating="true"])').waitFor();
+    expect(await sent(page, 'kingdown_move')).toBe(writes);
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft.lans)).toEqual(['!F:a7']);
+    expect(await frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('false');
+    await frame.locator('#board-menu').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
+    expect(await frame.locator('#choices button[title="e2-e4"]').count()).toBe(1);
+    await frame.locator('#choices button[title="e2-e4"]').click();
+    await frame.locator('#board:not([data-animating="true"])').waitFor();
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft.lans)).toEqual(['!F:a7', 'e2-e4']);
+    const accepted = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === '/fixture-tool' && response.request().postDataJSON().name === 'kingdown_move');
+    await frame.locator('#end-turn[aria-disabled="false"]').click();
+    const result = await (await accepted).json();
+    expect(result.isError).not.toBe(true);
+    expect(result._meta.view.game_id).toBe(seeded.game_id);
+    const recorded = await tool('kingdown_open', { game_id: seeded.game_id });
+    expect(recorded._meta.view.history.actions.slice(0, 2)).toEqual(['!F:a7', 'e2-e4']);
+  } finally { await page.close(); }
+});
+
 it('keeps a lost command through a poll reply that the server refuses', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {

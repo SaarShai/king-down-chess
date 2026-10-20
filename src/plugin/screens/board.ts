@@ -499,7 +499,10 @@ export function boardScreen(store: Store) {
   }
   $('reload').addEventListener('click', closeBoardSheet, { signal });
   $('board-menu').onclick = () => {
-    const chooseMove = button('Choose a move', () => boardSheet('Choose a move', $('choices'))); chooseMove.className = 'game-action';
+    const chooseMove = button('Choose a move', () => {
+      if (canPlay() && selected === undefined && !armed && armedCard === undefined) choices(moves.filter(({move}) => !move.pass && reachable(move)));
+      boardSheet('Choose a move', $('choices'));
+    }); chooseMove.className = 'game-action';
     const actions = [chooseMove, ...view ? [...actionButtons(view, Date.now() - readAt, refused, true), ...playerBlockButton(view)] : []];
     for (const action of actions) action.disabled = networkBlocked();
     boardSheet('Menu', button('Moves', showMoves), ...actions, button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('invite'), $('invitation'));
