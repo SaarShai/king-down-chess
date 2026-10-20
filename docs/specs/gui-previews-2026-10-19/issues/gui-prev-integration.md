@@ -1,6 +1,6 @@
 # GUI preview integration
 
-Status: in-progress
+Status: done
 Type: task
 
 ## Scope
@@ -32,31 +32,51 @@ original lower shadow. Use stone-500 for the spent card rim, so the ink
 focus band changes it at more than 3:1. Ready and armed rims keep their
 colours. Add no new colour, size or game rule.
 
-## Part 1 checks
+## Part 1 build
 
-At `5be926c1`, the type, script syntax and diff checks pass. The M1 suite
-passes 3,432 tests. Only the two new focus cases fail. Their fixture puts
-spendable powers and cards on the same side, which the engine refuses.
-The tests now use separate card and power games in each theme. No check
-limit or contrast assertion changes. The motion and card-face checks pass.
+Each board coin has one paint span. It holds the image or symbol and the
+power notches. The face, rim, opacity, grey filter, deal and spend effects
+use that span. The button keeps its full-opacity focus pair.
 
-The first browser run at `78fb4da7` finds a lower-edge contrast of 1.60:1.
-The inner face keeps the old 2 px lower shadow. It covers the outer ink
-focus band. Keyboard focus now removes that lower shadow only. It keeps
-the face and inset rim. The test keeps the 3:1 check on all four sides and
-saves both images before it checks contrast, so a failure keeps its proof.
+The focus pair sits inside the coin and above its paint. This keeps the
+frame from cutting it and keeps the face, shadow and notches below it.
+The spent card rim uses stone-500. The dark spent rim otherwise changes
+at only 2.35:1 under the ink focus band. The new rim clears the 3:1 guard.
 
-At `1783a067`, the lower band reaches 2.35:1. The saved card pixels show
-both focus colours. The card ring is not clipped. The comparison reads
-the old dark lower shadow before focus. At `e40f0c43`, stone-500 on that
-edge makes all card cases pass at 4.71:1 or more. The power case then finds
-a second fault: the frame clips the outer focus pair at the top edge.
+The card-face helper finds the button through the paint span. Its size
+assertions keep the same values. The symbol and motion tests now read the
+paint span. The focus tests use separate card and power games, as the
+engine requires. No assertion or time limit is removed or weakened.
 
-The final design uses one inset focus pair above the paint span. This
-clears the shadow, notches and frame edge. It replaces both lower-shadow
-changes above and restores the original face finish. The test reads the
-new band positions, adds an inset assertion, and keeps 3:1 on each of the
-four sides. At `fcd225c4`, the test finds 2.35:1 over the opponent's dark
-spent rim. The spent card rim now uses the existing stone-500 border
-colour. The inset focus position and neutral spent rim are the two taste
-choices. No assertion or time limit is removed or weakened.
+## Check results
+
+The complete code passes at `1da936a7`:
+
+- Type check, script syntax checks and `git diff --check`: pass.
+- Full M1 suite: 194 files pass; 3,436 tests pass; 164 database tests skip.
+  The M1 has no test database. The suite takes 326.21 seconds. All 53 art
+  tests pass. The board file passes 184 tests; motion passes 19 tests.
+  Log: `unit-coin-focus-6.txt` in the lane output folder.
+- `plugin-ui`: pass on this Mac in 329.5 seconds. The required runner
+  reports exit 0. Log: `checks-coin-focus-5.txt` in the lane output folder.
+- All four sides of each spent card and used power coin pass at 390 × 844
+  in light and dark. The card set includes Freeze and Vault. The lowest
+  card result is 3.76:1. The lowest power result is 3.36:1.
+- Coin and card image sizes keep their old test values: 44/36 px with
+  touch, and 34/26 px for desktop cards. The ready hand rings keep at least
+  3.66:1 on their faces. The resource is 925,769 JSON bytes, below 1,000,000.
+- No server code changes. This part needs no `plugin-ui-http` check.
+
+The lane output folder holds 40 before/focus PNGs and `contrast.json` in
+`coin-focus-proof/`. The reviewed card and power images show a full focus
+pair and clear face art. The original lower shadow stays in place.
+
+## Final record check
+
+This record covers part 1 only. Parts 2 and 3 remain outside this run.
+There is no merge conflict and no A4 id change in part 1.
+
+The record commit changes this file only. Final-head checks use
+`unit-coin-focus-final.txt` and `checks-coin-focus-final.txt` in the lane
+output folder. Stop a launch if its commit fails. Read HEAD before each
+launch, since both runners check committed files.
