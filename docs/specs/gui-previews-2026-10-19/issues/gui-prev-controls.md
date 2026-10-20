@@ -15,7 +15,45 @@ Plan:
 
 Pass: banners keep cream words, a clear lower notch, and all input states. Small screens omit the fold shade. Disabled actions keep their shape, edge, and lower shadow. Focus stays clear. Touch size, text fit, reduced motion, and the page size limit pass at the existing limits.
 
-Results follow after the checks end.
+### A2 b: short cloth banner
+
+Each shared red action has a deep red cloth face and cream words. Its lower edge has an 18 x 6 px notch. The face has a soft fold shade. A screen at 360 px or less uses a plain face. The face clips only its decoration. The full button box still takes input.
+
+Hover lights the face. A press moves it 2 px. Reduced motion keeps both the button and its face still. The first focused test finds that the old web press rule overrides reduced motion. The repair gives the reduced-motion rule the same priority.
+
+Taste choices: keep the 4 px upper cuts, the current 52 px height, and the current red and cream colours. Use one small centre notch and a 12% edge shade. Use no new image or texture.
+
+### A30 b: keep the frame and dull the face
+
+Disabled stone actions keep their cut frame and lower shadow. The face uses stone-300 with no grain or top shine. Disabled red actions keep their banner shape and red edge. Their face uses #795e57. Native `disabled` and `aria-disabled` stay in place. A press on an off action cannot move its lower edge.
+
+Taste choices: use a flat warm grey for stone and a muted brown-red for cloth. Keep cream words on the off banner. Keep the frame at full opacity. Text contrast is 5.17:1 on disabled stone and 5.53:1 on disabled cloth.
+
+### A34 a: one source for focus colours
+
+The shared root already defines `--focus: #2b2621` and `--focus-gold: #e9c071`. The build keeps those values. A new source test rejects a second definition. Tests check both focus rings on enabled and off banners in both colour schemes.
+
+Taste choice: none. Keep the agreed two 2 px rings around the full control box.
+
+### Checks
+
+The type check and both builds pass. The plugin HTML is 909,382 bytes. Its resource payload is 913,265 bytes. Both stay below 1,000,000 bytes.
+
+The focused M1 run passes all 18 tests at `d140e0c4`. The six new render cases cover A2, A30, and A34 on the web and in the plugin. The new source test checks the single focus-token definition. Log: `unit-focused-2.txt` in the picks-controls lane folder.
+
+The full M1 suite passes at `d140e0c4`: 186 passed files, 12 skipped files, 3,140 passed tests, and 164 existing skipped tests. Duration: 350.04 seconds. Log: `unit-full-1.txt`. The required helper runs the unit suite. It does not run the separate art command from `npm test`.
+
+The first browser run finds an old disabled-label colour expectation. The action colour check now expects solid stone ink. The two flat-row checks keep their exact old soft colour. No assertion or time limit is removed or weakened. The repair stays in the A30 commit. App source and unit tests at `20706e82` are identical to the full-suite source.
+
+The required `KD_RUNNER=m1` runner passes `plugin-ui` at `20706e82` in 261.1 seconds. Logs: `checks-final-2.txt` and `plugin-ui-final.log`. No server code changes, so `plugin-ui-http` does not apply.
+
+Both capture runs pass on the M1. Each holds the shared runner lock and uses `bash tools/test-lock.sh`. One browser runs at a time. The first local capture stays in the lock queue and opens no browser. This lane stops only that queued process, by its verified PID, before it moves the capture to the M1.
+
+All 162 after images pass the visual review. Each uses 2x scale. The set has 72 images at 390 x 844, 68 at 1280 x 800, 18 web images at 1440 x 900, and four added state images at 320 x 568. Every size uses light and dark themes. The set includes the off Home banner, off Undo and End turn, keyboard focus, and the computer offer after 25 seconds. At 320 px, the long offer fits its 52 px face, and its fold shade is absent. No new control fault is found.
+
+Proof: `shots/index.html`, `proof-summary.json`, and `review-index.json` in the picks-controls lane folder. The 41 review sheets contain every image. The broad scroll-width scan includes image crops and Close glyphs; it finds no cut red-action label.
+
+All three scoped items are built. The branch has one commit per item. The final record changes this ticket only. The checked app source stays the same. No test limit, step multiplier, or retry changes.
 
 The lane builds previews for A1, A2, A3, and A34. A10 stays blocked by the exact image-edit constraint. Each item still needs the owner's approval.
 

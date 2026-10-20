@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { createServer } from 'vite';
 import type { Browser, Page } from 'playwright';
 import { launch } from './lib/checks.mjs';
-import { checkButtonContent, checkFlatRows, checkMenuContent, checkSegments, checkTablet, checkTabletButtons } from './lib/plugin-tablet-check.mjs';
+import { checkButtonContent, checkFlatRows, checkFocus, checkMenuContent, checkSegments, checkTablet, checkTabletButtons } from './lib/plugin-tablet-check.mjs';
 
 let server: Awaited<ReturnType<typeof createServer>>, browser: Browser, web: string;
 beforeAll(async () => {
@@ -90,6 +90,20 @@ it.each([false, true])('keeps the frame and lower shadow when an action is disab
         await page.mouse.up(); await page.mouse.move(0, 0);
         expect(await button.getAttribute(attribute)).toBe('true');
         await button.evaluate((el, attribute) => el.removeAttribute(attribute), attribute);
+      }
+    }
+  } finally { await page.close(); }
+});
+
+it.each([false, true])('keeps both focus rings around enabled and off banners (plugin: %s)', async plugin => {
+  const page = await fixture(plugin, '<div id="app-root"><button id="home-play" class="primary">Play</button></div>');
+  try {
+    for (const colorScheme of ['light', 'dark'] as const) {
+      await page.emulateMedia({ colorScheme });
+      for (const disabled of ['false', 'true']) {
+        await page.locator('#home-play').evaluate((el, disabled) => el.setAttribute('aria-disabled', disabled), disabled);
+        await checkFocus(page, page);
+        expect(await page.locator('#home-play').evaluate(el => getComputedStyle(el).clipPath)).toBe('none');
       }
     }
   } finally { await page.close(); }
