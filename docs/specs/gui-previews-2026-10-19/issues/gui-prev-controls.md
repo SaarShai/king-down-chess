@@ -197,3 +197,13 @@ Plan: merge `origin/main` into this branch. Keep its fault fixes and the A1, A2,
 Pass: each repaired file and the final full M1 suite pass. Only database tests skip on the M1. The local `npx tsc --noEmit` check passes. Keep all assertions and time limits. This step runs no browser checks or captures. Record each conflict, repair, and result below.
 
 Merge: `origin/main` is `0a7ec40b`. Git merges it with no conflicts. The board tests and browser script merge on their own. The merge keeps main's cursor speech, move sounds, seat text fix, and faster judge tests. It keeps all four control previews.
+
+First M1 run: `033865a5` passes in 329.64 seconds. It has 186 passed files, 12 skipped files, 3,131 passed tests, no failed tests, and 164 skipped tests. Of the skipped tests, 156 need PostgreSQL. The other eight are the existing optional balance drift checks. The judge file passes all 12 tests in 3.918 seconds. Log: `unit-1.txt` in the `prev-green-controls` lane folder.
+
+Failure classes: none. No old expectation, fixture, code, or time limit needs a change. No repaired file needs a separate run. The merge alone clears the reported block. All A1, A2, A3, and A34 tests stay in place. This step adds no taste choice and changes no screen.
+
+The local `npx tsc --noEmit` check passes with exit 0. Log: `tsc-1.txt` in the lane folder. This step does not run `npm test` on this Mac. It uses the required M1 unit helper instead. The helper runs the unit suite; it does not run the separate art test command from `npm test`.
+
+Final M1 run: `033865a5` passes in 325.82 seconds. It has 186 passed files, 12 skipped files, 3,131 passed tests, no failed tests, and the same 164 skipped tests. Log: `unit-2.txt` in the lane folder. Both full runs return exit 0. The final run waits for the shared M1 lock before it starts. No test limit changes.
+
+All six parts of the test repair ticket are complete. No failure needs a repair commit. The next commit records these results only. The app and tests stay at the checked merge commit. Browser checks and screen captures do not run in this step, as the test repair ticket requires. CI runs the browser checks when the main session opens the draft pull request. A10 stays outside this step's four picks and keeps its prior art block. This step adds no taste choice.
