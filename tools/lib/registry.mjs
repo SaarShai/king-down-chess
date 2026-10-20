@@ -35,6 +35,7 @@ export const checks = [
   // Plugin checks build their own artifact; OAuth and HTTP checks need local PostgreSQL.
   { name: 'plugin-oauth', script: 'tools/plugin-browser-check.mjs', args: ['oauth'], limit: 240, channel: 'chromium', byName: true, exclusive: true },
   { name: 'w6-parts', script: 'tools/verify-w6-parts.mjs', limit: 180, channel: 'chromium', byName: true },
+  { name: 'search-worker', script: 'tools/verify-search-worker.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'plugin-ui', script: 'tools/plugin-browser-check.mjs', args: ['fixture'], limit: 420, channel: 'chromium', byName: true },
   { name: 'gui-board-preview', script: 'tools/plugin-browser-check.mjs', args: ['preview'], limit: 180, channel: 'chromium', byName: true },
   { name: 'gui-board-a8', script: 'tools/plugin-browser-check.mjs', args: ['preview', 'A8'], limit: 180, channel: 'chromium', byName: true },
