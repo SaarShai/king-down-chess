@@ -281,8 +281,7 @@ export class PaintedView implements BoardView {
       }
       ctx.restore();
     }
-    this.drawFrost(ctx, scene, layer, row);
-    if (scene.animating) return;
+    if (scene.animating) { this.drawFrost(ctx, scene, layer, row); return; }
     const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
     drawMarks(ctx, scene, layer, {
       marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, px: 960 / Math.max(1, this.width), board: this.pos?.board,
@@ -294,6 +293,7 @@ export class PaintedView implements BoardView {
       },
       motion: this.motion(), since: this.marksSince, ink: this.options.webInk ? boardInk(this.width) : undefined,
     }, row);
+    this.drawFrost(ctx, scene, layer, row);
     if (layer === 'under' && this.symbols && this.pos) {
       this.pos.board.forEach((piece, sq) => {
         if (!piece) return;

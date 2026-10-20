@@ -308,3 +308,7 @@ Main timing, the marker wave, resting pawn motion, and the turn pulse are restor
 ### A14 build
 
 The turn button shows the original full-width sword alone. Its accessible name and title remain End turn for a computer and Send your turn for a person. The six menu cases and the staged-turn case now expect no visible words. Size, focus, menu fit, and single-send checks stay in place. The type check and commit gate pass. M1 checks follow.
+
+### A15 build
+
+The selected tile has a solid gold fill under all figures. A dark gold square edge keeps it clear on both stone colours. The thin ellipse and foot glow are removed. This is the taste choice: one clear tile mark, with no second glow. Green move tiles, the transparent last-move wash, and blue frost keep their own marks. Frost draws above the fill. The draw test checks the exact tile, layer, and edge in both board directions. M1 checks and screen review follow.
