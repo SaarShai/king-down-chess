@@ -7,3 +7,5 @@
 #collection-sheet .card-face { cursor: default; }
 #collection-sheet .cf-text b { padding-right: 0; }
 #collection-sheet .cf-text .unlocked { margin-top: var(--space-2); font-size: var(--fs-sm); }
+
+#collection-items.all-unlocked :is(.unlocked, dt:has(+ dd > .unlocked), dd:has(> .unlocked)) { display: none; }

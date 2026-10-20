@@ -1,3 +1,4 @@
+import { boardFoot } from './board-foot';
 /**
  * The turn core (docs/specs/after-redesign/spec.md §4.2 rule 2): the game on the board and the state of
  * its turn, refresh(), the moves, the computer, the dialogs, the input, the review, and every step that
@@ -437,15 +438,25 @@ export function connectPlay(view: BoardView, c: {
     $('move-choice-detail').textContent = `Take removes the enemy on ${target}. Shove moves it to ${destination}${push.to === push.from ? ' and leaves your Ogre in place' : ` and moves your Ogre to ${target}`}.`;
     $('choose-capture').textContent = `Take on ${target}`;
     $('choose-push').textContent = `Shove to ${destination}`;
+    let stopPlacing = () => {};
+    const board = $('board');
+    const place = () => {
+      board.classList.add('choosing-move');
+      board.style.maxHeight = `${Math.max(0, innerHeight - board.getBoundingClientRect().top - dlg.getBoundingClientRect().height - 24)}px`;
+      Object.assign(dlg.style, boardFoot(board.getBoundingClientRect(), dlg.getBoundingClientRect(), {width:innerWidth,height:innerHeight}));
+    };
     const move = await new Promise<Move | null>(resolve => {
-      const done = (m: Move | null): void => { closeMoveChoice = null; dlg.close(); resolve(m); };
+      const done = (m: Move | null): void => { stopPlacing(); closeMoveChoice = null; dlg.close(); resolve(m); };
       closeMoveChoice = () => done(null);
       $('choose-capture').onclick = () => done(capture);
       $('choose-push').onclick = () => done(push);
       $('cancel-choice').onclick = () => done(null);
       dlg.oncancel = e => { e.preventDefault(); done(null); };
       refresh();
-      dlg.showModal();
+      dlg.showModal(); place();
+      const observer = new ResizeObserver(place); observer.observe($('board')); observer.observe(dlg);
+      window.addEventListener('resize', place);
+      stopPlacing = () => { observer.disconnect(); window.removeEventListener('resize', place); board.classList.remove('choosing-move'); board.style.maxHeight = ''; };
     });
     if (generation !== gen) return;
     busy = false;

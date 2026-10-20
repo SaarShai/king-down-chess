@@ -37,8 +37,9 @@
 #games-head { margin-top: 0 !important; }
 .game-row { padding-right: 96px !important; }
 
-#app-root #game-table .coin.card-coin[data-state='used'] { opacity: .85; border-color: var(--stone-700); --card-ring: var(--stone-700); }
-#app-root #game-table .card-coin:is([data-state='used'], :has(.cc-word)) img { filter: brightness(.4); }
+/* Keep the focus frame opaque; only the painted coin dims. */
+#app-root #game-table .coin { background: transparent; border-color: transparent; box-shadow: none; opacity: 1; filter: none; }
+#app-root #game-table .coin.card-coin[data-state='used'] > .coin-paint { opacity: .85; border-color: var(--stone-500); --card-ring: var(--stone-500); }
 #app-root :is(button:focus, a[href]:focus, input:focus, select:focus, label:focus, dialog:focus, [tabindex]:focus, label:not(.card-face):has(input:focus)), #app-root #board:focus { outline: 2px solid var(--focus); outline-offset: 0; box-shadow: 0 0 0 4px var(--focus-gold) !important; scroll-margin: 5px; }
 #app-root button.emblem { transition: transform 80ms ease-out, background-color 120ms; }
 #app-root #board:focus { outline-width: 3px; outline-offset: -3px; box-shadow: none !important; }
@@ -46,11 +47,8 @@
 #app-root #game-table .table-back:focus, #app-root .seg-row label:has(input:focus) { outline-offset: -2px; box-shadow: inset 0 0 0 4px var(--focus-gold) !important; }
 #app-root label.mode:has(input:focus) { outline-offset: -2px; box-shadow: inset 0 0 0 6px var(--focus-gold) !important; }
 #app-root label:has(input:focus) { opacity: 1; }
-#app-root #game-table .coin:focus { z-index: 1; }
-#app-root #game-table .coin[data-state='armed']:focus { box-shadow: 0 0 0 4px var(--focus-gold), inset 0 0 0 2px var(--focus), inset 0 0 0 5px var(--focus-gold) !important; }
-#app-root #game-table .coin[data-state='used']:focus { filter: none; }
-#app-root #game-table .coin[data-state='used']:focus img { filter: grayscale(1); }
-#app-root #game-table .coin.card-coin[data-state='used']:focus img { filter: brightness(.4) grayscale(1); }
+#app-root #game-table .coin:focus { z-index: 1; outline-offset: -2px; box-shadow: inset 0 0 0 4px var(--focus-gold) !important; }
+#app-root #game-table .coin:focus::before { content: ''; position: absolute; inset: -1px; border-radius: inherit; outline: inherit; outline-offset: inherit; box-shadow: inherit; z-index: 1; pointer-events: none; }
 @container table-screen (max-width: 319px) {
   #app-root #game-table .coin-row { padding: 4px; }
 }

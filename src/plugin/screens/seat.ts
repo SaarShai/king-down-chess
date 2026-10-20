@@ -84,7 +84,7 @@ function render() {
   $<HTMLImageElement>('seat-them-picture').src = art(`ui/kings/${PLAIN_KINGS[other].toLowerCase()}${other ? '-b' : ''}.webp`);
   $('seat-me-name').textContent = memory.me?.handle ?? 'You'; $('seat-me-name').title = $('seat-me-name').textContent;
   $<HTMLImageElement>('seat-me-picture').src = art(ICONS[memory.me?.icon ?? (view.seat === 0 ? 'spirit' : 'shadow')]);
-  $('seat-me-line').textContent = choice.king ? `${choice.king.king} · ${POWER_NAME[choice.king.power]}${ready ? '' : ' · select the coin to change'}` : view.seat === 0 ? 'White · Spirit King' : 'Black · Shadow King';
+  $('seat-me-line').textContent = choice.king ? `${choice.king.king} · ${POWER_NAME[choice.king.power]}` : view.seat === 0 ? 'White · Spirit King' : 'Black · Shadow King';
   $('strip-me').classList.toggle('is-turn', !ready); $('seat-king').hidden = !needs.king; $('seat-shuffle').hidden = !needs.order;
   if (choice.king) $<HTMLImageElement>('seat-king').querySelector('img')!.src = art(`ui/emblems/${choice.king.king.toLowerCase()}.webp`);
   const error = validateChoice(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice);

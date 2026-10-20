@@ -18,7 +18,7 @@ body[data-page='end'] #page-head { position: relative; z-index: 3; }
 #over.end-card .quiet-line { margin-top: var(--space-2) !important; }
 /* Under 320 px, leave Back and 12 px clear. Short viewports keep the actions in a scroll box. */
 @media (max-width: 319px) {
-  .frame dialog#over.end-card { max-height: calc(100% - 68px); padding-top: 8px; }
+  .frame dialog#over.end-card { max-height: calc(100% - 60px); padding-top: 8px; }
   #over.end-card .over-art, #over.end-card .over-words { display: none; }
   #over.end-card h2 { margin-bottom: 0; }
   /* The actions come right after the result line; the rating and badge facts follow them. */
@@ -29,11 +29,11 @@ body[data-page='end'] #page-head { position: relative; z-index: 3; }
   #over.end-card > .quiet-line { order: 3; }
 }
 @media (max-width: 319px) and (max-height: 480px) {
-  .frame dialog#over.end-card { max-height: min(224px, calc(100% - 68px)); }
+  .frame dialog#over.end-card { max-height: min(224px, calc(100% - 60px)); }
 }
 /* Safari zoom leaves a shorter frame. Keep the same cut-action cue with less space above the actions. */
 @media (max-width: 319px) and (max-height: 380px) and (orientation: portrait) {
-  .frame dialog#over.end-card { max-height: min(144px, calc(100% - 68px)); padding-top: 0; }
+  .frame dialog#over.end-card { max-height: min(144px, calc(100% - 60px)); padding-top: 0; }
   #over.end-card .over-words { display: none; }
   #over.end-card h2 { padding-bottom: 0; }
   #over.end-card > :is(#end-reason, form) { margin-block: 0; }

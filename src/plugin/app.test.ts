@@ -13,7 +13,7 @@ vi.mock('@modelcontextprotocol/ext-apps', () => ({ App: class {
 vi.mock('../account-game/art', () => ({ art: (path: string) => path }));
 vi.mock('../account-game/games-list', () => ({ gamesList: transport.rows, gameTitle: () => 'Game', waitingLine: () => 'Waiting' }));
 vi.mock('../account/profile', () => ({ ICONS: {}, handleProblem: () => undefined }));
-vi.mock('./board-view', () => ({ setSettings: async () => {} }));
+vi.mock('./board-view', () => ({ setSettings: async () => {},  }));
 vi.mock('../render/sfx', () => ({ setSound: () => {}, snd: {} }));
 vi.mock('./poll', () => ({ runPoll: (target: unknown) => { transport.target = target; return { update() {}, stop() {} }; } }));
 vi.mock('./screens/board', () => ({ boardScreen: () => transport.draw, rollbackBoardMove: async () => {} }));
@@ -55,6 +55,14 @@ async function mounted() {
   await vi.advanceTimersByTimeAsync(0);
   return app;
 }
+
+it.each(['normal', 'fast', 'off'])('A8: ignores the removed device animation choice %s', async pace => {
+  vi.stubGlobal('localStorage', { getItem: () => pace });
+  await mounted();
+  const control = document.getElementById('animations') as HTMLSelectElement;
+  expect(control.value).toBe('');
+  expect(control.onchange).toBeUndefined();
+});
 
 const press = (id: string) => { const button = document.getElementById(id)!; return Reflect.apply(button.onclick!, button, [{}]); };
 

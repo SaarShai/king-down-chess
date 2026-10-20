@@ -1,6 +1,10 @@
+import { checkTabletSelection } from './lib/plugin-tablet-check.mjs';
+import { checkTablet, checkTabletButtons, checkFlatRows, checkMenuContent, checkSegments, checkFocus } from './lib/plugin-tablet-check.mjs';
 import { checkAndroidFixes } from './lib/plugin-android-check.mjs';
+import { checkCardDetails } from './lib/card-detail-check.mjs';
 import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
+import { checkCoinFocus } from './lib/plugin-coin-focus-check.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { boxText, layoutMessage } from './lib/layout-message.mjs';
 import { assertCardReadState } from './lib/plugin-card-read.mjs';
@@ -14,10 +18,10 @@ const unregister = register();
 const { fromFen, toFen, toLan } = await import('../src/rules/setup.ts');
 const { setRules, legalMoves, inCheck, typeOf, N, RULES, sqName, moveNumber: positionMoveNumber } = await import('../src/rules/engine.ts');
 const { DEFAULT_OPTIONS } = await import('../src/match/setup.ts');
-const { applyLan, cardCoins, replayHistory } = await import('../src/plugin/screens/board-model.ts');
-const { threatsIn } = await import('../src/move-text.ts');
+const { applyLan, cardCoins, replayHistory, replayLans } = await import('../src/plugin/screens/board-model.ts');
+const { threatsIn, shortMove } = await import('../src/move-text.ts');
 const { cardName } = await import('../src/powers-ui.ts');
-const { POP_MS, RIPPLE_MS } = await import('../src/render/marks.ts');
+const { POP_MS } = await import('../src/render/marks.ts');
 const iconNames = { P:'pawn', N:'knight', B:'bishop', R:'rook', Q:'queen', K:'king', A:'archer', L:'paladin', G:'guard', M:'maester', S:'beast', O:'ogre' };
 const iconSources = Object.fromEntries(await Promise.all(Object.values(iconNames).map(async name => [name, await readFile(`public/ui/icons/${name}.svg`, 'utf8')])));
 import { assertNoErrors, env, launch, shot, STEP, trapErrors } from './lib/checks.mjs';
@@ -56,6 +60,7 @@ async function clickButton(page, button) {
 try {
   await checkShell(browser, base);
   await checkAndroidFixes(browser, base, clickButton);
+  await checkCardDetails(browser, base);
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
   await page.addInitScript(() => {
@@ -168,8 +173,16 @@ try {
   assert(await frame.locator('#home-line').isHidden(), 'Home hides the zero turn count');
   assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests ?? []), [], 'Mount sends no fullscreen request');
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), 0, 'An empty home reads no board');
+  await checkTablet(page, frame);
+  await checkFocus(page, frame);
   await frame.locator('#home-games').click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  await checkFlatRows(frame, '[data-screen="play"] .menu-row');
+  const menuViewport = page.viewportSize();
+  await page.setViewportSize({ width: 336, height: 844 });
+  await checkMenuContent(frame, '[data-screen="play"] [data-nav="settings"]');
+  await page.setViewportSize(menuViewport);
+  assert.equal(await frame.locator('[data-screen="play"] [data-nav="settings"]').evaluate(row => row.getBoundingClientRect().height), 48, 'The plain Settings row is exactly 48 px tall');
   assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'play', 'Home Choose a game opens the Play hall');
   // M3: a failed first read on Play has one error and one way to read again.
   async function readErrorOnce(screen) {
@@ -250,6 +263,7 @@ try {
     await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', {name:'Choose a move', exact:true}).click();
   }
   async function menuAction(id) {
+    await frame.locator('#board:not([data-animating="true"])').waitFor({ state: 'attached' });
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
     await frame.locator('#board-menu').click(); await frame.locator('#' + id).click();
   }
@@ -383,6 +397,7 @@ try {
     for (const [size,width,height] of [['phone',390,844],['panel',400,900],['desktop',1440,900]]) {
       await page.setViewportSize({width,height}); await openScreen('profile');
       await frame.locator('#profile-open button').first().waitFor();
+      await checkFlatRows(frame, '#profile-open button');
       assert.deepEqual(await frame.locator('#profile-open button').evaluateAll(rows=>rows.map(row=>row.dataset.gameId)),openIds,'Open games keep your turn first');
       assert.equal(await frame.locator('#profile-open button').first().locator('.when .turn-mark').textContent(),'Turn');
       assert(await frame.locator('#profile-open').evaluate(el=>!!(el.compareDocumentPosition(document.querySelector('#profile-history'))&Node.DOCUMENT_POSITION_FOLLOWING)),'Open rows precede finished rows');
@@ -432,6 +447,7 @@ try {
       for(const [tab,count] of [['Pieces',11],['Kings',6],['Powers',12],['Cards',21]]) {
         await frame.locator('#collection-tabs label').filter({hasText:tab}).click(); assert.equal(await frame.locator('#collection-items > *').count(),count); assert.equal(await frame.locator('#collection-items .unlocked').count(),count);
         assert((await frame.locator('#collection-items > *').allTextContents()).every(text=>text.includes('Unlocked')&&text.trim().length>30),'Each collection entry has its rule');
+        assert(!(await frame.locator('#collection-items').innerText()).includes('Unlocked'), 'The all-unlocked Collection hides repeated status');
         await images('#collection-sheet'); await layout('collection');
         await frame.locator('#collection-items > *').last().scrollIntoViewIfNeeded(); assert((await frame.locator('#collection-items > *').last().evaluate(controlBounds)).accessible,'The last collection entry clears the composer');
         await frame.locator('#collection-sheet .new-game-body').evaluate(el=>{el.scrollTop=0;});
@@ -561,10 +577,12 @@ try {
       const last = state === 'setup-classic' ? { ...baseSetup, options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } }
         : state === 'setup-pieces' ? { ...sampleSetup, options: { ...sampleSetup.options, pool: ['N','A','M','S'] } } : sampleSetup;
       await setupMount(last);
+      if (state === 'setup') await checkTabletButtons(frame, '#setup-pieces, #setup-cards');
       if (state === 'setup-pieces') await frame.locator('#setup-pieces').click();
       if (state === 'setup-cards') await frame.locator('#setup-cards').click();
       if (state === 'setup-king') {
         await frame.locator('#setup-king').click();
+        await checkTabletSelection(frame);
         assert.equal(await frame.locator('#king-picker .emblem').count(), 6);
         assert(await frame.locator('#king-picker .emblem').evaluateAll(buttons => buttons.every(button => {
           const style = getComputedStyle(button), box = button.getBoundingClientRect();
@@ -628,7 +646,7 @@ try {
     });
     assert.equal(await frame.locator('#game-table .coin').count(), 10, 'Both strips show four cards and one power');
     const coins44 = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll('.coin')].map(coin => {
-      const style = getComputedStyle(coin), box = coin.getBoundingClientRect();
+      const style = getComputedStyle(coin.querySelector('.coin-paint')), box = coin.getBoundingClientRect();
       return { id: coin.id, width: box.width, height: box.height, radii: [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomLeftRadius, style.borderBottomRightRadius], radial: style.backgroundImage.includes('radial-gradient'), stone: style.backgroundImage.includes('stone-control'), disabled: coin.disabled, motion: coin.getAnimations().map(animation => animation.playState) };
     }));
     assert(coins44.every(coin => coin.radii.every(radius => radius === '50%') && Math.abs(coin.width - coin.height) < .5 && coin.width >= 44 && coin.radial && !coin.stone), `Card and power coins stay round with 44 px targets at 393 × 852: ${JSON.stringify(coins44)}`);
@@ -639,7 +657,7 @@ try {
     // The Black seat waits for the computer's first move. Until its reply the Menu is off and shows the disabled face;
     // the real server (plugin-ui-http) replies later than the fixture.
     await frame.locator('#board-menu:not(:disabled)').waitFor();
-    assert((await frame.locator('#board-menu').evaluate(button => getComputedStyle(button).backgroundImage)).includes('stone-control'), 'Menu keeps the stone face');
+    assert((await frame.locator('#board-menu').evaluate(button => getComputedStyle(button, '::before').backgroundImage)).includes('stone-control'), 'Menu keeps the stone face');
     await shot(page, `base-round-coins-393-${mode}`);
     await page.setViewportSize({ width: 390, height: 844 });
     const desktop = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: false, reducedMotion: 'reduce' });
@@ -926,7 +944,7 @@ try {
     await seatTool('kingdown_abort', { game_id: sheetSeat.game_id });
     let v = await friendSeat();
     assert.equal(v.choices[1], null, 'The other choice stays hidden');
-    assert.equal(await frame.locator('#seat-me-line').innerText(), 'Mud · March · select the coin to change', 'Cards clean the remembered power to the same king');
+    assert.equal(await frame.locator('#seat-me-line').innerText(), 'Mud · March', 'Cards clean the remembered power to the same king');
     assert((await frame.locator('#seat-them-picture').getAttribute('src')).includes('/shadow-b-'), 'The other strip shows the plain Black king');
     await frame.locator('#seat-king').click();
     assert(await frame.locator('[data-power="Leap"]').isDisabled()); assert(await frame.locator('[data-king="Frost"]').isDisabled());
@@ -1069,7 +1087,9 @@ try {
     await seatTool('kingdown_abort',{game_id:legacy._meta.view.game_id});
     const aborted = await friendSeat(false,{...features,cards:false,kingPowers:true,arrangement:false});
     assert(!await frame.locator('#seat-shuffle').isVisible());
-    await frame.locator('#seat-menu').click(); await frame.locator('#seat-abort').click();
+    await frame.locator('#seat-menu').click();
+    await checkFlatRows(frame, '#seat-menu-sheet .menu-row');
+    await frame.locator('#seat-abort').click();
     assert.equal(await frame.locator('#seat-menu-title').innerText(),'Abort this game?');
     await frame.locator('#seat-abort-cancel').click(); assert.equal(await page.evaluate(() => window.harnessView.status),'setup');
     await frame.locator('#seat-menu').click(); await frame.locator('#seat-abort').click(); await frame.locator('#seat-abort-confirm').click();
@@ -1096,10 +1116,10 @@ try {
   })), 'Name pictures keep their round transparent face');
   assert(await frame.locator('#setup-body').evaluate(body => {
     const button = document.createElement('button');
-    button.className = 'preset'; button.textContent = 'King Down'; body.append(button);
+    button.className = 'preset wide-btn'; button.textContent = 'King Down'; body.append(button);
     try {
-      const style = getComputedStyle(button);
-      return style.backgroundImage.includes('stone-control') && style.borderRadius !== '50%' && style.aspectRatio === 'auto';
+      const style = getComputedStyle(button), face = getComputedStyle(button, '::before');
+      return face.backgroundImage.includes('stone-control') && style.borderRadius !== '50%' && style.aspectRatio === 'auto';
     } finally { button.remove(); }
   }), 'A preset button outside the name pictures keeps its stone face and control shape');
   assert.equal(await frame.locator('[data-screen="handle"] .quiet-line').last().innerText(), 'Each name is unique.');
@@ -1211,6 +1231,8 @@ try {
   await frame.locator('#symbols-only').check();
   await frame.locator('#symbols-only:not(:disabled)').waitFor();
   assert(await frame.locator('#symbols-only').isChecked());
+  await checkFlatRows(frame, '#settings-sheet .fields > label');
+  await checkSegments(page, frame);
   assert.equal(await page.evaluate(() => window.harnessWidgetState.modelContent.game_id), undefined);
   assert.deepEqual(await page.evaluate(() => Object.keys(window.harnessWidgetState.privateContent).sort()), ['board_id', 'pending', 'screen', 'sheet']);
   const settingsReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
@@ -1258,7 +1280,7 @@ try {
   }
 
   // Ticket 39 F-3: use the label bounds as well as the button style.
-  async function sheetLabelsCentered(label) {
+  async function sheetLabelsFit(label) {
     const viewport = page.viewportSize();
     try {
       await page.setViewportSize({ width: 402, height: 874 });
@@ -1267,10 +1289,14 @@ try {
       const buttons = await frame.locator('#board-sheet .sheet-body > button:visible').evaluateAll(buttons => buttons.map(button => {
         const style = getComputedStyle(button), box = button.getBoundingClientRect(), range = document.createRange();
         range.selectNodeContents(button); const words = range.getBoundingClientRect();
-        return { text: button.textContent, justify: style.justifyContent, align: style.textAlign, column: style.flexDirection === 'column', offset: Math.abs(words.left + words.width / 2 - box.left - box.width / 2) };
+        return { text: button.textContent, justify: style.justifyContent, align: style.textAlign, column: style.flexDirection === 'column', inset: words.left - box.left, offset: Math.abs(words.left + words.width / 2 - box.left - box.width / 2) };
       }));
       await shot(page, `device-sheet-${label}-402-${mode}`);
-      assert(buttons.length > 0 && buttons.every(b => b.justify === 'center' && b.align === 'center' && (b.column || b.offset <= 1)), `${label}: sheet button labels are centred: ${JSON.stringify(buttons)}`);
+      if (label === 'menu') {
+        assert(buttons.length > 0 && buttons.every(b => b.justify === 'flex-start' && b.align === 'left' && Math.abs(b.inset - 12) <= 1), `Flat menu rows use the 12 px text inset: ${JSON.stringify(buttons)}`);
+      } else {
+        assert(buttons.length > 0 && buttons.every(b => b.justify === 'center' && b.align === 'center' && (b.column || b.offset <= 1)), `${label}: sheet button labels are centred: ${JSON.stringify(buttons)}`);
+      }
     } finally { await page.setViewportSize(viewport); }
   }
 
@@ -1330,7 +1356,7 @@ try {
           assert(label.rightGap >= 8, `The ${label.id} text keeps at least 8 px on the right: ${all}`);
         }
         if (width <= 299) assert(labels[1].top >= labels[0].bottom && labels.every(label => Math.abs(label.width - label.rowWidth) < 1), `Share and Copy stack at full width: ${all}`);
-        else assert(Math.abs(labels[0].top - labels[1].top) < 1 && labels[0].right <= labels[1].left, `Share and Copy stay side by side: ${all}`);
+        else assert(Math.abs((labels[0].top + labels[0].bottom) / 2 - (labels[1].top + labels[1].bottom) / 2) < 1 && labels[0].right <= labels[1].left, `Share and Copy keep one centre line: ${all}`);
         await host.frame.locator('#friend-copy').scrollIntoViewIfNeeded();
         await shot(host.page, `friend-actions-${width}-${mode}`);
       } finally { await host.page.close(); }
@@ -1921,7 +1947,7 @@ try {
     assert.equal(await page.evaluate(()=>window.harnessView.revision),start);
     await tap(file,rank);
     if (!black) { await dragOwnSquare(file,rank); assert.equal(await page.evaluate(()=>window.harnessView.revision),start,'Drag must not shoot'); await tap(2,2); await tap(2,4); }
-    else { await frame.locator('#power-b').click(); await sheetLabelsCentered('power'); await frame.locator('#board-sheet').getByRole('button', {name:'Use', exact:true}).click(); await openMoveChoices(); await frame.locator('#choices button').filter({hasText:/freeze/i}).click(); }
+    else { await frame.locator('#power-b').click(); await sheetLabelsFit('power'); await frame.locator('#board-sheet').getByRole('button', {name:'Use', exact:true}).click(); await openMoveChoices(); await frame.locator('#choices button').filter({hasText:/freeze/i}).click(); }
     // W7: End turn sends the whole turn, so the turn passes to the friend. Wait for the reply before the keys (blocked()).
     await sendTurn(); await page.waitForFunction(r=>window.harnessView.revision>=r,start+1);
     await idleBoard();
@@ -2000,6 +2026,29 @@ try {
   const { measureCardCoins } = await import('./lib/plugin-cards-check.mjs');
   await measureCardCoins(frame, env('PLAYABLE_OUT'));
   const cardView = cardGame._meta.view; setRules(cardView.rules);
+  const focusHost = await hostPage(390, 844, 102, 118);
+  try {
+    await focusHost.page.emulateMedia({ reducedMotion: 'reduce' });
+    await focusHost.frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
+    for (const kind of ['cards', 'powers']) {
+      const focusPos = fromFen(cardView.fen); focusPos.used = [15, 15];
+      const rules = kind === 'cards' ? cardView.rules : { ...cardView.rules, hands: [[], []], kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'Freeze' }] };
+      const focusView = { ...cardView, revision: cardView.revision + (kind === 'cards' ? 1 : 2), fen: toFen(focusPos), rules };
+      await focusHost.page.evaluate(view => {
+        window.harnessNextView = view;
+        return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id, screen: 'board' }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
+      }, focusView);
+      await focusHost.frame.locator(`#${kind === 'cards' ? 'card-w-0' : 'power-w'}[data-state="used"]`).waitFor();
+      const ids = await focusHost.frame.locator('#game-table .coin[data-state="used"]').evaluateAll(coins => coins.map(c => c.id));
+      assert.equal(ids.length, kind === 'cards' ? 8 : 2, 'Both strips show the spent coins');
+      for (const theme of ['light', 'dark']) {
+        await focusHost.page.evaluate(theme => window.harnessSetContext({ theme }), theme);
+        const proof = [];
+        for (const id of ids) proof.push(await checkCoinFocus(focusHost.page, focusHost.frame, `#${id}`, env('PLAYABLE_OUT'), `coin-${theme}-${id}`));
+        console.log(`Coin focus at 390 × 844 (${theme}, ${kind}):`, JSON.stringify(proof));
+      }
+    }
+  } finally { await focusHost.page.close(); }
   const cardPos = fromFen(cardView.fen), cardLegal = legalMoves(cardPos).filter(m => cardView.legal.includes(toLan(cardPos,m))), hand = cardCoins(cardPos,cardView.seat,cardView.rules.hands[cardView.seat],cardLegal);
   const cardIndex = hand.findIndex(c=>c.card === 'Vault' && c.moves.length); assert(cardIndex>=0,'The dealt Vault has a move');
   const card = hand[cardIndex], cardWords = cardName(card.card), cardLan = toLan(cardPos,card.moves[0]);
@@ -2009,7 +2058,7 @@ try {
   await frame.locator('#board-sheet[open] h2').filter({ hasText: cardWords }).waitFor();
   await page.waitForFunction(() => window.harnessWidgetState.privateContent.sheet === 'board-sheet');
   assertCardReadState(beforeCardRead, await page.evaluate(() => window.harnessWidgetState));
-  await sheetLabelsCentered('card');
+  await sheetLabelsFit('card');
   await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
   for (const [width, height, top, bottom] of [[197, 426, 51, 59], [393, 852, 102, 118]]) {
     const host = await hostPage(width, height, top, bottom);
@@ -2029,12 +2078,25 @@ try {
   }
   await zoomBoardFits('board-cards-armed');
   await openMoveChoices();
+  await checkTabletButtons(frame, '#choices button');
   assert(await frame.locator('#choices button').evaluateAll(buttons => buttons.length > 0 && buttons.every(button => getComputedStyle(button).justifyContent === 'flex-start' && getComputedStyle(button).textAlign === 'left')), 'Move choices stay left aligned');
   await frame.locator(`#choices button[title="${cardLan}"]`).click(); await sendTurn();
   await page.waitForFunction(({id,n})=>window.harnessCalls.some(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.actions?.[0]===n),{id:cardView.game_id,n:cardLan}); await idleBoard();
   await frame.locator('#strip-me .card-coin').nth(cardIndex).and(frame.locator('[data-state="used"]')).waitFor();
   assert.equal(await frame.locator('#strip-me .card-coin').nth(cardIndex).getAttribute('data-state'),'used','The played card is spent');
   await page.waitForFunction(id=>window.harnessView.game_id===id&&window.harnessView.turn===window.harnessView.seat,cardView.game_id); await idleBoard(); await boardBox();
+  const spentCoin = frame.locator('#strip-me .card-coin').nth(cardIndex);
+  await page.keyboard.press('Tab'); await spentCoin.focus();
+  const spentFocus = await spentCoin.evaluate(el => {
+    const s = getComputedStyle(el); return { keyboard: el.matches(':focus-visible'), filter: s.filter, opacity: s.opacity, art: getComputedStyle(el.querySelector('.coin-paint')).filter, ink: s.outlineColor, width: s.outlineWidth, gold: s.boxShadow };
+  });
+  assert(spentFocus.keyboard, 'A spent coin can have keyboard focus');
+  assert.equal(spentFocus.filter, 'none', 'The spent state does not turn the focus ring grey');
+  assert.equal(spentFocus.opacity, '1', 'The spent state does not dim the focus ring');
+  assert.equal(spentFocus.art, 'grayscale(1)', 'The spent card art stays grey');
+  assert.equal(spentFocus.ink, 'rgb(43, 38, 33)'); assert.equal(spentFocus.width, '2px');
+  assert.match(spentFocus.gold, /rgb\(233, 192, 113\).*4px/);
+  await spentCoin.blur();
   async function arrivalTool(name,args,friend=false) {return (await page.request.post(new URL(friend?'/fixture-friend-tool':'/fixture-tool',base).href,{data:{name,arguments:args}})).json();}
   const arrival=await arrivalTool('kingdown_create',{kind:'friend',colour:'white',board_id:cardBoard,options:{...DEFAULT_OPTIONS,fairy:false,arrangement:false,kingPowers:false,cards:true,cardPool:['Salvation','Freeze','IceWall','Vault']}}); assert(!arrival.isError);
   const arrivalInvite=await arrivalTool('kingdown_invite',{game_id:arrival._meta.view.game_id}); assert(!arrivalInvite.isError);
@@ -2450,7 +2512,7 @@ try {
     await tapCentre(button);
     await zoomViewport(viewport.width,viewport.height,0,0);
   }
-  await legacyStart('solo'); await frame.locator('#board-menu').click(); await sheetLabelsCentered('menu'); await frame.locator('#menu-resign').click(); await sheetLabelsCentered('resign');
+  await legacyStart('solo'); await frame.locator('#board-menu').click(); await sheetLabelsFit('menu'); await frame.locator('#menu-resign').click(); await sheetLabelsFit('resign');
   await frame.locator('#board-sheet h2').filter({hasText:'Lay your king down?'}).waitFor({timeout: 3000 * STEP});
   assert.equal(await page.evaluate(()=>window.harnessView.status),'playing','Resign waits for its confirm');
   await frame.locator('#board-sheet').getByRole('button',{name:'Keep playing',exact:true}).click();
@@ -2543,6 +2605,8 @@ try {
     await page.evaluate(()=>window.harnessSetContext({displayMode:'fullscreen',safeAreaInsets:{top:51,bottom:59,left:0,right:0},deviceCapabilities:{touch:true}}));
     assert(await frame.locator('#over').evaluate(e=>e.scrollHeight>e.clientHeight),'The 197 px end card scrolls');
     assert(await frame.locator('#game-table .table-back').evaluate(e=>{const r=e.getBoundingClientRect(),card=document.getElementById('over').getBoundingClientRect();return r.height>=44&&r.bottom<=card.top&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'Back stays clear of the end card');
+    const backFace = await frame.locator('#game-table .table-back').evaluate(e => ({ height: e.getBoundingClientRect().height, cut: getComputedStyle(e, '::before').clipPath }));
+    assert.equal(backFace.height, 48, 'Back uses the small tablet height'); assert.match(backFace.cut, /polygon\(4px 0px/);
     for (const name of ['Rematch','New game','See the board']) {
       const b=frame.locator('#over').getByRole('button',{name,exact:true}); await b.scrollIntoViewIfNeeded();
       assert(await b.evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),name+' stays reachable at 197 px');
@@ -2852,7 +2916,13 @@ try {
     async function showSnapshot(value, words=`Move ${positionMoveNumber(fromFen(value.fen))}.`) {
       await page.evaluate(value=>{window.harnessNextView=value; return window.harnessShow({content:[],structuredContent:{game_id:value.game_id,screen:'board'},_meta:{board_id:window.harnessWidgetState.privateContent.board_id,view:value}});},value);
       await page.waitForFunction(value=>window.harnessView.game_id===value.game_id&&window.harnessView.fen===value.fen,value);
-      await frame.locator('#last-move').filter({hasText:words}).waitFor();
+      await frame.locator('#last-move').filter({hasText:words}).waitFor({state:'attached'});
+      const line = frame.locator('#last-move:visible, #short-move-words:visible');
+      await line.waitFor();
+      if (await frame.locator('#short-move-words').isVisible()) {
+        const last = (replayHistory(value,sampleRules) ?? replayLans({...snapshot,game_id:value.game_id,fen:initial_fen},value,sampleRules))?.at(-1);
+        assert.equal(await line.innerText(), last ? shortMove(last.pre,last.move) : `Move ${positionMoveNumber(fromFen(value.fen))}.`, 'The visible compact line names the current move');
+      }
       await idleBoard(); await boardBox();
     }
     const legal=()=>position.turn===0?legalMoves(position).map(m=>toLan(position,m)):[];
@@ -2861,7 +2931,7 @@ try {
     for (const [index,lan] of state.play.entries()) {const step=applyLan(position,lan,sampleRules); assert(step,`${state.name}: the sample move is legal`); commands.push({seq:101+index,seat:position.turn,at:snapshot.server_now,action:{type:'turn',actions:[lan]}}); position=step.pos; story=step.words;}
     const finished=state.end?{status:'finished',result:{winner:0,reason:'checkmate'},outcome:{rating_before:1500,rating:1561,provisional:true,badges:[{badge:'fairy_tale',earned_at:snapshot.server_now}]}}:{};
     await showSnapshot({...snapshot,...finished,revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:state.end?[]:legal(),last_commands:commands,deadline_at:state.claim?new Date(Date.now()-60000).toISOString():null},story);
-    if (state.select) {await clickSquare(...state.select); await page.clock.runFor(POP_MS+14*RIPPLE_MS+50);}
+    if (state.select) {await clickSquare(...state.select); await page.clock.runFor(POP_MS+50);}
     if (state.claim) assert.equal(await frame.locator('#status').innerText(),'mira_k has not moved for 3 days.');
     if (state.end) {
       const viewport = page.viewportSize();
@@ -3000,12 +3070,13 @@ try {
       console.log(`T6/T7 tall-phone boxes: ${JSON.stringify(boxes)}`);
       const expected = {
         frame:[0,0,393,756], '#board':[4,44,385,411], '#board canvas':[4,44,385,411],
-        '#strip-them':[0,0,393,44], '#strip-me':[0,455,393,44], '#context-line':[12,499,369,44],
-        '#moves-line':[12,543,369,44], '#recent-moves':[12,587,369,108], '#table-bar':[0,708,393,48],
+        '#strip-them':[0,0,393,44], '#strip-me':[0,455,393,36], '#context-line':[12,491,369,48],
+        '#moves-line':[12,539,369,48], '#recent-moves':[12,587,369,108], '#table-bar':[0,704,393,52],
       };
       for (const [id,box] of Object.entries(expected)) assert(boxes[id]?.every((value,i) => Math.abs(value-box[i]) <= 1),
         `At 393 x 852 ${id} keeps its measured box (1 px rounding): ${JSON.stringify(boxes)}`);
       const movesControl = frame.locator('#moves-line'), recentMoves = frame.locator('#recent-moves');
+      assert(await recentMoves.isVisible(), 'The full list fits at 393 x 852 with tablet controls');
       await frame.locator('#moves-line[aria-expanded="true"]').waitFor();
       assert.match(await movesControl.innerText(), /Moves/, 'The Moves control keeps its name');
       assert.equal(await movesControl.getAttribute('aria-controls'), 'recent-moves', 'Moves names the list it controls');

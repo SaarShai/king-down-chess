@@ -8,7 +8,7 @@
 export function cardFaces(scope) {
   return scope.locator('#game-table').evaluate(table => [...table.querySelectorAll('.card-coin img')].map(image => {
     const round = value => Math.round(value * 100) / 100;
-    const coin = image.parentElement.getBoundingClientRect(), face = image.getBoundingClientRect();
+    const coin = image.closest('.card-coin').getBoundingClientRect(), face = image.getBoundingClientRect();
     return {
       side: image.closest('.player-strip').id, coin: round(coin.width), image: round(face.width),
       x: round((face.left - coin.left) - (coin.right - face.right)), y: round((face.top - coin.top) - (coin.bottom - face.bottom)),

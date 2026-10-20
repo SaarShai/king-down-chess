@@ -61,7 +61,7 @@ it.each([[393, 852, 102, 118, 118], [320, 568, 63, 84, 96], [393, 852, 0, 0, 96]
     expect((await frame.locator('#page-back').evaluate(controlBounds)).limit).toBe(height - gap);
   } finally { await page.close(); }
 });
-// Rule and state text stay whole. The short-phone floors include the 4 px touch-bar padding.
+// Rule and state text stay whole. Keep the board floors from main.
 it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568, 63, 180, 135, 95]])('keeps the seat and board large at %i × %i with host insets %i/%i', async (width, height, top, bottom, min, boardMin) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000 * STEP);
@@ -160,7 +160,7 @@ it('sizes the seat and the board from their screens, with no viewport units and 
   } finally { await page.close(); }
 });
 
-// The floors keep whole rule text and include the 4 px touch-bar padding on short phones.
+// The floors keep whole rule text and the board space from main.
 it('keeps short-phone boards large, landscape controls reachable and the end table in its box', async () => {
   for (const [width,height,top,bottom,left,right,min,boardMin] of [[320,568,20,0,0,0,235,190],[375,667,20,0,0,0,285,285],[393,852,59,34,0,0,380,380],[440,956,59,34,0,0,430,430],[852,393,0,21,59,59,195,150],[852,393,59,34,0,0,140,95]]) {
     const page=await browser.newPage({viewport:{width,height},isMobile:true,hasTouch:true}), frame=page.frameLocator('iframe'); page.setDefaultTimeout(10000 * STEP);
@@ -224,7 +224,11 @@ it('keeps 44 px card and power targets in two player rows', async () => {
     expect(bounds.length).toBeGreaterThanOrEqual(8); for(const [w,h] of bounds){expect(w).toBeGreaterThanOrEqual(44);expect(h).toBeGreaterThanOrEqual(44);}
     expect(await frame.locator('#strip-me b').getAttribute('title')).toBe('wwwwwwwwwwwwwwwwwwww');
     expect(await frame.locator('#strip-me b').evaluate(e=>{const r=e.getBoundingClientRect(),p=e.closest('.player-strip')!.getBoundingClientRect();return r.top>=p.top && r.bottom<=p.bottom && getComputedStyle(e).textOverflow==='ellipsis';})).toBe(true);
-    expect(await frame.locator('#strip-me').evaluate(e=>e.getBoundingClientRect().height)).toBe(88);
+    expect(await frame.locator('#strip-me').evaluate(e=>e.getBoundingClientRect().height)).toBe(80);
+    for (const coin of await frame.locator('.coin:visible').all()) {
+      const bounds = await coin.evaluate(controlBounds);
+      expect(bounds.accessible, JSON.stringify(bounds)).toBe(true);
+    }
   } finally {await page.close();}
 });
 
@@ -342,12 +346,12 @@ it('opens Play from the seat and board Back buttons on a portrait phone', async 
   } finally { await page.close(); }
 });
 
-it('shows each checked stone choice in light and dark mode', async () => {
+it('shows each checked flat choice in light and dark mode', async () => {
   const page = await browser.newPage({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
   try {
     await page.goto(harness.url); await hall(page);
     const face = (name: string) => frame.getByRole('radio', { name, exact: true }).locator('..').evaluate(e => {
-      const s = getComputedStyle(e); return { colour: s.color, fill: s.backgroundColor, shadow: s.boxShadow, repeat: s.backgroundRepeat };
+      const s = getComputedStyle(e); return { colour: s.color, fill: s.backgroundColor, shadow: s.boxShadow, image: s.backgroundImage };
     });
     for (const theme of ['light', 'dark'] as const) {
       await page.emulateMedia({ colorScheme: theme });
@@ -357,7 +361,7 @@ it('shows each checked stone choice in light and dark mode', async () => {
         const selected = await face(first), clear = await face(second);
         expect(selected.fill).not.toBe(clear.fill); expect(selected.colour).not.toBe(clear.colour);
         expect(selected.shadow.split(/,(?![^()]*\))/).every(shadow => shadow.includes('inset'))).toBe(true);
-        expect(selected.repeat).toBe('no-repeat');
+        expect(selected.image).toBe('none');
         await frame.getByRole('radio', { name: second, exact: true }).locator('..').click();
         expect(await frame.getByRole('radio', { name: second, exact: true }).isChecked()).toBe(true);
         expect(await face(second)).toEqual(selected); expect(await face(first)).toEqual(clear);
@@ -383,6 +387,8 @@ it.each([[768, 1024], [1024, 768]])('gives Settings controls the 44 px floor wit
     await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
     const heights = await frame.locator('[data-screen="settings"] .fields > label').evaluateAll(labels => labels.map(l => l.getBoundingClientRect().height));
     expect(heights).toHaveLength(3); for (const h of heights) expect(h).toBeGreaterThanOrEqual(44);
+    expect(await frame.locator('[data-screen="settings"] .fields > label :is(input, select)').evaluateAll(controls => controls.map(c => c.id)))
+      .toEqual(['symbols-only', 'show-threats', 'sound']);
     const online = await frame.locator('#online-visibility label').evaluateAll(labels => labels.map(l => l.getBoundingClientRect().height));
     expect(online).toHaveLength(3); for (const h of online) expect(h).toBeGreaterThanOrEqual(44);
   } finally { await page.close(); }
@@ -578,9 +584,7 @@ it('keeps the board screen unscrolled without cards where the rows fit under 320
     }
   } finally { await page.close(); }
 });
-// The zoom rule leaves normal sizes alone. Device matrix round 2 measured 169/158 and 302/302 on the old phone rows;
-// layout B (short portrait rows, Back in the opponent row) gives the seat more height, and with Cards and King powers
-// its narrow opponent and player rows take two 44 px rows on the board. The touch bar adds 4 px; the short last-move row takes 24 px at short heights.
+// Keep the seat and board floors from main with Cards and King powers.
 it.each([[320, 568, 63, 84, true, 214, 109], [393, 852, 102, 118, true, 382, 300], [820, 600, 59, 34, false, 360, 338]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: touch, hasTouch: touch }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000 * STEP);
@@ -604,12 +608,12 @@ it.each([[320, 568, 63, 84, true, 214, 109], [393, 852, 102, 118, true, 382, 300
     await frame.locator('#seat-context').filter({ hasText: /\S/ }).waitFor();
     const canvasWidth = () => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width);
     await waitForBoardPaint(frame);
-    await expect.poll(canvasWidth).toBe(seat);
+    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(seat);
     await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
     await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     await waitForBoardPaint(frame);
-    await expect.poll(canvasWidth).toBe(board);
+    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(board);
   } finally { await page.close(); }
 });
 

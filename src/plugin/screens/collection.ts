@@ -15,6 +15,10 @@ function guideCard(name: string, picture: string, symbol: string, rows: readonly
   card.innerHTML = `<div class="pc-art">${picture}</div><div class="pc-body"><h3>${symbol} ${name}</h3><dl>${rows.map(([label, text]) => `<dt>${label}</dt><dd>${text}</dd>`).join('')}<dt>Status</dt><dd>${unlocked}</dd></dl></div>`;
   return card;
 }
+/** Show per-item status only when the entries do not all have the same unlocked state. */
+export function syncCollectionStatus(target: HTMLElement) {
+  target.classList.toggle('all-unlocked', target.children.length > 0 && target.querySelectorAll('.unlocked').length === target.children.length);
+}
 export function collectionScreen() {
   const tabs = ['Pieces', 'Kings', 'Powers', 'Cards'], saved = client.state.sheet?.startsWith('collection:') ? client.state.sheet.slice(11) : '';
   const tab = tabs.includes(saved) ? saved : 'Pieces';
@@ -40,5 +44,6 @@ function draw(tab: string) {
     const face = document.createElement('label'); face.className = 'card-face'; face.dataset.card = card;
     face.innerHTML = `<span class="cf-art">${cardArt(card)}</span><span class="cf-text"><b>${cardName(card)}</b><small>${ruleLine(cardText(card, DEFAULT_RULES))}</small>${unlocked}</span>`; target.append(face);
   }
+  syncCollectionStatus(target);
   document.querySelector<HTMLElement>('#collection-sheet .new-game-body')!.scrollTop = 0;
 }

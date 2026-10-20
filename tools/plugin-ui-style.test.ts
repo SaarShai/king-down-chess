@@ -15,20 +15,19 @@ it('imports game tokens and components without lesson, account or title lineup r
     expect(css).toContain('.menu-row .game-detail');
     expect(await readFile('src/plugin/app.ts', 'utf8')).toContain("import '../account-game/content.css'");
     expect(await readFile('src/plugin/app.css', 'utf8')).not.toContain('.menu-row .game-detail');
+    expect(html).toMatch(/id="end-turn"[^>]*aria-label="End turn"[^>]*><svg[^>]*>.*?<\/svg><\/button>/);
     expect(await readFile('public/support.html', 'utf8')).toContain('Sword by Studio Danro from Noun Project (CC BY 3.0)');
     for (const component of ['--mark-swap', '.title-kings', '.new-game-head', '.coin', '#game-table', '.piece-card']) expect(css).toContain(component);
     // G2 a: a spent card coin keeps a lighter dim (0.85), in the settled state and at the end of its spend pulse.
     const flat = css.replaceAll('"', '').replaceAll("'", '');
-    expect(flat).toMatch(/#app-root :is\(#game-table,\[data-seat-id=game-table\]\) \.coin\.card-coin\[data-state=used\]\{[^}]*opacity:\.85(?:;|})/);
+    expect(flat).toMatch(/\.coin\.card-coin\[data-state=used\]>.coin-paint\{[^}]*opacity:\.85(?:;|})/);
     expect(flat).toMatch(/@keyframes card-spend\{to\{opacity:\.85\}/);
     expect.soft(flat).toContain('--focus:#2b2621;--focus-gold:#e9c071');
     expect.soft(flat).toContain('#app-root #board:focus{outline-offset:-3px;outline-width:3px;box-shadow:none!important}');
     expect.soft(flat).toContain('#app-root :is(#game-table,[data-seat-id=game-table]) .table-back:focus{outline-offset:-2px;box-shadow:inset 0 0 0 4px var(--focus-gold)!important}');
-    expect(flat).toMatch(/#app-root :is\(#game-table,\[data-seat-id=game-table\]\) \.coin\.card-coin\[data-state=used\]\{[^}]*border-color:var\(--stone-700\);--card-ring:var\(--stone-700\)/);
-    expect(flat).toMatch(/#app-root :is\(#game-table,\[data-seat-id=game-table\]\) \.card-coin:is\(\[data-state=used\],:has\(\.cc-word\)\) img\{filter:brightness\(\.4\)\}/);
+    expect(flat).toMatch(/#app-root :is\(#game-table,\[data-seat-id=game-table\]\) \.coin\.card-coin\[data-state=used\]>.coin-paint\{[^}]*border-color:var\(--stone-500\);--card-ring:var\(--stone-500\)/);
     expect(flat).toContain('#app-root :is(button:focus,a[href]:focus,input:focus,select:focus,label:focus,dialog:focus,[tabindex]:focus,label:not(.card-face):has(input:focus)),#app-root #board:focus{outline:2px solid var(--focus);outline-offset:0;scroll-margin:5px;box-shadow:0 0 0 4px var(--focus-gold)!important}');
     expect(flat).toContain('#app-root button.emblem{transition:transform 80ms ease-out,background-color .12s}');
-    expect(flat).toContain('#app-root :is(#game-table,[data-seat-id=game-table]) .coin[data-state=armed]:focus{box-shadow:0 0 0 4px var(--focus-gold), inset 0 0 0 2px var(--focus), inset 0 0 0 5px var(--focus-gold)!important}');
     const shared = await readFile('src/account-game/content.css', 'utf8');
     const plugin = await readFile('src/plugin/app.css', 'utf8');
     const entry = await readFile('src/plugin/app.ts', 'utf8');
@@ -49,9 +48,6 @@ it('imports game tokens and components without lesson, account or title lineup r
     expect(flat).toContain('#app-root label.mode:has(input:focus){outline-offset:-2px;box-shadow:inset 0 0 0 6px var(--focus-gold)!important}');
     expect(flat).toContain('#app-root label:has(input:focus){opacity:1}');
     expect(flat).toContain('@container table-screen (width<=319px){#app-root :is(#game-table,[data-seat-id=game-table]) .coin-row{padding:4px}}');
-    expect(flat).toContain('#app-root :is(#game-table,[data-seat-id=game-table]) .coin:focus{z-index:1}');
-    expect(flat).toContain('#app-root :is(#game-table,[data-seat-id=game-table]) .coin[data-state=used]:focus{filter:none}');
-    expect(flat).toContain('#app-root :is(#game-table,[data-seat-id=game-table]) .coin[data-state=used]:focus img{filter:grayscale()}');
-    expect(flat).toContain('#app-root :is(#game-table,[data-seat-id=game-table]) .coin.card-coin[data-state=used]:focus img{filter:brightness(.4)grayscale()}');
+    expect(flat).toContain('#app-root :is(#game-table,[data-seat-id=game-table]) .coin:focus{z-index:1;outline-offset:-2px;box-shadow:inset 0 0 0 4px var(--focus-gold)!important}');
   } finally { await rm(folder, { recursive: true, force: true }); }
 });

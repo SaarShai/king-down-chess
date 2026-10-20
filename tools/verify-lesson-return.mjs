@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { lessonPath, startLesson, setPace, waitForLinkReplay, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
+import { checkButtonContent } from './lib/plugin-tablet-check.mjs';
 
 const base = env('PLAYABLE_URL');
 const browser = await launch();
@@ -28,6 +29,7 @@ try {
       if (phone) await page.touchscreen.tap(p.x, p.y); else await page.mouse.click(p.x, p.y);
     };
     await startLesson(page);
+    await checkButtonContent(page, '#table-bar > button');
     assert.notEqual(await page.locator('#return-game use').getAttribute('href'), await page.locator('#undo use').getAttribute('href'), 'Return to game has its own icon');
     // This used to abandon the lesson and save its tiny board over the match.
     await setUpGame(page, { mode: 'computer', level: 'strong' }); await page.keyboard.press('Escape');
@@ -40,6 +42,7 @@ try {
       for (const sq of squares) await tap(sq);
       if (await page.evaluate(() => document.getElementById('move-choice').open)) await page.click('#choose-push');
       await waitForUi(page, ui => !!ui.lessonLearned);
+      await checkButtonContent(page, '#table-bar > button');
       if (i < steps.length - 1) await page.click('#next-lesson');
     }
     assert.equal((await board())[43], 8, 'the Paladin survives the lesson pawn capture');
