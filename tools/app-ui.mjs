@@ -1,6 +1,16 @@
 // The browser checks use these stable actions and readouts when the controls move.
 import { isDeepStrictEqual } from 'node:util';
 
+/** The board can show a link before start-up saves its moves and this device's side. */
+export function waitForLinkSave(page, back, moves, link) {
+  return page.waitForFunction(({ back, moves, link }) => {
+    const s = JSON.parse(localStorage.getItem('kingdown.save'));
+    return document.getElementById('asset-status')?.textContent === ''
+      && s?.back === back && s.link === link && s.white === 'human' && s.black === 'human'
+      && JSON.stringify(s.moves) === JSON.stringify(moves);
+  }, { back, moves, link });
+}
+
 /** The menu items and the button of each one today. */
 /** Guide is the sheet name; All rules is the read action. */
 const MENU = { 'New game': '#new-game-btn', Guide: '#rules-btn', Workshop: '#workshop-btn', Settings: '[data-go="help"]' };
