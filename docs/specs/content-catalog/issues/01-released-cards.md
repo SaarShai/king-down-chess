@@ -1,7 +1,7 @@
 # Store released card content once
 
 Type: task
-Status: claimed
+Status: resolved
 
 ## Plan
 
@@ -22,7 +22,7 @@ Status: claimed
 - Base source: `92be70f0`, in the isolated `staging/u06-content-catalog` worktree.
 - `KINGDOWN_TEST_FILE='{src/content/cards,src/match/setup,src/plugin/card-face,src/powers-ui}.test.ts' npm test` passes: full typecheck, 4 files, 61 tests and 53 artwork checks. Exit 0. Log: `/tmp/kingdown-u06-content-tests.log`.
 - `git diff --check` passes. No assets, engine rules, contextual text or costs change. No browser, build or deploy runs.
-- Independent review and integration remain with the main U06 task. The broader U06 acceptance stays open.
+- Integrated as `16be4639`. Independent acceptance review confirms the existing piece/power records remain the canonical sources. The broader U06 acceptance is recorded in the parent spec; this slice is complete.
 
 ## Artifact boundary
 

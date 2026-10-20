@@ -49,7 +49,11 @@ The first run (`app-4e06nb`) exposes three test setup faults and one unexplained
 
 The second run (`app-UkYmgo`) passes `painted-game` (111.2 s) and `web-online` (113.5 s). This supplies current-tree Review, Today, local input, offline practice, offline lesson/Workshop, private-cache and recovery evidence. The archived worker `d1eb413b…` passes 142 archive checks, typecheck and 54 artwork checks.
 
-The full mechanics matrix still fails before its first command. Its response timeout hides the earlier UI failure; the next run captures that failure and its board. The embedded check completes its functional assertions but reports six blocked connections to two artwork paths. A test-only initiator probe is in the local harness. Do not change CSP or waive errors without the caller evidence. Remove the probe after diagnosis. Neither check is accepted yet.
+Later runs expose test-driver errors, not changed mechanics: Archer shots need source selection despite their equal source/target; the embedded host must enter the full game surface before mounting a board. With those corrections, all six fairy types, 21 cards and 12 powers pass on both clients. Six interaction rows also pass before the standard-promotion fixture correctly ends as an insufficient-material draw. The driver must inspect the finished board through its result/review controls; it cannot use the hidden playing-only Menu. The full 55-row check is still open.
+
+The six artwork CSP errors come from the local host removing an iframe before the SDK teardown. A temporary initiator probe identifies the old board portrait assignment. `34d5fab4` tears down the old resource before removal and removes all probes. The next run (`app-qFautS`) exposes a second host-order issue: fresh-host state can be overwritten during that awaited teardown. Preserve SDK teardown and reset the new host state after it. Do not relax CSP or ignore browser errors. The next run needs both repaired checks; neither failed run counts as acceptance.
+
+Independent review of the driver and teardown delta finds no confirmed should-fix by source inspection. Execution supplies the additional end-screen and fresh-host-order failures above. This distinction is retained so that source review is not mistaken for a browser pass.
 
 ## Limits
 
