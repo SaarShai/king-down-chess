@@ -5,15 +5,25 @@
  */
 import { createClient, type Session } from '@supabase/supabase-js';
 import type { Remote, Row } from './sync';
+import type { AccountSession } from './session';
 
 const SUPABASE_URL = 'https://utqzovjmclfyojedmwok.supabase.co';
 const PUBLISHABLE_KEY = 'sb_publishable_8jB5OXiSB56JSJBfPjLvbQ_cKIemhX9';
 
 export type Provider = 'google' | 'github' | 'facebook';
 
-export function connect(storageKey: string) {
+const flowIdValid = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(value);
+function accountSession(session: Session | null): AccountSession | null {
+  const userId = session?.user?.id, accessToken = session?.access_token;
+  return typeof userId === 'string' && userId && typeof accessToken === 'string' && accessToken ? { userId, accessToken } : null;
+}
+
+export function connect(storageKey: string, { manualCallback = false }: { manualCallback?: boolean } = {}) {
   // PKCE: the sign-in page sends back a one-time code; this browser exchanges it with a verifier it kept.
-  const sb = createClient(SUPABASE_URL, PUBLISHABLE_KEY, { auth: { flowType: 'pkce', persistSession: true, storageKey } });
+  const sb = createClient(SUPABASE_URL, PUBLISHABLE_KEY, { auth: {
+    flowType: 'pkce', persistSession: true, storageKey,
+    ...(manualCallback ? { detectSessionInUrl: false, experimental: { appendPkceFlowIdToRedirects: true } } : {}),
+  } });
   const signOut = async (): Promise<void> => {
     const { error } = await sb.auth.signOut({ scope: 'local' });
     // Offline with an expired session, the library keeps the session (it could not refresh it to sign
@@ -22,9 +32,31 @@ export function connect(storageKey: string) {
   };
   return {
     /** Called with the session now and on every change (null when signed out). */
-    onSession(cb: (s: Session | null) => void): void {
+    onSession(cb: (s: Session | null) => void): () => void {
+      let active = true;
       // Supabase asks that the callback not await its own calls: run ours after it returns.
-      sb.auth.onAuthStateChange((_event, s) => { setTimeout(() => cb(s)); });
+      const { data: { subscription } } = sb.auth.onAuthStateChange((_event, s) => { setTimeout(() => { if (active) cb(s); }); });
+      return () => { if (active) { active = false; subscription.unsubscribe(); } };
+    },
+    async readSession(): Promise<AccountSession | null> {
+      const { data, error } = await sb.auth.getSession();
+      if (error) throw error;
+      return accountSession(data.session);
+    },
+    async startAccountSignIn(provider: 'google' | 'github'): Promise<{ url: string; flowId: string }> {
+      if (provider !== 'google' && provider !== 'github') throw new TypeError('Invalid sign-in provider');
+      const { data, error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: location.origin + '/play/', skipBrowserRedirect: true } });
+      if (error) throw error;
+      if (!data.url || !flowIdValid(data.flowId)) throw new TypeError('Sign-in did not start');
+      return { url: data.url, flowId: data.flowId };
+    },
+    async finishAccountSignIn(code: string, flowId: string): Promise<AccountSession> {
+      if (!code || !flowIdValid(flowId)) throw new TypeError('Invalid sign-in return');
+      const { data, error } = await sb.auth.exchangeCodeForSession(code, { flowId });
+      if (error) throw error;
+      const session = accountSession(data.session);
+      if (!session) throw new TypeError('Sign-in did not finish');
+      return session;
     },
     async signIn(provider: Provider): Promise<void> {
       const { error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: location.origin + location.pathname } });
