@@ -21,9 +21,9 @@ const blocked: Record<string, Set<string>> = Object.fromEntries(Object.entries({
   'workshop/moves': 'tryBoard',
 }).map(([path, names]) => [`src/${path}.ts`, new Set(names.split(' '))]));
 
-// These pure implementations are called only through GameRules; they are not product entry points.
+// Private rule owners and their helper implementations are not product entry points.
 const internal = new Set([
-  'src/game-rules.ts', 'src/match/worker.ts',
+  'src/game-rules.ts', 'src/match/worker.ts', 'src/match/search-worker.ts',
   'src/read.ts', 'src/move-text.ts', 'src/marks-model.ts', 'src/cursor-text.ts',
   'src/previously.ts', 'src/ceremony-game.ts', 'src/render/frost.ts',
 ]);
@@ -37,7 +37,17 @@ function violations(file: string, source: string): string[] {
     const denied = blocked[target];
     if (denied) for (const name of names) if (name === '*' || denied.has(name)) faults.push(`${file}: ${name} from ${target}`);
   };
+  const ownedImports = new Set<number>();
   new Visitor({
+    CallExpression(node) {
+      const member = node.callee, callback = node.arguments[0];
+      if (node.optional || node.arguments.length !== 1 || member.type !== 'MemberExpression' || member.computed || member.optional || member.property.type !== 'Identifier' || member.property.name !== 'then' || member.object.type !== 'ImportExpression') return;
+      const imported = member.object;
+      if (imported.source.type !== 'Literal' || typeof imported.source.value !== 'string' || resolve(dirname(resolve(root, file)), imported.source.value).replace(/\.ts$/, '') !== resolve(root, 'src/ai/search')) return;
+      if (callback?.type !== 'ArrowFunctionExpression' || callback.params.length !== 1 || callback.params[0].type !== 'ObjectPattern' || callback.params[0].properties.length !== 1) return;
+      const property = callback.params[0].properties[0];
+      if (property.type === 'Property' && !property.computed && property.key.type === 'Identifier' && property.key.name === 'searchOwned' && property.value.type === 'Identifier') ownedImports.add(imported.start);
+    },
     ImportDeclaration(node) {
       if (node.importKind === 'type') return;
       check(node.source.value, node.specifiers.filter(e => e.type !== 'ImportSpecifier' || e.importKind !== 'type')
@@ -52,7 +62,7 @@ function violations(file: string, source: string): string[] {
       if (node.exportKind !== 'type') check(node.source.value, ['*']);
     },
     ImportExpression(node) {
-      if (node.source.type === 'Literal' && typeof node.source.value === 'string') check(node.source.value, ['*']);
+      if (node.source.type === 'Literal' && typeof node.source.value === 'string') check(node.source.value, ownedImports.has(node.start) ? ['searchOwned'] : ['*']);
     },
   }).visit(tree.program);
   return faults;
@@ -72,6 +82,19 @@ describe('product game boundary', () => {
     expect(violations('src/example.ts', "import type { Rules } from './rules/rules'; import { parseSq, P } from './rules/engine';")).toEqual([]);
     expect(violations('src/example.ts', "import { shortMove } from './move-text'; import { searchOwned } from './ai/search';")).toEqual([]);
     expect(violations('src/example.ts', "import { positionKey } from './rules/position-key';")).toHaveLength(1);
+  });
+  it('permits only a direct owned-search destructuring callback for a lazy import', () => {
+    expect(violations('src/example.ts', "import('./ai/search').then(({ searchOwned }) => searchOwned(owner, rules, pos));")).toEqual([]);
+    expect(violations('src/example.ts', "import('./ai/search').then(({ searchOwned: owned }) => owned(owner, rules, pos));")).toEqual([]);
+    for (const source of [
+      "import('./ai/search').then(raw => raw.search(pos));",
+      "import('./ai/search').then(({ search }) => search(pos));",
+      "import('./ai/search').then(({ searchOwned, ...raw }) => raw);",
+      "import('./ai/search').then(({ [name]: searchOwned }) => searchOwned);",
+      "import('./ai/search').then(({ searchOwned = fallback }) => searchOwned);",
+      "import('./ai/search').then(function ({ searchOwned }) { return arguments[0]; });",
+      "const raw = import('./ai/search'); raw.then(({ searchOwned }) => searchOwned);",
+    ]) expect(violations('src/example.ts', source), source).toHaveLength(1);
   });
   it('keeps owned rules independent of search and evaluation', () => {
     const source = readFileSync(resolve(root, 'src/game-rules.ts'), 'utf8'), imports: string[] = [];

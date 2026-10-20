@@ -46,6 +46,14 @@ async function ageFiles(dir: string) {
   for (const file of await readdir(dir)) await utimes(join(dir, file), new Date(1000), new Date(1000));
 }
 
+it('refuses a split enforcement bundle rather than hashing only its entry', async () => {
+  vi.mocked(build).mockResolvedValueOnce({ output: [
+    { type: 'chunk', fileName: 'worker.mjs', code: workerSource },
+    { type: 'chunk', fileName: 'dependency.mjs', code: 'export const value = 1;' },
+  ] } as never);
+  await expect(buildWorker()).rejects.toThrow('one self-contained bundle');
+});
+
 it('accepts the exact archive/save pair and matching compiled worker', async () => {
   const dir = await pair(JSON.stringify({ schema: 'kingdown-local-match/1', engine: `sha256:${hex}` }));
   expect(await checkEnginePair(dir, hex, bundle)).toEqual(bundle);
@@ -88,6 +96,7 @@ it('ordinary builds verify and copy supported workers without writing any source
   expect(await snapshot(archiveDir)).toEqual(before);
   expect((await readdir(join(output, 'engines'))).sort()).toEqual([`${hex}.mjs`, `${currentHex}.mjs`].sort());
   expect(await readFile(join(output, 'worker.mjs'))).toEqual(currentWorker);
+  expect(await readFile(join(output, 'search-worker.mjs'), 'utf8')).toBe(workerSource);
   for (const file of await readdir(join(output, 'engines'))) expect(await readFile(join(output, 'engines', file))).toEqual(await readFile(join(archiveDir, file)));
 });
 

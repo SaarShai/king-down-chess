@@ -301,7 +301,7 @@ describe('isolated local matches', () => {
     const m = await create(); const pending = m.snapshot(); const assertion = expect(pending).rejects.toThrow('closed'); await m.close(); await assertion;
     await expect(m.snapshot()).rejects.toThrow('closed');
   });
-  it('accepts test-only edits but rejects saves after an actual runtime source change', async () => {
+  it('accepts test and evaluator edits but rejects saves after an enforcement source change', async () => {
     const root = fileURLToPath(new URL('../../', import.meta.url));
     const copy = await mkdtemp(join(tmpdir(), 'kingdown-match-version-'));
     try {
@@ -324,6 +324,8 @@ try {
       const baseline = JSON.parse((await run('create')).stdout);
       const originalEngine = JSON.parse(await readFile(join(copy, 'save.json'), 'utf8')).engine;
       await writeFile(join(copy, 'src/rules/identity-probe.test.ts'), '// Test-only edit must not change compatibility.\n');
+      expect(JSON.parse((await run('load')).stdout)).toEqual(baseline);
+      await appendFile(join(copy, 'src/ai/eval.ts'), '\n// Evaluator-only edits do not change enforcement identity.\n');
       expect(JSON.parse((await run('load')).stdout)).toEqual(baseline);
       await appendFile(join(copy, 'src/rules/setup.ts'), '\n// Runtime source changed in an isolated test copy.\n');
       await expect(run('load')).rejects.toThrow('Incompatible save');

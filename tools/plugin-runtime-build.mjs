@@ -54,10 +54,29 @@ export async function buildWorker() {
     },
   });
   const output = Array.isArray(result) ? result[0].output : result.output;
+  if (output.filter(file => file.type === 'chunk').length !== 1) throw new Error('The enforcement worker must be one self-contained bundle');
   const text = output.find(file => file.type === 'chunk' && file.fileName === 'worker.mjs')?.code;
   if (!text || text.split(ENGINE_STAMP).length !== 2) throw new Error('The worker bundle must hold the engine stamp exactly once');
   const hex = createHash('sha256').update(text).digest('hex');
   return { hex, engine: `sha256:${hex}`, source: text.replace(ENGINE_STAMP, `sha256:${hex}`) };
+}
+
+/** Search is a runtime dependency, not part of the immutable enforcement fingerprint. */
+export async function buildSearchWorker() {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const result = await build({
+    configFile: false, root, publicDir: false, logLevel: 'warn',
+    build: {
+      ssr: true, target: 'node20', write: false, minify: true,
+      lib: { entry: resolve(root, 'src/match/search-worker.ts'), formats: ['es'], fileName: () => 'search-worker.mjs' },
+      rollupOptions: { external: /^node:/, output: { entryFileNames: 'search-worker.mjs' } },
+    },
+  });
+  const output = Array.isArray(result) ? result[0].output : result.output;
+  if (output.filter(file => file.type === 'chunk').length !== 1) throw new Error('The search worker must be one self-contained bundle');
+  const source = output.find(file => file.type === 'chunk' && file.fileName === 'search-worker.mjs')?.code;
+  if (!source) throw new Error('The search worker bundle is missing');
+  return source;
 }
 
 export async function buildRuntime(outDir = resolve('plugin-dist'), { publish = false, archiveDir = ENGINES } = {}) {
@@ -77,6 +96,7 @@ export async function buildRuntime(outDir = resolve('plugin-dist'), { publish = 
   });
   const { hex, source } = await buildWorker(), worker = resolve(outDir, 'worker.mjs');
   await writeFile(worker, source);
+  await writeFile(resolve(outDir, 'search-worker.mjs'), await buildSearchWorker());
   if (publish) {
     const { createMatch } = await import(pathToFileURL(resolve(outDir, 'index.mjs')).href);
     const match = await createMatch();

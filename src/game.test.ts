@@ -280,6 +280,29 @@ describe('Engine.cancel', () => {
     engine.cancel();
   });
 
+  it('drops a cancelled inline search after its lazy module import starts', async () => {
+    let release!: () => void, started!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const loading = new Promise<void>(resolve => { started = resolve; });
+    const searchOwned = vi.fn(() => ({ move: null, score: 0, depth: 0, nodes: 0 }));
+    vi.doMock('./ai/search', async () => { started(); await held; return { searchOwned }; });
+    vi.resetModules();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const { Engine: FreshEngine, Game: FreshGame } = await import('./game');
+      const engine = new FreshEngine(), game = new FreshGame(CLASSIC_CHESS);
+      let answered = false;
+      void engine.think(game, { maxDepth: 1 }).then(() => { answered = true; });
+      vi.advanceTimersByTime(30);
+      await loading;
+      engine.cancel();
+      release();
+      await vi.dynamicImportSettled();
+      expect(searchOwned).not.toHaveBeenCalled();
+      expect(answered).toBe(false);
+    } finally { release(); vi.doUnmock('./ai/search'); vi.resetModules(); vi.useRealTimers(); }
+  });
+
   it('refuses a callback before starting game search', () => {
     const engine = new Engine(), game = new Game(CLASSIC_CHESS);
     const rng = vi.fn(() => 0.5);

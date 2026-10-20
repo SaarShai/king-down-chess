@@ -12,7 +12,7 @@ afterEach(async () => { await Promise.all(workers.splice(0).map(w => w.terminate
 // Control only the worker's clock and random source. All engine and search code runs unchanged.
 async function controlled(setup: MatchSetup, random = [0.99], step = 0) {
   const clock = new Int32Array(new SharedArrayBuffer(4));
-  const worker = new Worker(`
+  const spawn = (entry: string) => new Worker(`
     const { workerData } = require('node:worker_threads');
     const clock = new Int32Array(workerData.clock);
     performance.now = () => Atomics.add(clock, 0, workerData.step);
@@ -22,12 +22,14 @@ async function controlled(setup: MatchSetup, random = [0.99], step = 0) {
       register();
       return import(workerData.entry);
     });
-  `, { eval: true, workerData: { entry: new URL('./worker.ts', import.meta.url).href, clock: clock.buffer, step, random } });
+  `, { eval: true, workerData: { entry: new URL(entry, import.meta.url).href, clock: clock.buffer, step, random } });
+  const worker = spawn('./worker.ts');
   workers.push(worker);
+  let helper: Worker | undefined;
   let id = 0;
-  async function call<T>(op: string, input?: unknown): Promise<T> {
-    const response = once(worker, 'message', { signal: AbortSignal.timeout(50_000) });
-    worker.postMessage({ id: ++id, op, input });
+  async function call<T>(op: string, input?: unknown, target = worker): Promise<T> {
+    const response = once(target, 'message', { signal: AbortSignal.timeout(50_000) });
+    target.postMessage({ id: ++id, op, input });
     const [reply] = await response;
     if (reply.error) throw new Error(reply.error);
     return reply.value;
@@ -35,7 +37,12 @@ async function controlled(setup: MatchSetup, random = [0.99], step = 0) {
   await call('create', setup);
   return {
     snapshot: () => call<MatchSnapshot>('snapshot'),
-    chooseMove: (options: ChooseMoveOptions) => call<string>('chooseMove', options),
+    chooseMove: async (options: ChooseMoveOptions) => {
+      const context = await call<unknown>('chooseMove', options);
+      expect(context).toMatchObject({ kind: 'runtime-search' });
+      if (!helper) { helper = spawn('./search-worker.ts'); workers.push(helper); }
+      return call<string>('search', context, helper);
+    },
     apply: async (lan: string) => {
       const { revision } = await call<MatchSnapshot>('snapshot');
       return call<MatchSnapshot>('apply', { id: `level-${revision}`, expectedRevision: revision, lan });

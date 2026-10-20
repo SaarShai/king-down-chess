@@ -1,7 +1,7 @@
 /** Game state (no rendering) and the AI worker wrapper. */
 import type { Color, Move, Position, Status } from './rules/engine';
 import { DEFAULT_RULES, type Rules } from './rules/rules';
-import { searchOwned, type SearchOptions, type SearchResult } from './ai/search';
+import type { SearchOptions, SearchResult } from './ai/search';
 import { GameRules } from './game-rules';
 
 export type Side = 'human' | 'ai';
@@ -146,12 +146,16 @@ export class Engine {
     const id = ++this.id;
     const worker = this.worker;
     const live = (): boolean => id === this.id && game.identity === owner;
-    const inline = (): SearchResult => searchOwned(owner, context.rules, pos, options);
-    if (!worker) return new Promise(resolve => {
-      const timer = setTimeout(() => { this.clean = undefined; if (live()) resolve(inline()); }, 30);
+    const inline = (resolve: (result: SearchResult) => void, reject: (error: unknown) => void): void => {
+      import('./ai/search').then(({ searchOwned }) => {
+        if (live()) resolve(searchOwned(owner, context.rules, pos, options));
+      }).catch(error => { if (live()) reject(error); });
+    };
+    if (!worker) return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { this.clean = undefined; if (live()) inline(resolve, reject); }, 30);
       this.clean = () => clearTimeout(timer);
     });
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       const onMessage = (e: MessageEvent<SearchResult & { id: number }>) => {
         if (e.data.id !== id) return;
         this.clean?.(); this.clean = undefined;
@@ -169,7 +173,7 @@ export class Engine {
         worker.terminate();
         this.worker = null;
         this.clean = undefined;
-        resolve(inline());
+        inline(resolve, reject);
       }, (options.timeMs ?? 1000) + 2500);
       this.clean = () => { clearTimeout(fallback); worker.removeEventListener('message', onMessage); };
       worker.addEventListener('message', onMessage);

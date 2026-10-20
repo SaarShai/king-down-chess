@@ -6,13 +6,12 @@ import { Game } from '../game';
 import { ALL_CARDS, RULES_2017, RULES_2021, POWERS_BALANCED, RULES, parseKings, setRules } from '../rules/rules';
 import { fromFen, toFen, toLan } from '../rules/setup';
 import { HAND_MAX, moveNumber, type Position } from '../rules/engine';
-import { resetSearchState, search } from '../ai/search';
 import { positionKey } from '../rules/position-key';
-import { skillPlan, type SkillName } from '../ai/skill';
-import type { MatchSave, MatchSetup, MatchSnapshot, MoveCommand } from './index';
+import type { SkillName } from '../ai/skill';
+import type { MatchSave, MatchSetup, MatchSnapshot, MoveCommand, RuntimeSearch } from './index';
 
 declare const __KINGDOWN_ENGINE__: string;
-// Conservative development compatibility: every engine/search source change invalidates replay.
+// Conservative development compatibility: every enforcement source change invalidates replay.
 const hash = createHash('sha256');
 function hashTree(url: URL): void {
   for (const entry of readdirSync(url, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
@@ -27,7 +26,7 @@ if (typeof __KINGDOWN_ENGINE__ === 'undefined') {
   hash.update(readFileSync(new URL('../game-rules.ts', import.meta.url)));
   hash.update(readFileSync(new URL('./worker.ts', import.meta.url)));
   // The workshop holds the design rule's checks (`RULES.design`, src/rules/rules.ts imports its model).
-  hashTree(new URL('../rules/', import.meta.url)); hashTree(new URL('../ai/', import.meta.url)); hashTree(new URL('../workshop/', import.meta.url));
+  hashTree(new URL('../rules/', import.meta.url)); hashTree(new URL('../workshop/', import.meta.url));
 }
 const engine = typeof __KINGDOWN_ENGINE__ !== 'undefined' ? __KINGDOWN_ENGINE__ : `sha256:${hash.digest('hex')}`;
 // Bounds keep every accepted match export within the JSON load limit.
@@ -72,25 +71,18 @@ function snapshot(): MatchSnapshot {
   const moves = game.status === 'playing' ? game.legal.map(move => ({ lan: toLan(game!.pos, move), move })) : [];
   return { rules: structuredClone(rules), moves: structuredClone(moves), revision: saved.revision, fen: toFen(game.pos), ply: game.pos.ply, turn: game.pos.turn, moveNumber: moveNumber(game.pos), status: game.status, inCheck: game.inCheck, legal: moves.map(m => m.lan), history: game.history.map(h => h.lan) };
 }
-function chooseMove(input: unknown): string {
+function chooseMove(input: unknown): RuntimeSearch {
   if (!game || !initialized) throw new Error('Match not initialized');
   if (game!.status !== 'playing') throw new Error('Match terminal');
   const options = object(input, ['level', 'maxTimeMs', 'maxDepth']), level = options.level as SkillName | undefined;
   if (level !== undefined && !LEVELS.includes(level)) throw new Error('Malformed level');
   // A level has no depth cap, as on the website; its time cap bounds the search.
-  let timeMs = options.maxTimeMs === undefined ? 250 : options.maxTimeMs;
+  const timeMs = options.maxTimeMs === undefined ? 250 : options.maxTimeMs;
   const maxDepth = options.maxDepth === undefined ? (level ? undefined : 4) : options.maxDepth;
   if (!integer(timeMs) || timeMs < 1 || timeMs > 5000 || maxDepth !== undefined && (!integer(maxDepth) || maxDepth < 1 || maxDepth > 8)) throw new Error('Malformed search bounds');
-  const plan = level && skillPlan(level, game.history.length);
-  if (plan) timeMs = Math.min(options.maxTimeMs ?? plan.timeMs, plan.timeMs);
-  const legal = game.legal;
-  resetSearchState();
-  const result = search(game.pos, { timeMs, maxDepth, temperature: plan ? plan.temperature : undefined, history: game.history.map(h => positionKey(h.pos)) });
-  const move = plan && plan.blunder > 0 && Math.random() < plan.blunder ? legal[Math.floor(Math.random() * legal.length)] : result.move;
-  if (!move) throw new Error('Search returned no move');
-  const lan = toLan(game!.pos, move);
-  if (game!.legal.filter(m => toLan(game!.pos, m) === lan).length !== 1) throw new Error('Search returned illegal or ambiguous move');
-  return lan;
+  return { kind: 'runtime-search', engine, revision: saved.revision,
+    rules: structuredClone(RULES), pos: structuredClone(game.pos), history: game.history.map(h => positionKey(h.pos)),
+    ply: game.history.length, legal: game.legal.map(move => toLan(game!.pos, move)), options: structuredClone(options) };
 }
 function command(input: unknown): MoveCommand {
   const c = object(input, ['id', 'expectedRevision', 'lan']);
