@@ -1020,7 +1020,9 @@ try {
     // An old game's retained read must not lock Ready on this game's seat.
     const oldTag = v.game_id.slice(0,8);
     await page.evaluate(game_tag => {
-      window.harnessWidgetState.privateContent.pending = {name:'kingdown_get',args:{},game_tag,screen:'seat',error:'Cannot connect. Check your connection, then try again.'};
+      // Supply the next boot through the setter; the outgoing widget saves again during teardown.
+      const saved = window.harnessWidgetState;
+      window.harnessWidgetState = { ...saved, privateContent: { ...saved.privateContent, pending: {name:'kingdown_get',args:{},game_tag,screen:'seat',error:'Cannot connect. Check your connection, then try again.'} } };
     }, oldTag);
     await seatRemount();
     assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending?.game_tag), oldTag);
