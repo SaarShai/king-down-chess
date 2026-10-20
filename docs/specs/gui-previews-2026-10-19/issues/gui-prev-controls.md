@@ -1,6 +1,6 @@
 # GUI previews 2026-10-19: the control system (stone and red buttons, focus, board grain)
 
-Status: claimed
+Status: done
 Type: task
 
 The lane builds previews for A1, A2, A3, and A34. A10 stays blocked by the exact image-edit constraint. Each item still needs the owner's approval.
@@ -174,3 +174,18 @@ The plugin board now reserves the action row's full 48 px before a card or power
 A focused landscape test finds the draw row's exact fault: the row paints at 113 px, but its parent gives it 72 px. The buttons cover Menu. The draw row now uses grid rows, so the parent measures its full height. The context space also stays at 48 px behind the end card. The board and end-card size checks stay in place. The web Menu's old 44 px button floor is removed.
 
 The landscape probe also shows that the parent can shrink the reply row back to its 72 px minimum. A draw reply now sets the landscape context minimum from its full content, as the portrait row already does. The test now checks that the reply row ends above the bar before it taps Menu. The temporary test filter and debug output are removed.
+
+## Final review check results
+
+Checked app source: 601acb34. The final record commit changes this ticket and the second minimum-width value in the beginner lesson test. The app source and browser checks stay the same.
+
+- All six distinct findings are confirmed and fixed. None is refuted. The two repeated reports share the same fixes.
+- `npm test` passes: 195 files, 3,248 tests, 8 existing skipped tests, and all 51 art tests. Duration: 331.03 seconds. Log: `tests-fix-full-4.txt` in the lane folder. This run uses the local test database from the house rules.
+- All nine new regression tests pass. The existing Menu, draw reply, board size, end-card, scroll, and tap checks pass. No test or check time limit changes.
+- The required runner passes `plugin-ui` on the M1 in 233.1 seconds at 601acb34. It also passes `lesson-return` in 6.3 seconds. Log: `checks-fix-4.txt`. The local copies are `plugin-ui-fix-final.log` and `lesson-return-fix-final.log`.
+- The built resource stays below its 1,000,000-byte limit. The test log records 763,816 JSON bytes.
+- `git diff --check` passes. The commit hooks pass. The temporary test filter and debug output are removed.
+
+A 48 px action row uses 3 to 4 px of board width on short portrait phones. It keeps the board still when a card or power is armed. The seat sizes stay the same. The end card keeps the board box.
+
+No server code changes, so `plugin-ui-http` does not run. A10 stays blocked by the existing image-edit constraint. The work stays a preview on this branch.

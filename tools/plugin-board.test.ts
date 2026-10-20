@@ -836,7 +836,7 @@ it.each([[320, 568], [393, 852]])('keeps the board size after a beginner selects
     expect(after.width).toBeCloseTo(before.width, 0);
     expect(after.height).toBeCloseTo(before.height, 0);
     expect(after.y).toBeCloseTo(before.y, 0);
-    expect(after.width).toBeGreaterThanOrEqual(180);
+    expect(after.width).toBeGreaterThanOrEqual(176);
     await frame.getByRole('button', { name: 'All rules', exact: true }).click();
     expect(await frame.locator('#board-sheet').innerText()).toContain(lesson);
   } finally { await page.close(); }
