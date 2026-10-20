@@ -63,24 +63,32 @@ print(json.dumps({
   expect(result.freshError).toBeLessThan(0.1);
 });
 
-it('keeps the board dimensions, file budgets, and decoded tile colours in both web copies', async () => {
+it.each(copies)('keeps dimensions, file budget, decoded tile colours, and grain contrast in %s', async (path, width, budget) => {
   const original = await sharp(master).raw().toBuffer();
-  for (const [path, width, budget] of copies) {
-    const metadata = await sharp(path).metadata();
-    expect([metadata.width, metadata.height]).toEqual([width, width]);
-    expect(statSync(path).size).toBeLessThanOrEqual(budget);
-    const data = await sharp(path).resize(1024, 1024).raw().toBuffer();
-    for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
-      for (let channel = 0; channel < 3; channel++) {
-        let change = 0;
-        for (let y = row * 128 + 12; y < row * 128 + 116; y++) {
-          for (let x = col * 128 + 12; x < col * 128 + 116; x++) {
-            const at = (y * 1024 + x) * 3 + channel;
-            change += data[at] - original[at];
-          }
+  const metadata = await sharp(path).metadata();
+  expect([metadata.width, metadata.height]).toEqual([width, width]);
+  expect(statSync(path).size).toBeLessThanOrEqual(budget);
+  const data = await sharp(path).resize(1024, 1024).raw().toBuffer();
+  for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
+    for (let channel = 0; channel < 3; channel++) {
+      let sourceSum = 0, decodedSum = 0, sourceSquares = 0, decodedSquares = 0;
+      for (let y = row * 128 + 12; y < row * 128 + 116; y++) {
+        for (let x = col * 128 + 12; x < col * 128 + 116; x++) {
+          const at = (y * 1024 + x) * 3 + channel;
+          sourceSum += original[at];
+          decodedSum += data[at];
+          sourceSquares += original[at] ** 2;
+          decodedSquares += data[at] ** 2;
         }
-        expect(Math.abs(change / (104 * 104)), `${path} tile ${row},${col} channel ${channel}`).toBeLessThan(1);
       }
+      const count = 104 * 104;
+      expect(Math.abs((decodedSum - sourceSum) / count), `${path} tile ${row},${col} channel ${channel}`).toBeLessThan(1);
+      const sourceVariance = sourceSquares / count - (sourceSum / count) ** 2;
+      const decodedVariance = decodedSquares / count - (decodedSum / count) ** 2;
+      const gain = Math.sqrt(decodedVariance / sourceVariance);
+      // WebP compression and the 640 px resize can remove contrast. Allow at most 10% gain.
+      expect(gain, `${path} tile ${row},${col} channel ${channel} grain`).toBeGreaterThan(0.6);
+      expect(gain, `${path} tile ${row},${col} channel ${channel} grain`).toBeLessThan(1.1);
     }
   }
 });

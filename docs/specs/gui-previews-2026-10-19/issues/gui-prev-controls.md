@@ -101,6 +101,37 @@ art helper and the required `KD_RUNNER=m1` `plugin-ui` helper at the final
 commit. No command from this lane remains active. The work stays on this
 branch. No scoped build part is omitted.
 
+#### A10 review fix: decoded WebP grain
+
+Both reviews confirm the same test gap. The two WebP copies from `5947e1a2`
+pass the current dimensions, byte limits, and tile colour checks. The filter
+and PNG tests do not read these copies.
+
+Plan:
+1. Add a grain contrast check for every tile and RGB channel in each copy.
+   Compare each decoded copy with the filtered PNG at the same analysis size.
+2. Keep the colour, edge, dimension, and byte checks. Measure both old WebPs
+   with the new contrast bounds and confirm that each fails.
+3. Commit the fix. Run the full unit and art suite with `m1-unit.sh`. Run
+   `plugin-ui` with `check-runner.sh` and `KD_RUNNER=m1`. Record each result.
+
+Pass: both current WebPs pass. Each old WebP fails a grain contrast bound.
+The full unit and art suite and the browser check pass at the fix commit.
+No app, art, server, test limit, or check limit changes are in scope.
+
+The test now gives each file its own case. It checks all 64 tile faces and
+all three channels. The contrast ratio against the filtered PNG must be
+above 0.6 and below 1.1. Compression and the 640 px resize can remove grain.
+The upper bound permits at most 10% more contrast than the filtered PNG.
+The existing colour, edge, dimension, and byte checks stay in place.
+
+The current board WebP has ratios from 0.816238 to 1.065366. The current UI
+WebP has ratios from 0.646992 to 0.966788. Both fit the fixed bounds. The old
+board WebP fails in 188 of 192 tile channels. The old UI WebP fails in 100
+of 192. Their largest ratios are 1.462865 and 1.269403. Both still pass the
+old colour check. Proof: `grain-review-fix.json` in the lane folder. The
+measurement reads the old bytes from Git; it does not replace shipped art.
+
 Plan:
 1. A2: change each red action to a short cloth banner. Keep the full touch box.
 2. A30: keep each disabled action's frame and lower shadow. Dull its face only.
