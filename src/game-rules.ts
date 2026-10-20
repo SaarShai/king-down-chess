@@ -7,7 +7,6 @@ import * as words from './move-text';
 import * as marks from './marks-model';
 import { cursorText } from './cursor-text';
 import { previouslyTurn } from './previously';
-import { ceremonyMoveLabel } from './ceremony-game';
 import { frozenPieces } from './render/frost';
 import { genDesigned, type DesignSpec, type Refused, type TryState } from './rules/design';
 import { positionKey } from './rules/position-key';
@@ -73,6 +72,5 @@ export class GameRules {
   railsOf(...args: Parameters<typeof marks.railsOf>) { return this.#scoped(() => marks.railsOf(...args)); }
   cursorText(...args: Parameters<typeof cursorText>) { return this.#scoped(() => cursorText(...args)); }
   previouslyTurn(...args: Parameters<typeof previouslyTurn>) { return this.#scoped(() => previouslyTurn(...args)); }
-  ceremonyMoveLabel(...args: Parameters<typeof ceremonyMoveLabel>) { return this.#scoped(() => ceremonyMoveLabel(...args)); }
   frozenPieces(...args: Parameters<typeof frozenPieces>) { return this.#scoped(() => frozenPieces(...args)); }
 }

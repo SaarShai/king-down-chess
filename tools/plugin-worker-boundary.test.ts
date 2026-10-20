@@ -41,6 +41,14 @@ await writeFile(process.argv[2] + '.json', JSON.stringify({ engine }));
     expect(baseline.source).not.toContain('ui/cards/freeze.webp');
     expect(baseline.source).not.toContain('card-freeze');
 
+    const ceremony = join(copy, 'src/ceremony-game.ts'), labels = await readFile(ceremony, 'utf8');
+    const relabeled = labels.replace('`${piece} flies`', '`${piece} soars`');
+    expect(relabeled).not.toBe(labels);
+    await writeFile(ceremony, relabeled);
+    const captioned = await build('ceremony');
+    expect.soft({ sameBytes: captioned.source === baseline.source, engine: captioned.engine }, 'ceremony labels').toEqual({ sameBytes: true, engine: baseline.engine });
+    await writeFile(ceremony, labels);
+
     const mechanics = join(copy, 'src/rules/engine.ts'), engine = await readFile(mechanics, 'utf8');
     const changed = engine.replace('export const HAND_MAX = 8;', 'export const HAND_MAX = 7;');
     expect(changed).not.toBe(engine);

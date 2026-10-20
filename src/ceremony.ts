@@ -1,4 +1,5 @@
 import { GameRules } from './game-rules';
+import { ceremonyMoveLabel } from './ceremony-game';
 import './ceremony.css';
 import type { Game } from './game';
 import { moveNumbers } from './move-text';
@@ -62,7 +63,7 @@ export function startCeremony({ view, board, captionHost, moments, history, fina
       button.dataset.ply = String(ply);
       const number = document.createElement('b'), label = document.createElement('span');
       number.textContent = `Move ${numbers[ply]}${ply === blow ? ' · Final blow' : ''}`;
-      label.textContent = context.ceremonyMoveLabel(h.pos, h.move);
+      label.textContent = ceremonyMoveLabel(h.pos, h.move, type => context.nameOf(type));
       button.append(number, label);
       button.onclick = () => showPly(ply);
       row.append(button);
