@@ -23,6 +23,7 @@
     "dashboard": "node tools/dashboard.mjs",
     "nnue": "tsx src/sim/gen.ts",
     "plugin:build:runtime": "node tools/plugin-runtime-build.mjs",
+    "plugin:archive:runtime": "node tools/plugin-runtime-build.mjs --publish",
     "plugin:build:ui": "node tools/plugin-ui-build.mjs",
     "plugin:build": "node tools/plugin-server-build.mjs",
     "plugin:smoke": "node tools/plugin-runtime-smoke.mjs",

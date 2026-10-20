@@ -4,24 +4,47 @@ import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { resolve } from 'node:path';
+import { resolve, sep } from 'node:path';
 
 /** The worker bundle holds this stamp while the build hashes it; the hash then takes its place (G2). */
 export const ENGINE_STAMP = 'sha256:KINGDOWN_ENGINE_STAMP';
 /** The engine archive: each released worker bundle as `<hex>.mjs`, with a fixture save `<hex>.save.json`. */
 export const ENGINES = fileURLToPath(new URL('../engines/', import.meta.url));
 
+function checkFixture(hex, source) {
+  const save = JSON.parse(source);
+  if (save?.schema !== 'kingdown-local-match/1' || save.engine !== `sha256:${hex}`) throw new Error(`Invalid engine fixture: ${hex}`);
+}
+
 /** Check the save pair before a runtime copies an archive. */
 export async function checkEnginePair(dir, hex, worker) {
   const bundle = await readFile(resolve(dir, `${hex}.mjs`));
-  const save = JSON.parse(await readFile(resolve(dir, `${hex}.save.json`), 'utf8'));
-  if (save?.schema !== 'kingdown-local-match/1' || save.engine !== `sha256:${hex}`) throw new Error(`Invalid engine fixture: ${hex}`);
+  checkFixture(hex, await readFile(resolve(dir, `${hex}.save.json`), 'utf8'));
   if (worker && !bundle.equals(worker)) throw new Error('The compiled worker differs from its engine archive');
   return bundle;
 }
 
-export async function buildRuntime(outDir = resolve('plugin-dist')) {
+/** Publish only on request. Exact existing pairs are safe to repeat; no existing file is overwritten. */
+export async function publishEnginePair(dir, hex, worker, fixture) {
+  checkFixture(hex, fixture);
+  const text = worker.toString(), stamp = `sha256:${hex}`;
+  if (text.split(stamp).length !== 2 || createHash('sha256').update(text.replace(stamp, ENGINE_STAMP)).digest('hex') !== hex) throw new Error('The engine worker does not match its fingerprint');
+  const bundle = resolve(dir, `${hex}.mjs`), save = resolve(dir, `${hex}.save.json`), source = fixture.trimEnd() + '\n';
+  if (existsSync(bundle) || existsSync(save)) {
+    await checkEnginePair(dir, hex, worker);
+    if (await readFile(save, 'utf8') !== source) throw new Error('The engine fixture differs from its archive');
+    return;
+  }
+  await mkdir(dir, { recursive: true });
+  await writeFile(bundle, worker, { flag: 'wx' });
+  try { await writeFile(save, source, { flag: 'wx' }); }
+  catch (error) { await rm(bundle); throw error; }
+}
+
+export async function buildRuntime(outDir = resolve('plugin-dist'), { publish = false, archiveDir = ENGINES } = {}) {
   const root = fileURLToPath(new URL('../', import.meta.url));
+  const output = resolve(outDir) + sep, archive = resolve(archiveDir) + sep;
+  if (output.startsWith(archive) || archive.startsWith(output)) throw new Error('Runtime output must not overlap the engine archive');
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
   for (const entry of ['index', 'worker']) {
@@ -39,8 +62,7 @@ export async function buildRuntime(outDir = resolve('plugin-dist')) {
   if (text.split(ENGINE_STAMP).length !== 2) throw new Error('The worker bundle must hold the engine stamp exactly once');
   const hex = createHash('sha256').update(text).digest('hex');
   await writeFile(worker, text.replace(ENGINE_STAMP, `sha256:${hex}`));
-  // Each new worker needs its archive and save in the same commit.
-  if (!existsSync(resolve(ENGINES, `${hex}.mjs`))) {
+  if (publish) {
     const { createMatch } = await import(pathToFileURL(resolve(outDir, 'index.mjs')).href);
     const match = await createMatch();
     let save;
@@ -48,18 +70,25 @@ export async function buildRuntime(outDir = resolve('plugin-dist')) {
       for (const id of ['fixture-1', 'fixture-2']) { const { revision, legal } = await match.snapshot(); await match.apply({ id, expectedRevision: revision, lan: legal[0] }); }
       save = await match.exportSave();
     } finally { await match.close(); }
-    await mkdir(ENGINES, { recursive: true });
-    await writeFile(resolve(ENGINES, `${hex}.save.json`), save + '\n');
-    await cp(worker, resolve(ENGINES, `${hex}.mjs`));
-    console.log(`New engine ${hex}: commit engines/${hex}.mjs and engines/${hex}.save.json`);
+    await publishEnginePair(archiveDir, hex, await readFile(worker), save);
+    console.log(`Engine archive ${hex}: commit engines/${hex}.mjs and engines/${hex}.save.json`);
   }
-  await checkEnginePair(ENGINES, hex, await readFile(worker));
+  try { await checkEnginePair(archiveDir, hex, await readFile(worker)); }
+  catch (error) {
+    if (error.code === 'ENOENT') throw new Error(`Engine ${hex} needs its archive pair. Run npm run plugin:archive:runtime, then commit both files.`, { cause: error });
+    throw error;
+  }
   await mkdir(resolve(outDir, 'engines'));
-  for (const file of await readdir(ENGINES)) if (file.endsWith('.mjs')) {
-    await checkEnginePair(ENGINES, file.slice(0, -4));
-    await cp(resolve(ENGINES, file), resolve(outDir, 'engines', file));
+  for (const file of await readdir(archiveDir)) if (file.endsWith('.mjs')) {
+    await checkEnginePair(archiveDir, file.slice(0, -4));
+    await cp(resolve(archiveDir, file), resolve(outDir, 'engines', file));
   }
   await writeFile(resolve(outDir, 'package.json'), JSON.stringify({ private: true, type: 'module', engines: { node: '>=20' } }) + '\n');
   return outDir;
 }
-if (process.argv[1] === fileURLToPath(import.meta.url)) console.log(await buildRuntime(process.argv[2] && resolve(process.argv[2])));
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const args = process.argv.slice(2), publish = args[0] === '--publish';
+  if (publish) args.shift();
+  if (args.length > 1 || args[0]?.startsWith('-')) throw new Error('Usage: node tools/plugin-runtime-build.mjs [--publish] [output folder]');
+  console.log(await buildRuntime(args[0] && resolve(args[0]), { publish }));
+}
