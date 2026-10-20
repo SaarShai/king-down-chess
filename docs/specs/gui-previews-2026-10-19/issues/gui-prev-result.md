@@ -136,3 +136,24 @@ Plan:
 Pass criteria: the type check is clean. The repaired files and full M1 suite pass. Only the expected database and opt-in tests skip. Browser checks stay with CI, as prev-green requires.
 
 Part 1: merge 044b45f0 brings in origin/main. Git reports no conflicts. The merge keeps main's fault fixes and the preview picks. No manual resolution is needed.
+
+Parts 2 and 3: the first full M1 run passes. The second full run has one timing failure in `tools/plugin-board.test.ts`, “uses a slide, a 150 ms fade and no shake under reduced motion at normal pace”, line 526. The sampled opacity is 1 at the middle of the fade. This test block is unchanged from main. The file then passes alone on the M1: all 159 tests pass, including both pace cases. This is kind d. Keep the code, assertion, fade duration and time limits unchanged. No kind-a, kind-b or kind-c repair is needed. No test changes and no new behaviour tests are needed.
+
+M1 evidence at 522e14f8:
+
+| Run | Passed | Failed | Skipped | Exit | Time |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Full suite, unit-1.txt | 3,127 | 0 | 164 | 0 | 323.72 s |
+| Full suite, unit-2.txt | 3,126 | 1 | 164 | 1 | 350.80 s |
+| Board file alone, unit-board-alone.txt | 159 | 0 | 0 | 0 | 168.59 s |
+| Final full suite, unit-3.txt | 3,127 | 0 | 164 | 0 | 376.89 s |
+
+The 164 skips are 156 database tests and eight opt-in balance tests. The M1 has no PostgreSQL. All full runs cover 197 files; 12 database-only files skip. The first and final full runs each pass 185 files. The second passes 184 and fails one.
+
+Part 4: the final full M1 run passes. All 159 board tests pass in this full run too. The type check, `npx tsc --noEmit`, passes with exit 0. `git diff --check origin/main HEAD` passes. The final commit adds this record only. It does not change the tested source.
+
+Parts 5 and 6: the merge and plan have separate commits. This section records the one kind-d failure and its passing file run. The final record needs no code repair commit.
+
+All five picks stay as built: A9 direct plugin result and short web fall; A20 the resignation move number; A22 immediate key actions with the pointer guard; A24 the fallen king and corrected Black direction; A12 equal promotion cards in two columns. No screen changes, new taste choices, or preview retakes are needed.
+
+The prev-green ticket leaves browser checks and screenshots to CI. Do not run them for this repair. Do not run `npm test` on this Mac; the supplied M1 script runs the unit suite instead. No push, merge to main, deploy, or sign-in occurs.
