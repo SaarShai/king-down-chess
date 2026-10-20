@@ -289,7 +289,19 @@ The review fix is complete. Owner approval for the original previews stays open.
 
 ## Owner picks 2026-10-20
 
-Status: complete. The owner authorizes picks-1020, Lane board.
+Status: review fixes in progress. The owner authorizes picks-1020, Lane board.
+
+Review fix plan and pass criteria:
+
+1. A8: let the active reply or ceremony finish before the renderer consumes
+   the gesture. Test real mouse and touch input for a two-move Haste reply,
+   the web final blow, and the plugin king fall. Check the final position,
+   cleared timers, and no second action from the same gesture.
+2. A15: draw the gold fill before check and threat marks. Keep figures and
+   frost above it. Test selection with check and threats in the same draw.
+3. Run each changed test file, then `npm test` here with the local test
+   database. Commit before the lane runner checks `plugin-ui`. Keep all
+   limits and assertions. Record each finding and the check results.
 
 Plan and pass criteria:
 

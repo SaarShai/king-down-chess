@@ -135,6 +135,7 @@ export function boardScreen(store: Store) {
   let toppling = false;
   let stopCeremony = () => {};
   skipBoardCeremony = () => { toppling = false; stopCeremony(); };
+  board.onSkipAnimation = () => { rush = true; skipBoardCeremony(); };
   // Each card coin's last spent state, and when a live use spent it (for the gold pulse).
   const cardSpent = new Map<string, boolean>(), spentAt = new Map<string, number>();
   // Q3 b: the board's height on the last render with no draw reply. A draw offer pins the board to it.

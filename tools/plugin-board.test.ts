@@ -140,7 +140,7 @@ it.each(['See the board', 'New game'])('cancels a pending ceremony with %s durin
   } finally { await page.close(); }
 });
 
-it.each(['Skip', 'Finish'])('keeps the king fall running when the result card opens, then %s clears it', async ending => {
+it.each(['Skip mouse', 'Skip touch', 'Finish'])('keeps the king fall running when the result card opens, then %s clears it', async ending => {
   const before = view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'), pre = fromFen(before.fen);
   const move = legalMoves(pre).find(m => toLan(pre,m) === 'Qa1-a8')!, post = makeMove(pre,move);
   const page = await open(before, 360, 844, true), frame = page.frameLocator('iframe');
@@ -156,9 +156,16 @@ it.each(['Skip', 'Finish'])('keeps the king fall running when the result card op
     await page.clock.runFor(50);
     await frame.locator('#over[open]').waitFor(); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
     expect(await frame.locator('html').evaluate(() => (window as any).falls)).toEqual([true]);
-    if (ending === 'Skip') await frame.locator('#end-skip').evaluate((b: HTMLButtonElement) => b.click());
-    else await page.clock.fastForward(1130);
+    if (ending !== 'Finish') {
+      expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.falling)).toBe(true);
+      const box = (await frame.locator('#end-skip').boundingBox())!;
+      if (ending === 'Skip touch') await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+      else await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await expect.poll(() => frame.locator('#end-skip').isHidden()).toBe(true);
+    } else await page.clock.fastForward(1130);
     expect(await frame.locator('html').evaluate(() => (window as any).falls.at(-1))).toBe(false);
+    expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
+    await page.clock.runFor(1200);
     expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
     expect(await frame.locator('#game-table').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   } finally { await page.close(); }
@@ -1896,6 +1903,84 @@ it('F11: a tap skips a local move without selecting a piece', async () => {
     await squareTap(page, 0); await frame.locator('#board[data-animating="false"]').waitFor();
     expect((await marks(page)).selected).toBeUndefined();
     expect(await boardFen(page)).toBe(toFen(applyLan(fromFen(base.fen), 'a2-a3', base.rules!)!.pos));
+  } finally { await page.close(); }
+});
+
+it.each(['mouse', 'touch'] as const)('A8: real %s input skips both Haste moves', async input => {
+  const rules: Partial<Rules> = { kings: [null, { king: 'Flame', power: 'Haste' }] };
+  const base = view('4k3/p7/8/8/8/8/4P3/K7 b - - 0 1', rules, { kind: 'friend', seat: 0, action: 'waiting' });
+  let pos = fromFen(base.fen);
+  const actions: string[] = [];
+  for (const pick of [(m: Move) => m.power === 'haste' && m.from === 48 && m.to === 40, (m: Move) => !m.pass && m.from === 40 && m.to === 32]) {
+    const move = legalMoves(pos).find(pick)!;
+    expect(move).toBeDefined(); actions.push(toLan(pos, move)); pos = makeMove(pos, move);
+  }
+  const page = await open(base, 393, 852, true), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await frame.locator('html').evaluate(() => {
+      const w = window as any, b = w.testBoard, animate = b.animateMove.bind(b);
+      w.animationCalls = 0;
+      b.animateMove = (...args: unknown[]) => { w.animationCalls++; return animate(...args); };
+    });
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {
+      ...base, revision: 1, fen: toFen(pos), turn: 0, action: 'ready', legal: legalMoves(pos).map(m => toLan(pos, m)),
+      last_commands: [{ seq: 1, seat: 1, at: base.server_now, action: { type: 'turn', actions } }],
+    });
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.animating)).toBe(true);
+    const pane = (await page.locator('iframe').boundingBox())!;
+    const point = await frame.locator('html').evaluate(() => (window as any).testBoard.screenOf(12));
+    if (input === 'touch') await page.touchscreen.tap(pane.x + point.x, pane.y + point.y);
+    else await page.mouse.click(pane.x + point.x, pane.y + point.y);
+    await expect.poll(() => frame.locator('#board').getAttribute('data-animating')).toBe('false');
+    expect(await frame.locator('html').evaluate(() => (window as any).animationCalls)).toBe(1);
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.animating)).toBe(false);
+    expect(await boardFen(page)).toBe(toFen(pos));
+    expect((await marks(page)).selected).toBeUndefined();
+    expect(await frame.locator('html').evaluate(() => {
+      const b = (window as any).testBoard.scene.position.board;
+      return [b[48], b[40], b[32]];
+    })).toEqual([0, 0, pos.board[32]]);
+  } finally { await page.close(); }
+});
+
+it.each(['mouse', 'touch'] as const)('A8: real %s input ends the web final blow and its timers', async input => {
+  const page = await open(view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await frame.locator('html').evaluate(`(async () => {
+      const { startCeremony } = await import('/src/ceremony.ts'), { Game } = await import('/src/game.ts');
+      const { fromFen, toFen } = await import('/src/rules/setup.ts');
+      const game = new Game(); game.load(fromFen('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'));
+      game.play(game.legal.find(move => move.from === 0 && move.to === 56));
+      const b = window.testBoard, board = document.getElementById('board');
+      window.previousSkip = b.onSkipAnimation; window.ceremonyDone = false; window.finalFen = toFen(game.pos);
+      const captionHost = document.createElement('div'), moments = document.createElement('div');
+      board.append(captionHost, moments);
+      window.ceremony = startCeremony({ view: b, board, captionHost, moments, history: game.history,
+        final: game.pos, king: 63, showPly() {}, motion: true, live: () => true });
+      window.ceremony.done.then(done => { window.ceremonyDone = done; });
+    })()`);
+    await page.clock.runFor(130);
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.animating)).toBe(true);
+    const pane = (await page.locator('iframe').boundingBox())!;
+    const point = await frame.locator('html').evaluate(() => (window as any).testBoard.screenOf(46));
+    if (input === 'touch') await page.touchscreen.tap(pane.x + point.x, pane.y + point.y);
+    else await page.mouse.click(pane.x + point.x, pane.y + point.y);
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).ceremonyDone)).toBe(true);
+    expect(await frame.locator('.ceremony-caption').count()).toBe(0);
+    expect(await frame.locator('.ceremony-tile').count()).toBe(1);
+    expect(await frame.locator('html').evaluate(() => {
+      const w = window as any, b = w.testBoard;
+      return { animating: b.scene.animating, falling: b.scene.falling, king: b.fallen?.sq, restored: b.onSkipAnimation === w.previousSkip };
+    })).toEqual({ animating: false, falling: false, king: 63, restored: true });
+    expect(await boardFen(page)).toBe(await frame.locator('html').evaluate(() => (window as any).finalFen));
+    expect((await marks(page)).selected).toBeUndefined();
+    await page.clock.runFor(1700);
+    expect(await frame.locator('.kd-words.is-in, .ceremony-caption').count()).toBe(0);
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.falling)).toBe(false);
   } finally { await page.close(); }
 });
 

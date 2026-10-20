@@ -15,6 +15,8 @@ export interface BoardView {
   onDragSelect: (sq: number) => void;
   onSquareHover: (sq: number | null) => void;
   onLoadError?: (error: unknown) => void;
+  /** Finish the active reply or ceremony before a skip gesture ends the scene. */
+  onSkipAnimation?: () => void;
   sync(pos: Position): void;
   /** `onContact` can fire more than once, or not at all. Optional playback speed: 0.5 is half speed. */
   animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void>;
@@ -48,6 +50,7 @@ export class PaintedView implements BoardView {
   onDragSelect: (sq: number) => void = () => {};
   onSquareHover: (sq: number | null) => void = () => {};
   onLoadError?: (error: unknown) => void;
+  onSkipAnimation?: () => void;
   canDrag = () => true;
 
   private canvas = document.createElement('canvas');
@@ -115,7 +118,7 @@ export class PaintedView implements BoardView {
       skippedPointer = null;
       if (e.button !== 0 || !this.canvas.getClientRects().length || !(this.scene.animating || this.scene.falling)) return;
       skippedPointer = e.pointerId;
-      this.clearPointer(); this.skip(); consume(e);
+      this.clearPointer(); this.onSkipAnimation?.(); this.skip(); consume(e);
     }, true);
     document.addEventListener('pointerup', e => { if (e.pointerId === skippedPointer) consume(e); }, true);
     document.addEventListener('click', e => {
