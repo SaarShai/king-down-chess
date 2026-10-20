@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { Game } from '../game';
 import { EvalParams, setDesignValue, setEvalParams } from '../ai/eval';
 import * as AI from '../ai/search';
+import { positionKey } from '../rules/position-key';
 import { setPowerHold } from '../ai/search';
 import { Adjudicate, Job, RunSpec, adjudication, sideOptions } from './spec';
 import { countMove, emptyEvents } from './replay';
@@ -122,12 +123,6 @@ function resetSearch(): void {
 }
 
 /**
- * `SearchOptions.history` lets the search see repetitions it would otherwise walk into. Optional in
- * the same defensive way: without it the smoke run drew 55% of its games by repetition.
- */
-const positionKey = (AI as unknown as Record<string, unknown>).positionKey as ((p: Position) => number) | undefined;
-
-/**
  * Per-side evaluation parameters (`RunSpec.evalParams`), read once per worker and swapped in
  * before each search. `null` when the run plays one evaluation, which is every run but a tuning
  * match — and the swap costs a transposition table, so it stays off by default.
@@ -196,7 +191,7 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
   while (game.status === 'playing') {
     if (moves.length >= maxPlies) { reason = 'plyCap'; break; }
     const pos = game.pos, legal = game.legal, c = pos.turn;
-    if (positionKey) history.push(positionKey(pos));
+    history.push(positionKey(pos));
     const t = performance.now();
     let move: Move | null, cp: number | undefined, nodes: number | undefined, depth: number | undefined;
     let gap: number | undefined;

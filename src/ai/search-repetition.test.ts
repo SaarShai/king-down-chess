@@ -2,7 +2,8 @@ import { afterEach, beforeEach, expect, it } from 'vitest';
 import { Game } from '../game';
 import { inCheck, legalMoves, makeMove, setRules } from '../rules/engine';
 import { fromFen, toLan } from '../rules/setup';
-import { positionKey, quiesceScore, resetSearchState, search } from './search';
+import { quiesceScore, resetSearchState, search } from './search';
+import { positionKey } from '../rules/position-key';
 
 // Preserve the original baseline-failing cycle under the historical repel reading.
 beforeEach(() => setRules({ ogreMode: 'repel' }));

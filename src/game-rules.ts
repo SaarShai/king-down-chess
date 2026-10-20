@@ -10,8 +10,7 @@ import { previouslyTurn } from './previously';
 import { ceremonyMoveLabel } from './ceremony-game';
 import { frozenPieces } from './render/frost';
 import { genDesigned, type DesignSpec, type Refused, type TryState } from './rules/design';
-import { positionKey, searchOwned, searchLegal, type SearchOptions, type SearchResult } from './ai/search';
-import { setDesignValue } from './ai/eval';
+import { positionKey } from './rules/position-key';
 
 function freeze<T>(value: T): T {
   if (value && typeof value === 'object') {
@@ -57,16 +56,6 @@ export class GameRules {
   aName(...args: Parameters<typeof engine.aName>) { return this.#scoped(() => engine.aName(...args)); }
   playedDesign() { return this.#scoped(() => { const design = engine.playedDesign(); return design ? freeze(structuredClone(design)) : null; }); }
   markKind(...args: Parameters<typeof engine.markKind>) { return this.#scoped(() => engine.markKind(...args)); }
-  searchLegal(pos: engine.Position) { return this.#scoped(() => searchLegal(pos)); }
-  search(owner: object, pos: engine.Position, opts: Omit<SearchOptions, 'rng'>): SearchResult {
-    if ('rng' in opts) throw new Error('Game search does not accept an entropy callback');
-    const prior = RULES.design;
-    return this.#scoped(() => {
-      setDesignValue(this.rules.design);
-      try { return searchOwned(owner, pos, opts); }
-      finally { setDesignValue(prior); }
-    });
-  }
   pieceTitle(...args: Parameters<typeof read.pieceTitle>) { return this.#scoped(() => read.pieceTitle(...args)); }
   reachOf(...args: Parameters<typeof read.reachOf>) { return this.#scoped(() => read.reachOf(...args)); }
   pieceGuide(...args: Parameters<typeof read.pieceGuide>) { return this.#scoped(() => read.pieceGuide(...args)); }

@@ -1,5 +1,5 @@
 /**
- * Zobrist keys for the AI's transposition table and repetition detection.
+ * Stable position keys for game repetition and the AI's transposition table.
  *
  * JS has no 64-bit integer XOR without BigInt, so a key is two halves: a full 32-bit `lo` and a
  * 20-bit `hi`. `combine()` packs them into `hi * 2**32 + lo`, which stays below 2**53 and is
@@ -8,7 +8,8 @@
  *
  * The generator is a fixed-seed xorshift, so keys are identical in every worker and every test run.
  */
-import { Color, SPENT, colorOf, typeOf } from '../rules/engine';
+import { Color, SPENT, colorOf, drawsOnLost, handOf, powerUses, tracksLast, typeOf, type Position } from './engine';
+import { ALL_CARDS } from './rules';
 
 let seed = 0x9e3779b9;
 const next = (): number => {
@@ -139,3 +140,54 @@ export const lastIndex = (c: number, k: number): number => (k < 32 ? c * 32 + k 
 /** Classic chess (`Rules.classicChess`, 2026-10-11), appended: one key per castling right (K Q k q) and one per en-passant file. */
 export const [Z_CASTLE_LO, Z_CASTLE_HI] = draw(4);
 export const [Z_EP_LO, Z_EP_HI] = draw(8);
+
+const hashOut = new Int32Array(2);
+
+/**
+ * Key of a position, for `SearchOptions.history` and `Game`'s repetition count: the board, the side
+ * to move and the king-power state that changes the legal moves — uses spent of a counted power,
+ * a Freeze/Ice Wall mark, a pending Haste, the reserve of a side that plays Sacrifice or holds a
+ * Sacrifice or Salvation card, and the guards waiting beside the board; in card mode also a
+ * Firewall, an ended mark a Rescue may renew, a Rage's second move, the cards drawn and (while a
+ * hand holds a Mirror) each side's last card. The
+ * search keeps the same key incrementally (`apply`/`undo`), so the two are one definition.
+ */
+export function positionKey(pos: Position, out = hashOut): number {
+  hashBoard(pos.board, pos.turn, out);
+  let lo = out[0], hi = out[1];
+  for (let c = 0; c < 2; c++) {
+    const u = pos.used?.[c] ?? 0;
+    if (handOf(c as Color).length) { for (let k = 0; k < 8; k++) if (u >> k & 1) { lo ^= Z_USED_LO[c * 8 + k]; hi ^= Z_USED_HI[c * 8 + k]; } }
+    else if (u > 0 && powerUses(c as Color) > 0) { const i = usedIndex(c, u); lo ^= Z_USED_LO[i]; hi ^= Z_USED_HI[i]; }
+    if (pos.lost && drawsOnLost(c as Color)) {
+      for (let t = 1; t < 16; t++) {
+        const n = pos.lost[c * 16 + t];
+        if (n > 0) { const k = lostIndex(c * 16 + t, n); lo ^= Z_LOST_LO[k]; hi ^= Z_LOST_HI[k]; }
+      }
+    }
+    const w = pos.waiting?.[c] ?? 0;
+    if (w > 0) { const i = waitIndex(c, w); lo ^= Z_WAIT_LO[i]; hi ^= Z_WAIT_HI[i]; }
+    const l = pos.last?.[c];
+    if (l && tracksLast()) { const i = lastIndex(c, ALL_CARDS.indexOf(l)); lo ^= Z_LAST_LO[i]; hi ^= Z_LAST_HI[i]; }
+    const d = pos.drawn?.[c] ?? 0;
+    if (d > 0) { const i = drawnIndex(c, d); lo ^= Z_DRAWN_LO[i]; hi ^= Z_DRAWN_HI[i]; }
+  }
+  for (let by = 0; by < 2; by++) {
+    const k = pos.marks?.[by];
+    if (!k) continue;
+    const i = by * 64 + k.sq, left = k.left ?? 1;
+    lo ^= Z_MARK_LO[i]; hi ^= Z_MARK_HI[i];
+    if (left !== 1) { lo ^= by ? Z_LEFTB_LO[left] : Z_LEFT_LO[left]; hi ^= by ? Z_LEFTB_HI[left] : Z_LEFT_HI[left]; }
+    if (k.ward) { lo ^= Z_WARD_LO[by]; hi ^= Z_WARD_HI[by]; }
+    if (k.all) { lo ^= Z_ALL_LO[by]; hi ^= Z_ALL_HI[by]; }
+  }
+  if (pos.free) { lo ^= Z_FREE_LO[0]; hi ^= Z_FREE_HI[0]; }
+  if (pos.haste !== undefined) { lo ^= Z_HASTE_LO[pos.haste]; hi ^= Z_HASTE_HI[pos.haste]; }
+  if (pos.rage) { lo ^= Z_RAGE_LO[pos.rage - 1]; hi ^= Z_RAGE_HI[pos.rage - 1]; }
+  for (let i = 0; i < 4; i++) if ((pos.castle ?? 0) & (1 << i)) { lo ^= Z_CASTLE_LO[i]; hi ^= Z_CASTLE_HI[i]; }
+  if (pos.ep !== undefined) { lo ^= Z_EP_LO[pos.ep & 7]; hi ^= Z_EP_HI[pos.ep & 7]; }
+  out[0] = lo;
+  out[1] = hi;
+  return combine(lo, hi);
+}
+

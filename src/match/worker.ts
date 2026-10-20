@@ -6,7 +6,8 @@ import { Game } from '../game';
 import { ALL_CARDS, RULES_2017, RULES_2021, POWERS_BALANCED, RULES, parseKings, setRules } from '../rules/rules';
 import { fromFen, toFen, toLan } from '../rules/setup';
 import { HAND_MAX, moveNumber, type Position } from '../rules/engine';
-import { positionKey, resetSearchState, search } from '../ai/search';
+import { resetSearchState, search } from '../ai/search';
+import { positionKey } from '../rules/position-key';
 import { skillPlan, type SkillName } from '../ai/skill';
 import type { MatchSave, MatchSetup, MatchSnapshot, MoveCommand } from './index';
 

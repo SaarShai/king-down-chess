@@ -8,7 +8,8 @@ const blocked: Record<string, Set<string>> = Object.fromEntries(Object.entries({
   'rules/rules': 'RULES setRules playedDesign ruleDiff',
   'rules/engine': 'RULES setRules playedDesign ruleDiff nameOf theName aName overShots guardMayLand powerOf powerUses handOf heldCount cardAt spend canSpend markKind drawsOnLost tracksLast lapsing holdsTurn keepsLost canCapture genPiece makeMove moverAt isAttacked inCheck genPowerMoves filterMarks filterHeld genHasteFollowUp filterFree genGuardDrops epAfter genClassic freePass pseudoMoves legalMoves insufficientMaterial materialDraw status perft',
   'rules/setup': 'randomBackRank waitGuards startPosition fromFen',
-  'ai/search': 'search searchOwned searchLegal positionKey resetSearchState',
+  'ai/search': 'search searchLegal resetSearchState',
+  'rules/position-key': 'positionKey hashBoard',
   'read': 'pieceTitle reachOf pieceGuide readText teachNote pieceStates whyNot readTap unmarkedTap guideTypes',
   'move-text': 'checkCause checkersOf describeMove threatsIn',
   'marks-model': 'railsOf',
@@ -69,7 +70,15 @@ describe('product game boundary', () => {
     expect(violations('src/example.ts', "export { RULES as active } from './rules/rules';")).toHaveLength(1);
     expect(violations('src/example.ts', "void import('./ai/search');")).toHaveLength(1);
     expect(violations('src/example.ts', "import type { Rules } from './rules/rules'; import { parseSq, P } from './rules/engine';")).toEqual([]);
-    expect(violations('src/example.ts', "import { shortMove } from './move-text';")).toEqual([]);
+    expect(violations('src/example.ts', "import { shortMove } from './move-text'; import { searchOwned } from './ai/search';")).toEqual([]);
+    expect(violations('src/example.ts', "import { positionKey } from './rules/position-key';")).toHaveLength(1);
+  });
+  it('keeps owned rules independent of search and evaluation', () => {
+    const source = readFileSync(resolve(root, 'src/game-rules.ts'), 'utf8'), imports: string[] = [];
+    new Visitor({ ImportDeclaration(node) {
+      if (node.importKind !== 'type') imports.push(node.source.value);
+    } }).visit(parseSync('src/game-rules.ts', source).program);
+    expect(imports.filter(path => path.startsWith('./ai/'))).toEqual([]);
   });
   it('keeps ambient engine and helper operations inside the owned boundary', () => {
     const product = files('src').filter(file => !internal.has(file) && !/^src\/(rules|ai|sim)\//.test(file));

@@ -18,15 +18,15 @@ import {
   epAfter, genClassic, genHasteFollowUp, genPiece, genPowerMoves, handOf, heldCount, holdsTurn, isAttacked, isMarkTag, isStill, keepsLost, landed, lapsing, materialDraw, moverOf, overShots, piece,
   moveNumber, powerOf, powerUses, returnable, rightsAfter, spend, tracksLast, typeOf,
 } from '../rules/engine';
-import { ALL_CARDS, type CardName, type PowerName } from '../rules/rules';
-import { VALUES, evalBoard } from './eval';
+import { ALL_CARDS, type CardName, type PowerName, type Rules } from '../rules/rules';
+import { VALUES, evalBoard, setDesignValue } from './eval';
 import { NET_POWERS } from './nnue/net';
 import {
   Z_ALL_HI, Z_ALL_LO, Z_CASTLE_HI, Z_CASTLE_LO, Z_DRAWN_HI, Z_DRAWN_LO, Z_FREE_HI, Z_FREE_LO, Z_HASTE_HI, Z_HASTE_LO, Z_HI, Z_LAST_HI, Z_LAST_LO, Z_LEFTB_HI, Z_LEFTB_LO, Z_LEFT_HI, Z_LEFT_LO,
   Z_EP_HI, Z_EP_LO, Z_LO, Z_LOST_HI, Z_LOST_LO, Z_MARK_HI, Z_MARK_LO, Z_RAGE_HI, Z_RAGE_LO,
   Z_TURN_HI, Z_TURN_LO, Z_USED_HI, Z_USED_LO, Z_WAIT_HI, Z_WAIT_LO, Z_WARD_HI, Z_WARD_LO,
-  combine, drawnIndex, hashBoard, lastIndex, lostIndex, usedIndex, waitIndex, zIndex,
-} from './zobrist';
+  combine, drawnIndex, lastIndex, lostIndex, positionKey, usedIndex, waitIndex, zIndex,
+} from '../rules/position-key';
 
 export { VALUES, evaluate, evaluatorName, setEvaluator } from './eval';
 
@@ -823,58 +823,10 @@ export function quiesceScore(pos: Position): number {
   return quiesce(-INF, INF, 0, QMAX, pos.halfmove);
 }
 
-/**
- * Key of a position, for `SearchOptions.history` and `Game`'s repetition count: the board, the side
- * to move and the king-power state that changes the legal moves — uses spent of a counted power,
- * a Freeze/Ice Wall mark, a pending Haste, the reserve of a side that plays Sacrifice or holds a
- * Sacrifice or Salvation card, and the guards waiting beside the board; in card mode also a
- * Firewall, an ended mark a Rescue may renew, a Rage's second move, the cards drawn and (while a
- * hand holds a Mirror) each side's last card. The
- * search keeps the same key incrementally (`apply`/`undo`), so the two are one definition.
- */
-export function positionKey(pos: Position): number {
-  hashBoard(pos.board, pos.turn, hashOut);
-  let lo = hashOut[0], hi = hashOut[1];
-  for (let c = 0; c < 2; c++) {
-    const u = pos.used?.[c] ?? 0;
-    if (handOf(c as Color).length) { for (let k = 0; k < 8; k++) if (u >> k & 1) { lo ^= Z_USED_LO[c * 8 + k]; hi ^= Z_USED_HI[c * 8 + k]; } }
-    else if (u > 0 && powerUses(c as Color) > 0) { const i = usedIndex(c, u); lo ^= Z_USED_LO[i]; hi ^= Z_USED_HI[i]; }
-    if (pos.lost && drawsOnLost(c as Color)) {
-      for (let t = 1; t < 16; t++) {
-        const n = pos.lost[c * 16 + t];
-        if (n > 0) { const k = lostIndex(c * 16 + t, n); lo ^= Z_LOST_LO[k]; hi ^= Z_LOST_HI[k]; }
-      }
-    }
-    const w = pos.waiting?.[c] ?? 0;
-    if (w > 0) { const i = waitIndex(c, w); lo ^= Z_WAIT_LO[i]; hi ^= Z_WAIT_HI[i]; }
-    const l = pos.last?.[c];
-    if (l && tracksLast()) { const i = lastIndex(c, ALL_CARDS.indexOf(l)); lo ^= Z_LAST_LO[i]; hi ^= Z_LAST_HI[i]; }
-    const d = pos.drawn?.[c] ?? 0;
-    if (d > 0) { const i = drawnIndex(c, d); lo ^= Z_DRAWN_LO[i]; hi ^= Z_DRAWN_HI[i]; }
-  }
-  for (let by = 0; by < 2; by++) {
-    const k = pos.marks?.[by];
-    if (!k) continue;
-    const i = by * 64 + k.sq, left = k.left ?? 1;
-    lo ^= Z_MARK_LO[i]; hi ^= Z_MARK_HI[i];
-    if (left !== 1) { lo ^= by ? Z_LEFTB_LO[left] : Z_LEFT_LO[left]; hi ^= by ? Z_LEFTB_HI[left] : Z_LEFT_HI[left]; }
-    if (k.ward) { lo ^= Z_WARD_LO[by]; hi ^= Z_WARD_HI[by]; }
-    if (k.all) { lo ^= Z_ALL_LO[by]; hi ^= Z_ALL_HI[by]; }
-  }
-  if (pos.free) { lo ^= Z_FREE_LO[0]; hi ^= Z_FREE_HI[0]; }
-  if (pos.haste !== undefined) { lo ^= Z_HASTE_LO[pos.haste]; hi ^= Z_HASTE_HI[pos.haste]; }
-  if (pos.rage) { lo ^= Z_RAGE_LO[pos.rage - 1]; hi ^= Z_RAGE_HI[pos.rage - 1]; }
-  for (let i = 0; i < 4; i++) if ((pos.castle ?? 0) & (1 << i)) { lo ^= Z_CASTLE_LO[i]; hi ^= Z_CASTLE_HI[i]; }
-  if (pos.ep !== undefined) { lo ^= Z_EP_LO[pos.ep & 7]; hi ^= Z_EP_HI[pos.ep & 7]; }
-  hashOut[0] = lo;
-  hashOut[1] = hi;
-  return combine(lo, hi);
-}
-
 function initPosition(pos: Position): void {
   board.set(pos.board);
   sideAt[0] = pos.turn;
-  positionKey(pos); // fills hashOut, including the power state
+  positionKey(pos, hashOut); // fills the search scratch buffer, including the power state
   hLo = hashOut[0];
   hHi = hashOut[1];
   sp = 0;
@@ -969,12 +921,21 @@ export function resetSearchState(): void {
 let searchOwner: object | undefined;
 
 /** The page fallback shares one module graph: retain its tables only for the same game lifetime. */
-export function searchOwned(owner: object, pos: Position, opts: SearchOptions = {}): SearchResult {
-  if (owner !== searchOwner) {
-    resetSearchState();
-    searchOwner = owner;
+export function searchOwned(owner: object, rules: Rules, pos: Position, opts: Omit<SearchOptions, 'rng'> = {}): SearchResult {
+  if ('rng' in opts) throw new Error('Game search does not accept an entropy callback');
+  const prior = { ...RULES };
+  try {
+    Object.assign(RULES, rules);
+    setDesignValue(rules.design);
+    if (owner !== searchOwner) {
+      resetSearchState();
+      searchOwner = owner;
+    }
+    return search(pos, opts);
+  } finally {
+    setDesignValue(prior.design);
+    Object.assign(RULES, prior);
   }
-  return search(pos, opts);
 }
 
 export function search(pos: Position, opts: SearchOptions = {}): SearchResult {

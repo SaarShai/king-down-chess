@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { BLACK, CardName, Move, Position, TAG_POWER, WHITE, legalMoves, makeMove } from './engine';
 import { fromFen, startPosition, toFen, toLan } from './setup';
 import { ALL_CARDS, parseRule, ruleDiff, setRules } from './rules';
-import { positionKey, probeLegalAfter, resetSearchState, search, searchLegal } from '../ai/search';
+import { probeLegalAfter, resetSearchState, search, searchLegal } from '../ai/search';
+import { positionKey } from './position-key';
 import { replayRecord } from '../sim/replay';
 
 const lans = (pos: Position, ms: readonly Move[] = legalMoves(pos)): string[] => ms.map(m => toLan(pos, m)).sort();

@@ -1,7 +1,7 @@
 /** Game state (no rendering) and the AI worker wrapper. */
 import type { Color, Move, Position, Status } from './rules/engine';
 import { DEFAULT_RULES, type Rules } from './rules/rules';
-import type { SearchOptions, SearchResult } from './ai/search';
+import { searchOwned, type SearchOptions, type SearchResult } from './ai/search';
 import { GameRules } from './game-rules';
 
 export type Side = 'human' | 'ai';
@@ -146,7 +146,7 @@ export class Engine {
     const id = ++this.id;
     const worker = this.worker;
     const live = (): boolean => id === this.id && game.identity === owner;
-    const inline = (): SearchResult => context.search(owner, pos, options);
+    const inline = (): SearchResult => searchOwned(owner, context.rules, pos, options);
     if (!worker) return new Promise(resolve => {
       const timer = setTimeout(() => { this.clean = undefined; if (live()) resolve(inline()); }, 30);
       this.clean = () => clearTimeout(timer);

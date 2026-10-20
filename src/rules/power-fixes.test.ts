@@ -17,7 +17,8 @@ import {
 } from './engine';
 import { fromFen, randomBackRank, startPosition, toFen, toLan } from './setup';
 import { KingChoice, POWERS_BALANCED, PowerName, RULES, RULES_2017, RULES_2021, Rules, parseRule, setRules } from './rules';
-import { positionKey, probeApply, resetSearchState, searchLegal, setFastLegality } from '../ai/search';
+import { probeApply, resetSearchState, searchLegal, setFastLegality } from '../ai/search';
+import { positionKey } from './position-key';
 import { RULE_POWERS } from '../sim/tournament';
 import { powerText } from '../powers-ui';
 

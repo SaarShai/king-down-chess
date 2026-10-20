@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { BLACK, K, Move, N, Position, Q, R, WHITE, inCheck, legalMoves, makeMove, materialDraw, parseSq, status, typeOf } from './engine';
 import { fromFen, randomBackRank, toFen, toLan } from './setup';
 import { CardName, parseRule, setRules } from './rules';
-import { positionKey, probeApply, resetSearchState, search, searchLegal } from '../ai/search';
+import { probeApply, resetSearchState, search, searchLegal } from '../ai/search';
+import { positionKey } from './position-key';
 import { mulberry32 } from '../sim/rng';
 import { replayRecord } from '../sim/replay';
 

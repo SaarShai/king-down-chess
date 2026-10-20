@@ -38,7 +38,8 @@ import { Color, Position, WHITE, inCheck, legalMoves, makeMove } from '../rules/
 import { POWERS_BALANCED, PowerName, Rules, setRules } from '../rules/rules';
 import { fromFen, randomBackRank, toLan } from '../rules/setup';
 import { EvalParams, Evaluator, evalParams, evaluate, setEvalParams, setEvaluator } from '../ai/eval';
-import { leafPowers, positionKey, quiesceScore, resetSearchState, search } from '../ai/search';
+import { leafPowers, quiesceScore, resetSearchState, search } from '../ai/search';
+import { positionKey } from '../rules/position-key';
 import { SkillName, skillPlan } from '../ai/skill';
 import { Game } from '../game';
 import { BOARD_INPUTS, HIDDEN, INPUTS, NET_POWERS, QA, QB, packNet } from '../ai/nnue/net';

@@ -10,7 +10,8 @@ import {
 import { fromFen, toFen, toLan } from './setup';
 import { KingChoice, PowerName, Rules, parseKings, setRules } from './rules';
 import { Game } from '../game';
-import { positionKey, probeApply, resetSearchState, search } from '../ai/search';
+import { probeApply, resetSearchState, search } from '../ai/search';
+import { positionKey } from './position-key';
 
 const KING_OF: Record<PowerName, KingChoice['king']> = {
   Freeze: 'Frost', IceWall: 'Frost', Strike: 'Flame', Haste: 'Flame', Flight: 'Stratus', Sacrifice: 'Stratus',

@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Move, Position, legalMoves, makeMove, parseSq, perft } from './engine';
 import { POWERS_BALANCED, RULES, setRules } from './rules';
 import { CLASSIC_CHESS, fromFen, startPosition, toFen, toLan } from './setup';
-import { positionKey, probeApply, resetSearchState, search, searchLegal } from '../ai/search';
+import { probeApply, resetSearchState, search, searchLegal } from '../ai/search';
+import { positionKey } from './position-key';
 import { describeMove } from '../move-text';
 import { Game } from '../game';
 

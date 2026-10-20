@@ -5,7 +5,7 @@ import { GameRules } from '../src/game-rules';
 import { DEFAULT_RULES, POWERS_BALANCED, RULES, RULES_2017, parseKings, setRules, type Rules } from '../src/rules/rules';
 import { parseSq, type Move } from '../src/rules/engine';
 import { toFen } from '../src/rules/setup';
-import { resetSearchState } from '../src/ai/search';
+import { resetSearchState, searchOwned } from '../src/ai/search';
 import { setDesignValue, VALUES } from '../src/ai/eval';
 import { draftTurn, applyLan } from '../src/plugin/screens/board-model';
 import { PRESETS, specOf } from '../src/workshop/model';
@@ -17,7 +17,7 @@ function owned(rules: Partial<Rules>, fen: string) {
   return {
     view: () => ({ fen: toFen(game.pos), status: game.status, check: game.inCheck,
       legal: game.legal.map(m => context.toLan(game.pos, m)).sort(), draft: draftTurn([], game.pos, 'link', game.pos.turn, context),
-      searchLegal: context.searchLegal(game.pos).map(m => context.toLan(game.pos, m)).sort(), key: context.positionKey(game.pos) }),
+      key: context.positionKey(game.pos) }),
     play: (lan: string) => game.playLan([lan]),
     undo: () => game.undo(),
     preview: (lan: string) => applyLan(game.pos, lan, game.rules),
@@ -64,7 +64,7 @@ describe('U04 production rule ownership', () => {
     };
     expect(() => a.genPiece(pos.board, parseSq('c3'), 'all', out)).toThrow('nested helper');
     expect(RULES).toEqual(before);
-    expect(() => b.search({}, pos, { get maxDepth(): number { throw new Error('search options'); } })).toThrow('search options');
+    expect(() => searchOwned({}, b.rules, pos, { get maxDepth(): number { throw new Error('search options'); } })).toThrow('search options');
     expect(RULES).toEqual(before);
     expect(VALUES).toEqual(values);
   });

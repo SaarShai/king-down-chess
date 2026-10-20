@@ -27,7 +27,7 @@ export interface Stamp { rules: Rules; rulesKey: string; pool: string; specKey: 
  * The rules and pool a run plays under. `rulesKey` hashes the *whole* rule set, not the diff.
  * A new rule field re-keys *every* stored run and blocks its resume, so `kings` is left out of the
  * key for a run that plays none — the same "append, never move a historic key" discipline
- * `src/ai/zobrist.ts` follows. A run that does play a king hashes it, which is the whole point of
+ * `src/rules/position-key.ts` follows. A run that does play a king hashes it, which is the whole point of
  * putting the choice in `Rules` (LESSONS.md 2026-09-14: a resumed control silently mixes pools).
  */
 export function stampOf(spec: RunSpec): Stamp {

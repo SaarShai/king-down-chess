@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Game } from '../game';
 import { legalMoves, makeMove, parseKings, setRules, status } from '../rules/engine';
 import { CLASSIC_CHESS, fromFen, startPosition, toLan } from '../rules/setup';
-import { MATE, positionKey, quiesceScore, resetSearchState, search } from './search';
+import { MATE, quiesceScore, resetSearchState, search } from './search';
+import { positionKey } from '../rules/position-key';
 
 beforeEach(() => { setRules(); resetSearchState(); });
 afterEach(() => { setRules(); resetSearchState(); });
