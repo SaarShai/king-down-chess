@@ -576,7 +576,10 @@ export function boardScreen(store: Store) {
     const savedDraft = client.state.draft, draftRules = view.rules;
     if (savedDraft && draftRules) {
       const draftSteps = restoreDraft(view, savedDraft, draftRules, client.accountId);
-      if (draftSteps?.length) { steps = draftSteps; lastMove = draftSteps.at(-1)!; pos = draftSteps.at(-1)!.pos; }
+      if (draftSteps?.length) {
+        steps = draftSteps; lastMove = draftSteps.at(-1)!; pos = draftSteps.at(-1)!.pos;
+        if (savedDraft.scope?.revision !== view.revision) saveDraft();
+      }
       else dropDraft();
     }
     moves = draftChoices(view, pos, steps);

@@ -66,7 +66,14 @@ export function draftChoices(view: View, pos: Position, steps: readonly BoardMov
 
 export function restoreDraft(view: View, saved: Draft | undefined, rules: Partial<Rules>, account?: string): BoardMove[] | undefined {
   if (!saved || saved.game_tag !== view.game_id.slice(0, 8) || saved.fen !== view.fen || view.action !== 'ready' || view.status !== 'playing') return;
-  if (account !== undefined && (!saved.scope || saved.scope.account !== account || saved.scope.game !== view.game_id || saved.scope.revision !== view.revision || saved.scope.rules !== JSON.stringify(rules))) return;
+  if (account !== undefined) {
+    const scope = saved.scope;
+    if (!scope || scope.account !== account || scope.game !== view.game_id || scope.rules !== JSON.stringify(rules) || scope.revision > view.revision) return;
+    // Hidden choices can exist until both seats are ready; afterward only presets are hidden (GameService.render).
+    const nonBoard = (type: string) => type === 'draw' || type === 'say' || type === 'hidden' && view.ready?.every(Boolean);
+    const changes = view.last_commands.filter(command => command.seq > scope.revision);
+    if (changes.length !== view.revision - scope.revision || changes.some((command, index) => command.seq !== scope.revision + index + 1 || !nonBoard(command.action.type))) return;
+  }
   setRules(rules);
   let pos = fromFen(view.fen);
   const steps: BoardMove[] = [];

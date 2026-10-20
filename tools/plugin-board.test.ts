@@ -1109,6 +1109,7 @@ it('W7-04: an incremental draw reply keeps the draft and the draw note (D13)', a
     // Ticket 04 (D13): a draw offer is a new revision with the same base FEN, so the draft stays.
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {...base, revision:2, history:undefined, draw_offer:1, last_commands:[{seq:2, seat:1, at:base.server_now, action:{type:'draw',choice:'offer'}}]});
     expect(await boardFen(page)).toBe(toFen(applyLan(fromFen(base.fen),'e2-e4',{})!.pos));
+    expect((await savedDraft(page)).scope.revision).toBe(2);
     expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('false');
     expect(await frame.locator('#last-move').innerText()).toBe('White pawn e2 to e4.');
     expect(await frame.locator('#context-note').innerText()).toContain('Your opponent offers a draw.');

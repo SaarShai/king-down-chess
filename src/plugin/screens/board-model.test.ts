@@ -349,3 +349,23 @@ test('a scoped draft requires the complete account, game, revision and rules', (
   expect(restoreDraft({ ...base, revision: base.revision + 1 }, saved, hasteRules, 'account-a')).toBeUndefined();
   expect(restoreDraft(base, saved, { ...hasteRules, hasteCaptures: true }, 'account-a')).toBeUndefined();
 });
+
+
+test('a scoped draft advances only through a complete chain of commands that do not change the board', () => {
+  const { steps } = stage(HASTE, ['Ra1-a4!H'], hasteRules);
+  const base = view({ game_id: '12345678-private-a', fen: HASTE, turn: 0, action: 'ready', legal: ['Ra1-a4!H'] });
+  const saved = { game_tag: '12345678', fen: HASTE, lans: ['Ra1-a4!H'], scope: { account: 'account-a', game: base.game_id, revision: base.revision, rules: JSON.stringify(hasteRules) } };
+  const command = (seq: number, action: import('../../match/protocol').LoggedAction) => ({ seq, seat: 1 as const, at: base.server_now, action });
+  const offer = command(base.revision + 1, { type: 'draw', choice: 'offer' });
+  const next = { ...base, revision: base.revision + 1, last_commands: [offer] };
+  expect(restoreDraft(next, saved, hasteRules, 'account-a')).toEqual(steps);
+  expect(saved.scope.revision).toBe(base.revision);
+  const followup = { ...base, ready: [true, true] as [boolean, boolean], revision: base.revision + 3, last_commands: [offer, command(base.revision + 2, { type: 'say', preset: 'good_game' }), command(base.revision + 3, { type: 'hidden' })] };
+  expect(restoreDraft(followup, saved, hasteRules, 'account-a')).toEqual(steps);
+  expect(restoreDraft({ ...followup, ready: undefined }, saved, hasteRules, 'account-a')).toBeUndefined();
+  expect(restoreDraft({ ...followup, ready: [true, false] }, saved, hasteRules, 'account-a')).toBeUndefined();
+  expect(restoreDraft({ ...next, fen: START }, saved, hasteRules, 'account-a')).toBeUndefined();
+  expect(restoreDraft({ ...followup, last_commands: followup.last_commands.slice(1) }, saved, hasteRules, 'account-a')).toBeUndefined();
+  expect(restoreDraft({ ...next, last_commands: [command(base.revision + 1, { type: 'turn', actions: [] })] }, saved, hasteRules, 'account-a')).toBeUndefined();
+  expect(restoreDraft({ ...next, last_commands: [command(base.revision + 2, { type: 'draw', choice: 'offer' })] }, saved, hasteRules, 'account-a')).toBeUndefined();
+});
