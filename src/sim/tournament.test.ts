@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   type Entrant, type TJob, type TRecord, type TournamentSpec,
@@ -13,7 +13,7 @@ const spec = (over: Partial<TournamentSpec> = {}): TournamentSpec => ({
   mirror: false, maxPlies: 300, openingRandomPlies: 4, ...over,
 });
 const hash = (x: unknown): string => createHash('sha256').update(JSON.stringify(x)).digest('hex').slice(0, 16);
-const recorded = (id: string): TournamentSpec => JSON.parse(readFileSync(new URL(`../../sim/out/${id}.tournament.json`, import.meta.url), 'utf8'));
+const recorded = (id: string): TournamentSpec => JSON.parse(readFileSync(new URL(`./fixtures/tournaments/${id}.tournament.json`, import.meta.url), 'utf8'));
 /** A game record for a job, with White's score. */
 const play = (j: TJob, result: 1 | 0.5 | 0): TRecord => ({
   ...j, result, reason: 'mate', plies: 40, ms: 1, uses: [0, 0], firstUse: [null, null], checks: [0, 0], lans: [],
@@ -28,6 +28,7 @@ describe('tournament schedule', () => {
       'kp2-r6': 'dad29188a991dab6', 'kp2-r7': '927e30ef14763e2a', 'kp2-r8': '2e3bfbf2be1495c5', 'kp2-r9': 'fba42279c2de25aa',
       'kp2-r10': '0eed788c332ac1d9', 'kp2-r11': '93855049006bb50a', 'kp2-r12': 'e312f6310f1b5da8',
     };
+    expect(readdirSync(new URL('./fixtures/tournaments/', import.meta.url)).sort()).toEqual(Object.keys(PLAYED).map(id => `${id}.tournament.json`).sort());
     for (const [id, h] of Object.entries(PLAYED)) expect([id, hash(schedule(recorded(id)))]).toEqual([id, h]);
   });
 
