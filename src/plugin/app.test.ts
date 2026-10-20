@@ -13,7 +13,7 @@ vi.mock('@modelcontextprotocol/ext-apps', () => ({ App: class {
 vi.mock('./art', () => ({ art: (path: string) => path }));
 vi.mock('./games-list', () => ({ gamesList() {}, gameTitle: () => 'Game', waitingLine: () => 'Waiting' }));
 vi.mock('../account/profile', () => ({ ICONS: {}, handleProblem: () => undefined }));
-vi.mock('./board-view', () => ({ setSettings: async () => {} }));
+vi.mock('./board-view', () => ({ setSettings: async () => {}, animations: 'normal', setAnimations: vi.fn() }));
 vi.mock('../render/sfx', () => ({ setSound: () => {}, snd: {} }));
 vi.mock('./poll', () => ({ runPoll: (target: unknown) => { transport.target = target; return { update() {}, stop() {} }; } }));
 vi.mock('./screens/board', () => ({ boardScreen: () => transport.draw, rollbackBoardMove: async () => {} }));
@@ -55,6 +55,17 @@ async function mounted() {
   await vi.advanceTimersByTimeAsync(0);
   return app;
 }
+
+it.each(['normal', 'fast', 'off'])('A8: applies the %s animation choice', async pace => {
+  await mounted();
+  const { setAnimations } = await import('./board-view');
+  vi.mocked(setAnimations).mockClear();
+  const control = document.getElementById('animations') as HTMLSelectElement;
+  expect(control.value).toBe('normal');
+  control.value = pace;
+  Reflect.apply(control.onchange!, control, [{}]);
+  expect(setAnimations).toHaveBeenCalledExactlyOnceWith(pace);
+});
 
 const press = (id: string) => { const button = document.getElementById(id)!; return Reflect.apply(button.onclick!, button, [{}]); };
 async function waitingGame() {

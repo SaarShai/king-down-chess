@@ -221,3 +221,7 @@ Plan:
 4. Run each repaired test file on the M1. Then run the full unit suite there again. Run `npx tsc --noEmit` here.
 
 Pass criteria: all M1 tests pass, except database tests that need the local database. The type check passes. No check limit changes. Browser checks and new screen captures stay with CI, as the repair ticket directs.
+
+The merge takes `origin/main` at `0a7ec40b`. It has no conflicts. The automatic merge keeps the board, seat, cursor, and keyboard fault fixes with their tests.
+
+Kind b, A8: `src/plugin/app.test.ts` now gives the board mock its `animations` and `setAnimations` exports. The app tests keep their real client, queue, and router. Three new cases check the initial select value and each motion choice.
