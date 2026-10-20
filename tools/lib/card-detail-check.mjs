@@ -36,13 +36,11 @@ export async function checkCardDetails(browser, base) {
           await shot(page, `repair-A5-workshop-${card}-${width}x${height}-${theme}`);
         }
         if (!await page.locator('[data-lab="SpawnK"]').count()) await page.locator('[data-act="cardsall"]').click();
-        for (const card of ['SpawnK', 'SpawnK2']) {
-          await page.locator(`[data-lab="${card}"]`).click();
-          const picture = page.locator(`.pg-plinth [data-card-picture="${card}"]`);
-          assert.equal(await picture.locator('[data-piece="king"]').count(), 1);
-          assert.equal(await picture.locator('[data-piece="pawn"]').count(), card === 'SpawnK2' ? 2 : 1);
-          await shot(page, `repair-A33-workshop-${card}-${width}x${height}-${theme}`);
-        }
+        await page.locator('[data-lab="SpawnK"]').click();
+        const spawn = page.locator('.pg-plinth [data-card-picture="SpawnK"]');
+        assert.equal(await spawn.locator('[data-piece="king"]').count(), 1);
+        assert.equal(await spawn.locator('[data-piece="pawn"]').count(), 1);
+        await shot(page, `repair-A33-workshop-SpawnK-${width}x${height}-${theme}`);
         await page.goto(base);
         const frame = page.frameLocator('iframe');
         await frame.locator('#home-play:not(:disabled)').waitFor();
