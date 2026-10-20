@@ -197,15 +197,47 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
             for (const checkpoint of row.checkpoints ?? []) if (checkpoint.after === applied.length) assertMechanicExpected(after, checkpoint.expected, `${row.id}/${surface} checkpoint`);
           }
           const page = (surface === 'web' ? webPages : pluginPages)[finalSeat], ui = surface === 'web' ? page : page.frameLocator('iframe');
-          const reloaded = page.waitForResponse(response => {
-            if (surface === 'web') return response.request().method() === 'GET' && new URL(response.url()).pathname === `/api/games/${id}`;
-            return readsGame(response, id);
-          });
-          if (surface === 'web') await page.reload(); else await page.locator('#remount').click();
-          const reloadResponse = await reloaded;
-          assert.equal(reloadResponse.status(), 200, `${row.id}/${surface}: reload reads the service`);
-          if (surface === 'chatgpt') assert.equal((await reloadResponse.json())._meta?.view?.game_id, id, `${row.id}: the remounted board reads the selected game`);
-          await ready(ui, expected.status !== 'playing');
+          const beforeUrl = new URL(page.url()), network = [];
+          const record = event => { network.push(event); if (network.length > 20) network.shift(); };
+          const responseEvent = response => {
+            const url = new URL(response.url()), request = response.request();
+            if (url.origin === beforeUrl.origin && (response.status() >= 400 || url.pathname.startsWith('/api/') || url.pathname === '/fixture-tool' || request.resourceType() === 'document'))
+              record({ event: 'response', method: request.method(), path: url.pathname, status: response.status() });
+          };
+          const failedEvent = request => {
+            const url = new URL(request.url());
+            if (url.origin === beforeUrl.origin) record({ event: 'requestfailed', method: request.method(), path: url.pathname });
+          };
+          page.on('response', responseEvent); page.on('requestfailed', failedEvent);
+          try {
+            const reloaded = page.waitForResponse(response => {
+              if (surface === 'web') return response.request().method() === 'GET' && new URL(response.url()).pathname === `/api/games/${id}`;
+              return readsGame(response, id);
+            });
+            // Capture reload failures even if the observer rejects before reload itself returns.
+            void reloaded.catch(() => {});
+            if (surface === 'web') await page.reload(); else await page.locator('#remount').click();
+            const reloadResponse = await reloaded;
+            assert.equal(reloadResponse.status(), 200, `${row.id}/${surface}: reload reads the service`);
+            if (surface === 'chatgpt') assert.equal((await reloadResponse.json())._meta?.view?.game_id, id, `${row.id}: the remounted board reads the selected game`);
+            await ready(ui, expected.status !== 'playing');
+          } catch (error) {
+            const afterUrl = new URL(page.url());
+            const [body, screenshot] = await Promise.allSettled([
+              ui.locator('body').innerText({ timeout: 2000 }),
+              shot(page, `shared-mechanics-${row.id}-${surface}-reload-failure`),
+            ]);
+            const errors = failures[[...webPages, ...pluginPages].indexOf(page)];
+            console.error(`${row.id}/${surface} reload: ${JSON.stringify({
+              beforeUrl: beforeUrl.origin + beforeUrl.pathname, afterUrl: afterUrl.origin + afterUrl.pathname,
+              body: body.status === 'fulfilled' ? body.value.slice(0, 4000) : 'unavailable',
+              screenshot: screenshot.status === 'fulfilled' ? screenshot.value : 'unavailable',
+              errors: errors.slice(-10).map(value => value.slice(0, 2000)), network,
+            })}`);
+            throw error;
+          } finally {
+            page.off('response', responseEvent); page.off('requestfailed', failedEvent);
+          }
           const resumed = await read(expected.turn, id);
           assert.equal(resumed.fen, expected.fen, `${row.id}/${surface}: reload state`);
           assert.equal(resumed.turn, expected.turn, `${row.id}/${surface}: reload actor`);
