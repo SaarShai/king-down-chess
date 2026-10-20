@@ -123,3 +123,16 @@ The approved browser runner checks d14b8fb1 on the M1. `plugin-ui` passes in 229
 The first full `npm test` run passes 3,242 tests and hits two time limits in unchanged files: 5 s in `src/ai/search.test.ts` and 30 s in `src/workshop/judge.test.ts`. The full retry uses `VITEST_MAX_WORKERS=2` and the lane's local test database. It passes all 194 files: 3,244 tests pass and 8 opt-in tests skip. All 51 art checks pass. The run exits 0. No test or check time limit changes.
 
 The final source review keeps one shared product rule and one shared browser assertion. It adds no dependency or product path. The last commit records the check results only.
+
+## Test repair (2026-10-19)
+
+Plan:
+
+1. Merge current main. Keep the fault fixes and the five preview picks.
+2. Run the unit suite on the M1. Run the type check in this worktree.
+3. Class each failure as a changed pick (a), fixture gap (b), code fault (c), or load limit (d). Keep all guards and time limits.
+4. Commit each repair kind. Run each repaired file on the M1, then run the full suite again.
+
+Pass criteria: the type check is clean. The repaired files and full M1 suite pass. Only the expected database and opt-in tests skip. Browser checks stay with CI, as prev-green requires.
+
+Part 1: merge 044b45f0 brings in origin/main. Git reports no conflicts. The merge keeps main's fault fixes and the preview picks. No manual resolution is needed.
