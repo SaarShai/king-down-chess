@@ -1,25 +1,15 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import ts from 'typescript';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.setConfig({ testTimeout: 60_000 });
 
 function timeouts(file: string) {
-  const source = ts.createSourceFile(file, readFileSync(new URL(file, import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
-  const limits: number[] = [];
-  function visit(node: ts.Node) {
-    if (ts.isCallExpression(node) && node.expression.getText(source) === 'execFileSync') {
-      const options = node.arguments[2];
-      const timeout = options && ts.isObjectLiteralExpression(options)
-        ? options.properties.find(p => ts.isPropertyAssignment(p) && p.name.getText(source) === 'timeout')
-        : undefined;
-      limits.push(timeout && ts.isPropertyAssignment(timeout) ? Number(timeout.initializer.getText(source).replaceAll('_', '')) : NaN);
-    }
-    ts.forEachChild(node, visit);
-  }
-  visit(source);
-  return limits;
+  // Remove strings first: the Python programs contain their own calls and semicolons.
+  const source = readFileSync(new URL(file, import.meta.url), 'utf8')
+    .replace(/(['"`])(?:\\.|(?!\1).)*\1/gs, '""');
+  const calls = source.match(/\bexecFileSync\([\s\S]*?\);/g) ?? [];
+  return calls.map(call => Number(call.match(/\btimeout:\s*([\d_]+)/)?.[1].replaceAll('_', '') ?? NaN));
 }
 
 describe('synchronous child limits', () => {

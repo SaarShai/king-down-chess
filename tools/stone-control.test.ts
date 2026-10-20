@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 
 const ASSET = 'src/plugin/assets/stone-control.webp';
-// The export needs numpy and Pillow, which the CI runners do not install.
+// The export needs numpy and Pillow, which the CI runners do not install. Normal import: 120 ms on the M1.
 const canExport = (() => { try { execFileSync('python3', ['-c', 'import numpy, PIL'], { timeout: 4000 }); return true; } catch { return false; } })();
 
 it('ships stone with two pixels per CSS pixel at the widest 528 px control', async () => {
@@ -19,6 +19,7 @@ it.skipIf(!canExport)('matches a fresh export from the full source', async () =>
   const folder = await mkdtemp(join(tmpdir(), 'kingdown-stone-'));
   try {
     const output = join(folder, 'stone.webp');
+    // Normal export: at most 506 ms for this whole file on the M1.
     execFileSync('python3', ['tools/export-stone-control.py', output], { timeout: 4000 });
     const [a, b] = await Promise.all([output, ASSET].map(p => sharp(p).raw().toBuffer()));
     expect(a.length).toBe(b.length);

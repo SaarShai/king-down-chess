@@ -7,9 +7,11 @@ import { resultsRoot } from './lib/results-root.mjs';
 
 describe('card result storage', () => {
   it('restores incremental snapshots, retains history and rejects cloud corruption', () => {
+    // Normal Python calls: at most 228 ms for this whole file on the M1.
     execFileSync('python3', ['tools/results-store-backup.test.py'], { cwd: process.cwd(), stdio: 'pipe', timeout: 4000 });
   });
   it('preserves conflicts, deduplicates compressed logs, and keeps sources', () => {
+    // Normal Python calls: at most 228 ms for this whole file on the M1.
     execFileSync('python3', ['-c', `
 import importlib.util,tempfile,gzip,sys
 sys.dont_write_bytecode=True
