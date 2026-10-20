@@ -153,6 +153,19 @@ it('uses real build metadata for the worker, loader, lazy code, CSS and emitted 
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+it('changes the cache version when only the worker implementation changes', async () => {
+  const { dir, write } = site();
+  try {
+    await compile(dir);
+    const output = join(dir, 'dist/sw.js'), before = readFileSync(output, 'utf8');
+    write('public/sw.js', readFileSync(join(dir, 'public/sw.js'), 'utf8') + '\n/* Worker-only update. */\n');
+    await compile(dir);
+    const after = readFileSync(output, 'utf8');
+    expect(/const VERSION = '([^']+)'/.exec(after)![1]).not.toBe(/const VERSION = '([^']+)'/.exec(before)![1]);
+    expect(lists(after)).toEqual(lists(before));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 it.each(["const VERSION = 'dev';", 'const ALLOWLIST = [];', 'const PRECACHE = [];'])('fails a build if the worker marker is absent or repeated: %s', async marker => {
   const { dir, write } = site();
   const original = readFileSync(resolve('public/sw.js'), 'utf8');

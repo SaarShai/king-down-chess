@@ -12,7 +12,7 @@ const route = parseAccountRoute(new URL(location.href));
 const target = route ? accountPath(route) : '/play/';
 document.title = 'King Down';
 document.body.replaceChildren();
-function message(words: string, signIn = false) {
+function message(words: string, signIn = false, retry = false) {
   document.body.replaceChildren();
   const main = document.createElement('main'); main.className = 'account-entry';
   const title = document.createElement('h1'); title.textContent = 'King Down';
@@ -26,6 +26,9 @@ function message(words: string, signIn = false) {
     };
     main.append(button);
   }
+  if (retry) {
+    const button = document.createElement('button'); button.textContent = 'Try again'; button.onclick = () => location.reload(); main.append(button);
+  }
   const local = document.createElement('a'); local.href = '/'; local.textContent = 'Play on this device'; main.append(local);
   document.body.append(main);
 }
@@ -35,7 +38,7 @@ const getClient = () => client ??= import('../account/client').then(({ connect }
 const signInHost: SignInHost = { location, history, storage: sessionStorage, now: Date.now, client: getClient };
 try {
   const access = await readWebAccountAccess();
-  if (!access.enabled) message('Account play is temporarily unavailable. Try again later.');
+  if (!access.enabled) message('Account play is temporarily unavailable. Try again later.', false, true);
   else {
     const returned = await consumeSignInReturn(signInHost), auth = await getClient();
     const session = returned.status === 'signed-in' ? returned.session : await auth.readSession();
@@ -53,4 +56,4 @@ try {
       });
     }
   }
-} catch (error) { message(error instanceof Error ? error.message : 'Account play could not load.'); }
+} catch (error) { message(error instanceof Error ? error.message : 'Account play could not load.', false, true); }

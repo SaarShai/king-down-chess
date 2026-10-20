@@ -133,11 +133,31 @@ describe('public request boundary', () => {
     unrelated.entries.set(url('/private'), response('/private'));
     await w.fire('install').done();
     const cache = w.caches.entries.get(current)!;
-    expect([...cache.entries.keys()]).toEqual(files.filter(file => file !== 'index.html').map(url));
+    expect([...cache.entries.keys()].sort()).toEqual(files.filter(file => file !== 'index.html').map(url).sort());
     expect(w.skipWaiting).toHaveBeenCalledOnce();
     expect(w.caches.entries.get('other-app')).toBe(unrelated);
     expect(w.saved).toEqual({ 'kingdown.save': 'saved move', 'kingdown.lessons': 'lesson progress', 'kingdown.workshop': 'design', 'kingdown.sync': 'cloud stamp' });
     expect(w.storageAccess).not.toHaveBeenCalled();
+  });
+
+  it('bounds concurrent install work and waits for the last public response before takeover', async () => {
+    const paths = Array.from({ length: 19 }, (_, index) => `assets/public-${index}.js`);
+    const w = worker(undefined, version, paths), held = deferred();
+    let active = 0, peak = 0;
+    w.fetch.mockImplementation(async request => {
+      peak = Math.max(peak, ++active);
+      if (request.url === url(paths.at(-1)!)) await held.promise;
+      else await Promise.resolve();
+      active--; return response(request.url);
+    });
+    const install = w.fire('install');
+    await vi.waitFor(() => expect(w.fetch).toHaveBeenCalledTimes(paths.length));
+    expect(peak).toBe(8);
+    expect(w.caches.entries.get(current)!.entries.size).toBe(paths.length - 1);
+    expect(w.skipWaiting).not.toHaveBeenCalled();
+    held.resolve(); await install.done();
+    expect([...w.caches.entries.get(current)!.entries.keys()].sort()).toEqual(paths.map(url).sort());
+    expect(w.skipWaiting).toHaveBeenCalledOnce();
   });
 
   it('serves an exact cached asset with Vary ignored and Search kept', async () => {
@@ -176,7 +196,7 @@ const badResponses: [string, (path: string) => Response][] = [
   ['non-basic type', path => response(path, { type: 'cors' })],
   ['redirect', path => response(path, { redirected: true })],
   ['private destination', () => response('/play.html')],
-  ['different public destination', () => response('/assets/workshop.js')],
+  ['different public destination', path => response(path === url('/assets/workshop.js') ? '/assets/main.js' : '/assets/workshop.js')],
 ];
 
 describe('cache writes', () => {
@@ -306,8 +326,8 @@ describe('purge and policy proof', () => {
     expect(policy.postMessage).not.toHaveBeenCalled();
     resume.resolve(); await expect(install.done()).rejects.toThrow('Incomplete offline cache');
     expect(b.skipWaiting).not.toHaveBeenCalled(); expect(b.claim).not.toHaveBeenCalled();
-    expect([...incoming.entries.keys()]).toEqual(nextFiles.filter(file => file !== 'index.html').map(url));
-    expect([...a.caches.entries.get(current)!.entries.keys()]).toEqual(files.filter(file => file !== 'index.html').map(url));
+    expect([...incoming.entries.keys()].sort()).toEqual(nextFiles.filter(file => file !== 'index.html').map(url).sort());
+    expect([...a.caches.entries.get(current)!.entries.keys()].sort()).toEqual(files.filter(file => file !== 'index.html').map(url).sort());
     expect(a.caches.delete).not.toHaveBeenCalledWith(current);
 
     replacement.state = 'redundant'; a.registration.installing = null;
@@ -327,7 +347,7 @@ describe('purge and policy proof', () => {
     a.registration.active!.state = 'redundant'; a.registration.active = clean; a.registration.waiting = null;
     clean.state = 'activating'; await next.fire('activate').done(); clean.state = 'activated';
     expect(next.claim).toHaveBeenCalledOnce(); expect(a.caches.entries.has(current)).toBe(false);
-    expect([...a.caches.entries.get('kingdown-next-build')!.entries.keys()]).toEqual(nextFiles.filter(file => file !== 'index.html').map(url));
+    expect([...a.caches.entries.get('kingdown-next-build')!.entries.keys()].sort()).toEqual(nextFiles.filter(file => file !== 'index.html').map(url).sort());
     const proof = next.message(); await proof.done();
     expect(proof.postMessage).toHaveBeenCalledExactlyOnceWith({ type: 'kingdown-cache-policy', requestId: 'fresh-request', policy: 'public-build-v1', version: 'next-build' });
     next.fetch.mockRejectedValue(new Error('offline'));
@@ -369,7 +389,7 @@ describe('purge and policy proof', () => {
     const waiting = a.message(); await expect(waiting.done()).rejects.toThrow('Worker update in progress');
     expect(waiting.postMessage).not.toHaveBeenCalled();
     expect(a.caches.delete).not.toHaveBeenCalled();
-    expect([...incoming.entries.keys()]).toEqual(nextFiles.filter(file => file !== 'index.html').map(url));
+    expect([...incoming.entries.keys()].sort()).toEqual(nextFiles.filter(file => file !== 'index.html').map(url).sort());
 
     a.registration.active!.state = 'redundant'; a.registration.active = replacement; a.registration.waiting = null;
     replacement.state = 'activating'; await b.fire('activate').done(); replacement.state = 'activated';
@@ -399,7 +419,7 @@ describe('purge and policy proof', () => {
     expect(a.caches.delete).not.toHaveBeenCalled();
     expect(a.claim).not.toHaveBeenCalled();
     if ('postMessage' in event) expect(event.postMessage).not.toHaveBeenCalled();
-    expect([...a.caches.entries.get('kingdown-next-build')!.entries.keys()]).toEqual(files.filter(file => file !== 'index.html').map(url));
+    expect([...a.caches.entries.get('kingdown-next-build')!.entries.keys()].sort()).toEqual(files.filter(file => file !== 'index.html').map(url).sort());
   });
 
   it.each(['message', 'activate'])('stops %s before it deletes a cache that an install uses', async type => {
@@ -414,7 +434,7 @@ describe('purge and policy proof', () => {
     expect(a.caches.delete).toHaveBeenCalledExactlyOnceWith('kingdown-old');
     expect(a.claim).not.toHaveBeenCalled();
     if ('postMessage' in event) expect(event.postMessage).not.toHaveBeenCalled();
-    expect([...a.caches.entries.get('kingdown-next-build')!.entries.keys()]).toEqual(files.filter(file => file !== 'index.html').map(url));
+    expect([...a.caches.entries.get('kingdown-next-build')!.entries.keys()].sort()).toEqual(files.filter(file => file !== 'index.html').map(url).sort());
   });
 
   it.each(['current keys', 'final names'])('refuses proof if the active worker changes during %s', async phase => {
