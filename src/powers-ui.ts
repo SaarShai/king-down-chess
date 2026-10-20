@@ -4,14 +4,14 @@
  * how a person reaches it.
  */
 import { B, CardName, Color, KINGS, KingChoice, KingName, Move, moveNumber, N, PowerName, POWERS_BALANCED, PowerTag, Position, Q, R, DEFAULT_RULES, type Rules, USES_RULE } from './rules/engine';
+import { RELEASED_CARDS } from './content/cards';
 
 export const POWER_NAME: Record<PowerName, string> = {
   Freeze: 'Freeze', IceWall: 'Ice Wall', Strike: 'Strike', Haste: 'Haste', Flight: 'Flight', Sacrifice: 'Sacrifice',
   March: 'March', Leap: 'Leap', HolyLight: 'Holy Light', Mercy: 'Mercy', DeathTouch: 'Death Touch', Darkness: 'Darkness',
 };
 
-export const cardName = (card: CardName): string => card === 'MirrorB' ? 'Mirror' : card === 'MorphP' ? 'Morph'
-  : card.replace(/([a-z])([A-Z])/g, '$1 $2');
+export const cardName = (card: CardName): string => RELEASED_CARDS.find(entry => entry.id === card)?.name ?? card.replace(/([a-z])([A-Z])/g, '$1 $2');
 
 export const cardCost = (card: CardName, r: Rules = DEFAULT_RULES): string =>
   card === 'MirrorB' || card === 'Mirror' ? 'Same cost as the copied card'

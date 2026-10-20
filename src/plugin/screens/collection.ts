@@ -1,11 +1,12 @@
 import { GameRules } from '../../game-rules';
 import { client } from '../../account-game/runtime';
 import { art } from '../../account-game/art';
-import { DEAL_CARDS, POOL_KINDS } from '../../match/setup';
+import { POOL_KINDS } from '../../match/setup';
+import { RELEASED_CARDS } from '../../content/cards';
 import { LETTERS, NAMES, type PieceType } from '../../rules/engine';
 
 import { DEFAULT_RULES } from '../../rules/rules';
-import { cardName, cardText, powerOptions, ruleLine } from '../../powers-ui';
+import { cardText, powerOptions, ruleLine } from '../../powers-ui';
 import { cardArt } from '../card-face';
 import { kingRules } from './setup';
 import './collection.css';
@@ -41,9 +42,9 @@ function draw(tab: string) {
   else if (tab === 'Powers') for (const group of groups) for (const option of group.options) {
     const card = guideCard(option.label, `<span class="coin">${image(`ui/emblems/${group.king.toLowerCase()}.webp`)}</span>`, '', [['Rule', ruleLine(option.title)]]); card.dataset.power = option.value.split(':')[1]; target.append(card);
   }
-  else if (tab === 'Cards') for (const card of DEAL_CARDS) {
-    const face = document.createElement('label'); face.className = 'card-face'; face.dataset.card = card;
-    face.innerHTML = `<span class="cf-art">${cardArt(card)}</span><span class="cf-text"><b>${cardName(card)}</b><small>${ruleLine(cardText(card, DEFAULT_RULES))}</small>${unlocked}</span>`; target.append(face);
+  else if (tab === 'Cards') for (const card of RELEASED_CARDS) {
+    const face = document.createElement('label'); face.className = 'card-face'; face.dataset.card = card.id;
+    face.innerHTML = `<span class="cf-art">${cardArt(card.id)}</span><span class="cf-text"><b>${card.name}</b><small>${ruleLine(cardText(card.id, DEFAULT_RULES))}</small>${unlocked}</span>`; target.append(face);
   }
   syncCollectionStatus(target);
   document.querySelector<HTMLElement>('#collection-sheet .new-game-body')!.scrollTop = 0;

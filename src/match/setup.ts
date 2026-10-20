@@ -1,4 +1,5 @@
 import { GameRules } from '../game-rules';
+import { RELEASED_CARDS } from '../content/cards';
 /**
  * The plugin game setup (spec "Modules: Game setup"): the initiator's options, the draw, the seat choices and
  * the built match setup. Pure and zod-free, so the app page may import it; the schema is in `setup-schema.ts`.
@@ -10,10 +11,7 @@ import { KINGS, kingLabel, type CardName, type KingChoice, type PowerName } from
 import type { MatchSetup } from './index';
 
 /** The deal list of spec Q20, in its order. */
-export const DEAL_CARDS: readonly CardName[] = [
-  'Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap', 'Salvation', 'MirrorB', 'Firewall',
-  'EarthQuake', 'Burn', 'FireStarter', 'Control', 'Rally', 'MorphP', 'Mimic', 'Vault', 'Curse', 'SkyLift',
-];
+export const DEAL_CARDS: readonly CardName[] = RELEASED_CARDS.map(card => card.id);
 /** The piece kinds of the "all" sheet: each kind of `POOL` once (spec Q7); a kind brings its `POOL` count. */
 export const POOL_KINDS: readonly string[] = [...new Set(POOL)];
 
