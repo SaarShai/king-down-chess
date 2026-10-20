@@ -146,25 +146,24 @@ it('saves only a short game tag and safe pending args while page memory keeps th
   expect(modelState).not.toContain('K7QX2M'); expect(modelState).not.toContain('private_name');
 });
 
-it('saves the draft with a short tag and its LANs, never the game ID, and brings it back apart from pending', () => {
+it('keeps the complete draft scope private and apart from the pending command', () => {
   let widgetState: any;
   const game_id = 'aabbccdd-1122-4455-8899-aabbccddeeff', board_id = '11223344-5566-4788-99aa-bbccddeeff00';
   const client = createClient({ callServerTool: async () => ({ content: [] }) }, { setWidgetState: state => { widgetState = state; } });
   client.state.board_id = board_id;
-  client.state.draft = { game_tag: game_id.slice(0, 8), fen: '7k/8/8/8/8/8/P7/K7 w - - 0 1', lans: ['a2-a4'] };
+  client.state.draft = { game_tag: game_id.slice(0, 8), fen: '7k/8/8/8/8/8/P7/K7 w - - 0 1', lans: ['a2-a4'], scope: { account: board_id, game: game_id, revision: 7, rules: '{}' } };
   client.state.pending = { name: 'kingdown_move', args: { game_id, command_id: 'once', actions: ['a2-a4'] } };
   client.save();
-  // The draft holds the tag and the LANs only; the full game ID never goes into widget state.
-  expect(widgetState.privateContent.draft).toEqual({ game_tag: 'aabbccdd', fen: '7k/8/8/8/8/8/P7/K7 w - - 0 1', lans: ['a2-a4'] });
-  expect(JSON.stringify(widgetState.privateContent.draft)).not.toContain(game_id);
+  expect(widgetState.privateContent.draft).toEqual(client.state.draft);
+  expect(widgetState.privateContent.draft.scope).toEqual({ account: board_id, game: game_id, revision: 7, rules: '{}' });
   expect(widgetState.modelContent).toEqual({});
   // The draft comes back at start, and it stays apart from the pending command.
   const restored = createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState });
   expect(restored.state.draft).toEqual(client.state.draft);
   expect(restored.state.pending).toEqual({ name: 'kingdown_move', args: { command_id: 'once', actions: ['a2-a4'] }, game_tag: 'aabbccdd' });
-  // A saved draft from an older build keeps its three fields and its LANs as strings.
+  // An older draft cannot prove its account, full game, revision or rules.
   const older = createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState: { privateContent: { screen: 'board', draft: { game_tag: 'aa', fen: 'f', lans: [1, 2] } } } as any });
-  expect(older.state.draft).toEqual({ game_tag: 'aa', fen: 'f', lans: ['1', '2'] });
+  expect(older.state.draft).toBeUndefined();
 });
 
 it('reads complete private games and views through the typed adapter', async () => {
@@ -230,4 +229,15 @@ it('keeps browser drafts scoped to the signed-in account when its board binding 
   client.state.board_id = 'new-board';
   client.save();
   expect(saved.draft).toEqual(draft);
+});
+
+it('does not persist an unscoped draft after a board binding changes', () => {
+  let widgetState: any;
+  const client = createClient({ callServerTool: async () => ({ content: [] }) }, { setWidgetState: state => { widgetState = state; } });
+  client.state.board_id = 'old-board';
+  client.state.draft = { game_tag: 'aabbccdd', fen: 'old-fen', lans: ['a2-a4'] };
+  client.state.board_id = 'new-board';
+  client.save();
+  expect(widgetState.privateContent.draft).toBeUndefined();
+  expect(client.state.draft).toBeUndefined();
 });

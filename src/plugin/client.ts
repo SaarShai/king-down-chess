@@ -23,8 +23,8 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
 export function createPageClient(transport: GameTransport, host?: WidgetHost) {
   const saved = host?.widgetState?.privateContent, handle_back = knownScreen(saved?.handle_back), settings_back = knownScreen(saved?.settings_back), queued = knownScreen(saved?.queued);
   const pending = saved?.pending && { ...saved.pending, screen: commandScreen(saved.pending.screen), error_screen: commandScreen(saved.pending.error_screen) };
-  // Normalize saved LANs and preserve the private scope of a current draft.
-  const savedDraft = saved?.draft, draft = savedDraft && { ...savedDraft, game_tag: String(savedDraft.game_tag ?? ''), fen: String(savedDraft.fen ?? ''), lans: (savedDraft.lans ?? []).map(String) };
+  // Only scoped drafts can replay; discard obsolete unscoped state before it can be saved again.
+  const savedDraft = saved?.draft?.scope ? saved.draft : undefined, draft = savedDraft && { ...savedDraft, game_tag: String(savedDraft.game_tag ?? ''), fen: String(savedDraft.fen ?? ''), lans: (savedDraft.lans ?? []).map(String) };
   const state: PageState = { screen: knownScreen(saved?.screen) ?? 'home', ...(handle_back && { handle_back }), ...(saved?.name_for_caller === true && { name_for_caller: true }), ...(settings_back && {settings_back}), ...(queued && {queued}), sheet: saved?.sheet, board_id: saved?.board_id, pending, ...(draft && { draft }) };
   // The server allows three calls at once for each account (MAX_ACTIVE_MCP_PER_USER, http.ts). A fourth call waits
   // here for a free slot, so no screen, poll or repeat tap gets a 429; a free slot goes to the oldest waiting call.
@@ -40,7 +40,7 @@ export function createPageClient(transport: GameTransport, host?: WidgetHost) {
   const accountId = () => host?.accountId ?? state.board_id ?? '';
   function save() {
     // A new plugin board binding must not persist the previous ownership scope before redraw.
-    if (state.draft?.scope && state.draft.scope.account !== accountId()) state.draft = undefined;
+    if (state.draft && state.draft.scope?.account !== accountId()) state.draft = undefined;
     const pending = state.pending;
     if (host?.savePage) { host.savePage(state); return; }
     const args = pending && Object.fromEntries(Object.entries(pending.args).filter(([key]) => !['game_id', 'code', 'handle'].includes(key)));
