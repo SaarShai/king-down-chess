@@ -91,7 +91,7 @@ Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
 
    Rollback: a failed migration transaction changes nothing. Stop and review the failure. After commit, keep its data. Use the saved recovery plan with the owner's word.
 
-9. **Owner word — paste [apply-0010-0013.sql](apply-0010-0013.sql) once.** Use a new SQL Editor query as the admin role. Paste the whole file. It first checks the 0005–0009 foundation and runtime-role blocks 3–6. It then applies 0010, block 7, 0011, 0012, block 8, 0013, block 9, block 10, 0014 and block 11 in one transaction. The source statements stay the same; only their outer transaction pairs become one pair.
+9. **Owner word — paste [apply-0010-0013.sql](apply-0010-0013.sql) once.** Use a new SQL Editor query as the admin role. Paste the whole file. It first checks the 0005–0009 foundation and runtime-role blocks 3–6. It then applies 0010, block 7, 0011, 0012, block 8, 0013, block 9, block 10, 0014, block 11 and 0015 in one transaction. The source statements stay the same; only their outer transaction pairs become one pair.
 
    This adds game and hidden seat choices, setup deadlines, rematches, lobby indexes, ratings, history, badges, settings and home-board state. Block 9 also permits old-board deletion for daily cleanup. Block 10 permits only the deletion of reports older than 12 months that no hold covers. Both board switches default off. Result history and badges have no runtime UPDATE grant.
 
@@ -112,6 +112,15 @@ Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
     Rollback: stop test access. Correct the guide or build, then repeat the failed check.
 
 12. **Check runtime access.** Confirm effective runtime grants, RLS and startup probes after the paste. Keep browser access restricted. Do not remove shared PUBLIC grants to repair one role.
+
+    For the email removal release, deploy the code without the email jobs first. It starts on schemas
+    0014 and 0015. Then apply `supabase/migrations/0015_remove_email.sql` as the admin role in
+    step 9 at any later time. If 0010–0014 are in place,
+    apply only 0015. The guarded paste also includes 0015 for a fresh release. Web account access follows at
+    0016, then runtime-role block 12. Use [account-off.md](../../web-build/account-off.md) for that
+    separate operator step.
+    Confirm `to_regprocedure('kingdown_jobs.user_email(uuid)') is null`. Confirm that the runtime
+    role can still execute `kingdown_jobs.delete_account(uuid)` and passes the startup probes.
 
     Check: the runtime role can read and write its required fields, including board deletion. It cannot read or delete `auth.users` directly or change result history and badges.
 

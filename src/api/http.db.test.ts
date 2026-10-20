@@ -17,7 +17,6 @@ import { GameService } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
 import { AccountService } from '../online/accounts';
 import { onlineClient, type OnlineClient } from '../online/client';
-import { fakeSender } from '../online/mail';
 import { SafetyService } from '../online/safety';
 import { createWebAccountAccess } from './account-access';
 import { createApiHandler, createInternalHandler, MAX_API_BODY, sessionVerifier, type ApiOptions } from './http';
@@ -53,7 +52,7 @@ const plain = (view: View) => view.legal.find(lan => !lan.includes('!'))!;
 suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () => {
  let own: URL, admin: pg.Pool, runtime: pg.Pool, runtimeUrl: URL, server: Server, address: string, sign: (sub: string) => Promise<string>;
  let api: ReturnType<typeof createApiHandler>, options: ApiOptions;
- const role = `api_test_${randomUUID().replaceAll('-', '')}`, users: string[] = [], tag = randomUUID().slice(0, 6), sender = fakeSender();
+ const role = `api_test_${randomUUID().replaceAll('-', '')}`, users: string[] = [], tag = randomUUID().slice(0, 6);
  const rows = async (sql: string, params: unknown[] = []) => (await admin.query(sql, params)).rows;
  const locked = (sql: string) => withRoleLock(own.href, () => admin.query(sql));
  /** A website identity: a signed-in user with a handle, and the client the website would use. */
@@ -83,7 +82,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   address = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
   options = { games, accounts: new AccountService(store), safety: new SafetyService(store), publicOrigin: address, operations, verify: sessionVerifier(supabase, keys), webAccountAccess: async () => ({ enabled: true, expiresAt: performance.now() + 5000 }), admit: () => () => {}, currentUser: async () => {} };
   api = createApiHandler(options);
-  const jobs = createInternalHandler({ games, publicOrigin: address, secret, sender: () => sender });
+  const jobs = createInternalHandler({ games, publicOrigin: address, secret });
   // This listener checks the handlers. The compiled check covers the function entry.
   server.on('request', (req, res) => { void (/^\/internal(\/|$)/.test(req.url!) ? jobs : api)(req, res); });
  }, 60_000);
@@ -399,14 +398,12 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
  it('runs the jobs through /internal with the secret only', async () => {
   const [ida, jo] = [await player('ida'), await player('jo')];
   const { view, invite } = await ida.api.create({ kind: 'friend', options: CLASSIC_OPTIONS, colour: 'white' });
-  await jo.api.redeem({ token: invite!.token }); // the turn passes to White: a turn email for Ida
+  await jo.api.redeem({ token: invite!.token });
   for (const key of ['', 'wrong', secret.slice(1)]) expect((await internal('tick', key)).status).toBe(403);
-  // Ida was here when she made the game; an hour later the 60-second rule lets the email go.
-  await admin.query("update public.game_players set last_seen_at=now()-interval '1 hour' where game_id=$1", [view.game_id]);
-  const outbox = await internal('outbox');
-  expect([outbox.status, (await outbox.json()).sent >= 1]).toEqual([200, true]);
-  expect(sender.sent.filter(mail => mail.to === `${ida.id}@example.com`).map(mail => mail.text.includes(`/g/${view.game_id}`))).toEqual([true]);
-  expect(await (await internal('reminders')).json()).toEqual({ queued: 0 });
+  for (const path of ['outbox', 'reminders']) {
+   const response = await internal(path);
+   expect([response.status, (await response.json()).code]).toEqual([404, 'NOT_FOUND']);
+  }
   await admin.query("update public.games set deadline_at=now()-interval '1 minute' where id=$1", [view.game_id]);
   expect(await (await internal('tick')).json()).toEqual({ ended: 1 });
   expect((await jo.api.game(view.game_id)).result).toEqual({ winner: null, reason: 'no_start' });

@@ -64,9 +64,8 @@ drop policy if exists kingdown_plugin_runtime on public.profiles;
 create policy kingdown_plugin_runtime on public.profiles for select to kingdown_plugin_runtime using (true);
 commit;
 
--- Apply after migration 0007: the jobs (src/online/jobs.ts) run as this role too. They read the alert rules and
--- the report holds, send and close outbox rows, queue reminders, and call the two kingdown_jobs helpers. Email
--- addresses and account deletion stay behind those helpers; this role cannot read or delete auth.users itself.
+-- Apply after migration 0007: jobs read report holds, clean old rows, and call delete_account.
+-- Migration 0015 removes the email helper. This role cannot read or delete auth.users itself.
 begin;
 grant select, delete, update (attempts, available_at, done_at) on public.outbox to kingdown_plugin_runtime;
 grant select (user_id, kind, payload) on public.notifications to kingdown_plugin_runtime;
@@ -76,7 +75,7 @@ grant select (quiet_mode) on public.profiles to kingdown_plugin_runtime;
 grant select (user_id, run_after, cancelled_at, done_at) on public.account_deletions to kingdown_plugin_runtime;
 grant select (reported_id, reporter_id, hold_until) on public.reports to kingdown_plugin_runtime;
 grant usage on schema kingdown_jobs to kingdown_plugin_runtime;
-grant execute on function kingdown_jobs.user_email(uuid), kingdown_jobs.delete_account(uuid) to kingdown_plugin_runtime;
+grant execute on function kingdown_jobs.delete_account(uuid) to kingdown_plugin_runtime;
 do $$
 declare t text;
 begin
@@ -170,7 +169,7 @@ drop policy if exists kingdown_plugin_runtime on public.plugin_tool_tries;
 create policy kingdown_plugin_runtime on public.plugin_tool_tries for all to kingdown_plugin_runtime using (true) with check (true);
 commit;
 
--- 12. Web account access (0015). The runtime can read the operator's switch only.
+-- 12. Web account access (0016). The runtime can read the operator's switch only.
 begin;
 grant select on public.web_account_access to kingdown_plugin_runtime;
 drop policy if exists kingdown_plugin_runtime on public.web_account_access;

@@ -1,9 +1,9 @@
 // One read for each migration and runtime-role block that the server uses, as the runtime role. A missing one stops
 // the start here (the function answers 503 and tries again on the next request), not at a player's first move.
+// Check removed objects in migration tests so the code can start before their removal.
 const PROBES = `select id,actor_id,match_id,game_selected,created_at from public.plugin_boards limit 0;
  select id,state,deadline_at,options,draw,deal,level,setup_deadline_at,rematch_offer,rematch_game_id from public.games limit 0;
  select choice,ready from public.game_players limit 0;
- select kingdown_jobs.user_email(null);
  select handle_changed_at,quiet_mode from public.profiles limit 0;
  select requested_at from public.account_deletions limit 0;
  select user_id,tries from public.invite_code_tries limit 0;
@@ -18,6 +18,7 @@ const PROBES = `select id,actor_id,match_id,game_selected,created_at from public
   and has_column_privilege('public.plugin_tool_tries','window_start','update')
   and has_column_privilege('public.plugin_tool_tries','tries','update')
   and has_function_privilege('kingdown_jobs.request_deletion(uuid)','execute')
+  and has_function_privilege('kingdown_jobs.delete_account(uuid)','execute')
   and (select bool_and(has_column_privilege('public.games',name,'update')) from unnest(array['setup','rules','engine_fingerprint','setup_deadline_at','rematch_offer','rematch_game_id']) as columns(name))
   and (select bool_and(has_column_privilege('public.game_players',name,'update')) from unnest(array['choice','ready','power']) as columns(name))
   and has_table_privilege('public.player_ratings','insert')
@@ -34,8 +35,8 @@ const required = message => Object.assign(new Error(message), { code: 'SCHEMA_RE
 export async function checkPluginDatabase(pool, config, resource) {
   let probes;
   try { probes = await pool.query(PROBES); }
-  catch (error) { if (SCHEMA.includes(error?.code)) throw required('Apply migrations 0005-0014, then plugin-deploy/runtime-role.sql, before starting the server'); throw error; }
-  if (!probes.at(-1).rows[0]?.allowed) throw required('Apply the runtime grants in plugin-deploy/runtime-role.sql before starting the server');
+  catch (error) { if (SCHEMA.includes(error?.code)) throw required('Apply migrations 0005-0015, then plugin-deploy/runtime-role.sql, before starting the server'); throw error; }
+  if (!probes.at(-1).rows[0]?.allowed) throw required('Apply migrations 0005-0015 and the runtime grants in plugin-deploy/runtime-role.sql before starting the server');
   // Boards keep their owner when a game goes (0004), and they point at the online games (0006).
   const constraint = await pool.query("select confdeltype,confrelid=to_regclass('public.games') as games from pg_constraint where conrelid='public.plugin_boards'::regclass and conname='plugin_boards_match_id_fkey'");
   if (constraint.rows[0]?.confdeltype !== 'n' || !constraint.rows[0].games) throw required('Apply plugin migrations 0004 and 0006 before starting the server');

@@ -18,7 +18,6 @@ import { createApiHandler, createInternalHandler, sessionVerifier } from '../src
 import { createWebAccountAccess } from '../src/api/account-access.ts';
 import { AccountService } from '../src/online/accounts.ts';
 import { SafetyService } from '../src/online/safety.ts';
-import { resendSender } from '../src/online/mail.ts';
 import { ART_HEADERS, artType } from './plugin-art-headers.mjs';
 
 const WEB_OPERATIONS = new Set();
@@ -81,7 +80,7 @@ export async function configurePlugin(env = process.env, { localDev = false, web
   catch (error) { await pool.end(); throw error; }
   const store = new PostgresMatchStore(pool), secret = env.KINGDOWN_INTERNAL_SECRET ?? '', games = new GameService(store, secret);
   const mcp = createPluginHandler({ consent, service: new PluginService(store, secret), publicOrigin, resourceHtml, auth, localDev });
-  const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET, sender: () => resendSender(env) });
+  const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET });
   const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), publicOrigin,
     webAccountAccess: createWebAccountAccess(pool),
     verify: env.SUPABASE_URL ? sessionVerifier(env.SUPABASE_URL, websiteKeys) : undefined, operations: websiteKeys === undefined ? WEB_OPERATIONS : TEST_WEB_OPERATIONS });

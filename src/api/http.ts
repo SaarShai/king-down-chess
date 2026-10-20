@@ -10,8 +10,7 @@ import { parse, MatchServiceError, type GameService } from '../match/service';
 import type { Invite } from '../match/protocol';
 import type { AccountService } from '../online/accounts';
 import type { SafetyService } from '../online/safety';
-import { cleanup, drainOutbox, queueReminders, runDeletions, sweepDeadlines } from '../online/jobs';
-import type { Sender } from '../online/mail';
+import { cleanup, runDeletions, sweepDeadlines } from '../online/jobs';
 import { ACTOR_UUID, AuthenticationError, AuthenticationUnavailable, pluginOrigin } from '../plugin/auth';
 import { diagnostic } from '../plugin/diagnostics';
 import { WEB_ACCOUNT_ACCESS_TTL_MS } from './account-access';
@@ -183,17 +182,12 @@ export function createApiHandler({ games, accounts, safety, publicOrigin, verify
  };
 }
 
-export interface InternalOptions { games: GameService; publicOrigin: string; /** at least 32 characters; else /internal answers 503 */ secret?: string; /** throws when email is not configured */ sender: () => Sender }
+export interface InternalOptions { games: GameService; publicOrigin: string; /** at least 32 characters; else /internal answers 503 */ secret?: string }
 /** pg_cron calls these through pg_net with the shared secret (supabase/ops/cron.sql). Each job is idempotent. */
-export function createInternalHandler({ games, publicOrigin, secret, sender }: InternalOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
+export function createInternalHandler({ games, publicOrigin, secret }: InternalOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
  const origin = pluginOrigin(publicOrigin), expected = secret && secret.length >= 32 ? sha256(secret) : undefined;
  const jobs: Record<string, () => Promise<object>> = {
   '/internal/tick': async () => ({ ended: await sweepDeadlines(games) }),
-  '/internal/outbox': async () => {
-   let send: Sender; try { send = sender(); } catch { throw failure('UNAVAILABLE', 503, 'Email is not configured'); }
-   return { sent: await drainOutbox(games, send) };
-  },
-  '/internal/reminders': async () => ({ queued: await queueReminders(games) }),
   // The cleanup first, so a deletion that fails does not stop it.
   '/internal/daily': async () => { const cleaned = await cleanup(games); return { deleted: await runDeletions(games), ...cleaned }; },
  };

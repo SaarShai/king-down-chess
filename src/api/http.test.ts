@@ -38,7 +38,7 @@ function useApi(options: Partial<ApiOptions>) {
  const api = createApiHandler({ ...defaults, ...options });
  server.removeAllListeners('request'); server.on('request', (req, res) => { void api(req, res); });
 }
-async function serve(options: Partial<ApiOptions> = {}, internal: { secret?: string; sender?: () => never } = {}) {
+async function serve(options: Partial<ApiOptions> = {}, internal: { secret?: string } = {}) {
  server = createServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
  address = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
  const pair = await generateKeyPair('ES256'); other = (await generateKeyPair('ES256')).privateKey;
@@ -51,7 +51,7 @@ async function serve(options: Partial<ApiOptions> = {}, internal: { secret?: str
  safety = { report: vi.fn() };
  defaults = { games: games as never, accounts: accounts as never, safety: safety as never, publicOrigin: address, operations, webAccountAccess, admit: () => () => {}, currentUser: async () => {}, verify: sessionVerifier(supabase, keys), ...options };
  const api = createApiHandler(defaults);
- const jobs = createInternalHandler({ games: games as never, publicOrigin: address, secret, sender: () => { throw new Error('no email'); }, ...internal });
+ const jobs = createInternalHandler({ games: games as never, publicOrigin: address, secret, ...internal });
  server.on('request', (req, res) => { void (req.url!.startsWith('/internal') ? jobs : api)(req, res); });
 }
 beforeEach(() => serve());
@@ -362,8 +362,10 @@ describe('internal job endpoints', () => {
   expect([tick.status, tick.headers.get('Cache-Control'), await tick.json()]).toEqual([200, 'no-store', { ended: 0 }]);
   expect((await fetch(`${address}/internal/tick`, { headers: { 'X-Kingdown-Internal': secret } })).status).toBe(405);
   expect((await fetch(`${address}/internal/other`, { method: 'POST', headers: { 'X-Kingdown-Internal': secret } })).status).toBe(404);
-  const mail = await fetch(`${address}/internal/outbox`, { method: 'POST', headers: { 'X-Kingdown-Internal': secret } });
-  expect([mail.status, (await mail.json()).message]).toEqual([503, 'Email is not configured']);
+  for (const path of ['outbox', 'reminders']) {
+   const response = await fetch(`${address}/internal/${path}`, { method: 'POST', headers: { 'X-Kingdown-Internal': secret } });
+   expect([response.status, (await response.json()).code]).toEqual([404, 'NOT_FOUND']);
+  }
  });
  it('stay closed without a secret of at least 32 characters', async () => {
   for (const short of [undefined, '', 'x'.repeat(31)]) {

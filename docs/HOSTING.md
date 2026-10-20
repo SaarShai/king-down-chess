@@ -23,6 +23,12 @@ The facts for the live site, its domain and the secret files. Every deploy publi
 - The script takes no branch or commit. A commit that is not on `origin/main` cannot go live.
 - The tool gate asks before a `vercel` command, a Porkbun API call or a browser visit to the live site or the Vercel dashboard.
 
+The email removal release deploys code without email jobs before migration 0015. The guarded
+release SQL includes 0015; an existing 0014 schema needs only the missing migration. It removes
+the email helper and keeps the `delete_account(uuid)` grant. Web account access follows at
+0016, then runtime-role block 12. Use [account-off.md](specs/web-build/account-off.md) for that
+separate operator step. No production change is authorized by the staging integration.
+
 ## Domain and DNS
 
 - The domain `kingdown.dev` is at Porkbun. Two A records, for `@` and `www`, point to `76.76.21.21`.

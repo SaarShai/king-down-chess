@@ -15,9 +15,9 @@ const baseline = [
  '0001_accounts.sql', '0002_matches.sql', '0003_plugin_boards.sql', '0004_plugin_board_recovery.sql',
  '0005_accounts_v2.sql', '0006_games.sql', '0007_jobs.sql', '0008_accounts_safety.sql',
  '0009_invite_tries.sql', '0010_game_setup.sql', '0011_matchmaking.sql', '0012_results.sql',
- '0013_player_settings.sql', '0014_plugin_tool_tries.sql',
+ '0013_player_settings.sql', '0014_plugin_tool_tries.sql', '0015_remove_email.sql',
 ];
-const migration = read('supabase/migrations/0015_web_account_access.sql');
+const migration = read('supabase/migrations/0016_web_account_access.sql');
 const blocks = read('plugin-deploy/runtime-role.sql').match(/^begin;[\s\S]*?^commit;$/gm)!;
 const suite = process.env.PLUGIN_TEST_DATABASE_URL ? describe : describe.skip;
 
@@ -76,7 +76,7 @@ suite('web account access: ordered database upgrade', () => {
   }
  });
 
- it('upgrades 0001–0014 with 0015 then block 12 and keeps old data and plugin reads', async () => {
+ it('upgrades 0001–0015 with 0016 then block 12 and keeps old data and plugin reads', async () => {
   expect((await admin.query("select to_regclass('public.web_account_access') as table")).rows).toEqual([{ table: null }]);
   const before = await snapshot();
   await oldPluginWorks();

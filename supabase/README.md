@@ -61,7 +61,7 @@ Install the audience hook and runtime-role blocks 1–2 once, through the privat
 ## Online games: 0005 to 0014
 
 Apply only missing files in order, after 0001–0004, through the approved privileged SQL Editor path.
-`npm run plugin:db:migrate` applies 0002–0015. Use it only for a disposable test database. Do not run its
+`npm run plugin:db:migrate` applies 0002–0016. Use it only for a disposable test database. Do not run its
 `tsx` entry against a live database. For the 0014 MVP, apply the third to the eleventh blocks of
 `plugin-deploy/runtime-role.sql` to the existing runtime role. The web section below adds block 12.
 The migrations are safe to run again.
@@ -79,7 +79,7 @@ in one short window:
 3. While it waits, apply 0005–0014, then blocks 3–11 of `plugin-deploy/runtime-role.sql`. For this
    MVP, first apply only missing 0005–0009 and blocks 3–6. Then paste the whole guarded
    [apply-0010-0013.sql](../docs/specs/chatgpt-mvp/release/apply-0010-0013.sql). It checks the
-   foundation, then applies 0010, block 7, 0011, 0012, block 8, 0013, block 9, block 10, 0014 and block 11 in one
+   foundation, then applies 0010, block 7, 0011, 0012, block 8, 0013, block 9, block 10, 0014, block 11 and 0015 in one
    transaction.
    The next request starts the server, and both live checks pass.
 4. Before cron starts, confirm the one-project function serves `/internal/*` on `kingdown.dev`.
@@ -95,11 +95,11 @@ in one short window:
   its games to the opponent (`on delete set null`). Old plugin games stay in `plugin_matches`, unused;
   a board that showed one says "This game was deleted".
 
-- `0007_jobs.sql`: two helpers in the private schema `kingdown_jobs` for the jobs of
-  `src/online/jobs.ts`: the address for an alert email (from `auth.users`), and the account deletion
+- `0007_jobs.sql`: two helpers in the private schema `kingdown_jobs` for
+  the original release: the address for an alert email (removed by 0015), and the account deletion
   after the 7-day grace (it checks again that the deletion is due, that no report hold covers the
   player and that no game is active; it reserves the handle and deletes the solo games). Only the
-  server role may call them.
+  server role may call the deletion helper.
 - `0008_accounts_safety.sql`: a changed handle stays reserved for its player and a deleted player's
   handle for good (a trigger on `profiles`, so every path keeps the rule). `delete_my_account()` now
   asks for a deletion after a 7-day grace, and a new sign-in in the grace cancels it (a trigger on
@@ -129,30 +129,36 @@ in one short window:
 
 - `0014_plugin_tool_tries.sql`: one counter for each user and tool. Role block 11 grants the server access. Browser roles have no access.
 
-`npm run plugin:db:init-test` applies 0001–0015 twice to a disposable loopback database, and
+`npm run plugin:db:init-test` applies 0001–0016 twice to a disposable loopback database, and
 `src/match/service.db.test.ts`, `src/match/setup.db.test.ts`, `src/match/matchmaking.db.test.ts`,
 `src/match/results.db.test.ts`, `src/online/jobs.db.test.ts`, `src/online/accounts.db.test.ts` and
 `src/api/http.db.test.ts` check them.
 
-## Web account access: 0015
+## Email removal: 0015
 
-For a new database after 0001–0004, apply 0005–0015, then blocks 3–12 of `plugin-deploy/runtime-role.sql`.
+- `0015_remove_email.sql`: removes the private email reader and its runtime grant. Deploy code
+  without email jobs first. Startup works before and after removal; the runtime keeps its account
+  deletion grant. The guarded release paste includes 0015. An existing 0014 schema needs only 0015.
+
+## Web account access: 0016
+
+For a new database after 0001–0004, apply 0005–0016, then blocks 3–12 of `plugin-deploy/runtime-role.sql`.
 An existing database needs only the missing files and blocks, under the authority below.
 
-Apply only missing migrations in order through `0015_web_account_access.sql`, then block 12 of
-`plugin-deploy/runtime-role.sql`. This work needs the owner's specific database-write go. Keep
-the historical 0010–0014 release paste unchanged. Do not use the `tsx` migration command on a live
+Apply only missing migrations in order through `0016_web_account_access.sql`, then block 12 of
+`plugin-deploy/runtime-role.sql`. This work needs the owner's specific database-write go. The
+guarded 0010–0015 release paste stops before web access. Do not use the `tsx` migration command on a live
 database. Use the approved SQL Editor procedure in
 [account-off.md](../docs/specs/web-build/account-off.md).
 
-- `0015_web_account_access.sql`: `web_account_access` holds one operator switch. A new row has
+- `0016_web_account_access.sql`: `web_account_access` holds one operator switch. A new row has
   `enabled = false`. A repeated migration keeps an existing value. RLS is on. The runtime role
   can SELECT only. PUBLIC, `anon` and `authenticated` have no direct access. The web getter
   closes access if the row, table or grant is absent. This table is not part of the plugin's
   required start check.
 
-`tools/plugin-db/web-account-access.db.test.ts` rebuilds an explicit 0001–0014 baseline in its
-own disposable database. It applies 0015, then block 12. It checks old data, repeated application,
+`tools/plugin-db/web-account-access.db.test.ts` rebuilds an explicit 0001–0015 baseline in its
+own disposable database. It applies 0016, then block 12. It checks old data, repeated application,
 the effective grants and plugin reads before and after the upgrade. CI runs it in
 `plugin-checks.yml`, job `verify`, through full `npm test` with its disposable database.
 

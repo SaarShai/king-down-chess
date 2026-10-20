@@ -16,10 +16,11 @@ remain release gates until the later slices supply their wiring and proof.
 2. Check which migrations and runtime-role blocks are present. Record the exact applied and
    missing numbers. Stop if the order or target is uncertain.
 3. Apply only missing migrations in order. The web change is
-   `supabase/migrations/0015_web_account_access.sql`, after 0001–0014.
+   `supabase/migrations/0016_web_account_access.sql`, after 0001–0015.
 4. Apply required missing grants in order. Apply block 12 of `plugin-deploy/runtime-role.sql`
-   after 0015 and the existing runtime blocks 1–11. Do not rerun the role-creation block against
-   an existing role. Keep the historical 0010–0014 release paste unchanged.
+   after 0016 and the existing runtime blocks 1–11. Do not rerun the role-creation block against
+   an existing role. The guarded release paste includes email removal at 0015; it stops before
+   the web account migration.
 5. Confirm one row, `singleton = true`, and the expected value. The new switch stays off.
    A repeat preserves an existing value; it does not turn an existing open switch off.
 6. Check RLS and effective grants: the runtime has SELECT and a SELECT policy only. It has no
