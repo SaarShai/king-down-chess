@@ -126,7 +126,7 @@ Unbuilt parts: none.
 
 ## Review fixes
 
-Status: in progress.
+Status: done.
 
 1. Check each finding against the code and Git tree.
 2. Let the dashboard use an empty file list when the local spool is absent. Keep card checks and other file errors. Test a fresh checkout and the error paths.
@@ -144,3 +144,16 @@ Pass criteria: each finding has a fix and a test; the full unit suite, art tests
 No finding is refuted. No server code changes. The required browser check is `plugin-ui`.
 
 The first full suite at `9eb05221` has one failure: the document lint treats the 46-character ticket path as a secret value. All four dashboard tests pass. The lint now excludes only valid local Markdown link targets from that length check. It still checks labels, unknown paths, remote targets and known key prefixes. A new test checks each case. No test limit changes.
+
+### Review check results
+
+The fix commits are `9eb05221` and `86c1e123`. The checks below use `86c1e123`. The final record commit changes this ticket only.
+
+- Targeted M1 run: all 58 tests pass in `tools/dashboard.test.ts` and `tools/steering.docs.test.ts`. Log: `unit-review-targeted-2.txt`.
+- Full M1 suite: type check passes; 3,127 tests pass; 164 tests skip; all 47 art tests pass. The helper exits 0. Log: `unit-review-full-2.txt`.
+- `plugin-ui`: pass on this Mac through `check-runner.sh`, in 358.9 seconds. The helper exits 0. Log: `checks-review-fixes-1.txt`.
+- Commit hooks and `git diff --check`: pass.
+
+The logs are in the `retro-records` lane output folder. The M1 has no test database, so 156 database tests skip. Eight balance drift tests also skip because `KINGDOWN_BALANCE_DRIFT` is not set. All 164 skipped tests remain unverified. No unit test runs on this Mac. No test or check limit changes.
+
+All three findings are fixed. Each fix has a test. No finding is refuted. No further build work remains for these findings.
