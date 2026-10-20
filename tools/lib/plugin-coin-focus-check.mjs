@@ -42,11 +42,11 @@ export async function checkCoinFocus(page, frame, selector, output, name = 'coin
     [[x + w + 1, y + h / 2], [x + w + 3, y + h / 2]],
   ];
   const contrasts = sides.map(bands => Math.max(...bands.map(([x, y]) => contrast(at(pixels[0], x, y), at(pixels[1], x, y)))));
-  assert(contrasts.every(value => value >= 3), `${selector} focus has at least 3:1 on each side: ${JSON.stringify(contrasts)}`);
   if (output) {
     await writeFile(join(output, `${name}-before.png`), before);
     await writeFile(join(output, `${name}-focus.png`), after);
   }
+  assert(contrasts.every(value => value >= 3), `${selector} focus has at least 3:1 on each side: ${JSON.stringify(contrasts)}`);
   await coin.blur();
   return { selector, minContrast: Number(Math.min(...contrasts).toFixed(2)) };
 }

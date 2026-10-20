@@ -35,3 +35,9 @@ passes 3,432 tests. Only the two new focus cases fail. Their fixture puts
 spendable powers and cards on the same side, which the engine refuses.
 The tests now use separate card and power games in each theme. No check
 limit or contrast assertion changes. The motion and card-face checks pass.
+
+The first browser run at `78fb4da7` finds a lower-edge contrast of 1.60:1.
+The inner face keeps the old 2 px lower shadow. It covers the outer ink
+focus band. Keyboard focus now removes that lower shadow only. It keeps
+the face and inset rim. The test keeps the 3:1 check on all four sides and
+saves both images before it checks contrast, so a failure keeps its proof.

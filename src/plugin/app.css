@@ -125,6 +125,8 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .coin.card-coin { width: 34px; height: 34px; overflow: hidden; }
 /* The button keeps the focus pair. Only its paint span dims or turns grey. */
 #game-table .coin { background: transparent; border-color: transparent; box-shadow: none; opacity: 1; filter: none; }
+/* The face's lower shadow must not cover the button's ink focus band. */
+#game-table .coin:focus-visible > .coin-paint { --lift: 0 0 transparent; transition: none; }
 /* Your card coins: a dark coin face (a coin keeps its radial face, never the stone control face) under a gold ring. */
 #app-root #strip-me .coin.card-coin > .coin-paint { background: radial-gradient(circle at 40% 30%, var(--stone-700) 70%, var(--stone-900)); border-color: var(--gold); --card-ring: var(--gold); }
 #app-root #strip-them .coin.card-coin > .coin-paint { border-color: var(--stone-700); --card-ring: var(--stone-700); }
