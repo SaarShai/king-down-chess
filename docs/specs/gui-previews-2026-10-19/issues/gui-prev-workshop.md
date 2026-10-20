@@ -146,3 +146,13 @@ The Workshop browser test measures the first item at the start and the last item
 - No server code changes. The HTTP browser group is not required.
 
 Both review findings are fixed. This final record changes only the ticket. The product code and browser tests match the checked commit, `d9a7d88d`.
+
+## Test repair (2026-10-19)
+
+Plan:
+1. Merge `origin/main`. Keep all fault fixes and the A13, A29 and A32 previews.
+2. Run the full unit suite on the M1 from committed code. Run the local type check.
+3. Class each failure as a changed preview expectation, a missing fixture field, a code fault, or a load-only timeout. Keep every guard and time limit.
+4. Run each repaired file on the M1, then run the full suite again. Record counts and commits here.
+
+Pass criteria: the M1 suite has no failures, the type check passes, and all preview behaviour stays. The M1 may skip database tests. This step runs no browser checks or screenshots, as the repair ticket requires.

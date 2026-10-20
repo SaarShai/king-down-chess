@@ -17,6 +17,7 @@ Read the section Always. Then read the Index, and open a topic file only when a 
 
 ### Engine and tests
 
+- [2026-10-19 — a property test sized on an idle Mac failed its limit under a deploy](docs/lessons/engine-and-tests.md)
 - [2026-10-03 — one mark slot per side for two-sided powers](docs/lessons/engine-and-tests.md)
 - [2026-10-03 — the hash's high half came from the same stream](docs/lessons/engine-and-tests.md)
 - [2026-10-02 — helpers outside the engine after a new move kind](docs/lessons/engine-and-tests.md)
