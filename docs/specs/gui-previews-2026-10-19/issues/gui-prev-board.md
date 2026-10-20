@@ -289,7 +289,8 @@ The review fix is complete. Owner approval for the original previews stays open.
 
 ## Owner picks 2026-10-20
 
-Status: review fixes in progress. The owner authorizes picks-1020, Lane board.
+Status: complete. All review findings are confirmed and fixed. The owner
+authorizes picks-1020, Lane board.
 
 Review fix plan and pass criteria:
 
@@ -302,6 +303,71 @@ Review fix plan and pass criteria:
 3. Run each changed test file, then `npm test` here with the local test
    database. Commit before the lane runner checks `plugin-ui`. Keep all
    limits and assertions. Record each finding and the check results.
+
+### Review findings and fixes
+
+- Review A1 and B1 are confirmed. The document capture handler stops the
+  pointer event before the board can set `rush`. The renderer now calls the
+  active sequence's skip callback before it consumes the gesture. The board
+  sets `rush` and clears any ceremony. Real mouse and touch tests keep the
+  actual animations. They check that Haste starts only its first animation,
+  reaches the final position, and does not select a piece.
+- The web ceremony part of Review A1 is confirmed. The ceremony owns the skip
+  callback while it runs and restores the prior callback when it ends. Real
+  mouse and touch tests tap during the final blow. They check completion,
+  the final position, the fallen king, cleared waits, and no square selection.
+- Review B2 is confirmed. A fall skip now calls `skipBoardCeremony()` before
+  the gesture stops. The real mouse and touch tests check that Skip hides,
+  the fall ends, and no delayed King Down text remains.
+- Review A2 is confirmed. The selection fill covered both the check ring and
+  the threat glow. The glow now draws after the fill. The check ring draws
+  after these marks, before frost and figures. Two combined draw tests
+  cover the reported checked-king position on the plugin and web board.
+
+The product fixes are in `121d3803` (A8) and `e44f8094` (A15). The type check
+and whitespace check pass. The lane runner checks `e44f8094` on the M1:
+`plugin-ui` passes in 264.4 seconds, `gui-board-a8` in 23.0 seconds, and
+`gui-board-a15` in 23.9 seconds. The runner ends with exit 0.
+
+All 10 A15 captures pass visual inspection. They cover the plugin at
+390 × 844 and 1280 × 800, and the web at 390 × 844, 1280 × 800, and
+1440 × 900, in both host themes. The gold tile stays clear below the figures.
+The local copies are in `fix-shots/` in the lane folder.
+
+The focused unit checks pass: all 15 renderer tests and all 7 selected input
+cases. The input cases include both real pointer types on each skip path.
+The test-only follow-up `1b1ad1dc` waits for the result card's entrance to end
+before it taps Skip. The virtual clock keeps the king fall active.
+
+The first full run ends with exit 1 when the Mac runs out of disk space.
+The log records failed file writes and `OSError: [Errno 28] No space left on
+device`. The board file cannot start its tests. After that run ends, the
+Mac has 2.5 GiB free. Only this run's 3.6 MiB transfer bundle is removed;
+the captures and logs stay.
+
+The second full run ends with 183 files passed and 15 failed: 3,149 tests
+pass, 6 fail, and 159 skip. The database tests report `ECONNREFUSED` on
+127.0.0.1:55432. The existing local test cluster is stopped. Starting that
+cluster on its assigned port restores the connection; `SELECT 1` succeeds.
+No database configuration changes. The one other failure is the existing
+card-pulse test: it times out before Your move appears. Both pulse cases
+then pass alone with no change, in 6.37 seconds.
+
+The third full suite passes on `1b1ad1dc`, with the restored database and the
+same code and limits. All 198 files pass: 3,306 tests pass and 8 skip. All
+53 drawing tests pass. The unit phase takes 232.03 seconds. `npm test` ends
+with exit 0. All 173 board tests pass in that full run.
+
+The full run uses `npm test` on this Mac and the required local test database.
+No server code changes, so `plugin-ui-http` is not required. The logs are in
+`/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/picks-board/`:
+`fix-renderer-1.txt`, `fix-input-1.txt`, `fix-motion-1.txt`, `npmtest-fix-1.txt`,
+`npmtest-fix-2.txt`, `npmtest-fix-3.txt`, `pg-restore.txt`, and `checks-fix-1.txt`.
+
+All test and browser commands have ended. The final changes after the
+browser check affect only the result-card test wait and this record.
+No assertion is removed or weakened. No time limit, game rule, or animation
+duration changes.
 
 Plan and pass criteria:
 
