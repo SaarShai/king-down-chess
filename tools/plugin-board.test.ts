@@ -7,13 +7,15 @@ import type { Browser, Locator, Page } from 'playwright';
 import { launch, STEP } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
-import { legalMoves, makeMove, parseRule, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
+import { inCheck, legalMoves, makeMove, parseRule, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import type { View } from '../src/match/protocol';
 import { applyLan } from '../src/plugin/screens/board-model';
 import { LESSONS } from '../src/lessons';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { readText } from '../src/read';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
+import { momentKind } from '../src/moment';
+import { soundsFor } from '../src/screen/moments';
 import { describeMove } from '../src/move-text';
 import { cardText, powerText, ruleLine } from '../src/powers-ui';
 import { PRESETS, designCode, fromPreset } from '../src/workshop/model';
@@ -717,7 +719,7 @@ it('moves the keyboard cursor while the opponent move animates', async () => {
   try {
     await frame.locator('#board[aria-busy="false"]').waitFor();
     await frame.locator('#board').press('ArrowLeft');
-    expect(await frame.locator('#board').getAttribute('aria-label')).toBe('Chess board, b1. Enter selects a square.');
+    expect(await frame.locator('#board').getAttribute('aria-label')).toBe('Chess board, b1, empty. Enter selects a square.');
     await frame.locator('html').evaluate((_, next) => {
       const host = window as any, board = document.getElementById('board')!;
       // Hold the replay until the real cursor key arrives, as in the ceremony test.
@@ -729,7 +731,7 @@ it('moves the keyboard cursor while the opponent move animates', async () => {
     await frame.locator('#board[data-animating="true"]').waitFor();
     await frame.locator('#board').focus(); await page.keyboard.press('ArrowRight');
     expect(await frame.locator('html').evaluate(() => (window as any).cursorKeyAnimating)).toBe('true');
-    expect(await frame.locator('#board').getAttribute('aria-label')).toBe('Chess board, a1. Enter selects a square.');
+    expect(await frame.locator('#board').getAttribute('aria-label')).toBe('Chess board, a1, empty. Enter selects a square.');
     await frame.locator('html').evaluate(() => (window as any).endReplay());
     await frame.locator('#board[data-animating="false"]').waitFor();
   } finally { await page.close(); }
@@ -1338,9 +1340,9 @@ it('W7: keeps reads and blocks legal tap, keyboard and drag moves before and dur
       for (let n=0;n<7;n++) { await board.press('ArrowLeft'); await board.press('ArrowDown'); }
       for (let n=0;n<4;n++) await board.press('ArrowRight');
       for (let n=0;n<6;n++) await board.press('ArrowUp');
-      expect(await board.getAttribute('aria-label')).toContain('e7.'); await board.press('Enter');
+      expect(await board.getAttribute('aria-label')).toContain('e7,'); await board.press('Enter');
       await board.press('ArrowDown'); await board.press('ArrowDown');
-      expect(await board.getAttribute('aria-label')).toContain('e5.'); await board.press('Enter'); await unchanged();
+      expect(await board.getAttribute('aria-label')).toContain('e5,'); await board.press('Enter'); await unchanged();
       const source=await squarePoint(page,52), target=await squarePoint(page,36);
       await page.mouse.move(source.x,source.y); await page.mouse.down(); await page.mouse.move(target.x,target.y,{steps:5}); await page.mouse.up();
       expect(await frame.locator('html').evaluate(() => (window as any).dragAttempts)).toEqual([]);
@@ -1388,8 +1390,8 @@ it('W7: blocks a legal Haste follow-up while Send waits', async () => {
     const board=frame.locator('#board'); await board.focus();
     for (let n=0;n<4;n++) await board.press('ArrowRight');
     for (let n=0;n<3;n++) await board.press('ArrowUp');
-    expect(await board.getAttribute('aria-label')).toContain('e4.'); await board.press('Enter');
-    await board.press('ArrowUp'); expect(await board.getAttribute('aria-label')).toContain('e5.'); await board.press('Enter'); await unchanged();
+    expect(await board.getAttribute('aria-label')).toContain('e4,'); await board.press('Enter');
+    await board.press('ArrowUp'); expect(await board.getAttribute('aria-label')).toContain('e5,'); await board.press('Enter'); await unchanged();
     const source=await squarePoint(page,28), target=await squarePoint(page,36);
     await page.mouse.move(source.x,source.y); await page.mouse.down(); await page.mouse.move(target.x,target.y,{steps:5}); await page.mouse.up();
     expect(await frame.locator('html').evaluate(() => (window as any).dragAttempts)).toEqual([]);
@@ -1699,6 +1701,54 @@ it('F05: draws one keyboard cursor at the tile and clears it on Escape or blur',
   } finally { await page.close(); }
 });
 
+it('N10: keeps the board name and Enter hint with the short cursor words', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1')), frame = page.frameLocator('iframe');
+  try {
+    const board = frame.locator('#board'), live = frame.locator('#cursor-say');
+    expect(await frame.locator('#cursor-say[aria-live="polite"]').count()).toBe(1);
+    for (const [key, words] of [
+      ['ArrowUp', 'a2, white pawn'], ['Enter', 'a2, white pawn, selected'],
+      ['ArrowUp', 'a3, empty, can go here'], ['ArrowRight', 'b3, empty'],
+    ]) {
+      await board.press(key);
+      expect(await board.getAttribute('aria-label')).toBe(`Chess board, ${words}. Enter selects a square.`);
+      expect(await live.textContent()).toBe(words);
+    }
+  } finally { await page.close(); }
+});
+
+it('N10: says "can go here" on the squares that an armed power can use', async () => {
+  const page = await open(view('4k3/1p6/8/8/8/8/4P3/4K3 w - - 0 1', { kings: [{ king: 'Frost', power: 'Freeze' }, null] })), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#power-w').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
+    const board = frame.locator('#board'), live = frame.locator('#cursor-say');
+    await board.press('ArrowRight'); for (let i = 0; i < 5; i++) await board.press('ArrowUp');
+    expect(await live.textContent()).toBe('b6, empty');
+    await board.press('ArrowUp');
+    expect(await live.textContent()).toBe('b7, black pawn, can go here');
+  } finally { await page.close(); }
+});
+
+it.each(['Escape', 'blur'] as const)('N10: clears the cursor text when %s hides a selected cursor', async input => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1')), frame = page.frameLocator('iframe');
+  try {
+    const board = frame.locator('#board'), live = frame.locator('#cursor-say');
+    await board.press('ArrowUp'); await board.press('Enter');
+    expect(await live.textContent()).toBe('a2, white pawn, selected');
+    if (input === 'Escape') await board.press('Escape');
+    else await frame.locator('#board-menu').focus();
+    expect(await board.getAttribute('aria-label')).toBe('Chess board');
+    expect(await live.textContent()).toBe('');
+    expect(await frame.locator('.mk-cursor').count()).toBe(0);
+    if (input === 'Escape') {
+      expect((await marks(page)).selected).toBeUndefined();
+      await board.press('ArrowUp');
+      expect(await live.textContent()).toBe('a3, empty');
+    }
+  } finally { await page.close(); }
+});
+
 it('F06: marks only the armed usable card and shows the gold band', async () => {
   const rules: Partial<Rules> = { hands: [['Strike', 'Freeze', 'IceWall', 'Vault'], ['Strike']] };
   const page = await open(view('7k/8/8/8/8/8/P7/R6K w - - 0 1', rules), 390, 844), frame = page.frameLocator('iframe');
@@ -1824,7 +1874,10 @@ it.each(['tap', 'Escape', 'drag', 'Menu Escape', 'Moves Escape'] as const)('F11:
     expect(result.syncs).toEqual([...positions, toFen(pos)]); expect(result.timers).toBeGreaterThan(timers);
     expect(await boardFen(page)).toBe(toFen(pos)); expect((await marks(page)).selected).toBeUndefined();
     // Escape during motion also ends the keyboard cursor, as it does at rest.
-    if (input === 'Escape') expect(await frame.locator('#board .mk-cursor').count()).toBe(0);
+    if (input === 'Escape') {
+      expect(await frame.locator('#board .mk-cursor').count()).toBe(0);
+      expect(await frame.locator('#board').getAttribute('aria-label')).toBe('Chess board'); expect(await frame.locator('#cursor-say').textContent()).toBe('');
+    }
     await squareTap(page, 12); expect((await marks(page)).selected).toBe(12);
   } finally { await page.close(); }
 });
@@ -1867,3 +1920,53 @@ it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 px buttons
     await page.screenshot({ path: join(proof, `plugin-seat-menu-390x844-${theme}.png`) });
   } finally { await page.close(); }
 });
+
+const soundCases = [
+  { kind: 'move', fen: '7k/8/8/8/8/8/P7/K7 w - - 0 1', now: 'move', hit: null },
+  { kind: 'capture', fen: '7k/8/8/8/8/8/7p/K6R w - - 0 1', now: null, hit: 'capture' },
+  { kind: 'shot', fen: '7k/8/8/2p5/8/2A5/8/K7 w - - 0 1', now: 'shot', hit: 'capture' },
+  { kind: 'shove', fen: 'k7/8/8/8/8/2p5/3pP3/4O2K w - - 0 1', now: null, hit: 'shove' },
+  { kind: 'chain', fen: '7k/8/8/2pp4/2S5/8/8/K7 w - - 0 1', now: null, hit: 'chain' },
+  { kind: 'swap', fen: '7k/8/8/8/2RM4/8/8/K7 w - - 0 1', now: 'swap', hit: null },
+] as const;
+it.each(soundCases.flatMap(test => ['local', 'replay'].map(path => ({ ...test, path }))))(
+  'N11: the $path $kind uses the web sounds at start, contact and rest', async ({ kind, fen, now, hit, path }) => {
+    const base = view(fen, {}, { kind: 'friend' }), page = await open(base), frame = page.frameLocator('iframe');
+    try {
+      setRules(base.rules!); const pre = fromFen(fen);
+      const move = legalMoves(pre).find(m => kind === 'capture' ? m.captures.length === 1 && m.to !== m.from
+        : kind === 'move' ? momentKind(pre, m) === null && !m.captures.length : momentKind(pre, m) === kind)!;
+      expect(move).toBeDefined();
+      const post = makeMove(pre, move), lan = toLan(pre, move), web = soundsFor(momentKind(pre, move), move);
+      expect(web).toEqual({ now, hit });
+      await frame.locator('html').evaluate(`(async () => {
+        const { snd, setSound } = await import('/src/render/sfx.ts'); setSound(true); window.soundEvents = [];
+        for (const name of ['move', 'capture', 'shot', 'shove', 'chain', 'swap', 'check']) snd[name] = () => window.soundEvents.push('sound:' + name);
+        window.testBoard.animateMove = (pre, move, contact) => {
+          window.soundEvents.push('animate');
+          window.soundContact = () => { window.soundEvents.push('contact'); contact(); };
+          return new Promise(resolve => { window.finishSoundMove = () => { window.soundEvents.push('rest'); resolve(); }; });
+        };
+      })()`);
+      if (path === 'local') {
+        await squareTap(page, move.from); await frame.locator('#board-menu').click();
+        await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
+        await frame.locator(`#choices button[title="${lan}"]`).click();
+      } else {
+        await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {
+          ...base, revision: 1, fen: toFen(post), turn: post.turn, action: 'waiting', legal: [],
+          last_commands: [{ seq: 1, seat: 0, at: base.server_now, action: { type: 'turn', actions: [lan] } }],
+        });
+      }
+      const events = () => frame.locator('html').evaluate<string[]>(() => (window as any).soundEvents);
+      expect(await events()).toEqual([...(now ? [`sound:${now}`] : []), 'animate']);
+      await frame.locator('html').evaluate(() => { (window as any).soundContact(); (window as any).soundContact(); });
+      expect((await events()).filter(event => event.startsWith('sound:'))).toEqual([now, hit].filter(Boolean).map(name => `sound:${name}`));
+      await frame.locator('html').evaluate(() => (window as any).finishSoundMove());
+      await frame.locator('#board[data-animating="false"]').waitFor();
+      const result = await events(), check = inCheck(post);
+      expect(result.filter(event => event.startsWith('sound:'))).toEqual([web.now, web.hit, check ? 'check' : null].filter(Boolean).map(name => `sound:${name}`));
+      if (hit) expect(result.indexOf(`sound:${hit}`)).toBeLessThan(result.indexOf('rest'));
+      if (check) expect(result.indexOf('sound:check')).toBeGreaterThan(result.indexOf('rest'));
+    } finally { await page.close(); }
+  });
