@@ -26,7 +26,7 @@ Set only in the staging project's **preview** environment:
 - `KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS`: the registered staging OAuth client IDs
 - `KINGDOWN_PLUGIN_OAUTH_READY=1`: only after consent, registration, resource audience hook and discovery are ready
 
-The database must use `db.puhspsyjyzaghmgtkzqd.supabase.co` with user `postgres`, or a Supabase pooler with user `postgres.puhspsyjyzaghmgtkzqd`. It must use database `postgres` and verified TLS. Stage checks run before provider discovery or a database connection.
+The database must use `db.puhspsyjyzaghmgtkzqd.supabase.co` with user `kingdown_plugin_runtime`, or a Supabase pooler with user `kingdown_plugin_runtime.puhspsyjyzaghmgtkzqd`. Administrator `postgres` connections are refused. The runtime role keeps only the existing restricted application grants. It must use database `postgres` and verified TLS. Stage checks run before provider discovery or a database connection.
 
 Staging opens the explicit operation list in `tools/plugin-server.mjs`. The database account switch, its five-second proof limit, website token verification, current-user provider check and per-user admission still apply. Browser sessions cannot use MCP OAuth tokens or anonymous sessions. HTTP and MCP use one player service. The local test identity hooks still require loopback, `NODE_ENV=test` and a disposable test database.
 

@@ -10,11 +10,12 @@ Status: implemented; integration checks pending.
 
 ## Verification
 
-Check missing, malformed and production settings; database and origin isolation; operation parity; route boundaries; and preview deploy guards. Run typecheck here. The integration task runs the shared test and database lanes.
+Check missing, malformed and production settings; database and origin isolation; restricted runtime role with administrator refusal; operation parity; route boundaries; and preview deploy guards. Run typecheck here. The integration task runs the shared test and database lanes.
 
 ## Evidence
 
 - `npm run typecheck` passes in this worktree.
 - Node syntax checks pass for the three changed server/deploy modules. `git diff --check` passes.
 - Unit checks cover public settings, rejected production targets before network/database access, test-hook boundaries, account route rewrites and the preview command/project guard. The shared test lane runs them after the HTTP route changes land.
+- A direct assertion check accepts both restricted runtime connection routes and refuses both administrator connection routes.
 - No remote action or database write runs in this task. The integration task owns test and deploy evidence.

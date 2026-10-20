@@ -1,11 +1,11 @@
 import { expect, it } from 'vitest';
 import { stagingConfig, STAGING_ORIGIN, STAGING_SUPABASE_URL, STAGING_SUPABASE_REF } from './staging-config.mjs';
 const env = { KINGDOWN_STAGE: 'staging', SUPABASE_URL: STAGING_SUPABASE_URL };
-const direct = `postgresql://postgres:fake@db.${STAGING_SUPABASE_REF}.supabase.co/postgres?sslmode=require`;
+const direct = `postgresql://kingdown_plugin_runtime:fake@db.${STAGING_SUPABASE_REF}.supabase.co/postgres?sslmode=require`;
 const check = (changes = {}, publicOrigin = STAGING_ORIGIN, db = direct) => stagingConfig({ ...env, ...changes }, { publicOrigin, database: new URL(db) });
 it('opens only the explicit stage with its fixed origin and database', () => {
   expect(check()).toBe(true);
-  expect(check({}, STAGING_ORIGIN, `postgresql://postgres.${STAGING_SUPABASE_REF}:fake@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require`)).toBe(true);
+  expect(check({}, STAGING_ORIGIN, `postgresql://kingdown_plugin_runtime.${STAGING_SUPABASE_REF}:fake@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require`)).toBe(true);
   expect(check({ KINGDOWN_STAGE: undefined })).toBe(false);
 });
 it.each(['production', 'preview', 'Staging'])('rejects unknown stage %s', KINGDOWN_STAGE => expect(() => check({ KINGDOWN_STAGE })).toThrow('KINGDOWN_STAGE'));
@@ -17,5 +17,10 @@ it('rejects another Supabase project and database before any connection', () => 
 });
 
 it('blocks known production targets even without the stage flag', () => {
+  expect(() => check({ KINGDOWN_STAGE: undefined }, STAGING_ORIGIN, 'postgresql://kingdown_plugin_runtime.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com/postgres?sslmode=require')).toThrow('production project');
   for (const SUPABASE_URL of ['https://utqzovjmclfyojedmwok.supabase.co', 'https://utqzovjmclfyojedmwok.supabase.co/']) expect(() => check({ KINGDOWN_STAGE: undefined, SUPABASE_URL })).toThrow('production project');
+});
+
+it('refuses administrator and other database roles for both connection routes', () => {
+  for (const db of [direct.replace('kingdown_plugin_runtime:', 'postgres:'), direct.replace('kingdown_plugin_runtime:', 'other:'), `postgresql://postgres.${STAGING_SUPABASE_REF}:fake@aws-0-us-west-2.pooler.supabase.com/postgres?sslmode=require`, `postgresql://other.${STAGING_SUPABASE_REF}:fake@aws-0-us-west-2.pooler.supabase.com/postgres?sslmode=require`]) expect(() => check({}, STAGING_ORIGIN, db)).toThrow('restricted runtime user');
 });
