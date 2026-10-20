@@ -13,7 +13,7 @@ Type: task
 
 ## Change
 
-The test pauses the page clock (`pauseAt`) for the click and the read, then resumes it. The assertion and every later step stay the same.
+The test fixes the page time (`setFixedTime`), pauses the clock at that time (`pauseAt`) for the click and the read, then resumes it. The fixed time comes first so that the pause target cannot fall into the past under load (review finding: a `Date.now() + 100` target can). This is the pattern of `tools/plugin-board.test.ts:153` and `tools/plugin-motion.test.ts:48`. The assertion and every later step stay the same.
 
 ## Proof
 

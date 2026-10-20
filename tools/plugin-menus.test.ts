@@ -202,7 +202,8 @@ it('shows a busy Start at once, Starting… after 1 s and a safe way back at 5 s
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
     const start = frame.locator('#setup-start');
     // Stop the page clock for the click and the read, so that machine load cannot run the 1 s timer between them.
-    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+    // Fix the time first, so the pause target cannot fall into the past under load.
+    await page.clock.setFixedTime(new Date()); await page.clock.pauseAt(await page.evaluate(() => Date.now()));
     await start.click();
     // Read at once, in one step: a quick start shows no words.
     expect(await start.evaluate((button: HTMLButtonElement) => [button.disabled, button.getAttribute('aria-busy'), button.textContent])).toEqual([true, 'true', 'Start game']);
