@@ -1,6 +1,6 @@
 # First staging game
 
-Status: in progress.
+Status: first real web–ChatGPT game verified. Fresh ChatGPT page loading has a known limitation.
 
 Owner request: develop in this separate project, reuse the reconciled work, fix integration faults and demonstrate the first web–ChatGPT game in staging. No production deploy.
 
@@ -47,12 +47,22 @@ Owner request: develop in this separate project, reuse the reconciled work, fix 
 
 ## Hosted checkpoint
 
-- Preview `dpl_7ic7HFCg9W1sf1WWJ1kEZ92ZyXdL` is READY, with product source `fe996ede`. Its generated URL is `https://kingdown-staging-6fpgnt5th-saars-projects-2c777ec5.vercel.app`. The alias `https://kingdown-staging.vercel.app` points to it. Hosted worker version is `b97b6c1cdd0b`.
+- Preview `dpl_FtPtUzjWoYNbtzvMLXUgRhrGVW3E` is READY, with product source `01cbe379`. Its generated URL is `https://kingdown-staging-mfymq2kf9-saars-projects-2c777ec5.vercel.app`. The alias `https://kingdown-staging.vercel.app` points to it. Hosted worker version is `b97b6c1cdd0b`.
 - Anonymous hosted checks pass: website and deep game entry return 200; account status reports open; protected MCP and account reads return 401; OAuth metadata and consent return 200. The runtime connects to the isolated database. Vercel protection settings did not change.
 - Vercel makes a new project's first deployment production even with the CLI preview flag. The first staging attempt, `dpl_GBEDmDAsvanmYySWG2EyDoqeMawn`, is removed after the preview takes the alias. No original production project changed. The deploy helper now refuses empty project history and verifies the returned project, READY state and preview target. Four guard tests pass.
-- ChatGPT discovers the staging OAuth endpoints, creates the separate connection and redirects to the staging consent sign-in page. This proves discovery and the start of authorization, not completed OAuth or a game inside ChatGPT.
-- The GitHub OAuth app is created and its public ID is entered in Supabase. The credential step awaits the owner. Public provider settings confirm that GitHub and Google are not enabled.
+- The owner saved the GitHub provider. Public settings confirm GitHub enabled; Google remains disabled. Website sign-in and the separate ChatGPT OAuth connection complete.
+- Website sessions now accept the exact `authenticated` audience as a string or a one-element array. Other audiences and OAuth-client tokens remain rejected. The signed-token regression fails before the fix and passes afterward: 56 API tests, 53 artwork checks and typecheck pass. An independent review finds no defect. The hosted session works after reload; its raw token was not inspected.
 - Public cache installation now uses eight fetch/write slots and keeps complete-cache validation before takeover. An unavailable entry offers Try again. The focused cache, access, entry and client checks pass 222 tests, typecheck and 53 artwork checks; independent review finds no defect. The final staging build, compiled artifact check and 161 documentation checks pass.
 - A new in-app browser visit still exceeds eight seconds during first installation; Try again reaches sign-in. The follow-up now allows up to 60 seconds only for a confirmed first install with no controller or active worker. It then requires a fresh eight-second proof. Existing active-worker deadlines remain unchanged. Delayed install, failure, timeout and late-event regressions pass: 219 focused tests, typecheck and 53 artwork checks. Independent review finds no defect. Final build, compiled artifact and documentation checks pass again.
 - Updating an already installed worker can still exceed the normal eight-second limit and show Try again. The hosted update follows this path; no private request is sent before proof. This bounded refusal and recovery remains visible during slow updates.
-- Remaining: enable sign-in and prove the game in the real ChatGPT host. Hosted evidence is in the independent project's `evidence/staging-hosted/` folder. The extended first-install timing is verified by deterministic delayed-install tests; hosted screenshots distinguish the observed retry path from that proof.
+- Hosted evidence is in the independent project's `evidence/staging-hosted/` folder. The extended first-install timing is verified by deterministic delayed-install tests; hosted screenshots distinguish the observed retry path from that proof.
+
+## Real-host verification
+
+Status: the game round trip passes. See [the real-host record](issues/09-real-host-proof.md) for the game, steps, evidence and remaining fresh-load issue.
+
+1. Website sign-in and separate ChatGPT consent complete.
+2. Website game `1e34ff0e-5f7b-84f0-8cc6-22268129d986` resumes inside ChatGPT with the exact website move history.
+3. The widget commits a move and resignation. Fresh website reloads show the matching four moves and final result.
+4. Screenshots record both surfaces. The live solo game supplements the hidden friend setup, complex turn and lost-reply harness evidence.
+5. Fresh standalone ChatGPT loads can fail before the widget appears; retry works. A separate temporary preview returns the resource with HTTP 200, but no game HTML or startup marker appears until retry. All startup markers then complete and controls work. The underlying delivery or execution cause is unconfirmed. Restore the verified preview, retain the evidence, and keep reliable first-load behavior as a release gate.

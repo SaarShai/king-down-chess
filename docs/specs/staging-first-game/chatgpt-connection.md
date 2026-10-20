@@ -18,18 +18,14 @@ The staging account database is separate. A player's Google or GitHub identity c
 
 ## Current connection
 
-ChatGPT discovers the OAuth endpoints and redirects the separate connection to the staging consent page. Sign-in is not complete. The public provider settings still report GitHub and Google as disabled.
+Website sign-in and ChatGPT OAuth complete. The public provider settings report GitHub enabled and Google disabled.
 
-The [King Down Staging GitHub app](https://github.com/settings/applications/3948844) exists. Its public client ID is already in the [staging Supabase provider form](https://supabase.com/dashboard/project/puhspsyjyzaghmgtkzqd/auth/providers). The owner must generate the new client secret, put it directly in that provider form, enable GitHub and save. Browser-control policy requires the owner to enter and submit a new authentication credential. Do not put that secret in chat, source files or evidence.
+The owner saved the credential for the [King Down Staging GitHub app](https://github.com/settings/applications/3948844) directly in the [staging Supabase provider form](https://supabase.com/dashboard/project/puhspsyjyzaghmgtkzqd/auth/providers). Do not put that secret in chat, source files or evidence.
 
-## Proof still required
+## Verified scope
 
-The local browser check uses the built page, real HTTP and MCP handlers, and a disposable local database. It does not prove that ChatGPT can load the widget, finish OAuth or continue the game in its own host.
+The real ChatGPT widget and staging website share game `1e34ff0e-5f7b-84f0-8cc6-22268129d986`. A move on each surface appears in the other's history after reload. Resignation in ChatGPT appears as the same final result on the website. See [the real-host record](issues/09-real-host-proof.md).
 
-Before marking the staging game complete:
+The built local browser check separately covers a friend game, hidden setup, a complex turn and an injected lost reply with an identical retry and one effect. It uses the real HTTP/MCP handlers and a disposable database.
 
-1. Enable a staging social sign-in provider and finish sign-in on the website.
-2. Connect King Down Staging in ChatGPT and finish its OAuth consent.
-3. Create a friend game on the website, open that same game in ChatGPT, and verify the board and hidden setup there.
-4. Complete a move and retry, then verify the same result on both surfaces.
-5. Record the deployment, source commit and evidence in `plan.md`.
+Fresh standalone ChatGPT page loads can show `Couldn’t display King Down Staging`. **Try again** loads the working game. A temporary trace observes no game HTML-entry marker on the failing load, then every startup marker on retry. The underlying cause remains unconfirmed. This does not invalidate the observed game round trip or establish production readiness.
