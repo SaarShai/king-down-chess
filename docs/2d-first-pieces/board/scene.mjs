@@ -942,6 +942,7 @@ function drawEncounter(a,t) {
  const api={
   SIZE,PAD,TILE,headroom,
   get animating(){return !!animation&&!animation.done;},
+  get falling(){return !!fallen&&performance.now()-fallen.start<FALL;},
   /** What is playing: a gait name for a quiet move with character, else the animation kind ('move' for the plain slide); null when idle. */
   get playing(){return animation&&!animation.done?animation.gait??animation.type:null;},
   get position(){return position;},
@@ -973,7 +974,7 @@ function drawEncounter(a,t) {
   /** size: letter height in board units (default 13); a small board on a phone needs more. */
   setCoords(on,size=13,inset=14){coords=on;coordSize=size;coordInset=inset;wake();},
   setLabels(on){labels=on;wake();},
-  setReducedMotion(on){reducedMotion=on;},
+  setReducedMotion(on){reducedMotion=on;if(on)awakeUntil=0;},
   /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. */
   setFallen(sq,animate=true,rotation=-1.5){fallen=sq==null?null:{sq,rotation,start:animate?performance.now():-Infinity};wake();},
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */

@@ -21,6 +21,8 @@ body[data-page='end'] #table-bar { visibility: hidden; }
 }
 #board-sheet { padding: 0; overflow: hidden; display: none; }
 #board-sheet[open] { display: flex; flex-direction: column; }
+.frame #board-sheet.move-choice { inset: auto; margin: 0; width: min(560px, calc(100% - 24px)); max-height: calc(50% - 24px); border-radius: var(--radius-lg); }
+.frame .move-choice-scrim { background: rgba(29, 25, 21, .16); backdrop-filter: none; }
 #board-sheet .sheet-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; }
 #board-sheet .sheet-head h2 { flex: 1; margin: 0; }
 #board-sheet .sheet-head button { width: 44px; min-width: 44px; padding: 0; justify-content: center; }

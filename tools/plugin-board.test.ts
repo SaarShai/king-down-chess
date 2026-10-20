@@ -7,7 +7,7 @@ import type { Browser, Locator, Page } from 'playwright';
 import { launch, STEP } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
-import { inCheck, legalMoves, makeMove, parseRule, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
+import { P, R, N, L, inCheck, legalMoves, makeMove, parseRule, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import type { View } from '../src/match/protocol';
 import { applyLan } from '../src/plugin/screens/board-model';
 import { LESSONS } from '../src/lessons';
@@ -140,7 +140,7 @@ it.each(['See the board', 'New game'])('cancels a pending ceremony with %s durin
   } finally { await page.close(); }
 });
 
-it.each(['Skip', 'Finish'])('keeps the king fall running when the result card opens, then %s clears it', async ending => {
+it.each(['Skip mouse', 'Skip touch', 'Finish'])('keeps the king fall running when the result card opens, then %s clears it', async ending => {
   const before = view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'), pre = fromFen(before.fen);
   const move = legalMoves(pre).find(m => toLan(pre,m) === 'Qa1-a8')!, post = makeMove(pre,move);
   const page = await open(before, 360, 844, true), frame = page.frameLocator('iframe');
@@ -156,9 +156,17 @@ it.each(['Skip', 'Finish'])('keeps the king fall running when the result card op
     await page.clock.runFor(50);
     await frame.locator('#over[open]').waitFor(); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
     expect(await frame.locator('html').evaluate(() => (window as any).falls)).toEqual([true]);
-    if (ending === 'Skip') await frame.locator('#end-skip').evaluate((b: HTMLButtonElement) => b.click());
-    else await page.clock.fastForward(1130);
+    if (ending !== 'Finish') {
+      expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.falling)).toBe(true);
+      await frame.locator('#over').evaluate(async el => { await Promise.all(el.getAnimations().map(a => a.finished)); });
+      const box = (await frame.locator('#end-skip').boundingBox())!;
+      if (ending === 'Skip touch') await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+      else await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await expect.poll(() => frame.locator('#end-skip').isHidden()).toBe(true);
+    } else await page.clock.fastForward(1130);
     expect(await frame.locator('html').evaluate(() => (window as any).falls.at(-1))).toBe(false);
+    expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
+    await page.clock.runFor(1200);
     expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
     expect(await frame.locator('#game-table').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   } finally { await page.close(); }
@@ -485,15 +493,16 @@ it.each([{ width: 393, height: 852, cards: true }, { width: 320, height: 568, ca
 });
 
 it.each(['normal', 'fast'])('uses a slide, a 150 ms fade and no shake under reduced motion at %s pace', async pace => {
-  const page = await open(view('7k/8/8/8/8/8/p7/R6K w - - 0 1')), frame = page.frameLocator('iframe');
+  // Install the clock before the scene queues frames, so a real frame cannot outlive the clock change.
+  const page = await open(view('7k/8/8/8/8/8/p7/R6K w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
   try {
     await frame.locator('#board[aria-busy="false"]').waitFor();
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).testBoard.motionQuery.matches)).toBe(true);
     await frame.locator('html').evaluate((_, pace) => (window as any).testBoard.setPace(pace), pace);
-    // A frame requested before the fake clock runs on real time; wait until the scene draws no more frames.
+    // Let the reduced-motion setting draw its last frame before the clock pauses.
     await expect.poll(() => frame.locator('html').evaluate(async () => { const scene = (window as any).testBoard.scene, before = scene.frames; await new Promise(resolve => setTimeout(resolve, 100)); return scene.frames === before; })).toBe(true);
-    await page.clock.install({ time: new Date('2026-10-15T12:00:00Z') }); await page.clock.pauseAt(new Date('2026-10-15T12:00:01Z'));
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
     const result = await frame.locator('html').evaluate(async () => {
       const board = (window as any).testBoard, scene = board.scene, pre = board.pos;
       const moves = [];
@@ -522,6 +531,7 @@ it.each(['normal', 'fast'])('uses a slide, a 150 ms fade and no shake under redu
     await page.clock.fastForward(slide + 75);
     const middle = await frame.locator('html').evaluate(() => ({ done: (window as any).captureDone, start: (window as any).captureStart, frames: (window as any).victimFrames }));
     expect(middle.done).toBe(false);
+    expect(middle.frames.length).toBeGreaterThan(0);
     const victim = middle.frames.at(-1);
     expect(victim.opacity).toBeGreaterThan(0); expect(victim.opacity).toBeLessThan(1);
     expect(victim.opacity).toBeCloseTo(1 - (victim.at - middle.start - slide) / 150, 5);
@@ -1899,6 +1909,84 @@ it('F11: a tap skips a local move without selecting a piece', async () => {
   } finally { await page.close(); }
 });
 
+it.each(['mouse', 'touch'] as const)('A8: real %s input skips both Haste moves', async input => {
+  const rules: Partial<Rules> = { kings: [null, { king: 'Flame', power: 'Haste' }] };
+  const base = view('4k3/p7/8/8/8/8/4P3/K7 b - - 0 1', rules, { kind: 'friend', seat: 0, action: 'waiting' });
+  let pos = fromFen(base.fen);
+  const actions: string[] = [];
+  for (const pick of [(m: Move) => m.power === 'haste' && m.from === 48 && m.to === 40, (m: Move) => !m.pass && m.from === 40 && m.to === 32]) {
+    const move = legalMoves(pos).find(pick)!;
+    expect(move).toBeDefined(); actions.push(toLan(pos, move)); pos = makeMove(pos, move);
+  }
+  const page = await open(base, 393, 852, true), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await frame.locator('html').evaluate(() => {
+      const w = window as any, b = w.testBoard, animate = b.animateMove.bind(b);
+      w.animationCalls = 0;
+      b.animateMove = (...args: unknown[]) => { w.animationCalls++; return animate(...args); };
+    });
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {
+      ...base, revision: 1, fen: toFen(pos), turn: 0, action: 'ready', legal: legalMoves(pos).map(m => toLan(pos, m)),
+      last_commands: [{ seq: 1, seat: 1, at: base.server_now, action: { type: 'turn', actions } }],
+    });
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.animating)).toBe(true);
+    const pane = (await page.locator('iframe').boundingBox())!;
+    const point = await frame.locator('html').evaluate(() => (window as any).testBoard.screenOf(12));
+    if (input === 'touch') await page.touchscreen.tap(pane.x + point.x, pane.y + point.y);
+    else await page.mouse.click(pane.x + point.x, pane.y + point.y);
+    await expect.poll(() => frame.locator('#board').getAttribute('data-animating')).toBe('false');
+    expect(await frame.locator('html').evaluate(() => (window as any).animationCalls)).toBe(1);
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.animating)).toBe(false);
+    expect(await boardFen(page)).toBe(toFen(pos));
+    expect((await marks(page)).selected).toBeUndefined();
+    expect(await frame.locator('html').evaluate(() => {
+      const b = (window as any).testBoard.scene.position.board;
+      return [b[48], b[40], b[32]];
+    })).toEqual([0, 0, pos.board[32]]);
+  } finally { await page.close(); }
+});
+
+it.each(['mouse', 'touch'] as const)('A8: real %s input ends the web final blow and its timers', async input => {
+  const page = await open(view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await frame.locator('html').evaluate(`(async () => {
+      const { startCeremony } = await import('/src/ceremony.ts'), { Game } = await import('/src/game.ts');
+      const { fromFen, toFen } = await import('/src/rules/setup.ts');
+      const game = new Game(); game.load(fromFen('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'));
+      game.play(game.legal.find(move => move.from === 0 && move.to === 56));
+      const b = window.testBoard, board = document.getElementById('board');
+      window.previousSkip = b.onSkipAnimation; window.ceremonyDone = false; window.finalFen = toFen(game.pos);
+      const captionHost = document.createElement('div'), moments = document.createElement('div');
+      board.append(captionHost, moments);
+      window.ceremony = startCeremony({ view: b, board, captionHost, moments, history: game.history,
+        final: game.pos, king: 63, showPly() {}, motion: true, live: () => true });
+      window.ceremony.done.then(done => { window.ceremonyDone = done; });
+    })()`);
+    await page.clock.runFor(130);
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.animating)).toBe(true);
+    const pane = (await page.locator('iframe').boundingBox())!;
+    const point = await frame.locator('html').evaluate(() => (window as any).testBoard.screenOf(46));
+    if (input === 'touch') await page.touchscreen.tap(pane.x + point.x, pane.y + point.y);
+    else await page.mouse.click(pane.x + point.x, pane.y + point.y);
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).ceremonyDone)).toBe(true);
+    expect(await frame.locator('.ceremony-caption').count()).toBe(0);
+    expect(await frame.locator('.ceremony-tile').count()).toBe(1);
+    expect(await frame.locator('html').evaluate(() => {
+      const w = window as any, b = w.testBoard;
+      return { animating: b.scene.animating, falling: b.scene.falling, king: b.fallen?.sq, restored: b.onSkipAnimation === w.previousSkip };
+    })).toEqual({ animating: false, falling: false, king: 63, restored: true });
+    expect(await boardFen(page)).toBe(await frame.locator('html').evaluate(() => (window as any).finalFen));
+    expect((await marks(page)).selected).toBeUndefined();
+    await page.clock.runFor(1700);
+    expect(await frame.locator('.kd-words.is-in, .ceremony-caption').count()).toBe(0);
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.falling)).toBe(false);
+  } finally { await page.close(); }
+});
+
 it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 px buttons (%s)', async theme => {
   const base = view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), page = await open(base, 390, 844), frame = page.frameLocator('iframe');
   const proof = join(tmpdir(), 'kingdown-gui-board-proof'); await import('node:fs/promises').then(fs => fs.mkdir(proof, { recursive: true }));
@@ -2050,3 +2138,93 @@ it.each(soundCases.flatMap(test => ['local', 'replay'].map(path => ({ ...test, p
       if (check) expect(result.indexOf('sound:check')).toBeGreaterThan(result.indexOf('rest'));
     } finally { await page.close(); }
   });
+
+
+it.each(['mouse', 'touch'] as const)('A8: a %s skip keeps the capture and does not open Menu', async input => {
+  const page = await open(view('7k/8/8/8/8/8/p7/R6K w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await frame.locator('html').evaluate(() => {
+      const board = (window as any).testBoard;
+      board.onSquareClick(0, false); board.onSquareClick(8, false);
+    });
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.animating)).toBe(true);
+    const box = (await frame.locator('#board-menu').boundingBox())!;
+    if (input === 'touch') await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    else await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.animating)).toBe(false);
+    expect(await frame.locator('#board-sheet[open]').count()).toBe(0);
+    await expect.poll(() => frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('false');
+    expect(await frame.locator('html').evaluate(() => {
+      const board = (window as any).testBoard;
+      return [board.scene.position.board[0], board.scene.position.board[8], board.marks.selected ?? null];
+    })).toEqual([0, 4, null]);
+    expect((await savedDraft(page)).lans).toEqual(['Ra1xa2']);
+    await frame.locator('#board-menu').dispatchEvent('click');
+    expect(await frame.locator('#board-sheet[open]').count()).toBe(1);
+  } finally { await page.close(); }
+});
+
+
+it.each([390, 1280])('A18: keeps an empty named moves list with no words at %i px', async width => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), width, width === 390 ? 844 : 800), frame = page.frameLocator('iframe');
+  try {
+    const recent = frame.locator('#recent-moves');
+    expect(await recent.textContent()).toBe('');
+    expect(await recent.getAttribute('aria-label')).toBe('Moves');
+    if (width === 390) expect(await recent.isHidden()).toBe(true);
+    await frame.locator('#board-menu').click();
+    await frame.getByRole('button', { name: 'Moves', exact: true }).click();
+    expect(await frame.locator('#board-sheet .sheet-body').textContent()).toBe('');
+    expect(await frame.getByRole('dialog', { name: 'Moves', exact: true }).isVisible()).toBe(true);
+  } finally { await page.close(); }
+});
+
+
+it.each([false, true])('Y3: shows only the king and power in the seat strip (ready %s)', async ready => {
+  const page = await open(view('', {}, { status: 'setup', options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true, cards: false },
+    draw: 'RNBQKBNR', deal: [], ready: [ready, false], choices: [{ king: { king: 'Spirit', power: 'Mercy' }, order: 'RNBQKBNR' }, null] })), frame = page.frameLocator('iframe');
+  try {
+    expect(await frame.locator('#seat-me-line').textContent()).toBe('Spirit · Mercy');
+    expect(await frame.locator('#seat-context').textContent()).toBe(ready ? 'Waiting for the other player.' : 'Choose your king, then press Ready.');
+    expect(await frame.locator('#seat-king').isVisible()).toBe(true);
+  } finally { await page.close(); }
+});
+
+
+it('A8: keeps the full main gait at Normal and Fast for every quiet move type', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    for (const pace of ['normal', 'fast']) for (const [piece, duration] of [[P,420],[R,480],[N,1350],[L,1450]]) {
+      await frame.locator('html').evaluate((_, {piece, pace}) => {
+        const host = window as any, board = host.testBoard, pos = { ...board.pos, board: new Uint8Array(board.pos.board) };
+        pos.board[8] = piece; board.setPace(pace); host.quietDone = false;
+        void board.animateMove(pos, {from:8,to:48,captures:[]}).then(() => { host.quietDone = true; });
+      }, {piece, pace});
+      await page.clock.fastForward(duration * (pace === 'fast' ? .5 : 1) - 40);
+      expect(await frame.locator('html').evaluate(() => (window as any).quietDone)).toBe(false);
+      await page.clock.fastForward(80);
+      expect(await frame.locator('html').evaluate(() => (window as any).quietDone)).toBe(true);
+    }
+  } finally { await page.close(); }
+});
+
+
+it('A8: Off ends the active marker draw timer', async () => {
+  const page = await open(view('7k/8/8/8/8/8/A7/K7 w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await frame.locator('html').evaluate(() => {
+      const board = (window as any).testBoard;
+      board.setPace('normal'); board.highlight({ selected:8, moves:[9,16] }); board.setPace('off');
+    });
+    await page.clock.runFor(100);
+    const frames = await frame.locator('html').evaluate(() => (window as any).testBoard.scene.frames);
+    await page.clock.runFor(500);
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.frames)).toBe(frames);
+  } finally { await page.close(); }
+});

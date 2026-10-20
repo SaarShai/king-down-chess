@@ -70,6 +70,7 @@ export function startCeremony({ view, board, captionHost, moments, history, fina
   };
   const cleanup = (): void => {
     caption.remove();
+    if (view.onSkipAnimation === skip) view.onSkipAnimation = previousSkip;
     board.removeEventListener('pointerdown', onTap, true);
     document.removeEventListener('keydown', onKey, true);
     document.removeEventListener('visibilitychange', onHidden);
@@ -119,6 +120,8 @@ export function startCeremony({ view, board, captionHost, moments, history, fina
     if (!live()) cancel();
     return !stopped;
   };
+  const previousSkip = view.onSkipAnimation;
+  view.onSkipAnimation = skip;
   board.addEventListener('pointerdown', onTap, true);
   document.addEventListener('keydown', onKey, true);
   document.addEventListener('visibilitychange', onHidden);

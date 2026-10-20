@@ -264,7 +264,6 @@ input[type='checkbox']:checked { background: var(--accent) var(--tick) no-repeat
 #moves [data-ply] b { font-weight: 700; }
 #moves .viewing { background: var(--ink); color: var(--vellum); }
 @media (hover: hover) { #moves [data-ply]:not(.viewing):hover { background: var(--parchment-deep); } }
-#moves:empty::before { content: 'No moves yet'; display: block; padding: 2px 4px; color: var(--ink-soft); font-style: italic; }
 .hover { min-height: 1.6em; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
 /* ---- captured pieces ---- */
@@ -305,6 +304,9 @@ dialog form button { width: auto; min-width: 96px; justify-content: center; padd
 .fields { display: flex; flex-direction: column; gap: 10px; }
 dialog small { color: var(--ink-soft); }
 #asset-status, #army-note, #pace-note, #threats-note { font-size: var(--fs-xs); color: var(--ink-soft); line-height: 1.4; }
+#move-choice { position: fixed; inset: auto; margin: 0; width: min(460px, calc(100vw - 32px)); }
+#game-table #board.choosing-move { align-self: start; margin-block: 0; }
+#move-choice::backdrop { background: rgba(29, 25, 21, 0.16); backdrop-filter: none; }
 #move-choice, #promo { max-width: min(460px, calc(100vw - 32px)); }
 #move-choice button, #promo button { min-height: var(--tap); }
 #cancel-choice, #cancel-promo { margin-top: var(--space-4); justify-content: center; }

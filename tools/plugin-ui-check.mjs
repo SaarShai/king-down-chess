@@ -18,7 +18,7 @@ const { DEFAULT_OPTIONS } = await import('../src/match/setup.ts');
 const { applyLan, cardCoins, replayHistory } = await import('../src/plugin/screens/board-model.ts');
 const { threatsIn } = await import('../src/move-text.ts');
 const { cardName } = await import('../src/powers-ui.ts');
-const { POP_MS, RIPPLE_MS } = await import('../src/render/marks.ts');
+const { POP_MS } = await import('../src/render/marks.ts');
 const iconNames = { P:'pawn', N:'knight', B:'bishop', R:'rook', Q:'queen', K:'king', A:'archer', L:'paladin', G:'guard', M:'maester', S:'beast', O:'ogre' };
 const iconSources = Object.fromEntries(await Promise.all(Object.values(iconNames).map(async name => [name, await readFile(`public/ui/icons/${name}.svg`, 'utf8')])));
 import { assertNoErrors, env, launch, shot, STEP, trapErrors } from './lib/checks.mjs';
@@ -252,6 +252,7 @@ try {
     await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', {name:'Choose a move', exact:true}).click();
   }
   async function menuAction(id) {
+    await frame.locator('#board:not([data-animating="true"])').waitFor({ state: 'attached' });
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
     await frame.locator('#board-menu').click(); await frame.locator('#' + id).click();
   }
@@ -929,7 +930,7 @@ try {
     await seatTool('kingdown_abort', { game_id: sheetSeat.game_id });
     let v = await friendSeat();
     assert.equal(v.choices[1], null, 'The other choice stays hidden');
-    assert.equal(await frame.locator('#seat-me-line').innerText(), 'Mud · March · select the coin to change', 'Cards clean the remembered power to the same king');
+    assert.equal(await frame.locator('#seat-me-line').innerText(), 'Mud · March', 'Cards clean the remembered power to the same king');
     assert((await frame.locator('#seat-them-picture').getAttribute('src')).includes('/shadow-b-'), 'The other strip shows the plain Black king');
     await frame.locator('#seat-king').click();
     assert(await frame.locator('[data-power="Leap"]').isDisabled()); assert(await frame.locator('[data-king="Frost"]').isDisabled());
@@ -2864,7 +2865,7 @@ try {
     for (const [index,lan] of state.play.entries()) {const step=applyLan(position,lan,sampleRules); assert(step,`${state.name}: the sample move is legal`); commands.push({seq:101+index,seat:position.turn,at:snapshot.server_now,action:{type:'turn',actions:[lan]}}); position=step.pos; story=step.words;}
     const finished=state.end?{status:'finished',result:{winner:0,reason:'checkmate'},outcome:{rating_before:1500,rating:1561,provisional:true,badges:[{badge:'fairy_tale',earned_at:snapshot.server_now}]}}:{};
     await showSnapshot({...snapshot,...finished,revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:state.end?[]:legal(),last_commands:commands,deadline_at:state.claim?new Date(Date.now()-60000).toISOString():null},story);
-    if (state.select) {await clickSquare(...state.select); await page.clock.runFor(POP_MS+14*RIPPLE_MS+50);}
+    if (state.select) {await clickSquare(...state.select); await page.clock.runFor(POP_MS+50);}
     if (state.claim) assert.equal(await frame.locator('#status').innerText(),'mira_k has not moved for 3 days.');
     if (state.end) {
       const viewport = page.viewportSize();
