@@ -1949,6 +1949,58 @@ it('explains why a card sheet has no Use button', async () => {
     expect(await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).count()).toBe(0);
   } finally { await page.close(); }
 });
+
+it('A35: an unused card names Retry after Send your turn fails', async () => {
+  const base = view('7k/p7/8/8/8/8/8/R5K1 w - - 0 1', { hands: [['Haste'], []] }, { kind: 'friend' });
+  const page = await open(base), frame = page.frameLocator('iframe');
+  try {
+    await chooseTurnMove(page, 'Ra1-a2', 0);
+    await page.evaluate(() => { (window as any).failNextAction = true; });
+    await frame.locator('#end-turn').click();
+    await frame.locator('#retry:not(:disabled)').waitFor();
+    expect((await moveCalls(page)).length).toBe(1);
+    await frame.locator('#card-w-0').click();
+    expect(await frame.locator('#board-sheet .card-reason').textContent()).toBe('Close this sheet and select Retry.');
+    expect(await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).count()).toBe(0);
+  } finally { await page.close(); }
+});
+
+it.each([true, false])('A35: the card sheet follows failed polls and same-revision recovery with openBefore=%s', async openBefore => {
+  const base = view('7k/p7/8/8/8/8/8/R5K1 w - - 0 1', { hands: [['Haste'], []] }, { kind: 'friend' });
+  const page = await open(base, 393, 852, true), frame = page.frameLocator('iframe'), sheet = frame.locator('#board-sheet');
+  try {
+    let failRead = true;
+    await page.route('**/fixture-tool', async route => {
+      if (route.request().postDataJSON().name === 'kingdown_get') {
+        if (failRead) await route.abort('failed');
+        else await route.fulfill({ json: { content: [], _meta: { view: base } } });
+      }
+      else await route.continue();
+    });
+    const read = () => frame.locator('html').evaluate((_, game_id) => (window as any).harnessApp.send('kingdown_get', { game_id }, { quiet: true }), base.game_id);
+    if (openBefore) {
+      await frame.locator('#card-w-0').click();
+      expect(await sheet.getByRole('button', { name: 'Use', exact: true }).isVisible()).toBe(true);
+      await sheet.getByRole('button', { name: 'Use', exact: true }).focus();
+    }
+    for (let i = 0; i < 3; i++) {
+      expect((await read()).status).toBe('failed');
+      if (openBefore && i < 2) expect(await sheet.getByRole('button', { name: 'Use', exact: true }).isVisible()).toBe(true);
+    }
+    if (!openBefore) await frame.locator('#card-w-0').click();
+    await sheet.evaluate(el => { (window as any).openCardFace = el.querySelector('.cf-art'); });
+    expect(await sheet.locator('.card-reason').textContent()).toBe('Close this sheet and select Try again.');
+    expect(await sheet.getByRole('button', { name: 'Use', exact: true }).count()).toBe(0);
+    if (openBefore) expect(await sheet.locator('[aria-label="Close"]').evaluate(el => el === document.activeElement)).toBe(true);
+    failRead = false;
+    expect((await read()).status).toBe('done');
+    expect(await sheet.getByRole('button', { name: 'Use', exact: true }).isVisible()).toBe(true);
+    expect(await sheet.locator('.card-reason').count()).toBe(0);
+    expect(await sheet.evaluate(el => (el as HTMLDialogElement).open && el.querySelector('.cf-art') === (window as any).openCardFace)).toBe(true);
+    await sheet.getByRole('button', { name: 'Use', exact: true }).click();
+    expect(await frame.locator('#card-w-0').getAttribute('aria-pressed')).toBe('true');
+  } finally { await page.close(); }
+});
 const soundCases = [
   { kind: 'move', fen: '7k/8/8/8/8/8/P7/K7 w - - 0 1', now: 'move', hit: null },
   { kind: 'capture', fen: '7k/8/8/8/8/8/7p/K6R w - - 0 1', now: null, hit: 'capture' },

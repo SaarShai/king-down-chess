@@ -315,7 +315,8 @@ test('a card with no Use action gives one reason; a usable card gives no reason'
   expect(cardUseReason({ ...card, spent: true }, 0, game, pos, true, page)).toBe('This card is spent.');
   expect(cardUseReason(card, 1, game, pos, true, page)).toBe("This is your opponent's card.");
   expect(cardUseReason(card, 0, { ...game, status: 'finished' }, pos, true, page)).toBe('This game has ended.');
-  expect(cardUseReason(card, 0, game, { turn: 1 }, false, page)).toBe('Use this card on your turn.');
+  expect(cardUseReason(card, 0, { ...game, turn: 1 }, { turn: 1 }, false, page)).toBe('Use this card on your turn.');
+  expect(cardUseReason(card, 0, game, { turn: 1 }, false, page)).toBe('Finish your turn before you use this card.');
   expect(cardUseReason(card, 0, game, pos, false, { ...page, writing: true })).toBe('Wait for the current action to finish.');
   expect(cardUseReason(card, 0, game, pos, false, page)).toBe('Finish your turn before you use this card.');
   expect(cardUseReason({ ...card, moves: [] }, 0, game, pos, true, page)).toBe('This card has no move now.');
@@ -324,4 +325,16 @@ test('a card with no Use action gives one reason; a usable card gives no reason'
   const stale: Page = { ...page, notice: { kind: 'read', game: game.game_id, text: 'Read failed' } };
   expect(cardUseReason(card, 0, game, pos, false, stale)).toBe('Close this sheet and select Try again.');
   expect(cardUseReason(card, 0, game, pos, false, { ...stale, mounting: true })).toBe('Wait for the current action to finish.');
+});
+
+test('a failed ordinary move send names Retry for an unused card after the draft turn changes', () => {
+  const { pre, pos, steps } = stage(HASTE, ['Ra1-a2'], hasteRules);
+  const game = view({ turn: pre.turn, fen: HASTE, action: 'ready' });
+  const coin = cardCoins(pos, 0, hasteRules.hands![0], [])[0];
+  const page: Page = { screen: 'board', view: game, connected: true, mounting: false, writing: false,
+    pending: { name: 'kingdown_move', args: { actions: sendActions(steps, pos, 0) }, game_tag: 'game', error: 'Request failed' } };
+  expect(pos.turn).toBe(1);
+  expect(coin.spent).toBe(false);
+  expect(cardUseReason(coin, 0, game, pos, false, page)).toBe('Close this sheet and select Retry.');
+  expect(cardUseReason(coin, 0, game, pos, false, { ...page, writing: true })).toBe('Wait for the current action to finish.');
 });

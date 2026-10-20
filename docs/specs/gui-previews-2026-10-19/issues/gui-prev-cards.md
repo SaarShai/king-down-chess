@@ -182,3 +182,25 @@ Final M1 suite at repair commit `987c6559`: exit 0. Files: 186 pass, no failure,
 Skip detail: 156 checks need PostgreSQL. Another 8 balance drift checks require `KINGDOWN_BALANCE_DRIFT`; the default suite leaves them off on both branches. No skip is added. This step uses only the required M1 unit helper. It runs no local `npm test`, browser check or capture. Browser checks remain with CI, as `prev-green` requires. The prior preview browser proof is recorded above.
 
 All five previews remain built. No repair is left open. The merge keeps both test sets at its one conflict. The final check of the repair diff finds no smaller complete change: one exact art list and three rendered-label expectations. The final record commit changes this ticket only. The owner still approves the previews before a merge to main.
+
+## Review fix plan: prev-green-cards
+
+Review A has three confirmed faults. Review B has no finding text.
+
+1. A35: read the saved turn and failed request before the draft turn. Test an ordinary move with an unused card and a failed send. The sheet must name Retry.
+2. A35: update the open card action and reason when the page lock changes. Keep the sheet open through three failed background reads and a good read at the same revision. Use must leave and return in that sheet.
+3. A33: put each Spawn K pawn on a different square next to the king. Test the shown squares against legal engine moves for Spawn K and Spawn K2.
+4. Run the focused tests, then `npm test` on this Mac with the local test database. Commit the fixes before the required `plugin-ui` runner. Record the check results and final head. Change no server code, time limit or game rule.
+
+Pass criteria: each new test rejects the old fault and passes with the fix. The full unit suite, type check, diff check and required browser check pass. The owner still approves each preview before a merge.
+
+## Review fixes: prev-green-cards
+
+- Review A, finding 1, A35: confirmed. A staged ordinary move changes the draft turn before the send. The reason now checks the request state first and uses the saved view for the other turn. The model and board tests cover a failed move send with an unused Haste card. The draft alone gives the finish-turn line.
+- Review A, finding 2, A35: confirmed. The open sheet now updates its action and reason during a board refresh. It keeps its face, rule and diagram. Close clears the update function. A focused Use action that leaves puts focus on Close. Board tests keep a sheet open through three failed quiet reads and a good read at the same revision. They also cover a sheet first opened during the failure and check that the returned Use action arms the card. The browser check covers the timed background reads and the failed turn send.
+- Review A, finding 3, A33: confirmed. Spawn K shows one pawn beside the king. Spawn K2 shows two pawns on different squares beside the king. The test maps the drawn coordinates to board squares, finds the legal engine drop and checks the new pieces after that move. The browser check saves both Workshop views at phone and desktop sizes in both themes.
+- Review B: no finding text is supplied. There is no claim to confirm or refute.
+
+The type check, script syntax check and diff check pass. The first focused test stays in the shared test queue and starts no test. This lane stops that one owned queue process and starts the required full `npm test` with the local test database. The full suite is in the shared queue. No other process, test limit or check limit changes.
+
+The final code check finds no smaller complete fix. The sheet uses one update function and changes only its action or reason. The engine and game rules have no change. The unit and browser results follow below.

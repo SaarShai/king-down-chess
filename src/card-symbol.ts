@@ -38,7 +38,7 @@ export function cardSymbol(card: CardName): string {
   return `<svg class="card-symbol" data-card-symbol="${card}" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${marks[family[card]]}</svg>`;
 }
 
-const pawn = (x: number, dark = false) => `<g data-piece="pawn" transform="translate(${x} 16)" fill="${dark ? '#514638' : '#fff5da'}" stroke="#514638" stroke-width="1.2"><circle cx="8" cy="4" r="3"/><path d="M5 7h6l-1 6 3 3H3l3-3z"/></g>`;
+const pawn = (x: number, dark = false, y = 16) => `<g data-piece="pawn" transform="translate(${x} ${y})" fill="${dark ? '#514638' : '#fff5da'}" stroke="#514638" stroke-width="1.2"><circle cx="8" cy="4" r="3"/><path d="M5 7h6l-1 6 3 3H3l3-3z"/></g>`;
 const knight = (x: number, dark = false) => `<g data-piece="knight" transform="translate(${x} 14)" fill="${dark ? '#514638' : '#fff5da'}" stroke="#514638" stroke-width="1.2"><path d="M1 18h15c0-8-1-14-8-17l1 3-7 6 5 2 3-3-3 5z"/></g>`;
 const arrow = '<path d="M33 24h13m-4-4 4 4-4 4"/>';
 /** A small rule picture. The text remains the full rule. */
@@ -53,8 +53,10 @@ export function cardPicture(card: CardName): string {
   else if (kind === 'swap') scene = pawn(12) + pawn(52) + '<path d="M25 10h30m-4-4 4 4-4 4M55 38H25m4-4-4 4 4 4"/>';
   else if (kind === 'spawn') {
     const two = card === 'Spawn2' || card === 'SpawnK2', king = card === 'SpawnK' || card === 'SpawnK2';
-    scene = (king ? '<g data-piece="king" fill="#fff5da"><path d="M17 19h10l-1 13h-8zM22 8v9M18 12h8"/></g>' : '<path d="M20 18v12m-6-6h12"/>')
-      + (king ? '' : arrow) + (two ? pawn(40) + pawn(55) : pawn(48)) + '<path d="M55 9v3M65 15l-2 2"/>';
+    scene = king
+      ? '<g data-piece="king" transform="translate(12 24)" fill="#fff5da"><path d="M3 7h10l-1 9H4zM8 0v7M5 3h6"/></g>' + pawn(32, false, 24) + (two ? pawn(32, false, 6) : '')
+      : '<path d="M20 18v12m-6-6h12"/>' + arrow + (two ? pawn(40) + pawn(55) : pawn(48));
+    scene += '<path d="M55 9v3M65 15l-2 2"/>';
   }
   else if (kind === 'morph') scene = pawn(12) + arrow + '<path d="M53 32h15c0-8-1-14-8-17l1 3-7 6 5 2 3-3-3 5z" fill="#fff5da"/>';
   else scene = (kind === 'burn' || kind === 'firestarter' ? knight(12) : pawn(12, kind === 'curse')) + arrow + `<g transform="translate(49 12)">${marks[kind]}</g>`;

@@ -39,7 +39,9 @@ let command: (name: string, args: Record<string, unknown>) => Promise<View | und
 export const sendBoardCommand = (name: string, args: Record<string, unknown> = {}) => command(name, args);
 const portraitPath = (side: Color) => `ui/kings/${(RULES.kings[side]?.king ?? PLAIN_KINGS[side]).toLowerCase()}${side ? '-b' : ''}.webp`;
 let sheet: HTMLDialogElement, scrim: HTMLDivElement, sheetFocus: HTMLElement | undefined;
+let refreshCardSheet: (() => void) | undefined;
 export function closeBoardSheet() {
+  refreshCardSheet = undefined;
   if (!sheet) return;
   for (const id of ['choices', 'reload', 'computer', 'invite', 'invitation']) $('board-park').append($(id));
   const restore = sheet.open && sheet.contains(document.activeElement);
@@ -299,14 +301,23 @@ export function boardScreen(store: Store) {
       const window = document.createElement('div'); window.className = 'cf-art'; window.innerHTML = cardArt(card);
       const nodes: HTMLElement[] = [window, text(ruleLine(cardText(card)))], diagram = cardDiagram(card);
       if (diagram) { const picture = document.createElement('div'); picture.className = 'card-diagram'; picture.innerHTML = diagram; nodes.push(picture); }
-      const coin = cardCoins(pos,side,RULES.hands[side],moves.map(c=>c.move))[index];
-      const reason = cardUseReason(coin, side, view, pos, canPlay(), store.page());
-      if (reason) { const note = text(reason); note.className = 'card-reason'; nodes.push(note); }
-      else nodes.push(button('Use', () => {
-        if (!canPlay()) return;
-        armed = undefined; armedCard = index; selected = inspected = held = undefined; closeBoardSheet(); choices(cardChoices()); refresh();
-      }));
+      let action: HTMLElement;
+      const update = () => {
+        const coin = cardCoins(pos!,side,RULES.hands[side],moves.map(c=>c.move))[index];
+        const reason = cardUseReason(coin, side, view!, pos!, canPlay(), store.page());
+        if (action?.textContent === (reason || 'Use')) return;
+        const next = reason ? text(reason) : button('Use', () => {
+          if (!canPlay()) return;
+          armed = undefined; armedCard = index; selected = inspected = held = undefined; closeBoardSheet(); choices(cardChoices()); refresh();
+        });
+        if (reason) next.className = 'card-reason';
+        const focused = action === document.activeElement;
+        action?.replaceWith(next); action = next;
+        if (focused) sheet.querySelector<HTMLButtonElement>('[aria-label="Close"]')!.focus({preventScroll:true});
+      };
+      update(); nodes.push(action!);
       boardSheet(cardName(card), ...nodes);
+      refreshCardSheet = update;
     } else {
       const coin = coinState(pos, side, RULES, [], side === view.seat && !!armed, moves.map(c => c.move), canPlay() ? view.seat : null);
       if (!coin) return;
@@ -370,6 +381,7 @@ export function boardScreen(store: Store) {
   function refresh() {
     if (!view || !pos) return;
     rules(); moves = draftChoices(view, pos, steps);
+    refreshCardSheet?.();
     const draft = turn();
     turnControls(draft);
     $('board').dataset.animating = String(animating);

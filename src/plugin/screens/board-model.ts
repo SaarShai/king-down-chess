@@ -25,17 +25,17 @@ export function cardCoins(pos: Position, side: Color, hand: readonly CardName[],
   });
 }
 /** An empty line means that the card can be used now. */
-export function cardUseReason(coin: { spent: boolean; moves: readonly Move[] }, side: Color, view: Pick<View, 'seat' | 'status'>, pos: Pick<Position, 'turn'>, ready: boolean, page: Page): string {
+export function cardUseReason(coin: { spent: boolean; moves: readonly Move[] }, side: Color, view: Pick<View, 'seat' | 'status' | 'turn'>, pos: Pick<Position, 'turn'>, ready: boolean, page: Page): string {
   if (coin.spent) return 'This card is spent.';
   if (side !== view.seat) return "This is your opponent's card.";
   if (view.status !== 'playing') return 'This game has ended.';
-  if (pos.turn !== view.seat) return 'Use this card on your turn.';
   if (!ready) {
     if (page.writing || page.mounting || pendingHere(page) && !page.pending?.error) return 'Wait for the current action to finish.';
     if (pendingHere(page) && page.pending?.error) return 'Close this sheet and select Retry.';
     if (staleRead(page) || !page.connected) return 'Close this sheet and select Try again.';
-    return 'Finish your turn before you use this card.';
   }
+  if (view.turn !== view.seat) return 'Use this card on your turn.';
+  if (pos.turn !== view.seat || !ready) return 'Finish your turn before you use this card.';
   return coin.moves.length ? '' : 'This card has no move now.';
 }
 export function applyLan(pre: Position, lan: string, rules: Partial<Rules>, legal?: readonly string[]): BoardMove | undefined {
