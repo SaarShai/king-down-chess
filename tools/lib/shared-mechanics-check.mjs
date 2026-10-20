@@ -20,6 +20,14 @@ async function closeSheet(ui) {
   if (await close.count()) await close.click();
 }
 
+async function routeTrace(ui, phase) {
+  return ui.locator('body').evaluate((body, phase) => {
+    const trace = body.ownerDocument.defaultView.__mechanicsRouteTrace;
+    if (phase) trace?.record({ event: 'phase', phase });
+    return trace?.entries ?? [];
+  }, phase, { timeout: 2000 }).catch(() => []);
+}
+
 async function readsGame(response, id) {
   if (response.request().method() !== 'POST' || new URL(response.url()).pathname !== '/fixture-tool') return false;
   const request = response.request().postDataJSON();
@@ -72,8 +80,10 @@ async function playTurn(ui, view, actions, { GameRules, toLan, cardCoins }) {
     await ui.locator(`#choices button[title=${JSON.stringify(lan)}]`).click();
     position = rules.makeMove(position, move);
     await ready(ui);
+    await routeTrace(ui, 'staged');
   }
   await closeSheet(ui);
+  await routeTrace(ui, 'send-turn');
   await ui.locator('#end-turn[aria-disabled="false"]').click();
 }
 
@@ -126,6 +136,28 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
     for (const page of [...webPages, ...pluginPages]) {
       page.setDefaultTimeout(15_000); failures.push(trapErrors(page));
       await page.emulateMedia({ reducedMotion: 'reduce' });
+      const installTrace = () => {
+        if (window.__mechanicsRouteTrace) return;
+        const entries = [], record = entry => {
+          entries.push({ path: location.pathname, screen: document.body?.dataset.page, ...entry });
+          if (entries.length > 20) entries.shift();
+        };
+        window.__mechanicsRouteTrace = { entries, record };
+        for (const method of ['pushState', 'replaceState']) {
+          const original = history[method];
+          history[method] = function(state, unused, url) {
+            const stack = new Error().stack?.split('\n').slice(1, 7).join('\n').replace(/\?[^)\s]*/g, '').slice(0, 1600);
+            record({ event: method, to: new URL(url ?? location.href, location.href).pathname, stack });
+            return original.apply(this, arguments);
+          };
+        }
+        document.addEventListener('click', event => {
+          const target = event.target instanceof Element ? event.target.closest('button,a,input,canvas') ?? event.target : undefined;
+          if (target) record({ event: 'click', tag: target.tagName, id: target.id.slice(0, 80), label: (target.getAttribute('aria-label') ?? target.getAttribute('title') ?? target.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 80) });
+        }, true);
+      };
+      await page.addInitScript(installTrace);
+      for (const frame of page.frames()) await frame.evaluate(installTrace);
     }
     for (const row of rows) {
       const states = [];
@@ -154,10 +186,11 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
               await page.evaluate(result => window.harnessShow(result), await tool(seat, 'kingdown_open', { game_id: id }));
               assert.equal((await (await mounted).json())._meta?.view?.game_id, id, `${row.id}: the mounted board reads the selected game`);
             }
-            try { await ready(ui); }
+            try { await ready(ui); await routeTrace(ui, 'mounted'); }
             catch (error) {
               await shot(page, `shared-mechanics-${row.id}-${surface}-mount-failure`);
               console.error(`${row.id}/${surface} mount: ${await ui.locator('body').innerText()}`);
+              console.error(`${row.id}/${surface} routes: ${JSON.stringify(await routeTrace(ui))}`);
               throw error;
             }
             if (previewed) {
@@ -180,9 +213,11 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
             catch (error) {
               await shot(page, `shared-mechanics-${row.id}-${surface}-failure`);
               console.error(`${row.id}/${surface}: ${await ui.locator('body').innerText()}`);
+              console.error(`${row.id}/${surface} routes: ${JSON.stringify(await routeTrace(ui))}`);
               throw error;
             }
             assert.equal((await committed).status(), 200, `${row.id}/${surface}: command response`);
+            await routeTrace(ui, 'committed');
             for (const lan of actions) expected = await match.apply({ id: randomUUID(), expectedRevision: expected.revision, lan });
             applied.push(...actions);
             const after = await read(expected.turn, id);
@@ -197,6 +232,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
             for (const checkpoint of row.checkpoints ?? []) if (checkpoint.after === applied.length) assertMechanicExpected(after, checkpoint.expected, `${row.id}/${surface} checkpoint`);
           }
           const page = (surface === 'web' ? webPages : pluginPages)[finalSeat], ui = surface === 'web' ? page : page.frameLocator('iframe');
+          const beforeRoutes = await routeTrace(ui, 'before-reload');
           const beforeUrl = new URL(page.url()), network = [];
           const record = event => { network.push(event); if (network.length > 20) network.shift(); };
           const responseEvent = response => {
@@ -233,6 +269,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
               body: body.status === 'fulfilled' ? body.value.slice(0, 4000) : 'unavailable',
               screenshot: screenshot.status === 'fulfilled' ? screenshot.value : 'unavailable',
               errors: errors.slice(-10).map(value => value.slice(0, 2000)), network,
+              beforeRoutes, afterRoutes: await routeTrace(ui),
             })}`);
             throw error;
           } finally {
