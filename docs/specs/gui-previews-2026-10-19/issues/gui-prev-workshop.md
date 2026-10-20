@@ -156,3 +156,22 @@ Plan:
 4. Run each repaired file on the M1, then run the full suite again. Record counts and commits here.
 
 Pass criteria: the M1 suite has no failures, the type check passes, and all preview behaviour stays. The M1 may skip database tests. This step runs no browser checks or screenshots, as the repair ticket requires.
+
+### Merge and result
+
+Merge commit: `38e50ebc`. It merges `origin/main` at `0a7ec40b` into this branch. The merge has no conflicts. All verified fault fixes and their tests stay. A13 keeps the matte seals. A29 keeps the phone fade and clear edge space. A32 keeps the first-item action and the failed-save guard.
+
+Both full M1 runs pass at `38e50ebc`:
+
+| Log | Passed files | Skipped files | Passed tests | Failed tests | Skipped tests | Duration | Exit |
+|---|---|---|---|---|---|---|---|
+| `unit-1.txt` | 184 | 12 | 3,122 | 0 | 164 | 327.51 s | 0 |
+| `unit-2.txt` | 184 | 12 | 3,122 | 0 | 164 | 326.66 s | 0 |
+
+The skips comprise 156 PostgreSQL tests and eight existing opt-in balance drift tests. No skip is added. The M1 has no PostgreSQL. Logs are in `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/lanes/prev-green-workshop/`.
+
+No failure needs a kind-a, kind-b, kind-c or kind-d repair. No test, fixture, guard or time limit changes. Thus, no repaired file needs an isolated run. The second full run supplies the final proof. The local `npx tsc --noEmit` check passes.
+
+This step adds no taste choice and changes no screen. No preview needs a new capture. The repair ticket directs this step to use `m1-unit.sh` and to omit browser checks and screenshots. Thus, this step runs no local unit suite, no `npm test`, and no browser check. CI must run the browser checks. The M1 helper runs the unit suite; it does not run the separate art suite from `npm test`.
+
+All repair parts are complete. No failure remains to repair. The three previews still need the owner's approval. This final record changes only the ticket; the product code matches the tested merge commit.
