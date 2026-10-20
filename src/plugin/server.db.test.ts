@@ -571,7 +571,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
 
  it('keeps the retry hints for each tool', async () => {
   const player = await connect(await user('retry-hints')), tools = (await player.client.listTools()).tools;
-  expect(tools).toHaveLength(26);
+  expect(tools).toHaveLength(27);
   expect(tools.filter(tool => tool.annotations?.idempotentHint === false).map(tool => tool.name).sort()).toEqual(['kingdown_create', 'kingdown_find', 'kingdown_invite', 'kingdown_join', 'kingdown_open', 'kingdown_report', 'kingdown_resume', 'kingdown_seen']);
   for (const tool of tools) expect(typeof tool.annotations?.idempotentHint).toBe('boolean');
  });
@@ -772,11 +772,17 @@ suite('ChatGPT tools on PostgreSQL', () => {
  it('runs the read-only tools on a read-only connection, and only those', async () => {
   const cy = await user('cy'), player = await connect(cy), reader = await connect(cy, readOnly);
   const tools = (await reader.client.listTools()).tools;
-  expect(tools.filter(tool => tool.annotations?.readOnlyHint).map(tool => tool.name).sort()).toEqual(['kingdown_games', 'kingdown_get', 'kingdown_lobby', 'kingdown_profile']);
+  expect(tools.filter(tool => tool.annotations?.readOnlyHint).map(tool => tool.name).sort()).toEqual(['kingdown_games', 'kingdown_get', 'kingdown_lobby', 'kingdown_preview', 'kingdown_profile']);
   const solo = await player.ok('kingdown_create', { kind: 'solo', options: { ...DEFAULT_OPTIONS, arrangement: false } });
   const opened = await player.ok('kingdown_open', {game_id:solo.structuredContent.game_id}), {game_id} = opened.structuredContent, {board_id} = opened._meta;
   expect(view(opened)).toMatchObject({ kind: 'solo', revision: 0, action: 'ready' });
   for (const args of [{ game_id }, { game_id, since_revision: 0 }, { game_id, board_id }, { game_id, since_revision: 0, board_id }]) await reader.ok('kingdown_get', args);
+  for (const actions of [[], [view(opened).legal[0]]]) {
+   const preview = await reader.ok('kingdown_preview', { game_id, expected_revision: 0, engine_fingerprint: view(opened).engine_fingerprint, actions });
+   expect(preview._meta.draft).toMatchObject({ game_id, revision: 0, engine_fingerprint: view(opened).engine_fingerprint, actions });
+   expect(preview._meta.draft.positions).toHaveLength(actions.length + 1);
+   expect(preview._meta.draft.positions[0].fen).toBe(view(opened).fen);
+  }
   expect((await reader.ok('kingdown_games')).structuredContent.games.map((game: { game_id: string }) => game.game_id)).toEqual([game_id]);
   expect((await reader.ok('kingdown_profile')).structuredContent).toEqual({ id: cy, name: `cy-${tag}` });
   // The control: a write on the same connection fails and changes nothing.

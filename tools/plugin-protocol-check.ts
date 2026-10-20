@@ -12,7 +12,7 @@ const TABLE: Record<string, [string, boolean, boolean]> = {
   kingdown_open: ['model,app', false, false], kingdown_create: ['model,app', false, false], kingdown_resume: ['app', false, false], kingdown_games: ['model,app', true, false],
   kingdown_lobby: ['app', true, false], kingdown_accept: ['app', false, true], kingdown_find: ['app', false, true], kingdown_cancel: ['app', false, true],
   kingdown_choose: ['app', false, false], kingdown_rematch: ['app', false, true], kingdown_handle: ['app', false, true], kingdown_settings: ['app', false, true],
-  kingdown_get: ['app', true, false], kingdown_seen: ['app', false, false], kingdown_move: ['app', false, false], kingdown_computer: ['app', false, false], kingdown_say: ['app', false, true],
+  kingdown_get: ['app', true, false], kingdown_preview: ['app', true, false], kingdown_seen: ['app', false, false], kingdown_move: ['app', false, false], kingdown_computer: ['app', false, false], kingdown_say: ['app', false, true],
   kingdown_draw: ['model,app', false, true], kingdown_claim: ['app', false, true], kingdown_resign: ['model,app', false, true], kingdown_abort: ['model,app', false, true],
   kingdown_invite: ['model,app', false, true], kingdown_join: ['model,app', false, true], kingdown_report: ['app', false, true], kingdown_profile: ['model,app', true, false],
 };
@@ -104,5 +104,5 @@ try {
   service.view = async () => { throw new Error('database password=never-share'); };
   const failed = await call('kingdown_get', { game_id: view.game_id });
   assert.equal(failed.isError, true); assert(!JSON.stringify(failed).includes('never-share'));
-  console.log('PASS: 26 tools and their hints, whole-turn retry, refused-turn rollback, the board resource on kingdown_open only, the profile tool and UUID block undo, board data in _meta only, empty home, explicit solo game, next game, real engine move, duplicate command, stale revision, since_revision, board selection, invitation code and expiry, inbox, model resign, actor injection rejection, sanitized internal errors');
+  console.log(`PASS: ${tools.length} tools and their hints, whole-turn retry, refused-turn rollback, the board resource on kingdown_open only, the profile tool and UUID block undo, board data in _meta only, empty home, explicit solo game, next game, real engine move, duplicate command, stale revision, since_revision, board selection, invitation code and expiry, inbox, model resign, actor injection rejection, sanitized internal errors`);
 } finally { await client.close(); await server.close(); await service.close(); }

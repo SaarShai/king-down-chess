@@ -50,3 +50,13 @@ The source is not deployed yet. Root will combine the stored-engine draft previe
 The existing 55-row mechanics driver covers the current worker. Add one fixed `bab22e94` Haste continuation to the same driver, on both emitted clients. Require an actual initial HTTP/MCP draft-preview response with the archived identity and accepted base before the normal move, commit, history and reload checks. Keep the 55 mechanic cases distinct from this one archive case in the receipt: 56 cases, 112 surface executions. Do not count a source-page transport fixture as this compiled proof.
 
 After the preview candidate passes source checks and independent review, run `npm run check:browser shared-mechanics plugin-ui-http web-online painted-game` once on the combined tree with the disposable loopback database. These changed paths justify the integrated rerun. Preserve unchanged U04 evidence. Review any failure before adding checks or repeating the run.
+
+## Preview integration
+
+Candidate `bf8982c0` integrates as `2ff37ba8`. The sole manual conflict joins the service imports: preserve setup's `createPinnedMatch` and preview's schema/result types. Independent merge review confirms both behaviors and the automatic privacy-test merge.
+
+The candidate passes 259 focused tests and three selected board UI cases, plus typecheck and 54 art checks in each run. The selected UI run skips 182 unrelated cases; it is not a full board-suite pass. Its actual source UI proves the stored `bab22e94` Haste path, Undo, remount, accepted pass history and late reply isolation. The entry and history regressions fail before their corrections. The parent evidence folder preserves all four logs.
+
+The combined six-suite service/DB run first passes 114 tests and fails two obsolete tool-list assertions. The new app-only preview is the 27th tool and the fifth unconditional read-only tool. Updating those declarations and adding real preview calls on the existing read-only database connection yields 116 passes, no skips, full typecheck and 54 art checks. The protocol check table is updated to the same contract. No product change is needed for these failures.
+
+The disposable browser database now has migrations `0001` through `0017`; the existing bootstrap applies each twice successfully. Staging remains on `ce61e8d7` until combined browser acceptance passes.
