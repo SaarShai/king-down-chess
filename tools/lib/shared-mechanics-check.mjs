@@ -7,8 +7,9 @@ import { pathToFileURL } from 'node:url';
 import { assertNoErrors, env, shot, trapErrors } from './checks.mjs';
 import { checkWidgetState } from './plugin-widget-state-check.mjs';
 
-async function ready(ui) {
-  await ui.locator('[data-screen="board"]:not([hidden])').waitFor();
+async function ready(ui, finished = false) {
+  await ui.locator(`[data-screen="${finished ? 'end' : 'board'}"]:not([hidden])`).waitFor();
+  if (finished) await ui.locator('#over').getByRole('button', { name: 'See the board', exact: true }).click();
   await ui.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
   await ui.locator('#board-menu:not(:disabled)').waitFor();
 }
@@ -158,6 +159,8 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
             assert.equal(after.revision, before.revision + 1, `${row.id}/${surface}: one committed turn`);
             assert.equal(after.fen, expected.fen, `${row.id}/${surface}: authoritative state`);
             assert.equal(after.turn, expected.turn, `${row.id}/${surface}: next actor`);
+            assert.equal(after.status, expected.status === 'playing' ? 'playing' : 'finished', `${row.id}/${surface}: game status`);
+            if (expected.status !== 'playing') assert.equal(after.result?.reason, expected.status, `${row.id}/${surface}: result reason`);
             assert.deepEqual([...after.legal].sort(), [...expected.legal].sort(), `${row.id}/${surface}: legal continuation`);
             assert.deepEqual(after.history.actions, applied, `${row.id}/${surface}: accepted history`);
             assert.deepEqual(after.last_commands.at(-1).action, { type: 'turn', actions }, `${row.id}/${surface}: complete command`);
@@ -170,7 +173,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
           });
           if (surface === 'web') await page.reload(); else await page.locator('#remount').click();
           assert.equal((await reloaded).status(), 200, `${row.id}/${surface}: reload reads the service`);
-          await ready(ui);
+          await ready(ui, expected.status !== 'playing');
           const resumed = await read(expected.turn, id);
           assert.equal(resumed.fen, expected.fen, `${row.id}/${surface}: reload state`);
           assert.deepEqual(resumed.history.actions, row.actions, `${row.id}/${surface}: reload history`);
@@ -182,7 +185,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
           await ui.locator('#board-sheet').getByRole('button', { name: 'Moves', exact: true }).click();
           assert.equal(await ui.locator('#board-sheet p').count(), row.actions.length, `${row.id}/${surface}: reloaded UI history`);
           await closeSheet(ui);
-          states.push({ fen: resumed.fen, turn: resumed.turn, history: resumed.history.actions });
+          states.push({ fen: resumed.fen, turn: resumed.turn, history: resumed.history.actions, status: resumed.status, result: resumed.result });
           reports.push({ id: row.id, surface, game_id: id, revision: resumed.revision, ...states.at(-1) });
           console.log(`PASS shared-mechanics ${row.id} ${surface}`);
         } finally { await match.close(); }
