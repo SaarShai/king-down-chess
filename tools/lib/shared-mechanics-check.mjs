@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { assertNoErrors, env, trapErrors } from './checks.mjs';
+import { assertNoErrors, env, shot, trapErrors } from './checks.mjs';
 import { checkWidgetState } from './plugin-widget-state-check.mjs';
 
 async function ready(ui) {
@@ -111,6 +111,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
     for (const row of SHARED_MECHANICS) {
       const states = [];
       for (const surface of ['web', 'chatgpt']) {
+        console.log(`START shared-mechanics ${row.id} ${surface}`);
         const { id, match } = await seed(row.setup);
         try {
           let expected = await match.snapshot(), applied = [], finalSeat = expected.turn;
@@ -132,7 +133,14 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
               if (surface === 'web') return new URL(response.url()).pathname === `/api/games/${id}/commands`;
               return new URL(response.url()).pathname === '/fixture-tool' && request.postDataJSON()?.name === 'kingdown_move';
             });
-            await playTurn(ui, before, actions, { GameRules, toLan, cardCoins });
+            // Report the failed interaction, rather than an unhandled response wait while it is in flight.
+            void committed.catch(() => {});
+            try { await playTurn(ui, before, actions, { GameRules, toLan, cardCoins }); }
+            catch (error) {
+              await shot(page, `shared-mechanics-${row.id}-${surface}-failure`);
+              console.error(`${row.id}/${surface}: ${await ui.locator('body').innerText()}`);
+              throw error;
+            }
             assert.equal((await committed).status(), 200, `${row.id}/${surface}: command response`);
             for (const lan of actions) expected = await match.apply({ id: randomUUID(), expectedRevision: expected.revision, lan });
             applied.push(...actions);
