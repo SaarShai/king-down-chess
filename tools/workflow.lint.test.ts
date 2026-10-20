@@ -114,6 +114,14 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(upload).toContain('retention-days: 7');
   });
 
+  it('keeps time under the job limit for the WebKit diagnostics after a hung step', () => {
+    const webkit = job('browser-webkit'), limit = Number(webkit.match(/^    timeout-minutes: (\d+)$/m)![1]);
+    const steps = [...webkit.matchAll(/^        timeout-minutes: (\d+)$/gm)].map(m => Number(m[1]));
+    expect(steps).toHaveLength(3);
+    // npm test, plugin-ui and web-online in turn; the setup before them takes about 2 minutes.
+    expect(Math.max(steps[0], steps[1] + 15) + 2).toBeLessThan(limit);
+  });
+
   it('writes the WebKit browser output to the plugin-ui log, so a crash names its reason', () => {
     expect(job('browser-webkit')).toMatch(/- run: npm run check:browser plugin-ui\n\s+env:\n(\s+#.*\n)*\s+DEBUG: pw:browser\n/);
   });
