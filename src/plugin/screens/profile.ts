@@ -1,5 +1,5 @@
 import { formatDate, gameDetail, waitingLine } from '../../account-game/games-list';
-import { call, client, navigate, routeView } from '../../account-game/runtime';
+import { call, client, navigate } from '../../account-game/runtime';
 import { art, symbols } from '../../account-game/art';
 import { WHY } from '../ending';
 import { BADGES, type Badge } from '../../match/badges';
@@ -116,7 +116,7 @@ function openRow(entry: InboxEntry) {
   const line = document.createElement('small'); line.textContent = waiting ? waitingLine(entry) : entry.status === 'setup' ? yours ? 'Choose your side' : 'Waiting for the other player' : yours ? `Move ${entry.move}` : `Their turn ·\u00a0move ${entry.move}`; const detail = document.createElement('small'); detail.textContent = gameDetail(entry); player.append(name, line, detail);
   const feats = features(entry.options);
   row.append(when, colour, player, feats);
-  row.onclick = async () => { const view = await call('kingdown_resume', { game_id: entry.game_id }, false, false, false); if (view) routeView(view); };
+  row.onclick = () => { void call('kingdown_resume', { game_id: entry.game_id }, false, false, true); };
   return row;
 }
 function historyRow(entry: HistoryEntry) {
