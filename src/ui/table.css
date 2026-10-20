@@ -96,7 +96,6 @@
 
 #context-text[data-rank='previously'] { display: block; line-height: 1.25; }
 #context-text #previously-before { font-size: 14px; color: var(--ink-soft); }
-#context-actions #see-again[aria-disabled='true'] { opacity: .65; cursor: default; }
 
 #table-bar > :is(#undo, #return-game) { grid-column: 1; grid-row: 1; }
 #table-bar > :is(#end-turn, #show-me, #next-lesson) { grid-column: 2; grid-row: 1; }

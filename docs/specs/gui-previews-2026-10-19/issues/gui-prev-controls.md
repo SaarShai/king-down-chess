@@ -1,6 +1,6 @@
 # GUI previews 2026-10-19: the control system (stone and red buttons, focus, board grain)
 
-Status: done
+Status: claimed
 Type: task
 
 ## Owner picks 2026-10-20
@@ -14,6 +14,44 @@ Plan:
 4. Commit each item. Run the type check here. Run the unit helper and browser runner on the M1. Capture and inspect each changed screen.
 
 Pass: banners keep cream words, a clear lower notch, and all input states. Small screens omit the fold shade. Disabled actions keep their shape, edge, and lower shadow. Focus stays clear. Touch size, text fit, reduced motion, and the page size limit pass at the existing limits.
+
+### Review fixes
+
+The code confirms three faults. Review A finds old Workshop faces on Done,
+Stamp, and Delete. Both reviews find a whole-button fade on See again.
+Review B finds that the shared face rule misses Copy moves inside its section.
+A34 has no finding.
+
+Plan:
+1. Add tests for the actual Workshop controls, See again, and the nested menu.
+2. Use the shared banner for Workshop red actions. Remove the old face rules.
+   Remove the See again fade. Include Copy moves in the shared action rule.
+3. Run the focused file and `npm test` on this Mac with the test lock.
+   Commit, then run `plugin-ui` through the required runner. Record the results.
+
+Pass: each test fails on the old code and passes with its fix. The full suite
+and browser check pass at their current limits. No server code changes.
+
+The focused run on the old code has five failures and 16 passes.
+Done, Stamp, and Delete retain the old gradient. See again has opacity 0.65.
+Copy moves has no shared lower shadow. Log: `unit-review-red-1.txt`.
+
+The fix gives Done and Stamp the shared primary class. Workshop resets and
+sheet borders now leave primary actions alone. The old red faces are removed.
+The See again fade rule is removed. The shared action rule now includes Copy
+moves. The new tests open the Workshop from its module and use the real web
+markup. They check native and ARIA disabled states. The Workshop cases also
+check 1280, 390, and 320 px widths.
+
+The focused file passes all 21 tests. Log: `unit-review-green-1.txt`.
+The first full `npm test` run has seven time-limit failures across five
+files. It has 3,294 passes and eight skips. Log: `unit-review-full-1.txt`.
+The next full run uses one worker and keeps every time limit. The control
+tests pass. That run has one time-limit failure in the unchanged browser
+helper, six temporary-file failures when the disk is full, and three files
+that cannot load their temporary modules. It has 3,282 passes and eight
+skips. Log: `unit-review-full-2.txt`. The art test command does not start
+after either failed unit run.
 
 ### A2 b: short cloth banner
 

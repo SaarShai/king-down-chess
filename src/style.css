@@ -698,7 +698,7 @@ button[aria-disabled="true"], button[aria-disabled="true"]:hover {
 }
 
 /* Tablet actions: clip the face only. Text, hit areas, and focus stay whole. */
-:is(.title-actions button, .new-game-foot button, .new-game-head button, .wide-btn, .code-row button, dialog > form button, .power-choice button, label.check.toggle .all, :where(#menu-sheet) [data-go='menu'], #over-review, #table-bar > button, #context-actions button, .sheet-head button, .game-action, .table-back, .sheet-body > button, #choices button, #move-choice button, #games-start, #profile-more, #profile-blocks-more, #retry, button.primary) {
+:is(.title-actions button, .new-game-foot button, .new-game-head button, .wide-btn, .code-row button, dialog > form button, .power-choice button, label.check.toggle .all, :where(#menu-sheet) [data-go='menu'], #over-review, #table-bar > button, #context-actions button, .sheet-head button, .game-action, .table-back, .sheet-body > button, #copy, #choices button, #move-choice button, #games-start, #profile-more, #profile-blocks-more, #retry, button.primary) {
   --tablet-face: var(--stone-100);
   --tablet-image: url('./plugin/assets/stone-control.webp');
   --tablet-blend: normal;

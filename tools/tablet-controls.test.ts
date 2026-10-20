@@ -65,35 +65,98 @@ it.each([false, true])('keeps the cloth banner clear and its whole box active (p
   } finally { await page.close(); }
 });
 
+it.each(['Done', 'Stamp', 'Delete'])('gives Workshop %s a clear banner and a full-opacity disabled frame', async name => {
+  const page = await fixture(false, '', 1280);
+  try {
+    await page.addScriptTag({ type: 'module', content: "import { groundDialog } from '/src/workshop/ground.ts'; groundDialog().open();" });
+    await page.locator('#workshop[open]').waitFor();
+    if (name === 'Done') await page.locator('.brush[data-brush="move"]').click();
+    if (name === 'Stamp') {
+      await page.locator('[data-act="shelf"]').click();
+      await page.locator('[data-sealitem="movesLike"]').click();
+    }
+    if (name === 'Delete') {
+      await page.locator('.pg-more').click();
+      await page.locator('[data-act="copydesign"]').click();
+      await page.locator('.pg-more').click();
+      await page.locator('[data-act="delete"]').click();
+    }
+    const button = page.getByRole('button', { name, exact: true });
+    await button.evaluate(el => el.blur());
+    const read = () => button.evaluate(el => {
+      const s = getComputedStyle(el), face = getComputedStyle(el, '::before');
+      return { background: s.backgroundColor, image: s.backgroundImage, border: s.borderWidth, radius: s.borderRadius,
+        clip: s.clipPath, opacity: s.opacity, color: s.color, face: face.backgroundColor, fold: face.backgroundImage,
+        shape: face.clipPath, edge: face.borderColor, shadow: face.boxShadow.match(/rgba?\([^)]*\) 0px -2px[^,]+/)?.[0] };
+    });
+    for (const width of [1280, 390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      if (name === 'Done' && width === 390) await page.locator('[data-act="tools"]').click();
+      await page.mouse.move(0, 0);
+      await checkButtonContent(page, name === 'Delete' ? '.pg-ask .primary' : `.pg-${name.toLowerCase()}`);
+      const before = await read();
+      expect(before.background).toBe('rgba(0, 0, 0, 0)'); expect(before.image).toBe('none');
+      expect(before.border).toBe('0px'); expect(before.radius).toBe('0px'); expect(before.clip).toBe('none');
+      expect(before.face).toBe('rgb(132, 44, 33)'); expect(before.color).toBe('rgb(251, 247, 238)');
+      expect(before.shape).toMatch(/50% calc\(100% - 6px\)/); expect(before.shadow).toBeTruthy();
+      expect(before.fold === 'none').toBe(width === 320);
+      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      for (const attribute of ['disabled', 'aria-disabled']) {
+        await button.evaluate((el, attribute) => el.setAttribute(attribute, 'true'), attribute);
+        const after = await read();
+        for (const key of ['shape', 'edge', 'shadow'] as const) expect(after[key]).toBe(before[key]);
+        expect(after.opacity).toBe('1'); expect(after.face).toBe('rgb(121, 94, 87)'); expect(after.fold).toBe('none');
+        expect(after.background).toBe('rgba(0, 0, 0, 0)'); expect(after.border).toBe('0px');
+        await button.evaluate((el, attribute) => el.removeAttribute(attribute), attribute);
+      }
+    }
+  } finally { await page.close(); }
+});
+
 it.each([false, true])('keeps the frame and lower shadow when an action is disabled (plugin: %s)', async plugin => {
   const page = await fixture(plugin, '<div id="app-root"><div id="table-bar"><button id="undo">Undo</button><button id="end-turn" class="primary">End turn</button><button id="menu-btn">Menu</button></div></div>');
+  try { await checkDisabledActions(page, ['#undo', '#end-turn', '#menu-btn']); }
+  finally { await page.close(); }
+});
+
+it.each(['#see-again', '#copy'])('keeps the disabled frame of %s in the web markup', async id => {
+  const page = await fixture(false, '');
+  try {
+    await webParts(page, [id === '#copy' ? '#menu-sheet' : '#game-table']);
+    await page.evaluate(() => {
+      document.getElementById('see-again')?.removeAttribute('hidden');
+      for (const section of document.querySelectorAll<HTMLElement>('[data-menu-page]')) section.hidden = section.dataset.menuPage !== 'game';
+    });
+    await checkDisabledActions(page, [id]);
+  } finally { await page.close(); }
+});
+
+async function checkDisabledActions(page: Page, ids: string[]) {
   const read = (id: string) => page.locator(id).evaluate(el => {
     const s = getComputedStyle(el), face = getComputedStyle(el, '::before'), box = el.getBoundingClientRect();
     return { shape: face.clipPath, edge: face.borderColor, shadow: face.boxShadow.match(/rgba?\([^)]*\) 0px -2px[^,]+/)?.[0], image: face.backgroundImage,
       face: face.backgroundColor, top: s.getPropertyValue('--tablet-top').trim(), opacity: s.opacity, transform: s.transform,
       bottom: face.bottom, width: box.width, height: box.height, color: s.color };
   });
-  try {
-    for (const id of ['#undo', '#end-turn', '#menu-btn']) {
-      const button = page.locator(id), before = await read(id);
-      expect(before.shadow).toBeTruthy();
-      for (const attribute of ['disabled', 'aria-disabled']) {
-        await button.evaluate((el, attribute) => el.setAttribute(attribute, 'true'), attribute);
-        const after = await read(id);
-        for (const key of ['shape', 'edge', 'shadow', 'width', 'height'] as const) expect(after[key]).toBe(before[key]);
-        expect(after.face).not.toBe(before.face); expect(after.image).toBe('none');
-        expect(after.top).toBe('transparent'); expect(after.opacity).toBe('1');
-        expect(after.color).toBe(id === '#end-turn' ? 'rgb(251, 247, 238)' : 'rgb(77, 69, 60)');
-        await button.hover(); await page.mouse.down();
-        expect((await read(id)).transform).toBe('none'); expect((await read(id)).bottom).toBe('0px');
-        expect((await read(id)).face).toBe(after.face);
-        await page.mouse.up(); await page.mouse.move(0, 0);
-        expect(await button.getAttribute(attribute)).toBe('true');
-        await button.evaluate((el, attribute) => el.removeAttribute(attribute), attribute);
-      }
+  for (const id of ids) {
+    const button = page.locator(id), before = await read(id);
+    expect(before.shadow).toBeTruthy();
+    for (const attribute of ['disabled', 'aria-disabled']) {
+      await button.evaluate((el, attribute) => el.setAttribute(attribute, 'true'), attribute);
+      const after = await read(id);
+      for (const key of ['shape', 'edge', 'shadow', 'width', 'height'] as const) expect(after[key]).toBe(before[key]);
+      expect(after.face).not.toBe(before.face); expect(after.image).toBe('none');
+      expect(after.top).toBe('transparent'); expect(after.opacity).toBe('1');
+      expect(after.color).toBe(id === '#end-turn' ? 'rgb(251, 247, 238)' : 'rgb(77, 69, 60)');
+      await button.hover(); await page.mouse.down();
+      expect((await read(id)).transform).toBe('none'); expect((await read(id)).bottom).toBe('0px');
+      expect((await read(id)).face).toBe(after.face);
+      await page.mouse.up(); await page.mouse.move(0, 0);
+      expect(await button.getAttribute(attribute)).toBe('true');
+      await button.evaluate((el, attribute) => el.removeAttribute(attribute), attribute);
     }
-  } finally { await page.close(); }
-});
+  }
+}
 
 it.each([false, true])('keeps both focus rings around enabled and off banners (plugin: %s)', async plugin => {
   const page = await fixture(plugin, '<div id="app-root"><button id="home-play" class="primary">Play</button></div>');
