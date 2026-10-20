@@ -263,3 +263,19 @@ Code commit: `0b29f7cf63cb9791fe1c9e28c6f89be63c186924`.
 Evidence in the lane folder: `tests-review-fix-1.txt`, `checks-review-fix-1.txt`, `browser-review-fix.log`, `captures-review-fix-1.txt`, `review-image-commits.json`, and `previews/manifest.json`. `previews/INDEX.md` links the image pairs. `capture.mjs`, `capture-dark.mjs` and `audit-previews.py` hold the capture repair.
 
 The native ChatGPT check stays open under the no-sign-in rule. This repair adds no taste choice. The original preview items still need the owner's taste approval.
+
+## Test repair (2026-10-19)
+
+Status: in progress.
+
+Plan:
+
+1. Merge `origin/main`. Keep the fault fixes and all eleven preview picks.
+2. Run the whole unit suite with `m1-unit.sh`. Run `npx tsc --noEmit` here.
+3. Class each failure as a, b, c or d in ticket prev-green. Repair each cause. Keep all guards.
+4. Commit each repair kind. Run each repaired file on the M1, then run the whole suite again.
+5. Record the counts, logs and any open fault. Run no browser check or capture, as prev-green requires.
+
+Pass criteria: all unit tests pass except database skips on the M1; the type check and `git diff --check` pass. Each repair has a test. No time limit, retry or guard changes.
+
+The merge has no conflicts. Git joins all four shared files without a conflict. The device check returns account `new`, host `MacBook-Pro-2` and model `MacBookPro18,2`.

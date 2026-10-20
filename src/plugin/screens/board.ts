@@ -1,10 +1,13 @@
 import { fromFen, toFen } from '../../rules/setup';
-import { colorOf, findKing, K, inCheck, status, moveNumber, nameOf, NAMES, LETTERS, piece, playedDesign, PLAIN_KINGS, RULES, setRules, sqName, T, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
+import { colorOf, findKing, K, inCheck, status, moveNumber, nameOf, NAMES, LETTERS, piece, playedDesign, PLAIN_KINGS, RULES, setRules, T, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
 import { cardName, cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
 import { checkCause, checkersOf, describeMove, shortMove, threatsIn } from '../../move-text';
 import { marksModel, railsOf } from '../../marks-model';
 import { pieceTitle, readText, reachOf, teachNote } from '../../read';
 import { LESSONS } from '../../lessons';
+import { momentKind } from '../../moment';
+import { soundsFor } from '../../screen/moments';
+import { cursorText } from '../../cursor-text';
 import { contextLine } from '../../context-line';
 import { waitNotice } from '../../turn';
 import type { PlayerRecord, View } from '../../match/protocol';
@@ -86,7 +89,12 @@ export function boardScreen(store: Store) {
   board.canDrag = () => client.state.screen === 'seat' || canPlay() && pos!.turn === view!.seat;
   const canRead = () => !animating;
   let armed: PowerName | undefined, armedCard: number | undefined;
-  let selected: number | undefined, inspected: number | undefined, moves: Choice[] = [], cursor = 0, cursorShown = false;
+  let selected: number | undefined, inspected: number | undefined, moves: Choice[] = [], cursor = 0, cursorShown = false, cursorTargets: number[] = [];
+  function sayCursor() {
+    if (!pos) return;
+    const label = cursorShown ? cursorText(pos, cursor, selected, cursorTargets.includes(cursor)) : '';
+    $('board').setAttribute('aria-label', label ? `Chess board, ${label}. Enter selects a square.` : 'Chess board'); $('cursor-say').textContent = label;
+  }
   function drawCursor() {
     marksLayer.replaceChildren();
     if (!cursorShown) return;
@@ -120,8 +128,10 @@ export function boardScreen(store: Store) {
   const moment = (el: HTMLElement, name: string, start: number, ms: number) => { const age = performance.now() - start; if (age >= ms) return false; el.classList.add(name); el.style.setProperty('--age', `${-age}ms`); return true; };
   // Sound is off unless the player turns it on in Settings (render/sfx.ts).
   const hitSound = (step: BoardMove, token: number) => {
+    const sounds = soundsFor(momentKind(step.pre, step.move), step.move);
+    if (sounds.now) snd[sounds.now]();
     let struck = false;
-    return () => { if (struck || token !== generation) return; struck = true; if (step.move.captures.length) snd.capture(); else snd.move(); };
+    return () => { if (struck || token !== generation) return; struck = true; if (sounds.hit) snd[sounds.hit](); };
   };
   const refused = new Set<string>(), taught = new Map<string, number>();
   const active = () => ['board', 'end'].includes(client.state.screen);
@@ -270,12 +280,12 @@ export function boardScreen(store: Store) {
     board.onSquareClick = square => { if (animating) { rush = true; board.skip(); return; } select(square); };
     board.onDragSelect = square => { if (animating) { rush = true; board.skip(); return; } select(square, false); };
     $('board').tabIndex = 0;
-    $('board').onblur = () => { cursorShown = false; const hold = holding(); board.setPreview(hold ? heldSquare(hold.move) : null); drawCursor(); };
+    $('board').onblur = () => { cursorShown = false; const hold = holding(); board.setPreview(hold ? heldSquare(hold.move) : null); drawCursor(); sayCursor(); };
     $('board').onkeydown = event => {
       // The cursor moves while play waits. Enter reads a square when motion stops.
       const delta = ({ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,1], ArrowDown:[0,-1]} as Record<string,number[]>)[event.key];
-      if (delta) { event.preventDefault(); const d = view?.seat === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0] * d)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * d)); cursorShown = true; board.setPreview(cursor); drawCursor(); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
-      else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(cursor); }
+      if (delta) { event.preventDefault(); const d = view?.seat === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, cursor % 8 + delta[0] * d)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * d)); cursorShown = true; board.setPreview(cursor); drawCursor(); sayCursor(); }
+      else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); cursorShown = true; select(cursor); }
       else if (event.key.toLowerCase() === 'z' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); undo(); }
     };
   }
@@ -365,6 +375,9 @@ export function boardScreen(store: Store) {
     if (check !== checked) { checked = check; if (check !== null && board.motion()) checkAt = performance.now(); }
     // Show only the previewed move's marks.
     rules(); const hold = holding(), cands = hold ? [hold.move] : selected === undefined ? [] : moves.filter(({move}) => move.from === selected && reachable(move)).map(c => c.move), marks = marksModel(cands);
+    // An armed power or target card has no selected piece; its marked squares are targets too.
+    cursorTargets = [...marks.moves, ...marks.captures, ...marks.swaps, ...marks.shoves, ...named().map(c => c.move.to)];
+    sayCursor();
     // Mark every step of the last turn (Haste, free marks); a pass step has no square.
     let start = history.length;
     if (lastMove && history.at(-1) === lastMove) while (start > 0 && history[start - 1].pre.turn === lastMove.pre.turn) start--;
