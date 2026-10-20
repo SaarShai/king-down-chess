@@ -176,3 +176,28 @@ it.each(['move', 'fall'])('A8: ends a %s and consumes the whole pointer gesture'
   for (const type of ['pointerdown', 'pointerup', 'click']) documentListeners.get(type)!(next as unknown as Event);
   expect(next.preventDefault).not.toHaveBeenCalled();
 });
+
+it.each([false, true])('A15: keeps check and threat marks above the selected tile (web %s)', async webInk => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const view = new PaintedView(container as unknown as HTMLElement, { webInk });
+  const scene = (view as unknown as { scene: PaintedScene }).scene;
+  Object.assign(scene, { foot: () => ({ x: 536, y: 918 }) });
+  view.sync(fromFen('4r2k/8/8/8/8/8/8/4K3 w - - 0 1'));
+  view.setSymbols(() => 'figure' as unknown as HTMLImageElement);
+  view.highlight({ selected: 4, check: 4, checkers: webInk ? [] : undefined, threats: [{ from: 60, to: 4 }] });
+  const calls: string[] = [];
+  const ctx = new Proxy({
+    fillRect(this: CanvasRenderingContext2D) { calls.push(String(this.fillStyle)); },
+    fill(this: CanvasRenderingContext2D) { calls.push(String(this.fillStyle)); },
+    stroke(this: CanvasRenderingContext2D) { calls.push(String(this.strokeStyle)); },
+    createRadialGradient: () => ({ addColorStop() {}, toString: () => 'threat' }),
+    drawImage: () => calls.push('figure'),
+  } as Record<string, unknown>, { get: (target, key: string) => key in target ? target[key] : () => {} });
+  decorate.mock.lastCall![0](ctx, scene, 'under');
+  const tile = calls.indexOf('#d8aa43'), threat = calls.indexOf('threat');
+  const ring = calls.indexOf(webInk ? '#c4501f' : '#b3261e'), figure = calls.indexOf('figure');
+  expect(tile).toBeGreaterThanOrEqual(0);
+  expect(threat).toBeGreaterThan(tile);
+  expect(ring).toBeGreaterThan(tile);
+  expect(figure).toBeGreaterThan(Math.max(threat, ring));
+});

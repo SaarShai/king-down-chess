@@ -166,7 +166,6 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
         ctx.beginPath(); ctx.ellipse(g.x, g.y, 38, 14, 0, 0, TAU); stroke2(ctx, '#68583d', 2.2);
       }
     }
-    for (const sq of new Set((m.threats ?? []).map(t => t.to))) { const g = ground(sq); paint(ctx, [footGlow(g.x, g.y, TILE, true)]); }
     // A solid gold tile keeps the selection clear behind the front row.
     const lines = m.selected == null ? [] : (m.rails ?? []).map(r => ({ to: r.to, ...railLine(centre(m.selected!), centre(r.to), TILE, r.end, { px: s.px }) }));
     if (m.selected != null) {
@@ -178,6 +177,7 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
       for (const l of lines) atAlpha(l.rail);
       ctx.globalAlpha = 1;
     }
+    for (const sq of new Set((m.threats ?? []).map(t => t.to))) { const g = ground(sq); paint(ctx, [footGlow(g.x, g.y, TILE, true)]); }
     for (const sq of m.powers ?? []) {
       const a = appear(sq); if (a <= 0) continue;
       const g = ground(sq); rune(ctx, g.x, g.y, 46 * a, time, pulse(sq), hover(sq));

@@ -272,6 +272,21 @@ export class PaintedView implements BoardView {
       ctx.save();
       // The last move: a warm wash, strong enough for both stone colours (Hint keeps the outline).
       for (const sq of m.last ?? []) { const b = box(sq); ctx.fillStyle = '#e6b84a6e'; ctx.fillRect(b.x, b.y, TILE, TILE); }
+      ctx.restore();
+    }
+    const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
+    if (!scene.animating) drawMarks(ctx, scene, layer, {
+      marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, px: 960 / Math.max(1, this.width), board: this.pos?.board,
+      ghost: !this.symbols ? undefined : (ctx, piece, sq, opacity = 0.4) => {
+        const cell = scene.cell(sq);
+        ctx.save(); ctx.globalAlpha = opacity;
+        ctx.drawImage(this.symbols!(piece), PAD + cell.col * TILE + 14, PAD + cell.row * TILE + 14, TILE - 28, TILE - 28);
+        ctx.restore();
+      },
+      motion: this.motion(), since: this.marksSince, ink: this.options.webInk ? boardInk(this.width) : undefined,
+    }, row);
+    if (layer === 'under') {
+      ctx.save();
       if (m.check != null && (m.checkers === undefined || !scene.animating)) {
         const f = scene.foot(m.check);
         ctx.fillStyle = m.checkers === undefined ? '#c0392b55' : '#c4501f33';
@@ -284,19 +299,8 @@ export class PaintedView implements BoardView {
       }
       ctx.restore();
     }
-    if (scene.animating) { this.drawFrost(ctx, scene, layer, row); return; }
-    const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
-    drawMarks(ctx, scene, layer, {
-      marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, px: 960 / Math.max(1, this.width), board: this.pos?.board,
-      ghost: !this.symbols ? undefined : (ctx, piece, sq, opacity = 0.4) => {
-        const cell = scene.cell(sq);
-        ctx.save(); ctx.globalAlpha = opacity;
-        ctx.drawImage(this.symbols!(piece), PAD + cell.col * TILE + 14, PAD + cell.row * TILE + 14, TILE - 28, TILE - 28);
-        ctx.restore();
-      },
-      motion: this.motion(), since: this.marksSince, ink: this.options.webInk ? boardInk(this.width) : undefined,
-    }, row);
     this.drawFrost(ctx, scene, layer, row);
+    if (scene.animating) return;
     if (layer === 'under' && this.symbols && this.pos) {
       this.pos.board.forEach((piece, sq) => {
         if (!piece) return;
