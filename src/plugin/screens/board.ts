@@ -9,6 +9,7 @@ import { momentKind } from '../../moment';
 import { boardFoot } from '../../screen/board-foot';
 import { soundsFor } from '../../screen/moments';
 import { contextLine } from '../../context-line';
+import { shortMove } from '../../move-text';
 import { waitNotice } from '../../turn';
 import type { DraftPosition, DraftPreview, PlayerRecord, View } from '../../match/protocol';
 import { ending } from '../ending';
@@ -215,7 +216,7 @@ export function boardScreen(store: Store) {
     const words = document.createElement('span'); words.textContent = lastMove?.words ?? `Move ${moveNumber(pos)}.`; nodes.push(words); $('last-move').replaceChildren(...nodes);
     $('recent-moves').replaceChildren(...history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)));
     fitMoves();
-    $('short-move-words').textContent = lastMove ? gameRules.shortMove(lastMove.pre, lastMove.move) : `Move ${moveNumber(pos)}.`;
+    $('short-move-words').textContent = lastMove ? shortMove(lastMove.pre, lastMove.move, type => gameRules.nameOf(type)) : `Move ${moveNumber(pos)}.`;
   }
   const remainingTime = () => view?.deadline_at ? Date.parse(view.deadline_at) - Date.parse(view.server_now) - (Date.now() - readAt) : 0;
   function updateTime() {

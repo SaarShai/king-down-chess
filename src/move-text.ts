@@ -2,7 +2,7 @@
  * Plain-language helpers for the HUD that only read the engine: the screen-reader sentence for a
  * move, the threat markers, and move numbers that stay right when a Haste turn plays two plies.
  */
-import { A, aName, C, Color, Move, N, P, nameOf, Position, TAG_POWER, theName, colorOf, file, findKing, genPiece, isSpawnTag, pseudoMoves, rank, sqName, typeOf } from './rules/engine';
+import { A, aName, C, Color, Move, N, P, nameOf, PieceType, Position, TAG_POWER, theName, colorOf, file, findKing, genPiece, isSpawnTag, pseudoMoves, rank, sqName, typeOf } from './rules/engine';
 
 import { cardName } from './powers-ui';
 import type { Mode } from './turn';
@@ -63,13 +63,13 @@ function checkPath(board: Uint8Array, from: number, king: number): Checker['path
 }
 
 /** A short line for the last move, with the card or power name. */
-export function shortMove(pre: Position, m: Move): string {
-  const side = SIDE[pre.turn], name = nameOf(typeOf(pre.board[m.from]));
+export function shortMove(pre: Position, m: Move, pieceName: (type: PieceType) => string): string {
+  const side = SIDE[pre.turn], name = pieceName(typeOf(pre.board[m.from]));
   const power = m.power ? `${m.via ? `${cardName(m.via === 'mirrorb' ? 'MirrorB' : 'Mirror')} · ` : ''}${cardName(TAG_POWER[m.power])} · ` : '';
   const action = m.pass ? `ends turn · ${pre.free ? pre.marks?.[pre.turn] ? 'mark' : 'draw' : pre.rage === 3 ? 'Rally' : 'Haste'}`
-    : m.drop !== undefined ? `adds ${nameOf(m.drop)} ${sqName(m.to)}${m.drop2 === undefined ? '' : `, ${sqName(m.drop2)}`}`
+    : m.drop !== undefined ? `adds ${pieceName(m.drop)} ${sqName(m.to)}${m.drop2 === undefined ? '' : `, ${sqName(m.drop2)}`}`
     : m.castle ? `castles ${file(m.to) === 6 ? 'short' : 'long'}`
-    : `${name} ${sqName(m.from)}${m.from === m.to ? '' : ` ${m.swap ? '↔' : '→'} ${sqName(m.to)}`}${m.promo ? ` = ${nameOf(m.promo)}` : ''}${m.from === m.to && m.captures.length ? ` × ${m.captures.map(sqName).join(', ')}` : ''}`;
+    : `${name} ${sqName(m.from)}${m.from === m.to ? '' : ` ${m.swap ? '↔' : '→'} ${sqName(m.to)}`}${m.promo ? ` = ${pieceName(m.promo)}` : ''}${m.from === m.to && m.captures.length ? ` × ${m.captures.map(sqName).join(', ')}` : ''}`;
   return `${side} ${power}${action}`;
 }
 

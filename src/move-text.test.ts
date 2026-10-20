@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { Move, N, Position, POWERS_BALANCED, inCheck, legalMoves, makeMove, parseSq, setRules } from './rules/engine';
+import { Move, N, Position, POWERS_BALANCED, RULES, T, inCheck, legalMoves, makeMove, nameOf, parseRule, parseSq, setRules } from './rules/engine';
+import { GameRules } from './game-rules';
+import { PRESETS, designCode, fromPreset } from './workshop/model';
 import { KingChoice, PowerName } from './rules/rules';
 import { fromFen, randomBackRank, startPosition, toLan } from './rules/setup';
 import { checkCause, checkersOf, describeMove, shortMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
@@ -235,12 +237,27 @@ it.each(['haste', 'rally'] as const)('describes the final %s ply without another
 it('keeps a short move and names the card or power use', () => {
   setRules({});
   const pos = fromFen('4k3/7p/8/8/8/8/P7/K7 b - - 0 1');
-  expect(shortMove(pos, find(pos, 'h7-h5'))).toBe('Black pawn h7 → h5');
-  expect(shortMove(pos, {from:55,to:47,captures:[],power:'haste'})).toBe('Black Haste · pawn h7 → h6');
-  expect(shortMove(pos, {from:60,to:60,captures:[],power:'firewall'})).toBe('Black Firewall · king e8');
+  expect(shortMove(pos, find(pos, 'h7-h5'), nameOf)).toBe('Black pawn h7 → h5');
+  expect(shortMove(pos, {from:55,to:47,captures:[],power:'haste'}, nameOf)).toBe('Black Haste · pawn h7 → h6');
+  expect(shortMove(pos, {from:60,to:60,captures:[],power:'firewall'}, nameOf)).toBe('Black Firewall · king e8');
   // Spec W10 a: the shared card names, as setup, the Cards sheet and the board coins show them.
-  expect(shortMove(pos, {from:60,to:60,captures:[],power:'firewall',via:'mirrorb'})).toBe('Black Mirror · Firewall · king e8');
-  expect(shortMove(fromFen('4k3/8/8/8/8/8/P7/K7 w - - 0 1'), {from:8,to:8,captures:[],power:'morphp',promo:N})).toBe('White Morph · pawn a2 = knight');
-  expect(shortMove(pos, {from:60,to:47,captures:[],drop:1,power:'spawn'})).toBe('Black Spawn · adds pawn h6');
-  expect(shortMove(pos, {from:60,to:60,captures:[],pass:true})).toBe('Black ends turn · Haste');
+  expect(shortMove(pos, {from:60,to:60,captures:[],power:'firewall',via:'mirrorb'}, nameOf)).toBe('Black Mirror · Firewall · king e8');
+  expect(shortMove(fromFen('4k3/8/8/8/8/8/P7/K7 w - - 0 1'), {from:8,to:8,captures:[],power:'morphp',promo:N}, nameOf)).toBe('White Morph · pawn a2 = knight');
+  expect(shortMove(pos, {from:60,to:47,captures:[],drop:1,power:'spawn'}, nameOf)).toBe('Black Spawn · adds pawn h6');
+  expect(shortMove(pos, {from:60,to:60,captures:[],pass:true}, nameOf)).toBe('Black ends turn · Haste');
+});
+
+it('keeps owned designed names in short moves without changing the ambient rules', () => {
+  const preset = fromPreset(PRESETS.find(row => row.key === 'rook')!);
+  const rules = (name: string) => parseRule(`design=${designCode({ ...preset, name, letter: 'Y' })}`);
+  const context = new GameRules(rules('Owned Ward'));
+  const pos = context.fromFen('7k/P7/8/8/8/8/T7/K7 w - - 0 1');
+  setRules(rules('Ambient Ward'));
+  const ambient = structuredClone(RULES), name = (type: Parameters<typeof context.nameOf>[0]) => context.nameOf(type);
+  const move = { from: 8, to: 16, captures: [] };
+  expect(shortMove(pos, move, name)).toBe('White Owned Ward a2 → a3');
+  expect(shortMove(pos, { from: 0, to: 16, captures: [], drop: T, power: 'salvation' }, name)).toBe('White Salvation · adds Owned Ward a3');
+  expect(shortMove(pos, { from: 48, to: 56, captures: [], promo: T }, name)).toBe('White pawn a7 → a8 = Owned Ward');
+  expect(shortMove(pos, move, nameOf)).toBe('White Ambient Ward a2 → a3');
+  expect(RULES).toEqual(ambient);
 });

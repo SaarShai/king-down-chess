@@ -79,7 +79,6 @@ export class GameRules {
   guideTypes(...args: Parameters<typeof read.guideTypes>) { return this.#scoped(() => read.guideTypes(...args)); }
   checkCause(...args: Parameters<typeof words.checkCause>) { return this.#scoped(() => words.checkCause(...args)); }
   checkersOf(...args: Parameters<typeof words.checkersOf>) { return this.#scoped(() => words.checkersOf(...args)); }
-  shortMove(...args: Parameters<typeof words.shortMove>) { return this.#scoped(() => words.shortMove(...args)); }
   describeMove(...args: Parameters<typeof words.describeMove>) { return this.#scoped(() => words.describeMove(...args)); }
   threatsIn(...args: Parameters<typeof words.threatsIn>) { return this.#scoped(() => words.threatsIn(...args)); }
   railsOf(...args: Parameters<typeof marks.railsOf>) { return this.#scoped(() => marks.railsOf(...args)); }

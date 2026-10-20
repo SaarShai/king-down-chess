@@ -10,7 +10,7 @@ const blocked: Record<string, Set<string>> = Object.fromEntries(Object.entries({
   'rules/setup': 'randomBackRank waitGuards startPosition fromFen',
   'ai/search': 'search searchOwned searchLegal positionKey resetSearchState',
   'read': 'pieceTitle reachOf pieceGuide readText teachNote pieceStates whyNot readTap unmarkedTap guideTypes',
-  'move-text': 'checkCause checkersOf shortMove describeMove threatsIn',
+  'move-text': 'checkCause checkersOf describeMove threatsIn',
   'marks-model': 'railsOf',
   'cursor-text': 'cursorText',
   'previously': 'previouslyTurn',
@@ -69,6 +69,7 @@ describe('product game boundary', () => {
     expect(violations('src/example.ts', "export { RULES as active } from './rules/rules';")).toHaveLength(1);
     expect(violations('src/example.ts', "void import('./ai/search');")).toHaveLength(1);
     expect(violations('src/example.ts', "import type { Rules } from './rules/rules'; import { parseSq, P } from './rules/engine';")).toEqual([]);
+    expect(violations('src/example.ts', "import { shortMove } from './move-text';")).toEqual([]);
   });
   it('keeps ambient engine and helper operations inside the owned boundary', () => {
     const product = files('src').filter(file => !internal.has(file) && !/^src\/(rules|ai|sim)\//.test(file));

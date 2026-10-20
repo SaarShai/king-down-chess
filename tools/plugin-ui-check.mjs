@@ -18,7 +18,7 @@ import { pathToFileURL } from 'node:url';
 import { register } from 'tsx/esm/api';
 const unregister = register();
 const { fromFen, toFen, toLan } = await import('../src/rules/setup.ts');
-const { setRules, legalMoves, inCheck, typeOf, N, RULES, sqName, moveNumber: positionMoveNumber } = await import('../src/rules/engine.ts');
+const { setRules, legalMoves, inCheck, nameOf, typeOf, N, RULES, sqName, moveNumber: positionMoveNumber } = await import('../src/rules/engine.ts');
 const { DEFAULT_OPTIONS } = await import('../src/match/setup.ts');
 const { applyLan, cardCoins, replayHistory, replayLans } = await import('../src/plugin/screens/board-model.ts');
 const { threatsIn, shortMove } = await import('../src/move-text.ts');
@@ -2948,7 +2948,7 @@ try {
       await line.waitFor();
       if (await frame.locator('#short-move-words').isVisible()) {
         const last = (replayHistory(value,sampleRules) ?? replayLans({...snapshot,game_id:value.game_id,fen:initial_fen},value,sampleRules))?.at(-1);
-        assert.equal(await line.innerText(), last ? shortMove(last.pre,last.move) : `Move ${positionMoveNumber(fromFen(value.fen))}.`, 'The visible compact line names the current move');
+        assert.equal(await line.innerText(), last ? shortMove(last.pre,last.move,nameOf) : `Move ${positionMoveNumber(fromFen(value.fen))}.`, 'The visible compact line names the current move');
       }
       await idleBoard(); await boardBox();
     }
