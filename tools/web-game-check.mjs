@@ -9,12 +9,16 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { build } from 'vite';
 import pg from 'pg';
+import { register } from 'tsx/esm/api';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { testDatabase } from './plugin-db-config.mjs';
 import { buildPluginServer } from './plugin-server-build.mjs';
 import { serveSite } from './web-online-check.mjs';
 import { launch, shot, trapErrors, assertNoErrors, env } from './lib/checks.mjs';
 
+const unregister = register();
+const { fromFen } = await import('../src/rules/setup.ts');
+const { M, N, P, parseSq, typeOf } = await import('../src/rules/engine.ts');
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
 testDatabase(connectionString);
 const work = await mkdtemp(join(tmpdir(), 'kingdown-web-game-'));
@@ -162,6 +166,101 @@ try {
   a = await view(0); b = await view(1); assert.deepEqual(a.result, b.result); assert.equal(a.result.winner, 0); assert.equal(a.result.reason, 'resignation');
   assert.equal(await page.locator('#over-title').innerText(), 'You win');
   await shot(page, 'web-shared-result');
+  await page.unroute('**/api/games/*/commands');
+  // Seven weighted pool pieces force the army's contents; each seat still submits a real setup choice.
+  const options = { fairy: true, pool: ['O', 'A', 'G', 'M', 'S'], arrangement: true, classic: false,
+    cards: true, cardPool: ['Freeze', 'IceWall', 'MorphP', 'Vault'], kingPowers: true };
+  async function http(seat, path, body, status = 200) {
+    const response = await fetch(origin + path, { method: body === undefined ? 'GET' : 'POST',
+      headers: { Authorization: `Bearer ${tokens[seat]}`, 'Content-Type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+    const value = await response.json(); assert.equal(response.status, status, `${path}: ${JSON.stringify(value)}`); return value;
+  }
+  const combined = await http(0, '/api/games', { kind: 'friend', colour: 'white', options, command_id: randomUUID() }, 201);
+  const combinedId = combined.view.game_id;
+  const readCombined = async seat => (await tool(seat, 'kingdown_get', { game_id: combinedId }))._meta.view;
+  assert.deepEqual([...combined.view.draw].sort(), [...'OAAGMMSK'].sort());
+  assert.deepEqual([...combined.view.deal].sort(), [...options.cardPool].sort());
+  await tool(1, 'kingdown_join', { code: combined.invite.code });
+  let combinedView = await readCombined(0);
+  await http(0, `/api/games/${combinedId}/commands`, { command_id: randomUUID(), expected_revision: combinedView.revision,
+    action: { type: 'choose', choice: { order: 'MAOGKAMS', king: { king: 'Mud', power: 'March' } }, ready: true } });
+  combinedView = await readCombined(1);
+  await tool(1, 'kingdown_choose', { game_id: combinedId, command_id: randomUUID(), expected_revision: combinedView.revision,
+    order: 'MAOGKAMS', king: { king: 'Shadow', power: 'Darkness' }, ready: true });
+  combinedView = await readCombined(0);
+  assert.equal(combinedView.status, 'playing'); assert.deepEqual(combinedView.options, options);
+  assert.deepEqual(combinedView.kings, [{ king: 'Mud', power: 'March' }, { king: 'Shadow', power: 'Darkness' }]);
+  assert.equal(combinedView.rules.marchUses, 0, 'March is always on with Cards');
+  assert.deepEqual(combinedView.hands.map(hand => [...hand].sort()), [options.cardPool, options.cardPool].map(hand => [...hand].sort()));
+  const initialCombined = combinedView;
+  const combinedTurns = [];
+  async function combinedMove(seat, lan, surface) {
+    const before = await readCombined(seat);
+    assert(before.legal.includes(lan), `${lan} must be legal in the authoritative engine`);
+    const input = { command_id: randomUUID(), expected_revision: before.revision };
+    if (surface === 'web') await http(seat, `/api/games/${combinedId}/commands`, { ...input, action: { type: 'turn', actions: [lan] } });
+    else await tool(seat, 'kingdown_move', { game_id: combinedId, ...input, actions: [lan] });
+    const after = await readCombined(seat);
+    assert.equal(after.revision, before.revision + 1);
+    assert.deepEqual(after.last_commands.at(-1).action, { type: 'turn', actions: [lan] });
+    combinedTurns.push({ seat, lan, surface, revision: after.revision }); return after;
+  }
+  await combinedMove(0, 'e2-e3', 'web');
+  await combinedMove(1, 'h7-h6', 'chatgpt');
+  combinedView = await combinedMove(0, 'e3-e5', 'chatgpt');
+  assert.equal(typeOf(fromFen(combinedView.fen).board[parseSq('e5')]), P);
+  assert.equal(fromFen(combinedView.fen).used?.[0] ?? 0, 0, 'Always-on March spends no card');
+  await combinedMove(1, 'h6-h5', 'web');
+  combinedView = await combinedMove(0, 'Ma1<>a2', 'web');
+  assert.equal(typeOf(fromFen(combinedView.fen).board[parseSq('a2')]), M);
+  assert.equal(typeOf(fromFen(combinedView.fen).board[parseSq('a1')]), P);
+  await combinedMove(1, 'g7-g6', 'chatgpt');
+  // The emitted website opens the same full URL, then its card sheet and End turn send MorphP.
+  await page.goto(origin + '/g/' + combinedId);
+  await page.locator('[data-screen="board"]:not([hidden])').waitFor();
+  await page.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+  combinedView = await readCombined(0);
+  const morph = '!IP:b2=N', morphIndex = combinedView.hands[0].indexOf('MorphP');
+  assert(combinedView.legal.includes(morph), 'The authoritative engine permits MorphP on b2');
+  assert(morphIndex >= 0);
+  await page.locator(`#card-w-${morphIndex}`).click();
+  await page.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
+  await page.locator('#board-menu').click();
+  await page.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
+  await page.locator(`#choices button[title="${morph}"]`).click();
+  const morphed = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/api/games/${combinedId}/commands`);
+  await page.locator('#end-turn[aria-disabled="false"]').click();
+  assert.equal((await morphed).status(), 200);
+  const finalCombined = await readCombined(0), finalPosition = fromFen(finalCombined.fen);
+  assert.equal(finalCombined.revision, combinedView.revision + 1);
+  assert.equal(typeOf(finalPosition.board[parseSq('b2')]), N);
+  assert.equal(finalPosition.used[0], 1 << morphIndex, 'Only the played MorphP card is spent');
+  const actions = ['e2-e3', 'h7-h6', 'e3-e5', 'h6-h5', 'Ma1<>a2', 'g7-g6', morph];
+  assert.deepEqual(finalCombined.history.actions, actions);
+  assert.deepEqual(finalCombined.last_commands.filter(command => command.action.type === 'turn').map(command => command.action.actions), actions.map(lan => [lan]));
+  combinedTurns.push({ seat: 0, lan: morph, surface: 'web', revision: finalCombined.revision });
+  await page.locator(`#card-w-${morphIndex}[data-state="used"]`).waitFor();
+  await shot(page, 'web-combined-features');
+  const combinedReload = page.waitForResponse(response => response.request().method() === 'GET' && new URL(response.url()).pathname === `/api/games/${combinedId}`);
+  await page.reload();
+  const reloaded = await (await combinedReload).json();
+  for (const field of ['game_id', 'revision', 'fen', 'history', 'kings', 'hands']) assert.deepEqual(reloaded[field], finalCombined[field], `Reload preserves ${field}`);
+  await page.locator(`#card-w-${morphIndex}[data-state="used"]`).waitFor();
+  const otherSeat = await readCombined(1); assert.equal(otherSeat.fen, finalCombined.fen); assert.deepEqual(otherSeat.history, finalCombined.history);
+  const surfaces = (await pool.query("select seat, surface, actions from public.game_commands where game_id=$1 and kind='turn' order by seq", [combinedId])).rows;
+  assert.deepEqual(surfaces.map(row => row.surface), combinedTurns.map(turn => turn.surface));
+  assert.deepEqual(surfaces.map(row => row.actions), actions.map(lan => [lan]));
+  await tool(1, 'kingdown_resign', { game_id: combinedId, command_id: randomUUID(), expected_revision: finalCombined.revision });
+  await page.locator('[data-screen="end"]:not([hidden])').waitFor();
+  const finishedCombined = await readCombined(0);
+  assert.equal(finishedCombined.status, 'finished');
+  assert.deepEqual(finishedCombined.result, { winner: 0, reason: 'resignation' });
+  assert.deepEqual((await readCombined(1)).result, finishedCombined.result);
+  await writeFile(join(env('PLAYABLE_OUT'), 'combined-features.json'), JSON.stringify({ game_id: combinedId,
+    options, kings: finalCombined.kings, hands: finalCombined.hands, initial_fen: initialCombined.fen, final_fen: finalCombined.fen,
+    revision: finishedCombined.revision, turns: combinedTurns, spent: finalPosition.used, reloaded: true, result: finishedCombined.result,
+    checks: ['fairy army and ready choices', 'Cards with always-on March', 'March off the home rank', 'Maester swap', 'UI MorphP and End turn', 'same actors alternate web and MCP', 'accepted history and card use', 'same full game URL after reload'] }, null, 2));
   assert.deepEqual(failures, [], 'No failed resource or external request');
   assert.equal(lostReplies, 1, 'Only the deliberate lost command reply fails on the network');
   // The deliberately lost HTTP reply produces one browser network error.
@@ -176,5 +275,5 @@ try {
   await pool.query("delete from public.outbox where payload->>'game_id' in (select g.id::text from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[])))", [actors]);
   await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [actors]);
   await pool.query('delete from auth.users where id=any($1::uuid[])', [actors]);
-  await pool.end(); await rm(work, { recursive: true, force: true });
+  await pool.end(); await rm(work, { recursive: true, force: true }); unregister();
 }
