@@ -57,7 +57,7 @@ try {
   app.pool.query = function (...args) { queries++; return query.apply(this, args); };
   app.pool.connect = function (...args) { connections++; return connect.apply(this, args); };
   try {
-    for (const [method, path] of [['GET', '/api'], ['GET', '/api/'], ['GET', '/api/me/games'], ['GET', `/api/games/${randomUUID()}?since=0`], ['GET', '/api/unknown'], ['POST', '/api/games'], ['POST', `/api/games/${randomUUID()}/commands`], ['OPTIONS', '/api/me/profile'], ['HEAD', '/api/me/games']]) {
+    for (const [method, path] of [['GET', '/api/status'], ['POST', '/api/status'], ['GET', '/api'], ['GET', '/api/'], ['GET', '/api/me/games'], ['GET', `/api/games/${randomUUID()}?since=0`], ['GET', '/api/unknown'], ['POST', '/api/games'], ['POST', `/api/games/${randomUUID()}/commands`], ['OPTIONS', '/api/me/profile'], ['HEAD', '/api/me/games']]) {
       const response = await fetch(origin + path, { method, headers: { Authorization: `Bearer ${token}`, 'X-Kingdown-Dev-Actor': actors[0] }, ...(!['GET', 'HEAD'].includes(method) && { body: '{broken' }), redirect: 'manual' });
       assert.equal(response.status, 404, `${method} ${path}`); assert.equal(response.headers.get('cache-control'), 'no-store'); assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
       assert.match(response.headers.get('content-type'), /^application\/json/); assert.equal(response.headers.get('location'), null);
@@ -111,6 +111,9 @@ try {
   assert.equal(off.status, 503); assert.match(off.headers.get('content-type'), /^application\/json/);
   assert.equal(off.headers.get('cache-control'), 'no-store'); assert.equal(off.headers.get('retry-after'), '5');
   assert.deepEqual(await off.json(), { code: 'UNAVAILABLE', message: 'Account play is temporarily unavailable. Try again or play on this device.' });
+  const offStatus = await fetch(`${origin}/api/status`);
+  assert.equal(offStatus.status, 200); assert.equal(offStatus.headers.get('cache-control'), 'no-store'); assert.equal(offStatus.headers.get('referrer-policy'), 'no-referrer');
+  assert.deepEqual(await offStatus.json(), { account_access: 'closed', valid_for_ms: 0 });
   await app.pool.end(); app = undefined;
   await pool.query('update public.web_account_access set enabled=true where singleton=true');
   app = await configurePlugin(webEnv, { localDev: true, websiteKeys });
@@ -120,6 +123,9 @@ try {
     if (status === 401) { assert.equal(response.headers.get('www-authenticate'), 'Bearer'); assert.equal((await response.json()).code, 'UNAUTHENTICATED'); }
     else assert.equal((await response.json()).user_id, actors[0]);
   }
+  const openStatus = await fetch(`${origin}/api/status`);
+  assert.equal(openStatus.status, 200); const lease = await openStatus.json();
+  assert.equal(lease.account_access, 'open'); assert(Number.isInteger(lease.valid_for_ms) && lease.valid_for_ms > 0 && lease.valid_for_ms <= 5000);
   const full = await (await fetch(`${origin}/api/games/${initial.game_id}`, { headers: { Authorization: `Bearer ${token}` } })).json();
   const sinceResponse = await fetch(`${origin}/api/games/${initial.game_id}?since=0`, { headers: { Authorization: `Bearer ${token}` } });
   assert.equal(sinceResponse.status, 200); const since = await sinceResponse.json();

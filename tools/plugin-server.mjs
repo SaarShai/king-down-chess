@@ -23,6 +23,7 @@ import { ART_HEADERS, artType } from './plugin-art-headers.mjs';
 
 const WEB_OPERATIONS = new Set();
 const TEST_WEB_OPERATIONS = new Set([
+  'GET /api/status',
   'POST /api/games',
   'GET /api/games/:id',
   'POST /api/games/:id/seen',

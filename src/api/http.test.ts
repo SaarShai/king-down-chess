@@ -10,6 +10,7 @@ import { createApiHandler, createInternalHandler, MAX_ACTIVE_ENGINE, MAX_API_BOD
 const alice = '11111111-1111-4111-8111-111111111111', gameId = '33333333-3333-4333-8333-333333333333';
 const supabase = 'https://project.supabase.co', issuer = `${supabase}/auth/v1`, secret = 'x'.repeat(40);
 const operations = new Set([
+ 'GET /api/status',
  'POST /api/games',
  'GET /api/games/:id',
  'POST /api/games/:id/seen',
@@ -63,6 +64,47 @@ const raw = (path: string, headers: Record<string, string>, body?: string) => ne
 });
 
 describe('website API boundary', () => {
+ it('serves signed-out status with only the remaining switch lease and no private work', async () => {
+  let now = 100; vi.spyOn(performance, 'now').mockImplementation(() => now);
+  const access = vi.fn(async () => ({ enabled: true, expiresAt: 1100.8 })), verify = vi.fn(), admit = vi.fn(), currentUser = vi.fn();
+  useApi({ webAccountAccess: access, verify, admit, currentUser });
+  try {
+   for (const [time, expected] of [[100, 1000], [900, 200], [1100, 0]] as const) {
+    now = time;
+    const response = await call('/api/status?probe=1');
+    expect([response.status, response.headers.get('Content-Type'), response.headers.get('Cache-Control'), response.headers.get('Referrer-Policy'), response.headers.get('WWW-Authenticate')]).toEqual([200, 'application/json; charset=utf-8', 'no-store', 'no-referrer', null]);
+    expect(await response.json()).toEqual({ account_access: expected ? 'open' : 'closed', valid_for_ms: expected });
+   }
+   for (const spy of [verify, admit, currentUser, ...Object.values(games), ...Object.values(accounts), ...Object.values(safety)]) expect(spy).not.toHaveBeenCalled();
+   expect(access).toHaveBeenCalledTimes(3);
+   useApi({ webAccountAccess: access, verify: undefined, admit: undefined, currentUser: undefined });
+   expect((await call('/api/status')).status).toBe(200);
+  } finally { vi.restoreAllMocks(); }
+ });
+ it.each([undefined, false, 'error', 'expired', 'invalid', 'long'])('bounds status or closes it for switch %s', async state => {
+  const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+  useApi({ webAccountAccess: state === undefined ? undefined : async () => {
+   if (state === 'error') throw new Error('switch query failed');
+   return { enabled: state !== false, expiresAt: state === 'expired' ? performance.now() - 1 : state === 'invalid' ? NaN : performance.now() + (state === 'long' ? 9000 : 5000) };
+  } });
+  try {
+   const response = await call('/api/status'); expect(response.status).toBe(200);
+   expect(await response.json()).toEqual(state === 'long' ? { account_access: 'open', valid_for_ms: 5000 } : { account_access: 'closed', valid_for_ms: 0 });
+   expect(log).toHaveBeenCalledTimes(['error', 'expired', 'invalid'].includes(String(state)) ? 1 : 0);
+  } finally { log.mockRestore(); }
+ });
+ it.each([{ extra: [] }, { extra: ['POST /api/games'] }, { extra: ['GET /api/unknown'] }])('keeps status closed without a private read ($extra) and guards untrusted requests', async ({ extra }) => {
+  const access = vi.fn(webAccountAccess); useApi({ operations: new Set(['GET /api/status', ...extra]), webAccountAccess: access });
+  expect(await (await call('/api/status')).json()).toEqual({ account_access: 'closed', valid_for_ms: 0 });
+  expect(access).not.toHaveBeenCalled();
+  useApi({ webAccountAccess: access });
+  expect(await raw('/api/status', { Host: 'evil.example' })).toBe(403);
+  const untrusted: Record<string, string>[] = [{ Origin: 'null' }, { Origin: 'https://evil.example' }, { 'Sec-Fetch-Site': 'cross-site' }];
+  for (const headers of untrusted) expect((await call('/api/status', { headers })).status).toBe(403);
+  const wrong = await call('/api/status', { method: 'POST', body: '{broken' });
+  expect([wrong.status, wrong.headers.get('Allow'), (await wrong.json()).code]).toEqual([405, 'GET', 'NOT_ALLOWED']);
+  expect(access).not.toHaveBeenCalled();
+ });
  it.each([undefined, new Set<string>()])('closes all operations before request work with operations=%s', async closedOperations => {
   const verify = vi.fn(async () => alice), read = vi.fn(() => { throw new Error('Closed request reads its body'); });
   const access = vi.fn(webAccountAccess), closed = createApiHandler({ ...defaults, verify, webAccountAccess: access, operations: closedOperations });
@@ -207,6 +249,7 @@ describe('website API boundary', () => {
    const api = createApiHandler({ ...defaults, verify, admit, currentUser, webAccountAccess: access });
    server.removeAllListeners('request'); server.on('request', (req, res) => { vi.spyOn(req, 'iterator').mockImplementation(read); void api(req, res); });
    for (const key of operations) {
+    if (key === 'GET /api/status') continue;
     const [method, path] = key.split(' '), response = await call(path.replace(':id', gameId), { method, token: await sign(), ...(method !== 'GET' && { body: '{broken' }) });
     expect([key, response.status, response.headers.get('Retry-After'), response.headers.get('Cache-Control'), await response.json()]).toEqual([key, 503, '5', 'no-store', { ...(key === 'POST /api/games/:id/commands' && { type: 'reject', command_id: '' }), code: 'UNAVAILABLE', message: 'Account play is temporarily unavailable. Try again or play on this device.' }]);
    }

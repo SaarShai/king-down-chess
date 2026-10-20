@@ -9,7 +9,7 @@ import { extname, join } from 'node:path';
 const legalPages = ['privacy.html', 'terms.html', 'delete-data.html', 'support.html'];
 const challenge = '.well-known/openai-apps-challenge';
 const closedPages = ['/play', '/play/', '/play/profile', '/play/settings', '/play.html', '/g/00000000-0000-4000-8000-000000000000', '/j', '/j/', '/j/deploy-check-inert-token', '/deploy-check-unknown'];
-const closed = [...closedPages.map(path => ({ path, method: 'GET' })), ...['/api', '/api/games', '/api/me/games'].flatMap(path => ['GET', 'POST'].map(method => ({ path, method })))];
+const closed = [...closedPages.map(path => ({ path, method: 'GET' })), ...['/api', '/api/status', '/api/games', '/api/me/games'].flatMap(path => ['GET', 'POST'].map(method => ({ path, method })))];
 const fault = message => { console.error(`live-check: ${message}`); process.exit(2); };
 
 /** The src of the first module script, or null. */

@@ -14,6 +14,8 @@ import { cleanup, drainOutbox, queueReminders, runDeletions, sweepDeadlines } fr
 import type { Sender } from '../online/mail';
 import { ACTOR_UUID, AuthenticationError, AuthenticationUnavailable, pluginOrigin } from '../plugin/auth';
 import { diagnostic } from '../plugin/diagnostics';
+import { WEB_ACCOUNT_ACCESS_TTL_MS } from './account-access';
+import type { WebAccountStatus } from '../online/account-access';
 
 export const MAX_API_BODY = 16 * 1024;
 /** Engine routes (create and commands) run a worker each: a bound for each instance, as /mcp has. */
@@ -71,13 +73,28 @@ const redeemSchema = z.union([z.strictObject({ token: z.string().max(100) }), z.
 
 export function createApiHandler({ games, accounts, safety, publicOrigin, verify, operations, webAccountAccess, admit, currentUser }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
  const origin = pluginOrigin(publicOrigin);
+ const readAccess = async () => {
+  try {
+   const access = await webAccountAccess?.();
+   if (access && (!Number.isFinite(access.expiresAt) || performance.now() >= access.expiresAt)) console.error('King Down account switch proof is unavailable');
+   return access;
+  }
+  catch (error) { console.error('King Down account status failed', diagnostic(error)); }
+ };
  const accountAccess = async () => {
-  let access;
-  try { access = await webAccountAccess?.(); } catch { /* A failed switch check closes access. */ }
+  const access = await readAccess();
   if (access?.enabled !== true || !Number.isFinite(access.expiresAt) || performance.now() >= access.expiresAt) throw failure('UNAVAILABLE', 503, 'Account play is temporarily unavailable. Try again or play on this device.');
  };
  const link = async (actor: string, id: string): Promise<InviteLink> => { const invite = await games.invite(actor, id); return { ...invite, url: `${origin}/j/${invite.token}` }; };
  const routes: Record<string, Route> = {
+  'GET /api/status': async (): Promise<WebAccountStatus> => {
+   if (table.some(route => route.method === 'GET' && route.key !== 'GET /api/status' && operations?.has(route.key))) {
+    const access = await readAccess();
+    const remaining = access?.enabled === true && Number.isFinite(access.expiresAt) ? Math.floor(Math.min(WEB_ACCOUNT_ACCESS_TTL_MS, access.expiresAt - performance.now())) : 0;
+    if (remaining > 0) return { account_access: 'open', valid_for_ms: remaining };
+   }
+   return { account_access: 'closed', valid_for_ms: 0 };
+  },
   // A friend game comes with its invitation (part 03, section 4.4); a lost link gets a new one from /invite.
   'POST /api/games': async (actor, _, body) => { const view = await games.create(actor, body); return { view, ...(view.kind === 'friend' && { invite: await link(actor, view.game_id) }) }; },
   'GET /api/games/:id': (actor, id, _, query) => {
@@ -124,6 +141,10 @@ export function createApiHandler({ games, accounts, safety, publicOrigin, verify
   const engine = route.key === 'POST /api/games' || route.key === 'POST /api/games/:id/commands';
   let body: unknown, release: (() => void) | undefined;
   try {
+   if (route.key === 'GET /api/status') {
+    req.resume(); res.setHeader('Referrer-Policy', 'no-referrer');
+    respond(res, 200, await route.run('', '', undefined, new URL(req.url!, origin).searchParams)); return;
+   }
    await accountAccess();
    if (!verify) throw failure('UNAVAILABLE', 503, 'Website sign-in is not configured');
    const bearer = /^Bearer ([A-Za-z0-9._~-]{1,16384})$/i.exec(req.headers.authorization ?? '')?.[1];

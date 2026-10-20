@@ -25,6 +25,7 @@ import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 
 const operations = new Set([
+ 'GET /api/status',
  'POST /api/games',
  'GET /api/games/:id',
  'POST /api/games/:id/seen',
@@ -231,6 +232,65 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
    expect(release).toHaveBeenCalledOnce();
    expect(await rows('select * from public.game_players where game_id=$1 order by seat', [game.game_id])).toEqual(before);
   } finally { api = createApiHandler(options); await admin.query('update public.web_account_access set enabled=false where singleton=true'); }
+ }, 60_000);
+
+ it('shares status and private proof across two caches and refreshes off and on at the deadline', async () => {
+  const actor = await player('status'), token = await sign(actor.id);
+  let now = 100; const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+  const caches = [createWebAccountAccess(runtime), createWebAccountAccess(runtime)];
+  const query = vi.spyOn(runtime, 'query');
+  const switchQueries = () => query.mock.calls.filter(([sql]) => String(sql).includes('from public.web_account_access')).length;
+  const status = async () => {
+   const response = await fetch(`${address}/api/status`);
+   expect([response.status, response.headers.get('Cache-Control'), response.headers.get('Referrer-Policy')]).toEqual([200, 'no-store', 'no-referrer']);
+   return response.json();
+  };
+  const direct = () => fetch(`${address}/api/me/profile`, { headers: { Authorization: `Bearer ${token}` } });
+  try {
+   await admin.query('update public.web_account_access set enabled=true where singleton=true');
+   for (const access of caches) {
+    api = createApiHandler({ ...options, webAccountAccess: access });
+    expect(await status()).toEqual({ account_access: 'open', valid_for_ms: 5000 });
+    expect((await direct()).status).toBe(200);
+   }
+   expect(switchQueries()).toBe(2);
+   await admin.query('update public.web_account_access set enabled=false where singleton=true');
+   now = 5099;
+   for (const access of caches) {
+    api = createApiHandler({ ...options, webAccountAccess: access });
+    expect(await status()).toEqual({ account_access: 'open', valid_for_ms: 1 });
+   }
+   expect(switchQueries()).toBe(2);
+   now = 5100;
+   for (const access of caches) {
+    api = createApiHandler({ ...options, webAccountAccess: access });
+    expect((await direct()).status).toBe(503);
+    expect(await status()).toEqual({ account_access: 'closed', valid_for_ms: 0 });
+   }
+   expect(switchQueries()).toBe(4);
+   await admin.query('update public.web_account_access set enabled=true where singleton=true');
+   now = 10_099;
+   for (const access of caches) {
+    api = createApiHandler({ ...options, webAccountAccess: access });
+    expect(await status()).toEqual({ account_access: 'closed', valid_for_ms: 0 });
+    expect((await direct()).status).toBe(503);
+   }
+   expect(switchQueries()).toBe(4);
+   now = 10_100;
+   for (const access of caches) {
+    api = createApiHandler({ ...options, webAccountAccess: access });
+    expect(await status()).toEqual({ account_access: 'open', valid_for_ms: 5000 });
+    expect((await direct()).status).toBe(200);
+   }
+   expect(switchQueries()).toBe(6);
+   await admin.query('delete from public.web_account_access where singleton=true'); now = 15_100;
+   api = createApiHandler({ ...options, webAccountAccess: caches[0] });
+   expect(await status()).toEqual({ account_access: 'closed', valid_for_ms: 0 });
+   expect((await direct()).status).toBe(503);
+  } finally {
+   query.mockRestore(); clock.mockRestore(); api = createApiHandler(options);
+   await admin.query('insert into public.web_account_access(singleton,enabled) values(true,false) on conflict(singleton) do update set enabled=false');
+  }
  }, 60_000);
 
  it('records explicit HTTP activity only for a seat and keeps the store throttle', async () => {

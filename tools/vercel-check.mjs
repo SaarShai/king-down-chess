@@ -98,7 +98,7 @@ try {
     } catch { if (!res.headersSent) res.writeHead(500); res.end(); }
   });
 
-  const closedApi = [['GET', '/api'], ['GET', '/api/'], ['GET', '/api/me/games'], ['GET', `/api/games/${randomUUID()}?since=0`], ['GET', '/api/unknown'], ['POST', '/api/games'], ['POST', '/api/games/inert/commands'], ['OPTIONS', '/api/me/profile'], ['HEAD', '/api/me/games']];
+  const closedApi = [['GET', '/api/status'], ['POST', '/api/status'], ['GET', '/api'], ['GET', '/api/'], ['GET', '/api/me/games'], ['GET', `/api/games/${randomUUID()}?since=0`], ['GET', '/api/unknown'], ['POST', '/api/games'], ['POST', '/api/games/inert/commands'], ['OPTIONS', '/api/me/profile'], ['HEAD', '/api/me/games']];
   let queries = 0, connections = 0, closedCases = 0;
   const query = app.pool.query, connect = app.pool.connect;
   app.pool.query = function (...args) { queries++; return query.apply(this, args); };
@@ -200,6 +200,9 @@ try {
   assert.equal(off.status, 503); assert.match(off.headers.get('content-type'), /^application\/json/);
   assert.equal(off.headers.get('cache-control'), 'no-store'); assert.equal(off.headers.get('retry-after'), '5');
   assert.deepEqual(await off.json(), { code: 'UNAVAILABLE', message: 'Account play is temporarily unavailable. Try again or play on this device.' });
+  const offStatus = await fetch(`${origin}/api/status`);
+  assert.equal(offStatus.status, 200); assert.equal(offStatus.headers.get('cache-control'), 'no-store'); assert.equal(offStatus.headers.get('referrer-policy'), 'no-referrer');
+  assert.deepEqual(await offStatus.json(), { account_access: 'closed', valid_for_ms: 0 });
   await app.pool.end(); app = undefined;
   await pool.query('update public.web_account_access set enabled=true where singleton=true');
   app = await configurePlugin(webEnv, { localDev: true, websiteKeys });
@@ -214,6 +217,45 @@ try {
   };
   const api = (path, init) => fetch(origin + path, { redirect: 'manual', ...init }).then(checkApi);
   const signed = { Authorization: `Bearer ${token}` };
+  // One compiled getter supplies both routes. SQL changes need no rebuild or handler restart.
+  const originalQuery = app.pool.query;
+  let switchQueries = 0;
+  app.pool.query = function (...args) { if (String(args[0]).includes('from public.web_account_access')) switchQueries++; return originalQuery.apply(this, args); };
+  const effects = [];
+  try {
+    const schema = await app.pool.query('select singleton, enabled from public.web_account_access where singleton=true');
+    assert.deepEqual(schema.rows, [{ singleton: true, enabled: true }], 'Required web schema/grant probe');
+    switchQueries = 0;
+    for (const enabled of [false, true]) {
+      const requestStart = performance.now(), held = await api('/api/status');
+      const previous = await held.clone().json();
+      assert.equal(previous.account_access, enabled ? 'closed' : 'open');
+      const reads = switchQueries;
+      assert.equal((await api('/api/me/profile', { headers: signed })).status, enabled ? 503 : 200);
+      assert(switchQueries === reads || switchQueries === reads + 1 && performance.now() >= requestStart + previous.valid_for_ms, 'Status and private reads share the proof until its deadline');
+      const changed = performance.now();
+      await pool.query('update public.web_account_access set enabled=$1 where singleton=true', [enabled]);
+      // Expire every proof admitted before the SQL change, including a refresh between requests.
+      const deadline = performance.now() + 5000;
+      await new Promise(done => setTimeout(done, Math.max(0, deadline - performance.now()) + 2));
+      const beforeRefresh = switchQueries, refreshStart = performance.now();
+      const direct = await api('/api/me/profile', { headers: signed });
+      assert.equal(switchQueries, beforeRefresh + 1, 'An expired direct proof refreshes once');
+      assert.equal(direct.status, enabled ? 200 : 503);
+      const current = await api('/api/status'); assert.equal(current.status, 200);
+      const next = await current.json(); assert.equal(next.account_access, enabled ? 'open' : 'closed');
+      if (!enabled) {
+        assert.deepEqual(next, { account_access: 'closed', valid_for_ms: 0 });
+        assert.deepEqual(await held.json(), previous, 'The old open response can arrive after direct closure');
+        assert(performance.now() >= requestStart + previous.valid_for_ms, 'A held open status cannot renew its lease');
+      }
+      assert(switchQueries === beforeRefresh + 1 || switchQueries === beforeRefresh + 2 && performance.now() >= refreshStart + 5000, 'Status shares the fresh direct proof until its deadline');
+      effects.push({ enabled, observed_ms: Math.round(performance.now() - changed) });
+    }
+  } finally { app.pool.query = originalQuery; }
+  const status = await api('/api/status'); assert.equal(status.status, 200); assert.equal(status.headers.get('referrer-policy'), 'no-referrer');
+  const lease = await status.json(); assert.equal(lease.account_access, 'open');
+  assert(Number.isInteger(lease.valid_for_ms) && lease.valid_for_ms > 0 && lease.valid_for_ms <= 5000);
   for (const [headers, status] of [[{}, 401], [{ 'X-Kingdown-Dev-Actor': actor }, 401], [{ Authorization: `Bearer ${await sign({ exp: Math.floor(Date.now() / 1000) - 60 })}` }, 401], [{ Authorization: `Bearer ${await sign({ aud: `${origin}/mcp`, client_id: clientId })}` }, 401], [signed, 200]]) {
     const response = await api('/api/me/profile', { headers });
     assert.equal(response.status, status);
@@ -255,7 +297,8 @@ try {
     await assertWriteClosure(response);
   }
   assert.deepEqual((await gameRows()).rows, before, 'Refused bodies have no game effect');
-  assert.deepEqual([...served].sort(), ['/api', '/api/', '/api/games', `/api/games/${game_id}`, '/api/me/games', '/api/me/profile', '/api/unknown'].map(path => `function ${path}`).sort(), 'Enabled/test served paths');
+  assert.deepEqual([...served].sort(), ['/api', '/api/', '/api/games', `/api/games/${game_id}`, '/api/me/games', '/api/me/profile', '/api/status', '/api/unknown'].map(path => `function ${path}`).sort(), 'Enabled/test served paths');
+  console.log(`Same-switch compiled status/direct effects: ${JSON.stringify(effects)}`);
   console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${closedPaths.length} closed account/unknown paths, ${art.length} board art files, MCP open and move, OAuth, ${closedCases} closed/default API probes with zero pool calls, off-switch closure, ${enabledCases} enabled/test API probes with 3 write-configuration refusals, internal jobs and ${archive.length} archived engine(s) passed`);
 } finally {
   try {
