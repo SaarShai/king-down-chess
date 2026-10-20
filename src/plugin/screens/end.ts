@@ -14,6 +14,11 @@ import './end.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 const readFailed = () => staleRead(store.page());
 let scrim: HTMLElement;
+let shadeResize: ResizeObserver | undefined;
+function updateEndShade() {
+  const over = $<HTMLDialogElement>('over');
+  over.classList.toggle('has-overflow', over.open && over.scrollHeight - over.clientHeight - over.scrollTop > 1);
+}
 const read = new Set<string>(), resumed = new Set<string>();
 let updating = false, stopped = false, opening = false;
 let blockKey = '', blockButtons: HTMLButtonElement[] = [];
@@ -24,6 +29,7 @@ export function guardEndTaps(game: string) { guardedGame = game; tapReadyAt = In
 let queuedRematch: { game: string; choice: 'offer' | 'accept' | 'decline' } | undefined;
 const button = (label: string, click: (event: MouseEvent) => void) => { const b = document.createElement('button'); b.textContent = label; b.setAttribute('data-free',''); b.onclick = click; return b; };
 function closeEnd() {
+  shadeResize?.disconnect();
   blockKey = ''; blockButtons = [];
   const error = document.querySelector('.page-error'); if (error) document.querySelector('.page-sheet')!.append(error);
   if ($('over').classList.contains('end-card')) { $<HTMLDialogElement>('over').close(); $('over').classList.remove('end-card'); }
@@ -87,6 +93,7 @@ export function endScreen(schedule = true) {
   if (!scrim) {
     scrim = document.createElement('div'); scrim.id = 'end-scrim'; scrim.className = 'scrim'; scrim.hidden=true; $('app-frame').insertBefore(scrim,over);
     window.addEventListener('message',event=>{ if(event.data?.method==='ui/resource-teardown') {stopped=true; closeEnd();} });
+    over.addEventListener('scroll', updateEndShade);
   }
   $('end-table').append($('game-table'));
   const win = view.result?.reason === 'checkmate' && view.result.winner === view.seat;
@@ -143,12 +150,16 @@ export function endScreen(schedule = true) {
   $('end-result').onclick = () => { looking=false; $('end-result').hidden=true; endScreen(); };
   (looking ? document.querySelector('.page-sheet')! : over).append(error);
   over.querySelector('.quiet-line')!.textContent = opponent?.deleted || rematchAllowed === false ? '' : view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematches.length ? view.kind==='solo' ? 'Play again with the same rules and colour.' : 'A rematch keeps the features and swaps the colours.' : '';
+  (shadeResize ??= new ResizeObserver(updateEndShade)).disconnect();
+  shadeResize.observe(over);
+  for (const child of over.children) shadeResize.observe(child);
+  updateEndShade();
   if (over.open) scrim.hidden=false;
   else if (!opening && !looking) {
     opening=true; const game=view.game_id;
     const show=()=>{
       if (stopped || client.state.screen!=='end' || boardGame()?.game_id!==game) {opening=false; return;}
-      opening=false; if(!looking){if(!over.open) { over.show(); over.scrollTop = 0; if (tapReadyAt === Infinity) tapReadyAt = performance.now() + 1000; } scrim.hidden=false;}
+      opening=false; if(!looking){if(!over.open) { over.show(); over.scrollTop = 0; if (tapReadyAt === Infinity) tapReadyAt = performance.now() + 1000; } updateEndShade(); scrim.hidden=false;}
     };
     requestAnimationFrame(show);
   }

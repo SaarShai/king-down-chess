@@ -2208,6 +2208,19 @@ try {
       }, view);
       const card = frame.locator('#over.end-card[open]');
       await card.waitFor();
+      async function fadeMatchesScroll() {
+        await frame.locator('html').evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        const cue = await card.evaluate(el => {
+          const style = getComputedStyle(el);
+          return { below: el.scrollHeight - el.clientHeight - el.scrollTop > 1, fade: el.classList.contains('has-overflow'), size: style.backgroundSize, attachment: style.backgroundAttachment, image: style.backgroundImage };
+        });
+        assert.equal(cue.fade, cue.below, `${label} at ${width} x ${height}: fade shows only with more content below`);
+        if (cue.fade) {
+          assert.equal(cue.size, '100% 16px, auto', 'The bottom fade is 16 px high');
+          assert.equal(cue.attachment, 'scroll, scroll', 'The fade stays at the card edge while content scrolls');
+          assert(cue.image.includes('rgba(91, 80, 69, 0.3)'), 'The fade uses the menu shade below the content');
+        }
+      }
       await frame.locator('html').evaluate(async () => {
         await document.fonts.ready;
         for (let run; (run = document.getAnimations().filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
@@ -2216,6 +2229,7 @@ try {
         // The second case tests the host inset alone, with no estimated composer floor.
         await frame.locator('#app-frame').evaluate((el, gap) => { el.style.bottom = `${gap}px`; }, gap);
         await card.evaluate(el => { el.scrollTop = 0; });
+        await fadeMatchesScroll();
         const m = await card.evaluate(el => {
           const box = el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; };
           return { frame: box(document.querySelector('#app-frame')), card: box(el), reason: box(el.querySelector('#end-reason')), buttons: [...el.querySelectorAll('form button:not([hidden])')].map(box), scroll: el.scrollTop, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight };
@@ -2244,7 +2258,11 @@ try {
             return { button: box(el), card: box(el.closest('dialog')), frame: box(document.querySelector('#app-frame')), hit: el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)) };
           });
           assert(inFrame(seen.button, seen.card) && inFrame(seen.button, seen.frame) && seen.hit, `${name} scrolls fully into the card and frame, and its centre takes a tap: ${JSON.stringify(seen)}`);
+          await fadeMatchesScroll();
         }
+        await card.evaluate(el => { el.scrollTop = el.scrollHeight; });
+        await fadeMatchesScroll();
+        assert.equal(await card.evaluate(el => el.classList.contains('has-overflow')), false, 'The fade goes at the card end');
         console.log(`PASS: ${all}; all three end actions fit and take a tap after scroll`);
       }
     } finally { await host.close(); }

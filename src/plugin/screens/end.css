@@ -1,4 +1,6 @@
 .frame dialog#over.end-card { z-index: 2; max-height: calc(100% - 80px); overflow-y: auto; overscroll-behavior: contain; }
+/* Paint below the content, so the cue never shades a full button or its focus ring. */
+#over.end-card.has-overflow { background: linear-gradient(transparent, rgb(91 80 69 / 30%)) bottom / 100% 16px no-repeat, radial-gradient(130% 70% at 50% 0%, var(--vellum) 0%, var(--parchment) 75%); }
 #end-result { position: absolute; bottom: 12px; right: 12px; z-index: 2; width: auto; }
 #end-scrim { z-index: 1; }
 body[data-page='end'] #page-head { position: relative; z-index: 3; }

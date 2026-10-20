@@ -613,7 +613,7 @@ it.each([[320, 568, 63, 84, true, 214, 109], [393, 852, 102, 118, true, 382, 300
 });
 
 // The fixture shares saved setup. Keep this chess-only case after the fairy-piece size checks.
-it.each([[426, 59], [800, 0]])('keeps Back clear and end actions reachable at 197 by %i', async (height, bottom) => {
+it.each([[426, 59, 1], [800, 0, 1], [426, 59, 0], [800, 0, 0]])('keeps Back clear and end actions reachable at 197 by %i, bottom %i, winner %i', async (height, bottom, winner) => {
   const { page, frame } = await hostPage(197, height, 51, bottom);
   try {
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
@@ -623,7 +623,37 @@ it.each([[426, 59], [800, 0]])('keeps Back clear and end actions reachable at 19
     await frame.locator('#setup-start').click(); await frame.locator('#board[aria-busy="false"]').waitFor();
     await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Resign', exact: true }).click();
     await frame.locator('#over[open]').waitFor();
+    if (winner === 0) {
+      await page.evaluate(() => {
+        const view = { ...(window as any).harnessView, revision: (window as any).harnessView.revision + 1, result: { winner: 0, reason: 'checkmate' } };
+        (window as any).harnessNextView = view;
+        return (window as any).harnessShow({ structuredContent: { screen: 'board', game_id: view.game_id }, _meta: { view, board_id: (window as any).harnessWidgetState.privateContent.board_id } }, true);
+      });
+      await frame.locator('#over h2').filter({ hasText: 'You win' }).waitFor();
+    }
     expect(await frame.locator('#over').evaluate(e => e.scrollHeight > e.clientHeight)).toBe(height === 426);
+    const card = frame.locator('#over');
+    await expect.poll(() => card.evaluate(e => e.classList.contains('has-overflow'))).toBe(height === 426);
+    if (height === 426) {
+      const paint = await card.evaluate(e => { const s = getComputedStyle(e); return { size: s.backgroundSize, attachment: s.backgroundAttachment, image: s.backgroundImage }; });
+      expect(paint.size).toBe('100% 16px, auto');
+      expect(paint.attachment).toBe('scroll, scroll');
+      expect(paint.image).toContain('rgba(91, 80, 69, 0.3)');
+      await card.evaluate(e => { e.scrollTop = e.scrollHeight; });
+      await expect.poll(() => card.evaluate(e => e.classList.contains('has-overflow'))).toBe(false);
+      await card.evaluate(e => { e.scrollTop = 0; });
+      await expect.poll(() => card.evaluate(e => e.classList.contains('has-overflow'))).toBe(true);
+      await page.setViewportSize({ width: 197, height: 800 });
+      await expect.poll(() => card.evaluate(e => e.classList.contains('has-overflow'))).toBe(false);
+      await page.setViewportSize({ width: 197, height });
+      await expect.poll(() => card.evaluate(e => e.classList.contains('has-overflow'))).toBe(true);
+    } else {
+      const note = card.locator('.quiet-line'), text = await note.textContent();
+      await note.evaluate(e => { e.textContent = 'More result content. '.repeat(40); });
+      await expect.poll(() => card.evaluate(e => e.classList.contains('has-overflow'))).toBe(true);
+      await note.evaluate((e, text) => { e.textContent = text; }, text);
+      await expect.poll(() => card.evaluate(e => e.classList.contains('has-overflow'))).toBe(false);
+    }
     const cue = await frame.locator('#over').evaluate(e => {
       e.scrollTop = 0;
       const card = e.getBoundingClientRect(), [first, next] = [...e.querySelectorAll('form button')].map(b => b.getBoundingClientRect());

@@ -191,3 +191,34 @@ The first local `npm test` run exits 1 during a disk-space failure. Its partial 
 The focused command, `bash tools/test-lock.sh npx vitest run src/ceremony.test.ts`, passes all four tests, exit 0. The full retry uses `npm test`, the supplied local test database and `VITEST_MAX_WORKERS=2`. It passes all 197 files: 3,283 tests pass and eight opt-in tests skip. All 51 art checks pass. The type check passes. The run takes 598.17 s and exits 0. Evidence: `fix-unit-1.txt`, `fix-ceremony-1.txt` and `fix-unit-2.txt` in the same lane folder.
 
 Review A, P2: fixed by 7780e7bc and 118d5a8e. The check tests A9 and reaches every retained guard. The second commit also repairs the initial frame wait found by the browser run. Review B supplies no finding, so it has no item to fix or refute. The final source review keeps the repair in the check and unit tests. It adds no product code or dependency. `git diff --check` passes. The final commit records results only; the checked source stays at 118d5a8e.
+
+## Owner picks 2026-10-20
+
+Y2 plan:
+
+1. Add a 16 px bottom fade while more result content is below. Remove it at the scroll end. Keep the fade below buttons and focus rings.
+2. Check loss and win cards at 200% zoom and the largest Android Chrome zoom in the existing browser check. Check scroll, resize, content updates and action access. Keep every prior guard.
+3. Run the type check here. Commit Y2. Run the unit suite with `m1-unit.sh` and `plugin-ui` with `KD_RUNNER=m1`. Save and inspect phone and desktop images in both themes, plus zoom images.
+
+Pass criteria: the fade is 16 px high, shows only with more content below, and leaves full buttons clear. All checks pass. The page stays below 1,000,000 bytes. No other pick changes.
+
+Y2 is done. The card adds the menu's 16 px bottom fade while more content is below. It removes the fade at the scroll end. One size observer follows the card and its content. A scroll event updates the fade. The observer stops when the result screen closes.
+
+Taste choice: use the menu's warm ink shade at 30%. Paint it in the card background, below its content. This keeps full buttons and focus rings clear. Add no new motion, words or art. Keep all five prior preview picks.
+
+Checks at `96889b2b`:
+
+| Check | Result | Log |
+| --- | --- | --- |
+| `npx tsc --noEmit` | Pass, exit 0 | Local type check and commit hook |
+| Full M1 unit suite, with `m1-unit.sh` | 185 files pass; 12 skip. 3,129 tests pass; 164 skip. Exit 0 in 348.46 s | `unit-Y2-1.txt` |
+| `KD_RUNNER=m1` with `plugin-ui` | Pass, exit 0 in 271.3 s | `checks-Y2-1.txt` |
+| M1 image capture, with `bash tools/test-lock.sh` | 16 images, exit 0 | `capture-Y2-3.txt` |
+
+The new tests cover both win and loss, the 16 px paint, scroll down and up, resize, and text changes. The browser check keeps every prior layout and action guard. It checks both results at 206 x 395, the largest Android Chrome zoom sample, and the existing 197 px and Safari zoom samples. All 33 size tests pass. The unit helper skips database and opt-in checks on the M1. It runs Vitest; it does not run the separate art tests. No server code changes, so `plugin-ui-http` is not required.
+
+Proof: `scratchpad/lanes/picks-result/shots/` holds win and loss at 390 x 844 and 1280 x 800 in light and dark. It also holds both results at 206 x 395, at the top and end of the card, in both themes. All images use device scale 2. Each image has a visual review. At the short size, each card has 110 px more content below. The fade shows at the top and clears at the end. Full buttons stay clear. Back stays clear. The normal cards fit and show no fade. The page is 897,649 bytes; the resource payload is 901,526 bytes.
+
+The first local capture stays at the shared test lock. Stop only this lane's queued process and move capture to the M1. The first M1 capture starts in fullscreen and skips Home, so its Home wait fails. Set the capture's initial host mode to inline, then enter fullscreen. The final capture passes. This repair changes the capture script only. No test or check limit changes. No assertion is removed or weakened.
+
+The final source review keeps one CSS paint rule and one scroll-state function. It adds no wrapper, dependency or input path. All Y2 work is built. Android zoom proof uses the host size sample; no native phone check runs. The final amend adds this check record only.
