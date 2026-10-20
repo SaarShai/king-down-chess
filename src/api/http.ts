@@ -36,7 +36,8 @@ export function sessionVerifier(supabaseUrl: string, keys?: JWTVerifyGetKey): (t
   let payload;
   try { ({ payload } = await jwtVerify(token, jwks, { issuer, audience: 'authenticated', algorithms: ['ES256', 'RS256'], requiredClaims: ['sub', 'exp', 'role', 'is_anonymous'] })); }
   catch (error) { throw error instanceof errors.JOSEError && !AUTH_DOWN.has(error.code) ? new AuthenticationError() : new AuthenticationUnavailable(); }
-  if (payload.aud !== 'authenticated' || payload.role !== 'authenticated' || payload.is_anonymous !== false || payload.client_id !== undefined
+  const audience = Array.isArray(payload.aud) && payload.aud.length === 1 ? payload.aud[0] : payload.aud;
+  if (audience !== 'authenticated' || payload.role !== 'authenticated' || payload.is_anonymous !== false || payload.client_id !== undefined
    || typeof payload.sub !== 'string' || !ACTOR_UUID.test(payload.sub)) throw new AuthenticationError();
   return payload.sub.toLowerCase();
  };

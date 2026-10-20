@@ -158,6 +158,11 @@ describe('website API boundary', () => {
   expect((await call('/api/me/profile', { token })).status).toBe(200);
   expect(verify).toHaveBeenCalledTimes(1); expect(accounts.profile).toHaveBeenCalledWith(alice);
  });
+ it.each([{ aud: 'authenticated' }, { aud: ['authenticated'] }])('reads settings with the website audience $aud', async ({ aud }) => {
+  const response = await call('/api/me/settings', { token: await sign({ aud }) });
+  expect(response.status).toBe(200);
+  expect(players.settings).toHaveBeenCalledWith(alice, {});
+ });
  it('admits a website session and refuses every other token before any service call', async () => {
   const ok = await call('/api/me/games', { token: await sign() });
   expect([ok.status, ok.headers.get('Cache-Control'), ok.headers.get('Access-Control-Allow-Origin')]).toEqual([200, 'no-store', null]);
@@ -174,6 +179,10 @@ describe('website API boundary', () => {
    'expired': await sign({ exp: Math.floor(Date.now() / 1000) - 60 }),
    'not a user ID': await sign({ sub: 'not-a-user' }),
    'a mixed audience': await sign({ aud: ['authenticated', `${address}/mcp`] }),
+   'an empty audience': await sign({ aud: [] }),
+   'another audience in an array': await sign({ aud: [`${address}/mcp`] }),
+   'a repeated website audience': await sign({ aud: ['authenticated', 'authenticated'] }),
+   'an MCP token with an array audience': await sign({ aud: ['authenticated'], client_id: 'chatgpt' }),
   };
   for (const [name, token] of Object.entries(refused)) {
    const response = await call('/api/me/games', { token });
