@@ -38,6 +38,7 @@ export const CLASSIC_CASES: ContinuationCase[] = [
   { name: 'en passant', setup: { classic: true, fen: '7k/8/8/8/3pP3/8/8/K7 b - e3 0 3' }, actions: ['d4xe3'] },
 ];
 export const CARD_CASES: ContinuationCase[] = [
+  { name: 'fairy Haste with always-on March', setup: { kings: 'Mud:March,none', hand: ['Haste', 'Freeze', 'MorphP', 'Vault'], fen: '7k/p7/8/8/8/2A5/P7/6K1 w - - 0 1' }, actions: ['Ac3-d3!H', '--'] },
   { name: 'ordered hand and Haste', setup: { hand: ['Haste', 'Freeze', 'Rally', 'MirrorB'], fen: haste }, actions: ['Ra1-a4!H', '--'], followups: true },
   { name: 'Rally', setup: { hand: ['Rally'], fen: '4k3/8/p7/8/8/2p5/8/RN2K3 w - - 0 1' }, actions: ['Ra1-a5!J', 'Nb1-d2'], followups: true },
   { name: 'Mirror B Freeze', setup: { kings: 'Spirit:Mercy,none', hand: ['MirrorB', 'Freeze', 'Haste', 'Rally'], fen: freeze }, actions: ['!F:d5!Z', '--'], followups: true },
