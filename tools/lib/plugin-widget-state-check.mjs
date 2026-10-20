@@ -20,7 +20,10 @@ export function checkWidgetState(state, draftBases) {
     assert.equal(privateState.draft.game_tag, scope.game.slice(0, 8), 'The private draft tag names its full game');
     const key = `${scope.game}:${scope.revision}`;
     assert(Object.hasOwn(draftBases, key), 'The private draft names an observed game and revision');
-    assert.equal(scope.rules, draftBases[key], 'The private draft keeps the observed rules');
+    assert.equal(scope.rules, draftBases[key].rules, 'The private draft keeps the observed rules');
+    assert.equal(typeof scope.engine, 'string', 'The private draft names its implementation');
+    assert(scope.engine.length > 0, 'The private draft names a nonempty implementation');
+    assert.equal(scope.engine, draftBases[key].engine, 'The private draft keeps the observed implementation');
     delete redacted.privateContent.draft.scope.account;
     delete redacted.privateContent.draft.scope.game;
   }

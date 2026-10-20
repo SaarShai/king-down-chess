@@ -64,11 +64,19 @@ it('supports the screen tools, hidden setup choices, board selection and rematch
   expect((await s.find('alice',DEFAULT_OPTIONS)).game_id).toBe(open.game_id);
   expect((await s.lobby('bob')).games[0].creator).toEqual({handle:'alice',icon:'rook'});
   const taken = await s.accept('bob',open.game_id); expect(taken.status).toBe('setup');
+  expect(taken.engine_fingerprint).toBeNull();
   const choice = {king:null,order:taken.draw!};
   const send = (actor:string, revision:number, action:unknown) => s.command(actor,open.game_id,{command_id:`${actor}-${revision}`,expected_revision:revision,action});
   await send('alice',1,{type:'choose',choice,ready:true});
   const hidden = await s.view('bob',open.game_id); expect(hidden.choices![0]).toBeNull(); expect(hidden.last_commands.at(-1)!.action.type).toBe('hidden');
-  expect((await send('bob',2,{type:'choose',choice,ready:true})).status).toBe('playing');
+  const started = await send('bob',2,{type:'choose',choice,ready:true});
+  expect(started.status).toBe('playing');
+  const reference = await matchEngine.createMatch();
+  try {
+   const engine = JSON.parse(await reference.exportSave()).engine;
+   expect(started.engine_fingerprint).toBe(engine);
+   expect((await s.view('alice',open.game_id,started.revision)).engine_fingerprint).toBe(engine);
+  } finally { await reference.close(); }
   await s.selectBoard('alice',board,open.game_id);
   await send('alice',3,{type:'draw',choice:'offer'});
   expect((await send('bob',4,{type:'draw',choice:'accept'})).result!.reason).toBe('agreement');

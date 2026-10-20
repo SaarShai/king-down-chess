@@ -34,7 +34,7 @@ function rememberDraftBase(view: any) {
   if (!view) return;
   if (view.rules) draftRules.set(view.game_id, view.rules);
   const rules = view.rules ?? draftRules.get(view.game_id);
-  if (rules) host.harnessDraftBases[`${view.game_id}:${view.revision}`] = JSON.stringify(rules);
+  if (rules) host.harnessDraftBases[`${view.game_id}:${view.revision}`] = { rules: JSON.stringify(rules), engine: view.engine_fingerprint };
 }
 let matchId: string | undefined;
 const invoke = async (name: string, args: Record<string, unknown>) => {
