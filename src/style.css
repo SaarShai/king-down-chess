@@ -39,7 +39,8 @@
   --gold-bright: #e9c071;  /* the lit gold edge: ornament, never text on parchment */
   --gold-ink: #7a5712;     /* gold as text on parchment: 5.5:1 */
   --danger: #b0251b;
-  --focus: #1c5bb0;        /* focus ring: 5.5:1 on parchment */
+  --focus: #2b2621;        /* warm ink: 12.5:1 on parchment */
+  --focus-gold: #e9c071;   /* the outer ring stays clear on dark faces */
   --check: #e02828;        /* matches renderer CHECK_RING on the king square */
   --night: #221d18;        /* dark stone (no screen stands on it: the base look is light only) */
   --on-night: #f3ead7;

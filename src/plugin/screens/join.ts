@@ -1,7 +1,8 @@
 import { client, memory, navigate, routeView, send } from '../app';
 import type { JoinPreview } from '../../match/protocol';
-import type { Page } from '../state';
-import { $, features, onStop, portrait, row, showError, toolError } from './friend';
+import type { Page } from '../../account-game/state';
+import { $, onStop, portrait, row, showError, toolError } from './friend';
+import { features } from '../../account-game/features';
 let reading = false, joining = false, afterHandle = false;
 let checked = '';
 export function joinScreen() {

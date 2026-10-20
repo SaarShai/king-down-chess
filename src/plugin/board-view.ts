@@ -1,8 +1,8 @@
 import { PaintedView } from '../render/PaintedView';
 import type { Highlights } from '../render/marks';
 import { colorOf, nameOf, typeOf } from '../rules/engine';
-import type { BoardSettings } from './client';
-import { symbols } from './art';
+import type { BoardSettings } from '../account-game/types';
+import { symbols } from '../account-game/art';
 
 export const board = new PaintedView(document.getElementById('board')!, { floor: null, webInk: true });
 board.setPace('fast');

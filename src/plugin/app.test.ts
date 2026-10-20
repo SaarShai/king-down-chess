@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { View } from '../match/protocol';
 import { createRouter } from './router';
 
-const transport = vi.hoisted(() => ({ call: vi.fn(), instance: undefined as any, target: undefined as any, draw: vi.fn(), mode: 'fullscreen' }));
+const transport = vi.hoisted(() => ({ call: vi.fn(), instance: undefined as any, target: undefined as any, draw: vi.fn(), rows: vi.fn(), mode: 'fullscreen' }));
 vi.mock('@modelcontextprotocol/ext-apps', () => ({ App: class {
   constructor() { transport.instance = this; }
   connect = async () => {};
@@ -10,8 +10,8 @@ vi.mock('@modelcontextprotocol/ext-apps', () => ({ App: class {
   callServerTool = transport.call;
   sendSizeChanged = async () => {};
 } }));
-vi.mock('./art', () => ({ art: (path: string) => path }));
-vi.mock('./games-list', () => ({ gamesList() {}, gameTitle: () => 'Game', waitingLine: () => 'Waiting' }));
+vi.mock('../account-game/art', () => ({ art: (path: string) => path }));
+vi.mock('../account-game/games-list', () => ({ gamesList: transport.rows, gameTitle: () => 'Game', waitingLine: () => 'Waiting' }));
 vi.mock('../account/profile', () => ({ ICONS: {}, handleProblem: () => undefined }));
 vi.mock('./board-view', () => ({ setSettings: async () => {} }));
 vi.mock('../render/sfx', () => ({ setSound: () => {}, snd: {} }));
@@ -29,19 +29,19 @@ function node() {
   return { dataset: {}, style: { setProperty() {} }, textContent: '', innerHTML: '', value: '', disabled: false, hidden: false, open: false,
     showModal() { this.open = true; }, close() { this.open = false; },
     querySelectorAll: () => [], querySelector: () => node(), closest: () => node(),
-    setCustomValidity() {}, setAttribute() {}, removeAttribute() {}, replaceChildren() {}, append() {}, matches: () => false, hasAttribute: () => false };
+    addEventListener() {}, removeEventListener() {}, setCustomValidity() {}, setAttribute() {}, removeAttribute() {}, replaceChildren() {}, append() {}, matches: () => false, hasAttribute: () => false };
 }
 beforeEach(() => {
   vi.resetModules(); vi.useFakeTimers();
   const nodes = new Map<string, ReturnType<typeof node>>();
-  vi.stubGlobal('document', { body: node(), documentElement: node(), querySelectorAll: () => [], createElement: node, createTextNode: (text: string) => text,
+  vi.stubGlobal('document', { body: node(), documentElement: node(), querySelector: () => null, querySelectorAll: () => [], createElement: node, createTextNode: (text: string) => text,
     getElementById: (id: string) => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); } });
-  vi.stubGlobal('window', { addEventListener: vi.fn(), openai: { setWidgetState() {} } });
+  vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn(), openai: { setWidgetState() {} } });
   vi.stubGlobal('navigator', {});
   vi.stubGlobal('localStorage', { getItem: () => null });
   vi.stubGlobal('addEventListener', vi.fn());
   vi.stubGlobal('MutationObserver', class { observe() {} disconnect() {} });
-  transport.mode = 'fullscreen'; transport.draw.mockClear();
+  transport.mode = 'fullscreen'; transport.draw.mockClear(); transport.rows.mockClear();
   transport.call.mockReset().mockResolvedValue({ content: [], _meta: { games: [] } });
 });
 
@@ -57,6 +57,74 @@ async function mounted() {
 }
 
 const press = (id: string) => { const button = document.getElementById(id)!; return Reflect.apply(button.onclick!, button, [{}]); };
+
+it('opens Settings from the Profile row and keeps the hall handlers', async () => {
+  const settingsRow = Object.assign(node(), { dataset: { nav: 'settings' }, onclick: null as (() => void) | null });
+  const hallRow = Object.assign(node(), { dataset: { nav: 'profile' }, onclick: vi.fn() });
+  const hallClick = hallRow.onclick;
+  vi.spyOn(document, 'querySelectorAll').mockImplementation((selector: string) =>
+    (selector === '[data-nav]' ? [settingsRow, hallRow] : []) as any);
+  const app = await mounted(); app.navigate('profile');
+  expect(settingsRow.onclick).toBeTypeOf('function'); settingsRow.onclick!();
+  expect(app.client.state.screen).toBe('settings'); expect(hallRow.onclick).toBe(hallClick);
+});
+
+it.each([false, true])('scrolls from a result to New game after the list is ready (held: %s)', async held => {
+  const app = await mounted(); app.navigate('end');
+  const body = { scrollTop: 200, getBoundingClientRect: () => ({ top: 0 }) };
+  const heading = document.getElementById('new-game-head')!;
+  Object.assign(heading, { closest: () => body, getBoundingClientRect: () => ({ top: 800 - body.scrollTop }) });
+  vi.spyOn(document, 'querySelectorAll').mockImplementation((selector: string) =>
+    (selector === '[data-screen="play"] .new-game-body' ? [body] : []) as any);
+  let release!: (result: unknown) => void;
+  if (held) {
+    app.memory.dirty = true;
+    transport.call.mockImplementation(async ({ name }) => name === 'kingdown_games' ? new Promise(resolve => { release = resolve; }) : { content: [], _meta: { settings } });
+  }
+  app.showNewGame();
+  if (held) {
+    expect(body.scrollTop).toBe(0); await vi.advanceTimersByTimeAsync(0);
+    release({ content: [], _meta: { games: [] } }); await vi.advanceTimersByTimeAsync(0);
+  }
+  expect(app.client.state.screen).toBe('play'); expect(body.scrollTop).toBe(800);
+});
+
+it('keeps the full-read marker absent from a compact end reply after caching rules', async () => {
+  const app = await mounted();
+  const full = { ...game, fen: '7k/8/8/8/8/8/P7/K7 w - - 0 1', rules: {} } as View;
+  app.routeView(full);
+  const ended = { ...game, revision: 2, status: 'finished', fen: full.fen, result: { winner: 1, reason: 'resignation' } } as View;
+  transport.call.mockResolvedValue({ content: [], _meta: { view: ended } });
+  await app.call('kingdown_resign', { game_id: game.game_id }, { route: true });
+  expect(app.client.state.screen).toBe('end');
+  expect(app.memory.view).not.toHaveProperty('rules');
+  expect(transport.draw).toHaveBeenLastCalledWith(ended, false);
+});
+
+it('keeps a Resume service code through the real send and read adapter', async () => {
+  const app = await mounted(), { pluginGameClient } = await import('./client');
+  const reads = pluginGameClient(app.client, app.queue, app.send);
+  transport.call.mockResolvedValue({ isError: true, content: [{ type: 'text', text: 'Read failed' }], _meta: { code: 'INTERNAL_ERROR' } });
+  await expect(reads.game(game.game_id)).rejects.toMatchObject({ code: 'INTERNAL_ERROR', message: 'Read failed' });
+  expect(transport.call.mock.calls.at(-1)![0].name).toBe('kingdown_resume');
+});
+
+it.each(['onclose', 'onteardown'])('disposes the hall on plugin %s', async stop => {
+  const app = await mounted(); app.memory.games = [game as any]; app.renderGameRows();
+  const focus = vi.mocked(window.addEventListener).mock.calls.filter(([name]) => name === 'click');
+  expect(focus).toHaveLength(1);
+  const reveal = vi.mocked(window.addEventListener).mock.calls.filter(([name]) => name === 'focusin');
+  expect(reveal).toHaveLength(1);
+  const open = transport.rows.mock.calls.at(-1)![2];
+  await transport.instance[stop]();
+  expect(app.memory.games).toEqual([]); expect(app.memory.dirty).toBe(true);
+  expect(window.removeEventListener).toHaveBeenCalledWith('click', expect.any(Function), true);
+  expect(window.removeEventListener).toHaveBeenCalledWith(...focus[0]);
+  expect(window.removeEventListener).toHaveBeenCalledWith(...reveal[0]);
+  transport.call.mockClear(); open(game.game_id); await vi.advanceTimersByTimeAsync(0);
+  expect(transport.call).not.toHaveBeenCalled();
+});
+
 async function waitingGame() {
   const options = (await import('./screens/setup-model')).readSetup(null).options;
   return { ...game, kind: 'random', status: 'waiting', seat: 0, created_at: new Date().toISOString(), server_now: new Date().toISOString(),
@@ -95,7 +163,7 @@ it.each(['wait', 'play'] as const)('keeps one computer Create and finishes its R
   const pending = app.client.state.pending;
   expect(pending?.name).toBe('kingdown_create'); expect(pending?.error).toBe('Lost Create reply');
   expect((document.getElementById('wait-computer') as HTMLButtonElement).disabled).toBe(true);
-  expect((await import('./state')).messageLine(app.store.page()).action).toBe('retry');
+  expect((await import('../account-game/state')).messageLine(app.store.page()).action).toBe('retry');
   press('wait-computer'); await vi.advanceTimersByTimeAsync(0);
   expect(creates).toBe(1); expect(app.client.state.pending).toBe(pending);
   app.navigate(screen); press('retry'); await vi.advanceTimersByTimeAsync(0);
@@ -116,7 +184,7 @@ it.each(['kingdown_choose', 'kingdown_get'])('makes no second computer game whil
   });
   press('wait-computer'); await vi.advanceTimersByTimeAsync(0);
   expect(app.client.state.screen).toBe('wait'); expect(app.memory.view?.game_id).toBe(solo.game_id);
-  expect((await import('./state')).messageLine(app.store.page()).action).not.toBe('none');
+  expect((await import('../account-game/state')).messageLine(app.store.page()).action).not.toBe('none');
   expect((document.getElementById('wait-computer') as HTMLButtonElement).disabled).toBe(true);
   press('wait-computer'); await vi.advanceTimersByTimeAsync(0);
   expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create')).toHaveLength(1);
@@ -324,7 +392,7 @@ it.each([false, true])('keeps Profile when the first Settings save ends (error: 
   await vi.advanceTimersByTimeAsync(0);
   expect(app.client.state.screen).toBe('profile');
   expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create')).toHaveLength(0);
-  expect((await import('./state')).messageLine(app.store.page()).text).toBe('');
+  expect((await import('../account-game/state')).messageLine(app.store.page()).text).toBe('');
 });
 
 it('keeps Home when an older automatic Choose fails', async () => {
@@ -345,12 +413,12 @@ it('keeps Home when an older automatic Choose fails', async () => {
   await vi.advanceTimersByTimeAsync(0);
   expect(app.client.state.screen).toBe('home'); expect(app.client.state.pending).toBe(pending);
   expect(pending?.error).toBe('Old Choose error');
-  expect((await import('./state')).messageLine(app.store.page()).text).toBe('');
-  app.navigate('play'); expect((await import('./state')).messageLine(app.store.page()).action).toBe('retry');
+  expect((await import('../account-game/state')).messageLine(app.store.page()).text).toBe('');
+  app.navigate('play'); expect((await import('../account-game/state')).messageLine(app.store.page()).action).toBe('retry');
 });
 
 it.each(['failed', 'superseded'])('keeps the quick start flag off a later move after a %s Play now', async end => {
-  const app = await mounted(), setup = await import('./screens/setup'), { isStartStep, messageLine } = await import('./state');
+  const app = await mounted(), setup = await import('./screens/setup'), { isStartStep, messageLine } = await import('../account-game/state');
   let release!: (value: unknown) => void;
   transport.call.mockImplementation(async ({ name }) => {
     if (name === 'kingdown_create') return end === 'failed' ? { content: [{ type: 'text', text: 'Lost Create reply' }], isError: true } : new Promise(resolve => { release = resolve; });
@@ -375,7 +443,7 @@ it.each(['failed', 'superseded'])('keeps the quick start flag off a later move a
 });
 
 it.each(['kingdown_choose', 'kingdown_get'])('keeps a failed start %s on Play after the player opens Settings', async failed => {
-  const app = await mounted(), setup = await import('./screens/setup'), { locks, messageLine } = await import('./state');
+  const app = await mounted(), setup = await import('./screens/setup'), { locks, messageLine } = await import('../account-game/state');
   const saved = (await import('./screens/setup-model')).readSetup(null);
   saved.options = { ...saved.options, cards: false, kingPowers: true, arrangement: false }; saved.king = { king: 'Flame', power: 'Haste' };
   app.memory.settings = { ...settings, last_setup: { ...saved, options: { ...saved.options, pool: [...saved.options.pool], cardPool: [...saved.options.cardPool] } } };
@@ -495,7 +563,7 @@ it.each(['foreground', 'remount'])('keeps another game receipt after a refused %
   else { transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'board', game_id: 'game-b000' }, _meta: { board_id: 'board-b' } }); await vi.advanceTimersByTimeAsync(0); }
   expect(app.client.state.pending).toBe(pending);
   app.routeView(game);
-  expect((await import('./state')).messageLine(app.store.page()).action).toBe('retry');
+  expect((await import('../account-game/state')).messageLine(app.store.page()).action).toBe('retry');
 });
 
 it('keeps End when two Try again reads return in reverse order', async () => {
@@ -618,7 +686,7 @@ it('offers Try again when the first Settings read fails with no start to retry, 
   transport.call.mockImplementation(async ({ name }) => name === 'kingdown_settings' && failed
     ? { content: [{ type: 'text', text: 'Too many active requests for your account.' }], isError: true }
     : { content: [], _meta: name === 'kingdown_settings' ? { settings, me: { handle: 'player', icon: 'spirit' } } : { games: [] } });
-  const app = await import('./app'), { messageLine } = await import('./state');
+  const app = await import('./app'), { messageLine } = await import('../account-game/state');
   transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'home' }, _meta: { board_id: 'board-a' } });
   await vi.advanceTimersByTimeAsync(0);
   expect(app.memory.settings).toBeUndefined();
@@ -669,7 +737,7 @@ it('keeps a refused Join out of the page notice', async () => {
   // Join shows its own sentence from the refusal code, so the outcome keeps the code.
   expect(await app.send('kingdown_join', { code: 'ABC123' })).toMatchObject({ status: 'refused', code: 'INVITE_UNAVAILABLE' });
   expect(app.store.refusal()).toBeUndefined();
-  const { messageLine } = await import('./state');
+  const { messageLine } = await import('../account-game/state');
   expect(messageLine(app.store.page()).text).toBe('');
   app.navigate('play');
   expect(messageLine(app.store.page()).text).toBe('');
@@ -706,7 +774,7 @@ it('clears a board refusal when the player then blocks the opponent', async () =
 });
 
 it('clears a failed Block error when the player blocks again and it works', async () => {
-  const app = await mounted(), { messageLine } = await import('./state');
+  const app = await mounted(), { messageLine } = await import('../account-game/state');
   app.routeView(game);
   let failed = true;
   transport.call.mockImplementation(async ({ name }) => {
@@ -730,7 +798,7 @@ it('scopes a refused Retry to the game ID restored after a remount', async () =>
     : { content: [] });
   await app.send('kingdown_move', app.client.state.pending!.args, { retry: true, retain: true });
   expect(app.store.refusal()).toMatchObject({ game: 'game-a000', code: 'STALE_REVISION' });
-  const { messageLine } = await import('./state');
+  const { messageLine } = await import('../account-game/state');
   expect(messageLine(app.store.page()).text).toBe('The game changed');
   app.navigate('settings');
   expect(messageLine(app.store.page()).text).toBe('');
@@ -767,7 +835,7 @@ it('review: keeps a failed Settings save off the screen opened after Back', asyn
   expect(app.queue.writing()).toBe(true);
   app.navigate('board');
   reject(new Error('Setting save failed')); await vi.advanceTimersByTimeAsync(0);
-  expect((await import('./state')).messageLine(app.store.page()).text).toBe('');
+  expect((await import('../account-game/state')).messageLine(app.store.page()).text).toBe('');
 });
 
 it.each([false, true])('review: ignores a Settings save reply after teardown (error: %s)', async failed => {
@@ -784,7 +852,7 @@ it.each([false, true])('review: ignores a Settings save reply after teardown (er
     : { content: [], _meta: { settings: { ...settings, symbols_only: true } } });
   await vi.advanceTimersByTimeAsync(0);
   expect(app.memory.settings).toBe(before);
-  expect((await import('./state')).messageLine(app.store.page()).text).toBe('');
+  expect((await import('../account-game/state')).messageLine(app.store.page()).text).toBe('');
 });
 
 it('clears a failed empty Play read when Try again reads no game', async () => {
@@ -792,10 +860,10 @@ it('clears a failed empty Play read when Try again reads no game', async () => {
   transport.call.mockImplementation(async ({ name }) => name === 'kingdown_get'
     ? { isError: true, content: [{ type: 'text', text: 'Read failed' }] } : { content: [], _meta: { games: [] } });
   await app.call('kingdown_get', {});
-  expect((await import('./state')).messageLine(app.store.page()).action).toBe('try-again');
+  expect((await import('../account-game/state')).messageLine(app.store.page()).action).toBe('try-again');
   transport.call.mockResolvedValue({ content: [], _meta: { games: [] } });
   await app.call('kingdown_get', {});
-  expect((await import('./state')).messageLine(app.store.page())).toMatchObject({ text: '', action: 'none' });
+  expect((await import('../account-game/state')).messageLine(app.store.page())).toMatchObject({ text: '', action: 'none' });
 });
 
 it.each(['kingdown_settings', 'kingdown_create'])('keeps Start and exits fixed after teardown while %s waits', async held => {
@@ -861,12 +929,12 @@ it('keeps a failed start-settings save off the page opened with Back', async () 
   leave(); app.navigate('profile');
   release({ isError: true, content: [{ type: 'text', text: 'Start settings save failed' }] }); await vi.advanceTimersByTimeAsync(0);
   expect(app.client.state.screen).toBe('profile');
-  expect((await import('./state')).messageLine(app.store.page()).text).toBe('');
+  expect((await import('../account-game/state')).messageLine(app.store.page()).text).toBe('');
   expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create')).toHaveLength(0);
 });
 
 it('review: a failed Find from Open games keeps its error and Retry there and locks a second Find', async () => {
-  const app = await mounted(), { locks, messageLine } = await import('./state'); app.navigate('lobby');
+  const app = await mounted(), { locks, messageLine } = await import('../account-game/state'); app.navigate('lobby');
   transport.call.mockImplementation(async ({ name }) => name === 'kingdown_find'
     ? { content: [{ type: 'text', text: 'Lost Find reply' }], isError: true } : { content: [], _meta: { games: [] } });
   await app.start('random', { colour: 'white' }); await vi.advanceTimersByTimeAsync(0);
@@ -955,4 +1023,54 @@ it('sends the start that needed a name again when Save succeeds, also after a re
   await app.call('kingdown_handle', { handle: 'newname', icon: 'spirit' }); await vi.advanceTimersByTimeAsync(0);
   const resent = transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create');
   expect(resent).toHaveLength(1); expect(resent[0][0].arguments.command_id).toBe(id);
+});
+
+it('selects a shared hall row through Resume and keeps its board pointer', async () => {
+  const app = await mounted(); app.navigate('play');
+  transport.call.mockImplementation(async ({ name }) => ({ content: [], _meta: name === 'kingdown_resume' ? { board_id: 'selected-board', view: game } : { games: [] } }));
+  const open = transport.rows.mock.calls.at(-1)![2]; open(game.game_id);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_resume').map(([input]) => input.arguments)).toEqual([{ game_id: game.game_id, board_id: 'board-a' }]);
+  expect(app.client.state.board_id).toBe('selected-board'); expect(app.memory.view).toMatchObject(game); expect(app.client.state.screen).toBe('board');
+});
+it.each(['success', 'error'] as const)('keeps a new mount after a shared hall selection returns an old %s', async result => {
+  const app = await mounted(); app.navigate('play'); let release!: (result: unknown) => void;
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_resume' ? new Promise(resolve => { release = resolve; }) : { content: [], _meta: { games: [] } });
+  transport.rows.mock.calls.at(-1)![2](game.game_id); await vi.advanceTimersByTimeAsync(0);
+  transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'profile' }, _meta: { board_id: 'new-board', games: [] } });
+  await vi.advanceTimersByTimeAsync(0);
+  release(result === 'success' ? { content: [], _meta: { board_id: 'old-board', view: game } } : { isError: true, content: [{ type: 'text', text: 'Old error' }] });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(app.client.state.screen).toBe('profile'); expect(app.client.state.board_id).toBe('new-board');
+  expect(app.store.page().notice).toBeUndefined(); expect(app.memory.view).toBeUndefined();
+});
+it.each(['valid', 'expired', 'absent'] as const)('keeps the friend row decoration for a %s invite', async kind => {
+  const app = await mounted(), { friendInvites } = await import('./invite');
+  const line = { prepend: vi.fn() }, button = { dataset: { gameId: game.game_id }, parentElement: null, querySelector: () => line, replaceWith: vi.fn() };
+  const made: any[] = [];
+  vi.spyOn(document, 'querySelectorAll').mockImplementation((selector: string) => (selector === '#games-list [data-game-id]' ? [button] : []) as any);
+  vi.spyOn(document, 'createElement').mockImplementation(() => {
+    const el = { ...node(), append: vi.fn(), setAttribute: vi.fn() }; made.push(el); return el as any;
+  });
+  if (kind !== 'absent') friendInvites.set(game.game_id, { code: 'K7QX2M', expires_at: new Date(Date.now() + (kind === 'valid' ? 60_000 : -1)).toISOString() });
+  app.memory.games = [{ ...game, status: 'waiting', kind: 'friend' } as any]; app.renderGameRows();
+  expect(button.replaceWith).toHaveBeenCalledTimes(kind === 'valid' ? 1 : 0);
+  if (kind === 'valid') {
+    expect(line.prepend).toHaveBeenCalledWith('K7QX2M · ');
+    const share = made.find(el => el.textContent === 'Share'); expect(share.setAttribute).toHaveBeenCalledWith('aria-label', 'Share game K7QX2M');
+    const send = vi.fn(async () => {}); vi.stubGlobal('navigator', { share: send }); share.onclick(); await vi.advanceTimersByTimeAsync(0);
+    expect(send).toHaveBeenCalledExactlyOnceWith({ text: 'Join King Down game K7QX2M. Rules: Standard pieces.' });
+  }
+  vi.restoreAllMocks(); friendInvites.clear();
+});
+it('keeps shared hall selection behind a write in the plugin lane', async () => {
+  const app = await mounted(); app.navigate('play'); let release!: (result: unknown) => void;
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_settings' ? new Promise(resolve => { release = resolve; })
+    : { content: [], _meta: name === 'kingdown_resume' ? { view: game, board_id: 'selected-board' } : { games: [] } });
+  const write = app.send('kingdown_settings', { show_threats: true }); await vi.advanceTimersByTimeAsync(0);
+  transport.rows.mock.calls.at(-1)![2](game.game_id); await vi.advanceTimersByTimeAsync(0);
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_resume')).toHaveLength(0);
+  release({ content: [], _meta: { settings } }); await write; await vi.advanceTimersByTimeAsync(0);
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_resume')).toHaveLength(1);
+  expect(app.client.state.board_id).toBe('selected-board'); expect(app.client.state.screen).toBe('board');
 });
