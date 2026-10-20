@@ -15,8 +15,11 @@ import { testDatabase } from './plugin-db-config.mjs';
 import { buildPluginServer } from './plugin-server-build.mjs';
 import { serveSite } from './web-online-check.mjs';
 import { launch, shot, trapErrors, assertNoErrors, env } from './lib/checks.mjs';
+import { checkSharedMechanics } from './lib/shared-mechanics-check.mjs';
 
 const unregister = register();
+const mechanics = process.argv[2] === 'mechanics';
+assert(process.argv.length === (mechanics ? 3 : 2), 'Use web-game-check.mjs [mechanics]');
 const { fromFen } = await import('../src/rules/setup.ts');
 const { M, N, P, parseSq, typeOf } = await import('../src/rules/engine.ts');
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
@@ -70,6 +73,10 @@ try {
     if (new URL(route.request().url()).origin !== origin) { failures.push('External request blocked'); return route.abort(); }
     return route.continue();
   });
+  if (mechanics) {
+    await checkSharedMechanics({ browser, context, root, origin, actors, pool, tool, tokens });
+    assert.deepEqual(failures, [], 'No external request');
+  } else {
   const page = await context.newPage(); page.setDefaultTimeout(15_000);
   const errors = trapErrors(page);
   page.on('requestfailed', request => {
@@ -267,6 +274,7 @@ try {
   assertNoErrors(errors.filter(error => !String(error).includes('net::ERR_FAILED')));
   await writeFile(join(env('PLAYABLE_OUT'), 'proof.json'), JSON.stringify({ game_id: gameId, origin, revision: a.revision, commands: commands.length, result: a.result, checks: ['emitted /play/ and /g assets', 'real HTTP create', 'MCP join', 'hidden setup', 'UI ready and two-action Haste turn', 'lost reply reload', 'same account MCP', 'shared result'] }, null, 2));
   console.log(`PASS web-game: emitted website, HTTP and MCP share one game; proof ${resolve(env('PLAYABLE_OUT'))}`);
+  }
 } finally {
   await browser?.close();
   if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
