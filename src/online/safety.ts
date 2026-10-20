@@ -12,7 +12,7 @@ import { targetSchema, who } from './accounts';
 
 const DAY = 86_400_000;
 /** Every statement of reasons ends with this line (Ofcom ICU D9 to D13; DSA Article 17). */
-export const APPEAL = 'How to appeal: follow the steps on the Safety and reporting page at kingdown.dev.';
+export const APPEAL = 'How to appeal: follow the steps at https://kingdown.dev/support.html#appeals.';
 /** Control characters (C0, DEL and C1) and the bidi controls: a terminal acts on them, or they reorder the text that the owner reads. */
 export const CONTROLS = '\\p{Cc}\\u061c\\u200e\\u200f\\u202a-\\u202e\\u2066-\\u2069';
 // Newlines are allowed; the other controls (a terminal escape, for one) are not.
@@ -20,6 +20,9 @@ const prose = (max: number) => z.string().trim().min(1).max(max).regex(new RegEx
 const reportSchema = z.strictObject({
   target: z.enum(['player', 'handle', 'message']), category: z.enum(REPORT_CATEGORIES), intimate_image: z.boolean().optional(),
   note: prose(1000).optional(), preset: z.enum(PRESETS).optional(), ...targetSchema,
+});
+const intakeSchema = reportSchema.extend({
+  evidence: prose(200).refine(value => !value.includes('\n'), 'Use one support evidence reference'), note: prose(700),
 });
 const actSchema = z.strictObject({
   action: z.enum(['warning', 'rename', 'hide', 'suspension', 'none']), facts: prose(800).optional(), rule: prose(400).optional(),
@@ -46,6 +49,14 @@ export class SafetyService {
     const row = (await pool.query('insert into public.reports(reporter_id,reported_id,game_id,target,category,intimate_image,note,content) values($1,$2,$3,$4,$5,$6,$7,$8) returning id,created_at',
       [actor, reported, named.game_id === undefined ? null : id(named.game_id), target, category, intimate_image, note ?? null, content])).rows[0];
     return { id: Number(row.id), created_at: row.created_at.toISOString() };
+  }
+  /** The operator records an email case after verifying its reporter's account. Reuse the normal
+   * target and evidence rules; the moderation grant keeps this off the player-facing connection. */
+  async intake(actor: string, input: unknown): Promise<{ id: number; created_at: string }> {
+    const { evidence, ...report } = parse(intakeSchema, input);
+    const allowed = (await this.store.pool.query("select has_table_privilege(current_user,'public.mod_actions','INSERT') as allowed")).rows[0]?.allowed;
+    if (!allowed) fail('FORBIDDEN', 403, 'Support intake needs the moderation connection');
+    return this.report(actor, { ...report, note: `Support evidence: ${evidence}\n${report.note}` });
   }
   /** Open reports: child safety or illegal content first (intimate images before the rest, each with its
    * 48-hour take-down time), then the oldest. */
