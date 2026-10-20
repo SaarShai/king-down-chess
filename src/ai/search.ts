@@ -966,6 +966,17 @@ export function resetSearchState(): void {
   path.fill(0);
 }
 
+let searchOwner: object | undefined;
+
+/** The page fallback shares one module graph: retain its tables only for the same game lifetime. */
+export function searchOwned(owner: object, pos: Position, opts: SearchOptions = {}): SearchResult {
+  if (owner !== searchOwner) {
+    resetSearchState();
+    searchOwner = owner;
+  }
+  return search(pos, opts);
+}
+
 export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
   // A fixed-depth search must not depend on how fast the machine is: no budget, no clock.
   const timeMs = opts.timeMs ?? (opts.maxDepth ? Infinity : 1000);
