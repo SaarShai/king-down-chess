@@ -333,3 +333,5 @@ The first browser run passes A14, A15, A18, and Y3. Two failures have clear caus
 No assertion, touch floor, time limit, or retry changes. The fixed code needs the M1 suite and the two failed browser checks again.
 
 The next run passes A8. The main plugin check clicks Menu while the computer piece still moves. A8 consumes that click, as required. The menu helper now waits for the board move to end before it opens Menu. The separate A8 checks still prove that a skip tap cannot open a menu or act on a square. No assertion or time limit changes.
+
+The menu wait must not require a visible board. The failed-load case hides the board and keeps Menu available. The wait now checks only that board motion ends. The failed-load assertions stay in place.
