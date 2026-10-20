@@ -55,7 +55,8 @@ async function playTurn(ui, view, actions, { GameRules, toLan, cardCoins }) {
       if (await use.count()) await use.click();
       else await closeSheet(ui);
     }
-    if (card < 0 && move.from !== move.to && move.drop === undefined) await square(ui, move.from, view.seat);
+    // Shots stay on their source square but still need the piece selected.
+    if (card < 0 && move.drop === undefined && (move.from !== move.to || !move.power)) await square(ui, move.from, view.seat);
     await choices(ui);
     await ui.locator(`#choices button[title=${JSON.stringify(lan)}]`).click();
     position = rules.makeMove(position, move);
