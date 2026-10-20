@@ -76,7 +76,7 @@ export function env(name) {
  * The step-limit factor: 3 for WebKit and Firefox on CI, 2 for Chromium on CI, else 1. GitHub's Linux runner draws WebKit in
  * software, about three times slower than the Macs that set the limits, and runs the Chromium checks about 2.5 times
  * slower (Saar, 2026-10-18: "Slower limits on CI WebKit", then "Raise CI limits"). It scales waits only; a checked timing
- * (an animation length, a reply budget) never uses it. Local runs and the pre-push hook keep the limits at 1.
+ * (an animation length, a reply budget) never uses it. Local runs keep the limits at 1.
  * Firefox uses the WebKit wait budget for the web journey on CI.
  */
 export const STEP = !process.env.CI ? 1 : ['webkit', 'firefox'].includes(process.env.PLAYABLE_BROWSER) ? 3 : 2;
@@ -86,6 +86,12 @@ export const launch = ({ channel = env('PLAYABLE_BROWSER'), ...options } = {}) =
   ? webkit.launch(options)
   : channel === 'firefox' ? firefox.launch(options)
   : chromium.launch({ channel, ...options });
+
+/** Opens a retained profile with the same engine selection as launch(). */
+export const launchPersistent = (profile, { channel = env('PLAYABLE_BROWSER'), ...options } = {}) => channel === 'webkit'
+  ? webkit.launchPersistentContext(profile, options)
+  : channel === 'firefox' ? firefox.launchPersistentContext(profile, options)
+  : chromium.launchPersistentContext(profile, { channel, ...options });
 
 /** Measures the viewport and each element that matches the selector. */
 const measure = (page, selector) => page.evaluate(sel => {

@@ -45,7 +45,7 @@ Restore the sample with:
 git checkout -- docs/specs/chatgpt-mvp/sample/art/scroll.webp docs/specs/chatgpt-mvp/sample/png/ docs/specs/chatgpt-mvp/sample/contact-sheet.png docs/specs/chatgpt-mvp/sample/compare.png
 ```
 
-Only the four WebPs, eight profile PNGs, comparison, and this README enter the commit. The repository push hook runs `npm test` before the push.
+Only the four WebPs, eight profile PNGs, comparison, and this README enter the commit. CI and the deploy run `npm test`. The repository push hook runs only the repo gate.
 
 ## Visual checks
 

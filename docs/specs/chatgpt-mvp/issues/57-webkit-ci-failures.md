@@ -63,8 +63,33 @@ Run 39309776264 has `DEBUG: pw:browser`. It uses Playwright 1.63 and
 WebKit build 2359. Browser output has no native crash reason. The browser
 ends with `exitCode=0, signal=null`. The evidence points to the page's
 WebContent process, rather than the browser process, as the failed process.
-No failed run has memory, runner load, or kernel data at the fault.
-WebKit's page memory limit is 8192 MB. The logs do not prove that it is hit.
+These six runs have no memory, runner load, or kernel data at the fault.
+The section "Crash cause" below has the first run with those data.
+
+## Crash cause: a null call in the WPE compositor
+
+Run 39359446994 (PR 79, 2026-10-20) is the first crash with the sampler
+and kernel log. `plugin-ui` ends with `Target crashed` at 646 s.
+
+- The kernel log has `ThreadedCompositor: segfault at 0` in
+  `libWPEWebKit-2.0.so.1.12.0`. The code at the fault is
+  `mov rax,[rdi]; call [rax+0x40]` with `rdi` 0: a virtual call on a
+  null object in WPE's compositor thread.
+- Memory is not the cause. About 11 of 16 GB is free at the crash, and
+  no OOM line shows. `WPEWebProcess` uses 1.7 GB at the crash and
+  4.47 GB at its peak.
+
+So this page crash is a native WPE fault in Playwright 1.63's WebKit
+(build 2359). The six crashes above have no kernel data, so this run
+does not prove their cause. Playwright 1.64.1 (PR 74) ships build 2370
+with a different library file. Only its CI runs can show whether the
+fault is gone.
+
+Attempt 2 of the same run stops in plugin-board W7: the `#board-menu`
+click waits after "scrolling into view" until the 9 s limit. The D13
+stall above and the PR 76 G3 `data-animating` wait have the same
+shape: the page stops making frames, but it does not crash. A
+compositor hang can cause this. That is not proved.
 
 ## Proved document retention
 

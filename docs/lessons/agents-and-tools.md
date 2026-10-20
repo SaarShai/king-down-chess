@@ -11,9 +11,6 @@ The lessons on agents, helpers, worktrees, shell commands and tools. [LESSONS.md
 ## 2026-10-10 — one independent review a PR found a real item every time
 - Tickets 03 to 05 of the after-redesign spec (PRs #35 to #37) each got a read-only review of the diff by a reviewer that did not write it, and a three-lens panel with an adversarial check of each should-fix. Each round found an item that the builder's own tests and checks had passed: a browser case that could pass without a search in flight, a label condition that tested the wrong value, spec rows that said the wrong file, a slot count whose tests still covered the old count, and a workload that no test had run. → Before the merge of a step that moves or changes code, get one review from a reader that did not write it, on the diff and the before-and-after files. Fix each confirmed should-fix, record the findings and the fixes in the ticket and in a "Reviews" section of the PR body, and merge only after that. Run the reviewer inside the worktree, read only (a separate agent that edits nothing), so it reads the neighbours itself: a bundle of copied files made one review downgrade a finding to "missing evidence". (2026-10-10)
 
-## 2026-10-10 — a push from the main checkout fails while another session edits there
-- The pre-push hook refuses a push when a tracked file differs from HEAD, because `npm test` would not run on the commit that goes out. Another session's uncommitted edits in the main checkout refused a tracker commit's push for the whole day. → Commit from the main checkout with only your own hunk staged (`git diff` of `git show HEAD:<file>` against the new file, `git apply --cached`), then `tools/push-main.sh [<commit>]`: it pushes the commit from a clean detached worktree, where the hook runs its tests, and removes the worktree. Leave the other session's edits as they are. (2026-10-10)
-
 ## 2026-10-02 — a `pgrep -f` wait loop matched its own shell
 - A wait loop `while pgrep -f "<pattern>"` never ended: `pgrep -f` matched the loop's own shell, whose command line contains the pattern. → Write the pattern so it cannot match itself (`pgrep -f "powers-net.ts [m]atch"`), or wait on the process's own output (a "done" line). (2026-10-02)
 
@@ -21,7 +18,7 @@ The lessons on agents, helpers, worktrees, shell commands and tools. [LESSONS.md
 - `create_session` with a short commit SHA as the source revision failed at start (`ref_not_found`). → Start compute sessions on a branch name and have the prompt check out the full 40-character SHA. (2026-10-02)
 
 ## 2026-10-02 — build main beside a branch in a worktree
-- To build main beside a branch, `git checkout main -- .` overwrote the branch's tracked files in place (recovered with `git checkout HEAD -- .`). → Build another revision from `git worktree add <dir> main` (symlink `node_modules`), never by checking its files out over the working tree. (2026-10-02)
+- To build main beside a branch, `git checkout main -- .` overwrote the branch's tracked files in place (recovered with `git checkout HEAD -- .`). → Build another revision with `wt add` (`tools/wt.sh add <branch>`), never by checking its files out over the working tree. (2026-10-02)
 
 ## 2026-09-16 — Google Drive `read_file_content` returns `{}`
 - Google Drive MCP `read_file_content` returned `{}` for every doc/sheet in this project. → Use `download_file_content` (base64) or, for link-shared files, `curl` the export URL (`/export?format=txt|xlsx`, `uc?export=download&id=`) and `gdown --folder` for folders.
@@ -47,7 +44,7 @@ The lessons on agents, helpers, worktrees, shell commands and tools. [LESSONS.md
 
 ## 2026-09-13 — session rate limit killed 8 parallel agents
 - **What happened:** ten agents in flight hit the account's session limit (HTTP 429); each stopped mid-task with partial files on disk.
-- **Rule:** before resuming, survey the disk (`ls`/`tsc`/`vitest`) to know what landed, then resume each agent with `SendMessage` (its transcript is kept) telling it to re-read its files first. Keep no more than ~6 Opus agents running at once when the limit window is close, and stagger research (cheap) after builds (expensive).
+- **Rule:** before you resume, check the worktree, changed files and saved logs. Then resume each agent with its transcript and ask it to read those files first. Keep no more than about 6 agents at once near the limit window; start research after builds. Use the roles in AGENTS.md. Check with `npm test` on the M1; keep this Mac free under the compute rule in AGENTS.md.
 
 ## Measuring without adding a file to the repo (2026-09-14)
 - **Mistake:** a throwaway `.mts` benchmark in the scratchpad imported `./src/rules/engine` and died with `ERR_MODULE_NOT_FOUND` — an ESM specifier resolves against the *script's* directory, not the cwd, so every project import was missing.
@@ -59,7 +56,7 @@ The lessons on agents, helpers, worktrees, shell commands and tools. [LESSONS.md
 - Prefer a semantic regression over hundreds of shallow score/move-order locks. A failed prediction may expose an incorrect fixture, and a later terminal fix may correctly obsolete its expected score. Keep exploratory datasets tied to their source/rules, separating adjudications and unfinished caps from completed outcomes. See `dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/README.md` for the evidence.
 
 ## M1 local-agent supervision (2026-09-21)
-- Owner stopped delegation on 2026-09-22 because coordination and monitoring cost outweighed the benefit. Work directly; the observations below are historical. See `docs/DELEGATION.md` for measured capabilities and compact prompts if the owner explicitly authorizes future delegation. Keep suitability evidence separate from permission.
+- History: the owner stopped delegation on 2026-09-22 because its cost exceeded its benefit. Helpers are allowed again under AGENTS.md. See `docs/DELEGATION.md` for measured capabilities and prompts. The observations below are historical; they do not set permission.
 - A new node-bound test that also passes the original engine does not prove a stall repair. Compare the exact legal case before/after and require a failing baseline; retain a useful negative result without accepting an unsupported fix. Head-to-head budgets count each physical game once, even though both evaluators participate, and a depth-only spec can imply an infinite time budget.
 - A passing read/write/tool smoke check does not establish sustained progress. The first broad campaign round spent 33 minutes reading and compacting, with no code changes and stale status. Supervision must compare actual diffs, test evidence and game counts, not just live processes or model activity.
 - Give the local agent one concrete implementation deliverable per fresh round, exact file locations and checkable acceptance criteria. Avoid loading the entire tracker, lessons and campaign history repeatedly. Reduce context when memory pressure rises; the initial 64k Muse run grew to 28 GB with 6.1 GB system swap. A restart is not verified recovery until useful artifacts appear.

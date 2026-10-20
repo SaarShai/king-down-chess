@@ -1,4 +1,4 @@
-// npm run check:browser [name ...]: builds the app, serves the build and runs the named browser checks
+// npm run check:browser [name ...]: builds and serves the site when a selected check needs it. Runs checks
 // one at a time in this run (checks-and-hooks/06; after-redesign/01 for the slots and the run folders).
 // `npm run check:browser -- --help` prints the names and the settings. The checks are in tools/lib/registry.mjs.
 // Exit codes: 0 all passed, 1 a check or the build failed, 2 a usage fault (unknown name, output root inside
@@ -20,8 +20,8 @@ function usage() {
   const rows = checks.map(c => `  ${c.name.padEnd(16)} ${String(c.limit).padStart(4)} s  ${c.script}${c.channel ? `  (channel ${c.channel})` : ''}${c.byName ? '  (by name only)' : ''}${c.exclusive ? '  (exclusive)' : ''}`);
   return `Usage: npm run check:browser [name ...]
 
-Builds the app, serves the build with Vite's preview on 127.0.0.1 at a free port, and runs the named
-checks one at a time. With no name, it runs all checks that are not "by name only".
+Builds and serves the site with Vite's preview on 127.0.0.1 at a free port when a check needs it.
+Plugin-only checks build their own artifact. Runs the named checks one at a time. With no name, it runs all checks that are not "by name only".
 
 Checks (name, time limit, script):
 ${rows.join('\n')}
@@ -142,18 +142,22 @@ function firstFault(log, result) {
 const report = (ok, name, seconds, fault, log) =>
   say(`${ok ? 'ok  ' : 'FAIL'} ${name.padEnd(16)} ${seconds.toFixed(1).padStart(6)} s  ${fault ? `${fault}  ` : ''}${log}`);
 
-// 5. Build in a slot, then serve the build on 127.0.0.1 at a free port.
-const buildLog = join(runDir, 'build.log');
-const build = await inSlot(false, () => run('npm', ['run', '--silent', 'build'], { log: buildLog, limit: 600 }));
-exitIfInterrupted();
-if (build.code !== 0) {
-  report(false, 'build', build.seconds, firstFault(buildLog, build), buildLog);
-  process.exit(1);
+// 5. Plugin checks build and serve their own artifact. Other checks need the site.
+let server;
+let url;
+if (selected.some(c => c.script !== 'tools/plugin-browser-check.mjs')) {
+  const buildLog = join(runDir, 'build.log');
+  const build = await inSlot(false, () => run('npm', ['run', '--silent', 'build'], { log: buildLog, limit: 600 }));
+  exitIfInterrupted();
+  if (build.code !== 0) {
+    report(false, 'build', build.seconds, firstFault(buildLog, build), buildLog);
+    process.exit(1);
+  }
+  const { preview } = await import('vite');
+  server = await preview({ root, logLevel: 'silent', preview: { host: '127.0.0.1', port: 0, strictPort: true, open: false } });
+  url = server.resolvedUrls.local[0];
+  say(`check: serving the build at ${url}`);
 }
-const { preview } = await import('vite');
-const server = await preview({ root, logLevel: 'silent', preview: { host: '127.0.0.1', port: 0, strictPort: true, open: false } });
-const url = server.resolvedUrls.local[0];
-say(`check: serving the build at ${url}`);
 
 // 6. The checks, one at a time, each in a slot; each one must leave the checkout as it found it.
 let failed = 0;
@@ -168,7 +172,7 @@ for (const c of selected) {
     const before = treeStatus(root);
     const result = await run(process.execPath, [c.script, ...(c.args ?? [])], {
       log, limit: c.limit * STEP,
-      extraEnv: { PLAYABLE_URL: url, PLAYABLE_OUT: join(runDir, c.name), PLAYABLE_BROWSER: process.env.PLAYABLE_BROWSER || c.channel || env('PLAYABLE_BROWSER') },
+      extraEnv: { ...(url ? { PLAYABLE_URL: url } : {}), PLAYABLE_OUT: join(runDir, c.name), PLAYABLE_BROWSER: process.env.PLAYABLE_BROWSER || c.channel || env('PLAYABLE_BROWSER') },
     });
     exitIfInterrupted();
     return { result, changed: changedPaths(before, treeStatus(root)) };
@@ -183,6 +187,6 @@ for (const c of selected) {
   report(ok, c.name, result.seconds, faults.join('; '), log);
   if (!ok) failed++;
 }
-await server.close();
+await server?.close();
 say(failed ? `check: ${failed} of ${selected.length} failed` : `check: all ${selected.length} passed`);
 process.exit(failed ? 1 : 0);

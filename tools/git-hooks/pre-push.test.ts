@@ -39,33 +39,32 @@ const calls = (repo: Repo): Call[] =>
 const remoteHead = (repo: Repo, branch: string) => repo.git('--git-dir', repo.remote, 'rev-parse', '-q', '--verify', `refs/heads/${branch}`).stdout.trim();
 
 describe('pre-push', () => {
-  it('story 3: each push runs the package test script, and a push that passes reaches the remote', () => {
+  it('story 3: a push runs only the gate and reaches the remote', () => {
     const repo = make();
     const head = change(repo, 'docs/a.md');
     const push = repo.git('push', 'origin', 'HEAD:refs/heads/feature');
     expect(push.status, push.stderr).toBe(0);
-    expect(calls(repo).map(c => c.name)).toEqual(['test', 'gate']);
+    expect(calls(repo).map(c => c.name)).toEqual(['gate']);
     expect(remoteHead(repo, 'feature')).toBe(head);
   });
 
-  it('story 3: a failed test refuses the push, and the test output shows', () => {
+  it('story 3: a failing package test script does not run during a push', () => {
     const repo = make();
-    change(repo, 'docs/a.md');
-    repo.write('.fixture/test.fail', 'FAIL src/rules.test.ts > a king move\n');
+    const head = change(repo, 'docs/a.md');
+    repo.write('.fixture/test.fail', 'the suite must not run\n');
     const push = repo.git('push', 'origin', 'HEAD:refs/heads/feature');
-    expect(push.status).not.toBe(0);
-    expect(push.stderr).toContain('FAIL src/rules.test.ts > a king move');
-    expect(push.stderr).toMatch(/pre-push: npm test failed/);
-    expect(remoteHead(repo, 'feature')).toBe('');
+    expect(push.status, push.stderr).toBe(0);
+    expect(calls(repo).map(c => c.name)).toEqual(['gate']);
+    expect(remoteHead(repo, 'feature')).toBe(head);
   });
 
-  it('story 9: the gate gets `push`, the remote name, the URL and git\'s stdin lines; the test gets no GIT_ variable', () => {
+  it('story 9: the gate gets `push`, the remote name, the URL and git\'s stdin lines', () => {
     const repo = make();
     const base = repo.git('rev-parse', 'HEAD').stdout.trim();
     const head = change(repo, 'docs/a.md');
     expect(repo.git('push', 'origin', 'HEAD:refs/heads/feature', 'HEAD:refs/heads/main').status).toBe(0);
-    const [test, gate] = calls(repo);
-    expect(test.git).toEqual([]);
+    const [gate] = calls(repo);
+    expect(calls(repo)).toHaveLength(1);
     expect(gate.args).toEqual(['push', 'origin', repo.remote]);
     expect(gate.stdin.trim().split('\n').sort()).toEqual([
       `HEAD ${head} refs/heads/feature ${'0'.repeat(40)}`,
@@ -96,7 +95,7 @@ describe('pre-push', () => {
     expect(push.stderr).toMatch(/gate is missing/);
   });
 
-  it('a branch deletion pushes without a test run', () => {
+  it('a branch deletion pushes without a gate run', () => {
     const repo = make();
     expect(repo.git('push', '-q', '--no-verify', 'origin', 'HEAD:refs/heads/old').status).toBe(0);
     repo.write('.fixture/test.fail', 'the test must not run\n');
@@ -106,29 +105,26 @@ describe('pre-push', () => {
     expect(remoteHead(repo, 'old')).toBe('');
   });
 
-  it('a push of a commit that is not HEAD is refused, and the refusal names the fix', () => {
+  it('a push of a commit that is not HEAD passes through the gate', () => {
     const repo = make();
-    change(repo, 'docs/a.md');
+    const head = change(repo, 'docs/a.md');
     expect(repo.git('branch', 'other').status).toBe(0);
     change(repo, 'docs/b.md');
     const push = repo.git('push', 'origin', 'other');
-    expect(push.status).not.toBe(0);
-    expect(push.stderr).toMatch(/refs\/heads\/other is not HEAD/);
-    expect(push.stderr).toContain('git switch other');
-    expect(calls(repo)).toEqual([]);
-    expect(remoteHead(repo, 'other')).toBe('');
+    expect(push.status, push.stderr).toBe(0);
+    expect(calls(repo).map(c => c.name)).toEqual(['gate']);
+    expect(remoteHead(repo, 'other')).toBe(head);
   });
 
-  it('a push with a tracked file changed but not committed is refused, and the refusal names the fix', () => {
+  it.each([false, true])('a push with a tracked edit passes through the gate (staged: %s)', staged => {
     const repo = make();
-    change(repo, 'docs/a.md');
+    const head = change(repo, 'docs/a.md');
     repo.write('README.md', 'changed, not committed\n');
+    if (staged) expect(repo.git('add', 'README.md').status).toBe(0);
     const push = repo.git('push', 'origin', 'HEAD:refs/heads/feature');
-    expect(push.status).not.toBe(0);
-    expect(push.stderr).toContain('README.md');
-    expect(push.stderr).toMatch(/Commit or stash them/);
-    expect(calls(repo)).toEqual([]);
-    expect(remoteHead(repo, 'feature')).toBe('');
+    expect(push.status, push.stderr).toBe(0);
+    expect(calls(repo).map(c => c.name)).toEqual(['gate']);
+    expect(remoteHead(repo, 'feature')).toBe(head);
   });
 
   it('an untracked file does not refuse the push', () => {
@@ -169,23 +165,23 @@ describe('pre-push', () => {
       expect(push.stderr).toContain('    src/a.ts\n');
     });
 
-    it('that changes only docs passes, after the test and the gate', () => {
+    it('that changes only docs passes, after the gate', () => {
       const repo = make();
       const head = change(repo, 'docs/a.md');
       change(repo, 'TASKS.md');
       const push = repo.git('push', 'origin', 'main');
       expect(push.status, push.stderr).toBe(0);
-      expect(calls(repo).map(c => c.name)).toEqual(['test', 'gate']);
+      expect(calls(repo).map(c => c.name)).toEqual(['gate']);
       expect(remoteHead(repo, 'main')).not.toBe(head);
       expect(remoteHead(repo, 'main')).toBe(repo.git('rev-parse', 'HEAD').stdout.trim());
     });
 
-    it('a push of src/ to a branch passes, after the test', () => {
+    it('a push of src/ to a branch passes, after the gate', () => {
       const repo = make();
       change(repo, 'src/a.ts');
       const push = repo.git('push', 'origin', 'HEAD:refs/heads/feature');
       expect(push.status, push.stderr).toBe(0);
-      expect(calls(repo).map(c => c.name)).toEqual(['test', 'gate']);
+      expect(calls(repo).map(c => c.name)).toEqual(['gate']);
     });
   });
 
