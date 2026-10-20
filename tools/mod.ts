@@ -1,4 +1,4 @@
-/** The owner's moderation queue over src/online/safety.ts (report part 01, section 8.2). No admin web page.
+/** Test-only moderation queue over src/online/safety.ts (report part 01, section 8.2).
  * KINGDOWN_ADMIN_DATABASE_URL names the admin connection; it is not an argument, so no password shows in a process list.
  *
  *   npm run mod -- list                                  open reports, child safety first
@@ -13,11 +13,13 @@ import { parseArgs } from 'node:util';
 import pg from 'pg';
 import { PostgresMatchStore } from '../src/match/store';
 import { CONTROLS, SafetyService } from '../src/online/safety';
+import { testDatabase } from './plugin-db-config.mjs';
 
 const { positionals: [command, first, second], values } = parseArgs({ allowPositionals: true, options: Object.fromEntries(
   ['facts', 'rule', 'days', 'handle', 'note', 'nca'].map(name => [name, { type: 'string' as const }])) });
 const url = process.env.KINGDOWN_ADMIN_DATABASE_URL;
 if (!url) { console.error('Set KINGDOWN_ADMIN_DATABASE_URL to the admin database connection.'); process.exit(2); }
+testDatabase(url);
 const pool = new pg.Pool({ connectionString: url, max: 1 }), safety = new SafetyService(new PostgresMatchStore(pool));
 const days = values.days === undefined ? undefined : Number(values.days);
 const commands: Record<string, () => Promise<unknown>> = {

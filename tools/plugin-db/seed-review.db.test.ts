@@ -16,6 +16,18 @@ import type { View } from '../../src/match/protocol';
 const url = process.env.PLUGIN_TEST_DATABASE_URL;
 const suite = url ? describe : describe.skip;
 
+describe('the imported review seed guard', () => {
+ it.each([undefined, 'postgresql://user:private-target@db.example/kingdown_test', 'postgresql://127.0.0.1/kingdown', 'postgresql://127.0.0.1/kingdown_test?host=db.example'])('refuses an unsafe pool before any query (%s)', async connectionString => {
+  const pool = new pg.Pool({ connectionString });
+  const query = vi.spyOn(pool, 'query'), connect = vi.spyOn(pool, 'connect');
+  try {
+   await expect(seedReview(pool, 'review@example.test', 'friend@example.test')).rejects.toThrow();
+   expect(query).not.toHaveBeenCalled();
+   expect(connect).not.toHaveBeenCalled();
+  } finally { await pool.end(); }
+ });
+});
+
 suite('the review account seed', () => {
  let pool: pg.Pool; const users: string[] = [], tag = randomUUID().slice(0, 8);
  const account = async (name: string) => { const id = randomUUID(); users.push(id); await pool.query('insert into auth.users(id,email) values($1,$2)', [id, `${name}-${tag}@example.test`]); return `${name}-${tag}@example.test`; };
