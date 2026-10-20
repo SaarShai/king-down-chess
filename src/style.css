@@ -704,6 +704,7 @@ button[aria-disabled="true"], button[aria-disabled="true"]:hover {
   --tablet-blend: normal;
   --tablet-edge: var(--stone-700);
   --tablet-top: var(--vellum);
+  --disabled-ink: var(--stone-700);
   position: relative; isolation: isolate; align-self: center;
   min-height: 48px; padding: 8px 20px;
   font-size: var(--fs-lg); font-weight: 700; color: var(--ink);
@@ -729,6 +730,7 @@ button[aria-disabled="true"], button[aria-disabled="true"]:hover {
     --tablet-face: var(--accent); --tablet-blend: normal;
     --tablet-image: linear-gradient(90deg, rgb(0 0 0 / 12%), transparent 18%, transparent 82%, rgb(0 0 0 / 12%));
     --tablet-edge: var(--accent-deep); --tablet-top: var(--accent-bright);
+    --disabled-ink: var(--vellum);
     min-height: 52px; color: var(--vellum);
     &::before {
       clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, calc(50% + 9px) 100%, 50% calc(100% - 6px), calc(50% - 9px) 100%, 0 100%, 0 4px);
@@ -739,10 +741,13 @@ button[aria-disabled="true"], button[aria-disabled="true"]:hover {
   &:not(:disabled, [aria-disabled='true']):active {
     transform: translateY(2px); transition-duration: 80ms; background: transparent; box-shadow: none;
   }
-  &:active::before { bottom: 2px; }
+  &:not(:disabled, [aria-disabled='true']):active::before { bottom: 2px; }
   &:is(:disabled, [aria-disabled='true']) {
-    --tablet-face: var(--stone-100); --tablet-image: none; --tablet-edge: var(--stone-300);
-    color: var(--ink-soft); background: transparent; box-shadow: none; transform: none;
+    --tablet-face: var(--stone-300); --tablet-image: none; --tablet-top: transparent;
+    color: var(--disabled-ink, var(--stone-700)); opacity: 1;
+    background: transparent; box-shadow: none; transform: none;
+    &.primary { --tablet-face: #795e57; }
+    .icon { opacity: 1; }
   }
   @media (hover: hover) {
     &:hover { background: transparent; }

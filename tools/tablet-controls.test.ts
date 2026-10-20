@@ -65,6 +65,36 @@ it.each([false, true])('keeps the cloth banner clear and its whole box active (p
   } finally { await page.close(); }
 });
 
+it.each([false, true])('keeps the frame and lower shadow when an action is disabled (plugin: %s)', async plugin => {
+  const page = await fixture(plugin, '<div id="app-root"><div id="table-bar"><button id="undo">Undo</button><button id="end-turn" class="primary">End turn</button><button id="menu-btn">Menu</button></div></div>');
+  const read = (id: string) => page.locator(id).evaluate(el => {
+    const s = getComputedStyle(el), face = getComputedStyle(el, '::before'), box = el.getBoundingClientRect();
+    return { shape: face.clipPath, edge: face.borderColor, shadow: face.boxShadow.match(/rgba?\([^)]*\) 0px -2px[^,]+/)?.[0], image: face.backgroundImage,
+      face: face.backgroundColor, top: s.getPropertyValue('--tablet-top').trim(), opacity: s.opacity, transform: s.transform,
+      bottom: face.bottom, width: box.width, height: box.height, color: s.color };
+  });
+  try {
+    for (const id of ['#undo', '#end-turn', '#menu-btn']) {
+      const button = page.locator(id), before = await read(id);
+      expect(before.shadow).toBeTruthy();
+      for (const attribute of ['disabled', 'aria-disabled']) {
+        await button.evaluate((el, attribute) => el.setAttribute(attribute, 'true'), attribute);
+        const after = await read(id);
+        for (const key of ['shape', 'edge', 'shadow', 'width', 'height'] as const) expect(after[key]).toBe(before[key]);
+        expect(after.face).not.toBe(before.face); expect(after.image).toBe('none');
+        expect(after.top).toBe('transparent'); expect(after.opacity).toBe('1');
+        expect(after.color).toBe(id === '#end-turn' ? 'rgb(251, 247, 238)' : 'rgb(77, 69, 60)');
+        await button.hover(); await page.mouse.down();
+        expect((await read(id)).transform).toBe('none'); expect((await read(id)).bottom).toBe('0px');
+        expect((await read(id)).face).toBe(after.face);
+        await page.mouse.up(); await page.mouse.move(0, 0);
+        expect(await button.getAttribute(attribute)).toBe('true');
+        await button.evaluate((el, attribute) => el.removeAttribute(attribute), attribute);
+      }
+    }
+  } finally { await page.close(); }
+});
+
 it('keeps lesson text and icons inside their faces and the bar at phone width', async () => {
   const page = await fixture(false, '');
   try {

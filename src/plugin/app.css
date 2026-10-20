@@ -343,7 +343,7 @@ body[data-touch='true'] #game-table #table-bar { padding-top: 0; }
 /* Reading rows stay on the page floor. Only action faces carry stone. */
 #app-root button:is(:disabled, [aria-disabled='true']) {
   --ink-soft: rgb(91 80 69 / 75%); --fg-soft: rgb(91 80 69 / 75%);
-  color: var(--ink-soft);
+  color: var(--disabled-ink, var(--ink-soft));
 }
 #app-root :is(button.menu-row, #profile-open button, #moves-line, .fields label:has(input[type='checkbox']), label.check.toggle) {
   min-height: 48px; padding-inline: 12px;

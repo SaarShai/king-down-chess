@@ -38,7 +38,7 @@ export async function checkShell(browser, base) {
     await frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
     const bar = frame.locator('#table-bar');
     const colours = await bar.evaluate(bar => Object.fromEntries([...bar.querySelectorAll('button, svg, .line')].map(e => [e.id || `${e.closest('button').id}-${e.tagName}`, getComputedStyle(e).color])));
-    const off = 'rgba(91, 80, 69, 0.75)';
+    const off = 'rgb(77, 69, 60)', soft = 'rgba(91, 80, 69, 0.75)';
     for (const id of ['undo', 'end-turn']) {
       assert.equal(await frame.locator(`#${id}`).getAttribute('aria-disabled'), 'true');
       assert.equal(colours[id], off, `${id} uses the recorded disabled label`);
@@ -48,11 +48,11 @@ export async function checkShell(browser, base) {
     assert.equal(colours['board-menu'], 'rgb(43, 38, 33)', 'Enabled Menu keeps dark ink');
     const row = frame.locator('[data-screen="play"] [data-nav="profile"]');
     await row.evaluate(e => { e.disabled = true; });
-    assert.equal(await row.locator('.line').evaluate(e => getComputedStyle(e).color), off, 'Nested line text follows a native disabled button');
+    assert.equal(await row.locator('.line').evaluate(e => getComputedStyle(e).color), soft, 'Nested line text follows a native disabled button');
     assert.equal(await row.evaluate(e => {
       const span = document.createElement('span'); span.style.color = 'var(--fg-soft)'; e.append(span);
       const colour = getComputedStyle(span).color; span.remove(); return colour;
-    }), off, 'The soft foreground token follows a native disabled button');
+    }), soft, 'The soft foreground token follows a native disabled button');
     await row.evaluate(e => { e.disabled = false; });
     await writeFile(join(env('PLAYABLE_OUT'), 'plugin-shell-colours.json'), JSON.stringify(colours, null, 2) + '\n');
     await shot(page, 'plugin-board-bar-390x844-light', { clip: await bar.boundingBox() });
