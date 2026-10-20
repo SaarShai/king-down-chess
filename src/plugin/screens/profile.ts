@@ -12,6 +12,7 @@ import { confirmBoardAction } from './board-actions';
 import { errorText } from '../../account-game/types';
 import { onStop } from './friend';
 import { runtimeHost } from '../../account-game/host';
+const SUPPORT_URL = import.meta.env.VITE_KINGDOWN_STAGE === 'staging' ? 'https://kingdown-staging.vercel.app/support.html#appeals' : 'https://kingdown.dev/support.html#appeals';
 type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null } & AccountNotices;
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 let request = 0, stopped = false;
@@ -74,7 +75,7 @@ function noticeRow(notice: AccountNotice) {
   reason.textContent = notice.text;
   row.append(title, when, reference, reason);
   if (notice.kind === 'moderation' && notice.ends_at) { const ends = document.createElement('p'); ends.textContent = `Ends ${fullDate(notice.ends_at)}`; row.append(ends); }
-  const support = document.createElement('a'); support.href = 'https://kingdown.dev/support.html#appeals'; support.target = '_blank'; support.rel = 'noopener'; support.textContent = 'Support and appeals'; support.onclick = event => void openSupport(event); row.append(support);
+  const support = document.createElement('a'); support.href = SUPPORT_URL; support.target = '_blank'; support.rel = 'noopener'; support.textContent = 'Support and appeals'; support.onclick = event => void openSupport(event); row.append(support);
   return row;
 }
 async function openSupport(event: MouseEvent) {
@@ -82,9 +83,9 @@ async function openSupport(event: MouseEvent) {
   if (!active()) return;
   const reading = request;
   try {
-    const result = await runtimeHost().openLink({ url: 'https://kingdown.dev/support.html#appeals' });
+    const result = await runtimeHost().openLink({ url: SUPPORT_URL });
     if (result.isError) throw new Error('The host refused the link');
-  } catch { if (reading === request && active()) $('profile-status').textContent = 'Open https://kingdown.dev/support.html#appeals in your browser.'; }
+  } catch { if (reading === request && active()) $('profile-status').textContent = `Open ${SUPPORT_URL} in your browser.`; }
 }
 async function readMoreNotices() {
   if (!active() || !noticesBefore) return;

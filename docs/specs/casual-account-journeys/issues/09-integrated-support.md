@@ -16,10 +16,16 @@ Parent: U07
 
 `2e050d79` reuses support intake candidate `b2aba8d4`. `35f5fd14` reuses notice candidate `f496c265`. The database test conflict is an adjacent insertion: both support cases and both notice cases remain. The client test keeps both the worker EventTarget double and the notice cursor mock.
 
-Five additional assertions connect the two slices in the existing support case. Independent review finds no should-fix. The combined focused run passes 194 tests in ten files, full typecheck and 54 art checks, without skips. Selection: `{src/{api/{http,http.db},online/{accounts.db,client,runtime},plugin/{http,server}}.test.ts,tools/{plugin-db-check,plugin-profile,plugin-screen-lifecycle}.test.ts}`. Log: `/tmp/kingdown-u07-integrated-source.log`. The compiled journey remains required before deployment.
+Five additional assertions connect the two slices in the existing support case. Independent review finds no should-fix. The combined focused run passes 194 tests in ten files, full typecheck and 54 art checks, without skips. Selection: `{src/{api/{http,http.db},online/{accounts.db,client,runtime},plugin/{http,server}}.test.ts,tools/{plugin-db-check,plugin-profile,plugin-screen-lifecycle}.test.ts}`. Log: `/tmp/kingdown-u07-integrated-source.log`. The combined compiled run `app-g1E47d` on `2c94fa03` passes `web-online` (106.5 seconds) and `plugin-ui-http` (244.9 seconds), including the final browser-error gates. A fixed staging-help URL correction follows before publication; it requires the existing link regression in both environments.
 
 ## Staging preflight
 
 Only project `puhspsyjyzaghmgtkzqd` is used. Before the grant, runtime notice ID/date reads are false and the existing payload read is true. The applied SQL grants SELECT on `id, created_at` only, to the existing `kingdown_plugin_runtime` role. The result then shows all three reads true. No game, player, notice content or production project is changed.
 
 The parent evidence folder retains `notices-staging-grant.png`. The notice feature is not deployed yet. The current staging artifact contains temporary startup diagnostics, which are already removed from development source and must be absent from the next accepted build.
+
+## Staging help link
+
+The shared Profile initially points to the production help page, while its new appeal instructions exist only in staging. The existing Profile test under `VITE_KINGDOWN_STAGE=staging` reproduces the wrong URL (one failure; 25 unrelated cases filtered). One module constant now selects the fixed approved URL from the existing build-stage setting and supplies the anchor, SDK request and refusal message. No new host configuration is added.
+
+The same case passes under staging and the default environment, including keyboard activation and refused-link text. Each focused run passes one case, full typecheck and 54 art checks; 25 unrelated cases remain filtered. Logs: `/tmp/kingdown-u07-stage-link-{red,green}.log` and `/tmp/kingdown-u07-default-link-green.log`. The prior full compiled journey remains applicable to unchanged Profile rendering and navigation. The staged artifact must contain the staging URL in both clients.

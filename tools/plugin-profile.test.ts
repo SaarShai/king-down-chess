@@ -94,6 +94,7 @@ it('names game features and each history result for screen readers', async () =>
 const accountNotices: AccountNotice[] = Array.from({length:23},(_,i)=>({id:String(9007199254741015n-BigInt(i)),created_at:'2026-10-20T12:00:00Z',action_id:7,...(i%2 ? {kind:'appeal' as const,status:'upheld' as const,text:'Appeal decision.'} : {kind:'moderation' as const,action:'warning' as const,text:'<img src=x onerror=alert(1)> Reason.',ends_at:null})}));
 it('shows dated safe account notices and pages independently of game history', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
+  const supportUrl = process.env.VITE_KINGDOWN_STAGE === 'staging' ? 'https://kingdown-staging.vercel.app/support.html#appeals' : 'https://kingdown.dev/support.html#appeals';
   try {
     await page.request.post(new URL('/fixture-seed',harness.url).href,{data:{data:{notices:accountNotices,history,record}}});
     await frame.locator('html').evaluate(()=>(window as any).harnessApp.navigate('profile'));
@@ -103,13 +104,13 @@ it('shows dated safe account notices and pages independently of game history', a
     expect(await frame.locator('#profile-notices time').first().textContent()).toBe('Oct 20, 2026');
     expect(await frame.locator('#profile-notices time').first().getAttribute('datetime')).toBe('2026-10-20T12:00:00Z');
     expect(await frame.locator('#profile-notices small').first().textContent()).toBe('Action #7');
-    expect(await frame.locator('#profile-notices a').first().getAttribute('href')).toBe('https://kingdown.dev/support.html#appeals');
+    expect(await frame.locator('#profile-notices a').first().getAttribute('href')).toBe(supportUrl);
     const support = frame.locator('#profile-notices a').first();
     await support.focus(); await support.press('Enter');
-    await expect.poll(()=>page.evaluate(()=>(window as any).harnessOpenLinks ?? [])).toEqual([{url:'https://kingdown.dev/support.html#appeals'}]);
+    await expect.poll(()=>page.evaluate(()=>(window as any).harnessOpenLinks ?? [])).toEqual([{url:supportUrl}]);
     await page.evaluate(()=>{(window as any).denyOpenLinkNext=true;}); await support.click();
-    await frame.locator('#profile-status').filter({hasText:'Open https://kingdown.dev/support.html#appeals in your browser.'}).waitFor();
-    expect(await page.evaluate(()=>(window as any).harnessOpenLinks)).toEqual([{url:'https://kingdown.dev/support.html#appeals'},{url:'https://kingdown.dev/support.html#appeals'}]);
+    await frame.locator('#profile-status').filter({hasText:`Open ${supportUrl} in your browser.`}).waitFor();
+    expect(await page.evaluate(()=>(window as any).harnessOpenLinks)).toEqual([{url:supportUrl},{url:supportUrl}]);
     const first = await tool(page,'kingdown_profile');
     await frame.locator('#profile-notices-more').click();
     await expect.poll(()=>frame.locator('#profile-notices article').count()).toBe(23);
