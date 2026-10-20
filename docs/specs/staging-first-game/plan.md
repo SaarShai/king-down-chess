@@ -1,6 +1,6 @@
 # First staging game
 
-Status: first real web–ChatGPT game verified. Fresh ChatGPT page loading has a known limitation.
+Status: first real web–ChatGPT game verified. Native-created control tabs pass observed checks; a host/browser startup path remains unresolved.
 
 Owner request: develop in this separate project, reuse the reconciled work, fix integration faults and demonstrate the first web–ChatGPT game in staging. No production deploy.
 
@@ -65,4 +65,4 @@ Status: the game round trip passes. See [the real-host record](issues/09-real-ho
 2. Website game `1e34ff0e-5f7b-84f0-8cc6-22268129d986` resumes inside ChatGPT with the exact website move history.
 3. The widget commits a move and resignation. Fresh website reloads show the matching four moves and final result.
 4. Screenshots record both surfaces. The live solo game supplements the hidden friend setup, complex turn and lost-reply harness evidence.
-5. Fresh standalone ChatGPT loads can fail before the widget appears; retry works. A separate temporary preview returns the resource with HTTP 200, but no game HTML or startup marker appears until retry. All startup markers then complete and controls work. The underlying delivery or execution cause is unconfirmed. Restore the verified preview, retain the evidence, and keep reliable first-load behavior as a release gate.
+5. Browser-API page opens can fail before observed game HTML. [First-load controls](issues/10-first-chatgpt-load.md) pass five fresh widget mounts and four native direct-URL opens without retry. A minimal panel without game code fails in affected tabs and connects in the control tab. The exact host/browser cause remains unconfirmed. The verified game preview is restored; the temporary probe is removed. A fresh page resumes a new saved game with matching website history. The remaining failing path stays open.

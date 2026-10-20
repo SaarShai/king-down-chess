@@ -28,4 +28,6 @@ The real ChatGPT widget and staging website share game `1e34ff0e-5f7b-84f0-8cc6-
 
 The built local browser check separately covers a friend game, hidden setup, a complex turn and an injected lost reply with an identical retry and one effect. It uses the real HTTP/MCP handlers and a disposable database.
 
-Fresh standalone ChatGPT page loads can show `Couldn’t display King Down Staging`. **Try again** loads the working game. A temporary trace observes no game HTML-entry marker on the failing load, then every startup marker on retry. The underlying cause remains unconfirmed. This does not invalidate the observed game round trip or establish production readiness.
+Five fresh widget mounts through **Plugins → King Down Staging → Open plugin** in a control tab and four native direct-URL opens pass without **Try again**. A saved game resumes with the same history on the website and widget.
+
+Browser-API-created or reloaded tabs still reproduce `Couldn’t display King Down Staging` before observed game HTML. A minimal panel without game code also fails in affected tabs and connects in the control tab. This is an unresolved host/browser startup boundary; no application fix is established. See [the first-load record](issues/10-first-chatgpt-load.md). The original game preview is restored, and the temporary probe is removed.

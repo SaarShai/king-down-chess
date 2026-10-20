@@ -1,6 +1,6 @@
 # Real web and ChatGPT game
 
-Status: game round trip verified. Fresh ChatGPT page loading has a known limitation.
+Status: game round trip verified. [Follow-up controls](10-first-chatgpt-load.md) narrow the startup failure to an unresolved host/browser entry path.
 
 ## Scope and checks
 
@@ -33,7 +33,7 @@ Screenshots are in the new project's `evidence/staging-hosted/` directory:
 
 ## Fresh-load issue and trace
 
-Two fresh loads of the ChatGPT standalone page show an empty sandbox, then `Couldn’t display King Down Staging` after about 30 seconds. `Try again` loads the widget, which then works. The website does not show this failure. Browser errors contain a ChatGPT React hydration error and cache warnings, but no game error. These messages do not establish the cause.
+Two browser-API loads of the ChatGPT standalone page show an empty sandbox, then `Couldn’t display King Down Staging` after about 30 seconds. `Try again` loads the widget, which then works. The website does not show this failure. Browser errors contain a ChatGPT React hydration error and cache warnings, but no game error. These messages do not establish the cause.
 
 The resource MIME type, URI, domain and bootstrap order pass a read-only review against the SDK and official host reference. No auth, CSP or timeout change is justified by current evidence.
 
@@ -51,4 +51,4 @@ No HTML-entry execution is observed on the failing load. HTTP 200 proves server 
 
 The verified `01cbe379` preview is restored and ChatGPT's staging tool definitions are refreshed back to it. The diagnostic preview is deleted and its clean worktree is removed. The probe commit remains unmerged; no diagnostic marker is in the active source or deployment. Browser and server traces are saved as `startup-browser-probe.json` and `startup-server-probe.json`. Screenshots show `chatgpt-first-load-failure.png` and `chatgpt-startup-retry.png`. An independent review confirms that the evidence supports the game milestone and this limited startup conclusion.
 
-For now, select **Try again** if ChatGPT shows the load error. The first-game milestone is verified; reliable first-load behavior remains a release gate. Further work needs host-loading diagnostics that explain the gap before HTML execution. Do not report the game as production-ready.
+The follow-up passes five fresh widget mounts in a control tab and four native direct-URL opens without retry. A minimal panel without game code reproduces the failure in affected tabs and succeeds in the control tab. This corrects any broad attribution to application code; it does not fix or establish the exact cause. See [ticket 10](10-first-chatgpt-load.md) for evidence and cleanup. Reliable first-load behavior across the remaining failing path is still unverified.
