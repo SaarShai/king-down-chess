@@ -17,8 +17,16 @@ The prior accepted staging source is `0b504fb3`. Its four compiled checks and ba
 
 The Play-entry slice passes its targeted checks. The wider Hall/App run has 159 passes and three failures at existing board-readiness boundaries. Its focused repairs must preserve the original assertions. The combined full source run below must resolve this cumulative-run gap; do not repeat an intermediate full run on an unchanged subset.
 
-Fresh native ChatGPT acceptance remains pending while the Mac is locked. An existing resource refresh does not load new application code. The old loaded resource reads the new `812aef27` game but has an empty move picker; do not claim a current-resource ChatGPT write.
+Fresh native ChatGPT acceptance remains pending while the Mac is locked. An existing resource refresh does not load new application code. The old loaded resource reads the new `812aef27` game but has an empty move picker. Its exact loaded resource identity and the cause are not established; an engine fingerprint mismatch alone does not explain the older client's code. Do not claim a current-resource ChatGPT write. The supported recovery to verify is a deliberate Open of the same game, a current resource mount, unchanged saved state, and a legal turn. The existing old-URI resource test is not a real-host recovery pass.
 
 The earlier intermittent cache refusal is unclassified. Keep the safe phase diagnostic and test the next legitimate update with the heavy test lane idle. A later successful open does not prove that prior failure is fixed.
 
 The parent project's shared-mechanics verification report and development entry hold the concise current state and artifact receipts. Do not promote to production, activate a new ranked policy or submit an additional host under this ticket.
+
+## Integrated source
+
+The reviewed Play slice integrates at `40d3caec`, ceremony names at `40dacf4f`, and recovery checker at `3cb4a43e`. The ceremony source passes 20 focused cases and two existing mouse/touch review flows. The new checker proves a fresh recovery computer turn and all eight archived AI paths against the unchanged prior artifacts. These results do not replace the next exact-release rehearsal.
+
+Explicit publication adds engine `febb9239470eea930cce5e1b588838bafd2c6687f0419d1bbf1072c975603ae2`. All eight prior archive pairs remain byte-identical. The matching private adapter/helper recovery and integrated checks remain pending.
+
+Previous-turn/help wording and named-device performance percentiles remain separate acceptance gaps. Do not claim complete cosmetic isolation or a measured phone performance baseline. No obsolete shared controller is confirmed for deletion; local play, learning and Workshop still use their entry path.
