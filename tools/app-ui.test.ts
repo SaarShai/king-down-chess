@@ -1,9 +1,9 @@
 // Unit test for the check helpers (tools/app-ui.mjs) with no browser: a small stand-in for the page's
 // document and for Playwright's page. The browser checks run the helpers on the real app.
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   boardHelp, computerThinks, contextText, focusBoard, lanMoves, lanTurns, leaveBoard, menuItem, moveMarks, moveRow,
-  pressMenu, readUi, refusalText, resultText, waitForUi,
+  pressMenu, readUi, refusalText, resultText, waitForLinkSave, waitForUi,
 } from './app-ui.mjs';
 
 type Node = { textContent: string; dataset?: Record<string, string>; open?: boolean; querySelectorAll?: (sel: string) => Node[] };
@@ -37,6 +37,44 @@ const today = (over: Record<string, Node | null> = {}) => page({
 });
 
 afterEach(() => { delete (globalThis as { document?: unknown }).document; log = []; });
+
+describe.each([0, 1])('waitForLinkSave (side %i)', side => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each([
+    null,
+    { link: 1 - side },
+    { moves: ['e2-e4'] },
+    { moves: ['e2-e4', 'e7-e5', 'd2-d4'] },
+    { back: 'QNBKBNRR' },
+    { white: 'ai' },
+    { black: 'ai' },
+    { loading: true },
+  ])('waits for the save write while the board already shows the link: %j', async stale => {
+    const expected = { back: 'RNBQKBNR', moves: ['e2-e4', 'e7-e5'], link: side, white: 'human', black: 'human' };
+    let saved = JSON.stringify(stale == null ? null : { ...expected, ...stale });
+    const status = { textContent: stale && 'loading' in stale ? 'Loading pieces…' : '' };
+    vi.stubGlobal('document', { getElementById: (id: string) => id === 'asset-status' ? status : null });
+    vi.stubGlobal('localStorage', { getItem: (key: string) => key === 'kingdown.save' ? saved : null });
+    vi.stubGlobal('window', { view: { pos: { board: { 36: 1 } } } });
+    let poll!: () => void;
+    const p = {
+      waitForFunction: (test: (arg: unknown) => boolean, arg: unknown) => new Promise<void>(resolve => {
+        poll = () => { if (test(arg)) resolve(); };
+        poll();
+      }),
+    };
+    const done = vi.fn();
+    const pending = waitForLinkSave(p, expected.back, expected.moves, expected.link).then(done);
+    await Promise.resolve();
+    expect(done).not.toHaveBeenCalled();
+    saved = JSON.stringify(expected);
+    status.textContent = '';
+    poll();
+    await pending;
+    expect(done).toHaveBeenCalledOnce();
+  });
+});
 
 describe('the readouts', () => {
   it('reports a learned lesson only from the visible success line', () => {
