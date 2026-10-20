@@ -1,6 +1,6 @@
 # Continue release games on the recovery artifact
 
-Status: independently reviewed; commit hooks and exact compiled rehearsal remain open.
+Status: exact standalone server rehearsal passes; browser and deployment recovery remain separate gates.
 
 ## Plan and acceptance
 
@@ -39,3 +39,7 @@ Use a separate loopback database ending in `_test`, with the production migratio
 - The rehearsal is bounded to an unfinished initialized game and a one-seat-Ready setup. It checks game/result fields, full command and player rows, game-scoped notifications, player ratings, rating-history and outbox counts for an accepted retry/refusal, then exact durable state and full rules/history/legal position after restart. It does not replace the existing terminal retry, legacy-save or multi-archive engine fixture checks.
 - Equal server-byte refusal is an input guard, not proof of source provenance or a repaired fault. Parent must attest both source/output identities. The nominated recovery source omits the preview adapter; this check proves game continuation on it, not browser worker takeover, a deployment rollback or an injected preview failure. Those gates remain separate.
 - Independent read-only review finds two proof gaps: byte difference alone does not establish the nominated source, and game-only snapshots miss player/notification effects. The final diff narrows the claim, checks the observed preview capability difference and adds the scoped rows. Re-review reports no remaining confirmed should-fix. No test or build runs during review.
+
+The exact clean release `44e89092a5af42bcece0e39b1e015c6e809b57b6` and recovery `c6ffec4d58569ca4b5c3df1f465ab398bb9e2a61` both build successfully. The two-artifact checker exits zero against the disposable loopback database. It proves accepted retry without effects, changed-payload refusal, continuation to revision 3, one-Ready setup completion and play to revision 4, and fresh recovery reload. Both artifacts retain seven archives, and their hashes stay unchanged after the check.
+
+The parent evidence folder `staging-next-ticket-candidates/u08-recovery-44e89092-c6ffec4d/` holds exact source/clean-tree receipts, server/runtime/worker/archive hashes, both build logs and the checker log. This proof applies to these artifacts and their `d1eb413b` worker. A later worker change needs a new recovery artifact that retains its newly published immutable pair, plus a new rehearsal; do not extend this receipt to untested bytes.

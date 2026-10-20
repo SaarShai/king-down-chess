@@ -1,6 +1,6 @@
 # Identify compiled card detail samples
 
-Status: prepared; parent review and compiled acceptance remain open.
+Status: resolved; independent review and the full compiled plugin journey pass.
 
 ## Plan and acceptance
 
@@ -19,4 +19,4 @@ The caller already receives the built function directory. It now imports that di
 
 - Existing red evidence: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/app-SWDHAx/plugin-ui-http.log`.
 - Source inspection confirms the missing view field and the resulting blocked preview path. No new test mirrors this fixture correction.
-- The existing compiled check is the regression acceptance. It must pass the original card recovery assertions and the remaining journey. It has not run on this change yet.
+- The full registered `plugin-ui-http` check passes on `44e89092` in run `app-WTEsKA` (249.805 seconds). It retains the original failed-read, failed-command, failed-turn and open-sheet recovery assertions and passes the remaining real-HTTP/MCP journey with no browser errors. The parent evidence folder preserves its log and run record. The separate mechanics navigation failure does not invalidate this fixture correction.
