@@ -264,7 +264,6 @@ input[type='checkbox']:checked { background: var(--accent) var(--tick) no-repeat
 #moves [data-ply] b { font-weight: 700; }
 #moves .viewing { background: var(--ink); color: var(--vellum); }
 @media (hover: hover) { #moves [data-ply]:not(.viewing):hover { background: var(--parchment-deep); } }
-#moves:empty::before { content: 'No moves yet'; display: block; padding: 2px 4px; color: var(--ink-soft); font-style: italic; }
 .hover { min-height: 1.6em; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
 /* ---- captured pieces ---- */

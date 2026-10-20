@@ -202,7 +202,7 @@ export function boardScreen(store: Store) {
       if (name) { const image = document.createElement('img'); image.className = 'pi'; image.alt = ''; image.src = symbols[`../../public/ui/icons/${name}.svg`][colorOf(code)]; nodes.push(image); }
     }
     const words = document.createElement('span'); words.textContent = lastMove?.words ?? `Move ${moveNumber(pos)}.`; nodes.push(words); $('last-move').replaceChildren(...nodes);
-    $('recent-moves').replaceChildren(...history.length ? history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)) : [text('No turns sent yet.')]);
+    $('recent-moves').replaceChildren(...history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)));
     fitMoves();
     $('short-move-words').textContent = lastMove ? shortMove(lastMove.pre, lastMove.move) : `Move ${moveNumber(pos)}.`;
   }
@@ -486,7 +486,7 @@ export function boardScreen(store: Store) {
     boardSheet('Menu', button('Moves', showMoves), ...actions, button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('invite'), $('invitation'));
     sheet.classList.add('board-menu');
   };
-  function showMoves() { boardSheet('Moves', ...history.length ? history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)) : [text('No turns sent yet.')]); $('moves-line').setAttribute('aria-expanded', 'true'); }
+  function showMoves() { boardSheet('Moves', ...history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`))); $('moves-line').setAttribute('aria-expanded', 'true'); }
   let movesChoice: boolean | undefined;
   let bandFits = false;
   const recentMoves = $('recent-moves');

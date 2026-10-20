@@ -1999,3 +1999,18 @@ it.each(['mouse', 'touch'] as const)('A8: a %s skip keeps the capture and does n
     expect(await frame.locator('#board-sheet[open]').count()).toBe(1);
   } finally { await page.close(); }
 });
+
+
+it.each([390, 1280])('A18: keeps an empty named moves list with no words at %i px', async width => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), width, width === 390 ? 844 : 800), frame = page.frameLocator('iframe');
+  try {
+    const recent = frame.locator('#recent-moves');
+    expect(await recent.textContent()).toBe('');
+    expect(await recent.getAttribute('aria-label')).toBe('Moves');
+    if (width === 390) expect(await recent.isHidden()).toBe(true);
+    await frame.locator('#board-menu').click();
+    await frame.getByRole('button', { name: 'Moves', exact: true }).click();
+    expect(await frame.locator('#board-sheet .sheet-body').textContent()).toBe('');
+    expect(await frame.getByRole('dialog', { name: 'Moves', exact: true }).isVisible()).toBe(true);
+  } finally { await page.close(); }
+});

@@ -201,7 +201,7 @@ export function refreshTable(s: TableState): void {
     strip.classList.toggle('is-turn', liveSide === c && (!text('status') || text('status') === 'thinking…'));
   }
   const history = s.game.history, shown = s.viewing == null ? history.at(-1) : history[s.viewing - 1];
-  const story = shown ? describeMove(shown.pos, shown.move, true) : 'No moves yet.';
+  const story = shown ? describeMove(shown.pos, shown.move, true) : '';
   const icon = shown && !shown.move.pass ? pieceIcon(typeOf(shown.pos.board[shown.move.from]) as PieceType, colorOf(shown.pos.board[shown.move.from])) : '';
   $('last-move').innerHTML = `${icon}<span></span>`;
   $('last-move').querySelector('span')!.textContent = story;

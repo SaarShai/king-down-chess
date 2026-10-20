@@ -312,3 +312,7 @@ The turn button shows the original full-width sword alone. Its accessible name a
 ### A15 build
 
 The selected tile has a solid gold fill under all figures. A dark gold square edge keeps it clear on both stone colours. The thin ellipse and foot glow are removed. This is the taste choice: one clear tile mark, with no second glow. Green move tiles, the transparent last-move wash, and blue frost keep their own marks. Frost draws above the fill. The draw test checks the exact tile, layer, and edge in both board directions. M1 checks and screen review follow.
+
+### A18 build
+
+Empty move lists have no text in the plugin or web game. The web empty-state CSS and empty last-move words are removed too. The plugin region keeps its Moves name. Both sheets keep their names. A27 still keeps the phone band closed until sent history exists. New phone and desktop cases check empty text and accessible names. The capture check still checks the full empty sheet. M1 and web screen checks follow.

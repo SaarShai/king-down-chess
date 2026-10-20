@@ -138,7 +138,7 @@ try {
         if (id === 'A18') {
           await tap(12); await tap(28);
           await f.locator('#board-menu').click(); await f.getByRole('button',{name:'Moves',exact:true}).click(); await shot(id,'moves-empty');
-          if (phase === 'after') assert.equal(await f.locator('#board-sheet .sheet-body').innerText(),'No turns sent yet.');
+          if (phase === 'after') assert.equal(await f.locator('#board-sheet .sheet-body').innerText(),'');
           await f.locator('#board-sheet [aria-label="Close"]').click();
         }
         if (id === 'A27') {
