@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { createServer } from 'vite';
 import type { Browser, Page } from 'playwright';
 import { launch } from './lib/checks.mjs';
-import { checkButtonContent, checkFlatRows, checkMenuContent, checkSegments, checkTabletButtons } from './lib/plugin-tablet-check.mjs';
+import { checkButtonContent, checkFlatRows, checkMenuContent, checkSegments, checkTablet, checkTabletButtons } from './lib/plugin-tablet-check.mjs';
 
 let server: Awaited<ReturnType<typeof createServer>>, browser: Browser, web: string;
 beforeAll(async () => {
@@ -37,6 +37,33 @@ async function webParts(page: Page, selectors: string[]) {
   }, { web, selectors });
   await page.evaluate(() => document.fonts.ready);
 }
+
+it.each([false, true])('keeps the cloth banner clear and its whole box active (plugin: %s)', async plugin => {
+  const page = await fixture(plugin, '<div id="app-root"><div class="title-actions"><button id="home-play" class="primary">Play</button><button id="home-games">Games</button></div></div>');
+  try {
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: width === 320 ? 568 : 844 });
+      await page.mouse.move(0, 0);
+      await checkTablet(page, page);
+      await checkButtonContent(page, '.title-actions button');
+    }
+    const banner = page.locator('#home-play'), box = (await banner.boundingBox())!;
+    await banner.evaluate(el => { el.addEventListener('click', () => { el.dataset.clicked = 'true'; }); });
+    // The notch is clear, but this part of the rectangular target still takes a click.
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height - 1);
+    expect(await banner.getAttribute('data-clicked')).toBe('true');
+    expect(await banner.evaluate(el => getComputedStyle(el, '::before').backgroundColor)).toBe('rgb(156, 58, 45)');
+    await page.mouse.down();
+    await expect.poll(() => banner.evaluate(el => getComputedStyle(el).transform)).toBe('matrix(1, 0, 0, 1, 0, 2)');
+    expect(await banner.evaluate(el => getComputedStyle(el, '::before').bottom)).toBe('2px');
+    await page.mouse.up();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.mouse.down();
+    await expect.poll(() => banner.evaluate(el => getComputedStyle(el).transform)).toBe('none');
+    await page.mouse.up();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  } finally { await page.close(); }
+});
 
 it('keeps lesson text and icons inside their faces and the bar at phone width', async () => {
   const page = await fixture(false, '');

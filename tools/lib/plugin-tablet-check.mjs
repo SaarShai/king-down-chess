@@ -57,9 +57,10 @@ export async function checkTablet(page, frame) {
   assert.equal((await small.boundingBox()).height, 48, 'The small tablet is 48 px tall');
   const red = await main.evaluate(el => {
     const s = getComputedStyle(el), face = getComputedStyle(el, '::before');
-    return { color: s.color, image: face.backgroundImage, face: face.backgroundColor, edge: face.borderTopColor, light: face.boxShadow };
+    return { color: s.color, image: face.backgroundImage, face: face.backgroundColor, edge: face.borderTopColor, light: face.boxShadow, clip: face.clipPath, compact: innerWidth <= 360 };
   });
-  assert.equal(red.image, 'none', 'The red face has no stone grain');
+  assert.equal(red.image, red.compact ? 'none' : 'linear-gradient(90deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0) 18%, rgba(0, 0, 0, 0) 82%, rgba(0, 0, 0, 0.12))', 'The cloth face has a soft fold shade, with no grain; small screens use a plain face');
+  assert.match(red.clip, /calc\(50% \+ 9px\) 100%, 50% calc\(100% - 6px\), calc\(50% - 9px\) 100%/, 'The banner has a short lower notch');
   assert.equal(red.face, 'rgb(132, 44, 33)'); assert.equal(red.color, 'rgb(251, 247, 238)');
   assert.equal(red.edge, 'rgb(90, 28, 20)'); assert.match(red.light, /rgb\(156, 58, 45\).*0px 1px/);
   const box = await small.boundingBox();

@@ -3,6 +3,20 @@
 Status: done
 Type: task
 
+## Owner picks 2026-10-20
+
+Scope: picks-1020, lane controls. The owner approves A2 b, A30 b, and A34 a.
+
+Plan:
+1. A2: change each red action to a short cloth banner. Keep the full touch box.
+2. A30: keep each disabled action's frame and lower shadow. Dull its face only.
+3. A34: keep the two focus colours in `src/style.css :root` only. Add a source guard.
+4. Commit each item. Run the type check here. Run the unit helper and browser runner on the M1. Capture and inspect each changed screen.
+
+Pass: banners keep cream words, a clear lower notch, and all input states. Small screens omit the fold shade. Disabled actions keep their shape, edge, and lower shadow. Focus stays clear. Touch size, text fit, reduced motion, and the page size limit pass at the existing limits.
+
+Results follow after the checks end.
+
 The lane builds previews for A1, A2, A3, and A34. A10 stays blocked by the exact image-edit constraint. Each item still needs the owner's approval.
 
 ## Why and the rule
