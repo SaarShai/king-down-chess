@@ -264,3 +264,5 @@ Review A has two confirmed faults. Review B has no finding.
 3. Run `npm test` here with the test database. Commit, then run `plugin-ui` and `gui-board-preview` through the lane runner. Record the results. Keep all time limits.
 
 Pass criteria: each confirmed fault has a test. Both mutation checks fail for the correct cause. The unit suite and browser checks pass at the fixed code. No server code changes are needed.
+
+The first check at `52fff956` passes `plugin-ui` in 225.0 seconds. The preview check passes A18 and A27 on the current build. It also captures all eight plugin A39 screens after the layout, resize, focus, and Cancel checks pass. The combined preview check reaches its fixed 180 second limit. Remove saved before builds from the routine check list. The before capture mode and saved samples stay available. All current-build checks stay in the list.
