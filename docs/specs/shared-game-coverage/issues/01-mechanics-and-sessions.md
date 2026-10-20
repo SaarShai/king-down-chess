@@ -18,7 +18,13 @@ Prove the full released mechanic roster and important interactions through share
 
 ## Current evidence
 
-U04 already proves game-owned immutable rules, search isolation, multi-action budgets, cancellation, and the representative March/Maester/Morph web–ChatGPT journey. Its full-suite run and focused repairs are preserved. This ticket extends that evidence; it does not count the same journey as full roster coverage.
+Clean `0b504fb3` passes all four compiled gates in `app-lFNvv3`: 112 mechanics executions, full plugin journey, web recovery and local painted/learning play. It is deployed only to staging preview `dpl_67zeLH8qjVLTx5JmWXZVJa2cJ6q1` and the verified staging alias. The first saved-game web open passes without retry by 20.6 seconds. The earlier intermittent cache refusal remains unclassified; safe phase diagnostics are present.
+
+The preserved 15-action and six-action actual web/ChatGPT games remain accepted. A new game on engine `812aef27` accepts Freeze against Beast, an Ogre shove and March through the website; the existing ChatGPT resource reads the same five actions. That older resource cannot offer moves for the new engine. Do not count it as a current-resource write or fresh host pass. The Mac remains locked, so the native fresh-resource gate is pending.
+
+The live new-game check finds a stale Play list: a game created on the other surface appears only after an explicit board refresh. Ticket 04 owns the deliberate Play-entry refresh and regression. This is a separate U05 gap, not a reason to repeat the full unchanged mechanics matrix. The parent project's `evidence/staging-shared-mechanics/verification.md` is the concise current report; the sections below preserve earlier evidence and repairs.
+
+U04 already proves game-owned immutable rules, search isolation, multi-action budgets, cancellation, and the representative March/Maester/Morph web–ChatGPT journey. This ticket extends that evidence; it does not count the same journey as full roster coverage.
 
 ## Integrated changes and receipts
 

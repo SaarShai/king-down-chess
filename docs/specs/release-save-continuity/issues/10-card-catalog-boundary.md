@@ -1,6 +1,6 @@
 # Keep card presentation out of the match worker
 
-Status: source checks pass; parent review is clear. Archive publication and integrated acceptance remain separate.
+Status: reviewed and integrated at `d47a67b7`; published with the owned-search/hash slice at `0b504fb3`. All four compiled checks and exact backend recovery pass. Staging first update passes; native fresh-host acceptance is separate.
 
 ## Plan and acceptance
 
@@ -27,3 +27,7 @@ The structural cut can change the current worker bytes once. Its exact-byte fing
 - The exact selection is `KINGDOWN_TEST_FILE='{src/{move-text,game-rules,game,match/match,content/cards}.test.ts,tools/{game-boundary,plugin-worker-boundary,plugin-runtime-build}.test.ts}' npm test`, through the shared lock with a 180-second lock wait.
 - Parent review finds one ownership issue in the first draft: an ambient default would bypass the product import rule. The final formatter requires an explicit lookup; test/checker callers choose one, and the guard permits the now-pure function. Parent review of this correction is clear.
 - No archive, browser build/check, staging data or deployment changes occur in this slice. The real-build regression writes temporary worker files only and removes its source copy.
+
+## Integrated release evidence
+
+The combined release publishes `812aef27` and retains the original seven pairs unchanged (eight total). `app-lFNvv3` on clean `0b504fb3` passes all 112 mechanics executions, full plugin, web recovery and local painted/learning checks. Exact backend continuation to `6bd5f93b` passes with that new archive. The staging preview `dpl_67zeLH8qjVLTx5JmWXZVJa2cJ6q1` and alias match the checked index hash; the first saved-game open passes without retry by 20.6 seconds. The outer verification report keeps the earlier intermittent cache failure and fresh native host gate open. No production change occurs.
