@@ -12,7 +12,19 @@ export function stagingDeployArgs(project, config, env, manifest) {
   if (manifest?.stage !== 'staging' || manifest.supabaseUrl !== STAGING_SUPABASE_URL || manifest.publicOrigin !== STAGING_ORIGIN || manifest.projectId !== STAGING_PROJECT_ID) throw new Error('Rebuild the artifact with staging settings before deploy');
   if (env.KINGDOWN_STAGE !== 'staging' || env.VITE_KINGDOWN_STAGE !== 'staging' || env.VITE_SUPABASE_URL !== STAGING_SUPABASE_URL || !/^sb_publishable_[A-Za-z0-9_-]+$/.test(env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '')) throw new Error('Set the explicit staging build settings before deploy');
   if (env.VERCEL_PROJECT_ID && env.VERCEL_PROJECT_ID !== STAGING_PROJECT_ID || env.VERCEL_ORG_ID && env.VERCEL_ORG_ID !== STAGING_TEAM_ID) throw new Error('Vercel environment points to another project');
-  return ['--yes', 'vercel@62.2.0', 'deploy', '--prebuilt', '--target', 'preview', '--scope', 'saars-projects-2c777ec5', '--yes'];
+  return ['--yes', 'vercel@62.2.0', 'deploy', '--prebuilt', '--target', 'preview', '--json', '--scope', 'saars-projects-2c777ec5', '--yes'];
+}
+
+/** The pinned CLI omits preview from the API request; a project's first deploy becomes production. */
+export function requireStagingHistory(result) {
+  if (!Array.isArray(result?.deployments) || !result.deployments.some(deployment => /^dpl_[A-Za-z0-9]+$/.test(deployment.uid ?? deployment.id ?? ''))) throw new Error('Preview deploy refused: this staging project has no previous deployment; Vercel promotes first deployments to production');
+}
+
+export function verifyStagingPreview(deployment) {
+  if (deployment?.projectId !== STAGING_PROJECT_ID || deployment.name !== 'kingdown-staging' || !/^dpl_[A-Za-z0-9]+$/.test(deployment.id ?? '')) throw new Error('Deployment does not belong to the approved staging project');
+  if (deployment.target !== null && deployment.target !== 'preview') throw new Error('Staging deploy did not create a preview; stop before assigning an alias');
+  if (deployment.readyState !== 'READY') throw new Error('Staging preview is not READY');
+  return deployment;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -25,8 +37,19 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const command = stagingDeployArgs(project, config, process.env, manifest);
   if (!args.includes('--publish')) console.log('Staging artifact and project guards pass. No deploy requested.');
   else {
-    const result = spawnSync('npx', command, { cwd: tree, stdio: 'inherit', env: { ...process.env, VERCEL_PROJECT_ID: STAGING_PROJECT_ID, VERCEL_ORG_ID: STAGING_TEAM_ID } });
-    if (result.error) throw result.error;
-    process.exitCode = result.status ?? 1;
+    const env = { ...process.env, VERCEL_PROJECT_ID: STAGING_PROJECT_ID, VERCEL_ORG_ID: STAGING_TEAM_ID };
+    const runJson = args => {
+      const result = spawnSync('npx', args, { cwd: tree, stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8', maxBuffer: 2 * 1024 * 1024, env });
+      if (result.error) throw result.error;
+      if (result.status !== 0) throw new Error('The staging Vercel command failed');
+      try { return JSON.parse(result.stdout); } catch { throw new Error('Vercel did not return deployment JSON'); }
+    };
+    const api = endpoint => runJson(['--yes', 'vercel@62.2.0', 'api', endpoint, '--method', 'GET', '--raw', '--scope', 'saars-projects-2c777ec5']);
+    requireStagingHistory(api(`/v6/deployments?projectId=${STAGING_PROJECT_ID}&teamId=${STAGING_TEAM_ID}&limit=1`));
+    console.error('Deploying the checked staging preview.');
+    const result = runJson(command), deployment = result.deployment ?? result;
+    if (!/^dpl_[A-Za-z0-9]+$/.test(deployment.id ?? '')) throw new Error('Vercel did not return a deployment ID');
+    const verified = verifyStagingPreview(api(`/v13/deployments/${deployment.id}?teamId=${STAGING_TEAM_ID}`));
+    console.log(JSON.stringify({ id: verified.id, url: verified.url, target: 'preview', readyState: verified.readyState }));
   }
 }
