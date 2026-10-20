@@ -1,6 +1,6 @@
 # Game-owned rules and preserved turns
 
-Status: in progress. Parent: U04 in the reconciled development blueprint.
+Status: resolved. Parent: U04 in the reconciled development blueprint.
 
 The owner requests the next blueprint ticket and staging verification of fairy pieces, cards and king powers across the website and ChatGPT. Preserve gameplay, art, computer budgets and accepted turn order. Keep production unchanged.
 
@@ -28,4 +28,6 @@ Use the current integrated source `e044bf82` and product `01cbe379` as the basel
 
 [Ticket 01](issues/01-ownership-and-mechanics.md) is resolved: the differential/isolation baseline and the [real staging mechanics journey](staging-proof.md) pass. The experiment finds shared search-state contamination across incompatible rules. A private rules scope can cover helpers, but search must retain game ownership.
 
-Continue with [ticket 02](issues/02-owned-game-boundary.md). Product integration, compiled multi-action/cancellation evidence and the import guard remain open. U04 is not complete.
+[Ticket 02](issues/02-owned-game-boundary.md) is resolved. Each game owns immutable rules and a search lifetime. Product callers use the private synchronous boundary, and the import guard prevents bypasses. Compiled worker checks preserve multi-action budgets, order, warm state and cancellation.
+
+Source `be0786da` is deployed only to staging preview `dpl_Tx6SkvtZnmT7R15NumP1Srp8owM6`. The [integrated staging journey](owned-staging-proof.md) proves March, Maester swap and Morph across the website and actual ChatGPT app with matching eight-action histories. U04 is complete. U05 retains broader mechanic and interaction coverage. One unexplained ChatGPT startup error remains open despite three later clean native opens; it is not part of the ownership fix.

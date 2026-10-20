@@ -1,8 +1,14 @@
 # Reliable first ChatGPT load
 
-Status: five fresh native opens and saved-game resume pass without retry. The observed failure depends on browser-control debugger attachment. The verification procedure is corrected; no application repair is needed for this reproducer. The debugger interaction remains an open tooling limitation.
+Status: the original debugger-associated reproducer has a verified native test procedure. A later staging mount shows an unexplained error, followed by three clean native opens. That error and the debugger interaction remain open; do not claim general startup reliability.
 
 Owner request: fix the first-load failure and verify fresh ChatGPT opens without **Try again**. Keep all changes in staging.
+
+## Current follow-up
+
+On product `be0786da`, preview `dpl_Tx6SkvtZnmT7R15NumP1Srp8owM6`, one native mount shows `Internal error` after the game list loads. Selecting a saved game works without **Try again**. Three later native direct-URL opens reach enabled controls, and the last resumes all eight accepted feature actions after refreshing the staging tool definitions. No matching server tool error appears in the inspected deployment logs. The origin is unknown; do not attribute it to the earlier debugger failure without evidence.
+
+See [the current host proof](../../game-ownership/owned-staging-proof.md) and `evidence/staging-game-ownership/startup-matrix.json` beside the application repository. These checks use a warm signed-in profile. Keep a follow-up open to locate the boundary if the error recurs. Do not add a speculative retry or weaken security. The records below preserve the earlier diagnosis.
 
 ## Baseline
 

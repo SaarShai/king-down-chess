@@ -24,6 +24,8 @@ The owner saved the credential for the [King Down Staging GitHub app](https://gi
 
 ## Verified scope
 
+The current staging product is source `be0786da`, preview `dpl_Tx6SkvtZnmT7R15NumP1Srp8owM6`. Its [game-owned mechanics proof](../game-ownership/owned-staging-proof.md) records March, Maester swap and Morph across both interfaces. Three later fresh native opens pass; an earlier unexplained `Internal error` remains open. The records below describe the preceding product and startup diagnosis.
+
 The real ChatGPT widget and staging website share game `1e34ff0e-5f7b-84f0-8cc6-22268129d986`. A move on each surface appears in the other's history after reload. Resignation in ChatGPT appears as the same final result on the website. See [the real-host record](issues/09-real-host-proof.md).
 
 The built local browser check separately covers a friend game, hidden setup, a complex turn and an injected lost reply with an identical retry and one effect. It uses the real HTTP/MCP handlers and a disposable database.
@@ -39,4 +41,4 @@ The follow-up proves debugger-associated interference: attaching browser control
 3. Require enabled game controls and a new iframe initialization ID. Do not count **Try again**, automatic retry or a model's summary as first-load proof.
 4. Record the entry path and result. Resume the saved game and inspect its actual history. Browser-tab inspection after readiness is acceptable, but detach before another first-load test.
 
-This procedure corrects test interference. It does not repair the debugger interaction or prove cold-cache, mobile or cross-browser reliability. The staging product is unchanged; no game retry or weaker security policy is added.
+This procedure corrects test interference. It does not repair the debugger interaction or prove cold-cache, mobile or cross-browser reliability. The procedure adds no game retry or weaker security policy.
