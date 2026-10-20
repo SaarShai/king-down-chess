@@ -37,7 +37,10 @@ export function createPageClient(transport: GameTransport, host?: WidgetHost) {
     waiting.push(wake); signal?.addEventListener('abort', drop, { once: true });
   });
   const free = () => { const next = waiting.shift(); if (next) next(); else sending--; };
+  const accountId = () => host?.accountId ?? state.board_id ?? '';
   function save() {
+    // A new plugin board binding must not persist the previous ownership scope before redraw.
+    if (state.draft?.scope && state.draft.scope.account !== accountId()) state.draft = undefined;
     const pending = state.pending;
     if (host?.savePage) { host.savePage(state); return; }
     const args = pending && Object.fromEntries(Object.entries(pending.args).filter(([key]) => !['game_id', 'code', 'handle'].includes(key)));
@@ -65,7 +68,7 @@ export function createPageClient(transport: GameTransport, host?: WidgetHost) {
     // The transport is only the transport: the queue selects the page's board for a current selection reply (design §2).
     return result;
   }
-  return { state, save, call, get accountId() { return host?.accountId ?? state.board_id ?? ''; }, get inflight() { return inflight; } };
+  return { state, save, call, get accountId() { return accountId(); }, get inflight() { return inflight; } };
 }
 
 /** Decode only private results from the current queue job. */

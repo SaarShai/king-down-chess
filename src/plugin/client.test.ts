@@ -207,3 +207,27 @@ it('does not send a call with an already aborted signal', async () => {
   abort.abort(); await expect(client.call('kingdown_resume', {}, { signal: abort.signal })).rejects.toMatchObject({ name: 'AbortError' });
   expect(callServerTool).not.toHaveBeenCalled(); expect(client.inflight).toBe(0);
 });
+
+it('drops a private draft before saving a newly selected board ownership scope', () => {
+  let widgetState: any;
+  const client = createClient({ callServerTool: async () => ({ content: [] }) }, { setWidgetState: state => { widgetState = state; } });
+  client.state.board_id = 'old-board';
+  client.state.draft = { game_tag: 'aabbccdd', fen: 'f', lans: ['a2-a4'], scope: { account: 'old-board', game: 'aabbccdd-1122-4455-8899-aabbccddeeff', revision: 7, rules: '{}' } };
+  client.save();
+  expect(widgetState.privateContent.draft).toEqual(client.state.draft);
+  client.state.board_id = 'new-board';
+  client.save();
+  expect(widgetState.privateContent.draft).toBeUndefined();
+  expect(client.state.draft).toBeUndefined();
+});
+
+it('keeps browser drafts scoped to the signed-in account when its board binding changes', () => {
+  let saved: any;
+  const client = createClient({ callServerTool: async () => ({ content: [] }) }, { accountId: 'signed-in-account', savePage: state => { saved = structuredClone(state); } });
+  client.state.board_id = 'old-board';
+  const draft = { game_tag: 'aabbccdd', fen: 'f', lans: ['a2-a4'], scope: { account: 'signed-in-account', game: 'aabbccdd-1122-4455-8899-aabbccddeeff', revision: 7, rules: '{}' } };
+  client.state.draft = draft;
+  client.state.board_id = 'new-board';
+  client.save();
+  expect(saved.draft).toEqual(draft);
+});
