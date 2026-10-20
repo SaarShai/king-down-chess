@@ -68,10 +68,9 @@ export function updateEnd() {
   if (client.state.pending) return;
   if (view.rematch_game_id && !resumed.has(view.rematch_game_id)) {
     const game = view.rematch_game_id, ended = view.game_id; resumed.add(game); updating = true;
-    void call('kingdown_resume', {game_id:game}, false, false, false).then(next => {
+    void call('kingdown_resume', {game_id:game}, true, false, false).then(next => {
       if (stopped || queue.closed()) return;
-      if (!next) resumed.delete(game);
-      else if (client.state.screen === 'end' && endGame === ended) routeView(next);
+      if (next && client.state.screen === 'end' && endGame === ended) routeView(next);
     }).finally(() => { updating = false; });
   } else if (!read.has(view.game_id)) {
     if (memory.view?.rules) { read.add(view.game_id); return; }

@@ -10,6 +10,16 @@ const slot = (part: Partial<Slot> = {}): Slot => ({ polls: 0, ...part });
 // The client's one sentence for a lost connection (client.ts CANNOT_CONNECT). A copy keeps this unit file free of DOM code.
 const CANNOT_CONNECT = 'Cannot connect. Check your connection, then try again.';
 
+it('scopes a failed rematch selection to its finished result', () => {
+  const pending = { name: 'kingdown_resume', args: {}, game_tag: 'new-game', screen: 'end' as const, error: CANNOT_CONNECT, error_screen: 'end' as const };
+  const ended = { ...view('old-game'), status: 'finished', rematch_game_id: 'new-game-full' } as View;
+  expect(messageLine(page({ screen: 'end', view: ended, pending }))).toMatchObject({ text: CANNOT_CONNECT, action: 'retry' });
+  expect(pendingHere(page({ screen: 'board', view: ended, pending }))).toBe(false);
+  expect(pendingHere(page({ screen: 'end', view: { ...ended, rematch_game_id: 'another-game' }, pending }))).toBe(false);
+  expect(pendingHere(page({ screen: 'end', view: { ...ended, status: 'playing' }, pending }))).toBe(false);
+  expect(pendingHere(page({ screen: 'end', view: ended, pending: { ...pending, name: 'kingdown_move' } }))).toBe(false);
+});
+
 describe('the notice reducer', () => {
   it('keeps a refusal through every read, and clears it on a command', () => {
     const notice: Notice = { kind: 'refusal', text: 'Abort is closed', game: 'g1' };

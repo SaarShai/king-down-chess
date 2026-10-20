@@ -151,7 +151,8 @@ function show(next: View | undefined, job?: Job) {
 function resend(command: Pending): Record<string, unknown> {
   if (isStart(command)) return command.args;
   const game = typeof command.args.game_id === 'string' ? command.args.game_id
-    : command.game_tag && view?.game_id.startsWith(command.game_tag) ? view.game_id : undefined;
+    : command.game_tag && view?.game_id.startsWith(command.game_tag) ? view.game_id
+    : command.name === 'kingdown_resume' && command.game_tag && state.screen === 'end' && view?.status === 'finished' && view.rematch_game_id?.startsWith(command.game_tag) ? view.rematch_game_id : undefined;
   if (!game) throw new Error(CANNOT_CONNECT);
   return { ...command.args, game_id: game };
 }
@@ -274,7 +275,10 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
           // A read never changes `state.pending`: a poll reply belongs to the read path below (design §4).
           if (own && state.pending === own) { state.pending = undefined; client.save(); }
           // A command's refusal becomes the one notice; a read (Get or the poll) is never a refusal (design §3.2 and §4).
-          if (!quiet && name !== 'kingdown_get') refused = { text, code, ...(typeof args.game_id === 'string' && { game: args.game_id }) };
+          if (!quiet && name !== 'kingdown_get') {
+            const noticeGame = name === 'kingdown_resume' && before?.status === 'finished' && before.rematch_game_id === args.game_id ? before.game_id : args.game_id;
+            refused = { text, code, ...(typeof noticeGame === 'string' && { game: noticeGame }) };
+          }
         }
         throw new Error(text);
       }

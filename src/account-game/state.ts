@@ -55,6 +55,8 @@ export function pendingHere(page: Page) {
   if (!pending) return false;
   // A game command belongs to the game it names, only while that game shows on a game screen.
   if (pending.game_tag && GAME_SCREENS.includes(page.screen) && !!page.view?.game_id.startsWith(pending.game_tag)) return true;
+  // Loading a rematch keeps its Retry on the finished game until the new board opens.
+  if (pending.name === 'kingdown_resume' && pending.game_tag && page.screen === 'end' && page.view?.status === 'finished' && page.view.rematch_game_id?.startsWith(pending.game_tag)) return true;
   // Starts and setup steps keep their error and Retry on Play, and on the screen where they started (Wait, Open games).
   if (isStartStep(pending)) return page.screen === 'play' || page.screen === pending.screen;
   // A command with no game shows on the screen where it failed.

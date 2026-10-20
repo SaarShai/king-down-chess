@@ -25,7 +25,7 @@ U04 already proves game-owned immutable rules, search isolation, multi-action bu
 - `833c0eef`: drafts require the stored engine identity as well as account, game, revision and rules. Focused identity checks: 210 tests in five files, typecheck and 53 artwork checks pass.
 - `90c3121d`: 55 named replay fixtures cover six fairy types, 21 released cards, 12 powers and 16 high-risk interactions. Each turn checks its expected effect and save/reload. Focused fixture checks: 56 tests plus 53 artwork checks pass.
 - `2989b61c`: HTTP/MCP fixture views and saved-state audits carry the real implementation identity. Focused tooling checks: 23 tests plus 53 artwork checks pass.
-- `93d2cbd3`: the `shared-mechanics` browser check drives both compiled clients through real board controls, real HTTP/MCP and one disposable database. It checks accepted state, stored surface, history, uses and remount. Browser execution is pending; registration is not a pass.
+- `93d2cbd3`: the `shared-mechanics` browser check drives both compiled clients through real board controls, real HTTP/MCP and one disposable database. It checks accepted state, stored surface, history, uses and remount. The final compiled matrix pass is recorded below.
 - `92be70f0`: account screen close releases clocks, observers, frame callbacks and sheet listeners. Delayed replies cannot access removed account DOM. Isolated worker verification: 106 tests, typecheck and 53 artwork checks pass. Root integration adds board/renderer disposal and guards connection/display-mode callbacks.
 - Equal-revision reads now replace the complete seat projection, including empty/redacted command lists. The unchanged board keeps interaction state while its private data is replaced. This fixes stale cached payloads; no visible message disclosure was demonstrated.
 
@@ -74,3 +74,9 @@ Run `app-Dfr0Y7` passes all 110 cases and their browser error checks. Its final 
 No exhaustive claim for all possible card/power combinations. Use small complete admission tables and targeted high-risk interactions. No production or original-project writes. Keep the unresolved startup error separate from mechanics claims.
 
 The compiled matrix checks complete-turn boundaries and the final state on both surfaces. Mid-action checkpoints remain engine replay/reload evidence, not browser checkpoint evidence. Actual ChatGPT host smoke is a separate final gate.
+
+## Accepted matrix and remaining journey gate
+
+Run `app-iyECZN` on source `43b6f40e` passes all 55 named cases on both surfaces (110 executions, 126 seconds) and writes `shared-mechanics.json`. Accepted state, history, uses, reload and browser error assertions all pass. The report and log are preserved in the parent project evidence folder. This is local compiled HTTP/MCP coverage, not 110 actual ChatGPT host opens.
+
+The same run exposes a failed-rematch Resume loop in the full embedded journey. U07 ticket 04 owns its minimal retained-Retry fix and 30 passing source checks. The broader source app suite passes 131 of 133 cases; its two failures identify a missing Next game refresh and an invalid same-identity rules mutation in the power-focus test. Both remain explicit gates before the next compiled journey and staging verification. No matrix rerun is required for rematch-only recovery changes.

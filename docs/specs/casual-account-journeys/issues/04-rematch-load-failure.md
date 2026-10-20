@@ -7,7 +7,7 @@ Status: claimed
 
 Extend the existing compiled `plugin-ui-http` rematch journey. Keep its lost successful rematch reply and same-command retry. Refuse the first subsequent `kingdown_resume` before the board load. Check that the old result and its recovery remain visible on phone and desktop, then retry Resume.
 
-This adds one fault to the existing local host. It adds no product endpoint or product behavior and changes no CSP, result policy or service transaction.
+This adds one fault to the existing local host and repairs the existing result recovery. It adds no product endpoint and changes no CSP, result policy or service transaction.
 
 ## Acceptance
 
@@ -26,3 +26,15 @@ This adds one fault to the existing local host. It adds no product endpoint or p
 ## Verification state
 
 `node --check tools/plugin-ui-check.mjs` and `git diff --check` pass. No test, build, browser or deploy runs in this worktree for this change. The next scheduled compiled HTTP check supplies the acceptance evidence; this ticket stays open until that check passes.
+
+## Confirmed recovery fault
+
+The integrated compiled run `app-iyECZN` reaches this case and fails. A failed Resume leaves no retained step. The next End render sends Resume again automatically, so the old result and recovery cannot remain visible. This is a product fault, not a reason to remove the new assertion.
+
+The fix uses the existing retained command and Retry path. Its error belongs to the finished game whose `rematch_game_id` names the new board. After remount, Retry resolves the saved short tag against that accepted rematch ID; the widget still stores no full game ID. End initiates this selection once and leaves retry to the retained step.
+
+Two focused source-harness cases reproduce the missing Retry before the product change, with and without a remount (`/tmp/kingdown-u07-rematch-recovery-red-final.log`). A pure selector case independently reproduces the missing result scope. Earlier source-test setup attempts failed before this condition and are not counted as the regression.
+
+Independent review identifies the permanent-refusal case: Resume names the new game, but its error must appear on the old result. A third source case reproduces the hidden refusal (`/tmp/kingdown-u07-rematch-refusal-red.log`). Scope that notice to the finished game that names this rematch. Keep no pending retry after a definitive refusal and send no automatic Resume loop.
+
+The repaired source checks pass all 30 tests in `src/account-game/state.test.ts` and `tools/plugin-rematch-recovery.test.ts`, full typecheck and 54 artwork checks. Independent review finds no remaining should-fix in refusal scope, saved-ID privacy, late reply handling or retry. The full compiled journey and staging remain the closure gate.
