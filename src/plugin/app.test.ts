@@ -1096,3 +1096,19 @@ it('keeps shared hall selection behind a write in the plugin lane', async () => 
   expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_resume')).toHaveLength(1);
   expect(app.client.state.board_id).toBe('selected-board'); expect(app.client.state.screen).toBe('board');
 });
+
+
+it.each(['engine-a', 'engine-b', undefined, null])('checks a same-revision poll against engine identity %s before skipping the board', async engine_fingerprint => {
+  const app = await mounted();
+  const base = { ...game, engine_fingerprint: 'engine-a', rules: {}, fen: '' } as View;
+  transport.call.mockImplementation(async ({ name }) => ({ content: [], _meta: name === 'kingdown_get' ? { view: base } : { games: [] } }));
+  await app.call('kingdown_get', {}, false);
+  app.routeView(base);
+  transport.draw.mockClear();
+  const next = { ...base, engine_fingerprint };
+  transport.call.mockImplementation(async ({ name }) => ({ content: [], _meta: name === 'kingdown_get' ? { view: next } : { games: [] } }));
+  await app.call('kingdown_get', {}, false, true);
+  expect(app.memory.view?.engine_fingerprint).toBe(engine_fingerprint);
+  if (engine_fingerprint === base.engine_fingerprint) expect(transport.draw).not.toHaveBeenCalled();
+  else expect(transport.draw).toHaveBeenCalledWith(next, false);
+});

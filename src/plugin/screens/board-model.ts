@@ -64,16 +64,14 @@ export function draftChoices(view: View, pos: Position, steps: readonly BoardMov
   return context.legalMoves(pos).map(move => ({ lan: toLan(pos, move), move })).filter(({ lan }) => steps.length > 0 || view.legal.includes(lan));
 }
 
-export function restoreDraft(view: View, saved: Draft | undefined, rules: Partial<Rules>, account?: string): BoardMove[] | undefined {
+export function restoreDraft(view: View, saved: Draft | undefined, rules: Partial<Rules>, account: string): BoardMove[] | undefined {
   if (!saved || saved.game_tag !== view.game_id.slice(0, 8) || saved.fen !== view.fen || view.action !== 'ready' || view.status !== 'playing') return;
-  if (account !== undefined) {
-    const scope = saved.scope;
-    if (!scope || scope.account !== account || scope.game !== view.game_id || scope.rules !== JSON.stringify(rules) || scope.revision > view.revision) return;
-    // Hidden choices can exist until both seats are ready; afterward only presets are hidden (GameService.render).
-    const nonBoard = (type: string) => type === 'draw' || type === 'say' || type === 'hidden' && view.ready?.every(Boolean);
-    const changes = view.last_commands.filter(command => command.seq > scope.revision);
-    if (changes.length !== view.revision - scope.revision || changes.some((command, index) => command.seq !== scope.revision + index + 1 || !nonBoard(command.action.type))) return;
-  }
+  const scope = saved.scope;
+  if (!scope || scope.account !== account || scope.game !== view.game_id || scope.rules !== JSON.stringify(rules) || !view.engine_fingerprint || scope.engine !== view.engine_fingerprint || scope.revision > view.revision) return;
+  // Hidden choices can exist until both seats are ready; afterward only presets are hidden (GameService.render).
+  const nonBoard = (type: string) => type === 'draw' || type === 'say' || type === 'hidden' && view.ready?.every(Boolean);
+  const changes = view.last_commands.filter(command => command.seq > scope.revision);
+  if (changes.length !== view.revision - scope.revision || changes.some((command, index) => command.seq !== scope.revision + index + 1 || !nonBoard(command.action.type))) return;
   const context = new GameRules(rules);
   let pos = context.fromFen(view.fen);
   const steps: BoardMove[] = [];

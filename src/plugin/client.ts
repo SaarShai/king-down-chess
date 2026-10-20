@@ -7,8 +7,8 @@ import { CANNOT_CONNECT, errorText, knownScreen, type Screen, type Pending } fro
 export const BOARD_ID_TOOLS = ['kingdown_get', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'] as const;
 /** The tools whose reply selects the page's board. */
 export const SELECTION_TOOLS = ['kingdown_open', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'];
-/** A private draft binds its moves to the complete account, game, revision and rules. */
-export type Draft = { game_tag: string; fen: string; lans: string[]; scope?: { account: string; game: string; revision: number; rules: string } };
+/** A private draft binds its moves to the complete account, game, revision, rules and engine implementation. */
+export type Draft = { game_tag: string; fen: string; lans: string[]; scope?: { account: string; game: string; revision: number; rules: string; engine: string } };
 export type PageState = { screen: Screen; handle_back?: Screen; name_for_caller?: boolean; settings_back?: Screen; queued?: Screen; sheet?: string; board_id?: string; pending?: Pending; draft?: Draft };
 const SLOTS = 3;
 export type WidgetHost = { savePage?: (state: PageState) => void; accountId?: string; widgetState?: { privateContent?: Partial<PageState> }; setWidgetState?: (state: unknown) => void };
@@ -23,8 +23,8 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
 export function createPageClient(transport: GameTransport, host?: WidgetHost) {
   const saved = host?.widgetState?.privateContent, handle_back = knownScreen(saved?.handle_back), settings_back = knownScreen(saved?.settings_back), queued = knownScreen(saved?.queued);
   const pending = saved?.pending && { ...saved.pending, screen: commandScreen(saved.pending.screen), error_screen: commandScreen(saved.pending.error_screen) };
-  // Only scoped drafts can replay; discard obsolete unscoped state before it can be saved again.
-  const savedDraft = saved?.draft?.scope ? saved.draft : undefined, draft = savedDraft && { ...savedDraft, game_tag: String(savedDraft.game_tag ?? ''), fen: String(savedDraft.fen ?? ''), lans: (savedDraft.lans ?? []).map(String) };
+  // Only drafts bound to an engine can replay; discard older state before it can be saved again.
+  const savedDraft = typeof saved?.draft?.scope?.engine === 'string' && saved.draft.scope.engine ? saved.draft : undefined, draft = savedDraft && { ...savedDraft, game_tag: String(savedDraft.game_tag ?? ''), fen: String(savedDraft.fen ?? ''), lans: (savedDraft.lans ?? []).map(String) };
   const state: PageState = { screen: knownScreen(saved?.screen) ?? 'home', ...(handle_back && { handle_back }), ...(saved?.name_for_caller === true && { name_for_caller: true }), ...(settings_back && {settings_back}), ...(queued && {queued}), sheet: saved?.sheet, board_id: saved?.board_id, pending, ...(draft && { draft }) };
   // The server allows three calls at once for each account (MAX_ACTIVE_MCP_PER_USER, http.ts). A fourth call waits
   // here for a free slot, so no screen, poll or repeat tap gets a 429; a free slot goes to the oldest waiting call.
@@ -40,7 +40,7 @@ export function createPageClient(transport: GameTransport, host?: WidgetHost) {
   const accountId = () => host?.accountId ?? state.board_id ?? '';
   function save() {
     // A new plugin board binding must not persist the previous ownership scope before redraw.
-    if (state.draft && state.draft.scope?.account !== accountId()) state.draft = undefined;
+    if (state.draft && (state.draft.scope?.account !== accountId() || typeof state.draft.scope?.engine !== 'string' || !state.draft.scope.engine)) state.draft = undefined;
     const pending = state.pending;
     if (host?.savePage) { host.savePage(state); return; }
     const args = pending && Object.fromEntries(Object.entries(pending.args).filter(([key]) => !['game_id', 'code', 'handle'].includes(key)));

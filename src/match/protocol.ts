@@ -72,6 +72,8 @@ export interface Opponent { handle: string | null; icon: Icon | null; rating?: {
 export interface View {
   game_id: string;
   revision: number;
+  /** The game's fixed engine implementation; null before the engine starts. */
+  engine_fingerprint?: string | null;
   created_at: string;
   abort_open: boolean;
   outcome?: GameOutcome;

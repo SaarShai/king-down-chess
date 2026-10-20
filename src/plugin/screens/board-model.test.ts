@@ -6,7 +6,7 @@ import { fromFen, toFen, toLan } from '../../rules/setup';
 import { legalMoves, setRules, status, type CardName, type Rules } from '../../rules/engine';
 import { applyLan, boardActions, cardCoins, cardUseReason, draftChoices, draftTurn, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
 
-const view = (fields: Partial<View> = {}): View => ({ game_id: 'game', revision: 2, created_at: '2026-10-11T00:00:00Z', abort_open: false, seat: 0, kind: 'friend', speed: 'daily', days_per_move: 3, status: 'playing', turn: 1, action: 'waiting', fen: '7k/8/8/8/8/8/P7/K7 b - - 0 1', in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: '2026-10-11T00:00:01Z', server_now: '2026-10-11T00:00:00Z', ...fields });
+const view = (fields: Partial<View> = {}): View => ({ game_id: 'game', revision: 2, engine_fingerprint: 'engine-a', created_at: '2026-10-11T00:00:00Z', abort_open: false, seat: 0, kind: 'friend', speed: 'daily', days_per_move: 3, status: 'playing', turn: 1, action: 'waiting', fen: '7k/8/8/8/8/8/P7/K7 b - - 0 1', in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: '2026-10-11T00:00:01Z', server_now: '2026-10-11T00:00:00Z', ...fields });
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1';
 const HASTE = '7k/p7/8/8/8/8/8/R5K1 w - - 0 1';
@@ -265,17 +265,17 @@ test('choices use the server list at the start, local moves after it, and none w
   expect(draftChoices(base, second.pos, [...steps, second], context)).toEqual([]);
 });
 
-test('restore keeps a legal draft across a new revision with the same tag and FEN', () => {
+test('restore keeps a legal draft with the same complete scope and accepted base', () => {
   const { steps } = stage(HASTE, ['Ra1-a4!H', 'Ra4-e4'], hasteRules);
   const base = view({ game_id: '12345678-private', fen: HASTE, turn: 0, action: 'ready', legal: ['Ra1-a4!H'] });
-  const saved = { game_tag: '12345678', fen: HASTE, lans: steps.map(step => step.lan) };
+  const saved = { game_tag: '12345678', fen: HASTE, lans: steps.map(step => step.lan), scope: { account: 'account-a', game: base.game_id, revision: base.revision, rules: JSON.stringify(hasteRules), engine: 'engine-a' } };
   const before = structuredClone({ base, saved });
   setRules({});
-  expect(restoreDraft(base, saved, hasteRules)).toEqual(steps);
-  expect(restoreDraft({ ...base, revision: 9, draw_offer: 1 }, saved, hasteRules)).toEqual(steps);
+  expect(restoreDraft(base, saved, hasteRules, 'account-a')).toEqual(steps);
+  expect(restoreDraft({ ...base, revision: 9, draw_offer: 1 }, saved, hasteRules, 'account-a')).toBeUndefined();
   expect({ base, saved }).toEqual(before);
-  expect(restoreDraft(base, { ...saved, lans: [] }, hasteRules)).toEqual([]);
-  expect(restoreDraft(base, undefined, hasteRules)).toBeUndefined();
+  expect(restoreDraft(base, { ...saved, lans: [] }, hasteRules, 'account-a')).toEqual([]);
+  expect(restoreDraft(base, undefined, hasteRules, 'account-a')).toBeUndefined();
 });
 
 test('restore sets the rules before it reads a FEN with castling rights', () => {
@@ -283,7 +283,7 @@ test('restore sets the rules before it reads a FEN with castling rights', () => 
   const { pre, steps } = stage('4k3/8/8/8/8/8/8/4K2R w K - 0 1', ['O-O'], rules);
   const fen = toFen(pre), base = view({ fen, action: 'ready', legal: ['O-O'] });
   setRules({});
-  expect(restoreDraft(base, { game_tag: 'game', fen, lans: ['O-O'] }, rules)).toEqual(steps);
+  expect(restoreDraft(base, { game_tag: 'game', fen, lans: ['O-O'], scope: { account: 'account-a', game: base.game_id, revision: base.revision, rules: JSON.stringify(rules), engine: 'engine-a' } }, rules, 'account-a')).toEqual(steps);
 });
 
 test.each([
@@ -296,7 +296,7 @@ test.each([
   { legal: [] },
 ])('restore drops a draft when the base does not agree: %j', fields => {
   const base = view({ fen: HASTE, action: 'ready', legal: ['Ra1-a4!H'], ...fields });
-  expect(restoreDraft(base, { game_tag: 'game', fen: HASTE, lans: ['Ra1-a4!H'] }, hasteRules)).toBeUndefined();
+  expect(restoreDraft(base, { game_tag: 'game', fen: HASTE, lans: ['Ra1-a4!H'], scope: { account: 'account-a', game: 'game', revision: base.revision, rules: JSON.stringify(hasteRules), engine: 'engine-a' } }, hasteRules, 'account-a')).toBeUndefined();
 });
 
 test.each([
@@ -305,7 +305,7 @@ test.each([
   { lans: ['Ra1-a4!H', 'Ra4-e4', 'Kh8-h7'] },
 ])('restore drops the whole draft for a refused replay: %j', ({ lans }) => {
   const base = view({ fen: HASTE, action: 'ready', legal: ['Ra1-a4!H'] });
-  expect(restoreDraft(base, { game_tag: 'game', fen: HASTE, lans }, hasteRules)).toBeUndefined();
+  expect(restoreDraft(base, { game_tag: 'game', fen: HASTE, lans, scope: { account: 'account-a', game: base.game_id, revision: base.revision, rules: JSON.stringify(hasteRules), engine: 'engine-a' } }, hasteRules, 'account-a')).toBeUndefined();
 });
 
 
@@ -340,22 +340,27 @@ test('a failed ordinary move send names Retry for an unused card after the draft
   expect(cardUseReason(coin, 0, game, pos, false, { ...page, writing: true })).toBe('Wait for the current action to finish.');
 });
 
-test('a scoped draft requires the complete account, game, revision and rules', () => {
+test('a scoped draft requires the complete account, game, revision, rules and engine implementation', () => {
   const { steps } = stage(HASTE, ['Ra1-a4!H'], hasteRules);
   const base = view({ game_id: '12345678-private-a', fen: HASTE, turn: 0, action: 'ready', legal: ['Ra1-a4!H'] });
-  const saved = { game_tag: '12345678', fen: HASTE, lans: ['Ra1-a4!H'], scope: { account: 'account-a', game: base.game_id, revision: base.revision, rules: JSON.stringify(hasteRules) } };
+  const saved = { game_tag: '12345678', fen: HASTE, lans: ['Ra1-a4!H'], scope: { account: 'account-a', game: base.game_id, revision: base.revision, rules: JSON.stringify(hasteRules), engine: 'engine-a' } };
   expect(restoreDraft(base, saved, hasteRules, 'account-a')).toEqual(steps);
   expect(restoreDraft(base, saved, hasteRules, 'account-b')).toBeUndefined();
   expect(restoreDraft({ ...base, game_id: '12345678-private-b' }, saved, hasteRules, 'account-a')).toBeUndefined();
   expect(restoreDraft({ ...base, revision: base.revision + 1 }, saved, hasteRules, 'account-a')).toBeUndefined();
   expect(restoreDraft(base, saved, { ...hasteRules, hasteCaptures: true }, 'account-a')).toBeUndefined();
+  for (const engine_fingerprint of [undefined, null, '', 'engine-b'])
+    expect(restoreDraft({ ...base, engine_fingerprint }, saved, hasteRules, 'account-a')).toBeUndefined();
+  for (const engine of [undefined, '', 'engine-b'])
+    expect(restoreDraft(base, { ...saved, scope: { ...saved.scope, engine } } as import('../client').Draft, hasteRules, 'account-a')).toBeUndefined();
+  expect(restoreDraft(base, { ...saved, scope: undefined }, hasteRules, 'account-a')).toBeUndefined();
 });
 
 
 test('a scoped draft advances only through a complete chain of commands that do not change the board', () => {
   const { steps } = stage(HASTE, ['Ra1-a4!H'], hasteRules);
   const base = view({ game_id: '12345678-private-a', fen: HASTE, turn: 0, action: 'ready', legal: ['Ra1-a4!H'] });
-  const saved = { game_tag: '12345678', fen: HASTE, lans: ['Ra1-a4!H'], scope: { account: 'account-a', game: base.game_id, revision: base.revision, rules: JSON.stringify(hasteRules) } };
+  const saved = { game_tag: '12345678', fen: HASTE, lans: ['Ra1-a4!H'], scope: { account: 'account-a', game: base.game_id, revision: base.revision, rules: JSON.stringify(hasteRules), engine: 'engine-a' } };
   const command = (seq: number, action: import('../../match/protocol').LoggedAction) => ({ seq, seat: 1 as const, at: base.server_now, action });
   const offer = command(base.revision + 1, { type: 'draw', choice: 'offer' });
   const next = { ...base, revision: base.revision + 1, last_commands: [offer] };
@@ -363,6 +368,7 @@ test('a scoped draft advances only through a complete chain of commands that do 
   expect(saved.scope.revision).toBe(base.revision);
   const followup = { ...base, ready: [true, true] as [boolean, boolean], revision: base.revision + 3, last_commands: [offer, command(base.revision + 2, { type: 'say', preset: 'good_game' }), command(base.revision + 3, { type: 'hidden' })] };
   expect(restoreDraft(followup, saved, hasteRules, 'account-a')).toEqual(steps);
+  expect(restoreDraft({ ...followup, engine_fingerprint: 'engine-b' }, saved, hasteRules, 'account-a')).toBeUndefined();
   expect(restoreDraft({ ...followup, ready: undefined }, saved, hasteRules, 'account-a')).toBeUndefined();
   expect(restoreDraft({ ...followup, ready: [true, false] }, saved, hasteRules, 'account-a')).toBeUndefined();
   expect(restoreDraft({ ...next, fen: START }, saved, hasteRules, 'account-a')).toBeUndefined();

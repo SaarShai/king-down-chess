@@ -30,17 +30,21 @@ describe('game service failure boundaries', () => {
   for (const [who, which] of [['bad', id], [actor, 'bad']]) await expect(service.seen(who, which)).rejects.toMatchObject({ code: 'INVALID_INPUT', status: 400 });
   expect(load).not.toHaveBeenCalled(); expect(seen).not.toHaveBeenCalled();
  });
- it('loads the engine save on a full read only, for the move history', async () => {
+ it('projects the fixed engine identity on all reads and loads the save only for full history', async () => {
   // The store selects the engine save only when asked, as its SQL does.
   const reads = {load:vi.fn(), seen:vi.fn(), commands:vi.fn().mockResolvedValue([]), pool:{}};
-  const game = {id,kind:'solo',status:'playing',turn:0,revision:2,created_at:new Date(0),deadline_at:null,draw_offer:null,
+  const game = {id,engine_fingerprint:'engine-v1',kind:'solo',status:'playing',turn:0,revision:2,created_at:new Date(0),deadline_at:null,draw_offer:null,
    snapshot:{fen:'fen',inCheck:false,legal:[],history:['e2-e4','e7-e5'],rules:{kings:[],hands:[]}},
    players:[{...seat(0,actor),last_seen_ms:0},{...seat(1,null),last_seen_ms:null}]};
   reads.load.mockImplementation(async (_id: string, options?: {state?: boolean}) => ({...game, ...options?.state && {state:JSON.stringify({initialFen:'start'})}}));
   const views = new GameService(reads as unknown as PostgresMatchStore);
-  expect((await views.view(actor,id)).history).toEqual({initial_fen:'start',actions:['e2-e4','e7-e5']});
-  expect((await views.view(actor,id,1)).history).toBeUndefined();
+  const full = await views.view(actor,id), incremental = await views.view(actor,id,1);
+  expect(full.history).toEqual({initial_fen:'start',actions:['e2-e4','e7-e5']});
+  expect(incremental.history).toBeUndefined();
+  expect(full.engine_fingerprint).toBe('engine-v1'); expect(incremental.engine_fingerprint).toBe('engine-v1');
   expect(reads.load.mock.calls.map(call => call[1])).toEqual([{state:true},{state:false}]);
+  reads.load.mockResolvedValueOnce({ ...game, status:'setup', snapshot:null, engine_fingerprint:null });
+  expect((await views.view(actor,id)).engine_fingerprint).toBeNull();
  });
  it('refuses a custom position in a game against a person', async () => {
   for (const kind of ['random', 'friend'])

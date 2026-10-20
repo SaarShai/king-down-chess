@@ -151,11 +151,11 @@ it('keeps the complete draft scope private and apart from the pending command', 
   const game_id = 'aabbccdd-1122-4455-8899-aabbccddeeff', board_id = '11223344-5566-4788-99aa-bbccddeeff00';
   const client = createClient({ callServerTool: async () => ({ content: [] }) }, { setWidgetState: state => { widgetState = state; } });
   client.state.board_id = board_id;
-  client.state.draft = { game_tag: game_id.slice(0, 8), fen: '7k/8/8/8/8/8/P7/K7 w - - 0 1', lans: ['a2-a4'], scope: { account: board_id, game: game_id, revision: 7, rules: '{}' } };
+  client.state.draft = { game_tag: game_id.slice(0, 8), fen: '7k/8/8/8/8/8/P7/K7 w - - 0 1', lans: ['a2-a4'], scope: { account: board_id, game: game_id, revision: 7, rules: '{}', engine: 'engine-a' } };
   client.state.pending = { name: 'kingdown_move', args: { game_id, command_id: 'once', actions: ['a2-a4'] } };
   client.save();
   expect(widgetState.privateContent.draft).toEqual(client.state.draft);
-  expect(widgetState.privateContent.draft.scope).toEqual({ account: board_id, game: game_id, revision: 7, rules: '{}' });
+  expect(widgetState.privateContent.draft.scope).toEqual({ account: board_id, game: game_id, revision: 7, rules: '{}', engine: 'engine-a' });
   expect(widgetState.modelContent).toEqual({});
   // The draft comes back at start, and it stays apart from the pending command.
   const restored = createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState });
@@ -211,7 +211,7 @@ it('drops a private draft before saving a newly selected board ownership scope',
   let widgetState: any;
   const client = createClient({ callServerTool: async () => ({ content: [] }) }, { setWidgetState: state => { widgetState = state; } });
   client.state.board_id = 'old-board';
-  client.state.draft = { game_tag: 'aabbccdd', fen: 'f', lans: ['a2-a4'], scope: { account: 'old-board', game: 'aabbccdd-1122-4455-8899-aabbccddeeff', revision: 7, rules: '{}' } };
+  client.state.draft = { game_tag: 'aabbccdd', fen: 'f', lans: ['a2-a4'], scope: { account: 'old-board', game: 'aabbccdd-1122-4455-8899-aabbccddeeff', revision: 7, rules: '{}', engine: 'engine-a' } };
   client.save();
   expect(widgetState.privateContent.draft).toEqual(client.state.draft);
   client.state.board_id = 'new-board';
@@ -224,7 +224,7 @@ it('keeps browser drafts scoped to the signed-in account when its board binding 
   let saved: any;
   const client = createClient({ callServerTool: async () => ({ content: [] }) }, { accountId: 'signed-in-account', savePage: state => { saved = structuredClone(state); } });
   client.state.board_id = 'old-board';
-  const draft = { game_tag: 'aabbccdd', fen: 'f', lans: ['a2-a4'], scope: { account: 'signed-in-account', game: 'aabbccdd-1122-4455-8899-aabbccddeeff', revision: 7, rules: '{}' } };
+  const draft = { game_tag: 'aabbccdd', fen: 'f', lans: ['a2-a4'], scope: { account: 'signed-in-account', game: 'aabbccdd-1122-4455-8899-aabbccddeeff', revision: 7, rules: '{}', engine: 'engine-a' } };
   client.state.draft = draft;
   client.state.board_id = 'new-board';
   client.save();
@@ -240,4 +240,18 @@ it('does not persist an unscoped draft after a board binding changes', () => {
   client.save();
   expect(widgetState.privateContent.draft).toBeUndefined();
   expect(client.state.draft).toBeUndefined();
+});
+
+it.each([undefined, '', 7])('discards an older scoped draft with no engine implementation on hydrate and save: %s', engine => {
+  const draft = { game_tag: 'aabbccdd', fen: 'old-fen', lans: ['a2-a4'], scope: { account: 'account-a', game: 'aabbccdd-game', revision: 7, rules: '{}', engine } };
+  let saved: any;
+  const host: WidgetHost = { accountId: 'account-a', widgetState: { privateContent: { screen: 'board', draft } } as any, savePage: state => { saved = structuredClone(state); } };
+  const client = createClient({ callServerTool: async () => ({ content: [] }) }, host);
+  expect(client.state.draft).toBeUndefined();
+  client.save();
+  expect(saved.draft).toBeUndefined();
+  client.state.draft = draft as any;
+  client.save();
+  expect(client.state.draft).toBeUndefined();
+  expect(saved.draft).toBeUndefined();
 });

@@ -281,3 +281,19 @@ it.each(['kingdown_open', 'kingdown_resume'])('%s prefers a ready person to a co
   expect(result.structuredContent).toMatchObject({game_id:person});
  } finally {await client.close(); await server.close();}
 });
+
+
+it('keeps the engine implementation in the authorized view and out of model summaries', async () => {
+ const game_id = '00000000-0000-4000-8000-000000000001';
+ const view = { game_id, engine_fingerprint:'engine-v1', kind:'friend', seat:0, status:'playing', action:'ready', fen:'private position', legal:['private move'], draw_offer:null, opponent:{handle:'private opponent'} };
+ const service = {view:async()=>view,profile:async()=>({handle:null,icon:null})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'identity-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const result = await client.callTool({name:'kingdown_get',arguments:{game_id}});
+  expect(result.isError).toBeFalsy(); expect(result._meta?.view).toEqual(view);
+  const model = JSON.stringify({content:result.content,structuredContent:result.structuredContent});
+  for (const privateValue of ['engine_fingerprint','engine-v1','private position','private move','private opponent']) expect(model).not.toContain(privateValue);
+ } finally {await client.close(); await server.close();}
+});

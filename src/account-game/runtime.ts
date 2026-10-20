@@ -282,7 +282,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       // A good read clears the stale board, its error and Try again together.
       const next = (result._meta as { view?: View } | undefined)?.view;
       const goodRead = name === 'kingdown_get' || !!next, outage = goodRead && store.page().notice?.kind === 'read';
-      if (quiet && next && next.game_id === view?.game_id && next.revision === view?.revision) {
+      if (quiet && next && next.game_id === view?.game_id && next.revision === view?.revision && next.engine_fingerprint === view?.engine_fingerprint) {
         view = { ...view, opponent: next.opponent, rematch_allowed: next.rematch_allowed, server_now: next.server_now }; if (outage) drawBoard(view); store.dispatch({ type: 'good-read', game: next.game_id }); if (state.screen === 'seat') seatScreen(); poll?.update(); return { status: 'done', result, view };
       }
       if (acceptsView(next, job)) received = next;

@@ -102,8 +102,8 @@ export function boardScreen(store: Store) {
   const sending = () => { const page = store.page(); return page.writing || (pendingHere(page) && !page.pending!.error); };
   const blocked = () => networkBlocked() || animating;
   const mode = () => view!.kind === 'solo' ? 'computer' : 'link';
-  // A reload restores a draft only in the same account, complete game, revision and rules.
-  const saveDraft = () => { client.state.draft = view && steps.length ? { game_tag: view.game_id.slice(0, 8), fen: view.fen, lans: steps.map(step => step.lan), scope: { account: client.accountId, game: view.game_id, revision: view.revision, rules: JSON.stringify(view.rules) } } : undefined; client.save(); };
+  // A reload restores a draft only in the same account, complete game, revision, rules and engine implementation.
+  const saveDraft = () => { client.state.draft = view?.engine_fingerprint && steps.length ? { game_tag: view.game_id.slice(0, 8), fen: view.fen, lans: steps.map(step => step.lan), scope: { account: client.accountId, game: view.game_id, revision: view.revision, rules: JSON.stringify(view.rules), engine: view.engine_fingerprint } } : undefined; client.save(); };
   const dropDraft = () => { if (client.state.draft) { client.state.draft = undefined; client.save(); } };
   const turn = () => draftTurn(steps, pos!, mode(), view!.seat, gameRules);
   const canPlay = () => !!view && !!pos && !blocked() && view.action === 'ready' && view.status === 'playing' && !turn().waits;
@@ -538,7 +538,7 @@ export function boardScreen(store: Store) {
     const started = !restoring && next.status === 'playing' && next.history?.actions.length === 0 && (!same || before?.status === 'setup') && board.motion();
     if (started && next.options?.cards) dealing = true;
     if (started && (next.options?.arrangement || next.options?.kingPowers)) opening = true;
-    const unchanged = same && before?.revision === next.revision && before.fen === next.fen && before.status === next.status;
+    const unchanged = same && before?.revision === next.revision && before.fen === next.fen && before.status === next.status && before.engine_fingerprint === next.engine_fingerprint;
     view = {...next, rules:next.rules ?? (same ? view?.rules : undefined), outcome:next.outcome ?? (same ? view?.outcome : undefined), opponent:next.opponent && {...next.opponent, rating:next.rules ? next.opponent.rating : next.opponent.rating ?? (same ? view?.opponent?.rating : undefined)}};
     if (['finished','aborted'].includes(next.status)) setTimeout(()=>{
       if (!active() || view?.game_id !== next.game_id) return;
