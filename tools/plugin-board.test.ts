@@ -25,6 +25,7 @@ vi.setConfig({ testTimeout: 60_000 * STEP, hookTimeout: 60_000 * STEP, expect: {
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, served: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-board-faults-'));
+  // Normal shared build: at most 601 ms in the M1 style test.
   execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe', timeout: 30_000 });
   const boardPath = join(folder, 'board.html');
   harness = await startHarness({ boardPath, sourcePage: true }); served = await startHarness({ boardPath }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });

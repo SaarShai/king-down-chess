@@ -7,6 +7,7 @@ vi.setConfig({ testTimeout: 60_000 });
 it('imports game tokens and components without lesson, account or title lineup rules', async () => {
   const folder = await mkdtemp(join(tmpdir(), 'kingdown-plugin-style-'));
   try {
+    // Normal shared build: at most 601 ms in the M1 style test.
     execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe', timeout: 30_000 });
     const html = await readFile(join(folder, 'board.html'), 'utf8'), css = html.match(/<style>(.*?)<\/style>/s)![1];
     expect(/lesson-progress|account-body|account-who|delete-account|title-lineup/.test(css)).toBe(false);

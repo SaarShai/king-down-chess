@@ -14,6 +14,7 @@ vi.setConfig({ testTimeout: 120_000 * STEP, hookTimeout: 120_000 * STEP, expect:
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-ios-size-'));
+  // Normal shared build: at most 601 ms in the M1 style test.
   execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe', timeout: 30_000 });
   harness = await startHarness({ boardPath: join(folder, 'board.html') }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
 });
