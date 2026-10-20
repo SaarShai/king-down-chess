@@ -20,6 +20,15 @@ async function closeSheet(ui) {
   if (await close.count()) await close.click();
 }
 
+async function readsGame(response, id) {
+  if (response.request().method() !== 'POST' || new URL(response.url()).pathname !== '/fixture-tool') return false;
+  const request = response.request().postDataJSON();
+  // An outgoing poll can finish after the next fixture starts; wait for the selected game's full read.
+  if (request?.name !== 'kingdown_get' || request.arguments?.since_revision !== undefined) return false;
+  const game = request.arguments?.game_id;
+  return game !== undefined ? game === id : (await response.json())._meta?.view?.game_id === id;
+}
+
 async function choices(ui) {
   await closeSheet(ui);
   await ui.locator('#board-menu').click();
@@ -129,7 +138,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
             const ui = surface === 'web' ? page : page.frameLocator('iframe');
             if (surface === 'web') await page.goto(`${origin}/g/${id}`);
             else {
-              const mounted = page.waitForResponse(response => new URL(response.url()).pathname === '/fixture-tool' && response.request().postDataJSON()?.name === 'kingdown_get');
+              const mounted = page.waitForResponse(response => readsGame(response, id));
               await page.evaluate(result => window.harnessShow(result), await tool(seat, 'kingdown_open', { game_id: id }));
               assert.equal((await (await mounted).json())._meta?.view?.game_id, id, `${row.id}: the mounted board reads the selected game`);
             }
@@ -170,10 +179,12 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
           const page = (surface === 'web' ? webPages : pluginPages)[finalSeat], ui = surface === 'web' ? page : page.frameLocator('iframe');
           const reloaded = page.waitForResponse(response => {
             if (surface === 'web') return response.request().method() === 'GET' && new URL(response.url()).pathname === `/api/games/${id}`;
-            return new URL(response.url()).pathname === '/fixture-tool' && response.request().postDataJSON()?.name === 'kingdown_get';
+            return readsGame(response, id);
           });
           if (surface === 'web') await page.reload(); else await page.locator('#remount').click();
-          assert.equal((await reloaded).status(), 200, `${row.id}/${surface}: reload reads the service`);
+          const reloadResponse = await reloaded;
+          assert.equal(reloadResponse.status(), 200, `${row.id}/${surface}: reload reads the service`);
+          if (surface === 'chatgpt') assert.equal((await reloadResponse.json())._meta?.view?.game_id, id, `${row.id}: the remounted board reads the selected game`);
           await ready(ui, expected.status !== 'playing');
           const resumed = await read(expected.turn, id);
           assert.equal(resumed.fen, expected.fen, `${row.id}/${surface}: reload state`);
