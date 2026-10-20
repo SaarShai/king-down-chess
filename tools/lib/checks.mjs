@@ -22,6 +22,7 @@
 //                             Collects the page errors and console errors of `page`. Each `allow` item is
 //                             { pattern, reason }: a message that `pattern` (RegExp or string) matches is allowed.
 //                             An item with no reason throws. Returns the list of other errors for that page.
+//                             It disposes each console argument handle at once, so the page can free the logged objects.
 //   assertNoErrors(errors = <all trapped pages>)
 //                             Throws and lists the errors when the list is not empty.
 //
@@ -179,7 +180,13 @@ export function trapErrors(page, allow = []) {
   const errors = [];
   const add = (kind, text) => { if (!allow.some(a => new RegExp(a.pattern).test(text))) errors.push(`${kind}: ${text}`); };
   page.on('pageerror', e => add('pageerror', e.message));
-  page.on('console', m => { if (m.type() === 'error') add('console.error', m.text()); });
+  // Playwright gives each console argument as a handle, and the page keeps that object until the handle is disposed.
+  // The check reads only the text, so it disposes each handle at once. Else a long-lived page keeps every object it
+  // logged: the plugin host logs each message event, and each event keeps its old widget document (chatgpt-mvp 53).
+  page.on('console', m => {
+    if (m.type() === 'error') add('console.error', m.text());
+    for (const arg of m.args()) arg.dispose().catch(() => {});
+  });
   trapped.push(errors);
   return errors;
 }

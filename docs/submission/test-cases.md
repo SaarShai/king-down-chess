@@ -30,5 +30,6 @@ Source keys ([O1] and others) refer to the [research report](../research/plugin-
 
 ## Notes
 
+- P4 can also run `kingdown_open` with screen "profile": that reply sends the same rating text as `kingdown_profile`.
 - P2 needs the board. The model calls create and open. The board calls choose, move and computer after the player acts. Use explicit options with king powers and arrangement on, so remembered settings do not change the case.
 - *Inference:* Codex shows no board [O7]. P2 needs the board to play a move. Open question 2 in [checklist.md](checklist.md) covers this.

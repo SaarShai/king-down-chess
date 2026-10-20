@@ -2,7 +2,7 @@
 
 Status: claimed
 Branch: claude/strange-chaplygin-aae068
-Scope: tools and check scripts only. No `src/` change, no longer time limit, no retry.
+Scope: check scripts and docs only. No `src/` change, no longer time limit, no retry.
 
 ## Problem
 
@@ -43,7 +43,8 @@ On 2026-10-19 the production deploy (`tools/deploy.sh --publish`, which runs `np
   | New (also "Loading pieces…" cleared) | `e2-e4`, `link: 0` (the seed stays) | `e2-e4 e7-e5`, `link: 0` | `e2-e4 e7-e5`, `link: 0` |
 
   The old row is the deploy failure: only `link` differs.
-- Fix: after `page.reload()` and after `page.goto(sent.href)`, case 2f also waits until `#asset-status` is empty. `index.html` starts it as "Loading pieces…", and main.ts clears it in the same step as the start-up save. `tools/verify-link-game.mjs:50` uses the same wait.
+- Fix (first commit, `e0180cbd`): after `page.reload()` and after `page.goto(sent.href)`, case 2f also waits until `#asset-status` is empty. `index.html` starts it as "Loading pieces…", and main.ts clears it in the same step as the start-up save. `tools/verify-link-game.mjs:50` uses the same wait.
+- Superseded: PR 75 ([chatgpt-mvp/56](../../chatgpt-mvp/issues/56-painted-link-save.md)) found the same cause in parallel and merged first. Its `waitForLinkSave()` (`tools/app-ui.mjs`) waits for the same cleared status and also for the expected army, moves, players and side in the save, at all three link loads of 2f, with unit tests. The merge of main into this branch keeps main's `tools/verify-painted-game.mjs`; this branch no longer changes it.
 
 ### Cause 2: visual-design reads Home one time, before Home opens
 
@@ -73,3 +74,8 @@ Each run is `tools/test-lock.sh npm run -s check:browser painted-game visual-des
 ### A fault in the M1 load run
 
 The load run started 10 `yes` processes on the M1 and stored their PIDs in one string. The M1 login shell is zsh, which does not split that string into words, so `kill $pids` failed ("illegal pid"). The processes also kept the ssh session open. They ran for about 10 hours on all 10 cores, until the release session reported them; they were then stopped by PID. The rule is now in `docs/COMPUTE.md` (the zsh line): keep a PID list in an array, send background output to a file, and stop the processes from a `trap` on `EXIT`.
+
+### Merge with main
+
+- PR 78 conflicted with main in `tools/verify-painted-game.mjs` (PR 75, see Cause 1). The merge takes main's file. The branch now changes only `docs/visual-design/verify.mjs` (the Home wait), `docs/COMPUTE.md` (the zsh line) and this ticket.
+- The runs above tested this branch's own painted-game wait. Main's wait holds the same condition and more, and its ticket records five passing runs.

@@ -1,6 +1,6 @@
 # Website run: P4 and P5 faults
 
-Status: in-progress
+Status: done
 Type: task
 
 ## Scope
@@ -32,6 +32,8 @@ descriptions of `kingdown_profile` and `kingdown_resign`, the run record in
 
 - [x] `npm test` on the branch: one fail, the known `judge.test.ts` time
       limit under load; it passed in the pre-push run with the load paused.
-- [ ] CI green on PR 66.
-- [ ] Deploy, then Refresh tools in ChatGPT.
-- [ ] P4 and P5 again on the website with the test account.
+- [x] CI green on PR 66 (one WebKit rerun; the race is ticket 54).
+- [x] Deploy (dcf1a235), then Refresh tools in ChatGPT.
+- [x] P4 and P5 again on the website with the test account, 2026-10-19:
+      P5 passes (the model asked which game and showed a confirm button,
+      then ChatGPT asked for approval). P4 fails for a new reason: ticket 55.

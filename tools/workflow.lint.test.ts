@@ -86,4 +86,43 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(webkit).toContain('- run: npm run check:browser plugin-ui');
     expect(webkit).toContain('name: webkit-check-logs');
   });
+
+  it('starts the five-second WebKit sampler after install and before npm test', () => {
+    const webkit = job('browser-webkit');
+    const start = webkit.indexOf('      - name: Start WebKit sampler\n');
+    expect(start).toBeGreaterThan(webkit.indexOf('- run: npx playwright install --with-deps webkit'));
+    expect(start).toBeLessThan(webkit.indexOf('- run: npm test'));
+    const sampler = webkit.slice(start).split(/\n      - /)[0];
+    expect(sampler).toContain('mkdir -p /tmp/kingdown-check-runs');
+    expect(sampler).toMatch(/\n          nproc\n          free -m\n/);
+    expect(sampler).toContain('nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &');
+  });
+
+  it('saves kernel output on failure or cancellation before the WebKit log upload', () => {
+    const webkit = job('browser-webkit');
+    const capture = webkit.split('      - name: Save kernel log\n')[1]?.split(/\n      - /)[0] ?? '';
+    expect(capture).toContain('if: failure() || cancelled()');
+    expect(capture).toContain('run: sudo dmesg -T | tail -n 400 > /tmp/kingdown-check-runs/dmesg.txt || true');
+    expect(webkit.indexOf('- name: Save kernel log')).toBeLessThan(webkit.indexOf('name: webkit-check-logs'));
+  });
+
+  it('uploads the WebKit sampler log on every result for seven days', () => {
+    const upload = job('browser-webkit').split(/\n      - /).find(step => step.includes('name: webkit-sampler\n')) ?? '';
+    expect(upload).toContain('if: always()');
+    expect(upload).toContain('uses: actions/upload-artifact@v4');
+    expect(upload).toContain('path: /tmp/kingdown-check-runs/webkit-sampler.log');
+    expect(upload).toContain('retention-days: 7');
+  });
+
+  it('keeps time under the job limit for the WebKit diagnostics after a hung step', () => {
+    const webkit = job('browser-webkit'), limit = Number(webkit.match(/^    timeout-minutes: (\d+)$/m)![1]);
+    const steps = [...webkit.matchAll(/^        timeout-minutes: (\d+)$/gm)].map(m => Number(m[1]));
+    expect(steps).toHaveLength(3);
+    // npm test, plugin-ui and web-online in turn; the setup before them takes about 2 minutes.
+    expect(Math.max(steps[0], steps[1] + 15) + 2).toBeLessThan(limit);
+  });
+
+  it('writes the WebKit browser output to the plugin-ui log, so a crash names its reason', () => {
+    expect(job('browser-webkit')).toMatch(/- run: npm run check:browser plugin-ui\n\s+env:\n(\s+#.*\n)*\s+DEBUG: pw:browser\n/);
+  });
 });

@@ -1,7 +1,7 @@
 # Publish the safe public worker
 
 Type: task
-Status: needs-info
+Status: claimed
 Blocked by: 01
 Starts: after ticket 18 approval
 Parent: [Web build](../README.md)
@@ -34,3 +34,7 @@ Use the phase 1 row and common push gate in [the test gate][gate]. Keep future o
 
 [gate]: ../../web-adaptation/test-gate.md
 [route]: ../../web-adaptation/release-route.md
+
+## Comments
+
+- 2026-10-19: started on `codex/web-02` from `9c337247`. Owner, 2026-10-19: "Yes: merge PR 65 when its verify passes, then start ticket 02 on codex/web-02. No publish without my word."
