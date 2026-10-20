@@ -58,6 +58,20 @@ async function mounted() {
 
 const press = (id: string) => { const button = document.getElementById(id)!; return Reflect.apply(button.onclick!, button, [{}]); };
 
+it.each(['home', 'play'])('enables Play after a chat result opens %s and settings arrive', async screen => {
+  let release!: (value: unknown) => void;
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_settings'
+    ? new Promise(resolve => { release = resolve; }) : { content: [], _meta: { games: [] } });
+  const app = await import('./app');
+  transport.instance.ontoolresult({ content: [], structuredContent: { screen }, _meta: { board_id: 'board-a' } });
+  await vi.advanceTimersByTimeAsync(0);
+  for (const id of ['home-play', 'hall-play', 'setup-start']) expect((document.getElementById(id) as HTMLButtonElement).disabled).toBe(true);
+  release({ content: [], _meta: { settings, me: { handle: 'player', icon: 'spirit' } } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(app.queue.mounting()).toBe(false);
+  for (const id of ['home-play', 'hall-play', 'setup-start']) expect((document.getElementById(id) as HTMLButtonElement).disabled).toBe(false);
+});
+
 it('opens Settings from the Profile row and keeps the hall handlers', async () => {
   const settingsRow = Object.assign(node(), { dataset: { nav: 'settings' }, onclick: null as (() => void) | null });
   const hallRow = Object.assign(node(), { dataset: { nav: 'profile' }, onclick: vi.fn() });

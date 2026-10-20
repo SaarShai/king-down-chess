@@ -64,7 +64,6 @@ store.subscribe(page => setupSync(page));
 store.subscribe(page => seatSync(page));
 store.subscribe(page => endSync(page));
 store.subscribe(page => { lobbySync(page); joinSync(page); waitSync(); });
-store.subscribe(() => actions());
 const router = createRouter(call, navigate, next => {
   if (!show(next)) return false;
   if (next.status === 'aborted' && next.kind === 'solo' && next.result?.reason === 'abort') { draftFromGame(next); newGameFirst = true; }
@@ -92,6 +91,7 @@ store.subscribe((page, before) => {
   decorateFriendRows(memory.games);
   if (page.screen === before.screen) scrollNewGame();
 });
+store.subscribe(() => actions());
 /** A command's error stays on the screen where the command started, so its Retry shows there, also after the player leaves. */
 function failPending(message: string, command = state.pending!, origin?: Job) {
   command.error = message; command.error_screen = command.screen ?? state.screen; client.save();

@@ -108,7 +108,8 @@ export function createHall(memory: HallMemory, client: GameClient, host: PageHos
   // Reveal the label, then keep its input in view if the label exceeds the scroll area.
   const reveal = (event: FocusEvent) => {
     if (disposed) return;
-    const target = event.target as HTMLElement | null, control = target?.closest?.('label') ?? target;
+    const target = event.target as HTMLElement | null;
+    const control = target?.tagName === 'BUTTON' ? target : target?.closest?.('label') ?? target;
     if (control && $('app-root').contains(control)) {
       control.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       if (target !== control) target!.scrollIntoView({ block: 'nearest', inline: 'nearest' });

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 
 test('the build and the QA protocol have no Display check line', () => {
-  for (const path of ['src/plugin/app.ts', 'src/plugin/index.html', 'src/plugin/app.css', 'docs/qa/plugin-qa-protocol.md']) {
+  for (const path of ['src/plugin/app.ts', 'src/plugin/index.html', 'src/plugin/app.css', 'src/account-game/hall.ts', 'docs/qa/plugin-qa-protocol.md']) {
     const text = readFileSync(path, 'utf8');
     expect(text, path).not.toContain('Display check');
     expect(text, path).not.toContain('layout-check');
@@ -11,7 +11,8 @@ test('the build and the QA protocol have no Display check line', () => {
 });
 
 test('the QA hall step names the current home actions, setup and menu rows', () => {
-  const html = readFileSync('src/plugin/index.html', 'utf8');
+  const shared = readFileSync('src/account-game/hall.ts', 'utf8');
+  const html = readFileSync('src/plugin/index.html', 'utf8') + shared;
   const sequence = readFileSync('docs/qa/plugin-qa-protocol.md', 'utf8').split('## 3. Test sequence\n')[1];
   const hall = sequence.split('\n').find(line => line.startsWith('2. '))!;
   expect(hall).toContain('**Quick-start hall.**');
@@ -19,8 +20,7 @@ test('the QA hall step names the current home actions, setup and menu rows', () 
     const control = new RegExp(`<[^>]+id="${id}"[^>]*>(.*?)</(?:button|h3)>`, 's').exec(html)![1];
     expect(hall).toContain(`"${control.replace(/<[^>]+>/g, '')}"`);
   }
-  const play = html.split('data-screen="play"')[1].split('</section>')[0];
-  const rows = [...play.matchAll(/class="row-title">([^<]+)</g)].map(match => match[1]);
+  const rows = [...shared.matchAll(/\['(?:profile|settings)', '([^']+)'/g)].map(match => match[1]);
   expect(rows).toEqual(['Profile', 'Settings']);
   for (const row of rows) expect(hall).toContain(row);
   expect(hall).toContain('"Play now" always starts a Beginner computer game with an automatic army and no seat screen.');

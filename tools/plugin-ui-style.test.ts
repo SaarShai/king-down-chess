@@ -26,7 +26,9 @@ it('imports game tokens and components without lesson, account or title lineup r
     expect.soft(flat).toContain('#app-root :is(#game-table,[data-seat-id=game-table]) .table-back:focus{outline-offset:-2px;box-shadow:inset 0 0 0 4px var(--focus-gold)!important}');
     expect(flat).toMatch(/#app-root :is\(#game-table,\[data-seat-id=game-table\]\) \.coin\.card-coin\[data-state=used\]\{[^}]*border-color:var\(--stone-700\);--card-ring:var\(--stone-700\)/);
     expect(flat).toMatch(/#app-root :is\(#game-table,\[data-seat-id=game-table\]\) \.card-coin:is\(\[data-state=used\],:has\(\.cc-word\)\) img\{filter:brightness\(\.4\)\}/);
-    expect(flat).toContain('#app-root :is(button:focus,a[href]:focus,input:focus,select:focus,label:focus,dialog:focus,[tabindex]:focus,label:not(.card-face):has(input:focus)),#app-root #board:focus{outline:2px solid var(--focus);outline-offset:0;scroll-margin:4px;box-shadow:0 0 0 4px var(--focus-gold)!important}');
+    expect(flat).toContain('#app-root :is(button:focus,a[href]:focus,input:focus,select:focus,label:focus,dialog:focus,[tabindex]:focus,label:not(.card-face):has(input:focus)),#app-root #board:focus{outline:2px solid var(--focus);outline-offset:0;scroll-margin:5px;box-shadow:0 0 0 4px var(--focus-gold)!important}');
+    expect(flat).toContain('#app-root button.emblem{transition:transform 80ms ease-out,background-color .12s}');
+    expect(flat).toContain('#app-root :is(#game-table,[data-seat-id=game-table]) .coin[data-state=armed]:focus{box-shadow:0 0 0 4px var(--focus-gold), inset 0 0 0 2px var(--focus), inset 0 0 0 5px var(--focus-gold)!important}');
     const shared = await readFile('src/account-game/content.css', 'utf8');
     const plugin = await readFile('src/plugin/app.css', 'utf8');
     const entry = await readFile('src/plugin/app.ts', 'utf8');

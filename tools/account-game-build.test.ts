@@ -50,7 +50,9 @@ it('builds the shared hall and web adapters without a server or local controller
     expect.soft(source).toContain('#app-root #board:focus{outline-offset:-3px;outline-width:3px;box-shadow:none!important}');
     expect.soft(source).toContain('#app-root #game-table .table-back:focus{outline-offset:-2px;box-shadow:inset 0 0 0 4px var(--focus-gold)!important}');
     expect(source.indexOf('#app-root :is(button:focus,')).toBeGreaterThan(source.indexOf('--focus:#2b2621;--focus-gold:#e9c071'));
-    expect(source).toContain('outline:2px solid var(--focus);outline-offset:0;scroll-margin:4px;box-shadow:0 0 0 4px var(--focus-gold)!important');
+    expect(source).toContain('outline:2px solid var(--focus);outline-offset:0;scroll-margin:5px;box-shadow:0 0 0 4px var(--focus-gold)!important');
+    expect(source).toContain('#app-root button.emblem{transition:transform 80ms ease-out,background-color .12s}');
+    expect(source).toContain('#app-root #game-table .coin[data-state=armed]:focus{box-shadow:0 0 0 4px var(--focus-gold), inset 0 0 0 2px var(--focus), inset 0 0 0 5px var(--focus-gold)!important}');
     expect(source).not.toContain('--focus-halo');
     expect(source).toContain('#app-root .seg-row label:has(input:focus){outline-offset:-2px;box-shadow:inset 0 0 0 4px var(--focus-gold)!important}');
     expect(source).toContain('#app-root label.mode:has(input:focus){outline-offset:-2px;box-shadow:inset 0 0 0 6px var(--focus-gold)!important}');

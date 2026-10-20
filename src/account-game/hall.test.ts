@@ -196,3 +196,15 @@ it('reveals the full input label on focus and stops after dispose', () => {
   expect(label.scrollIntoView).toHaveBeenCalledTimes(1);
   vi.restoreAllMocks();
 });
+
+it('keeps a focused button in view without moving its label', () => {
+  const add = vi.spyOn(window, 'addEventListener'), h = mount();
+  const reveal = add.mock.calls.find(([name]) => name === 'focusin')![1] as (event: unknown) => void;
+  const label = { scrollIntoView: vi.fn() };
+  const button = { tagName: 'BUTTON', closest: () => label, scrollIntoView: vi.fn() };
+  Object.assign(document.getElementById('app-root')!, { contains: () => true });
+  reveal({ target: button });
+  expect(button.scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: 'nearest', inline: 'nearest' });
+  expect(label.scrollIntoView).not.toHaveBeenCalled();
+  h.dispose(); vi.restoreAllMocks();
+});
