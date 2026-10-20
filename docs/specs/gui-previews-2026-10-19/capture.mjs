@@ -176,7 +176,9 @@ try {
       }
       await ctx.close();
     }
-    for (const width of [390,1280,1440]) for (const theme of ['light','dark']) {
+    const webPick = ['A8','A15','A18'].includes(item);
+    const webSizes = webPick ? [390,1280,1440] : ['A17','A39'].includes(item) ? [390,1440] : [];
+    for (const width of webSizes) for (const theme of webPick ? ['light','dark'] : ['light']) {
       const height=width===390?844:width===1280?800:900;
       const ctx=await browser.newContext({viewport:{width,height},deviceScaleFactor:2,colorScheme:theme,serviceWorkers:'block'});
       const p=await ctx.newPage();p.setDefaultTimeout(10000);
