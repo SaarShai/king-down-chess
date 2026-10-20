@@ -40,6 +40,23 @@ export function framePolicy(meta: UiMeta = {}) {
 // host page by postMessage before the app code runs, and each write goes back the same way. ChatGPT also keeps the
 // state outside the frame: "Widget state belongs to one rendered UI instance" (developers.openai.com/apps-sdk/build/state-management).
 const FRAME_SHIM = `<script>addEventListener('message', event => { if (event.source === parent && event.data?.harness === 'fence') parent.postMessage(event.data, '*'); });
+// [DEBUG-csp-art] Temporary initiator probe for the two blocked menu paintings; remove after diagnosis.
+const cspArtPath = input => {
+  try {
+    const path = new URL(typeof input === 'string' ? input : input?.url ?? input?.href ?? '', location.href).pathname;
+    return path.startsWith('/plugin-art/') && path.endsWith('.webp') && (path.includes('/spirit-') || path.includes('/shadow-b-')) ? path : undefined;
+  } catch { return undefined; }
+};
+addEventListener('securitypolicyviolation', event => {
+  const path = cspArtPath(event.blockedURI);
+  if (event.effectiveDirective === 'connect-src' && path) console.error('[DEBUG-csp-art] policy ' + JSON.stringify({ path, source: event.sourceFile.split(/[?#]/)[0], line: event.lineNumber, column: event.columnNumber, sample: event.sample }));
+});
+const fetchBeforeCspArtProbe = window.fetch.bind(window);
+window.fetch = (input, ...options) => {
+  const path = cspArtPath(input);
+  if (path) console.error('[DEBUG-csp-art] fetch ' + path + ' ' + new Error('art request initiator').stack);
+  return fetchBeforeCspArtProbe(input, ...options);
+};
 window.harnessBoot = new Promise(resolve => {
   addEventListener('message', function boot(event) {
     const data = event.data;
