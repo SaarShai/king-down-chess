@@ -14,6 +14,8 @@ import { cleanup, drainOutbox, queueReminders, runDeletions, sweepDeadlines } fr
 import type { Sender } from '../online/mail';
 import { ACTOR_UUID, AuthenticationError, AuthenticationUnavailable, pluginOrigin } from '../plugin/auth';
 import { diagnostic } from '../plugin/diagnostics';
+import { WEB_ACCOUNT_ACCESS_TTL_MS } from './account-access';
+import type { WebAccountStatus } from '../online/account-access';
 
 export const MAX_API_BODY = 16 * 1024;
 /** Engine routes (create and commands) run a worker each: a bound for each instance, as /mcp has. */
@@ -23,8 +25,7 @@ const sha256 = (text: string) => createHash('sha256').update(text).digest();
 
 /** A website session token (Supabase Auth, 1 hour) gives its user ID. Refused: another audience, an OAuth access
  * token for /mcp (it has a client_id), a guest (anonymous), another role. jose checks the signature, issuer and expiry.
- * ponytail: no call to Supabase for each request, so a token stays valid until it expires (1 hour at most) after a
- * sign-out or a ban; the /mcp verifier asks Supabase each time instead. */
+ * Reads use this local check until token expiry. Writes also require the injected current-user check. */
 export function sessionVerifier(supabaseUrl: string, keys?: JWTVerifyGetKey): (token: string) => Promise<string> {
  const base = new URL(supabaseUrl);
  if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash || base.pathname !== '/') throw new Error('Expected a fixed HTTPS Supabase origin');
@@ -58,24 +59,50 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw failure('INVALID_INPUT', 400, 'Malformed JSON'); }
 }
 
-export interface ApiOptions { games: GameService; accounts: AccountService; safety: SafetyService; publicOrigin: string; operations?: ReadonlySet<string>; /** undefined: website sign-in is not configured */ verify?: (token: string) => Promise<string> }
+export interface ApiOptions {
+ games: GameService; accounts: AccountService; safety: SafetyService; publicOrigin: string; operations?: ReadonlySet<string>;
+ /** undefined: website sign-in is not configured */ verify?: (token: string) => Promise<string>;
+ webAccountAccess?: () => Promise<{ enabled: boolean; expiresAt: number }>;
+ admit?: (actor: string) => () => void;
+ currentUser?: (token: string, actor: string) => Promise<void>;
+}
 type Route = (actor: string, id: string, body: unknown, query: URLSearchParams) => Promise<unknown>;
 /** The invitation as the website shares it: a link built from the fixed origin, and the short code. */
 export type InviteLink = Invite & { url: string };
 const redeemSchema = z.union([z.strictObject({ token: z.string().max(100) }), z.strictObject({ code: z.string().max(20) })]);
 
-export function createApiHandler({ games, accounts, safety, publicOrigin, verify, operations }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
+export function createApiHandler({ games, accounts, safety, publicOrigin, verify, operations, webAccountAccess, admit, currentUser }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
  const origin = pluginOrigin(publicOrigin);
+ const readAccess = async () => {
+  try {
+   const access = await webAccountAccess?.();
+   if (access && (!Number.isFinite(access.expiresAt) || performance.now() >= access.expiresAt)) console.error('King Down account switch proof is unavailable');
+   return access;
+  }
+  catch (error) { console.error('King Down account status failed', diagnostic(error)); }
+ };
+ const accountAccess = async () => {
+  const access = await readAccess();
+  if (access?.enabled !== true || !Number.isFinite(access.expiresAt) || performance.now() >= access.expiresAt) throw failure('UNAVAILABLE', 503, 'Account play is temporarily unavailable. Try again or play on this device.');
+ };
  const link = async (actor: string, id: string): Promise<InviteLink> => { const invite = await games.invite(actor, id); return { ...invite, url: `${origin}/j/${invite.token}` }; };
  const routes: Record<string, Route> = {
+  'GET /api/status': async (): Promise<WebAccountStatus> => {
+   if (table.some(route => route.method === 'GET' && route.key !== 'GET /api/status' && operations?.has(route.key))) {
+    const access = await readAccess();
+    const remaining = access?.enabled === true && Number.isFinite(access.expiresAt) ? Math.floor(Math.min(WEB_ACCOUNT_ACCESS_TTL_MS, access.expiresAt - performance.now())) : 0;
+    if (remaining > 0) return { account_access: 'open', valid_for_ms: remaining };
+   }
+   return { account_access: 'closed', valid_for_ms: 0 };
+  },
   // A friend game comes with its invitation (part 03, section 4.4); a lost link gets a new one from /invite.
   'POST /api/games': async (actor, _, body) => { const view = await games.create(actor, body); return { view, ...(view.kind === 'friend' && { invite: await link(actor, view.game_id) }) }; },
   'GET /api/games/:id': (actor, id, _, query) => {
    const since = query.get('since');
    if (since !== null && !/^\d{1,4}$/.test(since)) throw failure('INVALID_INPUT', 400, 'Invalid revision');
-   // The website's read also records seat activity; the plugin uses kingdown_seen.
-   return games.view(actor, id, since === null ? undefined : Number(since)).then(async view => { try { await games.seen(actor, id); } catch { /* a failed activity write never fails the read */ } return view; });
+   return games.view(actor, id, since === null ? undefined : Number(since));
   },
+  'POST /api/games/:id/seen': (actor, id, body) => { parse(z.strictObject({}).optional(), body); return games.seen(actor, id); },
   'POST /api/games/:id/commands': async (actor, id, body) => { const view = await games.command(actor, id, body, 'web'); return { type: 'ack', command_id: (body as { command_id: string }).command_id, revision: view.revision, view }; },
   'POST /api/games/:id/invite': (actor, id) => link(actor, id),
   'POST /api/invites/redeem': (actor, _, body) => { const key = parse(redeemSchema, body); return games.join(actor, 'token' in key ? key.token : key.code); },
@@ -112,8 +139,13 @@ export function createApiHandler({ games, accounts, safety, publicOrigin, verify
   if (req.headers.origin !== undefined && req.headers.origin !== origin || site !== undefined && site !== 'same-origin' && site !== 'none') { respond(res, 403, { code: 'FORBIDDEN', message: 'Cross-origin requests are refused' }); return; }
   if (!route) { req.resume(); res.setHeader('Allow', allowed.map(r => r.method).join(', ')); respond(res, 405, { code: 'NOT_ALLOWED', message: 'Method not allowed' }); return; }
   const engine = route.key === 'POST /api/games' || route.key === 'POST /api/games/:id/commands';
-  let body: unknown;
+  let body: unknown, release: (() => void) | undefined;
   try {
+   if (route.key === 'GET /api/status') {
+    req.resume(); res.setHeader('Referrer-Policy', 'no-referrer');
+    respond(res, 200, await route.run('', '', undefined, new URL(req.url!, origin).searchParams)); return;
+   }
+   await accountAccess();
    if (!verify) throw failure('UNAVAILABLE', 503, 'Website sign-in is not configured');
    const bearer = /^Bearer ([A-Za-z0-9._~-]{1,16384})$/i.exec(req.headers.authorization ?? '')?.[1];
    let actor: string;
@@ -122,7 +154,16 @@ export function createApiHandler({ games, accounts, safety, publicOrigin, verify
     if (error instanceof AuthenticationUnavailable) { res.setHeader('Retry-After', '5'); throw failure('UNAVAILABLE', 503, error.message); }
     res.setHeader('WWW-Authenticate', 'Bearer'); throw failure('UNAUTHENTICATED', 401, 'Sign in again');
    }
+   await accountAccess();
+   if (route.method !== 'GET') {
+    if (!admit || !currentUser) throw failure('UNAVAILABLE', 503, 'Website writes are not configured');
+    release = admit(actor);
+    try { await currentUser(bearer!, actor); }
+    catch (error) { if (error instanceof AuthenticationUnavailable || error instanceof AuthenticationError) throw error; throw new AuthenticationUnavailable(); }
+    await accountAccess();
+   }
    body = await readJson(req);
+   await accountAccess();
    if (engine && active >= MAX_ACTIVE_ENGINE) { res.setHeader('Retry-After', '1'); throw failure('UNAVAILABLE', 503, 'This server instance is busy. Retry.'); }
    if (engine) active++;
    try {
@@ -131,12 +172,14 @@ export function createApiHandler({ games, accounts, safety, publicOrigin, verify
     respond(res, value === undefined ? 204 : created.has(route.key) ? 201 : 200, value);
    } finally { if (engine) active--; }
   } catch (error) {
-   const known = error instanceof MatchServiceError ? error : failure('UNAVAILABLE', 500, 'Request failed. Retry.');
+   const known = error instanceof MatchServiceError ? error : error instanceof AuthenticationUnavailable ? failure('UNAVAILABLE', 503, error.message) : error instanceof AuthenticationError ? failure('UNAUTHENTICATED', 401, 'Sign in again') : failure('UNAVAILABLE', 500, 'Request failed. Retry.');
+   if (known.status === 503 && !res.hasHeader('Retry-After')) res.setHeader('Retry-After', '5');
+   if (known.status === 401) res.setHeader('WWW-Authenticate', 'Bearer');
    if (known.status === 413) { res.setHeader('Connection', 'close'); req.resume(); }
-   if (known !== error || known.status >= 500 && known.status !== 503) console.error('King Down API failed', { route: route.key, requestId: randomUUID(), ...diagnostic(error) });
+   if (known.status >= 500 && known.status !== 503) console.error('King Down API failed', { route: route.key, requestId: randomUUID(), ...diagnostic(error) });
    const commandId = (body as { command_id?: unknown } | undefined)?.command_id;
    respond(res, known.status, { ...(route.key === 'POST /api/games/:id/commands' && { type: 'reject', command_id: typeof commandId === 'string' ? commandId : '' }), code: known.code, message: known.message });
-  }
+  } finally { release?.(); }
  };
 }
 

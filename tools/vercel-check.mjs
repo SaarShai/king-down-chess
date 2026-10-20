@@ -19,7 +19,7 @@ if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || !url.pathname
 const tree = await mkdtemp(join(tmpdir(), 'kingdown-vercel-'));
 const pool = new pg.Pool({ connectionString });
 const actor = randomUUID(), clientId = randomUUID(), secret = randomUUID() + randomUUID();
-const server = createServer(); let app;
+const server = createServer(); let app, savedAccountAccess;
 const exists = path => stat(path).then(s => s, () => undefined);
 try {
   // Keep the relative function links: they must resolve inside the copy.
@@ -98,7 +98,7 @@ try {
     } catch { if (!res.headersSent) res.writeHead(500); res.end(); }
   });
 
-  const closedApi = [['GET', '/api'], ['GET', '/api/'], ['GET', '/api/me/games'], ['GET', `/api/games/${randomUUID()}?since=0`], ['GET', '/api/unknown'], ['POST', '/api/games'], ['POST', '/api/games/inert/commands'], ['OPTIONS', '/api/me/profile'], ['HEAD', '/api/me/games']];
+  const closedApi = [['GET', '/api/status'], ['POST', '/api/status'], ['GET', '/api'], ['GET', '/api/'], ['GET', '/api/me/games'], ['GET', `/api/games/${randomUUID()}?since=0`], ['GET', '/api/unknown'], ['POST', '/api/games'], ['POST', '/api/games/inert/commands'], ['OPTIONS', '/api/me/profile'], ['HEAD', '/api/me/games']];
   let queries = 0, connections = 0, closedCases = 0;
   const query = app.pool.query, connect = app.pool.connect;
   app.pool.query = function (...args) { queries++; return query.apply(this, args); };
@@ -192,6 +192,19 @@ try {
   assert.deepEqual([...served].sort(), [...new Set(['function /.well-known/oauth-protected-resource', 'function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /internal/unknown', 'function /mcp', 'function /api/games', ...closedApi.map(([, path]) => `function ${new URL(path, origin).pathname}`), 'static /', 'static /plugin-art/*', 'static /privacy.html', 'static /sw.js', ...publicPaths.map(path => `static ${path}`), ...(hasChallenge ? [`static ${challenge}`] : [])])].sort(), 'Closed/default served paths');
 
   await app.pool.end(); app = undefined;
+  savedAccountAccess = (await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0]?.enabled;
+  assert.equal(typeof savedAccountAccess, 'boolean');
+  await pool.query('update public.web_account_access set enabled=false where singleton=true');
+  app = await configurePlugin(webEnv, { localDev: true, websiteKeys });
+  const off = await fetch(`${origin}/api/me/profile`, { headers: { Authorization: `Bearer ${token}` } });
+  assert.equal(off.status, 503); assert.match(off.headers.get('content-type'), /^application\/json/);
+  assert.equal(off.headers.get('cache-control'), 'no-store'); assert.equal(off.headers.get('retry-after'), '5');
+  assert.deepEqual(await off.json(), { code: 'UNAVAILABLE', message: 'Account play is temporarily unavailable. Try again or play on this device.' });
+  const offStatus = await fetch(`${origin}/api/status`);
+  assert.equal(offStatus.status, 200); assert.equal(offStatus.headers.get('cache-control'), 'no-store'); assert.equal(offStatus.headers.get('referrer-policy'), 'no-referrer');
+  assert.deepEqual(await offStatus.json(), { account_access: 'closed', valid_for_ms: 0 });
+  await app.pool.end(); app = undefined;
+  await pool.query('update public.web_account_access set enabled=true where singleton=true');
   app = await configurePlugin(webEnv, { localDev: true, websiteKeys });
   served.clear();
   let enabledCases = 0;
@@ -204,6 +217,45 @@ try {
   };
   const api = (path, init) => fetch(origin + path, { redirect: 'manual', ...init }).then(checkApi);
   const signed = { Authorization: `Bearer ${token}` };
+  // One compiled getter supplies both routes. SQL changes need no rebuild or handler restart.
+  const originalQuery = app.pool.query;
+  let switchQueries = 0;
+  app.pool.query = function (...args) { if (String(args[0]).includes('from public.web_account_access')) switchQueries++; return originalQuery.apply(this, args); };
+  const effects = [];
+  try {
+    const schema = await app.pool.query('select singleton, enabled from public.web_account_access where singleton=true');
+    assert.deepEqual(schema.rows, [{ singleton: true, enabled: true }], 'Required web schema/grant probe');
+    switchQueries = 0;
+    for (const enabled of [false, true]) {
+      const requestStart = performance.now(), held = await api('/api/status');
+      const previous = await held.clone().json();
+      assert.equal(previous.account_access, enabled ? 'closed' : 'open');
+      const reads = switchQueries;
+      assert.equal((await api('/api/me/profile', { headers: signed })).status, enabled ? 503 : 200);
+      assert(switchQueries === reads || switchQueries === reads + 1 && performance.now() >= requestStart + previous.valid_for_ms, 'Status and private reads share the proof until its deadline');
+      const changed = performance.now();
+      await pool.query('update public.web_account_access set enabled=$1 where singleton=true', [enabled]);
+      // Expire every proof admitted before the SQL change, including a refresh between requests.
+      const deadline = performance.now() + 5000;
+      await new Promise(done => setTimeout(done, Math.max(0, deadline - performance.now()) + 2));
+      const beforeRefresh = switchQueries, refreshStart = performance.now();
+      const direct = await api('/api/me/profile', { headers: signed });
+      assert.equal(switchQueries, beforeRefresh + 1, 'An expired direct proof refreshes once');
+      assert.equal(direct.status, enabled ? 200 : 503);
+      const current = await api('/api/status'); assert.equal(current.status, 200);
+      const next = await current.json(); assert.equal(next.account_access, enabled ? 'open' : 'closed');
+      if (!enabled) {
+        assert.deepEqual(next, { account_access: 'closed', valid_for_ms: 0 });
+        assert.deepEqual(await held.json(), previous, 'The old open response can arrive after direct closure');
+        assert(performance.now() >= requestStart + previous.valid_for_ms, 'A held open status cannot renew its lease');
+      }
+      assert(switchQueries === beforeRefresh + 1 || switchQueries === beforeRefresh + 2 && performance.now() >= refreshStart + 5000, 'Status shares the fresh direct proof until its deadline');
+      effects.push({ enabled, observed_ms: Math.round(performance.now() - changed) });
+    }
+  } finally { app.pool.query = originalQuery; }
+  const status = await api('/api/status'); assert.equal(status.status, 200); assert.equal(status.headers.get('referrer-policy'), 'no-referrer');
+  const lease = await status.json(); assert.equal(lease.account_access, 'open');
+  assert(Number.isInteger(lease.valid_for_ms) && lease.valid_for_ms > 0 && lease.valid_for_ms <= 5000);
   for (const [headers, status] of [[{}, 401], [{ 'X-Kingdown-Dev-Actor': actor }, 401], [{ Authorization: `Bearer ${await sign({ exp: Math.floor(Date.now() / 1000) - 60 })}` }, 401], [{ Authorization: `Bearer ${await sign({ aud: `${origin}/mcp`, client_id: clientId })}` }, 401], [signed, 200]]) {
     const response = await api('/api/me/profile', { headers });
     assert.equal(response.status, status);
@@ -233,20 +285,32 @@ try {
   assert.equal(invalidSince.status, 400); assert.equal((await invalidSince.json()).code, 'INVALID_INPUT');
   const gameRows = () => pool.query('select to_jsonb(g) as game from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=$1) order by g.id', [actor]);
   const before = (await gameRows()).rows;
+  const assertWriteClosure = async response => {
+    assert.equal(response.status, 503); assert.equal(response.headers.get('retry-after'), '5');
+    assert.deepEqual(await response.json(), { code: 'UNAVAILABLE', message: 'Website writes are not configured' });
+  };
   const malformed = await api('/api/games', { method: 'POST', headers: { ...signed, 'Content-Type': 'application/json' }, body: '{broken' });
-  assert.equal(malformed.status, 400); assert.equal((await malformed.json()).code, 'INVALID_INPUT');
+  await assertWriteClosure(malformed);
   const large = 'x'.repeat(32 * 1024);
   for (const headers of [{ 'Content-Length': String(Buffer.byteLength(large)) }, { 'Transfer-Encoding': 'chunked' }]) {
     const response = await raw('/api/games', { ...signed, 'Content-Type': 'application/json', ...headers }, [large.slice(0, 8192), large.slice(8192)]);
-    assert.equal(response.status, 413); assert.equal((await response.json()).code, 'INVALID_INPUT');
+    await assertWriteClosure(response);
   }
   assert.deepEqual((await gameRows()).rows, before, 'Refused bodies have no game effect');
-  assert.deepEqual([...served].sort(), ['/api', '/api/', '/api/games', `/api/games/${game_id}`, '/api/me/games', '/api/me/profile', '/api/unknown'].map(path => `function ${path}`).sort(), 'Enabled/test served paths');
-  console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${closedPaths.length} closed account/unknown paths, ${art.length} board art files, MCP open and move, OAuth, ${closedCases} closed/default API probes with zero pool calls, ${enabledCases} enabled/test API probes, internal jobs and ${archive.length} archived engine(s) passed`);
+  assert.deepEqual([...served].sort(), ['/api', '/api/', '/api/games', `/api/games/${game_id}`, '/api/me/games', '/api/me/profile', '/api/status', '/api/unknown'].map(path => `function ${path}`).sort(), 'Enabled/test served paths');
+  console.log(`Same-switch compiled status/direct effects: ${JSON.stringify(effects)}`);
+  console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${closedPaths.length} closed account/unknown paths, ${art.length} board art files, MCP open and move, OAuth, ${closedCases} closed/default API probes with zero pool calls, off-switch closure, ${enabledCases} enabled/test API probes with 3 write-configuration refusals, internal jobs and ${archive.length} archived engine(s) passed`);
 } finally {
-  server.closeAllConnections(); await new Promise(done => server.close(done));
-  await app?.pool.end();
-  await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [[actor]]);
-  await pool.query('delete from auth.users where id=any($1::uuid[])', [[actor]]); await pool.end();
-  await rm(tree, { recursive: true, force: true });
+  try {
+    if (savedAccountAccess !== undefined) {
+      await pool.query('update public.web_account_access set enabled=$1 where singleton=true', [savedAccountAccess]);
+      assert.equal((await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0]?.enabled, savedAccountAccess, 'Restore account switch');
+    }
+  } finally {
+    server.closeAllConnections(); await new Promise(done => server.close(done));
+    await app?.pool.end();
+    await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [[actor]]);
+    await pool.query('delete from auth.users where id=any($1::uuid[])', [[actor]]); await pool.end();
+    await rm(tree, { recursive: true, force: true });
+  }
 }

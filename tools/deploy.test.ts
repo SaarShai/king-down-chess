@@ -404,7 +404,7 @@ const pages = (bundle = 'index-Abc123_x', terms = 'Terms v1') => ({
   'manifest.webmanifest': '{}',
 });
 const closedPages = ['/play', '/play/', '/play/profile', '/play/settings', '/play.html', '/g/00000000-0000-4000-8000-000000000000', '/j', '/j/', '/j/deploy-check-inert-token', '/deploy-check-unknown'];
-const apiPaths = ['/api', '/api/games', '/api/me/games'];
+const apiPaths = ['/api', '/api/status', '/api/games', '/api/me/games'];
 const apiClosure = JSON.stringify({ code: 'NOT_FOUND', message: 'Not found' });
 const contentType = (path: string) => ({ js: 'text/javascript', css: 'text/css', woff2: 'font/woff2', png: 'image/png', webp: 'image/webp', svg: 'image/svg+xml', webmanifest: 'application/manifest+json' })[path.split('.').at(-1)!] ?? 'text/html';
 
@@ -472,7 +472,7 @@ describe('deploy-live-check.mjs', () => {
       ...Object.keys(files).map(file => `GET /${file}`), 'GET /', ...closedPages.map(path => `GET ${path}`), ...apiPaths.flatMap(path => [`GET ${path}`, `POST ${path}`]),
     ].sort());
     expect(result.stdout).toContain('sw.js version build-v1, policy public-build-v1, sha256');
-    expect(result.stdout).toContain('16 closed-route probes pass');
+    expect(result.stdout).toContain('18 closed-route probes pass');
     expect(live.requests.filter(r => r.cookie !== undefined)).toEqual([]);
   });
 

@@ -60,9 +60,11 @@ Install the audience hook and runtime-role blocks 1–2 once, through the privat
 
 ## Online games: 0005 to 0014
 
-Not applied yet. Apply them in order, after 0001–0004, with a privileged connection
-(`npm run plugin:db:migrate` applies 0002–0014). Then apply the third to the eleventh blocks of
-`plugin-deploy/runtime-role.sql` to the existing runtime role. The migrations are safe to run again.
+Apply only missing files in order, after 0001–0004, through the approved privileged SQL Editor path.
+`npm run plugin:db:migrate` applies 0002–0015. Use it only for a disposable test database. Do not run its
+`tsx` entry against a live database. For the 0014 MVP, apply the third to the eleventh blocks of
+`plugin-deploy/runtime-role.sql` to the existing runtime role. The web section below adds block 12.
+The migrations are safe to run again.
 
 **Release order (a short outage).** The old and the new server code each need their own schema. The
 plugin that is live now writes boards that 0006 refuses, so after 0006 its `kingdown_open` fails. The
@@ -127,10 +129,32 @@ in one short window:
 
 - `0014_plugin_tool_tries.sql`: one counter for each user and tool. Role block 11 grants the server access. Browser roles have no access.
 
-`npm run plugin:db:init-test` applies 0001–0014 twice to a disposable loopback database, and
+`npm run plugin:db:init-test` applies 0001–0015 twice to a disposable loopback database, and
 `src/match/service.db.test.ts`, `src/match/setup.db.test.ts`, `src/match/matchmaking.db.test.ts`,
 `src/match/results.db.test.ts`, `src/online/jobs.db.test.ts`, `src/online/accounts.db.test.ts` and
 `src/api/http.db.test.ts` check them.
+
+## Web account access: 0015
+
+For a new database after 0001–0004, apply 0005–0015, then blocks 3–12 of `plugin-deploy/runtime-role.sql`.
+An existing database needs only the missing files and blocks, under the authority below.
+
+Apply only missing migrations in order through `0015_web_account_access.sql`, then block 12 of
+`plugin-deploy/runtime-role.sql`. This work needs the owner's specific database-write go. Keep
+the historical 0010–0014 release paste unchanged. Do not use the `tsx` migration command on a live
+database. Use the approved SQL Editor procedure in
+[account-off.md](../docs/specs/web-build/account-off.md).
+
+- `0015_web_account_access.sql`: `web_account_access` holds one operator switch. A new row has
+  `enabled = false`. A repeated migration keeps an existing value. RLS is on. The runtime role
+  can SELECT only. PUBLIC, `anon` and `authenticated` have no direct access. The web getter
+  closes access if the row, table or grant is absent. This table is not part of the plugin's
+  required start check.
+
+`tools/plugin-db/web-account-access.db.test.ts` rebuilds an explicit 0001–0014 baseline in its
+own disposable database. It applies 0015, then block 12. It checks old data, repeated application,
+the effective grants and plugin reads before and after the upgrade. CI runs it in
+`plugin-checks.yml`, job `verify`, through full `npm test` with its disposable database.
 
 ## Job schedules for the private MVP
 

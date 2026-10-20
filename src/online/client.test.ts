@@ -46,19 +46,36 @@ describe('online client', () => {
   vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: workers });
   const fetch = vi.fn<typeof globalThis.fetch>(async () => { order.push('send'); return json(200, []); });
   const api = onlineClient({ token: async () => { await Promise.resolve(); order.push('token'); return 'jwt'; }, fetch, wait: async () => {} });
-  await api.games(); await api.updateProfile({});
+  await api.games(); await api.updateProfile({}); await api.seen(gameId);
   fetch.mockImplementationOnce(async () => { order.push('send'); throw new TypeError('lost'); });
   await api.command(gameId, 0, { type: 'resign' }, 'fixed');
-  expect(order).toEqual(Array.from({ length: 4 }, () => ['token', 'proof', 'send']).flat());
-  expect(new Set(ids).size).toBe(4);
-  expect(fetch.mock.calls.slice(2).map(([, init]) => JSON.parse(init!.body as string).command_id)).toEqual(['fixed', 'fixed']);
+  expect(order).toEqual(Array.from({ length: 5 }, () => ['token', 'proof', 'send']).flat());
+  expect(new Set(ids).size).toBe(5);
+  expect(fetch.mock.calls.slice(3).map(([, init]) => JSON.parse(init!.body as string).command_id)).toEqual(['fixed', 'fixed']);
  });
  it('returns a clear unavailable error without a private send when proof fails', async () => {
   const controller = { state: 'activated', postMessage: (request: object, ports: MessagePort[]) => ports[0].postMessage({ ...request, policy: 'old', version: 'old' }) };
   vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: Object.assign(new EventTarget(), { controller, register: async () => ({}) }) });
   const fetch = vi.fn();
   await expect(onlineClient({ token: async () => 'jwt', fetch }).games()).rejects.toMatchObject({ code: 'UNAVAILABLE', status: 503 });
+  await expect(onlineClient({ token: async () => 'jwt', fetch }).seen(gameId)).rejects.toMatchObject({ code: 'UNAVAILABLE', status: 503 });
   expect(fetch).not.toHaveBeenCalled();
+ });
+ it('sends explicit activity as an encoded POST with no body and accepts 204', async () => {
+  const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(new Response(null, { status: 204 }));
+  await expect(onlineClient({ token: async () => 'jwt', fetch }).seen('game/id')).resolves.toBeUndefined();
+  expect(fetch).toHaveBeenCalledExactlyOnceWith('/api/games/game%2Fid/seen', { method: 'POST', cache: 'no-store', headers: { Authorization: 'Bearer jwt' } });
+ });
+ it('uses only GET for full reads, since reads and polling', async () => {
+  const fetch = vi.fn<typeof globalThis.fetch>(async () => json(200, view(2, [1, 2]))), api = onlineClient({ token: async () => 'jwt', fetch });
+  await api.game(gameId); await api.game(gameId, 0);
+  const feed = watch(api, gameId, () => {}, { daily: 60_000 });
+  try {
+   await feed.refresh(); await feed.refresh();
+   expect(fetch.mock.calls.map(([url, init]) => [url, init?.method])).toEqual([
+    [`/api/games/${gameId}`, 'GET'], [`/api/games/${gameId}?since=0`, 'GET'], [`/api/games/${gameId}`, 'GET'], [`/api/games/${gameId}?since=2`, 'GET'],
+   ]);
+  } finally { feed.stop(); }
  });
  it('drops a view that is not newer, adds the new commands and keeps the rules', () => {
   const local = view(3, [2, 3], { rules: { kings: [] } as never });

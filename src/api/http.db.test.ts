@@ -11,7 +11,7 @@ import { createServer, request, type Server } from 'node:http';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_OPTIONS } from '../match/setup';
+import { DEFAULT_OPTIONS, type Choice } from '../match/setup';
 import type { View } from '../match/protocol';
 import { GameService } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
@@ -19,13 +19,16 @@ import { AccountService } from '../online/accounts';
 import { onlineClient, type OnlineClient } from '../online/client';
 import { fakeSender } from '../online/mail';
 import { SafetyService } from '../online/safety';
+import { createWebAccountAccess } from './account-access';
 import { createApiHandler, createInternalHandler, MAX_API_BODY, sessionVerifier, type ApiOptions } from './http';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 
 const operations = new Set([
+ 'GET /api/status',
  'POST /api/games',
  'GET /api/games/:id',
+ 'POST /api/games/:id/seen',
  'POST /api/games/:id/commands',
  'POST /api/games/:id/invite',
  'POST /api/invites/redeem',
@@ -48,7 +51,7 @@ const suite = url ? describe : describe.skip;
 const plain = (view: View) => view.legal.find(lan => !lan.includes('!'))!;
 
 suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () => {
- let own: URL, admin: pg.Pool, runtime: pg.Pool, server: Server, address: string, sign: (sub: string) => Promise<string>;
+ let own: URL, admin: pg.Pool, runtime: pg.Pool, runtimeUrl: URL, server: Server, address: string, sign: (sub: string) => Promise<string>;
  let api: ReturnType<typeof createApiHandler>, options: ApiOptions;
  const role = `api_test_${randomUUID().replaceAll('-', '')}`, users: string[] = [], tag = randomUUID().slice(0, 6), sender = fakeSender();
  const rows = async (sql: string, params: unknown[] = []) => (await admin.query(sql, params)).rows;
@@ -71,14 +74,14 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   admin = new pg.Pool({ connectionString: own.href, max: 2 });
   const password = randomUUID();
   await locked(`${(await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8')).replaceAll('kingdown_plugin_runtime', role)}; alter role ${role} password '${password}'`);
-  const runtimeUrl = new URL(own.href); runtimeUrl.username = role; runtimeUrl.password = password;
+  runtimeUrl = new URL(own.href); runtimeUrl.username = role; runtimeUrl.password = password;
   runtime = new pg.Pool({ connectionString: runtimeUrl.href, max: 4 });
   const store = new PostgresMatchStore(runtime), games = new GameService(store);
   const pair = await generateKeyPair('ES256'), keys = createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'local', alg: 'ES256' }] });
   sign = sub => { const now = Math.floor(Date.now() / 1000); return new SignJWT({ iss: `${supabase}/auth/v1`, aud: 'authenticated', sub, role: 'authenticated', is_anonymous: false, iat: now, exp: now + 600 }).setProtectedHeader({ alg: 'ES256', kid: 'local' }).sign(pair.privateKey); };
   server = createServer(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   address = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
-  options = { games, accounts: new AccountService(store), safety: new SafetyService(store), publicOrigin: address, operations, verify: sessionVerifier(supabase, keys) };
+  options = { games, accounts: new AccountService(store), safety: new SafetyService(store), publicOrigin: address, operations, verify: sessionVerifier(supabase, keys), webAccountAccess: async () => ({ enabled: true, expiresAt: performance.now() + 5000 }), admit: () => () => {}, currentUser: async () => {} };
   api = createApiHandler(options);
   const jobs = createInternalHandler({ games, publicOrigin: address, secret, sender: () => sender });
   // This listener checks the handlers. The compiled check covers the function entry.
@@ -145,6 +148,168 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   } finally { query.mockRestore(); connect.mockRestore(); }
   expect((await actor.api.profile()).user_id).toBe(actor.id);
  });
+
+ it('makes no stored change or write attempt on full and since reads in each game state', async () => {
+  const [ann, bob] = [await player('read-ann'), await player('read-bob')];
+  const waiting = (await ann.api.create({ kind: 'friend', options: CLASSIC_OPTIONS })).view;
+  const setup = await ann.api.create({ kind: 'friend', options: { ...DEFAULT_OPTIONS, kingPowers: true, cardPool: ['Flight', 'March', 'Leap', 'Salvation'] } });
+  await bob.api.redeem({ token: setup.invite!.token });
+  const choice: Choice = { king: { king: 'Flame', power: 'Haste' }, order: [...setup.view.draw!].reverse().join('') };
+  const hidden = (await ann.api.command(setup.view.game_id, 1, { type: 'choose', choice, ready: true })).view;
+  const game = await ann.api.create({ kind: 'friend', options: CLASSIC_OPTIONS, colour: 'white' });
+  await bob.api.redeem({ token: game.invite!.token });
+  const playing = (await ann.api.command(game.view.game_id, 1, { type: 'turn', actions: [plain(await ann.api.game(game.view.game_id))] })).view;
+  const end = await ann.api.create({ kind: 'friend', options: CLASSIC_OPTIONS });
+  await bob.api.redeem({ token: end.invite!.token });
+  const finished = (await ann.api.command(end.view.game_id, 1, { type: 'resign' })).view;
+  const fixtures = [{ view: waiting, actor: ann }, { view: hidden, actor: bob }, { view: playing, actor: bob }, { view: finished, actor: bob }];
+  await admin.query("update public.game_players set last_seen_at=now()-interval '1 hour' where game_id=any($1)", [fixtures.map(({ view }) => view.game_id)]);
+  const tables = await rows("select tablename from pg_tables where schemaname='public' order by tablename");
+  const snapshot = () => Promise.all(tables.map(({ tablename }) => rows(`select to_jsonb(t) as row from public."${tablename}" t order by to_jsonb(t)::text`)));
+  const readOnly = new pg.Pool({ connectionString: runtimeUrl.href, max: 2, options: '-c default_transaction_read_only=on' });
+  const clients: pg.PoolClient[] = [];
+  readOnly.on('connect', client => { clients.push(client); vi.spyOn(client, 'query'); });
+  try {
+   expect((await readOnly.query('show transaction_read_only')).rows).toEqual([{ transaction_read_only: 'on' }]);
+   const access = createWebAccountAccess(readOnly);
+   // Open only the suite's switch. Every request reads it with the runtime role.
+   await admin.query('update public.web_account_access set enabled=true where singleton=true');
+   const before = await snapshot();
+   clients.forEach(client => vi.mocked(client.query).mockClear());
+   const admit = vi.fn(), currentUser = vi.fn();
+   api = createApiHandler({ ...options, games: new GameService(new PostgresMatchStore(readOnly)), webAccountAccess: access, admit, currentUser });
+   for (const { view, actor } of fixtures) for (const since of [undefined, 0, 1, view.revision]) {
+    const result = await actor.api.game(view.game_id, since);
+    expect(result).toMatchObject({ game_id: view.game_id, revision: view.revision, status: view.status, seat: actor === ann ? 0 : 1 });
+    if (since === view.revision) expect(result.last_commands).toEqual([]);
+    if (view.status === 'setup') {
+     expect(result.choices?.[0]).toBeNull(); expect(result.kings).toBeUndefined();
+     for (const secret of [choice.king!.king, choice.king!.power, choice.order]) expect(JSON.stringify(result)).not.toContain(secret);
+     if (since !== view.revision) expect(result.last_commands.at(-1)?.action).toEqual({ type: 'hidden' });
+    }
+    if (view.status === 'playing') expect(result.legal.length).toBeGreaterThan(0);
+    if (view.status === 'finished') expect(result.result).toEqual(view.result);
+   }
+   const sql = clients.flatMap(client => vi.mocked(client.query).mock.calls.map(([query]) => typeof query === 'string' ? query : (query as pg.QueryConfig).text));
+   expect(sql.length).toBeGreaterThan(50);
+   // These reads use only SELECT and these built-in expressions. A helper call needs a review.
+   const expressions = new Set(['extract', 'statement_timestamp', 'coalesce', 'exists', 'select', 'not', 'and', 'or', 'in']);
+   for (const statement of sql) {
+    const text = statement.replace(/'(?:[^']|'')*'/g, "''");
+    expect(text).toMatch(/^select\s/i); expect(text).not.toMatch(/[";]|\b(insert|update|delete|merge|call|copy|create|alter|drop|truncate|set|lock|into)\b/i);
+    for (const [, name] of text.matchAll(/\b([a-z_][a-z0-9_.]*)\s*\(/gi)) expect(expressions.has(name.toLowerCase()), name).toBe(true);
+   }
+   expect(admit).not.toHaveBeenCalled(); expect(currentUser).not.toHaveBeenCalled();
+   expect(await snapshot()).toEqual(before);
+  } finally {
+   api = createApiHandler(options); await readOnly.end();
+   await admin.query('update public.web_account_access set enabled=false where singleton=true');
+  }
+ }, 60_000);
+
+ it('stops real-service requests when the database switch is off or closes during current-user work', async () => {
+  const actor = await player('switch'), verify = vi.fn(options.verify!), admit = vi.fn(() => () => {}), currentUser = vi.fn(async () => {});
+  await admin.query('update public.web_account_access set enabled=false where singleton=true');
+  const access = createWebAccountAccess(runtime);
+  api = createApiHandler({ ...options, webAccountAccess: access, verify, admit, currentUser });
+  try {
+   const response = await fetch(`${address}/api/me/games`, { headers: { Authorization: `Bearer ${await sign(actor.id)}` } });
+   expect([response.status, response.headers.get('Retry-After'), (await response.json()).code]).toEqual([503, '5', 'UNAVAILABLE']);
+   for (const spy of [verify, admit, currentUser]) expect(spy).not.toHaveBeenCalled();
+   const game = await options.games.create(actor.id, { kind: 'friend', options: CLASSIC_OPTIONS });
+   const before = await rows('select * from public.game_players where game_id=$1 order by seat', [game.game_id]);
+   await admin.query('update public.web_account_access set enabled=true where singleton=true');
+   const open = createWebAccountAccess(runtime);
+   let unblock!: () => void, entered!: () => void;
+   const gate = new Promise<void>(resolve => { unblock = resolve; }), started = new Promise<void>(resolve => { entered = resolve; }), release = vi.fn();
+   api = createApiHandler({ ...options, webAccountAccess: open, admit: () => release, currentUser: async () => { entered(); await gate; } });
+   const pending = actor.api.seen(game.game_id); await started;
+   await admin.query('update public.web_account_access set enabled=false where singleton=true');
+   // Move only the monotonic proof clock. No wall-clock wait is needed.
+   const now = performance.now(), clock = vi.spyOn(performance, 'now').mockReturnValue(now + 5001);
+   try { unblock(); await expect(pending).rejects.toMatchObject({ code: 'UNAVAILABLE', status: 503 }); }
+   finally { clock.mockRestore(); }
+   expect(release).toHaveBeenCalledOnce();
+   expect(await rows('select * from public.game_players where game_id=$1 order by seat', [game.game_id])).toEqual(before);
+  } finally { api = createApiHandler(options); await admin.query('update public.web_account_access set enabled=false where singleton=true'); }
+ }, 60_000);
+
+ it('shares status and private proof across two caches and refreshes off and on at the deadline', async () => {
+  const actor = await player('status'), token = await sign(actor.id);
+  let now = 100; const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+  const caches = [createWebAccountAccess(runtime), createWebAccountAccess(runtime)];
+  const query = vi.spyOn(runtime, 'query');
+  const switchQueries = () => query.mock.calls.filter(([sql]) => String(sql).includes('from public.web_account_access')).length;
+  const status = async () => {
+   const response = await fetch(`${address}/api/status`);
+   expect([response.status, response.headers.get('Cache-Control'), response.headers.get('Referrer-Policy')]).toEqual([200, 'no-store', 'no-referrer']);
+   return response.json();
+  };
+  const direct = () => fetch(`${address}/api/me/profile`, { headers: { Authorization: `Bearer ${token}` } });
+  try {
+   await admin.query('update public.web_account_access set enabled=true where singleton=true');
+   for (const access of caches) {
+    api = createApiHandler({ ...options, webAccountAccess: access });
+    expect(await status()).toEqual({ account_access: 'open', valid_for_ms: 5000 });
+    expect((await direct()).status).toBe(200);
+   }
+   expect(switchQueries()).toBe(2);
+   await admin.query('update public.web_account_access set enabled=false where singleton=true');
+   now = 5099;
+   for (const access of caches) {
+    api = createApiHandler({ ...options, webAccountAccess: access });
+    expect(await status()).toEqual({ account_access: 'open', valid_for_ms: 1 });
+   }
+   expect(switchQueries()).toBe(2);
+   now = 5100;
+   for (const access of caches) {
+    api = createApiHandler({ ...options, webAccountAccess: access });
+    expect((await direct()).status).toBe(503);
+    expect(await status()).toEqual({ account_access: 'closed', valid_for_ms: 0 });
+   }
+   expect(switchQueries()).toBe(4);
+   await admin.query('update public.web_account_access set enabled=true where singleton=true');
+   now = 10_099;
+   for (const access of caches) {
+    api = createApiHandler({ ...options, webAccountAccess: access });
+    expect(await status()).toEqual({ account_access: 'closed', valid_for_ms: 0 });
+    expect((await direct()).status).toBe(503);
+   }
+   expect(switchQueries()).toBe(4);
+   now = 10_100;
+   for (const access of caches) {
+    api = createApiHandler({ ...options, webAccountAccess: access });
+    expect(await status()).toEqual({ account_access: 'open', valid_for_ms: 5000 });
+    expect((await direct()).status).toBe(200);
+   }
+   expect(switchQueries()).toBe(6);
+   await admin.query('delete from public.web_account_access where singleton=true'); now = 15_100;
+   api = createApiHandler({ ...options, webAccountAccess: caches[0] });
+   expect(await status()).toEqual({ account_access: 'closed', valid_for_ms: 0 });
+   expect((await direct()).status).toBe(503);
+  } finally {
+   query.mockRestore(); clock.mockRestore(); api = createApiHandler(options);
+   await admin.query('insert into public.web_account_access(singleton,enabled) values(true,false) on conflict(singleton) do update set enabled=false');
+  }
+ }, 60_000);
+
+ it('records explicit HTTP activity only for a seat and keeps the store throttle', async () => {
+  const [ann, bob, stranger] = [await player('seen-ann'), await player('seen-bob'), await player('seen-cy')];
+  const game = await ann.api.create({ kind: 'friend', options: CLASSIC_OPTIONS });
+  await bob.api.redeem({ token: game.invite!.token });
+  const id = game.view.game_id;
+  await admin.query("update public.game_players set last_seen_at=now()-interval '1 hour' where game_id=$1", [id]);
+  const state = () => rows('select * from public.game_players where game_id=$1 order by seat', [id]);
+  const before = await state();
+  await ann.api.seen(id);
+  const after = await state();
+  expect(after[0].last_seen_at.getTime()).toBeGreaterThan(before[0].last_seen_at.getTime());
+  expect(after).toEqual([{ ...before[0], last_seen_at: after[0].last_seen_at }, before[1]]);
+  await ann.api.seen(id); expect(await state()).toEqual(after);
+  await expect(stranger.api.seen(id)).rejects.toMatchObject({ code: 'FORBIDDEN', status: 403 });
+  await expect(ann.api.seen(randomUUID())).rejects.toMatchObject({ code: 'NOT_FOUND', status: 404 });
+  expect(await state()).toEqual(after);
+ }, 60_000);
 
  it('plays a Daily friend game between two website identities, with retries that apply once', async () => {
   const [ann, bob] = [await player('ann'), await player('bob')];

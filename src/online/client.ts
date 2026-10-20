@@ -46,6 +46,8 @@ export function onlineClient({ token, origin = '', fetch: send = (...args) => fe
     create: (options: CreateOptions) => call<{ view: View; invite?: InviteLink }>('POST', '/api/games', options),
     /** The full view (with the rules), or the commands after `since`. */
     game: (gameId: string, since?: number) => call<View>('GET', `/api/games/${encodeURIComponent(gameId)}${since === undefined ? '' : `?since=${since}`}`),
+    /** Records activity only when the caller asks for it. */
+    seen: (gameId: string) => call<void>('POST', `/api/games/${encodeURIComponent(gameId)}/seen`),
     /** One command; a lost reply sends it again with the same command_id, and the server applies it once. */
     async command(gameId: string, expected_revision: number, action: Action, command_id: string = crypto.randomUUID()): Promise<Extract<Reply, { type: 'ack' }>> {
       for (let attempt = 1; ; attempt++) {

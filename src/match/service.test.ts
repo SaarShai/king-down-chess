@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from './setup';
-import { GameService, UNFINISHED } from './service';
+import { GameService, MatchServiceError, UNFINISHED } from './service';
 import { PostgresMatchStore } from './store';
 import { createMatch, loadMatch, MatchError, type LocalMatch } from './index';
 vi.mock('./index', async original => ({...await original<typeof import('./index')>(), createMatch: vi.fn(), loadMatch: vi.fn()}));
 const actor='11111111-1111-4111-8111-111111111111', id='22222222-2222-4222-8222-222222222222';
-const load=vi.fn(), receipt=vi.fn(), transaction=vi.fn(), apply=vi.fn(), close=vi.fn(), exportSave=vi.fn();
-const service=new GameService({load,receipt,transaction,pool:{}} as unknown as PostgresMatchStore);
+const load=vi.fn(), seen=vi.fn(), receipt=vi.fn(), transaction=vi.fn(), apply=vi.fn(), close=vi.fn(), exportSave=vi.fn();
+const service=new GameService({load,seen,receipt,transaction,pool:{}} as unknown as PostgresMatchStore);
 const seat=(n: 0 | 1, user_id: string | null) => ({seat:n,user_id,computer:!user_id,turns_played:0,draw_offers:0,said:[]});
 const move=(lan: string, command_id='retry') => service.command(actor,id,{command_id,expected_revision:0,action:{type:'turn',actions:[lan]}});
 beforeEach(() => {
@@ -16,6 +16,20 @@ beforeEach(() => {
  vi.mocked(loadMatch).mockResolvedValue({apply,close,exportSave} as unknown as LocalMatch);
 });
 describe('game service failure boundaries', () => {
+ it('checks normalized game and actor IDs and seat authority before activity', async () => {
+  const user = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', game = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  load.mockResolvedValueOnce({ players: [seat(0, user), seat(1, null)] });
+  await service.seen(user.toUpperCase(), game.toUpperCase());
+  expect(load).toHaveBeenLastCalledWith(game); expect(seen).toHaveBeenCalledExactlyOnceWith(game, user);
+  seen.mockClear();
+  await expect(service.seen(user, id)).rejects.toMatchObject({ code: 'FORBIDDEN', status: 403 });
+  load.mockRejectedValueOnce(new MatchServiceError('NOT_FOUND', 404, 'Game not found'));
+  await expect(service.seen(actor, id)).rejects.toMatchObject({ code: 'NOT_FOUND', status: 404 });
+  expect(seen).not.toHaveBeenCalled();
+  load.mockClear();
+  for (const [who, which] of [['bad', id], [actor, 'bad']]) await expect(service.seen(who, which)).rejects.toMatchObject({ code: 'INVALID_INPUT', status: 400 });
+  expect(load).not.toHaveBeenCalled(); expect(seen).not.toHaveBeenCalled();
+ });
  it('loads the engine save on a full read only, for the move history', async () => {
   // The store selects the engine save only when asked, as its SQL does.
   const reads = {load:vi.fn(), seen:vi.fn(), commands:vi.fn().mockResolvedValue([]), pool:{}};

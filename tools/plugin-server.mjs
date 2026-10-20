@@ -15,6 +15,7 @@ import { GameService } from '../src/match/service.ts';
 import { PluginService } from '../src/plugin/service.ts';
 import { PostgresMatchStore } from '../src/match/store.ts';
 import { createApiHandler, createInternalHandler, sessionVerifier } from '../src/api/http.ts';
+import { createWebAccountAccess } from '../src/api/account-access.ts';
 import { AccountService } from '../src/online/accounts.ts';
 import { SafetyService } from '../src/online/safety.ts';
 import { resendSender } from '../src/online/mail.ts';
@@ -22,8 +23,10 @@ import { ART_HEADERS, artType } from './plugin-art-headers.mjs';
 
 const WEB_OPERATIONS = new Set();
 const TEST_WEB_OPERATIONS = new Set([
+  'GET /api/status',
   'POST /api/games',
   'GET /api/games/:id',
+  'POST /api/games/:id/seen',
   'POST /api/games/:id/commands',
   'POST /api/games/:id/invite',
   'POST /api/invites/redeem',
@@ -80,6 +83,7 @@ export async function configurePlugin(env = process.env, { localDev = false, web
   const mcp = createPluginHandler({ consent, service: new PluginService(store, secret), publicOrigin, resourceHtml, auth, localDev });
   const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET, sender: () => resendSender(env) });
   const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), publicOrigin,
+    webAccountAccess: createWebAccountAccess(pool),
     verify: env.SUPABASE_URL ? sessionVerifier(env.SUPABASE_URL, websiteKeys) : undefined, operations: websiteKeys === undefined ? WEB_OPERATIONS : TEST_WEB_OPERATIONS });
   const handler = async (req, res) => {
     const path = req.url?.startsWith('/') && URL.canParse(req.url, publicOrigin) ? new URL(req.url, publicOrigin).pathname : '';

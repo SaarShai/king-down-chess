@@ -250,6 +250,31 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   expect((await games[0].command(a,resigned.game_id,command(0,{type:'resign'}))).result).toEqual({winner:0,reason:'resignation'});
  },60000);
 
+ it('updates only the actor seat activity, at most once each 30 seconds', async () => {
+  const [host,guest,stranger] = [await user('seen-host'),await user('seen-guest'),await user('seen-cy')];
+  const id = await friend(host,guest);
+  const tables = await rows("select tablename from pg_tables where schemaname='public' order by tablename");
+  // Ignore only this seat's activity time in the full data comparison.
+  const snapshot = () => Promise.all(tables.map(async ({ tablename }) => (await rows(`select to_jsonb(t) as row from public."${tablename}" t order by to_jsonb(t)::text`)).map(({ row }) =>
+   tablename === 'game_players' && row.game_id === id && row.user_id === host ? { ...row, last_seen_at: null } : row)));
+  const players = () => rows('select * from public.game_players where game_id=$1 order by seat', [id]);
+  await admin.query("update public.game_players set last_seen_at=now()-interval '1 hour' where game_id=$1", [id]);
+  for (let attempt = 0; attempt < 2; attempt++) {
+   const before = await snapshot(), seats = await players();
+   await games[1].seen(host,id);
+   const after = await players();
+   expect(after[0].last_seen_at.getTime()).toBeGreaterThan(seats[0].last_seen_at.getTime());
+   expect(after).toEqual([{ ...seats[0], last_seen_at: after[0].last_seen_at }, seats[1]]);
+   expect(await snapshot()).toEqual(before);
+   await games[1].seen(host,id); expect(await players()).toEqual(after); expect(await snapshot()).toEqual(before);
+   if (!attempt) await admin.query("update public.game_players set last_seen_at=now()-interval '31 seconds' where game_id=$1 and user_id=$2", [id,host]);
+  }
+  const before = await snapshot();
+  await expect(games[1].seen(stranger,id)).rejects.toMatchObject({code:'FORBIDDEN',status:403});
+  await expect(games[1].seen(host,randomUUID())).rejects.toMatchObject({code:'NOT_FOUND',status:404});
+  expect(await snapshot()).toEqual(before);
+ },30000);
+
  it('keeps views small and read-only, and lists your turn first',async () => {
   // Fresh players, so games of the other tests do not join the lists.
   const [d,e,f] = [await user('dee'),await user('eve'),await user('fay')];
