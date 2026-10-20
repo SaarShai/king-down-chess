@@ -16,6 +16,12 @@ These are public connection settings. Verify the callback shown by ChatGPT when 
 
 The staging account database is separate. A player's Google or GitHub identity can be the same, but staging games and profiles stay in staging. Both website and ChatGPT must sign in to the same staging identity to continue the same game.
 
+## Current connection
+
+ChatGPT discovers the OAuth endpoints and redirects the separate connection to the staging consent page. Sign-in is not complete. The public provider settings still report GitHub and Google as disabled.
+
+The [King Down Staging GitHub app](https://github.com/settings/applications/3948844) exists. Its public client ID is already in the [staging Supabase provider form](https://supabase.com/dashboard/project/puhspsyjyzaghmgtkzqd/auth/providers). The owner must generate the new client secret, put it directly in that provider form, enable GitHub and save. Browser-control policy requires the owner to enter and submit a new authentication credential. Do not put that secret in chat, source files or evidence.
+
 ## Proof still required
 
 The local browser check uses the built page, real HTTP and MCP handlers, and a disposable local database. It does not prove that ChatGPT can load the widget, finish OAuth or continue the game in its own host.
