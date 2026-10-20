@@ -1,4 +1,4 @@
-import { nextGame } from './next-game';
+import { nextGame } from '../account-game/next-game';
 import { createHash, randomUUID } from 'node:crypto';
 import { diagnostic } from './diagnostics';
 import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
