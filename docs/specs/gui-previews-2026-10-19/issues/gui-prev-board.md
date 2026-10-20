@@ -304,3 +304,7 @@ Commit each item. Run the type check here. Run the unit suite through m1-unit.sh
 ### A8 build
 
 Main timing, the marker wave, resting pawn motion, and the turn pulse are restored. The plugin uses its main pace and has no Animations row. The web keeps its original Motion control. A document capture handler ends a move or a king fall before the tap reaches a square or button. It consumes the release and click too. Reduced motion keeps the slide and 150 ms victim fade. Unit checks cover the full gesture, the restored wave and pawn motion. Browser unit cases check real mouse and touch input, the final capture, and the saved draft. The type check passes. M1 checks follow after all five commits.
+
+### A14 build
+
+The turn button shows the original full-width sword alone. Its accessible name and title remain End turn for a computer and Send your turn for a person. The six menu cases and the staged-turn case now expect no visible words. Size, focus, menu fit, and single-send checks stay in place. The type check and commit gate pass. M1 checks follow.

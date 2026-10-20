@@ -120,13 +120,13 @@ try {
         }
         if (id === 'A14') {
           await tap(12); await tap(28); await shot(id,'turn-computer');
-          if (phase === 'after') assert.equal(await f.locator('#end-turn .turn-label').innerText(), 'End turn');
+          if (phase === 'after') assert.equal(await f.locator('#end-turn').getAttribute('aria-label'), 'End turn');
           await seed(undefined, { kind: 'friend', opponent: { handle: 'mira_k', computer: false, deleted: false } });
           await tap(12); await tap(28); await shot(id,'turn-person');
           if (phase === 'after') {
-            assert.equal(await f.locator('#end-turn .turn-label').innerText(), 'Send your turn');
+            assert.equal(await f.locator('#end-turn').getAttribute('aria-label'), 'Send your turn');
             const fit = await f.locator('#end-turn').evaluate(e => { const b=e.getBoundingClientRect(), s=getComputedStyle(e); return { font:s.fontSize, bold:s.fontWeight, fits:e.scrollWidth<=e.clientWidth, height:b.height }; });
-            assert.equal(fit.font,'16px'); assert.equal(fit.bold,'700'); assert(fit.fits && fit.height >= 44, JSON.stringify(fit));
+            assert.equal(await f.locator('#end-turn').innerText(), ''); assert.equal(await f.locator('#end-turn .turn-sword').count(), 1); assert(fit.fits && fit.height >= 44, JSON.stringify(fit));
           }
         }
         if (id === 'A15') { await tap(12); await shot(id,'selected-behind'); }
