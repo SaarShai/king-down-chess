@@ -134,6 +134,7 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 #game-table .coin.card-coin:not([data-state='armed']) > .coin-paint { box-shadow: var(--lift), inset 0 0 0 2px var(--card-ring); }
 /* G2 a: a spent card coin still opens its read sheet, so its word keeps 4.5:1. The grey and a lighter dim (0.85) mark it as spent. */
 #game-table .coin.card-coin[data-state='used'] > .coin-paint { opacity: .85; }
+#app-root #game-table .coin.card-coin[data-state='used'] > .coin-paint { border-color: var(--stone-500); --card-ring: var(--stone-500); }
 .coin.card-coin > .coin-paint > img { inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); border-radius: 50%; object-fit: cover; }
 #game-table .coin:not(.card-coin) { width: 40px; height: 40px; }
 #game-table .coin:not(.card-coin) img { inset: 4px; width: 30px; height: 30px; }

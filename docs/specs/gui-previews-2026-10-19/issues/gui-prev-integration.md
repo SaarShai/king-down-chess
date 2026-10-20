@@ -28,7 +28,9 @@ size and card-face assertions keep their values. No server code changes.
 Keep the agreed ink and gold focus pair. Draw its two 2 px bands inside
 the coin, above the face and notches. The board and segments use this
 inset method. Keep .85 for spent cards and .7 for used powers. Keep the
-original lower shadow. Add no new colour, size or game rule.
+original lower shadow. Use stone-500 for the spent card rim, so the ink
+focus band changes it at more than 3:1. Ready and armed rims keep their
+colours. Add no new colour, size or game rule.
 
 ## Part 1 checks
 
@@ -54,4 +56,7 @@ The final design uses one inset focus pair above the paint span. This
 clears the shadow, notches and frame edge. It replaces both lower-shadow
 changes above and restores the original face finish. The test reads the
 new band positions, adds an inset assertion, and keeps 3:1 on each of the
-four sides. This is the only taste choice.
+four sides. At `fcd225c4`, the test finds 2.35:1 over the opponent's dark
+spent rim. The spent card rim now uses the existing stone-500 border
+colour. The inset focus position and neutral spent rim are the two taste
+choices. No assertion or time limit is removed or weakened.
