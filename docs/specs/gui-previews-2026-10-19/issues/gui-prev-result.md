@@ -157,3 +157,16 @@ Parts 5 and 6: the merge and plan have separate commits. This section records th
 All five picks stay as built: A9 direct plugin result and short web fall; A20 the resignation move number; A22 immediate key actions with the pointer guard; A24 the fallen king and corrected Black direction; A12 equal promotion cards in two columns. No screen changes, new taste choices, or preview retakes are needed.
 
 The prev-green ticket leaves browser checks and screenshots to CI. Do not run them for this repair. Do not run `npm test` on this Mac; the supplied M1 script runs the unit suite instead. No push, merge to main, deploy, or sign-in occurs.
+
+
+## Browser check repair
+
+Review A is confirmed at 07b194c3. The registered `w6-parts` check waits for a move replay, board words and a word hold. A9 removes those steps. The fall does not set `scene.animating`, so the check cannot reach its later checks. Review B supplies no finding text.
+
+Plan:
+
+1. Update `w6-parts` for one fall, no replay and no board words. Check the 650 ms bound. Keep the tile, skip, cancel, reduced-motion and layout checks.
+2. Add checks for the fall calls, final board and absent words. Keep the existing unit timing test.
+3. Run `npm test` here with the local test database. Commit the repair. Run `w6-parts`, `plugin-ui` and `end` through the supplied runner, one check per call.
+
+Pass criteria: the full unit suite and all three browser checks pass. No time limit changes. No server code changes, so `plugin-ui-http` is not required. This request replaces the prior CI-only check instruction for this repair.

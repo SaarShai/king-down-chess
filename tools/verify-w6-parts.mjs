@@ -152,23 +152,49 @@ try {
     window.parts.fixture = { view, board, captionHost, moments, history, final: pos, king: sq('h8'), showPly: ply => { window.reviewPly = ply; }, motion: true, live: () => true };
     view.scene.setLively({ moves: false, atmosphere: false, kings: false, pawns: false, idle: false });
     view.sync(pos);
-    window.wordsShownAt = null;
-    const observer = new MutationObserver(() => {
-      const words = document.querySelector('.kd-words');
-      if (words && !words.hidden && window.wordsShownAt == null) window.wordsShownAt = Date.now();
+    window.boardWordsShown = false;
+    window.wordsObserver = new MutationObserver(() => {
+      if (board.querySelector('.kd-words')) window.boardWordsShown = true;
     });
-    observer.observe(board, { attributes: true, childList: true, subtree: true });
-    window.control = startCeremony(window.parts.fixture);
+    window.wordsObserver.observe(board, { attributes: true, childList: true, subtree: true });
+    window.ceremonyCalls = [];
+    window.restoreCeremonyView = ['sync', 'animateMove', 'animateBack', 'setFallen'].map(name => {
+      const original = view[name];
+      view[name] = (...args) => { window.ceremonyCalls.push(name); return original.apply(view, args); };
+      return () => { view[name] = original; };
+    });
+    // Record the ceremony wait without a wall-clock timing assertion under load.
+    const nativeTimeout = window.setTimeout;
+    window.ceremonyWaits = [];
+    window.setTimeout = (fn, ms, ...args) => {
+      window.ceremonyWaits.push(ms);
+      return nativeTimeout(fn, ms, ...args);
+    };
+    try { window.control = startCeremony(window.parts.fixture); }
+    finally { window.setTimeout = nativeTimeout; }
   });
-  console.log('check Ceremony replay');
-  await page.waitForFunction(() => window.parts.view.scene.animating, null, { polling: 20 });
-  assert.equal(await page.evaluate(() => window.parts.view.scene.animating), true, 'the final blow replays');
-  await page.evaluate(() => window.step(840));
-  await page.locator('.kd-words').waitFor({ state: 'visible' });
-  await page.evaluate(() => window.control.done);
-  assert.ok(await page.evaluate(() => Date.now() - window.wordsShownAt >= 800), 'King Down holds before the tiles');
-  await page.evaluate(() => window.step(1200));
-  assert.equal(await page.locator('.kd-words').textContent(), 'King Down');
+  console.log('check Ceremony fall');
+  assert.equal(await page.evaluate(() => window.parts.view.scene.animating), false, 'the fall has no move replay');
+  assert.deepEqual(await page.evaluate(() => Array.from(window.parts.view.scene.position.board)),
+    await page.evaluate(() => Array.from(window.parts.fixture.final.board)), 'the ceremony shows the final board');
+  const waits = await page.evaluate(() => window.ceremonyWaits);
+  assert.equal(waits.length, 1, 'one fall wait');
+  assert.ok(waits[0] > 0 && waits[0] <= 650, 'the fall wait is at most 650 ms');
+  await page.evaluate(() => window.step(0));
+  const fallStart = await page.locator('canvas').evaluate(c => c.toDataURL());
+  await page.evaluate(() => window.step(325));
+  const fallMiddle = await page.locator('canvas').evaluate(c => c.toDataURL());
+  assert.notEqual(fallMiddle, fallStart, 'the king falls');
+  await page.evaluate(() => window.step(325));
+  const fallEnd = await page.locator('canvas').evaluate(c => c.toDataURL());
+  assert.notEqual(fallEnd, fallMiddle, 'the king reaches the fallen frame');
+  await page.evaluate(() => window.step(16));
+  assert.equal(await page.locator('canvas').evaluate(c => c.toDataURL()), fallEnd, 'the fall is at rest by 650 ms');
+  assert.equal(await page.evaluate(() => window.control.done), true, 'the fall opens the review tiles');
+  assert.deepEqual(await page.evaluate(() => window.ceremonyCalls), ['sync', 'setFallen'], 'one fall, no rewind or replay');
+  assert.equal(await page.evaluate(() => window.boardWordsShown), false, 'no board words appear during the fall');
+  assert.equal(await page.locator('.kd-words').count(), 0, 'no board words remain after the fall');
+  await page.evaluate(() => { window.wordsObserver.disconnect(); window.restoreCeremonyView.forEach(restore => restore()); });
   assert.equal(await page.locator('.ceremony-tile').count(), 3, 'three review tiles');
   assert.deepEqual(await page.locator('.ceremony-tile').evaluateAll(bs => bs.map(b => +b.dataset.ply)), [0, 2, 4], 'selected moves follow play order');
   await ceremonyTile(page, 0).click();
@@ -187,7 +213,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   await copyFile(await shot(page, 'ceremony-desktop'), join(samples, 'ceremony-desktop.png'));
   console.log(`samples: ${samples}`);
-  console.log('ok Ceremony: half-speed blow, King Down, three tiles and review');
+  console.log('ok Ceremony: one short fall, no replay or board words, three tiles and review');
 
   for (const key of ['Escape', 'Space', 'Enter']) {
     await page.evaluate(() => { window.control.cancel(); window.control = window.parts.startCeremony(window.parts.fixture); });

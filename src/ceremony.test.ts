@@ -6,7 +6,7 @@ function setup(motion = true) {
   vi.useFakeTimers();
   const element = () => ({ hidden: false, className: '', textContent: '', append: vi.fn(), remove: vi.fn(), replaceChildren: vi.fn(), setAttribute: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), classList: { add: vi.fn(), remove: vi.fn() } });
   vi.stubGlobal('matchMedia', () => ({ matches: false }));
-  vi.stubGlobal('document', { hidden: false, createElement: element, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+  vi.stubGlobal('document', { hidden: false, createElement: vi.fn(element), addEventListener: vi.fn(), removeEventListener: vi.fn() });
   const view = { skip: vi.fn(), sync: vi.fn(), setFallen: vi.fn(), animateMove: vi.fn() };
   const final = fromFen('7k/6Q1/6K1/8/8/8/8/8 b - - 0 1');
   const live = vi.fn(() => true);
@@ -22,6 +22,8 @@ it('shows the final board and one fall, then ends within 650 ms', async () => {
   await vi.advanceTimersByTimeAsync(650);
   expect(await control.done).toBe(true);
   expect(view.animateMove).not.toHaveBeenCalled();
+  expect(view.setFallen).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(document.createElement).mock.results.map(r => r.value.className)).not.toContain('kd-words');
 });
 
 it('skips the fall at once', async () => {
