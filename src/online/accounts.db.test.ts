@@ -195,11 +195,16 @@ async function friend(host: string, guest: string) {
    { id: report.id, reporter_id: a, reported_id: b, game_id: game, target: 'player', category: 'harassment', note, content: await handleOf(b), source: 'player' }]);
   expect((await owner.queue()).find(row => row.id === report.id)).toMatchObject({ game_id: game, note });
   const { action_id } = await owner.act(report.id, { action: 'warning', facts: 'A repeated preset disrupted this game.', rule: 'Terms: no harassment.' });
+  expect((await accounts.notices(b)).notices).toMatchObject([{ kind: 'moderation', action_id, action: 'warning', text: expect.stringContaining(APPEAL) }]);
   await owner.appeal(action_id!, { status: 'open', note: 'The player asks for a review.' });
   await owner.appeal(action_id!, { status: 'reversed', note: 'The report referred to a different incident.' });
   expect(await rows('select user_id,report_id::int,appeal_status,statement from public.mod_actions where id=$1', [action_id])).toEqual([
    { user_id: b, report_id: report.id, appeal_status: 'reversed', statement: `What happened: A repeated preset disrupted this game.\nThe rule: Terms: no harassment.\n${APPEAL}` }]);
   expect(await owner.show(report.id)).toMatchObject({ id: report.id, reporter_id: a, reported_id: b, note, actions: [{ id: action_id, appeal_status: 'reversed' }] });
+  const notices = await accounts.notices(b);
+  expect(notices.notices).toMatchObject([{ kind: 'appeal', action_id, status: 'reversed', text: 'The report referred to a different incident.' }, { kind: 'moderation', action_id }]);
+  expect(JSON.stringify(notices)).not.toContain('support/mail-001');
+  expect((await accounts.notices(a)).notices).toEqual([]);
  }, 30000);
 
  it('requires the moderation connection and validates support actor, target and evidence before inserting', async () => {
