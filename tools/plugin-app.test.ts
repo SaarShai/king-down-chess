@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
-import { startHarness } from './plugin-ui-harness';
+import { startHarness, waitForSourceApp } from './plugin-ui-harness';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string;
 let harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -13,7 +13,7 @@ beforeAll(async () => { folder = await mkdtemp(join(tmpdir(), 'kingdown-app-test
   harness = await startHarness({ boardPath, sourcePage: true }); browser = await chromium.launch({ headless: true }); });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
 async function open(url = harness.url) {
-  const page = await browser.newPage(); page.setDefaultTimeout(5000); await page.goto(url);
+  const page = await browser.newPage(); page.setDefaultTimeout(5000); await page.goto(url); await waitForSourceApp(page);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   return page;
 }
@@ -801,7 +801,7 @@ it('draws Maester swap marks through the shared board adapter', async () => {
     };
   });
   try {
-    await page.goto(harness.url); const frame = page.frameLocator('iframe');
+    await page.goto(harness.url); await waitForSourceApp(page); const frame = page.frameLocator('iframe');
     await frame.locator('#home-play:not(:disabled)').waitFor();
     await expand(page);
     const seeded = await (await page.request.post(new URL('/fixture-position?case=swap', harness.url).href)).json();
@@ -2238,7 +2238,7 @@ it('opens the hall on a first host fullscreen mount without a display request or
   page.setDefaultTimeout(5000);
   try {
     await page.addInitScript(() => { (window as any).harnessDisplayMode = 'fullscreen'; });
-    await page.goto(harness.url);
+    await page.goto(harness.url); await waitForSourceApp(page);
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await frame.locator('#setup-start:not(:disabled)').waitFor();
     expect(await page.evaluate(() => (window as any).harnessDisplayRequests ?? [])).toEqual([]);

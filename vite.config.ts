@@ -1,3 +1,4 @@
+import { pluginSymbols } from './tools/lib/plugin-symbols.mjs';
 import { defineConfig, type Plugin } from 'vitest/config';
 import { createHash } from 'node:crypto';
 import { cpSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -10,7 +11,7 @@ const walk = (dir: string): string[] => readdirSync(dir).flatMap(name => {
 });
 
 /** Code a player may never need: the Supabase client (only for an account). */
-const onDemand = /\/src\/account\/client\.ts$/;
+const onDemand = /\/src\/(?:account\/client|online\/entry)\.ts$/;
 
 /** Select the local graph and the public art, fonts and icons that it uses. */
 export function offlineCacheFiles(bundle: OutputBundle, root: string, files: string[]) {
@@ -80,7 +81,10 @@ export default defineConfig({
   preview: { host: '127.0.0.1' },
   worker: { format: 'es' },
   build: { copyPublicDir: false },
-  plugins: [offlineBuild()],
+  plugins: [pluginSymbols(), { name: 'shared-seat-selectors', enforce: 'pre', transform(code, id) {
+    if (!id.endsWith('.css')) return;
+    return code.replace(/#(game-table|strip-me|strip-them|context-line|context-text|moves-line|last-move|table-bar)\b/g, ':is(#$1,[data-seat-id="$1"])');
+  } }, offlineBuild()],
   // Vitest collects the source, tools and Claude hook tests. docs/2d-first-pieces uses node:test (npm test).
   test: { environment: 'node', env: { KINGDOWN_INTERNAL_SECRET: 'kingdown-test-internal-secret-not-for-live-use' }, include: process.env.KINGDOWN_TEST_FILE ? [process.env.KINGDOWN_TEST_FILE] : ['src/**/*.test.ts', 'tools/**/*.test.ts', '.claude/hooks/**/*.test.ts'] },
 });

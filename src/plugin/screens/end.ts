@@ -1,4 +1,4 @@
-import { call, client, memory, pollUpdate, routeView, showNewGame, store } from '../app';
+import { call, client, memory, pollUpdate, routeView, showNewGame, store } from '../../account-game/runtime';
 import { art } from '../../account-game/art';
 import { ending, endReason } from '../ending';
 import type { PollTarget } from '../poll';

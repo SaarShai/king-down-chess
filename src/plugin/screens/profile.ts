@@ -1,5 +1,5 @@
 import { formatDate, gameDetail, waitingLine } from '../../account-game/games-list';
-import { call, client, navigate, routeView } from '../app';
+import { call, client, navigate, routeView } from '../../account-game/runtime';
 import { art, symbols } from '../../account-game/art';
 import { WHY } from '../ending';
 import { BADGES, type Badge } from '../../match/badges';

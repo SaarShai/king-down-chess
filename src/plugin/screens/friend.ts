@@ -1,5 +1,5 @@
 import { features, icon } from '../../account-game/features';
-import { call, client, memory, navigate, renderGameRows, routeView } from '../app';
+import { call, client, memory, navigate, renderGameRows, routeView } from '../../account-game/runtime';
 import { art } from '../../account-game/art';
 import { formatDate } from '../../account-game/games-list';
 import { friendInvites as codes, inviteText, sendInvite } from '../invite';

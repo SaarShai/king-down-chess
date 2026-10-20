@@ -1,4 +1,4 @@
-import { client, memory, navigate, routeView, send } from '../app';
+import { client, memory, navigate, routeView, send } from '../../account-game/runtime';
 import type { JoinPreview } from '../../match/protocol';
 import type { Page } from '../../account-game/state';
 import { $, onStop, portrait, row, showError, toolError } from './friend';

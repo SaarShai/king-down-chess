@@ -8,3 +8,6 @@ body { height: auto; min-height: 100dvh; overflow: auto; }
 @container table-screen (max-width: 319px) {
   #app-root #game-table .player-strip:has(.card-coin) { min-height: 56px; }
 }
+.account-entry { width: min(100% - 32px, 420px); margin: 12vh auto; display: grid; gap: 16px; }
+.account-entry h1, .account-entry p { margin: 0; }
+.account-entry a { text-align: center; }

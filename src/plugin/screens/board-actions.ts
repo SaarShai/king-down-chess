@@ -1,5 +1,5 @@
 import { errorText } from '../../account-game/types';
-import { call, client, memory } from '../app';
+import { call, client, memory } from '../../account-game/runtime';
 import type { View } from '../../match/protocol';
 import { boardSheet, closeBoardSheet, sendBoardCommand } from './board';
 import { boardActions } from './board-model';

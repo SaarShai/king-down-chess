@@ -1,3 +1,4 @@
+import type { Page } from 'playwright';
 import { randomUUID } from 'node:crypto';
 import { createServer as createHttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -175,4 +176,9 @@ if (resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
   const harness = await startHarness({ boardPath: process.argv[2], endpoint: process.env.PLUGIN_MCP_URL ? new URL(process.env.PLUGIN_MCP_URL) : undefined, actor: process.env.PLUGIN_DEV_ACTOR, friendActor: process.env.PLUGIN_FRIEND_ACTOR });
   console.log(`Local SDK host: ${harness.url}`);
   for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, async () => { await harness.close(); process.exit(); });
+}
+
+/** Source module exports must exist before tests call them; an enabled control can precede the import's completion. */
+export async function waitForSourceApp(page: Page): Promise<void> {
+  await page.frameLocator('iframe').locator('html').evaluate("async () => { await window.harnessBoot; window.harnessApp = await import('/src/plugin/app.ts'); }");
 }

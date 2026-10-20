@@ -5,7 +5,7 @@ import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
-import { startHarness } from './plugin-ui-harness';
+import { startHarness, waitForSourceApp } from './plugin-ui-harness';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => { folder = await mkdtemp(join(tmpdir(), 'kingdown-races-test-'));
@@ -24,7 +24,7 @@ async function open({ width = 393, height = 852, top = 0, bottom = 0 } = {}) {
 const html = (page: Page) => page.frameLocator('iframe').locator('html');
 const widget = (page: Page) => page.mainFrame().childFrames()[0];
 // The frame load does not wait for the source module's dynamic import.
-const sourceReady = (page: Page) => page.frameLocator('iframe').locator('#home-play').evaluate("async () => { await window.harnessBoot; await import('/src/plugin/app.ts'); }");
+const sourceReady = waitForSourceApp;
 // A view and a widget write can precede the mount's last list read and control unlock.
 const mounted = (page: Page) => html(page).evaluate(async () => { await (window as any).harnessApp.queue.mountJob()?.promise; });
 const tool = async (page: Page, path: string, name: string, args: Record<string, unknown> = {}) => (await page.request.post(new URL(path, harness.url).href, { data: { name, arguments: args } })).json();
@@ -67,6 +67,7 @@ async function watch(page: Page) {
 async function nextWrite(page: Page, show: () => Promise<unknown>) {
   const writes = await page.evaluate(() => (window as any).harnessWidgetStates.length);
   await show(); await page.waitForFunction(n => (window as any).harnessWidgetStates.length > n, writes);
+  await sourceReady(page);
 }
 
 it('counts a held call in the host and in the frame until its release', async () => {

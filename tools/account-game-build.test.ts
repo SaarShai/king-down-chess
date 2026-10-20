@@ -10,7 +10,7 @@ const root = resolve('.');
 const forbidden = /\/src\/(?:api\/http|plugin\/(?:settings|server|auth)|(?:match|account)\/(?:store|service)|main|account\/sync)\.[tm]s(?:\?|$)|\/node_modules\/pg\//;
 function browserGuard() {
   return { name: 'account-browser-boundary', enforce: 'pre' as const,
-    resolveId(source: string) { if (source.startsWith('node:') || source === 'pg') throw new Error(`Server import in browser: ${source}`); },
+    resolveId(source: string) { if (source.startsWith('node:') || source === 'pg' || source.startsWith('@modelcontextprotocol/')) throw new Error(`Server import in browser: ${source}`); },
     transform(_code: string, id: string) {
       if (forbidden.test(id)) throw new Error(`Server import in browser: ${id}`);
     },
@@ -52,22 +52,17 @@ it('builds the shared hall and web adapters without a server or local controller
     expect(source.indexOf('#app-root :is(button:focus,')).toBeGreaterThan(source.indexOf('--focus:#2b2621;--focus-gold:#e9c071'));
     expect(source).toContain('outline:2px solid var(--focus);outline-offset:0;scroll-margin:5px;box-shadow:0 0 0 4px var(--focus-gold)!important');
     expect(source).toContain('#app-root button.emblem{transition:transform 80ms ease-out,background-color .12s}');
-    expect(source).toContain('#app-root #game-table .coin[data-state=armed]:focus{box-shadow:0 0 0 4px var(--focus-gold), inset 0 0 0 2px var(--focus), inset 0 0 0 5px var(--focus-gold)!important}');
     expect(source).not.toContain('--focus-halo');
     expect(source).toContain('#app-root .seg-row label:has(input:focus){outline-offset:-2px;box-shadow:inset 0 0 0 4px var(--focus-gold)!important}');
     expect(source).toContain('#app-root label.mode:has(input:focus){outline-offset:-2px;box-shadow:inset 0 0 0 6px var(--focus-gold)!important}');
     expect(source).toContain('#app-root label:has(input:focus){opacity:1}');
     expect(source).toContain('@container table-screen (width<=319px){#app-root #game-table .coin-row{padding:4px}}');
-    expect(source).toContain('#app-root #game-table .coin:focus{z-index:1}');
-    expect(source).toContain('#app-root #game-table .coin[data-state=used]:focus{filter:none}');
-    expect(source).toContain('#app-root #game-table .coin[data-state=used]:focus img{filter:grayscale()}');
-    expect(source).toContain('#app-root #game-table .coin.card-coin[data-state=used]:focus img{filter:brightness(.4)grayscale()}');
-    expect(source).toContain('filter:brightness(.4)');
-    expect(source).toContain('.card-coin:is([data-state=used],:has(.cc-word)) img{filter:brightness(.4)}');
+    expect(source).toContain('#app-root #game-table .coin:focus{z-index:1;outline-offset:-2px;box-shadow:inset 0 0 0 4px var(--focus-gold)!important}');
+    expect(source).toContain('#app-root #game-table .coin.card-coin[data-state=used]>.coin-paint{opacity:.85;border-color:var(--stone-500);--card-ring:var(--stone-500)}');
     for (const token of ['focus', 'focus-gold']) expect(source.match(new RegExp(`--${token}:`, 'g'))).toHaveLength(1);
     expect(source).toContain('@container table-screen (width<=319px){#app-root #game-table .player-strip:has(.card-coin){min-height:56px}}');
-    const coin = source.match(/#app-root #game-table \.coin\{([^}]+)\}/)?.[1];
-    for (const property of ['width', 'height', 'min-width', 'min-height']) expect(coin).toContain(`${property}:48px`);
+    const coins = [...source.matchAll(/#app-root #game-table \.coin\{([^}]+)\}/g)].map(match => match[1]);
+    for (const property of ['width', 'height', 'min-width', 'min-height']) expect(coins.some(rule => rule.includes(`${property}:48px`)), property).toBe(true);
   } finally { await rm(folder, { recursive: true, force: true }); }
 });
 it('rejects a real server runtime import before it enters the browser output', async () => {
@@ -75,5 +70,17 @@ it('rejects a real server runtime import before it enters the browser output', a
   try {
     await writeFile(entry, `import * as server from ${JSON.stringify(join(root, 'src/api/http.ts'))}; window.server = server;`);
     await expect(compile(entry, join(folder, 'out'))).rejects.toThrow('Server import in browser');
+  } finally { await rm(folder, { recursive: true, force: true }); }
+});
+
+it('builds the complete web game runtime without the MCP SDK or server modules', async () => {
+  const folder = await mkdtemp(join(tmpdir(), 'kingdown-web-runtime-')), entry = join(folder, 'entry.js');
+  try {
+    await writeFile(entry, [
+      `import { configureRuntime } from ${JSON.stringify(join(root, 'src/account-game/host.ts'))};`,
+      `import { createBrowserRuntime } from ${JSON.stringify(join(root, 'src/online/runtime.ts'))};`,
+      `window.accountGame = { configureRuntime, createBrowserRuntime, load: () => import(${JSON.stringify(join(root, 'src/account-game/runtime.ts'))}) };`,
+    ].join('\n'));
+    await compile(entry, join(folder, 'out'));
   } finally { await rm(folder, { recursive: true, force: true }); }
 });

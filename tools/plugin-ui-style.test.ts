@@ -13,7 +13,7 @@ it('imports game tokens and components without lesson, account or title lineup r
     expect(/lesson-progress|account-body|account-who|delete-account|title-lineup/.test(css)).toBe(false);
     expect(html).toContain('id="i-sword"');
     expect(css).toContain('.menu-row .game-detail');
-    expect(await readFile('src/plugin/app.ts', 'utf8')).toContain("import '../account-game/content.css'");
+    expect(await readFile('src/account-game/runtime.ts', 'utf8')).toContain("import '../account-game/content.css'");
     expect(await readFile('src/plugin/app.css', 'utf8')).not.toContain('.menu-row .game-detail');
     expect(html).toMatch(/id="end-turn"[^>]*aria-label="End turn"[^>]*><svg[^>]*>.*?<\/svg><\/button>/);
     expect(await readFile('public/support.html', 'utf8')).toContain('Sword by Studio Danro from Noun Project (CC BY 3.0)');
@@ -30,7 +30,7 @@ it('imports game tokens and components without lesson, account or title lineup r
     expect(flat).toContain('#app-root button.emblem{transition:transform 80ms ease-out,background-color .12s}');
     const shared = await readFile('src/account-game/content.css', 'utf8');
     const plugin = await readFile('src/plugin/app.css', 'utf8');
-    const entry = await readFile('src/plugin/app.ts', 'utf8');
+    const entry = await readFile('src/account-game/runtime.ts', 'utf8');
     const base = await readFile('src/style.css', 'utf8');
     expect(base).toMatch(/:root\s*\{[^}]*--focus: #2b2621;[^}]*--focus-gold: #e9c071;/s);
     for (const token of ['focus', 'focus-gold']) expect(base.match(new RegExp(`--${token}:`, 'g'))).toHaveLength(1);
@@ -39,7 +39,7 @@ it('imports game tokens and components without lesson, account or title lineup r
     expect(focusRules).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
     expect(shared.match(/outline: 2px solid var\(--focus\)/g)).toHaveLength(1);
     expect(plugin).not.toMatch(/:focus|--focus:|data-state=['"]used['"]/);
-    expect(entry.indexOf("import '../account-game/content.css'")).toBeGreaterThan(entry.indexOf("import './app.css'"));
+    expect(entry.indexOf("import '../account-game/content.css'")).toBeGreaterThan(entry.indexOf("import '../plugin/app.css'"));
     expect(flat.indexOf('#app-root :is(button:focus,')).toBeGreaterThan(flat.lastIndexOf('@keyframes card-spend'));
     expect(flat.indexOf('#app-root :is(button:focus,')).toBeGreaterThan(flat.indexOf('--focus:#2b2621'));
     for (const token of ['focus', 'focus-gold']) expect(flat.match(new RegExp(`--${token}:`, 'g'))).toHaveLength(1);

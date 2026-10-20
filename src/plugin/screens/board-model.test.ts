@@ -338,3 +338,14 @@ test('a failed ordinary move send names Retry for an unused card after the draft
   expect(cardUseReason(coin, 0, game, pos, false, page)).toBe('Close this sheet and select Retry.');
   expect(cardUseReason(coin, 0, game, pos, false, { ...page, writing: true })).toBe('Wait for the current action to finish.');
 });
+
+test('a scoped draft requires the complete account, game, revision and rules', () => {
+  const { steps } = stage(HASTE, ['Ra1-a4!H'], hasteRules);
+  const base = view({ game_id: '12345678-private-a', fen: HASTE, turn: 0, action: 'ready', legal: ['Ra1-a4!H'] });
+  const saved = { game_tag: '12345678', fen: HASTE, lans: ['Ra1-a4!H'], scope: { account: 'account-a', game: base.game_id, revision: base.revision, rules: JSON.stringify(hasteRules) } };
+  expect(restoreDraft(base, saved, hasteRules, 'account-a')).toEqual(steps);
+  expect(restoreDraft(base, saved, hasteRules, 'account-b')).toBeUndefined();
+  expect(restoreDraft({ ...base, game_id: '12345678-private-b' }, saved, hasteRules, 'account-a')).toBeUndefined();
+  expect(restoreDraft({ ...base, revision: base.revision + 1 }, saved, hasteRules, 'account-a')).toBeUndefined();
+  expect(restoreDraft(base, saved, { ...hasteRules, hasteCaptures: true }, 'account-a')).toBeUndefined();
+});

@@ -1,4 +1,4 @@
-import { call, client, memory, navigate, routeView, send, start } from '../app';
+import { call, client, memory, navigate, routeView, send, start } from '../../account-game/runtime';
 import { DEFAULT_OPTIONS, switches } from '../../match/setup';
 import type { InboxEntry, Lobby, View } from '../../match/protocol';
 import type { PollTarget } from '../poll';

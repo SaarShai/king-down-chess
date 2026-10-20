@@ -17,7 +17,7 @@ const asset = (name: string, assets: string[] = []) => ({
 
 function fixture() {
   const output = [
-    chunk('assets/root.js', join(root, 'index.html'), [], ['assets/main.js']),
+    chunk('assets/root.js', join(root, 'index.html'), [], ['assets/main.js', 'assets/web-entry.js']),
     chunk('assets/main.js', join(root, 'src/main.ts'), ['assets/shared.js'], ['assets/workshop.js', 'assets/client.js'], ['assets/main.css'], ['assets/worker.js']),
     chunk('assets/shared.js', null, ['assets/main.js']),
     chunk('assets/workshop.js', join(root, 'src/workshop/ground.ts'), [], ['assets/lesson.js']),
@@ -26,6 +26,8 @@ function fixture() {
     chunk('assets/account.js', join(root, 'src/online/account.ts'), [], [], ['assets/account.css'], ['assets/account.webp']),
     chunk('assets/client.js', join(root, 'src/account/client.ts'), ['assets/vendor.js']),
     chunk('assets/vendor.js', null),
+    chunk('assets/web-entry.js', join(root, 'src/online/entry.ts'), ['assets/private-runtime.js']),
+    chunk('assets/private-runtime.js', join(root, 'src/account-game/runtime.ts')),
     asset('assets/worker.js'), asset('assets/main.css', ['assets/font.woff2', 'assets/local.webp']),
     asset('assets/font.woff2'), asset('assets/local.webp'), asset('assets/main.js.map'),
     asset('assets/account.css'), asset('assets/account.webp'), asset('play.html'), asset('.vite/manifest.json'),
@@ -56,7 +58,7 @@ it('excludes other entries, account-only output, maps, metadata, auth and legal 
   const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
   const excluded = files.filter(file => !allowlist.includes(file));
   expect(excluded).toEqual(expect.arrayContaining([
-    'assets/play.js', 'assets/account.js', 'assets/account.css', 'assets/account.webp', 'assets/client.js', 'assets/vendor.js',
+    'assets/web-entry.js', 'assets/private-runtime.js', 'assets/play.js', 'assets/account.js', 'assets/account.css', 'assets/account.webp', 'assets/client.js', 'assets/vendor.js',
     'assets/main.js.map', 'play.html', 'sw.js', '.vite/manifest.json', 'consent.mjs', 'auth/callback.html',
     'privacy.html', 'terms.html', 'support.html', 'delete-data.html', 'ui/consent.mjs', 'ui/private.html', 'fonts/license.txt', 'icons/account.json',
     '.well-known/openai-apps-challenge', '.well-known/oauth-protected-resource',

@@ -1,4 +1,4 @@
-import { actions, call, client, memory, navigate, queue, routeView, start, store } from '../app';
+import { actions, call, client, memory, navigate, queue, routeView, start, store } from '../../account-game/runtime';
 import type { Job, JobOptions } from '../queue';
 import { art } from '../../account-game/art';
 import { cardArt } from '../card-face';

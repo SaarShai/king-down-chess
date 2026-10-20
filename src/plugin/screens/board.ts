@@ -21,7 +21,7 @@ import { cardDiagram } from '../../card-diagram';
 import { pieceIcon } from '../../piece-icons';
 import { snd } from '../../render/sfx';
 import '../../ceremony.css';
-import { client, memory, navigate, queue, routeView, send } from '../app';
+import { client, memory, navigate, queue, routeView, send } from '../../account-game/runtime';
 import { locks, noticeShows, pendingHere, staleRead, type Page, type Store } from '../../account-game/state';
 import { nextGame } from '../../account-game/next-game';
 import { actionButtons, playerBlockButton } from './board-actions';
@@ -103,8 +103,8 @@ export function boardScreen(store: Store) {
   const sending = () => { const page = store.page(); return page.writing || (pendingHere(page) && !page.pending!.error); };
   const blocked = () => networkBlocked() || animating;
   const mode = () => view!.kind === 'solo' ? 'computer' : 'link';
-  // W7 ticket 04: the unsent turn lives in widget state as a short tag, the base FEN and its LANs. The game ID never goes.
-  const saveDraft = () => { client.state.draft = view && steps.length ? { game_tag: view.game_id.slice(0, 8), fen: view.fen, lans: steps.map(step => step.lan) } : undefined; client.save(); };
+  // A reload restores a draft only in the same account, complete game, revision and rules.
+  const saveDraft = () => { client.state.draft = view && steps.length ? { game_tag: view.game_id.slice(0, 8), fen: view.fen, lans: steps.map(step => step.lan), scope: { account: client.accountId, game: view.game_id, revision: view.revision, rules: JSON.stringify(view.rules) } } : undefined; client.save(); };
   const dropDraft = () => { if (client.state.draft) { client.state.draft = undefined; client.save(); } };
   const turn = () => draftTurn(steps, pos!, mode(), view!.seat);
   const canPlay = () => !!view && !!pos && !blocked() && view.action === 'ready' && view.status === 'playing' && !turn().waits;
@@ -572,11 +572,10 @@ export function boardScreen(store: Store) {
     else if (same && before?.revision !== next.revision) {
       if (local.length && toFen(local.at(-1)!.pos) === next.fen) { history.push(...local); lastMove = local.at(-1); } else lastMove = undefined;
     }
-    // W7 ticket 04: a saved draft comes back when the tag, the base FEN, the ready state and a legal replay agree.
-    // A moved FEN, another game or an ended game drops it; a draw offer or a preset keeps it (the base FEN is the key).
+    // Restore only a draft of this authoritative base and a legal replay.
     const savedDraft = client.state.draft, draftRules = view.rules;
     if (savedDraft && draftRules) {
-      const draftSteps = restoreDraft(view, savedDraft, draftRules);
+      const draftSteps = restoreDraft(view, savedDraft, draftRules, client.accountId);
       if (draftSteps?.length) { steps = draftSteps; lastMove = draftSteps.at(-1)!; pos = draftSteps.at(-1)!.pos; }
       else dropDraft();
     }

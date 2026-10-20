@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Browser, Locator, Page } from 'playwright';
 import { launch, STEP } from './lib/checks.mjs';
-import { startHarness } from './plugin-ui-harness';
+import { startHarness, waitForSourceApp } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
 import { P, R, N, L, inCheck, legalMoves, makeMove, parseRule, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import type { View } from '../src/match/protocol';
@@ -70,7 +70,7 @@ async function open(next: View, width = 393, height = 852, clock = false, limit 
   // CI WebKit once closed one page in the middle of a test, with no error of its own (ticket 49).
   page.on('crash', () => console.error('The test page crashed'));
   if (clock) await page.clock.install();
-  await page.goto(harness.url);
+  await page.goto(harness.url); await waitForSourceApp(page);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
   await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
@@ -1701,7 +1701,7 @@ it.each(['teardown', 'close'] as const)('keeps the player strips fixed when a pr
   const page = await browser.newPage(); page.setDefaultTimeout(3000 * STEP);
   const frame = page.frameLocator('iframe');
   try {
-    await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').waitFor();
+    await page.goto(harness.url); await waitForSourceApp(page); await frame.locator('#home-play:not(:disabled)').waitFor();
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_profile'; });
     await page.route('**/fixture-tool', route => route.request().postDataJSON()?.name === 'kingdown_profile'
       ? route.fulfill({ json: { content: [], _meta: { record: { rating: { rating: 1900, provisional: false } } } } }) : route.continue());

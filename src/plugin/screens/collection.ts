@@ -1,4 +1,4 @@
-import { client } from '../app';
+import { client } from '../../account-game/runtime';
 import { art } from '../../account-game/art';
 import { DEAL_CARDS, POOL_KINDS } from '../../match/setup';
 import { LETTERS, NAMES, type PieceType } from '../../rules/engine';

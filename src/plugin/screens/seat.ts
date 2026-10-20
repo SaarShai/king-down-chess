@@ -1,4 +1,4 @@
-import { call, client, gameActionsBlocked, memory, navigate, routeView } from '../app';
+import { call, client, gameActionsBlocked, memory, navigate, routeView } from '../../account-game/runtime';
 import type { Job } from '../queue';
 import { art } from '../../account-game/art';
 import { board, highlight } from '../board-view';

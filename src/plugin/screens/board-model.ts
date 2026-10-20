@@ -1,3 +1,4 @@
+import type { Draft } from '../client';
 import type { View } from '../../match/protocol';
 import { inCheck, legalMoves, makeMove, setRules, status, TAG_POWER, type CardName, type Color, type Move, type Position, type Rules } from '../../rules/engine';
 import { fromFen, toFen, toLan } from '../../rules/setup';
@@ -63,8 +64,9 @@ export function draftChoices(view: View, pos: Position, steps: readonly BoardMov
   return legalMoves(pos).map(move => ({ lan: toLan(pos, move), move })).filter(({ lan }) => steps.length > 0 || view.legal.includes(lan));
 }
 
-export function restoreDraft(view: View, saved: { game_tag: string; fen: string; lans: readonly string[] } | undefined, rules: Partial<Rules>): BoardMove[] | undefined {
+export function restoreDraft(view: View, saved: Draft | undefined, rules: Partial<Rules>, account?: string): BoardMove[] | undefined {
   if (!saved || saved.game_tag !== view.game_id.slice(0, 8) || saved.fen !== view.fen || view.action !== 'ready' || view.status !== 'playing') return;
+  if (account !== undefined && (!saved.scope || saved.scope.account !== account || saved.scope.game !== view.game_id || saved.scope.revision !== view.revision || saved.scope.rules !== JSON.stringify(rules))) return;
   setRules(rules);
   let pos = fromFen(view.fen);
   const steps: BoardMove[] = [];
