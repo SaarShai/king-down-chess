@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash, randomUUID, X509Certificate } from 'node:crypto';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
-import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
@@ -218,10 +218,24 @@ try {
     assert.deepEqual(await durable(setup.game_id), pending, 'Accepted Ready receipt remains valid after recovery');
     const next = await ok(actors[0], 'kingdown_move', { game_id: initial.game_id, command_id: 'recovery-next', expected_revision: before.revision, actions: [beforeView.legal.find(lan => !lan.includes('!'))] });
     assert.equal(next._meta.view.revision, before.revision + 1);
-    const continued = await durable(initial.game_id);
-    assert.equal(continued.commands, before.commands + 1); assert.equal(continued.engine_fingerprint, before.engine_fingerprint);
+    const afterHuman = await durable(initial.game_id), afterHumanView = await get(initial.game_id);
+    assert.equal(afterHuman.commands, before.commands + 1); assert.equal(afterHuman.engine_fingerprint, before.engine_fingerprint);
+    assert.equal(JSON.parse(afterHuman.state).engine, before.engine_fingerprint);
+    assert.equal(afterHuman.ratings, before.ratings); assert.equal(afterHuman.events, before.events);
+    const recoveryComputer = { game_id: initial.game_id, command_id: 'recovery-computer', expected_revision: afterHuman.revision };
+    const computerTurn = await ok(actors[0], 'kingdown_computer', recoveryComputer);
+    assert.equal(computerTurn._meta.view.revision, afterHuman.revision + 1);
+    const continued = await durable(initial.game_id), computerView = await get(initial.game_id), receipt = continued.command_rows.at(-1);
+    assert.equal(continued.commands, afterHuman.commands + 1); assert.equal(continued.engine_fingerprint, before.engine_fingerprint);
     assert.equal(JSON.parse(continued.state).engine, before.engine_fingerprint);
-    assert.equal(continued.ratings, before.ratings); assert.equal(continued.events, before.events);
+    assert.equal(receipt.command_id, recoveryComputer.command_id); assert.equal(receipt.kind, 'computer');
+    assert.deepEqual(receipt.payload, { expected_revision: afterHuman.revision, action: { type: 'computer' } });
+    assert(receipt.actions.length > 0); assert(afterHumanView.legal.length === 0);
+    assert.deepEqual(computerView.history.actions, [...afterHumanView.history.actions, ...receipt.actions]);
+    assert.deepEqual((await ok(actors[0], 'kingdown_computer', recoveryComputer)).structuredContent, computerTurn.structuredContent);
+    const computerConflict = await tool(actors[0], 'kingdown_computer', { ...recoveryComputer, expected_revision: recoveryComputer.expected_revision + 1 });
+    assert(computerConflict.isError); assert.equal(computerConflict._meta.code, 'COMMAND_CONFLICT');
+    assert.deepEqual(await durable(initial.game_id), continued, 'Fresh computer receipt retry and conflict must preserve all scoped durable effects');
     const finishedSetup = await ok(actors[1], 'kingdown_choose', { game_id: setup.game_id, command_id: 'recovery-ready-black', expected_revision: pending.revision, king: null, order: setup.draw, ready: true });
     assert.equal(finishedSetup._meta.view.status, 'playing');
     const setupView = await get(setup.game_id);
@@ -237,7 +251,30 @@ try {
       assert.deepEqual(position(await get(row.id)), position(views[i]), 'Fresh recovery service must reload the same full position');
       assert.deepEqual(await durable(row.id), row);
     }
-    console.log('Recovery artifact continuation passed', JSON.stringify({ release: { directory: resolve(process.argv[2] || 'plugin-server-dist'), ...releaseIdentity }, recovery: { directory: resolve(process.argv[3]), ...recoveryIdentity }, engines: archives[0].bundles.map(({ engine, sha256 }) => ({ engine, sha256 })), acceptedRetry: true, changedPayloadConflict: true, continuedRevision: continued.revision, completedSetupRevision: completed.revision }));
+    const { loadMatch } = await import(pathToFileURL(join(recoveryArtifact, 'runtime/index.mjs')).href);
+    const sourceArchives = new URL('../engines/', import.meta.url), archiveComputerChecks = [];
+    const fixtures = (await readdir(sourceArchives)).filter(file => /^[a-f0-9]{64}\.save\.json$/.test(file)).sort();
+    assert(fixtures.length > 0);
+    for (const file of fixtures) {
+      const hex = file.slice(0, -'.save.json'.length), engine = `sha256:${hex}`;
+      const fixture = await readFile(new URL(file, sourceArchives), 'utf8'), published = await readFile(new URL(`${hex}.mjs`, sourceArchives));
+      assert.equal(JSON.parse(fixture).engine, engine);
+      for (const directory of [artifact, recoveryArtifact]) assert.deepEqual(await readFile(join(directory, 'runtime/engines', `${hex}.mjs`)), published, 'Both artifacts must retain exact bytes for every supported fixture');
+      const match = await loadMatch(fixture); let restored;
+      try {
+        const before = await match.snapshot(), saved = await match.exportSave();
+        const lan = await match.chooseMove({ maxTimeMs: 50, maxDepth: 1 });
+        assert.equal(typeof lan, 'string'); assert(before.legal.includes(lan), 'Archived computer choice must be a legal LAN');
+        assert.equal(await match.exportSave(), saved, 'Choosing a move must not change an archived save');
+        const played = await match.apply({ id: randomUUID(), expectedRevision: before.revision, lan });
+        assert.equal(played.revision, before.revision + 1);
+        const after = await match.exportSave(); assert.equal(JSON.parse(after).engine, engine); assert.equal(JSON.parse(after).commands.at(-1).lan, lan);
+        restored = await loadMatch(after);
+        assert.deepEqual(await restored.snapshot(), played, 'Copied recovery runtime must reload the archived computer turn');
+        archiveComputerChecks.push({ engine, revision: played.revision });
+      } finally { await match.close(); await restored?.close(); }
+    }
+    console.log('Recovery artifact continuation passed', JSON.stringify({ release: { directory: resolve(process.argv[2] || 'plugin-server-dist'), ...releaseIdentity }, recovery: { directory: resolve(process.argv[3]), ...recoveryIdentity }, engines: archives[0].bundles.map(({ engine, sha256 }) => ({ engine, sha256 })), acceptedRetry: true, changedPayloadConflict: true, recoveryComputerRevision: continued.revision, archiveComputerChecks, continuedRevision: continued.revision, completedSetupRevision: completed.revision }));
   }
   console.log(`Compiled HTTP + real PostgreSQL: ${closedCases} default API closures with zero pool calls, ${unsafeCases} unsafe website-key refusals, off-switch closure, isolated website identity and full/since reads, open, move, AI, retry, foreign seat rejection, service restart/resume, friend code/join, board recovery, resource (${resource.bytes} JSON bytes), ${art.length} art files (${JSON.stringify(counts)}), and production auth gate passed`);
 } finally {
