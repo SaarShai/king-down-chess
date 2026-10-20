@@ -153,10 +153,31 @@ suite('finished game results in PostgreSQL', () => {
   expect((await games[0].history(a)).games.map(g => g.game_id)).toEqual([solo.game_id]);
   expect((await admin.query('select count(*)::int as n from public.rating_history where user_id=any($1)', [[a,b]])).rows[0].n).toBe(0);
  });
- it('rates checkmate and an engine draw through the same end path', async () => {
+ it('rates checkmate once across winning-turn retries and rates an engine draw through the same end path', async () => {
   const a = await user(), b = await user(), game = await friend(a, b);
-  for (const [index, lan] of ['f2-f3', 'e7-e5', 'g2-g4', 'Qd8-h4'].entries())
+  for (const [index, lan] of ['f2-f3', 'e7-e5', 'g2-g4'].entries())
    await games[0].command(index % 2 ? b : a, game.game_id, command(index + 1, { type: 'turn', actions: [lan] }));
+  const winningTurn = command(4, { type: 'turn', actions: ['Qd8-h4'] });
+  const mate = await games[0].command(b, game.game_id, winningTurn);
+  expect(mate).toMatchObject({ revision: 5, status: 'finished', result: { winner: 1, reason: 'checkmate' } });
+  const effects = async () => ({
+   counts: (await admin.query(`select
+    (select count(*)::int from public.game_commands where game_id=$1 and command_id=$2) as receipt,
+    (select count(*)::int from public.game_commands where game_id=$1 and kind='turn') as turns,
+    (select count(*)::int from public.outbox where kind='game_finished' and payload->>'game_id'=$1::text) as results`, [game.game_id, winningTurn.command_id])).rows[0],
+   history: (await admin.query('select * from public.rating_history where game_id=$1 order by user_id', [game.game_id])).rows,
+   ratings: (await admin.query('select * from public.player_ratings where user_id=any($1) order by user_id', [[a,b]])).rows,
+  });
+  const recorded = await effects();
+  expect(recorded.counts).toEqual({ receipt: 1, turns: 4, results: 1 });
+  expect(recorded.history).toHaveLength(2);
+  // Both instances receive the same accepted winning turn again after the game has finished.
+  for (const retry of await Promise.all(games.map(service => service.command(b, game.game_id, winningTurn))))
+   expect(retry).toEqual({ ...mate, server_now: expect.any(String) });
+  await expect(games[1].command(b, game.game_id, { ...winningTurn, action: { type: 'turn', actions: ['Qd8-e7'] } })).rejects.toMatchObject({ code: 'COMMAND_CONFLICT' });
+  expect(await effects()).toEqual(recorded);
+  expect((await games[0].record(a)).totals).toEqual({ played: 1, won: 0, drawn: 0, lost: 1 });
+  expect((await games[1].record(b)).totals).toEqual({ played: 1, won: 1, drawn: 0, lost: 0 });
   expect((await games[0].history(b)).games[0]).toMatchObject({ result: 'won', reason: 'checkmate' });
   expect((await games[0].record(b)).rating.rating).toBeGreaterThan(1500);
   const draw = await friend(a, b, { setup: { fen: '7k/8/8/8/8/4r3/3B4/2K5 w - - 0 1', kings: 'none,none' } });
