@@ -50,7 +50,7 @@ export interface Highlights {
  * The read of an enemy piece shows the same legend marks at half strength.
  * Show threats (the Workshop's threats): a red glow under each piece that an enemy can take, and a faint red arrow from
  * each attacker to it, over the figures.
- * The selected piece stands in a gold glow, with a thin gold ring over the figures. When a piece is selected the marks appear together. The legend marks then stand still; while
+ * The selected piece stands in a gold glow, with a thin gold ring over the figures. When a piece is selected the marks ripple out from it. The legend marks then stand still; while
  * motion is allowed the swap, shove and rune marks keep moving (riding the selected figure's ~30 fps idle).
  * The square under the pointer (or the keyboard cursor) gets a gold-bright edge and a larger badge; on a move
  * it also shows a faint copy of the piece standing there.
@@ -77,6 +77,7 @@ export interface MarkState {
 }
 
 export const POP_MS = 300;
+export const RIPPLE_MS = 38;
 
 const TAU = Math.PI * 2;
 const clamp = (x: number, a: number, b: number) => Math.min(b, Math.max(a, x));
@@ -113,7 +114,11 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
   const { PAD, TILE } = scene, m = s.marks, k = s.k;
   const now = performance.now();
   const from = m.selected != null ? scene.cell(m.selected) : null;
-  const appear = (_sq: number): number => s.motion ? backOut((now - s.since) / POP_MS) : 1;
+  const appear = (sq: number): number => {
+    if (!s.motion) return 1;
+    const c = scene.cell(sq), d = from ? Math.hypot(c.col - from.col, c.row - from.row) : 0;
+    return backOut((now - s.since - d * RIPPLE_MS) / POP_MS);
+  };
   const time = s.motion ? now / 1000 : 0.6;
   const pulse = (sq: number) => 0.5 + 0.5 * Math.sin(time * TAU - sq * 0.7);
   const box = (sq: number) => { const c = scene.cell(sq); return { x: PAD + c.col * TILE, y: PAD + c.row * TILE }; };

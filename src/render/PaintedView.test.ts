@@ -10,23 +10,24 @@ const { reducedMotion, lively, aim, decorate } = vi.hoisted(() => ({ reducedMoti
 let resolveLoad: () => void = () => {};
 let pickedSquare: number | null = null;
 vi.mock('../../docs/2d-first-pieces/board/scene.mjs', () => ({
-  createScene: () => new Proxy({ load: () => new Promise<void>(r => { resolveLoad = r; }), squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim, setDecorate: decorate, animating: false, PAD: 32, TILE: 112, cell: (sq: number) => ({col:sq % 8,row:7 - (sq >> 3)}) } as Record<string, unknown>,
+  createScene: () => new Proxy({ load: () => new Promise<void>(r => { resolveLoad = r; }), squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim, setDecorate: decorate, animating: false, falling: false, PAD: 32, TILE: 112, cell: (sq: number) => ({col:sq % 8,row:7 - (sq >> 3)}) } as Record<string, unknown>,
     { get: (t, k: string) => k in t ? t[k] : () => {} }),
 }));
 
 const frames: FrameRequestCallback[] = [];
 const listeners = new Map<string, EventListener>();
+const documentListeners = new Map<string, EventListener>();
 function stubDom() {
   const el = () => ({ style: {} as Record<string, string>, classList: { add() {}, toggle() {} },
     addEventListener(name: string, listener: EventListener) { listeners.set(name, listener); }, appendChild() {}, width: 0, height: 0,
-    getBoundingClientRect: () => ({ left: 0, top: 0, width: 960 }), setPointerCapture() {}, hasPointerCapture: () => true, releasePointerCapture() {} });
-  vi.stubGlobal('document', { createElement: el, addEventListener() {}, hidden: false });
+    getClientRects: () => [1], getBoundingClientRect: () => ({ left: 0, top: 0, width: 960 }), setPointerCapture() {}, hasPointerCapture: () => true, releasePointerCapture() {} });
+  vi.stubGlobal('document', { createElement: el, addEventListener(name: string, listener: EventListener) { documentListeners.set(name, listener); }, hidden: false });
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {} }));
   vi.stubGlobal('ResizeObserver', class { observe() {} });
   vi.stubGlobal('requestAnimationFrame', (f: FrameRequestCallback) => frames.push(f));
   return el();
 }
-afterEach(() => { vi.unstubAllGlobals(); frames.length = 0; listeners.clear(); pickedSquare = null; vi.clearAllMocks(); setRules({}); });
+afterEach(() => { vi.unstubAllGlobals(); frames.length = 0; listeners.clear(); documentListeners.clear(); pickedSquare = null; vi.clearAllMocks(); setRules({}); });
 
 describe('PaintedView first paint', () => {
   it('stays unready until the loaded scene is visible on its first frame', async () => {
@@ -111,7 +112,7 @@ describe('PaintedView motion setting', () => {
     for (const pace of ['normal', 'fast', 'off'] as const) {
       view.setPace(pace);
       expect(reducedMotion).toHaveBeenLastCalledWith(systemReduced || pace === 'off');
-      expect(lively).toHaveBeenLastCalledWith(expect.objectContaining({ moves: !systemReduced && pace !== 'off', idle: !systemReduced && pace !== 'off', pawns: false }));
+      expect(lively).toHaveBeenLastCalledWith(expect.objectContaining({ moves: !systemReduced && pace !== 'off', idle: !systemReduced && pace !== 'off', pawns: !systemReduced && pace !== 'off' }));
       view.highlight({ selected: 12, moves: [20] });
       pickedSquare = 20;
       listeners.get('pointermove')!({ clientX: 0, clientY: 0 } as PointerEvent);
@@ -151,4 +152,27 @@ it('draws frost on the game board after Freeze and clears it on expiry and Undo'
   expect(game.undo()).toBe(true); expect(boardDrawing()).toEqual(frozen);
   expect(game.undo()).toBe(true); expect(boardDrawing()).toEqual([]);
   freeze(); expect(boardDrawing()).toEqual(frozen);
+});
+
+
+it.each(['move', 'fall'])('A8: ends a %s and consumes the whole pointer gesture', async kind => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const view = new PaintedView(container as unknown as HTMLElement);
+  const scene = (view as unknown as { scene: PaintedScene }).scene;
+  const cancel = vi.fn(), fallen = vi.fn();
+  Object.assign(scene, { animating: kind === 'move', falling: kind === 'fall', cancel, setFallen: fallen });
+  view.onSquareClick = vi.fn();
+  for (const type of ['pointerdown', 'pointerup', 'click']) {
+    const event = { button: 0, pointerId: 7, detail: 1, preventDefault: vi.fn(), stopImmediatePropagation: vi.fn() };
+    documentListeners.get(type)!(event as unknown as Event);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(event.stopImmediatePropagation).toHaveBeenCalledOnce();
+  }
+  expect(cancel).toHaveBeenCalledTimes(kind === 'move' ? 1 : 0);
+  expect(fallen).toHaveBeenCalledTimes(kind === 'fall' ? 1 : 0);
+  expect(view.onSquareClick).not.toHaveBeenCalled();
+  Object.assign(scene, { animating: false, falling: false });
+  const next = { button: 0, pointerId: 8, detail: 1, preventDefault: vi.fn(), stopImmediatePropagation: vi.fn() };
+  for (const type of ['pointerdown', 'pointerup', 'click']) documentListeners.get(type)!(next as unknown as Event);
+  expect(next.preventDefault).not.toHaveBeenCalled();
 });

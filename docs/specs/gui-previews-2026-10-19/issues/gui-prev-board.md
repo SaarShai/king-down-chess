@@ -286,3 +286,21 @@ Checks:
 This Mac briefly runs out of disk space between the fault checks. Only PNG output from this run's completed `plugin-ui` check is removed. Its text logs stay in place. The eight new A39 proof screens stay in the preview folder. The unit request is paused only during the fault checks, then resumes on the restored fixed code. No process from another lane is stopped.
 
 The review fix is complete. Owner approval for the original previews stays open. Nothing is pushed, merged to main, or deployed.
+
+## Owner picks 2026-10-20
+
+Status: in progress. The owner authorizes picks-1020, Lane board.
+
+Plan and pass criteria:
+
+1. A8: restore the main move timing, marker wave, pawn motion, and turn pulse. Remove the plugin motion setting. A tap ends board motion and cannot also act on a square or button. Test skip, final state, and reduced motion.
+2. A14: keep the sword alone. Keep the computer and person accessible names. Check size, focus, menu fit, and one send.
+3. A15: put a gold fill under the selected tile. Remove the ring. Check layer order and both themes.
+4. A18: remove all empty move-list words on both hosts. Keep the list name and the closed phone band. Test empty and sent history.
+5. Y3: show only the king and power in the seat line. Keep the Ready help. Test both states.
+
+Commit each item. Run the type check here. Run the unit suite through m1-unit.sh and browser checks with KD_RUNNER=m1. Capture the changed screens one browser at a time. Check every screen. Record the results here and in the lane report. Keep each existing guard and time limit.
+
+### A8 build
+
+Main timing, the marker wave, resting pawn motion, and the turn pulse are restored. The plugin uses its main pace and has no Animations row. The web keeps its original Motion control. A document capture handler ends a move or a king fall before the tap reaches a square or button. It consumes the release and click too. Reduced motion keeps the slide and 150 ms victim fade. Unit checks cover the full gesture, the restored wave and pawn motion. Browser unit cases check real mouse and touch input, the final capture, and the saved draft. The type check passes. M1 checks follow after all five commits.

@@ -113,7 +113,7 @@ it('draws the selected ring after all figure rows, at CSS width in either board 
   }
 });
 
-it('shows near and far legal tiles at the same animation scale', () => {
+it('shows near legal tiles before far tiles in the restored wave', () => {
   const scales: number[][] = [], gradient = () => ({ addColorStop() {} });
   const ctx = { globalAlpha:1, save() {},restore() {},beginPath() {},fill() {},stroke() {},translate() {},
     scale(...args: number[]) { scales.push(args); }, roundRect() {}, ellipse() {},
@@ -121,5 +121,6 @@ it('shows near and far legal tiles at the same animation scale', () => {
   } as unknown as CanvasRenderingContext2D;
   const scene = {PAD:0,TILE:112,cell:(sq:number)=>({col:sq%8,row:7-(sq>>3)}),foot:()=>({x:0,y:0})} as unknown as PaintedScene;
   drawMarks(ctx,scene,'under',{marks:{selected:0,moves:[1,7]},piece:0,preview:null,k:1,px:1,motion:true,since:performance.now()-100});
-  expect(scales[1]).toEqual(scales[2]);
+  expect(scales).toHaveLength(2);
+  expect(scales[1][0]).toBeGreaterThan(0.6);
 });

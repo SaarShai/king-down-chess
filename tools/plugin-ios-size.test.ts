@@ -381,9 +381,9 @@ it.each([[768, 1024], [1024, 768]])('gives Settings controls the 44 px floor wit
   try {
     await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
     const heights = await frame.locator('[data-screen="settings"] .fields > label').evaluateAll(labels => labels.map(l => l.getBoundingClientRect().height));
-    expect(heights).toHaveLength(4); for (const h of heights) expect(h).toBeGreaterThanOrEqual(44);
+    expect(heights).toHaveLength(3); for (const h of heights) expect(h).toBeGreaterThanOrEqual(44);
     expect(await frame.locator('[data-screen="settings"] .fields > label :is(input, select)').evaluateAll(controls => controls.map(c => c.id)))
-      .toEqual(['symbols-only', 'show-threats', 'sound', 'animations']);
+      .toEqual(['symbols-only', 'show-threats', 'sound']);
     const online = await frame.locator('#online-visibility label').evaluateAll(labels => labels.map(l => l.getBoundingClientRect().height));
     expect(online).toHaveLength(3); for (const h of online) expect(h).toBeGreaterThanOrEqual(44);
   } finally { await page.close(); }

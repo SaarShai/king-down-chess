@@ -47,24 +47,25 @@ test('with passive effects lively (resting pawns, a selected pawn), the draw loo
  }finally{globalThis.setTimeout=realSetTimeout;}
 });
 
-test('quiet pawn, rook, knight and paladin moves keep the Normal and Fast limits',async()=>{
- for(const quietMs of [420,260])for(const value of [P,R,N,L]){
+test('quiet pawn, rook, knight and paladin moves keep their full gait at both speeds',async()=>{
+ for(const speed of [1,.5])for(const value of [P,R,N,L]){
   const scene=createScene({canvas:canvas(),pieces:{P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName},kings:['plain','plain']});
   await scene.load().catch(()=>{});scene.setLively({moves:true});
   const pos=createPosition('king');pos.board=Array(64).fill(0);pos.board[8]=value;scene.setPosition(pos);
-  let done=false;const play=scene.play({from:8,to:48,captures:[]},{quietMs});play.then(()=>{done=true;});
-  run(quietMs-40);await Promise.resolve();assert.equal(done,false,'the move has not snapped');
-  run(80);await play;assert.equal(done,true,'the move ends within its limit plus one frame');
+  let done=false;const play=scene.play({from:8,to:48,captures:[]},{speed});play.then(()=>{done=true;});
+  run(420*speed);await Promise.resolve();assert.equal(done,false,'the move has not snapped');
+  run(20000);await play;assert.equal(done,true,'the full gait ends');
  }
 });
 
-test('pawns stay still when their idle motion is off, including a selected pawn',async()=>{
+test('resting and selected pawns keep their idle motion',async()=>{
  globalThis.setTimeout=(fn,ms)=>{timers.push({fn,at:now+ms});return timers.length;};
  try{
   const scene=createScene({canvas:canvas(),pieces:{P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName},kings:['plain','plain']});
-  await scene.load().catch(()=>{});scene.setLively({moves:true,idle:true,pawns:false,kings:false});
+  await scene.load().catch(()=>{});scene.setLively({moves:true,idle:true,pawns:true,kings:false});
   const pos=createPosition('king');pos.board=Array(64).fill(0);pos.board[8]=P;scene.setPosition(pos);scene.setSelected(8);
   run(300);const framesBefore=scene.frames;run(1000);
-  assert.deepEqual(scene.pawns,{resting:0,acting:0});assert.equal(scene.frames,framesBefore,'no idle pawn schedules a frame');
+  assert.deepEqual(scene.pawns,{resting:0,acting:0});assert.ok(scene.frames>framesBefore,'the selected pawn keeps breathing');
+  scene.setSelected(null);run(100);assert.equal(scene.pawns.resting,1,'the resting pawn keeps its motion');
  }finally{globalThis.setTimeout=realSetTimeout;}
 });

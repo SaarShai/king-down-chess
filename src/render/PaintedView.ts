@@ -2,7 +2,7 @@ import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-f
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, RULES, S, T, colorOf, playedDesign, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { figureUrl, selectedFigure } from '../workshop/figures';
 import { frost, FROST_DEFS, frozenPieces } from './frost';
-import { drawMarks, POP_MS, type Highlights } from './marks';
+import { drawMarks, POP_MS, RIPPLE_MS, type Highlights } from './marks';
 import { boardInk, coordInk } from './board-ink';
 import { pastTap } from './tap';
 
@@ -109,6 +109,20 @@ export class PaintedView implements BoardView {
       // Enough backing pixels for this size on this screen, in quarter steps, at most 2×.
       this.scene.setResolution(Math.min(2, Math.max(1, Math.ceil(width * devicePixelRatio / 960 * 4) / 4)));
     }).observe(container);
+    let skippedPointer: number | null = null;
+    const consume = (e: Event) => { e.preventDefault(); e.stopImmediatePropagation(); };
+    document.addEventListener('pointerdown', e => {
+      skippedPointer = null;
+      if (e.button !== 0 || !this.canvas.getClientRects().length || !(this.scene.animating || this.scene.falling)) return;
+      skippedPointer = e.pointerId;
+      this.clearPointer(); this.skip(); consume(e);
+    }, true);
+    document.addEventListener('pointerup', e => { if (e.pointerId === skippedPointer) consume(e); }, true);
+    document.addEventListener('click', e => {
+      if (skippedPointer == null || e.detail === 0) return;
+      skippedPointer = null; consume(e);
+    }, true);
+    document.addEventListener('pointercancel', () => { skippedPointer = null; }, true);
     this.canvas.addEventListener('pointerdown', e => this.onDown(e));
     // Keep piece drags; a touch that starts elsewhere can scroll the screen.
     this.canvas.addEventListener('touchstart', e => { if (this.dragFrom != null && this.canDrag()) e.preventDefault(); }, { passive: false });
@@ -152,7 +166,7 @@ export class PaintedView implements BoardView {
     // (Sacrifice): there is no motion to play, and screen/play.ts syncs the new board right after.
     if (m.pass || m.power === 'freeze' || m.power === 'ward' || m.power === 'sacrifice') return;
     // The scene scales duration; the caller gives playback speed.
-    await this.scene.play(m, { onContact, quietMs: this.pace === 'fast' ? 260 : 420, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed });
+    await this.scene.play(m, { onContact, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed });
   }
 
   async animateBack(pre: Position, m: Move, post: Position): Promise<void> {
@@ -160,7 +174,7 @@ export class PaintedView implements BoardView {
     // A shot has no travel. A removed or changed figure has no reverse scene move.
     if (this.motion() && !m.pass && !m.promo && !m.selfRemove && m.from !== m.to
       && post.board[m.to] === pre.board[m.from]) {
-      await this.scene.play({ from: m.to, to: m.from, captures: [], swap: m.swap }, { quietMs: this.pace === 'fast' ? 260 : 420, speed: this.pace === 'fast' ? 0.5 : 1 });
+      await this.scene.play({ from: m.to, to: m.from, captures: [], swap: m.swap }, { speed: this.pace === 'fast' ? 0.5 : 1 });
     }
     // A new position cancels the old rewind; never draw it over that position.
     if (this.pos === post) this.sync(pre);
@@ -169,28 +183,31 @@ export class PaintedView implements BoardView {
   setLifted(sq: number | null): void { this.scene.setLifted(this.pace !== 'off' ? sq : null, !this.motionQuery.matches); }
 
   setPace(pace: Pace): void { this.pace = pace; if (pace === 'off') this.skip(); this.applyLively(); }
-  skip(): void { if (this.scene.animating) this.scene.cancel(); }
+  skip(): void {
+    if (this.scene.animating) this.scene.cancel();
+    if (this.scene.falling) this.scene.setFallen(this.fallen?.sq ?? null, false, this.fallRotation(this.fallen?.sq ?? null));
+  }
 
   /**
-   * The selected non-pawn figure breathes. Each king shows his effect only while motion is on. The kings' effects
-   * stop while the tab is hidden. Resting pawns stay still. Reduced motion keeps the slide and victim fade.
+   * The selected figure breathes. Kings and resting pawns move while motion is on and the tab is visible.
+   * Reduced motion keeps the slide and victim fade.
    */
   private applyLively(): void {
     const motion = this.pace !== 'off' && !this.motionQuery.matches, shown = motion && !document.hidden;
     if (this.pace === 'off') this.scene.setLifted(null);
     this.scene.setReducedMotion(!motion);
-    this.scene.setLively({ moves: motion, atmosphere: true, captures: motion, idle: motion, kings: shown, pawns: false });
+    this.scene.setLively({ moves: motion, atmosphere: true, captures: motion, idle: motion, kings: shown, pawns: shown });
   }
 
   highlight(h: Highlights): void {
     this.marks = h;
     this.container.classList.toggle('king-in-check', h.check != null);
     this.scene.setSelected(h.selected ?? null);
-    // A new selection (or new targets) shows its markers together.
+    // The markers ripple out from a new selection.
     const key = [h.selected, h.moves, h.captures, h.swaps, h.shoves, h.powers, h.shoveTo?.map(s => `${s.from}:${s.to}`), h.bites].map(l => String(l ?? '')).join('|');
     if (key !== this.marksKey) {
       this.marksKey = key; this.marksSince = performance.now();
-      if (this.motion()) this.scene.keepAwake(POP_MS + 50);
+      if (this.motion()) this.scene.keepAwake(POP_MS + 12 * RIPPLE_MS + 50);
     }
     this.aim();
     this.scene.redraw();

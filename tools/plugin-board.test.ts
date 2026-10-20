@@ -1972,3 +1972,30 @@ it.each(soundCases.flatMap(test => ['local', 'replay'].map(path => ({ ...test, p
       if (check) expect(result.indexOf('sound:check')).toBeGreaterThan(result.indexOf('rest'));
     } finally { await page.close(); }
   });
+
+
+it.each(['mouse', 'touch'] as const)('A8: a %s skip keeps the capture and does not open Menu', async input => {
+  const page = await open(view('7k/8/8/8/8/8/p7/R6K w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await frame.locator('html').evaluate(() => {
+      const board = (window as any).testBoard;
+      board.onSquareClick(0, false); board.onSquareClick(8, false);
+    });
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.animating)).toBe(true);
+    const box = (await frame.locator('#board-menu').boundingBox())!;
+    if (input === 'touch') await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    else await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.animating)).toBe(false);
+    expect(await frame.locator('#board-sheet[open]').count()).toBe(0);
+    await expect.poll(() => frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('false');
+    expect(await frame.locator('html').evaluate(() => {
+      const board = (window as any).testBoard;
+      return [board.scene.position.board[0], board.scene.position.board[8], board.marks.selected];
+    })).toEqual([0, 4, null]);
+    expect((await savedDraft(page)).actions).toEqual(['a1xa2']);
+    await frame.locator('#board-menu').dispatchEvent('click');
+    expect(await frame.locator('#board-sheet[open]').count()).toBe(1);
+  } finally { await page.close(); }
+});

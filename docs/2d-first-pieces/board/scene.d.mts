@@ -19,6 +19,7 @@ export interface SceneMove { from: number; to: number; captures: number[]; swap?
 export interface PaintedScene {
   readonly SIZE: number; readonly PAD: number; readonly TILE: number; readonly headroom: number;
   readonly animating: boolean;
+  readonly falling: boolean;
   /** A gait name ('walk', 'glide', 'hop') for a quiet move with character, else the animation kind; null when nothing plays. */
   readonly playing: string | null;
   foot(square: number): { x: number; y: number };
@@ -72,7 +73,7 @@ export interface PaintedScene {
   /** onContact fires once when the strike lands (not for plain moves or swaps). */
   /** speed scales duration: 2 is half playback speed; 0.5 is double. */
   /** gait: play a quiet move with this gait (a GAITS name) even when `moves` is off. */
-  play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null; quietMs?: number | null }): Promise<boolean>;
+  play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null }): Promise<boolean>;
   cancel(): void;
 }
 export function createScene(options: {

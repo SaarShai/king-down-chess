@@ -160,24 +160,10 @@ try {
         if (id === 'A8') {
           await f.locator('#board-menu').click(); await f.getByRole('button',{name:'Settings',exact:true}).click(); await shot(id,'settings');
           if (phase === 'after') {
-            const pace = f.locator('#animations');
-            const gap = await f.locator('#animations').evaluate(el => {
-              const left = label => { const range = document.createRange(); range.selectNodeContents(label.firstChild); return range.getBoundingClientRect().left; };
-              return left(el.closest('label')) - left(document.getElementById('sound').closest('label'));
-            });
-            assert(Math.abs(gap) < 1, 'Animations and Sound labels align');
-            if (width === 390) {
-              await pace.evaluate(el => {
-                el.addEventListener('pointerdown', event => { window.paceTap = { trusted:event.isTrusted, direct:event.target === el }; }, {once:true});
-              });
-              await pace.tap();
-              assert.deepEqual(await f.locator('html').evaluate(() => window.paceTap), {trusted:true,direct:true}, 'The tap reaches the select above the label hit layer');
-              assert.equal(await pace.evaluate(el => el.matches(':open')), true, 'The real tap opens the choices');
-              await p.keyboard.press('Escape');
-            }
-            for (const value of ['normal','fast','off']) { await pace.selectOption(value); assert.equal(await pace.inputValue(),value); assert.equal(await f.locator('html').getAttribute('data-pace'),value); }
-            await p.locator('#remount').evaluate(b => b.click()); await f.locator('#animations').waitFor({state:'attached'});
-            assert.equal(await f.locator('#animations').inputValue(),'off','The device keeps the setting after a remount');
+            assert.equal(await f.locator('#animations').count(), 0, 'Settings has no animation choice');
+            assert.deepEqual(await f.locator('.fields label input').evaluateAll(nodes => nodes.map(n => n.id)), ['symbols-only','show-threats','sound']);
+            await p.locator('#remount').evaluate(b => b.click()); await f.locator('#sound').waitFor({state:'attached'});
+            assert.equal(await f.locator('#animations').count(), 0, 'Remount keeps the restored Settings');
           }
         }
       }
@@ -237,7 +223,7 @@ try {
           await pace.waitFor({state:'visible'});
           assert.equal(await p.locator('#sound').isVisible(), true, 'Sound is on the Menu');
           assert.equal(await p.locator('#sound').evaluate(el => el.closest('label').firstChild.textContent.trim()), 'Sound');
-          assert.equal(await pace.evaluate(el => el.closest('label').firstChild.textContent.trim()), phase === 'after' ? 'Animations' : 'Motion');
+          assert.equal(await pace.evaluate(el => el.closest('label').firstChild.textContent.trim()), 'Motion');
           assert.deepEqual(await pace.locator('option').allTextContents(), ['Normal','Fast','Off']);
           await shot(id,'settings');
           if (phase === 'after') {
