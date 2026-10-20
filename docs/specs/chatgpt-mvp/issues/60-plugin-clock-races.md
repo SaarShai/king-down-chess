@@ -1,6 +1,6 @@
 # Plugin test clock races
 
-Status: in progress
+Status: done
 Type: task
 
 ## Plan and checks
@@ -10,7 +10,7 @@ Type: task
 3. Check all eight plugin test files that install a page clock. Record each result.
 4. Run each changed test file twice on the M1 with `m1-unit.sh`. Run `npx tsc --noEmit`.
 
-The probes must fail before each fix and pass after it. Remove the probes from the final commits.
+The first pass uses temporary probes that fail before each fix and pass after it. It removes those probes from the final commits.
 The first pass reserves the full suite and browser checks for the main session.
 
 ## Review fix plan and checks
@@ -108,4 +108,8 @@ The other app clock steps stay as follows. These are source checks, not new load
 - The test keeps the 1.5 s delay in the newer frame's first poll reply. It checks that the delay runs, and keeps all prior assertions and time limits.
 - The review's `review-widgets-before.txt` fails at the revision wait with the delay. `review-widgets-after.txt` passes with the same delay and the two-frame wait. Both logs come from the M1. A repeat probe on this Mac stays in the shared test queue; this pass stops that queued probe before it runs.
 - Review B: no finding is supplied (`undefined`). There is no claim to fix or refute.
-- Final checks: pending.
+- At `0251e587`, the full `plugin-real-host.test.ts` file passes 9/9 on the M1 in 13.41 s. This includes the delayed newer-widget reply. Log: `fix-widgets-m1.txt` in the lane output.
+- At `0251e587`, `plugin-ui` passes on the M1 in 268.8 s. The runner exits with code 0. Log: `checks-fix-1.txt` in the lane output.
+- `npm test` on this Mac exits 1 after 356.03 s: 195 files pass and one fails; 3,276 tests pass, one fails, and eight skip. The fixed-depth test at `src/ai/search.test.ts:115` exceeds its unchanged 5 s limit (7,495 ms). The test and search code match the reviewed commit. The command uses the test database from the lane rules. Log: `fix-npm-test.txt` in the lane output. The final board-script phase does not run after this failure.
+- The focused AI recheck passes with the same limit and the shared test lock: one pass, 17 tests outside the filter, 1.00 s total, exit 0. Log: `fix-search-recheck.txt` in the lane output. The full-suite timeout remains in the check record; no AI code or time limit changes.
+- The commit's type check and staged gate pass. No server code changes, so `plugin-ui-http` is not required.
