@@ -1,6 +1,6 @@
 # Integrate reviewed setup and browser-save continuity
 
-Status: integrated and independently reviewed; combined compiled acceptance remains open.
+Status: integrated, reviewed, compiled and deployed to staging; actual first-open cache acceptance remains open.
 
 ## Plan and acceptance
 
@@ -70,3 +70,9 @@ The mechanics driver passes the six fairy pieces, 21 cards and 12 powers on both
 The full plugin journey stops at its early card-detail sample. That synthetic View lacks an engine identity, so the new preview boundary correctly cannot use it. Ticket 07 fixes this tool fixture with the actual built runtime identity; it does not change product handling of unknown engines. The correction integrates as `01ce1af3`.
 
 Rerun only `shared-mechanics` and `plugin-ui-http` after these tool corrections. The failed run does not close compiled mechanics or full plugin acceptance. The parent evidence folder preserves the run record and all four logs.
+
+## Accepted compiled release and live limit
+
+The corrected full matrix passes on clean `e9b77c79`: 112 surface executions in 133.909 seconds. Web recovery passes in 106.163 seconds. The full plugin journey at `44e89092` passes in 249.805 seconds; the later product change is the web-only URL guard. Local painted acceptance at `0698807f` passes in 116.483 seconds. The exact two-artifact backend recovery passes as recorded in ticket 06.
+
+Staging preview `dpl_CW9zvWyq3nnuPgkj4vd4fDpPr62N` now serves `e9b77c79`; all seven archives remain. The server, runtime and enforcement worker hashes equal the accepted recovery release. The alias index hash matches the build. Actual first website reload keeps the selected game URL but fails the public-cache guard. Existing actual ChatGPT refresh preserves the six-action game. Native fresh opens remain pending while the Mac is locked. No retry is counted and no production change occurs.

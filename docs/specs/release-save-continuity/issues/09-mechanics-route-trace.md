@@ -22,4 +22,4 @@ The remote `choose` call returns before the preview arrives. The existing board 
 
 The awaited phase markers are removed. Synchronous click/history capture remains. Successful Darkness cases print the already-copied pre-reload trace only after their state, reload, history and browser-error assertions pass. This adds no action-time evaluation.
 
-Pending independent review and the registered full matrix rerun for the readiness correction. The retained compiled failure is the regression red; no static test duplicates the driver. Product code and the unexpected-navigation diagnosis remain unchanged.
+Independent review passes. The later passive trace identifies the startup URL cause; ticket 11 records its fix. Registered run `app-oVHbqp` on `e9b77c79` passes all 112 executions, including the retained Haste case on both clients. The retained compiled failure is the regression red; no static test duplicates the driver. The driver correction and product route correction remain distinct.

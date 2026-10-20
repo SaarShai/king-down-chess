@@ -1,6 +1,6 @@
 # Preserve the selected game route during startup
 
-Status: source verified; parent compiled acceptance pending
+Status: source, compiled checks and staging artifact verified; separate live cache refusal remains.
 
 ## Cause
 
@@ -24,3 +24,9 @@ The fullscreen restoration opens the saved board before its first authoritative 
 - Both green commands pass full typecheck and all 54 artwork checks. The focused selection uses `KINGDOWN_TEST_FILE='{src/online/runtime.test.ts,tools/plugin-app.test.ts}'` and `KINGDOWN_TEST_NAME='keeps the selected game URL|still routes explicit|preserves the website game URL|opens a chat route|keeps an inline.*route|leaves fullscreen|reads the selected board'` with `npm test`.
 
 The parent independently reviews the regression and minimal guard and finds no should-fix. It owns the final registered `shared-mechanics` and `web-online` runs. The passive stack plus deterministic UI red/green establish the startup route cause; this is not a promotion rule change. The earlier driver staging repair remains separate: it waits for an accepted remote prefix to close its choice sheet before the animation check.
+
+## Integrated acceptance
+
+Clean source `e9b77c79` passes registered run `app-oVHbqp`: all 55 mechanics rows and one retained-engine Haste row on both clients (112 executions, 133.909 seconds), plus `web-online` in 106.163 seconds. No row is skipped. Staging preview `dpl_CW9zvWyq3nnuPgkj4vd4fDpPr62N` serves the checked source; its alias index matches SHA-256 `064c039d386e70175d928b1d2d33dce45ca4bb42aa34be9f2429248ed5f97b40`.
+
+The actual first website reload preserves its selected `/g/` URL but fails the separate public-cache safety gate. It is retained as a failure, without pressing Try again. This does not reopen the proven URL cause or count as native-host acceptance. Root investigates the cache gate separately.
