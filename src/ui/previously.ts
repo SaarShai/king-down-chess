@@ -2,10 +2,8 @@ import type { Game } from '../game';
 import type { BoardView } from '../render/PaintedView';
 import { snd } from '../render/sfx';
 import { momentKind } from '../moment';
-import { inCheck } from '../rules/engine';
-import { fromFen } from '../rules/setup';
 import { finishLinkedTurn } from '../turn';
-import { previouslyPlayback, previouslyTurn, type PreviouslyTurn } from '../previously';
+import { previouslyPlayback, type PreviouslyTurn } from '../previously';
 
 export interface PreviouslyState extends PreviouslyTurn { seeAgain: boolean; playing: boolean }
 
@@ -55,7 +53,7 @@ export function connectPreviously(button: HTMLButtonElement, c: Controls) {
       if (!live()) return;
       contact();
       c.view.sync(current.positionAfter(i + 1));
-      if (inCheck(current.positionAfter(i + 1))) snd.check();
+      if (current.context.inCheck(current.positionAfter(i + 1))) snd.check();
     }
     playing = false;
     c.show(null, false);
@@ -70,11 +68,11 @@ export function connectPreviously(button: HTMLButtonElement, c: Controls) {
       game = c.game();
       try {
         const army = params.get('army'), lans = params.get('moves')?.split('_').filter(Boolean) ?? [];
-        if (army) game.newGame(army); else game.load(fromFen(params.get('fen')!));
+        if (army) game.newGame(army); else game.load(game.context.fromFen(params.get('fen')!));
         complete = game.playLan(lans) === lans.length;
         if (!complete) alert('Part of this game link could not be read; the game stops before that move.');
         finishLinkedTurn(game);
-        turn = previouslyTurn(game.history, game.pos.turn);
+        turn = game.context.previouslyTurn(game.history, game.pos.turn);
         fresh = game.history.length > seenPlies;
       } catch (error) {
         alert(`This game link could not be read: ${(error as Error).message}`);

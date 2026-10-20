@@ -3,7 +3,7 @@ import type { PageHost, ReadRoute } from '../account-game/client';
 import { decorateFriendRows } from '../plugin/invite';
 import { runtimeHost, type RuntimeContext } from './host';
 import type { PlayerSettings } from '../plugin/settings';
-import { setRules } from '../rules/engine';
+
 import { nextGame } from '../account-game/next-game';
 import { gameTitle, waitingLine } from '../account-game/games-list';
 import type { JoinPreview, View } from '../match/protocol';
@@ -135,7 +135,6 @@ function show(next: View | undefined, job?: Job) {
   if (view?.game_id !== next.game_id || view.revision !== next.revision) memory.blockNotice = '';
   if (view?.game_id !== next.game_id) $('invitation').textContent = '';
   view = next;
-  if (rules?.game === next.game_id) setRules(rules.value);
   // The mount job restores a saved screen only on the first mount (design §2, step 2).
   drawBoard(next, mounting() && queue.mountJob()?.options.initial === true && !!savedScreen);
   // A view of another game clears a refusal or a read of the game it leaves; a good read clears this game's read notice.

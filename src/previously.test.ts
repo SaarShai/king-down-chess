@@ -1,13 +1,11 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Game } from './game';
-import { P, R, G, A, O, type Move, setRules } from './rules/engine';
+import { P, R, G, A, O, type Move, type Rules } from './rules/engine';
 import { fromFen } from './rules/setup';
 import { previouslyPlayback, previouslyTurn } from './previously';
 
-afterEach(() => setRules());
-
-function played(fen: string, moves: string[]): Game {
-  const game = new Game('RNBQKBNR');
+function played(fen: string, moves: string[], rules: Partial<Rules> = {}): Game {
+  const game = new Game('RNBQKBNR', rules);
   game.load(fromFen(fen));
   expect(game.playLan(moves)).toBe(moves.length);
   return game;
@@ -15,8 +13,8 @@ function played(fen: string, moves: string[]): Game {
 
 describe('Previously', () => {
   it.each([[R, 'R', 'a rook'], [A, 'A', 'an archer'], [O, 'O', 'an ogre']])('names a Sacrifice for %s', (_, symbol, piece) => {
-    setRules({ kings: [{ king: 'Stratus', power: 'Sacrifice' }, null] });
-    const game = played(`4k3/8/8/8/8/8/P7/4K3 w - - 0 1 l${symbol}`, [`!S:a2=${symbol}`]);
+    const rules: Partial<Rules> = { kings: [{ king: 'Stratus', power: 'Sacrifice' }, null] };
+    const game = played(`4k3/8/8/8/8/8/P7/4K3 w - - 0 1 l${symbol}`, [`!S:a2=${symbol}`], rules);
     expect(previouslyTurn(game.history, 1)?.line).toBe(`they traded a pawn for ${piece}.`);
   });
 
@@ -45,8 +43,8 @@ describe('Previously', () => {
   });
 
   it('names Rescue when its mark is now on an empty square', () => {
-    setRules({ hands: [['Rescue'], []], markFree: true });
-    const game = played('4k3/8/8/8/8/8/P7/4K3 w - - 0 1 md6w0', ['!D:d6']);
+    const rules: Partial<Rules> = { hands: [['Rescue'], []], markFree: true };
+    const game = played('4k3/8/8/8/8/8/P7/4K3 w - - 0 1 md6w0', ['!D:d6'], rules);
     expect(previouslyTurn(game.history, 1)).toMatchObject({
       line: 'they used Rescue.', detail: 'Rescue puts the mark on d6 again.',
     });
@@ -103,8 +101,8 @@ describe('Previously', () => {
   });
 
   it('keeps both moves of the friend Haste turn', () => {
-    setRules({ kings: [{ king: 'Flame', power: 'Haste' }, null] });
-    const game = played('7k/8/8/r3r3/8/8/8/R5K1 b - - 0 1', ['Kh8-h7', 'Ra1xa5!H', 'Ra5xe5']);
+    const rules: Partial<Rules> = { kings: [{ king: 'Flame', power: 'Haste' }, null] };
+    const game = played('7k/8/8/r3r3/8/8/8/R5K1 b - - 0 1', ['Kh8-h7', 'Ra1xa5!H', 'Ra5xe5'], rules);
     expect(previouslyTurn(game.history, 1)).toEqual({
       from: 1, to: 3,
       line: 'their rook took 2 pieces.', detail: 'Rook a1 takes a5 with Haste, then takes e5.', before: 'King h8 to h7.',
@@ -112,23 +110,23 @@ describe('Previously', () => {
   });
 
   it('counts every take in the friend Haste chain turn', () => {
-    setRules({ kings: [{ king: 'Flame', power: 'Haste' }, null], hasteCaptures: true });
+    const rules: Partial<Rules> = { kings: [{ king: 'Flame', power: 'Haste' }, null], hasteCaptures: true };
     const game = played('k7/6pp/5pp1/3pp1pp/2nS3p/8/8/K7 b - - 0 1',
-      ['Ka8-a7', 'Sd4xc4xd5xe5xf6!H', 'Sf6xg7xh7xg6xh5xg5xh4']);
+      ['Ka8-a7', 'Sd4xc4xd5xe5xf6!H', 'Sf6xg7xh7xg6xh5xg5xh4'], rules);
     expect(previouslyTurn(game.history, 1)?.line).toBe('their beast took 10 pieces.');
   });
 
   it('keeps the free mark and the friend move', () => {
-    setRules({ kings: [{ king: 'Frost', power: 'Freeze' }, null], markFree: true });
-    const game = played('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', ['!F:d5', 'a2-a4']);
+    const rules: Partial<Rules> = { kings: [{ king: 'Frost', power: 'Freeze' }, null], markFree: true };
+    const game = played('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', ['!F:d5', 'a2-a4'], rules);
     expect(previouslyTurn(game.history, 1)).toEqual({
       from: 0, to: 2, line: 'their pawn moved to a4.', detail: 'Freeze on d5, then pawn a2 to a4.', before: null,
     });
   });
 
   it('names the mark and pass without rule text', () => {
-    setRules({ kings: [{ king: 'Frost', power: 'Freeze' }, null], markFree: true });
-    const game = played('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', ['!F:d5', '--']);
+    const rules: Partial<Rules> = { kings: [{ king: 'Frost', power: 'Freeze' }, null], markFree: true };
+    const game = played('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', ['!F:d5', '--'], rules);
     expect(previouslyTurn(game.history, 1)).toMatchObject({ line: 'they froze your knight.', detail: 'Freeze on d5, then end turn.' });
   });
 
@@ -145,16 +143,16 @@ describe('Previously', () => {
   });
 
   it('keeps both moves of the friend Rage turn', () => {
-    setRules({ hands: [['Rage'], []], hasteCaptures: false });
-    const game = played('4k3/8/p7/8/8/8/8/R3K2n w - - 0 1', ['Ra1xa6!A', 'Ra6-h6']);
+    const rules: Partial<Rules> = { hands: [['Rage'], []], hasteCaptures: false };
+    const game = played('4k3/8/p7/8/8/8/8/R3K2n w - - 0 1', ['Ra1xa6!A', 'Ra6-h6'], rules);
     expect(previouslyTurn(game.history, 1)).toEqual({
       from: 0, to: 2, line: 'their rook took your pawn.', detail: 'Rook a1 takes a6 with Rage, then to h6.', before: null,
     });
   });
 
   it('keeps both pieces of the friend Rally turn', () => {
-    setRules({ hands: [['Rally'], []], hasteCaptures: false });
-    const game = played('4k3/8/p7/8/8/2p5/8/RN2K3 w - - 0 1', ['Ra1-a5!J', 'Nb1-d2']);
+    const rules: Partial<Rules> = { hands: [['Rally'], []], hasteCaptures: false };
+    const game = played('4k3/8/p7/8/8/2p5/8/RN2K3 w - - 0 1', ['Ra1-a5!J', 'Nb1-d2'], rules);
     expect(previouslyTurn(game.history, 1)).toEqual({
       from: 0, to: 2, line: 'their knight moved to d2.', detail: 'Rook a1 to a5 with Rally, then knight b1 to d2.', before: null,
     });
@@ -166,14 +164,14 @@ describe('Previously', () => {
   });
 
   it('keeps two Haste takes and a promotion', () => {
-    setRules({ kings: [{ king: 'Flame', power: 'Haste' }, null], hasteCaptures: true });
-    const game = played('k6q/6r1/5P2/8/8/8/8/K7 b - - 0 1', ['Ka8-a7', 'f6xg7!H', 'g7xh8=Q']);
+    const rules: Partial<Rules> = { kings: [{ king: 'Flame', power: 'Haste' }, null], hasteCaptures: true };
+    const game = played('k6q/6r1/5P2/8/8/8/8/K7 b - - 0 1', ['Ka8-a7', 'f6xg7!H', 'g7xh8=Q'], rules);
     expect(previouslyTurn(game.history, 1)?.detail).toBe('Pawn f6 takes g7 with Haste, then takes h8, becomes queen.');
   });
 
   it('keeps your whole Haste turn before the friend move', () => {
-    setRules({ kings: [{ king: 'Flame', power: 'Haste' }, null] });
-    const game = played('7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1', ['Ra1xa5!H', 'Ra5xe5', 'Kh8-h7']);
+    const rules: Partial<Rules> = { kings: [{ king: 'Flame', power: 'Haste' }, null] };
+    const game = played('7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1', ['Ra1xa5!H', 'Ra5xe5', 'Kh8-h7'], rules);
     expect(previouslyTurn(game.history, 0)?.before).toBe('Rook a1 takes a5 with Haste, then takes e5.');
   });
 

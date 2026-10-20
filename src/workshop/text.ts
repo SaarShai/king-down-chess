@@ -4,8 +4,9 @@
  * Pure, so the tests run it in Node.
  * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
-import { LETTERS, NAMES, P, WHITE, genPiece, parseSq, piece, type Move } from '../rules/engine';
-import { RULES } from '../rules/rules';
+import { LETTERS, NAMES, P, WHITE, parseSq, piece, type Move } from '../rules/engine';
+import { DEFAULT_RULES, type Rules } from '../rules/rules';
+import { GameRules } from '../game-rules';
 import { bandOf, type Verdict } from './judge';
 import { DIAG, DIRS, ORTHO, type Ability, type Dir, type LikeAs, type PieceDesign, type Rule, type Square, type When } from './model';
 import { blockOf, choiceText, whenWords, type Part } from './vocab';
@@ -157,18 +158,18 @@ export function designText(d: D & Pick<PieceDesign, 'name'>, v: Verdict, link: s
 
 /** The laws of the Rules tab (ticket 12, spec decision 28): read only, and each word follows RULES in force. Each law: its
  *  name, what it does, and "On" or "Off". */
-export const lawsOf = (): [string, string, string][] => ([
-  ['50-move draw', 'Fifty moves with no take and no pawn move: a draw.', RULES.fiftyMove],
-  ['Threefold', 'The same position three times: a draw.', RULES.threefold],
-  ['Material', 'Too few pieces to checkmate: a draw.', RULES.insufficientMaterial],
-  ['Guard by its king', 'A guard starts next to its king.', RULES.guardNextToKing],
-  ['Bishops on two colours', 'Two bishops start on squares of two colours.', RULES.bishopsOppositeColours],
+export const lawsOf = (rules: Rules = DEFAULT_RULES): [string, string, string][] => ([
+  ['50-move draw', 'Fifty moves with no take and no pawn move: a draw.', rules.fiftyMove],
+  ['Threefold', 'The same position three times: a draw.', rules.threefold],
+  ['Material', 'Too few pieces to checkmate: a draw.', rules.insufficientMaterial],
+  ['Guard by its king', 'A guard starts next to its king.', rules.guardNextToKing],
+  ['Bishops on two colours', 'Two bishops start on squares of two colours.', rules.bishopsOppositeColours],
 ] as const).map(([name, say, on]) => [name, say, on ? 'On' : 'Off']);
 /** Promotion in force: the letters and the words of each piece a pawn may become, from the engine's moves of a pawn on a7. */
-export function promotion(): { letters: string; words: string } {
+export function promotion(context: GameRules = new GameRules()): { letters: string; words: string } {
   const b = new Uint8Array(64), out: Move[] = [];
   b[parseSq('a7')] = piece(P, WHITE);
-  genPiece(b, parseSq('a7'), 'all', out);
+  context.genPiece(b, parseSq('a7'), 'all', out);
   const ts = out.map(m => m.promo!), names = ts.map(t => NAMES[t]);
   return { letters: ts.map(t => LETTERS[t]).join(' '), words: `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}` };
 }

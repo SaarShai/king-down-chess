@@ -1,6 +1,6 @@
 import { PaintedView } from '../render/PaintedView';
 import type { Highlights } from '../render/marks';
-import { colorOf, nameOf, typeOf } from '../rules/engine';
+import { colorOf, typeOf } from '../rules/engine';
 import type { BoardSettings } from '../account-game/types';
 import { symbols } from '../account-game/art';
 
@@ -23,6 +23,6 @@ export async function setSettings(next: BoardSettings) {
       const image = new Image(); image.crossOrigin = 'anonymous'; image.src = src; await image.decode(); return [`${path.split('/').at(-1)!.slice(0, -4)}-${side}`, image] as const;
     }))).then(entries => new Map(entries)).catch(error => { symbolImages = undefined; throw error; });
     const images = await symbolImages;
-    if (settings.symbols_only) board.setSymbols(piece => images.get(`${nameOf(typeOf(piece))}-${colorOf(piece)}`)!);
+    if (settings.symbols_only) board.setSymbols(piece => images.get(`${board.context.nameOf(typeOf(piece))}-${colorOf(piece)}`)!);
   } catch { document.getElementById('error')!.textContent = 'The board symbols could not load. Try again.'; }
 }

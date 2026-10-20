@@ -1,8 +1,8 @@
+import { GameRules } from '../../game-rules';
 import type { Draft } from '../client';
 import type { View } from '../../match/protocol';
-import { inCheck, legalMoves, makeMove, setRules, status, TAG_POWER, type CardName, type Color, type Move, type Position, type Rules } from '../../rules/engine';
-import { fromFen, toFen, toLan } from '../../rules/setup';
-import { describeMove } from '../../move-text';
+import { TAG_POWER, type CardName, type Color, type Move, type Position, type Rules } from '../../rules/engine';
+import { toFen, toLan } from '../../rules/setup';
 import { turnLine, turnOf, type Mode } from '../../turn';
 import { pendingHere, staleRead, type Page } from '../../account-game/state';
 
@@ -41,27 +41,27 @@ export function cardUseReason(coin: { spent: boolean; moves: readonly Move[] }, 
 }
 export function applyLan(pre: Position, lan: string, rules: Partial<Rules>, legal?: readonly string[]): BoardMove | undefined {
   if (legal && !legal.includes(lan)) return;
-  setRules(rules);
-  const move = legalMoves(pre).find(move => toLan(pre, move) === lan);
-  return move && { pre, pos: makeMove(pre, move), move, lan, words: describeMove(pre, move, true) };
+  const context = new GameRules(rules);
+  const move = context.legalMoves(pre).find(move => toLan(pre, move) === lan);
+  return move && { pre, pos: context.makeMove(pre, move), move, lan, words: context.describeMove(pre, move, true) };
 }
 
-export function draftTurn(steps: readonly BoardMove[], pos: Position, mode: Exclude<Mode, 'device'>, seat: Color) {
-  const game = { history: steps.map(step => ({ pos: step.pre })), pos, status: status(pos), legal: legalMoves(pos), inCheck: inCheck(pos) };
+export function draftTurn(steps: readonly BoardMove[], pos: Position, mode: Exclude<Mode, 'device'>, seat: Color, context: GameRules = new GameRules()) {
+  const game = { history: steps.map(step => ({ pos: step.pre })), pos, status: context.status(pos), legal: context.legalMoves(pos), inCheck: context.inCheck(pos) };
   const turn = turnOf(game, 0);
   if (!turn.staged && pos.turn === seat && turn.midWay && game.legal.some(move => move.pass)) turn.ready = true;
   const { staged, midWay, waits, ready } = turn;
   return { staged, midWay, waits, ready, line: turnLine(game, ready && !staged ? { ...turn, staged: 1 } : turn, mode) };
 }
 
-export function sendActions(steps: readonly BoardMove[], pos: Position, seat: Color): string[] {
-  const turn = draftTurn(steps, pos, 'computer', seat), lans = steps.map(step => step.lan);
+export function sendActions(steps: readonly BoardMove[], pos: Position, seat: Color, context: GameRules = new GameRules()): string[] {
+  const turn = draftTurn(steps, pos, 'computer', seat, context), lans = steps.map(step => step.lan);
   return turn.ready && turn.midWay && !turn.waits ? [...lans, '--'] : lans;
 }
 
-export function draftChoices(view: View, pos: Position, steps: readonly BoardMove[]): { lan: string; move: Move }[] {
-  if (draftTurn(steps, pos, 'computer', view.seat).waits) return [];
-  return legalMoves(pos).map(move => ({ lan: toLan(pos, move), move })).filter(({ lan }) => steps.length > 0 || view.legal.includes(lan));
+export function draftChoices(view: View, pos: Position, steps: readonly BoardMove[], context: GameRules = new GameRules(view.rules)): { lan: string; move: Move }[] {
+  if (draftTurn(steps, pos, 'computer', view.seat, context).waits) return [];
+  return context.legalMoves(pos).map(move => ({ lan: toLan(pos, move), move })).filter(({ lan }) => steps.length > 0 || view.legal.includes(lan));
 }
 
 export function restoreDraft(view: View, saved: Draft | undefined, rules: Partial<Rules>, account?: string): BoardMove[] | undefined {
@@ -74,11 +74,11 @@ export function restoreDraft(view: View, saved: Draft | undefined, rules: Partia
     const changes = view.last_commands.filter(command => command.seq > scope.revision);
     if (changes.length !== view.revision - scope.revision || changes.some((command, index) => command.seq !== scope.revision + index + 1 || !nonBoard(command.action.type))) return;
   }
-  setRules(rules);
-  let pos = fromFen(view.fen);
+  const context = new GameRules(rules);
+  let pos = context.fromFen(view.fen);
   const steps: BoardMove[] = [];
   for (const lan of saved.lans) {
-    const step = applyLan(pos, lan, rules, draftChoices(view, pos, steps).map(choice => choice.lan));
+    const step = applyLan(pos, lan, rules, draftChoices(view, pos, steps, context).map(choice => choice.lan));
     if (!step) return;
     steps.push(step); pos = step.pos;
   }
@@ -87,8 +87,8 @@ export function restoreDraft(view: View, saved: Draft | undefined, rules: Partia
 
 export function replayLans(before: Pick<View, 'game_id' | 'revision' | 'fen'>, next: View, rules: Partial<Rules>): BoardMove[] | undefined {
   if (before.game_id !== next.game_id || !before.fen || next.revision < before.revision) return;
-  setRules(rules);
-  let pos = fromFen(before.fen), revision = before.revision;
+  const context = new GameRules(rules);
+  let pos = context.fromFen(before.fen), revision = before.revision;
   const steps: BoardMove[] = [];
   for (const command of next.last_commands.filter(command => command.seq > before.revision)) {
     if (command.seq !== ++revision) return;
@@ -106,7 +106,8 @@ export function replayLans(before: Pick<View, 'game_id' | 'revision' | 'fen'>, n
 
 export function replayHistory(next: View, rules: Partial<Rules>): BoardMove[] | undefined {
   if (!next.history) return;
-  let pos = fromFen(next.history.initial_fen);
+  const context = new GameRules(rules);
+  let pos = context.fromFen(next.history.initial_fen);
   const steps: BoardMove[] = [];
   for (const lan of next.history.actions) {
     const step = applyLan(pos, lan, rules);

@@ -1,10 +1,11 @@
+import { GameRules } from '../../game-rules';
 import { call, client, gameActionsBlocked, memory, navigate, routeView } from '../../account-game/runtime';
 import type { Job } from '../queue';
 import { art } from '../../account-game/art';
 import { board, highlight } from '../board-view';
 import { ending } from '../ending';
-import { fromFen } from '../../rules/setup';
-import { LETTERS, NAMES, PLAIN_KINGS, setRules, sqName } from '../../rules/engine';
+
+import { LETTERS, NAMES, PLAIN_KINGS, sqName } from '../../rules/engine';
 import type { KingChoice } from '../../rules/rules';
 import { seatChoicesNeeded, validateChoice, type Choice } from '../../match/setup';
 import type { View } from '../../match/protocol';
@@ -92,8 +93,8 @@ function render() {
   $('seat-context').textContent = ready ? 'Waiting for the other player.' : error ?? (selected === null ? needs.order ? 'Select one back-rank piece, then another, to swap them.' : 'Choose your king, then press Ready.' : `Select a marked piece to swap the ${piece} with it.`);
   $('seat-note').textContent = ready ? days === null ? '' : `${them} has ${days} ${days === 1 ? 'day' : 'days'} to choose.` : choice.order.includes('G') && needs.order ? 'The guard stays next to the king.' : '';
   $('last-move').textContent = '';
-  const kings: [KingChoice | null, KingChoice | null] = [null,null]; kings[view.seat] = choice.king; setRules({ kings });
-  const pos = fromFen(seatFen(choice.order, view.seat)); pos.turn = view.seat; board.sync(pos); board.flip(view.seat === 1);
+  const kings: [KingChoice | null, KingChoice | null] = [null,null]; kings[view.seat] = choice.king; const context = new GameRules({ kings }); board.setRules(context);
+  const pos = context.fromFen(seatFen(choice.order, view.seat)); pos.turn = view.seat; board.sync(pos); board.flip(view.seat === 1);
   highlight({ selected: ready ? null : selected, swaps: !ready && selected !== null ? legalSwaps(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice, view.seat, selected) : [] });
   locks(); requestAnimationFrame(placeVeil);
 }
@@ -102,7 +103,7 @@ async function finish(next: View, origin?: Job) {
   if (next.status === 'playing') {
     const full = next.rules ? next : await call('kingdown_get', {}, { retain: true, route: false, origin }); if (!full) return;
     release();
-    if (full.rules) setRules(full.rules); routeView(full);
+    routeView(full);
   } else if (next.status === 'finished' || next.status === 'aborted') {
     $('seat-context').textContent = ending(next); release(); routeView(next);
   } else routeView(next);

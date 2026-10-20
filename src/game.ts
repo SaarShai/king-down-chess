@@ -1,9 +1,8 @@
 /** Game state (no rendering) and the AI worker wrapper. */
-import { Color, Move, Position, Status, inCheck, legalMoves, makeMove, status } from './rules/engine';
-import { RULES } from './rules/rules';
-import { randomBackRank, startPosition, toLan } from './rules/setup';
-import { SearchOptions, SearchResult, positionKey, search } from './ai/search';
-import { setDesignValue } from './ai/eval';
+import type { Color, Move, Position, Status } from './rules/engine';
+import { DEFAULT_RULES, type Rules } from './rules/rules';
+import type { SearchOptions, SearchResult } from './ai/search';
+import { GameRules } from './game-rules';
 
 export type Side = 'human' | 'ai';
 
@@ -18,6 +17,11 @@ export function resigningSide(sides: readonly [Side, Side], turn: Color, linkSid
 }
 
 export class Game {
+  private owned: GameRules;
+  private lifetime = {};
+  get context(): GameRules { return this.owned; }
+  get rules(): Rules { return this.owned.rules; }
+  get identity(): object { return this.lifetime; }
   pos!: Position;
   backRank = '';
   history: { pos: Position; move: Move; lan: string }[] = [];
@@ -26,11 +30,19 @@ export class Game {
   /** Occurrences per position (board + side to move) for threefold repetition. */
   private seen = new Map<number, number>();
 
-  constructor(backRank?: string) { this.newGame(backRank); }
+  constructor(backRank?: string, rules: Partial<Rules> = DEFAULT_RULES) {
+    this.owned = new GameRules(rules);
+    this.newGame(backRank);
+  }
 
-  newGame(backRank: string = randomBackRank()): void {
-    this.backRank = backRank;
-    this.pos = startPosition(backRank);
+  newGame(backRank?: string, rules?: Partial<Rules>): void {
+    const context = rules ? new GameRules(rules) : this.owned;
+    const army = backRank ?? context.randomBackRank();
+    const pos = context.startPosition(army);
+    this.owned = context;
+    this.lifetime = {};
+    this.backRank = army;
+    this.pos = pos;
     this.history = [];
     this.seen.clear();
     this.cache = null;
@@ -39,6 +51,7 @@ export class Game {
 
   /** Start from an arbitrary position (FEN via ?fen=… for testing and sharing). */
   load(pos: Position): void {
+    this.lifetime = {};
     this.backRank = '';
     this.pos = pos;
     this.history = [];
@@ -48,7 +61,7 @@ export class Game {
   }
 
   /** Board + side to move; the repetition key. */
-  private key(): number { return positionKey(this.pos); }
+  private key(): number { return this.context.positionKey(this.pos); }
 
   /** Count the current position, then set `status`; a position met 3 times is a repetition draw. */
   private update(): void {
@@ -57,19 +70,19 @@ export class Game {
   }
 
   private setStatus(): void {
-    const s = status(this.pos);
-    this.status = s === 'playing' && RULES.threefold && (this.seen.get(this.key()) ?? 1) >= 3 ? 'drawRepetition' : s;
+    const s = this.context.status(this.pos);
+    this.status = s === 'playing' && this.rules.threefold && (this.seen.get(this.key()) ?? 1) >= 3 ? 'drawRepetition' : s;
   }
 
   /** The board after a recorded ply, including the last position. */
   positionAfter(ply: number): Position { return ply === this.history.length ? this.pos : this.history[ply].pos; }
 
-  get legal(): Move[] { return (this.cache ??= legalMoves(this.pos)); }
-  get inCheck(): boolean { return inCheck(this.pos); }
+  get legal(): Move[] { return (this.cache ??= this.context.legalMoves(this.pos)); }
+  get inCheck(): boolean { return this.context.inCheck(this.pos); }
 
   play(m: Move): void {
-    this.history.push({ pos: this.pos, move: m, lan: toLan(this.pos, m) });
-    this.pos = makeMove(this.pos, m);
+    this.history.push({ pos: this.pos, move: m, lan: this.context.toLan(this.pos, m) });
+    this.pos = this.context.makeMove(this.pos, m);
     this.cache = null;
     this.update();
   }
@@ -90,7 +103,7 @@ export class Game {
   playLan(lans: readonly string[]): number {
     let n = 0;
     for (const lan of lans) {
-      const m = this.legal.find(x => toLan(this.pos, x) === lan);
+      const m = this.legal.find(x => this.context.toLan(this.pos, x) === lan);
       if (!m) break;
       this.play(m);
       n++;
@@ -99,37 +112,53 @@ export class Game {
   }
 }
 
-/** The search on the page (no worker) under the page's rules: a design in `T` is worth what the judge says, as in the worker. */
-function inline(pos: Position, opts: SearchOptions): SearchResult {
-  setDesignValue(RULES.design);
-  return search(pos, opts);
-}
-
 export class Engine {
-  private worker: Worker | null = this.spawn();
+  private worker: Worker | null = null;
+  private owner: object | null = null;
   private id = 0;
+  private clean: (() => void) | undefined;
 
   /** Returns null where workers cannot start (e.g. a sandbox); the search then runs on the main thread. */
   private spawn(): Worker | null {
     try {
       const w = new Worker(new URL('./ai/worker.ts', import.meta.url), { type: 'module' });
-      w.onerror = () => { this.worker = null; };
+      w.onerror = () => { if (this.worker === w) this.worker = null; w.terminate(); };
       return w;
     } catch { return null; }
   }
 
   /** Resolves only while this search is still the current one; a cancelled search never answers. */
-  think(pos: Position, opts: SearchOptions): Promise<SearchResult> {
+  think(game: Game, opts: Omit<SearchOptions, 'rng'>, position = game.pos): Promise<SearchResult> {
+    if ('rng' in opts && opts.rng !== undefined) throw new Error('Game search does not accept callbacks');
+    this.clean?.();
+    if (this.owner !== game.identity) {
+      this.worker?.terminate();
+      this.worker = this.spawn();
+      this.owner = game.identity;
+    }
+    // A later load or preview cannot change an already requested search.
+    const owner = game.identity, context = game.context;
+    const pos = structuredClone(position), options = {
+      ...opts,
+      ...(opts.history && { history: opts.history.slice() }),
+      ...(opts.rootMoves && { rootMoves: structuredClone(opts.rootMoves) }),
+    };
     const id = ++this.id;
     const worker = this.worker;
-    const live = (): boolean => id === this.id;
-    if (!worker) return new Promise(resolve => setTimeout(() => { if (live()) resolve(inline(pos, opts)); }, 30));
+    const live = (): boolean => id === this.id && game.identity === owner;
+    const inline = (): SearchResult => context.search(owner, pos, options);
+    if (!worker) return new Promise(resolve => {
+      const timer = setTimeout(() => { this.clean = undefined; if (live()) resolve(inline()); }, 30);
+      this.clean = () => clearTimeout(timer);
+    });
     return new Promise(resolve => {
       const onMessage = (e: MessageEvent<SearchResult & { id: number }>) => {
         if (e.data.id !== id) return;
-        clearTimeout(fallback);
-        worker.removeEventListener('message', onMessage);
-        if (live()) resolve(e.data);
+        this.clean?.(); this.clean = undefined;
+        if (live()) {
+          const { id: _id, ...result } = e.data;
+          resolve(result);
+        }
       };
       // No reply well past the time budget: assume the worker is dead and search inline from now on.
       // `live()` first: after a cancel() this timer belongs to a terminated worker, and nulling
@@ -137,17 +166,20 @@ export class Engine {
       const fallback = setTimeout(() => {
         worker.removeEventListener('message', onMessage);
         if (!live()) return;
+        worker.terminate();
         this.worker = null;
-        resolve(inline(pos, opts));
-      }, (opts.timeMs ?? 1000) + 2500);
+        this.clean = undefined;
+        resolve(inline());
+      }, (options.timeMs ?? 1000) + 2500);
+      this.clean = () => { clearTimeout(fallback); worker.removeEventListener('message', onMessage); };
       worker.addEventListener('message', onMessage);
-      // The rules the page is playing, by value. Snapshot at call time: `?rules=`/`?kings=` set them
-      // before the first game, and a restored save may set them again before the AI's first move.
-      // `worker.postMessage` structured-clones it, so later mutations cannot race the search.
-      worker.postMessage({ id, pos, opts, rules: { ...RULES } });
+      worker.postMessage({ id, pos, opts: options, rules: context.rules });
     });
   }
 
   /** Abort a running search (its promise never resolves; the id bump is what silences it). */
-  cancel(): void { this.worker?.terminate(); this.worker = this.spawn(); this.id++; }
+  cancel(): void {
+    this.clean?.(); this.clean = undefined;
+    this.worker?.terminate(); this.worker = null; this.owner = null; this.id++;
+  }
 }

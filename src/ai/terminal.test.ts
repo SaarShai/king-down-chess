@@ -60,7 +60,7 @@ describe('terminal rules agree in the game and search', () => {
     expect(status(old)).toBe('playing');
     expect(search(old, { maxDepth: 1 }).move).not.toBeNull();
     setRules({ threefold: false });
-    const g = new Game(CLASSIC_CHESS);
+    const g = new Game(CLASSIC_CHESS, { threefold: false });
     const cycle = ['Ng1-f3', 'Ng8-f6', 'Nf3-g1', 'Nf6-g8'];
     expect(g.playLan([...cycle, ...cycle])).toBe(8);
     expect(g.status).toBe('playing');

@@ -23,6 +23,7 @@ function hashTree(url: URL): void {
 // The build stamps the hash of this bundle instead (tools/plugin-runtime-build.mjs, G2).
 if (typeof __KINGDOWN_ENGINE__ === 'undefined') {
   hash.update(readFileSync(new URL('../game.ts', import.meta.url)));
+  hash.update(readFileSync(new URL('../game-rules.ts', import.meta.url)));
   hash.update(readFileSync(new URL('./worker.ts', import.meta.url)));
   // The workshop holds the design rule's checks (`RULES.design`, src/rules/rules.ts imports its model).
   hashTree(new URL('../rules/', import.meta.url)); hashTree(new URL('../ai/', import.meta.url)); hashTree(new URL('../workshop/', import.meta.url));
@@ -60,7 +61,7 @@ function create(input: unknown): void {
   // A hand with a spendable king power is a refused rule mix (`setRules`), so it is a setup error.
   try { setRules(structuredClone({ ...(kings?.some(Boolean) ? POWERS_BALANCED : {}), ...preset, ...(kings ? { kings } : {}), ...(s.classic ? { classicChess: true } : {}), hands })); } catch (e) { throw new Error(`Malformed setup: ${(e as Error).message}`); }
   if (RULES.piles.some(h => h.length)) throw new Error('Private card data unsupported');
-  game = new Game(s.backRank ?? 'RNBQKBNR');
+  game = new Game(s.backRank ?? 'RNBQKBNR', RULES);
   if (s.fen !== undefined) game.load(position(s.fen));
   saved = { schema: 'kingdown-local-match/1', engine, setup: structuredClone(s), initialFen: toFen(game.pos), rules: structuredClone(RULES), revision: 0, commands: [] };
 }

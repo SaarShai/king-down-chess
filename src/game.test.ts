@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Engine, Game, resigningSide } from './game';
-import { legalMoves, parseSq, setRules } from './rules/engine';
+import { legalMoves, parseSq, setRules, RULES_2017, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, toFen, toLan } from './rules/setup';
 
 /** Play the first legal move whose LAN matches, so the tests read like a score sheet. */
@@ -195,11 +195,11 @@ describe('Engine.cancel', () => {
     const engine = new Engine(); // no Worker global here, so think() runs inline on a timer
     const g = new Game(CLASSIC_CHESS);
     let answered = false;
-    void engine.think(g.pos, { timeMs: 1 }).then(() => { answered = true; });
+    void engine.think(g, { timeMs: 1 }).then(() => { answered = true; });
     engine.cancel();
     await new Promise(r => setTimeout(r, 120));
     expect(answered).toBe(false);
-    const res = await engine.think(g.pos, { timeMs: 1 }); // and the engine still works afterwards
+    const res = await engine.think(g, { timeMs: 1 }); // and the engine still works afterwards
     expect(res.move).toBeTruthy();
   });
 
@@ -210,10 +210,10 @@ describe('Engine.cancel', () => {
       vi.useFakeTimers();
       const engine = new Engine();
       const g = new Game(CLASSIC_CHESS);
-      void engine.think(g.pos, { timeMs: 200 }); // the fake never replies
-      engine.cancel();                           // terminates it, spawns a replacement
+      void engine.think(g, { timeMs: 200 }); // the fake never replies
+      engine.cancel();                           // terminates it; next think starts a replacement
       vi.advanceTimersByTime(10_000);            // the dead search's fallback fires
-      void engine.think(g.pos, { timeMs: 200 });
+      void engine.think(g, { timeMs: 200 });
       expect(FakeWorker.made).toHaveLength(2);
       expect(FakeWorker.made[0].terminated).toBe(true);
       expect(FakeWorker.made[1].posted).toHaveLength(1); // still on the worker, not inline
@@ -222,18 +222,98 @@ describe('Engine.cancel', () => {
 
   // The browser allows `?rules=2017|2021` and `?kings=…`; the board plays the variant, so the worker
   // must too. Sending it once at spawn is not enough: cancel() replaces the worker.
-  it('sends the live rules with every search, including to a replacement worker', () => {
+  it('sends the owned rules with every search, including to a replacement worker', () => {
     withWorkers(() => {
-      setRules({ paladinKamikaze: 'always' });
+      vi.useFakeTimers();
       try {
         const engine = new Engine();
-        const g = new Game(CLASSIC_CHESS);
-        void engine.think(g.pos, { timeMs: 200 });
+        const g = new Game(CLASSIC_CHESS, { paladinKamikaze: 'always' });
+        setRules({ paladinKamikaze: 'never' });
+        void engine.think(g, { timeMs: 200 });
         expect((FakeWorker.made[0].posted[0] as { rules: { paladinKamikaze?: string } }).rules.paladinKamikaze).toBe('always');
         engine.cancel();
-        void engine.think(g.pos, { timeMs: 200 });
+        void engine.think(g, { timeMs: 200 });
         expect((FakeWorker.made[1].posted[0] as { rules: { paladinKamikaze?: string } }).rules.paladinKamikaze).toBe('always');
       } finally { setRules(); }
     });
+  });
+
+  it('reuses one worker within a game and replaces it for another game or a reset', () => {
+    withWorkers(() => {
+      vi.useFakeTimers();
+      const engine = new Engine(), a = new Game(CLASSIC_CHESS), b = new Game(CLASSIC_CHESS, RULES_2017);
+      void engine.think(a, { maxDepth: 3 });
+      play(a, 'e2-e4');
+      void engine.think(a, { maxDepth: 3 });
+      expect(FakeWorker.made).toHaveLength(1);
+      expect(FakeWorker.made[0].posted).toHaveLength(2);
+      void engine.think(b, { maxDepth: 3 });
+      expect(FakeWorker.made[0].terminated).toBe(true);
+      expect(FakeWorker.made).toHaveLength(2);
+      b.load(b.context.fromFen('7k/8/8/8/8/2A5/8/K7 w - - 0 1'));
+      void engine.think(b, { maxDepth: 3 });
+      expect(FakeWorker.made[1].terminated).toBe(true);
+      expect(FakeWorker.made).toHaveLength(3);
+      engine.cancel();
+    });
+  });
+
+  it('captures the requested rules, position and options before inline work starts', async () => {
+    const engine = new Engine(), game = new Game('RALSKMOG', RULES_2017);
+    const position = structuredClone(game.pos), options = { maxDepth: 2, history: [] as number[] };
+    const requested = engine.think(game, options, position);
+    position.board.fill(0); options.history.push(123); options.maxDepth = 1;
+    setRules();
+    const result = await requested;
+    expect(result.depth).toBe(2);
+    expect(game.legal.some(move => toLan(game.pos, move) === toLan(game.pos, result.move!))).toBe(true);
+    engine.cancel();
+  });
+
+  it('drops an inline result if its game is reset before the timer fires', async () => {
+    const engine = new Engine(), game = new Game(CLASSIC_CHESS);
+    let answered = false;
+    void engine.think(game, { maxDepth: 1 }).then(() => { answered = true; });
+    game.newGame(CLASSIC_CHESS);
+    await new Promise(resolve => setTimeout(resolve, 60));
+    expect(answered).toBe(false);
+    engine.cancel();
+  });
+
+  it('refuses a callback before starting game search', () => {
+    const engine = new Engine(), game = new Game(CLASSIC_CHESS);
+    const rng = vi.fn(() => 0.5);
+    expect(() => engine.think(game, { maxDepth: 1, rng } as { maxDepth: number })).toThrow('callbacks');
+    expect(rng).not.toHaveBeenCalled();
+  });
+});
+
+describe('Game owns its definition', () => {
+  afterEach(() => setRules());
+
+  it('copies nested configuration and keeps it fixed through another game and ambient edits', () => {
+    const input: Partial<Rules> = { hands: [['Freeze'], []], fromMove: { Freeze: 2 } };
+    const a = new Game(CLASSIC_CHESS, input);
+    (input.hands![0] as string[]).push('Haste');
+    (input.fromMove as { Freeze: number }).Freeze = 9;
+    const b = new Game(CLASSIC_CHESS, RULES_2017);
+    const before = a.legal;
+    setRules(RULES_2017);
+    b.playLan(['e2-e4']);
+    expect(a.rules.hands[0]).toEqual(['Freeze']);
+    expect(a.rules.fromMove.Freeze).toBe(2);
+    expect(() => (a.rules.hands[0] as string[]).push('Haste')).toThrow();
+    expect(a.legal).toEqual(before);
+  });
+
+  it('rejects an invalid reset without changing the accepted game', () => {
+    const game = new Game(CLASSIC_CHESS);
+    play(game, 'e2-e4');
+    const before = { fen: toFen(game.pos), identity: game.identity, context: game.context, history: [...game.history] };
+    expect(() => game.newGame(CLASSIC_CHESS, { hands: [['Haste'], []], kings: [{ king: 'Flame', power: 'Haste' }, null] })).toThrow('hand');
+    expect(toFen(game.pos)).toBe(before.fen);
+    expect(game.identity).toBe(before.identity);
+    expect(game.context).toBe(before.context);
+    expect(game.history).toEqual(before.history);
   });
 });

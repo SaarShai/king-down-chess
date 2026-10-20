@@ -1,21 +1,19 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { Game, resigningSide } from './game';
-import { CLASSIC_CHESS, fromFen, toFen, toLan } from './rules/setup';
-import { POWERS_BALANCED, setRules } from './rules/engine';
+import { CLASSIC_CHESS, fromFen, toFen } from './rules/setup';
+import { POWERS_BALANCED } from './rules/engine';
 import { contextLine } from './context-line';
 import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, pressPass, sendLans, turnAnnouncement, turnButton, turnLine, turnOf, waitNotice } from './turn';
 
 /** Play the first legal move whose LAN matches, so the tests read like a score sheet. */
 const play = (g: Game, ...lans: string[]): Game => {
   for (const lan of lans) {
-    const m = g.legal.find(x => toLan(g.pos, x) === lan);
+    const m = g.legal.find(x => g.context.toLan(g.pos, x) === lan);
     if (!m) throw new Error(`no legal move ${lan} in ${toFen(g.pos)}`);
     g.play(m);
   }
   return g;
 };
-
-afterEach(() => setRules());
 
 describe('turnOf: a plain move', () => {
   it('nothing staged: End turn is off and the board takes a move', () => {
@@ -47,8 +45,7 @@ describe('turnOf: a plain move', () => {
 
 describe('turnOf: turns that go on', () => {
   it('a Haste first move is mid-way: End turn is on (it plays the pass), and the board takes the second move', () => {
-    setRules({ kings: [{ king: 'Flame', power: 'Haste' }, null] });
-    const g = new Game();
+    const g = new Game(undefined, { kings: [{ king: 'Flame', power: 'Haste' }, null] });
     g.load(fromFen('7k/p7/8/8/8/8/8/R5K1 w - - 0 1'));
     play(g, 'Ra1-a4!H');
     expect(turnOf(g, 0)).toMatchObject({ activeSide: 0, staged: 1, midWay: true, ready: true, waits: false });
@@ -56,16 +53,14 @@ describe('turnOf: turns that go on', () => {
   });
 
   it('a Haste pass makes the turn wait', () => {
-    setRules({ kings: [{ king: 'Flame', power: 'Haste' }, null] });
-    const g = new Game();
+    const g = new Game(undefined, { kings: [{ king: 'Flame', power: 'Haste' }, null] });
     g.load(fromFen('7k/p7/8/8/8/8/8/R5K1 w - - 0 1'));
     play(g, 'Ra1-a4!H', '--');
     expect(turnOf(g, 0)).toMatchObject({ staged: 2, midWay: false, ready: true, waits: true });
   });
 
   it('a free Freeze is mid-way; the move after it makes the turn wait', () => {
-    setRules({ ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });
-    const g = new Game();
+    const g = new Game(undefined, { ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });
     g.load(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'));
     play(g, '!F:d5');
     expect(turnOf(g, 0)).toMatchObject({ staged: 1, midWay: true, ready: true, waits: false });
@@ -73,8 +68,7 @@ describe('turnOf: turns that go on', () => {
   });
 
   it("Black's double first turn (lab rule) goes on: End turn stays off until the second move", () => {
-    setRules({ secondPlayerDoubleFirstTurn: true });
-    const g = play(new Game(CLASSIC_CHESS), 'e2-e4', 'e7-e5');
+    const g = play(new Game(CLASSIC_CHESS, { secondPlayerDoubleFirstTurn: true }), 'e2-e4', 'e7-e5');
     expect(turnOf(g, 1)).toMatchObject({ activeSide: 1, staged: 1, midWay: false, ready: false, waits: false });
     expect(turnOf(play(g, 'd7-d6'), 1)).toMatchObject({ staged: 2, ready: true, waits: true });
   });
@@ -90,8 +84,7 @@ describe('the side that Resign gives up', () => {
 
 describe('turnLine: the words beside the board', () => {
   const haste = (): Game => {
-    setRules({ kings: [{ king: 'Flame', power: 'Haste' }, null] });
-    const g = new Game();
+    const g = new Game(undefined, { kings: [{ king: 'Flame', power: 'Haste' }, null] });
     g.load(fromFen('7k/p7/8/8/8/8/8/R5K1 w - - 0 1'));
     return play(g, 'Ra1-a4!H');
   };
@@ -132,8 +125,7 @@ describe('turnLine: the words beside the board', () => {
     const g = haste();
     expect(turnLine(g, turnOf(g, 0), 'computer')).toBe('Move it again, or select End turn.');
     expect(turnLine(g, turnOf(g, 0), 'link')).toBe('Move it again, or select Send your turn.');
-    setRules({ ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });
-    const f = new Game();
+    const f = new Game(undefined, { ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });
     f.load(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'));
     play(f, '!F:d5');
     expect(turnLine(f, turnOf(f, 0), 'device')).toBe('Now make your move, or select End turn.');
@@ -141,8 +133,7 @@ describe('turnLine: the words beside the board', () => {
   });
 
   it('mid-way after a Rally: another piece moves next', () => {
-    setRules({ hands: [['Rally'], []], markFree: true, hasteCaptures: false });
-    const g = new Game();
+    const g = new Game(undefined, { hands: [['Rally'], []], markFree: true, hasteCaptures: false });
     g.load(fromFen('4k3/8/p7/8/8/2p5/8/RN2K3 w - - 0 1'));
     play(g, 'Ra1-a5!J');
     expect(turnLine(g, turnOf(g, 0), 'computer')).toBe('Move another piece, or select End turn.');
@@ -161,12 +152,10 @@ describe('turnLine: the words beside the board', () => {
     stale.load(fromFen('7k/8/6Q1/8/8/8/8/K7 w - - 0 1'));
     read(play(stale, 'Qg6-f7'), 0);
     read(haste(), 0);
-    setRules({ hands: [['Rally'], []], markFree: true, hasteCaptures: false });
-    const rally = new Game();
+    const rally = new Game(undefined, { hands: [['Rally'], []], markFree: true, hasteCaptures: false });
     rally.load(fromFen('4k3/8/p7/8/8/2p5/8/RN2K3 w - - 0 1'));
     read(play(rally, 'Ra1-a5!J'), 0);
-    setRules({ ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });
-    const mark = new Game();
+    const mark = new Game(undefined, { ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });
     mark.load(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'));
     read(play(mark, '!F:d5'), 0);
     for (const line of lines) expect(line.split(/\s+/).length, line).toBeLessThanOrEqual(8);
@@ -227,8 +216,7 @@ describe('the press: the pass of a mid-way turn, and the moves of the link it se
   });
 
   it('a mid-way Haste turn: the press plays the pass, and the link holds it (--)', () => {
-    setRules({ kings: [{ king: 'Flame', power: 'Haste' }, null] });
-    const g = new Game();
+    const g = new Game(undefined, { kings: [{ king: 'Flame', power: 'Haste' }, null] });
     g.load(fromFen('7k/p7/8/8/8/8/8/R5K1 w - - 0 1'));
     play(g, 'Ra1-a4!H');
     expect(pressPass(g, turnOf(g, 0))?.pass).toBe(true);
@@ -236,8 +224,7 @@ describe('the press: the pass of a mid-way turn, and the moves of the link it se
   });
 
   it('a free mark and a move: no pass; a free mark alone: the pass', () => {
-    setRules({ ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });
-    const g = new Game();
+    const g = new Game(undefined, { ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });
     g.load(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'));
     play(g, '!F:d5');
     expect(sendLans(g, turnOf(g, 0))).toEqual(['!F:d5', '--']);
@@ -272,8 +259,7 @@ describe('the turn boundary', () => {
 
 describe('card follow-ups and old links', () => {
   it.each([['Rage', 'A'], ['RageB', 'B']] as const)('%s stays open for its take or pass', (card, tag) => {
-    setRules({ hands: [[card], []], hasteCaptures: false });
-    const g = new Game();
+    const g = new Game(undefined, { hands: [[card], []], hasteCaptures: false });
     g.load(fromFen('4k3/8/p7/8/8/8/8/R3K3 w - - 0 1'));
     play(g, `Ra1-a5!${tag}`);
     expect(turnOf(g, 0)).toMatchObject({ ready: true, waits: false, midWay: true });
@@ -284,8 +270,7 @@ describe('card follow-ups and old links', () => {
   });
 
   it('the receiver finishes an old Haste link with a pass', () => {
-    setRules({ kings: [{ king: 'Flame', power: 'Haste' }, null] });
-    const g = new Game();
+    const g = new Game(undefined, { kings: [{ king: 'Flame', power: 'Haste' }, null] });
     g.load(fromFen('7k/p7/8/8/8/8/8/R5K1 w - - 0 1'));
     play(g, 'Ra1-a4!H');
     finishLinkedTurn(g);

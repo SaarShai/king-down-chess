@@ -28,7 +28,7 @@ export function initHome(actions: {
     $('home-review').hidden = !state.review;
     $('last-move').innerHTML = '<span></span>';
     $('last-move').querySelector('span')!.textContent = state.lastMove || 'No moves yet.';
-    const today = todayDeal(new Date());
+    const today = todayDeal(new Date(), actions.read().game.context);
     $('home-date').textContent = today.label;
     $('home-army').innerHTML = [...today.army].map(p => pieceIcon(LETTERS.indexOf(p) as PieceType)).join('');
   }

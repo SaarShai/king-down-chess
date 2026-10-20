@@ -1,3 +1,4 @@
+import { GameRules } from '../game-rules';
 import { cardPicture } from '../card-symbol';
 import { cardDiagram } from '../card-diagram';
 /**
@@ -13,7 +14,7 @@ import { cardDiagram } from '../card-diagram';
  * Loaded on demand (main.ts `import()`).
  */
 import './ground.css';
-import { BLACK, HISTORY_WHENS, K, KINGS, NAMES as PIECE, P, T, USES_RULE, WHITE, colorOf, file, isMarkTag, makeMove, parseSq, piece, rank, sq, sqName, typeOf, type CardName, type KingName, type Move, type PieceType, type Position, type PowerName } from '../rules/engine';
+import { BLACK, HISTORY_WHENS, K, KINGS, NAMES as PIECE, P, T, USES_RULE, WHITE, colorOf, file, isMarkTag, parseSq, piece, rank, sq, sqName, typeOf, type CardName, type KingName, type Move, type PieceType, type Position, type PowerName } from '../rules/engine';
 import { POWER_NAME, cardText, coinState, coinWords, powerText } from '../powers-ui';
 import { coinRow } from '../ui/coin';
 import { pieceIcon } from '../piece-icons';
@@ -116,7 +117,9 @@ const gaitOf = (d: PieceDesign): Gait => GAITS[GAIT_OF[d.look.body === 'token' ?
  *  and why the design cannot take it. `w` is the When; `like`, the piece that "Always" adds to Moves. */
 interface Choice { v: string; words: string; on: boolean; off: string | null; apply: (d: PieceDesign) => void; w?: When; like?: LikeAs }
 
-export function groundDialog(): { open(): void; openDesign(code: string): void } {
+export function groundDialog(current: () => GameRules = () => new GameRules()): { open(): void; openDesign(code: string): void } {
+  let preview = new GameRules();
+  const ownRules = () => { preview = new GameRules({ ...current().rules, design: null }); };
   const dlg = document.createElement('dialog');
   dlg.id = 'workshop';
   dlg.className = 'pg';
@@ -560,7 +563,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       return toast('Reach ends 3 squares out.', 'lock');
     }
     // A mark that the paint alone does not make: a rule makes it.
-    if (sc.marks.some(m => m.sq === q && m.diff !== '-') && !sceneOf({ squares: cur.d.squares, lines: cur.d.lines, rules: [] }, board, from).marks.some(m => m.sq === q))
+    if (sc.marks.some(m => m.sq === q && m.diff !== '-') && !sceneOf({ squares: cur.d.squares, lines: cur.d.lines, rules: [] }, board, from, START, preview).marks.some(m => m.sq === q))
       return toast('A rule makes this mark. Tap its seal.', 'lockOpen');
     const pts = orbit(x, y, mirror), b = brush!;
     const painted = change('paint', d => {
@@ -1022,7 +1025,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     plinthEl.inert = short.matches && sheet;
     brushesEl.inert = trayEl.inert = phone && !!why;
     if (!why) { whyEl.innerHTML = ''; return; }
-    const w = whyWords(now(), sc, traceOf(now(), board, from, st), why), p = w.piece, T = phone ? 48 : 52;
+    const w = whyWords(now(), sc, traceOf(now(), board, from, st, preview), why), p = w.piece, T = phone ? 48 : 52;
     const icon = !p ? '' : pieceIcon(p.open ? pos.became || BODY_TYPE[cur.d.look.body as Body] : (PIECE as readonly string[]).indexOf(p.k) as PieceType, p.side === 'b' ? 1 : 0);
     whyEl.innerHTML = `<div class="tag"><div class="why-h">${icon}<span class="sqn">${why}</span><span class="occ">${esc(w.occupant)}</span>${w.count ? countRing(w.count) : ''}`
       + `<button type="button" class="x" data-act="closewhy" aria-label="Close">×</button></div>`
@@ -1045,7 +1048,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   const now = (): PieceDesign | Preset => (pos.became && !brush ? presetOf(PIECE[pos.became]) : cur.d);
   /** The moves that a tap plays now: the next takes of a chain in progress, else the moves of the turn less the longer chains. */
   const movesNow = (): Move[] => (pos.gone ? [] : pos.chain ? pos.chain.more.filter(m => m.captures.length === pos.chain!.caps.length + 1)
-    : movesOf(now(), pos.board, pos.from, pos.st).filter(m => m.captures.length <= 1));
+    : movesOf(now(), pos.board, pos.from, pos.st, undefined, preview).filter(m => m.captures.length <= 1));
   const movesAt = (q: string): Move[] => movesNow().filter(m => sqName(pos.chain ? m.to : tapOf(m)) === q);
   const plaqueOn = (): boolean => tapped || edited || opened > 1;
 
@@ -1220,12 +1223,12 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   /** Plays `m` with the engine (makeMove, as boardAfter does), White each time: the other side never moves. A chain's next
    *  take removes only its new piece; after a take the chain goes on while a longer move of the turn starts with its takes. */
   function play(m: Move): void {
-    const fresh = m.captures.slice(pos.chain?.caps.length ?? 0), all = pos.chain?.more ?? movesOf(now(), pos.board, pos.from, pos.st);
+    const fresh = m.captures.slice(pos.chain?.caps.length ?? 0), all = pos.chain?.more ?? movesOf(now(), pos.board, pos.from, pos.st, undefined, preview);
     const who = (s: number): string => `${colorOf(pos.board[s]) ? 'enemy' : 'your'} ${PIECE[typeOf(pos.board[s])]}`;
     const said = m.shove ? `Pushed the ${who(m.shove.from)} from ${sqName(m.shove.from)} to ${sqName(m.shove.to)}.` : m.swap ? `Swapped places with the ${who(m.to)} on ${sqName(m.to)}.`
       : fresh.length ? `${actOf(m) === 'shot' ? 'Shot' : 'Took'} the ${fresh.map(s => `${who(s)} on ${sqName(s)}`).join(' and the ')}.` : `Moved to ${sqName(m.to)}.`;
     const was = pos.from, src = boardEl.querySelector('[data-open]')?.getAttribute('href'), taken = fresh.map(s => [s, pieceArt(typeOf(pos.board[s]), colorOf(pos.board[s]) === BLACK)] as const);
-    const board = makeMove({ board: pos.board, turn: WHITE, halfmove: 0, ply: 0 }, { ...m, from: pos.from, captures: fresh }).board;
+    const board = preview.makeMove({ board: pos.board, turn: WHITE, halfmove: 0, ply: 0 }, { ...m, from: pos.from, captures: fresh }).board;
     const more = m.selfRemove || m.promo || !fresh.length || m.to === m.from ? [] : all.filter(x => x.captures.length > m.captures.length && m.captures.every((c, i) => x.captures[i] === c));
     backs.push(pos);
     pos = {
@@ -1371,11 +1374,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     // The Rules tab (renderLedge, proving-ground.html:1466-1476): the seals in their groups, then the laws in force as read-only
     // plaques (decision 28) and the Fixed plaque. The phone hides the laws.
     if (t === 'rules') {
-      const pr = promotion();
+      const pr = promotion(preview);
       slotsEl.innerHTML = `<div class="rgroups">${GROUPS.map(g => `<div class="rgrp"><h4>${g}</h4><div class="ss">${BLOCKS.filter(b => b.group === g)
       .map(b => `<button type="button" data-openseal="${b.a}" aria-pressed="${sealOn === b.a}" title="${esc(b.title)}">${seal(b.a, 44)}<span>${esc(b.label)}</span></button>`).join('')}</div></div>`).join('')}</div>`
       + `<span class="lsep" aria-hidden="true"></span><ul class="laws" aria-label="Laws of the game"><li class="law" title="A pawn on the last rank becomes a ${esc(pr.words)}.">Promotion<span class="pill" aria-hidden="true">${pr.letters}</span><span class="sr-only">${esc(pr.words)}</span></li>`
-      + lawsOf().map(([name, say, on]) => `<li class="law" title="${esc(say)}">${name}<b>${on}</b></li>`).join('')
+      + lawsOf(preview.rules).map(([name, say, on]) => `<li class="law" title="${esc(say)}">${name}<b>${on}</b></li>`).join('')
       + `<li class="law fixed"><b>${sigil('lock', 12)} Fixed</b>8×8 board · check and checkmate · no castling · no en passant · a power never takes a king.</li></ul>`;
       return;
     }
@@ -1448,17 +1451,17 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   function drawScene(): void {
     // In brush mode the design stands alone on d4; in look mode it stands on the board of Try with. A copy shows its paint diff against its pool piece.
     ({ board, from, st } = brush ? { board: boardOf(examplesOf({ from: [] })), from: parseSq('d4'), st: START } : pos);
-    const of = (d: PieceDesign): Scene => (d.from[0] ? diffOf(d, presetOf(d.from[0]), board, from, st) : sceneOf(d, board, from, st));
+    const of = (d: PieceDesign): Scene => (d.from[0] ? diffOf(d, presetOf(d.from[0]), board, from, st, preview) : sceneOf(d, board, from, st, preview));
     const next = peek ?? (shelfOpen && pick && !notNow(pick) ? { ...cur.d, rules: [...cur.d.rules, blockOf(pick).rule] } : null);
     // The knots belong to the design: they come from its example board, so a lift or a move keeps them (the mockup's asleep-b4).
     const home = examplesOf(cur.d);
-    sc = { ...of(cur.d), knots: traceOf(cur.d, boardOf(home), parseSq(home[0].sq)).knots };
+    sc = { ...of(cur.d), knots: traceOf(cur.d, boardOf(home), parseSq(home[0].sq), START, preview).knots };
     added = 0;
     if (!brush && (pos.became || pos.chain || pos.gone)) {
       // After a "becomes" the piece moves as that piece. A chain in progress shows only its next takes, from the chain itself:
       // the scene of the new square may not have them (a When that held at the start). A removed piece shows none, and no piece is open.
       const knots = sc.knots;
-      sc = { ...(pos.became ? sceneOf(now(), board, from, st) : sc), knots };
+      sc = { ...(pos.became ? sceneOf(now(), board, from, st, preview) : sc), knots };
       if (!pos.became) sc = { ...sc, pieces: piecesOf(board, pos.gone ? -1 : from), marks: movesNow().map(m => ({ sq: sqName(m.to), k: 'take' })), rails: [], arches: [], effects: [], impressions: [] };
     }
     if (next) {
@@ -1485,7 +1488,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       sc.marks = sc.marks.filter(m => !out(m.sq));
       sc.impressions = sc.impressions.filter(m => !out(m.sq));
       for (const r of sc.rails) if (out(r.to)) { const t = parseSq(r.to); r.to = sqName(sq(3 + 3 * Math.sign(file(t) - 3), 3 + 3 * Math.sign(rank(t) - 3))); r.end = 'arrow'; }
-    } else if (threats && !pos.gone) sc.effects.push(...threatsOf(now(), board, from, st));
+    } else if (threats && !pos.gone) sc.effects.push(...threatsOf(now(), board, from, st, preview));
     drawBoard();
     renderHits();
     renderPaint();
@@ -1730,11 +1733,13 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
 
   return {
     open(): void {
+      ownRules();
       enter(cur);
       const { bad } = loadShelf(); // the note of fix 19: a damaged entry is not lost, only not shown
       if (bad) toast(`${bad === 1 ? '1 saved entry' : `${bad} saved entries`} could not be read. ${bad === 1 ? 'It stays' : 'They stay'} on this device; the other designs work.`);
     },
     openDesign(code: string): void {
+      ownRules();
       const d = parseDesign(code);
       if (!d) toast('This design link could not be read.');
       enter(d ? { key: 'link', d, yours: false } : pool('pawn'));

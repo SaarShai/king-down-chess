@@ -1,6 +1,6 @@
 import { DEFAULT_RULES, POWERS_BALANCED, RULES_2017, parseKings } from '../rules/rules';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cp, appendFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, appendFile, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
@@ -298,10 +298,9 @@ describe('isolated local matches', () => {
     const root = fileURLToPath(new URL('../../', import.meta.url));
     const copy = await mkdtemp(join(tmpdir(), 'kingdown-match-version-'));
     try {
-      await mkdir(join(copy, 'src/sim'), { recursive: true });
       await Promise.all([
-        ...['rules', 'ai', 'match', 'workshop'].map(dir => cp(join(root, 'src', dir), join(copy, 'src', dir), { recursive: true })),
-        ...['package.json', 'src/game.ts', 'src/sim/ts-worker.ts', 'src/sim/worker-boot.mjs'].map(file => cp(join(root, file), join(copy, file))),
+        cp(join(root, 'src'), join(copy, 'src'), { recursive: true }),
+        cp(join(root, 'package.json'), join(copy, 'package.json')),
         symlink(join(root, 'node_modules'), join(copy, 'node_modules'), 'dir'),
       ]);
       await writeFile(join(copy, 'probe.mts'), `

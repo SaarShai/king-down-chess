@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { connectKeys, type KeysPlay } from './keys';
 import { fromFen } from '../rules/setup';
-import type { Game } from '../game';
+import { Game } from '../game';
 import { pieceText } from '../ui/guide';
 import { P } from '../rules/engine';
 
@@ -13,9 +13,10 @@ it('keeps the web cursor words, selection message and piece read', () => {
   vi.stubGlobal('addEventListener', vi.fn());
   vi.stubGlobal('document', { getElementById: () => live, activeElement: board, querySelector: () => null });
   const pos = fromFen('7k/8/8/8/8/8/P7/K7 w - - 0 1');
+  const game = new Game(); game.load(pos);
   let selected: number | null = null, inspected: number | null = null;
   const play: KeysPlay = {
-    game: () => ({ pos }) as Game, shownPos: () => pos, selected: () => selected,
+    game: () => game, shownPos: () => pos, selected: () => selected,
     pending: () => [], inspected: () => inspected, candidates: () => [{ from: 8, to: 16, captures: [] }],
     flipped: () => false, drawMarks: vi.fn(),
   };

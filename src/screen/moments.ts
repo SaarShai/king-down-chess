@@ -1,9 +1,9 @@
 import type { SkillName } from '../ai/skill';
-import { positionKey, type SearchResult } from '../ai/search';
+import { type SearchResult } from '../ai/search';
 import type { Engine, Game, Side } from '../game';
 import { clickPath } from '../marks-model';
 import { keyMoments, momentText, type KeyMoment, type momentKind } from '../moment';
-import { describeMove, moveNumbers } from '../move-text';
+import { moveNumbers } from '../move-text';
 import { findKing, type Color, type Move, type Position, type Status } from '../rules/engine';
 import { toLan } from '../rules/setup';
 import { kingArt } from '../ui/guide';
@@ -119,10 +119,10 @@ export function connectMoments(c: {
     const last = [...game.history].reverse().find(h => !h.move.pass);
     // Ending reason wins over a prior moment caption (`said`); last-move text stays above.
     const why = endReason(game.status, game.pos, c.resigned(), said);
-    $('over-detail').textContent = [last ? describeMove(last.pos, last.move, true, true) : '', why, `${n} move${n === 1 ? '' : 's'}.`].filter(Boolean).join(' ');
+    $('over-detail').textContent = [last ? game.context.describeMove(last.pos, last.move, true, true) : '', why, `${n} move${n === 1 ? '' : 's'}.`].filter(Boolean).join(' ');
     dlg.returnValue = ''; // Esc leaves the last button's value behind, which would re-fire it
-    dlg.querySelector<HTMLImageElement>('.over-w')!.src = kingArt(0); // the kings that played, as on the board
-    dlg.querySelector<HTMLImageElement>('.over-b')!.src = kingArt(1);
+    dlg.querySelector<HTMLImageElement>('.over-w')!.src = kingArt(0, game.context); // the kings that played, as on the board
+    dlg.querySelector<HTMLImageElement>('.over-b')!.src = kingArt(1, game.context);
     $('share-result').hidden = c.daily() == null;
     $('share-result').textContent = "Copy today's result";
     void c.end.show();
@@ -137,14 +137,14 @@ export function connectMoments(c: {
     const g = c.generation(), box = $('over-moments'), dlg = $<HTMLDialogElement>('sheet-moves');
     box.innerHTML = '<small>Finding the key moments…</small>';
     marked = [];
-    const keys = game.history.map(h => positionKey(h.pos));
+    const keys = game.history.map(h => game.context.positionKey(h.pos));
     const results: SearchResult[] = [], before: number[] = [], after: number[] = [];
     for (let k = 0; k < game.history.length; k++) {
       const h = game.history[k], next = game.history[k + 1]?.pos ?? game.pos;
-      const best = await c.engine.think(h.pos, { timeMs: 200, maxDepth: 3, history: keys.slice(0, k) });
+      const best = await c.engine.think(game, { timeMs: 200, maxDepth: 3, history: keys.slice(0, k) }, h.pos);
       if (g !== c.generation()) return; // the game changed (New game, Rematch, Undo): its search was cancelled
       // The played move, one ply shallower: the same horizon as the root's view of it.
-      const reply = await c.engine.think(next, { timeMs: 200, maxDepth: 2, history: keys.slice(0, k + 1) });
+      const reply = await c.engine.think(game, { timeMs: 200, maxDepth: 2, history: keys.slice(0, k + 1) }, next);
       if (g !== c.generation()) return;
       const same = best.move != null && toLan(h.pos, best.move) === h.lan;
       results.push(best); before.push(best.score); after.push(same ? -best.score : reply.score);

@@ -1,28 +1,19 @@
+import { GameRules } from '../game-rules';
 /**
  * The kings' powers on the Proving Ground (docs/specs/workshop-proving-ground, ticket 13): a seated king's power on a
  * pool piece, or on a copy or a new piece, which plays as `T` (ticket 17). A LAB card in White's hand works the same way (ticket 14). The engine makes every power move (legalMoves) under the power readings, and each preview runs in
- * withRules, which puts the shared RULES back in the same turn (spec decisions 31 and 32). Pure, so it runs in Node.
+ * an owned rules context. Pure, so it runs in Node.
  */
-import { K, POWERS_BALANCED, RULES, TAG_POWER, WHITE, colorOf, file, isMarkTag, legalMoves, makeMove, parseSq, piece, rank, setRules, sqName, typeOf, type CardName, type KingName, type Move, type PieceType, type Position, type PowerName, type PowerTag, type Rules } from '../rules/engine';
+import { K, POWERS_BALANCED, TAG_POWER, WHITE, colorOf, file, isMarkTag, parseSq, piece, rank, sqName, typeOf, type CardName, type KingName, type Move, type PieceType, type Position, type PowerName, type PowerTag, type Rules } from '../rules/engine';
 import { POWER_TAG, usesAllowed } from '../powers-ui';
 import { step } from './moves';
 import type { Scene } from './scene';
 import type { DesignSpec } from '../rules/design';
 
-/** Runs `fn` under the rules `over` (setRules: the defaults, then `over`), and puts RULES back, also when `fn` throws. */
-export function withRules<T>(over: Partial<Rules>, fn: () => T): T {
-  const copy = { ...RULES };
-  try {
-    setRules(over);
-    return fn();
-  } finally {
-    Object.assign(RULES, copy);
-  }
-}
 /** White's king has `power` (none with no king), under the power readings. `design`: the Try board's design plays as `T` (ticket 17). */
 const over = (king: KingName | null, power: PowerName, design: DesignSpec | null = null): Partial<Rules> => ({ ...POWERS_BALANCED, kings: [king && { king, power }, null], design });
 /** The rules a seated king plays under: its coin reads them (coinState, powerText). */
-export const kingRules = (king: KingName, power: PowerName): Rules => withRules(over(king, power), () => ({ ...RULES }));
+export const kingRules = (king: KingName, power: PowerName): Rules => new GameRules(over(king, power)).rules;
 
 /** The Try board with a seated king: White's king stays where it stands, else it stands on b1 (the scenes), else on the
  *  first empty square. */
@@ -42,9 +33,10 @@ export const enginePos = (board: Uint8Array, from: number, type: PieceType, game
  *  Wall a mark on any piece. An always-on power has no tagged move: its moves are those that the power adds. None is an echo. */
 export function powerMarks(pos: Position, from: number, king: KingName, power: PowerName, design: DesignSpec | null = null): Move[] {
   const mine = mover(from);
-  const [moves, always] = withRules(over(king, power, design), () => [legalMoves(pos).filter(mine), !usesAllowed(power) || !POWER_TAG[power]] as const);
+  const context = new GameRules(over(king, power, design));
+  const moves = context.legalMoves(pos).filter(mine), always = !usesAllowed(power, context.rules) || !POWER_TAG[power];
   if (!always) return moves.filter(m => m.power === POWER_TAG[power]);
-  const key = (m: Move): string => `${m.from} ${m.to} ${m.captures}`, was = new Set(withRules(over(null, power, design), () => legalMoves(pos)).filter(mine).map(key));
+  const key = (m: Move): string => `${m.from} ${m.to} ${m.captures}`, was = new Set(new GameRules(over(null, power, design)).legalMoves(pos).filter(mine).map(key));
   return moves.filter(m => !was.has(key(m)));
 }
 
@@ -54,17 +46,17 @@ const mover = (from: number) => (m: Move): boolean => m.from === from || isMarkT
 /** Card mode with LAB card `card` in White's hand and no king power (setRules refuses both, decision 30). */
 const hand = (card: CardName, design: DesignSpec | null = null): Partial<Rules> => ({ hands: [[card], []], design });
 /** The rules a LAB card plays under: its words read them (cardText). */
-export const cardRules = (card: CardName): Rules => withRules(hand(card), () => ({ ...RULES }));
+export const cardRules = (card: CardName): Rules => new GameRules(hand(card)).rules;
 /** The moves that LAB card `card` gives the piece on `from` (its tagged moves), and for Freeze and Ice Wall a mark on any piece. */
 export function cardMarks(pos: Position, from: number, card: CardName, design: DesignSpec | null = null): Move[] {
   const tag = (Object.keys(TAG_POWER) as PowerTag[]).find(t => TAG_POWER[t] === card), mine = mover(from);
-  return withRules(hand(card, design), () => legalMoves(pos).filter(m => m.power === tag && mine(m)));
+  return new GameRules(hand(card, design)).legalMoves(pos).filter(m => m.power === tag && mine(m));
 }
 /** Plays card move `m` with the engine: the card played and the marks are in the position it gives. */
-export const playCard = (pos: Position, m: Move, card: CardName, design: DesignSpec | null = null): Position => withRules(hand(card, design), () => makeMove(pos, m));
+export const playCard = (pos: Position, m: Move, card: CardName, design: DesignSpec | null = null): Position => new GameRules(hand(card, design)).makeMove(pos, m);
 
 /** Plays power move `m` with the engine under the king's rules: the uses spent and the marks are in the position it gives. */
-export const playPower = (pos: Position, m: Move, king: KingName, power: PowerName, design: DesignSpec | null = null): Position => withRules(over(king, power, design), () => makeMove(pos, m));
+export const playPower = (pos: Position, m: Move, king: KingName, power: PowerName, design: DesignSpec | null = null): Position => new GameRules(over(king, power, design)).makeMove(pos, m);
 
 /** The power moves as scene parts: a mark with the power frame on each target, the emblem stamp at the end of each line,
  *  and an arch over each piece that a move passes, with the line on from there (the mockup's rook-leap). `emblem` is the

@@ -11,7 +11,7 @@ afterEach(() => { setRules(); resetSearchState(); });
 const CYCLE = '7k/8/8/8/3p4/2BOK3/8/8 w - - 0 1';
 
 it('an Ogre/pawn check cycle repeats despite resetting the halfmove clock', () => {
-  const game = new Game();
+  const game = new Game(undefined, { ogreMode: 'repel' });
   game.load(fromFen(CYCLE));
   const key = positionKey(game.pos);
   for (let cycle = 0; cycle < 2; cycle++) {

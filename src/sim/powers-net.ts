@@ -388,7 +388,7 @@ function skillGame(sp: SkillSpec, job: SkillJob): Record<string, unknown> {
   else setEvaluator('residual');
   resetSearchState();
   const rng = mulberry32(job.seed);
-  const game = new Game(job.army);
+  const game = new Game(job.army, rules);
   const keys: number[] = [];
   let streak = 0, sign = 0, result: number | null = null, reason = '';
   while (game.status === 'playing' && game.history.length < 240) {

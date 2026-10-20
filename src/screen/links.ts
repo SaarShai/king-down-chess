@@ -1,7 +1,7 @@
 import { copyText } from '../clipboard';
 import type { Game } from '../game';
 import { kingsParam } from '../powers-ui';
-import { RULES as GAME_RULES, type Rules } from '../rules/engine';
+import { type Rules } from '../rules/engine';
 import { toFen } from '../rules/setup';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -50,8 +50,8 @@ export function connectLinks(c: { game(): Game; turnStart(): number; rules: stri
   /** A link that holds this whole game, for a friend to open and answer on their device (no server). */
   function gameLink(lans = c.game().history.slice(0, c.turnStart()).map(h => h.lan)): string {
     const game = c.game();
-    return gameUrl(location, c.rules, GAME_RULES.kings,
-      game.backRank ? { army: game.backRank } : { fen: toFen(game.history[0]?.pos ?? game.pos) }, lans, GAME_RULES.design?.code);
+    return gameUrl(location, c.rules, game.rules.kings,
+      game.backRank ? { army: game.backRank } : { fen: toFen(game.history[0]?.pos ?? game.pos) }, lans, game.rules.design?.code);
   }
 
   $('share').onclick = async () => {

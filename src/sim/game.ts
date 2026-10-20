@@ -1,5 +1,5 @@
 /** Play one game headless (AI vs AI) and record everything the analyser needs. */
-import { LETTERS, Move, Position, PowerTag, WHITE, colorOf, status, typeOf } from '../rules/engine';
+import { LETTERS, Move, Position, PowerTag, WHITE, colorOf, typeOf } from '../rules/engine';
 import { RULES, Rules, setRules } from '../rules/rules';
 import { fromFen, toFen, toLan, waitGuards } from '../rules/setup';
 import { readFileSync } from 'node:fs';
@@ -128,15 +128,6 @@ function resetSearch(): void {
 const positionKey = (AI as unknown as Record<string, unknown>).positionKey as ((p: Position) => number) | undefined;
 
 /**
- * `Game` always applies threefold repetition and `src/game.ts` is owned by the UI agent, so the
- * `threefold: false` toggle is undone here: recompute the status without the repetition rule.
- * `status()` is the same call `Game.setStatus` makes, minus the repetition test.
- */
-export function applyDrawRules(game: Game): void {
-  if (!RULES.threefold && game.status === 'drawRepetition') game.status = status(game.pos);
-}
-
-/**
  * Per-side evaluation parameters (`RunSpec.evalParams`), read once per worker and swapped in
  * before each search. `null` when the run plays one evaluation, which is every run but a tuning
  * match — and the swap costs a transposition table, so it stays off by default.
@@ -162,7 +153,7 @@ function evalSides(spec: RunSpec, colourSwapped: boolean): [EvalParams | undefin
  * Every start, a FEN one included, takes the guards off under `guardReserve` (`waitGuards`).
  */
 export function startGame(white: string, black: string, fen?: string): Game {
-  const g = new Game(white);
+  const g = new Game(white, RULES);
   if (fen) g.load(waitGuards(fromFen(fen)));
   else if (black !== white) g.load(waitGuards(fromFen(`${black.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${white} w - - 0 1`)));
   return g;
@@ -252,7 +243,6 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
       legal: legal.length, ms: +(performance.now() - t).toFixed(2), by: c,
     });
     game.play(move);
-    applyDrawRules(game);
     // The one event counter, shared with `replayRecord`, so a stored game can be re-read and checked.
     countMove(events, pos, move, game.pos);
 

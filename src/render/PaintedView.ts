@@ -1,7 +1,8 @@
+import { GameRules } from '../game-rules';
 import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
-import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, RULES, S, T, colorOf, playedDesign, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
+import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, S, T, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { figureUrl, selectedFigure } from '../workshop/figures';
-import { frost, FROST_DEFS, frozenPieces } from './frost';
+import { frost, FROST_DEFS } from './frost';
 import { drawMarks, POP_MS, RIPPLE_MS, type Highlights } from './marks';
 import { boardInk, coordInk } from './board-ink';
 import { pastTap } from './tap';
@@ -17,6 +18,7 @@ export interface BoardView {
   onLoadError?: (error: unknown) => void;
   /** Finish the active reply or ceremony before a skip gesture ends the scene. */
   onSkipAnimation?: () => void;
+  setRules?(context: GameRules): void;
   sync(pos: Position): void;
   /** `onContact` can fire more than once, or not at all. Optional playback speed: 0.5 is half speed. */
   animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void>;
@@ -39,13 +41,15 @@ export interface BoardView {
 }
 
 /** The king sheet a side's King is drawn with: the king it plays, Spirit (White) and Shadow (Black) without powers. */
-const kingDesign = (c: Color): KingDesign => (RULES.kings[c]?.king ?? PLAIN_KINGS[c]).toLowerCase() as KingDesign;
+const kingDesign = (context: GameRules, c: Color): KingDesign => (context.rules.kings[c]?.king ?? PLAIN_KINGS[c]).toLowerCase() as KingDesign;
 
 /** Canvas pixels above the board, so tall back-rank figures are not clipped. */
 const HEADROOM = 64;
 
 /** The painted 2D look: the board trial's figures and capture animations driving the real game. */
 export class PaintedView implements BoardView {
+  context = new GameRules();
+  setRules(context: GameRules): void { this.context = context; }
   onSquareClick: (sq: number, shift: boolean) => void = () => {};
   onDragSelect: (sq: number) => void = () => {};
   onSquareHover: (sq: number | null) => void = () => {};
@@ -86,7 +90,7 @@ export class PaintedView implements BoardView {
     container.classList.add('painted');
     this.canvas.width = 960; this.canvas.height = 960 + HEADROOM; // resolution 1 until the first resize
     container.appendChild(this.canvas);
-    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(0), kingDesign(1)], floor: options.floor });
+    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(this.context, 0), kingDesign(this.context, 1)], floor: options.floor });
     this.scene.setDecorate((ctx, scene, layer, row) => this.drawMarks(ctx, scene, layer, row));
     // The game opts in to quiet-move gaits, the selected figure's idle and the framed, warm board
     // (the trial and the trailer keep the plain scene).
@@ -137,9 +141,9 @@ export class PaintedView implements BoardView {
 
   sync(pos: Position): void {
     this.pos = pos;
-    this.scene.setKings([kingDesign(0), kingDesign(1)]);
+    this.scene.setKings([kingDesign(this.context, 0), kingDesign(this.context, 1)]);
     // The design that plays as `T` (ticket 17) stands as its Workshop figure.
-    const d = playedDesign(), id = d && selectedFigure(d).id;
+    const d = this.context.playedDesign(), id = d && selectedFigure(d).id;
     this.scene.setFigure(T, id ? [figureUrl(id, 0), figureUrl(id, 1)] : null);
     this.scene.setPosition(this.symbols ? { ...pos, board: new Uint8Array(64) } : pos);
     const sq = this.fallen?.pos === pos ? this.fallen.sq : null;
@@ -249,7 +253,7 @@ export class PaintedView implements BoardView {
 
   private drawFrost(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row?: number): void {
     if (layer === 'over' && row != null && row !== 7) return;
-    for (const { sq, turns } of frozenPieces(this.pos)) {
+    for (const { sq, turns } of this.context.frozenPieces(this.pos)) {
       const key = `${turns}-${layer}`;
       let image = this.frostImages.get(key);
       if (!image) {

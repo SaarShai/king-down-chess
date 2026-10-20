@@ -1,14 +1,12 @@
-import { fromFen, toFen } from '../../rules/setup';
-import { colorOf, findKing, K, inCheck, status, moveNumber, nameOf, NAMES, LETTERS, piece, playedDesign, PLAIN_KINGS, RULES, setRules, T, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
+import { GameRules } from '../../game-rules';
+import { toFen } from '../../rules/setup';
+import { colorOf, findKing, K, moveNumber, NAMES, LETTERS, piece, PLAIN_KINGS, T, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
 import { cardName, cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
-import { checkCause, checkersOf, describeMove, shortMove, threatsIn } from '../../move-text';
-import { marksModel, railsOf } from '../../marks-model';
-import { pieceTitle, readText, reachOf, teachNote } from '../../read';
+import { marksModel } from '../../marks-model';
 import { LESSONS } from '../../lessons';
 import { momentKind } from '../../moment';
 import { boardFoot } from '../../screen/board-foot';
 import { soundsFor } from '../../screen/moments';
-import { cursorText } from '../../cursor-text';
 import { contextLine } from '../../context-line';
 import { waitNotice } from '../../turn';
 import type { PlayerRecord, View } from '../../match/protocol';
@@ -31,6 +29,7 @@ import './board.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 type Choice = { lan: string; move: Move };
 let view: View | undefined, pos: Position | undefined;
+let gameRules = new GameRules();
 export const boardGame = () => view;
 export let rollbackBoardMove: (code?: string) => Promise<void>;
 let history: BoardMove[] = [], lastMove: BoardMove | undefined;
@@ -38,7 +37,7 @@ export const boardLastMove = () => lastMove;
 export let skipBoardCeremony = () => {};
 let command: (name: string, args: Record<string, unknown>) => Promise<View | undefined>;
 export const sendBoardCommand = (name: string, args: Record<string, unknown> = {}) => command(name, args);
-const portraitPath = (side: Color) => `ui/kings/${(RULES.kings[side]?.king ?? PLAIN_KINGS[side]).toLowerCase()}${side ? '-b' : ''}.webp`;
+const portraitPath = (side: Color) => `ui/kings/${(gameRules.rules.kings[side]?.king ?? PLAIN_KINGS[side]).toLowerCase()}${side ? '-b' : ''}.webp`;
 let sheet: HTMLDialogElement, scrim: HTMLDivElement, sheetFocus: HTMLElement | undefined;
 let refreshCardSheet: (() => void) | undefined;
 let stopPlacingChoice = () => {};
@@ -106,7 +105,7 @@ export function boardScreen(store: Store) {
   // A reload restores a draft only in the same account, complete game, revision and rules.
   const saveDraft = () => { client.state.draft = view && steps.length ? { game_tag: view.game_id.slice(0, 8), fen: view.fen, lans: steps.map(step => step.lan), scope: { account: client.accountId, game: view.game_id, revision: view.revision, rules: JSON.stringify(view.rules) } } : undefined; client.save(); };
   const dropDraft = () => { if (client.state.draft) { client.state.draft = undefined; client.save(); } };
-  const turn = () => draftTurn(steps, pos!, mode(), view!.seat);
+  const turn = () => draftTurn(steps, pos!, mode(), view!.seat, gameRules);
   const canPlay = () => !!view && !!pos && !blocked() && view.action === 'ready' && view.status === 'playing' && !turn().waits;
   board.canDrag = () => client.state.screen === 'seat' || canPlay() && pos!.turn === view!.seat;
   const canRead = () => !animating;
@@ -114,7 +113,7 @@ export function boardScreen(store: Store) {
   let selected: number | undefined, inspected: number | undefined, moves: Choice[] = [], cursor = 0, cursorShown = false, cursorTargets: number[] = [];
   function sayCursor() {
     if (!pos) return;
-    const label = cursorShown ? cursorText(pos, cursor, selected, cursorTargets.includes(cursor)) : '';
+    const label = cursorShown ? gameRules.cursorText(pos, cursor, selected, cursorTargets.includes(cursor)) : '';
     $('board').setAttribute('aria-label', label ? `Chess board, ${label}. Enter selects a square.` : 'Chess board'); $('cursor-say').textContent = label;
   }
   function drawCursor() {
@@ -158,7 +157,7 @@ export function boardScreen(store: Store) {
   };
   const refused = new Set<string>(), taught = new Map<string, number>();
   const active = () => ['board', 'end'].includes(client.state.screen);
-  const rules = () => setRules(view!.rules!);
+
   command = async (name, args) => {
     if (!view || networkBlocked()) return;
     const game = view.game_id;
@@ -181,8 +180,8 @@ export function boardScreen(store: Store) {
     return next;
   };
   const tag = () => armed ? POWER_TAG[armed] ?? null : null;
-  const cardChoices = () => armedCard === undefined || !pos || !view ? [] : moves.filter(c => cardCoins(pos!,view!.seat,RULES.hands[view!.seat],moves.map(c=>c.move))[armedCard!].moves.includes(c.move));
-  const reachable = (move: Move) => armedCard !== undefined ? cardChoices().some(c=>c.move===move) : RULES.hands[view!.seat].length ? !move.power : offered(move,tag());
+  const cardChoices = () => armedCard === undefined || !pos || !view ? [] : moves.filter(c => cardCoins(pos!,view!.seat,gameRules.rules.hands[view!.seat],moves.map(c=>c.move))[armedCard!].moves.includes(c.move));
+  const reachable = (move: Move) => armedCard !== undefined ? cardChoices().some(c=>c.move===move) : gameRules.rules.hands[view!.seat].length ? !move.power : offered(move,tag());
   const named = () => armedCard !== undefined ? cardChoices().filter(({move}) => !move.pass && (move.from === move.to || move.drop !== undefined)) : moves.filter(({move}) => ['freeze','ward','sacrifice'].includes(move.power ?? '') && move.power === tag());
   async function computer() {
     if (tornDown || !view || client.state.screen !== 'board' || document.hidden || blocked() || computerRunning || computerCalls >= 4 || view.kind !== 'solo' || view.status !== 'playing' || view.turn === view.seat || $<HTMLDialogElement>('over').open) return;
@@ -210,7 +209,7 @@ export function boardScreen(store: Store) {
     const words = document.createElement('span'); words.textContent = lastMove?.words ?? `Move ${moveNumber(pos)}.`; nodes.push(words); $('last-move').replaceChildren(...nodes);
     $('recent-moves').replaceChildren(...history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)));
     fitMoves();
-    $('short-move-words').textContent = lastMove ? shortMove(lastMove.pre, lastMove.move) : `Move ${moveNumber(pos)}.`;
+    $('short-move-words').textContent = lastMove ? gameRules.shortMove(lastMove.pre, lastMove.move) : `Move ${moveNumber(pos)}.`;
   }
   const remainingTime = () => view?.deadline_at ? Date.parse(view.deadline_at) - Date.parse(view.server_now) - (Date.now() - readAt) : 0;
   function updateTime() {
@@ -221,7 +220,7 @@ export function boardScreen(store: Store) {
   }
   function choose(lan: string) {
     if (!canPlay()) return;
-    rules(); const step = applyLan(pos!, lan, view!.rules!, moves.map(choice => choice.lan));
+    const step = applyLan(pos!, lan, view!.rules!, moves.map(choice => choice.lan));
     if (!step) return;
     const keyboard = document.activeElement === $('board') || !!sheet?.contains(document.activeElement);
     closeBoardSheet(); armed = undefined; armedCard = undefined; selected = inspected = held = undefined; choices([]);
@@ -231,7 +230,7 @@ export function boardScreen(store: Store) {
     const hit = hitSound(step, token);
     void (step.move.drop === undefined ? board.animateMove(step.pre, step.move, hit) : Promise.resolve()).then(() => {
       if (token !== generation) return;
-      hit(); if (inCheck(step.pos)) snd.check();
+      hit(); if (gameRules.inCheck(step.pos)) snd.check();
     }).finally(() => {
       if (token !== generation) return;
       board.sync(step.pos); animating = false; refresh();
@@ -247,7 +246,7 @@ export function boardScreen(store: Store) {
   $('undo').onclick = undo;
   $('end-turn').onclick = () => {
     if (!view || !pos || blocked() || sheet?.open || view.action !== 'ready' || view.status !== 'playing' || !turn().ready) return;
-    rules(); const actions = sendActions(steps, pos, view.seat);
+    const actions = sendActions(steps, pos, view.seat, gameRules);
     $('board').focus({preventScroll:true});
     void call('kingdown_move', {game_id:view.game_id, command_id:crypto.randomUUID().replaceAll('-', ''), expected_revision:view.revision, actions}, true);
   };
@@ -258,12 +257,12 @@ export function boardScreen(store: Store) {
     // W7 ticket 04: INVALID_MOVE drops the draft; the other codes re-read, and the redraw rule keeps or drops it.
     if (code === 'INVALID_MOVE') { steps = []; dropDraft(); }
     lastMove = steps.length ? steps.at(-1) : history.at(-1);
-    rules(); pos = steps.length ? steps.at(-1)!.pos : fromFen(view.fen); board.sync(pos); moveLine(); refresh();
+    pos = steps.length ? steps.at(-1)!.pos : gameRules.fromFen(view.fen); board.sync(pos); moveLine(); refresh();
     await call('kingdown_get', {}); refresh();
   };
   function choices(list: Choice[]) {
     $('move-hint').textContent = !list.length ? '' : list.every(({move}) => needsArming(move)) ? 'Choose a move below.' : 'Select a marked square to move, or choose a move below.';
-    $('choices').replaceChildren(...list.map(({lan, move}) => { const b = button(describeMove(pos!, move), () => choose(lan)); b.title = lan; return b; }));
+    $('choices').replaceChildren(...list.map(({lan, move}) => { const b = button(gameRules.describeMove(pos!, move), () => choose(lan)); b.title = lan; return b; }));
   }
   $('app-frame').addEventListener('keydown', event => {
     if (event.key !== 'Escape' || client.state.screen !== 'board' && !sheet?.contains(event.target as Node)) return;
@@ -273,7 +272,6 @@ export function boardScreen(store: Store) {
   });
   function select(square: number, submit = true) {
     if (!view || !pos || !canRead()) return;
-    rules();
     // A second target tap plays the move. Any other tap ends the preview and only selects or reads.
     const hold = holding(); held = undefined;
     if (hold && submit && heldSquare(hold.move) === square) return choose(hold.lan);
@@ -287,7 +285,7 @@ export function boardScreen(store: Store) {
     if (one) return choose(one.lan);
     if (options.length > 1) { choices(options); boardSheet('Choose a move', $('choices')); return; }
     if (!pos.board[square]) { selected = inspected = undefined; choices(named()); }
-    else if (canPlay() && (colorOf(pos.board[square]) === view.seat || armedCard !== undefined && cardChoices().some(c=>c.move.from===square))) { selected = square; inspected = undefined; choices(moves.filter(({move}) => move.from === square && (armed || armedCard !== undefined || RULES.hands[view!.seat].length ? reachable(move) : true))); }
+    else if (canPlay() && (colorOf(pos.board[square]) === view.seat || armedCard !== undefined && cardChoices().some(c=>c.move.from===square))) { selected = square; inspected = undefined; choices(moves.filter(({move}) => move.from === square && (armed || armedCard !== undefined || gameRules.rules.hands[view!.seat].length ? reachable(move) : true))); }
     else { inspected = square; }
     refresh();
   }
@@ -314,15 +312,14 @@ export function boardScreen(store: Store) {
   }
   function coinRead(side: Color, index?: number) {
     if (!view || !pos || !canRead()) return;
-    rules();
     if (index !== undefined) {
-      const card = RULES.hands[side][index];
+      const card = gameRules.rules.hands[side][index];
       const window = document.createElement('div'); window.className = 'cf-art'; window.innerHTML = cardArt(card);
-      const nodes: HTMLElement[] = [window, text(ruleLine(cardText(card)))], diagram = cardDiagram(card);
+      const nodes: HTMLElement[] = [window, text(ruleLine(cardText(card, gameRules.rules)))], diagram = cardDiagram(card);
       if (diagram) { const picture = document.createElement('div'); picture.className = 'card-diagram'; picture.innerHTML = diagram; nodes.push(picture); }
       let action: HTMLElement;
       const update = () => {
-        const coin = cardCoins(pos!,side,RULES.hands[side],moves.map(c=>c.move))[index];
+        const coin = cardCoins(pos!,side,gameRules.rules.hands[side],moves.map(c=>c.move))[index];
         const reason = cardUseReason(coin, side, view!, pos!, canPlay(), store.page());
         if (action?.textContent === (reason || 'Use')) return;
         const next = reason ? text(reason) : button('Use', () => {
@@ -338,9 +335,9 @@ export function boardScreen(store: Store) {
       boardSheet(cardName(card), ...nodes);
       refreshCardSheet = update;
     } else {
-      const coin = coinState(pos, side, RULES, [], side === view.seat && !!armed, moves.map(c => c.move), canPlay() ? view.seat : null);
+      const coin = coinState(pos, side, gameRules.rules, [], side === view.seat && !!armed, moves.map(c => c.move), canPlay() ? view.seat : null);
       if (!coin) return;
-      const nodes: HTMLElement[] = [text(coinWords(coin, pos)), text(ruleLine(powerText(coin.power, RULES)))];
+      const nodes: HTMLElement[] = [text(coinWords(coin, pos)), text(ruleLine(powerText(coin.power, gameRules.rules)))];
       if (canPlay() && side === view.seat && ['ready','armed'].includes(coin.state) && POWER_TAG[coin.power]) nodes.push(button('Use', () => {
         if (!canPlay()) return;
         armed = coin.power; selected = inspected = held = undefined; closeBoardSheet(); choices(named()); refresh();
@@ -350,7 +347,6 @@ export function boardScreen(store: Store) {
   }
   function strips() {
     if (!view || !pos) return;
-    rules();
     // The deal starts when the board shows, not when the view arrives.
     if (dealing && client.state.screen === 'board') { dealing = false; dealtAt = performance.now(); }
     if (opening && client.state.screen === 'board') { opening = false; $('board').animate([{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 320, easing: 'cubic-bezier(.05,.7,.1,1)' }); }
@@ -364,7 +360,7 @@ export function boardScreen(store: Store) {
       strip.querySelector('b')!.textContent = mine ? memory.me?.handle ?? 'You' : view.opponent?.computer ? 'Computer' : view.opponent?.deleted ? 'Deleted player' : view.opponent?.handle ?? 'Opponent';
       strip.querySelector('b')!.title = strip.querySelector('b')!.textContent;
       strip.querySelector('small')!.textContent = stripLine(side, mine ? ownRating : view.opponent?.rating, !mine && view.opponent?.computer ? view.level : undefined) + (!mine && thinking ? ' · thinking…' : '');
-      const row = strip.querySelector('.coin-row')!, coin = coinState(pos, side, RULES, [], mine && !!armed, mine ? moves.map(c => c.move) : undefined, canPlay() ? view.seat : null);
+      const row = strip.querySelector('.coin-row')!, coin = coinState(pos, side, gameRules.rules, [], mine && !!armed, mine ? moves.map(c => c.move) : undefined, canPlay() ? view.seat : null);
       if (coin) {
         const b = button('', () => coinRead(side)); b.className = 'coin'; b.id = `power-${side ? 'b' : 'w'}`; b.dataset.state = coin.state; if (coin.state !== 'always') b.setAttribute('aria-pressed', String(coin.state === 'armed')); b.setAttribute('aria-label', (mine ? 'Your ' : "Opponent's ") + coinWords(coin, pos).replace(' · ', ', '));
         const paint = document.createElement('span'); paint.className = 'coin-paint'; b.append(paint);
@@ -372,7 +368,7 @@ export function boardScreen(store: Store) {
         if (coin.total !== null && coin.total > 0) { const n = document.createElement('span'); n.className = 'notches'; n.setAttribute('aria-hidden','true'); for (let i=0;i<coin.total;i++) { const notch = document.createElement('span'); notch.className = 'notch' + (i < coin.spent ? ' is-spent' : ''); n.append(notch); } paint.append(n); }
         row.append(b);
       }
-      for (const [index, card] of cardCoins(pos, side, RULES.hands[side], []).entries()) {
+      for (const [index, card] of cardCoins(pos, side, gameRules.rules.hands[side], []).entries()) {
         const b = button('', () => coinRead(side, index)), image = document.createElement('img'), face = art(`ui/cards/${card.card.toLowerCase()}.webp`);
         const key = `${view.game_id}:${side}:${index}`;
         if (card.spent && cardSpent.get(key) === false && !matchMedia('(prefers-reduced-motion: reduce)').matches) { spentAt.set(key, performance.now()); setTimeout(strips, 300); }
@@ -392,7 +388,7 @@ export function boardScreen(store: Store) {
   }
   function turnControls(draft?: ReturnType<typeof draftTurn>) {
     if (!view || !pos) return;
-    rules(); draft ??= turn();
+    draft ??= turn();
     const open = blocked() || !!sheet?.open || client.state.screen !== 'board';
     const ready = !open && view.action === 'ready' && view.status === 'playing' && draft.ready;
     $('undo').setAttribute('aria-disabled', String(open || !steps.length));
@@ -401,7 +397,7 @@ export function boardScreen(store: Store) {
   }
   function refresh() {
     if (!view || !pos) return;
-    rules(); moves = draftChoices(view, pos, steps);
+    moves = draftChoices(view, pos, steps, gameRules);
     refreshCardSheet?.();
     const draft = turn();
     turnControls(draft);
@@ -409,10 +405,10 @@ export function boardScreen(store: Store) {
     if (stale()) { armed = undefined; armedCard = undefined; selected = inspected = held = undefined; choices([]); }
     moveLine();
     updateTime();
-    const check = inCheck(pos) ? findKing(pos.board, pos.turn) : null;
+    const check = gameRules.inCheck(pos) ? findKing(pos.board, pos.turn) : null;
     if (check !== checked) { checked = check; if (check !== null && board.motion()) checkAt = performance.now(); }
     // Show only the previewed move's marks.
-    rules(); const hold = holding(), cands = hold ? [hold.move] : selected === undefined ? [] : moves.filter(({move}) => move.from === selected && reachable(move)).map(c => c.move), marks = marksModel(cands);
+    const hold = holding(), cands = hold ? [hold.move] : selected === undefined ? [] : moves.filter(({move}) => move.from === selected && reachable(move)).map(c => c.move), marks = marksModel(cands);
     // An armed power or target card has no selected piece; its marked squares are targets too.
     cursorTargets = [...marks.moves, ...marks.captures, ...marks.swaps, ...marks.shoves, ...named().map(c => c.move.to)];
     sayCursor();
@@ -422,34 +418,34 @@ export function boardScreen(store: Store) {
     const trailSteps = steps.length ? steps : start < history.length ? history.slice(start) : lastMove ? [lastMove] : [];
     const trail = trailSteps.flatMap(({move: last}) => last.pass ? [] : [...(last.drop === undefined ? [last.from] : []), last.to, ...last.captures, ...(last.shove ? [last.shove.from, last.shove.to] : [])]);
     const users = selected === undefined ? cardChoices().filter(c => !c.move.pass && c.move.drop === undefined).map(c => c.move.from) : [];
-    highlight({ ...marks, selected, last: [...new Set(trail)], read: inspected === undefined ? undefined : reachOf(pos, inspected), powers: [...new Set([...cands.filter(m => m.power && !m.pass).map(m => m.to), ...named().map(c => c.move.to), ...users])], rails: selected === undefined ? [] : railsOf(pos.board, selected, [...marks.moves, ...marks.captures], marks.captures), check: inCheck(pos) ? findKing(pos.board, pos.turn) : null, checkers: checkersOf(pos), threats: view.status === 'playing' && !animating ? threatsIn({...pos, turn:view.seat}) : [] });
+    highlight({ ...marks, selected, last: [...new Set(trail)], read: inspected === undefined ? undefined : gameRules.reachOf(pos, inspected), powers: [...new Set([...cands.filter(m => m.power && !m.pass).map(m => m.to), ...named().map(c => c.move.to), ...users])], rails: selected === undefined ? [] : gameRules.railsOf(pos.board, selected, [...marks.moves, ...marks.captures], marks.captures), check: gameRules.inCheck(pos) ? findKing(pos.board, pos.turn) : null, checkers: gameRules.checkersOf(pos), threats: view.status === 'playing' && !animating ? gameRules.threatsIn({...pos, turn:view.seat}) : [] });
     const square = inspected ?? selected, code = square === undefined ? 0 : pos.board[square];
-    const [line = '', states = ''] = square === undefined ? [] : readText(pos, square).split('\n');
-    const words = code ? `${pieceTitle(code)}${states ? ' ' + states + '.' : ''}` : '';
+    const [line = '', states = ''] = square === undefined ? [] : gameRules.readText(pos, square).split('\n');
+    const words = code ? `${gameRules.pieceTitle(code)}${states ? ' ' + states + '.' : ''}` : '';
     const available = boardActions(view,Date.now()-readAt), opponent = view.opponent?.handle ?? 'Your opponent';
     const deadline = available.claim === 'end' ? 'The first-turn deadline passes.' : available.claim ? view.days_per_move ? `${opponent} has not moved for ${view.days_per_move} day${view.days_per_move===1?'':'s'}.` : `${opponent} misses the move deadline.` : '';
     // Option A: Beginner notes; each enemy fairy action kind shows once a game, at the history length it first shows.
-    const beginner = view.level === 'beginner', teach = beginner && lastMove && lastMove.pre.turn !== view.seat ? teachNote(lastMove.pre, lastMove.move) : undefined;
+    const beginner = view.level === 'beginner', teach = beginner && lastMove && lastMove.pre.turn !== view.seat ? gameRules.teachNote(lastMove.pre, lastMove.move) : undefined;
     const fresh = teach && (taught.get(teach[0]) ?? history.length) === history.length;
     const first = beginner && pos.ply < 2 && pos.board.some(c => c && typeOf(c) > K) ? 'New pieces in this game. Select any piece to read its rule.' : '';
-    const lesson = beginner && code ? LESSONS.find(lesson => lesson.name.toLowerCase() === nameOf(typeOf(code)))?.done : undefined;
+    const lesson = beginner && code ? LESSONS.find(lesson => lesson.name.toLowerCase() === gameRules.nameOf(typeOf(code)))?.done : undefined;
     // Only a refusal shows in the board's words area; a read or an error keeps to the message line.
     // W7 ticket 04, T6: a press refused with STALE_REVISION or WRONG_TURN keeps the draft and says what to do next.
     const refusalNotice = store.refusal(), shown = refusalNotice && noticeShows(store.page(), refusalNotice);
     const t6 = shown && steps.length && ['STALE_REVISION', 'WRONG_TURN'].includes(refusalNotice!.code ?? '')
       ? (mode() === 'computer' ? 'The game changed. Check it, then tap End turn.' : 'The game changed. Check it, then tap Send your turn.') : '';
     const refusal = t6 || (shown ? refusalNotice!.text : '');
-    const context = contextLine({voice:'you', teach:(fresh ? teach[1] : '') || first, result:view.result ? ending(view) : '', refusal, link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:lesson ?? line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(pos, lastMove?.move, 'link', view.seat), computer:view.turn !== view.seat, midWay:view.turn === view.seat && draft.midWay && !draft.waits, stagedEnd:draft.waits && status(pos) !== 'playing' ? draft.line : '', waiting:draft.waits, free:!!pos.free, turnLine:draft.line, armed, armedLine:armed ? coinWords(coinState(pos,view.seat,RULES,[],true)!,pos) : ''});
+    const context = contextLine({voice:'you', teach:(fresh ? teach[1] : '') || first, result:view.result ? ending(view) : '', refusal, link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:lesson ?? line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:gameRules.checkCause(pos, lastMove?.move, 'link', view.seat), computer:view.turn !== view.seat, midWay:view.turn === view.seat && draft.midWay && !draft.waits, stagedEnd:draft.waits && gameRules.status(pos) !== 'playing' ? draft.line : '', waiting:draft.waits, free:!!pos.free, turnLine:draft.line, armed, armedLine:armed ? coinWords(coinState(pos,view.seat,gameRules.rules,[],true)!,pos) : ''});
     if (sending() && ['mid-way','waiting','staged-end'].includes(context.rank)) Object.assign(context, {rank:'sending', line:'Sending…', note:''});
     if (inspected !== undefined && draft.waits && !networkBlocked() && view.draw_offer == null && !['result','refusal','link'].includes(context.rank)) context.note = waitNotice(mode(), view.seat);
     if (context.rank==='link' && deadline) context.note=available.claim==='end'?'You may end the game with no result.':'You may claim the win.';
     // G1 a: put the target words first so a short screen keeps the next action in view.
     if (armedCard !== undefined && !['result','refusal','link'].includes(context.rank)) {
-      const card = RULES.hands[view.seat][armedCard], squares = named().length && named().length === cardChoices().filter(c => !c.move.pass).length;
-      Object.assign(context, {rank:'armed', line:`${cardName(card)}.`, note:`${squares ? 'Select a marked square.' : 'Choose a marked piece, then a marked square.'} ${ruleLine(cardText(card))}`});
-    } else if (armed && context.rank === 'armed') Object.assign(context, {note:`${context.note} ${ruleLine(powerText(armed, RULES))}`});
+      const card = gameRules.rules.hands[view.seat][armedCard], squares = named().length && named().length === cardChoices().filter(c => !c.move.pass).length;
+      Object.assign(context, {rank:'armed', line:`${cardName(card)}.`, note:`${squares ? 'Select a marked square.' : 'Choose a marked piece, then a marked square.'} ${ruleLine(cardText(card, gameRules.rules))}`});
+    } else if (armed && context.rank === 'armed') Object.assign(context, {note:`${context.note} ${ruleLine(powerText(armed, gameRules.rules))}`});
     // Keep the armed row size while the preview asks for a second tap and names the result.
-    if (hold && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:context.rank === 'armed' ? 'armed' : 'held', line:`Select again to ${hold.move.shove ? 'shove' : 'swap'}.`, note:describeMove(pos, hold.move)});
+    if (hold && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:context.rank === 'armed' ? 'armed' : 'held', line:`Select again to ${hold.move.shove ? 'shove' : 'swap'}.`, note:gameRules.describeMove(pos, hold.move)});
     if (view.draw_offer != null && (t6 || !['result','refusal','link'].includes(context.rank))) context.note = [context.note, view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.'].filter(Boolean).join(' ');
     if (stale()) Object.assign(context, {rank:'link', line:'Not current', note:''});
     $('status').textContent = context.rank === 'refusal' ? t6 : context.line;
@@ -466,8 +462,8 @@ export function boardScreen(store: Store) {
       const type = typeOf(code);
       const face = art(type === K ? portraitPath(colorOf(code)) : `ui/pieces/${NAMES[type]}-${colorOf(code) ? 'b' : 'w'}.webp`);
       all.innerHTML = `<span class="portrait" aria-hidden="true">${face ? `<img id="piece-info-art" alt="" src="${face}">` : ''}</span>`;
-      if (!face) all.firstElementChild!.textContent = (type === T && playedDesign()?.letter) || LETTERS[type];
-      all.onclick = () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(pos!, square!)}` : readText(pos!, square!)));
+      if (!face) all.firstElementChild!.textContent = (type === T && gameRules.playedDesign()?.letter) || LETTERS[type];
+      all.onclick = () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${gameRules.readText(pos!, square!)}` : gameRules.readText(pos!, square!)));
     }
     if ((!drawReply || unarmed) && selected !== undefined && moves.some(({move}) => move.from === selected && !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
     if (!unarmed) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; held = undefined; choices([]); refresh(); }));
@@ -553,7 +549,8 @@ export function boardScreen(store: Store) {
       updateEnd();
     },0);
     readAt = Date.now(); clearTimeout(deadlineTimer);
-    if (unchanged) { if (pos) { rules(); refresh(); } scheduleComputer(); return; }
+    if (view.rules) { gameRules = new GameRules(view.rules); board.setRules(gameRules); }
+    if (unchanged) { if (pos) { refresh(); } scheduleComputer(); return; }
     const token = ++generation; board.skip(); animating = false; $('board').dataset.animating='false';
     if (!same) { movesChoice = undefined; history = []; lastMove = undefined; steps = []; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
@@ -564,7 +561,7 @@ export function boardScreen(store: Store) {
     mountTable();
     $('game-table').dataset.empty = String(!next.fen || next.status === 'setup');
     if (!next.fen || next.status === 'setup') { dropDraft(); $('all-rules').hidden = true; pos = undefined; $('strip-me').replaceChildren(); $('strip-them').replaceChildren(); $('context-actions').replaceChildren(); $('context-note').textContent = ''; $('last-move').textContent = ''; $('short-move-words').textContent = ''; $('move-time-left').textContent = ''; $('status').textContent = next.result ? ending(next) : next.status === 'waiting' ? 'Waiting for your friend. Share an invitation.' : 'Choose your king and arrangement.'; $('computer').hidden = true; $('invite').hidden = next.kind !== 'friend' || next.status !== 'waiting'; return; }
-    rules(); pos = fromFen(next.fen);
+    pos = gameRules.fromFen(next.fen);
     const replayed = before && same ? replayLans(before, next, view.rules!) : undefined;
     const restored = replayHistory(next, view.rules!);
     if (restored) { history = restored; lastMove = restored.at(-1); }
@@ -582,7 +579,7 @@ export function boardScreen(store: Store) {
       }
       else dropDraft();
     }
-    moves = draftChoices(view, pos, steps);
+    moves = draftChoices(view, pos, steps, gameRules);
     bindBoard(); board.flip(next.seat === 1); moveLine();
     const replay = replayed?.filter((step, index) => !step.move.pass && !(local[index] && toFen(local[index].pos) === toFen(step.pos))) ?? [];
     const authoritative = pos;
@@ -591,12 +588,12 @@ export function boardScreen(store: Store) {
       void (async () => {
         for (const step of replay) {
           if (token !== generation) return;
-          rules(); const hit = hitSound(step, token);
+          const hit = hitSound(step, token);
           if (!rush && step.move.drop === undefined) await board.animateMove(step.pre, step.move, hit);
           if (token !== generation) return;
-          board.sync(step.pos); hit(); if (inCheck(step.pos)) snd.check();
+          board.sync(step.pos); hit(); if (gameRules.inCheck(step.pos)) snd.check();
         }
-        if (token === generation) { rules(); board.sync(authoritative); animating = false; refresh(); scheduleComputer(); }
+        if (token === generation) { board.sync(authoritative); animating = false; refresh(); scheduleComputer(); }
       })();
     } else board.sync(pos);
     $('computer').hidden = true; $('invite').hidden = true;

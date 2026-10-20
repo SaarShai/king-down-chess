@@ -3,11 +3,10 @@ import { Engine } from './game';
 import { setEvaluator } from './ai/eval';
 import { PaintedView, type BoardView } from './render/PaintedView';
 import { setSound } from './render/sfx';
-import { HISTORY_WHENS, POWERS_BALANCED, RULES_2017, RULES_2021, parseKings, parseRule, setRules, type Rules } from './rules/engine';
-import { CLASSIC_CHESS, POOL, randomBackRank } from './rules/setup';
+import { HISTORY_WHENS, POWERS_BALANCED, RULES_2017, RULES_2021, parseKings, parseRule, type Rules } from './rules/engine';
+import { CLASSIC_CHESS, POOL } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { initLessonShelf } from './lesson-shelf-ui';
-import { mulberry32 } from './sim/rng';
 import { defaultSetup, newGameDialog, parseSetup, setupOfGame, type Setup } from './new-game';
 import './dialog-dismiss';
 import { firstVisit, openTitle, startFirstDeal } from './ui/title';
@@ -18,7 +17,6 @@ import { initTable } from './ui/table';
 import { connectPlay, isSide } from './screen/play';
 import { shouldShowHome } from './ui/home';
 import { initHome } from './ui/home-view';
-
 import { connectGuide } from './ui/guide';
 import { gameLinkless } from './screen/links';
 import { connectSettings } from './screen/settings';
@@ -52,10 +50,8 @@ const kings = unread ? null : params.get('kings');
 // Before the first Game: its constructor builds a position and asks for its status.
 /** With any power in play, the balanced readings apply (an older `?rules=` preset still overrides them). */
 const withPowers = (k: Rules['kings']): Partial<Rules> => (k[0] || k[1] ? POWERS_BALANCED : {});
-if (preset || kings || (link && linkDesign)) {
-  const k = kings ? parseKings(kings) : undefined;
-  setRules({ ...(k ? withPowers(k) : {}), ...preset, ...(k ? { kings: k } : {}), ...(link && linkDesign ? { design: linkDesign } : {}) });
-}
+const initialKings = kings ? parseKings(kings) : undefined;
+const initialRules: Partial<Rules> = { ...(initialKings ? withPowers(initialKings) : {}), ...preset, ...(initialKings ? { kings: initialKings } : {}), ...(link && linkDesign ? { design: linkDesign } : {}) };
 /** A plain `?fen=` position (not a game link): it wins over the autosave, and the account's saved game does not replace it. */
 const fen = gameLink ? null : params.get('fen');
 
@@ -75,7 +71,7 @@ let setup: Setup = defaultSetup();
 let account: typeof import('./account/account') | null = null;
 
 // The parts that the turn core calls. Their closures read `play` only after it exists.
-const guide = connectGuide({ shownPos: () => play.shownPos(), preset });
+const guide = connectGuide({ shownPos: () => play.shownPos(), context: () => play.game().context, preset });
 const settings = connectSettings(view, { skill: () => play.skill(), setSkill: level => play.setSkill(level), save: () => play.save(), refresh: () => play.refresh() });
 const home = initHome({
   read: () => play.homeInput(),
@@ -87,7 +83,7 @@ const home = initHome({
 });
 (window as unknown as Record<string, unknown>).home = home; // Samples read the live game, including a staged turn.
 const play = connectPlay(view, {
-  params, preset, withPowers, fen, engine, guide, settings, home,
+  params, preset, rules: initialRules, withPowers, fen, engine, guide, settings, home,
   keys: () => keys, account: () => account, setup: () => setup, openNewGame: () => openNewGame(),
 });
 
@@ -96,7 +92,7 @@ initLessonShelf(play.startLesson, () => $('return-game').click());
 /** The Workshop (docs/WORKSHOP.md): its own chunk, loaded on the first tap. It opens over its caller, which stays open. */
 let workshop: Promise<ReturnType<typeof import('./workshop/ground')['groundDialog']>> | undefined;
 function openWorkshop(code?: string): void {
-  workshop ??= import('./workshop/ground').then(m => m.groundDialog());
+  workshop ??= import('./workshop/ground').then(m => m.groundDialog(() => play.game().context));
   workshop.then(w => (code ? w.openDesign(code) : w.open()), () => {
     workshop = undefined;
     alert('The Workshop could not load. Check the connection and try again.');
@@ -129,7 +125,7 @@ const dialog = newGameDialog(s => {
 
   setup = s;
   try { localStorage.setItem(SETUP_KEY, JSON.stringify(s)); } catch { /* private mode: the choices last this visit */ }
-  if (s.army === 'daily') { const d = today(); play.newGame(randomBackRank(mulberry32(+d.replace(/-/g, ''))), null, false, d); }
+  if (s.army === 'daily') { const d = today(); play.newGame(undefined, null, false, d); }
   else if (s.army === 'classic') play.newGame(CLASSIC_CHESS);
   else if (s.army === 'ogre') play.newGame(undefined, OGRE_PRACTICE, false, null, ['human', 'human']);
   else if (back) { try { play.newGame(back); } catch (e) { alert((e as Error).message); } }
@@ -137,14 +133,14 @@ const dialog = newGameDialog(s => {
     play.newGame(s.army);
     const example = TRY_THESE.find(row => row.code === s.army);
     if (example) play.say(example.watch);
-  } else play.newGame(randomBackRank());
+  } else play.newGame();
 }, preset);
 const openGameSetup = (choices: Setup): void => dialog.open(choices, play.warning());
 
 const openNewGame = (): void => openGameSetup(setup);
 const openToday = (): void => openGameSetup({ ...setup, army: 'daily' });
 $('new-game-btn').onclick = openNewGame;
-initMenu({ playAgain: () => play.newGame(randomBackRank()), today: openToday, resignSide: play.resigner });
+initMenu({ playAgain: () => play.newGame(), today: openToday, resignSide: play.resigner });
 initTable(() => { void play.showPly(null, false); });
 // Nothing between connectPlay and this line may call refresh(), drawMarks() or showPly(): they read `keys`.
 const keys = connectKeys($('board'), play, play.commands);

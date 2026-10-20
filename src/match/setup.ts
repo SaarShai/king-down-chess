@@ -1,11 +1,11 @@
+import { GameRules } from '../game-rules';
 /**
  * The plugin game setup (spec "Modules: Game setup"): the initiator's options, the draw, the seat choices and
  * the built match setup. Pure and zod-free, so the app page may import it; the schema is in `setup-schema.ts`.
  * It lives outside `src/rules/`, so it leaves the engine hash (saved matches) alone.
- * `draw` uses `randomBackRank`, which reads the live `RULES`; `validateChoice` always checks the bishops and the guard,
- * so the server must draw under the default rules (a preset with `guardNextToKing: false` can draw an order it refuses).
+ * The draw owns the default setup rules, matching the bishops and guard checks in `validateChoice`.
  */
-import { CLASSIC_CHESS, POOL, randomBackRank, shuffle } from '../rules/setup';
+import { CLASSIC_CHESS, POOL, shuffle } from '../rules/setup';
 import { KINGS, kingLabel, type CardName, type KingChoice, type PowerName } from '../rules/rules';
 import type { MatchSetup } from './index';
 
@@ -44,7 +44,7 @@ export interface Draw { army: string; hand: CardName[] }
 /** Draws the army through `randomBackRank` (or the chess start with Classic) and deals 4 cards, the same for both sides. */
 export function draw(o: Options, rng: () => number): Draw {
   const error = validate(o); if (error) throw new Error(error);
-  const army = o.classic ? CLASSIC_CHESS : randomBackRank(rng, o.fairy ? letters(o.pool) : 'QRRBBNN');
+  const army = o.classic ? CLASSIC_CHESS : new GameRules().randomBackRank(rng, o.fairy ? letters(o.pool) : 'QRRBBNN');
   return { army, hand: o.cards ? shuffle([...o.cardPool], rng).slice(0, 4) : [] };
 }
 

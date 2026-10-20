@@ -1,14 +1,15 @@
+import { GameRules } from '../game-rules';
 /**
  * The Proving Ground's scene: a design on a board as the marks, rails, arches and effects of the
  * mockup's scene format (docs/research/rules-ui-2026-10-10/mockups/shared/scenes.js, lines 7-23).
  * movesOf gives every reach and the board gives every occupant; this module decides no move rule
  * (docs/specs/workshop-proving-ground/spec.md, decision 36). Pure, so it runs in Node.
  */
-import { BLACK, K, LETTERS, NAMES, P, T, WHITE, colorOf, file, genPiece, parseSq, piece, rank, sqName, typeOf, type Move, type PieceType } from '../rules/engine';
+import { BLACK, K, LETTERS, NAMES, P, T, WHITE, colorOf, file, parseSq, piece, rank, sqName, typeOf, type Move, type PieceType } from '../rules/engine';
 import { marksModel } from '../marks-model';
 import { DIR, canonical, type Ability, type PieceDesign, type Rule, type Zone } from './model';
 import { blockOf } from './vocab';
-import { START, holds, movesOf, patternOf, step, tryBoard, type Can, type Refused, type TryState } from './moves';
+import { START, holds, movesOf, patternOf, step, type Can, type Refused, type TryState } from './moves';
 import { traceOf, type Knot } from './why';
 
 type D = Pick<PieceDesign, 'squares' | 'lines' | 'rules'>;
@@ -94,15 +95,15 @@ export function wakeSquare(board: Uint8Array, from: number, rule: Rule, st: TryS
   const key = (s: number): number => 2 * far(s, from) + +(file(s) !== file(from));
   return [...board.keys()].filter(s => !board[s] && holds(rule.when, on(s), s, st)).sort((a, b) => key(a) - key(b))[0] ?? null;
 }
-/** The eye: each enemy that attacks the piece on `from` (the engine's genPiece, 'attacks'). A "cannot be taken" rule of
+/** The eye: each enemy that attacks the piece on `from` (the engine's 'attacks'). A "cannot be taken" rule of
  *  the design that holds and refuses that attacker stops the threat, with its seal number. */
-export function threatsOf(design: D, board: Uint8Array, from: number, st: TryState = START): Scene['effects'] {
+export function threatsOf(design: D, board: Uint8Array, from: number, st: TryState = START, context: GameRules = new GameRules()): Scene['effects'] {
   const rules = canonical(design).rules, i = rules.findIndex(r => r.does.a === 'cannotBeTaken'), safe = rules[i];
   const by = safe?.does.a === 'cannotBeTaken' && holds(safe.when, board, from, st) ? safe.does.by : null;
   return [...board.keys()].flatMap(s => {
     const v = board[s], ms: Move[] = [];
     if (!v || colorOf(v) === colorOf(board[from])) return [];
-    tryBoard(() => genPiece(board, s, 'attacks', ms));
+    context.genPiece(board, s, 'attacks', ms);
     const stopped = by === 'allButKing' ? typeOf(v) !== K : by === 'pawns' && typeOf(v) === P;
     return ms.some(m => m.captures.includes(from)) ? [{ k: 'threat' as const, from: sqName(s), to: sqName(from), ...(stopped && { stopped: true as const, by: [i] }) }] : [];
   });
@@ -122,8 +123,8 @@ function along(r: Rail): number[] {
 }
 
 /** The marks, rails and arches of the design now, and its moves. */
-function layer(d: D, board: Uint8Array, from: number, st: TryState) {
-  const moves = movesOf(d, board, from, st), c = colorOf(board[from]), dy = c === BLACK ? -1 : 1;
+function layer(d: D, board: Uint8Array, from: number, st: TryState, context: GameRules) {
+  const moves = movesOf(d, board, from, st, undefined, context), c = colorOf(board[from]), dy = c === BLACK ? -1 : 1;
   const can = new Map<number, Can>();
   const add = (s: number, n: Can): void => { const o = can.get(s); can.set(s, o ? { m: o.m || n.m, t: o.t || n.t, s: o.s || n.s } : n); };
   // The painted mark shows on an empty square, or on an enemy that the piece takes there.
@@ -138,7 +139,7 @@ function layer(d: D, board: Uint8Array, from: number, st: TryState) {
   for (const l of pattern.lines) {
     const [x, y] = DIR[l], ray: number[] = [], reach = new Map<number, boolean>(), refused: Refused[] = [];
     for (let s = step(from, x, y * dy); s >= 0; s = step(s, x, y * dy)) ray.push(s);
-    for (const m of movesOf({ squares: [], lines: [l], rules: d.rules }, board, from, st, refused)) {
+    for (const m of movesOf({ squares: [], lines: [l], rules: d.rules }, board, from, st, refused, context)) {
       const s = m.captures[0] ?? m.to;
       if (!m.swap && !m.shove && m.captures.length < 2 && ray.includes(s)) reach.set(s, m.captures.length > 0);
     }
@@ -159,15 +160,15 @@ function layer(d: D, board: Uint8Array, from: number, st: TryState) {
 }
 
 /** The scene of design `d` for the piece on `from`, with the why-trace's stamps, refused targets and knots, and the hover-only parts. */
-export function sceneOf(design: D, board: Uint8Array, from: number, st: TryState = START): Scene {
-  const d = canonical(design), now = layer(d, board, from, st), trace = traceOf(d, board, from, st);
+export function sceneOf(design: D, board: Uint8Array, from: number, st: TryState = START, context: GameRules = new GameRules()): Scene {
+  const d = canonical(design), now = layer(d, board, from, st, context), trace = traceOf(d, board, from, st, context);
   const by = (s: number): number[] | undefined => trace.by.get(s)?.map(x => x.i), of = (a: Ability['a']): number[] => [d.rules.findIndex(r => r.does.a === a)].filter(i => i >= 0);
   const marks: Scene['marks'] = [...now.marks].map(([s, k]) => ({ sq: sqName(s), k, by: by(s) })), rails = now.rails;
   // A state rule whose When does not hold: what it adds when its When is "always" is asleep. One that holds: what goes without it is awake.
   for (const [i, r] of d.rules.entries()) {
     if (blockOf(r.does.a).event || r.when.on === 'always') continue;
     const awake = holds(r.when, board, from, st);
-    const other = layer({ ...d, rules: awake ? d.rules.filter(x => x !== r) : d.rules.map(x => (x === r ? { ...x, when: { on: 'always' as const } } : x)) }, board, from, st);
+    const other = layer({ ...d, rules: awake ? d.rules.filter(x => x !== r) : d.rules.map(x => (x === r ? { ...x, when: { on: 'always' as const } } : x)) }, board, from, st, context);
     const lines = new Set((awake ? other.rails : rails).map(lineOf));
     if (awake) {
       for (const m of marks) if (!m.cond && !other.marks.has(parseSq(m.sq))) m.cond = 'awake';
@@ -237,10 +238,10 @@ export function sceneOf(design: D, board: Uint8Array, from: number, st: TryState
  *  "Moves like" lays a whole piece over the paint, so on a square that it does not change, d's paint is compared with
  *  base's paint, both without it: the paint's own change keeps its pip (My Pawn's c5 and e5 under "moves like a queen",
  *  the mockup's stamped state), and paint that does not change gets none (an empty d5 that "moves like a king" makes Both). */
-export function diffOf(d: D, base: Pick<D, 'squares' | 'lines'>, board: Uint8Array, from: number, st: TryState = START): Scene {
-  const sc = sceneOf(d, board, from, st), was = sceneOf({ ...base, rules: d.rules }, board, from, st).marks;
+export function diffOf(d: D, base: Pick<D, 'squares' | 'lines'>, board: Uint8Array, from: number, st: TryState = START, context: GameRules = new GameRules()): Scene {
+  const sc = sceneOf(d, board, from, st, context), was = sceneOf({ ...base, rules: d.rules }, board, from, st, context).marks;
   const like = canonical(d).rules.findIndex(r => r.does.a === 'movesLike'), rules = d.rules.filter(r => r.does.a !== 'movesLike');
-  const [mine, bare] = [d, base].map(x => (like < 0 ? [] : sceneOf({ ...x, rules }, board, from, st).marks));
+  const [mine, bare] = [d, base].map(x => (like < 0 ? [] : sceneOf({ ...x, rules }, board, from, st, context).marks));
   const has = (l: Scene['marks'], m: Scene['marks'][number]): boolean => l.some(o => o.sq === m.sq && o.k === m.k && o.cond === m.cond);
   for (const m of sc.marks) if (like < 0 || m.by?.includes(like) ? !has(was, m) : mine.some(o => o.sq === m.sq && !has(bare, o))) m.diff = '+';
   for (const o of was) if (!sc.marks.some(m => m.sq === o.sq)) sc.marks.push({ ...o, diff: '-' });

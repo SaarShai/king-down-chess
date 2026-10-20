@@ -1,3 +1,5 @@
+import { GameRules } from './game-rules';
+import { POWERS_BALANCED } from './rules/rules';
 /**
  * The New game dialog (index.html #new-game): three suggested games, the computer's level, a king
  * picker per side, "Bring a design" (ticket 17) and a folded "Side and army". The dialog edits a copy of the next game's setup;
@@ -5,11 +7,11 @@
  */
 import type { SkillName } from './ai/skill';
 import type { Game, Side } from './game';
-import { HISTORY_WHENS, KINGS, LETTERS, PLAIN_KINGS, T, moveNumber, nameOf, type PieceType, type Color, type KingChoice, type KingName, type PowerName, type Rules } from './rules/engine';
+import { HISTORY_WHENS, KINGS, LETTERS, PLAIN_KINGS, T, moveNumber, type PieceType, type Color, type KingChoice, type KingName, type PowerName, type Rules } from './rules/engine';
 import { emblemArt, powerArt } from './power-motion';
 import { POWER_NAME, powerOptions } from './powers-ui';
 import { pieceIcon } from './piece-icons';
-import { CLASSIC_CHESS, POOL, randomBackRank } from './rules/setup';
+import { CLASSIC_CHESS, POOL } from './rules/setup';
 import { mulberry32 } from './sim/rng';
 import { VALUES } from './ai/eval';
 import { figureUrl, selectedFigure } from './workshop/figures';
@@ -206,14 +208,15 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
     $('side-army-label').textContent = two ? 'Army' : 'Side and army';
     $('side-army-value').textContent = two ? name : `${SIDE[draft.side]} · ${name}`;
     $('army-line').textContent = { random: 'A new army for each game.', daily: 'The same army for everyone today.', classic: 'The chess starting army.' }[draft.army] ?? 'Try this army.';
-    const code = draft.army === 'daily' ? randomBackRank(mulberry32(+new Date().toLocaleDateString('en-CA').replace(/-/g, '')))
+    const context = new GameRules({ ...(powersOn(draft) ? POWERS_BALANCED : {}), ...preset, kings: kingsOf(draft) });
+    const code = draft.army === 'daily' ? context.randomBackRank(mulberry32(+new Date().toLocaleDateString('en-CA').replace(/-/g, '')))
       : draft.army === 'classic' ? CLASSIC_CHESS
       : /^[A-Z]{8}$/.test(draft.army) ? draft.army : [...new Set(POOL)].join('');
     const strip = brought && code.includes('K') ? withDesign(code, worthOf(brought)) : code; // the pool strip has no design place
     $('army-strip').innerHTML = [...strip].map(p => {
       const type = LETTERS.indexOf(p) as PieceType;
       if (type === T && brought) return `<img class="army-design" src="${figureUrl(selectedFigure(brought).id, draft.side)}" alt="" title="${brought.name}">`;
-      return pieceIcon(type, draft.side) || `<span class="army-letter" title="${nameOf(type)}">${p}</span>`;
+      return pieceIcon(type, draft.side) || `<span class="army-letter" title="${context.nameOf(type)}">${p}</span>`;
     }).join('');
   }
 

@@ -125,8 +125,7 @@ it('draws frost on the game board after Freeze and clears it on expiry and Undo'
   const container = stubDom();
   vi.stubGlobal('Image', class { complete = true; naturalWidth = 448; src = ''; });
   const { PaintedView } = await import('./PaintedView');
-  setRules({ kings: [{ king: 'Frost', power: 'Freeze' }, null] });
-  const game = new Game();
+  const game = new Game(undefined, { kings: [{ king: 'Frost', power: 'Freeze' }, null] });
   game.load(fromFen('7k/8/8/4p3/8/8/P7/K7 w - - 0 1'));
   const view = new PaintedView(container as unknown as HTMLElement);
   const scene = (view as unknown as {scene: PaintedScene}).scene;
@@ -134,7 +133,7 @@ it('draws frost on the game board after Freeze and clears it on expiry and Undo'
   const drawImage = vi.fn();
   const ctx = new Proxy({ drawImage }, { get: (target, key: string) => key === 'drawImage' ? target.drawImage : () => {} });
   const boardDrawing = () => {
-    view.sync(game.pos); drawImage.mockClear();
+    view.setRules(game.context); view.sync(game.pos); drawImage.mockClear();
     draw(ctx, scene, 'under');
     for (let row = 0; row < 8; row++) draw(ctx, scene, 'over', row);
     return drawImage.mock.calls.map(([image, ...box]) => ({svg:decodeURIComponent(image.src),box}));

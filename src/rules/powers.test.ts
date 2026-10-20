@@ -69,7 +69,7 @@ describe('Freeze (Frost A)', () => {
 
   it('keeps its state through FEN, undo and the repetition key', () => {
     powers('Freeze', null);
-    const g = new Game();
+    const g = new Game(undefined, { kings: [k('Freeze'), null] });
     g.load(fromFen('4k3/8/8/3n4/8/8/8/4K3 w - - 0 1'));
     const before = toFen(g.pos);
     g.play(g.legal.find(m => toLan(g.pos, m) === '!F:d5')!);
@@ -143,11 +143,11 @@ describe('Haste (Flame B)', () => {
 
   it('survives FEN, undo and replay by notation', () => {
     powers('Haste', null);
-    const g = new Game();
+    const g = new Game(undefined, { kings: [k('Haste'), null] });
     g.load(fromFen('7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1'));
     expect(g.playLan(['Ra1xa5!H', '--', 'Kh8-g8'])).toBe(3);
     expect(g.pos.turn).toBe(WHITE);
-    const mid = new Game();
+    const mid = new Game(undefined, { kings: [k('Haste'), null] });
     mid.load(fromFen('7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1'));
     mid.playLan(['Ra1xa5!H']);
     expect(toFen(mid.pos)).toBe('7k/8/8/R3r3/8/8/8/6K1 w - - 0 1 u1.0/ha5');

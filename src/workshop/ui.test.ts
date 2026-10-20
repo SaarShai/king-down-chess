@@ -1,3 +1,4 @@
+import { GameRules } from '../game-rules';
 // The section numbers (§) in this file cite revision 3 of the Workshop doc:
 // docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
 import { readFileSync } from 'node:fs';
@@ -173,8 +174,8 @@ describe('the laws of the Rules tab (ticket 12)', () => {
     const keys: (keyof Rules)[] = ['fiftyMove', 'threefold', 'insufficientMaterial', 'guardNextToKing', 'bishopsOppositeColours'];
     keys.forEach((k, i) => {
       for (const on of [true, false]) {
-        setRules({ [k]: on });
-        expect(lawsOf()[i][2], k).toBe(on ? 'On' : 'Off');
+        const context = new GameRules({ [k]: on });
+        expect(lawsOf(context.rules)[i][2], k).toBe(on ? 'On' : 'Off');
       }
     });
   });
@@ -187,8 +188,8 @@ describe('the laws of the Rules tab (ticket 12)', () => {
       anyNonKingNoGuard: ['Q R B N A L M S', 'queen, rook, bishop, knight, archer, paladin, maester or beast'],
     } as const;
     for (const [set, [letters, words]] of Object.entries(want)) {
-      setRules({ promotionSet: set as Rules['promotionSet'] });
-      expect(promotion()).toEqual({ letters, words });
+      const context = new GameRules({ promotionSet: set as Rules['promotionSet'] });
+      expect(promotion(context)).toEqual({ letters, words });
     }
   });
 });
