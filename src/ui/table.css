@@ -4,7 +4,7 @@
   --context-height: 77px; /* Three 20 px lines, padding and the top border. */
   height: 100vh; height: 100dvh;
   display: grid; grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: var(--strip-row, var(--strip-height)) minmax(0, max-content) var(--strip-row, var(--strip-height)) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
+  grid-template-rows: var(--strip-row, var(--strip-height)) minmax(0, max-content) var(--strip-row, var(--strip-height)) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) minmax(calc(60px + max(8px, env(safe-area-inset-bottom))), max-content);
   grid-template-areas: 'them' 'board' 'me' 'context' 'moves' 'space' 'bar';
   max-width: 760px; margin: auto; padding-top: env(safe-area-inset-top);
 }
@@ -27,7 +27,7 @@
 #context-line { grid-area: context; display: flex; align-items: center; gap: 8px; min-height: var(--context-height); align-self: start; margin: 0 12px; padding-block: 8px; border-top: 1px solid var(--line); min-width: 0; }
 #context-text { flex: 1; min-width: 0; font-size: 16px; line-height: 1.25; white-space: normal; }
 #context-actions { display: flex; gap: 4px; flex-shrink: 0; }
-#context-actions button { width: auto; min-width: 44px; white-space: nowrap; min-height: 44px; padding: 4px 8px; font-size: 14px; }
+#context-actions button { width: auto; min-width: 44px; white-space: nowrap; padding: 4px 8px; }
 #moves-line { grid-area: moves; width: calc(100% - 24px); margin: 0 12px; height: 48px; min-height: 48px; display: flex; gap: 8px; border: 0; border-block: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; padding: 0; text-align: left; color: var(--ink-soft); }
 #last-move { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
 #last-move span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: normal; line-height: 1.2; font-size: 14px; }
@@ -35,7 +35,8 @@
 #game-table .moves-label { flex: none; font-size: 14px; font-weight: 700; }
 #game-table .table-space { grid-area: space; }
 #table-bar { grid-area: bar; display: grid; grid-template-columns: minmax(48px, 1fr) minmax(0, 2fr) minmax(48px, 1fr); gap: 4px; padding: 0 8px max(8px, env(safe-area-inset-bottom)); }
-#table-bar > button { align-self: center; height: 48px; min-height: 48px; display: flex; flex-direction: column; gap: 0; align-items: center; justify-content: center; border: 0; box-shadow: none; background: transparent; color: var(--ink); font-size: var(--fs-lg); font-weight: 700; line-height: 1.2; padding: 2px 4px; }
+#table-bar > button { align-self: center; min-height: 48px; display: flex; flex-direction: column; gap: 0; align-items: center; justify-content: center; border: 0; box-shadow: none; background: transparent; color: var(--ink); font-size: var(--fs-lg); font-weight: 700; line-height: 1.2; padding: 2px 4px; }
+.in-lesson #table-bar { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) max-content; }
 #table-bar > button[aria-disabled='true'] { color: rgb(91 80 69 / 75%); opacity: 1; cursor: default; }
 #game-table #lesson-progress { position: relative; flex: none; width: 180px; pointer-events: none; }
 #sheet-moves, #menu-sheet { width: min(560px, calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: 0; overflow: hidden; }
@@ -61,13 +62,13 @@
 @media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
   #game-table { --strip-height: 64px; --context-height: 72px; max-width: 1360px; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: minmax(0, 1fr); grid-template-areas: 'board side'; gap: 24px; padding: 24px; }
   #game-table #board { width: 100%; height: 100%; aspect-ratio: auto; }
-  #game-table .table-side { grid-area: side; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--strip-height) var(--strip-height) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom))); grid-template-areas: 'them' 'me' 'context' 'moves' 'space' 'bar'; }
+  #game-table .table-side { grid-area: side; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--strip-height) var(--strip-height) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) minmax(calc(60px + max(8px, env(safe-area-inset-bottom))), max-content); grid-template-areas: 'them' 'me' 'context' 'moves' 'space' 'bar'; }
   #context-line, #moves-line { margin-inline: 0; width: 100%; }
   #table-bar { padding-inline: 0; border-top: 1px solid var(--line); }
   #game-table .player-strip { padding-inline: 4px; }
 }
 /* The sheet controls keep touch size in landscape too. */
-#menu-sheet button, #menu-sheet select { min-height: 44px; }
+#menu-sheet select { min-height: 44px; }
 #menu-sheet .sheet-head button, #sheet-moves .sheet-head button { flex: none; width: auto; padding: 0 8px; justify-content: center; }
 :is(#menu-close, #sheet-moves .sheet-head button) { width: 44px; height: 48px; font-size: 24px; }
 #menu-back { font-size: 14px; }
@@ -105,7 +106,7 @@
 @media (max-height: 640px) and (max-width: 899px) and (orientation: portrait) {
   #game-table {
     --strip-height: 44px; --context-height: 57px;
-    grid-template-rows: var(--strip-row, 44px) minmax(0, max-content) var(--strip-row, 44px) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
+    grid-template-rows: var(--strip-row, 44px) minmax(0, max-content) var(--strip-row, 44px) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) minmax(calc(60px + max(8px, env(safe-area-inset-bottom))), max-content);
   }
   #game-table .player-strip { padding-block: 0; }
   #game-table .portrait { width: 36px; height: 36px; }
@@ -142,6 +143,6 @@
   #menu-sheet .fields { gap: 4px; }
 }
 
-#table-bar > button.primary { height: 52px; }
+#table-bar > button.primary { min-height: 52px; }
 
 #table-bar > button .icon { width: 20px; height: 20px; }

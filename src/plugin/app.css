@@ -209,17 +209,18 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 #end-table { position: absolute; inset: 0; }
 #game-table .player-name :is(b, small), #seat-screen .player-name :is(b, small) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #game-table #context-text { display: block; max-height: none; overflow: visible; }
-/* A 44 px portrait row and a 4 px row gap keep the draw reply at its prior height. */
-#game-table #context-line:has(#accept-draw) { flex-wrap: wrap; row-gap: 4px; }
-#game-table #context-line:has(#accept-draw) #context-text { flex-basis: calc(100% - 52px); min-height: 44px; }
+/* A separate grid row lets the table measure the full draw reply height. */
+#game-table #context-line:has(#accept-draw) { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
+#game-table #context-line:has(#accept-draw):has(#all-rules) { grid-template-columns: 44px minmax(0, 1fr); }
+#game-table #context-line:has(#accept-draw) #context-text { grid-column: -2; min-height: 44px; }
 #game-table #context-line:has(#accept-draw) #context-text > span { display: inline; }
 #game-table #context-line:has(#accept-draw) #context-text > span + span::before { content: ' '; }
-#game-table #context-actions:has(#accept-draw) { flex-basis: 100%; flex-wrap: wrap; }
+#game-table #context-actions:has(#accept-draw) { grid-column: 1 / -1; flex-wrap: wrap; }
 /* Two label lines fit the existing row. */
-#game-table #context-actions:has(#accept-draw) button { flex: 1; padding: 3px 4px; white-space: normal; }
+#game-table #context-actions:has(#accept-draw) button { flex: 1; padding: 3px 4px; white-space: normal; line-height: 1.1; }
 /* Q3 b: a draw offer keeps the board's size. board.ts pins the board to its last size with no reply; 210 px is the
    fallback on a fresh mount. The replies take their room, and the screen scrolls to them. */
-#game-table[data-replies] { --board-floor: 210px; --context-floor: max-content; }
+#game-table[data-replies] { --board-floor: 210px; --context-floor: max-content; --context-height: max-content; }
 @media (max-width: 899px) {
   .page-sheet > [data-screen='board']:has(#game-table[data-replies]) { overflow: hidden auto; }
 }
@@ -229,6 +230,8 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 }
 .table-back { display: none; }
 @media (max-width: 899px) and (orientation: portrait) {
+  /* Reserve the 48 px action row before a card or power is armed. */
+  [data-screen='board'], [data-screen='end'] { --context-floor: 48px; }
   #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 56px; grid-template-rows: minmax(var(--strip-row, 44px), max-content) minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 44px), max-content) minmax(var(--context-floor, 44px), max-content) 48px minmax(0, 1fr) var(--bar-height); }
   #game-table .player-strip { padding-block: 0; min-height: 44px; }
   #game-table .portrait { width: 36px; height: 36px; }
@@ -241,7 +244,7 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   #game-table #context-text > span + span::before { content: ' '; }
   #game-table #moves-line { height: 48px; min-height: 48px; }
   #game-table #table-bar { padding-block: 0; }
-  #game-table #table-bar > button { min-height: 44px; flex-direction: row; }
+  #game-table #table-bar > button { flex-direction: row; }
   body:is([data-page='board'], [data-page='seat'], [data-page='end']) #page-head { display: none; }
   body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table #strip-them { padding-left: 60px; }
   body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table .table-back { display: grid; grid-area: them; justify-self: start; align-self: start; place-items: center; margin-left: 8px; width: 48px; height: 48px; min-height: 48px; padding: 0; z-index: 2; font-size: var(--fs-xl); line-height: 1; }
@@ -340,6 +343,8 @@ body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
   min-height: 48px; padding-inline: 12px;
   background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0;
   box-shadow: none; transform: none;
+  &.menu-row { padding-inline-end: 32px; }
+  &::before { content: none; }
 }
 #app-root button.menu-row { row-gap: 0; padding-block: 4px 3px; }
 #app-root button.menu-row > i { right: 12px; }

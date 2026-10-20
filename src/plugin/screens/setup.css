@@ -24,7 +24,7 @@ label.check.toggle { margin-top: var(--space-2); align-items: center; height: au
 label.check.toggle .t-ico { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 50%; color: var(--gold-ink); background: var(--vellum); box-shadow: 0 0 0 1px var(--stone-300); }
 label.check.toggle:has(input:not(:checked)) .t-ico { color: var(--stone-500); }
 label.check.toggle.sub { margin-left: 28px; }
-label.check.toggle .all { flex: none; width: auto; min-height: var(--tap); padding: 6px 10px; font-size: var(--fs-sm); color: var(--ink); border: 1px solid var(--stone-700); border-radius: var(--radius-sm); box-shadow: 0 1px 0 var(--stone-700); white-space: nowrap; }
+label.check.toggle .all { flex: none; width: auto; padding: 6px 10px; white-space: nowrap; }
 .your-king { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
 .your-king h3 { margin: 0 !important; }
 .your-king .power-text { min-height: 0; margin: 2px 0 0; color: var(--ink-soft); }

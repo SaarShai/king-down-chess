@@ -772,6 +772,8 @@ it.each([[320, 568, 84], [320, 568, 180], [393, 852, 118], [820, 600, 34], [852,
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView({...next,draw_offer:1}), next);
     expect(await frame.locator('#context-actions #accept-draw').isVisible()).toBe(true);
     expect(await frame.locator('#context-actions #decline-draw').isVisible()).toBe(true);
+    const clear = await frame.locator('#context-line').evaluate(row => row.getBoundingClientRect().bottom <= document.getElementById('table-bar')!.getBoundingClientRect().top + 1);
+    expect(clear, 'The draw reply row stays above the game bar').toBe(true);
     await frame.locator('#board-menu').click();
     expect(await frame.locator('#board-sheet #accept-draw, #board-sheet #decline-draw, #menu-accept-draw, #menu-decline-draw').count()).toBe(0);
   } finally { await page.close(); }
@@ -823,7 +825,7 @@ it.each([[320, 568], [393, 852]])('keeps the board size after a beginner selects
     const size = () => frame.locator('#board canvas').boundingBox();
     const settle = () => frame.locator('#board canvas').evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     await settle();
-    await expect.poll(async () => (await size())?.width ?? 0).toBeGreaterThanOrEqual(180);
+    await expect.poll(async () => (await size())?.width ?? 0).toBeGreaterThanOrEqual(176);
     const before = (await size())!;
     await frame.locator('html').evaluate(() => (window as any).testBoard.onSquareClick(6));
     const lesson = LESSONS.find(lesson => lesson.name === 'Ogre')!.done;

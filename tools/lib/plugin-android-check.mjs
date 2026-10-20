@@ -48,8 +48,8 @@ export async function checkAndroidFixes(browser, base, clickButton) {
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       });
     }
-    // The 48 px reading rows and fixed bar fit the 52 px main tablet without a board shift.
-    for (const [width, height, top, bottom, expectedBoard] of [[412,790,54,24,296], [393,852,102,118,288], [320,568,63,84,102], [1280,800,0,0,532]]) {
+    // The 48 px context row reserves room for an armed action without a board shift.
+    for (const [width, height, top, bottom, expectedBoard] of [[412,790,54,24,292], [393,852,102,118,285], [320,568,63,84,98], [1280,800,0,0,532]]) {
       await viewport(width, height, top, bottom);
       await show();
       for (const armed of [false, true]) {

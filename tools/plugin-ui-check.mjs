@@ -1,5 +1,5 @@
 import { checkTabletSelection } from './lib/plugin-tablet-check.mjs';
-import { checkTablet, checkFlatRows, checkSegments, checkFocus } from './lib/plugin-tablet-check.mjs';
+import { checkTablet, checkTabletButtons, checkFlatRows, checkMenuContent, checkSegments, checkFocus } from './lib/plugin-tablet-check.mjs';
 import { checkAndroidFixes } from './lib/plugin-android-check.mjs';
 import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
@@ -175,6 +175,10 @@ try {
   await frame.locator('#home-games').click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
   await checkFlatRows(frame, '[data-screen="play"] .menu-row');
+  const menuViewport = page.viewportSize();
+  await page.setViewportSize({ width: 336, height: 844 });
+  await checkMenuContent(frame, '[data-screen="play"] [data-nav="settings"]');
+  await page.setViewportSize(menuViewport);
   assert.equal(await frame.locator('[data-screen="play"] [data-nav="settings"]').evaluate(row => row.getBoundingClientRect().height), 48, 'The plain Settings row is exactly 48 px tall');
   assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'play', 'Home Choose a game opens the Play hall');
   // M3: a failed first read on Play has one error and one way to read again.
@@ -568,6 +572,7 @@ try {
       const last = state === 'setup-classic' ? { ...baseSetup, options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } }
         : state === 'setup-pieces' ? { ...sampleSetup, options: { ...sampleSetup.options, pool: ['N','A','M','S'] } } : sampleSetup;
       await setupMount(last);
+      if (state === 'setup') await checkTabletButtons(frame, '#setup-pieces, #setup-cards');
       if (state === 'setup-pieces') await frame.locator('#setup-pieces').click();
       if (state === 'setup-cards') await frame.locator('#setup-cards').click();
       if (state === 'setup-king') {
@@ -1050,7 +1055,9 @@ try {
     await seatTool('kingdown_abort',{game_id:legacy._meta.view.game_id});
     const aborted = await friendSeat(false,{...features,cards:false,kingPowers:true,arrangement:false});
     assert(!await frame.locator('#seat-shuffle').isVisible());
-    await frame.locator('#seat-menu').click(); await frame.locator('#seat-abort').click();
+    await frame.locator('#seat-menu').click();
+    await checkFlatRows(frame, '#seat-menu-sheet .menu-row');
+    await frame.locator('#seat-abort').click();
     assert.equal(await frame.locator('#seat-menu-title').innerText(),'Abort this game?');
     await frame.locator('#seat-abort-cancel').click(); assert.equal(await page.evaluate(() => window.harnessView.status),'setup');
     await frame.locator('#seat-menu').click(); await frame.locator('#seat-abort').click(); await frame.locator('#seat-abort-confirm').click();
@@ -3000,8 +3007,8 @@ try {
       console.log(`T6/T7 tall-phone boxes: ${JSON.stringify(boxes)}`);
       const expected = {
         frame:[0,0,393,756], '#board':[4,48,385,411], '#board canvas':[4,48,385,411],
-        '#strip-them':[0,0,393,48], '#strip-me':[0,459,393,44], '#context-line':[12,503,369,44],
-        '#moves-line':[12,547,369,48], '#recent-moves':[0,0,0,0], '#table-bar':[0,700,393,56],
+        '#strip-them':[0,0,393,48], '#strip-me':[0,459,393,44], '#context-line':[12,503,369,48],
+        '#moves-line':[12,551,369,48], '#recent-moves':[0,0,0,0], '#table-bar':[0,700,393,56],
       };
       for (const [id,box] of Object.entries(expected)) assert(boxes[id]?.every((value,i) => Math.abs(value-box[i]) <= 1),
         `At 393 x 852 ${id} keeps its measured box (1 px rounding): ${JSON.stringify(boxes)}`);

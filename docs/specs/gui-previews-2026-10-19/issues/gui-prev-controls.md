@@ -1,6 +1,6 @@
 # GUI previews 2026-10-19: the control system (stone and red buttons, focus, board grain)
 
-Status: done
+Status: claimed
 Type: task
 
 The lane builds previews for A1, A2, A3, and A34. A10 stays blocked by the exact image-edit constraint. Each item still needs the owner's approval.
@@ -145,3 +145,32 @@ Checked UI source: 72d6d712. The last commit adds this record only.
 An earlier full run hits the unchanged Workshop test's 30-second limit. The final repeat passes at the same limit. This lane changes no test or check time limit.
 
 No server code changes, so this lane does not run `plugin-ui-http`. The work stays on the preview branch.
+
+## Review repair plan
+
+Check both review reports against the code. Treat the repeated Seat Menu and chooser reports as two faults. Fix the six confirmed faults in the shared styles. Add a test for each fault. Check text and icon bounds, the drawn row face, and the pixel change when a selected segment gets focus.
+
+Pass: lesson text and icons fit their faces at 390 x 844; chooser, result, and board actions use the tablet size and type; Seat Menu rows have no stone face; Settings words stay clear of the chevron at 336 x 844; focus changes the selected ring with at least the old contrast. Run `npm test` and the required `plugin-ui` runner at the commit. Keep all time limits. Record the results here.
+
+## Review repairs
+
+Both reports are correct. A4 and B2 name the same Seat Menu fault. A2 and B3 name the same chooser fault. No finding is refuted.
+
+- A1: let the lesson bar and faces grow with their words. Give both lesson actions equal space. Check the icon and text bounds before and after a lesson move.
+- A2 and B3: add both setup choosers, Keep playing, and Review to the shared tablet rule. Remove the old chooser finish and Review text colour. Check each action face, size, type, and cut.
+- A3: remove the old 44 px height and 14 px type from the board action rule. Check All rules and Cancel.
+- A4 and B2: remove the raised face from flat plugin rows. Check the Seat Menu and each row's `::before` face.
+- A5: move the ink band over the selected gold ring. Put the gold focus band inside it. Compare pixels on the same selected segment with and without focus, on the web and in the plugin. Require at least the old blue contrast.
+- B1: keep the 12 px left inset and restore 32 px on the right. Check the exact Settings help text at 336 px.
+
+The eight regression tests use the source styles at 2x scale. Seven fail before the fixes. The narrow-row check also checks the text area's boundary, so it cannot pass because its test words stop short of the chevron. The browser checks use the same assertions for live chooser, menu, focus, and lesson states. The focused and full check results follow after they end.
+
+The focused `npm test` run passes all eight regression tests. Log: `tests-fix-focused-3.txt` in the lane folder. The narrow-row test first finds that the shared flat-row selector overrides the restored inset. The inset now lives inside that shared rule. The full suite and the required runner follow at the repair commit.
+
+The first full checks find a selector priority fault in the repair. The Keep playing selector now uses `:where` for its parent, so it does not raise the priority of every tablet. A new test checks the normal bar's exact 48 px and 52 px face heights. The old plugin bar override of 44 px is removed.
+
+The plugin board now reserves the action row's full 48 px before a card or power is armed. This keeps the board still when Cancel appears. On the three short portrait samples, that row uses 3 to 4 px of board width. The exact width checks now expect 292 px, 285 px, and 98 px. The seat sizes stay the same. The draw reply line height fits two lines of 18 px words in one 48 px face. The existing board, scroll, tap, and draw-row checks stay in place.
+
+A focused landscape test finds the draw row's exact fault: the row paints at 113 px, but its parent gives it 72 px. The buttons cover Menu. The draw row now uses grid rows, so the parent measures its full height. The context space also stays at 48 px behind the end card. The board and end-card size checks stay in place. The web Menu's old 44 px button floor is removed.
+
+The landscape probe also shows that the parent can shrink the reply row back to its 72 px minimum. A draw reply now sets the landscape context minimum from its full content, as the portrait row already does. The test now checks that the reply row ends above the bar before it taps Menu. The temporary test filter and debug output are removed.
