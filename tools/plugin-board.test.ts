@@ -483,15 +483,16 @@ it.each([{ width: 393, height: 852, cards: true }, { width: 320, height: 568, ca
 });
 
 it.each(['normal', 'fast'])('uses a slide, a 150 ms fade and no shake under reduced motion at %s pace', async pace => {
-  const page = await open(view('7k/8/8/8/8/8/p7/R6K w - - 0 1')), frame = page.frameLocator('iframe');
+  // Install the clock before the scene queues frames, so a real frame cannot outlive the clock change.
+  const page = await open(view('7k/8/8/8/8/8/p7/R6K w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
   try {
     await frame.locator('#board[aria-busy="false"]').waitFor();
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).testBoard.motionQuery.matches)).toBe(true);
     await frame.locator('html').evaluate((_, pace) => (window as any).testBoard.setPace(pace), pace);
-    // A frame requested before the fake clock runs on real time; wait until the scene draws no more frames.
+    // Let the reduced-motion setting draw its last frame before the clock pauses.
     await expect.poll(() => frame.locator('html').evaluate(async () => { const scene = (window as any).testBoard.scene, before = scene.frames; await new Promise(resolve => setTimeout(resolve, 100)); return scene.frames === before; })).toBe(true);
-    await page.clock.install({ time: new Date('2026-10-15T12:00:00Z') }); await page.clock.pauseAt(new Date('2026-10-15T12:00:01Z'));
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
     const result = await frame.locator('html').evaluate(async () => {
       const board = (window as any).testBoard, scene = board.scene, pre = board.pos;
       const moves = [];
@@ -520,6 +521,7 @@ it.each(['normal', 'fast'])('uses a slide, a 150 ms fade and no shake under redu
     await page.clock.fastForward(slide + 75);
     const middle = await frame.locator('html').evaluate(() => ({ done: (window as any).captureDone, start: (window as any).captureStart, frames: (window as any).victimFrames }));
     expect(middle.done).toBe(false);
+    expect(middle.frames.length).toBeGreaterThan(0);
     const victim = middle.frames.at(-1);
     expect(victim.opacity).toBeGreaterThan(0); expect(victim.opacity).toBeLessThan(1);
     expect(victim.opacity).toBeCloseTo(1 - (victim.at - middle.start - slide) / 150, 5);

@@ -231,3 +231,9 @@ Kind a, A14: the six Menu cases in `tools/plugin-board.test.ts` expect the visib
 Kind a, A8: the two Settings cases in `tools/plugin-ios-size.test.ts` expect four rows. A new check names all four controls, with Animations last. Every row still has the 44 px floor. The three online choices keep the same count and floor.
 
 Kind c, A14: `src/plugin/app.css` uses `var(--fs-body)` for the turn label. This is the existing 16 px token. The type-scale guard stays as it is. This repair does not change the rendered size or screen layout.
+
+The merge baseline (`unit-1.txt`, `89fc4e64`) ends with 86 failed, 3,044 passed, and 164 skipped tests in 280.61 seconds. Four files fail. The 12 skipped files all need the database. The judge test from main passes. The baseline shows all four Settings rows at 44 px; only the old count fails.
+
+The repaired files run in sequence at `af0bfae9` (`unit-2.txt`). The run ends with 276 passed and one failed test in 243.79 seconds. All 86 baseline failures pass. The new failure is the Fast reduced-motion check: no victim frame exists when the opacity check starts. This case passes in the full baseline run.
+
+Kind b, A8: the reduced-motion fixture installs its clock before page load, through the existing `open` option. It keeps one clock from scene load through the capture. It no longer replaces a clock after the scene queues frames. This applies the clock rule already used in the preview check. A new assertion requires a victim frame before the opacity checks. The 420/210 ms slide, 150 ms fade, opacity formula, completion, and no-shake guards stay in place. No limit or retry changes. No product change.
