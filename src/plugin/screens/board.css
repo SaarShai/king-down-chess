@@ -1,7 +1,7 @@
 body:is([data-page='board'], [data-page='end']) .frame .page-sheet {
   inset: 0; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent;
 }
-body:is([data-page='board'], [data-page='end']) #page-head { padding-block: 4px; }
+body:is([data-page='board'], [data-page='end']) #page-head { padding-block: 2px; }
 body:is([data-page='board'], [data-page='end']) #page-title { display: none; }
 #game-table { min-height: 0; width: 100%; }
 #game-table #board { display: flex; }
@@ -41,7 +41,7 @@ body[data-page='end'] #table-bar { visibility: hidden; }
 #board-sheet.board-menu #invitation:empty { display: none; }
 #board-sheet.board-menu #invitation { grid-column: 1 / -1; margin: 0; }
 #board-sheet #choices { height: auto; overflow: visible; flex-direction: column; }
-#board-sheet #choices button { min-height: 44px; width: 100%; justify-content: flex-start; text-align: left; }
+#board-sheet #choices button { width: 100%; justify-content: flex-start; text-align: left; }
 
 #game-table[data-empty='true'] #board { visibility: hidden; }
 

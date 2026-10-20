@@ -207,3 +207,34 @@ The local `npx tsc --noEmit` check passes with exit 0. Log: `tsc-1.txt` in the l
 Final M1 run: `033865a5` passes in 325.82 seconds. It has 186 passed files, 12 skipped files, 3,131 passed tests, no failed tests, and the same 164 skipped tests. Log: `unit-2.txt` in the lane folder. Both full runs return exit 0. The final run waits for the shared M1 lock before it starts. No test limit changes.
 
 All six parts of the test repair ticket are complete. No failure needs a repair commit. The next commit records these results only. The app and tests stay at the checked merge commit. Browser checks and screen captures do not run in this step, as the test repair ticket requires. CI runs the browser checks when the main session opens the draft pull request. A10 stays outside this step's four picks and keeps its prior art block. This step adds no taste choice.
+
+## Size and move-choice review repair
+
+Status: in progress. Both findings in Review A are confirmed. Review B has no finding text.
+
+Plan: restore the size guards from main. Remove spare space from portrait rows so the tablet controls fit. Add the move-choice actions to the shared tablet rule. Remove their old size and type rules. Check both live choice sheets.
+
+Pass: all main board size floors pass, with and without cards. The beginner board keeps its 192 px floor. Armed actions keep the board size. Every move-choice action has the tablet face, 18 px bold words, and at least 48 px height. Run the changed test files, `npm test` with the local test database, and the required browser runner at the commit. Keep all time limits.
+
+### Confirmed fixes
+
+1. Review A.1 is correct. Restore every board floor from main in the size file and the Android check. Restore the 192 px beginner floor. A larger board can pass the floor; it must still fit its frame. Keep the armed board at its unarmed size. The tests check this and keep the touch and text guards.
+2. Review A.2 is correct. Add `#choices button` and `#move-choice button` to the shared tablet rule. Remove the old choice height and type rules. Test a live pawn choice, all three web Ogre actions, and the live sheets in the browser checks.
+3. Review B has no finding text. There is no finding to confirm or refute.
+
+The layout uses a 52 px bar with no spare touch padding. Card strips keep a 36 px portrait row above the 44 px coin faces. Their targets stay 48 px. Back stays above the board squares. Setup hides its empty Moves row. Its rule text keeps both lines. The page header uses 2 px top and bottom space. Portrait screens use the existing compact last-move line through 560 px of screen height. Landscape keeps its 480 px cutoff. The first full run finds two desktop Moves failures from the broader cutoff. The scoped rule fixes both; their tests stay unchanged.
+
+Changed previews: A1 and A3 setup and board spacing; A1 plugin move choices and the web Ogre choice sheet. The owner still approves these previews before a merge.
+
+### Unit check results
+
+- The size file passes all 31 tests with main's floors.
+- The tablet file passes all 10 tests.
+- The focused board check passes all 15 selected tests. It covers the live pawn choice, the beginner floor, 48 px targets, and Back clearance.
+- Both focused Moves checks pass. They cover history, Remount, Escape, focus, and return from Settings.
+- `npm test` passes on this Mac with the house test database: 198 files, 3,289 passed tests, no failed tests, 8 existing skipped tests, and all 51 art tests. The unit suite takes 325.40 seconds. Log: `tests-review-fix-3.txt` in the `prev-green-controls` lane folder.
+- The type check passes. No test or check time limit changes.
+
+Browser checks follow at the commit. The required runner checks `plugin-ui` and `special-moves`. No server code changes, so `plugin-ui-http` is not required.
+
+The recent-move list again fits at 393 x 852, as on main. Its exact box and a visible-list assertion check that state. Shorter views still check that the list stays hidden. The commit records this change to the former hidden-list assertion.

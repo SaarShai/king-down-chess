@@ -2050,6 +2050,7 @@ try {
   }
   await zoomBoardFits('board-cards-armed');
   await openMoveChoices();
+  await checkTabletButtons(frame, '#choices button');
   assert(await frame.locator('#choices button').evaluateAll(buttons => buttons.length > 0 && buttons.every(button => getComputedStyle(button).justifyContent === 'flex-start' && getComputedStyle(button).textAlign === 'left')), 'Move choices stay left aligned');
   await frame.locator(`#choices button[title="${cardLan}"]`).click(); await sendTurn();
   await page.waitForFunction(({id,n})=>window.harnessCalls.some(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.actions?.[0]===n),{id:cardView.game_id,n:cardLan}); await idleBoard();
@@ -3030,20 +3031,17 @@ try {
       const hostStyle = await page.locator('iframe').getAttribute('style');
       await page.locator('iframe').evaluate(el => el.style.setProperty('height','100dvh','important'));
       await zoomViewport(393,852,0,0); await boardBox();
-      let boxes = await zoomBoxes(['#board','#board canvas','#strip-them','#strip-me','#context-line','#moves-line','#recent-moves','#table-bar']);
+      const boxes = await zoomBoxes(['#board','#board canvas','#strip-them','#strip-me','#context-line','#moves-line','#recent-moves','#table-bar']);
       console.log(`T6/T7 tall-phone boxes: ${JSON.stringify(boxes)}`);
       const expected = {
-        frame:[0,0,393,756], '#board':[4,48,385,411], '#board canvas':[4,48,385,411],
-        '#strip-them':[0,0,393,48], '#strip-me':[0,459,393,44], '#context-line':[12,503,369,48],
-        '#moves-line':[12,551,369,48], '#recent-moves':[0,0,0,0], '#table-bar':[0,700,393,56],
+        frame:[0,0,393,756], '#board':[4,44,385,411], '#board canvas':[4,44,385,411],
+        '#strip-them':[0,0,393,44], '#strip-me':[0,455,393,36], '#context-line':[12,491,369,48],
+        '#moves-line':[12,539,369,48], '#recent-moves':[12,587,369,108], '#table-bar':[0,704,393,52],
       };
       for (const [id,box] of Object.entries(expected)) assert(boxes[id]?.every((value,i) => Math.abs(value-box[i]) <= 1),
         `At 393 x 852 ${id} keeps its measured box (1 px rounding): ${JSON.stringify(boxes)}`);
       const movesControl = frame.locator('#moves-line'), recentMoves = frame.locator('#recent-moves');
-      assert(await recentMoves.isHidden(), 'The 48 px Back tablet leaves less than 108 px for the list at 393 x 852');
-      // Eight more host pixels fit the full list. Keep all open-list checks at that size.
-      await zoomViewport(393,860,0,0); await boardBox();
-      boxes = await zoomBoxes(['#table-bar']);
+      assert(await recentMoves.isVisible(), 'The full list fits at 393 x 852 with tablet controls');
       await frame.locator('#moves-line[aria-expanded="true"]').waitFor();
       assert.match(await movesControl.innerText(), /Moves/, 'The Moves control keeps its name');
       assert.equal(await movesControl.getAttribute('aria-controls'), 'recent-moves', 'Moves names the list it controls');
@@ -3059,18 +3057,18 @@ try {
       assert(noPageScroll, 'The open list adds no page scroll');
       assert.equal(boxes['#table-bar'][1] + boxes['#table-bar'][3], boxes.frame[1] + boxes.frame[3], 'The bar stays at the bottom');
       await shot(page,`tall-board-their-turn-393-${mode}`);
-      for (const [width,height] of [[320,568],[197,426],[393,740],[393,852]]) {
+      for (const [width,height] of [[320,568],[197,426],[393,740]]) {
         await zoomViewport(width,height,0,0);
         await frame.locator('#moves-line[aria-expanded="false"]').waitFor({state:'attached'});
         assert(await recentMoves.isHidden(), `The list stays closed at ${width} x ${height}`);
       }
-      await zoomViewport(393,860,0,0);
+      await zoomViewport(393,852,0,0);
       await frame.locator('#moves-line[aria-expanded="true"]').waitFor();
       await tapCentre(movesControl);
       assert.equal(await movesControl.getAttribute('aria-expanded'), 'false', 'A tap closes Moves');
       assert(await recentMoves.isHidden(), 'A tap hides the list');
       await showSnapshot({...tallView,revision:1},tallWords.at(-1));
-      await zoomViewport(320,568,0,0); await zoomViewport(393,860,0,0);
+      await zoomViewport(320,568,0,0); await zoomViewport(393,852,0,0);
       await boardBox();
       assert.equal(await movesControl.getAttribute('aria-expanded'), 'false', 'The player close holds after a board update and resize');
       await tapCentre(movesControl);

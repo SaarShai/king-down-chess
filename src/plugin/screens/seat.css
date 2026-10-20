@@ -1,5 +1,5 @@
 body[data-page='seat'] .frame .page-sheet { inset: 0; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
-body[data-page='seat'] #page-head { padding-block: 4px; }
+body[data-page='seat'] #page-head { padding-block: 2px; }
 #seat-screen #game-table { min-height: 0; width: 100%; }
 #seat-screen #table-bar { margin-top: 0; }
 

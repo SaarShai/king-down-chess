@@ -99,6 +99,17 @@ it('keeps the shared tablet size and type for All rules and Cancel on the web', 
   finally { await page.close(); }
 });
 
+it('gives Take, Shove, and Cancel the shared tablet face on the web', async () => {
+  const page = await fixture(false, '');
+  try {
+    await webParts(page, ['#move-choice']);
+    await page.locator('#choose-capture').evaluate(el => { el.textContent = 'Take on c5'; });
+    await page.locator('#choose-push').evaluate(el => { el.textContent = 'Shove to c6'; });
+    await checkTabletButtons(page, '#move-choice button');
+    await checkButtonContent(page, '#move-choice button');
+  } finally { await page.close(); }
+});
+
 it('removes the raised face from the Seat Menu rows', async () => {
   const page = await fixture(true, '<div id="app-root"><dialog open id="seat-menu-sheet" class="over-sheet"><div class="sheet-body"><button id="seat-abort" class="menu-row">Abort</button><button id="seat-settings" class="menu-row">Settings</button></div></dialog></div>');
   try { await checkFlatRows(page, '#seat-menu-sheet .menu-row'); }
