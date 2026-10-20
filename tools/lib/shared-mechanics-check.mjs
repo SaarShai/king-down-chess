@@ -20,12 +20,8 @@ async function closeSheet(ui) {
   if (await close.count()) await close.click();
 }
 
-async function routeTrace(ui, phase) {
-  return ui.locator('body').evaluate((body, phase) => {
-    const trace = body.ownerDocument.defaultView.__mechanicsRouteTrace;
-    if (phase) trace?.record({ event: 'phase', phase });
-    return trace?.entries ?? [];
-  }, phase, { timeout: 2000 }).catch(() => []);
+async function routeTrace(ui) {
+  return ui.locator('body').evaluate(body => body.ownerDocument.defaultView.__mechanicsRouteTrace?.entries ?? [], undefined, { timeout: 2000 }).catch(() => []);
 }
 
 async function readsGame(response, id) {
@@ -78,12 +74,12 @@ async function playTurn(ui, view, actions, { GameRules, toLan, cardCoins }) {
     if (card < 0 && move.drop === undefined && (move.from !== move.to || !move.power)) await square(ui, move.from, view.seat);
     await choices(ui);
     await ui.locator(`#choices button[title=${JSON.stringify(lan)}]`).click();
+    // A stored-engine preview closes the choice sheet only after its accepted prefix arrives.
+    await ui.locator('#board-sheet[open]').waitFor({ state: 'hidden' });
     position = rules.makeMove(position, move);
     await ready(ui);
-    await routeTrace(ui, 'staged');
   }
   await closeSheet(ui);
-  await routeTrace(ui, 'send-turn');
   await ui.locator('#end-turn[aria-disabled="false"]').click();
 }
 
@@ -186,7 +182,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
               await page.evaluate(result => window.harnessShow(result), await tool(seat, 'kingdown_open', { game_id: id }));
               assert.equal((await (await mounted).json())._meta?.view?.game_id, id, `${row.id}: the mounted board reads the selected game`);
             }
-            try { await ready(ui); await routeTrace(ui, 'mounted'); }
+            try { await ready(ui); }
             catch (error) {
               await shot(page, `shared-mechanics-${row.id}-${surface}-mount-failure`);
               console.error(`${row.id}/${surface} mount: ${await ui.locator('body').innerText()}`);
@@ -217,7 +213,6 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
               throw error;
             }
             assert.equal((await committed).status(), 200, `${row.id}/${surface}: command response`);
-            await routeTrace(ui, 'committed');
             for (const lan of actions) expected = await match.apply({ id: randomUUID(), expectedRevision: expected.revision, lan });
             applied.push(...actions);
             const after = await read(expected.turn, id);
@@ -232,7 +227,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
             for (const checkpoint of row.checkpoints ?? []) if (checkpoint.after === applied.length) assertMechanicExpected(after, checkpoint.expected, `${row.id}/${surface} checkpoint`);
           }
           const page = (surface === 'web' ? webPages : pluginPages)[finalSeat], ui = surface === 'web' ? page : page.frameLocator('iframe');
-          const beforeRoutes = await routeTrace(ui, 'before-reload');
+          const beforeRoutes = await routeTrace(ui);
           const beforeUrl = new URL(page.url()), network = [];
           const record = event => { network.push(event); if (network.length > 20) network.shift(); };
           const responseEvent = response => {
@@ -292,6 +287,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
           states.push({ fen: resumed.fen, turn: resumed.turn, history: resumed.history.actions, status: resumed.status, result: resumed.result });
           reports.push({ id: row.id, surface, game_id: id, revision: resumed.revision, ...(row.engine && { engine: row.engine, server_preview: true }), ...states.at(-1) });
           failures.forEach(assertNoErrors);
+          if (row.id === 'promotion-darkness') console.log(`${row.id}/${surface} accepted routes: ${JSON.stringify({ beforeUrl: beforeUrl.origin + beforeUrl.pathname, beforeRoutes })}`);
           console.log(`PASS shared-mechanics ${row.id} ${surface}`);
         } finally { await match.close(); }
       }
