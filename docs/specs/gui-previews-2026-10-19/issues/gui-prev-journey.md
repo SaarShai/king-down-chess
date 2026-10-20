@@ -266,16 +266,33 @@ The native ChatGPT check stays open under the no-sign-in rule. This repair adds 
 
 ## Test repair (2026-10-19)
 
-Status: in progress.
+Status: complete.
 
-Plan:
+Plan and pass criteria: merge main, find and class each failure, repair each cause, then run each repaired file and the whole suite on the M1. Keep every guard and time limit. The type check must pass. Record the result here. All steps pass; no failure needs a repair or a file-only run.
 
-1. Merge `origin/main`. Keep the fault fixes and all eleven preview picks.
-2. Run the whole unit suite with `m1-unit.sh`. Run `npx tsc --noEmit` here.
-3. Class each failure as a, b, c or d in ticket prev-green. Repair each cause. Keep all guards.
-4. Commit each repair kind. Run each repaired file on the M1, then run the whole suite again.
-5. Record the counts, logs and any open fault. Run no browser check or capture, as prev-green requires.
+### Merge
 
-Pass criteria: all unit tests pass except database skips on the M1; the type check and `git diff --check` pass. Each repair has a test. No time limit, retry or guard changes.
+Merge commit: `4328785484e3b642176a865b60c51e2ffbff158b`. It adds all 22 main commits through `0a7ec40b`. There are no conflicts. Git joins `src/plugin/index.html`, `src/plugin/screens/board.ts`, `tools/plugin-board.test.ts` and `tools/plugin-ui-check.mjs` without a conflict. Main's cursor words, live region, sound behavior and tests stay in place.
 
-The merge has no conflicts. Git joins all four shared files without a conflict. The device check returns account `new`, host `MacBook-Pro-2` and model `MacBookPro18,2`.
+All eleven preview picks stay in place: A4, A6, A7, A11, A19, A21, A23, A25, A26, A28 and A31. The existing tests for each behavior pass.
+
+### Failures and repairs
+
+Both whole-suite runs have no failures. No changed test needs kind a, b, c or d. No test expectation, fixture, guard, retry, skip condition, time limit or product code changes after the merge. There is no repaired file to run alone. This task adds no behavior and no taste choice. No screen repair needs a new capture.
+
+### Checks
+
+Both runs use `m1-unit.sh` and test merge commit `43287854`.
+
+| Run | Files pass | Files skip | Tests pass | Tests fail | Tests skip | Time |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| First | 186 | 12 | 3,150 | 0 | 164 | 348.63 s |
+| Final | 186 | 12 | 3,150 | 0 | 164 | 357.76 s |
+
+Of the skips, 156 need PostgreSQL. The other eight are the existing opt-in document drift cases in `src/balance/schema.test.ts`. No skip condition changes. The M1 script runs Vitest; it does not run the separate art tests in `npm test`.
+
+`npx tsc --noEmit` exits 0. `git diff --check` passes. The M1 account, host, hardware and server fingerprint match the device record.
+
+Evidence is in the `prev-green-journey` lane folder: `unit-1.txt`, `unit-2.txt`, `typecheck-1.txt` and `behavior-checks.txt`.
+
+The prev-green ticket requires no browser check or capture. No local unit suite runs. CI will check the browser when the main session opens its draft pull request. The A23 native ChatGPT check stays open under the no-sign-in rule. No part of prev-green stays unbuilt.
