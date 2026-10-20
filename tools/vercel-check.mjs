@@ -30,6 +30,29 @@ try {
   for (const path of ['authorize', 'consent.mjs', 'internal', '.well-known/oauth-protected-resource', '.well-known/oauth-protected-resource/mcp']) assert.equal(await realpath(join(tree, `functions/${path}.func`)), await realpath(fn), `${path} is the one function`);
   assert.equal(await exists(join(tree, 'functions/api.func')), undefined, 'No website API function');
   assert(!config.routes.some(route => new RegExp(route.src).test('/api/games')), 'No website API route');
+  const worker = await readFile(join(tree, 'static/sw.js'), 'utf8');
+  const version = /^const VERSION = '([a-f0-9]{12})';$/m.exec(worker)?.[1];
+  assert(version, 'The worker has a built content version');
+  assert.match(worker, /^const POLICY = 'public-build-v1';$/m);
+  const workerList = name => {
+    const matches = [...worker.matchAll(new RegExp(`^const ${name} = (\\[.*\\]);$`, 'gm'))];
+    assert.equal(matches.length, 1, `One ${name} list`);
+    const list = JSON.parse(matches[0][1]);
+    assert(Array.isArray(list) && list.length > 0, `${name} is set`);
+    assert.equal(new Set(list).size, list.length, `${name} has no duplicate`);
+    return list;
+  };
+  const allowlist = workerList('ALLOWLIST'), precache = workerList('PRECACHE');
+  assert.deepEqual(allowlist.slice(0, 2), ['./', 'index.html']);
+  assert.deepEqual(precache, allowlist.filter(file => file !== 'index.html'));
+  for (const file of allowlist) {
+    assert(typeof file === 'string' && (['./', 'index.html'].includes(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
+    assert((await exists(join(tree, 'static', file === './' ? 'index.html' : file)))?.isFile(), `Offline file exists: ${file}`);
+  }
+  const index = await readFile(join(tree, 'static/index.html'), 'utf8');
+  const entryFiles = [...index.matchAll(/(?:src|href)="\.\/(assets\/[^"?]+)"/g)].map(match => match[1]);
+  assert(entryFiles.length > 0, 'The local page has a build entry');
+  for (const file of entryFiles) assert(precache.includes(file), `The local entry is offline: ${file}`);
   const archive = (await readdir(ENGINES)).filter(file => file.endsWith('.mjs')).sort();
   assert.deepEqual((await readdir(join(fn, 'runtime/engines'))).sort(), archive);
   // Each archived fixture game continues on its own bundle in the compiled runtime.
@@ -66,6 +89,12 @@ try {
 
   for (const path of ['/', '/sw.js', '/privacy.html']) assert.equal((await fetch(origin + path)).status, 200, path);
   assert((await (await fetch(origin)).text()).includes('<html'));
+  const publicPaths = allowlist.map(file => new URL(file, origin + '/').pathname);
+  for (const path of publicPaths) {
+    const response = await fetch(origin + path, { redirect: 'manual' });
+    assert.equal(response.status, 200, path);
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), await readFile(join(tree, 'static', path === '/' ? 'index.html' : path)), path);
+  }
   const challenge = '/.well-known/openai-apps-challenge';
   const challengeFile = join(tree, 'static', challenge);
   const hasChallenge = (await exists(challengeFile))?.isFile();
@@ -112,14 +141,20 @@ try {
     assert.equal((await fetch(origin + path)).status, 404, path);
     assert.equal((await fetch(origin + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'random', speed: 'live', setup: { fen: '7k/8/8/8/8/8/8/K7 w - - 0 1' } }) })).status, 404, path);
   }
+  const closedPaths = ['/play', '/play/', '/play/profile', '/play/settings', '/play.html', '/g/test-id', '/j', '/j/', '/j/inert-token', '/unrelated-path'];
+  for (const path of [...closedPaths, '/api', '/api/games', '/api/me/games']) for (const query of ['', '?probe=1']) {
+    const response = await fetch(origin + path + query, { redirect: 'manual' });
+    assert.equal(response.status, 404, path + query);
+    assert.equal(response.headers.get('location'), null, path + query);
+  }
 
   // /internal runs a job only with the secret; email stays off without its settings.
   const job = (path, key) => fetch(origin + path, { method: 'POST', headers: key ? { 'X-Kingdown-Internal': key } : {} });
   assert.equal((await job('/internal/tick')).status, 403); assert.equal((await job('/internal/tick', `${secret}x`)).status, 403);
   const tick = await job('/internal/tick', secret); assert.equal(tick.status, 200); assert.equal(typeof (await tick.json()).ended, 'number');
   assert.equal((await job('/internal/outbox', secret)).status, 503);
-  assert.deepEqual([...served].sort(), ['function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /mcp', 'static /', 'static /plugin-art/*', 'static /privacy.html', 'static /sw.js', ...(hasChallenge ? [`static ${challenge}`] : [])].sort());
-  console.log(`Site tree: ${art.length} board art files, MCP open and move, OAuth, API refusal, internal jobs and ${archive.length} archived engine(s) passed`);
+  assert.deepEqual([...served].sort(), [...new Set(['function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /mcp', 'static /', 'static /plugin-art/*', 'static /privacy.html', 'static /sw.js', ...publicPaths.map(path => `static ${path}`), ...(hasChallenge ? [`static ${challenge}`] : [])])].sort());
+  console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${closedPaths.length} closed account/unknown paths, ${art.length} board art files, MCP open and move, OAuth, API refusal, internal jobs and ${archive.length} archived engine(s) passed`);
 } finally {
   server.closeAllConnections(); await new Promise(done => server.close(done));
   await app?.pool.end();

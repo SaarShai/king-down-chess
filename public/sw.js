@@ -1,69 +1,148 @@
-/* King Down Chess service worker: the game plays offline after one visit.
- *
- * `npm run build` writes dist/sw.js from this file, filling VERSION (a hash of every published file)
- * and PRECACHE (what the painted game needs to start). Dev never registers it.
- *
- * Updates: any change to the published files changes VERSION, so the browser installs the new worker
- * on the next visit; it takes over at once and deletes the old cache. The page itself is always asked
- * from the network first, so a returning player gets the new version on that same load; the cached
- * copy is used only when the network fails or is very slow (offline play).
+/* The build sets the content version and exact public file lists.
+ * The local page uses the network first, then the cache when offline or slow.
+ * Installation must cache all local files before the worker can take over.
  */
 const VERSION = 'dev';
+const ALLOWLIST = [];
 const PRECACHE = [];
+const POLICY = 'public-build-v1';
 const CACHE = `kingdown-${VERSION}`;
 const PAGE_TIMEOUT_MS = 4000;
+const START = new URL('./', self.registration.scope).href;
+const INDEX = new URL('index.html', START).href;
+const PUBLIC = new Set(ALLOWLIST.map(file => new URL(file, START).href));
+const PRIVATE = /^\/(?:api|mcp|authorize|auth|oauth|consent|login|logout|signin|signout|callback|internal|play|g|j|\.well-known)(?:\/|$)|^\/(?:play\.html|consent\.mjs)$/;
+const AUTH_QUERY = /^(?:code|state|error|error_code|error_description|sb_flow_id|access_token|refresh_token|id_token|token|token_hash)$/i;
+const noStore = headers => /(?:^|,)\s*no-store\s*(?:=|,|$)/i.test(headers.get('Cache-Control') ?? '');
+
+/** Return only a public cache key. Local links share the plain root key. */
+function publicKey(request) {
+  const url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== self.location.origin || PRIVATE.test(url.pathname)
+    || request.headers.has('Authorization') || request.cache === 'no-store' || noStore(request.headers)) return null;
+  url.hash = '';
+  const plain = new URL(url); plain.search = '';
+  if (!PUBLIC.has(plain.href)) return null;
+  if (plain.href === START || plain.href === INDEX) return START;
+  return url.search ? null : plain.href;
+}
+
+/** Use this check for every cache write, including installation. */
+function cacheable(request, response) {
+  const url = new URL(request.url); url.hash = '';
+  return publicKey(request) !== null && ![...url.searchParams.keys()].some(key => AUTH_QUERY.test(key))
+    && response.ok && response.type === 'basic' && !response.redirected
+    && response.url === url.href && !noStore(response.headers);
+}
+
+async function checkOwnCache() {
+  const cache = await caches.open(CACHE);
+  const keys = new Set();
+  for (const request of await cache.keys()) {
+    if (publicKey(request) !== request.url) throw new Error('Forbidden application cache key');
+    keys.add(request.url);
+  }
+  for (const file of PRECACHE) {
+    if (!keys.has(publicKey(new Request(new URL(file, START))))) throw new Error('Incomplete offline cache');
+  }
+}
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    // Hashed files under assets/ never change, so the copies this visit just downloaded will do;
-    // everything else is fetched fresh.
-    await cache.addAll(PRECACHE.map(url => new Request(url, { cache: url.startsWith('assets/') ? 'default' : 'reload' })));
+    for (const file of PRECACHE) {
+      const request = new Request(new URL(file, START), { cache: file.startsWith('assets/') ? 'default' : 'reload' });
+      const response = await fetch(request);
+      if (!cacheable(request, response)) throw new Error('Unsafe offline response');
+      await cache.put(publicKey(request), response);
+    }
+    // A pending delete can remove the name while this cache object stays open.
+    await checkOwnCache();
     await self.skipWaiting();
   })());
 });
 
+let activeWorker = self.registration.active;
+let purgeInProgress;
+function checkActiveWorker() {
+  const { installing, waiting, active } = self.registration;
+  if (installing || waiting || !active || active !== activeWorker
+    || active.scriptURL !== self.location.href || !['activating', 'activated'].includes(active.state)) {
+    throw new Error('Worker update in progress');
+  }
+}
+
+function purgeOldCaches() {
+  if (!purgeInProgress) purgeInProgress = (async () => {
+    const obsolete = key => key.startsWith('kingdown-') && key !== CACHE;
+    // List first. A replacement enters the registration before it opens its cache.
+    const names = await caches.keys();
+    checkActiveWorker();
+    await checkOwnCache();
+    for (const key of names) if (obsolete(key)) {
+      checkActiveWorker();
+      await caches.delete(key);
+    }
+    // A false delete can mean that another client removes the cache first.
+    await checkOwnCache();
+    const remaining = await caches.keys();
+    checkActiveWorker();
+    if (remaining.some(obsolete)) throw new Error('Old application cache remains');
+  })().finally(() => { purgeInProgress = undefined; });
+  return purgeInProgress;
+}
+
 self.addEventListener('activate', event => {
+  activeWorker = self.registration.active;
   event.waitUntil((async () => {
-    for (const key of await caches.keys()) if (key.startsWith('kingdown-') && key !== CACHE) await caches.delete(key);
+    await purgeOldCaches();
+    checkActiveWorker();
     await self.clients.claim();
   })());
 });
 
-/** Network first, so a new version shows on the next load; the cached page when offline or stalled. */
-async function page(request) {
-  const cache = await caches.open(CACHE);
-  const network = fetch(request).then(response => {
-    if (response.ok) cache.put('./', response.clone());
-    return response;
-  });
-  network.catch(() => {}); // a late failure after the timeout is not an error
-  const timeout = new Promise(resolve => setTimeout(resolve, PAGE_TIMEOUT_MS, null));
+self.addEventListener('message', event => {
+  const { data, source, ports } = event;
+  if (data?.type !== 'kingdown-cache-policy' || typeof data.requestId !== 'string' || !data.requestId
+    || source?.type !== 'window' || !URL.canParse(source.url) || new URL(source.url).origin !== self.location.origin
+    || ports.length !== 1 || typeof ports[0]?.postMessage !== 'function') return;
+  event.waitUntil((async () => {
+    await purgeOldCaches();
+    checkActiveWorker();
+    ports[0].postMessage({ type: 'kingdown-cache-policy', requestId: data.requestId, policy: POLICY, version: VERSION });
+  })());
+});
+
+/** Network first. Keep the install shell for offline use. */
+async function page(request, event) {
+  const cache = await caches.open(CACHE).catch(() => null);
+  const network = fetch(request);
+  event.waitUntil(network.then(() => {}, () => {}));
+  let timer;
+  const timeout = new Promise(resolve => { timer = setTimeout(resolve, PAGE_TIMEOUT_MS, null); });
   try {
     const first = await Promise.race([network, timeout]);
     if (first) return first;
-  } catch { /* offline: fall through to the cache */ }
-  return (await cache.match('./', { ignoreVary: true })) ?? network;
+  } catch { /* Use the cache when offline. */ }
+  finally { clearTimeout(timer); }
+  return (await cache?.match(START, { ignoreVary: true }).catch(() => undefined)) ?? network;
 }
 
-/** Hashed and versioned files never change under one VERSION: the cache first, else fetch and keep. */
+/** Public assets use only their exact URL. */
 async function asset(request) {
-  const cache = await caches.open(CACHE);
-  // ignoreVary: servers send `Vary: Origin`, and a page's module-script requests carry an Origin
-  // header that the precache's requests do not, so a strict lookup would miss when offline.
-  const hit = await cache.match(request, { ignoreSearch: true, ignoreVary: true });
+  const cache = await caches.open(CACHE).catch(() => null);
+  // Module requests carry Origin; install requests do not. Ignore only Vary.
+  const hit = await cache?.match(request, { ignoreVary: true }).catch(() => undefined);
   if (hit) return hit;
   const response = await fetch(request);
-  if (response.ok && response.type === 'basic') cache.put(request, response.clone());
+  if (cache && cacheable(request, response)) {
+    try { await cache.put(publicKey(request), response.clone()); } catch { /* Keep the network response. */ }
+  }
   return response;
 }
 
 self.addEventListener('fetch', event => {
-  const { request } = event, url = new URL(request.url);
-  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
-  if (request.mode !== 'navigate') return event.respondWith(asset(request));
-  // Only the game's own page is kept for offline play. Another page of the site (Privacy, Terms)
-  // goes straight to the network, so opening it can never put it in the game's place.
-  const start = new URL('./', self.registration.scope).pathname;
-  if (url.pathname === start || url.pathname === `${start}index.html`) event.respondWith(page(request));
+  const key = publicKey(event.request);
+  if (key === null) return;
+  event.respondWith(key === START ? page(event.request, event) : asset(event.request));
 });
