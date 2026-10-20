@@ -123,3 +123,22 @@ The table measures tracked files. It excludes Git history and installed packages
 The requested `git ls-files -z | xargs -0 du -ck | tail -1` command gives 280,008 KiB after the change. The table uses the full tracked-file block sum for both states.
 
 Unbuilt parts: none.
+
+## Review fixes
+
+Status: in progress.
+
+1. Check each finding against the code and Git tree.
+2. Let the dashboard use an empty file list when the local spool is absent. Keep card checks and other file errors. Test a fresh checkout and the error paths.
+3. Fix the storage claim in `docs/COMPUTE.md`. Add history pointers to `docs/STATUS.md`. Test the claims and the history paths.
+4. Commit the fixes. Run the full unit suite with `m1-unit.sh` and `plugin-ui` with `check-runner.sh`. Record the results and commit the record.
+
+Pass criteria: each finding has a fix and a test; the full unit suite, art tests and browser check pass; `git diff --check` passes.
+
+### Findings
+
+- Review A, finding 1: confirmed. `readdirSync` has no guard, and Git tracks no `sim/out` file. The dashboard now treats `ENOENT` for the local `sim/out` spool as empty. `tools/dashboard.test.ts` checks absent and empty spools, a missing configured card, a missing explicit root and a spool that is a file.
+- Review B, finding 1: confirmed. The storage guide still says that tracked output remains. The guide now names Git history, the restore record and the fixture folder. The earlier card-results spec has a removal note. `tools/steering.docs.test.ts` checks the guide against the tracked output list and the fixture folder.
+- Review B, finding 2: confirmed. Both paths are absent. The status page now names `d6021674:docs/releases/v0.7.0/` and `1476f55c:docs/takeover/baseline.json`. The test checks both history objects and the absence of both checkout paths.
+
+No finding is refuted. No server code changes. The required browser check is `plugin-ui`.

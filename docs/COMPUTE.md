@@ -60,4 +60,4 @@ Snapshots in `King Down/results-backups` contain a file manifest and compressed 
 
 To restore a snapshot, read its `manifest.json`. Each file names its object, decoded SHA-256 and size. Decode `gzip` objects, copy `plain` objects, or extract the named member from a `tar-gzip` pack. Verify every restored file against its SHA-256. Never delete `results-objects` while retaining manifests that reference it.
 
-Tracked `sim/out` files remain in Git as historical evidence and test fixtures. They do not define the runtime destination. Old worktrees that lack the new root module remain spools until their code is updated; the collector includes them.
+Git does not track `sim/out`. `.gitignore` ignores the whole folder. The old reports are at `1476f55c:sim/out/`. The [removal record](specs/retro-2026-10-20/issues/04-retro-records.md) gives the restore command. The tournament test fixtures are in `src/sim/fixtures/tournaments/`. Old worktrees that lack the new root module remain spools until their code is updated; the collector includes them.

@@ -267,6 +267,29 @@ describe('live files', () => {
 });
 
 describe('relative links', () => {
+  it('the storage guide names the removed reports and the retained fixtures', () => {
+    const guide = read('docs/COMPUTE.md');
+    expect(guide).not.toContain('Tracked `sim/out` files remain in Git');
+    expect(guide).toContain('Git does not track `sim/out`');
+    expect(guide).toContain('`1476f55c:sim/out/`');
+    expect(guide).toContain('(specs/retro-2026-10-20/issues/04-retro-records.md)');
+    expect(guide).toContain('`src/sim/fixtures/tournaments/`');
+    const tracked = spawnSync('git', ['ls-files', 'sim/out'], { cwd: root, encoding: 'utf8', timeout: 2000 });
+    expect(tracked.status, tracked.stderr).toBe(0);
+    expect(tracked.stdout).toBe('');
+    expect(existsSync(join(root, 'src/sim/fixtures/tournaments'))).toBe(true);
+  });
+
+  it('the status page gives valid history paths for the removed release and manifest', () => {
+    const status = read('docs/STATUS.md');
+    for (const path of ['d6021674:docs/releases/v0.7.0/', '1476f55c:docs/takeover/baseline.json']) {
+      expect(status).toContain(`\`${path}\``);
+      const object = spawnSync('git', ['cat-file', '-e', path], { cwd: root, encoding: 'utf8', timeout: 2000 });
+      expect(object.status, object.stderr).toBe(0);
+      expect(existsSync(join(root, path.split(':')[1]))).toBe(false);
+    }
+  });
+
   it('names the file, the section and the line of a link to a file that does not exist', () => {
     const fixture = [
       '# Fixture', 'See [the matrix](docs/MATRIX.md#d1) and [the web](https://example.com) and [here](#top).',
@@ -289,6 +312,7 @@ describe('relative links', () => {
       'docs/PLAYABLE-CLAY.md', 'docs/2d-first-pieces/README.md',
       'docs/research/archer-animation-workflow.md', 'docs/research/graphics-prototype-2026-09-21.md',
       'docs/specs/park-clay/spec.md', 'docs/specs/retro-2026-10-20/issues/04-retro-records.md',
+      'docs/specs/card-results/spec.md',
     ];
     expect(files.flatMap(file => linkFaults(file, read(file))).map(show)).toEqual([]);
   });
