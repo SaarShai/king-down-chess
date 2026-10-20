@@ -14,6 +14,7 @@
 
 ## Tests and checks
 - Run the tests with `npm test` only; `npm run test:docs` runs the doc lints alone. Do not run bare vitest or `node --test`. Do not pipe the output through tail or grep.
+- For diagnosis, use `KINGDOWN_TEST_FILE` and optional `KINGDOWN_TEST_NAME` (a test-name regular expression) with `npm test`. Record the selected cases; a focused run is not a full-suite pass.
 - Run a browser check with `npm run check:browser <name>`.
 - Start a command of more than two minutes (a check run, a render compare, a review helper, a run) detached: a background shell call that reports when it ends. Read its log then; a wait loop holds the turn.
 - Prefer a deterministic check (a test, a lint, a hook, a browser check) to a new line of prose here. Merge a new rule into the rule it changes; add no dated note.
