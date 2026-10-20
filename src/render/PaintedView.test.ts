@@ -1,10 +1,11 @@
 // F13: the board canvas stays hidden until the stone art is loaded and decoded, so no gold or page colour
 // shows in its place; it appears in the frame that first draws stone and pieces.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fromFen } from '../rules/setup';
+import { fromFen, toFen } from '../rules/setup';
 import { Game } from '../game';
 import { setRules } from '../rules/engine';
 import type { PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
+import { SHARED_MECHANICS, assertMechanicExpected } from '../../tools/fixtures/shared-mechanics';
 
 const { reducedMotion, lively, aim, decorate, disposeScene, disconnectResize } = vi.hoisted(() => ({ reducedMotion: vi.fn(), lively: vi.fn(), aim: vi.fn(), decorate: vi.fn(), disposeScene: vi.fn(), disconnectResize: vi.fn() }));
 let resolveLoad: () => void = () => {};
@@ -23,7 +24,7 @@ function stubDom() {
     options?.signal?.addEventListener('abort', () => target.delete(name), { once: true });
   };
   const el = () => ({ style: {} as Record<string, string>, classList: { add() {}, toggle() {} },
-    addEventListener: listen(listeners), appendChild() {}, width: 0, height: 0,
+    addEventListener: listen(listeners), appendChild() {}, getContext: () => ({}), width: 0, height: 0,
     getClientRects: () => [1], getBoundingClientRect: () => ({ left: 0, top: 0, width: 960 }), setPointerCapture() {}, hasPointerCapture: () => true, releasePointerCapture() {} });
   vi.stubGlobal('document', { createElement: el, addEventListener: listen(documentListeners), hidden: false });
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: listen(documentListeners) }));
@@ -134,6 +135,31 @@ describe('PaintedView motion setting', () => {
       expect(aim).toHaveBeenLastCalledWith(20);
     }
   });
+});
+
+it.each([false, true])('syncs the legal Earth Quake without a figure at its center (reduced motion %s)', async systemReduced => {
+  const container = stubDom();
+  vi.stubGlobal('Image', class { src = ''; });
+  vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  vi.stubGlobal('matchMedia', () => ({ matches: systemReduced, addEventListener() {} }));
+  const { PaintedView } = await import('./PaintedView');
+  const { createScene } = await vi.importActual<typeof import('../../docs/2d-first-pieces/board/scene.mjs')>('../../docs/2d-first-pieces/board/scene.mjs');
+  const scene = createScene({ canvas: document.createElement('canvas'), pieces: await import('../rules/engine') });
+  const view = new PaintedView(container as unknown as HTMLElement);
+  (view as unknown as { scene: PaintedScene }).scene = scene;
+  const fixture = SHARED_MECHANICS.find(row => row.id === 'card-earthquake')!;
+  const game = new Game('RNBQKBNR', { hands: [fixture.setup.hand!, fixture.setup.hand!] });
+  game.load(game.context.fromFen(fixture.setup.fen!)); view.setRules(game.context);
+  const before = game.pos, move = game.legal.find(move => game.context.toLan(before, move) === fixture.actions[0])!;
+  expect(move).toMatchObject({ power: 'quake', from: 27, to: 27 });
+  expect(before.board[move.from]).toBe(0);
+  const playing = vi.spyOn(scene, 'play'), synced = vi.spyOn(scene, 'setPosition');
+  await expect(view.animateMove(before, move)).resolves.toBeUndefined();
+  expect(playing).not.toHaveBeenCalled();
+  game.play(move); view.sync(game.pos);
+  expect(synced).toHaveBeenLastCalledWith(game.pos);
+  assertMechanicExpected({ fen: toFen(game.pos), rules: game.rules, turn: game.pos.turn, legal: game.legal.map(move => game.context.toLan(game.pos, move)) }, fixture.expected);
+  view.dispose();
 });
 
 it('draws frost on the game board after Freeze and clears it on expiry and Undo', async () => {
