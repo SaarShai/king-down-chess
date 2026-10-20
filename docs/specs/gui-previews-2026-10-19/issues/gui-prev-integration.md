@@ -41,3 +41,9 @@ The inner face keeps the old 2 px lower shadow. It covers the outer ink
 focus band. Keyboard focus now removes that lower shadow only. It keeps
 the face and inset rim. The test keeps the 3:1 check on all four sides and
 saves both images before it checks contrast, so a failure keeps its proof.
+
+At `1783a067`, the lower band reaches 2.35:1. The saved pixels show both
+focus colours. The ring is not clipped. The comparison reads the old dark
+lower shadow before focus. A spent face now uses stone-500 for that 2 px
+lower edge. It keeps its depth, grey filter and opacity. This is the only
+new taste choice. The agreed focus colours and coin sizes stay the same.
