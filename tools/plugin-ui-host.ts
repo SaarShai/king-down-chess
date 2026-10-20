@@ -90,8 +90,9 @@ addEventListener('message', ({ source, data }) => {
 });
 // The bridge listens before the page loads, as in a real host: the frame's load event waits for the board art.
 async function mount(widget: Widget) {
-  // Drop the old page before a check can find its controls.
+  // The SDK requires resource teardown before the iframe leaves the document.
   if (widget.bridge) {
+    if (widget.bridge.getAppCapabilities()) await widget.bridge.teardownResource({});
     const fresh = widget.frame.cloneNode() as HTMLIFrameElement;
     fresh.removeAttribute('src'); widget.frame.replaceWith(fresh); widget.frame = fresh;
   }

@@ -29,32 +29,6 @@ import { assertNoErrors, env, launch, shot, STEP, trapErrors } from './lib/check
 const base = env('PLAYABLE_URL');
 const testHandle = `mvp_${randomUUID().replaceAll('-', '').slice(0,12)}`;
 const browser = await launch();
-// [DEBUG-csp-art] Temporary browser-level probe also sees requests outside board-resource.
-const newPageBeforeCspArtProbe = browser.newPage.bind(browser);
-browser.newPage = async options => {
-  const page = await newPageBeforeCspArtProbe(options);
-  const artPath = url => { try { const path = new URL(url).pathname; return path.startsWith('/plugin-art/') && path.endsWith('.webp') && (path.includes('/spirit-') || path.includes('/shadow-b-')) ? path : undefined; } catch { return undefined; } };
-  page.on('console', message => {
-    if (message.type() === 'error' && message.text().includes('connect-src') && /\/(?:spirit|shadow-b)-/.test(message.text())) console.log('[DEBUG-csp-art] console ' + JSON.stringify({ page: page.url().split(/[?#]/)[0], location: message.location(), text: message.text() }));
-  });
-  if (browser.browserType().name() === 'chromium') {
-    const network = await page.context().newCDPSession(page), requests = new Map();
-    await network.send('Network.enable');
-    network.on('Network.requestWillBeSent', event => {
-      const path = artPath(event.request.url);
-      if (path) requests.set(event.requestId, { path, frame: event.frameId, type: event.type, initiator: {
-        type: event.initiator.type, source: event.initiator.url?.split(/[?#]/)[0], line: event.initiator.lineNumber,
-        frames: event.initiator.stack?.callFrames.slice(0, 8).map(({ functionName, url, lineNumber, columnNumber }) => ({ functionName, source: url.split(/[?#]/)[0], line: lineNumber, column: columnNumber })),
-      } });
-    });
-    network.on('Network.loadingFailed', event => {
-      if (event.blockedReason === 'csp' && requests.has(event.requestId)) console.log('[DEBUG-csp-art] network ' + JSON.stringify(requests.get(event.requestId)));
-      requests.delete(event.requestId);
-    });
-    network.on('Network.loadingFinished', event => requests.delete(event.requestId));
-  }
-  return page;
-};
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: true });
 page.setDefaultTimeout(30_000 * STEP);
 trapErrors(page);
