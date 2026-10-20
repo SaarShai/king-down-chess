@@ -308,9 +308,11 @@ export class GameService {
    const game = await this.store.load(gameId, { client, lock: true });
    if (await this.store.receipt(client, gameId, seat, command.command_id, payload)) return this.render(game, seat, { client });
    if (action.type === 'rematch' && action.choice !== 'decline' && game.kind !== 'solo' && game.players.every(p => p.user_id) && !await this.store.unblocked(client, actor, game.players[other(seat)].user_id!)) fail('NOT_ALLOWED', 409, 'No rematch is available with this player');
-   const next = step(game), out: Outgoing = { notify: [], outbox: [] };
+   const switchOpen = action.type === 'abort' && game.kind === 'solo' && await this.store.canSwitch(actor, game.created_at, client);
+   // Only unseen commands check time again after engine work, permission reads and the row-lock wait.
+   const at = new Date(), next = step(game), out: Outgoing = { notify: [], outbox: [] };
    const log: Log = { seat, actor_id: actor, command_id: command.command_id, kind: action.type, payload, actions: null, surface, received_at: at };
-   if (check(game, seat, command, at, action.type === 'abort' && game.kind === 'solo' && await this.store.canSwitch(actor, game.created_at, client))) {
+   if (check(game, seat, command, at, switchOpen)) {
     expire(next, out, at);
     // Any other command learns that the game ended on time; the claim is the command that ends it.
     if (action.type !== 'claim') { await this.write(client, game, next, { ...log, seat: null, actor_id: null, command_id: null, kind: 'expire', payload: {}, surface: null }, out); return 'expired' as const; }
