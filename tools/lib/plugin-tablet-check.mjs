@@ -78,10 +78,15 @@ export async function checkTablet(page, frame) {
 }
 
 export async function checkFlatRows(frame, selector) {
-  const rows = await frame.locator(selector).evaluateAll(rows => rows.filter(el => el.checkVisibility()).map(el => {
-    const s = getComputedStyle(el), face = getComputedStyle(el, '::before');
-    return { image: s.backgroundImage, shadow: s.boxShadow, face: face.content, border: s.borderBottomWidth, height: el.getBoundingClientRect().height, transform: s.transform };
-  }));
+  const rows = await frame.locator(selector).evaluateAll(rows => {
+    // Measure the resting face; keyboard focus has its own ring checks below.
+    const active = document.activeElement;
+    if (active && rows.some(row => row.contains(active))) active.blur();
+    return rows.filter(el => el.checkVisibility()).map(el => {
+      const s = getComputedStyle(el), face = getComputedStyle(el, '::before');
+      return { image: s.backgroundImage, shadow: s.boxShadow, face: face.content, border: s.borderBottomWidth, height: el.getBoundingClientRect().height, transform: s.transform };
+    });
+  });
   assert(rows.length, 'The reading-row sample is visible');
   for (const row of rows) {
     assert.equal(row.image, 'none'); assert.equal(row.shadow, 'none'); assert.equal(row.border, '1px');

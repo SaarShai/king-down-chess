@@ -28,10 +28,19 @@ addEventListener('message', event => {
     (event.source as Window).postMessage({ jsonrpc: '2.0', id: event.data.id, error: { code: -32000, message: 'Harness connect failed' } }, '*');
   }
 }, true);
+const draftRules = new Map<string, unknown>();
+host.harnessDraftBases = {};
+function rememberDraftBase(view: any) {
+  if (!view) return;
+  if (view.rules) draftRules.set(view.game_id, view.rules);
+  const rules = view.rules ?? draftRules.get(view.game_id);
+  if (rules) host.harnessDraftBases[`${view.game_id}:${view.revision}`] = JSON.stringify(rules);
+}
 let matchId: string | undefined;
 const invoke = async (name: string, args: Record<string, unknown>) => {
   const response = await fetch('/fixture-tool', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, arguments: args }) });
   const result = await response.json();
+  rememberDraftBase(result._meta?.view);
   // The board's data is in _meta; the model would read only the summary.
   if (result._meta?.view && (name !== 'kingdown_get' || args.board_id || !matchId || result._meta.view.game_id === matchId)) { matchId = result._meta.view.game_id; host.harnessMatchId = matchId; host.harnessView = result._meta?.view; }
   return result;
@@ -56,7 +65,7 @@ async function callTool(widget: Widget, params: any) {
   if (holds(host.holdBeforeNext)) { host.holdBeforeNext = undefined; await hold('releaseBefore'); }
   if (host.rejectNextAction?.name === params.name) { const { code, text } = host.rejectNextAction; host.rejectNextAction = undefined; return { isError: true, content: [{ type: 'text', text }], _meta: { code } }; }
   const result = await invoke(params.name, params.arguments ?? {});
-  if (params.name === 'kingdown_get' && host.harnessNextView) { result._meta.view = host.harnessNextView; host.harnessView = result._meta?.view; host.harnessNextView = undefined; }
+  if (params.name === 'kingdown_get' && host.harnessNextView) { result._meta.view = host.harnessNextView; host.harnessView = result._meta?.view; host.harnessNextView = undefined; rememberDraftBase(result._meta.view); }
   if (holds(host.holdNext)) { host.holdNext = undefined; await hold('releaseHeld'); }
   if (host.holdNextGet && params.name === 'kingdown_get') { host.holdNextGet = false; await hold('releaseHeldGet'); host.heldGetReturned = true; }
   if (host.dropNextReply === params.name) { host.dropNextReply = undefined; throw new Error('Harness lost reply after commit'); }
@@ -97,6 +106,7 @@ async function mount(widget: Widget) {
     host.harnessDeclaredModes = bridge.getAppCapabilities()?.availableDisplayModes;
     const result = widget.initialResult ?? (query.has('terminal') ? await (await fetch('/fixture-terminal')).json() : await invoke('kingdown_open', matchId ? { game_id: matchId } : {}));
     if (query.has('terminal')) result.structuredContent.screen = 'board';
+    rememberDraftBase(result._meta?.view);
     widget.initialResult = result;
     matchId = result.structuredContent?.game_id;
     await bridge.sendToolInput({ arguments: matchId ? { game_id: matchId } : {} });
@@ -114,6 +124,7 @@ host.harnessSetContext = async (context: any) => { host.harnessHostContext = con
 host.harnessTeardown = () => newest().bridge!.teardownResource({});
 host.harnessTool = (params: any) => callTool(newest(), params);
 host.harnessShow = async (result: any, route = false) => {
+  rememberDraftBase(result._meta?.view);
   const shown = route || result.isError ? result : { ...result, structuredContent: { ...result.structuredContent, screen: result.structuredContent?.screen ?? 'board' } };
   matchId = result.structuredContent?.game_id; host.harnessMatchId = matchId; host.harnessView = result._meta?.view;
   if (!perResult) { newest().initialResult = shown; await newest().bridge!.sendToolResult(shown); return; }

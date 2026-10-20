@@ -1,3 +1,4 @@
+import { checkWidgetState } from './lib/plugin-widget-state-check.mjs';
 import { checkTabletSelection } from './lib/plugin-tablet-check.mjs';
 import { checkTablet, checkTabletButtons, checkFlatRows, checkMenuContent, checkSegments, checkFocus } from './lib/plugin-tablet-check.mjs';
 import { checkAndroidFixes } from './lib/plugin-android-check.mjs';
@@ -297,12 +298,12 @@ try {
   // boundaries the check loads the host page again with the same chat state: the host context and display mode, the
   // last tool result and the widget state. Then one remount restores the screen, as a chat reload does. A given screen
   // must show after it; a saved game screen can follow the game's fresh status to another screen.
-  const retiredWidgetStates = [];
+  const retiredWidgetStates = [], retiredDraftBases = {};
   async function freshHost(screen) {
     // A widget-state write still in transit would be lost with the old page.
     await settled();
-    const saved = await page.evaluate(() => ({ context: window.harnessHostContext, mode: window.harnessDisplayMode, result: window.harnessWidgets.at(-1).initialResult, state: window.harnessWidgetState, states: window.harnessWidgetStates }));
-    retiredWidgetStates.push(...saved.states);
+    const saved = await page.evaluate(() => ({ context: window.harnessHostContext, mode: window.harnessDisplayMode, result: window.harnessWidgets.at(-1).initialResult, state: window.harnessWidgetState, states: window.harnessWidgetStates, draftBases: window.harnessDraftBases }));
+    retiredWidgetStates.push(...saved.states); Object.assign(retiredDraftBases, saved.draftBases);
     await page.goto(base);
     // The first boot of each host page waits for its held settings read (the init script), as at the start.
     await page.waitForFunction(() => typeof window.releaseBefore === 'function');
@@ -3280,11 +3281,8 @@ try {
   assert.equal(await frame.locator('#choices button').count(), 0);
   }
   await page.evaluate(() => window.harnessTeardown());
-  for (const state of [...retiredWidgetStates, ...await page.evaluate(() => window.harnessWidgetStates ?? [])]) {
-    const json = JSON.stringify(state).replace(/"board_id":"[0-9a-f-]+"/gi, '');
-    assert(!/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}/i.test(json), 'Each widget write has no full UUID except board_id');
-    assert(!state.privateContent?.pending?.args?.code && !state.privateContent?.pending?.args?.handle, 'Pending state has no code or handle');
-  }
+  const draftBases = { ...retiredDraftBases, ...await page.evaluate(() => window.harnessDraftBases) };
+  for (const state of [...retiredWidgetStates, ...await page.evaluate(() => window.harnessWidgetStates ?? [])]) checkWidgetState(state, draftBases);
   assert.deepEqual(await frame.locator('body').evaluate(() => window.harnessTableIdConflicts), [], 'The board hand-off keeps one set of table IDs');
   assertNoErrors();
   console.log(`Harness mode: ${mode}`);

@@ -35,3 +35,16 @@ The compiled fixture reproduces a 1 CSS pixel scroll offset at 870 × 280 for bo
 ## Profile selection ordering
 
 The profile game row routes through the command queue before the selection lane unlocks. Previously it awaited a route-free Resume and routed in an outer continuation. The unlocked Profile state could accept a newer navigation before the older continuation opened Board. A held-Resume browser regression fails on that ordering and checks that Board routes while the lane is still held. Error handling and current-job guards stay in the shared queue. The focused browser regression fails before the fix and passes after it; 53 artwork checks also pass. The registered HTTP check passes Profile and Collection at all three sizes, plus setup and hidden-seat checks. It then stops at the separate focused-row shadow assertion in `checkFlatRows` (`plugin-ui-check.mjs:1234`). Log: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/web-game-lVbkBR/plugin-ui-http.log`.
+
+
+## Resting row check
+
+The flat-row helper measures an unfocused sample before it checks the resting face. A clicked Settings input can correctly leave the approved gold focus ring on its label. The helper clears only focus inside the sampled rows; dedicated keyboard-focus and selected-segment checks stay unchanged. Focused button and label fixtures verify the baseline check. Product focus CSS stays unchanged.
+
+## Private draft audit
+
+The final widget-state audit accepts full IDs only at the private draft scope paths. The plugin's account scope must equal its current server-owned per-actor `board_id`; browser drafts instead use the signed-in account ID. The game, revision and serialized rules must match a private game view observed by the harness. Model content stays empty when private widget state is supported. The existing no-widget-state host fallback remains limited to public `status` and `your_turn`; the UUID check still rejects every other path. Regressions reject unrelated IDs, an extra scope ID and mismatched account, game, revision or rules. The focused checker run passes 10 tests and 53 artwork checks. The previous complete HTTP browser run reached this final audit after all GUI and gameplay journeys passed.
+
+The strict audit exposed a transient save during a new plugin board binding: selection had changed `board_id` before redraw discarded the previous draft. The shared save boundary now drops a draft whose account scope differs from the current signed-in account or plugin board ownership ID. A deterministic regression fails before the fix; browser account scope remains valid when only its board binding changes. The combined focused run passes 37 tests and 53 artwork checks.
+
+Final registered verification with the ownership-save fix: `PLUGIN_TEST_DATABASE_URL=<disposable DB> npm run check:browser plugin-ui-http` passes in 245.5 seconds. It covers real HTTP MCP/PostgreSQL, setup and both hidden seats, profile/collection, all GUI sizes, touch, Haste, lost replies and remounts, friend polling, match switching, all game journeys and the strict final private widget-state audit. Log: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/web-game-I83y66/plugin-ui-http.log`. This uses the local AppBridge harness, not a real ChatGPT host.
