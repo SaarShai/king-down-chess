@@ -55,10 +55,10 @@ function run(names: string[], failBuild = false) {
 }
 
 describe('browser check site build', () => {
-  it('skips the site build and preview for plugin-only checks', () => {
-    const { result, calls } = run(['plugin-ui', 'plugin-ui-http', 'plugin-oauth']);
+  it('skips the site build and preview for checks that build their own artifact', () => {
+    const { result, calls } = run(['plugin-ui', 'plugin-ui-http', 'plugin-oauth', 'web-game']);
     expect(result.status, result.stderr + result.stdout).toBe(0);
-    expect(calls).toHaveLength(3);
+    expect(calls).toHaveLength(4);
     expect(calls.every(call => typeof call === 'object' && !('url' in call))).toBe(true);
     expect(result.stdout).not.toContain('serving the build');
   });
