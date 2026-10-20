@@ -181,7 +181,7 @@ it('lists every collection rule and hides shared unlocked status', async () => {
       expect(await frame.locator('#collection-items > *').count()).toBe(count);
       expect(await frame.locator('#collection-items .unlocked').count()).toBe(count);
       expect(await frame.locator('#collection-items').innerText()).not.toContain('Unlocked');
-      expect(await frame.locator('#collection-items').innerText()).not.toContain('Status');
+      expect(await frame.locator('#collection-items').innerText()).not.toContain('STATUS');
       if (tab === 'Pieces') for (const letter of ['P', ...POOL_KINDS]) {
         const type = LETTERS.indexOf(letter) as PieceType, guide = pieceGuide(type), card = frame.locator(`[data-piece="${NAMES[type]}"]`);
         expect(await card.locator('dt').allTextContents()).toEqual(['Moves', 'Takes', ...(guide.special ? ['Special'] : []), 'Status']);
@@ -521,9 +521,9 @@ it('shows collection status again when an entry is locked', async () => {
     await frame.locator('html').evaluate('(async () => { const { syncCollectionStatus } = await import("/src/plugin/screens/collection.ts"); const list = document.getElementById("collection-items"); const mark = list.querySelector(".unlocked"); mark.className = "locked"; mark.textContent = "Locked"; syncCollectionStatus(list); })()');
     expect(await frame.locator('#collection-items').innerText()).toContain('Locked');
     expect(await frame.locator('#collection-items').innerText()).toContain('Unlocked');
-    expect(await frame.locator('#collection-items').innerText()).toContain('Status');
+    expect(await frame.locator('#collection-items').innerText()).toContain('STATUS');
     await frame.locator('html').evaluate('(async () => { const { syncCollectionStatus } = await import("/src/plugin/screens/collection.ts"); const list = document.getElementById("collection-items"); const mark = list.querySelector(".locked"); mark.className = "unlocked"; mark.textContent = "Unlocked"; syncCollectionStatus(list); })()');
     expect(await frame.locator('#collection-items').innerText()).not.toContain('Unlocked');
-    expect(await frame.locator('#collection-items').innerText()).not.toContain('Status');
+    expect(await frame.locator('#collection-items').innerText()).not.toContain('STATUS');
   } finally { await page.close(); }
 });

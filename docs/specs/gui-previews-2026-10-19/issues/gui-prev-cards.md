@@ -163,3 +163,9 @@ Plan:
 Pass criteria: all M1 tests pass, except database tests that the M1 cannot run. The local type check and diff check pass. This repair step runs no browser checks or captures. CI checks the browser after the main session opens a pull request.
 
 Merge: `origin/main` is `0a7ec40b`. The one conflict is at the end of `tools/plugin-board.test.ts`. Keep both sets of added tests: A16/A35 card sheets and N11 special-move sounds. The board and browser-check code merge without a conflict. Keep all main fault fixes and judge checks.
+
+A5, kind a: `src/workshop/powers.test.ts` checks the old set of 11 WebP files. Add Flight, Haste and Strike to its exact expected file list. The check still covers the full directory and rejects missing or extra files. No art or code changes.
+
+A40, kind a: `tools/plugin-profile.test.ts` expects the visible label `Status`. The existing card style renders it as `STATUS`. The M1 output proves that Locked, Unlocked and STATUS return. Change all three rendered status-label checks to `STATUS`, so the hidden-label checks also test the actual text. Keep the DOM text checks as `Status`. No product code or screen changes.
+
+First M1 suite, merge commit `a1dab464`: 184 files pass, 2 fail, 12 skip; 3,133 tests pass, 2 fail, 164 skip. Time: 325.91 seconds. The two failures are A5 and A40 above. Search (18 tests) and judge (12 tests) both pass. The two earlier timed failures do not recur after the merge. Change no time limit or test work. Log: `scratchpad/lanes/prev-green-cards/unit-1.txt` in the task scratch folder.
