@@ -13,6 +13,7 @@ body[data-page='end'] #table-bar { visibility: hidden; }
 #game-table .coin { min-height: 40px; padding: 0; }
 #game-table .coin.card-coin { width: 34px; height: 34px; min-height: 34px; }
 #game-table .coin.card-coin img { width: calc(100% - 6px); height: calc(100% - 6px); }
+#game-table .coin.card-coin[data-state='armed'] img { inset: 5px; width: calc(100% - 10px); height: calc(100% - 10px); }
 #game-table #context-note:empty { display: none; }
 /* G1 a: phone portrait view limits armed text to two lines; below 320 px, T2 shows all words and the page scrolls. */
 @media (min-width: 320px) and (max-width: 899px) and (orientation: portrait) {
@@ -22,7 +23,7 @@ body[data-page='end'] #table-bar { visibility: hidden; }
 #board-sheet[open] { display: flex; flex-direction: column; }
 #board-sheet .sheet-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; }
 #board-sheet .sheet-head h2 { flex: 1; margin: 0; }
-#board-sheet .sheet-head button { width: auto; min-width: 44px; padding: 0 8px; }
+#board-sheet .sheet-head button { width: 44px; min-width: 44px; padding: 0; justify-content: center; }
 #board-sheet .sheet-body { display: flex; flex-direction: column; gap: 8px; }
 #board-sheet .sheet-body > button { justify-content: center; text-align: center; }
 .frame #board-sheet.board-menu { max-height: 100%; }
