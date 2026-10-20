@@ -240,9 +240,18 @@ describe('website API boundary', () => {
   useApi({ operations: new Set(['GET /api/games/:id']) });
   expect((await call('/api/games/find', { token })).status).toBe(404); expect(games.view).not.toHaveBeenCalled();
  });
- it('rejects missing start IDs and unknown start fields before game work', async () => {
+ it('rejects invalid start IDs, fields and local-only options before game work', async () => {
   const token = await sign();
-  for (const body of [{ kind: 'solo' }, { kind: 'solo', command_id: '' }, { kind: 'solo', command_id: 'x'.repeat(201) }, { kind: 'solo', command_id: 'line\nbreak' }, { kind: 'solo', command_id: commandId, actor: alice }, { kind: 'solo', command_id: commandId, level: 'no' }]) {
+  for (const body of [
+   { kind: 'solo' },
+   { kind: 'solo', command_id: '' },
+   { kind: 'solo', command_id: 'x'.repeat(201) },
+   { kind: 'solo', command_id: 'line\nbreak' },
+   { kind: 'solo', command_id: commandId, actor: alice },
+   { kind: 'solo', command_id: commandId, level: 'no' },
+   { kind: 'solo', command_id: commandId, options: { ...DEFAULT_OPTIONS, design: { code: 'local-only-design' } } },
+   { kind: 'solo', command_id: commandId, options: { ...DEFAULT_OPTIONS, pool: ['T'] } },
+  ]) {
    const response = await call('/api/games', { token, method: 'POST', body });
    expect([response.status, (await response.json()).code]).toEqual([400, 'INVALID_INPUT']);
   }
