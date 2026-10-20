@@ -149,3 +149,17 @@ The required `plugin-ui` check passes at `fa29df39` on this Mac in 229.5 seconds
 The first browser attempt stops in the new test because it tries to open a disabled coin during a command. The test now checks that the coin stays off. No time limit changes. The second attempt passes.
 
 Logs: `scratchpad/lanes/gui-prev-cards/unit-fixes-1.txt`, `unit-fixes-2.txt` and `checks-review-fixes-2.txt` in the task scratch folder. The new 2× views use the `repair-` prefix in the lane's `previews/` folder. The final lane report records the final head. The final ticket update changes no code or art from the passed browser commit.
+
+## Test repair (2026-10-19)
+
+Plan:
+
+1. Merge `origin/main`. Keep the main fault fixes and all five card previews.
+2. Run the full unit suite on the M1 with `m1-unit.sh`. Run the local type check.
+3. Class each failure as an old expectation (a), a missing fixture (b), a code fault (c), or a timed failure under load (d). Keep all guards and time limits.
+4. Commit each repair kind. Run each repaired file on the M1. Then run the full M1 suite again.
+5. Record the merge, repairs, counts and limits here and in the lane report.
+
+Pass criteria: all M1 tests pass, except database tests that the M1 cannot run. The local type check and diff check pass. This repair step runs no browser checks or captures. CI checks the browser after the main session opens a pull request.
+
+Merge: `origin/main` is `0a7ec40b`. The one conflict is at the end of `tools/plugin-board.test.ts`. Keep both sets of added tests: A16/A35 card sheets and N11 special-move sounds. The board and browser-check code merge without a conflict. Keep all main fault fixes and judge checks.
