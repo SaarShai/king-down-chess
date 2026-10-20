@@ -145,6 +145,7 @@ it.each([false, true])('syncs the legal Earth Quake without a figure at its cent
   const { PaintedView } = await import('./PaintedView');
   const { createScene } = await vi.importActual<typeof import('../../docs/2d-first-pieces/board/scene.mjs')>('../../docs/2d-first-pieces/board/scene.mjs');
   const scene = createScene({ canvas: document.createElement('canvas'), pieces: await import('../rules/engine') });
+  scene.setReducedMotion(systemReduced);
   const view = new PaintedView(container as unknown as HTMLElement);
   (view as unknown as { scene: PaintedScene }).scene = scene;
   const fixture = SHARED_MECHANICS.find(row => row.id === 'card-earthquake')!;
