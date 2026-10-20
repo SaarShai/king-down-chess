@@ -60,6 +60,9 @@ export class PaintedView implements BoardView {
   private canvas = document.createElement('canvas');
   private scene: PaintedScene;
   private loaded: Promise<void>;
+  private disposed = false;
+  private events = new AbortController();
+  private resize: ResizeObserver;
   private pos: Position | null = null;
   private symbols?: (piece: number) => HTMLImageElement;
   private marks: Highlights = {};
@@ -94,18 +97,21 @@ export class PaintedView implements BoardView {
     this.scene.setDecorate((ctx, scene, layer, row) => this.drawMarks(ctx, scene, layer, row));
     // The game opts in to quiet-move gaits, the selected figure's idle and the framed, warm board
     // (the trial and the trailer keep the plain scene).
-    this.motionQuery.addEventListener('change', () => this.applyLively());
+    const signal = this.events.signal;
+    this.motionQuery.addEventListener('change', () => this.applyLively(), { signal });
     // The kings' effects redraw the board about 30 times a second: not while the tab is hidden.
-    document.addEventListener('visibilitychange', () => this.applyLively());
+    document.addEventListener('visibilitychange', () => this.applyLively(), { signal });
     this.applyLively();
     // F13: no board before the stone art is decoded; the first frame shows stone and pieces together.
     // ready() waits for that frame, so a hidden tab or off-screen frame becomes ready when it shows.
     this.canvas.style.visibility = 'hidden';
-    this.loaded = this.scene.load().catch(error => { this.onLoadError?.(error); }).then(() => new Promise<void>(resolve => {
-      requestAnimationFrame(() => { this.canvas.style.visibility = ''; resolve(); });
+    this.loaded = this.scene.load().catch(error => { if (!this.disposed) this.onLoadError?.(error); }).then(() => new Promise<void>(resolve => {
+      if (this.disposed) { resolve(); return; }
+      requestAnimationFrame(() => { if (!this.disposed) this.canvas.style.visibility = ''; resolve(); });
     }));
     // Keep the square board as large as the container allows.
-    new ResizeObserver(([entry]) => {
+    this.resize = new ResizeObserver(([entry]) => {
+      if (this.disposed) return;
       const box = entry.contentRect; // excludes the padding that keeps the title card clear
       const width = Math.floor(Math.min(box.width, box.height * 960 / (960 + HEADROOM)));
       this.canvas.style.width = `${width}px`;
@@ -115,7 +121,8 @@ export class PaintedView implements BoardView {
       this.setCoords(this.coords);
       // Enough backing pixels for this size on this screen, in quarter steps, at most 2×.
       this.scene.setResolution(Math.min(2, Math.max(1, Math.ceil(width * devicePixelRatio / 960 * 4) / 4)));
-    }).observe(container);
+    });
+    this.resize.observe(container);
     let skippedPointer: number | null = null;
     const consume = (e: Event) => { e.preventDefault(); e.stopImmediatePropagation(); };
     document.addEventListener('pointerdown', e => {
@@ -123,20 +130,27 @@ export class PaintedView implements BoardView {
       if (e.button !== 0 || !this.canvas.getClientRects().length || !(this.scene.animating || this.scene.falling)) return;
       skippedPointer = e.pointerId;
       this.clearPointer(); this.onSkipAnimation?.(); this.skip(); consume(e);
-    }, true);
-    document.addEventListener('pointerup', e => { if (e.pointerId === skippedPointer) consume(e); }, true);
+    }, { capture: true, signal });
+    document.addEventListener('pointerup', e => { if (e.pointerId === skippedPointer) consume(e); }, { capture: true, signal });
     document.addEventListener('click', e => {
       if (skippedPointer == null || e.detail === 0) return;
       skippedPointer = null; consume(e);
-    }, true);
-    document.addEventListener('pointercancel', () => { skippedPointer = null; }, true);
-    this.canvas.addEventListener('pointerdown', e => this.onDown(e));
+    }, { capture: true, signal });
+    document.addEventListener('pointercancel', () => { skippedPointer = null; }, { capture: true, signal });
+    this.canvas.addEventListener('pointerdown', e => this.onDown(e), { signal });
     // Keep piece drags; a touch that starts elsewhere can scroll the screen.
-    this.canvas.addEventListener('touchstart', e => { if (this.dragFrom != null && this.canDrag()) e.preventDefault(); }, { passive: false });
-    this.canvas.addEventListener('pointermove', e => this.onMove(e));
-    this.canvas.addEventListener('pointerup', e => this.onUp(e));
-    this.canvas.addEventListener('pointercancel', () => this.clearPointer());
-    this.canvas.addEventListener('pointerleave', () => this.hover(null));
+    this.canvas.addEventListener('touchstart', e => { if (this.dragFrom != null && this.canDrag()) e.preventDefault(); }, { passive: false, signal });
+    this.canvas.addEventListener('pointermove', e => this.onMove(e), { signal });
+    this.canvas.addEventListener('pointerup', e => this.onUp(e), { signal });
+    this.canvas.addEventListener('pointercancel', () => this.clearPointer(), { signal });
+    this.canvas.addEventListener('pointerleave', () => this.hover(null), { signal });
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.events.abort(); this.resize.disconnect(); this.clearPointer(); this.scene.dispose();
+    this.pos = null; this.marks = {}; this.symbols = undefined; this.frostImages.clear();
   }
 
   sync(pos: Position): void {

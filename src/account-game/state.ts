@@ -173,7 +173,7 @@ export type Store = {
   dispatch: (action: Action) => Page;
   render: () => void;
   sync: () => void;
-  subscribe: (sync: (page: Page, before: Page) => void) => void;
+  subscribe: (sync: (page: Page, before: Page) => void) => () => void;
   refusal: () => Notice | undefined;
   call: BoardCall;
 };
@@ -197,7 +197,10 @@ export function createStore(host: { page: () => Omit<Page, 'notice'>; call: Boar
   return {
     page, render, sync, call: host.call,
     dispatch: action => { slot = reduce(slot, action, page()); sync(); return page(); },
-    subscribe: fn => { subscribers.push(fn); },
+    subscribe: fn => {
+      subscribers.push(fn);
+      return () => { const index = subscribers.indexOf(fn); if (index >= 0) subscribers.splice(index, 1); };
+    },
     refusal: () => { const notice = page().notice; return notice?.kind === 'refusal' ? notice : undefined; },
   };
 }

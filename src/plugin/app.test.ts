@@ -2,10 +2,10 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { View } from '../match/protocol';
 import { createRouter } from './router';
 
-const transport = vi.hoisted(() => ({ call: vi.fn(), instance: undefined as any, target: undefined as any, draw: vi.fn(), rows: vi.fn(), mode: 'fullscreen' }));
+const transport = vi.hoisted(() => ({ call: vi.fn(), connect: vi.fn(), instance: undefined as any, target: undefined as any, draw: vi.fn(), disposeBoard: vi.fn(), rows: vi.fn(), mode: 'fullscreen' }));
 vi.mock('@modelcontextprotocol/ext-apps', () => ({ App: class {
   constructor() { transport.instance = this; }
-  connect = async () => {};
+  connect = transport.connect;
   getHostContext = () => ({ displayMode: transport.mode });
   callServerTool = transport.call;
   sendSizeChanged = async () => {};
@@ -15,8 +15,8 @@ vi.mock('../account-game/games-list', () => ({ gamesList: transport.rows, gameTi
 vi.mock('../account/profile', () => ({ ICONS: {}, handleProblem: () => undefined }));
 vi.mock('./board-view', () => ({ setSettings: async () => {},  }));
 vi.mock('../render/sfx', () => ({ setSound: () => {}, snd: {} }));
-vi.mock('./poll', () => ({ runPoll: (target: unknown) => { transport.target = target; return { update() {}, stop() {} }; } }));
-vi.mock('./screens/board', () => ({ boardScreen: () => transport.draw, rollbackBoardMove: async () => {} }));
+vi.mock('./poll', async importOriginal => ({ ...await importOriginal<typeof import('./poll')>(), runPoll: (target: unknown) => { transport.target = target; return { update() {}, stop() {} }; } }));
+vi.mock('./screens/board', () => ({ boardScreen: () => Object.assign(transport.draw, { dispose: transport.disposeBoard }), rollbackBoardMove: async () => {} }));
 vi.mock('./screens/join', () => ({ joinScreen() {}, joinSync() {} }));
 vi.mock('./screens/lobby', () => ({ lobbyPoll() {}, lobbyScreen() {}, lobbySync() {} }));
 vi.mock('./screens/seat', () => ({ finishSeat() {}, seatScreen() {}, seatSync() {} }));
@@ -41,13 +41,26 @@ beforeEach(() => {
   vi.stubGlobal('localStorage', { getItem: () => null });
   vi.stubGlobal('addEventListener', vi.fn());
   vi.stubGlobal('MutationObserver', class { observe() {} disconnect() {} });
-  transport.mode = 'fullscreen'; transport.draw.mockClear(); transport.rows.mockClear();
+  transport.mode = 'fullscreen'; transport.draw.mockClear(); transport.disposeBoard.mockClear(); transport.rows.mockClear();
+  transport.target = undefined; transport.connect.mockReset().mockResolvedValue(undefined);
   transport.call.mockReset().mockResolvedValue({ content: [], _meta: { games: [] } });
 });
 
 const game = { game_id: 'game-a000', revision: 1, status: 'playing', kind: 'friend' } as View;
 const settings = { symbols_only: false, show_threats: false, show_online: false, online_visible_to: 'nobody' as const, last_setup: null };
 const receipt = () => ({ name: 'kingdown_move', args: { command_id: 'lost', expected_revision: 1, actions: ['e2-e4'] }, game_tag: 'game-a00', screen: 'board' as const, error: 'Lost reply' });
+it.each(['resolve', 'reject'])('does not restart a closed board when connect later settles: %s', async outcome => {
+  let resolve!: () => void, reject!: (error: Error) => void;
+  transport.connect.mockReturnValue(new Promise<void>((yes, no) => { resolve = yes; reject = no; }));
+  const app = await import('./app');
+  await transport.instance.onteardown();
+  if (outcome === 'resolve') resolve(); else reject(new Error('Late connection failure'));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(transport.disposeBoard).toHaveBeenCalledOnce();
+  expect(transport.target).toBeUndefined();
+  expect(app.store.page().connected).toBe(false);
+  expect(app.store.page().notice).toBeUndefined();
+});
 async function mounted() {
   const app = await import('./app');
   app.memory.settings = settings; app.memory.me = { handle: 'player', icon: 'spirit' };
@@ -624,6 +637,10 @@ it.each(['teardown', 'profile', 'other game'])('sends no Seen after a held poll 
   else app.routeView({ ...game, game_id: 'game-b000' });
   release({ content: [], _meta: { view: { ...game, revision: 2 } } }); await poll; await vi.advanceTimersByTimeAsync(0);
   expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_seen')).toEqual([]);
+  if (change === 'teardown') {
+    expect(transport.disposeBoard).toHaveBeenCalledOnce();
+    expect(app.memory.view).toBeUndefined();
+  }
 });
 
 it.each(['chat result', 'teardown'])('drops a move list reply after a newer %s', async change => {
@@ -1098,7 +1115,7 @@ it('keeps shared hall selection behind a write in the plugin lane', async () => 
 });
 
 
-it.each(['engine-a', 'engine-b', undefined, null])('checks a same-revision poll against engine identity %s before skipping the board', async engine_fingerprint => {
+it.each(['engine-a', 'engine-b', undefined, null])('refreshes a same-revision seat projection with engine identity %s', async engine_fingerprint => {
   const app = await mounted();
   const base = { ...game, engine_fingerprint: 'engine-a', rules: {}, fen: '' } as View;
   transport.call.mockImplementation(async ({ name }) => ({ content: [], _meta: name === 'kingdown_get' ? { view: base } : { games: [] } }));
@@ -1109,6 +1126,19 @@ it.each(['engine-a', 'engine-b', undefined, null])('checks a same-revision poll 
   transport.call.mockImplementation(async ({ name }) => ({ content: [], _meta: name === 'kingdown_get' ? { view: next } : { games: [] } }));
   await app.call('kingdown_get', {}, false, true);
   expect(app.memory.view?.engine_fingerprint).toBe(engine_fingerprint);
-  if (engine_fingerprint === base.engine_fingerprint) expect(transport.draw).not.toHaveBeenCalled();
-  else expect(transport.draw).toHaveBeenCalledWith(next, false);
+  expect(transport.draw.mock.calls.at(-1)?.[0]).toEqual(next);
+});
+
+// Privacy settings do not increment the game revision. A delta read may omit every old command.
+it.each([{ last_commands: [] }, { last_commands: [{ seq: 1, seat: 1, at: '2026-10-20T00:00:00Z', action: { type: 'hidden' } }] }])('replaces cached private commands on an equal-revision poll: %j', async ({ last_commands }) => {
+  const app = await mounted();
+  const base = { ...game, engine_fingerprint: 'engine-a', rules: {}, fen: '', last_commands: [{ seq: 1, seat: 1, at: '2026-10-20T00:00:00Z', action: { type: 'say', preset: 'hello' } }] } as unknown as View;
+  transport.call.mockResolvedValue({ content: [], _meta: { view: base } });
+  await app.call('kingdown_get', {}, false);
+  const next = { ...base, last_commands } as View;
+  transport.call.mockResolvedValue({ content: [], _meta: { view: next } });
+  await app.call('kingdown_get', {}, false, true);
+  expect(app.memory.view?.last_commands).toEqual(last_commands);
+  expect(transport.draw.mock.calls.at(-1)?.[0].last_commands).toEqual(last_commands);
+  expect(JSON.stringify(app.memory.view)).not.toContain('hello');
 });

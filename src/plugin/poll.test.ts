@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import type { View } from '../match/protocol';
-import { pollDelay, runPoll, type PollTarget } from './poll';
+import { pollDelay, pollSince, runPoll, type PollTarget } from './poll';
 const view = (change: Partial<View> = {}) => ({ game_id: 'g1', kind: 'friend', status: 'playing', speed: 'daily', turn: 1, seat: 0, opponent: { last_seen_ms: null }, last_commands: [], server_now: '2026-10-11T12:00:00.000Z', ...change }) as View;
 
 it('uses the wait and game schedule, with the owner’s recent-opponent rule', () => {
@@ -143,4 +143,12 @@ it('a new wait after a long old wait starts at the 5-second rate', async () => {
     const before = read.mock.calls.length;
     await vi.advanceTimersByTimeAsync(5000); expect(read.mock.calls.length - before).toBe(1);
   } finally { runner.stop(); vi.useRealTimers(); }
+});
+
+it('refreshes the bounded command window rather than retaining stale private payloads or losing activity times', () => {
+  const before = view({ revision: 10, last_commands: [{ seq: 7, seat: 0, at: '2026-10-11T12:00:00.000Z', action: { type: 'turn', actions: ['e2-e4'] } }] });
+  expect(pollSince(before)).toBe(6);
+  expect(pollSince(view({ revision: 10 }))).toBe(10);
+  const refreshed = { ...before, server_now: '2026-10-11T12:00:03.000Z' };
+  expect(pollDelay(refreshed, 0, false)).toBe(3000);
 });

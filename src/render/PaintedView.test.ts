@@ -6,11 +6,11 @@ import { Game } from '../game';
 import { setRules } from '../rules/engine';
 import type { PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 
-const { reducedMotion, lively, aim, decorate } = vi.hoisted(() => ({ reducedMotion: vi.fn(), lively: vi.fn(), aim: vi.fn(), decorate: vi.fn() }));
+const { reducedMotion, lively, aim, decorate, disposeScene, disconnectResize } = vi.hoisted(() => ({ reducedMotion: vi.fn(), lively: vi.fn(), aim: vi.fn(), decorate: vi.fn(), disposeScene: vi.fn(), disconnectResize: vi.fn() }));
 let resolveLoad: () => void = () => {};
 let pickedSquare: number | null = null;
 vi.mock('../../docs/2d-first-pieces/board/scene.mjs', () => ({
-  createScene: () => new Proxy({ load: () => new Promise<void>(r => { resolveLoad = r; }), squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim, setDecorate: decorate, animating: false, falling: false, PAD: 32, TILE: 112, cell: (sq: number) => ({col:sq % 8,row:7 - (sq >> 3)}) } as Record<string, unknown>,
+  createScene: () => new Proxy({ load: () => new Promise<void>(r => { resolveLoad = r; }), dispose: disposeScene, squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim, setDecorate: decorate, animating: false, falling: false, PAD: 32, TILE: 112, cell: (sq: number) => ({col:sq % 8,row:7 - (sq >> 3)}) } as Record<string, unknown>,
     { get: (t, k: string) => k in t ? t[k] : () => {} }),
 }));
 
@@ -18,18 +18,33 @@ const frames: FrameRequestCallback[] = [];
 const listeners = new Map<string, EventListener>();
 const documentListeners = new Map<string, EventListener>();
 function stubDom() {
+  const listen = (target: Map<string, EventListener>) => (name: string, listener: EventListener, options?: AddEventListenerOptions) => {
+    target.set(name, listener);
+    options?.signal?.addEventListener('abort', () => target.delete(name), { once: true });
+  };
   const el = () => ({ style: {} as Record<string, string>, classList: { add() {}, toggle() {} },
-    addEventListener(name: string, listener: EventListener) { listeners.set(name, listener); }, appendChild() {}, width: 0, height: 0,
+    addEventListener: listen(listeners), appendChild() {}, width: 0, height: 0,
     getClientRects: () => [1], getBoundingClientRect: () => ({ left: 0, top: 0, width: 960 }), setPointerCapture() {}, hasPointerCapture: () => true, releasePointerCapture() {} });
-  vi.stubGlobal('document', { createElement: el, addEventListener(name: string, listener: EventListener) { documentListeners.set(name, listener); }, hidden: false });
-  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {} }));
-  vi.stubGlobal('ResizeObserver', class { observe() {} });
+  vi.stubGlobal('document', { createElement: el, addEventListener: listen(documentListeners), hidden: false });
+  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: listen(documentListeners) }));
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect = disconnectResize; });
   vi.stubGlobal('requestAnimationFrame', (f: FrameRequestCallback) => frames.push(f));
   return el();
 }
 afterEach(() => { vi.unstubAllGlobals(); frames.length = 0; listeners.clear(); documentListeners.clear(); pickedSquare = null; vi.clearAllMocks(); setRules({}); });
 
 describe('PaintedView first paint', () => {
+  it('releases input, observers and scene work before a delayed artwork load finishes', async () => {
+    const container = stubDom(), { PaintedView } = await import('./PaintedView');
+    const view = new PaintedView(container as unknown as HTMLElement);
+    expect(listeners.size).toBeGreaterThan(0); expect(documentListeners.size).toBeGreaterThan(0);
+    view.dispose(); view.dispose();
+    expect(listeners.size).toBe(0); expect(documentListeners.size).toBe(0);
+    expect(disconnectResize).toHaveBeenCalledOnce(); expect(disposeScene).toHaveBeenCalledOnce();
+    resolveLoad(); await view.ready();
+    expect(frames).toHaveLength(0);
+  });
+
   it('stays unready until the loaded scene is visible on its first frame', async () => {
     const container = stubDom();
     const { PaintedView } = await import('./PaintedView');

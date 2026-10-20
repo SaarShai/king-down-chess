@@ -14,13 +14,13 @@ import { handleProblem, ICONS, type Icon } from '../account/profile';
 import { boardScreen, rollbackBoardMove } from '../plugin/screens/board';
 import { setSettings } from '../plugin/board-view';
 import { setSound, snd } from '../render/sfx';
-import { runPoll, type PollTarget } from '../plugin/poll';
+import { pollSince, runPoll, type PollTarget } from '../plugin/poll';
 import { createRouter } from '../plugin/router';
 import { applyLocks, createStore, isStart, isStartStep, locks, messageLine } from '../account-game/state';
 import { createQueue, EMPTY, REFUSALS, resultCode, resultText, type Job, type JobOptions, type Kind, type Outcome, userCommand } from '../plugin/queue';
 import { draftFromGame, finishStart, playNow, setupBusy, setupScreen, setupStarting, setupSync } from '../plugin/screens/setup';
 import { readSetup } from '../plugin/screens/setup-model';
-import { finishCancel, friendScreen } from '../plugin/screens/friend';
+import { finishCancel, friendScreen, stopAll } from '../plugin/screens/friend';
 import { joinScreen, joinSync } from '../plugin/screens/join';
 import { finishComputer, finishHandoff, waitPoll, waitScreen, waitSync } from '../plugin/screens/wait';
 import { lobbyPoll, lobbyScreen, lobbySync } from '../plugin/screens/lobby';
@@ -281,9 +281,10 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       remember(result, job);
       // A good read clears the stale board, its error and Try again together.
       const next = (result._meta as { view?: View } | undefined)?.view;
-      const goodRead = name === 'kingdown_get' || !!next, outage = goodRead && store.page().notice?.kind === 'read';
       if (quiet && next && next.game_id === view?.game_id && next.revision === view?.revision && next.engine_fingerprint === view?.engine_fingerprint) {
-        view = { ...view, opponent: next.opponent, rematch_allowed: next.rematch_allowed, server_now: next.server_now }; if (outage) drawBoard(view); store.dispatch({ type: 'good-read', game: next.game_id }); if (state.screen === 'seat') seatScreen(); poll?.update(); return { status: 'done', result, view };
+        // Privacy can change without a game revision. Replace the complete seat projection, including
+        // redacted or empty command lists, so the old account view cannot retain private payloads.
+        view = { ...view, ...next }; drawBoard(view); store.dispatch({ type: 'good-read', game: next.game_id }); if (state.screen === 'seat') seatScreen(); poll?.update(); return { status: 'done', result, view };
       }
       if (acceptsView(next, job)) received = next;
       const shown = show(received, job);
@@ -380,7 +381,7 @@ async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
       const settings = await client.call('kingdown_settings', {}, { limit: false, signal });
       if (stale()) return;
       if (settings.isError) throw new Error(resultText(settings));
-      remember(settings, job); await applySettings(); store.dispatch({ type: 'connected' });
+      remember(settings, job); await applySettings(); if (stale()) return; store.dispatch({ type: 'connected' });
     }
     if (stale()) return;
     if (result.isError) {
@@ -454,23 +455,24 @@ function pollTarget(): PollTarget | undefined {
   return (view?.kind === 'solo' && waitPoll()) || { view, read: async () => {
     if (!state.board_id) return;
     const board = state.board_id, game = view?.game_id, epoch = queue.epoch();
-    const next = await call('kingdown_get', { ...(view?.fen ? { since_revision: view.revision } : {}) }, false, true, !savedScreen || !!view && POLL_SCREENS.includes(state.screen));
+    const next = await call('kingdown_get', { ...(view?.fen ? { since_revision: pollSince(view) } : {}) }, false, true, !savedScreen || !!view && POLL_SCREENS.includes(state.screen));
     if (!next || queue.closed() || queue.epoch() !== epoch || state.board_id !== board || view?.game_id !== game || !POLL_SCREENS.includes(state.screen)) return;
     // kingdown_get is read-only; this write lets the opponent see the player online.
     if (view && Date.now() - seenAt >= 30_000) { seenAt = Date.now(); void client.call('kingdown_seen', { game_id: view.game_id }).catch(() => {}); }
   } };
 }
 export const pollUpdate = () => poll?.update();
-app.onClose = () => { connected = false; poll?.stop(); stopHandleCheck(); hall.dispose(); queue.close(); };
-app.onTeardown = async () => { connected = false; poll?.stop(); stopHandleCheck(); client.save(); hall.dispose(); queue.close(); return {}; };
+app.onClose = () => { connected = false; poll?.stop(); stopHandleCheck(); hall.dispose(); queue.close(); stopAll(); drawBoard.dispose(); view = undefined; rules = undefined; };
+app.onTeardown = async () => { client.save(); app.onClose?.(); return {}; };
 const connection = app.connect().then(() => {
+  if (queue.closed()) return;
   connected = true; store.dispatch({ type: 'connected' });
   const context = app.getHostContext(); hostContext(context);
   // A saved route waits behind the home card while the host stays inline.
   if (queuedAtStart && state.screen === 'home') navigate(queuedAtStart);
   if (state.screen !== 'home' && displayMode === 'inline') { const screen = state.screen; if (canFullscreen()) navigate('home', screen); navigate(screen); }
   poll = runPoll(pollTarget, () => connected && !awaitingInitialResult && !mounting() && !queue.closed() && !queue.writing());
-}).catch(error => { store.dispatch({ type: 'connect', text: `Could not connect to the game: ${errorText(error)}` }); });
+}).catch(error => { if (!queue.closed()) store.dispatch({ type: 'connect', text: `Could not connect to the game: ${errorText(error)}` }); });
 
 // Inline routes wait behind the home card. Only a button requests fullscreen.
 const GAME_SCREENS: Screen[] = ['seat', 'board', 'wait', 'friend', 'end'];
@@ -487,12 +489,14 @@ async function fullscreen(screen: Screen, back?: Screen) {
   asking = true;
   try {
     await connection;
+    if (queue.closed()) return;
     const result = await app.requestDisplayMode({ mode: 'fullscreen' });
+    if (queue.closed()) return;
     if (result.mode !== 'fullscreen') throw new Error('Open the app with the host’s expand control.');
     displayMode = 'fullscreen';
     const next = target; unqueue();
     if (next && !collapsed) navigate(next); else client.save();
-  } catch (error) { const next = target; unqueue(); if (state.screen !== 'home') navigate('home'); if (next && next !== 'home') resume = state.queued = next; client.save(); store.dispatch({ type: 'error', text: errorText(error) }); }
+  } catch (error) { if (queue.closed()) return; const next = target; unqueue(); if (state.screen !== 'home') navigate('home'); if (next && next !== 'home') resume = state.queued = next; client.save(); store.dispatch({ type: 'error', text: errorText(error) }); }
   finally { asking = false; }
 }
 export function showNewGame() { newGameFirst = true; navigate('play'); }
@@ -539,7 +543,7 @@ export function navigate(screen: Screen, queued?: Screen) {
   if (screen === 'handle') scheduleHandleCheck(); else stopHandleCheck();
 }
 function hostContext(context: RuntimeContext | undefined) {
-  if (!context) return;
+  if (!context || queue.closed()) return;
   document.body.dataset.theme = context.theme ?? 'light';
   document.body.dataset.touch = String(context.deviceCapabilities?.touch ?? false);
   for (const edge of ['top', 'right', 'bottom', 'left'] as const) document.documentElement.style.setProperty(`--safe-${edge}`, `${Math.max(0, context.safeAreaInsets?.[edge] ?? 0)}px`);

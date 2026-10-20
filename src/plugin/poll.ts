@@ -1,4 +1,7 @@
 import type { View } from '../match/protocol';
+/** Refresh the cached command window so privacy redactions and activity times stay current.
+ * The service caps this window at 50 commands; no client history grows between polls. */
+export function pollSince(view: View): number { return Math.max(0, (view.last_commands?.[0]?.seq ?? view.revision + 1) - 1); }
 export type PollView = View | 'waiting for a join' | undefined;
 export function pollDelay(view: PollView, waitingMs: number, hidden: boolean): number | undefined {
   if (hidden || !view) return;

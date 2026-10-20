@@ -75,6 +75,7 @@ export interface PaintedScene {
   /** gait: play a quiet move with this gait (a GAITS name) even when `moves` is off. */
   play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null }): Promise<boolean>;
   cancel(): void;
+  dispose(): void;
 }
 export function createScene(options: {
   canvas: HTMLCanvasElement;

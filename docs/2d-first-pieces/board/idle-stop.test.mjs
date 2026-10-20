@@ -69,3 +69,17 @@ test('resting and selected pawns keep their idle motion',async()=>{
   scene.setSelected(null);run(100);assert.equal(scene.pawns.resting,1,'the resting pawn keeps its motion');
  }finally{globalThis.setTimeout=realSetTimeout;}
 });
+
+test('a disposed scene settles its move and cannot draw or restart after a late load',async()=>{
+ const scene=createScene({canvas:canvas(),pieces:{P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName},kings:['plain','plain']});
+ const loaded=scene.load();
+ const pos=createPosition('king');pos.board=Array(64).fill(0);pos.board[8]=P;scene.setPosition(pos);
+ const moving=scene.play({from:8,to:16,captures:[]});
+ scene.dispose();scene.dispose();
+ assert.equal(await moving,false);
+ await loaded;
+ const before=scene.frames;
+ scene.redraw();scene.setSelected(8);run(1000);
+ assert.equal(scene.frames,before);
+ assert.equal(await scene.play({from:8,to:16,captures:[]}),false);
+});

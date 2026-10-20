@@ -42,7 +42,7 @@ afterAll(async () => { await browser?.close(); await harness?.close(); await ser
 
 function view(fen: string, rules: Partial<Rules> = {}, fields: Partial<View> = {}): View {
   setRules(rules); const pos = fromFen(fen || '7k/8/8/8/8/8/P7/K7 w - - 0 1');
-  return { game_id: crypto.randomUUID(), revision: 0, created_at: '2026-10-15T00:00:00Z', abort_open: false, seat: pos.turn, kind: 'solo', speed: 'daily', days_per_move: 3, status: 'playing', turn: pos.turn, action: 'ready', fen, in_check: false, legal: legalMoves(pos).map(m => toLan(pos, m)), last_commands: [], opponent: { handle: null, icon: null, computer: true, deleted: false, last_seen_ms: null }, draw_offer: null, deadline_at: null, server_now: '2026-10-15T00:00:00Z', rules: structuredClone(RULES), ...fields };
+  return { game_id: crypto.randomUUID(), engine_fingerprint: 'test-engine', revision: 0, created_at: '2026-10-15T00:00:00Z', abort_open: false, seat: pos.turn, kind: 'solo', speed: 'daily', days_per_move: 3, status: 'playing', turn: pos.turn, action: 'ready', fen, in_check: false, legal: legalMoves(pos).map(m => toLan(pos, m)), last_commands: [], opponent: { handle: null, icon: null, computer: true, deleted: false, last_seen_ms: null }, draw_offer: null, deadline_at: null, server_now: '2026-10-15T00:00:00Z', rules: structuredClone(RULES), ...fields };
 }
 const insets = (width: number) => ({ top: width === 320 ? 63 : width === 360 ? 80 : 102, bottom: width === 320 ? 84 : width === 360 ? 100 : 118, left: 0, right: 0 });
 // The target checks get a root that a redraw keeps, and find its visible buttons in the same page call as they measure.
@@ -1710,12 +1710,12 @@ it.each(['teardown', 'close'] as const)('keeps the player strips fixed when a pr
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), view('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1', {}, { kind: 'friend' }));
     await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
     await frame.locator('#board[aria-busy="false"]').waitFor();
-    await frame.locator('html').evaluate((_, lifecycle) => {
+    if (lifecycle === 'teardown') await page.evaluate(() => (window as any).harnessTeardown());
+    else await frame.locator('html').evaluate('(async () => { (await import("/src/account-game/host.ts")).runtimeHost().onClose?.(); })()');
+    await frame.locator('html').evaluate(() => {
       const w = window as any;
-      if (lifecycle === 'close') w.harnessApp.queue.close();
-      else window.dispatchEvent(new MessageEvent('message', { data: { method: 'ui/resource-teardown' } }));
       w.closedStrips = [...document.querySelectorAll('#strip-me, #strip-them')].map(node => ({ node: node.firstChild, text: node.textContent }));
-    }, lifecycle);
+    });
     await page.evaluate(() => (window as any).releaseHeld());
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
     await frame.locator('html').evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));

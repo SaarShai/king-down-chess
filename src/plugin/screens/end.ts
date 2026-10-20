@@ -1,7 +1,7 @@
 import { call, client, memory, pollUpdate, routeView, showNewGame, store, queue } from '../../account-game/runtime';
 import { art } from '../../account-game/art';
 import { ending, endReason } from '../ending';
-import type { PollTarget } from '../poll';
+import { pollSince, type PollTarget } from '../poll';
 import { PLAIN_KINGS } from '../../rules/engine';
 import { pendingHere, staleRead, type Page } from '../../account-game/state';
 import { boardGame, closeBoardSheet, sendBoardCommand, skipBoardCeremony } from './board';
@@ -52,7 +52,7 @@ export function endSync(page: Page) {
 /** The rematch watch: the one poll reads the finished human game until a rematch or a reply comes (design §4). */
 export function endPoll(): PollTarget | undefined {
   const view = pollView();
-  return view && { view, read: async () => { await call('kingdown_get', { since_revision: boardGame()?.revision }, false, true); updateEnd(); } };
+  return view && { view, read: async () => { await call('kingdown_get', { since_revision: pollSince(view) }, false, true); updateEnd(); } };
 }
 export function updateEnd() {
   if (stopped || queue.closed()) return;

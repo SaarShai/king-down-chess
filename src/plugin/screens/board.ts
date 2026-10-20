@@ -11,7 +11,7 @@ import { contextLine } from '../../context-line';
 import { waitNotice } from '../../turn';
 import type { PlayerRecord, View } from '../../match/protocol';
 import { ending } from '../ending';
-import { board, highlight } from '../board-view';
+import { board, disposeBoard, highlight } from '../board-view';
 import { art, symbols } from '../../account-game/art';
 import { cardSymbol } from '../../card-symbol';
 import { cardArt } from '../card-face';
@@ -125,7 +125,7 @@ export function boardScreen(store: Store) {
     Object.assign(mark.style, { left: `${at.x - box.left - width / 2}px`, top: `${at.y - box.top - width / 2}px`, width: `${width}px`, height: `${width}px` });
     marksLayer.append(mark);
   }
-  new ResizeObserver(drawCursor).observe($('board'));
+  const cursorObserver = new ResizeObserver(drawCursor); cursorObserver.observe($('board'));
   // G3 a: a shove or swap onto your own piece needs a second tap.
   let held: Choice | undefined;
   const heldSquare = (move: Move) => move.shove?.from ?? move.to;
@@ -197,8 +197,8 @@ export function boardScreen(store: Store) {
     if (view?.game_id === game) { strips(); void computer(); }
   }
   const scheduleComputer = () => { if (!tornDown) setTimeout(() => void computer(), 0); };
-  window.addEventListener('message', event => { if (event.data?.method === 'ui/resource-teardown') { tornDown = true; skipBoardCeremony(); clearTimeout(thinkingTimer); clearTimeout(deadlineTimer); } });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleComputer(); });
+  const events = new AbortController(), signal = events.signal;
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleComputer(); }, { signal });
   function moveLine() {
     if (!pos) return;
     const nodes: HTMLElement[] = [];
@@ -269,7 +269,7 @@ export function boardScreen(store: Store) {
     event.preventDefault();
     if (animating) { cursorShown = false; drawCursor(); rush = true; board.skip(); if (sheet?.open) closeBoardSheet(); return; }
     cursorShown = false; armed = undefined; armedCard = undefined; selected = held = undefined; choices([]); refresh(); closeBoardSheet();
-  });
+  }, { signal });
   function select(square: number, submit = true) {
     if (!view || !pos || !canRead()) return;
     // A second target tap plays the move. Any other tap ends the preview and only selects or reads.
@@ -346,7 +346,7 @@ export function boardScreen(store: Store) {
     }
   }
   function strips() {
-    if (!view || !pos) return;
+    if (tornDown || !view || !pos) return;
     // The deal starts when the board shows, not when the view arrives.
     if (dealing && client.state.screen === 'board') { dealing = false; dealtAt = performance.now(); }
     if (opening && client.state.screen === 'board') { opening = false; $('board').animate([{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 320, easing: 'cubic-bezier(.05,.7,.1,1)' }); }
@@ -396,7 +396,7 @@ export function boardScreen(store: Store) {
     end.setAttribute('aria-disabled', String(!ready)); end.setAttribute('aria-label', label); end.title = label; end.classList.toggle('primary', ready);
   }
   function refresh() {
-    if (!view || !pos) return;
+    if (tornDown || !view || !pos) return;
     moves = draftChoices(view, pos, steps, gameRules);
     refreshCardSheet?.();
     const draft = turn();
@@ -495,7 +495,7 @@ export function boardScreen(store: Store) {
     function skip() { clearTimeout(show); clearTimeout(done); words.remove(); delete $('board').dataset.toppling; board.setFallen(fallen, false); stopCeremony = () => {}; }
     stopCeremony = skip;
   }
-  $('reload').addEventListener('click', closeBoardSheet);
+  $('reload').addEventListener('click', closeBoardSheet, { signal });
   $('board-menu').onclick = () => {
     const chooseMove = button('Choose a move', () => boardSheet('Choose a move', $('choices'))); chooseMove.className = 'game-action';
     const actions = [chooseMove, ...view ? [...actionButtons(view, Date.now() - readAt, refused, true), ...playerBlockButton(view)] : []];
@@ -515,7 +515,7 @@ export function boardScreen(store: Store) {
     $('moves-line').setAttribute('aria-expanded', String(open || !!sheet?.open && sheet.querySelector('h2')?.textContent === 'Moves'));
     if (open) recentMoves.scrollTop = recentMoves.scrollHeight;
   }
-  new ResizeObserver(fitMoves).observe($('moves-band'));
+  const movesObserver = new ResizeObserver(fitMoves); movesObserver.observe($('moves-band'));
   $('moves-line').onclick = () => {
     if (!bandFits) { showMoves(); return; }
     movesChoice = !!recentMoves.hidden;
@@ -526,10 +526,13 @@ export function boardScreen(store: Store) {
   // The board redraws on a screen change, or when its game, board data, lock or refusal changes. An equal-revision poll
   // reply changes only opponent and server_now, so the key holds and the coin row (and its focus) stay (design §3.4).
   const key = (p: Page) => { const l = locks(p); return [p.screen, p.view?.game_id, p.view?.revision, p.view?.status, p.view?.fen, l.game, l.blocked, staleRead(p), p.notice?.kind === 'refusal' ? p.notice.text : ''].join('|'); };
-  store.subscribe((page, before) => { if (active()) { if (key(page) !== key(before)) refresh(); } else { movesChoice = undefined; fitMoves(); skipBoardCeremony(); } scheduleComputer(); if (client.state.screen === 'end') updateEnd(); });
-  new MutationObserver(() => { if (active()) refresh(); else skipBoardCeremony(); scheduleComputer(); if (client.state.screen === 'end') updateEnd(); }).observe($('over'), {attributes:true, attributeFilter:['open']});
-  new MutationObserver(() => turnControls()).observe($('app-frame'), {attributes:true, attributeFilter:['open'], subtree:true});
-  return (next: View, restoring = false) => {
+  const unsubscribe = store.subscribe((page, before) => { if (active()) { if (key(page) !== key(before)) refresh(); } else { movesChoice = undefined; fitMoves(); skipBoardCeremony(); } scheduleComputer(); if (client.state.screen === 'end') updateEnd(); });
+  const resultObserver = new MutationObserver(() => { if (active()) refresh(); else skipBoardCeremony(); scheduleComputer(); if (client.state.screen === 'end') updateEnd(); });
+  resultObserver.observe($('over'), {attributes:true, attributeFilter:['open']});
+  const sheetObserver = new MutationObserver(() => turnControls());
+  sheetObserver.observe($('app-frame'), {attributes:true, attributeFilter:['open'], subtree:true});
+  const draw = (next: View, restoring = false) => {
+    if (tornDown) return;
     if (view?.game_id === next.game_id && next.revision < view.revision) return;
     const before = view, same = view?.game_id === next.game_id;
     if (!same || next.status !== 'finished') skipBoardCeremony();
@@ -541,7 +544,7 @@ export function boardScreen(store: Store) {
     const unchanged = same && before?.revision === next.revision && before.fen === next.fen && before.status === next.status && before.engine_fingerprint === next.engine_fingerprint;
     view = {...next, rules:next.rules ?? (same ? view?.rules : undefined), outcome:next.outcome ?? (same ? view?.outcome : undefined), opponent:next.opponent && {...next.opponent, rating:next.rules ? next.opponent.rating : next.opponent.rating ?? (same ? view?.opponent?.rating : undefined)}};
     if (['finished','aborted'].includes(next.status)) setTimeout(()=>{
-      if (!active() || view?.game_id !== next.game_id) return;
+      if (tornDown || !active() || view?.game_id !== next.game_id) return;
       if (client.state.screen === 'board') {
         if (next.kind === 'solo' && next.result?.reason === 'abort') routeView(next);
         else navigate('end');
@@ -550,7 +553,13 @@ export function boardScreen(store: Store) {
     },0);
     readAt = Date.now(); clearTimeout(deadlineTimer);
     if (view.rules) { gameRules = new GameRules(view.rules); board.setRules(gameRules); }
-    if (unchanged) { if (pos) { refresh(); } scheduleComputer(); return; }
+    if (unchanged) {
+      // A poll still replaces private data above. Keep an open choice and its focus unless
+      // the visible opponent or available actions changed; notice changes refresh via the store.
+      if (pos && (JSON.stringify(before.opponent) !== JSON.stringify(view.opponent) || before.rematch_allowed !== view.rematch_allowed || before.abort_open !== view.abort_open || before.draw_offer !== view.draw_offer || before.action !== view.action || before.deadline_at !== view.deadline_at)) refresh();
+      else if (pos) updateTime();
+      scheduleComputer(); return;
+    }
     const token = ++generation; board.skip(); animating = false; $('board').dataset.animating='false';
     if (!same) { movesChoice = undefined; history = []; lastMove = undefined; steps = []; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
@@ -600,4 +609,12 @@ export function boardScreen(store: Store) {
     refresh(); scheduleComputer();
     if (!profileRead) { profileRead = true; void client.call('kingdown_profile', {}, {background:true}).then(result => { if (tornDown || queue.closed()) return; ownRating = (result._meta?.record as PlayerRecord | undefined)?.rating; if (active()) strips(); }).catch(() => {}); }
   };
+  return Object.assign(draw, { dispose() {
+    if (tornDown) return;
+    tornDown = true; ++generation;
+    skipBoardCeremony(); stopPlacingChoice(); refreshCardSheet = undefined;
+    clearTimeout(thinkingTimer); clearTimeout(deadlineTimer);
+    events.abort(); unsubscribe(); cursorObserver.disconnect(); movesObserver.disconnect(); resultObserver.disconnect(); sheetObserver.disconnect();
+    disposeBoard(); view = undefined; pos = undefined; history = []; lastMove = undefined; steps = [];
+  } });
 }
