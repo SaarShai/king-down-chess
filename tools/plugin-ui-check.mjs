@@ -1,4 +1,5 @@
 import { checkAndroidFixes } from './lib/plugin-android-check.mjs';
+import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { boxText, layoutMessage } from './lib/layout-message.mjs';
@@ -53,6 +54,7 @@ async function clickButton(page, button) {
 }
 
 try {
+  await checkShell(browser, base);
   await checkAndroidFixes(browser, base, clickButton);
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
@@ -578,7 +580,7 @@ try {
           return selected.borderColor !== clear.borderColor && selected.backgroundColor !== clear.backgroundColor;
         }), 'The selected king picture keeps its selection mark');
       }
-      for (const [width,height] of [[390,844],[400,900],[1440,900],[360,844]]) await setupFits(width, height, state);
+      for (const [width,height] of [[390,844],[1280,800],[400,900],[1440,900],[360,844]]) await setupFits(width, height, state);
       if (state === 'setup-king') {
         await page.setViewportSize({ width: 1440, height: 900 });
         const frameBox = await frame.locator('#app-frame').boundingBox(), sheetBox = await frame.locator('#menu-sheet').boundingBox();
@@ -871,11 +873,14 @@ try {
       const v = await page.evaluate(() => window.harnessView), box = await boardBox(), file = v.seat === 1 ? 7 - index : index;
       await page.touchscreen.tap(box.x + (32 + (file + .5) * 112) * box.width / 960, box.y + (96 + ((pawn ? 6 : 7) + .5) * 112) * box.width / 960);
     }
-    const rankLine = (order, seat) => `Your back rank: ${(seat === 1 ? [...order].reverse() : [...order]).join(' ')}`;
+    const seatLine = async () => {
+      assert.equal(await frame.locator('[data-seat-id="last-move"]').textContent(), '', 'N03: the arrangement has no engine letters');
+      assert(!await frame.locator('body').innerText().then(text => text.includes('Your back rank')), 'N03: the page has no back-rank text');
+    };
     const swapped = (order, a, b) => { const row = [...order]; [row[a], row[b]] = [row[b], row[a]]; return row.join(''); };
     async function seatFits(state) {
-      for (const [width,height] of [[390,844],[400,900],[1440,900],[360,844]]) {
-        await page.setViewportSize({ width, height }); await boardBox();
+      for (const [width,height] of [[390,844],[1280,800],[400,900],[1440,900],[360,844]]) {
+        await page.setViewportSize({ width, height }); await boardBox(); await seatLine();
         assert(!await frame.locator('body').evaluate(el => el.scrollWidth > innerWidth), `${state} document fits ${width}px`);
         assert(await frame.locator('[data-seat-id="game-table"]').evaluate(el => el.scrollWidth <= el.clientWidth + 1), `${state} table fits ${width}px`);
         for (const id of ['#seat-ready','#seat-shuffle','#seat-menu','#seat-king','#page-back','#seat-screen .table-back']) {
@@ -932,9 +937,11 @@ try {
     assert.equal(await frame.locator('#seat-context').innerText(), 'Select a marked piece to swap the knight with it.', 'The seat starts with the sample knight selected before a board tap');
     await widget().waitForFunction(() => window.harnessSwapMarks > 0);
     await seatFits('seat');
-    await seatTap(r); assert.equal(await frame.locator('[data-seat-id="last-move"]').innerText(), rankLine(swapped(initial,n,r),0));
-    const beforePawn = await frame.locator('[data-seat-id="last-move"]').innerText(); await seatTap(0,true); assert.equal(await frame.locator('[data-seat-id="last-move"]').innerText(), beforePawn, 'Pawns do not react');
-    await seatRemount(); assert.equal(await frame.locator('[data-seat-id="last-move"]').innerText(), rankLine(initial,0), 'A draft remount starts at the server choice');
+    await seatTap(r); await seatLine(); await seatTap(r);
+    assert.equal(await frame.locator('#seat-context').innerText(), 'Select a marked piece to swap the knight with it.', 'The knight moves to the rook square');
+    const beforePawn = await frame.locator('#seat-context').innerText(); await seatTap(0,true); assert.equal(await frame.locator('#seat-context').innerText(), beforePawn, 'Pawns do not react');
+    await seatRemount(); await seatLine();
+    assert.equal(await frame.locator('#seat-context').innerText(), 'Select a marked piece to swap the knight with it.', 'A draft remount starts at the server choice');
     const g = initial.indexOf('G'), k = initial.indexOf('K'), away = [...initial].findIndex((p,i) => p !== 'B' && p !== 'K' && Math.abs(i-k) > 1);
     await seatTap(n); await seatTap(g); await seatTap(away);
     assert.equal(await frame.locator('#seat-context').innerText(), 'The guard must stand next to the king.');
@@ -974,10 +981,10 @@ try {
     await seatTool('kingdown_abort', { game_id: v.game_id });
     v = await friendSeat(true, { ...features, cards:false,kingPowers:false });
     const blackOrder = v.choices[1].order, br = blackOrder.indexOf('R'), bn = blackOrder.indexOf('N');
-    assert.equal(await frame.locator('[data-seat-id="last-move"]').innerText(), rankLine(blackOrder,1));
+    await seatLine();
     assert(!await frame.locator('#seat-king').isVisible());
     await seatTap(bn); await seatTap(br); await seatTap(bn);
-    const blackDraft = swapped(blackOrder,br,bn); assert.equal(await frame.locator('[data-seat-id="last-move"]').innerText(), rankLine(blackDraft,1));
+    const blackDraft = swapped(blackOrder,br,bn); await seatLine();
     // Hide the page so the buddy's first Ready cannot reach it through a poll before this Ready.
     await frame.locator('body').evaluate(() => { Object.defineProperty(document,'hidden',{configurable:true,value:true}); document.dispatchEvent(new Event('visibilitychange')); });
     await buddyReady(v);
@@ -1023,7 +1030,29 @@ try {
     assert(await page.evaluate(() => !!window.harnessView.rules));
     assert.equal(await frame.locator('#board').getAttribute('aria-label'), boardLabel, 'The board hand-off restores its label with its keyboard handler');
     await frame.locator('#board').press('ArrowRight');
-    assert.equal(await frame.locator('#board').getAttribute('aria-label'), 'Chess board, b1. Enter selects a square.', 'Ready restores a working board keyboard handler after a setup remount');
+    const keyView = await page.evaluate(() => window.harnessView), keyPiece = fromFen(keyView.fen).board[1];
+    const { nameOf, colorOf } = await import('../src/rules/engine.ts');
+    assert.equal(await frame.locator('#board').getAttribute('aria-label'), `Chess board, b1, ${keyPiece ? `${colorOf(keyPiece) ? 'black' : 'white'} ${nameOf(typeOf(keyPiece))}` : 'empty'}. Enter selects a square.`, 'Ready restores a working board keyboard handler after a setup remount');
+    const say = async (key, words) => {
+      await frame.locator('#board').press(key);
+      assert.equal(await frame.locator('#board').getAttribute('aria-label'), `Chess board, ${words}. Enter selects a square.`, `N10: ${key} keeps the board name and Enter hint`);
+      assert.equal(await frame.locator('#cursor-say').textContent(), words, 'N10: the live text gives the short cursor words');
+    };
+    assert.equal(await frame.locator('#cursor-say[aria-live="polite"]').count(), 1);
+    await frame.locator('#board').press('ArrowLeft');
+    await say('ArrowUp', 'a2, white pawn');
+    await say('Enter', 'a2, white pawn, selected');
+    await say('ArrowUp', 'a3, empty, can go here');
+    await say('ArrowRight', 'b3, empty');
+    await say('ArrowLeft', 'a3, empty, can go here');
+    await say('ArrowDown', 'a2, white pawn, selected');
+    await frame.locator('#board').press('Escape');
+    assert.equal(await frame.locator('#board').getAttribute('aria-label'), 'Chess board', 'N10: Escape clears the selected cursor label');
+    assert.equal(await frame.locator('#cursor-say').textContent(), '', 'N10: Escape clears the live cursor text');
+    await say('ArrowUp', 'a3, empty');
+    await frame.locator('#board-menu').focus();
+    assert.equal(await frame.locator('#board').getAttribute('aria-label'), 'Chess board', 'N10: blur clears the cursor label');
+    assert.equal(await frame.locator('#cursor-say').textContent(), '', 'N10: blur clears the live cursor text');
     await seatTool('kingdown_abort',{game_id:fullRead._meta.view.game_id});
     const legacy = await (await page.request.post(new URL('/fixture-position?case=threats',base).href)).json();
     assert(!legacy.isError); assert.equal(legacy._meta.view.options,undefined);
@@ -2930,7 +2959,7 @@ try {
       }
       await zoomViewport(viewport.width,viewport.height,0,0);
     }
-    for (const [width,height] of [[390,844],[400,900],[1440,900],[360,844]]) {
+    for (const [width,height] of [[390,844],[1280,800],[400,900],[1440,900],[360,844]]) {
       await page.setViewportSize({width,height}); await boardBox();
       await frame.locator('#game-table img,#over.end-card img').evaluateAll(images=>Promise.all(images.map(img=>img.decode())));
       const bounds=await frame.locator('#game-table').evaluate(el=>{const r=el.getBoundingClientRect(),box=b=>({left:b.left,right:b.right,top:b.top,bottom:b.bottom,width:b.width});return {overflow:el.scrollWidth>el.clientWidth+1,scrollWidth:el.scrollWidth,clientWidth:el.clientWidth,el:box(r),frame:box(document.querySelector('#app-frame').getBoundingClientRect()),left:r.left,right:r.right,width:innerWidth,body:document.body.scrollWidth>innerWidth,bodyScroll:document.body.scrollWidth,outside:[...el.querySelectorAll('*')].filter(child=>child.getClientRects().length).map(child=>({id:child.id,tag:child.tagName,class:typeof child.className==='string'?child.className:'',...box(child.getBoundingClientRect())})).filter(child=>child.right>r.right+1||child.left<r.left-1).slice(0,16)};});

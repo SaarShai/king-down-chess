@@ -5,7 +5,6 @@ import { cleanKing } from './setup-model';
 
 export const seatIndex = (seat: Seat, square: number): number | null => Number.isInteger(square) && square >= seat * 56 && square < seat * 56 + 8 ? square - seat * 56 : null;
 export const seatSquare = (seat: Seat, index: number): number => seat * 56 + index;
-export const screenOrder = (order: string, seat: Seat): string => (seat === 1 ? [...order].reverse() : [...order]).join(' ');
 export function swapOrder(order: string, from: number, to: number): string {
   const row = [...order]; [row[from], row[to]] = [row[to], row[from]]; return row.join('');
 }

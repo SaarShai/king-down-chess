@@ -2,6 +2,9 @@
 
 The lessons on the rules engine, the search, the evaluator and the tests. [LESSONS.md](../../LESSONS.md) holds the Always rules and the index of all topic files.
 
+## 2026-10-19 — a property test sized on an idle Mac failed its limit under a deploy
+- The judge test "never lowers W" (§8.4.4) ran 58,000 judge pairs: 3.5 s alone, but over 30 s in the pre-push `npm test` while a release deploy loaded the Mac, so the hook refused a docs push. The judge took 3.1 s of the 3.5 s; an `expect` with a message for each pair took 0.6 s. Its 1,000 extra bases were the neighbours of only the first 19 pool designs. → Size a property test to about 1 s alone: under load the pre-push run can be 9 times slower. Take the sample with a fixed stride over the whole input set, test each case with a plain comparison, collect the faults, and use one `expect` at the end. Before you cut a sample, run the full set once and write the result in the test comment. (2026-10-19)
+
 ## 2026-10-03 — one mark slot per side for two-sided powers
 - A position held one Freeze/Ice Wall mark, so the side it bound could play its own mark and erase it; under `markFree` (the official reading) it then made the forbidden move, and the search found the trick. It lived from the free-mark reading (2026-10-02) until a review of card mode (2026-10-03), because every test marked with one side only. → State that each side can set keeps one slot per side (`Position.marks`); test every two-sided power with both sides using it in turn, before measuring it. (2026-10-03)
 
