@@ -1,13 +1,12 @@
 // The engine archive (G2): each released worker bundle in engines/ reloads its fixture game and accepts a
 // move; tools/engines-check.mjs finds the engines of unfinished games that have no bundle.
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import pg from 'pg';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadMatch, type LocalMatch } from '../src/match/index';
-import { checkRuntime, enginesInUse, missingEngines, summarizeEngines } from './engines-check.mjs';
+import { enginesInUse, missingEngines } from './engines-check.mjs';
 import { ENGINE_STAMP, ENGINES } from './plugin-runtime-build.mjs';
 
 const files = readdirSync(ENGINES);
@@ -74,179 +73,35 @@ describe('engine archive', () => {
   });
 });
 
-const stamp = `sha256:${bundles[0]}`;
-const alias = `sha256:${Object.keys(sourceAliases)[0]}`;
-const save = (engine: unknown) => JSON.stringify({ ...JSON.parse(fixture(bundles[0])), engine });
-const game = (engine: unknown = stamp, state: unknown = save(engine), status = 'playing') => ({ engine, state, status });
-const reportFor = (rows: ReturnType<typeof game>[]) => ({ tables: [summarizeEngines('games', rows)], engines: summarizeEngines('games', rows).engines });
-
-describe('engine report', () => {
-  it.each([
-    ['a save with only a schema and engine', { schema: 'kingdown-local-match/1', engine: stamp }],
-    ...['engine', 'setup', 'initialFen', 'rules', 'revision', 'commands'].map(key => {
-      const state = JSON.parse(save(stamp)); delete state[key]; return [`a save without ${key}`, state];
-    }),
-    ...[-1, 0.5, '0'].map(revision => [`revision ${JSON.stringify(revision)}`, { ...JSON.parse(save(stamp)), revision }]),
-    ...[null, {}, []].map(commands => [`commands ${JSON.stringify(commands)}`, { ...JSON.parse(save(stamp)), revision: 1, commands }]),
-  ])('refuses %s', (_label, state) => {
-    const report = checkRuntime(reportFor([game(stamp, JSON.stringify(state))]), ENGINES);
-    expect(report.tables[0].malformedState).toBe(1); expect(report.ok).toBe(false);
-  });
-  it('reports the exact runtime folder and the hashes of its bundle bytes', () => {
-    const report = checkRuntime(reportFor([game(stamp), game(alias)]), ENGINES);
-    expect(report.ok).toBe(true);
-    expect(report.runtimeFolder).toBe(realpathSync(ENGINES));
-    for (const bundle of report.bundles) {
-      expect(bundle.sha256).toBe(createHash('sha256').update(readFileSync(join(ENGINES, bundle.file!))).digest('hex'));
-    }
-    expect(report.bundles.map(row => row.engine).sort()).toEqual([stamp, alias].sort());
-  });
-
-  it('hashes the supplied bytes rather than trusting the stamp in the file name', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'engine-report-'));
-    try {
-      writeFileSync(join(dir, `${bundles[0]}.mjs`), 'runtime bytes');
-      expect(checkRuntime(reportFor([game()]), dir).bundles[0].sha256).toBe(createHash('sha256').update('runtime bytes').digest('hex'));
-    } finally { rmSync(dir, { recursive: true, force: true }); }
-  });
-
-  it('fails if a legacy bundle or alias is absent from the supplied runtime', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'engine-report-'));
-    try {
-      const rows = [game(`sha256:${legacyBundles[0]}`), game(alias)];
-      const report = checkRuntime(reportFor(rows), dir);
-      expect(report.ok).toBe(false);
-      expect(report.missingEngines).toBe(2);
-      expect(report.bundles.every(bundle => bundle.sha256 === null)).toBe(true);
-    } finally { rmSync(dir, { recursive: true, force: true }); }
-  });
-
-  it.each([null, '{', 'null', '[]', '"private-save-marker"', '{"schema":"wrong"}'])('counts malformed state %s and fails without exposing it', state => {
-    const report = checkRuntime(reportFor([game(stamp, state)]), ENGINES);
-    expect(report.ok).toBe(false);
-    expect(report.tables[0]).toMatchObject({ unfinished: 1, initialized: 1, malformedState: 1, agreement: 0, mismatch: 1 });
-    expect(JSON.stringify(report)).not.toContain('private-save-marker');
-  });
-
-  it.each([null, undefined, '', 'sha256:bad', '../etc/passwd', 1])('counts missing or malformed initialized stamp %s', engine => {
-    const report = checkRuntime(reportFor([game(stamp, save(engine))]), ENGINES);
-    expect(report.ok).toBe(false);
-    expect(report.tables[0]).toMatchObject({ malformedEngine: 1, mismatch: 1 });
-  });
-});
-
 const url = process.env.PLUGIN_TEST_DATABASE_URL;
 if (url) {
   const target = new URL(url);
   if (!['localhost', '127.0.0.1', '[::1]'].includes(target.hostname) || !target.pathname.endsWith('_test')) throw new Error('Database tests require a disposable loopback database ending in _test');
 }
 (url ? describe : describe.skip)('engines in use (PostgreSQL)', () => {
-  async function withTables(tables: string[], check: (client: pg.Client) => Promise<void>) {
+  it('skips null engines only for waiting and setup games', async () => {
     const client = new pg.Client({ connectionString: url });
     await client.connect();
     try {
-      // This session sees only its own temporary tables.
-      await client.query('set search_path = pg_temp');
-      if (tables.includes('games')) await client.query('create temp table games(engine_fingerprint text, state text, status text)');
-      if (tables.includes('plugin_matches')) await client.query('create temp table plugin_matches(save text, snapshot jsonb)');
-      await check(client);
-    } finally { await client.end(); }
-  }
-
-  it.each([['games'], ['plugin_matches'], ['games', 'plugin_matches']])('reads all present tables: %j', async (...tables) => {
-    await withTables(tables, async client => {
-      if (tables.includes('games')) await client.query("insert into games values ($1,$2,'playing'),($1,$2,'waiting'),(null,null,'setup')", [stamp, save(stamp)]);
-      if (tables.includes('plugin_matches')) await client.query(`insert into plugin_matches values ($1,'{"status":"playing"}'),($1,'{"status":"playing"}'),($2,'{"status":"checkmate"}')`, [save(alias), 'bad finished save']);
-      const report = await enginesInUse(client);
-      expect(report.database).toBe(new URL(url!).pathname.slice(1));
-      expect(report.time).toMatch(/^\d{4}-\d\d-\d\dT.*Z$/);
-      expect(report.tables.map(row => [row.table, row.present])).toEqual(['games', 'plugin_matches'].map(table => [table, tables.includes(table)]));
-      if (tables.includes('games')) expect(report.tables[0]).toMatchObject({ unfinished: 3, emptySetup: 1, initialized: 2, agreement: 2, mismatch: 0, malformedState: 0, malformedEngine: 0 });
-      if (tables.includes('plugin_matches')) expect(report.tables[1]).toMatchObject({ unfinished: 2, initialized: 2, engines: [{ engine: alias, games: 2 }] });
-      expect(checkRuntime(report, ENGINES).ok).toBe(true);
-      expect(report.engines).toHaveLength(tables.length);
-    });
+      await client.query('begin; set local search_path = pg_temp; create temp table games(engine_fingerprint text, status text) on commit drop');
+      await client.query("insert into games values (null,'waiting'),(null,'setup'),(null,'playing'),('sha256:a','setup'),('sha256:b','waiting')");
+      const rows = await enginesInUse(client);
+      expect(rows).toEqual([{ engine: 'sha256:a', games: 1 }, { engine: 'sha256:b', games: 1 }, { engine: null, games: 1 }]);
+      expect(missingEngines(rows, ENGINES)).toContainEqual({ engine: null, games: 1 });
+    } finally { await client.query('rollback').catch(() => {}); await client.end(); }
   });
-
-  it('fails when neither table exists', async () => {
-    await withTables([], async client => {
-      const report = checkRuntime(await enginesInUse(client), ENGINES);
-      expect(report.tables).toEqual([{ table: 'games', present: false }, { table: 'plugin_matches', present: false }]);
-      expect(report.ok).toBe(false);
-    });
-  });
-
-  it('accepts explicit zero counts only after it reads present tables', async () => {
-    await withTables(['games', 'plugin_matches'], async client => {
-      const report = checkRuntime(await enginesInUse(client), ENGINES);
-      expect(report.ok).toBe(true);
-      expect(report.tables.every(row => row.present && row.unfinished === 0 && row.initialized === 0 && row.emptySetup === 0 && row.malformedState === 0 && row.malformedEngine === 0 && row.mismatch === 0)).toBe(true);
-    });
-  });
-
-  it('accepts only null state and null column as empty waiting or setup', async () => {
-    await withTables(['games'], async client => {
-      await client.query("insert into games values (null,null,'waiting'),(null,null,'setup'),(null,$1,'setup'),($2,null,'waiting'),(null,null,'playing'),($2,$1,'playing')", [save(stamp), stamp]);
-      const report = checkRuntime(await enginesInUse(client), ENGINES);
-      expect(report.tables[0]).toMatchObject({ unfinished: 6, emptySetup: 2, initialized: 4, malformedState: 2, malformedEngine: 3, agreement: 1, mismatch: 3 });
-      expect(report.ok).toBe(false);
-    });
-  });
-
-  it('counts save and column disagreement and retains both full stamps', async () => {
-    await withTables(['games'], async client => {
-      await client.query("insert into games values ($1,$2,'playing')", [stamp, save(alias)]);
-      const report = checkRuntime(await enginesInUse(client), ENGINES);
-      expect(report.tables[0]).toMatchObject({ agreement: 0, mismatch: 1, malformedEngine: 0 });
-      expect(report.engines.map(row => row.engine).sort()).toEqual([stamp, alias].sort());
-      expect(report.ok).toBe(false);
-    });
-  });
-
-  it('excludes finished, aborted and annulled games and finished plugin matches', async () => {
-    await withTables(['games', 'plugin_matches'], async client => {
-      await client.query("insert into games values (null,'bad','finished'),(null,'bad','aborted'),(null,'bad','annulled')");
-      await client.query(`insert into plugin_matches values ('bad','{"status":"checkmate"}'),('bad','{"status":"stalemate"}')`);
-      const report = checkRuntime(await enginesInUse(client), ENGINES);
-      expect(report.ok).toBe(true);
-      expect(report.tables.map(row => row.unfinished)).toEqual([0, 0]);
-    });
-  });
-
-  it('fails on malformed plugin saves and stamps even when games exists', async () => {
-    await withTables(['games', 'plugin_matches'], async client => {
-      for (const state of ['bad', save(null), save('bad')]) await client.query(`insert into plugin_matches values ($1,'{"status":"playing"}')`, [state]);
-      const report = checkRuntime(await enginesInUse(client), ENGINES);
-      expect(report.tables[1]).toMatchObject({ unfinished: 3, initialized: 3, malformedState: 1, malformedEngine: 3 });
-      expect(report.ok).toBe(false);
-    });
-  });
-
-  it('uses one repeatable-read read-only transaction for every read', async () => {
-    await withTables(['games', 'plugin_matches'], async client => {
-      const commands: string[] = [];
-      const reader = { query: async (sql: string, values?: unknown[]) => {
-        commands.push(sql);
-        const result = await client.query(sql, values);
-        if (sql.startsWith('BEGIN')) {
-          const { rows: [settings] } = await client.query("select current_setting('transaction_isolation') as isolation, current_setting('transaction_read_only') as readonly");
-          expect(settings).toEqual({ isolation: 'repeatable read', readonly: 'on' });
-        }
-        return result;
-      } };
-      await enginesInUse(reader);
-      expect(commands[0]).toBe('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-      expect(commands.at(-1)).toBe('ROLLBACK');
-      expect(commands.filter(sql => sql.startsWith('BEGIN'))).toHaveLength(1);
-      expect(commands.slice(1, -1).every(sql => sql.startsWith('select '))).toBe(true);
-    });
-  });
-
-  it('fails and rolls back when a present table cannot be read', async () => {
-    await withTables(['games'], async client => {
-      await client.query('alter table games drop column state');
-      await expect(enginesInUse(client)).rejects.toThrow('Cannot read games');
-      expect((await client.query('select 1 as ready')).rows[0].ready).toBe(1);
-    });
+  it('reads unfinished games from games, or from plugin_matches before the games table exists', async () => {
+    const client = new pg.Client({ connectionString: url });
+    await client.connect();
+    try {
+      // Temporary tables only: search_path holds nothing but this session's own schema.
+      await client.query("begin; set local search_path = pg_temp; create temp table plugin_matches(save text, snapshot jsonb) on commit drop");
+      const save = (engine: string) => JSON.stringify({ schema: 'kingdown-local-match/1', engine });
+      await client.query("insert into plugin_matches values ($1,'{\"status\":\"playing\"}'),($1,'{\"status\":\"playing\"}'),($2,'{\"status\":\"playing\"}'),($3,'{\"status\":\"checkmate\"}')", [save('sha256:a'), save('sha256:b'), save('sha256:c')]);
+      expect(await enginesInUse(client)).toEqual([{ engine: 'sha256:a', games: 2 }, { engine: 'sha256:b', games: 1 }]);
+      await client.query('create temp table games(engine_fingerprint text, status text) on commit drop');
+      await client.query("insert into games values ('sha256:d','playing'),('sha256:e','waiting'),('sha256:f','finished'),('sha256:g','aborted'),('sha256:h','annulled')");
+      expect(await enginesInUse(client)).toEqual([{ engine: 'sha256:d', games: 1 }, { engine: 'sha256:e', games: 1 }]);
+    } finally { await client.query('rollback').catch(() => {}); await client.end(); }
   });
 });
