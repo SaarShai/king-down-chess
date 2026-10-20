@@ -33,3 +33,17 @@ Move 14 fixtures (13,968 bytes) to `src/sim/fixtures/tournaments/`. The test che
 The card import record is `docs/specs/card-results/issues/01-storage.md`. It records the hash check of all 15,379 source files and zero mismatches. This work does not copy or remove any card or spool data.
 
 Restore: `git checkout 1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5 -- sim/out/`.
+
+### Part 2: clay
+
+Remove `parked/clay/` (260 files, 45,804,496 bytes) and `docs/graphics-prototype/` (273 files, 79,376,051 bytes). Remove `tools/parked.test.ts`, including its full site build. Remove both clay entries from the size allowlist and its test. Remove `three`, `@types/three`, `@gltf-transform/core`, `@gltf-transform/extensions`, `@gltf-transform/functions` and `meshoptimizer`. Use `npm install` in this worktree to update the lockfile.
+
+The Ogre prompt names its source with `git show` at the base commit. Keep `docs/playable-clay/` and `docs/special-moves/clay/` unchanged. The owner now approves removal of the clay records kept by the earlier park-clay spec. Clay last runs in commit `0dd3fc36b798b41773a2b60c7ee4a9f75c2663c8`. The parked README at the base commit holds the return steps.
+
+Restore: `git checkout 1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5 -- parked/clay/`.
+
+Restore: `git checkout 1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5 -- docs/graphics-prototype/`.
+
+Restore: `git checkout 1476f55c68e9cc7515ffafd1c5f895e68fb3ddf5 -- tools/parked.test.ts`.
+
+For a full clay return, also restore `package.json`, `package-lock.json`, `tools/gate/size-allowlist.txt` and `tools/gate.test.ts` from the base commit. Then use the restored README.
