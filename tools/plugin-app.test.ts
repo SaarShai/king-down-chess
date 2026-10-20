@@ -2016,14 +2016,19 @@ it.each(['power-w', 'card-w-0'])('keeps focus on %s through a minute tick and up
 it('keeps focus on a power coin through a presence update (an equal-revision poll reply)', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await friendGame(page);
-    await page.evaluate(() => {
-      const host = window as any, rules = { kings: [{ king: 'Flame', power: 'Haste' }, null], hands: [[], []] };
-      host.harnessNextView = { ...host.harnessView, kind: 'solo', rules: { ...host.harnessView.rules, ...rules } };
-    });
-    // A full read draws the power coin; then a poll reply at the same revision changes only opponent and server_now.
-    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
+    await expand(page);
+    const seeded = await (await page.request.post(new URL('/fixture-position?case=haste', harness.url).href)).json();
+    await page.evaluate(result => (window as any).harnessShow(result), seeded);
     await frame.locator('#power-w').waitFor();
+    const identity = await frame.locator('html').evaluate(() => {
+      const view = (window as any).harnessApp.memory.view;
+      return { game_id: view.game_id, revision: view.revision, engine_fingerprint: view.engine_fingerprint };
+    });
+    // A poll at the same game revision changes only presence and the server clock.
+    await page.evaluate(() => {
+      const host = window as any;
+      host.harnessNextView = { ...host.harnessView, server_now: new Date().toISOString(), opponent: { ...host.harnessView.opponent, last_seen_ms: 120000 } };
+    });
     await frame.locator('#power-w').focus();
     expect(await frame.locator('#power-w').evaluate(b => document.activeElement === b)).toBe(true);
     await frame.locator('html').evaluate(async () => {
@@ -2031,7 +2036,8 @@ it('keeps focus on a power coin through a presence update (an equal-revision pol
       await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true, true);
     });
     await settled(page);
-    // The coin row is not rebuilt, so the keyboard focus stays on the coin (design §3.4, OD A1389).
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view)).toMatchObject({ ...identity, opponent: { last_seen_ms: 120000 } });
+    // The poll preserves keyboard focus on the coin (design §3.4, OD A1389).
     expect(await frame.locator('#power-w').evaluate(b => document.activeElement === b)).toBe(true);
   } finally { await page.close(); }
 });

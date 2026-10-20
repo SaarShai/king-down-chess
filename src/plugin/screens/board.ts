@@ -92,6 +92,7 @@ const text = (words: string) => { const p = document.createElement('p'); p.textC
 const button = (words: string, click: () => void) => { const b = document.createElement('button'); b.textContent = words; b.onclick = click; return b; };
 export function boardScreen(store: Store) {
   let generation = 0, animating = false, rush = false, steps: BoardMove[] = [];
+  let shownNextGame: string | undefined;
   const marksLayer = document.createElement('div');
   marksLayer.id = 'board-marks'; marksLayer.setAttribute('aria-hidden', 'true'); $('board').append(marksLayer);
   const call = store.call;
@@ -102,6 +103,7 @@ export function boardScreen(store: Store) {
   const sending = () => { const page = store.page(); return page.writing || (pendingHere(page) && !page.pending!.error); };
   const blocked = () => networkBlocked() || animating;
   const mode = () => view!.kind === 'solo' ? 'computer' : 'link';
+  const nextReadyGame = () => view?.status === 'playing' && view.kind !== 'solo' && view.turn !== view.seat ? nextGame(memory.games, view.game_id)?.game_id : undefined;
   // A reload restores a draft only in the same account, complete game, revision, rules and engine implementation.
   const saveDraft = () => { client.state.draft = view?.engine_fingerprint && steps.length ? { game_tag: view.game_id.slice(0, 8), fen: view.fen, lans: steps.map(step => step.lan), scope: { account: client.accountId, game: view.game_id, revision: view.revision, rules: JSON.stringify(view.rules), engine: view.engine_fingerprint } } : undefined; client.save(); };
   const dropDraft = () => { if (client.state.draft) { client.state.draft = undefined; client.save(); } };
@@ -470,8 +472,8 @@ export function boardScreen(store: Store) {
     const gameActions = actionButtons(view,Date.now()-readAt,refused);
     if (!view.result) actions.push(...gameActions);
     // Spec J3: after your move in a game the opponent answers later, go on to the next game that waits for you.
-    const next = view.kind !== 'solo' && view.status === 'playing' && view.turn !== view.seat ? nextGame(memory.games, view.game_id) : undefined;
-    if (next) { const b = button('Next game ›', () => void call('kingdown_resume', { game_id: next.game_id })); b.id = 'next-game'; actions.push(b); }
+    const next = shownNextGame = nextReadyGame();
+    if (next) { const b = button('Next game ›', () => void call('kingdown_resume', { game_id: next })); b.id = 'next-game'; actions.push(b); }
     for (const action of actions) action.disabled = networkBlocked() && action.textContent !== 'All rules';
     $('context-actions').replaceChildren(...actions); strips();
     // Q3 b: a draw offer keeps the board's size. Pin the board to its last size with no reply, and the
@@ -556,7 +558,7 @@ export function boardScreen(store: Store) {
     if (unchanged) {
       // A poll still replaces private data above. Keep an open choice and its focus unless
       // the visible opponent or available actions changed; notice changes refresh via the store.
-      if (pos && (JSON.stringify(before.opponent) !== JSON.stringify(view.opponent) || before.rematch_allowed !== view.rematch_allowed || before.abort_open !== view.abort_open || before.draw_offer !== view.draw_offer || before.action !== view.action || before.deadline_at !== view.deadline_at)) refresh();
+      if (pos && (JSON.stringify(before.opponent) !== JSON.stringify(view.opponent) || before.rematch_allowed !== view.rematch_allowed || before.abort_open !== view.abort_open || before.draw_offer !== view.draw_offer || before.action !== view.action || before.deadline_at !== view.deadline_at || shownNextGame !== nextReadyGame())) refresh();
       else if (pos) updateTime();
       scheduleComputer(); return;
     }
