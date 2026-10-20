@@ -61,7 +61,7 @@ try {
     assert.equal(response.status, 200);
     const { result, error } = await response.json(); assert(!error, `${name}: RPC error`); assert(!result.isError, `${name}: ${JSON.stringify(result)}`); return result;
   }
-  for (const seat of [0, 1]) await tool(seat, 'kingdown_handle', { handle: `web${seat}-${actors[seat].slice(0, 8)}` });
+  if (!mechanics) for (const seat of [0, 1]) await tool(seat, 'kingdown_handle', { handle: `web${seat}-${actors[seat].slice(0, 8)}` });
   const view = async seat => (await tool(seat, 'kingdown_get', { game_id: gameId }))._meta.view;
   browser = await launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1100, height: 1000 } });

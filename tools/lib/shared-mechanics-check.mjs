@@ -97,7 +97,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
     webPages.push(await black.newPage());
     const pluginPages = [];
     for (const seat of [0, 1]) {
-      const harness = await startHarness({ boardPath: join(root, 'functions/mcp.func/board.html'), endpoint: new URL('/mcp', origin), actor: actors[seat], friendActor: actors[1 - seat] });
+      const harness = await startHarness({ boardPath: join(root, 'functions/mcp.func/board.html'), endpoint: new URL('/mcp', origin), actor: actors[seat] });
       harnesses.push(harness);
       const pluginContext = await browser.newContext({ viewport: { width: 1100, height: 1000 }, reducedMotion: 'reduce' }); contexts.push(pluginContext);
       const page = await pluginContext.newPage(); pluginPages.push(page);
