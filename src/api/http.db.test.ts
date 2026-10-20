@@ -163,7 +163,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
  });
 
  it('keeps one game for a repeated HTTP start and rejects changed input', async () => {
-  const host = await player('retry-host'), guest = await player('retry-guest'), command_id = randomUUID(), token = await sign(host.id);
+  const host = await player('retry-host'), guest = await player('retry-guest'), command_id = randomUUID().replaceAll('-', ''), token = await sign(host.id);
   const body = { kind: 'friend', options: CLASSIC_OPTIONS, command_id };
   const start = (input = body) => fetch(`${address}/api/games`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
   const first = await start(), made = await first.json(); expect(first.status).toBe(201);
@@ -188,7 +188,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
  }, 60_000);
 
  it('shares one HTTP and MCP game with private setup and one effect for a lost turn reply', async () => {
-  const host = await player('cross-host'), guest = await player('cross-guest'), startId = randomUUID();
+  const host = await player('cross-host'), guest = await player('cross-guest'), startId = randomUUID().replaceAll('-', '');
   const gameOptions = { ...CLASSIC_OPTIONS, kingPowers: true }, store = new PostgresMatchStore(runtime);
   const connect = async (actorId: string) => {
    const server = createPluginServer({ service: new PluginService(store, secret), actorId, resourceHtml: '<html>board</html>', publicOrigin: address });
@@ -228,15 +228,18 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   const [ann, bob] = [await player('read-ann'), await player('read-bob')];
   const waiting = (await ann.api.create({ kind: 'friend', options: CLASSIC_OPTIONS })).view;
   const setup = await ann.api.create({ kind: 'friend', options: { ...DEFAULT_OPTIONS, kingPowers: true, cardPool: ['Flight', 'March', 'Leap', 'Salvation'] } });
-  await bob.api.redeem({ token: setup.invite!.token });
+  const joinedSetup = await bob.api.redeem({ token: setup.invite!.token });
+  expect([joinedSetup.status, joinedSetup.revision]).toEqual(['setup', setup.view.revision + 1]);
   const choice: Choice = { king: { king: 'Flame', power: 'Haste' }, order: [...setup.view.draw!].reverse().join('') };
-  const hidden = (await ann.api.command(setup.view.game_id, 1, { type: 'choose', choice, ready: true })).view;
+  const hidden = (await ann.api.command(setup.view.game_id, joinedSetup.revision, { type: 'choose', choice, ready: true })).view;
   const game = await ann.api.create({ kind: 'friend', options: CLASSIC_OPTIONS, colour: 'white' });
-  await bob.api.redeem({ token: game.invite!.token });
-  const playing = (await ann.api.command(game.view.game_id, 1, { type: 'turn', actions: [plain(await ann.api.game(game.view.game_id))] })).view;
+  const joinedGame = await bob.api.redeem({ token: game.invite!.token });
+  expect([joinedGame.status, joinedGame.revision]).toEqual(['playing', game.view.revision + 1]);
+  const playing = (await ann.api.command(game.view.game_id, joinedGame.revision, { type: 'turn', actions: [plain(await ann.api.game(game.view.game_id))] })).view;
   const end = await ann.api.create({ kind: 'friend', options: CLASSIC_OPTIONS });
-  await bob.api.redeem({ token: end.invite!.token });
-  const finished = (await ann.api.command(end.view.game_id, 1, { type: 'resign' })).view;
+  const joinedEnd = await bob.api.redeem({ token: end.invite!.token });
+  expect(joinedEnd.revision).toBe(end.view.revision + 1);
+  const finished = (await ann.api.command(end.view.game_id, joinedEnd.revision, { type: 'resign' })).view;
   const fixtures = [{ view: waiting, actor: ann }, { view: hidden, actor: bob }, { view: playing, actor: bob }, { view: finished, actor: bob }];
   await admin.query("update public.game_players set last_seen_at=now()-interval '1 hour' where game_id=any($1)", [fixtures.map(({ view }) => view.game_id)]);
   const tables = await rows("select tablename from pg_tables where schemaname='public' order by tablename");
@@ -395,30 +398,34 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   expect([joined.game_id, joined.seat, joined.status, joined.opponent?.handle]).toEqual([id, 1, 'playing', ann.handle]);
   expect((await ann.api.games()).map(entry => [entry.game_id, entry.action])).toEqual([[id, 'ready']]);
   let view = await ann.api.game(id);
-  expect([view.revision, view.rules !== undefined, view.legal.length > 0]).toEqual([1, true, true]);
+  // The start receipt and the join each advance the authoritative game revision.
+  expect(joined.revision).toBe(created.revision + 1);
+  expect([view.revision, view.rules !== undefined, view.legal.length > 0]).toEqual([joined.revision, true, true]);
+  const beforeRevision = view.revision;
 
   // A lost reply: the server applied the turn, the client sends it again with the same ID, and it applies once.
   let lost = true;
   const flaky = onlineClient({ token: () => sign(ann.id), origin: address, wait: async () => {}, fetch: async (...args) => { const response = await fetch(...args); if (lost) { lost = false; throw new TypeError('network'); } return response; } });
-  const first = plain(view), ack = await flaky.command(id, 1, { type: 'turn', actions: [first] }, 'ann-1');
-  expect([ack.type, ack.command_id, ack.revision, ack.view.turn, ack.view.action]).toEqual(['ack', 'ann-1', 2, 1, 'waiting']);
-  expect((await ann.api.command(id, 1, { type: 'turn', actions: [first] }, 'ann-1')).revision).toBe(2);
+  const first = plain(view), ack = await flaky.command(id, beforeRevision, { type: 'turn', actions: [first] }, 'ann-1');
+  expect([ack.type, ack.command_id, ack.revision, ack.view.turn, ack.view.action]).toEqual(['ack', 'ann-1', beforeRevision + 1, 1, 'waiting']);
+  expect((await ann.api.command(id, beforeRevision, { type: 'turn', actions: [first] }, 'ann-1')).revision).toBe(ack.revision);
   expect((await rows("select count(*)::int as n from public.game_commands where game_id=$1 and command_id='ann-1'", [id]))[0].n).toBe(1);
-  await expect(ann.api.command(id, 1, { type: 'resign' }, 'ann-1')).rejects.toMatchObject({ code: 'COMMAND_CONFLICT', status: 409 });
-  // The turn email to Black is queued in the same transaction.
-  expect(await rows("select payload->>'revision' as revision from public.outbox where kind='turn' and payload->>'user_id'=$1 and payload->>'game_id'=$2", [bob.id, id])).toEqual([{ revision: '2' }]);
+  await expect(ann.api.command(id, beforeRevision, { type: 'resign' }, 'ann-1')).rejects.toMatchObject({ code: 'COMMAND_CONFLICT', status: 409 });
+  // The turn event to Black carries the committed revision.
+  expect(await rows("select payload->>'revision' as revision from public.outbox where kind='turn' and payload->>'user_id'=$1 and payload->>'game_id'=$2", [bob.id, id])).toEqual([{ revision: String(ack.revision) }]);
 
-  const since = await bob.api.game(id, 1);
-  expect([since.rules, since.last_commands.map(c => [c.seq, c.seat, c.action.type])]).toEqual([undefined, [[2, 0, 'turn']]]);
-  await expect(bob.api.command(id, 1, { type: 'turn', actions: [plain(since)] })).rejects.toMatchObject({ code: 'STALE_REVISION' });
-  await expect(ann.api.command(id, 2, { type: 'turn', actions: [first] })).rejects.toMatchObject({ code: 'WRONG_TURN', status: 403 });
-  await bob.api.command(id, 2, { type: 'say', preset: 'good_luck' });
-  await bob.api.command(id, 3, { type: 'draw', choice: 'offer' });
-  view = (await ann.api.command(id, 4, { type: 'draw', choice: 'decline' })).view;
+  const since = await bob.api.game(id, beforeRevision);
+  expect([since.rules, since.last_commands.map(c => [c.seq, c.seat, c.action.type])]).toEqual([undefined, [[ack.revision, 0, 'turn']]]);
+  await expect(bob.api.command(id, beforeRevision, { type: 'turn', actions: [plain(since)] })).rejects.toMatchObject({ code: 'STALE_REVISION' });
+  await expect(ann.api.command(id, ack.revision, { type: 'turn', actions: [first] })).rejects.toMatchObject({ code: 'WRONG_TURN', status: 403 });
+  view = (await bob.api.command(id, ack.revision, { type: 'say', preset: 'good_luck' })).view;
+  view = (await bob.api.command(id, view.revision, { type: 'draw', choice: 'offer' })).view;
+  view = (await ann.api.command(id, view.revision, { type: 'draw', choice: 'decline' })).view;
   expect([view.draw_offer, view.last_commands.at(-3)?.action]).toEqual([null, { type: 'say', preset: 'good_luck' }]);
-  view = (await bob.api.command(id, 5, { type: 'turn', actions: [plain(await bob.api.game(id))] })).view;
-  view = (await ann.api.command(id, 6, { type: 'turn', actions: [plain(await ann.api.game(id))] })).view;
-  const done = (await bob.api.command(id, 7, { type: 'resign' })).view;
+  view = (await bob.api.command(id, view.revision, { type: 'turn', actions: [plain(await bob.api.game(id))] })).view;
+  view = (await ann.api.command(id, view.revision, { type: 'turn', actions: [plain(await ann.api.game(id))] })).view;
+  const done = (await bob.api.command(id, view.revision, { type: 'resign' })).view;
+  expect(done.revision).toBe(ack.revision + 6);
   expect([done.status, done.result, done.action]).toEqual(['finished', { winner: 0, reason: 'resignation' }, 'done']);
   expect([(await ann.api.game(id)).result, await ann.api.games(), await bob.api.games()]).toEqual([{ winner: 0, reason: 'resignation' }, [], []]);
   await expect(bob.api.game(randomUUID())).rejects.toMatchObject({ code: 'NOT_FOUND' });

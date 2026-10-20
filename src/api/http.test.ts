@@ -233,18 +233,19 @@ describe('website API boundary', () => {
  });
  it('rejects missing start IDs and unknown start fields before game work', async () => {
   const token = await sign();
-  for (const body of [{ kind: 'solo' }, { kind: 'solo', command_id: 'bad' }, { kind: 'solo', command_id: commandId, actor: alice }, { kind: 'solo', command_id: commandId, level: 'no' }]) {
+  for (const body of [{ kind: 'solo' }, { kind: 'solo', command_id: '' }, { kind: 'solo', command_id: 'x'.repeat(201) }, { kind: 'solo', command_id: 'line\nbreak' }, { kind: 'solo', command_id: commandId, actor: alice }, { kind: 'solo', command_id: commandId, level: 'no' }]) {
    const response = await call('/api/games', { token, method: 'POST', body });
    expect([response.status, (await response.json()).code]).toEqual([400, 'INVALID_INPUT']);
   }
   expect(games.create).not.toHaveBeenCalled(); expect(players.toolTry).not.toHaveBeenCalled();
  });
  it('passes the stable start ID on retries and returns a changed-input conflict', async () => {
-  const token = await sign(), input = { kind: 'solo', command_id: commandId };
+  const token = await sign(), startId = commandId.replaceAll('-', ''), input = { kind: 'solo', command_id: startId };
+  expect(startId).toMatch(/^[a-f0-9]{32}$/);
   for (let attempt = 0; attempt < 2; attempt++) {
    const response = await call('/api/games', { token, method: 'POST', body: input });
    expect([response.status, await response.json()]).toEqual([201, { view }]);
-   expect(games.create).toHaveBeenLastCalledWith(alice, { kind: 'solo' }, commandId);
+   expect(games.create).toHaveBeenLastCalledWith(alice, { kind: 'solo' }, startId);
   }
   games.create.mockRejectedValueOnce(new MatchServiceError('COMMAND_CONFLICT', 409, 'Command ID was used with different input'));
   const mismatch = await call('/api/games', { token, method: 'POST', body: { ...input, colour: 'black' } });
@@ -286,9 +287,9 @@ describe('website API boundary', () => {
   expect((await call('/api/blocks', { token, method: 'POST', body: { user_id: alice, blocked: 'false' } })).status).toBe(400);
  });
  it('routes Find, Accept, Cancel and lobby through game service and start quota', async () => {
-  const token = await sign(), body = { options: DEFAULT_OPTIONS, colour: 'random', any_rules: true, command_id: commandId };
+  const token = await sign(), body = { options: DEFAULT_OPTIONS, colour: 'random', any_rules: true, command_id: commandId.replaceAll('-', '') };
   expect((await call('/api/games/find', { token, method: 'POST', body })).status).toBe(200);
-  expect(games.find).toHaveBeenCalledWith(alice, DEFAULT_OPTIONS, 'random', commandId, true); expect(players.toolTry).toHaveBeenCalledWith(alice, 'kingdown_create');
+  expect(games.find).toHaveBeenCalledWith(alice, DEFAULT_OPTIONS, 'random', body.command_id, true); expect(players.toolTry).toHaveBeenCalledWith(alice, 'kingdown_create');
   for (const operation of ['accept', 'cancel']) {
    expect((await call(`/api/games/${gameId}/${operation}`, { token, method: 'POST', body: {} })).status).toBe(200);
    expect(games[operation]).toHaveBeenCalledWith(alice, gameId);

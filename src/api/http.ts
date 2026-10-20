@@ -7,7 +7,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createRemoteJWKSet, errors, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import { z } from 'zod';
 import { parse, MatchServiceError, type GameService } from '../match/service';
-import { createSchema, type Invite } from '../match/protocol';
+import { commandSchema, createSchema, type Invite } from '../match/protocol';
 import { optionsSchema } from '../match/setup-schema';
 import { handleSchema, type PluginService } from '../plugin/service';
 import { settingsSchema } from '../plugin/settings';
@@ -74,8 +74,8 @@ type Route = (actor: string, id: string, body: unknown, query: URLSearchParams) 
 /** The invitation as the website shares it: a link built from the fixed origin, and the short code. */
 export type InviteLink = Invite & { url: string };
 const emptySchema = z.strictObject({}).optional();
-const startSchema = createSchema.safeExtend({ command_id: z.uuid() });
-const findSchema = z.strictObject({ options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), any_rules: z.boolean().optional(), command_id: z.uuid() });
+const startSchema = createSchema.safeExtend({ command_id: commandSchema.shape.command_id });
+const findSchema = z.strictObject({ options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), any_rules: z.boolean().optional(), command_id: commandSchema.shape.command_id });
 const recordSchema = z.strictObject({ before: z.string().max(100).optional(), blocks_after: z.uuid().optional() });
 const blockTarget = { game_id: z.uuid().optional(), user_id: z.uuid().optional() };
 const blockReadSchema = z.strictObject(blockTarget).refine(target => Number(target.game_id !== undefined) + Number(target.user_id !== undefined) === 1);
