@@ -6,6 +6,7 @@ export class CachePolicyUnavailable extends Error {
 const TYPE = 'kingdown-cache-policy';
 const POLICY = 'public-build-v1';
 const DEADLINE_MS = 8000;
+const FIRST_INSTALL_MS = 60000;
 
 export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promise<T> {
   if (typeof window === 'undefined') return Promise.resolve().then(send);
@@ -14,7 +15,7 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
     let ended = false;
     let close = () => {};
     const fail = () => { if (!ended) { ended = true; close(); clearTimeout(timer); reject(new CachePolicyUnavailable()); } };
-    const timer = setTimeout(fail, DEADLINE_MS);
+    let timer = setTimeout(fail, DEADLINE_MS);
     const start = (controller: ServiceWorker | null) => {
       if (ended) return;
       if ((workers?.controller ?? null) !== controller) return false;
@@ -44,6 +45,23 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
           void registration.update().catch(() => {});
         }
         catch { /* With no controller, the page can prove an empty cache. */ }
+      }
+      if (!ended && registration?.installing && !workers.controller && !registration.active) {
+        const installing = registration.installing;
+        // A first install downloads the public shell before any worker can prove cache safety.
+        clearTimeout(timer); timer = setTimeout(fail, FIRST_INSTALL_MS);
+        await new Promise<void>((done, bad) => {
+          const cleanup = () => { installing.removeEventListener('statechange', changed); workers.removeEventListener('controllerchange', changed); };
+          const changed = () => {
+            if (installing.state === 'redundant') { cleanup(); bad(new CachePolicyUnavailable()); }
+            else if (installing.state === 'activated' || workers.controller) { cleanup(); done(); }
+          };
+          close = cleanup;
+          installing.addEventListener('statechange', changed); workers.addEventListener('controllerchange', changed);
+          changed();
+        });
+        if (ended) return;
+        clearTimeout(timer); timer = setTimeout(fail, DEADLINE_MS);
       }
       while (!ended) {
         const controller = workers?.controller ?? null;
