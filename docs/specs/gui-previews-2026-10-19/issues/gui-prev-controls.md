@@ -1,6 +1,6 @@
 # GUI previews 2026-10-19: the control system (stone and red buttons, focus, board grain)
 
-Status: claimed
+Status: needs-info
 Type: task
 
 ## Owner picks 2026-10-20
@@ -52,6 +52,18 @@ helper, six temporary-file failures when the disk is full, and three files
 that cannot load their temporary modules. It has 3,282 passes and eight
 skips. Log: `unit-review-full-2.txt`. The art test command does not start
 after either failed unit run.
+
+The third full run uses two workers after disk space returns. It passes
+the type check, then stops at startup with `ENOSPC`: Vite cannot write its
+temporary config file. Log: `unit-review-full-3.txt`. Disk space is full
+again after the test-lock queue. The full-suite check remains blocked.
+Run `npm test` again when this Mac has stable free space. No assertion,
+time limit, step multiplier, or retry setting changes.
+
+The required browser runner passes `plugin-ui` on the M1 at `a0ca038b`
+in 257.6 seconds. Its final line is `check-runner: M1 exit 0 at a0ca038b`.
+Log: `checks-review-1.txt`. No server code changes, so `plugin-ui-http`
+does not apply.
 
 ### A2 b: short cloth banner
 
