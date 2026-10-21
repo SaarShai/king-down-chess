@@ -13,6 +13,7 @@ import { BADGES } from '../src/match/badges';
 import { LETTERS, NAMES, type PieceType } from '../src/rules/engine';
 import { POOL_KINDS } from '../src/match/setup';
 import { pieceGuide } from '../src/read';
+import { GameRules } from '../src/game-rules';
 import { cardText, powerOptions, ruleLine, webWords } from '../src/powers-ui';
 import { DEFAULT_RULES, POWERS_BALANCED } from '../src/rules/rules';
 import { DEAL_CARDS } from '../src/match/setup';
@@ -254,7 +255,7 @@ it('lists every collection rule and hides shared unlocked status', async () => {
       expect(await frame.locator('#collection-items').innerText()).not.toContain('Unlocked');
       expect(await frame.locator('#collection-items').innerText()).not.toContain('STATUS');
       if (tab === 'Pieces') for (const letter of ['P', ...POOL_KINDS]) {
-        const type = LETTERS.indexOf(letter) as PieceType, guide = pieceGuide(type), card = frame.locator(`[data-piece="${NAMES[type]}"]`);
+        const type = LETTERS.indexOf(letter) as PieceType, guide = pieceGuide(new GameRules(), type), card = frame.locator(`[data-piece="${NAMES[type]}"]`);
         expect(await card.locator('dt').allTextContents()).toEqual(['Moves', 'Takes', ...(guide.special ? ['Special'] : []), 'Status']);
         expect(await card.locator('dd').allTextContents()).toEqual([guide.moves, guide.captures, ...(guide.special ? [guide.special] : []), 'Unlocked']);
       }

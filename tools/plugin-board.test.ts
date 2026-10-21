@@ -19,6 +19,7 @@ import { checkCoinFocus } from './lib/plugin-coin-focus-check.mjs';
 import { momentKind } from '../src/moment';
 import { soundsFor } from '../src/screen/moments';
 import { describeMove } from '../src/move-text';
+import { GameRules } from '../src/game-rules';
 import { cardText, powerText, ruleLine } from '../src/powers-ui';
 import { PRESETS, designCode, fromPreset } from '../src/workshop/model';
 
@@ -335,7 +336,7 @@ it.each([[320,568], [393,852]])('keeps the swap portrait and held note with the 
     expect(await frame.locator('#status').textContent()).toBe('White Maester.');
     await squareTap(page,26);
     expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('held');
-    expect(await frame.locator('#context-note').textContent()).toBe(`${describeMove(pre,swap)} Player blocked.`);
+    expect(await frame.locator('#context-note').textContent()).toBe(`${describeMove(new GameRules(base.rules),pre,swap)} Player blocked.`);
     expect(await frame.locator('#status').textContent()).toBe('Select again to swap.');
     const info = frame.getByRole('button', {name:'All rules',exact:true});
     await info.locator('img').evaluate(image => (image as HTMLImageElement).decode());
@@ -348,7 +349,7 @@ it.each([[320,568], [393,852]])('keeps the swap portrait and held note with the 
     await frame.locator('#board-sheet').getByRole('button', {name:'Close',exact:true}).click();
     expect(await info.evaluate(button => button === document.activeElement)).toBe(true);
     expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('held');
-    expect(await frame.locator('#context-note').textContent()).toBe(`${describeMove(pre,swap)} Player blocked.`);
+    expect(await frame.locator('#context-note').textContent()).toBe(`${describeMove(new GameRules(base.rules),pre,swap)} Player blocked.`);
     await squareTap(page,27);
     expect(await frame.locator('#context-note').textContent()).toBe('Player blocked.');
   } finally { await page.close(); }
@@ -943,7 +944,7 @@ it('G3: the ogre holds a shove onto its own pawn and plays it on the second tap'
     expect((await marks(page)).shoves).toEqual([12]); expect((await marks(page)).moves.length).toBeGreaterThan(0); expect((await marks(page)).captures).toContain(11);
     await squareTap(page,12);
     expect(await frame.locator('#status').textContent()).toBe('Select again to shove.');
-    expect(await frame.locator('#context-note').textContent()).toBe(describeMove(pre,shove));
+    expect(await frame.locator('#context-note').textContent()).toBe(describeMove(new GameRules(base.rules),pre,shove));
     expect(await marks(page)).toMatchObject({selected:4, moves:[], captures:[], swaps:[], shoves:[12], shoveTo:[{from:12,to:20}]});
     expect(await cursorOf(page)).toBe(12);
     expect(await boardFen(page)).toBe(fen);
@@ -966,7 +967,7 @@ it('G3: the ogre holds a shove onto its own pawn and plays it on the second tap'
     expect(await frame.locator('#status').textContent()).toBe('Select again to shove.');
     expect((await marks(page)).read).toBeUndefined();
     await frame.locator('#all-rules').click();
-    expect(await frame.locator('#board-sheet').innerText()).toContain(readText(pre,4));
+    expect(await frame.locator('#board-sheet').innerText()).toContain(readText(new GameRules(base.rules),pre,4));
     await frame.locator('#board-sheet button[aria-label="Close"]').click();
     expect(await frame.locator('#status').textContent()).toBe('Select again to shove.');
     // Escape lets the held shove go and clears the selection.
@@ -999,7 +1000,7 @@ it('G3: the maester holds a swap with its own rook, by tap and by keyboard', asy
   try {
     await squareTap(page,27); await squareTap(page,26);
     expect(await frame.locator('#status').textContent()).toBe('Select again to swap.');
-    expect(await frame.locator('#context-note').textContent()).toBe(describeMove(pre,swap));
+    expect(await frame.locator('#context-note').textContent()).toBe(describeMove(new GameRules(base.rules),pre,swap));
     expect(await marks(page)).toMatchObject({selected:27, moves:[], captures:[], shoves:[], swaps:[26]});
     expect(await boardFen(page)).toBe(fen);
     // A tap on the maester lets the swap go and clears the selection, as before.
@@ -1027,7 +1028,7 @@ it('G3: an armed Sky Lift card holds a swap of two own pieces, and Cancel ends i
   try {
     await use(); await squareTap(page,swap.from); await squareTap(page,swap.to);
     expect(await frame.locator('#status').textContent()).toBe('Select again to swap.');
-    expect(await frame.locator('#context-note').textContent()).toBe(describeMove(pre,swap));
+    expect(await frame.locator('#context-note').textContent()).toBe(describeMove(new GameRules(base.rules),pre,swap));
     expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('armed');
     expect(await marks(page)).toMatchObject({selected:swap.from, moves:[], captures:[], shoves:[], swaps:[swap.to]});
     expect(await boardFen(page)).toBe(fen);
@@ -1266,7 +1267,7 @@ it('W7: a draw offer keeps piece rules readable at 320 px before and during Send
   try {
     await chooseTurnMove(page,'e2-e4',12);
     const staged = applyLan(fromFen(base.fen),'e2-e4',base.rules!)!;
-    const rule = readText(staged.pos,28).split('\n')[0].split(' · ')[1];
+    const rule = readText(new GameRules(base.rules),staged.pos,28).split('\n')[0].split(' · ')[1];
     expect(rule).toBeTruthy();
     for (const sending of [false,true]) {
       if (sending) {

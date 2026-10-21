@@ -16,3 +16,9 @@ Status: active. Parent: U05/U08/U09.
 The reviewed source is integrated at `c6eaa1aa`. One explicit publication adds engine `cdac045daa373bf2417f22e767b6099893928fb8a90b0580efd16b019b138a7d` and its fixture save. All ten prior pairs remain byte-identical. The outer `u08-presentation-release/publication.json` records the exact files and hashes. This publishes a local archive, not a hosted deployment.
 
 The real-builder wording controls preserve worker identity while the mechanical negative control changes it. Four owner-conflict cases cover names, refusal text, legal reach, mark meanings, frost, threats and design rails. No fallback, public rule scope or new presentation runtime is added.
+
+## Complete-source findings
+
+The first complete run at clean `a812ceb7` passes 4,514 tests and fails seven cases in two browser-test files. The failed assertions call `describeMove`, `readText` or `pieceGuide` with the old signature. These tools are outside the source TypeScript include. Product callers use the new signature. The test callers now pass their fixture's owned rules, or the same default owner as Collection. No assertion is removed. The first failed log and receipt stay in `u08-presentation-acceptance/source-first-failed.*`.
+
+For this API migration, search imports and calls under both `src` and `tools`; source typecheck alone does not cover tool callers. The complete source gate must pass after this correction. Optional source-art and opt-in balance skips are reported separately; database cases must run.
