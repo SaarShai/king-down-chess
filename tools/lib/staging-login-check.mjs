@@ -37,7 +37,7 @@ export async function checkStagingLogin({ browser, origin, accountOrigin, actors
     const refused = page.waitForResponse(response => new URL(response.url()).pathname === '/api/games/' + games[0].game_id);
     await password.fill('fixture-password'); await password.press('Enter');
     const refusal = await refused; assert.equal(refusal.status(), 403); assert.equal((await refusal.json()).code, 'FORBIDDEN');
-    await page.getByText('You do not have a seat in this game', { exact: true }).waitFor();
+    await page.getByText('This game panel is closed. Open King Down again to continue.', { exact: true }).waitFor();
     assert.equal(new URL(page.url()).pathname, '/g/' + games[0].game_id, 'Password sign-in preserves the requested private route');
     assert.equal(await page.locator('#board').isVisible(), false, 'B cannot see A private board');
     await shot(page, 'staging-password-private-refusal');
