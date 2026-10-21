@@ -27,7 +27,7 @@ const { M, N, P, parseSq, typeOf } = await import('../src/rules/engine.ts');
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
 testDatabase(connectionString);
 const work = await mkdtemp(join(tmpdir(), 'kingdown-web-game-'));
-const actors = [randomUUID(), randomUUID()];
+const actors = Array.from({ length: recovery ? 4 : 2 }, () => randomUUID());
 const pool = new pg.Pool({ connectionString, max: 1 });
 let app, server, browser, savedAccess;
 const failures = [], commands = [];
@@ -65,7 +65,7 @@ try {
     assert.equal(response.status, 200);
     const { result, error } = await response.json(); assert(!error, `${name}: RPC error`); assert(!result.isError, `${name}: ${JSON.stringify(result)}`); return result;
   }
-  if (!mechanics) for (const seat of [0, 1]) await tool(seat, 'kingdown_handle', { handle: `web${seat}-${actors[seat].slice(0, 8)}` });
+  if (!mechanics && !recovery) for (const seat of [0, 1]) await tool(seat, 'kingdown_handle', { handle: `web${seat}-${actors[seat].slice(0, 8)}` });
   const view = async seat => (await tool(seat, 'kingdown_get', { game_id: gameId }))._meta.view;
   browser = await launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1100, height: 1000 } });

@@ -124,24 +124,26 @@ export async function checkRecoveryConsumers({ browser, origin, actors, pool, to
   assert.equal(inputs.recovery.engine, recoveryEngine, 'The fresh recovery UI uses the nominated prior worker');
   assert.notEqual(inputs.release.hashes['functions/mcp.func/server.mjs'], inputs.recovery.hashes['functions/mcp.func/server.mjs'], 'Recovery switches a distinct server artifact');
   const reports = [];
-  for (const phase of ['loaded-current', 'fresh-recovery']) for (const surface of ['web', 'chatgpt']) {
+  // Each real host sets its actor's handle once; separate phase pairs avoid rename cooldowns.
+  for (const phase of ['loaded-current', 'fresh-recovery']) for (const surface of ['chatgpt', 'web']) {
     console.log(`START recovery-consumers ${phase} ${surface}`);
     await switchOutput(release, release);
     // Both games originate in the release runtime, including the new-engine recovery client path.
-    const { id, match } = await seedMechanic(runtime, pool, actors, haste.setup, phase === 'loaded-current' ? archivedEngine : undefined);
+    const actor = phase === 'loaded-current' ? 0 : 2;
+    const { id, match } = await seedMechanic(runtime, pool, actors.slice(actor, actor + 2), haste.setup, phase === 'loaded-current' ? archivedEngine : undefined);
     let context, harness;
     try {
-      const before = (await tool(0, 'kingdown_get', { game_id: id }))._meta.view;
+      const before = (await tool(actor, 'kingdown_get', { game_id: id }))._meta.view;
       const engine = phase === 'loaded-current' ? archivedEngine : releaseEngine;
       assert.equal(before.engine_fingerprint, engine, `${phase}/${surface}: release-created game identity`);
       const site = phase === 'loaded-current' ? release : recovery;
       if (phase === 'fresh-recovery') await switchOutput(recovery, recovery);
-      if (surface === 'chatgpt') harness = await startHarness({ boardPath: join(site.root, 'functions/mcp.func/board.html'), endpoint: new URL('/mcp', origin), actor: actors[0] });
+      if (surface === 'chatgpt') harness = await startHarness({ boardPath: join(site.root, 'functions/mcp.func/board.html'), endpoint: new URL('/mcp', origin), actor: actors[actor] });
       context = await browser.newContext({ viewport: { width: 1100, height: 1000 }, reducedMotion: 'reduce' });
       await context.addInitScript(({ origin, actor, token }) => {
         if (location.origin === origin) localStorage.setItem('kingdown.auth', JSON.stringify({ access_token: token, refresh_token: 'local-test-refresh', token_type: 'bearer', expires_in: 600, expires_at: Math.floor(Date.now() / 1000) + 600,
           user: { id: actor, aud: 'authenticated', role: 'authenticated', email: 'recovery@example.invalid', app_metadata: { provider: 'google' }, user_metadata: {}, created_at: new Date().toISOString() } }));
-      }, { origin, actor: actors[0], token: tokens[0] });
+      }, { origin, actor: actors[actor], token: tokens[actor] });
       const failures = [], allowed = new Set([origin, ...(harness ? [new URL(harness.url).origin] : [])]);
       // The real SDK harness serves its sandbox frame on a separate loopback port.
       if (harness) {
@@ -180,7 +182,7 @@ export async function checkRecoveryConsumers({ browser, origin, actors, pool, to
       if (surface === 'web') await page.goto(`${origin}/g/${id}`);
       else {
         const mounted = page.waitForResponse(response => readsGame(response, id)); void mounted.catch(() => {});
-        await page.evaluate(result => window.harnessShow(result), await tool(0, 'kingdown_open', { game_id: id }));
+        await page.evaluate(result => window.harnessShow(result), await tool(actor, 'kingdown_open', { game_id: id }));
         assert.equal((await (await mounted).json())._meta?.view?.game_id, id);
       }
       await ready(ui); const initialDraft = await acceptedPreview(initial, [], before.fen);
@@ -206,7 +208,7 @@ export async function checkRecoveryConsumers({ browser, origin, actors, pool, to
       const commandResponse = await committed, commandBody = await commandResponse.json();
       assert.equal(commandResponse.status(), 200); assert(!commandBody.isError, 'Recovery accepts the consumer command');
       assert(await document.evaluate(element => element.isConnected && element.ownerDocument.documentElement === element), 'The same loaded document continues across the backend switch');
-      const after = (await tool(1, 'kingdown_get', { game_id: id }))._meta.view;
+      const after = (await tool(actor + 1, 'kingdown_get', { game_id: id }))._meta.view;
       assert.equal(after.game_id, id); assert.equal(after.engine_fingerprint, engine); assert.equal(after.revision, before.revision + 1);
       assert.deepEqual(after.rules, before.rules); assert.equal(after.fen, expected.fen); assert.equal(after.turn, expected.turn);
       assert.deepEqual([...after.legal].sort(), [...expected.legal].sort()); assert.deepEqual(after.history.actions, haste.actions);
@@ -216,7 +218,7 @@ export async function checkRecoveryConsumers({ browser, origin, actors, pool, to
       if (surface === 'web') await page.reload(); else await page.locator('#remount').click();
       const reloadResponse = await reloaded; assert.equal(reloadResponse.status(), 200);
       await ready(ui);
-      const resumed = (await tool(1, 'kingdown_get', { game_id: id }))._meta.view;
+      const resumed = (await tool(actor + 1, 'kingdown_get', { game_id: id }))._meta.view;
       assert.equal(resumed.engine_fingerprint, engine); assert.equal(resumed.game_id, id); assert.equal(resumed.revision, after.revision);
       assert.equal(resumed.fen, after.fen); assert.deepEqual(resumed.history.actions, haste.actions);
       await ui.locator('#moves-line').click();
