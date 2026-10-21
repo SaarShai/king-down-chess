@@ -20,3 +20,7 @@ Continuity ticket 17 was prepared as ticket 16 in an older branch. Integration g
 ## Publication
 
 The explicit runtime publisher adds `8d6283617db3a5f4157225b8b1864810213f7e50d878393f391619756ef2e316` and its fixture save. All 18 files from the nine prior pairs remain byte-identical. The outer `u08-narration-release/publication.json` records hashes and output. This is local archive publication, not a staging deployment.
+
+Exact recovery source `2489d5a9` differs from `c43d2a25` only by the two new archive files. Its clean combined test build passes, retains default `febb9239`, and contains all ten exact workers. The public fake-auth artifact is under `/tmp/kingdown-u08-narration-combined/recovery/.vercel/output`; never deploy it. The outer `u08-narration-recovery` folder retains the source and build receipts.
+
+The consumer check now reads both default identities from its existing artifact parser and uses the recovery default for the prior-engine path. It still requires different default engines and server artifacts, real previews and writes, exact history/reload and immutable inputs. Independent read review finds no substantive issue; the exact combined rehearsal is the acceptance check.

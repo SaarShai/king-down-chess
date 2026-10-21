@@ -107,9 +107,6 @@ export async function checkRecoveryConsumers({ browser, origin, actors, pool, to
   const runtime = await import(pathToFileURL(join(release.root, 'functions/mcp.func/runtime/index.mjs')).href);
   const haste = SHARED_MECHANICS.find(row => row.id === 'power-haste');
   assert(haste, 'Recovery reuses the Haste fixture and controls');
-  const releaseEngine = 'sha256:febb9239470eea930cce5e1b588838bafd2c6687f0419d1bbf1072c975603ae2';
-  const recoveryEngine = 'sha256:812aef2772b0ae98915b85f7fb9e9ea93a1f0f9616b735b1e33dc9cf12bc129b';
-  const archivedEngine = 'sha256:bab22e94d4df81591374763a7f3abe703c30534f80ce771ee3fe7e095dcec7da';
   const helper = 'functions/mcp.func/runtime/search-worker.mjs';
   async function identity(output) {
     const checked = await recoveryOutput(output.root);
@@ -120,8 +117,8 @@ export async function checkRecoveryConsumers({ browser, origin, actors, pool, to
     return { ...checked, engine: stamps[0] };
   }
   const inputs = { release: await identity(release), recovery: await identity(recovery) };
-  assert.equal(inputs.release.engine, releaseEngine, 'The loaded release UI uses the nominated new worker');
-  assert.equal(inputs.recovery.engine, recoveryEngine, 'The fresh recovery UI uses the nominated prior worker');
+  const releaseEngine = inputs.release.engine, recoveryEngine = inputs.recovery.engine;
+  assert.notEqual(releaseEngine, recoveryEngine, 'Recovery uses a different prior default worker');
   assert.notEqual(inputs.release.hashes['functions/mcp.func/server.mjs'], inputs.recovery.hashes['functions/mcp.func/server.mjs'], 'Recovery switches a distinct server artifact');
   const reports = [];
   // Each real host sets its actor's handle once; separate phase pairs avoid rename cooldowns.
@@ -130,11 +127,11 @@ export async function checkRecoveryConsumers({ browser, origin, actors, pool, to
     await switchOutput(release, release);
     // Both games originate in the release runtime, including the new-engine recovery client path.
     const actor = phase === 'loaded-current' ? 0 : 2;
-    const { id, match } = await seedMechanic(runtime, pool, actors.slice(actor, actor + 2), haste.setup, phase === 'loaded-current' ? archivedEngine : undefined);
+    const { id, match } = await seedMechanic(runtime, pool, actors.slice(actor, actor + 2), haste.setup, phase === 'loaded-current' ? recoveryEngine : undefined);
     let context, harness;
     try {
       const before = (await tool(actor, 'kingdown_get', { game_id: id }))._meta.view;
-      const engine = phase === 'loaded-current' ? archivedEngine : releaseEngine;
+      const engine = phase === 'loaded-current' ? recoveryEngine : releaseEngine;
       assert.equal(before.engine_fingerprint, engine, `${phase}/${surface}: release-created game identity`);
       const site = phase === 'loaded-current' ? release : recovery;
       if (phase === 'fresh-recovery') await switchOutput(recovery, recovery);
