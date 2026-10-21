@@ -241,6 +241,7 @@ try {
   };
   await page.route('**/api/games/*', holdRematch);
   try {
+    await page.clock.fastForward(1100);
     await page.locator('#over').getByRole('button', { name: 'Rematch', exact: true }).click();
     await page.locator('#over .quiet-line').filter({ hasText: 'Rematch offered' }).waitFor();
     b = await view(1);
