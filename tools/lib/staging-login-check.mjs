@@ -34,8 +34,10 @@ export async function checkStagingLogin({ browser, origin, accountOrigin, actors
     await password.fill('wrong-fixture-password'); await password.press('Enter');
     await page.getByText('Sign-in failed. Check the password and try again.', { exact: true }).waitFor();
     assert.equal(await password.inputValue(), ''); assert.equal(await page.getByText('Private fixture failure detail').count(), 0);
+    const refused = page.waitForResponse(response => new URL(response.url()).pathname === '/api/games/' + games[0].game_id);
     await password.fill('fixture-password'); await password.press('Enter');
-    await page.getByText('Board unavailable for this account', { exact: true }).waitFor();
+    const refusal = await refused; assert.equal(refusal.status(), 403); assert.equal((await refusal.json()).code, 'FORBIDDEN');
+    await page.getByText('You do not have a seat in this game', { exact: true }).waitFor();
     assert.equal(new URL(page.url()).pathname, '/g/' + games[0].game_id, 'Password sign-in preserves the requested private route');
     assert.equal(await page.locator('#board').isVisible(), false, 'B cannot see A private board');
     await shot(page, 'staging-password-private-refusal');
