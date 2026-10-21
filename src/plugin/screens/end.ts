@@ -1,4 +1,5 @@
-import { call, client, memory, pollUpdate, routeView, showNewGame, store, queue } from '../../account-game/runtime';
+import { call, send, client, memory, pollUpdate, routeView, showNewGame, store, queue } from '../../account-game/runtime';
+import type { View } from '../../match/protocol';
 import { art } from '../../account-game/art';
 import { ending, endReason } from '../ending';
 import { pollSince, type PollTarget } from '../poll';
@@ -69,8 +70,10 @@ export function updateEnd() {
   if (client.state.pending) return;
   if (view.rematch_game_id && !resumed.has(view.rematch_game_id)) {
     const game = view.rematch_game_id, ended = view.game_id; resumed.add(game); updating = true;
-    void call('kingdown_resume', {game_id:game}, true, false, false).then(next => {
+    void send('kingdown_resume', {game_id:game}, { retain: true, route: false }).then(outcome => {
       if (stopped || queue.closed()) return;
+      if (outcome.status === 'superseded') resumed.delete(game);
+      const next = outcome.status === 'done' ? outcome.view as View | undefined : undefined;
       if (next && client.state.screen === 'end' && endGame === ended) routeView(next);
     }).finally(() => { updating = false; });
   } else if (!read.has(view.game_id)) {

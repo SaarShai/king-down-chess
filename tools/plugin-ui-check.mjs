@@ -2646,6 +2646,27 @@ try {
   assert.equal(resumedCall.arguments.game_id,rematchGame);
   assert(!rematchSent.some(c=>c.name==='kingdown_get' && c.arguments.game_id===resumedCall.arguments.game_id),'Rematch never reads the new game by ID');
   assert(['board','seat'].includes(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen)));
+  // A newer host result can interrupt the opening after the rematch is already accepted.
+  await legacyStart('solo'); await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
+  await frame.locator('#over.end-card[open]').waitFor(); await idleBoard(); await page.clock.fastForward(1100);
+  const interruptedEnd = await page.evaluate(() => window.harnessView), interruptedCalls = await page.evaluate(() => window.harnessCalls.length);
+  await page.evaluate(() => { window.holdBeforeNext = 'kingdown_resume'; });
+  await frame.locator('#over').getByRole('button', { name: 'Play again', exact: true }).click();
+  await page.waitForFunction(() => window.harnessHeld === 1);
+  const endedResult = await tool('kingdown_open', { game_id: interruptedEnd.game_id });
+  const acceptedRematch = endedResult._meta.view.rematch_game_id;
+  assert(acceptedRematch && acceptedRematch !== interruptedEnd.game_id);
+  await page.evaluate(result => window.harnessShow(result), endedResult);
+  await frame.locator('#over.end-card[open]').waitFor();
+  assert.equal(await frame.locator('#over-title').innerText(), 'You lose', 'An interrupted opening keeps the old result');
+  await page.evaluate(() => window.releaseBefore());
+  await page.waitForFunction(id => window.harnessView.game_id === id && ['board','seat'].includes(window.harnessWidgetState.privateContent.screen), acceptedRematch);
+  await idleBoard(); await boardBox();
+  const recoveredCalls = await page.evaluate(n => window.harnessCalls.slice(n), interruptedCalls);
+  assert.equal(recoveredCalls.filter(c => c.name === 'kingdown_rematch').length, 1, 'An interrupted opening never creates a second rematch');
+  assert.equal(recoveredCalls.filter(c => c.name === 'kingdown_resume' && c.arguments.game_id === acceptedRematch).length, 2, 'The cancelled opening can select the accepted rematch again');
+  assert.equal(await frame.locator('#retry').isVisible(), false, 'An interrupted selection recovers without Retry');
+  await shot(page, `rematch-selection-recovered-${mode}`);
   await legacyStart('solo'); await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
   await frame.locator('#over.end-card[open]').waitFor(); await idleBoard();
   await page.clock.fastForward(1100);

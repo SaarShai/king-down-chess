@@ -3,13 +3,13 @@ import { DEFAULT_OPTIONS } from '../../match/setup';
 import type { View } from '../../match/protocol';
 
 const runtime = vi.hoisted(() => ({
-  closed: false, call: vi.fn(), clientCall: vi.fn(), navigate: vi.fn(), renderRows: vi.fn(), routeView: vi.fn(),
+  closed: false, call: vi.fn(), send: vi.fn(), clientCall: vi.fn(), navigate: vi.fn(), renderRows: vi.fn(), routeView: vi.fn(),
   client: { state: { screen: 'wait', sheet: undefined as string | undefined, pending: undefined }, save: vi.fn() },
   memory: { view: undefined as View | undefined, games: [] as any[], settings: undefined as any, me: undefined },
   board: { ready: vi.fn(), setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), setPreview: vi.fn(), screenOf: () => ({ x: 0, y: 0 }), onSquareClick: () => {}, onDragSelect: () => {}, onSquareHover: () => {} },
 }));
 vi.mock('../../account-game/runtime', () => ({
-  call: runtime.call, send: async (name: string, args: Record<string, unknown>) => ({ status: 'done', result: await runtime.clientCall(name, args) }), client: { ...runtime.client, call: runtime.clientCall }, memory: runtime.memory,
+  call: runtime.call, send: runtime.send, client: { ...runtime.client, call: runtime.clientCall }, memory: runtime.memory,
   queue: { closed: () => runtime.closed, current: () => !runtime.closed },
   navigate: runtime.navigate, renderGameRows: runtime.renderRows, routeView: runtime.routeView,
   gameActionsBlocked: () => false, pollUpdate() {}, start: vi.fn(), showNewGame() {}, actions() {},
@@ -40,6 +40,7 @@ function lookup(id: string) {
 }
 beforeEach(() => {
   vi.resetModules(); vi.useFakeTimers(); vi.clearAllMocks();
+  runtime.send.mockReset().mockImplementation(async (name: string, args: Record<string, unknown>) => ({ status: 'done', result: await runtime.clientCall(name, args) }));
   runtime.closed = false; runtime.client.state.screen = 'wait'; runtime.client.state.sheet = undefined;
   runtime.memory.view = undefined; runtime.memory.games = []; runtime.memory.settings = undefined;
   runtime.board.ready.mockReturnValue(new Promise(() => {}));
@@ -86,6 +87,33 @@ it('ignores an end poll that returns after close and DOM removal', async () => {
   runtime.closed = true; stopAll(); removed = true; release();
   await expect(reading).resolves.toBeUndefined();
   expect(() => end.updateEnd()).not.toThrow(); expect(() => end.endScreen()).not.toThrow(); expect(end.endPoll()).toBeUndefined();
+});
+
+it('opens the same accepted rematch after a newer selection cancels its first opening', async () => {
+  const end = await import('./end');
+  runtime.client.state.screen = 'end';
+  runtime.memory.view = { game_id: 'ended', status: 'finished', kind: 'solo', rematch_game_id: 'next', rules: {} } as View;
+  runtime.call.mockResolvedValue(undefined);
+  runtime.send.mockResolvedValue({ status: 'superseded' });
+  end.updateEnd(); await vi.advanceTimersByTimeAsync(0);
+  expect(runtime.routeView).not.toHaveBeenCalled();
+  end.updateEnd(); await vi.advanceTimersByTimeAsync(0);
+  const selections = [...runtime.call.mock.calls, ...runtime.send.mock.calls].filter(([name]) => name === 'kingdown_resume');
+  expect(selections.map(([, args]) => args)).toEqual([{ game_id: 'next' }, { game_id: 'next' }]);
+});
+
+it.each(['failed', 'refused', 'done'])('does not repeat a rematch opening after %s', async status => {
+  const end = await import('./end');
+  runtime.client.state.screen = 'end';
+  runtime.memory.view = { game_id: 'ended', status: 'finished', kind: 'solo', rematch_game_id: 'next', rules: {} } as View;
+  const next = { game_id: 'next', status: 'playing' } as View;
+  runtime.call.mockResolvedValue(status === 'done' ? next : undefined);
+  runtime.send.mockResolvedValue({ status, result: { content: [] }, ...(status === 'done' && { view: next }) });
+  end.updateEnd(); await vi.advanceTimersByTimeAsync(0);
+  end.updateEnd(); await vi.advanceTimersByTimeAsync(0);
+  const selections = [...runtime.call.mock.calls, ...runtime.send.mock.calls].filter(([name]) => name === 'kingdown_resume');
+  expect(selections).toHaveLength(1);
+  expect(runtime.routeView).toHaveBeenCalledTimes(status === 'done' ? 1 : 0);
 });
 
 it('releases the seat observer and pending artwork callback before DOM removal', async () => {
