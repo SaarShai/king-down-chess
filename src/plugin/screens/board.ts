@@ -249,9 +249,10 @@ export function boardScreen(store: Store) {
     });
   }
   function restorePreview() {
-    if (!view?.rules || !remote() || serverDraft || previewing || view.action !== 'ready' || view.status !== 'playing') return;
+    if (!view?.rules || !remote()) return;
     const saved = client.state.draft, lans = draftLans(view, saved, view.rules, client.accountId);
     if (saved && !lans) dropDraft();
+    if (serverDraft || previewing || view.action !== 'ready' || view.status !== 'playing') return;
     void requestPreview(lans ?? [], false, true);
   }
   async function requestPreview(actions: string[], animate = false, restoring = false) {

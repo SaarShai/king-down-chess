@@ -896,6 +896,8 @@ it.each([[320, 568], [393, 852]])('keeps the board size after a beginner selects
 });
 
 // W7 journeys use board input. The endpoint only sets the starting position.
+// These calls start only after the mounted board has requested its preview.
+const settleBoardReads = (page: Page) => expect.poll(() => page.frameLocator('iframe').locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
 async function turnBoard(fen?: string, clock = false) {
   const page = await open(view(''), 393, 852, clock), frame = page.frameLocator('iframe');
   const result = await (await page.request.post(new URL(fen ? `/fixture-position?fen=${encodeURIComponent(fen)}` : '/fixture-position?case=haste', harness.url).href)).json();
@@ -903,6 +905,7 @@ async function turnBoard(fen?: string, clock = false) {
   await page.evaluate(result => (window as any).harnessShow(result), result);
   await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
   await frame.locator('#board[aria-busy="false"][data-animating="false"]').waitFor();
+  await settleBoardReads(page);
   return {page, frame, base:result._meta.view as View};
 }
 async function squarePoint(page: Page, square: number) {
@@ -1289,7 +1292,9 @@ it('W7: a draw offer keeps piece rules readable at 320 px before and during Send
 it('W7: stages a move, sends once, and starts the computer only after the press', async () => {
   const {page,frame,base} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1');
   try {
-    await squareTap(page,12); await squareTap(page,28); await frame.locator('#board[data-animating="false"]').waitFor();
+    await squareTap(page,12); await squareTap(page,28);
+    await expect.poll(async () => (await savedDraft(page))?.lans).toEqual(['e2-e4']);
+    await frame.locator('#board[data-animating="false"]').waitFor();
     expect(await moveCalls(page)).toEqual([]);
     expect(await page.evaluate(() => (window as any).harnessView.revision)).toBe(base.revision);
     expect(await page.evaluate(() => (window as any).harnessCalls.some((c: any) => c.name==='kingdown_computer'))).toBe(false);
@@ -1458,13 +1463,17 @@ it('W7: stages mate, permits Undo, and ends only on the press with no second mov
   const {page,frame} = await turnBoard('k7/8/1K6/8/8/8/8/7R w - - 0 1');
   try {
     await frame.locator('html').evaluate(() => { const host=window as any, animate=host.testBoard.animateMove.bind(host.testBoard); host.turnAnimations=0; host.testBoard.animateMove=(...args: any[]) => { host.turnAnimations++; return animate(...args); }; });
-    await squareTap(page,7); await squareTap(page,63); await frame.locator('#board[data-animating="false"]').waitFor();
+    await squareTap(page,7); await squareTap(page,63);
+    await expect.poll(async () => (await savedDraft(page))?.lans).toEqual(['Rh1-h8']);
+    await frame.locator('#board[data-animating="false"]').waitFor();
     expect(await frame.locator('#status').textContent()).toBe('Checkmate. Select End turn to finish.');
     expect(await frame.locator('#over[open]').count()).toBe(0); expect(await moveCalls(page)).toEqual([]);
     await clickButton(page, frame.locator('#undo'));
     await frame.locator('#status').filter({ hasText: 'Your move.' }).waitFor();
     expect(await frame.locator('#status').textContent()).toBe('Your move.');
-    await squareTap(page,7); await squareTap(page,63); await frame.locator('#board[data-animating="false"]').waitFor();
+    await squareTap(page,7); await squareTap(page,63);
+    await expect.poll(async () => (await savedDraft(page))?.lans).toEqual(['Rh1-h8']);
+    await frame.locator('#board[data-animating="false"]').waitFor();
     await frame.locator('#end-turn:not(:disabled):not([aria-disabled="true"])').waitFor();
     await clickButton(page, frame.locator('#end-turn')); await frame.locator('#over[open]').waitFor();
     expect(await frame.locator('html').evaluate(() => (window as any).turnAnimations)).toBe(2);
@@ -1567,10 +1576,12 @@ it('W7-04: restores a saved draft after a remount only when the game, the base F
       await chooseTurnMove(page,'e2-e4',12);
       expect((await savedDraft(page)).lans).toEqual(['e2-e4']);
       if (change !== 'same') await page.evaluate(change => {
-        const draft = (window as any).harnessWidgetState.privateContent.draft;
+        const host = window as any, state = structuredClone(host.harnessWidgetState), draft = state.privateContent.draft;
         if (change === 'fen') draft.fen = '7k/8/8/8/8/8/8/7K w - - 0 1'; else draft.lans = ['e2-e5'];
+        host.harnessWidgetState = state;
       }, change);
       await remountBoard(page);
+      await settleBoardReads(page);
       if (change === 'same') {
         const draft = await savedDraft(page);
         expect(draft.lans).toEqual(['e2-e4']);
@@ -1610,6 +1621,7 @@ it('W7-04: a refused press after a real draw offer keeps T6 and the note, then s
     await clickButton(page, frame.locator('#end-turn'));
     await frame.locator('#status').filter({hasText:'The game changed. Check it, then tap Send your turn.'}).waitFor();
     await frame.locator('#board[aria-busy="false"][data-animating="false"]').waitFor();
+    await settleBoardReads(page);
     expect(await frame.locator('#context-note').innerText()).toContain('Your opponent offers a draw.');
     await frame.locator('#undo[aria-disabled="false"]').waitFor();
     expect((await savedDraft(page)).lans).toEqual(['e2-e4']);
