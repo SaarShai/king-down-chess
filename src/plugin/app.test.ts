@@ -1000,6 +1000,21 @@ it.each(['casual', 'ranked'] as const)('review: a failed %s Find from Open games
   expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_find').map(([input]) => input.arguments.mode)).toEqual([mode, mode]);
 });
 
+it.each(['casual', 'ranked'] as const)('restores a pending %s Find in the lobby over the opposite saved mode without opening Play', async mode => {
+  const { readSetup } = await import('./screens/setup-model'), { DEFAULT_OPTIONS, RANKED_OPTIONS } = await import('../match/setup');
+  const saved = readSetup({ kind: 'random', mode: mode === 'ranked' ? 'casual' : 'ranked', options: DEFAULT_OPTIONS, colour: 'white' });
+  const options = mode === 'ranked' ? RANKED_OPTIONS : { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true };
+  const colour = mode === 'ranked' ? 'random' : 'black';
+  (window as any).openai.widgetState = { privateContent: { screen: 'lobby', pending: { name: 'kingdown_find', screen: 'lobby', args: { mode, options, colour, command_id: 'lost-find' }, error: 'Lost Find reply' } } };
+  transport.call.mockImplementation(async ({ name }) => ({ content: [], _meta: name === 'kingdown_settings' ? { settings: { ...settings, last_setup: saved }, me: { handle: 'player', icon: 'spirit' } } : { games: [] } }));
+  const app = await import('./app');
+  transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'home' }, _meta: { board_id: 'board-a' } });
+  await vi.advanceTimersByTimeAsync(0);
+  const setup = await import('./screens/setup');
+  expect(setup.currentSetup()).toMatchObject({ kind: 'random', mode, options, colour });
+  expect(app.client.state.screen).toBe('lobby');
+});
+
 it('review: a name saved for a lobby Accept goes back to Open games and does not resend an old failed start', async () => {
   const app = await mounted(); app.navigate('play');
   transport.call.mockImplementation(async ({ name }) => name === 'kingdown_create' ? { content: [{ type: 'text', text: 'Lost Create reply' }], isError: true }

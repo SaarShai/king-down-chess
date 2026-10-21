@@ -67,7 +67,7 @@ function build() {
 function render() {
   if (stopped || queue.closed()) return;
   if (!draft) return;
-  const setup = client.state.pending?.quick ? quickSetup(memory.settings?.last_setup) : draft, o = setup.options;
+  const setup = client.state.pending?.quick ? quickSetup(memory.settings?.last_setup) : currentSetup(), o = setup.options;
   for (const key of ['mode','level','colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.checked = input.value === (key === 'mode' ? setup.kind : setup[key]); });
   $('setup-level').hidden = $('level-line').hidden = setup.kind !== 'solo'; $('play-open').hidden = setup.kind !== 'random'; $('play-join').hidden = setup.kind !== 'friend'; $('level-line').textContent = levelLines[setup.level];
   const ranked = setup.mode === 'ranked';
@@ -228,21 +228,25 @@ export function setupSync(page: Page) {
 }
 /** An exact four-card saved pool opens as Pick four. */
 function readDraft() {
-  draft = readSetup(memory.settings!.last_setup); cardMode = draft.options.cardPool.length === 4 ? 'four' : 'all';
+  draft = currentSetup(); cardMode = draft.options.cardPool.length === 4 ? 'four' : 'all';
   return draft;
 }
 /** End New game opens the hall with the setup of the game that ended (the same card rule as a saved setup). */
 export function draftFromGame(view: View) {
   draft = gameSetup(view); cardMode = draft.options.cardPool.length === 4 ? 'four' : 'all'; memory.kind = draft.kind;
 }
-export const currentSetup = () => draft ?? readSetup(memory.settings?.last_setup);
+/** A retained Find owns its mode and rules even when a lobby remount does not open Play. */
+export function currentSetup(): SetupState {
+  const setup = draft ?? readSetup(memory.settings?.last_setup), pending = client.state.pending;
+  return pending?.name === 'kingdown_find' ? readSetup({ ...setup, kind: 'random', mode: pending.args.mode === 'ranked' ? 'ranked' : 'casual', options: pending.args.options ?? setup.options, colour: pending.args.colour ?? setup.colour, king: pending.king === undefined ? setup.king : pending.king }) : setup;
+}
 export function setupScreen() {
   if (stopped || queue.closed()) return;
   if (!memory.settings) return;
   if (!draft) {
     draft = readDraft();
     if (!client.state.pending?.quick) draft.kind = client.state.pending?.name === 'kingdown_find' ? 'random' : client.state.pending?.args.kind as SetupState['kind'] ?? draft.kind;
-    draft = withMode(draft, client.state.pending?.name === 'kingdown_find' ? client.state.pending.args.mode === 'ranked' ? 'ranked' : 'casual' : draft.mode);
+    draft = withMode(draft, draft.mode);
     anyRules = client.state.pending?.name === 'kingdown_find' && client.state.pending.args.any_rules === true;
     memory.kind = draft.kind;
   } else draft = withMode({ ...draft, kind: memory.kind }, draft.mode);
