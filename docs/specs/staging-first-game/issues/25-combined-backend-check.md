@@ -1,6 +1,6 @@
 # Check the combined backend's static art
 
-Status: in progress. Parent: U08 release acceptance. Check code only.
+Status: complete. Parent: U08 release acceptance. Check code only.
 
 ## Evidence and plan
 
@@ -12,3 +12,7 @@ The exact narration release passes all four compiled browser checks. The backend
 4. Obtain an independent review. Retain the failed receipt and the corrected run separately. Reuse the four unchanged green browser checks.
 
 This is a checker correction. It is not evidence of a missing asset in the deployed game. The new route branch must pass the existing asset assertions before staging publication.
+
+## Result
+
+Independent review finds no substantive issue. Normal hooks pass. The corrected exact-artifact check at clean `33f2d82e` passes in 3.987 seconds, including all 116 art files and the unchanged missing/traversal assertions. Backend recovery preserves retries, conflicts, pending setup and all ten archived computer paths. Both input artifacts stay byte-identical. The first failed receipt and corrected receipt remain separate in the outer `u08-narration-acceptance` folder.

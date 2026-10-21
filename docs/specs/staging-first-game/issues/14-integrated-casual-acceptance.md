@@ -76,3 +76,9 @@ Staging `c43d2a25`, preview `dpl_F1pt82jMxsWEGBfyhTuphumP7L1q`, passes its first
 New game `a7c62ee2-ff91-8b8d-a63a-539582b83496` reaches revision 7. Row and save both pin `febb9239`. Two web turns and two computer responses preserve six actions: Freeze on Ogre, Ogre shove, Morph to bishop, March h3–h5, Freeze on Beast and the bishop's capture of the Ogre. A fresh tab shows the same history. The outer `live-c43d-registration-fix.json` receipt records all results.
 
 A fresh ChatGPT Open after connector metadata refresh still fails before a game iframe exists. No Retry is clicked. The Mac remains locked, so the native control cannot run. The old resource still has its stale list; it does not prove the current Play-entry fix or a current-resource write. Keep these gates open. Continue the bounded U08 previous-turn/help dependency cut while native verification is unavailable.
+
+## Narration and performance follow-up
+
+Continuity ticket 18 records the next release at engine `8d628361`. Its 112 mechanics executions, four release/recovery consumer paths, cache takeover and embedded HTTP journeys all pass on clean `fe23a8c7`. Ticket 25 repairs the backend check's standalone-only art assumption; the same exact combined artifacts then pass all 116 assets and ten archived computer continuations. No accepted artifact is changed to make the check pass.
+
+Ticket 24 records 30 desktop loopback samples with no retries. Cold/warm entry proxies have p95 values of 393.9/230.2 ms, Menu feedback has a 32.6 ms frame proxy, and accepted non-AI HTTP turns have p95 47.07 ms. These are named-machine local measurements, not staging, phone or physical display latency. The first failed checker assertion is preserved separately. Staging publication and current-resource native acceptance remain separate gates.

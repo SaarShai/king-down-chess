@@ -1,6 +1,6 @@
 # Verify the narration boundary in the complete staging build
 
-Status: in progress. Parent: U08/U05. Staging only.
+Status: source and compiled release/recovery gates pass; staging publication and live checks next. Parent: U08/U05. Staging only.
 
 ## Checkable plan
 
@@ -24,3 +24,11 @@ The explicit runtime publisher adds `8d6283617db3a5f4157225b8b1864810213f7e50d87
 Exact recovery source `2489d5a9` differs from `c43d2a25` only by the two new archive files. Its clean combined test build passes, retains default `febb9239`, and contains all ten exact workers. The public fake-auth artifact is under `/tmp/kingdown-u08-narration-combined/recovery/.vercel/output`; never deploy it. The outer `u08-narration-recovery` folder retains the source and build receipts.
 
 The consumer check now reads both default identities from its existing artifact parser and uses the recovery default for the prior-engine path. It still requires different default engines and server artifacts, real previews and writes, exact history/reload and immutable inputs. Independent read review finds no substantive issue; the exact combined rehearsal is the acceptance check.
+
+## Exact compiled acceptance
+
+Clean source `fe23a8c7` passes four checks in `app-35rY1e`: recovery consumers 10.075 seconds, web cache takeover 104.206 seconds, all 112 mechanics executions 134.36 seconds, and embedded HTTP journeys 256.656 seconds. The source and both artifacts stay unchanged.
+
+The initial backend invocation fails because its standalone server omits the combined static layer. Staging-first-game ticket 25 corrects only this checker. The exact same artifacts then pass at clean `33f2d82e` in 3.987 seconds: 116 image/font assets, retry/conflict, pending setup, a fresh recovery computer turn and all ten archived computer paths. The failed receipt is retained. `u08-narration-acceptance/backend-corrected.json` records the corrected result and unchanged hashes.
+
+The desktop baseline is separate evidence: 30 cold/warm pairs, Menu frame proxies and accepted loopback turns pass in ticket 24. It does not establish hosted or phone latency. Native current-resource ChatGPT remains an open live gate.
