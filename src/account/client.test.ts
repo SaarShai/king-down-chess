@@ -4,7 +4,7 @@ import { connect } from './client';
 import { AUTH_KEY } from './session';
 
 const sdk = vi.hoisted(() => ({ auth: {
-  getSession: vi.fn(), onAuthStateChange: vi.fn(), signInWithOAuth: vi.fn(), exchangeCodeForSession: vi.fn(), signOut: vi.fn(),
+  getSession: vi.fn(), onAuthStateChange: vi.fn(), signInWithOAuth: vi.fn(), signInWithPassword: vi.fn(), exchangeCodeForSession: vi.fn(), signOut: vi.fn(),
 } }));
 const createClient = vi.hoisted(() => vi.fn((_url: string, _key: string, _options: unknown) => sdk));
 vi.mock('@supabase/supabase-js', () => ({ createClient }));
@@ -27,6 +27,21 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe('account identity client', () => {
+  it('allows password sign-in only for the fixed staging test account and requires a complete session', async () => {
+    await expect(connect(AUTH_KEY).signInTestAccount('fixture-password')).rejects.toThrow('only in staging');
+    expect(sdk.auth.signInWithPassword).not.toHaveBeenCalled();
+    vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging');
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://puhspsyjyzaghmgtkzqd.supabase.co');
+    const client = connect(AUTH_KEY);
+    sdk.auth.signInWithPassword.mockResolvedValueOnce({ data: { session: session('user-b', 'token-b') }, error: null });
+    expect(await client.signInTestAccount('fixture-password')).toEqual({ userId: 'user-b', accessToken: 'token-b' });
+    expect(sdk.auth.signInWithPassword).toHaveBeenCalledExactlyOnceWith({ email: 'privacy-check@kingdown.example', password: 'fixture-password' });
+    sdk.auth.signInWithPassword.mockResolvedValueOnce({ data: { session: null }, error: new Error('invalid credentials') });
+    await expect(client.signInTestAccount('wrong')).rejects.toThrow('invalid credentials');
+    sdk.auth.signInWithPassword.mockResolvedValueOnce({ data: { session: null }, error: null });
+    await expect(client.signInTestAccount('fixture-password')).rejects.toThrow('Sign-in did not finish');
+    expect(sdk.auth.getSession).not.toHaveBeenCalled();
+  });
   it('refuses missing public config before it creates an SDK client', () => {
     vi.stubEnv('VITE_SUPABASE_URL', '');
     expect(() => connect(AUTH_KEY)).toThrow('VITE_SUPABASE_URL');

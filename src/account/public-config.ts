@@ -10,3 +10,9 @@ export function publicAccountConfig(env: Record<string, unknown>): { url: string
   if (typeof publishableKey !== 'string' || !/^sb_publishable_[A-Za-z0-9_-]+$/.test(publishableKey)) throw new Error('VITE_SUPABASE_PUBLISHABLE_KEY must be a publishable key');
   return { url: url.origin, publishableKey };
 }
+
+/** The server's password allowlist remains the authority for this staging test account. */
+export function stagingTestEmail(env: Record<string, unknown>): string | null {
+  return env.VITE_KINGDOWN_STAGE === 'staging' && env.VITE_SUPABASE_URL === 'https://puhspsyjyzaghmgtkzqd.supabase.co'
+    ? 'privacy-check@kingdown.example' : null;
+}

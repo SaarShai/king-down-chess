@@ -1,4 +1,5 @@
 import { AUTH_KEY } from '../account/session';
+import { stagingTestEmail } from '../account/public-config';
 import { configureRuntime } from '../account-game/host';
 import { onlineClient } from './client';
 import { createBrowserRuntime } from './runtime';
@@ -10,7 +11,7 @@ import './page-host.css';
 
 document.title = 'King Down';
 document.body.replaceChildren();
-function message(words: string, providers: readonly ('google' | 'github')[] = [], retry = false) {
+function message(words: string, providers: readonly ('google' | 'github')[] = [], retry = false, testSignIn = false) {
   document.body.replaceChildren();
   const main = document.createElement('main'); main.className = 'account-entry';
   const title = document.createElement('h1'); title.textContent = 'King Down';
@@ -30,6 +31,33 @@ function message(words: string, providers: readonly ('google' | 'github')[] = []
   if (retry) {
     const button = document.createElement('button'); button.textContent = 'Try again'; button.onclick = () => location.reload(); main.append(button);
   }
+  const testEmail = testSignIn && stagingTestEmail(import.meta.env);
+  if (testEmail) {
+    const form = document.createElement('form'); form.className = 'staging-sign-in';
+    const heading = document.createElement('h2'); heading.textContent = 'Staging test account';
+    const emailLabel = document.createElement('label'); emailLabel.textContent = 'Email';
+    const email = document.createElement('input'); email.type = 'email'; email.name = 'username'; email.autocomplete = 'username'; email.value = testEmail; email.readOnly = true; emailLabel.append(email);
+    const passwordLabel = document.createElement('label'); passwordLabel.textContent = 'Password';
+    const password = document.createElement('input'); password.type = 'password'; password.name = 'password'; password.autocomplete = 'current-password'; password.required = true; passwordLabel.append(password);
+    const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = 'Sign in to test account';
+    let pending = false;
+    form.onsubmit = async event => {
+      event.preventDefault(); if (pending) return; pending = true;
+      main.querySelectorAll('button, input').forEach(control => { (control as HTMLInputElement).disabled = true; });
+      line.textContent = 'Signing in…';
+      const secret = password.value; password.value = '';
+      try {
+        await (await getClient()).signInTestAccount(secret);
+        const route = parseAccountRoute(new URL(location.href));
+        location.assign(route ? accountPath(route) : '/play/');
+      } catch {
+        line.textContent = 'Sign-in failed. Check the password and try again.';
+        main.querySelectorAll('button, input').forEach(control => { (control as HTMLInputElement).disabled = false; });
+        pending = false; password.focus();
+      }
+    };
+    form.append(heading, emailLabel, passwordLabel, submit); main.append(form);
+  }
   const local = document.createElement('a'); local.href = '/'; local.textContent = 'Play on this device'; main.append(local);
   document.body.append(main);
 }
@@ -41,8 +69,8 @@ async function signInMessage(words: string) {
   message('Checking sign-in options…');
   try {
     const providers = (await (await getClient()).providers()).filter(provider => provider !== 'facebook');
-    message(providers.length ? words : 'Sign-in is temporarily unavailable. Try again later.', providers, !providers.length);
-  } catch { message('Sign-in options could not load. Check your connection and try again.', [], true); }
+    message(providers.length ? words : 'Provider sign-in is temporarily unavailable. Try again later.', providers, !providers.length, true);
+  } catch { message('Sign-in options could not load. Check your connection and try again.', [], true, true); }
 }
 try {
   const access = await readWebAccountAccess();

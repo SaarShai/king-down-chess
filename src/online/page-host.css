@@ -11,3 +11,7 @@ body { height: auto; min-height: 100dvh; overflow: auto; }
 .account-entry { width: min(100% - 32px, 420px); margin: 12vh auto; display: grid; gap: 16px; }
 .account-entry h1, .account-entry p { margin: 0; }
 .account-entry a { text-align: center; }
+.staging-sign-in, .staging-sign-in label { display: grid; gap: 8px; }
+.staging-sign-in { border-top: 1px solid currentColor; padding-top: 16px; }
+.staging-sign-in h2 { margin: 0; font-size: 1rem; }
+.staging-sign-in input { width: 100%; min-height: 48px; }

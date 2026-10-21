@@ -23,7 +23,9 @@ const mechanics = process.argv[2] === 'mechanics';
 const recovery = process.argv[2] === 'recovery';
 const desktop = process.argv[2] === 'desktop';
 const discovery = process.argv[2] === 'discovery';
-assert(process.argv.length === (mechanics || recovery || desktop || discovery ? 3 : 2), 'Use web-game-check.mjs [mechanics|recovery|desktop|discovery]');
+const stagingLogin = process.argv[2] === 'staging-login';
+const accountOrigin = stagingLogin ? 'https://puhspsyjyzaghmgtkzqd.supabase.co' : 'https://web-proof.supabase.co';
+assert(process.argv.length === (mechanics || recovery || desktop || discovery || stagingLogin ? 3 : 2), 'Use web-game-check.mjs [mechanics|recovery|desktop|discovery|staging-login]');
 if (recovery) assert(process.env.KINGDOWN_WEB_RECOVERY_OUTPUT, 'Recovery consumers require an exact external KINGDOWN_WEB_RECOVERY_OUTPUT');
 const { fromFen } = await import('../src/rules/setup.ts');
 const { M, N, P, parseSq, typeOf } = await import('../src/rules/engine.ts');
@@ -38,8 +40,8 @@ let lostReplies = 0;
 try {
   // Use public fake settings only. The browser gets a real signed local session; no OAuth provider is contacted.
   await build({ logLevel: 'warn', define: {
-    'import.meta.env.VITE_KINGDOWN_STAGE': JSON.stringify(''),
-    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify('https://web-proof.supabase.co'),
+    'import.meta.env.VITE_KINGDOWN_STAGE': JSON.stringify(stagingLogin ? 'staging' : ''),
+    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(accountOrigin),
     'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify('sb_publishable_local_test'),
   }, build: { outDir: join(work, 'site'), emptyOutDir: true } });
   const root = await buildPluginServer(join(work, 'combined'), { site: join(work, 'site') });
@@ -55,10 +57,10 @@ try {
   const origin = `http://127.0.0.1:${server.address().port}`;
   const pair = await generateKeyPair('ES256');
   const websiteKeys = createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'local-web', alg: 'ES256' }] });
-  const tokens = await Promise.all(actors.map(sub => new SignJWT({ sub, iss: 'https://web-proof.supabase.co/auth/v1', aud: 'authenticated', role: 'authenticated', is_anonymous: false })
+  const tokens = await Promise.all(actors.map(sub => new SignJWT({ sub, iss: accountOrigin + '/auth/v1', aud: 'authenticated', role: 'authenticated', is_anonymous: false })
     .setProtectedHeader({ alg: 'ES256', kid: 'local-web' }).setExpirationTime('10m').sign(pair.privateKey)));
   const runtimeSettings = { NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString,
-    KINGDOWN_INTERNAL_SECRET: randomUUID(), SUPABASE_URL: 'https://web-proof.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_local_test', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: randomUUID() };
+    KINGDOWN_INTERNAL_SECRET: randomUUID(), SUPABASE_URL: accountOrigin, SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_local_test', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: randomUUID() };
   const runtimeOptions = { localDev: true, websiteKeys, websiteCurrentUser: async (token, actor) => { assert.equal(tokens[actors.indexOf(actor)], token); } };
   app = await configurePlugin(runtimeSettings, runtimeOptions);
   let rpcId = 0;
@@ -79,7 +81,10 @@ try {
     if (new URL(route.request().url()).origin !== origin) { failures.push('External request blocked'); return route.abort(); }
     return route.continue();
   });
-  if (discovery) {
+  if (stagingLogin) {
+    const { checkStagingLogin } = await import('./lib/staging-login-check.mjs');
+    await checkStagingLogin({ browser, origin, accountOrigin, actors, tokens, tool });
+  } else if (discovery) {
     const { checkAccountDiscovery } = await import('./lib/account-discovery-check.mjs');
     await checkAccountDiscovery({ browser, context, origin, actors, pool, tool });
     assert.deepEqual(failures, [], 'No external request');

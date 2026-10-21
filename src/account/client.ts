@@ -6,7 +6,7 @@
 import { createClient, type Session } from '@supabase/supabase-js';
 import type { Remote, Row } from './sync';
 import type { AccountSession } from './session';
-import { publicAccountConfig } from './public-config';
+import { publicAccountConfig, stagingTestEmail } from './public-config';
 import { availableProviders, type Provider } from './providers';
 
 export type { Provider } from './providers';
@@ -57,6 +57,15 @@ export function connect(storageKey: string, { manualCallback = false }: { manual
       if (error) throw error;
       const session = accountSession(data.session);
       if (!session) throw new TypeError('Sign-in did not finish');
+      return session;
+    },
+    async signInTestAccount(password: string): Promise<AccountSession> {
+      const email = stagingTestEmail(import.meta.env);
+      if (!email) throw new Error('Test sign-in is available only in staging');
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      const session = accountSession(data.session);
+      if (!session) throw new Error('Sign-in did not finish');
       return session;
     },
     async signIn(provider: Provider): Promise<void> {

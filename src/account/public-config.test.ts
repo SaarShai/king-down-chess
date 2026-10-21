@@ -1,6 +1,11 @@
 import { expect, it } from 'vitest';
-import { publicAccountConfig } from './public-config';
+import { publicAccountConfig, stagingTestEmail } from './public-config';
 const config = { VITE_SUPABASE_URL: 'https://puhspsyjyzaghmgtkzqd.supabase.co', VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test', VITE_KINGDOWN_STAGE: 'staging' };
+it('exposes the fixed test account only for the isolated staging build', () => {
+  expect(stagingTestEmail(config)).toBe('privacy-check@kingdown.example');
+  for (const VITE_KINGDOWN_STAGE of [undefined, '', 'production', 'preview']) expect(stagingTestEmail({ ...config, VITE_KINGDOWN_STAGE })).toBeNull();
+  for (const VITE_SUPABASE_URL of [undefined, '', 'https://other.supabase.co', 'https://utqzovjmclfyojedmwok.supabase.co']) expect(stagingTestEmail({ ...config, VITE_SUPABASE_URL })).toBeNull();
+});
 it('uses only explicit public settings for staging', () => {
   expect(publicAccountConfig(config)).toEqual({ url: config.VITE_SUPABASE_URL, publishableKey: config.VITE_SUPABASE_PUBLISHABLE_KEY });
 });

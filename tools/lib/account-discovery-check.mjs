@@ -44,6 +44,7 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     await titleLink.focus(); await page.keyboard.press('Enter');
     await page.getByRole('button', { name: 'Continue with GitHub', exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Continue with Google', exact: true }).count(), 0, 'Disabled Google is not offered');
+    assert.equal(await page.getByRole('button', { name: 'Sign in to test account', exact: true }).count(), 0, 'Non-staging builds do not offer password sign-in');
     assert.equal(new URL(page.url()).pathname, '/play/');
     assert.equal(await readSave(page), firstSave, 'Opening account play leaves the local save intact');
     assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.first-deal')), null, 'Account entry does not start the local first deal');

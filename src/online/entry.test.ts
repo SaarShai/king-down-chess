@@ -3,30 +3,36 @@ import { readWebAccountAccess } from './account-access';
 import { connect } from '../account/client';
 
 vi.mock('./account-access', () => ({ readWebAccountAccess: vi.fn() }));
-const { providers, startAccountSignIn } = vi.hoisted(() => ({ providers: vi.fn(), startAccountSignIn: vi.fn() }));
-vi.mock('../account/client', () => ({ connect: vi.fn(() => ({ readSession: vi.fn(async () => null), providers, startAccountSignIn })) }));
+const { providers, startAccountSignIn, signInTestAccount } = vi.hoisted(() => ({ providers: vi.fn(), startAccountSignIn: vi.fn(), signInTestAccount: vi.fn() }));
+vi.mock('../account/client', () => ({ connect: vi.fn(() => ({ readSession: vi.fn(async () => null), providers, startAccountSignIn, signInTestAccount })) }));
 
 class Element {
   children: Element[] = [];
   textContent = '';
   className = '';
   onclick?: () => void;
+  onsubmit?: (event: { preventDefault(): void }) => Promise<void>;
+  value = '';
+  disabled = false;
+  readOnly = false;
+  focus() {}
   constructor(readonly tag: string) {}
   append(...nodes: Element[]) { this.children.push(...nodes); }
   replaceChildren(...nodes: Element[]) { this.children = nodes; }
   setAttribute() {}
-  querySelectorAll(tag: string): Element[] { return this.children.flatMap(node => [...(node.tag === tag ? [node] : []), ...node.querySelectorAll(tag)]); }
+  querySelectorAll(tag: string): Element[] { return this.children.flatMap(node => [...(tag.split(', ').includes(node.tag) ? [node] : []), ...node.querySelectorAll(tag)]); }
 }
 let body: Element, reload: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   vi.resetModules(); vi.clearAllMocks();
+  vi.stubEnv('VITE_KINGDOWN_STAGE', '');
   providers.mockResolvedValue(['google', 'github']);
   body = new Element('body'); reload = vi.fn();
   vi.stubGlobal('document', { title: '', body, createElement: (tag: string) => new Element(tag) });
   vi.stubGlobal('location', { href: 'https://kingdown.test/play/', reload });
   vi.stubGlobal('history', {}); vi.stubGlobal('sessionStorage', {});
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 it('offers a fresh page retry after a failed cache/access check without starting sign-in', async () => {
   vi.mocked(readWebAccountAccess).mockResolvedValue({ enabled: false, expiresAt: 0 });
@@ -43,6 +49,40 @@ it('omits disabled providers and providers unsupported by account play', async (
   providers.mockResolvedValue(['github', 'facebook']);
   await import('./entry');
   expect(body.querySelectorAll('button').map(button => button.textContent)).toEqual(['Continue with GitHub']);
+  expect(body.querySelectorAll('a').map(link => link.textContent)).toEqual(['Play on this device']);
+  expect(body.querySelectorAll('form')).toHaveLength(0);
+});
+
+it('signs in the staging test account once, clears the password and returns to the current game', async () => {
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging');
+  vi.stubEnv('VITE_SUPABASE_URL', 'https://puhspsyjyzaghmgtkzqd.supabase.co');
+  vi.mocked(readWebAccountAccess).mockResolvedValue({ enabled: true, expiresAt: 5000 });
+  let finish!: () => void;
+  signInTestAccount.mockImplementation(() => new Promise<void>(resolve => { finish = resolve; }));
+  const assign = vi.fn(); vi.stubGlobal('location', { href: 'https://kingdown.test/g/02207813-587c-867d-99be-7d448c5e30b0', assign });
+  await import('./entry');
+  const form = body.querySelectorAll('form')[0], [email, password] = form.querySelectorAll('input');
+  expect(email.value).toBe('privacy-check@kingdown.example'); expect(email.readOnly).toBe(true);
+  password.value = 'fixture-password';
+  const attempt = form.onsubmit!({ preventDefault() {} });
+  await form.onsubmit!({ preventDefault() {} });
+  expect(password.value).toBe(''); expect(password.disabled).toBe(true);
+  expect(signInTestAccount).toHaveBeenCalledExactlyOnceWith('fixture-password');
+  finish(); await attempt;
+  expect(assign).toHaveBeenCalledExactlyOnceWith('/g/02207813-587c-867d-99be-7d448c5e30b0');
+});
+
+it('keeps staging password sign-in usable after a failed attempt without showing upstream details', async () => {
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging');
+  vi.stubEnv('VITE_SUPABASE_URL', 'https://puhspsyjyzaghmgtkzqd.supabase.co');
+  vi.mocked(readWebAccountAccess).mockResolvedValue({ enabled: true, expiresAt: 5000 });
+  providers.mockRejectedValue(new Error('private provider detail'));
+  signInTestAccount.mockRejectedValue(new Error('private auth detail'));
+  await import('./entry');
+  const form = body.querySelectorAll('form')[0], password = form.querySelectorAll('input')[1];
+  password.value = 'fixture-password'; await form.onsubmit!({ preventDefault() {} });
+  expect(password.value).toBe(''); expect(password.disabled).toBe(false);
+  expect(body.querySelectorAll('p')[0].textContent).toBe('Sign-in failed. Check the password and try again.');
   expect(body.querySelectorAll('a').map(link => link.textContent)).toEqual(['Play on this device']);
 });
 
