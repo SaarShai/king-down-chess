@@ -217,7 +217,12 @@ export function boardScreen(store: Store) {
       if (name) { const image = document.createElement('img'); image.className = 'pi'; image.alt = ''; image.src = symbols[`../../public/ui/icons/${name}.svg`][colorOf(code)]; nodes.push(image); }
     }
     const words = document.createElement('span'); words.textContent = lastMove?.words ?? `Move ${moveNumber(pos)}.`; nodes.push(words); $('last-move').replaceChildren(...nodes);
-    $('recent-moves').replaceChildren(...history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)));
+    $('recent-moves').replaceChildren(...moveRows());
+    if (movesOpen()) {
+      const body = sheet.querySelector('.sheet-body')!, scroll = body.scrollTop;
+      body.replaceChildren(...moveRows());
+      body.scrollTop = scroll;
+    }
     fitMoves();
     $('short-move-words').textContent = lastMove ? shortMove(lastMove.pre, lastMove.move, type => gameRules.nameOf(type)) : `Move ${moveNumber(pos)}.`;
   }
@@ -560,7 +565,9 @@ export function boardScreen(store: Store) {
     if (policy) { policy.id = 'game-policy'; sheet.querySelector('.sheet-head')!.insertBefore(policy, sheet.querySelector('[aria-label="Close"]')); }
     sheet.classList.add('board-menu');
   };
-  function showMoves() { boardSheet('Moves', ...history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`))); $('moves-line').setAttribute('aria-expanded', 'true'); }
+  function moveRows() { return history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)); }
+  function movesOpen() { return !!sheet?.open && sheet.querySelector('h2')?.textContent === 'Moves'; }
+  function showMoves() { boardSheet('Moves', ...moveRows()); $('moves-line').setAttribute('aria-expanded', 'true'); }
   let movesChoice: boolean | undefined;
   let bandFits = false;
   const recentMoves = $('recent-moves');
@@ -569,7 +576,7 @@ export function boardScreen(store: Store) {
     bandFits = matchMedia('(max-width: 899px) and (orientation: portrait)').matches && line.height > 0 && band.height >= 108;
     const open = active() && bandFits && (movesChoice ?? history.length > 0);
     recentMoves.hidden = !open;
-    $('moves-line').setAttribute('aria-expanded', String(open || !!sheet?.open && sheet.querySelector('h2')?.textContent === 'Moves'));
+    $('moves-line').setAttribute('aria-expanded', String(open || movesOpen()));
     if (open) recentMoves.scrollTop = recentMoves.scrollHeight;
   }
   const movesObserver = new ResizeObserver(fitMoves); movesObserver.observe($('moves-band'));
@@ -624,7 +631,8 @@ export function boardScreen(store: Store) {
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
     const local = steps; steps = []; if (local.length) lastMove = history.at(-1);
     armed = undefined; armedCard = undefined; selected = inspected = held = undefined;
-    if (!(same && next.status === 'finished' && client.state.screen === 'end' && !$<HTMLDialogElement>('over').open)) closeBoardSheet();
+    const keepMoves = same && next.status === 'playing' && movesOpen();
+    if (!keepMoves && !(same && next.status === 'finished' && client.state.screen === 'end' && !$<HTMLDialogElement>('over').open)) closeBoardSheet();
     choices([]);
     mountTable();
     $('game-table').dataset.empty = String(!next.fen || next.status === 'setup');

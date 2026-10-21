@@ -2355,6 +2355,47 @@ it.each([390, 1280])('A18: keeps an empty named moves list with no words at %i p
 });
 
 
+it.each([390, 1280])('live Moves: keeps reading position and focus across a remote turn at %i px', async width => {
+  const initial_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  const actions = 'a2-a3 a7-a6 b2-b3 b7-b6 c2-c3 c7-c6 d2-d3 d7-d6 e2-e3 e7-e6 f2-f3 f7-f6 g2-g3 g7-g6 h2-h3 h7-h6 a3-a4 a6-a5 b3-b4 b6-b5'.split(' ');
+  for (let i = 0; i < 5; i++) actions.push('Nb1-a3', 'Nb8-a6', 'Na3-b1', 'Na6-b8');
+  const game = view(initial_fen, {}, { kind: 'friend', seat: 0 });
+  let pos = fromFen(initial_fen);
+  for (const lan of actions) { const step = applyLan(pos, lan, game.rules!); expect(step).toBeDefined(); pos = step!.pos; }
+  const current = view(toFen(pos), game.rules!, { ...game, fen: toFen(pos), revision: actions.length, history: { initial_fen, actions } });
+  const page = await open(current, width, width === 390 ? 844 : 800), frame = page.frameLocator('iframe');
+  try {
+    const sheet = frame.locator('#board-sheet');
+    const show = async () => { await frame.locator('#board-menu').click(); await frame.getByRole('button', { name: 'Moves', exact: true }).click(); };
+    const route = (next: View) => frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), next);
+    await show();
+    const close = await sheet.getByRole('button', { name: 'Close', exact: true }).elementHandle();
+    expect(close).not.toBeNull(); await close!.focus();
+    const scroll = await sheet.locator('.sheet-body').evaluate(el => { el.scrollTop = 100; return el.scrollTop; });
+    expect(scroll).toBeGreaterThan(0);
+    const step = applyLan(pos, 'c3-c4', game.rules!); expect(step).toBeDefined();
+    const next = { ...current, revision: current.revision + 1, fen: toFen(step!.pos), turn: step!.pos.turn, history: { initial_fen, actions: [...actions, 'c3-c4'] } };
+    await route(next);
+    expect(await frame.getByRole('dialog', { name: 'Moves', exact: true }).isVisible()).toBe(true);
+    expect(await sheet.locator('.sheet-body p').count()).toBe(actions.length + 1);
+    expect(await sheet.locator('.sheet-body p').allTextContents()).toEqual(await frame.locator('#recent-moves p').allTextContents());
+    expect(await close!.evaluate(el => el.isConnected && el === document.activeElement)).toBe(true);
+    expect(await sheet.locator('.sheet-body').evaluate(el => el.scrollTop)).toBe(scroll);
+    await close!.click(); await close!.dispose();
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('#board-menu').click();
+    await route({ ...next, revision: next.revision + 1 });
+    expect(await sheet.isVisible()).toBe(false);
+    await show();
+    const other = { ...next, game_id: crypto.randomUUID() };
+    await route(other);
+    expect(await sheet.isVisible()).toBe(false);
+    await show();
+    await route({ ...other, revision: other.revision + 1, status: 'finished', result: { winner: 1, reason: 'resign' } });
+    expect(await sheet.isVisible()).toBe(false);
+  } finally { await page.close(); }
+});
+
 it.each([false, true])('Y3: shows only the king and power in the seat strip (ready %s)', async ready => {
   const page = await open(view('', {}, { status: 'setup', options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true, cards: false },
     draw: 'RNBQKBNR', deal: [], ready: [ready, false], choices: [{ king: { king: 'Spirit', power: 'Mercy' }, order: 'RNBQKBNR' }, null] })), frame = page.frameLocator('iframe');
