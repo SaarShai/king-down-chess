@@ -4,6 +4,7 @@ import { createServer, request, type Server } from 'node:http';
 import { once } from 'node:events';
 import { createLocalJWKSet, errors, exportJWK, generateKeyPair, SignJWT, type JWTPayload } from 'jose';
 import { DEFAULT_OPTIONS } from '../match/setup';
+import { createArguments, readSetup } from '../plugin/screens/setup-model';
 import { MatchServiceError } from '../match/service';
 import { AuthenticationError, AuthenticationUnavailable } from '../plugin/auth';
 import { createApiHandler, createInternalHandler, MAX_ACTIVE_ENGINE, MAX_API_BODY, sessionVerifier, type ApiOptions } from './http';
@@ -331,13 +332,29 @@ describe('website API boundary', () => {
  it('routes Find, Accept, Cancel and lobby through game service and start quota', async () => {
   const token = await sign(), body = { options: DEFAULT_OPTIONS, colour: 'random', any_rules: true, command_id: commandId.replaceAll('-', '') };
   expect((await call('/api/games/find', { token, method: 'POST', body })).status).toBe(200);
-  expect(games.find).toHaveBeenCalledWith(alice, DEFAULT_OPTIONS, 'random', body.command_id, true); expect(players.toolTry).toHaveBeenCalledWith(alice, 'kingdown_create');
+  expect(games.find).toHaveBeenCalledWith(alice, DEFAULT_OPTIONS, 'random', body.command_id, true, undefined); expect(players.toolTry).toHaveBeenCalledWith(alice, 'kingdown_create');
   for (const operation of ['accept', 'cancel']) {
    expect((await call(`/api/games/${gameId}/${operation}`, { token, method: 'POST', body: {} })).status).toBe(200);
-   expect(games[operation]).toHaveBeenCalledWith(alice, gameId);
+   expect(games[operation]).toHaveBeenCalledWith(alice, gameId, ...(operation === 'accept' ? [undefined] : []));
    expect((await call(`/api/games/${gameId}/${operation}`, { token, method: 'POST', body: { actor: alice } })).status).toBe(400);
   }
   expect(await (await call('/api/lobby', { token })).json()).toEqual({ games: [], server_now: expect.any(String) });
+ });
+ it('forwards Ranked without saved custom options and admits only declared acceptance policies', async () => {
+  const token = await sign();
+  expect((await call('/api/games/find', { token, method:'POST', body:{ mode:'ranked',command_id:commandId } })).status).toBe(200);
+  expect(games.find).toHaveBeenCalledExactlyOnceWith(alice,undefined,undefined,commandId,undefined,'ranked');
+  const setup=createArguments(readSetup({kind:'random',mode:'ranked'}));
+  expect((await call('/api/games/find',{token,method:'POST',body:{...setup,command_id:commandId}})).status).toBe(200);
+  expect(games.find).toHaveBeenLastCalledWith(alice,setup.options,'random',commandId,undefined,'ranked');
+  for (const rating_policy of ['legacy','casual','ranked-v1']) {
+   expect((await call(`/api/games/${gameId}/accept`, { token,method:'POST',body:{rating_policy} })).status).toBe(200);
+   expect(games.accept).toHaveBeenLastCalledWith(alice,gameId,rating_policy);
+  }
+  games.find.mockClear(); games.accept.mockClear();
+  for (const mode of ['ranked-v1',null,{},true]) expect((await call('/api/games/find',{token,method:'POST',body:{mode,command_id:commandId}})).status).toBe(400);
+  for (const rating_policy of ['ranked',null,{},true]) expect((await call(`/api/games/${gameId}/accept`,{token,method:'POST',body:{rating_policy}})).status).toBe(400);
+  expect(games.find).not.toHaveBeenCalled(); expect(games.accept).not.toHaveBeenCalled();
  });
  it('shares computer and report quotas and fails closed without the account service', async () => {
   const token = await sign();

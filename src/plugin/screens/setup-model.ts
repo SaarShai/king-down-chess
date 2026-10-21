@@ -55,7 +55,7 @@ export function withCard(state: SetupState, card: CardName, on: boolean, pickFou
 }
 export function createArguments(state: SetupState) {
   const setup = withMode(state, state.mode);
-  return { mode: setup.mode, options: setupOptions(setup.options), colour: setup.colour, ...(setup.mode === 'ranked' ? { days_per_move: 3 as const } : {}), ...(state.kind === 'solo' ? { level: state.level } : {}) };
+  return { mode: setup.mode, options: setupOptions(setup.options), colour: setup.colour, ...(state.kind === 'solo' ? { level: state.level } : {}) };
 }
 const defaultKing = (colour: SetupState['colour']): KingChoice => colour === 'black' ? { king: 'Shadow', power: 'Darkness' } : { king: 'Spirit', power: 'Mercy' };
 export const availablePowers = (o: Options, king: KingName, admission?: SetupAdmission) => admission ? admission.kings.filter(pick => pick.king === king).map(pick => pick.power) : KINGS[king].filter(power => !o.cards || ALWAYS_ON.includes(power));

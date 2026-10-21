@@ -76,7 +76,8 @@ type Route = (actor: string, id: string, body: unknown, query: URLSearchParams) 
 export type InviteLink = Invite & { url: string };
 const emptySchema = z.strictObject({}).optional();
 const startSchema = createSchema.safeExtend({ command_id: commandSchema.shape.command_id });
-const findSchema = z.strictObject({ options: optionsSchema, colour: z.enum(['white', 'black', 'random']).optional(), any_rules: z.boolean().optional(), command_id: commandSchema.shape.command_id });
+const findSchema = z.strictObject({ options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), mode: createSchema.shape.mode, any_rules: z.boolean().optional(), command_id: commandSchema.shape.command_id });
+const acceptSchema = z.strictObject({ rating_policy: z.enum(['legacy', 'casual', 'ranked-v1']).optional() }).optional();
 const recordSchema = z.strictObject({ before: z.string().max(100).optional(), blocks_after: z.uuid().optional(), notices_before: noticesBeforeSchema.optional() });
 const blockTarget = { game_id: z.uuid().optional(), user_id: z.uuid().optional() };
 const blockReadSchema = z.strictObject(blockTarget).refine(target => Number(target.game_id !== undefined) + Number(target.user_id !== undefined) === 1);
@@ -126,8 +127,8 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
   },
   // A friend game comes with its invitation (part 03, section 4.4); a lost link gets a new one from /invite.
   'POST /api/games': async (actor, _, body) => { const { command_id, ...options } = parse(startSchema, body); await playerService().toolTry(actor, 'kingdown_create'); const view = await games.create(actor, options, command_id); return { view, ...(view.kind === 'friend' && view.status === 'waiting' && { invite: await link(actor, view.game_id) }) }; },
-  'POST /api/games/find': async (actor, _, body) => { const input = parse(findSchema, body); await playerService().toolTry(actor, 'kingdown_create'); return games.find(actor, input.options, input.colour, input.command_id, input.any_rules); },
-  'POST /api/games/:id/accept': (actor, id, body) => { parse(emptySchema, body); return games.accept(actor, id); },
+  'POST /api/games/find': async (actor, _, body) => { const input = parse(findSchema, body); await playerService().toolTry(actor, 'kingdown_create'); return games.find(actor, input.options, input.colour, input.command_id, input.any_rules, input.mode); },
+  'POST /api/games/:id/accept': (actor, id, body) => games.accept(actor, id, parse(acceptSchema, body)?.rating_policy),
   'POST /api/games/:id/cancel': (actor, id, body) => { parse(emptySchema, body); return games.cancel(actor, id); },
   'GET /api/lobby': async actor => ({ ...await games.lobby(actor), server_now: new Date().toISOString() }),
   'GET /api/games/:id': (actor, id, _, query) => {

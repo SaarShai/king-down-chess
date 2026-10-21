@@ -3,6 +3,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { REPORT_CATEGORIES } from '../account/profile';
 import { DEFAULT_OPTIONS } from '../match/setup';
+import { createArguments, readSetup } from './screens/setup-model';
 import { ART_ORIGIN, createPluginServer } from './server';
 import { MatchServiceError } from '../match/service';
 
@@ -263,8 +264,33 @@ it('sends any rules from Create and Find to matchmaking, and says that the colou
   for (const name of ['kingdown_create','kingdown_find']) expect(tools.find(t=>t.name === name)!.inputSchema.properties!.any_rules).toMatchObject({type:'boolean'});
   await client.callTool({name:'kingdown_create',arguments:{kind:'random',options:DEFAULT_OPTIONS,any_rules:true,command_id:'c1'}});
   await client.callTool({name:'kingdown_find',arguments:{options:DEFAULT_OPTIONS,colour:'black'}});
-  expect(find.mock.calls).toEqual([['alice',DEFAULT_OPTIONS,undefined,'c1',true],['alice',DEFAULT_OPTIONS,'black',undefined,undefined]]);
+  expect(find.mock.calls).toEqual([['alice',DEFAULT_OPTIONS,undefined,'c1',true,undefined],['alice',DEFAULT_OPTIONS,'black',undefined,undefined,undefined]]);
  } finally {await client.close(); await server.close();}
+});
+
+it('keeps Ranked creation independent of saved Casual setup and carries deliberate acceptance through MCP', async () => {
+ const game_id='00000000-0000-4000-8000-000000000001';
+ const view={game_id,status:'waiting',rating_policy:'ranked-v1',seat:0,action:'waiting',fen:'private position',legal:['private move']};
+ const find=vi.fn().mockResolvedValue(view), accept=vi.fn().mockResolvedValue(view), settings=vi.fn();
+ const service={toolTry:async()=>{},find,accept,settings,profile:async()=>({handle:'ann',icon:null})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server=createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client=new Client({name:'ranked-host',version:'1'}),[a,b]=InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const created=await client.callTool({name:'kingdown_create',arguments:{kind:'random',mode:'ranked',command_id:'ranked-once'}});
+  expect(created.isError).not.toBe(true); expect(settings).not.toHaveBeenCalled();
+  expect(find).toHaveBeenCalledExactlyOnceWith('alice',undefined,undefined,'ranked-once',undefined,'ranked');
+  const setup=createArguments(readSetup({kind:'random',mode:'ranked'}));
+  expect((await client.callTool({name:'kingdown_find',arguments:{...setup,command_id:'ranked-ui'}})).isError).not.toBe(true);
+  expect(find).toHaveBeenLastCalledWith('alice',setup.options,'random','ranked-ui',undefined,'ranked');
+  expect(created.structuredContent).toMatchObject({game_id,rating_policy:'ranked-v1'});
+  expect(created.structuredContent).not.toHaveProperty('fen'); expect(created.structuredContent).not.toHaveProperty('legal');
+  expect((await client.callTool({name:'kingdown_accept',arguments:{game_id,rating_policy:'ranked-v1'}})).isError).not.toBe(true);
+  expect(accept).toHaveBeenCalledExactlyOnceWith('alice',game_id,'ranked-v1');
+  accept.mockClear();
+  expect((await client.callTool({name:'kingdown_accept',arguments:{game_id,rating_policy:'ranked'}})).isError).toBe(true);
+  expect(accept).not.toHaveBeenCalled();
+ } finally {await client.close();await server.close();}
 });
 
 

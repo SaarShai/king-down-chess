@@ -61,6 +61,19 @@ it('uses one stable creation ID and keeps the HTTP game selection local to this 
   expect(saved.records.size).toBe(0);
 });
 
+it('preserves Ranked Find after a lost reply and forwards the displayed acceptance policy', async () => {
+  const saved=storage(), args={mode:'ranked',command_id:'ranked-once'}, find=vi.fn(async()=>{throw new TypeError('Lost reply');});
+  const accept=vi.fn(async()=>view), api={find,accept} as unknown as OnlineClient;
+  await expect(createWebTransport(api,'a',saved).call('kingdown_find',args,{})).rejects.toThrow('Lost reply');
+  const reloaded=createWebTransport(api,'a',saved);
+  expect(reloaded.pending()).toEqual({name:'kingdown_find',args});
+  find.mockImplementationOnce(async()=>view as never);
+  await reloaded.call(reloaded.pending()!.name,reloaded.pending()!.args,{});
+  expect(find.mock.calls).toEqual([[args],[args]]); expect(saved.records.size).toBe(0);
+  await reloaded.call('kingdown_accept',{game_id:view.game_id,rating_policy:'ranked-v1'},{});
+  expect(accept).toHaveBeenCalledExactlyOnceWith(view.game_id,'ranked-v1');
+});
+
 
 it('restores the saved setup continuation with the durable creation receipt', async () => {
   const saved = storage(), creation = { kind: 'friend', command_id: 'create-once' };

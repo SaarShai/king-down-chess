@@ -1,7 +1,7 @@
 import type { AccountGameHost, GameTransport } from '../account-game/host';
 import type { PageState, WidgetHost } from '../plugin/client';
 import type { ToolResult } from '../plugin/queue';
-import type { Action, CreateOptions, DraftInput, View } from '../match/protocol';
+import type { Action, CreateOptions, DraftInput, RatingPolicy, View } from '../match/protocol';
 import type { Icon } from '../account/profile';
 import type { PlayerSettings } from '../plugin/settings';
 import { OnlineError, type OnlineClient } from './client';
@@ -58,7 +58,7 @@ export function createWebTransport(api: OnlineClient, userId: string, storage: P
         case 'kingdown_seen': await api.seen(game); reply = result(); break;
         case 'kingdown_lobby': reply = result({ lobby: await api.lobby() }); break;
         case 'kingdown_find': { const { board_id: _, ...input } = args; reply = gameResult(await api.find(input)); break; }
-        case 'kingdown_accept': reply = gameResult(await api.accept(game)); break;
+        case 'kingdown_accept': reply = gameResult(await api.accept(game, args.rating_policy as RatingPolicy | undefined)); break;
         case 'kingdown_cancel': reply = gameResult(await api.cancel(game)); break;
         case 'kingdown_block': { const value = await api.block(args); reply = value.view ? gameResult(value.view) : result(); reply._meta = { ...reply._meta, blocked: value.blocked }; reply.content = text(value.blocked ? 'Player blocked. Your current game continues.' : 'Player unblocked. Follows stay off.'); break; }
         case 'kingdown_report': reply = result(await api.report(args as Parameters<OnlineClient['report']>[0])); break;

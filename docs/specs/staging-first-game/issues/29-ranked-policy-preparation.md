@@ -1,6 +1,6 @@
 # Prepare the first ranked-policy decision
 
-Status: proposal prepared; owner decision and U09 gates remain open. Parent: U10. No ranked activation or production release.
+Status: owner approves the proposed policy; staging implementation starts in ticket 30. Parent: U10. Public activation still requires U09; production remains unauthorized.
 
 ## Plan and verification
 
@@ -19,4 +19,4 @@ The parent `docs/specs/unified-blueprint/ranked-policy-proposal.md` records a co
 
 After owner selection, the smallest implementation is one immutable policy value through creation, exact-policy matching, shared view and result eligibility. Reuse the algorithm, transaction, receipts and screens. No policy framework, second ladder, reset, new clock or host fork is proposed. Source inspection supplies these findings; no new test run or product change is claimed.
 
-Independent read review finds no should-fix in the proposal's facts, scope or preservation rules. The combined documentation check passes 161 tests in 13 files. The owner decision remains pending; no selection is inferred from elapsed time.
+Independent read review finds no should-fix in the proposal's facts, scope or preservation rules. The combined documentation check passes 161 tests in 13 files. The owner answers “Use this policy (recommended)” to the complete policy question. That approves implementation in staging, including the described family, guidance rule and rating transition.

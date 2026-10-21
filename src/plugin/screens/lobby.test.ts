@@ -31,7 +31,7 @@ it.each(['casual', 'ranked'] as const)('does not reuse an open game from another
   harness.nodes.get('find-any-rules').checked = true;
   await harness.nodes.get('find-opponent').onclick();
   expect(harness.call).not.toHaveBeenCalled();
-  expect(harness.start).toHaveBeenCalledWith('random', expect.objectContaining({ mode, ...(mode === 'ranked' ? { colour: 'random', days_per_move: 3 } : { any_rules: true }) }));
+  expect(harness.start).toHaveBeenCalledWith('random', expect.objectContaining({ mode, ...(mode === 'ranked' ? { colour: 'random' } : { any_rules: true }) }));
 });
 it.each(['casual', 'ranked'] as const)('resumes an own waiting game only within %s', async mode => {
   harness.mode = mode; harness.memory.view = waiting(mode === 'casual' ? 'casual' : 'ranked-v1');

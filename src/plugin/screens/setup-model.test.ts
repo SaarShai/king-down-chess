@@ -99,7 +99,7 @@ it('fixes Ranked options before saving and sending, and limits it to random play
   const ranked = withMode(custom, 'ranked');
   expect(ranked).toMatchObject({ mode: 'ranked', colour: 'random', options: RANKED_OPTIONS, king: { king: 'Mud', power: 'March' } });
   expect(readSetup({ ...custom, mode: 'ranked' })).toEqual(ranked);
-  expect(createArguments({ ...custom, mode: 'ranked' })).toEqual({ mode: 'ranked', colour: 'random', options: RANKED_OPTIONS, days_per_move: 3 });
+  expect(createArguments({ ...custom, mode: 'ranked' })).toEqual({ mode: 'ranked', colour: 'random', options: RANKED_OPTIONS });
   for (const kind of ['solo', 'friend'] as const) expect(withMode({ ...ranked, kind }, 'ranked').mode).toBe('casual');
   expect(quickSetup(ranked)).toMatchObject({ kind: 'solo', mode: 'casual', level: 'beginner' });
   expect(gameSetup({ kind: 'random', rating_policy: 'ranked-v1', options: RANKED_OPTIONS, seat: 0 } as View).mode).toBe('casual');

@@ -4,7 +4,7 @@
  * bundle gets no zod and no server code.
  */
 import type { AccountNotices, MyProfile, NotifyKind, ReportCategory, Settings } from '../account/profile';
-import type { Action, CreateOptions, DraftInput, DraftPreview, ErrorCode, InboxEntry, Preset, Reply, View, JoinPreview, HistoryEntry, PlayerRecord } from '../match/protocol';
+import type { Action, CreateOptions, DraftInput, DraftPreview, ErrorCode, InboxEntry, Lobby, Preset, RatingPolicy, Reply, View, JoinPreview, HistoryEntry, PlayerRecord } from '../match/protocol';
 import type { PlayerSettings } from '../plugin/settings';
 import type { Icon } from '../account/profile';
 import type { InviteLink } from '../api/http';
@@ -55,9 +55,9 @@ export function onlineClient({ token, origin = '', fetch: send = (...args) => fe
     settings: (changes?: Partial<PlayerSettings>) => call<{ settings: PlayerSettings; me: { handle: string | null; icon: Icon | null } }>(changes && Object.keys(changes).length ? 'PATCH' : 'GET', '/api/me/settings', changes && Object.keys(changes).length ? changes : undefined),
     handle: (input: { handle: string; icon?: Icon; check?: boolean }) => call<{ me: { handle: string | null; icon: Icon | null }; available?: boolean }>('POST', '/api/me/handle', input),
     record: (cursor: { before?: string; blocks_after?: string; notices_before?: string } = {}) => call<{ handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null } & AccountNotices>('GET', '/api/me/record' + (Object.keys(cursor).length ? '?' + new URLSearchParams(cursor) : '')),
-    lobby: () => call<{ games: InboxEntry[]; server_now: string }>('GET', '/api/lobby'),
+    lobby: () => call<Lobby & { server_now: string }>('GET', '/api/lobby'),
     find: (input: Record<string, unknown>) => call<View>('POST', '/api/games/find', input),
-    accept: (gameId: string) => call<View>('POST', `/api/games/${encodeURIComponent(gameId)}/accept`, {}),
+    accept: (gameId: string, rating_policy?: RatingPolicy) => call<View>('POST', `/api/games/${encodeURIComponent(gameId)}/accept`, { ...(rating_policy && { rating_policy }) }),
     cancel: (gameId: string) => call<View>('POST', `/api/games/${encodeURIComponent(gameId)}/cancel`, {}),
     block: (input: { game_id?: string; user_id?: string; blocked?: boolean }) => call<{ blocked: boolean; view?: View }>('POST', '/api/blocks', input),
     /** The full view (with the rules), or the commands after `since`. */
