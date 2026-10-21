@@ -3,7 +3,8 @@ import { readWebAccountAccess } from './account-access';
 import { connect } from '../account/client';
 
 vi.mock('./account-access', () => ({ readWebAccountAccess: vi.fn() }));
-vi.mock('../account/client', () => ({ connect: vi.fn(() => ({ readSession: vi.fn(async () => null) })) }));
+const providers = vi.hoisted(() => vi.fn());
+vi.mock('../account/client', () => ({ connect: vi.fn(() => ({ readSession: vi.fn(async () => null), providers })) }));
 
 class Element {
   children: Element[] = [];
@@ -19,6 +20,7 @@ class Element {
 let body: Element, reload: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   vi.resetModules(); vi.clearAllMocks();
+  providers.mockResolvedValue(['google', 'github']);
   body = new Element('body'); reload = vi.fn();
   vi.stubGlobal('document', { title: '', body, createElement: (tag: string) => new Element(tag) });
   vi.stubGlobal('location', { href: 'https://kingdown.test/play/', reload });
@@ -32,7 +34,25 @@ it('offers a fresh page retry after a failed cache/access check without starting
   const buttons = body.querySelectorAll('button');
   expect(buttons.map(button => button.textContent)).toEqual(['Try again']);
   expect(connect).not.toHaveBeenCalled();
+  expect(providers).not.toHaveBeenCalled();
   buttons[0].onclick!(); expect(reload).toHaveBeenCalledOnce();
+});
+
+it('omits disabled providers and providers unsupported by account play', async () => {
+  vi.mocked(readWebAccountAccess).mockResolvedValue({ enabled: true, expiresAt: 5000 });
+  providers.mockResolvedValue(['github', 'facebook']);
+  await import('./entry');
+  expect(body.querySelectorAll('button').map(button => button.textContent)).toEqual(['Continue with GitHub']);
+  expect(body.querySelectorAll('a').map(link => link.textContent)).toEqual(['Play on this device']);
+});
+
+it.each(['empty', 'failed'])('keeps retry and local play available when provider settings are %s', async fault => {
+  vi.mocked(readWebAccountAccess).mockResolvedValue({ enabled: true, expiresAt: 5000 });
+  if (fault === 'empty') providers.mockResolvedValue([]); else providers.mockRejectedValue(new Error('private upstream detail'));
+  await import('./entry');
+  expect(body.querySelectorAll('button').map(button => button.textContent)).toEqual(['Try again']);
+  expect(body.querySelectorAll('a').map(link => link.textContent)).toEqual(['Play on this device']);
+  expect(body.querySelectorAll('p').map(p => p.textContent).join(' ')).not.toContain('private upstream');
 });
 
 it('shows provider buttons after a fresh access proof succeeds', async () => {

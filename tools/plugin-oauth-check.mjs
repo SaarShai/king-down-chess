@@ -6,7 +6,7 @@ import { once } from 'node:events';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
-import { assertNoErrors, launch, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, launch, shot, trapErrors } from './lib/checks.mjs';
 import pg from 'pg';
 const root = resolve(process.argv[2] || 'plugin-server-dist');
 const clientId = '11111111-1111-4111-8111-111111111111', actor = '22222222-2222-4222-8222-222222222222', authorizationId = '33333333-3333-4333-8333-333333333333';
@@ -19,11 +19,33 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 try {
   browser = await launch();
+  const choices = await browser.newPage(); trapErrors(choices);
+  let providerSettings = { external: null }, settingsReads = 0;
+  await choices.route('https://project.supabase.co/**', route => {
+    assert.equal(new URL(route.request().url()).pathname, '/auth/v1/settings', 'Provider discovery does not start authorization');
+    assert.equal(route.request().headers().apikey, config.publishableKey);
+    settingsReads++;
+    return route.fulfill({ json: providerSettings });
+  });
+  await choices.goto(`${origin}/authorize?authorization_id=${authorizationId}`);
+  await choices.getByRole('button', { name: 'Try again', exact: true }).waitFor();
+  assert.equal(await choices.locator('[data-provider]:visible').count(), 0, 'A failed provider response offers no social provider');
+  await choices.locator('#password-signin summary').click();
+  assert(await choices.locator('#password-form button').isEnabled(), 'The review password path remains available after a settings failure');
+  providerSettings = { external: { github: true, google: false, facebook: true } };
+  await choices.getByRole('button', { name: 'Try again', exact: true }).click();
+  await choices.getByRole('button', { name: 'Continue with GitHub', exact: true }).waitFor();
+  assert.equal(await choices.getByRole('button', { name: 'Continue with Google', exact: true }).isVisible(), false);
+  assert.equal(await choices.locator('[data-provider]:visible').count(), 1, 'Only a supported enabled provider is offered');
+  assert.equal(settingsReads, 2, 'Retry makes a new public settings read');
+  await shot(choices, 'consent-available-providers');
+  await choices.close();
   const signin = await browser.newPage(); trapErrors(signin);
   let signInUrl, exchange;
   await signin.route('https://project.supabase.co/**', async route => {
     const url = new URL(route.request().url());
-    if (url.pathname.endsWith('/authorize')) { signInUrl = url; await route.fulfill({ status: 200, contentType: 'text/html', body: 'Mock social-provider redirect' }); }
+    if (url.pathname.endsWith('/settings')) await route.fulfill({ json: { external: { google: true, github: true } } });
+    else if (url.pathname.endsWith('/authorize')) { signInUrl = url; await route.fulfill({ status: 200, contentType: 'text/html', body: 'Mock social-provider redirect' }); }
     else if (url.pathname.endsWith('/token')) {
       exchange = route.request().postDataJSON();
       const now = Math.floor(Date.now() / 1000);

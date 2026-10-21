@@ -7,8 +7,9 @@ import { createClient, type Session } from '@supabase/supabase-js';
 import type { Remote, Row } from './sync';
 import type { AccountSession } from './session';
 import { publicAccountConfig } from './public-config';
+import { availableProviders, type Provider } from './providers';
 
-export type Provider = 'google' | 'github' | 'facebook';
+export type { Provider } from './providers';
 
 const flowIdValid = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(value);
 function accountSession(session: Session | null): AccountSession | null {
@@ -30,6 +31,7 @@ export function connect(storageKey: string, { manualCallback = false }: { manual
     if (error) for (const k of [storageKey, `${storageKey}-code-verifier`]) localStorage.removeItem(k);
   };
   return {
+    providers: () => availableProviders(url, publishableKey),
     /** Called with the session now and on every change (null when signed out). */
     onSession(cb: (s: Session | null) => void): () => void {
       let active = true;

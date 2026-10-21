@@ -1,6 +1,7 @@
 /** Standalone consent UI; the signed-in Supabase SDK performs authorization, not the MCP bearer. */
 import { createClient } from '@supabase/supabase-js';
 import type { ConsentConfig } from './consent-config';
+import { availableProviders } from '../account/providers';
 const config: ConsentConfig = JSON.parse(document.getElementById('kingdown-consent-config')!.textContent!);
 const authorizationId = new URL(location.href).searchParams.get('authorization_id');
 const status = document.getElementById('status')!, signin = document.getElementById('signin')!, consent = document.getElementById('consent')!;
@@ -18,7 +19,7 @@ async function main(): Promise<void> {
   const sb = createClient(config.supabaseUrl, config.publishableKey, { auth: { flowType: 'pkce', storageKey: 'kingdown-plugin-consent', persistSession: true } });
   const session = await sb.auth.getSession(); if (session.error) throw session.error;
   if (!session.data.session || session.data.session.user.is_anonymous) {
-    say('Sign in to continue.'); signin.hidden = false;
+    signin.hidden = false;
     for (const button of document.querySelectorAll<HTMLButtonElement>('[data-provider]')) button.onclick = async () => {
       busy(true); say('Opening sign-in…');
       try {
@@ -35,6 +36,22 @@ async function main(): Promise<void> {
       if (error) { busy(false); password.value = ''; say(error.status === 400 ? 'The email or the password is not correct. Try again.' : 'Sign-in could not start. Try again.'); return; }
       location.reload();
     };
+    const retry = document.getElementById('signin-retry') as HTMLButtonElement;
+    async function loadProviders(): Promise<void> {
+      busy(true); retry.hidden = true; say('Checking sign-in options…');
+      const social = [...document.querySelectorAll<HTMLButtonElement>('[data-provider]')];
+      social.forEach(button => { button.hidden = true; });
+      try {
+        const providers = await availableProviders(config.supabaseUrl, config.publishableKey);
+        social.forEach(button => { button.hidden = !providers.includes(button.dataset.provider as 'google' | 'github'); });
+        const available = social.some(button => !button.hidden);
+        retry.hidden = available;
+        say(available ? 'Sign in to continue.' : 'Social sign-in is unavailable. Try again or use email.');
+      } catch { retry.hidden = false; say('Sign-in options could not load. Check your connection and try again, or use email.'); }
+      finally { busy(false); }
+    }
+    retry.onclick = () => { void loadProviders(); };
+    await loadProviders();
     return;
   }
   for (const button of document.querySelectorAll<HTMLButtonElement>('[data-signout]')) button.onclick = async () => {

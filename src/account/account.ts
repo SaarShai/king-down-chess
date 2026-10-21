@@ -32,12 +32,12 @@ export function userOf(u: AuthUser | null | undefined): User | null {
 }
 
 /** The Account section's content. The name and picture come from outside the game, so both are escaped. */
-export function accountHtml(user: User | null, facebook: boolean): string {
+export function accountHtml(user: User | null, facebook: boolean, available: readonly Provider[] = []): string {
   const links = '<p class="account-links"><a href="/privacy.html" target="_blank" rel="noopener">Privacy</a>'
     + '<a href="/terms.html" target="_blank" rel="noopener">Terms</a></p>';
   if (!user) {
     return '<p>Sign in to save your games on every device.</p>'
-      + PROVIDERS.filter(([p]) => facebook || p !== 'facebook')
+      + PROVIDERS.filter(([p]) => available.includes(p) && (facebook || p !== 'facebook'))
         .map(([p, name]) => `<button type="button" data-provider="${p}">${LOGO[p]}<span>Continue with ${name}</span></button>`).join('')
       + '<small>We get only your name, picture, email address and an account number. Other players never see your email.</small>'
       + links;
@@ -66,10 +66,12 @@ export function startAccount(onApply: (down: Section[]) => void, savedGame: Save
   const params = new URLSearchParams(location.search);
   const facebook = params.get('facebook') === '1';
   let client: Promise<Client> | null = null, user: User | null = null, userId = '', lastPull = 0;
+  let providers: Provider[] = [], checkingProviders = false;
   const say = (t: string): void => { note.textContent = t; };
   const render = (): void => {
     const hadFocus = body.contains(document.activeElement);
-    body.innerHTML = accountHtml(user, facebook);
+    body.innerHTML = accountHtml(user, facebook, providers);
+    if (!user && !checkingProviders && !providers.length) body.insertAdjacentHTML('beforeend', '<button type="button" data-act="retry-signin">Try again</button>');
     body.querySelector('img')?.addEventListener('error', e => (e.target as HTMLElement).remove());
     if (hadFocus) body.querySelector('button')?.focus();
   };
@@ -77,6 +79,7 @@ export function startAccount(onApply: (down: Section[]) => void, savedGame: Save
     const c = m.connect(AUTH_KEY);
     c.onSession(s => {
       user = userOf(s?.user);
+      if (user) say('');
       render();
       if ((s?.user.id ?? '') === userId) return;
       sync?.stop();
@@ -86,6 +89,18 @@ export function startAccount(onApply: (down: Section[]) => void, savedGame: Save
     });
     return c;
   }, e => { client = null; throw e; }); // offline before this part was cached: a later tap tries again
+  async function refreshProviders(): Promise<void> {
+    if (user || checkingProviders) return;
+    checkingProviders = true; providers = []; render(); say('Checking sign-in options…');
+    try {
+      const enabled = await (await load()).providers();
+      if (user) return;
+      providers = enabled.filter(provider => facebook || provider !== 'facebook');
+      say(providers.length ? '' : 'Sign-in is temporarily unavailable. Try again later.');
+    } catch { if (!user) say('Sign-in options could not load. Check your connection and try again.'); }
+    finally { checkingProviders = false; render(); }
+  }
+  document.querySelector('[data-go="account"]')!.addEventListener('click', () => { void refreshProviders(); });
 
   // Back from the sign-in page. A refusal or a cancel leaves error fields in the address: clear them.
   if (params.has('error') || location.hash.includes('error')) {
@@ -106,7 +121,8 @@ export function startAccount(onApply: (down: Section[]) => void, savedGame: Save
     const b = (e.target as Element).closest('button');
     if (!b) return;
     const provider = b.dataset.provider as Provider | undefined;
-    if (provider) {
+    if (b.dataset.act === 'retry-signin') { void refreshProviders(); }
+    else if (provider) {
       say(`Opening ${PROVIDERS.find(([p]) => p === provider)?.[1]}…`);
       try { await (await load()).signIn(provider); } catch { say('Could not reach the sign-in service. Check your connection and try again.'); }
     } else if (b.dataset.act === 'sign-out') {
@@ -116,6 +132,8 @@ export function startAccount(onApply: (down: Section[]) => void, savedGame: Save
       sync?.stop(); sync = null; userId = ''; user = null;
       render();
       say('Signed out. Your games stay on this device.');
+      await refreshProviders();
+      if (!user && providers.length) say('Signed out. Your games stay on this device.');
     } else if (b.dataset.act === 'delete') {
       // Inside another site's frame, a click may not be the player's own (clickjacking).
       if (window.top !== window.self) return say('Open King Down in its own tab to delete your account.');

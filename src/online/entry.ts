@@ -12,12 +12,12 @@ const route = parseAccountRoute(new URL(location.href));
 const target = route ? accountPath(route) : '/play/';
 document.title = 'King Down';
 document.body.replaceChildren();
-function message(words: string, signIn = false, retry = false) {
+function message(words: string, providers: readonly ('google' | 'github')[] = [], retry = false) {
   document.body.replaceChildren();
   const main = document.createElement('main'); main.className = 'account-entry';
   const title = document.createElement('h1'); title.textContent = 'King Down';
   const line = document.createElement('p'); line.textContent = words; line.setAttribute('role', 'status'); main.append(title, line);
-  if (signIn) for (const provider of ['google', 'github'] as const) {
+  for (const provider of providers) {
     const button = document.createElement('button'); button.textContent = `Continue with ${provider === 'google' ? 'Google' : 'GitHub'}`;
     button.onclick = async () => {
       main.querySelectorAll('button').forEach(button => { button.disabled = true; });
@@ -36,13 +36,20 @@ message('Loading your games…');
 let client: Promise<import('../account/client').Client> | undefined;
 const getClient = () => client ??= import('../account/client').then(({ connect }) => connect(AUTH_KEY, { manualCallback: true }));
 const signInHost: SignInHost = { location, history, storage: sessionStorage, now: Date.now, client: getClient };
+async function signInMessage(words: string) {
+  message('Checking sign-in options…');
+  try {
+    const providers = (await (await getClient()).providers()).filter(provider => provider !== 'facebook');
+    message(providers.length ? words : 'Sign-in is temporarily unavailable. Try again later.', providers, !providers.length);
+  } catch { message('Sign-in options could not load. Check your connection and try again.', [], true); }
+}
 try {
   const access = await readWebAccountAccess();
-  if (!access.enabled) message('Account play is temporarily unavailable. Try again later.', false, true);
+  if (!access.enabled) message('Account play is temporarily unavailable. Try again later.', [], true);
   else {
     const returned = await consumeSignInReturn(signInHost), auth = await getClient();
     const session = returned.status === 'signed-in' ? returned.session : await auth.readSession();
-    if (returned.status === 'retry' || !session) message(returned.status === 'retry' ? 'Sign-in did not finish. Please try again.' : 'Sign in to play with your account.', true);
+    if (returned.status === 'retry' || !session) await signInMessage(returned.status === 'retry' ? 'Sign-in did not finish. Please try again.' : 'Sign in to play with your account.');
     else {
       const parsed = new DOMParser().parseFromString(template, 'text/html'); parsed.querySelectorAll('script').forEach(script => script.remove());
       document.body.replaceChildren(...Array.from(parsed.body.childNodes));
@@ -52,8 +59,8 @@ try {
       auth.onSession(current => {
         if (current?.user.id === session.userId) return;
         host.dispose?.();
-        message('Sign in to play with your account.', true);
+        void signInMessage('Sign in to play with your account.');
       });
     }
   }
-} catch (error) { message(error instanceof Error ? error.message : 'Account play could not load.', false, true); }
+} catch (error) { message(error instanceof Error ? error.message : 'Account play could not load.', [], true); }
