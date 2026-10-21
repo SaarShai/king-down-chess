@@ -56,9 +56,10 @@ function run(names: string[], failBuild = false) {
 
 describe('browser check site build', () => {
   it('skips the site build and preview for checks that build their own artifact', () => {
-    const { result, calls } = run(['plugin-ui', 'plugin-ui-http', 'plugin-oauth', 'web-game']);
+    const { result, calls } = run(['plugin-ui', 'plugin-ui-http', 'plugin-oauth', 'web-game', 'recovery-consumers']);
     expect(result.status, result.stderr + result.stdout).toBe(0);
-    expect(calls).toHaveLength(4);
+    expect(calls).toHaveLength(5);
+    expect(calls.at(-1)).toMatchObject({ script: 'tools/web-game-check.mjs', args: ['recovery'] });
     expect(calls.every(call => typeof call === 'object' && !('url' in call))).toBe(true);
     expect(result.stdout).not.toContain('serving the build');
   });

@@ -1,11 +1,25 @@
 /** The same real board controls against emitted web and MCP AppBridge builds. */
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { assertNoErrors, env, shot, trapErrors } from './checks.mjs';
 import { checkWidgetState } from './plugin-widget-state-check.mjs';
+import { recoveryOutput } from '../web-online-check.mjs';
+
+async function seedMechanic(runtime, pool, actors, setup, engine) {
+  const match = engine ? await runtime.createPinnedMatch(setup, engine) : await runtime.createMatch(setup), id = randomUUID();
+  try {
+    const snapshot = await match.snapshot(), state = await match.exportSave();
+    await pool.query(`insert into public.games(id,kind,speed,category,colour_rule,engine_fingerprint,setup,rules,status,turn,revision,state,snapshot,created_by,started_at)
+      values($1,'friend','live','check','white',$2,$3,$4,'playing',$5,0,$6,$7,$8,now())`,
+    [id, JSON.parse(state).engine, setup, snapshot.rules, snapshot.turn, state, snapshot, actors[0]]);
+    await pool.query(`insert into public.game_players(game_id,seat,user_id,computer,action) values($1,0,$2,false,$3),($1,1,$4,false,$5)`,
+      [id, actors[0], snapshot.turn === 0 ? 'ready' : 'waiting', actors[1], snapshot.turn === 1 ? 'ready' : 'waiting']);
+    return { id, match };
+  } catch (error) { await match.close(); throw error; }
+}
 
 async function ready(ui, finished = false) {
   await ui.locator(`[data-screen="${finished ? 'end' : 'board'}"]:not([hidden])`).waitFor();
@@ -83,30 +97,163 @@ async function playTurn(ui, view, actions, { GameRules, toLan, cardCoins }) {
   await ui.locator('#end-turn[aria-disabled="false"]').click();
 }
 
+/** Four focused consumer paths; the complete mechanics matrix below stays separate. */
+export async function checkRecoveryConsumers({ browser, origin, actors, pool, tool, tokens, release, recovery, switchOutput }) {
+  const { SHARED_MECHANICS, assertMechanicExpected } = await import('../fixtures/shared-mechanics.ts');
+  const { GameRules } = await import('../../src/game-rules.ts');
+  const { toLan } = await import('../../src/rules/setup.ts');
+  const { cardCoins } = await import('../../src/plugin/screens/board-model.ts');
+  const { startHarness } = await import('../plugin-ui-harness.ts');
+  const runtime = await import(pathToFileURL(join(release.root, 'functions/mcp.func/runtime/index.mjs')).href);
+  const haste = SHARED_MECHANICS.find(row => row.id === 'power-haste');
+  assert(haste, 'Recovery reuses the Haste fixture and controls');
+  const releaseEngine = 'sha256:febb9239470eea930cce5e1b588838bafd2c6687f0419d1bbf1072c975603ae2';
+  const recoveryEngine = 'sha256:812aef2772b0ae98915b85f7fb9e9ea93a1f0f9616b735b1e33dc9cf12bc129b';
+  const archivedEngine = 'sha256:bab22e94d4df81591374763a7f3abe703c30534f80ce771ee3fe7e095dcec7da';
+  const helper = 'functions/mcp.func/runtime/search-worker.mjs';
+  async function identity(output) {
+    const checked = await recoveryOutput(output.root);
+    checked.hashes[helper] = createHash('sha256').update(await readFile(join(output.root, helper))).digest('hex');
+    const worker = await readFile(join(output.root, 'functions/mcp.func/runtime/worker.mjs'), 'utf8');
+    const stamps = [...new Set(worker.match(/sha256:[a-f0-9]{64}/g))];
+    assert.equal(stamps.length, 1, 'The default worker has one exact implementation stamp');
+    return { ...checked, engine: stamps[0] };
+  }
+  const inputs = { release: await identity(release), recovery: await identity(recovery) };
+  assert.equal(inputs.release.engine, releaseEngine, 'The loaded release UI uses the nominated new worker');
+  assert.equal(inputs.recovery.engine, recoveryEngine, 'The fresh recovery UI uses the nominated prior worker');
+  assert.notEqual(inputs.release.hashes['functions/mcp.func/server.mjs'], inputs.recovery.hashes['functions/mcp.func/server.mjs'], 'Recovery switches a distinct server artifact');
+  const reports = [];
+  for (const phase of ['loaded-current', 'fresh-recovery']) for (const surface of ['web', 'chatgpt']) {
+    console.log(`START recovery-consumers ${phase} ${surface}`);
+    await switchOutput(release, release);
+    // Both games originate in the release runtime, including the new-engine recovery client path.
+    const { id, match } = await seedMechanic(runtime, pool, actors, haste.setup, phase === 'loaded-current' ? archivedEngine : undefined);
+    let context, harness;
+    try {
+      const before = (await tool(0, 'kingdown_get', { game_id: id }))._meta.view;
+      const engine = phase === 'loaded-current' ? archivedEngine : releaseEngine;
+      assert.equal(before.engine_fingerprint, engine, `${phase}/${surface}: release-created game identity`);
+      const site = phase === 'loaded-current' ? release : recovery;
+      if (phase === 'fresh-recovery') await switchOutput(recovery, recovery);
+      if (surface === 'chatgpt') harness = await startHarness({ boardPath: join(site.root, 'functions/mcp.func/board.html'), endpoint: new URL('/mcp', origin), actor: actors[0] });
+      context = await browser.newContext({ viewport: { width: 1100, height: 1000 }, reducedMotion: 'reduce' });
+      await context.addInitScript(({ origin, actor, token }) => {
+        if (location.origin === origin) localStorage.setItem('kingdown.auth', JSON.stringify({ access_token: token, refresh_token: 'local-test-refresh', token_type: 'bearer', expires_in: 600, expires_at: Math.floor(Date.now() / 1000) + 600,
+          user: { id: actor, aud: 'authenticated', role: 'authenticated', email: 'recovery@example.invalid', app_metadata: { provider: 'google' }, user_metadata: {}, created_at: new Date().toISOString() } }));
+      }, { origin, actor: actors[0], token: tokens[0] });
+      const failures = [], allowed = new Set([origin, ...(harness ? [new URL(harness.url).origin] : [])]);
+      // The real SDK harness serves its sandbox frame on a separate loopback port.
+      if (harness) {
+        const html = await (await fetch(harness.url)).text(), frame = html.match(/data-src="([^"]+)"/);
+        assert(frame, 'The SDK host declares its sandbox resource'); allowed.add(new URL(frame[1]).origin);
+      }
+      await context.route('**/*', route => {
+        if (allowed.has(new URL(route.request().url()).origin)) return route.continue();
+        failures.push('External request blocked'); return route.abort();
+      });
+      const page = await context.newPage(), errors = trapErrors(page);
+      page.setDefaultTimeout(15_000);
+      const ui = surface === 'web' ? page : page.frameLocator('iframe');
+      const previewResponse = actions => page.waitForResponse(response => {
+        const request = response.request();
+        if (request.method() !== 'POST') return false;
+        const input = request.postDataJSON();
+        return surface === 'web'
+          ? new URL(response.url()).pathname === `/api/games/${id}/preview` && JSON.stringify(input?.actions) === JSON.stringify(actions)
+          : new URL(response.url()).pathname === '/fixture-tool' && input?.name === 'kingdown_preview' && input.arguments?.game_id === id && JSON.stringify(input.arguments.actions) === JSON.stringify(actions);
+      });
+      async function acceptedPreview(pending, actions, fen) {
+        const response = await pending, body = await response.json(), draft = surface === 'web' ? body : body._meta?.draft;
+        assert.equal(response.status(), 200, `${phase}/${surface}: real preview response`);
+        assert.equal(draft?.game_id, id); assert.equal(draft?.revision, before.revision);
+        assert.equal(draft?.engine_fingerprint, engine); assert.deepEqual(draft?.actions, actions);
+        assert.equal(draft?.positions.at(-1)?.fen, fen);
+        return draft;
+      }
+      if (harness) {
+        await page.goto(harness.url);
+        await ui.locator('#home-games:not(:disabled)').click();
+        await ui.locator('[data-screen="play"]:not([hidden])').waitFor();
+      }
+      const initial = previewResponse([]); void initial.catch(() => {});
+      if (surface === 'web') await page.goto(`${origin}/g/${id}`);
+      else {
+        const mounted = page.waitForResponse(response => readsGame(response, id)); void mounted.catch(() => {});
+        await page.evaluate(result => window.harnessShow(result), await tool(0, 'kingdown_open', { game_id: id }));
+        assert.equal((await (await mounted).json())._meta?.view?.game_id, id);
+      }
+      await ready(ui); const initialDraft = await acceptedPreview(initial, [], before.fen);
+      await ui.locator('#power-w[data-state="ready"]').waitFor();
+      const document = await ui.locator('html').elementHandle();
+      assert(document, 'The mounted consumer has a document');
+      if (phase === 'loaded-current') await switchOutput(recovery, release);
+      // Start observers only after the actual switch; the initial preview cannot satisfy them.
+      const prefix = previewResponse(haste.actions.slice(0, 1)); void prefix.catch(() => {});
+      const committed = page.waitForResponse(response => {
+        const request = response.request();
+        if (request.method() !== 'POST') return false;
+        return surface === 'web' ? new URL(response.url()).pathname === `/api/games/${id}/commands`
+          : new URL(response.url()).pathname === '/fixture-tool' && request.postDataJSON()?.name === 'kingdown_move' && request.postDataJSON().arguments?.game_id === id;
+      }); void committed.catch(() => {});
+      let expected = await match.snapshot(), prefixFen;
+      for (const lan of haste.actions) {
+        expected = await match.apply({ id: randomUUID(), expectedRevision: expected.revision, lan });
+        prefixFen ??= expected.fen;
+      }
+      await playTurn(ui, before, haste.actions, { GameRules, toLan, cardCoins });
+      const prefixDraft = await acceptedPreview(prefix, haste.actions.slice(0, 1), prefixFen);
+      const commandResponse = await committed, commandBody = await commandResponse.json();
+      assert.equal(commandResponse.status(), 200); assert(!commandBody.isError, 'Recovery accepts the consumer command');
+      assert(await document.evaluate(element => element.isConnected && element.ownerDocument.documentElement === element), 'The same loaded document continues across the backend switch');
+      const after = (await tool(1, 'kingdown_get', { game_id: id }))._meta.view;
+      assert.equal(after.game_id, id); assert.equal(after.engine_fingerprint, engine); assert.equal(after.revision, before.revision + 1);
+      assert.deepEqual(after.rules, before.rules); assert.equal(after.fen, expected.fen); assert.equal(after.turn, expected.turn);
+      assert.deepEqual([...after.legal].sort(), [...expected.legal].sort()); assert.deepEqual(after.history.actions, haste.actions);
+      assertMechanicExpected(after, haste.expected, `${phase}/${surface}`);
+      const reloaded = page.waitForResponse(response => surface === 'web' ? response.request().method() === 'GET' && new URL(response.url()).pathname === `/api/games/${id}` : readsGame(response, id));
+      void reloaded.catch(() => {});
+      if (surface === 'web') await page.reload(); else await page.locator('#remount').click();
+      const reloadResponse = await reloaded; assert.equal(reloadResponse.status(), 200);
+      await ready(ui);
+      const resumed = (await tool(1, 'kingdown_get', { game_id: id }))._meta.view;
+      assert.equal(resumed.engine_fingerprint, engine); assert.equal(resumed.game_id, id); assert.equal(resumed.revision, after.revision);
+      assert.equal(resumed.fen, after.fen); assert.deepEqual(resumed.history.actions, haste.actions);
+      await ui.locator('#moves-line').click();
+      await ui.locator('#board-sheet[open]').getByRole('heading', { name: 'Moves', exact: true }).waitFor();
+      assert.equal(await ui.locator('#board-sheet p').count(), haste.actions.length, 'Reloaded consumer shows the accepted history');
+      const commands = (await pool.query("select surface, actions from public.game_commands where game_id=$1 and kind='turn' order by seq", [id])).rows;
+      assert.deepEqual(commands, [{ surface, actions: haste.actions }], 'One complete turn uses the real consumer transport');
+      if (harness) {
+        const { states, bases } = await page.evaluate(() => ({ states: window.harnessWidgetStates, bases: window.harnessDraftBases }));
+        for (const state of states) checkWidgetState(state, bases);
+      }
+      assertNoErrors(errors); assert.deepEqual(failures, []);
+      reports.push({ phase, surface, game_id: id, engine, ui_engine: phase === 'loaded-current' ? releaseEngine : recoveryEngine,
+        initial_backend: inputs[phase === 'loaded-current' ? 'release' : 'recovery'].hashes['functions/mcp.func/server.mjs'],
+        continuation_backend: inputs.recovery.hashes['functions/mcp.func/server.mjs'], same_document: true,
+        initial_preview: initialDraft, prefix_preview: prefixDraft, revision: resumed.revision, fen: resumed.fen, history: resumed.history.actions, commands });
+      console.log(`PASS recovery-consumers ${phase} ${surface}`);
+    } finally { await context?.close(); await harness?.close(); await match.close(); }
+  }
+  assert.deepEqual(await identity(release), inputs.release, 'Release artifact remains unchanged');
+  assert.deepEqual(await identity(recovery), inputs.recovery, 'Recovery artifact remains unchanged');
+  await mkdir(env('PLAYABLE_OUT'), { recursive: true });
+  await writeFile(join(env('PLAYABLE_OUT'), 'recovery-consumers.json'), JSON.stringify({ inputs, reports }, null, 2));
+}
+
 export async function checkSharedMechanics({ browser, context, root, origin, actors, pool, tool, tokens }) {
   const { SHARED_MECHANICS, assertMechanicExpected } = await import('../fixtures/shared-mechanics.ts');
   const { GameRules } = await import('../../src/game-rules.ts');
   const { toLan } = await import('../../src/rules/setup.ts');
   const { cardCoins } = await import('../../src/plugin/screens/board-model.ts');
   const { startHarness } = await import('../plugin-ui-harness.ts');
-  const { createMatch, createPinnedMatch } = await import(pathToFileURL(join(root, 'functions/mcp.func/runtime/index.mjs')).href);
+  const runtime = await import(pathToFileURL(join(root, 'functions/mcp.func/runtime/index.mjs')).href);
   const haste = SHARED_MECHANICS.find(row => row.id === 'power-haste');
   assert(haste, 'The archived continuation reuses the Haste fixture');
   const rows = [...SHARED_MECHANICS, { ...haste, id: 'archived-power-haste', engine: 'sha256:bab22e94d4df81591374763a7f3abe703c30534f80ce771ee3fe7e095dcec7da' }];
   const harnesses = [], contexts = [], reports = [], failures = [];
   const read = async (seat, id) => (await tool(seat, 'kingdown_get', { game_id: id }))._meta.view;
-  async function seed(setup, engine) {
-    const match = engine ? await createPinnedMatch(setup, engine) : await createMatch(setup), id = randomUUID();
-    try {
-      const snapshot = await match.snapshot(), state = await match.exportSave();
-      await pool.query(`insert into public.games(id,kind,speed,category,colour_rule,engine_fingerprint,setup,rules,status,turn,revision,state,snapshot,created_by,started_at)
-        values($1,'friend','live','check','white',$2,$3,$4,'playing',$5,0,$6,$7,$8,now())`,
-      [id, JSON.parse(state).engine, setup, snapshot.rules, snapshot.turn, state, snapshot, actors[0]]);
-      await pool.query(`insert into public.game_players(game_id,seat,user_id,computer,action) values($1,0,$2,false,$3),($1,1,$4,false,$5)`,
-        [id, actors[0], snapshot.turn === 0 ? 'ready' : 'waiting', actors[1], snapshot.turn === 1 ? 'ready' : 'waiting']);
-      return { id, match };
-    } catch (error) { await match.close(); throw error; }
-  }
   try {
     const webPages = [await context.newPage()];
     const black = await browser.newContext({ viewport: { width: 1100, height: 1000 }, reducedMotion: 'reduce' }); contexts.push(black);
@@ -159,7 +306,7 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
       const states = [];
       for (const surface of ['web', 'chatgpt']) {
         console.log(`START shared-mechanics ${row.id} ${surface}`);
-        const { id, match } = await seed(row.setup, row.engine);
+        const { id, match } = await seedMechanic(runtime, pool, actors, row.setup, row.engine);
         try {
           let expected = await match.snapshot(), applied = [], finalSeat = expected.turn;
           const turns = row.turns ?? [row.actions];

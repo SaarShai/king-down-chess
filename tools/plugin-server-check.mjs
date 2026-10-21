@@ -206,7 +206,7 @@ try {
 
     await restartRecovery();
     const recoveryTools = (await rpc(actors[0], 'tools/list', {})).result.tools;
-    assert(!recoveryTools.some(tool => tool.name === 'kingdown_preview'), 'The nominated recovery omits the stored-engine preview adapter');
+    assert(recoveryTools.some(tool => tool.name === 'kingdown_preview'), 'Recovery retains the released stored-engine preview contract');
     assert.deepEqual(position(await get(initial.game_id)), position(beforeView));
     assert.deepEqual(position(await get(setup.game_id)), position(pendingView));
     const retry = await ok(actors[0], 'kingdown_computer', computer);

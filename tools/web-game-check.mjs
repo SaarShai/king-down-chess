@@ -13,13 +13,15 @@ import { register } from 'tsx/esm/api';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { testDatabase } from './plugin-db-config.mjs';
 import { buildPluginServer } from './plugin-server-build.mjs';
-import { serveSite } from './web-online-check.mjs';
+import { recoveryOutput, serveSite } from './web-online-check.mjs';
 import { launch, shot, trapErrors, assertNoErrors, env } from './lib/checks.mjs';
-import { checkSharedMechanics } from './lib/shared-mechanics-check.mjs';
+import { checkRecoveryConsumers, checkSharedMechanics } from './lib/shared-mechanics-check.mjs';
 
 const unregister = register();
 const mechanics = process.argv[2] === 'mechanics';
-assert(process.argv.length === (mechanics ? 3 : 2), 'Use web-game-check.mjs [mechanics]');
+const recovery = process.argv[2] === 'recovery';
+assert(process.argv.length === (mechanics || recovery ? 3 : 2), 'Use web-game-check.mjs [mechanics|recovery]');
+if (recovery) assert(process.env.KINGDOWN_WEB_RECOVERY_OUTPUT, 'Recovery consumers require an exact external KINGDOWN_WEB_RECOVERY_OUTPUT');
 const { fromFen } = await import('../src/rules/setup.ts');
 const { M, N, P, parseSq, typeOf } = await import('../src/rules/engine.ts');
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
@@ -40,20 +42,22 @@ try {
   const root = await buildPluginServer(join(work, 'combined'), { site: join(work, 'site') });
   process.env.NODE_ENV = 'test';
   const config = JSON.parse(await readFile(join(root, 'config.json'), 'utf8'));
+  let siteRoot = root, siteConfig = config;
   const { configurePlugin } = await import(pathToFileURL(join(root, 'functions/mcp.func/server.mjs')).href);
   await pool.query('insert into auth.users(id) select unnest($1::uuid[])', [actors]);
   savedAccess = (await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0].enabled;
   await pool.query('update public.web_account_access set enabled=true where singleton=true');
-  server = createServer((req, res) => { void serveSite({ root, config, handler: app.handler }, req, res).catch(() => res.destroy()); });
+  server = createServer((req, res) => { void serveSite({ root: siteRoot, config: siteConfig, handler: app.handler }, req, res).catch(() => res.destroy()); });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const origin = `http://127.0.0.1:${server.address().port}`;
   const pair = await generateKeyPair('ES256');
   const websiteKeys = createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'local-web', alg: 'ES256' }] });
   const tokens = await Promise.all(actors.map(sub => new SignJWT({ sub, iss: 'https://web-proof.supabase.co/auth/v1', aud: 'authenticated', role: 'authenticated', is_anonymous: false })
     .setProtectedHeader({ alg: 'ES256', kid: 'local-web' }).setExpirationTime('10m').sign(pair.privateKey)));
-  app = await configurePlugin({ NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString,
-    KINGDOWN_INTERNAL_SECRET: randomUUID(), SUPABASE_URL: 'https://web-proof.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_local_test', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: randomUUID() },
-  { localDev: true, websiteKeys, websiteCurrentUser: async (token, actor) => { assert.equal(tokens[actors.indexOf(actor)], token); } });
+  const runtimeSettings = { NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString,
+    KINGDOWN_INTERNAL_SECRET: randomUUID(), SUPABASE_URL: 'https://web-proof.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_local_test', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: randomUUID() };
+  const runtimeOptions = { localDev: true, websiteKeys, websiteCurrentUser: async (token, actor) => { assert.equal(tokens[actors.indexOf(actor)], token); } };
+  app = await configurePlugin(runtimeSettings, runtimeOptions);
   let rpcId = 0;
   async function tool(seat, name, args = {}) {
     const response = await fetch(origin + '/mcp', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'X-Kingdown-Dev-Actor': actors[seat], 'MCP-Protocol-Version': '2025-11-25' },
@@ -73,7 +77,19 @@ try {
     if (new URL(route.request().url()).origin !== origin) { failures.push('External request blocked'); return route.abort(); }
     return route.continue();
   });
-  if (mechanics) {
+  if (recovery) {
+    const release = await recoveryOutput(root), prior = await recoveryOutput(process.env.KINGDOWN_WEB_RECOVERY_OUTPUT);
+    assert.notEqual(prior.root, release.root, 'Recovery is an external output');
+    await checkRecoveryConsumers({ browser, root, origin, actors, pool, tool, tokens, release, recovery: prior,
+      switchOutput: async (backend, site) => {
+        const { configurePlugin } = await import(pathToFileURL(join(backend.root, 'functions/mcp.func/server.mjs')).href);
+        const config = JSON.parse(await readFile(join(site.root, 'config.json'), 'utf8'));
+        const next = await configurePlugin(runtimeSettings, runtimeOptions), old = app;
+        app = next; siteRoot = site.root; siteConfig = config;
+        await old.pool.end();
+      } });
+    assert.deepEqual(failures, [], 'No external request');
+  } else if (mechanics) {
     await checkSharedMechanics({ browser, context, root, origin, actors, pool, tool, tokens });
     assert.deepEqual(failures, [], 'No external request');
   } else {
