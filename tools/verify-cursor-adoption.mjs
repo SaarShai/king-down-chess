@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { boardHelp, lastMoveText, lanMoves, pressMenu, readyBoard, waitForUi } from './app-ui.mjs';
+import { boardHelp, endTurn, lastMoveText, lanMoves, pressMenu, readyBoard, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 
@@ -30,6 +30,10 @@ async function ready() {
   await page.waitForFunction(() => window.view.pos);
 }
 async function seed(fen, settings = {}, query = '') {
+  if (query) {
+    await page.goto(`${url}${query}&fen=${encodeURIComponent(fen)}`); await ready();
+    settings = { ...settings, rules: await page.evaluate(() => ({ ...window.view.context.rules })) };
+  }
   await page.evaluate(({ fen, settings }) => localStorage.setItem('kingdown.save', JSON.stringify({
     back: '', fen, moves: [], white: 'human', black: 'human', think: 800,
     skill: 'club', coords: true, resigned: null, sound: false, queen: false, ...settings,
@@ -92,6 +96,9 @@ try {
   await seed('7k/4p3/8/8/8/8/P7/K7 b - - 0 1', { white: 'ai', black: 'human' });
   await drag(52, 36);
   await waitForUi(page, ui => ui.lan.join(' ').includes('e7-e5'));
+  await played(1);
+  await endTurn(page);
+  await page.waitForFunction(() => window.searchRequests.length === 1 && document.getElementById('status').textContent === 'thinking…');
   await startGame(page, { mode: 'two', army: 'classic' }); await ready();
   await page.waitForTimeout(700); // a stale computer reply would land here
   assert.deepEqual(await lanMoves(page), []);
@@ -162,9 +169,10 @@ try {
   await page.click('#undo'); await played(0);
   await click(12); await click(44);
   await waitForUi(page, ui => ui.lan.join(' ').includes('Ce2*e6'));
-  await page.click('#undo'); await played(0); await page.waitForTimeout(700);
+  // A pointer press skips the arc; the Undo key cancels it while it still runs.
+  await page.keyboard.press('z'); await played(0); await page.waitForTimeout(700);
   assert.ok(await page.evaluate(() => window.view.pos.board[44] > 0 && window.view.pos.board[12] > 0));
-  checks.push('Catapult lob keeps the shooter and screen; undo during the arc preserves the restored victim');
+  checks.push('Catapult lob keeps the shooter and screen; keyboard Undo during the arc preserves the restored victim');
 
   await seed('7k/8/4p3/8/3V4/8/P7/K7 w - - 0 1');
   await click(27); await click(44); await click(43); await played(1);
@@ -174,9 +182,9 @@ try {
   await page.click('#undo'); await played(0);
   await click(27); await click(44); await click(43);
   await waitForUi(page, ui => ui.lan.join(' ').includes('Vd4xe6-d6'));
-  await page.click('#undo'); await played(0); await page.waitForTimeout(700);
+  await page.keyboard.press('z'); await played(0); await page.waitForTimeout(700);
   assert.ok(await page.evaluate(() => window.view.pos.board[27] > 0 && window.view.pos.board[44] > 0 && !window.view.pos.board[43]));
-  checks.push('Reaver capture-then-step uses the real selection path and cancels cleanly on undo');
+  checks.push('Reaver capture-then-step uses the real selection path and cancels cleanly on keyboard Undo');
 
   await startGame(page, { mode: 'two', army: 'classic' }); await ready();
   await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(250);
