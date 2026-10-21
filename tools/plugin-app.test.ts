@@ -1809,6 +1809,7 @@ it('keeps a move in flight free of errors when a chat result arrives during it',
     expect(result._meta.board_id).toEqual(expect.any(String));
     expect(result._meta.board_id).not.toBe(current.board_id);
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_move'; });
+    await waitForSourceApp(page);
     await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; void app.call('kingdown_move', { game_id: app.memory.view.game_id, command_id: 'busy-move', expected_revision: app.memory.view.revision, lan: 'e2-e4' }, true); });
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     // The chat result opens Board, then waits for the move before it reads. It shows no error or Retry during that wait.

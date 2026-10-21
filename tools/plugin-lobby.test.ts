@@ -557,8 +557,7 @@ it('finds a joined random game when the computer page mounts again', async () =>
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     const solo = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
     const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
-    await page.locator('iframe').evaluate(el => { (el as HTMLIFrameElement).src = 'about:blank'; });
-    await page.mainFrame().childFrames()[0].waitForURL('about:blank');
+    await page.evaluate(() => (window as any).harnessTeardown());
     await buddy(page, 'kingdown_accept', { game_id: waiting.game_id });
     await page.locator('#remount').click();
     await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);

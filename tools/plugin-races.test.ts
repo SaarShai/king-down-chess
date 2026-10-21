@@ -373,6 +373,7 @@ it('sends a start that a chat result detached only once, and keeps the chat resu
 it.each(['same game', 'other game', 'failed read'] as const)('keeps a command refusal only for its game after a chat result reads: %s', async kind => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
+    await sourceReady(page);
     await soloBoard(page);
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     const game = (await shownGame(page)).game!;

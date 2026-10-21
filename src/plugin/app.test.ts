@@ -61,6 +61,14 @@ it.each(['resolve', 'reject'])('does not restart a closed board when connect lat
   expect(app.store.page().connected).toBe(false);
   expect(app.store.page().notice).toBeUndefined();
 });
+it('keeps SDK initialization rejection retryable when the SDK closes its transport', async () => {
+  transport.connect.mockImplementation(async () => { await Promise.resolve(); transport.instance.onclose(); throw new Error('Rejected initialize'); });
+  const app = await import('./app');
+  await vi.advanceTimersByTimeAsync(0);
+  expect(app.queue.closed()).toBe(false);
+  expect(app.store.page().notice).toMatchObject({ kind: 'connect', text: 'Could not connect to the game: Rejected initialize' });
+  expect(transport.disposeBoard).not.toHaveBeenCalled();
+});
 async function mounted() {
   const app = await import('./app');
   app.memory.settings = settings; app.memory.me = { handle: 'player', icon: 'spirit' };
@@ -119,8 +127,9 @@ it.each([false, true])('scrolls from a result to New game after the list is read
   app.showNewGame();
   if (held) {
     expect(body.scrollTop).toBe(0); await vi.advanceTimersByTimeAsync(0);
-    release({ content: [], _meta: { games: [] } }); await vi.advanceTimersByTimeAsync(0);
+    release({ content: [], _meta: { games: [] } });
   }
+  await vi.advanceTimersByTimeAsync(0);
   expect(app.client.state.screen).toBe('play'); expect(body.scrollTop).toBe(800);
 });
 
