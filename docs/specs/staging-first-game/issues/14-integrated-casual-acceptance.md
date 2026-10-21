@@ -1,6 +1,6 @@
 # Integrated casual staging acceptance
 
-Status: in progress. Parent: U09. Staging only.
+Status: source, compiled mechanics and exact recovery gates pass. Hosted startup correction is ready for staging verification. Parent: U09. Staging only.
 
 ## Checkable plan
 
@@ -19,7 +19,7 @@ The Play-entry slice passes its targeted checks. The wider Hall/App run has 159 
 
 Fresh native ChatGPT acceptance remains pending while the Mac is locked. An existing resource refresh does not load new application code. The old loaded resource reads the new `812aef27` game but has an empty move picker. Its exact loaded resource identity and the cause are not established; an engine fingerprint mismatch alone does not explain the older client's code. Do not claim a current-resource ChatGPT write. The supported recovery to verify is a deliberate Open of the same game, a current resource mount, unchanged saved state, and a legal turn. The existing old-URI resource test is not a real-host recovery pass.
 
-The earlier intermittent cache refusal is unclassified. Keep the safe phase diagnostic and test the next legitimate update with the heavy test lane idle. A later successful open does not prove that prior failure is fixed.
+The first hosted update to `fc8670c3` captures `CACHE_REGISTER_DEADLINE` after 8,001 ms with an activated controller. Ticket 23 reproduces the exact phase with a real native update fetch holding the registration queue. Its lookup-first correction integrates at `18979d92`; deadlines and private-send guards stay intact. The exact hosted network trigger remains unproved. Test the next legitimate update with the heavy test lane idle; do not count Retry as a fresh-open pass.
 
 The parent project's shared-mechanics verification report and development entry hold the concise current state and artifact receipts. Do not promote to production, activate a new ranked policy or submit an additional host under this ticket.
 
@@ -65,4 +65,6 @@ The initial helper-compatible recovery passes backend continuation, but its olde
 
 Ticket 22 proves four consumer paths against that exact recovery: a loaded current client on an archived Haste game, and a fresh recovery client on a release-created `febb9239` game, each through web and MCP. Preview, commit, history and reload pass. Exact cache takeover also passes. The backend rehearsal preserves retries, conflict refusal and pending setup; a fresh computer turn reaches revision 4 and all nine archived AI paths pass. Both artifacts and the checked source remain unchanged.
 
-Checker commits `e877ecd` and `e76b4bf4` integrate as `133640f0` and `efa8be82`. They change checks and documentation only; application and archive bytes remain those of `7b95f20c`. The parent evidence folder `u08-recovery-consumers` binds source and artifacts. Guarded staging publication and actual host checks follow; production remains outside this ticket.
+Checker commits `e877ecd` and `e76b4bf4` integrate as `133640f0` and `efa8be82`. They change checks and documentation only; application and archive bytes remain those of `7b95f20c`. The parent evidence folder `u08-recovery-consumers` binds source and artifacts. Staging `fc8670c3` publishes these bytes; its first hosted update fails at registration before private data loads.
+
+Ticket 23's correction passes 251 focused tests in five files, the real native registration regression and exact recovery cache takeover. The clean compiled runner at `5fad9352` passes both checks, including 89 protected requests. The regression sends once while the native update fetch remains held, then obtains fresh proof after release. Independent review finds no substantive issue. The root integrates the exact reviewed change at `18979d92`. Rebuild and publish only staging, confirm engine `febb9239` and all nine archive pairs remain unchanged, then verify fresh hosted opens and continued play. Native ChatGPT still requires the unlocked Mac; existing-resource refresh is not acceptance.
