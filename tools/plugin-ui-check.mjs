@@ -2342,6 +2342,12 @@ try {
   async function zoomEndFits(label, height = 426, width = 197, top = 51, safeBottom = height === 426 ? 59 : 0) {
     // Both results use the three solo actions named in ticket 32 C.
     const view = await page.evaluate(() => ({ ...window.harnessView, kind: 'solo', opponent: { ...window.harnessView.opponent, computer: true } }));
+    // A poll can leave only a delta in the harness. A fresh document needs the full rules, unlike the mounted client.
+    if (!view.rules) {
+      const full = await tool('kingdown_get', { game_id: view.game_id });
+      assert(!full.isError && full._meta?.view?.rules, 'The result layout fixture needs a complete rules projection');
+      view.rules = full._meta.view.rules;
+    }
     const host = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true });
     trapErrors(host);
     const frame = host.frameLocator('iframe');
