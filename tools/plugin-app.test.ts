@@ -1863,6 +1863,8 @@ it('keeps two failed polls silent, resets the count on a good read, and locks af
     // White, this player, moves next: the timed poll waits 30 s, so only the reads below run.
     await friendGame(page);
     await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    // Artwork can finish before the stored-engine draft preview.
+    await settled(page);
     for (let n = 0; n < 4; n++) await frame.locator('#board').press('ArrowRight');
     await frame.locator('#board').press('ArrowUp'); await frame.locator('#board').press('Enter');
     expect(await frame.locator('#choices button').count()).toBe(2);
@@ -2015,6 +2017,7 @@ it('clears a failed read when Your games resumes a different solo board', async 
     expect(await frame.locator('#retry').isVisible()).toBe(false);
     expect(await frame.locator('#error').textContent()).toBe('');
     await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    await settled(page);
     for (let n = 0; n < 4; n++) await frame.locator('#board').press('ArrowRight');
     await frame.locator('#board').press('ArrowUp'); await frame.locator('#board').press('Enter');
     expect(await frame.locator('#choices button').count()).toBe(2);
@@ -2109,6 +2112,7 @@ it('keeps focus on a power coin through a presence update (an equal-revision pol
     const seeded = await (await page.request.post(new URL('/fixture-position?case=haste', harness.url).href)).json();
     await page.evaluate(result => (window as any).harnessShow(result), seeded);
     await frame.locator('#power-w').waitFor();
+    await settled(page);
     const identity = await frame.locator('html').evaluate(() => {
       const view = (window as any).harnessApp.memory.view;
       return { game_id: view.game_id, revision: view.revision, engine_fingerprint: view.engine_fingerprint };
