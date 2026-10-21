@@ -67,7 +67,6 @@ try {
     const { result, error } = await response.json(); assert(!error, `${name}: RPC error`); assert(!result.isError, `${name}: ${JSON.stringify(result)}`); return result;
   }
   if (!mechanics && !recovery) for (const seat of [0, 1]) await tool(seat, 'kingdown_handle', { handle: `web${seat}-${actors[seat].slice(0, 8)}` });
-  const view = async seat => (await tool(seat, 'kingdown_get', { game_id: gameId }))._meta.view;
   browser = await launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1100, height: 1000 } });
   await context.addInitScript(({ origin, actor, token }) => { if (location.origin === origin && !localStorage.getItem('kingdown.auth')) localStorage.setItem('kingdown.auth', JSON.stringify({
@@ -127,6 +126,7 @@ try {
   await page.locator('#setup-start').click();
   const startResponse = await created; assert.equal(startResponse.status(), 201);
   const start = await startResponse.json(), gameId = start.view.game_id;
+  const view = async seat => (await tool(seat, 'kingdown_get', { game_id: gameId }))._meta.view;
   assert.equal(start.view.options.arrangement, false); assert.equal(start.view.options.kingPowers, true);
   await page.locator('#friend-code').filter({ hasText: /[A-Z0-9]{6}/ }).waitFor();
   const code = (await page.locator('#friend-code').innerText()).trim();

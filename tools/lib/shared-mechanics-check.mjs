@@ -256,7 +256,9 @@ export async function checkRecoveryConsumers({ browser, origin, actors, pool, to
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokens[actor + 1]}` },
           body: JSON.stringify({ command_id: resign.command_id, expected_revision: resign.expected_revision, action: { type: 'resign' } }) });
         assert.equal(response.status, 200, 'Recovery accepts the real web Casual finish');
-        finished = await response.json();
+        const ack = await response.json();
+        assert.equal(ack.type, 'ack'); assert.equal(ack.command_id, resign.command_id);
+        finished = ack.view;
       } else finished = (await tool(actor + 1, 'kingdown_resign', resign))._meta.view;
       assert.equal(finished.status, 'finished'); assert.deepEqual(finished.result, { winner: 0, reason: 'resignation' });
       const stored = (await pool.query('select rating_policy,status from public.games where id=$1', [casual.game_id])).rows[0];
