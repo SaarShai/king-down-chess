@@ -16,6 +16,7 @@ import { buildPluginServer } from './plugin-server-build.mjs';
 import { recoveryOutput, serveSite } from './web-online-check.mjs';
 import { launch, shot, trapErrors, assertNoErrors, env } from './lib/checks.mjs';
 import { checkRecoveryConsumers, checkSharedMechanics } from './lib/shared-mechanics-check.mjs';
+import { checkSoloSync } from './lib/solo-sync-check.mjs';
 
 const unregister = register();
 const mechanics = process.argv[2] === 'mechanics';
@@ -268,6 +269,7 @@ try {
     assert.deepEqual((await view(0)).result, a.result, 'The original result is preserved');
     await shot(page, 'web-rematch-selection-recovered');
   } finally { releaseRematch?.(); await page.unroute('**/api/games/*', holdRematch); }
+  await checkSoloSync({ page, ui: page, tool: (name, args) => tool(0, name, args), open: id => page.goto(origin + '/g/' + id), label: 'web' });
   // Seven weighted pool pieces force the army's contents; each seat still submits a real setup choice.
   const options = { fairy: true, pool: ['O', 'A', 'G', 'M', 'S'], arrangement: true, classic: false,
     cards: true, cardPool: ['Freeze', 'IceWall', 'MorphP', 'Vault'], kingPowers: true };

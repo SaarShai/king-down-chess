@@ -78,10 +78,10 @@ it('stops the wait clock and observer before the account DOM is removed', async 
   expect(() => wait.waitScreen()).not.toThrow(); expect(() => wait.waitSync()).not.toThrow(); expect(wait.waitPoll()).toBeUndefined();
 });
 
-it('ignores an end poll that returns after close and DOM removal', async () => {
+it.each(['friend', 'solo'])('ignores a %s end poll that returns after close and DOM removal', async kind => {
   const end = await import('./end'), { stopAll } = await import('./friend');
   runtime.client.state.screen = 'end';
-  runtime.memory.view = { game_id: 'ended', revision: 4, kind: 'friend', status: 'finished', opponent: { deleted: false } } as View;
+  runtime.memory.view = { game_id: 'ended', revision: 4, kind, status: 'finished', opponent: { deleted: false } } as View;
   let release!: () => void; runtime.call.mockImplementationOnce(() => new Promise<void>(resolve => { release = resolve; }));
   const reading = end.endPoll()!.read();
   runtime.closed = true; stopAll(); removed = true; release();

@@ -36,7 +36,7 @@ function closeEnd() {
 }
 function pollView() {
   const view = memory.view;
-  if (!stopped && !queue.closed() && client.state.screen === 'end' && view?.status === 'finished' && view.kind !== 'solo' && !view.rematch_game_id && view.opponent && !view.opponent.deleted) return {...view,status:'playing' as const,turn:(1-view.seat) as 0|1};
+  if (!stopped && !queue.closed() && client.state.screen === 'end' && view?.status === 'finished' && !view.rematch_game_id && view.opponent && !view.opponent.deleted) return {...view,status:'playing' as const,turn:(1-view.seat) as 0|1};
 }
 // The store's subscriber replaces the data-page and #reload observers: the end screen follows its screen and its lock.
 // The card is rebuilt on a change of either only, as the two observers did.
@@ -51,7 +51,7 @@ export function endSync(page: Page) {
   if (page.screen === 'end') { $('end-table').append($('game-table')); clearTimeout(updateTimer); updateTimer = setTimeout(updateEnd, 0); }
   else if (scrim) closeEnd();
 }
-/** The rematch watch: the one poll reads the finished human game until a rematch or a reply comes (design §4). */
+/** The rematch watch: the one poll reads the finished game until a rematch or a reply comes (design §4). */
 export function endPoll(): PollTarget | undefined {
   const view = pollView();
   return view && { view, read: async () => { await call('kingdown_get', { since_revision: pollSince(view) }, false, true); updateEnd(); } };

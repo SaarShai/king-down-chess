@@ -638,8 +638,8 @@ it.each([false, true])('keeps the SDK limit for mount Get and list reads (board:
   for (const [, options] of reads) expect(options).not.toHaveProperty('timeout');
 });
 
-it.each(['teardown', 'profile', 'other game'])('sends no Seen after a held poll leaves its target by %s', async change => {
-  const app = await mounted(); app.routeView(game);
+it.each(['teardown', 'profile', 'other game'].flatMap(change => ['friend', 'solo'].map(kind => ({ change, kind }))))('ignores a held $kind poll after $change', async ({ change, kind }) => {
+  const app = await mounted(); app.routeView({ ...game, kind } as View);
   let release!: (value: unknown) => void;
   transport.call.mockImplementation(async ({ name }) => name === 'kingdown_get'
     ? new Promise(resolve => { release = resolve; }) : { content: [], _meta: { games: [] } });
@@ -653,6 +653,22 @@ it.each(['teardown', 'profile', 'other game'])('sends no Seen after a held poll 
     expect(transport.disposeBoard).toHaveBeenCalledOnce();
     expect(app.memory.view).toBeUndefined();
   }
+});
+
+it('reads the solo board and its waiting human game in one poll without presence writes', async () => {
+  const app = await mounted(), waiting = await waitingGame();
+  let solo = { ...waiting, game_id: 'solo-a000', kind: 'solo', status: 'playing', rules: {} } as View;
+  app.memory.games = [waiting as any, solo as any];
+  transport.call.mockImplementation(async ({ name, arguments: args }) => ({ content: [], _meta: name === 'kingdown_games'
+    ? { games: [waiting, solo] } : { view: args.game_id === waiting.game_id ? waiting : solo } }));
+  await app.send('kingdown_resume', { game_id: solo.game_id }); await vi.advanceTimersByTimeAsync(0);
+  transport.call.mockClear();
+  solo = { ...solo, revision: 2 };
+  await transport.target().read(); await vi.advanceTimersByTimeAsync(0);
+  expect(app.memory.view?.game_id).toBe(solo.game_id);
+  expect(app.memory.view?.revision).toBe(2);
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_get').map(([input]) => input.arguments.game_id)).toEqual([undefined, waiting.game_id]);
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_seen')).toHaveLength(0);
 });
 
 it.each(['chat result', 'teardown'])('drops a move list reply after a newer %s', async change => {

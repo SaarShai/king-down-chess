@@ -2227,6 +2227,12 @@ try {
   assert.equal(await page.evaluate(()=>window.harnessView.game_id),replacement,'Deleted-game recovery survives immediate remount');
   const friendTool = async (name,args={}) => (await page.request.post(new URL('/fixture-friend-tool',base).href,{data:{name,arguments:args,fresh:true}})).json();
   const tool = async (name,args={}) => (await page.request.post(new URL('/fixture-tool',base).href,{data:{name,arguments:args}})).json();
+  const { checkSoloSync } = await import('./lib/solo-sync-check.mjs');
+  await checkSoloSync({ page, ui: frame, tool, label: 'embedded', open: async game_id => {
+    const board_id = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
+    const result = await tool('kingdown_open', { game_id, board_id }); assert(!result.isError);
+    await page.evaluate(result => window.harnessShow(result), result);
+  } });
   // S5 review: full reads keep the draft words. A real draw offer refuses the old revision once.
   {
     const gameTool = async (name, args = {}, friend = false) => {

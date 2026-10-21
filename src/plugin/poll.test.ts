@@ -3,6 +3,14 @@ import type { View } from '../match/protocol';
 import { pollDelay, pollSince, runPoll, type PollTarget } from './poll';
 const view = (change: Partial<View> = {}) => ({ game_id: 'g1', kind: 'friend', status: 'playing', speed: 'daily', turn: 1, seat: 0, opponent: { last_seen_ms: null }, last_commands: [], server_now: '2026-10-11T12:00:00.000Z', ...change }) as View;
 
+it('keeps a visible solo setup and either turn current across hosts', () => {
+  expect(pollDelay(view({ kind: 'solo', status: 'setup' }), 0, false)).toBe(5000);
+  expect(pollDelay(view({ kind: 'solo', status: 'setup' }), 120000, false)).toBe(15000);
+  for (const turn of [0, 1] as const) expect(pollDelay(view({ kind: 'solo', turn }), 0, false)).toBe(5000);
+  expect(pollDelay(view({ kind: 'solo' }), 0, true)).toBeUndefined();
+  expect(pollDelay(view({ kind: 'solo', status: 'finished' }), 0, false)).toBeUndefined();
+});
+
 it('uses the wait and game schedule, with the owner’s recent-opponent rule', () => {
   expect(pollDelay('waiting for a join', 0, false)).toBe(5000);
   expect(pollDelay(view({ status: 'waiting', kind: 'random' }), 119999, false)).toBe(5000);
@@ -18,7 +26,7 @@ it('uses the wait and game schedule, with the owner’s recent-opponent rule', (
     { seq: 2, seat: 0, at: '2026-10-11T12:00:00.000Z', action: { type: 'join' } },
   ] }), 0, false)).toBe(3000);
   expect(pollDelay(view({ last_commands: [{ seq: 2, seat: 0, at: '2026-10-11T12:00:00.000Z', action: { type: 'join' } }] }), 0, false)).toBe(30000);
-  for (const current of [view({ kind: 'solo' }), view({ status: 'finished' }), view({ status: 'aborted' }), undefined]) expect(pollDelay(current, 0, false)).toBeUndefined();
+  for (const current of [view({ status: 'finished' }), view({ status: 'aborted' }), undefined]) expect(pollDelay(current, 0, false)).toBeUndefined();
   expect(pollDelay(view(), 0, true)).toBeUndefined();
 });
 
@@ -59,8 +67,8 @@ it('reads every three seconds for two minutes after your own move, draw or remat
   }
   // A draw answer or a rematch offer leaves the turn with you.
   expect(pollDelay(view({ turn: 0, opponent: idle, last_commands: own('draw', 5000) }), 0, false)).toBe(3000);
-  // Never faster in a computer game.
-  expect(pollDelay(view({ kind: 'solo', last_commands: own('turn', 0) }), 0, false)).toBeUndefined();
+  // A computer game uses its own cross-host cadence.
+  expect(pollDelay(view({ kind: 'solo', last_commands: own('turn', 0) }), 0, false)).toBe(5000);
 });
 
 it('reads a pending draw offer every three seconds, also on your turn', () => {

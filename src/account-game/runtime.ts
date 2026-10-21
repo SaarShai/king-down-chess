@@ -452,20 +452,22 @@ async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
   }
 }
 /**
- * The one poll's target (design §4): the page board on a human game screen, the rematch watch on End, the list on the
- * lobby, else the watch of a waiting human game during a solo game.
+ * The one poll reads the current game, the rematch watch on End or the list on the lobby. During solo play it also
+ * checks the waiting human game, at that wait's cadence. Both reads keep their existing navigation guards.
  */
 function pollTarget(): PollTarget | undefined {
   if (state.screen === 'end') return endPoll();
   if (state.screen === 'lobby') return lobbyPoll();
   if (!['friend', 'wait', 'seat', 'board'].includes(state.screen)) return waitPoll();
-  return (view?.kind === 'solo' && waitPoll()) || { view, read: async () => {
+  const waiting = view?.kind === 'solo' ? waitPoll() : undefined;
+  return { view: waiting?.view ?? view, read: async () => {
     if (!state.board_id) return;
     const board = state.board_id, game = view?.game_id, epoch = queue.epoch();
     const next = await call('kingdown_get', { ...(view?.fen ? { since_revision: pollSince(view) } : {}) }, false, true, !savedScreen || !!view && POLL_SCREENS.includes(state.screen));
     if (!next || queue.closed() || queue.epoch() !== epoch || state.board_id !== board || view?.game_id !== game || !POLL_SCREENS.includes(state.screen)) return;
     // kingdown_get is read-only; this write lets the opponent see the player online.
-    if (view && Date.now() - seenAt >= 30_000) { seenAt = Date.now(); void client.call('kingdown_seen', { game_id: view.game_id }).catch(() => {}); }
+    if (view && view.kind !== 'solo' && Date.now() - seenAt >= 30_000) { seenAt = Date.now(); void client.call('kingdown_seen', { game_id: view.game_id }).catch(() => {}); }
+    await waiting?.read();
   } };
 }
 export const pollUpdate = () => poll?.update();
