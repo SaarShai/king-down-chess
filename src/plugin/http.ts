@@ -97,7 +97,7 @@ export function createPluginHandler(options: PluginHttpOptions): (req: IncomingM
           actorId = await options.auth!.verify(match[1], admit);
         }
       } catch (error) {
-        if (error instanceof SlotRefused) { res.setHeader('Retry-After', '1'); respond(res, error.status, error.body); return; }
+        if (error instanceof SlotRefused) { console.warn('King Down admission trace', JSON.stringify({ status: error.status, active })); res.setHeader('Retry-After', '1'); respond(res, error.status, error.body); return; }
         if (error instanceof AuthenticationUnavailable) { res.setHeader('Retry-After', '5'); respond(res, 503, { error: error.message }); return; }
         if (options.auth) res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${metadataUrl}", scope="openid"`);
         respond(res, 401, { error: 'Authentication required' }); return;
