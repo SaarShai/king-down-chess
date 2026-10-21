@@ -20,3 +20,5 @@ The new compiled web check fails on `279368d4`: an unchanged result poll removes
 Focused source, compiled clients and staging acceptance are pending.
 
 The first patched web run passes the result-button check, then fails the board check because the test targets a menu hidden by the result layout. The corrected test focuses the visible board and asserts that focus is set before it starts the poll. This is a fixture correction; no second product defect is inferred from that failure.
+
+On `fefa2524`, web passes in 50.3 seconds and embedded passes the new focus and solo-sync checks. A new recovery assertion then fails: it wrongly treats a retained result-details request as a stale game read. The captured state has pending kingdown_get, which intentionally permits a queued rematch. The check now preserves that contract and separately injects three failed background reads to require the stale-game lock and its recovery. Application source is unchanged.

@@ -2732,10 +2732,20 @@ try {
     assert.equal(await frame.locator('#end-reason').innerText(),`${mode==='fixture'?'Legacy rated':'Casual'} · Draw by agreement.`);
     assert.equal(await frame.locator('#over.is-win, #board[data-toppling]').count(),0,'A draw stays calm');
     await frame.locator('#over #retry').waitFor({timeout: 3000 * STEP});
-    assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),false,'A failed result read locks rematch even when the result content stays the same');
+    assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),true,'A pending result-details read still allows a queued rematch');
     assert.equal(await frame.locator('#over .end-facts').innerText(),'','A failed full end read shows no guessed rating or badge');
     await frame.locator('#over #retry').click(); await frame.locator('#over #retry').waitFor({state:'hidden'}); await idleBoard();
     assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),true,'A successful result read unlocks rematch');
+    // A stale game read differs from the retained result-details request above.
+    for (let n=0;n<3;n++) {
+      const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
+      await page.evaluate(()=>{window.rejectNextGet=true;}); await page.clock.fastForward(3100);
+      await page.waitForFunction(count=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>count,reads); await settled();
+    }
+    await frame.locator('#over #retry').filter({hasText:'Try again'}).waitFor();
+    assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),false,'Failed background reads lock rematch without replacing the result');
+    await frame.locator('#over #retry').click(); await frame.locator('#over #retry').waitFor({state:'hidden'}); await idleBoard();
+    assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),true,'A fresh game read clears the rematch lock');
     if (mode==='fixture') { await frame.locator('.end-facts').filter({hasText:'New player'}).waitFor(); assert(!/1561|\+61|\?/.test(await frame.locator('.end-facts').innerText()), 'A new player sees no provisional number'); assert.match(await frame.locator('.new-badge img').getAttribute('src'),/badge-fairy-tale-/); }
     await page.setViewportSize({width:197,height:426});
     await page.locator('iframe').evaluate(e=>e.style.setProperty('height','100dvh','important'));
