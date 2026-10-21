@@ -44,3 +44,13 @@ Ticket 15 also finds a product connection failure. The SDK closes its transport 
 The Profile check assumed the parchment roller remained visible at the page end after new trailing controls were added. Measured geometry confirms the page scrolls correctly with no inner registry overflow. Continuity ticket 16 retains both full-roller bounds at the parchment's end, proves matching page movement and checks the trailing Collection/Settings controls at the page end. The focused case, typecheck and 54 art checks pass without a layout change.
 
 All four repair slices have independent read review and normal hooks. Run the combined complete source gate next; focused passes do not replace it.
+
+## Second complete source gate
+
+The repeat at clean `bdd45ea0` ends with 4,489 passes, eight failures and 11 optional skips in 452.45 seconds. All database cases run. The skips are three source-art exports that need Python packages and eight opt-in balance-document checks. The source stays unchanged; `source-suite-final.json` and its log preserve this result.
+
+Ticket 19 fixes a confirmed query defect: selecting notice IDs as text lets an unqualified sort use text order. The query now sorts by the numeric source column while returning exact strings. A fixed digit-boundary regression fails before the fix; all 15 account database cases and five existing notice route/client cases pass afterward, with privacy and cursor checks intact.
+
+Ticket 20 distinguishes preview readiness from artwork readiness in four board journeys. Correct waits expose a real stale draft after a successful remote turn. The existing draft validator now runs before the early return for a waiting player, so an accepted draft clears while a valid draft survives a draw-offer revision. Four journeys and 62 model/widget-state cases pass. Invalid remount fixtures use the existing host state setter so teardown cannot overwrite the injected test state.
+
+Ticket 21 checks three remaining source app cases. A held preview reproduces both early keyboard failures. The power-focus case passes under that hold; its exact earlier timing cause remains unconfirmed. The tests wait for initial reads before their scenarios and retain the immediate focus assertions. No product focus change is claimed.
