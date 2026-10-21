@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { handleProblem, ICONS } from '../account/profile';
 import { fail, GameService, id, parse } from '../match/service';
 import type { PostgresMatchStore } from '../match/store';
+import type { CreationMode, RatingPolicy } from '../match/protocol';
 import { AccountService, who } from '../online/accounts';
 import { SettingsService, settingsSchema, type PlayerSettings } from './settings';
 import { SafetyService } from '../online/safety';
@@ -47,8 +48,8 @@ export class PluginService {
   join(actor: string, invitation: unknown) { return this.games.join(actor, invitation); }
   preview(actor: string, code: unknown) { return this.games.preview(actor, code); }
   lobby(actor: string) { return this.games.lobby(actor); }
-  accept(actor: string, gameId: string) { return this.games.accept(actor, gameId); }
-  find(actor: string, options: unknown, colour: unknown = 'white', commandId?: string, anyRules = false) { return this.games.find(actor, options, colour, commandId, anyRules); }
+  accept(actor: string, gameId: string, ratingPolicy?: RatingPolicy) { return this.games.accept(actor, gameId, ratingPolicy); }
+  find(actor: string, options: unknown, colour?: unknown, commandId?: string, anyRules = false, mode?: CreationMode) { return this.games.find(actor, options, colour, commandId, anyRules, mode); }
   cancel(actor: string, gameId: string) { return this.games.cancel(actor, gameId); }
   report(actor: string, input: unknown) { return this.safety.report(actor, input); }
   /** Read or change the actor's block of the opponent in a shared game. */

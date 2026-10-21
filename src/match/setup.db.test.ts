@@ -396,6 +396,9 @@ suite('game setup through PostgreSQL', () => {
     .toEqual({ options: null, draw: null, deal: null, level: 'club', setup_deadline_at: null, rematch_offer: null, rematch_game_id: null, state, snapshot });
    expect((await db.query('select choice,ready from public.game_players where game_id=$1 order by seat', [gameId])).rows).toEqual([{ choice: null, ready: false }, { choice: null, ready: false }]);
    await db.query(await readFile(new URL('../../supabase/migrations/0017_setup_admission.sql', import.meta.url), 'utf8'));
+   const policy = await readFile(new URL('../../supabase/migrations/0018_rating_policy.sql', import.meta.url), 'utf8');
+   await db.query(policy); await db.query(policy);
+   expect((await db.query('select rating_policy,state,snapshot from public.games where id=$1', [gameId])).rows[0]).toEqual({ rating_policy: 'legacy', state, snapshot });
    const upgraded = new GameService(new PostgresMatchStore(db));
    expect(await upgraded.view(a, gameId)).toMatchObject({ status: 'playing', revision: 1, turn: 1, fen: snapshot.fen });
    expect(await upgraded.command(a, gameId, command(1, { type: 'computer' }))).toMatchObject({ status: 'playing', revision: 2, turn: 0 });

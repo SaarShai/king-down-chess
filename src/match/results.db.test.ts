@@ -3,7 +3,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GameService } from './service';
 import { createMatch } from './index';
-import { PostgresMatchStore } from './store';
+import { PostgresMatchStore, type Game } from './store';
 import { DEFAULT_OPTIONS } from './setup';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { KINGS, type KingName } from '../rules/rules';
@@ -16,13 +16,18 @@ vi.setConfig({ testTimeout: 60_000 });
 const suite = process.env.PLUGIN_TEST_DATABASE_URL ? describe : describe.skip;
 const command = (expected_revision: number, action: object) => ({ command_id: randomUUID(), expected_revision, action });
 
-suite('finished game results in PostgreSQL', () => {
+suite('legacy finished game results in PostgreSQL', () => {
  let admin: pg.Pool, games: GameService[], own: URL;
  const users: string[] = [], pools: pg.Pool[] = [];
  beforeAll(async () => {
   own = await ownTestDatabase('results');
   pools.push(new pg.Pool({ connectionString: own.href, max: 2 }), new pg.Pool({ connectionString: own.href, max: 2 }));
-  admin = pools[0]; games = pools.map(pool => new GameService(new PostgresMatchStore(pool)));
+  admin = pools[0]; games = pools.map(pool => {
+   const store = new PostgresMatchStore(pool), insert = store.insert.bind(store);
+   // These regression fixtures represent games that existed before the policy transition.
+   store.insert = (game: Game, client?: pg.PoolClient) => { game.rating_policy = 'legacy'; return insert(game, client); };
+   return new GameService(store);
+  });
  }, 120_000);
  afterAll(async () => {
   await admin.query('delete from public.games where created_by=any($1)', [users]);
@@ -84,7 +89,7 @@ suite('finished game results in PostgreSQL', () => {
     const record = records[index];
     expect(ratings.find(r => r.user_id === actor)).toMatchObject({ rating: record.rating.rating, rd: record.rating.rd, volatility: record.rating.volatility });
     expect(record.badges.every(b => b.earned_at === at.toISOString())).toBe(true);
-    expect(await games[0].history(actor)).toEqual({ next_before: null, games: [{ game_id: game.game_id, finished_at: at.toISOString(), kind: 'random',
+    expect(await games[0].history(actor)).toEqual({ next_before: null, games: [{ rating_policy: 'legacy', game_id: game.game_id, finished_at: at.toISOString(), kind: 'random',
      colour: index === 0 ? 'black' : 'white', result: index === 0 ? 'won' : 'lost', reason: 'resignation',
      opponent: { handle: handles[1-index], icon: index === 0 ? 'bishop' : 'knight', computer: false, deleted: false, level: null },
      features: { fairy: false, arrangement: false, classic: true, cards: false, powers: false, king: index === 0 ? 'Shadow' : 'Spirit', power: null } }] });

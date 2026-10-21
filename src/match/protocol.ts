@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { PublicMatchRules } from './index';
 import type { Move, Status } from '../rules/engine';
 import { choiceSchema, optionsSchema } from './setup-schema';
+import { RANKED_OPTIONS, switches } from './setup';
 import type { Choice, Options, SetupAdmission } from './setup';
 import type { CardName, KingChoice, KingName, PowerName } from '../rules/rules';
 import type { SkillName } from '../ai/skill';
@@ -12,6 +13,8 @@ import type { Badge } from './badges';
 import type { Rating } from '../online/glicko2';
 
 export type Seat = 0 | 1;
+export type RatingPolicy = 'legacy' | 'casual' | 'ranked-v1';
+export type CreationMode = 'casual' | 'ranked';
 export const MAX_REVISION = 1100;
 export type Surface = 'web' | 'chatgpt';
 /** Fixed phrases only: a preset never carries free text, a number or a link (part 01, section 8.2). */
@@ -41,6 +44,7 @@ export const actionSchema = z.discriminatedUnion('type', [
 export const commandSchema = z.strictObject({ command_id: text(200), expected_revision: z.number().int().min(0).max(MAX_REVISION), action: actionSchema });
 export const createSchema = z.strictObject({
   kind: z.enum(['solo', 'friend', 'random']),
+  mode: z.enum(['casual', 'ranked']).optional(),
   options: optionsSchema.optional(),
   level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(),
   speed: z.enum(['daily', 'live']).optional(),      // default: daily for games against people, live for solo games
@@ -49,7 +53,10 @@ export const createSchema = z.strictObject({
   // The engine worker validates the content; this only bounds the shape.
   setup: z.strictObject({ backRank: z.string().max(8).optional(), fen: z.string().max(4096).optional(), preset: z.enum(['current', '2017', '2021']).optional(), kings: z.string().max(100).optional() }).optional(),
 }).refine(input => !(input.days_per_move && (input.speed ?? (input.kind === 'solo' ? 'live' : 'daily')) !== 'daily' || input.kind === 'solo' && input.speed === 'daily' || input.options && input.setup))
-  .refine(input => input.kind === 'solo' || !!input.options && !input.setup && input.speed !== 'live');
+  .refine(input => input.kind === 'solo' || (!!input.options || input.mode === 'ranked') && !input.setup && input.speed !== 'live')
+  .refine(input => input.mode !== 'ranked' || input.kind === 'random' && !input.setup && !input.level && (input.speed === undefined || input.speed === 'daily') && (input.days_per_move === undefined || input.days_per_move === 3) && (input.colour === undefined || input.colour === 'random')
+    && (!input.options || switches(input.options) === switches(RANKED_OPTIONS) && input.options.pool.length === RANKED_OPTIONS.pool.length && input.options.pool.every(kind => RANKED_OPTIONS.pool.includes(kind))
+      && input.options.cardPool.length === RANKED_OPTIONS.cardPool.length && input.options.cardPool.every(card => RANKED_OPTIONS.cardPool.includes(card))));
 export type Action = z.infer<typeof actionSchema>;
 export type Command = z.infer<typeof commandSchema>;
 export type CreateOptions = Omit<z.infer<typeof createSchema>, 'options'> & { options?: Options };
@@ -76,6 +83,7 @@ export interface Opponent { handle: string | null; icon: Icon | null; rating?: {
 /** One seat's public view, never the full save. Full reads include rules and move history. */
 export interface View {
   game_id: string;
+  rating_policy: RatingPolicy;
   revision: number;
   /** The game's fixed engine implementation, including unfinished drawn setup. */
   engine_fingerprint?: string | null;
@@ -123,16 +131,16 @@ export interface View {
 }
 /** One line of "Your games": your turn first, then the nearest deadline. */
 export interface GameOutcome { rating_before: number | null; rating: number | null; provisional: boolean; badges: PlayerRecord['badges'] }
-export interface InboxEntry { options: Options | null; move: number | null; created_at: string; open_until: string | null; level: SkillName; game_id: string; kind: 'solo' | 'friend' | 'random'; speed: 'daily' | 'live'; status: 'waiting' | 'setup' | 'playing'; seat: Seat; action: SeatAction; turn: Seat; revision: number; deadline_at: string | null; opponent: Opponent | null; updated_at: string }
+export interface InboxEntry { rating_policy: RatingPolicy; options: Options | null; move: number | null; created_at: string; open_until: string | null; level: SkillName; game_id: string; kind: 'solo' | 'friend' | 'random'; speed: 'daily' | 'live'; status: 'waiting' | 'setup' | 'playing'; seat: Seat; action: SeatAction; turn: Seat; revision: number; deadline_at: string | null; opponent: Opponent | null; updated_at: string }
 /** The link token (43 characters) and the short code (6 characters) open the same seat. */
 export interface Invite { token: string; code: string; expires_at: string }
 export interface JoinPreview { code: string; options: Options | null; colour: 'white' | 'black'; kind: 'friend' | 'random' | 'solo'; creator: { handle: string | null; icon: Icon | null }; expires_at: string }
-export interface LobbyEntry { game_id: string; options: Options | null; colour: 'white' | 'black'; creator: { handle: string; icon: Icon | null }; created_at: string }
+export interface LobbyEntry { rating_policy: RatingPolicy; game_id: string; options: Options | null; colour: 'white' | 'black'; creator: { handle: string; icon: Icon | null }; created_at: string }
 export interface Lobby { games: LobbyEntry[]; active_count?: number }
 
 export interface GameFeatures { fairy: boolean; arrangement: boolean; classic: boolean; cards: boolean; powers: boolean; king: KingName; power: PowerName | null }
 export interface HistoryEntry {
- game_id: string; finished_at: string; kind: 'solo' | 'friend' | 'random'; colour: 'white' | 'black'; result: 'won' | 'drawn' | 'lost'; reason: EndReason;
+ rating_policy: RatingPolicy; game_id: string; finished_at: string; kind: 'solo' | 'friend' | 'random'; colour: 'white' | 'black'; result: 'won' | 'drawn' | 'lost'; reason: EndReason;
  opponent: { handle: string | null; icon: string | null; computer: boolean; deleted: boolean; level: SkillName | null }; features: GameFeatures;
 }
 export interface HistoryPage { games: HistoryEntry[]; next_before: string | null }

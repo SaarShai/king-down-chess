@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BADGES, earnedBadges, type Badge, type EarlierRecord } from './badges';
 import type { HistoryEntry } from './protocol';
 
-const game: HistoryEntry = {
+const game: HistoryEntry = { rating_policy: 'legacy',
  game_id: 'game', finished_at: '2026-10-11T12:00:00.000Z', kind: 'solo', colour: 'white', result: 'won', reason: 'checkmate',
  opponent: { handle: null, icon: null, computer: true, deleted: false, level: 'club' },
  features: { fairy: false, arrangement: false, classic: false, cards: false, powers: false, king: 'Spirit', power: null },

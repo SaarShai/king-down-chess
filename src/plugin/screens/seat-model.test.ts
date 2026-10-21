@@ -4,7 +4,7 @@ import { DEFAULT_OPTIONS, setupAdmission, validateChoice } from '../../match/set
 import type { View } from '../../match/protocol';
 import { fromFen } from '../../rules/setup';
 
-const view = (seat: 0 | 1 = 0): View => ({ game_id: 'game', revision: 1, created_at: '2026-10-11T00:00:00Z', abort_open: true, seat, kind: 'friend', speed: 'daily', days_per_move: 3, status: 'setup', turn: 0, action: 'ready', fen: '', in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: null, server_now: '2026-10-11T00:00:00Z', options: { ...DEFAULT_OPTIONS, kingPowers: true, cards: true }, draw: 'RBBNGKNR', deal: ['Flight','March','Leap','Salvation'], ready: [false,false], choices: seat === 0 ? [{ king: { king: 'Spirit', power: 'Mercy' }, order: 'RBBNGKNR' }, null] : [null, { king: { king: 'Shadow', power: 'Darkness' }, order: 'RBBNGKNR' }] });
+const view = (seat: 0 | 1 = 0): View => ({ rating_policy: 'legacy', game_id: 'game', revision: 1, created_at: '2026-10-11T00:00:00Z', abort_open: true, seat, kind: 'friend', speed: 'daily', days_per_move: 3, status: 'setup', turn: 0, action: 'ready', fen: '', in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: null, server_now: '2026-10-11T00:00:00Z', options: { ...DEFAULT_OPTIONS, kingPowers: true, cards: true }, draw: 'RBBNGKNR', deal: ['Flight','March','Leap','Salvation'], ready: [false,false], choices: seat === 0 ? [{ king: { king: 'Spirit', power: 'Mercy' }, order: 'RBBNGKNR' }, null] : [null, { king: { king: 'Shadow', power: 'Darkness' }, order: 'RBBNGKNR' }] });
 
 describe('seat arrangement', () => {
   it('maps the back rank by file for both seats', () => {

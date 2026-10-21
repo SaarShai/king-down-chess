@@ -16,7 +16,7 @@ const baseline = [
  '0005_accounts_v2.sql', '0006_games.sql', '0007_jobs.sql', '0008_accounts_safety.sql',
  '0009_invite_tries.sql', '0010_game_setup.sql', '0011_matchmaking.sql', '0012_results.sql',
  '0013_player_settings.sql', '0014_plugin_tool_tries.sql', '0015_remove_email.sql',
- '0017_setup_admission.sql',
+ '0017_setup_admission.sql', '0018_rating_policy.sql',
 ];
 const migration = read('supabase/migrations/0016_web_account_access.sql');
 const blocks = read('plugin-deploy/runtime-role.sql').match(/^begin;[\s\S]*?^commit;$/gm)!;

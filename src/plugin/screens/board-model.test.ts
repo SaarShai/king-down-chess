@@ -6,7 +6,7 @@ import { fromFen, toFen, toLan } from '../../rules/setup';
 import { legalMoves, setRules, status, type CardName, type Rules } from '../../rules/engine';
 import { applyLan, boardActions, cardCoins, cardUseReason, draftChoices, draftTurn, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
 
-const view = (fields: Partial<View> = {}): View => ({ game_id: 'game', revision: 2, engine_fingerprint: 'engine-a', created_at: '2026-10-11T00:00:00Z', abort_open: false, seat: 0, kind: 'friend', speed: 'daily', days_per_move: 3, status: 'playing', turn: 1, action: 'waiting', fen: '7k/8/8/8/8/8/P7/K7 b - - 0 1', in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: '2026-10-11T00:00:01Z', server_now: '2026-10-11T00:00:00Z', ...fields });
+const view = (fields: Partial<View> = {}): View => ({ rating_policy: 'legacy', game_id: 'game', revision: 2, engine_fingerprint: 'engine-a', created_at: '2026-10-11T00:00:00Z', abort_open: false, seat: 0, kind: 'friend', speed: 'daily', days_per_move: 3, status: 'playing', turn: 1, action: 'waiting', fen: '7k/8/8/8/8/8/P7/K7 b - - 0 1', in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: '2026-10-11T00:00:01Z', server_now: '2026-10-11T00:00:00Z', ...fields });
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1';
 const HASTE = '7k/p7/8/8/8/8/8/R5K1 w - - 0 1';

@@ -2,10 +2,10 @@
 import { createHash, createHmac, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { createMatch, createPinnedMatch, loadMatch, MatchError, type MatchSnapshot } from './index';
-import { commandSchema, createSchema, draftSchema, MAX_REVISION, type Command, type CreateOptions, type DraftPosition, type DraftPreview, type EndReason, type InboxEntry, type Invite, type JoinPreview, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
+import { commandSchema, createSchema, draftSchema, MAX_REVISION, type Command, type CreationMode, type RatingPolicy, type CreateOptions, type DraftPosition, type DraftPreview, type EndReason, type InboxEntry, type Invite, type JoinPreview, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
 import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Outgoing, type Player } from './store';
 import { diagnostic } from '../plugin/diagnostics';
-import { buildSetup, defaultChoice, draw, seatChoicesNeeded, switches, setupAdmission, validateChoice } from './setup';
+import { buildSetup, RANKED_OPTIONS, defaultChoice, draw, seatChoicesNeeded, switches, setupAdmission, validateChoice } from './setup';
 import type { HistoryPage, PlayerRecord } from './protocol';
 import { gameHistory, gameOutcome, opponentRating, playerRecord, recordResult } from './results';
 export { MatchServiceError } from './store';
@@ -29,10 +29,13 @@ function startId(actor: string, commandId: string): string {
 async function startLock(client: Parameters<PostgresMatchStore['save']>[0], actor: string, commandId: string): Promise<void> {
  await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [`start:${actor}:${commandId}`]);
 }
+function canonicalCreate(input: CreateOptions): CreateOptions {
+ return input.mode === 'ranked' ? { ...input, speed: 'daily', days_per_move: 3, colour: 'random', options: RANKED_OPTIONS } : input;
+}
 /** A start's input with its defaults. The start receipt keeps it; a resend with other input is COMMAND_CONFLICT. */
 export function startKey(input: CreateOptions, anyRules = false) {
  const speed = input.speed ?? (input.kind === 'solo' ? 'live' : 'daily');
- return { kind: input.kind, speed, days_per_move: speed === 'daily' ? input.days_per_move ?? 3 : null, colour: input.colour ?? 'white', level: input.level ?? 'club', options: input.options ?? null, setup: input.setup ?? null, any_rules: anyRules };
+ return { mode: input.mode ?? 'casual', kind: input.kind, speed, days_per_move: speed === 'daily' ? input.days_per_move ?? 3 : null, colour: input.colour ?? 'white', level: input.level ?? 'club', options: input.options ?? null, setup: input.setup ?? null, any_rules: anyRules };
 }
 type StartKey = ReturnType<typeof startKey>;
 export function id(value: unknown): string { return typeof value === 'string' && uuid.test(value) ? value.toLowerCase() : fail('INVALID_INPUT', 400, 'Expected a UUID'); }
@@ -123,10 +126,10 @@ export class GameService {
  }
  /** With a command ID, a resent Create (the reply was lost or late) gets the first game; other input is COMMAND_CONFLICT. */
  async create(actor: string, input: unknown, commandId?: string): Promise<View> {
-  actor = id(actor); const options = parse(createSchema, input), key = startKey(options);
+  actor = id(actor); const options = canonicalCreate(parse(createSchema, input)), key = startKey(options);
   if (options.level && !options.options) fail('INVALID_INPUT', 400, 'A computer level needs game options');
   if (options.kind !== 'solo') await this.requireHandle(actor);
-  const done = commandId === undefined ? undefined : await this.started(undefined, actor, commandId, key);
+  const done = commandId === undefined ? undefined : await this.started(undefined, actor, commandId, key, options.mode === undefined);
   if (done) return done;
   const game = await this.newGame(actor, options, commandId === undefined ? randomUUID() : startId(actor, commandId));
   settle(game, game.created_at);
@@ -134,16 +137,16 @@ export class GameService {
   // A resend, or a Find with the same command ID, that comes while this send runs waits for the start lock, then reads the receipt.
   return this.store.transaction(async client => {
    await startLock(client, actor, commandId);
-   return await this.started(client, actor, commandId, key) ?? (await this.store.insert(game, client) ? this.receipt(client, game, actor, commandId, key) : this.view(actor, game.id));
+   return await this.started(client, actor, commandId, key, options.mode === undefined) ?? (await this.store.insert(game, client) ? this.receipt(client, game, actor, commandId, key) : this.view(actor, game.id));
   });
  }
  /** The game that this start command ID already made, joined or reused, or undefined. Other input is COMMAND_CONFLICT.
   * A start from before start receipts has no input to compare: a Find's join row keeps {}, and a made game has no row but has the derived ID. */
- private async started(client: Parameters<PostgresMatchStore['save']>[0] | undefined, actor: string, commandId: string, key: StartKey): Promise<View | undefined> {
+ private async started(client: Parameters<PostgresMatchStore['save']>[0] | undefined, actor: string, commandId: string, key: StartKey, legacyRetry: boolean): Promise<View | undefined> {
   const db = client ?? this.store.pool;
-  const row = (await db.query(`select c.game_id,(c.payload=$3::jsonb or c.kind='join' and c.payload='{}'::jsonb and $3::jsonb->>'kind'='random') as same from public.game_players p join public.game_commands c
-   on c.game_id=p.game_id and c.seat=p.seat and c.command_id=$2 and c.kind in ('start','join') where p.user_id=$1 limit 1`, [actor, commandId, JSON.stringify(key)])).rows[0]
-   ?? (await db.query('select id as game_id,true as same from public.games where id=$1', [startId(actor, commandId)])).rows[0];
+  const row = (await db.query(`select c.game_id,(c.payload=$3::jsonb or $4 and (c.payload=$3::jsonb-'mode' or c.kind='join' and c.payload='{}'::jsonb and $3::jsonb->>'kind'='random')) as same from public.game_players p join public.game_commands c
+   on c.game_id=p.game_id and c.seat=p.seat and c.command_id=$2 and c.kind in ('start','join') where p.user_id=$1 limit 1`, [actor, commandId, JSON.stringify(key), legacyRetry])).rows[0]
+   ?? (await db.query("select id as game_id,($2 and rating_policy='legacy') as same from public.games where id=$1", [startId(actor, commandId), legacyRetry])).rows[0];
   if (!row) return;
   if (!row.same) fail('COMMAND_CONFLICT', 409, 'Command ID was used with different input');
   // The full read, as view() gives: the reply keeps the move history.
@@ -167,7 +170,7 @@ export class GameService {
    action: 'waiting', turns_played: 0, draw_offers: 0, said: [], last_seen_at: s === seat ? at : null, last_seen_ms: s === seat ? 0 : null, last_surface: null, active: true, ended_at: null });
   const powers = options?.kingPowers ?? false;
   const game: Game = {
-   id: gameId, kind: input.kind, speed, days_per_move: days, category: `${speed}${days ? `-${days}d` : ''}/${powers ? 'powers' : 'no-powers'}/${options?.cards ? 'cards' : 'no-cards'}`,
+   id: gameId, rating_policy: input.mode === 'ranked' ? 'ranked-v1' : 'casual', kind: input.kind, speed, days_per_move: days, category: `${speed}${days ? `-${days}d` : ''}/${powers ? 'powers' : 'no-powers'}/${options?.cards ? 'cards' : 'no-cards'}`,
    readings: powers ? 'POWERS_BALANCED' : null, colour_rule: input.colour ?? 'white', engine_fingerprint: null, setup: input.setup ?? {}, rules: null,
    setup_admission: options ? setupAdmission(options) : null, options, draw: drawn?.army ?? null, deal: drawn?.hand ?? null, level: input.level ?? 'club', setup_deadline_at: null, rematch_offer: null, rematch_game_id: null,
    status: solo ? needs ? 'setup' : 'playing' : 'waiting', result: null, end_reason: null, turn: 0, revision: 0, draw_offer: null, state: null, snapshot: null,
@@ -264,31 +267,34 @@ export class GameService {
  private async requireHandle(actor: string, client: Parameters<PostgresMatchStore['privacy']>[0] = this.store.pool): Promise<void> {
   if (!(await client.query('select handle from public.profiles where id=$1', [actor])).rows[0]?.handle) fail('HANDLE_NEEDED', 409, 'Pick a handle before you play another person');
  }
- async accept(actor: string, gameId: string): Promise<View> {
+ async accept(actor: string, gameId: string, ratingPolicy?: RatingPolicy): Promise<View> {
   actor = id(actor); gameId = id(gameId);
   return this.store.transaction(async client => {
    await this.requireHandle(actor, client);
    const game = await this.store.load(gameId, { client, lock: true });
+   if (ratingPolicy !== game.rating_policy && !(ratingPolicy === undefined && game.rating_policy === 'legacy')) fail('MATCH_INCOMPATIBLE', 409, 'Choose this game policy before you accept the seat');
    return this.acceptSeat(client, game, actor);
   });
  }
- /** Takes the oldest open game with the same five switches (with `anyRules`, any open game), else opens a new table.
+ /** Takes the oldest open game in the same policy with the same five switches (`anyRules` broadens only the switches), else opens a new table.
   * With a command ID, a resent Find gets the game that the first send opened, joined or reused; other input is COMMAND_CONFLICT. */
- async find(actor: string, options: unknown, colour: unknown = 'white', commandId?: string, anyRules = false): Promise<View> {
-  actor = id(actor); const input = parse(createSchema, { kind: 'random', options, colour }), key = startKey(input, anyRules === true);
+ async find(actor: string, options: unknown, colour?: unknown, commandId?: string, anyRules = false, mode?: CreationMode): Promise<View> {
+  actor = id(actor); const input = canonicalCreate(parse(createSchema, { kind: 'random', options, colour, mode })), key = startKey(input, anyRules === true);
+  if (input.mode === 'ranked' && anyRules) fail('INVALID_INPUT', 400, 'Ranked uses the fixed ranked rules');
+  const ratingPolicy = input.mode === 'ranked' ? 'ranked-v1' : 'casual';
   const gameId = commandId === undefined ? randomUUID() : startId(actor, commandId), wanted = key.any_rules ? undefined : switches(input.options!);
   return this.store.transaction(async client => {
    await this.requireHandle(actor, client);
    // An empty lobby has no row to lock; serialize the search and create as one step.
    await client.query('select pg_advisory_xact_lock(7007008)');
    if (commandId !== undefined) await startLock(client, actor, commandId);
-   const done = commandId === undefined ? undefined : await this.started(client, actor, commandId, key);
+   const done = commandId === undefined ? undefined : await this.started(client, actor, commandId, key, mode === undefined);
    if (done) return done;
    const own = (await client.query(`select id from public.games where created_by=$1 and kind='random' and status='waiting' and created_at>statement_timestamp()-interval '24 hours'
-    and ($2::jsonb is null or options @> $2::jsonb) order by created_at,id limit 1 for update`, [actor, wanted ?? null])).rows[0];
+    and ($2::jsonb is null or options @> $2::jsonb) and rating_policy=$3 order by created_at,id limit 1 for update`, [actor, wanted ?? null, ratingPolicy])).rows[0];
    if (own) { const game = await this.store.load(own.id, { client }); return commandId === undefined ? this.render(game, seatOf(game, actor), { client, rules: true }) : this.receipt(client, game, actor, commandId, key); }
    for (;;) {
-    const [open] = await this.store.lobby(actor, { client, lock: true, switches: wanted });
+    const [open] = await this.store.lobby(actor, { client, lock: true, switches: wanted, ratingPolicy });
     if (!open) break;
     const game = await this.store.load(open.game_id, { client, lock: true }), at = (await client.query('select statement_timestamp() as at')).rows[0].at;
     if (game.created_at.getTime() + DAY <= at.getTime()) continue;
@@ -496,7 +502,7 @@ export class GameService {
   return {
    created_at: game.created_at.toISOString(), abort_open: game.status === 'waiting' || game.status === 'setup' || playing && (game.players.some(p => p.turns_played === 0) || game.kind === 'solo' && await this.store.canSwitch(game.players[seat].user_id!, game.created_at, db)),
    ...(outcome && { outcome }), level: game.level,
-   game_id: game.id, revision: game.revision, engine_fingerprint: game.engine_fingerprint, seat, kind: game.kind, speed: game.speed, days_per_move: game.days_per_move, status: game.status, turn: game.turn, action: actionOf(game, seat),
+   game_id: game.id, rating_policy: game.rating_policy, revision: game.revision, engine_fingerprint: game.engine_fingerprint, seat, kind: game.kind, speed: game.speed, days_per_move: game.days_per_move, status: game.status, turn: game.turn, action: actionOf(game, seat),
    fen: game.snapshot?.fen ?? '', in_check: game.snapshot?.inCheck ?? false, legal: playing && game.turn === seat ? game.snapshot!.legal : [],
    last_commands: commands.map(entry => entry.seat === opponent.seat && (entry.action.type === 'choose' && !game.players.every(p => p.ready) || entry.action.type === 'say' && !sees.presets) ? { ...entry, action: { type: 'hidden' as const } } : entry),
    opponent: vacant ? null : { handle: opponent.handle, icon: opponent.icon ?? null, ...(rating && { rating }), computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: sees.online ? opponent.last_seen_ms : null },

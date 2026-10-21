@@ -21,6 +21,9 @@ export const switches = ({ fairy, arrangement, classic, cards, kingPowers }: Opt
 /** Frozen to the arrays: a caller copies them (`[...o.pool]`) before an edit. */
 export const DEFAULT_OPTIONS: Readonly<Options> = Object.freeze({ fairy: true, pool: Object.freeze([...POOL_KINDS]), arrangement: true, classic: false, cards: false, cardPool: Object.freeze([...DEAL_CARDS]), kingPowers: false });
 
+/** The first ranked family is fixed before the army and cards are drawn. */
+export const RANKED_OPTIONS: Readonly<Options> = Object.freeze({ ...DEFAULT_OPTIONS, arrangement: false, cards: true, kingPowers: true });
+
 const letters = (kinds: readonly string[]): string => [...POOL].filter(l => kinds.includes(l)).join('');
 
 /** Why `o` is not a legal set of options, or null (spec Q7, Q19, Q20). */

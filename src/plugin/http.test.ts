@@ -8,7 +8,7 @@ import type { View } from '../match/protocol';
 import { createPluginHandler, MAX_MCP_BODY, type PluginHttpOptions } from './http';
 const alice = '11111111-1111-4111-8111-111111111111', bob = '22222222-2222-4222-8222-222222222222';
 const matchId = '33333333-3333-4333-8333-333333333333';
-const view: View = { game_id: matchId, revision: 0, created_at: '2030-01-01T00:00:00.000Z', abort_open: true, seat: 0, kind: 'solo', speed: 'live', days_per_move: null, status: 'playing', turn: 0, action: 'ready', fen: '7k/8/8/8/8/8/8/K7 w - - 0 1',
+const view: View = { rating_policy: 'legacy', game_id: matchId, revision: 0, created_at: '2030-01-01T00:00:00.000Z', abort_open: true, seat: 0, kind: 'solo', speed: 'live', days_per_move: null, status: 'playing', turn: 0, action: 'ready', fen: '7k/8/8/8/8/8/8/K7 w - - 0 1',
   in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: null, server_now: '2030-01-01T00:00:00.000Z' };
 const servers: Server[] = [];
 const provider = vi.fn<typeof fetch>();
