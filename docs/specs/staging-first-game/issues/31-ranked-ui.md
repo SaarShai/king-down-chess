@@ -24,3 +24,8 @@ The lobby keeps the chosen setup. Its list, own waiting shortcut and direct acce
 - `git diff --check` passes.
 
 The parent owns compiled shared-journey and rendered checks. No production, deploy or live database change is part of this work.
+
+
+## Screen fixture follow-up
+
+The in-memory screen fixture now projects stored policy to view, inbox and lobby. It uses the production schema, ranked options and start key. Find stays inside its policy, direct accept checks the selected policy, and rematches start Casual. Old history and inbox seed rows default to Legacy. A view seed can set its policy explicitly. Existing direct fixture-test accepts now send policy; one focused case checks mode and projections. The parent owns the targeted fixture test and compiled checks. No CPU check runs in this follow-up worktree.

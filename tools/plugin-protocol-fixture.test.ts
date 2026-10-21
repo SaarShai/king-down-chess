@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import { fixtureService } from './plugin-protocol-fixture';
-import { DEFAULT_OPTIONS } from '../src/match/setup';
+import { DEFAULT_OPTIONS, RANKED_OPTIONS } from '../src/match/setup';
 import * as matchEngine from '../src/match';
 import { UNFINISHED } from '../src/match/service';
 
@@ -11,7 +11,7 @@ it('keeps full reads and polls open while a refused turn restores the fixture', 
  try {
   await s.handle('alice',{handle:'alice'}); await s.handle('bob',{handle:'bob'});
   const game = await s.create('alice',{kind:'friend',colour:'white',options:{...DEFAULT_OPTIONS,fairy:false,arrangement:false,classic:true}});
-  await s.accept('bob',game.game_id);
+  await s.accept('bob',game.game_id,game.rating_policy);
   const before = await s.view('alice',game.game_id);
   const read = () => reads.push(Promise.allSettled([
    s.view('alice',game.game_id),s.view('bob',game.game_id,before.revision),
@@ -63,7 +63,7 @@ it('supports the screen tools, hidden setup choices, board selection and rematch
   const open = await s.find('alice',DEFAULT_OPTIONS,'white'); expect(open.status).toBe('waiting');
   expect((await s.find('alice',DEFAULT_OPTIONS)).game_id).toBe(open.game_id);
   expect((await s.lobby('bob')).games[0].creator).toEqual({handle:'alice',icon:'rook'});
-  const taken = await s.accept('bob',open.game_id); expect(taken.status).toBe('setup');
+  const taken = await s.accept('bob',open.game_id,open.rating_policy); expect(taken.status).toBe('setup');
   expect(taken.engine_fingerprint).toBeNull();
   const choice = {king:null,order:taken.draw!};
   const send = (actor:string, revision:number, action:unknown) => s.command(actor,open.game_id,{command_id:`${actor}-${revision}`,expected_revision:revision,action});
@@ -110,7 +110,7 @@ it('reads one seeded record and history page and supports deadline claims', asyn
   const history = Array.from({length:21},(_,i)=>({game_id:`00000000-0000-4000-8000-${String(i).padStart(12,'0')}`,finished_at:'2026-10-01T00:00:00.000Z',kind:'friend' as const,colour:'white' as const,result:'won' as const,reason:'resignation' as const,opponent:{handle:'bob',icon:'knight',computer:false,deleted:false,level:null},features:{fairy:true,arrangement:false,classic:false,cards:false,powers:false,king:'Flame' as const,power:null}}));
   s.seed('alice',{history,record,games:await s.inbox('alice'),views:{[current.game_id]:{deadline_at:'2026-01-01T00:00:00.000Z'}}});
   expect(await s.record('alice')).toEqual(record);
-  const page = await s.history('alice'); expect(page.games).toHaveLength(20); expect(page.next_before).toBeTruthy(); expect((await s.history('alice',page.next_before!)).games).toHaveLength(1);
+  const page = await s.history('alice'); expect(page.games).toHaveLength(20); expect(page.games[0].rating_policy).toBe('legacy'); expect(page.next_before).toBeTruthy(); expect((await s.history('alice',page.next_before!)).games).toHaveLength(1);
   const result = await s.command('bob',current.game_id,{command_id:'claim',expected_revision:current.revision,action:{type:'claim',reason:'timeout'}});
   expect(result.result).toEqual({winner:1,reason:'timeout'});
  } finally {await s.close();}
@@ -154,7 +154,7 @@ it('allows Switch now only for an earlier own search joined after solo play star
     let open;
     if (!['no search','opened after'].includes(scenario)) {
      open = await s.create(scenario === 'other creator' ? 'bob' : 'alice',{kind:'random',options:DEFAULT_OPTIONS});
-     if (scenario === 'joined before') { vi.setSystemTime(Date.now()+1000); await s.accept('bob',open.game_id); }
+     if (scenario === 'joined before') { vi.setSystemTime(Date.now()+1000); await s.accept('bob',open.game_id,open.rating_policy); }
     }
     vi.setSystemTime(Date.now()+1000);
     let solo = await s.create('alice',{kind:'solo',options:{...DEFAULT_OPTIONS,fairy:false,arrangement:false}});
@@ -163,7 +163,7 @@ it('allows Switch now only for an earlier own search joined after solo play star
     expect(solo.abort_open).toBe(false);
     vi.setSystemTime(Date.now()+1000);
     if (scenario === 'opened after') open = await s.create('alice',{kind:'random',options:DEFAULT_OPTIONS});
-    if (open && scenario !== 'joined before') await s.accept(scenario === 'other creator' ? 'alice' : 'bob',open.game_id);
+    if (open && scenario !== 'joined before') await s.accept(scenario === 'other creator' ? 'alice' : 'bob',open.game_id,open.rating_policy);
     if (scenario === 'ended search') await s.command('alice',open!.game_id,{command_id:'cancel',expected_revision:1,action:{type:'abort'}});
     const read = await s.view('alice',solo.game_id), abort = {command_id:'switch',expected_revision:solo.revision,action:{type:'abort'}};
     expect(read.abort_open).toBe(scenario === 'joined after');
@@ -218,5 +218,24 @@ it('takes only an open game with the same five switches in the fixture, or any g
   expect((await s.find('bob',DEFAULT_OPTIONS,'white','b1')).game_id).not.toBe(open.game_id);
   expect((await s.find('carol',DEFAULT_OPTIONS,'white','c1',true)).game_id).toBe(open.game_id);
   await expect(s.find('carol',DEFAULT_OPTIONS,'white','c1')).rejects.toMatchObject({code:'COMMAND_CONFLICT'});
+ } finally { await s.close(); }
+});
+
+
+it('projects stored policies and keeps Ranked matching and accept separate in the screen fixture', async () => {
+ const s = fixtureService();
+ try {
+  for (const actor of ['alice','bob','carol']) await s.handle(actor,{handle:actor});
+  const casual = await s.find('alice',RANKED_OPTIONS,'random');
+  expect(casual.rating_policy).toBe('casual');
+  const ranked = await s.find('bob',undefined,undefined,'ranked',false,'ranked');
+  expect(ranked).toMatchObject({rating_policy:'ranked-v1',options:RANKED_OPTIONS,days_per_move:3});
+  expect((await s.inbox('bob'))[0].rating_policy).toBe('ranked-v1');
+  expect((await s.lobby('carol')).games.map(game=>game.rating_policy)).toEqual(['casual','ranked-v1']);
+  expect((await s.find('carol',DEFAULT_OPTIONS,undefined,'any',true)).game_id).toBe(casual.game_id);
+  await expect(s.accept('alice',ranked.game_id)).rejects.toMatchObject({code:'MATCH_INCOMPATIBLE'});
+  await expect(s.accept('alice',ranked.game_id,'casual')).rejects.toMatchObject({code:'MATCH_INCOMPATIBLE'});
+  expect((await s.accept('alice',ranked.game_id,'ranked-v1')).rating_policy).toBe('ranked-v1');
+  await expect(s.find('bob',undefined,undefined,'invalid',true,'ranked')).rejects.toMatchObject({code:'INVALID_INPUT'});
  } finally { await s.close(); }
 });
