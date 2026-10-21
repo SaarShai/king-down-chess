@@ -134,7 +134,6 @@ export async function measureDesktop({ browser, root, origin, actors, pool, tool
         await page.locator('#end-turn').click();
         const response = await accepted, ack = await response.json(); await response.finished();
         assert.equal(response.status(), 200); assert.equal(ack.type, 'ack'); assert.equal(ack.view.game_id, id); assert.equal(ack.view.revision, 1);
-        assert.deepEqual(ack.view.history.actions, fixture.actions);
         const input = response.request().postDataJSON(); assert.deepEqual(input.action, { type: 'turn', actions: fixture.actions });
         const timing = response.request().timing();
         assert(timing.requestStart >= 0 && timing.responseEnd >= timing.requestStart, 'Completed HTTP request timing');

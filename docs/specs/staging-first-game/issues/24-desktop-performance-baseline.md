@@ -1,6 +1,6 @@
 # Desktop performance baseline
 
-Status: prepared; no run yet. Parent: U09, blueprint performance measures.
+Status: first run exposes a checker assertion error; corrected run pending. Parent: U09, blueprint performance measures.
 
 ## Plan and acceptance
 
@@ -18,3 +18,9 @@ This is compiled desktop loopback HTTP with synthetic authentication and local d
 Entry uses a page MutationObserver and two animation frames after the board screen, artwork, status and controls are ready and the selected game's legal read is confirmed. A passive fetch clone checks the exact game, engine, revision, action and fixture LAN without delaying the product read or keeping its payload. This adds parse overhead to the controls-ready proxy. The fixture uses the same current engine as the built page, so preview is local. Menu feedback uses the trusted click event timestamp, visible dialog DOM and two animation frames. This is a render-opportunity proxy, not physical input-to-display latency. HTTP duration uses the accepted request's own send/response-end timing. It does not split authentication, database and engine costs.
 
 Use the current normal motion setting. The existing board readiness condition excludes active animation. Keep cold/warm resource transfer sizes to help explain caching; a zero transfer size alone is not proof of a particular cache layer. No timing threshold is added.
+
+## Verification
+
+The independent reader finds no substantive validity or scope issue. Normal hooks pass. The first run on `f9b622d` stops at sample 1 after both visits, Menu feedback and an accepted turn. The checker wrongly reads full history from the partial command acknowledgement. Keep that acknowledgement check to its actual game/revision fields; the existing subsequent full game read checks exact history and FEN, and SQL checks one accepted turn row. No product change is needed.
+
+The failed log and partial JSON remain under `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/u09-desktop-performance-OwxZrW`. The report has `complete:false`, the command failure phase and its error. No summary is produced. The corrected full 30-sample run is a separate receipt.
