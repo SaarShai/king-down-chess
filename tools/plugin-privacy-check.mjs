@@ -73,7 +73,7 @@ try {
   assert(reads > 0, 'The private board read reached the second HTTP actor');
   assert.equal(await board.locator('body').innerText(), closed);
   assert.equal(await board.locator('canvas, [data-screen], input, dialog').count(), 0);
-  assert.deepEqual(await switched.evaluate(() => window.harnessWidgetState?.privateContent), { screen: 'home' });
+  assert.deepEqual(await switched.evaluate(() => window.harnessWidgetState?.privateContent), { screen: 'home', pending: undefined });
   await switched.evaluate(result => window.harnessShow(result), created);
   assert.equal(await board.locator('body').innerText(), closed, 'An old host result cannot restore a refused private board');
   await shot(switched, 'after-account-reconnect'); assertNoErrors();
