@@ -23,7 +23,7 @@ try {
   })).json();
   assert(refused.isError, 'The second HTTP actor cannot open the first private game');
   assert.equal(refused._meta?.view, undefined);
-  assert.equal(refused._meta?.code, 'NOT_FOUND');
+  assert.equal(refused._meta?.code, 'FORBIDDEN');
   // Keep the iframe in place after the real SDK teardown, as a host can do during an account switch.
   await page.evaluate(() => window.harnessTeardown());
   await shot(page, 'after-host-teardown');
