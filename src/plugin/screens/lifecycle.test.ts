@@ -126,3 +126,51 @@ it.each([false, true])('ignores a pending friend invite after stop (failure: %s)
   await vi.advanceTimersByTimeAsync(0);
   expect(runtime.renderRows).not.toHaveBeenCalled();
 });
+
+it('offers explicit renewal for an expired friend code without creating one on entry', async () => {
+  const friend = await import('./friend'), { friendInvites } = await import('../invite');
+  runtime.client.state.screen = 'friend';
+  runtime.memory.view = { game_id: 'friend', kind: 'friend', status: 'waiting' } as View;
+  friendInvites.set('friend', { code: 'ABC234', expires_at: new Date(Date.now() - 1).toISOString() });
+  friend.friendScreen();
+  expect(lookup('friend-code').hidden).toBe(true);
+  expect(lookup('friend-actions').hidden).toBe(true);
+  expect(lookup('friend-new').hidden).toBe(false);
+  expect(lookup('friend-help').textContent).toContain('expired');
+  expect(runtime.clientCall).not.toHaveBeenCalled();
+  runtime.clientCall.mockResolvedValueOnce({ content: [], structuredContent: { code: 'NEW234', expires_at: new Date(Date.now() + 7000).toISOString() } });
+  lookup('friend-new').onclick(); await vi.advanceTimersByTimeAsync(0);
+  expect(runtime.clientCall).toHaveBeenCalledExactlyOnceWith('kingdown_invite', { game_id: 'friend' });
+  expect(lookup('friend-code').hidden).toBe(false);
+  expect(lookup('friend-actions').hidden).toBe(false);
+  expect(lookup('friend-new').hidden).toBe(true);
+  friend.stopAll();
+});
+
+it.each([false, true])('expires a visible friend code without navigation (left: %s)', async left => {
+  const friend = await import('./friend'), { friendInvites } = await import('../invite');
+  runtime.client.state.screen = 'friend';
+  runtime.memory.view = { game_id: 'friend', kind: 'friend', status: 'waiting' } as View;
+  friendInvites.set('friend', { code: 'ABC234', expires_at: new Date(Date.now() + 1000).toISOString() });
+  friend.friendScreen(); friend.friendScreen();
+  expect(lookup('friend-actions').hidden).toBe(false);
+  if (left) { runtime.client.state.screen = 'play'; lookup('friend-help').textContent = 'Untouched'; }
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(runtime.clientCall).not.toHaveBeenCalled();
+  expect(runtime.renderRows).toHaveBeenCalledOnce();
+  if (left) expect(lookup('friend-help').textContent).toBe('Untouched');
+  else { expect(lookup('friend-actions').hidden).toBe(true); expect(lookup('friend-new').hidden).toBe(false); }
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it('clears the invite expiry timer before the account DOM is removed', async () => {
+  const friend = await import('./friend'), { friendInvites } = await import('../invite');
+  runtime.client.state.screen = 'friend';
+  runtime.memory.view = { game_id: 'friend', kind: 'friend', status: 'waiting' } as View;
+  friendInvites.set('friend', { code: 'ABC234', expires_at: new Date(Date.now() + 1000).toISOString() });
+  friend.friendScreen(); expect(vi.getTimerCount()).toBe(1);
+  runtime.closed = true; friend.stopAll(); removed = true;
+  expect(vi.getTimerCount()).toBe(0);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(runtime.renderRows).not.toHaveBeenCalled();
+});

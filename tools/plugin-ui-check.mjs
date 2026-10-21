@@ -1441,7 +1441,28 @@ try {
     await remount('friend'); await frame.locator('#friend-new').waitFor();
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites, 'Remount makes no new code');
     assert.equal(await frame.locator('.game-code span').count(), 0, 'The saved game shows Make a new code');
-    assert(!(await tool('kingdown_join', { code }, true)).isError, 'The buddy joins the page code');
+    // Keep the real code; shorten its UI deadline only, then renew through the actual tool.
+    const shortInvite = async route => {
+      if (route.request().postDataJSON().name !== 'kingdown_invite') return route.continue();
+      const response = await route.fetch(), result = await response.json(); assert(!result.isError);
+      result.structuredContent.expires_at = new Date(await frame.locator('html').evaluate(() => Date.now()) + 60_000).toISOString();
+      await route.fulfill({ response, json: result });
+    };
+    await page.route('**/fixture-tool', shortInvite);
+    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    const expiringCode = (await frame.locator('.game-code span').allTextContents()).join('');
+    await page.unroute('**/fixture-tool', shortInvite);
+    await page.clock.fastForward(60_001);
+    await frame.locator('#friend-new').waitFor();
+    assert.match(await frame.locator('#friend-help').innerText(), /expired/);
+    assert.equal(await frame.locator('#friend-actions').isVisible(), false);
+    assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites + 1, 'Expiry does not renew the invite');
+    await shot(page, 'embedded-expired-friend-code');
+    await page.clock.setSystemTime(new Date());
+    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    const renewedCode = (await frame.locator('.game-code span').allTextContents()).join(''); assert.notEqual(renewedCode, expiringCode);
+    assert((await tool('kingdown_join', { code: expiringCode }, true)).isError, 'The old code cannot join');
+    assert(!(await tool('kingdown_join', { code: renewedCode }, true)).isError, 'The buddy joins the renewed page code');
     await frame.locator('body').evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal((await tool('kingdown_get', { game_id: friend.game_id }, true))._meta.view.status, 'playing');

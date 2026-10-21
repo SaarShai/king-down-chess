@@ -6,7 +6,9 @@ import type { Options } from '../match/setup';
 export const friendInvites = new Map<string, { code: string; expires_at: string }>();
 export const inviteText = (code: string, options: Options | null | undefined) => `Join King Down game ${code}. Rules: ${ruleNames(options)}.`;
 
-export async function sendInvite(text: string, status: HTMLElement, share = true) {
+export async function sendInvite(invite: { code: string; expires_at: string }, options: Options | null | undefined, status: HTMLElement, share = true) {
+  if (!(Date.parse(invite.expires_at) > Date.now())) { status.textContent = 'This code has expired. Open the game to make a new code.'; return; }
+  const text = inviteText(invite.code, options);
   status.textContent = '';
   if (share && navigator.share) {
     try { await navigator.share({ text }); status.textContent = 'Shared'; return; }
@@ -34,7 +36,7 @@ export function decorateFriendRows(entries: import('../match/protocol').InboxEnt
       const share = document.createElement('button'); share.type = 'button'; share.textContent = 'Share';
       share.setAttribute('aria-label', `Share game ${invite.code}`);
       const status = document.createElement('p'); status.className = 'quiet-line'; status.setAttribute('role', 'status');
-      share.onclick = () => void sendInvite(inviteText(invite.code, entry.options), status);
+      share.onclick = () => void sendInvite(invite, entry.options, status);
       button.replaceWith(group); group.append(button, share, status);
     }
   }

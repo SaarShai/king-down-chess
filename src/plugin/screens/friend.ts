@@ -2,7 +2,7 @@ import { features, icon } from '../../account-game/features';
 import { call, client, memory, navigate, renderGameRows, routeView, queue } from '../../account-game/runtime';
 import { art } from '../../account-game/art';
 import { formatDate } from '../../account-game/games-list';
-import { friendInvites as codes, inviteText, sendInvite } from '../invite';
+import { friendInvites as codes, sendInvite } from '../invite';
 import { ICONS, type Icon } from '../../account/profile';
 import type { View } from '../../match/protocol';
 import './lobby.css';
@@ -29,8 +29,10 @@ export function toolError(code: string, fallback: string) {
 export function showError(error: unknown, target = $('error')) { target.textContent = errorText(error); }
 const attempted = new Set<string>();
 let making = false;
+let expiryTimer: ReturnType<typeof setTimeout> | undefined;
 export function friendScreen() {
   if (stopped || queue.closed()) return;
+  clearTimeout(expiryTimer);
   const view = memory.view;
   $('page-title').textContent = 'Your game code';
   if (view?.kind === 'friend' && view.status !== 'waiting') { routeView(view); return; }
@@ -38,21 +40,26 @@ export function friendScreen() {
     $('friend-status').textContent = 'Open your friend game from Your games.'; return;
   }
   $('friend-status').textContent = '';
-  const invite = codes.get(view.game_id), tiles = $('friend-code');
+  const saved = codes.get(view.game_id), invite = saved && Date.parse(saved.expires_at) > Date.now() ? saved : undefined, tiles = $('friend-code');
   tiles.replaceChildren(...[...invite?.code ?? ''].map(c => { const span = document.createElement('span'); span.textContent = c; return span; }));
   tiles.setAttribute('aria-label', invite ? [...invite.code].join(' ') : ''); tiles.hidden = !invite;
   $('friend-actions').hidden = !invite; $('friend-new').hidden = !!invite;
   $('friend-copy-status').textContent = '';
-  $('friend-help').textContent = invite ? `Your friend says “Join King Down game ${invite.code}” in ChatGPT, or types the code in Play. They need the King Down connection.` : 'The saved game has no code on this page. A new code ends the old code.';
+  $('friend-help').textContent = invite ? `Your friend says “Join King Down game ${invite.code}” in ChatGPT, or types the code in Play. They need the King Down connection.` : saved ? 'This code has expired. Make a new code to invite your friend.' : 'The saved game has no code on this page. A new code ends the old code.';
   $('friend-game').replaceChildren(row('Waiting for your friend', 'clock', [invite ? `Ends ${formatDate(invite.expires_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.` : 'Make a new code to share this game.']));
   $('friend-game').querySelector('.line')!.id = 'friend-expiry';
   if (view.options) $('friend-game').append(row('Features', 'fairy', [features(view.options), `You play ${view.seat === 0 ? 'White' : 'Black'}.`]));
-  $('friend-share').onclick = () => { if (invite) void sendInvite(inviteText(invite.code, view.options), $('friend-copy-status')); };
-  $('friend-copy').onclick = () => { if (invite) void sendInvite(inviteText(invite.code, view.options), $('friend-copy-status'), false); };
+  $('friend-share').onclick = () => { if (invite) void sendInvite(invite, view.options, $('friend-copy-status')); };
+  $('friend-copy').onclick = () => { if (invite) void sendInvite(invite, view.options, $('friend-copy-status'), false); };
   $('friend-new').onclick = () => void makeCode(view);
   $('friend-cancel').onclick = async () => { const next = await call('kingdown_abort', { game_id: view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision }, true, false, false); if (next) finishCancel(next); };
   // Create routes before the inbox read. A remount reads the inbox first and never renews the invite.
-  if (!invite && !attempted.has(view.game_id) && !memory.games.some(game => game.game_id === view.game_id)) void makeCode(view);
+  if (!saved && !attempted.has(view.game_id) && !memory.games.some(game => game.game_id === view.game_id)) void makeCode(view);
+  if (invite) expiryTimer = setTimeout(() => {
+    if (stopped || queue.closed()) return;
+    renderGameRows();
+    if (client.state.screen === 'friend' && memory.view?.game_id === view.game_id) friendScreen();
+  }, Date.parse(invite.expires_at) - Date.now());
 }
 async function makeCode(view: View) {
   if (stopped || queue.closed() || making) return; making = true; attempted.add(view.game_id); $('friend-new').setAttribute('disabled', '');
@@ -74,3 +81,4 @@ export function onStop(stop: () => void) { stops.add(stop); return () => stops.d
 export function stopAll() { stopped = true; events.abort(); for (const stop of stops) stop(); stops.clear(); }
 addEventListener('pagehide', event => { if (!event.persisted) stopAll(); }, { signal: events.signal });
 addEventListener('message', event => { if (event.source === parent && event.data?.method === 'ui/resource-teardown') stopAll(); }, { signal: events.signal });
+onStop(() => clearTimeout(expiryTimer));

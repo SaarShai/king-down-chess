@@ -97,6 +97,7 @@ try {
     assert.deepEqual(failures, [], 'No external request');
   } else {
   const page = await context.newPage(); page.setDefaultTimeout(15_000);
+  await page.clock.install();
   const errors = trapErrors(page);
   page.on('requestfailed', request => {
     const fault = request.failure()?.errorText, path = new URL(request.url()).pathname;
@@ -122,6 +123,14 @@ try {
   await page.locator('#menu-sheet [data-king="Flame"]').click();
   await page.locator('#menu-sheet [data-power="Haste"]').click();
   await page.locator('#setup-done').click();
+  // Keep the real invitation and shorten only its UI deadline to exercise expiry without a seven-day wait.
+  const shortInvite = async route => {
+    const response = await route.fetch(), body = await response.json();
+    assert(body.invite);
+    body.invite.expires_at = new Date(await page.evaluate(() => Date.now()) + 60_000).toISOString();
+    await route.fulfill({ response, json: body });
+  };
+  await page.route('**/api/games', shortInvite);
   const created = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/games');
   await page.locator('#setup-start').click();
   const startResponse = await created; assert.equal(startResponse.status(), 201);
@@ -129,7 +138,21 @@ try {
   const view = async seat => (await tool(seat, 'kingdown_get', { game_id: gameId }))._meta.view;
   assert.equal(start.view.options.arrangement, false); assert.equal(start.view.options.kingPowers, true);
   await page.locator('#friend-code').filter({ hasText: /[A-Z0-9]{6}/ }).waitFor();
-  const code = (await page.locator('#friend-code').innerText()).trim();
+  let code = (await page.locator('#friend-code').innerText()).trim();
+  await page.unroute('**/api/games', shortInvite);
+  await pool.query("update public.game_invites set expires_at=now()-interval '1 second' where game_id=$1", [gameId]);
+  assert.equal((await http(1, '/api/invites/preview', { code }, 409)).code, 'INVITE_UNAVAILABLE');
+  await page.clock.fastForward(60_001);
+  await page.locator('#friend-new').waitFor();
+  assert.match(await page.locator('#friend-help').innerText(), /expired/);
+  assert.equal(await page.locator('#friend-actions').isVisible(), false);
+  assert.equal((await pool.query('select expires_at < now() as expired from public.game_invites where game_id=$1', [gameId])).rows[0].expired, true, 'Expiry does not renew the invite');
+  await shot(page, 'web-expired-friend-code');
+  await page.clock.setSystemTime(new Date());
+  const oldCode = code;
+  await page.locator('#friend-new').click(); await page.locator('#friend-code').filter({ hasText: /[A-Z0-9]{6}/ }).waitFor();
+  code = (await page.locator('#friend-code').innerText()).trim(); assert.notEqual(code, oldCode);
+  assert.equal((await http(1, '/api/invites/preview', { code: oldCode }, 404)).code, 'INVITE_UNAVAILABLE');
   await tool(1, 'kingdown_join', { code });
   await page.locator('[data-screen="seat"]:not([hidden])').waitFor();
   await page.locator('#seat-screen #board[aria-busy="false"] canvas').waitFor({ state: 'visible' });
