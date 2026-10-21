@@ -2371,6 +2371,10 @@ it.each([390, 1280])('live Moves: keeps reading position and focus across a remo
     await show();
     const close = await sheet.getByRole('button', { name: 'Close', exact: true }).elementHandle();
     expect(close).not.toBeNull(); await close!.focus();
+    await frame.locator('html').evaluate('(async () => { const { applyLocks } = await import("/src/account-game/state.ts"); applyLocks({ ...window.harnessApp.store.page(), writing: true }); })()');
+    expect(await close!.isEnabled()).toBe(true);
+    expect(await close!.evaluate(el => el === document.activeElement)).toBe(true);
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.actions());
     const scroll = await sheet.locator('.sheet-body').evaluate(el => { el.scrollTop = 100; return el.scrollTop; });
     expect(scroll).toBeGreaterThan(0);
     const step = applyLan(pos, 'c3-c4', game.rules!); expect(step).toBeDefined();

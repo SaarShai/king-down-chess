@@ -567,7 +567,11 @@ export function boardScreen(store: Store) {
   };
   function moveRows() { return history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`)); }
   function movesOpen() { return !!sheet?.open && sheet.querySelector('h2')?.textContent === 'Moves'; }
-  function showMoves() { boardSheet('Moves', ...moveRows()); $('moves-line').setAttribute('aria-expanded', 'true'); }
+  function showMoves() {
+    boardSheet('Moves', ...moveRows());
+    sheet.querySelector('button')!.setAttribute('data-free', '');
+    $('moves-line').setAttribute('aria-expanded', 'true');
+  }
   let movesChoice: boolean | undefined;
   let bandFits = false;
   const recentMoves = $('recent-moves');
