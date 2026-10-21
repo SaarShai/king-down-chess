@@ -568,6 +568,91 @@ it.each(['normal', 'fast'])('uses a slide, a 150 ms fade and no shake under redu
   } finally { await page.close(); }
 });
 
+it.each([[197,426,51], [197,800,51], [201,357,31], [201,357,62], [206,395,27]])('keeps end reasons and actions readable at %i × %i with top %i', async (width, height, top) => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), width, height), frame = page.frameLocator('iframe');
+  try {
+    await page.evaluate(async top => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top, bottom: 96, left: 0, right: 0 }, deviceCapabilities: { touch: true } }); }, top);
+    await frame.locator('#app-frame').evaluate(e => { e.style.bottom = '96px'; });
+    // Match the compiled zoom fixture's three solo actions; policy text is tested independently of creation admission.
+    for (const rating_policy of ['legacy', 'casual', 'ranked-v1'] as const) for (const [reason, winner, words] of [
+      ['checkmate', 0, 'You gave checkmate.'], ['resignation', 1, 'You resigned.'],
+      ['timeout', 0, 'Your opponent ran out of time.'], ['drawMaterial', null, 'Neither side has enough pieces to give checkmate.'],
+    ] as const) {
+      const next = view('7k/8/8/8/8/8/P7/K7 w - - 0 1', {}, { rating_policy, status: 'finished', action: 'finished', result: { reason, winner } });
+      await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), next);
+      await frame.locator('#over[open]').waitFor();
+      await frame.locator('html').evaluate('(async () => { (await import("/src/plugin/screens/board.ts")).skipBoardCeremony(); await document.fonts.ready; await Promise.all(document.getAnimations().map(a => a.finished.catch(() => {}))); })()');
+      await frame.locator('#end-skip').waitFor({ state: 'hidden' });
+      await frame.locator('#over').evaluate(card => { card.scrollTop = 0; });
+      const label = `${rating_policy} ${reason} ${width}×${height} top${top}`;
+      expect(await frame.locator('#end-reason').textContent()).toBe(`${{ legacy: 'Legacy', casual: 'Casual', 'ranked-v1': 'Ranked' }[rating_policy]} · ${words}`);
+      const geometry = await frame.locator('#over').evaluate(card => {
+        const box = (e: Element) => { const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, width: r.width, height: r.height }; };
+        const back = document.querySelector('#game-table .table-back')!, r = back.getBoundingClientRect();
+        return { card: box(card), back: box(back), backHit: back.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)), reason: box(card.querySelector('#end-reason')!), buttons: [...card.querySelectorAll<HTMLButtonElement>('form button:not([hidden])')].map(box), scroll: card.scrollTop };
+      });
+      expect(geometry.card.top, label).toBeGreaterThanOrEqual(geometry.back.bottom);
+      expect(geometry.backHit, label).toBe(true);
+      expect(geometry.scroll, label).toBe(0);
+      expect(geometry.buttons, label).toHaveLength(3);
+      for (const button of geometry.buttons) { expect(button.width, label).toBeGreaterThanOrEqual(48); expect(button.height, label).toBeGreaterThanOrEqual(48); }
+      // The short win/loss explanation and first action fit before scrolling, with the original 12 px next-action cue.
+      if (reason === 'checkmate' || reason === 'resignation') {
+        expect(geometry.reason.top, label).toBeGreaterThanOrEqual(geometry.card.top);
+        expect(geometry.reason.bottom, label).toBeLessThanOrEqual(geometry.card.bottom);
+        expect(geometry.buttons[0].top, label).toBeGreaterThanOrEqual(geometry.card.top);
+        expect(geometry.buttons[0].bottom, label).toBeLessThanOrEqual(geometry.card.bottom);
+        expect(geometry.card.bottom - geometry.buttons[1].top, label).toBeGreaterThanOrEqual(12);
+      }
+      // Longer explanations retain every word. Scroll the complete reason and each full target into view.
+      for (const selector of ['#end-reason', 'form button:nth-child(1)', 'form button:nth-child(2)', 'form button:nth-child(3)']) {
+        const visible = await frame.locator(`#over ${selector}`).evaluate(e => {
+          const card = e.closest('dialog')!, before = e.getBoundingClientRect(), c = card.getBoundingClientRect();
+          card.scrollTop += before.top + before.height / 2 - c.top - card.clientHeight / 2;
+          const r = e.getBoundingClientRect();
+          return { top: r.top, bottom: r.bottom, cardTop: c.top, cardBottom: c.bottom, hit: e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)) };
+        });
+        expect(visible.top, `${label} ${selector}`).toBeGreaterThanOrEqual(visible.cardTop);
+        expect(visible.bottom, `${label} ${selector}`).toBeLessThanOrEqual(visible.cardBottom);
+        expect(visible.hit, `${label} ${selector}`).toBe(true);
+      }
+    }
+  } finally { await page.close(); }
+});
+
+it('keeps populated end status and failed-read recovery reachable in the shortest frame', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), 201, 357), frame = page.frameLocator('iframe');
+  try {
+    await page.evaluate(async () => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top: 62, bottom: 96, left: 0, right: 0 }, deviceCapabilities: { touch: true } }); });
+    await frame.locator('#app-frame').evaluate(e => { e.style.bottom = '96px'; });
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } }); });
+    await page.evaluate(() => { (window as any).rejectNextGet = true; });
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp, v = app.memory.view;
+      await app.call('kingdown_resign', { game_id: v.game_id, expected_revision: v.revision, command_id: crypto.randomUUID() }, true);
+    });
+    await frame.locator('#over[open] #retry:not([hidden])').waitFor();
+    expect(await frame.locator('#over #error').textContent()).toBe('Harness saved-game read failed');
+    await frame.locator('html').evaluate('(async () => { window.harnessApp.memory.blockNotice = "Player blocked."; (await import("/src/plugin/screens/end.ts")).updateEnd(); })()');
+    expect(await frame.locator('#end-block-status').textContent()).toBe('Player blocked.');
+    for (const selector of ['#end-block-status', '#error', '#retry']) {
+      const seen = await frame.locator(`#over ${selector}`).evaluate(e => {
+        const card = e.closest('dialog')!, r = e.getBoundingClientRect(), c = card.getBoundingClientRect();
+        card.scrollTop += r.top + r.height / 2 - c.top - card.clientHeight / 2;
+        const now = e.getBoundingClientRect();
+        return { top: now.top, bottom: now.bottom, cardTop: c.top, cardBottom: c.bottom, hit: e.contains(document.elementFromPoint(now.x+now.width/2,now.y+now.height/2)), height: now.height };
+      });
+      expect(seen.top, selector).toBeGreaterThanOrEqual(seen.cardTop);
+      expect(seen.bottom, selector).toBeLessThanOrEqual(seen.cardBottom);
+      expect(seen.hit, selector).toBe(true);
+      if (selector === '#retry') expect(seen.height).toBeGreaterThanOrEqual(48);
+    }
+    await clickButton(page, frame.locator('#over #retry'));
+    await frame.locator('#over #retry').waitFor({ state: 'hidden' });
+    expect(await frame.locator('#over #error').textContent()).toBe('');
+  } finally { await page.close(); }
+});
+
 it.each([[393, 852], [320, 568], [844, 390], [1440, 900]])('keeps the board box still behind the end card at %i × %i', async (width, height) => {
   const next = view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), page = await open(next, width, height), frame = page.frameLocator('iframe');
   try {

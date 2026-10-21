@@ -41,3 +41,17 @@ A lobby Find does not save last setup. After a lost reply, a lobby remount must 
 Direct random-game accept calls now send the stored policy. Friend-game setup tests use Invite and Join. Exact list, history and end-reason checks include the policy label and keep their original reason, revision, board and ceremony assertions. Synthetic old history and waiting rows name Legacy; a seeded rating outcome names Legacy explicitly. The handle continuation records both accept requests and checks their game and policy.
 
 The Collection remount check waits for a fresh settings read and mount completion before it checks the restored Cards radio. The existing dot-wrap and Menu viewport assertions stay intact; the parent repairs their product regressions. Static `git diff --check` passes. The parent owns all test execution for this patch; no new pass is claimed here.
+
+## Short end card correction
+
+The 201 × 357 compiled zoom case exposed a real layout fault. The two-line Legacy win reason pushed New game below the 144 px card. The empty block status also placed a 12 px margin before the actions because it kept the default flex order. At top inset 62, Back ends at 110 and only 139 px remain for the card. Raising the fixed cap alone cannot solve that case.
+
+The narrow card now orders status and error feedback after the actions, as the landscape card already does. Short portrait cards use the height available below Back. Compact title line spacing and action gaps apply through 480 px height, so a wrapped Ranked resignation at 197 × 426 also fits. Font sizes, complete reason text and button target sizes remain intact.
+
+Checks:
+
+- Red: `/tmp/kingdown-end-red.log` records the 201 × 357 cue below 12 px before the repair.
+- `KINGDOWN_TEST_FILE='tools/plugin-{board,app}.test.ts' KINGDOWN_TEST_NAME='end reasons and actions|populated end status|board box still behind the end card|failed end read and Retry|Retry on the end card' npm test` passes: typecheck, 12 selected browser cases and the standard 54 document animation cases. Log: `/tmp/kingdown-end-final.log`.
+- Five compiled zoom sizes cover Legacy, Casual and Ranked with checkmate, resignation, timeout and material reasons: 60 presentations. The short win/loss text, first action and at least 12 px of the next action fit before scrolling. Back remains clear and hittable. Targets remain at least 48 × 48 px. Long explanations retain every word and can be read by scrolling; each full action remains reachable. The matrix uses the compiled fixture's solo actions to isolate policy text from creation admission.
+- A populated status and real failed end read at 201 × 357, top inset 62, remain readable by scrolling. The recovery control remains at least 48 px high and its click clears the error. Two existing end-error recovery cases also pass.
+- Four existing board-size cases pass. `git diff --check` passes. The compiled check assertions remain unchanged; the parent owns the release rerun. No full suite, release build or deploy runs here.
