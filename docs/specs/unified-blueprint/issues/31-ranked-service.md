@@ -25,3 +25,9 @@ The migration defaults to `legacy` for old rows and old server inserts. A recove
 - Each selected test command also passes the 54 shared artwork checks. This is not a full-suite pass.
 
 No live database or deployed server changes. Ticket 30 owns the transport, UI, recovery proof and independent review.
+
+## Compiled recovery consumer boundary
+
+The existing recovery consumer loop now creates and joins a real Casual friend game through the release MCP server before each backend switch. After the switch, the matching web or MCP transport finishes it. The check requires no rating-history row and no change to stored rating values or last rated dates. Both accounts retain the result in totals and history. The report records before and after rating values.
+
+The helper retains the original prior-engine board continuation checks. It makes no policy edits to stored games. The integrated compiled recovery run belongs to ticket 30 and is pending there; this branch checks JavaScript syntax and normal commit hooks only.

@@ -29,6 +29,6 @@ try {
       await sql(`supabase/migrations/${name}`); await sql(`supabase/migrations/${name}`);
     }
     await sql('plugin-deploy/oauth-audience-hook.sql');
-    console.log('Disposable PostgreSQL schema ready (migrations 0001-0017); every migration is repeatable');
+    console.log('Disposable PostgreSQL schema ready (migrations 0001-0018); every migration is repeatable');
   });
 } finally { await pool.end(); }

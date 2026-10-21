@@ -100,6 +100,7 @@ async function playTurn(ui, view, actions, { GameRules, toLan, cardCoins }) {
 /** Four focused consumer paths; the complete mechanics matrix below stays separate. */
 export async function checkRecoveryConsumers({ browser, origin, actors, pool, tool, tokens, release, recovery, switchOutput }) {
   const { SHARED_MECHANICS, assertMechanicExpected } = await import('../fixtures/shared-mechanics.ts');
+  const { DEFAULT_OPTIONS } = await import('../../src/match/setup.ts');
   const { GameRules } = await import('../../src/game-rules.ts');
   const { toLan } = await import('../../src/rules/setup.ts');
   const { cardCoins } = await import('../../src/plugin/screens/board-model.ts');
@@ -130,6 +131,24 @@ export async function checkRecoveryConsumers({ browser, origin, actors, pool, to
     const { id, match } = await seedMechanic(runtime, pool, actors.slice(actor, actor + 2), haste.setup, phase === 'loaded-current' ? recoveryEngine : undefined);
     let context, harness;
     try {
+      const players = actors.slice(actor, actor + 2);
+      for (const seat of [actor, actor + 1]) {
+        const profile = (await pool.query('select handle from public.profiles where id=$1', [actors[seat]])).rows[0];
+        if (!profile.handle) await tool(seat, 'kingdown_handle', { handle: `recovery-${actors[seat].slice(0, 8)}` });
+      }
+      // Use the release creation path: a raw fixture row defaults to Legacy and cannot prove Casual recovery.
+      const created = (await tool(actor, 'kingdown_create', { kind: 'friend', mode: 'casual', colour: 'white',
+        options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } }))._meta.view;
+      assert.equal(created.rating_policy, 'casual', 'Release creates a new Casual game');
+      const invite = await tool(actor, 'kingdown_invite', { game_id: created.game_id });
+      const casual = (await tool(actor + 1, 'kingdown_join', { code: invite.structuredContent.code }))._meta.view;
+      assert.equal(casual.status, 'playing'); assert.equal(casual.game_id, created.game_id);
+      // Missing rating rows have the same initial values that the result transaction inserts.
+      const ratings = async () => (await pool.query(`select p.user_id,coalesce(r.rating,1500) as rating,coalesce(r.rd,350) as rd,
+        coalesce(r.volatility,0.06) as volatility,r.last_game_at from unnest($1::uuid[]) p(user_id)
+        left join public.player_ratings r on r.user_id=p.user_id order by p.user_id`, [players])).rows;
+      const ratingsBefore = await ratings();
+      const totalsBefore = await Promise.all([actor, actor + 1].map(async seat => (await tool(seat, 'kingdown_profile'))._meta.record.totals));
       const before = (await tool(actor, 'kingdown_get', { game_id: id }))._meta.view;
       const engine = phase === 'loaded-current' ? recoveryEngine : releaseEngine;
       assert.equal(before.engine_fingerprint, engine, `${phase}/${surface}: release-created game identity`);
@@ -227,11 +246,40 @@ export async function checkRecoveryConsumers({ browser, origin, actors, pool, to
         const { states, bases } = await page.evaluate(() => ({ states: window.harnessWidgetStates, bases: window.harnessDraftBases }));
         for (const state of states) checkWidgetState(state, bases);
       }
+      const recoveredCasual = (await tool(actor + 1, 'kingdown_get', { game_id: casual.game_id }))._meta.view;
+      assert.equal(recoveredCasual.engine_fingerprint, casual.engine_fingerprint);
+      assert.equal(recoveredCasual.fen, casual.fen); assert.deepEqual(recoveredCasual.history, casual.history);
+      const resign = { game_id: casual.game_id, command_id: randomUUID(), expected_revision: casual.revision };
+      let finished;
+      if (surface === 'web') {
+        const response = await fetch(`${origin}/api/games/${casual.game_id}/commands`, { method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokens[actor + 1]}` },
+          body: JSON.stringify({ command_id: resign.command_id, expected_revision: resign.expected_revision, action: { type: 'resign' } }) });
+        assert.equal(response.status, 200, 'Recovery accepts the real web Casual finish');
+        finished = await response.json();
+      } else finished = (await tool(actor + 1, 'kingdown_resign', resign))._meta.view;
+      assert.equal(finished.status, 'finished'); assert.deepEqual(finished.result, { winner: 0, reason: 'resignation' });
+      const stored = (await pool.query('select rating_policy,status from public.games where id=$1', [casual.game_id])).rows[0];
+      assert.deepEqual(stored, { rating_policy: 'casual', status: 'finished' });
+      const ratingHistory = (await pool.query('select game_id from public.rating_history where game_id=$1', [casual.game_id])).rows;
+      assert.deepEqual(ratingHistory, [], 'Recovery must not rate a release-created Casual result');
+      const ratingsAfter = await ratings();
+      assert.deepEqual(ratingsAfter, ratingsBefore, 'A Casual finish changes no stored rating value or last rated date');
+      for (const [index, seat] of [actor, actor + 1].entries()) {
+        const profile = (await tool(seat, 'kingdown_profile'))._meta, prior = totalsBefore[index];
+        assert.deepEqual(profile.record.totals, { played: prior.played + 1, won: prior.won + Number(index === 0), drawn: prior.drawn, lost: prior.lost + Number(index === 1) });
+        const history = profile.history.find(game => game.game_id === casual.game_id);
+        assert(history, 'Recovery keeps the Casual result in account history');
+        assert.equal(history.rating_policy, 'casual'); assert.equal(history.result, index === 0 ? 'won' : 'lost');
+      }
+      assert.deepEqual((await pool.query("select surface from public.game_commands where game_id=$1 and kind='resign'", [casual.game_id])).rows,
+        [{ surface }], 'The Casual result uses the selected recovery transport');
       assertNoErrors(errors); assert.deepEqual(failures, []);
       reports.push({ phase, surface, game_id: id, engine, ui_engine: phase === 'loaded-current' ? releaseEngine : recoveryEngine,
         initial_backend: inputs[phase === 'loaded-current' ? 'release' : 'recovery'].hashes['functions/mcp.func/server.mjs'],
         continuation_backend: inputs.recovery.hashes['functions/mcp.func/server.mjs'], same_document: true,
-        initial_preview: initialDraft, prefix_preview: prefixDraft, revision: resumed.revision, fen: resumed.fen, history: resumed.history.actions, commands });
+        initial_preview: initialDraft, prefix_preview: prefixDraft, revision: resumed.revision, fen: resumed.fen, history: resumed.history.actions, commands,
+        casual: { game_id: casual.game_id, rating_policy: stored.rating_policy, result: finished.result, rating_history: ratingHistory, ratings_before: ratingsBefore, ratings_after: ratingsAfter } });
       console.log(`PASS recovery-consumers ${phase} ${surface}`);
     } finally { await context?.close(); await harness?.close(); await match.close(); }
   }
