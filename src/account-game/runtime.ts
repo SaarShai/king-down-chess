@@ -358,6 +358,7 @@ function remember(result: ToolResult, job?: Job) {
 // A newer chat result makes a new epoch; the queue detaches the older reads and the older detachable writes, so only
 // the newest mount reads and routes, and it does not wait for an older one (design §1.2 and §2).
 app.onResult = result => {
+  if (queue.closed()) return;
   const initial = awaitingInitialResult; awaitingInitialResult = false;
   const job = queue.chatResult(initial);
   // A detached mount stops its calls too, so it holds none of the account's three server slots (http.ts).
@@ -471,8 +472,15 @@ function pollTarget(): PollTarget | undefined {
   } };
 }
 export const pollUpdate = () => poll?.update();
-app.onClose = () => { connected = false; poll?.stop(); stopHandleCheck(); hall.dispose(); queue.close(); stopAll(); drawBoard.dispose(); view = undefined; rules = undefined; };
-app.onTeardown = async () => { client.save(); app.onClose?.(); return {}; };
+app.onClose = () => {
+  if (queue.closed()) return;
+  connected = false; poll?.stop(); stopHandleCheck(); hall.dispose(); queue.close(); stopAll(); drawBoard.dispose(); view = undefined; rules = undefined;
+  // Hosts can keep a closed iframe visible while changing accounts. Do not leave private content in that document.
+  const notice = document.createElement('p'); notice.setAttribute('role', 'status');
+  notice.textContent = 'This game panel is closed. Open King Down again to continue.';
+  document.body.replaceChildren(notice);
+};
+app.onTeardown = async () => { if (!queue.closed()) { client.save(); app.onClose?.(); } return {}; };
 const connection = app.connect().then(() => {
   if (queue.closed()) return;
   connected = true; store.dispatch({ type: 'connected' });
@@ -641,7 +649,7 @@ $('home-games').onclick = () => { collapsed = false; resume = undefined; gamesFi
 $('hall-play').onclick = $('games-start').onclick = () => playNow();
 document.querySelectorAll<HTMLButtonElement>('[data-nav]').forEach(button => { if (!button.onclick) button.onclick = () => navigate(button.dataset.nav as Screen); });
 $('page-back').onclick = () => navigate(state.screen === 'handle' ? handleBack : state.screen === 'collection' ? 'profile' : state.screen === 'settings' ? state.settings_back ?? 'play' : 'play');
-app.onContext = () => hostContext(app.getHostContext());
+app.onContext = () => { if (!queue.closed()) hostContext(app.getHostContext()); };
 navigate(state.screen, queuedAtStart);
 
 // Sound is per device and off by default. The tap that turns it on unlocks audio with one knock.
