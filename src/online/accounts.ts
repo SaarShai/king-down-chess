@@ -49,7 +49,7 @@ export class AccountService {
   /** Only the actor's own moderation and appeal notices. Payload is projected to the player's safe DTO. */
   async notices(actor: string, before?: string): Promise<AccountNotices> {
     const cursor = parse(noticesBeforeSchema.optional(), before);
-    const rows = (await this.store.pool.query("select id::text,kind,payload,created_at from public.notifications where user_id=$1 and kind in ('moderation','appeal') and ($2::bigint is null or id<$2) order by id desc limit 21", [id(actor), cursor ?? null])).rows;
+    const rows = (await this.store.pool.query("select id::text,kind,payload,created_at from public.notifications where user_id=$1 and kind in ('moderation','appeal') and ($2::bigint is null or id<$2) order by notifications.id desc limit 21", [id(actor), cursor ?? null])).rows;
     const notices: AccountNotice[] = rows.slice(0, 20).map(row => {
       const base = { id: row.id, created_at: row.created_at.toISOString() };
       if (row.kind === 'moderation') {

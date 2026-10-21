@@ -260,6 +260,19 @@ async function friend(host: string, guest: string) {
   for (const column of ['read_at','expires_at']) await expect(runtime.query(`select ${column} from public.notifications limit 0`)).rejects.toMatchObject({code:'42501'});
  }, 30000);
 
+ it('orders exact bigint notice IDs numerically across a digit boundary and continues the cursor', async () => {
+  const actor = await user(), older = '999999999999999999', newer = '1000000000000000000';
+  await admin.query(`insert into public.notifications(id,user_id,kind,payload,created_at)
+   values($1::bigint,$3,'moderation',$4,'2026-10-20T12:00:00Z'),($2::bigint,$3,'moderation',$4,'2026-10-20T12:00:00Z')`,
+   [older, newer, actor, { action_id: 7, action: 'warning', statement: 'A safe reason.', ends_at: null, user_id: actor, report_id: 'private-report', evidence: 'private-evidence' }]);
+  const first = await accounts.notices(actor);
+  expect(first.notices).toEqual([newer, older].map(id => ({ id, created_at: '2026-10-20T12:00:00.000Z', kind: 'moderation', action_id: 7, action: 'warning', text: 'A safe reason.', ends_at: null })));
+  expect(first.next_notices_before).toBeNull();
+  expect(await accounts.notices(actor, newer)).toEqual({ notices: [first.notices[1]], next_notices_before: null });
+  expect(await accounts.notices(actor, older)).toEqual({ notices: [], next_notices_before: null });
+  for (const secret of [actor, 'private-report', 'private-evidence', 'user_id', 'report_id', 'payload']) expect(JSON.stringify(first)).not.toContain(secret);
+ }, 30000);
+
  it('refuses malformed stored notice text without exposing its payload', async () => {
   const actor = await user('notice-bad');
   await admin.query("insert into public.notifications(user_id,kind,payload) values($1,'moderation',$2)", [actor, { action_id: 1, action: 'warning', statement: { evidence: 'private' }, ends_at: null }]);
