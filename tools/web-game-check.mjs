@@ -20,7 +20,8 @@ import { checkRecoveryConsumers, checkSharedMechanics } from './lib/shared-mecha
 const unregister = register();
 const mechanics = process.argv[2] === 'mechanics';
 const recovery = process.argv[2] === 'recovery';
-assert(process.argv.length === (mechanics || recovery ? 3 : 2), 'Use web-game-check.mjs [mechanics|recovery]');
+const desktop = process.argv[2] === 'desktop';
+assert(process.argv.length === (mechanics || recovery || desktop ? 3 : 2), 'Use web-game-check.mjs [mechanics|recovery|desktop]');
 if (recovery) assert(process.env.KINGDOWN_WEB_RECOVERY_OUTPUT, 'Recovery consumers require an exact external KINGDOWN_WEB_RECOVERY_OUTPUT');
 const { fromFen } = await import('../src/rules/setup.ts');
 const { M, N, P, parseSq, typeOf } = await import('../src/rules/engine.ts');
@@ -73,11 +74,14 @@ try {
     access_token: token, refresh_token: 'local-test-refresh', token_type: 'bearer', expires_in: 600, expires_at: Math.floor(Date.now() / 1000) + 600, user: { id: actor, aud: 'authenticated', role: 'authenticated', email: 'browser@example.invalid', app_metadata: { provider: 'google' }, user_metadata: {}, created_at: new Date().toISOString() },
   })); }, { origin, actor: actors[0], token: tokens[0] });
   // Reject any accidental external request, including refresh and provider user lookups.
-  await context.route('**/*', async route => {
+  if (!desktop) await context.route('**/*', async route => {
     if (new URL(route.request().url()).origin !== origin) { failures.push('External request blocked'); return route.abort(); }
     return route.continue();
   });
-  if (recovery) {
+  if (desktop) {
+    const { measureDesktop } = await import('./lib/desktop-performance.mjs');
+    await measureDesktop({ browser, root, origin, actors, pool, tool, tokens });
+  } else if (recovery) {
     const release = await recoveryOutput(root), prior = await recoveryOutput(process.env.KINGDOWN_WEB_RECOVERY_OUTPUT);
     assert.notEqual(prior.root, release.root, 'Recovery is an external output');
     await checkRecoveryConsumers({ browser, root, origin, actors, pool, tool, tokens, release, recovery: prior,

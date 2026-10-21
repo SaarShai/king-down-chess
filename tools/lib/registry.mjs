@@ -45,6 +45,7 @@ export const checks = [
   { name: 'gui-board-y3', script: 'tools/plugin-browser-check.mjs', args: ['preview', 'Y3'], limit: 180, channel: 'chromium', byName: true },
   { name: 'plugin-ui-http', script: 'tools/plugin-browser-check.mjs', args: ['http'], limit: 480, channel: 'chromium', byName: true, exclusive: true },
   { name: 'web-game', script: 'tools/web-game-check.mjs', limit: 480, channel: 'chromium', byName: true, exclusive: true },
+  { name: 'desktop-performance', script: 'tools/web-game-check.mjs', args: ['desktop'], limit: 600, channel: 'chromium', byName: true, exclusive: true },
   { name: 'shared-mechanics', script: 'tools/web-game-check.mjs', args: ['mechanics'], limit: 480, channel: 'chromium', byName: true, exclusive: true },
   { name: 'recovery-consumers', script: 'tools/web-game-check.mjs', args: ['recovery'], limit: 480, channel: 'chromium', byName: true, exclusive: true },
   { name: 'cache-registration', script: 'tools/cache-registration-check.mjs', limit: 45, channel: 'chromium', byName: true, exclusive: true },
