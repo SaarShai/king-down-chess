@@ -139,7 +139,7 @@ it('keeps a live checkmate loss calm and leaves the last move on the board', asy
     expect(reply.isError).not.toBe(true);
     await page.evaluate(async () => { const h=window as any; await h.harnessShow(await h.harnessTool({ name:'kingdown_get', arguments:{board_id:h.harnessWidgetState.privateContent.board_id} })); });
     await frame.locator('#over-title').filter({ hasText: 'You lose' }).waitFor();
-    expect(await frame.locator('#end-reason').textContent()).toBe('Your opponent gave checkmate.');
+    expect(await frame.locator('#end-reason').textContent()).toBe('Casual · Your opponent gave checkmate.');
     expect(await frame.locator('#last-move').textContent()).toContain('a8');
     expect(await frame.locator('#board[data-toppling], #board .kd-words, #over.is-win').count()).toBe(0);
     expect(await animations(frame, '#over')).toBe(0);

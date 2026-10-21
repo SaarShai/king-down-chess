@@ -32,7 +32,7 @@ it('recovers a joined game after an old waiting entry ends', async () => {
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     const solo = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
     await page.evaluate(() => (window as any).harnessTeardown());
-    await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name: 'kingdown_accept', arguments: { game_id: waiting.game_id } } });
+    await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name: 'kingdown_accept', arguments: { game_id: waiting.game_id, rating_policy: waiting.rating_policy } } });
     await page.locator('#remount').click(); await frame.locator('#over.found[open]').waitFor();
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(solo);
   } finally { await page.close(); }

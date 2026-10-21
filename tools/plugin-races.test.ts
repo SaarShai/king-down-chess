@@ -163,7 +163,8 @@ it.each([
       await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } });
     });
     const game = (await shownGame(page)).game as string;
-    expect((await tool(page, '/fixture-friend-tool', 'kingdown_accept', { game_id: game })).isError).toBeFalsy();
+    const invite = await tool(page, '/fixture-tool', 'kingdown_invite', { game_id: game });
+    expect((await tool(page, '/fixture-friend-tool', 'kingdown_join', { code: invite.structuredContent.code })).isError).toBeFalsy();
     await html(page).evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}, false, false, true); });
     await page.frameLocator('iframe').locator('[data-screen="seat"]:not([hidden])').waitFor();
     await page.evaluate(name => { (window as any)[name] = 'kingdown_choose'; }, hold);

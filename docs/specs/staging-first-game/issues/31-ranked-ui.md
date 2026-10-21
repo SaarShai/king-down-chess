@@ -34,3 +34,10 @@ The in-memory screen fixture now projects stored policy to view, inbox and lobby
 ## Pending Find remount correction
 
 A lobby Find does not save last setup. After a lost reply, a lobby remount must derive its shown mode, rules and colour from the pending Find. `currentSetup()` now supplies that effective setup to both lobby and Play. The correction keeps the labels and filters aligned with Retry. Two opposed saved/pending-mode cases cover a lobby remount without opening Play. The parent owns execution; no CPU check runs here.
+
+
+## Browser test contract follow-up
+
+Direct random-game accept calls now send the stored policy. Friend-game setup tests use Invite and Join. Exact list, history and end-reason checks include the policy label and keep their original reason, revision, board and ceremony assertions. Synthetic old history and waiting rows name Legacy; a seeded rating outcome names Legacy explicitly. The handle continuation records both accept requests and checks their game and policy.
+
+The Collection remount check waits for a fresh settings read and mount completion before it checks the restored Cards radio. The existing dot-wrap and Menu viewport assertions stay intact; the parent repairs their product regressions. Static `git diff --check` passes. The parent owns all test execution for this patch; no new pass is claimed here.

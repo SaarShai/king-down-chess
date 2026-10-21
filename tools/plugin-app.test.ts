@@ -370,7 +370,7 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
     await frame.locator('#page-back').click();
     const row = frame.locator(`#games-list [data-game-id="${game_id}"]`);
     await row.waitFor();
-    expect(await row.locator('.line').textContent()).toMatch(/Move 1 ·\sWhite/);
+    expect(await row.locator('.line').textContent()).toMatch(/Move 1 ·\sCasual ·\sWhite/);
     await row.click(); await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
     await frame.locator('html').evaluate(async (_, game_id) => {
       await (window as any).harnessApp.call('kingdown_move', { game_id, command_id: 'play-rows-move', expected_revision: 0, lan: 'e2-e4' }, true);
@@ -739,12 +739,13 @@ it('shows both setup states in the app games rows', async () => {
       await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } });
     });
     const game_id = await page.evaluate(() => (window as any).harnessView.game_id);
-    const accepted = await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name: 'kingdown_accept', arguments: { game_id } } })).json();
+    const invite = await (await page.request.post(new URL('/fixture-tool', harness.url).href, { data: { name: 'kingdown_invite', arguments: { game_id } } })).json();
+    const accepted = await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name: 'kingdown_join', arguments: { code: invite.structuredContent.code } } })).json();
     expect(accepted.isError).toBeFalsy();
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}, false, false, true); });
     await frame.locator('#page-back').click();
     const row = frame.locator(`#games-list [data-game-id="${game_id}"]`);
-    expect(await row.locator('.line').textContent()).toMatch(/Choose your side ·\sWhite/);
+    expect(await row.locator('.line').textContent()).toMatch(/Choose your side ·\sCasual ·\sWhite/);
     expect(await row.locator('.turn-mark').textContent()).toBe('Your turn');
     await row.click();
     await frame.locator('[data-screen="seat"]:not([hidden])').waitFor(); await frame.locator('#page-back:not(:disabled)').waitFor({ state: 'attached' });
@@ -1057,7 +1058,7 @@ it.each([false,true])('shows a draw offer and handles a decline before Resign (i
     await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_get',{},false,false,true); });
     await frame.locator('#board-menu:not(:disabled)').click(); await frame.locator('#menu-draw').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Offer draw',exact:true}).click();
     await frame.locator('#context-note').filter({hasText:'Draw offered. Waiting for your opponent.'}).waitFor();
-    await page.request.post(new URL('/fixture-seed',harness.url).href,{data:{actor:'alice',data:{views:{[joined._meta.view.game_id]:{outcome:{rating_before:1500,rating:1561,provisional:true,badges:[]}}}}}});
+    await page.request.post(new URL('/fixture-seed',harness.url).href,{data:{actor:'alice',data:{views:{[joined._meta.view.game_id]:{rating_policy:'legacy',outcome:{rating_before:1500,rating:1561,provisional:true,badges:[]}}}}}});
     const full=await frame.locator('html').evaluate(async()=>{return (window as any).harnessApp.client.call('kingdown_get');});
     expect(full._meta.view.outcome).toBeUndefined();
     const view = (await buddy('kingdown_get',{game_id:joined._meta.view.game_id}))._meta.view;
@@ -1189,7 +1190,7 @@ it('does not repeat a friend abort title or play a ceremony', async () => {
     });
     await frame.locator('#over.end-card[open]').waitFor();
     expect(await frame.locator('#over-title').textContent()).toBe('Game aborted');
-    expect(await frame.locator('#end-reason').textContent()).toBe('');
+    expect(await frame.locator('#end-reason').textContent()).toBe('Casual');
     expect(await frame.locator('#board[data-toppling], #board .kd-words, #over.is-win').count()).toBe(0);
   } finally { await page.close(); }
 });

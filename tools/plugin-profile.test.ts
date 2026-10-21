@@ -20,7 +20,7 @@ import { DEAL_CARDS } from '../src/match/setup';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 const record = { totals: { played: 23, won: 12, drawn: 3, lost: 8 }, rating: { rating: 1500.4, rd: 350, volatility: 0.06, provisional: true }, badges: [] };
-const history: HistoryEntry[] = Array.from({ length: 23 }, (_, i) => ({ game_id: randomUUID(), finished_at: new Date(Date.UTC(2026, 9, 10, 12 - i)).toISOString(), kind: 'friend', colour: i % 2 ? 'black' : 'white', result: ['won', 'drawn', 'lost'][i % 3] as HistoryEntry['result'], reason: 'resignation', opponent: { handle: i === 0 ? 'abcdefghijklmnopqrst' : i === 3 ? null : `player_${i}`, icon: 'spirit', computer: i === 1 || i === 4, deleted: i === 2, level: i === 1 ? 'club' : null }, features: { fairy: true, arrangement: true, classic: true, cards: true, powers: true, king: 'Spirit', power: 'Mercy' } }));
+const history: HistoryEntry[] = Array.from({ length: 23 }, (_, i) => ({ rating_policy: 'legacy', game_id: randomUUID(), finished_at: new Date(Date.UTC(2026, 9, 10, 12 - i)).toISOString(), kind: 'friend', colour: i % 2 ? 'black' : 'white', result: ['won', 'drawn', 'lost'][i % 3] as HistoryEntry['result'], reason: 'resignation', opponent: { handle: i === 0 ? 'abcdefghijklmnopqrst' : i === 3 ? null : `player_${i}`, icon: 'spirit', computer: i === 1 || i === 4, deleted: i === 2, level: i === 1 ? 'club' : null }, features: { fairy: true, arrangement: true, classic: true, cards: true, powers: true, king: 'Spirit', power: 'Mercy' } }));
 beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-profile-test-'));
   const boardPath = join(folder, 'board.html'); await writeFile(boardPath, await readFile('src/plugin/index.html'));
@@ -34,7 +34,7 @@ it('shows finished details and adds the second page with the unchanged cursor', 
     await expect.poll(() => frame.locator('#profile-history li').count()).toBe(20);
     expect(await frame.locator('#profile-history li').first().locator('b').textContent()).toBe('abcdefghijklmnopqrst');
     expect(await frame.locator('#profile-history li').first().locator('.res').textContent()).toBe('W');
-    expect(await frame.locator('#profile-history li').first().locator('small').textContent()).toBe('Resignation');
+    expect(await frame.locator('#profile-history li').first().locator('small').textContent()).toBe('Legacy rated · Resignation');
     expect(await frame.locator('#profile-history li').first().locator('.feats use').count()).toBe(5);
     const first = await tool(page, 'kingdown_profile');
     await frame.locator('#profile-more').click();
@@ -269,7 +269,10 @@ it('lists every collection rule and hides shared unlocked status', async () => {
       if (tab === 'Cards') for (const card of DEAL_CARDS) expect(await frame.locator(`#collection-items [data-card="${card}"] .cf-text small`).textContent()).toBe(ruleLine(cardText(card, DEFAULT_RULES)));
       if (tab === 'Powers') for (const [power, line] of Object.entries(data.powers)) expect(await frame.locator(`[data-power="${power}"] dd`).first().textContent()).toBe(webWords(balanced[power] ?? line));
     }
+    const settingsReads = await page.evaluate(() => (window as any).harnessCalls.filter((call: any) => call.name === 'kingdown_settings').length);
     await page.locator('#remount').click();
+    await page.waitForFunction(reads => (window as any).harnessCalls.filter((call: any) => call.name === 'kingdown_settings').length > reads, settingsReads);
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.queue.mountJob()?.promise; });
     await frame.locator('[data-screen="collection"]:not([hidden])').waitFor();
     await expect.poll(() => frame.locator('#collection-items > *').count()).toBe(21);
     expect(await frame.getByRole('radio', { name: 'Cards', exact: true }).isChecked()).toBe(true);
@@ -425,7 +428,7 @@ it('gives games with the same opponent a colour and start time in both lists', a
   const page=await open(),frame=page.frameLocator('iframe');
   try {
     await page.setViewportSize({ width: 320, height: 568 });
-    const entries=[0,1].map(n=>({game_id:`same-opponent-${n}`,kind:'friend',speed:'daily',status:'setup',seat:0,action:'ready',turn:0,revision:0,deadline_at:null,opponent:{handle:'same player',icon:null,computer:false,deleted:false,last_seen_ms:null},updated_at:'2026-10-15T12:00:00Z',created_at:`2026-10-15T12:0${n}:34Z`,options:null,move:null,open_until:null,level:'club'}));
+    const entries=[0,1].map(n=>({rating_policy:'casual',game_id:`same-opponent-${n}`,kind:'friend',speed:'daily',status:'setup',seat:0,action:'ready',turn:0,revision:0,deadline_at:null,opponent:{handle:'same player',icon:null,computer:false,deleted:false,last_seen_ms:null},updated_at:'2026-10-15T12:00:00Z',created_at:`2026-10-15T12:0${n}:34Z`,options:null,move:null,open_until:null,level:'club'}));
     const wrap={...entries[0],game_id:'wrap-0',status:'playing',move:12,created_at:'2026-05-15T12:00:00Z',options:{fairy:true,arrangement:true,cards:true,kingPowers:true}};
     await page.request.post(new URL('/fixture-seed',harness.url).href,{data:{actor:'alice',data:{games:[...entries,wrap]}}});
     await frame.locator('html').evaluate(async()=>{const app=(window as any).harnessApp; await app.call('kingdown_games',{}); app.navigate('play');});
@@ -452,7 +455,7 @@ it('gives games with the same opponent a colour and start time in both lists', a
 });
 
 // Fault round 4 (device matrix M1, M3, M7, M8, M9, M13).
-const waitingGames = (['friend', 'random'] as const).map(kind => ({ game_id: `waiting-${kind}`, kind, speed: 'daily', status: 'waiting', seat: 0, action: 'waiting', turn: 0, revision: 0, deadline_at: null, opponent: null, updated_at: '2026-10-15T16:32:00Z', created_at: '2026-10-15T16:32:00Z', options: { ...DEFAULT_OPTIONS, fairy: true, cards: true, kingPowers: true }, move: null, open_until: null, level: 'club' }));
+const waitingGames = (['friend', 'random'] as const).map(kind => ({ rating_policy: 'legacy', game_id: `waiting-${kind}`, kind, speed: 'daily', status: 'waiting', seat: 0, action: 'waiting', turn: 0, revision: 0, deadline_at: null, opponent: null, updated_at: '2026-10-15T16:32:00Z', created_at: '2026-10-15T16:32:00Z', options: { ...DEFAULT_OPTIONS, fairy: true, cards: true, kingPowers: true }, move: null, open_until: null, level: 'club' }));
 const bigRecord = { ...record, totals: { played: 1234, won: 700, drawn: 34, lost: 500 } };
 async function openAt(width: number, height: number, locale = 'en-US', timezoneId = 'UTC') {
   const context = await browser.newContext({ viewport: { width, height }, locale, timezoneId }), page = await context.newPage(); page.setDefaultTimeout(5000);

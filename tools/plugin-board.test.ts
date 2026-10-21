@@ -43,7 +43,7 @@ afterAll(async () => { await browser?.close(); await harness?.close(); await ser
 
 function view(fen: string, rules: Partial<Rules> = {}, fields: Partial<View> = {}): View {
   setRules(rules); const pos = fromFen(fen || '7k/8/8/8/8/8/P7/K7 w - - 0 1');
-  return { game_id: crypto.randomUUID(), engine_fingerprint: 'test-engine', revision: 0, created_at: '2026-10-15T00:00:00Z', abort_open: false, seat: pos.turn, kind: 'solo', speed: 'daily', days_per_move: 3, status: 'playing', turn: pos.turn, action: 'ready', fen, in_check: false, legal: legalMoves(pos).map(m => toLan(pos, m)), last_commands: [], opponent: { handle: null, icon: null, computer: true, deleted: false, last_seen_ms: null }, draw_offer: null, deadline_at: null, server_now: '2026-10-15T00:00:00Z', rules: structuredClone(RULES), ...fields };
+  return { rating_policy: 'casual', game_id: crypto.randomUUID(), engine_fingerprint: 'test-engine', revision: 0, created_at: '2026-10-15T00:00:00Z', abort_open: false, seat: pos.turn, kind: 'solo', speed: 'daily', days_per_move: 3, status: 'playing', turn: pos.turn, action: 'ready', fen, in_check: false, legal: legalMoves(pos).map(m => toLan(pos, m)), last_commands: [], opponent: { handle: null, icon: null, computer: true, deleted: false, last_seen_ms: null }, draw_offer: null, deadline_at: null, server_now: '2026-10-15T00:00:00Z', rules: structuredClone(RULES), ...fields };
 }
 const insets = (width: number) => ({ top: width === 320 ? 63 : width === 360 ? 80 : 102, bottom: width === 320 ? 84 : width === 360 ? 100 : 118, left: 0, right: 0 });
 // The target checks get a root that a redraw keeps, and find its visible buttons in the same page call as they measure.
@@ -1098,7 +1098,7 @@ it.each(['Resign', 'Abort'])('W7: Menu %s drops the draft move from the end card
     expect(await moveCalls(page)).toEqual([]);
     expect(await page.evaluate(() => (window as any).harnessView.fen)).toBe(base.fen);
     if (action === 'Resign') {
-      expect(await frame.locator('#end-reason').innerText()).toBe('You resigned.');
+      expect(await frame.locator('#end-reason').innerText()).toBe('Casual · You resigned.');
       expect(await frame.locator('#last-move').innerText()).toBe('Move 1.');
     }
     expect((await marks(page)).last).toEqual([]);
