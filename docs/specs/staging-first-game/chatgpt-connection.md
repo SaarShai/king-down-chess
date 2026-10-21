@@ -18,13 +18,13 @@ The staging account database is separate. A player's Google or GitHub identity c
 
 ## Current connection
 
-Website sign-in and ChatGPT OAuth complete. The public provider settings report GitHub enabled and Google disabled.
+Website sign-in and ChatGPT OAuth complete. The public provider settings report GitHub enabled and Google disabled. Source `25978776` uses those settings for the website and connection sign-in choices; it offers GitHub only in staging. Failed settings show retry and keep the approved review password path. Signed-in consent does not request settings. [Ticket 46](issues/46-available-sign-in.md) records compiled OAuth and fresh anonymous hosted checks; it does not repeat real provider login or close the second-account gate.
 
 The owner saved the credential for the [King Down Staging GitHub app](https://github.com/settings/applications/3948844) directly in the [staging Supabase provider form](https://supabase.com/dashboard/project/puhspsyjyzaghmgtkzqd/auth/providers). Do not put that secret in chat, source files or evidence.
 
 ## Verified scope
 
-The current staging product is source `be0786da`, preview `dpl_Tx6SkvtZnmT7R15NumP1Srp8owM6`. Its [game-owned mechanics proof](../game-ownership/owned-staging-proof.md) records March, Maester swap and Morph across both interfaces. Three later fresh native opens pass; an earlier unexplained `Internal error` remains open. The records below describe the preceding product and startup diagnosis.
+The earlier game-owned mechanics checkpoint is source `be0786da`, preview `dpl_Tx6SkvtZnmT7R15NumP1Srp8owM6`. Its [game-owned mechanics proof](../game-ownership/owned-staging-proof.md) records March, Maester swap and Morph across both interfaces. Three later fresh native opens pass; an earlier unexplained `Internal error` remains open. The records below describe the preceding product and startup diagnosis.
 
 The real ChatGPT widget and staging website share game `1e34ff0e-5f7b-84f0-8cc6-22268129d986`. A move on each surface appears in the other's history after reload. Resignation in ChatGPT appears as the same final result on the website. See [the real-host record](issues/09-real-host-proof.md).
 
