@@ -136,7 +136,8 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
       }
       else if (req.url === '/board-resource') {
         res.setHeader('Content-Type', 'text/html'); res.setHeader('Content-Security-Policy', framePolicy(resource.meta).csp);
-        const html = sourcePage ? (await readFile('src/plugin/index.html', 'utf8')).replace('<script type="module" src="./app.ts"></script>', '<script type="module">window.harnessApp = await import("/src/plugin/app.ts");</script>') : resource.html;
+        // Raw source HTML needs Vite's dev environment before app imports read configured defines.
+        const html = sourcePage ? (await readFile('src/plugin/index.html', 'utf8')).replace('<script type="module" src="./app.ts"></script>', '<script type="module">await import("/@vite/env"); window.harnessApp = await import("/src/plugin/app.ts");</script>') : resource.html;
         res.end(html.replace('<script type="module">', '<script type="module">await window.harnessBoot;').replace('<head>', `<head>${FRAME_SHIM}`));
       }
       else if (req.url === '/fixture-tool' && req.method === 'POST') {

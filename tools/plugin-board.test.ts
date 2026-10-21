@@ -77,6 +77,7 @@ async function open(next: View, width = 393, height = 852, clock = false, limit 
   await page.evaluate(async safeAreaInsets => {
     await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets, deviceCapabilities: { touch: true } });
   }, insets(width));
+  expect(await page.frameLocator('iframe').locator('html').evaluate('(async () => (await import("/src/account-game/engine-identity.ts")).PAGE_ENGINE)()')).toBe('test-engine');
   await page.frameLocator('iframe').locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), next);
   await page.frameLocator('iframe').locator('html').evaluate('(async () => { window.testBoard = (await import("/src/plugin/board-view.ts")).board; })()');
   return page;
@@ -2368,4 +2369,24 @@ it('keeps a stored-engine draft through undo, remount and a late preview when th
     expect(errors).toEqual([]);
   } catch (error) { throw new Error(`${String(error)}; page errors: ${JSON.stringify(errors)}`,{cause:error}); }
   finally {release?.();await page.close();await match.close();}
+});
+
+it('keeps source pages without an engine stamp on server preview', async () => {
+  const unstamped = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await browser.newPage(); page.setDefaultTimeout(5000);
+  try {
+    await page.goto(unstamped.url); await waitForSourceApp(page);
+    const frame = page.frameLocator('iframe');
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    expect(await frame.locator('html').evaluate('(async () => (await import("/src/account-game/engine-identity.ts")).PAGE_ENGINE)()')).toBeUndefined();
+    const result = await (await page.request.post(new URL(`/fixture-position?fen=${encodeURIComponent('7k/8/8/8/8/8/P7/K7 w - - 0 1')}`, unstamped.url).href)).json();
+    await page.evaluate(async result => {
+      await (window as any).harnessSetContext({ displayMode: 'fullscreen' });
+      await (window as any).harnessShow(result);
+    }, result);
+    await frame.locator('#board').waitFor({ state: 'visible' });
+    await expect.poll(() => page.evaluate(() => (window as any).harnessCalls.filter((call: any) => call.name === 'kingdown_preview').length)).toBe(1);
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.store.page().notice)).toBeUndefined();
+  } finally { await page.close(); await unstamped.close(); }
 });
