@@ -36,9 +36,10 @@ The follow-up proves debugger-associated interference: attaching browser control
 
 ## First-load verification
 
-1. Use native Chrome controls to open a new tab. Open the direct staging app URL or **Plugins → King Down Staging → Open plugin**.
-2. Keep the browser-control debugger disconnected during startup. Browser-tab inspection can attach it again. Use native accessibility and screenshots to observe readiness.
-3. Require enabled game controls and a new iframe initialization ID. Do not count **Try again**, automatic retry or a model's summary as first-load proof.
-4. Record the entry path and result. Resume the saved game and inspect its actual history. Browser-tab inspection after readiness is acceptable, but detach before another first-load test.
+For browser-controlled checks, keep navigation and the full readiness wait in one `cua_repl` call. Wait for the outer staging frame, then its nested game and enabled controls. Do not return at the first Loading app snapshot. The [controller diagnosis and tested procedure](browser-controller-startup.md) records the response that gets stranded when the browser call ends early. Ten fresh controlled opens pass on unchanged product `fd853122`, without Try again or navigation retries.
 
-This procedure corrects test interference. It does not repair the debugger interaction or prove cold-cache, mobile or cross-browser reliability. The procedure adds no game retry or weaker security policy.
+For an independent native control, open a new tab through native Chrome controls and keep the browser-control debugger disconnected until readiness. Use the direct staging app URL or **Plugins → King Down Staging → Open plugin**. Browser inspection can attach afterward.
+
+Both paths require enabled controls and a new initialization ID. Record visible notices as well: a loaded game with `Internal error` is not a clean app pass. Do not count Try again, a navigation retry or a model summary as first-load proof. Close test tabs afterward.
+
+This corrects test interference. The vendor controller's idle response-release defect remains; no installed code or security policy changes. The separate post-mount Internal error, cold-cache, mobile and cross-browser claims remain unverified.

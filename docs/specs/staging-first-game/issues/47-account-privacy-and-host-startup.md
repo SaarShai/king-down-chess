@@ -1,6 +1,6 @@
 # Close account privacy and host startup gaps
 
-Status: in progress. Parent: U09/U11. Follows tickets 10, 34 and 46.
+Status: privacy and controlled document startup verified in staging. The separate post-mount Internal error remains open. Parent: U09/U11. Follows tickets 10, 34 and 46.
 
 The owner asks to solve second-account privacy and the existing host-startup issue. Keep all work in staging. At ticket entry, product source is `25978776`; its game artifacts match the accepted mechanics and cross-host evidence.
 
@@ -31,6 +31,12 @@ Keep the deployed artifact fixed while testing these ranked causes:
 Reuse the completed server privacy checks and ten native controls. A host-state observation must distinguish a new panel from an in-place transition. Do not call a timeout a privacy leak or a startup repair. Add product code only for a demonstrated defect, then rerun its original reproducer.
 
 Native reconnect now reproduces a real in-place defect on `f27694f7`. Keep A's Moves sheet open, reconnect its existing link as the already-signed-in B account, then return to the original tab. The same sandbox init ID remains. A tool call through the reconnected link lists B's zero games. The old panel receives `Board unavailable for this account` but keeps A's board, handle, cards, powers and seven-action history visible. No teardown occurs. Add a compiled HTTP regression for this refusal path; clear private content at the access-loss boundary and repeat this exact live reconnect after a staging-only release. Restore A through its existing GitHub sign-in.
+
+## Isolated controller diagnosis plan
+
+Keep the accepted staging artifact fixed. Use the permitted-localhost sandbox-root reproducer. First capture the attached failure. Find a supported controller trace or inspect its native extension diagnostics. Record only the test tab, command names, request/session identifiers and errors. Exclude credentials and unrelated browsing data.
+
+Ranked causes: (1) a paused Document response loses its release command; (2) a new cross-process child target waits during controller setup; (3) a response handler fails before release; (4) cached sandbox content changes the target transition. A useful probe must distinguish these causes, not repeat the known blank frame. Test any supported cause-specific repair against the same reproducer, then fresh staging ChatGPT opens without Try again. Reuse the completed privacy and mechanics checks. Close all created tabs and stop the probe server.
 
 ## Evidence to reuse
 
@@ -110,3 +116,13 @@ The browser-control gate stays open. The old plain-privacy reproducer now loads 
 One post-release native full-page host open reaches enabled controls with a new sandbox init ID and no Try again. It is a supporting native control, not a controlled-path pass. All nine created tabs are closed, both loopback probes are stopped, and original website A is restored. No original tab is closed by these actions.
 
 Full report and final cleanup receipts: parent workspace `evidence/staging-password-login/verification.md`. The actual website account-switch gate is closed; the external controlled-startup gate remains open.
+
+## Controller response-release diagnosis
+
+The current follow-up keeps product `fd853122` fixed. Native extension-worker logpoints finally capture the missing protocol boundary. A Document response that arrives after the browser operation returns gets `Fetch.requestPaused` with HTTP 200 but no release. The source is the root tab, so this trace does not support the earlier child-session omission hypothesis. A one-second delayed navigation in the isolated localhost page reproduces the fault. Keeping an active readiness wait in the same CUA execution sends `Fetch.continueResponse` after 2 ms and loads the original frame. No game or installed controller code changes.
+
+The [tested procedure](../browser-controller-startup.md) keeps navigation and readiness in one execution. It waits for the host frame, then the game controls; short selector waits inspect the same document. With both logpoints removed and DevTools closed, ten new ChatGPT tabs reach enabled controls with ten distinct init IDs. No trial clicks Try again, reloads, detaches, or reissues an open request. The observed 8.0–25.2 seconds include tool overhead and a warm profile. An earlier prototype nested-selector deadline is excluded and documented.
+
+This closes the controlled blank-document investigation with a supported workflow correction. The vendor idle response-release defect is still reproducible outside that procedure. Existing native controls are reused; no new ten-native batch or broad mechanics suite is claimed. All 14 created tabs are closed, both logpoints are removed and the loopback server is stopped. Production and the staging release stay unchanged.
+
+The tenth screenshot also shows Internal error after the game list and enabled setup controls load. This is the separate post-mount symptom from ticket 10. Thus ten document-startup passes are not ten error-free app sessions. The Vercel log connector refuses access; its mapped CLI succeeds for the exact preview but finds no error-level records in the 30-minute window. The failing host/SDK method is not yet captured. Keep that gate open. Full trace, trial ledger, screenshot and cleanup: parent workspace `evidence/controller-startup-diagnosis/verification.md`.

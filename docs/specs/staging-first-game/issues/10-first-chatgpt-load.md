@@ -1,6 +1,6 @@
 # Reliable first ChatGPT load
 
-Status: the original debugger-associated reproducer has a verified native test procedure. A later staging mount shows an unexplained error, followed by three clean native opens. That error and the debugger interaction remain open; do not claim general startup reliability.
+Status: the controlled blank-frame path has a captured cause and a verified readiness procedure. Ten fresh controlled opens pass on unchanged `fd853122`, without Try again. The vendor's idle response-release defect is not patched. The separate post-mount Internal error remains open; the final screenshot shows it. See the [current diagnosis](../browser-controller-startup.md). Do not claim general startup reliability.
 
 Owner request: fix the first-load failure and verify fresh ChatGPT opens without **Try again**. Keep all changes in staging.
 
