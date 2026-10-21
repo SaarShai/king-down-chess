@@ -45,9 +45,12 @@ export function createTokenVerifier({ supabaseUrl, publicOrigin, clientIds, publ
       try { response = await request(`${issuer}/user`, {
         headers: { apikey: publishableKey, Authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(5000), redirect: 'error',
-      }); } catch { throw new AuthenticationUnavailable(); }
+      }); } catch (error) {
+        console.warn('King Down auth trace', JSON.stringify({ event: 'fetch-failed', timeout: error instanceof Error && error.name === 'TimeoutError', network: error instanceof TypeError }));
+        throw new AuthenticationUnavailable();
+      }
       if (response.status === 401 || response.status === 403) throw new AuthenticationError();
-      if (!response.ok) throw new AuthenticationUnavailable();
+      if (!response.ok) { console.warn('King Down auth trace', JSON.stringify({ event: 'provider-status', status: response.status })); throw new AuthenticationUnavailable(); }
       let user; try { user = await response.json(); } catch { throw new AuthenticationUnavailable(); }
       if (typeof user?.id !== 'string' || user.id.toLowerCase() !== actorId) throw new AuthenticationError();
       return actorId;
