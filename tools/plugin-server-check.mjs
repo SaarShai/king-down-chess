@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash, randomUUID, X509Certificate } from 'node:crypto';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
+import { existsSync } from 'node:fs';
 import { cp, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -10,6 +11,14 @@ import { pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { checkRuntime, summarizeEngines } from './engines-check.mjs';
+import { serveSite } from './web-online-check.mjs';
+
+/** A Vercel function's art lives in the enclosing output's static layer. */
+async function staticLayer(directory) {
+  if (!existsSync(join(directory, '.vc-config.json'))) return null;
+  const root = resolve(directory, '../..');
+  return { root, config: JSON.parse(await readFile(join(root, 'config.json'), 'utf8')) };
+}
 
 if (process.argv.length > 4) throw new Error('Usage: node tools/plugin-server-check.mjs [release function directory] [recovery function directory]');
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
@@ -20,9 +29,11 @@ const artifact = await mkdtemp(join(tmpdir(), 'kingdown-http-artifact-'));
 let recoveryArtifact;
 const pool = new pg.Pool({ connectionString });
 const actors = [randomUUID(), randomUUID()], secret = randomUUID();
-const server = createServer(); let app, savedAccountAccess, requestId = 0;
+const server = createServer(); let app, site, savedAccountAccess, requestId = 0;
 try {
-  await cp(resolve(process.argv[2] || 'plugin-server-dist'), artifact, { recursive: true });
+  const source = resolve(process.argv[2] || 'plugin-server-dist');
+  site = await staticLayer(source);
+  await cp(source, artifact, { recursive: true });
   const ca = new X509Certificate(await readFile(resolve(artifact, 'supabase-ca.crt')));
   assert.equal(ca.fingerprint256.replaceAll(':', ''), '807025AD50D4ED219D2C9C7D299C004F824EB00CF7F65AFEF607D07B72E6CAFA');
   const { configurePlugin } = await import(pathToFileURL(resolve(artifact, 'server.mjs')).href);
@@ -54,7 +65,12 @@ try {
   } finally { globalThis.fetch = providerFetch; }
   assert.equal(providerCalls, 0);
   app = await configurePlugin(webEnv, { localDev: true });
-  server.on('request', (req, res) => { void app.handler(req, res).catch(() => { res.statusCode = 500; res.end(); }); });
+  server.on('request', (req, res) => {
+    // Keep direct API closure checks; only deployed art is answered by the static layer.
+    const result = site && new URL(req.url, origin).pathname.startsWith('/plugin-art/')
+      ? serveSite({ ...site, handler: app.handler }, req, res) : app.handler(req, res);
+    void result.catch(() => { res.statusCode = 500; res.end(); });
+  });
   let queries = 0, connections = 0, closedCases = 0;
   const query = app.pool.query, connect = app.pool.connect;
   app.pool.query = function (...args) { queries++; return query.apply(this, args); };
@@ -168,9 +184,11 @@ try {
     assert.notEqual(releaseIdentity['server.mjs'], recoveryIdentity['server.mjs'], 'Recovery needs distinct server bytes; source provenance requires separate build receipts');
     assert(tools.some(tool => tool.name === 'kingdown_preview'), 'The nominated release includes the stored-engine preview adapter');
     const { configurePlugin: configureRecovery } = await import(pathToFileURL(join(recoveryArtifact, 'server.mjs')).href);
+    const recoverySite = await staticLayer(resolve(process.argv[3]));
     const restartRecovery = async () => {
       await app.pool.end(); app = undefined;
       app = await configureRecovery(webEnv, { localDev: true, websiteKeys });
+      site = recoverySite;
     };
     const ok = async (actor, name, args) => {
       const result = await tool(actor, name, args);
