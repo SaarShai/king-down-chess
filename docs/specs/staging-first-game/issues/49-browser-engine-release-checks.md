@@ -1,6 +1,6 @@
 # Verify the account website in the other supported browser engines
 
-Status: in progress. Parent: U09. Follows ticket 48.
+Status: complete for the registered website journey. Parent: U09. Follows ticket 48.
 
 ## Plan and pass criteria
 
@@ -12,3 +12,9 @@ Status: in progress. Parent: U09. Follows ticket 48.
 ## Evidence
 
 The parent workspace's `evidence/staging-release-checks/` holds the source, detached run logs and final result. No new browser feature, dependency or hosting service is proposed.
+
+## Result
+
+Both runs pass on source `66824dc5`, macOS arm64, Node 26.0.0. WebKit 27.2 passes in 90.6 seconds; Firefox 157.0 passes in 108.1 seconds. These are check durations, not game startup times. Each run passes the built root, local move and End turn, saved reload, closed account/API routes, and the complete worker journey with 89 protected/bypass requests. Normal local timeouts and all existing assertions stay unchanged. The runner cleans up its browsers and temporary servers.
+
+The receipts name a fixture recovery pair, not exact final-release rollback approval. Retain the prior exact recovery evidence separately. These checks close the selected browser-engine gap; they do not prove actual Safari/Firefox provider login, physical-phone behavior or an embedded host. No product code changes. Continue with [the shared embedded UI in WebKit](50-webkit-embedded-release-check.md).
