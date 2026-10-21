@@ -186,6 +186,36 @@ it('lists another player with features and accepts the open seat', async () => {
     expect((await buddy(page, 'kingdown_get', { game_id: created._meta.view.game_id }))._meta.view.status).toBe('playing');
   } finally { await page.close(); }
 });
+it('clears Casual rows before a held Ranked lobby reply and accepts only the ranked policy', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  let casual: string | undefined, ranked: string | undefined;
+  try {
+    const casualOpen = await buddy(page, 'kingdown_create', { kind: 'random', options, colour: 'white' }); casual = casualOpen._meta.view.game_id;
+    const rankedOpen = await buddy(page, 'kingdown_create', { kind: 'random', mode: 'ranked' }); ranked = rankedOpen._meta.view.game_id;
+    await hall(page); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click();
+    await frame.locator('#setup-rating input[value="casual"]').locator('..').click(); await frame.locator('#play-open').click();
+    await frame.locator('#lobby-list .game-row').filter({ hasText: 'Casual' }).first().waitFor();
+    await frame.locator('#page-back').click(); await frame.locator('#setup-rating input[value="ranked"]').locator('..').click();
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_lobby'; });
+    const acceptsBefore = await page.evaluate(() => (window as any).harnessCalls.filter((call: any) => call.name === 'kingdown_accept').length);
+    await frame.locator('#play-open').click(); await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
+    expect(await frame.locator('#find-features').innerText()).toContain('Ranked');
+    expect(await frame.locator('#lobby-list button').count()).toBe(0);
+    expect(await frame.locator('#lobby-empty').isHidden()).toBe(true);
+    expect(await frame.locator('#lobby-status').textContent()).toBe('Loading open games…');
+    await page.evaluate(() => (window as any).releaseHeld());
+    const row = frame.locator('#lobby-list .game-row'); await row.filter({ hasText: 'Ranked' }).waitFor();
+    expect(await row.count()).toBe(1); expect(await row.innerText()).not.toContain('Casual');
+    await row.click(); await frame.locator('[data-screen="seat"]:not([hidden]) #seat-ready:not(:disabled)').waitFor();
+    expect(await page.evaluate(before => (window as any).harnessCalls.filter((call: any) => call.name === 'kingdown_accept').slice(before).map((call: any) => ({ game_id: call.arguments.game_id, rating_policy: call.arguments.rating_policy })), acceptsBefore)).toEqual([{ game_id: ranked, rating_policy: 'ranked-v1' }]);
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.rating_policy)).toBe('ranked-v1');
+  } finally {
+    await page.evaluate(() => (window as any).releaseHeld?.());
+    if (casual) await buddy(page, 'kingdown_cancel', { game_id: casual });
+    if (ranked) await buddy(page, 'kingdown_abort', { game_id: ranked });
+    await page.close();
+  }
+});
 it('reads the visible lobby every fifteen seconds and pauses while hidden', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   let waiting: string | undefined;

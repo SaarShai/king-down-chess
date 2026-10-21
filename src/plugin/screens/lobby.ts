@@ -12,6 +12,7 @@ let finding = false, accepting = false, afterHandle: { game: string; policy: Rat
 // The list uses the runner's visible 15-second schedule, with no board position.
 const listClock = { kind: 'random', status: 'playing', speed: 'live', seat: 0, turn: 0, opponent: null, last_commands: [], server_now: '' } as unknown as View;
 export function lobbyScreen() {
+  $('lobby-list').replaceChildren(); $('lobby-empty').hidden = true; $('lobby-status').textContent = 'Loading open games…';
   if (afterHandle && memory.me?.handle) { const { game, policy } = afterHandle; afterHandle = undefined; void acceptGame(game, policy); return; }
   const setup = { ...currentSetup(), kind: 'random' as const }, ranked = setup.mode === 'ranked', policy: RatingPolicy = ranked ? 'ranked-v1' : 'casual';
   $('find-features').replaceChildren(`${policyLabel(policy)} · `, features(setup.options), ...(ranked ? [` · ${RANKED_RULES}`] : []));
