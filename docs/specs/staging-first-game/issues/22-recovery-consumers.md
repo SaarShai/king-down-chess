@@ -1,6 +1,6 @@
 # Continue compiled consumers across the recovery backend
 
-Status: implementation and independent source review complete. The two source suites pass (41 tests), with typecheck and 54 artwork checks. Hooks and compiled acceptance remain open.
+Status: source, compiled and backend checks pass; integrated into staging source. Native host acceptance remains separate.
 
 ## Plan and acceptance
 
@@ -12,6 +12,8 @@ Status: implementation and independent source review complete. The two source su
 6. No tests, builds or hooks until root grants the CPU lane. Keep the entire checkout unchanged until every selected subcheck and its runner exit. An internal subcheck pass does not count if the runner's checkout guard fails. Parent independently nominates the recovery source and owns publication/deployment. Root is not edited by this worktree.
 
 ## Verification limits
+
+Clean `e76b4bf4` passes all four consumer paths in 10.641 seconds and the exact recovery cache check in 105.194 seconds. The full runner passes its unchanged-source guard. The backend check passes in 3.803 seconds: accepted retry, changed-input refusal, pending setup, a fresh computer turn at revision 4 and all nine archive AI paths. The outer `evidence/staging-next-ticket-candidates/u08-recovery-consumers/receipt.json` binds this checker, release `7b95f20c`, recovery `18f660c4` and immutable artifacts. Normal hooks and both 41-case source selections pass. The earlier diagnostic is retained separately and receives no acceptance credit.
 
 This adds a compiled consumer gate, not a replacement for the 112-execution mechanics matrix, backend retry/rating/old-archive checks, controlled AI levels or native host evidence. Source-path and hash receipts establish the supplied outputs; a comment-only artifact difference cannot establish the nominated prior UI/worker identity. The focused check requires the actual nominated release `febb9239` and recovery `812aef27` defaults, while preserving all retained archives. No pass is claimed before execution.
 

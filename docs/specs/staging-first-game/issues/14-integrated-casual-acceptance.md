@@ -54,3 +54,15 @@ Ticket 19 fixes a confirmed query defect: selecting notice IDs as text lets an u
 Ticket 20 distinguishes preview readiness from artwork readiness in four board journeys. Correct waits expose a real stale draft after a successful remote turn. The existing draft validator now runs before the early return for a waiting player, so an accepted draft clears while a valid draft survives a draw-offer revision. Four journeys and 62 model/widget-state cases pass. Invalid remount fixtures use the existing host state setter so teardown cannot overwrite the injected test state.
 
 Ticket 21 checks three remaining source app cases. A held preview reproduces both early keyboard failures. The power-focus case passes under that hold; its exact earlier timing cause remains unconfirmed. The tests wait for initial reads before their scenarios and retain the immediate focus assertions. No product focus change is claimed.
+
+## Accepted source and compiled gates
+
+The complete gate at clean `7b95f20c` passes 4,498 tests in 247 files, typecheck and 54 art checks in 467.52 seconds. Eleven optional cases remain skipped; no database case is skipped. The source stays unchanged.
+
+All four compiled checks pass on that exact source in `app-5B48fp`: shared mechanics 136.784 seconds, embedded HTTP journey 252.113 seconds, web cache/recovery 106.409 seconds and local/learning play 111.102 seconds. The mechanics result covers 112 executions. The outer `u09-integrated/compiled-7b95f20c` folder preserves the logs and receipts.
+
+The initial helper-compatible recovery passes backend continuation, but its older server lacks the released preview contract. It is not an accepted browser recovery target. The replacement recovery is clean `18f660c4`, based on the prior accepted `0b504fb3` plus the existing private search adapter/helper and exact `febb9239` pair. It retains its default `812aef27` worker and all eight earlier archive pairs unchanged.
+
+Ticket 22 proves four consumer paths against that exact recovery: a loaded current client on an archived Haste game, and a fresh recovery client on a release-created `febb9239` game, each through web and MCP. Preview, commit, history and reload pass. Exact cache takeover also passes. The backend rehearsal preserves retries, conflict refusal and pending setup; a fresh computer turn reaches revision 4 and all nine archived AI paths pass. Both artifacts and the checked source remain unchanged.
+
+Checker commits `e877ecd` and `e76b4bf4` integrate as `133640f0` and `efa8be82`. They change checks and documentation only; application and archive bytes remain those of `7b95f20c`. The parent evidence folder `u08-recovery-consumers` binds source and artifacts. Guarded staging publication and actual host checks follow; production remains outside this ticket.
