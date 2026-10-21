@@ -17,6 +17,7 @@ Status: implemented; integrated staging checks remain with the main task.
 - The full runtime and its screens do not construct or import the SDK at runtime. A build test refuses SDK and server imports.
 - The web selector pass runs after CSS imports expand, so setup and playing boards receive the same imported table layout. A build regression checks the imported grid and strip selectors.
 - Invitation previews publish only while their route generation is current. Navigation invalidates both replies and errors. Held-preview tests cover Back, another invitation and in-app navigation.
+- A cancelled rematch selection releases its attempted-opening marker. A later visit can open the same accepted rematch. Completed or refused selections keep their guard; transport failure keeps the existing Retry. Use the command outcome to distinguish these cases. Browser history tests must keep the same mounted document, so reload cannot hide stale page state.
 - Source-page browser checks use a shared helper to await and assign the module exports. A ready button alone can precede that assignment.
 
 ## Verification
