@@ -12,3 +12,9 @@ Profile shows finished games as inert rows. Players cannot select a result to in
 4. Run focused source and compiled checks, then publish the checked artifact to staging. Inspect the same finished game in actual web and ChatGPT when access permits. Preserve active games and reuse unchanged mechanics and archive evidence.
 
 No gameplay, artwork, schema, server or production change is in scope. The second-account gate does not block this work.
+
+## Evidence
+
+Focused source passes 253 tests in nine files, typecheck and 54 art checks. Docs pass 161 checks in thirteen files. The compiled web journey passes in 50.266 seconds on `85d6e3f2`.
+
+The first embedded check passes the existing solo sync and result-focus cases, then stops before history selection: its setup layout hides the page header's Back control. The shared test now selects the visible page-header or setup-table Back control. This is a test navigation correction; application source is unchanged. The first receipt is retained, and a guarded source comparison reuses its passed web check.

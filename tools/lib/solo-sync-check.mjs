@@ -72,7 +72,7 @@ export async function checkSoloSync({ page, ui, tool, open, label }) {
   await shot(page, `${label}-solo-synced-rematch`);
   console.log(`${label}: solo Ready, unchanged draft, remote turn, result and rematch sync without Refresh`);
   const finished = await read(), profile = (await tool('kingdown_profile', {}))._meta;
-  await ui.locator('#page-back').click();
+  await ui.locator('#page-back:visible, #seat-screen .table-back:visible').first().click();
   await ui.locator('[data-screen="play"] [data-nav="profile"]').click();
   const row = ui.locator(`#profile-history [data-game-id="${game_id}"] button`);
   await row.waitFor();
