@@ -29,3 +29,13 @@ The parent evidence folder holds `codex-cdac-committed-turn.png`, `web-codex-cda
 ## Limits and next gate
 
 No product change, new host adapter, rule fork, account-service fork or deploy is needed. The shared auth, privacy and receipt tests remain applicable to unchanged service code. They do not substitute for a lost successful reply or cross-account switch exercised in this actual host. Those U11 checks remain open; the available UI controls do not provide a controlled request interruption. Do not add a debug product endpoint solely to force it. This is evidence for desktop Codex gameplay, not Meta, Claude, mobile or public-host submission.
+
+## Interrupted-session follow-up plan
+
+Resume on the accepted staging artifact. Use only existing host controls. If the host lets the operator leave while Sending is visible, reopen the same game and compare authoritative history and web rendering. Record whether interruption is observed before acknowledgement; a later close cannot be called a lost reply. Check that the action appears once. Preserve the earlier compiled receipt/idempotency evidence and leave any unobservable boundary open. Do not add a debug endpoint or modify an authenticated host request.
+
+## Follow-up result
+
+The staging open tool returns the active legacy solo game at move 6. The first selected panel is an older aborted Ranked game; it is not the newly opened app. After the owner expands the current app, its panel shows the correct account, March and Darkness powers, cards and all eleven saved actions. Those include the later native ChatGPT Maester swap g1–h1 and computer reply b7–c6. No game action or retry occurs in this follow-up.
+
+The available panel control has no close or navigation API to interrupt an in-flight host request. Native control of the Codex window is disallowed. Screenshot capture times out for both the older panel and the current panel; the current panel's readable Moves dialog supplies history evidence only. These control limits do not establish a game defect or a lost-reply pass. Actual-host interruption and cross-account privacy remain open. The next independent task records existing hosted timing evidence in ticket 33.
