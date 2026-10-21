@@ -7,6 +7,7 @@ import { ICONS, type Icon, type AccountNotice, type AccountNotices } from '../..
 import type { HistoryEntry, InboxEntry, PlayerRecord } from '../../match/protocol';
 import { DEFAULT_OPTIONS } from '../../match/setup';
 import { features } from '../../account-game/features';
+import { policyLabel } from '../../account-game/rating-policy';
 import './profile.css';
 import { confirmBoardAction } from './board-actions';
 import { errorText } from '../../account-game/types';
@@ -44,7 +45,7 @@ async function readProfile(cursor?: string) {
     $<HTMLImageElement>('profile-picture').src = art(ICONS[profile.icon ?? 'spirit']);
     $('profile-rating').querySelector('b')!.textContent = String(Math.round(record.rating.rating));
     $('profile-rating').querySelector<HTMLElement>('.q')!.hidden = !record.rating.provisional;
-    $('profile-rating-help').textContent = record.rating.provisional ? 'Rating · new until you play more games with people' : 'Rating';
+    $('profile-rating-help').textContent = record.rating.provisional ? 'Rating · provisional. Ranked and legacy results; no reset.' : 'Rating · Ranked and legacy results; no reset.';
     $('profile-totals').replaceChildren(...Object.entries(record.totals).map(([label, total]) => {
       const cell = document.createElement('div'), number = document.createElement('b'), name = document.createElement('span');
       number.textContent = String(total); name.textContent = label; cell.append(number, name); return cell;
@@ -173,7 +174,7 @@ function historyRow(entry: HistoryEntry) {
   const colour = document.createElement('img'); colour.className = 'pi'; colour.alt = `${entry.colour} king`; colour.src = entry.colour === 'white' ? art('ui/icons/king.svg') : symbols['../../public/ui/icons/king.svg'][1];
   const player = document.createElement('span'); player.className = 'grow';
   const name = document.createElement('b'); name.textContent = entry.opponent.computer ? `Computer${entry.opponent.level ? ` · ${entry.opponent.level[0].toUpperCase()}${entry.opponent.level.slice(1)}` : ''}` : entry.opponent.deleted ? 'Deleted player' : entry.opponent.handle ?? 'A player';
-  const reason = document.createElement('small'); reason.textContent = WHY[entry.reason]; player.append(name, reason);
+  const reason = document.createElement('small'); reason.textContent = `${policyLabel(entry.rating_policy, entry.kind)} · ${WHY[entry.reason]}`; player.append(name, reason);
   const feats = features({ ...DEFAULT_OPTIONS, ...entry.features, kingPowers: entry.features.powers });
   const res = document.createElement('span'), letter = { won: 'W', drawn: 'D', lost: 'L' }[entry.result]; res.className = `res res-${letter.toLowerCase()}`; res.textContent = letter; res.setAttribute('role', 'img'); res.setAttribute('aria-label', entry.result);
   row.append(when, colour, player, feats, res); return row;

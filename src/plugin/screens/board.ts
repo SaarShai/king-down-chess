@@ -29,6 +29,7 @@ import { nextGame } from '../../account-game/next-game';
 import { actionButtons, playerBlockButton } from './board-actions';
 import { guardEndTaps, updateEnd } from './end';
 import { applyLan, boardActions, cardCoins, cardUseReason, committedPreview, draftChoices, draftLans, draftTurn, previewSteps, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
+import { policyLabel, policyDetail } from '../../account-game/rating-policy';
 import './board.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 type Choice = { lan: string; move: Move };
@@ -554,7 +555,7 @@ export function boardScreen(store: Store) {
     }); chooseMove.className = 'game-action';
     const actions = [chooseMove, ...view ? [...actionButtons(view, Date.now() - readAt, refused, true), ...playerBlockButton(view)] : []];
     for (const action of actions) action.disabled = networkBlocked();
-    boardSheet('Menu', button('Moves', showMoves), ...actions, button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('invite'), $('invitation'));
+    boardSheet('Menu', ...view ? [text(policyLabel(view.rating_policy, view.kind)), text(policyDetail(view.rating_policy, view.kind))] : [], button('Moves', showMoves), ...actions, button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('invite'), $('invitation'));
     sheet.classList.add('board-menu');
   };
   function showMoves() { boardSheet('Moves', ...history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`))); $('moves-line').setAttribute('aria-expanded', 'true'); }

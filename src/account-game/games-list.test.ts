@@ -4,7 +4,7 @@ import { DEFAULT_OPTIONS } from '../match/setup';
 afterEach(() => vi.unstubAllGlobals());
 import type { InboxEntry } from '../match/protocol';
 import { nextGame } from './next-game';
-const entry = (game_id: string, computer = false, fields: Partial<InboxEntry> = {}) => ({ game_id, status: 'playing', action: 'ready', opponent: { computer }, ...fields }) as InboxEntry;
+const entry = (game_id: string, computer = false, fields: Partial<InboxEntry> = {}) => ({ game_id, rating_policy: 'casual', status: 'playing', action: 'ready', opponent: { computer }, ...fields }) as InboxEntry;
 
 it('prefers the first ready person to a computer and keeps inbox order within each group', () => {
   const computer = entry('computer', true), person = entry('person'), later = entry('later');
@@ -54,4 +54,16 @@ it('opens each full game ID once and returns its button in inbox order', async (
   expect([...rows.values()]).toEqual(target.children);
   for (const button of rows.values()) button.onclick!.call(button, {} as PointerEvent);
   expect(open.mock.calls).toEqual(games.map(game => [game.game_id]));
+});
+
+it.each([['casual', 'Casual'], ['ranked-v1', 'Ranked'], ['legacy', 'Legacy rated']] as const)('shows stored policy %s on each game detail', async (rating_policy, label) => {
+  vi.stubGlobal('navigator', { language: 'en-US' });
+  const { gameDetail } = await import('./games-list');
+  expect(gameDetail(entry('policy', false, { rating_policy, created_at: '2026-10-17T16:00:00Z', seat: 0 }))).toMatch(new RegExp(`^${label} · White`));
+});
+
+it('marks an old computer game as Legacy without calling it rated', async () => {
+  vi.stubGlobal('navigator', { language: 'en-US' });
+  const { gameDetail } = await import('./games-list');
+  expect(gameDetail(entry('computer', true, { kind: 'solo', rating_policy: 'legacy', created_at: '2026-10-17T16:00:00Z', seat: 0 }))).toMatch(/^Legacy · White/);
 });

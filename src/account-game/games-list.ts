@@ -1,6 +1,7 @@
 import type { InboxEntry, View } from '../match/protocol';
 import { ICONS } from '../account/profile';
 import { art } from './art';
+import { policyLabel } from './rating-policy';
 import { features, icon } from './features';
 
 // Every date in the English UI: the device locale when it is English, else en-US.
@@ -10,7 +11,7 @@ export const formatDate = (at: string, options: Intl.DateTimeFormatOptions) => n
 export const waitingLine = (entry: Pick<InboxEntry, 'kind'>) => entry.kind === 'friend' ? 'Waiting for a friend' : 'Waiting for an opponent';
 
 export function gameDetail(entry: InboxEntry): string {
-  return `${entry.seat === 0 ? 'White' : 'Black'} ·\u00a0${formatDate(entry.created_at, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`;
+  return `${policyLabel(entry.rating_policy, entry.kind)} · ${entry.seat === 0 ? 'White' : 'Black'} ·\u00a0${formatDate(entry.created_at, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`;
 }
 
 export const gameTitle = (entry: Pick<View, 'opponent' | 'level'>) => entry.opponent?.computer ? entry.level ? `Computer · ${entry.level[0].toUpperCase() + entry.level.slice(1)}` : 'Computer' : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';

@@ -530,10 +530,12 @@ it('keeps a newer list after navigation in the same epoch', async () => {
   expect(transport.draw).toHaveBeenCalledTimes(draws);
 });
 
-it('retries Play now with its saved king when another setup draft exists', async () => {
+it.each([false, true])('retries Casual Play now with its saved king when another setup draft exists (saved Ranked: %s)', async ranked => {
   const app = await mounted(), setup = await import('./screens/setup');
-  const saved = (await import('./screens/setup-model')).readSetup(null);
+  const { readSetup, withMode } = await import('./screens/setup-model');
+  let saved = readSetup(null);
   saved.options = { ...saved.options, cards: false, kingPowers: true, arrangement: false }; saved.king = { king: 'Flame', power: 'Haste' };
+  if (ranked) saved = withMode({ ...saved, kind: 'random', king: { king: 'Mud', power: 'March' } }, 'ranked');
   app.memory.settings = { ...settings, last_setup: { ...saved, options: { ...saved.options, pool: [...saved.options.pool], cardPool: [...saved.options.cardPool] } } };
   const created = { ...game, kind: 'solo', status: 'setup', seat: 0, draw: 'RNBQKBNR', options: saved.options } as View;
   setup.draftFromGame({ ...created, kings: [{ king: 'Frost', power: 'Freeze' }, null] } as View);
@@ -548,6 +550,7 @@ it('retries Play now with its saved king when another setup draft exists', async
   await app.send(pending.name, pending.args, { retain: true, retry: true });
   const inputs = transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create').map(([input]) => input.arguments);
   expect(inputs).toHaveLength(2); expect(inputs[1]).toEqual(inputs[0]);
+  expect(inputs[0]).toMatchObject({ kind: 'solo', mode: 'casual' });
   expect(transport.call.mock.calls.find(([input]) => input.name === 'kingdown_choose')?.[0].arguments.king).toEqual(saved.king);
   expect(app.client.state.screen).toBe('board'); expect(app.client.state.pending).toBeUndefined();
 });
@@ -981,12 +984,12 @@ it('keeps a failed start-settings save off the page opened with Back', async () 
   expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_create')).toHaveLength(0);
 });
 
-it('review: a failed Find from Open games keeps its error and Retry there and locks a second Find', async () => {
+it.each(['casual', 'ranked'] as const)('review: a failed %s Find from Open games keeps its mode, error and Retry there and locks a second Find', async mode => {
   const app = await mounted(), { locks, messageLine } = await import('../account-game/state'); app.navigate('lobby');
   transport.call.mockImplementation(async ({ name }) => name === 'kingdown_find'
     ? { content: [{ type: 'text', text: 'Lost Find reply' }], isError: true } : { content: [], _meta: { games: [] } });
-  await app.start('random', { colour: 'white' }); await vi.advanceTimersByTimeAsync(0);
-  expect(app.client.state.pending).toMatchObject({ name: 'kingdown_find', screen: 'lobby', error: 'Lost Find reply' });
+  await app.start('random', { mode, colour: 'white' }); await vi.advanceTimersByTimeAsync(0);
+  expect(app.client.state.pending).toMatchObject({ name: 'kingdown_find', args: { mode }, screen: 'lobby', error: 'Lost Find reply' });
   expect(messageLine(app.store.page())).toEqual({ text: 'Lost Find reply', action: 'retry', status: false });
   expect(locks(app.store.page()).retry).toBe(true);
   expect((document.getElementById('find-opponent') as HTMLButtonElement).disabled).toBe(true);
@@ -994,6 +997,7 @@ it('review: a failed Find from Open games keeps its error and Retry there and lo
   press('retry'); await vi.advanceTimersByTimeAsync(0);
   const ids = transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_find').map(([input]) => input.arguments.command_id);
   expect(ids).toHaveLength(2); expect(ids[1]).toBe(ids[0]);
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_find').map(([input]) => input.arguments.mode)).toEqual([mode, mode]);
 });
 
 it('review: a name saved for a lobby Accept goes back to Open games and does not resend an old failed start', async () => {

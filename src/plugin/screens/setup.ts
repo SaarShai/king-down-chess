@@ -10,8 +10,9 @@ import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, 
 import { POWER_NAME, cardName, cardCost, cardText, powerText, powerTitle, powerOptions, powersRules, ruleLine } from '../../powers-ui';
 import type { View } from '../../match/protocol';
 import { locks, type Page } from '../../account-game/state';
-import { availablePowers, cleanKing, createArguments, gameSetup, pieceLocked, quickSetup, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, type SetupState } from './setup-model';
+import { availablePowers, cleanKing, createArguments, gameSetup, pieceLocked, quickSetup, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, withMode, type SetupState } from './setup-model';
 import { onStop } from './friend';
+import { RANKED_RULES, RANKED_HELP } from '../../account-game/rating-policy';
 import './setup.css';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
@@ -38,11 +39,12 @@ function toggle(key: string, symbol: string, title: string, line: string, sheet 
 }
 function build() {
   $('setup-body').innerHTML = `<fieldset class="modes"><legend class="sr-only">Who you play</legend>${(['solo','friend','random'] as const).map(kind => `<label class="mode"><input type="radio" name="setup-mode" value="${kind}" aria-label="${{ solo: 'Computer', friend: 'A friend', random: 'A random player' }[kind]}"><span class="mode-art${kind === 'random' ? ' emblem-fan' : ''}">${kind === 'random' ? ['frost','flame','stratus'].map(k => image(`ui/emblems/${k}.webp`)).join('') : image('ui/kings/spirit.webp') + (kind === 'friend' ? image('ui/kings/shadow-b.webp', 'face-left') : '')}</span><span class="mode-text"><b>${{ solo: 'Computer', friend: 'A friend', random: 'A random player' }[kind]}</b></span></label>`).join('')}</fieldset>
+    ${segment('setup-rating', 'Game mode', ['casual','ranked'])}<p id="setup-rating-line" class="quiet-line">Casual does not change ratings. Ranked uses your existing rating.</p><p id="setup-ranked-rules" class="quiet-line" hidden>${RANKED_RULES} ${RANKED_HELP}</p>
     ${toggle('anyRules', 'globe', 'Any rules', ANY_RULES)}
     <button id="play-open" class="menu-row has-lead"><span class="row-art fan">${['frost','flame','stratus'].map(k => image(`ui/emblems/${k}.webp`)).join('')}</span><span class="row-title">Open games</span><span class="line">Join a game that another player opened.</span><i aria-hidden="true">›</i></button>
     <div id="play-join"><h3 class="group-head">Join with a code</h3><form id="join-form" class="code-row"><input id="token" class="field" aria-label="Game code" placeholder="K7QX2M" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" required maxlength="300"><button id="join" type="submit">Join</button></form></div>
     ${segment('setup-level', 'Computer level', ['beginner','casual','club','strong'])}<p id="level-line" class="seg-line"></p>
-    ${segment('setup-colour', 'You play', ['white','black','random'])}<h3 class="group-head">The game</h3>
+    ${segment('setup-colour', 'You play', ['white','black','random'])}<h3 id="setup-game-heading" class="group-head">The game</h3>
     ${toggle('fairy', 'fairy', 'Fairy pieces', '', 'pieces')}
     ${toggle('arrangement', 'arrange', 'Arrangement', 'Each player orders their own back rank.', '', true)}
     ${toggle('classic', 'classic', 'Classic chess', '', '', true)}
@@ -51,7 +53,8 @@ function build() {
     ${toggle('kingPowers', 'powers', 'King powers', 'Each king brings one power.')}
     <div id="setup-your-king" class="king-pick your-king"><div class="coin-row"><button id="setup-king" class="coin" data-state="always" aria-label="Choose your king"><img alt=""></button></div><div class="grow"><h3>Your king</h3><div id="setup-king-name"></div><p id="setup-power-text" class="power-text"></p></div><span class="chev" aria-hidden="true">›</span></div>
     <div id="setup-kings-off" class="kings-off">${image('ui/kings/spirit.webp')}${image('ui/kings/shadow-b.webp', 'face-left')}<p>King powers are off. White plays the Spirit King, Black the Shadow King.</p></div>`;
-  $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-mode"]').forEach(input => { input.onchange = () => { draft!.kind = memory.kind = input.value as SetupState['kind']; render(); }; });
+  $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-mode"]').forEach(input => { input.onchange = () => { draft = withMode({ ...draft!, kind: memory.kind = input.value as SetupState['kind'] }, draft!.mode); anyRules = false; render(); }; });
+  $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-rating"]').forEach(input => { input.onchange = () => { draft = withMode(draft!, input.value as SetupState['mode']); anyRules = false; cardMode = 'all'; render(); }; });
   for (const key of ['level', 'colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.onchange = () => { draft = { ...draft!, [key]: input.value }; render(); }; });
   for (const key of ['fairy','arrangement','classic','cards','kingPowers'] as const) $<HTMLInputElement>(`setup-toggle-${key}`).onchange = event => { draft = withToggle(draft!, key, (event.target as HTMLInputElement).checked); render(); };
   $<HTMLInputElement>('setup-toggle-anyRules').onchange = event => { anyRules = (event.target as HTMLInputElement).checked; render(); };
@@ -67,13 +70,18 @@ function render() {
   const setup = client.state.pending?.quick ? quickSetup(memory.settings?.last_setup) : draft, o = setup.options;
   for (const key of ['mode','level','colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.checked = input.value === (key === 'mode' ? setup.kind : setup[key]); });
   $('setup-level').hidden = $('level-line').hidden = setup.kind !== 'solo'; $('play-open').hidden = setup.kind !== 'random'; $('play-join').hidden = setup.kind !== 'friend'; $('level-line').textContent = levelLines[setup.level];
-  $('anyRules-row').hidden = setup.kind !== 'random'; $<HTMLInputElement>('setup-toggle-anyRules').checked = anyRules;
+  const ranked = setup.mode === 'ranked';
+  $('setup-rating').hidden = $('setup-rating-line').hidden = setup.kind !== 'random';
+  $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-rating"]').forEach(input => { input.checked = input.value === setup.mode; });
+  $('setup-ranked-rules').hidden = !ranked;
+  for (const id of ['setup-colour','setup-game-heading','fairy-row','cards-row','kingPowers-row']) $(id).hidden = ranked;
+  $('anyRules-row').hidden = setup.kind !== 'random' || ranked; $<HTMLInputElement>('setup-toggle-anyRules').checked = anyRules;
   for (const key of ['fairy','arrangement','classic','cards','kingPowers'] as const) $<HTMLInputElement>(`setup-toggle-${key}`).checked = o[key];
-  $('arrangement-row').hidden = !o.fairy; $('classic-row').hidden = o.fairy; $('setup-pieces').hidden = !o.fairy; $('setup-cards').hidden = !o.cards;
+  $('arrangement-row').hidden = ranked || !o.fairy; $('classic-row').hidden = ranked || o.fairy; $('setup-pieces').hidden = !o.fairy; $('setup-cards').hidden = !o.cards;
   $('fairy-line').textContent = o.fairy ? 'Draw 7 pieces from the King Down pool.' : 'Only the chess pieces.';
   $('classic-line').textContent = o.classic ? 'The normal start, castling, en passant.' : 'The chess pieces in a random order.';
   $('setup-pieces').textContent = `${o.pool.length} kinds ›`; $('setup-cards').textContent = `${o.cardPool.length} cards ›`;
-  $('setup-deal').hidden = !o.cards;
+  $('setup-deal').hidden = ranked || !o.cards;
   $('setup-deal-note').textContent = cardMode === 'four' ? 'Pick four. Both players get these cards.' : 'Use all cards. These are examples. The deal takes 4 at random from your pool.';
   const cards = o.cardPool.slice(0, 4), rules = o.kingPowers ? kingRules : DEFAULT_RULES;
   $('setup-card-grid').innerHTML = cards.map(card => `<button type="button" class="card-face" data-card="${card}" aria-haspopup="dialog" aria-label="Choose cards: ${cardName(card)}"><span class="cf-art">${cardArt(card)}</span><span class="cf-text"><b>${cardName(card)}</b><small>${ruleLine(cardText(card, rules))}</small><span class="cf-cost">${cardCost(card, rules)}</span></span></button>`).join('');
@@ -103,6 +111,7 @@ function sheet(name: string, title: string, done: () => void) {
   $('menu-close').focus(); return dialog;
 }
 function poolSheet(kind: 'pieces' | 'cards') {
+  if (draft?.mode === 'ranked') return;
   if (kind === 'cards') { cardsSheet(); return; }
   const dialog = sheet(kind, 'Fairy pieces', render), body = dialog.querySelector<HTMLElement>('.sheet-body')!, count = dialog.querySelector('.foot-count')!;
   const draw = () => {
@@ -115,6 +124,7 @@ function poolSheet(kind: 'pieces' | 'cards') {
   }; draw();
 }
 function cardsSheet(card?: CardName) {
+  if (draft?.mode === 'ranked') return;
   let edited = draft!, mode = cardMode;
   const allPool = cardMode === 'all' ? draft!.options.cardPool : [...DEAL_CARDS];
   const dialog = sheet('cards', 'Cards', () => {
@@ -197,7 +207,7 @@ async function launch(setup = draft, saveSetup = true) {
       memory.settings = saved._meta?.settings as typeof memory.settings;
     }
     if (left) return;
-    const args = { ...createArguments(last_setup), ...(last_setup.kind === 'random' && anyRules && { any_rules: true }) };
+    const args = { ...createArguments(last_setup), ...(last_setup.kind === 'random' && last_setup.mode === 'casual' && anyRules && { any_rules: true }) };
     await start(last_setup.kind, args, { route: false, origin, king: last_setup.king, ...scope, then: (view, origin) => finish(view, last_setup.king, origin, scope) });
   } catch (error) { if (queue.current(origin) && !left) store.dispatch({ type: 'error', text: errorText(error) }); }
   finally { cleanup(); unstop(); starting = late = false; if (!queue.closed()) { exits.forEach(button => { delete button.dataset.free; }); render(); } }
@@ -225,15 +235,17 @@ function readDraft() {
 export function draftFromGame(view: View) {
   draft = gameSetup(view); cardMode = draft.options.cardPool.length === 4 ? 'four' : 'all'; memory.kind = draft.kind;
 }
+export const currentSetup = () => draft ?? readSetup(memory.settings?.last_setup);
 export function setupScreen() {
   if (stopped || queue.closed()) return;
   if (!memory.settings) return;
   if (!draft) {
     draft = readDraft();
     if (!client.state.pending?.quick) draft.kind = client.state.pending?.name === 'kingdown_find' ? 'random' : client.state.pending?.args.kind as SetupState['kind'] ?? draft.kind;
+    draft = withMode(draft, client.state.pending?.name === 'kingdown_find' ? client.state.pending.args.mode === 'ranked' ? 'ranked' : 'casual' : draft.mode);
     anyRules = client.state.pending?.name === 'kingdown_find' && client.state.pending.args.any_rules === true;
     memory.kind = draft.kind;
-  } else draft.kind = memory.kind;
+  } else draft = withMode({ ...draft, kind: memory.kind }, draft.mode);
   if (!$('setup-body').childElementCount) build();
   render();
   if (!closeSheet) {

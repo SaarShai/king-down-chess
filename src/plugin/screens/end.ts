@@ -9,6 +9,7 @@ import { playerBlockButton } from './board-actions';
 import { rematchChoices } from './end-model';
 import { draftFromGame } from './setup';
 import { onStop } from './friend';
+import { policyLabel } from '../../account-game/rating-policy';
 import './end.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 const readFailed = () => staleRead(store.page());
@@ -105,7 +106,7 @@ export function endScreen(schedule = true) {
   const result = view.result;
   over.querySelector('.over-words')!.textContent = win ? 'King Down' : '';
   $('over-title').textContent = !result || ['abort','no_start'].includes(result.reason) ? ending(view) : result.winner === null ? 'Draw' : result.winner === view.seat ? 'You win' : 'You lose';
-  $('end-reason').textContent = endReason(view);
+  $('end-reason').textContent = `${policyLabel(view.rating_policy, view.kind)} · ${endReason(view)}`;
   const outcome = view.kind !== 'solo' && view.outcome;
   if (outcome) {
     const facts = over.querySelector('.end-facts')!;
@@ -143,7 +144,7 @@ export function endScreen(schedule = true) {
   const skip = button('Skip',()=>{skipBoardCeremony(); see.focus();}); skip.id='end-skip'; skip.hidden=!$('board').dataset.toppling; form.append(skip);
   $('end-result').onclick = () => { looking=false; $('end-result').hidden=true; endScreen(); };
   (looking ? document.querySelector('.page-sheet')! : over).append(error);
-  over.querySelector('.quiet-line')!.textContent = opponent?.deleted || rematchAllowed === false ? '' : view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematches.length ? view.kind==='solo' ? 'Play again with the same rules and colour.' : 'A rematch keeps the features and swaps the colours.' : '';
+  over.querySelector('.quiet-line')!.textContent = opponent?.deleted || rematchAllowed === false ? '' : view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematches.length ? view.kind==='solo' ? 'Play again with the same rules and colour.' : 'A rematch is Casual. It keeps the features and swaps the colours. Return to Ranked to find another ranked opponent.' : '';
   if (over.open) scrim.hidden=false;
   else if (!opening && !looking) {
     opening=true; const game=view.game_id;

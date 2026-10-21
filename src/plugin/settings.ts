@@ -6,6 +6,7 @@ import { ONLINE_VISIBLE_TO } from '../account/profile';
 import { KINGS } from '../rules/rules';
 
 export const lastSetupSchema = z.strictObject({
+ mode: z.enum(['casual', 'ranked']).optional(),
  kind: z.enum(['solo', 'friend', 'random']), options: optionsSchema, colour: z.enum(['white', 'black', 'random']),
  level: z.enum(['beginner', 'casual', 'club', 'strong']),
  king: choiceSchema.shape.king.refine(king => !king || Object.hasOwn(KINGS, king.king) && KINGS[king.king].includes(king.power)),
