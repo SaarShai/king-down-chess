@@ -33,7 +33,7 @@ const holdSchema = z.strictObject({ nca_reference: prose(100), days: z.number().
 const serial = (value: unknown): number => Number.isSafeInteger(value) && (value as number) > 0 ? value as number : fail('INVALID_INPUT', 400, 'Expected a positive whole number');
 
 export class SafetyService {
-  constructor(readonly store: PostgresMatchStore) {}
+  constructor(readonly store: PostgresMatchStore, readonly appealInstructions = APPEAL) {}
   /** A player reports another player, their handle, or one of their presets in a game that both share.
    * The report keeps the handle or preset as it was, as evidence. "Intimate image" is a choice of child safety. */
   async report(actor: string, input: unknown): Promise<{ id: number; created_at: string }> {
@@ -86,7 +86,7 @@ export class SafetyService {
     return this.store.transaction(async client => {
       const report = (await client.query('select id,reported_id from public.reports where id=$1 for update', [serial(reportId)])).rows[0] ?? fail('NOT_FOUND', 404, 'Report not found');
       const actionId = action === 'none' ? null : await this.apply(client, report.reported_id ?? fail('NOT_FOUND', 404, 'The reported account no longer exists'),
-        { action, statement: `What happened: ${facts}\nThe rule: ${rule}\n${APPEAL}`, days, handle }, by, report.id);
+        { action, statement: `What happened: ${facts}\nThe rule: ${rule}\n${this.appealInstructions}`, days, handle }, by, report.id);
       await client.query(`update public.reports set status='closed',reviewed_at=now(),outcome=$2 where id=$1`, [report.id, action]);
       return { action_id: actionId };
     });

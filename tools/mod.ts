@@ -1,4 +1,5 @@
-/** Test-only moderation queue over src/online/safety.ts (report part 01, section 8.2).
+/** Moderation queue over src/online/safety.ts (report part 01, section 8.2).
+ * Source runs are test-only. The compiled tool can also use the separate staging database.
  * KINGDOWN_ADMIN_DATABASE_URL names the admin connection; it is not an argument, so no password shows in a process list.
  *
  *   npm run mod -- intake <reporter-uuid> --target player|handle|message --user <uuid>|--handle <handle>|--game <uuid> --category <category> --evidence <reference> --note "…" [--preset <preset>] [--intimate-image]
@@ -13,15 +14,22 @@
 import { parseArgs } from 'node:util';
 import pg from 'pg';
 import { PostgresMatchStore } from '../src/match/store';
-import { CONTROLS, SafetyService } from '../src/online/safety';
+import { APPEAL, CONTROLS, SafetyService } from '../src/online/safety';
 import { testDatabase } from './plugin-db-config.mjs';
+import { stagingOperatorDatabase } from './mod-config.mjs';
+import { STAGING_ORIGIN } from './staging-config.mjs';
+
+// Only the checked builder supplies this literal. Environment variables cannot enable it in source runs.
+declare const __KINGDOWN_STAGING_OPERATOR__: boolean;
 
 const { positionals: [command, first, second], values } = parseArgs({ allowPositionals: true, options: { ...Object.fromEntries(
   ['facts', 'rule', 'days', 'handle', 'note', 'nca', 'target', 'user', 'game', 'category', 'evidence', 'preset'].map(name => [name, { type: 'string' as const }])), 'intimate-image': { type: 'boolean' } } });
 const url = process.env.KINGDOWN_ADMIN_DATABASE_URL;
 if (!url) { console.error('Set KINGDOWN_ADMIN_DATABASE_URL to the admin database connection.'); process.exit(2); }
-testDatabase(url);
-const pool = new pg.Pool({ connectionString: url, max: 1 }), safety = new SafetyService(new PostgresMatchStore(pool));
+const compiledStaging = typeof __KINGDOWN_STAGING_OPERATOR__ !== 'undefined' && __KINGDOWN_STAGING_OPERATOR__;
+const config = compiledStaging ? stagingOperatorDatabase(url) : { connectionString: testDatabase(url) };
+const pool = new pg.Pool({ ...config, max: 1 });
+const safety = new SafetyService(new PostgresMatchStore(pool), compiledStaging ? APPEAL.replace('https://kingdown.dev', STAGING_ORIGIN) : APPEAL);
 const days = values.days === undefined ? undefined : Number(values.days);
 const commands: Record<string, () => Promise<unknown>> = {
   intake: () => safety.intake(first, { target: values.target, category: values.category, evidence: values.evidence, note: values.note,

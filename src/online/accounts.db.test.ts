@@ -2,7 +2,9 @@
  * The player-facing services run as a copy of the reviewed runtime role; the owner's run as the admin. */
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import pg from 'pg';
@@ -369,9 +371,23 @@ async function friend(host: string, guest: string) {
   expect((await runtime.query('delete from public.reports')).rowCount).toBe(0);
  });
 
- it('runs the owner command line over the same functions', async () => {
-  const [a, b] = [await user('cli'), await user('clo')];
-  const mod = (...args: string[]) => promisify(execFile)(process.execPath, ['--import', 'tsx', fileURLToPath(new URL('../../tools/mod.ts', import.meta.url)), ...args], { env: { ...process.env, KINGDOWN_ADMIN_DATABASE_URL: own.href } });
+ it.each(['source', 'compiled'])('runs the %s owner command line over the same functions', async mode => {
+  const artifact = await mkdtemp(join(tmpdir(), 'kingdown-operator-'));
+  try {
+  if (mode === 'compiled') await promisify(execFile)(process.execPath, [fileURLToPath(new URL('../../tools/mod-build.mjs', import.meta.url)), artifact]);
+  const entry = mode === 'compiled' ? [join(artifact, 'mod.mjs')] : ['--import', 'tsx', fileURLToPath(new URL('../../tools/mod.ts', import.meta.url))];
+  if (mode === 'compiled') {
+   for (const target of [
+    'postgresql://postgres:private-value@db.utqzovjmclfyojedmwok.supabase.co/postgres?sslmode=require',
+    'postgresql://postgres:private-value@db.puhspsyjyzaghmgtkzqd.supabase.co/postgres?sslmode=require&host=other.example',
+   ]) {
+    await expect(promisify(execFile)(process.execPath, [...entry, 'list'], { cwd: artifact, timeout: 3000,
+     env: { ...process.env, KINGDOWN_ADMIN_DATABASE_URL: target } })).rejects.toMatchObject({ code: 1,
+      stderr: expect.stringContaining('Compiled moderation requires the isolated staging admin database with verified TLS') });
+   }
+  }
+  const [a, b] = [await user(`cli-${mode}`), await user(`clo-${mode}`)];
+  const mod = (...args: string[]) => promisify(execFile)(process.execPath, [...entry, ...args], { cwd: mode === 'compiled' ? artifact : undefined, env: { ...process.env, KINGDOWN_ADMIN_DATABASE_URL: own.href } });
   const { id } = JSON.parse((await mod('intake', a, '--target', 'player', '--user', b, '--category', 'other', '--evidence', 'support/cli-01', '--note', 'Seen in the CLI.')).stdout);
   // A note that came in before the service refused controls: the output escapes them, and the JSON keeps the text.
   const raw = 'Old \u009b2J \u202e\u007f note.', old = Number((await rows(`insert into public.reports(reporter_id,reported_id,target,category,note) values($1,$2,'player','other',$3) returning id`, [a, b, raw]))[0].id);
@@ -385,6 +401,13 @@ async function friend(host: string, guest: string) {
   await mod('appeal', String(action.action_id), 'reversed', '--note', 'The supplied time did not match.');
   expect(JSON.parse((await mod('show', String(id))).stdout)).toMatchObject({ id, reporter_id: a, reported_id: b, status: 'closed', outcome: 'warning',
    note: 'Support evidence: support/cli-01\nSeen in the CLI.', actions: [{ id: action.action_id, action: 'warning', appeal_status: 'reversed' }] });
+  expect((await accounts.notices(b)).notices).toMatchObject([{ kind: 'appeal', action_id: action.action_id, status: 'reversed' }, { kind: 'moderation', action_id: action.action_id }]);
+  const statement = (await accounts.notices(b)).notices.find(notice => notice.kind === 'moderation')!.text;
+  expect(statement).toContain(mode === 'compiled' ? 'https://kingdown-staging.vercel.app/support.html#appeals' : 'https://kingdown.dev/support.html#appeals');
+  if (mode === 'compiled') expect(statement).not.toContain('https://kingdown.dev');
+  expect(JSON.stringify(await accounts.notices(b))).not.toContain('support/cli-01');
+  expect((await accounts.notices(a)).notices).toEqual([]);
   await expect(mod('act', String(id), 'ban')).rejects.toMatchObject({ code: 1, stderr: expect.stringContaining('INVALID_INPUT') });
+  } finally { await rm(artifact, { recursive: true, force: true }); }
  }, 30000);
 });

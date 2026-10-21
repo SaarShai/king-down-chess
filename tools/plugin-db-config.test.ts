@@ -71,11 +71,12 @@ describe('source operator entry guards', () => {
         'postgresql://user:private-target@db.example/kingdown_test',
         'postgresql://user:private-target@127.0.0.1/kingdown',
         'postgresql://user:private-target@127.0.0.1/kingdown_test?host=db.example',
+        'postgresql://postgres:private-target@db.puhspsyjyzaghmgtkzqd.supabase.co/postgres?sslmode=require',
       ])(`refuses ${entry} through ${loader} before pool construction (%s)`, target => {
         const args = loader === 'tsx' ? ['node_modules/tsx/dist/cli.mjs'] : ['--import', 'tsx'];
         const run = spawnSync(process.execPath, [...args, '--import', spy, entry], {
           encoding: 'utf8', timeout: 15000,
-          env: { PATH: process.env.PATH, PLUGIN_DATABASE_URL: target, KINGDOWN_ADMIN_DATABASE_URL: target,
+          env: { PATH: process.env.PATH, PLUGIN_DATABASE_URL: target, KINGDOWN_ADMIN_DATABASE_URL: target, __KINGDOWN_STAGING_OPERATOR__: 'true',
             KINGDOWN_REVIEW_EMAIL: 'review@example.test', KINGDOWN_REVIEW_OPPONENT_EMAIL: 'friend@example.test' },
         });
         expect(run.error).toBeUndefined();

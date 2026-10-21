@@ -6,6 +6,7 @@ dist/
 plugin-dist/
 dist-plugin-ui/
 plugin-server-dist/
+/moderation-dist/
 .vercel/
 .DS_Store
 

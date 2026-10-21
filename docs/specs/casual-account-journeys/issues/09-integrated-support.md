@@ -29,3 +29,7 @@ The parent evidence folder retains `notices-staging-grant.png`. The notice featu
 The shared Profile initially points to the production help page, while its new appeal instructions exist only in staging. The existing Profile test under `VITE_KINGDOWN_STAGE=staging` reproduces the wrong URL (one failure; 25 unrelated cases filtered). One module constant now selects the fixed approved URL from the existing build-stage setting and supplies the anchor, SDK request and refusal message. No new host configuration is added.
 
 The same case passes under staging and the default environment, including keyboard activation and refused-link text. Each focused run passes one case, full typecheck and 54 art checks; 25 unrelated cases remain filtered. Logs: `/tmp/kingdown-u07-stage-link-{red,green}.log` and `/tmp/kingdown-u07-default-link-green.log`. The prior full compiled journey remains applicable to unchanged Profile rendering and navigation. The staged artifact must contain the staging URL in both clients.
+
+## Compiled operator preparation
+
+[Ticket 32](../../staging-first-game/issues/32-compiled-staging-operator.md) supplies a standalone staging-only build of the existing commands. Both source and compiled support journeys pass against disposable PostgreSQL; production/override refusal, private notices and the staging appeal link pass. The artifact and hashes are preserved with the parent evidence. This closes the compiled-path preparation gap. Actual mailbox and owner handling remain open; no hosted moderation action or email occurs.
