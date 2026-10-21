@@ -18,3 +18,5 @@ The second-account gate does not block this work. No gameplay, artwork, account 
 The new compiled web check fails on `279368d4`: an unchanged result poll removes the focused Play again button. The check waits for the actual HTTP read and then checks the original DOM control. The patch keeps result content mounted until its visible data changes. It reapplies the result's read/queue lock without replacing buttons. New game reads current setup data when clicked.
 
 Focused source, compiled clients and staging acceptance are pending.
+
+The first patched web run passes the result-button check, then fails the board check because the test targets a menu hidden by the result layout. The corrected test focuses the visible board and asserts that focus is set before it starts the poll. This is a fixture correction; no second product defect is inferred from that failure.

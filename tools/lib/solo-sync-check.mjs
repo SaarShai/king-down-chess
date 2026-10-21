@@ -41,7 +41,9 @@ export async function checkSoloSync({ page, ui, tool, open, label }) {
   assert.equal(await ui.locator('#over-title').innerText(), 'You lose');
   await shot(page, `${label}-solo-synced-result`);
   const keepsFocusAfterPoll = async control => {
+    await control.waitFor({ state: 'visible' });
     const focused = await control.elementHandle(); assert(focused); await focused.focus();
+    assert(await focused.evaluate(node => node === document.activeElement), 'The visible control receives focus before the poll');
     const polled = page.waitForResponse(response => {
       const request = response.request(), path = new URL(response.url()).pathname;
       return request.method() === 'GET' && path === `/api/games/${game_id}` ||
@@ -55,7 +57,7 @@ export async function checkSoloSync({ page, ui, tool, open, label }) {
   };
   await keepsFocusAfterPoll(ui.getByRole('button', { name: 'Play again', exact: true }));
   await ui.getByRole('button', { name: 'See the board', exact: true }).click();
-  await keepsFocusAfterPoll(ui.locator('#board-menu'));
+  await keepsFocusAfterPoll(ui.locator('#board'));
   assert.equal(await ui.locator('#over').isVisible(), false, 'An unchanged poll keeps the result closed while viewing the board');
   await ui.locator('#end-result').click();
   await ui.locator('#over.end-card[open]').waitFor();
