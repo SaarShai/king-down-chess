@@ -22,6 +22,7 @@ const { setRules, legalMoves, inCheck, nameOf, typeOf, N, RULES, sqName, moveNum
 const { DEFAULT_OPTIONS } = await import('../src/match/setup.ts');
 const { applyLan, cardCoins, replayHistory, replayLans } = await import('../src/plugin/screens/board-model.ts');
 const { threatsIn, shortMove } = await import('../src/move-text.ts');
+const { GameRules } = await import('../src/game-rules.ts');
 const { cardName } = await import('../src/powers-ui.ts');
 const { POP_MS } = await import('../src/render/marks.ts');
 const iconNames = { P:'pawn', N:'knight', B:'bishop', R:'rook', Q:'queen', K:'king', A:'archer', L:'paladin', G:'guard', M:'maester', S:'beast', O:'ogre' };
@@ -1715,7 +1716,7 @@ try {
       const square = ([x,y]) => { const col = Math.floor((x-32)/112), row = Math.floor((y-32)/112); return black ? 7-col+8*row : col+8*(7-row); };
       return [...new Set(window.harnessArrowLines.map(path => path.map(square).join(':')))].sort();
     }, seeded._meta.view.seat === 1);
-    setRules(seeded._meta.view.rules); const expectedArrows = threatsIn({ ...fromFen(seeded._meta.view.fen), turn: seeded._meta.view.seat }).map(t => `${t.from}:${t.to}`).sort();
+    setRules(seeded._meta.view.rules); const expectedArrows = threatsIn(new GameRules(seeded._meta.view.rules), { ...fromFen(seeded._meta.view.fen), turn: seeded._meta.view.seat }).map(t => `${t.from}:${t.to}`).sort();
     assert.deepEqual(arrows, expectedArrows, `${scenario}: every arrow starts and ends on the threatsIn squares`);
     const threats = await pixels(); assert(threats.red > plain.red + 10, `${scenario}: Show threats draws enemy arrows to your pieces`);
     await openScreen('settings'); await boardSetting('symbols-only',true);
