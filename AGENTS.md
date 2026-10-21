@@ -13,11 +13,11 @@
 - Code reaches main by pull request only. Merge when the owner asks, or an approved spec's step passes its checks and any sample has the owner's yes, after a review by a reader that did not write the diff: fix each confirmed should-fix and record the findings in the ticket and PR body.
 
 ## Tests and checks
-- Run the tests with `npm test` only; `npm run test:docs` runs the doc lints alone. Do not run bare vitest or `node --test`. Do not pipe the output through tail or grep.
-- For diagnosis, use `KINGDOWN_TEST_FILE` and optional `KINGDOWN_TEST_NAME` (a test-name regular expression) with `npm test`. Record the selected cases; a focused run is not a full-suite pass.
+- Run tests with `npm test` only; `npm run test:docs` runs doc lints. No bare vitest, `node --test`, or piping through tail or grep.
+- Diagnose with `KINGDOWN_TEST_FILE` and optional `KINGDOWN_TEST_NAME` (name regex). Record selected cases; a focused pass is not a full-suite pass.
 - Run a browser check with `npm run check:browser <name>`.
-- Start a command of more than two minutes (a check run, a render compare, a review helper, a run) detached: a background shell call that reports when it ends. Read its log then; a wait loop holds the turn.
-- Prefer a deterministic check (a test, a lint, a hook, a browser check) to a new line of prose here. Merge a new rule into the rule it changes; add no dated note.
+- Run commands over two minutes detached, with an end report and log; no wait loop.
+- Prefer a test, lint, hook or browser check to prose. Merge corrections into existing rules; add no dated note.
 
 ## Worktrees and servers
 - Set up a worktree with `wt add` (`tools/wt.sh add <branch>`).

@@ -16,12 +16,13 @@ const baseline = [
  '0005_accounts_v2.sql', '0006_games.sql', '0007_jobs.sql', '0008_accounts_safety.sql',
  '0009_invite_tries.sql', '0010_game_setup.sql', '0011_matchmaking.sql', '0012_results.sql',
  '0013_player_settings.sql', '0014_plugin_tool_tries.sql', '0015_remove_email.sql',
+ '0017_setup_admission.sql',
 ];
 const migration = read('supabase/migrations/0016_web_account_access.sql');
 const blocks = read('plugin-deploy/runtime-role.sql').match(/^begin;[\s\S]*?^commit;$/gm)!;
 const suite = process.env.PLUGIN_TEST_DATABASE_URL ? describe : describe.skip;
 
-suite('web account access: ordered database upgrade', () => {
+suite('web account access: switch migration with current game storage', () => {
  let own: URL, admin: pg.Pool, runtime: pg.Pool, plugin: PluginService, gameId: string, boardId: string;
  const actor = randomUUID(), role = `webaccess_${randomUUID().replaceAll('-', '')}`;
  const snapshot = async () => {
@@ -35,7 +36,7 @@ suite('web account access: ordered database upgrade', () => {
   await admin.query(migration);
   await withRoleLock(own.href, () => admin.query(blocks[11].replaceAll('kingdown_plugin_runtime', role)));
  };
- const oldPluginWorks = async () => {
+ const pluginWorks = async () => {
   await checkPluginDatabase(runtime);
   expect(await plugin.board(actor, boardId)).toBe(gameId);
   expect(await plugin.view(actor, gameId)).toMatchObject({ game_id: gameId, status: 'playing' });
@@ -43,7 +44,7 @@ suite('web account access: ordered database upgrade', () => {
  beforeAll(async () => {
   own = await ownTestDatabase('webaccess');
   admin = new pg.Pool({ connectionString: own.href, max: 1 });
-  // The helper installs all migrations. Reset this copy to test the exact old schema first.
+  // Isolate the absent switch; current game storage still needs its independent admission column.
   await withRoleLock(own.href, async () => {
    await admin.query(`drop schema public cascade; drop schema auth cascade; drop schema kingdown_jobs cascade; drop schema kingdown_oauth cascade;
     create schema public; create schema auth;
@@ -76,14 +77,14 @@ suite('web account access: ordered database upgrade', () => {
   }
  });
 
- it('upgrades 0001–0015 with 0016 then block 12 and keeps old data and plugin reads', async () => {
+ it('adds 0016 then block 12 and keeps existing game data and plugin reads', async () => {
   expect((await admin.query("select to_regclass('public.web_account_access') as table")).rows).toEqual([{ table: null }]);
   const before = await snapshot();
-  await oldPluginWorks();
+  await pluginWorks();
   expect(await createWebAccountAccess(runtime)()).toEqual({ enabled: false, expiresAt: 0 });
   await apply();
   expect((await runtime.query('select * from public.web_account_access')).rows).toEqual([{ singleton: true, enabled: false }]);
-  await oldPluginWorks();
+  await pluginWorks();
   expect(await snapshot()).toEqual(before);
  });
 
@@ -144,7 +145,7 @@ suite('web account access: ordered database upgrade', () => {
   expect((await runtime.query('select * from public.web_account_access')).rows).toEqual([{ singleton: true, enabled: false }]);
  });
 
- it.each(['table', 'row', 'grant'])('closes web access without %s while the old plugin still works', async missing => {
+ it.each(['table', 'row', 'grant'])('closes web access without %s while the plugin still works', async missing => {
   await apply();
   await admin.query('update public.web_account_access set enabled=true');
   expect((await createWebAccountAccess(runtime)()).enabled).toBe(true);
@@ -152,6 +153,6 @@ suite('web account access: ordered database upgrade', () => {
   if (missing === 'row') await admin.query('delete from public.web_account_access');
   if (missing === 'grant') await admin.query(`revoke select on public.web_account_access from ${role}`);
   expect(await createWebAccountAccess(runtime)()).toEqual({ enabled: false, expiresAt: 0 });
-  await oldPluginWorks();
+  await pluginWorks();
  });
 });
