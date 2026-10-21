@@ -8,8 +8,6 @@ import { readWebAccountAccess } from './account-access';
 import template from '../plugin/index.html?raw';
 import './page-host.css';
 
-const route = parseAccountRoute(new URL(location.href));
-const target = route ? accountPath(route) : '/play/';
 document.title = 'King Down';
 document.body.replaceChildren();
 function message(words: string, providers: readonly ('google' | 'github')[] = [], retry = false) {
@@ -21,7 +19,10 @@ function message(words: string, providers: readonly ('google' | 'github')[] = []
     const button = document.createElement('button'); button.textContent = `Continue with ${provider === 'google' ? 'Google' : 'GitHub'}`;
     button.onclick = async () => {
       main.querySelectorAll('button').forEach(button => { button.disabled = true; });
-      try { await beginAccountSignIn(provider, target, signInHost); }
+      try {
+        const route = parseAccountRoute(new URL(location.href));
+        await beginAccountSignIn(provider, route ? accountPath(route) : '/play/', signInHost);
+      }
       catch (error) { line.textContent = error instanceof Error ? error.message : String(error); main.querySelectorAll('button').forEach(button => { button.disabled = false; }); }
     };
     main.append(button);

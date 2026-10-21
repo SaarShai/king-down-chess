@@ -3,8 +3,8 @@ import { readWebAccountAccess } from './account-access';
 import { connect } from '../account/client';
 
 vi.mock('./account-access', () => ({ readWebAccountAccess: vi.fn() }));
-const providers = vi.hoisted(() => vi.fn());
-vi.mock('../account/client', () => ({ connect: vi.fn(() => ({ readSession: vi.fn(async () => null), providers })) }));
+const { providers, startAccountSignIn } = vi.hoisted(() => ({ providers: vi.fn(), startAccountSignIn: vi.fn() }));
+vi.mock('../account/client', () => ({ connect: vi.fn(() => ({ readSession: vi.fn(async () => null), providers, startAccountSignIn })) }));
 
 class Element {
   children: Element[] = [];
@@ -60,4 +60,22 @@ it('shows provider buttons after a fresh access proof succeeds', async () => {
   await import('./entry');
   expect(body.querySelectorAll('button').map(button => button.textContent)).toEqual(['Continue with Google', 'Continue with GitHub']);
   expect(reload).not.toHaveBeenCalled();
+});
+
+it('returns to the game open when sign-in starts, not the list where the page first loaded', async () => {
+  vi.mocked(readWebAccountAccess).mockResolvedValue({ enabled: true, expiresAt: 5000 });
+  providers.mockResolvedValue(['github']);
+  startAccountSignIn.mockResolvedValue({ url: 'https://provider.test/authorize', flowId: 'flow_test_123' });
+  const storage = { removeItem: vi.fn(), setItem: vi.fn() }, assign = vi.fn();
+  vi.stubGlobal('sessionStorage', storage);
+  vi.stubGlobal('location', { href: 'https://kingdown.test/play/', reload, assign });
+  await import('./entry');
+  // Account play changes the address in place when a game opens.
+  location.href = 'https://kingdown.test/g/02207813-587c-867d-99be-7d448c5e30b0';
+  await body.querySelectorAll('button')[0].onclick!();
+  expect(startAccountSignIn).toHaveBeenCalledWith('github');
+  expect(JSON.parse(storage.setItem.mock.calls[0][1])).toMatchObject({
+    flow: 'flow_test_123', target: '/g/02207813-587c-867d-99be-7d448c5e30b0',
+  });
+  expect(assign).toHaveBeenCalledWith('https://provider.test/authorize');
 });
