@@ -54,7 +54,8 @@ try {
   await switched.evaluate(result => window.harnessShow(result), created);
   await board.locator('#board-menu:not(:disabled)').waitFor();
   await board.locator('#moves-line').click();
-  let reads = 0;
+  let reads = 0, receivedRefusal;
+  const refusal = new Promise(resolve => { receivedRefusal = resolve; });
   await switched.route('**/fixture-tool', async route => {
     const response = await route.fetch({ url: new URL('/fixture-friend-tool', origin).href });
     if (route.request().postDataJSON().name === 'kingdown_get') {
@@ -62,9 +63,13 @@ try {
       assert.equal(result._meta?.code, 'FORBIDDEN'); assert.equal(result._meta?.view, undefined); reads++;
     }
     await route.fulfill({ response });
+    if (reads) receivedRefusal();
   });
   // Let the existing board poll meet the real second-actor refusal; no synthetic close event.
-  await board.getByRole('status').filter({ hasText: 'This game panel is closed.' }).waitFor({ timeout: 12_000 });
+  await refusal;
+  console.log('Second HTTP actor refused the current private board in the unchanged iframe');
+  try { await board.getByRole('status').filter({ hasText: 'This game panel is closed.' }).waitFor({ timeout: 5_000 }); }
+  finally { await shot(switched, 'after-account-reconnect'); }
   assert(reads > 0, 'The private board read reached the second HTTP actor');
   assert.equal(await board.locator('body').innerText(), closed);
   assert.equal(await board.locator('canvas, [data-screen], input, dialog').count(), 0);
