@@ -36,7 +36,7 @@
         <header id="home-head" data-home-part hidden><h1 class="wordmark"><span class="wm-king">King</span> <span class="wm-down">Down</span></h1></header>
         <div id="home-meta" data-home-part hidden><b id="home-opponent"></b><span id="home-progress"></span><span id="home-result" hidden></span></div>
         <div id="home-actions" data-home-part hidden><button id="home-main" class="primary"><span class="label">Continue</span><span id="home-detail"></span></button><button id="home-new">New game</button></div>
-        <div id="home-space" data-home-part hidden><button id="home-review" class="quiet" hidden>Review last game</button></div>
+        <div id="home-space" data-home-part hidden><button id="home-review" class="quiet" hidden>Review last game</button><a class="account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Same games on web and in ChatGPT. Online only.</small></a><small class="local-play-note">Your local game stays on this device.</small></div>
         <button id="home-today" data-home-part hidden><span id="home-date"></span><span id="home-army" aria-hidden="true"></span><span class="chevron" aria-hidden="true">›</span></button>
         <div id="strip-them" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span><div id="lesson-progress" hidden role="group" aria-label="Lesson progress"></div></div>
         <div class="table-space"></div>
@@ -114,6 +114,8 @@
           <button id="title-play"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span class="label">Play</span></button>
           <button id="title-workshop"><svg class="icon" aria-hidden="true"><use href="#i-workshop"/></svg><span class="label">Workshop</span></button>
         </div>
+        <p class="local-play-note">Play on this device without signing in.</p>
+        <a class="account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Same games on web and in ChatGPT. Online only.</small></a>
       </div>
     </dialog>
     <dialog id="new-game" aria-labelledby="new-game-title">
@@ -196,6 +198,7 @@
       <header class="sheet-head"><button id="menu-back" aria-label="Back to Menu" hidden>‹ Menu</button><h2 id="menu-title" tabindex="-1">Menu</h2><button id="menu-close" aria-label="Close">×</button></header>
       <div class="sheet-body">
       <section data-menu-page="menu">
+        <a class="menu-row account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Same games on web and in ChatGPT. Online only.</small></a>
         <button class="menu-row" data-go="new">New game <span>Play again, or change setup.</span><i>›</i></button>
         <button id="rules-btn" class="menu-row">Guide <span>Pieces, powers and lessons.</span><i>›</i></button>
         <button class="menu-row" data-go="help">Board help<i>›</i></button>

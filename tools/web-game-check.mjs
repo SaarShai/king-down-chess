@@ -22,7 +22,8 @@ const unregister = register();
 const mechanics = process.argv[2] === 'mechanics';
 const recovery = process.argv[2] === 'recovery';
 const desktop = process.argv[2] === 'desktop';
-assert(process.argv.length === (mechanics || recovery || desktop ? 3 : 2), 'Use web-game-check.mjs [mechanics|recovery|desktop]');
+const discovery = process.argv[2] === 'discovery';
+assert(process.argv.length === (mechanics || recovery || desktop || discovery ? 3 : 2), 'Use web-game-check.mjs [mechanics|recovery|desktop|discovery]');
 if (recovery) assert(process.env.KINGDOWN_WEB_RECOVERY_OUTPUT, 'Recovery consumers require an exact external KINGDOWN_WEB_RECOVERY_OUTPUT');
 const { fromFen } = await import('../src/rules/setup.ts');
 const { M, N, P, parseSq, typeOf } = await import('../src/rules/engine.ts');
@@ -78,7 +79,11 @@ try {
     if (new URL(route.request().url()).origin !== origin) { failures.push('External request blocked'); return route.abort(); }
     return route.continue();
   });
-  if (desktop) {
+  if (discovery) {
+    const { checkAccountDiscovery } = await import('./lib/account-discovery-check.mjs');
+    await checkAccountDiscovery({ browser, context, origin, actors, pool, tool });
+    assert.deepEqual(failures, [], 'No external request');
+  } else if (desktop) {
     const { measureDesktop } = await import('./lib/desktop-performance.mjs');
     await measureDesktop({ browser, root, origin, actors, pool, tool, tokens });
   } else if (recovery) {

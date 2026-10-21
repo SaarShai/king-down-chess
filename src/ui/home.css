@@ -10,7 +10,13 @@
 #home-main .label { font-size: 20px; }
 #home-detail { font-size: 13px; font-weight: 400; }
 #home-new { width: auto; flex: none; min-height: 44px; padding: 8px; border: 0; background: transparent; box-shadow: none; color: var(--ink-soft); font-size: 16px; }
-#home-space { grid-area: space; display: flex; justify-content: flex-start; align-items: flex-start; margin: var(--space-2) 12px 0; }
+#home-space { grid-area: space; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 8px; margin: var(--space-2) 12px 0; }
+.account-play-link { display: flex; flex-direction: column; justify-content: center; min-height: 48px; padding: 8px 12px; color: var(--ink); font-size: 18px; font-weight: 700; text-underline-offset: 3px; }
+.account-play-link small { display: block; font-size: 14px; font-weight: 400; color: var(--ink-soft); }
+.account-play-link:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+#home-space .account-play-link { padding-inline: 0; }
+.local-play-note { margin: 0; font-size: 14px; color: var(--ink-soft); }
+.title-copy > .account-play-link { margin-top: 8px; }
 #home-review { min-height: 44px; padding: 8px 12px; color: var(--ink-soft); }
 #home-today { grid-area: bar; position: relative; width: calc(100% - 24px); margin: 0 12px; min-height: 60px; padding: 4px 24px 4px 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; color: var(--ink-soft); font-size: 14px; background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; box-shadow: none; }
 #home-today .chevron { position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-size: 20px; }
