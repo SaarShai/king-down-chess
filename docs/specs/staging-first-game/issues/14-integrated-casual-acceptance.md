@@ -1,6 +1,6 @@
 # Integrated casual staging acceptance
 
-Status: source, compiled mechanics and exact recovery gates pass. Hosted startup correction is ready for staging verification. Parent: U09. Staging only.
+Status: source, compiled mechanics, exact recovery and corrected web first opens pass. Current native ChatGPT acceptance remains open. Parent: U09. Staging only.
 
 ## Checkable plan
 
@@ -68,3 +68,11 @@ Ticket 22 proves four consumer paths against that exact recovery: a loaded curre
 Checker commits `e877ecd` and `e76b4bf4` integrate as `133640f0` and `efa8be82`. They change checks and documentation only; application and archive bytes remain those of `7b95f20c`. The parent evidence folder `u08-recovery-consumers` binds source and artifacts. Staging `fc8670c3` publishes these bytes; its first hosted update fails at registration before private data loads.
 
 Ticket 23's correction passes 251 focused tests in five files, the real native registration regression and exact recovery cache takeover. The clean compiled runner at `5fad9352` passes both checks, including 89 protected requests. The regression sends once while the native update fetch remains held, then obtains fresh proof after release. Independent review finds no substantive issue. The root integrates the exact reviewed change at `18979d92`. Rebuild and publish only staging, confirm engine `febb9239` and all nine archive pairs remain unchanged, then verify fresh hosted opens and continued play. Native ChatGPT still requires the unlocked Mac; existing-resource refresh is not acceptance.
+
+## Hosted correction result
+
+Staging `c43d2a25`, preview `dpl_F1pt82jMxsWEGBfyhTuphumP7L1q`, passes its first web update and two fresh tabs without Retry or cache warnings. The test lane is idle. The alias bytes match the checked build; engine, archives, server and board HTML remain unchanged. Readiness observations are upper bounds in a signed-in profile, not cold-cache performance measurements.
+
+New game `a7c62ee2-ff91-8b8d-a63a-539582b83496` reaches revision 7. Row and save both pin `febb9239`. Two web turns and two computer responses preserve six actions: Freeze on Ogre, Ogre shove, Morph to bishop, March h3–h5, Freeze on Beast and the bishop's capture of the Ogre. A fresh tab shows the same history. The outer `live-c43d-registration-fix.json` receipt records all results.
+
+A fresh ChatGPT Open after connector metadata refresh still fails before a game iframe exists. No Retry is clicked. The Mac remains locked, so the native control cannot run. The old resource still has its stale list; it does not prove the current Play-entry fix or a current-resource write. Keep these gates open. Continue the bounded U08 previous-turn/help dependency cut while native verification is unavailable.

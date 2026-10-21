@@ -1,4 +1,4 @@
-# 16 — Keep previous-turn and Beginner narration outside enforcement
+# 17 — Keep previous-turn and Beginner narration outside enforcement
 
 Status: resolved
 
