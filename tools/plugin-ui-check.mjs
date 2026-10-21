@@ -2732,8 +2732,10 @@ try {
     assert.equal(await frame.locator('#end-reason').innerText(),`${mode==='fixture'?'Legacy rated':'Casual'} · Draw by agreement.`);
     assert.equal(await frame.locator('#over.is-win, #board[data-toppling]').count(),0,'A draw stays calm');
     await frame.locator('#over #retry').waitFor({timeout: 3000 * STEP});
+    assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),false,'A failed result read locks rematch even when the result content stays the same');
     assert.equal(await frame.locator('#over .end-facts').innerText(),'','A failed full end read shows no guessed rating or badge');
     await frame.locator('#over #retry').click(); await frame.locator('#over #retry').waitFor({state:'hidden'}); await idleBoard();
+    assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),true,'A successful result read unlocks rematch');
     if (mode==='fixture') { await frame.locator('.end-facts').filter({hasText:'New player'}).waitFor(); assert(!/1561|\+61|\?/.test(await frame.locator('.end-facts').innerText()), 'A new player sees no provisional number'); assert.match(await frame.locator('.new-badge img').getAttribute('src'),/badge-fairy-tale-/); }
     await page.setViewportSize({width:197,height:426});
     await page.locator('iframe').evaluate(e=>e.style.setProperty('height','100dvh','important'));

@@ -20,6 +20,7 @@ let updateTimer: ReturnType<typeof setTimeout> | undefined;
 const read = new Set<string>(), resumed = new Set<string>();
 let updating = false, stopped = false, opening = false;
 let blockKey = '', blockButtons: HTMLButtonElement[] = [];
+let contentKey: string | undefined;
 let endGame: string | undefined, looking = false;
 let guardedGame: string | undefined, tapReadyAt = 0;
 // Ignore a late board tap. Skip and See the board stay active.
@@ -27,6 +28,7 @@ export function guardEndTaps(game: string) { guardedGame = game; tapReadyAt = In
 let queuedRematch: { game: string; choice: 'offer' | 'accept' | 'decline' } | undefined;
 const button = (label: string, click: () => void) => { const b = document.createElement('button'); b.textContent = label; b.setAttribute('data-free',''); b.onclick = click; return b; };
 function closeEnd() {
+  contentKey = undefined;
   blockKey = ''; blockButtons = [];
   const error = document.querySelector('.page-error'); if (error) document.querySelector('.page-sheet')!.append(error);
   if ($('over').classList.contains('end-card')) { $<HTMLDialogElement>('over').close(); $('over').classList.remove('end-card'); }
@@ -39,7 +41,7 @@ function pollView() {
   if (!stopped && !queue.closed() && client.state.screen === 'end' && view?.status === 'finished' && !view.rematch_game_id && view.opponent && !view.opponent.deleted) return {...view,status:'playing' as const,turn:(1-view.seat) as 0|1};
 }
 // The store's subscriber replaces the data-page and #reload observers: the end screen follows its screen and its lock.
-// The card is rebuilt on a change of either only, as the two observers did.
+// A screen or lock change can require a result update without a new game view.
 let endKey: string | undefined;
 export function endSync(page: Page) {
   if (stopped || queue.closed()) return;
@@ -89,8 +91,16 @@ export function endScreen(schedule = true) {
   if (endGame !== view.game_id) { endGame = view.game_id; looking = false; if (guardedGame !== endGame) tapReadyAt = 0; }
   const fresh=memory.view, opponent=fresh?.game_id===view.game_id?fresh.opponent:view.opponent, rematchAllowed=fresh?.game_id===view.game_id?fresh.rematch_allowed:view.rematch_allowed, rematches=rematchChoices({...view,opponent,rematch_allowed:rematchAllowed});
   if (document.querySelector('#board-sheet[open]') && document.querySelector('#over.end-card[open]')) return;
-  if (!looking) closeBoardSheet();
   const over = $<HTMLDialogElement>('over');
+  // The page lock pass resets data-free buttons; keep the result's stricter read/queue lock.
+  for (const b of over.querySelectorAll<HTMLButtonElement>('button.game-action')) b.disabled = !!queuedRematch || readFailed();
+  const nextContentKey = JSON.stringify([view.game_id, view.seat, view.kind, view.rating_policy, view.result,
+    ending(view), view.rules?.kings, view.outcome, rematches, view.rematch_offer,
+    opponent?.computer, opponent?.deleted, rematchAllowed, memory.blockNotice]);
+  // Poll times and presence do not change the result. Keep its controls, focus and board inspection mounted.
+  if (contentKey === nextContentKey && (over.open || looking)) return;
+  contentKey = nextContentKey;
+  if (!looking) closeBoardSheet();
   const error = document.querySelector('.page-error')!; error.remove();
   if (!scrim) {
     scrim = document.createElement('div'); scrim.id = 'end-scrim'; scrim.className = 'scrim'; scrim.hidden=true; $('app-frame').insertBefore(scrim,over);
@@ -142,7 +152,7 @@ export function endScreen(schedule = true) {
   }
   form.append(...blockButtons);
   $('end-block-status').textContent = memory.blockNotice;
-  form.append(button('New game',()=>{if (performance.now() < tapReadyAt) return; draftFromGame(view); closeEnd(); showNewGame();}));
+  form.append(button('New game',()=>{if (performance.now() < tapReadyAt) return; const current=boardGame(); if (!current) return; draftFromGame(current); closeEnd(); showNewGame();}));
   const see = button('See the board',()=>{skipBoardCeremony(); looking=true; document.querySelector('.page-sheet')!.append(error); over.close(); scrim.hidden=true; $('end-result').hidden=false; $('end-result').focus();}); form.append(see);
   const skip = button('Skip',()=>{skipBoardCeremony(); see.focus();}); skip.id='end-skip'; skip.hidden=!$('board').dataset.toppling; form.append(skip);
   $('end-result').onclick = () => { looking=false; $('end-result').hidden=true; endScreen(); };

@@ -12,3 +12,9 @@ The shared result screen replaces its controls on each background read. Ticket 4
 4. Reuse the accepted mechanics and archive evidence if their bytes stay unchanged. Record the exact source, checks, deployment and remaining gates.
 
 The second-account gate does not block this work. No gameplay, artwork, account schema or production change is in scope.
+
+## Evidence
+
+The new compiled web check fails on `279368d4`: an unchanged result poll removes the focused Play again button. The check waits for the actual HTTP read and then checks the original DOM control. The patch keeps result content mounted until its visible data changes. It reapplies the result's read/queue lock without replacing buttons. New game reads current setup data when clicked.
+
+Focused source, compiled clients and staging acceptance are pending.
