@@ -266,6 +266,12 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       }
       if (result.isError) {
         const text = resultText(result); code = resultCode(result);
+        // Reconnect can replace the account without closing the host frame. A refused private read is not stale data.
+        if (name === 'kingdown_get' && code === 'FORBIDDEN') {
+          for (const key of Object.keys(state)) delete state[key as keyof typeof state];
+          state.screen = 'home'; client.save(); app.onClose?.();
+          return { status: 'refused', code, text, result: EMPTY };
+        }
         if (code === 'HANDLE_NEEDED') {
           // A retained command keeps state.pending with its error (design §2); a selection keeps its own continuation.
           if (own && state.pending === own) failPending(text, own, job);
