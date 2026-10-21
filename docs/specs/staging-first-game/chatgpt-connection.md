@@ -24,7 +24,7 @@ The owner saved the credential for the [King Down Staging GitHub app](https://gi
 
 ## Verified scope
 
-The earlier game-owned mechanics checkpoint is source `be0786da`, preview `dpl_Tx6SkvtZnmT7R15NumP1Srp8owM6`. Its [game-owned mechanics proof](../game-ownership/owned-staging-proof.md) records March, Maester swap and Morph across both interfaces. Three later fresh native opens pass; an earlier unexplained `Internal error` remains open. The records below describe the preceding product and startup diagnosis.
+The earlier game-owned mechanics checkpoint is source `be0786da`, preview `dpl_Tx6SkvtZnmT7R15NumP1Srp8owM6`. Its [game-owned mechanics proof](../game-ownership/owned-staging-proof.md) records March, Maester swap and Morph across both interfaces. Three later fresh native opens pass; an earlier `Internal error` is recorded at that checkpoint. Ticket 47 later captures the failing settings call and repairs serverless pooling. The records below describe the preceding product and startup diagnosis.
 
 The real ChatGPT widget and staging website share game `1e34ff0e-5f7b-84f0-8cc6-22268129d986`. A move on each surface appears in the other's history after reload. Resignation in ChatGPT appears as the same final result on the website. See [the real-host record](issues/09-real-host-proof.md).
 
@@ -42,4 +42,4 @@ For an independent native control, open a new tab through native Chrome controls
 
 Both paths require enabled controls and a new initialization ID. Record visible notices as well: a loaded game with `Internal error` is not a clean app pass. Do not count Try again, a navigation retry or a model summary as first-load proof. Close test tabs afterward.
 
-This corrects test interference. The vendor controller's idle response-release defect remains; no installed code or security policy changes. The separate post-mount Internal error, cold-cache, mobile and cross-browser claims remain unverified.
+This corrects test interference. The vendor controller's idle response-release defect remains; no installed code or security policy changes. The separate post-mount settings error is repaired by source `64205cdf` on preview `dpl_4oJy4wGygNEaEkDEYk86UGNCodxT`: transaction pooling and idle cleanup prevent the captured session-pool exhaustion. Ten fresh opens and later notice checks pass without Internal error or Try again. Both hosts retain the saved feature history. See ticket 47 for the source, artifact and hosted receipts. Cold-cache, mobile and cross-browser claims remain unverified.

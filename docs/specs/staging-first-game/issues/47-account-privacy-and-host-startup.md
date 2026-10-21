@@ -1,6 +1,6 @@
 # Close account privacy and host startup gaps
 
-Status: privacy and controlled document startup verified in staging. The separate post-mount Internal error remains open. Parent: U09/U11. Follows tickets 10, 34 and 46.
+Status: privacy, controlled document startup and post-mount readiness verified in staging. The serverless pool repair is deployed as `64205cdf`; ten fresh ChatGPT opens pass without an error or Try again. Parent: U09/U11. Follows tickets 10, 34 and 46.
 
 The owner asks to solve second-account privacy and the existing host-startup issue. Keep all work in staging. At ticket entry, product source is `25978776`; its game artifacts match the accepted mechanics and cross-host evidence.
 
@@ -10,7 +10,7 @@ The corrected browser procedure exposes a separate service failure after the boa
 
 The serverless entry now selects the Supabase transaction endpoint on port 6543 and attaches the global pool to the official Vercel idle cleanup helper. The restricted role, TLS, pool maximum, admission and game transactions remain unchanged. Standalone and operator connections retain their ports. Runtime writes already use one client from BEGIN through COMMIT/ROLLBACK; runtime advisory locks are transaction-scoped. No runtime session state or named prepared statements require session pooling. The fix adds no request retry and skips no account or settings read.
 
-Red endpoint tests fail for a session URL and an omitted port. The fix passes those tests. Runtime configuration checks exercise the real server configuration with a fake pool and verify the endpoint, TLS, pool limits and cleanup attachment. Temporary client, authentication and admission traces are removed before the acceptance release. Final acceptance still requires the compiled artifact gate, ten distinct clean fresh opens and server logs from the same staging release. Receipts are in the parent workspace's `evidence/staging-post-mount-error/`.
+Red endpoint tests fail for a session URL and an omitted port. The fix passes those tests. Runtime configuration checks exercise the real server configuration with a fake pool and verify the endpoint, TLS, pool limits and cleanup attachment. Temporary client, authentication and admission traces are removed before the acceptance release. Final acceptance passes on preview `dpl_4oJy4wGygNEaEkDEYk86UGNCodxT`, source `64205cdf`. The guarded staging alias matches the built website and service worker. 111 selected tests in five files, typecheck, 54 artwork cases, 161 documentation cases and the compiled artifact gate pass. Ten fresh browser-controlled ChatGPT opens have distinct init IDs, enabled controls and no notice or Try again, both at readiness and at a later check. No reload, navigation retry or debugger detach occurs. These are warm-profile desktop checks, not cold-cache or mobile claims. The deployment returns no records for explicit HTTP 503 and error-level queries across the verification window; the general request sample has no server failure. Supabase shows only the four pre-fix connection-limit records. Both hosts open the retained feature game with the same seven actions and no draft. Existing mechanics and account-switch evidence is reused. All diagnostic and fresh-open tabs close; production is untouched. Receipts are in the parent workspace's `evidence/staging-post-mount-error/`.
 
 ## Plan and pass criteria
 

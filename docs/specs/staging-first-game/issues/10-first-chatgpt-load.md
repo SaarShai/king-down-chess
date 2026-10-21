@@ -1,6 +1,6 @@
 # Reliable first ChatGPT load
 
-Status: the controlled blank-frame path has a captured cause and a verified readiness procedure. Ten fresh controlled opens pass on unchanged `fd853122`, without Try again. The vendor's idle response-release defect is not patched. The separate post-mount Internal error remains open; the final screenshot shows it. See the [current diagnosis](../browser-controller-startup.md). Do not claim general startup reliability.
+Status: the controlled blank-frame path has a captured cause and a verified readiness procedure. Ten fresh controlled opens pass on unchanged `fd853122`, without Try again. The vendor's idle response-release defect is not patched. The separate post-mount settings failure is captured and repaired in ticket 47 by serverless transaction pooling and idle cleanup. Source `64205cdf` passes ten distinct clean fresh opens and later notice checks; the older error screenshot is retained as red evidence. See the [current diagnosis](../browser-controller-startup.md). Do not claim general startup reliability.
 
 Owner request: fix the first-load failure and verify fresh ChatGPT opens without **Try again**. Keep all changes in staging.
 
