@@ -70,6 +70,7 @@ try {
   const grants = [];
   await review.route('https://project.supabase.co/**', async route => {
     const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/settings')) { await route.fulfill({ json: { external: { google: true, github: true } } }); return; }
     if (!url.pathname.endsWith('/token')) { await route.fulfill({ json: { authorization_id: authorizationId, redirect_uri: 'https://client.example/callback', client: { id: clientId, name: 'King Down browser check', uri: 'https://client.example', logo_uri: '' }, user: { id: actor, email: 'review@example.test' }, scope: 'openid email' } }); return; }
     const body = route.request().postDataJSON(); grants.push([url.searchParams.get('grant_type'), body.email]);
     if (body.password !== 'test-only-value') { await route.fulfill({ status: 400, json: { code: 'invalid_credentials', message: 'Invalid login credentials' } }); return; }
@@ -148,6 +149,7 @@ try {
     await page.route('https://project.supabase.co/**', async route => {
       const url = new URL(route.request().url());
       if (url.pathname.endsWith('/logout')) { signedOut = true; assert.equal(url.searchParams.get('scope'), 'local'); await route.fulfill({ status: 204 }); }
+      else if (url.pathname.endsWith('/settings')) { assert(signedOut, 'A signed-in account never reads provider settings'); await route.fulfill({ json: { external: { google: true, github: true } } }); }
       else { details++; await route.fulfill({ json: { redirect_url: 'https://client.example/callback?code=existing-grant&state=preserved' } }); }
     });
     await page.route('https://client.example/**', route => route.fulfill({ contentType: 'text/html', body: 'Existing grant callback' }));

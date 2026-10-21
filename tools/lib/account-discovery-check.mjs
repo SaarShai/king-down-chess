@@ -116,6 +116,36 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     assert.equal(resumed.revision, created.revision, 'Resume does not change the account game');
     assert.deepEqual(await counts(), before, 'Entry and resume create no extra game or command');
     for (const list of errors) assertNoErrors(list);
+    if (process.env.KINGDOWN_HOSTED_SIGNIN_ORIGIN) {
+      const hostedOrigin = process.env.KINGDOWN_HOSTED_SIGNIN_ORIGIN;
+      assert.equal(hostedOrigin, 'https://kingdown-staging.vercel.app', 'Hosted sign-in checks are staging only');
+      const hosted = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+      const unexpected = [];
+      await hosted.route('**/*', route => {
+        const request = route.request(), url = new URL(request.url());
+        if (request.method() === 'GET' && (url.origin === hostedOrigin || url.href === 'https://puhspsyjyzaghmgtkzqd.supabase.co/auth/v1/settings')) return route.continue();
+        unexpected.push(request.method() + ' ' + url.origin + url.pathname); return route.abort();
+      });
+      try {
+        const fresh = await hosted.newPage(), failures = trapErrors(fresh);
+        await fresh.goto(hostedOrigin); await ready(fresh);
+        await fresh.locator('#title-screen [data-account-play]').click();
+        await fresh.getByRole('button', { name: 'Continue with GitHub', exact: true }).waitFor();
+        assert.equal(await fresh.getByRole('button', { name: 'Continue with Google', exact: true }).count(), 0);
+        await shot(fresh, 'hosted-signin-available-providers');
+        await fresh.getByRole('link', { name: 'Play on this device', exact: true }).click(); await ready(fresh);
+        await fresh.evaluate(save => { localStorage.setItem('kingdown.save', JSON.stringify(save)); sessionStorage.removeItem('kingdown.title-seen'); }, SAVE);
+        await fresh.reload(); await ready(fresh);
+        const saved = await readSave(fresh);
+        await openAccount(fresh); await fresh.locator('#account-body [data-provider="github"]').waitFor();
+        assert.equal(await fresh.locator('#account-body [data-provider="google"]').count(), 0);
+        assert.equal(await readSave(fresh), saved, 'Opening hosted Account preserves this context\'s local game');
+        await shot(fresh, 'hosted-signin-local-account');
+        assert.deepEqual(unexpected, [], 'Hosted inspection makes only allowed GET requests; no sign-in or game command');
+        assertNoErrors(failures);
+        console.log('PASS hosted sign-in: fresh staging home to account play, GitHub only, local return and local Account; no authorization or writes');
+      } finally { await hosted.close(); }
+    }
     console.log('PASS account-discovery: first title, Home, Menu, keyboard, four sizes, sign-in cancellation, saved local game, offline move/reload, existing account-game resume; no new game or command');
   } finally { await local.close(); }
 }
