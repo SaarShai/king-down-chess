@@ -59,11 +59,11 @@ it('opens each full game ID once and returns its button in inbox order', async (
 it.each([['casual', 'Casual'], ['ranked-v1', 'Ranked'], ['legacy', 'Legacy rated']] as const)('shows stored policy %s on each game detail', async (rating_policy, label) => {
   vi.stubGlobal('navigator', { language: 'en-US' });
   const { gameDetail } = await import('./games-list');
-  expect(gameDetail(entry('policy', false, { rating_policy, created_at: '2026-10-17T16:00:00Z', seat: 0 }))).toMatch(new RegExp(`^${label} · White`));
+  expect(gameDetail(entry('policy', false, { rating_policy, created_at: '2026-10-17T16:00:00Z', seat: 0 }))).toMatch(new RegExp(`^${label} ·\u00a0White`));
 });
 
 it('marks an old computer game as Legacy without calling it rated', async () => {
   vi.stubGlobal('navigator', { language: 'en-US' });
   const { gameDetail } = await import('./games-list');
-  expect(gameDetail(entry('computer', true, { kind: 'solo', rating_policy: 'legacy', created_at: '2026-10-17T16:00:00Z', seat: 0 }))).toMatch(/^Legacy · White/);
+  expect(gameDetail(entry('computer', true, { kind: 'solo', rating_policy: 'legacy', created_at: '2026-10-17T16:00:00Z', seat: 0 }))).toMatch(/^Legacy ·\u00a0White/);
 });

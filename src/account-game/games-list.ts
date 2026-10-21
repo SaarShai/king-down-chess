@@ -11,7 +11,7 @@ export const formatDate = (at: string, options: Intl.DateTimeFormatOptions) => n
 export const waitingLine = (entry: Pick<InboxEntry, 'kind'>) => entry.kind === 'friend' ? 'Waiting for a friend' : 'Waiting for an opponent';
 
 export function gameDetail(entry: InboxEntry): string {
-  return `${policyLabel(entry.rating_policy, entry.kind)} · ${entry.seat === 0 ? 'White' : 'Black'} ·\u00a0${formatDate(entry.created_at, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`;
+  return `${policyLabel(entry.rating_policy, entry.kind)} ·\u00a0${entry.seat === 0 ? 'White' : 'Black'} ·\u00a0${formatDate(entry.created_at, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`;
 }
 
 export const gameTitle = (entry: Pick<View, 'opponent' | 'level'>) => entry.opponent?.computer ? entry.level ? `Computer · ${entry.level[0].toUpperCase() + entry.level.slice(1)}` : 'Computer' : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';

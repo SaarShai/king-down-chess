@@ -106,7 +106,7 @@ export function endScreen(schedule = true) {
   const result = view.result;
   over.querySelector('.over-words')!.textContent = win ? 'King Down' : '';
   $('over-title').textContent = !result || ['abort','no_start'].includes(result.reason) ? ending(view) : result.winner === null ? 'Draw' : result.winner === view.seat ? 'You win' : 'You lose';
-  $('end-reason').textContent = `${policyLabel(view.rating_policy, view.kind)} · ${endReason(view)}`;
+  $('end-reason').textContent = [policyLabel(view.rating_policy, view.kind), endReason(view)].filter(Boolean).join(' · ');
   const outcome = view.kind !== 'solo' && view.outcome;
   if (outcome) {
     const facts = over.querySelector('.end-facts')!;

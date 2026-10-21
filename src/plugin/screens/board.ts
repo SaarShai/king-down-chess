@@ -556,7 +556,8 @@ export function boardScreen(store: Store) {
     const actions = [chooseMove, ...view ? [...actionButtons(view, Date.now() - readAt, refused, true), ...playerBlockButton(view)] : []];
     for (const action of actions) action.disabled = networkBlocked();
     const policy = view && button(`${policyLabel(view.rating_policy, view.kind)} game`, () => boardSheet(policyLabel(view!.rating_policy, view!.kind), text(policyDetail(view!.rating_policy, view!.kind))));
-    boardSheet('Menu', ...policy ? [policy] : [], button('Moves', showMoves), ...actions, button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('invite'), $('invitation'));
+    boardSheet('Menu', button('Moves', showMoves), ...actions, button('Settings', () => { closeBoardSheet(); navigate('settings'); }), $('reload'), $('invite'), $('invitation'));
+    if (policy) { policy.id = 'game-policy'; sheet.querySelector('.sheet-head')!.insertBefore(policy, sheet.querySelector('[aria-label="Close"]')); }
     sheet.classList.add('board-menu');
   };
   function showMoves() { boardSheet('Moves', ...history.map(step => text(`Move ${moveNumber(step.pre)}. ${step.words}`))); $('moves-line').setAttribute('aria-expanded', 'true'); }

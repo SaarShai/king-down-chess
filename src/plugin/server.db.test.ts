@@ -15,7 +15,7 @@ import { PluginService } from './service';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 const suite = process.env.PLUGIN_TEST_DATABASE_URL ? describe : describe.skip;
 type Result = { isError?: boolean; content: { type: string; text: string }[]; structuredContent?: any; _meta?: any };
-const SUMMARY = [ 'screen', 'colour', 'days_per_move', 'deadline_at', 'draw_offer', 'game_id', 'kind', 'move', 'speed', 'status', 'your_turn'];
+const SUMMARY = [ 'rating_policy', 'screen', 'colour', 'days_per_move', 'deadline_at', 'draw_offer', 'game_id', 'kind', 'move', 'speed', 'status', 'your_turn'];
 
 suite('ChatGPT tools on PostgreSQL', () => {
  // Every transaction on readOnly is read-only: any write fails (25006), so a tool that succeeds on it wrote nothing.
@@ -286,7 +286,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   // The first Find reuses the host's open game, and its reply is lost. A second Find reuses it again. Then the guest takes the seat.
   expect(view(await host.ok('kingdown_find', args)).game_id).toBe(view(open).game_id);
   await host.ok('kingdown_find', { options, command_id: `own-find-2-${tag}` });
-  const accepted = view(await guest.ok('kingdown_accept', { game_id: view(open).game_id }));
+  const accepted = view(await guest.ok('kingdown_accept', { game_id: view(open).game_id, rating_policy:view(open).rating_policy }));
   // The Find receipts are not moves: the guest sees only the join, so no time shows when the host chose Find.
   expect(accepted).toMatchObject({ revision: 3, last_commands: [{ seq: 3, seat: accepted.seat, action: { type: 'join' } }] });
   expect(view(await host.ok('kingdown_find', args)).game_id).toBe(view(open).game_id);
@@ -357,8 +357,8 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(lobby.structuredContent).toEqual({ count: 1 });
   expect(JSON.stringify([lobby.content, lobby.structuredContent])).not.toContain(`lobby-a-${tag}`);
   const guestBoard = (await guest.ok('kingdown_open'))._meta.board_id;
-  expect(view(await guest.ok('kingdown_accept', { game_id, board_id: guestBoard }))).toMatchObject({ status: 'playing', seat: 1 });
-  expect(view(await guest.ok('kingdown_accept', { game_id, board_id: guestBoard })).revision).toBe(1);
+  expect(view(await guest.ok('kingdown_accept', { game_id, board_id: guestBoard, rating_policy:view(found).rating_policy }))).toMatchObject({ status: 'playing', seat: 1 });
+  expect(view(await guest.ok('kingdown_accept', { game_id, board_id: guestBoard, rating_policy:view(found).rating_policy })).revision).toBe(1);
   expect((await guest.ok('kingdown_get', { board_id: guestBoard })).structuredContent.game_id).toBe(game_id);
   const open = await host.ok('kingdown_create', { kind: 'random', options });
   const cancelled = await host.ok('kingdown_cancel', { game_id: view(open).game_id });
@@ -458,7 +458,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   // Seed an open table: the Create tool may join a table from an earlier test.
   const waiting = (await new GameService(new PostgresMatchStore(admin)).create(a, { kind: 'random', options })).game_id;
   expect((await guest.ok('kingdown_lobby'))._meta.lobby.games.some((g:any)=>g.game_id===waiting)).toBe(false);
-  expect((await guest.call('kingdown_accept', { game_id: waiting }))._meta.code).toBe('FORBIDDEN');
+  expect((await guest.call('kingdown_accept', { game_id: waiting, rating_policy:'casual' }))._meta.code).toBe('FORBIDDEN');
   const found = view(await guest.ok('kingdown_find', { options }));
   expect(found.game_id).not.toBe(waiting);
   await guest.ok('kingdown_abort', { game_id: found.game_id });
@@ -470,7 +470,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(view(unblocked).last_commands.at(-1)!.action.type).toBe('say');
   expect(await rows('select kind from public.relations where user_id=$1 or user_id=$2', [a,b])).toEqual([]);
   expect((await guest.ok('kingdown_lobby'))._meta.lobby.games.some((g:any)=>g.game_id===waiting)).toBe(true);
-  expect(view(await guest.ok('kingdown_accept', { game_id: waiting })).game_id).toBe(waiting);
+  expect(view(await guest.ok('kingdown_accept', { game_id: waiting, rating_policy:'casual' })).game_id).toBe(waiting);
   expect(view(await guest.ok('kingdown_join', { code })).game_id).toBe(friend);
  });
 
@@ -641,8 +641,9 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect((await host.ok('kingdown_games'))._meta.games[0]).toMatchObject({ move: 2, opponent: { icon: 'frost' } });
   await guest.ok('kingdown_resign', { game_id });
   const finished = await host.ok('kingdown_get', { game_id });
-  expect(view(finished).outcome).toMatchObject({ rating_before: 1500, rating: expect.any(Number), provisional: true, badges: expect.arrayContaining([expect.objectContaining({ badge: 'first_win' })]) });
-  expect(view(finished).outcome!.rating).toBeGreaterThan(1500);
+  expect(view(finished).outcome).toMatchObject({ rating_before: null, rating: null, provisional: true, badges: expect.arrayContaining([expect.objectContaining({ badge: 'first_win' })]) });
+  expect(view(finished).rating_policy).toBe('casual');
+  expect(await rows('select * from public.rating_history where game_id=$1',[game_id])).toEqual([]);
   expect(view(await host.ok('kingdown_get', { game_id, since_revision: view(finished).revision })).outcome).toBeUndefined();
   const board = await host.ok('kingdown_open',{game_id});
   const poll = await host.ok('kingdown_get',{board_id:board._meta.board_id,since_revision:view(finished).revision});
@@ -694,7 +695,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   const open = await host.ok('kingdown_find', { options });
   const waitingSolo = await playBoth();
   expect(view(waitingSolo).abort_open).toBe(false);
-  await guest.ok('kingdown_accept', { game_id: view(open).game_id });
+  await guest.ok('kingdown_accept', { game_id: view(open).game_id, rating_policy:view(open).rating_policy });
   expect(view(await host.ok('kingdown_get', { game_id: view(waitingSolo).game_id })).abort_open).toBe(true);
   const switched = await host.ok('kingdown_abort', move(waitingSolo));
   expect(view(switched)).toMatchObject({ status: 'aborted', result: { winner: null, reason: 'abort' } });
@@ -704,7 +705,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   // Opening a random game after a computer game starts does not erase that computer game.
   const older = await playBoth();
   const newOpen = await host.ok('kingdown_create', { kind: 'random', options });
-  await guest.ok('kingdown_accept', { game_id: view(newOpen).game_id });
+  await guest.ok('kingdown_accept', { game_id: view(newOpen).game_id, rating_policy:view(newOpen).rating_policy });
   expect((await host.call('kingdown_abort', move(older)))._meta.code).toBe('NOT_ALLOWED');
  }, 60000);
 
