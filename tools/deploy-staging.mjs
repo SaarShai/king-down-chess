@@ -50,6 +50,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const result = runJson(command), deployment = result.deployment ?? result;
     if (!/^dpl_[A-Za-z0-9]+$/.test(deployment.id ?? '')) throw new Error('Vercel did not return a deployment ID');
     const verified = verifyStagingPreview(api(`/v13/deployments/${deployment.id}?teamId=${STAGING_TEAM_ID}`));
-    console.log(JSON.stringify({ id: verified.id, url: verified.url, target: 'preview', readyState: verified.readyState }));
+    // Provider timestamps are milliseconds since epoch. Hosting readiness does not prove a usable game.
+    console.log(JSON.stringify({ id: verified.id, url: verified.url, target: 'preview', readyState: verified.readyState,
+      createdAt: verified.createdAt ?? null, buildingAt: verified.buildingAt ?? null, readyAt: verified.ready ?? null }));
   }
 }
