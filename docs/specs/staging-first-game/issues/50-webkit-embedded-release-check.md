@@ -1,6 +1,6 @@
 # Verify the shared embedded game UI in WebKit
 
-Status: in progress. Parent: U09. Follows ticket 49.
+Status: complete for the registered WebKit harness journey. Parent: U09. Follows ticket 49.
 
 ## Plan and pass criteria
 
@@ -12,3 +12,9 @@ Status: in progress. Parent: U09. Follows ticket 49.
 ## Evidence
 
 The parent workspace's `evidence/staging-release-checks/` holds the detached log, source identity and end report.
+
+## Result
+
+The full registered check passes on `ddea0a6d` in about 310 seconds (312 seconds including the launcher). The log confirms real HTTP MCP and PostgreSQL, SDK bridge initialization, shared private games, Settings remount, four viewport widths, fourteen route remounts, background reads, card details/recovery, setup and hidden seats, painted board moves, identical FEN/revision after remount, Haste ambiguity, lost-reply same-ID retry committed once, bounded computer turn, definitive rejection, game switch and friend polling. The final browser-error gate passes. All assertions and normal timeouts remain unchanged. No product code or deployment changes.
+
+The owner unlocks iPhone Mirroring after its protected Mac authentication prompt. A physical iPhone now opens the staging website through Safari and shows the first-visit screen. Continue with [the physical-phone journey](51-physical-phone-release-check.md); this harness pass does not substitute for it.
