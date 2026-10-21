@@ -188,6 +188,8 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 }
 .table-back { display: none; }
 @media (max-width: 899px) and (orientation: portrait) {
+  /* The frame already reserves the host/device safe area. */
+  #game-table { padding-top: 0; }
   /* Reserve the 48 px action row before a card or power is armed. */
   [data-screen='board'], [data-screen='end'] { --context-floor: 48px; }
   #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 52px; grid-template-rows: minmax(var(--strip-row, 36px), max-content) minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 36px), max-content) minmax(var(--context-floor, 44px), max-content) var(--moves-height, 48px) minmax(0, 1fr) var(--bar-height); }

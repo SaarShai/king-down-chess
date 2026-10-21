@@ -200,6 +200,46 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
   }
 });
 
+it('counts the phone safe area once when browser and host both report it', async () => {
+  const page = await browser.newPage({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
+  page.setDefaultTimeout(10_000 * STEP);
+  try {
+    await page.goto(harness.url); await hall(page);
+    await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
+    await page.evaluate(async () => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', deviceCapabilities: { touch: true }, safeAreaInsets: { top: 102, bottom: 118, left: 0, right: 0 } }); });
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    for (const name of ['Arrangement', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).check();
+    await frame.locator('#setup-start').click();
+    await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
+    await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await waitForBoardPaint(frame);
+    const geometry = () => frame.locator('#game-table').evaluate(table => {
+      const rect = (e: Element) => e.getBoundingClientRect(), box = rect(document.getElementById('app-frame')!);
+      return { topGap: rect(table.querySelector('#strip-them')!).top - rect(table).top, board: rect(table.querySelector('canvas')!).width, top: box.top, bottom: innerHeight - box.bottom };
+    });
+    const before = await geometry();
+    // Desktop engines report zero device insets. Substitute only CSS env values, keeping the built cascade intact.
+    const replacements = await frame.locator('html').evaluate(() => {
+      let count = 0;
+      const visit = (rules: CSSRuleList) => { for (const rule of rules) {
+        if (rule instanceof CSSStyleRule) for (const name of [...rule.style]) {
+          const value = rule.style.getPropertyValue(name), next = value.replace(/env\(safe-area-inset-(top|bottom)\)/g, (_, edge) => edge === 'top' ? '102px' : '118px');
+          if (next !== value) { rule.style.setProperty(name, next, rule.style.getPropertyPriority(name)); count++; }
+        }
+        if ('cssRules' in rule) visit((rule as CSSGroupingRule).cssRules);
+      } };
+      for (const sheet of document.styleSheets) visit(sheet.cssRules);
+      return count;
+    });
+    expect(replacements).toBeGreaterThan(0);
+    await waitForBoardPaint(frame);
+    const after = await geometry();
+    expect(after.top).toBe(102); expect(after.bottom).toBe(118);
+    expect(after.topGap, JSON.stringify({ before, after })).toBeLessThanOrEqual(before.topGap + 1);
+    expect(after.board).toBeGreaterThanOrEqual(before.board - 1);
+  } finally { await page.close(); }
+});
+
 it('keeps 44 px card and power targets in two player rows', async () => {
   const page=await browser.newPage({viewport:{width:375,height:667},hasTouch:true}), frame=page.frameLocator('iframe');
   try {
@@ -631,8 +671,10 @@ it.each([[426, 59], [800, 0]])('keeps Back clear and end actions reachable at 19
     expect(await frame.locator('#over').evaluate(e => e.scrollHeight > e.clientHeight)).toBe(height === 426);
     const cue = await frame.locator('#over').evaluate(e => {
       e.scrollTop = 0;
-      const card = e.getBoundingClientRect(), [first, next] = [...e.querySelectorAll('form button')].map(b => b.getBoundingClientRect());
-      return { firstFits: first.top >= card.top && first.bottom <= card.bottom, visible: card.bottom - next.top, cut: next.bottom > card.bottom };
+      const card = e.getBoundingClientRect(), [first, ...rest] = [...e.querySelectorAll('form button')].map(b => b.getBoundingClientRect());
+      // Any later action can show that the card scrolls; do not require the second action to be cut.
+      const partial = rest.find(button => button.top < card.bottom && button.bottom > card.bottom);
+      return { firstFits: first.top >= card.top && first.bottom <= card.bottom, visible: partial ? card.bottom - partial.top : 0, cut: !!partial };
     });
     expect(cue.firstFits).toBe(true);
     if (height === 426) {
