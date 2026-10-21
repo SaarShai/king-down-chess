@@ -27,6 +27,10 @@ body[data-page='end'] #table-bar { visibility: hidden; }
 #board-sheet .sheet-head h2 { flex: 1; margin: 0; }
 #board-sheet .sheet-head button { width: 44px; min-width: 44px; padding: 0; justify-content: center; }
 #board-sheet .sheet-head #game-policy { width: auto; padding-inline: 8px; font-size: var(--fs-sm); }
+@media (max-width: 299px) {
+  #board-sheet.board-menu .sheet-head { flex-wrap: wrap; }
+  #board-sheet.board-menu .sheet-head #game-policy { order: 1; flex-basis: 100%; }
+}
 #board-sheet .sheet-body { display: flex; flex-direction: column; gap: 8px; }
 #board-sheet .sheet-body > button { justify-content: center; text-align: center; }
 .frame #board-sheet.board-menu { max-height: 100%; }

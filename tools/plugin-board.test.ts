@@ -818,6 +818,38 @@ it.each([[320, 568, 84], [320, 568, 180], [393, 852, 118], [820, 600, 34], [852,
   } finally { await page.close(); }
 });
 
+it.each([197,240] as const)('keeps the narrow Menu policy header and details usable at %i px', async width => {
+  for (const [rating_policy, label, detail] of [
+    ['legacy', 'Legacy rated', 'This game keeps the rating rules from before Ranked and Casual.'],
+    ['casual', 'Casual', 'This game does not change ratings.'],
+    ['ranked-v1', 'Ranked', 'Do not use engine, AI or human advice about an active ranked position.'],
+  ] as const) {
+    const next = view('4k3/7p/8/8/8/8/P7/K7 w - - 0 1', {}, { kind: 'friend', rating_policy, opponent: { handle: 'Bob', icon: null, computer: false, deleted: false, last_seen_ms: null } });
+    const page = await open(next, width, 760), frame = page.frameLocator('iframe');
+    try {
+      await frame.locator('#board-menu').click();
+      const geometry = await frame.locator('#board-sheet .sheet-head').evaluate(head => {
+        const box = (el: Element) => { const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height }; };
+        return { head: box(head), title: box(head.querySelector('h2')!), policy: box(head.querySelector('#game-policy')!), close: box(head.querySelector('[aria-label="Close"]')!) };
+      });
+      console.log(`Menu policy geometry ${width} ${rating_policy}: ${JSON.stringify(geometry)}`);
+      expect(geometry.title.width).toBeGreaterThan(0); expect(geometry.title.height).toBeGreaterThan(0);
+      expect(geometry.title.right).toBeLessThanOrEqual(geometry.close.left);
+      expect(geometry.policy.top).toBeGreaterThanOrEqual(Math.max(geometry.title.bottom, geometry.close.bottom));
+      for (const control of [geometry.policy, geometry.close]) {
+        expect(control.width).toBeGreaterThanOrEqual(44); expect(control.height).toBeGreaterThanOrEqual(48);
+        expect(control.left).toBeGreaterThanOrEqual(geometry.head.left); expect(control.right).toBeLessThanOrEqual(geometry.head.right);
+        expect(control.top).toBeGreaterThanOrEqual(geometry.head.top); expect(control.bottom).toBeLessThanOrEqual(geometry.head.bottom);
+      }
+      await frame.locator('#board-sheet').getByRole('button', { name: `${label} game`, exact: true }).click();
+      expect(await frame.locator('#board-sheet h2').innerText()).toBe(label);
+      expect(await frame.locator('#board-sheet .sheet-body').innerText()).toContain(detail);
+      if (rating_policy === 'ranked-v1') expect(await frame.locator('#board-sheet .sheet-body').innerText()).toContain('3 days per move.');
+      await frame.locator('#board-sheet [aria-label="Close"]').click(); expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
+    } finally { await page.close(); }
+  }
+});
+
 it.each([[320,568],[852,393]] as const)('keeps a short last move and its deadline above a short board at %i × %i', async (width,height) => {
   const initial_fen = '4k3/7p/8/8/8/8/P7/K7 b - - 0 1';
   const step = applyLan(fromFen(initial_fen), 'h7-h5', {})!;
