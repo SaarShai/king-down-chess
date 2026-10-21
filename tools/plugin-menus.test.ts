@@ -138,17 +138,34 @@ it('locks Name until settings finish on a saved screen', async () => {
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
-it('scrolls the Profile scroll with the page, with its bottom roller at the page end', async () => {
+it('scrolls the Profile parchment with the page and keeps its roller and trailing controls reachable', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   const history: HistoryEntry[] = Array.from({ length: 20 }, (_, i) => ({ game_id: randomUUID(), finished_at: new Date(Date.UTC(2026, 9, 10, 12 - i)).toISOString(), kind: 'friend', colour: 'white', result: 'won', reason: 'resignation', opponent: { handle: `player_${i}`, icon: 'spirit', computer: false, deleted: false, level: null }, features: { fairy: true, arrangement: true, classic: false, cards: false, powers: false, king: null, power: null } }));
   try {
     await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history } } });
     await go(page, 'profile');
     await expect.poll(() => frame.locator('#profile-history li').count()).toBe(20);
-    expect(await frame.locator('#profile-sheet .registry').evaluate(el => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
-    const end = await frame.locator('#profile-sheet .new-game-body').evaluate(body => { body.scrollTop = body.scrollHeight; const scroll = body.querySelector('.scroll')!.getBoundingClientRect(), view = body.getBoundingClientRect(); return { roller: scroll.bottom, view: view.bottom, top: view.top }; });
-    expect(end.roller).toBeLessThanOrEqual(end.view + 1);
-    expect(end.roller - 64).toBeGreaterThanOrEqual(end.top);
+    const end = await frame.locator('#profile-sheet .new-game-body').evaluate(body => {
+      const registry = body.querySelector('.registry')!, parchment = body.querySelector('.scroll')!;
+      body.scrollTop = 0;
+      const start = parchment.getBoundingClientRect(), view = body.getBoundingClientRect();
+      // The stacked notices and controls follow the parchment on a phone.
+      body.scrollTop = start.bottom - view.bottom;
+      const scroll = parchment.getBoundingClientRect();
+      return { roller: scroll.bottom, view: view.bottom, top: view.top, pageScroll: body.scrollTop, parchmentScroll: start.top - scroll.top,
+        registryOverflow: registry.scrollHeight - registry.clientHeight };
+    });
+    const geometry = JSON.stringify(end);
+    expect(end.registryOverflow, geometry).toBeLessThanOrEqual(1);
+    expect(end.pageScroll, geometry).toBeGreaterThan(0);
+    expect(Math.abs(end.parchmentScroll - end.pageScroll), geometry).toBeLessThanOrEqual(1);
+    expect(end.roller, geometry).toBeLessThanOrEqual(end.view + 1);
+    expect(end.roller - 64, geometry).toBeGreaterThanOrEqual(end.top);
+    await frame.locator('#profile-sheet .new-game-body').evaluate(body => { body.scrollTop = body.scrollHeight; });
+    for (const screen of ['collection', 'settings']) {
+      const bounds = await frame.locator(`#profile-sheet [data-nav="${screen}"]`).evaluate(controlBounds);
+      expect(bounds.accessible, JSON.stringify(bounds)).toBe(true);
+    }
   } finally { await page.close(); }
 });
 
