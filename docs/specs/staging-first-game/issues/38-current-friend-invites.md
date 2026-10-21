@@ -1,6 +1,6 @@
 # Keep friend codes current across hosts
 
-Status: in progress. Parent: U07.
+Status: complete in staging. Parent: U07.
 
 ## Plan and acceptance
 
@@ -19,4 +19,12 @@ Three missing-behavior tests fail before implementation. The final repair passes
 
 The identifier is the existing 256-bit token hash. A database test proves that it cannot redeem or preview the invitation, another account cannot read the game, reads do not rotate the invite, and a new code changes the identifier without changing the game revision. No schema change is needed. The existing command lane discards pre-renewal reads.
 
-The first compiled run passes embedded HTTP in 254.172 seconds but catches a web-create response that still contains the pre-invite identity. The API now returns the identity of the invitation it just issued. A focused API regression covers that same-response invariant. An unchanged poll also preserves the Copy status. The final compiled journeys and staging publication remain pending.
+The first compiled run passes embedded HTTP in 254.187 seconds but catches a web-create response that still contains the pre-invite identity. The API now returns the identity of the invitation it just issued. A focused API regression covers that same-response invariant. An unchanged poll also preserves the Copy status. Clean final source `02c2b6a5` passes compiled web in 43.274 seconds and embedded HTTP in 248.935 seconds. The exact artifact check passes. Preview `dpl_DQymf3FYWnrBA5hotuXFKayKCMxj` serves only the staging alias. Engine, runtime and eleven archive bytes match the prior artifact; the 112 accepted mechanics executions remain valid.
+
+## Hosted acceptance
+
+Actual web loads the new artifact without Retry. ChatGPT needs the existing one-time host Retry. On a disposable game, renewal in ChatGPT makes web hide the replaced code and Share/Copy. Renewal in web then makes ChatGPT do the same. Both use their ordinary refresh path. ChatGPT cancels the disposable game; web shows Game aborted, and the same ten original active games remain. No retained game receives a move.
+
+An earlier accessibility-index attempt ends the first disposable game unexpectedly; it is excluded from the proof. The repeat uses the exact controls through nested-frame DOM locators. Use these supported locators for embedded controls, and verify the resulting state before the next action. Do not count ambiguous native clicks as acceptance.
+
+The final review keeps the change in the existing service, command lane and shared client. No new schema, poll loop or gameplay rule is added. Full evidence is in `evidence/staging-current-friend-invites/verification.md` in the parent project. The actual second-account, attached-host first-open, Codex interruption, physical-phone and operator gates remain open. Production is unchanged.
