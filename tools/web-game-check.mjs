@@ -224,6 +224,11 @@ try {
   await page.locator('[data-screen="board"]:not([hidden])').waitFor();
   assert.equal((await view(0)).fen, moved);
   await shot(page, 'web-shared-board');
+  // Keep the return route in this document; a page reload would clear the result screen's attempt state.
+  await page.locator('#page-back:visible, #game-table .table-back:visible').first().click();
+  await page.locator(`#games-list [data-game-id="${gameId}"]`).click();
+  await page.locator('[data-screen="board"]:not([hidden])').waitFor();
+  const rematchDocument = await page.evaluate(() => performance.timeOrigin);
   await tool(1, 'kingdown_resign', { game_id: gameId, command_id: randomUUID(), expected_revision: b.revision });
   await page.locator('[data-screen="end"]:not([hidden])').waitFor();
   a = await view(0); b = await view(1); assert.deepEqual(a.result, b.result); assert.equal(a.result.winner, 0); assert.equal(a.result.reason, 'resignation');
@@ -249,10 +254,11 @@ try {
     const rematchId = accepted._meta.view.rematch_game_id;
     assert(rematchId && rematchId !== gameId);
     await heldRematch;
-    await page.locator('#page-back:visible, #game-table .table-back:visible').first().click();
-    await page.locator('[data-screen="play"]:not([hidden])').waitFor();
     await page.goBack();
+    await page.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await page.goForward();
     await page.locator('[data-screen="end"]:not([hidden])').waitFor();
+    assert.equal(await page.evaluate(() => performance.timeOrigin), rematchDocument, 'History navigation preserves the mounted result screen');
     assert.equal(await page.locator('#over-title').innerText(), 'You win');
     releaseRematch();
     await page.waitForURL(origin + '/g/' + rematchId);
@@ -261,10 +267,6 @@ try {
     assert.equal((await view(0)).rematch_game_id, rematchId, 'Return opens the same accepted rematch');
     assert.deepEqual((await view(0)).result, a.result, 'The original result is preserved');
     await shot(page, 'web-rematch-selection-recovered');
-  } catch (error) {
-    console.error('Rematch selection check:', error);
-    await shot(page, 'web-rematch-selection-failure');
-    throw error;
   } finally { releaseRematch?.(); await page.unroute('**/api/games/*', holdRematch); }
   // Seven weighted pool pieces force the army's contents; each seat still submits a real setup choice.
   const options = { fairy: true, pool: ['O', 'A', 'G', 'M', 'S'], arrangement: true, classic: false,
