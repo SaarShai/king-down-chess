@@ -12,7 +12,7 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
   const errors = [], requests = [];
   // One server-owned game exists before navigation. No UI action should create a second one.
   const created = (await tool(0, 'kingdown_create', { kind: 'solo', mode: 'casual', colour: 'white', level: 'beginner', command_id: randomUUID(),
-    options: { fairy: false, arrangement: false, classic: true, cards: false, kingPowers: false } }))._meta.view;
+    options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } }))._meta.view;
   const counts = async () => (await pool.query('select (select count(*) from public.game_players where user_id=$1) games, (select count(*) from public.game_commands c join public.game_players p on p.game_id=c.game_id where p.user_id=$1) commands', [actors[0]])).rows[0];
   const before = await counts();
   const local = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
