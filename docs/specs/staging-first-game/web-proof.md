@@ -11,6 +11,10 @@ Status: complete.
 
 This check proves the local host harness. It does not prove a real ChatGPT host or a published staging deployment.
 
+## Local entry into account play
+
+`npm run check:browser account-discovery` uses the same compiled service harness for the first title, returning Home and Menu links. Navigation must not create a game, submit a command, import a local save or discard it on return. An offline click stays local; a committed local move must survive an offline reload. Check the actual link, Review, Moves and Today bounds in active and finished Home states: a zero-height grid wrapper can pass an overlap check while its children overlap. Keep short-screen controls reachable by scrolling. Provider login and actual identity switching require separate hosted evidence.
+
 ## Evidence
 
 - `npm run check:browser web-game`: pass in 21.5 seconds on Chromium. The emitted `/play/` and `/g/<id>` routes use the combined website and real HTTP/MCP backend.
