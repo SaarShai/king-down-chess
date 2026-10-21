@@ -705,6 +705,7 @@ try {
       await frame.locator('#hall-play').click();
       await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       const quick = await page.evaluate(() => window.harnessView);
+      assert.equal(quick.rating_policy,'casual','Play now stays Casual');
       assert.equal(quick.kind, 'solo', `Play now starts a computer game from a saved ${kind} setup`);
       assert.equal(quick.level, 'beginner');
       assert.deepEqual(quick.options, { ...remembered.options, arrangement: false });
@@ -727,6 +728,7 @@ try {
       const pending = await page.evaluate(() => window.harnessWidgetState.privateContent.pending);
       assert.equal(pending.name, name);
       assert.equal(pending.quick, true, `${name} keeps the Play now marker`);
+      if (name === 'kingdown_create') assert.equal(pending.args.mode,'casual','A pending Play now keeps its Casual mode');
       assert(await frame.getByRole('radio', { name: 'Computer', exact: true }).isChecked());
       assert(await frame.getByRole('radio', { name: 'Beginner', exact: true }).isChecked());
       assert(!await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
@@ -773,19 +775,22 @@ try {
     }
     const waitingLast = { ...sampleSetup, kind: 'friend' };
     await setupMount(waitingLast); await page.evaluate(() => { window.requireHandleNext = true; }); await frame.locator('#setup-start').click();
-    await frame.locator('[data-screen="handle"]:not([hidden])').waitFor(); assert.deepEqual((await setupTool('kingdown_settings'))._meta.settings.last_setup, waitingLast, 'Settings reach the server before HANDLE_NEEDED');
+    await frame.locator('[data-screen="handle"]:not([hidden])').waitFor(); assert.deepEqual((await setupTool('kingdown_settings'))._meta.settings.last_setup, { ...waitingLast, mode: 'casual' }, 'Settings reach the server before HANDLE_NEEDED');
     await frame.locator('#handle').fill(testHandle); await frame.locator('#save-handle').click(); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     assert.equal(await page.evaluate(() => window.harnessView.days_per_move), 3);
     const waiting = await page.evaluate(() => window.harnessView); assert.equal(waiting.choices[waiting.seat].king.king, 'Spirit', 'Waiting keeps the server default; the remembered king goes to the seat screen');
+    assert.equal(waiting.rating_policy,'casual','A friend start stays Casual');
     await abortSetup(waiting.game_id);
     // A lost Start reply survives a remount without a second game: the remount shows Retry, and Retry sends the same
     // command ID, so the receipt gives back the first game (design §5.2 and §5.3).
     await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true } });
     await page.evaluate(() => { window.dropNextReply = 'kingdown_create'; }); await frame.locator('#setup-start').click(); await frame.locator('#retry').waitFor();
-    const startId = await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_create').arguments.command_id);
+    const startArgs = await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_create').arguments), startId = startArgs.command_id;
+    assert.equal(startArgs.mode,'casual','Start sends an explicit Casual mode');
     await remountFrame(); await frame.locator('#retry:not(:disabled)').waitFor(); await frame.locator('#retry').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 * STEP });
     assert.equal(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_create').arguments.command_id), startId, 'Retry sends the same Create command ID');
+    assert.deepEqual(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_create').arguments),startArgs,'A remounted Start retries the same mode and complete input');
     const privateState = await page.evaluate(() => window.harnessWidgetState.privateContent);
     assert.deepEqual(Object.keys(privateState).sort(), ['board_id','pending','screen','sheet']);
     assert.equal(await page.evaluate(() => JSON.stringify(window.harnessWidgetState.modelContent)), '{}', 'Setup puts no choice or draw in model context');
