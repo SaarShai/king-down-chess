@@ -7,10 +7,12 @@ type PageInvite = { code: string; expires_at: string; invite_id?: string; replac
 export const friendInvites = new Map<string, PageInvite>();
 /** Only accepted server reads can revoke a page's cached code. Keep the entry so entry never renews it. */
 export function syncFriendInvites(entries: { game_id: string; invite_id?: string | null }[]) {
+  let changed = false;
   for (const entry of entries) {
     const invite = friendInvites.get(entry.game_id);
-    if (invite?.invite_id && entry.invite_id !== undefined && invite.invite_id !== entry.invite_id) invite.replaced = true;
+    if (invite?.invite_id && !invite.replaced && entry.invite_id !== undefined && invite.invite_id !== entry.invite_id) { invite.replaced = true; changed = true; }
   }
+  return changed;
 }
 export const inviteText = (code: string, options: Options | null | undefined) => `Join King Down game ${code}. Rules: ${ruleNames(options)}.`;
 

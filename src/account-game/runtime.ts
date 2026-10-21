@@ -289,8 +289,8 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       if (quiet && next && next.game_id === view?.game_id && next.revision === view?.revision && next.engine_fingerprint === view?.engine_fingerprint) {
         // Privacy can change without a game revision. Replace the complete seat projection, including
         // redacted or empty command lists, so the old account view cannot retain private payloads.
-        view = { ...view, ...next }; syncFriendInvites([next]);
-        if (state.screen === 'friend') friendScreen();
+        view = { ...view, ...next };
+        if (syncFriendInvites([next]) && state.screen === 'friend') friendScreen();
         drawBoard(view); store.dispatch({ type: 'good-read', game: next.game_id }); if (state.screen === 'seat') seatScreen(); poll?.update(); return { status: 'done', result, view };
       }
       if (acceptsView(next, job)) received = next;

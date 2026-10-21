@@ -126,7 +126,13 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
    return { account_access: 'closed', valid_for_ms: 0 };
   },
   // A friend game comes with its invitation (part 03, section 4.4); a lost link gets a new one from /invite.
-  'POST /api/games': async (actor, _, body) => { const { command_id, ...options } = parse(startSchema, body); await playerService().toolTry(actor, 'kingdown_create'); const view = await games.create(actor, options, command_id); return { view, ...(view.kind === 'friend' && view.status === 'waiting' && { invite: await link(actor, view.game_id) }) }; },
+  'POST /api/games': async (actor, _, body) => {
+   const { command_id, ...options } = parse(startSchema, body); await playerService().toolTry(actor, 'kingdown_create');
+   const view = await games.create(actor, options, command_id);
+   if (view.kind !== 'friend' || view.status !== 'waiting') return { view };
+   const invite = await link(actor, view.game_id);
+   return { view: { ...view, invite_id: invite.invite_id }, invite };
+  },
   'POST /api/games/find': async (actor, _, body) => { const input = parse(findSchema, body); await playerService().toolTry(actor, 'kingdown_create'); return games.find(actor, input.options, input.colour, input.command_id, input.any_rules, input.mode); },
   'POST /api/games/:id/accept': (actor, id, body) => games.accept(actor, id, parse(acceptSchema, body)?.rating_policy),
   'POST /api/games/:id/cancel': (actor, id, body) => { parse(emptySchema, body); return games.cancel(actor, id); },

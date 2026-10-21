@@ -293,6 +293,17 @@ describe('website API boundary', () => {
   const mismatch = await call('/api/games', { token, method: 'POST', body: { ...input, colour: 'black' } });
   expect([mismatch.status, (await mismatch.json()).code]).toEqual([409, 'COMMAND_CONFLICT']);
  });
+ it('returns the newly issued invitation identity in the created friend view', async () => {
+  const waiting = { ...view, kind: 'friend', status: 'waiting', invite_id: null };
+  games.create.mockResolvedValueOnce(waiting);
+  games.invite.mockResolvedValueOnce({ token: 'private-link', code: 'ABC234', expires_at: 'soon', invite_id: 'fresh-id' });
+  const response = await call('/api/games', { token: await sign(), method: 'POST', body: { kind: 'friend', options: DEFAULT_OPTIONS, command_id: commandId } });
+  expect(response.status).toBe(201);
+  const body = await response.json();
+  expect(body.view).toEqual({ ...waiting, invite_id: 'fresh-id' });
+  expect(body.invite.invite_id).toBe(body.view.invite_id);
+  expect(games.invite).toHaveBeenCalledOnce(); expect(games.view).not.toHaveBeenCalled();
+ });
  it('returns only the service invite preview and never joins or reads a game', async () => {
   const token = await sign();
   for (const body of [{ token: 'private-link' }, { code: 'ABC234' }]) {

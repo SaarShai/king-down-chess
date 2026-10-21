@@ -1179,6 +1179,9 @@ it('updates a waiting friend screen when a same-revision poll reports a replaced
   transport.call.mockResolvedValue({ content: [], _meta: { view: waiting } });
   await app.send('kingdown_resume', { game_id: game.game_id });
   expect(document.getElementById('friend-actions')!.hidden).toBe(false);
+  document.getElementById('friend-copy-status')!.textContent = 'Copied';
+  await transport.target().read();
+  expect(document.getElementById('friend-copy-status')!.textContent).toBe('Copied');
   transport.call.mockResolvedValue({ content: [], _meta: { view: { ...waiting, invite_id: 'new' } } });
   await transport.target().read();
   expect(app.memory.view?.revision).toBe(game.revision);
