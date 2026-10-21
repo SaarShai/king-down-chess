@@ -1,6 +1,6 @@
 # Verify the existing app in Codex
 
-Status: bounded gameplay proof passes in staging; actual-host interrupted-request recovery and cross-account privacy remain unverified.
+Status: bounded Codex gameplay proof passes in staging. Ticket 34 adds actual ChatGPT interruption and retry evidence. Codex-specific interruption and cross-account privacy remain unverified.
 Parent: U11
 
 ## Plan and pass criteria
@@ -38,4 +38,6 @@ Resume on the accepted staging artifact. Use only existing host controls. If the
 
 The staging open tool returns the active legacy solo game at move 6. The first selected panel is an older aborted Ranked game; it is not the newly opened app. After the owner expands the current app, its panel shows the correct account, March and Darkness powers, cards and all eleven saved actions. Those include the later native ChatGPT Maester swap g1–h1 and computer reply b7–c6. No game action or retry occurs in this follow-up.
 
-The available panel control has no close or navigation API to interrupt an in-flight host request. Native control of the Codex window is disallowed. Screenshot capture times out for both the older panel and the current panel; the current panel's readable Moves dialog supplies history evidence only. These control limits do not establish a game defect or a lost-reply pass. Actual-host interruption and cross-account privacy remain open. The next independent task records existing hosted timing evidence in ticket 33.
+The available panel control has no close or navigation API to interrupt an in-flight host request. Native control of the Codex window is disallowed. Screenshot capture times out for both the older panel and the current panel; the current panel's readable Moves dialog supplies history evidence only. These control limits do not establish a game defect or a lost-reply pass. Ticket 33 records existing hosted timing evidence.
+
+The alternative in [ticket 34](34-host-recovery-and-account-switch.md) uses the actual ChatGPT browser host and a bounded lock on one disposable staging game. It proves commit after an interrupted request, a separate actual Retry after commit, one effect per command and matching web history. The attached host still needs Try again after reload. This closes those bounded ChatGPT transaction checks, not Codex interruption or reliable first readiness. Normal consent sign-out and return also pass; a second existing identity is not available for the cross-account check.

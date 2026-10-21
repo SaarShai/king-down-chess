@@ -6,6 +6,8 @@ Owner request: fix the first-load failure and verify fresh ChatGPT opens without
 
 ## Current follow-up
 
+Ticket 34 exercises actual interrupted requests on staging source `5ac73cc9`. The browser-control-attached tab again shows Couldn't display King Down Staging after navigation and reload; Try again mounts the app. Console capture supplies induced ten-second SDK timeouts and host cache warnings, not a decisive new startup cause. The successful transaction recovery does not close first-readiness reliability. Reuse the earlier attachment controls and native-open evidence; do not repeat the minimal probe or add a hidden retry. See [the bounded recovery result](34-host-recovery-and-account-switch.md).
+
 On product `be0786da`, preview `dpl_Tx6SkvtZnmT7R15NumP1Srp8owM6`, one native mount shows `Internal error` after the game list loads. Selecting a saved game works without **Try again**. Three later native direct-URL opens reach enabled controls, and the last resumes all eight accepted feature actions after refreshing the staging tool definitions. No matching server tool error appears in the inspected deployment logs. The origin is unknown; do not attribute it to the earlier debugger failure without evidence.
 
 See [the current host proof](../../game-ownership/owned-staging-proof.md) and `evidence/staging-game-ownership/startup-matrix.json` beside the application repository. These checks use a warm signed-in profile. Keep a follow-up open to locate the boundary if the error recurs. Do not add a speculative retry or weaken security. The records below preserve the earlier diagnosis.
