@@ -167,7 +167,7 @@ it.each([false, true])('gives a spent card a short gold pulse (reduced motion %s
     for (let i = 0; i < 4 && index < 0; i++) {
       await frame.locator(`#card-w-${i}`).click();
       const use = frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true });
-      if (await use.count()) { await use.click(); index = i; } else await frame.locator('#board-sheet .sheet-head button').click();
+      if (await use.count()) { await use.click(); index = i; } else await frame.locator('#board-sheet .sheet-head button[aria-label="Close"]').click();
     }
     expect(index).toBeGreaterThanOrEqual(0);
     await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move' }).click();

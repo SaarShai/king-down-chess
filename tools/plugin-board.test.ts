@@ -2056,9 +2056,9 @@ it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 by 48 px t
   }
   try {
     await page.evaluate(theme => (window as any).harnessSetContext({ theme }), theme);
-    await frame.locator('#board-menu').click(); await centered('#board-sheet .sheet-head button');
+    await frame.locator('#board-menu').click(); await centered('#board-sheet .sheet-head button[aria-label="Close"]');
     await page.screenshot({ path: join(proof, `plugin-board-menu-390x844-${theme}.png`) });
-    await frame.locator('#board-sheet .sheet-head button').click();
+    await frame.locator('#board-sheet .sheet-head button[aria-label="Close"]').click();
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {
       ...base, game_id: crypto.randomUUID(), status: 'setup', fen: '', options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: true, cards: false, kingPowers: false }, draw: 'RNBQKBNR', choices: [{ order: 'RNBQKBNR', king: null }, null], ready: [false, false],
     });

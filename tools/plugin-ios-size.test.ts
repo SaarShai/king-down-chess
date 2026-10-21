@@ -243,7 +243,7 @@ it('returns focus to each sheet opener after a pointer opens the sheet', async (
     await frame.locator(`#${id}`).click(); await frame.locator(`${sheet}[open]`).waitFor();
     // A refresh under the sheet rebuilds the coins.
     if (/^(power|card)-/.test(id)) await frame.locator('#reload').evaluate(e=>{e.setAttribute('disabled','');e.removeAttribute('disabled');});
-    if (close === 'Escape') await page.keyboard.press('Escape'); else await frame.locator(`${sheet} .sheet-head button`).click();
+    if (close === 'Escape') await page.keyboard.press('Escape'); else await frame.locator(`${sheet} .sheet-head button[aria-label="Close"]`).click();
     await expect.poll(() => frame.locator(`${sheet}[open]`).count()).toBe(0);
     focus[`${id} ${close}`] = await active();
   };
