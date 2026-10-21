@@ -43,4 +43,34 @@ try {
   await shot(page, 'after-host-teardown');
   assertNoErrors();
   console.log('PASS panel privacy: second HTTP actor refused private game; SDK teardown removes private content');
+  await page.close();
+
+  // Reconnect can change the HTTP actor without sending teardown or replacing the iframe.
+  const switched = await browser.newPage(); trapErrors(switched);
+  const board = switched.frameLocator('iframe');
+  await switched.goto(origin);
+  await board.locator('#home-play:not(:disabled)').waitFor();
+  await switched.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen' }));
+  await switched.evaluate(result => window.harnessShow(result), created);
+  await board.locator('#board-menu:not(:disabled)').waitFor();
+  await board.locator('#moves-line').click();
+  let reads = 0;
+  await switched.route('**/fixture-tool', async route => {
+    const response = await route.fetch({ url: new URL('/fixture-friend-tool', origin).href });
+    if (route.request().postDataJSON().name === 'kingdown_get') {
+      const result = await response.json();
+      assert.equal(result._meta?.code, 'FORBIDDEN'); assert.equal(result._meta?.view, undefined); reads++;
+    }
+    await route.fulfill({ response });
+  });
+  // Let the existing board poll meet the real second-actor refusal; no synthetic close event.
+  await board.getByRole('status').filter({ hasText: 'This game panel is closed.' }).waitFor({ timeout: 12_000 });
+  assert(reads > 0, 'The private board read reached the second HTTP actor');
+  assert.equal(await board.locator('body').innerText(), closed);
+  assert.equal(await board.locator('canvas, [data-screen], input, dialog').count(), 0);
+  assert.deepEqual(await switched.evaluate(() => window.harnessWidgetState?.privateContent), { screen: 'home' });
+  await switched.evaluate(result => window.harnessShow(result), created);
+  assert.equal(await board.locator('body').innerText(), closed, 'An old host result cannot restore a refused private board');
+  await shot(switched, 'after-account-reconnect'); assertNoErrors();
+  console.log('PASS account reconnect: current-board access refusal clears the same iframe and its saved private state');
 } finally { await browser.close(); }

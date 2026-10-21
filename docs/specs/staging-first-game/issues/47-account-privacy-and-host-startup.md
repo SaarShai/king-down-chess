@@ -12,6 +12,18 @@ The owner asks to solve second-account privacy and the existing host-startup iss
 4. A cause-specific startup fix must turn the original red path green. Require ten fresh opens of the formerly failing attached path and ten native controls on one exact artifact, without Try again or a hidden retry. If no application defect is found, record the exact external boundary and the verified supported-path limit without calling it fixed.
 5. Run only affected checks, publish only through the guarded staging path if product changes, restore the original account connection and remove probes. Reconcile the report and blueprint; no production release.
 
+## Remaining verification plan
+
+Keep the deployed artifact fixed while testing these ranked causes:
+
+1. Browser control holds a new child frame before its document starts. Inspect the extension's native diagnostic UI or child target state; a child-target error would narrow the existing stalled-request proof.
+2. The host binds a panel to one connection rather than switching it when a different tool result opens. Use native ChatGPT account controls on one open document and record the frame identity and visible contents before and after.
+3. A host result can change the actor without teardown. Inspect the SDK adapter and run the compiled HTTP harness at that boundary if the actual host behavior supports this path.
+
+Reuse the completed server privacy checks and ten native controls. A host-state observation must distinguish a new panel from an in-place transition. Do not call a timeout a privacy leak or a startup repair. Add product code only for a demonstrated defect, then rerun its original reproducer.
+
+Native reconnect now reproduces a real in-place defect on `f27694f7`. Keep A's Moves sheet open, reconnect its existing link as the already-signed-in B account, then return to the original tab. The same sandbox init ID remains. A tool call through the reconnected link lists B's zero games. The old panel receives `Board unavailable for this account` but keeps A's board, handle, cards, powers and seven-action history visible. No teardown occurs. Add a compiled HTTP regression for this refusal path; clear private content at the access-loss boundary and repeat this exact live reconnect after a staging-only release. Restore A through its existing GitHub sign-in.
+
 ## Evidence to reuse
 
 - [Original startup diagnosis](10-first-chatgpt-load.md): minimal widget also fails before its HTML appears; debugger detachment releases navigation in controlled comparisons.
