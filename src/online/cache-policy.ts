@@ -67,7 +67,15 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
     void (async () => {
       if (workers) {
         try {
-          registration = await workers.register('/sw.js', { scope: '/', updateViaCache: 'none' });
+          let existing: ServiceWorkerRegistration | undefined;
+          // Lookup does not wait behind a per-scope script-fetch job, unlike register().
+          try { existing = await workers.getRegistration('/'); } catch { /* Native registration can repair a failed lookup. */ }
+          if (ended) return;
+          const newest = existing?.installing ?? existing?.waiting ?? existing?.active;
+          registration = existing && existing.scope === new URL('/', location.href).href
+            && newest?.scriptURL === new URL('/sw.js', location.href).href && existing.updateViaCache === 'none'
+            ? existing : await workers.register('/sw.js', { scope: '/', updateViaCache: 'none' });
+          if (ended) return;
           void registration.update().catch(() => { updateFailed = true; });
         }
         catch { if (registration) updateFailed = true; else registerFailed = true; /* With no controller, the page can prove an empty cache. */ }

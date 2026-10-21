@@ -47,6 +47,7 @@ export const checks = [
   { name: 'web-game', script: 'tools/web-game-check.mjs', limit: 480, channel: 'chromium', byName: true, exclusive: true },
   { name: 'shared-mechanics', script: 'tools/web-game-check.mjs', args: ['mechanics'], limit: 480, channel: 'chromium', byName: true, exclusive: true },
   { name: 'recovery-consumers', script: 'tools/web-game-check.mjs', args: ['recovery'], limit: 480, channel: 'chromium', byName: true, exclusive: true },
+  { name: 'cache-registration', script: 'tools/cache-registration-check.mjs', limit: 45, channel: 'chromium', byName: true, exclusive: true },
   { name: 'web-online', script: 'tools/web-online-check.mjs', limit: 480, byName: true, exclusive: true },
   { name: 'selftest-dirty', script: 'tools/check-selftest-dirty.mjs', limit: 30, byName: true },
   { name: 'selftest-fail', script: 'tools/check-selftest-dirty.mjs', args: ['fail'], limit: 30, byName: true },

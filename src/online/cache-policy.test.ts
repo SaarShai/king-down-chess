@@ -12,7 +12,7 @@ class Channel {
   constructor() { this.port1.peer = this.port2; this.port2.peer = this.port1; }
 }
 const channels: Channel[] = [];
-let workers: EventTarget & { controller: any; register: ReturnType<typeof vi.fn> };
+let workers: EventTarget & { controller: any; register: ReturnType<typeof vi.fn>; getRegistration: ReturnType<typeof vi.fn> };
 let names: Set<string>;
 let storage: { keys: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> };
 let warn: ReturnType<typeof vi.spyOn>;
@@ -23,19 +23,73 @@ const reply = (controller: ReturnType<typeof worker>, extra = {}) => {
   ports[0].postMessage({ ...request, policy: 'public-build-v1', version: 'build', ...extra });
 };
 const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
+const rootRegistration = () => Object.assign(new EventTarget(), { scope: new URL('/', location.href).href, updateViaCache: 'none', active: Object.assign(workers.controller, { scriptURL: new URL('/sw.js', location.href).href }), installing: null as ReturnType<typeof worker> | null, update: vi.fn().mockResolvedValue(undefined) });
 
 beforeEach(() => {
   vi.useFakeTimers(); channels.length = 0;
   warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  workers = Object.assign(new EventTarget(), { controller: worker(), register: vi.fn().mockResolvedValue(Object.assign(new EventTarget(), { update: vi.fn().mockResolvedValue(undefined) })) });
+  workers = Object.assign(new EventTarget(), { controller: worker(), getRegistration: vi.fn().mockResolvedValue(undefined), register: vi.fn().mockResolvedValue(Object.assign(new EventTarget(), { update: vi.fn().mockResolvedValue(undefined) })) });
   names = new Set(['kingdown-old', 'other-app']);
   storage = { keys: vi.fn(async () => [...names]), delete: vi.fn(async (name: string) => names.delete(name)) };
-  vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: workers }); vi.stubGlobal('caches', storage);
+  vi.stubGlobal('window', {}); vi.stubGlobal('location', new URL('https://kingdown.test/')); vi.stubGlobal('navigator', { serviceWorker: workers }); vi.stubGlobal('caches', storage);
   vi.stubGlobal('MessageChannel', class extends Channel { constructor() { super(); channels.push(this); } });
 });
 afterEach(() => { warn.mockRestore(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe('private cache policy', () => {
+  it('uses an existing root registration without queuing register behind its pending native update', async () => {
+    const registration = rootRegistration(); registration.update.mockImplementation(() => new Promise(() => {}));
+    workers.getRegistration.mockResolvedValue(registration); workers.register.mockImplementation(() => new Promise(() => {}));
+    const send = vi.fn(), result = withPrivateCachePolicy(send).catch(error => error); await flush();
+    if (workers.controller.postMessage.mock.calls.length) reply(workers.controller);
+    await vi.advanceTimersByTimeAsync(8000);
+    expect(await result).not.toBeInstanceOf(CachePolicyUnavailable);
+    expect(workers.getRegistration).toHaveBeenCalledWith('/'); expect(workers.register).not.toHaveBeenCalled();
+    expect(registration.update).toHaveBeenCalledOnce(); expect(send).toHaveBeenCalledOnce();
+  });
+  it('registers when the root registration lookup is absent', async () => {
+    const result = withPrivateCachePolicy(() => 'sent'); await flush(); reply(workers.controller); expect(await result).toBe('sent');
+    expect(workers.getRegistration).toHaveBeenCalledWith('/'); expect(workers.register).toHaveBeenCalledOnce();
+  });
+  it.each(['throw', 'reject'])('falls back to guarded register when registration lookup errors (%s)', async mode => {
+    workers.getRegistration.mockImplementation(() => { if (mode === 'throw') throw new Error('private-lookup-secret'); return Promise.reject(new Error('private-lookup-secret')); });
+    const result = withPrivateCachePolicy(() => 'sent'); await flush(); reply(workers.controller); expect(await result).toBe('sent');
+    expect(workers.register).toHaveBeenCalledOnce(); expect(warn).not.toHaveBeenCalled();
+  });
+  it('refuses a late registration lookup without updates or a late send', async () => {
+    let finish!: (value: object) => void; workers.getRegistration.mockImplementation(() => new Promise(done => { finish = done; }));
+    const registration = rootRegistration(), send = vi.fn(), result = withPrivateCachePolicy(send).catch(error => error);
+    await vi.advanceTimersByTimeAsync(8000); expect(await result).toMatchObject({ failure: { phase: 'register', reason: 'deadline' } });
+    finish(registration); await flush();
+    expect(send).not.toHaveBeenCalled(); expect(registration.update).not.toHaveBeenCalled(); expect(workers.register).not.toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0);
+  });
+  it.each(['scope', 'script', 'cache'])('repairs an incompatible root registration (%s) before proof', async mismatch => {
+    const registration = rootRegistration();
+    if (mismatch === 'scope') registration.scope += 'other/';
+    if (mismatch === 'script') registration.active.scriptURL += '?other';
+    if (mismatch === 'cache') registration.updateViaCache = 'imports';
+    workers.getRegistration.mockResolvedValue(registration);
+    const result = withPrivateCachePolicy(() => 'sent'); await flush(); reply(workers.controller); expect(await result).toBe('sent');
+    expect(workers.register).toHaveBeenCalledWith('/sw.js', { scope: '/', updateViaCache: 'none' }); expect(registration.update).not.toHaveBeenCalled();
+  });
+  it.each(['silent', 'invalid'])('refuses an unsafe looked-up active worker (%s)', async mode => {
+    const registration = rootRegistration(); workers.getRegistration.mockResolvedValue(registration);
+    const send = vi.fn(), result = withPrivateCachePolicy(send).catch(error => error); await flush();
+    if (mode === 'invalid') reply(workers.controller, { policy: 'old' });
+    await vi.advanceTimersByTimeAsync(8000);
+    expect(await result).toMatchObject({ failure: { phase: 'proof', reason: mode === 'invalid' ? 'bad-proof' : 'deadline' } });
+    reply(workers.controller); await flush(); expect(send).not.toHaveBeenCalled(); expect(workers.register).not.toHaveBeenCalled();
+  });
+  it('invalidates looked-up proof when an installation appears before the reply', async () => {
+    const registration = rootRegistration(); workers.getRegistration.mockResolvedValue(registration);
+    const old = workers.controller, next = worker(), send = vi.fn(); next.state = 'installing';
+    const result = withPrivateCachePolicy(send); await flush();
+    registration.installing = next; registration.dispatchEvent(new Event('updatefound')); await flush(); reply(old);
+    await vi.advanceTimersByTimeAsync(12000); expect(send).not.toHaveBeenCalled();
+    registration.installing = null; registration.active = next; change(next); next.dispatchEvent(new Event('statechange')); await flush();
+    next.state = 'activated'; next.dispatchEvent(new Event('statechange')); await flush(); reply(next);
+    await result; expect(send).toHaveBeenCalledOnce(); expect(workers.register).not.toHaveBeenCalled();
+  });
   it('records a bounded proof-deadline support code once without sending private data', async () => {
     const send = vi.fn(), result = withPrivateCachePolicy(send).catch(error => error);
     await vi.advanceTimersByTimeAsync(8000);
