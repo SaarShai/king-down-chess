@@ -1,3 +1,5 @@
+import { RULES } from './rules';
+import { GameRules } from '../game-rules';
 /**
  * The softer Morph cards (card mode, lab; owner, 2026-10-06), each one use and the turn's move,
  * taking nothing. MorphP: one own pawn becomes a knight or a bishop on its square (Morph's shape,
@@ -77,7 +79,7 @@ describe('MorphP: the move', () => {
     // The clock: a pawn leaves for good, as with a promotion or a Sacrifice.
     expect([next.turn, next.used, next.halfmove, next.lost]).toEqual([BLACK, [1, 0], 0, undefined]);
     expect(toFen(next)).toBe('4k3/8/8/8/8/8/PN6/R3K3 b - - 0 12 u1.0');
-    expect(describeMove(pos, m)).toBe('White turns the pawn on b2 into a knight.');
+    expect(describeMove(new GameRules(RULES), pos, m)).toBe('White turns the pawn on b2 into a knight.');
     expect(toFen(play(pos, '!IP:a2=B')).split(' ')[0]).toBe('4k3/8/8/8/8/8/BP6/R3K3');
   });
 
@@ -180,7 +182,7 @@ describe('MorphS: the move', () => {
     expect([m.from, m.to, m.captures, m.swap, m.power]).toEqual([parseSq('a1'), parseSq('c1'), [], true, 'morphs']);
     const next = makeMove(pos, m);
     expect(toFen(next)).toBe('4k3/8/8/8/8/8/P7/BNR1K1NR b - - 6 9 u1.0');
-    expect(describeMove(pos, m)).toBe('White rook on a1 swaps places with the bishop on c1.');
+    expect(describeMove(new GameRules(RULES), pos, m)).toBe('White rook on a1 swaps places with the bishop on c1.');
     // A spent guard (`H`) stays spent where it lands.
     hands(['MorphS'], [], { guardCaptures: 'pawns', guardCaptureLimit: 1 });
     expect(toFen(play(fromFen('4k3/8/8/8/8/8/8/H1N1K3 w - - 0 1'), '!IS:a1<>c1')).split(' ')[0]).toBe('4k3/8/8/8/8/8/8/N1H1K3');

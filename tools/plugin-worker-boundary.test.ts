@@ -65,6 +65,20 @@ await writeFile(process.argv[2] + '.json', JSON.stringify({ engine }));
     expect.soft({ sameBytes: taught.source === baseline.source, engine: taught.engine }, 'Beginner teaching words').toEqual({ sameBytes: true, engine: baseline.engine });
     await writeFile(read, teaching);
 
+    for (const [path, before, after] of [
+      ['src/cursor-text.ts', ', can go here', ', may go here'],
+      ['src/read.ts', "return 'Only a king can take a guard.';", "return 'A guard can only be taken by a king.';"],
+      ['src/move-text.ts', 'uses Firewall to protect all its pieces until its next turn.', 'uses Firewall to protect each of its pieces until its next turn.'],
+    ] as const) {
+      const file = join(copy, path), source = await readFile(file, 'utf8');
+      const changed = source.replace(before, after);
+      expect(changed).not.toBe(source);
+      await writeFile(file, changed);
+      const reworded = await build(path.split('/').at(-1)!.replace('.ts', ''));
+      expect.soft({ sameBytes: reworded.source === baseline.source, engine: reworded.engine }, path).toEqual({ sameBytes: true, engine: baseline.engine });
+      await writeFile(file, source);
+    }
+
     const mechanics = join(copy, 'src/rules/engine.ts'), engine = await readFile(mechanics, 'utf8');
     const changed = engine.replace('export const HAND_MAX = 8;', 'export const HAND_MAX = 7;');
     expect(changed).not.toBe(engine);

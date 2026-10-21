@@ -1,3 +1,6 @@
+import { railsOf, clickPath, landingMoves, marksModel } from '../marks-model';
+import { checkersOf, describeMove, threatsIn, nextMoveNumber } from '../move-text';
+import { reachOf, readTap, unmarkedTap } from '../read';
 import { mulberry32 } from '../sim/rng';
 import { boardFoot } from './board-foot';
 /**
@@ -16,7 +19,6 @@ import { toFen } from '../rules/setup';
 import { LESSONS } from '../lessons';
 import { progress, recordLesson } from '../lesson-shelf-ui';
 import { lessonShelf } from '../lesson-shelf';
-import { nextMoveNumber } from '../move-text';
 import { POWER_TAG, autoQueen, hintMoves, offered } from '../powers-ui';
 import { kingsOf, newGameWarning, playersOf, withDesign, type Setup } from '../new-game';
 import { worthOf } from '../workshop/judge';
@@ -25,7 +27,6 @@ import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnEnded, t
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from '../turn-controls';
 import { awardTurnSeals } from '../ui/tricks';
 import { readPiece, refreshTable, renderTable } from '../ui/table';
-import { clickPath, landingMoves, marksModel } from '../marks-model';
 import { clearCoinRead, initCoins, refreshCoins } from '../ui/powers';
 import { reviewStep } from '../review';
 import { connectMoveMoments } from '../move-moments';
@@ -158,7 +159,7 @@ export function connectPlay(view: BoardView, c: {
   const readWaiting = (sq: number) => {
     selected = null; pending = [];
     ({ notice } = waitingRead(game, currentTurn(), turnMode(), sq));
-    ({ inspected } = game.context.readTap(game.pos, sq, selected, inspected, false));
+    ({ inspected } = readTap(game.pos, sq, selected, inspected, false));
     refresh();
   };
   connectTurnPress($<HTMLButtonElement>('end-turn'), $('board'), {
@@ -226,16 +227,16 @@ export function connectPlay(view: BoardView, c: {
       ...verb,
       captures: verb.captures.filter(sq => !named.includes(sq)),
       bites: selected != null && typeOf(game.pos.board[selected]) === S ? pending : [],
-      read: inspected != null ? game.context.reachOf(shownPos(), inspected) : undefined,
+      read: inspected != null ? reachOf(game.context, shownPos(), inspected) : undefined,
       powers,
       // Owner (2026-10-04): the square the piece left is not marked; where it went (or what it hit) is.
       last: !last ? [] : last.shove ? [last.shove.from, last.shove.to] : last.to === last.from ? [...last.captures] : [last.to],
       hint: hintSquares,
       check: (!busy || thinking) && game.inCheck && viewing == null ? findKing(game.pos.board, game.pos.turn) : null,
-      checkers: (!busy || thinking) && viewing == null ? game.context.checkersOf(game.pos) : [],
-      rails: selected == null ? [] : game.context.railsOf(game.pos.board, selected, [...verb.moves, ...verb.captures], verb.captures),
+      checkers: (!busy || thinking) && viewing == null ? checkersOf(game.context, game.pos) : [],
+      rails: selected == null ? [] : railsOf(game.context.rules.design, game.pos.board, selected, [...verb.moves, ...verb.captures], verb.captures),
       // Settings → Show threats.
-      threats: settings.threats() && viewing == null && !busy && !ended() && (myTurn() || currentTurn().waits) ? game.context.threatsIn({ ...game.pos, turn: currentTurn().activeSide }) : [],
+      threats: settings.threats() && viewing == null && !busy && !ended() && (myTurn() || currentTurn().waits) ? threatsIn(game.context, { ...game.pos, turn: currentTurn().activeSide }) : [],
     });
     const canFinish = pending.length > 0 && cands.some(m => clickPath(m).length === pending.length);
     // Captured pieces: a piece the mover removed counts for the mover; a paladin that removes itself is its own side's loss.
@@ -293,7 +294,7 @@ export function connectPlay(view: BoardView, c: {
     game.play(m);
     if (computer) turnStart = handOver(game);
     notice = '';
-    $('announce').textContent = game.context.describeMove(pre, m, true) + (game.inCheck && !finished() ? ' Check.' : '');
+    $('announce').textContent = describeMove(game.context, pre, m, true) + (game.inCheck && !finished() ? ' Check.' : '');
     moments.played(pre, m);
     // Launch sounds play now; the hit sounds when the board shows the contact.
     const sounds = soundsFor(momentKind(pre, m), m), hit = sounds.hit ? snd[sounds.hit] : null;
@@ -514,7 +515,7 @@ export function connectPlay(view: BoardView, c: {
   };
 
   /** Show why a tap on `sq` did nothing, in the help line (a live region). A piece on `sq` shows its card. */
-  const refuse = (why: string, sq: number): void => { ({ inspected } = game.context.readTap(shownPos(), sq, selected, inspected, false)); notice = why; refresh(); };
+  const refuse = (why: string, sq: number): void => { ({ inspected } = readTap(shownPos(), sq, selected, inspected, false)); notice = why; refresh(); };
 
   view.onSquareClick = (sq, shift = false) => {
     if (saveBlocked) return refuse(recoveryNotice, sq);
@@ -539,7 +540,7 @@ export function connectPlay(view: BoardView, c: {
     }
     const next = [...candidates().filter(m => clickPath(m)[pending.length] === sq), ...landingMoves(candidates(), sq)];
     if (selected == null || next.length === 0) {
-      ({ selected, inspected, pending, notice } = game.context.unmarkedTap(game.pos, sq, selected, inspected, pending, armedTag()));
+      ({ selected, inspected, pending, notice } = unmarkedTap(game.context, game.pos, sq, selected, inspected, pending, armedTag()));
       refresh();
       return;
     }

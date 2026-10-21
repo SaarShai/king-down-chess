@@ -1,3 +1,4 @@
+import { pieceGuide } from '../../read';
 import { GameRules } from '../../game-rules';
 import { client } from '../../account-game/runtime';
 import { art } from '../../account-game/art';
@@ -32,7 +33,7 @@ function draw(tab: string) {
   const target = document.getElementById('collection-items')!; target.replaceChildren(); target.className = tab === 'Cards' ? 'card-grid' : 'piece-cards';
   const groups = powerOptions(kingRules);
   if (tab === 'Pieces') for (const letter of ['P', ...POOL_KINDS].sort((a, b) => 'PALGMSORBNQ'.indexOf(a) - 'PALGMSORBNQ'.indexOf(b))) {
-    const type = LETTERS.indexOf(letter) as PieceType, name = NAMES[type], guide = new GameRules().pieceGuide(type);
+    const type = LETTERS.indexOf(letter) as PieceType, name = NAMES[type], guide = pieceGuide(new GameRules(), type);
     const rows: [string, string][] = [['Moves', guide.moves], ['Takes', guide.captures]]; if (guide.special) rows.push(['Special', guide.special]);
     const card = guideCard(name[0].toUpperCase() + name.slice(1), image(`ui/pieces/${name}-w.webp`), image(`ui/icons/${name}.svg`, 'pi'), rows); card.dataset.piece = name; target.append(card);
   }

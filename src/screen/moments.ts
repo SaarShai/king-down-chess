@@ -1,9 +1,9 @@
+import { describeMove, moveNumbers } from '../move-text';
 import type { SkillName } from '../ai/skill';
 import { type SearchResult } from '../ai/search';
 import type { Engine, Game, Side } from '../game';
 import { clickPath } from '../marks-model';
 import { keyMoments, momentText, type KeyMoment, type momentKind } from '../moment';
-import { moveNumbers } from '../move-text';
 import { findKing, type Color, type Move, type Position, type Status } from '../rules/engine';
 import { toLan } from '../rules/setup';
 import { kingArt } from '../ui/guide';
@@ -119,7 +119,7 @@ export function connectMoments(c: {
     const last = [...game.history].reverse().find(h => !h.move.pass);
     // Ending reason wins over a prior moment caption (`said`); last-move text stays above.
     const why = endReason(game.status, game.pos, c.resigned(), said);
-    $('over-detail').textContent = [last ? game.context.describeMove(last.pos, last.move, true, true) : '', why, `${n} move${n === 1 ? '' : 's'}.`].filter(Boolean).join(' ');
+    $('over-detail').textContent = [last ? describeMove(game.context, last.pos, last.move, true, true) : '', why, `${n} move${n === 1 ? '' : 's'}.`].filter(Boolean).join(' ');
     dlg.returnValue = ''; // Esc leaves the last button's value behind, which would re-fire it
     dlg.querySelector<HTMLImageElement>('.over-w')!.src = kingArt(0, game.context); // the kings that played, as on the board
     dlg.querySelector<HTMLImageElement>('.over-b')!.src = kingArt(1, game.context);

@@ -1,8 +1,8 @@
+import { frozenPieces, frost, FROST_DEFS } from './frost';
 import { GameRules } from '../game-rules';
 import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, S, T, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { figureUrl, selectedFigure } from '../workshop/figures';
-import { frost, FROST_DEFS } from './frost';
 import { drawMarks, POP_MS, RIPPLE_MS, type Highlights } from './marks';
 import { boardInk, coordInk } from './board-ink';
 import { pastTap } from './tap';
@@ -267,7 +267,7 @@ export class PaintedView implements BoardView {
 
   private drawFrost(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row?: number): void {
     if (layer === 'over' && row != null && row !== 7) return;
-    for (const { sq, turns } of this.context.frozenPieces(this.pos)) {
+    for (const { sq, turns } of frozenPieces(this.context, this.pos)) {
       const key = `${turns}-${layer}`;
       let image = this.frostImages.get(key);
       if (!image) {

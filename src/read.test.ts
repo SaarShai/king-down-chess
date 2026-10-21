@@ -11,31 +11,31 @@ const at = parseSq;
 afterEach(() => setRules(DEFAULT_RULES));
 
 it('uses the shared piece name in a board title', () => {
-  expect(pieceTitle(M)).toBe('White Maester.');
-  expect(pieceTitle(M | 16)).toBe('Black Maester.');
+  expect(pieceTitle(new GameRules(RULES), M)).toBe('White Maester.');
+  expect(pieceTitle(new GameRules(RULES), M | 16)).toBe('Black Maester.');
   setRules(parseRule(`design=${designCode({ ...fromPreset(PRESETS.find(p => p.key === 'rook')!), name: 'Old Ward', letter: 'Y' })}`));
-  expect(pieceTitle(T)).toBe('White Old Ward.');
+  expect(pieceTitle(new GameRules(RULES), T)).toBe('White Old Ward.');
 });
 
 it('reads an enemy knight from its own side without changing the position', () => {
   const pos = fromFen('7k/8/8/8/3n4/8/8/K7 w - - 0 1');
   const before = structuredClone(pos);
-  expect([...reachOf(pos, at('d4')).step].sort()).toEqual(['b3', 'b5', 'c2', 'c6', 'e2', 'e6', 'f3', 'f5'].map(at).sort());
+  expect([...reachOf(new GameRules(RULES), pos, at('d4')).step].sort()).toEqual(['b3', 'b5', 'c2', 'c6', 'e2', 'e6', 'f3', 'f5'].map(at).sort());
   expect(pos).toEqual(before);
 });
 
 it('reads the first guide sentence and the piece name', () => {
   const pos = fromFen('7k/8/8/8/3R4/8/8/K7 w - - 0 1');
-  expect(readText(pos, at('d4'))).toBe('rook · Moves any distance orthogonally.');
+  expect(readText(new GameRules(RULES), pos, at('d4'))).toBe('rook · Moves any distance orthogonally.');
 });
 
 it('reads Frozen and Ice Wall from both live mark slots', () => {
   setRules({ kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'IceWall' }] });
   const pos = fromFen('7k/8/8/4n3/3R4/8/8/K7 w - - 0 1');
   pos.marks = [{ sq: at('e5') }, { sq: at('e5') }];
-  expect(readText(pos, at('e5'))).toBe('knight · Moves in an L, over any piece.\nFrozen · Ice Wall');
+  expect(readText(new GameRules(RULES), pos, at('e5'))).toBe('knight · Moves in an L, over any piece.\nFrozen · Ice Wall');
   pos.marks = [{ sq: at('e5'), left: 0 }, { sq: at('e5'), left: 0 }];
-  expect(readText(pos, at('e5'))).not.toMatch(/Frozen|Ice Wall/);
+  expect(readText(new GameRules(RULES), pos, at('e5'))).not.toMatch(/Frozen|Ice Wall/);
 });
 
 it('keeps every short read sentence within eight words', () => {
@@ -43,62 +43,62 @@ it('keeps every short read sentence within eight words', () => {
     if (t === P) continue; // The pawn tip shows its full guide (fault F2).
     const pos = fromFen('7k/8/8/8/8/8/8/K7 w - - 0 1');
     pos.board[at('d4')] = t;
-    expect(readText(pos, at('d4')).split(' · ')[1].split(/\s+/).length, String(t)).toBeLessThanOrEqual(8);
+    expect(readText(new GameRules(RULES), pos, at('d4')).split(' · ')[1].split(/\s+/).length, String(t)).toBeLessThanOrEqual(8);
   }
 });
 
 it('shows the full pawn guide in the tip, with the double step', () => {
-  expect(readText(fromFen('7k/8/8/8/8/8/4P3/K7 w - - 0 1'), at('e2'))).toBe('pawn · Moves 1 square forward. Moves 2 from its start rank.');
+  expect(readText(new GameRules(RULES), fromFen('7k/8/8/8/8/8/4P3/K7 w - - 0 1'), at('e2'))).toBe('pawn · Moves 1 square forward. Moves 2 from its start rank.');
 });
 
 it('names the Guard refusal in eight words', () => {
   const pos = fromFen('7k/8/8/4g3/3R4/8/8/K7 w - - 0 1');
-  expect(whyNot(pos, at('d4'), at('e5'))).toBe('Only a king can take a guard.');
+  expect(whyNot(new GameRules(RULES), pos, at('d4'), at('e5'))).toBe('Only a king can take a guard.');
 });
 
 it('names the Ice Wall refusal', () => {
   setRules({ kings: [null, { king: 'Frost', power: 'IceWall' }] });
   const pos = fromFen('7k/8/8/3p4/3R4/8/8/K7 w - - 0 1');
   pos.marks = [undefined, { sq: at('d5') }];
-  expect(whyNot(pos, at('d4'), at('d5'))).toBe('Ice Wall: nothing can take it now.');
+  expect(whyNot(new GameRules(RULES), pos, at('d4'), at('d5'))).toBe('Ice Wall: nothing can take it now.');
 });
 
 it('names Holy Light shelter and respects its side-only reach', () => {
   setRules({ kings: [null, { king: 'Spirit', power: 'HolyLight' }], holyLightShelter: true, holyLightShelterOrtho: true });
   const pos = fromFen('8/8/3k4/3p4/3R4/8/8/K7 w - - 0 1');
-  expect(whyNot(pos, at('d4'), at('d5'))).toBe('Holy Light: this piece cannot be taken.');
+  expect(whyNot(new GameRules(RULES), pos, at('d4'), at('d5'))).toBe('Holy Light: this piece cannot be taken.');
 });
 
 it('names Mercy and leaves the pawn exception in force', () => {
   setRules({ kings: [null, { king: 'Spirit', power: 'Mercy' }], mercyAura: true, mercyAuraPawnsTake: true });
   const pos = fromFen('8/8/3k4/3p4/3R4/8/8/K7 w - - 0 1');
-  expect(whyNot(pos, at('d4'), at('d5'))).toBe('Only a pawn can take beside Mercy.');
+  expect(whyNot(new GameRules(RULES), pos, at('d4'), at('d5'))).toBe('Only a pawn can take beside Mercy.');
 });
 
 it('names a frozen own piece', () => {
   setRules({ kings: [null, { king: 'Frost', power: 'Freeze' }] });
   const pos = fromFen('7k/8/8/8/3R4/8/8/K7 w - - 0 1');
   pos.marks = [undefined, { sq: at('d4') }];
-  expect(whyNot(pos, at('d4'), at('d5'))).toBe('Frozen: it cannot move this turn.');
+  expect(whyNot(new GameRules(RULES), pos, at('d4'), at('d5'))).toBe('Frozen: it cannot move this turn.');
 });
 
 it('keeps the state words on a second short line', () => {
   setRules({ kings: [null, { king: 'Frost', power: 'Freeze' }] });
   const pos = fromFen('7k/8/8/8/3Q4/8/8/K7 w - - 0 1');
   pos.marks = [undefined, { sq: at('d4') }];
-  const lines = readText(pos, at('d4')).split('\n');
+  const lines = readText(new GameRules(RULES), pos, at('d4')).split('\n');
   expect(lines).toEqual(['queen · Moves any distance in a straight line.', 'Frozen']);
 });
 
 it.each(['haste', 'strike'] as const)('names the quiet %s power', tag => {
   setRules({ kings: [{ king: 'Shadow', power: tag === 'haste' ? 'Haste' : 'Strike' }, null], hasteCaptures: false, strikeCaptures: false });
   const pos = fromFen('7k/8/8/3p4/3R4/8/8/K7 w - - 0 1');
-  expect(whyNot(pos, at('d4'), at('d5'), tag)).toBe(`${tag === 'haste' ? 'Haste' : 'Strike'} cannot take this turn.`);
+  expect(whyNot(new GameRules(RULES), pos, at('d4'), at('d5'), tag)).toBe(`${tag === 'haste' ? 'Haste' : 'Strike'} cannot take this turn.`);
 });
 
 it('names a move that leaves the king in check', () => {
   const pos = fromFen('4r2k/8/8/8/8/8/4R3/4K3 w - - 0 1');
-  expect(whyNot(pos, at('e2'), at('d2'))).toBe('That leaves your king in check.');
+  expect(whyNot(new GameRules(RULES), pos, at('e2'), at('d2'))).toBe('That leaves your king in check.');
 });
 
 it.each([
@@ -106,16 +106,16 @@ it.each([
   ['G', 8], ['M', 8], ['S', 8], ['O', 8], ['C', 14], ['V', 8], ['T', 27],
 ] as const)('reads the ordinary %s reach under the live rules', (letter, count) => {
   const pos = fromFen(`8/7k/8/8/3${letter}4/8/${letter === 'K' ? '8' : 'K7'}/8 w - - 0 1`);
-  expect(reachOf(pos, at('d4')).step.size).toBe(count);
+  expect(reachOf(new GameRules(RULES), pos, at('d4')).step.size).toBe(count);
 });
 
 it('keeps legal pin limits and gives no frozen attack probe', () => {
   const pos = fromFen('4r2k/8/8/8/8/8/4R3/4K3 w - - 0 1');
-  expect(reachOf(pos, at('e2')).step.has(at('d2'))).toBe(false);
+  expect(reachOf(new GameRules(RULES), pos, at('e2')).step.has(at('d2'))).toBe(false);
   setRules({ kings: [null, { king: 'Frost', power: 'Freeze' }] });
   pos.marks = [undefined, { sq: at('e2') }];
-  expect(reachOf(pos, at('e2')).step.size).toBe(0);
-  expect(reachOf(pos, at('a4')).step.size).toBe(0);
+  expect(reachOf(new GameRules(RULES), pos, at('e2')).step.size).toBe(0);
+  expect(reachOf(new GameRules(RULES), pos, at('a4')).step.size).toBe(0);
 });
 
 it('clears a held turn without offering armed moves or a reserve drop', () => {
@@ -123,7 +123,7 @@ it('clears a held turn without offering armed moves or a reserve drop', () => {
   const pos = fromFen('7k/8/8/8/3R4/8/8/K7 w - - 0 1');
   pos.haste = at('a1'); pos.free = true; pos.waiting = [1, 0];
   const before = structuredClone(pos);
-  const reach = reachOf(pos, at('d4'));
+  const reach = reachOf(new GameRules(RULES), pos, at('d4'));
   expect(reach.step.size).toBe(14);
   expect(reach.step.has(at('d4'))).toBe(false);
   expect(pos).toEqual(before);
@@ -131,35 +131,35 @@ it('clears a held turn without offering armed moves or a reserve drop', () => {
 
 it('reads Archer shots and Ogre shove landings under the live rules', () => {
   const pos = fromFen('7k/8/5p2/8/3A4/8/8/K7 w - - 0 1');
-  expect([...reachOf(pos, at('d4')).shot]).toEqual([at('f6')]);
+  expect([...reachOf(new GameRules(RULES), pos, at('d4')).shot]).toEqual([at('f6')]);
   const ogre = fromFen('7k/8/8/4g3/3O4/8/8/K7 w - - 0 1');
-  expect(reachOf(ogre, at('d4')).push).toEqual([{ from: at('e5'), to: at('f6') }]);
-  expect(reachOf(ogre, at('d4')).take.size).toBe(0);
+  expect(reachOf(new GameRules(RULES), ogre, at('d4')).push).toEqual([{ from: at('e5'), to: at('f6') }]);
+  expect(reachOf(new GameRules(RULES), ogre, at('d4')).take.size).toBe(0);
 });
 
 it('keeps counted March and Leap targets among the ordinary reach', () => {
   setRules({ kings: [{ king: 'Mud', power: 'March' }, null], marchUses: 3 });
   const pawn = fromFen('7k/8/8/8/3P4/8/8/K7 w - - 0 1');
-  expect([...reachOf(pawn, at('d4')).step].sort()).toEqual(['d5', 'd6'].map(at).sort());
+  expect([...reachOf(new GameRules(RULES), pawn, at('d4')).step].sort()).toEqual(['d5', 'd6'].map(at).sort());
   setRules({ kings: [{ king: 'Mud', power: 'Leap' }, null], leapUses: 3 });
   const rook = fromFen('7k/8/8/3P4/3R4/8/8/K7 w - - 0 1');
-  expect(reachOf(rook, at('d4')).step.has(at('d6'))).toBe(true);
-  expect(reachOf(rook, at('d4')).step.has(at('d5'))).toBe(false);
+  expect(reachOf(new GameRules(RULES), rook, at('d4')).step.has(at('d6'))).toBe(true);
+  expect(reachOf(new GameRules(RULES), rook, at('d4')).step.has(at('d5'))).toBe(false);
 });
 
 it('names a king at the end of a bite chain', () => {
   const pos = fromFen('8/8/5k2/4p3/3S4/8/8/K7 w - - 0 1');
-  expect(whyNot(pos, at('d4'), at('f6'), null, [at('e5')])).toBe('A bite chain cannot take a king.');
+  expect(whyNot(new GameRules(RULES), pos, at('d4'), at('f6'), null, [at('e5')])).toBe('A bite chain cannot take a king.');
 });
 
 it('does not offer takes through Guard, Ice Wall, Holy Light or Mercy', () => {
   const guard = fromFen('7k/8/8/4p3/3G4/8/8/K7 w - - 0 1');
-  expect(reachOf(guard, at('d4')).take.size).toBe(0);
+  expect(reachOf(new GameRules(RULES), guard, at('d4')).take.size).toBe(0);
   for (const power of ['IceWall', 'HolyLight', 'Mercy'] as const) {
     setRules({ kings: [null, { king: power === 'IceWall' ? 'Frost' : 'Spirit', power }], holyLightShelter: true, mercyAura: true, mercyAuraPawnsTake: true });
     const pos = fromFen('8/8/3k4/3p4/3R4/8/8/K7 w - - 0 1');
     if (power === 'IceWall') pos.marks = [undefined, { sq: at('d5') }];
-    expect(reachOf(pos, at('d4')).take.size, power).toBe(0);
+    expect(reachOf(new GameRules(RULES), pos, at('d4')).take.size, power).toBe(0);
   }
 });
 
@@ -179,14 +179,14 @@ it('selects an own movable piece and reads without a move role', () => {
 
 it('keeps a Beast chain after a wrong tap, and reads a refused target', () => {
   const pos = fromFen('7k/8/n7/8/4P3/8/8/K7 w - - 0 1');
-  expect(unmarkedTap(pos, at('a6'), at('e4'), null, [at('d5')])).toEqual({ selected: at('e4'), inspected: null, pending: [at('d5')], notice: 'Select a marked piece, or stop here.' });
-  expect(unmarkedTap(pos, at('a6'), at('e4'), null, [])).toEqual({ selected: at('e4'), inspected: at('a6'), pending: [], notice: 'The pawn cannot take the knight on a6.' });
+  expect(unmarkedTap(new GameRules(RULES), pos, at('a6'), at('e4'), null, [at('d5')])).toEqual({ selected: at('e4'), inspected: null, pending: [at('d5')], notice: 'Select a marked piece, or stop here.' });
+  expect(unmarkedTap(new GameRules(RULES), pos, at('a6'), at('e4'), null, [])).toEqual({ selected: at('e4'), inspected: at('a6'), pending: [], notice: 'The pawn cannot take the knight on a6.' });
 });
 
 it('names no legal move and an unmarked empty destination', () => {
   const pos = fromFen('4k3/4r3/8/8/8/8/4B3/4K3 w - - 0 1');
-  expect(unmarkedTap(pos, at('e2'), null, null, []).notice).toBe('This bishop has no legal move.');
-  expect(unmarkedTap(pos, at('d3'), at('e2'), null, []).notice).toBe('That leaves your king in check.');
+  expect(unmarkedTap(new GameRules(RULES), pos, at('e2'), null, null, []).notice).toBe('This bishop has no legal move.');
+  expect(unmarkedTap(new GameRules(RULES), pos, at('d3'), at('e2'), null, []).notice).toBe('That leaves your king in check.');
 });
 
 it('lists the lab pieces in the position that the Guide reads', () => {
@@ -197,13 +197,13 @@ it('lists the lab pieces in the position that the Guide reads', () => {
 it('describes the released far2 shots and marks their legal squares', () => {
   setRules({ archerShots: 'far2' });
   const pos = fromFen('7k/8/1p1p1p2/4p3/1p1A1p2/8/3p4/K7 w - - 0 1');
-  expect(pieceGuide(A).captures).toBe('Shoots without moving. It takes an enemy 2 squares away in a straight line, or 2 squares away on a forward diagonal. The shot goes over pieces.');
-  expect([...reachOf(pos, at('d4')).shot].sort()).toEqual(['b4', 'f4', 'd2', 'd6', 'b6', 'f6'].map(at).sort());
+  expect(pieceGuide(new GameRules(RULES), A).captures).toBe('Shoots without moving. It takes an enemy 2 squares away in a straight line, or 2 squares away on a forward diagonal. The shot goes over pieces.');
+  expect([...reachOf(new GameRules(RULES), pos, at('d4')).shot].sort()).toEqual(['b4', 'f4', 'd2', 'd6', 'b6', 'f6'].map(at).sort());
 });
 
 it('reads an enemy Maester without calling its friends yours', () => {
   const pos = fromFen('7k/8/8/8/3m4/8/8/K7 w - - 0 1');
-  expect(readText(pos, at('d4'))).toBe('maester · Swaps places with a friendly piece.');
+  expect(readText(new GameRules(RULES), pos, at('d4'))).toBe('maester · Swaps places with a friendly piece.');
 });
 
 it.each(['plusDiag2', 'ring2', 'plusDiagFwd2', 'fwd2NoBack', 'fwd2NoSide'] as const)('reads %s from its real shot reach', shots => {
@@ -213,7 +213,7 @@ it.each(['plusDiag2', 'ring2', 'plusDiagFwd2', 'fwd2NoBack', 'fwd2NoSide'] as co
     const sq = row * 8 + col;
     if (sq !== at('d4')) pos.board[sq] = 17; // black pawns; no check against h1
   }
-  const reach = reachOf(pos, at('d4')).shot, words = readText(pos, at('d4'));
+  const reach = reachOf(new GameRules(RULES), pos, at('d4')).shot, words = readText(new GameRules(RULES), pos, at('d4'));
   expect(reach.has(at('c3'))).toBe(true);
   expect(words).toMatch(/near diagonals/);
   if (reach.has(at('b2'))) expect(words).toMatch(/2 diagonally|anywhere 2 squares/);
@@ -225,10 +225,10 @@ it.each(['plusDiag2', 'ring2', 'plusDiagFwd2', 'fwd2NoBack', 'fwd2NoSide'] as co
 it('reads the clear-middle restriction only on far forward diagonals', () => {
   setRules({ archerShots: 'plusDiagFwd2Clear' });
   const pos = fromFen('7k/8/1p3p2/2p5/1p1A4/8/8/7K w - - 0 1');
-  expect(reachOf(pos, at('d4')).shot.has(at('b6'))).toBe(false);
-  expect(reachOf(pos, at('d4')).shot.has(at('f6'))).toBe(true);
-  expect(reachOf(pos, at('d4')).shot.has(at('b4'))).toBe(true);
-  expect(readText(pos, at('d4'))).toMatch(/near diagonals.*2 straight.*forward diagonals.*empty middle/);
+  expect(reachOf(new GameRules(RULES), pos, at('d4')).shot.has(at('b6'))).toBe(false);
+  expect(reachOf(new GameRules(RULES), pos, at('d4')).shot.has(at('f6'))).toBe(true);
+  expect(reachOf(new GameRules(RULES), pos, at('d4')).shot.has(at('b4'))).toBe(true);
+  expect(readText(new GameRules(RULES), pos, at('d4'))).toMatch(/near diagonals.*2 straight.*forward diagonals.*empty middle/);
 });
 
 it.each([
@@ -242,36 +242,36 @@ it.each([
   ['T', 'templar · Moves like a queen on capital squares.'],
 ])('reads the %s special act', (letter, words) => {
   const pos = fromFen(`7k/8/8/8/3${letter}4/8/8/K7 w - - 0 1`);
-  expect(readText(pos, at('d4'))).toBe(words);
+  expect(readText(new GameRules(RULES), pos, at('d4'))).toBe(words);
 });
 
 it.each(['over2', 'nearOver2', 'fwdNearOver2'] as const)('reads %s shots only over a piece', archerShots => {
   setRules({ archerShots });
   const pos = fromFen('7k/8/8/8/3A1p2/8/8/7K w - - 0 1');
-  expect(reachOf(pos, at('d4')).shot.has(at('f4'))).toBe(false);
+  expect(reachOf(new GameRules(RULES), pos, at('d4')).shot.has(at('f4'))).toBe(false);
   pos.board[at('e4')] = 1;
-  expect(reachOf(pos, at('d4')).shot.has(at('f4'))).toBe(true);
-  expect(readText(pos, at('d4'))).toContain('only over a piece');
+  expect(reachOf(new GameRules(RULES), pos, at('d4')).shot.has(at('f4'))).toBe(true);
+  expect(readText(new GameRules(RULES), pos, at('d4'))).toContain('only over a piece');
 });
 
 it('names and describes the design that plays as T (ticket 17), and the Templar without one', () => {
   const pos = fromFen('4k3/8/8/8/3T4/8/8/4K3 w - - 0 1');
-  expect([nameOf(T), readText(pos, at('d4')).split(' · ')[0]]).toEqual(['templar', 'templar']);
+  expect([nameOf(T), readText(new GameRules(RULES), pos, at('d4')).split(' · ')[0]]).toEqual(['templar', 'templar']);
   setRules(parseRule(`design=${designCode({ ...fromPreset(PRESETS.find(p => p.key === 'rook')!), name: 'My Rook', letter: 'Y' })}`));
   expect(nameOf(T)).toBe('My Rook');
-  expect(pieceGuide(T).moves).toBe('Moves like a rook.');
-  expect(readText(pos, at('d4'))).toBe('My Rook · Moves like a rook.');
-  expect(whyNot(pos, at('d4'), at('e5'))).toBe('My Rook cannot reach e5.');
+  expect(pieceGuide(new GameRules(RULES), T).moves).toBe('Moves like a rook.');
+  expect(readText(new GameRules(RULES), pos, at('d4'))).toBe('My Rook · Moves like a rook.');
+  expect(whyNot(new GameRules(RULES), pos, at('d4'), at('e5'))).toBe('My Rook cannot reach e5.');
   // A design's name takes no article (review nit 8).
   const take = fromFen('4k3/8/8/8/3t4/8/8/3RK3 w - - 0 1');
-  expect(describeMove(take, legalMoves(take).find(m => m.from === at('d1') && m.to === at('d4'))!)).toBe('White rook d1 to d4, taking My Rook on d4.');
+  expect(describeMove(new GameRules(RULES), take, legalMoves(take).find(m => m.from === at('d1') && m.to === at('d4'))!)).toBe('White rook d1 to d4, taking My Rook on d4.');
   // Sacrifice brings back the design with no article, and a pool piece with the right one (review 17b, item 1).
-  const sac = { from: at('a2'), to: at('a2'), captures: [], power: 'sacrifice' } as unknown as Parameters<typeof describeMove>[1];
-  expect(describeMove(take, { ...sac, promo: T })).toBe('White sacrifices the pawn on a2 and brings back My Rook there.');
-  expect(describeMove(take, { ...sac, promo: A })).toBe('White sacrifices the pawn on a2 and brings back an archer there.');
+  const sac = { from: at('a2'), to: at('a2'), captures: [], power: 'sacrifice' } as unknown as Parameters<typeof describeMove>[2];
+  expect(describeMove(new GameRules(RULES), take, { ...sac, promo: T })).toBe('White sacrifices the pawn on a2 and brings back My Rook there.');
+  expect(describeMove(new GameRules(RULES), take, { ...sac, promo: A })).toBe('White sacrifices the pawn on a2 and brings back an archer there.');
   // A sentence starts with a capital, also for a name typed in lower case (review 17b, item 3).
   setRules(parseRule(`design=${designCode({ ...fromPreset(PRESETS.find(p => p.key === 'rook')!), name: 'old ward', letter: 'Y' })}`));
-  expect(whyNot(pos, at('d4'), at('e5'))).toBe('Old ward cannot reach e5.');
+  expect(whyNot(new GameRules(RULES), pos, at('d4'), at('e5'))).toBe('Old ward cannot reach e5.');
 });
 
 it.each([
@@ -293,8 +293,8 @@ it.each([
 });
 
 it('uses Select in the shared Beast and Reaver rules', () => {
-  expect(pieceGuide(S).special).toBe('After a bite, it can bite again from its new square. A chain cannot continue onto a king. Select each piece to bite. Select "Stop here" to end the chain.');
-  expect(pieceGuide(V).special).toBe('Select the enemy piece, then the landing square.');
+  expect(pieceGuide(new GameRules(RULES), S).special).toBe('After a bite, it can bite again from its new square. A chain cannot continue onto a king. Select each piece to bite. Select "Stop here" to end the chain.');
+  expect(pieceGuide(new GameRules(RULES), V).special).toBe('Select the enemy piece, then the landing square.');
 });
 
 it.each([
@@ -308,6 +308,6 @@ it.each([
   setRules(other);
   const ambient = structuredClone(RULES);
   expect(teachNote(pos, move, context.rules)).toEqual([kind, words]);
-  if ('paladinKamikaze' in owned) expect(context.pieceGuide(L).special).toContain('Leaves the board after each take.');
+  if ('paladinKamikaze' in owned) expect(pieceGuide(context, L).special).toContain('Leaves the board after each take.');
   expect(RULES).toEqual(ambient);
 });

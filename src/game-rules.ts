@@ -1,12 +1,7 @@
-/** Immutable game definitions and the only product entry points to rules-dependent helpers. */
+/** Immutable game definitions and the product entry points to mechanical rules operations. */
 import * as engine from './rules/engine';
 import { DEFAULT_RULES, RULES, setRules, type Rules } from './rules/rules';
 import * as setup from './rules/setup';
-import * as read from './read';
-import * as words from './move-text';
-import * as marks from './marks-model';
-import { cursorText } from './cursor-text';
-import { frozenPieces } from './render/frost';
 import { genDesigned, type DesignSpec, type Refused, type TryState } from './rules/design';
 import { positionKey } from './rules/position-key';
 
@@ -40,7 +35,7 @@ export class GameRules {
   randomBackRank(rng?: () => number, pool?: string) { return setup.randomBackRank(rng, pool, this.rules); }
   positionKey(pos: engine.Position) { return this.#scoped(() => positionKey(pos)); }
   legalMoves(pos: engine.Position) { return this.#scoped(() => engine.legalMoves(pos)); }
-  pseudoMoves(pos: engine.Position) { return this.#scoped(() => engine.pseudoMoves(pos)); }
+  pseudoMoves(pos: engine.Position, mode: engine.GenMode = 'all') { return this.#scoped(() => engine.pseudoMoves(pos, mode)); }
   inCheck(pos: engine.Position) { return this.#scoped(() => engine.inCheck(pos)); }
   status(pos: engine.Position) { return this.#scoped(() => engine.status(pos)); }
   makeMove(pos: engine.Position, move: engine.Move) { return this.#scoped(() => engine.makeMove(pos, move)); }
@@ -54,20 +49,4 @@ export class GameRules {
   aName(...args: Parameters<typeof engine.aName>) { return this.#scoped(() => engine.aName(...args)); }
   playedDesign() { return this.#scoped(() => { const design = engine.playedDesign(); return design ? freeze(structuredClone(design)) : null; }); }
   markKind(...args: Parameters<typeof engine.markKind>) { return this.#scoped(() => engine.markKind(...args)); }
-  pieceTitle(...args: Parameters<typeof read.pieceTitle>) { return this.#scoped(() => read.pieceTitle(...args)); }
-  reachOf(...args: Parameters<typeof read.reachOf>) { return this.#scoped(() => read.reachOf(...args)); }
-  pieceGuide(...args: Parameters<typeof read.pieceGuide>) { return this.#scoped(() => read.pieceGuide(...args)); }
-  readText(...args: Parameters<typeof read.readText>) { return this.#scoped(() => read.readText(...args)); }
-  pieceStates(...args: Parameters<typeof read.pieceStates>) { return this.#scoped(() => read.pieceStates(...args)); }
-  whyNot(...args: Parameters<typeof read.whyNot>) { return this.#scoped(() => read.whyNot(...args)); }
-  readTap(...args: Parameters<typeof read.readTap>) { return this.#scoped(() => read.readTap(...args)); }
-  unmarkedTap(...args: Parameters<typeof read.unmarkedTap>) { return this.#scoped(() => read.unmarkedTap(...args)); }
-  guideTypes(...args: Parameters<typeof read.guideTypes>) { return this.#scoped(() => read.guideTypes(...args)); }
-  checkCause(...args: Parameters<typeof words.checkCause>) { return this.#scoped(() => words.checkCause(...args)); }
-  checkersOf(...args: Parameters<typeof words.checkersOf>) { return this.#scoped(() => words.checkersOf(...args)); }
-  describeMove(...args: Parameters<typeof words.describeMove>) { return this.#scoped(() => words.describeMove(...args)); }
-  threatsIn(...args: Parameters<typeof words.threatsIn>) { return this.#scoped(() => words.threatsIn(...args)); }
-  railsOf(...args: Parameters<typeof marks.railsOf>) { return this.#scoped(() => marks.railsOf(...args)); }
-  cursorText(...args: Parameters<typeof cursorText>) { return this.#scoped(() => cursorText(...args)); }
-  frozenPieces(...args: Parameters<typeof frozenPieces>) { return this.#scoped(() => frozenPieces(...args)); }
 }

@@ -1,10 +1,11 @@
+import { checkCause, describeMove, moveNumbers } from '../move-text';
+import { readText } from '../read';
 import { GameRules } from '../game-rules';
 import { contextLine, type ContextState } from '../context-line';
 import { LESSONS } from '../lessons';
 import { progress as lessonProgress } from '../lesson-shelf-ui';
 import { type Game, type Side } from '../game';
 import type { KeyMoment } from '../moment';
-import { moveNumbers } from '../move-text';
 import { pieceIcon } from '../piece-icons';
 import { type Color, type PieceType, type Rules, type Position, A, C, L, M, NAMES, O, S, V, colorOf, typeOf } from '../rules/engine';
 
@@ -20,7 +21,7 @@ let thinkingAt = 0, thinkTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function readPiece(pos: Position, sq: number | null, inspecting: boolean, context: GameRules = new GameRules()): void {
   const code = sq == null ? 0 : pos.board[sq];
-  const [line = '', states = ''] = sq == null ? [] : context.readText(pos, sq).split('\n');
+  const [line = '', states = ''] = sq == null ? [] : readText(context, pos, sq).split('\n');
   read = code ? `${colorOf(code) ? 'Black' : 'White'} ${context.nameOf(typeOf(code))}.${states ? ` ${states}.` : ''}` : '';
   readNote = line.split(' · ')[1] ?? '';
   reading = inspecting;
@@ -204,14 +205,14 @@ export function refreshTable(s: TableState): void {
     strip.classList.toggle('is-turn', liveSide === c && (!text('status') || text('status') === 'thinking…'));
   }
   const history = s.game.history, shown = s.viewing == null ? history.at(-1) : history[s.viewing - 1];
-  const story = shown ? s.game.context.describeMove(shown.pos, shown.move, true) : '';
+  const story = shown ? describeMove(s.game.context, shown.pos, shown.move, true) : '';
   const icon = shown && !shown.move.pass ? pieceIcon(typeOf(shown.pos.board[shown.move.from]) as PieceType, colorOf(shown.pos.board[shown.move.from])) : '';
   $('last-move').innerHTML = `${icon}<span></span>`;
   $('last-move').querySelector('span')!.textContent = story;
   $('moves').querySelectorAll<HTMLElement>('[data-ply]').forEach(row => {
     const h = history[Number(row.dataset.ply) - 1];
     row.dataset.lan = h.lan;
-    row.setAttribute('aria-label', `${s.game.context.describeMove(h.pos, h.move, true)}${row.title ? ` ${row.title}` : ''}`);
+    row.setAttribute('aria-label', `${describeMove(s.game.context, h.pos, h.move, true)}${row.title ? ` ${row.title}` : ''}`);
     row.dataset.mark = row.textContent?.match(/\?*$/)?.[0] ?? '';
     if (!h.move.pass) row.insertAdjacentHTML('afterbegin', pieceIcon(typeOf(h.pos.board[h.move.from]) as PieceType, colorOf(h.pos.board[h.move.from])));
   });
@@ -228,7 +229,7 @@ export function refreshTable(s: TableState): void {
     free: !!s.game.pos.free,
     selected: s.selected == null ? '' : read,
     waiting: s.turn.waits, check: s.game.inCheck, computer: s.sides[s.game.pos.turn] === 'ai',
-    checkCause: s.game.inCheck && !s.turn.staged ? s.game.context.checkCause(s.game.pos, history.at(-1)?.move, s.mode, s.linkSide ?? (s.sides[0] === 'ai' ? 1 : 0)) : '',
+    checkCause: s.game.inCheck && !s.turn.staged ? checkCause(s.game.context, s.game.pos, history.at(-1)?.move, s.mode, s.linkSide ?? (s.sides[0] === 'ai' ? 1 : 0)) : '',
     turnLine: turnLine(s.game, s.turn, s.mode),
     stagedEnd: s.turn.staged && s.game.status !== 'playing' ? s.game.status === 'checkmate' ? 'Checkmate.' : 'Draw.' : '',
     lesson: s.lesson == null ? '' : text('turn'), lessonNote: s.lesson == null ? '' : text('moment'),

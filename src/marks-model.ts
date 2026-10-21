@@ -1,5 +1,5 @@
-import { B, BLACK, C, CAPITAL, L, Q, R, RULES, T, colorOf, typeOf, type Move } from './rules/engine';
-import { DIR, patternOf, step, type Dir } from './rules/design';
+import { B, BLACK, C, CAPITAL, L, Q, R, T, colorOf, typeOf, type Move } from './rules/engine';
+import { DIR, patternOf, step, type DesignSpec, type Dir } from './rules/design';
 
 /** Move marks from the offered moves; the caller owns the selection. */
 export function marksModel(moves: readonly Move[], bites: readonly number[] = []) {
@@ -49,10 +49,10 @@ export const clickPath = (m: Move): number[] => (m.shove
   : [m.to]);
 
 const ORTHO: Dir[] = ['n', 'e', 's', 'w'], DIAG: Dir[] = ['ne', 'se', 'sw', 'nw'];
-/** The lines of the piece on `from`: a slider's, the paladin's and the catapult's, a design's (`RULES.design`), the Templar's on a capital. */
-function linesOf(board: Uint8Array, from: number): Dir[] {
+/** The lines of the piece on `from`: a slider's, the paladin's and the catapult's, a design's (the owned design), the Templar's on a capital. */
+function linesOf(design: DesignSpec | null, board: Uint8Array, from: number): Dir[] {
   const t = typeOf(board[from]);
-  if (t === T && RULES.design) return [...patternOf(RULES.design, board, from).lines];
+  if (t === T && design) return [...patternOf(design, board, from).lines];
   return t === B ? DIAG : t === R || t === C ? ORTHO : t === Q || t === L || (t === T && CAPITAL.includes(from)) ? [...ORTHO, ...DIAG] : [];
 }
 
@@ -63,9 +63,9 @@ function linesOf(board: Uint8Array, from: number): Dir[] {
  * A line passes over a piece when the square past it is marked (the paladin); a catapult's lob is a jump, so its rails
  * stop at the screen. A line with no marked square has no rail.
  */
-export function railsOf(board: Uint8Array, from: number, marked: readonly number[], captures: readonly number[]): { to: number; end: 'x' | 'stop' | 'arrow' }[] {
+export function railsOf(design: DesignSpec | null, board: Uint8Array, from: number, marked: readonly number[], captures: readonly number[]): { to: number; end: 'x' | 'stop' | 'arrow' }[] {
   const dy = colorOf(board[from]) === BLACK ? -1 : 1, out: { to: number; end: 'x' | 'stop' | 'arrow' }[] = [];
-  for (const l of linesOf(board, from)) {
+  for (const l of linesOf(design, board, from)) {
     const [x, y] = DIR[l], ray: number[] = [];
     for (let s = step(from, x, y * dy); s >= 0; s = step(s, x, y * dy)) ray.push(s);
     let far = -1;

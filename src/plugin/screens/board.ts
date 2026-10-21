@@ -1,16 +1,17 @@
+import { cursorText } from '../../cursor-text';
+import { railsOf, marksModel } from '../../marks-model';
+import { checkCause, checkersOf, describeMove, threatsIn, shortMove } from '../../move-text';
+import { pieceTitle, reachOf, readText, teachNote } from '../../read';
 import { GameRules } from '../../game-rules';
 import { needsServerPreview } from '../../account-game/engine-identity';
 import { toFen } from '../../rules/setup';
 import { colorOf, findKing, K, moveNumber, NAMES, LETTERS, piece, PLAIN_KINGS, T, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
 import { cardName, cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
-import { marksModel } from '../../marks-model';
 import { LESSONS } from '../../lessons';
 import { momentKind } from '../../moment';
 import { boardFoot } from '../../screen/board-foot';
 import { soundsFor } from '../../screen/moments';
 import { contextLine } from '../../context-line';
-import { shortMove } from '../../move-text';
-import { teachNote } from '../../read';
 import { waitNotice } from '../../turn';
 import type { DraftPosition, DraftPreview, PlayerRecord, View } from '../../match/protocol';
 import { ending } from '../ending';
@@ -121,7 +122,7 @@ export function boardScreen(store: Store) {
   let selected: number | undefined, inspected: number | undefined, moves: Choice[] = [], cursor = 0, cursorShown = false, cursorTargets: number[] = [];
   function sayCursor() {
     if (!pos) return;
-    const label = cursorShown ? gameRules.cursorText(pos, cursor, selected, cursorTargets.includes(cursor)) : '';
+    const label = cursorShown ? cursorText(gameRules, pos, cursor, selected, cursorTargets.includes(cursor)) : '';
     $('board').setAttribute('aria-label', label ? `Chess board, ${label}. Enter selects a square.` : 'Chess board'); $('cursor-say').textContent = label;
   }
   function drawCursor() {
@@ -312,7 +313,7 @@ export function boardScreen(store: Store) {
   };
   function choices(list: Choice[]) {
     $('move-hint').textContent = !list.length ? '' : list.every(({move}) => needsArming(move)) ? 'Choose a move below.' : 'Select a marked square to move, or choose a move below.';
-    $('choices').replaceChildren(...list.map(({lan, move}) => { const b = button(gameRules.describeMove(pos!, move), () => choose(lan)); b.title = lan; return b; }));
+    $('choices').replaceChildren(...list.map(({lan, move}) => { const b = button(describeMove(gameRules, pos!, move), () => choose(lan)); b.title = lan; return b; }));
   }
   $('app-frame').addEventListener('keydown', event => {
     if (event.key !== 'Escape' || client.state.screen !== 'board' && !sheet?.contains(event.target as Node)) return;
@@ -468,10 +469,10 @@ export function boardScreen(store: Store) {
     const trailSteps = steps.length ? steps : start < history.length ? history.slice(start) : lastMove ? [lastMove] : [];
     const trail = trailSteps.flatMap(({move: last}) => last.pass ? [] : [...(last.drop === undefined ? [last.from] : []), last.to, ...last.captures, ...(last.shove ? [last.shove.from, last.shove.to] : [])]);
     const users = selected === undefined ? cardChoices().filter(c => !c.move.pass && c.move.drop === undefined).map(c => c.move.from) : [];
-    highlight({ ...marks, selected, last: [...new Set(trail)], read: inspected === undefined ? undefined : gameRules.reachOf(pos, inspected), powers: [...new Set([...cands.filter(m => m.power && !m.pass).map(m => m.to), ...named().map(c => c.move.to), ...users])], rails: selected === undefined ? [] : gameRules.railsOf(pos.board, selected, [...marks.moves, ...marks.captures], marks.captures), check: (previewPosition()?.in_check ?? gameRules.inCheck(pos)) ? findKing(pos.board, pos.turn) : null, checkers: gameRules.checkersOf(pos), threats: view.status === 'playing' && !animating ? gameRules.threatsIn({...pos, turn:view.seat}) : [] });
+    highlight({ ...marks, selected, last: [...new Set(trail)], read: inspected === undefined ? undefined : reachOf(gameRules, pos, inspected), powers: [...new Set([...cands.filter(m => m.power && !m.pass).map(m => m.to), ...named().map(c => c.move.to), ...users])], rails: selected === undefined ? [] : railsOf(gameRules.rules.design, pos.board, selected, [...marks.moves, ...marks.captures], marks.captures), check: (previewPosition()?.in_check ?? gameRules.inCheck(pos)) ? findKing(pos.board, pos.turn) : null, checkers: checkersOf(gameRules, pos), threats: view.status === 'playing' && !animating ? threatsIn(gameRules, {...pos, turn:view.seat}) : [] });
     const square = inspected ?? selected, code = square === undefined ? 0 : pos.board[square];
-    const [line = '', states = ''] = square === undefined ? [] : gameRules.readText(pos, square).split('\n');
-    const words = code ? `${gameRules.pieceTitle(code)}${states ? ' ' + states + '.' : ''}` : '';
+    const [line = '', states = ''] = square === undefined ? [] : readText(gameRules, pos, square).split('\n');
+    const words = code ? `${pieceTitle(gameRules, code)}${states ? ' ' + states + '.' : ''}` : '';
     const available = boardActions(view,Date.now()-readAt), opponent = view.opponent?.handle ?? 'Your opponent';
     const deadline = available.claim === 'end' ? 'The first-turn deadline passes.' : available.claim ? view.days_per_move ? `${opponent} has not moved for ${view.days_per_move} day${view.days_per_move===1?'':'s'}.` : `${opponent} misses the move deadline.` : '';
     // Option A: Beginner notes; each enemy fairy action kind shows once a game, at the history length it first shows.
@@ -485,7 +486,7 @@ export function boardScreen(store: Store) {
     const t6 = shown && steps.length && ['STALE_REVISION', 'WRONG_TURN'].includes(refusalNotice!.code ?? '')
       ? (mode() === 'computer' ? 'The game changed. Check it, then tap End turn.' : 'The game changed. Check it, then tap Send your turn.') : '';
     const refusal = t6 || (shown ? refusalNotice!.text : '');
-    const context = contextLine({voice:'you', teach:(fresh ? teach[1] : '') || first, result:view.result ? ending(view) : '', refusal, link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:lesson ?? line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:gameRules.checkCause(pos, lastMove?.move, 'link', view.seat), computer:view.turn !== view.seat, midWay:view.turn === view.seat && draft.midWay && !draft.waits, stagedEnd:draft.waits && (previewPosition()?.status ?? gameRules.status(pos)) !== 'playing' ? draft.line : '', waiting:draft.waits, free:!!pos.free, turnLine:draft.line, armed, armedLine:armed ? coinWords(coinState(pos,view.seat,gameRules.rules,[],true)!,pos) : ''});
+    const context = contextLine({voice:'you', teach:(fresh ? teach[1] : '') || first, result:view.result ? ending(view) : '', refusal, link:deadline, read:inspected === undefined ? '' : words, selected:words, readNote:lesson ?? line.split(' · ')[1] ?? '', check:view.in_check && view.turn === view.seat, checkCause:checkCause(gameRules, pos, lastMove?.move, 'link', view.seat), computer:view.turn !== view.seat, midWay:view.turn === view.seat && draft.midWay && !draft.waits, stagedEnd:draft.waits && (previewPosition()?.status ?? gameRules.status(pos)) !== 'playing' ? draft.line : '', waiting:draft.waits, free:!!pos.free, turnLine:draft.line, armed, armedLine:armed ? coinWords(coinState(pos,view.seat,gameRules.rules,[],true)!,pos) : ''});
     if (sending() && ['mid-way','waiting','staged-end'].includes(context.rank)) Object.assign(context, {rank:'sending', line:'Sending…', note:''});
     if (inspected !== undefined && draft.waits && !networkBlocked() && view.draw_offer == null && !['result','refusal','link'].includes(context.rank)) context.note = waitNotice(mode(), view.seat);
     if (context.rank==='link' && deadline) context.note=available.claim==='end'?'You may end the game with no result.':'You may claim the win.';
@@ -495,7 +496,7 @@ export function boardScreen(store: Store) {
       Object.assign(context, {rank:'armed', line:`${cardName(card)}.`, note:`${squares ? 'Select a marked square.' : 'Choose a marked piece, then a marked square.'} ${ruleLine(cardText(card, gameRules.rules))}`});
     } else if (armed && context.rank === 'armed') Object.assign(context, {note:`${context.note} ${ruleLine(powerText(armed, gameRules.rules))}`});
     // Keep the armed row size while the preview asks for a second tap and names the result.
-    if (hold && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:context.rank === 'armed' ? 'armed' : 'held', line:`Select again to ${hold.move.shove ? 'shove' : 'swap'}.`, note:gameRules.describeMove(pos, hold.move)});
+    if (hold && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:context.rank === 'armed' ? 'armed' : 'held', line:`Select again to ${hold.move.shove ? 'shove' : 'swap'}.`, note:describeMove(gameRules, pos, hold.move)});
     if (view.draw_offer != null && (t6 || !['result','refusal','link'].includes(context.rank))) context.note = [context.note, view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.'].filter(Boolean).join(' ');
     if (stale()) Object.assign(context, {rank:'link', line:'Not current', note:''});
     $('status').textContent = context.rank === 'refusal' ? t6 : context.line;
@@ -513,7 +514,7 @@ export function boardScreen(store: Store) {
       const face = art(type === K ? portraitPath(colorOf(code)) : `ui/pieces/${NAMES[type]}-${colorOf(code) ? 'b' : 'w'}.webp`);
       all.innerHTML = `<span class="portrait" aria-hidden="true">${face ? `<img id="piece-info-art" alt="" src="${face}">` : ''}</span>`;
       if (!face) all.firstElementChild!.textContent = (type === T && gameRules.playedDesign()?.letter) || LETTERS[type];
-      all.onclick = () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${gameRules.readText(pos!, square!)}` : gameRules.readText(pos!, square!)));
+      all.onclick = () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(gameRules, pos!, square!)}` : readText(gameRules, pos!, square!)));
     }
     if ((!drawReply || unarmed) && selected !== undefined && moves.some(({move}) => move.from === selected && !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
     if (!unarmed) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; held = undefined; choices([]); refresh(); }));

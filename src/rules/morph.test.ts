@@ -1,3 +1,5 @@
+import { RULES } from './rules';
+import { GameRules } from '../game-rules';
 /**
  * The Morph and MorphB cards (card mode, lab; owner idea 2026-10-06): one own piece (not the king or
  * a pawn) becomes another type the draw pool fields (not a king or pawn, not its own type), on its
@@ -116,7 +118,7 @@ describe('Morph: the move', () => {
     const next = makeMove(pos, m);
     for (let s = 0; s < 64; s++) expect(next.board[s], `square ${s}`).toBe(s === parseSq('a1') ? piece(Q, WHITE) : pos.board[s]);
     expect([next.turn, next.used, next.halfmove, next.lost]).toEqual([BLACK, [1, 0], 4, undefined]);
-    expect(describeMove(pos, m)).toBe('White turns the rook on a1 into a queen.');
+    expect(describeMove(new GameRules(RULES), pos, m)).toBe('White turns the rook on a1 into a queen.');
     // A spent guard becomes a fresh piece.
     hands(['Morph'], [], { guardCaptures: 'pawns', guardCaptureLimit: 1 });
     expect(toFen(play(fromFen('4k3/8/8/8/8/8/8/H3K3 w - - 0 1'), '!I:a1=R')).split(' ')[0]).toBe('4k3/8/8/8/8/8/8/R3K3');

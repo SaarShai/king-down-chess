@@ -1,3 +1,4 @@
+import { pieceGuide, guideTypes } from '../read';
 import { GameRules } from '../game-rules';
 import { DEFAULT_RULES } from '../rules/rules';
 import { A, B, G, K, KINGS, L, LETTERS, M, N, NAMES, O, P, PLAIN_KINGS, Q, R, S, type Color, type PieceType, type Position, type PowerName, type Rules } from '../rules/engine';
@@ -28,8 +29,8 @@ export const pieceArt = (t: PieceType, black = false, context: GameRules = new G
 function fillPieceGuide(pos: Position, context: GameRules, preset?: Partial<Rules>): void {
   const rows = $('rules-rows');
   rows.innerHTML = '';
-  for (const t of context.guideTypes(pos)) {
-    const g = context.pieceGuide(t);
+  for (const t of guideTypes(pos)) {
+    const g = pieceGuide(context, t);
     const card = document.createElement('article');
     card.className = 'piece-card';
     card.dataset.piece = NAMES[t];
@@ -73,7 +74,7 @@ function fillPieceGuide(pos: Position, context: GameRules, preset?: Partial<Rule
 
 /** A piece's rules in one line, for its card and the screen reader. */
 export const pieceText = (t: PieceType, context: GameRules = new GameRules()): string => {
-  const g = context.pieceGuide(t);
+  const g = pieceGuide(context, t);
   return [g.moves, g.captures, g.special].filter(Boolean).join(' ');
 };
 

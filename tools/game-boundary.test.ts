@@ -10,11 +10,6 @@ const blocked: Record<string, Set<string>> = Object.fromEntries(Object.entries({
   'rules/setup': 'randomBackRank waitGuards startPosition fromFen',
   'ai/search': 'search searchLegal resetSearchState',
   'rules/position-key': 'positionKey hashBoard',
-  'read': 'pieceTitle reachOf pieceGuide readText pieceStates whyNot readTap unmarkedTap guideTypes',
-  'move-text': 'checkCause checkersOf describeMove threatsIn',
-  'marks-model': 'railsOf',
-  'cursor-text': 'cursorText',
-  'render/frost': 'frozenPieces',
   'workshop/powers': 'withRules',
   'workshop/moves': 'tryBoard',
 }).map(([path, names]) => [`src/${path}.ts`, new Set(names.split(' '))]));
@@ -22,8 +17,6 @@ const blocked: Record<string, Set<string>> = Object.fromEntries(Object.entries({
 // Private rule owners and their helper implementations are not product entry points.
 const internal = new Set([
   'src/game-rules.ts', 'src/match/worker.ts', 'src/match/search-worker.ts',
-  'src/read.ts', 'src/move-text.ts', 'src/marks-model.ts', 'src/cursor-text.ts',
-  'src/render/frost.ts',
 ]);
 function violations(file: string, source: string): string[] {
   const faults: string[] = [];
@@ -78,7 +71,7 @@ describe('product game boundary', () => {
     expect(violations('src/example.ts', "export { RULES as active } from './rules/rules';")).toHaveLength(1);
     expect(violations('src/example.ts', "void import('./ai/search');")).toHaveLength(1);
     expect(violations('src/example.ts', "import type { Rules } from './rules/rules'; import { parseSq, P } from './rules/engine';")).toEqual([]);
-    expect(violations('src/example.ts', "import { shortMove } from './move-text'; import { ceremonyMoveLabel } from './ceremony-game'; import { previouslyTurn } from './previously'; import { teachNote } from './read'; import { searchOwned } from './ai/search';")).toEqual([]);
+    expect(violations('src/example.ts', "import { shortMove } from './move-text'; import { ceremonyMoveLabel } from './ceremony-game'; import { previouslyTurn } from './previously'; import { teachNote, readText, readTap, guideTypes } from './read'; import { describeMove } from './move-text'; import { railsOf } from './marks-model'; import { cursorText } from './cursor-text'; import { frozenPieces } from './render/frost'; import { searchOwned } from './ai/search';")).toEqual([]);
     expect(violations('src/example.ts', "import { positionKey } from './rules/position-key';")).toHaveLength(1);
   });
   it('permits only a direct owned-search destructuring callback for a lazy import', () => {
@@ -94,12 +87,12 @@ describe('product game boundary', () => {
       "const raw = import('./ai/search'); raw.then(({ searchOwned }) => searchOwned);",
     ]) expect(violations('src/example.ts', source), source).toHaveLength(1);
   });
-  it('keeps owned rules independent of search and evaluation', () => {
+  it('keeps owned rules independent of search, evaluation and presentation', () => {
     const source = readFileSync(resolve(root, 'src/game-rules.ts'), 'utf8'), imports: string[] = [];
     new Visitor({ ImportDeclaration(node) {
       if (node.importKind !== 'type') imports.push(node.source.value);
     } }).visit(parseSync('src/game-rules.ts', source).program);
-    expect(imports.filter(path => path.startsWith('./ai/'))).toEqual([]);
+    expect(imports.filter(path => path.startsWith('./ai/') || ['./read', './move-text', './marks-model', './cursor-text', './render/frost'].includes(path))).toEqual([]);
   });
   it('keeps ambient engine and helper operations inside the owned boundary', () => {
     const product = files('src').filter(file => !internal.has(file) && !/^src\/(rules|ai|sim)\//.test(file));

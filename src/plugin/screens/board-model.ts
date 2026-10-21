@@ -1,3 +1,4 @@
+import { describeMove } from '../../move-text';
 import { GameRules } from '../../game-rules';
 import type { Draft } from '../client';
 import type { DraftPosition, DraftPreview, View } from '../../match/protocol';
@@ -43,7 +44,7 @@ export function applyLan(pre: Position, lan: string, rules: Partial<Rules>, lega
   if (legal && !legal.includes(lan)) return;
   const context = new GameRules(rules);
   const move = context.legalMoves(pre).find(move => toLan(pre, move) === lan);
-  return move && { pre, pos: context.makeMove(pre, move), move, lan, words: context.describeMove(pre, move, true) };
+  return move && { pre, pos: context.makeMove(pre, move), move, lan, words: describeMove(context, pre, move, true) };
 }
 
 export function draftTurn(steps: readonly BoardMove[], pos: Position, mode: Exclude<Mode, 'device'>, seat: Color, context: GameRules = new GameRules(), preview?: DraftPosition) {
@@ -99,7 +100,7 @@ export function previewSteps(view: View, preview: DraftPreview, context = new Ga
     const move = before.moves.find(choice => choice.lan === lan)?.move;
     if (!move) return;
     const pre = context.fromFen(before.fen), pos = context.fromFen(after.fen);
-    steps.push({ pre, pos, move, lan, words: context.describeMove(pre, move, true) });
+    steps.push({ pre, pos, move, lan, words: describeMove(context, pre, move, true) });
   }
   return steps;
 }
@@ -115,7 +116,7 @@ export function committedPreview(before: View, next: View, preview: DraftPreview
   const pass = last.moves.find(choice => choice.lan === '--')?.move;
   if (!pass?.pass || last.turn !== before.seat || next.turn === before.seat || JSON.stringify(command.action.actions) !== JSON.stringify([...preview.actions, '--'])) return;
   const pre = context.fromFen(last.fen), pos = context.fromFen(next.fen);
-  return [...steps, { pre, pos, move: pass, lan: '--', words: context.describeMove(pre, pass, true) }];
+  return [...steps, { pre, pos, move: pass, lan: '--', words: describeMove(context, pre, pass, true) }];
 }
 
 export function replayLans(before: Pick<View, 'game_id' | 'revision' | 'fen'>, next: View, rules: Partial<Rules>): BoardMove[] | undefined {

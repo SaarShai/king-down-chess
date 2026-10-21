@@ -1,7 +1,7 @@
+import { describeMove, nextMoveNumber } from '../move-text';
 import { GameRules } from '../game-rules';
 import type { SkillName } from '../ai/skill';
 import type { Game, Side } from '../game';
-import { nextMoveNumber } from '../move-text';
 import type { Color } from '../rules/engine';
 
 import { mulberry32 } from '../sim/rng';
@@ -36,7 +36,7 @@ export function homeState({ game, sides, level, linkSide, staged, result }: Home
     action: finished ? 'Rematch' : 'Continue',
     detail,
     review: finished,
-    lastMove: last ? game.context.describeMove(last.pos, last.move, true) : '',
+    lastMove: last ? describeMove(game.context, last.pos, last.move, true) : '',
     result: finished ? result : '',
   };
 }

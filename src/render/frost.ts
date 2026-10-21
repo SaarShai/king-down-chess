@@ -1,15 +1,16 @@
-import { colorOf, markKind, type Color, type Position } from '../rules/engine';
+import type { GameRules } from '../game-rules';
+import { colorOf, type Color, type Position } from '../rules/engine';
 import { LEG } from './legend';
 const n = (v: number) => Math.round(v * 100) / 100;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const moon = (x: number, y: number, size: number, color: string, width: number) =>
   `<svg x="${n(x)}" y="${n(y)}" width="${n(size)}" height="${n(size)}" viewBox="0 0 24 24" overflow="visible"><path d="M15.5 4a8.5 8.5 0 1 0 4.8 13.6A7 7 0 0 1 15.5 4z" fill="none" stroke="${color}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
-export function frozenPieces(pos: Position | null): { sq: number; turns: number }[] {
+export function frozenPieces(context: Pick<GameRules, 'markKind'>, pos: Position | null): { sq: number; turns: number }[] {
   return (pos?.marks ?? []).flatMap((mark, by) => {
     const code = mark && pos!.board[mark.sq], turns = mark?.left ?? 1;
     return mark && !mark.all && code && turns > 0 && colorOf(code) !== by
-      && markKind(colorOf(code), by as Color, mark.ward) === 'frozen' ? [{ sq: mark.sq, turns }] : [];
+      && context.markKind(colorOf(code), by as Color, mark.ward) === 'frozen' ? [{ sq: mark.sq, turns }] : [];
   });
 }
 

@@ -17,16 +17,16 @@ const find = (pos: Position, lan: string): Move => {
   if (!m) throw new Error(`${lan} is not legal`);
   return m;
 };
-const say = (pos: Position, lan: string): string => describeMove(pos, find(pos, lan));
+const say = (pos: Position, lan: string): string => describeMove(new GameRules(RULES), pos, find(pos, lan));
 
 afterEach(() => setRules());
 
 describe('check causes', () => {
   it('names the Archer screen, a clear shot, a knight and both checkers', () => {
-    expect(checkCause(fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'))).toBe('Their archer can shoot over e2.');
-    expect(checkCause(fromFen('7k/8/8/8/8/4a3/8/4K3 w - - 0 1'))).toBe('Their archer can shoot your king.');
-    expect(checkCause(fromFen('7k/p7/8/8/8/5n2/8/4K3 w - - 0 1'))).toBe('Their knight attacks your king.');
-    expect(checkCause(fromFen('4k3/8/8/8/8/5n2/8/4K2r w - - 0 1'))).toBe('Their rook and knight attack your king.');
+    expect(checkCause(new GameRules(RULES), fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'))).toBe('Their archer can shoot over e2.');
+    expect(checkCause(new GameRules(RULES), fromFen('7k/8/8/8/8/4a3/8/4K3 w - - 0 1'))).toBe('Their archer can shoot your king.');
+    expect(checkCause(new GameRules(RULES), fromFen('7k/p7/8/8/8/5n2/8/4K3 w - - 0 1'))).toBe('Their knight attacks your king.');
+    expect(checkCause(new GameRules(RULES), fromFen('4k3/8/8/8/8/5n2/8/4K2r w - - 0 1'))).toBe('Their rook and knight attack your king.');
   });
 
   it('names Strike only when it moves the checker', () => {
@@ -35,21 +35,21 @@ describe('check causes', () => {
     const strike = legalMoves(pre).find(m => m.power === 'strike' && m.from === parseSq('a3') && m.to === parseSq('e3'))!;
     expect(strike).toBeDefined();
     const pos = makeMove(pre, strike);
-    expect(checkCause(pos, strike)).toBe('Strike lets their archer shoot over e2.');
-    expect(checkCause(pos, { ...strike, to: parseSq('a3') })).toBe('Their archer can shoot over e2.');
+    expect(checkCause(new GameRules(RULES), pos, strike)).toBe('Strike lets their archer shoot over e2.');
+    expect(checkCause(new GameRules(RULES), pos, { ...strike, to: parseSq('a3') })).toBe('Their archer can shoot over e2.');
   });
 
   it('has no cause when the rules prevent check', () => {
     const archer = fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1');
     setRules({ archerChecks: false });
-    expect(checkCause(archer)).toBe('');
+    expect(checkCause(new GameRules(RULES), archer)).toBe('');
     setRules({ ...POWERS_BALANCED, kings: [{ king: 'Spirit', power: 'HolyLight' }, null], holyLightKnights: true });
-    expect(checkCause(fromFen('7k/p7/8/8/8/5n2/8/4K3 w - - 0 1'))).toBe('');
+    expect(checkCause(new GameRules(RULES), fromFen('7k/p7/8/8/8/5n2/8/4K3 w - - 0 1'))).toBe('');
   });
 
   it('names both checkers and their paths in a double check', () => {
     const pos = fromFen('4k3/8/8/8/8/5n2/8/4K2r w - - 0 1');
-    expect(checkersOf(pos)).toEqual([
+    expect(checkersOf(new GameRules(RULES), pos)).toEqual([
       { sq: parseSq('h1'), king: parseSq('e1'), path: 'straight' },
       { sq: parseSq('f3'), king: parseSq('e1'), path: 'arc' },
     ]);
@@ -57,7 +57,7 @@ describe('check causes', () => {
 
   it('shows an arc for an Archer shot over a piece', () => {
     const pos = fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1');
-    expect(checkersOf(pos)).toEqual([
+    expect(checkersOf(new GameRules(RULES), pos)).toEqual([
       { sq: parseSq('e3'), king: parseSq('e1'), path: 'arc' },
     ]);
   });
@@ -65,29 +65,29 @@ describe('check causes', () => {
   it('counts a frozen checker during a held turn', () => {
     powers('Freeze');
     const pos = fromFen('7k/8/8/8/8/8/8/4K2r w - - 0 1');
-    expect(checkersOf({ ...pos, marks: [{ sq: parseSq('h1') }, undefined], free: true, haste: parseSq('e1') }))
+    expect(checkersOf(new GameRules(RULES), { ...pos, marks: [{ sq: parseSq('h1') }, undefined], free: true, haste: parseSq('e1') }))
       .toEqual([{ sq: parseSq('h1'), king: parseSq('e1'), path: 'straight' }]);
   });
 
   it('names the rook in a discovered check', () => {
     const pos = fromFen('4k3/8/8/8/8/8/4B3/4R2K w - - 0 1');
-    expect(checkersOf(makeMove(pos, find(pos, 'Be2-f3'))))
+    expect(checkersOf(new GameRules(RULES), makeMove(pos, find(pos, 'Be2-f3'))))
       .toEqual([{ sq: parseSq('e1'), king: parseSq('e8'), path: 'straight' }]);
   });
 
   it('shows a paladin leap over a friend', () => {
     setRules({ paladinChecks: true });
     const pos = fromFen('7k/8/8/8/8/4l3/4p3/4K3 w - - 0 1');
-    expect(checkersOf(pos)).toEqual([{ sq: parseSq('e3'), king: parseSq('e1'), path: 'arc' }]);
+    expect(checkersOf(new GameRules(RULES), pos)).toEqual([{ sq: parseSq('e3'), king: parseSq('e1'), path: 'arc' }]);
   });
 
   it('reads Holy Light and Darkness from the rules in force', () => {
     const knight = fromFen('7k/8/8/8/8/5n2/8/4K3 w - - 0 1');
     setRules({ ...POWERS_BALANCED, kings: [{ king: 'Spirit', power: 'HolyLight' }, null], holyLightKnights: true });
-    expect(checkersOf(knight)).toEqual([]);
+    expect(checkersOf(new GameRules(RULES), knight)).toEqual([]);
     setRules({ ...POWERS_BALANCED, kings: [null, { king: 'Shadow', power: 'Darkness' }] });
     const pawn = fromFen('7k/8/8/8/8/8/4p3/4K3 w - - 0 1');
-    expect(checkersOf(pawn)).toEqual([{ sq: parseSq('e2'), king: parseSq('e1'), path: 'straight' }]);
+    expect(checkersOf(new GameRules(RULES), pawn)).toEqual([{ sq: parseSq('e2'), king: parseSq('e1'), path: 'straight' }]);
   });
 
   it('agrees with inCheck in seeded legal games under powers rules', () => {
@@ -106,7 +106,7 @@ describe('check causes', () => {
       let pos = startPosition(randomBackRank(rng));
       for (let ply = 0; ply < 64; ply++) {
         for (const turn of [0, 1] as const) {
-          const list = checkersOf({ ...pos, turn });
+          const list = checkersOf(new GameRules(RULES), { ...pos, turn });
           expect(list.length > 0).toBe(inCheck(pos, turn));
           checks += Number(list.length > 0);
         }
@@ -131,7 +131,7 @@ describe('screen-reader lines for king powers', () => {
     powers('Sacrifice');
     const sac = fromFen('4k3/8/8/8/3b4/8/P1N5/4K3 w - - 0 1 lQr');
     const back = legalMoves(sac).find(m => m.power === 'sacrifice')!;
-    expect(describeMove(sac, back)).toBe('White sacrifices the pawn on a2 and brings back a queen there.');
+    expect(describeMove(new GameRules(RULES), sac, back)).toBe('White sacrifices the pawn on a2 and brings back a queen there.');
 
     powers('Haste');
     const pos = fromFen('7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1');
@@ -141,7 +141,7 @@ describe('screen-reader lines for king powers', () => {
 
     setRules({ ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] }); // a free Freeze: mark, then move or pass
     const marked = makeMove(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'), find(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'), '!F:d5'));
-    expect(describeMove(marked, find(marked, '--'), true)).toBe('White ends the turn after the mark.');
+    expect(describeMove(new GameRules(RULES), marked, find(marked, '--'), true)).toBe('White ends the turn after the mark.');
     expect(say(marked, '--')).toBe('White ends the turn without the Haste second move.');
 
     powers('Flight');
@@ -157,19 +157,19 @@ describe('screen-reader lines for king powers', () => {
 describe('threat markers', () => {
   it('give each attacker and the own piece it can take, the king too', () => {
     // The W13 threats position: the rook d5 attacks the knight d2; the queen b3 is safe.
-    expect(threatsIn(fromFen('4k3/8/8/3r4/8/1Q6/3N4/4K3 w - - 0 1'))).toEqual([{ from: parseSq('d5'), to: parseSq('d2') }]);
+    expect(threatsIn(new GameRules(RULES), fromFen('4k3/8/8/3r4/8/1Q6/3N4/4K3 w - - 0 1'))).toEqual([{ from: parseSq('d5'), to: parseSq('d2') }]);
     // Check: the rook e4 attacks the king e1; the king comes from checkersOf.
-    expect(threatsIn(fromFen('4k3/8/8/8/4r3/8/8/4K3 w - - 0 1'))).toEqual([{ from: parseSq('e4'), to: parseSq('e1') }]);
+    expect(threatsIn(new GameRules(RULES), fromFen('4k3/8/8/8/4r3/8/8/4K3 w - - 0 1'))).toEqual([{ from: parseSq('e4'), to: parseSq('e1') }]);
     // An archer's shot stays on its square (to === from): the threat starts at the archer d5.
-    expect(threatsIn(fromFen('4k3/8/8/3a4/8/3N4/8/4K3 w - - 0 1'))).toEqual([{ from: parseSq('d5'), to: parseSq('d3') }]);
+    expect(threatsIn(new GameRules(RULES), fromFen('4k3/8/8/3a4/8/3N4/8/4K3 w - - 0 1'))).toEqual([{ from: parseSq('d5'), to: parseSq('d3') }]);
   });
   it('still show during a Haste turn’s pending second move', () => {
     powers('Haste');
     const pos = fromFen('7k/8/8/r7/8/8/8/R5K1 w - - 0 1');
     const held = makeMove(pos, find(pos, 'Ra1-a4!H'));
     expect(held.haste).toBe(parseSq('a4'));
-    expect(threatsIn(held)).toContainEqual({ from: parseSq('a5'), to: parseSq('a4') }); // the black rook on a5 attacks it
-    expect(threatsIn(held)).toEqual(threatsIn({ ...held, haste: undefined }));
+    expect(threatsIn(new GameRules(RULES), held)).toContainEqual({ from: parseSq('a5'), to: parseSq('a4') }); // the black rook on a5 attacks it
+    expect(threatsIn(new GameRules(RULES), held)).toEqual(threatsIn(new GameRules(RULES), { ...held, haste: undefined }));
   });
 });
 
@@ -202,35 +202,35 @@ describe('which power moves a click can reach', () => {
 });
 
 it('names both colours in a check on one device', () => {
-  expect(checkCause(fromFen('7k/8/8/8/8/8/8/4K2r w - - 0 1'), undefined, 'device'))
+  expect(checkCause(new GameRules(RULES), fromFen('7k/8/8/8/8/8/8/4K2r w - - 0 1'), undefined, 'device'))
     .toBe("Black's rook attacks the white king.");
-  expect(checkCause(fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'), undefined, 'device'))
+  expect(checkCause(new GameRules(RULES), fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'), undefined, 'device'))
     .toBe("Black's archer shoots the white king over e2.");
 });
 it.each(['computer', 'link'] as const)('names the king and states the Archer fact in %s play', mode => {
-  expect(checkCause(fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'), undefined, mode))
+  expect(checkCause(new GameRules(RULES), fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'), undefined, mode))
     .toBe('Their archer shoots your king over e2.');
-  expect(checkCause(fromFen('7k/8/8/8/8/4a3/8/4K3 w - - 0 1'), undefined, mode))
+  expect(checkCause(new GameRules(RULES), fromFen('7k/8/8/8/8/4a3/8/4K3 w - - 0 1'), undefined, mode))
     .toBe('Their archer shoots your king.');
 });
 
 it('keeps the web Archer cause within eight words on one device', () => {
-  const words = checkCause(fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'), undefined, 'device');
+  const words = checkCause(new GameRules(RULES), fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'), undefined, 'device');
   expect(words.split(/\s+/).length).toBeLessThanOrEqual(8);
 });
 
 it.each(['computer', 'link'] as const)('speaks from either viewer when either king is in check in %s', mode => {
   const whiteCheck = fromFen('7k/8/8/8/8/8/8/4K2r w - - 0 1');
   const blackCheck = fromFen('4k2R/8/8/8/8/8/8/7K b - - 0 1');
-  expect(checkCause(whiteCheck, undefined, mode, 0)).toBe('Their rook attacks your king.');
-  expect(checkCause(whiteCheck, undefined, mode, 1)).toBe('Your rook attacks their king.');
-  expect(checkCause(blackCheck, undefined, mode, 0)).toBe('Your rook attacks their king.');
-  expect(checkCause(blackCheck, undefined, mode, 1)).toBe('Their rook attacks your king.');
+  expect(checkCause(new GameRules(RULES), whiteCheck, undefined, mode, 0)).toBe('Their rook attacks your king.');
+  expect(checkCause(new GameRules(RULES), whiteCheck, undefined, mode, 1)).toBe('Your rook attacks their king.');
+  expect(checkCause(new GameRules(RULES), blackCheck, undefined, mode, 0)).toBe('Your rook attacks their king.');
+  expect(checkCause(new GameRules(RULES), blackCheck, undefined, mode, 1)).toBe('Their rook attacks your king.');
 });
 
 it.each(['haste', 'rally'] as const)('describes the final %s ply without another move', power => {
   const pos = fromFen('7k/8/8/8/8/R7/8/7K w - - 0 1');
-  expect(describeMove(pos, { from: 16, to: 56, captures: [], power }, true, true)).toBe('White rook a3 to a8.');
+  expect(describeMove(new GameRules(RULES), pos, { from: 16, to: 56, captures: [], power }, true, true)).toBe('White rook a3 to a8.');
 });
 
 

@@ -1,11 +1,14 @@
-import { A, B, C, G, K, L, M, N, nameOf, LETTERS, O, P, Q, R, RULES as GAME_RULES, S, T, V, colorOf, file, findKing, rank, legalMoves, pseudoMoves, sqName, markKind, playedDesign, theName, type ArcherShots, type Color, type Move, typeOf, type PieceType, type Position, type Rules } from './rules/engine';
+import type { GameRules } from './game-rules';
+import { A, B, C, G, K, L, M, N, LETTERS, O, P, Q, R, S, T, V, colorOf, file, findKing, rank, sqName, type ArcherShots, type Color, type Move, typeOf, type PieceType, type Position, type Rules } from './rules/engine';
 import { needsArming, offered } from './powers-ui';
 import { POOL } from './rules/setup';
 import { describe } from './workshop/text';
 
+type ReadRules = Pick<GameRules, 'rules' | 'legalMoves' | 'pseudoMoves' | 'nameOf' | 'theName' | 'playedDesign' | 'markKind'>;
+
 /** The title of a piece in the plugin board context line. The web game keeps the lower-case name. */
-export function pieceTitle(code: number): string {
-  const name = nameOf(typeOf(code));
+export function pieceTitle(context: ReadRules, code: number): string {
+  const name = context.nameOf(typeOf(code));
   return `${colorOf(code) ? 'Black' : 'White'} ${name[0].toUpperCase() + name.slice(1)}.`;
 }
 
@@ -18,12 +21,12 @@ export interface Reach {
 }
 
 /** Read ordinary legal moves from the piece's side, outside a held turn. */
-export function reachOf(pos: Position, sq: number): Reach {
+export function reachOf(context: ReadRules, pos: Position, sq: number): Reach {
   const reach: Reach = { step: new Set(), take: new Set(), shot: new Set(), swap: new Set(), push: [] };
   const cell = pos.board[sq];
   if (!cell) return reach;
   const side = { ...pos, turn: colorOf(cell), haste: undefined, rage: undefined, free: undefined };
-  for (const m of legalMoves(side).filter(m => m.from === sq && !needsArming(m) && !m.drop)) {
+  for (const m of context.legalMoves(side).filter(m => m.from === sq && !needsArming(m) && !m.drop)) {
     if (m.to === m.from && m.captures.length) reach.shot.add(m.captures[0]);
     else if (m.shove) {
       if (!reach.push.some(p => p.from === m.shove!.from)) reach.push.push(m.shove);
@@ -34,7 +37,7 @@ export function reachOf(pos: Position, sq: number): Reach {
   return reach;
 }
 
-/** Player-facing columns for one piece under the live `GAME_RULES` (and `POOL`). */
+/** Player-facing columns for one piece under the owned rules (and `POOL`). */
 type GuideRow = { moves: string; captures: string; special: string };
 
 const ARCHER_SHOT_TEXT: Record<ArcherShots, string> = {
@@ -71,9 +74,9 @@ const paladinLeaves = (mode: Rules['paladinKamikaze']) => mode === 'always' ? 'L
   : mode === 'never' ? 'Stays on the board after each take.'
   : 'Leaves the board after a take, except a pawn.';
 
-/** One guide for both the dialog table and the hover card — reads live rules and POOL. */
-export function pieceGuide(t: PieceType): GuideRow {
-  const r = GAME_RULES;
+/** One guide for both the dialog table and the hover card — reads owned rules and POOL. */
+export function pieceGuide(context: ReadRules, t: PieceType): GuideRow {
+  const r = context.rules;
   switch (t) {
     case P:
       return {
@@ -179,7 +182,7 @@ export function pieceGuide(t: PieceType): GuideRow {
       };
     case T: {
       // A design in the slot (ticket 17): the Workshop's own sentences for it.
-      const d = playedDesign(), t = d && describe(d);
+      const d = context.playedDesign(), t = d && describe(d);
       if (t) return { moves: `Moves ${t.moves}`, captures: t.takes.startsWith('Shoots') ? t.takes : `Takes ${t.takes}`, special: t.special.join(' ') };
       return {
         moves: 'Moves 1 square in any direction. On a capital square (d4 e4 d5 e5) it moves and takes like a queen.',
@@ -194,25 +197,25 @@ export function pieceGuide(t: PieceType): GuideRow {
 
 
 /** A short rule sentence for the fixed read line. */
-export function readText(pos: Position, sq: number): string {
+export function readText(context: ReadRules, pos: Position, sq: number): string {
   const code = pos.board[sq];
   if (!code) return '';
-  const t = typeOf(code), r = GAME_RULES;
+  const t = typeOf(code), r = context.rules;
   const special: Partial<Record<PieceType, string>> = {
     [A]: ARCHER_READ[r.archerShots],
     [L]: r.paladinJumpsFriends ? 'Jumps over its own pieces.' : 'Moves like a queen.',
-    [G]: r.guardImmune ? 'Only a king can take it.' : pieceGuide(G).captures,
+    [G]: r.guardImmune ? 'Only a king can take it.' : pieceGuide(context, G).captures,
     [M]: 'Swaps places with a friendly piece.',
     [S]: r.beastChains ? 'Can bite again after a bite.' : 'One bite per turn.',
     [O]: 'Can shove a neighbour.',
     [C]: 'Takes beyond an enemy piece.',
     [V]: 'Can step after a take.',
-    ...(!playedDesign() && { [T]: 'Moves like a queen on capital squares.' }),
-    [P]: pieceGuide(P).moves,
+    ...(!context.playedDesign() && { [T]: 'Moves like a queen on capital squares.' }),
+    [P]: pieceGuide(context, P).moves,
   };
-  const first = special[t] ?? pieceGuide(t).moves.split(/(?<=[.!?])\s/)[0];
-  const states = pieceStates(pos, sq);
-  return `${nameOf(t)} · ${first}` + (states.length ? `\n${states.join(' · ')}` : '');
+  const first = special[t] ?? pieceGuide(context, t).moves.split(/(?<=[.!?])\s/)[0];
+  const states = pieceStates(context, pos, sq);
+  return `${context.nameOf(t)} · ${first}` + (states.length ? `\n${states.join(' · ')}` : '');
 }
 
 /** Kind and words of an enemy move that chess does not have, for the Beginner notes (option A). */
@@ -226,13 +229,13 @@ export function teachNote(pre: Position, m: Move, r: Pick<Rules, 'archerShots' |
 }
 
 /** Live state words, also used for a refused move. */
-export function pieceStates(pos: Position, sq: number): string[] {
+export function pieceStates(context: ReadRules, pos: Position, sq: number): string[] {
   const code = pos.board[sq], states: string[] = [];
   if (!code) return states;
   for (const by of [0, 1] as const) {
     const mark = pos.marks?.[by];
     if (!mark || mark.left === 0) continue;
-    const kind = markKind((by ^ 1) as Color, by, mark.ward);
+    const kind = context.markKind((by ^ 1) as Color, by, mark.ward);
     if (kind === 'frozen' && mark.sq === sq && colorOf(code) !== by) states.push('Frozen');
     if (kind === 'warded' && colorOf(code) === by && (mark.all || mark.sq === sq)) states.push('Ice Wall');
   }
@@ -240,36 +243,36 @@ export function pieceStates(pos: Position, sq: number): string[] {
 }
 
 /** Why a tap on `to` did not play a move for the piece on `from` (only exported engine functions). */
-export function whyNot(pos: Position, from: number, to: number, tag: string | null = null, bites: readonly number[] = []): string {
+export function whyNot(context: ReadRules, pos: Position, from: number, to: number, tag: string | null = null, bites: readonly number[] = []): string {
   const mover = pos.board[from], target = pos.board[to];
   if (bites.length && typeOf(mover) === S && target && typeOf(target) === K) return 'A bite chain cannot take a king.';
-  if (pieceStates(pos, from).includes('Frozen')) return 'Frozen: it cannot move this turn.';
-  if (pieceStates(pos, to).includes('Ice Wall')) return 'Ice Wall: nothing can take it now.';
+  if (pieceStates(context, pos, from).includes('Frozen')) return 'Frozen: it cannot move this turn.';
+  if (pieceStates(context, pos, to).includes('Ice Wall')) return 'Ice Wall: nothing can take it now.';
   if (target && colorOf(target) !== colorOf(mover)) {
-    if (tag === 'strike' && !GAME_RULES.strikeCaptures) return 'Strike cannot take this turn.';
-    const quietHaste = !GAME_RULES.hasteCaptures || GAME_RULES.hasteSecond === 'quiet';
-    if ((tag === 'haste' && !GAME_RULES.hasteCaptures) || (pos.haste !== undefined && pos.rage === undefined && quietHaste)) return 'Haste cannot take this turn.';
+    if (tag === 'strike' && !context.rules.strikeCaptures) return 'Strike cannot take this turn.';
+    const quietHaste = !context.rules.hasteCaptures || context.rules.hasteSecond === 'quiet';
+    if ((tag === 'haste' && !context.rules.hasteCaptures) || (pos.haste !== undefined && pos.rage === undefined && quietHaste)) return 'Haste cannot take this turn.';
   }
   if (target && colorOf(target) !== colorOf(mover) && typeOf(target) !== K) {
-    const side = colorOf(target), power = GAME_RULES.kings[side]?.power, king = findKing(pos.board, side);
+    const side = colorOf(target), power = context.rules.kings[side]?.power, king = findKing(pos.board, side);
     const df = Math.abs(file(to) - file(king)), dr = Math.abs(rank(to) - rank(king));
     const beside = king >= 0 && Math.max(df, dr) === 1;
-    if (power === 'HolyLight' && beside && GAME_RULES.holyLightShelter && (!GAME_RULES.holyLightShelterOrtho || df === 0 || dr === 0)) {
+    if (power === 'HolyLight' && beside && context.rules.holyLightShelter && (!context.rules.holyLightShelterOrtho || df === 0 || dr === 0)) {
       return 'Holy Light: this piece cannot be taken.';
     }
-    if (power === 'Mercy' && beside && GAME_RULES.mercyAura && (!GAME_RULES.mercyAuraOrtho || df === 0 || dr === 0)) {
+    if (power === 'Mercy' && beside && context.rules.mercyAura && (!context.rules.mercyAuraOrtho || df === 0 || dr === 0)) {
       const pawn = typeOf(mover) === P;
-      if (GAME_RULES.mercyAuraPawns && pawn) return 'Mercy: pawns cannot take beside this king.';
-      if (!GAME_RULES.mercyAuraPawns && GAME_RULES.mercyAuraPawnsTake && !pawn) return 'Only a pawn can take beside Mercy.';
-      if (!GAME_RULES.mercyAuraPawns && !GAME_RULES.mercyAuraPawnsTake) return 'Mercy: nothing can take beside this king.';
+      if (context.rules.mercyAuraPawns && pawn) return 'Mercy: pawns cannot take beside this king.';
+      if (!context.rules.mercyAuraPawns && context.rules.mercyAuraPawnsTake && !pawn) return 'Only a pawn can take beside Mercy.';
+      if (!context.rules.mercyAuraPawns && !context.rules.mercyAuraPawnsTake) return 'Mercy: nothing can take beside this king.';
     }
   }
   // Only the moves a click can reach (candidates()): an unarmed power move is not "a move into check".
-  if (pseudoMoves(pos).some(m => m.from === from && offered(m, tag) && (m.shove?.from ?? m.captures[0] ?? m.to) === to)) {
+  if (context.pseudoMoves(pos).some(m => m.from === from && offered(m, tag) && (m.shove?.from ?? m.captures[0] ?? m.to) === to)) {
     return 'That leaves your king in check.';
   }
-  if (GAME_RULES.guardImmune && target && typeOf(target) === G && colorOf(target) !== pos.turn && typeOf(mover) !== K) return 'Only a king can take a guard.';
-  return `${theName(typeOf(mover), 'The')} cannot ${target ? `take ${theName(typeOf(target))} on` : 'reach'} ${sqName(to)}.`;
+  if (context.rules.guardImmune && target && typeOf(target) === G && colorOf(target) !== pos.turn && typeOf(mover) !== K) return 'Only a king can take a guard.';
+  return `${context.theName(typeOf(mover), 'The')} cannot ${target ? `take ${context.theName(typeOf(target))} on` : 'reach'} ${sqName(to)}.`;
 }
 
 /** A read keeps the move role; a movable friend takes that role. */
@@ -281,13 +284,13 @@ export function readTap(pos: Position, sq: number, selected: number | null, insp
 }
 
 /** Refusals keep the move role; a bite chain waits for its next marked tap. */
-export function unmarkedTap(pos: Position, sq: number, selected: number | null, inspected: number | null, pending: number[], tag: string | null = null) {
+export function unmarkedTap(context: ReadRules, pos: Position, sq: number, selected: number | null, inspected: number | null, pending: number[], tag: string | null = null) {
   if (pending.length) return { selected, inspected, pending, notice: 'Select a marked piece, or stop here.' };
   const next = readTap(pos, sq, selected, inspected, true);
   const enemy = pos.board[sq] && colorOf(pos.board[sq]) !== pos.turn;
-  let notice = selected != null && (!pos.board[sq] || enemy) ? whyNot(pos, selected, sq, tag) : '';
-  if (next.selected != null && next.selected !== selected && !legalMoves(pos).some(m => m.from === next.selected && offered(m, tag))) {
-    notice = pieceStates(pos, sq).includes('Frozen') ? 'Frozen: it cannot move this turn.' : `${theName(typeOf(pos.board[sq]), 'This')} has no legal move.`;
+  let notice = selected != null && (!pos.board[sq] || enemy) ? whyNot(context, pos, selected, sq, tag) : '';
+  if (next.selected != null && next.selected !== selected && !context.legalMoves(pos).some(m => m.from === next.selected && offered(m, tag))) {
+    notice = pieceStates(context, pos, sq).includes('Frozen') ? 'Frozen: it cannot move this turn.' : `${context.theName(typeOf(pos.board[sq]), 'This')} has no legal move.`;
   }
   return { ...next, pending: [], notice };
 }

@@ -1,3 +1,4 @@
+import { GameRules } from '../game-rules';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Move, Position, legalMoves, makeMove, parseSq, perft } from './engine';
 import { POWERS_BALANCED, RULES, setRules } from './rules';
@@ -238,9 +239,9 @@ describe('classic chess: the move text', () => {
   it('names castling and en passant', () => {
     classic();
     const pos = fromFen(KIWIPETE);
-    expect(describeMove(pos, find(pos, 'O-O'))).toBe('White castles short.');
-    expect(describeMove(pos, find(pos, 'O-O-O'))).toBe('White castles long.');
+    expect(describeMove(new GameRules(RULES), pos, find(pos, 'O-O'))).toBe('White castles short.');
+    expect(describeMove(new GameRules(RULES), pos, find(pos, 'O-O-O'))).toBe('White castles long.');
     const ep = play(startPosition(CLASSIC_CHESS), 'e2-e4', 'a7-a6', 'e4-e5', 'd7-d5');
-    expect(describeMove(ep, find(ep, 'e5xd6'))).toBe('White pawn e5 to d6, taking the pawn on d5 en passant.');
+    expect(describeMove(new GameRules(RULES), ep, find(ep, 'e5xd6'))).toBe('White pawn e5 to d6, taking the pawn on d5 en passant.');
   });
 });
