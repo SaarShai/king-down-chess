@@ -1,6 +1,6 @@
 # Implement the approved first ranked family
 
-Status: deployed in staging; actual native ChatGPT acceptance remains open. Parent: U10. No production release.
+Status: complete for bounded staging acceptance; public release gates remain open. Parent: U10. No production release.
 
 ## Approved scope
 
@@ -55,3 +55,12 @@ The guarded preview `dpl_CtN33YipFC2U7etN9tC8FrJkahfD` now serves `https://kingd
 Actual web proof preserves the nine-action game `1ccbc2a2-71f6-8b47-a4db-aede1260beed`, including its cards and powers, and shows Legacy treatment. The separate staging profile uses `stagingcheck`; rating 1500 and the prior 1 played/1 lost record stay unchanged. Web creates Ranked game `667be0f9-9a4f-83e5-8795-ef0f404a5269` through the name-setup continuation. The live MCP games/open tools confirm the same random, daily, three-day, `ranked-v1` game; the web list labels it Ranked. Leave this waiting test game for the native cross-host check, then cancel it through the normal UI.
 
 The Mac locks before the untouched native ChatGPT check. Unlock is requested. A browser-controlled reload of an existing ChatGPT tab shows the host's display failure; Try again is not used. Three cache warnings provide no established root cause. Do not call ChatGPT acceptance complete or infer that automation caused the failure. A later read from an older Codex panel times out before cross-host discovery is proved. The next step is a fresh native ChatGPT open after unlock, followed by the Ranked game/list/policy check and the existing-game continuation. Reuse the accepted artifacts and receipts; do not rebuild or rerun green mechanics without a new defect. The parent evidence folder has `staging-ranked-policy/hosted/receipt.json`.
+
+
+## Native staging acceptance
+
+After unlock, three new native Chrome tabs load the actual ChatGPT staging app without Try again. Their distinct init IDs are in the hosted receipt. The first open discovers the web-created Ranked game; its waiting screen opens and normal cancellation succeeds. Refreshed web and live MCP lists both return to the nine old games. No active two-account Ranked result is claimed.
+
+The native board preserves all nine earlier history actions, with cards and always-on powers visible. Choose a move and End turn commit the Maester swap from g1 to h1. The web board then shows eleven actions, including that swap and the computer pawn reply b7 to c6. The live profile retains rating 1500 and the prior 1 played/1 lost record. Two further fresh ChatGPT opens show the continued game at move 6.
+
+This completes the bounded actual-host acceptance of ticket 30 in staging. These tabs use native controls and are not claimed by extension control, but a browser-wide debugging banner remains visible from other tabs. Do not call this a debugger-detached browser. The earlier attached-tab display failure remains recorded with unknown cause; three successful native opens do not prove a universal startup fix. No code rebuild or production change occurs during this acceptance.
