@@ -40,6 +40,25 @@ export async function checkSoloSync({ page, ui, tool, open, label }) {
   await ui.locator('#over.end-card[open]').waitFor();
   assert.equal(await ui.locator('#over-title').innerText(), 'You lose');
   await shot(page, `${label}-solo-synced-result`);
+  const keepsFocusAfterPoll = async control => {
+    const focused = await control.elementHandle(); assert(focused); await focused.focus();
+    const polled = page.waitForResponse(response => {
+      const request = response.request(), path = new URL(response.url()).pathname;
+      return request.method() === 'GET' && path === `/api/games/${game_id}` ||
+        request.method() === 'POST' && path === '/fixture-tool' && request.postDataJSON()?.name === 'kingdown_get';
+    });
+    await page.clock.fastForward(5000);
+    const response = await polled; assert.equal(response.status(), 200); await response.finished();
+    await page.clock.runFor(100);
+    assert(await focused.evaluate(node => node.isConnected && node === document.activeElement), 'An unchanged result poll preserves the focused control');
+    await focused.dispose();
+  };
+  await keepsFocusAfterPoll(ui.getByRole('button', { name: 'Play again', exact: true }));
+  await ui.getByRole('button', { name: 'See the board', exact: true }).click();
+  await keepsFocusAfterPoll(ui.locator('#board-menu'));
+  assert.equal(await ui.locator('#over').isVisible(), false, 'An unchanged poll keeps the result closed while viewing the board');
+  await ui.locator('#end-result').click();
+  await ui.locator('#over.end-card[open]').waitFor();
   const ended = await command('kingdown_rematch', { choice: 'offer' });
   assert(ended.rematch_game_id);
   await page.clock.fastForward(5000);
