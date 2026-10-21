@@ -1,4 +1,6 @@
 #game-table[data-home] :is(.player-strip, .table-space, #context-line, #table-bar) { visibility: hidden; pointer-events: none; }
+/* Home gives its extra controls their content height. Short screens can scroll them. */
+#game-table[data-home] { overflow-y: auto; grid-template-rows: var(--strip-row, var(--strip-height)) minmax(0, max-content) var(--strip-row, var(--strip-height)) minmax(var(--context-height), max-content) 48px minmax(min-content, 1fr) max-content; }
 #home-head { grid-area: them; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; }
 #home-head .wordmark { margin: 0; font-size: 30px; flex: none; flex-wrap: nowrap; }
 #home-head #menu-btn { display: flex; gap: 6px; align-items: center; min-height: 44px; min-width: 44px; width: auto; padding: 4px; border: 0; background: transparent; box-shadow: none; color: var(--ink); font-size: 14px; }
@@ -11,7 +13,7 @@
 #home-detail { font-size: 13px; font-weight: 400; }
 #home-new { width: auto; flex: none; min-height: 44px; padding: 8px; border: 0; background: transparent; box-shadow: none; color: var(--ink-soft); font-size: 16px; }
 #home-space { grid-area: space; display: flex; justify-content: flex-start; align-items: flex-start; margin: var(--space-2) 12px 0; }
-#home-bottom { grid-area: bar; align-self: end; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+#home-bottom { grid-area: bar; align-self: start; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
 #home-account { margin: 0 12px 8px; }
 .account-play-link { display: flex; flex-direction: column; justify-content: center; min-height: 48px; padding: 8px 12px; color: var(--ink); font-size: 18px; font-weight: 700; text-underline-offset: 3px; }
 .account-play-link small { display: block; font-size: 14px; font-weight: 400; color: var(--ink-soft); }
@@ -25,6 +27,8 @@
 #home-army { display: flex; gap: 8px; }
 #home-army .pi { width: 24px; height: 24px; }
 @media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
+  #game-table[data-home] { grid-template-rows: minmax(0, 1fr); }
+  #game-table[data-home] .table-side { overflow-y: auto; grid-template-rows: var(--strip-height) var(--strip-height) minmax(var(--context-height), max-content) 48px minmax(min-content, 1fr) max-content; }
   #home-head, #home-meta { padding-inline: 0; }
   #home-actions, #home-space, #home-today { margin-inline: 0; width: 100%; }
   #home-account { margin-inline: 0; }

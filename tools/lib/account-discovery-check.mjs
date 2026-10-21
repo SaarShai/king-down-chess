@@ -18,6 +18,18 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
   const local = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
   local.on('request', request => { if (new URL(request.url()).origin !== origin) requests.push('external request'); if (request.method() !== 'GET') requests.push(request.method() + ' ' + new URL(request.url()).pathname); });
   const page = await local.newPage(); errors.push(trapErrors(page)); page.setDefaultTimeout(15_000);
+  async function checkLayout(label) {
+    for (const viewport of [{ width: 390, height: 844 }, { width: 390, height: 640 }, { width: 844, height: 390 }, { width: 1440, height: 900 }]) {
+      await page.setViewportSize(viewport);
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await insideViewport(page, '#home-account [data-account-play]'); await minTarget(page, '#home-account [data-account-play]');
+      await noSidewaysScroll(page); await noOverlap(page, '#home-account, #home-today, #home-review, #moves-line');
+      await shot(page, `discovery-${label}-${viewport.width}-${viewport.height}`);
+      await page.locator('#home-today').scrollIntoViewIfNeeded();
+      await insideViewport(page, '#home-today');
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+  }
   try {
     await page.goto(origin); await ready(page);
     const titleLink = page.locator('#title-screen [data-account-play]');
@@ -38,14 +50,7 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     await page.evaluate(save => { localStorage.setItem('kingdown.save', JSON.stringify(save)); sessionStorage.removeItem('kingdown.title-seen'); }, SAVE);
     await page.reload(); await ready(page); await page.locator('#home-head:visible').waitFor();
     const saved = await readSave(page);
-    for (const viewport of [{ width: 390, height: 844 }, { width: 390, height: 640 }, { width: 844, height: 390 }, { width: 1440, height: 900 }]) {
-      await page.setViewportSize(viewport);
-      await insideViewport(page, '#home-account [data-account-play]'); await minTarget(page, '#home-account [data-account-play]');
-      await noSidewaysScroll(page); await noOverlap(page, '#home-account, #home-today, #moves-line');
-      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-      await shot(page, `discovery-home-${viewport.width}-${viewport.height}`);
-    }
-    await page.setViewportSize({ width: 390, height: 844 });
+    await checkLayout('home');
     await page.locator('#home-account [data-account-play]').click();
     await page.getByRole('button', { name: 'Continue with GitHub', exact: true }).waitFor();
     await page.getByRole('link', { name: 'Play on this device', exact: true }).click(); await ready(page);
@@ -75,6 +80,9 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     await local.setOffline(false);
     await page.waitForFunction(() => document.querySelector('#menu-sheet [data-account-play] small').textContent.includes('Online only'));
     assert.deepEqual(requests, [], 'Navigation and offline play make no external request or server command');
+    await page.evaluate(save => { localStorage.setItem('kingdown.save', JSON.stringify(save)); sessionStorage.removeItem('kingdown.title-seen'); }, { ...SAVE, moves: ['f2-f3', 'e7-e5', 'g2-g4', 'Qd8-h4'] });
+    await page.reload(); await ready(page); await page.locator('#home-review:visible').waitFor();
+    await checkLayout('finished');
 
     // The existing authenticated fixture stays separate from local cloud-save sync.
     const account = await context.newPage(); errors.push(trapErrors(account));
