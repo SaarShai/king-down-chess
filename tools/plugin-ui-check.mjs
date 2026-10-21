@@ -1598,6 +1598,19 @@ try {
 
     const longName = `wwwwwwwwwwwwwwww${randomUUID().slice(0,4)}`;
     assert(!(await tool('kingdown_handle', { handle: longName, icon: 'paladin' }, true)).isError);
+    // A reply from a departed Find visit must not restore an offer cancelled before the next visit.
+    const staleOffer = await tool('kingdown_create', { kind: 'random', options, colour: 'white' }, true); assert(!staleOffer.isError);
+    await openPlay(); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click();
+    await page.evaluate(() => { window.holdNext = 'kingdown_lobby'; });
+    await frame.locator('#play-open').click(); await page.waitForFunction(() => typeof window.releaseHeld === 'function');
+    try {
+      await frame.locator('#page-back').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+      assert(!(await tool('kingdown_cancel', { game_id: staleOffer._meta.view.game_id }, true)).isError);
+      await frame.locator('#play-open').click(); await frame.locator('#lobby-status').filter({ hasText: /^$/ }).waitFor({ state: 'attached' }); await settled();
+      const currentRows = await frame.locator('#lobby-list').innerText();
+      await page.evaluate(() => window.releaseHeld()); await settled();
+      assert.equal(await frame.locator('#lobby-list').innerText(), currentRows, 'An old embedded lobby reply cannot restore the cancelled offer');
+    } finally { await page.evaluate(() => window.releaseHeld?.()); }
     const random = await tool('kingdown_create', { kind: 'random', options, colour: 'white' }, true); assert(!random.isError);
     await openPlay(); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click(); await frame.locator('#lobby-list .game-row').filter({ hasText: longName }).waitFor();
     const lobbyRow = frame.locator('#lobby-list .game-row').filter({ hasText: longName });

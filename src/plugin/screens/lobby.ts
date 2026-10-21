@@ -9,6 +9,8 @@ import { policyLabel, RANKED_RULES } from '../../account-game/rating-policy';
 import { createArguments } from './setup-model';
 import { featureNames, features, icon } from '../../account-game/features';
 let finding = false, accepting = false, afterHandle: { game: string; policy: RatingPolicy } | undefined;
+let request = 0, stopped = false;
+const current = (reading: number) => !stopped && reading === request && client.state.screen === 'lobby';
 // The list uses the runner's visible 15-second schedule, with no board position.
 const listClock = { kind: 'random', status: 'playing', speed: 'live', seat: 0, turn: 0, opponent: null, last_commands: [], server_now: '' } as unknown as View;
 export function lobbyScreen() {
@@ -32,9 +34,11 @@ export function lobbyScreen() {
   void readLobby();
 }
 async function readLobby() {
+  if (stopped || client.state.screen !== 'lobby') return;
+  const reading = ++request;
   try {
     const [list, inbox] = await Promise.all([client.call('kingdown_lobby'), client.call('kingdown_games')]);
-    if (client.state.screen !== 'lobby') return;
+    if (!current(reading)) return;
     if (list.isError) throw new Error(list.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     if (!inbox.isError) memory.games = inbox._meta?.games as InboxEntry[] ?? [];
     const lobby = list._meta?.lobby as Lobby & { server_now: string };
@@ -49,7 +53,7 @@ async function readLobby() {
       entry.append(accept); return entry;
     }));
     $('lobby-status').textContent = ''; $('lobby-empty').hidden = !!games.length;
-  } catch (error) { if (client.state.screen === 'lobby') showError(error, $('lobby-status')); }
+  } catch (error) { if (current(reading)) showError(error, $('lobby-status')); }
 }
 async function acceptGame(game: string, policy: RatingPolicy) {
   if (accepting || finding) return; accepting = true;
@@ -70,7 +74,10 @@ async function acceptGame(game: string, policy: RatingPolicy) {
 /** The lobby's target of the one poll: the list on its 15-second clock (design §4). */
 export const lobbyPoll = (): PollTarget => ({ view: listClock, read: readLobby });
 // A collapse keeps the lobby or name screen on the queue behind the home card, so Accept stays for its Resume.
-export function lobbySync(page: Page) { if (![page.screen, client.state.queued].some(screen => screen === 'lobby' || screen === 'handle')) afterHandle = undefined; }
+export function lobbySync(page: Page) {
+  if (page.screen !== 'lobby') ++request;
+  if (![page.screen, client.state.queued].some(screen => screen === 'lobby' || screen === 'handle')) afterHandle = undefined;
+}
 const back = () => { if (client.state.screen === 'handle') afterHandle = undefined; };
 $('page-back').addEventListener('click', back, true);
-onStop(() => { $('page-back').removeEventListener('click', back, true); });
+onStop(() => { stopped = true; ++request; $('page-back').removeEventListener('click', back, true); });

@@ -337,6 +337,34 @@ try {
   assert.equal((await pool.query('select count(*)::int as n from public.rating_history where game_id=$1',[rankedId])).rows[0].n,2);
   await shot(page,'web-ranked-result');
   await writeFile(join(env('PLAYABLE_OUT'),'ranked-policy.json'),JSON.stringify({game_id:rankedId,rating_policy:rankedEnd.rating_policy,options:rankedEnd.options,days_per_move:rankedEnd.days_per_move,engine:rankedEnd.engine_fingerprint,revision:rankedEnd.revision,history:rankedEnd.history.actions,outcome:rankedEnd.outcome,checks:['actual shared web Ranked setup','MCP ranked join','web UI move read through MCP','Casual outcomes without rating rows','Ranked outcome with two rating rows']},null,2));
+  // Hold an actual old HTTP list while the player leaves and returns after the offer is cancelled.
+  const staleOffer = (await tool(1, 'kingdown_create', { kind: 'random', mode: 'casual', command_id: randomUUID() }))._meta.view;
+  await page.goto(origin + '/play/'); await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor();
+  await page.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click();
+  await page.locator('#setup-rating input[value="casual"]').locator('..').click();
+  let releaseLobby, heldLobby;
+  const held = new Promise(resolve => { heldLobby = resolve; });
+  const delayedLobby = async route => {
+    const response = await route.fetch();
+    if (!releaseLobby) {
+      assert((await response.json()).games.some(game => game.game_id === staleOffer.game_id), 'The held response contains the old offer');
+      await new Promise(resolve => { releaseLobby = resolve; heldLobby(); });
+    }
+    await route.fulfill({ response });
+  };
+  await page.route('**/api/lobby', delayedLobby);
+  try {
+    await page.locator('#play-open').click(); await held;
+    await page.locator('#page-back').click(); await page.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await tool(1, 'kingdown_cancel', { game_id: staleOffer.game_id });
+    await page.locator('#play-open').click(); await page.locator('#lobby-status').filter({ hasText: /^$/ }).waitFor({ state: 'attached' });
+    const currentRows = await page.locator('#lobby-list').innerText();
+    const oldReply = page.waitForResponse(response => new URL(response.url()).pathname === '/api/lobby');
+    releaseLobby(); await (await oldReply).finished();
+    await page.locator('html').evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    assert.equal(await page.locator('#lobby-list').innerText(), currentRows, 'An old website lobby reply cannot restore the cancelled offer');
+    await shot(page, 'web-current-opponents');
+  } finally { releaseLobby?.(); await page.unroute('**/api/lobby', delayedLobby); }
   assert.deepEqual(failures, [], 'No failed resource or external request');
   assert.equal(lostReplies, 1, 'Only the deliberate lost command reply fails on the network');
   // The deliberately lost HTTP reply produces one browser network error.
