@@ -3,7 +3,7 @@ import type { BoardView } from '../render/PaintedView';
 import { snd } from '../render/sfx';
 import { momentKind } from '../moment';
 import { finishLinkedTurn } from '../turn';
-import { previouslyPlayback, type PreviouslyTurn } from '../previously';
+import { previouslyPlayback, previouslyTurn, type PreviouslyTurn } from '../previously';
 
 export interface PreviouslyState extends PreviouslyTurn { seeAgain: boolean; playing: boolean }
 
@@ -72,7 +72,7 @@ export function connectPreviously(button: HTMLButtonElement, c: Controls) {
         complete = game.playLan(lans) === lans.length;
         if (!complete) alert('Part of this game link could not be read; the game stops before that move.');
         finishLinkedTurn(game);
-        turn = game.context.previouslyTurn(game.history, game.pos.turn);
+        turn = previouslyTurn(game.history, game.pos.turn, game.context);
         fresh = game.history.length > seenPlies;
       } catch (error) {
         alert(`This game link could not be read: ${(error as Error).message}`);

@@ -10,6 +10,7 @@ import { boardFoot } from '../../screen/board-foot';
 import { soundsFor } from '../../screen/moments';
 import { contextLine } from '../../context-line';
 import { shortMove } from '../../move-text';
+import { teachNote } from '../../read';
 import { waitNotice } from '../../turn';
 import type { DraftPosition, DraftPreview, PlayerRecord, View } from '../../match/protocol';
 import { ending } from '../ending';
@@ -474,7 +475,7 @@ export function boardScreen(store: Store) {
     const available = boardActions(view,Date.now()-readAt), opponent = view.opponent?.handle ?? 'Your opponent';
     const deadline = available.claim === 'end' ? 'The first-turn deadline passes.' : available.claim ? view.days_per_move ? `${opponent} has not moved for ${view.days_per_move} day${view.days_per_move===1?'':'s'}.` : `${opponent} misses the move deadline.` : '';
     // Option A: Beginner notes; each enemy fairy action kind shows once a game, at the history length it first shows.
-    const beginner = view.level === 'beginner', teach = beginner && lastMove && lastMove.pre.turn !== view.seat ? gameRules.teachNote(lastMove.pre, lastMove.move) : undefined;
+    const beginner = view.level === 'beginner', teach = beginner && lastMove && lastMove.pre.turn !== view.seat ? teachNote(lastMove.pre, lastMove.move, gameRules.rules) : undefined;
     const fresh = teach && (taught.get(teach[0]) ?? history.length) === history.length;
     const first = beginner && pos.ply < 2 && pos.board.some(c => c && typeOf(c) > K) ? 'New pieces in this game. Select any piece to read its rule.' : '';
     const lesson = beginner && code ? LESSONS.find(lesson => lesson.name.toLowerCase() === gameRules.nameOf(typeOf(code)))?.done : undefined;

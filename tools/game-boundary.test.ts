@@ -10,11 +10,10 @@ const blocked: Record<string, Set<string>> = Object.fromEntries(Object.entries({
   'rules/setup': 'randomBackRank waitGuards startPosition fromFen',
   'ai/search': 'search searchLegal resetSearchState',
   'rules/position-key': 'positionKey hashBoard',
-  'read': 'pieceTitle reachOf pieceGuide readText teachNote pieceStates whyNot readTap unmarkedTap guideTypes',
+  'read': 'pieceTitle reachOf pieceGuide readText pieceStates whyNot readTap unmarkedTap guideTypes',
   'move-text': 'checkCause checkersOf describeMove threatsIn',
   'marks-model': 'railsOf',
   'cursor-text': 'cursorText',
-  'previously': 'previouslyTurn',
   'render/frost': 'frozenPieces',
   'workshop/powers': 'withRules',
   'workshop/moves': 'tryBoard',
@@ -24,7 +23,7 @@ const blocked: Record<string, Set<string>> = Object.fromEntries(Object.entries({
 const internal = new Set([
   'src/game-rules.ts', 'src/match/worker.ts', 'src/match/search-worker.ts',
   'src/read.ts', 'src/move-text.ts', 'src/marks-model.ts', 'src/cursor-text.ts',
-  'src/previously.ts', 'src/render/frost.ts',
+  'src/render/frost.ts',
 ]);
 function violations(file: string, source: string): string[] {
   const faults: string[] = [];
@@ -79,7 +78,7 @@ describe('product game boundary', () => {
     expect(violations('src/example.ts', "export { RULES as active } from './rules/rules';")).toHaveLength(1);
     expect(violations('src/example.ts', "void import('./ai/search');")).toHaveLength(1);
     expect(violations('src/example.ts', "import type { Rules } from './rules/rules'; import { parseSq, P } from './rules/engine';")).toEqual([]);
-    expect(violations('src/example.ts', "import { shortMove } from './move-text'; import { ceremonyMoveLabel } from './ceremony-game'; import { searchOwned } from './ai/search';")).toEqual([]);
+    expect(violations('src/example.ts', "import { shortMove } from './move-text'; import { ceremonyMoveLabel } from './ceremony-game'; import { previouslyTurn } from './previously'; import { teachNote } from './read'; import { searchOwned } from './ai/search';")).toEqual([]);
     expect(violations('src/example.ts', "import { positionKey } from './rules/position-key';")).toHaveLength(1);
   });
   it('permits only a direct owned-search destructuring callback for a lazy import', () => {

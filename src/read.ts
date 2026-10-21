@@ -1,4 +1,4 @@
-import { A, B, C, G, K, L, M, N, nameOf, LETTERS, O, P, Q, R, RULES as GAME_RULES, S, T, V, colorOf, file, findKing, rank, legalMoves, pseudoMoves, sqName, markKind, playedDesign, theName, type ArcherShots, type Color, type Move, typeOf, type PieceType, type Position } from './rules/engine';
+import { A, B, C, G, K, L, M, N, nameOf, LETTERS, O, P, Q, R, RULES as GAME_RULES, S, T, V, colorOf, file, findKing, rank, legalMoves, pseudoMoves, sqName, markKind, playedDesign, theName, type ArcherShots, type Color, type Move, typeOf, type PieceType, type Position, type Rules } from './rules/engine';
 import { needsArming, offered } from './powers-ui';
 import { POOL } from './rules/setup';
 import { describe } from './workshop/text';
@@ -67,8 +67,8 @@ const ARCHER_READ: Record<ArcherShots, string> = {
   fwdNearOver2: 'Shoots nearby diagonally forward; 2 straight or diagonally forward, only over a piece.',
 };
 
-const paladinLeaves = () => GAME_RULES.paladinKamikaze === 'always' ? 'Leaves the board after each take.'
-  : GAME_RULES.paladinKamikaze === 'never' ? 'Stays on the board after each take.'
+const paladinLeaves = (mode: Rules['paladinKamikaze']) => mode === 'always' ? 'Leaves the board after each take.'
+  : mode === 'never' ? 'Stays on the board after each take.'
   : 'Leaves the board after a take, except a pawn.';
 
 /** One guide for both the dialog table and the hover card — reads live rules and POOL. */
@@ -106,7 +106,7 @@ export function pieceGuide(t: PieceType): GuideRow {
       };
     }
     case L: {
-      const die = paladinLeaves();
+      const die = paladinLeaves(r.paladinKamikaze);
       const check = r.paladinChecks
         ? 'Can take a king (gives check).'
         : 'Cannot take a king (never gives check).';
@@ -216,12 +216,12 @@ export function readText(pos: Position, sq: number): string {
 }
 
 /** Kind and words of an enemy move that chess does not have, for the Beginner notes (option A). */
-export function teachNote(pre: Position, m: Move): [string, string] | undefined {
-  const t = typeOf(pre.board[m.from]), r = GAME_RULES, lower = (s: string) => s[0].toLowerCase() + s.slice(1);
+export function teachNote(pre: Position, m: Move, r: Pick<Rules, 'archerShots' | 'ogreMode' | 'paladinKamikaze'>): [string, string] | undefined {
+  const t = typeOf(pre.board[m.from]), lower = (s: string) => s[0].toLowerCase() + s.slice(1);
   if (t === A && m.to === m.from && m.captures.length) return ['shot', `Their archer took without moving; it ${lower(ARCHER_READ[r.archerShots])}`];
   if (t === O && m.shove) return ['shove', `Their ogre shoved a piece 1 square and ${r.ogreMode === 'push' ? 'stepped into its place' : 'stayed in place'}.`];
   if (t === S && m.captures.length > 1) return ['chain', `Their beast took ${m.captures.length} pieces; it can bite again after a bite.`];
-  if (t === L && m.selfRemove) return ['leave', `Their paladin is gone; it ${lower(paladinLeaves())}`];
+  if (t === L && m.selfRemove) return ['leave', `Their paladin is gone; it ${lower(paladinLeaves(r.paladinKamikaze))}`];
   if (t === M && m.swap) return ['swap', 'Their maester swapped places with one of their pieces.'];
 }
 

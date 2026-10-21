@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { Game } from './game';
-import { P, R, G, A, O, type Move, type Rules } from './rules/engine';
+import { P, R, G, A, O, T, aName, nameOf, theName, parseRule, RULES, setRules, type Move, type Rules } from './rules/engine';
 import { fromFen } from './rules/setup';
 import { previouslyPlayback, previouslyTurn } from './previously';
+import { GameRules } from './game-rules';
+import { PRESETS, designCode, fromPreset } from './workshop/model';
+
+const names = { nameOf, aName, theName };
 
 function played(fen: string, moves: string[], rules: Partial<Rules> = {}): Game {
   const game = new Game('RNBQKBNR', rules);
@@ -15,7 +19,7 @@ describe('Previously', () => {
   it.each([[R, 'R', 'a rook'], [A, 'A', 'an archer'], [O, 'O', 'an ogre']])('names a Sacrifice for %s', (_, symbol, piece) => {
     const rules: Partial<Rules> = { kings: [{ king: 'Stratus', power: 'Sacrifice' }, null] };
     const game = played(`4k3/8/8/8/8/8/P7/4K3 w - - 0 1 l${symbol}`, [`!S:a2=${symbol}`], rules);
-    expect(previouslyTurn(game.history, 1)?.line).toBe(`they traded a pawn for ${piece}.`);
+    expect(previouslyTurn(game.history, 1, game.context)?.line).toBe(`they traded a pawn for ${piece}.`);
   });
 
   it.each([
@@ -30,7 +34,7 @@ describe('Previously', () => {
     [{ from: 4, to: 4, captures: [], power: 'firewall' }, 'their king used Firewall.'],
     [{ from: 4, to: 4, captures: [] }, 'their king stayed on e1.'],
   ] as [Move, string][])('names a stationary act or entry: %j', (move, line) => {
-    const turn = previouslyTurn([{ pos: fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'), move, lan: '' }], 1)!;
+    const turn = previouslyTurn([{ pos: fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'), move, lan: '' }], 1, names)!;
     expect(turn.line).toBe(line);
     expect(turn.detail).not.toMatch(/undefined| to (a2|e1)/);
     expect(('Previously: ' + turn.line).split(/\s+/).length).toBeLessThanOrEqual(8);
@@ -39,13 +43,13 @@ describe('Previously', () => {
   it('names Rescue and its marked pawn in the detail', () => {
     const pos = fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1');
     const move: Move = { from: 8, to: 8, captures: [], power: 'rescue' };
-    expect(previouslyTurn([{ pos, move, lan: '' }], 1)?.detail).toBe('Rescue puts the mark on the pawn on a2 again.');
+    expect(previouslyTurn([{ pos, move, lan: '' }], 1, names)?.detail).toBe('Rescue puts the mark on the pawn on a2 again.');
   });
 
   it('names Rescue when its mark is now on an empty square', () => {
     const rules: Partial<Rules> = { hands: [['Rescue'], []], markFree: true };
     const game = played('4k3/8/8/8/8/8/P7/4K3 w - - 0 1 md6w0', ['!D:d6'], rules);
-    expect(previouslyTurn(game.history, 1)).toMatchObject({
+    expect(previouslyTurn(game.history, 1, game.context)).toMatchObject({
       line: 'they used Rescue.', detail: 'Rescue puts the mark on d6 again.',
     });
   });
@@ -57,7 +61,7 @@ describe('Previously', () => {
     [{ from: 4, to: 4, captures: [], power: 'firestarter' }, 'their king used Fire Starter.', 'King e1 uses Fire Starter.'],
     [{ from: 16, to: 16, captures: [], power: 'spawnk2', drop: P, drop2: 17 }, 'their pawn entered on a3.', 'Pawn enters on a3 and b3 with Spawn.'],
   ] as [Move, string, string][])('uses player names and articles: %j', (move, line, detail) => {
-    const turn = previouslyTurn([{ pos: fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'), move, lan: '' }], 1)!;
+    const turn = previouslyTurn([{ pos: fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'), move, lan: '' }], 1, names)!;
     expect(turn).toMatchObject({ line, detail });
     expect(('Previously: ' + turn.line).split(/\s+/).length).toBeLessThanOrEqual(8);
   });
@@ -65,21 +69,21 @@ describe('Previously', () => {
   it('uses an before a pushed ogre', () => {
     const pos = fromFen('4k3/8/8/8/8/8/O7/4K3 w - - 0 1');
     const move: Move = { from: 4, to: 4, captures: [], power: 'quake', pushes: [{ from: 8, to: 16 }] };
-    expect(previouslyTurn([{ pos, move, lan: '' }], 1)?.line).toBe('they pushed an ogre with Earth Quake.');
+    expect(previouslyTurn([{ pos, move, lan: '' }], 1, names)?.line).toBe('they pushed an ogre with Earth Quake.');
   });
 
   it('summarizes a link that starts with a held turn and a pass', () => {
     const game = new Game('RNBQKBNR');
     game.load({ ...fromFen('7k/8/8/8/8/R7/8/7K w - - 0 1'), haste: 16 });
     expect(game.playLan(['--'])).toBe(1);
-    expect(previouslyTurn(game.history, 1)).toMatchObject({
+    expect(previouslyTurn(game.history, 1, game.context)).toMatchObject({
       line: 'their rook stayed; the turn ended.', detail: 'End turn.',
     });
   });
 
   it('shows the main act and each turn in short words', () => {
     const game = played('4k3/4p3/8/8/8/8/4P3/4K3 w - - 0 1', ['e2-e4', 'e7-e5']);
-    expect(previouslyTurn(game.history, 0)).toEqual({
+    expect(previouslyTurn(game.history, 0, game.context)).toEqual({
       from: 1, to: 2,
       line: 'their pawn moved to e5.', detail: 'Pawn e7 to e5.',
       before: 'Pawn e2 to e4.',
@@ -88,22 +92,22 @@ describe('Previously', () => {
 
   it('shows only the friend line in the first link', () => {
     const game = played('4k3/8/8/8/8/8/4P3/4K3 w - - 0 1', ['e2-e4']);
-    expect(previouslyTurn(game.history, 1)).toEqual({
+    expect(previouslyTurn(game.history, 1, game.context)).toEqual({
       from: 0, to: 1, line: 'their pawn moved to e4.', detail: 'Pawn e2 to e4.', before: null,
     });
   });
 
   it('has no friend turn before a move or after your own move', () => {
     const game = played('4k3/8/8/8/8/8/4P3/4K3 w - - 0 1', []);
-    expect(previouslyTurn(game.history, 0)).toBeNull();
+    expect(previouslyTurn(game.history, 0, game.context)).toBeNull();
     game.playLan(['e2-e4']);
-    expect(previouslyTurn(game.history, 0)).toBeNull();
+    expect(previouslyTurn(game.history, 0, game.context)).toBeNull();
   });
 
   it('keeps both moves of the friend Haste turn', () => {
     const rules: Partial<Rules> = { kings: [{ king: 'Flame', power: 'Haste' }, null] };
     const game = played('7k/8/8/r3r3/8/8/8/R5K1 b - - 0 1', ['Kh8-h7', 'Ra1xa5!H', 'Ra5xe5'], rules);
-    expect(previouslyTurn(game.history, 1)).toEqual({
+    expect(previouslyTurn(game.history, 1, game.context)).toEqual({
       from: 1, to: 3,
       line: 'their rook took 2 pieces.', detail: 'Rook a1 takes a5 with Haste, then takes e5.', before: 'King h8 to h7.',
     });
@@ -113,13 +117,13 @@ describe('Previously', () => {
     const rules: Partial<Rules> = { kings: [{ king: 'Flame', power: 'Haste' }, null], hasteCaptures: true };
     const game = played('k7/6pp/5pp1/3pp1pp/2nS3p/8/8/K7 b - - 0 1',
       ['Ka8-a7', 'Sd4xc4xd5xe5xf6!H', 'Sf6xg7xh7xg6xh5xg5xh4'], rules);
-    expect(previouslyTurn(game.history, 1)?.line).toBe('their beast took 10 pieces.');
+    expect(previouslyTurn(game.history, 1, game.context)?.line).toBe('their beast took 10 pieces.');
   });
 
   it('keeps the free mark and the friend move', () => {
     const rules: Partial<Rules> = { kings: [{ king: 'Frost', power: 'Freeze' }, null], markFree: true };
     const game = played('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', ['!F:d5', 'a2-a4'], rules);
-    expect(previouslyTurn(game.history, 1)).toEqual({
+    expect(previouslyTurn(game.history, 1, game.context)).toEqual({
       from: 0, to: 2, line: 'their pawn moved to a4.', detail: 'Freeze on d5, then pawn a2 to a4.', before: null,
     });
   });
@@ -127,25 +131,25 @@ describe('Previously', () => {
   it('names the mark and pass without rule text', () => {
     const rules: Partial<Rules> = { kings: [{ king: 'Frost', power: 'Freeze' }, null], markFree: true };
     const game = played('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', ['!F:d5', '--'], rules);
-    expect(previouslyTurn(game.history, 1)).toMatchObject({ line: 'they froze your knight.', detail: 'Freeze on d5, then end turn.' });
+    expect(previouslyTurn(game.history, 1, game.context)).toMatchObject({ line: 'they froze your knight.', detail: 'Freeze on d5, then end turn.' });
   });
 
   it.each(['rage', 'haste'] as const)('keeps %s on a stationary Archer take', power => {
     const pos = fromFen('7k/8/8/8/3A1p2/8/8/K7 w - - 0 1');
     const move: Move = { from: 27, to: 27, captures: [29], power };
-    expect(previouslyTurn([{ pos, move, lan: '' }], 1)?.detail).toBe(`Archer d4 shoots f4 with ${power === 'rage' ? 'Rage' : 'Haste'}.`);
+    expect(previouslyTurn([{ pos, move, lan: '' }], 1, names)?.detail).toBe(`Archer d4 shoots f4 with ${power === 'rage' ? 'Rage' : 'Haste'}.`);
   });
 
   it('keeps the Reaver landing square after a take', () => {
     const pos = fromFen('7k/8/8/8/8/2p5/8/KV6 w - - 0 1');
     const move: Move = { from: 1, to: 27, captures: [18] };
-    expect(previouslyTurn([{ pos, move, lan: '' }], 1)?.detail).toBe('Reaver b1 takes c3, to d4.');
+    expect(previouslyTurn([{ pos, move, lan: '' }], 1, names)?.detail).toBe('Reaver b1 takes c3, to d4.');
   });
 
   it('keeps both moves of the friend Rage turn', () => {
     const rules: Partial<Rules> = { hands: [['Rage'], []], hasteCaptures: false };
     const game = played('4k3/8/p7/8/8/8/8/R3K2n w - - 0 1', ['Ra1xa6!A', 'Ra6-h6'], rules);
-    expect(previouslyTurn(game.history, 1)).toEqual({
+    expect(previouslyTurn(game.history, 1, game.context)).toEqual({
       from: 0, to: 2, line: 'their rook took your pawn.', detail: 'Rook a1 takes a6 with Rage, then to h6.', before: null,
     });
   });
@@ -153,31 +157,31 @@ describe('Previously', () => {
   it('keeps both pieces of the friend Rally turn', () => {
     const rules: Partial<Rules> = { hands: [['Rally'], []], hasteCaptures: false };
     const game = played('4k3/8/p7/8/8/2p5/8/RN2K3 w - - 0 1', ['Ra1-a5!J', 'Nb1-d2'], rules);
-    expect(previouslyTurn(game.history, 1)).toEqual({
+    expect(previouslyTurn(game.history, 1, game.context)).toEqual({
       from: 0, to: 2, line: 'their knight moved to d2.', detail: 'Rook a1 to a5 with Rally, then knight b1 to d2.', before: null,
     });
   });
 
   it('names every bite in a long friend turn', () => {
     const game = played('7k/6p1/5p2/3pp3/2nS4/8/8/K7 b - - 0 1', ['Kh8-h7', 'Sd4xc4xd5xe5xf6']);
-    expect(previouslyTurn(game.history, 1)?.detail).toBe('Beast d4 takes c4 and d5 and e5 and f6.');
+    expect(previouslyTurn(game.history, 1, game.context)?.detail).toBe('Beast d4 takes c4 and d5 and e5 and f6.');
   });
 
   it('keeps two Haste takes and a promotion', () => {
     const rules: Partial<Rules> = { kings: [{ king: 'Flame', power: 'Haste' }, null], hasteCaptures: true };
     const game = played('k6q/6r1/5P2/8/8/8/8/K7 b - - 0 1', ['Ka8-a7', 'f6xg7!H', 'g7xh8=Q'], rules);
-    expect(previouslyTurn(game.history, 1)?.detail).toBe('Pawn f6 takes g7 with Haste, then takes h8, becomes queen.');
+    expect(previouslyTurn(game.history, 1, game.context)?.detail).toBe('Pawn f6 takes g7 with Haste, then takes h8, becomes queen.');
   });
 
   it('keeps your whole Haste turn before the friend move', () => {
     const rules: Partial<Rules> = { kings: [{ king: 'Flame', power: 'Haste' }, null] };
     const game = played('7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1', ['Ra1xa5!H', 'Ra5xe5', 'Kh8-h7'], rules);
-    expect(previouslyTurn(game.history, 0)?.before).toBe('Rook a1 takes a5 with Haste, then takes e5.');
+    expect(previouslyTurn(game.history, 0, game.context)?.before).toBe('Rook a1 takes a5 with Haste, then takes e5.');
   });
 
   it('plays the opened turn once', () => {
     const game = played('4k3/8/8/8/8/8/4P3/4K3 w - - 0 1', ['e2-e4']);
-    const turn = previouslyTurn(game.history, 1);
+    const turn = previouslyTurn(game.history, 1, game.context);
     const options = { played: false, motion: true, reducedMotion: false, complete: true };
     const first = previouslyPlayback(turn, options);
     expect(first).toEqual({ play: true, seeAgain: true, played: true });
@@ -191,7 +195,7 @@ describe('Previously', () => {
     { motion: true, reducedMotion: true },
   ])('keeps the same line without replay when motion stops: %j', motion => {
     const game = played('4k3/8/8/8/8/8/4P3/4K3 w - - 0 1', ['e2-e4']);
-    const turn = previouslyTurn(game.history, 1);
+    const turn = previouslyTurn(game.history, 1, game.context);
     const result = previouslyPlayback(turn, { ...motion, played: false, complete: true });
     expect(result).toEqual({ play: false, seeAgain: false, played: true });
     expect(turn?.line).toBe('their pawn moved to e4.');
@@ -202,7 +206,7 @@ describe('Previously', () => {
 
   it('does not replay a link that stops before an unread move', () => {
     const game = played('4k3/8/8/8/8/8/4P3/4K3 w - - 0 1', ['e2-e4']);
-    const turn = previouslyTurn(game.history, 1);
+    const turn = previouslyTurn(game.history, 1, game.context);
     expect(previouslyPlayback(turn, {
       played: false, motion: true, reducedMotion: false, complete: false,
     })).toEqual({ play: false, seeAgain: false, played: true });
@@ -213,4 +217,31 @@ describe('Previously', () => {
       played: false, motion: true, reducedMotion: false, complete: true,
     })).toEqual({ play: false, seeAgain: false, played: true });
   });
+});
+
+it('keeps owned designed names and articles without changing ambient rules', () => {
+  const before = structuredClone(RULES);
+  try {
+    const preset = fromPreset(PRESETS.find(row => row.key === 'rook')!);
+    const rules = (name: string) => parseRule(`design=${designCode({ ...preset, name, letter: 'Y' })}`);
+    const context = new GameRules(rules('Owned Ward'));
+    const pos = context.fromFen('7k/P7/8/8/8/8/T7/K7 w - - 0 1');
+    const victim = context.fromFen('7k/8/8/8/8/8/t7/R5K1 w - - 0 1');
+    setRules(rules('Ambient Ward'));
+    const ambient = structuredClone(RULES);
+    for (const [position, move, line, detail] of [
+      [pos, { from: 8, to: 16, captures: [] }, 'their Owned Ward moved to a3.', 'Owned Ward a2 to a3.'],
+      [victim, { from: 0, to: 8, captures: [8] }, 'their rook took your Owned Ward.', 'Rook a1 takes a2.'],
+      [pos, { from: 16, to: 16, captures: [], drop: T }, 'their Owned Ward entered on a3.', 'Owned Ward enters on a3.'],
+      [pos, { from: 48, to: 56, captures: [], promo: T }, 'their pawn moved to a8.', 'Pawn a7 to a8, becomes Owned Ward.'],
+      [pos, { from: 48, to: 48, captures: [], promo: T, power: 'morphp' }, 'their pawn became Owned Ward.', 'Pawn a7 becomes Owned Ward with Morph.'],
+      [pos, { from: 8, to: 8, captures: [], power: 'rescue' }, 'they marked Owned Ward again.', 'Rescue puts the mark on Owned Ward on a2 again.'],
+      [pos, { from: 48, to: 48, captures: [], promo: T, power: 'sacrifice' }, 'they traded a pawn for Owned Ward.', 'Sacrifice on a7 for Owned Ward.'],
+      [pos, { from: 0, to: 0, captures: [], power: 'quake', pushes: [{ from: 8, to: 16 }] }, 'they pushed Owned Ward with Earth Quake.', 'Pushes Owned Ward a2 to a3 with Earth Quake.'],
+    ] satisfies [typeof pos, Move, string, string][]) {
+      expect(previouslyTurn([{ pos: position, move, lan: '' }], 1, context)).toMatchObject({ line, detail });
+    }
+    expect(previouslyTurn([{ pos, move: { from: 8, to: 16, captures: [] }, lan: '' }], 1, names)?.line).toBe('their Ambient Ward moved to a3.');
+    expect(RULES).toEqual(ambient);
+  } finally { setRules(before); }
 });

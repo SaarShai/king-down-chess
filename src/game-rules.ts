@@ -6,7 +6,6 @@ import * as read from './read';
 import * as words from './move-text';
 import * as marks from './marks-model';
 import { cursorText } from './cursor-text';
-import { previouslyTurn } from './previously';
 import { frozenPieces } from './render/frost';
 import { genDesigned, type DesignSpec, type Refused, type TryState } from './rules/design';
 import { positionKey } from './rules/position-key';
@@ -59,7 +58,6 @@ export class GameRules {
   reachOf(...args: Parameters<typeof read.reachOf>) { return this.#scoped(() => read.reachOf(...args)); }
   pieceGuide(...args: Parameters<typeof read.pieceGuide>) { return this.#scoped(() => read.pieceGuide(...args)); }
   readText(...args: Parameters<typeof read.readText>) { return this.#scoped(() => read.readText(...args)); }
-  teachNote(...args: Parameters<typeof read.teachNote>) { return this.#scoped(() => read.teachNote(...args)); }
   pieceStates(...args: Parameters<typeof read.pieceStates>) { return this.#scoped(() => read.pieceStates(...args)); }
   whyNot(...args: Parameters<typeof read.whyNot>) { return this.#scoped(() => read.whyNot(...args)); }
   readTap(...args: Parameters<typeof read.readTap>) { return this.#scoped(() => read.readTap(...args)); }
@@ -71,6 +69,5 @@ export class GameRules {
   threatsIn(...args: Parameters<typeof words.threatsIn>) { return this.#scoped(() => words.threatsIn(...args)); }
   railsOf(...args: Parameters<typeof marks.railsOf>) { return this.#scoped(() => marks.railsOf(...args)); }
   cursorText(...args: Parameters<typeof cursorText>) { return this.#scoped(() => cursorText(...args)); }
-  previouslyTurn(...args: Parameters<typeof previouslyTurn>) { return this.#scoped(() => previouslyTurn(...args)); }
   frozenPieces(...args: Parameters<typeof frozenPieces>) { return this.#scoped(() => frozenPieces(...args)); }
 }

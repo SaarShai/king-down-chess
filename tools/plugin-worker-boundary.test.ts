@@ -49,6 +49,22 @@ await writeFile(process.argv[2] + '.json', JSON.stringify({ engine }));
     expect.soft({ sameBytes: captioned.source === baseline.source, engine: captioned.engine }, 'ceremony labels').toEqual({ sameBytes: true, engine: baseline.engine });
     await writeFile(ceremony, labels);
 
+    const previously = join(copy, 'src/previously.ts'), narration = await readFile(previously, 'utf8');
+    const reworded = narration.replace('they drew a card with Growth.', 'they drew one card with Growth.');
+    expect(reworded).not.toBe(narration);
+    await writeFile(previously, reworded);
+    const narrated = await build('previously');
+    expect.soft({ sameBytes: narrated.source === baseline.source, engine: narrated.engine }, 'previous-turn narration').toEqual({ sameBytes: true, engine: baseline.engine });
+    await writeFile(previously, narration);
+
+    const read = join(copy, 'src/read.ts'), teaching = await readFile(read, 'utf8');
+    const retaught = teaching.replace('Their maester swapped places with one of their pieces.', 'Their maester exchanged places with one of their pieces.');
+    expect(retaught).not.toBe(teaching);
+    await writeFile(read, retaught);
+    const taught = await build('teaching');
+    expect.soft({ sameBytes: taught.source === baseline.source, engine: taught.engine }, 'Beginner teaching words').toEqual({ sameBytes: true, engine: baseline.engine });
+    await writeFile(read, teaching);
+
     const mechanics = join(copy, 'src/rules/engine.ts'), engine = await readFile(mechanics, 'utf8');
     const changed = engine.replace('export const HAND_MAX = 8;', 'export const HAND_MAX = 7;');
     expect(changed).not.toBe(engine);

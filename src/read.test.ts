@@ -1,10 +1,11 @@
 import { afterEach, expect, it } from 'vitest';
-import { A, DEFAULT_RULES, type Move, M, P, type Rules, S, T, V, legalMoves, nameOf, parseRule, parseSq, setRules } from './rules/engine';
+import { A, DEFAULT_RULES, type Move, L, M, P, type Rules, RULES, S, T, V, legalMoves, nameOf, parseRule, parseSq, setRules } from './rules/engine';
 import { describeMove } from './move-text';
 import { PRESETS, designCode, fromPreset } from './workshop/model';
 import { fromFen } from './rules/setup';
 import { pieceGuide, guideTypes, reachOf, readText, pieceTitle, readTap, teachNote, unmarkedTap, whyNot } from './read';
 import { contextLine } from './context-line';
+import { GameRules } from './game-rules';
 
 const at = parseSq;
 afterEach(() => setRules(DEFAULT_RULES));
@@ -285,8 +286,8 @@ it.each([
 ] as const)('teaches the enemy %s move once in the rule words (option A)', (ranks, pick, rules, kind, words) => {
   setRules(rules as Partial<Rules>);
   const pos = fromFen(`4k3/8/8/${ranks}/8/K7 b - - 0 1`), move = legalMoves(pos).find(pick)!;
-  expect(teachNote(pos, move)).toEqual([kind, words]);
-  expect(teachNote(pos, legalMoves(pos).find(m => m.from === at('e8'))!)).toBeUndefined();
+  expect(teachNote(pos, move, RULES)).toEqual([kind, words]);
+  expect(teachNote(pos, legalMoves(pos).find(m => m.from === at('e8'))!, RULES)).toBeUndefined();
   expect(contextLine({ voice: 'you', teach: words })).toMatchObject({ rank: 'your-move', note: words });
   expect(contextLine({ voice: 'you', teach: words, check: true, checkCause: 'Their archer attacks your king.' }).note).toBe('Their archer attacks your king.');
 });
@@ -294,4 +295,19 @@ it.each([
 it('uses Select in the shared Beast and Reaver rules', () => {
   expect(pieceGuide(S).special).toBe('After a bite, it can bite again from its new square. A chain cannot continue onto a king. Select each piece to bite. Select "Stop here" to end the chain.');
   expect(pieceGuide(V).special).toBe('Select the enemy piece, then the landing square.');
+});
+
+it.each([
+  ['3a4/8/3P4', (move: Move) => move.from === move.to, { archerShots: 'classic' }, { archerShots: 'far2' }, 'shot', 'Their archer took without moving; it shoots near diagonals or 2 squares straight.'],
+  ['3o4/3P4/8', (move: Move) => !!move.shove, { ogreMode: 'repel' }, { ogreMode: 'push' }, 'shove', 'Their ogre shoved a piece 1 square and stayed in place.'],
+  ['3l4/8/3N4', (move: Move) => move.captures.length === 1, { paladinKamikaze: 'always' }, { paladinKamikaze: 'never' }, 'leave', 'Their paladin is gone; it leaves the board after each take.'],
+] as const)('teaches the stored %s rule while the ambient rules differ', (ranks, pick, owned, other, kind, words) => {
+  const context = new GameRules(owned);
+  const pos = context.fromFen(`4k3/8/8/${ranks}/8/K7 b - - 0 1`), move = context.legalMoves(pos).find(pick)!;
+  expect(move).toBeDefined();
+  setRules(other);
+  const ambient = structuredClone(RULES);
+  expect(teachNote(pos, move, context.rules)).toEqual([kind, words]);
+  if ('paladinKamikaze' in owned) expect(context.pieceGuide(L).special).toContain('Leaves the board after each take.');
+  expect(RULES).toEqual(ambient);
 });
