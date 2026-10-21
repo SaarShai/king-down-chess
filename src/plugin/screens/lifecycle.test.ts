@@ -9,7 +9,7 @@ const runtime = vi.hoisted(() => ({
   board: { ready: vi.fn(), setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), setPreview: vi.fn(), screenOf: () => ({ x: 0, y: 0 }), onSquareClick: () => {}, onDragSelect: () => {}, onSquareHover: () => {} },
 }));
 vi.mock('../../account-game/runtime', () => ({
-  call: runtime.call, client: { ...runtime.client, call: runtime.clientCall }, memory: runtime.memory,
+  call: runtime.call, send: async (name: string, args: Record<string, unknown>) => ({ status: 'done', result: await runtime.clientCall(name, args) }), client: { ...runtime.client, call: runtime.clientCall }, memory: runtime.memory,
   queue: { closed: () => runtime.closed, current: () => !runtime.closed },
   navigate: runtime.navigate, renderGameRows: runtime.renderRows, routeView: runtime.routeView,
   gameActionsBlocked: () => false, pollUpdate() {}, start: vi.fn(), showNewGame() {}, actions() {},
@@ -173,4 +173,18 @@ it('clears the invite expiry timer before the account DOM is removed', async () 
   expect(vi.getTimerCount()).toBe(0);
   await vi.advanceTimersByTimeAsync(1000);
   expect(runtime.renderRows).not.toHaveBeenCalled();
+});
+
+
+it('explains a replaced code and keeps renewal explicit', async () => {
+  const friend = await import('./friend'), { friendInvites, syncFriendInvites } = await import('../invite');
+  runtime.client.state.screen = 'friend';
+  runtime.memory.view = { game_id: 'friend', kind: 'friend', status: 'waiting' } as View;
+  friendInvites.set('friend', { code: 'ABC234', invite_id: 'old', expires_at: new Date(Date.now() + 7000).toISOString() });
+  syncFriendInvites([{ game_id: 'friend', invite_id: 'new' }]);
+  friend.friendScreen();
+  expect(lookup('friend-code').hidden).toBe(true); expect(lookup('friend-actions').hidden).toBe(true);
+  expect(lookup('friend-new').hidden).toBe(false); expect(lookup('friend-help').textContent).toContain('replaced');
+  expect(runtime.clientCall).not.toHaveBeenCalled();
+  friend.stopAll();
 });

@@ -1,6 +1,6 @@
 import { acceptedView, createHall, createHallMemory } from '../account-game/hall';
 import type { PageHost, ReadRoute } from '../account-game/client';
-import { decorateFriendRows } from '../plugin/invite';
+import { decorateFriendRows, syncFriendInvites } from '../plugin/invite';
 import { runtimeHost, type RuntimeContext } from './host';
 import type { PlayerSettings } from '../plugin/settings';
 
@@ -85,7 +85,7 @@ const pageHost: PageHost = {
     } };
   },
 };
-const hall = createHall(memory, pluginGameClient(client, queue, send), pageHost, store, next => routeView(next));
+const hall = createHall(memory, pluginGameClient(client, queue, send), pageHost, store, next => routeView(next), syncFriendInvites);
 store.subscribe((page, before) => {
   turnLine(memory.games.filter(entry => entry.action === 'ready').length);
   decorateFriendRows(memory.games);
@@ -135,6 +135,7 @@ function show(next: View | undefined, job?: Job) {
   if (view?.game_id !== next.game_id || view.revision !== next.revision) memory.blockNotice = '';
   if (view?.game_id !== next.game_id) $('invitation').textContent = '';
   view = next;
+  syncFriendInvites([next]);
   // The mount job restores a saved screen only on the first mount (design §2, step 2).
   drawBoard(next, mounting() && queue.mountJob()?.options.initial === true && !!savedScreen);
   // A view of another game clears a refusal or a read of the game it leaves; a good read clears this game's read notice.
@@ -288,7 +289,9 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       if (quiet && next && next.game_id === view?.game_id && next.revision === view?.revision && next.engine_fingerprint === view?.engine_fingerprint) {
         // Privacy can change without a game revision. Replace the complete seat projection, including
         // redacted or empty command lists, so the old account view cannot retain private payloads.
-        view = { ...view, ...next }; drawBoard(view); store.dispatch({ type: 'good-read', game: next.game_id }); if (state.screen === 'seat') seatScreen(); poll?.update(); return { status: 'done', result, view };
+        view = { ...view, ...next }; syncFriendInvites([next]);
+        if (state.screen === 'friend') friendScreen();
+        drawBoard(view); store.dispatch({ type: 'good-read', game: next.game_id }); if (state.screen === 'seat') seatScreen(); poll?.update(); return { status: 'done', result, view };
       }
       if (acceptsView(next, job)) received = next;
       const shown = show(received, job);

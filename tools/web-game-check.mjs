@@ -153,6 +153,19 @@ try {
   await page.locator('#friend-new').click(); await page.locator('#friend-code').filter({ hasText: /[A-Z0-9]{6}/ }).waitFor();
   code = (await page.locator('#friend-code').innerText()).trim(); assert.notEqual(code, oldCode);
   assert.equal((await http(1, '/api/invites/preview', { code: oldCode }, 404)).code, 'INVITE_UNAVAILABLE');
+  // Another host replaces this still-open page's code. The ordinary read must revoke its Share/Copy.
+  const replacedCode = code;
+  const remoteInvite = await tool(0, 'kingdown_invite', { game_id: gameId });
+  assert(!remoteInvite.isError);
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await page.locator('#friend-help').filter({ hasText: 'replaced on another page' }).waitFor();
+  assert.equal(await page.locator('#friend-actions').isVisible(), false);
+  assert.equal(await page.locator('#friend-code').isVisible(), false);
+  assert.equal((await http(1, '/api/invites/preview', { code: replacedCode }, 404)).code, 'INVITE_UNAVAILABLE');
+  assert.equal((await pool.query('select token_hash from public.game_invites where game_id=$1', [gameId])).rows[0].token_hash, remoteInvite.structuredContent.invite_id, 'The read does not renew the remote invite');
+  await shot(page, 'web-replaced-friend-code');
+  await page.locator('#friend-new').click(); await page.locator('#friend-code').filter({ hasText: /[A-Z0-9]{6}/ }).waitFor();
+  code = (await page.locator('#friend-code').innerText()).trim(); assert.notEqual(code, replacedCode);
   await tool(1, 'kingdown_join', { code });
   await page.locator('[data-screen="seat"]:not([hidden])').waitFor();
   await page.locator('#seat-screen #board[aria-busy="false"] canvas').waitFor({ state: 'visible' });

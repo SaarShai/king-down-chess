@@ -2,9 +2,10 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { copyText } from '../clipboard';
 import { DEFAULT_OPTIONS } from '../match/setup';
 import { inviteText, sendInvite } from './invite';
+import * as invites from './invite';
 
 vi.mock('../clipboard', () => ({ copyText: vi.fn() }));
-afterEach(() => { vi.unstubAllGlobals(); vi.resetAllMocks(); });
+afterEach(() => { vi.unstubAllGlobals(); vi.resetAllMocks(); invites.friendInvites.clear(); });
 const invite = () => ({ code: 'ABC234', expires_at: new Date(Date.now() + 1000).toISOString() });
 const text = 'Join King Down game ABC234. Rules: Standard pieces.';
 const status = () => ({ textContent: '' }) as HTMLElement;
@@ -51,4 +52,23 @@ it.each([true, false])('does not share or copy an expired code (Share: %s)', asy
   await sendInvite({ code: 'OLD234', expires_at: new Date(Date.now() - 1).toISOString() }, null, result, sharing);
   expect(share).not.toHaveBeenCalled(); expect(copyText).not.toHaveBeenCalled();
   expect(result.textContent).toContain('expired');
+});
+
+it.each([true, false])('blocks a retained invite action after a server read reports replacement (Share: %s)', async sharing => {
+  const saved = { ...invite(), invite_id: 'old' }, share = vi.fn(), result = status();
+  invites.friendInvites.set('friend', saved); vi.stubGlobal('navigator', { share });
+  invites.syncFriendInvites([{ game_id: 'friend', invite_id: 'new' }]);
+  await sendInvite(saved, null, result, sharing);
+  expect(share).not.toHaveBeenCalled(); expect(copyText).not.toHaveBeenCalled();
+  expect(result.textContent).toContain('replaced');
+});
+
+it('keeps the current code through missing metadata and invalidates only its own game', () => {
+  const saved = { ...invite(), invite_id: 'current' };
+  invites.friendInvites.set('friend', saved);
+  const sync = invites.syncFriendInvites;
+  sync([{ game_id: 'other', invite_id: 'changed' }, { game_id: 'friend' }, { game_id: 'friend', invite_id: 'current' }]);
+  expect(saved).not.toHaveProperty('replaced');
+  sync([{ game_id: 'friend', invite_id: null }]);
+  expect(saved).toHaveProperty('replaced', true);
 });

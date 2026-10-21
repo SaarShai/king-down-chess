@@ -415,7 +415,8 @@ export class GameService {
    const expires = new Date(Date.now() + (game.speed === 'daily' ? FRIEND_CODE_DAYS : 1) * DAY);
    for (let attempt = 0; attempt < 5; attempt++) {
     const token = randomBytes(32).toString('base64url'), code = Array.from({ length: 6 }, () => CODE[randomInt(CODE.length)]).join('');
-    if (await this.store.addInvite(client, { token_hash: hash(token), code_hash: this.codeHash(code), game_id: game.id, seat: other(seat), created_by: actor, expires_at: expires })) return { token, code, expires_at: expires.toISOString() };
+    const invite_id = hash(token);
+    if (await this.store.addInvite(client, { token_hash: invite_id, code_hash: this.codeHash(code), game_id: game.id, seat: other(seat), created_by: actor, expires_at: expires })) return { token, code, expires_at: expires.toISOString(), invite_id };
    }
    return fail('UNAVAILABLE', 503, 'Could not make an invitation. Retry.');
   });
@@ -496,10 +497,13 @@ export class GameService {
   const sees = opponent.user_id ? await this.store.privacy(client ?? this.store.pool, game.players[seat].user_id!, opponent.user_id) : { presets: true, online: true, unblocked: true };
   const commands = await this.store.commands(game.id, since, client);
   const db = client ?? this.store.pool;
+  const invitation = game.kind === 'friend' && game.status === 'waiting'
+   ? { invite_id: (await db.query('select token_hash from public.game_invites where game_id=$1', [game.id])).rows[0]?.token_hash ?? null } : {};
   const vacant = !opponent.user_id && !opponent.computer && !opponent.handle_at_start && !await this.store.hasJoined(game.id, db);
   const rating = rules && opponent.user_id ? await opponentRating(db, opponent.user_id) : undefined;
   const outcome = rules && game.status === 'finished' ? await gameOutcome(db, game.players[seat].user_id!, game.id) : undefined;
   return {
+   ...invitation,
    created_at: game.created_at.toISOString(), abort_open: game.status === 'waiting' || game.status === 'setup' || playing && (game.players.some(p => p.turns_played === 0) || game.kind === 'solo' && await this.store.canSwitch(game.players[seat].user_id!, game.created_at, db)),
    ...(outcome && { outcome }), level: game.level,
    game_id: game.id, rating_policy: game.rating_policy, revision: game.revision, engine_fingerprint: game.engine_fingerprint, seat, kind: game.kind, speed: game.speed, days_per_move: game.days_per_move, status: game.status, turn: game.turn, action: actionOf(game, seat),

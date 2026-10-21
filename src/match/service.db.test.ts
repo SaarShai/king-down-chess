@@ -148,6 +148,24 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   expect(left).toBeLessThanOrEqual(7 * 86_400_000 + 60_000);
  });
 
+ it('reports invite replacement on reads without changing the game revision or exposing a redeemable token', async () => {
+  const game = await games[0].create(a, { kind: 'friend', options: CLASSIC_OPTIONS });
+  expect(game.invite_id).toBeNull();
+  const first = await games[0].invite(a, game.game_id);
+  expect(first.invite_id).toMatch(/^[a-f0-9]{64}$/);
+  expect(first.invite_id).not.toBe(first.token);
+  expect((await games[1].view(a, game.game_id)).invite_id).toBe(first.invite_id);
+  const second = await games[1].invite(a, game.game_id);
+  expect(second.invite_id).not.toBe(first.invite_id);
+  expect(await games[0].view(a, game.game_id, game.revision)).toMatchObject({ invite_id: second.invite_id, revision: game.revision });
+  expect((await games[0].inbox(a)).find(entry => entry.game_id === game.game_id)?.invite_id).toBe(second.invite_id);
+  await expect(games[0].view(b, game.game_id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  await expect(games[0].preview(b, second.invite_id)).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  await expect(games[0].preview(b, first.token)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
+  expect((await games[0].preview(b, second.token)).kind).toBe('friend');
+  expect((await rows('select token_hash from public.game_invites where game_id=$1', [game.game_id]))[0].token_hash).toBe(second.invite_id);
+ });
+
  it('gives one seat to one of two joiners and lets the winner retry',async () => {
   const created = await games[0].create(a,{kind:'friend',options:CLASSIC_OPTIONS,colour:'white'});
   const old = await games[0].invite(a,created.game_id), invite = await games[0].invite(a,created.game_id);

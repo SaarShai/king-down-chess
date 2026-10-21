@@ -126,14 +126,16 @@ export interface View {
   result?: { winner: Seat | null; reason: EndReason };
   deadline_at: string | null;
   server_now: string;
+  /** Current invitation identity, never a redeemable token. Present only for a waiting friend game. */
+  invite_id?: string | null;
   /** The game's fixed rules; only on a full read (no `since`), never in a command reply. */
   rules?: PublicMatchRules;
 }
 /** One line of "Your games": your turn first, then the nearest deadline. */
 export interface GameOutcome { rating_before: number | null; rating: number | null; provisional: boolean; badges: PlayerRecord['badges'] }
-export interface InboxEntry { rating_policy: RatingPolicy; options: Options | null; move: number | null; created_at: string; open_until: string | null; level: SkillName; game_id: string; kind: 'solo' | 'friend' | 'random'; speed: 'daily' | 'live'; status: 'waiting' | 'setup' | 'playing'; seat: Seat; action: SeatAction; turn: Seat; revision: number; deadline_at: string | null; opponent: Opponent | null; updated_at: string }
+export interface InboxEntry { invite_id?: string | null; rating_policy: RatingPolicy; options: Options | null; move: number | null; created_at: string; open_until: string | null; level: SkillName; game_id: string; kind: 'solo' | 'friend' | 'random'; speed: 'daily' | 'live'; status: 'waiting' | 'setup' | 'playing'; seat: Seat; action: SeatAction; turn: Seat; revision: number; deadline_at: string | null; opponent: Opponent | null; updated_at: string }
 /** The link token (43 characters) and the short code (6 characters) open the same seat. */
-export interface Invite { token: string; code: string; expires_at: string }
+export interface Invite { token: string; code: string; expires_at: string; invite_id: string }
 export interface JoinPreview { code: string; options: Options | null; colour: 'white' | 'black'; kind: 'friend' | 'random' | 'solo'; creator: { handle: string | null; icon: Icon | null }; expires_at: string }
 export interface LobbyEntry { rating_policy: RatingPolicy; game_id: string; options: Options | null; colour: 'white' | 'black'; creator: { handle: string; icon: Icon | null }; created_at: string }
 export interface Lobby { games: LobbyEntry[]; active_count?: number }

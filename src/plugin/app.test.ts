@@ -1170,3 +1170,44 @@ it.each([{ last_commands: [] }, { last_commands: [{ seq: 1, seat: 1, at: '2026-1
   expect(transport.draw.mock.calls.at(-1)?.[0].last_commands).toEqual(last_commands);
   expect(JSON.stringify(app.memory.view)).not.toContain('hello');
 });
+
+
+it('updates a waiting friend screen when a same-revision poll reports a replaced invite', async () => {
+  const app = await mounted(), { friendInvites } = await import('./invite');
+  const waiting = { ...game, status: 'waiting', invite_id: 'old' } as View;
+  friendInvites.set(game.game_id, { code: 'ABC234', invite_id: 'old', expires_at: new Date(Date.now() + 60_000).toISOString() });
+  transport.call.mockResolvedValue({ content: [], _meta: { view: waiting } });
+  await app.send('kingdown_resume', { game_id: game.game_id });
+  expect(document.getElementById('friend-actions')!.hidden).toBe(false);
+  transport.call.mockResolvedValue({ content: [], _meta: { view: { ...waiting, invite_id: 'new' } } });
+  await transport.target().read();
+  expect(app.memory.view?.revision).toBe(game.revision);
+  expect(document.getElementById('friend-actions')!.hidden).toBe(true);
+  expect(document.getElementById('friend-help')!.textContent).toContain('replaced');
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_invite')).toHaveLength(0);
+});
+
+it('invalidates a cached code when the accepted Play list reports a replacement', async () => {
+  const app = await mounted(), { friendInvites } = await import('./invite');
+  const saved = { code: 'ABC234', invite_id: 'old', expires_at: new Date(Date.now() + 60_000).toISOString() };
+  friendInvites.set(game.game_id, saved);
+  transport.call.mockResolvedValue({ content: [], _meta: { games: [{ ...game, status: 'waiting', invite_id: 'new' }] } });
+  app.memory.dirty = true; app.navigate('play'); await vi.advanceTimersByTimeAsync(0);
+  expect(saved).toHaveProperty('replaced', true);
+});
+
+it('ignores a pre-renewal read that returns after a new invite succeeds', async () => {
+  const app = await mounted(), { friendInvites } = await import('./invite');
+  const waiting = { ...game, status: 'waiting', invite_id: 'old' } as View;
+  app.memory.games = [waiting as any];
+  transport.call.mockResolvedValue({ content: [], _meta: { view: waiting } });
+  await app.send('kingdown_resume', { game_id: game.game_id });
+  let release!: (value: unknown) => void;
+  const fresh = { code: 'NEW234', invite_id: 'new', expires_at: new Date(Date.now() + 60_000).toISOString() };
+  transport.call.mockImplementation(({ name }) => name === 'kingdown_get' ? new Promise(resolve => { release = resolve; }) : Promise.resolve({ content: [], structuredContent: fresh }));
+  const read = transport.target().read(); await vi.advanceTimersByTimeAsync(0);
+  document.getElementById('friend-new')!.onclick!({} as any); await vi.advanceTimersByTimeAsync(0);
+  release({ content: [], _meta: { view: waiting } }); await read;
+  expect(friendInvites.get(game.game_id)).toEqual(fresh);
+  expect(document.getElementById('friend-actions')!.hidden).toBe(false);
+});

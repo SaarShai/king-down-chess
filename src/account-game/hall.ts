@@ -16,7 +16,7 @@ export function acceptedView(current: View | undefined, next: View): View | unde
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 
-export function createHall(memory: HallMemory, client: GameClient, host: PageHost, store: Store, onView: (view: View) => void) {
+export function createHall(memory: HallMemory, client: GameClient, host: PageHost, store: Store, onView: (view: View) => void, onGames: (entries: InboxEntry[]) => void = () => {}) {
   // The plugin supplies these controls. The web hall leaves this template absent.
   const rows = document.getElementById('games-list') ?? document.createElement('div'); rows.id = 'games-list';
   const controls = document.querySelector<HTMLTemplateElement>('#hall-controls')?.content;
@@ -49,6 +49,7 @@ export function createHall(memory: HallMemory, client: GameClient, host: PageHos
     if (disposed) return;
     list?.abort();
     memory.games = entries; memory.dirty = false; failed = false;
+    onGames(entries);
     render();
   }
   async function refresh(signal?: AbortSignal): Promise<boolean> {

@@ -123,6 +123,7 @@ export class PostgresMatchStore {
  async inbox(actor: string): Promise<InboxEntry[]> {
   const result = await this.pool.query(`select g.id as game_id,g.rating_policy,g.kind,g.speed,g.status,me.seat,me.action,g.turn,g.revision,g.deadline_at,g.updated_at,g.options,g.level,g.created_at,
     nullif(split_part(g.snapshot->>'fen',' ',6),'')::int as move,
+    case when g.kind='friend' and g.status='waiting' then (select token_hash from public.game_invites where game_id=g.id) end as invite_id,
     case when g.status='waiting' then case when g.kind='random' then g.created_at+interval '24 hours' else (select expires_at from public.game_invites where game_id=g.id) end end as open_until,
     op.user_id as op_user,op.computer as op_computer,case when ${online('$1', 'op.user_id', 'pr.online_visible_to')} then (extract(epoch from statement_timestamp()-op.last_seen_at)*1000)::double precision end as op_seen,pr.handle as op_handle,pr.icon as op_icon
    from public.game_players me join public.games g on g.id=me.game_id

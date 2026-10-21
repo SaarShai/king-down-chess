@@ -1,5 +1,5 @@
 import { features, icon } from '../../account-game/features';
-import { call, client, memory, navigate, renderGameRows, routeView, queue } from '../../account-game/runtime';
+import { call, client, memory, navigate, renderGameRows, routeView, queue, send } from '../../account-game/runtime';
 import { art } from '../../account-game/art';
 import { formatDate } from '../../account-game/games-list';
 import { friendInvites as codes, sendInvite } from '../invite';
@@ -40,12 +40,12 @@ export function friendScreen() {
     $('friend-status').textContent = 'Open your friend game from Your games.'; return;
   }
   $('friend-status').textContent = '';
-  const saved = codes.get(view.game_id), invite = saved && Date.parse(saved.expires_at) > Date.now() ? saved : undefined, tiles = $('friend-code');
+  const saved = codes.get(view.game_id), invite = saved && !saved.replaced && Date.parse(saved.expires_at) > Date.now() ? saved : undefined, tiles = $('friend-code');
   tiles.replaceChildren(...[...invite?.code ?? ''].map(c => { const span = document.createElement('span'); span.textContent = c; return span; }));
   tiles.setAttribute('aria-label', invite ? [...invite.code].join(' ') : ''); tiles.hidden = !invite;
   $('friend-actions').hidden = !invite; $('friend-new').hidden = !!invite;
   $('friend-copy-status').textContent = '';
-  $('friend-help').textContent = invite ? `Your friend says “Join King Down game ${invite.code}” in ChatGPT, or types the code in Play. They need the King Down connection.` : saved ? 'This code has expired. Make a new code to invite your friend.' : 'The saved game has no code on this page. A new code ends the old code.';
+  $('friend-help').textContent = invite ? `Your friend says “Join King Down game ${invite.code}” in ChatGPT, or types the code in Play. They need the King Down connection.` : saved?.replaced ? 'This code was replaced on another page. Make a new code to invite your friend.' : saved ? 'This code has expired. Make a new code to invite your friend.' : 'The saved game has no code on this page. A new code ends the old code.';
   $('friend-game').replaceChildren(row('Waiting for your friend', 'clock', [invite ? `Ends ${formatDate(invite.expires_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.` : 'Make a new code to share this game.']));
   $('friend-game').querySelector('.line')!.id = 'friend-expiry';
   if (view.options) $('friend-game').append(row('Features', 'fairy', [features(view.options), `You play ${view.seat === 0 ? 'White' : 'Black'}.`]));
@@ -64,10 +64,11 @@ export function friendScreen() {
 async function makeCode(view: View) {
   if (stopped || queue.closed() || making) return; making = true; attempted.add(view.game_id); $('friend-new').setAttribute('disabled', '');
   try {
-    const result = await client.call('kingdown_invite', { game_id: view.game_id });
+    const outcome = await send('kingdown_invite', { game_id: view.game_id }, { route: false });
     if (stopped || queue.closed()) return;
-    if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
-    codes.set(view.game_id, result.structuredContent as { code: string; expires_at: string });
+    if (outcome.status === 'superseded') return;
+    if (outcome.status !== 'done') throw new Error(outcome.text);
+    codes.set(view.game_id, outcome.result.structuredContent as NonNullable<ReturnType<typeof codes.get>>);
     renderGameRows();
     if (client.state.screen === 'friend' && memory.view?.game_id === view.game_id) friendScreen();
   } catch (error) { if (!stopped && !queue.closed()) showError(error, $('friend-status')); }

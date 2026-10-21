@@ -194,8 +194,8 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   register('kingdown_abort', 'Use this when the player wants to cancel a King Down game before each side has played a turn. Nobody wins.', optional, { visibility: ['model', 'app'], destructive: true }, args => decide(args, { type: 'abort' }));
   register('kingdown_invite', 'Use this when the player wants to invite a friend to their waiting friend game. Gives a short code; a new invitation ends the old one.',
     { game_id: gameId }, { openWorld: true, visibility: ['model', 'app'], idempotent: false, destructive: true }, async args => {
-      const { code, expires_at } = await service.invite(actorId, args.game_id);
-      return { content: text(`Send your friend the code ${code}. It works until ${expires_at}.`), structuredContent: { code, expires_at } };
+      const { code, expires_at, invite_id } = await service.invite(actorId, args.game_id);
+      return { content: text(`Send your friend the code ${code}. It works until ${expires_at}.`), structuredContent: { code, expires_at, invite_id } };
     });
   register('kingdown_join', 'Use this when the player has a King Down invitation: a 6-character code. Each short-code preview or join, a retry included, counts one attempt toward the hourly limit of 10. Join takes the open seat and uses the invitation. Then show the game with kingdown_open.',
     { code: z.string().min(1).max(300), preview: z.boolean().optional(), board_id: boardId }, { openWorld: true, visibility: ['model', 'app'], idempotent: false, destructive: true },

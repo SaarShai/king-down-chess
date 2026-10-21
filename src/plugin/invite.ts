@@ -3,10 +3,19 @@ import { copyText } from '../clipboard';
 import type { Options } from '../match/setup';
 
 // Codes stay in page memory. A remount must not end an invite by making a new one.
-export const friendInvites = new Map<string, { code: string; expires_at: string }>();
+type PageInvite = { code: string; expires_at: string; invite_id?: string; replaced?: boolean };
+export const friendInvites = new Map<string, PageInvite>();
+/** Only accepted server reads can revoke a page's cached code. Keep the entry so entry never renews it. */
+export function syncFriendInvites(entries: { game_id: string; invite_id?: string | null }[]) {
+  for (const entry of entries) {
+    const invite = friendInvites.get(entry.game_id);
+    if (invite?.invite_id && entry.invite_id !== undefined && invite.invite_id !== entry.invite_id) invite.replaced = true;
+  }
+}
 export const inviteText = (code: string, options: Options | null | undefined) => `Join King Down game ${code}. Rules: ${ruleNames(options)}.`;
 
-export async function sendInvite(invite: { code: string; expires_at: string }, options: Options | null | undefined, status: HTMLElement, share = true) {
+export async function sendInvite(invite: PageInvite, options: Options | null | undefined, status: HTMLElement, share = true) {
+  if (invite.replaced) { status.textContent = 'This code was replaced. Open the game to make a new code.'; return; }
   if (!(Date.parse(invite.expires_at) > Date.now())) { status.textContent = 'This code has expired. Open the game to make a new code.'; return; }
   const text = inviteText(invite.code, options);
   status.textContent = '';
@@ -30,7 +39,7 @@ export function decorateFriendRows(entries: import('../match/protocol').InboxEnt
     const line = button.querySelector<HTMLElement>('.line')!;
     const waiting = entry.status === 'waiting';
     const invite = waiting && entry.kind === 'friend' ? friendInvites.get(entry.game_id) : undefined;
-    if (invite && Date.parse(invite.expires_at) > now) {
+    if (invite && !invite.replaced && Date.parse(invite.expires_at) > now) {
       line.prepend(`${invite.code} · `);
       const group = document.createElement('div'); group.className = 'friend-invite-row';
       const share = document.createElement('button'); share.type = 'button'; share.textContent = 'Share';
