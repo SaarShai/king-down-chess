@@ -615,6 +615,8 @@ it.each(['foreground', 'remount'])('keeps another game receipt after a refused %
 
 it.each(['foreground', 'poll'])('clears private state when a reconnected account refuses the current board: %s', async path => {
   const app = await mounted(); app.routeView(game); app.client.state.pending = receipt();
+  const accessLost = vi.fn(() => { expect(app.queue.closed()).toBe(true); expect(app.memory.view).toBeUndefined(); });
+  (await import('../account-game/host')).runtimeHost().onAccessLost = accessLost;
   app.client.state.draft = { game_tag: 'game-a00', fen: 'private-position', lans: ['e2-e4'], scope: { account: 'board-a', game: game.game_id, revision: 1, rules: '{}', engine: 'engine' } };
   const saved = vi.spyOn((window as any).openai, 'setWidgetState');
   transport.call.mockResolvedValue({ content: [{ type: 'text', text: 'Board unavailable for this account' }], isError: true, _meta: { code: 'FORBIDDEN' } });
@@ -623,6 +625,7 @@ it.each(['foreground', 'poll'])('clears private state when a reconnected account
   expect(app.client.state).toEqual({ screen: 'home' });
   expect(saved).toHaveBeenLastCalledWith({ modelContent: {}, privateContent: { screen: 'home', pending: undefined } });
   expect(transport.disposeBoard).toHaveBeenCalledOnce();
+  expect(accessLost).toHaveBeenCalledOnce();
   transport.instance.ontoolresult({ content: [], _meta: { view: game, board_id: 'board-a' } });
   await vi.advanceTimersByTimeAsync(0); expect(app.memory.view).toBeUndefined();
 });

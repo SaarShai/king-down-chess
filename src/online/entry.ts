@@ -60,6 +60,7 @@ function message(words: string, providers: readonly ('google' | 'github')[] = []
   }
   const local = document.createElement('a'); local.href = '/'; local.textContent = 'Play on this device'; main.append(local);
   document.body.append(main);
+  return main;
 }
 message('Loading your games…');
 let client: Promise<import('../account/client').Client> | undefined;
@@ -83,7 +84,12 @@ try {
       const parsed = new DOMParser().parseFromString(template, 'text/html'); parsed.querySelectorAll('script').forEach(script => script.remove());
       document.body.replaceChildren(...Array.from(parsed.body.childNodes));
       const api = onlineClient({ token: async () => { const current = await auth.readSession(); return current?.userId === session.userId ? current.accessToken : null; } });
-      const host = createBrowserRuntime(api, session.userId); configureRuntime(host);
+      const host = createBrowserRuntime(api, session.userId);
+      host.onAccessLost = () => {
+        const main = message('This game is not available to this account. You can open your own games.');
+        const games = document.createElement('a'); games.href = '/play/'; games.textContent = 'Open your games'; main.append(games);
+      };
+      configureRuntime(host);
       await import('../account-game/runtime');
       auth.onSession(current => {
         if (current?.user.id === session.userId) return;

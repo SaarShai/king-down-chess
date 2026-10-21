@@ -13,6 +13,7 @@ export interface AccountGameHost {
   stateHost?: WidgetHost;
   onResult?: (result: ToolResult) => void;
   onClose?: () => void;
+  onAccessLost?: () => void;
   onTeardown?: () => Promise<{}>;
   onContext?: () => void;
   connect(): Promise<void>;
