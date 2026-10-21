@@ -40,12 +40,13 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     const saved = await readSave(page);
     for (const viewport of [{ width: 390, height: 844 }, { width: 390, height: 640 }, { width: 844, height: 390 }, { width: 1440, height: 900 }]) {
       await page.setViewportSize(viewport);
-      await insideViewport(page, '#home-space [data-account-play]'); await minTarget(page, '#home-space [data-account-play]');
-      await noSidewaysScroll(page); await noOverlap(page, '#home-space, #home-today');
+      await insideViewport(page, '#home-account [data-account-play]'); await minTarget(page, '#home-account [data-account-play]');
+      await noSidewaysScroll(page); await noOverlap(page, '#home-account, #home-today, #moves-line');
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       await shot(page, `discovery-home-${viewport.width}-${viewport.height}`);
     }
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.locator('#home-space [data-account-play]').click();
+    await page.locator('#home-account [data-account-play]').click();
     await page.getByRole('button', { name: 'Continue with GitHub', exact: true }).waitFor();
     await page.getByRole('link', { name: 'Play on this device', exact: true }).click(); await ready(page);
     assert.equal(await readSave(page), saved, 'The Home round trip preserves the local game');
@@ -59,9 +60,9 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
 
     await page.waitForFunction(() => !!navigator.serviceWorker.controller);
     await local.setOffline(true);
-    await page.locator('#home-space [data-account-play]').click();
+    await page.locator('#home-account [data-account-play]').click();
     assert.equal(new URL(page.url()).pathname, '/');
-    assert.match(await page.locator('#home-space [data-account-play]').innerText(), /You are offline/);
+    assert.match(await page.locator('#home-account [data-account-play]').innerText(), /You are offline/);
     await page.locator('#home-main').click();
     for (const square of [6, 21]) { const point = await page.evaluate(s => window.view.screenOf(s), square); await page.mouse.click(point.x, point.y); }
     await endTurn(page);
@@ -79,7 +80,7 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     const account = await context.newPage(); errors.push(trapErrors(account));
     await account.goto(origin + '/play/');
     await account.locator(`#games-list [data-game-id="${created.game_id}"]`).click();
-    await account.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    await account.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal(new URL(account.url()).pathname, `/g/${created.game_id}`);
     await shot(account, 'discovery-existing-account-game');
     const resumed = (await tool(0, 'kingdown_get', { game_id: created.game_id }))._meta.view;
