@@ -261,6 +261,10 @@ try {
     assert.equal((await view(0)).rematch_game_id, rematchId, 'Return opens the same accepted rematch');
     assert.deepEqual((await view(0)).result, a.result, 'The original result is preserved');
     await shot(page, 'web-rematch-selection-recovered');
+  } catch (error) {
+    console.error('Rematch selection check:', error);
+    await shot(page, 'web-rematch-selection-failure');
+    throw error;
   } finally { releaseRematch?.(); await page.unroute('**/api/games/*', holdRematch); }
   // Seven weighted pool pieces force the army's contents; each seat still submits a real setup choice.
   const options = { fairy: true, pool: ['O', 'A', 'G', 'M', 'S'], arrangement: true, classic: false,
