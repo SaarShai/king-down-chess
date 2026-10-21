@@ -39,7 +39,6 @@ export function createPageClient(transport: GameTransport, host?: WidgetHost) {
   const free = () => { const next = waiting.shift(); if (next) next(); else sending--; };
   const accountId = () => host?.accountId ?? state.board_id ?? '';
   function save() {
-    console.info('King Down startup trace', JSON.stringify({ method: 'setWidgetState', event: 'start' }));
     // A new plugin board binding must not persist the previous ownership scope before redraw.
     if (state.draft && (state.draft.scope?.account !== accountId() || typeof state.draft.scope?.engine !== 'string' || !state.draft.scope.engine)) state.draft = undefined;
     const pending = state.pending;
@@ -47,10 +46,8 @@ export function createPageClient(transport: GameTransport, host?: WidgetHost) {
     const args = pending && Object.fromEntries(Object.entries(pending.args).filter(([key]) => !['game_id', 'code', 'handle'].includes(key)));
     const game_tag = pending?.game_tag ?? (typeof pending?.args.game_id === 'string' ? pending.args.game_id.slice(0, 8) : undefined);
     host?.setWidgetState?.({ modelContent: {}, privateContent: { ...state, pending: pending && { name: pending.name, args, game_tag, screen: pending.screen, ...(pending.quick && { quick: true }), ...(pending.king !== undefined && { king: pending.king }), error: pending.error, error_screen: pending.error_screen } } });
-    console.info('King Down startup trace', JSON.stringify({ method: 'setWidgetState', event: 'done' }));
   }
   async function call(name: string, args: Record<string, unknown> = {}, options: { background?: boolean; limit?: boolean; signal?: AbortSignal } = {}): Promise<ToolResult> {
-    const started = Date.now();
     options.signal?.throwIfAborted();
     const sent = options.background ? Object.fromEntries(Object.entries(args).filter(([key]) => key !== 'board_id')) : state.board_id && BOARD_ID_TOOLS.some(tool => tool === name) ? { ...args, board_id: state.board_id } : args;
     let result: ToolResult;
@@ -59,16 +56,10 @@ export function createPageClient(transport: GameTransport, host?: WidgetHost) {
     inflight++;
     try {
       if (sending < SLOTS) sending++; else await room(options.signal);
-      try {
-        options.signal?.throwIfAborted();
-        console.info('King Down startup trace', JSON.stringify({ method: name, event: 'start' }));
-        result = await transport(name, sent, { ...(options.limit !== false && { timeout: 10_000 }), signal: options.signal });
-        console.info('King Down startup trace', JSON.stringify({ method: name, event: 'done', elapsed: Date.now() - started, isError: result.isError === true }));
-      }
+      try { options.signal?.throwIfAborted(); result = await transport(name, sent, { ...(options.limit !== false && { timeout: 10_000 }), signal: options.signal }); }
       finally { free(); }
     }
     catch (error) {
-      console.info('King Down startup trace', JSON.stringify({ method: name, event: 'failed', elapsed: Date.now() - started, code: typeof (error as { code?: unknown })?.code === 'number' ? (error as { code: number }).code : null, aborted: options.signal?.aborted === true }));
       if (!/failed to fetch|networkerror|load failed|network request failed|timed out/i.test(errorText(error))) throw error;
       console.error('King Down connection failed', error);
       throw new Error(CANNOT_CONNECT, { cause: error });

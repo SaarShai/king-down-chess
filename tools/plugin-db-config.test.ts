@@ -8,6 +8,20 @@ import { pluginDatabaseConfig, testDatabase } from './plugin-db-config.mjs';
 const url = 'postgresql://kingdown_plugin_runtime.project:p%40ss%2Fword@pooler.supabase.com:6543/postgres';
 
 describe('plugin database TLS', () => {
+  it.each(['5432', '6543', ''])('uses transaction pooling for a serverless Supabase connection (port %s)', port => {
+    const db = new URL(`postgresql://kingdown_plugin_runtime.project:fake@aws-0-eu-west-1.pooler.supabase.com${port ? ':' + port : ''}/postgres?sslmode=require`);
+    const serverless = new pg.Client(pluginDatabaseConfig(db, { serverless: true }));
+    expect(serverless.connectionParameters.port).toBe(6543);
+    expect(serverless.connectionParameters).toMatchObject({ host: db.hostname, user: 'kingdown_plugin_runtime.project', ssl: { rejectUnauthorized: true, servername: db.hostname } });
+    expect(db.port).toBe(port);
+    expect(pluginDatabaseConfig(db).port).toBe(Number(port || 5432));
+  });
+
+  it('keeps direct and local database ports outside the Supabase transaction endpoint', () => {
+    expect(pluginDatabaseConfig(new URL('postgresql://runtime:fake@db.project.supabase.co:5432/postgres?sslmode=require'), { serverless: true }).port).toBe(5432);
+    expect(pluginDatabaseConfig(new URL('postgresql://runtime@localhost:55447/game_test'), { localDev: true, serverless: true }).port).toBe(55447);
+  });
+
   it('keeps the official CA and host checks in the actual pg connection settings', () => {
     const config = pluginDatabaseConfig(new URL(`${url}?sslmode=require`));
     expect(config).not.toHaveProperty('connectionString');

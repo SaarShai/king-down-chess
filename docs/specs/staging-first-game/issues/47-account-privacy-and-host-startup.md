@@ -4,6 +4,14 @@ Status: privacy and controlled document startup verified in staging. The separat
 
 The owner asks to solve second-account privacy and the existing host-startup issue. Keep all work in staging. At ticket entry, product source is `25978776`; its game artifacts match the accepted mechanics and cross-host evidence.
 
+## Captured post-mount failure and repair
+
+The corrected browser procedure exposes a separate service failure after the board loads. A safe client trace records `kingdown_settings` rejected with JSON-RPC `-32603` after 6.1 seconds; the page shows Internal error. The matching request log has HTTP 503. A later trace captures the same settings read as an MCP error with database code `XX000`. The staging pooler log at the same instant (15:26:06 UTC) reports `EMAXCONNSESSION`: session mode reached its 15-client pool limit. This proves a database capacity fault. It does not independently identify the cause of the earlier 503.
+
+The serverless entry now selects the Supabase transaction endpoint on port 6543 and attaches the global pool to the official Vercel idle cleanup helper. The restricted role, TLS, pool maximum, admission and game transactions remain unchanged. Standalone and operator connections retain their ports. Runtime writes already use one client from BEGIN through COMMIT/ROLLBACK; runtime advisory locks are transaction-scoped. No runtime session state or named prepared statements require session pooling. The fix adds no request retry and skips no account or settings read.
+
+Red endpoint tests fail for a session URL and an omitted port. The fix passes those tests. Runtime configuration checks exercise the real server configuration with a fake pool and verify the endpoint, TLS, pool limits and cleanup attachment. Temporary client, authentication and admission traces are removed before the acceptance release. Final acceptance still requires the compiled artifact gate, ten distinct clean fresh opens and server logs from the same staging release. Receipts are in the parent workspace's `evidence/staging-post-mount-error/`.
+
 ## Plan and pass criteria
 
 Current follow-up: use the corrected one-execution navigation and readiness procedure. Capture the exact call that produces the post-mount Internal error, with method, error code and timing only. Ranked causes are a host tool-call rejection, a redundant or superseded mount read, and a failed host presentation/state request. Reproduce before changing code. Fix the demonstrated boundary and add a regression that fails without the fix. Publish through the staging guard only if product code changes. Require ten distinct fresh opens with enabled controls and no error notice, with no Try again or navigation retry. Reuse completed privacy and mechanics evidence. Remove diagnostic probes and close all new test tabs.

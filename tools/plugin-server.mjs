@@ -7,6 +7,7 @@ import { realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
+import { attachDatabasePool } from '@vercel/functions';
 import { pluginDatabaseConfig, testDatabase } from './plugin-db-config.mjs';
 import { createTokenVerifier, isLoopback, pluginOrigin } from '../src/plugin/auth.ts';
 import { consentConfig, renderConsent } from '../src/plugin/consent-config.ts';
@@ -57,7 +58,7 @@ const ENABLED_WEB_OPERATIONS = new Set([
   'POST /api/blocks',
 ]);
 
-export async function configurePlugin(env = process.env, { localDev = false, websiteKeys, websiteCurrentUser } = {}) {
+export async function configurePlugin(env = process.env, { localDev = false, serverless = false, websiteKeys, websiteCurrentUser } = {}) {
   const publicOrigin = pluginOrigin(env.KINGDOWN_PLUGIN_ORIGIN || (localDev ? 'http://127.0.0.1:3100' : ''));
   const connectionString = env.KINGDOWN_PLUGIN_DATABASE_URL;
   if (!connectionString) throw new Error('KINGDOWN_PLUGIN_DATABASE_URL is required');
@@ -91,7 +92,8 @@ export async function configurePlugin(env = process.env, { localDev = false, web
   const page = config ?? (localDev && env.SUPABASE_URL ? consentConfig(env) : undefined);
   if (page) consent = { html: renderConsent(await readFile(new URL('./consent.html', import.meta.url), 'utf8'), page), script: await readFile(new URL('./consent.mjs', import.meta.url), 'utf8'), supabaseOrigin: page.supabaseUrl };
   const resourceHtml = await readFile(new URL('./board.html', import.meta.url), 'utf8');
-  const pool = new Pool({ ...pluginDatabaseConfig(db, { localDev }), max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000 });
+  const pool = new Pool({ ...pluginDatabaseConfig(db, { localDev, serverless }), max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000 });
+  if (serverless) attachDatabasePool(pool);
   pool.on('error', error => { console.error('King Down database connection failed', diagnostic(error)); });
   try { await checkPluginDatabase(pool, config, auth?.resource); }
   catch (error) { await pool.end(); throw error; }
@@ -123,7 +125,7 @@ async function art(name, res) {
 let configured;
 /** The function adapter never enables local personas. */
 export default async function handler(req, res) {
-  try { configured ??= configurePlugin().catch(error => { configured = undefined; throw error; }); await (await configured).handler(req, res); }
+  try { configured ??= configurePlugin(process.env, { serverless: true }).catch(error => { configured = undefined; throw error; }); await (await configured).handler(req, res); }
   catch (error) { console.error('King Down startup failed', { requestId: randomUUID(), ...diagnostic(error) }); if (!res.headersSent) { res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ error: 'King Down server is not configured' })); } else res.destroy(); }
 }
 export async function startPluginServer({ localDev = false } = {}) {
