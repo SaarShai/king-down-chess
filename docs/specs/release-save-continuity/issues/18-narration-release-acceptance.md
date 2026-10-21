@@ -1,6 +1,6 @@
 # Verify the narration boundary in the complete staging build
 
-Status: source and compiled release/recovery gates pass; staging publication and live checks next. Parent: U08/U05. Staging only.
+Status: released to staging; source, compiled recovery and hosted web checks pass. Native ChatGPT gate remains open. Parent: U08/U05.
 
 ## Checkable plan
 
@@ -32,3 +32,11 @@ Clean source `fe23a8c7` passes four checks in `app-35rY1e`: recovery consumers 1
 The initial backend invocation fails because its standalone server omits the combined static layer. Staging-first-game ticket 25 corrects only this checker. The exact same artifacts then pass at clean `33f2d82e` in 3.987 seconds: 116 image/font assets, retry/conflict, pending setup, a fresh recovery computer turn and all ten archived computer paths. The failed receipt is retained. `u08-narration-acceptance/backend-corrected.json` records the corrected result and unchanged hashes.
 
 The desktop baseline is separate evidence: 30 cold/warm pairs, Menu frame proxies and accepted loopback turns pass in ticket 24. It does not establish hosted or phone latency. Native current-resource ChatGPT remains an open live gate.
+
+## Hosted result
+
+Clean staging source `e92871fd` publishes to preview `dpl_5UqLpBi8Yizu2qRHb4XgJZ8UFVby`. The staging alias matches the checked index bytes. Server, runtime, worker and helper match the accepted test artifact; all nine prior archives stay unchanged.
+
+The first update and two fresh website tabs open without Retry or cache warnings. The retained `febb9239` game accepts a Maester swap and computer response, reaching eight actions and revision 9. New game `a9a59436-70bb-8993-9ada-8bad3b8948e7` uses `8d628361`, reaches revision 6 and preserves five actions after a fresh open: Freeze on Maester, Ogre shove, a computer pawn move, March e3–e5 and another computer pawn move. A scoped staging database read confirms row and save identities.
+
+The refreshed, authenticated staging connector opens that same new game at move 3. This is a tool-read proof, not a native rendered-board or write proof. The Mac is locked, so native ChatGPT remains open. The outer `live-8d-narration-release.json` and artifact receipts preserve the evidence. No production deployment occurs.
