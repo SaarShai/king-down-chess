@@ -41,6 +41,37 @@ describe('web account access proof', () => {
   expect(await second).toEqual(await first);
  });
 
+ it('shares fresh reads before expiry and gives private calls the new proof', async () => {
+  query.mockResolvedValueOnce(row(true));
+  const access = getter();
+  await access();
+  now += WEB_ACCOUNT_ACCESS_TTL_MS - 1;
+  let finish!: (value: ReturnType<typeof row>) => void;
+  query.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+  const first = access(true), second = access(true);
+  expect(query).toHaveBeenCalledTimes(2);
+  finish(row(false));
+  const expected = { enabled: false, expiresAt: now + WEB_ACCOUNT_ACCESS_TTL_MS };
+  expect(await first).toEqual(expected);
+  expect(await second).toEqual(expected);
+  expect(await access()).toEqual(expected);
+  expect(query).toHaveBeenCalledTimes(2);
+ });
+
+ it.each(['error', 'late'])('closes an unexpired proof when its fresh read is %s', async fault => {
+  query.mockResolvedValueOnce(row(true));
+  const access = getter();
+  await access();
+  now++;
+  query.mockImplementationOnce(async () => {
+   if (fault === 'error') throw new Error('Database is unavailable');
+   now += WEB_ACCOUNT_ACCESS_TTL_MS;
+   return row(true);
+  });
+  expect(await access(true)).toEqual({ enabled: false, expiresAt: 0 });
+  expect(query).toHaveBeenCalledTimes(2);
+ });
+
  it.each([5000, 5001])('refuses a refresh that takes %s ms and then reads a new state', async duration => {
   let finish!: (value: ReturnType<typeof row>) => void;
   query.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));

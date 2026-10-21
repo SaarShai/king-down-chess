@@ -253,7 +253,7 @@ try {
       // Expire every proof admitted before the SQL change, including a refresh between requests.
       const deadline = performance.now() + 5000;
       await new Promise(done => setTimeout(done, Math.max(0, deadline - performance.now()) + 2));
-      const beforeRefresh = switchQueries, refreshStart = performance.now();
+      const beforeRefresh = switchQueries;
       const direct = await api('/api/me/profile', { headers: signed });
       assert.equal(switchQueries, beforeRefresh + 1, 'An expired direct proof refreshes once');
       assert.equal(direct.status, enabled ? 200 : 503);
@@ -264,7 +264,7 @@ try {
         assert.deepEqual(await held.json(), previous, 'The old open response can arrive after direct closure');
         assert(performance.now() >= requestStart + previous.valid_for_ms, 'A held open status cannot renew its lease');
       }
-      assert(switchQueries === beforeRefresh + 1 || switchQueries === beforeRefresh + 2 && performance.now() >= refreshStart + 5000, 'Status shares the fresh direct proof until its deadline');
+      assert.equal(switchQueries, beforeRefresh + 2, 'Public status reads a fresh database proof');
       effects.push({ enabled, observed_ms: Math.round(performance.now() - changed) });
     }
   } finally { app.pool.query = originalQuery; }

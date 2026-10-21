@@ -7,6 +7,9 @@ import { DEFAULT_OPTIONS } from '../match/setup';
 import { MatchServiceError } from '../match/service';
 import { AuthenticationError, AuthenticationUnavailable } from '../plugin/auth';
 import { createApiHandler, createInternalHandler, MAX_ACTIVE_ENGINE, MAX_API_BODY, sessionVerifier, type ApiOptions } from './http';
+import type { Pool } from 'pg';
+import { createWebAccountAccess } from './account-access';
+import { readWebAccountAccess } from '../online/account-access';
 
 const alice = '11111111-1111-4111-8111-111111111111', gameId = '33333333-3333-4333-8333-333333333333';
 const supabase = 'https://project.supabase.co', issuer = `${supabase}/auth/v1`, secret = 'x'.repeat(40);
@@ -78,6 +81,25 @@ const raw = (path: string, headers: Record<string, string>, body?: string) => ne
 });
 
 describe('website API boundary', () => {
+ it('keeps page startup open when status starts at the end of a cached open proof', async () => {
+  let now = 100; vi.spyOn(performance, 'now').mockImplementation(() => now);
+  const query = vi.fn(async () => ({ rows: [{ singleton: true, enabled: true }] }));
+  const access = createWebAccountAccess({ query } as unknown as Pool);
+  await access();
+  now = 5099;
+  useApi({ webAccountAccess: access });
+  const send = globalThis.fetch;
+  vi.stubGlobal('fetch', vi.fn(async (path: string, init?: RequestInit) => {
+   const response = await send(address + path, init);
+   now += 2;
+   return response;
+  }));
+  try {
+   expect((await readWebAccountAccess()).enabled).toBe(true);
+   expect(query).toHaveBeenCalledTimes(2);
+   expect(games.view).not.toHaveBeenCalled();
+  } finally { vi.restoreAllMocks(); vi.unstubAllGlobals(); }
+ });
  it('serves signed-out status with only the remaining switch lease and no private work', async () => {
   let now = 100; vi.spyOn(performance, 'now').mockImplementation(() => now);
   const access = vi.fn(async () => ({ enabled: true, expiresAt: 1100.8 })), verify = vi.fn(), admit = vi.fn(), currentUser = vi.fn();

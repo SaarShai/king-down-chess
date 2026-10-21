@@ -378,8 +378,17 @@ export async function checkSharedMechanics({ browser, context, root, origin, act
           const record = event => { network.push(event); if (network.length > 20) network.shift(); };
           const responseEvent = response => {
             const url = new URL(response.url()), request = response.request();
-            if (url.origin === beforeUrl.origin && (response.status() >= 400 || url.pathname.startsWith('/api/') || url.pathname === '/fixture-tool' || request.resourceType() === 'document'))
-              record({ event: 'response', method: request.method(), path: url.pathname, status: response.status() });
+            if (url.origin === beforeUrl.origin && (response.status() >= 400 || url.pathname.startsWith('/api/') || url.pathname === '/fixture-tool' || request.resourceType() === 'document')) {
+              const event = { event: 'response', method: request.method(), path: url.pathname, status: response.status() };
+              record(event);
+              if (url.pathname === '/api/status') void response.json().then(status => {
+                event.public_status = {
+                  account_access: ['open', 'closed'].includes(status?.account_access) ? status.account_access : 'invalid',
+                  valid_for_ms: Number.isInteger(status?.valid_for_ms) && status.valid_for_ms >= 0 && status.valid_for_ms <= 5000 ? status.valid_for_ms : 'invalid',
+                };
+                event.elapsed_ms = Math.round(request.timing().responseEnd);
+              }).catch(() => { event.public_status = 'unavailable'; });
+            }
           };
           const failedEvent = request => {
             const url = new URL(request.url());

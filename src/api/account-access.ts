@@ -2,12 +2,12 @@ import type { Pool } from 'pg';
 
 export const WEB_ACCOUNT_ACCESS_TTL_MS = 5000;
 
-export function createWebAccountAccess(pool: Pool): () => Promise<{ enabled: boolean; expiresAt: number }> {
+export function createWebAccountAccess(pool: Pool): (fresh?: boolean) => Promise<{ enabled: boolean; expiresAt: number }> {
  let cached = { enabled: false, expiresAt: 0 };
  let refresh: Promise<typeof cached> | undefined;
- return async () => {
+ return async (fresh = false) => {
   const start = performance.now();
-  if (start < cached.expiresAt) return { ...cached };
+  if (!fresh && start < cached.expiresAt) return { ...cached };
   if (!refresh) {
    const expiresAt = start + WEB_ACCOUNT_ACCESS_TTL_MS;
    refresh = (async () => {

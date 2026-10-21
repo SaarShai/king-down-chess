@@ -260,7 +260,7 @@ it.each([0, 5001])('checks the compiled switch with %s ms between requests', asy
   const app = { pool: { query: pool.query } }, query = app.pool.query;
   const access = createWebAccountAccess(app.pool as unknown as Pool);
   const api = async (path: string) => {
-    const proof = await access(), remaining = Math.max(0, Math.floor(proof.expiresAt - now));
+    const proof = await access(path === '/api/status'), remaining = Math.max(0, Math.floor(proof.expiresAt - now));
     const response = path === '/api/status' ? new Response(JSON.stringify({ account_access: proof.enabled && remaining > 0 ? 'open' : 'closed', valid_for_ms: proof.enabled ? remaining : 0 }))
       : new Response('{}', { status: proof.enabled ? 200 : 503 });
     now += delay; return response;
@@ -272,6 +272,29 @@ it.each([0, 5001])('checks the compiled switch with %s ms between requests', asy
     });
     expect(enabled).toBe(true); expect(app.pool.query).toBe(query);
   } finally { clock.mockRestore(); }
+});
+
+it('keeps reload status diagnostics bounded to public fields and elapsed time', async () => {
+  const source = await readFile(new URL('./lib/shared-mechanics-check.mjs', import.meta.url), 'utf8');
+  const start = source.indexOf('          const responseEvent = response => {'), end = source.indexOf('          const failedEvent = request => {', start);
+  expect(start).toBeGreaterThan(0); expect(end).toBeGreaterThan(start);
+  const events: unknown[] = [];
+  const responseEvent = runInNewContext(`${source.slice(start, end)} responseEvent`, {
+    URL, beforeUrl: new URL('http://fixture/g/game'), record: (event: unknown) => events.push(event),
+  });
+  const response = (path: string, status: unknown) => ({
+    url: () => 'http://fixture' + path, status: () => 200,
+    request: () => ({ method: () => 'GET', resourceType: () => 'fetch', timing: () => ({ responseEnd: 2.4 }) }),
+    json: async () => status,
+  });
+  await responseEvent(response('/api/status', { account_access: 'open', valid_for_ms: 1, user_id: 'private' }));
+  await responseEvent(response('/api/status', { account_access: 'private', valid_for_ms: { secret: 'private' } }));
+  await responseEvent(response('/api/games/game', { secret: 'private' }));
+  expect(events).toEqual([
+    { event: 'response', method: 'GET', path: '/api/status', status: 200, public_status: { account_access: 'open', valid_for_ms: 1 }, elapsed_ms: 2 },
+    { event: 'response', method: 'GET', path: '/api/status', status: 200, public_status: { account_access: 'invalid', valid_for_ms: 'invalid' }, elapsed_ms: 2 },
+    { event: 'response', method: 'GET', path: '/api/games/game', status: 200 },
+  ]);
 });
 
 it('seeds a stored design that the local Workshop can read', () => {

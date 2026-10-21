@@ -363,7 +363,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   } finally { api = createApiHandler(options); await admin.query('update public.web_account_access set enabled=false where singleton=true'); }
  }, 60_000);
 
- it('shares status and private proof across two caches and refreshes off and on at the deadline', async () => {
+ it('refreshes public status across two caches and shares each new proof with private calls', async () => {
   const actor = await player('status'), token = await sign(actor.id);
   let now = 100; const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
   const caches = [createWebAccountAccess(runtime), createWebAccountAccess(runtime)];
@@ -387,35 +387,25 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
    now = 5099;
    for (const access of caches) {
     api = createApiHandler({ ...options, webAccountAccess: access });
-    expect(await status()).toEqual({ account_access: 'open', valid_for_ms: 1 });
+    expect((await direct()).status).toBe(200);
+    expect(await status()).toEqual({ account_access: 'closed', valid_for_ms: 0 });
+    expect((await direct()).status).toBe(503);
    }
-   expect(switchQueries()).toBe(2);
+   expect(switchQueries()).toBe(4);
+   await admin.query('update public.web_account_access set enabled=true where singleton=true');
    now = 5100;
    for (const access of caches) {
     api = createApiHandler({ ...options, webAccountAccess: access });
     expect((await direct()).status).toBe(503);
-    expect(await status()).toEqual({ account_access: 'closed', valid_for_ms: 0 });
-   }
-   expect(switchQueries()).toBe(4);
-   await admin.query('update public.web_account_access set enabled=true where singleton=true');
-   now = 10_099;
-   for (const access of caches) {
-    api = createApiHandler({ ...options, webAccountAccess: access });
-    expect(await status()).toEqual({ account_access: 'closed', valid_for_ms: 0 });
-    expect((await direct()).status).toBe(503);
-   }
-   expect(switchQueries()).toBe(4);
-   now = 10_100;
-   for (const access of caches) {
-    api = createApiHandler({ ...options, webAccountAccess: access });
     expect(await status()).toEqual({ account_access: 'open', valid_for_ms: 5000 });
     expect((await direct()).status).toBe(200);
    }
    expect(switchQueries()).toBe(6);
-   await admin.query('delete from public.web_account_access where singleton=true'); now = 15_100;
+   await admin.query('delete from public.web_account_access where singleton=true');
    api = createApiHandler({ ...options, webAccountAccess: caches[0] });
    expect(await status()).toEqual({ account_access: 'closed', valid_for_ms: 0 });
    expect((await direct()).status).toBe(503);
+   expect(switchQueries()).toBe(8);
   } finally {
    query.mockRestore(); clock.mockRestore(); api = createApiHandler(options);
    await admin.query('insert into public.web_account_access(singleton,enabled) values(true,false) on conflict(singleton) do update set enabled=false');

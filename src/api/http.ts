@@ -67,7 +67,7 @@ export interface ApiOptions {
  players?: Pick<PluginService, 'settings' | 'profile' | 'handle' | 'block' | 'blocks' | 'toolTry'>;
  publicOrigin: string; operations?: ReadonlySet<string>;
  /** undefined: website sign-in is not configured */ verify?: (token: string) => Promise<string>;
- webAccountAccess?: () => Promise<{ enabled: boolean; expiresAt: number }>;
+ webAccountAccess?: (fresh?: boolean) => Promise<{ enabled: boolean; expiresAt: number }>;
  admit?: (actor: string) => () => void;
  currentUser?: (token: string, actor: string) => Promise<void>;
 }
@@ -90,9 +90,9 @@ const redeemSchema = z.union([z.strictObject({ token: z.string().max(100) }), z.
 
 export function createApiHandler({ games, accounts, safety, players, publicOrigin, verify, operations, webAccountAccess, admit, currentUser }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
  const origin = pluginOrigin(publicOrigin);
- const readAccess = async () => {
+ const readAccess = async (fresh = false) => {
   try {
-   const access = await webAccountAccess?.();
+   const access = await webAccountAccess?.(fresh);
    if (access && (!Number.isFinite(access.expiresAt) || performance.now() >= access.expiresAt)) console.error('King Down account switch proof is unavailable');
    return access;
   }
@@ -117,7 +117,8 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
  const routes: Record<string, Route> = {
   'GET /api/status': async (): Promise<WebAccountStatus> => {
    if (table.some(route => route.method === 'GET' && route.key !== 'GET /api/status' && operations?.has(route.key))) {
-    const access = await readAccess();
+    // A residual cached lease can expire in transit and refuse an open page at startup.
+    const access = await readAccess(true);
     const remaining = access?.enabled === true && Number.isFinite(access.expiresAt) ? Math.floor(Math.min(WEB_ACCOUNT_ACCESS_TTL_MS, access.expiresAt - performance.now())) : 0;
     if (remaining > 0) return { account_access: 'open', valid_for_ms: remaining };
    }
