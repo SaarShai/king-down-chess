@@ -13,6 +13,7 @@ import { confirmBoardAction } from './board-actions';
 import { errorText } from '../../account-game/types';
 import { onStop } from './friend';
 import { runtimeHost } from '../../account-game/host';
+import { openFinishedGame } from './end';
 const SUPPORT_URL = import.meta.env.VITE_KINGDOWN_STAGE === 'staging' ? 'https://kingdown-staging.vercel.app/support.html#appeals' : 'https://kingdown.dev/support.html#appeals';
 type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null } & AccountNotices;
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
@@ -170,6 +171,8 @@ function openRow(entry: InboxEntry) {
 }
 function historyRow(entry: HistoryEntry) {
   const row = document.createElement('li'); row.dataset.gameId = entry.game_id;
+  const open = document.createElement('button'); open.type = 'button';
+  open.onclick = () => { void openFinishedGame(entry.game_id); };
   const when = document.createElement('time'); when.className = 'when'; when.dateTime = entry.finished_at; when.textContent = date(entry.finished_at);
   const colour = document.createElement('img'); colour.className = 'pi'; colour.alt = `${entry.colour} king`; colour.src = entry.colour === 'white' ? art('ui/icons/king.svg') : symbols['../../public/ui/icons/king.svg'][1];
   const player = document.createElement('span'); player.className = 'grow';
@@ -177,7 +180,7 @@ function historyRow(entry: HistoryEntry) {
   const reason = document.createElement('small'); reason.textContent = `${policyLabel(entry.rating_policy, entry.kind)} · ${WHY[entry.reason]}`; player.append(name, reason);
   const feats = features({ ...DEFAULT_OPTIONS, ...entry.features, kingPowers: entry.features.powers });
   const res = document.createElement('span'), letter = { won: 'W', drawn: 'D', lost: 'L' }[entry.result]; res.className = `res res-${letter.toLowerCase()}`; res.textContent = letter; res.setAttribute('role', 'img'); res.setAttribute('aria-label', entry.result);
-  row.append(when, colour, player, feats, res); return row;
+  open.append(when, colour, player, feats, res); row.append(open); return row;
 }
 
 async function unblock(user_id: string) {

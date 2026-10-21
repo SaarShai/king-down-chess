@@ -61,6 +61,8 @@ export async function checkSoloSync({ page, ui, tool, open, label }) {
   assert.equal(await ui.locator('#over').isVisible(), false, 'An unchanged poll keeps the result closed while viewing the board');
   await ui.locator('#end-result').click();
   await ui.locator('#over.end-card[open]').waitFor();
+  const resultMoves = await ui.locator('#recent-moves p').allTextContents();
+  assert(resultMoves.length > 0, 'The finished game has moves to inspect');
   const ended = await command('kingdown_rematch', { choice: 'offer' });
   assert(ended.rematch_game_id);
   await page.clock.fastForward(5000);
@@ -69,4 +71,27 @@ export async function checkSoloSync({ page, ui, tool, open, label }) {
   assert.equal(await ui.locator('#retry').isVisible(), false);
   await shot(page, `${label}-solo-synced-rematch`);
   console.log(`${label}: solo Ready, unchanged draft, remote turn, result and rematch sync without Refresh`);
+  const finished = await read(), profile = (await tool('kingdown_profile', {}))._meta;
+  await ui.locator('#page-back').click();
+  await ui.locator('[data-screen="play"] [data-nav="profile"]').click();
+  const row = ui.locator(`#profile-history [data-game-id="${game_id}"] button`);
+  await row.waitFor();
+  assert((await row.boundingBox()).height >= 48, 'The finished row has a full-height target');
+  await row.press('Enter');
+  await ui.locator('#over.end-card[open]').waitFor();
+  await ui.getByRole('button', { name: 'Open rematch', exact: true }).waitFor();
+  assert.equal(await ui.locator('#over-title').innerText(), 'You lose');
+  await page.clock.fastForward(15_000);
+  assert(await ui.locator('#over.end-card[open]').isVisible(), 'History keeps the chosen result instead of following its existing rematch');
+  await ui.getByRole('button', { name: 'See the board', exact: true }).click();
+  assert.deepEqual(await ui.locator('#recent-moves p').allTextContents(), resultMoves, 'History restores the chosen finished board and moves');
+  await shot(page, `${label}-history-board`);
+  await ui.locator('#end-result').click();
+  await ui.getByRole('button', { name: 'Open rematch', exact: true }).click();
+  await ui.locator('[data-screen="seat"]:not([hidden])').waitFor();
+  const after = await read();
+  for (const key of ['revision','fen','history','rematch_game_id']) assert.deepEqual(after[key], finished[key], `Inspecting history does not change ${key}`);
+  assert.deepEqual((await tool('kingdown_profile', {}))._meta.record, profile.record, 'Inspecting a result and opening its rematch leaves the record unchanged');
+  assert.equal(await ui.locator('body').evaluate(() => performance.timeOrigin), documentStart, 'History and rematch selection use the same mounted client');
+  console.log(`${label}: keyboard history selection, exact result and board, explicit existing rematch, unchanged game and record`);
 }

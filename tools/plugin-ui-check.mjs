@@ -416,6 +416,7 @@ try {
       assert.equal(await frame.locator('#profile-history li').count(),data.history.length);
       for(const [i,row] of data.history.entries()) {
         const li=frame.locator('#profile-history li').nth(i), op=row.opponent;
+        assert.equal(await li.getByRole('button').count(),1,'Each finished row is keyboard accessible');
         assert.equal(await li.locator('time').getAttribute('datetime'),row.finished_at);
         assert((await li.locator('time').textContent()).trim());
         assert.equal(await li.locator('img').getAttribute('alt'),`${row.colour} king`);

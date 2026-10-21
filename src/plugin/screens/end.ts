@@ -18,6 +18,13 @@ let scrim: HTMLElement;
 let observer: MutationObserver | undefined, showFrame = 0;
 let updateTimer: ReturnType<typeof setTimeout> | undefined;
 const read = new Set<string>(), resumed = new Set<string>();
+/** A selected history row opens that result, not a rematch it already has. */
+export function openFinishedGame(game_id: string) {
+  return call('kingdown_resume', { game_id }, { then: async view => {
+    if (view.rematch_game_id) resumed.add(view.rematch_game_id);
+    routeView(view);
+  } });
+}
 let updating = false, stopped = false, opening = false;
 let blockKey = '', blockButtons: HTMLButtonElement[] = [];
 let contentKey: string | undefined;
@@ -96,7 +103,7 @@ export function endScreen(schedule = true) {
   for (const b of over.querySelectorAll<HTMLButtonElement>('button.game-action')) b.disabled = !!queuedRematch || readFailed();
   const nextContentKey = JSON.stringify([view.game_id, view.seat, view.kind, view.rating_policy, view.result,
     ending(view), view.rules?.kings, view.outcome, rematches, view.rematch_offer,
-    opponent?.computer, opponent?.deleted, rematchAllowed, memory.blockNotice]);
+    opponent?.computer, opponent?.deleted, rematchAllowed, memory.blockNotice, view.rematch_game_id]);
   // Poll times and presence do not change the result. Keep its controls, focus and board inspection mounted.
   if (contentKey === nextContentKey && (over.open || looking)) return;
   contentKey = nextContentKey;
@@ -136,6 +143,10 @@ export function endScreen(schedule = true) {
     }
   }
   const form = over.querySelector('form')!; form.onsubmit=event=>event.preventDefault();
+  if (view.rematch_game_id) {
+    const b = button('Open rematch', () => { void call('kingdown_resume', { game_id: view.rematch_game_id }, false, false, true); });
+    b.className = 'game-action primary'; b.disabled = readFailed(); form.append(b);
+  }
   for (const choice of rematches) {
     const b = button(choice==='offer'?view.kind==='solo'?'Play again':'Rematch':choice==='accept'?'Accept':'Decline',()=>{
       if (performance.now() < tapReadyAt) return;

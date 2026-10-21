@@ -14,9 +14,9 @@
 #profile-sheet .totals b { display: block; font-family: var(--font-display); font-size: min(var(--fs-xl), 11cqi); }
 #profile-sheet .totals span { font-size: var(--fs-xs); color: var(--ink-soft); text-transform: uppercase; letter-spacing: .1em; }
 #profile-sheet .rows { list-style: none; margin: 0; padding: 0; }
-#profile-sheet .rows li, #profile-open button { display: flex; align-items: center; gap: 4px; min-height: 48px; padding: 4px 12px; border-bottom: 1px solid var(--line); }
+#profile-sheet .rows button { display: flex; align-items: center; gap: 4px; min-height: 48px; padding: 4px 12px; border-bottom: 1px solid var(--line); }
 #profile-sheet .rows .when { width: 48px; flex: none; font-size: var(--fs-xs); color: var(--ink-soft); }
-#profile-open button { width: 100%; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; text-align: left; font-weight: 400; }
+#profile-sheet .rows button { width: 100%; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; text-align: left; font-weight: 400; }
 #profile-open .when b { padding: 2px 6px; text-align: center; }
 #profile-sheet .rows .pi { width: 18px; height: 18px; flex: none; }
 #profile-sheet .rows b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-md); line-height: 1.2; }
@@ -28,7 +28,7 @@
 #profile-sheet .res-w { color: #315519; } #profile-sheet .res-l { color: var(--accent); } #profile-sheet .res-d { color: var(--ink-soft); }
 /* A narrow scroll moves the feature icons under the name, so the name and reason keep their width. */
 @container (max-width: 240px) {
-  #profile-sheet .rows li, #profile-open button { flex-wrap: wrap; }
+  #profile-sheet .rows button { flex-wrap: wrap; }
   #profile-sheet .rows .feats { order: 1; flex-basis: 100%; padding-left: 74px; }
 }
 /* 200% zoom: a thinner scroll edge, totals in two rows, the date on its own line. */
