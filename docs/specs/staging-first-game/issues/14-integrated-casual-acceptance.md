@@ -30,3 +30,17 @@ The reviewed Play slice integrates at `40d3caec`, ceremony names at `40dacf4f`, 
 Explicit publication adds engine `febb9239470eea930cce5e1b588838bafd2c6687f0419d1bbf1072c975603ae2`. All eight prior archive pairs remain byte-identical. The matching private adapter/helper recovery and integrated checks remain pending.
 
 Previous-turn/help wording and named-device performance percentiles remain separate acceptance gaps. Do not claim complete cosmetic isolation or a measured phone performance baseline. No obsolete shared controller is confirmed for deletion; local play, learning and Workshop still use their entry path.
+
+## Complete source gate
+
+The complete `npm test` run at clean `3e979f1b` ends with 4,375 passes, 110 failed tests and 21 skipped cases in 516.43 seconds including typecheck. The tree stays unchanged. Most failures are in the board fixture and report `Not current`; investigate the shared cause before changing individual assertions. Other failures cover source-module readiness, SDK remount setup, connection retry, Profile scroll, the asynchronous Play-list read and document length.
+
+Ten skipped database cases come from a failed setup hook: its pre-switch schema omits the admission column required by current game storage. Ticket 18 repairs that fixture and passes all ten cases, with all grants, data-preservation and fail-closed assertions retained. Its combined 60-case database/document check passes; it does not close the complete gate. The source-run receipt and raw log are under `evidence/staging-next-ticket-candidates/u09-integrated/` beside this repository.
+
+Ticket 17 identifies the common board failure: raw source fixture HTML does not load Vite's dev environment, so the configured page engine stays undefined. The app correctly requests server preview for synthetic games that have no server record. The shared harness now loads the existing dev environment before the app. Five selected cases pass, including an unstamped-source case that still uses actual server preview. Gameplay assertions and production code stay unchanged. The repaired whole-source run remains required.
+
+Ticket 15 also finds a product connection failure. The SDK closes its transport before rejecting initialization; the adapter forwards that close as full runtime disposal, which then suppresses the connection error. The adapter now forwards ordinary close only after initialization succeeds. Explicit host teardown stays unconditional. A direct regression proves the old close-then-reject order, and 14 focused cases pass, including the visible Retry journey, late teardown and established connection disposal. Source-export waits, SDK remount fixtures and the asynchronous Play-scroll check also pass with their original behavior assertions.
+
+The Profile check assumed the parchment roller remained visible at the page end after new trailing controls were added. Measured geometry confirms the page scrolls correctly with no inner registry overflow. Continuity ticket 16 retains both full-roller bounds at the parchment's end, proves matching page movement and checks the trailing Collection/Settings controls at the page end. The focused case, typecheck and 54 art checks pass without a layout change.
+
+All four repair slices have independent read review and normal hooks. Run the combined complete source gate next; focused passes do not replace it.
