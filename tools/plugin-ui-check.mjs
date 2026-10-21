@@ -19,7 +19,8 @@ import { register } from 'tsx/esm/api';
 const unregister = register();
 const { fromFen, toFen, toLan } = await import('../src/rules/setup.ts');
 const { setRules, legalMoves, inCheck, nameOf, typeOf, N, RULES, sqName, moveNumber: positionMoveNumber } = await import('../src/rules/engine.ts');
-const { DEFAULT_OPTIONS } = await import('../src/match/setup.ts');
+const { DEFAULT_OPTIONS, RANKED_OPTIONS } = await import('../src/match/setup.ts');
+const { policyLabel } = await import('../src/account-game/rating-policy.ts');
 const { applyLan, cardCoins, replayHistory, replayLans } = await import('../src/plugin/screens/board-model.ts');
 const { threatsIn, shortMove } = await import('../src/move-text.ts');
 const { GameRules } = await import('../src/game-rules.ts');
@@ -339,7 +340,7 @@ try {
       const reply = await (await page.request.post(new URL(friend ? '/fixture-friend-tool' : '/fixture-tool', base).href, { data: { name, arguments: args } })).json();
       assert(!reply.isError, `${name}: ${JSON.stringify(reply.content)}`); return reply;
     };
-    const history = Array.from({length:23}, (_,i) => ({ game_id: randomUUID(), finished_at: new Date(Date.UTC(2026,9,10,12-i)).toISOString(), kind:'friend', colour:i%2?'black':'white', result:i<12?'won':i<15?'drawn':'lost', reason:i>=12&&i<15?'agreement':'resignation', opponent:{handle:i===0?'abcdefghijklmnopqrst':i===3||i===1||i===4?null:`player_${i}`,icon:'spirit',computer:i===1||i===4,deleted:i===2,level:i===1?'club':null}, features:{fairy:true,arrangement:true,classic:true,cards:true,powers:true,king:'Spirit',power:'Mercy'} }));
+    const history = Array.from({length:23}, (_,i) => ({ rating_policy:'legacy', game_id: randomUUID(), finished_at: new Date(Date.UTC(2026,9,10,12-i)).toISOString(), kind:'friend', colour:i%2?'black':'white', result:i<12?'won':i<15?'drawn':'lost', reason:i>=12&&i<15?'agreement':'resignation', opponent:{handle:i===0?'abcdefghijklmnopqrst':i===3||i===1||i===4?null:`player_${i}`,icon:'spirit',computer:i===1||i===4,deleted:i===2,level:i===1?'club':null}, features:{fairy:true,arrangement:true,classic:true,cards:true,powers:true,king:'Spirit',power:'Mercy'} }));
     const record = { totals:{played:23,won:12,drawn:3,lost:8}, rating:{rating:1500.4,rd:350,volatility:.06,provisional:true}, badges:['first_win','friend_match','stranger_match','fairy_tale','architect','crowned'].map(badge=>({badge,earned_at:'2026-10-10T12:00:00Z'})) };
     async function seed(data) { const response = await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data}}); assert.equal(response.status(),200); }
     if (mode === 'fixture') await seed({history,record});
@@ -420,7 +421,8 @@ try {
         assert.equal(await li.locator('img').getAttribute('alt'),`${row.colour} king`);
         assert.equal(await li.locator('b').textContent(),op.computer?`Computer${op.level?' · '+op.level[0].toUpperCase()+op.level.slice(1):''}`:op.deleted?'Deleted player':op.handle??'A player');
         assert.equal(await li.locator('.res').textContent(),{won:'W',drawn:'D',lost:'L'}[row.result]);
-        assert.equal(await li.locator('small').textContent(),WHY[row.reason]);
+        assert(['legacy','casual','ranked-v1'].includes(row.rating_policy),'History retains its stored rating policy');
+        assert.equal(await li.locator('small').textContent(),`${policyLabel(row.rating_policy,row.kind)} · ${WHY[row.reason]}`);
         assert.equal(await li.locator('.feats use').count(),['fairy','arrangement','classic','cards','powers'].filter(key=>row.features[key]).length);
       }
       await rollers(); await images('#profile-sheet'); await layout('profile');
@@ -1603,6 +1605,7 @@ try {
     await lobbyRow.click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal((await tool('kingdown_get', { game_id: random._meta.view.game_id }, true))._meta.view.status, 'playing', 'Accept starts both seats');
     const rankedOpen=await tool('kingdown_create',{kind:'random',mode:'ranked',command_id:randomUUID()},true); assert(!rankedOpen.isError);
+    assert.equal(rankedOpen._meta.view.rating_policy,'ranked-v1'); assert.equal(rankedOpen._meta.view.days_per_move,3); assert.deepEqual(rankedOpen._meta.view.options,RANKED_OPTIONS);
     await openPlay(); await frame.getByRole('radio',{name:'A random player',exact:true}).locator('..').click();
     await frame.locator('#setup-rating input[value="ranked"]').locator('..').click();
     assert.match(await frame.locator('#setup-ranked-rules').innerText(),/3 days per move/);
@@ -1615,6 +1618,7 @@ try {
     await frame.locator('#seat-ready').click();
     await frame.locator('#seat-context').filter({hasText:'Waiting'}).waitFor();
     const rankedOther=(await tool('kingdown_get',{game_id:rankedOpen._meta.view.game_id},true))._meta.view;
+    assert.equal(rankedOther.rating_policy,'ranked-v1');
     assert(!(await tool('kingdown_choose',{game_id:rankedOther.game_id,command_id:randomUUID(),expected_revision:rankedOther.revision,...rankedOther.choices[rankedOther.seat],ready:true},true)).isError);
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); await idleBoard();
     await frame.locator('#board-menu').click(); assert.match(await frame.locator('#board-sheet').innerText(),/Ranked/);
@@ -2556,7 +2560,7 @@ try {
   // keeps its cell in the grid, so the board never resizes and the canvas does not redraw at a new size.
   assert.deepEqual(rounded(await frame.locator('#board canvas').boundingBox()), rounded(boardBeforeEnd), 'The board keeps its rect when the end card opens');
   assert(await frame.locator('#table-bar').evaluate(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0;}),'The table bar keeps its grid cell behind the end card');
-  assert.equal(await frame.locator('#end-reason').innerText(),'You resigned.');
+  assert.equal(await frame.locator('#end-reason').innerText(),'Casual · You resigned.');
   assert.equal(await frame.locator('#over.is-win, #board[data-toppling]').count(),0,'A loss stays calm');
   const ended = await page.evaluate(()=>window.harnessView), rematchCalls = await page.evaluate(()=>window.harnessCalls.length);
   await page.clock.fastForward(1100);
@@ -2576,7 +2580,7 @@ try {
     await page.setViewportSize({width,height});
     assert(await frame.locator('#over[open] #retry').isVisible(),'The old result keeps board-load recovery visible');
     assert.equal(await frame.locator('#over-title').innerText(),'You lose');
-    assert.equal(await frame.locator('#end-reason').innerText(),'You resigned.');
+    assert.equal(await frame.locator('#end-reason').innerText(),'Casual · You resigned.');
     await shot(page,`rematch-load-failure-${width}-${mode}`);
   }
   await frame.locator('#over #retry').click();
@@ -2637,13 +2641,13 @@ try {
     await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_draw').length>n,declines); await settled(); await idleBoard();
     current=await page.evaluate(()=>window.harnessView); assert.equal(current.draw_offer,null);
     const offerAgain=await friendTool('kingdown_draw',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'offer'}); assert(!offerAgain.isError); await readGame();
-    if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{outcome:{rating_before:1500,rating:1561,provisional:true,badges:[{badge:'fairy_tale',earned_at:new Date().toISOString()}]}}}}}});
+    if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{rating_policy:'legacy',outcome:{rating_before:1500,rating:1561,provisional:true,badges:[{badge:'fairy_tale',earned_at:new Date().toISOString()}]}}}}}});
     await page.evaluate(()=>{window.holdNext='kingdown_draw';});
     await frame.locator('#context-actions #accept-draw').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Accept',exact:true}).click();
     await page.waitForFunction(()=>typeof window.releaseHeld==='function');
     await page.evaluate(()=>{window.rejectNextGet=true; window.releaseHeld();});
     await frame.locator('#over.end-card[open] h2').filter({hasText:'Draw'}).waitFor(); await idleBoard();
-    assert.equal(await frame.locator('#end-reason').innerText(),'Draw by agreement.');
+    assert.equal(await frame.locator('#end-reason').innerText(),`${mode==='fixture'?'Legacy rated':'Casual'} · Draw by agreement.`);
     assert.equal(await frame.locator('#over.is-win, #board[data-toppling]').count(),0,'A draw stays calm');
     await frame.locator('#over #retry').waitFor({timeout: 3000 * STEP});
     assert.equal(await frame.locator('#over .end-facts').innerText(),'','A failed full end read shows no guessed rating or badge');
@@ -2722,7 +2726,7 @@ try {
     if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{deadline_at:new Date(Date.now()-60000).toISOString()}}}}});
     else { const {Client}=await import('pg'); const db=new Client({connectionString:process.env.PLUGIN_TEST_DATABASE_URL}); await db.connect(); try {await db.query("update public.games set deadline_at=now()-interval '1 minute', deadline_kind='move' where id=$1",[human.game_id]);} finally {await db.end();} }
     await readGame(); await frame.locator('#context-actions #claim').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Claim the win',exact:true}).click();
-    await frame.locator('#over.end-card[open] h2').filter({hasText:'You win'}).waitFor(); await idleBoard(); assert.equal(await frame.locator('#end-reason').innerText(),'Your opponent ran out of time.');
+    await frame.locator('#over.end-card[open] h2').filter({hasText:'You win'}).waitFor(); await idleBoard(); assert.equal(await frame.locator('#end-reason').innerText(),'Casual · Your opponent ran out of time.');
     human=await joinedGame(); await clickSquare(4,1); await clickSquare(4,3); await sendTurn(); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.abort_open,true);
     if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{deadline_at:new Date(Date.now()-60000).toISOString()}}}}});
     else {const {Client}=await import('pg'); const db=new Client({connectionString:process.env.PLUGIN_TEST_DATABASE_URL}); await db.connect(); try {await db.query("update public.games set deadline_at=now()-interval '1 minute', deadline_kind='first_turn' where id=$1",[human.game_id]);} finally {await db.end();}}
@@ -2959,7 +2963,7 @@ try {
   for (const state of sampleStates) {
     await openScreen('settings'); await boardSetting('symbols-only',!!state.symbols); await boardSetting('show-threats',!!state.threats);
     const original=await page.evaluate(()=>window.harnessView), game_id=randomUUID();
-    const snapshot={...original,game_id,revision:100,status:'playing',kind:'friend',speed:'daily',days_per_move:3,seat:0,abort_open:!!state.abort,result:undefined,outcome:undefined,draw_offer:null,rematch_offer:null,rematch_game_id:null,rules:sampleRules,kings:sampleRules.kings,hands:sampleRules.hands,opponent:{handle:'mira_k',computer:false,deleted:false,rating:{rating:1540,provisional:false},last_seen_ms:121000},last_commands:[],deadline_at:null,server_now:new Date().toISOString()};
+    const snapshot={...original,rating_policy:'legacy',game_id,revision:100,status:'playing',kind:'friend',speed:'daily',days_per_move:3,seat:0,abort_open:!!state.abort,result:undefined,outcome:undefined,draw_offer:null,rematch_offer:null,rematch_game_id:null,rules:sampleRules,kings:sampleRules.kings,hands:sampleRules.hands,opponent:{handle:'mira_k',computer:false,deleted:false,rating:{rating:1540,provisional:false},last_seen_ms:121000},last_commands:[],deadline_at:null,server_now:new Date().toISOString()};
     setRules(sampleRules); let position={...fromFen(state.fen),used:state.used??[3,1]};
     const initial_fen = toFen(position);
     async function showSnapshot(value, words=`Move ${positionMoveNumber(fromFen(value.fen))}.`) {
