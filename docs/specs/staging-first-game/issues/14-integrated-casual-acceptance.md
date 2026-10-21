@@ -1,6 +1,6 @@
 # Integrated casual staging acceptance
 
-Status: source, compiled mechanics, exact recovery and corrected web first opens pass. Current native ChatGPT acceptance remains open. Parent: U09. Staging only.
+Status: source, compiled mechanics, exact recovery and current native web–ChatGPT acceptance pass in staging. Parent: U09. Named-device performance and operator release gates remain open; this is not production acceptance.
 
 ## Checkable plan
 
@@ -11,7 +11,11 @@ Status: source, compiled mechanics, exact recovery and corrected web first opens
 5. Run the four existing compiled checks on the final source: `shared-mechanics`, `plugin-ui-http`, `web-online` and `painted-game`. Repair confirmed failures at their cause; do not repeat unchanged green checks without a new concern.
 6. Deploy only the guarded staging preview. Verify the alias bytes, first web update, new and retained games, and the repaired Play entry on the actual host.
 
-## Gates and limits
+## Current gates and limits
+
+Staging source `d92991cb` and engine `cdac045d` pass the accepted corrected compiled run, all 112 mechanics executions and three independent fresh native ChatGPT opens without Retry. The actual native game commits, web return turn, Play-list refresh with draft preservation, Profile and stored engine identities are recorded in shared-game-coverage ticket 01 and release-save-continuity ticket 21. The full source baseline has 4,521 passes, 11 optional skips and no database skips; the later public-status correction has its focused and database evidence. Physical-device performance and U07 operator handling remain separate gates. No production promotion is authorized.
+
+## Historical gates and limits (superseded by current acceptance)
 
 The prior accepted staging source is `0b504fb3`. Its four compiled checks and backend recovery pass. The next source is not accepted merely because an isolated slice passes.
 

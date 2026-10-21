@@ -22,7 +22,7 @@ Five additional assertions connect the two slices in the existing support case. 
 
 Only project `puhspsyjyzaghmgtkzqd` is used. Before the grant, runtime notice ID/date reads are false and the existing payload read is true. The applied SQL grants SELECT on `id, created_at` only, to the existing `kingdown_plugin_runtime` role. The result then shows all three reads true. No game, player, notice content or production project is changed.
 
-The parent evidence folder retains `notices-staging-grant.png`. The notice feature is deployed in `ce61e8d7` to the isolated staging preview. The website Profile loads the existing games and “No account notices” successfully. The artifact contains no temporary startup trace. Actual fresh ChatGPT Profile inspection remains behind the native host gate.
+The parent evidence folder retains `notices-staging-grant.png`. The notice feature first deployed in `ce61e8d7` to the isolated staging preview. The website Profile loads the existing games and “No account notices” successfully. The artifact contains no temporary startup trace. The later accepted `d92991cb` release also passes actual fresh native ChatGPT Profile inspection: nine active games, rating and record, badges, blocked-player summary and “No account notices” render successfully. Evidence: the parent `evidence/staging-shared-mechanics/chatgpt-cdac-profile.png` and `live-cdac-presentation-release.json`. This closes the native empty-notice display gate; actual operator mailbox and appeal handling remain unverified.
 
 ## Staging help link
 

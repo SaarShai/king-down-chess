@@ -1,6 +1,6 @@
 # Refresh the game list on deliberate Play entry
 
-Status: claimed
+Status: complete in staging
 
 ## Evidence and cause
 
@@ -26,3 +26,7 @@ The product change marks the list dirty only when navigation enters Play from an
 - Full affected rerun: 159 pass, three fail (242.54 s). One saved-route test reads the host view after only the early screen switch. Two keyboard tests press before remote preview unlocks the board. The three tests now wait for the existing `aria-busy="false"` and no-animation signals at those boundaries; all original status and choice assertions remain. Log: `/tmp/kingdown-play-entry-final-green.log`.
 - Final focused green: `KINGDOWN_TEST_FILE='{src/account-game/hall.test.ts,tools/plugin-app.test.ts}' KINGDOWN_TEST_NAME='restores a saved .* route to the board|keeps two failed polls silent|clears a failed read when Your games|finds a game created elsewhere' npm test` passes five cases; 157 are filtered (15.46 s), with typecheck and all 54 art checks. Log: `/tmp/kingdown-play-entry-ready-green.log`.
 - Independent read review clears the final runtime boundary, harness correction and all readiness waits, with no should-fix. The cumulative 159/3 result is not a full pass: the parent's mandatory combined source run must close it after integration. The parent owns compiled and actual-host acceptance; this source change does not reload a host resource.
+
+## Current artifact acceptance
+
+Staging `d92991cb` passes the actual native ChatGPT journey. Its Play list first has eight games. Open `1ccbc2a2-71f6-8b47-a4db-aede1260beed` and stage b2–b3. Create `94ab950c-b385-801d-beff-82e5410b7521` on web. Back to Play reads nine games and shows the new game without Refresh. Reopen the original game: b2–b3 and enabled End turn remain. Undo clears only the test draft; the accepted history stays at five actions and a scoped database read confirms revision 6. The full 4,521-test gate supersedes the earlier cumulative source warning above. Screenshots and the live receipt are in the outer current U05 report. No further product change is needed.

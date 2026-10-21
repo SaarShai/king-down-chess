@@ -1,6 +1,6 @@
 # Verify the complete presentation boundary in staging
 
-Status: active. Parent: U05/U08/U09.
+Status: complete in staging. Parent: U05/U08/U09.
 
 ## Plan and pass criteria
 
@@ -32,3 +32,11 @@ The frozen `app-sOwSin` run passes recovery consumers, web cache takeover and pa
 Staging ticket 27 reproduces a real startup fault: an open status answer can reuse the final millisecond of a cached proof and expire in transit. Public status now requests a fresh database proof; private requests retain the five-second cache. The original failed reload did not capture the status body, so its exact cause remains unclassified. The added diagnostic records only bounded public status and elapsed time.
 
 The failed run, artifact hashes and receipt remain in `u08-presentation-acceptance`. The corrected run uses a separate evidence folder. Reuse the complete source result above plus the focused status regression and database checks; rerun the compiled paths affected by the status and assertion fixes. Painted rendering is unchanged, so reuse its passed result. The recovery candidate must include the same startup fix so a recovery cannot restore this fault.
+
+## Accepted release
+
+Clean `d92991cb` passes the corrected four-check run `app-ytRxU7`: recovery 9.4 s, web 104.2 s, full 112-execution mechanics matrix 133.7 s, embedded HTTP 231.2 s. Backend/static checks pass in 3.712 s, including all eleven archive AI paths. Sources and artifacts remain unchanged. The initial failed receipt stays separate. The unchanged painted-game check and cursor check remain credited.
+
+Recovery `9506d3b3` is `e92871fd` plus the new pair and ticket 27’s startup fix. It keeps the `8d628361` default. The guarded preview is `dpl_RouHwg3oT1sdT8Y3np2vR9QCVhUe`; the staging alias index matches its build. All ten previous archive pairs are unchanged. Production is untouched.
+
+Three native ChatGPT fresh opens pass without Try again. ChatGPT commits Freeze/Ogre, web commits March, and the new native instance shows the same five actions. The staging row and save remain pinned to `cdac045d`; an older game keeps `8d628361`. Native Play-entry, draft preservation and Profile also pass. Exact source/build/run/live receipts are in the outer `evidence/staging-shared-mechanics/verification.md`. No physical-phone or hosted-performance claim is added.

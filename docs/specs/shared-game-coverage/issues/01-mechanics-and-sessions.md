@@ -1,7 +1,7 @@
 # Prove the complete shared mechanics and session paths
 
 Type: task
-Status: claimed
+Status: complete in staging
 Parent: U05
 
 ## Outcome
@@ -18,13 +18,13 @@ Prove the full released mechanic roster and important interactions through share
 
 ## Current evidence
 
-Clean `0b504fb3` passes all four compiled gates in `app-lFNvv3`: 112 mechanics executions, full plugin journey, web recovery and local painted/learning play. It is deployed only to staging preview `dpl_67zeLH8qjVLTx5JmWXZVJa2cJ6q1` and the verified staging alias. The first saved-game web open passes without retry by 20.6 seconds. The earlier intermittent cache refusal remains unclassified; safe phase diagnostics are present.
+Staging source `d92991cb` passes all 112 compiled mechanics executions and the complete embedded HTTP journey. The full source baseline passes 4,521 tests, typecheck and 54 art checks; the subsequent startup fix passes 218 focused checks and a real PostgreSQL two-cache drill. Exact recovery, web cache takeover, all eleven archive computer paths and unchanged painted/local checks pass. The [current report](../../../../../evidence/staging-shared-mechanics/verification.md) binds exact artifacts and preserved failures.
 
-The preserved 15-action and six-action actual web/ChatGPT games remain accepted. A new game on engine `812aef27` accepts Freeze against Beast, an Ogre shove and March through the website; the existing ChatGPT resource reads the same five actions. That older resource cannot offer moves for the new engine. Do not count it as a current-resource write or fresh host pass. The Mac remains locked, so the native fresh-resource gate is pending.
+Three fresh native ChatGPT opens pass without Try again after tool refresh, with the automation debugger detached. ChatGPT creates `1ccbc2a2-71f6-8b47-a4db-aede1260beed` and commits Freeze/Ogre. Web shows the same history and commits March. A fresh ChatGPT instance shows all five actions, including the computer’s Morph. Scoped staging DB reads confirm row and save engine `cdac045d`, revision 6; the old `a9a59436` game keeps `8d628361`.
 
-The live new-game check finds a stale Play list: a game created on the other surface appears only after an explicit board refresh. Ticket 04 owns the deliberate Play-entry refresh and regression. This is a separate U05 gap, not a reason to repeat the full unchanged mechanics matrix. The parent project's `evidence/staging-shared-mechanics/verification.md` is the concise current report; the sections below preserve earlier evidence and repairs.
+Ticket 04’s actual navigation check passes: the cached Play list discovers a game created on web, without Refresh. The original b2–b3 draft survives the return. Undo removes only that draft; confirmed history and revision stay unchanged. Fresh native Profile and account notices also pass. This closes U05’s staging gate. Physical-phone/performance and operator public-readiness checks remain separate U09/U07 gates. No production release is authorized.
 
-U04 already proves game-owned immutable rules, search isolation, multi-action budgets, cancellation, and the representative March/Maester/Morph web–ChatGPT journey. This ticket extends that evidence; it does not count the same journey as full roster coverage.
+The sections below retain historical failures and repairs. They do not supersede this current evidence.
 
 ## Integrated changes and receipts
 
