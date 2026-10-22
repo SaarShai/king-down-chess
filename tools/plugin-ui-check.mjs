@@ -406,7 +406,13 @@ try {
       if(size!=='panel') { const left=await sharp(`docs/specs/chatgpt-mvp/sample/png/${state}-${size}.png`).resize(width,height).toBuffer(), right=await sharp(path).toBuffer(); await sharp({create:{width:width*2,height,channels:3,background:'#fff'}}).composite([{input:left,left:0,top:0},{input:right,left:width,top:0}]).png().toFile(join(look,`${state}-${size}-${mode}.png`)); }
     }
     for (const [size,width,height] of [['phone',390,844],['panel',400,900],['desktop',1440,900]]) {
-      await page.setViewportSize({width,height}); await openScreen('profile');
+      await page.setViewportSize({width,height});
+      // The rows of the last visit show at once, and this visit's read draws them again with new buttons. A redraw
+      // between the locator resolve and the read detaches each row. Read the rows after this visit's read ends.
+      const profileReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_profile').length);
+      await openScreen('profile');
+      await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_profile').length > n, profileReads);
+      await frame.locator('#profile-status').filter({hasText:'Loading profile…'}).waitFor({state:'hidden'});
       await frame.locator('#profile-open button').first().waitFor();
       await checkFlatRows(frame, '#profile-open button');
       assert.deepEqual(await frame.locator('#profile-open button').evaluateAll(rows=>rows.map(row=>row.dataset.gameId)),openIds,'Open games keep your turn first');
