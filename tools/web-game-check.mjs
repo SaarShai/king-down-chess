@@ -445,7 +445,7 @@ try {
   const staleOffer = (await tool(1, 'kingdown_create', { kind: 'random', mode: 'casual', command_id: randomUUID() }))._meta.view;
   await page.goto(origin + '/play/'); await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor();
   await page.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click();
-  await page.locator('#setup-rating input[value="casual"]').locator('..').click();
+  if (rankedStage) await page.locator('#setup-rating input[value="casual"]').locator('..').click();
   let releaseLobby, heldLobby;
   const held = new Promise(resolve => { heldLobby = resolve; });
   const delayedLobby = async route => {
