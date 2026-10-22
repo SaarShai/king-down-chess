@@ -30,7 +30,7 @@ try {
     await stripsClear('rest');
     if (width === 320) {
       // The owner's preview pick of 2026-10-19 (23810f27) makes the short-phone Moves row 48 px, not 44 px.
-      // The board row takes the rest, so the 2026-10-09 floor of 290 px drops by the same 4 px to 287 px.
+      // The board row takes the rest, so the 2026-10-09 floor of 290 px drops by the same 4 px to 286 px (the board measures 287 px, the same 1 px margin as before).
       const MOVES_ROW = 48, BOARD_FLOOR = 290 - (MOVES_ROW - 44);
       const canvas = await page.locator('#board canvas').boundingBox();
       assert.ok(canvas.width >= BOARD_FLOOR, `short phone board: ${canvas.width.toFixed(2)} px, floor ${BOARD_FLOOR} px`);
