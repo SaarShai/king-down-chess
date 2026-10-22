@@ -22,8 +22,8 @@ The human rule measures age as `server_now` minus the newest `last_commands[].at
 - [x] The existing solo setup, turn, hidden and finished cases still hold, unchanged.
 - [x] New cases: idle solo game (newest command 120000 ms old) gives 15 s; a command 119999 ms old gives 5 s; a game with no command gives 5 s until 120000 ms after `created_at`; a missing or empty commands list falls back to `created_at`; an unreadable `server_now` or no readable time gives 5 s. The solo End-screen rematch watch view gives 5 s, then 15 s after 2 idle minutes.
 - [x] A remote move at 90001 ms or 119999 ms into the idle time appears within 5 s. A remote move at 300001 ms appears within 15 s. After each one, the poll goes back to 5 s.
-- [x] The Status line records the cadence as a proposal for the owner.
-- [x] `shared-runtime.md:22` states the new rule and marks it as a proposal that waits for the owner (ticket 56). It merges with the code. If the owner says no, revert that line with the code.
+- [x] The Status line records the owner's approval of the cadence (2026-10-21).
+- [x] `shared-runtime.md:22` states the new rule (ticket 56). It merges with the code.
 
 ## Proposal for the owner
 
