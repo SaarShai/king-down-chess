@@ -2100,9 +2100,13 @@ it.each(['power-w', 'card-w-0'])('keeps focus on %s through a minute tick and up
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
     await frame.locator(`#${id}`).focus();
     expect(await frame.locator('#move-time-left').textContent()).toBe('3 min left');
+    // The host holds the poll read in the clock step, so only the minute tick can change the time text.
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_get'; });
     await page.clock.fastForward(60000);
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
     expect(await frame.locator('#move-time-left').textContent()).toBe('2 min left');
     expect(await frame.locator(`#${id}`).evaluate(b => document.activeElement === b)).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeld());
     await page.keyboard.press('Enter');
     await frame.locator('#board-sheet[open] h2').filter({hasText:id === 'power-w' ? 'Flame King' : 'Haste'}).waitFor();
     await page.keyboard.press('Escape');
@@ -2115,7 +2119,7 @@ it.each(['power-w', 'card-w-0'])('keeps focus on %s through a minute tick and up
     await page.clock.fastForward(60001);
     expect(await frame.locator('#move-time-left').textContent()).toBe('Time is up');
     expect(await frame.locator('#claim').textContent()).toBe('Claim the win');
-  } finally { await page.context().setOffline(false); await page.close(); }
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.context().setOffline(false); await page.close(); }
 });
 
 it('keeps focus on a power coin through a presence update (an equal-revision poll reply)', async () => {
