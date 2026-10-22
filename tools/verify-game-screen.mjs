@@ -1,7 +1,7 @@
 // The fixed table at the four W2 sizes, through real board input.
 import assert from 'node:assert/strict';
 import { recordBoardText, boardText } from './board-ink-check.mjs';
-import { usePower, startLesson, contextWordsInView, endTurn, openMoves } from './app-ui.mjs';
+import { rulesAt, usePower, startLesson, contextWordsInView, endTurn, openMoves } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 const browser = await launch();
 const visibleWords = async (page, words) => assert.ok(await contextWordsInView(page, words), `the drawn context shows ${words}`);
@@ -94,6 +94,8 @@ try {
     await context.close();
   }
   const opened = async (save, query = '', width = 390, height = 844) => {
+    // The save holds the URL's rules, so the URL replays it (a save with no rules is a default-rules game).
+    if (query) save = { ...save, rules: await rulesAt(browser, new URL(query, env('PLAYABLE_URL')).href) };
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' });
     await context.addInitScript(save => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.save', JSON.stringify({ sound: false, pace: 'off', white: 'human', black: 'human', ...save })); }, save);
     const page = await context.newPage(); trapErrors(page);

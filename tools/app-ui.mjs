@@ -11,6 +11,24 @@ export function waitForLinkSave(page, back, moves, link) {
   }, { back, moves, link });
 }
 
+/**
+ * The rules that the page saves for a fresh game at `url` (`?kings=`, `?rules=`). A seeded save that holds
+ * them replays at that URL; a save with no rules is a default-rules game, and other URL rules start fresh.
+ */
+const urlRules = new Map();
+export async function rulesAt(browser, url) {
+  if (!urlRules.has(url)) {
+    const context = await browser.newContext();
+    try {
+      const page = await context.newPage();
+      await page.goto(url);
+      await page.waitForFunction(() => localStorage.getItem('kingdown.save'));
+      urlRules.set(url, await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).rules));
+    } finally { await context.close(); }
+  }
+  return urlRules.get(url);
+}
+
 /** The menu items and the button of each one today. */
 /** Guide is the sheet name; All rules is the read action. */
 const MENU = { 'New game': '#new-game-btn', Guide: '#rules-btn', Workshop: '#workshop-btn', Settings: '[data-go="help"]' };
