@@ -20,7 +20,7 @@ const blocks = (file: string) => read(file).match(/^begin;[\s\S]*?^commit;$/gm)!
 const suite = process.env.PLUGIN_TEST_DATABASE_URL ? describe : describe.skip;
 
 suite('the production schema switch', () => {
- let own: URL, admin: pg.Pool, role: string;
+ let own: URL, admin: pg.Pool, runtime: pg.Pool, role: string;
  beforeAll(async () => {
   own = await ownTestDatabase('prodswitch');
   admin = new pg.Pool({ connectionString: own.href, max: 2 });
@@ -36,9 +36,14 @@ suite('the production schema switch', () => {
   const old = blocks('tools/plugin-db/fixtures/runtime-role-cc1081b2.sql');
   expect(old).toHaveLength(11);
   await withRoleLock(own.href, () => admin.query(old.join('\n').replaceAll('kingdown_plugin_runtime', role)));
+  // The new code's store: each connection runs as the runtime role from its start.
+  runtime = new pg.Pool({ connectionString: own.href, max: 2, options: `-c role=${role}` });
  }, 120_000);
  afterAll(async () => {
-  if (role) await withRoleLock(own.href, () => admin.query(`drop owned by ${role}; drop role if exists ${role}`));
+  await runtime?.end();
+  // Drop only a role that exists, so a failed beforeAll keeps its own error.
+  if (role && (await admin.query('select 1 from pg_roles where rolname=$1', [role])).rowCount)
+   await withRoleLock(own.href, () => admin.query(`drop owned by ${role}; drop role if exists ${role}`));
   await admin?.end();
  });
  /** Run work as the runtime role in one transaction. It commits only when `keep` is true. */
@@ -57,9 +62,10 @@ suite('the production schema switch', () => {
  const apply = (sql: string) => withRoleLock(own.href, () => admin.query(sql.replaceAll('kingdown_plugin_runtime', role)));
 
  it('starts both builds before and after 0016, block 12, 0017 and 0018; the new build needs 0017/0018; 0015 ends rollback', async () => {
-  const user = randomUUID(), store = new PostgresMatchStore(admin);
+  const user = randomUUID(), store = new PostgresMatchStore(runtime);
   await admin.query('insert into auth.users(id) values($1)', [user]);
   try {
+   expect((await runtime.query('select current_user as name')).rows[0].name).toBe(role);
    // (a) Production today: the old start check passes. The new one fails: block 4 of cc1081b2 grants no notifications.id.
    const notices = async () => (await admin.query(`select has_column_privilege($1,'public.notifications','id','select') and has_column_privilege($1,'public.notifications','created_at','select') as allowed`, [role])).rows[0].allowed;
    await oldCheck();
@@ -83,7 +89,8 @@ suite('the production schema switch', () => {
    await oldCheck();
    await newCheck();
 
-   // (d) The old build's game insert (cc1081b2 src/match/store.ts:51-56, as the runtime role) names neither new column.
+   // (d) The new code's create and load, and the old build's game insert (cc1081b2 src/match/store.ts:51-56), run as the
+   // runtime role. The old insert names neither new column.
    const made = await new GameService(store).create(user, { kind: 'solo', colour: 'white' });
    const game = await store.load(made.game_id, { state: true }), id = randomUUID();
    await asRuntime(async client => {
