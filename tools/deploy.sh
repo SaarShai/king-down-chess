@@ -220,6 +220,11 @@ if [ "$setup_plugin" = yes ] || [ -n "$configure" ]; then
 fi
 
 git remote get-url origin >/dev/null 2>&1 || die 'add the GitHub remote origin (github.com/SaarShai/king-down-chess); the release builds a fresh origin/main'
+# The configured URL, before any insteadOf rewrite, must name the one GitHub repository.
+case "$(git config --get-all remote.origin.url)" in
+  https://github.com/SaarShai/king-down-chess|https://github.com/SaarShai/king-down-chess.git|git@github.com:SaarShai/king-down-chess|git@github.com:SaarShai/king-down-chess.git|ssh://git@github.com/SaarShai/king-down-chess|ssh://git@github.com/SaarShai/king-down-chess.git) ;;
+  *) die 'remote origin must be the GitHub repository SaarShai/king-down-chess; the release builds a fresh origin/main' ;;
+esac
 step 'fetch origin' git fetch --quiet origin
 commit=$(git rev-parse --verify --quiet 'refs/remotes/origin/main^{commit}') || die "origin has no main branch"
 # One temp folder holds the worktree (tree/) and, with --publish, the published copy (kingdown/).

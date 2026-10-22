@@ -49,6 +49,9 @@ function setup() {
   repo.write('app.txt', 'one\n');
   repo.git('add', '.');
   repo.git('commit', '-q', '-m', 'one');
+  // deploy.sh requires the GitHub origin URL; git rewrites it to the bare test remote.
+  repo.git('remote', 'set-url', 'origin', 'https://github.com/SaarShai/king-down-chess.git');
+  repo.git('config', `url.${repo.remote}.insteadOf`, 'https://github.com/SaarShai/king-down-chess.git');
   repo.git('push', '-q', 'origin', 'main');
   const bin = join(repo.root, 'bin');
   mkdirSync(bin);
@@ -217,6 +220,24 @@ describe('deploy.sh', () => {
     expect(result.status).toBe(2);
     expect(result.stderr).toContain('add the GitHub remote origin');
     expect(calls()).toEqual([]);
+  });
+
+  it.each(['/tmp/other.git', 'https://github.com/SaarShai/king-down-chess-fork.git', 'https://github.com/Other/king-down-chess.git', 'git@github.com:Other/king-down-chess.git'])('stops before the fetch when origin is %s', url => {
+    const { repo, deploy, calls } = setup();
+    repo.git('remote', 'set-url', 'origin', url);
+    const result = deploy();
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('remote origin must be the GitHub repository SaarShai/king-down-chess');
+    expect(result.stdout).not.toContain('fetch origin');
+    expect(calls()).toEqual([]);
+  });
+
+  it.each(['https://github.com/SaarShai/king-down-chess', 'git@github.com:SaarShai/king-down-chess.git', 'ssh://git@github.com/SaarShai/king-down-chess'])('accepts the GitHub origin form %s', url => {
+    const { repo, deploy } = setup();
+    repo.git('remote', 'set-url', 'origin', url);
+    repo.git('config', `url.${repo.remote}.insteadOf`, url);
+    const result = deploy();
+    expect(result.status, result.stderr).toBe(0);
   });
 
   it('sets only the seven plugin values through stdin and prints none of their values', () => {
@@ -677,8 +698,12 @@ describe('deploy-live-check.mjs', () => {
 
   it.each([
     { name: 'a missing status', status: 404, body: apiClosure, message: 'GET /api/status: expected JSON HTTP 200' },
-    { name: 'an unknown state', status: 200, body: JSON.stringify({ account_access: 'maybe', valid_for_ms: 0 }), message: 'expected account_access closed or open' },
+    { name: 'an unknown state', status: 200, body: JSON.stringify({ account_access: 'maybe', valid_for_ms: 0 }), message: 'expected account_access closed (valid_for_ms 0) or open (valid_for_ms > 0)' },
     { name: 'a cacheable status', status: 200, body: JSON.stringify({ account_access: 'closed', valid_for_ms: 0 }), cache: 'max-age=60', message: 'GET /api/status: expected JSON HTTP 200' },
+    // src/api/http.ts: a closed state has no lease; an open state has a positive lease.
+    { name: 'a closed state with a lease', status: 200, body: JSON.stringify({ account_access: 'closed', valid_for_ms: 5000 }), message: 'expected account_access closed (valid_for_ms 0) or open (valid_for_ms > 0)' },
+    { name: 'an open state without a lease', status: 200, body: JSON.stringify({ account_access: 'open', valid_for_ms: 0 }), message: 'expected account_access closed (valid_for_ms 0) or open (valid_for_ms > 0)' },
+    { name: 'an open state with a negative lease', status: 200, body: JSON.stringify({ account_access: 'open', valid_for_ms: -1 }), message: 'expected account_access closed (valid_for_ms 0) or open (valid_for_ms > 0)' },
   ])('rejects $name at /api/status', async ({ message, ...fault }) => {
     const live = await site(() => pages(), { path: '/api/status', ...fault });
     const result = await check(buildFolder(pages()), live.url, 0);
