@@ -9,6 +9,7 @@ import { boardGame, closeBoardSheet, sendBoardCommand, skipBoardCeremony } from 
 import { playerBlockButton } from './board-actions';
 import { rematchChoices } from './end-model';
 import { draftFromGame } from './setup';
+import { rankedOffered } from './setup-model';
 import { onStop } from './friend';
 import { policyLabel } from '../../account-game/rating-policy';
 import './end.css';
@@ -168,7 +169,7 @@ export function endScreen(schedule = true) {
   const skip = button('Skip',()=>{skipBoardCeremony(); see.focus();}); skip.id='end-skip'; skip.hidden=!$('board').dataset.toppling; form.append(skip);
   $('end-result').onclick = () => { looking=false; $('end-result').hidden=true; endScreen(); };
   (looking ? document.querySelector('.page-sheet')! : over).append(error);
-  over.querySelector('.quiet-line')!.textContent = opponent?.deleted || rematchAllowed === false ? '' : view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematches.length ? view.kind==='solo' ? 'Play again with the same rules and colour.' : 'A rematch is Casual. It keeps the features and swaps the colours. Return to Ranked to find another ranked opponent.' : '';
+  over.querySelector('.quiet-line')!.textContent = opponent?.deleted || rematchAllowed === false ? '' : view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematches.length ? view.kind==='solo' ? 'Play again with the same rules and colour.' : `A rematch is Casual. It keeps the features and swaps the colours.${rankedOffered() ? ' Return to Ranked to find another ranked opponent.' : ''}` : '';
   if (over.open) scrim.hidden=false;
   else if (!opening && !looking) {
     opening=true; const game=view.game_id;

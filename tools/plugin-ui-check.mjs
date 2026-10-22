@@ -20,6 +20,8 @@ const unregister = register();
 const { fromFen, toFen, toLan } = await import('../src/rules/setup.ts');
 const { setRules, legalMoves, inCheck, nameOf, typeOf, N, RULES, sqName, moveNumber: positionMoveNumber } = await import('../src/rules/engine.ts');
 const { DEFAULT_OPTIONS, RANKED_OPTIONS } = await import('../src/match/setup.ts');
+// The widget build reads the stage; the staging build offers Ranked (ticket 67).
+const rankedStage = process.env.VITE_KINGDOWN_STAGE === 'staging';
 const { policyLabel } = await import('../src/account-game/rating-policy.ts');
 const { applyLan, cardCoins, replayHistory, replayLans } = await import('../src/plugin/screens/board-model.ts');
 const { threatsIn, shortMove } = await import('../src/move-text.ts');
@@ -476,6 +478,7 @@ try {
     if(mode==='fixture') await seed({history,record:{...record,rating:{rating:1600.6,rd:90,volatility:.06,provisional:false}}});
     await openScreen('profile'); await frame.locator('#profile-status').filter({hasText:'Loading profile…'}).waitFor({state:'hidden'});
     if(mode==='fixture') { assert.equal(await frame.locator('#profile-rating .q').isVisible(),false); assert.equal(await frame.locator('#profile-rating b').textContent(),'1601'); }
+    assert.match(await frame.locator('#profile-rating-help').textContent(), rankedStage ? /Ranked and legacy results; no reset\.$/ : /Rated game results; no reset\.$/, 'Only staging names Ranked in the profile');
     const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_profile').length); await remountFrame();
     await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_profile').length>n,reads); await frame.locator('#profile-open button').first().waitFor();
     assert.equal(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen),'profile');
@@ -1655,29 +1658,42 @@ try {
     await remount('lobby'); await frame.locator('#lobby-list .game-row').filter({ hasText: longName }).waitFor();
     await lobbyRow.click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal((await tool('kingdown_get', { game_id: random._meta.view.game_id }, true))._meta.view.status, 'playing', 'Accept starts both seats');
-    const rankedOpen=await tool('kingdown_create',{kind:'random',mode:'ranked',command_id:randomUUID()},true); assert(!rankedOpen.isError);
-    assert.equal(rankedOpen._meta.view.rating_policy,'ranked-v1'); assert.equal(rankedOpen._meta.view.days_per_move,3); assert.deepEqual(rankedOpen._meta.view.options,RANKED_OPTIONS);
-    await openPlay(); await frame.getByRole('radio',{name:'A random player',exact:true}).locator('..').click();
-    await frame.locator('#setup-rating input[value="ranked"]').locator('..').click();
-    assert.match(await frame.locator('#setup-ranked-rules').innerText(),/3 days per move/);
-    await frame.locator('#play-open').click();
-    await frame.locator('#find-features').filter({hasText:'Ranked'}).waitFor();
-    assert(await frame.locator('#find-any-row').isHidden());
-    const rankedRow=frame.locator('#lobby-list .game-row').filter({hasText:longName});
-    await rankedRow.waitFor(); assert.match(await rankedRow.innerText(),/Ranked/);
-    await rankedRow.click(); await frame.locator('[data-screen="seat"]:not([hidden]) #seat-ready:not(:disabled)').waitFor();
-    await frame.locator('#seat-ready').click();
-    await frame.locator('#seat-context').filter({hasText:'Waiting'}).waitFor();
-    const rankedOther=(await tool('kingdown_get',{game_id:rankedOpen._meta.view.game_id},true))._meta.view;
-    assert.equal(rankedOther.rating_policy,'ranked-v1');
-    assert(!(await tool('kingdown_choose',{game_id:rankedOther.game_id,command_id:randomUUID(),expected_revision:rankedOther.revision,...rankedOther.choices[rankedOther.seat],ready:true},true)).isError);
-    await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); await idleBoard();
-    await frame.locator('#board-menu').click(); assert.match(await frame.locator('#board-sheet').innerText(),/Ranked/);
-    await frame.locator('#board-sheet').getByRole('button',{name:'Ranked game',exact:true}).click();
-    assert.match(await frame.locator('#board-sheet').innerText(),/Do not use engine, AI or human advice/);
-    await frame.locator('#board-sheet [aria-label="Close"]').click();
-    await shot(page,'plugin-ranked-policy');
-    assert(!(await tool('kingdown_abort',{game_id:rankedOther.game_id},true)).isError);
+    // Ranked opens only in the staging build and on the staging server (ticket 67).
+    if (rankedStage) {
+      const rankedOpen=await tool('kingdown_create',{kind:'random',mode:'ranked',command_id:randomUUID()},true); assert(!rankedOpen.isError);
+      assert.equal(rankedOpen._meta.view.rating_policy,'ranked-v1'); assert.equal(rankedOpen._meta.view.days_per_move,3); assert.deepEqual(rankedOpen._meta.view.options,RANKED_OPTIONS);
+      await openPlay(); await frame.getByRole('radio',{name:'A random player',exact:true}).locator('..').click();
+      await frame.locator('#setup-rating input[value="ranked"]').locator('..').click();
+      assert.match(await frame.locator('#setup-ranked-rules').innerText(),/3 days per move/);
+      await frame.locator('#play-open').click();
+      await frame.locator('#find-features').filter({hasText:'Ranked'}).waitFor();
+      assert(await frame.locator('#find-any-row').isHidden());
+      const rankedRow=frame.locator('#lobby-list .game-row').filter({hasText:longName});
+      await rankedRow.waitFor(); assert.match(await rankedRow.innerText(),/Ranked/);
+      await rankedRow.click(); await frame.locator('[data-screen="seat"]:not([hidden]) #seat-ready:not(:disabled)').waitFor();
+      await frame.locator('#seat-ready').click();
+      await frame.locator('#seat-context').filter({hasText:'Waiting'}).waitFor();
+      const rankedOther=(await tool('kingdown_get',{game_id:rankedOpen._meta.view.game_id},true))._meta.view;
+      assert.equal(rankedOther.rating_policy,'ranked-v1');
+      assert(!(await tool('kingdown_choose',{game_id:rankedOther.game_id,command_id:randomUUID(),expected_revision:rankedOther.revision,...rankedOther.choices[rankedOther.seat],ready:true},true)).isError);
+      await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); await idleBoard();
+      await frame.locator('#board-menu').click(); assert.match(await frame.locator('#board-sheet').innerText(),/Ranked/);
+      await frame.locator('#board-sheet').getByRole('button',{name:'Ranked game',exact:true}).click();
+      assert.match(await frame.locator('#board-sheet').innerText(),/Do not use engine, AI or human advice/);
+      await frame.locator('#board-sheet [aria-label="Close"]').click();
+      await shot(page,'plugin-ranked-policy');
+      assert(!(await tool('kingdown_abort',{game_id:rankedOther.game_id},true)).isError);
+    } else {
+      await openPlay(); await frame.getByRole('radio',{name:'A random player',exact:true}).locator('..').click();
+      assert(await frame.locator('#setup-rating').isHidden(), 'Production shows no Ranked choice');
+      assert.equal(await frame.locator('#setup-rating-line').innerText(), 'A game with a random player is Casual. Casual does not change ratings.');
+      await frame.locator('#play-open').click(); await frame.locator('#find-features').filter({hasText:'Casual'}).waitFor();
+      assert.doesNotMatch(await frame.locator('#find-features').innerText(), /Ranked/);
+      if (mode !== 'fixture') {
+        const refused = await tool('kingdown_create',{kind:'random',mode:'ranked',command_id:randomUUID()},true);
+        assert(refused.isError); assert.equal(refused._meta?.code,'RANKED_UNAVAILABLE');
+      }
+    }
     await openScreen('settings'); await frame.locator('[data-nav="handle"]').click(); await lookAt('handle', 'handle'); await openPlay();
     const setup = await tool('kingdown_settings', { last_setup: { kind: 'random', options, colour: 'white', level: 'club', king: null } }); assert(!setup.isError);
     // Only Open mounts the app. It carries the board ID and the new saved settings.

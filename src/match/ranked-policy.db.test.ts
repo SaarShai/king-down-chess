@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { GameService } from './service';
 import { PostgresMatchStore, type Game } from './store';
@@ -23,6 +23,9 @@ suite('fixed ranked policy in PostgreSQL', () => {
   }
   legacy = new GameService(new LegacyStore(pool));
  },120_000);
+ // Ranked opens only on the staging server (ticket 67); each case sets its stage.
+ beforeEach(() => { vi.stubEnv('KINGDOWN_STAGE', 'staging'); });
+ afterEach(() => { vi.unstubAllEnvs(); });
  afterAll(async () => {
   if (!pool) return;
   await pool.query('delete from public.games where created_by=any($1)',[users]);
@@ -86,6 +89,19 @@ suite('fixed ranked policy in PostgreSQL', () => {
   const done = await service.view(a,game.game_id), offer = await act(a,done,{type:'rematch',choice:'offer'});
   const accepted = await act(b,offer,{type:'rematch',choice:'accept'});
   expect((await service.view(a,accepted.rematch_game_id!)).rating_policy).toBe('casual');
+ });
+ it('refuses ranked starts and seats in production and still shows an existing ranked game', async () => {
+  const a = await user(), b = await user();
+  const ranked = await service.find(a,undefined,undefined,'staging-ranked',false,'ranked');
+  vi.stubEnv('KINGDOWN_STAGE', '');
+  for (const start of [service.find(b,undefined,undefined,'prod-ranked',false,'ranked'), service.find(a,undefined,undefined,'staging-ranked',false,'ranked'), service.create(b,{kind:'random',mode:'ranked'})])
+   await expect(start).rejects.toMatchObject({code:'RANKED_UNAVAILABLE',status:409,message:'Ranked is not available. Play a Casual game.'});
+  await expect(service.accept(b,ranked.game_id,'ranked-v1')).rejects.toMatchObject({code:'RANKED_UNAVAILABLE'});
+  expect((await service.view(a,ranked.game_id))).toMatchObject({game_id:ranked.game_id,rating_policy:'ranked-v1',status:'waiting'});
+  expect((await service.lobby(b)).games.find(g => g.game_id === ranked.game_id)?.rating_policy).toBe('ranked-v1');
+  expect((await service.find(b,plain,'white','prod-casual')).rating_policy).toBe('casual');
+  expect((await pool.query("select count(*)::int as n from public.games where rating_policy='ranked-v1' and created_by=any($1)",[[a,b]])).rows[0].n).toBe(1);
+  expect((await service.cancel(a,ranked.game_id)).status).toBe('aborted');
  });
  it('preserves old receipts, old omitted-policy accepts and old results while rejecting mode changes', async () => {
   const a = await user(), b = await user();

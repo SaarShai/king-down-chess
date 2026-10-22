@@ -44,10 +44,10 @@ function run(names: string[], failBuild = false) {
   `);
   for (const script of new Set(checks.map(c => c.script))) repo.write(script, `
     import { appendFileSync } from 'node:fs';
-    appendFileSync(process.env.RUNNER_EVENTS, JSON.stringify({ script: process.argv[1].slice(process.cwd().length + 1), args: process.argv.slice(2), url: process.env.PLAYABLE_URL }) + '\\n');
+    appendFileSync(process.env.RUNNER_EVENTS, JSON.stringify({ script: process.argv[1].slice(process.cwd().length + 1), args: process.argv.slice(2), url: process.env.PLAYABLE_URL, stage: process.env.VITE_KINGDOWN_STAGE }) + '\\n');
   `);
   const result = spawnSync(process.execPath, ['tools/check.mjs', ...names], {
-    cwd: repo.dir, env: { ...repo.env, TMPDIR: repo.root, RUNNER_EVENTS: events, PLAYABLE_URL: undefined },
+    cwd: repo.dir, env: { ...repo.env, TMPDIR: repo.root, RUNNER_EVENTS: events, PLAYABLE_URL: undefined, VITE_KINGDOWN_STAGE: undefined },
     encoding: 'utf8', timeout: 30_000,
   });
   const calls = existsSync(events) ? readFileSync(events, 'utf8').trim().split('\n').map(line => JSON.parse(line)) : [];
@@ -62,6 +62,14 @@ describe('browser check site build', () => {
     expect(calls.at(-1)).toMatchObject({ script: 'tools/web-game-check.mjs', args: ['recovery'] });
     expect(calls.every(call => typeof call === 'object' && !('url' in call))).toBe(true);
     expect(result.stdout).not.toContain('serving the build');
+  });
+
+  it('runs the staging checks with the staging build stage and the production ones without it', () => {
+    const { result, calls } = run(['web-game', 'web-game-staging', 'plugin-ui-http', 'plugin-ui-http-staging']);
+    expect(result.status, result.stderr + result.stdout).toBe(0);
+    expect(calls.map(call => call.stage)).toEqual([undefined, 'staging', undefined, 'staging']);
+    expect(calls[1]).toMatchObject({ script: 'tools/web-game-check.mjs', args: [] });
+    expect(calls[3]).toMatchObject({ script: 'tools/plugin-browser-check.mjs', args: ['http'] });
   });
 
   it.each([{ names: ['web-online'] }, { names: ['plugin-ui', 'web-online'] }, { names: [] }])('builds and serves the site for $names', ({ names }) => {

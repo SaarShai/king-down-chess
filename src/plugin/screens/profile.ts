@@ -6,6 +6,7 @@ import { BADGES, type Badge } from '../../match/badges';
 import { ICONS, type Icon, type AccountNotice, type AccountNotices } from '../../account/profile';
 import type { HistoryEntry, InboxEntry, PlayerRecord } from '../../match/protocol';
 import { DEFAULT_OPTIONS } from '../../match/setup';
+import { rankedOffered } from './setup-model';
 import { features } from '../../account-game/features';
 import { policyLabel } from '../../account-game/rating-policy';
 import './profile.css';
@@ -46,7 +47,7 @@ async function readProfile(cursor?: string) {
     $<HTMLImageElement>('profile-picture').src = art(ICONS[profile.icon ?? 'spirit']);
     $('profile-rating').querySelector('b')!.textContent = String(Math.round(record.rating.rating));
     $('profile-rating').querySelector<HTMLElement>('.q')!.hidden = !record.rating.provisional;
-    $('profile-rating-help').textContent = record.rating.provisional ? 'Rating · provisional. Ranked and legacy results; no reset.' : 'Rating · Ranked and legacy results; no reset.';
+    $('profile-rating-help').textContent = `Rating · ${record.rating.provisional ? 'provisional. ' : ''}${rankedOffered() ? 'Ranked and legacy results' : 'Rated game results'}; no reset.`;
     $('profile-totals').replaceChildren(...Object.entries(record.totals).map(([label, total]) => {
       const cell = document.createElement('div'), number = document.createElement('b'), name = document.createElement('span');
       number.textContent = String(total); name.textContent = label; cell.append(number, name); return cell;

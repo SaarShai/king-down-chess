@@ -11,6 +11,7 @@ import { createApiHandler, createInternalHandler, MAX_ACTIVE_ENGINE, MAX_API_BOD
 import type { Pool } from 'pg';
 import { createWebAccountAccess } from './account-access';
 import { readWebAccountAccess } from '../online/account-access';
+afterEach(() => { vi.unstubAllEnvs(); });
 
 const alice = '11111111-1111-4111-8111-111111111111', gameId = '33333333-3333-4333-8333-333333333333';
 const supabase = 'https://project.supabase.co', issuer = `${supabase}/auth/v1`, secret = 'x'.repeat(40);
@@ -352,6 +353,7 @@ describe('website API boundary', () => {
   expect(await (await call('/api/lobby', { token })).json()).toEqual({ games: [], server_now: expect.any(String) });
  });
  it('forwards Ranked without saved custom options and admits only declared acceptance policies', async () => {
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging'); // Ranked is offered only in staging (ticket 67).
   const token = await sign();
   expect((await call('/api/games/find', { token, method:'POST', body:{ mode:'ranked',command_id:commandId } })).status).toBe(200);
   expect(games.find).toHaveBeenCalledExactlyOnceWith(alice,undefined,undefined,commandId,undefined,'ranked');
