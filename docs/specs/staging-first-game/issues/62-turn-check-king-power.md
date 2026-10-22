@@ -122,7 +122,25 @@ The lead decides (follow-up 1): the newer pick (`23810f27`, 2026-10-19) wins. Se
 
 Open fault after follow-up 1: `game-screen` now fails at the next assertion, `tools/verify-game-screen.mjs:41`, `board labels draw at 12 CSS px`. A probe gives a label size of 11.958 CSS px at 320×568 (the floor is 11.99). The board draws its labels at 1/24 of the board width (40 px on a 960 px canvas), so the labels reach 12 CSS px only on a board of at least 288 px. The 287 px board of the 48 px pick gives 11.96 px. The lead order says "do not lower any other threshold", and `src/` is out of scope, so this stays open. The options: a label size that does not scale below 12 CSS px (a `src/` change), 4 px less from another short-phone row, or an owner decision on the label floor.
 
-Checks after the follow-ups:
+3. Board label floor (lead decision: keep labels at 12 CSS px or more on small boards). `coordInk` in `src/render/board-ink.ts` capped the label size at 40 board units (1/24 of the 960-unit canvas). The cap is now 45 units, the frame limit (16-unit inset + 0.35 em <= 32 units). The size stays `min(boardInk(width).coord, cap)`, and `coord` is `max(13, 12 CSS px in board units)`, so the labels keep 12 CSS px on boards of 256 px or more. On boards of 288 px or more the size does not change (the old cap did not apply there). A literal `max(12 CSS px, old size)` is not used: on boards below about 252 px it puts the labels outside the 32-unit frame and over the pieces, and the frame test (fault M10) fails. `src/render/board-ink.test.ts` has a new test: 12 CSS px or more at 256 and 287 px, and no change at 288, 302, 360 and 960 px. No check threshold changes.
+
+Open fault after follow-up 3: `game-screen` now passes the label steps (`board labels draw at 12 CSS px`, `file letters clear the canvas edge`) and fails at the next step, `tools/verify-game-screen.mjs:54`, `320×568: the table stays fixed at staged turn`. At the staged turn End Turn becomes the primary button and grows from 48 px to 52 px (y 506 to 504, bottom 554 to 556). The cause is `#table-bar > button.primary { min-height: 52px; }` in `src/ui/table.css`, from `601acb34` ("Fix control preview review faults"), which is in the base `73387e66`. A canvas font change cannot change a button height. `src/ui/` and the check are outside this follow-up, so it stays open. The options: keep the primary End Turn at 48 px in the short-phone bar, or accept the 52 px button in the check (an owner or lead decision).
+
+Checks after follow-up 3:
+
+- `npm run check:browser game-screen end turn home gui-board-preview gui-board-a8 gui-board-a14 gui-board-a15 gui-board-a18 gui-board-y3` (no registered check name has `ink`; the names with `board` are the six `gui-board-*` checks): `check: 2 of 10 failed`.
+  - `FAIL game-screen         1.2 s  AssertionError [ERR_ASSERTION]: 320×568: the table stays fixed at staged turn` (see the open fault above; the board-width, Moves-row and label steps pass).
+  - `ok   end                13.8 s`
+  - `ok   turn               11.9 s`
+  - `ok   home                9.1 s`
+  - `FAIL gui-board-preview  180.0 s  timed out at the 180 s limit`. It runs every preview screen in turn, and each one waits for the shared test lock that other lanes hold. A second run with `home` gives the same timeout; every screen that ran before the limit passed (A8 to A39). This check draws the plugin board, which does not use `coordInk`.
+  - `ok   gui-board-a8      146.5 s`, `ok   gui-board-a14      23.1 s`, `ok   gui-board-a15      21.9 s`, `ok   gui-board-a18      27.6 s`, `ok   gui-board-y3       10.5 s`
+- `npx vitest run src/render/board-ink.test.ts`: `Test Files  1 passed (1)`, `Tests  5 passed (5)`.
+- `npm run typecheck`: `tsc --noEmit` exits 0.
+- `npm run test:docs`: `Test Files  13 passed (13)`, `Tests  161 passed (161)`.
+- `npm run plugin:build:runtime` exits 0; `plugin-dist/worker.mjs` sha256 `677b4eeaa35113f0cf2b677f1e3650ae512de72485f0ce2c6617383c3af83f0b` (no change).
+
+Checks after follow-ups 1 and 2:
 
 - `npm run check:browser game-screen end turn`: `check: 1 of 3 failed`.
   - `FAIL game-screen         1.2 s  AssertionError [ERR_ASSERTION]: board labels draw at 12 CSS px` (see the open fault above; the board-width and Moves-row steps pass).
