@@ -23,7 +23,8 @@ it('the desktop check ring keeps its old width', () => {
 });
 
 it('keeps the edge labels inside the frame or hides them (fault M10)', () => {
-  // The frame is 32 board units (PAD); rank 1 starts at 928. A label is about 0.7 em tall and 0.6 em wide.
+  // The frame is 32 board units (PAD); rank 1 starts at 928. The model takes a label as 0.7 em tall and 0.6 em wide; the measured capitals rise
+  // about 0.48 em above the middle line, so the real top can pass 928 by a few units, under the pieces.
   for (const width of [158, 169, 192, 210, 246, 302, 360, 483, 960]) {
     const { size, inset, shown } = coordInk(width);
     if (!shown) { expect(width).toBeLessThan(200); continue; }
