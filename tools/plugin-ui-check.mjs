@@ -2140,9 +2140,15 @@ try {
         window.harnessNextView = view;
         return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id, screen: 'board' }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
       }, focusView);
+      // The coins show when the board read answers, but the mount still reads the games and then draws the strips again,
+      // with new buttons. So wait until the frame has read the view, no tool call waits and the mount has ended (the
+      // controls are on), as in ticket 72; a later redraw would detach the button that the focus check measures.
+      await focusHost.page.waitForFunction(() => window.harnessNextView === undefined && window.harnessInflight === window.harnessHeld);
+      await focusHost.frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
       await focusHost.frame.locator(`#${kind === 'cards' ? 'card-w-0' : 'power-w'}[data-state="used"]`).waitFor();
       const ids = await focusHost.frame.locator('#game-table .coin[data-state="used"]').evaluateAll(coins => coins.map(c => c.id));
       assert.equal(ids.length, kind === 'cards' ? 8 : 2, 'Both strips show the spent coins');
+      for (const id of ids) await focusHost.frame.locator(`#${id}`).waitFor();
       for (const theme of ['light', 'dark']) {
         await focusHost.page.evaluate(theme => window.harnessSetContext({ theme }), theme);
         const proof = [];
