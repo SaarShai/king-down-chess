@@ -29,7 +29,11 @@ function startId(actor: string, commandId: string): string {
 async function startLock(client: Parameters<PostgresMatchStore['save']>[0], actor: string, commandId: string): Promise<void> {
  await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [`start:${actor}:${commandId}`]);
 }
+/** Ranked opens only on the staging server (plan D2; ticket 67). Production keeps 'ranked' in the tool schema and refuses it here. */
+export const RANKED_UNAVAILABLE = 'Ranked is not available. Play a Casual game.';
+function requireRanked(): void { if (process.env.KINGDOWN_STAGE !== 'staging') fail('RANKED_UNAVAILABLE', 409, RANKED_UNAVAILABLE); }
 function canonicalCreate(input: CreateOptions): CreateOptions {
+ if (input.mode === 'ranked') requireRanked();
  return input.mode === 'ranked' ? { ...input, speed: 'daily', days_per_move: 3, colour: 'random', options: RANKED_OPTIONS } : input;
 }
 /** A start's input with its defaults. The start receipt keeps it; a resend with other input is COMMAND_CONFLICT. */
@@ -272,6 +276,7 @@ export class GameService {
   return this.store.transaction(async client => {
    await this.requireHandle(actor, client);
    const game = await this.store.load(gameId, { client, lock: true });
+   if (game.rating_policy === 'ranked-v1') requireRanked();
    if (ratingPolicy !== game.rating_policy && !(ratingPolicy === undefined && game.rating_policy === 'legacy')) fail('MATCH_INCOMPATIBLE', 409, 'Choose this game policy before you accept the seat');
    return this.acceptSeat(client, game, actor);
   });
