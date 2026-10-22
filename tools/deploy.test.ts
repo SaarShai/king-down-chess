@@ -49,12 +49,21 @@ function setup() {
   repo.write('app.txt', 'one\n');
   repo.git('add', '.');
   repo.git('commit', '-q', '-m', 'one');
-  // deploy.sh requires the GitHub origin URL; git rewrites it to the bare test remote.
+  // deploy.sh requires the GitHub origin URL, also after insteadOf. Test pushes go to the bare
+  // remote through the push URL; the deploy script fetches it through the git shim below.
   repo.git('remote', 'set-url', 'origin', 'https://github.com/SaarShai/king-down-chess.git');
-  repo.git('config', `url.${repo.remote}.insteadOf`, 'https://github.com/SaarShai/king-down-chess.git');
+  repo.git('remote', 'set-url', '--push', 'origin', repo.remote);
   repo.git('push', '-q', 'origin', 'main');
   const bin = join(repo.root, 'bin');
   mkdirSync(bin);
+  // The git shim forwards each call to the real git. Only for a fetch inside this temp folder, it
+  // adds a command-line insteadOf rule from the configured origin URL to the bare remote, so the
+  // script's own config and `ls-remote --get-url` checks see no rewrite.
+  const realGit = repo.run('sh', ['-c', 'command -v git']).stdout.trim();
+  stub(join(bin, 'git'), [
+    `case "$(pwd -P)" in "${repo.root}"/*) if [ "$1" = fetch ]; then url=$("${realGit}" config --get remote.origin.url) && exec "${realGit}" -c "url.${repo.remote}.insteadOf=$url" "$@"; fi ;; esac`,
+    `exec "${realGit}" "$@"`,
+  ]);
   // STUB_FAIL=<word> makes a call that holds that argument fail; STUB_HANG=<word> makes it wait.
   const holds = (name: string) => `[ -n "$${name}" ] && case " $* " in *" $${name} "*) true;; *) false;; esac`;
   const behave = [
@@ -235,9 +244,34 @@ describe('deploy.sh', () => {
   it.each(['https://github.com/SaarShai/king-down-chess', 'git@github.com:SaarShai/king-down-chess.git', 'ssh://git@github.com/SaarShai/king-down-chess'])('accepts the GitHub origin form %s', url => {
     const { repo, deploy } = setup();
     repo.git('remote', 'set-url', 'origin', url);
-    repo.git('config', `url.${repo.remote}.insteadOf`, url);
     const result = deploy();
     expect(result.status, result.stderr).toBe(0);
+  });
+
+  it('stops before the fetch when an insteadOf rule rewrites the GitHub origin to another repository', () => {
+    const { repo, deploy, calls } = setup();
+    repo.git('init', '-q', '--bare', '-b', 'main', join(repo.root, 'other.git'));
+    repo.git('config', `url.${join(repo.root, 'other.git')}.insteadOf`, 'https://github.com/SaarShai/king-down-chess.git');
+    const result = deploy();
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('remote origin must be the GitHub repository SaarShai/king-down-chess');
+    expect(result.stdout).not.toContain('fetch origin');
+    expect(calls()).toEqual([]);
+  });
+
+  it('fetches main into origin/main even when remote.origin.fetch maps another branch there', () => {
+    const { repo, deploy, calls } = setup();
+    const main = head(repo, 'HEAD');
+    repo.git('checkout', '-q', '-b', 'other');
+    repo.write('app.txt', 'other\n');
+    repo.git('commit', '-q', '-am', 'other');
+    repo.git('push', '-q', 'origin', 'other');
+    repo.git('checkout', '-q', 'main');
+    repo.git('config', 'remote.origin.fetch', '+refs/heads/other:refs/remotes/origin/main');
+    const result = deploy();
+    expect(result.status, result.stderr).toBe(0);
+    const npmTest = calls().find(line => line.startsWith('npm test '))?.replace(/ with .*/, '');
+    expect(npmTest).toBe(`npm test @ ${main} in ${worktreeOf(result.stdout)}`);
   });
 
   it('sets only the seven plugin values through stdin and prints none of their values', () => {

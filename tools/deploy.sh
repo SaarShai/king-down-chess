@@ -220,12 +220,18 @@ if [ "$setup_plugin" = yes ] || [ -n "$configure" ]; then
 fi
 
 git remote get-url origin >/dev/null 2>&1 || die 'add the GitHub remote origin (github.com/SaarShai/king-down-chess); the release builds a fresh origin/main'
-# The configured URL, before any insteadOf rewrite, must name the one GitHub repository.
-case "$(git config --get-all remote.origin.url)" in
-  https://github.com/SaarShai/king-down-chess|https://github.com/SaarShai/king-down-chess.git|git@github.com:SaarShai/king-down-chess|git@github.com:SaarShai/king-down-chess.git|ssh://git@github.com/SaarShai/king-down-chess|ssh://git@github.com/SaarShai/king-down-chess.git) ;;
-  *) die 'remote origin must be the GitHub repository SaarShai/king-down-chess; the release builds a fresh origin/main' ;;
-esac
-step 'fetch origin' git fetch --quiet origin
+github_origin() {
+  case "$1" in
+    https://github.com/SaarShai/king-down-chess|https://github.com/SaarShai/king-down-chess.git|git@github.com:SaarShai/king-down-chess|git@github.com:SaarShai/king-down-chess.git|ssh://git@github.com/SaarShai/king-down-chess|ssh://git@github.com/SaarShai/king-down-chess.git) return 0 ;;
+  esac
+  return 1
+}
+# The configured URL and the URL that fetch uses (after any insteadOf rewrite) must both name the one GitHub repository.
+if ! github_origin "$(git config --get-all remote.origin.url)" || ! github_origin "$(git ls-remote --get-url origin)"; then
+  die 'remote origin must be the GitHub repository SaarShai/king-down-chess; the release builds a fresh origin/main'
+fi
+# An explicit refspec, so a custom remote.origin.fetch cannot put another branch into origin/main.
+step 'fetch origin' git fetch --quiet origin +refs/heads/main:refs/remotes/origin/main
 commit=$(git rev-parse --verify --quiet 'refs/remotes/origin/main^{commit}') || die "origin has no main branch"
 # One temp folder holds the worktree (tree/) and, with --publish, the published copy (kingdown/).
 base=$(mktemp -d "${TMPDIR:-/tmp}/deploy.XXXXXX")
