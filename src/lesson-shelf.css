@@ -11,7 +11,8 @@
 .lesson-shelf .shelf-intro { margin: var(--space-1) 0 0; color: var(--ink-soft); }
 .lesson-shelf .shelf-list {
   --sq: 74px; --fig-h: 104px;
-  list-style: none; margin: var(--space-4) 0; padding: 0;
+  /* 8 px below, not 16: the 52 px Learn button then keeps the first rule line in view on a phone. */
+  list-style: none; margin: var(--space-4) 0 var(--space-2); padding: 0;
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--space-3);
 }
 .lesson-shelf .shelf-list li { position: relative; display: flex; min-width: 0; }
