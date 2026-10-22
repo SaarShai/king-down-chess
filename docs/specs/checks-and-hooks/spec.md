@@ -1,7 +1,7 @@
 # Checks and hooks
 
 Status: done
-Closed by: tickets 01 to 13 are resolved or done; 04 (pre-push hook and CI) is done.
+Closed by: tickets 01 to 13 are resolved or done; PR #8 is merged (fd88d7f0, tickets 01 to 12, 04 as b0d30571), PR #57 (8a9c0f7d) brings the ticket 13 fix 7d9cccf8, and PR #82 (7047467f) brings the later ticket 04 update.
 Source: docs/specs/retro-2026-10-06/retro.md items 2, 4, 24
 
 ## Problem Statement

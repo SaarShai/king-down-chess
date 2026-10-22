@@ -1,7 +1,7 @@
 # Steering cut
 
 Status: done
-Closed by: tickets 01 to 09 are resolved.
+Closed by: tickets 01 to 09 are resolved; PR #8 is merged (fd88d7f0), with ticket 09 as a0788c48.
 Source: docs/specs/retro-2026-10-06/retro.md items 14, 15, 16
 
 ## Problem Statement

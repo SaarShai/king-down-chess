@@ -1,6 +1,6 @@
 # Rendered sample of the new game screen
 
-Status: replaced
+Status: wontfix
 Replaced by [the web redesign spec](../../web-redesign/spec.md), approved 2026-10-09; its tickets (03 the table, 01 quiet table look) build the game screen in the real app, merged in PR #26 (0355ad3e).
 
 Owner, 2026-10-08: "yes, do both." The sample follows the picks of the [review](../review.md): the agreed changes 1–3, 9, 10, 16 and 17, the [proposed game screen](../review.md#4-the-proposed-game-screen), W2 C (phone bar, desktop quiet toolbar), W10 B (type and buttons) and W11 B (last move).

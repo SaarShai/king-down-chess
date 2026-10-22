@@ -1,7 +1,7 @@
 # Workshop: the Proving Ground
 
 Status: done
-Closed by: tickets 01 to 18 are done; PR #42 is merged (87ae195e) and ticket 11 is the cutover (65846b20).
+Closed by: tickets 01 to 18 are done; PR #42 is merged (87ae195e), PR #48 (ce2fe345) brings ticket 16, PR #49 (13861709) brings the ticket 17 follow-ups, and ticket 11 is the cutover (65846b20).
 
 Owner, 2026-10-10: "the final choice is A, so implement that" (`docs/research/rules-ui-2026-10-10/REVIEW.md:119`).
 Owner, 2026-10-10: "yes, go with my legend, but change the red X to a red target symbol." ([move legend](../move-legend/spec.md))
