@@ -8,7 +8,12 @@ export function pollDelay(view: PollView, waitingMs: number, hidden: boolean): n
   if (view === 'waiting for a join') return waitingMs < 120000 ? 5000 : 15000;
   if (view.status === 'finished' || view.status === 'aborted') return;
   if (view.status === 'waiting' || view.status === 'setup') return waitingMs < 120000 ? 5000 : 15000;
-  if (view.kind === 'solo') return 5000;
+  // A solo game reads every 5 seconds for 2 minutes after its newest command (or its start), then every 15 seconds.
+  // With no known time it stays at 5 seconds.
+  if (view.kind === 'solo') {
+    const times = [view.created_at, ...(view.last_commands ?? []).map(command => command.at)].map(Date.parse).filter(Number.isFinite);
+    return times.length && Date.parse(view.server_now) - Math.max(...times) >= 120000 ? 15000 : 5000;
+  }
   if (view.draw_offer != null) return 3000;
   const age = (mine: boolean, types?: string[]) => Date.parse(view.server_now) - Math.max(...view.last_commands
     .filter(command => command.seat !== null && (command.seat === view.seat) === mine && (!types || types.includes(command.action.type)))
