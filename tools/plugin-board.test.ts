@@ -1436,7 +1436,8 @@ it('W7: stages a move, sends once, and starts the computer only after the press'
     expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
     expect(await frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('true');
     expect(await frame.locator('#undo').evaluate(e => (e as HTMLButtonElement).disabled)).toBe(false); expect(await frame.locator('#end-turn').evaluate(e => (e as HTMLButtonElement).disabled)).toBe(false);
-    await frame.locator('#undo').focus(); await page.keyboard.press('Tab');
+    // macOS WebKit uses Option+Tab for buttons (WebKit issue 199671).
+    await frame.locator('#undo').focus(); await page.keyboard.press(process.platform === 'darwin' && process.env.PLAYABLE_BROWSER === 'webkit' ? 'Alt+Tab' : 'Tab');
     expect(await frame.locator('#end-turn').evaluate(e => e===document.activeElement)).toBe(true);
     await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_computer'; (window as any).releaseBefore(); });
     await page.waitForFunction(() => (window as any).harnessCalls.some((c: any) => c.name==='kingdown_computer'));
@@ -1609,15 +1610,18 @@ it('W7: moves keyboard focus to the turn button, sends with Enter, and undoes wi
     const board=frame.locator('#board'); await board.focus();
     for(let n=0;n<4;n++) await board.press('ArrowRight'); await board.press('ArrowUp'); await board.press('Enter');
     await board.press('ArrowUp'); await board.press('ArrowUp'); await board.press('Enter');
+    // The preview starts after the key press; a false animation flag alone can still be the old board.
+    await frame.locator('#end-turn[aria-disabled="false"]').waitFor();
     await expect.poll(() => frame.locator('#end-turn').evaluate(e => e===document.activeElement)).toBe(true);
     await frame.locator('#end-turn').press('z');
     expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('true');
     await board.press('ArrowDown'); await board.press('ArrowDown'); await board.press('Enter');
     await board.press('ArrowUp'); await board.press('ArrowUp'); await board.press('Enter');
-    await frame.locator('#board[data-animating="false"]').waitFor(); await board.press('z');
+    await frame.locator('#end-turn[aria-disabled="false"]').waitFor(); await board.press('z');
     expect(await moveCalls(page)).toEqual([]);
     await board.press('ArrowDown'); await board.press('ArrowDown'); await board.press('Enter');
     await board.press('ArrowUp'); await board.press('ArrowUp'); await board.press('Enter');
+    await frame.locator('#end-turn[aria-disabled="false"]').waitFor();
     await expect.poll(() => frame.locator('#end-turn').evaluate(e => e===document.activeElement)).toBe(true);
     await page.evaluate(() => { (window as any).holdBeforeNext='kingdown_move'; });
     await frame.locator('#end-turn').press('Enter');

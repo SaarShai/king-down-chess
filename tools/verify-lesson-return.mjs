@@ -19,8 +19,9 @@ try {
     await page.goto(url.href);
     await page.waitForFunction(() => window.view);
     await page.evaluate(() => window.view.ready());
-    await setPace(page, 'off');
+    // Replay moves the Menu button as it returns from review. Open Menu after that work ends.
     await waitForLinkReplay(page);
+    await setPace(page, 'off');
     const saved = () => page.evaluate(() => localStorage.getItem('kingdown.save'));
     const board = () => page.evaluate(() => Array.from(window.view.pos.board));
     const before = await saved(), position = await board();

@@ -8,6 +8,7 @@ import { launch, STEP } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { hitSizes } from './lib/plugin-hit-sizes.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
+import { settled } from './lib/plugin-settled.mjs';
 vi.setConfig({ testTimeout: 120_000 * STEP, hookTimeout: 120_000 * STEP, expect: { poll: { timeout: 1000 * STEP } } });
 // Test the built page. The build gives the seat its table styles.
 // Host copies test sizes and insets. They do not replace a native ChatGPT iOS check.
@@ -108,6 +109,7 @@ it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568
     await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin - (width < height ? 4 : 0));
     expect(await frame.locator('#context-note').textContent()).toBe('');
     expect(await textFits()).toEqual([]);
+    await settled(page, frame); // No mount read may consume the injected view.
     await page.evaluate(async () => {
       const host = window as any;
       host.harnessNextView = { ...host.harnessView, kind: 'friend', opponent: { ...host.harnessView.opponent, computer: false }, draw_offer: 1 };
@@ -547,8 +549,8 @@ it('keeps page-title words whole, the seat title short and the title at body siz
 it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)', async () => {
   const canvasWidth = (frame: FrameLocator) => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width);
   const reachable = async (frame: FrameLocator, id: string) => {
-    await frame.locator(`#${id}`).scrollIntoViewIfNeeded();
-    return frame.locator(`#${id}`).evaluate(e => { const r = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); });
+    // Scroll and hit-test in one frame call: a later layout must not move the control between them.
+    return frame.locator(`#${id}`).evaluate(e => { e.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' }); const r = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); });
   };
   for (const features of [['Fairy pieces', 'Arrangement'], ['Fairy pieces', 'Arrangement', 'Cards', 'King powers']]) {
     const { page, frame } = await hostPage(197, 426, 51, 59), all = features.includes('Cards');
@@ -565,6 +567,7 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
         await waitForBoardPaint(frame);
         await expect.poll(() => canvasWidth(frame), 'seat after Shuffle').toBeGreaterThanOrEqual(192);
       }
+      await settled(page, frame); // Finish the seat mount before scrolling to its controls.
       for (const id of ['seat-shuffle', 'seat-menu', 'seat-ready']) expect(await reachable(frame, id), id).toBe(true);
       await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
       await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();

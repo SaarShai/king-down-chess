@@ -10,7 +10,7 @@ const copies = [
   ['public/ui/stone-board.webp', 640, 29_566],
 ] as const;
 // The source export needs numpy and Pillow, as does the stone-control export.
-const canExport = (() => { try { execFileSync('python3', ['-c', 'import numpy, PIL']); return true; } catch { return false; } })();
+const canExport = (() => { try { execFileSync('python3', ['-c', 'import numpy, PIL'], { stdio: 'pipe', timeout: 4000 }); return true; } catch { console.info('Skip source export: Python numpy and Pillow are not available. Shipped asset checks still run.'); return false; } })();
 const python = (code: string) => JSON.parse(execFileSync('python3', ['-c', `
 import runpy, json, numpy as np
 from PIL import Image
