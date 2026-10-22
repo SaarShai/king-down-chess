@@ -49,6 +49,7 @@ describe('commit-msg', () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain(`"${capital} 5.5"`);
     expect(result.stderr).toContain('line 3');
+    expect(result.stderr).toContain('Keep the required tool trailers:');
     expect(result.stderr).toContain('Co-Authored-By: Claude Code <noreply@anthropic.com>');
     expect(result.stderr).toContain('git commit -F');
     expect(repo.git('rev-parse', '--verify', '-q', 'HEAD').status).not.toBe(0);

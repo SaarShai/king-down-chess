@@ -782,6 +782,10 @@ it('stops passive drawing five seconds after changes and keeps move motion', asy
   const page = await open(view('7k/8/8/8/8/3p4/4P3/K7 w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
   try {
     await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
+    // Optional king art can finish after ready() and start a new draw window.
+    await page.waitForLoadState('networkidle');
+    // Keep elapsed time under test control between frame-count reads.
+    const now = new Date(); await page.clock.setFixedTime(now); await page.clock.pauseAt(now);
     await frame.locator('html').evaluate(() => (window as any).testBoard.scene.redraw());
     const frames = () => frame.locator('html').evaluate(() => (window as any).testBoard.scene.frames);
     const settle = async () => { await page.clock.fastForward(5_100); await page.clock.runFor(100); const count = await frames(); await page.clock.runFor(200); expect(await frames()).toBe(count); };

@@ -1,8 +1,8 @@
 /**
  * The judge (revision 3 §6), ported from the prototype `judge-v2.mjs` (its memory score from
  * `judge-v1.mjs`): features over the 64 from-squares, the piece formula, the rule terms, the band,
- * the label and metal, the flags, the memory score, the like line, Why?, the fixes, the rule-book
- * badges and the stats. Pure and without options: the same design always gets the same verdict.
+ * the label and metal, the flags, the memory score, the like line and the stats.
+ * The same design always gets the same verdict.
  *
  * One change from the prototype (revision 3 §6.2 asks for "the largest value"): where layers
  * overlap on a target square, the prototype kept the entry with the largest weight even when a
@@ -13,12 +13,12 @@
  */
 import { DIAG, DIR, DIRS, ORTHO, PRESETS, empty, keyOf, likeSquares, limit, presetOf, ruleKey, type Body, type Dir, type PieceDesign, type Rule, type Square, type When } from './model';
 import { anchorNote, anchorOf, MAESTER_NOTE, type Anchor } from './anchors';
-import { BLOCKS, BODY, blockOf, whenWords } from './vocab';
-import { cap, groupPhrase, groupsOf, halves, lineWords, orbitOf, pawns } from './text';
+import { BODY, blockOf, whenWords } from './vocab';
+import { groupsOf, halves, orbitOf, pawns } from './text';
 
 type D = Pick<PieceDesign, 'squares' | 'lines' | 'rules'>;
 /** Every line the owner may move (§6.9). */
-export const THRESHOLDS = { weak: 2.5, op: 5.0, wideHi: 5.5, wideHalf: 1.0, queen: 7.5, quietHinge: 8, quietW: 0.4, idle: 0.3, hairline: 4.5, gold: 3.5, silver: 3.0 } as const;
+export const THRESHOLDS = { weak: 2.5, op: 5.0, wideHi: 5.5, wideHalf: 1.0, queen: 7.5, quietHinge: 8, quietW: 0.4, hairline: 4.5, gold: 3.5, silver: 3.0 } as const;
 export type Label = 'fair' | 'possiblyOP' | 'likelyOP' | 'untestedOP' | 'possiblyWeak' | 'likelyWeak';
 export type Metal = 'stone' | 'bronze' | 'silver' | 'gold' | 'hairline' | 'cracked' | 'broken';
 export type FlagCode = 'F1' | 'F2' | 'F3' | 'F7' | 'F8' | 'F9' | 'F10' | 'F11' | 'F12' | 'F+';
@@ -31,17 +31,9 @@ export interface Verdict {
   like: string;
   flags: Flag[];
   memory: { points: number; level: 0 | 1 | 2 | 3 };
-  /** Rules that change the worth by less than 0.3 pawn: "Simpler without it?" */
-  idle: string[];
-  /** At most 3 removal comparisons ("Without “takes again”: about 4 pawns."), the largest change first, then the hinges. */
-  why: string[];
   /** The note for a measured design (or the Maester's), else ''. */
   note: string;
-  /** At most 2 removals that bring the point into the band, the smallest change first. */
-  fixes: { label: string; design: D; worth: number }[];
   stats: { moves: number; takes: number };
-  /** Rule-book badges by ability: the change in worth, `unsure` when never measured; absent = the row cannot work. */
-  deltas: Partial<Record<Rule['does']['a'], { v: number; unsure: boolean }>>;
   /** The warning chip shows. */
   warn: boolean;
   /** At most 90 characters. */
@@ -106,7 +98,7 @@ export function features(layers: readonly Layer[]): Features {
 
 /** How far forward one move reaches; a forward line counts 4. */
 const forwardReach = (d: D): number => Math.max(d.lines.some(l => l.startsWith('n')) ? 4 : 0, ...d.squares.filter(s => s.mark !== 'take' && s.mark !== 'shoot').map(s => s.y), 0);
-interface Estimate { W: number; half: number; g: Features; codes: Set<FlagCode>; rate: number; parts: { key: string; v: number }[] }
+interface Estimate { W: number; half: number; g: Features; codes: Set<FlagCode>; rate: number }
 
 function estimate(d: D): Estimate {
   const R = d.rules, has = (a: Rule['does']['a']) => R.find(x => x.does.a === a), codes = new Set<FlagCode>(), unc = [0.35];
@@ -159,9 +151,9 @@ function estimate(d: D): Estimate {
   const rate = (g.Xshot ? 0.18 * g.Xshot + 0.8 : 0) + (g.Xfar ? 0.09 * g.Xfar + 0.2 : 0) + (has('chain') ? 0.165 : 0.08) * g.Xstep;
   if (g.Xshot >= 4 || rate > 1.5) codes.add('F2');
   W = Math.max(0, W);
-  return { W, half: Math.sqrt(unc.reduce((s, e) => s + e * e, 0)), g, codes, rate, parts };
+  return { W, half: Math.sqrt(unc.reduce((s, e) => s + e * e, 0)), g, codes, rate };
 }
-/** The formula worth alone (the rule cards' badges). */
+/** The formula worth alone. */
 export const worthOf = (d: D): number => estimate(d).W;
 
 /* ---- labels, metal, flags ---- */
@@ -276,11 +268,7 @@ export function autoBody(d: D): Body | 'token' {
 
 /* ---- the judge ---- */
 
-const withoutRule = (d: D, i: number): D => ({ ...d, rules: d.rules.filter((_, j) => j !== i) });
-const inBand = (w: number): boolean => w >= THRESHOLDS.weak && w <= THRESHOLDS.op;
-
-/** `full: false` skips Why?, the fixes and the badges (the shelf tiles need only the label and the metal). */
-export function judge(d: D, full = true): Verdict {
+export function judge(d: D): Verdict {
   const e = estimate(d), W = e.W, lo = W - e.half, hi = W + e.half, g = e.g;
   const blocked = limit(d) ?? '';
   const anchor = anchorOf(d), key = keyOf(d);
@@ -291,62 +279,17 @@ export function judge(d: D, full = true): Verdict {
   const flags = own ? flagsOf(d, e).filter(f => f.level === 'good') : flagsOf(d, e);
   const memory = memoryOf(d);
   const like = likeLine(W, d);
-  // Each rule's own part: the worth without it.
-  const ruleV = !full ? [] : d.rules.map((r, i) => { const x = estimate(withoutRule(d, i)); return { r, v: W - x.W, codes: x.codes }; });
-  const idle = ruleV.filter(x => Math.abs(x.v) < THRESHOLDS.idle && [...x.codes].sort().join() === [...e.codes].sort().join()).map(x => cap(blockOf(x.r.does.a).short(x.r)));
-  // Why? compares the design with itself less one part (a rule, a square group, a line set): the worth without it.
-  // The parts overlap, so these are not shares of the worth and do not add up (whyHtml says so once).
-  const parts = !full ? [] : removals(d).map(f => ({ ...f, worth: worthOf(f.design) }));
-  const why = [
-    ...parts.map(f => ({ f, v: W - f.worth })).filter(x => Math.abs(x.v) >= 0.25).sort((a, b) => Math.abs(b.v) - Math.abs(a.v)).slice(0, 3)
-      .map(({ f }) => `Without “${f.part.charAt(0).toLowerCase()}${f.part.slice(1)}”${empty(f.design) ? ', it cannot move at all.' : `: about ${pawns(f.worth)}.`}${f.rule && !blockOf(f.rule.does.a).event && share(f.rule.when) < 1 ? ` The estimate assumes it works ${whenWords(f.rule.when)} about ${Math.round(share(f.rule.when) * 100)}% of the time.` : ''}`),
-    ...(full ? hingeText(g) : []),
-  ];
-  const fixes = !full || blocked || inBand(W) ? [] : parts
-    .filter(f => inBand(f.worth) && !limit(f.design) && !empty(f.design)).sort((a, b) => Math.abs(a.worth - W) - Math.abs(b.worth - W)).slice(0, 2);
-  const deltas: Verdict['deltas'] = {};
-  if (full && !blocked) for (const b of BLOCKS) {
-    if (d.rules.length >= 3 || d.rules.some(r => r.does.a === b.a) || b.needs?.(d)) continue;
-    const next = { ...d, rules: [...d.rules, b.rule] };
-    if (limit(next)) continue;
-    deltas[b.a] = { v: worthOf(next) - W, unsure: unmeasured(b.rule) };
-  }
   const steps = (n: number): number => (n <= 0 ? 0 : n <= 2 ? 1 : n <= 5.5 ? 2 : n <= 9 ? 3 : n <= 15 ? 4 : 5);
   const warnFlag = flags.find(f => f.level === 'warn');
   const warn = !own && !blocked && !empty(d) && (label !== 'fair' || !!warnFlag || memory.level === 3);
   const v: Verdict = {
     worth: { point: W, lo, hi, half: e.half, ...(anchor ? { measured: { ...anchor, label: measuredLabel as Label } } : {}) },
-    label, metal: metalOf(W), like, flags, memory: { points: memory.points, level: memory.level }, idle, why,
+    label, metal: metalOf(W), like, flags, memory: { points: memory.points, level: memory.level },
     note: anchor ? anchorNote(anchor) : key === keyOf(presetOf('maester')) ? MAESTER_NOTE : '',
-    fixes, stats: { moves: steps(g.M), takes: steps(g.T) }, deltas, warn, line: '', own: ownKey, blocked, g,
+    stats: { moves: steps(g.M), takes: steps(g.T) }, warn, line: '', own: ownKey, blocked, g,
   };
   v.line = own || lineOf(v, d, memory, warnFlag);
   return v;
-}
-
-/** Why the parts add so much together: the two hinges of the formula (§6.3), in plain words. */
-function hingeText(g: Features): string[] {
-  const n = (x: number) => Math.max(1, Math.round(x)), out: string[] = [];
-  if (g.Xopen > 7.5) out.push(`In all, it can take on about ${n(g.Xopen)} squares; a rook, about 7; a queen, about 12. Past 7, each one counts double.`);
-  if (g.Q > THRESHOLDS.quietHinge) out.push(`It can move to about ${n(g.Q)} empty squares; no piece we measured has more than 7. Past 8, each one counts much more.`);
-  return out;
-}
-
-/** Every single removal: a rule, a square group (one orbit, one mark), or a line set; `part` names what goes. */
-function removals(d: D): { part: string; label: string; design: D; rule?: Rule }[] {
-  const out: { part: string; label: string; design: D; rule?: Rule }[] = [];
-  const add = (part: string, design: D, rule?: Rule) => out.push({ part, label: `Remove “${part}”`, design, rule });
-  d.rules.forEach((r, i) => add(cap(blockOf(r.does.a).short(r)), withoutRule(d, i), r));
-  const KIND: Record<Square['mark'], string> = { both: 'Moves and takes', move: 'Moves', take: 'Takes', shoot: 'Shoots', moveShoot: 'Moves or shoots' };
-  for (const mark of Object.keys(KIND) as Square['mark'][]) for (const gr of groupsOf(d.squares.filter(s => s.mark === mark))) {
-    const gone = (s: Square) => s.mark === mark && gr.pts.some(p => p.x === s.x && p.y === s.y);
-    add(`${KIND[mark]} ${groupPhrase(gr.orbit, gr.pts)}`, { ...d, squares: d.squares.filter(s => !gone(s)) });
-  }
-  for (const set of [ORTHO, DIAG]) {
-    const l = set.filter(x => d.lines.includes(x));
-    if (l.length) add(cap(lineWords(l)), { ...d, lines: d.lines.filter(x => !l.includes(x)) });
-  }
-  return out;
 }
 
 function lineOf(v: Verdict, d: D, mem: ReturnType<typeof memoryOf>, warnFlag: Flag | undefined): string {

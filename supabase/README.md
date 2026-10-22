@@ -173,7 +173,7 @@ secret from `KINGDOWN_INTERNAL_SECRET` (at least 32 characters; without it, `/in
 `/internal/tick` (each minute), `/internal/daily` (03:17 UTC) and cron history cleanup.
 The MVP sends no email. The file removes `kingdown-outbox` and `kingdown-reminders`
 if an older release made them. Keep `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` unset.
-Outbox rows with no `done_at` stay in the database; cleanup deletes only finished rows.
+Cleanup deletes outbox rows that were created or finished at least 30 days ago, including rows with no `done_at` (`src/online/jobs.ts`, `cleanup`).
 Confirm the two internal routes work before you paste the MVP file.
 
 ## Drawn setup continuity: 0017

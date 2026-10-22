@@ -16,11 +16,6 @@ describe('firstFault(log)', () => {
     expect(firstFault(log)).toBe('Error: minTarget: "button" at viewport 390x844, box x=0 y=0 w=30 h=30: smaller than 44 px');
   });
 
-  it('gives the XPASS line, not an earlier XFAIL line that holds "Error"', () => {
-    const log = ['PASS a — fine', 'XFAIL b — TypeError in the menu (known-red: x/01)', 'XPASS c — it passes now (known-red: y/02)'].join('\n');
-    expect(firstFault(log)).toBe('XPASS c — it passes now (known-red: y/02)');
-  });
-
   it('gives a FAIL line', () => {
     expect(firstFault('ok 3 cases\nFAIL shot: wrote /tmp/x.png\n')).toBe('FAIL shot: wrote /tmp/x.png');
   });

@@ -43,11 +43,11 @@ describe('text (§8.4.9)', () => {
     const texts: string[] = [...ALL_RULES.map(ruleText), ...ALL_RULES.map(r => partsText(lineParts(r).say)), ...BLOCKS.flatMap(b => [b.example])];
     for (const p of PRESETS) {
       const v = judge(p);
-      texts.push(words(p).summary, v.line, v.like, ...v.why, ...v.flags.map(f => f.line));
+      texts.push(words(p).summary, v.line, v.like, ...v.flags.map(f => f.line));
     }
     for (const r of ALL_RULES) {
       const d = { ...presetOf('rook'), rules: [r] }, v = judge(d);
-      texts.push(words(d).summary, v.line, ...v.why);
+      texts.push(words(d).summary, v.line);
     }
     for (const t of texts) {
       expect(t, t).not.toMatch(ENGINEERING);
@@ -147,7 +147,7 @@ describe('the design menu (Proving Ground ticket 07)', () => {
   it('Copy as text gives the sentences, a MATRIX row and the link', () => {
     const d: PieceDesign = { ...fromPreset(BLANK), name: 'Rook Rider', letter: 'D', lines: ['n', 'e', 's', 'w'],
       squares: [{ x: 1, y: 2, mark: 'both' }, { x: -1, y: 2, mark: 'both' }] };
-    const t = designText(d, judge(d, false), 'https://example.test/?design=abc').split('\n');
+    const t = designText(d, judge(d), 'https://example.test/?design=abc').split('\n');
     expect(t[0]).toBe('Rook Rider');
     expect(t[1]).toBe(`Moves: ${words(d).moves}`);
     expect(t).toContain(`Takes: ${words(d).takes}`);

@@ -1084,9 +1084,15 @@ it.each([false, true])('keeps one rematch during a held end read and cancels it 
     await frame.locator('#over').getByRole('button', { name:'Play again', exact:true }).evaluate((b: HTMLButtonElement) => { b.click(); b.click(); });
     expect(await sent(page, 'kingdown_rematch')).toBe(0);
     if (leave) await frame.locator('#over').getByRole('button', { name:'New game', exact:true }).click();
+    const released = await page.evaluate(() => (window as any).harnessCalls.length);
     await page.evaluate(() => (window as any).releaseHeld());
     if (leave) { await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); await frame.locator('#setup-start:not(:disabled)').waitFor(); expect(await sent(page, 'kingdown_rematch')).toBe(0); }
-    else { await page.waitForFunction(old => (window as any).harnessView.game_id !== old, old); expect(await sent(page, 'kingdown_rematch')).toBe(1); }
+    else {
+      await page.waitForFunction(old => (window as any).harnessView.game_id !== old, old); expect(await sent(page, 'kingdown_rematch')).toBe(1);
+      // The held end read sends the queued rematch itself; it does not wait for the next poll read.
+      const after = (await page.evaluate(n => (window as any).harnessCalls.slice(n).map((c: any) => c.name), released)) as string[];
+      expect(after.slice(0, after.indexOf('kingdown_rematch'))).not.toContain('kingdown_get');
+    }
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
@@ -2080,30 +2086,40 @@ it.each(['power-w', 'card-w-0'])('keeps focus on %s through a minute tick and up
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await friendGame(page); await page.clock.install();
+    // The host answers each game read with this view, as a server that holds it: its own time, the same deadline. The
+    // solo board polls (ticket 40), so a one-time view would give way to the fixture game at the first poll.
+    await page.evaluate(() => {
+      const host = window as any;
+      host.serveView = (view: any) => Object.defineProperty(host, 'harnessNextView', { configurable: true, set() {}, get: () => ({ ...view, server_now: new Date().toISOString() }) });
+    });
     await page.evaluate(id => {
       const host = window as any, now = Date.now();
       const rules = id === 'power-w' ? {kings:[{king:'Flame',power:'Haste'},null],hands:[[],[]]} : {kings:[{king:'Mud',power:'March'},null],marchUses:0,hands:[['Haste'],[]]};
-      host.harnessNextView = {...host.harnessView, kind:'solo', server_now:new Date(now).toISOString(), deadline_at:new Date(now + 180000).toISOString(), rules:{...host.harnessView.rules,...rules}};
+      host.serveView({...host.harnessView, kind:'solo', deadline_at:new Date(now + 180000).toISOString(), rules:{...host.harnessView.rules,...rules}});
     }, id);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
     await frame.locator(`#${id}`).focus();
     expect(await frame.locator('#move-time-left').textContent()).toBe('3 min left');
+    // The host holds the poll read in the clock step, so only the minute tick can change the time text.
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_get'; });
     await page.clock.fastForward(60000);
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
     expect(await frame.locator('#move-time-left').textContent()).toBe('2 min left');
     expect(await frame.locator(`#${id}`).evaluate(b => document.activeElement === b)).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeld());
     await page.keyboard.press('Enter');
     await frame.locator('#board-sheet[open] h2').filter({hasText:id === 'power-w' ? 'Flame King' : 'Haste'}).waitFor();
     await page.keyboard.press('Escape');
     await page.evaluate(() => {
       const host = window as any, now = Date.now();
-      host.harnessNextView = {...host.harnessView,kind:'friend',turn:1,action:'wait',legal:[],abort_open:false,server_now:new Date(now).toISOString(),deadline_at:new Date(now + 60000).toISOString()};
+      host.serveView({...host.harnessView,kind:'friend',turn:1,action:'wait',legal:[],abort_open:false,deadline_at:new Date(now + 60000).toISOString()});
     });
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
     await page.context().setOffline(true);
     await page.clock.fastForward(60001);
     expect(await frame.locator('#move-time-left').textContent()).toBe('Time is up');
     expect(await frame.locator('#claim').textContent()).toBe('Claim the win');
-  } finally { await page.context().setOffline(false); await page.close(); }
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.context().setOffline(false); await page.close(); }
 });
 
 it('keeps focus on a power coin through a presence update (an equal-revision poll reply)', async () => {
@@ -2598,7 +2614,9 @@ it('recovers a lost seat Ready before the computer makes the first move after re
     await frame.locator('#retry:not(:disabled)').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     // The computer's first move is a retained command too, so no command is pending only after the server makes it.
-    await page.waitForFunction(() => (window as any).harnessView.turn === (window as any).harnessView.seat);
+    // The host sees the reply before it reaches the frame. Wait for the frame to apply it.
+    const widget = (await (await page.locator('iframe').elementHandle())!.contentFrame())!;
+    await widget.waitForFunction(() => { const view = (window as any).harnessApp.memory.view; return view.turn === view.seat; });
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending?.name ?? null)).toBeNull();
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_choose').map((c: any) => c.arguments.command_id))).toEqual([command, command]);
   } finally { await page.close(); await isolated.close(); }

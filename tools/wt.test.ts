@@ -198,7 +198,7 @@ describe('wt prune', () => {
     expect(v[path.current]).toEqual(['keep', 'current worktree']);
     expect(v[path.locked]).toEqual(['keep', 'locked']);
     expect(v[path.changed]).toEqual(['keep', 'changes: readme.txt']);
-    expect(v[path.ignored]).toEqual(['keep', 'ignored file: sim/out/run.jsonl']);
+    expect(v[path.ignored]).toEqual(['keep', 'ignored file: sim/out']);
     expect(v[path.unmerged]).toEqual(['keep', 'commits not on main']);
     expect(v[path.recent]).toEqual(['keep', 'index or HEAD changed in the last 24 hours']);
     expect(v[path.safe][0]).toBe('safe');
