@@ -13,7 +13,7 @@ import { POWER_NAME, powerOptions } from './powers-ui';
 import { pieceIcon } from './piece-icons';
 import { CLASSIC_CHESS, POOL } from './rules/setup';
 import { mulberry32 } from './sim/rng';
-import { VALUES } from './ai/eval';
+import { SHIPPED_VALUES } from './ai/piece-values';
 import { figureUrl, selectedFigure } from './workshop/figures';
 import { worthOf } from './workshop/judge';
 import { designCode, empty, limit, parseDesign, type PieceDesign } from './workshop/model';
@@ -98,7 +98,7 @@ const playable = (code: unknown): code is string => typeof code === 'string' && 
 /** Back rank `back` with a design worth `worth` pawns in place of one piece: not the king, the one nearest that worth (the left one on a tie). */
 export function withDesign(back: string, worth: number): string {
   if (back.includes('T')) return back; // a custom back rank from a design game already holds it
-  const gap = (i: number): number => (back[i] === 'K' ? Infinity : Math.abs(VALUES[LETTERS.indexOf(back[i])] / 100 - worth));
+  const gap = (i: number): number => (back[i] === 'K' ? Infinity : Math.abs(SHIPPED_VALUES[LETTERS.indexOf(back[i])] / 100 - worth));
   const i = [...Array(back.length).keys()].reduce((a, b) => (gap(b) < gap(a) ? b : a));
   return back.slice(0, i) + 'T' + back.slice(i + 1);
 }

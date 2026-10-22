@@ -4,7 +4,7 @@ import { setDesignValue, setEvaluator } from './eval';
 import { SearchOptions, search } from './search';
 
 // The adopted Q6 residual net (src/ai/nnue/weights.ts). The worker builds its own module graph,
-// so it must set this itself; the page (main.ts) does the same for the inline fallback.
+// so it must set this itself; Engine.think (src/game.ts) does the same for the inline fallback.
 setEvaluator('residual');
 
 /**
