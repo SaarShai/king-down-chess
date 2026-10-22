@@ -136,14 +136,18 @@ it('updates Your games after Back and keeps rows locked during Resume', async ()
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_invite'; });
     await frame.locator('#friend-new').click();
     await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
+    // Invite runs on the command lane (ticket 38), and a write in flight locks the page, Back included.
+    expect(await frame.locator('#page-back').isDisabled()).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('.game-code span').first().waitFor();
+    const code = (await frame.locator('.game-code span').allTextContents()).join('');
     await frame.locator('#page-back').click();
     await frame.locator(`[data-screen="play"]:not([hidden]) [data-game-id="${view.game_id}"]`).waitFor();
-    await page.evaluate(() => {
-      const host = window as any; host.releaseInvite = host.releaseHeld; host.releaseHeld = undefined; host.holdNext = 'kingdown_resume';
-    });
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_resume'; });
     await frame.locator(`[data-game-id="${view.game_id}"]`).click();
     await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
-    await page.evaluate(() => { const host = window as any; host.releaseResume = host.releaseHeld; host.releaseInvite(); });
+    await page.evaluate(() => { const host = window as any; host.releaseResume = host.releaseHeld; });
+    expect(await frame.locator(`[data-game-id="${view.game_id}"]`).textContent()).toContain(code);
     const row = frame.locator('.friend-invite-row').filter({ has: frame.locator(`[data-game-id="${view.game_id}"]`) });
     await row.waitFor();
     expect(await row.getByRole('button', { name: /^Share game / }).isVisible()).toBe(true);
