@@ -1,6 +1,7 @@
 # Steering cut
 
-Status: ready-for-agent
+Status: done
+Closed by: tickets 01 to 09 are resolved; PR #8 is merged (fd88d7f0), with ticket 09 as a0788c48.
 Source: docs/specs/retro-2026-10-06/retro.md items 14, 15, 16
 
 ## Problem Statement
@@ -62,7 +63,7 @@ AGENTS.md holds every standing rule in short sections; COMPUTE.md and HOSTING.md
 
 - A good test reads the files as an agent does. A failure names the file, section and number.
 - Red first: before the move, the lint shows the failing rules (sizes, the 322-word Compute section, the duplicated pair, stray lines, trailer, citations). The MATRIX.md row rule passes today, as a guard. A broken-link fixture proves the link rule.
-- Seam 1: `npm test`; the checks spec's pre-push hook runs it.
+- Seam 1: `npm test`; CI and the deploy run it. The pre-push hook runs the repo gate.
 - One-off checks, output in the ticket:
   - Rule map: each rule line of the old AGENTS.md and the three handoff rule blocks maps to a new section or to "dropped: <reason>".
   - Open-item map: each old open item maps to an index line or a recorded close.

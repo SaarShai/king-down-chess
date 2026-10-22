@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { BLACK, Move, Position, WHITE, legalMoves, makeMove, parseSq } from './engine';
 import { fromFen, toFen, toLan } from './setup';
 import { CARD_ONLY, CardName, parseRule, setRules } from './rules';
-import { positionKey, probeApply, resetSearchState, searchLegal } from '../ai/search';
+import { probeApply, resetSearchState, searchLegal } from '../ai/search';
+import { positionKey } from './position-key';
 import { replayRecord } from '../sim/replay';
 import { cardText } from '../powers-ui';
 

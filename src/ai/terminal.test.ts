@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Game } from '../game';
 import { legalMoves, makeMove, parseKings, setRules, status } from '../rules/engine';
 import { CLASSIC_CHESS, fromFen, startPosition, toLan } from '../rules/setup';
-import { MATE, positionKey, quiesceScore, resetSearchState, search } from './search';
+import { MATE, quiesceScore, resetSearchState, search } from './search';
+import { positionKey } from '../rules/position-key';
 
 beforeEach(() => { setRules(); resetSearchState(); });
 afterEach(() => { setRules(); resetSearchState(); });
@@ -60,7 +61,7 @@ describe('terminal rules agree in the game and search', () => {
     expect(status(old)).toBe('playing');
     expect(search(old, { maxDepth: 1 }).move).not.toBeNull();
     setRules({ threefold: false });
-    const g = new Game(CLASSIC_CHESS);
+    const g = new Game(CLASSIC_CHESS, { threefold: false });
     const cycle = ['Ng1-f3', 'Ng8-f6', 'Nf3-g1', 'Nf6-g8'];
     expect(g.playLan([...cycle, ...cycle])).toBe(8);
     expect(g.status).toBe('playing');

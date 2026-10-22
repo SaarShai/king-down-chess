@@ -12,7 +12,13 @@ const PRIORS = { A: 3.5, L: 4.0, G: 2.0, M: 3.5, S: 2.2 };          // fairy-val
 const PIECE_NAME = { A: 'archer', L: 'paladin', G: 'guard', M: 'maester', S: 'beast' };
 
 // ---------------------------------------------------------------- load
-const files = readdirSync(OUT);
+let files;
+try {
+  files = readdirSync(OUT);
+} catch (error) {
+  if (OUT !== 'sim/out' || error.code !== 'ENOENT') throw error;
+  files = [];
+}
 const jread = f => JSON.parse(readFileSync(join(OUT, f), 'utf8'));
 const mtime = f => statSync(join(OUT, f)).mtime;
 

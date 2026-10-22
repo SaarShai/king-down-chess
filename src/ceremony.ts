@@ -1,14 +1,16 @@
+import { GameRules } from './game-rules';
+import { ceremonyMoveLabel } from './ceremony-game';
 import './ceremony.css';
 import type { Game } from './game';
 import { moveNumbers } from './move-text';
 import type { Position } from './rules/engine';
 import type { BoardView } from './render/PaintedView';
-import { ceremonyMoveLabel } from './ceremony-game';
 
 type History = Game['history'];
 
 /** Phase 2 supplies the live game guard and opens the result after `done`. */
-export function startCeremony({ view, board, captionHost, moments, history, final, king, showPly, motion, live }: {
+export function startCeremony({ view, board, captionHost, moments, history, final, king, showPly, motion, live, context = new GameRules() }: {
+  context?: GameRules;
   view: BoardView;
   board: HTMLElement;
   captionHost: HTMLElement;
@@ -61,7 +63,7 @@ export function startCeremony({ view, board, captionHost, moments, history, fina
       button.dataset.ply = String(ply);
       const number = document.createElement('b'), label = document.createElement('span');
       number.textContent = `Move ${numbers[ply]}${ply === blow ? ' · Final blow' : ''}`;
-      label.textContent = ceremonyMoveLabel(h.pos, h.move);
+      label.textContent = ceremonyMoveLabel(h.pos, h.move, type => context.nameOf(type));
       button.append(number, label);
       button.onclick = () => showPly(ply);
       row.append(button);
@@ -70,6 +72,7 @@ export function startCeremony({ view, board, captionHost, moments, history, fina
   };
   const cleanup = (): void => {
     caption.remove();
+    if (view.onSkipAnimation === skip) view.onSkipAnimation = previousSkip;
     board.removeEventListener('pointerdown', onTap, true);
     document.removeEventListener('keydown', onKey, true);
     document.removeEventListener('visibilitychange', onHidden);
@@ -119,6 +122,8 @@ export function startCeremony({ view, board, captionHost, moments, history, fina
     if (!live()) cancel();
     return !stopped;
   };
+  const previousSkip = view.onSkipAnimation;
+  view.onSkipAnimation = skip;
   board.addEventListener('pointerdown', onTap, true);
   document.addEventListener('keydown', onKey, true);
   document.addEventListener('visibilitychange', onHidden);

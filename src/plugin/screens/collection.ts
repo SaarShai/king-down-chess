@@ -1,10 +1,13 @@
-import { client } from '../app';
-import { art } from '../art';
-import { DEAL_CARDS, POOL_KINDS } from '../../match/setup';
-import { LETTERS, NAMES, type PieceType } from '../../rules/engine';
 import { pieceGuide } from '../../read';
+import { GameRules } from '../../game-rules';
+import { client } from '../../account-game/runtime';
+import { art } from '../../account-game/art';
+import { POOL_KINDS } from '../../match/setup';
+import { RELEASED_CARDS } from '../../content/cards';
+import { LETTERS, NAMES, type PieceType } from '../../rules/engine';
+
 import { DEFAULT_RULES } from '../../rules/rules';
-import { cardName, cardText, powerOptions, ruleLine } from '../../powers-ui';
+import { cardText, powerOptions, ruleLine } from '../../powers-ui';
 import { cardArt } from '../card-face';
 import { kingRules } from './setup';
 import './collection.css';
@@ -14,6 +17,10 @@ function guideCard(name: string, picture: string, symbol: string, rows: readonly
   const card = document.createElement('article'); card.className = 'piece-card';
   card.innerHTML = `<div class="pc-art">${picture}</div><div class="pc-body"><h3>${symbol} ${name}</h3><dl>${rows.map(([label, text]) => `<dt>${label}</dt><dd>${text}</dd>`).join('')}<dt>Status</dt><dd>${unlocked}</dd></dl></div>`;
   return card;
+}
+/** Show per-item status only when the entries do not all have the same unlocked state. */
+export function syncCollectionStatus(target: HTMLElement) {
+  target.classList.toggle('all-unlocked', target.children.length > 0 && target.querySelectorAll('.unlocked').length === target.children.length);
 }
 export function collectionScreen() {
   const tabs = ['Pieces', 'Kings', 'Powers', 'Cards'], saved = client.state.sheet?.startsWith('collection:') ? client.state.sheet.slice(11) : '';
@@ -26,7 +33,7 @@ function draw(tab: string) {
   const target = document.getElementById('collection-items')!; target.replaceChildren(); target.className = tab === 'Cards' ? 'card-grid' : 'piece-cards';
   const groups = powerOptions(kingRules);
   if (tab === 'Pieces') for (const letter of ['P', ...POOL_KINDS].sort((a, b) => 'PALGMSORBNQ'.indexOf(a) - 'PALGMSORBNQ'.indexOf(b))) {
-    const type = LETTERS.indexOf(letter) as PieceType, name = NAMES[type], guide = pieceGuide(type);
+    const type = LETTERS.indexOf(letter) as PieceType, name = NAMES[type], guide = pieceGuide(new GameRules(), type);
     const rows: [string, string][] = [['Moves', guide.moves], ['Takes', guide.captures]]; if (guide.special) rows.push(['Special', guide.special]);
     const card = guideCard(name[0].toUpperCase() + name.slice(1), image(`ui/pieces/${name}-w.webp`), image(`ui/icons/${name}.svg`, 'pi'), rows); card.dataset.piece = name; target.append(card);
   }
@@ -36,9 +43,10 @@ function draw(tab: string) {
   else if (tab === 'Powers') for (const group of groups) for (const option of group.options) {
     const card = guideCard(option.label, `<span class="coin">${image(`ui/emblems/${group.king.toLowerCase()}.webp`)}</span>`, '', [['Rule', ruleLine(option.title)]]); card.dataset.power = option.value.split(':')[1]; target.append(card);
   }
-  else if (tab === 'Cards') for (const card of DEAL_CARDS) {
-    const face = document.createElement('label'); face.className = 'card-face'; face.dataset.card = card;
-    face.innerHTML = `<span class="cf-art">${cardArt(card)}</span><span class="cf-text"><b>${cardName(card)}</b><small>${ruleLine(cardText(card, DEFAULT_RULES))}</small>${unlocked}</span>`; target.append(face);
+  else if (tab === 'Cards') for (const card of RELEASED_CARDS) {
+    const face = document.createElement('label'); face.className = 'card-face'; face.dataset.card = card.id;
+    face.innerHTML = `<span class="cf-art">${cardArt(card.id)}</span><span class="cf-text"><b>${card.name}</b><small>${ruleLine(cardText(card.id, DEFAULT_RULES))}</small>${unlocked}</span>`; target.append(face);
   }
+  syncCollectionStatus(target);
   document.querySelector<HTMLElement>('#collection-sheet .new-game-body')!.scrollTop = 0;
 }

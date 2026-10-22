@@ -1,3 +1,4 @@
+import { GameRules } from '../game-rules';
 /**
  * The why-trace of the Proving Ground (docs/specs/workshop-proving-ground, ticket 04; the review
  * docs/research/rules-ui-2026-10-10/REVIEW.md, section 6, items 2 and 3): the rules that make, change or refuse each
@@ -46,10 +47,10 @@ const marked = (sig?: string): boolean => !!sig?.split(',').some(f => !f.startsW
 const list = (qs: string[], w = 'and'): string => (qs.length > 1 ? `${qs.slice(0, -1).join(', ')} ${w} ${qs.at(-1)}` : qs[0]);
 
 /** The why-trace of design `d` for the piece on `from`. */
-export function traceOf(d: D, board: Uint8Array, from: number, st: TryState = START): Trace {
+export function traceOf(d: D, board: Uint8Array, from: number, st: TryState = START, context: GameRules = new GameRules()): Trace {
   const rules = canonical(d).rules, label = (i: number): string => blockOf(rules[i].does.a).label;
   const run = (out: number[]) => {
-    const refused: Refused[] = [], moves = movesOf({ ...d, rules: rules.filter((_, i) => !out.includes(i)) }, board, from, st, refused);
+    const refused: Refused[] = [], moves = movesOf({ ...d, rules: rules.filter((_, i) => !out.includes(i)) }, board, from, st, refused, context);
     return { sig: signatures(moves, refused), refused };
   };
   const all = run([]), without = rules.map((_, i) => run([i]).sig);

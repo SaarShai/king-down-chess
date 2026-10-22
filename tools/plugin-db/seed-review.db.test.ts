@@ -16,6 +16,18 @@ import type { View } from '../../src/match/protocol';
 const url = process.env.PLUGIN_TEST_DATABASE_URL;
 const suite = url ? describe : describe.skip;
 
+describe('the imported review seed guard', () => {
+ it.each([undefined, 'postgresql://user:private-target@db.example/kingdown_test', 'postgresql://127.0.0.1/kingdown', 'postgresql://127.0.0.1/kingdown_test?host=db.example'])('refuses an unsafe pool before any query (%s)', async connectionString => {
+  const pool = new pg.Pool({ connectionString });
+  const query = vi.spyOn(pool, 'query'), connect = vi.spyOn(pool, 'connect');
+  try {
+   await expect(seedReview(pool, 'review@example.test', 'friend@example.test')).rejects.toThrow();
+   expect(query).not.toHaveBeenCalled();
+   expect(connect).not.toHaveBeenCalled();
+  } finally { await pool.end(); }
+ });
+});
+
 suite('the review account seed', () => {
  let pool: pg.Pool; const users: string[] = [], tag = randomUUID().slice(0, 8);
  const account = async (name: string) => { const id = randomUUID(); users.push(id); await pool.query('insert into auth.users(id,email) values($1,$2)', [id, `${name}-${tag}@example.test`]); return `${name}-${tag}@example.test`; };
@@ -60,21 +72,21 @@ suite('the review account seed', () => {
   vi.stubEnv('KINGDOWN_INTERNAL_SECRET', '');
   const seeded = await seedReview(pool, ` ${review.toUpperCase()} `, opponent, handles).finally(() => vi.unstubAllEnvs());
   expect(seeded.record.totals).toEqual({ played: 1, won: 1, drawn: 0, lost: 0 });
-  expect(seeded.record.rating.rating).toBeGreaterThan(1500);
+  expect(seeded.record.rating.rating).toBe(1500); // A new friend game is Casual; its win still earns totals and badges.
   expect(seeded.record.badges.map(b => b.badge).sort()).toEqual(['first_win', 'friend_match', 'purist']);
   const games = new GameService(new PostgresMatchStore(pool));
-  expect(await games.view(seeded.review, seeded.finished)).toMatchObject({ status: 'finished', kind: 'friend' });
+  expect(await games.view(seeded.review, seeded.finished)).toMatchObject({ status: 'finished', kind: 'friend', rating_policy: 'casual', outcome: { rating: null, rating_before: null } });
   expect(await games.view(seeded.review, seeded.active)).toMatchObject({ status: 'playing', kind: 'solo', level: 'beginner', seat: 0, turn: 0 });
   expect(await games.view(seeded.review, seeded.activeFriend)).toMatchObject({ status: 'playing', kind: 'friend', seat: 0, turn: 1, opponent: { handle: handles.opponent, deleted: false } });
   expect(await games.inbox(seeded.review)).toHaveLength(2);
   expect((await games.inbox(seeded.review)).filter(game => game.action === 'ready').map(game => game.game_id)).toEqual([seeded.active]);
   expect((await pool.query('select handle from public.profiles where id=$1', [seeded.review])).rows[0].handle).toBe(handles.review);
   // Owner step 2.7: the test account gets the same data against the same opponent, with its own handle, and the
-  // review account keeps its record. Only the rating differs, because the opponent lost a game before.
+  // review account keeps its record. Both Casual wins leave the ratings unchanged.
   const tester = await account('tester'), copy = await seedReview(pool, tester, opponent, { review: `tp-${tag}`, opponent: handles.opponent });
   expect(copy.record.totals).toEqual(seeded.record.totals);
   expect(copy.record.badges.map(b => b.badge).sort()).toEqual(['first_win', 'friend_match', 'purist']);
-  expect(Math.round(copy.record.rating.rating)).not.toBe(Math.round(seeded.record.rating.rating));
+  expect(copy.record.rating.rating).toBe(seeded.record.rating.rating);
   expect((await games.record(seeded.review)).totals).toEqual(seeded.record.totals);
   expect(Math.round((await games.record(seeded.review)).rating.rating)).toBe(Math.round(seeded.record.rating.rating));
   // A second run, or an address with no account, changes nothing.

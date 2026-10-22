@@ -23,7 +23,7 @@ Plan: test the guarded SQL paste, check account text, match the final screens, t
 
 **Release gap:** the deploy change must join the final release before publication. Its contract is `tools/deploy.sh` for tests only, `tools/deploy.sh --configure <private-env-file>` for production settings, and `tools/deploy.sh --publish` for publication to project `kingdown`. Both tests and publication use `npm run build:vercel`. No old target flag or separate plugin project is part of this release. Check that contract on the approved main commit in steps 1 and 6.
 
-Tickets 15 and 18 are in the preparation base. This packet uses the final board, end, seat, lobby and profile screens. Friend and random creates need game options. Reports stay app-only, with no Report control. `/api` is not routed. The MVP schedules no outbox or reminder worker.
+Tickets 15 and 18 are in the preparation base. This packet uses the final board, end, seat, lobby and profile screens. Friend and random creates need game options. Reports stay app-only, with no Report control. `/api` and every `/api/*` path go to the plugin function (`/mcp`). The website API stays closed until the 0016 `web_account_access` switch opens. The MVP schedules no outbox or reminder worker.
 
 Sources: [spec](../spec.md), [ticket 19](../issues/19-release.md), [one-project decision](../../accounts-multiplayer/issues/03-engine-archive-one-project.md), [database order](../../../../supabase/README.md), [runtime role](../../../../plugin-deploy/runtime-role.sql), [OAuth hook](../../../../plugin-deploy/oauth-audience-hook.sql), [connection notes](../../../plugin-preparation.md), [app page](../../../../src/plugin/index.html) and [screens](../../../../src/plugin/screens/).
 Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
@@ -73,7 +73,7 @@ Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
 
    Rollback: restore the saved environment through the same private path. A publish to apply it needs the owner's word.
 
-6. **Test the one-project path before the outage.** Run `tools/deploy.sh` with no flag on the approved main commit. It tests and builds `npm run build:vercel`, with static site files and the plugin function in one tree. The function serves `/mcp`, `/authorize`, `/consent.mjs`, `/.well-known/oauth-protected-resource`, `/.well-known/oauth-protected-resource/mcp` and `/internal/*`. `/api` is not routed. No redirect sends `/authorize` to the old origin.
+6. **Test the one-project path before the outage.** Run `tools/deploy.sh` with no flag on the approved main commit. It tests and builds `npm run build:vercel`, with static site files and the plugin function in one tree. The function serves `/mcp`, `/authorize`, `/consent.mjs`, `/.well-known/oauth-protected-resource`, `/.well-known/oauth-protected-resource/mcp` and `/internal/*`. `/api/*` goes to the same function; the website API stays closed until the 0016 switch opens. The release shell holds no `KINGDOWN_STAGE` or `VITE_KINGDOWN_STAGE`, and holds the production `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` ([ticket 66](../../staging-first-game/issues/66-production-profile.md)). No redirect sends `/authorize` to the old origin.
 
    Check: the command publishes nothing. The engine guards, combined-tree checks, protocol checks and browser checks pass. `npm run check:vercel` proves local route dispatch. Set the live wait for step 7.
 
@@ -91,7 +91,7 @@ Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
 
    Rollback: a failed migration transaction changes nothing. Stop and review the failure. After commit, keep its data. Use the saved recovery plan with the owner's word.
 
-9. **Owner word — paste [apply-0010-0013.sql](apply-0010-0013.sql) once.** Use a new SQL Editor query as the admin role. Paste the whole file. It first checks the 0005–0009 foundation and runtime-role blocks 3–6. It then applies 0010, block 7, 0011, 0012, block 8, 0013, block 9, block 10, 0014 and block 11 in one transaction. The source statements stay the same; only their outer transaction pairs become one pair.
+9. **Owner word — paste [apply-0010-0013.sql](apply-0010-0013.sql) once.** Use a new SQL Editor query as the admin role. Paste the whole file. It first checks the 0005–0009 foundation and runtime-role blocks 3–6. It then applies 0010, block 7, 0011, 0012, block 8, 0013, block 9, block 10, 0014, block 11 and 0015 in one transaction. The source statements stay the same; only their outer transaction pairs become one pair.
 
    This adds game and hidden seat choices, setup deadlines, rematches, lobby indexes, ratings, history, badges, settings and home-board state. Block 9 also permits old-board deletion for daily cleanup. Block 10 permits only the deletion of reports older than 12 months that no hold covers. Both board switches default off. Result history and badges have no runtime UPDATE grant.
 
@@ -112,6 +112,15 @@ Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
     Rollback: stop test access. Correct the guide or build, then repeat the failed check.
 
 12. **Check runtime access.** Confirm effective runtime grants, RLS and startup probes after the paste. Keep browser access restricted. Do not remove shared PUBLIC grants to repair one role.
+
+    For the email removal release, deploy the code without the email jobs first. It starts on schemas
+    0014 and 0015. Then apply `supabase/migrations/0015_remove_email.sql` as the admin role in
+    step 9 at any later time. If 0010–0014 are in place,
+    apply only 0015. The guarded paste also includes 0015 for a fresh release. Web account access follows at
+    0016, then runtime-role block 12. Use [account-off.md](../../web-build/account-off.md) for that
+    separate operator step.
+    Confirm `to_regprocedure('kingdown_jobs.user_email(uuid)') is null`. Confirm that the runtime
+    role can still execute `kingdown_jobs.delete_account(uuid)` and passes the startup probes.
 
     Check: the runtime role can read and write its required fields, including board deletion. It cannot read or delete `auth.users` directly or change result history and badges.
 

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { shot } from './checks.mjs';
+import { settled } from './plugin-settled.mjs';
 
 export async function checkCardChoices(page, frame, mount, setup, cards) {
   await mount(setup);
@@ -91,6 +92,8 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
   assert(!result.isError);
   await page.evaluate(result => window.harnessShow(result), result);
   await beforeCard.waitForElementState('hidden');
+  // Read the sheet after the mount ends: a later store pass draws the setup screen again.
+  await settled(page, frame);
   assert(await sheet.evaluate((el, before) => el === before, beforeSheet), 'A host refresh keeps the open sheet');
   await beforeSheet.dispose(); await beforeCard.dispose();
   assert.equal(await sheet.locator('input:focus').getAttribute('value'), focused, 'A host refresh keeps focus');
@@ -99,15 +102,15 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
   await frame.locator('#setup-done').click();
   assert((await frame.locator('#setup-cards').innerText()).startsWith('5 cards'), 'Done saves the draft after a host refresh');
   await frame.locator('#setup-cards').click();
-  const art = await sheet.locator('.card-face').evaluateAll(faces => faces.map(f => ({ card: f.querySelector('input').value, image: !!f.querySelector('.cf-art img'), scene: !!f.querySelector('.cf-art .pm'), plain: f.querySelector('.cf-word')?.textContent, name: f.querySelector('b').textContent })));
-  assert.equal(art.filter(a => a.image).length, 9); assert.equal(art.filter(a => a.scene).length, 3); assert.equal(art.filter(a => a.plain).length, 9);
+  const art = await sheet.locator('.card-face').evaluateAll(faces => faces.map(f => ({ card: f.querySelector('input').value, image: !!f.querySelector('.cf-art img'), scene: !!f.querySelector('.cf-art .pm'), picture: !!f.querySelector('.cf-art .card-picture'), name: f.querySelector('b').textContent })));
+  assert.equal(art.filter(a => a.image).length, 12); assert.equal(art.filter(a => a.scene).length, 0); assert.equal(art.filter(a => a.picture).length, 9);
   assert(!await sheet.locator('img[src*="back.webp"]').count());
   await frame.locator('#menu-close').click();
   // Built-page checks use visible controls; source-harness app helpers are absent.
   await frame.locator('[data-screen="play"] [data-nav="profile"]').click();
   await frame.locator('[data-screen="profile"] [data-nav="collection"]').click();
   await frame.locator('#collection-tabs label').filter({ hasText: 'Cards' }).click();
-  const collection = await frame.locator('#collection-items .card-face').evaluateAll(faces => faces.map(f => ({ card: f.dataset.card, image: !!f.querySelector('.cf-art img'), scene: !!f.querySelector('.cf-art .pm'), plain: f.querySelector('.cf-word')?.textContent, name: f.querySelector('b').textContent })));
+  const collection = await frame.locator('#collection-items .card-face').evaluateAll(faces => faces.map(f => ({ card: f.dataset.card, image: !!f.querySelector('.cf-art img'), scene: !!f.querySelector('.cf-art .pm'), picture: !!f.querySelector('.cf-art .card-picture'), name: f.querySelector('b').textContent })));
   assert.deepEqual(collection, art, 'The sheet and Collection share card art and names');
   await noLoops(frame.locator('#collection-items'));
   console.log('Cards: grid, names, art, costs, both modes and all three cancel paths pass');
@@ -120,12 +123,12 @@ export async function measureCardCoins(frame, output) {
   const rgb = text => text.match(/[\d.]+/g).slice(0, 3).map(Number);
   const light = values => values.map(c => c / 255).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4).reduce((s, c, i) => s + c * [.2126,.7152,.0722][i], 0);
   const contrast = (a, b) => { const x = light(a), y = light(b); return (Math.max(x,y) + .05) / (Math.min(x,y) + .05); };
-  const rings = await frame.locator('.card-coin').evaluateAll(coins => coins.map(c => ({ side: c.closest('.player-strip').id, color: getComputedStyle(c).borderColor })));
+  const rings = await frame.locator('.card-coin > .coin-paint').evaluateAll(coins => coins.map(c => ({ side: c.closest('.player-strip').id, color: getComputedStyle(c).borderColor })));
   assert.equal(new Set(rings.map(r => r.color)).size, 2, 'The hands have different rings');
   const ringDifference = contrast(rgb(rings.find(r => r.side === 'strip-me').color), rgb(rings.find(r => r.side === 'strip-them').color));
   assert(ringDifference >= 3, 'The two hand rings have at least 3:1 contrast');
   for (const side of ['strip-me', 'strip-them']) {
-    const coin = frame.locator(`#${side} .card-coin`).first();
+    const coin = frame.locator(`#${side} .card-coin > .coin-paint`).first();
     const style = await coin.getAttribute('style');
     // Read the face under the ring, with its border, shadow and children hidden.
     const children = await coin.evaluate(el => {
@@ -150,20 +153,11 @@ export async function measureCardCoins(frame, output) {
     assert(min >= 3, `${side} ring has at least 3:1 contrast against its coin face (${min.toFixed(2)})`);
     for (const ring of rings.filter(r => r.side === side)) ring.minContrastOnCoinFace = Number(min.toFixed(2));
   }
-  const letters = [];
-  for (const word of await frame.locator('.card-coin .cc-word').all()) {
-    const bounds = await word.evaluate(w => { const range = document.createRange(); range.selectNodeContents(w); const r = range.getBoundingClientRect(), c = w.closest('button').getBoundingClientRect(); return { text: w.textContent, color: getComputedStyle(w).color, x: r.x - c.x, y: r.y - c.y, width: r.width, height: r.height }; });
-    await word.evaluate(w => { w.style.visibility = 'hidden'; });
-    const { data, info } = await sharp(await word.locator('..').screenshot()).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-    await word.evaluate(w => { w.style.visibility = ''; });
-    let min = Infinity;
-    for (let y = Math.max(0, Math.floor(bounds.y)); y < Math.min(info.height, Math.ceil(bounds.y + bounds.height)); y++) for (let x = Math.max(0, Math.floor(bounds.x)); x < Math.min(info.width, Math.ceil(bounds.x + bounds.width)); x++) {
-      const offset = (y * info.width + x) * info.channels;
-      min = Math.min(min, contrast(rgb(bounds.color), [...data.subarray(offset, offset + 3)]));
-    }
-    letters.push({ text: bounds.text, minTextBoxContrast: Number(min.toFixed(2)) });
+  assert.equal(await frame.locator('.card-coin .cc-word').count(), 0, 'Card coins use no letter pairs');
+  for (const symbol of await frame.locator('.card-coin .card-symbol').all()) {
+    assert(await symbol.evaluate(el => el.getBoundingClientRect().width >= 20), 'A coin symbol stays clear at its smallest size');
   }
-  const report = { rings, ringDifference: Number(ringDifference.toFixed(2)), letters, status: letters.length ? 'Board letters remain. The board lane owns their replacement.' : 'No coin letters remain.' };
+  const report = { rings, ringDifference: Number(ringDifference.toFixed(2)), status: 'No coin letters remain.' };
   await writeFile(join(output, 'card-contrast.json'), JSON.stringify(report, null, 2) + '\n');
   console.log('F38 card contrast:', JSON.stringify(report));
 }

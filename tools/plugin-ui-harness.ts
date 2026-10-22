@@ -1,3 +1,4 @@
+import type { Page } from 'playwright';
 import { randomUUID } from 'node:crypto';
 import { createServer as createHttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -10,7 +11,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createPluginServer } from '../src/plugin/server';
 import type { MatchSetup } from '../src/match';
-import { fixtureService } from './plugin-protocol-fixture';
+import { fixtureService, type FixtureEngine } from './plugin-protocol-fixture';
 import { ART_HEADERS, artType } from './plugin-art-headers.mjs';
 import { pluginSymbols } from './lib/plugin-symbols.mjs';
 type UiMeta = { ui?: { csp?: { connectDomains?: string[]; resourceDomains?: string[]; frameDomains?: string[]; baseUriDomains?: string[] }; permissions?: Record<string, unknown> } };
@@ -63,11 +64,11 @@ async function board(client: Client) {
   console.log(`Read board resource through MCP: ${Buffer.byteLength(JSON.stringify(result))} JSON bytes`);
   return { html: resource.text, meta: (resource._meta ?? {}) as UiMeta };
 }
-export async function startHarness({ boardPath = 'plugin-server-dist/board.html', endpoint, actor, friendActor, laterFriendActor, seedPosition, deleteMatch, sourcePage = false }: { sourcePage?: boolean; boardPath?: string; endpoint?: URL; actor?: string; friendActor?: string; laterFriendActor?: string; seedPosition?: (setup: MatchSetup, black: boolean) => Promise<string>; deleteMatch?: (id: string) => Promise<void> } = {}) {
+export async function startHarness({ boardPath = 'plugin-server-dist/board.html', endpoint, actor, friendActor, laterFriendActor, seedPosition, deleteMatch, sourcePage = false, pageEngine, engine }: { engine?: FixtureEngine; pageEngine?: string; sourcePage?: boolean; boardPath?: string; endpoint?: URL; actor?: string; friendActor?: string; laterFriendActor?: string; seedPosition?: (setup: MatchSetup, black: boolean) => Promise<string>; deleteMatch?: (id: string) => Promise<void> } = {}) {
   if (endpoint && (endpoint.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(endpoint.hostname) || endpoint.username || endpoint.password)) throw new Error('The HTTP harness accepts only a loopback development endpoint');
   let buddy: Client | undefined, laterBuddy: Client | undefined;
   const client = new Client({ name: 'local-browser-host', version: '1' });
-  const service = endpoint ? undefined : fixtureService();
+  const service = endpoint ? undefined : fixtureService(engine);
   let server: ReturnType<typeof createPluginServer> | undefined, buddyServer: ReturnType<typeof createPluginServer> | undefined, laterBuddyServer: ReturnType<typeof createPluginServer> | undefined;
   let resource: Awaited<ReturnType<typeof board>>;
   let vite: Awaited<ReturnType<typeof createServer>> | undefined;
@@ -97,7 +98,7 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
   frameServer.listen(0, '127.0.0.1'); await new Promise(resolve => frameServer.once('listening', resolve));
   const frameHost = `127.0.0.1:${(frameServer.address() as AddressInfo).port}`;
   const body = async (req: AsyncIterable<Buffer>) => { const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(chunk); return JSON.parse(Buffer.concat(chunks).toString()); };
-  vite = await createServer({ configFile: false, logLevel: 'error', cacheDir: resolve(dirname(boardPath), '.harness-cache'), optimizeDeps: { include: ['@modelcontextprotocol/ext-apps/app-bridge'] }, server: { host: '127.0.0.1', port: 0, strictPort: true }, plugins: [pluginSymbols(), { name: 'mcp-app-harness', configureServer(vite) {
+  vite = await createServer({ define: sourcePage && pageEngine ? { __KINGDOWN_PAGE_ENGINE__: JSON.stringify(pageEngine) } : {}, configFile: false, logLevel: 'error', cacheDir: resolve(dirname(boardPath), '.harness-cache'), optimizeDeps: { include: ['@modelcontextprotocol/ext-apps/app-bridge'] }, server: { host: '127.0.0.1', port: 0, strictPort: true }, plugins: [pluginSymbols(), { name: 'mcp-app-harness', configureServer(vite) {
     vite.middlewares.use(async (req, res, next) => {
       // The frame origin serves the widget page and the files it loads; the host page and its routes stay on the host origin.
       const path = req.url?.split('?')[0] ?? '';
@@ -135,7 +136,8 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
       }
       else if (req.url === '/board-resource') {
         res.setHeader('Content-Type', 'text/html'); res.setHeader('Content-Security-Policy', framePolicy(resource.meta).csp);
-        const html = sourcePage ? (await readFile('src/plugin/index.html', 'utf8')).replace('<script type="module" src="./app.ts"></script>', '<script type="module">window.harnessApp = await import("/src/plugin/app.ts");</script>') : resource.html;
+        // Raw source HTML needs Vite's dev environment before app imports read configured defines.
+        const html = sourcePage ? (await readFile('src/plugin/index.html', 'utf8')).replace('<script type="module" src="./app.ts"></script>', '<script type="module">await import("/@vite/env"); window.harnessApp = await import("/src/plugin/app.ts");</script>') : resource.html;
         res.end(html.replace('<script type="module">', '<script type="module">await window.harnessBoot;').replace('<head>', `<head>${FRAME_SHIM}`));
       }
       else if (req.url === '/fixture-tool' && req.method === 'POST') {
@@ -175,4 +177,9 @@ if (resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
   const harness = await startHarness({ boardPath: process.argv[2], endpoint: process.env.PLUGIN_MCP_URL ? new URL(process.env.PLUGIN_MCP_URL) : undefined, actor: process.env.PLUGIN_DEV_ACTOR, friendActor: process.env.PLUGIN_FRIEND_ACTOR });
   console.log(`Local SDK host: ${harness.url}`);
   for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, async () => { await harness.close(); process.exit(); });
+}
+
+/** Source module exports must exist before tests call them; an enabled control can precede the import's completion. */
+export async function waitForSourceApp(page: Page): Promise<void> {
+  await page.frameLocator('iframe').locator('html').evaluate("async () => { await window.harnessBoot; window.harnessApp = await import('/src/plugin/app.ts'); }");
 }

@@ -38,7 +38,12 @@
           "Show my King Down rating and badges."
         ],
         "composerIcon": "./assets/logo.png",
-        "logo": "./assets/logo.png"
+        "logo": "./assets/logo.png",
+        "screenshots": [
+          "./assets/screenshot-1.png",
+          "./assets/screenshot-2.png",
+          "./assets/screenshot-3.png"
+        ]
       },
       "review": {
         "test_cases": {

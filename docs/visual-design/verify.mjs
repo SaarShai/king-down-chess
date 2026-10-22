@@ -24,7 +24,8 @@ async function open(query = '', { skipTitle = true, save = null, viewport = { wi
   trapErrors(page);
   page.on('dialog', d => d.accept());
   await page.goto(base + query);
-  await page.waitForFunction(() => window.view?.ready);
+  // window.view exists long before start-up ends (src/main.ts); Home opens only after view.ready() resolves.
+  await ready(page);
   return page;
 }
 const ready = page => page.waitForFunction(() => window.view?.ready).then(() => page.evaluate(() => window.view.ready()));

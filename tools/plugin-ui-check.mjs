@@ -1,6 +1,12 @@
+import { checkWidgetState } from './lib/plugin-widget-state-check.mjs';
+import { checkTabletSelection } from './lib/plugin-tablet-check.mjs';
+import { checkTablet, checkTabletButtons, checkFlatRows, checkMenuContent, checkSegments, checkFocus } from './lib/plugin-tablet-check.mjs';
 import { checkAndroidFixes } from './lib/plugin-android-check.mjs';
+import { checkCardDetails } from './lib/card-detail-check.mjs';
 import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
+import { checkCoinFocus } from './lib/plugin-coin-focus-check.mjs';
+import { settled } from './lib/plugin-settled.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { boxText, layoutMessage } from './lib/layout-message.mjs';
 import { assertCardReadState } from './lib/plugin-card-read.mjs';
@@ -8,16 +14,21 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { register } from 'tsx/esm/api';
 const unregister = register();
 const { fromFen, toFen, toLan } = await import('../src/rules/setup.ts');
-const { setRules, legalMoves, inCheck, typeOf, N, RULES, sqName, moveNumber: positionMoveNumber } = await import('../src/rules/engine.ts');
-const { DEFAULT_OPTIONS } = await import('../src/match/setup.ts');
-const { applyLan, cardCoins, replayHistory } = await import('../src/plugin/screens/board-model.ts');
-const { threatsIn } = await import('../src/move-text.ts');
+const { setRules, legalMoves, inCheck, nameOf, typeOf, N, RULES, sqName, moveNumber: positionMoveNumber } = await import('../src/rules/engine.ts');
+const { DEFAULT_OPTIONS, RANKED_OPTIONS } = await import('../src/match/setup.ts');
+// The widget build reads the stage; the staging build offers Ranked (ticket 67).
+const rankedStage = process.env.VITE_KINGDOWN_STAGE === 'staging';
+const { policyLabel } = await import('../src/account-game/rating-policy.ts');
+const { applyLan, cardCoins, replayHistory, replayLans } = await import('../src/plugin/screens/board-model.ts');
+const { threatsIn, shortMove } = await import('../src/move-text.ts');
+const { GameRules } = await import('../src/game-rules.ts');
 const { cardName } = await import('../src/powers-ui.ts');
-const { POP_MS, RIPPLE_MS } = await import('../src/render/marks.ts');
+const { POP_MS } = await import('../src/render/marks.ts');
 const iconNames = { P:'pawn', N:'knight', B:'bishop', R:'rook', Q:'queen', K:'king', A:'archer', L:'paladin', G:'guard', M:'maester', S:'beast', O:'ogre' };
 const iconSources = Object.fromEntries(await Promise.all(Object.values(iconNames).map(async name => [name, await readFile(`public/ui/icons/${name}.svg`, 'utf8')])));
 import { assertNoErrors, env, launch, shot, STEP, trapErrors } from './lib/checks.mjs';
@@ -56,6 +67,12 @@ async function clickButton(page, button) {
 try {
   await checkShell(browser, base);
   await checkAndroidFixes(browser, base, clickButton);
+  const { createMatch } = await import(pathToFileURL(resolve(process.argv[2] || 'plugin-server-dist', 'runtime/index.mjs')).href);
+  const match = await createMatch();
+  let engine;
+  try { engine = JSON.parse(await match.exportSave()).engine; }
+  finally { await match.close(); }
+  await checkCardDetails(browser, base, engine);
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
   await page.addInitScript(() => {
@@ -101,12 +118,13 @@ try {
   const options = {fairy:true,pool:['R','A','G','Q','M','S','O'],arrangement:false,classic:false,cards:false,cardPool:[],kingPowers:false};
   // Waits until every tool call at the host has returned, then one frame in the frame. A released reply reaches the
   // frame before the check reads the DOM. The built page hides its client, so the host's own count stands in.
-  async function settled() {
+  // This wait passes while a held call keeps a mount open; a step that reads the screen after it uses idleBoard().
+  async function callsDone() {
     const end = Date.now() + 10000;
     for (;;) {
       const done = await page.evaluate(() => (window.harnessInflight ?? 0) === (window.harnessHeld ?? 0));
       if (done) break;
-      if (Date.now() > end) throw new Error('settled: a tool call still waits');
+      if (Date.now() > end) throw new Error('callsDone: a tool call still waits');
       await new Promise(resolve => setTimeout(resolve, 10));
     }
     await frame.locator('html').evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve(undefined))));
@@ -168,8 +186,16 @@ try {
   assert(await frame.locator('#home-line').isHidden(), 'Home hides the zero turn count');
   assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests ?? []), [], 'Mount sends no fullscreen request');
   assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), 0, 'An empty home reads no board');
+  await checkTablet(page, frame);
+  await checkFocus(page, frame);
   await frame.locator('#home-games').click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+  await checkFlatRows(frame, '[data-screen="play"] .menu-row');
+  const menuViewport = page.viewportSize();
+  await page.setViewportSize({ width: 336, height: 844 });
+  await checkMenuContent(frame, '[data-screen="play"] [data-nav="settings"]');
+  await page.setViewportSize(menuViewport);
+  assert.equal(await frame.locator('[data-screen="play"] [data-nav="settings"]').evaluate(row => row.getBoundingClientRect().height), 48, 'The plain Settings row is exactly 48 px tall');
   assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'play', 'Home Choose a game opens the Play hall');
   // M3: a failed first read on Play has one error and one way to read again.
   async function readErrorOnce(screen) {
@@ -234,7 +260,8 @@ try {
       lock: page && { screen: page.screen, connected: page.connected, mounting: page.mounting, writing: page.writing },
       page: document.body.dataset.page, reload: document.querySelector('#reload')?.disabled, error: document.querySelector('#error')?.textContent, animations: document.getAnimations().slice(0, 8).map(a => `${a.animationName ?? a.transitionProperty ?? 'animation'}:${a.playState}`) };
   }, undefined, { timeout: 10_000 });
-  async function idleBoard() { await widget().waitForFunction(() => document.querySelector('#reload')?.disabled === false); }
+  // The frame is settled (tools/lib/plugin-settled.mjs): no reply or draw is due that replaces the nodes a step reads.
+  async function idleBoard() { await settled(page, frame); }
   async function remount(screen) {
     // Each mount reads the settings; a mount with no board makes no board read.
     const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length);
@@ -250,6 +277,7 @@ try {
     await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', {name:'Choose a move', exact:true}).click();
   }
   async function menuAction(id) {
+    await frame.locator('#board:not([data-animating="true"])').waitFor({ state: 'attached' });
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
     await frame.locator('#board-menu').click(); await frame.locator('#' + id).click();
   }
@@ -283,12 +311,12 @@ try {
   // boundaries the check loads the host page again with the same chat state: the host context and display mode, the
   // last tool result and the widget state. Then one remount restores the screen, as a chat reload does. A given screen
   // must show after it; a saved game screen can follow the game's fresh status to another screen.
-  const retiredWidgetStates = [];
+  const retiredWidgetStates = [], retiredDraftBases = {};
   async function freshHost(screen) {
     // A widget-state write still in transit would be lost with the old page.
-    await settled();
-    const saved = await page.evaluate(() => ({ context: window.harnessHostContext, mode: window.harnessDisplayMode, result: window.harnessWidgets.at(-1).initialResult, state: window.harnessWidgetState, states: window.harnessWidgetStates }));
-    retiredWidgetStates.push(...saved.states);
+    await callsDone();
+    const saved = await page.evaluate(() => ({ context: window.harnessHostContext, mode: window.harnessDisplayMode, result: window.harnessWidgets.at(-1).initialResult, state: window.harnessWidgetState, states: window.harnessWidgetStates, draftBases: window.harnessDraftBases }));
+    retiredWidgetStates.push(...saved.states); Object.assign(retiredDraftBases, saved.draftBases);
     await page.goto(base);
     // The first boot of each host page waits for its held settings read (the init script), as at the start.
     await page.waitForFunction(() => typeof window.releaseBefore === 'function');
@@ -303,7 +331,7 @@ try {
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length > n, reads);
     await idleBoard();
     if (screen) await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
-    await settled();
+    await callsDone();
   }
   // Ticket 16: profile and collection.
   {
@@ -317,7 +345,7 @@ try {
       const reply = await (await page.request.post(new URL(friend ? '/fixture-friend-tool' : '/fixture-tool', base).href, { data: { name, arguments: args } })).json();
       assert(!reply.isError, `${name}: ${JSON.stringify(reply.content)}`); return reply;
     };
-    const history = Array.from({length:23}, (_,i) => ({ game_id: randomUUID(), finished_at: new Date(Date.UTC(2026,9,10,12-i)).toISOString(), kind:'friend', colour:i%2?'black':'white', result:i<12?'won':i<15?'drawn':'lost', reason:i>=12&&i<15?'agreement':'resignation', opponent:{handle:i===0?'abcdefghijklmnopqrst':i===3||i===1||i===4?null:`player_${i}`,icon:'spirit',computer:i===1||i===4,deleted:i===2,level:i===1?'club':null}, features:{fairy:true,arrangement:true,classic:true,cards:true,powers:true,king:'Spirit',power:'Mercy'} }));
+    const history = Array.from({length:23}, (_,i) => ({ rating_policy:'legacy', game_id: randomUUID(), finished_at: new Date(Date.UTC(2026,9,10,12-i)).toISOString(), kind:'friend', colour:i%2?'black':'white', result:i<12?'won':i<15?'drawn':'lost', reason:i>=12&&i<15?'agreement':'resignation', opponent:{handle:i===0?'abcdefghijklmnopqrst':i===3||i===1||i===4?null:`player_${i}`,icon:'spirit',computer:i===1||i===4,deleted:i===2,level:i===1?'club':null}, features:{fairy:true,arrangement:true,classic:true,cards:true,powers:true,king:'Spirit',power:'Mercy'} }));
     const record = { totals:{played:23,won:12,drawn:3,lost:8}, rating:{rating:1500.4,rd:350,volatility:.06,provisional:true}, badges:['first_win','friend_match','stranger_match','fairy_tale','architect','crowned'].map(badge=>({badge,earned_at:'2026-10-10T12:00:00Z'})) };
     async function seed(data) { const response = await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data}}); assert.equal(response.status(),200); }
     if (mode === 'fixture') await seed({history,record});
@@ -381,8 +409,16 @@ try {
       if(size!=='panel') { const left=await sharp(`docs/specs/chatgpt-mvp/sample/png/${state}-${size}.png`).resize(width,height).toBuffer(), right=await sharp(path).toBuffer(); await sharp({create:{width:width*2,height,channels:3,background:'#fff'}}).composite([{input:left,left:0,top:0},{input:right,left:width,top:0}]).png().toFile(join(look,`${state}-${size}-${mode}.png`)); }
     }
     for (const [size,width,height] of [['phone',390,844],['panel',400,900],['desktop',1440,900]]) {
-      await page.setViewportSize({width,height}); await openScreen('profile');
+      await page.setViewportSize({width,height});
+      // The rows of the last visit show at once, and this visit's read draws them again with new buttons. A redraw
+      // between the locator resolve and the read detaches each row. Read the rows after this visit's read ends: it has
+      // started, and then the frame is settled.
+      const profileReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_profile').length);
+      await openScreen('profile');
+      await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_profile').length > n, profileReads);
+      await settled(page, frame);
       await frame.locator('#profile-open button').first().waitFor();
+      await checkFlatRows(frame, '#profile-open button');
       assert.deepEqual(await frame.locator('#profile-open button').evaluateAll(rows=>rows.map(row=>row.dataset.gameId)),openIds,'Open games keep your turn first');
       assert.equal(await frame.locator('#profile-open button').first().locator('.when .turn-mark').textContent(),'Turn');
       assert(await frame.locator('#profile-open').evaluate(el=>!!(el.compareDocumentPosition(document.querySelector('#profile-history'))&Node.DOCUMENT_POSITION_FOLLOWING)),'Open rows precede finished rows');
@@ -392,12 +428,14 @@ try {
       assert.equal(await frame.locator('#profile-history li').count(),data.history.length);
       for(const [i,row] of data.history.entries()) {
         const li=frame.locator('#profile-history li').nth(i), op=row.opponent;
+        assert.equal(await li.getByRole('button').count(),1,'Each finished row is keyboard accessible');
         assert.equal(await li.locator('time').getAttribute('datetime'),row.finished_at);
         assert((await li.locator('time').textContent()).trim());
         assert.equal(await li.locator('img').getAttribute('alt'),`${row.colour} king`);
         assert.equal(await li.locator('b').textContent(),op.computer?`Computer${op.level?' · '+op.level[0].toUpperCase()+op.level.slice(1):''}`:op.deleted?'Deleted player':op.handle??'A player');
         assert.equal(await li.locator('.res').textContent(),{won:'W',drawn:'D',lost:'L'}[row.result]);
-        assert.equal(await li.locator('small').textContent(),WHY[row.reason]);
+        assert(['legacy','casual','ranked-v1'].includes(row.rating_policy),'History retains its stored rating policy');
+        assert.equal(await li.locator('small').textContent(),`${policyLabel(row.rating_policy,row.kind)} · ${WHY[row.reason]}`);
         assert.equal(await li.locator('.feats use').count(),['fairy','arrangement','classic','cards','powers'].filter(key=>row.features[key]).length);
       }
       await rollers(); await images('#profile-sheet'); await layout('profile');
@@ -432,6 +470,7 @@ try {
       for(const [tab,count] of [['Pieces',11],['Kings',6],['Powers',12],['Cards',21]]) {
         await frame.locator('#collection-tabs label').filter({hasText:tab}).click(); assert.equal(await frame.locator('#collection-items > *').count(),count); assert.equal(await frame.locator('#collection-items .unlocked').count(),count);
         assert((await frame.locator('#collection-items > *').allTextContents()).every(text=>text.includes('Unlocked')&&text.trim().length>30),'Each collection entry has its rule');
+        assert(!(await frame.locator('#collection-items').innerText()).includes('Unlocked'), 'The all-unlocked Collection hides repeated status');
         await images('#collection-sheet'); await layout('collection');
         await frame.locator('#collection-items > *').last().scrollIntoViewIfNeeded(); assert((await frame.locator('#collection-items > *').last().evaluate(controlBounds)).accessible,'The last collection entry clears the composer');
         await frame.locator('#collection-sheet .new-game-body').evaluate(el=>{el.scrollTop=0;});
@@ -449,6 +488,7 @@ try {
     if(mode==='fixture') await seed({history,record:{...record,rating:{rating:1600.6,rd:90,volatility:.06,provisional:false}}});
     await openScreen('profile'); await frame.locator('#profile-status').filter({hasText:'Loading profile…'}).waitFor({state:'hidden'});
     if(mode==='fixture') { assert.equal(await frame.locator('#profile-rating .q').isVisible(),false); assert.equal(await frame.locator('#profile-rating b').textContent(),'1601'); }
+    assert.match(await frame.locator('#profile-rating-help').textContent(), rankedStage ? /Ranked and legacy results; no reset\.$/ : /Rated game results; no reset\.$/, 'Only staging names Ranked in the profile');
     const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_profile').length); await remountFrame();
     await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_profile').length>n,reads); await frame.locator('#profile-open button').first().waitFor();
     assert.equal(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen),'profile');
@@ -496,6 +536,8 @@ try {
       await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length > n, reads);
       await frame.locator('#setup-start:not(:disabled)').waitFor();
       await page.evaluate(()=>{window.harnessDropWidgetWrites=false;});
+      // The mount's Play read ends later, and each store pass draws the setup card grid again with new buttons.
+      await settled(page, frame);
     }
     async function setupFits(width, height, state, compare = true) {
       await page.setViewportSize({ width, height });
@@ -561,10 +603,12 @@ try {
       const last = state === 'setup-classic' ? { ...baseSetup, options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } }
         : state === 'setup-pieces' ? { ...sampleSetup, options: { ...sampleSetup.options, pool: ['N','A','M','S'] } } : sampleSetup;
       await setupMount(last);
+      if (state === 'setup') await checkTabletButtons(frame, '#setup-pieces, #setup-cards');
       if (state === 'setup-pieces') await frame.locator('#setup-pieces').click();
       if (state === 'setup-cards') await frame.locator('#setup-cards').click();
       if (state === 'setup-king') {
         await frame.locator('#setup-king').click();
+        await checkTabletSelection(frame);
         assert.equal(await frame.locator('#king-picker .emblem').count(), 6);
         assert(await frame.locator('#king-picker .emblem').evaluateAll(buttons => buttons.every(button => {
           const style = getComputedStyle(button), box = button.getBoundingClientRect();
@@ -628,7 +672,7 @@ try {
     });
     assert.equal(await frame.locator('#game-table .coin').count(), 10, 'Both strips show four cards and one power');
     const coins44 = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll('.coin')].map(coin => {
-      const style = getComputedStyle(coin), box = coin.getBoundingClientRect();
+      const style = getComputedStyle(coin.querySelector('.coin-paint')), box = coin.getBoundingClientRect();
       return { id: coin.id, width: box.width, height: box.height, radii: [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomLeftRadius, style.borderBottomRightRadius], radial: style.backgroundImage.includes('radial-gradient'), stone: style.backgroundImage.includes('stone-control'), disabled: coin.disabled, motion: coin.getAnimations().map(animation => animation.playState) };
     }));
     assert(coins44.every(coin => coin.radii.every(radius => radius === '50%') && Math.abs(coin.width - coin.height) < .5 && coin.width >= 44 && coin.radial && !coin.stone), `Card and power coins stay round with 44 px targets at 393 × 852: ${JSON.stringify(coins44)}`);
@@ -639,7 +683,7 @@ try {
     // The Black seat waits for the computer's first move. Until its reply the Menu is off and shows the disabled face;
     // the real server (plugin-ui-http) replies later than the fixture.
     await frame.locator('#board-menu:not(:disabled)').waitFor();
-    assert((await frame.locator('#board-menu').evaluate(button => getComputedStyle(button).backgroundImage)).includes('stone-control'), 'Menu keeps the stone face');
+    assert((await frame.locator('#board-menu').evaluate(button => getComputedStyle(button, '::before').backgroundImage)).includes('stone-control'), 'Menu keeps the stone face');
     await shot(page, `base-round-coins-393-${mode}`);
     await page.setViewportSize({ width: 390, height: 844 });
     const desktop = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: false, reducedMotion: 'reduce' });
@@ -677,6 +721,7 @@ try {
       await frame.locator('#hall-play').click();
       await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       const quick = await page.evaluate(() => window.harnessView);
+      assert.equal(quick.rating_policy,'casual','Play now stays Casual');
       assert.equal(quick.kind, 'solo', `Play now starts a computer game from a saved ${kind} setup`);
       assert.equal(quick.level, 'beginner');
       assert.deepEqual(quick.options, { ...remembered.options, arrangement: false });
@@ -699,6 +744,7 @@ try {
       const pending = await page.evaluate(() => window.harnessWidgetState.privateContent.pending);
       assert.equal(pending.name, name);
       assert.equal(pending.quick, true, `${name} keeps the Play now marker`);
+      if (name === 'kingdown_create') assert.equal(pending.args.mode,'casual','A pending Play now keeps its Casual mode');
       assert(await frame.getByRole('radio', { name: 'Computer', exact: true }).isChecked());
       assert(await frame.getByRole('radio', { name: 'Beginner', exact: true }).isChecked());
       assert(!await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
@@ -745,19 +791,22 @@ try {
     }
     const waitingLast = { ...sampleSetup, kind: 'friend' };
     await setupMount(waitingLast); await page.evaluate(() => { window.requireHandleNext = true; }); await frame.locator('#setup-start').click();
-    await frame.locator('[data-screen="handle"]:not([hidden])').waitFor(); assert.deepEqual((await setupTool('kingdown_settings'))._meta.settings.last_setup, waitingLast, 'Settings reach the server before HANDLE_NEEDED');
+    await frame.locator('[data-screen="handle"]:not([hidden])').waitFor(); assert.deepEqual((await setupTool('kingdown_settings'))._meta.settings.last_setup, { ...waitingLast, mode: 'casual' }, 'Settings reach the server before HANDLE_NEEDED');
     await frame.locator('#handle').fill(testHandle); await frame.locator('#save-handle').click(); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     assert.equal(await page.evaluate(() => window.harnessView.days_per_move), 3);
     const waiting = await page.evaluate(() => window.harnessView); assert.equal(waiting.choices[waiting.seat].king.king, 'Spirit', 'Waiting keeps the server default; the remembered king goes to the seat screen');
+    assert.equal(waiting.rating_policy,'casual','A friend start stays Casual');
     await abortSetup(waiting.game_id);
     // A lost Start reply survives a remount without a second game: the remount shows Retry, and Retry sends the same
     // command ID, so the receipt gives back the first game (design §5.2 and §5.3).
     await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true } });
     await page.evaluate(() => { window.dropNextReply = 'kingdown_create'; }); await frame.locator('#setup-start').click(); await frame.locator('#retry').waitFor();
-    const startId = await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_create').arguments.command_id);
+    const startArgs = await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_create').arguments), startId = startArgs.command_id;
+    assert.equal(startArgs.mode,'casual','Start sends an explicit Casual mode');
     await remountFrame(); await frame.locator('#retry:not(:disabled)').waitFor(); await frame.locator('#retry').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor({ timeout: 5000 * STEP });
     assert.equal(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_create').arguments.command_id), startId, 'Retry sends the same Create command ID');
+    assert.deepEqual(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_create').arguments),startArgs,'A remounted Start retries the same mode and complete input');
     const privateState = await page.evaluate(() => window.harnessWidgetState.privateContent);
     assert.deepEqual(Object.keys(privateState).sort(), ['board_id','pending','screen','sheet']);
     assert.equal(await page.evaluate(() => JSON.stringify(window.harnessWidgetState.modelContent)), '{}', 'Setup puts no choice or draw in model context');
@@ -791,7 +840,7 @@ try {
     const profile = await setupTool('kingdown_open', {screen:'profile'});
     await page.evaluate(result => window.harnessShow(result), profile);
     await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
-    await page.evaluate(() => window.releaseHeld()); await settled();
+    await page.evaluate(() => window.releaseHeld()); await callsDone();
     assert(await frame.locator('[data-screen="profile"]').isVisible(), 'A late Choose keeps the newer Profile screen');
     assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending ?? null), null);
     await abortSetup(lateGame);
@@ -805,9 +854,9 @@ try {
     const getsBeforeSeat = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     await page.evaluate(result => { window.holdNextGet = true; return window.harnessShow(result); }, seatResult);
     await page.evaluate(() => window.releaseHeld());
-    await page.waitForFunction(() => !!window.releaseHeldGet); await settled();
+    await page.waitForFunction(() => !!window.releaseHeldGet); await callsDone();
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), getsBeforeSeat + 1, 'The old computer reply sends no recovery read over the mount');
-    await page.evaluate(() => window.releaseHeldGet()); await settled();
+    await page.evaluate(() => window.releaseHeldGet()); await callsDone();
     await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
     assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'seat');
     await abortSetup(nextSeat._meta.view.game_id); await abortSetup(oldComputerGame);
@@ -816,17 +865,17 @@ try {
       const mountGame = await setupTool('kingdown_create', { kind: 'solo', colour: 'white', options: { ...DEFAULT_OPTIONS, arrangement: true, kingPowers: false } });
       const mountResult = await setupTool('kingdown_open', { game_id: mountGame._meta.view.game_id });
       await page.evaluate(result => window.harnessShow(result), mountResult);
-      await frame.locator('[data-screen="seat"]:not([hidden])').waitFor(); await settled();
+      await frame.locator('[data-screen="seat"]:not([hidden])').waitFor(); await callsDone();
       const listed = (await setupTool('kingdown_games'))._meta.games;
       await page.evaluate(name => { window.holdNext = name; }, held);
       await remountFrame(); await page.waitForFunction(() => !!window.releaseHeld);
-      await page.clock.fastForward(20_000); await settled();
+      await page.clock.fastForward(20_000); await callsDone();
       assert(await frame.locator('#home-play').isDisabled(), `${held} still holds the mount lock after 20 s`);
       assert(await frame.locator('#setup-start').isDisabled(), `${held} still locks Start`);
       assert.equal(await frame.locator('#error').textContent(), '');
       assert.equal(await frame.locator('#home-error').textContent(), '');
       if (held === 'kingdown_games') assert.equal(await frame.locator('#games-status').textContent(), 'Loading games…');
-      await page.evaluate(() => window.releaseHeld()); await settled();
+      await page.evaluate(() => window.releaseHeld()); await callsDone();
       await frame.locator('#home-play:not(:disabled)').waitFor({ state: 'attached' });
       assert.equal(await frame.locator('#error').textContent(), '');
       assert.equal(await frame.locator('#home-error').textContent(), '');
@@ -926,7 +975,7 @@ try {
     await seatTool('kingdown_abort', { game_id: sheetSeat.game_id });
     let v = await friendSeat();
     assert.equal(v.choices[1], null, 'The other choice stays hidden');
-    assert.equal(await frame.locator('#seat-me-line').innerText(), 'Mud · March · select the coin to change', 'Cards clean the remembered power to the same king');
+    assert.equal(await frame.locator('#seat-me-line').innerText(), 'Mud · March', 'Cards clean the remembered power to the same king');
     assert((await frame.locator('#seat-them-picture').getAttribute('src')).includes('/shadow-b-'), 'The other strip shows the plain Black king');
     await frame.locator('#seat-king').click();
     assert(await frame.locator('[data-power="Leap"]').isDisabled()); assert(await frame.locator('[data-king="Frost"]').isDisabled());
@@ -1001,7 +1050,9 @@ try {
     // An old game's retained read must not lock Ready on this game's seat.
     const oldTag = v.game_id.slice(0,8);
     await page.evaluate(game_tag => {
-      window.harnessWidgetState.privateContent.pending = {name:'kingdown_get',args:{},game_tag,screen:'seat',error:'Cannot connect. Check your connection, then try again.'};
+      // Supply the next boot through the setter; the outgoing widget saves again during teardown.
+      const saved = window.harnessWidgetState;
+      window.harnessWidgetState = { ...saved, privateContent: { ...saved.privateContent, pending: {name:'kingdown_get',args:{},game_tag,screen:'seat',error:'Cannot connect. Check your connection, then try again.'} } };
     }, oldTag);
     await seatRemount();
     assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending?.game_tag), oldTag);
@@ -1069,7 +1120,9 @@ try {
     await seatTool('kingdown_abort',{game_id:legacy._meta.view.game_id});
     const aborted = await friendSeat(false,{...features,cards:false,kingPowers:true,arrangement:false});
     assert(!await frame.locator('#seat-shuffle').isVisible());
-    await frame.locator('#seat-menu').click(); await frame.locator('#seat-abort').click();
+    await frame.locator('#seat-menu').click();
+    await checkFlatRows(frame, '#seat-menu-sheet .menu-row');
+    await frame.locator('#seat-abort').click();
     assert.equal(await frame.locator('#seat-menu-title').innerText(),'Abort this game?');
     await frame.locator('#seat-abort-cancel').click(); assert.equal(await page.evaluate(() => window.harnessView.status),'setup');
     await frame.locator('#seat-menu').click(); await frame.locator('#seat-abort').click(); await frame.locator('#seat-abort-confirm').click();
@@ -1096,10 +1149,10 @@ try {
   })), 'Name pictures keep their round transparent face');
   assert(await frame.locator('#setup-body').evaluate(body => {
     const button = document.createElement('button');
-    button.className = 'preset'; button.textContent = 'King Down'; body.append(button);
+    button.className = 'preset wide-btn'; button.textContent = 'King Down'; body.append(button);
     try {
-      const style = getComputedStyle(button);
-      return style.backgroundImage.includes('stone-control') && style.borderRadius !== '50%' && style.aspectRatio === 'auto';
+      const style = getComputedStyle(button), face = getComputedStyle(button, '::before');
+      return face.backgroundImage.includes('stone-control') && style.borderRadius !== '50%' && style.aspectRatio === 'auto';
     } finally { button.remove(); }
   }), 'A preset button outside the name pictures keeps its stone face and control shape');
   assert.equal(await frame.locator('[data-screen="handle"] .quiet-line').last().innerText(), 'Each name is unique.');
@@ -1146,6 +1199,8 @@ try {
   }
   await page.setViewportSize({width:1000,height:1000});
   await openPlay();
+  // The rows of the last visit show at once; the Play read draws them again.
+  await settled(page, frame);
   const savedGame = frame.locator('#games-list button').first();
   await savedGame.waitFor();
   const inbox = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_games', arguments: {} } })).json();
@@ -1211,6 +1266,8 @@ try {
   await frame.locator('#symbols-only').check();
   await frame.locator('#symbols-only:not(:disabled)').waitFor();
   assert(await frame.locator('#symbols-only').isChecked());
+  await checkFlatRows(frame, '#settings-sheet .fields > label');
+  await checkSegments(page, frame);
   assert.equal(await page.evaluate(() => window.harnessWidgetState.modelContent.game_id), undefined);
   assert.deepEqual(await page.evaluate(() => Object.keys(window.harnessWidgetState.privateContent).sort()), ['board_id', 'pending', 'screen', 'sheet']);
   const settingsReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
@@ -1258,7 +1315,7 @@ try {
   }
 
   // Ticket 39 F-3: use the label bounds as well as the button style.
-  async function sheetLabelsCentered(label) {
+  async function sheetLabelsFit(label) {
     const viewport = page.viewportSize();
     try {
       await page.setViewportSize({ width: 402, height: 874 });
@@ -1267,10 +1324,14 @@ try {
       const buttons = await frame.locator('#board-sheet .sheet-body > button:visible').evaluateAll(buttons => buttons.map(button => {
         const style = getComputedStyle(button), box = button.getBoundingClientRect(), range = document.createRange();
         range.selectNodeContents(button); const words = range.getBoundingClientRect();
-        return { text: button.textContent, justify: style.justifyContent, align: style.textAlign, column: style.flexDirection === 'column', offset: Math.abs(words.left + words.width / 2 - box.left - box.width / 2) };
+        return { text: button.textContent, justify: style.justifyContent, align: style.textAlign, column: style.flexDirection === 'column', inset: words.left - box.left, offset: Math.abs(words.left + words.width / 2 - box.left - box.width / 2) };
       }));
       await shot(page, `device-sheet-${label}-402-${mode}`);
-      assert(buttons.length > 0 && buttons.every(b => b.justify === 'center' && b.align === 'center' && (b.column || b.offset <= 1)), `${label}: sheet button labels are centred: ${JSON.stringify(buttons)}`);
+      if (label === 'menu') {
+        assert(buttons.length > 0 && buttons.every(b => b.justify === 'flex-start' && b.align === 'left' && Math.abs(b.inset - 12) <= 1), `Flat menu rows use the 12 px text inset: ${JSON.stringify(buttons)}`);
+      } else {
+        assert(buttons.length > 0 && buttons.every(b => b.justify === 'center' && b.align === 'center' && (b.column || b.offset <= 1)), `${label}: sheet button labels are centred: ${JSON.stringify(buttons)}`);
+      }
     } finally { await page.setViewportSize(viewport); }
   }
 
@@ -1330,7 +1391,7 @@ try {
           assert(label.rightGap >= 8, `The ${label.id} text keeps at least 8 px on the right: ${all}`);
         }
         if (width <= 299) assert(labels[1].top >= labels[0].bottom && labels.every(label => Math.abs(label.width - label.rowWidth) < 1), `Share and Copy stack at full width: ${all}`);
-        else assert(Math.abs(labels[0].top - labels[1].top) < 1 && labels[0].right <= labels[1].left, `Share and Copy stay side by side: ${all}`);
+        else assert(Math.abs((labels[0].top + labels[0].bottom) / 2 - (labels[1].top + labels[1].bottom) / 2) < 1 && labels[0].right <= labels[1].left, `Share and Copy keep one centre line: ${all}`);
         await host.frame.locator('#friend-copy').scrollIntoViewIfNeeded();
         await shot(host.page, `friend-actions-${width}-${mode}`);
       } finally { await host.page.close(); }
@@ -1365,7 +1426,7 @@ try {
     await frame.locator('#friend-copy-status').filter({ hasText: /^Shared$/ }).waitFor();
     assert.equal(await frame.locator('html').evaluate(() => window.sharedInvite), fullInvite, 'Share sends the same full invite');
     const invites = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length);
-    await openPlay();
+    await openPlay(); await settled(page, frame);
     const inviteRow = frame.locator('.friend-invite-row').filter({ hasText: code });
     await inviteRow.waitFor();
     for (const [width, height] of [[197,426], [320,568], [390,844]]) {
@@ -1398,7 +1459,39 @@ try {
     await remount('friend'); await frame.locator('#friend-new').waitFor();
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites, 'Remount makes no new code');
     assert.equal(await frame.locator('.game-code span').count(), 0, 'The saved game shows Make a new code');
-    assert(!(await tool('kingdown_join', { code }, true)).isError, 'The buddy joins the page code');
+    // Keep the real code; shorten its UI deadline only, then renew through the actual tool.
+    const shortInvite = async route => {
+      if (route.request().postDataJSON().name !== 'kingdown_invite') return route.continue();
+      const response = await route.fetch(), result = await response.json(); assert(!result.isError);
+      result.structuredContent.expires_at = new Date(await frame.locator('html').evaluate(() => Date.now()) + 60_000).toISOString();
+      await route.fulfill({ response, json: result });
+    };
+    await page.route('**/fixture-tool', shortInvite);
+    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    const expiringCode = (await frame.locator('.game-code span').allTextContents()).join('');
+    await page.unroute('**/fixture-tool', shortInvite);
+    await page.clock.fastForward(60_001);
+    await frame.locator('#friend-new').waitFor();
+    assert.match(await frame.locator('#friend-help').innerText(), /expired/);
+    assert.equal(await frame.locator('#friend-actions').isVisible(), false);
+    assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites + 1, 'Expiry does not renew the invite');
+    await shot(page, 'embedded-expired-friend-code');
+    await page.clock.setSystemTime(new Date());
+    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    const renewedCode = (await frame.locator('.game-code span').allTextContents()).join(''); assert.notEqual(renewedCode, expiringCode);
+    assert((await tool('kingdown_join', { code: expiringCode }, true)).isError, 'The old code cannot join');
+    const remoteInvite = await tool('kingdown_invite', { game_id: friend.game_id }); assert(!remoteInvite.isError);
+    const beforeRemoteRead = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length);
+    await frame.locator('body').evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await frame.locator('#friend-help').filter({ hasText: 'replaced on another page' }).waitFor();
+    assert.equal(await frame.locator('#friend-actions').isVisible(), false);
+    assert.equal(await frame.locator('#friend-code').isVisible(), false);
+    assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), beforeRemoteRead, 'Reading the replacement does not renew it');
+    assert((await tool('kingdown_join', { code: renewedCode }, true)).isError, 'The replaced page code cannot join');
+    await shot(page, 'embedded-replaced-friend-code');
+    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    const currentCode = (await frame.locator('.game-code span').allTextContents()).join('');
+    assert(!(await tool('kingdown_join', { code: currentCode }, true)).isError, 'The buddy joins the renewed page code');
     await frame.locator('body').evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal((await tool('kingdown_get', { game_id: friend.game_id }, true))._meta.view.status, 'playing');
@@ -1555,6 +1648,19 @@ try {
 
     const longName = `wwwwwwwwwwwwwwww${randomUUID().slice(0,4)}`;
     assert(!(await tool('kingdown_handle', { handle: longName, icon: 'paladin' }, true)).isError);
+    // A reply from a departed Find visit must not restore an offer cancelled before the next visit.
+    const staleOffer = await tool('kingdown_create', { kind: 'random', options, colour: 'white' }, true); assert(!staleOffer.isError);
+    await openPlay(); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click();
+    await page.evaluate(() => { window.holdNext = 'kingdown_lobby'; });
+    await frame.locator('#play-open').click(); await page.waitForFunction(() => typeof window.releaseHeld === 'function');
+    try {
+      await frame.locator('#page-back').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+      assert(!(await tool('kingdown_cancel', { game_id: staleOffer._meta.view.game_id }, true)).isError);
+      await frame.locator('#play-open').click(); await frame.locator('#lobby-status').filter({ hasText: /^$/ }).waitFor({ state: 'attached' }); await callsDone();
+      const currentRows = await frame.locator('#lobby-list').innerText();
+      await page.evaluate(() => window.releaseHeld()); await callsDone();
+      assert.equal(await frame.locator('#lobby-list').innerText(), currentRows, 'An old embedded lobby reply cannot restore the cancelled offer');
+    } finally { await page.evaluate(() => window.releaseHeld?.()); }
     const random = await tool('kingdown_create', { kind: 'random', options, colour: 'white' }, true); assert(!random.isError);
     await openPlay(); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click(); await frame.locator('#lobby-list .game-row').filter({ hasText: longName }).waitFor();
     const lobbyRow = frame.locator('#lobby-list .game-row').filter({ hasText: longName });
@@ -1566,6 +1672,42 @@ try {
     await remount('lobby'); await frame.locator('#lobby-list .game-row').filter({ hasText: longName }).waitFor();
     await lobbyRow.click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal((await tool('kingdown_get', { game_id: random._meta.view.game_id }, true))._meta.view.status, 'playing', 'Accept starts both seats');
+    // Ranked opens only in the staging build and on the staging server (ticket 67).
+    if (rankedStage) {
+      const rankedOpen=await tool('kingdown_create',{kind:'random',mode:'ranked',command_id:randomUUID()},true); assert(!rankedOpen.isError);
+      assert.equal(rankedOpen._meta.view.rating_policy,'ranked-v1'); assert.equal(rankedOpen._meta.view.days_per_move,3); assert.deepEqual(rankedOpen._meta.view.options,RANKED_OPTIONS);
+      await openPlay(); await frame.getByRole('radio',{name:'A random player',exact:true}).locator('..').click();
+      await frame.locator('#setup-rating input[value="ranked"]').locator('..').click();
+      assert.match(await frame.locator('#setup-ranked-rules').innerText(),/3 days per move/);
+      await frame.locator('#play-open').click();
+      await frame.locator('#find-features').filter({hasText:'Ranked'}).waitFor();
+      assert(await frame.locator('#find-any-row').isHidden());
+      const rankedRow=frame.locator('#lobby-list .game-row').filter({hasText:longName});
+      await rankedRow.waitFor(); assert.match(await rankedRow.innerText(),/Ranked/);
+      await rankedRow.click(); await frame.locator('[data-screen="seat"]:not([hidden]) #seat-ready:not(:disabled)').waitFor();
+      await frame.locator('#seat-ready').click();
+      await frame.locator('#seat-context').filter({hasText:'Waiting'}).waitFor();
+      const rankedOther=(await tool('kingdown_get',{game_id:rankedOpen._meta.view.game_id},true))._meta.view;
+      assert.equal(rankedOther.rating_policy,'ranked-v1');
+      assert(!(await tool('kingdown_choose',{game_id:rankedOther.game_id,command_id:randomUUID(),expected_revision:rankedOther.revision,...rankedOther.choices[rankedOther.seat],ready:true},true)).isError);
+      await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); await idleBoard();
+      await frame.locator('#board-menu').click(); assert.match(await frame.locator('#board-sheet').innerText(),/Ranked/);
+      await frame.locator('#board-sheet').getByRole('button',{name:'Ranked game',exact:true}).click();
+      assert.match(await frame.locator('#board-sheet').innerText(),/Do not use engine, AI or human advice/);
+      await frame.locator('#board-sheet [aria-label="Close"]').click();
+      await shot(page,'plugin-ranked-policy');
+      assert(!(await tool('kingdown_abort',{game_id:rankedOther.game_id},true)).isError);
+    } else {
+      await openPlay(); await frame.getByRole('radio',{name:'A random player',exact:true}).locator('..').click();
+      assert(await frame.locator('#setup-rating').isHidden(), 'Production shows no Ranked choice');
+      assert.equal(await frame.locator('#setup-rating-line').innerText(), 'A game with a random player is Casual. Casual does not change ratings.');
+      await frame.locator('#play-open').click(); await frame.locator('#find-features').filter({hasText:'Casual'}).waitFor();
+      assert.doesNotMatch(await frame.locator('#find-features').innerText(), /Ranked/);
+      if (mode !== 'fixture') {
+        const refused = await tool('kingdown_create',{kind:'random',mode:'ranked',command_id:randomUUID()},true);
+        assert(refused.isError); assert.equal(refused._meta?.code,'RANKED_UNAVAILABLE');
+      }
+    }
     await openScreen('settings'); await frame.locator('[data-nav="handle"]').click(); await lookAt('handle', 'handle'); await openPlay();
     const setup = await tool('kingdown_settings', { last_setup: { kind: 'random', options, colour: 'white', level: 'club', king: null } }); assert(!setup.isError);
     // Only Open mounts the app. It carries the board ID and the new saved settings.
@@ -1631,7 +1773,7 @@ try {
     await page.clock.fastForward(30000); assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), hiddenGets, 'A hidden page reads no game');
     const visibleRead = receipt(await page.evaluate(() => window.ticket13Reads.length));
     await frame.locator('html').evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: false }); document.dispatchEvent(new Event('visibilitychange')); }); await visibleRead;
-    assert(!(await tool('kingdown_accept', { game_id: waiting.game_id }, true)).isError);
+    assert(!(await tool('kingdown_accept', { game_id: waiting.game_id, rating_policy: waiting.rating_policy }, true)).isError);
     await advance(15000); await frame.locator('#over.found[open]').waitFor();
     await page.clock.resume(); await boardBox(); await lookAt('opponent-found', 'board');
     await frame.locator('#found-switch').click(); await frame.locator('#over.found[open]').waitFor({ state: 'hidden' });
@@ -1680,7 +1822,7 @@ try {
       const square = ([x,y]) => { const col = Math.floor((x-32)/112), row = Math.floor((y-32)/112); return black ? 7-col+8*row : col+8*(7-row); };
       return [...new Set(window.harnessArrowLines.map(path => path.map(square).join(':')))].sort();
     }, seeded._meta.view.seat === 1);
-    setRules(seeded._meta.view.rules); const expectedArrows = threatsIn({ ...fromFen(seeded._meta.view.fen), turn: seeded._meta.view.seat }).map(t => `${t.from}:${t.to}`).sort();
+    setRules(seeded._meta.view.rules); const expectedArrows = threatsIn(new GameRules(seeded._meta.view.rules), { ...fromFen(seeded._meta.view.fen), turn: seeded._meta.view.seat }).map(t => `${t.from}:${t.to}`).sort();
     assert.deepEqual(arrows, expectedArrows, `${scenario}: every arrow starts and ends on the threatsIn squares`);
     const threats = await pixels(); assert(threats.red > plain.red + 10, `${scenario}: Show threats draws enemy arrows to your pieces`);
     await openScreen('settings'); await boardSetting('symbols-only',true);
@@ -1921,7 +2063,7 @@ try {
     assert.equal(await page.evaluate(()=>window.harnessView.revision),start);
     await tap(file,rank);
     if (!black) { await dragOwnSquare(file,rank); assert.equal(await page.evaluate(()=>window.harnessView.revision),start,'Drag must not shoot'); await tap(2,2); await tap(2,4); }
-    else { await frame.locator('#power-b').click(); await sheetLabelsCentered('power'); await frame.locator('#board-sheet').getByRole('button', {name:'Use', exact:true}).click(); await openMoveChoices(); await frame.locator('#choices button').filter({hasText:/freeze/i}).click(); }
+    else { await frame.locator('#power-b').click(); await sheetLabelsFit('power'); await frame.locator('#board-sheet').getByRole('button', {name:'Use', exact:true}).click(); await openMoveChoices(); await frame.locator('#choices button').filter({hasText:/freeze/i}).click(); }
     // W7: End turn sends the whole turn, so the turn passes to the friend. Wait for the reply before the keys (blocked()).
     await sendTurn(); await page.waitForFunction(r=>window.harnessView.revision>=r,start+1);
     await idleBoard();
@@ -2000,6 +2142,34 @@ try {
   const { measureCardCoins } = await import('./lib/plugin-cards-check.mjs');
   await measureCardCoins(frame, env('PLAYABLE_OUT'));
   const cardView = cardGame._meta.view; setRules(cardView.rules);
+  const focusHost = await hostPage(390, 844, 102, 118);
+  try {
+    await focusHost.page.emulateMedia({ reducedMotion: 'reduce' });
+    await focusHost.frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
+    for (const kind of ['cards', 'powers']) {
+      const focusPos = fromFen(cardView.fen); focusPos.used = [15, 15];
+      const rules = kind === 'cards' ? cardView.rules : { ...cardView.rules, hands: [[], []], kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'Freeze' }] };
+      const focusView = { ...cardView, revision: cardView.revision + (kind === 'cards' ? 1 : 2), fen: toFen(focusPos), rules };
+      await focusHost.page.evaluate(view => {
+        window.harnessNextView = view;
+        return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id, screen: 'board' }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
+      }, focusView);
+      // The coins show when the board read answers, but the mount still reads the games and then draws the strips again,
+      // with new buttons. So wait until the frame is settled; a later redraw would detach the button that the focus
+      // check measures.
+      await settled(focusHost.page, focusHost.frame);
+      await focusHost.frame.locator(`#${kind === 'cards' ? 'card-w-0' : 'power-w'}[data-state="used"]`).waitFor();
+      const ids = await focusHost.frame.locator('#game-table .coin[data-state="used"]').evaluateAll(coins => coins.map(c => c.id));
+      assert.equal(ids.length, kind === 'cards' ? 8 : 2, 'Both strips show the spent coins');
+      for (const id of ids) await focusHost.frame.locator(`#${id}`).waitFor();
+      for (const theme of ['light', 'dark']) {
+        await focusHost.page.evaluate(theme => window.harnessSetContext({ theme }), theme);
+        const proof = [];
+        for (const id of ids) proof.push(await checkCoinFocus(focusHost.page, focusHost.frame, `#${id}`, env('PLAYABLE_OUT'), `coin-${theme}-${id}`));
+        console.log(`Coin focus at 390 × 844 (${theme}, ${kind}):`, JSON.stringify(proof));
+      }
+    }
+  } finally { await focusHost.page.close(); }
   const cardPos = fromFen(cardView.fen), cardLegal = legalMoves(cardPos).filter(m => cardView.legal.includes(toLan(cardPos,m))), hand = cardCoins(cardPos,cardView.seat,cardView.rules.hands[cardView.seat],cardLegal);
   const cardIndex = hand.findIndex(c=>c.card === 'Vault' && c.moves.length); assert(cardIndex>=0,'The dealt Vault has a move');
   const card = hand[cardIndex], cardWords = cardName(card.card), cardLan = toLan(cardPos,card.moves[0]);
@@ -2009,7 +2179,7 @@ try {
   await frame.locator('#board-sheet[open] h2').filter({ hasText: cardWords }).waitFor();
   await page.waitForFunction(() => window.harnessWidgetState.privateContent.sheet === 'board-sheet');
   assertCardReadState(beforeCardRead, await page.evaluate(() => window.harnessWidgetState));
-  await sheetLabelsCentered('card');
+  await sheetLabelsFit('card');
   await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
   for (const [width, height, top, bottom] of [[197, 426, 51, 59], [393, 852, 102, 118]]) {
     const host = await hostPage(width, height, top, bottom);
@@ -2029,12 +2199,25 @@ try {
   }
   await zoomBoardFits('board-cards-armed');
   await openMoveChoices();
+  await checkTabletButtons(frame, '#choices button');
   assert(await frame.locator('#choices button').evaluateAll(buttons => buttons.length > 0 && buttons.every(button => getComputedStyle(button).justifyContent === 'flex-start' && getComputedStyle(button).textAlign === 'left')), 'Move choices stay left aligned');
   await frame.locator(`#choices button[title="${cardLan}"]`).click(); await sendTurn();
   await page.waitForFunction(({id,n})=>window.harnessCalls.some(c=>c.name==='kingdown_move'&&c.arguments.game_id===id&&c.arguments.actions?.[0]===n),{id:cardView.game_id,n:cardLan}); await idleBoard();
   await frame.locator('#strip-me .card-coin').nth(cardIndex).and(frame.locator('[data-state="used"]')).waitFor();
   assert.equal(await frame.locator('#strip-me .card-coin').nth(cardIndex).getAttribute('data-state'),'used','The played card is spent');
   await page.waitForFunction(id=>window.harnessView.game_id===id&&window.harnessView.turn===window.harnessView.seat,cardView.game_id); await idleBoard(); await boardBox();
+  const spentCoin = frame.locator('#strip-me .card-coin').nth(cardIndex);
+  await page.keyboard.press('Tab'); await spentCoin.focus();
+  const spentFocus = await spentCoin.evaluate(el => {
+    const s = getComputedStyle(el); return { keyboard: el.matches(':focus-visible'), filter: s.filter, opacity: s.opacity, art: getComputedStyle(el.querySelector('.coin-paint')).filter, ink: s.outlineColor, width: s.outlineWidth, gold: s.boxShadow };
+  });
+  assert(spentFocus.keyboard, 'A spent coin can have keyboard focus');
+  assert.equal(spentFocus.filter, 'none', 'The spent state does not turn the focus ring grey');
+  assert.equal(spentFocus.opacity, '1', 'The spent state does not dim the focus ring');
+  assert.equal(spentFocus.art, 'grayscale(1)', 'The spent card art stays grey');
+  assert.equal(spentFocus.ink, 'rgb(43, 38, 33)'); assert.equal(spentFocus.width, '2px');
+  assert.match(spentFocus.gold, /rgb\(233, 192, 113\).*4px/);
+  await spentCoin.blur();
   async function arrivalTool(name,args,friend=false) {return (await page.request.post(new URL(friend?'/fixture-friend-tool':'/fixture-tool',base).href,{data:{name,arguments:args}})).json();}
   const arrival=await arrivalTool('kingdown_create',{kind:'friend',colour:'white',board_id:cardBoard,options:{...DEFAULT_OPTIONS,fairy:false,arrangement:false,kingPowers:false,cards:true,cardPool:['Salvation','Freeze','IceWall','Vault']}}); assert(!arrival.isError);
   const arrivalInvite=await arrivalTool('kingdown_invite',{game_id:arrival._meta.view.game_id}); assert(!arrivalInvite.isError);
@@ -2080,6 +2263,11 @@ try {
   assert.equal(await page.evaluate(()=>window.harnessView.game_id),replacement,'Deleted-game recovery survives immediate remount');
   const friendTool = async (name,args={}) => (await page.request.post(new URL('/fixture-friend-tool',base).href,{data:{name,arguments:args,fresh:true}})).json();
   const tool = async (name,args={}) => (await page.request.post(new URL('/fixture-tool',base).href,{data:{name,arguments:args}})).json();
+  const { checkSoloSync } = await import('./lib/solo-sync-check.mjs');
+  await checkSoloSync({ page, ui: frame, tool, label: 'embedded', open: async game_id => {
+    const result = await tool('kingdown_open', { game_id }); assert(!result.isError, JSON.stringify(result.content));
+    await page.evaluate(result => window.harnessShow(result), result);
+  } });
   // S5 review: full reads keep the draft words. A real draw offer refuses the old revision once.
   {
     const gameTool = async (name, args = {}, friend = false) => {
@@ -2111,7 +2299,7 @@ try {
     await idleBoard(); await draftWords();
     assert.match(await frame.locator('#context-note').innerText(), /Your opponent offers a draw/);
     assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'), 'false');
-    await sendTurn(); await settled(); await idleBoard();
+    await sendTurn(); await callsDone(); await idleBoard();
     const saved = (await gameTool('kingdown_get', {game_id}))._meta.view;
     assert.equal(saved.revision, offered._meta.view.revision + 1);
     setRules(opened._meta.view.rules);
@@ -2190,6 +2378,12 @@ try {
   async function zoomEndFits(label, height = 426, width = 197, top = 51, safeBottom = height === 426 ? 59 : 0) {
     // Both results use the three solo actions named in ticket 32 C.
     const view = await page.evaluate(() => ({ ...window.harnessView, kind: 'solo', opponent: { ...window.harnessView.opponent, computer: true } }));
+    // A poll can leave only a delta in the harness. A fresh document needs the full rules, unlike the mounted client.
+    if (!view.rules) {
+      const full = await tool('kingdown_get', { game_id: view.game_id });
+      assert(!full.isError && full._meta?.view?.rules, 'The result layout fixture needs a complete rules projection');
+      view.rules = full._meta.view.rules;
+    }
     const host = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true });
     trapErrors(host);
     const frame = host.frameLocator('iframe');
@@ -2400,6 +2594,8 @@ try {
   });
   // T3: at 197 x 426 the hall scrolls to its end above the pinned Start game bar, and the page clips nothing.
   async function zoomHallFits() {
+    // The Play read that the hall starts draws the game rows again.
+    await settled(page, frame);
     const viewport = page.viewportSize();
     await zoomViewport(402,874,0,0);
     await frame.locator('#new-game .new-game-body').evaluate(el => { el.scrollTop = 0; });
@@ -2450,7 +2646,7 @@ try {
     await tapCentre(button);
     await zoomViewport(viewport.width,viewport.height,0,0);
   }
-  await legacyStart('solo'); await frame.locator('#board-menu').click(); await sheetLabelsCentered('menu'); await frame.locator('#menu-resign').click(); await sheetLabelsCentered('resign');
+  await legacyStart('solo'); await frame.locator('#board-menu').click(); await sheetLabelsFit('menu'); await frame.locator('#menu-resign').click(); await sheetLabelsFit('resign');
   await frame.locator('#board-sheet h2').filter({hasText:'Lay your king down?'}).waitFor({timeout: 3000 * STEP});
   assert.equal(await page.evaluate(()=>window.harnessView.status),'playing','Resign waits for its confirm');
   await frame.locator('#board-sheet').getByRole('button',{name:'Keep playing',exact:true}).click();
@@ -2463,7 +2659,7 @@ try {
   // keeps its cell in the grid, so the board never resizes and the canvas does not redraw at a new size.
   assert.deepEqual(rounded(await frame.locator('#board canvas').boundingBox()), rounded(boardBeforeEnd), 'The board keeps its rect when the end card opens');
   assert(await frame.locator('#table-bar').evaluate(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0;}),'The table bar keeps its grid cell behind the end card');
-  assert.equal(await frame.locator('#end-reason').innerText(),'You resigned.');
+  assert.equal(await frame.locator('#end-reason').innerText(),'Casual · You resigned.');
   assert.equal(await frame.locator('#over.is-win, #board[data-toppling]').count(),0,'A loss stays calm');
   const ended = await page.evaluate(()=>window.harnessView), rematchCalls = await page.evaluate(()=>window.harnessCalls.length);
   await page.clock.fastForward(1100);
@@ -2472,15 +2668,54 @@ try {
   await tapEndAtZoom('Play again');
   await frame.locator('#over #retry').waitFor();
   const pendingRematch=await page.evaluate(()=>window.harnessWidgetState.privateContent.pending);
+  await page.evaluate(()=>{window.rejectNextAction={name:'kingdown_resume',code:'UNAVAILABLE',text:'Harness rematch board load failed'};});
   await tapEndAtZoom('Retry');
-  await page.waitForFunction(id=>window.harnessView.game_id!==id,ended.game_id); await idleBoard();
+  await frame.locator('#over #error').filter({hasText:'Harness rematch board load failed'}).waitFor();
+  const rematchGame = await page.evaluate(()=>window.harnessView.rematch_game_id);
+  assert(rematchGame && rematchGame!==ended.game_id,'The accepted rematch already names one new game');
+  assert.equal(await page.evaluate(()=>window.harnessView.game_id),ended.game_id,'A failed rematch board load keeps the finished game');
+  assert.equal(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen),'end','A failed rematch board load keeps the result screen');
+  for (const [width,height] of [[390,844],[1280,800]]) {
+    await page.setViewportSize({width,height});
+    assert(await frame.locator('#over[open] #retry').isVisible(),'The old result keeps board-load recovery visible');
+    assert.equal(await frame.locator('#over-title').innerText(),'You lose');
+    assert.equal(await frame.locator('#end-reason').innerText(),'Casual · You resigned.');
+    await shot(page,`rematch-load-failure-${width}-${mode}`);
+  }
+  await frame.locator('#over #retry').click();
+  await page.waitForFunction(id=>window.harnessView.game_id===id,rematchGame); await idleBoard();
   assert.equal(await page.evaluate(()=>window.harnessView.seat),ended.seat,'Play again keeps the player colour');
   const rematchSent = await page.evaluate(n=>window.harnessCalls.slice(n),rematchCalls);
   assert.equal(rematchSent.find(c=>c.name==='kingdown_rematch').arguments.choice,'offer','Solo rematch offers, never accepts');
   assert.deepEqual(rematchSent.filter(c=>c.name==='kingdown_rematch').map(c=>c.arguments.command_id),[pendingRematch.args.command_id,pendingRematch.args.command_id],'A lost rematch reply retries the same command');
   const resumedCall = rematchSent.find(c=>c.name==='kingdown_resume'); assert(resumedCall && resumedCall.arguments.board_id,'The new game resumes on the same board');
+  const resumes = rematchSent.filter(c=>c.name==='kingdown_resume');
+  assert.equal(resumes.length,2,'Board-load recovery retries Resume without another rematch');
+  assert.deepEqual(resumes[1].arguments,resumes[0].arguments,'Board-load recovery opens the same new game on the same board');
+  assert.equal(resumedCall.arguments.game_id,rematchGame);
   assert(!rematchSent.some(c=>c.name==='kingdown_get' && c.arguments.game_id===resumedCall.arguments.game_id),'Rematch never reads the new game by ID');
   assert(['board','seat'].includes(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen)));
+  // A newer host result can interrupt the opening after the rematch is already accepted.
+  await legacyStart('solo'); await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
+  await frame.locator('#over.end-card[open]').waitFor(); await idleBoard(); await page.clock.fastForward(1100);
+  const interruptedEnd = await page.evaluate(() => window.harnessView), interruptedCalls = await page.evaluate(() => window.harnessCalls.length);
+  await page.evaluate(() => { window.holdBeforeNext = 'kingdown_resume'; });
+  await frame.locator('#over').getByRole('button', { name: 'Play again', exact: true }).click();
+  await page.waitForFunction(() => window.harnessHeld === 1);
+  const endedResult = await tool('kingdown_open', { game_id: interruptedEnd.game_id });
+  const acceptedRematch = endedResult._meta.view.rematch_game_id;
+  assert(acceptedRematch && acceptedRematch !== interruptedEnd.game_id);
+  await page.evaluate(result => window.harnessShow(result), endedResult);
+  await frame.locator('#over.end-card[open]').waitFor();
+  assert.equal(await frame.locator('#over-title').innerText(), 'You lose', 'An interrupted opening keeps the old result');
+  await page.evaluate(() => window.releaseBefore());
+  await page.waitForFunction(id => window.harnessView.game_id === id && ['board','seat'].includes(window.harnessWidgetState.privateContent.screen), acceptedRematch);
+  await idleBoard(); await boardBox();
+  const recoveredCalls = await page.evaluate(n => window.harnessCalls.slice(n), interruptedCalls);
+  assert.equal(recoveredCalls.filter(c => c.name === 'kingdown_rematch').length, 1, 'An interrupted opening never creates a second rematch');
+  assert.equal(recoveredCalls.filter(c => c.name === 'kingdown_resume' && c.arguments.game_id === acceptedRematch).length, 2, 'The cancelled opening can select the accepted rematch again');
+  assert.equal(await frame.locator('#retry').isVisible(), false, 'An interrupted selection recovers without Retry');
+  await shot(page, `rematch-selection-recovered-${mode}`);
   await legacyStart('solo'); await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
   await frame.locator('#over.end-card[open]').waitFor(); await idleBoard();
   await page.clock.fastForward(1100);
@@ -2523,26 +2758,40 @@ try {
     // (design §2 and §3.3), so wait for the command itself, then for its reply to settle.
     const declines=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_draw').length);
     await frame.locator('#context-actions #decline-draw').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Decline',exact:true}).click();
-    await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_draw').length>n,declines); await settled(); await idleBoard();
+    await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_draw').length>n,declines); await callsDone(); await idleBoard();
     current=await page.evaluate(()=>window.harnessView); assert.equal(current.draw_offer,null);
     const offerAgain=await friendTool('kingdown_draw',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'offer'}); assert(!offerAgain.isError); await readGame();
-    if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{outcome:{rating_before:1500,rating:1561,provisional:true,badges:[{badge:'fairy_tale',earned_at:new Date().toISOString()}]}}}}}});
+    if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{rating_policy:'legacy',outcome:{rating_before:1500,rating:1561,provisional:true,badges:[{badge:'fairy_tale',earned_at:new Date().toISOString()}]}}}}}});
     await page.evaluate(()=>{window.holdNext='kingdown_draw';});
     await frame.locator('#context-actions #accept-draw').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Accept',exact:true}).click();
     await page.waitForFunction(()=>typeof window.releaseHeld==='function');
     await page.evaluate(()=>{window.rejectNextGet=true; window.releaseHeld();});
     await frame.locator('#over.end-card[open] h2').filter({hasText:'Draw'}).waitFor(); await idleBoard();
-    assert.equal(await frame.locator('#end-reason').innerText(),'Draw by agreement.');
+    assert.equal(await frame.locator('#end-reason').innerText(),`${mode==='fixture'?'Legacy rated':'Casual'} · Draw by agreement.`);
     assert.equal(await frame.locator('#over.is-win, #board[data-toppling]').count(),0,'A draw stays calm');
     await frame.locator('#over #retry').waitFor({timeout: 3000 * STEP});
+    assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),true,'A pending result-details read still allows a queued rematch');
     assert.equal(await frame.locator('#over .end-facts').innerText(),'','A failed full end read shows no guessed rating or badge');
     await frame.locator('#over #retry').click(); await frame.locator('#over #retry').waitFor({state:'hidden'}); await idleBoard();
+    assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),true,'A successful result read unlocks rematch');
+    // A stale game read differs from the retained result-details request above.
+    for (let n=0;n<3;n++) {
+      const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
+      await page.evaluate(()=>{window.rejectNextGet=true;}); await page.clock.fastForward(3100);
+      await page.waitForFunction(count=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>count,reads); await callsDone();
+    }
+    await frame.locator('#over #retry').filter({hasText:'Try again'}).waitFor();
+    assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),false,'Failed background reads lock rematch without replacing the result');
+    await frame.locator('#over #retry').click(); await frame.locator('#over #retry').waitFor({state:'hidden'}); await idleBoard();
+    assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),true,'A fresh game read clears the rematch lock');
     if (mode==='fixture') { await frame.locator('.end-facts').filter({hasText:'New player'}).waitFor(); assert(!/1561|\+61|\?/.test(await frame.locator('.end-facts').innerText()), 'A new player sees no provisional number'); assert.match(await frame.locator('.new-badge img').getAttribute('src'),/badge-fairy-tale-/); }
     await page.setViewportSize({width:197,height:426});
     await page.locator('iframe').evaluate(e=>e.style.setProperty('height','100dvh','important'));
     await page.evaluate(()=>window.harnessSetContext({displayMode:'fullscreen',safeAreaInsets:{top:51,bottom:59,left:0,right:0},deviceCapabilities:{touch:true}}));
     assert(await frame.locator('#over').evaluate(e=>e.scrollHeight>e.clientHeight),'The 197 px end card scrolls');
     assert(await frame.locator('#game-table .table-back').evaluate(e=>{const r=e.getBoundingClientRect(),card=document.getElementById('over').getBoundingClientRect();return r.height>=44&&r.bottom<=card.top&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),'Back stays clear of the end card');
+    const backFace = await frame.locator('#game-table .table-back').evaluate(e => ({ height: e.getBoundingClientRect().height, cut: getComputedStyle(e, '::before').clipPath }));
+    assert.equal(backFace.height, 48, 'Back uses the small tablet height'); assert.match(backFace.cut, /polygon\(4px 0px/);
     for (const name of ['Rematch','New game','See the board']) {
       const b=frame.locator('#over').getByRole('button',{name,exact:true}); await b.scrollIntoViewIfNeeded();
       assert(await b.evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),name+' stays reachable at 197 px');
@@ -2609,7 +2858,7 @@ try {
     if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{deadline_at:new Date(Date.now()-60000).toISOString()}}}}});
     else { const {Client}=await import('pg'); const db=new Client({connectionString:process.env.PLUGIN_TEST_DATABASE_URL}); await db.connect(); try {await db.query("update public.games set deadline_at=now()-interval '1 minute', deadline_kind='move' where id=$1",[human.game_id]);} finally {await db.end();} }
     await readGame(); await frame.locator('#context-actions #claim').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Claim the win',exact:true}).click();
-    await frame.locator('#over.end-card[open] h2').filter({hasText:'You win'}).waitFor(); await idleBoard(); assert.equal(await frame.locator('#end-reason').innerText(),'Your opponent ran out of time.');
+    await frame.locator('#over.end-card[open] h2').filter({hasText:'You win'}).waitFor(); await idleBoard(); assert.equal(await frame.locator('#end-reason').innerText(),'Casual · Your opponent ran out of time.');
     human=await joinedGame(); await clickSquare(4,1); await clickSquare(4,3); await sendTurn(); await idleBoard(); current=await page.evaluate(()=>window.harnessView); assert.equal(current.abort_open,true);
     if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{deadline_at:new Date(Date.now()-60000).toISOString()}}}}});
     else {const {Client}=await import('pg'); const db=new Client({connectionString:process.env.PLUGIN_TEST_DATABASE_URL}); await db.connect(); try {await db.query("update public.games set deadline_at=now()-interval '1 minute', deadline_kind='first_turn' where id=$1",[human.game_id]);} finally {await db.end();}}
@@ -2646,9 +2895,9 @@ try {
     const replied = await friendTool('kingdown_move',{ game_id: friend.game_id, command_id: 'friend-reply', expected_revision: friend.revision, lan: 'e7-e5' });
     assert(!replied.isError);
     // The move also refreshes the games list. Finish that reply before the poll clock jumps past its request limit.
-    await settled();
+    await callsDone();
     await page.clock.fastForward(30000);
-    await settled();
+    await callsDone();
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     assert.equal(await page.evaluate(() => window.harnessView.revision), friend.revision + 1);
     await openPlay(); await legacyStart('solo'); await idleBoard();
@@ -2768,7 +3017,7 @@ try {
   if (capabilities.friend) {
     const open = await tool('kingdown_find',{options,colour:'white'}); assert(!open.isError);
     const lobby = await friendTool('kingdown_lobby'); assert(lobby._meta.lobby.games.some(g=>g.game_id===open._meta.view.game_id));
-    const accepted = await friendTool('kingdown_accept',{game_id:open._meta.view.game_id}); assert(!accepted.isError);
+    const accepted = await friendTool('kingdown_accept',{game_id:open._meta.view.game_id,rating_policy:open._meta.view.rating_policy}); assert(!accepted.isError);
     const shown = await tool('kingdown_open',{game_id:open._meta.view.game_id}); await page.evaluate(r=>window.harnessShow(r),shown);
     await frame.locator('#status').filter({hasText:'Your move'}).waitFor(); await idleBoard();
     const resign = await tool('kingdown_resign',{game_id:open._meta.view.game_id}); assert(!resign.isError);
@@ -2793,7 +3042,7 @@ try {
   // The approved table states use public views and the host's existing reply override.
   // These sample games are not in the service; a background poll must not replace them.
   await frame.locator('html').evaluate(()=>Object.defineProperty(document,'hidden',{configurable:true,value:true}));
-  await settled();
+  await callsDone();
   // R1: use the board's public view, as the table samples below do.
   {
     const original = await page.evaluate(() => window.harnessView);
@@ -2846,13 +3095,19 @@ try {
   for (const state of sampleStates) {
     await openScreen('settings'); await boardSetting('symbols-only',!!state.symbols); await boardSetting('show-threats',!!state.threats);
     const original=await page.evaluate(()=>window.harnessView), game_id=randomUUID();
-    const snapshot={...original,game_id,revision:100,status:'playing',kind:'friend',speed:'daily',days_per_move:3,seat:0,abort_open:!!state.abort,result:undefined,outcome:undefined,draw_offer:null,rematch_offer:null,rematch_game_id:null,rules:sampleRules,kings:sampleRules.kings,hands:sampleRules.hands,opponent:{handle:'mira_k',computer:false,deleted:false,rating:{rating:1540,provisional:false},last_seen_ms:121000},last_commands:[],deadline_at:null,server_now:new Date().toISOString()};
+    const snapshot={...original,rating_policy:'legacy',game_id,revision:100,status:'playing',kind:'friend',speed:'daily',days_per_move:3,seat:0,abort_open:!!state.abort,result:undefined,outcome:undefined,draw_offer:null,rematch_offer:null,rematch_game_id:null,rules:sampleRules,kings:sampleRules.kings,hands:sampleRules.hands,opponent:{handle:'mira_k',computer:false,deleted:false,rating:{rating:1540,provisional:false},last_seen_ms:121000},last_commands:[],deadline_at:null,server_now:new Date().toISOString()};
     setRules(sampleRules); let position={...fromFen(state.fen),used:state.used??[3,1]};
     const initial_fen = toFen(position);
     async function showSnapshot(value, words=`Move ${positionMoveNumber(fromFen(value.fen))}.`) {
       await page.evaluate(value=>{window.harnessNextView=value; return window.harnessShow({content:[],structuredContent:{game_id:value.game_id,screen:'board'},_meta:{board_id:window.harnessWidgetState.privateContent.board_id,view:value}});},value);
       await page.waitForFunction(value=>window.harnessView.game_id===value.game_id&&window.harnessView.fen===value.fen,value);
-      await frame.locator('#last-move').filter({hasText:words}).waitFor();
+      await frame.locator('#last-move').filter({hasText:words}).waitFor({state:'attached'});
+      const line = frame.locator('#last-move:visible, #short-move-words:visible');
+      await line.waitFor();
+      if (await frame.locator('#short-move-words').isVisible()) {
+        const last = (replayHistory(value,sampleRules) ?? replayLans({...snapshot,game_id:value.game_id,fen:initial_fen},value,sampleRules))?.at(-1);
+        assert.equal(await line.innerText(), last ? shortMove(last.pre,last.move,nameOf) : `Move ${positionMoveNumber(fromFen(value.fen))}.`, 'The visible compact line names the current move');
+      }
       await idleBoard(); await boardBox();
     }
     const legal=()=>position.turn===0?legalMoves(position).map(m=>toLan(position,m)):[];
@@ -2861,7 +3116,7 @@ try {
     for (const [index,lan] of state.play.entries()) {const step=applyLan(position,lan,sampleRules); assert(step,`${state.name}: the sample move is legal`); commands.push({seq:101+index,seat:position.turn,at:snapshot.server_now,action:{type:'turn',actions:[lan]}}); position=step.pos; story=step.words;}
     const finished=state.end?{status:'finished',result:{winner:0,reason:'checkmate'},outcome:{rating_before:1500,rating:1561,provisional:true,badges:[{badge:'fairy_tale',earned_at:snapshot.server_now}]}}:{};
     await showSnapshot({...snapshot,...finished,revision:100+commands.length,fen:toFen(position),turn:position.turn,in_check:inCheck(position),legal:state.end?[]:legal(),last_commands:commands,deadline_at:state.claim?new Date(Date.now()-60000).toISOString():null},story);
-    if (state.select) {await clickSquare(...state.select); await page.clock.runFor(POP_MS+14*RIPPLE_MS+50);}
+    if (state.select) {await clickSquare(...state.select); await page.clock.runFor(POP_MS+50);}
     if (state.claim) assert.equal(await frame.locator('#status').innerText(),'mira_k has not moved for 3 days.');
     if (state.end) {
       const viewport = page.viewportSize();
@@ -3000,12 +3255,13 @@ try {
       console.log(`T6/T7 tall-phone boxes: ${JSON.stringify(boxes)}`);
       const expected = {
         frame:[0,0,393,756], '#board':[4,44,385,411], '#board canvas':[4,44,385,411],
-        '#strip-them':[0,0,393,44], '#strip-me':[0,455,393,44], '#context-line':[12,499,369,44],
-        '#moves-line':[12,543,369,44], '#recent-moves':[12,587,369,108], '#table-bar':[0,708,393,48],
+        '#strip-them':[0,0,393,44], '#strip-me':[0,455,393,36], '#context-line':[12,491,369,48],
+        '#moves-line':[12,539,369,48], '#recent-moves':[12,587,369,108], '#table-bar':[0,704,393,52],
       };
       for (const [id,box] of Object.entries(expected)) assert(boxes[id]?.every((value,i) => Math.abs(value-box[i]) <= 1),
         `At 393 x 852 ${id} keeps its measured box (1 px rounding): ${JSON.stringify(boxes)}`);
       const movesControl = frame.locator('#moves-line'), recentMoves = frame.locator('#recent-moves');
+      assert(await recentMoves.isVisible(), 'The full list fits at 393 x 852 with tablet controls');
       await frame.locator('#moves-line[aria-expanded="true"]').waitFor();
       assert.match(await movesControl.innerText(), /Moves/, 'The Moves control keeps its name');
       assert.equal(await movesControl.getAttribute('aria-controls'), 'recent-moves', 'Moves names the list it controls');
@@ -3209,11 +3465,8 @@ try {
   assert.equal(await frame.locator('#choices button').count(), 0);
   }
   await page.evaluate(() => window.harnessTeardown());
-  for (const state of [...retiredWidgetStates, ...await page.evaluate(() => window.harnessWidgetStates ?? [])]) {
-    const json = JSON.stringify(state).replace(/"board_id":"[0-9a-f-]+"/gi, '');
-    assert(!/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}/i.test(json), 'Each widget write has no full UUID except board_id');
-    assert(!state.privateContent?.pending?.args?.code && !state.privateContent?.pending?.args?.handle, 'Pending state has no code or handle');
-  }
+  const draftBases = { ...retiredDraftBases, ...await page.evaluate(() => window.harnessDraftBases) };
+  for (const state of [...retiredWidgetStates, ...await page.evaluate(() => window.harnessWidgetStates ?? [])]) checkWidgetState(state, draftBases);
   assert.deepEqual(await frame.locator('body').evaluate(() => window.harnessTableIdConflicts), [], 'The board hand-off keeps one set of table IDs');
   assertNoErrors();
   console.log(`Harness mode: ${mode}`);

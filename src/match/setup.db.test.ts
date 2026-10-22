@@ -2,9 +2,11 @@
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GameService } from './service';
-import { createMatch, type LocalMatch } from './index';
+import * as matchModule from './index';
+import * as setupModule from './setup';
+import { createMatch, createPinnedMatch, loadMatch, type LocalMatch } from './index';
 import { runDeletions } from '../online/jobs';
 import { PostgresMatchStore } from './store';
 import { DEFAULT_OPTIONS, type Choice, type Options } from './setup';
@@ -14,7 +16,7 @@ import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 const suite = process.env.PLUGIN_TEST_DATABASE_URL ? describe : describe.skip;
 const command = (expected_revision: number, action: object, command_id = randomUUID()) => ({ command_id, expected_revision, action });
 const expectHidden = (reply: unknown, choice: Choice) => {
- const text = JSON.stringify(reply);
+ const text = JSON.stringify(reply, (key, value) => key === 'setup_admission' ? undefined : value);
  for (const secret of [choice.king!.king, choice.king!.power, choice.order, choice.order.toLowerCase()]) expect(text).not.toContain(secret);
 };
 suite('game setup through PostgreSQL', () => {
@@ -278,12 +280,13 @@ suite('game setup through PostgreSQL', () => {
   expect(await runDeletions(service)).toBe(1);
   expect(await service.view(b, game.game_id)).toMatchObject({ status: 'aborted', result: { winner: null, reason: 'abort' }, opponent: { deleted: true } });
  }, 30_000);
- it('stores validated options and waits for the player without an engine match', async () => {
+ it('pins validated options and waits for the player without publishing a position', async () => {
   const created = await service.create(a, { kind: 'solo', options: DEFAULT_OPTIONS, level: 'beginner' });
   expect(created).toMatchObject({ status: 'setup', seat: 0, action: 'ready', legal: [] });
-  const row = (await admin.query('select options,draw,deal,level,state,snapshot,started_at from public.games where id=$1', [created.game_id])).rows[0];
+  const row = (await admin.query('select options,draw,deal,level,state,snapshot,started_at,engine_fingerprint,setup_admission from public.games where id=$1', [created.game_id])).rows[0];
   expect(row).toMatchObject({ options: DEFAULT_OPTIONS, deal: [], level: 'beginner', state: null, snapshot: null, started_at: null });
-  expect(row.draw).toHaveLength(8);
+  expect(row.draw).toHaveLength(8); expect(row.engine_fingerprint).toMatch(/^sha256:[a-f0-9]{64}$/);
+  expect(row.setup_admission).toEqual({ kings: [], arrangement: true, bishopsOpposite: true, guardAdjacent: true });
   expect((await admin.query('select seat,choice,ready from public.game_players where game_id=$1 order by seat', [created.game_id])).rows).toEqual([
    { seat: 0, choice: { king: null, order: row.draw }, ready: false }, { seat: 1, choice: expect.objectContaining({ king: null }), ready: true },
   ]);
@@ -294,6 +297,73 @@ suite('game setup through PostgreSQL', () => {
   expect(classic.rules?.hands[0]).toHaveLength(4);
   expect(classic.rules?.hands[0]).toEqual(classic.rules?.hands[1]);
  }, 30_000);
+ it.each([false, true])('finishes an N setup on its archive after cutover (first seat ready: %s)', async firstReady => {
+  const engine = 'sha256:bab22e94d4df81591374763a7f3abe703c30534f80ce771ee3fe7e095dcec7da';
+  const current = await createMatch();
+  try { expect(JSON.parse(await current.exportSave()).engine).not.toBe(engine); } finally { await current.close(); }
+  let seed = 7;
+  const random = vi.spyOn(Math, 'random').mockImplementation(() => ((seed = Math.imul(seed, 1664525) + 1013904223 >>> 0) / 4294967296));
+  const factory = vi.spyOn(matchModule, 'createMatch').mockImplementation(setup => createPinnedMatch(setup ?? {}, engine));
+  let oracle: LocalMatch | undefined, reloaded: LocalMatch | undefined;
+  try {
+   const options = { ...DEFAULT_OPTIONS, kingPowers: true };
+   const created = await service.create(a, { kind: 'friend', options });
+   expect(created).toMatchObject({ status: 'waiting', engine_fingerprint: engine, fen: '', legal: [] });
+   expect(created.rules).toBeUndefined(); expect(created.kings).toBeUndefined();
+   expect(Object.keys(created.setup_admission!).sort()).toEqual(['arrangement', 'bishopsOpposite', 'guardAdjacent', 'kings']);
+   const before = (await admin.query('select draw,deal,setup_admission,state,snapshot from public.games where id=$1', [created.game_id])).rows[0];
+   expect(before.state).toBeNull(); expect(before.snapshot).toBeNull();
+   const invitation = await service.invite(a, created.game_id);
+   if (firstReady) await service.join(b, invitation.token);
+   const choice: Choice = { king: { king: 'Flame', power: 'Haste' }, order: [...before.draw].reverse().join('') };
+   const first = command(1, { type: 'choose', choice, ready: true });
+   if (firstReady) await service.command(a, created.game_id, first);
+   // N+1 may change both defaults and admission; neither path may resolve this pending game again.
+   factory.mockRejectedValue(new Error('Current engine creation is forbidden after N'));
+   const admission = vi.spyOn(setupModule, 'setupAdmission').mockImplementation(() => { throw new Error('Current admission is forbidden after N'); });
+   try {
+    const next = new GameService(new PostgresMatchStore(runtime));
+    if (!firstReady) { await next.join(b, invitation.token); await next.command(a, created.game_id, first); }
+    const final = await next.command(b, created.game_id, command(2, { type: 'choose', choice: { king: { king: 'Shadow', power: 'Darkness' }, order: before.draw }, ready: true }));
+    expect(final).toMatchObject({ status: 'playing', revision: 3, engine_fingerprint: engine });
+    expect(await next.command(a, created.game_id, first)).toMatchObject({ revision: 3, engine_fingerprint: engine });
+    const row = (await admin.query('select draw,deal,setup_admission,state,setup from public.games where id=$1', [created.game_id])).rows[0];
+    expect({ draw: row.draw, deal: row.deal, setup_admission: row.setup_admission }).toEqual({ draw: before.draw, deal: before.deal, setup_admission: before.setup_admission });
+    oracle = await createPinnedMatch(row.setup, engine);
+    const initial = await oracle.snapshot(), full = await next.view(a, created.game_id);
+    expect(full.rules).toEqual(initial.rules); expect(full.legal).toEqual(initial.legal); expect(full.fen).toBe(initial.fen);
+    const move = initial.legal.find(lan => lan.endsWith('!H'))!;
+    expect(move).toBeTruthy();
+    await oracle.apply({ id: 'expected-1', expectedRevision: 0, lan: move });
+    const expected = await oracle.apply({ id: 'expected-2', expectedRevision: 1, lan: '--' });
+    const played = await next.command(a, created.game_id, command(3, { type: 'turn', actions: [move, '--'] }));
+    expect(played).toMatchObject({ revision: 4, engine_fingerprint: engine, fen: expected.fen, turn: expected.turn, status: 'playing' });
+    const save = (await admin.query('select state from public.games where id=$1', [created.game_id])).rows[0].state;
+    reloaded = await loadMatch(save);
+    expect(await reloaded.snapshot()).toEqual(expected);
+    expect((await next.view(a, created.game_id)).history?.actions).toEqual([move, '--']);
+    expect(factory).toHaveBeenCalledTimes(1); expect(admission).not.toHaveBeenCalled();
+   } finally { admission.mockRestore(); }
+  } finally { factory.mockRestore(); random.mockRestore(); await oracle?.close(); await reloaded?.close(); }
+ }, 30_000);
+ it('refuses unexpected unstamped pending rows instead of assigning current defaults', async () => {
+  const created = await service.create(a, { kind: 'friend', options: DEFAULT_OPTIONS });
+  const invitation = await service.invite(a, created.game_id);
+  await admin.query('update public.games set engine_fingerprint=null,setup_admission=null where id=$1', [created.game_id]);
+  await expect(service.join(b, invitation.token)).rejects.toMatchObject({ code: 'MATCH_INCOMPATIBLE' });
+  expect((await admin.query('select status,engine_fingerprint,setup_admission,state from public.games where id=$1', [created.game_id])).rows[0]).toEqual({ status: 'waiting', engine_fingerprint: null, setup_admission: null, state: null });
+ });
+ it('returns an accepted setup receipt before refusing a new choice on an unmapped pending row', async () => {
+  const created = await service.create(a, { kind: 'friend', options: DEFAULT_OPTIONS });
+  await service.join(b, (await service.invite(a, created.game_id)).token);
+  const before = await service.view(a, created.game_id), accepted = command(1, { type: 'choose', choice: before.choices![0], ready: true });
+  await service.command(a, created.game_id, accepted);
+  await admin.query('update public.games set setup_admission=null where id=$1', [created.game_id]);
+  expect(await service.command(a, created.game_id, accepted)).toMatchObject({ revision: 2, status: 'setup' });
+  const other = await service.view(b, created.game_id);
+  await expect(service.command(b, created.game_id, command(2, { type: 'choose', choice: other.choices![1], ready: true }))).rejects.toMatchObject({ code: 'MATCH_INCOMPATIBLE' });
+  expect((await admin.query('select count(*)::int as n from public.game_commands where game_id=$1', [created.game_id])).rows[0].n).toBe(2);
+ });
  it('adds setup defaults to a save seeded under 0009 and continues play after two applies of 0010', async () => {
   const server = new URL(own.href); server.pathname = '/postgres';
   const control = new pg.Pool({ connectionString: server.href, max: 1 });
@@ -325,6 +395,10 @@ suite('game setup through PostgreSQL', () => {
    expect((await db.query('select options,draw,deal,level,setup_deadline_at,rematch_offer,rematch_game_id,state,snapshot from public.games where id=$1', [gameId])).rows[0])
     .toEqual({ options: null, draw: null, deal: null, level: 'club', setup_deadline_at: null, rematch_offer: null, rematch_game_id: null, state, snapshot });
    expect((await db.query('select choice,ready from public.game_players where game_id=$1 order by seat', [gameId])).rows).toEqual([{ choice: null, ready: false }, { choice: null, ready: false }]);
+   await db.query(await readFile(new URL('../../supabase/migrations/0017_setup_admission.sql', import.meta.url), 'utf8'));
+   const policy = await readFile(new URL('../../supabase/migrations/0018_rating_policy.sql', import.meta.url), 'utf8');
+   await db.query(policy); await db.query(policy);
+   expect((await db.query('select rating_policy,state,snapshot from public.games where id=$1', [gameId])).rows[0]).toEqual({ rating_policy: 'legacy', state, snapshot });
    const upgraded = new GameService(new PostgresMatchStore(db));
    expect(await upgraded.view(a, gameId)).toMatchObject({ status: 'playing', revision: 1, turn: 1, fen: snapshot.fen });
    expect(await upgraded.command(a, gameId, command(1, { type: 'computer' }))).toMatchObject({ status: 'playing', revision: 2, turn: 0 });

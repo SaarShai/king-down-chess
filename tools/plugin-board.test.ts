@@ -5,18 +5,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Browser, Locator, Page } from 'playwright';
 import { launch, STEP } from './lib/checks.mjs';
-import { startHarness } from './plugin-ui-harness';
+import { startHarness, waitForSourceApp } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
-import { inCheck, legalMoves, makeMove, parseRule, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
+import { P, R, N, L, inCheck, legalMoves, makeMove, parseRule, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import type { View } from '../src/match/protocol';
 import { applyLan } from '../src/plugin/screens/board-model';
 import { LESSONS } from '../src/lessons';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { readText } from '../src/read';
+import { checkTabletButtons, checkButtonContent } from './lib/plugin-tablet-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
+import { checkCoinFocus } from './lib/plugin-coin-focus-check.mjs';
 import { momentKind } from '../src/moment';
 import { soundsFor } from '../src/screen/moments';
 import { describeMove } from '../src/move-text';
+import { GameRules } from '../src/game-rules';
 import { cardText, powerText, ruleLine } from '../src/powers-ui';
 import { PRESETS, designCode, fromPreset } from '../src/workshop/model';
 
@@ -25,9 +28,10 @@ vi.setConfig({ testTimeout: 60_000 * STEP, hookTimeout: 60_000 * STEP, expect: {
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, served: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-board-faults-'));
-  execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe' });
+  // Normal shared build: at most 601 ms in the M1 style test.
+  execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe', timeout: 30_000 });
   const boardPath = join(folder, 'board.html');
-  harness = await startHarness({ boardPath, sourcePage: true }); served = await startHarness({ boardPath }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
+  harness = await startHarness({ boardPath, sourcePage: true, pageEngine: 'test-engine' }); served = await startHarness({ boardPath }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
   // The first board page of a new browser pays one-time costs (Vite's transform of the board modules, the first painted
   // board): over 3 s on cold Linux WebKit in CI runs 39135693919 and 39138716531. Open one board here with the hook's
   // limit, so the first test's 3 s steps measure the page, not the cold start.
@@ -39,7 +43,7 @@ afterAll(async () => { await browser?.close(); await harness?.close(); await ser
 
 function view(fen: string, rules: Partial<Rules> = {}, fields: Partial<View> = {}): View {
   setRules(rules); const pos = fromFen(fen || '7k/8/8/8/8/8/P7/K7 w - - 0 1');
-  return { game_id: crypto.randomUUID(), revision: 0, created_at: '2026-10-15T00:00:00Z', abort_open: false, seat: pos.turn, kind: 'solo', speed: 'daily', days_per_move: 3, status: 'playing', turn: pos.turn, action: 'ready', fen, in_check: false, legal: legalMoves(pos).map(m => toLan(pos, m)), last_commands: [], opponent: { handle: null, icon: null, computer: true, deleted: false, last_seen_ms: null }, draw_offer: null, deadline_at: null, server_now: '2026-10-15T00:00:00Z', rules: structuredClone(RULES), ...fields };
+  return { rating_policy: 'casual', game_id: crypto.randomUUID(), engine_fingerprint: 'test-engine', revision: 0, created_at: '2026-10-15T00:00:00Z', abort_open: false, seat: pos.turn, kind: 'solo', speed: 'daily', days_per_move: 3, status: 'playing', turn: pos.turn, action: 'ready', fen, in_check: false, legal: legalMoves(pos).map(m => toLan(pos, m)), last_commands: [], opponent: { handle: null, icon: null, computer: true, deleted: false, last_seen_ms: null }, draw_offer: null, deadline_at: null, server_now: '2026-10-15T00:00:00Z', rules: structuredClone(RULES), ...fields };
 }
 const insets = (width: number) => ({ top: width === 320 ? 63 : width === 360 ? 80 : 102, bottom: width === 320 ? 84 : width === 360 ? 100 : 118, left: 0, right: 0 });
 // The target checks get a root that a redraw keeps, and find its visible buttons in the same page call as they measure.
@@ -67,13 +71,14 @@ async function open(next: View, width = 393, height = 852, clock = false, limit 
   // CI WebKit once closed one page in the middle of a test, with no error of its own (ticket 49).
   page.on('crash', () => console.error('The test page crashed'));
   if (clock) await page.clock.install();
-  await page.goto(harness.url);
+  await page.goto(harness.url); await waitForSourceApp(page);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   await page.locator('#remount').evaluate(e => { e.style.display = 'none'; });
   await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
   await page.evaluate(async safeAreaInsets => {
     await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets, deviceCapabilities: { touch: true } });
   }, insets(width));
+  expect(await page.frameLocator('iframe').locator('html').evaluate('(async () => (await import("/src/account-game/engine-identity.ts")).PAGE_ENGINE)()')).toBe('test-engine');
   await page.frameLocator('iframe').locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), next);
   await page.frameLocator('iframe').locator('html').evaluate('(async () => { window.testBoard = (await import("/src/plugin/board-view.ts")).board; })()');
   return page;
@@ -140,7 +145,7 @@ it.each(['See the board', 'New game'])('cancels a pending ceremony with %s durin
   } finally { await page.close(); }
 });
 
-it.each(['Skip', 'Finish'])('keeps the king fall running when the result card opens, then %s clears it', async ending => {
+it.each(['Skip mouse', 'Skip touch', 'Finish'])('keeps the king fall running when the result card opens, then %s clears it', async ending => {
   const before = view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'), pre = fromFen(before.fen);
   const move = legalMoves(pre).find(m => toLan(pre,m) === 'Qa1-a8')!, post = makeMove(pre,move);
   const page = await open(before, 360, 844, true), frame = page.frameLocator('iframe');
@@ -156,9 +161,17 @@ it.each(['Skip', 'Finish'])('keeps the king fall running when the result card op
     await page.clock.runFor(50);
     await frame.locator('#over[open]').waitFor(); await frame.locator('#board[data-toppling]').waitFor({ state: 'attached' });
     expect(await frame.locator('html').evaluate(() => (window as any).falls)).toEqual([true]);
-    if (ending === 'Skip') await frame.locator('#end-skip').evaluate((b: HTMLButtonElement) => b.click());
-    else await page.clock.fastForward(1130);
+    if (ending !== 'Finish') {
+      expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.falling)).toBe(true);
+      await frame.locator('#over').evaluate(async el => { await Promise.all(el.getAnimations().map(a => a.finished)); });
+      const box = (await frame.locator('#end-skip').boundingBox())!;
+      if (ending === 'Skip touch') await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+      else await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await expect.poll(() => frame.locator('#end-skip').isHidden()).toBe(true);
+    } else await page.clock.fastForward(1130);
     expect(await frame.locator('html').evaluate(() => (window as any).falls.at(-1))).toBe(false);
+    expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
+    await page.clock.runFor(1200);
     expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
     expect(await frame.locator('#game-table').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   } finally { await page.close(); }
@@ -258,25 +271,42 @@ it('keeps round coin faces while a command disables the buttons', async () => {
   try {
     const coins = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll<HTMLButtonElement>('.coin')].map(coin => {
       coin.disabled = true;
-      const style = getComputedStyle(coin);
-      return { round: style.borderRadius === '50%', radial: style.backgroundImage.includes('radial-gradient'), cursor: style.cursor };
+      const style = getComputedStyle(coin.querySelector('.coin-paint')!);
+      return { round: style.borderRadius === '50%', radial: style.backgroundImage.includes('radial-gradient'), cursor: getComputedStyle(coin).cursor };
     }));
     expect(coins.length).toBeGreaterThan(0);
     expect(coins.every(coin => coin.round && coin.radial && coin.cursor === 'default')).toBe(true);
   } finally { await page.close(); }
 });
 
-it('keeps spent coin contrast, token text and full coin faces together', async () => {
+it.each([['light', 'cards'], ['dark', 'cards'], ['light', 'powers'], ['dark', 'powers']] as const)('keeps used coin focus above 3:1 in %s with %s at 390 × 844', async (theme, kind) => {
+  const rules: Partial<Rules> = kind === 'cards' ? { hands: [['Freeze', 'Vault'], ['Freeze', 'Vault']] }
+    : { kings: [{ king: 'Frost', power: 'Freeze' }, { king: 'Frost', power: 'Freeze' }] };
+  const page = await open(view('7k/8/8/8/8/8/P7/R6K w - - 0 1 u3.3', rules), 390, 844), frame = page.frameLocator('iframe');
+  try {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.evaluate(theme => (window as any).harnessSetContext({ theme }), theme);
+    const ids = await frame.locator('#game-table .coin[data-state="used"]').evaluateAll(coins => coins.map(c => c.id));
+    expect(ids).toHaveLength(kind === 'cards' ? 4 : 2);
+    for (const id of ids) await checkCoinFocus(page, frame, `#${id}`);
+    expect(await frame.locator('#game-table .coin-paint > .notches').count()).toBe(kind === 'powers' ? 2 : 0);
+    expect(await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll('.notches')].every(n => n.parentElement?.className === 'coin-paint'))).toBe(true);
+  } finally { await page.close(); }
+});
+
+it('keeps spent coin contrast and clear symbols together', async () => {
   const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [['MorphP'], ['MirrorB']] })), frame = page.frameLocator('iframe');
   try {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const coins = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll<HTMLButtonElement>('.card-coin')].map(coin => {
       coin.dataset.state = 'used'; coin.disabled = true;
-      const style = getComputedStyle(coin), image = coin.querySelector('img')!, face = image.getBoundingClientRect(), box = coin.getBoundingClientRect();
-      return { opacity: style.opacity, font: getComputedStyle(coin.querySelector('.cc-word')!).fontSize, token: getComputedStyle(document.documentElement).getPropertyValue('--fs-xs').trim(), inset: box.width - face.width };
+      const style = getComputedStyle(coin.querySelector('.coin-paint')!), symbol = coin.querySelector('svg')!, face = symbol.getBoundingClientRect(), box = coin.getBoundingClientRect();
+      return { opacity: style.opacity, buttonOpacity: getComputedStyle(coin).opacity, symbol: !!symbol, letters: coin.textContent, color: getComputedStyle(symbol).color, inset: box.width - face.width };
     }));
     expect(coins).toHaveLength(2);
-    for (const coin of coins) { expect(coin.opacity).toBe('0.85'); expect(coin.font).toBe(coin.token); expect(coin.inset).toBeCloseTo(8, 0); }
+    expect(coins[0].color).not.toBe(coins[1].color);
+    expect(coins[1].color).toBe('rgb(255, 245, 218)');
+    for (const coin of coins) { expect(coin.opacity).toBe('0.85'); expect(coin.buttonOpacity).toBe('1'); expect(coin.symbol).toBe(true); expect(coin.letters).toBe(''); expect(coin.inset).toBeCloseTo(12, 0); }
   } finally { await page.close(); }
 });
 
@@ -306,7 +336,7 @@ it.each([[320,568], [393,852]])('keeps the swap portrait and held note with the 
     expect(await frame.locator('#status').textContent()).toBe('White Maester.');
     await squareTap(page,26);
     expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('held');
-    expect(await frame.locator('#context-note').textContent()).toBe(`${describeMove(pre,swap)} Player blocked.`);
+    expect(await frame.locator('#context-note').textContent()).toBe(`${describeMove(new GameRules(base.rules),pre,swap)} Player blocked.`);
     expect(await frame.locator('#status').textContent()).toBe('Select again to swap.');
     const info = frame.getByRole('button', {name:'All rules',exact:true});
     await info.locator('img').evaluate(image => (image as HTMLImageElement).decode());
@@ -319,7 +349,7 @@ it.each([[320,568], [393,852]])('keeps the swap portrait and held note with the 
     await frame.locator('#board-sheet').getByRole('button', {name:'Close',exact:true}).click();
     expect(await info.evaluate(button => button === document.activeElement)).toBe(true);
     expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('held');
-    expect(await frame.locator('#context-note').textContent()).toBe(`${describeMove(pre,swap)} Player blocked.`);
+    expect(await frame.locator('#context-note').textContent()).toBe(`${describeMove(new GameRules(base.rules),pre,swap)} Player blocked.`);
     await squareTap(page,27);
     expect(await frame.locator('#context-note').textContent()).toBe('Player blocked.');
   } finally { await page.close(); }
@@ -406,7 +436,7 @@ it.each(['card','power'] as const)('keeps the full armed %s rule and block notic
     });
     expect(text.maxHeight).toBe('none');
     expect(text.content).toBeLessThanOrEqual(text.height + 1);
-    expect((await frame.locator('#board canvas').boundingBox())!.width).toBeGreaterThanOrEqual(192);
+    expect((await frame.locator('#board canvas').boundingBox())!.width).toBeGreaterThanOrEqual(184);
     await frame.getByRole('button',{name:'Cancel',exact:true}).click();
     expect(await frame.locator('#context-note').textContent()).toBe('Player blocked.');
   } finally { await page.close(); }
@@ -430,7 +460,7 @@ it('names the power coin owner when both kings have the same power', async () =>
     expect.soft(await frame.locator('#power-w').getAttribute('aria-label')).toMatch(/^Your Freeze, /);
     expect.soft(await frame.locator('#power-b').getAttribute('aria-label')).toMatch(/^Opponent's Freeze, /);
     expect.soft((await frame.locator('#strip-them').innerText()).match(/Computer/g)).toHaveLength(1);
-    const names = await frame.locator('html').evaluate('(async () => { const { features } = await import("/src/plugin/screens/friend.ts"); return [...features({ fairy: true, arrangement: true, cards: true, kingPowers: true }).children].map(e => [e.getAttribute("role"), e.getAttribute("aria-label")]); })()');
+    const names = await frame.locator('html').evaluate('(async () => { const { features } = await import("/src/account-game/features.ts"); return [...features({ fairy: true, arrangement: true, cards: true, kingPowers: true }).children].map(e => [e.getAttribute("role"), e.getAttribute("aria-label")]); })()');
     expect.soft(names).toEqual(['Fairy pieces', 'Arrangement', 'Cards', 'King powers'].map(name => ['img', name]));
   } finally { await page.close(); }
 });
@@ -471,27 +501,33 @@ it.each([{ width: 393, height: 852, cards: true }, { width: 320, height: 568, ca
     expect(await frame.locator('html').evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
     expect(await frame.locator('#game-table').evaluate(targetMisses)).toEqual([]);
     expect(await frame.locator('#game-table').evaluate(edgeMisses)).toEqual([]);
+    const clearance = await frame.locator('.table-back:visible').evaluate(back => {
+      const board = (window as any).testBoard, top = board.screenOf(56), below = board.screenOf(48);
+      return top.y - Math.abs(below.y - top.y) / 2 - back.getBoundingClientRect().bottom;
+    });
+    expect(clearance, 'Back stays above the board squares').toBeGreaterThanOrEqual(0);
     if (cards) {
       await frame.locator('#card-w-1').click(); await frame.getByRole('button', { name: 'Use', exact: true }).click();
       await frame.getByRole('button', { name: 'Cancel', exact: true }).waitFor();
       expect(await frame.locator('#game-table').evaluate(edgeMisses)).toEqual([]);
     }
     expect.soft(await frame.locator('#strip-me').evaluate(e => { const r = e.querySelector('.coin img')!.getBoundingClientRect(); return [r.width, r.height]; })).toEqual(cards ? [36, 36] : [30, 30]);
-    // K1 a: through 440 px the cards go below the player name in two 44 px rows.
-    expect(await frame.locator('#strip-me').evaluate(e => e.getBoundingClientRect().height)).toBe(cards ? 88 : 44);
+    // K1 a: the cards stay below the 36 px portrait row. Their targets stay 48 px.
+    expect(await frame.locator('#strip-me').evaluate(e => e.getBoundingClientRect().height)).toBe(cards ? 80 : 44);
   } finally { await page.close(); }
 });
 
 it.each(['normal', 'fast'])('uses a slide, a 150 ms fade and no shake under reduced motion at %s pace', async pace => {
-  const page = await open(view('7k/8/8/8/8/8/p7/R6K w - - 0 1')), frame = page.frameLocator('iframe');
+  // Install the clock before the scene queues frames, so a real frame cannot outlive the clock change.
+  const page = await open(view('7k/8/8/8/8/8/p7/R6K w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
   try {
     await frame.locator('#board[aria-busy="false"]').waitFor();
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).testBoard.motionQuery.matches)).toBe(true);
     await frame.locator('html').evaluate((_, pace) => (window as any).testBoard.setPace(pace), pace);
-    // A frame requested before the fake clock runs on real time; wait until the scene draws no more frames.
+    // Let the reduced-motion setting draw its last frame before the clock pauses.
     await expect.poll(() => frame.locator('html').evaluate(async () => { const scene = (window as any).testBoard.scene, before = scene.frames; await new Promise(resolve => setTimeout(resolve, 100)); return scene.frames === before; })).toBe(true);
-    await page.clock.install({ time: new Date('2026-10-15T12:00:00Z') }); await page.clock.pauseAt(new Date('2026-10-15T12:00:01Z'));
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
     const result = await frame.locator('html').evaluate(async () => {
       const board = (window as any).testBoard, scene = board.scene, pre = board.pos;
       const moves = [];
@@ -520,6 +556,7 @@ it.each(['normal', 'fast'])('uses a slide, a 150 ms fade and no shake under redu
     await page.clock.fastForward(slide + 75);
     const middle = await frame.locator('html').evaluate(() => ({ done: (window as any).captureDone, start: (window as any).captureStart, frames: (window as any).victimFrames }));
     expect(middle.done).toBe(false);
+    expect(middle.frames.length).toBeGreaterThan(0);
     const victim = middle.frames.at(-1);
     expect(victim.opacity).toBeGreaterThan(0); expect(victim.opacity).toBeLessThan(1);
     expect(victim.opacity).toBeCloseTo(1 - (victim.at - middle.start - slide) / 150, 5);
@@ -528,6 +565,91 @@ it.each(['normal', 'fast'])('uses a slide, a 150 ms fade and no shake under redu
     const frames = await frame.locator('html').evaluate(() => (window as any).boardFrames as number[][]);
     expect(frames.length).toBeGreaterThan(0); expect(frames.every(([x, y]) => x === 0 && y === 64)).toBe(true);
     await frame.locator('html').evaluate(() => { const board = (window as any).testBoard; board.skip(); board.sync(board.pos); });
+  } finally { await page.close(); }
+});
+
+it.each([[197,426,51], [197,800,51], [201,357,31], [201,357,62], [206,395,27]])('keeps end reasons and actions readable at %i × %i with top %i', async (width, height, top) => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), width, height), frame = page.frameLocator('iframe');
+  try {
+    await page.evaluate(async top => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top, bottom: 96, left: 0, right: 0 }, deviceCapabilities: { touch: true } }); }, top);
+    await frame.locator('#app-frame').evaluate(e => { e.style.bottom = '96px'; });
+    // Match the compiled zoom fixture's three solo actions; policy text is tested independently of creation admission.
+    for (const rating_policy of ['legacy', 'casual', 'ranked-v1'] as const) for (const [reason, winner, words] of [
+      ['checkmate', 0, 'You gave checkmate.'], ['resignation', 1, 'You resigned.'],
+      ['timeout', 0, 'Your opponent ran out of time.'], ['drawMaterial', null, 'Neither side has enough pieces to give checkmate.'],
+    ] as const) {
+      const next = view('7k/8/8/8/8/8/P7/K7 w - - 0 1', {}, { rating_policy, status: 'finished', action: 'finished', result: { reason, winner } });
+      await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), next);
+      await frame.locator('#over[open]').waitFor();
+      await frame.locator('html').evaluate('(async () => { (await import("/src/plugin/screens/board.ts")).skipBoardCeremony(); await document.fonts.ready; await Promise.all(document.getAnimations().map(a => a.finished.catch(() => {}))); })()');
+      await frame.locator('#end-skip').waitFor({ state: 'hidden' });
+      await frame.locator('#over').evaluate(card => { card.scrollTop = 0; });
+      const label = `${rating_policy} ${reason} ${width}×${height} top${top}`;
+      expect(await frame.locator('#end-reason').textContent()).toBe(`${{ legacy: 'Legacy', casual: 'Casual', 'ranked-v1': 'Ranked' }[rating_policy]} · ${words}`);
+      const geometry = await frame.locator('#over').evaluate(card => {
+        const box = (e: Element) => { const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, width: r.width, height: r.height }; };
+        const back = document.querySelector('#game-table .table-back')!, r = back.getBoundingClientRect();
+        return { card: box(card), back: box(back), backHit: back.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)), reason: box(card.querySelector('#end-reason')!), buttons: [...card.querySelectorAll<HTMLButtonElement>('form button:not([hidden])')].map(box), scroll: card.scrollTop };
+      });
+      expect(geometry.card.top, label).toBeGreaterThanOrEqual(geometry.back.bottom);
+      expect(geometry.backHit, label).toBe(true);
+      expect(geometry.scroll, label).toBe(0);
+      expect(geometry.buttons, label).toHaveLength(3);
+      for (const button of geometry.buttons) { expect(button.width, label).toBeGreaterThanOrEqual(48); expect(button.height, label).toBeGreaterThanOrEqual(48); }
+      // The short win/loss explanation and first action fit before scrolling, with the original 12 px next-action cue.
+      if (reason === 'checkmate' || reason === 'resignation') {
+        expect(geometry.reason.top, label).toBeGreaterThanOrEqual(geometry.card.top);
+        expect(geometry.reason.bottom, label).toBeLessThanOrEqual(geometry.card.bottom);
+        expect(geometry.buttons[0].top, label).toBeGreaterThanOrEqual(geometry.card.top);
+        expect(geometry.buttons[0].bottom, label).toBeLessThanOrEqual(geometry.card.bottom);
+        expect(geometry.card.bottom - geometry.buttons[1].top, label).toBeGreaterThanOrEqual(12);
+      }
+      // Longer explanations retain every word. Scroll the complete reason and each full target into view.
+      for (const selector of ['#end-reason', 'form button:nth-child(1)', 'form button:nth-child(2)', 'form button:nth-child(3)']) {
+        const visible = await frame.locator(`#over ${selector}`).evaluate(e => {
+          const card = e.closest('dialog')!, before = e.getBoundingClientRect(), c = card.getBoundingClientRect();
+          card.scrollTop += before.top + before.height / 2 - c.top - card.clientHeight / 2;
+          const r = e.getBoundingClientRect();
+          return { top: r.top, bottom: r.bottom, cardTop: c.top, cardBottom: c.bottom, hit: e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)) };
+        });
+        expect(visible.top, `${label} ${selector}`).toBeGreaterThanOrEqual(visible.cardTop);
+        expect(visible.bottom, `${label} ${selector}`).toBeLessThanOrEqual(visible.cardBottom);
+        expect(visible.hit, `${label} ${selector}`).toBe(true);
+      }
+    }
+  } finally { await page.close(); }
+});
+
+it('keeps populated end status and failed-read recovery reachable in the shortest frame', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), 201, 357), frame = page.frameLocator('iframe');
+  try {
+    await page.evaluate(async () => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top: 62, bottom: 96, left: 0, right: 0 }, deviceCapabilities: { touch: true } }); });
+    await frame.locator('#app-frame').evaluate(e => { e.style.bottom = '96px'; });
+    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } }); });
+    await page.evaluate(() => { (window as any).rejectNextGet = true; });
+    await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp, v = app.memory.view;
+      await app.call('kingdown_resign', { game_id: v.game_id, expected_revision: v.revision, command_id: crypto.randomUUID() }, true);
+    });
+    await frame.locator('#over[open] #retry:not([hidden])').waitFor();
+    expect(await frame.locator('#over #error').textContent()).toBe('Harness saved-game read failed');
+    await frame.locator('html').evaluate('(async () => { window.harnessApp.memory.blockNotice = "Player blocked."; (await import("/src/plugin/screens/end.ts")).updateEnd(); })()');
+    expect(await frame.locator('#end-block-status').textContent()).toBe('Player blocked.');
+    for (const selector of ['#end-block-status', '#error', '#retry']) {
+      const seen = await frame.locator(`#over ${selector}`).evaluate(e => {
+        const card = e.closest('dialog')!, r = e.getBoundingClientRect(), c = card.getBoundingClientRect();
+        card.scrollTop += r.top + r.height / 2 - c.top - card.clientHeight / 2;
+        const now = e.getBoundingClientRect();
+        return { top: now.top, bottom: now.bottom, cardTop: c.top, cardBottom: c.bottom, hit: e.contains(document.elementFromPoint(now.x+now.width/2,now.y+now.height/2)), height: now.height };
+      });
+      expect(seen.top, selector).toBeGreaterThanOrEqual(seen.cardTop);
+      expect(seen.bottom, selector).toBeLessThanOrEqual(seen.cardBottom);
+      expect(seen.hit, selector).toBe(true);
+      if (selector === '#retry') expect(seen.height).toBeGreaterThanOrEqual(48);
+    }
+    await clickButton(page, frame.locator('#over #retry'));
+    await frame.locator('#over #retry').waitFor({ state: 'hidden' });
+    expect(await frame.locator('#over #error').textContent()).toBe('');
   } finally { await page.close(); }
 });
 
@@ -660,6 +782,10 @@ it('stops passive drawing five seconds after changes and keeps move motion', asy
   const page = await open(view('7k/8/8/8/8/3p4/4P3/K7 w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
   try {
     await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
+    // Optional king art can finish after ready() and start a new draw window.
+    await page.waitForLoadState('networkidle');
+    // Keep elapsed time under test control between frame-count reads.
+    const now = new Date(); await page.clock.setFixedTime(now); await page.clock.pauseAt(now);
     await frame.locator('html').evaluate(() => (window as any).testBoard.scene.redraw());
     const frames = () => frame.locator('html').evaluate(() => (window as any).testBoard.scene.frames);
     const settle = async () => { await page.clock.fastForward(5_100); await page.clock.runFor(100); const count = await frames(); await page.clock.runFor(200); expect(await frames()).toBe(count); };
@@ -774,9 +900,43 @@ it.each([[320, 568, 84], [320, 568, 180], [393, 852, 118], [820, 600, 34], [852,
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView({...next,draw_offer:1}), next);
     expect(await frame.locator('#context-actions #accept-draw').isVisible()).toBe(true);
     expect(await frame.locator('#context-actions #decline-draw').isVisible()).toBe(true);
+    const clear = await frame.locator('#context-line').evaluate(row => row.getBoundingClientRect().bottom <= document.getElementById('table-bar')!.getBoundingClientRect().top + 1);
+    expect(clear, 'The draw reply row stays above the game bar').toBe(true);
     await frame.locator('#board-menu').click();
     expect(await frame.locator('#board-sheet #accept-draw, #board-sheet #decline-draw, #menu-accept-draw, #menu-decline-draw').count()).toBe(0);
   } finally { await page.close(); }
+});
+
+it.each([197,240] as const)('keeps the narrow Menu policy header and details usable at %i px', async width => {
+  for (const [rating_policy, label, detail] of [
+    ['legacy', 'Legacy rated', 'This game keeps the rating rules from before Ranked and Casual.'],
+    ['casual', 'Casual', 'This game does not change ratings.'],
+    ['ranked-v1', 'Ranked', 'Do not use engine, AI or human advice about an active ranked position.'],
+  ] as const) {
+    const next = view('4k3/7p/8/8/8/8/P7/K7 w - - 0 1', {}, { kind: 'friend', rating_policy, opponent: { handle: 'Bob', icon: null, computer: false, deleted: false, last_seen_ms: null } });
+    const page = await open(next, width, 760), frame = page.frameLocator('iframe');
+    try {
+      await frame.locator('#board-menu').click();
+      const geometry = await frame.locator('#board-sheet .sheet-head').evaluate(head => {
+        const box = (el: Element) => { const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height }; };
+        return { head: box(head), title: box(head.querySelector('h2')!), policy: box(head.querySelector('#game-policy')!), close: box(head.querySelector('[aria-label="Close"]')!) };
+      });
+      console.log(`Menu policy geometry ${width} ${rating_policy}: ${JSON.stringify(geometry)}`);
+      expect(geometry.title.width).toBeGreaterThan(0); expect(geometry.title.height).toBeGreaterThan(0);
+      expect(geometry.title.right).toBeLessThanOrEqual(geometry.close.left);
+      expect(geometry.policy.top).toBeGreaterThanOrEqual(Math.max(geometry.title.bottom, geometry.close.bottom));
+      for (const control of [geometry.policy, geometry.close]) {
+        expect(control.width).toBeGreaterThanOrEqual(44); expect(control.height).toBeGreaterThanOrEqual(48);
+        expect(control.left).toBeGreaterThanOrEqual(geometry.head.left); expect(control.right).toBeLessThanOrEqual(geometry.head.right);
+        expect(control.top).toBeGreaterThanOrEqual(geometry.head.top); expect(control.bottom).toBeLessThanOrEqual(geometry.head.bottom);
+      }
+      await frame.locator('#board-sheet').getByRole('button', { name: `${label} game`, exact: true }).click();
+      expect(await frame.locator('#board-sheet h2').innerText()).toBe(label);
+      expect(await frame.locator('#board-sheet .sheet-body').innerText()).toContain(detail);
+      if (rating_policy === 'ranked-v1') expect(await frame.locator('#board-sheet .sheet-body').innerText()).toContain('3 days per move.');
+      await frame.locator('#board-sheet [aria-label="Close"]').click(); expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
+    } finally { await page.close(); }
+  }
 });
 
 it.each([[320,568],[852,393]] as const)('keeps a short last move and its deadline above a short board at %i × %i', async (width,height) => {
@@ -818,6 +978,21 @@ it('keeps the normal piece rule for a player above beginner level', async () => 
 });
 
 
+it('gives live pawn move choices the shared tablet face', async () => {
+  const page = await open(view('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1')), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('html').evaluate(() => (window as any).testBoard.onSquareClick(12));
+    await frame.locator('#board-menu').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
+    await checkTabletButtons(frame, '#choices button');
+    await checkButtonContent(frame, '#choices button');
+    await frame.locator('#choices button[title="e2-e4"]').click();
+    await frame.locator('#end-turn[aria-disabled="false"]').waitFor();
+    expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
+  } finally { await page.close(); }
+});
+
 it.each([[320, 568], [393, 852]])('keeps the board size after a beginner selects a long lesson at %i px', async (width, height) => {
   const page = await open(view('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBOR w - - 0 1', {}, { level: 'beginner' }), width, height), frame = page.frameLocator('iframe');
   try {
@@ -843,6 +1018,8 @@ it.each([[320, 568], [393, 852]])('keeps the board size after a beginner selects
 });
 
 // W7 journeys use board input. The endpoint only sets the starting position.
+// These calls start only after the mounted board has requested its preview.
+const settleBoardReads = (page: Page) => expect.poll(() => page.frameLocator('iframe').locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
 async function turnBoard(fen?: string, clock = false) {
   const page = await open(view(''), 393, 852, clock), frame = page.frameLocator('iframe');
   const result = await (await page.request.post(new URL(fen ? `/fixture-position?fen=${encodeURIComponent(fen)}` : '/fixture-position?case=haste', harness.url).href)).json();
@@ -850,6 +1027,7 @@ async function turnBoard(fen?: string, clock = false) {
   await page.evaluate(result => (window as any).harnessShow(result), result);
   await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
   await frame.locator('#board[aria-busy="false"][data-animating="false"]').waitFor();
+  await settleBoardReads(page);
   return {page, frame, base:result._meta.view as View};
 }
 async function squarePoint(page: Page, square: number) {
@@ -870,6 +1048,7 @@ async function chooseTurnMove(page: Page, lan: string, from: number) {
   await squareTap(page, from); await frame.locator('#board-menu').click();
   await frame.locator('#board-sheet').getByRole('button',{name:'Choose a move',exact:true}).click();
   await frame.locator(`#choices button[title="${lan}"]`).click();
+  await expect.poll(async () => (await savedDraft(page))?.lans.at(-1)).toBe(lan);
   await frame.locator('#board[data-animating="false"]').waitFor();
 }
 const moveCalls = (page: Page) => page.evaluate(() => ((window as any).harnessCalls ?? []).filter((c: any) => c.name === 'kingdown_move'));
@@ -886,7 +1065,7 @@ it('G3: the ogre holds a shove onto its own pawn and plays it on the second tap'
     expect((await marks(page)).shoves).toEqual([12]); expect((await marks(page)).moves.length).toBeGreaterThan(0); expect((await marks(page)).captures).toContain(11);
     await squareTap(page,12);
     expect(await frame.locator('#status').textContent()).toBe('Select again to shove.');
-    expect(await frame.locator('#context-note').textContent()).toBe(describeMove(pre,shove));
+    expect(await frame.locator('#context-note').textContent()).toBe(describeMove(new GameRules(base.rules),pre,shove));
     expect(await marks(page)).toMatchObject({selected:4, moves:[], captures:[], swaps:[], shoves:[12], shoveTo:[{from:12,to:20}]});
     expect(await cursorOf(page)).toBe(12);
     expect(await boardFen(page)).toBe(fen);
@@ -909,7 +1088,7 @@ it('G3: the ogre holds a shove onto its own pawn and plays it on the second tap'
     expect(await frame.locator('#status').textContent()).toBe('Select again to shove.');
     expect((await marks(page)).read).toBeUndefined();
     await frame.locator('#all-rules').click();
-    expect(await frame.locator('#board-sheet').innerText()).toContain(readText(pre,4));
+    expect(await frame.locator('#board-sheet').innerText()).toContain(readText(new GameRules(base.rules),pre,4));
     await frame.locator('#board-sheet button[aria-label="Close"]').click();
     expect(await frame.locator('#status').textContent()).toBe('Select again to shove.');
     // Escape lets the held shove go and clears the selection.
@@ -942,7 +1121,7 @@ it('G3: the maester holds a swap with its own rook, by tap and by keyboard', asy
   try {
     await squareTap(page,27); await squareTap(page,26);
     expect(await frame.locator('#status').textContent()).toBe('Select again to swap.');
-    expect(await frame.locator('#context-note').textContent()).toBe(describeMove(pre,swap));
+    expect(await frame.locator('#context-note').textContent()).toBe(describeMove(new GameRules(base.rules),pre,swap));
     expect(await marks(page)).toMatchObject({selected:27, moves:[], captures:[], shoves:[], swaps:[26]});
     expect(await boardFen(page)).toBe(fen);
     // A tap on the maester lets the swap go and clears the selection, as before.
@@ -970,7 +1149,7 @@ it('G3: an armed Sky Lift card holds a swap of two own pieces, and Cancel ends i
   try {
     await use(); await squareTap(page,swap.from); await squareTap(page,swap.to);
     expect(await frame.locator('#status').textContent()).toBe('Select again to swap.');
-    expect(await frame.locator('#context-note').textContent()).toBe(describeMove(pre,swap));
+    expect(await frame.locator('#context-note').textContent()).toBe(describeMove(new GameRules(base.rules),pre,swap));
     expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('armed');
     expect(await marks(page)).toMatchObject({selected:swap.from, moves:[], captures:[], shoves:[], swaps:[swap.to]});
     expect(await boardFen(page)).toBe(fen);
@@ -1040,7 +1219,7 @@ it.each(['Resign', 'Abort'])('W7: Menu %s drops the draft move from the end card
     expect(await moveCalls(page)).toEqual([]);
     expect(await page.evaluate(() => (window as any).harnessView.fen)).toBe(base.fen);
     if (action === 'Resign') {
-      expect(await frame.locator('#end-reason').innerText()).toBe('You resigned.');
+      expect(await frame.locator('#end-reason').innerText()).toBe('Casual · You resigned.');
       expect(await frame.locator('#last-move').innerText()).toBe('Move 1.');
     }
     expect((await marks(page)).last).toEqual([]);
@@ -1057,6 +1236,7 @@ it('W7-04: an incremental draw reply keeps the draft and the draw note (D13)', a
     // Ticket 04 (D13): a draw offer is a new revision with the same base FEN, so the draft stays.
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {...base, revision:2, history:undefined, draw_offer:1, last_commands:[{seq:2, seat:1, at:base.server_now, action:{type:'draw',choice:'offer'}}]});
     expect(await boardFen(page)).toBe(toFen(applyLan(fromFen(base.fen),'e2-e4',{})!.pos));
+    expect((await savedDraft(page)).scope.revision).toBe(2);
     expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('false');
     expect(await frame.locator('#last-move').innerText()).toBe('White pawn e2 to e4.');
     expect(await frame.locator('#context-note').innerText()).toContain('Your opponent offers a draw.');
@@ -1208,7 +1388,7 @@ it('W7: a draw offer keeps piece rules readable at 320 px before and during Send
   try {
     await chooseTurnMove(page,'e2-e4',12);
     const staged = applyLan(fromFen(base.fen),'e2-e4',base.rules!)!;
-    const rule = readText(staged.pos,28).split('\n')[0].split(' · ')[1];
+    const rule = readText(new GameRules(base.rules),staged.pos,28).split('\n')[0].split(' · ')[1];
     expect(rule).toBeTruthy();
     for (const sending of [false,true]) {
       if (sending) {
@@ -1234,7 +1414,9 @@ it('W7: a draw offer keeps piece rules readable at 320 px before and during Send
 it('W7: stages a move, sends once, and starts the computer only after the press', async () => {
   const {page,frame,base} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1');
   try {
-    await squareTap(page,12); await squareTap(page,28); await frame.locator('#board[data-animating="false"]').waitFor();
+    await squareTap(page,12); await squareTap(page,28);
+    await expect.poll(async () => (await savedDraft(page))?.lans).toEqual(['e2-e4']);
+    await frame.locator('#board[data-animating="false"]').waitFor();
     expect(await moveCalls(page)).toEqual([]);
     expect(await page.evaluate(() => (window as any).harnessView.revision)).toBe(base.revision);
     expect(await page.evaluate(() => (window as any).harnessCalls.some((c: any) => c.name==='kingdown_computer'))).toBe(false);
@@ -1403,13 +1585,17 @@ it('W7: stages mate, permits Undo, and ends only on the press with no second mov
   const {page,frame} = await turnBoard('k7/8/1K6/8/8/8/8/7R w - - 0 1');
   try {
     await frame.locator('html').evaluate(() => { const host=window as any, animate=host.testBoard.animateMove.bind(host.testBoard); host.turnAnimations=0; host.testBoard.animateMove=(...args: any[]) => { host.turnAnimations++; return animate(...args); }; });
-    await squareTap(page,7); await squareTap(page,63); await frame.locator('#board[data-animating="false"]').waitFor();
+    await squareTap(page,7); await squareTap(page,63);
+    await expect.poll(async () => (await savedDraft(page))?.lans).toEqual(['Rh1-h8']);
+    await frame.locator('#board[data-animating="false"]').waitFor();
     expect(await frame.locator('#status').textContent()).toBe('Checkmate. Select End turn to finish.');
     expect(await frame.locator('#over[open]').count()).toBe(0); expect(await moveCalls(page)).toEqual([]);
     await clickButton(page, frame.locator('#undo'));
     await frame.locator('#status').filter({ hasText: 'Your move.' }).waitFor();
     expect(await frame.locator('#status').textContent()).toBe('Your move.');
-    await squareTap(page,7); await squareTap(page,63); await frame.locator('#board[data-animating="false"]').waitFor();
+    await squareTap(page,7); await squareTap(page,63);
+    await expect.poll(async () => (await savedDraft(page))?.lans).toEqual(['Rh1-h8']);
+    await frame.locator('#board[data-animating="false"]').waitFor();
     await frame.locator('#end-turn:not(:disabled):not([aria-disabled="true"])').waitFor();
     await clickButton(page, frame.locator('#end-turn')); await frame.locator('#over[open]').waitFor();
     expect(await frame.locator('html').evaluate(() => (window as any).turnAnimations)).toBe(2);
@@ -1512,10 +1698,12 @@ it('W7-04: restores a saved draft after a remount only when the game, the base F
       await chooseTurnMove(page,'e2-e4',12);
       expect((await savedDraft(page)).lans).toEqual(['e2-e4']);
       if (change !== 'same') await page.evaluate(change => {
-        const draft = (window as any).harnessWidgetState.privateContent.draft;
+        const host = window as any, state = structuredClone(host.harnessWidgetState), draft = state.privateContent.draft;
         if (change === 'fen') draft.fen = '7k/8/8/8/8/8/8/7K w - - 0 1'; else draft.lans = ['e2-e5'];
+        host.harnessWidgetState = state;
       }, change);
       await remountBoard(page);
+      await settleBoardReads(page);
       if (change === 'same') {
         const draft = await savedDraft(page);
         expect(draft.lans).toEqual(['e2-e4']);
@@ -1555,6 +1743,7 @@ it('W7-04: a refused press after a real draw offer keeps T6 and the note, then s
     await clickButton(page, frame.locator('#end-turn'));
     await frame.locator('#status').filter({hasText:'The game changed. Check it, then tap Send your turn.'}).waitFor();
     await frame.locator('#board[aria-busy="false"][data-animating="false"]').waitFor();
+    await settleBoardReads(page);
     expect(await frame.locator('#context-note').innerText()).toContain('Your opponent offers a draw.');
     await frame.locator('#undo[aria-disabled="false"]').waitFor();
     expect((await savedDraft(page)).lans).toEqual(['e2-e4']);
@@ -1649,7 +1838,7 @@ it.each(['teardown', 'close'] as const)('keeps the player strips fixed when a pr
   const page = await browser.newPage(); page.setDefaultTimeout(3000 * STEP);
   const frame = page.frameLocator('iframe');
   try {
-    await page.goto(harness.url); await frame.locator('#home-play:not(:disabled)').waitFor();
+    await page.goto(harness.url); await waitForSourceApp(page); await frame.locator('#home-play:not(:disabled)').waitFor();
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_profile'; });
     await page.route('**/fixture-tool', route => route.request().postDataJSON()?.name === 'kingdown_profile'
       ? route.fulfill({ json: { content: [], _meta: { record: { rating: { rating: 1900, provisional: false } } } } }) : route.continue());
@@ -1657,12 +1846,12 @@ it.each(['teardown', 'close'] as const)('keeps the player strips fixed when a pr
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), view('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1', {}, { kind: 'friend' }));
     await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
     await frame.locator('#board[aria-busy="false"]').waitFor();
-    await frame.locator('html').evaluate((_, lifecycle) => {
+    if (lifecycle === 'teardown') await page.evaluate(() => (window as any).harnessTeardown());
+    else await frame.locator('html').evaluate('(async () => { (await import("/src/account-game/host.ts")).runtimeHost().onClose?.(); })()');
+    await frame.locator('html').evaluate(() => {
       const w = window as any;
-      if (lifecycle === 'close') w.harnessApp.queue.close();
-      else window.dispatchEvent(new MessageEvent('message', { data: { method: 'ui/resource-teardown' } }));
       w.closedStrips = [...document.querySelectorAll('#strip-me, #strip-them')].map(node => ({ node: node.firstChild, text: node.textContent }));
-    }, lifecycle);
+    });
     await page.evaluate(() => (window as any).releaseHeld());
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
     await frame.locator('html').evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
@@ -1688,7 +1877,7 @@ it('F05: draws one keyboard cursor at the tile and clears it on Escape or blur',
     expect(await frame.locator('#board-marks[aria-hidden="true"]').count()).toBe(1);
     expect(await frame.locator('#board .mk-cursor').count()).toBe(1);
     const box = await cursorBox(); expect(box.dx).toBeLessThanOrEqual(1); expect(box.dy).toBeLessThanOrEqual(1); expect(box.dw).toBeLessThanOrEqual(1);
-    expect(box.border).toBe('3px'); expect(box.color).toBe('rgb(28, 91, 176)');
+    expect(box.border).toBe('2px'); expect(box.color).toBe('rgb(43, 38, 33)');
     await frame.locator('#board .mk-cursor').evaluate(e => { (e as HTMLElement).style.visibility = 'hidden'; });
     await frame.locator('#board').screenshot({ path: join(proof, 'f05-before.png') });
     await frame.locator('#board .mk-cursor').evaluate(e => { (e as HTMLElement).style.visibility = ''; });
@@ -1764,7 +1953,7 @@ it('F06: marks only the armed usable card and shows the gold band', async () => 
     const pixels = await coin.screenshot({ path: join(proof, 'f06-coin.png') });
     const sharp = (await import('sharp')).default, image = await sharp(pixels).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     const x = Math.floor(image.info.width / 2), at = (3 * image.info.width + x) * 4;
-    expect(await coin.evaluate(e => getComputedStyle(e).boxShadow)).toMatch(/rgb\(233, 192, 113\)[^,]*\b5px\b/);
+    expect(await coin.evaluate(e => getComputedStyle(e.querySelector('.coin-paint')!).boxShadow)).toMatch(/rgb\(233, 192, 113\)[^,]*\b5px\b/);
     // Linux rasters put this pixel up to 14 levels off gold-bright; the ink ring and the card art are more than 80 away.
     for (const [i, value] of [233, 192, 113].entries()) expect(Math.abs(image.data[at + i] - value)).toBeLessThanOrEqual(24);
     await page.screenshot({ path: join(proof, 'plugin-card-targets-390x844-dark.png') });
@@ -1897,7 +2086,85 @@ it('F11: a tap skips a local move without selecting a piece', async () => {
   } finally { await page.close(); }
 });
 
-it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 px buttons (%s)', async theme => {
+it.each(['mouse', 'touch'] as const)('A8: real %s input skips both Haste moves', async input => {
+  const rules: Partial<Rules> = { kings: [null, { king: 'Flame', power: 'Haste' }] };
+  const base = view('4k3/p7/8/8/8/8/4P3/K7 b - - 0 1', rules, { kind: 'friend', seat: 0, action: 'waiting' });
+  let pos = fromFen(base.fen);
+  const actions: string[] = [];
+  for (const pick of [(m: Move) => m.power === 'haste' && m.from === 48 && m.to === 40, (m: Move) => !m.pass && m.from === 40 && m.to === 32]) {
+    const move = legalMoves(pos).find(pick)!;
+    expect(move).toBeDefined(); actions.push(toLan(pos, move)); pos = makeMove(pos, move);
+  }
+  const page = await open(base, 393, 852, true), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await frame.locator('html').evaluate(() => {
+      const w = window as any, b = w.testBoard, animate = b.animateMove.bind(b);
+      w.animationCalls = 0;
+      b.animateMove = (...args: unknown[]) => { w.animationCalls++; return animate(...args); };
+    });
+    await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {
+      ...base, revision: 1, fen: toFen(pos), turn: 0, action: 'ready', legal: legalMoves(pos).map(m => toLan(pos, m)),
+      last_commands: [{ seq: 1, seat: 1, at: base.server_now, action: { type: 'turn', actions } }],
+    });
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.animating)).toBe(true);
+    const pane = (await page.locator('iframe').boundingBox())!;
+    const point = await frame.locator('html').evaluate(() => (window as any).testBoard.screenOf(12));
+    if (input === 'touch') await page.touchscreen.tap(pane.x + point.x, pane.y + point.y);
+    else await page.mouse.click(pane.x + point.x, pane.y + point.y);
+    await expect.poll(() => frame.locator('#board').getAttribute('data-animating')).toBe('false');
+    expect(await frame.locator('html').evaluate(() => (window as any).animationCalls)).toBe(1);
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.animating)).toBe(false);
+    expect(await boardFen(page)).toBe(toFen(pos));
+    expect((await marks(page)).selected).toBeUndefined();
+    expect(await frame.locator('html').evaluate(() => {
+      const b = (window as any).testBoard.scene.position.board;
+      return [b[48], b[40], b[32]];
+    })).toEqual([0, 0, pos.board[32]]);
+  } finally { await page.close(); }
+});
+
+it.each(['mouse', 'touch'] as const)('A8: real %s input ends the web final blow and its timers', async input => {
+  const page = await open(view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await frame.locator('html').evaluate(`(async () => {
+      const { startCeremony } = await import('/src/ceremony.ts'), { Game } = await import('/src/game.ts');
+      const { fromFen, toFen } = await import('/src/rules/setup.ts');
+      const game = new Game(); game.load(fromFen('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'));
+      game.play(game.legal.find(move => move.from === 0 && move.to === 56));
+      const b = window.testBoard, board = document.getElementById('board');
+      window.previousSkip = b.onSkipAnimation; window.ceremonyDone = false; window.finalFen = toFen(game.pos);
+      const captionHost = document.createElement('div'), moments = document.createElement('div');
+      board.append(captionHost, moments);
+      window.ceremony = startCeremony({ view: b, board, captionHost, moments, history: game.history,
+        final: game.pos, king: 63, showPly() {}, motion: true, live: () => true });
+      window.ceremony.done.then(done => { window.ceremonyDone = done; });
+    })()`);
+    await page.clock.runFor(130);
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.animating)).toBe(true);
+    const pane = (await page.locator('iframe').boundingBox())!;
+    const point = await frame.locator('html').evaluate(() => (window as any).testBoard.screenOf(46));
+    if (input === 'touch') await page.touchscreen.tap(pane.x + point.x, pane.y + point.y);
+    else await page.mouse.click(pane.x + point.x, pane.y + point.y);
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).ceremonyDone)).toBe(true);
+    expect(await frame.locator('.ceremony-caption').count()).toBe(0);
+    expect(await frame.locator('.ceremony-tile').count()).toBe(1);
+    expect(await frame.locator('html').evaluate(() => {
+      const w = window as any, b = w.testBoard;
+      return { animating: b.scene.animating, falling: b.scene.falling, king: b.fallen?.sq, restored: b.onSkipAnimation === w.previousSkip };
+    })).toEqual({ animating: false, falling: false, king: 63, restored: true });
+    expect(await boardFen(page)).toBe(await frame.locator('html').evaluate(() => (window as any).finalFen));
+    expect((await marks(page)).selected).toBeUndefined();
+    await page.clock.runFor(1700);
+    expect(await frame.locator('.kd-words.is-in, .ceremony-caption').count()).toBe(0);
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.falling)).toBe(false);
+  } finally { await page.close(); }
+});
+
+it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 by 48 px tablets (%s)', async theme => {
   const base = view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), page = await open(base, 390, 844), frame = page.frameLocator('iframe');
   const proof = join(tmpdir(), 'kingdown-gui-board-proof'); await import('node:fs/promises').then(fs => fs.mkdir(proof, { recursive: true }));
   async function centered(selector: string) {
@@ -1906,13 +2173,13 @@ it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 px buttons
       const glyph = range.getBoundingClientRect(), box = button.getBoundingClientRect();
       return { width: box.width, height: box.height, dx: Math.abs(glyph.x + glyph.width / 2 - box.x - box.width / 2), dy: Math.abs(glyph.y + glyph.height / 2 - box.y - box.height / 2), text: button.textContent };
     });
-    expect(box.width).toBe(44); expect(box.height).toBe(44); expect(box.dx).toBeLessThanOrEqual(1); expect(box.dy).toBeLessThanOrEqual(1); expect(box.text).toBe('×');
+    expect(box.width).toBe(44); expect(box.height).toBe(48); expect(box.dx).toBeLessThanOrEqual(1); expect(box.dy).toBeLessThanOrEqual(1); expect(box.text).toBe('×');
   }
   try {
     await page.evaluate(theme => (window as any).harnessSetContext({ theme }), theme);
-    await frame.locator('#board-menu').click(); await centered('#board-sheet .sheet-head button');
+    await frame.locator('#board-menu').click(); await centered('#board-sheet .sheet-head button[aria-label="Close"]');
     await page.screenshot({ path: join(proof, `plugin-board-menu-390x844-${theme}.png`) });
-    await frame.locator('#board-sheet .sheet-head button').click();
+    await frame.locator('#board-sheet .sheet-head button[aria-label="Close"]').click();
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), {
       ...base, game_id: crypto.randomUUID(), status: 'setup', fen: '', options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: true, cards: false, kingPowers: false }, draw: 'RNBQKBNR', choices: [{ order: 'RNBQKBNR', king: null }, null], ready: [false, false],
     });
@@ -1921,6 +2188,84 @@ it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 px buttons
   } finally { await page.close(); }
 });
 
+it.each(['Strike', 'MorphP'] as const)('shows the Collection face in the %s board sheet', async card => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [[card], []] })), frame = page.frameLocator('iframe');
+  const picture = (el: Element) => ({ image: el.querySelector('img')?.getAttribute('src'), diagram: el.querySelector('svg')?.getAttribute('data-card-picture'), text: el.textContent?.trim() });
+  try {
+    await frame.locator('#card-w-0').click();
+    const face = await frame.locator('#board-sheet .cf-art').evaluate(picture);
+    expect(await frame.locator('#board-sheet .cf-art img[src*="back"]').count()).toBe(0);
+    await frame.locator('#board-sheet [aria-label="Close"]').click();
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('collection'));
+    await frame.locator('#collection-tabs input[value="Cards"]').locator('..').click();
+    expect(await frame.locator(`#collection-items [data-card="${card}"] .cf-art`).evaluate(picture)).toEqual(face);
+  } finally { await page.close(); }
+});
+
+it('explains why a card sheet has no Use button', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1', { hands: [['MirrorB'], ['Freeze']] })), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#card-w-0').click();
+    expect(await frame.locator('#board-sheet .card-reason').textContent()).toBe('This card has no move now.');
+    expect(await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).count()).toBe(0);
+    await frame.locator('#board-sheet [aria-label="Close"]').click();
+    await frame.locator('#card-b-0').click();
+    expect(await frame.locator('#board-sheet .card-reason').textContent()).toBe("This is your opponent's card.");
+    expect(await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).count()).toBe(0);
+  } finally { await page.close(); }
+});
+
+it('A35: an unused card names Retry after Send your turn fails', async () => {
+  const base = view('7k/p7/8/8/8/8/8/R5K1 w - - 0 1', { hands: [['Haste'], []] }, { kind: 'friend' });
+  const page = await open(base), frame = page.frameLocator('iframe');
+  try {
+    await chooseTurnMove(page, 'Ra1-a2', 0);
+    await page.evaluate(() => { (window as any).failNextAction = true; });
+    await frame.locator('#end-turn').click();
+    await frame.locator('#retry:not(:disabled)').waitFor();
+    expect((await moveCalls(page)).length).toBe(1);
+    await frame.locator('#card-w-0').click();
+    expect(await frame.locator('#board-sheet .card-reason').textContent()).toBe('Close this sheet and select Retry.');
+    expect(await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).count()).toBe(0);
+  } finally { await page.close(); }
+});
+
+it.each([true, false])('A35: the card sheet follows failed polls and same-revision recovery with openBefore=%s', async openBefore => {
+  const base = view('7k/p7/8/8/8/8/8/R5K1 w - - 0 1', { hands: [['Haste'], []] }, { kind: 'friend' });
+  const page = await open(base, 393, 852, true), frame = page.frameLocator('iframe'), sheet = frame.locator('#board-sheet');
+  try {
+    let failRead = true;
+    await page.route('**/fixture-tool', async route => {
+      if (route.request().postDataJSON().name === 'kingdown_get') {
+        if (failRead) await route.abort('failed');
+        else await route.fulfill({ json: { content: [], _meta: { view: base } } });
+      }
+      else await route.continue();
+    });
+    const read = () => frame.locator('html').evaluate((_, game_id) => (window as any).harnessApp.send('kingdown_get', { game_id }, { quiet: true }), base.game_id);
+    if (openBefore) {
+      await frame.locator('#card-w-0').click();
+      expect(await sheet.getByRole('button', { name: 'Use', exact: true }).isVisible()).toBe(true);
+      await sheet.getByRole('button', { name: 'Use', exact: true }).focus();
+    }
+    for (let i = 0; i < 3; i++) {
+      expect((await read()).status).toBe('failed');
+      if (openBefore && i < 2) expect(await sheet.getByRole('button', { name: 'Use', exact: true }).isVisible()).toBe(true);
+    }
+    if (!openBefore) await frame.locator('#card-w-0').click();
+    await sheet.evaluate(el => { (window as any).openCardFace = el.querySelector('.cf-art'); });
+    expect(await sheet.locator('.card-reason').textContent()).toBe('Close this sheet and select Try again.');
+    expect(await sheet.getByRole('button', { name: 'Use', exact: true }).count()).toBe(0);
+    if (openBefore) expect(await sheet.locator('[aria-label="Close"]').evaluate(el => el === document.activeElement)).toBe(true);
+    failRead = false;
+    expect((await read()).status).toBe('done');
+    expect(await sheet.getByRole('button', { name: 'Use', exact: true }).isVisible()).toBe(true);
+    expect(await sheet.locator('.card-reason').count()).toBe(0);
+    expect(await sheet.evaluate(el => (el as HTMLDialogElement).open && el.querySelector('.cf-art') === (window as any).openCardFace)).toBe(true);
+    await sheet.getByRole('button', { name: 'Use', exact: true }).click();
+    expect(await frame.locator('#card-w-0').getAttribute('aria-pressed')).toBe('true');
+  } finally { await page.close(); }
+});
 const soundCases = [
   { kind: 'move', fen: '7k/8/8/8/8/8/P7/K7 w - - 0 1', now: 'move', hit: null },
   { kind: 'capture', fen: '7k/8/8/8/8/8/7p/K6R w - - 0 1', now: null, hit: 'capture' },
@@ -1970,3 +2315,260 @@ it.each(soundCases.flatMap(test => ['local', 'replay'].map(path => ({ ...test, p
       if (check) expect(result.indexOf('sound:check')).toBeGreaterThan(result.indexOf('rest'));
     } finally { await page.close(); }
   });
+
+
+it.each(['mouse', 'touch'] as const)('A8: a %s skip keeps the capture and does not open Menu', async input => {
+  const page = await open(view('7k/8/8/8/8/8/p7/R6K w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await frame.locator('html').evaluate(() => {
+      const board = (window as any).testBoard;
+      board.onSquareClick(0, false); board.onSquareClick(8, false);
+    });
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.animating)).toBe(true);
+    const box = (await frame.locator('#board-menu').boundingBox())!;
+    if (input === 'touch') await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    else await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.animating)).toBe(false);
+    expect(await frame.locator('#board-sheet[open]').count()).toBe(0);
+    await expect.poll(() => frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('false');
+    expect(await frame.locator('html').evaluate(() => {
+      const board = (window as any).testBoard;
+      return [board.scene.position.board[0], board.scene.position.board[8], board.marks.selected ?? null];
+    })).toEqual([0, 4, null]);
+    expect((await savedDraft(page)).lans).toEqual(['Ra1xa2']);
+    await frame.locator('#board-menu').dispatchEvent('click');
+    expect(await frame.locator('#board-sheet[open]').count()).toBe(1);
+  } finally { await page.close(); }
+});
+
+
+it.each([390, 1280])('A18: keeps an empty named moves list with no words at %i px', async width => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), width, width === 390 ? 844 : 800), frame = page.frameLocator('iframe');
+  try {
+    const recent = frame.locator('#recent-moves');
+    expect(await recent.textContent()).toBe('');
+    expect(await recent.getAttribute('aria-label')).toBe('Moves');
+    if (width === 390) expect(await recent.isHidden()).toBe(true);
+    await frame.locator('#board-menu').click();
+    await frame.getByRole('button', { name: 'Moves', exact: true }).click();
+    expect(await frame.locator('#board-sheet .sheet-body').textContent()).toBe('');
+    expect(await frame.getByRole('dialog', { name: 'Moves', exact: true }).isVisible()).toBe(true);
+  } finally { await page.close(); }
+});
+
+
+it.each([390, 1280])('live Moves: keeps reading position and focus across a remote turn at %i px', async width => {
+  const initial_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  const actions = 'a2-a3 a7-a6 b2-b3 b7-b6 c2-c3 c7-c6 d2-d3 d7-d6 e2-e3 e7-e6 f2-f3 f7-f6 g2-g3 g7-g6 h2-h3 h7-h6 a3-a4 a6-a5 b3-b4 b6-b5'.split(' ');
+  for (let i = 0; i < 5; i++) actions.push('Nb1-a3', 'Nb8-a6', 'Na3-b1', 'Na6-b8');
+  const game = view(initial_fen, {}, { kind: 'friend', seat: 0 });
+  let pos = fromFen(initial_fen);
+  for (const lan of actions) { const step = applyLan(pos, lan, game.rules!); expect(step).toBeDefined(); pos = step!.pos; }
+  const current = view(toFen(pos), game.rules!, { ...game, fen: toFen(pos), revision: actions.length, history: { initial_fen, actions } });
+  const page = await open(current, width, width === 390 ? 844 : 800), frame = page.frameLocator('iframe');
+  try {
+    const sheet = frame.locator('#board-sheet');
+    const show = async () => { await frame.locator('#board-menu').click(); await frame.getByRole('button', { name: 'Moves', exact: true }).click(); };
+    const route = (next: View) => frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), next);
+    await show();
+    const close = await sheet.getByRole('button', { name: 'Close', exact: true }).elementHandle();
+    expect(close).not.toBeNull(); await close!.focus();
+    await frame.locator('html').evaluate('(async () => { const { applyLocks } = await import("/src/account-game/state.ts"); applyLocks({ ...window.harnessApp.store.page(), writing: true }); })()');
+    expect(await close!.isEnabled()).toBe(true);
+    expect(await close!.evaluate(el => el === document.activeElement)).toBe(true);
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.actions());
+    const scroll = await sheet.locator('.sheet-body').evaluate(el => { el.scrollTop = 100; return el.scrollTop; });
+    expect(scroll).toBeGreaterThan(0);
+    const step = applyLan(pos, 'c3-c4', game.rules!); expect(step).toBeDefined();
+    const next = { ...current, revision: current.revision + 1, fen: toFen(step!.pos), turn: step!.pos.turn, history: { initial_fen, actions: [...actions, 'c3-c4'] } };
+    await route(next);
+    expect(await frame.getByRole('dialog', { name: 'Moves', exact: true }).isVisible()).toBe(true);
+    expect(await sheet.locator('.sheet-body p').count()).toBe(actions.length + 1);
+    expect(await sheet.locator('.sheet-body p').allTextContents()).toEqual(await frame.locator('#recent-moves p').allTextContents());
+    expect(await close!.evaluate(el => el.isConnected && el === document.activeElement)).toBe(true);
+    expect(await sheet.locator('.sheet-body').evaluate(el => el.scrollTop)).toBe(scroll);
+    await close!.click(); await close!.dispose();
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await frame.locator('#board-menu').click();
+    await route({ ...next, revision: next.revision + 1 });
+    expect(await sheet.isVisible()).toBe(false);
+    await show();
+    const other = { ...next, game_id: crypto.randomUUID() };
+    await route(other);
+    expect(await sheet.isVisible()).toBe(false);
+    await show();
+    await route({ ...other, revision: other.revision + 1, status: 'finished', result: { winner: 1, reason: 'resign' } });
+    expect(await sheet.isVisible()).toBe(false);
+  } finally { await page.close(); }
+});
+
+it.each([false, true])('Y3: shows only the king and power in the seat strip (ready %s)', async ready => {
+  const page = await open(view('', {}, { status: 'setup', options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true, cards: false },
+    draw: 'RNBQKBNR', deal: [], ready: [ready, false], choices: [{ king: { king: 'Spirit', power: 'Mercy' }, order: 'RNBQKBNR' }, null] })), frame = page.frameLocator('iframe');
+  try {
+    expect(await frame.locator('#seat-me-line').textContent()).toBe('Spirit · Mercy');
+    expect(await frame.locator('#seat-context').textContent()).toBe(ready ? 'Waiting for the other player.' : 'Choose your king, then press Ready.');
+    expect(await frame.locator('#seat-king').isVisible()).toBe(true);
+  } finally { await page.close(); }
+});
+
+
+it('A8: keeps the full main gait at Normal and Fast for every quiet move type', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    for (const pace of ['normal', 'fast']) for (const [piece, duration] of [[P,420],[R,480],[N,1350],[L,1450]]) {
+      await frame.locator('html').evaluate((_, {piece, pace}) => {
+        const host = window as any, board = host.testBoard, pos = { ...board.pos, board: new Uint8Array(board.pos.board) };
+        pos.board[8] = piece; board.setPace(pace); host.quietDone = false;
+        void board.animateMove(pos, {from:8,to:48,captures:[]}).then(() => { host.quietDone = true; });
+      }, {piece, pace});
+      await page.clock.fastForward(duration * (pace === 'fast' ? .5 : 1) - 40);
+      expect(await frame.locator('html').evaluate(() => (window as any).quietDone)).toBe(false);
+      await page.clock.fastForward(80);
+      expect(await frame.locator('html').evaluate(() => (window as any).quietDone)).toBe(true);
+    }
+  } finally { await page.close(); }
+});
+
+
+it('A8: Off ends the active marker draw timer', async () => {
+  const page = await open(view('7k/8/8/8/8/8/A7/K7 w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await frame.locator('html').evaluate(() => {
+      const board = (window as any).testBoard;
+      board.setPace('normal'); board.highlight({ selected:8, moves:[9,16] }); board.setPace('off');
+    });
+    await page.clock.runFor(100);
+    const frames = await frame.locator('html').evaluate(() => (window as any).testBoard.scene.frames);
+    await page.clock.runFor(500);
+    expect(await frame.locator('html').evaluate(() => (window as any).testBoard.scene.frames)).toBe(frames);
+  } finally { await page.close(); }
+});
+
+it('keeps a stored-engine draft through undo, remount and a late preview when the page calculator differs', async () => {
+  const { LocalMatch } = await import('../src/match');
+  const { GameService } = await import('../src/match/service');
+  const { pathToFileURL } = await import('node:url');
+  const { resolve } = await import('node:path');
+  const actor = '11111111-1111-4111-8111-111111111111', engine = 'sha256:bab22e94d4df81591374763a7f3abe703c30534f80ce771ee3fe7e095dcec7da';
+  const match = new LocalMatch(pathToFileURL(resolve('engines', engine.slice(7) + '.mjs')));
+  const page = await browser.newPage({viewport:{width:393,height:852}}); page.setDefaultTimeout(10_000);
+  const errors:string[] = []; page.on('pageerror', error=>errors.push(error.message));
+  let release: (()=>void) | undefined, hold = false, commit:string[]|undefined, applied:Promise<void>|undefined, previews=0, returned=0, boardId:string|undefined, committedFen:string|undefined;
+  try {
+    await match.initialize({fen:'7k/p7/8/8/8/8/8/R5K1 w - - 0 1',kings:'Flame:Haste,none'});
+    const snapshot = await match.snapshot(), state = await match.exportSave();
+    const base = view(snapshot.fen,snapshot.rules,{engine_fingerprint:engine,kind:'friend',history:{initial_fen:snapshot.fen,actions:[]}});
+    const game = {id:base.game_id,revision:0,engine_fingerprint:engine,status:'playing',turn:0,state,snapshot,players:[{seat:0,user_id:actor},{seat:1,user_id:null}]};
+    const service = new GameService({load:async()=>game} as unknown as import('../src/match/store').PostgresMatchStore);
+    await page.route('**/board-resource', async route=>{
+      const response=await route.fetch(), source=await response.text();
+      const entry='<script type="module">await window.harnessBoot;';
+      expect(source).toContain(entry);
+      const divergent=`const {GameRules}=await import('/src/game-rules.ts');
+        GameRules.prototype.legalMoves=()=>[];
+        GameRules.prototype.makeMove=()=>{throw new Error('Divergent page must not enforce this draft');};
+        GameRules.prototype.status=()=>{throw new Error('Divergent page must not decide this result');};
+        window.testBoard=(await import('/src/plugin/board-view.ts')).board;`;
+      await route.fulfill({response,body:source.replace(entry,entry+divergent)});
+    });
+    await page.route('**/fixture-tool', async route=>{
+      const request = route.request().postDataJSON();
+      if (request.name === 'kingdown_preview') {
+        previews++;
+        const {game_id:_,...input}=request.arguments;
+        const result = await service.previewDraft(actor,base.game_id,input);
+        if (hold) { hold=false; await new Promise<void>(done=>{release=done;}); }
+        await route.fulfill({json:{content:[],_meta:{draft:result}}}); returned++;
+      } else if (request.name === 'kingdown_get') await route.fulfill({json:{content:[],structuredContent:{screen:'board'},_meta:{board_id:boardId,view:base}}});
+      else if (request.name === 'kingdown_move') {
+        commit=request.arguments.actions;
+        // The test sees commit before the match applies it; it waits for applied before it reads the match or committedFen.
+        applied=(async()=>{ for (const [index,lan] of commit!.entries()) await match.apply({id:`commit-${index}`,expectedRevision:index,lan}); committedFen=(await match.snapshot()).fen; })();
+        await applied;
+        const after = await match.snapshot();
+        await route.fulfill({json:{content:[],_meta:{view:{...base,revision:1,fen:after.fen,turn:after.turn,action:'waiting',legal:[],history:{initial_fen:snapshot.fen,actions:commit},last_commands:[{seq:1,seat:0,at:'2026-10-20T00:00:00Z',action:{type:'turn',actions:commit}}]}}}});
+      } else await route.continue();
+    });
+    await page.goto(harness.url); await waitForSourceApp(page);
+    const frame=page.frameLocator('iframe');
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    boardId=await page.evaluate(()=>(window as any).harnessWidgetState.privateContent.board_id);
+    await page.evaluate(async ()=>(window as any).harnessSetContext({displayMode:'fullscreen'}));
+    await frame.locator('html').evaluate((_,base)=>(window as any).harnessApp.routeView(base),base);
+    await frame.locator('#board').waitFor({state:'visible'});
+    await expect.poll(()=>previews).toBe(1);
+    const move = async (lan:string) => {
+      await frame.locator('#board').focus();
+      await frame.locator('#power-w').click();
+      await frame.getByRole('button',{name:'Use',exact:true}).click();
+      await squareTap(page,0);
+      await frame.locator('#board-menu').click();
+      await frame.locator('#board-sheet').getByRole('button',{name:'Choose a move',exact:true}).click();
+      await frame.locator(`#choices button[title="${lan}"]`).click();
+      await expect.poll(()=>frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('false');
+      await expect.poll(()=>frame.locator('#board').getAttribute('data-animating')).toBe('false');
+    };
+    await move('Ra1-a4!H');
+    await expect.poll(()=>frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('false');
+    expect(await boardFen(page)).toBe('7k/p7/8/8/R7/8/8/6K1 w - - 1 1 u1.0/ha4');
+    await frame.locator('#undo').click();
+    await expect.poll(()=>frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('true');
+    expect(await boardFen(page)).toBe(base.fen);
+    await move('Ra1-a4!H');
+    expect((await savedDraft(page)).lans).toEqual(['Ra1-a4!H']);
+    const boots=await page.evaluate(()=>(window as any).harnessBoots);
+    await page.locator('#remount').click();
+    await expect.poll(()=>page.evaluate(()=>(window as any).harnessBoots)).toBe(boots+1);
+    await page.frameLocator('iframe').locator('#board[aria-busy="false"]').waitFor({state:'visible'});
+    await expect.poll(()=>page.frameLocator('iframe').locator('#end-turn').getAttribute('aria-disabled')).toBe('false');
+    expect(await page.evaluate(()=>(window as any).harnessWidgetState.privateContent.draft.lans)).toEqual(['Ra1-a4!H']);
+    await page.frameLocator('iframe').locator('#end-turn').click();
+    await expect.poll(()=>commit).toEqual(['Ra1-a4!H','--']);
+    await applied;
+    expect((await match.snapshot()).turn).toBe(1);
+    await expect.poll(()=>boardFen(page)).toBe(committedFen);
+    expect(await page.frameLocator('iframe').locator('#recent-moves').textContent()).toContain('White rook');
+    expect(errors).toEqual([]);
+    // A held read belongs to its old view, not a newly selected board.
+    const settled=returned;
+    hold=true; game.revision=2;
+    await page.frameLocator('iframe').locator('html').evaluate((_,base)=>(window as any).harnessApp.routeView({...base,revision:2}),base);
+    await expect.poll(()=>!!release).toBe(true);
+    const other={...base,game_id:crypto.randomUUID(),revision:3,fen:'7k/8/8/8/8/8/P7/K7 b - - 0 1',action:'waiting',turn:1} as View;
+    await page.frameLocator('iframe').locator('html').evaluate((_,other)=>(window as any).harnessApp.routeView(other),other);
+    release!(); release=undefined;
+    await expect.poll(()=>page.frameLocator('iframe').locator('html').evaluate(()=>(window as any).harnessApp.memory.view?.game_id)).toBe(other.game_id);
+    await expect.poll(()=>returned).toBe(settled+1);
+    expect(await boardFen(page)).toBe(other.fen);
+    expect(await savedDraft(page)).toBeNull();
+    expect(errors).toEqual([]);
+  } catch (error) { throw new Error(`${String(error)}; page errors: ${JSON.stringify(errors)}`,{cause:error}); }
+  finally {release?.();await page.close();await match.close();}
+});
+
+it('keeps source pages without an engine stamp on server preview', async () => {
+  const unstamped = await startHarness({ boardPath: join(folder, 'board.html'), sourcePage: true });
+  const page = await browser.newPage(); page.setDefaultTimeout(5000);
+  try {
+    await page.goto(unstamped.url); await waitForSourceApp(page);
+    const frame = page.frameLocator('iframe');
+    await frame.locator('#home-play:not(:disabled)').waitFor();
+    expect(await frame.locator('html').evaluate('(async () => (await import("/src/account-game/engine-identity.ts")).PAGE_ENGINE)()')).toBeUndefined();
+    const result = await (await page.request.post(new URL(`/fixture-position?fen=${encodeURIComponent('7k/8/8/8/8/8/P7/K7 w - - 0 1')}`, unstamped.url).href)).json();
+    await page.evaluate(async result => {
+      await (window as any).harnessSetContext({ displayMode: 'fullscreen' });
+      await (window as any).harnessShow(result);
+    }, result);
+    await frame.locator('#board').waitFor({ state: 'visible' });
+    await expect.poll(() => page.evaluate(() => (window as any).harnessCalls.filter((call: any) => call.name === 'kingdown_preview').length)).toBe(1);
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.store.page().notice)).toBeUndefined();
+  } finally { await page.close(); await unstamped.close(); }
+});

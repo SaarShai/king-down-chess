@@ -1,66 +1,34 @@
-// Workflow lint (checks-and-hooks/04, story 16): a merge on GitHub runs no local hook, so one
-// workflow runs `npm test` on each pull request into main. The pre-push hook tests each push, so
-// the workflow has no push trigger.
-// The repository has no YAML parser, so the lint reads the file as lines. It reads only the shape
-// that test.yml uses: top-level keys at column 0, and steps as `- ` items under `steps:`.
+// One CI workflow runs the suite on each PR and on pushes to main.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const text = readFileSync(join(import.meta.dirname, '..', '.github', 'workflows', 'test.yml'), 'utf8');
-const lines = text.split('\n').filter(line => line.trim() && !line.trim().startsWith('#'));
-
-/** The lines under a top-level key, up to the next top-level key. */
-const block = (key: string) => {
-  const start = lines.findIndex(line => line === `${key}:` || line.startsWith(`${key}: `));
-  expect(start, `test.yml has no top-level "${key}"`).toBeGreaterThanOrEqual(0);
-  const end = lines.findIndex((line, i) => i > start && /^\S/.test(line));
-  return lines.slice(start, end === -1 ? undefined : end);
-};
-/** The steps of the one job, each as its lines. */
-const steps = () => {
-  const start = lines.findIndex(line => /^\s+steps:\s*$/.test(line));
-  expect(start, 'test.yml has no steps').toBeGreaterThanOrEqual(0);
-  const indent = lines[start + 1].search(/\S/);
-  const result: string[][] = [];
-  for (const line of lines.slice(start + 1)) {
-    if (line.search(/\S/) < indent) break;
-    if (line.search(/\S/) === indent && line.trim().startsWith('- ')) result.push([]);
-    result.at(-1)!.push(line.trim());
-  }
-  return result;
-};
-
-describe('.github/workflows/test.yml', () => {
-  it('runs on pull requests into main only, with no push trigger', () => {
-    const on = block('on').map(line => line.trim());
-    expect(on).toEqual(['on:', 'pull_request:', 'branches: [main]']);
-  });
-
-  it('uses Node 22', () => {
-    expect(steps().find(step => step.some(line => line.includes('actions/setup-node')))).toContain('node-version: 22');
-  });
-
-  it('installs with npm ci and no browser download', () => {
-    const install = steps().find(step => step.some(line => /run: npm ci\b/.test(line)));
-    expect(install, 'no `npm ci` step').toBeDefined();
-    expect(install).toContain("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'");
-  });
-
-  it('installs Chromium for the browser tests before npm test', () => {
-    const at = (pattern: RegExp) => steps().findIndex(step => step.some(line => pattern.test(line)));
-    expect(at(/run: npx playwright install --with-deps chromium$/), 'no Chromium install step').toBeGreaterThan(at(/run: npm ci\b/));
-    expect(at(/run: npx playwright install/)).toBeLessThan(at(/run: npm test$/));
-  });
-
-  it('runs npm test as its last step', () => {
-    expect(steps().at(-1)).toContain('- run: npm test');
-  });
-});
-
 describe('.github/workflows/plugin-checks.yml', () => {
   const workflow = readFileSync(join(import.meta.dirname, '..', '.github', 'workflows', 'plugin-checks.yml'), 'utf8');
   const job = (name: string) => workflow.split(`\n  ${name}:\n`)[1]?.split(/\n  [\w-]+:\n/)[0] ?? '';
+
+  it('runs once per PR update and keeps the Node 24 database suite', () => {
+    const triggers = workflow.split('\non:\n')[1].split('\npermissions:')[0];
+    expect(triggers).toBe('  pull_request:\n  push:\n    branches: [main]\n  workflow_dispatch:\n');
+    const verify = job('verify');
+    expect(verify).toContain('node-version: 24');
+    expect(verify).toContain('image: postgres:17');
+    expect(verify).toContain('PLUGIN_TEST_DATABASE_URL:');
+    expect(verify).toContain('- run: npm run plugin:db:init-test');
+    expect(verify).toContain('- run: npm test');
+    expect([...workflow.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):$/gm)].map(m => m[1])).toEqual(['verify', 'browser', 'browser-web', 'browser-webkit', 'browser-firefox']);
+  });
+
+  it('keeps the release and sample instructions in line with the CI and push gates', () => {
+    const read = (path: string) => readFileSync(join(import.meta.dirname, '..', path), 'utf8');
+    const release = read('docs/specs/web-adaptation/release-route.md');
+    expect(release).toContain('Keep `plugin-checks.yml` for PRs and pushes to `main`. Open a PR to start branch checks.');
+    expect(release).toContain('The pre-push hook runs only the repo gate.');
+    const sample = read('docs/specs/chatgpt-mvp/sample/candidates/rollers/README.md');
+    expect(sample).toContain('CI and the deploy run `npm test`.');
+    expect(sample).toContain('The repository push hook runs only the repo gate.');
+    expect(read('tools/lib/checks.mjs')).not.toContain('pre-push');
+  });
 
   it('runs WebKit in a separate job with its own install and the time limit for its scaled steps', () => {
     const webkit = job('browser-webkit');
@@ -77,6 +45,17 @@ describe('.github/workflows/plugin-checks.yml', () => {
     // CI runs the steps with limits times 2 (tools/lib/checks.mjs STEP); the full npm test takes about 15 minutes there.
     expect(job('verify')).toContain('timeout-minutes: 30');
     expect(job('browser')).toContain('timeout-minutes: 30');
+  });
+
+  it('runs the web journeys on Chromium in their own job beside the plugin checks', () => {
+    // With the plugin checks (about 20 minutes on CI) in one job, they passed its 30 minutes (run 39337731602).
+    const web = job('browser-web');
+    expect(web).toContain('timeout-minutes: 30');
+    expect(web).toContain('npx playwright install --with-deps chromium');
+    expect(web).toContain('- run: npm run check:browser home account link-game lessons lesson-return workshop workshop-cast');
+    expect(web).toContain('- run: npm run check:browser web-online');
+    expect(web).toContain('name: web-check-logs');
+    expect(job('browser')).not.toContain('web-online');
   });
 
   it('runs the board, phone-size and widget checks on WebKit', () => {

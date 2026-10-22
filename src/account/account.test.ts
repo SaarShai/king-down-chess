@@ -7,15 +7,22 @@ const buttons = (html: string) => [...html.matchAll(/<button[^>]*>(.*?)<\/button
 
 describe('Settings → Account', () => {
   it('signed out: the reason to sign in, Google and GitHub, and the privacy and terms links', () => {
-    const html = accountHtml(null, false);
+    const html = accountHtml(null, false, ['google', 'github']);
     expect(html).toContain('Sign in to save your games on every device');
     expect(buttons(html)).toEqual(['Continue with Google', 'Continue with GitHub']);
-    expect(html).toContain('href="./privacy.html"');
-    expect(html).toContain('href="./terms.html"');
+    expect(html).toContain('href="/privacy.html"');
+    expect(html).toContain('href="/terms.html"');
   });
 
   it('Facebook shows only with its flag', () => {
-    expect(buttons(accountHtml(null, true))).toEqual(['Continue with Google', 'Continue with GitHub', 'Continue with Facebook']);
+    expect(buttons(accountHtml(null, true, ['google', 'github', 'facebook']))).toEqual(['Continue with Google', 'Continue with GitHub', 'Continue with Facebook']);
+    expect(buttons(accountHtml(null, false, ['google', 'github', 'facebook']))).toEqual(['Continue with Google', 'Continue with GitHub']);
+    expect(buttons(accountHtml(null, true, ['github']))).toEqual(['Continue with GitHub']);
+  });
+
+  it('shows no provider before settings load, or when all are disabled', () => {
+    expect(buttons(accountHtml(null, false))).toEqual([]);
+    expect(buttons(accountHtml(null, true, []))).toEqual([]);
   });
 
   it('signed in: picture, name, Sign out and Delete my account', () => {
@@ -25,7 +32,7 @@ describe('Settings → Account', () => {
     expect(html).toContain('Signed in with Google');
     expect(buttons(html)).toEqual(['Sign out', 'Delete my account']);
     expect(html).not.toContain('Continue with');
-    expect(html).toContain('href="./privacy.html"');
+    expect(html).toContain('href="/privacy.html"');
   });
 
   it('a name from the sign-in service cannot inject markup', () => {

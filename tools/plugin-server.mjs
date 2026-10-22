@@ -7,24 +7,74 @@ import { realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
-import { pluginDatabaseConfig } from './plugin-db-config.mjs';
+import { attachDatabasePool } from '@vercel/functions';
+import { pluginDatabaseConfig, testDatabase } from './plugin-db-config.mjs';
 import { createTokenVerifier, isLoopback, pluginOrigin } from '../src/plugin/auth.ts';
 import { consentConfig, renderConsent } from '../src/plugin/consent-config.ts';
 import { createPluginHandler } from '../src/plugin/http.ts';
 import { GameService } from '../src/match/service.ts';
 import { PluginService } from '../src/plugin/service.ts';
 import { PostgresMatchStore } from '../src/match/store.ts';
-import { createInternalHandler } from '../src/api/http.ts';
-import { resendSender } from '../src/online/mail.ts';
+import { createApiHandler, createInternalHandler, sessionVerifier } from '../src/api/http.ts';
+import { createWebAccountAccess } from '../src/api/account-access.ts';
+import { AccountService } from '../src/online/accounts.ts';
+import { SafetyService } from '../src/online/safety.ts';
 import { ART_HEADERS, artType } from './plugin-art-headers.mjs';
+import { stagingConfig } from './staging-config.mjs';
+import { createAdmission } from '../src/api/admission.ts';
+import { createCurrentUserCheck } from '../src/api/current-user.ts';
 
-export async function configurePlugin(env = process.env, { localDev = false } = {}) {
+// A deployed server (staging or production) serves the website account API. The 0016 web_account_access
+// switch (enabled=false by default) keeps every operation closed until the owner opens it. A local run
+// without website test keys keeps the API closed.
+const WEB_OPERATIONS = new Set();
+export const ENABLED_WEB_OPERATIONS = new Set([
+  'GET /api/status',
+  'POST /api/games',
+  'GET /api/games/:id',
+  'POST /api/games/:id/seen',
+  'POST /api/games/:id/commands',
+ 'POST /api/games/:id/preview',
+  'POST /api/games/:id/invite',
+  'POST /api/invites/redeem',
+  'GET /api/me/games',
+  'GET /api/me/profile',
+  'PATCH /api/me/profile',
+  'POST /api/me/handle',
+  'POST /api/me/deletion',
+  'DELETE /api/me/deletion',
+  'GET /api/me/notifications',
+  'PUT /api/me/notifications',
+  'GET /api/relations',
+  'POST /api/relations',
+  'DELETE /api/relations',
+  'POST /api/reports',
+  'POST /api/invites/preview',
+  'GET /api/lobby',
+  'POST /api/games/find',
+  'POST /api/games/:id/accept',
+  'POST /api/games/:id/cancel',
+  'GET /api/me/settings',
+  'PATCH /api/me/settings',
+  'GET /api/me/record',
+  'GET /api/blocks',
+  'POST /api/blocks',
+]);
+
+export async function configurePlugin(env = process.env, { localDev = false, serverless = false, websiteKeys, websiteCurrentUser } = {}) {
   const publicOrigin = pluginOrigin(env.KINGDOWN_PLUGIN_ORIGIN || (localDev ? 'http://127.0.0.1:3100' : ''));
   const connectionString = env.KINGDOWN_PLUGIN_DATABASE_URL;
   if (!connectionString) throw new Error('KINGDOWN_PLUGIN_DATABASE_URL is required');
   let db;
   try { db = new URL(connectionString); } catch { throw new Error('Expected a PostgreSQL connection URL'); }
   if (!['postgres:', 'postgresql:'].includes(db.protocol)) throw new Error('Expected a PostgreSQL connection URL');
+  const staging = stagingConfig(env, { publicOrigin, database: db, localDev });
+  if (staging && localDev) throw new Error('Staging cannot enable local personas');
+  if (websiteCurrentUser !== undefined && (websiteKeys === undefined || typeof websiteCurrentUser !== 'function')) throw new Error('Website current-user test hook requires website test keys');
+  if (websiteKeys !== undefined) {
+    if (localDev !== true || env.NODE_ENV !== 'test' || !isLoopback(new URL(publicOrigin).hostname) || !env.SUPABASE_URL || typeof websiteKeys !== 'function') throw new Error('Website test keys require local development, NODE_ENV=test, a loopback origin and SUPABASE_URL');
+    testDatabase(connectionString);
+  }
   let auth, config, consent;
 
   if (localDev) {
@@ -45,18 +95,25 @@ export async function configurePlugin(env = process.env, { localDev = false } = 
   const page = config ?? (localDev && env.SUPABASE_URL ? consentConfig(env) : undefined);
   if (page) consent = { html: renderConsent(await readFile(new URL('./consent.html', import.meta.url), 'utf8'), page), script: await readFile(new URL('./consent.mjs', import.meta.url), 'utf8'), supabaseOrigin: page.supabaseUrl };
   const resourceHtml = await readFile(new URL('./board.html', import.meta.url), 'utf8');
-  const pool = new Pool({ ...pluginDatabaseConfig(db, { localDev }), max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000 });
+  const pool = new Pool({ ...pluginDatabaseConfig(db, { localDev, serverless }), max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000 });
+  if (serverless) attachDatabasePool(pool);
   pool.on('error', error => { console.error('King Down database connection failed', diagnostic(error)); });
   try { await checkPluginDatabase(pool, config, auth?.resource); }
   catch (error) { await pool.end(); throw error; }
   const store = new PostgresMatchStore(pool), secret = env.KINGDOWN_INTERNAL_SECRET ?? '', games = new GameService(store, secret);
-  const mcp = createPluginHandler({ consent, service: new PluginService(store, secret), publicOrigin, resourceHtml, auth, localDev });
-  const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET, sender: () => resendSender(env) });
-  // The MVP serves internal jobs, MCP and OAuth pages.
+  const service = new PluginService(store, secret);
+  const mcp = createPluginHandler({ consent, service, publicOrigin, resourceHtml, auth, localDev });
+  const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET });
+  const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), players: service, publicOrigin,
+    admit: createAdmission(),
+    currentUser: websiteCurrentUser ?? (page ? createCurrentUserCheck({ supabaseUrl: page.supabaseUrl, publishableKey: page.publishableKey }) : undefined),
+    webAccountAccess: createWebAccountAccess(pool),
+    verify: env.SUPABASE_URL ? sessionVerifier(env.SUPABASE_URL, websiteKeys) : undefined, operations: localDev && websiteKeys === undefined ? WEB_OPERATIONS : ENABLED_WEB_OPERATIONS });
   const handler = async (req, res) => {
     const path = req.url?.startsWith('/') && URL.canParse(req.url, publicOrigin) ? new URL(req.url, publicOrigin).pathname : '';
     if (/^\/internal(\/|$)/.test(path)) return internal(req, res);
     if (path.startsWith('/plugin-art/')) return art(path.slice(12), res);
+    if (/^\/api(?:\/|$)/.test(path)) return api(req, res);
     await mcp(req, res);
   };
   return { handler, pool, publicOrigin };
@@ -71,7 +128,7 @@ async function art(name, res) {
 let configured;
 /** The function adapter never enables local personas. */
 export default async function handler(req, res) {
-  try { configured ??= configurePlugin().catch(error => { configured = undefined; throw error; }); await (await configured).handler(req, res); }
+  try { configured ??= configurePlugin(process.env, { serverless: true }).catch(error => { configured = undefined; throw error; }); await (await configured).handler(req, res); }
   catch (error) { console.error('King Down startup failed', { requestId: randomUUID(), ...diagnostic(error) }); if (!res.headersSent) { res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ error: 'King Down server is not configured' })); } else res.destroy(); }
 }
 export async function startPluginServer({ localDev = false } = {}) {

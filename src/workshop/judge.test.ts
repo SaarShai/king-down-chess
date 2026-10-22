@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANCHOR_DESIGNS, anchorOf } from './anchors';
-import { BAND_WORD, THRESHOLDS, bandOf, judge, memoryOf, worthOf, type Label } from './judge';
+import { BAND_WORD, bandOf, judge, memoryOf, worthOf, type Label } from './judge';
 import { DIAG, DIRS, KING_STEP, KNIGHT_JUMP, ORTHO, PRESETS, empty, keyOf, limit, presetOf, type Dir, type Mark, type PieceDesign, type Rule, type Square, type When } from './model';
 import { BLOCKS, EVENT_WHENS, MORE_WHENS, TOP_WHENS } from './vocab';
 
@@ -110,6 +110,10 @@ describe('the judge (§6)', () => {
     expect(memoryOf(p('pawn')).points).toBe(0.5);
   });
 
+  it('keeps the empty design prompt', () => {
+    expect(judge(d([], [])).line).toBe('Paint at least one square or line.');
+  });
+
   it('blocks the shapes §6.13 marks blocked', () => {
     expect(judge(d(NN, [], { when: AL, does: { a: 'cannotBeTaken', by: 'allButKing' } })).blocked).toMatch(/Only a king/);
     expect(judge(d(K8, [], { when: AL, does: { a: 'cannotBeTaken', by: 'allButKing' } })).blocked).toMatch(/Only a king/);
@@ -142,11 +146,9 @@ describe('the judge (§6)', () => {
     expect(bandOf(judge(d(NN, ORTHO)))).toBe('Likely overpowered');
   });
 
-  it('words assumptions as assumptions, names the waiting rule, and never names the project', () => {
-    const texts = [...ROWS.map(x => x[1]), ...PRESETS].flatMap(x => { const v = judge(x); return [v.line, ...v.why, ...v.flags.map(f => f.line)]; });
+  it('names the waiting rule and never names the project', () => {
+    const texts = [...ROWS.map(x => x[1]), ...PRESETS].flatMap(x => { const v = judge(x); return [v.line, ...v.flags.map(f => f.line)]; });
     for (const t of texts) expect(t, t).not.toMatch(/\b(lab|owner)\b/);
-    const cond = judge(d(KING_STEP('both'), [], { when: { on: 'zone', zone: 'enemyHalf' }, does: { a: 'movesLike', as: 'rook' } }));
-    expect(cond.why.find(t => t.includes('%'))).toMatch(/The estimate assumes it works in the enemy half about 35% of the time\./);
     expect(judge(d(KING_STEP('both'), [], { when: { on: 'afterCard', card: 'any' }, does: { a: 'movesLike', as: 'queen' } })).flags.find(f => f.code === 'F7')!.line)
       .toBe('May often wait: “also moves like a queen” works only in card games.');
   });
@@ -208,30 +210,7 @@ describe('the judge on random designs', () => {
     expect(n).toBeGreaterThan(10000);
   }, 30000); // About 17,000 pairs: about 1 s alone. The old 58,000 took 3.5 s alone and over 30 s under a deploy (2026-10-19).
 
-  it('gives each rule-book badge the change that adding the rule then shows', () => {
-    for (const x of POOL) {
-      const v = judge(x);
-      for (const b of BLOCKS) {
-        const badge = v.deltas[b.a];
-        if (!badge) continue;
-        expect(badge.v, `${keyOf(x)} ${b.a}`).toBeCloseTo(worthOf({ ...x, rules: [...x.rules, b.rule] }) - v.worth.point, 2);
-      }
-    }
-  });
-
-  it('names what makes a design strong in Why?: the worth without each part, the largest change first', () => {
-    const v = judge(d(KING_STEP('both').filter(s => s.x && s.y), ORTHO, chain));
-    expect(v.label).toBe('likelyOP');
-    expect(v.why).toEqual([
-      'Without “slides straight”: about 2 pawns.',
-      'Without “moves and takes 1 square diagonally”: about 5½ pawns.',
-      'Without “takes again”: about 6½ pawns.',
-      'In all, it can take on about 10 squares; a rook, about 7; a queen, about 12. Past 7, each one counts double.',
-    ]);
-  });
-
-  it('keeps the line within 90 characters, and each fix is a removal that lands in the band (§8.4.7)', () => {
-    const sub = <T>(a: readonly T[], b: readonly T[], k: (t: T) => string) => a.every(t => b.some(u => k(u) === k(t)));
+  it('keeps the line within 90 characters (§8.4.7)', () => {
     const bad: string[] = [];
     let n = 0;
     // The pool and every 3rd one-step addition, spread over the whole pool. All 3,620 designs (3 s alone) passed on 2026-10-19.
@@ -239,12 +218,6 @@ describe('the judge on random designs', () => {
       const v = judge(x);
       // Plain checks, and the keys only for a fault, as in the §8.4.4 test above.
       if (v.line.length > 90) bad.push(`${keyOf(x)}: line of ${v.line.length}: ${v.line}`);
-      if (v.fixes.length > 2) bad.push(`${keyOf(x)}: ${v.fixes.length} fixes`);
-      for (const f of v.fixes) {
-        if (!(sub(f.design.squares, x.squares, s => JSON.stringify(s)) && sub(f.design.lines, x.lines, String) && sub(f.design.rules, x.rules, s => JSON.stringify(s)))) bad.push(`${keyOf(x)}: fix ${keyOf(f.design)} adds a part`);
-        if (keyOf(f.design) === keyOf(x)) bad.push(`${keyOf(x)}: a fix that changes nothing`);
-        if (!(f.worth >= THRESHOLDS.weak && f.worth <= THRESHOLDS.op)) bad.push(`${keyOf(x)}: fix ${keyOf(f.design)} worth ${f.worth}, out of the band`);
-      }
       n++;
     }
     expect(bad).toEqual([]);

@@ -148,6 +148,24 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   expect(left).toBeLessThanOrEqual(7 * 86_400_000 + 60_000);
  });
 
+ it('reports invite replacement on reads without changing the game revision or exposing a redeemable token', async () => {
+  const game = await games[0].create(a, { kind: 'friend', options: CLASSIC_OPTIONS });
+  expect(game.invite_id).toBeNull();
+  const first = await games[0].invite(a, game.game_id);
+  expect(first.invite_id).toMatch(/^[a-f0-9]{64}$/);
+  expect(first.invite_id).not.toBe(first.token);
+  expect((await games[1].view(a, game.game_id)).invite_id).toBe(first.invite_id);
+  const second = await games[1].invite(a, game.game_id);
+  expect(second.invite_id).not.toBe(first.invite_id);
+  expect(await games[0].view(a, game.game_id, game.revision)).toMatchObject({ invite_id: second.invite_id, revision: game.revision });
+  expect((await games[0].inbox(a)).find(entry => entry.game_id === game.game_id)?.invite_id).toBe(second.invite_id);
+  await expect(games[0].view(b, game.game_id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  await expect(games[0].preview(b, second.invite_id)).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  await expect(games[0].preview(b, first.token)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
+  expect((await games[0].preview(b, second.token)).kind).toBe('friend');
+  expect((await rows('select token_hash from public.game_invites where game_id=$1', [game.game_id]))[0].token_hash).toBe(second.invite_id);
+ });
+
  it('gives one seat to one of two joiners and lets the winner retry',async () => {
   const created = await games[0].create(a,{kind:'friend',options:CLASSIC_OPTIONS,colour:'white'});
   const old = await games[0].invite(a,created.game_id), invite = await games[0].invite(a,created.game_id);
@@ -210,6 +228,61 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   expect([claim.status,claim.result?.reason,claim.last_commands.at(-1)?.action.type]).toEqual(['aborted','no_start','claim']);
  },60000);
 
+ it.each([
+  ['first_turn', 'turn'], ['move', 'turn'], ['first_turn', 'claim'], ['move', 'claim'],
+ ] as const)('checks the %s deadline after a %s waits for the game lock', async (kind, action) => {
+  const host = await user('lockhost'), guest = await user('lockguest'), id = await friend(host, guest);
+  const accepted = command(1, { type: 'say', preset: 'hello' });
+  await games[0].command(host, id, accepted);
+  if (kind === 'move') {
+   await games[0].command(host, id, turn(2, (await games[0].view(host, id)).legal[0]));
+   await games[1].command(guest, id, turn(3, (await games[1].view(guest, id)).legal[0]));
+  }
+  const base = await games[0].view(host, id), before = (await rows('select state,snapshot,deadline_kind from public.games where id=$1', [id]))[0];
+  expect(before.deadline_kind).toBe(kind);
+  const turns = (await rows('select turns_played from public.game_players where game_id=$1 order by seat', [id])).map(p => p.turns_played);
+  const notifications = (await rows("select count(*)::int as n from public.notifications where payload->>'game_id'=$1", [id]))[0].n;
+  const blocker = new pg.Client({ connectionString: own.href });
+  await blocker.connect();
+  let pending: Promise<{ view?: Awaited<ReturnType<GameService['command']>>; error?: unknown }> | undefined;
+  vi.useFakeTimers({ toFake: ['Date'] });
+  try {
+   const started = new Date(), deadline = new Date(started.getTime() + 1000);
+   vi.setSystemTime(started);
+   await admin.query('update public.games set deadline_at=$2 where id=$1', [id, deadline]);
+   await blocker.query('begin');
+   const pid = (await blocker.query('select pg_backend_pid() as pid')).rows[0].pid;
+   await blocker.query('select from public.games where id=$1 for update', [id]);
+   const sent = action === 'turn' ? turn(base.revision, base.legal[0]) : command(base.revision, { type: 'claim', reason: 'timeout' });
+   pending = games[1].command(action === 'turn' ? host : guest, id, sent).then(view => ({ view }), error => ({ error }));
+   // Observe the real lock wait before advancing only the service clock past its stored deadline.
+   await expect.poll(async () => (await rows('select exists(select from pg_stat_activity where $1=any(pg_blocking_pids(pid))) as waiting', [pid]))[0].waiting, { timeout: 10_000 }).toBe(true);
+   const checkedAt = new Date(deadline.getTime() + 1); vi.setSystemTime(checkedAt);
+   await blocker.query('commit');
+   const answer = await pending;
+   if (action === 'turn') expect(answer).toMatchObject({ error: { code: 'MATCH_TERMINAL' } });
+   else expect(answer).toMatchObject({ view: { revision: base.revision + 1, status: kind === 'first_turn' ? 'aborted' : 'finished' } });
+   const ended = (await rows('select state,snapshot,status,result,end_reason,revision,finished_at,deadline_at from public.games where id=$1', [id]))[0];
+   expect(ended).toEqual({ state: before.state, snapshot: before.snapshot, status: kind === 'first_turn' ? 'aborted' : 'finished', result: kind === 'first_turn' ? null : 'black', end_reason: kind === 'first_turn' ? 'no_start' : 'timeout', revision: base.revision + 1, finished_at: checkedAt, deadline_at: null });
+   expect((await rows('select turns_played from public.game_players where game_id=$1 order by seat', [id])).map(p => p.turns_played)).toEqual(turns);
+   expect((await rows("select count(*)::int as n from public.notifications where payload->>'game_id'=$1", [id]))[0].n).toBe(notifications);
+   expect(await rows('select kind,actor_id,received_at from public.game_commands where game_id=$1 and seq=$2', [id, ended.revision])).toEqual([{ kind: action === 'turn' ? 'expire' : 'claim', actor_id: action === 'turn' ? null : guest, received_at: checkedAt }]);
+   expect((await rows('select count(*)::int as n from public.game_commands where game_id=$1 and command_id=$2', [id, sent.command_id]))[0].n).toBe(action === 'turn' ? 0 : 1);
+   const finishedEvents = async () => (await rows("select count(*)::int as n from public.outbox where kind='game_finished' and payload->>'game_id'=$1", [id]))[0].n;
+   expect(await finishedEvents()).toBe(1);
+   vi.setSystemTime(new Date(checkedAt.getTime() + 86_400_000));
+   expect(await games[0].command(host, id, accepted)).toMatchObject({ revision: ended.revision, status: ended.status });
+   if (action === 'claim') expect(await games[0].command(guest, id, sent)).toMatchObject({ revision: ended.revision, status: ended.status });
+   await expect(games[0].command(host, id, { ...accepted, action: { type: 'say', preset: 'thanks' } })).rejects.toMatchObject({ code: 'COMMAND_CONFLICT' });
+   expect(await finishedEvents()).toBe(1);
+   expect((await games[0].view(host, id)).revision).toBe(ended.revision);
+  } finally {
+   await blocker.query('rollback'); await blocker.end();
+   if (pending) await pending;
+   vi.useRealTimers();
+  }
+ }, 30_000);
+
  it('keeps the last revision for the end of a game: a resignation, a claim or the sweep',async () => {
   // The schema stops at revision 1000; these games start one revision before it. New players: a short code counts 10 joins in one hour.
   const [w,k] = [await user('wil'),await user('kit')];
@@ -249,6 +322,31 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   const resigned = await games[0].create(a,{kind:'solo',colour:'black'});
   expect((await games[0].command(a,resigned.game_id,command(0,{type:'resign'}))).result).toEqual({winner:0,reason:'resignation'});
  },60000);
+
+ it('updates only the actor seat activity, at most once each 30 seconds', async () => {
+  const [host,guest,stranger] = [await user('seen-host'),await user('seen-guest'),await user('seen-cy')];
+  const id = await friend(host,guest);
+  const tables = await rows("select tablename from pg_tables where schemaname='public' order by tablename");
+  // Ignore only this seat's activity time in the full data comparison.
+  const snapshot = () => Promise.all(tables.map(async ({ tablename }) => (await rows(`select to_jsonb(t) as row from public."${tablename}" t order by to_jsonb(t)::text`)).map(({ row }) =>
+   tablename === 'game_players' && row.game_id === id && row.user_id === host ? { ...row, last_seen_at: null } : row)));
+  const players = () => rows('select * from public.game_players where game_id=$1 order by seat', [id]);
+  await admin.query("update public.game_players set last_seen_at=now()-interval '1 hour' where game_id=$1", [id]);
+  for (let attempt = 0; attempt < 2; attempt++) {
+   const before = await snapshot(), seats = await players();
+   await games[1].seen(host,id);
+   const after = await players();
+   expect(after[0].last_seen_at.getTime()).toBeGreaterThan(seats[0].last_seen_at.getTime());
+   expect(after).toEqual([{ ...seats[0], last_seen_at: after[0].last_seen_at }, seats[1]]);
+   expect(await snapshot()).toEqual(before);
+   await games[1].seen(host,id); expect(await players()).toEqual(after); expect(await snapshot()).toEqual(before);
+   if (!attempt) await admin.query("update public.game_players set last_seen_at=now()-interval '31 seconds' where game_id=$1 and user_id=$2", [id,host]);
+  }
+  const before = await snapshot();
+  await expect(games[1].seen(stranger,id)).rejects.toMatchObject({code:'FORBIDDEN',status:403});
+  await expect(games[1].seen(host,randomUUID())).rejects.toMatchObject({code:'NOT_FOUND',status:404});
+  expect(await snapshot()).toEqual(before);
+ },30000);
 
  it('keeps views small and read-only, and lists your turn first',async () => {
   // Fresh players, so games of the other tests do not join the lists.

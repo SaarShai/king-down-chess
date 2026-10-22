@@ -57,7 +57,7 @@ Needs: W1 and W2 (merged)
 - Integration `npm test` passes: 87 files pass, 1 skips; 1,553 tests pass, 13 skip; all 50 board tests pass.
 - The M1 launcher routes `menu-extra` to this Mac after its cutoff. After the shared lock clears, the check passes in 7.2 s.
 - No code fix is needed. The merge keeps both sides.
-- Push the checked commit with one test worker, as in the W9 retry. The pre-push hook runs the full tests and gate.
+- Push the checked commit. The pre-push hook runs the repo gate. CI and the deploy run the suite.
 
 Batch 3: decided by delegation (2026-10-09).
 The new seal dot stays on Menu, Extra and Tricks until Tricks opens.

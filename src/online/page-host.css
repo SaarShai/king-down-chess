@@ -1,0 +1,17 @@
+@import '../style.css';
+@import '../account-game/content.css';
+
+body { height: auto; min-height: 100dvh; overflow: auto; }
+#app-root { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+#app-root :is(button, input, select, .seg-row label) { min-width: 48px; min-height: 48px; }
+#app-root #game-table .coin { width: 48px; height: 48px; min-width: 48px; min-height: 48px; }
+@container table-screen (max-width: 319px) {
+  #app-root #game-table .player-strip:has(.card-coin) { min-height: 56px; }
+}
+.account-entry { width: min(100% - 32px, 420px); margin: 12vh auto; display: grid; gap: 16px; }
+.account-entry h1, .account-entry p { margin: 0; }
+.account-entry a { text-align: center; }
+.staging-sign-in, .staging-sign-in label { display: grid; gap: 8px; }
+.staging-sign-in { border-top: 1px solid currentColor; padding-top: 16px; }
+.staging-sign-in h2 { margin: 0; font-size: 1rem; }
+.staging-sign-in input { width: 100%; min-height: 48px; }

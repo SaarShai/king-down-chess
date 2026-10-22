@@ -1,8 +1,10 @@
+import { GameRules } from '../game-rules';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Move, Position, legalMoves, makeMove, parseSq, perft } from './engine';
-import { POWERS_BALANCED, setRules } from './rules';
+import { POWERS_BALANCED, RULES, setRules } from './rules';
 import { CLASSIC_CHESS, fromFen, startPosition, toFen, toLan } from './setup';
-import { positionKey, probeApply, resetSearchState, search, searchLegal } from '../ai/search';
+import { probeApply, resetSearchState, search, searchLegal } from '../ai/search';
+import { positionKey } from './position-key';
 import { describeMove } from '../move-text';
 import { Game } from '../game';
 
@@ -98,7 +100,7 @@ describe('classic chess: castling', () => {
   it('positions that differ only in their rights are not the same position', () => {
     classic();
     expect(positionKey(fromFen('r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1'))).not.toBe(positionKey(fromFen('r3k2r/8/8/8/8/8/8/R3K2R w Qkq - 0 1')));
-    const game = new Game(CLASSIC_CHESS);
+    const game = new Game(CLASSIC_CHESS, RULES);
     game.load(fromFen('rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2'));
     const before = positionKey(game.pos);
     for (const l of ['Ke1-e2', 'Ke8-e7', 'Ke2-e1', 'Ke7-e8']) game.play(game.legal.find(m => toLan(game.pos, m) === l)!);
@@ -119,7 +121,7 @@ describe('classic chess: castling has its own move text', () => {
     // The search lists the same moves by the same text.
     expect(searchLegal(pos).map(m => toLan(pos, m)).sort()).toEqual(all);
     // An autosave restore (Game.playLan) castles, and does not take the king's step.
-    const game = new Game(CLASSIC_CHESS);
+    const game = new Game(CLASSIC_CHESS, RULES);
     game.load(pos);
     expect(game.playLan(['O-O', 'Ke8-d8', 'Rf1-f2'])).toBe(3);
     expect(toFen(game.pos).split(' ')[0]).toBe('3k4/8/8/8/8/8/5R2/R5K1');
@@ -151,11 +153,11 @@ describe('classic chess: castling has its own move text', () => {
   it('threefold repetition counts a position only with the same rights', () => {
     classic();
     const loop = ['Ng1-f3', 'Ng8-f6', 'Nf3-g1', 'Nf6-g8'];
-    const kept = new Game(CLASSIC_CHESS);
+    const kept = new Game(CLASSIC_CHESS, RULES);
     kept.playLan([...loop, ...loop]);
     expect(kept.status).toBe('drawRepetition');
     // The kings walk once: the position after e4 e5 comes back with no rights, so it counts anew; with the rights left out of the key, the first loop would draw.
-    const lost = new Game(CLASSIC_CHESS);
+    const lost = new Game(CLASSIC_CHESS, RULES);
     lost.playLan(['e2-e4', 'e7-e5', 'Ke1-e2', 'Ke8-e7', 'Ke2-e1', 'Ke7-e8']);
     expect(lost.history).toHaveLength(6);
     lost.playLan(loop);
@@ -237,9 +239,9 @@ describe('classic chess: the move text', () => {
   it('names castling and en passant', () => {
     classic();
     const pos = fromFen(KIWIPETE);
-    expect(describeMove(pos, find(pos, 'O-O'))).toBe('White castles short.');
-    expect(describeMove(pos, find(pos, 'O-O-O'))).toBe('White castles long.');
+    expect(describeMove(new GameRules(RULES), pos, find(pos, 'O-O'))).toBe('White castles short.');
+    expect(describeMove(new GameRules(RULES), pos, find(pos, 'O-O-O'))).toBe('White castles long.');
     const ep = play(startPosition(CLASSIC_CHESS), 'e2-e4', 'a7-a6', 'e4-e5', 'd7-d5');
-    expect(describeMove(ep, find(ep, 'e5xd6'))).toBe('White pawn e5 to d6, taking the pawn on d5 en passant.');
+    expect(describeMove(new GameRules(RULES), ep, find(ep, 'e5xd6'))).toBe('White pawn e5 to d6, taking the pawn on d5 en passant.');
   });
 });

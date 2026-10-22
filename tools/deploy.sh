@@ -8,16 +8,20 @@
 #   tools/deploy.sh --target plugin [--publish]   Check or publish kingdown-plugin.
 #   tools/deploy.sh --setup-plugin | --configure-plugin <private-env-file>
 #
+# The release shell must hold no KINGDOWN_STAGE or VITE_KINGDOWN_STAGE. A website run needs the production
+# VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY, because the build reads both from this shell.
 # No ref is accepted. A detached origin/main worktree runs npm test and the default browser checks,
-# then build:vercel, the engine guards, check:vercel, the MCP protocol and the plugin UI checks.
+# then build:vercel (with its own node_modules), the engine guards and byte record, check:vercel,
+# the MCP protocol and the plugin UI checks.
 # PLUGIN_TEST_DATABASE_URL must name a disposable loopback database ending in _test.
 # A build that adds an uncommitted engine stops. KINGDOWN_ENGINES_DATABASE_URL enables the read-only
-# check of engines in use; without it the script reports that check as skipped.
+# check of engines in use; publish stops without it. Check-only mode can skip it.
 #
 # --publish copies the tested Build Output API tree, links the approved team and project, and uses
 # the pinned CLI with --prebuilt --prod. No website-only tree can publish to kingdown.
-# Both unsigned live checks use DEPLOY_LIVE_TIMEOUT_MS (default 120000; migration window 900000).
-# The site check compares the bundle and legal pages. The plugin check uses https://kingdown.dev.
+# Both unsigned live checks use DEPLOY_LIVE_TIMEOUT_MS (site default 180000, plugin default 120000;
+# migration window 900000). The site check compares the public bytes, the app routes and /api/status.
+# The plugin check uses https://kingdown.dev.
 # Every exit removes the temporary worktree and artifact copy.
 set -eu
 
@@ -27,6 +31,8 @@ vercel=vercel@62.2.0
 scope=saars-projects-2c777ec5
 plugin_project_id=prj_2H4LcrzOXCQbFuKbq0z0G7lCFFC6
 plugin_origin=https://kingdown-plugin.vercel.app
+
+production_supabase_url=https://utqzovjmclfyojedmwok.supabase.co
 
 die() { echo "deploy: $*" >&2; exit 2; }
 usage="usage: tools/deploy.sh [--target website|plugin] [--publish] | --configure <private-env-file> | --setup-plugin | --configure-plugin <private-env-file>"
@@ -55,6 +61,23 @@ while [ $# -gt 0 ]; do
     *) die "$usage" ;;
   esac
 done
+# Production profile (staging-first-game/66): this script serves production only, so the release shell
+# holds no staging setting. A staging release uses node tools/deploy-staging.mjs.
+[ -z "${KINGDOWN_STAGE:-}" ] || die 'unset KINGDOWN_STAGE; production refuses staging settings (staging uses node tools/deploy-staging.mjs)'
+[ -z "${VITE_KINGDOWN_STAGE:-}" ] || die 'unset VITE_KINGDOWN_STAGE; production refuses staging settings (staging uses node tools/deploy-staging.mjs)'
+if [ "$target" = website ] && [ "$setup_plugin" = no ] && [ -z "$configure" ]; then
+  # The website build reads both public values from this shell (src/account/public-config.ts).
+  [ "${VITE_SUPABASE_URL:-}" = "$production_supabase_url" ] || die "set VITE_SUPABASE_URL=$production_supabase_url; the website build needs the production account project"
+  key=${VITE_SUPABASE_PUBLISHABLE_KEY:-}
+  case "$key" in sb_publishable_?*) case "${key#sb_publishable_}" in *[!A-Za-z0-9_-]*) key='' ;; esac ;; *) key='' ;; esac
+  [ -n "$key" ] || die 'set VITE_SUPABASE_PUBLISHABLE_KEY to the production publishable key (sb_publishable_...)'
+fi
+# Only the site build gets the public values; the tests and checks run as on a clean shell.
+site_env="VITE_SUPABASE_URL=${VITE_SUPABASE_URL:-} VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY:-}"
+unset VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY
+if [ "$publish" = yes ]; then
+  [ -n "${KINGDOWN_ENGINES_DATABASE_URL:-}" ] || die 'set KINGDOWN_ENGINES_DATABASE_URL before --publish; the engines-in-use check is required'
+fi
 if [ "$setup_plugin" = no ] && [ -z "$configure" ]; then
   [ -n "${PLUGIN_TEST_DATABASE_URL:-}" ] || die 'set PLUGIN_TEST_DATABASE_URL to a disposable loopback database ending in _test'
   node --input-type=module - <<'NODE'
@@ -113,6 +136,33 @@ engines_committed() {
   return 1
 }
 
+# Refuse a staging build, record the published bytes, and prove that every engine archive in the
+# function is a committed archive with unchanged bytes.
+production_artifact() {
+  node --input-type=module - "$1" "$2" <<'NODE'
+import { createHash } from 'node:crypto';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+const [out, target] = process.argv.slice(2);
+const fail = message => { console.error(`deploy: ${message}`); process.exit(1); };
+const sha = file => createHash('sha256').update(readFileSync(file)).digest('hex');
+if (existsSync(join(out, 'staging.json'))) fail('the build carries the staging manifest; build without KINGDOWN_STAGE');
+if (target === 'website') for (const name of ['static/index.html', 'static/sw.js']) {
+  if (!existsSync(join(out, name))) fail(`the build has no ${name}`);
+  console.log(`deploy: sha256 ${sha(join(out, name))} ${name}`);
+}
+const archives = dir => (existsSync(dir) ? readdirSync(dir).filter(name => name.endsWith('.mjs')).sort() : []);
+const built = archives(join(out, 'functions/mcp.func/runtime/engines')), committed = archives('engines');
+if (built.join() !== committed.join()) fail(`the build holds engine archives ${built.join(', ') || 'none'}; engines/ holds ${committed.join(', ') || 'none'}`);
+for (const name of built) {
+  const file = join(out, 'functions/mcp.func/runtime/engines', name), hash = sha(file);
+  if (!readFileSync(file).equals(readFileSync(join('engines', name)))) fail(`engine archive ${name} changed`);
+  console.log(`deploy: sha256 ${hash} engine archive ${name}`);
+}
+console.log(`deploy: ${built.length} engine archives unchanged; no staging manifest`);
+NODE
+}
+
 verify_project() {
   node --input-type=module - "$1" "$2" <<'NODE'
 import { readFileSync } from 'node:fs';
@@ -169,7 +219,19 @@ if [ "$setup_plugin" = yes ] || [ -n "$configure" ]; then
   exit 0
 fi
 
-step 'fetch origin' git fetch --quiet origin
+git remote get-url origin >/dev/null 2>&1 || die 'add the GitHub remote origin (github.com/SaarShai/king-down-chess); the release builds a fresh origin/main'
+github_origin() {
+  case "$1" in
+    https://github.com/SaarShai/king-down-chess|https://github.com/SaarShai/king-down-chess.git|git@github.com:SaarShai/king-down-chess|git@github.com:SaarShai/king-down-chess.git|ssh://git@github.com/SaarShai/king-down-chess|ssh://git@github.com/SaarShai/king-down-chess.git) return 0 ;;
+  esac
+  return 1
+}
+# The configured URL and the URL that fetch uses (after any insteadOf rewrite) must both name the one GitHub repository.
+if ! github_origin "$(git config --get-all remote.origin.url)" || ! github_origin "$(git ls-remote --get-url origin)"; then
+  die 'remote origin must be the GitHub repository SaarShai/king-down-chess; the release builds a fresh origin/main'
+fi
+# An explicit refspec, so a custom remote.origin.fetch cannot put another branch into origin/main.
+step 'fetch origin' git fetch --quiet origin +refs/heads/main:refs/remotes/origin/main
 commit=$(git rev-parse --verify --quiet 'refs/remotes/origin/main^{commit}') || die "origin has no main branch"
 # One temp folder holds the worktree (tree/) and, with --publish, the published copy (kingdown/).
 base=$(mktemp -d "${TMPDIR:-/tmp}/deploy.XXXXXX")
@@ -179,15 +241,22 @@ echo "deploy: worktree $dir at $commit"
 step 'make worktree' git worktree add --quiet --detach "$dir" "$commit"
 cd "$dir"
 step 'wt add' ./tools/wt.sh add "$dir"
+# A linked node_modules writes its path into bundle comments, so the release builds with its own installation.
+if [ -L node_modules ]; then
+  rm node_modules
+  step 'own node_modules' npm ci
+fi
 step 'plugin test database' npm run plugin:db:init-test
 step 'npm test' npm test
 if [ "$target" = website ]; then
   step 'browser checks' npm run check:browser
-  step 'site artifact' npm run build:vercel
+  # shellcheck disable=SC2086 # site_env holds two checked words without spaces.
+  step 'site artifact' env $site_env npm run build:vercel
 else
   step 'plugin artifact' npm run plugin:build:vercel
 fi
 step 'engine archive' engines_committed
+step 'production artifact' production_artifact "$artifact" "$target"
 if [ -n "${KINGDOWN_ENGINES_DATABASE_URL:-}" ]; then
   step 'engines in use' node tools/engines-check.mjs "$artifact/functions/mcp.func/runtime/engines"
 else

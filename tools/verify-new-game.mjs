@@ -56,7 +56,12 @@ try {
   await pressMenu(page, 'New game');
   assert.deepEqual([await checked(page, 'mode'), await checked(page, 'level'), await checked(page, 'side')], ['computer', 'club', '0']);
   assert.equal(await page.inputValue('#army'), 'random');
-  assert.deepEqual(await page.locator('#new-game label:has(input:checked)').evaluateAll(labels => labels.map(el => [getComputedStyle(el).borderTopWidth, getComputedStyle(el).borderTopColor, getComputedStyle(el).color])), Array(4).fill(['2px', 'rgb(77, 69, 60)', 'rgb(43, 38, 33)']), 'mode, level and side use the same selected border and ink');
+  const selected = await page.locator('#new-game label:has(input:checked)').evaluateAll(labels => labels.map(el => {
+    const style = getComputedStyle(el);
+    return { border: style.borderTopWidth, ink: style.color, fill: style.backgroundColor, shadow: style.boxShadow };
+  }));
+  assert.deepEqual(selected.map(({ shadow, ...finish }) => finish), Array(4).fill({ border: '0px', ink: 'rgb(251, 247, 238)', fill: 'rgb(77, 69, 60)' }), 'mode, level and side use the same dark selected finish');
+  for (const { shadow } of selected) assert.match(shadow, /rgb\(233, 192, 113\).*2px.*inset/, 'each selected choice has an inset gold ring');
   assert.equal(await page.evaluate(() => document.getElementById('more-options').open), false, 'More options starts folded');
   assert.equal(await shown(page, 'king-picker'), false, 'no king picker without powers');
   assert.equal(await page.locator('#modes input[type="radio"]').count(), 3);
@@ -73,7 +78,7 @@ try {
   }
   assert.deepEqual(await pressed(page, 0), ['Spirit', 'HolyLight']);
   assert.deepEqual(await pressed(page, 1), ['Shadow', 'DeathTouch']);
-  assert.equal(await page.locator('#pick-0 .power-choice [aria-pressed="true"]').evaluate(el => getComputedStyle(el).borderTopColor), 'rgb(77, 69, 60)', 'the power selection uses the segment border');
+  assert.equal(await page.locator('#pick-0 .power-choice [aria-pressed="true"]').evaluate(el => getComputedStyle(el, '::before').borderTopColor), 'rgb(233, 192, 113)', 'the selected power has a gold tablet edge');
   assert.equal(await page.getByRole('group', { name: "White's king" }).getByRole('button', { name: 'Spirit', pressed: true }).count(), 1);
   assert.equal(await powerLine(page, 0), 'Holy Light (always on). Enemy pawns cannot take your king. Your pieces beside, in front of or behind it cannot be taken.');
   assert.equal(await powerLine(page, 1), 'Death Touch (always on). Your king takes an enemy next to it, or two squares away straight forward or back over an empty square, without moving. It can only take this way.');
@@ -149,6 +154,8 @@ try {
   s = await saved(page);
   assert.deepEqual([s.white, s.black, s.skill, s.back], ['ai', 'human', 'beginner', 'RNBQKBNR']);
   await waitForUi(page, ui => ui.lan.length >= 1, null, { timeout: 20000 });
+  // Move words appear before landing. Wait for the game's ready action state before opening the menu.
+  await page.locator('#resign[aria-disabled="false"]').waitFor({ state: 'attached' });
   const [a1, a8] = await page.evaluate(() => [window.view.screenOf(0), window.view.screenOf(56)]);
   assert.ok(a8.y > a1.y, 'Black at the bottom');
   ok('Play the computer as Black: the beginner computer moves first, the board turns round');

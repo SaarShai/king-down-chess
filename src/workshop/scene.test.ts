@@ -1,3 +1,5 @@
+import { GameRules } from '../game-rules';
+import { traceOf } from './why';
 // The scene builder against the hand scenes of the approved mockup
 // (docs/research/rules-ui-2026-10-10/mockups/shared/scenes.js). Where the two differ, the engine wins.
 import { readFileSync } from 'node:fs';
@@ -5,7 +7,7 @@ import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import { BLACK, WHITE, colorOf, file, makeMove, parseSq, rank, sqName } from '../rules/engine';
 import { DIRS, PRESETS, presetOf, type PieceDesign, type Rule } from './model';
-import { movesOf } from './moves';
+import { movesOf, START } from './moves';
 import { boardOf, diffOf, examplesOf, sceneOf, stir, threatsOf, wakeSquare, type ScenePiece } from './scene';
 
 interface Hand {
@@ -158,4 +160,19 @@ describe('Try with (ticket 06)', () => {
     expect(sqName(wakeSquare(board, d4, step2)!)).toBe('d2');
     expect(wakeSquare(board, d4, { ...step2, when: { on: 'fromMove', n: 5 } })).toBeNull();
   });
+});
+
+it('keeps Workshop moves, scene traces and threats within their preview rules', () => {
+  const design = { squares: [{ x: 0, y: 1, mark: 'both' as const }], lines: [], rules: [] };
+  const board = boardOf([{ sq: 'd4', k: 'design', side: 'w', open: true }, { sq: 'd5', k: 'guard', side: 'b' }]);
+  const from = parseSq('d4'), open = new GameRules({ guardImmune: false, guardCaptures: 'any' });
+  const closed = new GameRules({ guardImmune: true, guardCaptures: 'none' });
+  const takes = (context: GameRules) => sceneOf(design, board, from, START, context).marks.filter(mark => mark.k === 'take' || mark.k === 'both').map(mark => mark.sq);
+  expect(takes(open)).toContain('d5');
+  expect(takes(closed)).not.toContain('d5');
+  expect(takes(open)).toContain('d5');
+  expect(diffOf(design, { squares: [], lines: [] }, board, from, START, open).marks.some(mark => mark.sq === 'd5' && (mark.k === 'take' || mark.k === 'both'))).toBe(true);
+  expect(traceOf(design, board, from, START, closed).refused).not.toEqual(traceOf(design, board, from, START, open).refused);
+  expect(threatsOf(design, board, from, START, open)).toHaveLength(1);
+  expect(threatsOf(design, board, from, START, closed)).toEqual([]);
 });

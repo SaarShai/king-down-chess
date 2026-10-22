@@ -46,3 +46,40 @@ test('with passive effects lively (resting pawns, a selected pawn), the draw loo
   assert.ok(run(20000)<=again+5100,'a new change wakes it for five seconds again, then it stops');
  }finally{globalThis.setTimeout=realSetTimeout;}
 });
+
+test('quiet pawn, rook, knight and paladin moves keep their full gait at both speeds',async()=>{
+ for(const speed of [1,.5])for(const [value,duration] of [[P,420],[R,480],[N,1350],[L,1450]]){
+  const scene=createScene({canvas:canvas(),pieces:{P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName},kings:['plain','plain']});
+  await scene.load().catch(()=>{});scene.setLively({moves:true});
+  const pos=createPosition('king');pos.board=Array(64).fill(0);pos.board[8]=value;scene.setPosition(pos);
+  let done=false;const play=scene.play({from:8,to:48,captures:[]},{speed});play.then(()=>{done=true;});
+  run(duration*speed-40);await Promise.resolve();assert.equal(done,false,'the move has not snapped');
+  run(80);await play;assert.equal(done,true,'the full gait ends');
+ }
+});
+
+test('resting and selected pawns keep their idle motion',async()=>{
+ globalThis.setTimeout=(fn,ms)=>{timers.push({fn,at:now+ms});return timers.length;};
+ try{
+  const scene=createScene({canvas:canvas(),pieces:{P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName},kings:['plain','plain']});
+  await scene.load().catch(()=>{});scene.setLively({moves:true,idle:true,pawns:true,kings:false});
+  const pos=createPosition('king');pos.board=Array(64).fill(0);pos.board[8]=P;scene.setPosition(pos);scene.setSelected(8);
+  run(300);const framesBefore=scene.frames;run(1000);
+  assert.deepEqual(scene.pawns,{resting:0,acting:0});assert.ok(scene.frames>framesBefore,'the selected pawn keeps breathing');
+  scene.setSelected(null);run(100);assert.equal(scene.pawns.resting,1,'the resting pawn keeps its motion');
+ }finally{globalThis.setTimeout=realSetTimeout;}
+});
+
+test('a disposed scene settles its move and cannot draw or restart after a late load',async()=>{
+ const scene=createScene({canvas:canvas(),pieces:{P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName},kings:['plain','plain']});
+ const loaded=scene.load();
+ const pos=createPosition('king');pos.board=Array(64).fill(0);pos.board[8]=P;scene.setPosition(pos);
+ const moving=scene.play({from:8,to:16,captures:[]});
+ scene.dispose();scene.dispose();
+ assert.equal(await moving,false);
+ await loaded;
+ const before=scene.frames;
+ scene.redraw();scene.setSelected(8);run(1000);
+ assert.equal(scene.frames,before);
+ assert.equal(await scene.play({from:8,to:16,captures:[]}),false);
+});

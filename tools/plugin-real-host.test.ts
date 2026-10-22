@@ -13,7 +13,8 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 // harness serves the source page, which shows the app to the test as window.harnessApp; built serves the build.
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, built: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => { folder = await mkdtemp(join(tmpdir(), 'kingdown-real-host-test-'));
-  execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe' });
+  // Normal shared build: at most 601 ms in the M1 style test.
+  execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe', timeout: 30_000 });
   const boardPath = join(folder, 'board.html');
   harness = await startHarness({ boardPath, sourcePage: true }); built = await startHarness({ boardPath });
   browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' }); });
@@ -132,11 +133,24 @@ it('keeps two live widgets on one game current, and the older widget writes only
     const writes = await page.evaluate(() => (window as any).harnessWidgets[1].widgetStates.length);
     // Alice moves in the newer widget; the older one shows the move on its next poll.
     const mine = await move(newer.frame, 'e2-e4');
+    // The older widget can finish its poll while the newer widget still waits for a reply.
+    let delayed = false;
+    await page.route('**/fixture-tool', async route => {
+      const call = route.request().postDataJSON();
+      if (delayed || call.name !== 'kingdown_get' || call.arguments.board_id !== newer.board) return route.continue();
+      delayed = true;
+      const response = await route.fetch();
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      await route.fulfill({ response });
+    });
     await page.clock.fastForward(30_000); await atRevision(older.frame, mine);
     // Bob answers; both widgets show it on their next poll.
     const answer = await friendMove(game, mine, 'e7-e5');
+    // Finish both polls so the clock jump cannot expire the slower reply.
+    for (const { frame } of [older, newer]) await frame.waitForFunction(() => (window as any).harnessApp.client.inflight === 0, undefined, POLL);
     await page.clock.fastForward(30_000);
     for (const { frame } of [older, newer]) { await atRevision(frame, answer); expect(await shown(frame)).toMatchObject({ game, page: 'board' }); }
+    expect(delayed).toBe(true);
     await page.frameLocator('iframe').nth(1).locator('#status').filter({ hasText: 'Your move' }).waitFor();
     await page.frameLocator('iframe').nth(2).locator('#status').filter({ hasText: 'Your move' }).waitFor();
     // The older widget saved its state after each poll, and only into its own record. (A write before the mount result has no board.)

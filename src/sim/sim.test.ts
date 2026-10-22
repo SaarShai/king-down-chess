@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { GameRecord, startGame, playGame } from './game';
 import { analyze, elo, excessDecisiveness, fitValues, group, leadMetrics, matchStats, materialDelta, pentanomial, phi, readRecords, sprt, trajectory, utilisation, wilson } from './analyze';
 import { RunSpec, adjudication, buildJobs, loadSpec, parseFlags, parseRuleFlags, parseValues, paths, sampleBackRank, sideOptions, usePairs } from './spec';
@@ -12,10 +12,11 @@ import { ARCHER_V, GUARD_V, PAWN_V, VALUES, evaluate, setPieceValues } from '../
 import { PRESETS, specOf } from '../workshop/model';
 import { worthOf } from '../workshop/judge';
 import { armStats, swapRank, valueSpecs } from './experiments';
-import { applyDrawRules } from './game';
 import { mulberry32 } from './rng';
 import { Game } from '../game';
-import { A, BLACK, G, T, WHITE, moverAt, parseSq } from '../rules/engine';
+import * as searchModule from '../ai/search';
+import { A, BLACK, G, T, WHITE, legalMoves, moverAt, parseSq } from '../rules/engine';
+import { positionKey } from '../rules/position-key';
 import { setRules } from '../rules/rules';
 import { CLASSIC_CHESS } from '../rules/setup';
 
@@ -363,6 +364,8 @@ describe('runtime piece values', () => {
     try {
       expect(playGame(spec, buildJobs(spec)[0]).plies).toBe(0);
       expect(VALUES[T]).toBe(Math.round(worthOf(design) * PAWN_V));
+      const game = startGame(CLASSIC_CHESS, CLASSIC_CHESS, '7k/8/8/8/3T4/8/8/K7 w - - 0 1');
+      expect(game.legal.some(m => m.from === parseSq('d4') && m.to === parseSq('f5'))).toBe(true);
       playGame({ ...spec, values: { T: 500 } }, buildJobs(spec)[0]);
       expect(VALUES[T]).toBe(500); // --values wins over the judge
     } finally { setRules(); setPieceValues(); }
@@ -370,21 +373,38 @@ describe('runtime piece values', () => {
 });
 
 describe('threefold toggle (runner side)', () => {
-  it('applyDrawRules re-opens a repetition draw when the rule is off', () => {
+  it('uses the run definition for the whole game, even after another run sets its rules', () => {
     const drive = (): Game => {
-      const g = new Game(CLASSIC_CHESS);
+      const g = startGame(CLASSIC_CHESS, CLASSIC_CHESS);
+      setRules();
       const play = (from: string, to: string) => g.play(g.legal.find(m => m.from === parseSq(from) && m.to === parseSq(to))!);
       for (let i = 0; i < 2; i++) { play('b1', 'c3'); play('b8', 'c6'); play('c3', 'b1'); play('c6', 'b8'); }
       return g;
     };
-    const g = drive();
-    expect(g.status).toBe('drawRepetition');
-    applyDrawRules(g);
-    expect(g.status).toBe('drawRepetition');       // rule on: nothing changes
-    setRules({ threefold: false });
-    applyDrawRules(g);
-    expect(g.status).toBe('playing');
     setRules();
+    expect(drive().status).toBe('drawRepetition');
+    setRules({ threefold: false });
+    expect(drive().status).toBe('playing');
+  });
+});
+
+describe('runner search and draw rules', () => {
+  it.each([true, false])('sets the threefold rule before play and sends position history: %s', threefold => {
+    const cycle = [['b1', 'c3'], ['b8', 'c6'], ['c3', 'b1'], ['c6', 'b8']];
+    const histories: (number | bigint)[][] = [], keys: number[] = [];
+    const reset = vi.spyOn(searchModule, 'resetSearchState');
+    const search = vi.spyOn(searchModule, 'search').mockImplementation((pos, options) => {
+      const [from, to] = cycle[keys.length % cycle.length];
+      histories.push([...options!.history!]); keys.push(positionKey(pos));
+      return { move: legalMoves(pos).find(m => m.from === parseSq(from) && m.to === parseSq(to))!, score: 0, depth: 1, nodes: 1 };
+    });
+    const spec: RunSpec = { id: 'vitest-threefold', games: 1, backRanks: ['RNBQKBNR'], ai: { depth: 1 }, seed: 1, maxPlies: 9, rules: { threefold } };
+    try {
+      const result = playGame(spec, buildJobs(spec)[0]);
+      expect([result.reason, result.plies]).toEqual(threefold ? ['drawRepetition', 8] : ['plyCap', 9]);
+      expect(histories).toEqual(keys.map((_, i) => keys.slice(0, i + 1)));
+      expect(reset).toHaveBeenCalledTimes(1);
+    } finally { search.mockRestore(); reset.mockRestore(); setRules(); }
   });
 });
 

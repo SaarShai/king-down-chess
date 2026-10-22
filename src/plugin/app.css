@@ -22,16 +22,6 @@ html { font-variant-numeric: lining-nums; }
   border: 1px solid var(--stone-700); border-radius: var(--radius-lg);
   box-shadow: 0 0 0 4px var(--parchment-deep), 0 0 0 5px var(--stone-500), 0 18px 50px rgba(20, 14, 8, .25);
 } }
-.page-sheet .new-game-head h2 { font-size: var(--fs-xl); padding-bottom: 10px; background: linear-gradient(90deg, var(--gold) 0, var(--gold) 64px, var(--stone-300) 64px, transparent) left bottom / 100% 2px no-repeat; flex: 1; }
-.page-sheet .new-game-body { flex: 1; display: flex; flex-direction: column; gap: 0; }
-[data-screen='play'] .new-game-body { width: 100%; max-width: 640px; margin: 0 auto; }
-.page-sheet .new-game-body > p { margin: 0 0 var(--space-3); }
-.page-sheet .new-game-foot { display: flex; align-items: center; gap: var(--space-3); }
-.page-sheet .new-game-foot button { flex: 1; }
-.group-head { margin: var(--space-5) 0 var(--space-2) !important; }
-#games-head { margin-top: 0 !important; }
-.group-head small { float: right; letter-spacing: 0; text-transform: none; font-weight: 400; font-size: var(--fs-xs); }
-.quiet-line { color: var(--ink-soft); font-size: var(--fs-sm); margin: var(--space-2) 0 0 !important; }
 .wide-btn { justify-content: center; min-height: 48px; margin-top: var(--space-3); font-size: var(--fs-lg); }
 .seg-line { margin: 8px 0 0; color: var(--ink-soft); }
 /* A second sheet over the first (the game's Menu sheet: a bottom sheet on a phone, centred on a wide screen). */
@@ -48,35 +38,7 @@ html { font-variant-numeric: lining-nums; }
 .foot-count { flex: 1; margin: 0; color: var(--ink-soft); }
 .sheet-lead { margin: 0 0 var(--space-3); color: var(--ink-soft); }
 .lock-note { display: flex; gap: var(--space-2); align-items: flex-start; margin: 0 0 var(--space-3); padding: 8px 12px; font-size: var(--fs-sm); color: var(--gold-ink); background: rgba(201, 154, 62, .12); border: 1px solid rgba(122, 87, 18, .3); border-radius: var(--radius); }
-/* The menu's index rows (src/ui/table.css #menu-sheet .menu-row), with an art, a portrait or an icon at the start. */
-.page-sheet .menu-row, .over-sheet .menu-row {
-  /* No shrink in a scrolling column: a shrunk row drew its divider through its second line. */
-  flex-shrink: 0; position: relative; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 12px; align-items: center;
-  width: 100%; min-height: 60px; padding: 8px 32px 8px 0; text-align: left; font-size: var(--fs-lg);
-  background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none;
-}
-.menu-row.has-lead { grid-template-columns: auto minmax(0, 1fr); }
-.menu-row.has-lead > :first-child { grid-row: 1 / span 2; }
-.menu-row .row-title { grid-column: -2; font-weight: 700; }
-.menu-row .line { grid-column: -2; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: var(--fs-sm); font-weight: 400; color: var(--ink-soft); }
-/* Keep the dot with the date when a game row wraps. */
-.menu-row .game-detail { display: inline-flex; align-items: baseline; gap: 8px; }
-.menu-row > i { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-style: normal; }
-.row-art { width: 52px; height: 52px; object-fit: contain; display: flex; align-items: flex-end; justify-content: center; }
-.row-art.pair img { height: 48px; width: auto; }
-.row-art.pair .face-left { transform: scaleX(-1); margin-left: -12px; }
-.row-art.fan img { width: 20px; flex: none; margin: 0 -2px; }
-.row-ico { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--vellum); box-shadow: 0 0 0 1px var(--stone-300); color: var(--ink); }
-.portrait { position: relative; flex: none; width: 44px; height: 44px; overflow: hidden; border-radius: 50%; background: radial-gradient(circle at 50% 30%, #fffaf0, #e2d2b1); box-shadow: 0 0 0 1px var(--stone-300); }
-.portrait img { position: absolute; left: -32%; top: -4%; width: 164%; max-width: none; }
-.portrait.big { width: 72px; height: 72px; }
-.turn-mark, .open-mark { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 2px 8px; font-size: var(--fs-xs); font-weight: 700; color: var(--vellum); background: var(--accent); border-radius: var(--radius-pill); }
-.open-mark { color: var(--ink); background: var(--parchment-deep); }
-.when .turn-mark, .when .open-mark { position: static; transform: none; }
-.feats { display: inline-flex; gap: 4px; color: var(--gold-ink); }
-.feats .icon { width: 16px; height: 16px; }
 .accept { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 6px 14px; font-size: var(--fs-md); font-weight: 700; color: var(--ink); background: linear-gradient(var(--vellum), #efe4cc); border: 1px solid var(--stone-700); border-radius: var(--radius); box-shadow: var(--lift); }
-.game-row { padding-right: 96px !important; }
 .online { text-align: right; color: var(--ink-soft); font-size: var(--fs-sm); margin: 0 !important; }
 .key { line-height: 2; }
 .key .icon { width: 16px; height: 16px; vertical-align: -3px; color: var(--gold-ink); }
@@ -102,7 +64,6 @@ label.card-face.out { opacity: .62; }
 .cf-art .pm { width: 100%; height: 100%; opacity: 1; }
 .cf-art .pm .a { animation-name: none; }
 .cf-art img.back { object-position: center 30%; opacity: .85; }
-.cf-word { font-family: var(--font-display); font-weight: 700; font-size: var(--fs-md); color: var(--stone-700); letter-spacing: .04em; text-align: center; padding: 0 6px; }
 .cf-text b { display: block; font-family: var(--font-display); font-size: var(--fs-md); letter-spacing: .03em; padding-right: 26px; }
 .cf-text small { display: block; font-size: var(--fs-xs); line-height: 1.35; color: var(--ink-soft); }
 .cf-cost { display: block; margin-top: 4px; font-size: var(--fs-xs); color: var(--ink); }
@@ -115,24 +76,20 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .board-layer .veil { position: absolute; display: grid; place-items: center; padding: 6px; overflow: hidden; text-align: center; background: rgba(243, 234, 215, .82); backdrop-filter: blur(3px); border-bottom: 2px dashed var(--stone-500); }
 .board-layer .veil span { max-width: 22ch; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-md); color: var(--ink-soft); }
 /* The turn button sits between Undo and Menu. */
-#table-bar { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr); }
+#table-bar { grid-template-columns: minmax(48px, 1fr) minmax(0, 2fr) minmax(48px, 1fr); }
 #table-bar > button { grid-column: auto; }
 #table-bar > #board-menu { grid-column: 3; }
 #short-last-move { display: none; }
-#table-bar > button.primary { background: var(--accent); color: var(--vellum); }
 /* Card coins (card mode C): smaller than the power coin, so a full hand fits the strip at 360 px. The card face fills
    the coin inside the ring, so it grows with the coin (26 px in a 34 px coin, 36 px in a 44 px coin). */
 .coin-row { gap: 4px; }
 #game-table .player-strip { gap: 8px; }
 .coin.card-coin { width: 34px; height: 34px; overflow: hidden; }
 /* Your card coins: a dark coin face (a coin keeps its radial face, never the stone control face) under a gold ring. */
-#app-root #strip-me .coin.card-coin { background: radial-gradient(circle at 40% 30%, var(--stone-700) 70%, var(--stone-900)); border-color: var(--gold); --card-ring: var(--gold); }
-#app-root #strip-them .coin.card-coin { border-color: var(--stone-700); --card-ring: var(--stone-700); }
-#game-table .coin.card-coin:not([data-state='armed']) { box-shadow: var(--lift), inset 0 0 0 2px var(--card-ring); }
-/* G2 a: a spent card coin still opens its read sheet, so its word keeps 4.5:1. The grey and a lighter dim (0.85) mark it as spent. */
-#game-table .coin.card-coin[data-state='used'] { opacity: .85; }
-.coin.card-coin img { inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); border-radius: 50%; object-fit: cover; }
-.cc-word { position: absolute; inset: 0; color: var(--vellum) !important; text-shadow: 0 1px 2px rgba(0,0,0,.6); display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-xs); color: var(--ink); }
+#app-root #strip-me .coin.card-coin > .coin-paint { background: radial-gradient(circle at 40% 30%, var(--stone-700) 70%, var(--stone-900)); border-color: var(--gold); --card-ring: var(--gold); }
+#app-root #strip-them .coin.card-coin > .coin-paint { border-color: var(--stone-700); --card-ring: var(--stone-700); }
+#game-table .coin.card-coin:not([data-state='armed']) > .coin-paint { box-shadow: var(--lift), inset 0 0 0 2px var(--card-ring); }
+.coin.card-coin > .coin-paint > img { inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); border-radius: 50%; object-fit: cover; }
 #game-table .coin:not(.card-coin) { width: 40px; height: 40px; }
 #game-table .coin:not(.card-coin) img { inset: 4px; width: 30px; height: 30px; }
 #game-table .player-name b { font-size: var(--fs-body); }
@@ -159,7 +116,8 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 .inline-line { margin: 0; color: var(--ink-soft); }
 .inline-card .title-actions { width: 100%; flex-direction: row; flex-wrap: nowrap; margin-top: var(--space-1); }
 .inline-card .title-actions button { flex: 1; min-width: 0; min-height: 48px; font-size: var(--fs-md); white-space: nowrap; padding: 8px 10px; }
-.inline-card .title-actions button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#app-root .inline-card .title-actions button { flex: 1 1 auto; padding: 6px 12px; }
+.inline-card .title-actions button span { min-width: 0; white-space: normal; }
 .inline-card .title-actions button small { display: block; font-size: var(--fs-xs); font-weight: 400; white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 339px) {
   .inline-card .title-actions { flex-direction: column; }
@@ -169,7 +127,7 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 #board.painted canvas { flex: none; touch-action: pan-y; }
 #move-hint { flex: none; min-height: 40px; margin: 4px 0; font-size: var(--fs-sm); }
 #choices { display: flex; flex: none; flex-wrap: wrap; gap: 4px; height: 100px; overflow-y: auto; padding: 2px; }
-#choices button { width: auto; font-size: var(--fs-sm); }
+#choices button { width: auto; }
 .board-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .board-actions button { width: auto; min-height: var(--tap); }
 #invitation { overflow-wrap: anywhere; margin: 4px 0 0; }
@@ -198,6 +156,7 @@ label.card-face input { position: absolute; right: 10px; top: 10px; }
 /* 200% zoom: the page title scales with its head, so words stay whole and the seat title keeps two lines at most.
    It is never smaller than the body text, so it still grows with zoom (WCAG 1.4.4). */
 #page-head { container-type: inline-size; }
+#app-root .sheet-head #page-back { padding-inline: 8px; }
 @container (max-width: 285px) { #page-title { font-size: max(var(--fs-md), 7cqi); } }
 .page-sheet .sheet-head button { flex: none; width: auto; min-width: 44px; min-height: 44px; padding: 0 8px; justify-content: center; font-size: var(--fs-sm); }
 .page-error { flex: none; }
@@ -208,17 +167,18 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 #end-table { position: absolute; inset: 0; }
 #game-table .player-name :is(b, small), #seat-screen .player-name :is(b, small) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #game-table #context-text { display: block; max-height: none; overflow: visible; }
-/* A 44 px portrait row and a 4 px row gap keep the draw reply at its prior height. */
-#game-table #context-line:has(#accept-draw) { flex-wrap: wrap; row-gap: 4px; }
-#game-table #context-line:has(#accept-draw) #context-text { flex-basis: calc(100% - 52px); min-height: 44px; }
+/* A separate grid row lets the table measure the full draw reply height. */
+#game-table #context-line:has(#accept-draw) { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
+#game-table #context-line:has(#accept-draw):has(#all-rules) { grid-template-columns: 44px minmax(0, 1fr); }
+#game-table #context-line:has(#accept-draw) #context-text { grid-column: -2; min-height: 44px; }
 #game-table #context-line:has(#accept-draw) #context-text > span { display: inline; }
 #game-table #context-line:has(#accept-draw) #context-text > span + span::before { content: ' '; }
-#game-table #context-actions:has(#accept-draw) { flex-basis: 100%; flex-wrap: wrap; }
+#game-table #context-actions:has(#accept-draw) { grid-column: 1 / -1; flex-wrap: wrap; }
 /* Two label lines fit the existing row. */
-#game-table #context-actions:has(#accept-draw) button { flex: 1; padding: 3px 4px; white-space: normal; }
+#game-table #context-actions:has(#accept-draw) button { flex: 1; padding: 3px 4px; white-space: normal; line-height: 1.1; }
 /* Q3 b: a draw offer keeps the board's size. board.ts pins the board to its last size with no reply; 210 px is the
    fallback on a fresh mount. The replies take their room, and the screen scrolls to them. */
-#game-table[data-replies] { --board-floor: 210px; --context-floor: max-content; }
+#game-table[data-replies] { --board-floor: 210px; --context-floor: max-content; --context-height: max-content; }
 @media (max-width: 899px) {
   .page-sheet > [data-screen='board']:has(#game-table[data-replies]) { overflow: hidden auto; }
 }
@@ -228,8 +188,18 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 }
 .table-back { display: none; }
 @media (max-width: 899px) and (orientation: portrait) {
-  #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 44px; grid-template-rows: minmax(var(--strip-row, 44px), max-content) minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 44px), max-content) minmax(var(--context-floor, 44px), max-content) 44px minmax(0, 1fr) var(--bar-height); }
-  #game-table .player-strip { padding-block: 0; min-height: 44px; }
+  /* The frame already reserves the host/device safe area. */
+  #game-table { padding-top: 0; }
+  /* Reserve the 48 px action row before a card or power is armed. */
+  [data-screen='board'], [data-screen='end'] { --context-floor: 48px; }
+  #game-table { --strip-height: 44px; --context-height: 44px; --bar-height: 52px; grid-template-rows: minmax(var(--strip-row, 36px), max-content) minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 36px), max-content) minmax(var(--context-floor, 44px), max-content) var(--moves-height, 48px) minmax(0, 1fr) var(--bar-height); }
+  /* The 36 px portrait row keeps room for the larger action faces. */
+  #game-table .player-strip { padding-block: 0; min-height: 36px; }
+  #game-table #strip-them { min-height: 44px; }
+  #seat-screen { --context-floor: 40px; --moves-height: 0px; }
+  #seat-screen #game-table #context-line { min-height: 40px; }
+  /* Setup has no moves to read. */
+  #seat-screen #moves-line { display: none; }
   #game-table .portrait { width: 36px; height: 36px; }
   #game-table .player-name { display: flex; align-items: baseline; }
   #game-table .player-name :is(b, small) { min-width: 0; font-size: var(--fs-sm); }
@@ -238,22 +208,22 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   #game-table #context-line { min-height: 44px; padding-block: 0; flex-wrap: nowrap; border-top: 0; box-shadow: 0 -1px 0 var(--line); }
   #game-table #context-text > span { display: inline; }
   #game-table #context-text > span + span::before { content: ' '; }
-  #game-table #moves-line { height: 44px; min-height: 44px; }
+  #game-table #moves-line { height: 48px; min-height: 48px; }
   #game-table #table-bar { padding-block: 0; }
-  #game-table #table-bar > button { min-height: 44px; flex-direction: row; }
+  #game-table #table-bar > button { flex-direction: row; }
   body:is([data-page='board'], [data-page='seat'], [data-page='end']) #page-head { display: none; }
   body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table #strip-them { padding-left: 60px; }
-  body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table .table-back { display: grid; grid-area: them; justify-self: start; align-self: start; place-items: center; margin-left: 8px; width: 44px; height: 44px; min-height: 44px; padding: 0; z-index: 2; font-size: var(--fs-xl); line-height: 1; }
+  body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table .table-back { position: absolute; display: grid; grid-area: them; justify-self: start; align-self: start; place-items: center; margin-left: 8px; width: 48px; height: 48px; min-height: 48px; padding: 0; z-index: 2; font-size: var(--fs-xl); line-height: 1; }
   #game-table .table-back::after, #game-table #strip-them button::after { top: 0; transform: translate(-50%, 0); }
-@container table-screen (max-height: 480px) {
-  #game-table { grid-template-rows: minmax(var(--strip-row, 44px), max-content) minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 44px), max-content) minmax(var(--context-floor, 44px), max-content) 0 minmax(0, 1fr) var(--bar-height); }
+@container table-screen (max-height: 560px) {
+  #game-table { grid-template-rows: minmax(var(--strip-row, 36px), max-content) minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 36px), max-content) minmax(var(--context-floor, 44px), max-content) 0 minmax(0, 1fr) var(--bar-height); }
   #game-table #moves-line { display: none; }
   body:is([data-page='board'], [data-page='end']) #game-table #moves-line { display: none; }
-  body:is([data-page='board'], [data-page='end']) #game-table { grid-template-areas: 'them' 'moves' 'board' 'me' 'context' 'space' 'bar'; grid-template-rows: minmax(var(--strip-row, 44px), max-content) 24px minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 44px), max-content) minmax(var(--context-floor, 44px), max-content) minmax(0, 1fr) var(--bar-height); }
+  body:is([data-page='board'], [data-page='end']) #game-table { grid-template-areas: 'them' 'moves' 'board' 'me' 'context' 'space' 'bar'; grid-template-rows: minmax(var(--strip-row, 36px), max-content) 24px minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 36px), max-content) minmax(var(--context-floor, 44px), max-content) minmax(0, 1fr) var(--bar-height); }
 }
 /* Card coins get their own row so both player names fit through 440 px. Under 320 px the coins scroll instead. */
 @container table-screen (319px < width <= 440px) {
-  #game-table :is(#strip-them, #strip-me):has(.card-coin) { display: grid; grid-template-columns: repeat(5, 44px); grid-template-rows: 44px 44px; gap: 0 4px; }
+  #game-table :is(#strip-them, #strip-me):has(.card-coin) { display: grid; grid-template-columns: repeat(5, 44px); grid-template-rows: 36px 44px; gap: 0 4px; }
   #game-table :is(#strip-them, #strip-me):has(.card-coin) .coin-row { display: contents; }
   #game-table :is(#strip-them, #strip-me):has(.card-coin) .player-name { display: block; grid-row: 1; grid-column: 2 / -1; }
   #game-table :is(#strip-them, #strip-me):has(.card-coin) .coin { grid-row: 2; }
@@ -281,8 +251,8 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   #game-table .player-strip:has(.card-coin) .coin-row > * { flex: none; }
   #game-table .player-strip:has(.card-coin) .player-name { flex: 1 0 45%; }
 }
-/* 200% zoom (197 px): a quarter of the bar is under 58 px, too narrow for an icon and its word side by side. */
-@container table-screen (max-width: 239px) {
+/* Narrow bars stack each icon above its 18 px word. */
+@container table-screen (max-width: 319px) {
   #game-table #table-bar > button { flex-direction: column; gap: 0; }
 }
 @media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
@@ -308,84 +278,57 @@ body[data-touch='true'] #game-table .coin, body[data-touch='true'] #game-table .
 /* Extend touch targets up, inside the frame, without changing art or rows. */
 body[data-touch='true'] :is(button, .seg-row label, .fields > label) { position: relative; }
 body[data-touch='true'] .field { min-height: 48px; }
-body[data-touch='true'] .fields > label input { position: relative; z-index: 1; }
+body[data-touch='true'] .fields > label :is(input, select) { position: relative; z-index: 1; }
 body[data-touch='true'] :is(button, .seg-row label, .fields > label)::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
 body[data-touch='true'] #game-table .coin.card-coin { overflow: visible; }
 /* A hit layer extends up; each control keeps its own lower edge against the control below. */
 body[data-touch='true'] button#moves-line { z-index: 1; }
 body[data-touch='true'] #context-actions button { z-index: 2; }
-/* The bar owns the 4 px above each button's touch layer. */
-body[data-touch='true'] #game-table { --bar-height: 48px; }
-body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
+/* The 52 px bar contains the main tablet and the small tablets. */
+body[data-touch='true'] #game-table { --bar-height: 52px; }
+body[data-touch='true'] #game-table #table-bar { padding-top: 0; }
 @media (pointer: coarse) {
   button, .seg-row label, .fields > label { position: relative; }
   .field { min-height: 48px; }
-  .fields > label input { position: relative; z-index: 1; }
+  .fields > label :is(input, select) { position: relative; z-index: 1; }
   :is(button, .seg-row label, .fields > label)::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translate(-50%, -100%); width: 100%; height: 100%; min-width: 48px; min-height: 48px; }
   #game-table .coin.card-coin { overflow: visible; }
   button#moves-line { z-index: 1; }
   #context-actions button { z-index: 2; }
-  #game-table { --bar-height: 48px; }
-  #game-table #table-bar { padding-top: 4px; }
+  #game-table { --bar-height: 52px; }
+  #game-table #table-bar { padding-top: 0; }
 }
 
 
-/* One large grain image fills each face, so no tile repeats inside a control. */
-:where(#app-root) :is(button:not(:where(.coin)), select, input:not([type='radio'], [type='checkbox']), label:has(> input)) {
-  min-width: var(--tap); min-height: var(--tap);
-}
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])) {
-  --brick-face: var(--stone-100);
-  --brick-edge: var(--stone-700);
-  --brick-ring: transparent;
-  --brick-top: var(--vellum);
-  --brick-side: var(--stone-500);
-  --ink-soft: var(--ink); --fg-soft: var(--ink);
-  color: var(--ink);
-  background: var(--brick-face) url('./assets/stone-control.webp') var(--grain-position, 50% 25%) / max(100%, 384px) auto no-repeat;
-  background-blend-mode: normal;
-  border-color: var(--brick-edge); border-radius: var(--radius-sm);
-  box-shadow: 0 4px 0 var(--brick-edge), inset 0 0 0 1px var(--brick-edge), inset 0 3px 0 var(--brick-top), inset 2px 0 0 var(--brick-top), inset -2px 0 0 var(--brick-side), inset 0 -3px 0 var(--brick-side), inset 0 0 0 2px var(--brick-ring);
-  transition: transform 80ms ease-out;
-}
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox']))[aria-pressed='true'] {
-  --brick-ring: var(--stone-700);
-  --brick-top: var(--gold-bright);
-}
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):nth-of-type(3n + 1) { --grain-position: 20% 60%; }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):nth-of-type(3n + 2) { --grain-position: 80% 85%; }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):is(:has(> input:checked), [aria-checked='true']) {
-  --brick-face: var(--stone-700); --brick-ring: var(--gold-bright);
-  --ink-soft: var(--vellum); --fg-soft: var(--vellum);
-  color: var(--vellum); background-blend-mode: multiply;
-  box-shadow: inset 0 0 0 3px var(--brick-ring), inset 0 5px 6px var(--stone-900);
-}
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])).primary {
-  --brick-face: var(--accent); --brick-edge: var(--accent-deep);
-  color: var(--vellum); background-blend-mode: multiply;
-  --brick-top: var(--accent-bright); --brick-side: var(--accent-deep);
-}
-#app-root button.primary :is(.line, small) { color: inherit; }
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):not(:disabled, [aria-disabled='true'], :has(button:active)):active {
-  transform: translateY(4px);
-  box-shadow: inset 0 2px 0 var(--brick-edge), inset 0 0 0 2px var(--brick-ring);
-}
-#app-root :is(button:not(:where(.coin, #presets .preset, #king-picker .emblem, #profile-sheet .badge button)), label.mode, .seg-row label, label.check.toggle, .fields label:has(input[type='checkbox'])):is(:disabled, [aria-disabled='true'], :has(> input:disabled)) {
+/* Reading rows stay on the page floor. Only action faces carry stone. */
+#app-root button:is(:disabled, [aria-disabled='true']) {
   --ink-soft: rgb(91 80 69 / 75%); --fg-soft: rgb(91 80 69 / 75%);
-  color: var(--ink-soft); background: var(--stone-100); border-color: var(--stone-300);
-  box-shadow: none; transform: none; opacity: 1;
+  color: var(--disabled-ink, var(--ink-soft));
+}
+#app-root :is(button.menu-row, #profile-open button, #moves-line, .fields label:has(input[type='checkbox']), label.check.toggle) {
+  min-height: 48px; padding-inline: 12px;
+  background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0;
+  box-shadow: none; transform: none;
+  &.menu-row { padding-inline-end: 32px; }
+  &::before { content: none; }
+}
+#app-root button.menu-row { row-gap: 0; padding-block: 4px 3px; }
+#app-root button.menu-row > i { right: 12px; }
+.menu-row .row-title { line-height: 1.15; }
+.menu-row .line { line-height: 1.2; }
+.menu-row :is(.row-art, .portrait, .row-ico) { width: 40px; height: 40px; }
+.menu-row .row-art.pair img { height: 38px; }
+.menu-row .row-art.fan { width: 52px; }
+#app-root #moves-line { height: 48px; }
+#app-root button.primary :is(.line, small) { color: inherit; }
+@media (hover: hover) {
+  #app-root :is(button.menu-row, #profile-open button, #moves-line):hover { background: var(--wash); }
 }
 @media (prefers-reduced-motion: reduce) {
   #app-root :is(button, label):active { transform: none !important; }
 }
 
-/* Stone rows need an inner text gutter, also when they have no lead art. */
-#app-root button.menu-row { padding: 8px 32px 8px 12px; }
-#app-root button.menu-row > i { right: 12px; }
-#app-root #profile-open button { padding: 8px 12px; }
-#app-root :is(#moves-line, .fields label:has(input[type='checkbox'])) { padding-inline: 12px; }
-
-@container table-screen (max-height: 480px) {
+@container table-screen (max-height: 480px) or ((orientation: portrait) and (max-height: 560px)) {
   #game-table #moves-line { display: none; }
   #game-table #short-last-move { grid-area: moves; display: flex; align-items: center; min-width: 0; height: 24px; margin: 0 12px; white-space: nowrap; font-size: var(--fs-xs); }
   #short-move-words { overflow: hidden; text-overflow: ellipsis; }
@@ -401,7 +344,9 @@ body[data-touch='true'] #game-table #table-bar { padding-top: 4px; }
 }
 }
 
-#end-turn .turn-sword { width: 66px; height: 20px; fill: currentColor; stroke: none; }
+#end-turn .turn-sword { max-width: 100%; width: 66px; height: 20px; fill: currentColor; stroke: none; }
+/* The website keeps End Turn at 52 px in every state (src/ui/table.css). The ChatGPT bar keeps the 48 px face until End Turn is ready (ticket 36 F9). */
+#table-bar > #end-turn:not(.primary) { min-height: 48px; }
 #end-turn.primary { animation: turn-ready 400ms var(--ease-out); }
 @keyframes turn-ready { 50% { filter: brightness(1.3); } }
 @media (prefers-reduced-motion: reduce) { #end-turn.primary { animation: none; } }

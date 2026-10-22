@@ -1,6 +1,6 @@
 /** Start positions, FEN-style serialisation and move notation. */
 import { BLACK, CardName, Color, G, LETTERS, Mark, Move, P, PieceType, Position, SPENT, T, V, WHITE, castleRights, colorOf, epAfter, moveNumber, parseSq, piece, rank, sq, sqName, typeOf } from './engine';
-import { ALL_CARDS, RULES } from './rules';
+import { ALL_CARDS, RULES, type Rules } from './rules';
 
 /** King Down Classic pool: 7 of these join the king on the back rank. */
 /** Draw pool for a random back rank: 7 of these 15 plus the king. One guard per army (designer, 2026-09-13). */
@@ -26,18 +26,18 @@ export function shuffle<T>(a: T[], rng: () => number): T[] {
  * opposite colours (`Rules.bishopsOppositeColours`). Under `Rules.guardNextToKing` a guard that is
  * not next to the king swaps with a neighbour of the king (the shuffle picks one when both exist).
  */
-export function randomBackRank(rng: () => number = Math.random, pool: string = POOL): string {
+export function randomBackRank(rng: () => number = Math.random, pool: string = POOL, rules: Rules = RULES): string {
   for (;;) {
     const picks = shuffle(pool.split(''), rng).slice(0, 7);
     const row = shuffle([...picks, 'K'], rng);
     const k = row.indexOf('K'), g = row.indexOf('G');
-    if (RULES.guardNextToKing && g >= 0 && Math.abs(g - k) !== 1) {
+    if (rules.guardNextToKing && g >= 0 && Math.abs(g - k) !== 1) {
       const sides = [k - 1, k + 1].filter(s => s >= 0 && s < 8);
       const to = sides[sides.length > 1 ? Math.floor(rng() * 2) : 0];
       [row[g], row[to]] = [row[to], row[g]];
     }
     const bishops = row.flatMap((p, i) => (p === 'B' ? [i] : []));
-    if (RULES.bishopsOppositeColours && bishops.length === 2 && (bishops[0] + bishops[1]) % 2 === 0) continue;
+    if (rules.bishopsOppositeColours && bishops.length === 2 && (bishops[0] + bishops[1]) % 2 === 0) continue;
     return row.join('');
   }
 }

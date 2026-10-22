@@ -1,12 +1,12 @@
 import { DEFAULT_RULES, POWERS_BALANCED, RULES_2017, parseKings } from '../rules/rules';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cp, appendFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, appendFile, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createMatch, loadMatch, LocalMatch } from './index';
+import { createMatch, createPinnedMatch, loadMatch, LocalMatch } from './index';
 import { fromFen, toFen } from '../rules/setup';
 import type { Position } from '../rules/engine';
 const matches: LocalMatch[] = [];
@@ -25,6 +25,13 @@ describe('isolated local matches', () => {
     before.rules.kings = [null, null];
     expect((await m.snapshot()).moves[0].move.from).not.toBe(99);
     expect((await m.snapshot()).rules.kings).not.toEqual([null, null]);
+  });
+  it('uses the current worker only when its exact identity is the pending setup pin', async () => {
+    const current = await create(), engine = JSON.parse(await current.exportSave()).engine;
+    const pinned = await createPinnedMatch({}, engine); matches.push(pinned);
+    expect(await pinned.snapshot()).toEqual(await current.snapshot());
+    expect(JSON.parse(await pinned.exportSave()).engine).toBe(engine);
+    await expect(createPinnedMatch({}, `sha256:${'f'.repeat(64)}`)).rejects.toMatchObject({ code: 'MATCH_INCOMPATIBLE' });
   });
   it('selects bounded legal moves repeatedly without mutating or persisting search state', async () => {
     const m = await create(), before = await m.snapshot(), save = await m.exportSave();
@@ -294,14 +301,13 @@ describe('isolated local matches', () => {
     const m = await create(); const pending = m.snapshot(); const assertion = expect(pending).rejects.toThrow('closed'); await m.close(); await assertion;
     await expect(m.snapshot()).rejects.toThrow('closed');
   });
-  it('accepts test-only edits but rejects saves after an actual runtime source change', async () => {
+  it('accepts test and evaluator edits but rejects saves after an enforcement source change', async () => {
     const root = fileURLToPath(new URL('../../', import.meta.url));
     const copy = await mkdtemp(join(tmpdir(), 'kingdown-match-version-'));
     try {
-      await mkdir(join(copy, 'src/sim'), { recursive: true });
       await Promise.all([
-        ...['rules', 'ai', 'match', 'workshop'].map(dir => cp(join(root, 'src', dir), join(copy, 'src', dir), { recursive: true })),
-        ...['package.json', 'src/game.ts', 'src/sim/ts-worker.ts', 'src/sim/worker-boot.mjs'].map(file => cp(join(root, file), join(copy, file))),
+        cp(join(root, 'src'), join(copy, 'src'), { recursive: true }),
+        cp(join(root, 'package.json'), join(copy, 'package.json')),
         symlink(join(root, 'node_modules'), join(copy, 'node_modules'), 'dir'),
       ]);
       await writeFile(join(copy, 'probe.mts'), `
@@ -318,6 +324,8 @@ try {
       const baseline = JSON.parse((await run('create')).stdout);
       const originalEngine = JSON.parse(await readFile(join(copy, 'save.json'), 'utf8')).engine;
       await writeFile(join(copy, 'src/rules/identity-probe.test.ts'), '// Test-only edit must not change compatibility.\n');
+      expect(JSON.parse((await run('load')).stdout)).toEqual(baseline);
+      await appendFile(join(copy, 'src/ai/eval.ts'), '\n// Evaluator-only edits do not change enforcement identity.\n');
       expect(JSON.parse((await run('load')).stdout)).toEqual(baseline);
       await appendFile(join(copy, 'src/rules/setup.ts'), '\n// Runtime source changed in an isolated test copy.\n');
       await expect(run('load')).rejects.toThrow('Incompatible save');

@@ -157,6 +157,59 @@ Other changed bundled exports add no current visible local control: `shortMove()
 
 The run does not change a source file, use a remote account, write a database or deploy. The house-lock lease is the required control-file exception to output-only writes; the house helper removes its own lease. No source worktree file changes. The report records no new rule or owner choice.
 
+
+## Owner picks 2026-10-20 that reach the web
+
+Saar's 2026-10-20 picks apply to local web and account pages. Carry the choices below. Local web means `/`, with its dialogs, lessons and Workshop. Account page means `/play/` and its game routes. The account hall arrives through tickets 05/07; the common board/result through 08; later tickets carry their own screens. These entries record approval. The release record names the exact merged source and the rendered result.
+
+- **A1 a — Cut-corner stone tablets.** 4 px cuts, 52 px main actions, 48 px small actions and a 2 px press. Surface: local web and account page. Branch: `claude/gui-prev-controls`. **recorded owner pick (carry it)**.
+- **A2 b — Short red cloth banners.** Keep cream words, a lower notch and the full touch box. Surface: local web and account page. Branch: `claude/gui-prev-controls`. **recorded owner pick (carry it)**.
+- **A3 a — Stone only on action buttons.** Reading rows stay flat with a thin divider. Surface: local web and account page. Branch: `claude/gui-prev-controls`. **recorded owner pick (carry it)**.
+- **A4 a — One Start game action at the bottom.** Fold saved games into one count row. Friend setup says Create invite. Surface: account page; stage the start only when writes open. Branch: `claude/gui-prev-journey`. **recorded owner pick (carry it)**.
+- **A5 a — One painted card family.** Add Strike, Haste and Flight paintings; keep diagrams in the detail. Surface: local web Workshop and account card screens. Branch: `claude/gui-prev-cards`. **recorded owner pick (carry it)**.
+- **A6 a — Guide and safer Resign placement.** The account board has six lessons and Resign last after a gap. Local Keep playing has the main resign-dialog style. Surface: local web and account page. Branch: `claude/gui-prev-journey`. **recorded owner pick (carry it)**.
+- **A7 a — Centre the phone title group.** Keep the same twelve figures. Surface: local web. Branch: `claude/gui-prev-journey`. **recorded owner pick (carry it)**.
+- **A8 a — Same pace, tap to skip.** A tap finishes a board animation and performs no second action. During the local topple, that same tap must also complete A9's wait. The combined fix remains a root-release gate. Surface: local web and account page. Branch: `claude/gui-prev-board`. **recorded owner pick (carry it)**.
+- **A9 b — One clear result moment.** The account result opens directly. Local web has one skippable topple of at most 0.65 s, with no slow replay or board words. The main result action spans the width. Carry the joint A8/A9 skip so one tap clears the local wait and opens the result, with no action from that gesture. Surface: local web and account page. Branch: `claude/gui-prev-result`. **recorded owner pick (carry it)**.
+- **A11 a — Small text repairs only.** Use the reading face for the named profile/veil text and limit rule text to 68 characters. Surface: local web rules and account screens. Branch: `claude/gui-prev-journey`. **recorded owner pick (carry it)**.
+- **A12 a — Equal promotion cards in a two-by-two grid.** Keep the grid at every size. Surface: local web. Branch: `claude/gui-prev-result`. **recorded owner pick (carry it)**.
+- **A13 a — Matte wax seals.** Keep the Workshop seal shapes and colours; reduce shine and shadow. Surface: local web Workshop. Branch: `claude/gui-prev-workshop`. **recorded owner pick (carry it)**.
+- **A14 a — Keep the sword only.** Keep the full accessible turn-action name. Surface: account page. Branch: `claude/gui-prev-board`; this retains the present account button. The local root still needs its separate button port before a release can claim that scope. **recorded owner pick (carry it)**.
+- **A15 c — Gold selected-tile fill.** Draw it under the figures; keep it distinct from moves, last move and frost. Surface: local web and account page. Branch: `claude/gui-prev-board`. **recorded owner pick (carry it)**.
+- **A16 b — Show the card face now.** Use the Collection face without a new cost/state redesign. Surface: account page. Branch: `claude/gui-prev-cards`. **recorded owner pick (carry it)**.
+- **A17 a — Reuse the Workshop frost mark.** Use tint, blue ring and turns-left pips on frozen pieces. Surface: local web and account page. Branch: `claude/gui-prev-board`. **recorded owner pick (carry it)**.
+- **A18 owner note — Remove empty-move-list text.** Keep accessible Moves names. Surface: local web and account page. Branch: `claude/gui-prev-board`. **recorded owner pick (carry it)**.
+- **A19 a — Wrap the setup hint.** Keep its words and the icon-only coin. Surface: account setup/seat screens. Branch: `claude/gui-prev-journey`. **recorded owner pick (carry it)**.
+- **A20 a — One resignation outcome line.** Use Resigned on move with the move number. Surface: local web result. Branch: `claude/gui-prev-result`. Account results retain their server end-reason words. **recorded owner pick (carry it)**.
+- **A21 a — Padding inside Guide captions.** Keep the joined shelf. Surface: local web lessons and account Guide. Branch: `claude/gui-prev-journey`. **recorded owner pick (carry it)**.
+- **A22 b — Keys work at once on results.** Pointer taps retain the one-second guard. Surface: account page. Branch: `claude/gui-prev-result`. **recorded owner pick (carry it)**.
+- **A24 a — Lay down the beaten result-card king.** Use the board's fall angle; leave draws unchanged. Account results take the same-View fallen square from the guarded board path. With no usable square, use `fallRotation(null)` and retain server result text. Remove the new end-screen FEN parse before that result ships. Surface: local web and account page. Branch: `claude/gui-prev-result`. **recorded owner pick (carry it)**.
+- **A25 b — Put wide short sheets beside the board.** Keep the board clear and scroll tall content inside the panel. Phones keep their sheet. Surface: account page. Branch: `claude/gui-prev-journey`. **recorded owner pick (carry it)**.
+- **A26 a — Clear chosen-power ring and flat always-on choices.** Suppress the tablet `::before` on always-on choices. Scope ink text to the flat choices. Keep selected stone text readable and keyboard focus separate. The combined CSS fix remains a root-release gate. Surface: local new-game dialog and account king picker. Branch: `claude/gui-prev-journey`. **recorded owner pick (carry it)**.
+- **A27 a — Keep the empty phone moves band shut.** Open it when sent history exists. Surface: account page. Branch: `claude/gui-prev-board`. **recorded owner pick (carry it)**.
+- **A28 b — Taken beside the name field.** Link the mark to the invalid field; clear it on edit. Surface: account identity editor. Branch: `claude/gui-prev-journey`. **recorded owner pick (carry it)**.
+- **A29 a — Phone Workshop row fade.** Use the same fade as the wide row, with clear edge space. Surface: local web Workshop. Branch: `claude/gui-prev-workshop`. **recorded owner pick (carry it)**.
+- **A30 b — Keep disabled frames and shadows.** Dull the face and keep a disabled red banner's shape. Surface: local web and account page. Branch: `claude/gui-prev-controls`. **recorded owner pick (carry it)**.
+- **A31 a — Open-game rules in words.** Use rule names for filters and game rows. Surface: account matching screen. Branch: `claude/gui-prev-journey`. **recorded owner pick (carry it)**.
+- **A32 a — First item on a Workshop tab change.** Keep the failed-save guard and the current Board-tab item. Surface: local web Workshop. Branch: `claude/gui-prev-workshop`. **recorded owner pick (carry it)**.
+- **A33 a — Coin symbols and small pictures on blank card faces.** Keep one LAB mark. Surface: local web Workshop and account card screens. Branch: `claude/gui-prev-cards`. At the reviewed source, symbols replace only the no-painting coin fallback; the each-coin part still needs a cards patch. **recorded owner pick (carry it)**.
+- **A34 a — Warm ink and gold double focus ring.** Define both values once in `src/style.css`; shared account CSS uses the two variables only. Surface: local web and account page. Branch: `claude/gui-prev-controls`. **recorded owner pick (carry it)**.
+- **A35 a — One reason when a card cannot be used.** Surface: account board card sheet. Branch: `claude/gui-prev-cards`. **recorded owner pick (carry it)**.
+- **A39 a — Take or Shove at the board foot.** Reserve the choice height and keep the squares clear. Surface: local web and account page. Branch: `claude/gui-prev-board`. **recorded owner pick (carry it)**.
+- **A40 a — Hide repeated unlocked status.** Show per-item status again when states differ. Surface: account Collection. Branch: `claude/gui-prev-cards`. **recorded owner pick (carry it)**.
+- **Y2 a — Result-card bottom fade.** Show a 16 px fade only while content remains below. Keep visible buttons clear. Surface: account page. Branch: `claude/gui-prev-result`. **recorded owner pick (carry it)**.
+- **Y3 b — Short seat king/power line.** Drop the coin-change hint suffix; retain the Ready instruction below. Surface: account seat screen. Branch: `claude/gui-prev-board`. **recorded owner pick (carry it)**.
+
+The following picks retain present behavior. They are not new visible merge changes:
+
+- **A23 a — You and Profile before a name is chosen.** Surface: account page. Branch: `claude/gui-prev-journey` adds coverage; present main supplies the behavior. **recorded owner pick (carry it)**.
+- **A36 a — Keep the staged move and End turn flow.** Surface: local web and account page. Branch: no preview delta; present `origin/main`. **recorded owner pick (carry it)**.
+- **A37 a — Keep the present first-game help.** Surface: account Beginner board. Branch: no preview delta; present `origin/main`. **recorded owner pick (carry it)**.
+- **A38 a — Keep the present phone band.** Surface: local web. Branch: no preview delta; present `origin/main`. **recorded owner pick (carry it)**.
+- **A41 a — Keep the present wait-screen computer offer.** The offer appears after 25 seconds. Surface: account wait screen. Branch: no preview delta; present `origin/main`. **recorded owner pick (carry it)**.
+
+A10 a, 25% less board-grain contrast, remains approved but unbuilt on `claude/gui-prev-controls`; no changed board asset arrives with this merge. Y1 a belongs to the plugin inline Resume card and has no web consumer. Neither item is evidence of a delivered web change.
+
 ## Files
 
 - `Final evidence check`.

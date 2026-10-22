@@ -2,7 +2,8 @@ import { afterEach, beforeEach, expect, it } from 'vitest';
 import { Game } from '../game';
 import { inCheck, legalMoves, makeMove, setRules } from '../rules/engine';
 import { fromFen, toLan } from '../rules/setup';
-import { positionKey, quiesceScore, resetSearchState, search } from './search';
+import { quiesceScore, resetSearchState, search } from './search';
+import { positionKey } from '../rules/position-key';
 
 // Preserve the original baseline-failing cycle under the historical repel reading.
 beforeEach(() => setRules({ ogreMode: 'repel' }));
@@ -11,7 +12,7 @@ afterEach(() => { setRules(); resetSearchState(); });
 const CYCLE = '7k/8/8/8/3p4/2BOK3/8/8 w - - 0 1';
 
 it('an Ogre/pawn check cycle repeats despite resetting the halfmove clock', () => {
-  const game = new Game();
+  const game = new Game(undefined, { ogreMode: 'repel' });
   game.load(fromFen(CYCLE));
   const key = positionKey(game.pos);
   for (let cycle = 0; cycle < 2; cycle++) {

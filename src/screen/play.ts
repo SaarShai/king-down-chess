@@ -1,3 +1,8 @@
+import { railsOf, clickPath, landingMoves, marksModel } from '../marks-model';
+import { checkersOf, describeMove, threatsIn, nextMoveNumber } from '../move-text';
+import { reachOf, readTap, unmarkedTap } from '../read';
+import { mulberry32 } from '../sim/rng';
+import { boardFoot } from './board-foot';
 /**
  * The turn core (docs/specs/after-redesign/spec.md §4.2 rule 2): the game on the board and the state of
  * its turn, refresh(), the moves, the computer, the dialogs, the input, the review, and every step that
@@ -6,26 +11,23 @@
  */
 import { skillPlan, type SkillName } from '../ai/skill';
 import { Game, resigningSide, type Engine, type Side } from '../game';
-import { positionKey } from '../ai/search';
+import { GameRules } from '../game-rules';
 import type { BoardView } from '../render/PaintedView';
 import { momentKind } from '../moment';
 import { setSound, snd } from '../render/sfx';
-import { Color, Move, NAMES, PieceType, Position, RULES as GAME_RULES, S, colorOf, file as fileOf, findKing, parseRule, setRules, sqName, typeOf, type Rules } from '../rules/engine';
-import { fromFen, randomBackRank, toFen } from '../rules/setup';
+import { Color, Move, NAMES, PieceType, Position, S, colorOf, file as fileOf, findKing, parseRule, sqName, typeOf, type Rules } from '../rules/engine';
+import { toFen } from '../rules/setup';
 import { LESSONS } from '../lessons';
 import { progress, recordLesson } from '../lesson-shelf-ui';
 import { lessonShelf } from '../lesson-shelf';
-import { checkersOf, describeMove, nextMoveNumber, threatsIn } from '../move-text';
 import { POWER_TAG, autoQueen, hintMoves, offered } from '../powers-ui';
 import { kingsOf, newGameWarning, playersOf, withDesign, type Setup } from '../new-game';
 import { worthOf } from '../workshop/judge';
 import { pieceIcon } from '../piece-icons';
-import { reachOf, readTap, unmarkedTap } from '../read';
 import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnEnded, turnLine, turnOf } from '../turn';
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from '../turn-controls';
 import { awardTurnSeals } from '../ui/tricks';
 import { readPiece, refreshTable, renderTable } from '../ui/table';
-import { clickPath, landingMoves, marksModel, railsOf } from '../marks-model';
 import { clearCoinRead, initCoins, refreshCoins } from '../ui/powers';
 import { reviewStep } from '../review';
 import { connectMoveMoments } from '../move-moments';
@@ -34,7 +36,7 @@ import type { initHome } from '../ui/home-view';
 import { connectPreviously } from '../ui/previously';
 import { pieceArt } from '../ui/guide';
 import { connectLinks } from './links';
-import { readSave, writeSave, type Save } from './save';
+import { readSave, savedGame, writeSave, type Save } from './save';
 import type { connectSettings } from './settings';
 import { connectMoments, soundsFor } from './moments';
 
@@ -51,6 +53,7 @@ export function connectPlay(view: BoardView, c: {
   params: URLSearchParams;
   /** The `?rules=` preset, if any. */
   preset: Partial<Rules> | undefined;
+  rules: Partial<Rules>;
   /** The balanced readings when a king has a power (main.ts, the URL rules). */
   withPowers(k: Rules['kings']): Partial<Rules>;
   /** A plain `?fen=` position that this page opened (not a game link), else null. */
@@ -68,7 +71,8 @@ export function connectPlay(view: BoardView, c: {
   openNewGame(): void;
 }) {
   const { params, preset, withPowers, fen, engine, guide, settings, home } = c;
-  let game = new Game();
+  let game = new Game(undefined, c.rules);
+  const sync = (pos: Position): void => { view.setRules?.(game.context); view.sync(pos); };
   /** The keyboard cursor, drawn over the board (pointer events pass through). */
   const marksLayer = document.createElement('div');
   marksLayer.id = 'board-marks';
@@ -102,7 +106,7 @@ export function connectPlay(view: BoardView, c: {
   let lesson: number | null = null;
   let lessonDone = false;
   /** Keep the actual game, including repetition history, while a separate game runs the lessons. */
-  let lessonReturn: { game: Game; sides: [Side, Side]; rules: Rules; resigned: Color | null; linkSide: Color | null; turnStart: number } | null = null;
+  let lessonReturn: { game: Game; sides: [Side, Side]; resigned: Color | null; linkSide: Color | null; turnStart: number } | null = null;
   /** In a game played by link, the side this device plays (the side to move when the link opened). */
   let linkSide: Color | null = null;
   /** Plies shown on the board while reviewing earlier moves; null = the live game. */
@@ -115,6 +119,8 @@ export function connectPlay(view: BoardView, c: {
   let replaying = false;
   /** Why the last tap did nothing ("Not allowed: the rook cannot reach b2."); shown in the help line until the next action. */
   let notice = '';
+  let saveBlocked = false;
+  const recoveryNotice = 'Your saved game could not be loaded. It is kept. Start a New game to replace it.';
   /** The board is seen from Black's side (orient()). */
   let flipped = false;
 
@@ -124,10 +130,10 @@ export function connectPlay(view: BoardView, c: {
   const currentTurn = () => turnOf(game, turnStart, busy || pending.length > 0 || viewing != null);
   const turnMode = () => modeOf(sides, linkSide);
   const ended = (kept = { game, turnStart, resigned }): boolean => turnEnded(kept.game, kept.turnStart, kept.resigned);
-  const undoOn = (): boolean => lesson == null && viewing == null && !ended() && !thinking && !sending && !closePromo && !closeMoveChoice && (canUndoTurn(game, turnStart) || pending.length > 0);
-  const myTurn = (): boolean => !currentTurn().waits && sides[game.pos.turn] === 'human' && (linkSide == null || game.pos.turn === linkSide) && !lessonDone;
+  const undoOn = (): boolean => !saveBlocked && lesson == null && viewing == null && !ended() && !thinking && !sending && !closePromo && !closeMoveChoice && (canUndoTurn(game, turnStart) || pending.length > 0);
+  const myTurn = (): boolean => !saveBlocked && !currentTurn().waits && sides[game.pos.turn] === 'human' && (linkSide == null || game.pos.turn === linkSide) && !lessonDone;
   /** The side Resign gives up now (`resigningSide`), or null while it is off: the game is over, a lesson, or the computer thinks. */
-  const resigner = (): Color | null => (ended() || lesson != null || busy ? null : resigningSide(sides, currentTurn().activeSide, linkSide));
+  const resigner = (): Color | null => (saveBlocked || ended() || lesson != null || busy ? null : resigningSide(sides, currentTurn().activeSide, linkSide));
 
   const moveMoments = connectMoveMoments(view, {
     game: () => game, allowed: undoOn, chain: () => pending.length > 0,
@@ -149,7 +155,7 @@ export function connectPlay(view: BoardView, c: {
   });
   connectEndReview($('over-review'), $<HTMLDialogElement>('over'), $('moves-line'), () => moments.listMoments());
 
-  const refreshTurnButton = () => renderTurnButton($<HTMLButtonElement>('end-turn'), game, currentTurn(), turnMode(), linkSide, ended(), busy || viewing != null, lesson != null);
+  const refreshTurnButton = () => renderTurnButton($<HTMLButtonElement>('end-turn'), game, currentTurn(), turnMode(), linkSide, ended(), saveBlocked || busy || viewing != null, lesson != null);
   const announceTurn = () => announceWaiting(game, currentTurn(), turnMode(), $('end-turn'), $('announce'));
   const readWaiting = (sq: number) => {
     selected = null; pending = [];
@@ -159,7 +165,7 @@ export function connectPlay(view: BoardView, c: {
   };
   connectTurnPress($<HTMLButtonElement>('end-turn'), $('board'), {
     game: () => game, turn: currentTurn, mode: turnMode, linkSide: () => linkSide,
-    ended, blocked: () => busy || viewing != null || lesson != null, generation: () => gen,
+    ended, blocked: () => saveBlocked || busy || viewing != null || lesson != null, generation: () => gen,
     lock: value => { busy = sending = value; }, commit,
     handOver: () => {
       const seals = awardTurnSeals(game, turnStart, sides, linkSide);
@@ -184,12 +190,12 @@ export function connectPlay(view: BoardView, c: {
   });
 
   function showInfo(sq: number | null): void {
-    readPiece(shownPos(), sq, inspected != null);
+    readPiece(shownPos(), sq, inspected != null, game.context);
   }
 
   /** The side to move's power tag while it is armed, else null. */
   const armedTag = (): string | null => {
-    const power = GAME_RULES.kings[game.pos.turn]?.power;
+    const power = game.rules.kings[game.pos.turn]?.power;
     return armed && power ? POWER_TAG[power] ?? null : null;
   };
   /**
@@ -209,6 +215,7 @@ export function connectPlay(view: BoardView, c: {
   };
 
   function refresh(): void {
+    if (saveBlocked) notice = recoveryNotice;
     const cands = candidates();
     const verb = marksModel(cands, pending);
     // Armed Freeze / Ice Wall / Sacrifice name a piece: a power target, not a capture.
@@ -221,16 +228,16 @@ export function connectPlay(view: BoardView, c: {
       ...verb,
       captures: verb.captures.filter(sq => !named.includes(sq)),
       bites: selected != null && typeOf(game.pos.board[selected]) === S ? pending : [],
-      read: inspected != null ? reachOf(shownPos(), inspected) : undefined,
+      read: inspected != null ? reachOf(game.context, shownPos(), inspected) : undefined,
       powers,
       // Owner (2026-10-04): the square the piece left is not marked; where it went (or what it hit) is.
       last: !last ? [] : last.shove ? [last.shove.from, last.shove.to] : last.to === last.from ? [...last.captures] : [last.to],
       hint: hintSquares,
       check: (!busy || thinking) && game.inCheck && viewing == null ? findKing(game.pos.board, game.pos.turn) : null,
-      checkers: (!busy || thinking) && viewing == null ? checkersOf(game.pos) : [],
-      rails: selected == null ? [] : railsOf(game.pos.board, selected, [...verb.moves, ...verb.captures], verb.captures),
+      checkers: (!busy || thinking) && viewing == null ? checkersOf(game.context, game.pos) : [],
+      rails: selected == null ? [] : railsOf(game.context.rules.design, game.pos.board, selected, [...verb.moves, ...verb.captures], verb.captures),
       // Settings → Show threats.
-      threats: settings.threats() && viewing == null && !busy && !ended() && (myTurn() || currentTurn().waits) ? threatsIn({ ...game.pos, turn: currentTurn().activeSide }) : [],
+      threats: settings.threats() && viewing == null && !busy && !ended() && (myTurn() || currentTurn().waits) ? threatsIn(game.context, { ...game.pos, turn: currentTurn().activeSide }) : [],
     });
     const canFinish = pending.length > 0 && cands.some(m => clickPath(m).length === pending.length);
     // Captured pieces: a piece the mover removed counts for the mover; a paladin that removes itself is its own side's loss.
@@ -240,7 +247,7 @@ export function connectPlay(view: BoardView, c: {
       for (const c of h.move.captures) taken[mover].push(h.pos.board[c]);
       if (h.move.selfRemove) taken[1 - mover].push(h.pos.board[h.move.from]);
     }
-    renderTable({
+    renderTable({ context: game.context,
       selected, selectedType: selected == null ? 0 : typeOf(game.pos.board[selected]), pending, canFinish, busy, thinking, notice,
       viewing, reviewNote: moments.reviewNote(), lesson, lessonDone, nextLesson: lessonShelf(progress()).next?.name ?? null,
       turnLine: turnLine(game, currentTurn(), turnMode()), activeSide: currentTurn().activeSide, staged: currentTurn().staged,
@@ -252,10 +259,10 @@ export function connectPlay(view: BoardView, c: {
     showInfo(inspected ?? selected);
     refreshTurnButton();
     gameEnd.refresh();
-    const coins = refreshCoins({ pos: shownPos(), history: game.history, rules: GAME_RULES, legal: viewing == null ? game.legal : undefined, activeSide: currentTurn().activeSide, armed, canPlay: !finished() && viewing == null && lesson == null && myTurn(), busy, flipped, lesson, mode: turnMode(), viewer: linkSide ?? (sides[0] === 'ai' ? 1 : 0), waiting: currentTurn().waits, selection: selected != null || inspected != null || !!notice });
+    const coins = refreshCoins({ pos: shownPos(), history: game.history, rules: game.rules, legal: viewing == null ? game.legal : undefined, activeSide: currentTurn().activeSide, armed, canPlay: !finished() && viewing == null && lesson == null && myTurn(), busy, flipped, lesson, mode: turnMode(), viewer: linkSide ?? (sides[0] === 'ai' ? 1 : 0), waiting: currentTurn().waits, selection: selected != null || inspected != null || !!notice });
     armed = coins.armed;
     drawMarks();
-    refreshTable({ game, sides, skill, rules: GAME_RULES, flipped, thinking, viewing, lesson, lessonDone, notice, armed, selected, pending, linkSide, reviewNote: moments.reviewNote(), turn: currentTurn(), mode: turnMode(), power: coins.context, previously: previously.state() });
+    refreshTable({ game, sides, skill, rules: game.rules, flipped, thinking, viewing, lesson, lessonDone, notice, armed, selected, pending, linkSide, reviewNote: moments.reviewNote(), turn: currentTurn(), mode: turnMode(), power: coins.context, previously: previously.state() });
     home?.refresh();
   }
 
@@ -277,17 +284,18 @@ export function connectPlay(view: BoardView, c: {
 
 
   async function commit(m: Move): Promise<void> {
+    if (saveBlocked) return;
     const g = gen;
     busy = true;
     hintSquares = [];
     const pre = game.pos;
     navGen++;
-    if (viewing != null) { viewing = null; view.sync(pre); } // a review ends when a move is played
+    if (viewing != null) { viewing = null; sync(pre); } // a review ends when a move is played
     const computer = lesson == null && sides[pre.turn] === 'ai';
     game.play(m);
     if (computer) turnStart = handOver(game);
     notice = '';
-    $('announce').textContent = describeMove(pre, m, true) + (game.inCheck && !finished() ? ' Check.' : '');
+    $('announce').textContent = describeMove(game.context, pre, m, true) + (game.inCheck && !finished() ? ' Check.' : '');
     moments.played(pre, m);
     // Launch sounds play now; the hit sounds when the board shows the contact.
     const sounds = soundsFor(momentKind(pre, m), m), hit = sounds.hit ? snd[sounds.hit] : null;
@@ -301,7 +309,7 @@ export function connectPlay(view: BoardView, c: {
     // keeps a second maybeAi() loop from starting and replaying this move onto the new position.
     if (g !== gen) return;
     strike(); // no animation (reduced motion) or no contact reported: sound the hit now
-    view.sync(game.pos);
+    sync(game.pos);
     if (game.inCheck) snd.check();
     busy = false;
     if (lesson != null) return lessonResult(pre, m);
@@ -317,7 +325,7 @@ export function connectPlay(view: BoardView, c: {
   function lessonResult(pre: Position, m: Move): void {
     const l = LESSONS[lesson!];
     if (l.goal(pre, m)) { lessonDone = true; moments.say(`Well done. ${l.done}`); noteLesson(l.name); }
-    else { game.undo(); view.sync(game.pos); moments.say(`Not quite. ${l.task}`); }
+    else { game.undo(); sync(game.pos); moments.say(`Not quite. ${l.task}`); }
     refresh();
   }
 
@@ -329,37 +337,38 @@ export function connectPlay(view: BoardView, c: {
 
   /** A lesson: its position, both sides moved from this device, and nothing saved (the autosave keeps the real game). */
   function startLesson(i: number): void {
+    if (saveBlocked) { notice = recoveryNotice; refresh(); return; }
     home?.close();
     $<HTMLDialogElement>('rules').close();
     if (lesson == null) {
-      lessonReturn = { game, sides: [...sides], rules: { ...GAME_RULES }, resigned, linkSide, turnStart };
+      lessonReturn = { game, sides: [...sides], resigned, linkSide, turnStart };
     }
     reset();
-    setRules(); // these lessons teach today's rules, even when the match uses an older preset
     game = new Game();
     resigned = null; linkSide = null;
     lesson = i; lessonDone = false;
     sides[0] = sides[1] = 'human';
-    game.load(fromFen(LESSONS[i].fen));
+    game.load(game.context.fromFen(LESSONS[i].fen));
     turnStart = 0;
     moments.start(LESSONS[i].task);
-    view.sync(game.pos);
+    sync(game.pos);
     orient();
     refresh();
   }
 
   $('return-game').onclick = () => {
     if (!lessonReturn) return;
-    const s = cloudGame ? readSave() : null;
+    const stored = cloudGame ? readSave() : null;
+    if (stored?.unreadable) { keepUnreadableSave(); refresh(); return; }
+    const s = stored?.save;
     if (s) return openSaved(s);
     reset();
     ({ game, resigned, linkSide, turnStart } = lessonReturn);
     [sides[0], sides[1]] = lessonReturn.sides;
-    setRules(lessonReturn.rules);
     lessonReturn = null;
     lesson = null; lessonDone = false;
     moments.restore();
-    view.sync(game.pos);
+    sync(game.pos);
     orient();
     refresh();
     save();
@@ -375,12 +384,12 @@ export function connectPlay(view: BoardView, c: {
   const thinkMs = Number(params.get('think')) || undefined;
 
   async function maybeAi(): Promise<void> {
-    if (home?.visible || busy || finished() || currentTurn().staged > 0 || sides[game.pos.turn] !== 'ai') return;
+    if (saveBlocked || home?.visible || busy || finished() || currentTurn().staged > 0 || sides[game.pos.turn] !== 'ai') return;
     busy = thinking = true;
     refresh();
     const g = gen;
     const plan = skillPlan(skill, game.history.length, thinkMs);
-    const res = await engine.think(game.pos, { timeMs: plan.timeMs, temperature: plan.temperature, history: game.history.map(h => positionKey(h.pos)) });
+    const res = await engine.think(game, { timeMs: plan.timeMs, temperature: plan.temperature, history: game.history.map(h => game.context.positionKey(h.pos)) });
     if (g !== gen) return;
     thinking = false;
     const choices = game.legal;
@@ -403,7 +412,7 @@ export function connectPlay(view: BoardView, c: {
       closePromo = () => done(null);
       for (const m of options) {
         const b = document.createElement('button');
-        const art = pieceArt(m.promo as PieceType, game.pos.turn === 1);
+        const art = pieceArt(m.promo as PieceType, game.pos.turn === 1, game.context);
         b.innerHTML = `${art ? `<img src="${art}" alt="" aria-hidden="true">` : ''}<span>${pieceIcon(m.promo as PieceType, game.pos.turn)} ${NAMES[m.promo as PieceType]}</span>`;
         b.onclick = () => done(m);
         box.appendChild(b);
@@ -437,15 +446,25 @@ export function connectPlay(view: BoardView, c: {
     $('move-choice-detail').textContent = `Take removes the enemy on ${target}. Shove moves it to ${destination}${push.to === push.from ? ' and leaves your Ogre in place' : ` and moves your Ogre to ${target}`}.`;
     $('choose-capture').textContent = `Take on ${target}`;
     $('choose-push').textContent = `Shove to ${destination}`;
+    let stopPlacing = () => {};
+    const board = $('board');
+    const place = () => {
+      board.classList.add('choosing-move');
+      board.style.maxHeight = `${Math.max(0, innerHeight - board.getBoundingClientRect().top - dlg.getBoundingClientRect().height - 24)}px`;
+      Object.assign(dlg.style, boardFoot(board.getBoundingClientRect(), dlg.getBoundingClientRect(), {width:innerWidth,height:innerHeight}));
+    };
     const move = await new Promise<Move | null>(resolve => {
-      const done = (m: Move | null): void => { closeMoveChoice = null; dlg.close(); resolve(m); };
+      const done = (m: Move | null): void => { stopPlacing(); closeMoveChoice = null; dlg.close(); resolve(m); };
       closeMoveChoice = () => done(null);
       $('choose-capture').onclick = () => done(capture);
       $('choose-push').onclick = () => done(push);
       $('cancel-choice').onclick = () => done(null);
       dlg.oncancel = e => { e.preventDefault(); done(null); };
       refresh();
-      dlg.showModal();
+      dlg.showModal(); place();
+      const observer = new ResizeObserver(place); observer.observe($('board')); observer.observe(dlg);
+      window.addEventListener('resize', place);
+      stopPlacing = () => { observer.disconnect(); window.removeEventListener('resize', place); board.classList.remove('choosing-move'); board.style.maxHeight = ''; };
     });
     if (generation !== gen) return;
     busy = false;
@@ -500,6 +519,7 @@ export function connectPlay(view: BoardView, c: {
   const refuse = (why: string, sq: number): void => { ({ inspected } = readTap(shownPos(), sq, selected, inspected, false)); notice = why; refresh(); };
 
   view.onSquareClick = (sq, shift = false) => {
+    if (saveBlocked) return refuse(recoveryNotice, sq);
     if (home?.visible) home.resume();
     clearCoinRead();
     if (busy) { if (thinking) refuse('The computer is thinking. Wait for its move.', sq); view.skip(); return; } // a tap during an animation skips it
@@ -521,7 +541,7 @@ export function connectPlay(view: BoardView, c: {
     }
     const next = [...candidates().filter(m => clickPath(m)[pending.length] === sq), ...landingMoves(candidates(), sq)];
     if (selected == null || next.length === 0) {
-      ({ selected, inspected, pending, notice } = unmarkedTap(game.pos, sq, selected, inspected, pending, armedTag()));
+      ({ selected, inspected, pending, notice } = unmarkedTap(game.context, game.pos, sq, selected, inspected, pending, armedTag()));
       refresh();
       return;
     }
@@ -559,7 +579,7 @@ export function connectPlay(view: BoardView, c: {
     busy = true;
     refresh();
     const g = gen;
-    const res = await engine.think(pos, { timeMs: 400, maxDepth: 3, history: game.history.map(h => positionKey(h.pos)), rootMoves });
+    const res = await engine.think(game, { timeMs: 400, maxDepth: 3, history: game.history.map(h => game.context.positionKey(h.pos)), rootMoves }, pos);
     if (g !== gen) return;
     busy = false;
     // Esc during the search disarms the power, and the board then refuses the move found for it.
@@ -590,13 +610,13 @@ export function connectPlay(view: BoardView, c: {
     refresh();
     c.keys().say(); // the keyboard cursor reads the board now shown
     if (replay && n === from + 1) {
-      view.sync(at(from));
+      sync(at(from));
       busy = replaying = true; // the board is locked like any move animation; a tap skips it
       await view.animateMove(at(from), game.history[from].move);
       if (g !== navGen) return;
       busy = replaying = false;
     }
-    view.sync(at(n));
+    sync(at(n));
     refresh();
   }
 
@@ -619,7 +639,7 @@ export function connectPlay(view: BoardView, c: {
     navGen++;
     replaying = thinking = false;
     moments.clear();
-    if (viewing != null) { viewing = null; view.sync(game.pos); }
+    if (viewing != null) { viewing = null; sync(game.pos); }
     hintSquares = [];
     engine.cancel();
     closeMoveChoice?.();
@@ -648,8 +668,9 @@ export function connectPlay(view: BoardView, c: {
       const k = kingsOf(setup);
       // "Bring a design" (ticket 17): the design plays as `T`, in place of one back-rank piece; a position (`fen`) has no place for it.
       const design = setup.design && !fen ? parseRule(`design=${setup.design}`).design! : null;
-      setRules({ ...withPowers(k), ...preset, kings: k, design });
-      if (design) backRank = withDesign(backRank ?? randomBackRank(), worthOf(design));
+      game = new Game(undefined, { ...withPowers(k), ...preset, kings: k, design });
+      if (dailyDate) backRank = game.context.randomBackRank(mulberry32(+dailyDate.replace(/-/g, '')));
+      if (design) backRank = withDesign(backRank ?? game.context.randomBackRank(), worthOf(design));
       skill = setup.level;
     }
     resigned = null;
@@ -660,12 +681,13 @@ export function connectPlay(view: BoardView, c: {
     daily = dailyDate;
     moments.start('');
     [sides[0], sides[1]] = players ?? (rematch ? [sides[1], sides[0]] : playersOf(setup));
-    if (fen) game.load(fromFen(fen)); else game.newGame(backRank);
+    if (fen) game.load(game.context.fromFen(fen)); else game.newGame(backRank);
+    saveBlocked = false;
     turnStart = 0;
-    view.sync(game.pos);
+    sync(game.pos);
     orient();
     refresh();
-    save();
+    save(true);
     void maybeAi();
   }
 
@@ -677,7 +699,7 @@ export function connectPlay(view: BoardView, c: {
 
   $<HTMLDialogElement>('over').onclose = () => {
     const v = $<HTMLDialogElement>('over').returnValue;
-    if (v === 'new') newGame(randomBackRank());
+    if (v === 'new') newGame();
     else if (v === 'rematch') {
       newGame(game.backRank || undefined, game.backRank ? null : toFen(game.history[0]?.pos ?? game.pos), true);
     }
@@ -689,7 +711,7 @@ export function connectPlay(view: BoardView, c: {
     if (side == null) return;
     reset();
     dropTurn(game, turnStart);
-    view.sync(game.pos);
+    sync(game.pos);
     resigned = side;
     refresh();
     save();
@@ -697,16 +719,19 @@ export function connectPlay(view: BoardView, c: {
   };
   const links = connectLinks({
     game: () => game, turnStart: () => turnStart, rules: params.get('rules'),
-    blocked: () => !!(busy || currentTurn().staged || lesson != null || linkSide != null),
+    blocked: () => !!(saveBlocked || busy || currentTurn().staged || lesson != null || linkSide != null),
   });
 
   /* ---- autosave ---- */
   /** A newer saved game came from the account during a lesson: Return to game opens it. */
   let cloudGame = false;
 
-  function save(): void {
+  function save(replaceUnreadable = false): void {
+    if (saveBlocked || !replaceUnreadable && savedDataBlocked()) return;
     // A lesson never replaces the saved game: it changes only the settings in the save.
-    const kept = lesson == null ? null : readSave();
+    const stored = lesson == null ? null : readSave();
+    if (stored?.unreadable) { keepUnreadableSave(); refresh(); return; }
+    const kept = stored?.save;
     if (lesson != null && !kept) return;
     writeSave(kept ? { ...kept, ...settings.settingsNow() } : {
       back: game.backRank,
@@ -719,26 +744,37 @@ export function connectPlay(view: BoardView, c: {
       resigned,
       // The rules the game is playing, so opening the save without its URL replays the same game
       // (`?rules=2017`, `?kings=…`; docs/TAKEOVER-PLAN.md §2).
-      rules: { ...GAME_RULES },
+      rules: { ...game.rules },
     });
     c.account()?.changed();
   }
 
-  /** A save's rules, army and moves onto `game`; a save it cannot read starts a new game. */
-  function replay(s: Save): void {
+  function keepUnreadableSave(): void {
+    reset();
+    saveBlocked = true;
+    notice = recoveryNotice;
+  }
+
+  /** Another tab can change the shared key after boot; recheck it before any ordinary write. */
+  function savedDataBlocked(): boolean {
+    if (!saveBlocked && readSave().unreadable) { keepUnreadableSave(); refresh(); }
+    return saveBlocked;
+  }
+
+  /** Validate before changing the live game or its UI state. */
+  function replay(s: Save): Game | undefined {
     try {
-      if (s.rules) setRules(s.rules); // before playLan: the moves must replay under their own rules
-      if (s.back) game.newGame(s.back); else game.load(fromFen(s.fen));
-      game.playLan(s.moves);
-      resigned = s.resigned ?? null;
-    } catch { game.newGame(); } // a save from an older format: start fresh
-    finishLinkedTurn(game);
-    turnStart = handOver(game);
+      const candidate = savedGame(s);
+      finishLinkedTurn(candidate);
+      return candidate;
+    } catch { keepUnreadableSave(); }
   }
 
   /** Sections the account had newer than this device; account/sync.ts already wrote them to the save. */
   function fromAccount(down: string[]): void {
-    const s = readSave();
+    const stored = readSave();
+    if (stored.unreadable) { keepUnreadableSave(); refresh(); return; }
+    const s = stored.save;
     if (!s) return;
     if (down.includes('settings')) {
       settings.applySettings(s);
@@ -755,7 +791,10 @@ export function connectPlay(view: BoardView, c: {
 
   /** The account's saved game replaces the one on the board (but not a position opened by `?fen=`). */
   function openSaved(s: Save): void {
+    const candidate = replay(s);
+    if (!candidate) { refresh(); return; }
     reset();
+    game = candidate;
     $<HTMLDialogElement>('over').close();
     cloudGame = false;
     lesson = null; lessonDone = false; lessonReturn = null;
@@ -763,12 +802,12 @@ export function connectPlay(view: BoardView, c: {
     if (isSide(s.black)) sides[1] = s.black;
     linkSide = s.link === 0 || s.link === 1 ? s.link : null;
     daily = typeof s.daily === 'string' ? s.daily : null;
-    resigned = null;
-    replay(s);
+    resigned = s.resigned ?? null;
+    turnStart = handOver(game);
     moments.restore();
     notice = 'Loaded your newer saved game from your account.';
     moments.say(notice);
-    view.sync(game.pos);
+    sync(game.pos);
     orient();
     guide.fill();
     refresh();
@@ -788,31 +827,38 @@ export function connectPlay(view: BoardView, c: {
    * `?fen=` position, or the autosave. `urlRules`: the URL names a rule set. `title`: the title opens. `notice`: the first notice.
    * It runs before any async work starts, so it is the one game switch that does not call `reset()`.
    */
-  function restore(saved: Save | null, r: { link: boolean; continues: boolean; urlRules: boolean; title: boolean; notice: string }): void {
-    if (r.link) {
+  function restore(saved: Save | null, r: { link: boolean; continues: boolean; urlRules: boolean; title: boolean; unreadable: boolean; notice: string }): void {
+    if (r.unreadable) keepUnreadableSave();
+    else if (r.link) {
       previously.load(params, r.continues ? saved!.moves.length : 0);
       sides[0] = sides[1] = 'human';
       linkSide = game.pos.turn;
     }
-    else if (fen) { try { game.load(fromFen(fen)); } catch (e) { alert(`Bad fen: ${(e as Error).message}`); } }
+    else if (fen) { try { game.load(game.context.fromFen(fen)); } catch (e) { alert(`Bad fen: ${(e as Error).message}`); } }
     else if (saved) {
-      if (saved.link === 0 || saved.link === 1) linkSide = saved.link;
-      if (typeof saved.daily === 'string') daily = saved.daily;
-      const savedRules = saved.rules;
-      const rulesDiffer = r.urlRules && !!savedRules && JSON.stringify(savedRules) !== JSON.stringify({ ...GAME_RULES });
+      // A save from before saves held their rules (a7bdb5ac) played the default rules.
+      const savedRules = saved.rules ?? { ...new GameRules().rules };
+      const rulesDiffer = r.urlRules && JSON.stringify(savedRules) !== JSON.stringify({ ...game.rules });
       if (rulesDiffer) {
         // The URL names a rule set and the autosave played a different one. Replaying the moves would
         // reinterpret them, so keep the URL's fresh game and let the next save overwrite the old one.
         console.warn('kingdown: the autosave played different rules than the URL asks for; starting fresh');
-      } else replay(saved);
+      } else {
+        const candidate = replay(saved);
+        if (candidate) {
+          game = candidate; resigned = saved.resigned ?? null;
+          if (saved.link === 0 || saved.link === 1) linkSide = saved.link;
+          if (typeof saved.daily === 'string') daily = saved.daily;
+        }
+      }
     }
     turnStart = handOver(game);
     // The title's Continue names the move the restored game is on (set before the first paint; a
     // Haste turn is two plies by one side, so the number comes from the replayed game, not the save).
     if (r.title) labelContinue();
-    notice = r.notice;
+    notice = saveBlocked ? recoveryNotice : r.notice;
     orient();
-    view.sync(previously.position());
+    sync(previously.position());
   }
 
   /** The commands that the keys send (screen/keys.ts); no page key acts while Home is up. */
@@ -827,6 +873,13 @@ export function connectPlay(view: BoardView, c: {
     game: () => game, sides: (): readonly [Side, Side] => sides, skill: () => skill, setSkill: (level: SkillName): void => { skill = level; },
     shownPos, selected: () => selected, pending: () => pending, inspected: () => inspected, candidates, flipped: () => flipped,
     refresh, drawMarks, save, reset, maybeAi, ended, resigner, showPly, newGame, startLesson, openSaved, fromAccount, seat, restore,
+    savedGames: {
+      blocked: savedDataBlocked,
+      accepts: (value: unknown): boolean => {
+        try { savedGame(value); return true; }
+        catch { notice = 'The account save could not be loaded. Your current game stays.'; refresh(); return false; }
+      },
+    },
     /** A rematch of this game with the sides swapped. */
     rematch: () => newGame(game.backRank || undefined, game.backRank ? null : toFen(game.history[0]?.pos ?? game.pos), true),
     /** What Home shows (ui/home.ts). */

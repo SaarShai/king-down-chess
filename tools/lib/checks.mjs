@@ -16,6 +16,8 @@
 //                             of `path` that does not exist yet stays as it is. The runner and the sample tool
 //                             (docs/specs/web-ux/capture.mjs) refuse an output folder inside the checkout with it.
 //   launch(options = {})      Opens PLAYABLE_BROWSER; `options` go to that engine's launch method.
+//                             Each context of the browser (and a launchPersistent profile) answers the fake account
+//                             project of the check site (CHECK_SITE_ENV) with answerCheckHost, so no check reaches the network.
 //
 // Errors
 //   trapErrors(page, allow = [])
@@ -76,16 +78,49 @@ export function env(name) {
  * The step-limit factor: 3 for WebKit and Firefox on CI, 2 for Chromium on CI, else 1. GitHub's Linux runner draws WebKit in
  * software, about three times slower than the Macs that set the limits, and runs the Chromium checks about 2.5 times
  * slower (Saar, 2026-10-18: "Slower limits on CI WebKit", then "Raise CI limits"). It scales waits only; a checked timing
- * (an animation length, a reply budget) never uses it. Local runs and the pre-push hook keep the limits at 1.
+ * (an animation length, a reply budget) never uses it. Local runs keep the limits at 1.
  * Firefox uses the WebKit wait budget for the web journey on CI.
  */
 export const STEP = !process.env.CI ? 1 : ['webkit', 'firefox'].includes(process.env.PLAYABLE_BROWSER) ? 3 : 2;
 
-/** Opens the engine or Chromium channel that PLAYABLE_BROWSER names. */
-export const launch = ({ channel = env('PLAYABLE_BROWSER'), ...options } = {}) => channel === 'webkit'
+/** The public build values of the shared check site: a production build (no stage) with a fake account project.
+ *  The website reads both values from the build (src/account/public-config.ts); a check that signs in answers this
+ *  origin itself, so no request reaches a real project. */
+export const CHECK_SITE_ENV = { VITE_KINGDOWN_STAGE: '', VITE_SUPABASE_URL: 'https://web-proof.supabase.co', VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_local_test' };
+
+/** Answers each request to the fake account project of the check site, so no check asks the network for it: the
+ *  public auth settings list Google and GitHub, and each other path gets an empty answer. A check that signs in
+ *  (verify-account.mjs) routes the same origin on its context; Playwright runs the route added last first. */
+export const answerCheckHost = context => context.route(`${CHECK_SITE_ENV.VITE_SUPABASE_URL}/**`, r => {
+  const req = r.request(), headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
+  if (req.method() === 'OPTIONS') return r.fulfill({ status: 204, headers });
+  const path = new URL(req.url()).pathname;
+  if (path === '/auth/v1/settings') return r.fulfill({ headers, contentType: 'application/json', body: JSON.stringify({ external: { google: true, github: true } }) });
+  return path.startsWith('/rest/') && req.method() === 'GET' ? r.fulfill({ headers, contentType: 'application/json', body: '[]' }) : r.fulfill({ status: 204, headers });
+});
+
+/** Gives each new context of `browser` (browser.newPage makes one too) the answers of answerCheckHost. */
+function withCheckHost(browser) {
+  const newContext = browser.newContext.bind(browser);
+  browser.newContext = async options => { const context = await newContext(options); await answerCheckHost(context); return context; };
+  return browser;
+}
+
+/** Opens the engine or Chromium channel that PLAYABLE_BROWSER names; each of its contexts answers the check host. */
+export const launch = async ({ channel = env('PLAYABLE_BROWSER'), ...options } = {}) => withCheckHost(await (channel === 'webkit'
   ? webkit.launch(options)
   : channel === 'firefox' ? firefox.launch(options)
-  : chromium.launch({ channel, ...options });
+  : chromium.launch({ channel, ...options })));
+
+/** Opens a retained profile with the same engine selection and check-host answers as launch(). */
+export const launchPersistent = async (profile, { channel = env('PLAYABLE_BROWSER'), ...options } = {}) => {
+  const context = await (channel === 'webkit'
+    ? webkit.launchPersistentContext(profile, options)
+    : channel === 'firefox' ? firefox.launchPersistentContext(profile, options)
+    : chromium.launchPersistentContext(profile, { channel, ...options }));
+  await answerCheckHost(context);
+  return context;
+};
 
 /** Measures the viewport and each element that matches the selector. */
 const measure = (page, selector) => page.evaluate(sel => {
@@ -178,8 +213,8 @@ const trapped = [];
 export function trapErrors(page, allow = []) {
   for (const a of allow) if (!a.reason?.trim()) throw new Error(`trapErrors: the allowed pattern ${a.pattern} has no reason`);
   const errors = [];
-  const add = (kind, text) => { if (!allow.some(a => new RegExp(a.pattern).test(text))) errors.push(`${kind}: ${text}`); };
-  page.on('pageerror', e => add('pageerror', e.message));
+  const add = (kind, text, detail = text) => { if (!allow.some(a => new RegExp(a.pattern).test(text))) errors.push(`${kind}: ${detail}`); };
+  page.on('pageerror', e => add('pageerror', e.message, e.stack || e.message));
   // Playwright gives each console argument as a handle, and the page keeps that object until the handle is disposed.
   // The check reads only the text, so it disposes each handle at once. Else a long-lived page keeps every object it
   // logged: the plugin host logs each message event, and each event keeps its old widget document (chatgpt-mvp 53).

@@ -44,7 +44,8 @@ try {
   assert.equal(await powerCoin(page, 'w').getAttribute('aria-disabled'), null);
   assert.notEqual(await powerCoin(page, 'w').evaluate(b => getComputedStyle(b).outlineStyle), 'none');
   await powerCoin(page, 'w').focus(); await page.keyboard.press('Enter');
-  assert.equal(await powerCoin(page, 'w').evaluate(b => getComputedStyle(b).outlineWidth), '3px', 'a read coin keeps its keyboard focus ring');
+  assert.equal(await powerCoin(page, 'w').evaluate(b => getComputedStyle(b).outlineWidth), '2px', 'a read coin keeps its keyboard focus outline');
+  assert.match(await powerCoin(page, 'w').evaluate(b => getComputedStyle(b).boxShadow), /rgb\(233, 192, 113\).*4px/, 'a read coin keeps its gold keyboard focus ring');
   await page.keyboard.press('Tab');
   assert.equal(await powerCoin(page, 'w').evaluate(b => getComputedStyle(b).outlineWidth), '1px', 'the read mark differs from keyboard focus');
   await openPowerRules(page);

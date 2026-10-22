@@ -1,3 +1,5 @@
+import { RULES } from './rules';
+import { GameRules } from '../game-rules';
 /**
  * The Spawn cards (card mode, lab; owner, 2026-10-06, docs/MATRIX.md D.5), each one use and the
  * turn's move, taking nothing: a new own pawn appears on an empty square — Spawn on the side's pawn
@@ -9,7 +11,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { BLACK, Move, P, Position, WHITE, inCheck, legalMoves, makeMove, parseSq, piece, status } from './engine';
 import { fromFen, randomBackRank, toFen, toLan } from './setup';
 import { ALL_CARDS, CARD_ONLY, CardName, parseRule, setRules } from './rules';
-import { positionKey, probeApply, resetSearchState, search, searchLegal } from '../ai/search';
+import { probeApply, resetSearchState, search, searchLegal } from '../ai/search';
+import { positionKey } from './position-key';
 import { mulberry32 } from '../sim/rng';
 import { replayRecord } from '../sim/replay';
 import { cardText } from '../powers-ui';
@@ -148,12 +151,12 @@ describe('Spawn: the move', () => {
     const next = makeMove(pos, m);
     for (let s = 0; s < 64; s++) expect(next.board[s], `square ${s}`).toBe(s === parseSq('c2') ? piece(P, WHITE) : pos.board[s]);
     expect([next.turn, next.used, next.halfmove, next.lost]).toEqual([BLACK, [1, 0], 8, undefined]);
-    expect(describeMove(pos, m)).toBe('White adds a pawn on c2.');
+    expect(describeMove(new GameRules(RULES), pos, m)).toBe('White adds a pawn on c2.');
     const two = find(pos, 'P@c2,f2!S2');
     expect([two.to, two.drop2, two.power]).toEqual([parseSq('c2'), parseSq('f2'), 'spawn2']);
     const after = makeMove(pos, two);
     expect(toFen(after)).toBe('4k3/8/8/8/8/8/2P2P2/4K3 b - - 8 12 u2.0');
-    expect(describeMove(pos, two)).toBe('White adds pawns on c2 and f2.');
+    expect(describeMove(new GameRules(RULES), pos, two)).toBe('White adds pawns on c2 and f2.');
     // One use: the spent card offers nothing on White's next turn.
     expect(spawns(play(after, 'Ke8-d8')).filter(l => l.endsWith('!S2'))).toEqual([]);
   });

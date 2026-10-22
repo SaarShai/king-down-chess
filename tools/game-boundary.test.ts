@@ -1,0 +1,101 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, relative, resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { parseSync, Visitor } from 'rolldown/utils';
+
+const root = resolve(import.meta.dirname, '..');
+const blocked: Record<string, Set<string>> = Object.fromEntries(Object.entries({
+  'rules/rules': 'RULES setRules playedDesign ruleDiff',
+  'rules/engine': 'RULES setRules playedDesign ruleDiff nameOf theName aName overShots guardMayLand powerOf powerUses handOf heldCount cardAt spend canSpend markKind drawsOnLost tracksLast lapsing holdsTurn keepsLost canCapture genPiece makeMove moverAt isAttacked inCheck genPowerMoves filterMarks filterHeld genHasteFollowUp filterFree genGuardDrops epAfter genClassic freePass pseudoMoves legalMoves insufficientMaterial materialDraw status perft',
+  'rules/setup': 'randomBackRank waitGuards startPosition fromFen',
+  'ai/search': 'search searchLegal resetSearchState',
+  'rules/position-key': 'positionKey hashBoard',
+  'workshop/powers': 'withRules',
+  'workshop/moves': 'tryBoard',
+}).map(([path, names]) => [`src/${path}.ts`, new Set(names.split(' '))]));
+
+// Private rule owners and their helper implementations are not product entry points.
+const internal = new Set([
+  'src/game-rules.ts', 'src/match/worker.ts', 'src/match/search-worker.ts',
+]);
+function violations(file: string, source: string): string[] {
+  const faults: string[] = [];
+  const tree = parseSync(file, source);
+  if (tree.errors.length) throw new Error(`Cannot inspect ${file}: ${JSON.stringify(tree.errors)}`);
+  const check = (specifier: string, names: string[]) => {
+    if (!specifier.startsWith('.')) return;
+    const target = relative(root, resolve(dirname(resolve(root, file)), specifier)).replace(/\.ts$/, '') + '.ts';
+    const denied = blocked[target];
+    if (denied) for (const name of names) if (name === '*' || denied.has(name)) faults.push(`${file}: ${name} from ${target}`);
+  };
+  const ownedImports = new Set<number>();
+  new Visitor({
+    CallExpression(node) {
+      const member = node.callee, callback = node.arguments[0];
+      if (node.optional || node.arguments.length !== 1 || member.type !== 'MemberExpression' || member.computed || member.optional || member.property.type !== 'Identifier' || member.property.name !== 'then' || member.object.type !== 'ImportExpression') return;
+      const imported = member.object;
+      if (imported.source.type !== 'Literal' || typeof imported.source.value !== 'string' || resolve(dirname(resolve(root, file)), imported.source.value).replace(/\.ts$/, '') !== resolve(root, 'src/ai/search')) return;
+      if (callback?.type !== 'ArrowFunctionExpression' || callback.params.length !== 1 || callback.params[0].type !== 'ObjectPattern' || callback.params[0].properties.length !== 1) return;
+      const property = callback.params[0].properties[0];
+      if (property.type === 'Property' && !property.computed && property.key.type === 'Identifier' && property.key.name === 'searchOwned' && property.value.type === 'Identifier') ownedImports.add(imported.start);
+    },
+    ImportDeclaration(node) {
+      if (node.importKind === 'type') return;
+      check(node.source.value, node.specifiers.filter(e => e.type !== 'ImportSpecifier' || e.importKind !== 'type')
+        .map(e => e.type === 'ImportSpecifier' ? e.imported.type === 'Identifier' ? e.imported.name : e.imported.value : '*'));
+    },
+    ExportNamedDeclaration(node) {
+      if (node.exportKind === 'type' || !node.source) return;
+      check(node.source.value, node.specifiers.filter(e => e.exportKind !== 'type')
+        .map(e => e.local.type === 'Identifier' ? e.local.name : e.local.value));
+    },
+    ExportAllDeclaration(node) {
+      if (node.exportKind !== 'type') check(node.source.value, ['*']);
+    },
+    ImportExpression(node) {
+      if (node.source.type === 'Literal' && typeof node.source.value === 'string') check(node.source.value, ownedImports.has(node.start) ? ['searchOwned'] : ['*']);
+    },
+  }).visit(tree.program);
+  return faults;
+}
+function files(dir: string): string[] {
+  return readdirSync(resolve(root, dir), { withFileTypes: true }).flatMap(entry => {
+    const path = `${dir}/${entry.name}`;
+    return entry.isDirectory() ? files(path) : path.endsWith('.ts') && !path.endsWith('.test.ts') ? [path] : [];
+  });
+}
+describe('product game boundary', () => {
+  it('rejects direct, aliased, namespace, dynamic and re-export bypasses but permits pure facts and types', () => {
+    expect(violations('src/example.ts', "import { legalMoves as moves, type Position, parseSq } from './rules/engine';")).toHaveLength(1);
+    expect(violations('src/example.ts', "import * as rules from './rules/engine';")).toHaveLength(1);
+    expect(violations('src/example.ts', "export { RULES as active } from './rules/rules';")).toHaveLength(1);
+    expect(violations('src/example.ts', "void import('./ai/search');")).toHaveLength(1);
+    expect(violations('src/example.ts', "import type { Rules } from './rules/rules'; import { parseSq, P } from './rules/engine';")).toEqual([]);
+    expect(violations('src/example.ts', "import { shortMove } from './move-text'; import { ceremonyMoveLabel } from './ceremony-game'; import { previouslyTurn } from './previously'; import { teachNote, readText, readTap, guideTypes } from './read'; import { describeMove } from './move-text'; import { railsOf } from './marks-model'; import { cursorText } from './cursor-text'; import { frozenPieces } from './render/frost'; import { searchOwned } from './ai/search';")).toEqual([]);
+    expect(violations('src/example.ts', "import { positionKey } from './rules/position-key';")).toHaveLength(1);
+  });
+  it('permits only a direct owned-search destructuring callback for a lazy import', () => {
+    expect(violations('src/example.ts', "import('./ai/search').then(({ searchOwned }) => searchOwned(owner, rules, pos));")).toEqual([]);
+    expect(violations('src/example.ts', "import('./ai/search').then(({ searchOwned: owned }) => owned(owner, rules, pos));")).toEqual([]);
+    for (const source of [
+      "import('./ai/search').then(raw => raw.search(pos));",
+      "import('./ai/search').then(({ search }) => search(pos));",
+      "import('./ai/search').then(({ searchOwned, ...raw }) => raw);",
+      "import('./ai/search').then(({ [name]: searchOwned }) => searchOwned);",
+      "import('./ai/search').then(({ searchOwned = fallback }) => searchOwned);",
+      "import('./ai/search').then(function ({ searchOwned }) { return arguments[0]; });",
+      "const raw = import('./ai/search'); raw.then(({ searchOwned }) => searchOwned);",
+    ]) expect(violations('src/example.ts', source), source).toHaveLength(1);
+  });
+  it('keeps owned rules independent of search, evaluation and presentation', () => {
+    const source = readFileSync(resolve(root, 'src/game-rules.ts'), 'utf8'), imports: string[] = [];
+    new Visitor({ ImportDeclaration(node) {
+      if (node.importKind !== 'type') imports.push(node.source.value);
+    } }).visit(parseSync('src/game-rules.ts', source).program);
+    expect(imports.filter(path => path.startsWith('./ai/') || ['./read', './move-text', './marks-model', './cursor-text', './render/frost'].includes(path))).toEqual([]);
+  });
+  it('keeps ambient engine and helper operations inside the owned boundary', () => {
+    const product = files('src').filter(file => !internal.has(file) && !/^src\/(rules|ai|sim)\//.test(file));
+    expect(product.flatMap(file => violations(file, readFileSync(resolve(root, file), 'utf8')))).toEqual([]);
+  });
+});

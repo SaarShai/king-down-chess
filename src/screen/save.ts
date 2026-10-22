@@ -1,5 +1,5 @@
 import type { SkillName } from '../ai/skill';
-import type { Side } from '../game';
+import { Game, type Side } from '../game';
 import type { Pace } from '../render/PaintedView';
 import type { Color, Rules } from '../rules/engine';
 
@@ -18,13 +18,42 @@ export const SETTINGS = ['skill', 'coords', 'sound', 'queen', 'pace', 'threats',
 /** The autosave's localStorage key (account/sync.ts reads it there too). */
 export const SAVE_KEY = 'kingdown.save';
 
-/** The autosave, or null: none, one it cannot parse, or one with no move list. */
-export function readSave(): Save | null {
+export interface SaveRead { save: Save | null; unreadable: boolean }
+
+/** Missing data is different from data that this page must preserve until the player replaces it. */
+export function readSave(): SaveRead {
+  let raw: string | null;
+  try { raw = localStorage.getItem(SAVE_KEY); }
+  catch { return { save: null, unreadable: false }; } // Storage can be unavailable while local practice still works.
+  if (raw === null) return { save: null, unreadable: false };
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    const s = raw ? (JSON.parse(raw) as Save) : null;
-    return s && Array.isArray(s.moves) ? s : null;
+    const s = JSON.parse(raw);
+    savedGame(s);
+    return { save: s, unreadable: false };
+  } catch { return { save: null, unreadable: true }; }
+}
+
+/**
+ * The settings fields of stored data whose game cannot replay (readSave's `unreadable`), or null when the data
+ * is not a JSON object. The page still honours them (Animations Off, sound); it writes nothing.
+ */
+export function storedSettings(): Partial<Pick<Save, (typeof SETTINGS)[number]>> | null {
+  try {
+    const s: unknown = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null');
+    return s && typeof s === 'object' && !Array.isArray(s) ? Object.fromEntries(SETTINGS.filter(k => k in s).map(k => [k, (s as Save)[k]])) : null;
   } catch { return null; }
+}
+
+/** Build a separate game; partial replay never replaces the live game. */
+export function savedGame(value: unknown): Game {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Unreadable saved game');
+  const s = value as Save;
+  if (!Array.isArray(s.moves) || s.moves.some(move => typeof move !== 'string') || typeof s.back !== 'string' || typeof s.fen !== 'string') throw new Error('Unreadable saved game');
+  if (s.rules !== undefined && (!s.rules || typeof s.rules !== 'object' || Array.isArray(s.rules))) throw new Error('Unreadable saved rules');
+  const game = new Game(s.back || undefined, s.rules);
+  if (!s.back) game.load(game.context.fromFen(s.fen));
+  if (game.playLan(s.moves) !== s.moves.length) throw new Error('Incomplete saved game');
+  return game;
 }
 
 /** Writes the autosave; `s` holds the settings and the game that the caller gives. */

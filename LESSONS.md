@@ -108,7 +108,6 @@ Read the section Always. Then read the Index, and open a topic file only when a 
 - [2026-10-10 — two `npm test` runs at once trip the 5-second test limits](docs/lessons/agents-and-tools.md)
 - [2026-10-11 — a merge that ran only its own browser checks broke two others](docs/lessons/agents-and-tools.md)
 - [2026-10-10 — one independent review a PR found a real item every time](docs/lessons/agents-and-tools.md)
-- [2026-10-10 — a push from the main checkout fails while another session edits there](docs/lessons/agents-and-tools.md)
 - [2026-10-02 — a `pgrep -f` wait loop matched its own shell](docs/lessons/agents-and-tools.md)
 - [2026-10-02 — a short commit SHA fails as a session source](docs/lessons/agents-and-tools.md)
 - [2026-10-02 — build main beside a branch in a worktree](docs/lessons/agents-and-tools.md)

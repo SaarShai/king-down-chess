@@ -69,13 +69,15 @@ try {
   await waitForUi(page, ui => /e2-e4/.test(ui.lan.join(' ')), null, { timeout: 5000 });
   await endTurn(page);
   await waitForUi(page, ui => ui.turns[0]?.length >= 2, null, { timeout: 15000 });
-  await page.waitForTimeout(2500); // the reply's animation keeps the board busy
+  await page.locator('#resign[aria-disabled="false"]').waitFor({ state: 'attached' });
   const d2 = await at(11), d3 = await at(19);
   await page.mouse.click(d2.x, d2.y); await page.mouse.click(d3.x, d3.y);
   await waitForUi(page, ui => /d2-d3/.test(ui.lan.join(' ')), null, { timeout: 5000 });
   console.log('ok human drag and click-click moves');
 
   // 2. Human as Black: the board turns round, and Undo during the computer's animation is clean.
+  // Move words precede landing; Menu would consume its click by skipping that animation.
+  await page.locator('#resign[aria-disabled="false"]').waitFor({ state: 'attached' });
   await startGame(page, { mode: 'computer', side: 'black', level: 'beginner' });
   assert.deepEqual(await players(page), ['ai', 'human']);
   await waitForUi(page, ui => ui.lan.length > 0, null, { timeout: 15000 });

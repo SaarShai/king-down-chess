@@ -86,7 +86,7 @@ for(const [type,name] of Object.entries(courtNames)){
  for(let type=1;type<16;type++){if(!specs[type])specs[type]=FALLBACK;newMotions[type]??={DURATION:900,actionAt:()=>0};}
  const idle=new Map(), work=new Map();
  let position={board:new Uint8Array(64)}, selected=null, lifted=null, liftTell=true, aimSquare=null, animation=null, aimAngle=0, aimFacing=1;
- let fallen=null, res=1, frame=0, previousTime=0, ready=false, flipped=false, coords=true, coordSize=13, coordInset=14, labels=false, reducedMotion=false, decorate=null;
+ let fallen=null, res=1, frame=0, previousTime=0, ready=false, disposed=false, flipped=false, coords=true, coordSize=13, coordInset=14, labels=false, reducedMotion=false, decorate=null;
  // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, the board's frame and light,
  // and each king's own idle effect (king-effects.mjs). All off by default, so the trial and the trailer draw exactly as before.
  const lively={moves:false,idle:false,atmosphere:false,kings:false,captures:false,pawns:false};
@@ -852,6 +852,7 @@ function drawEncounter(a,t) {
  impact(detail,target,(t-440)/260,1.5);
 }
  function tick(time) {
+  if(disposed)return;
   frame=0;const dt=previousTime?Math.min((time-previousTime)/1000,.05):1/60;previousTime=time;
   const wanted=animation?null:desiredPose();
   if(wanted){aimFacing=wanted.facing;aimAngle+=(wanted.angle-aimAngle)*(reducedMotion?1:1-Math.exp(-14*dt));if(Math.abs(wanted.angle-aimAngle)<.0001)aimAngle=wanted.angle;}
@@ -870,7 +871,7 @@ function drawEncounter(a,t) {
    ctx.fillStyle=ctx.strokeStyle;ctx.fillText(pieces.LETTERS?.[typeOf(v)]??'',x,y+1);}
   ctx.restore();
  }
- function wake(changed=true){if(changed)passiveUntil=performance.now()+5000;if(ready&&!frame)frame=requestAnimationFrame(tick);}
+ function wake(changed=true){if(disposed)return;if(changed)passiveUntil=performance.now()+5000;if(ready&&!frame)frame=requestAnimationFrame(tick);}
  // A move is over: a king's effect on the square he moved from starts again from nothing if he is there next
  // (he stayed, as with Death Touch, or came back); its fade-out during the move stays seamless.
  function endMove(){
@@ -942,6 +943,7 @@ function drawEncounter(a,t) {
  const api={
   SIZE,PAD,TILE,headroom,
   get animating(){return !!animation&&!animation.done;},
+  get falling(){return !!fallen&&performance.now()-fallen.start<FALL;},
   /** What is playing: a gait name for a quiet move with character, else the animation kind ('move' for the plain slide); null when idle. */
   get playing(){return animation&&!animation.done?animation.gait??animation.type:null;},
   get position(){return position;},
@@ -973,7 +975,7 @@ function drawEncounter(a,t) {
   /** size: letter height in board units (default 13); a small board on a phone needs more. */
   setCoords(on,size=13,inset=14){coords=on;coordSize=size;coordInset=inset;wake();},
   setLabels(on){labels=on;wake();},
-  setReducedMotion(on){reducedMotion=on;},
+  setReducedMotion(on){reducedMotion=on;if(on)awakeUntil=0;},
   /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. */
   setFallen(sq,animate=true,rotation=-1.5){fallen=sq==null?null:{sq,rotation,start:animate?performance.now():-Infinity};wake();},
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
@@ -998,12 +1000,14 @@ function drawEncounter(a,t) {
   ghost(out,value,square,opacity=.4){if(ready&&value)drawPiece(out,value,poseFor(value,square),opacity);},
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */
   play(move,{speed=1,onContact=null,gait=null}={}){
+   if(disposed)return Promise.resolve(false);
    lifted=null;
    if(animation&&!animation.done)animation.resolve(false);
    const {base,verb}=plan(move,speed,gait);
    return new Promise(resolve=>{animation={...base,resolve,onContact};onStatus(verb);wake();});
   },
   cancel(){endMove();if(closeup)closeup.panel.hidden=true;aimAngle=0;wake();},
+  dispose(){if(disposed)return;disposed=true;endMove();cancelAnimationFrame(frame);frame=0;decorate=null;},
  };
  return api;
 }

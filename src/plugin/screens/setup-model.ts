@@ -1,10 +1,10 @@
-import { ALWAYS_ON, DEFAULT_OPTIONS, DEAL_CARDS, POOL_KINDS, validate, type Options } from '../../match/setup';
+import { ALWAYS_ON, DEFAULT_OPTIONS, RANKED_OPTIONS, DEAL_CARDS, POOL_KINDS, validate, type Options, type SetupAdmission } from '../../match/setup';
 import { KINGS, type CardName, type KingChoice, type KingName } from '../../rules/rules';
-import type { View } from '../../match/protocol';
+import type { CreationMode, View } from '../../match/protocol';
 
-export type SetupState = { kind: 'solo' | 'friend' | 'random'; options: Options; colour: 'white' | 'black' | 'random'; level: 'beginner' | 'casual' | 'club' | 'strong'; king: KingChoice | null };
+export type SetupState = { mode: CreationMode; kind: 'solo' | 'friend' | 'random'; options: Options; colour: 'white' | 'black' | 'random'; level: 'beginner' | 'casual' | 'club' | 'strong'; king: KingChoice | null };
 export function readSetup(value: unknown): SetupState {
-  const state: SetupState = { kind: 'solo', options: { ...DEFAULT_OPTIONS, pool: [...DEFAULT_OPTIONS.pool], cardPool: [...DEFAULT_OPTIONS.cardPool] }, colour: 'white', level: 'club', king: null };
+  const state: SetupState = { mode: 'casual', kind: 'solo', options: { ...DEFAULT_OPTIONS, pool: [...DEFAULT_OPTIONS.pool], cardPool: [...DEFAULT_OPTIONS.cardPool] }, colour: 'white', level: 'club', king: null };
   if (!value || typeof value !== 'object') return state;
   const saved = value as Partial<SetupState>, o = saved.options;
   if (saved.kind && ['solo', 'friend', 'random'].includes(saved.kind)) state.kind = saved.kind;
@@ -16,8 +16,8 @@ export function readSetup(value: unknown): SetupState {
   }
   const pick = saved.king;
   if (pick && Object.hasOwn(KINGS, pick.king) && KINGS[pick.king as KingName].includes(pick.power)) state.king = { king: pick.king, power: pick.power };
-  state.king = cleanKing(state.options, state.king, state.colour);
-  return state;
+  state.mode = state.kind === 'random' && saved.mode === 'ranked' ? 'ranked' : 'casual';
+  return withMode(state, state.mode);
 }
 
 export function gameSetup(view: View): SetupState {
@@ -27,7 +27,15 @@ export function gameSetup(view: View): SetupState {
 /** Play now uses Beginner and an automatic army, and keeps the saved setup. */
 export function quickSetup(saved: unknown): SetupState {
   const state = readSetup(saved);
-  return { ...state, kind: 'solo', level: 'beginner', options: { ...state.options, arrangement: false } };
+  return { ...state, kind: 'solo', mode: 'casual', level: 'beginner', options: { ...state.options, arrangement: false } };
+}
+/** Ranked is offered only in the staging build (plan D2; ticket 67); the server refuses it in production. */
+export const rankedOffered = () => import.meta.env?.VITE_KINGDOWN_STAGE === 'staging';
+/** Ranked choices are fixed before the start or a saved draft is used. */
+export function withMode(state: SetupState, mode: CreationMode): SetupState {
+  if (state.kind !== 'random' || mode !== 'ranked' || !rankedOffered()) return { ...state, mode: 'casual', king: cleanKing(state.options, state.king, state.colour) };
+  const options = { ...RANKED_OPTIONS, pool: [...RANKED_OPTIONS.pool], cardPool: [...RANKED_OPTIONS.cardPool] };
+  return { ...state, mode, options, colour: 'random', king: cleanKing(options, state.king, 'random') };
 }
 export const setupOptions = (o: Options): Options => ({ ...o, arrangement: o.fairy && o.arrangement, classic: !o.fairy && o.classic });
 export function withToggle(state: SetupState, key: 'fairy' | 'arrangement' | 'classic' | 'cards' | 'kingPowers', on: boolean): SetupState {
@@ -48,11 +56,17 @@ export function withCard(state: SetupState, card: CardName, on: boolean, pickFou
   return { ...state, options: { ...state.options, cardPool: on ? [...state.options.cardPool, card] : state.options.cardPool.filter(c => c !== card) } };
 }
 export function createArguments(state: SetupState) {
-  return { options: setupOptions(state.options), colour: state.colour, ...(state.kind === 'solo' ? { level: state.level } : {}) };
+  const setup = withMode(state, state.mode);
+  return { mode: setup.mode, options: setupOptions(setup.options), colour: setup.colour, ...(state.kind === 'solo' ? { level: state.level } : {}) };
 }
 const defaultKing = (colour: SetupState['colour']): KingChoice => colour === 'black' ? { king: 'Shadow', power: 'Darkness' } : { king: 'Spirit', power: 'Mercy' };
-export const availablePowers = (o: Options, king: KingName) => KINGS[king].filter(power => !o.cards || ALWAYS_ON.includes(power));
-export function cleanKing(o: Options, pick: KingChoice | null, colour: SetupState['colour'] = 'white'): KingChoice | null {
+export const availablePowers = (o: Options, king: KingName, admission?: SetupAdmission) => admission ? admission.kings.filter(pick => pick.king === king).map(pick => pick.power) : KINGS[king].filter(power => !o.cards || ALWAYS_ON.includes(power));
+export function cleanKing(o: Options, pick: KingChoice | null, colour: SetupState['colour'] = 'white', admission?: SetupAdmission): KingChoice | null {
+  if (admission) {
+    if (pick && availablePowers(o, pick.king, admission).includes(pick.power)) return { ...pick };
+    const cleaned = cleanKing(o, pick, colour);
+    return cleaned && availablePowers(o, cleaned.king, admission).includes(cleaned.power) ? cleaned : null;
+  }
   if (!pick || !Object.hasOwn(KINGS, pick.king) || !KINGS[pick.king].includes(pick.power)) return null;
   if (!o.cards || ALWAYS_ON.includes(pick.power)) return { ...pick };
   const [power] = availablePowers(o, pick.king);
@@ -62,7 +76,7 @@ export const shownKing = (state: Pick<SetupState, 'king' | 'colour'>): KingChoic
 export function soloChoice(view: View, pick: KingChoice | null) {
   const o = view.options;
   if (view.kind !== 'solo' || view.status !== 'setup' || !o?.kingPowers || !view.draw || view.ready?.[view.seat] || o.arrangement && !pick) return null;
-  const king = cleanKing(o, pick, view.seat === 1 ? 'black' : 'white') ?? view.choices?.[view.seat]?.king;
+  const king = cleanKing(o, pick, view.seat === 1 ? 'black' : 'white', view.setup_admission) ?? view.choices?.[view.seat]?.king;
   if (!king) return null;
   return { game_id: view.game_id, expected_revision: view.revision, king, order: view.draw, ready: !o.arrangement };
 }

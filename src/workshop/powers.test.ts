@@ -1,9 +1,10 @@
+import { GameRules } from '../game-rules';
 import { describe, expect, it } from 'vitest';
 import { readdirSync } from 'node:fs';
 import { NAMES, RULES, T, WHITE, parseSq, piece, sqName, type Move, type PieceType } from '../rules/engine';
 import { PRESETS, fromPreset, specOf } from './model';
 import { boardOf, examplesOf, sceneOf, type ScenePiece } from './scene';
-import { cardMarks, enginePos, playCard, playPower, powerLayer, powerMarks, seated, withRules } from './powers';
+import { cardMarks, enginePos, playCard, playPower, powerLayer, powerMarks, seated } from './powers';
 
 const typeOf = (key: string): PieceType => (NAMES as readonly string[]).indexOf(key) as PieceType;
 /** A pool piece on board `pieces` (its example board by default), with a seated king. */
@@ -14,12 +15,14 @@ function at(key: string, pieces: ScenePiece[] = examplesOf({ from: [key] })) {
 const squares = (ms: readonly Move[], take: boolean): string => ms.filter(m => (m.captures.length > 0) === take).map(m => sqName(m.captures[0] ?? m.to)).sort().join(' ');
 const sorted = (s: string): string => s.split(' ').sort().join(' ');
 
-describe('withRules (ticket 13, decision 32)', () => {
-  it('puts RULES back after the preview, also when it throws', () => {
+describe('owned preview rules', () => {
+  it('owns its preview rules and restores scope after validation and helper errors', () => {
     const before = JSON.stringify(RULES);
-    expect(withRules({ kings: [{ king: 'Mud', power: 'Leap' }, null], freezeUses: 5 }, () => RULES.freezeUses)).toBe(5);
+    const context = new GameRules({ kings: [{ king: 'Mud', power: 'Leap' }, null], freezeUses: 5 });
+    expect(context.rules.freezeUses).toBe(5);
     expect(JSON.stringify(RULES)).toBe(before);
-    expect(() => withRules({ freezeUses: 7 }, () => { throw new Error('boom'); })).toThrow('boom');
+    expect(() => context.fromFen('invalid')).toThrow();
+    expect(() => new GameRules({ hands: [['Freeze'], []], kings: [{ king: 'Frost', power: 'Freeze' }, null] })).toThrow();
     expect(JSON.stringify(RULES)).toBe(before);
   });
 });
@@ -68,8 +71,8 @@ describe('cardMarks (ticket 14)', () => {
     expect(squares(cardMarks(pos, from, 'Leap'), false)).toBe('d3 d4 d5 d6');
     expect(squares(cardMarks(pos, from, 'Leap'), true)).toBe('d7');
   });
-  it('ships the 11 card pictures of the mockup as webp (public/ui/cards)', () => {
-    const art = ['back', 'freeze', 'icewall', 'leap', 'march', 'mimic', 'rescue', 'sacrifice', 'salvation', 'skylift', 'vault'];
+  it('ships all 14 card pictures as webp, with the A5 paintings (public/ui/cards)', () => {
+    const art = ['back', 'flight', 'freeze', 'haste', 'icewall', 'leap', 'march', 'mimic', 'rescue', 'sacrifice', 'salvation', 'skylift', 'strike', 'vault'];
     expect(readdirSync('public/ui/cards').sort()).toEqual(art.map(a => `${a}.webp`));
   });
 });

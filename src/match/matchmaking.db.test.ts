@@ -51,8 +51,8 @@ suite('matchmaking through PostgreSQL', () => {
   await service.create(users[4], { kind: 'solo', options: DEFAULT_OPTIONS });
   const lobby = await plugin.lobby(users[0]);
   expect(lobby.games).toEqual([
-   { game_id: old.game_id, options: DEFAULT_OPTIONS, colour: 'white', creator: { handle: handles[1], icon: 'flame' }, created_at: expect.any(String) },
-   { game_id: next.game_id, options, colour: 'black', creator: { handle: handles[2], icon: 'flame' }, created_at: expect.any(String) },
+   { rating_policy: 'casual', game_id: old.game_id, options: DEFAULT_OPTIONS, colour: 'white', creator: { handle: handles[1], icon: 'flame' }, created_at: expect.any(String) },
+   { rating_policy: 'casual', game_id: next.game_id, options, colour: 'black', creator: { handle: handles[2], icon: 'flame' }, created_at: expect.any(String) },
   ]);
   expect(JSON.stringify(lobby)).not.toContain(users[1]);
  });
@@ -63,7 +63,7 @@ suite('matchmaking through PostgreSQL', () => {
   await admin.query("insert into public.relations(user_id,other_id,kind) values($1,$2,'block'),($3,$1,'block')", [users[0], users[1], users[2]]);
   expect((await plugin.lobby(users[0])).games.map(g => g.game_id)).toEqual([allowed.game_id]);
   for (const game of [one, two]) {
-   await expect(plugin.accept(users[0], game.game_id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+   await expect(plugin.accept(users[0], game.game_id, 'casual')).rejects.toMatchObject({ code: 'FORBIDDEN' });
    expect(await service.view(users[game === one ? 1 : 2], game.game_id)).toMatchObject({ status: 'waiting', revision: 0, opponent: null });
   }
  });
@@ -104,10 +104,13 @@ suite('matchmaking through PostgreSQL', () => {
   await admin.query("update public.game_commands set payload='{}' where game_id=$1 and kind='join'", [table.game_id]);
   expect(await plugin.find(users[1], DEFAULT_OPTIONS, 'white', 'old-join')).toMatchObject({ game_id: table.game_id, seat: joined.seat });
   // Before start receipts, a Find that opened a table wrote no row; the table has the derived ID. Another player takes the seat, and a third opens a table with the same switches.
+  const insert = service.store.insert.bind(service.store);
+  const oldWriter = vi.spyOn(service.store, 'insert').mockImplementation((game, client) => insert({ ...game, rating_policy: 'legacy' }, client));
   const made = await plugin.find(users[2], DEFAULT_OPTIONS, 'white', 'old-table');
+  oldWriter.mockRestore();
   expect(made.status).toBe('waiting');
   await admin.query("delete from public.game_commands where game_id=$1 and kind='start'", [made.game_id]);
-  expect((await plugin.find(users[3], DEFAULT_OPTIONS)).game_id).toBe(made.game_id);
+  expect((await plugin.accept(users[3], made.game_id, 'legacy')).game_id).toBe(made.game_id);
   const other = await service.create(users[4], { kind: 'random', options: DEFAULT_OPTIONS });
   expect(await plugin.find(users[2], DEFAULT_OPTIONS, 'white', 'old-table')).toMatchObject({ game_id: made.game_id, status: 'setup' });
   expect((await admin.query('select game_id from public.game_players where user_id=$1', [users[2]])).rows).toEqual([{ game_id: made.game_id }]);
@@ -211,9 +214,9 @@ suite('matchmaking through PostgreSQL', () => {
   expect(await plugin.cancel(users[0], game.game_id)).toMatchObject({ status: 'aborted', revision: 1 });
   expect(await service.inbox(users[0])).toEqual([]);
   expect((await plugin.lobby(users[1])).games).toEqual([]);
-  await expect(plugin.accept(users[1], game.game_id)).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
+  await expect(plugin.accept(users[1], game.game_id, 'casual')).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
   const joined = await plugin.find(users[0], DEFAULT_OPTIONS);
-  await plugin.accept(users[1], joined.game_id);
+  await plugin.accept(users[1], joined.game_id, 'casual');
   await expect(plugin.cancel(users[0], joined.game_id)).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
   const friend = await service.create(users[0], { kind: 'friend', options: DEFAULT_OPTIONS });
   await expect(plugin.cancel(users[0], friend.game_id)).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
@@ -225,7 +228,7 @@ suite('matchmaking through PostgreSQL', () => {
   const now = new Date();
   await admin.query("update public.games set created_at=$2::timestamptz-interval '24 hours' where id=any($1)", [[late.game_id, friend.game_id], now]);
   expect((await plugin.lobby(users[3])).games.map(g => g.game_id)).toEqual([fresh.game_id]);
-  await expect(plugin.accept(users[3], late.game_id)).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
+  await expect(plugin.accept(users[3], late.game_id, 'casual')).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
   expect(await plugin.find(users[3], DEFAULT_OPTIONS)).toMatchObject({ game_id: fresh.game_id, status: 'setup' });
   const sweeps = await Promise.all([service.sweep(now), service.sweep(now)]);
   expect(sweeps.reduce((n, value) => n + value, 0)).toBe(1);
@@ -275,7 +278,7 @@ suite('matchmaking through PostgreSQL', () => {
  it.each(['accept', 'find'] as const)('%s starts play with no seat choice and saves the first move and deadline', async method => {
   const options = { ...DEFAULT_OPTIONS, arrangement: false };
   const created = await service.create(users[0], { kind: 'random', options, colour: method === 'accept' ? 'black' : 'white' });
-  const joined = method === 'accept' ? await plugin.accept(users[1], created.game_id) : await plugin.find(users[1], options, 'black');
+  const joined = method === 'accept' ? await plugin.accept(users[1], created.game_id, 'casual') : await plugin.find(users[1], options, 'black');
   expect(joined).toMatchObject({ game_id: created.game_id, status: 'playing', revision: 1, ready: [true, true], setup_deadline_at: null, options });
   const start = (await runtime.query('select started_at,deadline_kind from public.games where id=$1', [created.game_id])).rows[0];
   expect(start.deadline_kind).toBe('first_turn');
@@ -300,12 +303,12 @@ suite('matchmaking through PostgreSQL', () => {
   const game = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
   await expect(plugin.create(actor, { kind: 'random', options: DEFAULT_OPTIONS })).rejects.toMatchObject({ code: 'HANDLE_NEEDED' });
   await expect(plugin.find(actor, DEFAULT_OPTIONS)).rejects.toMatchObject({ code: 'HANDLE_NEEDED' });
-  await expect(plugin.accept(actor, game.game_id)).rejects.toMatchObject({ code: 'HANDLE_NEEDED' });
+  await expect(plugin.accept(actor, game.game_id, 'casual')).rejects.toMatchObject({ code: 'HANDLE_NEEDED' });
   expect(await service.inbox(actor)).toEqual([]);
   expect((await plugin.lobby(actor)).games.map(g => g.game_id)).toEqual([game.game_id]);
   expect(await plugin.create(actor, { kind: 'solo', options: DEFAULT_OPTIONS })).toMatchObject({ kind: 'solo', status: 'setup' });
   await new AccountService(new PostgresMatchStore(runtime)).setHandle(actor, { handle: `new-${actor.slice(0, 8)}` });
-  expect(await plugin.accept(actor, game.game_id)).toMatchObject({ game_id: game.game_id, status: 'setup' });
+  expect(await plugin.accept(actor, game.game_id, 'casual')).toMatchObject({ game_id: game.game_id, status: 'setup' });
  });
  it('counts distinct players seen in 10 minutes and returns the count only at 10 or more', async () => {
   for (const actor of users.slice(0, 9)) await service.create(actor, { kind: 'solo', options: DEFAULT_OPTIONS });
@@ -314,9 +317,9 @@ suite('matchmaking through PostgreSQL', () => {
   await admin.query("update public.game_players set last_seen_at=now()-interval '10 minutes 1 second' where user_id=$1", [users[10]]);
   const game = await service.create(users[0], { kind: 'random', options: { ...DEFAULT_OPTIONS, arrangement: false } });
   expect(await plugin.lobby(users[21])).toEqual({ games: [
-   { game_id: game.game_id, options: { ...DEFAULT_OPTIONS, arrangement: false }, colour: 'black', creator: { handle: handles[0], icon: 'flame' }, created_at: expect.any(String) },
+   { rating_policy: 'casual', game_id: game.game_id, options: { ...DEFAULT_OPTIONS, arrangement: false }, colour: 'black', creator: { handle: handles[0], icon: 'flame' }, created_at: expect.any(String) },
   ] });
-  await plugin.accept(users[9], game.game_id);
+  await plugin.accept(users[9], game.game_id, 'casual');
   const readOnly = new pg.Pool({ connectionString: login.href, max: 1, options: '-c default_transaction_read_only=on' });
   try {
    const reader = new PluginService(new PostgresMatchStore(readOnly));
@@ -340,12 +343,12 @@ suite('matchmaking through PostgreSQL', () => {
     expect(new Set(pids).size).toBe(20);
    } finally { for (const client of clients) client.release(); }
    const racers = pools.map(pool => new PluginService(new PostgresMatchStore(pool)));
-   const results = await Promise.allSettled(racers.map((racer, n) => racer.accept(users[n + 1], created.game_id)));
+   const results = await Promise.allSettled(racers.map((racer, n) => racer.accept(users[n + 1], created.game_id, 'casual')));
    const winners = results.flatMap((result, n) => result.status === 'fulfilled' ? [n] : []);
    expect(winners).toHaveLength(1);
    for (const result of results) if (result.status === 'rejected') expect(result.reason).toMatchObject({ code: 'NOT_ALLOWED' });
    const winner = winners[0], actor = users[winner + 1];
-   const joined = await racers[winner].accept(actor, created.game_id);
+   const joined = await racers[winner].accept(actor, created.game_id, 'casual');
    expect(joined).toMatchObject({ game_id: created.game_id, status: 'setup', seat: 0, revision: 1, action: 'ready', opponent: { handle: handles[0] } });
    expect(joined.setup_deadline_at).toEqual(expect.any(String));
    expect(joined.last_commands).toHaveLength(1);

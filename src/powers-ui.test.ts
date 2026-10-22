@@ -52,7 +52,7 @@ describe('the power coin', () => {
   it('reads the shown position without a future use from live history', () => {
     const rules = powersRules({ kings: parseKings('frost:freeze,none') });
     setRules(rules);
-    const game = new Game();
+    const game = new Game(undefined, rules);
     game.load(fromFen('7k/8/8/3n4/8/8/P7/K7 w - - 0 1'));
     const shown = game.pos;
     game.play(game.legal.find(m => m.power === 'freeze')!);
@@ -81,7 +81,7 @@ describe('the power coin', () => {
   it('shows the use on its full move and restores it on Undo', () => {
     const rules = powersRules({ kings: parseKings('none,frost:freeze') });
     setRules(rules);
-    const game = new Game();
+    const game = new Game(undefined, rules);
     game.load(fromFen('7k/8/8/8/8/8/R7/K7 b - - 0 12'));
     game.play(game.legal.find(m => m.power === 'freeze')!);
     expect(coinState(game.pos, 1, rules, game.history, true)).toMatchObject({
@@ -97,7 +97,7 @@ describe('the power coin', () => {
   it('shows an always-on power with no use notches', () => {
     const rules = powersRules({ kings: parseKings('spirit:holylight,none') });
     setRules(rules);
-    const game = new Game();
+    const game = new Game(undefined, rules);
     game.load(fromFen('7k/8/8/8/8/8/R7/K7 w - - 0 1'));
     game.play(game.legal[0]);
     expect(coinState(game.pos, 0, rules, game.history, true)).toEqual({
@@ -123,21 +123,21 @@ describe('power texts follow the rules in force', () => {
   });
 
   it('names the balance-lab readings', () => {
-    setRules({ markFree: true, freezeQuiet: true, strikePawns: false, strikeCaptures: false, hasteCaptures: false, holyLightTakesPawns: true, mercyCaptures: true, darknessKeep: true });
-    expect(powerText('Freeze')).toBe('freeze an enemy piece (not the king), then make your move, which cannot capture: the frozen piece cannot move on its next turn');
-    expect(powerText('Strike')).toBe('move any piece except a pawn or the king as if it were a queen, to an empty square');
-    expect(powerText('Haste')).toBe('move one piece twice in one turn (the second move is optional); neither move captures');
-    expect(powerText('HolyLight')).toBe('enemy pawns cannot take your king');
-    expect(powerText('Mercy')).toBe('your king steps 1–2 squares and jumps your pieces (it takes only next to itself)');
-    expect(powerText('Darkness')).toBe('your pawns may also step diagonally and take straight ahead');
+    const rules = { ...DEFAULT_RULES, markFree: true, freezeQuiet: true, strikePawns: false, strikeCaptures: false, hasteCaptures: false, holyLightTakesPawns: true, mercyCaptures: true, darknessKeep: true };
+    expect(powerText('Freeze', rules)).toBe('freeze an enemy piece (not the king), then make your move, which cannot capture: the frozen piece cannot move on its next turn');
+    expect(powerText('Strike', rules)).toBe('move any piece except a pawn or the king as if it were a queen, to an empty square');
+    expect(powerText('Haste', rules)).toBe('move one piece twice in one turn (the second move is optional); neither move captures');
+    expect(powerText('HolyLight', rules)).toBe('enemy pawns cannot take your king');
+    expect(powerText('Mercy', rules)).toBe('your king steps 1–2 squares and jumps your pieces (it takes only next to itself)');
+    expect(powerText('Darkness', rules)).toBe('your pawns may also step diagonally and take straight ahead');
   });
 
   it('reads the official kings’ powers rules', () => {
-    setRules({ ...POWERS_BALANCED });
-    expect(powerText('HolyLight')).toBe('enemy pawns cannot take your king; your pieces beside, in front of or behind it cannot be taken');
-    expect(powerText('Mercy')).toBe('your king steps 1–2 squares and jumps your pieces, but takes only a pawn or a guard; your pieces next to it cannot be taken except by pawns');
-    expect(powerText('DeathTouch')).toBe('your king takes an enemy next to it, or two squares away straight forward or back over an empty square, without moving \u2014 it can only take this way');
-    expect(powerText('Darkness')).toBe('your pawns may also step diagonally, and take only straight ahead; your king may also step two squares in a straight line, over an empty square');
+    const rules = { ...DEFAULT_RULES, ...POWERS_BALANCED };
+    expect(powerText('HolyLight', rules)).toBe('enemy pawns cannot take your king; your pieces beside, in front of or behind it cannot be taken');
+    expect(powerText('Mercy', rules)).toBe('your king steps 1–2 squares and jumps your pieces, but takes only a pawn or a guard; your pieces next to it cannot be taken except by pawns');
+    expect(powerText('DeathTouch', rules)).toBe('your king takes an enemy next to it, or two squares away straight forward or back over an empty square, without moving \u2014 it can only take this way');
+    expect(powerText('Darkness', rules)).toBe('your pawns may also step diagonally, and take only straight ahead; your king may also step two squares in a straight line, over an empty square');
   });
 });
 

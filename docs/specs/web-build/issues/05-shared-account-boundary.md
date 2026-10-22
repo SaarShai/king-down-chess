@@ -31,5 +31,15 @@ Use the phase 2 row and common push gate in [the test gate][gate]. Keep future o
 - [Spec](../../web-adaptation/spec.md), [test gate][gate] and [release route][route].
 - The five parked branches stay [later work](../../shared-screens-later/README.md). Use a codex/web-* branch from the accepted main base. Keep one writer for shared files.
 
+## Checkpoint at the scope freeze (2026-10-20)
+
+- The branch holds slices 1 and 2 and criterion 3 parts 1 and 2 (`7aa27c8b`), merged up to `fad703b9` with main `cc1081b2`. Slice 2 and parts 1 and 2 ran focused tests only before commit. The full suite at `fad703b9` fails 8 tests in 7 files: plugin-board F05 and F06, plugin-motion (the king flip), plugin-lobby (Share during Resume), plugin-journeys (Play readiness), plugin-ios-size (Fairy pieces at 197 px), plugin-qa-protocol.docs and privacy-policy.docs.
+- The regression-fix run stopped at 12:40 UTC on the owner's freeze, after both fix patches were complete. It applied, committed and reviewed nothing. The patches and their reports are kept outside the repository, with SHA-256 values in `MANIFEST.md`:
+  - `/Users/za/Documents/king down chess (new)/docs/specs/unified-blueprint/evidence/claude-web/rga.patch`: F05, F06, the king flip and the 197 px Cards ring (`scroll-margin` 5px). Report `rga.md`.
+  - `/Users/za/Documents/king down chess (new)/docs/specs/unified-blueprint/evidence/claude-web/rgb.patch`: Share during Resume, Fairy pieces at 197 px and the two docs tests. Report `rgb.md`. Play readiness passes twice alone on each runner (load).
+  - Both apply cleanly to `fad703b9`, alone and together. Neither adds a file. The worktree has no untracked files.
+- Next, when the integration order allows: apply both patches, run the full suite, have both changes reviewed, then merge this branch into 06, 07 and 08.
+- Criterion 3 also waits for the coin paint split in the plugin controls lane. Group opacity dims a spent card's focus ring (2.41:1). That lane is frozen.
+
 [gate]: ../../web-adaptation/test-gate.md
 [route]: ../../web-adaptation/release-route.md

@@ -27,9 +27,10 @@ suite('migrations run again on a database in use', () => {
    await admin.query('insert into auth.users(id) values($1)', [users[0]]);
    const store = new PostgresMatchStore(admin), game = await new GameService(store).create(users[0], { kind: 'solo', colour: 'white' });
    const board = await new PluginService(store).openBoard(users[0], game.game_id);
-   // The owner's two paths: npm run plugin:db:migrate (0002-0009), then 0001 in the SQL editor.
+   // The owner's two paths: npm run plugin:db:migrate (0002-0016), then 0001 in the SQL editor.
    await withRoleLock(own.href, async () => {
-    execFileSync(process.execPath, ['--import', 'tsx', fileURLToPath(new URL('./migrate.ts', import.meta.url))], { env: { ...process.env, PLUGIN_DATABASE_URL: own.href } });
+    // Normal migration: 384 ms on the M1 through the test database tunnel.
+    execFileSync(process.execPath, ['--import', 'tsx', fileURLToPath(new URL('./migrate.ts', import.meta.url))], { env: { ...process.env, PLUGIN_DATABASE_URL: own.href }, timeout: 60_000 });
     await admin.query(await readFile(new URL('../../supabase/migrations/0001_accounts.sql', import.meta.url), 'utf8'));
    });
    expect(await rows('select match_id from public.plugin_boards where id=$1', [board])).toEqual([{ match_id: game.game_id }]);
@@ -50,6 +51,38 @@ suite('migrations run again on a database in use', () => {
    await admin.end();
   }
  }, 120_000);
+
+ it('passes startup before and after email removal, and keeps deletion', async () => {
+  const admin = new pg.Pool({ connectionString: own.href, max: 1 });
+  const role = `email_check_${randomUUID().replaceAll('-', '')}`;
+  const grants = await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8');
+  const migration = await readFile(new URL('../../supabase/migrations/0015_remove_email.sql', import.meta.url), 'utf8');
+  await withRoleLock(own.href, () => admin.query(grants.replaceAll('kingdown_plugin_runtime', role)));
+  try {
+   await admin.query(await readFile(new URL('../../supabase/migrations/0007_jobs.sql', import.meta.url), 'utf8'));
+   await admin.query(`grant execute on function kingdown_jobs.user_email(uuid) to ${role}`);
+   expect((await admin.query("select has_function_privilege($1,'kingdown_jobs.user_email(uuid)','execute') as allowed", [role])).rows[0].allowed).toBe(true);
+   const before = await admin.connect();
+   try {
+    await before.query(`set role ${role}`);
+    await checkPluginDatabase(before);
+   } finally { await before.query('reset role'); before.release(); }
+   await admin.query(migration.replaceAll('kingdown_plugin_runtime', role));
+   await admin.query(migration.replaceAll('kingdown_plugin_runtime', role));
+   expect((await admin.query("select to_regprocedure('kingdown_jobs.user_email(uuid)') as email")).rows[0].email).toBeNull();
+   const client = await admin.connect();
+   try {
+    await client.query(`set role ${role}`);
+    await expect(client.query('select kingdown_jobs.user_email(null::uuid)')).rejects.toMatchObject({ code: '42883' });
+    expect((await client.query('select kingdown_jobs.delete_account(null::uuid) as done')).rows[0].done).toBe(false);
+    await checkPluginDatabase(client);
+   } finally { await client.query('reset role'); client.release(); }
+  } finally {
+   await admin.query(migration.replaceAll('kingdown_plugin_runtime', role));
+   await withRoleLock(own.href, () => admin.query(`drop owned by ${role}; drop role ${role}`));
+   await admin.end();
+  }
+ });
 
  it('starts the server only with the online-game schema and grants: an older runtime role is refused', async () => {
   const admin = new pg.Pool({ connectionString: own.href, max: 1 });

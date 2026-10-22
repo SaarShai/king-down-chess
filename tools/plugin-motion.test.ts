@@ -11,7 +11,8 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 120_000 });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-motion-'));
-  execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe' });
+  // Normal shared build: at most 601 ms in the M1 style test.
+  execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe', timeout: 30_000 });
   harness = await startHarness({ boardPath: join(folder, 'board.html') }); browser = await chromium.launch({ headless: true });
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
@@ -138,7 +139,7 @@ it('keeps a live checkmate loss calm and leaves the last move on the board', asy
     expect(reply.isError).not.toBe(true);
     await page.evaluate(async () => { const h=window as any; await h.harnessShow(await h.harnessTool({ name:'kingdown_get', arguments:{board_id:h.harnessWidgetState.privateContent.board_id} })); });
     await frame.locator('#over-title').filter({ hasText: 'You lose' }).waitFor();
-    expect(await frame.locator('#end-reason').textContent()).toBe('Your opponent gave checkmate.');
+    expect(await frame.locator('#end-reason').textContent()).toBe('Casual · Your opponent gave checkmate.');
     expect(await frame.locator('#last-move').textContent()).toContain('a8');
     expect(await frame.locator('#board[data-toppling], #board .kd-words, #over.is-win').count()).toBe(0);
     expect(await animations(frame, '#over')).toBe(0);
@@ -166,13 +167,13 @@ it.each([false, true])('gives a spent card a short gold pulse (reduced motion %s
     for (let i = 0; i < 4 && index < 0; i++) {
       await frame.locator(`#card-w-${i}`).click();
       const use = frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true });
-      if (await use.count()) { await use.click(); index = i; } else await frame.locator('#board-sheet .sheet-head button').click();
+      if (await use.count()) { await use.click(); index = i; } else await frame.locator('#board-sheet .sheet-head button[aria-label="Close"]').click();
     }
     expect(index).toBeGreaterThanOrEqual(0);
     await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move' }).click();
     // The pulse can start and end inside click(). Record it before the click.
     await frame.locator('body').evaluate((e, id) => { const w = window as any; w.spentPulse = '';
-      new MutationObserver(() => { const c = document.getElementById(id); if (!w.spentPulse && c?.classList.contains('is-spending')) w.spentPulse = getComputedStyle(c).animationName; })
+      new MutationObserver(() => { const c = document.getElementById(id); if (!w.spentPulse && c?.classList.contains('is-spending')) w.spentPulse = getComputedStyle(c.querySelector('.coin-paint')!).animationName; })
         .observe(e, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] }); }, `card-w-${index}`);
     await frame.locator('#board-sheet #choices button').first().click();
     const coin = frame.locator(`#card-w-${index}`);
@@ -180,7 +181,8 @@ it.each([false, true])('gives a spent card a short gold pulse (reduced motion %s
     expect(await frame.locator('body').evaluate(() => (window as any).spentPulse)).toBe(reduced ? '' : 'card-spend');
     // G2 a: a spent card coin dims to 0.85, so its word keeps 4.5:1.
     // strips() rebuilds the coin row on a poll. A detached coin reads no style, so poll until an attached coin dims.
-    await expect.poll(() => coin.evaluate(e => (e as HTMLElement).isConnected ? getComputedStyle(e).opacity : null), { timeout: 5000 }).toBe('0.85');
+    await expect.poll(() => coin.evaluate(e => (e as HTMLElement).isConnected ? getComputedStyle(e.querySelector('.coin-paint')!).opacity : null), { timeout: 5000 }).toBe('0.85');
+    expect(await coin.evaluate(e => getComputedStyle(e).opacity)).toBe('1');
   } finally { await page.close(); }
 });
 

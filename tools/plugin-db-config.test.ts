@@ -1,4 +1,6 @@
 import { X509Certificate } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { describe, expect, it } from 'vitest';
 import { pluginDatabaseConfig, testDatabase } from './plugin-db-config.mjs';
@@ -6,6 +8,20 @@ import { pluginDatabaseConfig, testDatabase } from './plugin-db-config.mjs';
 const url = 'postgresql://kingdown_plugin_runtime.project:p%40ss%2Fword@pooler.supabase.com:6543/postgres';
 
 describe('plugin database TLS', () => {
+  it.each(['5432', '6543', ''])('uses transaction pooling for a serverless Supabase connection (port %s)', port => {
+    const db = new URL(`postgresql://kingdown_plugin_runtime.project:fake@aws-0-eu-west-1.pooler.supabase.com${port ? ':' + port : ''}/postgres?sslmode=require`);
+    const serverless = new pg.Client(pluginDatabaseConfig(db, { serverless: true }));
+    expect(serverless.connectionParameters.port).toBe(6543);
+    expect(serverless.connectionParameters).toMatchObject({ host: db.hostname, user: 'kingdown_plugin_runtime.project', ssl: { rejectUnauthorized: true, servername: db.hostname } });
+    expect(db.port).toBe(port);
+    expect(pluginDatabaseConfig(db).port).toBe(Number(port || 5432));
+  });
+
+  it('keeps direct and local database ports outside the Supabase transaction endpoint', () => {
+    expect(pluginDatabaseConfig(new URL('postgresql://runtime:fake@db.project.supabase.co:5432/postgres?sslmode=require'), { serverless: true }).port).toBe(5432);
+    expect(pluginDatabaseConfig(new URL('postgresql://runtime@localhost:55447/game_test'), { localDev: true, serverless: true }).port).toBe(55447);
+  });
+
   it('keeps the official CA and host checks in the actual pg connection settings', () => {
     const config = pluginDatabaseConfig(new URL(`${url}?sslmode=require`));
     expect(config).not.toHaveProperty('connectionString');
@@ -57,6 +73,32 @@ describe('browser check database guard', () => {
 
   it('keeps a bad connection value out of the error', () => {
     expect(() => testDatabase('private-value')).toThrow(/^Expected a PostgreSQL connection URL$/);
-    expect(() => testDatabase('postgresql://user:private-value@db.example/kingdown_test')).toThrow(/^Browser checks require a disposable loopback database ending in _test$/);
+    expect(() => testDatabase('postgresql://user:private-value@db.example/kingdown_test')).toThrow(/^Source tools and checks require a disposable loopback database ending in _test$/);
   });
+});
+
+describe('source operator entry guards', () => {
+  const spy = fileURLToPath(new URL('./fixtures/operator-pool-guard.mjs', import.meta.url));
+  for (const entry of ['tools/mod.ts', 'tools/plugin-db/seed-review.ts']) {
+    for (const loader of ['tsx', 'import']) {
+      it.each([
+        'postgresql://user:private-target@db.example/kingdown_test',
+        'postgresql://user:private-target@127.0.0.1/kingdown',
+        'postgresql://user:private-target@127.0.0.1/kingdown_test?host=db.example',
+        'postgresql://postgres:private-target@db.puhspsyjyzaghmgtkzqd.supabase.co/postgres?sslmode=require',
+      ])(`refuses ${entry} through ${loader} before pool construction (%s)`, target => {
+        const args = loader === 'tsx' ? ['node_modules/tsx/dist/cli.mjs'] : ['--import', 'tsx'];
+        const run = spawnSync(process.execPath, [...args, '--import', spy, entry], {
+          encoding: 'utf8', timeout: 15000,
+          env: { PATH: process.env.PATH, PLUGIN_DATABASE_URL: target, KINGDOWN_ADMIN_DATABASE_URL: target, __KINGDOWN_STAGING_OPERATOR__: 'true',
+            KINGDOWN_REVIEW_EMAIL: 'review@example.test', KINGDOWN_REVIEW_OPPONENT_EMAIL: 'friend@example.test' },
+        });
+        expect(run.error).toBeUndefined();
+        expect(run.status).toBe(1);
+        expect(run.stderr).toMatch(/disposable loopback database|no query or fragment/);
+        expect(run.stderr).not.toMatch(/POOL_CONSTRUCTED|private-target|db\.example/);
+        expect(run.stdout).toBe('');
+      });
+    }
+  }
 });

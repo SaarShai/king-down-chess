@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pluginSymbols } from './lib/plugin-symbols.mjs';
+import { buildWorker } from './plugin-runtime-build.mjs';
 const output = resolve(process.argv[2] || 'dist-plugin-ui');
 // Matches ART_ORIGIN in src/plugin/server.ts, which swaps in the server's public origin.
 const ART_ORIGIN = 'https://kingdown-art.invalid';
@@ -28,10 +29,10 @@ shared.walkAtRules('media', rule => {
     media.append(rule);
   }
 });
-const gameStyle = shared.toString().replaceAll("'/fonts/", "'../../public/fonts/").replaceAll("'/ui/", "'../../public/ui/");
+const gameStyle = shared.toString().replaceAll("'./plugin/assets/", "'./assets/").replaceAll("'/fonts/", "'../../public/fonts/").replaceAll("'/ui/", "'../../public/ui/");
 // The art leaves the page: hashed files under plugin-art/, loaded by absolute URL. The board scene asks for each
 // image in CORS mode (crossOrigin 'anonymous'), so its getImageData works on art from the plugin origin.
-await build({ configFile: false, root: resolve('src/plugin'), base: './', publicDir: false, plugins: [pluginSymbols(), { name: 'game-style-assets', enforce: 'pre', transform(code, id) {
+await build({ define: { __KINGDOWN_PAGE_ENGINE__: JSON.stringify((await buildWorker()).engine) }, configFile: false, root: resolve('src/plugin'), base: './', publicDir: false, plugins: [pluginSymbols(), { name: 'game-style-assets', enforce: 'pre', transform(code, id) {
   if (!id.endsWith('.css')) return;
   if (id === resolve('src/plugin/app.css')) code = code.replace("@import '../style.css';", gameStyle).replace("@import '../ui/table.css';", '');
   // Seat hooks share the table look while the board keeps its IDs.

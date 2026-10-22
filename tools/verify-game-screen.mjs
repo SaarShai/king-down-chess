@@ -1,7 +1,7 @@
 // The fixed table at the four W2 sizes, through real board input.
 import assert from 'node:assert/strict';
 import { recordBoardText, boardText } from './board-ink-check.mjs';
-import { usePower, startLesson, contextWordsInView, endTurn, openMoves } from './app-ui.mjs';
+import { rulesAt, usePower, startLesson, contextWordsInView, endTurn, openMoves } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 const browser = await launch();
 const visibleWords = async (page, words) => assert.ok(await contextWordsInView(page, words), `the drawn context shows ${words}`);
@@ -29,9 +29,12 @@ try {
     };
     await stripsClear('rest');
     if (width === 320) {
+      // The owner's preview pick of 2026-10-19 (23810f27) makes the short-phone Moves row 48 px, not 44 px.
+      // The board row takes the rest, so the 2026-10-09 floor of 290 px drops by the same 4 px to 286 px (the board measures 287 px, the same 1 px margin as before).
+      const MOVES_ROW = 48, BOARD_FLOOR = 290 - (MOVES_ROW - 44);
       const canvas = await page.locator('#board canvas').boundingBox();
-      assert.ok(canvas.width >= 290, `short phone board: ${canvas.width.toFixed(2)} px`);
-      assert.equal(restRows.find(row => row.id === 'moves-line').height, 44);
+      assert.ok(canvas.width >= BOARD_FLOOR, `short phone board: ${canvas.width.toFixed(2)} px, floor ${BOARD_FLOOR} px`);
+      assert.equal(restRows.find(row => row.id === 'moves-line').height, MOVES_ROW);
     }
     if (width === 320 || width === 390) {
       const file = await boardText(page, 'A'), rank = await boardText(page, '8');
@@ -94,6 +97,8 @@ try {
     await context.close();
   }
   const opened = async (save, query = '', width = 390, height = 844) => {
+    // The save holds the URL's rules, so the URL replays it (a save with no rules is a default-rules game).
+    if (query) save = { ...save, rules: await rulesAt(browser, new URL(query, env('PLAYABLE_URL')).href) };
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' });
     await context.addInitScript(save => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.save', JSON.stringify({ sound: false, pace: 'off', white: 'human', black: 'human', ...save })); }, save);
     const page = await context.newPage(); trapErrors(page);

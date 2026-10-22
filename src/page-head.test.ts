@@ -17,3 +17,14 @@ describe('the page head: one light look', () => {
     expect(manifest.theme_color).toBe('#f3ead7');
   });
 });
+
+
+it('roots every authored public resource so deep game routes use the same files', () => {
+  const urls = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map(match => match[1]).filter(url => !url.startsWith('#') && !url.startsWith('data:'));
+  expect(urls.length).toBeGreaterThan(30);
+  for (const url of urls) {
+    expect(url.startsWith('/'), url).toBe(true);
+    for (const path of ['/play/', '/g/game-id']) expect(new URL(url, `https://kingdown.test${path}`).href).toBe(new URL(url, 'https://kingdown.test/').href);
+  }
+  expect(html).toContain('href="#i-settings"');
+});

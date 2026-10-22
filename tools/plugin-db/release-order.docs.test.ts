@@ -1,6 +1,6 @@
 // The owner's release steps (supabase/README.md) name the last migration that the server needs and the last block of
 // the runtime grants. A ticket that adds a migration or a role block changes those steps in the same commit.
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 
@@ -13,4 +13,13 @@ it('names the last server migration and the last role block in the release steps
   expect(readme).toContain(`\`npm run plugin:db:migrate\` applies 0002–${last}`);
   expect(readme).toContain(`apply 0005–${last}, then blocks 3–${blocks} of \`plugin-deploy/runtime-role.sql\``);
   expect(readme).toContain(`- \`${last}_`);
+});
+
+it('keeps the migration lists ordered with one number per migration', () => {
+  const files = readdirSync('supabase/migrations').filter(name => /^\d{4}_.*\.sql$/.test(name)).sort();
+  expect(new Set(files.map(name => name.slice(0, 4))).size).toBe(files.length);
+  const listed = (file: string) => [...read(file).matchAll(/'(\d{4}_\w+\.sql)'/g)].map(match => match[1]);
+  expect(listed('tools/plugin-db/bootstrap-test.mjs')).toEqual(files);
+  expect(listed('tools/plugin-db/migrate.ts')).toEqual(files.slice(1));
+  expect(files.slice(-2)).toEqual(['0017_setup_admission.sql', '0018_rating_policy.sql']);
 });

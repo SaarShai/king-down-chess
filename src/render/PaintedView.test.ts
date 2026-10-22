@@ -1,30 +1,51 @@
 // F13: the board canvas stays hidden until the stone art is loaded and decoded, so no gold or page colour
 // shows in its place; it appears in the frame that first draws stone and pieces.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fromFen } from '../rules/setup';
+import { fromFen, toFen } from '../rules/setup';
+import { Game } from '../game';
+import { setRules } from '../rules/engine';
+import type { PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
+import { SHARED_MECHANICS, assertMechanicExpected } from '../../tools/fixtures/shared-mechanics';
 
+const { reducedMotion, lively, aim, decorate, disposeScene, disconnectResize } = vi.hoisted(() => ({ reducedMotion: vi.fn(), lively: vi.fn(), aim: vi.fn(), decorate: vi.fn(), disposeScene: vi.fn(), disconnectResize: vi.fn() }));
 let resolveLoad: () => void = () => {};
 let pickedSquare: number | null = null;
 vi.mock('../../docs/2d-first-pieces/board/scene.mjs', () => ({
-  createScene: () => new Proxy({ load: () => new Promise<void>(r => { resolveLoad = r; }), squareAt: () => pickedSquare, kings: [], drawnKings: [] } as Record<string, unknown>,
+  createScene: () => new Proxy({ load: () => new Promise<void>(r => { resolveLoad = r; }), dispose: disposeScene, squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim, setDecorate: decorate, animating: false, falling: false, PAD: 32, TILE: 112, cell: (sq: number) => ({col:sq % 8,row:7 - (sq >> 3)}) } as Record<string, unknown>,
     { get: (t, k: string) => k in t ? t[k] : () => {} }),
 }));
 
 const frames: FrameRequestCallback[] = [];
 const listeners = new Map<string, EventListener>();
+const documentListeners = new Map<string, EventListener>();
 function stubDom() {
+  const listen = (target: Map<string, EventListener>) => (name: string, listener: EventListener, options?: AddEventListenerOptions) => {
+    target.set(name, listener);
+    options?.signal?.addEventListener('abort', () => target.delete(name), { once: true });
+  };
   const el = () => ({ style: {} as Record<string, string>, classList: { add() {}, toggle() {} },
-    addEventListener(name: string, listener: EventListener) { listeners.set(name, listener); }, appendChild() {}, width: 0, height: 0,
-    getBoundingClientRect: () => ({ left: 0, top: 0, width: 960 }), setPointerCapture() {}, hasPointerCapture: () => true, releasePointerCapture() {} });
-  vi.stubGlobal('document', { createElement: el, addEventListener() {}, hidden: false });
-  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {} }));
-  vi.stubGlobal('ResizeObserver', class { observe() {} });
+    addEventListener: listen(listeners), appendChild() {}, getContext: () => ({}), width: 0, height: 0,
+    getClientRects: () => [1], getBoundingClientRect: () => ({ left: 0, top: 0, width: 960 }), setPointerCapture() {}, hasPointerCapture: () => true, releasePointerCapture() {} });
+  vi.stubGlobal('document', { createElement: el, addEventListener: listen(documentListeners), hidden: false });
+  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: listen(documentListeners) }));
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect = disconnectResize; });
   vi.stubGlobal('requestAnimationFrame', (f: FrameRequestCallback) => frames.push(f));
   return el();
 }
-afterEach(() => { vi.unstubAllGlobals(); frames.length = 0; listeners.clear(); pickedSquare = null; });
+afterEach(() => { vi.unstubAllGlobals(); frames.length = 0; listeners.clear(); documentListeners.clear(); pickedSquare = null; vi.clearAllMocks(); setRules({}); });
 
 describe('PaintedView first paint', () => {
+  it('releases input, observers and scene work before a delayed artwork load finishes', async () => {
+    const container = stubDom(), { PaintedView } = await import('./PaintedView');
+    const view = new PaintedView(container as unknown as HTMLElement);
+    expect(listeners.size).toBeGreaterThan(0); expect(documentListeners.size).toBeGreaterThan(0);
+    view.dispose(); view.dispose();
+    expect(listeners.size).toBe(0); expect(documentListeners.size).toBe(0);
+    expect(disconnectResize).toHaveBeenCalledOnce(); expect(disposeScene).toHaveBeenCalledOnce();
+    resolveLoad(); await view.ready();
+    expect(frames).toHaveLength(0);
+  });
+
   it('stays unready until the loaded scene is visible on its first frame', async () => {
     const container = stubDom();
     const { PaintedView } = await import('./PaintedView');
@@ -95,4 +116,129 @@ describe('PaintedView touch input', () => {
     pickedSquare = 12; fire('pointerdown', down); fire('pointerup', down);
     expect(view.onSquareClick).toHaveBeenCalledExactlyOnceWith(12, false);
   });
+});
+
+// Off must reach the scene. A select value alone does not stop weapon motion.
+describe('PaintedView motion setting', () => {
+  it.each([false, true])('sets scene motion for system reduced motion %s', async systemReduced => {
+    const container = stubDom();
+    vi.stubGlobal('matchMedia', () => ({ matches: systemReduced, addEventListener() {} }));
+    const { PaintedView } = await import('./PaintedView');
+    const view = new PaintedView(container as unknown as HTMLElement);
+    for (const pace of ['normal', 'fast', 'off'] as const) {
+      view.setPace(pace);
+      expect(reducedMotion).toHaveBeenLastCalledWith(systemReduced || pace === 'off');
+      expect(lively).toHaveBeenLastCalledWith(expect.objectContaining({ moves: !systemReduced && pace !== 'off', idle: !systemReduced && pace !== 'off', pawns: !systemReduced && pace !== 'off' }));
+      view.highlight({ selected: 12, moves: [20] });
+      pickedSquare = 20;
+      listeners.get('pointermove')!({ clientX: 0, clientY: 0 } as PointerEvent);
+      expect(aim).toHaveBeenLastCalledWith(20);
+    }
+  });
+});
+
+it.each([false, true])('syncs the legal Earth Quake without a figure at its center (reduced motion %s)', async systemReduced => {
+  const container = stubDom();
+  vi.stubGlobal('Image', class { src = ''; });
+  vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  vi.stubGlobal('matchMedia', () => ({ matches: systemReduced, addEventListener() {} }));
+  const { PaintedView } = await import('./PaintedView');
+  const { createScene } = await vi.importActual<typeof import('../../docs/2d-first-pieces/board/scene.mjs')>('../../docs/2d-first-pieces/board/scene.mjs');
+  const scene = createScene({ canvas: document.createElement('canvas'), pieces: await import('../rules/engine') });
+  scene.setReducedMotion(systemReduced);
+  const view = new PaintedView(container as unknown as HTMLElement);
+  (view as unknown as { scene: PaintedScene }).scene = scene;
+  const fixture = SHARED_MECHANICS.find(row => row.id === 'card-earthquake')!;
+  const game = new Game('RNBQKBNR', { hands: [fixture.setup.hand!, fixture.setup.hand!] });
+  game.load(game.context.fromFen(fixture.setup.fen!)); view.setRules(game.context);
+  const before = game.pos, move = game.legal.find(move => game.context.toLan(before, move) === fixture.actions[0])!;
+  expect(move).toMatchObject({ power: 'quake', from: 27, to: 27 });
+  expect(before.board[move.from]).toBe(0);
+  const playing = vi.spyOn(scene, 'play'), synced = vi.spyOn(scene, 'setPosition');
+  await expect(view.animateMove(before, move)).resolves.toBeUndefined();
+  expect(playing).not.toHaveBeenCalled();
+  game.play(move); view.sync(game.pos);
+  expect(synced).toHaveBeenLastCalledWith(game.pos);
+  assertMechanicExpected({ fen: toFen(game.pos), rules: game.rules, turn: game.pos.turn, legal: game.legal.map(move => game.context.toLan(game.pos, move)) }, fixture.expected);
+  view.dispose();
+});
+
+it('draws frost on the game board after Freeze and clears it on expiry and Undo', async () => {
+  const container = stubDom();
+  vi.stubGlobal('Image', class { complete = true; naturalWidth = 448; src = ''; });
+  const { PaintedView } = await import('./PaintedView');
+  const game = new Game(undefined, { kings: [{ king: 'Frost', power: 'Freeze' }, null] });
+  game.load(fromFen('7k/8/8/4p3/8/8/P7/K7 w - - 0 1'));
+  const view = new PaintedView(container as unknown as HTMLElement);
+  const scene = (view as unknown as {scene: PaintedScene}).scene;
+  const draw = decorate.mock.lastCall![0];
+  const drawImage = vi.fn();
+  const ctx = new Proxy({ drawImage }, { get: (target, key: string) => key === 'drawImage' ? target.drawImage : () => {} });
+  const boardDrawing = () => {
+    view.setRules(game.context); view.sync(game.pos); drawImage.mockClear();
+    draw(ctx, scene, 'under');
+    for (let row = 0; row < 8; row++) draw(ctx, scene, 'over', row);
+    return drawImage.mock.calls.map(([image, ...box]) => ({svg:decodeURIComponent(image.src),box}));
+  };
+  expect(boardDrawing()).toEqual([]);
+  const freeze = () => game.play(game.legal.find(move => move.power === 'freeze' && move.to === 36)!);
+  freeze();
+  const frozen = boardDrawing();
+  expect(frozen).toHaveLength(2);
+  expect(frozen[0].svg).toContain('fill="url(#kdm-frost)"');
+  expect(frozen[1].svg).toContain('<circle ');
+  for (const mark of frozen) expect(mark.box).toEqual([480,368,112,134.4]);
+  game.play(game.legal.find(move => move.from === 63 && move.to === 62)!);
+  expect(boardDrawing()).toEqual([]);
+  expect(game.undo()).toBe(true); expect(boardDrawing()).toEqual(frozen);
+  expect(game.undo()).toBe(true); expect(boardDrawing()).toEqual([]);
+  freeze(); expect(boardDrawing()).toEqual(frozen);
+});
+
+
+it.each(['move', 'fall'])('A8: ends a %s and consumes the whole pointer gesture', async kind => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const view = new PaintedView(container as unknown as HTMLElement);
+  const scene = (view as unknown as { scene: PaintedScene }).scene;
+  const cancel = vi.fn(), fallen = vi.fn();
+  Object.assign(scene, { animating: kind === 'move', falling: kind === 'fall', cancel, setFallen: fallen });
+  view.onSquareClick = vi.fn();
+  for (const type of ['pointerdown', 'pointerup', 'click']) {
+    const event = { button: 0, pointerId: 7, detail: 1, preventDefault: vi.fn(), stopImmediatePropagation: vi.fn() };
+    documentListeners.get(type)!(event as unknown as Event);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(event.stopImmediatePropagation).toHaveBeenCalledOnce();
+  }
+  expect(cancel).toHaveBeenCalledTimes(kind === 'move' ? 1 : 0);
+  expect(fallen).toHaveBeenCalledTimes(kind === 'fall' ? 1 : 0);
+  expect(view.onSquareClick).not.toHaveBeenCalled();
+  Object.assign(scene, { animating: false, falling: false });
+  const next = { button: 0, pointerId: 8, detail: 1, preventDefault: vi.fn(), stopImmediatePropagation: vi.fn() };
+  for (const type of ['pointerdown', 'pointerup', 'click']) documentListeners.get(type)!(next as unknown as Event);
+  expect(next.preventDefault).not.toHaveBeenCalled();
+});
+
+it.each([false, true])('A15: keeps check and threat marks above the selected tile (web %s)', async webInk => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const view = new PaintedView(container as unknown as HTMLElement, { webInk });
+  const scene = (view as unknown as { scene: PaintedScene }).scene;
+  Object.assign(scene, { foot: () => ({ x: 536, y: 918 }) });
+  view.sync(fromFen('4r2k/8/8/8/8/8/8/4K3 w - - 0 1'));
+  view.setSymbols(() => 'figure' as unknown as HTMLImageElement);
+  view.highlight({ selected: 4, check: 4, checkers: webInk ? [] : undefined, threats: [{ from: 60, to: 4 }] });
+  const calls: string[] = [];
+  const ctx = new Proxy({
+    fillRect(this: CanvasRenderingContext2D) { calls.push(String(this.fillStyle)); },
+    fill(this: CanvasRenderingContext2D) { calls.push(String(this.fillStyle)); },
+    stroke(this: CanvasRenderingContext2D) { calls.push(String(this.strokeStyle)); },
+    createRadialGradient: () => ({ addColorStop() {}, toString: () => 'threat' }),
+    drawImage: () => calls.push('figure'),
+  } as Record<string, unknown>, { get: (target, key: string) => key in target ? target[key] : () => {} });
+  decorate.mock.lastCall![0](ctx, scene, 'under');
+  const tile = calls.indexOf('#d8aa43'), threat = calls.indexOf('threat');
+  const ring = calls.indexOf(webInk ? '#c4501f' : '#b3261e'), figure = calls.indexOf('figure');
+  expect(tile).toBeGreaterThanOrEqual(0);
+  expect(threat).toBeGreaterThan(tile);
+  expect(ring).toBeGreaterThan(tile);
+  expect(figure).toBeGreaterThan(Math.max(threat, ring));
 });

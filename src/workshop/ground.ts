@@ -1,3 +1,6 @@
+import { GameRules } from '../game-rules';
+import { cardPicture } from '../card-symbol';
+import { cardDiagram } from '../card-diagram';
 /**
  * The Workshop (docs/WORKSHOP.md): the Proving Ground, view A of docs/specs/workshop-proving-ground.
  * The open piece stands on its example board with its marks; the plinth shows its name, its figure and its rules;
@@ -11,7 +14,7 @@
  * Loaded on demand (main.ts `import()`).
  */
 import './ground.css';
-import { BLACK, HISTORY_WHENS, K, KINGS, NAMES as PIECE, P, T, USES_RULE, WHITE, colorOf, file, isMarkTag, makeMove, parseSq, piece, rank, sq, sqName, typeOf, type CardName, type KingName, type Move, type PieceType, type Position, type PowerName } from '../rules/engine';
+import { BLACK, HISTORY_WHENS, K, KINGS, NAMES as PIECE, P, T, USES_RULE, WHITE, colorOf, file, isMarkTag, parseSq, piece, rank, sq, sqName, typeOf, type CardName, type KingName, type Move, type PieceType, type Position, type PowerName } from '../rules/engine';
 import { POWER_NAME, cardText, coinState, coinWords, powerText } from '../powers-ui';
 import { coinRow } from '../ui/coin';
 import { pieceIcon } from '../piece-icons';
@@ -61,11 +64,12 @@ const kingOf = (p: PowerName): KingName => KING_LIST.find(k => KINGS[k].includes
 const DECK: readonly CardName[] = ['Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap', 'Mimic', 'Vault', 'Curse', 'SkyLift', 'Salvation',
   'Rescue', 'Firewall', 'EarthQuake', 'Burn', 'FireStarter', 'Control', 'Growth', 'Rally', 'Spawn2', 'SpawnK', 'MorphP', 'MirrorB'];
 const SECOND: Partial<Record<CardName, CardName>> = { Firewall: 'FirewallB', EarthQuake: 'EarthQuakeB', Growth: 'GrowthB', SpawnK: 'SpawnK2' };
-const ART: readonly CardName[] = ['Freeze', 'IceWall', 'Sacrifice', 'March', 'Leap', 'Mimic', 'Vault', 'SkyLift', 'Salvation', 'Rescue'];
+const ART: readonly CardName[] = ['Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap', 'Mimic', 'Vault', 'SkyLift', 'Salvation', 'Rescue'];
 const LAY: readonly CardName[] = ['Freeze', 'IceWall', 'Leap', 'March', 'Mimic', 'Vault'];
 /** A design with a When that counts moves or cards: the socket and the card slot wait (powersWork). */
 const WAIT_POWERS = 'Powers wait: a rule of this piece counts moves or cards.', WAIT_CARDS = 'Cards wait: a rule of this piece counts moves or cards.';
 const cardArt = (c: CardName): string => `${import.meta.env.BASE_URL}ui/cards/${ART.includes(c) ? c.toLowerCase() : 'back'}.webp`;
+const cardFace = (c: CardName): string => ART.includes(c) ? `<img class="art" src="${cardArt(c)}" alt="">` : `<span class="art">${cardPicture(c)}</span>`;
 /** "Ice Wall", "Sky Lift", "Spawn K2". */
 const cardName = (c: CardName): string => (c in USES_RULE ? POWER_NAME[c as PowerName] : c.replace(/([a-z])([A-Z0-9])/g, '$1 $2'));
 /** A card's sentence in the web's words (powerText's webWords). */
@@ -113,7 +117,9 @@ const gaitOf = (d: PieceDesign): Gait => GAITS[GAIT_OF[d.look.body === 'token' ?
  *  and why the design cannot take it. `w` is the When; `like`, the piece that "Always" adds to Moves. */
 interface Choice { v: string; words: string; on: boolean; off: string | null; apply: (d: PieceDesign) => void; w?: When; like?: LikeAs }
 
-export function groundDialog(): { open(): void; openDesign(code: string): void } {
+export function groundDialog(current: () => GameRules = () => new GameRules()): { open(): void; openDesign(code: string): void } {
+  let preview = new GameRules();
+  const ownRules = () => { preview = new GameRules({ ...current().rules, design: null }); };
   const dlg = document.createElement('dialog');
   dlg.id = 'workshop';
   dlg.className = 'pg';
@@ -364,7 +370,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
    *  shelf: only the designs, each with Delete; a delete makes room, and the open design is saved in its place. */
   function seeAll(room = false): void {
     const items = [...(room ? [] : PRESETS.map(p => pool(p.key))), ...shelf.map(d => ({ key: `design:${d.id}`, d, yours: true }))];
-    const thumb = (it: Item): string => { const t = thumbHtml(it.d, judge(it.d, false), figureOf(it.d), it.yours), name = esc(it.d.name);
+    const thumb = (it: Item): string => { const t = thumbHtml(it.d, judge(it.d), figureOf(it.d), it.yours), name = esc(it.d.name);
       return room ? `<div class="pg-thumb">${t}<button type="button" class="pg-room-del" data-id="${esc(it.d.id)}" aria-label="Delete ${name}">Delete</button></div>`
         : `<button type="button" class="pg-thumb" data-key="${esc(it.key)}" aria-label="${name}"${cur.key === it.key ? ' aria-current="true"' : ''}>${t}</button>`; };
     sheet(room ? 'Delete one design' : 'Pieces', (room ? `<p class="pg-note">Your shelf holds ${MAX} designs. Delete one, and ${esc(cur.d.name)} is saved in its place.</p>`
@@ -397,7 +403,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   }
   /** Every design the editor makes fits a share code; this guard says so if one ever does not. */
   const shareable = (): boolean => !!parseDesign(designCode(cur.d)) || (toast('This design cannot be shared: it breaks a limit.'), false);
-  const face = (): string => faceHtml(cur.d, judge(cur.d, false), figureOf(cur.d));
+  const face = (): string => faceHtml(cur.d, judge(cur.d), figureOf(cur.d));
   /** The Share sheet (ticket 08): the card face, then Send link (the device's share), Copy link and Copy as text; with no
    *  device share, one Copy link. A device that refuses the copy gets the copy sheet (copyText). */
   function share(): void {
@@ -410,7 +416,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       if (send) on('send', () => navigator.share({ title: d.name, text: `${d.name}: a King Down piece.`, url: link(d) })
         .catch((e: Error) => { if (e.name !== 'AbortError') void copyText(link(d), 'Link copied.'); }));
       on('copy', () => copyText(link(d), 'Link copied.'));
-      on('text', () => copyText(designText(d, judge(d, false), link(d)), 'Copied as text.'));
+      on('text', () => copyText(designText(d, judge(d), link(d)), 'Copied as text.'));
     });
   }
   /** A design link (decision 25): its card face first, read only. Keep a copy saves it and opens it on the board;
@@ -422,9 +428,9 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       body.querySelector<HTMLButtonElement>('[data-board]')!.onclick = close;
     });
   }
-  /** Weigh (decision 13): the worth, the band word and the like line. `false` skips the Why parts, the fixes and the deltas. */
+  /** Weigh (decision 13): the worth, the band word and the like line. */
   function weighWords(): [string, string] {
-    const v = judge(cur.d, false);
+    const v = judge(cur.d);
     return empty(cur.d) ? [v.line, ''] : [`About ${pawns(v.worth.point)} (estimate). ${bandOf(v)}.`, v.like];
   }
 
@@ -557,7 +563,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       return toast('Reach ends 3 squares out.', 'lock');
     }
     // A mark that the paint alone does not make: a rule makes it.
-    if (sc.marks.some(m => m.sq === q && m.diff !== '-') && !sceneOf({ squares: cur.d.squares, lines: cur.d.lines, rules: [] }, board, from).marks.some(m => m.sq === q))
+    if (sc.marks.some(m => m.sq === q && m.diff !== '-') && !sceneOf({ squares: cur.d.squares, lines: cur.d.lines, rules: [] }, board, from, START, preview).marks.some(m => m.sq === q))
       return toast('A rule makes this mark. Tap its seal.', 'lockOpen');
     const pts = orbit(x, y, mirror), b = brush!;
     const painted = change('paint', d => {
@@ -676,9 +682,10 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     }
     // An open card (renderPlinth, proving-ground.html:1067-1070): its name, and on the plinth its art, title and sentence with the LAB ribbon.
     if (labOpen) {
-      const n = cardName(labOpen);
+      const n = cardName(labOpen), diagram = cardDiagram(labOpen);
       plinthEl.innerHTML = `<div class="pg-name"><div class="row"><h3${n.length > 9 ? ' class="long"' : ''}>${n}</h3></div></div>`
-        + `<div class="pg-bigcard lab-host"><img class="art" src="${cardArt(labOpen)}" alt=""><b class="ttl">${n}</b><span class="rule"></span><p>${esc(cardWords(labOpen))}.</p><span class="lab-ribbon" aria-hidden="true">LAB</span></div>`;
+        + `<div class="pg-bigcard lab-host">${cardFace(labOpen)}<b class="ttl">${n}</b><span class="rule"></span><p>${esc(cardWords(labOpen))}.</p></div>`
+        + (diagram ? `<div class="card-diagram">${diagram}</div>` : '');
       return;
     }
     const d = cur.d, name = d.name || 'Piece', origin = cur.key.startsWith('piece:') ? undefined : PRESETS.find(p => d.from.length === 1 && p.key === d.from[0]);
@@ -810,7 +817,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       h += `<div class="sentence">${seal(pick, 44)}<p class="say">${l1 ? `<span class="l1">${l1}</span>` : ''}${P.say.map(still).join('')}</p>`
         // An event rule can change no square on this board: then the example says what it does (ticket 03, Risks).
         + (why ? `<p class="needs">${esc(why)}</p>` : added ? '' : `<p class="pg-ex">${esc(b.example)}</p>`)
-        + `<div class="pg-act"><button type="button" class="pg-stamp" data-act="stamp"${why ? ' disabled' : ''}>Stamp</button></div></div>`;
+        + `<div class="pg-act"><button type="button" class="pg-stamp primary" data-act="stamp"${why ? ' disabled' : ''}>Stamp</button></div></div>`;
     }
     shelfEl.innerHTML = h;
   }
@@ -1018,7 +1025,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     plinthEl.inert = short.matches && sheet;
     brushesEl.inert = trayEl.inert = phone && !!why;
     if (!why) { whyEl.innerHTML = ''; return; }
-    const w = whyWords(now(), sc, traceOf(now(), board, from, st), why), p = w.piece, T = phone ? 48 : 52;
+    const w = whyWords(now(), sc, traceOf(now(), board, from, st, preview), why), p = w.piece, T = phone ? 48 : 52;
     const icon = !p ? '' : pieceIcon(p.open ? pos.became || BODY_TYPE[cur.d.look.body as Body] : (PIECE as readonly string[]).indexOf(p.k) as PieceType, p.side === 'b' ? 1 : 0);
     whyEl.innerHTML = `<div class="tag"><div class="why-h">${icon}<span class="sqn">${why}</span><span class="occ">${esc(w.occupant)}</span>${w.count ? countRing(w.count) : ''}`
       + `<button type="button" class="x" data-act="closewhy" aria-label="Close">×</button></div>`
@@ -1041,7 +1048,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   const now = (): PieceDesign | Preset => (pos.became && !brush ? presetOf(PIECE[pos.became]) : cur.d);
   /** The moves that a tap plays now: the next takes of a chain in progress, else the moves of the turn less the longer chains. */
   const movesNow = (): Move[] => (pos.gone ? [] : pos.chain ? pos.chain.more.filter(m => m.captures.length === pos.chain!.caps.length + 1)
-    : movesOf(now(), pos.board, pos.from, pos.st).filter(m => m.captures.length <= 1));
+    : movesOf(now(), pos.board, pos.from, pos.st, undefined, preview).filter(m => m.captures.length <= 1));
   const movesAt = (q: string): Move[] => movesNow().filter(m => sqName(pos.chain ? m.to : tapOf(m)) === q);
   const plaqueOn = (): boolean => tapped || edited || opened > 1;
 
@@ -1216,12 +1223,12 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   /** Plays `m` with the engine (makeMove, as boardAfter does), White each time: the other side never moves. A chain's next
    *  take removes only its new piece; after a take the chain goes on while a longer move of the turn starts with its takes. */
   function play(m: Move): void {
-    const fresh = m.captures.slice(pos.chain?.caps.length ?? 0), all = pos.chain?.more ?? movesOf(now(), pos.board, pos.from, pos.st);
+    const fresh = m.captures.slice(pos.chain?.caps.length ?? 0), all = pos.chain?.more ?? movesOf(now(), pos.board, pos.from, pos.st, undefined, preview);
     const who = (s: number): string => `${colorOf(pos.board[s]) ? 'enemy' : 'your'} ${PIECE[typeOf(pos.board[s])]}`;
     const said = m.shove ? `Pushed the ${who(m.shove.from)} from ${sqName(m.shove.from)} to ${sqName(m.shove.to)}.` : m.swap ? `Swapped places with the ${who(m.to)} on ${sqName(m.to)}.`
       : fresh.length ? `${actOf(m) === 'shot' ? 'Shot' : 'Took'} the ${fresh.map(s => `${who(s)} on ${sqName(s)}`).join(' and the ')}.` : `Moved to ${sqName(m.to)}.`;
     const was = pos.from, src = boardEl.querySelector('[data-open]')?.getAttribute('href'), taken = fresh.map(s => [s, pieceArt(typeOf(pos.board[s]), colorOf(pos.board[s]) === BLACK)] as const);
-    const board = makeMove({ board: pos.board, turn: WHITE, halfmove: 0, ply: 0 }, { ...m, from: pos.from, captures: fresh }).board;
+    const board = preview.makeMove({ board: pos.board, turn: WHITE, halfmove: 0, ply: 0 }, { ...m, from: pos.from, captures: fresh }).board;
     const more = m.selfRemove || m.promo || !fresh.length || m.to === m.from ? [] : all.filter(x => x.captures.length > m.captures.length && m.captures.every((c, i) => x.captures[i] === c));
     backs.push(pos);
     pos = {
@@ -1276,7 +1283,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     const empty = `<span class="sockc"><img src="${import.meta.env.BASE_URL}ui/emblems/spirit.webp" alt=""></span>`;
     // The card slot (ticket 14; :1383-1384) waits on such a piece too; else it opens LAY A LAB CARD.
     const slot = `<button type="button" class="tok cardslot${laid && powersWork() ? ' on' : ''}" ${powersWork() ? `data-act="lay" aria-expanded="${laying}"` : 'data-act="nocard" aria-disabled="true"'} title="Card: lay a LAB card"`
-      + ` aria-label="${!powersWork() ? `Card. ${WAIT_CARDS}` : laid ? `${cardName(laid)} card (LAB): lay another` : 'Card: lay a LAB card'}"><span class="cs${laid ? ' filled' : ''}"${laid ? ` style="background-image:url(${cardArt(laid)})"` : ''}><i></i></span></button>`;
+      + ` aria-label="${!powersWork() ? `Card. ${WAIT_CARDS}` : laid ? `${cardName(laid)} card (LAB): lay another` : 'Card: lay a LAB card'}"><span class="cs${laid ? ' filled' : ''}"${laid ? ` style="background-image:url(${cardArt(laid)})"` : ''}></span></button>`;
     const socket = !powersWork() ? `<button type="button" class="tok pg-socket" data-act="nosocket" aria-disabled="true" aria-label="King. ${WAIT_POWERS}">${empty}</button>${slot}<span class="pg-kingnote">${WAIT_POWERS}</span>`
       : !king ? `<button type="button" class="tok pg-socket" data-act="seat" aria-expanded="${seating}" aria-label="King: seat a king and his powers" title="King: seat a king and his powers">${empty}</button>${slot}`
       : `<span class="tok kingseat"><button type="button" class="pg-kingfig" data-act="seat" aria-expanded="${seating}" aria-label="${king} king: seat another king" title="${king} king"><img src="${kingArt(king)}" alt=""></button>`
@@ -1286,7 +1293,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       + `<div class="tokens">${tok('friend', 'Friend: one of your pieces')}${tok('enemy', 'Enemy: tap, then tap a square')}${socket}</div>`
       + (seating ? `<div class="picker" role="group" aria-labelledby="pg-seat-h"><h4 id="pg-seat-h">SEAT A KING</h4><div class="row">${KING_LIST.map(k => `<button type="button" data-seat="${k}" aria-pressed="${king === k}"><img src="${kingArt(k)}" alt="">${k}</button>`).join('')}</div></div>` : '')
       + (laying ? `<div class="picker" role="group" aria-labelledby="pg-lay-h"><h4 id="pg-lay-h">LAY A LAB CARD</h4><div class="row">${LAY.map(c => `<button type="button" data-lay="${c}" aria-pressed="${laid === c}">`
-        + `<span class="mini-card lab-host" style="background-image:url(${cardArt(c)})"><i></i></span>${cardName(c)}</button>`).join('')}</div></div>` : '')
+        + `<span class="mini-card lab-host" style="background-image:url(${cardArt(c)})"></span>${cardName(c)}</button>`).join('')}</div></div>` : '')
       + `<div class="trow2"><button type="button" data-act="threats" aria-pressed="${threats}" aria-label="Threats" title="Threats: what can hit your piece">${sigil('eye', 22)}</button>`
       + `<button type="button" data-act="stir" aria-label="Stir" title="Stir: another board">${sigil('die', 22)}</button>`
       + `<button type="button" data-act="clear" aria-label="Clear" title="Clear: the piece alone">${sigil('broom', 22)}</button>`
@@ -1305,7 +1312,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     // An open card's words (renderInfo, :1118-1123): the LAB note, its king for a power card, its second form, and what to do.
     if (labOpen && !brush) {
       const c = labOpen, twin = c in USES_RULE ? kingOf(c as PowerName) : null, b = SECOND[c];
-      brushesEl.innerHTML = phone ? '' : '<p class="lab-note"><i>LAB</i>Test deck. Not in the game.</p>'
+      brushesEl.innerHTML = phone ? '' : '<p class="lab-note">Test deck. Not in the game.</p>'
         + (twin ? `<h4 class="info-h">Also a king's power</h4><p class="twin"><button type="button" data-twin="${twin}" aria-label="Open the ${twin} king">${coinHtml(c as PowerName)}</button>${POWER_NAME[c as PowerName]}, a power of the ${twin} king.</p>` : '')
         + (b ? `<h4 class="info-h">Second form</h4><p class="variant"><b>${cardName(b)}</b>${esc(cardWords(b))}.</p>` : '')
         + `<p class="info-p">${!LAY.includes(c) ? 'No test board for this card yet.' : !powersWork() ? WAIT_CARDS : laid !== c ? 'Lay it from the card slot.'
@@ -1318,7 +1325,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     toolsEl.innerHTML = !brush ? '' : `<button type="button" class="tool" data-brush="shot" aria-pressed="${brush === 'shot'}" title="Shot: takes from where it stands"><span class="tb">${tile('shot', 44)}</span><small>Shot</small></button>`
       + `<button type="button" class="tool" data-brush="erase" aria-pressed="${brush === 'erase'}" title="Eraser"><span class="tb">${sigil('eraser', 24)}</span><small>Eraser</small></button>`
       + `<button type="button" class="tool" data-act="mirror" aria-label="Paint on: ${MIRROR[mirror]}"><span class="tb">${mirrorIcon(mirror)}</span><small>${MIRROR[mirror]}</small></button>`
-      + '<button type="button" class="pg-done" data-act="done">Done</button>';
+      + '<button type="button" class="pg-done primary" data-act="done">Done</button>';
     hintEl.textContent = brush && !phone ? (brush === 'erase' ? 'Tap a square to clear it.' : 'Tap a square to paint it.') : '';
     const kinds = new Map<string, [string, string]>();
     const add = (k: string, svg: () => string, w: string): void => { if (!kinds.has(k)) kinds.set(k, [svg(), w]); };
@@ -1367,18 +1374,18 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     // The Rules tab (renderLedge, proving-ground.html:1466-1476): the seals in their groups, then the laws in force as read-only
     // plaques (decision 28) and the Fixed plaque. The phone hides the laws.
     if (t === 'rules') {
-      const pr = promotion();
+      const pr = promotion(preview);
       slotsEl.innerHTML = `<div class="rgroups">${GROUPS.map(g => `<div class="rgrp"><h4>${g}</h4><div class="ss">${BLOCKS.filter(b => b.group === g)
       .map(b => `<button type="button" data-openseal="${b.a}" aria-pressed="${sealOn === b.a}" title="${esc(b.title)}">${seal(b.a, 44)}<span>${esc(b.label)}</span></button>`).join('')}</div></div>`).join('')}</div>`
       + `<span class="lsep" aria-hidden="true"></span><ul class="laws" aria-label="Laws of the game"><li class="law" title="A pawn on the last rank becomes a ${esc(pr.words)}.">Promotion<span class="pill" aria-hidden="true">${pr.letters}</span><span class="sr-only">${esc(pr.words)}</span></li>`
-      + lawsOf().map(([name, say, on]) => `<li class="law" title="${esc(say)}">${name}<b>${on}</b></li>`).join('')
+      + lawsOf(preview.rules).map(([name, say, on]) => `<li class="law" title="${esc(say)}">${name}<b>${on}</b></li>`).join('')
       + `<li class="law fixed"><b>${sigil('lock', 12)} Fixed</b>8×8 board · check and checkmate · no castling · no en passant · a power never takes a king.</li></ul>`;
       return;
     }
     // The Cards tab (renderLedge, :1459-1465): the cards with art make a fan; the others wait in a stack, which a tap spreads.
     if (t === 'cards') {
       const rest = DECK.filter(c => !ART.includes(c)), face = (c: CardName): string => `<button type="button" class="cface lab-host${labOpen === c ? ' open' : ''}" data-lab="${c}"${labOpen === c ? ' aria-current="true"' : ''} aria-label="${cardName(c)} (LAB)">`
-        + `<img class="art" src="${cardArt(c)}" alt=""><span class="t">${cardName(c)}</span>${c in USES_RULE ? `<span class="badge"><img src="${import.meta.env.BASE_URL}ui/emblems/${kingOf(c as PowerName).toLowerCase()}.webp" alt=""></span>` : ''}<span class="lab-ribbon" aria-hidden="true">LAB</span></button>`;
+        + `${cardFace(c)}<span class="t">${cardName(c)}</span>${c in USES_RULE ? `<span class="badge"><img src="${import.meta.env.BASE_URL}ui/emblems/${kingOf(c as PowerName).toLowerCase()}.webp" alt=""></span>` : ''}</button>`;
       slotsEl.innerHTML = `<div class="cfan">${(spread ? rest : ART).map(face).join('')}</div>` + (spread ? '<button type="button" class="quiet cback" data-act="cardsback">‹ Back</button>'
         : `<button type="button" class="cstack" data-act="cardsall" aria-label="${rest.length} more cards"><span class="c"></span><span class="c"></span><span class="c"></span><b>+${rest.length}</b></button>`);
       return;
@@ -1444,17 +1451,17 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   function drawScene(): void {
     // In brush mode the design stands alone on d4; in look mode it stands on the board of Try with. A copy shows its paint diff against its pool piece.
     ({ board, from, st } = brush ? { board: boardOf(examplesOf({ from: [] })), from: parseSq('d4'), st: START } : pos);
-    const of = (d: PieceDesign): Scene => (d.from[0] ? diffOf(d, presetOf(d.from[0]), board, from, st) : sceneOf(d, board, from, st));
+    const of = (d: PieceDesign): Scene => (d.from[0] ? diffOf(d, presetOf(d.from[0]), board, from, st, preview) : sceneOf(d, board, from, st, preview));
     const next = peek ?? (shelfOpen && pick && !notNow(pick) ? { ...cur.d, rules: [...cur.d.rules, blockOf(pick).rule] } : null);
     // The knots belong to the design: they come from its example board, so a lift or a move keeps them (the mockup's asleep-b4).
     const home = examplesOf(cur.d);
-    sc = { ...of(cur.d), knots: traceOf(cur.d, boardOf(home), parseSq(home[0].sq)).knots };
+    sc = { ...of(cur.d), knots: traceOf(cur.d, boardOf(home), parseSq(home[0].sq), START, preview).knots };
     added = 0;
     if (!brush && (pos.became || pos.chain || pos.gone)) {
       // After a "becomes" the piece moves as that piece. A chain in progress shows only its next takes, from the chain itself:
       // the scene of the new square may not have them (a When that held at the start). A removed piece shows none, and no piece is open.
       const knots = sc.knots;
-      sc = { ...(pos.became ? sceneOf(now(), board, from, st) : sc), knots };
+      sc = { ...(pos.became ? sceneOf(now(), board, from, st, preview) : sc), knots };
       if (!pos.became) sc = { ...sc, pieces: piecesOf(board, pos.gone ? -1 : from), marks: movesNow().map(m => ({ sq: sqName(m.to), k: 'take' })), rails: [], arches: [], effects: [], impressions: [] };
     }
     if (next) {
@@ -1481,7 +1488,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       sc.marks = sc.marks.filter(m => !out(m.sq));
       sc.impressions = sc.impressions.filter(m => !out(m.sq));
       for (const r of sc.rails) if (out(r.to)) { const t = parseSq(r.to); r.to = sqName(sq(3 + 3 * Math.sign(file(t) - 3), 3 + 3 * Math.sign(rank(t) - 3))); r.end = 'arrow'; }
-    } else if (threats && !pos.gone) sc.effects.push(...threatsOf(now(), board, from, st));
+    } else if (threats && !pos.gone) sc.effects.push(...threatsOf(now(), board, from, st, preview));
     drawBoard();
     renderHits();
     renderPaint();
@@ -1504,7 +1511,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     // With a laid card the plaque turns burgundy: "LAB card" (proving-ground.html:1177-1179).
     const lab = !!laid && powersWork();
     q('.pg-plaque').hidden = !plaqueOn() && !lab;
-    q('.pg-plaque').innerHTML = lab ? `<span class="plaque lab" title="A test card. It is not in the game.">${sigil('card', 13)}LAB card</span>` : plaque();
+    q('.pg-plaque').innerHTML = lab ? `<span class="plaque lab" title="A test card. It is not in the game.">${sigil('card', 13)}Card</span>` : plaque();
     drawAlert();
     renderWhy();
     // A short right column has no room for the tray under the tag: the tray waits until the tag closes.
@@ -1572,8 +1579,20 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       if (token) toast(`Tap a square to put a ${tok === 'friend' ? 'white' : 'black'} pawn there, or tap a piece to take it away.`);
       return;
     }
-    // A new tab starts at the left of its row, with the open slot in view.
-    if (tb) { tab = tb as typeof tab; render(); rowEl.scrollLeft = 0; return revealOpenSlot(); }
+    // A new library tab opens its first item. Board and a failed save keep the current draft.
+    if (tb) {
+      const changed = tab !== tb, keepLedge = ledgeOpen;
+      tab = tb as typeof tab;
+      if (!changed || tab === 'board' || unsaved?.id === cur.d.id) render();
+      else if (tab === 'pieces') show(pool(PRESETS[0].key));
+      else if (tab === 'kings') openKing(KING_LIST[0]);
+      else if (tab === 'cards') openLab(spread ? DECK.find(c => !ART.includes(c))! : ART[0]);
+      else openSeal(BLOCKS[0].a);
+      if (keepLedge && !ledgeOpen) { ledgeOpen = true; render(); }
+      rowEl.scrollLeft = 0;
+      revealOpenSlot();
+      return q<HTMLElement>(`#pg-tab-${tab}`)?.focus({ preventScroll: true });
+    }
     if (os) return openSeal(os as Ability['a']);
     if (seen) { const a = sealOn; show(pool(seen)); focus = canonical(cur.d).rules.findIndex(r => r.does.a === a); tab = 'pieces'; render(); return q<HTMLElement>(`[data-piece="${seen}"]`)?.focus({ preventScroll: true }); }
     if (tr) return playOne(movesAt(why!).filter(m => actOf(m) === tr));
@@ -1638,7 +1657,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (act === 'share') return share();
     if (act === 'rename') return rename();
     if (act === 'looks') return looks();
-    if (act === 'astext') return void (shareable() && copyText(designText(cur.d, judge(cur.d, false), link(cur.d)), 'Copied as text.'));
+    if (act === 'astext') return void (shareable() && copyText(designText(cur.d, judge(cur.d), link(cur.d)), 'Copied as text.'));
     if (act === 'copydesign') return makeCopy();
     if (act === 'delete') return remove();
     if (act === 'done') return leave();
@@ -1714,11 +1733,13 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
 
   return {
     open(): void {
+      ownRules();
       enter(cur);
       const { bad } = loadShelf(); // the note of fix 19: a damaged entry is not lost, only not shown
       if (bad) toast(`${bad === 1 ? '1 saved entry' : `${bad} saved entries`} could not be read. ${bad === 1 ? 'It stays' : 'They stay'} on this device; the other designs work.`);
     },
     openDesign(code: string): void {
+      ownRules();
       const d = parseDesign(code);
       if (!d) toast('This design link could not be read.');
       enter(d ? { key: 'link', d, yours: false } : pool('pawn'));

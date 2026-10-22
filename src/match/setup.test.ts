@@ -1,11 +1,26 @@
+import { z } from 'zod';
 import { afterEach, describe, expect, it } from 'vitest';
 import { choiceSchema, optionsSchema } from './setup-schema';
 import { createMatch, type LocalMatch, type MatchSetup } from './index';
 import { mulberry32 } from '../sim/rng';
 import { KINGS, POWERS_BALANCED, setRules, type PowerName } from '../rules/rules';
-import { ALWAYS_ON, DEAL_CARDS, DEFAULT_OPTIONS, buildSetup, defaultChoice, draw, seatChoicesNeeded, validate, validateChoice, type Choice, type Options } from './setup';
+import { ALWAYS_ON, DEAL_CARDS, DEFAULT_OPTIONS, setupAdmission, buildSetup, defaultChoice, draw, seatChoicesNeeded, validate, validateChoice, type Choice, type Options } from './setup';
 
 const opts = (over: Partial<Options>): Options => ({ ...DEFAULT_OPTIONS, ...over });
+
+it('freezes the finite admission facts instead of consulting later defaults', () => {
+  const powers = { ...DEFAULT_OPTIONS, kingPowers: true, cards: true };
+  expect(setupAdmission(powers)).toEqual({ kings: [
+    { king: 'Mud', power: 'March' }, { king: 'Spirit', power: 'HolyLight' }, { king: 'Spirit', power: 'Mercy' },
+    { king: 'Shadow', power: 'DeathTouch' }, { king: 'Shadow', power: 'Darkness' },
+  ], arrangement: true, bishopsOpposite: true, guardAdjacent: true });
+  const stored = { kings: [{ king: 'Flame', power: 'Haste' } as const], arrangement: true, bishopsOpposite: true, guardAdjacent: true };
+  const o = { ...DEFAULT_OPTIONS, kingPowers: true }, d = { army: 'RBBNGKNR', hand: [] };
+  expect(validateChoice(o, d, { king: { king: 'Flame', power: 'Haste' }, order: d.army }, stored)).toBeNull();
+  expect(validateChoice(o, d, { king: { king: 'Mud', power: 'March' }, order: d.army }, stored)).toMatch(/king/);
+  expect(validateChoice(o, d, { king: stored.kings[0], order: 'RBNBGKNR' }, stored)).toMatch(/[Bb]ishops/);
+  expect(validateChoice(o, d, { king: stored.kings[0], order: 'GBBNRKNR' }, stored)).toMatch(/[Gg]uard/);
+});
 
 describe('game setup options', () => {
   it('defaults to fairy (all pieces), arrangement on, classic, cards and powers off (spec Q26)', () => {
@@ -207,6 +222,7 @@ describe('the schemas', () => {
     expect(optionsSchema.safeParse({ ...DEFAULT_OPTIONS, extra: 1 }).success).toBe(false);
     expect(optionsSchema.safeParse({ ...DEFAULT_OPTIONS, pool: ['K'] }).success).toBe(false);
     expect(optionsSchema.safeParse(opts({ classic: true })).error?.issues[0].message).toMatch(/Classic/);
+    expect(JSON.stringify(z.toJSONSchema(choiceSchema))).toContain('^[A-Za-z]{1,32}$');
     expect(choiceSchema.parse(choice(ARMY, { king: 'Mud', power: 'March' }))).toEqual(choice(ARMY, { king: 'Mud', power: 'March' }));
     expect(choiceSchema.safeParse(choice('QRNAKBB', null)).success).toBe(false);
   });

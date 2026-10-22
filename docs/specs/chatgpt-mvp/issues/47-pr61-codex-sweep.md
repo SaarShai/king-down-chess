@@ -14,7 +14,7 @@ Base: `ba2e775c`. One worktree and branch for each fix group,
 3. One agent fixes each group with a test for each fault. A reviewer
    checks each branch.
 4. Merge the branches into `claude/release-candidate`, run `tsc` and the
-   pre-push suite, and push once.
+   CI suite, and push once. The pre-push hook runs the repo gate.
 
 ## Result
 

@@ -1,5 +1,6 @@
-import type { Game } from '../game';
 import { cursorText } from '../cursor-text';
+import type { Game } from '../game';
+
 import { clickPath } from '../marks-model';
 import { file as fileOf, rank as rankOf, sq as square, sqName, typeOf, type Move, type Position } from '../rules/engine';
 import { pieceText } from '../ui/guide';
@@ -62,8 +63,8 @@ export function connectKeys(board: HTMLElement, play: KeysPlay, commands: KeyCom
     if (cursor == null) return;
     const p = play.shownPos().board[cursor];
     const selected = play.selected(), target = selected != null && play.candidates().some(m => clickPath(m)[play.pending().length] === cursor);
-    const card = cursor !== selected && !target && cursor === play.inspected() ? `. ${pieceText(typeOf(p))}` : ''; // a piece chosen with Enter to read: its card
-    $('cursor-say').textContent = cursorText(play.shownPos(), cursor, selected, target) + card;
+    const card = cursor !== selected && !target && cursor === play.inspected() ? `. ${pieceText(typeOf(p), play.game().context)}` : ''; // a piece chosen with Enter to read: its card
+    $('cursor-say').textContent = cursorText(play.game().context, play.shownPos(), cursor, selected, target) + card;
   }
   connectReadKey(board, () => cursor, commands.read);
   board.addEventListener('focus', () => {
