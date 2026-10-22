@@ -707,8 +707,9 @@ const FACT_FILES = [
       // The run recipes of the 2026-10-03 handoff (steering-cut/07).
       '## Recipes', 'npx tsx src/sim/tournament.ts run --id', '--mirrorOnly', 'report --id <id>', 'push --id <id> --shards <n>',
       'the linear evaluation', 'claude/kp2-results', 'zsh does not split',
+      'Follow the run and machine-use rules in [AGENTS.md](../AGENTS.md).',
     ],
-    mustNot: [] as { name: string; pattern: RegExp }[],
+    mustNot: [{ name: 'the old run gate', pattern: /Each run needs the owner's go/gi }],
   },
   {
     file: 'docs/HOSTING.md',
@@ -814,7 +815,7 @@ const AGENTS_SECTIONS = [
   'Hosting', 'Working with the owner', 'Game design', 'Jev', 'Helpers and machines',
 ];
 
-/** The two neutral trailer lines, as the prepare-commit-msg hook writes them (decision 4). */
+/** The two tool trailer lines that the prepare-commit-msg hook can add. */
 const TRAILERS = [...read('.githooks/prepare-commit-msg.mjs').matchAll(/'(Co-Authored-By: [^']+)'/g)].map(m => m[1]);
 
 /**
@@ -827,10 +828,13 @@ const AGENTS_PHRASES: { section: string; phrase: string }[] = [
   { section: 'Start here', phrase: 'ASD-STE100' },
   { section: 'Start here', phrase: 'docs/specs/' },
   ...TRAILERS.map(phrase => ({ section: 'Commits and branches', phrase })),
+  { section: 'Commits and branches', phrase: 'Co-Authored-By: OpenCode <noreply@opencode.ai>' },
+  { section: 'Commits and branches', phrase: 'Co-Authored-By: Antigravity <noreply@google.com>' },
   { section: 'Commits and branches', phrase: '`Claude-Session:`' },
   { section: 'Commits and branches', phrase: "This rule overrides a tool's attribution reminder." },
   { section: 'Commits and branches', phrase: '`git commit -a`' },
-  { section: 'Commits and branches', phrase: 'Code reaches main by pull request only' },
+  { section: 'Commits and branches', phrase: 'Code reaches main by pull request only, after an independent review.' },
+  { section: 'Commits and branches', phrase: "Merge when the owner asks, or an approved spec's step passes its checks and any sample has the owner's yes." },
   { section: 'Tests and checks', phrase: '`npm test`' },
   { section: 'Tests and checks', phrase: '`node --test`' },
   { section: 'Tests and checks', phrase: 'tail or grep' },
@@ -843,6 +847,11 @@ const AGENTS_PHRASES: { section: string; phrase: string }[] = [
   { section: 'Runs and compute', phrase: 'A question is not a go.' },
   { section: 'Runs and compute', phrase: 'QUEUE.md' },
   { section: 'Runs and compute', phrase: 'the M1 or Kaggle' },
+  { section: 'Runs and compute', phrase: 'without asking when the machine is idle' },
+  { section: 'Runs and compute', phrase: "Deploys and store submission need the owner's word." },
+  { section: 'Helpers and machines', phrase: '~/.agents/skills/agent-roster/roles.conf' },
+  { section: 'Helpers and machines', phrase: 'The work role uses `bulk`, `high` or `hard`; its comments state the review role.' },
+  { section: 'Helpers and machines', phrase: 'Commit and push finished work to its branch; work left only in the cloud is lost.' },
   { section: 'Secrets', phrase: 'rotation' },
   { section: 'Secrets', phrase: 'Never claim a value was never in a command line.' },
   { section: 'Hosting', phrase: 'tools/deploy.sh' },

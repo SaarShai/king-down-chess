@@ -7,6 +7,11 @@ const mixed = (word: string) => [...word].map((c, i) => (i % 2 ? c.toUpperCase()
 const tags = ['', ' 5', ' 5.5', '-5', '-4.1', '5.1', '-6-x', ' v2'];
 
 describe('findModelNames', () => {
+  // Keep these cases separate from MODEL_NAMES. Split words keep the name lint clean.
+  it.each(['s' + 'ol', 'ast' + 'ra', 'ar' + 'gon'])('finds the required role alias %s', name => {
+    expect(findModelNames(`Use ${name}.`)).toEqual([{ word: name, line: 1 }]);
+  });
+
   it('holds a list of names in lower case', () => {
     expect(MODEL_NAMES.length).toBeGreaterThan(0);
     for (const name of MODEL_NAMES) expect(name).toMatch(/^[a-z]+$/);
@@ -38,7 +43,7 @@ describe('findModelNames', () => {
   });
 
   it('gives no find for a clean message', () => {
-    const clean = 'Pre-push: refuse a push to main that touches src/\n\nThe knight on o3 and e4 stays.\n\nCo-Authored-By: Claude Code <noreply@anthropic.com>\nCo-Authored-By: Codex <noreply@openai.com>\n';
+    const clean = 'Pre-push: refuse a push to main that touches src/\n\nThe knight on o3 and e4 stays.\n\nCo-Authored-By: Claude Code <noreply@anthropic.com>\nCo-Authored-By: Codex <noreply@openai.com>\nCo-Authored-By: OpenCode <noreply@opencode.ai>\nCo-Authored-By: Antigravity <noreply@google.com>\n';
     expect(findModelNames(clean)).toEqual([]);
   });
 });

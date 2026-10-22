@@ -1,6 +1,6 @@
-# Painted board trial — seven-piece cast
+# Painted board — shared game scene and local preview
 
-Open http://127.0.0.1:5192/board/. This is a local visual/interaction experiment, using full painted silhouettes, continuous shoulder motion and two army palettes. It does not replace the playable game on 5189. Owner review is pending.
+The shipped game uses `scene.mjs` through `src/render/PaintedView.ts`. The page at http://127.0.0.1:5192/board/ is a local preview. The dated trials and limits below are history, not the current game state.
 
 The third character is now available in **Ogre encounter**: [open his position](http://127.0.0.1:5192/board/?position=ogre). He has a planted shove, enemy/friendly pushes and an explicit capture-or-push choice. [Artwork, method and additional verification](../ogre/README.md).
 

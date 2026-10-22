@@ -6,7 +6,7 @@ The facts for the live site, its domain and the secret files. Every deploy publi
 
 - The game is public at https://kingdown.vercel.app and https://kingdown.dev.
 - Vercel project `kingdown`, team "Saar's projects" (`saars-projects-2c777ec5`), Pro plan. The Vercel CLI on this Mac is signed in.
-- The plugin uses the separate `kingdown-plugin` project in the same team. Its assigned origin is `https://kingdown-plugin.vercel.app`. [The setup guide](plugin-preparation.md) links to the release ticket and its public IDs. Its public MCP endpoint requires OAuth. The private ChatGPT connection does not make the HTTPS endpoint private.
+- The site, MCP, OAuth and internal jobs use project `kingdown` at `https://kingdown.dev` (release, 2026-10-19). The separate `kingdown-plugin` project is the old target. Keep it until the retirement step in the release runbook. [The setup guide](plugin-preparation.md) links to the release ticket and its public IDs. Its public MCP endpoint requires OAuth. The private ChatGPT connection does not make the HTTPS endpoint private.
 
 ## Deploy
 
@@ -18,7 +18,7 @@ The facts for the live site, its domain and the secret files. Every deploy publi
 - Legacy: `tools/deploy.sh --configure-plugin <private-env-file>` sets the seven approved plugin production values. The file must belong to this user and have mode 600. Use the six original keys and `KINGDOWN_INTERNAL_SECRET` (at least 32 characters) once, with the old plugin origin and client, as unquoted `KEY=value` lines. The database URL must use the runtime role and `?sslmode=require`, with no other query option. Values pass through standard input; CLI output for each write is withheld. This command does not deploy. Set readiness to `1` only after the provider and audience checks pass.
 - Legacy: `tools/deploy.sh --target plugin` requires `PLUGIN_TEST_DATABASE_URL`, a disposable loopback database whose name ends in `_test`. It prepares that schema, runs `npm test`, builds the Vercel artifact, checks its compiled HTTP server, worker and MCP protocol, and runs `plugin-oauth`, `plugin-ui` and `plugin-ui-http` through the browser runner. It publishes nothing.
 - Legacy: add `--publish` to the plugin command to release that tested artifact with `vercel@62.2.0 --prebuilt --prod`. The script checks the exact project ID and team ID before this step. It uses the project's production environment; no secret is passed as a CLI argument. It then checks discovery, the unsigned MCP challenge and the built consent script without a player session.
-- A build that adds an engine must stop until its bundle and fixture are on `origin/main`. Set `KINGDOWN_ENGINES_DATABASE_URL` on the release command to check the engines of unfinished games. The script reports a skip when this read-only input is absent. It is not a production server key.
+- A build that adds an engine must stop until its bundle and fixture are on `origin/main`. Set `KINGDOWN_ENGINES_DATABASE_URL` on the release command to check the engines of unfinished games. A `--publish` command stops before it makes a worktree when this read-only input is absent. A check-only run may skip, with a message. It is not a production server key.
 - Both live checks use `DEPLOY_LIVE_TIMEOUT_MS`. The default is 120000 ms. Set 900000 ms for the migration window. Run the release command detached.
 - The script takes no branch or commit. A commit that is not on `origin/main` cannot go live.
 - The tool gate asks before a `vercel` command, a Porkbun API call or a browser visit to the live site or the Vercel dashboard.

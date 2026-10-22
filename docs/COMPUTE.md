@@ -1,6 +1,6 @@
 # Compute
 
-The machine facts for runs: Kaggle, the M1, this Mac's power, the shell limit, the browser-check runner and the run recipes. The rules for runs (the owner's go, the smoke allowance) are in [AGENTS.md](../AGENTS.md). Runs are listed in [QUEUE.md](QUEUE.md).
+The machine facts for runs: Kaggle, the M1, this Mac's power, the shell limit, the browser-check runner and the run recipes. The run and machine-use rules are in [AGENTS.md](../AGENTS.md). Runs are listed in [QUEUE.md](QUEUE.md).
 
 ## Kaggle
 
@@ -35,7 +35,7 @@ The machine facts for runs: Kaggle, the M1, this Mac's power, the shell limit, t
 
 ## Recipes
 
-The run recipes of the 2026-10-03 handoff, now in the [tasks archive](tasks-archive/). Each run needs the owner's go ([AGENTS.md](../AGENTS.md)). For the tests and the browser checks, use `npm test` and `npm run check:browser`.
+The run recipes of the 2026-10-03 handoff, now in the [tasks archive](tasks-archive/). Follow the run and machine-use rules in [AGENTS.md](../AGENTS.md). For the tests and the browser checks, use `npm test` and `npm run check:browser`.
 
 Run the whole unit suite only as `npm test`. It waits for the machine's test lock, `tools/test-lock.sh`. A bare `vitest run` or `npx vitest` with no file skips the lock. Its load made the deploy's timed judge tests fail on 2026-10-19. Run one file as `bash tools/test-lock.sh npx vitest run <file>`.
 
