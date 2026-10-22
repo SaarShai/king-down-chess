@@ -231,7 +231,7 @@ it.each(['computer', 'link'] as const)('speaks from either viewer when either ki
 
 it.each(['haste', 'rally'] as const)('describes the final %s ply without another move', power => {
   const pos = fromFen('7k/8/8/8/8/R7/8/7K w - - 0 1');
-  expect(describeMove(new GameRules(RULES), pos, { from: 16, to: 56, captures: [], power }, true, true)).toBe('White rook a3 to a8.');
+  expect(describeMove(new GameRules(RULES), pos, { from: 16, to: 56, captures: [], power }, true, true)).toBe(`White rook a3 to a8 with ${power === 'haste' ? 'Haste' : 'Rally'}.`);
 });
 
 
@@ -277,7 +277,7 @@ describe('screen-reader lines for released cards', () => {
     Salvation: [['Salvation'], '4k3/8/8/8/8/8/8/4K3 w - - 0 1 lQ', 'Q@d1!R', 'White uses Salvation to bring back a queen on d1.'],
     MirrorB: [['MirrorB', 'Freeze'], '4k3/8/3p4/3n4/8/8/8/4K3 w - - 0 1', '!F:d5!Z', 'With Mirror, White freezes the black knight on d5.'],
     Firewall: [['Firewall'], '4k3/8/8/8/8/8/8/4K3 w - - 0 1', '!P', 'White uses Firewall to protect all its pieces until its next turn.'],
-    EarthQuake: [['EarthQuake'], '4k3/8/8/3p4/8/8/8/4K3 w - - 0 1', '!Q:c4', 'White uses Earth Quake on c4 and pushes the pawn on d5 to e6.'],
+    EarthQuake: [['EarthQuake'], '4k3/8/8/3p4/8/8/8/4K3 w - - 0 1', '!Q:c4', 'White uses Earth Quake on c4 and pushes the black pawn on d5 to e6.'],
     Burn: [['Burn'], '4k3/8/8/8/3p4/8/8/3NK3 w - - 0 1', 'Nd1xd4!N', 'White knight d1 to d4, taking the pawn on d4 with Burn.'],
     FireStarter: [['FireStarter'], '3rk3/8/8/8/8/8/8/3NK3 w - - 0 1', 'Nd1xd8!T', 'White knight d1 to d8, taking the rook on d8 with Fire Starter.'],
     Control: [['Control'], '4k3/8/8/8/8/8/8/1NR1K3 w - - 0 1', 'Nb1-b5!O', 'White knight b1 to b5 with Control.'],
@@ -301,6 +301,11 @@ describe('screen-reader lines for released cards', () => {
     const line = say(fromFen(fen), lan);
     expect(line).toBe(text);
     expect(line).toContain(VERB[id] ?? name);
+  });
+
+  it('names the side of each pushed piece', () => {
+    setRules({ hands: [['EarthQuake'], []] });
+    expect(say(fromFen('4k3/8/8/2PpP3/8/8/8/4K3 w - - 0 1'), '!Q:c4')).toBe('White uses Earth Quake on c4 and pushes the white pawn on c5 to c6 and the black pawn on d5 to e6.');
   });
 
   it('counts the pieces when an Earth Quake pushes more than two', () => {

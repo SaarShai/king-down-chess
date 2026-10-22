@@ -1,6 +1,6 @@
 # Name each released card in the move sentence
 
-Status: ready-for-human. Branch `staging/lane-cardtext`, from `73387e66`.
+Status: complete on branch `staging/lane-cardtext`; review fixes done; merge open. Parent: U09. Branch from `73387e66`.
 
 ## What
 
@@ -27,7 +27,7 @@ Sentences at `73387e66`, from a real legal move of each card (a probe script out
 | Salvation | `Q@a1!R` | `White  a1 to a1.` (no piece name) |
 | Mirror | `!F:d5!Z` | White freezes the black knight on d5. (no Mirror) |
 
-Freeze, Ice Wall, Strike, Haste, Flight, Sacrifice, Firewall, Rally and Morph already named the card (Freeze, Flight, Sacrifice and Morph by their verb).
+Freeze, Ice Wall, Strike, Flight, Sacrifice, Firewall and Morph already named the card (Freeze, Flight, Sacrifice and Morph by their verb). Haste and Rally named the card only when `final` is false; the end card (`final` true) did not name them. See Review fixes.
 
 ## Scope
 
@@ -66,7 +66,7 @@ After the change, each card names itself:
 | Fire Starter | White knight d1 to d8, taking the rook on d8 with Fire Starter. |
 | Curse | White uses Curse to move the black knight on d5 to e5. |
 | Sky Lift | White uses Sky Lift to swap the knight on b1 and the bishop on c1. |
-| Earth Quake | White uses Earth Quake on c4 and pushes the pawn on d5 to e6. |
+| Earth Quake | White uses Earth Quake on c4 and pushes the black pawn on d5 to e6. |
 | Salvation | White uses Salvation to bring back a queen on d1. |
 | Mirror | With Mirror, White freezes the black knight on d5. |
 
@@ -81,3 +81,18 @@ Checks:
 - Baseline: in a clean worktree at `73387e66` (`tools/wt.sh add baseline/lane-cardtext-73387e66 73387e66`, removed after), `npm run check:browser turn plugin-ui` fails the same two ways: `FAIL turn  locator.click: Timeout 30000ms exceeded.` and `FAIL plugin-ui  locator.click: Timeout 10000ms exceeded.`, with the same waiting locators. These two failures come before this change; this ticket does not fix them.
 - Full `npm test` with `PLUGIN_TEST_DATABASE_URL` set: `Test Files  5 failed | 249 passed (254)`, `Tests  12 failed | 4652 passed | 8 skipped (4672)`. All 12 failures are in plugin UI files (`tools/plugin-app`, `plugin-lobby`, `plugin-profile`, `plugin-real-host`, `plugin-screen-lifecycle`), and 11 of them are timeouts or wait-for-tick checks. None reads move text.
 - Those five files again, with `KINGDOWN_TEST_FILE='tools/plugin-{app,lobby,profile,real-host,screen-lifecycle}.test.ts'`, on this branch (`84d77baa`) and in the baseline worktree (`73387e66`): both give `Test Files  4 failed | 1 passed (5)`, `Tests  11 failed | 208 passed (219)`, with the same 11 case names. These failures come before this change. The `plugin-real-host` case ("says it cannot connect after three failed polls offline…") fails only in the full run and passes on both reruns, so it is unstable under load.
+
+## Review fixes
+
+A three-lens review found no blocker and four nits. Fixes:
+
+1. Earth Quake: each pushed piece now carries its colour, in the form Curse, Freeze and Ice Wall use (`the white pawn on c5`). Probe `4k3/8/8/2PpP3/8/8/8/4K3 w - - 0 1`, `!Q:c4`: `White uses Earth Quake on c4 and pushes the white pawn on c5 to c6 and the black pawn on d5 to e6.` The Earth Quake case now expects `the black pawn on d5`. A new test pushes pieces of both colours.
+2. End card: with `final` true, Haste and Rally now add ` with Haste` or ` with Rally` (`White rook a1 to a5 with Haste.`). The `may move again` text stays for `final` false. The existing final test now expects the card name. No other expected string changed.
+3. Salvation, Curse and Sky Lift take their names from `cardName(TAG_POWER[m.power])`, as the other branches do. Haste and Rally do the same.
+4. This ticket: status line, the Haste and Rally line in Why, and the Earth Quake row in Result are corrected.
+
+Checks after the fixes:
+- `KINGDOWN_TEST_FILE=src/move-text.test.ts npm test`: `Test Files  1 passed (1)`, `Tests  52 passed (52)`.
+- Other readers (`src/read`, `src/presentation-ownership`, `src/previously`, `src/rules/{spawn,classic-chess,morph,morph-soft}`, `src/plugin/screens/board-model`, `src/screen/moments`, `tools/plugin-board`): `Test Files  10 passed (10)`, `Tests  454 passed (454)`.
+- `npm run typecheck`: exit 0. `npm run test:docs`: `Test Files  13 passed (13)`, `Tests  161 passed (161)`.
+- `npm run plugin:build:runtime`: `worker.mjs` sha256 `677b4eeaa35113f0cf2b677f1e3650ae512de72485f0ce2c6617383c3af83f0b`, unchanged.

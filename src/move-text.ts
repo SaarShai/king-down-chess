@@ -101,11 +101,11 @@ function moveSentence(context: MoveRules, pre: Position, m: Move, freePass: bool
   if (m.power === 'sacrifice') return `${side} sacrifices the pawn on ${sqName(m.from)} and brings back ${context.aName(m.promo!)} there.`;
   if (m.power === 'morph' || m.power === 'morphb' || m.power === 'morphp') return `${side} turns ${theOn(m.from)} into ${context.aName(m.promo!)}.`;
   if (isSpawnTag(m.power)) return m.drop2 === undefined ? `${side} adds a pawn on ${sqName(m.to)}.` : `${side} adds pawns on ${sqName(m.to)} and ${sqName(m.drop2)}.`;
-  if (m.power === 'salvation') return `${side} uses Salvation to bring back ${context.aName(m.drop!)} on ${sqName(m.to)}.`;
-  if (m.power === 'curse') return `${side} uses Curse to move the ${colour(m.from)} ${the(m.from)} to ${sqName(m.to)}.`;
-  if (m.power === 'skylift') return `${side} uses Sky Lift to swap ${theOn(m.from)} and ${theOn(m.to)}.`;
+  if (m.power === 'salvation') return `${side} uses ${cardName(TAG_POWER[m.power])} to bring back ${context.aName(m.drop!)} on ${sqName(m.to)}.`;
+  if (m.power === 'curse') return `${side} uses ${cardName(TAG_POWER[m.power])} to move the ${colour(m.from)} ${the(m.from)} to ${sqName(m.to)}.`;
+  if (m.power === 'skylift') return `${side} uses ${cardName(TAG_POWER[m.power])} to swap ${theOn(m.from)} and ${theOn(m.to)}.`;
   if (m.pushes) {
-    const pushed = m.pushes.length > 2 ? `${m.pushes.length} pieces one square away` : m.pushes.map(p => `${theOn(p.from)} to ${sqName(p.to)}`).join(' and ');
+    const pushed = m.pushes.length > 2 ? `${m.pushes.length} pieces one square away` : m.pushes.map(p => `the ${colour(p.from)} ${the(p.from)} to ${sqName(p.to)}`).join(' and ');
     return `${side} uses ${cardName(TAG_POWER[m.power!])} on ${sqName(m.to)} and pushes ${pushed}.`;
   }
   if (m.castle) return `${side} castles ${file(m.to) === 6 ? 'short' : 'long'}.`;
@@ -119,8 +119,9 @@ function moveSentence(context: MoveRules, pre: Position, m: Move, freePass: bool
   if (m.promo) text += `, and becomes ${context.aName(m.promo)}`;
   if (m.selfRemove) text += `; ${context.theName(typeOf(piece))} leaves the board`;
   if (WITH_CARD.has(m.power)) text += ` with ${cardName(TAG_POWER[m.power!])}`;
-  if (!final && m.power === 'haste') text += `, with Haste: ${context.theName(typeOf(piece))} may move again`;
-  if (!final && m.power === 'rally') text += ', with Rally: a different piece may move next';
+  if (final && (m.power === 'haste' || m.power === 'rally')) text += ` with ${cardName(TAG_POWER[m.power])}`;
+  else if (m.power === 'haste') text += `, with ${cardName(TAG_POWER[m.power])}: ${context.theName(typeOf(piece))} may move again`;
+  else if (m.power === 'rally') text += `, with ${cardName(TAG_POWER[m.power])}: a different piece may move next`;
   return `${text}.`;
 }
 
