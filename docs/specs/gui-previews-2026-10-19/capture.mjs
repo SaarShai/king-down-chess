@@ -7,6 +7,7 @@ import { preview } from 'vite';
 import { chromium } from 'playwright';
 const unregister = register();
 const { startHarness } = await import('../../../tools/plugin-ui-harness.ts');
+const { settled } = await import('../../../tools/lib/plugin-settled.mjs');
 const root = process.env.KD_GUI_PREVIEW_ROOT || '/tmp/kd-gui-prev-board-picks';
 const out = join(root, 'shots'); await mkdir(out, { recursive: true });
 const item = process.argv[3] || process.env.KD_GUI_PREVIEW;
@@ -72,8 +73,7 @@ try {
         // harnessShow returns when the host sends the result; the frame then mounts it. It reads the board (the host
         // answers with harnessNextView and clears it), draws the view and keeps each control off until the mount ends.
         // Until then the old board is idle, so ready() alone passes and a tap lands on the old position.
-        await p.waitForFunction(() => window.harnessNextView === undefined && window.harnessInflight === window.harnessHeld);
-        await f.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+        await settled(p, f);
         await ready();
       }
       async function tap(sq, flipped = false) {

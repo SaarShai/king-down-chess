@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'vite';
 import { shot, STEP } from './checks.mjs';
+import { settled } from './plugin-settled.mjs';
 
 async function visibleDiagram(diagram) {
   await diagram.scrollIntoViewIfNeeded();
@@ -60,7 +61,7 @@ export async function checkCardDetails(browser, base, engine) {
           else await route.continue();
         });
         await page.evaluate(result => window.harnessShow(result, true), result());
-        await frame.locator('#board[aria-busy="false"]').waitFor();
+        await frame.locator('#board[aria-busy="false"]').waitFor(); await settled(page, frame);
         for (const [index, card] of ['Strike', 'Haste', 'Flight', 'Control'].entries()) {
           await frame.locator(`#card-w-${index}`).click();
           if (card !== 'Control') await visibleDiagram(frame.locator(`#board-sheet .card-diagram:has(.pm-${card})`));
@@ -95,7 +96,7 @@ export async function checkCardDetails(browser, base, engine) {
           await page.clock.install();
           view = { ...view, game_id: randomUUID(), kind: 'friend' };
           await page.evaluate(result => window.harnessShow(result, true), result());
-          await frame.locator('#board[aria-busy="false"]').waitFor();
+          await frame.locator('#board[aria-busy="false"]').waitFor(); await settled(page, frame);
           await frame.locator('#board-menu').click(); await frame.locator('#menu-draw').click();
           await page.evaluate(() => { window.holdBeforeNext = 'kingdown_draw'; window.failNextAction = true; });
           // Fail before the server receives the draw offer.

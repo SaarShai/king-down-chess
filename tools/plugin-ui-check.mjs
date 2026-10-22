@@ -6,6 +6,7 @@ import { checkCardDetails } from './lib/card-detail-check.mjs';
 import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { checkCoinFocus } from './lib/plugin-coin-focus-check.mjs';
+import { settled } from './lib/plugin-settled.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { boxText, layoutMessage } from './lib/layout-message.mjs';
 import { assertCardReadState } from './lib/plugin-card-read.mjs';
@@ -117,12 +118,13 @@ try {
   const options = {fairy:true,pool:['R','A','G','Q','M','S','O'],arrangement:false,classic:false,cards:false,cardPool:[],kingPowers:false};
   // Waits until every tool call at the host has returned, then one frame in the frame. A released reply reaches the
   // frame before the check reads the DOM. The built page hides its client, so the host's own count stands in.
-  async function settled() {
+  // This wait passes while a held call keeps a mount open; a step that reads the screen after it uses idleBoard().
+  async function callsDone() {
     const end = Date.now() + 10000;
     for (;;) {
       const done = await page.evaluate(() => (window.harnessInflight ?? 0) === (window.harnessHeld ?? 0));
       if (done) break;
-      if (Date.now() > end) throw new Error('settled: a tool call still waits');
+      if (Date.now() > end) throw new Error('callsDone: a tool call still waits');
       await new Promise(resolve => setTimeout(resolve, 10));
     }
     await frame.locator('html').evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve(undefined))));
@@ -258,7 +260,8 @@ try {
       lock: page && { screen: page.screen, connected: page.connected, mounting: page.mounting, writing: page.writing },
       page: document.body.dataset.page, reload: document.querySelector('#reload')?.disabled, error: document.querySelector('#error')?.textContent, animations: document.getAnimations().slice(0, 8).map(a => `${a.animationName ?? a.transitionProperty ?? 'animation'}:${a.playState}`) };
   }, undefined, { timeout: 10_000 });
-  async function idleBoard() { await widget().waitForFunction(() => document.querySelector('#reload')?.disabled === false); }
+  // The frame is settled (tools/lib/plugin-settled.mjs): no reply or draw is due that replaces the nodes a step reads.
+  async function idleBoard() { await settled(page, frame); }
   async function remount(screen) {
     // Each mount reads the settings; a mount with no board makes no board read.
     const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length);
@@ -311,7 +314,7 @@ try {
   const retiredWidgetStates = [], retiredDraftBases = {};
   async function freshHost(screen) {
     // A widget-state write still in transit would be lost with the old page.
-    await settled();
+    await callsDone();
     const saved = await page.evaluate(() => ({ context: window.harnessHostContext, mode: window.harnessDisplayMode, result: window.harnessWidgets.at(-1).initialResult, state: window.harnessWidgetState, states: window.harnessWidgetStates, draftBases: window.harnessDraftBases }));
     retiredWidgetStates.push(...saved.states); Object.assign(retiredDraftBases, saved.draftBases);
     await page.goto(base);
@@ -328,7 +331,7 @@ try {
     await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length > n, reads);
     await idleBoard();
     if (screen) await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
-    await settled();
+    await callsDone();
   }
   // Ticket 16: profile and collection.
   {
@@ -408,11 +411,12 @@ try {
     for (const [size,width,height] of [['phone',390,844],['panel',400,900],['desktop',1440,900]]) {
       await page.setViewportSize({width,height});
       // The rows of the last visit show at once, and this visit's read draws them again with new buttons. A redraw
-      // between the locator resolve and the read detaches each row. Read the rows after this visit's read ends.
+      // between the locator resolve and the read detaches each row. Read the rows after this visit's read ends: it has
+      // started, and then the frame is settled.
       const profileReads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_profile').length);
       await openScreen('profile');
       await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_profile').length > n, profileReads);
-      await frame.locator('#profile-status').filter({hasText:'Loading profile…'}).waitFor({state:'hidden'});
+      await settled(page, frame);
       await frame.locator('#profile-open button').first().waitFor();
       await checkFlatRows(frame, '#profile-open button');
       assert.deepEqual(await frame.locator('#profile-open button').evaluateAll(rows=>rows.map(row=>row.dataset.gameId)),openIds,'Open games keep your turn first');
@@ -531,6 +535,8 @@ try {
       await remountFrame();
       await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length > n, reads);
       await frame.locator('#setup-start:not(:disabled)').waitFor();
+      // The mount's Play read ends later, and each store pass draws the setup card grid again with new buttons.
+      await settled(page, frame);
       await page.evaluate(()=>{window.harnessDropWidgetWrites=false;});
     }
     async function setupFits(width, height, state, compare = true) {
@@ -834,7 +840,7 @@ try {
     const profile = await setupTool('kingdown_open', {screen:'profile'});
     await page.evaluate(result => window.harnessShow(result), profile);
     await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
-    await page.evaluate(() => window.releaseHeld()); await settled();
+    await page.evaluate(() => window.releaseHeld()); await callsDone();
     assert(await frame.locator('[data-screen="profile"]').isVisible(), 'A late Choose keeps the newer Profile screen');
     assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending ?? null), null);
     await abortSetup(lateGame);
@@ -848,9 +854,9 @@ try {
     const getsBeforeSeat = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
     await page.evaluate(result => { window.holdNextGet = true; return window.harnessShow(result); }, seatResult);
     await page.evaluate(() => window.releaseHeld());
-    await page.waitForFunction(() => !!window.releaseHeldGet); await settled();
+    await page.waitForFunction(() => !!window.releaseHeldGet); await callsDone();
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length), getsBeforeSeat + 1, 'The old computer reply sends no recovery read over the mount');
-    await page.evaluate(() => window.releaseHeldGet()); await settled();
+    await page.evaluate(() => window.releaseHeldGet()); await callsDone();
     await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
     assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'seat');
     await abortSetup(nextSeat._meta.view.game_id); await abortSetup(oldComputerGame);
@@ -859,17 +865,17 @@ try {
       const mountGame = await setupTool('kingdown_create', { kind: 'solo', colour: 'white', options: { ...DEFAULT_OPTIONS, arrangement: true, kingPowers: false } });
       const mountResult = await setupTool('kingdown_open', { game_id: mountGame._meta.view.game_id });
       await page.evaluate(result => window.harnessShow(result), mountResult);
-      await frame.locator('[data-screen="seat"]:not([hidden])').waitFor(); await settled();
+      await frame.locator('[data-screen="seat"]:not([hidden])').waitFor(); await callsDone();
       const listed = (await setupTool('kingdown_games'))._meta.games;
       await page.evaluate(name => { window.holdNext = name; }, held);
       await remountFrame(); await page.waitForFunction(() => !!window.releaseHeld);
-      await page.clock.fastForward(20_000); await settled();
+      await page.clock.fastForward(20_000); await callsDone();
       assert(await frame.locator('#home-play').isDisabled(), `${held} still holds the mount lock after 20 s`);
       assert(await frame.locator('#setup-start').isDisabled(), `${held} still locks Start`);
       assert.equal(await frame.locator('#error').textContent(), '');
       assert.equal(await frame.locator('#home-error').textContent(), '');
       if (held === 'kingdown_games') assert.equal(await frame.locator('#games-status').textContent(), 'Loading games…');
-      await page.evaluate(() => window.releaseHeld()); await settled();
+      await page.evaluate(() => window.releaseHeld()); await callsDone();
       await frame.locator('#home-play:not(:disabled)').waitFor({ state: 'attached' });
       assert.equal(await frame.locator('#error').textContent(), '');
       assert.equal(await frame.locator('#home-error').textContent(), '');
@@ -1193,6 +1199,8 @@ try {
   }
   await page.setViewportSize({width:1000,height:1000});
   await openPlay();
+  // The rows of the last visit show at once; the Play read draws them again.
+  await settled(page, frame);
   const savedGame = frame.locator('#games-list button').first();
   await savedGame.waitFor();
   const inbox = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_games', arguments: {} } })).json();
@@ -1418,7 +1426,7 @@ try {
     await frame.locator('#friend-copy-status').filter({ hasText: /^Shared$/ }).waitFor();
     assert.equal(await frame.locator('html').evaluate(() => window.sharedInvite), fullInvite, 'Share sends the same full invite');
     const invites = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length);
-    await openPlay();
+    await openPlay(); await settled(page, frame);
     const inviteRow = frame.locator('.friend-invite-row').filter({ hasText: code });
     await inviteRow.waitFor();
     for (const [width, height] of [[197,426], [320,568], [390,844]]) {
@@ -1648,9 +1656,9 @@ try {
     try {
       await frame.locator('#page-back').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
       assert(!(await tool('kingdown_cancel', { game_id: staleOffer._meta.view.game_id }, true)).isError);
-      await frame.locator('#play-open').click(); await frame.locator('#lobby-status').filter({ hasText: /^$/ }).waitFor({ state: 'attached' }); await settled();
+      await frame.locator('#play-open').click(); await frame.locator('#lobby-status').filter({ hasText: /^$/ }).waitFor({ state: 'attached' }); await callsDone();
       const currentRows = await frame.locator('#lobby-list').innerText();
-      await page.evaluate(() => window.releaseHeld()); await settled();
+      await page.evaluate(() => window.releaseHeld()); await callsDone();
       assert.equal(await frame.locator('#lobby-list').innerText(), currentRows, 'An old embedded lobby reply cannot restore the cancelled offer');
     } finally { await page.evaluate(() => window.releaseHeld?.()); }
     const random = await tool('kingdown_create', { kind: 'random', options, colour: 'white' }, true); assert(!random.isError);
@@ -2147,10 +2155,9 @@ try {
         return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id, screen: 'board' }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
       }, focusView);
       // The coins show when the board read answers, but the mount still reads the games and then draws the strips again,
-      // with new buttons. So wait until the frame has read the view, no tool call waits and the mount has ended (the
-      // controls are on), as in ticket 72; a later redraw would detach the button that the focus check measures.
-      await focusHost.page.waitForFunction(() => window.harnessNextView === undefined && window.harnessInflight === window.harnessHeld);
-      await focusHost.frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+      // with new buttons. So wait until the frame is settled; a later redraw would detach the button that the focus
+      // check measures.
+      await settled(focusHost.page, focusHost.frame);
       await focusHost.frame.locator(`#${kind === 'cards' ? 'card-w-0' : 'power-w'}[data-state="used"]`).waitFor();
       const ids = await focusHost.frame.locator('#game-table .coin[data-state="used"]').evaluateAll(coins => coins.map(c => c.id));
       assert.equal(ids.length, kind === 'cards' ? 8 : 2, 'Both strips show the spent coins');
@@ -2292,7 +2299,7 @@ try {
     await idleBoard(); await draftWords();
     assert.match(await frame.locator('#context-note').innerText(), /Your opponent offers a draw/);
     assert.equal(await frame.locator('#undo').getAttribute('aria-disabled'), 'false');
-    await sendTurn(); await settled(); await idleBoard();
+    await sendTurn(); await callsDone(); await idleBoard();
     const saved = (await gameTool('kingdown_get', {game_id}))._meta.view;
     assert.equal(saved.revision, offered._meta.view.revision + 1);
     setRules(opened._meta.view.rules);
@@ -2587,6 +2594,8 @@ try {
   });
   // T3: at 197 x 426 the hall scrolls to its end above the pinned Start game bar, and the page clips nothing.
   async function zoomHallFits() {
+    // The Play read that the hall starts draws the game rows again.
+    await settled(page, frame);
     const viewport = page.viewportSize();
     await zoomViewport(402,874,0,0);
     await frame.locator('#new-game .new-game-body').evaluate(el => { el.scrollTop = 0; });
@@ -2749,7 +2758,7 @@ try {
     // (design §2 and §3.3), so wait for the command itself, then for its reply to settle.
     const declines=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_draw').length);
     await frame.locator('#context-actions #decline-draw').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Decline',exact:true}).click();
-    await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_draw').length>n,declines); await settled(); await idleBoard();
+    await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_draw').length>n,declines); await callsDone(); await idleBoard();
     current=await page.evaluate(()=>window.harnessView); assert.equal(current.draw_offer,null);
     const offerAgain=await friendTool('kingdown_draw',{game_id:human.game_id,command_id:randomUUID(),expected_revision:current.revision,choice:'offer'}); assert(!offerAgain.isError); await readGame();
     if (mode==='fixture') await page.request.post(new URL('/fixture-seed',base).href,{data:{actor:'alice',data:{views:{[human.game_id]:{rating_policy:'legacy',outcome:{rating_before:1500,rating:1561,provisional:true,badges:[{badge:'fairy_tale',earned_at:new Date().toISOString()}]}}}}}});
@@ -2769,7 +2778,7 @@ try {
     for (let n=0;n<3;n++) {
       const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
       await page.evaluate(()=>{window.rejectNextGet=true;}); await page.clock.fastForward(3100);
-      await page.waitForFunction(count=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>count,reads); await settled();
+      await page.waitForFunction(count=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>count,reads); await callsDone();
     }
     await frame.locator('#over #retry').filter({hasText:'Try again'}).waitFor();
     assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),false,'Failed background reads lock rematch without replacing the result');
@@ -2886,9 +2895,9 @@ try {
     const replied = await friendTool('kingdown_move',{ game_id: friend.game_id, command_id: 'friend-reply', expected_revision: friend.revision, lan: 'e7-e5' });
     assert(!replied.isError);
     // The move also refreshes the games list. Finish that reply before the poll clock jumps past its request limit.
-    await settled();
+    await callsDone();
     await page.clock.fastForward(30000);
-    await settled();
+    await callsDone();
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     assert.equal(await page.evaluate(() => window.harnessView.revision), friend.revision + 1);
     await openPlay(); await legacyStart('solo'); await idleBoard();
@@ -3033,7 +3042,7 @@ try {
   // The approved table states use public views and the host's existing reply override.
   // These sample games are not in the service; a background poll must not replace them.
   await frame.locator('html').evaluate(()=>Object.defineProperty(document,'hidden',{configurable:true,value:true}));
-  await settled();
+  await callsDone();
   // R1: use the board's public view, as the table samples below do.
   {
     const original = await page.evaluate(() => window.harnessView);
