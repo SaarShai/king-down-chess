@@ -67,7 +67,10 @@ export function startAccount(onApply: (down: Section[]) => void, savedGame: Save
   const facebook = params.get('facebook') === '1';
   let client: Promise<Client> | null = null, user: User | null = null, userId = '', lastPull = 0;
   let providers: Provider[] = [], checkingProviders = false;
+  // A signed-out note (a refused sign-in, sign-out, deletion) that the next provider check shows again once.
+  let keptNote = '';
   const say = (t: string): void => { note.textContent = t; };
+  const keep = (t: string): void => { keptNote = t; say(t); };
   const render = (): void => {
     const hadFocus = body.contains(document.activeElement);
     body.innerHTML = accountHtml(user, facebook, providers);
@@ -96,7 +99,8 @@ export function startAccount(onApply: (down: Section[]) => void, savedGame: Save
       const enabled = await (await load()).providers();
       if (user) return;
       providers = enabled.filter(provider => facebook || provider !== 'facebook');
-      say(providers.length ? '' : 'Sign-in is temporarily unavailable. Try again later.');
+      say(providers.length ? keptNote : 'Sign-in is temporarily unavailable. Try again later.');
+      if (providers.length) keptNote = '';
     } catch { if (!user) say('Sign-in options could not load. Check your connection and try again.'); }
     finally { checkingProviders = false; render(); }
   }
@@ -104,7 +108,7 @@ export function startAccount(onApply: (down: Section[]) => void, savedGame: Save
 
   // Back from the sign-in page. A refusal or a cancel leaves error fields in the address: clear them.
   if (params.has('error') || location.hash.includes('error')) {
-    say('Sign-in did not finish. Please try again.');
+    keep('Sign-in did not finish. Please try again.');
     const url = new URL(location.href);
     for (const k of ['error', 'error_code', 'error_description', 'sb_flow_id']) url.searchParams.delete(k);
     if (url.hash.includes('error')) url.hash = '';
@@ -131,9 +135,8 @@ export function startAccount(onApply: (down: Section[]) => void, savedGame: Save
       try { await (await load()).signOut(); } catch { try { localStorage.removeItem(AUTH_KEY); } catch { /* blocked */ } }
       sync?.stop(); sync = null; userId = ''; user = null;
       render();
-      say('Signed out. Your games stay on this device.');
+      keep('Signed out. Your games stay on this device.');
       await refreshProviders();
-      if (!user && providers.length) say('Signed out. Your games stay on this device.');
     } else if (b.dataset.act === 'delete') {
       // Inside another site's frame, a click may not be the player's own (clickjacking).
       if (window.top !== window.self) return say('Open King Down in its own tab to delete your account.');
@@ -148,7 +151,7 @@ export function startAccount(onApply: (down: Section[]) => void, savedGame: Save
       await (await load()).deleteAccount();
       sync?.stop(); sync = null; userId = ''; user = null;
       render();
-      say('We delete your account in seven days. To keep it, sign in again before then. Your games stay on this device.');
+      keep('We delete your account in seven days. To keep it, sign in again before then. Your games stay on this device.');
     } catch { say('Could not delete your account. Check your connection and try again.'); }
   });
   addEventListener('online', () => { if (sync) void sync.flush(); else if (user) void load().catch(() => {}); });
