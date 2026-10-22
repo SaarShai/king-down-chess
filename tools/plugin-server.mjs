@@ -24,8 +24,11 @@ import { stagingConfig } from './staging-config.mjs';
 import { createAdmission } from '../src/api/admission.ts';
 import { createCurrentUserCheck } from '../src/api/current-user.ts';
 
+// A deployed server (staging or production) serves the website account API. The 0016 web_account_access
+// switch (enabled=false by default) keeps every operation closed until the owner opens it. A local run
+// without website test keys keeps the API closed.
 const WEB_OPERATIONS = new Set();
-const ENABLED_WEB_OPERATIONS = new Set([
+export const ENABLED_WEB_OPERATIONS = new Set([
   'GET /api/status',
   'POST /api/games',
   'GET /api/games/:id',
@@ -105,7 +108,7 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
     admit: createAdmission(),
     currentUser: websiteCurrentUser ?? (page ? createCurrentUserCheck({ supabaseUrl: page.supabaseUrl, publishableKey: page.publishableKey }) : undefined),
     webAccountAccess: createWebAccountAccess(pool),
-    verify: env.SUPABASE_URL ? sessionVerifier(env.SUPABASE_URL, websiteKeys) : undefined, operations: staging || websiteKeys !== undefined ? ENABLED_WEB_OPERATIONS : WEB_OPERATIONS });
+    verify: env.SUPABASE_URL ? sessionVerifier(env.SUPABASE_URL, websiteKeys) : undefined, operations: localDev && websiteKeys === undefined ? WEB_OPERATIONS : ENABLED_WEB_OPERATIONS });
   const handler = async (req, res) => {
     const path = req.url?.startsWith('/') && URL.canParse(req.url, publicOrigin) ? new URL(req.url, publicOrigin).pathname : '';
     if (/^\/internal(\/|$)/.test(path)) return internal(req, res);
