@@ -33,3 +33,8 @@ it('keeps the edge labels inside the frame or hides them (fault M10)', () => {
   }
   expect(coordInk(302).size * 302 / 960).toBeCloseTo(12, 8);
 });
+
+it('keeps the edge labels at 12 CSS px on a 287 px short-phone board', () => {
+  for (const width of [256, 287]) expect(coordInk(width).size * width / 960).toBeGreaterThanOrEqual(12);
+  for (const width of [288, 302, 360, 960]) expect(coordInk(width).size).toBe(Math.min(boardInk(width).coord, 40));
+});

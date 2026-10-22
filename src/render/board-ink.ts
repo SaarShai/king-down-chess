@@ -12,8 +12,9 @@ export function boardInk(width: number) {
   };
 }
 
-/** Edge labels (board units) stay inside the 32-unit frame, so they never cover a piece; under 8 CSS px they are not drawn. */
+/** Edge labels (board units) stay inside the 32-unit frame, so they never cover a piece; under 8 CSS px they are not drawn.
+ *  The 45-unit cap is the frame limit (16 inset + 0.35 em <= 32), so labels keep 12 CSS px on boards of 256 px or more. */
 export function coordInk(width: number) {
-  const size = Math.min(boardInk(width).coord, 40);
+  const size = Math.min(boardInk(width).coord, 45);
   return { size, inset: Math.min(Math.max(14, size / 2 + 4), 16), shown: size * width / 960 >= 8 };
 }
