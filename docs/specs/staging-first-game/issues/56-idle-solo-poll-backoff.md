@@ -1,6 +1,6 @@
 # Back off the visible idle solo poll
 
-Status: code complete on branch; needs-info (the owner's approval of the cadence). The code change is on branch `staging/lane-poll`. The new cadence is a proposal: it needs the owner's approval before it goes to staging, because poll cadences are product decisions (commit `45a89487`, UX review U8). Parent: U07; follows ticket 40.
+Status: done; owner-approved. On 2026-10-21 the owner approves the cadence for the staging release: "Yes, include the idle solo poll back-off (5 s for 2 min after the last move, then 15 s) in the staging release." Poll cadences are product decisions (commit `45a89487`, UX review U8). Parent: U07; follows ticket 40.
 
 ## What
 
