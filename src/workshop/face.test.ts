@@ -2,12 +2,24 @@
 import { describe, expect, it } from 'vitest';
 import { faceHtml, thumbHtml } from './face';
 import { bandOf, judge } from './judge';
-import { diagram } from './marks';
+import { diagram, seal } from './marks';
 import { BLANK, canonical, fromPreset, presetOf, type PieceDesign, type Rule } from './model';
 import { pawns, ruleText } from './text';
+import { BLOCKS } from './vocab';
+
+it('keeps each rule seal and its label with a faint wax light', () => {
+  for (const b of BLOCKS) {
+    const svg = seal(b.a);
+    expect(svg).toContain(`aria-label="${b.title}"`);
+    expect(svg).toContain('viewBox="0 0 100 100"');
+    expect(svg).toContain('filter="url(#kdm-seal-shadow)"');
+    expect(svg).toContain('fill="rgba(255,240,226,.06)"');
+    expect(svg).not.toContain('fill="rgba(255,240,226,.16)"');
+  }
+});
 
 const design = (key: string, more: Partial<PieceDesign> = {}): PieceDesign => ({ ...fromPreset(presetOf(key)), name: presetOf(key).name, letter: 'D', ...more });
-const face = (d: PieceDesign): string => faceHtml(d, judge(d, false), 'ui/pieces/x-w.webp');
+const face = (d: PieceDesign): string => faceHtml(d, judge(d), 'ui/pieces/x-w.webp');
 /** The marks of a diagram: "x,y kind [cond]" for each tile, "line dir [cond]" for each rail. */
 const marks = (svg: string): string[] => [...svg.matchAll(/<g data-(?:xy="([^"]+)" data-k="(\w+)"|k="line" data-dir="(\w+)")( data-cond="1")?>/g)]
   .map(([, xy, k, dir, cond]) => `${xy ? `${xy} ${k}` : `line ${dir}`}${cond ? ' cond' : ''}`).sort();
@@ -64,7 +76,7 @@ describe('the card face (ticket 08)', () => {
 
   it('says the worth in pawns and the band word', () => {
     for (const key of ['pawn', 'queen', 'paladin', 'guard']) {
-      const d = design(key), v = judge(d, false);
+      const d = design(key), v = judge(d);
       expect(text(face(d))).toContain(`About ${pawns(v.worth.point)} · ${bandOf(v)}`);
     }
     expect(text(face(design('pawn')))).toContain('About 1 pawn · The unit of worth');
@@ -76,14 +88,14 @@ describe('the card face (ticket 08)', () => {
 });
 
 describe('the small face of See all (ticket 15)', () => {
-  const thumb = (d: PieceDesign, yours = false): string => thumbHtml(d, judge(d, false), 'ui/pieces/x-w.webp', yours);
+  const thumb = (d: PieceDesign, yours = false): string => thumbHtml(d, judge(d), 'ui/pieces/x-w.webp', yours);
   it('shows the name, the figure, the diagram, a seal for each rule and the band word', () => {
     const d = design('paladin'), html = thumb(d);
     expect(html).toContain('<b>Paladin</b>');
     expect(html).toContain('<img src="ui/pieces/x-w.webp" alt="">');
     expect(html).toContain('aria-label="Reach diagram"');
     expect((html.match(/class="kd-seal"/g) ?? []).length).toBe(3);
-    expect(html).toContain(`<span class="band">${bandOf(judge(d, false))}</span>`);
+    expect(html).toContain(`<span class="band">${bandOf(judge(d))}</span>`);
     expect(thumb(design('knight'))).not.toContain('class="sl"');
   });
 

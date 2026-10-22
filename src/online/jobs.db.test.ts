@@ -1,5 +1,5 @@
 /**
- * Opt-in database tests of the jobs, with a fake clock (Date only) and the fake sender. PLUGIN_TEST_DATABASE_URL must
+ * Opt-in database tests of the jobs, with a fake clock (Date only). PLUGIN_TEST_DATABASE_URL must
  * name a disposable loopback database; the tests make and use their own copy of it (the name with "_jobs" before
  * "_test"), because a job acts on every game: a sweep in the shared database would end the games of
  * src/match/service.db.test.ts, which runs at the same time.
@@ -13,8 +13,7 @@ import { DEFAULT_OPTIONS } from '../match/setup';
 import { MAX_REVISION } from '../match/protocol';
 import { GameService } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
-import { cleanup, drainOutbox, queueReminders, runDeletions, sweepDeadlines } from './jobs';
-import { fakeSender, type Mail, type Sender } from './mail';
+import { cleanup, runDeletions, sweepDeadlines } from './jobs';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 
@@ -29,7 +28,6 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
  const at = (ms = 0) => { clock += ms; vi.setSystemTime(clock); return new Date(clock); };
  const users: string[] = [], address = (id: string) => `${id}@example.com`;
  const rows = async (sql: string, params: unknown[] = []) => (await admin.query(sql, params)).rows;
- const to = (sender: { sent: Mail[] }, id: string) => sender.sent.filter(mail => mail.to === address(id));
  const game = async (id: string) => (await rows('select status,result,end_reason from public.games where id=$1', [id]))[0];
  async function user(name: string) {
   const id = randomUUID(); users.push(id);
@@ -114,90 +112,6 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
   } finally { error.mockRestore(); await admin.query('delete from public.games where id=$1', [stuck]); }
  }, 60_000);
 
- it('sends no alert while the recipient is in the game', async () => {
-  const [h, p] = [await user('hal'), await user('pia')];
-  const id = await friend(h, p);
-  at(20_000); await move(h, id); // the turn passes to Black 20 s after Black joined
-  const sender = fakeSender();
-  await drainOutbox(games[0], sender, at(20_000), 500);
-  expect(to(sender, p)).toEqual([]);
-  expect(await rows(`select done_at is not null as done from public.outbox where kind='turn' and payload->>'user_id'=$1`, [p])).toEqual([{ done: true }]);
- }, 60_000);
-
- it('sends one turn email, then no more until the player returns', async () => {
-  const [h1, h2, p] = [await user('ivy'), await user('jon'), await user('kim')];
-  const one = await friend(h1, p), two = await friend(h2, p);
-  at(10 * MINUTE); await move(h1, one); await move(h2, two);
-  const sender = fakeSender();
-  await drainOutbox(games[0], sender, at(MINUTE), 500);
-  expect(to(sender, p).map(mail => [mail.subject.startsWith('Your move against @ivy'), mail.text.includes(`/g/${one}`)])).toEqual([[true, true]]);
-  at(MINUTE); await move(p, one); // the player comes back
-  at(10 * MINUTE); await move(h1, one);
-  await drainOutbox(games[0], sender, at(MINUTE), 500);
-  expect(to(sender, p).map(mail => mail.text.includes(`/g/${one}`))).toEqual([true, true]);
- }, 60_000);
-
- it('queues the 80% reminder once, after both sides have played, with two runs at once', async () => {
-  const [h, p] = [await user('lea'), await user('max')];
-  const id = await friend(h, p, { days_per_move: 1 });
-  const reminders = async () => (await rows(`select (select count(*)::int from public.notifications where kind='reminder' and payload->>'game_id'=$1) as notices,
-   (select count(*)::int from public.outbox where kind='reminder' and payload->>'game_id'=$1) as events`, [id]))[0];
-  await move(h, id);
-  await queueReminders(games[0], at(0.81 * 3 * DAY)); // Black's first turn (3 days): no reminder before both sides have played
-  expect(await reminders()).toEqual({ notices: 0, events: 0 });
-  await move(p, id); const turn = clock; // White to move by turn + 1 day
-  await queueReminders(games[0], at(0.79 * DAY));
-  expect(await reminders()).toEqual({ notices: 0, events: 0 });
-  const due = at(0.02 * DAY);
-  await Promise.all([queueReminders(games[0], due), queueReminders(games[1], due)]);
-  await queueReminders(games[0], at(MINUTE));
-  expect(await reminders()).toEqual({ notices: 1, events: 1 });
-  expect((await rows(`select payload->>'deadline_at' as deadline from public.outbox where kind='reminder' and payload->>'game_id'=$1`, [id]))[0].deadline).toBe(new Date(turn + DAY).toISOString());
-  // A reminder for an older deadline of this game is out of date: the turn has passed since.
-  await admin.query(`insert into public.outbox(kind,payload) values('reminder',$1)`, [{ user_id: h, game_id: id, revision: 1, deadline_at: new Date(turn - 2 * DAY).toISOString() }]);
-  const sender = fakeSender();
-  await drainOutbox(games[0], sender, at(), 500);
-  expect(to(sender, h).filter(mail => mail.subject.startsWith('Time almost up against @max'))).toHaveLength(1);
- }, 60_000);
-
- it('sends each message once with two drains at once, and tries a failed send again later, at most 5 times', async () => {
-  const guests: string[] = [];
-  for (let i = 0; i < 4; i++) { const [h, g] = [await user('host'), await user('guest')]; guests.push(g); await move(h, await friend(h, g)); }
-  // One more guest, with the turn in two games and an alert_state row already: one turn email between both drains.
-  const both = await user('both');
-  await admin.query('insert into public.alert_state(user_id) values($1)', [both]);
-  for (let i = 0; i < 2; i++) { const h = await user('host'); await move(h, await friend(h, both)); }
-  // The first email to that guest is slow, so the other drain reaches the guest's second row meanwhile.
-  const sender = fakeSender(), slow: Sender = async mail => { await new Promise(resolve => setTimeout(resolve, mail.to === address(both) ? 200 : 5)); await sender(mail); };
-  const now = at(10 * MINUTE);
-  await Promise.all([drainOutbox(games[0], slow, now, 500), drainOutbox(games[1], slow, now, 500)]);
-  expect([...guests, both].map(g => to(sender, g).length)).toEqual([1, 1, 1, 1, 1]);
-  expect(new Set(sender.sent.map(mail => mail.key)).size).toBe(sender.sent.length);
-  // A send that fails, or a bad row, waits 2, 4, 8 and 16 minutes, then the row is closed; the rows after it still go.
-  const [q, r] = [await user('quin'), await user('rae')], bad = randomUUID();
-  await admin.query(`insert into public.outbox(kind,payload) values('turn',$1)`, [{ user_id: bad, game_id: bad, deadline_at: 'not a time' }]);
-  await move(q, await friend(q, r));
-  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  const down = fakeSender(), failing: Sender = async mail => { if (mail.to === address(r)) throw new Error('down'); await down(mail); };
-  const state = async (user: string) => (await rows(`select attempts,done_at is not null as done,available_at from public.outbox where kind='turn' and payload->>'user_id'=$1`, [user]))[0];
-  const first = at(10 * MINUTE);
-  await drainOutbox(games[0], failing, first, 500);
-  for (const user of [r, bad]) expect(await state(user)).toEqual({ attempts: 1, done: false, available_at: new Date(first.getTime() + 2 * MINUTE) });
-  await drainOutbox(games[0], failing, at(MINUTE), 500);
-  expect((await state(r)).attempts).toBe(1);
-  for (const wait of [MINUTE, 4 * MINUTE, 8 * MINUTE, 16 * MINUTE]) await drainOutbox(games[0], failing, at(wait), 500);
-  for (const user of [r, bad]) expect(await state(user)).toMatchObject({ attempts: 5, done: true });
-  expect(warn).toHaveBeenCalledTimes(10); warn.mockRestore();
-  // The same failure, then a working sender: the email goes once.
-  const [s, t] = [await user('sam'), await user('tom')];
-  await move(s, await friend(s, t));
-  const later = fakeSender(), flaky: Sender = async mail => { if (mail.to === address(t)) throw new Error('down'); };
-  vi.spyOn(console, 'warn').mockImplementationOnce(() => {});
-  await drainOutbox(games[0], flaky, at(10 * MINUTE), 500);
-  await drainOutbox(games[0], later, at(2 * MINUTE), 500);
-  expect(to(later, t)).toHaveLength(1);
- }, 60_000);
-
  it('deletes an account after the grace: the opponent keeps the game; a report hold waits; a cancelled request stays', async () => {
   const [x, y, z, b] = [await user('xan'), await user('yul'), await user('zed'), await user('opp')];
   const handle = (await rows('select handle from public.profiles where id=$1', [x]))[0].handle;
@@ -280,11 +194,7 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
    const id = await friend(h, p, { days_per_move: 1 });
    await move(h, id); at(MINUTE); await move(p, id);
    await admin.query(`insert into public.account_deletions(user_id,run_after) values($1,now()-interval '1 minute')`, [gone]);
-   const sender = fakeSender();
    await sweepDeadlines(service, at(MINUTE));
-   expect(await queueReminders(service, at(0.81 * DAY))).toBeGreaterThanOrEqual(1);
-   await drainOutbox(service, sender, at(), 500);
-   expect(to(sender, h).map(mail => mail.subject.split(' ')[0])).toEqual(['Your', 'Time']);
    expect(await runDeletions(service)).toBe(1);
    await cleanup(service, at());
    expect(await sweepDeadlines(service, at(DAY))).toBeGreaterThanOrEqual(1);

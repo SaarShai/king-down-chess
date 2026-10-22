@@ -42,7 +42,7 @@ begin
     'mod_actions_user','notifications_user','outbox_due']) loop
     if to_regclass('public.' || name) is null then raise exception '%: index % is absent', required, name; end if;
   end loop;
-  for name in select unnest(array['kingdown_jobs.user_email(uuid)','kingdown_jobs.delete_account(uuid)',
+  for name in select unnest(array['kingdown_jobs.delete_account(uuid)',
     'kingdown_jobs.request_deletion(uuid)','public.delete_my_account()',
     'public.reserve_handle()','public.cancel_deletion_on_sign_in()']) loop
     if to_regprocedure(name) is null then raise exception '%: function % is absent', required, name; end if;
@@ -98,7 +98,7 @@ begin
   for name in select unnest(array['notifications_id_seq','outbox_id_seq','reports_id_seq']) loop
     if not has_sequence_privilege(runtime, 'public.' || name, 'usage') then raise exception '%: runtime sequence grant % is absent', required, name; end if;
   end loop;
-  for name in select unnest(array['kingdown_jobs.user_email(uuid)','kingdown_jobs.delete_account(uuid)','kingdown_jobs.request_deletion(uuid)']) loop
+  for name in select unnest(array['kingdown_jobs.delete_account(uuid)','kingdown_jobs.request_deletion(uuid)']) loop
     if not has_function_privilege(runtime, name, 'execute') then raise exception '%: runtime function grant % is absent', required, name; end if;
   end loop;
   for name in select unnest(array['plugin_boards','games','game_players','game_commands','game_invites','notifications',
@@ -243,5 +243,17 @@ revoke all on public.plugin_tool_tries from public, anon, authenticated;
 grant select, insert (user_id,tool), update (window_start,tries) on public.plugin_tool_tries to kingdown_plugin_runtime;
 drop policy if exists kingdown_plugin_runtime on public.plugin_tool_tries;
 create policy kingdown_plugin_runtime on public.plugin_tool_tries for all to kingdown_plugin_runtime using (true) with check (true);
+
+-- SOURCE: supabase/migrations/0015_remove_email.sql
+-- The MVP sends no email. Remove the private email reader without a data change.
+do $$
+begin
+  if to_regprocedure('kingdown_jobs.user_email(uuid)') is not null then
+    if exists(select from pg_roles where rolname = 'kingdown_plugin_runtime') then
+      revoke execute on function kingdown_jobs.user_email(uuid) from kingdown_plugin_runtime;
+    end if;
+    drop function kingdown_jobs.user_email(uuid);
+  end if;
+end $$;
 
 commit;

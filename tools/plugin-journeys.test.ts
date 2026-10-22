@@ -4,7 +4,7 @@ import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
-import { startHarness } from './plugin-ui-harness';
+import { startHarness, waitForSourceApp } from './plugin-ui-harness';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => { folder = await mkdtemp(join(tmpdir(), 'kingdown-journeys-test-'));
@@ -15,7 +15,7 @@ const CLASSIC = { fairy: false, pool: [], arrangement: false, classic: true, car
 // A phone host in fullscreen: touch on, so the touch hit layers (and their z-index) apply.
 async function open({ width = 393, height = 852, top = 0, bottom = 0 } = {}) {
   const page = await browser.newPage({ viewport: { width, height } }); page.setDefaultTimeout(5000);
-  await page.goto(harness.url); await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
+  await page.goto(harness.url); await waitForSourceApp(page); await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   await page.evaluate(([top, bottom]) => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'], deviceCapabilities: { touch: true }, safeAreaInsets: { top, bottom, left: 0, right: 0 } }), [top, bottom]);
   return page;
 }

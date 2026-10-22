@@ -12,9 +12,10 @@ class Channel {
   constructor() { this.port1.peer = this.port2; this.port2.peer = this.port1; }
 }
 const channels: Channel[] = [];
-let workers: EventTarget & { controller: any; register: ReturnType<typeof vi.fn> };
+let workers: EventTarget & { controller: any; register: ReturnType<typeof vi.fn>; getRegistration: ReturnType<typeof vi.fn> };
 let names: Set<string>;
 let storage: { keys: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> };
+let warn: ReturnType<typeof vi.spyOn>;
 const worker = () => Object.assign(new EventTarget(), { state: 'activated', postMessage: vi.fn() });
 const change = (controller: unknown) => { workers.controller = controller; workers.dispatchEvent(new Event('controllerchange')); };
 const reply = (controller: ReturnType<typeof worker>, extra = {}) => {
@@ -22,18 +23,124 @@ const reply = (controller: ReturnType<typeof worker>, extra = {}) => {
   ports[0].postMessage({ ...request, policy: 'public-build-v1', version: 'build', ...extra });
 };
 const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
+const rootRegistration = () => Object.assign(new EventTarget(), { scope: new URL('/', location.href).href, updateViaCache: 'none', active: Object.assign(workers.controller, { scriptURL: new URL('/sw.js', location.href).href }), installing: null as ReturnType<typeof worker> | null, update: vi.fn().mockResolvedValue(undefined) });
 
 beforeEach(() => {
   vi.useFakeTimers(); channels.length = 0;
-  workers = Object.assign(new EventTarget(), { controller: worker(), register: vi.fn().mockResolvedValue({ update: vi.fn().mockResolvedValue(undefined) }) });
+  warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  workers = Object.assign(new EventTarget(), { controller: worker(), getRegistration: vi.fn().mockResolvedValue(undefined), register: vi.fn().mockResolvedValue(Object.assign(new EventTarget(), { update: vi.fn().mockResolvedValue(undefined) })) });
   names = new Set(['kingdown-old', 'other-app']);
   storage = { keys: vi.fn(async () => [...names]), delete: vi.fn(async (name: string) => names.delete(name)) };
-  vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: workers }); vi.stubGlobal('caches', storage);
+  vi.stubGlobal('window', {}); vi.stubGlobal('location', new URL('https://kingdown.test/')); vi.stubGlobal('navigator', { serviceWorker: workers }); vi.stubGlobal('caches', storage);
   vi.stubGlobal('MessageChannel', class extends Channel { constructor() { super(); channels.push(this); } });
 });
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => { warn.mockRestore(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe('private cache policy', () => {
+  it('uses an existing root registration without queuing register behind its pending native update', async () => {
+    const registration = rootRegistration(); registration.update.mockImplementation(() => new Promise(() => {}));
+    workers.getRegistration.mockResolvedValue(registration); workers.register.mockImplementation(() => new Promise(() => {}));
+    const send = vi.fn(), result = withPrivateCachePolicy(send).catch(error => error); await flush();
+    if (workers.controller.postMessage.mock.calls.length) reply(workers.controller);
+    await vi.advanceTimersByTimeAsync(8000);
+    expect(await result).not.toBeInstanceOf(CachePolicyUnavailable);
+    expect(workers.getRegistration).toHaveBeenCalledWith('/'); expect(workers.register).not.toHaveBeenCalled();
+    expect(registration.update).toHaveBeenCalledOnce(); expect(send).toHaveBeenCalledOnce();
+  });
+  it('registers when the root registration lookup is absent', async () => {
+    const result = withPrivateCachePolicy(() => 'sent'); await flush(); reply(workers.controller); expect(await result).toBe('sent');
+    expect(workers.getRegistration).toHaveBeenCalledWith('/'); expect(workers.register).toHaveBeenCalledOnce();
+  });
+  it.each(['throw', 'reject'])('falls back to guarded register when registration lookup errors (%s)', async mode => {
+    workers.getRegistration.mockImplementation(() => { if (mode === 'throw') throw new Error('private-lookup-secret'); return Promise.reject(new Error('private-lookup-secret')); });
+    const result = withPrivateCachePolicy(() => 'sent'); await flush(); reply(workers.controller); expect(await result).toBe('sent');
+    expect(workers.register).toHaveBeenCalledOnce(); expect(warn).not.toHaveBeenCalled();
+  });
+  it('refuses a late registration lookup without updates or a late send', async () => {
+    let finish!: (value: object) => void; workers.getRegistration.mockImplementation(() => new Promise(done => { finish = done; }));
+    const registration = rootRegistration(), send = vi.fn(), result = withPrivateCachePolicy(send).catch(error => error);
+    await vi.advanceTimersByTimeAsync(8000); expect(await result).toMatchObject({ failure: { phase: 'register', reason: 'deadline' } });
+    finish(registration); await flush();
+    expect(send).not.toHaveBeenCalled(); expect(registration.update).not.toHaveBeenCalled(); expect(workers.register).not.toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0);
+  });
+  it.each(['scope', 'script', 'cache'])('repairs an incompatible root registration (%s) before proof', async mismatch => {
+    const registration = rootRegistration();
+    if (mismatch === 'scope') registration.scope += 'other/';
+    if (mismatch === 'script') registration.active.scriptURL += '?other';
+    if (mismatch === 'cache') registration.updateViaCache = 'imports';
+    workers.getRegistration.mockResolvedValue(registration);
+    const result = withPrivateCachePolicy(() => 'sent'); await flush(); reply(workers.controller); expect(await result).toBe('sent');
+    expect(workers.register).toHaveBeenCalledWith('/sw.js', { scope: '/', updateViaCache: 'none' }); expect(registration.update).not.toHaveBeenCalled();
+  });
+  it.each(['silent', 'invalid'])('refuses an unsafe looked-up active worker (%s)', async mode => {
+    const registration = rootRegistration(); workers.getRegistration.mockResolvedValue(registration);
+    const send = vi.fn(), result = withPrivateCachePolicy(send).catch(error => error); await flush();
+    if (mode === 'invalid') reply(workers.controller, { policy: 'old' });
+    await vi.advanceTimersByTimeAsync(8000);
+    expect(await result).toMatchObject({ failure: { phase: 'proof', reason: mode === 'invalid' ? 'bad-proof' : 'deadline' } });
+    reply(workers.controller); await flush(); expect(send).not.toHaveBeenCalled(); expect(workers.register).not.toHaveBeenCalled();
+  });
+  it('invalidates looked-up proof when an installation appears before the reply', async () => {
+    const registration = rootRegistration(); workers.getRegistration.mockResolvedValue(registration);
+    const old = workers.controller, next = worker(), send = vi.fn(); next.state = 'installing';
+    const result = withPrivateCachePolicy(send); await flush();
+    registration.installing = next; registration.dispatchEvent(new Event('updatefound')); await flush(); reply(old);
+    await vi.advanceTimersByTimeAsync(12000); expect(send).not.toHaveBeenCalled();
+    registration.installing = null; registration.active = next; change(next); next.dispatchEvent(new Event('statechange')); await flush();
+    next.state = 'activated'; next.dispatchEvent(new Event('statechange')); await flush(); reply(next);
+    await result; expect(send).toHaveBeenCalledOnce(); expect(workers.register).not.toHaveBeenCalled();
+  });
+  it('records a bounded proof-deadline support code once without sending private data', async () => {
+    const send = vi.fn(), result = withPrivateCachePolicy(send).catch(error => error);
+    await vi.advanceTimersByTimeAsync(8000);
+    const failure = { phase: 'proof', reason: 'deadline', elapsed_ms: 8000, controller: 'activated', active: 'none', installing: 'none', waiting: 'none', register_failed: false, update_failed: false };
+    expect(await result).toMatchObject({ supportCode: 'CACHE_PROOF_DEADLINE', failure, message: 'Online play is unavailable until the public cache is safe [CACHE_PROOF_DEADLINE]' });
+    expect(warn).toHaveBeenCalledExactlyOnceWith('[King Down cache safety] ' + JSON.stringify(failure));
+    reply(workers.controller); await flush();
+    expect(warn).toHaveBeenCalledOnce(); expect(send).not.toHaveBeenCalled();
+    expect(channels[0].port1.close).toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0);
+  });
+  it.each(['bad-proof', 'post-message'] as const)('classifies %s without copying raw proof or errors', async reason => {
+    if (reason === 'post-message') workers.controller.postMessage.mockImplementation(() => { throw new Error('private-secret-token'); });
+    const result = withPrivateCachePolicy(vi.fn()).catch(error => error); await flush();
+    if (reason === 'bad-proof') reply(workers.controller, { policy: 'private-secret-token', unexpected: 'https://private.invalid/?token=secret' });
+    expect(await result).toMatchObject({ failure: { phase: 'proof', reason } });
+    expect(warn).toHaveBeenCalledOnce();
+    const logged = warn.mock.calls[0][0] as string;
+    expect(logged).not.toMatch(/private|secret|requestId|https?:/);
+    expect(Object.keys(JSON.parse(logged.slice('[King Down cache safety] '.length)))).toEqual(['phase', 'reason', 'elapsed_ms', 'controller', 'active', 'installing', 'waiting', 'register_failed', 'update_failed']);
+  });
+  it('classifies a redundant installation without waiting for the deadline', async () => {
+    const installing = worker(); installing.state = 'installing';
+    workers.register.mockResolvedValue(Object.assign(new EventTarget(), { installing, update: vi.fn().mockResolvedValue(undefined) }));
+    const result = withPrivateCachePolicy(vi.fn()).catch(error => error); await flush();
+    installing.state = 'redundant'; installing.dispatchEvent(new Event('statechange'));
+    expect(await result).toMatchObject({ supportCode: 'CACHE_INSTALL_REDUNDANT', failure: { phase: 'install', reason: 'redundant', installing: 'redundant' } });
+    expect(warn).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
+  });
+  it('classifies page cleanup failure without logging the registration or storage error', async () => {
+    change(null); workers.register.mockRejectedValue(new Error('private-register-secret')); storage.keys.mockRejectedValue(new Error('private-storage-secret'));
+    const result = withPrivateCachePolicy(vi.fn()).catch(error => error);
+    expect(await result).toMatchObject({ failure: { phase: 'empty-cache', reason: 'exception', register_failed: true } });
+    expect(warn).toHaveBeenCalledOnce(); expect(warn.mock.calls[0][0]).not.toMatch(/private|secret/);
+  });
+  it('adds no cache warning to a successful send or its downstream failure', async () => {
+    const success = withPrivateCachePolicy(() => 42); await flush(); reply(workers.controller); expect(await success).toBe(42);
+    const failure = withPrivateCachePolicy(() => { throw new Error('send failed'); });
+    const refused = expect(failure).rejects.toThrow('send failed'); await flush(); reply(workers.controller); await refused;
+    expect(warn).not.toHaveBeenCalled();
+  });
+  it.each(['throw', 'reject'])('normalizes state strings and records update %s only as a flag', async mode => {
+    workers.controller.state = 'private-state-secret';
+    workers.register.mockResolvedValue(Object.assign(new EventTarget(), { update: vi.fn(() => {
+      if (mode === 'throw') throw new Error('private-update-secret');
+      return Promise.reject(new Error('private-update-secret'));
+    }) }));
+    const result = withPrivateCachePolicy(vi.fn()).catch(error => error);
+    await vi.advanceTimersByTimeAsync(8000);
+    expect(await result).toMatchObject({ failure: { phase: 'controller-activation', reason: 'deadline', controller: 'unknown', register_failed: false, update_failed: true } });
+    expect(warn).toHaveBeenCalledOnce(); expect(warn.mock.calls[0][0]).not.toMatch(/private|secret/);
+  });
   it('keeps Node sends unchanged', async () => {
     vi.stubGlobal('window', undefined);
     expect(await withPrivateCachePolicy(() => 42)).toBe(42);
@@ -76,6 +183,121 @@ describe('private cache policy', () => {
     const send = vi.fn(), result = withPrivateCachePolicy(send), refusal = expect(result).rejects.toBeInstanceOf(CachePolicyUnavailable);
     await vi.advanceTimersByTimeAsync(8000); await refusal; finish({}); await flush(); expect(send).not.toHaveBeenCalled();
   });
+  it.each([false, true])('waits beyond eight seconds for a confirmed first install, then gets fresh proof (claimed: %s)', async claimed => {
+    change(null); const installing = worker(); installing.state = 'installing';
+    const registration = Object.assign(new EventTarget(), { installing: installing as ReturnType<typeof worker> | null, active: null as ReturnType<typeof worker> | null, update: vi.fn().mockResolvedValue(undefined) });
+    workers.register.mockResolvedValue(registration);
+    const send = vi.fn(() => 'sent'), result = withPrivateCachePolicy(send); await flush();
+    await vi.advanceTimersByTimeAsync(12000);
+    expect(send).not.toHaveBeenCalled(); expect(installing.postMessage).not.toHaveBeenCalled();
+    registration.installing = null; registration.active = installing;
+    installing.state = 'activating'; installing.dispatchEvent(new Event('statechange'));
+    await vi.advanceTimersByTimeAsync(1000); expect(installing.postMessage).not.toHaveBeenCalled();
+    installing.state = 'activated'; installing.dispatchEvent(new Event('statechange'));
+    if (claimed) change(installing);
+    await flush(); expect(installing.postMessage).toHaveBeenCalledOnce(); expect(send).not.toHaveBeenCalled();
+    reply(installing); expect(await result).toBe('sent'); expect(send).toHaveBeenCalledOnce();
+  });
+  it('has a fresh eight-second proof deadline after the first installation', async () => {
+    change(null); const installing = worker(); installing.state = 'installing';
+    const registration = Object.assign(new EventTarget(), { installing: installing as ReturnType<typeof worker> | null, update: vi.fn().mockResolvedValue(undefined) });
+    workers.register.mockResolvedValue(registration);
+    const send = vi.fn(), result = withPrivateCachePolicy(send), refusal = expect(result).rejects.toBeInstanceOf(CachePolicyUnavailable);
+    await flush(); await vi.advanceTimersByTimeAsync(12000);
+    registration.installing = null; installing.state = 'activated'; change(installing); installing.dispatchEvent(new Event('statechange'));
+    await vi.advanceTimersByTimeAsync(7999); expect(installing.postMessage).toHaveBeenCalledOnce(); expect(send).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1); await refusal; reply(installing); expect(send).not.toHaveBeenCalled();
+  });
+  it('waits for an update found during proof, then requires fresh proof from the replacement', async () => {
+    const old = workers.controller, next = worker(); next.state = 'installing';
+    const registration = Object.assign(new EventTarget(), { active: old, installing: null as ReturnType<typeof worker> | null, update: vi.fn().mockResolvedValue(undefined) });
+    workers.register.mockResolvedValue(registration);
+    const send = vi.fn(), result = withPrivateCachePolicy(send); void result.catch(() => {}); await flush();
+    expect(old.postMessage).toHaveBeenCalledOnce();
+    registration.installing = next; registration.dispatchEvent(new Event('updatefound')); await flush();
+    reply(old); await vi.advanceTimersByTimeAsync(12000); expect(send).not.toHaveBeenCalled();
+    registration.installing = null; registration.active = next; next.state = 'activated';
+    next.dispatchEvent(new Event('statechange')); change(next); await flush();
+    expect(next.postMessage).toHaveBeenCalledOnce(); reply(next); await result;
+    expect(send).toHaveBeenCalledOnce();
+  });
+  it.each([false, true])('bounds a stalled confirmed update and ignores late activation (controlled: %s)', async controlled => {
+    const old = workers.controller, next = worker(); next.state = 'installing';
+    if (!controlled) change(null);
+    workers.register.mockResolvedValue(Object.assign(new EventTarget(), { active: old, installing: next, update: vi.fn().mockResolvedValue(undefined) }));
+    const send = vi.fn(); let settled = false;
+    const result = withPrivateCachePolicy(send).catch(error => { settled = true; return error; });
+    await vi.advanceTimersByTimeAsync(59999); expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1); expect(await result).toBeInstanceOf(CachePolicyUnavailable);
+    next.state = 'activated'; next.dispatchEvent(new Event('statechange')); change(next); await flush();
+    expect(send).not.toHaveBeenCalled(); expect(next.postMessage).not.toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0);
+  });
+  it('shares one installation budget across successive update identities', async () => {
+    const old = workers.controller, first = worker(), second = worker(); first.state = second.state = 'installing';
+    const registration = Object.assign(new EventTarget(), { active: old, installing: first, update: vi.fn().mockResolvedValue(undefined) });
+    workers.register.mockResolvedValue(registration);
+    const send = vi.fn(); let settled = false;
+    const result = withPrivateCachePolicy(send).catch(error => { settled = true; return error; });
+    await vi.advanceTimersByTimeAsync(45000);
+    vi.setSystemTime(Date.now() - 120000); // Wall-clock correction must not renew installation time.
+    registration.installing = second; first.state = 'redundant'; first.dispatchEvent(new Event('statechange')); registration.dispatchEvent(new Event('updatefound')); await flush();
+    await vi.advanceTimersByTimeAsync(14999); expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1); expect(await result).toBeInstanceOf(CachePolicyUnavailable);
+    expect(send).not.toHaveBeenCalled(); expect(first.postMessage).not.toHaveBeenCalled(); expect(second.postMessage).not.toHaveBeenCalled();
+  });
+  it('does not renew the installation budget when another update interrupts fresh proof', async () => {
+    const old = workers.controller, first = worker(), second = worker(); first.state = second.state = 'installing';
+    const registration = Object.assign(new EventTarget(), { active: old, installing: first as ReturnType<typeof worker> | null, update: vi.fn().mockResolvedValue(undefined) });
+    workers.register.mockResolvedValue(registration);
+    const send = vi.fn(); let settled = false;
+    const result = withPrivateCachePolicy(send).catch(error => { settled = true; return error; });
+    await vi.advanceTimersByTimeAsync(10000);
+    registration.installing = null; registration.active = first; first.state = 'activated'; change(first); first.dispatchEvent(new Event('statechange')); await flush();
+    expect(first.postMessage).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(7000);
+    registration.installing = second; registration.dispatchEvent(new Event('updatefound')); await flush(); reply(first);
+    await vi.advanceTimersByTimeAsync(42999); expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1); expect(await result).toBeInstanceOf(CachePolicyUnavailable);
+    expect(send).not.toHaveBeenCalled(); expect(second.postMessage).not.toHaveBeenCalled();
+  });
+  it('refuses a failed installation without trusting the surviving old controller', async () => {
+    const old = workers.controller, next = worker(); next.state = 'installing';
+    const registration = Object.assign(new EventTarget(), { active: old, installing: next as ReturnType<typeof worker> | null, update: vi.fn().mockResolvedValue(undefined) });
+    workers.register.mockResolvedValue(registration);
+    const send = vi.fn(), result = withPrivateCachePolicy(send), refusal = expect(result).rejects.toBeInstanceOf(CachePolicyUnavailable); await flush();
+    registration.installing = null; next.state = 'redundant'; next.dispatchEvent(new Event('statechange'));
+    await refusal; expect(old.postMessage).not.toHaveBeenCalled(); expect(send).not.toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0);
+  });
+  it('keeps a fresh proof deadline after a slow controlled update', async () => {
+    const old = workers.controller, next = worker(); next.state = 'installing';
+    const registration = Object.assign(new EventTarget(), { active: old, installing: next as ReturnType<typeof worker> | null, update: vi.fn().mockResolvedValue(undefined) });
+    workers.register.mockResolvedValue(registration);
+    const send = vi.fn(); let settled = false;
+    const result = withPrivateCachePolicy(send).catch(error => { settled = true; return error; });
+    await vi.advanceTimersByTimeAsync(12000);
+    registration.installing = null; registration.active = next; next.state = 'activated'; change(next); next.dispatchEvent(new Event('statechange')); await flush();
+    expect(next.postMessage).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(7999); expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1); expect(await result).toBeInstanceOf(CachePolicyUnavailable);
+    reply(next); await flush(); expect(send).not.toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0);
+  });
+  it('bounds a stalled first install at sixty seconds and ignores late activation', async () => {
+    change(null); const installing = worker(); installing.state = 'installing';
+    workers.register.mockResolvedValue(Object.assign(new EventTarget(), { installing, update: vi.fn().mockResolvedValue(undefined) }));
+    const send = vi.fn(), result = withPrivateCachePolicy(send), refusal = expect(result).rejects.toBeInstanceOf(CachePolicyUnavailable);
+    let ended = false; void result.catch(() => { ended = true; }); await flush();
+    await vi.advanceTimersByTimeAsync(59999); expect(ended).toBe(false); expect(send).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1); await refusal;
+    installing.state = 'activated'; installing.dispatchEvent(new Event('statechange')); change(installing); await flush();
+    expect(installing.postMessage).not.toHaveBeenCalled(); expect(send).not.toHaveBeenCalled();
+  });
+  it('refuses a redundant first install immediately', async () => {
+    change(null); const installing = worker(); installing.state = 'installing';
+    workers.register.mockResolvedValue(Object.assign(new EventTarget(), { installing, update: vi.fn().mockResolvedValue(undefined) }));
+    const send = vi.fn(), result = withPrivateCachePolicy(send), refusal = expect(result).rejects.toBeInstanceOf(CachePolicyUnavailable);
+    await flush(); installing.state = 'redundant'; installing.dispatchEvent(new Event('statechange')); await refusal;
+    expect(vi.getTimerCount()).toBe(0); expect(send).not.toHaveBeenCalled();
+  });
   it('repeats a silent proof only after the replacement controller activates', async () => {
     const old = workers.controller, send = vi.fn(), result = withPrivateCachePolicy(send); await flush();
     expect(old.postMessage).toHaveBeenCalledOnce();
@@ -111,7 +333,7 @@ describe('private cache policy', () => {
   });
   it('proves the active registration on each send after a hard reload', async () => {
     change(null); const active = worker(), update = vi.fn(() => new Promise(() => {}));
-    workers.register.mockResolvedValue({ active, update });
+    workers.register.mockResolvedValue(Object.assign(new EventTarget(), { active, update }));
     const send = vi.fn(() => 'sent');
     for (let i = 0; i < 2; i++) {
       const result = withPrivateCachePolicy(send); await flush();
@@ -122,22 +344,46 @@ describe('private cache policy', () => {
   });
   it('proves a new controller that claims just after an uncontrolled reply', async () => {
     change(null); const active = worker(), next = worker(), send = vi.fn();
-    workers.register.mockResolvedValue({ active, update: vi.fn().mockResolvedValue(undefined) });
+    workers.register.mockResolvedValue(Object.assign(new EventTarget(), { active, update: vi.fn().mockResolvedValue(undefined) }));
     const result = withPrivateCachePolicy(send); await flush();
     expect(active.postMessage).toHaveBeenCalledOnce(); reply(active); change(next); await flush();
     expect(send).not.toHaveBeenCalled(); reply(next); await result; expect(send).toHaveBeenCalledOnce();
   });
   it('refuses a silent active registration after a hard reload', async () => {
     change(null); const active = worker(), send = vi.fn();
-    workers.register.mockResolvedValue({ active, update: vi.fn().mockResolvedValue(undefined) });
+    workers.register.mockResolvedValue(Object.assign(new EventTarget(), { active, update: vi.fn().mockResolvedValue(undefined) }));
     const result = withPrivateCachePolicy(send), refusal = expect(result).rejects.toBeInstanceOf(CachePolicyUnavailable);
     await flush(); const requests = active.postMessage.mock.calls.length;
     await vi.advanceTimersByTimeAsync(8000); await refusal; expect(requests).toBe(1); reply(active); await flush();
     expect(send).not.toHaveBeenCalled(); expect(storage.delete).not.toHaveBeenCalled();
   });
+  it('requires new proof when an uncontrolled active registration retires just after its reply', async () => {
+    change(null); const old = worker(), next = worker(), send = vi.fn();
+    const registration = Object.assign(new EventTarget(), { active: old, update: vi.fn().mockResolvedValue(undefined) });
+    workers.register.mockResolvedValue(registration);
+    const result = withPrivateCachePolicy(send); await flush();
+    reply(old); registration.active = next; old.state = 'redundant'; old.dispatchEvent(new Event('statechange'));
+    await flush(); expect(send).not.toHaveBeenCalled(); expect(next.postMessage).toHaveBeenCalledOnce();
+    reply(next); await result; expect(send).toHaveBeenCalledOnce();
+  });
+  it('keeps the original deadline while an uncontrolled replacement activates and ignores late events', async () => {
+    change(null); const active = worker(); active.state = 'activating';
+    workers.register.mockResolvedValue(Object.assign(new EventTarget(), { active, update: vi.fn().mockResolvedValue(undefined) }));
+    const send = vi.fn(), result = withPrivateCachePolicy(send), refusal = expect(result).rejects.toBeInstanceOf(CachePolicyUnavailable);
+    await vi.advanceTimersByTimeAsync(8000); await refusal;
+    active.state = 'activated'; active.dispatchEvent(new Event('statechange')); await flush();
+    expect(active.postMessage).not.toHaveBeenCalled(); expect(send).not.toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0);
+  });
+  it('does not send on a now redundant controller even before controllerchange arrives', async () => {
+    const old = workers.controller, send = vi.fn(), result = withPrivateCachePolicy(send); await flush();
+    reply(old); old.state = 'redundant'; old.dispatchEvent(new Event('statechange')); await flush();
+    expect(send).not.toHaveBeenCalled();
+    const next = worker(); change(next); await flush(); reply(next); await result;
+    expect(send).toHaveBeenCalledOnce();
+  });
   it('starts each update without waiting for it or replacing fresh proof', async () => {
     const update = vi.fn(() => new Promise(() => {})), controller = workers.controller, send = vi.fn();
-    workers.register.mockResolvedValue({ update });
+    workers.register.mockResolvedValue(Object.assign(new EventTarget(), { update }));
     const result = withPrivateCachePolicy(send); await flush();
     expect(update).toHaveBeenCalledOnce(); expect(controller.postMessage).toHaveBeenCalledOnce();
     expect(send).not.toHaveBeenCalled(); reply(controller); await result; expect(send).toHaveBeenCalledOnce();
@@ -145,7 +391,7 @@ describe('private cache policy', () => {
   it('retries a failed update on the next send in the same page', async () => {
     const update = vi.fn(), next = worker(), send = vi.fn();
     update.mockImplementationOnce(async () => { throw new Error('offline'); }).mockImplementationOnce(async () => { change(next); });
-    workers.register.mockResolvedValue({ update });
+    workers.register.mockResolvedValue(Object.assign(new EventTarget(), { update }));
     const first = withPrivateCachePolicy(send), refusal = expect(first).rejects.toBeInstanceOf(CachePolicyUnavailable);
     await vi.advanceTimersByTimeAsync(8000); await refusal; expect(send).not.toHaveBeenCalled();
     const second = withPrivateCachePolicy(send); await flush();

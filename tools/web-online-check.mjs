@@ -13,7 +13,14 @@ import { tapSquare } from './lib/tap-board.mjs';
 import { ART_TYPES } from './plugin-art-headers.mjs';
 import { testDatabase } from './plugin-db-config.mjs';
 import { build } from 'vite';
+import { createLocalJWKSet, exportJWK, generateKeyPair } from 'jose';
 import { buildPluginServer } from './plugin-server-build.mjs';
+
+export const WORKSHOP_SHELF = JSON.stringify({ v: 1, designs: [{
+  v: 1, kind: 'piece', id: 'local-knight', name: 'My Knight', named: true,
+  look: { body: 'N', auto: false, glow: null, army: 0 }, letter: 'X', ownLetter: true,
+  squares: [{ x: 1, y: 2, mark: 'both' }], lines: [], rules: [], from: ['knight'], updated: 1,
+}] });
 
 /** Apply the site build routes, as vercel-check.mjs does. */
 export function siteRoute(config, path) {
@@ -23,6 +30,60 @@ export function siteRoute(config, path) {
     headers: Object.assign({}, ...routes.map(route => route.headers)),
   };
 }
+
+/** Serve the selected output's files and function with its own routes. */
+export async function serveSite({ root, config, handler }, req, res) {
+  const path = new URL(req.url, 'http://fixture').pathname;
+  const { dest, headers } = siteRoute(config, path);
+  for (const [name, value] of Object.entries(headers)) res.setHeader(name, value);
+  const exists = path => stat(path).catch(error => { if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') throw error; });
+  const file = join(root, 'static', dest.endsWith('/') ? `${dest}index.html` : dest);
+  if (['GET', 'HEAD'].includes(req.method) && (await exists(file))?.isFile()) {
+    const types = { ...ART_TYPES, html: 'text/html', js: 'text/javascript', mjs: 'text/javascript', css: 'text/css', json: 'application/json', wasm: 'application/wasm' };
+    if (!res.hasHeader('Content-Type')) res.setHeader('Content-Type', types[extname(file).slice(1)] ?? 'application/octet-stream');
+    res.end(req.method === 'HEAD' ? undefined : await readFile(file));
+  } else if (await exists(join(root, 'functions', `${dest}.func`))) {
+    await handler(req, res);
+  } else { res.writeHead(404).end(); }
+}
+
+/** Account status and local navigation keep these stores. A local edit can change its own store. */
+export async function localData(page) {
+  return page.evaluate(() => Object.fromEntries(['kingdown.save', 'kingdown.lessons', 'kingdown.workshop', 'kingdown.sync'].map(key => [key, localStorage.getItem(key)])));
+}
+
+export function assertLocalData(before, after) {
+  assert.deepEqual(after, before, 'Account-off handling and local navigation keep local data');
+}
+
+/** The release proves the switch. Older recovery routes can stay closed. */
+export async function checkAccountOff(page, origin, enabledFixture) {
+  const response = await page.request.get(origin + '/api/status');
+  assert.equal(response.status(), enabledFixture ? 200 : 404);
+  if (enabledFixture) {
+    assert.equal(response.headers()['cache-control'], 'no-store');
+    assert.equal(response.headers()['referrer-policy'], 'no-referrer');
+    assert.deepEqual(await response.json(), { account_access: 'closed', valid_for_ms: 0 });
+  }
+  assert.deepEqual(await page.evaluate(() => window.readWebAccountAccess()), { enabled: false, expiresAt: 0 });
+  assert.equal((await page.request.get(origin + '/api/me/profile')).status(), enabledFixture ? 503 : 404, 'Release switch and recovery phase close private reads');
+}
+
+/** Wait for the account module to stamp the complete normalized save. */
+export function savedGameSynced() {
+  const save = JSON.parse(localStorage.getItem('kingdown.save'));
+  const stamp = JSON.parse(localStorage.getItem('kingdown.sync'))?.saved_game;
+  if (!save?.fen || !save.rules || save.moves.join() !== 'e2-e4' || save.black !== 'human' || !stamp) return false;
+  const game = Object.fromEntries(['back', 'fen', 'moves', 'white', 'black', 'link', 'daily', 'resigned', 'rules'].filter(key => key in save).map(key => [key, save[key]]));
+  const canon = value => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a < b ? -1 : 1)) : item);
+  return canon(JSON.parse(stamp.json)) === canon(game);
+}
+
+export async function restoreLocalSave(page, saved) {
+  await page.evaluate(saved => localStorage.setItem('kingdown.save', saved), saved);
+}
+
+export const PERSISTENT_OPTIONS = { headless: true, viewport: { width: 1440, height: 900 }, hasTouch: true, reducedMotion: 'reduce' };
 
 /** An external recovery input must be a complete combined output. */
 export async function recoveryOutput(path) {
@@ -34,6 +95,8 @@ export async function recoveryOutput(path) {
   assert.match(worker, /const POLICY = 'public-build-v1';/, 'Recovery keeps the safe policy');
   assert.doesNotMatch(worker, /const VERSION = 'dev';|const ALLOWLIST = \[\];|const PRECACHE = \[\];/, 'Recovery has built worker lists');
   const allowlist = JSON.parse(worker.match(/const ALLOWLIST = (.+);/)[1]);
+  const precache = JSON.parse(worker.match(/const PRECACHE = (.+);/)[1]);
+  assert.ok(allowlist.every(file => file === 'index.html' || precache.includes(file)), 'Recovery precaches every public asset before the first offline visit');
   for (const file of allowlist) {
     assert.ok(file === './' || /^[\w./-]+$/.test(file) && !file.includes('..'), 'Recovery public paths stay in the static tree');
     const path = `static/${file === './' ? 'index.html' : file}`;
@@ -69,17 +132,21 @@ export function assertInterruptedPurge(events, after = 0) {
 
 /** Compile the real private client for the fixture page. */
 export async function buildWorkerProbe() {
-  const probeBuild = await build({ configFile: false, envDir: false, publicDir: false, logLevel: 'warn', build: { write: false, minify: false, lib: { entry: resolve('tools/fixtures/web-worker/page.ts'), formats: ['es'] } } });
+  const entry = resolve('tools/fixtures/web-worker/page.ts');
+  const probeBuild = await build({ plugins: [{ name: 'status-probe', transform(code, id) {
+    if (id === entry) return code + `\nimport { readWebAccountAccess } from ${JSON.stringify(resolve('src/online/account-access.ts'))};\nwindow.readWebAccountAccess = readWebAccountAccess;`;
+  } }], configFile: false, envDir: false, publicDir: false, logLevel: 'warn', build: { write: false, minify: false, lib: { entry, formats: ['es'] } } });
   return probeBuild[0].output.find(file => file.type === 'chunk').code;
 }
 
 export async function main() {
   const connectionString = testDatabase(process.env.PLUGIN_TEST_DATABASE_URL);
   const work = await mkdtemp(join(tmpdir(), 'kingdown-web-check-'));
-  let browser, persistent, server, app, cleaning;
+  let browser, persistent, server, cleaning, savedAccountAccess;
+  const outputs = new Map();
   const started = performance.now(), events = [], signal = new EventEmitter();
   const record = event => { events.push(event); signal.emit('record'); };
-  let served, old = false, instrument = false, deleteMode = 'ok', holdReply = false, failPrecache = false, offline = false;
+  let served, old = false, instrument = false, deleteMode = 'ok', holdReply = false, failPrecache = false, offline = false, statusFixture = false, statusFailure = false;
   const held = new Set();
   function cleanup() {
     return cleaning ??= (async () => {
@@ -89,7 +156,12 @@ export async function main() {
         () => persistent?.close(),
         () => { for (const response of held) response.end(); held.clear(); },
         async () => { if (server?.listening) { server.closeAllConnections(); await new Promise((done, reject) => server.close(error => error ? reject(error) : done())); } },
-        () => app?.pool.end(),
+        async () => { if (savedAccountAccess !== undefined) {
+          const { pool } = outputs.values().next().value;
+          await pool.query('update public.web_account_access set enabled=$1 where singleton=true', [savedAccountAccess]);
+          assert.equal((await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0]?.enabled, savedAccountAccess, 'Restore the test switch');
+        } },
+        ...[...outputs.values()].flatMap(app => [() => app.pool.end(), () => app.statusApp?.pool.end()]),
         () => rm(work, { recursive: true, force: true }),
       ]) { try { await finish(); } catch (error) { failures.push(error); } }
       if (failures.length) throw new AggregateError(failures, 'Web check cleanup failed');
@@ -124,10 +196,6 @@ export async function main() {
     await writeFile(join(env('PLAYABLE_OUT'), 'worker-outputs.json'), JSON.stringify({ pair, release, recovery }, null, 2));
     // Vite sets NODE_ENV during the build; the server below is a local test process.
     process.env.NODE_ENV = 'test';
-    const configs = new Map(await Promise.all([tree, recovery.root].map(async output => [output, JSON.parse(await readFile(join(output, 'config.json'), 'utf8'))])));
-    const { configurePlugin } = await import(pathToFileURL(join(tree, 'functions/mcp.func/server.mjs')).href);
-    const types = { ...ART_TYPES, html: 'text/html', js: 'text/javascript', mjs: 'text/javascript', css: 'text/css', json: 'application/json', wasm: 'application/wasm' };
-    const exists = path => stat(path).catch(error => { if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') throw error; });
     server = createServer((req, res) => {
       void (async () => {
         const url = new URL(req.url, origin), path = url.pathname;
@@ -168,20 +236,28 @@ export async function main() {
           res.end(old ? oldWorker + "\nself.addEventListener('message', event => { if (event.data?.type === 'fixture-version') event.ports[0].postMessage({ version: VERSION }); });" : (instrument ? faults : '') + await readFile(join(served, 'static/sw.js'), 'utf8')); return;
         }
         res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-        const { dest, headers } = siteRoute(configs.get(served), path);
-        for (const [name, value] of Object.entries(headers)) res.setHeader(name, value);
-        const file = join(served, 'static', dest.endsWith('/') ? `${dest}index.html` : dest);
-        if (['GET', 'HEAD'].includes(req.method) && (await exists(file))?.isFile()) {
-          if (!res.hasHeader('Content-Type')) res.setHeader('Content-Type', types[extname(file).slice(1)] ?? 'application/octet-stream');
-          res.end(req.method === 'HEAD' ? undefined : await readFile(file));
-        } else if (await exists(join(tree, 'functions', `${dest}.func`))) {
-          await app.handler(req, res);
-        } else { res.writeHead(404).end(); }
+        const output = outputs.get(served);
+        if (statusFixture && statusFailure && path === '/api/status') { res.setHeader('Cache-Control', 'no-store'); res.writeHead(503, { 'Content-Type': 'application/json' }).end('{}'); return; }
+        await serveSite(statusFixture ? { ...output, handler: output.statusApp.handler } : output, req, res);
       })().catch(() => { if (!res.headersSent) res.writeHead(500); res.end(); });
     });
     server.listen(0, '127.0.0.1'); await once(server, 'listening');
     const origin = `http://127.0.0.1:${server.address().port}`;
-    app = await configurePlugin({ NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: randomUUID() }, { localDev: true });
+    const pairKeys = await generateKeyPair('ES256'), websiteKeys = createLocalJWKSet({ keys: [{ ...await exportJWK(pairKeys.publicKey), kid: 'status', alg: 'ES256' }] });
+    for (const root of [tree, recovery.root]) {
+      const config = JSON.parse(await readFile(join(root, 'config.json'), 'utf8'));
+      const { configurePlugin } = await import(pathToFileURL(join(root, 'functions/mcp.func/server.mjs')).href);
+      const app = await configurePlugin({ NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: randomUUID() }, { localDev: true });
+      outputs.set(root, { root, config, ...app });
+      if (savedAccountAccess === undefined) {
+        const setting = (await app.pool.query('select singleton,enabled from public.web_account_access where singleton=true')).rows;
+        assert.equal(setting.length, 1); assert.equal(setting[0].singleton, true); assert.equal(typeof setting[0].enabled, 'boolean');
+        savedAccountAccess = setting[0].enabled;
+        await app.pool.query('update public.web_account_access set enabled=false where singleton=true');
+      }
+      if (root === tree) outputs.get(root).statusApp = await configurePlugin({ NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString,
+        SUPABASE_URL: 'https://project.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: randomUUID() }, { localDev: true, websiteKeys });
+    }
 
     browser = await launch();
     await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify({ engine: env('PLAYABLE_BROWSER'), version: browser.version(), node: process.version, platform: process.platform, osRelease: osRelease(), arch: process.arch }, null, 2));
@@ -222,12 +298,24 @@ export async function main() {
     assert.match(mcp.headers()['content-type'], /^application\/json/, 'The compiled server answers with JSON');
     for (const path of ['/play/', `/g/${randomUUID()}`, '/j']) {
       const response = await page.request.get(origin + path, { maxRedirects: 0 });
-      assert.equal(response.status(), 404, `${path} has no account page`);
+      assert.equal(response.status(), 200, `${path} serves the public account entry`);
+      assert.match(response.headers()['content-type'], /^text\/html/);
+      assert.equal(response.headers().location, undefined, path);
     }
-    for (const path of ['/api', '/api/games', '/api/me/games']) {
+    const apiClosed = async (page, path, method) => {
+      const response = await page.request.fetch(origin + path, { method, maxRedirects: 0, ...(method === 'POST' ? { data: {} } : {}) });
+      assert.equal(response.status(), 404, `${method} ${path} stays closed`);
+      assert.equal(response.headers().location, undefined, path);
+      const pathname = new URL(path, origin).pathname;
+      if (served === tree || siteRoute(outputs.get(served).config, pathname).dest !== pathname) {
+        assert.match(response.headers()['content-type'], /^application\/json/);
+        assert.equal(response.headers()['cache-control'], 'no-store');
+        assert.deepEqual(await response.json(), { code: 'NOT_FOUND', message: 'Not found' });
+      }
+    };
+    for (const path of ['/api', '/api/status', '/api/games', '/api/me/games', '/api/unknown']) {
       for (const method of ['GET', 'POST']) {
-        const response = await page.request.fetch(origin + path, { method, maxRedirects: 0, ...(method === 'POST' ? { data: {} } : {}) });
-        assert.equal(response.status(), 404, `${method} ${path} stays closed`);
+        for (const query of ['', '?probe=1']) await apiClosed(page, path + query, method);
       }
     }
     assertNoErrors(errors);
@@ -241,11 +329,10 @@ export async function main() {
         signal.on('record', check); check();
       });
     };
-    const options = { headless: true, viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' };
     let profileDir;
     const openProfile = async profile => {
       profileDir = profile;
-      persistent = await launchPersistent(profile, options);
+      persistent = await launchPersistent(profile, PERSISTENT_OPTIONS);
       await persistent.exposeFunction('recordWorkerEvent', record);
       const page = persistent.pages()[0] ?? await persistent.newPage();
       page.setDefaultTimeout(30_000 * STEP);
@@ -295,7 +382,7 @@ export async function main() {
     };
     const seed = async page => {
       const asset = JSON.parse((await readFile(join(served, 'static/sw.js'), 'utf8')).match(/const ALLOWLIST = (.+);/)[1]).find(file => file.startsWith('assets/') && file.endsWith('.js'));
-      await page.evaluate(async asset => {
+      await page.evaluate(async ({ asset, workshop }) => {
         const cache = await caches.open('kingdown-stale');
         await cache.put('/' + asset, new Response('STALE-ASSET'));
         for (const path of ['/api/me/games?account=one', '/api/me/games?account=two', '/play.html?token=private']) await cache.put(path, new Response('PRIVATE-CANARY'));
@@ -313,9 +400,14 @@ export async function main() {
           };
         });
         localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'human', sound: false, pace: 'off' }));
+        localStorage.setItem('kingdown.sync', JSON.stringify({ fixture: 'keep',
+          settings: { at: 1, json: JSON.stringify({ pace: 'off', sound: false }) },
+          lessons: { at: 2, json: JSON.stringify({ done: ['Archer'], tricks: [] }) },
+          saved_game: { at: 3, json: JSON.stringify({ back: 'RNBQKBNR', black: 'human', fen: '', moves: ['e2-e4'], white: 'human' }) },
+        }));
         localStorage.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer'], tricks: [] }));
-        localStorage.setItem('kingdown.workshop', JSON.stringify({ v: 1, designs: [] }));
-      }, asset);
+        localStorage.setItem('kingdown.workshop', workshop);
+      }, { asset, workshop: WORKSHOP_SHELF });
     };
     const inspect = async page => {
       const result = await page.evaluate(async () => {
@@ -333,18 +425,20 @@ export async function main() {
             request.onerror = () => reject(request.error);
           };
         });
-        return { keys, entries, stored, save: JSON.parse(localStorage.getItem('kingdown.save')), lessons: localStorage.getItem('kingdown.lessons'), workshop: localStorage.getItem('kingdown.workshop'), keep: await (await caches.open('unrelated-app')).match('/keep').then(response => response?.text()), local: localStorage.getItem('fixture-local') };
+        return { keys, entries, stored, save: JSON.parse(localStorage.getItem('kingdown.save')), lessons: localStorage.getItem('kingdown.lessons'), workshop: localStorage.getItem('kingdown.workshop'), sync: localStorage.getItem('kingdown.sync'), keep: await (await caches.open('unrelated-app')).match('/keep').then(response => response?.text()), local: localStorage.getItem('fixture-local') };
       });
       assert.ok(!result.keys.includes('kingdown-stale'), 'Old application cache is absent');
       assert.ok(!result.entries.some(url => /\/api|play.html|account=|token=/.test(url)), 'Private query canaries are absent from every application cache');
       assert.equal(result.keep, 'keep'); assert.equal(result.local, 'keep'); assert.equal(result.stored, 'keep');
       assert.equal(result.save?.moves[0], 'e2-e4', 'Takeover keeps the local move');
+      assert.equal(JSON.parse(result.sync).fixture, 'keep', 'Local edits keep the sync sentinel');
       assert.equal(result.lessons, JSON.stringify({ done: ['Archer'], tricks: [] }));
-      assert.equal(result.workshop, JSON.stringify({ v: 1, designs: [] }));
+      assert.equal(result.workshop, WORKSHOP_SHELF);
     };
     const probe = async (page, marker, safety = true) => {
       const after = events.length;
-      assert.deepEqual(await page.evaluate(marker => window.privateProbe(marker), marker), { status: 404, code: 'UNAVAILABLE' }, `${marker}: API stays closed`);
+      const mounted = served === tree || siteRoute(outputs.get(served).config, '/api/me/games').dest !== '/api/me/games';
+      assert.deepEqual(await page.evaluate(marker => window.privateProbe(marker), marker), { status: 404, code: mounted ? 'NOT_FOUND' : 'UNAVAILABLE' }, `${marker}: API stays closed`);
       if (safety) assertProbeOrder(events, marker, after);
       else assert.equal(events.slice(after).filter(event => event.event === 'probe' && event.marker === marker).length, 1);
     };
@@ -440,10 +534,22 @@ export async function main() {
       if (await active.evaluate(() => !!navigator.serviceWorker.controller)) await takeover(active, output);
       else served = output;
       await probe(active, 'plain-worker', false);
-      for (const path of ['/play/', '/play.html', '/g/inert', '/j/inert', '/api/games']) {
+      const beforeStatus = await localData(active);
+      statusFixture = output === tree;
+      try {
+        await checkAccountOff(active, origin, statusFixture);
+        statusFailure = true;
+        assert.deepEqual(await active.evaluate(() => window.readWebAccountAccess()), { enabled: false, expiresAt: 0 });
+        assertLocalData(beforeStatus, await localData(active));
+      } finally { statusFixture = false; statusFailure = false; }
+
+      for (const path of ['/play/', '/play.html', '/g/inert', '/j', '/j/inert', '/api/games']) {
         const response = await active.request.get(origin + path, { maxRedirects: 0 });
-        assert.equal(response.status(), 404, `${path}: release and recovery keep account routes closed`);
+        const entry = siteRoute(outputs.get(output).config, path).dest === '/index.html';
+        assert.equal(response.status(), entry ? 200 : 404, `${path}: public entries follow this output's routes`);
+        if (entry) assert.match(response.headers()['content-type'], /^text\/html/);
       }
+      for (const path of ['/api', '/api/status', '/api/games', '/api/me/games', '/api/unknown']) for (const query of ['', '?probe=1']) for (const method of ['GET', 'POST']) await apiClosed(active, path + query, method);
       const allowlist = JSON.parse((await readFile(join(output, 'static/sw.js'), 'utf8')).match(/const ALLOWLIST = (.+);/)[1]);
       const asset = allowlist.find(file => file.startsWith('assets/') && file.endsWith('.js'));
       const paths = ['/api', '/mcp', '/authorize', '/consent', '/consent.mjs', '/auth', '/oauth', '/login', '/logout', '/signin', '/signout', '/callback', '/internal', '/play', '/play.html', '/g', '/j', '/.well-known/', '/unknown'];
@@ -462,20 +568,39 @@ export async function main() {
       await inspect(active);
       const keys = await active.evaluate(async () => { const entries = []; for (const name of await caches.keys()) if (name.startsWith('kingdown-')) for (const request of await (await caches.open(name)).keys()) entries.push(new URL(request.url).pathname + new URL(request.url).search); return entries; });
       assert.ok(keys.every(key => !key.includes('?') && allowlist.some(file => new URL(file, origin + '/').pathname === key)), 'Every cache key is exactly public');
-      await active.goto(`${origin}/?title=0`); await readyBoard(active);
       await active.evaluate(() => {
         localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'human', sound: false, pace: 'off' }));
         sessionStorage.setItem('kingdown.title-seen', '1');
       });
+      await active.goto(`${origin}/?title=0`); await readyBoard(active);
+      await active.waitForFunction(savedGameSynced);
       const offlineAfter = events.length;
       offline = true; await persistent.setOffline(true);
       await active.goto(origin); await readyBoard(active); assert.deepEqual(await lanMoves(active), ['e2-e4']);
       const saved = await active.evaluate(() => localStorage.getItem('kingdown.save'));
+      const beforeOffline = await localData(active);
       await startLesson(active, 'Beast'); await active.locator('#show-me').click();
       await active.waitForFunction(() => window.view.marks.hint.length > 0); await active.locator('#return-game').click();
       await pressMenu(active, 'Workshop'); await active.locator('#workshop').waitFor({ state: 'visible' });
       await active.locator('#workshop').evaluate(dialog => dialog.close());
       assert.equal(await active.evaluate(() => localStorage.getItem('kingdown.save')), saved, 'Offline lesson and lazy Workshop keep the save');
+      assertLocalData(beforeOffline, await localData(active));
+      await tapSquare(active, 52); await tapSquare(active, 36);
+      await waitForUi(active, ui => ui.lan.length === 2 && !window.view.scene.animating);
+      await endTurn(active);
+      await active.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.join() === 'e2-e4,e7-e5');
+      const afterMove = await localData(active);
+      assert.notEqual(afterMove['kingdown.save'], beforeOffline['kingdown.save'], 'A local move writes the save while account access is off');
+      assertLocalData({ ...beforeOffline, 'kingdown.save': afterMove['kingdown.save'], 'kingdown.sync': afterMove['kingdown.sync'] }, afterMove);
+      const oldStamps = JSON.parse(beforeOffline['kingdown.sync']), newStamps = JSON.parse(afterMove['kingdown.sync']);
+      assert.deepEqual({ ...newStamps, saved_game: oldStamps.saved_game }, oldStamps, 'Only the local game sync stamp changes');
+      assert.notEqual(newStamps.saved_game.json, oldStamps.saved_game.json);
+      assert.ok(newStamps.saved_game.at >= oldStamps.saved_game.at);
+      await active.reload(); await readyBoard(active);
+      assert.deepEqual(await lanMoves(active), ['e2-e4', 'e7-e5'], 'Offline reload keeps the local move');
+      assertLocalData(afterMove, await localData(active));
+
+      await restoreLocalSave(active, saved);
       await active.goto(`${origin}/?army=RNBQKBNR&moves=e2-e4&players=human,ai`); await readyBoard(active);
       assert.deepEqual(await lanMoves(active), ['e2-e4'], 'The offline game link keeps the local move');
       await active.evaluate(() => {
@@ -489,6 +614,14 @@ export async function main() {
       const refused = events.slice(offlineAfter).filter(event => event.event === 'offline-refused').map(event => event.url);
       assert.ok(refused.every(url => url === '/sw.js' || new URL(url, origin).pathname === '/'), `Offline play requests no asset from the server, only the network-first page and worker checks: ${JSON.stringify(refused)}`);
       await persistent.setOffline(false); offline = false;
+      await restoreLocalSave(active, saved);
+      await active.goto(`${origin}/?title=0`); await readyBoard(active);
+      await active.waitForFunction(savedGameSynced);
+      const beforeLocal = await localData(active);
+      await startLesson(active, 'Beast'); await active.locator('#return-game').click();
+      await pressMenu(active, 'Workshop'); await active.locator('#workshop').waitFor({ state: 'visible' });
+      await active.locator('#workshop').evaluate(dialog => dialog.close());
+      assertLocalData(beforeLocal, await localData(active));
       await active.goto(`${origin}/?fixture=page`); await active.waitForFunction(() => window.privateProbe);
     }
     await closeProfile();

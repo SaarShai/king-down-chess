@@ -10,7 +10,7 @@ const scratch = await mkdtemp(join(tmpdir(), 'kingdown-runtime-'));
 try {
   await buildRuntime(join(scratch, 'runtime'));
   const files = (await readdir(join(scratch, 'runtime'))).sort();
-  if (JSON.stringify(files) !== JSON.stringify(['engines', 'index.mjs', 'package.json', 'worker.mjs'])) throw new Error('Runtime contains unexpected assets or source files');
+  if (JSON.stringify(files) !== JSON.stringify(['engines', 'index.mjs', 'package.json', 'search-worker.mjs', 'worker.mjs'])) throw new Error('Runtime contains unexpected assets or source files');
   const archive = (await readdir(ENGINES)).filter(file => file.endsWith('.mjs')).sort();
   if (JSON.stringify((await readdir(join(scratch, 'runtime/engines'))).sort()) !== JSON.stringify(archive)) throw new Error('Runtime engines differ from the engine archive');
   const fixtures = await Promise.all(archive.map(file => readFile(join(ENGINES, file.replace(/\.mjs$/, '.save.json')), 'utf8')));

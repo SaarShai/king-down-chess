@@ -1,3 +1,4 @@
+import { GameRules } from '../game-rules';
 // The section numbers (§) in this file cite revision 3 of the Workshop doc:
 // docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
 import { readFileSync } from 'node:fs';
@@ -42,11 +43,11 @@ describe('text (§8.4.9)', () => {
     const texts: string[] = [...ALL_RULES.map(ruleText), ...ALL_RULES.map(r => partsText(lineParts(r).say)), ...BLOCKS.flatMap(b => [b.example])];
     for (const p of PRESETS) {
       const v = judge(p);
-      texts.push(words(p).summary, v.line, v.like, ...v.why, ...v.flags.map(f => f.line));
+      texts.push(words(p).summary, v.line, v.like, ...v.flags.map(f => f.line));
     }
     for (const r of ALL_RULES) {
       const d = { ...presetOf('rook'), rules: [r] }, v = judge(d);
-      texts.push(words(d).summary, v.line, ...v.why);
+      texts.push(words(d).summary, v.line);
     }
     for (const t of texts) {
       expect(t, t).not.toMatch(ENGINEERING);
@@ -146,7 +147,7 @@ describe('the design menu (Proving Ground ticket 07)', () => {
   it('Copy as text gives the sentences, a MATRIX row and the link', () => {
     const d: PieceDesign = { ...fromPreset(BLANK), name: 'Rook Rider', letter: 'D', lines: ['n', 'e', 's', 'w'],
       squares: [{ x: 1, y: 2, mark: 'both' }, { x: -1, y: 2, mark: 'both' }] };
-    const t = designText(d, judge(d, false), 'https://example.test/?design=abc').split('\n');
+    const t = designText(d, judge(d), 'https://example.test/?design=abc').split('\n');
     expect(t[0]).toBe('Rook Rider');
     expect(t[1]).toBe(`Moves: ${words(d).moves}`);
     expect(t).toContain(`Takes: ${words(d).takes}`);
@@ -173,8 +174,8 @@ describe('the laws of the Rules tab (ticket 12)', () => {
     const keys: (keyof Rules)[] = ['fiftyMove', 'threefold', 'insufficientMaterial', 'guardNextToKing', 'bishopsOppositeColours'];
     keys.forEach((k, i) => {
       for (const on of [true, false]) {
-        setRules({ [k]: on });
-        expect(lawsOf()[i][2], k).toBe(on ? 'On' : 'Off');
+        const context = new GameRules({ [k]: on });
+        expect(lawsOf(context.rules)[i][2], k).toBe(on ? 'On' : 'Off');
       }
     });
   });
@@ -187,8 +188,8 @@ describe('the laws of the Rules tab (ticket 12)', () => {
       anyNonKingNoGuard: ['Q R B N A L M S', 'queen, rook, bishop, knight, archer, paladin, maester or beast'],
     } as const;
     for (const [set, [letters, words]] of Object.entries(want)) {
-      setRules({ promotionSet: set as Rules['promotionSet'] });
-      expect(promotion()).toEqual({ letters, words });
+      const context = new GameRules({ promotionSet: set as Rules['promotionSet'] });
+      expect(promotion(context)).toEqual({ letters, words });
     }
   });
 });

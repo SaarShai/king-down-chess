@@ -1,12 +1,13 @@
+import { describeMove, nextMoveNumber } from '../move-text';
+import { GameRules } from '../game-rules';
 import type { SkillName } from '../ai/skill';
 import type { Game, Side } from '../game';
-import { describeMove, nextMoveNumber } from '../move-text';
 import type { Color } from '../rules/engine';
-import { randomBackRank } from '../rules/setup';
+
 import { mulberry32 } from '../sim/rng';
 
 export interface HomeInput {
-  game: Pick<Game, 'pos' | 'history' | 'status'>;
+  game: Pick<Game, 'pos' | 'history' | 'status' | 'context'>;
   sides: readonly [Side, Side];
   level: SkillName;
   linkSide: Color | null;
@@ -35,7 +36,7 @@ export function homeState({ game, sides, level, linkSide, staged, result }: Home
     action: finished ? 'Rematch' : 'Continue',
     detail,
     review: finished,
-    lastMove: last ? describeMove(last.pos, last.move, true) : '',
+    lastMove: last ? describeMove(game.context, last.pos, last.move, true) : '',
     result: finished ? result : '',
   };
 }
@@ -47,8 +48,8 @@ export function shouldShowHome(params: URLSearchParams, gate: { hasSave: boolean
 }
 
 /** Today uses the local date and the same draw as New game. */
-export function todayDeal(day: Date) {
+export function todayDeal(day: Date, context: GameRules = new GameRules()) {
   const date = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
   const words = day.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
-  return { date, label: `Play today's army · ${words}`, army: randomBackRank(mulberry32(+date.replace(/-/g, ''))) };
+  return { date, label: `Play today's army · ${words}`, army: context.randomBackRank(mulberry32(+date.replace(/-/g, ''))) };
 }

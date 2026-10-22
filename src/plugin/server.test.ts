@@ -1,10 +1,12 @@
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { REPORT_CATEGORIES } from '../account/profile';
 import { DEFAULT_OPTIONS } from '../match/setup';
+import { createArguments, readSetup } from './screens/setup-model';
 import { ART_ORIGIN, createPluginServer } from './server';
 import { MatchServiceError } from '../match/service';
+afterEach(() => { vi.unstubAllEnvs(); });
 
 it.each([
  { name: 'automatic revision', expected: undefined, code: 'STALE_REVISION', always: false, calls: 2, error: false },
@@ -239,7 +241,7 @@ it('advertises the irreversible writes and repeat effects for review', async () 
 
 it('uses singular and plural words for badge and lobby counts', async () => {
  let count = 0;
- const service = {blocks:async()=>[],profile:async()=>({user_id:'alice'}),record:async()=>({rating:{rating:1500,provisional:true},totals:{played:0,won:0,drawn:0,lost:0},badges:Array(count).fill({})}),history:async()=>({games:[],next_before:null}),lobby:async()=>({games:Array(count).fill({})})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const service = {notices:async()=>({notices:[],next_notices_before:null}),blocks:async()=>[],profile:async()=>({user_id:'alice'}),record:async()=>({rating:{rating:1500,provisional:true},totals:{played:0,won:0,drawn:0,lost:0},badges:Array(count).fill({})}),history:async()=>({games:[],next_before:null}),lobby:async()=>({games:Array(count).fill({})})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
  const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
  const client = new Client({name:'plural-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
  await server.connect(a); await client.connect(b);
@@ -263,8 +265,34 @@ it('sends any rules from Create and Find to matchmaking, and says that the colou
   for (const name of ['kingdown_create','kingdown_find']) expect(tools.find(t=>t.name === name)!.inputSchema.properties!.any_rules).toMatchObject({type:'boolean'});
   await client.callTool({name:'kingdown_create',arguments:{kind:'random',options:DEFAULT_OPTIONS,any_rules:true,command_id:'c1'}});
   await client.callTool({name:'kingdown_find',arguments:{options:DEFAULT_OPTIONS,colour:'black'}});
-  expect(find.mock.calls).toEqual([['alice',DEFAULT_OPTIONS,undefined,'c1',true],['alice',DEFAULT_OPTIONS,'black',undefined,undefined]]);
+  expect(find.mock.calls).toEqual([['alice',DEFAULT_OPTIONS,undefined,'c1',true,undefined],['alice',DEFAULT_OPTIONS,'black',undefined,undefined,undefined]]);
  } finally {await client.close(); await server.close();}
+});
+
+it('keeps Ranked creation independent of saved Casual setup and carries deliberate acceptance through MCP', async () => {
+ vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging'); // Ranked is offered only in staging (ticket 67).
+ const game_id='00000000-0000-4000-8000-000000000001';
+ const view={game_id,status:'waiting',rating_policy:'ranked-v1',seat:0,action:'waiting',fen:'private position',legal:['private move']};
+ const find=vi.fn().mockResolvedValue(view), accept=vi.fn().mockResolvedValue(view), settings=vi.fn();
+ const service={toolTry:async()=>{},find,accept,settings,profile:async()=>({handle:'ann',icon:null})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server=createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client=new Client({name:'ranked-host',version:'1'}),[a,b]=InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const created=await client.callTool({name:'kingdown_create',arguments:{kind:'random',mode:'ranked',command_id:'ranked-once'}});
+  expect(created.isError).not.toBe(true); expect(settings).not.toHaveBeenCalled();
+  expect(find).toHaveBeenCalledExactlyOnceWith('alice',undefined,undefined,'ranked-once',undefined,'ranked');
+  const setup=createArguments(readSetup({kind:'random',mode:'ranked'}));
+  expect((await client.callTool({name:'kingdown_find',arguments:{...setup,command_id:'ranked-ui'}})).isError).not.toBe(true);
+  expect(find).toHaveBeenLastCalledWith('alice',setup.options,'random','ranked-ui',undefined,'ranked');
+  expect(created.structuredContent).toMatchObject({game_id,rating_policy:'ranked-v1'});
+  expect(created.structuredContent).not.toHaveProperty('fen'); expect(created.structuredContent).not.toHaveProperty('legal');
+  expect((await client.callTool({name:'kingdown_accept',arguments:{game_id,rating_policy:'ranked-v1'}})).isError).not.toBe(true);
+  expect(accept).toHaveBeenCalledExactlyOnceWith('alice',game_id,'ranked-v1');
+  accept.mockClear();
+  expect((await client.callTool({name:'kingdown_accept',arguments:{game_id,rating_policy:'ranked'}})).isError).toBe(true);
+  expect(accept).not.toHaveBeenCalled();
+ } finally {await client.close();await server.close();}
 });
 
 
@@ -280,4 +308,43 @@ it.each(['kingdown_open', 'kingdown_resume'])('%s prefers a ready person to a co
   expect(result.isError).toBeFalsy();
   expect(result.structuredContent).toMatchObject({game_id:person});
  } finally {await client.close(); await server.close();}
+});
+
+
+it('keeps the engine implementation in the authorized view and out of model summaries', async () => {
+ const game_id = '00000000-0000-4000-8000-000000000001';
+ const view = { game_id, engine_fingerprint:'engine-v1', kind:'friend', seat:0, status:'playing', action:'ready', fen:'private position', legal:['private move'], draw_offer:null, opponent:{handle:'private opponent'} };
+ const service = {view:async()=>view,profile:async()=>({handle:null,icon:null})} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'identity-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const result = await client.callTool({name:'kingdown_get',arguments:{game_id}});
+  expect(result.isError).toBeFalsy(); expect(result._meta?.view).toEqual(view);
+  const model = JSON.stringify({content:result.content,structuredContent:result.structuredContent});
+  for (const privateValue of ['engine_fingerprint','engine-v1','private position','private move','private opponent']) expect(model).not.toContain(privateValue);
+ } finally {await client.close(); await server.close();}
+});
+
+it('keeps stored-engine draft previews app-only and private, without selecting or writing a board', async () => {
+ const game_id = '00000000-0000-4000-8000-000000000001', engine_fingerprint = 'sha256:' + 'a'.repeat(64);
+ const draft = {game_id,revision:3,engine_fingerprint,actions:['Ra1-a4!H'],positions:[{fen:'private draft',status:'playing',turn:0,in_check:false,moves:[{lan:'private move',move:{from:0,to:24}}]}]};
+ const previewDraft = vi.fn(async()=>draft), command = vi.fn(), seen = vi.fn(), selectBoard = vi.fn();
+ const service = {previewDraft,command,seen,selectBoard} as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({service,actorId:'alice',resourceHtml:'<html>board</html>',publicOrigin:'https://kingdown.example'});
+ const client = new Client({name:'draft-host',version:'1'}), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const input = {expected_revision:3,engine_fingerprint,actions:['Ra1-a4!H']};
+  const result = await client.callTool({name:'kingdown_preview',arguments:{game_id,...input}});
+  expect(result).toMatchObject({_meta:{draft}});
+  expect(previewDraft).toHaveBeenCalledExactlyOnceWith('alice',game_id,input);
+  expect(JSON.stringify({content:result.content,structuredContent:result.structuredContent})).not.toMatch(/private|sha256|Ra1|game_id|positions/);
+  const tool = (await client.listTools()).tools.find(tool=>tool.name==='kingdown_preview')!;
+  expect(tool._meta?.ui).toEqual({visibility:['app']});
+  expect(tool.annotations).toMatchObject({readOnlyHint:true,idempotentHint:true});
+  expect(tool.inputSchema.properties?.actions).toMatchObject({type:'array',maxItems:4});
+  for (const extra of [{actor_id:'mallory'},{board_id:game_id},{actions:Array(5).fill('e2-e4')},{engine_fingerprint:'unknown'}]) expect(await client.callTool({name:'kingdown_preview',arguments:{game_id,...input,...extra}})).toMatchObject({isError:true,_meta:{code:'INVALID_INPUT'}});
+  expect(previewDraft).toHaveBeenCalledOnce(); expect(command).not.toHaveBeenCalled(); expect(seen).not.toHaveBeenCalled(); expect(selectBoard).not.toHaveBeenCalled();
+ } finally {await client.close();await server.close();}
 });

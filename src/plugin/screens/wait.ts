@@ -1,16 +1,19 @@
-import { call, client, gameActionsBlocked, memory, navigate, pollUpdate, queue, routeView, start } from '../app';
+import { call, client, gameActionsBlocked, memory, navigate, pollUpdate, queue, routeView, start } from '../../account-game/runtime';
 import { setupBusy } from './setup';
 import type { Job } from '../queue';
-import { art } from '../art';
+import { art } from '../../account-game/art';
 import type { PollTarget } from '../poll';
 import { DEFAULT_OPTIONS, defaultChoice } from '../../match/setup';
 import type { View } from '../../match/protocol';
-import { $, features, onStop, portrait, showError } from './friend';
+import { $, onStop, portrait, showError } from './friend';
+import { features } from '../../account-game/features';
 let open: View | undefined, began = 0, timer: ReturnType<typeof setInterval> | undefined;
+let stopped = false;
 let watched: string | undefined, offering = false, switching = false, background = false;
 const dismissed = new Set<string>();
 let abortReceipt: View | undefined, recoverJoined: boolean | undefined;
 export function waitScreen() {
+  if (stopped || queue.closed()) return;
   const view = memory.view;
   if (view?.kind === 'random') {
     if (view.status !== 'waiting') { routeView(view); return; }
@@ -37,7 +40,7 @@ export function waitScreen() {
   clearInterval(timer); timer = setInterval(tick, 1000); tick(); syncWatch();
 }
 function tick() {
-  if (client.state.screen !== 'wait' || !open) return;
+  if (stopped || queue.closed() || client.state.screen !== 'wait' || !open) return;
   const seconds = Math.max(0, Math.floor((Date.now() - began) / 1000));
   $('page-title').textContent = 'Finding an opponent';
   $('wait-time').textContent = `Waiting ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}.`;
@@ -85,6 +88,7 @@ async function readOpen(game: string) {
   });
 }
 function syncWatch() {
+  if (stopped || queue.closed()) return;
   recoverJoined ??= client.state.screen === 'board';
   if (open && memory.view?.game_id === open.game_id) open = memory.view;
   const solo = memory.view?.kind === 'solo' && memory.view.status === 'playing';
@@ -110,11 +114,12 @@ function syncWatch() {
  */
 export function waitPoll(): PollTarget | undefined {
   const id = watched;
-  return id ? { view: open?.game_id === id ? open : 'waiting for a join', read: async () => {
+  return !stopped && !queue.closed() && id ? { view: open?.game_id === id ? open : 'waiting for a join', read: async () => {
     if (memory.view?.kind === 'solo' && memory.view.status === 'playing' && ['board','wait'].includes(client.state.screen)) await readOpen(id);
   } } : undefined;
 }
 function found(human: View) {
+  if (stopped || queue.closed()) return;
   const over = $<HTMLDialogElement>('over');
   // An open dialog stays: a later watch read does not rebuild Switch now (or its error) while the player answers.
   if (over.open) return;
@@ -140,17 +145,18 @@ function found(human: View) {
       if (!queue.current(origin)) return;
       if (next) { over.close(); routeView(next); await call('kingdown_games', {}, { origin }); }
       else showError(new Error($('error').textContent ?? 'Could not open the game.'), $('found-error'));
-    } catch (error) { if (queue.current(origin)) showError(error, $('found-error')); }
-    finally { switching = false; $<HTMLButtonElement>('found-switch').disabled = false; }
+    } catch (error) { if (!stopped && queue.current(origin)) showError(error, $('found-error')); }
+    finally { switching = false; if (!stopped && !queue.closed()) { const button = $<HTMLButtonElement>('found-switch'); if (button) button.disabled = false; } }
   };
   if (!over.open) over.showModal();
 }
 function stopWatch() { watched = undefined; background = false; }
 export function waitSync() {
+  if (stopped || queue.closed()) return;
   if (client.state.screen !== 'wait') { clearInterval(timer); timer = undefined; }
   syncWatch();
 }
 // The games list changes outside the store: its rows can name a new waiting game.
 const observer = new MutationObserver(waitSync);
 observer.observe($('games-list'), { childList: true });
-onStop(() => { clearInterval(timer); stopWatch(); observer.disconnect(); });
+onStop(() => { stopped = true; clearInterval(timer); timer = undefined; stopWatch(); observer.disconnect(); open = undefined; abortReceipt = undefined; dismissed.clear(); });

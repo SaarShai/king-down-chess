@@ -1,12 +1,12 @@
 /** Play one game headless (AI vs AI) and record everything the analyser needs. */
-import { LETTERS, Move, Position, PowerTag, WHITE, colorOf, status, typeOf } from '../rules/engine';
+import { LETTERS, Move, Position, PowerTag, WHITE, colorOf, typeOf } from '../rules/engine';
 import { RULES, Rules, setRules } from '../rules/rules';
 import { fromFen, toFen, toLan, waitGuards } from '../rules/setup';
 import { readFileSync } from 'node:fs';
 import { Game } from '../game';
 import { EvalParams, setDesignValue, setEvalParams } from '../ai/eval';
-import * as AI from '../ai/search';
-import { setPowerHold } from '../ai/search';
+import { resetSearchState, search, setPowerHold, type SearchResult } from '../ai/search';
+import { positionKey } from '../rules/position-key';
 import { Adjudicate, Job, RunSpec, adjudication, sideOptions } from './spec';
 import { countMove, emptyEvents } from './replay';
 import { mulberry32 } from './rng';
@@ -111,32 +111,6 @@ function census(pos: Position, into: [Record<string, number>, Record<string, num
 }
 
 /**
- * search() keeps its transposition table, killers and history between calls, so game n would
- * otherwise depend on games 1..n-1 in the same worker (sim-methodology.md §7.2). The AI agent is
- * adding a reset; call it when it lands, under either name, and carry on without it until then.
- */
-function resetSearch(): void {
-  const m = AI as unknown as Record<string, unknown>;
-  const fn = m.resetSearchState ?? m.resetSearch;
-  if (typeof fn === 'function') (fn as () => void)();
-}
-
-/**
- * `SearchOptions.history` lets the search see repetitions it would otherwise walk into. Optional in
- * the same defensive way: without it the smoke run drew 55% of its games by repetition.
- */
-const positionKey = (AI as unknown as Record<string, unknown>).positionKey as ((p: Position) => number) | undefined;
-
-/**
- * `Game` always applies threefold repetition and `src/game.ts` is owned by the UI agent, so the
- * `threefold: false` toggle is undone here: recompute the status without the repetition rule.
- * `status()` is the same call `Game.setStatus` makes, minus the repetition test.
- */
-export function applyDrawRules(game: Game): void {
-  if (!RULES.threefold && game.status === 'drawRepetition') game.status = status(game.pos);
-}
-
-/**
  * Per-side evaluation parameters (`RunSpec.evalParams`), read once per worker and swapped in
  * before each search. `null` when the run plays one evaluation, which is every run but a tuning
  * match — and the swap costs a transposition table, so it stays off by default.
@@ -162,7 +136,7 @@ function evalSides(spec: RunSpec, colourSwapped: boolean): [EvalParams | undefin
  * Every start, a FEN one included, takes the guards off under `guardReserve` (`waitGuards`).
  */
 export function startGame(white: string, black: string, fen?: string): Game {
-  const g = new Game(white);
+  const g = new Game(white, RULES);
   if (fen) g.load(waitGuards(fromFen(fen)));
   else if (black !== white) g.load(waitGuards(fromFen(`${black.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${white} w - - 0 1`)));
   return g;
@@ -188,7 +162,7 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
   const adj: Adjudicate | null = adjudication(spec);
   const maxPlies = spec.maxPlies ?? 300;
   const openingPlies = spec.openingRandomPlies ?? 0;
-  resetSearch();
+  resetSearchState();
 
   const stats: [SideStats, SideStats] = [emptyStats(), emptyStats()];
   census(game.pos, [stats[0].start, stats[1].start]);
@@ -205,7 +179,7 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
   while (game.status === 'playing') {
     if (moves.length >= maxPlies) { reason = 'plyCap'; break; }
     const pos = game.pos, legal = game.legal, c = pos.turn;
-    if (positionKey) history.push(positionKey(pos));
+    history.push(positionKey(pos));
     const t = performance.now();
     let move: Move | null, cp: number | undefined, nodes: number | undefined, depth: number | undefined;
     let gap: number | undefined;
@@ -219,12 +193,12 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
     } else {
       // Two evaluations in one process: swap the tables, and drop the transposition table with
       // them — an entry stored by one side's evaluation is not a score the other side may read.
-      if (evals) { setEvalParams(evals[c]); resetSearch(); }
+      if (evals) { setEvalParams(evals[c]); resetSearchState(); }
       if (spec.powerHoldSides) {
         setPowerHold({ ...spec.powerHold, ...spec.powerHoldSides[c] } as Parameters<typeof setPowerHold>[0]);
-        resetSearch();
+        resetSearchState();
       }
-      const r = AI.search(pos, { ...opts[c], history, ...(spec.multiPv ? { multiPv: 2 as const } : {}) }) as Partial<AI.SearchResult>;
+      const r = search(pos, { ...opts[c], history, ...(spec.multiPv ? { multiPv: 2 as const } : {}) }) as Partial<SearchResult>;
       move = resolve(pos, legal, r?.move) ?? legal[0] ?? null;
       if (typeof r?.score === 'number') cp = c === WHITE ? r.score : -r.score;
       if (typeof r?.nodes === 'number') nodes = r.nodes;
@@ -252,7 +226,6 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
       legal: legal.length, ms: +(performance.now() - t).toFixed(2), by: c,
     });
     game.play(move);
-    applyDrawRules(game);
     // The one event counter, shared with `replayRecord`, so a stored game can be re-read and checked.
     countMove(events, pos, move, game.pos);
 

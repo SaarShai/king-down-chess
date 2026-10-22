@@ -1467,7 +1467,7 @@ describe('kings powers: lifecycle', () => {
 
   it('undo restores a Death Touch shot exactly', () => {
     setRules({ kings: [{ king: 'Shadow', power: 'DeathTouch' }, null] });
-    const g = new Game();
+    const g = new Game(undefined, { kings: [{ king: 'Shadow', power: 'DeathTouch' }, null] });
     g.load(fromFen('7k/8/8/3r4/3K4/8/8/8 w - - 0 1'));
     const before = toFen(g.pos);
     const shot = g.legal.find(m => toLan(g.pos, m) === 'Kd4*d5')!;

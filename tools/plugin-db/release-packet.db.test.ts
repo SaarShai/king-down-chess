@@ -10,7 +10,7 @@ const read = (file: string) => readFileSync(file, 'utf8');
 const packet = 'docs/specs/chatgpt-mvp/release/apply-0010-0013.sql';
 const body = (sql: string) => sql.replace(/--[^\n]*/g, '').trim().replace(/^begin;\s*/i, '').replace(/\s*commit;$/i, '').trim();
 const blocks = read('plugin-deploy/runtime-role.sql').match(/^begin;[\s\S]*?^commit;$/gm)!;
-const sources = ['supabase/migrations/0010_game_setup.sql', 'block-7', 'supabase/migrations/0011_matchmaking.sql', 'supabase/migrations/0012_results.sql', 'block-8', 'supabase/migrations/0013_player_settings.sql', 'block-9', 'block-10', 'supabase/migrations/0014_plugin_tool_tries.sql', 'block-11'];
+const sources = ['supabase/migrations/0010_game_setup.sql', 'block-7', 'supabase/migrations/0011_matchmaking.sql', 'supabase/migrations/0012_results.sql', 'block-8', 'supabase/migrations/0013_player_settings.sql', 'block-9', 'block-10', 'supabase/migrations/0014_plugin_tool_tries.sql', 'block-11', 'supabase/migrations/0015_remove_email.sql'];
 
 it('keeps the release statements in migration and runtime-role order without drift', () => {
  const sql = read(packet);
@@ -68,6 +68,8 @@ suite('the SQL Editor release paste', () => {
  }, 120_000);
  it('applies at 0009 plus role blocks 1–6 and passes every runtime startup probe', async () => {
   await apply();
+  await apply();
+  expect((await admin.query("select to_regprocedure('kingdown_jobs.user_email(uuid)') as email")).rows).toEqual([{ email: null }]);
   const client = await admin.connect();
   try {
    await client.query('begin'); await client.query(`set local role ${role}`);

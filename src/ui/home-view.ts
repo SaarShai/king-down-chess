@@ -15,6 +15,15 @@ export function initHome(actions: {
   const $ = (id: string): HTMLElement => document.getElementById(id)!;
   const table = $('game-table'), menu = $('menu-btn');
   const parts = [...table.querySelectorAll<HTMLElement>('[data-home-part]')];
+  for (const link of document.querySelectorAll<HTMLAnchorElement>('[data-account-play]')) {
+    const note = link.querySelector('small')!, onlineNote = note.textContent;
+    link.addEventListener('click', event => {
+      if (navigator.onLine) return;
+      event.preventDefault();
+      note.textContent = 'You are offline. Keep playing on this device.';
+    });
+    window.addEventListener('online', () => { note.textContent = onlineNote; });
+  }
   let visible = false;
   function refresh(): void {
     if (!visible) return;
@@ -28,7 +37,7 @@ export function initHome(actions: {
     $('home-review').hidden = !state.review;
     $('last-move').innerHTML = '<span></span>';
     $('last-move').querySelector('span')!.textContent = state.lastMove || 'No moves yet.';
-    const today = todayDeal(new Date());
+    const today = todayDeal(new Date(), actions.read().game.context);
     $('home-date').textContent = today.label;
     $('home-army').innerHTML = [...today.army].map(p => pieceIcon(LETTERS.indexOf(p) as PieceType)).join('');
   }

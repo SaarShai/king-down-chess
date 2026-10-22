@@ -1,6 +1,6 @@
 /** The server's schemas for the game setup (`setup.ts`): shape here, the rules in `validate` and `validateChoice`. */
 import { z } from 'zod';
-import { KINGS, type KingName, type PowerName } from '../rules/rules';
+import type { KingName, PowerName } from '../rules/rules';
 import { DEAL_CARDS, POOL_KINDS, validate } from './setup';
 
 export const optionsSchema = z.strictObject({
@@ -9,7 +9,8 @@ export const optionsSchema = z.strictObject({
   cardPool: z.array(z.enum(DEAL_CARDS as [(typeof DEAL_CARDS)[number], ...(typeof DEAL_CARDS)[number][]])).max(DEAL_CARDS.length), kingPowers: z.boolean(),
 }).superRefine((o, ctx) => { const error = validate(o); if (error) ctx.addIssue({ code: 'custom', message: error }); });
 
+/** Shape only: an existing game admits stable IDs through its stored setup contract. */
 export const choiceSchema = z.strictObject({
-  king: z.strictObject({ king: z.enum(Object.keys(KINGS) as [KingName, ...KingName[]]), power: z.enum(Object.values(KINGS).flat() as [PowerName, ...PowerName[]]) }).nullable(),
-  order: z.string().regex(/^[QOLRBNAGMSK]{8}$/),
+  king: z.strictObject({ king: z.string().regex(/^[A-Za-z]{1,32}$/) as z.ZodType<KingName>, power: z.string().regex(/^[A-Za-z]{1,32}$/) as z.ZodType<PowerName> }).nullable(),
+  order: z.string().regex(/^[A-Z]{8}$/),
 });

@@ -1,7 +1,15 @@
 import { expect, it, vi } from 'vitest';
 import type { View } from '../match/protocol';
-import { pollDelay, runPoll, type PollTarget } from './poll';
+import { pollDelay, pollSince, runPoll, type PollTarget } from './poll';
 const view = (change: Partial<View> = {}) => ({ game_id: 'g1', kind: 'friend', status: 'playing', speed: 'daily', turn: 1, seat: 0, opponent: { last_seen_ms: null }, last_commands: [], server_now: '2026-10-11T12:00:00.000Z', ...change }) as View;
+
+it('keeps a visible solo setup and either turn current across hosts', () => {
+  expect(pollDelay(view({ kind: 'solo', status: 'setup' }), 0, false)).toBe(5000);
+  expect(pollDelay(view({ kind: 'solo', status: 'setup' }), 120000, false)).toBe(15000);
+  for (const turn of [0, 1] as const) expect(pollDelay(view({ kind: 'solo', turn, created_at: '2026-10-11T12:00:00.000Z' }), 0, false)).toBe(5000);
+  expect(pollDelay(view({ kind: 'solo' }), 0, true)).toBeUndefined();
+  expect(pollDelay(view({ kind: 'solo', status: 'finished' }), 0, false)).toBeUndefined();
+});
 
 it('uses the wait and game schedule, with the owner’s recent-opponent rule', () => {
   expect(pollDelay('waiting for a join', 0, false)).toBe(5000);
@@ -18,7 +26,7 @@ it('uses the wait and game schedule, with the owner’s recent-opponent rule', (
     { seq: 2, seat: 0, at: '2026-10-11T12:00:00.000Z', action: { type: 'join' } },
   ] }), 0, false)).toBe(3000);
   expect(pollDelay(view({ last_commands: [{ seq: 2, seat: 0, at: '2026-10-11T12:00:00.000Z', action: { type: 'join' } }] }), 0, false)).toBe(30000);
-  for (const current of [view({ kind: 'solo' }), view({ status: 'finished' }), view({ status: 'aborted' }), undefined]) expect(pollDelay(current, 0, false)).toBeUndefined();
+  for (const current of [view({ status: 'finished' }), view({ status: 'aborted' }), undefined]) expect(pollDelay(current, 0, false)).toBeUndefined();
   expect(pollDelay(view(), 0, true)).toBeUndefined();
 });
 
@@ -59,8 +67,8 @@ it('reads every three seconds for two minutes after your own move, draw or remat
   }
   // A draw answer or a rematch offer leaves the turn with you.
   expect(pollDelay(view({ turn: 0, opponent: idle, last_commands: own('draw', 5000) }), 0, false)).toBe(3000);
-  // Never faster in a computer game.
-  expect(pollDelay(view({ kind: 'solo', last_commands: own('turn', 0) }), 0, false)).toBeUndefined();
+  // A computer game uses its own cross-host cadence.
+  expect(pollDelay(view({ kind: 'solo', last_commands: own('turn', 0) }), 0, false)).toBe(5000);
 });
 
 it('reads a pending draw offer every three seconds, also on your turn', () => {
@@ -143,4 +151,61 @@ it('a new wait after a long old wait starts at the 5-second rate', async () => {
     const before = read.mock.calls.length;
     await vi.advanceTimersByTimeAsync(5000); expect(read.mock.calls.length - before).toBe(1);
   } finally { runner.stop(); vi.useRealTimers(); }
+});
+
+it('refreshes the bounded command window rather than retaining stale private payloads or losing activity times', () => {
+  const before = view({ revision: 10, last_commands: [{ seq: 7, seat: 0, at: '2026-10-11T12:00:00.000Z', action: { type: 'turn', actions: ['e2-e4'] } }] });
+  expect(pollSince(before)).toBe(6);
+  expect(pollSince(view({ revision: 10 }))).toBe(10);
+  const refreshed = { ...before, server_now: '2026-10-11T12:00:03.000Z' };
+  expect(pollDelay(refreshed, 0, false)).toBe(3000);
+});
+
+/** A visible solo game on a fake clock: each read returns the server's current commands and time. */
+async function soloReads(minutes: number, remoteAt?: number) {
+  vi.useFakeTimers(); vi.setSystemTime(Date.parse('2026-10-11T12:00:00.000Z'));
+  const start = Date.now(), page = Object.assign(new EventTarget(), { hidden: false }), reads: number[] = [];
+  const commands = [{ seq: 4, seat: 0 as const, at: new Date(start).toISOString(), action: { type: 'turn' as const, actions: ['e2-e4'] } }];
+  let current = view({ kind: 'solo', turn: 0, last_commands: commands, server_now: new Date(start).toISOString() });
+  const read = vi.fn(async () => { reads.push(Date.now() - start); current = { ...current, last_commands: [...commands], server_now: new Date().toISOString() }; });
+  if (remoteAt !== undefined) setTimeout(() => commands.push({ seq: 5, seat: 0, at: new Date().toISOString(), action: { type: 'turn', actions: ['d2-d4'] } }), remoteAt);
+  const runner = runPoll(() => ({ view: current, read }), undefined, page);
+  try { await vi.advanceTimersByTimeAsync(minutes * 60000); return reads; } finally { runner.stop(); vi.useRealTimers(); }
+}
+
+it('backs off the visible idle solo poll: 5 s for 2 minutes after the newest command, then 15 s', async () => {
+  const reads = await soloReads(10);
+  // Before this rule: the mount read plus 120 timed reads. After: the mount read plus 56 timed reads.
+  expect(reads.length - 1).toBe(56);
+  expect(reads.filter(at => at <= 120000).length - 1).toBe(24);
+  expect((await soloReads(60)).length - 1).toBe(256);
+});
+
+it('sets the solo delay from the newest command, else the game start, and stays at 5 s with no known time', () => {
+  const now = Date.parse('2026-10-11T12:00:00.000Z'), ago = (ms: number) => new Date(now - ms).toISOString();
+  const moved = (ms: number) => [{ seq: 1, seat: 0 as const, at: ago(600000), action: { type: 'turn' as const, actions: ['e2-e4'] } }, { seq: 2, seat: 1 as const, at: ago(ms), action: { type: 'computer' as const, actions: ['e7-e5'] } }];
+  expect(pollDelay(view({ kind: 'solo', created_at: ago(900000), last_commands: moved(119999) }), 0, false)).toBe(5000);
+  expect(pollDelay(view({ kind: 'solo', created_at: ago(900000), last_commands: moved(120000) }), 0, false)).toBe(15000);
+  // No move yet: the game start opens the first 2-minute window.
+  expect(pollDelay(view({ kind: 'solo', created_at: ago(0) }), 0, false)).toBe(5000);
+  expect(pollDelay(view({ kind: 'solo', created_at: ago(119999) }), 0, false)).toBe(5000);
+  expect(pollDelay(view({ kind: 'solo', created_at: ago(120000) }), 0, false)).toBe(15000);
+  // A missing or unreadable time is never slower than 5 seconds.
+  expect(pollDelay(view({ kind: 'solo', last_commands: [] }), 0, false)).toBe(5000);
+  expect(pollDelay(view({ kind: 'solo', created_at: ago(900000), server_now: 'unknown' }), 0, false)).toBe(5000);
+  expect(pollDelay(view({ kind: 'solo', created_at: 'unknown', last_commands: moved(600000) }), 0, false)).toBe(15000);
+  // A missing commands list falls back to the game start.
+  expect(pollDelay(view({ kind: 'solo', created_at: ago(900000), last_commands: undefined }), 0, false)).toBe(15000);
+  // The End screen's rematch watch gives the finished solo view as a playing view; it uses the same rule.
+  expect(pollDelay(view({ kind: 'solo', turn: 1, created_at: ago(900000), last_commands: moved(119999) }), 0, false)).toBe(5000);
+  expect(pollDelay(view({ kind: 'solo', turn: 1, created_at: ago(900000), last_commands: moved(180000) }), 0, false)).toBe(15000);
+});
+
+it('shows a remote solo move within 5 s in the first 2 idle minutes, and within 15 s after them', async () => {
+  for (const [at, limit] of [[90001, 5000], [119999, 5000], [300001, 15000]] as const) {
+    const reads = await soloReads(10, at), seen = reads.find(read => read >= at)!;
+    expect(seen - at).toBeLessThanOrEqual(limit);
+    // The new move opens a new 5-second window.
+    expect(reads.filter(read => read > seen && read <= seen + 15000).length).toBe(3);
+  }
 });

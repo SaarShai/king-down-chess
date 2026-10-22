@@ -3,7 +3,8 @@ import {
   BLACK, Color, Move, POWERS_BALANCED, Position, Q, WHITE, colorOf, isAttacked, legalMoves, makeMove, parseKings, parseSq, piece, setRules, status, typeOf,
 } from '../rules/engine';
 import { fromFen, randomBackRank, startPosition, toLan } from '../rules/setup';
-import { MATE, evaluate, positionKey, resetSearchState, search } from './search';
+import { MATE, evaluate, resetSearchState, search } from './search';
+import { positionKey } from '../rules/position-key';
 import { setDesignValue, setPieceValues } from './eval';
 import { PRESETS, specOf } from '../workshop/model';
 

@@ -1,5 +1,7 @@
+import { frozenPieces, frost, FROST_DEFS } from './frost';
+import { GameRules } from '../game-rules';
 import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
-import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, RULES, S, T, colorOf, playedDesign, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
+import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, S, T, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { figureUrl, selectedFigure } from '../workshop/figures';
 import { drawMarks, POP_MS, RIPPLE_MS, type Highlights } from './marks';
 import { boardInk, coordInk } from './board-ink';
@@ -14,6 +16,9 @@ export interface BoardView {
   onDragSelect: (sq: number) => void;
   onSquareHover: (sq: number | null) => void;
   onLoadError?: (error: unknown) => void;
+  /** Finish the active reply or ceremony before a skip gesture ends the scene. */
+  onSkipAnimation?: () => void;
+  setRules?(context: GameRules): void;
   sync(pos: Position): void;
   /** `onContact` can fire more than once, or not at all. Optional playback speed: 0.5 is half speed. */
   animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void>;
@@ -36,25 +41,32 @@ export interface BoardView {
 }
 
 /** The king sheet a side's King is drawn with: the king it plays, Spirit (White) and Shadow (Black) without powers. */
-const kingDesign = (c: Color): KingDesign => (RULES.kings[c]?.king ?? PLAIN_KINGS[c]).toLowerCase() as KingDesign;
+const kingDesign = (context: GameRules, c: Color): KingDesign => (context.rules.kings[c]?.king ?? PLAIN_KINGS[c]).toLowerCase() as KingDesign;
 
 /** Canvas pixels above the board, so tall back-rank figures are not clipped. */
 const HEADROOM = 64;
 
 /** The painted 2D look: the board trial's figures and capture animations driving the real game. */
 export class PaintedView implements BoardView {
+  context = new GameRules();
+  setRules(context: GameRules): void { this.context = context; }
   onSquareClick: (sq: number, shift: boolean) => void = () => {};
   onDragSelect: (sq: number) => void = () => {};
   onSquareHover: (sq: number | null) => void = () => {};
   onLoadError?: (error: unknown) => void;
+  onSkipAnimation?: () => void;
   canDrag = () => true;
 
   private canvas = document.createElement('canvas');
   private scene: PaintedScene;
   private loaded: Promise<void>;
+  private disposed = false;
+  private events = new AbortController();
+  private resize: ResizeObserver;
   private pos: Position | null = null;
   private symbols?: (piece: number) => HTMLImageElement;
   private marks: Highlights = {};
+  private frostImages = new Map<string, HTMLImageElement>();
   private hovered: number | null = null;
   private tap: PointerEvent | null = null;
   private tapSq: number | null = null; // the square under the press: a tap acts on it
@@ -81,22 +93,25 @@ export class PaintedView implements BoardView {
     container.classList.add('painted');
     this.canvas.width = 960; this.canvas.height = 960 + HEADROOM; // resolution 1 until the first resize
     container.appendChild(this.canvas);
-    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(0), kingDesign(1)], floor: options.floor });
+    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(this.context, 0), kingDesign(this.context, 1)], floor: options.floor });
     this.scene.setDecorate((ctx, scene, layer, row) => this.drawMarks(ctx, scene, layer, row));
     // The game opts in to quiet-move gaits, the selected figure's idle and the framed, warm board
     // (the trial and the trailer keep the plain scene).
-    this.motionQuery.addEventListener('change', () => this.applyLively());
+    const signal = this.events.signal;
+    this.motionQuery.addEventListener('change', () => this.applyLively(), { signal });
     // The kings' effects redraw the board about 30 times a second: not while the tab is hidden.
-    document.addEventListener('visibilitychange', () => this.applyLively());
+    document.addEventListener('visibilitychange', () => this.applyLively(), { signal });
     this.applyLively();
     // F13: no board before the stone art is decoded; the first frame shows stone and pieces together.
     // ready() waits for that frame, so a hidden tab or off-screen frame becomes ready when it shows.
     this.canvas.style.visibility = 'hidden';
-    this.loaded = this.scene.load().catch(error => { this.onLoadError?.(error); }).then(() => new Promise<void>(resolve => {
-      requestAnimationFrame(() => { this.canvas.style.visibility = ''; resolve(); });
+    this.loaded = this.scene.load().catch(error => { if (!this.disposed) this.onLoadError?.(error); }).then(() => new Promise<void>(resolve => {
+      if (this.disposed) { resolve(); return; }
+      requestAnimationFrame(() => { if (!this.disposed) this.canvas.style.visibility = ''; resolve(); });
     }));
     // Keep the square board as large as the container allows.
-    new ResizeObserver(([entry]) => {
+    this.resize = new ResizeObserver(([entry]) => {
+      if (this.disposed) return;
       const box = entry.contentRect; // excludes the padding that keeps the title card clear
       const width = Math.floor(Math.min(box.width, box.height * 960 / (960 + HEADROOM)));
       this.canvas.style.width = `${width}px`;
@@ -106,21 +121,43 @@ export class PaintedView implements BoardView {
       this.setCoords(this.coords);
       // Enough backing pixels for this size on this screen, in quarter steps, at most 2×.
       this.scene.setResolution(Math.min(2, Math.max(1, Math.ceil(width * devicePixelRatio / 960 * 4) / 4)));
-    }).observe(container);
-    this.canvas.addEventListener('pointerdown', e => this.onDown(e));
+    });
+    this.resize.observe(container);
+    let skippedPointer: number | null = null;
+    const consume = (e: Event) => { e.preventDefault(); e.stopImmediatePropagation(); };
+    document.addEventListener('pointerdown', e => {
+      skippedPointer = null;
+      if (e.button !== 0 || !this.canvas.getClientRects().length || !(this.scene.animating || this.scene.falling)) return;
+      skippedPointer = e.pointerId;
+      this.clearPointer(); this.onSkipAnimation?.(); this.skip(); consume(e);
+    }, { capture: true, signal });
+    document.addEventListener('pointerup', e => { if (e.pointerId === skippedPointer) consume(e); }, { capture: true, signal });
+    document.addEventListener('click', e => {
+      if (skippedPointer == null || e.detail === 0) return;
+      skippedPointer = null; consume(e);
+    }, { capture: true, signal });
+    document.addEventListener('pointercancel', () => { skippedPointer = null; }, { capture: true, signal });
+    this.canvas.addEventListener('pointerdown', e => this.onDown(e), { signal });
     // Keep piece drags; a touch that starts elsewhere can scroll the screen.
-    this.canvas.addEventListener('touchstart', e => { if (this.dragFrom != null && this.canDrag()) e.preventDefault(); }, { passive: false });
-    this.canvas.addEventListener('pointermove', e => this.onMove(e));
-    this.canvas.addEventListener('pointerup', e => this.onUp(e));
-    this.canvas.addEventListener('pointercancel', () => this.clearPointer());
-    this.canvas.addEventListener('pointerleave', () => this.hover(null));
+    this.canvas.addEventListener('touchstart', e => { if (this.dragFrom != null && this.canDrag()) e.preventDefault(); }, { passive: false, signal });
+    this.canvas.addEventListener('pointermove', e => this.onMove(e), { signal });
+    this.canvas.addEventListener('pointerup', e => this.onUp(e), { signal });
+    this.canvas.addEventListener('pointercancel', () => this.clearPointer(), { signal });
+    this.canvas.addEventListener('pointerleave', () => this.hover(null), { signal });
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.events.abort(); this.resize.disconnect(); this.clearPointer(); this.scene.dispose();
+    this.pos = null; this.marks = {}; this.symbols = undefined; this.frostImages.clear();
   }
 
   sync(pos: Position): void {
     this.pos = pos;
-    this.scene.setKings([kingDesign(0), kingDesign(1)]);
+    this.scene.setKings([kingDesign(this.context, 0), kingDesign(this.context, 1)]);
     // The design that plays as `T` (ticket 17) stands as its Workshop figure.
-    const d = playedDesign(), id = d && selectedFigure(d).id;
+    const d = this.context.playedDesign(), id = d && selectedFigure(d).id;
     this.scene.setFigure(T, id ? [figureUrl(id, 0), figureUrl(id, 1)] : null);
     this.scene.setPosition(this.symbols ? { ...pos, board: new Uint8Array(64) } : pos);
     const sq = this.fallen?.pos === pos ? this.fallen.sq : null;
@@ -146,9 +183,9 @@ export class PaintedView implements BoardView {
   async animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void> {
     if (this.pos !== pos) this.sync(pos);
     if (this.pace === 'off') return;
-    // King powers that move nothing (Freeze, Ice Wall, a Haste pass) or change a piece in place
-    // (Sacrifice): there is no motion to play, and screen/play.ts syncs the new board right after.
-    if (m.pass || m.power === 'freeze' || m.power === 'ward' || m.power === 'sacrifice') return;
+    // Marks, passes, replacements and area pushes have no single-piece motion.
+    // The caller syncs the resulting board after this resolves.
+    if (m.pass || m.power === 'freeze' || m.power === 'ward' || m.power === 'sacrifice' || m.pushes) return;
     // The scene scales duration; the caller gives playback speed.
     await this.scene.play(m, { onContact, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed });
   }
@@ -166,18 +203,20 @@ export class PaintedView implements BoardView {
 
   setLifted(sq: number | null): void { this.scene.setLifted(this.pace !== 'off' ? sq : null, !this.motionQuery.matches); }
 
-  setPace(pace: Pace): void { this.pace = pace; this.applyLively(); }
-  skip(): void { if (this.scene.animating) this.scene.cancel(); }
+  setPace(pace: Pace): void { this.pace = pace; if (pace === 'off') this.skip(); this.applyLively(); }
+  skip(): void {
+    if (this.scene.animating) this.scene.cancel();
+    if (this.scene.falling) this.scene.setFallen(this.fallen?.sq ?? null, false, this.fallRotation(this.fallen?.sq ?? null));
+  }
 
   /**
-   * The selected figure breathes, each king shows his own effect (king-effects.mjs) and resting pawns
-   * fidget (lance/idle.mjs) only while animations are on and the system allows motion; the kings' effects
-   * and the pawns also stop while the tab is hidden. Reduced motion keeps the slide and victim fade.
+   * The selected figure breathes. Kings and resting pawns move while motion is on and the tab is visible.
+   * Reduced motion keeps the slide and victim fade.
    */
   private applyLively(): void {
     const motion = this.pace !== 'off' && !this.motionQuery.matches, shown = motion && !document.hidden;
     if (this.pace === 'off') this.scene.setLifted(null);
-    this.scene.setReducedMotion(this.motionQuery.matches);
+    this.scene.setReducedMotion(!motion);
     this.scene.setLively({ moves: motion, atmosphere: true, captures: motion, idle: motion, kings: shown, pawns: shown });
   }
 
@@ -185,7 +224,7 @@ export class PaintedView implements BoardView {
     this.marks = h;
     this.container.classList.toggle('king-in-check', h.check != null);
     this.scene.setSelected(h.selected ?? null);
-    // A new selection (or new targets) pops its markers in, rippling out from the piece.
+    // The markers ripple out from a new selection.
     const key = [h.selected, h.moves, h.captures, h.swaps, h.shoves, h.powers, h.shoveTo?.map(s => `${s.from}:${s.to}`), h.bites].map(l => String(l ?? '')).join('|');
     if (key !== this.marksKey) {
       this.marksKey = key; this.marksSince = performance.now();
@@ -226,6 +265,24 @@ export class PaintedView implements BoardView {
     this.scene.setAim(h != null && [...(m.captures ?? []), ...(m.moves ?? [])].includes(h) ? h : null);
   }
 
+  private drawFrost(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row?: number): void {
+    if (layer === 'over' && row != null && row !== 7) return;
+    for (const { sq, turns } of frozenPieces(this.context, this.pos)) {
+      const key = `${turns}-${layer}`;
+      let image = this.frostImages.get(key);
+      if (!image) {
+        image = new Image();
+        image.onload = () => scene.redraw();
+        const drawing = frost(0, 0, 112, turns)[layer === 'under' ? 0 : 1];
+        image.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="448" height="538" viewBox="0 0 112 134.4"><defs>${FROST_DEFS}</defs>${drawing}</svg>`)}`;
+        this.frostImages.set(key, image);
+      }
+      if (!image.complete || !image.naturalWidth) continue;
+      const c = scene.cell(sq);
+      ctx.drawImage(image, scene.PAD + c.col * scene.TILE, scene.PAD + c.row * scene.TILE, scene.TILE, scene.TILE * 1.2);
+    }
+  }
+
   private drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row?: number): void {
     const { PAD, TILE } = scene, m = this.marks;
     if (layer === 'under') {
@@ -233,6 +290,21 @@ export class PaintedView implements BoardView {
       ctx.save();
       // The last move: a warm wash, strong enough for both stone colours (Hint keeps the outline).
       for (const sq of m.last ?? []) { const b = box(sq); ctx.fillStyle = '#e6b84a6e'; ctx.fillRect(b.x, b.y, TILE, TILE); }
+      ctx.restore();
+    }
+    const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
+    if (!scene.animating) drawMarks(ctx, scene, layer, {
+      marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, px: 960 / Math.max(1, this.width), board: this.pos?.board,
+      ghost: !this.symbols ? undefined : (ctx, piece, sq, opacity = 0.4) => {
+        const cell = scene.cell(sq);
+        ctx.save(); ctx.globalAlpha = opacity;
+        ctx.drawImage(this.symbols!(piece), PAD + cell.col * TILE + 14, PAD + cell.row * TILE + 14, TILE - 28, TILE - 28);
+        ctx.restore();
+      },
+      motion: this.motion(), since: this.marksSince, ink: this.options.webInk ? boardInk(this.width) : undefined,
+    }, row);
+    if (layer === 'under') {
+      ctx.save();
       if (m.check != null && (m.checkers === undefined || !scene.animating)) {
         const f = scene.foot(m.check);
         ctx.fillStyle = m.checkers === undefined ? '#c0392b55' : '#c4501f33';
@@ -245,18 +317,8 @@ export class PaintedView implements BoardView {
       }
       ctx.restore();
     }
+    this.drawFrost(ctx, scene, layer, row);
     if (scene.animating) return;
-    const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
-    drawMarks(ctx, scene, layer, {
-      marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, px: 960 / Math.max(1, this.width), board: this.pos?.board,
-      ghost: !this.symbols ? undefined : (ctx, piece, sq, opacity = 0.4) => {
-        const cell = scene.cell(sq);
-        ctx.save(); ctx.globalAlpha = opacity;
-        ctx.drawImage(this.symbols!(piece), PAD + cell.col * TILE + 14, PAD + cell.row * TILE + 14, TILE - 28, TILE - 28);
-        ctx.restore();
-      },
-      motion: this.motion(), since: this.marksSince, ink: this.options.webInk ? boardInk(this.width) : undefined,
-    }, row);
     if (layer === 'under' && this.symbols && this.pos) {
       this.pos.board.forEach((piece, sq) => {
         if (!piece) return;

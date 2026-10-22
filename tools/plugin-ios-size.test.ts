@@ -61,7 +61,7 @@ it.each([[393, 852, 102, 118, 118], [320, 568, 63, 84, 96], [393, 852, 0, 0, 96]
     expect((await frame.locator('#page-back').evaluate(controlBounds)).limit).toBe(height - gap);
   } finally { await page.close(); }
 });
-// Rule and state text stay whole. The short-phone floors include the 4 px touch-bar padding.
+// Rule and state text stay whole. Keep the board floors from main.
 it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568, 63, 180, 135, 95]])('keeps the seat and board large at %i × %i with host insets %i/%i', async (width, height, top, bottom, min, boardMin) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000 * STEP);
@@ -160,7 +160,7 @@ it('sizes the seat and the board from their screens, with no viewport units and 
   } finally { await page.close(); }
 });
 
-// The floors keep whole rule text and include the 4 px touch-bar padding on short phones.
+// The floors keep whole rule text and the board space from main.
 it('keeps short-phone boards large, landscape controls reachable and the end table in its box', async () => {
   for (const [width,height,top,bottom,left,right,min,boardMin] of [[320,568,20,0,0,0,235,190],[375,667,20,0,0,0,285,285],[393,852,59,34,0,0,380,380],[440,956,59,34,0,0,430,430],[852,393,0,21,59,59,195,150],[852,393,59,34,0,0,140,95]]) {
     const page=await browser.newPage({viewport:{width,height},isMobile:true,hasTouch:true}), frame=page.frameLocator('iframe'); page.setDefaultTimeout(10000 * STEP);
@@ -200,6 +200,46 @@ it('keeps short-phone boards large, landscape controls reachable and the end tab
   }
 });
 
+it('counts the phone safe area once when browser and host both report it', async () => {
+  const page = await browser.newPage({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
+  page.setDefaultTimeout(10_000 * STEP);
+  try {
+    await page.goto(harness.url); await hall(page);
+    await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
+    await page.evaluate(async () => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', deviceCapabilities: { touch: true }, safeAreaInsets: { top: 102, bottom: 118, left: 0, right: 0 } }); });
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    for (const name of ['Arrangement', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).check();
+    await frame.locator('#setup-start').click();
+    await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
+    await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await waitForBoardPaint(frame);
+    const geometry = () => frame.locator('#game-table').evaluate(table => {
+      const rect = (e: Element) => e.getBoundingClientRect(), box = rect(document.getElementById('app-frame')!);
+      return { topGap: rect(table.querySelector('#strip-them')!).top - rect(table).top, board: rect(table.querySelector('canvas')!).width, top: box.top, bottom: innerHeight - box.bottom };
+    });
+    const before = await geometry();
+    // Desktop engines report zero device insets. Substitute only CSS env values, keeping the built cascade intact.
+    const replacements = await frame.locator('html').evaluate(() => {
+      let count = 0;
+      const visit = (rules: CSSRuleList) => { for (const rule of rules) {
+        if (rule instanceof CSSStyleRule) for (const name of [...rule.style]) {
+          const value = rule.style.getPropertyValue(name), next = value.replace(/env\(safe-area-inset-(top|bottom)\)/g, (_, edge) => edge === 'top' ? '102px' : '118px');
+          if (next !== value) { rule.style.setProperty(name, next, rule.style.getPropertyPriority(name)); count++; }
+        }
+        if ('cssRules' in rule) visit((rule as CSSGroupingRule).cssRules);
+      } };
+      for (const sheet of document.styleSheets) visit(sheet.cssRules);
+      return count;
+    });
+    expect(replacements).toBeGreaterThan(0);
+    await waitForBoardPaint(frame);
+    const after = await geometry();
+    expect(after.top).toBe(102); expect(after.bottom).toBe(118);
+    expect(after.topGap, JSON.stringify({ before, after })).toBeLessThanOrEqual(before.topGap + 1);
+    expect(after.board).toBeGreaterThanOrEqual(before.board - 1);
+  } finally { await page.close(); }
+});
+
 it('keeps 44 px card and power targets in two player rows', async () => {
   const page=await browser.newPage({viewport:{width:375,height:667},hasTouch:true}), frame=page.frameLocator('iframe');
   try {
@@ -224,7 +264,11 @@ it('keeps 44 px card and power targets in two player rows', async () => {
     expect(bounds.length).toBeGreaterThanOrEqual(8); for(const [w,h] of bounds){expect(w).toBeGreaterThanOrEqual(44);expect(h).toBeGreaterThanOrEqual(44);}
     expect(await frame.locator('#strip-me b').getAttribute('title')).toBe('wwwwwwwwwwwwwwwwwwww');
     expect(await frame.locator('#strip-me b').evaluate(e=>{const r=e.getBoundingClientRect(),p=e.closest('.player-strip')!.getBoundingClientRect();return r.top>=p.top && r.bottom<=p.bottom && getComputedStyle(e).textOverflow==='ellipsis';})).toBe(true);
-    expect(await frame.locator('#strip-me').evaluate(e=>e.getBoundingClientRect().height)).toBe(88);
+    expect(await frame.locator('#strip-me').evaluate(e=>e.getBoundingClientRect().height)).toBe(80);
+    for (const coin of await frame.locator('.coin:visible').all()) {
+      const bounds = await coin.evaluate(controlBounds);
+      expect(bounds.accessible, JSON.stringify(bounds)).toBe(true);
+    }
   } finally {await page.close();}
 });
 
@@ -239,7 +283,7 @@ it('returns focus to each sheet opener after a pointer opens the sheet', async (
     await frame.locator(`#${id}`).click(); await frame.locator(`${sheet}[open]`).waitFor();
     // A refresh under the sheet rebuilds the coins.
     if (/^(power|card)-/.test(id)) await frame.locator('#reload').evaluate(e=>{e.setAttribute('disabled','');e.removeAttribute('disabled');});
-    if (close === 'Escape') await page.keyboard.press('Escape'); else await frame.locator(`${sheet} .sheet-head button`).click();
+    if (close === 'Escape') await page.keyboard.press('Escape'); else await frame.locator(`${sheet} .sheet-head button[aria-label="Close"]`).click();
     await expect.poll(() => frame.locator(`${sheet}[open]`).count()).toBe(0);
     focus[`${id} ${close}`] = await active();
   };
@@ -342,12 +386,12 @@ it('opens Play from the seat and board Back buttons on a portrait phone', async 
   } finally { await page.close(); }
 });
 
-it('shows each checked stone choice in light and dark mode', async () => {
+it('shows each checked flat choice in light and dark mode', async () => {
   const page = await browser.newPage({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
   try {
     await page.goto(harness.url); await hall(page);
     const face = (name: string) => frame.getByRole('radio', { name, exact: true }).locator('..').evaluate(e => {
-      const s = getComputedStyle(e); return { colour: s.color, fill: s.backgroundColor, shadow: s.boxShadow, repeat: s.backgroundRepeat };
+      const s = getComputedStyle(e); return { colour: s.color, fill: s.backgroundColor, shadow: s.boxShadow, image: s.backgroundImage };
     });
     for (const theme of ['light', 'dark'] as const) {
       await page.emulateMedia({ colorScheme: theme });
@@ -357,7 +401,7 @@ it('shows each checked stone choice in light and dark mode', async () => {
         const selected = await face(first), clear = await face(second);
         expect(selected.fill).not.toBe(clear.fill); expect(selected.colour).not.toBe(clear.colour);
         expect(selected.shadow.split(/,(?![^()]*\))/).every(shadow => shadow.includes('inset'))).toBe(true);
-        expect(selected.repeat).toBe('no-repeat');
+        expect(selected.image).toBe('none');
         await frame.getByRole('radio', { name: second, exact: true }).locator('..').click();
         expect(await frame.getByRole('radio', { name: second, exact: true }).isChecked()).toBe(true);
         expect(await face(second)).toEqual(selected); expect(await face(first)).toEqual(clear);
@@ -383,6 +427,8 @@ it.each([[768, 1024], [1024, 768]])('gives Settings controls the 44 px floor wit
     await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
     const heights = await frame.locator('[data-screen="settings"] .fields > label').evaluateAll(labels => labels.map(l => l.getBoundingClientRect().height));
     expect(heights).toHaveLength(3); for (const h of heights) expect(h).toBeGreaterThanOrEqual(44);
+    expect(await frame.locator('[data-screen="settings"] .fields > label :is(input, select)').evaluateAll(controls => controls.map(c => c.id)))
+      .toEqual(['symbols-only', 'show-threats', 'sound']);
     const online = await frame.locator('#online-visibility label').evaluateAll(labels => labels.map(l => l.getBoundingClientRect().height));
     expect(online).toHaveLength(3); for (const h of online) expect(h).toBeGreaterThanOrEqual(44);
   } finally { await page.close(); }
@@ -578,9 +624,7 @@ it('keeps the board screen unscrolled without cards where the rows fit under 320
     }
   } finally { await page.close(); }
 });
-// The zoom rule leaves normal sizes alone. Device matrix round 2 measured 169/158 and 302/302 on the old phone rows;
-// layout B (short portrait rows, Back in the opponent row) gives the seat more height, and with Cards and King powers
-// its narrow opponent and player rows take two 44 px rows on the board. The touch bar adds 4 px; the short last-move row takes 24 px at short heights.
+// Keep the seat and board floors from main with Cards and King powers.
 it.each([[320, 568, 63, 84, true, 214, 109], [393, 852, 102, 118, true, 382, 300], [820, 600, 59, 34, false, 360, 338]] as const)('keeps the seat and board widths at %i × %i with insets %i/%i', async (width, height, top, bottom, touch, seat, board) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: touch, hasTouch: touch }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000 * STEP);
@@ -604,12 +648,12 @@ it.each([[320, 568, 63, 84, true, 214, 109], [393, 852, 102, 118, true, 382, 300
     await frame.locator('#seat-context').filter({ hasText: /\S/ }).waitFor();
     const canvasWidth = () => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width);
     await waitForBoardPaint(frame);
-    await expect.poll(canvasWidth).toBe(seat);
+    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(seat);
     await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
     await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     await waitForBoardPaint(frame);
-    await expect.poll(canvasWidth).toBe(board);
+    await expect.poll(canvasWidth).toBeGreaterThanOrEqual(board);
   } finally { await page.close(); }
 });
 
@@ -627,8 +671,10 @@ it.each([[426, 59], [800, 0]])('keeps Back clear and end actions reachable at 19
     expect(await frame.locator('#over').evaluate(e => e.scrollHeight > e.clientHeight)).toBe(height === 426);
     const cue = await frame.locator('#over').evaluate(e => {
       e.scrollTop = 0;
-      const card = e.getBoundingClientRect(), [first, next] = [...e.querySelectorAll('form button')].map(b => b.getBoundingClientRect());
-      return { firstFits: first.top >= card.top && first.bottom <= card.bottom, visible: card.bottom - next.top, cut: next.bottom > card.bottom };
+      const card = e.getBoundingClientRect(), [first, ...rest] = [...e.querySelectorAll('form button')].map(b => b.getBoundingClientRect());
+      // Any later action can show that the card scrolls; do not require the second action to be cut.
+      const partial = rest.find(button => button.top < card.bottom && button.bottom > card.bottom);
+      return { firstFits: first.top >= card.top && first.bottom <= card.bottom, visible: partial ? card.bottom - partial.top : 0, cut: !!partial };
     });
     expect(cue.firstFits).toBe(true);
     if (height === 426) {

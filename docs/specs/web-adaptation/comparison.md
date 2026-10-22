@@ -58,7 +58,7 @@ The earlier session's answer ("a normal page around the same game and the same s
 
 1. **PR 61 release packet, outbox retention.** The cron and runbook text say that unsent outbox rows stay. The code (`src/online/jobs.ts`), the privacy page and the database test delete them after 30 days. The documents must match the code and the privacy page. Fixed on the PR 61 branch (`5e5b7fd8`, 2026-10-18); the fix reaches main with PR 61.
 2. **Offline worker cache** (`public/sw.js`). It caches every same-origin GET with no account key and ignores the query. It is latent today (no API call), and it blocks any API use. Phase 1 fixes it.
-3. **Old web watcher** (`src/online/client.ts` `watch()`). It stops in the setup state and drops equal revisions. It is unused today. The shared poll replaces it; delete it then.
+3. **Old web watcher** (`src/online/client.ts` `watch()`). It stops in the setup state and drops equal revisions. It is unused today. The shared poll replaces it; delete it then. (Done: ticket 57 deleted `watch()`.)
 
 ## What neither plan settles
 

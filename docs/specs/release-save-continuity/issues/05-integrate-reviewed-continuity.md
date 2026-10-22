@@ -1,0 +1,78 @@
+# Integrate reviewed setup and browser-save continuity
+
+Status: integrated, reviewed, compiled and deployed to staging; actual first-open cache acceptance remains open.
+
+## Plan and acceptance
+
+1. Start a new isolated worktree at accepted root `ce61e8d7`. Apply only the reviewed candidates in order: `06127525`, `7f516cfa`, `4d214ce5`, `8aaf48dd`, `fd7eb155`. Record conflicts and preserve root's support, startup and lifecycle fixes.
+2. Keep setup admission/engine pinning and browser-save recovery behavior unchanged. Resolve only integration conflicts; add no engine archive, loader, migration framework or recovery policy.
+3. Reuse the prior setup source, compiled journey and picker-copy evidence, plus the 84-test browser-save evidence. Run one focused combined source selection through `npm test` after the shared lane is free. Run mandatory commit hooks in that lane.
+4. Obtain the parent's final review before integration. Migration `0017_setup_admission.sql` remains required for account setup. Do no compiled check, staging database write or deployment here; the parent will combine preview work and run integrated acceptance once.
+
+## Prior evidence
+
+- Setup candidate `06127525`: 387 source tests and the archived N-to-N+1 continuation checks. Reviewed picker follow-ups `7f516cfa` and `4d214ce5`: compiled journey passes in 247.9 seconds; final copy/source selection passes 35 tests.
+- Browser-save candidates `8aaf48dd` and `fd7eb155`: 84 focused tests cover complete restore, unreadable raw retention, remote validation, unavailable storage and explicit New game recovery.
+- Prior test counts are reused evidence, not a new integrated run. Exact combined source evidence and conflict details will follow below.
+
+## Application and conflicts
+
+The five requested commits apply with `git cherry-pick --no-commit` in the stated order. There are no conflicts and no manual conflict resolutions. Git automatically merges `src/api/http.db.test.ts`: the new actor-only notice case remains present, while the two setup privacy checks exclude only the public admission roster from their secret-name scan. The private choices and hidden command checks remain in place.
+
+No candidate product change is made during integration. The staged browser-save product files compare equal to `fd7eb155`; the staged setup and picker product files compare equal to `4d214ce5`. The only new file is this integration ticket. Root's support, lifecycle, cache proof and staging help navigation stay at `ce61e8d7`.
+
+## Combined source verification
+
+The one combined run uses the approved password-free disposable loopback template, with each database suite retaining its existing isolated suffix and role-lock behavior:
+
+```
+PLUGIN_TEST_DATABASE_URL=postgresql://kingdown_test@127.0.0.1:55432/kingdown_new_staging_test KINGDOWN_TEST_LOCK_WAIT=60 KINGDOWN_TEST_FILE='{src/{match/{setup,setup.db,match,service,service.db},plugin/screens/{seat-model,setup-model},plugin/{server,server.db},api/http.db,screen/{save,play},account/{sync,account},game}.test.ts,tools/{engines,plugin-screen-lifecycle,plugin-db/{release-order.docs,migrations.db}}.test.ts}' npm test
+```
+
+Result: exit 0, full typecheck, 19 files / 486 tests with no skips, and 54 art checks. Vitest duration is 27.62 seconds. Log: `/tmp/kingdown-u08-continuity-combined.log`. This selection joins the affected setup service/DB/transport/archive-inventory paths, picker model/lifecycle and legacy-save page/sync paths. The compiled setup and copy evidence above is reused; no compiled check repeats here.
+
+## Remaining gates
+
+- Root's read-only staging preflight reports zero unstamped pending games, four playing games and all seven required archives retained. It reports that `setup_admission` is absent. These are root's preflight observations, not a database operation by this worktree.
+- Apply the add-only, nullable `supabase/migrations/0017_setup_admission.sql` through the root's approved staging process before serving this account setup code. Existing initialized games retain their saved state; do not infer an old pending setup or delete an archive.
+- Root performs final review, combines the later preview candidate, and runs integrated compiled/native acceptance once. This source bundle authorizes no staging database change, deployment or public matching change.
+
+## Root integration and staging schema
+
+Root integrates the unchanged aggregate as `c6ffec4d`. Independent review confirms that the setup and save product files equal the accepted candidates. The HTTP test merge preserves private account notice and hidden-choice checks. No manual conflict resolution is needed.
+
+The owner-authorized staging process applies `0017_setup_admission.sql` only to `puhspsyjyzaghmgtkzqd`, before deployment of this server. The SQL editor returns `setup_admission`, `jsonb`, `YES` for the column name, type and nullable property. The change adds no default, backfill or broader grant. The parent evidence folder retains `continuity-staging-migration.png`, `continuity-integration.json` and the combined source log.
+
+The source is not deployed yet. Root will combine the stored-engine draft preview and run the changed compiled journeys before publishing a new staging artifact.
+
+## Combined browser acceptance plan
+
+The existing 55-row mechanics driver covers the current worker. Add one fixed `bab22e94` Haste continuation to the same driver, on both emitted clients. Require an actual initial HTTP/MCP draft-preview response with the archived identity and accepted base before the normal move, commit, history and reload checks. Keep the 55 mechanic cases distinct from this one archive case in the receipt: 56 cases, 112 surface executions. Do not count a source-page transport fixture as this compiled proof.
+
+After the preview candidate passes source checks and independent review, run `npm run check:browser shared-mechanics plugin-ui-http web-online painted-game` once on the combined tree with the disposable loopback database. These changed paths justify the integrated rerun. Preserve unchanged U04 evidence. Review any failure before adding checks or repeating the run.
+
+## Preview integration
+
+Candidate `bf8982c0` integrates as `2ff37ba8`. The sole manual conflict joins the service imports: preserve setup's `createPinnedMatch` and preview's schema/result types. Independent merge review confirms both behaviors and the automatic privacy-test merge.
+
+The candidate passes 259 focused tests and three selected board UI cases, plus typecheck and 54 art checks in each run. The selected UI run skips 182 unrelated cases; it is not a full board-suite pass. Its actual source UI proves the stored `bab22e94` Haste path, Undo, remount, accepted pass history and late reply isolation. The entry and history regressions fail before their corrections. The parent evidence folder preserves all four logs.
+
+The combined six-suite service/DB run first passes 114 tests and fails two obsolete tool-list assertions. The new app-only preview is the 27th tool and the fifth unconditional read-only tool. Updating those declarations and adding real preview calls on the existing read-only database connection yields 116 passes, no skips, full typecheck and 54 art checks. The protocol check table is updated to the same contract. No product change is needed for these failures.
+
+The disposable browser database now has migrations `0001` through `0017`; the existing bootstrap applies each twice successfully. Staging remains on `ce61e8d7` until combined browser acceptance passes.
+
+## First combined compiled run
+
+Run `app-SWDHAx` on `0698807f` passes `web-online` (105.837 seconds) and `painted-game` (116.483 seconds), with their final browser-error checks. Preserve these results after tool-only corrections.
+
+The mechanics driver passes the six fairy pieces, 21 cards and 12 powers on both surfaces, then times out waiting for the reload GET in `promotion-darkness/web`. The failure has no page-state diagnostic; its cause is not established. Add bounded failure capture before another run. Do not change the timeout or product code from this evidence alone.
+
+The full plugin journey stops at its early card-detail sample. That synthetic View lacks an engine identity, so the new preview boundary correctly cannot use it. Ticket 07 fixes this tool fixture with the actual built runtime identity; it does not change product handling of unknown engines. The correction integrates as `01ce1af3`.
+
+Rerun only `shared-mechanics` and `plugin-ui-http` after these tool corrections. The failed run does not close compiled mechanics or full plugin acceptance. The parent evidence folder preserves the run record and all four logs.
+
+## Accepted compiled release and live limit
+
+The corrected full matrix passes on clean `e9b77c79`: 112 surface executions in 133.909 seconds. Web recovery passes in 106.163 seconds. The full plugin journey at `44e89092` passes in 249.805 seconds; the later product change is the web-only URL guard. Local painted acceptance at `0698807f` passes in 116.483 seconds. The exact two-artifact backend recovery passes as recorded in ticket 06.
+
+Staging preview `dpl_CW9zvWyq3nnuPgkj4vd4fDpPr62N` now serves `e9b77c79`; all seven archives remain. The server, runtime and enforcement worker hashes equal the accepted recovery release. The alias index hash matches the build. Actual first website reload keeps the selected game URL but fails the public-cache guard. Existing actual ChatGPT refresh preserves the six-action game. Native fresh opens remain pending while the Mac is locked. No retry is counted and no production change occurs.

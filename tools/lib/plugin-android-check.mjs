@@ -48,10 +48,11 @@ export async function checkAndroidFixes(browser, base, clickButton) {
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       });
     }
-    // K1 adds a coin row at 393–440 px. Keep the bar cost at no more than 4 px from that layout.
+    // Keep the board floors from main while the tablet actions keep their size.
     for (const [width, height, top, bottom, oldBoard] of [[412,790,54,24,311], [393,852,102,118,304], [320,568,63,84,113], [1280,800,0,0,536]]) {
       await viewport(width, height, top, bottom);
       await show();
+      let unarmedBoard;
       for (const armed of [false, true]) {
         if (armed) {
           const index = original.rules.hands[0].indexOf('EarthQuake');
@@ -68,9 +69,11 @@ export async function checkAndroidFixes(browser, base, clickButton) {
           bottom: e.getBoundingClientRect().bottom, frameBottom: document.querySelector('.frame').getBoundingClientRect().bottom,
           board: document.querySelector('#board canvas').getBoundingClientRect().width
         }));
-        check(boxes.board >= oldBoard - (width < height ? 4 : 0) && boxes.board <= oldBoard, `${state} board loses at most 4 px`, boxes);
+        if (armed) check(boxes.board === unarmedBoard, `${state} keeps the unarmed board size`, boxes);
+        else unarmedBoard = boxes.board;
+        check(boxes.board >= oldBoard - (width < height ? 4 : 0), `${state} board keeps the main size floor`, boxes);
         check(boxes.bottom <= boxes.frameBottom + 1, `${state} bar inside frame`, boxes);
-        if (width < height) check(boxes.heights.every(h => h === 44), `${state} button art stays 44 px`, boxes);
+        if (width < height) check(boxes.heights.every(h => h === 48), `${state} small tablets stay 48 px`, boxes);
         console.log(`${state}: ${JSON.stringify({ sizes, ...boxes })}`);
       }
     }
@@ -89,7 +92,8 @@ export async function checkAndroidFixes(browser, base, clickButton) {
         });
         if (width === 870) await shot(page, `ticket36-end-${winner === 0 ? 'win' : 'loss'}-${width}x${height}`);
         // The 197 px card keeps the separate cut-action design of ticket 32.
-        if (width > height) check(first.scrollTop === 0 && first.title && first.result && first.play, `${state} first view`, first);
+        // Allow one CSS pixel of browser scroll rounding; the visibility checks still require the full first view.
+        if (width > height) check(Math.abs(first.scrollTop) <= 1 && first.title && first.result && first.play, `${state} first view`, first);
         for (const name of ['Play again','New game','See the board']) {
           const button = card.getByRole('button', { name, exact: true });
           await button.scrollIntoViewIfNeeded();

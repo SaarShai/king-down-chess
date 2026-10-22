@@ -23,7 +23,7 @@ export async function recordResult(client: PoolClient, game: Game): Promise<void
  const users = game.players.flatMap(p => p.user_id ? [p.user_id] : []).sort(), at = game.finished_at!;
  for (const user of users) await client.query('insert into public.player_ratings(user_id) values($1) on conflict do nothing', [user]);
  const ratings: StoredRating[] = (await client.query('select * from public.player_ratings where user_id=any($1) order by user_id for update', [users])).rows;
- if (game.kind !== 'solo' && game.players.every(p => p.user_id && !p.computer)) {
+ if ((game.rating_policy === 'legacy' || game.rating_policy === 'ranked-v1') && game.kind !== 'solo' && game.players.every(p => p.user_id && !p.computer)) {
   const before = game.players.map(p => ratings.find(r => r.user_id === p.user_id)!) as [StoredRating, StoredRating];
   const after = rateGame(before[0], before[1], game.result === 'white' ? 1 : game.result === 'black' ? 0 : 0.5,
    { idle: [idleDays(at, before[0].last_game_at), idleDays(at, before[1].last_game_at)] });
@@ -39,7 +39,7 @@ export async function recordResult(client: PoolClient, game: Game): Promise<void
   const wonKings: KingName[] = (await client.query(`select distinct coalesce(g.rules->'kings'->(p.seat::int)->>'king',case p.seat when 0 then 'Spirit' else 'Shadow' end) as king
    from public.game_players p join public.games g on g.id=p.game_id where p.user_id=$1 and g.id<>$2 and g.status='finished' and g.result=case p.seat when 0 then 'white' else 'black' end`, [p.user_id, game.id])).rows.map(r => r.king);
   const opponent = game.players[1 - p.seat];
-  const finished: HistoryEntry = { game_id: game.id, finished_at: at.toISOString(), kind: game.kind, colour: p.seat === 0 ? 'white' : 'black',
+  const finished: HistoryEntry = { rating_policy: game.rating_policy, game_id: game.id, finished_at: at.toISOString(), kind: game.kind, colour: p.seat === 0 ? 'white' : 'black',
    result: game.result === 'draw' ? 'drawn' : game.result === (p.seat === 0 ? 'white' : 'black') ? 'won' : 'lost', reason: game.end_reason!,
    opponent: { handle: opponent.handle, icon: null, computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, level: opponent.computer ? game.level : null }, features: features(game, p.seat) };
   for (const badge of earnedBadges(finished, { badges, wonKings })) await client.query('insert into public.player_badges(user_id,badge,earned_at,game_id) values($1,$2,$3,$4) on conflict do nothing', [p.user_id, badge, at, game.id]);
@@ -61,14 +61,14 @@ export async function playerRecord(pool: Pool, actor: string): Promise<PlayerRec
 
 export async function gameHistory(pool: Pool, actor: string, before: [string, string] | undefined, limit: number): Promise<HistoryPage> {
  const rows = (await pool.query(`select g.id as game_id,g.finished_at,to_char(g.finished_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_at,
-  g.kind,g.result,g.end_reason as reason,g.level,g.options,g.setup,
+  g.rating_policy,g.kind,g.result,g.end_reason as reason,g.level,g.options,g.setup,
   jsonb_build_object('kings',g.rules->'kings','hands',g.rules->'hands','classicChess',g.rules->'classicChess') as rules,
   me.seat,op.user_id as op_user,op.computer as op_computer,pr.handle,pr.icon
   from public.game_players me join public.games g on g.id=me.game_id
   join public.game_players op on op.game_id=me.game_id and op.seat<>me.seat left join public.profiles pr on pr.id=op.user_id
   where me.user_id=$1 and g.status='finished' and ($2::timestamptz is null or (g.finished_at,g.id)<($2::timestamptz,$3::uuid))
   order by g.finished_at desc,g.id desc limit $4`, [actor, before?.[0] ?? null, before?.[1] ?? null, limit + 1])).rows;
- const games = rows.slice(0, limit).map((r): HistoryEntry => ({ game_id: r.game_id, finished_at: r.finished_at.toISOString(), kind: r.kind,
+ const games = rows.slice(0, limit).map((r): HistoryEntry => ({ rating_policy: r.rating_policy, game_id: r.game_id, finished_at: r.finished_at.toISOString(), kind: r.kind,
   colour: r.seat === 0 ? 'white' : 'black', result: r.result === 'draw' ? 'drawn' : r.result === (r.seat === 0 ? 'white' : 'black') ? 'won' : 'lost', reason: r.reason,
   opponent: { handle: r.handle, icon: r.icon, computer: r.op_computer, deleted: !r.op_user && !r.op_computer, level: r.op_computer ? r.level : null }, features: features(r, r.seat) }));
  const last = rows[limit - 1];

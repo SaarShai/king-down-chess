@@ -1,32 +1,30 @@
+import { GameReadError, type GameClient } from '../account-game/client';
+import type { InboxEntry, View } from '../match/protocol';
+import { resultCode, resultText, type createQueue, type JobOptions, type Outcome, type ToolResult } from './queue';
 import type { App } from '@modelcontextprotocol/ext-apps';
-import type { KingChoice } from '../rules/rules';
-export const SCREENS = ['home', 'play', 'friend', 'join', 'wait', 'lobby', 'seat', 'board', 'end', 'profile', 'collection', 'settings', 'handle'] as const;
-export type Screen = typeof SCREENS[number];
+import type { GameTransport } from '../account-game/host';
+import { CANNOT_CONNECT, errorText, knownScreen, type Screen, type Pending } from '../account-game/types';
 export const BOARD_ID_TOOLS = ['kingdown_get', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'] as const;
 /** The tools whose reply selects the page's board. */
 export const SELECTION_TOOLS = ['kingdown_open', 'kingdown_create', 'kingdown_join', 'kingdown_resume', 'kingdown_find', 'kingdown_accept'];
-export type Pending = { name: string; args: Record<string, unknown>; game_tag?: string; screen?: Screen; quick?: boolean; king?: KingChoice | null; error?: string; error_screen?: Screen };
-export type BoardSettings = { symbols_only: boolean; show_threats: boolean };
-/** The unsent turn of a board (W7): the game's short tag, the base FEN and the LANs. The full game ID never goes here. */
-export type Draft = { game_tag: string; fen: string; lans: string[] };
+/** A private draft binds its moves to the complete account, game, revision, rules and engine implementation. */
+export type Draft = { game_tag: string; fen: string; lans: string[]; scope?: { account: string; game: string; revision: number; rules: string; engine: string } };
 export type PageState = { screen: Screen; handle_back?: Screen; name_for_caller?: boolean; settings_back?: Screen; queued?: Screen; sheet?: string; board_id?: string; pending?: Pending; draft?: Draft };
-// Every failed connection and time-out shows this one sentence.
-export const CANNOT_CONNECT = 'Cannot connect. Check your connection, then try again.';
-// An Error shows its message only; String(error) would add its name ("Error: …").
 const SLOTS = 3;
-export const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
-export type WidgetHost = { widgetState?: { privateContent?: Partial<PageState> }; setWidgetState?: (state: unknown) => void };
+export type WidgetHost = { savePage?: (state: PageState) => void; accountId?: string; widgetState?: { privateContent?: Partial<PageState> }; setWidgetState?: (state: unknown) => void };
 
-// Widget state from an older build can name a screen that this build does not have (PR 57 'setup'). It reads as no screen.
-export const knownScreen = (name: unknown) => SCREENS.find(screen => screen === name);
 // A saved command from PR 57's 'setup' screen is a New game step, which this build runs on Play.
 const commandScreen = (name: unknown) => name === 'setup' ? 'play' : knownScreen(name);
 
 export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost) {
+  return createPageClient((name, args, options) => app.callServerTool({ name, arguments: args }, options), host);
+}
+
+export function createPageClient(transport: GameTransport, host?: WidgetHost) {
   const saved = host?.widgetState?.privateContent, handle_back = knownScreen(saved?.handle_back), settings_back = knownScreen(saved?.settings_back), queued = knownScreen(saved?.queued);
   const pending = saved?.pending && { ...saved.pending, screen: commandScreen(saved.pending.screen), error_screen: commandScreen(saved.pending.error_screen) };
-  // A saved draft is widget state from an older build: keep its three fields only, and its LANs as strings.
-  const savedDraft = saved?.draft, draft = savedDraft && { game_tag: String(savedDraft.game_tag ?? ''), fen: String(savedDraft.fen ?? ''), lans: (savedDraft.lans ?? []).map(String) };
+  // Only drafts bound to an engine can replay; discard older state before it can be saved again.
+  const savedDraft = typeof saved?.draft?.scope?.engine === 'string' && saved.draft.scope.engine ? saved.draft : undefined, draft = savedDraft && { ...savedDraft, game_tag: String(savedDraft.game_tag ?? ''), fen: String(savedDraft.fen ?? ''), lans: (savedDraft.lans ?? []).map(String) };
   const state: PageState = { screen: knownScreen(saved?.screen) ?? 'home', ...(handle_back && { handle_back }), ...(saved?.name_for_caller === true && { name_for_caller: true }), ...(settings_back && {settings_back}), ...(queued && {queued}), sheet: saved?.sheet, board_id: saved?.board_id, pending, ...(draft && { draft }) };
   // The server allows three calls at once for each account (MAX_ACTIVE_MCP_PER_USER, http.ts). A fourth call waits
   // here for a free slot, so no screen, poll or repeat tap gets a 429; a free slot goes to the oldest waiting call.
@@ -39,21 +37,26 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
     waiting.push(wake); signal?.addEventListener('abort', drop, { once: true });
   });
   const free = () => { const next = waiting.shift(); if (next) next(); else sending--; };
+  const accountId = () => host?.accountId ?? state.board_id ?? '';
   function save() {
+    // A new plugin board binding must not persist the previous ownership scope before redraw.
+    if (state.draft && (state.draft.scope?.account !== accountId() || typeof state.draft.scope?.engine !== 'string' || !state.draft.scope.engine)) state.draft = undefined;
     const pending = state.pending;
+    if (host?.savePage) { host.savePage(state); return; }
     const args = pending && Object.fromEntries(Object.entries(pending.args).filter(([key]) => !['game_id', 'code', 'handle'].includes(key)));
     const game_tag = pending?.game_tag ?? (typeof pending?.args.game_id === 'string' ? pending.args.game_id.slice(0, 8) : undefined);
     host?.setWidgetState?.({ modelContent: {}, privateContent: { ...state, pending: pending && { name: pending.name, args, game_tag, screen: pending.screen, ...(pending.quick && { quick: true }), ...(pending.king !== undefined && { king: pending.king }), error: pending.error, error_screen: pending.error_screen } } });
   }
-  async function call(name: string, args: Record<string, unknown> = {}, options: { background?: boolean; limit?: boolean; signal?: AbortSignal } = {}): ReturnType<App['callServerTool']> {
+  async function call(name: string, args: Record<string, unknown> = {}, options: { background?: boolean; limit?: boolean; signal?: AbortSignal } = {}): Promise<ToolResult> {
+    options.signal?.throwIfAborted();
     const sent = options.background ? Object.fromEntries(Object.entries(args).filter(([key]) => key !== 'board_id')) : state.board_id && BOARD_ID_TOOLS.some(tool => tool === name) ? { ...args, board_id: state.board_id } : args;
-    let result: Awaited<ReturnType<App['callServerTool']>>;
+    let result: ToolResult;
     // Mount reads pass limit: false and keep the SDK's own limit; a slow first load is not a failed command.
     // A newer chat result aborts the calls of an older mount (signal).
     inflight++;
     try {
       if (sending < SLOTS) sending++; else await room(options.signal);
-      try { result = await app.callServerTool({ name, arguments: sent }, { ...(options.limit !== false && { timeout: 10_000 }), signal: options.signal }); }
+      try { options.signal?.throwIfAborted(); result = await transport(name, sent, { ...(options.limit !== false && { timeout: 10_000 }), signal: options.signal }); }
       finally { free(); }
     }
     catch (error) {
@@ -65,5 +68,39 @@ export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost
     // The transport is only the transport: the queue selects the page's board for a current selection reply (design §2).
     return result;
   }
-  return { state, save, call, get inflight() { return inflight; } };
+  return { state, save, call, get accountId() { return accountId(); }, get inflight() { return inflight; } };
+}
+
+/** Decode only private results from the current queue job. */
+export function pluginGameClient(client: ReturnType<typeof createClient>, queue: ReturnType<typeof createQueue>, send: (name: string, args: Record<string, unknown>, options?: JobOptions) => Promise<Outcome>): GameClient {
+  const cancelled = () => new DOMException('Read cancelled', 'AbortError');
+  function decode(outcome: Outcome, signal?: AbortSignal): ToolResult {
+    if (signal?.aborted || outcome.status === 'superseded') throw cancelled();
+    if (outcome.status === 'failed' || outcome.status === 'refused') throw new GameReadError(outcome.code || 'UNAVAILABLE', outcome.text);
+    if (outcome.result.isError) throw new GameReadError(resultCode(outcome.result) || 'UNAVAILABLE', resultText(outcome.result));
+    return outcome.result;
+  }
+  return {
+    async games(signal) {
+      if (signal?.aborted || queue.closed()) throw cancelled();
+      const origin = queue.mountJob();
+      const job = queue.command('read', 'kingdown_games', {}, { user: false, origin, signal });
+      const outcome = await queue.run(job, async () => {
+        const result = await client.call('kingdown_games', {}, { ...(origin?.options.mount && { limit: false }), signal });
+        return queue.current(job) ? { status: 'done', result } : { status: 'superseded' };
+      });
+      if (!queue.current(job)) throw cancelled();
+      const result = decode(outcome, signal);
+      return (result._meta?.games as InboxEntry[] | undefined) ?? [];
+    },
+    async game(gameId, signal) {
+      if (signal?.aborted || queue.closed()) throw cancelled();
+      const pending = send('kingdown_resume', { game_id: gameId }, { route: false, signal });
+      const epoch = queue.epoch(), outcome = await pending;
+      if (queue.closed() || queue.epoch() !== epoch) throw cancelled();
+      const result = decode(outcome, signal), view = result._meta?.view as View | undefined;
+      if (!view) throw new GameReadError('UNAVAILABLE', 'The game reply has no view.');
+      return view;
+    },
+  };
 }

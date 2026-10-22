@@ -1,3 +1,5 @@
+import { pluginSymbols } from './tools/lib/plugin-symbols.mjs';
+import { buildWorker } from './tools/plugin-runtime-build.mjs';
 import { defineConfig, type Plugin } from 'vitest/config';
 import { createHash } from 'node:crypto';
 import { cpSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -10,7 +12,7 @@ const walk = (dir: string): string[] => readdirSync(dir).flatMap(name => {
 });
 
 /** Code a player may never need: the Supabase client (only for an account). */
-const onDemand = /\/src\/account\/client\.ts$/;
+const onDemand = /\/src\/(?:account\/client|online\/entry)\.ts$/;
 
 /** Select the local graph and the public art, fonts and icons that it uses. */
 export function offlineCacheFiles(bundle: OutputBundle, root: string, files: string[]) {
@@ -49,7 +51,7 @@ function offlineBuild(): Plugin {
       return [{ tag: 'script', injectTo: 'head', children: `if ('serviceWorker' in navigator) addEventListener('load', async () => {
   for (let t = 0; !window.view && t < 300; t++) await new Promise(r => setTimeout(r, 200));
   await Promise.race([window.view?.ready(), new Promise(r => setTimeout(r, 60000))]);
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
 });` }];
     },
     writeBundle(_options, bundle) {
@@ -71,16 +73,26 @@ function offlineBuild(): Plugin {
   };
 }
 
+/** Imported table rules must reach both the playing board and the setup board. */
+export function sharedSeatSelectors() {
+  return { postcssPlugin: 'shared-seat-selectors', Rule(rule: { selector: string }) {
+    rule.selector = rule.selector.replace(/#(game-table|strip-me|strip-them|context-line|context-text|moves-line|last-move|table-bar)\b(?!,\[data-seat-id=)/g, ':is(#$1,[data-seat-id="$1"])');
+  } };
+}
+
 export default defineConfig({
-  // Relative URLs: the same build works at a site root, on a sub-path such as GitHub Pages'
-  // /king-down-chess/, and in `vite preview`.
-  base: './',
+  // Account routes share the site root; their assets must not resolve below /play/ or /g/.
+  base: '/',
   // Both servers listen on 127.0.0.1, the address that the checks call; a `--host` flag overrides it.
   server: { host: '127.0.0.1', port: +(process.env.PORT || 5173), strictPort: true },
   preview: { host: '127.0.0.1' },
   worker: { format: 'es' },
   build: { copyPublicDir: false },
-  plugins: [offlineBuild()],
+  css: { postcss: { plugins: [sharedSeatSelectors()] } },
+  plugins: [pluginSymbols(), offlineBuild(), { name: 'account-engine-identity', apply: 'build', async config() {
+    return { define: { __KINGDOWN_PAGE_ENGINE__: JSON.stringify((await buildWorker()).engine) } };
+  } }],
   // Vitest collects the source, tools and Claude hook tests. docs/2d-first-pieces uses node:test (npm test).
-  test: { environment: 'node', env: { KINGDOWN_INTERNAL_SECRET: 'kingdown-test-internal-secret-not-for-live-use' }, include: process.env.KINGDOWN_TEST_FILE ? [process.env.KINGDOWN_TEST_FILE] : ['src/**/*.test.ts', 'tools/**/*.test.ts', '.claude/hooks/**/*.test.ts'] },
+  // Browser and engine checks share CPU; excess workers cause false timeouts.
+  test: { maxWorkers: 4, environment: 'node', env: { KINGDOWN_INTERNAL_SECRET: 'kingdown-test-internal-secret-not-for-live-use' }, include: process.env.KINGDOWN_TEST_FILE ? [process.env.KINGDOWN_TEST_FILE] : ['src/**/*.test.ts', 'tools/**/*.test.ts', '.claude/hooks/**/*.test.ts'], ...(process.env.KINGDOWN_TEST_NAME && { testNamePattern: new RegExp(process.env.KINGDOWN_TEST_NAME) }) },
 });

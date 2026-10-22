@@ -3,11 +3,15 @@
  * (the runtime role). The actor is a verified user ID, never input; other input is `unknown` and checked here. */
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
-import { CHALLENGE_FROM, handleProblem, ICONS, NOTIFY_DEFAULTS, ONLINE_VISIBLE_TO, RENAME_DAYS, type MyProfile, type NotifyKind, type NotifyPrefs } from '../account/profile';
+import { CHALLENGE_FROM, handleProblem, ICONS, NOTIFY_DEFAULTS, ONLINE_VISIBLE_TO, RENAME_DAYS, type MyProfile, type NotifyKind, type NotifyPrefs, type AccountNotice, type AccountNotices } from '../account/profile';
 import { fail, id, parse } from '../match/service';
 import type { PostgresMatchStore } from '../match/store';
 
 const DAY = 86_400_000;
+/** A decimal PostgreSQL bigint, kept as text so IDs above Number.MAX_SAFE_INTEGER stay exact. */
+export const noticesBeforeSchema = z.string().refine(value => /^[1-9]\d{0,18}$/.test(value) && BigInt(value) <= 9223372036854775807n, 'Expected a positive notice ID');
+const moderationNotice = z.object({ action_id: z.number().int().positive().safe(), action: z.enum(['warning', 'rename', 'hide', 'suspension']), statement: z.string(), ends_at: z.iso.datetime({ offset: true }).nullable() });
+const appealNotice = z.object({ action_id: z.number().int().positive().safe(), status: z.enum(['upheld', 'reversed']), note: z.string() });
 type Client = Pool | PoolClient;
 const settingsSchema = z.strictObject({
   icon: z.string().refine(key => Object.hasOwn(ICONS, key)).nullable(),
@@ -41,6 +45,23 @@ export class AccountService {
     const opens = row.handle && handle_changed_at ? new Date(handle_changed_at.getTime() + RENAME_DAYS * DAY) : null;
     return { ...row, can_rename_at: opens && opens > new Date() ? opens.toISOString() : null,
       deletion: requested_at ? { requested_at: requested_at.toISOString(), run_after: run_after.toISOString() } : null };
+  }
+  /** Only the actor's own moderation and appeal notices. Payload is projected to the player's safe DTO. */
+  async notices(actor: string, before?: string): Promise<AccountNotices> {
+    const cursor = parse(noticesBeforeSchema.optional(), before);
+    const rows = (await this.store.pool.query("select id::text,kind,payload,created_at from public.notifications where user_id=$1 and kind in ('moderation','appeal') and ($2::bigint is null or id<$2) order by notifications.id desc limit 21", [id(actor), cursor ?? null])).rows;
+    const notices: AccountNotice[] = rows.slice(0, 20).map(row => {
+      const base = { id: row.id, created_at: row.created_at.toISOString() };
+      if (row.kind === 'moderation') {
+        const payload = moderationNotice.safeParse(row.payload);
+        const data = payload.success ? payload.data : fail('UNAVAILABLE', 503, 'An account notice could not be read');
+        return { ...base, kind: 'moderation', action_id: data.action_id, action: data.action, text: data.statement, ends_at: data.ends_at };
+      }
+      const payload = appealNotice.safeParse(row.payload);
+      const data = payload.success ? payload.data : fail('UNAVAILABLE', 503, 'An account notice could not be read');
+      return { ...base, kind: 'appeal', action_id: data.action_id, status: data.status, text: data.note };
+    });
+    return { notices, next_notices_before: rows.length > 20 ? notices.at(-1)!.id : null };
   }
   /** Picks or changes the handle: the first pick and the first change are free, then one change in 90 days.
    * Migration 0008 keeps every old handle reserved and refuses a reserved one. */

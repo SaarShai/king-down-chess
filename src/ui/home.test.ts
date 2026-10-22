@@ -83,8 +83,7 @@ it('shows the local day and the real Today army', () => {
 });
 
 it('names the end of a free mark on Home', () => {
-  setRules({ ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });
-  const game = new Game();
+  const game = new Game(undefined, { ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });
   game.load(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'));
   expect(game.playLan(['!F:d5', '--'])).toBe(2);
   expect(state(game).lastMove).toBe('White ends the turn after the mark.');

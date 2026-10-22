@@ -1,5 +1,5 @@
 /**
- * Sample data for the OpenAI review account (approval D8 a; docs/submission/test-cases.md "Before submission"):
+ * Test-only sample data for the review account (approval D8 a; docs/submission/test-cases.md "Before submission"):
  * one finished friend game that the review account won (a rating, and the First Win, Friend Match and Purist
  * badges), one active friend game with the opponent to move, and one Classic beginner computer game
  * where it is the review account's move.
@@ -16,10 +16,12 @@ import { DEFAULT_OPTIONS } from '../../src/match/setup';
 import { GameService } from '../../src/match/service';
 import { PostgresMatchStore } from '../../src/match/store';
 import { AccountService } from '../../src/online/accounts';
+import { testDatabase } from '../plugin-db-config.mjs';
 
 const CLASSIC = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
 
 export async function seedReview(pool: pg.Pool, reviewEmail: string, opponentEmail: string, handles = { review: 'review-player', opponent: 'review-friend' }) {
+ testDatabase(pool.options.connectionString);
  // The seed uses its one invite code at once, so a secret of its own works and the live secret stays on the server.
  const store = new PostgresMatchStore(pool), games = new GameService(store, randomBytes(32).toString('hex')), accounts = new AccountService(store);
  const account = async (email: string): Promise<string> => {
@@ -52,6 +54,7 @@ export async function seedReview(pool: pg.Pool, reviewEmail: string, opponentEma
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
  const { PLUGIN_DATABASE_URL: connectionString, KINGDOWN_REVIEW_EMAIL: reviewEmail, KINGDOWN_REVIEW_OPPONENT_EMAIL: opponentEmail, KINGDOWN_REVIEW_HANDLE: handle = 'review-player' } = process.env;
  if (!connectionString || !reviewEmail || !opponentEmail) throw new Error('Set PLUGIN_DATABASE_URL, KINGDOWN_REVIEW_EMAIL and KINGDOWN_REVIEW_OPPONENT_EMAIL');
+ testDatabase(connectionString);
  const pool = new pg.Pool({ connectionString, max: 1 });
  try {
   const { finished, active, activeFriend, record } = await seedReview(pool, reviewEmail, opponentEmail, { review: handle, opponent: 'review-friend' });

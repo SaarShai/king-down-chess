@@ -20,10 +20,13 @@ const TOKENS = ['12.5px', '14px', '15.5px', '16px', '18px', '23px', '30px', '40p
 const fullscreen = (page: Page, top: number, bottom: number) => page.evaluate(([top, bottom]) => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'], safeAreaInsets: { top, bottom, left: 0, right: 0 } }), [top, bottom]);
 async function open({ width, height, top, bottom } = OWNER, clock = false) {
   const page = await browser.newPage({ viewport: { width, height } }); page.setDefaultTimeout(5000);
-  if (clock) await page.clock.install();
+  // Start behind real time so the pause target stays ahead during a slow boot.
+  if (clock) await page.clock.install({ time: Date.now() - 60_000 });
   await page.goto(harness.url);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   await fullscreen(page, top, bottom);
+  // Boot on a flowing clock, then stop before a test starts a game or a timed action.
+  if (clock) await page.clock.pauseAt(new Date());
   return page;
 }
 const go = (page: Page, screen: string) => page.frameLocator('iframe').locator('html').evaluate((_, screen) => (window as any).harnessApp.navigate(screen), screen);
@@ -138,17 +141,34 @@ it('locks Name until settings finish on a saved screen', async () => {
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
-it('scrolls the Profile scroll with the page, with its bottom roller at the page end', async () => {
+it('scrolls the Profile parchment with the page and keeps its roller and trailing controls reachable', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   const history: HistoryEntry[] = Array.from({ length: 20 }, (_, i) => ({ game_id: randomUUID(), finished_at: new Date(Date.UTC(2026, 9, 10, 12 - i)).toISOString(), kind: 'friend', colour: 'white', result: 'won', reason: 'resignation', opponent: { handle: `player_${i}`, icon: 'spirit', computer: false, deleted: false, level: null }, features: { fairy: true, arrangement: true, classic: false, cards: false, powers: false, king: null, power: null } }));
   try {
     await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history } } });
     await go(page, 'profile');
     await expect.poll(() => frame.locator('#profile-history li').count()).toBe(20);
-    expect(await frame.locator('#profile-sheet .registry').evaluate(el => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
-    const end = await frame.locator('#profile-sheet .new-game-body').evaluate(body => { body.scrollTop = body.scrollHeight; const scroll = body.querySelector('.scroll')!.getBoundingClientRect(), view = body.getBoundingClientRect(); return { roller: scroll.bottom, view: view.bottom, top: view.top }; });
-    expect(end.roller).toBeLessThanOrEqual(end.view + 1);
-    expect(end.roller - 64).toBeGreaterThanOrEqual(end.top);
+    const end = await frame.locator('#profile-sheet .new-game-body').evaluate(body => {
+      const registry = body.querySelector('.registry')!, parchment = body.querySelector('.scroll')!;
+      body.scrollTop = 0;
+      const start = parchment.getBoundingClientRect(), view = body.getBoundingClientRect();
+      // The stacked notices and controls follow the parchment on a phone.
+      body.scrollTop = start.bottom - view.bottom;
+      const scroll = parchment.getBoundingClientRect();
+      return { roller: scroll.bottom, view: view.bottom, top: view.top, pageScroll: body.scrollTop, parchmentScroll: start.top - scroll.top,
+        registryOverflow: registry.scrollHeight - registry.clientHeight };
+    });
+    const geometry = JSON.stringify(end);
+    expect(end.registryOverflow, geometry).toBeLessThanOrEqual(1);
+    expect(end.pageScroll, geometry).toBeGreaterThan(0);
+    expect(Math.abs(end.parchmentScroll - end.pageScroll), geometry).toBeLessThanOrEqual(1);
+    expect(end.roller, geometry).toBeLessThanOrEqual(end.view + 1);
+    expect(end.roller - 64, geometry).toBeGreaterThanOrEqual(end.top);
+    await frame.locator('#profile-sheet .new-game-body').evaluate(body => { body.scrollTop = body.scrollHeight; });
+    for (const screen of ['collection', 'settings']) {
+      const bounds = await frame.locator(`#profile-sheet [data-nav="${screen}"]`).evaluate(controlBounds);
+      expect(bounds.accessible, JSON.stringify(bounds)).toBe(true);
+    }
   } finally { await page.close(); }
 });
 
@@ -201,13 +221,9 @@ it('shows a busy Start at once, Starting… after 1 s and a safe way back at 5 s
     await frame.locator('.mode').filter({ hasText: 'A friend' }).click();
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
     const start = frame.locator('#setup-start');
-    // Stop the page clock for the click and the read, so that machine load cannot run the 1 s timer between them.
-    // Fix the time first, so the pause target cannot fall into the past under load.
-    await page.clock.setFixedTime(new Date()); await page.clock.pauseAt(await page.evaluate(() => Date.now()));
     await start.click();
     // Read at once, in one step: a quick start shows no words.
     expect(await start.evaluate((button: HTMLButtonElement) => [button.disabled, button.getAttribute('aria-busy'), button.textContent])).toEqual([true, 'true', 'Start game']);
-    await page.clock.resume();
     await expect.poll(() => page.evaluate(() => typeof (window as any).releaseHeld)).toBe('function');
     await page.clock.fastForward(1_000);
     await expect.poll(() => start.textContent()).toBe('Starting…');

@@ -23,7 +23,7 @@ const finds = findModelNames(message);
 if (finds.length) {
   faults.push(`the message holds a model name (decision 4):
 ${finds.map(f => `  line ${f.line}: "${f.word}"`).join('\n')}
-  Remove each name. For the trailer, use the neutral trailer of your tool:
+  Remove each name. Keep the required tool trailers:
     Co-Authored-By: Claude Code <noreply@anthropic.com>
     Co-Authored-By: Codex <noreply@openai.com>`);
 }

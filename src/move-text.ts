@@ -1,19 +1,22 @@
+import type { GameRules } from './game-rules';
 /**
  * Plain-language helpers for the HUD that only read the engine: the screen-reader sentence for a
  * move, the threat markers, and move numbers that stay right when a Haste turn plays two plies.
  */
-import { A, aName, C, Color, Move, N, P, nameOf, Position, TAG_POWER, theName, colorOf, file, findKing, genPiece, isSpawnTag, pseudoMoves, rank, sqName, typeOf } from './rules/engine';
+import { A, C, Color, Move, N, P, PieceType, Position, TAG_POWER, colorOf, file, findKing, isSpawnTag, rank, sqName, typeOf } from './rules/engine';
 
 import { cardName } from './powers-ui';
 import type { Mode } from './turn';
+
+type MoveRules = Pick<GameRules, 'nameOf' | 'theName' | 'aName' | 'genPiece' | 'pseudoMoves'>;
 
 const SIDE = ['White', 'Black'] as const;
 
 export interface Checker { sq: number; king: number; path: 'straight' | 'arc' }
 
 /** The cause of the current check, in one short line. */
-export function checkCause(pos: Position, last?: Move, mode?: Mode, viewer: Color = pos.turn): string {
-  const checkers = checkersOf(pos), names = checkers.map(ch => nameOf(typeOf(pos.board[ch.sq])));
+export function checkCause(context: MoveRules, pos: Position, last?: Move, mode?: Mode, viewer: Color = pos.turn): string {
+  const checkers = checkersOf(context, pos), names = checkers.map(ch => context.nameOf(typeOf(pos.board[ch.sq])));
   if (!checkers.length) return '';
   const attacker = mode === 'device' ? `${SIDE[(pos.turn ^ 1) as Color]}'s` : viewer === pos.turn ? 'Their' : 'Your';
   const target = mode === 'device' ? `the ${SIDE[pos.turn].toLowerCase()} king` : viewer === pos.turn ? 'your king' : 'their king';
@@ -37,7 +40,7 @@ export function checkCause(pos: Position, last?: Move, mode?: Mode, viewer: Colo
 }
 
 /** Attacks on the king, including frozen pieces. A Freeze stops moves, not check. */
-export function checkersOf(pos: Position): Checker[] {
+export function checkersOf(context: MoveRules, pos: Position): Checker[] {
   const king = findKing(pos.board, pos.turn);
   if (king < 0) return [];
   const checkers: Checker[] = [];
@@ -45,7 +48,7 @@ export function checkersOf(pos: Position): Checker[] {
     const p = pos.board[sq];
     if (!p || colorOf(p) === pos.turn) continue;
     const attacks: Move[] = [];
-    genPiece(pos.board, sq, 'attacks', attacks);
+    context.genPiece(pos.board, sq, 'attacks', attacks);
     if (attacks.some(m => m.captures.includes(king))) {
       checkers.push({ sq, king, path: checkPath(pos.board, sq, king) });
     }
@@ -63,22 +66,30 @@ function checkPath(board: Uint8Array, from: number, king: number): Checker['path
 }
 
 /** A short line for the last move, with the card or power name. */
-export function shortMove(pre: Position, m: Move): string {
-  const side = SIDE[pre.turn], name = nameOf(typeOf(pre.board[m.from]));
+export function shortMove(pre: Position, m: Move, pieceName: (type: PieceType) => string): string {
+  const side = SIDE[pre.turn], name = pieceName(typeOf(pre.board[m.from]));
   const power = m.power ? `${m.via ? `${cardName(m.via === 'mirrorb' ? 'MirrorB' : 'Mirror')} · ` : ''}${cardName(TAG_POWER[m.power])} · ` : '';
   const action = m.pass ? `ends turn · ${pre.free ? pre.marks?.[pre.turn] ? 'mark' : 'draw' : pre.rage === 3 ? 'Rally' : 'Haste'}`
-    : m.drop !== undefined ? `adds ${nameOf(m.drop)} ${sqName(m.to)}${m.drop2 === undefined ? '' : `, ${sqName(m.drop2)}`}`
+    : m.drop !== undefined ? `adds ${pieceName(m.drop)} ${sqName(m.to)}${m.drop2 === undefined ? '' : `, ${sqName(m.drop2)}`}`
     : m.castle ? `castles ${file(m.to) === 6 ? 'short' : 'long'}`
-    : `${name} ${sqName(m.from)}${m.from === m.to ? '' : ` ${m.swap ? '↔' : '→'} ${sqName(m.to)}`}${m.promo ? ` = ${nameOf(m.promo)}` : ''}${m.from === m.to && m.captures.length ? ` × ${m.captures.map(sqName).join(', ')}` : ''}`;
+    : `${name} ${sqName(m.from)}${m.from === m.to ? '' : ` ${m.swap ? '↔' : '→'} ${sqName(m.to)}`}${m.promo ? ` = ${pieceName(m.promo)}` : ''}${m.from === m.to && m.captures.length ? ` × ${m.captures.map(sqName).join(', ')}` : ''}`;
   return `${side} ${power}${action}`;
 }
 
-/** One sentence for a screen reader: who moved what, and what it did. */
-export function describeMove(pre: Position, m: Move, freePass = false, final = false): string {
+/** Cards whose move reads as the piece's own move, with the card named after it. */
+const WITH_CARD: ReadonlySet<Move['power']> = new Set(['strike', 'march', 'leap', 'vault', 'mimic', 'control', 'burn', 'firestarter']);
+
+/** One sentence for a screen reader: who moved what, and what it did. A Mirror card names itself first. */
+export function describeMove(context: MoveRules, pre: Position, m: Move, freePass = false, final = false): string {
+  const text = moveSentence(context, pre, m, freePass, final);
+  return m.via ? `With ${cardName(m.via === 'mirrorb' ? 'MirrorB' : 'Mirror')}, ${text}` : text;
+}
+
+function moveSentence(context: MoveRules, pre: Position, m: Move, freePass: boolean, final: boolean): string {
   // The side is the one to move, not the piece on `from`: a Freeze names an enemy piece.
-  const side = SIDE[pre.turn], piece = pre.board[m.from], name = nameOf(typeOf(piece));
-  const the = (s: number): string => `${nameOf(typeOf(pre.board[s]))} on ${sqName(s)}`;
-  const theOn = (s: number): string => `${theName(typeOf(pre.board[s]))} on ${sqName(s)}`;
+  const side = SIDE[pre.turn], piece = pre.board[m.from], name = context.nameOf(typeOf(piece));
+  const the = (s: number): string => `${context.nameOf(typeOf(pre.board[s]))} on ${sqName(s)}`;
+  const theOn = (s: number): string => `${context.theName(typeOf(pre.board[s]))} on ${sqName(s)}`;
   const colour = (s: number): string => (colorOf(pre.board[s]) ? 'black' : 'white');
   // King powers that move nothing, or change a piece where it stands.
   // The pass of a free mark (or a GrowthB draw) ends a turn that had no second move to skip.
@@ -87,9 +98,16 @@ export function describeMove(pre: Position, m: Move, freePass = false, final = f
   if (m.power === 'freeze') return `${side} freezes the ${colour(m.to)} ${the(m.to)}.`;
   if (m.power === 'firewall') return `${side} uses Firewall to protect all its pieces until its next turn.`;
   if (m.power === 'ward') return `${side} puts an Ice Wall on the ${colour(m.to)} ${the(m.to)}.`;
-  if (m.power === 'sacrifice') return `${side} sacrifices the pawn on ${sqName(m.from)} and brings back ${aName(m.promo!)} there.`;
-  if (m.power === 'morph' || m.power === 'morphb' || m.power === 'morphp') return `${side} turns ${theOn(m.from)} into ${aName(m.promo!)}.`;
+  if (m.power === 'sacrifice') return `${side} sacrifices the pawn on ${sqName(m.from)} and brings back ${context.aName(m.promo!)} there.`;
+  if (m.power === 'morph' || m.power === 'morphb' || m.power === 'morphp') return `${side} turns ${theOn(m.from)} into ${context.aName(m.promo!)}.`;
   if (isSpawnTag(m.power)) return m.drop2 === undefined ? `${side} adds a pawn on ${sqName(m.to)}.` : `${side} adds pawns on ${sqName(m.to)} and ${sqName(m.drop2)}.`;
+  if (m.power === 'salvation') return `${side} uses ${cardName(TAG_POWER[m.power])} to bring back ${context.aName(m.drop!)} on ${sqName(m.to)}.`;
+  if (m.power === 'curse') return `${side} uses ${cardName(TAG_POWER[m.power])} to move the ${colour(m.from)} ${the(m.from)} to ${sqName(m.to)}.`;
+  if (m.power === 'skylift') return `${side} uses ${cardName(TAG_POWER[m.power])} to swap ${theOn(m.from)} and ${theOn(m.to)}.`;
+  if (m.pushes) {
+    const pushed = m.pushes.length > 2 ? `${m.pushes.length} pieces one square away` : m.pushes.map(p => `the ${colour(p.from)} ${the(p.from)} to ${sqName(p.to)}`).join(' and ');
+    return `${side} uses ${cardName(TAG_POWER[m.power!])} on ${sqName(m.to)} and pushes ${pushed}.`;
+  }
   if (m.castle) return `${side} castles ${file(m.to) === 6 ? 'short' : 'long'}.`;
   let text = m.power === 'flight'
     ? `${side} ${name} flies from ${sqName(m.from)} to ${sqName(m.to)}`
@@ -98,11 +116,12 @@ export function describeMove(pre: Position, m: Move, freePass = false, final = f
     : m.swap ? `${side} ${name} on ${sqName(m.from)} swaps places with ${theOn(m.to)}`
     : m.to === m.from && m.captures.length ? `${side} ${name} on ${sqName(m.from)} takes ${m.captures.map(theOn).join(' and ')} without moving`
     : `${side} ${name} ${sqName(m.from)} to ${sqName(m.to)}${m.captures.length ? `, taking ${m.captures.map(theOn).join(', then ')}${typeOf(piece) === P && m.captures[0] !== m.to ? ' en passant' : ''}` : ''}`;
-  if (m.promo) text += `, and becomes ${aName(m.promo)}`;
-  if (m.selfRemove) text += `; ${theName(typeOf(piece))} leaves the board`;
-  if (m.power === 'strike') text += ' with Strike';
-  if (!final && m.power === 'haste') text += `, with Haste: ${theName(typeOf(piece))} may move again`;
-  if (!final && m.power === 'rally') text += ', with Rally: a different piece may move next';
+  if (m.promo) text += `, and becomes ${context.aName(m.promo)}`;
+  if (m.selfRemove) text += `; ${context.theName(typeOf(piece))} leaves the board`;
+  if (WITH_CARD.has(m.power)) text += ` with ${cardName(TAG_POWER[m.power!])}`;
+  if (final && (m.power === 'haste' || m.power === 'rally')) text += ` with ${cardName(TAG_POWER[m.power])}`;
+  else if (m.power === 'haste') text += `, with ${cardName(TAG_POWER[m.power])}: ${context.theName(typeOf(piece))} may move again`;
+  else if (m.power === 'rally') text += `, with ${cardName(TAG_POWER[m.power])}: a different piece may move next`;
   return `${text}.`;
 }
 
@@ -111,9 +130,9 @@ export function describeMove(pre: Position, m: Move, freePass = false, final = f
  * checkers). Asked as if it were the other side's turn, outside the turn in progress: a pending Haste second move or the
  * move after a free Freeze belongs to the side to move, so it is left out.
  */
-export function threatsIn(pos: Position): { from: number; to: number }[] {
-  const out = checkersOf(pos).map(ch => ({ from: ch.sq, to: ch.king }));
-  for (const m of pseudoMoves({ ...pos, turn: (pos.turn ^ 1) as Color, haste: undefined, free: undefined }, 'captures')) {
+export function threatsIn(context: MoveRules, pos: Position): { from: number; to: number }[] {
+  const out = checkersOf(context, pos).map(ch => ({ from: ch.sq, to: ch.king }));
+  for (const m of context.pseudoMoves({ ...pos, turn: (pos.turn ^ 1) as Color, haste: undefined, free: undefined }, 'captures')) {
     for (const to of m.captures) {
       if (pos.board[to] && colorOf(pos.board[to]) === pos.turn && !out.some(t => t.from === m.from && t.to === to)) out.push({ from: m.from, to });
     }

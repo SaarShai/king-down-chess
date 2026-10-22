@@ -6,13 +6,13 @@
 // space, hyphen, dot or underscore, an optional "v", digits with dots or hyphens, and optional
 // letters ("name 5.5", "name-4-1", "name5", "name v2", "name4x"). A letter or digit before the
 // name, or a letter or digit after the find, stops it: "prename" and "names" are not finds.
-// Tool names (Claude Code, Codex) are not model names. Short series names of two characters are
+// Tool names (Claude Code, Codex, OpenCode, Antigravity) are not model names. Short series names of two characters are
 // not in the list, because the same letters occur as tokens in code and data.
 
 /** The model names, in lower case. */
 export const MODEL_NAMES = Object.freeze([
   'opus', 'sonnet', 'haiku', 'fable', 'mythos',
-  'gpt', 'gemini', 'gemma', 'grok', 'llama', 'mistral', 'deepseek', 'qwen', 'kimi',
+  'sol', 'astra', 'argon', 'gpt', 'gemini', 'gemma', 'grok', 'llama', 'mistral', 'deepseek', 'qwen', 'kimi',
 ]);
 
 const pattern = new RegExp(

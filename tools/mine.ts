@@ -19,8 +19,11 @@ import { resultsRoot } from './lib/results-root.mjs';
  */
 import { createReadStream, mkdirSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
+import { fileURLToPath } from 'node:url';
+import { resolve as resolvePath } from 'node:path';
 import type { GameRecord } from '../src/sim/game';
-import { CP_CLAMP, CP_SCALE, DEAD_BAND, INTEREST, UNSURE } from '../src/sim/weights';
+import type { Rules } from '../src/rules/rules';
+import { CP_CLAMP, CP_SCALE, DEAD_BAND, DECISION_CP, INTEREST, UNSURE } from '../src/sim/weights';
 // The one exception to the port below: who moved at a ply is a *rule*, so it is imported, never
 // copied. `moverAt` is one line with no state; a second copy is how the parity bug survived.
 import { WHITE, moverAt } from '../src/rules/engine';
@@ -52,18 +55,23 @@ function trajectory(rec: GameRecord): { leadChanges: number; volatility: number;
   };
 }
 
-interface Lead { killerMove: number; leadChange: number; uncertaintyLate: number; permanence: number; drama: number }
+interface Lead {
+  killerMove: number; leadChange: number; uncertaintyLate: number; permanence: number; drama: number;
+  decisionCost: [number, number]; decisionAsymmetry: number;
+}
 
-function leadMetrics(rec: GameRecord, rules = rec.rules ?? {}): Lead {
+export function leadMetrics(rec: GameRecord, rules: Partial<Rules> = rec.rules ?? {}): Lead {
   const idx: number[] = [], lead: number[] = [];
+  const cost: [number, number] = [0, 0];
   rec.moves.forEach((m, i) => {
+    if (m.gap !== undefined) cost[moverAt(i, rules)] += Math.log2(1 + Math.exp(-m.gap / DECISION_CP));
     if (m.cp === undefined) return;
     idx.push(i);
     lead.push(2 / (1 + Math.exp(-Math.max(-CP_CLAMP, Math.min(CP_CLAMP, m.cp)) / CP_SCALE)) - 1);
   });
   const T = lead.length;
   const z = rec.result === 1 ? 1 : rec.result === 0 ? -1 : 0;
-  if (T < 2) return { killerMove: 0, leadChange: 0, uncertaintyLate: 0.5, permanence: 1, drama: 0 };
+  if (T < 2) return { killerMove: 0, leadChange: 0, uncertaintyLate: 0.5, permanence: 1, drama: 0, decisionCost: cost, decisionAsymmetry: cost[1] - cost[0] };
   let killer = 0, changes = 0, jerk = 0, dramaSum = 0, dramaN = 0;
   for (let i = 1; i < T; i++) {
     const d = lead[i] - lead[i - 1];
@@ -83,6 +91,8 @@ function leadMetrics(rec: GameRecord, rules = rec.rules ?? {}): Lead {
     uncertaintyLate: (u / 100 + 1) / 2,
     permanence: T >= 3 ? Math.max(0, 1 - jerk / (T - 2)) : 1,
     drama: dramaN ? dramaSum / dramaN : 0,
+    decisionCost: cost,
+    decisionAsymmetry: cost[1] - cost[0],
   };
 }
 void UNSURE;
@@ -742,4 +752,7 @@ const median = (xs: readonly number[]): number => {
   return s[s.length >> 1];
 };
 
-main().catch(e => { console.error(e); process.exit(1); });
+// Run only as a script, so a test can import `leadMetrics` (same guard as `src/sim/analyze.ts`).
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolvePath(process.argv[1])) {
+  main().catch(e => { console.error(e); process.exit(1); });
+}

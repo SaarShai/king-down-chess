@@ -1,6 +1,8 @@
-/** The owner's moderation queue over src/online/safety.ts (report part 01, section 8.2). No admin web page.
+/** Moderation queue over src/online/safety.ts (report part 01, section 8.2).
+ * Source runs are test-only. The compiled tool can also use the separate staging database.
  * KINGDOWN_ADMIN_DATABASE_URL names the admin connection; it is not an argument, so no password shows in a process list.
  *
+ *   npm run mod -- intake <reporter-uuid> --target player|handle|message --user <uuid>|--handle <handle>|--game <uuid> --category <category> --evidence <reference> --note "…" [--preset <preset>] [--intimate-image]
  *   npm run mod -- list                                  open reports, child safety first
  *   npm run mod -- show <report>                         one report and the player's earlier actions
  *   npm run mod -- act <report> warning|hide|none --facts "…" --rule "…"
@@ -12,15 +14,26 @@
 import { parseArgs } from 'node:util';
 import pg from 'pg';
 import { PostgresMatchStore } from '../src/match/store';
-import { CONTROLS, SafetyService } from '../src/online/safety';
+import { APPEAL, CONTROLS, SafetyService } from '../src/online/safety';
+import { testDatabase } from './plugin-db-config.mjs';
+import { stagingOperatorDatabase } from './mod-config.mjs';
+import { STAGING_ORIGIN } from './staging-config.mjs';
 
-const { positionals: [command, first, second], values } = parseArgs({ allowPositionals: true, options: Object.fromEntries(
-  ['facts', 'rule', 'days', 'handle', 'note', 'nca'].map(name => [name, { type: 'string' as const }])) });
+// Only the checked builder supplies this literal. Environment variables cannot enable it in source runs.
+declare const __KINGDOWN_STAGING_OPERATOR__: boolean;
+
+const { positionals: [command, first, second], values } = parseArgs({ allowPositionals: true, options: { ...Object.fromEntries(
+  ['facts', 'rule', 'days', 'handle', 'note', 'nca', 'target', 'user', 'game', 'category', 'evidence', 'preset'].map(name => [name, { type: 'string' as const }])), 'intimate-image': { type: 'boolean' } } });
 const url = process.env.KINGDOWN_ADMIN_DATABASE_URL;
 if (!url) { console.error('Set KINGDOWN_ADMIN_DATABASE_URL to the admin database connection.'); process.exit(2); }
-const pool = new pg.Pool({ connectionString: url, max: 1 }), safety = new SafetyService(new PostgresMatchStore(pool));
+const compiledStaging = typeof __KINGDOWN_STAGING_OPERATOR__ !== 'undefined' && __KINGDOWN_STAGING_OPERATOR__;
+const config = compiledStaging ? stagingOperatorDatabase(url) : { connectionString: testDatabase(url) };
+const pool = new pg.Pool({ ...config, max: 1 });
+const safety = new SafetyService(new PostgresMatchStore(pool), compiledStaging ? APPEAL.replace('https://kingdown.dev', STAGING_ORIGIN) : APPEAL);
 const days = values.days === undefined ? undefined : Number(values.days);
 const commands: Record<string, () => Promise<unknown>> = {
+  intake: () => safety.intake(first, { target: values.target, category: values.category, evidence: values.evidence, note: values.note,
+    user_id: values.user, handle: values.handle, game_id: values.game, preset: values.preset, intimate_image: values['intimate-image'] }),
   list: () => safety.queue(),
   show: () => safety.show(Number(first)),
   act: () => safety.act(Number(first), { action: second, facts: values.facts, rule: values.rule, days, handle: values.handle }),
@@ -28,7 +41,7 @@ const commands: Record<string, () => Promise<unknown>> = {
   hold: () => safety.hold(Number(first), { nca_reference: values.nca, days }),
 };
 try {
-  if (!commands[command]) throw new Error('Commands: list, show, act, appeal, hold. The top of tools/mod.ts shows each one.');
+  if (!commands[command]) throw new Error('Commands: intake, list, show, act, appeal, hold. The top of tools/mod.ts shows each one.');
   // JSON escapes the C0 controls in text and this the rest (DEL, C1, bidi), so no text in a report can change the terminal.
   // A raw newline is only the layout of the JSON.
   console.log(JSON.stringify(await commands[command](), null, 1)?.replace(new RegExp(`[${CONTROLS}]`, 'gu'), c => c === '\n' ? c : `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`) ?? 'Done.');

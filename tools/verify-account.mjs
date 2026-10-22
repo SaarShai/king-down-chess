@@ -6,10 +6,11 @@
 // Run: npm run check:browser account (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
 import { startLesson, arriveContinue, closeMenu, contextText, lanMoves, openAccount, pressMenu, waitForUi } from './app-ui.mjs';
-import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, CHECK_SITE_ENV, env, launch, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
-const SUPABASE = 'https://utqzovjmclfyojedmwok.supabase.co';
+// The check site's account project and key (tools/check.mjs builds the site with them).
+const { VITE_SUPABASE_URL: SUPABASE, VITE_SUPABASE_PUBLISHABLE_KEY: KEY } = CHECK_SITE_ENV;
 const browser = await launch();
 const ok = msg => console.log(`ok ${msg}`);
 const UID = '0a7c1d2e-3f40-4b5c-8d6e-7f8091a2b3c4';
@@ -50,6 +51,8 @@ async function open({ query = '', stored = null, row = null, down = false, phone
     if (down) return r.abort('internetdisconnected');
     const json = (status, body) => r.fulfill({ status, contentType: 'application/json', body: body === undefined ? '' : JSON.stringify(body) });
     if (req.method() === 'OPTIONS') return r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' } });
+    // The public auth settings list the enabled providers (src/account/providers.ts).
+    if (url.pathname === '/auth/v1/settings') return json(200, { external: { google: true, github: true, facebook: true } });
     if (url.pathname === '/auth/v1/authorize') return r.fulfill({ contentType: 'text/html', body: '<p>sign-in page</p>' });
     if (url.pathname === '/auth/v1/token') return json(200, session());
     if (url.pathname === '/auth/v1/logout') return json(204);
@@ -88,37 +91,43 @@ const seen = async (server, test, n = 1) => {
 };
 const accountButtons = page => page.locator('#account-body button').allInnerTexts();
 const settings = async page => { await openAccount(page); await page.locator('#account:not([hidden])').waitFor(); };
+/** Opens Account signed out and waits until the provider buttons from the public auth settings show. */
+const signedOutSettings = async page => { await settings(page); await page.locator('#account-body button[data-provider]').first().waitFor(); };
+const calls = server => server.requests.filter(r => r.method !== 'OPTIONS').map(r => `${r.method} ${r.path}`);
 const small = page => page.$$eval('#account button, #account a', els => els.filter(e => e.offsetParent)
   .map(e => ({ t: e.textContent.trim(), r: e.getBoundingClientRect() })).filter(({ r }) => r.height < 44 || r.width < 44).map(({ t }) => t));
 const moves = page => lanMoves(page);
 const save = page => page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
 
 try {
-  // 1. Signed out: no request to the server, no client code loaded, Google and GitHub only.
+  // 1. Signed out: no request and no client code until Account opens; then only the public auth settings
+  // are read (ticket 46), and Google and GitHub show.
   for (const phone of [false, true]) {
     const { page, server, close } = await open({ phone });
-    await settings(page);
+    assert.deepEqual(calls(server), [], 'signed out, nothing goes to the server before Account opens');
+    assert.deepEqual(server.scripts, [], 'the Supabase client is not loaded before Account opens');
+    await signedOutSettings(page);
     assert.deepEqual(await accountButtons(page), ['Continue with Google', 'Continue with GitHub']);
     assert.match(await page.locator('#account-body').innerText(), /Sign in to save your games on every device/);
-    assert.deepEqual(await page.locator('#account a').evaluateAll(as => as.map(a => a.getAttribute('href'))), ['./privacy.html', './terms.html']);
+    assert.deepEqual(await page.locator('#account a').evaluateAll(as => as.map(a => a.getAttribute('href'))), ['/privacy.html', '/terms.html']);
     if (phone) assert.deepEqual(await small(page), [], 'account controls are at least 44 px');
-    assert.equal(server.requests.length, 0, 'signed out, nothing goes to the server');
-    assert.deepEqual(server.scripts, [], 'the Supabase client is not loaded for a signed-out player');
+    assert.deepEqual(calls(server), ['GET /auth/v1/settings'], 'signed out, only the public auth settings are read');
+    assert.equal(server.requests.find(r => r.method === 'GET').headers.apikey, KEY);
     assert.deepEqual(server.errors, []);
     await close();
   }
   {
     const { page, close } = await open({ query: '?facebook=1' });
-    await settings(page);
+    await signedOutSettings(page);
     assert.deepEqual(await accountButtons(page), ['Continue with Google', 'Continue with GitHub', 'Continue with Facebook']);
     await close();
   }
-  ok('signed out: Google and GitHub (Facebook only with ?facebook=1), privacy and terms links, 44 px on a phone; no request and no client code');
+  ok('signed out: Google and GitHub (Facebook only with ?facebook=1), privacy and terms links, 44 px on a phone; no request and no client code before Account opens, then only the auth settings');
 
   // 2. Continue with Google goes to Supabase's authorize page with a PKCE challenge and comes back here.
   {
     const { page, server, close } = await open();
-    await settings(page);
+    await signedOutSettings(page);
     await page.click('text=Continue with Google');
     await page.waitForURL(/\/auth\/v1\/authorize/);
     const auth = server.requests.find(r => r.path === '/auth/v1/authorize').url.searchParams;
@@ -147,15 +156,15 @@ try {
     assert.match(up.headers.prefer, /resolution=merge-duplicates/);
     assert.match(up.headers.prefer, /return=representation/, 'asks for the row as kept');
     assert.equal(up.url.searchParams.get('select'), 'settings,lessons,saved_game');
-    assert.equal(up.headers.apikey, 'sb_publishable_8jB5OXiSB56JSJBfPjLvbQ_cKIemhX9');
+    assert.equal(up.headers.apikey, KEY);
     await close();
   }
   {
     const { page, server, close } = await open({ query: '?error=access_denied&error_description=The+user+denied' });
-    await settings(page);
+    await signedOutSettings(page);
     assert.equal(await page.locator('#account-note').innerText(), 'Sign-in did not finish. Please try again.');
     assert.equal(await page.evaluate(() => location.search), '');
-    assert.equal(server.requests.length, 0);
+    assert.deepEqual(calls(server), ['GET /auth/v1/settings']);
     await close();
   }
   ok('return: the code is exchanged (PKCE), the address cleaned, the empty account gets this device\'s game; a refused sign-in says so quietly');
@@ -213,7 +222,7 @@ try {
     await page.click('#account-body >> text=Delete my account');
     await dlg.locator('button[value=delete]').click();
     await page.waitForFunction(() => document.getElementById('account-note').textContent.startsWith('We delete your account in seven days.'));
-    await settings(page);
+    await signedOutSettings(page);
     assert.equal(await page.locator('#account-note').innerText(), 'We delete your account in seven days. To keep it, sign in again before then. Your games stay on this device.');
     assert.ok(server.requests.some(r => r.method === 'POST' && r.path === '/rest/v1/rpc/delete_my_account'));
     assert.ok(server.requests.some(r => r.path === '/auth/v1/logout' && r.url.searchParams.get('scope') === 'local'));
@@ -308,12 +317,14 @@ try {
     await page.clock.fastForward('02:00:00'); // the hour-long session runs out; it cannot be renewed offline
     await settings(page);
     await page.locator('#account-body >> text=Sign out').click();
-    await page.locator('#account-body >> text=Continue with Google').waitFor();
+    // Offline, the public auth settings cannot load: no provider is guessed, only Try again shows (ticket 46).
+    await page.locator('#account-body >> text=Try again').waitFor();
     assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.auth')), null);
     await page.reload();
     await page.waitForFunction(() => window.view?.ready);
     await settings(page);
-    assert.deepEqual(await accountButtons(page), ['Continue with Google', 'Continue with GitHub']);
+    await page.locator('#account-body >> text=Try again').waitFor();
+    assert.deepEqual(await accountButtons(page), ['Try again']);
     await close();
   }
   ok('signing out offline with a session that ran out signs out on this device, and a reload stays signed out');

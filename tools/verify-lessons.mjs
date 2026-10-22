@@ -91,7 +91,7 @@ try {
     await startLesson(page, 'Archer');
     await tap(27); await tap(45);
     await waitForUi(page, ui => ui.lessonLearned === 'Archer');
-    assert.equal(await page.locator('#next-lesson').innerText(), 'Next lesson: Beast');
+    assert.equal(await page.locator('#next-lesson').innerText(), 'Next: Beast');
     await page.click('#next-lesson');
     assert.equal(await page.locator('#lesson-progress [title=Guard]').getAttribute('class'), 'next', 'Guard is not learned after Archer');
     assert.equal(await page.locator('#lesson-progress [title=Maester]').getAttribute('class'), 'next', 'Maester is not learned after Archer');

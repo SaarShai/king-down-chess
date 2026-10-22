@@ -3,7 +3,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GameService } from './service';
 import { createMatch } from './index';
-import { PostgresMatchStore } from './store';
+import { PostgresMatchStore, type Game } from './store';
 import { DEFAULT_OPTIONS } from './setup';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { KINGS, type KingName } from '../rules/rules';
@@ -16,13 +16,18 @@ vi.setConfig({ testTimeout: 60_000 });
 const suite = process.env.PLUGIN_TEST_DATABASE_URL ? describe : describe.skip;
 const command = (expected_revision: number, action: object) => ({ command_id: randomUUID(), expected_revision, action });
 
-suite('finished game results in PostgreSQL', () => {
+suite('legacy finished game results in PostgreSQL', () => {
  let admin: pg.Pool, games: GameService[], own: URL;
  const users: string[] = [], pools: pg.Pool[] = [];
  beforeAll(async () => {
   own = await ownTestDatabase('results');
   pools.push(new pg.Pool({ connectionString: own.href, max: 2 }), new pg.Pool({ connectionString: own.href, max: 2 }));
-  admin = pools[0]; games = pools.map(pool => new GameService(new PostgresMatchStore(pool)));
+  admin = pools[0]; games = pools.map(pool => {
+   const store = new PostgresMatchStore(pool), insert = store.insert.bind(store);
+   // These regression fixtures represent games that existed before the policy transition.
+   store.insert = (game: Game, client?: pg.PoolClient) => { game.rating_policy = 'legacy'; return insert(game, client); };
+   return new GameService(store);
+  });
  }, 120_000);
  afterAll(async () => {
   await admin.query('delete from public.games where created_by=any($1)', [users]);
@@ -84,7 +89,7 @@ suite('finished game results in PostgreSQL', () => {
     const record = records[index];
     expect(ratings.find(r => r.user_id === actor)).toMatchObject({ rating: record.rating.rating, rd: record.rating.rd, volatility: record.rating.volatility });
     expect(record.badges.every(b => b.earned_at === at.toISOString())).toBe(true);
-    expect(await games[0].history(actor)).toEqual({ next_before: null, games: [{ game_id: game.game_id, finished_at: at.toISOString(), kind: 'random',
+    expect(await games[0].history(actor)).toEqual({ next_before: null, games: [{ rating_policy: 'legacy', game_id: game.game_id, finished_at: at.toISOString(), kind: 'random',
      colour: index === 0 ? 'black' : 'white', result: index === 0 ? 'won' : 'lost', reason: 'resignation',
      opponent: { handle: handles[1-index], icon: index === 0 ? 'bishop' : 'knight', computer: false, deleted: false, level: null },
      features: { fairy: false, arrangement: false, classic: true, cards: false, powers: false, king: index === 0 ? 'Shadow' : 'Spirit', power: null } }] });
@@ -153,10 +158,31 @@ suite('finished game results in PostgreSQL', () => {
   expect((await games[0].history(a)).games.map(g => g.game_id)).toEqual([solo.game_id]);
   expect((await admin.query('select count(*)::int as n from public.rating_history where user_id=any($1)', [[a,b]])).rows[0].n).toBe(0);
  });
- it('rates checkmate and an engine draw through the same end path', async () => {
+ it('rates checkmate once across winning-turn retries and rates an engine draw through the same end path', async () => {
   const a = await user(), b = await user(), game = await friend(a, b);
-  for (const [index, lan] of ['f2-f3', 'e7-e5', 'g2-g4', 'Qd8-h4'].entries())
+  for (const [index, lan] of ['f2-f3', 'e7-e5', 'g2-g4'].entries())
    await games[0].command(index % 2 ? b : a, game.game_id, command(index + 1, { type: 'turn', actions: [lan] }));
+  const winningTurn = command(4, { type: 'turn', actions: ['Qd8-h4'] });
+  const mate = await games[0].command(b, game.game_id, winningTurn);
+  expect(mate).toMatchObject({ revision: 5, status: 'finished', result: { winner: 1, reason: 'checkmate' } });
+  const effects = async () => ({
+   counts: (await admin.query(`select
+    (select count(*)::int from public.game_commands where game_id=$1 and command_id=$2) as receipt,
+    (select count(*)::int from public.game_commands where game_id=$1 and kind='turn') as turns,
+    (select count(*)::int from public.outbox where kind='game_finished' and payload->>'game_id'=$1::text) as results`, [game.game_id, winningTurn.command_id])).rows[0],
+   history: (await admin.query('select * from public.rating_history where game_id=$1 order by user_id', [game.game_id])).rows,
+   ratings: (await admin.query('select * from public.player_ratings where user_id=any($1) order by user_id', [[a,b]])).rows,
+  });
+  const recorded = await effects();
+  expect(recorded.counts).toEqual({ receipt: 1, turns: 4, results: 1 });
+  expect(recorded.history).toHaveLength(2);
+  // Both instances receive the same accepted winning turn again after the game has finished.
+  for (const retry of await Promise.all(games.map(service => service.command(b, game.game_id, winningTurn))))
+   expect(retry).toEqual({ ...mate, server_now: expect.any(String) });
+  await expect(games[1].command(b, game.game_id, { ...winningTurn, action: { type: 'turn', actions: ['Qd8-e7'] } })).rejects.toMatchObject({ code: 'COMMAND_CONFLICT' });
+  expect(await effects()).toEqual(recorded);
+  expect((await games[0].record(a)).totals).toEqual({ played: 1, won: 0, drawn: 0, lost: 1 });
+  expect((await games[1].record(b)).totals).toEqual({ played: 1, won: 1, drawn: 0, lost: 0 });
   expect((await games[0].history(b)).games[0]).toMatchObject({ result: 'won', reason: 'checkmate' });
   expect((await games[0].record(b)).rating.rating).toBeGreaterThan(1500);
   const draw = await friend(a, b, { setup: { fen: '7k/8/8/8/8/4r3/3B4/2K5 w - - 0 1', kings: 'none,none' } });

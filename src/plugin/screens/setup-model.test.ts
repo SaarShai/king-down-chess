@@ -1,21 +1,23 @@
-import { expect, it } from 'vitest';
-import { gameSetup, readSetup, quickSetup, withToggle, createArguments, pieceLocked, withPiece, withCard, cleanKing, availablePowers, shownKing, soloChoice } from './setup-model';
-import { DEFAULT_OPTIONS } from '../../match/setup';
+import { afterEach, expect, it, vi } from 'vitest';
+import { gameSetup, readSetup, quickSetup, withToggle, createArguments, pieceLocked, withPiece, withCard, withMode, cleanKing, availablePowers, shownKing, soloChoice } from './setup-model';
+import { DEFAULT_OPTIONS, RANKED_OPTIONS } from '../../match/setup';
 import type { View } from '../../match/protocol';
+
+afterEach(() => { vi.unstubAllEnvs(); });
 
 it('reads the aborted game draft from its view, without saved settings', () => {
   const options = { ...DEFAULT_OPTIONS, cards: true, kingPowers: true };
   const king = { king: 'Shadow', power: 'Darkness' } as const;
   const view = { kind: 'solo', seat: 1, level: 'strong', options, choices: [null, { king }] } as View;
   const draft = gameSetup(view);
-  expect(draft).toEqual({ kind: 'solo', colour: 'black', level: 'strong', options, king });
+  expect(draft).toEqual({ mode: 'casual', kind: 'solo', colour: 'black', level: 'strong', options, king });
   expect(draft.options).not.toBe(options);
   expect(gameSetup({ ...view, choices: undefined, kings: [null, king] }).king).toEqual(king);
 });
 
 it('starts a new account with the approved defaults and no king pick', () => {
   expect(readSetup(null)).toEqual({
-    kind: 'solo', colour: 'white', level: 'club', king: null,
+    mode: 'casual', kind: 'solo', colour: 'white', level: 'club', king: null,
     options: { fairy: true, pool: ['Q','O','L','R','B','N','A','G','M','S'], arrangement: true, classic: false, cards: false,
       cardPool: ['Freeze','IceWall','Strike','Haste','Flight','Sacrifice','March','Leap','Salvation','MirrorB','Firewall','EarthQuake','Burn','FireStarter','Control','Rally','MorphP','Mimic','Vault','Curse','SkyLift'], kingPowers: false },
   });
@@ -71,7 +73,7 @@ it('lets a card draft go below four and stops Pick four at four', () => {
 it('restores saved choices and removes old lab pieces and Rescue from the pools', () => {
   const saved = { kind: 'friend', colour: 'black', level: 'strong', king: { king: 'Shadow', power: 'Darkness' },
     options: { ...DEFAULT_OPTIONS, pool: ['C', ...DEFAULT_OPTIONS.pool], cardPool: [...DEFAULT_OPTIONS.cardPool, 'Rescue'] } };
-  expect(readSetup(saved)).toEqual({ ...saved, options: DEFAULT_OPTIONS });
+  expect(readSetup(saved)).toEqual({ ...saved, mode: 'casual', options: DEFAULT_OPTIONS });
 });
 
 it('cleans card-incompatible picks and uses the actual solo seat default when there is no pick', () => {
@@ -92,4 +94,39 @@ it('cleans card-incompatible picks and uses the actual solo seat default when th
   expect(soloChoice({ ...view, options: { ...cards, kingPowers: false } }, { king: 'Mud', power: 'March' })).toBeNull();
   expect(soloChoice({ ...view, kind: 'friend', status: 'waiting' }, remembered.king)).toBeNull();
   expect(readSetup({ ...remembered, options: { ...cards, pool: ['C'] }, king: { king: 'Spirit', power: 'Freeze' } })).toMatchObject({ options: DEFAULT_OPTIONS, king: null });
+});
+
+it('fixes Ranked options before saving and sending, and limits it to random players', () => {
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging');
+  const custom = { ...readSetup(null), kind: 'random' as const, colour: 'black' as const, king: { king: 'Mud', power: 'Leap' } as const };
+  const ranked = withMode(custom, 'ranked');
+  expect(ranked).toMatchObject({ mode: 'ranked', colour: 'random', options: RANKED_OPTIONS, king: { king: 'Mud', power: 'March' } });
+  expect(readSetup({ ...custom, mode: 'ranked' })).toEqual(ranked);
+  expect(createArguments({ ...custom, mode: 'ranked' })).toEqual({ mode: 'ranked', colour: 'random', options: RANKED_OPTIONS });
+  for (const kind of ['solo', 'friend'] as const) expect(withMode({ ...ranked, kind }, 'ranked').mode).toBe('casual');
+  expect(quickSetup(ranked)).toMatchObject({ kind: 'solo', mode: 'casual', level: 'beginner' });
+  expect(gameSetup({ kind: 'random', rating_policy: 'ranked-v1', options: RANKED_OPTIONS, seat: 0 } as View).mode).toBe('casual');
+  expect(custom.options).not.toEqual(RANKED_OPTIONS);
+});
+
+it('offers Ranked only in the staging build and keeps every production draft Casual (ticket 67)', () => {
+  const custom = { ...readSetup(null), kind: 'random' as const, colour: 'black' as const };
+  for (const stage of [undefined, '', 'production', 'Staging', ' staging', 'staging ', 'STAGING']) {
+    vi.stubEnv('VITE_KINGDOWN_STAGE', stage);
+    expect(withMode(custom, 'ranked')).toMatchObject({ mode: 'casual', colour: 'black', options: custom.options });
+    expect(readSetup({ ...custom, mode: 'ranked' }).mode).toBe('casual');
+    expect(createArguments({ ...custom, mode: 'ranked' }).mode).toBe('casual');
+  }
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging');
+  expect(withMode(custom, 'ranked').mode).toBe('ranked');
+});
+
+it('stores an optional setup mode without rejecting old saved settings', async () => {
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging');
+  const { lastSetupSchema } = await import('../settings');
+  const saved = readSetup(null);
+  const { mode: _, ...old } = saved;
+  expect(lastSetupSchema.safeParse(old).success).toBe(true);
+  expect(lastSetupSchema.safeParse(withMode({ ...saved, kind: 'random' }, 'ranked')).success).toBe(true);
+  expect(lastSetupSchema.safeParse({ ...saved, mode: 'legacy' }).success).toBe(false);
 });

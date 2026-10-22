@@ -1,3 +1,4 @@
+import { RULES } from './rules/rules';
 import { afterEach, expect, it } from 'vitest';
 import { DEFAULT_RULES, legalMoves, parseSq, setRules, sqName } from './rules/engine';
 import { fromFen } from './rules/setup';
@@ -76,7 +77,7 @@ it('keeps a Reaver landing after its victim tap', () => {
 /** The rails of the piece on `sq`: its lines' last squares and ends, by square name. */
 function rails(fen: string, sq: string): string[] {
   const pos = fromFen(fen), mm = marksModel(legalMoves(pos).filter(m => m.from === at(sq)));
-  return railsOf(pos.board, at(sq), [...mm.moves, ...mm.captures], mm.captures).map(r => `${sqName(r.to)} ${r.end}`).sort();
+  return railsOf(RULES.design, pos.board, at(sq), [...mm.moves, ...mm.captures], mm.captures).map(r => `${sqName(r.to)} ${r.end}`).sort();
 }
 
 it('joins the marks of each line of a slider, with the Workshop line ends', () => {

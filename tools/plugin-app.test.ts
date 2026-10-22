@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
-import { startHarness } from './plugin-ui-harness';
+import { startHarness, waitForSourceApp } from './plugin-ui-harness';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string;
 let harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -13,7 +13,7 @@ beforeAll(async () => { folder = await mkdtemp(join(tmpdir(), 'kingdown-app-test
   harness = await startHarness({ boardPath, sourcePage: true }); browser = await chromium.launch({ headless: true }); });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
 async function open(url = harness.url) {
-  const page = await browser.newPage(); page.setDefaultTimeout(5000); await page.goto(url);
+  const page = await browser.newPage(); page.setDefaultTimeout(5000); await page.goto(url); await waitForSourceApp(page);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   return page;
 }
@@ -48,6 +48,55 @@ it('takes a new player from the home card to a draft move and the turn press', a
     const game_id = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
     await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } });
   } finally { await page.close(); }
+});
+it('preserves the website game URL while fullscreen startup waits for the first view', async () => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } }); page.setDefaultTimeout(5000);
+  const seeded = await (await page.request.post(new URL('/fixture-position?case=haste', harness.url).href)).json();
+  const game = seeded._meta.view.game_id, path = `/g/${game}`;
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  const html = (await readFile('src/plugin/index.html', 'utf8')).replace('<script type="module" src="./app.ts"></script>', `<script type="module">
+    import { createBrowserRuntime } from '/src/online/runtime.ts';
+    import { configureRuntime } from '/src/account-game/host.ts';
+    import '/src/online/page-host.css';
+    const tool = async (name, args = {}) => {
+      const reply = await (await fetch('/fixture-tool', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, arguments: args }) })).json();
+      if (reply.isError) throw new Error('Fixture tool failed: ' + name);
+      return reply._meta;
+    };
+    let held = false;
+    const host = createBrowserRuntime({
+      settings: args => tool('kingdown_settings', args),
+      games: async () => (await tool('kingdown_games')).games,
+      game: async (game_id, since_revision) => {
+        if (!held) { held = true; await new Promise(resolve => { window.releaseFirstView = resolve; }); }
+        return (await tool('kingdown_get', { game_id, ...(since_revision === undefined ? {} : { since_revision }) })).view;
+      },
+      previewDraft: async (game_id, input) => (await tool('kingdown_preview', { game_id, ...input })).draft,
+      seen: async () => {},
+    }, 'website-bootstrap-proof');
+    configureRuntime(host);
+    window.harnessApp = await import('/src/account-game/runtime.ts');
+  </script>`);
+  await page.route(`**${path}`, route => route.fulfill({ contentType: 'text/html', body: html }));
+  try {
+    await page.goto(new URL(path, harness.url).href);
+    for (const reload of [false, true]) {
+      if (reload) await page.reload();
+      await page.waitForFunction(() => typeof (window as any).releaseFirstView === 'function');
+      expect(new URL(page.url()).pathname).toBe(path);
+      await page.evaluate(() => (window as any).releaseFirstView());
+      await page.locator('[data-screen="board"]:not([hidden]) #board-menu:not(:disabled)').waitFor();
+      expect(await page.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(game);
+      expect(new URL(page.url()).pathname).toBe(path);
+    }
+    await page.getByRole('button', { name: 'Back to Play', exact: true }).click();
+    await page.locator('[data-screen="play"]:not([hidden])').waitFor();
+    expect(new URL(page.url()).pathname).toBe('/play/');
+    expect(errors).toEqual([]);
+  } finally {
+    await page.close();
+    await (await fetch(new URL('/fixture-delete-match', harness.url), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game_id: game }) })).text();
+  }
 });
 // These two run before any game waits for the player.
 it('opens the Play hall from the inline Choose a game action', async () => {
@@ -321,7 +370,7 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
     await frame.locator('#page-back').click();
     const row = frame.locator(`#games-list [data-game-id="${game_id}"]`);
     await row.waitFor();
-    expect(await row.locator('.line').textContent()).toMatch(/Move 1 ·\sWhite/);
+    expect(await row.locator('.line').textContent()).toMatch(/Move 1 ·\sCasual ·\sWhite/);
     await row.click(); await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
     await frame.locator('html').evaluate(async (_, game_id) => {
       await (window as any).harnessApp.call('kingdown_move', { game_id, command_id: 'play-rows-move', expected_revision: 0, lan: 'e2-e4' }, true);
@@ -331,6 +380,42 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
     expect(await row.locator('.turn-mark').count()).toBe(0);
     expect(await frame.locator('html').evaluate((_, game_id) => (window as any).harnessApp.memory.games.find((entry: any) => entry.game_id === game_id).revision, game_id)).toBe(1);
   } finally { await page.close(); }
+});
+it('finds a game created elsewhere when Back returns a clean board to Play', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const games: string[] = [];
+  try {
+    await expand(page);
+    const before = await frame.locator('html').evaluate(async () => {
+      const app = (window as any).harnessApp;
+      await app.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } });
+      await app.call('kingdown_get', {});
+      return { game: app.memory.view.game_id, fen: app.memory.view.fen, revision: app.memory.view.revision, dirty: app.memory.dirty };
+    });
+    games.push(before.game); expect(before.dirty).toBe(false);
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    const canvas = frame.locator('#board canvas'), box = (await canvas.boundingBox())!;
+    for (const rank of [1, 3]) await canvas.click({ position: { x: (32 + 4.5 * 112) * box.width / 960, y: (96 + (7 - rank + .5) * 112) * box.width / 960 } });
+    await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft?.lans)).toEqual(['e2-e4']);
+    const draft = await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft);
+    const calls = await page.evaluate(() => (window as any).harnessCalls.length);
+    const external = await (await page.request.post(new URL('/fixture-position?case=haste', harness.url).href)).json();
+    const other = external._meta.view.game_id; games.push(other);
+    expect(await frame.locator('html').evaluate((_, id) => (window as any).harnessApp.memory.games.some((entry: any) => entry.game_id === id), other)).toBe(false);
+    await frame.locator('#page-back').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.locator(`#games-list [data-game-id="${other}"]`).waitFor();
+    expect(await frame.locator(`#games-list [data-game-id="${before.game}"]`).count()).toBe(1);
+    expect(await frame.locator('html').evaluate(() => {
+      const view = (window as any).harnessApp.memory.view;
+      return { game: view.game_id, fen: view.fen, revision: view.revision };
+    })).toEqual({ game: before.game, fen: before.fen, revision: before.revision });
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft)).toEqual(draft);
+    expect(await page.evaluate(start => (window as any).harnessCalls.slice(start).map((call: any) => call.name), calls)).toEqual(['kingdown_games']);
+  } finally {
+    await page.close();
+    for (const game_id of games) await fetch(new URL('/fixture-delete-match', harness.url), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game_id }) });
+  }
 });
 it('opens a chat route in host fullscreen with no display request', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
@@ -420,7 +505,7 @@ it('uses the approved flat face on a disabled control', async () => {
   try {
     expect(await frame.locator('#board-menu').evaluate(button => {
       (button as HTMLButtonElement).disabled = true;
-      return getComputedStyle(button).backgroundImage;
+      return getComputedStyle(button, '::before').backgroundImage;
     })).toBe('none');
   } finally { await page.close(); }
 });
@@ -654,12 +739,13 @@ it('shows both setup states in the app games rows', async () => {
       await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } });
     });
     const game_id = await page.evaluate(() => (window as any).harnessView.game_id);
-    const accepted = await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name: 'kingdown_accept', arguments: { game_id } } })).json();
+    const invite = await (await page.request.post(new URL('/fixture-tool', harness.url).href, { data: { name: 'kingdown_invite', arguments: { game_id } } })).json();
+    const accepted = await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name: 'kingdown_join', arguments: { code: invite.structuredContent.code } } })).json();
     expect(accepted.isError).toBeFalsy();
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}, false, false, true); });
     await frame.locator('#page-back').click();
     const row = frame.locator(`#games-list [data-game-id="${game_id}"]`);
-    expect(await row.locator('.line').textContent()).toMatch(/Choose your side ·\sWhite/);
+    expect(await row.locator('.line').textContent()).toMatch(/Choose your side ·\sCasual ·\sWhite/);
     expect(await row.locator('.turn-mark').textContent()).toBe('Your turn');
     await row.click();
     await frame.locator('[data-screen="seat"]:not([hidden])').waitFor(); await frame.locator('#page-back:not(:disabled)').waitFor({ state: 'attached' });
@@ -801,7 +887,7 @@ it('draws Maester swap marks through the shared board adapter', async () => {
     };
   });
   try {
-    await page.goto(harness.url); const frame = page.frameLocator('iframe');
+    await page.goto(harness.url); await waitForSourceApp(page); const frame = page.frameLocator('iframe');
     await frame.locator('#home-play:not(:disabled)').waitFor();
     await expand(page);
     const seeded = await (await page.request.post(new URL('/fixture-position?case=swap', harness.url).href)).json();
@@ -845,6 +931,7 @@ it.each(['end', 'friend'])('restores a saved %s route to the board when the game
     await page.evaluate(screen => { (window as any).harnessWidgetState.privateContent.screen = screen; }, screen);
     await page.locator('#remount').click();
     await frame.locator('body[data-page="board"]').waitFor();
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
     expect(await page.evaluate(() => (window as any).harnessView.status)).toBe('playing');
     expect(await frame.locator('#over.end-card').isVisible()).toBe(false);
   } finally { await page.close(); }
@@ -971,7 +1058,7 @@ it.each([false,true])('shows a draw offer and handles a decline before Resign (i
     await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_get',{},false,false,true); });
     await frame.locator('#board-menu:not(:disabled)').click(); await frame.locator('#menu-draw').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Offer draw',exact:true}).click();
     await frame.locator('#context-note').filter({hasText:'Draw offered. Waiting for your opponent.'}).waitFor();
-    await page.request.post(new URL('/fixture-seed',harness.url).href,{data:{actor:'alice',data:{views:{[joined._meta.view.game_id]:{outcome:{rating_before:1500,rating:1561,provisional:true,badges:[]}}}}}});
+    await page.request.post(new URL('/fixture-seed',harness.url).href,{data:{actor:'alice',data:{views:{[joined._meta.view.game_id]:{rating_policy:'legacy',outcome:{rating_before:1500,rating:1561,provisional:true,badges:[]}}}}}});
     const full=await frame.locator('html').evaluate(async()=>{return (window as any).harnessApp.client.call('kingdown_get');});
     expect(full._meta.view.outcome).toBeUndefined();
     const view = (await buddy('kingdown_get',{game_id:joined._meta.view.game_id}))._meta.view;
@@ -997,9 +1084,15 @@ it.each([false, true])('keeps one rematch during a held end read and cancels it 
     await frame.locator('#over').getByRole('button', { name:'Play again', exact:true }).evaluate((b: HTMLButtonElement) => { b.click(); b.click(); });
     expect(await sent(page, 'kingdown_rematch')).toBe(0);
     if (leave) await frame.locator('#over').getByRole('button', { name:'New game', exact:true }).click();
+    const released = await page.evaluate(() => (window as any).harnessCalls.length);
     await page.evaluate(() => (window as any).releaseHeld());
     if (leave) { await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); await frame.locator('#setup-start:not(:disabled)').waitFor(); expect(await sent(page, 'kingdown_rematch')).toBe(0); }
-    else { await page.waitForFunction(old => (window as any).harnessView.game_id !== old, old); expect(await sent(page, 'kingdown_rematch')).toBe(1); }
+    else {
+      await page.waitForFunction(old => (window as any).harnessView.game_id !== old, old); expect(await sent(page, 'kingdown_rematch')).toBe(1);
+      // The held end read sends the queued rematch itself; it does not wait for the next poll read.
+      const after = (await page.evaluate(n => (window as any).harnessCalls.slice(n).map((c: any) => c.name), released)) as string[];
+      expect(after.slice(0, after.indexOf('kingdown_rematch'))).not.toContain('kingdown_get');
+    }
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
@@ -1103,7 +1196,7 @@ it('does not repeat a friend abort title or play a ceremony', async () => {
     });
     await frame.locator('#over.end-card[open]').waitFor();
     expect(await frame.locator('#over-title').textContent()).toBe('Game aborted');
-    expect(await frame.locator('#end-reason').textContent()).toBe('');
+    expect(await frame.locator('#end-reason').textContent()).toBe('Casual');
     expect(await frame.locator('#board[data-toppling], #board .kd-words, #over.is-win').count()).toBe(0);
   } finally { await page.close(); }
 });
@@ -1723,6 +1816,7 @@ it('keeps a move in flight free of errors when a chat result arrives during it',
     expect(result._meta.board_id).toEqual(expect.any(String));
     expect(result._meta.board_id).not.toBe(current.board_id);
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_move'; });
+    await waitForSourceApp(page);
     await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; void app.call('kingdown_move', { game_id: app.memory.view.game_id, command_id: 'busy-move', expected_revision: app.memory.view.revision, lan: 'e2-e4' }, true); });
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     // The chat result opens Board, then waits for the move before it reads. It shows no error or Retry during that wait.
@@ -1775,6 +1869,9 @@ it('keeps two failed polls silent, resets the count on a good read, and locks af
   try {
     // White, this player, moves next: the timed poll waits 30 s, so only the reads below run.
     await friendGame(page);
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    // Artwork can finish before the stored-engine draft preview.
+    await settled(page);
     for (let n = 0; n < 4; n++) await frame.locator('#board').press('ArrowRight');
     await frame.locator('#board').press('ArrowUp'); await frame.locator('#board').press('Enter');
     expect(await frame.locator('#choices button').count()).toBe(2);
@@ -1926,6 +2023,8 @@ it('clears a failed read when Your games resumes a different solo board', async 
     await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
     expect(await frame.locator('#retry').isVisible()).toBe(false);
     expect(await frame.locator('#error').textContent()).toBe('');
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    await settled(page);
     for (let n = 0; n < 4; n++) await frame.locator('#board').press('ArrowRight');
     await frame.locator('#board').press('ArrowUp'); await frame.locator('#board').press('Enter');
     expect(await frame.locator('#choices button').count()).toBe(2);
@@ -1987,43 +2086,59 @@ it.each(['power-w', 'card-w-0'])('keeps focus on %s through a minute tick and up
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await friendGame(page); await page.clock.install();
+    // The host answers each game read with this view, as a server that holds it: its own time, the same deadline. The
+    // solo board polls (ticket 40), so a one-time view would give way to the fixture game at the first poll.
+    await page.evaluate(() => {
+      const host = window as any;
+      host.serveView = (view: any) => Object.defineProperty(host, 'harnessNextView', { configurable: true, set() {}, get: () => ({ ...view, server_now: new Date().toISOString() }) });
+    });
     await page.evaluate(id => {
       const host = window as any, now = Date.now();
       const rules = id === 'power-w' ? {kings:[{king:'Flame',power:'Haste'},null],hands:[[],[]]} : {kings:[{king:'Mud',power:'March'},null],marchUses:0,hands:[['Haste'],[]]};
-      host.harnessNextView = {...host.harnessView, kind:'solo', server_now:new Date(now).toISOString(), deadline_at:new Date(now + 180000).toISOString(), rules:{...host.harnessView.rules,...rules}};
+      host.serveView({...host.harnessView, kind:'solo', deadline_at:new Date(now + 180000).toISOString(), rules:{...host.harnessView.rules,...rules}});
     }, id);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
     await frame.locator(`#${id}`).focus();
     expect(await frame.locator('#move-time-left').textContent()).toBe('3 min left');
+    // The host holds the poll read in the clock step, so only the minute tick can change the time text.
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_get'; });
     await page.clock.fastForward(60000);
+    await page.waitForFunction(() => !!(window as any).releaseHeld);
     expect(await frame.locator('#move-time-left').textContent()).toBe('2 min left');
     expect(await frame.locator(`#${id}`).evaluate(b => document.activeElement === b)).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeld());
     await page.keyboard.press('Enter');
     await frame.locator('#board-sheet[open] h2').filter({hasText:id === 'power-w' ? 'Flame King' : 'Haste'}).waitFor();
     await page.keyboard.press('Escape');
     await page.evaluate(() => {
       const host = window as any, now = Date.now();
-      host.harnessNextView = {...host.harnessView,kind:'friend',turn:1,action:'wait',legal:[],abort_open:false,server_now:new Date(now).toISOString(),deadline_at:new Date(now + 60000).toISOString()};
+      host.serveView({...host.harnessView,kind:'friend',turn:1,action:'wait',legal:[],abort_open:false,deadline_at:new Date(now + 60000).toISOString()});
     });
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
     await page.context().setOffline(true);
     await page.clock.fastForward(60001);
     expect(await frame.locator('#move-time-left').textContent()).toBe('Time is up');
     expect(await frame.locator('#claim').textContent()).toBe('Claim the win');
-  } finally { await page.context().setOffline(false); await page.close(); }
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.context().setOffline(false); await page.close(); }
 });
 
 it('keeps focus on a power coin through a presence update (an equal-revision poll reply)', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await friendGame(page);
-    await page.evaluate(() => {
-      const host = window as any, rules = { kings: [{ king: 'Flame', power: 'Haste' }, null], hands: [[], []] };
-      host.harnessNextView = { ...host.harnessView, kind: 'solo', rules: { ...host.harnessView.rules, ...rules } };
-    });
-    // A full read draws the power coin; then a poll reply at the same revision changes only opponent and server_now.
-    await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
+    await expand(page);
+    const seeded = await (await page.request.post(new URL('/fixture-position?case=haste', harness.url).href)).json();
+    await page.evaluate(result => (window as any).harnessShow(result), seeded);
     await frame.locator('#power-w').waitFor();
+    await settled(page);
+    const identity = await frame.locator('html').evaluate(() => {
+      const view = (window as any).harnessApp.memory.view;
+      return { game_id: view.game_id, revision: view.revision, engine_fingerprint: view.engine_fingerprint };
+    });
+    // A poll at the same game revision changes only presence and the server clock.
+    await page.evaluate(() => {
+      const host = window as any;
+      host.harnessNextView = { ...host.harnessView, server_now: new Date().toISOString(), opponent: { ...host.harnessView.opponent, last_seen_ms: 120000 } };
+    });
     await frame.locator('#power-w').focus();
     expect(await frame.locator('#power-w').evaluate(b => document.activeElement === b)).toBe(true);
     await frame.locator('html').evaluate(async () => {
@@ -2031,8 +2146,52 @@ it('keeps focus on a power coin through a presence update (an equal-revision pol
       await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true, true);
     });
     await settled(page);
-    // The coin row is not rebuilt, so the keyboard focus stays on the coin (design §3.4, OD A1389).
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view)).toMatchObject({ ...identity, opponent: { last_seen_ms: 120000 } });
+    // The poll preserves keyboard focus on the coin (design §3.4, OD A1389).
     expect(await frame.locator('#power-w').evaluate(b => document.activeElement === b)).toBe(true);
+  } finally { await page.close(); }
+});
+
+it('offers ordinary continuation choices after a Freeze card without another piece selection', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await expand(page); await page.emulateMedia({ reducedMotion: 'reduce' });
+    const tool = async (name: string, args: Record<string, unknown>) => (await page.request.post(new URL('/fixture-tool', harness.url).href, { data: { name, arguments: args } })).json();
+    const created = await tool('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: true, cardPool: ['Freeze', 'MorphP', 'Vault', 'IceWall'], kingPowers: true } });
+    expect(created.isError).not.toBe(true);
+    const setup = created._meta.view;
+    const chosen = await tool('kingdown_choose', { game_id: setup.game_id, command_id: crypto.randomUUID(), expected_revision: setup.revision, king: { king: 'Mud', power: 'March' }, order: setup.choices[0].order, ready: true });
+    expect(chosen.isError, JSON.stringify(chosen)).not.toBe(true);
+    const opened = await tool('kingdown_open', { game_id: setup.game_id });
+    expect(opened.isError).not.toBe(true);
+    const seeded = { game_id: opened._meta.view.game_id, freeze: opened._meta.view.rules.hands[0].indexOf('Freeze') };
+    await page.evaluate(result => (window as any).harnessShow(result), opened);
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    const writes = await sent(page, 'kingdown_move');
+    await frame.locator(`#card-w-${seeded.freeze}`).click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
+    await frame.locator('#board-menu').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
+    await frame.locator('#choices button[title="!F:a7"]').click();
+    await frame.locator('#board-sheet[open]').waitFor({ state: 'hidden' });
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    expect(await sent(page, 'kingdown_move')).toBe(writes);
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft.lans)).toEqual(['!F:a7']);
+    expect(await frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('false');
+    await frame.locator('#board-menu').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
+    expect(await frame.locator('#choices button[title="e2-e4"]').count()).toBe(1);
+    await frame.locator('#choices button[title="e2-e4"]').click();
+    await frame.locator('#board-sheet[open]').waitFor({ state: 'hidden' });
+    await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft.lans)).toEqual(['!F:a7', 'e2-e4']);
+    const accepted = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === '/fixture-tool' && response.request().postDataJSON().name === 'kingdown_move');
+    await frame.locator('#end-turn[aria-disabled="false"]').click();
+    const result = await (await accepted).json();
+    expect(result.isError).not.toBe(true);
+    expect(result._meta.view.game_id).toBe(seeded.game_id);
+    const recorded = await tool('kingdown_open', { game_id: seeded.game_id });
+    expect(recorded._meta.view.history.actions.slice(0, 2)).toEqual(['!F:a7', 'e2-e4']);
   } finally { await page.close(); }
 });
 
@@ -2238,7 +2397,7 @@ it('opens the hall on a first host fullscreen mount without a display request or
   page.setDefaultTimeout(5000);
   try {
     await page.addInitScript(() => { (window as any).harnessDisplayMode = 'fullscreen'; });
-    await page.goto(harness.url);
+    await page.goto(harness.url); await waitForSourceApp(page);
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await frame.locator('#setup-start:not(:disabled)').waitFor();
     expect(await page.evaluate(() => (window as any).harnessDisplayRequests ?? [])).toEqual([]);
@@ -2455,7 +2614,9 @@ it('recovers a lost seat Ready before the computer makes the first move after re
     await frame.locator('#retry:not(:disabled)').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     // The computer's first move is a retained command too, so no command is pending only after the server makes it.
-    await page.waitForFunction(() => (window as any).harnessView.turn === (window as any).harnessView.seat);
+    // The host sees the reply before it reaches the frame. Wait for the frame to apply it.
+    const widget = (await (await page.locator('iframe').elementHandle())!.contentFrame())!;
+    await widget.waitForFunction(() => { const view = (window as any).harnessApp.memory.view; return view.turn === view.seat; });
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending?.name ?? null)).toBeNull();
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_choose').map((c: any) => c.arguments.command_id))).toEqual([command, command]);
   } finally { await page.close(); await isolated.close(); }

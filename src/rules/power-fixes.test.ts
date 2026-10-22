@@ -17,7 +17,8 @@ import {
 } from './engine';
 import { fromFen, randomBackRank, startPosition, toFen, toLan } from './setup';
 import { KingChoice, POWERS_BALANCED, PowerName, RULES, RULES_2017, RULES_2021, Rules, parseRule, setRules } from './rules';
-import { positionKey, probeApply, resetSearchState, searchLegal, setFastLegality } from '../ai/search';
+import { probeApply, resetSearchState, searchLegal, setFastLegality } from '../ai/search';
+import { positionKey } from './position-key';
 import { RULE_POWERS } from '../sim/tournament';
 import { powerText } from '../powers-ui';
 
@@ -328,7 +329,7 @@ describe('Darkness readings, round 16: one sentence each (owner, 2026-10-03)', (
     expect(RULES.darknessKingStepSafe || RULES.darknessKingStepTakes).toBe(false);
     expect(lans(fromFen('7k/8/8/r7/3K4/8/8/8 w - - 0 1'))).toContain('Kd4-d6'); // over d5, which the rook a5 holds
     expect(lans(fromFen('7k/8/3n4/8/3K4/8/8/8 w - - 0 1')).filter(l => l.startsWith('Kd4') && l.endsWith('d6'))).toEqual([]); // no take
-    expect(powerText('Darkness')).toBe('your pawns may also step diagonally, and take only straight ahead; your king may also step two squares in a straight line, over an empty square');
+    expect(powerText('Darkness', RULES)).toBe('your pawns may also step diagonally, and take only straight ahead; your king may also step two squares in a straight line, over an empty square');
     // An older preset plays the printed Darkness: it overrides the official readings, as main.ts applies them.
     for (const preset of [RULES_2017, RULES_2021]) {
       setRules({ ...POWERS_BALANCED, ...preset, kings: [{ king: 'Shadow', power: 'Darkness' }, null] });

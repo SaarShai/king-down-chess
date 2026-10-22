@@ -17,7 +17,7 @@ const asset = (name: string, assets: string[] = []) => ({
 
 function fixture() {
   const output = [
-    chunk('assets/root.js', join(root, 'index.html'), [], ['assets/main.js']),
+    chunk('assets/root.js', join(root, 'index.html'), [], ['assets/main.js', 'assets/web-entry.js']),
     chunk('assets/main.js', join(root, 'src/main.ts'), ['assets/shared.js'], ['assets/workshop.js', 'assets/client.js'], ['assets/main.css'], ['assets/worker.js']),
     chunk('assets/shared.js', null, ['assets/main.js']),
     chunk('assets/workshop.js', join(root, 'src/workshop/ground.ts'), [], ['assets/lesson.js']),
@@ -26,6 +26,8 @@ function fixture() {
     chunk('assets/account.js', join(root, 'src/online/account.ts'), [], [], ['assets/account.css'], ['assets/account.webp']),
     chunk('assets/client.js', join(root, 'src/account/client.ts'), ['assets/vendor.js']),
     chunk('assets/vendor.js', null),
+    chunk('assets/web-entry.js', join(root, 'src/online/entry.ts'), ['assets/private-runtime.js']),
+    chunk('assets/private-runtime.js', join(root, 'src/account-game/runtime.ts')),
     asset('assets/worker.js'), asset('assets/main.css', ['assets/font.woff2', 'assets/local.webp']),
     asset('assets/font.woff2'), asset('assets/local.webp'), asset('assets/main.js.map'),
     asset('assets/account.css'), asset('assets/account.webp'), asset('play.html'), asset('.vite/manifest.json'),
@@ -56,7 +58,7 @@ it('excludes other entries, account-only output, maps, metadata, auth and legal 
   const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
   const excluded = files.filter(file => !allowlist.includes(file));
   expect(excluded).toEqual(expect.arrayContaining([
-    'assets/play.js', 'assets/account.js', 'assets/account.css', 'assets/account.webp', 'assets/client.js', 'assets/vendor.js',
+    'assets/web-entry.js', 'assets/private-runtime.js', 'assets/play.js', 'assets/account.js', 'assets/account.css', 'assets/account.webp', 'assets/client.js', 'assets/vendor.js',
     'assets/main.js.map', 'play.html', 'sw.js', '.vite/manifest.json', 'consent.mjs', 'auth/callback.html',
     'privacy.html', 'terms.html', 'support.html', 'delete-data.html', 'ui/consent.mjs', 'ui/private.html', 'fonts/license.txt', 'icons/account.json',
     '.well-known/openai-apps-challenge', '.well-known/oauth-protected-resource',
@@ -92,10 +94,11 @@ function site() {
   };
   mkdirSync(join(dir, 'public'));
   cpSync(resolve('public/sw.js'), join(dir, 'public/sw.js'), { recursive: true });
-  write('index.html', '<script type="module" src="/src/entry.ts"></script>');
+  write('public/ui/pawn.webp', 'public art');
+  write('index.html', '<!doctype html><html><head><script type="module" src="/src/entry.ts"></script></head><body><svg><symbol id="piece"><path d="M0 0h1v1z"/></symbol><use href="#piece"/></svg><img src="/ui/pawn.webp"/><a href="/privacy.html">Privacy</a></body></html>');
   write('play.html', '<script type="module" src="/src/private.ts"></script>');
   write('src/entry.ts', "await import('./main');");
-  write('src/main.ts', "import './local.css'; import './shared'; new Worker(new URL('./ai/worker.ts', import.meta.url), { type: 'module' }); window.openWorkshop = () => import('./workshop'); window.signIn = () => import('./account/client');");
+  write('src/main.ts', "import './local.css'; import './shared'; new Worker(new URL('./ai/worker.ts', import.meta.url), { type: 'module' }); window.publicArt = import.meta.env.BASE_URL + 'ui/pawn.webp'; window.openWorkshop = () => import('./workshop'); window.signIn = () => import('./account/client');");
   write('src/local.css', '@font-face { font-family: Local; src: url(./font.woff2); } body { background-image: url(./art.svg); }');
   write('src/font.woff2', 'font bytes'); write('src/art.svg', '<svg xmlns="http://www.w3.org/2000/svg"/>');
   write('src/shared.ts', 'console.log("shared local code");');
@@ -134,6 +137,32 @@ it('uses real build metadata for the worker, loader, lazy code, CSS and emitted 
     expect(worker).toContain("const POLICY = 'public-build-v1';");
     expect(worker).not.toContain("const VERSION = 'dev';");
     expect(worker).not.toContain('const ALLOWLIST = [];'); expect(worker).not.toContain('const PRECACHE = [];');
+    const html = readFileSync(join(output, 'index.html'), 'utf8');
+    const urls = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map(match => match[1]).filter(url => !url.startsWith('#'));
+    expect(urls.some(url => url.startsWith('/assets/'))).toBe(true);
+    expect(urls).toContain('/ui/pawn.webp');
+    for (const path of ['/play/', '/g/game-id']) {
+      for (const url of urls) expect(new URL(url, `https://kingdown.test${path}`).pathname, url).toBe(url);
+    }
+    expect(html).toContain('href="#piece"');
+    expect(html).not.toContain('<base');
+    expect(html).toContain("register('/sw.js')");
+    expect(readFileSync(join(output, named('main')), 'utf8')).toContain('/ui/pawn.webp');
+    expect(readFileSync(join(output, named('main', 'css')), 'utf8')).toMatch(/url\(["']?\/assets\//);
+
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+it('changes the cache version when only the worker implementation changes', async () => {
+  const { dir, write } = site();
+  try {
+    await compile(dir);
+    const output = join(dir, 'dist/sw.js'), before = readFileSync(output, 'utf8');
+    write('public/sw.js', readFileSync(join(dir, 'public/sw.js'), 'utf8') + '\n/* Worker-only update. */\n');
+    await compile(dir);
+    const after = readFileSync(output, 'utf8');
+    expect(/const VERSION = '([^']+)'/.exec(after)![1]).not.toBe(/const VERSION = '([^']+)'/.exec(before)![1]);
+    expect(lists(after)).toEqual(lists(before));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

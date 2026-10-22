@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { mkdtemp, rm } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,9 +15,9 @@ import { testDatabase } from './plugin-db-config.mjs';
 import { buildPluginServer } from './plugin-server-build.mjs';
 
 const mode = process.argv[2];
-assert(['oauth', 'fixture', 'http'].includes(mode), 'Choose oauth, fixture or http');
+assert(['oauth', 'fixture', 'http', 'privacy', 'preview'].includes(mode), 'Choose oauth, fixture, http, privacy or preview');
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
-if (mode !== 'fixture') testDatabase(connectionString);
+if (mode === 'oauth' || mode === 'http' || mode === 'privacy') testDatabase(connectionString);
 const work = await mkdtemp(join(tmpdir(), 'kingdown-plugin-check-'));
 const build = join(work, 'server');
 const actors = [randomUUID(), randomUUID(), randomUUID()];
@@ -47,7 +48,7 @@ try {
   process.env.NODE_ENV = 'test';
   if (mode !== 'oauth') {
     let endpoint, seedPosition, deleteMatch;
-    if (mode === 'http') {
+    if (mode === 'http' || mode === 'privacy') {
       pool = new pg.Pool({ connectionString, max: 1 });
       await pool.query('insert into auth.users(id) select unnest($1::uuid[])', [actors]);
       server = createServer((req, res) => { void app.handler(req, res).catch(() => { res.destroy(); }); });
@@ -55,6 +56,9 @@ try {
       const origin = `http://127.0.0.1:${server.address().port}`;
       const { configurePlugin } = await import(pathToFileURL(join(build, 'server.mjs')).href);
       app = await configurePlugin({ ...process.env, NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: randomUUID() }, { localDev: true });
+      // A staging widget build also needs a Ranked server. The service reads the stage at each start (ticket 67);
+      // the loopback settings above stay local, so the staging host checks do not run.
+      if (process.env.VITE_KINGDOWN_STAGE === 'staging') process.env.KINGDOWN_STAGE = 'staging';
       endpoint = new URL('/mcp', origin);
       const {createMatch} = await import(pathToFileURL(join(build,'runtime/index.mjs')).href);
       seedPosition = async (setup,black) => {
@@ -74,11 +78,25 @@ try {
     }
     unregister = register();
     const { startHarness } = await import('./plugin-ui-harness.ts');
-    harness = await startHarness({ boardPath: join(build, 'board.html'), endpoint, actor: actors[0], friendActor: actors[1], laterFriendActor: actors[2], seedPosition, deleteMatch });
+    // The fixture plays the built runtime: its games then carry the built page's engine, as on the hosted service.
+    const engine = endpoint ? undefined : await import(pathToFileURL(join(build, 'runtime/index.mjs')).href);
+    harness = await startHarness({ boardPath: join(build, 'board.html'), endpoint, actor: actors[0], friendActor: actors[1], laterFriendActor: actors[2], seedPosition, deleteMatch, engine });
   }
-  child = spawn(process.execPath, [mode === 'oauth' ? 'tools/plugin-oauth-check.mjs' : 'tools/plugin-ui-check.mjs', build], {
+  if (mode === 'preview') {
+    const items = process.argv[3] ? [process.argv[3]] : JSON.parse(readFileSync('docs/specs/gui-previews-2026-10-19/capture.json', 'utf8')).items;
+    for (const entry of items) {
+      const [item, phase = 'after'] = entry.split('-');
+      child = spawn('bash', ['tools/test-lock.sh', process.execPath, 'docs/specs/gui-previews-2026-10-19/capture.mjs', build, item, phase], { stdio: 'inherit', env: process.env });
+      const [previewCode] = await once(child, 'exit');
+      assert.equal(previewCode, 0, 'Board preview checks pass');
+    }
+  }
+  if (mode !== 'preview') {
+  child = spawn(process.execPath, [mode === 'oauth' ? 'tools/plugin-oauth-check.mjs' : mode === 'privacy' ? 'tools/plugin-privacy-check.mjs' : 'tools/plugin-ui-check.mjs', build], {
     stdio: 'inherit', env: { ...process.env, ...(harness ? { PLAYABLE_URL: harness.url, PLUGIN_EXPECT_MODE: mode } : {}) },
   });
   const [code, signal] = await once(child, 'exit');
   assert.equal(code, 0, `Plugin ${mode} check failed${signal ? ` (${signal})` : ''}`);
+
+  }
 } finally { await cleanup(); }

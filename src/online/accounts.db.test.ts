@@ -2,7 +2,9 @@
  * The player-facing services run as a copy of the reviewed runtime role; the owner's run as the admin. */
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import pg from 'pg';
@@ -186,6 +188,99 @@ async function friend(host: string, guest: string) {
   await expect(safety.queue()).rejects.toMatchObject({ code: '42501' }); // the runtime role cannot read the queue
  }, 30000);
 
+ it('records support evidence under the verified reporter and keeps the report through action and appeal', async () => {
+  const [a, b] = [await user('support-a'), await user('support-b')], game = await friend(a, b);
+  const report = await owner.intake(a, { target: 'player', game_id: game, category: 'harassment', evidence: 'support/mail-001', note: 'The player supplied this game and time.' });
+  expect(report).toMatchObject({ id: expect.any(Number), created_at: expect.any(String) });
+  const note = 'Support evidence: support/mail-001\nThe player supplied this game and time.';
+  expect(await rows('select id::int,reporter_id,reported_id,game_id,target,category,note,content,source from public.reports where id=$1', [report.id])).toEqual([
+   { id: report.id, reporter_id: a, reported_id: b, game_id: game, target: 'player', category: 'harassment', note, content: await handleOf(b), source: 'player' }]);
+  expect((await owner.queue()).find(row => row.id === report.id)).toMatchObject({ game_id: game, note });
+  const { action_id } = await owner.act(report.id, { action: 'warning', facts: 'A repeated preset disrupted this game.', rule: 'Terms: no harassment.' });
+  expect((await accounts.notices(b)).notices).toMatchObject([{ kind: 'moderation', action_id, action: 'warning', text: expect.stringContaining(APPEAL) }]);
+  await owner.appeal(action_id!, { status: 'open', note: 'The player asks for a review.' });
+  await owner.appeal(action_id!, { status: 'reversed', note: 'The report referred to a different incident.' });
+  expect(await rows('select user_id,report_id::int,appeal_status,statement from public.mod_actions where id=$1', [action_id])).toEqual([
+   { user_id: b, report_id: report.id, appeal_status: 'reversed', statement: `What happened: A repeated preset disrupted this game.\nThe rule: Terms: no harassment.\n${APPEAL}` }]);
+  expect(await owner.show(report.id)).toMatchObject({ id: report.id, reporter_id: a, reported_id: b, note, actions: [{ id: action_id, appeal_status: 'reversed' }] });
+  const notices = await accounts.notices(b);
+  expect(notices.notices).toMatchObject([{ kind: 'appeal', action_id, status: 'reversed', text: 'The report referred to a different incident.' }, { kind: 'moderation', action_id }]);
+  expect(JSON.stringify(notices)).not.toContain('support/mail-001');
+  expect((await accounts.notices(a)).notices).toEqual([]);
+ }, 30000);
+
+ it('requires the moderation connection and validates support actor, target and evidence before inserting', async () => {
+  const [a, b, c] = [await user('intake-a'), await user('intake-b'), await user('intake-c')], game = await friend(a, b);
+  const input = { target: 'handle', handle: await handleOf(b), category: 'offensive_handle', evidence: 'support/mail-002', note: 'A handle report.' };
+  const count = async () => (await rows('select count(*)::int as n from public.reports where reporter_id=any($1)', [[a, b, c]]))[0].n;
+  const before = await count();
+  await expect(safety.intake(a, input)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  for (const [actor, value, code] of [
+   [a, { ...input, reporter_id: c }, 'INVALID_INPUT'],
+   [a, { ...input, user_id: b }, 'INVALID_INPUT'],
+   [a, { ...input, handle: undefined, user_id: a }, 'INVALID_INPUT'],
+   [c, { ...input, handle: undefined, game_id: game }, 'NOT_FOUND'],
+   [a, { ...input, evidence: '' }, 'INVALID_INPUT'],
+   [a, { ...input, evidence: 'first\nsecond' }, 'INVALID_INPUT'],
+   [a, { ...input, evidence: 'x'.repeat(201) }, 'INVALID_INPUT'],
+   [a, { ...input, evidence: 'mail\u001b[2J' }, 'INVALID_INPUT'],
+   [a, { ...input, note: 'x'.repeat(701) }, 'INVALID_INPUT'],
+  ] as const) await expect(owner.intake(actor, value)).rejects.toMatchObject({ code });
+  expect(await count()).toBe(before);
+  const byHandle = await owner.intake(a, input), byId = await owner.intake(a, { ...input, handle: undefined, user_id: b });
+  expect(await rows('select reporter_id,reported_id,content from public.reports where id=any($1)', [[byHandle.id, byId.id]])).toEqual([
+   { reporter_id: a, reported_id: b, content: input.handle }, { reporter_id: a, reported_id: b, content: input.handle }]);
+ }, 30000);
+
+ it('reads only the actor’s moderation and appeal notices with safe fields and exact bigint pages', async () => {
+  const [a, b] = [await user('notice-a'), await user('notice-b')];
+  const report = await safety.report(a, { target: 'player', user_id: b, category: 'other' });
+  const { action_id } = await owner.act(report.id, { action: 'warning', facts: 'A recorded incident.', rule: 'Terms: play fairly.' });
+  await owner.appeal(action_id!, { status: 'upheld', note: 'We reviewed the supplied information.' });
+  const initial = await accounts.notices(b);
+  expect(initial.notices.map(row => row.kind)).toEqual(['appeal', 'moderation']);
+  expect(initial.notices).toEqual([
+   { id: expect.any(String), created_at: expect.any(String), kind: 'appeal', action_id, status: 'upheld', text: 'We reviewed the supplied information.' },
+   { id: expect.any(String), created_at: expect.any(String), kind: 'moderation', action_id, action: 'warning', text: `What happened: A recorded incident.\nThe rule: Terms: play fairly.\n${APPEAL}`, ends_at: null },
+  ]);
+  await admin.query("insert into public.notifications(user_id,kind,payload) values($1,'turn',$2)", [b, { secret: 'unrelated-game' }]);
+  await admin.query(`insert into public.notifications(id,user_id,kind,payload,created_at)
+   select 9007199254740993+i,$1,'moderation',$2,'2026-10-20T12:00:00Z' from generate_series(0,22) i`, [b, { action_id: 7, action: 'warning', statement: '<b>Reason</b>', ends_at: null, report_id: report.id, user_id: a, private_mark: 'private-note', evidence: 'private-evidence' }]);
+  const first = await accounts.notices(b), ids = Array.from({ length: 23 }, (_, i) => String(9007199254741015n-BigInt(i)));
+  expect(first.notices.map(row => row.id)).toEqual(ids.slice(0,20));
+  expect(first.next_notices_before).toBe(ids[19]);
+  const last = await accounts.notices(b, first.next_notices_before!);
+  expect(last.notices.map(row => row.id)).toEqual([...ids.slice(20), ...initial.notices.map(row=>row.id)]);
+  expect(last.next_notices_before).toBeNull();
+  expect(await accounts.notices(a)).toEqual({ notices: [], next_notices_before: null });
+  expect(await accounts.notices(b, '1')).toEqual({ notices: [], next_notices_before: null });
+  const visible = JSON.stringify(first);
+  for (const secret of [a, b, 'private-note', 'private-evidence', 'unrelated-game', 'report_id', 'payload']) expect(visible).not.toContain(secret);
+  expect(Object.keys(first.notices[0]).sort()).toEqual(['action','action_id','created_at','ends_at','id','kind','text']);
+  for (const cursor of ['0', '-1', '01', '1.2', '1e3', '9223372036854775808', 'x', '1'.repeat(100)]) await expect(accounts.notices(b,cursor)).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  await expect(accounts.notices(b,'9223372036854775807')).resolves.toEqual(first);
+  for (const column of ['read_at','expires_at']) await expect(runtime.query(`select ${column} from public.notifications limit 0`)).rejects.toMatchObject({code:'42501'});
+ }, 30000);
+
+ it('orders exact bigint notice IDs numerically across a digit boundary and continues the cursor', async () => {
+  const actor = await user(), older = '999999999999999999', newer = '1000000000000000000';
+  await admin.query(`insert into public.notifications(id,user_id,kind,payload,created_at)
+   values($1::bigint,$3,'moderation',$4,'2026-10-20T12:00:00Z'),($2::bigint,$3,'moderation',$4,'2026-10-20T12:00:00Z')`,
+   [older, newer, actor, { action_id: 7, action: 'warning', statement: 'A safe reason.', ends_at: null, user_id: actor, report_id: 'private-report', evidence: 'private-evidence' }]);
+  const first = await accounts.notices(actor);
+  expect(first.notices).toEqual([newer, older].map(id => ({ id, created_at: '2026-10-20T12:00:00.000Z', kind: 'moderation', action_id: 7, action: 'warning', text: 'A safe reason.', ends_at: null })));
+  expect(first.next_notices_before).toBeNull();
+  expect(await accounts.notices(actor, newer)).toEqual({ notices: [first.notices[1]], next_notices_before: null });
+  expect(await accounts.notices(actor, older)).toEqual({ notices: [], next_notices_before: null });
+  for (const secret of [actor, 'private-report', 'private-evidence', 'user_id', 'report_id', 'payload']) expect(JSON.stringify(first)).not.toContain(secret);
+ }, 30000);
+
+ it('refuses malformed stored notice text without exposing its payload', async () => {
+  const actor = await user('notice-bad');
+  await admin.query("insert into public.notifications(user_id,kind,payload) values($1,'moderation',$2)", [actor, { action_id: 1, action: 'warning', statement: { evidence: 'private' }, ends_at: null }]);
+  await expect(accounts.notices(actor)).rejects.toMatchObject({ code: 'UNAVAILABLE', message: 'An account notice could not be read' });
+ });
+
  it('writes a statement of reasons with each action, applies it, and reverses it on appeal', async () => {
   const [a, b] = [await user('ma'), await user('nasty')];
   const id = await friend(a, b), old = (await handleOf(b))!;
@@ -276,18 +371,43 @@ async function friend(host: string, guest: string) {
   expect((await runtime.query('delete from public.reports')).rowCount).toBe(0);
  });
 
- it('runs the owner command line over the same functions', async () => {
-  const [a, b] = [await user('cli'), await user('clo')];
-  const { id } = await safety.report(a, { target: 'player', user_id: b, category: 'other', note: 'Seen in the CLI.' });
+ it.each(['source', 'compiled'])('runs the %s owner command line over the same functions', async mode => {
+  const artifact = await mkdtemp(join(tmpdir(), 'kingdown-operator-'));
+  try {
+  if (mode === 'compiled') await promisify(execFile)(process.execPath, [fileURLToPath(new URL('../../tools/mod-build.mjs', import.meta.url)), artifact]);
+  const entry = mode === 'compiled' ? [join(artifact, 'mod.mjs')] : ['--import', 'tsx', fileURLToPath(new URL('../../tools/mod.ts', import.meta.url))];
+  if (mode === 'compiled') {
+   for (const target of [
+    'postgresql://postgres:private-value@db.utqzovjmclfyojedmwok.supabase.co/postgres?sslmode=require',
+    'postgresql://postgres:private-value@db.puhspsyjyzaghmgtkzqd.supabase.co/postgres?sslmode=require&host=other.example',
+   ]) {
+    await expect(promisify(execFile)(process.execPath, [...entry, 'list'], { cwd: artifact, timeout: 3000,
+     env: { ...process.env, KINGDOWN_ADMIN_DATABASE_URL: target } })).rejects.toMatchObject({ code: 1,
+      stderr: expect.stringContaining('Compiled moderation requires the isolated staging admin database with verified TLS') });
+   }
+  }
+  const [a, b] = [await user(`cli-${mode}`), await user(`clo-${mode}`)];
+  const mod = (...args: string[]) => promisify(execFile)(process.execPath, [...entry, ...args], { cwd: mode === 'compiled' ? artifact : undefined, env: { ...process.env, KINGDOWN_ADMIN_DATABASE_URL: own.href } });
+  const { id } = JSON.parse((await mod('intake', a, '--target', 'player', '--user', b, '--category', 'other', '--evidence', 'support/cli-01', '--note', 'Seen in the CLI.')).stdout);
   // A note that came in before the service refused controls: the output escapes them, and the JSON keeps the text.
   const raw = 'Old \u009b2J \u202e\u007f note.', old = Number((await rows(`insert into public.reports(reporter_id,reported_id,target,category,note) values($1,$2,'player','other',$3) returning id`, [a, b, raw]))[0].id);
-  const mod = (...args: string[]) => promisify(execFile)(process.execPath, ['--import', 'tsx', fileURLToPath(new URL('../../tools/mod.ts', import.meta.url)), ...args], { env: { ...process.env, KINGDOWN_ADMIN_DATABASE_URL: own.href } });
   const listed = (await mod('list')).stdout;
   expect(listed).not.toMatch(/[\u007f-\u009f\u202e]/);
   expect(JSON.parse(listed).find((entry: { id: number }) => entry.id === old)).toMatchObject({ note: raw });
-  expect(JSON.parse(listed).find((entry: { id: number }) => entry.id === id)).toMatchObject({ category: 'other', note: 'Seen in the CLI.' });
-  expect(JSON.parse((await mod('act', String(id), 'warning', '--facts', 'You left games.', '--rule', 'Terms: play on.')).stdout).action_id).toEqual(expect.any(Number));
-  expect(JSON.parse((await mod('show', String(id))).stdout)).toMatchObject({ status: 'closed', outcome: 'warning', actions: [{ action: 'warning' }] });
+  expect(JSON.parse(listed).find((entry: { id: number }) => entry.id === id)).toMatchObject({ category: 'other', note: 'Support evidence: support/cli-01\nSeen in the CLI.' });
+  const action = JSON.parse((await mod('act', String(id), 'warning', '--facts', 'You left games.', '--rule', 'Terms: play on.')).stdout);
+  expect(action.action_id).toEqual(expect.any(Number));
+  await mod('appeal', String(action.action_id), 'open', '--note', 'The player disputes the report.');
+  await mod('appeal', String(action.action_id), 'reversed', '--note', 'The supplied time did not match.');
+  expect(JSON.parse((await mod('show', String(id))).stdout)).toMatchObject({ id, reporter_id: a, reported_id: b, status: 'closed', outcome: 'warning',
+   note: 'Support evidence: support/cli-01\nSeen in the CLI.', actions: [{ id: action.action_id, action: 'warning', appeal_status: 'reversed' }] });
+  expect((await accounts.notices(b)).notices).toMatchObject([{ kind: 'appeal', action_id: action.action_id, status: 'reversed' }, { kind: 'moderation', action_id: action.action_id }]);
+  const statement = (await accounts.notices(b)).notices.find(notice => notice.kind === 'moderation')!.text;
+  expect(statement).toContain(mode === 'compiled' ? 'https://kingdown-staging.vercel.app/support.html#appeals' : 'https://kingdown.dev/support.html#appeals');
+  if (mode === 'compiled') expect(statement).not.toContain('https://kingdown.dev');
+  expect(JSON.stringify(await accounts.notices(b))).not.toContain('support/cli-01');
+  expect((await accounts.notices(a)).notices).toEqual([]);
   await expect(mod('act', String(id), 'ban')).rejects.toMatchObject({ code: 1, stderr: expect.stringContaining('INVALID_INPUT') });
+  } finally { await rm(artifact, { recursive: true, force: true }); }
  }, 30000);
 });

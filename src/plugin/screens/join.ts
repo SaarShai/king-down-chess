@@ -1,10 +1,13 @@
-import { client, memory, navigate, routeView, send } from '../app';
+import { client, memory, navigate, routeView, send, queue } from '../../account-game/runtime';
 import type { JoinPreview } from '../../match/protocol';
-import type { Page } from '../state';
-import { $, features, onStop, portrait, row, showError, toolError } from './friend';
-let reading = false, joining = false, afterHandle = false;
+import type { Page } from '../../account-game/state';
+import { $, onStop, portrait, row, showError, toolError } from './friend';
+import { features } from '../../account-game/features';
+let reading = false, joining = false, afterHandle = false, stopped = false;
+const active = () => !stopped && !queue.closed();
 let checked = '';
 export function joinScreen() {
+  if (!active()) return;
   $('join-help').textContent = 'Enter the game code.';
   $('join-game-head').hidden = $('join-preview').hidden = $('join-foot').hidden = true;
   $<HTMLInputElement>('join-code').value = memory.code;
@@ -34,22 +37,23 @@ function render(value: JoinPreview) {
   $('join-confirm').textContent = `Join and take ${value.colour === 'white' ? 'White' : 'Black'}`;
 }
 async function preview() {
-  if (reading || !memory.code) return;
+  if (!active() || reading || !memory.code) return;
   reading = true; const code = memory.code; checked = code; memory.preview = undefined; $('join-message').textContent = 'Reading the game…';
   try {
     const result = await client.call('kingdown_join', { code, preview: true });
-    if (client.state.screen !== 'join' || memory.code !== code) return;
+    if (!active() || client.state.screen !== 'join' || memory.code !== code) return;
     if (result.isError) { memory.joinError = { code: String(result._meta?.code ?? ''), message: result.content.filter(c => c.type === 'text').map(c => c.text).join(' ') }; joinScreen(); return; }
     memory.preview = result._meta?.preview as JoinPreview; $('join-message').textContent = ''; render(memory.preview);
-  } catch (error) { showError(error, $('join-message')); $('join-entry').hidden = false; checked = ''; }
-  finally { reading = false; if (client.state.screen === 'join' && memory.code && memory.code !== code) void preview(); }
+  } catch (error) { if (active() && client.state.screen === 'join' && memory.code === code) { showError(error, $('join-message')); $('join-entry').hidden = false; checked = ''; } }
+  finally { reading = false; if (active() && client.state.screen === 'join' && memory.code && memory.code !== code) void preview(); }
 }
 async function join() {
-  if (joining || !memory.preview) return;
+  if (!active() || joining || !memory.preview) return;
   joining = true; $<HTMLButtonElement>('join-confirm').disabled = true;
   try {
     // A join is a selection: it goes on the queue, so a newer chat result detaches it (design §1.2).
     const outcome = await send('kingdown_join', { code: memory.preview.code });
+    if (!active()) return;
     if (outcome.status === 'superseded') return;
     if (outcome.status !== 'done') {
       if (outcome.status === 'failed' && outcome.code === 'HANDLE_NEEDED') { afterHandle = true; navigate('handle'); return; }
@@ -58,12 +62,12 @@ async function join() {
     const next = outcome.view as NonNullable<typeof memory.view> | undefined;
     memory.code = ''; memory.preview = undefined; memory.joinError = undefined; checked = '';
     if (next) routeView(next);
-  } catch (error) { showError(error, $('join-message')); }
-  finally { joining = false; $<HTMLButtonElement>('join-confirm').disabled = false; }
+  } catch (error) { if (active()) showError(error, $('join-message')); }
+  finally { joining = false; if (active()) $<HTMLButtonElement>('join-confirm').disabled = false; }
 }
 // Join keeps the code in page memory through Save; a remount needs the code again. An inline Join or name screen
 // waits on the queue behind the home card, so the memory stays for its Resume.
-export function joinSync(page: Page) { if (![page.screen, client.state.queued].some(screen => screen === 'join' || screen === 'handle')) { afterHandle = false; memory.code = ''; memory.preview = undefined; memory.joinError = undefined; checked = ''; } }
+export function joinSync(page: Page) { if (!active()) return; if (![page.screen, client.state.queued].some(screen => screen === 'join' || screen === 'handle')) { afterHandle = false; memory.code = ''; memory.preview = undefined; memory.joinError = undefined; checked = ''; } }
 const back = () => { if (client.state.screen === 'handle') afterHandle = false; };
 $('page-back').addEventListener('click', back, true);
-onStop(() => { $('page-back').removeEventListener('click', back, true); });
+onStop(() => { stopped = true; $('page-back').removeEventListener('click', back, true); });

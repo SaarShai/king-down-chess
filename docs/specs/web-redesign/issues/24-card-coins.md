@@ -12,7 +12,7 @@ Blocked by: 10; the card deal (TASKS "Card deal", needs-info); an engine rule fo
 
 ## Plan
 
-1. [ ] Groundwork with no visible change (can go first): `needsArming` and `offered` for every card tag; `describeMove` words for every card tag; a `usesLeft` that reads a hand's bits.
+1. [ ] Groundwork with no visible change (can go first): `needsArming` and `offered` for every card tag; `describeMove` words for every card tag; a `usesLeft` that reads a hand's bits. (`usesLeft` was removed as unused in ticket 57; this step adds it back when it needs it.)
 2. [ ] The coin row by the portrait: the power coin first, bound to the king's icon; then one coin for each card in the hand. A tap reads a coin (D7); "Use" arms it.
 3. [ ] States: a spent coin greys; two cards of one kind show two coins; a drawn card adds a coin; the opponent's coin flips when they play a card (the reveal of ticket 10); Undo before the press brings a card back.
 4. [ ] The row fits at 375 px with the most coins a hand can hold (`HAND_MAX` 8, plus the power coin).

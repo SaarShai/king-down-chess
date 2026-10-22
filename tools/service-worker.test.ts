@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
+import { withPrivateCachePolicy } from '../src/online/cache-policy';
 import { describe, expect, it, vi } from 'vitest';
 
 const origin = 'https://kingdown.test';
@@ -94,6 +95,58 @@ function worker(caches = storage(), build = version, buildFiles = files, registr
   return { caches, registration, fetch, claim, skipWaiting, fire, request, message, timers, timerStarted, saved, storageAccess };
 }
 
+it.each([{ controlled: false, installMs: 1000 }, { controlled: false, installMs: 12000 }, { controlled: true, installMs: 12000 }])('proves a replacement after entry (controlled: $controlled, install: $installMs ms)', async ({ controlled, installMs }) => {
+  vi.useFakeTimers();
+  const old = Object.assign(new EventTarget(), { scriptURL: url('/sw.js'), state: 'activated' as ServiceWorkerState, postMessage: vi.fn() });
+  const next = Object.assign(new EventTarget(), { scriptURL: url('/sw.js'), state: 'installing' as ServiceWorkerState, postMessage: vi.fn() });
+  const registration = Object.assign(new EventTarget(), { scope: `${origin}/`, active: old as WorkerState | null, installing: null as WorkerState | null, waiting: null as WorkerState | null, update: vi.fn(async () => {}) });
+  const workers = Object.assign(new EventTarget(), { controller: controlled ? old : null, register: vi.fn(async () => registration) });
+  const a = worker(storage(), version, files, registration);
+  await a.fire('install').done(); await a.fire('activate').done();
+  const deliveries: Promise<unknown>[] = [];
+  const connect = (target: typeof old, runtime: ReturnType<typeof worker>) => target.postMessage.mockImplementation((data, ports) => {
+    const event = runtime.fire('message', { data, source: { type: 'window', url: `${origin}/play/` }, ports });
+    deliveries.push(event.done().catch(error => error));
+  });
+  class Port {
+    onmessage: ((event: { data: unknown }) => void) | null = null;
+    peer!: Port;
+    close() { this.onmessage = null; }
+    postMessage(data: unknown) { this.peer.onmessage?.({ data }); }
+  }
+  class Channel {
+    port1 = new Port(); port2 = new Port();
+    constructor() { this.port1.peer = this.port2; this.port2.peer = this.port1; }
+  }
+  const flush = async () => { for (let i = 0; i < 40; i++) await Promise.resolve(); await Promise.all(deliveries); };
+  vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: workers }); vi.stubGlobal('MessageChannel', Channel);
+  connect(old, a);
+  try {
+    const entry = vi.fn(() => 'account entry allowed');
+    expect(await withPrivateCachePolicy(entry)).toBe('account entry allowed');
+    expect(entry).toHaveBeenCalledOnce();
+    registration.installing = next;
+    const b = worker(a.caches, 'next-build', files, registration); connect(next, b);
+    await expect(a.message().done()).rejects.toThrow('Worker update in progress');
+    const send = vi.fn(() => 'game read sent');
+    const result = withPrivateCachePolicy(send).catch(error => error.message);
+    await flush(); expect(send).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(installMs); expect(send).not.toHaveBeenCalled();
+    await b.fire('install').done();
+    registration.installing = null; registration.active = next;
+    old.state = 'redundant'; old.dispatchEvent(new Event('statechange'));
+    next.state = 'activating';
+    if (controlled) { workers.controller = next; workers.dispatchEvent(new Event('controllerchange')); }
+    await b.fire('activate').done();
+    next.state = 'activated'; next.dispatchEvent(new Event('statechange'));
+    const available = b.message(); await available.done(); expect(available.postMessage).toHaveBeenCalledOnce();
+    await flush(); await vi.advanceTimersByTimeAsync(7000);
+    expect(await result).toBe('game read sent');
+    expect(workers.controller).toBe(controlled ? next : null); expect(next.postMessage).toHaveBeenCalledOnce(); expect(send).toHaveBeenCalledOnce();
+    expect(a.caches.entries.has(current)).toBe(false);
+  } finally { vi.useRealTimers(); vi.unstubAllGlobals(); }
+});
+
 const privatePaths = ['/api', '/mcp', '/authorize', '/auth', '/oauth', '/consent', '/login', '/logout', '/signin', '/signout', '/callback', '/.well-known', '/internal', '/play', '/g', '/j'];
 
 describe('public request boundary', () => {
@@ -133,11 +186,31 @@ describe('public request boundary', () => {
     unrelated.entries.set(url('/private'), response('/private'));
     await w.fire('install').done();
     const cache = w.caches.entries.get(current)!;
-    expect([...cache.entries.keys()]).toEqual(files.filter(file => file !== 'index.html').map(url));
+    expect([...cache.entries.keys()].sort()).toEqual(files.filter(file => file !== 'index.html').map(url).sort());
     expect(w.skipWaiting).toHaveBeenCalledOnce();
     expect(w.caches.entries.get('other-app')).toBe(unrelated);
     expect(w.saved).toEqual({ 'kingdown.save': 'saved move', 'kingdown.lessons': 'lesson progress', 'kingdown.workshop': 'design', 'kingdown.sync': 'cloud stamp' });
     expect(w.storageAccess).not.toHaveBeenCalled();
+  });
+
+  it('bounds concurrent install work and waits for the last public response before takeover', async () => {
+    const paths = Array.from({ length: 19 }, (_, index) => `assets/public-${index}.js`);
+    const w = worker(undefined, version, paths), held = deferred();
+    let active = 0, peak = 0;
+    w.fetch.mockImplementation(async request => {
+      peak = Math.max(peak, ++active);
+      if (request.url === url(paths.at(-1)!)) await held.promise;
+      else await Promise.resolve();
+      active--; return response(request.url);
+    });
+    const install = w.fire('install');
+    await vi.waitFor(() => expect(w.fetch).toHaveBeenCalledTimes(paths.length));
+    expect(peak).toBe(8);
+    expect(w.caches.entries.get(current)!.entries.size).toBe(paths.length - 1);
+    expect(w.skipWaiting).not.toHaveBeenCalled();
+    held.resolve(); await install.done();
+    expect([...w.caches.entries.get(current)!.entries.keys()].sort()).toEqual(paths.map(url).sort());
+    expect(w.skipWaiting).toHaveBeenCalledOnce();
   });
 
   it('serves an exact cached asset with Vary ignored and Search kept', async () => {
@@ -176,7 +249,7 @@ const badResponses: [string, (path: string) => Response][] = [
   ['non-basic type', path => response(path, { type: 'cors' })],
   ['redirect', path => response(path, { redirected: true })],
   ['private destination', () => response('/play.html')],
-  ['different public destination', () => response('/assets/workshop.js')],
+  ['different public destination', path => response(path === url('/assets/workshop.js') ? '/assets/main.js' : '/assets/workshop.js')],
 ];
 
 describe('cache writes', () => {
@@ -306,8 +379,8 @@ describe('purge and policy proof', () => {
     expect(policy.postMessage).not.toHaveBeenCalled();
     resume.resolve(); await expect(install.done()).rejects.toThrow('Incomplete offline cache');
     expect(b.skipWaiting).not.toHaveBeenCalled(); expect(b.claim).not.toHaveBeenCalled();
-    expect([...incoming.entries.keys()]).toEqual(nextFiles.filter(file => file !== 'index.html').map(url));
-    expect([...a.caches.entries.get(current)!.entries.keys()]).toEqual(files.filter(file => file !== 'index.html').map(url));
+    expect([...incoming.entries.keys()].sort()).toEqual(nextFiles.filter(file => file !== 'index.html').map(url).sort());
+    expect([...a.caches.entries.get(current)!.entries.keys()].sort()).toEqual(files.filter(file => file !== 'index.html').map(url).sort());
     expect(a.caches.delete).not.toHaveBeenCalledWith(current);
 
     replacement.state = 'redundant'; a.registration.installing = null;
@@ -327,7 +400,7 @@ describe('purge and policy proof', () => {
     a.registration.active!.state = 'redundant'; a.registration.active = clean; a.registration.waiting = null;
     clean.state = 'activating'; await next.fire('activate').done(); clean.state = 'activated';
     expect(next.claim).toHaveBeenCalledOnce(); expect(a.caches.entries.has(current)).toBe(false);
-    expect([...a.caches.entries.get('kingdown-next-build')!.entries.keys()]).toEqual(nextFiles.filter(file => file !== 'index.html').map(url));
+    expect([...a.caches.entries.get('kingdown-next-build')!.entries.keys()].sort()).toEqual(nextFiles.filter(file => file !== 'index.html').map(url).sort());
     const proof = next.message(); await proof.done();
     expect(proof.postMessage).toHaveBeenCalledExactlyOnceWith({ type: 'kingdown-cache-policy', requestId: 'fresh-request', policy: 'public-build-v1', version: 'next-build' });
     next.fetch.mockRejectedValue(new Error('offline'));
@@ -369,7 +442,7 @@ describe('purge and policy proof', () => {
     const waiting = a.message(); await expect(waiting.done()).rejects.toThrow('Worker update in progress');
     expect(waiting.postMessage).not.toHaveBeenCalled();
     expect(a.caches.delete).not.toHaveBeenCalled();
-    expect([...incoming.entries.keys()]).toEqual(nextFiles.filter(file => file !== 'index.html').map(url));
+    expect([...incoming.entries.keys()].sort()).toEqual(nextFiles.filter(file => file !== 'index.html').map(url).sort());
 
     a.registration.active!.state = 'redundant'; a.registration.active = replacement; a.registration.waiting = null;
     replacement.state = 'activating'; await b.fire('activate').done(); replacement.state = 'activated';
@@ -399,7 +472,7 @@ describe('purge and policy proof', () => {
     expect(a.caches.delete).not.toHaveBeenCalled();
     expect(a.claim).not.toHaveBeenCalled();
     if ('postMessage' in event) expect(event.postMessage).not.toHaveBeenCalled();
-    expect([...a.caches.entries.get('kingdown-next-build')!.entries.keys()]).toEqual(files.filter(file => file !== 'index.html').map(url));
+    expect([...a.caches.entries.get('kingdown-next-build')!.entries.keys()].sort()).toEqual(files.filter(file => file !== 'index.html').map(url).sort());
   });
 
   it.each(['message', 'activate'])('stops %s before it deletes a cache that an install uses', async type => {
@@ -414,7 +487,7 @@ describe('purge and policy proof', () => {
     expect(a.caches.delete).toHaveBeenCalledExactlyOnceWith('kingdown-old');
     expect(a.claim).not.toHaveBeenCalled();
     if ('postMessage' in event) expect(event.postMessage).not.toHaveBeenCalled();
-    expect([...a.caches.entries.get('kingdown-next-build')!.entries.keys()]).toEqual(files.filter(file => file !== 'index.html').map(url));
+    expect([...a.caches.entries.get('kingdown-next-build')!.entries.keys()].sort()).toEqual(files.filter(file => file !== 'index.html').map(url).sort());
   });
 
   it.each(['current keys', 'final names'])('refuses proof if the active worker changes during %s', async phase => {

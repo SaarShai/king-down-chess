@@ -17,7 +17,6 @@ const root = join(import.meta.dirname, '..');
 /** Files that keep the transcript paths as data: records, specs, the ignore rules and the gate rule with its test. */
 const KEPT = [
   /^\.gitignore$/,
-  /^docs\/takeover\/baseline\.json$/,
   /(^|\/)original-TASKS\.md\.txt$/,
   /^docs\/specs\//,
   /^tools\/gate\//,
@@ -81,7 +80,7 @@ describe('link lint: no path into the transcript folders', () => {
     expect(transcriptLinks('docs/fixture.md', '"log": "/tmp/king-down-claude-recovery-2026-09-29/checks/qa.mjs.log"')).toEqual([]);
     expect(transcriptLinks('docs/fixture.md', 'in docs/research/m1-results/conditions-context-recovery/')).toEqual([]);
     const bare = '`docs/claude-recovery/review/TASK-LEDGER.md`';
-    for (const kept of ['docs/takeover/baseline.json', 'docs/research/m1-results/conditions-context-recovery/original-TASKS.md.txt', 'docs/specs/secrets-and-public-gates/spec.md'])
+    for (const kept of ['docs/research/m1-results/conditions-context-recovery/original-TASKS.md.txt', 'docs/specs/secrets-and-public-gates/spec.md'])
       expect(transcriptLinks(kept, bare)).toEqual([]);
   });
 
@@ -120,6 +119,14 @@ describe('ignore lint: no tracked file matches the ignore rules', () => {
 
   it('finds no such file in the tree', () => {
     expect(ignoredTracked(root)).toEqual([]);
+  });
+
+  it('ignores simulation output at any depth and keeps source, specs, fixtures and the net', () => {
+    const ignored = (path: string) => git(root, 'check-ignore', '-q', '--no-index', path).status === 0;
+    for (const path of ['sim/out/run.report.json', 'sim/out/m1/run.log', 'sim/out/previews/index.html'])
+      expect(ignored(path), path).toBe(true);
+    for (const path of ['src/sim/run.ts', 'src/sim/fixtures/tournaments/kp2-r12.tournament.json', 'sim/specs/run.json', 'sim/nnue/net.json'])
+      expect(ignored(path), path).toBe(false);
   });
 
   it('.gitignore keeps out the transcript folders and the Workshop figure batches, not the figure samples', () => {

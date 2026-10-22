@@ -8,6 +8,7 @@ const PRECACHE = [];
 const POLICY = 'public-build-v1';
 const CACHE = `kingdown-${VERSION}`;
 const PAGE_TIMEOUT_MS = 4000;
+const PRECACHE_CONCURRENCY = 8;
 const START = new URL('./', self.registration.scope).href;
 const INDEX = new URL('index.html', START).href;
 const PUBLIC = new Set(ALLOWLIST.map(file => new URL(file, START).href));
@@ -50,12 +51,17 @@ async function checkOwnCache() {
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    for (const file of PRECACHE) {
-      const request = new Request(new URL(file, START), { cache: file.startsWith('assets/') ? 'default' : 'reload' });
-      const response = await fetch(request);
-      if (!cacheable(request, response)) throw new Error('Unsafe offline response');
-      await cache.put(publicKey(request), response);
-    }
+    let next = 0;
+    // A first account visit waits for installation; serial requests exceed its proof deadline.
+    await Promise.all(Array.from({ length: Math.min(PRECACHE_CONCURRENCY, PRECACHE.length) }, async () => {
+      while (next < PRECACHE.length) {
+        const file = PRECACHE[next++];
+        const request = new Request(new URL(file, START), { cache: file.startsWith('assets/') ? 'default' : 'reload' });
+        const response = await fetch(request);
+        if (!cacheable(request, response)) throw new Error('Unsafe offline response');
+        await cache.put(publicKey(request), response);
+      }
+    }));
     // A pending delete can remove the name while this cache object stays open.
     await checkOwnCache();
     await self.skipWaiting();

@@ -2,6 +2,7 @@
 // the Guard push, the Beast's capture chain and the Maester's swaps.
 // Run: npm run check:browser special-moves (screenshots and browser-checks.json go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
+import { checkTabletButtons, checkButtonContent } from './lib/plugin-tablet-check.mjs';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { contextText, endTurn, lanMoves, readyBoard } from './app-ui.mjs';
@@ -45,6 +46,8 @@ try {
     assert.equal(await page.locator('#choose-capture').innerText(), 'Take on c5');
     assert.equal(await page.locator('#choose-push').innerText(), 'Shove to c6');
     assert.equal(await page.locator('#move-choice .primary').count(), 1);
+    await checkTabletButtons(page, '#move-choice button');
+    await checkButtonContent(page, '#move-choice button');
     assert.deepEqual(await lanMoves(page), []);
     assert.match(await page.locator('#move-choice-detail').innerText(), /c5.*c6/);
     await shot(page, `${mobile ? 'mobile' : 'desktop'}-choice`);

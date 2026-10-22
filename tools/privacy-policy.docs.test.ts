@@ -15,7 +15,7 @@ test('the policy gives each cleanup period of the daily job', () => {
 
 test('the policy names the online control as Settings shows it, says the default applies, and names OpenAI', () => {
  const label = readFileSync('src/plugin/index.html', 'utf8').match(/<legend>(Who sees when you are online)<\/legend>/)![1];
- const html = readFileSync('src/plugin/index.html', 'utf8');
+ const html = readFileSync('src/plugin/index.html', 'utf8') + readFileSync('src/account-game/hall.ts', 'utf8');
  expect(html.match(new RegExp(`Symbols only, Show threats, ${label}\\.`, 'g'))).toHaveLength(2);
  expect(text).toContain(`${label} has three choices: Everyone, Friends only and Nobody`);
  expect(text).toContain('Friends only is the default: only a player who follows you and whom you follow gets your time');
@@ -45,8 +45,8 @@ test('the policy names the alerts and notices that the server stores for an acco
   .map(file => readFileSync(`src/${file}`, 'utf8')).join('\n');
  const kinds = [...code.matchAll(/insert into public\.notifications\(user_id,kind,payload\) values\(\$1,'(\w+)'|notify\.push\(\{ user_id: [^,]+, kind: '(\w+)'/g)].map(match => match[1] ?? match[2]);
  // A new kind fails here: add it to the list item in public/privacy.html, then here.
- expect([...new Set(kinds)].sort()).toEqual(['appeal', 'moderation', 'reminder', 'turn']);
- expect(text).toContain('alerts about your Daily games (that it is your move, or that a move deadline is near), and notices about an action on a report or about an appeal');
+ expect([...new Set(kinds)].sort()).toEqual(['appeal', 'moderation', 'turn']);
+ expect(text).toContain('alerts about your Daily games (that it is your move), and notices about an action on a report or about an appeal');
  // A deletion deletes them with the account (on delete cascade).
  expect(readFileSync('supabase/migrations/0006_games.sql', 'utf8')).toMatch(/table if not exists public\.notifications \([^;]*user_id uuid not null references auth\.users \(id\) on delete cascade/);
  expect(text).toContain('badges, alerts and games against the computer');

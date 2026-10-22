@@ -1,34 +1,44 @@
-import { formatDate, gameDetail, waitingLine } from '../games-list';
-import { call, client, navigate, routeView } from '../app';
-import { art, symbols } from '../art';
+import { formatDate, gameDetail, waitingLine } from '../../account-game/games-list';
+import { call, client, navigate, queue } from '../../account-game/runtime';
+import { art, symbols } from '../../account-game/art';
 import { WHY } from '../ending';
 import { BADGES, type Badge } from '../../match/badges';
-import { ICONS, type Icon } from '../../account/profile';
+import { ICONS, type Icon, type AccountNotice, type AccountNotices } from '../../account/profile';
 import type { HistoryEntry, InboxEntry, PlayerRecord } from '../../match/protocol';
 import { DEFAULT_OPTIONS } from '../../match/setup';
-import { features } from './friend';
+import { rankedOffered } from './setup-model';
+import { features } from '../../account-game/features';
+import { policyLabel } from '../../account-game/rating-policy';
 import './profile.css';
 import { confirmBoardAction } from './board-actions';
-import { errorText } from '../client';
-type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null };
+import { errorText } from '../../account-game/types';
+import { onStop } from './friend';
+import { runtimeHost } from '../../account-game/host';
+import { openFinishedGame } from './end';
+const SUPPORT_URL = import.meta.env.VITE_KINGDOWN_STAGE === 'staging' ? 'https://kingdown-staging.vercel.app/support.html#appeals' : 'https://kingdown.dev/support.html#appeals';
+type Profile = { handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null } & AccountNotices;
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
-let request = 0;
-let before: string | null = null, blocksAfter: string | null = null;
+let request = 0, stopped = false;
+const active = () => !stopped && !queue.closed() && client.state.screen === 'profile';
+onStop(() => { stopped = true; ++request; });
+let before: string | null = null, blocksAfter: string | null = null, noticesBefore: string | null = null;
 const date = (at: string) => formatDate(at, { day: 'numeric', month: 'short' });
 const fullDate = (at: string) => formatDate(at, { day: 'numeric', month: 'short', year: 'numeric' });
 const GOALS: Record<Badge, string> = { first_win: 'Win a game.', friend_match: 'Finish a game with a friend.', stranger_match: 'Finish a game with a random player.', purist: 'Win a Classic game.', fairy_tale: 'Win with fairy pieces.', architect: 'Win with your own arrangement.', card_sharp: 'Win a game with cards.', crowned: 'Win with a king power.', royal_collection: 'Win with all six kings.', giant_slayer: 'Beat the Strong computer.' };
 const badgeArt = (badge: Badge) => art(`assets/badge-${badge.replaceAll('_', '-')}.webp`);
-export function profileScreen() { $('profile-blocks-more').onclick = () => void readMoreBlocks(); $('profile-name').onclick = () => navigate('handle'); $('profile-more').onclick = () => { if (before) void readProfile(before); }; void readProfile(); }
+export function profileScreen() { if (!active()) return; $('profile-blocks-more').onclick = () => void readMoreBlocks(); $('profile-notices-more').onclick = () => void readMoreNotices(); $('profile-name').onclick = () => navigate('handle'); $('profile-more').onclick = () => { if (before) void readProfile(before); }; void readProfile(); }
 async function readProfile(cursor?: string) {
+  if (!active()) return;
   const reading = ++request;
-  if (!cursor) { before = null; $('profile-more').hidden = true; }
+  if (!cursor) { before = noticesBefore = null; $('profile-more').hidden = $('profile-notices-more').hidden = true; $('profile-notices').replaceChildren(); $('profile-notices-empty').hidden = true; }
   // Keep the rollers in view while More waits.
   $('profile-status').textContent = cursor ? '' : 'Loading profile…';
   try {
     $('profile-more').setAttribute('disabled', '');
     $('profile-blocks-more').setAttribute('disabled', '');
+    $('profile-notices-more').setAttribute('disabled', '');
     const [result, games] = await Promise.all([client.call('kingdown_profile', cursor ? { before: cursor } : {}), cursor ? undefined : client.call('kingdown_games')]);
-    if (reading !== request || client.state.screen !== 'profile') return;
+    if (reading !== request || !active()) return;
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     if (games?.isError) throw new Error(games.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     const profile = result._meta as Profile, { record } = profile;
@@ -37,7 +47,7 @@ async function readProfile(cursor?: string) {
     $<HTMLImageElement>('profile-picture').src = art(ICONS[profile.icon ?? 'spirit']);
     $('profile-rating').querySelector('b')!.textContent = String(Math.round(record.rating.rating));
     $('profile-rating').querySelector<HTMLElement>('.q')!.hidden = !record.rating.provisional;
-    $('profile-rating-help').textContent = record.rating.provisional ? 'Rating · new until you play more games with people' : 'Rating';
+    $('profile-rating-help').textContent = `Rating · ${record.rating.provisional ? 'provisional. ' : ''}${rankedOffered() ? 'Ranked and legacy results' : 'Rated game results'}; no reset.`;
     $('profile-totals').replaceChildren(...Object.entries(record.totals).map(([label, total]) => {
       const cell = document.createElement('div'), number = document.createElement('b'), name = document.createElement('span');
       number.textContent = String(total); name.textContent = label; cell.append(number, name); return cell;
@@ -48,10 +58,49 @@ async function readProfile(cursor?: string) {
     $('profile-history').append(...profile.history.map(historyRow));
     before = profile.next_before; $('profile-more').hidden = before === null;
     renderBadges(record);
-    if (!cursor) renderBlocks(profile);
+    if (!cursor) { renderBlocks(profile); renderNotices(profile); }
     $('profile-status').textContent = '';
-  } catch (error) { if (reading === request && client.state.screen === 'profile') $('profile-status').textContent = errorText(error); }
-  finally { if (reading === request) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); } }
+  } catch (error) { if (reading === request && active()) $('profile-status').textContent = errorText(error); }
+  finally { if (reading === request && active()) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); $('profile-notices-more').removeAttribute('disabled'); } }
+}
+function renderNotices(profile: AccountNotices, append = false) {
+  if (!append) $('profile-notices').replaceChildren();
+  $('profile-notices').append(...profile.notices.map(noticeRow));
+  $('profile-notices-empty').hidden = $('profile-notices').childElementCount > 0;
+  noticesBefore = profile.next_notices_before;
+  $('profile-notices-more').hidden = noticesBefore === null;
+}
+function noticeRow(notice: AccountNotice) {
+  const row = document.createElement('article'), title = document.createElement('h4'), when = document.createElement('time'), reason = document.createElement('p'), reference = document.createElement('small');
+  title.textContent = notice.kind === 'appeal' ? `Appeal ${notice.status}` : { warning: 'Warning', rename: 'Name changed', hide: 'Name hidden', suspension: 'Suspension' }[notice.action];
+  when.dateTime = notice.created_at; when.textContent = fullDate(notice.created_at);
+  reference.textContent = `Action #${notice.action_id}`;
+  reason.textContent = notice.text;
+  row.append(title, when, reference, reason);
+  if (notice.kind === 'moderation' && notice.ends_at) { const ends = document.createElement('p'); ends.textContent = `Ends ${fullDate(notice.ends_at)}`; row.append(ends); }
+  const support = document.createElement('a'); support.href = SUPPORT_URL; support.target = '_blank'; support.rel = 'noopener'; support.textContent = 'Support and appeals'; support.onclick = event => void openSupport(event); row.append(support);
+  return row;
+}
+async function openSupport(event: MouseEvent) {
+  event.preventDefault();
+  if (!active()) return;
+  const reading = request;
+  try {
+    const result = await runtimeHost().openLink({ url: SUPPORT_URL });
+    if (result.isError) throw new Error('The host refused the link');
+  } catch { if (reading === request && active()) $('profile-status').textContent = `Open ${SUPPORT_URL} in your browser.`; }
+}
+async function readMoreNotices() {
+  if (!active() || !noticesBefore) return;
+  const reading = ++request;
+  $('profile-more').setAttribute('disabled', ''); $('profile-blocks-more').setAttribute('disabled', ''); $('profile-notices-more').setAttribute('disabled', '');
+  try {
+    const result = await client.call('kingdown_profile', { notices_before: noticesBefore });
+    if (reading !== request || !active()) return;
+    if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+    renderNotices(result._meta as Profile, true); $('profile-status').textContent = '';
+  } catch (error) { if (reading === request && active()) $('profile-status').textContent = errorText(error); }
+  finally { if (reading === request && active()) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); $('profile-notices-more').removeAttribute('disabled'); } }
 }
 function renderBlocks(profile: Profile, append = false) {
   const rows = profile.blocks.map(player => {
@@ -67,18 +116,19 @@ function renderBlocks(profile: Profile, append = false) {
   $('profile-blocks-more').hidden = blocksAfter === null;
 }
 async function readMoreBlocks() {
-  if (!blocksAfter) return;
+  if (!active() || !blocksAfter) return;
   const reading = ++request;
   $('profile-more').setAttribute('disabled', '');
   $('profile-blocks-more').setAttribute('disabled', '');
+    $('profile-notices-more').setAttribute('disabled', '');
   try {
     const result = await client.call('kingdown_profile', { blocks_after: blocksAfter });
-    if (reading !== request || client.state.screen !== 'profile') return;
+    if (reading !== request || !active()) return;
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     renderBlocks(result._meta as Profile, true);
     $('profile-status').textContent = '';
-  } catch (error) { if (reading === request && client.state.screen === 'profile') $('profile-status').textContent = errorText(error); }
-  finally { if (reading === request) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); } }
+  } catch (error) { if (reading === request && active()) $('profile-status').textContent = errorText(error); }
+  finally { if (reading === request && active()) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); $('profile-notices-more').removeAttribute('disabled'); } }
 }
 function renderBadges(record: PlayerRecord) {
   $('profile-badge-count').textContent = `${record.badges.length} of 10`;
@@ -95,6 +145,7 @@ function renderBadges(record: PlayerRecord) {
   if (selected in BADGES) $('profile-badges').querySelector<HTMLButtonElement>(`[data-badge="${selected}"] button`)!.click();
 }
 function showBadge(badge: Badge, detail: string) {
+  if (!active()) return;
   const dialog = $<HTMLDialogElement>('over');
   if (dialog.open && client.state.sheet === `badge:${badge}`) { $('badge-detail').textContent = detail; return; }
   if (dialog.open) dialog.close();
@@ -102,7 +153,7 @@ function showBadge(badge: Badge, detail: string) {
   dialog.className = 'over-sheet badge-sheet'; dialog.setAttribute('aria-labelledby', 'badge-title');
   dialog.innerHTML = '<header class="new-game-head"><h2 id="badge-title"></h2></header><div class="new-game-body"><img id="badge-art" alt=""><p id="badge-detail"></p></div><footer class="new-game-foot"><button id="badge-close">Close</button></footer>';
   $('badge-title').textContent = BADGES[badge]; $<HTMLImageElement>('badge-art').src = badgeArt(badge); $('badge-detail').textContent = detail;
-  $('badge-close').onclick = () => dialog.close(); dialog.onclose = () => { scrim.remove(); client.state.sheet = undefined; client.save(); $('profile-badges').querySelector<HTMLButtonElement>(`[data-badge="${badge}"] button`)?.focus(); };
+  $('badge-close').onclick = () => dialog.close(); dialog.onclose = () => { scrim.remove(); if (stopped || queue.closed()) return; client.state.sheet = undefined; client.save(); $('profile-badges').querySelector<HTMLButtonElement>(`[data-badge="${badge}"] button`)?.focus(); };
   client.state.sheet = `badge:${badge}`; client.save(); dialog.showModal();
 }
 function openRow(entry: InboxEntry) {
@@ -116,25 +167,29 @@ function openRow(entry: InboxEntry) {
   const line = document.createElement('small'); line.textContent = waiting ? waitingLine(entry) : entry.status === 'setup' ? yours ? 'Choose your side' : 'Waiting for the other player' : yours ? `Move ${entry.move}` : `Their turn ·\u00a0move ${entry.move}`; const detail = document.createElement('small'); detail.textContent = gameDetail(entry); player.append(name, line, detail);
   const feats = features(entry.options);
   row.append(when, colour, player, feats);
-  row.onclick = async () => { const view = await call('kingdown_resume', { game_id: entry.game_id }, false, false, false); if (view) routeView(view); };
+  row.onclick = () => { void call('kingdown_resume', { game_id: entry.game_id }, false, false, true); };
   return row;
 }
 function historyRow(entry: HistoryEntry) {
   const row = document.createElement('li'); row.dataset.gameId = entry.game_id;
+  const open = document.createElement('button'); open.type = 'button';
+  open.onclick = () => { void openFinishedGame(entry.game_id); };
   const when = document.createElement('time'); when.className = 'when'; when.dateTime = entry.finished_at; when.textContent = date(entry.finished_at);
   const colour = document.createElement('img'); colour.className = 'pi'; colour.alt = `${entry.colour} king`; colour.src = entry.colour === 'white' ? art('ui/icons/king.svg') : symbols['../../public/ui/icons/king.svg'][1];
   const player = document.createElement('span'); player.className = 'grow';
   const name = document.createElement('b'); name.textContent = entry.opponent.computer ? `Computer${entry.opponent.level ? ` · ${entry.opponent.level[0].toUpperCase()}${entry.opponent.level.slice(1)}` : ''}` : entry.opponent.deleted ? 'Deleted player' : entry.opponent.handle ?? 'A player';
-  const reason = document.createElement('small'); reason.textContent = WHY[entry.reason]; player.append(name, reason);
+  const reason = document.createElement('small'); reason.textContent = `${policyLabel(entry.rating_policy, entry.kind)} · ${WHY[entry.reason]}`; player.append(name, reason);
   const feats = features({ ...DEFAULT_OPTIONS, ...entry.features, kingPowers: entry.features.powers });
   const res = document.createElement('span'), letter = { won: 'W', drawn: 'D', lost: 'L' }[entry.result]; res.className = `res res-${letter.toLowerCase()}`; res.textContent = letter; res.setAttribute('role', 'img'); res.setAttribute('aria-label', entry.result);
-  row.append(when, colour, player, feats, res); return row;
+  open.append(when, colour, player, feats, res); row.append(open); return row;
 }
 
 async function unblock(user_id: string) {
+  if (!active()) return;
   try {
     const result = await client.call('kingdown_block', { user_id, blocked: false });
+    if (!active()) return;
     if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
-    if (client.state.screen === 'profile') await readProfile();
-  } catch (error) { if (client.state.screen === 'profile') $('profile-status').textContent = errorText(error); }
+    if (active()) await readProfile();
+  } catch (error) { if (active()) $('profile-status').textContent = errorText(error); }
 }

@@ -1,12 +1,14 @@
 # First two 2D pieces — 2026-09-25
 
-Current studies: [Archer wrist bow](wrist-bow/README.md), [Pawn lance](lance/README.md), [Ogre shove](ogre/README.md), [Knight leap](knight/README.md), [Bishop](bishop/README.md), [Rook](rook/README.md), and [Guard](guard/README.md). All seven are available on the [interactive board](board/README.md). The first-pair experiments below remain as history.
+The shipped game uses the painted board scene (`src/render/PaintedView.ts` imports `board/scene.mjs`). The local previews and dated work below record how this art was built.
 
-Current direction (2026-09-26): **painted 2D Archer with her compact wrist bow and natural arm proportions**. The [wrist-bow study](wrist-bow/README.md) supplies the Archer artwork now used by the two-piece board preview, and continuous cursor-driven arm aiming in the focused preview at `/wrist-bow/`. Both the earlier SVG limb rig and the subsequent 3D-rendered study were rejected by the owner. Preserve them as history; do not resume them as the current direction. The longbow sheets below are historical references.
+Piece previews: [Archer wrist bow](wrist-bow/README.md), [Pawn lance](lance/README.md), [Ogre shove](ogre/README.md), [Knight leap](knight/README.md), [Bishop](bishop/README.md), [Rook](rook/README.md), and [Guard](guard/README.md). All seven are available on the [interactive board](board/README.md). The first-pair experiments below remain as history.
+
+History (2026-09-26): **painted 2D Archer with her compact wrist bow and natural arm proportions**. The [wrist-bow study](wrist-bow/README.md) supplies the Archer artwork now used by the two-piece board preview, and continuous cursor-driven arm aiming in the focused preview at `/wrist-bow/`. Both the earlier SVG limb rig and the subsequent 3D-rendered study were rejected by the owner. Git keeps both sets. See the [restore commands](../specs/retro-2026-10-20/issues/04-retro-records.md). Do not resume them as the current direction. The longbow sheets below are historical references.
 
 Owner direction: use the approved illustrated board concept and original King Down art as reference for new poses, angles, pieces and animation as needed. Figures must be complete at the bottom; army colour must dominate, with a few recognition accents. This replaces the earlier fixed-clay visual direction for new art work.
 
-First pair: Pawn and Archer, proposed in the session; no alternate pair specified. Scope is an art and motion study, not conversion of the entire game.
+History (2026-09-25): first pair, Pawn and Archer, proposed in the session; no alternate pair specified. Scope is an art and motion study, not conversion of the entire game.
 
 ## Deliverables
 

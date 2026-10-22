@@ -3,17 +3,17 @@
  * power moves the player must arm first. The engine decides what is legal; this module only says
  * how a person reaches it.
  */
-import { B, CardName, Color, KINGS, KingChoice, KingName, Move, moveNumber, N, PowerName, POWERS_BALANCED, PowerTag, Position, Q, R, RULES, type Rules, USES_RULE } from './rules/engine';
+import { B, CardName, Color, KINGS, KingChoice, KingName, Move, moveNumber, N, PowerName, POWERS_BALANCED, PowerTag, Position, Q, R, DEFAULT_RULES, type Rules, USES_RULE } from './rules/engine';
+import { RELEASED_CARDS } from './content/cards';
 
 export const POWER_NAME: Record<PowerName, string> = {
   Freeze: 'Freeze', IceWall: 'Ice Wall', Strike: 'Strike', Haste: 'Haste', Flight: 'Flight', Sacrifice: 'Sacrifice',
   March: 'March', Leap: 'Leap', HolyLight: 'Holy Light', Mercy: 'Mercy', DeathTouch: 'Death Touch', Darkness: 'Darkness',
 };
 
-export const cardName = (card: CardName): string => card === 'MirrorB' ? 'Mirror' : card === 'MorphP' ? 'Morph'
-  : card.replace(/([a-z])([A-Z])/g, '$1 $2');
+export const cardName = (card: CardName): string => RELEASED_CARDS.find(entry => entry.id === card)?.name ?? card.replace(/([a-z])([A-Z])/g, '$1 $2');
 
-export const cardCost = (card: CardName, r: Rules = RULES): string =>
+export const cardCost = (card: CardName, r: Rules = DEFAULT_RULES): string =>
   card === 'MirrorB' || card === 'Mirror' ? 'Same cost as the copied card'
   : r.markFree && ['Freeze', 'IceWall', 'Firewall', 'Rescue'].includes(card) || card === 'GrowthB' ? 'Free, then move' : 'Uses your turn';
 
@@ -26,7 +26,7 @@ export const webWords = (words: string): string => words.replace(/captured/g, 't
 /** A card or power line as the plugin shows it on every page: the web's words, a capital and a full stop. */
 export const ruleLine = (words: string): string => { const line = webWords(words); return `${line[0].toUpperCase()}${line.slice(1)}.`; };
 
-export function powerText(power: PowerName, r: Rules = RULES, web = false): string {
+export function powerText(power: PowerName, r: Rules = DEFAULT_RULES, web = false): string {
   if (web) return webWords(powerText(power, r));
   const turns = r.markTurns > 1 ? `its next ${r.markTurns} turns` : 'its next turn';
   switch (power) {
@@ -81,7 +81,7 @@ export function powerText(power: PowerName, r: Rules = RULES, web = false): stri
  * power's line (`powerText`), or a card no king has. Freeze, Ice Wall, Firewall and Rescue are free
  * actions under `markFree`, as the marks are.
  */
-export function cardText(card: CardName, r: Rules = RULES): string {
+export function cardText(card: CardName, r: Rules = DEFAULT_RULES): string {
   if (card in USES_RULE) return powerText(card as PowerName, r);
   const then = (t: string): string => (r.markFree ? `${t}; then make your move` : `as your move, ${t}`);
   switch (card) {
@@ -155,7 +155,7 @@ export function hintMoves(legal: readonly Move[], armedTag: string | null, goal?
 }
 
 /** Uses allowed by the rules (0 = unlimited), or null for an always-on power. */
-export function usesAllowed(power: PowerName, r: Rules = RULES): number | null {
+export function usesAllowed(power: PowerName, r: Rules = DEFAULT_RULES): number | null {
   const key = USES_RULE[power];
   return key ? (r[key] as number) : null;
 }
@@ -204,17 +204,8 @@ export function coinWords(coin: PowerCoin, pos: Position): string {
   return `${POWER_NAME[coin.power]} · ${state}`;
 }
 
-/** Uses left for side `c` in `pos`, or null when its power is always on (or unlimited). */
-export function usesLeft(pos: Position, c: Color): number | null {
-  const power = RULES.kings[c]?.power;
-  if (!power) return null;
-  const n = usesAllowed(power);
-  if (n === null || n === 0) return null;
-  return Math.max(0, n - (pos.used?.[c] ?? 0));
-}
-
 /** "Freeze (2 per game)" / "Holy Light (always on)". */
-export function powerTitle(power: PowerName, r: Rules = RULES): string {
+export function powerTitle(power: PowerName, r: Rules = DEFAULT_RULES): string {
   const n = usesAllowed(power, r);
   const count = n === null || n === 0 ? 'always on' : `${n} per game`;
   return `${POWER_NAME[power]} (${count})`;
@@ -224,7 +215,7 @@ export function powerTitle(power: PowerName, r: Rules = RULES): string {
  * The rules a game with powers is played under: the official readings, which an older `?rules=`
  * preset overrides (as `newGame` in screen/play.ts sets them). The picker and the Guide both read them.
  */
-export const powersRules = (preset?: Partial<Rules>): Rules => ({ ...RULES, ...POWERS_BALANCED, ...preset });
+export const powersRules = (preset?: Partial<Rules>): Rules => ({ ...DEFAULT_RULES, ...POWERS_BALANCED, ...preset });
 
 /**
  * Each king's two powers for the New game picker, with their counts and one-line rules. They describe

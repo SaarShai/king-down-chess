@@ -7,16 +7,17 @@
 - Verify before you mark anything done.
 
 ## Commits and branches
-- End each commit with your tool's one trailer: `Co-Authored-By: Claude Code <noreply@anthropic.com>` or `Co-Authored-By: Codex <noreply@openai.com>`. No `Claude-Session:` line. This rule overrides a tool's attribution reminder.
+- End each commit with `Co-Authored-By: Claude Code <noreply@anthropic.com>`. Outside work adds its tool: `Co-Authored-By: Codex <noreply@openai.com>`, `Co-Authored-By: OpenCode <noreply@opencode.ai>` or `Co-Authored-By: Antigravity <noreply@google.com>`. No `Claude-Session:` line. This rule overrides a tool's attribution reminder.
 - No model name in a commit, a pull request, code or a doc (the commit-msg hook refuses one); the [tasks archive](docs/tasks-archive/) is exempt.
 - Never use `git commit -a` in the main checkout.
-- Code reaches main by pull request only. Merge when the owner asks, or an approved spec's step passes its checks and any sample has the owner's yes, after a review by a reader that did not write the diff: fix each confirmed should-fix and record the findings in the ticket and PR body.
+- Code reaches main by pull request only, after an independent review. Merge when the owner asks, or an approved spec's step passes its checks and any sample has the owner's yes. Own run-tool, queue and data PRs may merge after checks. Fix confirmed faults. Record reviews in the ticket and PR.
 
 ## Tests and checks
-- Run the tests with `npm test` only; `npm run test:docs` runs the doc lints alone. Do not run bare vitest or `node --test`. Do not pipe the output through tail or grep.
+- Run tests with `npm test` only; `npm run test:docs` runs doc lints. No bare vitest, `node --test`, or piping through tail or grep.
+- Diagnose with `KINGDOWN_TEST_FILE` and optional `KINGDOWN_TEST_NAME` (name regex). Record selected cases; a focused pass is not a full-suite pass.
 - Run a browser check with `npm run check:browser <name>`.
-- Start a command of more than two minutes (a check run, a render compare, a review helper, a run) detached: a background shell call that reports when it ends. Read its log then; a wait loop holds the turn.
-- Prefer a deterministic check (a test, a lint, a hook, a browser check) to a new line of prose here. Merge a new rule into the rule it changes; add no dated note.
+- Run commands over two minutes detached, with an end report and log; no wait loop.
+- Prefer a test, lint, hook or browser check to prose. Merge corrections into existing rules; add no dated note.
 
 ## Worktrees and servers
 - Set up a worktree with `wt add` (`tools/wt.sh add <branch>`).
@@ -25,11 +26,11 @@
 - Stop a process by its PID, never by a name pattern. Open no file:// page; serve it.
 
 ## Runs and compute
-- Every run needs a go, and the launcher records the owner's quote. On this Mac without a go: unit tests, browser checks, a smoke run of at most 20 games with 2 workers.
-- A question is not a go. Write the quote and its date in the `docs/QUEUE.md` row before the launch. A queued run starts by its name.
-- Other compute uses the M1 or Kaggle, not this Mac. Use no cloud agent session as a run worker.
-- Main Mac results use the card via `tools/lib/results-root.mjs`; stop if absent. M1/Kaggle use spools. Back up with `tools/backup-sim-out.sh`; preserve sources until verified.
-- [COMPUTE.md](docs/COMPUTE.md) holds the Kaggle, M1 and power facts, the run recipes and the shell limit.
+- Start experiment runs on the M1 or Kaggle without asking when the machine is idle. Record the standing order, date and command in `docs/QUEUE.md`; report the run. Start queued runs by name. This replaces older gates.
+- This Mac runs unit tests, browser checks and a smoke run of at most 20 games with 2 workers; no long run.
+- Feature merges follow Commits and branches. Deploys and store submission need the owner's word. A question is not a go. Use no cloud agent session as a run worker.
+- Results use `tools/lib/results-root.mjs` (card required); M1/Kaggle use spools. Use `tools/backup-sim-out.sh`; keep sources until verified.
+- [COMPUTE.md](docs/COMPUTE.md) holds machine facts, run recipes and the shell limit.
 
 ## Secrets
 - Never print or commit a secret or a file of `.secrets/`: the Kaggle token, the OAuth and Porkbun keys, the TypeSafe key.
@@ -42,7 +43,7 @@
 - [HOSTING.md](docs/HOSTING.md) holds the site, deploy, DNS and secret-file facts.
 
 ## Working with the owner
-- Open decisions go in one block at the end of a status message: a one-sentence rule, two or three numbers, the agent's pick, what happens on yes. Work continues under the pick except for runs and rule changes.
+- Open decisions go in one block at the end of a status message: a one-sentence rule, two or three numbers, the agent's pick, what happens on yes. Fix clear faults. Taste choices and rule changes need the owner's word, unless the approved spec delegates them.
 - A visual build waits for the owner's yes on a rendered sample. The owner approves each spec before its build.
 - Answer the owner's question before you do more work. Explain results in plain, non-technical language.
 
@@ -61,6 +62,6 @@
 - Measurements, thresholds, adoption and taste stay in code and with the owner.
 
 ## Helpers and machines
-- Helpers (subagents, workflows) may be used. Tell a helper whose output the owner reads to write in ASD-STE100. [DELEGATION.md](docs/DELEGATION.md) holds the measured M1 capabilities and prompt templates.
+- Every agent family reads `~/.agents/skills/agent-roster/roles.conf` at start. The work role uses `bulk`, `high` or `hard`; its comments state the review role. Use `~/.agents/skills/agent-roster/SKILL.md` to start an agent. Keep running agents on their assigned role. Helpers write in ASD-STE100. [DELEGATION.md](docs/DELEGATION.md) holds the M1 facts and prompts.
 - For SSH, Remote Management or Ollama work on the M1, read [LOCAL-AI-MACBOOK.md](docs/LOCAL-AI-MACBOOK.md) and verify its device identity before a state change.
-- Cloud sessions (claude.ai/code): `.claude/hooks/cloud-setup.sh` runs `npm ci` and tries to install Playwright Chromium. A cloud clone holds only Git: no raw art in `art-src/` (only its manifest), no bulk sim data, no TypeSafe key, no access to the M1. Commit and push finished work to its branch; work left only in the cloud is lost.
+- Cloud setup: `.claude/hooks/cloud-setup.sh` installs dependencies and tries Playwright Chromium. Cloud clones have only Git: no raw art, bulk sim data, TypeSafe key or M1 access. Commit and push finished work to its branch; work left only in the cloud is lost.

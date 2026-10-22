@@ -1,0 +1,54 @@
+.page-sheet .new-game-head h2 { font-size: var(--fs-xl); padding-bottom: 10px; background: linear-gradient(90deg, var(--gold) 0, var(--gold) 64px, var(--stone-300) 64px, transparent) left bottom / 100% 2px no-repeat; flex: 1; }
+.page-sheet .new-game-body { flex: 1; display: flex; flex-direction: column; gap: 0; }
+.page-sheet .new-game-body > p { margin: 0 0 var(--space-3); }
+.page-sheet .new-game-foot { display: flex; align-items: center; gap: var(--space-3); }
+.page-sheet .new-game-foot button { flex: 1; }
+.group-head { margin: var(--space-5) 0 var(--space-2) !important; }
+.group-head small { float: right; letter-spacing: 0; text-transform: none; font-weight: 400; font-size: var(--fs-xs); }
+.quiet-line { color: var(--ink-soft); font-size: var(--fs-sm); margin: var(--space-2) 0 0 !important; }
+/* The menu's index rows (src/ui/table.css #menu-sheet .menu-row), with an art, a portrait or an icon at the start. */
+.page-sheet .menu-row, .over-sheet .menu-row {
+  /* No shrink in a scrolling column: a shrunk row drew its divider through its second line. */
+  flex-shrink: 0; position: relative; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 12px; align-items: center;
+  width: 100%; min-height: 60px; padding: 8px 32px 8px 0; text-align: left; font-size: var(--fs-lg);
+  background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none;
+}
+.menu-row.has-lead { grid-template-columns: auto minmax(0, 1fr); }
+.menu-row.has-lead > :first-child { grid-row: 1 / span 2; }
+.menu-row .row-title { grid-column: -2; font-weight: 700; }
+.menu-row .line { grid-column: -2; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: var(--fs-sm); font-weight: 400; color: var(--ink-soft); }
+/* Keep the dot with the date when a game row wraps. */
+.menu-row .game-detail { display: inline-flex; align-items: baseline; gap: 8px; }
+.menu-row > i { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-style: normal; }
+.row-art { width: 52px; height: 52px; object-fit: contain; display: flex; align-items: flex-end; justify-content: center; }
+.row-art.pair img { height: 48px; width: auto; }
+.row-art.pair .face-left { transform: scaleX(-1); margin-left: -12px; }
+.row-art.fan img { width: 20px; flex: none; margin: 0 -2px; }
+.row-ico { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--vellum); box-shadow: 0 0 0 1px var(--stone-300); color: var(--ink); }
+.portrait { position: relative; flex: none; width: 44px; height: 44px; overflow: hidden; border-radius: 50%; background: radial-gradient(circle at 50% 30%, #fffaf0, #e2d2b1); box-shadow: 0 0 0 1px var(--stone-300); }
+.portrait img { position: absolute; left: -32%; top: -4%; width: 164%; max-width: none; }
+.portrait.big { width: 72px; height: 72px; }
+.turn-mark, .open-mark { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 2px 8px; font-size: var(--fs-xs); font-weight: 700; color: var(--vellum); background: var(--accent); border-radius: var(--radius-pill); }
+.open-mark { color: var(--ink); background: var(--parchment-deep); }
+.when .turn-mark, .when .open-mark { position: static; transform: none; }
+.feats { display: inline-flex; gap: 4px; color: var(--gold-ink); }
+.feats .icon { width: 16px; height: 16px; }
+[data-screen='play'] .new-game-body { width: 100%; max-width: 640px; margin: 0 auto; }
+#games-head { margin-top: 0 !important; }
+.game-row { padding-right: 96px !important; }
+
+/* Keep the focus frame opaque; only the painted coin dims. */
+#app-root #game-table .coin { background: transparent; border-color: transparent; box-shadow: none; opacity: 1; filter: none; }
+#app-root #game-table .coin.card-coin[data-state='used'] > .coin-paint { opacity: .85; border-color: var(--stone-500); --card-ring: var(--stone-500); }
+#app-root :is(button:focus, a[href]:focus, input:focus, select:focus, label:focus, dialog:focus, [tabindex]:focus, label:not(.card-face):has(input:focus)), #app-root #board:focus { outline: 2px solid var(--focus); outline-offset: 0; box-shadow: 0 0 0 4px var(--focus-gold) !important; scroll-margin: 5px; }
+#app-root button.emblem { transition: transform 80ms ease-out, background-color 120ms; }
+#app-root #board:focus { outline-width: 3px; outline-offset: -3px; box-shadow: none !important; }
+#app-root #board:focus::after { content: ''; position: absolute; inset: 3px; z-index: 5; pointer-events: none; border: 2px solid var(--focus-gold); }
+#app-root #game-table .table-back:focus, #app-root .seg-row label:has(input:focus) { outline-offset: -2px; box-shadow: inset 0 0 0 4px var(--focus-gold) !important; }
+#app-root label.mode:has(input:focus) { outline-offset: -2px; box-shadow: inset 0 0 0 6px var(--focus-gold) !important; }
+#app-root label:has(input:focus) { opacity: 1; }
+#app-root #game-table .coin:focus { z-index: 1; outline-offset: -2px; box-shadow: inset 0 0 0 4px var(--focus-gold) !important; }
+#app-root #game-table .coin:focus::before { content: ''; position: absolute; inset: -1px; border-radius: inherit; outline: inherit; outline-offset: inherit; box-shadow: inherit; z-index: 1; pointer-events: none; }
+@container table-screen (max-width: 319px) {
+  #app-root #game-table .coin-row { padding: 4px; }
+}
