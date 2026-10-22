@@ -24,9 +24,7 @@ Changed: `src/main.ts`, `src/game.ts`, `src/new-game.ts`, `src/game.test.ts`, ne
 Decisions:
 
 - **A copy of the values, not a move.** The suggested approach moves the value constants out of `src/ai/eval.ts`. That breaks `npm run tune:apply`: `src/sim/tune.ts` rewrites `export const PAWN_V = …` in `src/ai/eval.ts`. It also makes `tools/plugin-worker-boundary.test.ts` empty: it edits `PAWN_V = 100,` in that file. So `eval.ts` stays the source and stays unchanged. `src/ai/piece-values.ts` holds a frozen copy, `SHIPPED_VALUES`. `piece-values.test.ts` fails when the copy and `eval.ts` differ. `withDesign` never reads the Templar or a lab value at run time, so a frozen copy gives the same result.
-- **The evaluator is set in the inline function.** `Engine.think` loads `./ai/search`, then `./ai/eval`, lazily. It sets `'residual'` and then calls `searchOwned`. Both inline entries go through this one function. The first form took `setEvaluator` from the same `./ai/search` import (`search.ts` re-exports it). `tools/game-boundary.test.ts` refuses that: a lazy search import may destructure only `{ searchOwned }`. `./ai/eval` is not a blocked module, so a second lazy import satisfies the boundary without a test change. The search chunk already imports the evaluation statically, so the second import fetches no extra code.
-
-Out of scope, not changed: the comment in `src/ai/worker.ts` line 6 still says "the page (main.ts) does the same for the inline fallback". It should now name `Engine.think` in `src/game.ts`. The file is outside this ticket's scope.
+- **The evaluator is set in the inline function.** `Engine.think` loads `./ai/search`, then `./ai/eval`, lazily. It sets `'residual'` and then calls `searchOwned`. Both inline entries go through this one function. The first form took `setEvaluator` from the same `./ai/search` import (`search.ts` re-exports it). `tools/game-boundary.test.ts` refuses that: a lazy search import may destructure only `{ searchOwned }`. `./ai/eval` is not a blocked module, so a second lazy import satisfies the boundary without a test change. The search chunk already imports the evaluation statically, but in the build the second import still fetches a 65-byte raw facade chunk (`eval-*.js`) after the search chunk. This is one more sequential request, on the inline path only.
 
 ## Acceptance
 
@@ -49,7 +47,11 @@ Measured with a scratch script: the `index-*.js` entry, the `main-*.js` chunk wi
 | Other nine chunks (unchanged) | 112,256 | 112,256 |
 | **Total** | **242,724** | **140,314** |
 
-The closure drops by 102,410 bytes gzip (42%). Raw bytes: 527,278 before, 386,612 after. The net chunk `eval-*.js` (102,583 bytes gzip) is now reached only through the two dynamic imports in `Engine.think` (`search-*.js` and a 96-byte `eval-*.js` facade); `main-*.js` lists it only in their `__vite__mapDeps` preload lists. `dist/sw.js` lists `search-*.js`, both `eval-*.js` files and `worker-*.js` for the offline cache.
+The closure drops by 102,410 bytes gzip (42%). Raw bytes: 527,278 before, 386,612 after. The net chunk `eval-*.js` (102,512 bytes gzip, the table's measure) is now reached only through the two dynamic imports in `Engine.think` (`search-*.js` and a 65-byte raw `eval-*.js` facade); `main-*.js` lists it only in their `__vite__mapDeps` preload lists. `dist/sw.js` lists `search-*.js`, both `eval-*.js` files and `worker-*.js` for the offline cache.
+
+All gzip numbers in this ticket use the table's measure (zlib level 9, no file-name header). The gzip command-line tool adds a file-name header and gives slightly larger numbers.
+
+Acceptance 4 has no registered check. `npm run check:browser turn` fails at base at `tools/verify-turn.mjs:43`, before its computer-move steps. Ticket 62 works on that. The offline probe below is a scratch check, not a registered one.
 
 ### Runtime bytes
 
@@ -88,3 +90,10 @@ The page does not fetch the search chunk at start. With no worker, the inline se
 - Full `npm test`, second run (commit 1f2787ec): `Test Files  4 failed | 251 passed (255)`, `Tests  11 failed | 4633 passed | 8 skipped (4652)`. `tools/game-boundary.test.ts` passes. The 11 failures are plugin UI tests: `plugin-app` (3), `plugin-lobby` (2), `plugin-profile` (1), `plugin-screen-lifecycle` (5). They are timeouts and empty-text reads (for example `page.waitForFunction: Timeout 5000ms exceeded`, `expected '' to be '2 min left'`).
 - The same four files on the 73387e66 sources (`src/main.ts`, `src/game.ts`, `src/new-game.ts`, `src/game.test.ts` checked out from 73387e66, `piece-values*` removed; all restored after): `Test Files  4 failed (4)`, `Tests  12 failed | 198 passed (210)`. The 11 names are the same, plus `keeps an inline route through an inline remount with no display request`. On this branch: `Test Files  4 failed (4)`, `Tests  11 failed | 199 passed (210)`. This change adds no failure. `tools/plugin-board.test.ts` failed once in the first full run and passed in the second.
 - `npm run check:browser home turn powers special-moves new-game`: `check: 1 of 5 failed`. `ok home`, `ok powers`, `ok special-moves`, `ok new-game`. `FAIL turn  locator.click: Timeout 30000ms exceeded.` at `waiting for locator('.player-strip.is-turn .coin')` (`tools/verify-turn.mjs:43`, the Frost power step). A second run fails the same way. The same check on the 73387e66 sources (`src/main.ts`, `src/game.ts`, `src/new-game.ts` checked out from 73387e66, then restored) fails the same way at the same line: `check: 1 of 1 failed`. The failure exists before this change. The step before it (`ok capture rewinds; victim returns; no move remains`) passes.
+
+## Review fixes
+
+- `src/ai/worker.ts` comment now names `Engine.think` in `src/game.ts` (comment only; `worker.mjs` bytes unchanged).
+- `docs/research/piece-balance-criteria-2026-10-03.md` cites `src/game.ts` and `src/ai/worker.ts` for the residual net.
+- `src/sim/tune.ts` header and the apply message say that `SHIPPED_VALUES` in `src/ai/piece-values.ts` needs a manual update after an apply.
+- This ticket: facade chunk request, one gzip measure, missing registered offline check, and the out-of-scope note.
