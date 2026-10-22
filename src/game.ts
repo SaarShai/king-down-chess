@@ -148,11 +148,11 @@ export class Engine {
     const live = (): boolean => id === this.id && game.identity === owner;
     const inline = (resolve: (result: SearchResult) => void, reject: (error: unknown) => void): void => {
       // The adopted Q6 residual net, as in the worker (src/ai/worker.ts). It loads with the search, not the page.
-      import('./ai/search').then(({ searchOwned, setEvaluator }) => {
+      import('./ai/search').then(({ searchOwned }) => import('./ai/eval').then(({ setEvaluator }) => {
         if (!live()) return;
         setEvaluator('residual');
         resolve(searchOwned(owner, context.rules, pos, options));
-      }).catch(error => { if (live()) reject(error); });
+      })).catch(error => { if (live()) reject(error); });
     };
     if (!worker) return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { this.clean = undefined; if (live()) inline(resolve, reject); }, 30);

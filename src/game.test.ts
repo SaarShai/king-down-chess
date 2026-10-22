@@ -309,7 +309,8 @@ describe('Engine.cancel', () => {
     const calls: string[] = [];
     const setEvaluator = vi.fn((e: string) => { calls.push(`setEvaluator:${e}`); });
     const searchOwned = vi.fn(() => { calls.push('searchOwned'); return { move: null, score: 0, depth: 0, nodes: 0 }; });
-    vi.doMock('./ai/search', () => ({ searchOwned, setEvaluator }));
+    vi.doMock('./ai/search', () => ({ searchOwned }));
+    vi.doMock('./ai/eval', () => ({ setEvaluator }));
     vi.resetModules();
     try {
       const { Engine: FreshEngine, Game: FreshGame } = await import('./game');
@@ -329,7 +330,7 @@ describe('Engine.cancel', () => {
         expect(FakeWorker.made[0].terminated).toBe(true);
         expect(calls).toEqual(['setEvaluator:residual', 'searchOwned']);
       } finally { (globalThis as Record<string, unknown>).Worker = prev; vi.useRealTimers(); }
-    } finally { vi.doUnmock('./ai/search'); vi.resetModules(); }
+    } finally { vi.doUnmock('./ai/search'); vi.doUnmock('./ai/eval'); vi.resetModules(); }
   });
 
   it('plays an inline search with the residual net', async () => {
