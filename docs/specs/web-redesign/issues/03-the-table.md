@@ -89,6 +89,7 @@ W1, W2 and W7 have 92 renders and no faults. All 34 smallPhone and landscape ren
 Decision: decided by delegation (2026-10-09).
 Short phones use 44 px strips, a 52 px context row and a 44 px Moves row.
 The 320×568 canvas is at least 290 px wide. Both strips clear the board.
+Superseded in part: the owner's preview pick of 2026-10-19 (`23810f27`) makes the short-phone Moves row 48 px. The board floor at 320×568 is now 287 px.
 Labels draw at 12 CSS px. File letters clear the frame.
 The board and bar stay fixed at all four check sizes.
 W2: 68 inspected renders, 0 faults. Tests and all required checks pass.
