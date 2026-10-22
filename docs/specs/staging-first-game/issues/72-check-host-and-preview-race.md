@@ -56,6 +56,7 @@ The pattern of tickets 63, 64 and 69: wait for the state that the next step need
 Each browser run sets `PLUGIN_TEST_DATABASE_URL=postgresql://kingdown_test@127.0.0.1:55432/kingdown_lane_checkfix_test`.
 
 - `npm run check:browser menu-extra account home` (tree equal to `30657504`): `ok menu-extra 11.4 s`, `ok account 53.9 s`, `ok home 8.3 s`, `check: all 3 passed`.
+- The same line at `99528119`, clean tree: `ok menu-extra 11.9 s`, `ok account 54.1 s`, `ok home 8.6 s`, `check: all 3 passed`.
 - `npm run check:browser gui-board-preview`, alone, at `6b13f5dd`, 5 runs: `ok gui-board-preview 162.4 s`, `165.6 s`, `167.5 s`, `165.1 s`, `166.1 s`; each `check: all 1 passed`.
 - The same, with 16 `yes > /dev/null` processes (this Mac has 16 cores), started before each run and stopped by their PIDs after it, 3 runs: `ok gui-board-preview 174.0 s` (load averages 39.24 24.27 16.25), `174.1 s` (42.76 32.37 21.09), `172.1 s` (40.57 34.86 24.09); each `check: all 1 passed`.
 - `KINGDOWN_TEST_FILE=tools/check.test.ts npm test`: `Test Files  1 passed (1)`, `Tests  8 passed (8)`.
