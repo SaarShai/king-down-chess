@@ -100,7 +100,7 @@ The new fix is in `restore()` only. Known limit: a save with no rules whose move
 
 ### The end check
 
-`tools/verify-end.mjs:72` uses the same fixture idiom: a seed with no rules and `&kings=flame:haste,none`. At the base `73387e66` it fails: `FAIL end                31.9 s  locator.click: Timeout 30000ms exceeded.` (the Haste coin is absent, the same `be0786da` cause). Now it fails at the next step (`endTurn`), because the page keeps the fresh URL game. `verify-end.mjs` is outside this ticket's file list, so it is not changed. The fix is the same as in `verify-turn.mjs`: in `open()`, seed `rules: await rulesAt(browser, url)` when the query names `kings=` or `rules=`.
+`tools/verify-end.mjs:72` uses the same fixture idiom: a seed with no rules and `&kings=flame:haste,none`. At the base `73387e66` it fails: `FAIL end                31.9 s  locator.click: Timeout 30000ms exceeded.` (the Haste coin is absent, the same `be0786da` cause). Now it fails at the next step (`endTurn`), because the page keeps the fresh URL game. `verify-end.mjs` is outside this ticket's file list, so it is not changed. The fix is the same as in `verify-turn.mjs`: in `open()`, seed `rules: await rulesAt(browser, url)` when the query names `kings=` or `rules=`. The lead approves this change (follow-up 2). See "Follow-ups".
 
 ### Game-screen board width
 
@@ -112,6 +112,24 @@ The new fix is in `restore()` only. Known limit: a save with no rules whose move
 - That commit's `Removed-check:` trailers cover only plugin checks. The website `game-screen` check was not updated. The next assertion (`moves-line` height 44) also conflicts with the 48 px row.
 
 Two design decisions conflict. `docs/specs/web-redesign/issues/03-the-table.md` ("Board review fixes", 2026-10-09) sets a 44 px Moves row on short phones and a 290 px board floor. `docs/specs/gui-previews-2026-10-19/issues/gui-prev-controls.md` sets 48 px flat reading rows, the Moves line included. A fix must pick one: restore 44 px for the short-phone Moves row, or accept the 48 px row and lower the floor to 287 px. This is a design choice, not a defect with one correct fix, so it is not changed here. The owner decides.
+
+The lead decides (follow-up 1): the newer pick (`23810f27`, 2026-10-19) wins. See "Follow-ups".
+
+### Follow-ups
+
+1. Short-phone board floor (lead decision). `23810f27` (the owner's preview pick of 2026-10-19) makes the short-phone Moves row 48 px. That pick wins over the 2026-10-09 decision. In `tools/verify-game-screen.mjs` the 320×568 block now sets `MOVES_ROW = 48` and `BOARD_FLOOR = 290 - (MOVES_ROW - 44)`, which is 287 px. It expects a 48 px Moves row. A comment cites `23810f27` and the 48 px pick. The commit has two `Removed-check:` trailers. `docs/specs/web-redesign/issues/03-the-table.md` ("Board review fixes") now says that the pick supersedes the 290 px floor and that the floor is 287 px. `docs/specs/chatgpt-mvp/issues/23-fault-round-1.md` also names 290 px, but for the plugin board with insets, not the website table, so it stays.
+2. End check fixture (approved). `tools/verify-end.mjs` `open()` seeds `rules: await rulesAt(browser, url)` when the URL names `kings=` or `rules=`. No assertion or timeout changes.
+
+Open fault after follow-up 1: `game-screen` now fails at the next assertion, `tools/verify-game-screen.mjs:41`, `board labels draw at 12 CSS px`. A probe gives a label size of 11.958 CSS px at 320×568 (the floor is 11.99). The board draws its labels at 1/24 of the board width (40 px on a 960 px canvas), so the labels reach 12 CSS px only on a board of at least 288 px. The 287 px board of the 48 px pick gives 11.96 px. The lead order says "do not lower any other threshold", and `src/` is out of scope, so this stays open. The options: a label size that does not scale below 12 CSS px (a `src/` change), 4 px less from another short-phone row, or an owner decision on the label floor.
+
+Checks after the follow-ups:
+
+- `npm run check:browser game-screen end turn`: `check: 1 of 3 failed`.
+  - `FAIL game-screen         1.2 s  AssertionError [ERR_ASSERTION]: board labels draw at 12 CSS px` (see the open fault above; the board-width and Moves-row steps pass).
+  - `ok   end                13.7 s`
+  - `ok   turn               11.9 s`
+- `npm run typecheck`: `tsc --noEmit` exits 0.
+- `npm run test:docs`: `Test Files  13 passed (13)`, `Tests  161 passed (161)`.
 
 ### Not changed
 
