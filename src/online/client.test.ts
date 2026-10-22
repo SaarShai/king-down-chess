@@ -1,7 +1,7 @@
-/** The website client: retries keep the command ID; views follow the revision rules of report part 03, section 4.3. */
+/** The website client: retries keep the command ID; reads go through the private no-store boundary. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { LoggedCommand, View } from '../match/protocol';
-import { merge, onlineClient, OnlineError, watch, type OnlineClient } from './client';
+import { onlineClient, OnlineError } from './client';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -72,41 +72,10 @@ describe('online client', () => {
   await expect(onlineClient({ token: async () => 'jwt', fetch }).seen('game/id')).resolves.toBeUndefined();
   expect(fetch).toHaveBeenCalledExactlyOnceWith('/api/games/game%2Fid/seen', { method: 'POST', cache: 'no-store', headers: { Authorization: 'Bearer jwt' } });
  });
- it('uses only GET for full reads, since reads and polling', async () => {
+ it('uses only GET for full and since reads', async () => {
   const fetch = vi.fn<typeof globalThis.fetch>(async () => json(200, view(2, [1, 2]))), api = onlineClient({ token: async () => 'jwt', fetch });
   await api.game(gameId); await api.game(gameId, 0);
-  const feed = watch(api, gameId, () => {}, { daily: 60_000 });
-  try {
-   await feed.refresh(); await feed.refresh();
-   expect(fetch.mock.calls.map(([url, init]) => [url, init?.method])).toEqual([
-    [`/api/games/${gameId}`, 'GET'], [`/api/games/${gameId}?since=0`, 'GET'], [`/api/games/${gameId}`, 'GET'], [`/api/games/${gameId}?since=2`, 'GET'],
-   ]);
-  } finally { feed.stop(); }
- });
- it('drops a view that is not newer, adds the new commands and keeps the rules', () => {
-  const local = view(3, [2, 3], { rules: { kings: [] } as never });
-  expect(merge(local, view(3, [3]))).toBe('drop');
-  expect(merge(local, view(2, [2]))).toBe('drop');
-  const next = merge(local, view(5, [4, 5])) as View;
-  expect([next.revision, next.last_commands.map(c => c.seq), next.rules]).toEqual([5, [2, 3, 4, 5], { kings: [] }]);
-  // A command reply holds the last commands, also ones the client has: no double.
-  expect((merge(local, view(4, [2, 3, 4])) as View).last_commands.map(c => c.seq)).toEqual([2, 3, 4]);
-  expect(merge(local, view(9, [6, 7, 8, 9]))).toBe('gap');
-  expect(merge(undefined, view(9, [9]))).toEqual(view(9, [9]));
- });
- it('fills a gap of more than 50 revisions with a full read', async () => {
-  const game = vi.fn<OnlineClient['game']>()
-   .mockResolvedValueOnce(view(2, [1, 2], { rules: {} as never }))
-   .mockResolvedValueOnce(view(80, Array.from({ length: 50 }, (_, i) => 31 + i)))
-   .mockResolvedValueOnce(view(80, [71, 72, 73, 74, 75, 76, 77, 78, 79, 80], { rules: {} as never }));
-  const seen: number[] = [], feed = watch({ game } as unknown as OnlineClient, gameId, next => seen.push(next.revision), { live: 10, daily: 60_000 });
-  try {
-   await vi.waitFor(() => expect(seen).toEqual([2]));
-   await feed.refresh();
-   expect(game.mock.calls).toEqual([[gameId, undefined], [gameId, 2], [gameId]]);
-   expect([seen, feed.view!.last_commands[0].seq]).toEqual([[2, 80], 71]);
-   feed.accept(view(80, [80])); expect(seen).toEqual([2, 80]); // a duplicate is dropped
-  } finally { feed.stop(); }
+  expect(fetch.mock.calls.map(([url, init]) => [url, init?.method])).toEqual([[`/api/games/${gameId}`, 'GET'], [`/api/games/${gameId}?since=0`, 'GET']]);
  });
 });
 
