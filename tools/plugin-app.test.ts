@@ -2614,7 +2614,9 @@ it('recovers a lost seat Ready before the computer makes the first move after re
     await frame.locator('#retry:not(:disabled)').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     // The computer's first move is a retained command too, so no command is pending only after the server makes it.
-    await page.waitForFunction(() => (window as any).harnessView.turn === (window as any).harnessView.seat);
+    // The host sees the reply before it reaches the frame. Wait for the frame to apply it.
+    const widget = (await (await page.locator('iframe').elementHandle())!.contentFrame())!;
+    await widget.waitForFunction(() => { const view = (window as any).harnessApp.memory.view; return view.turn === view.seat; });
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending?.name ?? null)).toBeNull();
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_choose').map((c: any) => c.arguments.command_id))).toEqual([command, command]);
   } finally { await page.close(); await isolated.close(); }
