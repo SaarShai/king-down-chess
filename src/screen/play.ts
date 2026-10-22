@@ -11,6 +11,7 @@ import { boardFoot } from './board-foot';
  */
 import { skillPlan, type SkillName } from '../ai/skill';
 import { Game, resigningSide, type Engine, type Side } from '../game';
+import { GameRules } from '../game-rules';
 import type { BoardView } from '../render/PaintedView';
 import { momentKind } from '../moment';
 import { setSound, snd } from '../render/sfx';
@@ -835,8 +836,9 @@ export function connectPlay(view: BoardView, c: {
     }
     else if (fen) { try { game.load(game.context.fromFen(fen)); } catch (e) { alert(`Bad fen: ${(e as Error).message}`); } }
     else if (saved) {
-      const savedRules = saved.rules;
-      const rulesDiffer = r.urlRules && !!savedRules && JSON.stringify(savedRules) !== JSON.stringify({ ...game.rules });
+      // A save from before saves held their rules (a7bdb5ac) played the default rules.
+      const savedRules = saved.rules ?? { ...new GameRules().rules };
+      const rulesDiffer = r.urlRules && JSON.stringify(savedRules) !== JSON.stringify({ ...game.rules });
       if (rulesDiffer) {
         // The URL names a rule set and the autosave played a different one. Replaying the moves would
         // reinterpret them, so keep the URL's fresh game and let the next save overwrite the old one.
