@@ -27,6 +27,10 @@ const stagingLogin = process.argv[2] === 'staging-login';
 // VITE_KINGDOWN_STAGE=staging runs the website Ranked flow; without it the build is the production build (ticket 67).
 const rankedStage = !stagingLogin && process.env.VITE_KINGDOWN_STAGE === 'staging';
 const accountOrigin = stagingLogin || rankedStage ? 'https://puhspsyjyzaghmgtkzqd.supabase.co' : 'https://web-proof.supabase.co';
+// The local server starts as a localDev server without a stage, and production refuses the staging project
+// there (ticket 66). So the server and the signed test sessions use a local test issuer; only the site build
+// names the account project of its stage.
+const issuerOrigin = 'https://web-proof.supabase.co';
 assert(process.argv.length === (mechanics || recovery || desktop || discovery || stagingLogin ? 3 : 2), 'Use web-game-check.mjs [mechanics|recovery|desktop|discovery|staging-login]');
 if (recovery) assert(process.env.KINGDOWN_WEB_RECOVERY_OUTPUT, 'Recovery consumers require an exact external KINGDOWN_WEB_RECOVERY_OUTPUT');
 const { fromFen } = await import('../src/rules/setup.ts');
@@ -59,10 +63,10 @@ try {
   const origin = `http://127.0.0.1:${server.address().port}`;
   const pair = await generateKeyPair('ES256');
   const websiteKeys = createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'local-web', alg: 'ES256' }] });
-  const tokens = await Promise.all(actors.map(sub => new SignJWT({ sub, iss: accountOrigin + '/auth/v1', aud: 'authenticated', role: 'authenticated', is_anonymous: false })
+  const tokens = await Promise.all(actors.map(sub => new SignJWT({ sub, iss: issuerOrigin + '/auth/v1', aud: 'authenticated', role: 'authenticated', is_anonymous: false })
     .setProtectedHeader({ alg: 'ES256', kid: 'local-web' }).setExpirationTime('10m').sign(pair.privateKey)));
   const runtimeSettings = { NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString,
-    KINGDOWN_INTERNAL_SECRET: randomUUID(), SUPABASE_URL: accountOrigin, SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_local_test', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: randomUUID() };
+    KINGDOWN_INTERNAL_SECRET: randomUUID(), SUPABASE_URL: issuerOrigin, SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_local_test', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: randomUUID() };
   const runtimeOptions = { localDev: true, websiteKeys, websiteCurrentUser: async (token, actor) => { assert.equal(tokens[actors.indexOf(actor)], token); } };
   app = await configurePlugin(runtimeSettings, runtimeOptions);
   // The service reads the stage at each start; the loopback settings above stay local.
