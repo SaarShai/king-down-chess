@@ -73,7 +73,7 @@ Use [OWNER-STEPS.md](OWNER-STEPS.md) for the short checklist.
 
    Rollback: restore the saved environment through the same private path. A publish to apply it needs the owner's word.
 
-6. **Test the one-project path before the outage.** Run `tools/deploy.sh` with no flag on the approved main commit. It tests and builds `npm run build:vercel`, with static site files and the plugin function in one tree. The function serves `/mcp`, `/authorize`, `/consent.mjs`, `/.well-known/oauth-protected-resource`, `/.well-known/oauth-protected-resource/mcp` and `/internal/*`. `/api` is not routed. No redirect sends `/authorize` to the old origin.
+6. **Test the one-project path before the outage.** Run `tools/deploy.sh` with no flag on the approved main commit. It tests and builds `npm run build:vercel`, with static site files and the plugin function in one tree. The function serves `/mcp`, `/authorize`, `/consent.mjs`, `/.well-known/oauth-protected-resource`, `/.well-known/oauth-protected-resource/mcp` and `/internal/*`. `/api/*` goes to the same function; the website API stays closed until the 0016 switch opens. The release shell holds no `KINGDOWN_STAGE` or `VITE_KINGDOWN_STAGE`, and holds the production `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` ([ticket 66](../../staging-first-game/issues/66-production-profile.md)). No redirect sends `/authorize` to the old origin.
 
    Check: the command publishes nothing. The engine guards, combined-tree checks, protocol checks and browser checks pass. `npm run check:vercel` proves local route dispatch. Set the live wait for step 7.
 
