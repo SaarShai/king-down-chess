@@ -20,10 +20,13 @@ const TOKENS = ['12.5px', '14px', '15.5px', '16px', '18px', '23px', '30px', '40p
 const fullscreen = (page: Page, top: number, bottom: number) => page.evaluate(([top, bottom]) => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'], safeAreaInsets: { top, bottom, left: 0, right: 0 } }), [top, bottom]);
 async function open({ width, height, top, bottom } = OWNER, clock = false) {
   const page = await browser.newPage({ viewport: { width, height } }); page.setDefaultTimeout(5000);
-  if (clock) await page.clock.install();
+  // Start behind real time so the pause target stays ahead during a slow boot.
+  if (clock) await page.clock.install({ time: Date.now() - 60_000 });
   await page.goto(harness.url);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();
   await fullscreen(page, top, bottom);
+  // Boot on a flowing clock, then stop before a test starts a game or a timed action.
+  if (clock) await page.clock.pauseAt(new Date());
   return page;
 }
 const go = (page: Page, screen: string) => page.frameLocator('iframe').locator('html').evaluate((_, screen) => (window as any).harnessApp.navigate(screen), screen);
@@ -218,13 +221,9 @@ it('shows a busy Start at once, Starting… after 1 s and a safe way back at 5 s
     await frame.locator('.mode').filter({ hasText: 'A friend' }).click();
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
     const start = frame.locator('#setup-start');
-    // Stop the page clock for the click and the read, so that machine load cannot run the 1 s timer between them.
-    // Fix the time first, so the pause target cannot fall into the past under load.
-    await page.clock.setFixedTime(new Date()); await page.clock.pauseAt(await page.evaluate(() => Date.now()));
     await start.click();
     // Read at once, in one step: a quick start shows no words.
     expect(await start.evaluate((button: HTMLButtonElement) => [button.disabled, button.getAttribute('aria-busy'), button.textContent])).toEqual([true, 'true', 'Start game']);
-    await page.clock.resume();
     await expect.poll(() => page.evaluate(() => typeof (window as any).releaseHeld)).toBe('function');
     await page.clock.fastForward(1_000);
     await expect.poll(() => start.textContent()).toBe('Starting…');
