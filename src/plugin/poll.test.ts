@@ -6,7 +6,7 @@ const view = (change: Partial<View> = {}) => ({ game_id: 'g1', kind: 'friend', s
 it('keeps a visible solo setup and either turn current across hosts', () => {
   expect(pollDelay(view({ kind: 'solo', status: 'setup' }), 0, false)).toBe(5000);
   expect(pollDelay(view({ kind: 'solo', status: 'setup' }), 120000, false)).toBe(15000);
-  for (const turn of [0, 1] as const) expect(pollDelay(view({ kind: 'solo', turn }), 0, false)).toBe(5000);
+  for (const turn of [0, 1] as const) expect(pollDelay(view({ kind: 'solo', turn, created_at: '2026-10-11T12:00:00.000Z' }), 0, false)).toBe(5000);
   expect(pollDelay(view({ kind: 'solo' }), 0, true)).toBeUndefined();
   expect(pollDelay(view({ kind: 'solo', status: 'finished' }), 0, false)).toBeUndefined();
 });
@@ -194,6 +194,11 @@ it('sets the solo delay from the newest command, else the game start, and stays 
   expect(pollDelay(view({ kind: 'solo', last_commands: [] }), 0, false)).toBe(5000);
   expect(pollDelay(view({ kind: 'solo', created_at: ago(900000), server_now: 'unknown' }), 0, false)).toBe(5000);
   expect(pollDelay(view({ kind: 'solo', created_at: 'unknown', last_commands: moved(600000) }), 0, false)).toBe(15000);
+  // A missing commands list falls back to the game start.
+  expect(pollDelay(view({ kind: 'solo', created_at: ago(900000), last_commands: undefined }), 0, false)).toBe(15000);
+  // The End screen's rematch watch gives the finished solo view as a playing view; it uses the same rule.
+  expect(pollDelay(view({ kind: 'solo', turn: 1, created_at: ago(900000), last_commands: moved(119999) }), 0, false)).toBe(5000);
+  expect(pollDelay(view({ kind: 'solo', turn: 1, created_at: ago(900000), last_commands: moved(180000) }), 0, false)).toBe(15000);
 });
 
 it('shows a remote solo move within 5 s in the first 2 idle minutes, and within 15 s after them', async () => {
