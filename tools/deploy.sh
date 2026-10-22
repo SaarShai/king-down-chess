@@ -137,7 +137,7 @@ engines_committed() {
 }
 
 # Refuse a staging build, record the published bytes, and prove that every engine archive in the
-# function is a committed archive, unchanged (the name is its sha256).
+# function is a committed archive with unchanged bytes.
 production_artifact() {
   node --input-type=module - "$1" "$2" <<'NODE'
 import { createHash } from 'node:crypto';
@@ -156,8 +156,8 @@ const built = archives(join(out, 'functions/mcp.func/runtime/engines')), committ
 if (built.join() !== committed.join()) fail(`the build holds engine archives ${built.join(', ') || 'none'}; engines/ holds ${committed.join(', ') || 'none'}`);
 for (const name of built) {
   const file = join(out, 'functions/mcp.func/runtime/engines', name), hash = sha(file);
-  if (`${hash}.mjs` !== name || !readFileSync(file).equals(readFileSync(join('engines', name)))) fail(`engine archive ${name} changed`);
-  console.log(`deploy: sha256 ${hash} engine archive`);
+  if (!readFileSync(file).equals(readFileSync(join('engines', name)))) fail(`engine archive ${name} changed`);
+  console.log(`deploy: sha256 ${hash} engine archive ${name}`);
 }
 console.log(`deploy: ${built.length} engine archives unchanged; no staging manifest`);
 NODE

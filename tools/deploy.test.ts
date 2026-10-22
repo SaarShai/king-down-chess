@@ -185,18 +185,19 @@ describe('deploy.sh', () => {
 
   it('records the published bytes and refuses a changed engine archive', () => {
     const { repo, deploy, calls } = setup();
-    const archive = 'engine bytes\n', hash = createHash('sha256').update(archive).digest('hex');
-    repo.write(`engines/${hash}.mjs`, archive);
+    // A real archive name is the engine's source hash, not the sha256 of its bytes.
+    const archive = 'engine bytes\n', hash = createHash('sha256').update(archive).digest('hex'), name = `${'a'.repeat(64)}.mjs`;
+    repo.write(`engines/${name}`, archive);
     repo.git('add', '.'); repo.git('commit', '-q', '-m', 'engine'); repo.git('push', '-q', 'origin', 'main');
     const result = deploy();
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain(`deploy: sha256 ${createHash('sha256').update('page').digest('hex')} static/index.html`);
     expect(result.stdout).toContain(`deploy: sha256 ${createHash('sha256').update('worker').digest('hex')} static/sw.js`);
-    expect(result.stdout).toContain(`deploy: sha256 ${hash} engine archive`);
+    expect(result.stdout).toContain(`deploy: sha256 ${hash} engine archive ${name}`);
     expect(result.stdout).toContain('deploy: 1 engine archives unchanged; no staging manifest');
     const changed = deploy(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_TAMPER_ENGINE: '1' });
     expect(changed.status).not.toBe(0);
-    expect(changed.stderr).toContain(`engine archive ${hash}.mjs changed`);
+    expect(changed.stderr).toContain(`engine archive ${name} changed`);
     expect(calls().some(line => line.startsWith('npx '))).toBe(false);
   });
 
