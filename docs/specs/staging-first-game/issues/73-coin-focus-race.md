@@ -55,6 +55,7 @@ Each run tests the tree of `261ab89f`. Each passing log has both `Coin focus at 
 - `npm run check:browser plugin-ui plugin-ui-http` (default browser): `ok plugin-ui 231.3 s`, `ok plugin-ui-http 244.4 s`, `check: all 2 passed`.
 - `KINGDOWN_TEST_FILE=tools/check.test.ts npm test`: `Test Files  1 passed (1)`, `Tests  8 passed (8)`.
 - `npm run typecheck`: `tsc --noEmit` exits 0.
+- `npm test` (full): `Test Files  255 passed (255)`, `Tests  4757 passed | 8 skipped (4765)`.
 - `npm run test:docs`: `Test Files  13 passed (13)`, `Tests  166 passed (166)`.
 
 ### Runs that failed (not the coin focus step)
