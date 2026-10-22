@@ -2086,10 +2086,16 @@ it.each(['power-w', 'card-w-0'])('keeps focus on %s through a minute tick and up
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await friendGame(page); await page.clock.install();
+    // The host answers each game read with this view, as a server that holds it: its own time, the same deadline. The
+    // solo board polls (ticket 40), so a one-time view would give way to the fixture game at the first poll.
+    await page.evaluate(() => {
+      const host = window as any;
+      host.serveView = (view: any) => Object.defineProperty(host, 'harnessNextView', { configurable: true, set() {}, get: () => ({ ...view, server_now: new Date().toISOString() }) });
+    });
     await page.evaluate(id => {
       const host = window as any, now = Date.now();
       const rules = id === 'power-w' ? {kings:[{king:'Flame',power:'Haste'},null],hands:[[],[]]} : {kings:[{king:'Mud',power:'March'},null],marchUses:0,hands:[['Haste'],[]]};
-      host.harnessNextView = {...host.harnessView, kind:'solo', server_now:new Date(now).toISOString(), deadline_at:new Date(now + 180000).toISOString(), rules:{...host.harnessView.rules,...rules}};
+      host.serveView({...host.harnessView, kind:'solo', deadline_at:new Date(now + 180000).toISOString(), rules:{...host.harnessView.rules,...rules}});
     }, id);
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
     await frame.locator(`#${id}`).focus();
@@ -2102,7 +2108,7 @@ it.each(['power-w', 'card-w-0'])('keeps focus on %s through a minute tick and up
     await page.keyboard.press('Escape');
     await page.evaluate(() => {
       const host = window as any, now = Date.now();
-      host.harnessNextView = {...host.harnessView,kind:'friend',turn:1,action:'wait',legal:[],abort_open:false,server_now:new Date(now).toISOString(),deadline_at:new Date(now + 60000).toISOString()};
+      host.serveView({...host.harnessView,kind:'friend',turn:1,action:'wait',legal:[],abort_open:false,deadline_at:new Date(now + 60000).toISOString()});
     });
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}); });
     await page.context().setOffline(true);
