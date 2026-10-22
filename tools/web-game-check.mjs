@@ -24,7 +24,9 @@ const recovery = process.argv[2] === 'recovery';
 const desktop = process.argv[2] === 'desktop';
 const discovery = process.argv[2] === 'discovery';
 const stagingLogin = process.argv[2] === 'staging-login';
-const accountOrigin = stagingLogin ? 'https://puhspsyjyzaghmgtkzqd.supabase.co' : 'https://web-proof.supabase.co';
+// VITE_KINGDOWN_STAGE=staging runs the website Ranked flow; without it the build is the production build (ticket 67).
+const rankedStage = !stagingLogin && process.env.VITE_KINGDOWN_STAGE === 'staging';
+const accountOrigin = stagingLogin || rankedStage ? 'https://puhspsyjyzaghmgtkzqd.supabase.co' : 'https://web-proof.supabase.co';
 assert(process.argv.length === (mechanics || recovery || desktop || discovery || stagingLogin ? 3 : 2), 'Use web-game-check.mjs [mechanics|recovery|desktop|discovery|staging-login]');
 if (recovery) assert(process.env.KINGDOWN_WEB_RECOVERY_OUTPUT, 'Recovery consumers require an exact external KINGDOWN_WEB_RECOVERY_OUTPUT');
 const { fromFen } = await import('../src/rules/setup.ts');
@@ -40,7 +42,7 @@ let lostReplies = 0;
 try {
   // Use public fake settings only. The browser gets a real signed local session; no OAuth provider is contacted.
   await build({ logLevel: 'warn', define: {
-    'import.meta.env.VITE_KINGDOWN_STAGE': JSON.stringify(stagingLogin ? 'staging' : ''),
+    'import.meta.env.VITE_KINGDOWN_STAGE': JSON.stringify(stagingLogin || rankedStage ? 'staging' : ''),
     'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(accountOrigin),
     'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify('sb_publishable_local_test'),
   }, build: { outDir: join(work, 'site'), emptyOutDir: true } });
@@ -63,6 +65,8 @@ try {
     KINGDOWN_INTERNAL_SECRET: randomUUID(), SUPABASE_URL: accountOrigin, SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_local_test', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: randomUUID() };
   const runtimeOptions = { localDev: true, websiteKeys, websiteCurrentUser: async (token, actor) => { assert.equal(tokens[actors.indexOf(actor)], token); } };
   app = await configurePlugin(runtimeSettings, runtimeOptions);
+  // The service reads the stage at each start; the loopback settings above stay local.
+  if (rankedStage) process.env.KINGDOWN_STAGE = 'staging';
   let rpcId = 0;
   async function tool(seat, name, args = {}) {
     const response = await fetch(origin + '/mcp', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'X-Kingdown-Dev-Actor': actors[seat], 'MCP-Protocol-Version': '2025-11-25' },
@@ -377,52 +381,66 @@ try {
     options, kings: finalCombined.kings, hands: finalCombined.hands, initial_fen: initialCombined.fen, final_fen: finalCombined.fen,
     revision: finishedCombined.revision, turns: combinedTurns, spent: finalPosition.used, reloaded: true, result: finishedCombined.result,
     checks: ['fairy army and ready choices', 'Cards with always-on March', 'March off the home rank', 'Maester swap', 'UI MorphP and End turn', 'same actors alternate web and MCP', 'accepted history and card use', 'same full game URL after reload'] }, null, 2));
-  // The real shared setup creates the fixed ranked family; MCP takes the other seat.
-  await page.goto(origin + '/play/');
-  await page.getByRole('radio', {name:'A random player',exact:true}).locator('..').click();
-  await page.locator('#setup-rating input[value="ranked"]').locator('..').click();
-  assert.match(await page.locator('#setup-ranked-rules').innerText(), /3 days per move/);
-  for (const id of ['anyRules-row','fairy-row','cards-row','arrangement-row','setup-colour']) assert(await page.locator('#'+id).isHidden(), `Ranked fixes ${id}`);
-  const rankedStart=page.waitForResponse(response=>response.request().method()==='POST' && new URL(response.url()).pathname==='/api/games/find');
-  await page.locator('#setup-start').click();
-  const rankedResponse=await rankedStart, ranked=await rankedResponse.json(); assert.equal(rankedResponse.status(),200,JSON.stringify(ranked));
-  assert.equal(ranked.rating_policy,'ranked-v1'); assert.equal(ranked.days_per_move,3); assert.equal(ranked.deal.length,4);
-  const rankedId=ranked.game_id, readRanked=async actor=>(await tool(actor,'kingdown_get',{game_id:rankedId}))._meta.view;
-  const joinedRanked=(await tool(1,'kingdown_find',{mode:'ranked',command_id:randomUUID()}))._meta.view;
-  assert.equal(joinedRanked.game_id,rankedId); assert.equal(joinedRanked.rating_policy,'ranked-v1');
-  await page.locator('[data-screen="seat"]:not([hidden]) #seat-ready:not(:disabled)').waitFor();
-  await page.locator('#seat-ready').click();
-  await page.waitForFunction(()=>document.querySelector('#seat-context')?.textContent?.includes('Waiting'));
-  let other=await readRanked(1);
-  await tool(1,'kingdown_choose',{game_id:rankedId,command_id:randomUUID(),expected_revision:other.revision,...other.choices[other.seat],ready:true});
-  await page.locator('[data-screen="board"]:not([hidden])').waitFor();
-  let mine=await readRanked(0);
-  if (mine.turn!==mine.seat) {
-    other=await readRanked(1);
-    await tool(1,'kingdown_move',{game_id:rankedId,command_id:randomUUID(),expected_revision:other.revision,actions:[other.legal.find(lan=>!lan.includes('!'))]});
-    mine=await readRanked(0);
+  if (rankedStage) {
+    // The real shared setup creates the fixed ranked family; MCP takes the other seat.
+    await page.goto(origin + '/play/');
+    await page.getByRole('radio', {name:'A random player',exact:true}).locator('..').click();
+    await page.locator('#setup-rating input[value="ranked"]').locator('..').click();
+    assert.match(await page.locator('#setup-ranked-rules').innerText(), /3 days per move/);
+    for (const id of ['anyRules-row','fairy-row','cards-row','arrangement-row','setup-colour']) assert(await page.locator('#'+id).isHidden(), `Ranked fixes ${id}`);
+    const rankedStart=page.waitForResponse(response=>response.request().method()==='POST' && new URL(response.url()).pathname==='/api/games/find');
+    await page.locator('#setup-start').click();
+    const rankedResponse=await rankedStart, ranked=await rankedResponse.json(); assert.equal(rankedResponse.status(),200,JSON.stringify(ranked));
+    assert.equal(ranked.rating_policy,'ranked-v1'); assert.equal(ranked.days_per_move,3); assert.equal(ranked.deal.length,4);
+    const rankedId=ranked.game_id, readRanked=async actor=>(await tool(actor,'kingdown_get',{game_id:rankedId}))._meta.view;
+    const joinedRanked=(await tool(1,'kingdown_find',{mode:'ranked',command_id:randomUUID()}))._meta.view;
+    assert.equal(joinedRanked.game_id,rankedId); assert.equal(joinedRanked.rating_policy,'ranked-v1');
+    await page.locator('[data-screen="seat"]:not([hidden]) #seat-ready:not(:disabled)').waitFor();
+    await page.locator('#seat-ready').click();
+    await page.waitForFunction(()=>document.querySelector('#seat-context')?.textContent?.includes('Waiting'));
+    let other=await readRanked(1);
+    await tool(1,'kingdown_choose',{game_id:rankedId,command_id:randomUUID(),expected_revision:other.revision,...other.choices[other.seat],ready:true});
+    await page.locator('[data-screen="board"]:not([hidden])').waitFor();
+    let mine=await readRanked(0);
+    if (mine.turn!==mine.seat) {
+      other=await readRanked(1);
+      await tool(1,'kingdown_move',{game_id:rankedId,command_id:randomUUID(),expected_revision:other.revision,actions:[other.legal.find(lan=>!lan.includes('!'))]});
+      mine=await readRanked(0);
+    }
+    await page.locator('#status').filter({hasText:'Your move'}).waitFor();
+    await page.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    await page.locator('#board-menu').click();
+    assert.match(await page.locator('#board-sheet').innerText(), /Ranked/);
+    await page.locator('#board-sheet').getByRole('button',{name:'Ranked game',exact:true}).click();
+    assert.match(await page.locator('#board-sheet').innerText(), /Do not use engine, AI or human advice/);
+    await page.locator('#board-sheet [aria-label="Close"]').click(); await page.locator('#board-menu').click();
+    const rankedMove=mine.legal.find(lan=>!lan.includes('!')); assert(rankedMove);
+    await page.locator('#board-sheet').getByRole('button',{name:'Choose a move',exact:true}).click();
+    await page.locator(`#choices button[title="${rankedMove}"]`).click();
+    const rankedCommit=page.waitForResponse(response=>response.request().method()==='POST' && new URL(response.url()).pathname===`/api/games/${rankedId}/commands`);
+    await page.locator('#end-turn[aria-disabled="false"]').click(); assert.equal((await rankedCommit).status(),200);
+    other=await readRanked(1); assert.equal(other.revision,mine.revision+1); assert.equal(other.history.actions.at(-1),rankedMove);
+    await shot(page,'web-ranked-turn');
+    await tool(1,'kingdown_resign',{game_id:rankedId,command_id:randomUUID(),expected_revision:other.revision});
+    await page.locator('[data-screen="end"]:not([hidden])').waitFor();
+    assert.match(await page.locator('#end-reason').innerText(),/^Ranked/);
+    const rankedEnd=await readRanked(0); assert.notEqual(rankedEnd.outcome.rating,null);
+    assert.equal((await pool.query('select count(*)::int as n from public.rating_history where game_id=$1',[rankedId])).rows[0].n,2);
+    await shot(page,'web-ranked-result');
+    await writeFile(join(env('PLAYABLE_OUT'),'ranked-policy.json'),JSON.stringify({game_id:rankedId,rating_policy:rankedEnd.rating_policy,options:rankedEnd.options,days_per_move:rankedEnd.days_per_move,engine:rankedEnd.engine_fingerprint,revision:rankedEnd.revision,history:rankedEnd.history.actions,outcome:rankedEnd.outcome,checks:['actual shared web Ranked setup','MCP ranked join','web UI move read through MCP','Casual outcomes without rating rows','Ranked outcome with two rating rows']},null,2));
+  } else {
+    // Production: the shared setup offers no Ranked choice, and HTTP and MCP refuse a ranked start.
+    await page.goto(origin + '/play/');
+    await page.getByRole('radio', {name:'A random player',exact:true}).locator('..').click();
+    assert(await page.locator('#setup-rating').isHidden(), 'Production shows no Ranked choice');
+    assert.doesNotMatch(await page.locator('#setup-body').innerText(), /Ranked/);
+    const refused = await http(0, '/api/games/find', { mode: 'ranked', command_id: randomUUID() }, 409);
+    assert.deepEqual(refused, { code: 'RANKED_UNAVAILABLE', message: 'Ranked is not available. Play a Casual game.' });
+    const response = await fetch(origin + '/mcp', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'X-Kingdown-Dev-Actor': actors[1], 'MCP-Protocol-Version': '2025-11-25' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: ++rpcId, method: 'tools/call', params: { name: 'kingdown_find', arguments: { mode: 'ranked', command_id: randomUUID() } } }) });
+    const { result } = await response.json(); assert(result.isError); assert.equal(result._meta?.code, 'RANKED_UNAVAILABLE');
+    assert.equal((await pool.query("select count(*)::int as n from public.games where rating_policy='ranked-v1' and created_by=any($1::uuid[])", [actors])).rows[0].n, 0);
   }
-  await page.locator('#status').filter({hasText:'Your move'}).waitFor();
-  await page.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
-  await page.locator('#board-menu').click();
-  assert.match(await page.locator('#board-sheet').innerText(), /Ranked/);
-  await page.locator('#board-sheet').getByRole('button',{name:'Ranked game',exact:true}).click();
-  assert.match(await page.locator('#board-sheet').innerText(), /Do not use engine, AI or human advice/);
-  await page.locator('#board-sheet [aria-label="Close"]').click(); await page.locator('#board-menu').click();
-  const rankedMove=mine.legal.find(lan=>!lan.includes('!')); assert(rankedMove);
-  await page.locator('#board-sheet').getByRole('button',{name:'Choose a move',exact:true}).click();
-  await page.locator(`#choices button[title="${rankedMove}"]`).click();
-  const rankedCommit=page.waitForResponse(response=>response.request().method()==='POST' && new URL(response.url()).pathname===`/api/games/${rankedId}/commands`);
-  await page.locator('#end-turn[aria-disabled="false"]').click(); assert.equal((await rankedCommit).status(),200);
-  other=await readRanked(1); assert.equal(other.revision,mine.revision+1); assert.equal(other.history.actions.at(-1),rankedMove);
-  await shot(page,'web-ranked-turn');
-  await tool(1,'kingdown_resign',{game_id:rankedId,command_id:randomUUID(),expected_revision:other.revision});
-  await page.locator('[data-screen="end"]:not([hidden])').waitFor();
-  assert.match(await page.locator('#end-reason').innerText(),/^Ranked/);
-  const rankedEnd=await readRanked(0); assert.notEqual(rankedEnd.outcome.rating,null);
-  assert.equal((await pool.query('select count(*)::int as n from public.rating_history where game_id=$1',[rankedId])).rows[0].n,2);
-  await shot(page,'web-ranked-result');
-  await writeFile(join(env('PLAYABLE_OUT'),'ranked-policy.json'),JSON.stringify({game_id:rankedId,rating_policy:rankedEnd.rating_policy,options:rankedEnd.options,days_per_move:rankedEnd.days_per_move,engine:rankedEnd.engine_fingerprint,revision:rankedEnd.revision,history:rankedEnd.history.actions,outcome:rankedEnd.outcome,checks:['actual shared web Ranked setup','MCP ranked join','web UI move read through MCP','Casual outcomes without rating rows','Ranked outcome with two rating rows']},null,2));
   // Hold an actual old HTTP list while the player leaves and returns after the offer is cancelled.
   const staleOffer = (await tool(1, 'kingdown_create', { kind: 'random', mode: 'casual', command_id: randomUUID() }))._meta.view;
   await page.goto(origin + '/play/'); await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor();
