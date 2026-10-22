@@ -161,6 +161,8 @@ export function renderTable(s: TableSnapshot): void {
   $('next-lesson').hidden = lesson == null || !lessonDone;
   $('return-game').hidden = lesson == null;
   $('next-lesson').querySelector('.label')!.textContent = s.nextLesson != null ? `Next: ${s.nextLesson}` : 'Start a game';
+  if (s.nextLesson != null) $('next-lesson').setAttribute('aria-label', `Next lesson: ${s.nextLesson}`);
+  else $('next-lesson').removeAttribute('aria-label');
   $('show-me').hidden = lesson == null || lessonDone;
   $('show-me').setAttribute('aria-disabled', String(s.finished || busy || viewing != null || !s.myTurn));
 }
