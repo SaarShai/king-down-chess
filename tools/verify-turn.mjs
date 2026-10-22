@@ -1,6 +1,6 @@
 // W1: the real turn press, its Undo floor and the guarded link send.
 import assert from 'node:assert/strict';
-import { usePower, startLesson, confirmResign, endTurn, lanMoves, setPace, waitForUi } from './app-ui.mjs';
+import { powerCoin, usePower, startLesson, confirmResign, endTurn, lanMoves, setPace, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL'), browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -40,6 +40,7 @@ try {
 
     await open('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', '?kings=frost:freeze,none');
     await setPace(page, 'normal');
+    assert.equal(await powerCoin(page).count(), 1, 'a save without rules plays the URL king power');
     await usePower(page); await tap('d5'); await move('a2', 'a3');
     await page.evaluate(() => { document.getElementById('undo').click(); document.getElementById('undo').click(); });
     await waitForUi(page, ui => ui.lan.length === 0 && !window.view.scene.animating);
