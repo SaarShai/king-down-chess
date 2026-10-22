@@ -179,8 +179,7 @@ if (gameLink) { // a reload then resumes the autosave
   if (unread) for (const k of ['rules', 'kings']) url.searchParams.delete(k);
   history.replaceState(null, '', url);
 }
-// A save from before saves held their rules replays under the start-up rules (the URL's `?kings=`/`?rules=`, else the defaults).
-play.restore(saved && !saved.rules ? { ...saved, rules: { ...play.game().rules } } : saved, { link: openLink, continues, urlRules: !!(preset || kings || (openLink && linkDesign)), title: showTitle,
+play.restore(saved, { link: openLink, continues, urlRules: !!(preset || kings || (openLink && linkDesign)), title: showTitle,
   unreadable: stored.unreadable,
   notice: unread ? `The game link holds a piece that this version cannot read.${saved ? ' Your saved game stays.' : ''}` : '' });
 await view.ready();
