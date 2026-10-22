@@ -17,7 +17,7 @@ const root = realpathSync(join(dirname(fileURLToPath(import.meta.url)), '..'));
 const say = line => console.log(line);
 
 function usage() {
-  const rows = checks.map(c => `  ${c.name.padEnd(16)} ${String(c.limit).padStart(4)} s  ${c.script}${c.channel ? `  (channel ${c.channel})` : ''}${c.byName ? '  (by name only)' : ''}${c.exclusive ? '  (exclusive)' : ''}`);
+  const rows = checks.map(c => `  ${c.name.padEnd(16)} ${String(c.limit).padStart(4)} s  ${c.script}${c.channel ? `  (channel ${c.channel})` : ''}${c.env ? `  (${Object.entries(c.env).map(([k, v]) => `${k}=${v}`).join(' ')})` : ''}${c.byName ? '  (by name only)' : ''}${c.exclusive ? '  (exclusive)' : ''}`);
   return `Usage: npm run check:browser [name ...]
 
 Builds and serves the site with Vite's preview on 127.0.0.1 at a free port when a check needs it.
@@ -172,7 +172,7 @@ for (const c of selected) {
     const before = treeStatus(root);
     const result = await run(process.execPath, [c.script, ...(c.args ?? [])], {
       log, limit: c.limit * STEP,
-      extraEnv: { ...(url ? { PLAYABLE_URL: url } : {}), PLAYABLE_OUT: join(runDir, c.name), PLAYABLE_BROWSER: process.env.PLAYABLE_BROWSER || c.channel || env('PLAYABLE_BROWSER') },
+      extraEnv: { ...c.env, ...(url ? { PLAYABLE_URL: url } : {}), PLAYABLE_OUT: join(runDir, c.name), PLAYABLE_BROWSER: process.env.PLAYABLE_BROWSER || c.channel || env('PLAYABLE_BROWSER') },
     });
     exitIfInterrupted();
     return { result, changed: changedPaths(before, treeStatus(root)) };
