@@ -69,6 +69,16 @@ async function nextWrite(page: Page, show: () => Promise<unknown>) {
   await show(); await page.waitForFunction(n => (window as any).harnessWidgetStates.length > n, writes);
   await sourceReady(page);
 }
+/** Remounts the frame and waits for the new frame's first widget write. The old frame also writes at its teardown, so only a write after the new frame's boot counts. */
+async function remountWrite(page: Page) {
+  await page.evaluate(() => {
+    const host = window as any; host.bootWrites = undefined;
+    addEventListener('message', function booted({ data }) { if (data?.harness !== 'booted') return; removeEventListener('message', booted); host.bootWrites = host.harnessWidgetStates.length; });
+  });
+  await page.locator('#remount').click();
+  await page.waitForFunction(() => { const host = window as any; return host.bootWrites !== undefined && host.harnessWidgetStates.length > host.bootWrites; });
+  await sourceReady(page);
+}
 
 it('counts a held call in the host and in the frame until its release', async () => {
   const page = await open();
@@ -734,7 +744,7 @@ it('R10: a remount keeps a waiting move on A and sends nothing to the shown game
       (window as any).harnessWidgetState = { modelContent: {}, privateContent: { screen: 'board', board_id: board, pending: { name: 'kingdown_move', args: { command_id: 'r10-move', expected_revision: rev, lan: 'e2-e4' }, game_tag: tag, screen: 'board' } } };
     }, [b._meta.board_id, a.game.slice(0, 8), revision]);
     // The new frame reads the saved board B and writes its state; wait for that write before its state is read.
-    await nextWrite(page, () => page.locator('#remount').click());
+    await remountWrite(page);
     await settled(page);
     // Nothing is sent for the shown game B.
     expect(await page.evaluate(game => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move' && c.arguments.game_id === game).length, b.structuredContent.game_id)).toBe(0);
