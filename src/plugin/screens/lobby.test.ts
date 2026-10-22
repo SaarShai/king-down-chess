@@ -16,6 +16,7 @@ vi.mock('./friend', () => ({
   row: () => { const row = { append() {}, classList: { add() {} }, onclick: undefined }; harness.rows.push(row); return row; },
 }));
 vi.mock('../../account-game/features', () => ({ featureNames: [], features: () => 'features', icon: () => '' }));
+afterEach(() => { vi.unstubAllEnvs(); });
 const flush = async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); };
 const waiting = (rating_policy: RatingPolicy) => ({ game_id: `game-${rating_policy}`, kind: 'random', status: 'waiting', rating_policy, options: DEFAULT_OPTIONS });
 afterEach(() => vi.unstubAllGlobals());
@@ -30,6 +31,7 @@ beforeEach(() => {
 });
 
 it.each(['casual', 'ranked'] as const)('keeps the newest %s opponents and own games when an earlier visit replies late', async mode => {
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging'); // Ranked is offered only in staging (ticket 67).
   harness.mode = mode;
   const policy = mode === 'casual' ? 'casual' : 'ranked-v1';
   let release!: (reply: unknown) => void;
@@ -83,6 +85,7 @@ it('invalidates a departed visit even when returning to accept a game without an
   expect(harness.nodes.get('lobby-list').replaceChildren).toHaveBeenCalledTimes(before);
 });
 it.each(['casual', 'ranked'] as const)('does not reuse an open game from another policy with Any rules in %s', async mode => {
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging'); // Ranked is offered only in staging (ticket 67).
   harness.mode = mode; harness.memory.view = waiting(mode === 'casual' ? 'ranked-v1' : 'casual');
   const { lobbyScreen } = await import('./lobby'); lobbyScreen(); await flush();
   harness.nodes.get('find-any-rules').checked = true;
@@ -91,6 +94,7 @@ it.each(['casual', 'ranked'] as const)('does not reuse an open game from another
   expect(harness.start).toHaveBeenCalledWith('random', expect.objectContaining({ mode, ...(mode === 'ranked' ? { colour: 'random' } : { any_rules: true }) }));
 });
 it.each(['casual', 'ranked'] as const)('resumes an own waiting game only within %s', async mode => {
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging'); // Ranked is offered only in staging (ticket 67).
   harness.mode = mode; harness.memory.view = waiting(mode === 'casual' ? 'casual' : 'ranked-v1');
   const { lobbyScreen } = await import('./lobby'); lobbyScreen(); await flush();
   await harness.nodes.get('find-opponent').onclick();
@@ -98,6 +102,7 @@ it.each(['casual', 'ranked'] as const)('resumes an own waiting game only within 
   expect(harness.start).not.toHaveBeenCalled();
 });
 it.each(['casual', 'ranked'] as const)('filters the %s lobby and retains explicit accept policy through handle creation', async mode => {
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging'); // Ranked is offered only in staging (ticket 67).
   harness.mode = mode;
   const games = (['legacy', 'casual', 'ranked-v1'] as const).map(rating_policy => ({ ...waiting(rating_policy), created_at: '2030-01-01', creator: { handle: 'player', icon: null } }));
   harness.client.call.mockImplementation(async (name: string) => ({ _meta: name === 'kingdown_lobby' ? { lobby: { games, server_now: '2030-01-01' } } : { games: [] } }));

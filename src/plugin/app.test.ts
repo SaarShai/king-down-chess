@@ -23,6 +23,7 @@ vi.mock('./screens/seat', () => ({ finishSeat() {}, seatScreen() {}, seatSync() 
 vi.mock('./screens/end', () => ({ endPoll() {}, endSync() {}, endScreen() {} }));
 vi.mock('./screens/profile', () => ({ profileScreen() {} }));
 vi.mock('./screens/collection', () => ({ collectionScreen() {} }));
+afterEach(() => { vi.unstubAllEnvs(); });
 
 // The app uses the real client, queue, router and notice store. These nodes replace only the display.
 function node() {
@@ -531,6 +532,7 @@ it('keeps a newer list after navigation in the same epoch', async () => {
 });
 
 it.each([false, true])('retries Casual Play now with its saved king when another setup draft exists (saved Ranked: %s)', async ranked => {
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging'); // Ranked is offered only in staging (ticket 67).
   const app = await mounted(), setup = await import('./screens/setup');
   const { readSetup, withMode } = await import('./screens/setup-model');
   let saved = readSetup(null);
@@ -1018,6 +1020,7 @@ it('keeps a failed start-settings save off the page opened with Back', async () 
 });
 
 it.each(['casual', 'ranked'] as const)('review: a failed %s Find from Open games keeps its mode, error and Retry there and locks a second Find', async mode => {
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging'); // Ranked is offered only in staging (ticket 67).
   const app = await mounted(), { locks, messageLine } = await import('../account-game/state'); app.navigate('lobby');
   transport.call.mockImplementation(async ({ name }) => name === 'kingdown_find'
     ? { content: [{ type: 'text', text: 'Lost Find reply' }], isError: true } : { content: [], _meta: { games: [] } });
@@ -1034,6 +1037,7 @@ it.each(['casual', 'ranked'] as const)('review: a failed %s Find from Open games
 });
 
 it.each(['casual', 'ranked'] as const)('restores a pending %s Find in the lobby over the opposite saved mode without opening Play', async mode => {
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging'); // Ranked is offered only in staging (ticket 67).
   const { readSetup } = await import('./screens/setup-model'), { DEFAULT_OPTIONS, RANKED_OPTIONS } = await import('../match/setup');
   const saved = readSetup({ kind: 'random', mode: mode === 'ranked' ? 'casual' : 'ranked', options: DEFAULT_OPTIONS, colour: 'white' });
   const options = mode === 'ranked' ? RANKED_OPTIONS : { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true };

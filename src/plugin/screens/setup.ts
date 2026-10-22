@@ -10,7 +10,7 @@ import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, 
 import { POWER_NAME, cardName, cardCost, cardText, powerText, powerTitle, powerOptions, powersRules, ruleLine } from '../../powers-ui';
 import type { View } from '../../match/protocol';
 import { locks, type Page } from '../../account-game/state';
-import { availablePowers, cleanKing, createArguments, gameSetup, pieceLocked, quickSetup, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, withMode, type SetupState } from './setup-model';
+import { availablePowers, cleanKing, createArguments, gameSetup, pieceLocked, quickSetup, rankedOffered, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, withMode, type SetupState } from './setup-model';
 import { onStop } from './friend';
 import { RANKED_RULES, RANKED_HELP } from '../../account-game/rating-policy';
 import './setup.css';
@@ -39,7 +39,7 @@ function toggle(key: string, symbol: string, title: string, line: string, sheet 
 }
 function build() {
   $('setup-body').innerHTML = `<fieldset class="modes"><legend class="sr-only">Who you play</legend>${(['solo','friend','random'] as const).map(kind => `<label class="mode"><input type="radio" name="setup-mode" value="${kind}" aria-label="${{ solo: 'Computer', friend: 'A friend', random: 'A random player' }[kind]}"><span class="mode-art${kind === 'random' ? ' emblem-fan' : ''}">${kind === 'random' ? ['frost','flame','stratus'].map(k => image(`ui/emblems/${k}.webp`)).join('') : image('ui/kings/spirit.webp') + (kind === 'friend' ? image('ui/kings/shadow-b.webp', 'face-left') : '')}</span><span class="mode-text"><b>${{ solo: 'Computer', friend: 'A friend', random: 'A random player' }[kind]}</b></span></label>`).join('')}</fieldset>
-    ${segment('setup-rating', 'Game mode', ['casual','ranked'])}<p id="setup-rating-line" class="quiet-line">Casual does not change ratings. Ranked uses your existing rating.</p><p id="setup-ranked-rules" class="quiet-line" hidden>${RANKED_RULES} ${RANKED_HELP}</p>
+    ${segment('setup-rating', 'Game mode', ['casual','ranked'])}<p id="setup-rating-line" class="quiet-line">${rankedOffered() ? 'Casual does not change ratings. Ranked uses your existing rating.' : 'A game with a random player is Casual. Casual does not change ratings.'}</p><p id="setup-ranked-rules" class="quiet-line" hidden>${RANKED_RULES} ${RANKED_HELP}</p>
     ${toggle('anyRules', 'globe', 'Any rules', ANY_RULES)}
     <button id="play-open" class="menu-row has-lead"><span class="row-art fan">${['frost','flame','stratus'].map(k => image(`ui/emblems/${k}.webp`)).join('')}</span><span class="row-title">Open games</span><span class="line">Join a game that another player opened.</span><i aria-hidden="true">›</i></button>
     <div id="play-join"><h3 class="group-head">Join with a code</h3><form id="join-form" class="code-row"><input id="token" class="field" aria-label="Game code" placeholder="K7QX2M" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" required maxlength="300"><button id="join" type="submit">Join</button></form></div>
@@ -71,7 +71,7 @@ function render() {
   for (const key of ['mode','level','colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.checked = input.value === (key === 'mode' ? setup.kind : setup[key]); });
   $('setup-level').hidden = $('level-line').hidden = setup.kind !== 'solo'; $('play-open').hidden = setup.kind !== 'random'; $('play-join').hidden = setup.kind !== 'friend'; $('level-line').textContent = levelLines[setup.level];
   const ranked = setup.mode === 'ranked';
-  $('setup-rating').hidden = $('setup-rating-line').hidden = setup.kind !== 'random';
+  $('setup-rating').hidden = setup.kind !== 'random' || !rankedOffered(); $('setup-rating-line').hidden = setup.kind !== 'random';
   $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-rating"]').forEach(input => { input.checked = input.value === setup.mode; });
   $('setup-ranked-rules').hidden = !ranked;
   for (const id of ['setup-colour','setup-game-heading','fairy-row','cards-row','kingPowers-row']) $(id).hidden = ranked;

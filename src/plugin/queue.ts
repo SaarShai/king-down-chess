@@ -59,7 +59,7 @@ export type Job = {
 export const DETACHABLE = ['kingdown_open', 'kingdown_resume', 'kingdown_join', 'kingdown_accept', 'kingdown_find', 'kingdown_create'];
 
 /** The definitive refusals; every other error is `failed` (design §2 outcome map). */
-export const REFUSALS = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'NOT_ALLOWED', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE', 'RATE_LIMITED'];
+export const REFUSALS = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'NOT_ALLOWED', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE', 'RATE_LIMITED', 'RANKED_UNAVAILABLE'];
 
 export const EMPTY: ToolResult = { content: [] };
 export const resultText = (result: ToolResult) => result.content.filter(part => part.type === 'text').map(part => part.text ?? '').join(' ');

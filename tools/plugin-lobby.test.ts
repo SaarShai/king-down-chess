@@ -9,11 +9,13 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 const options = { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false };
 beforeAll(async () => {
+  // The source page reads the stage when the harness starts; this file checks the staging Ranked lobby (ticket 67).
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging');
   folder = await mkdtemp(join(tmpdir(), 'kingdown-lobby-test-'));
   const boardPath = join(folder, 'board.html'); await writeFile(boardPath, await readFile('src/plugin/index.html'));
   harness = await startHarness({ boardPath, sourcePage: true }); browser = await chromium.launch({ headless: true });
 });
-afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
+afterAll(async () => { vi.unstubAllEnvs(); await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
 async function open() {
   const page = await browser.newPage(); page.setDefaultTimeout(5000); await page.goto(harness.url);
   await page.frameLocator('iframe').locator('#home-play:not(:disabled)').waitFor();

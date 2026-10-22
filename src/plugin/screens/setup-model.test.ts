@@ -1,7 +1,9 @@
-import { expect, it } from 'vitest';
-import { gameSetup, readSetup, quickSetup, withToggle, createArguments, pieceLocked, withPiece, withCard, withMode, cleanKing, availablePowers, shownKing, soloChoice } from './setup-model';
+import { afterEach, expect, it, vi } from 'vitest';
+import { gameSetup, readSetup, quickSetup, withToggle, createArguments, pieceLocked, withPiece, withCard, withMode, cleanKing, availablePowers, shownKing, soloChoice, rankedOffered } from './setup-model';
 import { DEFAULT_OPTIONS, RANKED_OPTIONS } from '../../match/setup';
 import type { View } from '../../match/protocol';
+
+afterEach(() => { vi.unstubAllEnvs(); });
 
 it('reads the aborted game draft from its view, without saved settings', () => {
   const options = { ...DEFAULT_OPTIONS, cards: true, kingPowers: true };
@@ -95,6 +97,7 @@ it('cleans card-incompatible picks and uses the actual solo seat default when th
 });
 
 it('fixes Ranked options before saving and sending, and limits it to random players', () => {
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging');
   const custom = { ...readSetup(null), kind: 'random' as const, colour: 'black' as const, king: { king: 'Mud', power: 'Leap' } as const };
   const ranked = withMode(custom, 'ranked');
   expect(ranked).toMatchObject({ mode: 'ranked', colour: 'random', options: RANKED_OPTIONS, king: { king: 'Mud', power: 'March' } });
@@ -106,7 +109,21 @@ it('fixes Ranked options before saving and sending, and limits it to random play
   expect(custom.options).not.toEqual(RANKED_OPTIONS);
 });
 
+it('offers Ranked only in the staging build and keeps every production draft Casual (ticket 67)', () => {
+  const custom = { ...readSetup(null), kind: 'random' as const, colour: 'black' as const };
+  for (const stage of [undefined, '', 'production']) {
+    vi.stubEnv('VITE_KINGDOWN_STAGE', stage);
+    expect(rankedOffered()).toBe(false);
+    expect(withMode(custom, 'ranked')).toMatchObject({ mode: 'casual', colour: 'black', options: custom.options });
+    expect(readSetup({ ...custom, mode: 'ranked' }).mode).toBe('casual');
+    expect(createArguments({ ...custom, mode: 'ranked' }).mode).toBe('casual');
+  }
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging');
+  expect(rankedOffered()).toBe(true);
+});
+
 it('stores an optional setup mode without rejecting old saved settings', async () => {
+  vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging');
   const { lastSetupSchema } = await import('../settings');
   const saved = readSetup(null);
   const { mode: _, ...old } = saved;
