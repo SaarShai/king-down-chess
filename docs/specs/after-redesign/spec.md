@@ -1,6 +1,7 @@
 # After the redesign: parallel check runs and the game-screen split
 
-Status: ready-for-agent. The owner asked for both changes on 2026-10-09 and gave the plan to the agent on 2026-10-09 ("you write the specs and implement"). The decisions in §6 are made by delegation (owner, 2026-10-09: "use your best judgement"), not by the owner's own yes; he can overrule each one.
+Status: done. The owner asked for both changes on 2026-10-09 and gave the plan to the agent on 2026-10-09 ("you write the specs and implement"). The decisions in §6 are made by delegation (owner, 2026-10-09: "use your best judgement"), not by the owner's own yes; he can overrule each one.
+Closed by: tickets 01 to 05 are done; PRs #33, #34, #35 and #36 are merged (d69245f1, 50eae990, 19a366d6, 1280616f) and the slot commits 793bf41d and ee751fdf are on main.
 
 ## 1. The owner's words
 

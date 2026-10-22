@@ -1,6 +1,7 @@
 # Checks and hooks
 
-Status: ready-for-agent
+Status: done
+Closed by: tickets 01 to 13 are resolved or done; 04 (pre-push hook and CI) is done.
 Source: docs/specs/retro-2026-10-06/retro.md items 2, 4, 24
 
 ## Problem Statement

@@ -1,6 +1,7 @@
 # Steering cut
 
-Status: ready-for-agent
+Status: done
+Closed by: tickets 01 to 09 are resolved.
 Source: docs/specs/retro-2026-10-06/retro.md items 14, 15, 16
 
 ## Problem Statement

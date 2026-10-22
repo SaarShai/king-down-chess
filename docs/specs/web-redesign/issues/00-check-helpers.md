@@ -1,6 +1,7 @@
 # 00 · Check helpers and sample states
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: done (the owner approved [the spec](../spec.md) on 2026-10-09)
+Closed by: helpers in 12a2387, 42eaa94, ebcd5a7, 04d3d46 and a118cdb; PR #26 is merged (0355ad3e).
 Blocked by: PR #24 (decision D1)
 
 ## Scope
