@@ -1,6 +1,6 @@
 # Prove that the production schema switch is safe both ways
 
-Status: needs-triage. The test is done on `staging/lane-dbcompat`; not merged, not deployed. The release order in the production plan fails one check: see "Finding". Parent: production release plan, blockers B4 and B11.
+Status: resolved (lead decision, 2026-10-22). The test is done on `staging/lane-dbcompat`. The release order in the production plan failed one check (see "Finding"); the plan now applies the current block 4 after 0018 in section 2.4 step 1, Phase D step 10 and section 4.3. Parent: production release plan, blockers B4 and B11.
 
 ## What
 
@@ -55,7 +55,7 @@ The test resets the schema of its own copy (`kingdown_lane_dbcompat_prodswitch_t
 
 ### Plan section 4.3 statement
 
-"Phase A step 2's disposable-database test must prove it": the test proves it with one added step. The old build `dpl_7v1Q…` starts on 0014 + 0016-0018 and reads and writes games there (`rating_policy` defaults to `legacy`). The new build starts there only after the current block 4 is applied too. 0015 ends the rollback window. The plan file is outside this repo, so it does not change here. The plan owner must add "apply the current block 4" to section 2.4 step 1, Phase D step 10 and section 4.3.
+"Phase A step 2's disposable-database test must prove it": the test proves it with one added step. The old build `dpl_7v1Q…` starts on 0014 + 0016-0018 and reads and writes games there (`rating_policy` defaults to `legacy`). The new build starts there only after the current block 4 is applied too. 0015 ends the rollback window. The plan file is outside this repo. The lead added "apply the current block 4" to section 2.4 step 1, Phase D step 10 and section 4.3 on 2026-10-22.
 
 ### Checks
 
