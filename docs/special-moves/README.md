@@ -2,7 +2,7 @@
 
 Implemented on `codex/cursor-adoption`, following adoption commit `0a00f3d`.
 
-> **2026-10-11:** the clay look is parked (`parked/clay/`, [spec](../specs/park-clay/spec.md)); the clay commands below are history.
+> **2026-10-11:** the clay look is parked (`1476f55c:parked/clay/`, [spec](../specs/park-clay/spec.md)); the clay commands below are history.
 
 - Tapping or dragging an Ogre onto a target that allows both actions opens Capture / Push, with destinations explained. Cancel or Escape leaves the position unchanged. Shift-click remains a push shortcut; unambiguous pushes happen directly.
 - Selecting a piece brings its instructions and Cancel selection to the top of the panel. Beast chains have a visible Finish chain button with the capture count. Reaver lab captures have a finish control too.

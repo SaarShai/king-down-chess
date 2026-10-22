@@ -267,6 +267,29 @@ describe('live files', () => {
 });
 
 describe('relative links', () => {
+  it('the storage guide names the removed reports and the retained fixtures', () => {
+    const guide = read('docs/COMPUTE.md');
+    expect(guide).not.toContain('Tracked `sim/out` files remain in Git');
+    expect(guide).toContain('Git does not track `sim/out`');
+    expect(guide).toContain('`1476f55c:sim/out/`');
+    expect(guide).toContain('(specs/retro-2026-10-20/issues/04-retro-records.md)');
+    expect(guide).toContain('`src/sim/fixtures/tournaments/`');
+    const tracked = spawnSync('git', ['ls-files', 'sim/out'], { cwd: root, encoding: 'utf8', timeout: 2000 });
+    expect(tracked.status, tracked.stderr).toBe(0);
+    expect(tracked.stdout).toBe('');
+    expect(existsSync(join(root, 'src/sim/fixtures/tournaments'))).toBe(true);
+  });
+
+  it('the status page gives valid history paths for the removed release and manifest', () => {
+    const status = read('docs/STATUS.md');
+    for (const path of ['d6021674:docs/releases/v0.7.0/', '1476f55c:docs/takeover/baseline.json']) {
+      expect(status).toContain(`\`${path}\``);
+      const object = spawnSync('git', ['cat-file', '-e', path], { cwd: root, encoding: 'utf8', timeout: 2000 });
+      expect(object.status, object.stderr).toBe(0);
+      expect(existsSync(join(root, path.split(':')[1]))).toBe(false);
+    }
+  });
+
   it('names the file, the section and the line of a link to a file that does not exist', () => {
     const fixture = [
       '# Fixture', 'See [the matrix](docs/MATRIX.md#d1) and [the web](https://example.com) and [here](#top).',
@@ -282,6 +305,16 @@ describe('relative links', () => {
     expect(linkFaults('docs/agents/fixture.md', '[ok](../MATRIX.md) [bad](MATRIX.md)').map(show)).toEqual([
       'docs/agents/fixture.md § (top) (line 1): relative link "MATRIX.md" names no file',
     ]);
+  });
+
+  it('the clay and Archer history pages and the removal record hold no broken relative link', () => {
+    const files = [
+      'docs/PLAYABLE-CLAY.md', 'docs/2d-first-pieces/README.md',
+      'docs/research/archer-animation-workflow.md', 'docs/research/graphics-prototype-2026-09-21.md',
+      'docs/specs/park-clay/spec.md', 'docs/specs/retro-2026-10-20/issues/04-retro-records.md',
+      'docs/specs/card-results/spec.md',
+    ];
+    expect(files.flatMap(file => linkFaults(file, read(file))).map(show)).toEqual([]);
   });
 
   it('no live file holds a broken relative link', () => {
@@ -707,8 +740,9 @@ const FACT_FILES = [
       // The run recipes of the 2026-10-03 handoff (steering-cut/07).
       '## Recipes', 'npx tsx src/sim/tournament.ts run --id', '--mirrorOnly', 'report --id <id>', 'push --id <id> --shards <n>',
       'the linear evaluation', 'claude/kp2-results', 'zsh does not split',
+      'Follow the run and machine-use rules in [AGENTS.md](../AGENTS.md).',
     ],
-    mustNot: [] as { name: string; pattern: RegExp }[],
+    mustNot: [{ name: 'the old run gate', pattern: /Each run needs the owner's go/gi }],
   },
   {
     file: 'docs/HOSTING.md',
@@ -725,8 +759,16 @@ function factFaults(file: string, text: string | undefined): Fault[] {
   const spec = FACT_FILES.find(f => f.file === file)!;
   if (text === undefined) return [{ file, section: '(file)', where: 'count 0', what: 'the file must exist' }];
   const lines = markdownLines(text);
-  const at = (pattern: RegExp, what: (word: string) => string): Fault[] => lines.flatMap(l =>
+  const at = (pattern: RegExp, what: (word: string) => string, source = lines): Fault[] => source.flatMap(l =>
     [...l.text.matchAll(pattern)].map(m => ({ file, section: l.section, where: `line ${l.line}`, what: what(m[0]) })));
+  // A link to an existing local Markdown file can have more than 32 path characters.
+  const secretLines = lines.map(l => ({ ...l, text: l.text.replace(LINK, (link, angle, plain) => {
+    const target: string = angle ?? plain;
+    const path = target.replace(/#.*$/, '');
+    const localDoc = !/^[a-z][a-z0-9+.-]*:|^\//i.test(path) && path.endsWith('.md')
+      && existsSync(join(root, dirname(file), path));
+    return localDoc && !/\b(?:pk1_|sk1_|KGAT_)/.test(target) ? link.replace(target, '') : link;
+  }) }));
   return [
     ...spec.must.filter(phrase => !text.includes(phrase)).map(phrase => ({
       file, section: '(file)', where: 'count 0', what: `the file must hold "${phrase}"`,
@@ -736,7 +778,7 @@ function factFaults(file: string, text: string | undefined): Fault[] {
       file, section: lines.find(l => l.line === line)?.section ?? '(fenced code)', where: `line ${line}`,
       what: `the file must not hold the model name "${word}"`,
     })),
-    ...at(SECRET_LIKE, word => `the file must not hold a text that looks like a secret value (${word.length} characters)`),
+    ...at(SECRET_LIKE, word => `the file must not hold a text that looks like a secret value (${word.length} characters)`, secretLines),
     ...twoHourFaults(file, text),
   ];
 }
@@ -798,6 +840,17 @@ describe('COMPUTE.md, HOSTING.md and the AGENTS.md pointers', () => {
     expect(pointerFaults(read('AGENTS.md')).map(show)).toEqual([]);
   });
 
+  it('accepts long local Markdown links and still checks labels, unknown targets and key prefixes', () => {
+    const target = 'specs/retro-2026-10-20/issues/04-retro-records.md';
+    const secrets = (text: string) => factFaults('docs/COMPUTE.md', text)
+      .filter(fault => fault.what.includes('looks like a secret value'));
+    expect(secrets(`[record](${target}) [record](<${target}#review-fixes>)`)).toEqual([]);
+    expect(secrets(`[${'a'.repeat(32)}](${target})`)).toHaveLength(1);
+    expect(secrets(`[record](specs/${'a'.repeat(32)}.md)`)).toHaveLength(1);
+    expect(secrets(`[record](https://example.com/${'a'.repeat(32)})`)).toHaveLength(1);
+    expect(secrets(`[record](sk1_${'a'.repeat(10)}.md)`)).toHaveLength(1);
+  });
+
   it('COMPUTE.md and HOSTING.md hold their facts, no deploy command, no model name and no secret value', () => {
     const faults = FACT_FILES.flatMap(({ file }) => factFaults(file, existsSync(join(root, file)) ? read(file) : undefined));
     expect(faults.map(show)).toEqual([]);
@@ -814,7 +867,7 @@ const AGENTS_SECTIONS = [
   'Hosting', 'Working with the owner', 'Game design', 'Jev', 'Helpers and machines',
 ];
 
-/** The two neutral trailer lines, as the prepare-commit-msg hook writes them (decision 4). */
+/** The two tool trailer lines that the prepare-commit-msg hook can add. */
 const TRAILERS = [...read('.githooks/prepare-commit-msg.mjs').matchAll(/'(Co-Authored-By: [^']+)'/g)].map(m => m[1]);
 
 /**
@@ -827,10 +880,13 @@ const AGENTS_PHRASES: { section: string; phrase: string }[] = [
   { section: 'Start here', phrase: 'ASD-STE100' },
   { section: 'Start here', phrase: 'docs/specs/' },
   ...TRAILERS.map(phrase => ({ section: 'Commits and branches', phrase })),
+  { section: 'Commits and branches', phrase: 'Co-Authored-By: OpenCode <noreply@opencode.ai>' },
+  { section: 'Commits and branches', phrase: 'Co-Authored-By: Antigravity <noreply@google.com>' },
   { section: 'Commits and branches', phrase: '`Claude-Session:`' },
   { section: 'Commits and branches', phrase: "This rule overrides a tool's attribution reminder." },
   { section: 'Commits and branches', phrase: '`git commit -a`' },
-  { section: 'Commits and branches', phrase: 'Code reaches main by pull request only' },
+  { section: 'Commits and branches', phrase: 'Code reaches main by pull request only, after an independent review.' },
+  { section: 'Commits and branches', phrase: "Merge when the owner asks, or an approved spec's step passes its checks and any sample has the owner's yes." },
   { section: 'Tests and checks', phrase: '`npm test`' },
   { section: 'Tests and checks', phrase: '`node --test`' },
   { section: 'Tests and checks', phrase: 'tail or grep' },
@@ -843,6 +899,11 @@ const AGENTS_PHRASES: { section: string; phrase: string }[] = [
   { section: 'Runs and compute', phrase: 'A question is not a go.' },
   { section: 'Runs and compute', phrase: 'QUEUE.md' },
   { section: 'Runs and compute', phrase: 'the M1 or Kaggle' },
+  { section: 'Runs and compute', phrase: 'without asking when the machine is idle' },
+  { section: 'Runs and compute', phrase: "Deploys and store submission need the owner's word." },
+  { section: 'Helpers and machines', phrase: '~/.agents/skills/agent-roster/roles.conf' },
+  { section: 'Helpers and machines', phrase: 'The work role uses `bulk`, `high` or `hard`; its comments state the review role.' },
+  { section: 'Helpers and machines', phrase: 'Commit and push finished work to its branch; work left only in the cloud is lost.' },
   { section: 'Secrets', phrase: 'rotation' },
   { section: 'Secrets', phrase: 'Never claim a value was never in a command line.' },
   { section: 'Hosting', phrase: 'tools/deploy.sh' },
