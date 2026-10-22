@@ -1,6 +1,6 @@
 # Remove the unused space above the embedded phone board
 
-Status: in progress. Parent: U09. Follows ticket 51.
+Status: deployed in staging; physical-host visual acceptance open. Parent: U09. Follows ticket 51.
 
 ## Plan and pass criteria
 
@@ -21,4 +21,12 @@ The portrait account table now has zero top padding; the frame still owns the ho
 
 Both full existing phone geometry selections pass: 32 cases in Chromium and 32 in WebKit, with typecheck and 54 artwork checks per run. The initial Chromium run finds an unrelated high-zoom result assertion. It also fails against unchanged `7a1e5e28`. Its screenshot shows a complete second action and a partly visible third action, with a valid scroll cue. The test now requires a partly visible later action, not specifically the second one; the 12 px cue, first-action fit, every-action reachability and Back checks remain. No timeout or accessibility threshold changes. Temporary diagnostic output is removed.
 
-The compiled HTTP gate, staging artifact and physical recheck are next. No release claim follows from these local results alone.
+## Staging acceptance
+
+Source `d161231f` passes the existing registered WebKit HTTP journey in 282.0 seconds, the combined build, artifact check and staging deploy guard. Preview `dpl_5rhvinFGfcpNWzMxzu3VLwxWFHod` is ready and has the staging alias. All eleven saved-engine archives stay unchanged. Server, consent and runtime bytes match the prior product release.
+
+The first launcher attempt passes staging variables to the isolated plugin fixture and stops at its build guard before UI work. The corrected launcher keeps the fixture and staging environments separate. No product guard changes. The final launcher publishes successfully, but its immediate service-worker equality check fails after alias assignment. A later public fetch matches the home page, account page and worker without another deploy. Both failed receipts remain; `phone-layout-release/accepted-alias.json` records the final match.
+
+Actual desktop ChatGPT opens the retained seven-action game and Settings. A separate fresh tab reaches enabled Play controls under one continuous startup wait, then opens Settings. It needs no Try again and shows no Internal error. The fresh sandbox ID is `16aa994e-02ce-451a-8974-d807167de0ef`. No account turn or setting changes. Both owned Chrome tabs close. See `phone-layout-release/chatgpt-acceptance.json` and its screenshots in the parent evidence folder.
+
+iPhone Mirroring requires the owner's protected Mac login again before the deployed visual check. The owner asks to use a simulator and parallel agents instead. Continue the available simulator check under [ticket 53](53-simulator-and-host-release-follow-up.md). Simulator Safari cannot establish native ChatGPT safe-area acceptance; the physical after-fix check remains explicit.
