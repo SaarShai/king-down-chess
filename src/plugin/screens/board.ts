@@ -38,7 +38,6 @@ let gameRules = new GameRules();
 export const boardGame = () => view;
 export let rollbackBoardMove: (code?: string) => Promise<void>;
 let history: BoardMove[] = [], lastMove: BoardMove | undefined;
-export const boardLastMove = () => lastMove;
 export let skipBoardCeremony = () => {};
 let command: (name: string, args: Record<string, unknown>) => Promise<View | undefined>;
 export const sendBoardCommand = (name: string, args: Record<string, unknown> = {}) => command(name, args);
