@@ -123,3 +123,18 @@ Checks, with `PLUGIN_TEST_DATABASE_URL=postgresql://kingdown_test@127.0.0.1:5543
 - `npm run typecheck`: exit 0.
 - `npm run test:docs`: `Test Files  13 passed (13)`, `Tests  166 passed (166)`.
 - Full `npm test` and `npm run plugin:server:check`: not run; the review check list names the files above.
+
+### Review fix 3
+
+Commit `99e42a7b`, `tools/deploy.sh` and `tools/deploy.test.ts`:
+
+1. Origin check (should-fix). `git fetch` applies `url.<base>.insteadOf`, so the check of the configured URL alone let a rewrite fetch another repository. The script now also requires the effective URL, `git ls-remote --get-url origin` (after `insteadOf`), to be on the same GitHub list. If either URL differs, it stops with exit 2 before the fetch. No setting turns the check off. The test repository no longer has an `insteadOf` rule: test pushes use the push URL (`remote.origin.pushurl` = the bare remote), and a `git` shim first on PATH forwards each call to the real git. Only for a `fetch` inside the test's temp folder does the shim add a command-line rewrite from the configured origin URL to the bare remote. The script's config and `ls-remote` checks do not see it. New test: an `insteadOf` rule from the GitHub URL to another bare repository stops the script before `fetch origin`, with no stub call.
+2. Fetch refspec (nit). The fetch is now `git fetch --quiet origin +refs/heads/main:refs/remotes/origin/main`, so a custom `remote.origin.fetch` cannot put another branch into `origin/main`. New test: with `remote.origin.fetch` = `+refs/heads/other:refs/remotes/origin/main`, `npm test` runs at the commit of `main`, not `other`.
+
+Checks, with `PLUGIN_TEST_DATABASE_URL=postgresql://kingdown_test@127.0.0.1:55432/kingdown_lane_prodprofile_test`:
+
+- Red run: `KINGDOWN_TEST_FILE=tools/deploy.test.ts npm test` with the `79fe625f` version of `tools/deploy.sh` and the new test file: `Test Files  1 failed (1)`, `Tests  2 failed | 130 passed (132)`. The two failures are the two new cases: the `insteadOf` case exits 0 (expected 2), and the refspec case tests the `other` commit.
+- Green: `KINGDOWN_TEST_FILE='{tools/staging-config.test.ts,src/account/public-config.test.ts,tools/plugin-server-config.test.ts,tools/deploy.test.ts}' npm test`: `Test Files  4 passed (4)`, `Tests  197 passed (197)`.
+- `npm run typecheck`: exit 0.
+- `npm run test:docs`: `Test Files  13 passed (13)`, `Tests  166 passed (166)`.
+- Full `npm test`: not run; the review check list names the files above.
