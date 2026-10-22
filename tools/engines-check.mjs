@@ -61,10 +61,12 @@ export async function enginesInUse(client) {
           ? "select engine_fingerprint as engine, state, status, setup_admission as admission from games where status not in ('finished','aborted','annulled')"
           : "select save as state from plugin_matches where snapshot->>'status' = 'playing'"));
       } catch (error) { throw new Error(`Cannot read ${table} (SQLSTATE ${error.code ?? 'unknown'})`); }
-      tables.push({ ...summarizeEngines(table, rows), schema: relation.schema });
+      tables.push({ ...summarizeEngines(table, rows), schema: relation.schema, loaded: table === 'games' || !tables[0].present });
     }
+    // Migration 0006 ended the old plugin games: once games exists, no build loads plugin_matches.
+    // Their stamps stay in that table's report; only the loaded table's stamps need bundles.
     const counts = new Map();
-    for (const table of tables) for (const { engine, games } of table.engines ?? []) counts.set(engine, (counts.get(engine) ?? 0) + games);
+    for (const table of tables) if (table.loaded) for (const { engine, games } of table.engines) counts.set(engine, (counts.get(engine) ?? 0) + games);
     return { ...identity, time: new Date(identity.time).toISOString(), tables, engines: engineRows(counts) };
   } finally { await client.query('ROLLBACK'); }
 }
