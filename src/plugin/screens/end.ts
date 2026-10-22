@@ -105,7 +105,7 @@ export function endScreen(schedule = true) {
     ending(view), view.rules?.kings, view.outcome, rematches, view.rematch_offer,
     opponent?.computer, opponent?.deleted, rematchAllowed, memory.blockNotice, view.rematch_game_id]);
   // Poll times and presence do not change the result. Keep its controls, focus and board inspection mounted.
-  if (contentKey === nextContentKey && (over.open || looking)) return;
+  if (contentKey === nextContentKey && (over.open || looking)) { followUp(schedule); return; }
   contentKey = nextContentKey;
   if (!looking) closeBoardSheet();
   const error = document.querySelector('.page-error')!; error.remove();
@@ -178,6 +178,10 @@ export function endScreen(schedule = true) {
     };
     showFrame = requestAnimationFrame(show);
   }
+  followUp(schedule);
+}
+/** After each result pass, also an unchanged one: the poll takes its new target, and updateEnd sends a queued rematch. */
+function followUp(schedule: boolean) {
   pollUpdate();
   if (schedule) { clearTimeout(updateTimer); updateTimer = setTimeout(updateEnd,0); }
 }

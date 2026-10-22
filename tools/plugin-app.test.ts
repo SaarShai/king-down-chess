@@ -1084,9 +1084,15 @@ it.each([false, true])('keeps one rematch during a held end read and cancels it 
     await frame.locator('#over').getByRole('button', { name:'Play again', exact:true }).evaluate((b: HTMLButtonElement) => { b.click(); b.click(); });
     expect(await sent(page, 'kingdown_rematch')).toBe(0);
     if (leave) await frame.locator('#over').getByRole('button', { name:'New game', exact:true }).click();
+    const released = await page.evaluate(() => (window as any).harnessCalls.length);
     await page.evaluate(() => (window as any).releaseHeld());
     if (leave) { await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); await frame.locator('#setup-start:not(:disabled)').waitFor(); expect(await sent(page, 'kingdown_rematch')).toBe(0); }
-    else { await page.waitForFunction(old => (window as any).harnessView.game_id !== old, old); expect(await sent(page, 'kingdown_rematch')).toBe(1); }
+    else {
+      await page.waitForFunction(old => (window as any).harnessView.game_id !== old, old); expect(await sent(page, 'kingdown_rematch')).toBe(1);
+      // The held end read sends the queued rematch itself; it does not wait for the next poll read.
+      const after = (await page.evaluate(n => (window as any).harnessCalls.slice(n).map((c: any) => c.name), released)) as string[];
+      expect(after.slice(0, after.indexOf('kingdown_rematch'))).not.toContain('kingdown_get');
+    }
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
