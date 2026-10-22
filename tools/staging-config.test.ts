@@ -36,3 +36,31 @@ it('staging refuses every production target', () => {
 it('refuses administrator and other database roles for both connection routes', () => {
   for (const db of [direct.replace('kingdown_plugin_runtime:', 'postgres:'), direct.replace('kingdown_plugin_runtime:', 'other:'), `postgresql://postgres.${STAGING_SUPABASE_REF}:fake@aws-0-us-west-2.pooler.supabase.com/postgres?sslmode=require`, `postgresql://other.${STAGING_SUPABASE_REF}:fake@aws-0-us-west-2.pooler.supabase.com/postgres?sslmode=require`]) expect(() => check({}, STAGING_ORIGIN, db)).toThrow('restricted runtime user');
 });
+
+const caseAndDot = (ref: string) => [
+  ['SUPABASE_URL', `https://${ref.toUpperCase()}.SUPABASE.CO`], ['SUPABASE_URL', `https://${ref}.supabase.co.`],
+  ['db', `postgresql://postgres:fake@DB.${ref.toUpperCase()}.SUPABASE.CO/postgres?sslmode=require`], ['db', `postgresql://postgres:fake@db.${ref}.supabase.co./postgres?sslmode=require`],
+  ['db', `postgresql://postgres:fake@db.${ref}%2Esupabase.co/postgres?sslmode=require`], ['db', `postgresql://postgres.${ref.toUpperCase()}:fake@aws-0-us-west-2.pooler.supabase.com/postgres?sslmode=require`],
+  ['db', `postgresql://postgres%2E${ref}:fake@aws-0-us-west-2.pooler.supabase.com/postgres?sslmode=require`], ['db', `postgresql://postgres.${ref}:fake@AWS-0-US-WEST-2.POOLER.SUPABASE.COM./postgres?sslmode=require`],
+] as const;
+it.each(caseAndDot(STAGING_SUPABASE_REF))('production refuses the staging target %s=%s in any case, with a trailing dot or percent-encoded', (key, value) => {
+  expect(() => key === 'db' ? production({}, 'https://kingdown.dev', value) : production({ [key]: value })).toThrow('Production refuses the staging project');
+});
+it.each(caseAndDot('utqzovjmclfyojedmwok'))('staging refuses the production target %s=%s in any case, with a trailing dot or percent-encoded', (key, value) => {
+  expect(() => key === 'db' ? check({}, STAGING_ORIGIN, value) : check({ [key]: value })).toThrow('Staging refuses the production project');
+});
+it('production accepts its own targets in any case or with a trailing dot', () => {
+  for (const [key, value] of caseAndDot('utqzovjmclfyojedmwok')) expect(key === 'db' ? production({}, 'https://kingdown.dev', value) : production({ [key]: value })).toBe(false);
+  expect(production({}, 'https://KINGDOWN.DEV.')).toBe(false);
+  expect(() => production({}, 'https://KINGDOWN-STAGING.VERCEL.APP.')).toThrow('Production refuses the staging project');
+});
+it('production requires its own Supabase project, origin and database', () => {
+  for (const SUPABASE_URL of [undefined, '', 'https://another.supabase.co', 'http://utqzovjmclfyojedmwok.supabase.co', 'https://utqzovjmclfyojedmwok.supabase.co/path', 'https://utqzovjmclfyojedmwok.supabase.co..']) expect(() => production({ SUPABASE_URL })).toThrow('Production requires its Supabase project');
+  for (const origin of ['https://other.vercel.app', 'http://127.0.0.1:3100']) expect(() => production({}, origin)).toThrow('Production requires a production origin');
+  for (const db of ['postgresql://postgres:fake@db.another.supabase.co/postgres', 'postgresql://postgres:fake@db.example.com/postgres', 'postgresql://postgres.utqzovjmclfyojedmwok:fake@example.com/postgres', 'postgresql://postgres:fake@aws-0-us-west-2.pooler.supabase.com/postgres', 'postgresql://postgres.another:fake@aws-0-us-west-2.pooler.supabase.com/postgres', 'postgresql://postgres:fake@127.0.0.1/kingdown_test']) expect(() => production({}, 'https://kingdown.dev', db)).toThrow('Production requires its Supabase database');
+});
+it('local development skips only the production targets', () => {
+  const local = (SUPABASE_URL: string | undefined, db: string) => stagingConfig({ SUPABASE_URL }, { publicOrigin: 'http://127.0.0.1:3100', database: new URL(db), localDev: true });
+  expect(local(undefined, 'postgresql://postgres:fake@127.0.0.1/kingdown_test')).toBe(false);
+  expect(() => local(STAGING_SUPABASE_URL.toUpperCase(), 'postgresql://postgres:fake@127.0.0.1/kingdown_test')).toThrow('Production refuses the staging project');
+});

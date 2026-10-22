@@ -68,7 +68,7 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
   let db;
   try { db = new URL(connectionString); } catch { throw new Error('Expected a PostgreSQL connection URL'); }
   if (!['postgres:', 'postgresql:'].includes(db.protocol)) throw new Error('Expected a PostgreSQL connection URL');
-  const staging = stagingConfig(env, { publicOrigin, database: db });
+  const staging = stagingConfig(env, { publicOrigin, database: db, localDev });
   if (staging && localDev) throw new Error('Staging cannot enable local personas');
   if (websiteCurrentUser !== undefined && (websiteKeys === undefined || typeof websiteCurrentUser !== 'function')) throw new Error('Website current-user test hook requires website test keys');
   if (websiteKeys !== undefined) {
