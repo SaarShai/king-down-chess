@@ -69,6 +69,11 @@ try {
         const r = await (await p.request.post(new URL('/fixture-position?fen=' + encodeURIComponent(fen) + (extra.seat === 1 ? '&black=1' : ''), pluginURL).href)).json(); assert(!r.isError);
         Object.assign(r._meta.view, extra);
         await p.evaluate(r => { window.harnessNextView = r._meta.view; return window.harnessShow(r); }, r);
+        // harnessShow returns when the host sends the result; the frame then mounts it. It reads the board (the host
+        // answers with harnessNextView and clears it), draws the view and keeps each control off until the mount ends.
+        // Until then the old board is idle, so ready() alone passes and a tap lands on the old position.
+        await p.waitForFunction(() => window.harnessNextView === undefined && window.harnessInflight === window.harnessHeld);
+        await f.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
         await ready();
       }
       async function tap(sq, flipped = false) {

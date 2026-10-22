@@ -6,7 +6,7 @@ import { mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { chromium, firefox, webkit } from 'playwright';
-import { env, isInside, launch, launchPersistent, outRoot, trapErrors } from './checks.mjs';
+import { answerCheckHost, CHECK_SITE_ENV, env, isInside, launch, launchPersistent, outRoot, trapErrors } from './checks.mjs';
 
 const checkout = resolve(__dirname, '../..');
 // The browser of the suite, read before beforeEach clears the setting.
@@ -24,12 +24,49 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** A fake context that records its routes, and a fake browser whose newContext gives one. */
+const fakeContext = () => ({ routes: [] as [string, Function][], route(pattern: string, handler: Function) { this.routes.push([pattern, handler]); return Promise.resolve(); } }) as any;
+const fakeBrowser = () => ({ newContext: vi.fn(async () => fakeContext()) }) as any;
+/** Runs a route handler on a fake request and returns the answer that it gives. */
+const answer = async (handler: Function, method: string, url: string) => {
+  let reply: any;
+  await handler({ request: () => ({ method: () => method, url: () => url }), fulfill: (r: any) => { reply = r; } });
+  return reply;
+};
+
+describe('check host', () => {
+  const host = CHECK_SITE_ENV.VITE_SUPABASE_URL;
+  it('answers the fake account project in each new context and each persistent profile', async () => {
+    vi.stubEnv('PLAYABLE_BROWSER', 'chromium');
+    const engine = fakeBrowser(), open = engine.newContext;
+    vi.spyOn(chromium, 'launch').mockResolvedValue(engine);
+    const browser = await launch();
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    expect(open).toHaveBeenCalledWith({ viewport: { width: 390, height: 844 } });
+    expect(context.routes.map(([p]: [string]) => p)).toEqual([`${host}/**`]);
+    vi.spyOn(chromium, 'launchPersistentContext').mockResolvedValue(fakeContext());
+    expect((await launchPersistent('/tmp/profile')).routes.map(([p]: [string]) => p)).toEqual([`${host}/**`]);
+  });
+
+  it('lists Google and GitHub, and gives each other path an empty answer', async () => {
+    const context = fakeContext();
+    await answerCheckHost(context);
+    const [, handler] = context.routes[0];
+    const settings = await answer(handler, 'GET', `${host}/auth/v1/settings`);
+    expect(JSON.parse(settings.body)).toEqual({ external: { google: true, github: true } });
+    expect(settings.headers['access-control-allow-origin']).toBe('*');
+    expect(await answer(handler, 'OPTIONS', `${host}/auth/v1/settings`)).toMatchObject({ status: 204 });
+    expect(await answer(handler, 'GET', `${host}/rest/v1/user_data?select=*`)).toMatchObject({ body: '[]' });
+    expect(await answer(handler, 'POST', `${host}/auth/v1/logout`)).toMatchObject({ status: 204 });
+  });
+});
+
 describe('launch', () => {
   it.each(['chrome', 'chromium'])('opens the %s channel with the caller options', async channel => {
     vi.stubEnv('PLAYABLE_BROWSER', channel);
-    const chromiumLaunch = vi.spyOn(chromium, 'launch').mockResolvedValue({} as any);
-    const firefoxLaunch = vi.spyOn(firefox, 'launch').mockResolvedValue({} as any);
-    const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue({} as any);
+    const chromiumLaunch = vi.spyOn(chromium, 'launch').mockResolvedValue(fakeBrowser());
+    const firefoxLaunch = vi.spyOn(firefox, 'launch').mockResolvedValue(fakeBrowser());
+    const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue(fakeBrowser());
     const options = { headless: true, slowMo: 10 };
     const browser = await launch(options);
     expect(chromiumLaunch).toHaveBeenCalledWith({ channel, ...options });
@@ -40,9 +77,9 @@ describe('launch', () => {
 
   it('opens WebKit with the caller options and no Chromium channel', async () => {
     vi.stubEnv('PLAYABLE_BROWSER', 'webkit');
-    const chromiumLaunch = vi.spyOn(chromium, 'launch').mockResolvedValue({} as any);
-    const firefoxLaunch = vi.spyOn(firefox, 'launch').mockResolvedValue({} as any);
-    const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue({} as any);
+    const chromiumLaunch = vi.spyOn(chromium, 'launch').mockResolvedValue(fakeBrowser());
+    const firefoxLaunch = vi.spyOn(firefox, 'launch').mockResolvedValue(fakeBrowser());
+    const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue(fakeBrowser());
     const options = { headless: true, slowMo: 10 };
     const browser = await launch(options);
     expect(webkitLaunch).toHaveBeenCalledWith(options);
@@ -53,28 +90,28 @@ describe('launch', () => {
 
   it('keeps the default options for WebKit', async () => {
     vi.stubEnv('PLAYABLE_BROWSER', 'webkit');
-    const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue({} as any);
+    const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue(fakeBrowser());
     await launch();
     expect(webkitLaunch).toHaveBeenCalledWith({});
   });
 
   it('uses an explicit channel before the default setting', async () => {
-    const chromiumLaunch = vi.spyOn(chromium, 'launch').mockResolvedValue({} as any);
+    const chromiumLaunch = vi.spyOn(chromium, 'launch').mockResolvedValue(fakeBrowser());
     await launch({ channel: 'chromium', headless: true });
     expect(chromiumLaunch).toHaveBeenCalledWith({ channel: 'chromium', headless: true });
   });
 
   it('accepts WebKit as an explicit channel without sending it to Playwright', async () => {
-    const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue({} as any);
+    const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue(fakeBrowser());
     await launch({ channel: 'webkit', headless: true });
     expect(webkitLaunch).toHaveBeenCalledWith({ headless: true });
   });
 
   it.each([undefined, 'firefox'])('opens Firefox with caller options (explicit channel: %s)', async channel => {
     vi.stubEnv('PLAYABLE_BROWSER', channel ? 'chromium' : 'firefox');
-    const firefoxLaunch = vi.spyOn(firefox, 'launch').mockResolvedValue({} as any);
-    const chromiumLaunch = vi.spyOn(chromium, 'launch').mockResolvedValue({} as any);
-    const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue({} as any);
+    const firefoxLaunch = vi.spyOn(firefox, 'launch').mockResolvedValue(fakeBrowser());
+    const chromiumLaunch = vi.spyOn(chromium, 'launch').mockResolvedValue(fakeBrowser());
+    const webkitLaunch = vi.spyOn(webkit, 'launch').mockResolvedValue(fakeBrowser());
     const options = { headless: true, slowMo: 10 };
     const browser = await launch({ ...options, ...(channel ? { channel } : {}) });
     expect(firefoxLaunch).toHaveBeenCalledWith(options);
@@ -94,7 +131,7 @@ describe('launch', () => {
 describe('launchPersistent', () => {
   it.each(['chrome', 'chromium', 'webkit', 'firefox'])('opens a retained %s profile', async channel => {
     vi.stubEnv('PLAYABLE_BROWSER', channel);
-    const methods = [chromium, webkit, firefox].map(engine => vi.spyOn(engine, 'launchPersistentContext').mockResolvedValue({} as any));
+    const methods = [chromium, webkit, firefox].map(engine => vi.spyOn(engine, 'launchPersistentContext').mockResolvedValue(fakeContext()));
     const selected = channel === 'webkit' ? 1 : channel === 'firefox' ? 2 : 0;
     await launchPersistent('/tmp/retained-profile', { headless: true });
     for (const [index, method] of methods.entries()) {
@@ -104,7 +141,7 @@ describe('launchPersistent', () => {
   });
   it('uses an explicit engine before the setting', async () => {
     vi.stubEnv('PLAYABLE_BROWSER', 'chromium');
-    const method = vi.spyOn(webkit, 'launchPersistentContext').mockResolvedValue({} as any);
+    const method = vi.spyOn(webkit, 'launchPersistentContext').mockResolvedValue(fakeContext());
     await launchPersistent('/tmp/profile', { channel: 'webkit' });
     expect(method).toHaveBeenCalledWith('/tmp/profile', {});
   });
