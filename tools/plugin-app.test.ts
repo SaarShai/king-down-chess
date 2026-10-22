@@ -453,7 +453,10 @@ it('keeps an inline route through an inline remount with no display request', as
         if (profile && !profile.hidden && !document.getElementById('app-frame')?.hidden) host.profileShownInline = true;
       }).observe(document, { subtree: true, attributes: true, attributeFilter: ['hidden'] });
     });
+    // The old frame shows the same Resume until teardown ends; read only the new frame, which has the init script.
+    const old = await page.locator('iframe').elementHandle();
     await page.locator('#remount').click();
+    await page.waitForFunction(old => !old!.isConnected, old);
     await frame.locator('#home-play:not(:disabled)').filter({ hasText: 'Resume' }).waitFor();
     expect(await page.evaluate(() => (window as any).harnessDisplayRequests ?? [])).toEqual([]);
     expect(await frame.locator('html').evaluate(() => (window as any).profileShownInline)).toBe(false);
