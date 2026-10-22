@@ -62,3 +62,7 @@ The test resets the schema of its own copy (`kingdown_lane_dbcompat_prodswitch_t
 - `npm run plugin:db:init-test`: `Disposable PostgreSQL schema ready (migrations 0001-0018); every migration is repeatable`.
 - Ticket 01 suites (eight files, see ticket 01): `Test Files  8 passed (8)`, `Tests  105 passed (105)`.
 - `KINGDOWN_TEST_FILE=tools/plugin-db/production-switch.db.test.ts npm test`: `Test Files  1 passed (1)`, `Tests  1 passed (1)`.
+- Ticket 01 suites and the new test together: `Test Files  9 passed (9)`, `Tests  106 passed (106)`.
+- `npm run typecheck`: `tsc --noEmit` exits 0.
+- `npm run test:docs`: `Test Files  13 passed (13)`, `Tests  161 passed (161)`.
+- Full `npm test` with `PLUGIN_TEST_DATABASE_URL` at `5f5d9179`: fails. `Test Files  4 failed | 252 passed (256)`, `Tests  11 failed | 4668 passed | 8 skipped (4687)`. All 11 failures are the plugin browser tests that tickets 54 and 57 record at their bases: `tools/plugin-app.test.ts` (3), `tools/plugin-lobby.test.ts` (2), `tools/plugin-profile.test.ts` (1), `tools/plugin-screen-lifecycle.test.ts` (5). The errors are the same: Playwright timeouts, `expected '' to be '2 min left'`, `expected 9 to be 8`. This ticket changes no file that they use.
