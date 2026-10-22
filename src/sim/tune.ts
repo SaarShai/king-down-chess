@@ -13,6 +13,9 @@
  * `evaluateBoard` computes only the value. Two implementations of one evaluation is a bug factory,
  * so `tune.test.ts` holds them together: with the live parameters loaded they agree bit for bit on
  * 1,000 random positions, and the apply step re-reads the file it wrote and checks it round-trips.
+ *
+ * Apply rewrites PAWN_V..BEAST_V only in src/ai/eval.ts. After an apply, src/ai/piece-values.test.ts
+ * fails until SHIPPED_VALUES in src/ai/piece-values.ts is updated to the same numbers.
  */
 import { copyFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
@@ -567,7 +570,7 @@ async function apply(): Promise<void> {
   for (let i = 0; i < NPARAM; i++) {
     if (got[i] !== Math.round(want[i])) throw new Error(`tune apply: parameter ${i} read back as ${got[i]}, wrote ${Math.round(want[i])}`);
   }
-  console.log(`[tune] ${EVAL_SRC} written and verified (${NPARAM} parameters); the untuned copy is in ${TUNE_DIR}/eval-before.ts`);
+  console.log(`[tune] ${EVAL_SRC} written and verified (${NPARAM} parameters); the untuned copy is in ${TUNE_DIR}/eval-before.ts\n[tune] next: update SHIPPED_VALUES in src/ai/piece-values.ts to the new piece values; src/ai/piece-values.test.ts fails until you do`);
 }
 
 // -----------------------------------------------------------------------------------------------

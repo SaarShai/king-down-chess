@@ -1,6 +1,5 @@
 import './style.css';
 import { Engine } from './game';
-import { setEvaluator } from './ai/eval';
 import { PaintedView, type BoardView } from './render/PaintedView';
 import { setSound } from './render/sfx';
 import { HISTORY_WHENS, POWERS_BALANCED, RULES_2017, RULES_2021, parseKings, parseRule, type Rules } from './rules/engine';
@@ -57,8 +56,6 @@ const fen = gameLink ? null : params.get('fen');
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
-// The adopted Q6 residual net: stronger play at the same time budget, validated before adoption.
-setEvaluator('residual');
 const engine = new Engine();
 // The painted board is the game's only look: an old `?look=` link or saved look opens it too (the clay look is parked).
 // It stands on the page's parchment floor: the scene draws no floor of its own.

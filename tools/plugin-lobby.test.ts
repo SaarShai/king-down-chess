@@ -136,14 +136,18 @@ it('updates Your games after Back and keeps rows locked during Resume', async ()
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_invite'; });
     await frame.locator('#friend-new').click();
     await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
+    // Invite runs on the command lane (ticket 38), and a write in flight locks the page, Back included.
+    expect(await frame.locator('#page-back').isDisabled()).toBe(true);
+    await page.evaluate(() => (window as any).releaseHeld());
+    await frame.locator('.game-code span').first().waitFor();
+    const code = (await frame.locator('.game-code span').allTextContents()).join('');
     await frame.locator('#page-back').click();
     await frame.locator(`[data-screen="play"]:not([hidden]) [data-game-id="${view.game_id}"]`).waitFor();
-    await page.evaluate(() => {
-      const host = window as any; host.releaseInvite = host.releaseHeld; host.releaseHeld = undefined; host.holdNext = 'kingdown_resume';
-    });
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_resume'; });
     await frame.locator(`[data-game-id="${view.game_id}"]`).click();
     await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
-    await page.evaluate(() => { const host = window as any; host.releaseResume = host.releaseHeld; host.releaseInvite(); });
+    await page.evaluate(() => { const host = window as any; host.releaseResume = host.releaseHeld; });
+    expect(await frame.locator(`[data-game-id="${view.game_id}"]`).textContent()).toContain(code);
     const row = frame.locator('.friend-invite-row').filter({ has: frame.locator(`[data-game-id="${view.game_id}"]`) });
     await row.waitFor();
     expect(await row.getByRole('button', { name: /^Share game / }).isVisible()).toBe(true);
@@ -276,9 +280,14 @@ it('keeps the five-second wait budget through the computer handoff, then uses fi
       };
     });
     await start(page, 'random');
+    // Before the handoff each tick reads the waiting game once. After it, each tick reads the waiting human game (a
+    // background read) and also the solo board (ticket 40); `watch` counts only the waiting game's reads.
+    let watch = false;
+    const reads = () => frame.locator('html').evaluate((_, watch) => (window as any).ticketReads.filter((r: any) => !watch || r.background).length, watch);
     const advance = async (ms: number) => {
-      const n = await frame.locator('html').evaluate(() => (window as any).ticketReads.length);
-      await page.clock.runFor(ms); await expect.poll(() => frame.locator('html').evaluate(() => (window as any).ticketReads.length)).toBe(n+1);
+      const n = await reads(), all = await frame.locator('html').evaluate(() => (window as any).ticketReads.length);
+      await page.clock.runFor(ms); await expect.poll(reads).toBe(n+1);
+      if (watch) await expect.poll(() => frame.locator('html').evaluate(() => (window as any).ticketReads.length)).toBe(all+2);
     };
     for (let i=0;i<5;i++) await advance(5000);
     await frame.locator('#page-back').click(); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click(); await frame.locator('#find-any-row').click(); await frame.locator('#find-opponent').click();
@@ -287,12 +296,13 @@ it('keeps the five-second wait budget through the computer handoff, then uses fi
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     // The solo read and the human-game watch can finish in either order.
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
+    watch = true;
     for (let i=5;i<24;i++) await advance(5000);
     const count = await frame.locator('html').evaluate(() => (window as any).ticketReads.length);
     await page.clock.runFor(14999);
     expect(await frame.locator('html').evaluate(() => (window as any).ticketReads.length)).toBe(count);
     await advance(1);
-    const times = await frame.locator('html').evaluate(() => (window as any).ticketReads.map((r: any) => r.at));
+    const times = await frame.locator('html').evaluate(() => (window as any).ticketReads.filter((r: any) => r.background).map((r: any) => r.at));
     expect(times.at(-1)-times.at(-2)).toBe(15000);
     await frame.locator('html').evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
     const hidden = await frame.locator('html').evaluate(() => (window as any).ticketReads.length); await page.clock.fastForward(30000);

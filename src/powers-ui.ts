@@ -204,15 +204,6 @@ export function coinWords(coin: PowerCoin, pos: Position): string {
   return `${POWER_NAME[coin.power]} · ${state}`;
 }
 
-/** Uses left for side `c` in `pos`, or null when its power is always on (or unlimited). */
-export function usesLeft(pos: Position, c: Color, rules: Rules = DEFAULT_RULES): number | null {
-  const power = rules.kings[c]?.power;
-  if (!power) return null;
-  const n = usesAllowed(power, rules);
-  if (n === null || n === 0) return null;
-  return Math.max(0, n - (pos.used?.[c] ?? 0));
-}
-
 /** "Freeze (2 per game)" / "Holy Light (always on)". */
 export function powerTitle(power: PowerName, r: Rules = DEFAULT_RULES): string {
   const n = usesAllowed(power, r);

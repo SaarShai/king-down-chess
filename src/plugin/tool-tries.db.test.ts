@@ -2,15 +2,16 @@ import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
-import { toolTry } from './budget';
-import { GameService } from './service';
-import { PostgresMatchStore } from './store';
+import { PostgresMatchStore } from '../match/store';
+import { PluginService, TOOL_LIMITS } from './service';
 
 const url = process.env.PLUGIN_TEST_DATABASE_URL;
 const suite = url ? describe : describe.skip;
 
-suite('shared tool budget on PostgreSQL', () => {
- let pools: pg.Pool[];
+/** The live tool limit (PluginService.toolTry) over two pools, one connection each, so two calls can race for one row. */
+suite('ChatGPT and website tool limits on PostgreSQL', () => {
+ let pools: pg.Pool[], services: PluginService[];
+ const toolTry = (i: number, actor: string, tool: keyof typeof TOOL_LIMITS) => services[i].toolTry(actor, tool);
  const users: string[] = [];
  async function user() {
   const actor = randomUUID(); users.push(actor);
@@ -19,8 +20,9 @@ suite('shared tool budget on PostgreSQL', () => {
  }
  const rows = async (actor: string, tool: string) => (await pools[1].query('select tries,window_start from public.plugin_tool_tries where user_id=$1 and tool=$2', [actor, tool])).rows;
  beforeAll(async () => {
-  const own = await ownTestDatabase('budget');
+  const own = await ownTestDatabase('tooltries');
   pools = [0, 1].map(() => new pg.Pool({ connectionString: own.href, max: 1 }));
+  services = pools.map(pool => new PluginService(new PostgresMatchStore(pool)));
  }, 120000);
  afterAll(async () => {
   if (!pools) return;
@@ -28,35 +30,40 @@ suite('shared tool budget on PostgreSQL', () => {
   finally { await Promise.all(pools.map(pool => pool.end())); }
  });
 
- it.each([
+ const LIMITS = [
   ['kingdown_computer', 120, 60, 'Too many computer turns. Wait one minute, then try again.'],
   ['kingdown_create', 60, 60, 'Too many new games. Wait one minute, then try again.'],
   ['kingdown_open', 60, 60, 'Too many new boards. Wait one minute, then try again.'],
   ['kingdown_report', 30, 3600, 'Too many reports. Wait one hour, then try again.'],
- ] as const)('keeps the %s limit, isolates each actor and tool, saturates and resets its window', async (tool, count, seconds, message) => {
+ ] as const;
+ it('covers every live tool limit', () => {
+  expect(Object.fromEntries(LIMITS.map(([tool, count, seconds, message]) => [tool, { count, seconds, message }]))).toEqual(TOOL_LIMITS);
+ });
+
+ it.each(LIMITS)('keeps the %s limit, isolates each actor and tool, saturates and resets its window', async (tool, count, seconds, message) => {
   const actor = await user(), other = await user();
-  await toolTry(pools[0], actor.toUpperCase(), tool);
+  await toolTry(0, actor.toUpperCase(), tool);
   const start = await rows(actor, tool);
   expect(start).toEqual([{ tries: 1, window_start: expect.any(Date) }]);
-  await toolTry(pools[1], actor, tool);
+  await toolTry(1, actor, tool);
   expect(await rows(actor, tool)).toEqual([{ ...start[0], tries: 2 }]);
   await pools[0].query('update public.plugin_tool_tries set tries=$3 where user_id=$1 and tool=$2', [actor, tool, count - 1]);
-  await toolTry(pools[1], actor, tool);
+  await toolTry(1, actor, tool);
   expect(await rows(actor, tool)).toEqual([{ ...start[0], tries: count }]);
   for (let i = 0; i < 2; i++) {
-   await expect(toolTry(pools[i], actor, tool)).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429, message });
+   await expect(toolTry(i, actor, tool)).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429, message });
    expect(await rows(actor, tool)).toEqual([{ ...start[0], tries: count + 1 }]);
   }
-  await toolTry(pools[0], other, tool);
+  await toolTry(0, other, tool);
   expect(await rows(other, tool)).toEqual([{ tries: 1, window_start: expect.any(Date) }]);
   const otherTool = tool === 'kingdown_open' ? 'kingdown_create' : 'kingdown_open';
-  await toolTry(pools[0], actor, otherTool);
+  await toolTry(0, actor, otherTool);
   expect(await rows(actor, otherTool)).toEqual([{ tries: 1, window_start: expect.any(Date) }]);
   expect(await rows(actor, tool)).toEqual([{ ...start[0], tries: count + 1 }]);
   await pools[0].query("update public.plugin_tool_tries set window_start=now()-$3*interval '1 second' where user_id=$1 and tool=$2", [actor, tool, seconds / 2]);
-  await expect(toolTry(pools[1], actor, tool)).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429 });
+  await expect(toolTry(1, actor, tool)).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429 });
   await pools[0].query("update public.plugin_tool_tries set window_start=now()-$3*interval '1 second' where user_id=$1 and tool=$2", [actor, tool, seconds + 1]);
-  await toolTry(pools[1], actor, tool);
+  await toolTry(1, actor, tool);
   const reset = await rows(actor, tool);
   expect(reset).toEqual([{ tries: 1, window_start: expect.any(Date) }]);
   expect(reset[0].window_start.getTime()).toBeGreaterThan(start[0].window_start.getTime());
@@ -72,7 +79,7 @@ suite('shared tool budget on PostgreSQL', () => {
   try {
    await lock.query('begin');
    await lock.query("select from public.plugin_tool_tries where user_id=$1 and tool='kingdown_create' for update", [actor]);
-   pending = Promise.allSettled(pools.map(pool => toolTry(pool, actor, 'kingdown_create')));
+   pending = Promise.allSettled(services.map(service => service.toolTry(actor, 'kingdown_create')));
    await expect.poll(async () => (await lock.query(
     'select count(distinct pid)::int as n from pg_locks where pid=any($1::int[]) and not granted', [pids],
    )).rows[0].n, { timeout: 5000 }).toBe(2);
@@ -87,15 +94,15 @@ suite('shared tool budget on PostgreSQL', () => {
  }, 10000);
 
  it('keeps the charge after a later service refusal', async () => {
-  const actor = await user(), games = new GameService(new PostgresMatchStore(pools[0]));
-  await toolTry(pools[0], actor, 'kingdown_computer');
+  const actor = await user();
+  await toolTry(0, actor, 'kingdown_computer');
   const charged = await rows(actor, 'kingdown_computer');
-  await expect(games.command(actor, randomUUID(), { command_id: randomUUID(), expected_revision: 0, action: { type: 'computer' } })).rejects.toMatchObject({ code: 'NOT_FOUND', status: 404 });
+  await expect(services[0].command(actor, randomUUID(), { command_id: randomUUID(), expected_revision: 0, action: { type: 'computer' } })).rejects.toMatchObject({ code: 'NOT_FOUND', status: 404 });
   expect(await rows(actor, 'kingdown_computer')).toEqual(charged);
   expect(charged[0].tries).toBe(1);
  });
 
  it('refuses a malformed actor before it writes a counter', async () => {
-  await expect(toolTry(pools[0], 'not-a-user', 'kingdown_create')).rejects.toMatchObject({ code: 'INVALID_INPUT', status: 400 });
+  await expect(toolTry(0, 'not-a-user', 'kingdown_create')).rejects.toMatchObject({ code: 'INVALID_INPUT', status: 400 });
  });
 });

@@ -150,7 +150,7 @@ queen moves late (median first move at ply 31). All games: draws 16.5%, White 55
    exist. Criterion 6 needs about 12,000 games for ±2 points (below).
 3. **The owner's reading of criterion 4** (as written, or 4b).
 4. Every number describes how the depth-3 computer uses the pieces, with the lab's linear
-   evaluation; the browser plays with the residual net (`src/main.ts`).
+   evaluation; the browser plays with the residual net (`src/game.ts` Engine.think and `src/ai/worker.ts`).
 
 ## Results (2026-10-04)
 
