@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { GameRecord, startGame, playGame } from './game';
 import { analyze, elo, excessDecisiveness, fitValues, group, leadMetrics, matchStats, materialDelta, pentanomial, phi, readRecords, sprt, trajectory, utilisation, wilson } from './analyze';
 import { RunSpec, adjudication, buildJobs, loadSpec, parseFlags, parseRuleFlags, parseValues, paths, sampleBackRank, sideOptions, usePairs } from './spec';
@@ -14,7 +14,9 @@ import { worthOf } from '../workshop/judge';
 import { armStats, swapRank, valueSpecs } from './experiments';
 import { mulberry32 } from './rng';
 import { Game } from '../game';
-import { A, BLACK, G, T, WHITE, moverAt, parseSq } from '../rules/engine';
+import * as searchModule from '../ai/search';
+import { A, BLACK, G, T, WHITE, legalMoves, moverAt, parseSq } from '../rules/engine';
+import { positionKey } from '../rules/position-key';
 import { setRules } from '../rules/rules';
 import { CLASSIC_CHESS } from '../rules/setup';
 
@@ -383,6 +385,26 @@ describe('threefold toggle (runner side)', () => {
     expect(drive().status).toBe('drawRepetition');
     setRules({ threefold: false });
     expect(drive().status).toBe('playing');
+  });
+});
+
+describe('runner search and draw rules', () => {
+  it.each([true, false])('sets the threefold rule before play and sends position history: %s', threefold => {
+    const cycle = [['b1', 'c3'], ['b8', 'c6'], ['c3', 'b1'], ['c6', 'b8']];
+    const histories: (number | bigint)[][] = [], keys: number[] = [];
+    const reset = vi.spyOn(searchModule, 'resetSearchState');
+    const search = vi.spyOn(searchModule, 'search').mockImplementation((pos, options) => {
+      const [from, to] = cycle[keys.length % cycle.length];
+      histories.push([...options!.history!]); keys.push(positionKey(pos));
+      return { move: legalMoves(pos).find(m => m.from === parseSq(from) && m.to === parseSq(to))!, score: 0, depth: 1, nodes: 1 };
+    });
+    const spec: RunSpec = { id: 'vitest-threefold', games: 1, backRanks: ['RNBQKBNR'], ai: { depth: 1 }, seed: 1, maxPlies: 9, rules: { threefold } };
+    try {
+      const result = playGame(spec, buildJobs(spec)[0]);
+      expect([result.reason, result.plies]).toEqual(threefold ? ['drawRepetition', 8] : ['plyCap', 9]);
+      expect(histories).toEqual(keys.map((_, i) => keys.slice(0, i + 1)));
+      expect(reset).toHaveBeenCalledTimes(1);
+    } finally { search.mockRestore(); reset.mockRestore(); setRules(); }
   });
 });
 
