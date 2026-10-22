@@ -7,7 +7,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { env, isInside, outRoot, STEP } from './lib/checks.mjs';
+import { CHECK_SITE_ENV, env, isInside, outRoot, STEP } from './lib/checks.mjs';
 import { firstFault as faultLine } from './lib/first-fault.mjs';
 import { SLOTS, releaseAll, runLockPath, takeAllSlots, takeLock, takeSlot } from './lib/lock.mjs';
 import { checks } from './lib/registry.mjs';
@@ -147,7 +147,7 @@ let server;
 let url;
 if (selected.some(c => !['tools/plugin-browser-check.mjs', 'tools/web-game-check.mjs'].includes(c.script))) {
   const buildLog = join(runDir, 'build.log');
-  const build = await inSlot(false, () => run('npm', ['run', '--silent', 'build'], { log: buildLog, limit: 600 }));
+  const build = await inSlot(false, () => run('npm', ['run', '--silent', 'build'], { log: buildLog, limit: 600, extraEnv: CHECK_SITE_ENV }));
   exitIfInterrupted();
   if (build.code !== 0) {
     report(false, 'build', build.seconds, firstFault(buildLog, build), buildLog);

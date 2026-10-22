@@ -81,6 +81,11 @@ export function env(name) {
  */
 export const STEP = !process.env.CI ? 1 : ['webkit', 'firefox'].includes(process.env.PLAYABLE_BROWSER) ? 3 : 2;
 
+/** The public build values of the shared check site: a production build (no stage) with a fake account project.
+ *  The website reads both values from the build (src/account/public-config.ts); a check that signs in answers this
+ *  origin itself, so no request reaches a real project. */
+export const CHECK_SITE_ENV = { VITE_KINGDOWN_STAGE: '', VITE_SUPABASE_URL: 'https://web-proof.supabase.co', VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_local_test' };
+
 /** Opens the engine or Chromium channel that PLAYABLE_BROWSER names. */
 export const launch = ({ channel = env('PLAYABLE_BROWSER'), ...options } = {}) => channel === 'webkit'
   ? webkit.launch(options)
