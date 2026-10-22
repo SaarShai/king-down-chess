@@ -130,3 +130,28 @@ Each run tests the tree of `2d185ed2`. Each passing log has `Profile and collect
 - One probe run (not a check fault, not this tree): `FAIL plugin-ui-http 184.9 s TypeError: widget.waitForFunction is not a function`. The first draft of the helper used `Locator.contentFrame()`, which gives a `FrameLocator`; the helper now uses `elementHandle().contentFrame()`.
 - One probe run on the fixed tree: `FAIL plugin-ui-http 297.3 s Error: assertNoErrors: 1 unexpected error(s): console.error: King Down connection failed SdkError: Request timed out`. The probe held the computer reply and released it only after a later wait, but the wait after the move now waits for that reply, so the hold stayed until the SDK request timed out. The next probe released the hold after the move and passed.
 - No other failure. No run showed a new race.
+
+## Review fix
+
+An independent review approved the change with four low findings. Each one is fixed. Commits `d109b981`, `41a09dcc` and `9702841b`; no assertion changes, so no `Removed-check:` trailer.
+
+1. **The widget-write drop window (`setupMount`).** Fixed. The step does not need the drop during the settle: the drop keeps the mount from writing over the injected `screen: 'play'` state, and the old code turned it off when `#setup-start` was on, so writes after that point were kept before ticket 76 too. `setupMount` now sets `harnessDropWidgetWrites = false` first, then calls `settled`.
+2. **The fence limit on the page clock.** Fixed. The 1000 ms limit of each round trip is now a Node timer (`Promise.race`), so a paused page clock cannot stop it. The page side has no timer. A late echo removes its own listener and resolves a promise that nobody reads, and a lost echo leaves only a listener that ignores every other id.
+3. **The inner waits used the page default timeout.** Fixed. Each inner wait gets `{ timeout: Math.max(1, end - Date.now()) }`. At the limit the helper throws one error that names the condition that did not hold (`host idle`, `fence answers`, `frame timers`, `frame (#reload on, no spending coin, no animating board, no ceremony)` or `call count`), its state and the last pass. The last pass is necessary: an inner wait can time out because a looping pass used the time first.
+4. **The comment and the end draws.** Fixed. `data-toppling` is set only by `kingDown()` (`src/plugin/screens/board.ts`). The ceremony's own `setTimeout(skip, 1130)` always clears it, and `skipBoardCeremony()` clears it at once on a screen change, a new game or teardown. So the frame condition now waits for no `data-toppling`. The end routing (`setTimeout(…, 0)` in `draw()`) cannot be seen from the screen alone: a finished game can stay on the board screen (See the board). So the helper now does a frame timer turn: it sets `setTimeout(…, 0)` in the frame and waits for it. HTML runs the timers of one window with an equal or shorter timeout in the order they were set, so the end routing and the computer turn after a move (`scheduleComputer`, also 0 ms) run first. The old second fence assumed a timer-before-message order, which the spec does not give. The second fence stays, so each call that the frame starts is at the host before the count check. The comment now says what the helper covers and what it does not: other timers longer than 0 ms (the poll, the deadline, the thinking line), and a read that the frame has not started yet.
+
+Two fix runs failed, and each failure is fixed in the next commit:
+
+- `d109b981`, alone, 2 runs: `FAIL plugin-ui-http 38.2 s frame.waitForFunction: EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' or 'trusted-types-eval' is not an allowed source of script in the following Content Security Polic...` (and `36.9 s`, the same line). The frame CSP refuses a string expression. `41a09dcc` uses one function with a `report` argument.
+- `41a09dcc`, alone, 2 runs: `FAIL plugin-ui-http 169.0 s Error: settled: frame (#reload on, no spending coin, no animating board, no ceremony) did not hold in 30 s: {"reload":true,"spending":0,"animating":false,"toppling":false,"ok":true}` (and `172.9 s`, the same line), from `fits` → `lookAt` at `tools/plugin-ui-check.mjs:1751`, which is in the `page.clock.pauseAt` block. A paused clock runs no frame timer, so the timer turn never answered, and each pass failed until the limit. The review was right that `idleBoard` runs under the paused clock. `9702841b`: when the frame's `Date.now()` does not move, no frame timer can run before the check moves the clock, so the timer condition holds.
+
+Runs on `9702841b` (lane database as above):
+
+- `PLAYABLE_BROWSER=webkit npm run check:browser plugin-ui-http`, alone, 2 runs: `ok plugin-ui-http 325.9 s`, `ok plugin-ui-http 317.2 s`; each `check: all 1 passed`, with `Profile and collection` and the four `Coin focus at 390 × 844` lines.
+- The same, under CPU load (16 `yes > /dev/null` processes on 16 cores, started 20 s before each run and stopped by their PIDs after it), 3 runs: `ok plugin-ui-http 375.1 s` (load averages 22.99 20.20 16.00), `379.4 s` (43.67 29.45 21.62), `372.9 s` (34.82 35.91 28.04); each `check: all 1 passed`.
+- `npm run check:browser plugin-ui gui-board-preview` (default browser): `ok plugin-ui 258.9 s`, `ok gui-board-preview 274.2 s`, `check: all 2 passed`.
+- `KINGDOWN_TEST_FILE=tools/check.test.ts npm test`: `Test Files  1 passed (1)`, `Tests  8 passed (8)`.
+- `npm run typecheck`: `tsc --noEmit` exits 0.
+- `npm run test:docs` (with this section): `Test Files  13 passed (13)`, `Tests  166 passed (166)`.
+
+The WebKit run alone is about 40 s longer than before (275-284 s before, 317-326 s now): each pass now has a frame timer turn, and each settled call under the paused clock waits one 1 s round trip.
