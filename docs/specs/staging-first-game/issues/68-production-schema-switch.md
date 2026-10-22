@@ -44,13 +44,13 @@ The task said: if a check fails, record the cause and stop. No migration or runt
 
 ### Test steps (`tools/plugin-db/production-switch.db.test.ts`)
 
-The test resets the schema of its own copy (`kingdown_lane_dbcompat_prodswitch_test`), applies 0001-0014 once each (they are the same at `cc1081b2` and now: `git diff --stat cc1081b2 HEAD -- supabase/migrations/` lists 0015-0018 only), the audience hook, and blocks 1-11 of the `cc1081b2` fixture for a new runtime role. Each start check runs as that role (`set local role`) in a transaction that it rolls back. The old insert also runs as that role.
+The test resets the schema of its own copy (`kingdown_lane_dbcompat_prodswitch_test`), applies 0001-0014 once each (they are the same at `cc1081b2` and now: `git diff --stat cc1081b2 HEAD -- supabase/migrations/` lists 0015-0018 only), the audience hook, and blocks 1-11 of the `cc1081b2` fixture for a new runtime role. Each start check runs as that role (`set local role`) in a transaction that it rolls back. The old insert also runs as that role. The new code's `PostgresMatchStore` uses its own pool, whose connections start as that role (`options: -c role=<role>`); the test asserts `current_user` on it. The admin pool only sets up, applies migrations and grants, and checks the stored row.
 
 - (a) Old start check: pass. New start check: **fail**, `SCHEMA_REQUIRED` (the block 4 cause above). The test asserts this result.
-- (e) `PostgresMatchStore.load` and `GameService.create` of the new code fail with `42703` (missing column) on the 0014-only schema. The new start check does not probe 0017/0018, so it cannot stop this. **Never deploy the new build before 0017 and 0018.**
+- (e) `PostgresMatchStore.load` and `GameService.create` of the new code, as the runtime role, fail with `42703` (missing column) on the 0014-only schema. The new start check does not probe 0017/0018, so it cannot stop this. **Never deploy the new build before 0017 and 0018.**
 - (b) 0016, block 12 (current file), 0017, 0018 apply in that order: pass.
 - (c) Old start check: pass. New start check: **fail**, `SCHEMA_REQUIRED` (same cause). After the current block 4: old start check pass, new start check pass.
-- (d) The old insert SQL (`cc1081b2` `src/match/store.ts:51-56`, which names neither new column) writes a game row as the runtime role. The row has `rating_policy = 'legacy'` and `setup_admission = null`. The new `PostgresMatchStore.load` reads it with the same status, setup and players.
+- (d) The new `GameService.create` writes a game as the runtime role. The old insert SQL (`cc1081b2` `src/match/store.ts:51-56`, which names neither new column) writes a game row as the runtime role. The row has `rating_policy = 'legacy'` and `setup_admission = null`. The new `PostgresMatchStore.load` reads it with the same status, setup and players.
 - (f) After 0015: the old start check fails with `SCHEMA_REQUIRED` (`kingdown_jobs.user_email` is absent). The new start check passes. So 0015 ends the rollback window.
 
 ### Plan section 4.3 statement
@@ -59,6 +59,7 @@ The test resets the schema of its own copy (`kingdown_lane_dbcompat_prodswitch_t
 
 ### Checks
 
+- Red run (the store runs as the runtime role, so a missing grant bites): a temporary edit before step (d) revoked the role's `select` on `public.games` and granted `select` on every column except `rating_policy`. `KINGDOWN_TEST_FILE=tools/plugin-db/production-switch.db.test.ts npm test`: `Test Files  1 failed (1)`, `Tests  1 failed (1)`, `error: permission denied for table games` at `PostgresMatchStore.load src/match/store.ts:43:16`, from the step (d) `store.load`. The edit was then removed, and the same command passes again (below).
 - `npm run plugin:db:init-test`: `Disposable PostgreSQL schema ready (migrations 0001-0018); every migration is repeatable`.
 - Ticket 01 suites (eight files, see ticket 01): `Test Files  8 passed (8)`, `Tests  105 passed (105)`.
 - `KINGDOWN_TEST_FILE=tools/plugin-db/production-switch.db.test.ts npm test`: `Test Files  1 passed (1)`, `Tests  1 passed (1)`.
