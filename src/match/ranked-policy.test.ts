@@ -37,6 +37,12 @@ describe('Ranked by server stage (ticket 67)', () => {
   client.query.mockResolvedValueOnce({ rows: [{ handle: 'player' }] } as never);
   await expect(service.accept(actor, gameId, 'ranked-v1')).rejects.toMatchObject({ code: 'RANKED_UNAVAILABLE' });
  });
+ it('treats each stage value other than the exact "staging" as production', async () => {
+  for (const stage of ['Staging', ' staging', 'staging ', 'STAGING', 'production', '', undefined]) {
+   vi.stubEnv('KINGDOWN_STAGE', stage);
+   for (const start of starts()) await expect(start, String(stage)).rejects.toMatchObject({ code: 'RANKED_UNAVAILABLE', message: RANKED_UNAVAILABLE });
+  }
+ });
  it('keeps Casual open in production', async () => {
   vi.stubEnv('KINGDOWN_STAGE', '');
   expect(await code(service.find(actor, DEFAULT_OPTIONS, 'white', undefined, false, 'casual'))).toBe('HANDLE_NEEDED');

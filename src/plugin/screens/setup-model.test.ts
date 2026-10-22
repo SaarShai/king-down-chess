@@ -111,7 +111,7 @@ it('fixes Ranked options before saving and sending, and limits it to random play
 
 it('offers Ranked only in the staging build and keeps every production draft Casual (ticket 67)', () => {
   const custom = { ...readSetup(null), kind: 'random' as const, colour: 'black' as const };
-  for (const stage of [undefined, '', 'production']) {
+  for (const stage of [undefined, '', 'production', 'Staging', ' staging', 'staging ', 'STAGING']) {
     vi.stubEnv('VITE_KINGDOWN_STAGE', stage);
     expect(withMode(custom, 'ranked')).toMatchObject({ mode: 'casual', colour: 'black', options: custom.options });
     expect(readSetup({ ...custom, mode: 'ranked' }).mode).toBe('casual');
