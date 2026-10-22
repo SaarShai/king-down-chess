@@ -126,6 +126,24 @@ Open fault after follow-up 1: `game-screen` now fails at the next assertion, `to
 
 Open fault after follow-up 3: `game-screen` now passes the label steps (`board labels draw at 12 CSS px`, `file letters clear the canvas edge`) and fails at the next step, `tools/verify-game-screen.mjs:54`, `320×568: the table stays fixed at staged turn`. At the staged turn End Turn becomes the primary button and grows from 48 px to 52 px (y 506 to 504, bottom 554 to 556). The cause is `#table-bar > button.primary { min-height: 52px; }` in `src/ui/table.css`, from `601acb34` ("Fix control preview review faults"), which is in the base `73387e66`. A canvas font change cannot change a button height. `src/ui/` and the check are outside this follow-up, so it stays open. The options: keep the primary End Turn at 48 px in the short-phone bar, or accept the 52 px button in the check (an owner or lead decision).
 
+4. End Turn height (lead decision: keep the 52 px primary size and remove the jump). In `src/ui/table.css` the rule is now `#table-bar > :is(button.primary, #end-turn) { min-height: 52px; }`. End Turn has 52 px in every state, so its box does not change when it becomes primary. Only End Turn gets `.primary` in the bar (`src/turn-controls.ts`, `src/game-end.ts`). `#show-me`, `#next-lesson` and `#return-game` never get it, so they do not change. The 52 px button fits in the 60 px bar row (`minmax(60px + safe area, max-content)`), so the bar and the board do not change: the 287 px floor, the 48 px Moves row and the 12 px labels pass. No check threshold changes.
+
+Open fault after follow-up 4: `game-screen` now passes `320×568: the table stays fixed at staged turn` and every step up to `ok game-screen 320×568: fixed board and bar, targets, Moves, check, no sideways scroll`. It fails at the next step, `tools/verify-game-screen.mjs:88`, `320×568: strips, context, Moves and bar stay fixed with the lesson words`. At "Archer learned." the bar grows from 68 px to 75.19 px (top 500 to 492.81). The control run below shows that this fault does not come from follow-up 4. In it, `.primary` is 48 px (no growth at all), and the step fails with the same 492.8125 px top. When a lesson is done, `#next-lesson` shows in the bar ("Next lesson: …"). 75.19 px is 8 px padding plus 67.19 px: a 20 px icon, two 21.6 px text lines and 4 px padding. Thus the label probably breaks into two lines. A fix is a change in the lesson bar (`src/ui/table.ts` or `src/ui/table.css`), outside this follow-up.
+
+Checks after follow-up 4:
+
+- `npm run check:browser game-screen end turn home lesson-return lessons` (no registered check name has `table` or `tablet`; the names with `lesson` are `lessons` and `lesson-return`): `check: 2 of 6 failed`.
+  - `FAIL game-screen         2.1 s  AssertionError [ERR_ASSERTION]: 320×568: strips, context, Moves and bar stay fixed with the lesson words` (see the open fault above; the staged-turn step passes).
+  - `ok   end                13.8 s`
+  - `ok   turn               11.7 s`
+  - `ok   home                8.5 s`
+  - `ok   lesson-return       5.2 s`
+  - `FAIL lessons             1.2 s  AssertionError [ERR_ASSERTION]: Guide shows Close, the first rule line and the centred save note` (`tools/verify-lessons.mjs:39`). It fails the same way at the clean tip `17773808`: `check: 1 of 1 failed`. It checks the Guide sheet, not the bar.
+- Control run, `.primary` at 48 px (not committed): `npm run check:browser game-screen lessons`: `check: 2 of 2 failed`, with the same two failure lines.
+- `KINGDOWN_TEST_FILE=tools/tablet-controls.test.ts npm test` (it loads `src/ui/table.css`): `Test Files  1 passed (1)`, `Tests  21 passed (21)`.
+- `npm run typecheck`: `tsc --noEmit` exits 0.
+- `npm run test:docs`: `Test Files  13 passed (13)`, `Tests  161 passed (161)`.
+
 Checks after follow-up 3:
 
 - `npm run check:browser game-screen end turn home gui-board-preview gui-board-a8 gui-board-a14 gui-board-a15 gui-board-a18 gui-board-y3` (no registered check name has `ink`; the names with `board` are the six `gui-board-*` checks): `check: 2 of 10 failed`.
