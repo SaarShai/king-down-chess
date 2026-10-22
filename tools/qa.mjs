@@ -11,23 +11,13 @@ import { powerButtonText, usePower, endTurn, startNewGame } from './app-ui.mjs';
  * targeting, animation state, undo, save/restore of the active rules, and an AI reply in a lab
  * position. Real mouse clicks; the hover probe works around the camera angle (LESSONS.md 2026-09-14).
  *
- * Verdicts: PASS, FAIL, XFAIL (a known-red case fails) and XPASS (a known-red case passes). FAIL and
- * XPASS fail the run; the last line counts each verdict.
- *
- * To add a known-red case: open a ticket in docs/specs/<feature>/issues/ that names the case and its
- * fault, then add "<case id>": "<ticket path>" to tools/qa-known-red.json. When the fault is fixed, the
- * case gives XPASS: remove the entry and resolve the ticket. The ticket lint in npm test fails on an
- * entry whose ticket file is missing, resolved or wontfix.
+ * Each case reports PASS or FAIL. Any failed case fails the run.
  */
-import { readFileSync } from 'node:fs';
 import { lanMoves } from './app-ui.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
-import { classify, verdict } from './lib/known-red.mjs';
 
 const BASE = env('PLAYABLE_URL');
-/** The known-red list: a case id to the path of its open ticket. */
-const KNOWN_RED = JSON.parse(readFileSync(new URL('./qa-known-red.json', import.meta.url), 'utf8'));
 /** `QA_ONLY=substring` runs the matching cases only (quick regression checks). */
 const ONLY = process.env.QA_ONLY;
 const PAWN_FEN = '7k/7p/8/3p4/3L4/8/8/K6R w - - 0 1';
@@ -39,8 +29,7 @@ const sqOf = n => (('abcdefgh'.indexOf(n[0])) | ((+n[1] - 1) << 3));
 const results = [];
 const pass = (id, ok, detail) => {
   results.push({ id, ok, detail });
-  const ticket = KNOWN_RED[id];
-  console.log(`${verdict(ok, ticket)} ${id} — ${detail}${ticket ? ` (known-red: ${ticket})` : ''}`);
+  console.log(`${ok ? 'PASS' : 'FAIL'} ${id} — ${detail}`);
 };
 const CODE = { L: 8, l: 24, p: 17, n: 18, O: 12, C: 13, k: 22, P: 1, N: 2, Q: 5, A: 7 }; // type | colour<<4
 
@@ -359,7 +348,7 @@ await caseFn('strike: an armed knight moves as a queen once (flame:strike)', `?k
 });
 
 await browser.close();
-const run = classify(results, KNOWN_RED);
-console.log('\n' + run.cases.map(c => `${c.verdict} ${c.id}${c.ticket ? ` (${c.ticket})` : ''}`).join('\n'));
-console.log(run.summary);
-process.exit(run.ok ? 0 : 1);
+console.log('\n' + results.map(c => `${c.ok ? 'PASS' : 'FAIL'} ${c.id}`).join('\n'));
+const failed = results.filter(c => !c.ok).length;
+console.log(`qa: ${results.length - failed} PASS, ${failed} FAIL`);
+process.exit(failed ? 1 : 0);

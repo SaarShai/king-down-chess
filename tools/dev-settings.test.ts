@@ -94,7 +94,7 @@ describe('git', () => {
   it('ignores the package link, the target file and the previews folder', () => {
     // `/node_modules` with no slash at the end matches a folder and a link.
     const ignored = lines('.gitignore');
-    for (const line of ['/node_modules', '/.claude/preview-target', '/sim/out/previews/']) expect(ignored).toContain(line);
+    for (const line of ['/node_modules', '/.claude/preview-target', '/sim/out/']) expect(ignored).toContain(line);
   });
 });
 

@@ -5,9 +5,8 @@ import { fromFen, toFen, toLan, waitGuards } from '../rules/setup';
 import { readFileSync } from 'node:fs';
 import { Game } from '../game';
 import { EvalParams, setDesignValue, setEvalParams } from '../ai/eval';
-import * as AI from '../ai/search';
+import { resetSearchState, search, setPowerHold, type SearchResult } from '../ai/search';
 import { positionKey } from '../rules/position-key';
-import { setPowerHold } from '../ai/search';
 import { Adjudicate, Job, RunSpec, adjudication, sideOptions } from './spec';
 import { countMove, emptyEvents } from './replay';
 import { mulberry32 } from './rng';
@@ -112,17 +111,6 @@ function census(pos: Position, into: [Record<string, number>, Record<string, num
 }
 
 /**
- * search() keeps its transposition table, killers and history between calls, so game n would
- * otherwise depend on games 1..n-1 in the same worker (sim-methodology.md §7.2). The AI agent is
- * adding a reset; call it when it lands, under either name, and carry on without it until then.
- */
-function resetSearch(): void {
-  const m = AI as unknown as Record<string, unknown>;
-  const fn = m.resetSearchState ?? m.resetSearch;
-  if (typeof fn === 'function') (fn as () => void)();
-}
-
-/**
  * Per-side evaluation parameters (`RunSpec.evalParams`), read once per worker and swapped in
  * before each search. `null` when the run plays one evaluation, which is every run but a tuning
  * match — and the swap costs a transposition table, so it stays off by default.
@@ -174,7 +162,7 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
   const adj: Adjudicate | null = adjudication(spec);
   const maxPlies = spec.maxPlies ?? 300;
   const openingPlies = spec.openingRandomPlies ?? 0;
-  resetSearch();
+  resetSearchState();
 
   const stats: [SideStats, SideStats] = [emptyStats(), emptyStats()];
   census(game.pos, [stats[0].start, stats[1].start]);
@@ -205,12 +193,12 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
     } else {
       // Two evaluations in one process: swap the tables, and drop the transposition table with
       // them — an entry stored by one side's evaluation is not a score the other side may read.
-      if (evals) { setEvalParams(evals[c]); resetSearch(); }
+      if (evals) { setEvalParams(evals[c]); resetSearchState(); }
       if (spec.powerHoldSides) {
         setPowerHold({ ...spec.powerHold, ...spec.powerHoldSides[c] } as Parameters<typeof setPowerHold>[0]);
-        resetSearch();
+        resetSearchState();
       }
-      const r = AI.search(pos, { ...opts[c], history, ...(spec.multiPv ? { multiPv: 2 as const } : {}) }) as Partial<AI.SearchResult>;
+      const r = search(pos, { ...opts[c], history, ...(spec.multiPv ? { multiPv: 2 as const } : {}) }) as Partial<SearchResult>;
       move = resolve(pos, legal, r?.move) ?? legal[0] ?? null;
       if (typeof r?.score === 'number') cp = c === WHITE ? r.score : -r.score;
       if (typeof r?.nodes === 'number') nodes = r.nodes;

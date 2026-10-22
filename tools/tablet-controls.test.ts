@@ -180,20 +180,26 @@ it('keeps lesson text and icons inside their faces and the bar at phone width', 
       document.body.classList.add('in-lesson');
       for (const button of document.querySelectorAll<HTMLButtonElement>('#table-bar > button')) button.hidden = !['return-game', 'show-me', 'menu-btn'].includes(button.id);
     });
-    for (const done of [false, true]) {
-      await page.evaluate(done => {
-        document.getElementById('show-me')!.hidden = done;
-        document.getElementById('next-lesson')!.hidden = !done;
-        document.querySelector('#next-lesson .label')!.textContent = 'Next lesson: Maester';
-      }, done);
-      await checkButtonContent(page, '#table-bar > button');
-      const box = (await page.locator('#table-bar').boundingBox())!;
-      expect(box.y).toBeGreaterThanOrEqual(0); expect(box.y + box.height).toBeLessThanOrEqual(844);
-      for (const face of await page.locator('#table-bar > button:visible').all()) {
-        const bounds = (await face.boundingBox())!;
-        expect(bounds.y).toBeGreaterThanOrEqual(box.y); expect(bounds.y + bounds.height).toBeLessThanOrEqual(box.y + box.height);
+    // Maester is the widest lesson name; at 320 px its label must stay on one line, so the bar keeps one height.
+    for (const [width, height] of [[390, 844], [320, 568]]) {
+      await page.setViewportSize({ width, height });
+      let restHeight = 0;
+      for (const done of [false, true]) {
+        await page.evaluate(done => {
+          document.getElementById('show-me')!.hidden = done;
+          document.getElementById('next-lesson')!.hidden = !done;
+          document.querySelector('#next-lesson .label')!.textContent = 'Next: Maester';
+        }, done);
+        await checkButtonContent(page, '#table-bar > button');
+        const box = (await page.locator('#table-bar').boundingBox())!;
+        expect(box.y).toBeGreaterThanOrEqual(0); expect(box.y + box.height).toBeLessThanOrEqual(height);
+        if (done) expect(box.height, `${width} px: the bar keeps one height with Next: Maester`).toBe(restHeight); else restHeight = box.height;
+        for (const face of await page.locator('#table-bar > button:visible').all()) {
+          const bounds = (await face.boundingBox())!;
+          expect(bounds.y).toBeGreaterThanOrEqual(box.y); expect(bounds.y + bounds.height).toBeLessThanOrEqual(box.y + box.height);
+        }
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       }
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
     }
   } finally { await page.close(); }
 });

@@ -20,17 +20,23 @@ async function open() {
   await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen' }));
   return page;
 }
+// The whole closed page (src/account-game/runtime.ts app.onClose): no private screen stays in the document.
+const CLOSED = '<p role="status">This game panel is closed. Open King Down again to continue.</p>';
 const state = (page: Page) => page.evaluate(() => (window as any).harnessWidgetState.privateContent);
+/** The held screen shows until teardown. Teardown replaces the private page with the closed notice; the late reply
+ * then starts no call, writes no widget state and draws nothing. */
 async function stopHeld(page: Page, selector: string) {
+  const frame = page.frameLocator('iframe');
+  await frame.locator(`${selector}:not([hidden])`).waitFor();
   await page.evaluate(() => (window as any).harnessTeardown());
   const before = await page.evaluate(() => ({ calls: (window as any).harnessCalls.length, writes: (window as any).harnessWidgetStates.length }));
-  const frame = page.frameLocator('iframe');
-  const html = await frame.locator(selector).innerHTML();
+  const body = () => frame.locator('body').evaluate(element => element.innerHTML);
+  expect(await body()).toBe(CLOSED);
   await page.evaluate(() => (window as any).releaseHeld());
   await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
   await frame.locator('html').evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
   expect(await page.evaluate(() => ({ calls: (window as any).harnessCalls.length, writes: (window as any).harnessWidgetStates.length }))).toEqual(before);
-  expect(await frame.locator(selector).innerHTML()).toBe(html);
+  expect(await body()).toBe(CLOSED);
 }
 it('uses neutral copy for a pinned unavailable power when cards are off', async () => {
   const page = await open(), frame = page.frameLocator('iframe');

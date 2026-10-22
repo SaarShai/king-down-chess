@@ -1,6 +1,6 @@
 // W6: the handed-over end, board Ceremony and result review tiles.
 import assert from 'node:assert/strict';
-import { readyBoard, ceremonyTile, ceremonyWords, endTurn, usePower, lanMoves, openEndReview, openMoves, pressMenu, startNewGame, waitForUi } from './app-ui.mjs';
+import { readyBoard, rulesAt,ceremonyTile, ceremonyWords, endTurn, usePower, lanMoves, openEndReview, openMoves, pressMenu, startNewGame, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL'), browser = await launch();
 const faults = [];
@@ -36,8 +36,11 @@ const tap = async sq => {
 };
 const open = async (fen, moves = [], pace = 'off', sides = ['human', 'human'], query = '') => {
   await page.goto(base);
-  await page.evaluate(seed => sessionStorage.setItem('w6.seed', JSON.stringify(seed)), { back: '', fen, moves, white: sides[0], black: sides[1], pace, sound: false, skill: 'club' });
-  await page.goto(new URL(`?think=50${query}`, base).href);
+  const url = new URL(`?think=50${query}`, base).href;
+  // A save holds the rules of its game. A save with the URL rules replays under them.
+  const rules = /[?&](kings|rules)=/.test(url) ? await rulesAt(browser, url) : undefined;
+  await page.evaluate(seed => sessionStorage.setItem('w6.seed', JSON.stringify(seed)), { back: '', fen, moves, white: sides[0], black: sides[1], pace, sound: false, skill: 'club', ...(rules && { rules }) });
+  await page.goto(url);
   await readyBoard(page);
 };
 const stageMate = async (pace = 'off') => {

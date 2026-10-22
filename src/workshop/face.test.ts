@@ -19,7 +19,7 @@ it('keeps each rule seal and its label with a faint wax light', () => {
 });
 
 const design = (key: string, more: Partial<PieceDesign> = {}): PieceDesign => ({ ...fromPreset(presetOf(key)), name: presetOf(key).name, letter: 'D', ...more });
-const face = (d: PieceDesign): string => faceHtml(d, judge(d, false), 'ui/pieces/x-w.webp');
+const face = (d: PieceDesign): string => faceHtml(d, judge(d), 'ui/pieces/x-w.webp');
 /** The marks of a diagram: "x,y kind [cond]" for each tile, "line dir [cond]" for each rail. */
 const marks = (svg: string): string[] => [...svg.matchAll(/<g data-(?:xy="([^"]+)" data-k="(\w+)"|k="line" data-dir="(\w+)")( data-cond="1")?>/g)]
   .map(([, xy, k, dir, cond]) => `${xy ? `${xy} ${k}` : `line ${dir}`}${cond ? ' cond' : ''}`).sort();
@@ -76,7 +76,7 @@ describe('the card face (ticket 08)', () => {
 
   it('says the worth in pawns and the band word', () => {
     for (const key of ['pawn', 'queen', 'paladin', 'guard']) {
-      const d = design(key), v = judge(d, false);
+      const d = design(key), v = judge(d);
       expect(text(face(d))).toContain(`About ${pawns(v.worth.point)} · ${bandOf(v)}`);
     }
     expect(text(face(design('pawn')))).toContain('About 1 pawn · The unit of worth');
@@ -88,14 +88,14 @@ describe('the card face (ticket 08)', () => {
 });
 
 describe('the small face of See all (ticket 15)', () => {
-  const thumb = (d: PieceDesign, yours = false): string => thumbHtml(d, judge(d, false), 'ui/pieces/x-w.webp', yours);
+  const thumb = (d: PieceDesign, yours = false): string => thumbHtml(d, judge(d), 'ui/pieces/x-w.webp', yours);
   it('shows the name, the figure, the diagram, a seal for each rule and the band word', () => {
     const d = design('paladin'), html = thumb(d);
     expect(html).toContain('<b>Paladin</b>');
     expect(html).toContain('<img src="ui/pieces/x-w.webp" alt="">');
     expect(html).toContain('aria-label="Reach diagram"');
     expect((html.match(/class="kd-seal"/g) ?? []).length).toBe(3);
-    expect(html).toContain(`<span class="band">${bandOf(judge(d, false))}</span>`);
+    expect(html).toContain(`<span class="band">${bandOf(judge(d))}</span>`);
     expect(thumb(design('knight'))).not.toContain('class="sl"');
   });
 
