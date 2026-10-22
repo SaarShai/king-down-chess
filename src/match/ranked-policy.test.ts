@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { GameService, MatchServiceError, RANKED_UNAVAILABLE } from './service';
+import { GameService, MatchServiceError } from './service';
 import type { PostgresMatchStore } from './store';
 import { createSchema } from './protocol';
 import { DEFAULT_OPTIONS, RANKED_OPTIONS, setupAdmission } from './setup';
@@ -25,6 +25,7 @@ describe('Ranked by server stage (ticket 67)', () => {
  const client = { query: vi.fn(async () => ({ rows: [] })) };
  const store = { pool: client, transaction: vi.fn(async (work: (c: typeof client) => unknown) => work(client)), load: vi.fn(async () => ({ id: gameId, kind: 'random', status: 'waiting', rating_policy: 'ranked-v1' })) };
  const service = new GameService(store as unknown as PostgresMatchStore);
+ const RANKED_UNAVAILABLE = 'Ranked is not available. Play a Casual game.';
  const code = (work: Promise<unknown>) => work.then(() => 'ok', (error: MatchServiceError) => error.code);
  const starts = () => [service.create(actor, { kind: 'random', mode: 'ranked' }), service.find(actor, undefined, undefined, undefined, false, 'ranked'), service.find(actor, undefined, undefined, 'ranked-once', false, 'ranked')];
  afterEach(() => { vi.unstubAllEnvs(); });
@@ -35,7 +36,6 @@ describe('Ranked by server stage (ticket 67)', () => {
   store.transaction.mockClear();
   client.query.mockResolvedValueOnce({ rows: [{ handle: 'player' }] } as never);
   await expect(service.accept(actor, gameId, 'ranked-v1')).rejects.toMatchObject({ code: 'RANKED_UNAVAILABLE' });
-  expect(RANKED_UNAVAILABLE).toBe('Ranked is not available. Play a Casual game.');
  });
  it('keeps Casual open in production', async () => {
   vi.stubEnv('KINGDOWN_STAGE', '');

@@ -478,6 +478,7 @@ try {
     if(mode==='fixture') await seed({history,record:{...record,rating:{rating:1600.6,rd:90,volatility:.06,provisional:false}}});
     await openScreen('profile'); await frame.locator('#profile-status').filter({hasText:'Loading profile…'}).waitFor({state:'hidden'});
     if(mode==='fixture') { assert.equal(await frame.locator('#profile-rating .q').isVisible(),false); assert.equal(await frame.locator('#profile-rating b').textContent(),'1601'); }
+    assert.match(await frame.locator('#profile-rating-help').textContent(), rankedStage ? /Ranked and legacy results; no reset\.$/ : /Rated game results; no reset\.$/, 'Only staging names Ranked in the profile');
     const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_profile').length); await remountFrame();
     await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_profile').length>n,reads); await frame.locator('#profile-open button').first().waitFor();
     assert.equal(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen),'profile');

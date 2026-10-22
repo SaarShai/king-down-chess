@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { gameSetup, readSetup, quickSetup, withToggle, createArguments, pieceLocked, withPiece, withCard, withMode, cleanKing, availablePowers, shownKing, soloChoice, rankedOffered } from './setup-model';
+import { gameSetup, readSetup, quickSetup, withToggle, createArguments, pieceLocked, withPiece, withCard, withMode, cleanKing, availablePowers, shownKing, soloChoice } from './setup-model';
 import { DEFAULT_OPTIONS, RANKED_OPTIONS } from '../../match/setup';
 import type { View } from '../../match/protocol';
 
@@ -113,13 +113,12 @@ it('offers Ranked only in the staging build and keeps every production draft Cas
   const custom = { ...readSetup(null), kind: 'random' as const, colour: 'black' as const };
   for (const stage of [undefined, '', 'production']) {
     vi.stubEnv('VITE_KINGDOWN_STAGE', stage);
-    expect(rankedOffered()).toBe(false);
     expect(withMode(custom, 'ranked')).toMatchObject({ mode: 'casual', colour: 'black', options: custom.options });
     expect(readSetup({ ...custom, mode: 'ranked' }).mode).toBe('casual');
     expect(createArguments({ ...custom, mode: 'ranked' }).mode).toBe('casual');
   }
   vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging');
-  expect(rankedOffered()).toBe(true);
+  expect(withMode(custom, 'ranked').mode).toBe('ranked');
 });
 
 it('stores an optional setup mode without rejecting old saved settings', async () => {
