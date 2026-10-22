@@ -27,13 +27,15 @@ const frameState = report => {
  * - call count: a second fence brings each call that the frame started to the host, and the host's call count did
  *   not change over the pass. Else the pass runs again.
  * It does not cover a timer longer than 0 ms other than the two above (the poll, the deadline, the thinking line),
- * a read that the frame has not started yet, or a page clock that is paused: frame timers then cannot run, and the
- * helper fails at its limit (30 s x STEP), with the condition that did not hold and the state.
+ * or a read that the frame has not started yet. When the page clock is paused (page.clock.pauseAt), no frame timer can
+ * run until the check moves the clock, so the frame timer condition holds when the frame's Date.now() does not move.
+ * At its limit (30 s x STEP) the helper fails with the condition that did not hold, its state and the last pass.
  */
 export async function settled(page, frame) {
   const end = Date.now() + 30_000 * STEP, timeout = () => Math.max(1, end - Date.now());
   const hostState = () => page.evaluate(() => ({ nextView: window.harnessNextView !== undefined, inflight: window.harnessInflight, held: window.harnessHeld, calls: window.harnessCalls?.length ?? 0 }));
-  const fail = async (condition, state) => { throw new Error(`settled: ${condition} did not hold in ${30 * STEP} s: ${JSON.stringify(await state())}`); };
+  let last;
+  const fail = async (condition, state) => { throw new Error(`settled: ${condition} did not hold in ${30 * STEP} s: ${JSON.stringify(await state())}; last pass: ${JSON.stringify(last ?? null)}`); };
   const timedOut = error => error?.name === 'TimeoutError';
   const roundTrip = async answer => {
     let timer;
@@ -51,7 +53,12 @@ export async function settled(page, frame) {
     target.postMessage({ harness: 'fence', id }, '*');
   }), `settled-${Math.random()}`));
   // A detached frame (a remount) gives no answer; the pass then runs again.
-  const timers = widget => roundTrip(widget.evaluate(() => new Promise(resolve => setTimeout(() => resolve(true), 0))).catch(() => false));
+  const timers = async widget => {
+    const now = () => widget.evaluate(() => Date.now()).catch(() => undefined), start = await now();
+    if (await roundTrip(widget.evaluate(() => new Promise(resolve => setTimeout(() => resolve(true), 0))).catch(() => false))) return true;
+    // A paused page clock: no frame timer runs before the check moves the clock.
+    return start !== undefined && await now() === start;
+  };
   for (;;) {
     const before = await page.waitForFunction(() => window.harnessNextView === undefined && window.harnessInflight === window.harnessHeld && { calls: window.harnessCalls?.length ?? 0 }, undefined, { timeout: timeout() })
       .then(handle => handle.jsonValue(), error => timedOut(error) ? fail('host idle', hostState) : Promise.reject(error));
@@ -64,6 +71,7 @@ export async function settled(page, frame) {
     const after = await hostState();
     const idle = !after.nextView && after.inflight === after.held;
     if (answered && ran && again && idle && after.calls === before.calls) return;
+    last = { answered, ran, again, before, after };
     if (Date.now() > end) await fail(!answered || !again ? 'fence answers' : !ran ? 'frame timers' : !idle ? 'host idle' : 'call count', async () => ({ answered, ran, again, before, after }));
   }
 }
