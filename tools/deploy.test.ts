@@ -4,9 +4,9 @@
 // so the `npm` stub also logs the runner. Origin/main holds a stub `tools/wt.sh`, because the deploy
 // script calls the `wt` of the commit that it tests; the stub logs `wt add <path>`.
 import { spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { createServer } from 'node:http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -20,6 +20,7 @@ const liveCheck = fileURLToPath(new URL('./deploy-live-check.mjs', import.meta.u
 const pluginLiveCheck = fileURLToPath(new URL('./deploy-plugin-live-check.mjs', import.meta.url));
 const siteProject = { projectId: 'prj_SiteTest', orgId: 'team_mIlANWWDRbX1NT4jgJn9jAna', projectName: 'kingdown' };
 const enginesDatabase = 'postgresql://reader:fake-engines-password@db.example/postgres?sslmode=require';
+const productionSupabase = 'https://utqzovjmclfyojedmwok.supabase.co', stagingSupabase = 'https://puhspsyjyzaghmgtkzqd.supabase.co';
 const pluginProject = { projectId: 'prj_2H4LcrzOXCQbFuKbq0z0G7lCFFC6', orgId: 'team_mIlANWWDRbX1NT4jgJn9jAna', projectName: 'kingdown-plugin' };
 
 type Repo = ReturnType<typeof tempRepo>;
@@ -41,16 +42,28 @@ function setup() {
   const started = join(repo.root, 'started');
   const record = `echo "$(basename "$0") $* @ $(git rev-parse HEAD 2>/dev/null) in $(pwd -P) with $(ls | tr '\\n' ' ')" >> "${log}"`;
   mkdirSync(join(repo.dir, 'tools'));
-  stub(join(repo.dir, 'tools', 'wt.sh'), [record]);
+  stub(join(repo.dir, 'tools', 'wt.sh'), [record, '[ -z "$STUB_LINK_MODULES" ] || ln -s "$STUB_LINK_MODULES" node_modules']);
   cpSync(liveCheck, join(repo.dir, 'tools', 'deploy-live-check.mjs'));
   cpSync(pluginLiveCheck, join(repo.dir, 'tools', 'deploy-plugin-live-check.mjs'));
   repo.write('vercel.json', readFileSync(fileURLToPath(new URL('../vercel.json', import.meta.url)), 'utf8'));
   repo.write('app.txt', 'one\n');
   repo.git('add', '.');
   repo.git('commit', '-q', '-m', 'one');
+  // deploy.sh requires the GitHub origin URL, also after insteadOf. Test pushes go to the bare
+  // remote through the push URL; the deploy script fetches it through the git shim below.
+  repo.git('remote', 'set-url', 'origin', 'https://github.com/SaarShai/king-down-chess.git');
+  repo.git('remote', 'set-url', '--push', 'origin', repo.remote);
   repo.git('push', '-q', 'origin', 'main');
   const bin = join(repo.root, 'bin');
   mkdirSync(bin);
+  // The git shim forwards each call to the real git. Only for a fetch inside this temp folder, it
+  // adds a command-line insteadOf rule from the configured origin URL to the bare remote, so the
+  // script's own config and `ls-remote --get-url` checks see no rewrite.
+  const realGit = repo.run('sh', ['-c', 'command -v git']).stdout.trim();
+  stub(join(bin, 'git'), [
+    `case "$(pwd -P)" in "${repo.root}"/*) if [ "$1" = fetch ]; then url=$("${realGit}" config --get remote.origin.url) && exec "${realGit}" -c "url.${repo.remote}.insteadOf=$url" "$@"; fi ;; esac`,
+    `exec "${realGit}" "$@"`,
+  ]);
   // STUB_FAIL=<word> makes a call that holds that argument fail; STUB_HANG=<word> makes it wait.
   const holds = (name: string) => `[ -n "$${name}" ] && case " $* " in *" $${name} "*) true;; *) false;; esac`;
   const behave = [
@@ -61,7 +74,10 @@ function setup() {
   stub(join(bin, 'npm'), [...behave,
     'if [ "$1 $2" = "run check:browser" ] && [ $# -eq 2 ] && [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST" dist; fi',
     'if [ "$1 $2" = "run plugin:build:vercel" ]; then mkdir -p plugin-deploy/.vercel/output/functions/mcp.func; printf "consent-v1" > plugin-deploy/.vercel/output/functions/mcp.func/consent.mjs; fi',
-    `if [ "$1 $2" = "run build:vercel" ]; then mkdir -p kingdown-deploy/.vercel/output/functions/mcp.func kingdown-deploy/.vercel/output/static; printf "consent-v1" > kingdown-deploy/.vercel/output/functions/mcp.func/consent.mjs; printf '{"version":3}\n' > kingdown-deploy/.vercel/output/config.json; if [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST/." kingdown-deploy/.vercel/output/static; fi; fi`,
+    `if [ "$1 $2" = "run build:vercel" ]; then mkdir -p kingdown-deploy/.vercel/output/functions/mcp.func kingdown-deploy/.vercel/output/static; printf "consent-v1" > kingdown-deploy/.vercel/output/functions/mcp.func/consent.mjs; printf '{"version":3}\n' > kingdown-deploy/.vercel/output/config.json; if [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST/." kingdown-deploy/.vercel/output/static; else printf page > kingdown-deploy/.vercel/output/static/index.html; printf worker > kingdown-deploy/.vercel/output/static/sw.js; fi; fi`,
+    // The build copies the committed engine archives; STUB_TAMPER_ENGINE changes them, STUB_STAGING_MANIFEST adds the staging manifest.
+    'if [ "$1 $2" = "run build:vercel" ] && [ -d engines ]; then mkdir -p kingdown-deploy/.vercel/output/functions/mcp.func/runtime/engines; cp engines/*.mjs kingdown-deploy/.vercel/output/functions/mcp.func/runtime/engines/; if [ -n "$STUB_TAMPER_ENGINE" ]; then for f in kingdown-deploy/.vercel/output/functions/mcp.func/runtime/engines/*.mjs; do printf x >> "$f"; done; fi; fi',
+    'if [ "$1 $2" = "run build:vercel" ] && [ -n "$STUB_STAGING_MANIFEST" ]; then printf "{}" > kingdown-deploy/.vercel/output/staging.json; fi',
     // STUB_NEW_ENGINE: the build archives an engine that origin/main does not hold.
     'if { [ "$1 $2" = "run plugin:build:vercel" ] || [ "$1 $2" = "run build:vercel" ]; } && [ -n "$STUB_NEW_ENGINE" ]; then mkdir -p engines; printf "bundle" > engines/new.mjs; fi',
   ]);
@@ -75,7 +91,7 @@ function setup() {
     'case " $* " in *" deploy --prebuilt --prod "*) if [ "$(basename "$PWD")" = kingdown ]; then test -f .vercel/output/config.json && test -f .vercel/output/functions/mcp.func/consent.mjs && cmp -s "$STUB_DIST/index.html" .vercel/output/static/index.html || exit 1; fi ;; esac',
     'case " $* " in *" env add "*) cat > "$STUB_ENV_DIR/$5" ;; esac',
   ]);
-  const env = { PATH: `${bin}:${repo.env.PATH}`, STUB_FAIL: '', STUB_HANG: '', STUB_DIST: '', STUB_PROJECT: '', STUB_NEW_ENGINE: '', PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', KINGDOWN_ENGINES_DATABASE_URL: '', DEPLOY_LIVE_URL: 'http://127.0.0.1:9', DEPLOY_LIVE_TIMEOUT_MS: '1500' };
+  const env = { PATH: `${bin}:${repo.env.PATH}`, STUB_FAIL: '', STUB_HANG: '', STUB_DIST: '', STUB_PROJECT: '', STUB_NEW_ENGINE: '', STUB_TAMPER_ENGINE: '', STUB_STAGING_MANIFEST: '', STUB_LINK_MODULES: '', KINGDOWN_STAGE: '', VITE_KINGDOWN_STAGE: '', VITE_SUPABASE_URL: productionSupabase, VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test', PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', KINGDOWN_ENGINES_DATABASE_URL: '', DEPLOY_LIVE_URL: 'http://127.0.0.1:9', DEPLOY_LIVE_TIMEOUT_MS: '1500' };
   const deploy = (args: string[] = [], extra: Record<string, string> = {}) => repo.run(script, args, { env: { ...env, ...extra } });
   const deployAsync = (args: string[] = [], extra: Record<string, string> = {}) => runAsync(script, args, { cwd: repo.dir, env: { ...repo.env, ...env, ...extra } });
   const calls = () => (existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : []);
@@ -131,11 +147,8 @@ describe('deploy.sh', () => {
   it.each(['website', 'plugin'])('requires the engines setting before any %s publish work', target => {
     const { repo, deploy, calls } = setup();
     const gitLog = join(repo.root, 'git-calls');
-    // The staging guard may locate the checkout; publication still must do no Git work.
-    stub(join(repo.root, 'bin', 'git'), [
-      `if [ "$*" = "rev-parse --show-toplevel" ]; then printf '%s\\n' '${repo.dir}'; exit 0; fi`,
-      `echo git >> "${gitLog}"`, 'exit 99',
-    ]);
+    // Publication does no Git work before this check.
+    stub(join(repo.root, 'bin', 'git'), [`echo git >> "${gitLog}"`, 'exit 99']);
     const result = deploy(['--target', target, '--publish'], { KINGDOWN_ENGINES_DATABASE_URL: '' });
     expect(result.status).toBe(2);
     expect(result.stderr).toContain('set KINGDOWN_ENGINES_DATABASE_URL before --publish');
@@ -144,18 +157,121 @@ describe('deploy.sh', () => {
     expect(existsSync(gitLog)).toBe(false);
   });
 
-  it('blocks every legacy deploy mode in the independent staging repository', () => {
-    const { repo, deploy, calls } = setup();
+  it('checks a repository that holds the staging plan; the old staging-repository block is gone', () => {
+    const { repo, deploy } = setup();
     repo.write('docs/specs/staging-first-game/plan.md', '# Independent staging project\n');
+    const result = deploy();
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stderr).not.toContain('disabled in this staging repository');
+  });
+
+  it('refuses every staging setting in every mode before any work', () => {
+    const { repo, deploy, calls } = setup();
     const before = repo.git('worktree', 'list', '--porcelain').stdout;
-    for (const args of [[], ['--publish'], ['--target', 'plugin', '--publish'], ['--setup-plugin'], ['--configure', 'unused-private-env']]) {
-      const result = deploy(args);
-      expect(result.status).toBe(2);
-      expect(result.stderr).toContain('production deploy is disabled in this staging repository');
+    const modes = [[], ['--publish'], ['--target', 'plugin'], ['--target', 'plugin', '--publish'], ['--setup-plugin'], ['--configure', 'unused-private-env'], ['--configure-plugin', 'unused-private-env']];
+    for (const name of ['KINGDOWN_STAGE', 'VITE_KINGDOWN_STAGE']) for (const args of modes) {
+      const result = deploy(args, { [name]: 'staging', KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase });
+      expect([args, result.status]).toEqual([args, 2]);
+      expect(result.stderr).toContain(`unset ${name}; production refuses staging settings`);
       expect(result.stdout).not.toMatch(/step|worktree|skipped/);
+    }
+    for (const [change, message] of [[{ VITE_SUPABASE_URL: stagingSupabase }, 'set VITE_SUPABASE_URL='], [{ VITE_SUPABASE_URL: '' }, 'set VITE_SUPABASE_URL='], [{ VITE_SUPABASE_PUBLISHABLE_KEY: '' }, 'VITE_SUPABASE_PUBLISHABLE_KEY'], [{ VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_secret_private' }, 'VITE_SUPABASE_PUBLISHABLE_KEY'], [{ VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_bad key' }, 'VITE_SUPABASE_PUBLISHABLE_KEY']] as const) for (const args of [[], ['--publish']]) {
+      const result = deploy(args, { ...change, KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase });
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain(message);
+      expect(result.stderr).not.toContain('private');
     }
     expect(calls()).toEqual([]);
     expect(repo.git('worktree', 'list', '--porcelain').stdout).toBe(before);
+  });
+
+  it('refuses a build that carries the staging manifest before publication', () => {
+    const { repo, deploy, calls } = setup();
+    const result = deploy(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_STAGING_MANIFEST: '1' });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('the build carries the staging manifest');
+    expect(result.stderr).toContain('FAIL at production artifact');
+    expect(calls().some(line => line.startsWith('npx ') || line.includes('check:vercel'))).toBe(false);
+    expectGone(repo, worktreeOf(result.stdout));
+  });
+
+  it('records the published bytes and refuses a changed engine archive', () => {
+    const { repo, deploy, calls } = setup();
+    // A real archive name is the engine's source hash, not the sha256 of its bytes.
+    const archive = 'engine bytes\n', hash = createHash('sha256').update(archive).digest('hex'), name = `${'a'.repeat(64)}.mjs`;
+    repo.write(`engines/${name}`, archive);
+    repo.git('add', '.'); repo.git('commit', '-q', '-m', 'engine'); repo.git('push', '-q', 'origin', 'main');
+    const result = deploy();
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain(`deploy: sha256 ${createHash('sha256').update('page').digest('hex')} static/index.html`);
+    expect(result.stdout).toContain(`deploy: sha256 ${createHash('sha256').update('worker').digest('hex')} static/sw.js`);
+    expect(result.stdout).toContain(`deploy: sha256 ${hash} engine archive ${name}`);
+    expect(result.stdout).toContain('deploy: 1 engine archives unchanged; no staging manifest');
+    const changed = deploy(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_TAMPER_ENGINE: '1' });
+    expect(changed.status).not.toBe(0);
+    expect(changed.stderr).toContain(`engine archive ${name} changed`);
+    expect(calls().some(line => line.startsWith('npx '))).toBe(false);
+  });
+
+  it('builds with its own node_modules when wt links the shared installation', () => {
+    const { deploy, calls } = setup();
+    const result = deploy([], { STUB_LINK_MODULES: tmpdir() });
+    expect(result.status, result.stderr).toBe(0);
+    const log = calls().map(line => line.replace(/ @ .*/, ''));
+    expect(log.slice(0, 2)).toEqual([`wt.sh add ${worktreeOf(result.stdout)}`, 'npm ci']);
+    expect(calls().find(line => line.startsWith('npm run build:vercel'))).not.toMatch(/ node_modules /);
+  });
+
+  it('names the missing GitHub remote before it makes a worktree', () => {
+    const { repo, deploy, calls } = setup();
+    repo.git('remote', 'rename', 'origin', 'source');
+    const result = deploy();
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('add the GitHub remote origin');
+    expect(calls()).toEqual([]);
+  });
+
+  it.each(['/tmp/other.git', 'https://github.com/SaarShai/king-down-chess-fork.git', 'https://github.com/Other/king-down-chess.git', 'git@github.com:Other/king-down-chess.git'])('stops before the fetch when origin is %s', url => {
+    const { repo, deploy, calls } = setup();
+    repo.git('remote', 'set-url', 'origin', url);
+    const result = deploy();
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('remote origin must be the GitHub repository SaarShai/king-down-chess');
+    expect(result.stdout).not.toContain('fetch origin');
+    expect(calls()).toEqual([]);
+  });
+
+  it.each(['https://github.com/SaarShai/king-down-chess', 'git@github.com:SaarShai/king-down-chess.git', 'ssh://git@github.com/SaarShai/king-down-chess'])('accepts the GitHub origin form %s', url => {
+    const { repo, deploy } = setup();
+    repo.git('remote', 'set-url', 'origin', url);
+    const result = deploy();
+    expect(result.status, result.stderr).toBe(0);
+  });
+
+  it('stops before the fetch when an insteadOf rule rewrites the GitHub origin to another repository', () => {
+    const { repo, deploy, calls } = setup();
+    repo.git('init', '-q', '--bare', '-b', 'main', join(repo.root, 'other.git'));
+    repo.git('config', `url.${join(repo.root, 'other.git')}.insteadOf`, 'https://github.com/SaarShai/king-down-chess.git');
+    const result = deploy();
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('remote origin must be the GitHub repository SaarShai/king-down-chess');
+    expect(result.stdout).not.toContain('fetch origin');
+    expect(calls()).toEqual([]);
+  });
+
+  it('fetches main into origin/main even when remote.origin.fetch maps another branch there', () => {
+    const { repo, deploy, calls } = setup();
+    const main = head(repo, 'HEAD');
+    repo.git('checkout', '-q', '-b', 'other');
+    repo.write('app.txt', 'other\n');
+    repo.git('commit', '-q', '-am', 'other');
+    repo.git('push', '-q', 'origin', 'other');
+    repo.git('checkout', '-q', 'main');
+    repo.git('config', 'remote.origin.fetch', '+refs/heads/other:refs/remotes/origin/main');
+    const result = deploy();
+    expect(result.status, result.stderr).toBe(0);
+    const npmTest = calls().find(line => line.startsWith('npm test '))?.replace(/ with .*/, '');
+    expect(npmTest).toBe(`npm test @ ${main} in ${worktreeOf(result.stdout)}`);
   });
 
   it('sets only the seven plugin values through stdin and prints none of their values', () => {
@@ -421,9 +537,27 @@ const pages = (bundle = 'index-Abc123_x', terms = 'Terms v1') => ({
   'ui/piece.svg': '<svg/>',
   'manifest.webmanifest': '{}',
 });
-const closedPages = ['/play', '/play/', '/play/profile', '/play/settings', '/play.html', '/g/00000000-0000-4000-8000-000000000000', '/j', '/j/', '/j/deploy-check-inert-token', '/deploy-check-unknown'];
+const appPages = ['/play', '/play/', '/play/profile', '/play/settings', '/g/00000000-0000-4000-8000-000000000000', '/j', '/j/'];
+const closedPages = ['/play.html', '/j/deploy-check-inert-token', '/deploy-check-unknown'];
 const apiPaths = ['/api', '/api/status', '/api/games', '/api/me/games'];
+const apiProbes = ['GET /api', 'POST /api', 'GET /api/status', 'POST /api/status', 'GET /api/me/games', 'POST /api/games'];
 const apiClosure = JSON.stringify({ code: 'NOT_FOUND', message: 'Not found' });
+type Access = 'closed' | 'open';
+/** The site API's answer to an unsigned probe while the 0016 switch is `access` (src/api/http.ts). */
+function apiAnswer(method: string, path: string, access: Access): [number, unknown] {
+  if (path === '/api') return [404, { code: 'NOT_FOUND', message: 'Not found' }];
+  if (path === '/api/status' && method === 'GET') return [200, { account_access: access, valid_for_ms: access === 'open' ? 4999 : 0 }];
+  if (`${method} ${path}` === 'GET /api/me/games' || `${method} ${path}` === 'POST /api/games') return access === 'open' ? [401, { code: 'UNAUTHENTICATED', message: 'Sign in again' }] : [503, { code: 'UNAVAILABLE', message: 'Account play is temporarily unavailable.' }];
+  return [405, { code: 'NOT_ALLOWED', message: 'Method not allowed' }];
+}
+/** Serve an app page or an API answer as the site routes do; false for any other path. */
+function siteRoute(req: IncomingMessage, res: ServerResponse, path: string, files: Record<string, string>, access: Access) {
+  if (appPages.includes(path)) { res.writeHead(200, { 'content-type': 'text/html' }).end(files['index.html']); return true; }
+  if (!apiPaths.includes(path)) return false;
+  const [status, body] = apiAnswer(req.method ?? 'GET', path, access);
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }).end(JSON.stringify(body));
+  return true;
+}
 const contentType = (path: string) => ({ js: 'text/javascript', css: 'text/css', woff2: 'font/woff2', png: 'image/png', webp: 'image/webp', svg: 'image/svg+xml', webmanifest: 'application/manifest+json' })[path.split('.').at(-1)!] ?? 'text/html';
 
 /** A build folder with the given pages. */
@@ -438,7 +572,7 @@ function buildFolder(files: Record<string, string>) {
 }
 
 /** A local site. `files` can change between requests; `/` serves `index.html`. */
-async function site(files: () => Record<string, string>, challengeReply: { status?: number; type?: string | null; location?: string; path?: string; body?: string; cache?: string | null } = {}) {
+async function site(files: () => Record<string, string>, challengeReply: { status?: number; type?: string | null; location?: string; path?: string; body?: string; cache?: string | null } = {}, access: Access = 'closed') {
   const requests: { path: string; method?: string; cookie?: string }[] = [];
   const server = createServer((req, res) => {
     const path = (req.url ?? '/').split('?')[0];
@@ -452,7 +586,7 @@ async function site(files: () => Record<string, string>, challengeReply: { statu
       res.writeHead(challengeReply.status ?? (body === undefined ? 404 : 200), { ...(type ? { 'content-type': type } : {}), ...(cache ? { 'cache-control': cache } : {}), ...(challengeReply.location ? { location: challengeReply.location } : {}) }).end(challengeReply.body ?? body);
       return;
     }
-    if (body === undefined && apiPaths.includes(path)) { res.writeHead(404, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }).end(apiClosure); return; }
+    if (body === undefined && siteRoute(req, res, path, files(), access)) return;
     if (body === undefined) { res.writeHead(404).end('not found'); return; }
     res.writeHead(200, { 'content-type': contentType(path), 'set-cookie': 'visit=1; Path=/' }).end(body);
   });
@@ -487,10 +621,10 @@ describe('deploy-live-check.mjs', () => {
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('index-Abc123_x.js');
     expect(live.requests.map(r => `${r.method} ${r.path}`).sort()).toEqual([
-      ...Object.keys(files).map(file => `GET /${file}`), 'GET /', ...closedPages.map(path => `GET ${path}`), ...apiPaths.flatMap(path => [`GET ${path}`, `POST ${path}`]),
+      ...Object.keys(files).map(file => `GET /${file}`), 'GET /', ...[...appPages, ...closedPages].map(path => `GET ${path}`), ...apiProbes,
     ].sort());
     expect(result.stdout).toContain('sw.js version build-v1, policy public-build-v1, sha256');
-    expect(result.stdout).toContain('18 closed-route probes pass');
+    expect(result.stdout).toContain("7 app pages serve the build's index.html; 3 closed paths answer 404; account_access closed; 5 API probes pass");
     expect(live.requests.filter(r => r.cookie !== undefined)).toEqual([]);
   });
 
@@ -556,11 +690,28 @@ describe('deploy-live-check.mjs', () => {
     expect(result.stderr).toContain(`/${path}: expected `);
   });
 
-  it.each([...closedPages, ...apiPaths])('rejects an open route at %s', async path => {
+  it.each(closedPages)('rejects an open route at %s', async path => {
     const files = pages(), live = await site(() => ({ ...files, [path.slice(1)]: '<html>unexpected</html>' }));
     const result = await check(buildFolder(files), live.url, 0);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(`GET ${path}: expected 404 without redirect, got HTTP 200`);
+  });
+
+  it.each(appPages)('requires the build\'s index.html at the app page %s', async path => {
+    const files = pages();
+    for (const served of [{ ...files, [path.slice(1)]: 'stale shell' }, undefined]) {
+      const live = served ? await site(() => served) : await site(() => files, { path, status: 404, type: 'text/html', body: 'not found' });
+      const result = await check(buildFolder(files), live.url, 0);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(served ? `${path.slice(1)} (app page): the live page differs` : `${path}: HTTP 404`);
+    }
+  });
+
+  it('passes with the switch open and prints the account state', async () => {
+    const files = pages(), live = await site(() => files, {}, 'open');
+    const result = await check(buildFolder(files), live.url);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('account_access open; 5 API probes pass');
   });
 
   it.each([
@@ -572,18 +723,51 @@ describe('deploy-live-check.mjs', () => {
     { name: 'missing no-store', body: apiClosure, cache: null },
     { name: 'cacheable closure', body: apiClosure, cache: 'max-age=60' },
     { name: 'verifier 503', status: 503, body: JSON.stringify({ code: 'UNAVAILABLE' }) },
-  ])('rejects $name for GET and POST API probes', async fault => {
-    const live = await site(() => pages(), { path: '/api/games', ...fault });
+  ])('rejects $name for GET and POST /api', async fault => {
+    const live = await site(() => pages(), { path: '/api', ...fault });
     const result = await check(buildFolder(pages()), live.url, 0);
     expect(result.status).toBe(1);
-    for (const method of ['GET', 'POST']) expect(result.stderr).toContain(`${method} /api/games:`);
+    for (const method of ['GET', 'POST']) expect(result.stderr).toContain(`${method} /api:`);
+  });
+
+  it.each([
+    { name: 'a missing status', status: 404, body: apiClosure, message: 'GET /api/status: expected JSON HTTP 200' },
+    { name: 'an unknown state', status: 200, body: JSON.stringify({ account_access: 'maybe', valid_for_ms: 0 }), message: 'expected account_access closed (valid_for_ms 0) or open (valid_for_ms > 0)' },
+    { name: 'a cacheable status', status: 200, body: JSON.stringify({ account_access: 'closed', valid_for_ms: 0 }), cache: 'max-age=60', message: 'GET /api/status: expected JSON HTTP 200' },
+    // src/api/http.ts: a closed state has no lease; an open state has a positive lease.
+    { name: 'a closed state with a lease', status: 200, body: JSON.stringify({ account_access: 'closed', valid_for_ms: 5000 }), message: 'expected account_access closed (valid_for_ms 0) or open (valid_for_ms > 0)' },
+    { name: 'an open state without a lease', status: 200, body: JSON.stringify({ account_access: 'open', valid_for_ms: 0 }), message: 'expected account_access closed (valid_for_ms 0) or open (valid_for_ms > 0)' },
+    { name: 'an open state with a negative lease', status: 200, body: JSON.stringify({ account_access: 'open', valid_for_ms: -1 }), message: 'expected account_access closed (valid_for_ms 0) or open (valid_for_ms > 0)' },
+  ])('rejects $name at /api/status', async ({ message, ...fault }) => {
+    const live = await site(() => pages(), { path: '/api/status', ...fault });
+    const result = await check(buildFolder(pages()), live.url, 0);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(message);
+  });
+
+  it.each([
+    { path: '/api/me/games', status: 200, body: '[]', message: 'GET /api/me/games: expected JSON HTTP 503 UNAVAILABLE' },
+    { path: '/api/me/games', status: 401, body: JSON.stringify({ code: 'UNAUTHENTICATED' }), message: 'GET /api/me/games: expected JSON HTTP 503 UNAVAILABLE' },
+    { path: '/api/games', status: 201, body: '{}', message: 'POST /api/games: expected JSON HTTP 503 UNAVAILABLE' },
+  ])('rejects an account call that does not refuse while the switch is closed ($path HTTP $status)', async ({ message, ...fault }) => {
+    const live = await site(() => pages(), fault);
+    const result = await check(buildFolder(pages()), live.url, 0);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(message);
+  });
+
+  it('rejects an unsigned account call that succeeds while the switch is open', async () => {
+    const live = await site(() => pages(), { path: '/api/me/games', status: 200, body: '[]' }, 'open');
+    const result = await check(buildFolder(pages()), live.url, 0);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('GET /api/me/games: expected JSON HTTP 401 UNAUTHENTICATED');
   });
 
   it.each([302, 404])('rejects a closed-route redirect header with HTTP %s and does not follow it', async status => {
-    const live = await site(() => pages(), { path: '/play/', status, location: '/redirect-target' });
+    const live = await site(() => pages(), { path: '/deploy-check-unknown', status, location: '/redirect-target' });
     const result = await check(buildFolder(pages()), live.url, 0);
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain('GET /play/: expected 404 without redirect');
+    expect(result.stderr).toContain('GET /deploy-check-unknown: expected 404 without redirect');
     expect(live.requests.some(request => request.path === '/redirect-target')).toBe(false);
   });
 
@@ -679,8 +863,7 @@ async function pluginSite(fault = '', files?: Record<string, string>) {
       if (fault === 'cors') delete headers['Access-Control-Allow-Origin'];
       res.writeHead(200, headers).end(fault === 'art' ? 'stale-art' : 'art-v1');
     } else if (path === '/consent.mjs') res.end(fault === 'script' ? 'old-consent' : 'consent-v1');
-    else if (apiPaths.includes(path)) res.writeHead(404, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }).end(apiClosure);
-    else res.writeHead(404).end();
+    else if (!(files && siteRoute(req, res, path, files, 'closed'))) res.writeHead(404).end();
   });
   await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
   servers.push(server);
