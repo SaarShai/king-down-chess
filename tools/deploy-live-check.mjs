@@ -124,7 +124,7 @@ async function differences() {
   };
   const status = apiReply('GET', '/api/status', 200);
   access = status?.account_access;
-  if (status && !(['closed', 'open'].includes(access) && Number.isInteger(status.valid_for_ms))) { found.push(`GET /api/status: expected account_access closed or open, got ${JSON.stringify(status)}`); access = undefined; }
+  if (status && !(access === 'closed' ? status.valid_for_ms === 0 : access === 'open' && Number.isInteger(status.valid_for_ms) && status.valid_for_ms > 0)) { found.push(`GET /api/status: expected account_access closed (valid_for_ms 0) or open (valid_for_ms > 0), got ${JSON.stringify(status)}`); access = undefined; }
   for (const probe of apiProbes) {
     if (access) apiReply(probe.method, probe.path, probe.status(access === 'open'), probe.code(access === 'open'));
     else next();
