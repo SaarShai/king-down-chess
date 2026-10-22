@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Move, N, Position, POWERS_BALANCED, RULES, T, inCheck, legalMoves, makeMove, nameOf, parseRule, parseSq, setRules } from './rules/engine';
 import { GameRules } from './game-rules';
 import { PRESETS, designCode, fromPreset } from './workshop/model';
-import { KingChoice, PowerName } from './rules/rules';
+import { CardName, KingChoice, PowerName } from './rules/rules';
+import { RELEASED_CARDS } from './content/cards';
 import { fromFen, randomBackRank, startPosition, toLan } from './rules/setup';
 import { checkCause, checkersOf, describeMove, shortMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
 import { offered } from './powers-ui';
@@ -230,7 +231,7 @@ it.each(['computer', 'link'] as const)('speaks from either viewer when either ki
 
 it.each(['haste', 'rally'] as const)('describes the final %s ply without another move', power => {
   const pos = fromFen('7k/8/8/8/8/R7/8/7K w - - 0 1');
-  expect(describeMove(new GameRules(RULES), pos, { from: 16, to: 56, captures: [], power }, true, true)).toBe('White rook a3 to a8.');
+  expect(describeMove(new GameRules(RULES), pos, { from: 16, to: 56, captures: [], power }, true, true)).toBe(`White rook a3 to a8 with ${power === 'haste' ? 'Haste' : 'Rally'}.`);
 });
 
 
@@ -260,4 +261,55 @@ it('keeps owned designed names in short moves without changing the ambient rules
   expect(shortMove(pos, { from: 48, to: 56, captures: [], promo: T }, name)).toBe('White pawn a7 → a8 = Owned Ward');
   expect(shortMove(pos, move, nameOf)).toBe('White Ambient Ward a2 → a3');
   expect(RULES).toEqual(ambient);
+});
+
+describe('screen-reader lines for released cards', () => {
+  // One real move per card of RELEASED_CARDS: the hand, the position, the move (LAN) and its sentence.
+  const CASES: Record<string, [hand: CardName[], fen: string, lan: string, text: string]> = {
+    Freeze: [['Freeze'], '4k3/8/3p4/3n4/8/8/8/4K3 w - - 0 1', '!F:d5', 'White freezes the black knight on d5.'],
+    IceWall: [['IceWall'], '4k3/8/8/8/R7/8/2b5/4K3 w - - 0 1', '!W:a4', 'White puts an Ice Wall on the white rook on a4.'],
+    Strike: [['Strike'], '4k3/8/8/8/3p4/8/8/R3K3 w - - 0 1', 'Ra1xd4!', 'White rook a1 to d4, taking the pawn on d4 with Strike.'],
+    Haste: [['Haste'], '4k3/8/8/8/8/8/8/R3K3 w - - 0 1', 'Ra1-a5!H', 'White rook a1 to a5, with Haste: the rook may move again.'],
+    Flight: [['Flight'], '4k3/8/8/8/8/8/1P6/RN2K3 w - - 0 1', 'Nb1~d3', 'White knight flies from b1 to d3.'],
+    Sacrifice: [['Sacrifice'], '4k3/8/8/8/8/8/P7/4K3 w - - 0 1 lQ', '!S:a2=Q', 'White sacrifices the pawn on a2 and brings back a queen there.'],
+    March: [['March'], '4k3/8/8/8/8/P7/8/4K3 w - - 0 1', 'a3-a5!M', 'White pawn a3 to a5 with March.'],
+    Leap: [['Leap'], '4k3/8/8/8/8/8/P7/R3K3 w - - 0 1', 'Ra1-a3!L', 'White rook a1 to a3 with Leap.'],
+    Salvation: [['Salvation'], '4k3/8/8/8/8/8/8/4K3 w - - 0 1 lQ', 'Q@d1!R', 'White uses Salvation to bring back a queen on d1.'],
+    MirrorB: [['MirrorB', 'Freeze'], '4k3/8/3p4/3n4/8/8/8/4K3 w - - 0 1', '!F:d5!Z', 'With Mirror, White freezes the black knight on d5.'],
+    Firewall: [['Firewall'], '4k3/8/8/8/8/8/8/4K3 w - - 0 1', '!P', 'White uses Firewall to protect all its pieces until its next turn.'],
+    EarthQuake: [['EarthQuake'], '4k3/8/8/3p4/8/8/8/4K3 w - - 0 1', '!Q:c4', 'White uses Earth Quake on c4 and pushes the black pawn on d5 to e6.'],
+    Burn: [['Burn'], '4k3/8/8/8/3p4/8/8/3NK3 w - - 0 1', 'Nd1xd4!N', 'White knight d1 to d4, taking the pawn on d4 with Burn.'],
+    FireStarter: [['FireStarter'], '3rk3/8/8/8/8/8/8/3NK3 w - - 0 1', 'Nd1xd8!T', 'White knight d1 to d8, taking the rook on d8 with Fire Starter.'],
+    Control: [['Control'], '4k3/8/8/8/8/8/8/1NR1K3 w - - 0 1', 'Nb1-b5!O', 'White knight b1 to b5 with Control.'],
+    Rally: [['Rally'], '4k3/8/8/8/8/8/8/R3K3 w - - 0 1', 'Ra1-a5!J', 'White rook a1 to a5, with Rally: a different piece may move next.'],
+    MorphP: [['MorphP'], '4k3/8/8/8/8/8/P7/4K3 w - - 0 1', '!IP:a2=N', 'White turns the pawn on a2 into a knight.'],
+    Mimic: [['Mimic'], '4k3/8/8/8/8/8/8/1NR1K3 w - - 0 1', 'Nb1-b5!X', 'White knight b1 to b5 with Mimic.'],
+    Vault: [['Vault'], '4k3/8/8/8/8/8/p7/R3K3 w - - 0 1', 'Ra1-a3!V', 'White rook a1 to a3 with Vault.'],
+    Curse: [['Curse'], '4k3/8/8/3n4/8/8/8/4K3 w - - 0 1', '!C:d5-e5', 'White uses Curse to move the black knight on d5 to e5.'],
+    SkyLift: [['SkyLift'], '4k3/8/8/8/8/8/8/1NB1K3 w - - 0 1', '!K:b1<>c1', 'White uses Sky Lift to swap the knight on b1 and the bishop on c1.'],
+  };
+  // The king-power sentences, unchanged, name these cards by their verb.
+  const VERB: Record<string, string> = { Freeze: 'freezes', Flight: 'flies', Sacrifice: 'sacrifices', MorphP: 'turns' };
+
+  it('has one case for each released card', () => {
+    expect(Object.keys(CASES).sort()).toEqual(RELEASED_CARDS.map(card => card.id).sort());
+  });
+
+  it.each(RELEASED_CARDS.map(card => [card.id, card.name] as const))('names %s in its move sentence', (id, name) => {
+    const [hand, fen, lan, text] = CASES[id];
+    setRules({ hands: [hand, []] });
+    const line = say(fromFen(fen), lan);
+    expect(line).toBe(text);
+    expect(line).toContain(VERB[id] ?? name);
+  });
+
+  it('names the side of each pushed piece', () => {
+    setRules({ hands: [['EarthQuake'], []] });
+    expect(say(fromFen('4k3/8/8/2PpP3/8/8/8/4K3 w - - 0 1'), '!Q:c4')).toBe('White uses Earth Quake on c4 and pushes the white pawn on c5 to c6 and the black pawn on d5 to e6.');
+  });
+
+  it('counts the pieces when an Earth Quake pushes more than two', () => {
+    setRules({ hands: [['EarthQuake'], []] });
+    expect(say(fromFen('4k3/8/8/2ppp3/8/8/8/4K3 w - - 0 1'), '!Q:d4')).toBe('White uses Earth Quake on d4 and pushes 3 pieces one square away.');
+  });
 });
