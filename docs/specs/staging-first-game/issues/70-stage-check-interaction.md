@@ -69,4 +69,7 @@ Each run sets `PLUGIN_TEST_DATABASE_URL=postgresql://kingdown_test@127.0.0.1:554
 - `npm run check:browser account`: `ok account 54.1 s`, with each of its 10 `ok` lines.
 - `KINGDOWN_TEST_FILE='{tools/staging-config.test.ts,src/account/public-config.test.ts,tools/plugin-server-config.test.ts,tools/deploy.test.ts,tools/check.test.ts}' npm test`: `Test Files  5 passed (5)`, `Tests  204 passed (204)`.
 - `KINGDOWN_TEST_FILE='{src/account/*.test.ts,src/online/*.test.ts}' npm test`: `Test Files  17 passed | 2 skipped (19)`, `Tests  393 passed | 23 skipped (416)`.
+- `npm run check:browser web-game web-game-staging account plugin-ui-http-staging home` (at `175cea2b`, clean tree): `ok web-game 31.3 s`, `ok web-game-staging 46.6 s`, `ok account 53.9 s`, `ok plugin-ui-http-staging 247.6 s`, `ok home 8.0 s`, `check: all 5 passed`. An earlier run of the same line passed all checks, but the runner failed `account` with `changed in the checkout: docs/specs/staging-first-game/issues/70-stage-check-interaction.md`, because this ticket was written during that run.
+- Full `npm test` (at `da9e40be`): `Test Files  255 passed (255)`, `Tests  4753 passed | 8 skipped (4761)`.
 - `npm run typecheck`: `tsc --noEmit` exits 0.
+- `npm run test:docs`: `Test Files  13 passed (13)`, `Tests  166 passed (166)`.
