@@ -72,7 +72,7 @@ describe('browser check site build', () => {
     expect(calls[3]).toMatchObject({ script: 'tools/plugin-browser-check.mjs', args: ['http'] });
   });
 
-  it.each([{ names: ['web-online'] }, { names: ['plugin-ui', 'web-online'] }, { names: [] }])('builds and serves the site for $names', ({ names }) => {
+  it.each([{ names: ['web-online'] }, { names: ['plugin-ui', 'web-online'] }, { names: ['gui-board-preview'] }, { names: [] }])('builds and serves the site for $names', ({ names }) => {
     const { result, calls } = run(names);
     expect(result.status, result.stderr + result.stdout).toBe(0);
     expect(calls.slice(0, 2)).toEqual(['build', 'preview']);
