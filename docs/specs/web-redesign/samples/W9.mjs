@@ -20,7 +20,7 @@ export default {
       await startLesson(page, 'Archer');
       await tap(27); await tap(45);
       await waitForUi(page, ui => ui.lessonLearned === 'Archer');
-      if (await page.locator('#next-lesson').innerText() !== 'Next lesson: Beast') throw new Error('Archer must lead to Beast.');
+      if (await page.locator('#next-lesson').innerText() !== 'Next: Beast') throw new Error('Archer must lead to Beast.');
     },
   }, {
     name: 'all-learned', save, controls: '.shelf-piece, #learn, .shelf-safe, .lesson-guide-head button',

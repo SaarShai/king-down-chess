@@ -100,7 +100,7 @@ The new fix is in `restore()` only. Known limit: a save with no rules whose move
 
 ### The end check
 
-`tools/verify-end.mjs:72` uses the same fixture idiom: a seed with no rules and `&kings=flame:haste,none`. At the base `73387e66` it fails: `FAIL end                31.9 s  locator.click: Timeout 30000ms exceeded.` (the Haste coin is absent, the same `be0786da` cause). Now it fails at the next step (`endTurn`), because the page keeps the fresh URL game. `verify-end.mjs` is outside this ticket's file list, so it is not changed. The fix is the same as in `verify-turn.mjs`: in `open()`, seed `rules: await rulesAt(browser, url)` when the query names `kings=` or `rules=`.
+`tools/verify-end.mjs:72` uses the same fixture idiom: a seed with no rules and `&kings=flame:haste,none`. At the base `73387e66` it fails: `FAIL end                31.9 s  locator.click: Timeout 30000ms exceeded.` (the Haste coin is absent, the same `be0786da` cause). Now it fails at the next step (`endTurn`), because the page keeps the fresh URL game. `verify-end.mjs` is outside this ticket's file list, so it is not changed. The fix is the same as in `verify-turn.mjs`: in `open()`, seed `rules: await rulesAt(browser, url)` when the query names `kings=` or `rules=`. The lead approves this change (follow-up 2). See "Follow-ups".
 
 ### Game-screen board width
 
@@ -112,6 +112,78 @@ The new fix is in `restore()` only. Known limit: a save with no rules whose move
 - That commit's `Removed-check:` trailers cover only plugin checks. The website `game-screen` check was not updated. The next assertion (`moves-line` height 44) also conflicts with the 48 px row.
 
 Two design decisions conflict. `docs/specs/web-redesign/issues/03-the-table.md` ("Board review fixes", 2026-10-09) sets a 44 px Moves row on short phones and a 290 px board floor. `docs/specs/gui-previews-2026-10-19/issues/gui-prev-controls.md` sets 48 px flat reading rows, the Moves line included. A fix must pick one: restore 44 px for the short-phone Moves row, or accept the 48 px row and lower the floor to 287 px. This is a design choice, not a defect with one correct fix, so it is not changed here. The owner decides.
+
+The lead decides (follow-up 1): the newer pick (`23810f27`, 2026-10-19) wins. See "Follow-ups".
+
+### Follow-ups
+
+1. Short-phone board floor (lead decision). `23810f27` (the owner's preview pick of 2026-10-19) makes the short-phone Moves row 48 px. That pick wins over the 2026-10-09 decision. In `tools/verify-game-screen.mjs` the 320×568 block now sets `MOVES_ROW = 48` and `BOARD_FLOOR = 290 - (MOVES_ROW - 44)`, which is 286 px (the commit trailer says 287 px by mistake; the board measures 287 px, so the 1 px margin under the old 290 px floor stays). It expects a 48 px Moves row. A comment cites `23810f27` and the 48 px pick. The commit has two `Removed-check:` trailers. `docs/specs/web-redesign/issues/03-the-table.md` ("Board review fixes") now says that the pick supersedes the 290 px floor and that the floor is 286 px. `docs/specs/chatgpt-mvp/issues/23-fault-round-1.md` also names 290 px, but for the plugin board with insets, not the website table, so it stays.
+2. End check fixture (approved). `tools/verify-end.mjs` `open()` seeds `rules: await rulesAt(browser, url)` when the URL names `kings=` or `rules=`. No assertion or timeout changes.
+
+Open fault after follow-up 1: `game-screen` now fails at the next assertion, `tools/verify-game-screen.mjs:41`, `board labels draw at 12 CSS px`. A probe gives a label size of 11.958 CSS px at 320×568 (the floor is 11.99). The board draws its labels at 1/24 of the board width (40 px on a 960 px canvas), so the labels reach 12 CSS px only on a board of at least 288 px. The 287 px board of the 48 px pick gives 11.96 px. The lead order says "do not lower any other threshold", and `src/` is out of scope, so this stays open. The options: a label size that does not scale below 12 CSS px (a `src/` change), 4 px less from another short-phone row, or an owner decision on the label floor.
+
+3. Board label floor (lead decision: keep labels at 12 CSS px or more on small boards). `coordInk` in `src/render/board-ink.ts` capped the label size at 40 board units (1/24 of the 960-unit canvas). The cap is now 45 units, the limit of the M10 test model (16-unit inset + 0.35 em <= 32 units). Review correction: the measured capitals rise about 0.48 em above the middle line, so the file letters reach about 6 units into rank 1 at 45 units (about 4 at the old 40). The labels draw under the pieces, so they never cover one. The size stays `min(boardInk(width).coord, cap)`, and `coord` is `max(13, 12 CSS px in board units)`, so the labels keep 12 CSS px on boards of 256 px or more. On boards of 288 px or more the size does not change (the old cap did not apply there). A literal `max(12 CSS px, old size)` is not used: on boards below about 252 px it puts the labels outside the 32-unit frame and over the pieces, and the frame test (fault M10) fails. `src/render/board-ink.test.ts` has a new test: 12 CSS px or more at 256 and 287 px, and no change at 288, 302, 360 and 960 px. No check threshold changes.
+
+Open fault after follow-up 3: `game-screen` now passes the label steps (`board labels draw at 12 CSS px`, `file letters clear the canvas edge`) and fails at the next step, `tools/verify-game-screen.mjs:54`, `320×568: the table stays fixed at staged turn`. At the staged turn End Turn becomes the primary button and grows from 48 px to 52 px (y 506 to 504, bottom 554 to 556). The cause is `#table-bar > button.primary { min-height: 52px; }` in `src/ui/table.css`, from `601acb34` ("Fix control preview review faults"), which is in the base `73387e66`. A canvas font change cannot change a button height. `src/ui/` and the check are outside this follow-up, so it stays open. The options: keep the primary End Turn at 48 px in the short-phone bar, or accept the 52 px button in the check (an owner or lead decision).
+
+4. End Turn height (lead decision: keep the 52 px primary size and remove the jump). In `src/ui/table.css` the rule is now `#table-bar > :is(button.primary, #end-turn) { min-height: 52px; }`. End Turn has 52 px in every state, so its box does not change when it becomes primary. Only End Turn gets `.primary` in the bar (`src/turn-controls.ts`, `src/game-end.ts`). `#show-me`, `#next-lesson` and `#return-game` never get it, so they do not change. The 52 px button fits in the 60 px bar row (`minmax(60px + safe area, max-content)`), so the bar and the board do not change: the 286 px floor, the 48 px Moves row and the 12 px labels pass. No check threshold changes.
+
+Open fault after follow-up 4: `game-screen` now passes `320×568: the table stays fixed at staged turn` and every step up to `ok game-screen 320×568: fixed board and bar, targets, Moves, check, no sideways scroll`. It fails at the next step, `tools/verify-game-screen.mjs:88`, `320×568: strips, context, Moves and bar stay fixed with the lesson words`. At "Archer learned." the bar grows from 68 px to 75.19 px (top 500 to 492.81). The control run below shows that this fault does not come from follow-up 4. In it, `.primary` is 48 px (no growth at all), and the step fails with the same 492.8125 px top. When a lesson is done, `#next-lesson` shows in the bar ("Next lesson: …"). 75.19 px is 8 px padding plus 67.19 px: a 20 px icon, two 21.6 px text lines and 4 px padding. Thus the label probably breaks into two lines. A fix is a change in the lesson bar (`src/ui/table.ts` or `src/ui/table.css`), outside this follow-up.
+
+5. Lesson bar height at 320×568 (branch `staging/lane-lessonbar`). A probe measures the bar children at "Archer learned.". Before the fix: `#return-game` and `#menu-btn` are 48 px; `#next-lesson` is 67.19 px, because its label "Next lesson: Beast" breaks into two lines (43.19 px) in a 123.27 px column. The bar row grows to 75.19 px (top 492.81). The cause is the label width, not End Turn. On one line the label needs 125 to 149 px of text (Ogre to Maester) plus 8 px padding. The bar gives the middle column about 123 px beside "Return to game" and Menu, and no column split gives more. The fix: `src/ui/table.ts` shows `Next: <piece>` (77 to 101 px), so the label stays on one line at 320 px. "Start a game" is 91 px and does not change. After the fix the bar stays 68 px (top 500) at rest, in the lesson and when the lesson is done, at 320×568 and 390×844. The tests and docs that name the label now say `Next: …`: `tools/verify-lessons.mjs` (`Removed-check:` trailer), `tools/tablet-controls.test.ts`, `docs/specs/web-redesign/samples/W9.mjs` and `docs/painted-game/README.md`. No check threshold changes. The touch targets (48 px, End Turn 52 px), the 287 px board floor, the 48 px Moves row and the 12 px labels do not change.
+6. Guide first rule line (`lessons` check, `tools/verify-lessons.mjs:47`, "Guide shows Close, the first rule line and the centred save note"). The failing part is `lead.top + 20 < body.bottom` at 390×844: `#rules-lead` top 769.69, body bottom 783.91. Close (44 px, 24 px font) and the centred save note pass. `git bisect` (probe: build, open the Guide at 390×844, measure) from `bc06f61f` (good) to `13111735` (bad) names `aceb1086` ("Preview cut-corner tablet action buttons", 2026-10-19). It gives every `button.primary` a 52 px face, so `#learn` grows from 44 to 52 px and the rule line moves 8 px down. Before it, the line was at 761.69 (2.2 px inside the limit). Both designs are approved: the 52 px main button (`docs/specs/gui-previews-2026-10-19/issues/gui-prev-controls.md`) and "The first rule line shows under the phone shelf" (`docs/specs/web-redesign/issues/18-lesson-shelf.md`, "Batch 3 sheet fixes"). Thus the product broke, and the check is not stale. The fix: `src/lesson-shelf.css` sets the shelf list's lower margin to 8 px (it was 16 px). The rule line is again at 761.69 at 390×844. The check does not change.
+
+Checks after follow-ups 5 and 6:
+
+- `npm run check:browser game-screen end turn home lesson-return lessons new-game`: `check: all 7 passed`.
+  - `ok   game-screen         8.7 s`
+  - `ok   end                14.3 s`
+  - `ok   turn               12.3 s`
+  - `ok   home                8.3 s`
+  - `ok   lesson-return       5.0 s`
+  - `ok   lessons             3.5 s`
+  - `ok   new-game           19.3 s`
+- `gui-board-preview` does not run: the fixes do not change the board layout.
+- `npm run typecheck`: `tsc --noEmit` exits 0.
+- `npm run test:docs`: `Test Files  13 passed (13)`, `Tests  161 passed (161)`.
+- `KINGDOWN_TEST_FILE=tools/tablet-controls.test.ts npm test`: `Test Files  1 passed (1)`, `Tests  21 passed (21)`.
+
+Checks after follow-up 4:
+
+- `npm run check:browser game-screen end turn home lesson-return lessons` (no registered check name has `table` or `tablet`; the names with `lesson` are `lessons` and `lesson-return`): `check: 2 of 6 failed`.
+  - `FAIL game-screen         2.1 s  AssertionError [ERR_ASSERTION]: 320×568: strips, context, Moves and bar stay fixed with the lesson words` (see the open fault above; the staged-turn step passes).
+  - `ok   end                13.8 s`
+  - `ok   turn               11.7 s`
+  - `ok   home                8.5 s`
+  - `ok   lesson-return       5.2 s`
+  - `FAIL lessons             1.2 s  AssertionError [ERR_ASSERTION]: Guide shows Close, the first rule line and the centred save note` (`tools/verify-lessons.mjs:39`). It fails the same way at the clean tip `17773808`: `check: 1 of 1 failed`. It checks the Guide sheet, not the bar.
+- Control run, `.primary` at 48 px (not committed): `npm run check:browser game-screen lessons`: `check: 2 of 2 failed`, with the same two failure lines.
+- `KINGDOWN_TEST_FILE=tools/tablet-controls.test.ts npm test` (it loads `src/ui/table.css`): `Test Files  1 passed (1)`, `Tests  21 passed (21)`.
+- `npm run typecheck`: `tsc --noEmit` exits 0.
+- `npm run test:docs`: `Test Files  13 passed (13)`, `Tests  161 passed (161)`.
+
+Checks after follow-up 3:
+
+- `npm run check:browser game-screen end turn home gui-board-preview gui-board-a8 gui-board-a14 gui-board-a15 gui-board-a18 gui-board-y3` (no registered check name has `ink`; the names with `board` are the six `gui-board-*` checks): `check: 2 of 10 failed`.
+  - `FAIL game-screen         1.2 s  AssertionError [ERR_ASSERTION]: 320×568: the table stays fixed at staged turn` (see the open fault above; the board-width, Moves-row and label steps pass).
+  - `ok   end                13.8 s`
+  - `ok   turn               11.9 s`
+  - `ok   home                9.1 s`
+  - `FAIL gui-board-preview  180.0 s  timed out at the 180 s limit`. It runs every preview screen in turn, and each one waits for the shared test lock that other lanes hold. A second run with `home` gives the same timeout; every screen that ran before the limit passed (A8 to A39). This check draws the plugin board, which does not use `coordInk`.
+  - `ok   gui-board-a8      146.5 s`, `ok   gui-board-a14      23.1 s`, `ok   gui-board-a15      21.9 s`, `ok   gui-board-a18      27.6 s`, `ok   gui-board-y3       10.5 s`
+- `npx vitest run src/render/board-ink.test.ts`: `Test Files  1 passed (1)`, `Tests  5 passed (5)`.
+- `npm run typecheck`: `tsc --noEmit` exits 0.
+- `npm run test:docs`: `Test Files  13 passed (13)`, `Tests  161 passed (161)`.
+- `npm run plugin:build:runtime` exits 0; `plugin-dist/worker.mjs` sha256 `677b4eeaa35113f0cf2b677f1e3650ae512de72485f0ce2c6617383c3af83f0b` (no change).
+
+Checks after follow-ups 1 and 2:
+
+- `npm run check:browser game-screen end turn`: `check: 1 of 3 failed`.
+  - `FAIL game-screen         1.2 s  AssertionError [ERR_ASSERTION]: board labels draw at 12 CSS px` (see the open fault above; the board-width and Moves-row steps pass).
+  - `ok   end                13.7 s`
+  - `ok   turn               11.9 s`
+- `npm run typecheck`: `tsc --noEmit` exits 0.
+- `npm run test:docs`: `Test Files  13 passed (13)`, `Tests  161 passed (161)`.
 
 ### Not changed
 
