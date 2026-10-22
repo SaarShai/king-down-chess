@@ -80,7 +80,7 @@ Each command ran with `PLUGIN_TEST_DATABASE_URL` set to the lane's loopback test
 | `KINGDOWN_TEST_FILE='tools/plugin-protocol-*.test.ts' npm test` | `Tests  12 passed (12)` |
 | `KINGDOWN_TEST_FILE='tools/plugin-{app,lobby,profile,screen-lifecycle}.test.ts' npm test` | `Tests  210 passed (210)` |
 | `npm run check:browser plugin-ui` | `ok   plugin-ui         233.4 s` |
-| `npm run check:browser plugin-ui-http` | run on the committed tree; see below |
+| `npm run check:browser plugin-ui-http` | `ok   plugin-ui-http    251.2 s` (an earlier run printed its final PASS line, but the runner failed it because I edited this ticket during the run) |
 | `npm run typecheck` | passes (no output after `tsc --noEmit`) |
 | `npm run test:docs` | `Test Files  13 passed (13)`, `Tests  161 passed (161)` |
 | `npm run plugin:build:runtime`, before and after | all 15 outputs in `plugin-dist/` keep the same sha256; `worker.mjs` stays `677b4eeaa35113f0cf2b677f1e3650ae512de72485f0ce2c6617383c3af83f0b` |
