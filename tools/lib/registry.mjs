@@ -2,6 +2,7 @@
 // Each entry: name (the short name on the command line), script (from the checkout root), limit (seconds
 // before the runner stops the check), and optional: channel (sets PLAYABLE_BROWSER unless the caller set it),
 // args (for the script), env (extra environment for the script, for example the staging build stage), byName (true: the entry runs only when you name it, never in a run of all),
+// site (true: a plugin check that also opens the site at PLAYABLE_URL, so the runner builds and serves it),
 // exclusive (true: the check asserts time or shares the test database, so it runs with every machine slot
 // and no other check beside it; after-redesign/01).
 // The default checks and the self-test run when no name is given. The selftest-* entries after them are planned
@@ -38,11 +39,12 @@ export const checks = [
   { name: 'w6-parts', script: 'tools/verify-w6-parts.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'search-worker', script: 'tools/verify-search-worker.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'plugin-ui', script: 'tools/plugin-browser-check.mjs', args: ['fixture'], limit: 420, channel: 'chromium', byName: true },
-  { name: 'gui-board-preview', script: 'tools/plugin-browser-check.mjs', args: ['preview'], limit: 180, channel: 'chromium', byName: true },
-  { name: 'gui-board-a8', script: 'tools/plugin-browser-check.mjs', args: ['preview', 'A8'], limit: 180, channel: 'chromium', byName: true },
+  // The board previews A8, A15, A17, A18 and A39 also open the site (docs/specs/gui-previews-2026-10-19/capture.mjs).
+  { name: 'gui-board-preview', script: 'tools/plugin-browser-check.mjs', args: ['preview'], limit: 180, channel: 'chromium', byName: true, site: true },
+  { name: 'gui-board-a8', script: 'tools/plugin-browser-check.mjs', args: ['preview', 'A8'], limit: 180, channel: 'chromium', byName: true, site: true },
   { name: 'gui-board-a14', script: 'tools/plugin-browser-check.mjs', args: ['preview', 'A14'], limit: 180, channel: 'chromium', byName: true },
-  { name: 'gui-board-a15', script: 'tools/plugin-browser-check.mjs', args: ['preview', 'A15'], limit: 180, channel: 'chromium', byName: true },
-  { name: 'gui-board-a18', script: 'tools/plugin-browser-check.mjs', args: ['preview', 'A18'], limit: 180, channel: 'chromium', byName: true },
+  { name: 'gui-board-a15', script: 'tools/plugin-browser-check.mjs', args: ['preview', 'A15'], limit: 180, channel: 'chromium', byName: true, site: true },
+  { name: 'gui-board-a18', script: 'tools/plugin-browser-check.mjs', args: ['preview', 'A18'], limit: 180, channel: 'chromium', byName: true, site: true },
   { name: 'gui-board-y3', script: 'tools/plugin-browser-check.mjs', args: ['preview', 'Y3'], limit: 180, channel: 'chromium', byName: true },
   { name: 'plugin-ui-http', script: 'tools/plugin-browser-check.mjs', args: ['http'], limit: 480, channel: 'chromium', byName: true, exclusive: true },
   { name: 'web-game', script: 'tools/web-game-check.mjs', limit: 480, channel: 'chromium', byName: true, exclusive: true },

@@ -59,7 +59,7 @@ export function connectSettings(view: BoardView, c: {
   });
 
   /** A save's settings onto the controls (at start-up, or newer ones from the account). */
-  function applySettings(s: Save): void {
+  function applySettings(s: Partial<Save>): void {
     if (typeof s.sound === 'boolean') $<HTMLInputElement>('sound').checked = s.sound;
     if (typeof s.queen === 'boolean') $<HTMLInputElement>('queen').checked = s.queen;
     if (typeof s.threats === 'boolean') $<HTMLInputElement>('threats').checked = s.threats;

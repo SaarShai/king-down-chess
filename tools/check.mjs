@@ -17,11 +17,11 @@ const root = realpathSync(join(dirname(fileURLToPath(import.meta.url)), '..'));
 const say = line => console.log(line);
 
 function usage() {
-  const rows = checks.map(c => `  ${c.name.padEnd(16)} ${String(c.limit).padStart(4)} s  ${c.script}${c.channel ? `  (channel ${c.channel})` : ''}${c.env ? `  (${Object.entries(c.env).map(([k, v]) => `${k}=${v}`).join(' ')})` : ''}${c.byName ? '  (by name only)' : ''}${c.exclusive ? '  (exclusive)' : ''}`);
+  const rows = checks.map(c => `  ${c.name.padEnd(16)} ${String(c.limit).padStart(4)} s  ${c.script}${c.channel ? `  (channel ${c.channel})` : ''}${c.env ? `  (${Object.entries(c.env).map(([k, v]) => `${k}=${v}`).join(' ')})` : ''}${c.site ? '  (site)' : ''}${c.byName ? '  (by name only)' : ''}${c.exclusive ? '  (exclusive)' : ''}`);
   return `Usage: npm run check:browser [name ...]
 
 Builds and serves the site with Vite's preview on 127.0.0.1 at a free port when a check needs it.
-Plugin-only checks build their own artifact. Runs the named checks one at a time. With no name, it runs all checks that are not "by name only".
+Plugin-only checks build their own artifact; a "(site)" plugin check also opens the site. Runs the named checks one at a time. With no name, it runs all checks that are not "by name only".
 
 Checks (name, time limit, script):
 ${rows.join('\n')}
@@ -142,10 +142,10 @@ function firstFault(log, result) {
 const report = (ok, name, seconds, fault, log) =>
   say(`${ok ? 'ok  ' : 'FAIL'} ${name.padEnd(16)} ${seconds.toFixed(1).padStart(6)} s  ${fault ? `${fault}  ` : ''}${log}`);
 
-// 5. Plugin checks build and serve their own artifact. Other checks need the site.
+// 5. Plugin checks build and serve their own artifact. Other checks, and plugin checks marked site, need the site.
 let server;
 let url;
-if (selected.some(c => !['tools/plugin-browser-check.mjs', 'tools/web-game-check.mjs'].includes(c.script))) {
+if (selected.some(c => c.site || !['tools/plugin-browser-check.mjs', 'tools/web-game-check.mjs'].includes(c.script))) {
   const buildLog = join(runDir, 'build.log');
   const build = await inSlot(false, () => run('npm', ['run', '--silent', 'build'], { log: buildLog, limit: 600, extraEnv: CHECK_SITE_ENV }));
   exitIfInterrupted();

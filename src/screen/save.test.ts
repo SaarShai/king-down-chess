@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SETTINGS as SYNCED } from '../account/sync';
-import { readSave, savedGame, SAVE_KEY, SETTINGS, writeSave, type Save } from './save';
+import { readSave, savedGame, SAVE_KEY, SETTINGS, storedSettings, writeSave, type Save } from './save';
 import { settingsOf } from './settings';
 import { toFen } from '../rules/setup';
 import { RULES_2017 } from '../rules/rules';
@@ -51,6 +51,18 @@ describe('the autosave', () => {
     s.m.set(SAVE_KEY, JSON.stringify({ ...game, moves: 'e2-e4' }));
     expect(readSave()).toEqual({ save: null, unreadable: true });
     expect(s.m.get(SAVE_KEY)).toBe(JSON.stringify({ ...game, moves: 'e2-e4' }));
+  });
+
+  it('keeps the settings of stored data whose game cannot replay, and only those fields', () => {
+    const s = storage();
+    vi.stubGlobal('localStorage', s);
+    expect(storedSettings()).toBeNull();
+    s.m.set(SAVE_KEY, '{');
+    expect(storedSettings()).toBeNull();
+    s.m.set(SAVE_KEY, JSON.stringify({ moves: [], pace: 'off', sound: false }));
+    expect(readSave()).toEqual({ save: null, unreadable: true });
+    expect(storedSettings()).toEqual({ pace: 'off', sound: false });
+    expect(s.m.get(SAVE_KEY)).toBe(JSON.stringify({ moves: [], pace: 'off', sound: false }));
   });
 
   it('plays on without a save when the storage refuses it (private mode, a full quota)', () => {

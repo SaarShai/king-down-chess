@@ -33,6 +33,17 @@ export function readSave(): SaveRead {
   } catch { return { save: null, unreadable: true }; }
 }
 
+/**
+ * The settings fields of stored data whose game cannot replay (readSave's `unreadable`), or null when the data
+ * is not a JSON object. The page still honours them (Animations Off, sound); it writes nothing.
+ */
+export function storedSettings(): Partial<Pick<Save, (typeof SETTINGS)[number]>> | null {
+  try {
+    const s: unknown = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null');
+    return s && typeof s === 'object' && !Array.isArray(s) ? Object.fromEntries(SETTINGS.filter(k => k in s).map(k => [k, (s as Save)[k]])) : null;
+  } catch { return null; }
+}
+
 /** Build a separate game; partial replay never replaces the live game. */
 export function savedGame(value: unknown): Game {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Unreadable saved game');
