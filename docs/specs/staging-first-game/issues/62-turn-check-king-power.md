@@ -130,6 +130,24 @@ Open fault after follow-up 3: `game-screen` now passes the label steps (`board l
 
 Open fault after follow-up 4: `game-screen` now passes `320×568: the table stays fixed at staged turn` and every step up to `ok game-screen 320×568: fixed board and bar, targets, Moves, check, no sideways scroll`. It fails at the next step, `tools/verify-game-screen.mjs:88`, `320×568: strips, context, Moves and bar stay fixed with the lesson words`. At "Archer learned." the bar grows from 68 px to 75.19 px (top 500 to 492.81). The control run below shows that this fault does not come from follow-up 4. In it, `.primary` is 48 px (no growth at all), and the step fails with the same 492.8125 px top. When a lesson is done, `#next-lesson` shows in the bar ("Next lesson: …"). 75.19 px is 8 px padding plus 67.19 px: a 20 px icon, two 21.6 px text lines and 4 px padding. Thus the label probably breaks into two lines. A fix is a change in the lesson bar (`src/ui/table.ts` or `src/ui/table.css`), outside this follow-up.
 
+5. Lesson bar height at 320×568 (branch `staging/lane-lessonbar`). A probe measures the bar children at "Archer learned.". Before the fix: `#return-game` and `#menu-btn` are 48 px; `#next-lesson` is 67.19 px, because its label "Next lesson: Beast" breaks into two lines (43.19 px) in a 123.27 px column. The bar row grows to 75.19 px (top 492.81). The cause is the label width, not End Turn. On one line the label needs 125 to 149 px of text (Ogre to Maester) plus 8 px padding. The bar gives the middle column about 123 px beside "Return to game" and Menu, and no column split gives more. The fix: `src/ui/table.ts` shows `Next: <piece>` (77 to 101 px), so the label stays on one line at 320 px. "Start a game" is 91 px and does not change. After the fix the bar stays 68 px (top 500) at rest, in the lesson and when the lesson is done, at 320×568 and 390×844. The tests and docs that name the label now say `Next: …`: `tools/verify-lessons.mjs` (`Removed-check:` trailer), `tools/tablet-controls.test.ts`, `docs/specs/web-redesign/samples/W9.mjs` and `docs/painted-game/README.md`. No check threshold changes. The touch targets (48 px, End Turn 52 px), the 287 px board floor, the 48 px Moves row and the 12 px labels do not change.
+6. Guide first rule line (`lessons` check, `tools/verify-lessons.mjs:47`, "Guide shows Close, the first rule line and the centred save note"). The failing part is `lead.top + 20 < body.bottom` at 390×844: `#rules-lead` top 769.69, body bottom 783.91. Close (44 px, 24 px font) and the centred save note pass. `git bisect` (probe: build, open the Guide at 390×844, measure) from `bc06f61f` (good) to `13111735` (bad) names `aceb1086` ("Preview cut-corner tablet action buttons", 2026-10-19). It gives every `button.primary` a 52 px face, so `#learn` grows from 44 to 52 px and the rule line moves 8 px down. Before it, the line was at 761.69 (2.2 px inside the limit). Both designs are approved: the 52 px main button (`docs/specs/gui-previews-2026-10-19/issues/gui-prev-controls.md`) and "The first rule line shows under the phone shelf" (`docs/specs/web-redesign/issues/18-lesson-shelf.md`, "Batch 3 sheet fixes"). Thus the product broke, and the check is not stale. The fix: `src/lesson-shelf.css` sets the shelf list's lower margin to 8 px (it was 16 px). The rule line is again at 761.69 at 390×844. The check does not change.
+
+Checks after follow-ups 5 and 6:
+
+- `npm run check:browser game-screen end turn home lesson-return lessons new-game`: `check: all 7 passed`.
+  - `ok   game-screen         8.7 s`
+  - `ok   end                14.3 s`
+  - `ok   turn               12.3 s`
+  - `ok   home                8.3 s`
+  - `ok   lesson-return       5.0 s`
+  - `ok   lessons             3.5 s`
+  - `ok   new-game           19.3 s`
+- `gui-board-preview` does not run: the fixes do not change the board layout.
+- `npm run typecheck`: `tsc --noEmit` exits 0.
+- `npm run test:docs`: `Test Files  13 passed (13)`, `Tests  161 passed (161)`.
+- `KINGDOWN_TEST_FILE=tools/tablet-controls.test.ts npm test`: `Test Files  1 passed (1)`, `Tests  21 passed (21)`.
+
 Checks after follow-up 4:
 
 - `npm run check:browser game-screen end turn home lesson-return lessons` (no registered check name has `table` or `tablet`; the names with `lesson` are `lessons` and `lesson-return`): `check: 2 of 6 failed`.

@@ -184,7 +184,7 @@ it('keeps lesson text and icons inside their faces and the bar at phone width', 
       await page.evaluate(done => {
         document.getElementById('show-me')!.hidden = done;
         document.getElementById('next-lesson')!.hidden = !done;
-        document.querySelector('#next-lesson .label')!.textContent = 'Next lesson: Maester';
+        document.querySelector('#next-lesson .label')!.textContent = 'Next: Maester';
       }, done);
       await checkButtonContent(page, '#table-bar > button');
       const box = (await page.locator('#table-bar').boundingBox())!;
