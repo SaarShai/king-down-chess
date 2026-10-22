@@ -188,3 +188,5 @@ Checks after follow-ups 1 and 2:
 ### Not changed
 
 An account save with no rules that arrives later (`openSaved`) still replays under the defaults. Before `be0786da` it used whatever rules the page had at that time. No check covers it, and the URL rules do not apply there. It is outside this ticket.
+
+7. ChatGPT bar height (lead decision, 2026-10-22). Follow-up 4 put End Turn at 52 px in every state in the shared `src/ui/table.css`. The ChatGPT app imports that file, so ChatGPT check F9 (`tools/lib/plugin-android-check.mjs`, "small tablets stay 48 px") failed with bar heights `[48,52,48]` (found by the ticket 67 lane). F9 is an approved check, and the staged-turn check that needs 52 px (`tools/verify-game-screen.mjs`) is for the website only. So `src/plugin/app.css` now sets `#table-bar > #end-turn:not(.primary) { min-height: 48px; }`: the ChatGPT bar keeps the 48 px face until End Turn is ready, as before follow-up 4. No check changes. Results: `npm run check:browser plugin-ui-http plugin-ui game-screen turn`: `check: all 4 passed`; `KINGDOWN_TEST_FILE=tools/tablet-controls.test.ts npm test`: `Tests  21 passed (21)`.
