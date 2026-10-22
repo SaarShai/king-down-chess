@@ -7,7 +7,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 const gameId = '33333333-3333-4333-8333-333333333333';
 const log = (...seqs: number[]): LoggedCommand[] => seqs.map(seq => ({ seq, seat: 0, action: { type: 'resign' }, at: '' }));
-const view = (revision: number, seqs: number[], extra: Partial<View> = {}) => ({ game_id: gameId, revision, last_commands: log(...seqs), status: 'playing', speed: 'daily', action: 'waiting', ...extra }) as View;
+const view = (revision: number, seqs: number[]) => ({ game_id: gameId, revision, last_commands: log(...seqs) }) as View;
 const json = (status: number, value: unknown) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
 
 describe('online client', () => {
