@@ -535,9 +535,9 @@ try {
       await remountFrame();
       await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length > n, reads);
       await frame.locator('#setup-start:not(:disabled)').waitFor();
+      await page.evaluate(()=>{window.harnessDropWidgetWrites=false;});
       // The mount's Play read ends later, and each store pass draws the setup card grid again with new buttons.
       await settled(page, frame);
-      await page.evaluate(()=>{window.harnessDropWidgetWrites=false;});
     }
     async function setupFits(width, height, state, compare = true) {
       await page.setViewportSize({ width, height });

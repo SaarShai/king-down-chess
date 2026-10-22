@@ -1,43 +1,67 @@
 import { STEP } from './checks.mjs';
 
+// One round trip may not answer: a remount replaces the frame, or the page clock is paused. Node keeps this limit,
+// so the page clock cannot stop it; an answer that comes later goes to a promise that nobody reads.
+const ROUND_TRIP = 1000;
+const FRAME_STATE = `(() => {
+  const board = document.querySelector('#board');
+  const state = { reload: document.querySelector('#reload')?.disabled === false, spending: document.querySelectorAll('.coin.is-spending').length,
+    animating: board?.dataset.animating === 'true' && board.checkVisibility(), toppling: board?.dataset.toppling === 'true' };
+  return { ...state, ok: state.reload && !state.spending && !state.animating && !state.toppling };
+})()`;
+
 /**
  * Waits until the widget frame is settled, so a read, measure, focus or screenshot meets the nodes that stay:
- * - no tool call is in flight at the host, but the ones a check holds on purpose (harnessHeld);
- * - no harnessNextView waits for its board read;
- * - the frame has every reply the host sent: a fence that the frame sends back comes after them (postMessage keeps
- *   the order), so the frame's own next call (the games read after a board read) is at the host before it;
- * - the mount and each write have ended (#reload is on);
- * - no draw is due: no coin is in its spend moment (strips() draws the coins again 300 ms after a spend), and the
- *   visible board does not animate (the end of a move animation draws the strips again).
- * The host's call count must not change over one pass, else the pass runs again.
+ * - host idle: no tool call is in flight at the host, but the ones a check holds on purpose (harnessHeld), and no
+ *   harnessNextView waits for its board read;
+ * - fence: the frame has every reply the host sent (a message that the frame sends back comes after them, because
+ *   postMessage keeps the order);
+ * - frame timers: each 0 ms timer that the frame set before has run. HTML runs the timers of one window with an equal
+ *   or shorter timeout in the order they were set, so the end routing after a finished or aborted view
+ *   (src/plugin/screens/board.ts draw()) and the computer turn after a move run first;
+ * - frame: the mount and each write have ended (#reload is on), no coin is in its spend moment (strips() draws the
+ *   coins again 300 ms after a spend), the visible board does not animate (the end of a move animation draws the
+ *   strips again), and the King Down ceremony does not run (data-toppling; its own timer clears it after 1130 ms);
+ * - call count: a second fence brings each call that the frame started to the host, and the host's call count did
+ *   not change over the pass. Else the pass runs again.
+ * It does not cover a timer longer than 0 ms other than the two above (the poll, the deadline, the thinking line),
+ * a read that the frame has not started yet, or a page clock that is paused: frame timers then cannot run, and the
+ * helper fails at its limit (30 s x STEP), with the condition that did not hold and the state.
  */
 export async function settled(page, frame) {
-  const end = Date.now() + 30_000 * STEP;
-  const host = () => page.waitForFunction(() => window.harnessNextView === undefined && window.harnessInflight === window.harnessHeld && { calls: window.harnessCalls?.length ?? 0 }).then(handle => handle.jsonValue());
-  const fence = () => page.evaluate(() => new Promise(resolve => {
-    const target = window.harnessWidgets.at(-1).frame.contentWindow, id = `settled-${Math.random()}`;
-    // A frame that a remount replaces never answers; the pass then runs again.
-    const timer = setTimeout(() => { removeEventListener('message', echo); resolve(false); }, 1000);
+  const end = Date.now() + 30_000 * STEP, timeout = () => Math.max(1, end - Date.now());
+  const hostState = () => page.evaluate(() => ({ nextView: window.harnessNextView !== undefined, inflight: window.harnessInflight, held: window.harnessHeld, calls: window.harnessCalls?.length ?? 0 }));
+  const fail = async (condition, state) => { throw new Error(`settled: ${condition} did not hold in ${30 * STEP} s: ${JSON.stringify(await state())}`); };
+  const timedOut = error => error?.name === 'TimeoutError';
+  const roundTrip = async answer => {
+    let timer;
+    answer.catch(() => {});
+    try { return await Promise.race([answer, new Promise(resolve => { timer = setTimeout(resolve, ROUND_TRIP, false); })]); }
+    finally { clearTimeout(timer); }
+  };
+  const fence = () => roundTrip(page.evaluate(id => new Promise(resolve => {
+    const target = window.harnessWidgets.at(-1).frame.contentWindow;
     function echo(event) {
       if (event.source !== target || event.data?.harness !== 'fence' || event.data.id !== id) return;
-      clearTimeout(timer); removeEventListener('message', echo); resolve(true);
+      removeEventListener('message', echo); resolve(true);
     }
     addEventListener('message', echo);
     target.postMessage({ harness: 'fence', id }, '*');
-  }));
+  }), `settled-${Math.random()}`));
+  // A detached frame (a remount) gives no answer; the pass then runs again.
+  const timers = widget => roundTrip(widget.evaluate(() => new Promise(resolve => setTimeout(() => resolve(true), 0))).catch(() => false));
   for (;;) {
-    const before = await host();
+    const before = await page.waitForFunction(() => window.harnessNextView === undefined && window.harnessInflight === window.harnessHeld && { calls: window.harnessCalls?.length ?? 0 }, undefined, { timeout: timeout() })
+      .then(handle => handle.jsonValue(), error => timedOut(error) ? fail('host idle', hostState) : Promise.reject(error));
     const answered = await fence();
-    const widget = await (await frame.owner().elementHandle()).contentFrame();
-    await widget.waitForFunction(() => {
-      const board = document.querySelector('#board');
-      return document.querySelector('#reload')?.disabled === false && !document.querySelector('.coin.is-spending')
-        && !(board?.dataset.animating === 'true' && board.checkVisibility());
-    });
-    // A timer that the frame set before this pass (the computer turn after a move) runs before the second fence.
+    const widget = await (await frame.owner().elementHandle({ timeout: timeout() })).contentFrame();
+    const ran = await timers(widget);
+    await widget.waitForFunction(`${FRAME_STATE}.ok`, undefined, { timeout: timeout() })
+      .catch(error => timedOut(error) ? fail('frame (#reload on, no spending coin, no animating board, no ceremony)', () => widget.evaluate(FRAME_STATE)) : Promise.reject(error));
     const again = await fence();
-    const after = await page.evaluate(() => ({ calls: window.harnessCalls?.length ?? 0, idle: window.harnessNextView === undefined && window.harnessInflight === window.harnessHeld }));
-    if (answered && again && after.idle && after.calls === before.calls) return;
-    if (Date.now() > end) throw new Error(`settled: the frame did not settle: ${JSON.stringify({ answered, again, before, after })}`);
+    const after = await hostState();
+    const idle = !after.nextView && after.inflight === after.held;
+    if (answered && ran && again && idle && after.calls === before.calls) return;
+    if (Date.now() > end) await fail(!answered || !again ? 'fence answers' : !ran ? 'frame timers' : !idle ? 'host idle' : 'call count', async () => ({ answered, ran, again, before, after }));
   }
 }
