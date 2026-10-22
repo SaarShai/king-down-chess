@@ -19,7 +19,7 @@ import { initHome } from './ui/home-view';
 import { connectGuide } from './ui/guide';
 import { gameLinkless } from './screen/links';
 import { connectSettings } from './screen/settings';
-import { readSave } from './screen/save';
+import { readSave, storedSettings } from './screen/save';
 import { connectKeys } from './screen/keys';
 
 const params = new URLSearchParams(location.search);
@@ -147,6 +147,9 @@ const stored = params.has('fen') && !link ? { save: null, unreadable: false } : 
 if (saved) {
   play.seat(saved.white, saved.black);
   settings.applySettings(saved);
+} else if (stored.unreadable) {
+  const kept = storedSettings(); // a game that cannot replay keeps its settings: Animations Off still stills the title
+  if (kept) settings.applySettings(kept);
 }
 setup = loadSetup() ?? (saved ? setupOfGame(play.sides(), saved.rules?.kings ?? [null, null], play.skill()) : defaultSetup());
 /** `?players=human,ai` (White, then Black): who plays the game this page opens. For the lab and the browser checks. */
