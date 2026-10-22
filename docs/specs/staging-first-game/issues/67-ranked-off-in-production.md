@@ -84,6 +84,30 @@ The other three failures are the pre-existing timing failures below.
 - `new-game`: not run; this ticket does not change the local new-game screen.
 - The lane test database had no schema at first; `npm run plugin:db:init-test` (loopback, `_test` name) made it ready.
 
+### Review fix
+
+The branch merges `staging/integrate` (`b95224fc`) first, as merge commit `359cbae3`. `npm run typecheck` passes after the merge.
+
+1. Stage values. The server test loops over `Staging`, ` staging`, `staging `, `STAGING`, `production`, an empty value and no value, and expects `RANKED_UNAVAILABLE` from create, find and find with a command ID. The setup model test loops over no value, an empty value, `production`, `Staging`, ` staging`, `staging ` and `STAGING`, and expects a Casual draft. Red proof: with `trim().toLowerCase()` added to the server rule, `ranked-policy.test.ts` gives `Tests  1 failed | 4 passed (5)` (`AssertionError: Staging: expected MatchServiceError: Pick a handle before y…`). With the same change in `rankedOffered()`, `setup-model.test.ts` gives `Tests  1 failed | 11 passed (12)`.
+2. Staging checks. `tools/lib/registry.mjs` adds `web-game-staging` and `plugin-ui-http-staging`. They run the same scripts as `web-game` and `plugin-ui-http`, with a new optional `env` field, `{ VITE_KINGDOWN_STAGE: 'staging' }`. `tools/check.mjs` passes `env` to the check process and shows it in `--help`. `tools/check.test.ts` checks that the two staging names get the staging stage and that the production names do not.
+3. Lobby (lead decision: accept, no code change). In production, the lobby does not show a player's own old waiting Ranked game. Production has migrations up to 0014. `rating_policy` arrives with 0018, and only staging made `ranked-v1` games, so production has no Ranked game to hide. The 24-hour sweep also removes a waiting game.
+
+Checks after the review fix (lane database):
+
+- `KINGDOWN_TEST_FILE='{src/match/ranked-policy.test.ts,src/match/ranked-policy.db.test.ts,src/plugin/screens/setup-model.test.ts,tools/check.test.ts,tools/checks.lint.test.ts}' npm test`: `Tests  59 passed (59)`.
+- `npm run typecheck`: pass (no output from `tsc --noEmit`).
+- `npm run test:docs`: `Tests  166 passed (166)`.
+- `npm run check:browser web-game web-game-staging plugin-ui-http plugin-ui-http-staging`:
+  - `ok   web-game           32.1 s`
+  - `ok   web-game-staging   47.0 s` (writes `web-ranked-turn.png`, `ranked-policy.json`, `web-ranked-result.png`)
+  - `FAIL plugin-ui-http      7.7 s  AssertionError [ERR_ASSERTION]: Ticket 36 browser checks`
+  - `FAIL plugin-ui-http-staging    7.5 s  AssertionError [ERR_ASSERTION]: Ticket 36 browser checks`
+- The two plugin failures are not from this ticket. The F9 step in `tools/lib/plugin-android-check.mjs:76` expects each bar button at 48 px on a small portrait screen, but finds `"heights":[48,52,48]`. The cause is `19a597de` on `staging/integrate` ("Keep End Turn at 52 px in every state"). Evidence:
+  - The pre-merge tip `439fb65f`: `ok   plugin-ui-http    250.3 s`.
+  - `staging/integrate` (`b95224fc`) alone: `FAIL plugin-ui-http      8.0 s  AssertionError [ERR_ASSERTION]: Ticket 36 browser checks`.
+  - This branch with only `src/ui/table.css` set back to `19a597de^` for the run (not committed): `ok   plugin-ui-http    246.8 s` and `ok   plugin-ui-http-staging  256.4 s` (writes `plugin-ranked-policy.png`).
+  - Follow-up for the integrate lead: make `19a597de` and the ticket 36 F9 check agree (change the check to accept 52 px for End Turn, or change the CSS).
+
 ### Known limits
 
 - The `kingdown_create` tool description still offers Ranked to the model, because the tool metadata must not change. The server refuses at run time with a clear message.
