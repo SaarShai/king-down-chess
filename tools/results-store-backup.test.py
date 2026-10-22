@@ -67,8 +67,78 @@ with tempfile.TemporaryDirectory() as temp:
         try:m.backup(root,provenance);raise AssertionError('Snapshot metadata corruption accepted')
         except RuntimeError:pass
         finally:broken.write_bytes(saved)
-    manifest=json.loads(fake(['cat',second['remote']+'/manifest.json']));broken=path(m.OBJECTS+'/'+manifest['files'][0]['object']);broken.write_bytes(b'corrupt')
+    manifest=json.loads(fake(['cat',second['remote']+'/manifest.json']));broken=path(m.OBJECTS+'/'+manifest['files'][0]['object']);saved=broken.read_bytes();broken.write_bytes(b'corrupt')
     try:m.backup(root,provenance);raise AssertionError('Cloud corruption accepted')
     except RuntimeError as error:assert 'Cloud object missing or changed' in str(error)
     assert json.loads(last.read_text())==second
+    broken.write_bytes(saved)
+    # A live producer must not invalidate bytes already captured for this backup.
+    (root/'small.txt').write_bytes(b'next')
+    def producing_cloud(args):
+        if args[0]=='mkdir':
+            (root/'arrived.txt').write_bytes(b'later')
+            (root/'big.jsonl').write_bytes(b'new live write')
+        return fake(args)
+    m.cloud=producing_cloud
+    m.backup(root,provenance)
+    captured=json.loads(last.read_text())
+    assert restore(captured)=={'big.jsonl':new,'small.txt':b'next'}
+    m.cloud=fake
 print('Restore, immutable history, unchanged-run reuse and cloud-corruption detection: PASS')
+
+# Failed connections retry in the same stage; failed spools do not hide later ones.
+from unittest.mock import patch
+import subprocess
+with tempfile.TemporaryDirectory() as temp:
+    calls={}
+    def transport(args, **kw):
+        if args[0]=='ssh':
+            if 'find ' in args[-1]:return '/Users/new/projects/a/sim/out\n/Users/new/projects/b/sim/out\n'
+            return '\n'.join(m.M1_ID)
+        source=args[-2];calls[source]=calls.get(source,0)+1
+        if calls[source]==1:raise subprocess.CalledProcessError(12,args)
+        return ''
+    with patch.object(m,'run',transport),patch.object(m.time,'sleep'):
+        assert len(list(m.m1_sources(Path(temp))))==2
+        assert list(calls.values())==[2,2]
+with tempfile.TemporaryDirectory() as temp:
+    def unavailable(args, **kw):
+        if args[0]=='rsync' and '/a/' in args[-2]:raise subprocess.CalledProcessError(255,args)
+        return transport(args,**kw)
+    with patch.object(m,'run',unavailable),patch.object(m.time,'sleep'):
+        received=[]
+        try:
+            for row in m.m1_sources(Path(temp)):received.append(row)
+            raise AssertionError('Incomplete collection accepted')
+        except RuntimeError as error:assert 'after 3 attempts' in str(error)
+        assert len(received)==1 and '/b/' in received[0][1]
+print('Live writes, M1 reconnect and partial collection reporting: PASS')
+
+with tempfile.TemporaryDirectory() as temp:
+    base=Path(temp);src=base/'source';dst=base/'snapshot';src.mkdir();dst.mkdir()
+    active=src/'active.jsonl';active.write_bytes(b'first\n')
+    original_open=Path.open;reads=[0]
+    def append_during_capture(path,*args,**kw):
+        if path==active and args and args[0]=='rb':
+            reads[0]+=1
+            if reads[0]==2:
+                with original_open(active,'ab') as f:f.write(b'later\n')
+        return original_open(path,*args,**kw)
+    with patch.object(Path,'open',append_during_capture):m.capture(src,dst)
+    assert (dst/'active.jsonl').read_bytes()==b'first\n'
+    assert active.read_bytes()==b'first\nlater\n'
+print('Append during capture retains verified original prefix: PASS')
+
+with tempfile.TemporaryDirectory() as temp:
+    base=Path(temp);src=base/'source';dst=base/'snapshot';src.mkdir();dst.mkdir()
+    active=src/'active.json';active.write_bytes(b'old data')
+    original_open=Path.open;reads=[0]
+    def rewrite_during_capture(path,*args,**kw):
+        if path==active and args and args[0]=='rb':
+            reads[0]+=1
+            if reads[0]==2:
+                with original_open(active,'wb') as f:f.write(b'new data')
+        return original_open(path,*args,**kw)
+    with patch.object(Path,'open',rewrite_during_capture):m.capture(src,dst)
+    assert reads[0]==4 and (dst/'active.json').read_bytes()==b'new data'
+print('Rewrite during capture retries before publication: PASS')
