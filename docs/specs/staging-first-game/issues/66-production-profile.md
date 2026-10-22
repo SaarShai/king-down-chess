@@ -98,7 +98,7 @@ Each command ran in this worktree, with `PLUGIN_TEST_DATABASE_URL=postgresql://k
 
 ### Open items
 
-- `tools/deploy-plugin-env.mjs` (out of scope) validates the private production environment file for `--configure`. It does not refuse the staging Supabase URL or origin. The production server refuses them at start (G2), but an earlier refusal at `--configure` is better. Follow-up ticket.
+- `tools/deploy-plugin-env.mjs` validates the private production environment file for `--configure`. It accepts only the exact production values (origin, Supabase URL, runtime role on the production pooler), so it already refuses the staging Supabase URL, origin and database at `--configure`, before the production server start check (G2). `tools/deploy-plugin-env.test.ts` covers this (ticket 74).
 - The lead adds the GitHub remote `origin` and merges `staging/integrate` into main by PR before the release (D1).
 
 ### Review fix
