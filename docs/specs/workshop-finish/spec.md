@@ -1,5 +1,6 @@
 # Workshop finish
-Status: ready-for-agent
+Status: wontfix
+Replaced by [the Proving Ground spec](../workshop-proving-ground/spec.md); the cutover is 65846b20 (ticket 11).
 Superseded by `docs/specs/workshop-proving-ground/` (ticket 11, the cutover): the Workshop that this spec finishes is gone.
 Source: docs/specs/retro-2026-10-06/retro.md items 1, 2 (the Workshop part), 3, 25, 26, 27
 

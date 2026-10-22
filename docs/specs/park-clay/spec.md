@@ -1,6 +1,7 @@
 # Park the clay look
 
-Status: ready-for-agent. The owner asked for this on 2026-10-11. The pick in §4 is made by delegation (owner, 2026-10-09: decide by UI/UX and engineering best practice), not by the owner's own yes; he can overrule it.
+Status: done. The owner asked for this on 2026-10-11. The pick in §4 is made by delegation (owner, 2026-10-09: decide by UI/UX and engineering best practice), not by the owner's own yes; he can overrule it.
+Closed by: ticket 01 is done; PR #51 is merged (b7ff1555, 81a10fe7, c57c9606).
 
 ## 1. The owner's words
 

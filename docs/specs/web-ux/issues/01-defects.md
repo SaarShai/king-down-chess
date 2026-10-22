@@ -1,6 +1,7 @@
 # Fix the web app defects D-1 to D-10
 
-Status: ready-for-human (the pull request waits for the owner)
+Status: done
+Closed by: PR #24 is merged (57b87928); it holds the last edit of this ticket, 7dee7046.
 
 Owner, 2026-10-08: "yes, do both." (the defect fixes and the rendered sample of the game screen, under the picks of the [review](../review.md)).
 
