@@ -3,12 +3,14 @@ import { STEP } from './checks.mjs';
 // One round trip may not answer: a remount replaces the frame, or the page clock is paused. Node keeps this limit,
 // so the page clock cannot stop it; an answer that comes later goes to a promise that nobody reads.
 const ROUND_TRIP = 1000;
-const FRAME_STATE = `(() => {
+// The frame's CSP forbids a string expression, so one function gives both the wait and the state report.
+const frameState = report => {
   const board = document.querySelector('#board');
   const state = { reload: document.querySelector('#reload')?.disabled === false, spending: document.querySelectorAll('.coin.is-spending').length,
     animating: board?.dataset.animating === 'true' && board.checkVisibility(), toppling: board?.dataset.toppling === 'true' };
-  return { ...state, ok: state.reload && !state.spending && !state.animating && !state.toppling };
-})()`;
+  const ok = state.reload && !state.spending && !state.animating && !state.toppling;
+  return report ? { ...state, ok } : ok;
+};
 
 /**
  * Waits until the widget frame is settled, so a read, measure, focus or screenshot meets the nodes that stay:
@@ -56,8 +58,8 @@ export async function settled(page, frame) {
     const answered = await fence();
     const widget = await (await frame.owner().elementHandle({ timeout: timeout() })).contentFrame();
     const ran = await timers(widget);
-    await widget.waitForFunction(`${FRAME_STATE}.ok`, undefined, { timeout: timeout() })
-      .catch(error => timedOut(error) ? fail('frame (#reload on, no spending coin, no animating board, no ceremony)', () => widget.evaluate(FRAME_STATE)) : Promise.reject(error));
+    await widget.waitForFunction(frameState, false, { timeout: timeout() })
+      .catch(error => timedOut(error) ? fail('frame (#reload on, no spending coin, no animating board, no ceremony)', () => widget.evaluate(frameState, true)) : Promise.reject(error));
     const again = await fence();
     const after = await hostState();
     const idle = !after.nextView && after.inflight === after.held;
