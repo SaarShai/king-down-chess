@@ -90,6 +90,6 @@ Combat studies are cancelled. Existing character and king motion remains separat
 
 ## Product gaps
 
-The live deadline is expressed in hours and minutes, so the timer study must use that clock. Card refill has no game event. The interactive [clock and refill preview](preview/gui/triggers.html) now demonstrates these events on demand. A refill rule still needs an explicit choice before it changes a match. The live deadline gets start, warning and expiry motion. No seconds clock or card-refill effect is added. The existing king motion remains the baseline; no new king-specific study is required by this approval.
+The live deadline is expressed in hours and minutes, so the timer study must use that clock. Card refill has no game event. The interactive [clock and refill preview](preview/gui/triggers.html) now demonstrates these events on demand. The owner chooses “Animation preview only”: refill stays in the preview, and spending a card does not draw a replacement in real games. The live deadline gets start, warning and expiry motion. No seconds clock or card-refill effect is added. The existing king motion remains the baseline; no new king-specific study is required by this approval.
 
 Detailed consumer maps: [states and indications](issues/14-state-integration.md), [cards](issues/15-card-integration.md), and [interface](issues/16-ui-integration.md). [Combined checks and review](issues/13-game-integration.md) record the release evidence.

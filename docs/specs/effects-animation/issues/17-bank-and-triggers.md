@@ -20,4 +20,4 @@ Browser checks verify start, pause at 13 seconds, resume, last-five warning, exp
 
 The page stays open at port 5199. Screenshot: `/Users/za/.codex/visualizations/2026/10/23/01a168fe-8505-7842-89a3-dd078bd311a1/clock-refill-preview.png`.
 
-Whether spending a card must draw a replacement in real games remains a pending owner choice. The preview implements the requested visual trigger without inventing that game rule. No deployment.
+The owner chooses “Animation preview only”. Card refill stays in the animation preview. Spending a card does not draw a replacement in real games; the four-card rule stays unchanged. No deployment.
