@@ -1,7 +1,7 @@
 # F-002: describe card actions correctly
 
 Type: bug
-Status: in progress
+Status: resolved
 Severity: S3
 
 ## Owner request
@@ -25,4 +25,8 @@ Acceptance: the text names the actual actor, pieces and squares; no null move re
 
 The original formatter fails 12 selected regression assertions. The final formatter passes 94 selected tests in move-text.test.ts and board-model.test.ts, including both colours, copied effects, the B card variant, owned names, staged text and saved history. Type checks and 54 artwork checks pass. The first extended run catches two wrong test expectations: the B card has a B label, and owned names omit an article. The tests now follow those existing names. The emitted web-game browser journey passes in 52.2 seconds. A separate reader finds no should-fix issue. The product change adds seven formatter lines; no rule or record changes.
 
-Staging release and saved-account verification remain pending.
+Staging release and saved-account verification pass. Source ba42b41a is published as preview dpl_8Y8a6ZPRhtMQCirepCqfLKZU6ep3 and assigned only to kingdown-staging.vercel.app. Public page and service-worker hashes match. Server, consent, runtime and all 11 engine archives match the recorded prior release. Artifact checks pass.
+
+The original P1/P3 game has all six corrected card rows in the fresh P1 session. Both Curse colours, both Quake push lists and both Salvation returns match the original board evidence. All 18 saved actions remain. The coordinator reads the full text and views the screenshot. P2 phone confirms the handle, correct games and one normal move plus a computer reply. No failed request or console error appears in the coordinator check. Evidence: parent workspace playtest/reports/f002-fix/verification.md and rounds/03/p1-f002-check.md / p2-f002-check.md.
+
+The four-account playtest continues. Additional WebKit/Firefox checks and fresh card actions in an existing P2/P3 game remain playtest coverage; they are not claimed as passed here. Player agents keep browser ownership until they finish. Production stays unchanged.
