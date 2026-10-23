@@ -131,8 +131,9 @@ jobs:
           path: /tmp/kingdown-check-runs/
           retention-days: 7
 
-  # The WebKit tests and the WebKit journeys run in two jobs: in one job the browser install, 13-16 minutes of tests and
-  # 18-19 minutes of plugin-ui left too little time, and a 9-minute install cancelled web-online (run 39908178007).
+  # The WebKit tests and the WebKit journeys run in three jobs: in one job the browser install, 13-16 minutes of tests and
+  # 18-19 minutes of plugin-ui left too little time, and a 9-minute install cancelled web-online (run 39908178007). On a
+  # slower runner the board tests alone passed the 20-minute step limit (run 39918579892), so they run in two jobs.
   browser-webkit:
     runs-on: ubuntu-latest
     # WebKit runs here with the step limits times 3 (tools/lib/checks.mjs STEP).
@@ -169,7 +170,7 @@ jobs:
           free -m
           nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &
       # A step limit under the job limit, so a hung step still leaves time for the kernel log and the sampler upload below
-      # (the job limit cancels the whole job). Passing runs take 13-16 minutes.
+      # (the job limit cancels the whole job).
       - run: npm test
         timeout-minutes: 20
         env:
@@ -187,6 +188,63 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: webkit-check-logs
+          path: /tmp/kingdown-check-runs/
+          retention-days: 7
+
+  browser-webkit-board:
+    runs-on: ubuntu-latest
+    # WebKit runs here with the step limits times 3 (tools/lib/checks.mjs STEP).
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kingdown_test
+          POSTGRES_PASSWORD: local_test_only
+          POSTGRES_DB: kingdown_plugin_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PLAYABLE_BROWSER: webkit
+      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run plugin:db:init-test
+      - run: npx playwright install --with-deps webkit
+      - name: Start WebKit sampler
+        run: |
+          mkdir -p /tmp/kingdown-check-runs
+          nproc
+          free -m
+          nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &
+      # A step limit under the job limit, so a hung step still leaves time for the kernel log and the sampler upload below
+      # (the job limit cancels the whole job).
+      - run: npm test
+        timeout-minutes: 20
+        env:
+          KINGDOWN_TEST_FILE: tools/plugin-board-input.test.ts
+      - name: Save kernel log
+        if: failure() || cancelled()
+        run: sudo dmesg -T | tail -n 400 > /tmp/kingdown-check-runs/dmesg.txt || true
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-board-sampler
+          path: /tmp/kingdown-check-runs/webkit-sampler.log
+          retention-days: 7
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-board-check-logs
           path: /tmp/kingdown-check-runs/
           retention-days: 7
 

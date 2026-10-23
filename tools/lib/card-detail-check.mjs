@@ -43,6 +43,9 @@ export async function checkCardDetails(browser, base, engine) {
         assert.equal(await spawn.locator('[data-piece="king"]').count(), 1);
         assert.equal(await spawn.locator('[data-piece="pawn"]').count(), 1);
         await shot(page, `repair-A33-workshop-SpawnK-${width}x${height}-${theme}`);
+        // The solo board polls every 5 s (src/plugin/poll.ts), and a good read clears a failed one, so the failed-read
+        // check below stops the page clock. Install it before the page sets any timer.
+        if (width === 390 && theme === 'light') await page.clock.install();
         await page.goto(base);
         const frame = page.frameLocator('iframe');
         await frame.locator('#home-play:not(:disabled)').waitFor();
@@ -85,7 +88,10 @@ export async function checkCardDetails(browser, base, engine) {
             assert.equal(await sheet.locator('.card-reason').count(), 0);
             await sheet.locator('[aria-label="Close"]').click();
           };
-          // A computer game has no timed poll to clear a failed read.
+          // Stop the page clock until Try again ends, so no poll read clears the failed read first. Pause ahead of now: the
+          // page clock can pass a nearer time before the command reaches it. The wait ends a read that the jump starts.
+          await page.clock.pauseAt(Date.now() + 2000);
+          await page.waitForFunction(() => window.harnessWidgets.every(widget => !widget.inflight));
           await page.evaluate(() => { window.rejectNextGet = true; });
           await frame.locator('#board-menu').click(); await frame.locator('#reload').click();
           await retry.filter({ hasText: 'Try again' }).waitFor();
@@ -93,7 +99,7 @@ export async function checkCardDetails(browser, base, engine) {
           await shot(page, 'repair-A35-failed-read');
           await sheet.locator('[aria-label="Close"]').click(); await retry.click();
           await retry.waitFor({ state: 'hidden' }); await usable();
-          await page.clock.install();
+          await page.clock.resume();
           view = { ...view, game_id: randomUUID(), kind: 'friend' };
           await page.evaluate(result => window.harnessShow(result, true), result());
           await frame.locator('#board[aria-busy="false"]').waitFor(); await settled(page, frame);

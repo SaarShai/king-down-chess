@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 describe('.github/workflows/plugin-checks.yml', () => {
   const workflow = readFileSync(join(import.meta.dirname, '..', '.github', 'workflows', 'plugin-checks.yml'), 'utf8');
   const job = (name: string) => workflow.split(`\n  ${name}:\n`)[1]?.split(/\n  [\w-]+:\n/)[0] ?? '';
-  // The WebKit tests and the WebKit journeys run in two jobs with the same install, sampler and diagnostics.
-  const webkitJobs = [['browser-webkit', 'webkit'], ['browser-webkit-ui', 'webkit-ui']] as const;
+  // The WebKit tests (two jobs) and the WebKit journeys (one job) run with the same install, sampler and diagnostics.
+  const webkitJobs = [['browser-webkit', 'webkit'], ['browser-webkit-board', 'webkit-board'], ['browser-webkit-ui', 'webkit-ui']] as const;
 
   it('runs once per PR update and keeps the Node 24 database suite', () => {
     const triggers = workflow.split('\non:\n')[1].split('\npermissions:')[0];
@@ -18,7 +18,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(verify).toContain('PLUGIN_TEST_DATABASE_URL:');
     expect(verify).toContain('- run: npm run plugin:db:init-test');
     expect(verify).toContain('- run: npm test');
-    expect([...workflow.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):$/gm)].map(m => m[1])).toEqual(['verify', 'browser', 'browser-web', 'browser-webkit', 'browser-webkit-ui', 'browser-firefox']);
+    expect([...workflow.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):$/gm)].map(m => m[1])).toEqual(['verify', 'browser', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui', 'browser-firefox']);
   });
 
   it('keeps the release and sample instructions in line with the CI and push gates', () => {
@@ -61,10 +61,13 @@ describe('.github/workflows/plugin-checks.yml', () => {
   });
 
   it('runs the board, phone-size and widget checks, plugin-ui and the web journey on WebKit', () => {
-    const webkit = job('browser-webkit'), ui = job('browser-webkit-ui');
+    const webkit = job('browser-webkit'), board = job('browser-webkit-board'), ui = job('browser-webkit-ui');
     expect(webkit).toContain('- run: npm test');
     expect(webkit).toContain("KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size}.test.ts'");
     expect(webkit).toContain('name: webkit-check-logs');
+    expect(board).toContain('- run: npm test');
+    expect(board).toContain('KINGDOWN_TEST_FILE: tools/plugin-board-input.test.ts');
+    expect(board).toContain('name: webkit-board-check-logs');
     expect(ui).toContain('- run: npm run check:browser plugin-ui');
     expect(ui).toContain('- run: npm run check:browser web-online');
     expect(ui).toContain('name: webkit-ui-check-logs');
@@ -100,7 +103,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
   it.each(webkitJobs)('keeps time under the job limit of %s for the WebKit diagnostics after a hung step', name => {
     const webkit = job(name), limit = Number(webkit.match(/^    timeout-minutes: (\d+)$/m)![1]);
     const steps = [...webkit.matchAll(/^        timeout-minutes: (\d+)$/gm)].map(m => Number(m[1]));
-    expect(steps).toHaveLength(name === 'browser-webkit' ? 1 : 2);
+    expect(steps).toHaveLength(name === 'browser-webkit-ui' ? 2 : 1);
     // Every step limit in turn after the setup, which took 10 minutes with a slow package mirror (run 39908178007).
     expect(steps.reduce((sum, minutes) => sum + minutes, 0) + 10).toBeLessThan(limit);
   });

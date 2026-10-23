@@ -1,6 +1,6 @@
 # Make the new build pass CI
 
-Status: in review on PR SaarShai/king-down-chess#87 (branch `staging/lane-ci`, from `bdd886c7`). Round 2 fixes three failures of CI run 39901282212; round 3 splits the WebKit job (item 13). The 200% zoom miss on WebKit stays open (item 12). No merge or deploy.
+Status: in review on PR SaarShai/king-down-chess#87 (branch `staging/lane-ci`, from `bdd886c7`). Round 2 fixes three failures of CI run 39901282212; round 3 splits the WebKit job (item 13); round 4 splits the board tests and fixes a card-detail race (items 14 and 15). The 200% zoom miss on WebKit stays open (item 12). No merge or deploy.
 
 ## What
 
@@ -237,3 +237,18 @@ Two independent read-only audits (ponytail review of the code, a retro of the se
 - Release: the written restore from the backup cannot replace rows that still exist; the publish does not prove that the engine check reads the production database; the backup copy does not set one snapshot for all tables.
 - Checks: `tsconfig.json` checks `src` only, so a TypeError in a test file passes the type check; the docs lint exempts the specs folder from the model-name rule; a bare `vitest run` skips the test lock; a broken Python import still skips the source-export cases.
 - The retained WebKit and Firefox profiles have no assertion that every request stays on `127.0.0.1`; the Firefox run shows 160 requests, all local.
+
+## CI round 4 (run 39918579892)
+
+`verify`, `browser`, `browser-web` and `browser-firefox` pass. The two WebKit jobs of round 3 fail.
+
+14. **WebKit board tests time.** `browser-webkit` passes `plugin-ios-size` and `plugin-preview-size`; the 20-minute step limit stops `npm test` in `plugin-board`. No test fails. This runner is slower than the one of run 39908178007: `plugin-ios-size` takes 512 s against 382 s, so the board file needs about 21 minutes against 16. `tools/plugin-board.test.ts` is now two files at its own section break ("W7 journeys use board input"): `tools/plugin-board.test.ts` keeps the first 95 tests (about 470 s in run 39908178007), and `tools/plugin-board-input.test.ts` holds the other 101 (about 480 s). Their shared build, harness, browser and helpers move to `tools/lib/plugin-board-fixture.ts`; each file still gets its own setup. `browser-webkit` runs the first file with the size files, and a new `browser-webkit-board` job runs the second, with the same install, sampler, diagnostics and limits. No test, assertion or limit changes.
+15. **Card detail failed read.** `browser-webkit-ui` fails in `tools/lib/card-detail-check.mjs`: after Menu > Reload fails, the check closes the card sheet and clicks Try again, but the button is hidden (`locator.click: Timeout`). The check's comment says a computer game has no timed poll; the solo board now polls every 5 s (`src/plugin/poll.ts`), and a good poll read clears the failed read. The check now installs the page clock before the board page loads (390 px, light) and pauses it 2 s ahead of now from the failed read until Try again ends, as item 10 does.
+
+### Proof
+
+- Card detail, WebKit, cards only, with a 6 s pause before Try again: the old check fails with the CI error (`<button disabled hidden="" id="retry">`); the new check passes.
+- `npm run check:browser plugin-ui`: passes in WebKit and in Chromium with the new check.
+- `tools/workflow.lint.test.ts` through `npm test`: `Tests  21 passed (21)`.
+- Type check of the three board files (a temporary config with `tools`): the same errors as the old file, all older than this branch; no new error.
+- Both board files through `npm test`: Chromium `Tests  196 passed (196)` (95 and 101, the old file's 196); WebKit, the `browser-webkit` file set `Tests  129 passed (129)` and `tools/plugin-board-input.test.ts` `Tests  101 passed (101)`.
