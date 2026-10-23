@@ -101,11 +101,14 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
   if (receipt) {
     const previous = saved?.pending?.name === receipt.name && saved.pending.args.command_id === receipt.args.command_id ? saved.pending : undefined;
     const screen = previous?.screen ?? (receipt.name === 'kingdown_create' || receipt.name === 'kingdown_find' ? 'play' : 'board');
-    saved = { ...saved, screen, board_id: String(receipt.args.game_id ?? receipt.args.board_id ?? saved?.board_id ?? '') || undefined,
+    const board_id = String(receipt.args.game_id ?? receipt.args.board_id ?? saved?.board_id ?? '') || undefined;
+    // Recover the original command without replacing a different game selected by its URL.
+    const selection = entry?.screen === 'game' && entry.gameId !== board_id && ['kingdown_move', 'kingdown_computer'].includes(receipt.name) ? { screen: 'board' as const, board_id: entry.gameId } : { screen, board_id };
+    saved = { ...saved, ...selection,
       pending: { ...previous, ...receipt, screen, error: undefined, error_screen: undefined } };
   }
   const stateHost: WidgetHost = {
-    accountId: userId, widgetState: { privateContent: saved },
+    accountId: userId, pendingScope: 'account', widgetState: { privateContent: saved },
     savePage(state) { window.localStorage.setItem(key, JSON.stringify(state)); },
   };
   let stopped = false, started = false, routeGeneration = 0;

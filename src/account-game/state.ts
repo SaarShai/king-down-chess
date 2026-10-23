@@ -11,6 +11,7 @@ export type Notice = { kind: NoticeKind; text: string; game?: string; screen?: S
 export type Page = {
   screen: Screen;
   pending?: Pending;
+  pendingScope?: 'account';
   view?: View;
   connected: boolean;
   mounting: boolean;
@@ -53,6 +54,8 @@ export const blocked = (page: Page) => !page.connected || page.writing || page.m
 export function pendingHere(page: Page) {
   const pending = page.pending;
   if (!pending) return false;
+  // A durable web receipt must settle before any game in that account can send another command.
+  if (page.pendingScope === 'account') return true;
   // A game command belongs to the game it names, only while that game shows on a game screen.
   if (pending.game_tag && GAME_SCREENS.includes(page.screen) && !!page.view?.game_id.startsWith(pending.game_tag)) return true;
   // Loading a rematch keeps its Retry on the finished game until the new board opens.
@@ -98,7 +101,7 @@ export function locks(page: Page): Locks {
   return {
     blocked: blocked(page),
     game: blocked(page) || pendingHere(page) || staleRead(page),
-    start: blocked(page) || (!!page.pending && (isStart(page.pending) || page.pending.screen === 'play')),
+    start: blocked(page) || (!!page.pending && (page.pendingScope === 'account' || isStart(page.pending) || page.pending.screen === 'play')),
     toggles: blocked(page) || !page.settings,
     // A control that does nothing must look off: the line's button stays off while the page is blocked (design §3.3).
     // The one exception is a failed connect: `connected` is false then, and Try again is the way back.

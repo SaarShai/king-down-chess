@@ -11,7 +11,7 @@ export const SELECTION_TOOLS = ['kingdown_open', 'kingdown_create', 'kingdown_jo
 export type Draft = { game_tag: string; fen: string; lans: string[]; scope?: { account: string; game: string; revision: number; rules: string; engine: string } };
 export type PageState = { screen: Screen; handle_back?: Screen; name_for_caller?: boolean; settings_back?: Screen; queued?: Screen; sheet?: string; board_id?: string; pending?: Pending; draft?: Draft };
 const SLOTS = 3;
-export type WidgetHost = { savePage?: (state: PageState) => void; accountId?: string; widgetState?: { privateContent?: Partial<PageState> }; setWidgetState?: (state: unknown) => void };
+export type WidgetHost = { pendingScope?: 'account'; savePage?: (state: PageState) => void; accountId?: string; widgetState?: { privateContent?: Partial<PageState> }; setWidgetState?: (state: unknown) => void };
 
 // A saved command from PR 57's 'setup' screen is a New game step, which this build runs on Play.
 const commandScreen = (name: unknown) => name === 'setup' ? 'play' : knownScreen(name);

@@ -208,21 +208,44 @@ try {
   await page.locator('#board[data-animating="false"]').waitFor();
   await tap(4, 2); await tap(4, 3);
   await page.locator('#board[data-animating="false"]').waitFor();
-  let applied;
+  const recoveryDestination = (await tool(0, 'kingdown_create', { kind: 'friend', mode: 'casual', colour: 'white', command_id: randomUUID(),
+    options: { fairy: true, pool: ['O', 'A', 'G', 'M', 'S'], arrangement: true, classic: false, cards: false, cardPool: [], kingPowers: false } }))._meta.view;
+  const invite = await tool(0, 'kingdown_invite', { game_id: recoveryDestination.game_id });
+  await tool(1, 'kingdown_join', { code: invite.structuredContent.code });
+  const destination = (await tool(0, 'kingdown_get', { game_id: recoveryDestination.game_id }))._meta.view;
+  let applied, releaseRecovery, recoveryStarted, failRecovery = true;
+  const recoveryHeld = new Promise(resolve => { releaseRecovery = resolve; });
+  const recovering = new Promise(resolve => { recoveryStarted = resolve; });
   const lost = new Promise(resolve => { applied = resolve; });
   await page.route('**/api/games/*/commands', async route => {
     const body = route.request().postDataJSON(); commands.push(body);
+    if (commands.length > 1 && failRecovery) { recoveryStarted(); await recoveryHeld; await route.abort('failed'); return; }
     const response = await route.fetch(); assert.equal(response.status(), 200);
     if (commands.length === 1) { await route.abort('failed'); applied(); }
     else await route.fulfill({ response });
   });
   await page.locator('#end-turn[aria-disabled="false"]').click(); await lost;
+  // A full navigation keeps the URL's game while it recovers another game's durable command.
+  await page.goto(origin + '/g/' + destination.game_id);
+  // The destination's setup appears even while the source command's recovery is held.
+  await page.locator('[data-screen="seat"]:not([hidden])').waitFor();
+  await page.locator('#seat-ready:disabled').waitFor();
+  assert.equal(new URL(page.url()).pathname, '/g/' + destination.game_id);
+  await recovering;
+  releaseRecovery();
+  await page.locator('#retry:not(:disabled)').waitFor({ state: 'visible' });
+  assert(await page.locator('#seat-ready').isDisabled(), 'Another game cannot replace the saved command after recovery fails');
+  await shot(page, 'web-other-game-recovery-retry');
   const replay = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/api/games/${gameId}/commands`);
-  await page.reload();
-  await page.locator('[data-screen="board"]:not([hidden])').waitFor();
-  // Replay is explicit on reload, preserving the saved command and its exact input.
-  if (await page.locator('#retry').isVisible()) await page.locator('#retry').click();
+  failRecovery = false;
+  await page.locator('#retry').click();
   assert.equal((await replay).status(), 200);
+  await page.locator('#seat-ready:not(:disabled)').waitFor();
+  await page.clock.fastForward(5000);
+  assert.equal(new URL(page.url()).pathname, '/g/' + destination.game_id, 'Recovering the source command keeps the selected URL');
+  assert(await page.locator('[data-screen="seat"]:not([hidden])').isVisible(), 'The recovered source reply cannot replace the selected setup');
+  assert.equal((await tool(0, 'kingdown_get', { game_id: destination.game_id }))._meta.view.revision, destination.revision, 'Recovery never sends the source command to the destination');
+  await shot(page, 'web-pending-command-keeps-url-game');
   b = await view(1); assert.equal(b.revision, a.revision + 1); assert.equal(b.last_commands.at(-1).action.type, 'turn');
   assert.deepEqual(commands[0].action, { type: 'turn', actions: ['e2-e3!H', 'e3-e4'] });
   assert(commands.length >= 2); for (const command of commands) assert.deepEqual(command, commands[0]);
@@ -452,10 +475,12 @@ try {
     await shot(page, 'web-current-opponents');
   } finally { releaseLobby?.(); await page.unroute('**/api/lobby', delayedLobby); }
   assert.deepEqual(failures, [], 'No failed resource or external request');
-  assert.equal(lostReplies, 1, 'Only the deliberate lost command reply fails on the network');
-  // The deliberately lost HTTP reply produces one browser network error.
-  assertNoErrors(errors.filter(error => !String(error).includes('net::ERR_FAILED')));
-  await writeFile(join(env('PLAYABLE_OUT'), 'proof.json'), JSON.stringify({ game_id: gameId, origin, revision: a.revision, commands: commands.length, result: a.result, checks: ['emitted /play/ and /g assets', 'real HTTP create', 'MCP join', 'hidden setup', 'UI ready and two-action Haste turn', 'lost reply reload', 'same account MCP', 'shared result'] }, null, 2));
+  assert.equal(lostReplies, 5, 'Only the lost reply and four deliberate recovery attempts fail on the network');
+  // The exhausted retry reports one connection diagnostic; all other app errors remain failures.
+  const recoveryError = 'console.error: King Down connection failed TypeError: Failed to fetch';
+  assert.equal(errors.filter(error => String(error).startsWith(recoveryError)).length, 1);
+  assertNoErrors(errors.filter(error => !String(error).includes('net::ERR_FAILED') && !String(error).startsWith(recoveryError)));
+  await writeFile(join(env('PLAYABLE_OUT'), 'proof.json'), JSON.stringify({ game_id: gameId, origin, revision: a.revision, commands: commands.length, result: a.result, checks: ['emitted /play/ and /g assets', 'real HTTP create', 'MCP join', 'hidden setup', 'UI ready and two-action Haste turn', 'lost reply navigation', 'failed recovery Retry keeps destination setup', 'same account MCP', 'shared result'] }, null, 2));
   console.log(`PASS web-game: emitted website, HTTP and MCP share one game; proof ${resolve(env('PLAYABLE_OUT'))}`);
   }
 } finally {
