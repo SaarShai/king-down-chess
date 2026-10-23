@@ -12,7 +12,7 @@ const TITLE_FLOOR = new URL('../../public/ui/stone-board.webp',import.meta.url).
 const HEADROOM = 64, PAD = 32, TILE = 112, pieces = { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName };
 const INFO = {
   flame: ['Flame', 'Lava light flows through the cracks and seams of his armour.', 'A bubbling lava pool opens under the piece; lava climbs it, with a glowing crust, drips, sparks and smoke, and the pool pulls it under.'],
-  frost: ['Frost', 'A connected frost sheet spreads across the ground, catches the light, then thaws from its edge.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
+  frost: ['Frost', 'Painted translucent ice forms with frosted ridges, catches the light, then thaws from its edge.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
   stratus: ['Stratus', 'The original Sky King hovers over full clouds that visibly gather and dissolve below his feet.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the rook in its way and off the board: on the back rank along the band above the board, from an edge file back over the king.'],
   mud: ['Mud', 'Grass grows thick round his feet, and brown vines rise from the ground, arch over and go back into the ground; then the vines and the grass sink back.', 'The soil cracks; brown thorny vines wind round the piece and pull it down into the earth; three sprouts come up. Then his own grass, and after it a vine, grow on his new square.'],
   spirit: ['Spirit', 'The ivory king: a white and gold glow round him, short rays of light above his crown and light on his square. The charcoal king: a black aura, black rays and a dark pool on his square. Both breathe slowly in and out.', 'The piece turns into a glowing silhouette of itself (white for the ivory king, black for the charcoal one) and implodes.'],
@@ -110,8 +110,8 @@ for (const design of Object.keys(INFO)) {
 }
 
 for(const [variant,title,description] of [
- ['fissures','Lava A — branching fissures','The ground splits into narrow branching openings. Bright molten currents flow below dark rock lips.'],
- ['plates','Lava B — deep faults','Wider branching faults open in the stone. Shaded walls sit above a flowing molten layer.'],
+ ['fissures','Lava A — branching fissures','Painted branching fissures expose deep rock walls and moving molten light below chipped stone.'],
+ ['plates','Lava B — deep faults','Painted broken crust opens into wider channels, with deep textured walls above flowing molten light.'],
 ]){
  const {canvas,scene}=makeScene(['flame','flame'],KINGS_ROW,false,variant);
  scenes[`lava-${variant}`]={scene,canvas};

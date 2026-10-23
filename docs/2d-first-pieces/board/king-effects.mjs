@@ -20,6 +20,8 @@ import {GRASS_ROOT,GRASS_TIP,LEAF,VINE} from './mud-palette.mjs';
 export const PERIOD={flame:4800,frost:6000,stratus:4000,mud:8000,spirit:4000,shadow:6400};
 export const KING_EFFECTS=Object.keys(PERIOD);
 const LAVA_MASK=new URL('../king-flame/lava-mask.webp',import.meta.url).href;
+const ICE_GROUND=new URL('../king-frost/ice-ground.webp',import.meta.url).href;
+const LAVA_GROUND={fissures:new URL('../king-flame/ground-fissures.webp',import.meta.url).href,plates:new URL('../king-flame/ground-faults.webp',import.meta.url).href};
 const CLOUD_BANK=new URL('../king-stratus/cloud-bank.png',import.meta.url).href;
 const SMOKE_MASK=new URL('../king-shadow/smoke-mask.webp',import.meta.url).href;
 const TAU=Math.PI*2;
@@ -230,35 +232,50 @@ export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
   }
   ctx.restore();
  }
- // A connected frost sheet spreads across the stone, then thaws from its ragged edge.
- function rime(ctx,s){
-  const p=frac(s.t/PERIOD.frost),grow=smooth(p/.38),thaw=smooth((p-.64)/.36),life=grow*(1-thaw);
-  if(life<.002)return;
-  ctx.save();ctx.translate(s.ground.x,s.ground.y-2);ctx.globalAlpha=s.k*s.g*Math.min(1,life*4);
-  const outline=new Path2D(),points=[];
-  for(let i=0;i<32;i++){
-   const a=i/32*TAU,r=(40+rand(i,74)*13)*life,x=Math.cos(a)*r,y=Math.sin(a)*r*.34;
-   points.push([x,y]);i?outline.lineTo(x,y):outline.moveTo(x,y);
-  }outline.closePath();
-  // A narrow blue edge gives the sheet thickness; no pile of separate jewels.
-  ctx.save();ctx.translate(0,2);ctx.fillStyle='#356d8980';ctx.fill(outline);ctx.restore();
-  const ice=ctx.createLinearGradient(-25,-18,25,19);ice.addColorStop(0,'#edfdf9df');ice.addColorStop(.33,'#a6dce7bf');ice.addColorStop(.55,'#5597b5a8');ice.addColorStop(.8,'#b9eaf0cd');ice.addColorStop(1,'#efffffe6');ctx.fillStyle=ice;ctx.fill(outline);
-  ctx.save();ctx.clip(outline);
-  for(let i=0;i<16;i++){
-   const a=i*2.399,r=48,x=Math.cos(a)*r,y=Math.sin(a)*r*.34;
-   ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(x,y);ctx.lineTo(x+9,y-6);ctx.closePath();ctx.fillStyle=i%2?'#efffff20':'#1d5c8120';ctx.fill();
-   ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(x*.4+2,y*.4-1);ctx.lineTo(x*.72-2,y*.72+1);ctx.lineTo(x,y);ctx.strokeStyle='#e8ffff98';ctx.lineWidth=.65;ctx.stroke();
-   for(let j=1;j<5;j++){
-    const q=j/5,bx=x*q,by=y*q;
-    ctx.beginPath();ctx.moveTo(bx-4,by-3);ctx.lineTo(bx,by);ctx.lineTo(bx+3,by-4);ctx.strokeStyle='#efffff99';ctx.lineWidth=.5;ctx.stroke();
+ // Ground paintings retain their brush texture; only their reveal and material light move.
+ function groundPainting(url,molten){
+  const image=asset(url);if(!image)return null;
+  return cached(`ground:${url}`,()=>{
+   const make=()=>{const c=document.createElement('canvas');c.width=384;c.height=160;return c;};
+   const base=make(),work=make(),light=make(),mask=make(),g=base.getContext('2d');
+   g.drawImage(image,0,0,384,160);
+   if(molten){
+    // Select the painted hot channels once. Moving light cannot wash over the stone faces.
+    const pixels=g.getImageData(0,0,384,160);
+    for(let i=0;i<pixels.data.length;i+=4){
+     const [r,green,b]=pixels.data.slice(i,i+3);
+     pixels.data[i+3]*=clamp((r-green-35)/75,0,1)*clamp((green-b-25)/65,0,1)*clamp((r-145)/70,0,1);
+     pixels.data[i]=pixels.data[i+1]=pixels.data[i+2]=255;
+    }
+    mask.getContext('2d').putImageData(pixels,0,0);
    }
-  }
-  for(let i=0;i<90;i++){
-   const a=rand(i,75)*TAU,r=Math.sqrt(rand(i,76))*51;
-   ctx.fillStyle=i%3?'#eaffff65':'#ffffffa0';ctx.fillRect(Math.cos(a)*r,Math.sin(a)*r*.34,.5+rand(i,77),.5);
-  }
-  ctx.restore();ctx.strokeStyle='#eaffffad';ctx.lineWidth=.7;ctx.stroke(outline);ctx.restore();
+   return {base,work,light,mask};
+  });
  }
+ function paintedGround(ctx,s,url,molten){
+  const art=groundPainting(url,molten);if(!art)return;
+  const p=frac(s.t/PERIOD[s.design]),grow=smooth(p/(molten?.32:.38)),close=smooth((p-.64)/.36),life=grow*(1-close);
+  if(life<.002)return;
+  const g=art.work.getContext('2d'),l=art.light.getContext('2d');g.clearRect(0,0,384,160);g.drawImage(art.base,0,0);
+  l.clearRect(0,0,384,160);
+  if(molten){
+   l.save();l.translate(p*96,p*32);l.fillStyle=lavaNoise()[0];l.fillRect(-p*96,-p*32,384,160);l.restore();
+   l.globalCompositeOperation='destination-in';l.drawImage(art.mask,0,0);l.globalCompositeOperation='source-over';
+   g.globalCompositeOperation='screen';g.globalAlpha=.38;g.drawImage(art.light,0,0);g.globalAlpha=1;g.globalCompositeOperation='source-over';
+  }else{
+   const x=-100+p*620,shine=g.createLinearGradient(x-45,0,x+45,20);
+   shine.addColorStop(0,'#edffff00');shine.addColorStop(.5,'#efffff50');shine.addColorStop(1,'#edffff00');
+   g.globalCompositeOperation='source-atop';g.fillStyle=shine;g.fillRect(0,0,384,160);g.globalCompositeOperation='source-over';
+  }
+  // The fixed painting emerges from the feet, instead of scaling separate geometric pieces.
+  const radius=8+life*290,reveal=g.createRadialGradient(192,85,radius*.63,192,85,radius);
+  reveal.addColorStop(0,'#000');reveal.addColorStop(1,'#0000');
+  g.globalCompositeOperation='destination-in';g.fillStyle=reveal;g.fillRect(0,0,384,160);g.globalCompositeOperation='source-over';
+  const w=molten?117:110,h=molten?47*(.64+.36*grow*(1-close)):43;
+  ctx.save();ctx.globalAlpha=s.k*s.g*Math.min(1,life*5);
+  ctx.drawImage(art.work,s.ground.x-w/2,s.ground.y-h*.58,w,h);ctx.restore();
+ }
+ function rime(ctx,s){paintedGround(ctx,s,ICE_GROUND,false);}
 
  // Painted, filled cumulus layers billow outward and separate as they dissolve.
  function clouds(ctx,s){
@@ -275,42 +292,8 @@ export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
   ctx.restore();
  }
 
- // Fixed stone seams propagate from the feet. Opening width exposes a wall above molten depth.
- function lavaFloor(ctx,s){
-  const p=frac(s.t/PERIOD.flame),open=smooth(p/.3)*(1-smooth((p-.66)/.34));if(open<.001)return;
-  ctx.save();ctx.translate(s.ground.x,s.ground.y-2);ctx.globalAlpha=s.k*s.g*Math.min(1,open*5);
-  const seams= lavaGround==='plates' ? [
-   [[0,0],[-15,-12],[-34,-8],[-49,-22]],[[0,0],[15,-15],[36,-11],[51,-26]],
-   [[0,0],[-18,16],[-35,13],[-51,29]],[[0,0],[18,13],[33,32],[47,37]],
-   [[-15,-12],[-9,-28],[3,-43]],[[18,13],[10,32],[17,44]],[[36,-11],[41,8],[52,16]]
-  ] : [
-   [[0,0],[-16,-8],[-27,0],[-42,-7],[-53,-3]],[[0,0],[15,9],[28,3],[42,16],[53,12]],
-   [[-16,-8],[-20,-23],[-12,-37]],[[15,9],[10,24],[21,40]],[[28,3],[31,-16],[46,-30]]
-  ];
-  for(const [i,points] of seams.entries()){
-   const advance=smooth((p-i*.014)/.24),width=(lavaGround==='plates'?8:5)*open;
-   const edge=[];
-   for(let j=0;j<points.length;j++){
-    const [x,y]=points[j],local=smooth(advance*points.length-j),w=width*local*(j===points.length-1?.08:1);
-    edge.push([x,y*.38,w]);
-   }
-   const hole=new Path2D();
-   for(const side of [-1,1])for(let j=0;j<edge.length;j++){
-    const index=side<0?j:edge.length-1-j,[x,y,w]=edge[index];
-    if(side<0&&j===0)hole.moveTo(x,y-w);else hole.lineTo(x,y+side*w);
-   }hole.closePath();
-   // Actual side faces occupy the top of the opening. A displaced floor lies beneath them.
-   const wall=ctx.createLinearGradient(0,-8,0,8);wall.addColorStop(0,'#342822');wall.addColorStop(.55,'#211b1c');wall.addColorStop(1,'#70412b');ctx.fillStyle=wall;ctx.fill(hole);
-   ctx.save();ctx.clip(hole);ctx.translate(0,3.5*open);
-   const hot=ctx.createLinearGradient(-55,0,55,0);hot.addColorStop(0,'#a72c0b');hot.addColorStop(.35,'#f87b19');hot.addColorStop(.65,'#ffc44c');hot.addColorStop(1,'#c5440b');ctx.fillStyle=hot;ctx.fill(hole);ctx.clip(hole);
-   for(let j=0;j<16;j++){
-    const x=-65+frac(p+j/16)*130,y=(rand(j,92)-.5)*34;
-    const glow=ctx.createRadialGradient(x,y,0,x,y,5+rand(j,93)*5);glow.addColorStop(0,'#ffed8cbb');glow.addColorStop(.5,'#ffb02d88');glow.addColorStop(1,'#ff7b1000');ctx.fillStyle=glow;ctx.fillRect(x-10,y-10,20,20);
-   }ctx.restore();
-   ctx.beginPath();edge.forEach(([x,y,w],j)=>j?ctx.lineTo(x,y-w):ctx.moveTo(x,y-w));ctx.strokeStyle='#a893714f';ctx.lineWidth=.65;ctx.stroke();
-  }
-  ctx.restore();
- }
+ // The workshop keeps both painted lava alternatives until the owner selects one.
+ function lavaFloor(ctx,s){paintedGround(ctx,s,LAVA_GROUND[lavaGround],true);}
 
  // —— Mud ——
  // A full patch of tufts round his feet (an inner and an outer ring), dark at the root, fresh at the tip.
@@ -521,7 +504,7 @@ export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
 
  return {
   /** Whether a design has an effect; starts loading that effect's own art. */
-  has(design){if(design==='stratus')asset(CLOUD_BANK);if(design==='flame')flameLayers(0);if(design==='shadow')shadowLayers(0);return design in PERIOD;},
+  has(design){if(design==='frost')asset(ICE_GROUND);if(design==='flame'&&lavaGround)asset(LAVA_GROUND[lavaGround]);if(design==='stratus')asset(CLOUD_BANK);if(design==='flame')flameLayers(0);if(design==='shadow')shadowLayers(0);return design in PERIOD;},
   /** The pose the figure is drawn with (Stratus floats; Shadow is drawn without his painted smoke, which moves). */
   pose(s){
    if(s.design==='shadow'){const l=shadowLayers(s.side);return l?{...s.pose,sheet:l.body}:s.pose;}
