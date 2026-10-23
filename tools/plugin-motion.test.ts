@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { chromium, type Browser, type FrameLocator, type Page } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
-import { watchMotion } from './plugin-motion-observer';
+import { watchMotion, watchMotionEnd } from './plugin-motion-observer';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 120_000 });
 // Each motion moment exists, ends, and under reduced motion shows its final state at once.
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -227,12 +227,14 @@ it.each([false, true])('pulses the checked side once (reduced motion %s)', async
     // The pulse class stays until the strips draw again 600 ms on (src/plugin/screens/board.ts strips()). A loaded runner
     // can pass that time before a locator reads it (CI run 39965072628), so a recorder notes it as it comes.
     const pulse = await watchMotion(page, '#strip-me .portrait.is-checked');
+    const pulseEnd = await watchMotionEnd(page, '#strip-me .portrait.is-checked', '#strip-me .portrait', 1500);
     await frame.locator('#board-menu').click(); await frame.locator('#reload').click();
     await frame.locator('#status').filter({ hasText: 'Check!' }).waitFor();
     expect((await pulse()).count).toBe(reduced ? 0 : 1);
-    // It runs once: each animation of the portrait ends within 1.5 s of its start. One read of the animation timing; a
-    // poll for the end can spend its 1.5 s in one slow read.
-    expect(await frame.locator('#strip-me .portrait').first().evaluate(e => Math.max(0, ...e.getAnimations({ subtree: true }).map(a => Number(a.effect!.getComputedTiming().endTime))))).toBeLessThanOrEqual(1500);
+    // It runs once: no portrait animation runs 1.5 s after the pulse starts. The page reads it at that time on its own
+    // timeline; a poll from here can spend the 1.5 s in one slow read.
+    if (reduced) expect(await animations(frame, '#strip-me .portrait')).toBe(0);
+    else expect(await pulseEnd()).toEqual({ seen: expect.toSatisfy((seen: number) => seen > 0), running: 0 });
   } finally { await page.close(); }
 });
 it.each([false, true])('opens the board after both Ready (reduced motion %s)', async reduced => {
