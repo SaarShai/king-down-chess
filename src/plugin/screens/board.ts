@@ -464,7 +464,7 @@ export function boardScreen(store: Store) {
         else paint.innerHTML = cardSymbol(card.card);
         row.append(b);
         motion.play(b, [{ opacity: 0, transform: `translateY(16px) rotate(${(index - 1.5) * 9}deg) scale(.9)` }, { opacity: 1, transform: 'translateY(0) rotate(0) scale(1)' }], 500, 150 + index * 130, dealtAt);
-        if (card.spent) motion.play(b, [{ transform: 'translateY(-4px) scale(1)', filter: 'grayscale(0)' }, { transform: 'translateY(0) scale(.96)', filter: 'grayscale(1)' }], 400, 0, spentAt.get(key) ?? -Infinity);
+        if (card.spent) motion.play(paint, [{ transform: 'translateY(-4px) scale(1)' }, { transform: 'translateY(0) scale(.96)' }], 400, 0, spentAt.get(key) ?? -Infinity);
         else if (mine && armedCard === index) motion.play(b, [{ transform: 'translateY(0)' }, { transform: 'translateY(-4px)' }], 300, 0, selectedAt);
       }
       const portrait = strip.querySelector<HTMLElement>('.portrait')!;

@@ -37,7 +37,7 @@ async function newGame(frame: FrameLocator, toggles: [string, boolean][], start 
 }
 const only = (on: string[]) => ['Fairy pieces', 'Arrangement', 'Classic chess', 'King powers', 'Cards'].map(name => [name, on.includes(name)] as [string, boolean]);
 // Record native motion at onset. A browser call can miss a short effect after it ends.
-type RecordedMotion = { id: string; frames: Keyframe[]; options: KeyframeAnimationOptions; onset: number };
+type RecordedMotion = { id: string; frames: Keyframe[]; options: KeyframeAnimationOptions; onset: number; paint?: { filter: string; clip: string } };
 async function recordMotion(page: Page, frame: FrameLocator, selectors: string[]) {
   const install = (selectors: string[]) => {
     const events = (window as any).uiMotion = [];
@@ -45,7 +45,7 @@ async function recordMotion(page: Page, frame: FrameLocator, selectors: string[]
     const time = Object.getOwnPropertyDescriptor(Animation.prototype, 'currentTime')!;
     Element.prototype.animate = function(frames, options) {
       const animation = animate.call(this, frames, options);
-      const event = { id: this.id || this.closest('.player-strip')?.id || '', selectors: selectors.filter(s => this.matches(s)), frames, options, onset: 0 };
+      const event = { id: this.id || this.closest('.card-coin')?.id || this.closest('.player-strip')?.id || '', selectors: selectors.filter(s => this.matches(s)), frames, options, onset: 0, paint: this.matches('.coin-paint') ? { filter: getComputedStyle(this).filter, clip: getComputedStyle(this.parentElement!).overflow } : undefined };
       if (!event.selectors.length) return animation;
       events.push(event);
       // Read the seek before a same-task rebuild can cancel this animation.
@@ -59,7 +59,7 @@ async function recordMotion(page: Page, frame: FrameLocator, selectors: string[]
   await page.addInitScript(install, selectors);
   await page.frames().find(f => f.parentFrame() === page.mainFrame())!.evaluate(install, selectors);
   return (selector: string) => frame.locator('html').evaluate((_, selector) => ((window as any).uiMotion as (RecordedMotion & { selectors: string[] })[])
-    .filter(e => e.selectors.includes(selector)).map(({ id, frames, options, onset }) => ({ id, frames, options, onset })), selector);
+    .filter(e => e.selectors.includes(selector)).map(({ id, frames, options, onset, paint }) => ({ id, frames, options, onset, paint })), selector);
 }
 function expectDeal(events: RecordedMotion[], reduced = false) {
   expect([...new Set(events.map(e => e.id))].sort()).toEqual(reduced ? [] : ['b', 'w'].flatMap(side => [0, 1, 2, 3].map(i => `card-${side}-${i}`)));
@@ -244,25 +244,29 @@ it.each([false, true])('presses a spent card into grey once (reduced motion %s)'
     }
     expect(index).toBeGreaterThanOrEqual(0);
     await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move' }).click();
-    const motion = await recordMotion(page, frame, ['#game-table .card-coin']);
+    const targetBefore = await frame.locator(`#card-w-${index}`).boundingBox();
+    const motion = await recordMotion(page, frame, ['#game-table .card-coin > .coin-paint']);
     await frame.locator('#board-sheet #choices button').first().click();
     const coin = frame.locator(`#card-w-${index}`);
     await coin.and(frame.locator('[data-state="used"]')).waitFor();
-    const press = (await motion('#game-table .card-coin')).filter(e => e.frames[0].filter === 'grayscale(0)');
+    const press = await motion('#game-table .card-coin > .coin-paint');
     if (reduced) expect(press).toEqual([]);
     else {
       expect(press.length).toBeGreaterThan(0);
       expect(Math.max(...press.map(e => e.onset)) - Math.min(...press.map(e => e.onset))).toBeLessThan(15);
       expect([...new Set(press.map(e => e.id))]).toEqual([`card-w-${index}`]);
     }
-    for (const event of press) expect(event).toMatchObject({ frames: [{ transform: 'translateY(-4px) scale(1)', filter: 'grayscale(0)' }, { transform: 'translateY(0) scale(.96)', filter: 'grayscale(1)' }], options: { duration: 200, delay: 0 } });
+    for (const event of press) expect(event).toMatchObject({ frames: [{ transform: 'translateY(-4px) scale(1)' }, { transform: 'translateY(0) scale(.96)' }], options: { duration: 200, delay: 0 }, paint: { filter: 'grayscale(1)', clip: 'visible' } });
     await expect.poll(() => animations(frame, `#card-w-${index}`), { timeout: 1000 }).toBe(0);
     // G2 a: a spent card coin dims to 0.85, so its word keeps 4.5:1.
     // strips() rebuilds the coin row on a poll. A detached coin reads no style, so poll until an attached coin dims.
-    await expect.poll(() => coin.evaluate(e => e.isConnected ? { opacity: getComputedStyle(e).opacity, paintOpacity: getComputedStyle(e.querySelector('.coin-paint')!).opacity, transform: getComputedStyle(e).transform, filter: getComputedStyle(e.querySelector('.coin-paint')!).filter } : null), { timeout: 5000 }).toEqual({ opacity: '1', paintOpacity: '0.85', transform: 'matrix(0.96, 0, 0, 0.96, 0, 0)', filter: 'grayscale(1)' });
+    await expect.poll(() => coin.evaluate(e => e.isConnected ? { opacity: getComputedStyle(e).opacity, paintOpacity: getComputedStyle(e.querySelector('.coin-paint')!).opacity, transform: getComputedStyle(e).transform, paintTransform: getComputedStyle(e.querySelector('.coin-paint')!).transform, filter: getComputedStyle(e.querySelector('.coin-paint')!).filter } : null), { timeout: 5000 }).toEqual({ opacity: '1', paintOpacity: '0.85', transform: 'none', paintTransform: 'matrix(0.96, 0, 0, 0.96, 0, 0)', filter: 'grayscale(1)' });
+    const target = await coin.boundingBox();
+    expect(target!.width).toBeCloseTo(targetBefore!.width, 2);
+    expect(target!.height).toBeCloseTo(targetBefore!.height, 2);
     await frame.locator('#board-menu').click();
     await frame.locator('#board-sheet .sheet-head button[aria-label="Close"]').click();
-    expect((await motion('#game-table .card-coin')).filter(e => e.frames[0].filter === 'grayscale(0)')).toEqual(press);
+    expect(await motion('#game-table .card-coin > .coin-paint')).toEqual(press);
   } finally { await page.close(); }
 });
 

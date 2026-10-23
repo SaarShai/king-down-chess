@@ -28,7 +28,7 @@ All four steps pass the worker checks. The playback helper is 100 lines. It has 
 | defeat | Live local/account loss | Quiet downward art/title settle and real result detail. No victory flourish or new board fall. |
 | draw | Live local/account draw | Both existing king portraits meet from opposite sides. The real reason stays. No invented agreement message. |
 | abort | Account live aborted/no-start result | Level fade on the existing result. Solo Abort keeps its current return-to-setup flow, which has no result panel. |
-| cards | Account live deal, arm and spent-state change | Original stagger, scaled selection lift and press into the existing grey spent state. The old gold pulse is removed. No coin-spend object study. Refill has no rule or trigger. |
+| cards | Account live deal, arm and spent-state change | Original stagger, scaled selection lift and press into the existing grey spent state. Scale the paint child, preserving the button's click target and allowing its raised edge outside the clip. The paint stays grey throughout the press. The old gold pulse is removed. No coin-spend object study. Refill has no rule or trigger. |
 | power | Real power-use count increase in account/local play | Emblem breath and only the newly spent notch close once. Other uses stay still. Always-on powers gain no false spend. |
 | promotion | Real local promotion picker and account promotion choices | Panel rise and brief option stagger. The chosen move resolves at once. No fake selected hold or input delay. Auto-queen stays unchanged. |
 | confirm | Successful account move write | A small check draws in the existing turn button after success. Current label, width and live-region text stay. No fabricated send result. |
@@ -60,6 +60,8 @@ The other UI callers are local commit, local review, `ui/previously.ts` and `cer
 The focused baseline reproduces all five reported failures. Each old assertion names replaced motion: no loss motion, the gold card pulse, CSS deal classes (two cases), or the old board fade. No production fault is found. Only `tools/plugin-motion.test.ts` changes. It checks the approved native keyframes and Fast timings, one event time across rebuilt controls, completion, reduced motion, grey spent-state contrast, and no replay on result reopen, game remount or reload. The loss check keeps the last move and rejects a victory ceremony.
 
 `KINGDOWN_TEST_FILE='tools/plugin-motion.test.ts' npm test` waits for the shared lock and passes typecheck, all 20 selected cases and all 50 required scene cases. Log: `/tmp/effects-ui-regression-check-2.log`. `git diff --check` passes. This is not a full-suite pass. The launch snapshot is `/tmp/effects-ui-game-launch.diff`; the file copies in `/tmp/effects-ui-regression-launch/` define the incremental diff. No renderer, engine, registry, global tracker, combat or excluded board indication changes.
+
+The final spent-card target correction and its independent review findings are covered by `KINGDOWN_TEST_FILE='tools/plugin-{motion,ui-style}.test.ts' npm test`: all 23 cases, typecheck and all 50 scene cases pass. The real browser checks unchanged target dimensions in normal and reduced motion, unclipped grey paint at onset, existing final styles and no replay. Log: `/tmp/effects-spent-target-reviewed.log`.
 
 ## Files owned and changed
 

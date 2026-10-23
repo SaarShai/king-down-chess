@@ -22,7 +22,7 @@ it('imports game tokens and components without lesson, account or title lineup r
     const flat = css.replaceAll('"', '').replaceAll("'", '');
     expect(flat).toMatch(/\.coin\.card-coin\[data-state=used\]>.coin-paint\{[^}]*opacity:\.85(?:;|})/);
     expect(flat).not.toContain('@keyframes card-spend');
-    expect(flat).toContain(':is(#game-table,[data-seat-id=game-table]) .card-coin[data-state=used]{transform:scale(.96)}');
+    expect(flat).toContain(':is(#game-table,[data-seat-id=game-table]) .card-coin[data-state=used]>.coin-paint{transform:scale(.96)}');
     expect.soft(flat).toContain('--focus:#2b2621;--focus-gold:#e9c071');
     expect.soft(flat).toContain('#app-root #board:focus{outline-offset:-3px;outline-width:3px;box-shadow:none!important}');
     expect.soft(flat).toContain('#app-root :is(#game-table,[data-seat-id=game-table]) .table-back:focus{outline-offset:-2px;box-shadow:inset 0 0 0 4px var(--focus-gold)!important}');

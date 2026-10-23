@@ -52,9 +52,10 @@ body[data-page='end'] #table-bar { visibility: hidden; }
 
 #game-table[data-empty='true'] #board { visibility: hidden; }
 
-/* The reviewed card selection and spent state use the current coin size. */
+/* Scale spent paint without shrinking its target or clipping its raised edge. */
 #game-table .card-coin[data-state='armed'] { transform: translateY(-4px); }
-#game-table .card-coin[data-state='used'] { transform: scale(.96); }
+#game-table .card-coin[data-state='used'] { overflow: visible; }
+#game-table .card-coin[data-state='used'] > .coin-paint { transform: scale(.96); }
 #game-table .portrait.is-checked { outline: 3px solid var(--accent); outline-offset: -3px; }
 #move-time-left[data-phase='warning'], #move-time-left[data-phase='expired'] { color: var(--accent); }
 #move-time-left { outline: 2px solid transparent; outline-offset: 3px; border-radius: var(--radius); }
