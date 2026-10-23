@@ -1,6 +1,6 @@
 # Make the new build pass CI
 
-Status: in review on PR SaarShai/king-down-chess#87 (branch `staging/lane-ci`, from `bdd886c7`). Round 2 fixes three failures of CI run 39901282212; the 200% zoom miss on WebKit stays open (item 12). No merge or deploy.
+Status: in review on PR SaarShai/king-down-chess#87 (branch `staging/lane-ci`, from `bdd886c7`). Round 2 fixes three failures of CI run 39901282212; round 3 splits the WebKit job (item 13). The 200% zoom miss on WebKit stays open (item 12). No merge or deploy.
 
 ## What
 
@@ -218,3 +218,22 @@ Each proof adds a delay to a temporary copy of the test and runs the old and the
 An independent read-only review confirms causes 9 to 11 and the remount and draw-offer fixes. It found two faults in the first draft of this round, both fixed before the commit: the Boolean loop name that hid the helper, and a call filter for Back to Play that could hide a real board read from Back (replaced by the paused clock). It finds the 200% zoom cause UNSURE and asks for the geometry that item 12 now prints.
 
 It also lists races of the same classes in tests that have not failed on CI: a one-time view in "keeps focus on a power coin through an unchanged poll reply", poll reads in the exact lists of "recovers a held move at 10 seconds" and "keeps a failed read board locked", one-time `rejectNextGet` and hold flags that a poll can take, and two-call scroll and hit pairs in the short-phone matrix. Other test files also click `#remount` directly. These stay out of this change: no run shows them.
+
+## CI round 3 (run 39908178007)
+
+Every check passes except `browser-webkit`. Its 230 tests and `plugin-ui` pass; the 45-minute job limit cancels `web-online` after 54 s. No test fails.
+
+13. **WebKit job time.** The job runs the browser install, the three test files, `plugin-ui` and `web-online` in turn. In this run the install takes 9 min 20 s (`Fetched 117 MB in 8min 56s (218 kB/s)`; the other jobs and the earlier WebKit runs take under 1 minute), the tests 15 min 58 s and `plugin-ui` 18 min 36 s. The step limits (20 + 24 + 4 minutes) already pass the 45-minute job limit. The job is now two jobs, as `browser-web` is for Chromium: `browser-webkit` runs the three test files, `browser-webkit-ui` runs `plugin-ui` and `web-online`. Each keeps the install, the sampler, the kernel log, the uploads, its step limits and the 45-minute job limit. No limit grows and no check goes. `tools/workflow.lint.test.ts` checks both jobs; its time check now allows 10 minutes of setup, the time of this slow install.
+
+### Proof
+
+- `tools/workflow.lint.test.ts` through `npm test`: `Tests  16 passed (16)`.
+- The next CI run gives the first run of both jobs.
+
+### Independent audits
+
+Two independent read-only audits (ponytail review of the code, a retro of the session) both find the round 2 fixes right and give the same cause and fix for item 13. Other findings stay out of this ticket, which fixes CI only:
+
+- Release: the written restore from the backup cannot replace rows that still exist; the publish does not prove that the engine check reads the production database; the backup copy does not set one snapshot for all tables.
+- Checks: `tsconfig.json` checks `src` only, so a TypeError in a test file passes the type check; the docs lint exempts the specs folder from the model-name rule; a bare `vitest run` skips the test lock; a broken Python import still skips the source-export cases.
+- The retained WebKit and Firefox profiles have no assertion that every request stays on `127.0.0.1`; the Firefox run shows 160 requests, all local.
