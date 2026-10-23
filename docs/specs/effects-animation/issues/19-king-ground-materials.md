@@ -20,3 +20,17 @@ Sky has larger rounded cloud bodies and a shared gather/hold/dissolve cycle. Fro
 ## Preview replay controls
 
 Each king and both lava options now have a local Replay ground animation button. It resets the visible ground clocks together and keeps that scene awake for ten seconds. The scene's normal five-second passive window could stop before a complete review cycle, so workshop replay must explicitly keep the scene awake through its longest loop. Verified Sky and both lava buttons in the live browser, including an empty start and the lava reforming. This small control change did not rerun the full browser suite.
+
+## Material revision plan
+
+The owner rejected all three ground treatments: clouds read as rings, lava reads flat with heavy outlines, and the ice clusters look poor. Replace separate outlined lobes with one filled billowing cloud mass. Replace crystal piles with a connected frost sheet that spreads from the feet. For lava, reveal fixed cracks along their length, open their width, shade recessed walls, and close the edges before fading. Keep both comparison buttons. Verify full formation and disappearance at board scale, plus scene and browser checks. These revisions remain awaiting visual approval.
+
+## Revised materials and checks
+
+Replaced the procedural cloud circles with an original transparent, painted cumulus sprite made with the built-in image tool. The full prompt and provenance are in `docs/2d-first-pieces/king-stratus/cloud-bank.md`. Three filled cloud layers gather, billow and dissolve; the Sky King painting is intact. The obsolete cloud-circle helper and its tests are removed.
+
+Ice is now one connected translucent frost sheet with a thin blue edge, internal facets and frost veins. It spreads from the feet and thaws inward. Both lava previews use fixed branching cracks that open along their length, widen and close. The molten layer is vertically recessed beneath shaded rock faces. Heavy outline strokes and floating slab polygons are removed. Option B is now called Deep faults.
+
+Reference recommendations: Airborn Studios' art-directed cumulus volumes (https://80.lv/articles/airborn-3d-production-of-a-stylized-ue5-animation) fit the game's painted fantasy art. Dmitrii Aksiutenko's parallax ground-crack breakdown (https://dimivfx.artstation.com/projects/DvaPw0) supplies the separate wall/floor depth principle. These are direction references, not imported assets or an assertion that this Canvas renderer uses their engines.
+
+Typecheck, 12 selected helper cases and 51 scene cases pass (`/tmp/ground-revision-tests.log`). The final browser run with the painted sprite passes (`/tmp/ground-painted-cloud-browser.log`, run `effects-integration-k7Ihnr`). Phone Mud + Sky averages 1.45 ms/frame, p95 1.70 ms. Inspected the revised material at game size, used replay controls, and saved `painted-cloud-frost-revision.png` and `lava-recessed-revision.png` in the task visualization folder. The lava alternatives remain preview-only. No deployment or full-suite run. All three visuals await owner approval.

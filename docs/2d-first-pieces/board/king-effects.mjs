@@ -20,6 +20,7 @@ import {GRASS_ROOT,GRASS_TIP,LEAF,VINE} from './mud-palette.mjs';
 export const PERIOD={flame:4800,frost:6000,stratus:4000,mud:8000,spirit:4000,shadow:6400};
 export const KING_EFFECTS=Object.keys(PERIOD);
 const LAVA_MASK=new URL('../king-flame/lava-mask.webp',import.meta.url).href;
+const CLOUD_BANK=new URL('../king-stratus/cloud-bank.png',import.meta.url).href;
 const SMOKE_MASK=new URL('../king-shadow/smoke-mask.webp',import.meta.url).href;
 const TAU=Math.PI*2;
 const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
@@ -47,10 +48,6 @@ export function hoverAt(t,k=1){return k*(3+6*(1-Math.cos(TAU*t/PERIOD.stratus))/
 
 /** A floor cloud's bounded, seamless life. The same clock drives movement fade and hover. */
 export function groundLife(t,period){const p=frac(Math.max(0,t)/period);return smooth(p/.28)*(1-smooth((p-.62)/.38));}
-export function cloudAt(t,i){
- const local=t+PERIOD.stratus-i*32,p=frac(local/PERIOD.stratus),life=groundLife(local,PERIOD.stratus);
- return {alpha:life*.86,x:(rand(i,31)*2-1)*30+(p-.5)*8,y:-5+(rand(i,32)*2-1)*7,radius:(20+rand(i,33)*11)*(.38+.62*life)};
-}
 export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
  const cache=new Map(),assets=new Map();
  // An effect's own art: null until it has loaded (then the layers built from it are rebuilt).
@@ -233,66 +230,84 @@ export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
   }
   ctx.restore();
  }
- // The accepted frozen material: blue depth, pale facets and white fracture lips.
+ // A connected frost sheet spreads across the stone, then thaws from its ragged edge.
  function rime(ctx,s){
-  const life=groundLife(s.t,PERIOD.frost);if(life<.001)return;
-  ctx.save();ctx.translate(s.ground.x,s.ground.y-3);ctx.globalAlpha=s.k*s.g*life;
-  for(let i=0;i<13;i++){
-   const angle=i*2.399,r=14+rand(i,43)*32,x=Math.cos(angle)*r,y=Math.sin(angle)*r*.32;
-   const grow=smooth(life*1.5-rand(i,44)*.35),w=8+rand(i,45)*10,h=(8+rand(i,46)*17)*grow;
-   const pts=[[-w,1],[-w*.7,-h*.55],[-w*.2,-h],[w*.55,-h*.72],[w,0],[w*.3,5],[-w*.6,4]];
-   ctx.save();ctx.translate(x,y);ctx.beginPath();pts.forEach(([px,py],j)=>j?ctx.lineTo(px,py):ctx.moveTo(px,py));ctx.closePath();
-   const fill=ctx.createLinearGradient(-w,4,w,-h);fill.addColorStop(0,'#195f8ac9');fill.addColorStop(.4,'#69c7e4d9');fill.addColorStop(.75,'#d5ffffef');fill.addColorStop(1,'#8ed4e5');
-   ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle='#e6ffffdb';ctx.lineWidth=1.2;ctx.stroke();
-   ctx.beginPath();ctx.moveTo(-w*.2,-h);ctx.lineTo(w*.15,-h*.25);ctx.lineTo(w*.3,5);ctx.lineTo(w,0);ctx.lineTo(w*.55,-h*.72);ctx.closePath();ctx.fillStyle='#edffff70';ctx.fill();
-   ctx.beginPath();ctx.moveTo(-w*.7,-h*.4);ctx.lineTo(-w*.1,-h*.3);ctx.lineTo(-w*.3,1);ctx.strokeStyle='#e9ffffb8';ctx.lineWidth=.8;ctx.stroke();ctx.restore();
-  }
-  ctx.restore();
- }
-
- // Rounded, opaque bodies gather together, then loosen and dissolve below the figure.
- function clouds(ctx,s){
-  for(let i=0;i<11;i++){
-   const c=cloudAt(s.t,i),a=c.alpha*s.k*s.g;if(a<.001)continue;
-   ctx.save();ctx.globalAlpha=a;ctx.translate(s.ground.x+c.x*s.facing,s.ground.y+c.y);ctx.scale(c.radius,c.radius*.65);
-   const fill=ctx.createRadialGradient(-.25,-.42,.1,0,0,1.12);
-   fill.addColorStop(0,'#fffef5');fill.addColorStop(.43,'#f0f6f5');fill.addColorStop(.73,'#c4d8e3');fill.addColorStop(.94,'#8daaba90');fill.addColorStop(1,'#9cb5c000');
-   ctx.fillStyle=fill;ctx.beginPath();ctx.arc(0,0,1.12,0,TAU);ctx.fill();ctx.restore();
-  }
- }
-
- // Preview alternatives only. Molten currents sit inside openings with a raised dark lip.
- function lavaFloor(ctx,s){
-  const life=groundLife(s.t,PERIOD.flame);if(life<.001)return;
-  ctx.save();ctx.translate(s.ground.x,s.ground.y-2);ctx.scale(1,.38);ctx.globalAlpha=s.k*s.g*life;
-  const opening=new Path2D();
-  if(lavaGround==='plates'){
-   opening.ellipse(0,0,51*life,43*life,0,0,TAU);
-  }else{
-   const seams=[[[ -49,-8],[-31,-12],[-21,-3],[-5,-7],[9,3],[27,-1],[48,12]],
-    [[-22,-3],[-29,12],[-20,24],[-33,34]],[[9,3],[18,-14],[12,-28],[27,-39]],
-    [[27,-1],[38,-18],[49,-22]], [[-5,-7],[-7,-24],[-21,-33]],[[9,3],[3,21],[17,34],[13,43]]];
-   for(const [i,points] of seams.entries()){
-    const w=(i?2.5:4.5)*life;
-    for(const side of [-1,1])for(let j=0;j<points.length;j++){
-     const index=side===-1?j:points.length-1-j,[x,y]=points[index],taper=index===points.length-1?.15:1;
-     const px=x*life,py=y*life+side*w*taper;
-     if(side===-1&&j===0)opening.moveTo(px,py);else opening.lineTo(px,py);
-    }opening.closePath();
+  const p=frac(s.t/PERIOD.frost),grow=smooth(p/.38),thaw=smooth((p-.64)/.36),life=grow*(1-thaw);
+  if(life<.002)return;
+  ctx.save();ctx.translate(s.ground.x,s.ground.y-2);ctx.globalAlpha=s.k*s.g*Math.min(1,life*4);
+  const outline=new Path2D(),points=[];
+  for(let i=0;i<32;i++){
+   const a=i/32*TAU,r=(40+rand(i,74)*13)*life,x=Math.cos(a)*r,y=Math.sin(a)*r*.34;
+   points.push([x,y]);i?outline.lineTo(x,y):outline.moveTo(x,y);
+  }outline.closePath();
+  // A narrow blue edge gives the sheet thickness; no pile of separate jewels.
+  ctx.save();ctx.translate(0,2);ctx.fillStyle='#356d8980';ctx.fill(outline);ctx.restore();
+  const ice=ctx.createLinearGradient(-25,-18,25,19);ice.addColorStop(0,'#edfdf9df');ice.addColorStop(.33,'#a6dce7bf');ice.addColorStop(.55,'#5597b5a8');ice.addColorStop(.8,'#b9eaf0cd');ice.addColorStop(1,'#efffffe6');ctx.fillStyle=ice;ctx.fill(outline);
+  ctx.save();ctx.clip(outline);
+  for(let i=0;i<16;i++){
+   const a=i*2.399,r=48,x=Math.cos(a)*r,y=Math.sin(a)*r*.34;
+   ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(x,y);ctx.lineTo(x+9,y-6);ctx.closePath();ctx.fillStyle=i%2?'#efffff20':'#1d5c8120';ctx.fill();
+   ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(x*.4+2,y*.4-1);ctx.lineTo(x*.72-2,y*.72+1);ctx.lineTo(x,y);ctx.strokeStyle='#e8ffff98';ctx.lineWidth=.65;ctx.stroke();
+   for(let j=1;j<5;j++){
+    const q=j/5,bx=x*q,by=y*q;
+    ctx.beginPath();ctx.moveTo(bx-4,by-3);ctx.lineTo(bx,by);ctx.lineTo(bx+3,by-4);ctx.strokeStyle='#efffff99';ctx.lineWidth=.5;ctx.stroke();
    }
   }
-  ctx.strokeStyle='#211a1c';ctx.lineWidth=6;ctx.stroke(opening);ctx.fillStyle='#751a0a';ctx.fill(opening);
-  ctx.save();ctx.clip(opening);
-  const hot=ctx.createLinearGradient(-50,-40,50,40);hot.addColorStop(0,'#991e0a');hot.addColorStop(.4,'#ff7015');hot.addColorStop(.6,'#ffd35a');hot.addColorStop(1,'#be2709');ctx.fillStyle=hot;ctx.fillRect(-60,-50,120,100);
-  for(let i=0;i<12;i++){
-   const x=-75+frac(s.t/PERIOD.flame+i/12)*150;
-   ctx.beginPath();ctx.moveTo(x-15,-50);ctx.bezierCurveTo(x+28,-20,x-25,15,x+18,50);ctx.strokeStyle=i%3?'#ffb32c':'#fff2a2';ctx.lineWidth=3+rand(i,67)*5;ctx.stroke();
+  for(let i=0;i<90;i++){
+   const a=rand(i,75)*TAU,r=Math.sqrt(rand(i,76))*51;
+   ctx.fillStyle=i%3?'#eaffff65':'#ffffffa0';ctx.fillRect(Math.cos(a)*r,Math.sin(a)*r*.34,.5+rand(i,77),.5);
+  }
+  ctx.restore();ctx.strokeStyle='#eaffffad';ctx.lineWidth=.7;ctx.stroke(outline);ctx.restore();
+ }
+
+ // Painted, filled cumulus layers billow outward and separate as they dissolve.
+ function clouds(ctx,s){
+  const image=asset(CLOUD_BANK);if(!image)return;
+  const p=frac(s.t/PERIOD.stratus),life=groundLife(s.t,PERIOD.stratus);if(life<.002)return;
+  ctx.save();ctx.translate(s.ground.x,s.ground.y+5);
+  for(const [i,side] of [0,-1,1].entries()){
+   const grow=smooth(p/(.28+i*.035)),fade=1-smooth((p-.58-i*.035)/(.42-i*.035));
+   const k=grow*fade,w=(side?61:112)*(.62+.38*grow),h=w*(side?.34:.39);
+   const x=side*(22+(1-fade)*12)+Math.sin(p*TAU+i)*2,y=(side?2:0)-(side?1:4)*grow;
+   ctx.globalAlpha=s.k*s.g*k*(side?.58:1);
+   ctx.drawImage(image,x-w/2,y-h,w,h);
   }
   ctx.restore();
-  if(lavaGround==='plates')for(let i=0;i<8;i++){
-   const angle=i*TAU/8,r=24*life,x=Math.cos(angle)*r,y=Math.sin(angle)*r,w=16,h=13;
-   ctx.beginPath();ctx.moveTo(x-w,y-3);ctx.lineTo(x-w*.5,y-h);ctx.lineTo(x+w*.7,y-h*.7);ctx.lineTo(x+w,y+5);ctx.lineTo(x,y+h);ctx.closePath();ctx.fillStyle=i%2?'#50453f':'#665950';ctx.fill();ctx.strokeStyle='#241c1c';ctx.lineWidth=3;ctx.stroke();
-   ctx.beginPath();ctx.moveTo(x-w,y-3);ctx.lineTo(x-w*.5,y-h);ctx.lineTo(x+w*.7,y-h*.7);ctx.strokeStyle='#978374';ctx.lineWidth=1.3;ctx.stroke();
+ }
+
+ // Fixed stone seams propagate from the feet. Opening width exposes a wall above molten depth.
+ function lavaFloor(ctx,s){
+  const p=frac(s.t/PERIOD.flame),open=smooth(p/.3)*(1-smooth((p-.66)/.34));if(open<.001)return;
+  ctx.save();ctx.translate(s.ground.x,s.ground.y-2);ctx.globalAlpha=s.k*s.g*Math.min(1,open*5);
+  const seams= lavaGround==='plates' ? [
+   [[0,0],[-15,-12],[-34,-8],[-49,-22]],[[0,0],[15,-15],[36,-11],[51,-26]],
+   [[0,0],[-18,16],[-35,13],[-51,29]],[[0,0],[18,13],[33,32],[47,37]],
+   [[-15,-12],[-9,-28],[3,-43]],[[18,13],[10,32],[17,44]],[[36,-11],[41,8],[52,16]]
+  ] : [
+   [[0,0],[-16,-8],[-27,0],[-42,-7],[-53,-3]],[[0,0],[15,9],[28,3],[42,16],[53,12]],
+   [[-16,-8],[-20,-23],[-12,-37]],[[15,9],[10,24],[21,40]],[[28,3],[31,-16],[46,-30]]
+  ];
+  for(const [i,points] of seams.entries()){
+   const advance=smooth((p-i*.014)/.24),width=(lavaGround==='plates'?8:5)*open;
+   const edge=[];
+   for(let j=0;j<points.length;j++){
+    const [x,y]=points[j],local=smooth(advance*points.length-j),w=width*local*(j===points.length-1?.08:1);
+    edge.push([x,y*.38,w]);
+   }
+   const hole=new Path2D();
+   for(const side of [-1,1])for(let j=0;j<edge.length;j++){
+    const index=side<0?j:edge.length-1-j,[x,y,w]=edge[index];
+    if(side<0&&j===0)hole.moveTo(x,y-w);else hole.lineTo(x,y+side*w);
+   }hole.closePath();
+   // Actual side faces occupy the top of the opening. A displaced floor lies beneath them.
+   const wall=ctx.createLinearGradient(0,-8,0,8);wall.addColorStop(0,'#342822');wall.addColorStop(.55,'#211b1c');wall.addColorStop(1,'#70412b');ctx.fillStyle=wall;ctx.fill(hole);
+   ctx.save();ctx.clip(hole);ctx.translate(0,3.5*open);
+   const hot=ctx.createLinearGradient(-55,0,55,0);hot.addColorStop(0,'#a72c0b');hot.addColorStop(.35,'#f87b19');hot.addColorStop(.65,'#ffc44c');hot.addColorStop(1,'#c5440b');ctx.fillStyle=hot;ctx.fill(hole);ctx.clip(hole);
+   for(let j=0;j<16;j++){
+    const x=-65+frac(p+j/16)*130,y=(rand(j,92)-.5)*34;
+    const glow=ctx.createRadialGradient(x,y,0,x,y,5+rand(j,93)*5);glow.addColorStop(0,'#ffed8cbb');glow.addColorStop(.5,'#ffb02d88');glow.addColorStop(1,'#ff7b1000');ctx.fillStyle=glow;ctx.fillRect(x-10,y-10,20,20);
+   }ctx.restore();
+   ctx.beginPath();edge.forEach(([x,y,w],j)=>j?ctx.lineTo(x,y-w):ctx.moveTo(x,y-w));ctx.strokeStyle='#a893714f';ctx.lineWidth=.65;ctx.stroke();
   }
   ctx.restore();
  }
@@ -506,7 +521,7 @@ export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
 
  return {
   /** Whether a design has an effect; starts loading that effect's own art. */
-  has(design){if(design==='flame')flameLayers(0);if(design==='shadow')shadowLayers(0);return design in PERIOD;},
+  has(design){if(design==='stratus')asset(CLOUD_BANK);if(design==='flame')flameLayers(0);if(design==='shadow')shadowLayers(0);return design in PERIOD;},
   /** The pose the figure is drawn with (Stratus floats; Shadow is drawn without his painted smoke, which moves). */
   pose(s){
    if(s.design==='shadow'){const l=shadowLayers(s.side);return l?{...s.pose,sheet:l.body}:s.pose;}
