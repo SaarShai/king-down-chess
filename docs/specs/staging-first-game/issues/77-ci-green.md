@@ -32,7 +32,7 @@ Keep each guard and assertion. Fix the cause. Use no retry loop or longer time l
 
 ## Scope and choices
 
-The owner approves this work directly. Change only the workflow and check code. Keep the production profile guard, every game assertion and each worker assertion. Add no dependency, retry loop or longer time limit. No product fault is found. No product file changes.
+The owner approves this work directly. Change the workflow and check code, and fix the product faults that the checks find. Keep the production profile guard, every game assertion and each worker assertion. Add no dependency, retry loop or longer time limit. Round 8 finds one product fault (item 12): each poll render moved the seat screen's scroll at 200% zoom. Its fix changes two product files, `src/account-game/runtime.ts` (the Home label check) and `src/plugin/screens/seat.ts` (seat text written only on a change). No other product file changes.
 
 ## Causes and fixes
 
