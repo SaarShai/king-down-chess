@@ -88,6 +88,17 @@ function card(parent, title, text, scene, canvas, box = CROP) {
   return section;
 }
 
+function groundReplay(section,scene,title){
+ const controls=document.createElement('div'),button=document.createElement('button');
+ controls.className='buttons';button.type='button';button.textContent='Replay ground animation';
+ button.setAttribute('aria-label',`Replay ${title} ground animation`);
+ button.addEventListener('click',()=>{
+  const enabled=document.getElementById('animations');if(!enabled.checked)enabled.click();
+  scene.restartKingGround();scene.keepAwake(10000);
+ });
+ controls.appendChild(button);section.insertBefore(controls,section.children[1]);
+}
+
 // 1. The idle effects.
 const grid = document.getElementById('grid');
 for (const design of Object.keys(INFO)) {
@@ -95,6 +106,7 @@ for (const design of Object.keys(INFO)) {
   scenes[design] = { scene, canvas };
   const section = card(grid, INFO[design][0], `${INFO[design][1]} <span class="period">Loop ${PERIOD[design] / 1000} s.</span>`, scene, canvas);
   section.id = `idle-${design}`;
+  groundReplay(section,scene,INFO[design][0]);
 }
 
 for(const [variant,title,description] of [
@@ -104,6 +116,7 @@ for(const [variant,title,description] of [
  const {canvas,scene}=makeScene(['flame','flame'],KINGS_ROW,false,variant);
  scenes[`lava-${variant}`]={scene,canvas};
  const section=card(grid,title,`${description} Preview option; not enabled in the game.`,scene,canvas);section.id=`lava-${variant}`;
+ groundReplay(section,scene,title);
 }
 
 // 2. Captures: each card plays its captures in turn; a button plays one now.

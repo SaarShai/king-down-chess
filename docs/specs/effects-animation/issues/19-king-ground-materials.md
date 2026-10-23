@@ -16,3 +16,7 @@ Sky has larger rounded cloud bodies and a shared gather/hold/dissolve cycle. Fro
 - `PLAYABLE_BROWSER=chromium npm run check:browser king-effects`: passes in 107.4 seconds. Movement, Off, reduced motion, hidden tabs and real-board rendering pass. Phone Mud + Sky averages 1.51 ms per frame, p95 1.80 ms. Log: `/tmp/king-ground-browser.log`.
 - Inspected desktop and phone previews. Both lava studies render behind the figures. Their visual comparison is manual; the automated board check uses the default game effects.
 - Preview: `/docs/king-effects/preview.html?record#lava-fissures`. Sky and Frost are on the same page. No deployment or full-suite run.
+
+## Preview replay controls
+
+Each king and both lava options now have a local Replay ground animation button. It resets the visible ground clocks together and keeps that scene awake for ten seconds. The scene's normal five-second passive window could stop before a complete review cycle, so workshop replay must explicitly keep the scene awake through its longest loop. Verified Sky and both lava buttons in the live browser, including an empty start and the lava reforming. This small control change did not rerun the full browser suite.

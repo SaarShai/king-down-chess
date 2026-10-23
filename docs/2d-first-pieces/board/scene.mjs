@@ -970,6 +970,8 @@ function drawEncounter(a,t) {
   /** [white, black] king designs ('frost' … 'shadow'): each side's king figure. */
   setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;kings=[...next];for(const design of kings){kingImage(design).loaded.catch(()=>{});if(lively.kings)kingFx.has(design);}wake();},
   get kings(){return [...kings];},
+  /** Restart the visible ground loops together for the effects workshop. */
+  restartKingGround(){const since=performance.now();for(const entry of kingSince.values()){entry.since=since;entry.offset=0;}wake();},
   /** [white, black] figure URLs for a lab `type` with no painted art (a Workshop design), or null for its lettered token. */
   setFigure(type,urls){
    if(String(urls)===String(figures[type]?.urls??null))return;
