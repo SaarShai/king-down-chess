@@ -77,6 +77,14 @@ site_env="VITE_SUPABASE_URL=${VITE_SUPABASE_URL:-} VITE_SUPABASE_PUBLISHABLE_KEY
 unset VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY
 if [ "$publish" = yes ]; then
   [ -n "${KINGDOWN_ENGINES_DATABASE_URL:-}" ] || die 'set KINGDOWN_ENGINES_DATABASE_URL before --publish; the engines-in-use check is required'
+  # Publish checks the live games, so the engine check must read the production project, not a staging or loopback copy.
+  node --input-type=module - "$(cd "$(dirname "$0")" && pwd -P)/staging-config.mjs" <<'NODE' || die 'KINGDOWN_ENGINES_DATABASE_URL must name the production Supabase database before --publish'
+try {
+  const { pathToFileURL } = await import('node:url');
+  const { productionDatabase } = await import(pathToFileURL(process.argv[2]).href);
+  productionDatabase(new URL(process.env.KINGDOWN_ENGINES_DATABASE_URL));
+} catch { process.exit(2); }
+NODE
 fi
 if [ "$setup_plugin" = no ] && [ -z "$configure" ]; then
   [ -n "${PLUGIN_TEST_DATABASE_URL:-}" ] || die 'set PLUGIN_TEST_DATABASE_URL to a disposable loopback database ending in _test'
@@ -258,7 +266,11 @@ fi
 step 'engine archive' engines_committed
 step 'production artifact' production_artifact "$artifact" "$target"
 if [ -n "${KINGDOWN_ENGINES_DATABASE_URL:-}" ]; then
-  step 'engines in use' node tools/engines-check.mjs "$artifact/functions/mcp.func/runtime/engines"
+  if [ "$publish" = yes ]; then
+    step 'engines in use' node tools/engines-check.mjs --production "$artifact/functions/mcp.func/runtime/engines"
+  else
+    step 'engines in use' node tools/engines-check.mjs "$artifact/functions/mcp.func/runtime/engines"
+  fi
 else
   echo 'deploy: KINGDOWN_ENGINES_DATABASE_URL is not set; skipped the check of engines in use'
 fi

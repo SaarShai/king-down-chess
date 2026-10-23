@@ -181,6 +181,14 @@ describe('engine report', () => {
     expect(run.stdout).toBe('');
   });
 
+  it.each(['postgresql://kingdown_test:private-url@127.0.0.1:55432/kingdown_test', 'postgresql://kingdown_plugin_runtime.puhspsyjyzaghmgtkzqd:private-url@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require'])('with --production, refuses a database outside the production project before any connection: %s', database => {
+    const run = spawnSync(process.execPath, ['--import', './tools/fixtures/engine-report-query-error.mjs', 'tools/engines-check.mjs', '--production'], { encoding: 'utf8', env: { KINGDOWN_ENGINES_DATABASE_URL: database } });
+    expect(run.status).toBe(2);
+    expect(run.stderr).toContain('Production requires its Supabase database; refused before any connection');
+    expect(run.stderr).not.toMatch(/private-query-marker|private-url/);
+    expect(run.stdout).toBe('');
+  });
+
   it('reports the exact runtime folder and the hashes of its bundle bytes', () => {
     const report = checkRuntime(reportFor([game(stamp), game(alias)]), ENGINES);
     expect(report.ok).toBe(true);
