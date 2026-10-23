@@ -58,12 +58,17 @@ export async function checkShell(browser, base) {
     await shot(page, 'plugin-board-bar-390x844-light', { clip: await bar.boundingBox() });
     await page.setViewportSize({ width: 1280, height: 800 });
     const callsBefore = await page.evaluate(() => (window.harnessCalls ?? []).length);
-    await page.evaluate(() => {
-      const view = { ...window.harnessView, game_id: crypto.randomUUID(), revision: 100, status: 'finished', action: 'done', result: { winner: 0, reason: 'checkmate' }, legal: [] };
+    // A solo poll read can leave only a delta in the harness, with no rules (src/match/service.ts view()). The widget
+    // does not show a board of a new game with no rules (src/account-game/runtime.ts show()): it reads the board again,
+    // the server answers with the real game, which still plays, and no card opens (ticket 77, item 16). The created view
+    // has the full rules.
+    assert(created._meta.view.rules, 'The created view has the full rules');
+    await page.evaluate(rules => {
+      const view = { ...window.harnessView, rules: window.harnessView.rules ?? rules, game_id: crypto.randomUUID(), revision: 100, status: 'finished', action: 'done', result: { winner: 0, reason: 'checkmate' }, legal: [] };
       window.harnessNextView = view;
       return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
-    });
-    // A miss on CI WebKit leaves the page idle (ticket 77, item 16). Print the state at the miss, then fail as before.
+    }, created._meta.view.rules);
+    // A miss prints the state that names the stopped step, then fails as before.
     await frame.locator('#over.end-card[open]').waitFor().catch(async error => {
       console.error(`Shell end card miss: ${JSON.stringify(await endCardState(page, frame, callsBefore))}`);
       throw error;
