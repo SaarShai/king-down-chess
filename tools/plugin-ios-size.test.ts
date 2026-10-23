@@ -109,10 +109,13 @@ it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568
     await expect.poll(canvasWidth).toBeGreaterThanOrEqual(boardMin - (width < height ? 4 : 0));
     expect(await frame.locator('#context-note').textContent()).toBe('');
     expect(await textFits()).toEqual([]);
-    await settled(page, frame); // No mount read may consume the injected view.
-    await page.evaluate(async () => {
-      const host = window as any;
-      host.harnessNextView = { ...host.harnessView, kind: 'friend', opponent: { ...host.harnessView.opponent, computer: false }, draw_offer: 1 };
+    await settled(page, frame); // No mount read may answer after the offer below.
+    // The solo board polls every 5 s (src/plugin/poll.ts). A one-time view can go to a poll before Reload, and Reload then
+    // reads the fixture game without the offer. Serve the offer to each game read, as tools/plugin-app.test.ts does.
+    // settled() needs harnessNextView undefined, so this test calls it no more.
+    await page.evaluate(() => {
+      const host = window as any, view = { ...host.harnessView, kind: 'friend', opponent: { ...host.harnessView.opponent, computer: false }, draw_offer: 1 };
+      Object.defineProperty(host, 'harnessNextView', { configurable: true, set() {}, get: () => view });
     });
     await frame.locator('#board-menu').click(); await frame.locator('#reload').click();
     await frame.locator('#context-note').filter({ hasText: 'Your opponent offers a draw.' }).waitFor();
@@ -548,9 +551,27 @@ it('keeps page-title words whole, the seat title short and the title at body siz
 // no move. Under 320 px the board keeps the full width, and the screen scrolls to the rows below it.
 it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)', async () => {
   const canvasWidth = (frame: FrameLocator) => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width);
+  // Scroll and hit-test in one frame call: a later layout must not move the control between them. A miss also reports
+  // the control, its scroll ancestors, the viewport and a second hit test after one rendering frame, at once, so a CI
+  // log names the cause even when the step limit stops vitest before its summary (ticket 77, item 12).
   const reachable = async (frame: FrameLocator, id: string) => {
-    // Scroll and hit-test in one frame call: a later layout must not move the control between them.
-    return frame.locator(`#${id}`).evaluate(e => { e.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' }); const r = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); });
+    const result = await frame.locator(`#${id}`).evaluate(async e => {
+      e.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+      const test = () => { const r = e.getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + r.height / 2; return { hit: e.contains(document.elementFromPoint(x, y)), x, y, box: [r.x, r.y, r.width, r.height].map(Math.round) }; };
+      const first = test();
+      if (first.hit) return { hit: true };
+      const name = (n: Element) => n.tagName.toLowerCase() + (n.id ? `#${n.id}` : '') + ((n as HTMLElement).dataset?.screen ? `[${(n as HTMLElement).dataset.screen}]` : '');
+      const scrollers: string[] = [];
+      for (let n = e.parentElement; n; n = n.parentElement) {
+        const style = getComputedStyle(n), r = n.getBoundingClientRect();
+        if (n.scrollHeight > n.clientHeight || n.scrollTop || style.overflowY !== 'visible') scrollers.push(`${name(n)} ${style.overflowY} top ${Math.round(n.scrollTop)} of ${n.scrollHeight - n.clientHeight} box ${[r.x, r.y, r.width, r.height].map(Math.round)}`);
+      }
+      const v = window.visualViewport, at = document.elementsFromPoint(first.x, first.y).slice(0, 4).map(name);
+      const later = await Promise.race([new Promise<boolean>(resolve => requestAnimationFrame(() => resolve(test().hit))), new Promise<string>(resolve => setTimeout(() => resolve('no frame in 500 ms'), 500))]);
+      return { hit: false, first, at, scrollers, inner: [innerWidth, innerHeight], visual: v && [v.width, v.height, v.offsetTop, v.pageTop, v.scale].map(n => Math.round(n * 100) / 100), later };
+    });
+    if (!result.hit) console.log(`reachable ${id} miss: ${JSON.stringify(result)}`);
+    return result.hit;
   };
   for (const features of [['Fairy pieces', 'Arrangement'], ['Fairy pieces', 'Arrangement', 'Cards', 'King powers']]) {
     const { page, frame } = await hostPage(197, 426, 51, 59), all = features.includes('Cards');

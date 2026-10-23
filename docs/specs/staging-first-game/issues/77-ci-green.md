@@ -1,6 +1,6 @@
 # Make the new build pass CI
 
-Status: resolved on branch `staging/lane-ci`, from `bdd886c7`. No push, merge or deploy.
+Status: in review on PR SaarShai/king-down-chess#87 (branch `staging/lane-ci`, from `bdd886c7`). Round 2 fixes three failures of CI run 39901282212; the 200% zoom miss on WebKit stays open (item 12). No merge or deploy.
 
 ## What
 
@@ -188,3 +188,33 @@ An independent read-only review (three dimensions, each finding checked by a sep
 - Python probes: the new 4 s import limit in `tools/board-grain.test.ts` (and the existing one in `tools/stone-control.test.ts`) skipped the source checks on a slow import, even with numpy and Pillow present. A time-out now fails the file; only an import failure skips.
 
 The Firefox worker change and the CI and fixture changes have no confirmed finding.
+
+## CI round 2 (PR SaarShai/king-down-chess#87, run 39901282212)
+
+`browser`, `browser-web` and `browser-firefox` pass; they failed on main. `verify` and `browser-webkit` fail. Each failed test also fails on main runs (39844199620, 39851032329, 39854257067): these are older races in the same tests. The WebKit `npm test` step reached its 20-minute limit, so vitest printed no error text there; runs 39832956829 and 39854257067 print the errors of the same tests.
+
+9. **Remount.** The `#remount` click returns before the old frame leaves: `mount()` in `tools/plugin-ui-host.ts` first waits for the old app's teardown. A wait that the old frame already meets (enabled `#home-play`, enabled `#retry`) passes on the old frame; the next read then reaches the new frame before it boots. CI: "keeps a board open without a game on home" (`expected null to be 'home'`) and "makes one game after a lost Start reply" (`['', 1]`). A `remount(page)` helper in `tools/plugin-app.test.ts` now clicks and waits until the old iframe leaves the page, as #85 did inline for one test. All 32 Remount clicks in the file use it; each keeps its own wait for the new frame. Two loops named a Boolean `remount`; they now use `again`.
+10. **Back to Play call list.** The solo board polls every 5 s (`src/plugin/poll.ts`). On a slow runner the exact call list after Back also holds poll reads (`['kingdown_get','kingdown_get','kingdown_games']`). The test now installs the page clock before the board mounts. After the draft it pauses the clock 2 s ahead of now (on a slow runner the page clock can pass a nearer time before the command reaches it), then waits for the frame's in-flight calls to end and takes the call baseline. The exact assertion `['kingdown_games']` stays.
+11. **Draw offer on WebKit.** The test set a one-time `harnessNextView` and clicked Menu > Reload. A slow WebKit click lets a 5 s poll take the view first; Reload then reads the fixture game without the offer, so the note never shows. The test now serves the offer to every game read (the `serveView` form of `tools/plugin-app.test.ts`). The first commit's `settled` call stays before it; `settled` needs `harnessNextView` undefined, so the test calls it no more after.
+12. **200% zoom on WebKit.** Open. The hit test after the scroll misses on Linux WPE only (`seat-ready`, `seat-shuffle`); the first commit's one-call scroll and hit test did not fix it. The logs give no geometry. `reachable()` now prints the control box, the elements at its center, each scroll ancestor, the viewport and a second hit test after one rendering frame, at the moment of a miss. Its pass condition does not change. The next CI run gives the data to find the cause.
+
+### Proof (local, Chromium unless named)
+
+Each proof adds a delay to a temporary copy of the test and runs the old and the new test with the same delay.
+
+- Remount: an 800 ms teardown delay in `tools/plugin-ui-host.ts`, a 2 s boot delay (`harnessBootDelay`) and a 1.5 s pause between the wait and the read. Old: both CI errors, `expected null to be 'home'` and `step 300: expected [ '', 1 ]`. New: both pass.
+- Back to Play: an 11 s pause before Back. Old: `['kingdown_get','kingdown_get','kingdown_games']`, the CI list. New: passes with the exact list.
+- Draw offer: a 12 s pause between the injection and Menu. Old: two poll reads take the view (`next view left: false`) and the note wait times out, as on CI. New: 3 of 3 sizes pass in Chromium and in WebKit.
+
+### Verification
+
+- Under 16-process CPU load: Back to Play 5 of 5 (Chromium), the draw-offer test 3 of 3 sizes (WebKit), the 200% zoom test (WebKit). With the pause at the current page time instead of 2 s ahead, Back to Play failed 2 of 3 under load with `Cannot fast-forward to the past`.
+- A forced miss in a temporary copy prints the item 12 line in WebKit, for example the seat screen as scroll ancestor (`auto`, top 115 of 115) and the viewport (197 by 426, scale 1).
+- Full `tools/plugin-app.test.ts` in Chromium: `Tests  136 passed (136)`. The CI WebKit file set (`tools/plugin-{board,ios-size,preview-size}.test.ts`) in WebKit: `Test Files  3 passed (3)`, `Tests  230 passed (230)`.
+- No new type errors in the two files (checked with a temporary tsconfig that holds `tools`; `npm run typecheck` checks `src` only).
+
+### Review
+
+An independent read-only review (Sol, xhigh) confirms causes 9 to 11 and the remount and draw-offer fixes. It found two faults in the first draft of this round, both fixed before the commit: the Boolean loop name that hid the helper, and a call filter for Back to Play that could hide a real board read from Back (replaced by the paused clock). It finds the 200% zoom cause UNSURE and asks for the geometry that item 12 now prints.
+
+It also lists races of the same classes in tests that have not failed on CI: a one-time view in "keeps focus on a power coin through an unchanged poll reply", poll reads in the exact lists of "recovers a held move at 10 seconds" and "keeps a failed read board locked", one-time `rejectNextGet` and hold flags that a poll can take, and two-call scroll and hit pairs in the short-phone matrix. Other test files also click `#remount` directly. These stay out of this change: no run shows them.
