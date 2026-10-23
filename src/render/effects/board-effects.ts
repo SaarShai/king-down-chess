@@ -30,7 +30,13 @@ export function drawBoardEffects(ctx: CanvasRenderingContext2D, scene: PaintedSc
     };
     // Symbols draw above both material faces, so no surface covers the piece's identity.
     if (!symbols || !front) { draw(front); if (symbols) draw(true); }
-    if (front && state.clear == null) pips(ctx, scene, width, state.sq, material ? state.kind === 'firewall' ? '#a73c12' : '#316d89' : '#87611e', state.turns, state.kind !== 'freeze', state.exception);
+    if ((symbols ? !front : front) && state.clear == null) {
+      ctx.save();
+      // Symbol badges sit in the gap between rows; all piece icons draw above their edges.
+      if (symbols) ctx.translate(0, -10);
+      pips(ctx, scene, width, state.sq, material ? state.kind === 'firewall' ? '#a73c12' : '#316d89' : '#87611e', state.turns, state.kind !== 'freeze', state.exception);
+      ctx.restore();
+    }
   }
   const selected = marks.selected;
   const progress = (name: string) => effects.progress(name, now, motion);

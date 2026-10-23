@@ -1,4 +1,5 @@
 import type { GameRules } from '../../game-rules';
+import { stable } from '../../balance/measurements';
 import { G, K, colorOf, findKing, typeOf, type Color, type Position } from '../../rules/engine';
 import { SIGNAL_DURATION_MS } from './indications';
 
@@ -57,17 +58,19 @@ export function boardStates(context: GameRules, pos: Position): BoardState[] {
 export class StateEffects {
   frames: StateFrame[] = [];
   rate = 1;
-  private previous?: { context: GameRules; signature: string; ply: number };
+  private previous?: { rulesKey: string; signature: string; ply: number };
   private seen = new WeakSet<Position>();
   forward = false;
   private signals = new Map<string, { key: string; since: number }>();
 
   sync(context: GameRules, pos: Position, now: number, motion: boolean): void {
     const states = boardStates(context, pos);
+    // Online views rebuild GameRules. Equivalent rule values keep the same effect history.
+    const rulesKey = stable(context.rules);
     const signature = `${Array.from(pos.board)}|${pos.turn}|${pos.ply}|${JSON.stringify(pos.marks)}`;
-    if (this.previous?.context === context && this.previous.signature === signature) { this.seen.add(pos); return; }
-    if (this.previous?.context !== context) this.seen = new WeakSet<Position>();
-    const forward = motion && this.previous?.context === context && pos.ply === this.previous.ply + 1 && !this.seen.has(pos);
+    if (this.previous?.rulesKey === rulesKey && this.previous.signature === signature) { this.seen.add(pos); return; }
+    if (this.previous?.rulesKey !== rulesKey) this.seen = new WeakSet<Position>();
+    const forward = motion && this.previous?.rulesKey === rulesKey && pos.ply === this.previous.ply + 1 && !this.seen.has(pos);
     this.forward = forward;
     this.seen.add(pos);
     const prior = new Map(this.frames.filter(s => s.clear == null).map(s => [s.key, s]));
@@ -81,7 +84,7 @@ export class StateEffects {
         && !frames.some(s => s.sq === old.sq && ['freeze', 'ward', 'firewall'].includes(s.kind))) frames.push({ ...old, turns: 0, clear: now });
     }
     this.frames = frames;
-    this.previous = { context, signature, ply: pos.ply };
+    this.previous = { rulesKey, signature, ply: pos.ply };
     // A position change cancels indication onsets. The next highlight supplies the live marks.
     this.signals.clear();
   }

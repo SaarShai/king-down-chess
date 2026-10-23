@@ -40,6 +40,100 @@ describe('real state lifecycle', () => {
     fresh.frames.forEach(frame => quiet(frame.since));
   });
 
+  it.each(['freeze', 'ward', 'firewall'] as const)('%s keeps entry, hold and expiry across fresh equivalent rules', id => {
+    const f = fixtures[id], s = new StateEffects();
+    const rules = () => new GameRules(f.rules.rules);
+    s.sync(rules(), f.before, 0, true);
+    s.sync(rules(), f.after, 10, true);
+    expect(s.forward).toBe(true);
+    expect(s.frames.length).toBeGreaterThan(0);
+    expect(s.frames.every(frame => frame.since === 10 && frame.clear == null)).toBe(true);
+    expect(s.materialProgress(s.frames[0], 10, true)).toBe(0);
+
+    const frames = s.frames;
+    s.signal('check', 'e1', 10, true);
+    s.sync(rules(), structuredClone(f.after), 100, true);
+    expect(s.frames).toBe(frames);
+    expect(s.progress('check', 100, true)).toBeLessThan(1);
+    expect(s.materialProgress(s.frames[0], 2100, true)).toBe(.42);
+    if (id === 'firewall') {
+      const move = f.rules.legalMoves(f.after).find(m => f.rules.toLan(f.after, m) === 'Ra2-d2')!;
+      s.sync(rules(), f.rules.makeMove(f.after, move), 2200, true);
+      expect(s.frames.some(frame => frame.sq === at('d2'))).toBe(true);
+      expect(s.frames.some(frame => frame.sq === at('a2'))).toBe(false);
+      expect(s.frames.every(frame => frame.since === 10 && frame.clear == null)).toBe(true);
+    }
+
+    s.sync(rules(), f.expired!, 2300, true);
+    expect(s.forward).toBe(true);
+    expect(s.frames.length).toBeGreaterThan(0);
+    expect(s.frames.every(frame => frame.clear === 2300 && frame.turns === 0)).toBe(true);
+    expect(s.materialProgress(s.frames[0], 2300, true)).toBe(.72);
+    expect(s.remaining(3700)).toBe(0);
+    expect(s.frames).toEqual([]);
+  });
+
+  it('keeps seen positions quiet across fresh rules, but permits a new rematch and resets on dispose', () => {
+    const f = fixtures.freeze, s = new StateEffects();
+    const rules = () => new GameRules(f.rules.rules);
+    s.sync(f.rules, f.before, 0, true); s.sync(f.rules, f.after, 10, true);
+    const copy = structuredClone(f.after);
+    s.sync(rules(), copy, 20, true);
+    for (const after of [f.after, copy]) {
+      s.sync(rules(), f.before, 100, true); s.sync(rules(), after, 110, true);
+      expect(s.forward).toBe(false);
+      s.frames.forEach(frame => quiet(frame.since));
+    }
+    const before = structuredClone(f.before), after = f.rules.makeMove(before, f.move!);
+    s.sync(rules(), before, 200, true); s.sync(rules(), after, 210, true);
+    expect(s.frames[0].since).toBe(210);
+    s.dispose();
+    s.sync(rules(), f.after, 300, true);
+    expect(s.forward).toBe(false);
+    s.frames.forEach(frame => quiet(frame.since));
+    s.dispose();
+    s.sync(rules(), f.before, 400, true); s.sync(rules(), f.after, 410, true);
+    expect(s.frames[0].since).toBe(410);
+  });
+
+  it.each(['hold', 'expiry'])('a real rule change resets %s quietly even when the position still fits the prior game', phase => {
+    const f = fixtures.freeze, s = new StateEffects();
+    s.sync(f.rules, f.before, 0, true); s.sync(f.rules, f.after, 10, true);
+    s.signal('check', 'e1', 10, true);
+    const changed = new GameRules({ ...f.rules.rules, markFree: !f.rules.rules.markFree });
+    s.sync(changed, phase === 'hold' ? f.after : f.expired!, 100, true);
+    expect(s.forward).toBe(false);
+    expect(s.remaining(100)).toBe(0);
+    expect(s.progress('check', 100, true)).toBe(1);
+    if (phase === 'hold') {
+      expect(s.frames.length).toBeGreaterThan(0);
+      s.frames.forEach(frame => quiet(frame.since));
+    } else expect(s.frames).toEqual([]);
+  });
+
+  it('compares rule data with reordered outer and nested fields', () => {
+    const f = fixtures.holyLight, s = new StateEffects();
+    const first = new GameRules({ ...f.rules.rules, fromMove: { Freeze: 2, IceWall: 3 } });
+    const reordered = new GameRules({ ...Object.fromEntries(Object.entries(first.rules).reverse()),
+      kings: [{ power: 'HolyLight', king: 'Spirit' }, null], fromMove: { IceWall: 3, Freeze: 2 } });
+    expect(reordered.rules).toEqual(first.rules);
+    expect(JSON.stringify(reordered.rules)).not.toBe(JSON.stringify(first.rules));
+    s.sync(first, f.before, 0, true); s.sync(reordered, f.after, 10, true);
+    expect(s.forward).toBe(true);
+    expect(s.frames).toContainEqual(expect.objectContaining({ kind: 'holy-light', since: 10 }));
+  });
+
+  it.each(['freeze', 'ward', 'firewall'] as const)('%s card material stays settled when its rules wrapper changes', id => {
+    const f = fixtures[id], s = new StateEffects();
+    s.sync(f.rules, f.before, 0, true); s.sync(f.rules, f.after, 10, true);
+    s.settleMark(f.before.turn);
+    s.sync(new GameRules(f.rules.rules), f.after, 20, true);
+    expect(s.forward).toBe(true);
+    expect(s.frames.length).toBeGreaterThan(0);
+    s.frames.forEach(frame => quiet(frame.since));
+    expect(s.remaining(20)).toBe(0);
+  });
+
   it('uses the existing Fast setting for bounded state and indication onsets', () => {
     const f = fixtures.freeze, s = new StateEffects();
     s.sync(f.rules, f.before, 0, true); s.sync(f.rules, f.after, 1, true);

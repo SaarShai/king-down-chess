@@ -465,7 +465,7 @@ export function boardScreen(store: Store) {
         row.append(b);
         motion.play(b, [{ opacity: 0, transform: `translateY(16px) rotate(${(index - 1.5) * 9}deg) scale(.9)` }, { opacity: 1, transform: 'translateY(0) rotate(0) scale(1)' }], 500, 150 + index * 130, dealtAt);
         if (card.spent) motion.play(paint, [{ transform: 'translateY(-4px) scale(1)' }, { transform: 'translateY(0) scale(.96)' }], 400, 0, spentAt.get(key) ?? -Infinity);
-        else if (mine && armedCard === index) motion.play(b, [{ transform: 'translateY(0)' }, { transform: 'translateY(-4px)' }], 300, 0, selectedAt);
+        else if (mine && armedCard === index) motion.play(paint, [{ transform: 'translateY(0)' }, { transform: 'translateY(-4px)' }], 300, 0, selectedAt);
       }
       const portrait = strip.querySelector<HTMLElement>('.portrait')!;
       if (checked !== null && pos.turn === side) {
@@ -691,7 +691,7 @@ export function boardScreen(store: Store) {
     }
     previewAbort?.abort(); previewAbort = undefined; previewing = false; serverDraft = undefined;
     const token = ++generation; board.skip(); animating = false; $('board').dataset.animating='false';
-    if (!same) { movesChoice = undefined; history = []; lastMove = undefined; steps = []; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
+    if (!same) { board.resetEffects(); movesChoice = undefined; history = []; lastMove = undefined; steps = []; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
     const local = steps; steps = []; if (local.length) lastMove = history.at(-1);
     armed = undefined; armedCard = undefined; selected = inspected = held = undefined;

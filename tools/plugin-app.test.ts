@@ -396,8 +396,10 @@ it('finds a game created elsewhere when Back returns a clean board to Play', asy
     });
     games.push(before.game); expect(before.dirty).toBe(false);
     await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
-    const canvas = frame.locator('#board canvas'), box = (await canvas.boundingBox())!;
-    for (const rank of [1, 3]) await canvas.click({ position: { x: (32 + 4.5 * 112) * box.width / 960, y: (96 + (7 - rank + .5) * 112) * box.width / 960 } });
+    // Stage the draft through the real chooser; this Back test does not depend on the opening board's geometry.
+    await frame.locator('#board-menu').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
+    await frame.locator('#choices button[title="e2-e4"]').click();
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft?.lans)).toEqual(['e2-e4']);
     const draft = await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft);
     const calls = await page.evaluate(() => (window as any).harnessCalls.length);

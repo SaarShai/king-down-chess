@@ -59,14 +59,15 @@ it('keeps Shove, Hint and Check traces above the last row without changing desti
 });
 
 
-it('keeps both material faces behind symbolic piece identity and leaves pips in front', () => {
+it('keeps material faces and badge edges behind symbolic piece identity', () => {
   const f = fixtures.freeze, effects = new StateEffects(), scene = sceneAt(false);
   effects.sync(f.rules, f.after, 0, false);
   drawBoardEffects(ctx, scene, 'under', undefined, effects, {}, 390, 1, false, true, null, 0);
   expect(vi.mocked(drawFreeze).mock.calls.map(call => call[1].front)).toEqual([false, true]);
-  expect(pips).not.toHaveBeenCalled();
+  expect(pips).toHaveBeenCalledOnce();
   vi.mocked(drawFreeze).mockClear();
+  vi.mocked(pips).mockClear();
   drawBoardEffects(ctx, scene, 'over', scene.cell(35).row, effects, {}, 390, 1, false, true, null, 0);
   expect(drawFreeze).not.toHaveBeenCalled();
-  expect(pips).toHaveBeenCalledOnce();
+  expect(pips).not.toHaveBeenCalled();
 });

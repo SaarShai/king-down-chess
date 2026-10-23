@@ -130,6 +130,26 @@ async function viewBoard(reduced = false) {
 }
 
 describe('production PaintedView card invocation and scene lifecycle', () => {
+  it('starts another game quietly at the next ply with equal rules, then allows its live effects', async () => {
+    const { view, advance } = await viewBoard(), fixture = fixtures.find(f => f.item === 'Freeze')!;
+    const { context, before } = game(fixture), move = legal(context, before, fixture.actions[0]);
+    const frozen = context.makeMove(before, move);
+    view.setRules(context); view.sync(before); advance(10); view.sync(frozen);
+    const effects = (view as unknown as { stateEffects: { frames: { kind: string; since: number; clear?: number }[]; forward: boolean } }).stateEffects;
+    expect(effects.frames.some(s => s.kind === 'freeze')).toBe(true);
+    const other = new GameRules(context.rules), first = structuredClone(before);
+    first.ply = frozen.ply + 1;
+    // The account game boundary skips playback before discarding its effect history.
+    view.skip(); view.resetEffects(); view.setRules(other); advance(10); view.sync(first);
+    expect(effects.forward).toBe(false);
+    expect(effects.frames).toEqual([]);
+    advance(10); view.sync(other.makeMove(first, legal(other, first, fixture.actions[0])));
+    expect(effects.forward).toBe(true);
+    expect(effects.frames).toContainEqual(expect.objectContaining({ kind: 'freeze', since: 30 }));
+    expect(effects.frames.every(s => s.clear == null)).toBe(true);
+    view.dispose();
+  });
+
   it.each(['Freeze', 'IceWall', 'Firewall'])('%s hands its formed material to the persistent state without a second onset', async id => {
     const { view, advance } = await viewBoard(), { context, before } = game(fixtures.find(f => f.item === id)!);
     const fixture = fixtures.find(f => f.item === id)!, move = legal(context, before, fixture.actions[0]);

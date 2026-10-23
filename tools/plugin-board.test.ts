@@ -300,7 +300,8 @@ it('keeps spent coin contrast and clear symbols together', async () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const coins = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll<HTMLButtonElement>('.card-coin')].map(coin => {
       coin.dataset.state = 'used'; coin.disabled = true;
-      const style = getComputedStyle(coin.querySelector('.coin-paint')!), symbol = coin.querySelector('svg')!, face = symbol.getBoundingClientRect(), box = coin.getBoundingClientRect();
+      // The paint compresses; its symbol inset is separate from the unchanged button target.
+      const paint = coin.querySelector('.coin-paint')!, style = getComputedStyle(paint), symbol = coin.querySelector('svg')!, face = symbol.getBoundingClientRect(), box = paint.getBoundingClientRect();
       return { opacity: style.opacity, buttonOpacity: getComputedStyle(coin).opacity, symbol: !!symbol, letters: coin.textContent, color: getComputedStyle(symbol).color, inset: box.width - face.width };
     }));
     expect(coins).toHaveLength(2);

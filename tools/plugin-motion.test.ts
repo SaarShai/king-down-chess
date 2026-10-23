@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -36,6 +36,47 @@ async function newGame(frame: FrameLocator, toggles: [string, boolean][], start 
   if (start) await frame.locator('#setup-start').click();
 }
 const only = (on: string[]) => ['Fairy pieces', 'Arrangement', 'Classic chess', 'King powers', 'Cards'].map(name => [name, on.includes(name)] as [string, boolean]);
+it('keeps source symbols intact beside protection badges', async () => {
+  const { page, frame } = await open(false);
+  try {
+    await frame.locator('[data-screen="play"] [data-nav="settings"]').click();
+    await frame.locator('#symbols-only').check();
+    const names: Record<string, string> = { P: 'pawn', N: 'knight', B: 'bishop', R: 'rook', Q: 'queen', K: 'king', A: 'archer', L: 'paladin', G: 'guard', M: 'maester', S: 'beast', O: 'ogre' };
+    const sources = Object.fromEntries(await Promise.all(Object.values(names).map(async name => [name, await readFile(`public/ui/icons/${name}.svg`, 'utf8')])));
+    for (const kings of [0, 1, 2]) {
+      const result = await (await page.request.post(new URL(`/fixture-position?case=gallery&kings=${kings}`, harness.url).href)).json();
+      await page.evaluate(r => (window as any).harnessShow(r), result);
+      await frame.locator('#board[aria-busy="false"]').waitFor();
+      const errors = await frame.locator('#board canvas').evaluate(async (canvas, { names, sources }) => {
+        const c = canvas as HTMLCanvasElement, expected = document.createElement('canvas'), images = new Map<string, HTMLImageElement>();
+        expected.width = c.width; expected.height = c.height;
+        for (const [name, source] of Object.entries(sources)) for (const side of [0, 1]) {
+          const style = side ? 'color:#2b2621;--pi-disc:#4a4850;--pi-ring:#6e6a74;--pi-glyph:#f3ead7' : 'color:#2b2621;--pi-disc:#fffcf4';
+          const image = new Image(); image.src = 'data:image/svg+xml,' + encodeURIComponent(source.replace('<svg ', `<svg style="${style}" `));
+          await image.decode(); images.set(`${name}-${side}`, image);
+        }
+        await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        const g = expected.getContext('2d')!, scale = c.width / 960;
+        const squares = ([[0, 'RNBQKALG'], [1, 'MSOPPPPP'], [6, 'msoppppp'], [7, 'rnbqkalg']] as const).flatMap(([rank, row]) => [...row].map((letter, file) => ({ rank, file, piece: names[letter.toUpperCase()] })));
+        for (const { rank, file, piece } of squares) g.drawImage(images.get(`${piece}-${rank >= 6 ? 1 : 0}`)!, (32 + file * 112 + 14) * scale, (96 + (7 - rank) * 112 + 14) * scale, 84 * scale, 84 * scale);
+        const want = g.getImageData(0, 0, c.width, c.height).data, got = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+        return squares.map(({ rank, file, piece }) => {
+          let sum = 0, n = 0;
+          for (let y = Math.ceil((96 + (7 - rank) * 112 + 14) * scale); y < (96 + (7 - rank) * 112 + 98) * scale; y++) for (let x = Math.ceil((32 + file * 112 + 14) * scale); x < (32 + file * 112 + 98) * scale; x++) {
+            const i = (y * c.width + x) * 4; if (want[i + 3] < 254) continue;
+            for (let channel = 0; channel < 3; channel++) { sum += Math.abs(got[i + channel] - want[i + channel]); n++; }
+          }
+          return { square: 'abcdefgh'[file] + (rank + 1), piece, error: sum / n };
+        }).filter(item => !Number.isFinite(item.error) || item.error > 3);
+      }, { names, sources });
+      expect(errors, `King pair ${kings}: every source symbol remains intact`).toEqual([]);
+    }
+  } finally {
+    // Pages share the fixture account's saved settings.
+    try { await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_settings', arguments: { symbols_only: false } })); }
+    finally { await page.close(); }
+  }
+});
 // Record native motion at onset. A browser call can miss a short effect after it ends.
 type RecordedMotion = { id: string; frames: Keyframe[]; options: KeyframeAnimationOptions; onset: number; paint?: { filter: string; clip: string } };
 async function recordMotion(page: Page, frame: FrameLocator, selectors: string[]) {
@@ -248,12 +289,18 @@ it.each([false, true])('presses a spent card into grey once (reduced motion %s)'
     }
     expect(index).toBeGreaterThanOrEqual(0);
     await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move' }).click();
-    const targetBefore = await frame.locator(`#card-w-${index}`).boundingBox();
-    const motion = await recordMotion(page, frame, ['#game-table .card-coin > .coin-paint']);
-    await frame.locator('#board-sheet #choices button').first().click();
     const coin = frame.locator(`#card-w-${index}`);
+    const targetSize = () => coin.evaluate(e => {
+      if (!e.isConnected) return null;
+      const box = e.getBoundingClientRect();
+      return [box.width, box.height].map(value => Math.round(value * 100) / 100);
+    });
+    let targetBefore: number[] | null = null;
+    await expect.poll(async () => targetBefore = await targetSize()).not.toBeNull();
+    const motion = await recordMotion(page, frame, ['#game-table .card-coin[data-state="used"] > .coin-paint']);
+    await frame.locator('#board-sheet #choices button').first().click();
     await coin.and(frame.locator('[data-state="used"]')).waitFor();
-    const press = await motion('#game-table .card-coin > .coin-paint');
+    const press = await motion('#game-table .card-coin[data-state="used"] > .coin-paint');
     if (reduced) expect(press).toEqual([]);
     else {
       expect(press.length).toBeGreaterThan(0);
@@ -265,12 +312,10 @@ it.each([false, true])('presses a spent card into grey once (reduced motion %s)'
     // G2 a: a spent card coin dims to 0.85, so its word keeps 4.5:1.
     // strips() rebuilds the coin row on a poll. A detached coin reads no style, so poll until an attached coin dims.
     await expect.poll(() => coin.evaluate(e => e.isConnected ? { opacity: getComputedStyle(e).opacity, paintOpacity: getComputedStyle(e.querySelector('.coin-paint')!).opacity, transform: getComputedStyle(e).transform, paintTransform: getComputedStyle(e.querySelector('.coin-paint')!).transform, filter: getComputedStyle(e.querySelector('.coin-paint')!).filter } : null), { timeout: 5000 }).toEqual({ opacity: '1', paintOpacity: '0.85', transform: 'none', paintTransform: 'matrix(0.96, 0, 0, 0.96, 0, 0)', filter: 'grayscale(1)' });
-    const target = await coin.boundingBox();
-    expect(target!.width).toBeCloseTo(targetBefore!.width, 2);
-    expect(target!.height).toBeCloseTo(targetBefore!.height, 2);
+    await expect.poll(targetSize).toEqual(targetBefore);
     await frame.locator('#board-menu').click();
     await frame.locator('#board-sheet .sheet-head button[aria-label="Close"]').click();
-    expect(await motion('#game-table .card-coin > .coin-paint')).toEqual(press);
+    expect(await motion('#game-table .card-coin[data-state="used"] > .coin-paint')).toEqual(press);
   } finally { await page.close(); }
 });
 

@@ -242,6 +242,8 @@ export class PaintedView implements BoardView {
   setLifted(sq: number | null): void { this.scene.setLifted(this.pace !== 'off' ? sq : null, !this.motionQuery.matches); }
 
   setPace(pace: Pace): void { this.pace = pace; this.stateEffects.rate = pace === 'fast' ? 2 : 1; if (pace === 'off') this.skip(); this.applyLively(); }
+  /** After skipping playback, discard history before another game's first position. */
+  resetEffects(): void { this.stateEffects.dispose(); this.cardStates.dispose(); this.skippedMark = undefined; }
   skip(): void {
     if (this.card && ['freeze', 'ward', 'firewall'].includes(this.card.move.power ?? '')) this.skippedMark = { after: this.card.after, owner: this.card.before.turn };
     this.card = null;
