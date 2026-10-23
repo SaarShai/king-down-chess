@@ -29,4 +29,8 @@ Staging release and saved-account verification pass. Source ba42b41a is publishe
 
 The original P1/P3 game has all six corrected card rows in the fresh P1 session. Both Curse colours, both Quake push lists and both Salvation returns match the original board evidence. All 18 saved actions remain. The coordinator reads the full text and views the screenshot. P2 phone confirms the handle, correct games and one normal move plus a computer reply. No failed request or console error appears in the coordinator check. Evidence: parent workspace playtest/reports/f002-fix/verification.md and rounds/03/p1-f002-check.md / p2-f002-check.md.
 
-The four-account playtest continues. Additional WebKit/Firefox checks and fresh card actions in an existing P2/P3 game remain playtest coverage; they are not claimed as passed here. Player agents keep browser ownership until they finish. Production stays unchanged.
+All remaining release checks now pass. WebKit shows the original six corrected card entries. Firefox reloads the saved account/game and submits Nd3-f4; the computer reply Rd4xf4 arrives normally. The coordinator reads the text and views the screenshots.
+
+Fresh actions also pass in the existing P1 solo game: Curse moves a black Archer g7-f7; Earth Quake at f6 pushes a black Maester f7-f8 and a white pawn g5-h4; Salvation returns a Queen to c1. Staged text, move-choice text and saved text agree with the board. All 88 action rows survive reload, with one copy of each new action and computer reply. Both P1 error drains are empty. See parent workspace playtest/reports/f002-fix/fresh-actions.md.
+
+The four-account playtest continues. Player agents keep browser ownership until they finish. No additional code or deployment change is made. Production stays unchanged.
