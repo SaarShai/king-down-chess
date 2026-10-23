@@ -247,7 +247,7 @@ From `docs/research/chatgpt-plugin-environment.md`, `chatgpt-plugin-feasibility-
 Display modes and launch:
 - The UI reference documents inline, fullscreen and PiP, and allows a fullscreen-only initial display. The general UI guide still describes an inline start (the docs disagree; not resolved with OpenAI support).
 - Conversation-panel entrypoint (`{type:"thread"}`), global sidebar entrypoints, deep links, settings, composer mentions (desktop only) are documented. Web extensions for Free/Go are "coming soon".
-- In the earlier "project GPT" test: menu launch failed three times; model-invoked tool launch and "Open app in tab" worked; PiP was not available in that session.
+- In the earlier ChatGPT project test: menu launch failed three times; model-invoked tool launch and "Open app in tab" worked; PiP was not available in that session.
 - At 390 px, a side viewer leaves zero chat width; the host's "Enter full screen" gives a floating composer that can cover lower app controls.
 - King Down today: launch is model-invoked `kingdown_open` only; the board runs inline; the plugin's own Fullscreen button was removed at the owner's request.
 
@@ -256,7 +256,7 @@ Widget state and context:
 - `window.openai.widgetState` / `setWidgetState` survive remounts. `app.updateModelContext` replaces the widget-state snapshot in ChatGPT, so use one writer.
 - The first `ontoolresult` after a remount is a replay of the original launch result; the board must re-read authority.
 - `content` and `structuredContent` reach the model; result `_meta` is component-only.
-- `updateModelContext` and `sendMessage` carried explicit context to chat in the project GPT test.
+- `updateModelContext` and `sendMessage` carried explicit context to chat in the ChatGPT project test.
 
 Calls from the widget:
 - `app.callServerTool` from the board calls tools directly, with no model turn and no approval prompt observed in the live checks (moves update directly; ticket 06/16). Tools with `visibility: ['app']` are hidden from the model.

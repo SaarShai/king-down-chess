@@ -6,7 +6,7 @@ Type: task
 ## Scope
 
 The second 2026-10-19 run of the eight review test cases on the ChatGPT
-website (GPT-6, Medium), with the test account, after the dcf1a235 deploy.
+website (Medium effort), with the test account, after the dcf1a235 deploy.
 Change only the `kingdown_open` reply and the model-facing descriptions of
 `kingdown_open` and `kingdown_create` in `src/plugin/server.ts`, its test,
 the run record in `docs/submission/checklist.md` row 48, a P4 note in
