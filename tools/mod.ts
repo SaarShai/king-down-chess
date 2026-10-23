@@ -22,8 +22,9 @@ import { STAGING_ORIGIN } from './staging-config.mjs';
 // Only the checked builder supplies this literal. Environment variables cannot enable it in source runs.
 declare const __KINGDOWN_STAGING_OPERATOR__: boolean;
 
+const text = ['facts', 'rule', 'days', 'handle', 'note', 'nca', 'target', 'user', 'game', 'category', 'evidence', 'preset'] as const;
 const { positionals: [command, first, second], values } = parseArgs({ allowPositionals: true, options: { ...Object.fromEntries(
-  ['facts', 'rule', 'days', 'handle', 'note', 'nca', 'target', 'user', 'game', 'category', 'evidence', 'preset'].map(name => [name, { type: 'string' as const }])), 'intimate-image': { type: 'boolean' } } });
+  text.map(name => [name, { type: 'string' as const }])) as Record<(typeof text)[number], { type: 'string' }>, 'intimate-image': { type: 'boolean' } } });
 const url = process.env.KINGDOWN_ADMIN_DATABASE_URL;
 if (!url) { console.error('Set KINGDOWN_ADMIN_DATABASE_URL to the admin database connection.'); process.exit(2); }
 const compiledStaging = typeof __KINGDOWN_STAGING_OPERATOR__ !== 'undefined' && __KINGDOWN_STAGING_OPERATOR__;

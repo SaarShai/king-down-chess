@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { assertInterruptedPurge, assertLocalData, assertProbeOrder, buildWorkerProbe, checkAccountOff, localData, PERSISTENT_OPTIONS, recoveryOutput, restoreLocalSave, savedGameSynced, serveSite, siteRoute, WORKSHOP_SHELF } from './web-online-check.mjs';
+import { assertInterruptedPurge, assertLocalData, assertLocalRequests, assertProbeOrder, buildWorkerProbe, checkAccountOff, localData, PERSISTENT_OPTIONS, recoveryOutput, restoreLocalSave, savedGameSynced, serveSite, siteRoute, WORKSHOP_SHELF } from './web-online-check.mjs';
 import { vercelRoutes } from './plugin-server-build.mjs';
 import { ART_HEADERS } from './plugin-art-headers.mjs';
 import { loadShelf } from '../src/workshop/store';
@@ -86,6 +86,15 @@ it('serves each selected output with its own files, API routes and function', as
     server.closeAllConnections(); await new Promise<void>(done => server.close(() => done()));
     await rm(work, { recursive: true, force: true });
   }
+});
+
+describe('profile requests', () => {
+  it('passes local, data and blob requests and names each request to another host', () => {
+    const local = ['http://127.0.0.1:52011/', 'http://127.0.0.1:52011/sw.js', 'data:image/png;base64,AA==', 'blob:http://127.0.0.1:52011/1'];
+    expect(() => assertLocalRequests(local)).not.toThrow();
+    for (const url of ['https://project.supabase.co/auth/v1/user', 'http://127.0.0.1.example/', 'http://localhost:52011/'])
+      expect(() => assertLocalRequests([...local, url])).toThrow(url);
+  });
 });
 
 describe('worker probe order', () => {
@@ -267,7 +276,7 @@ it.each([0, 5001])('checks the compiled switch with %s ms between requests', asy
   };
   try {
     await runInNewContext(`(async () => { ${drill} })()`, { app, api, pool, signed: {}, performance,
-      assert: Object.assign((value: unknown, message?: string) => assert(value, message), { equal: assert.equal, deepEqual: (actual: unknown, expected: unknown, message?: string) => expect(actual, message).toEqual(expected) }),
+      assert: Object.assign((value: unknown, message?: string) => assert.ok(value, message as string), { equal: assert.equal, deepEqual: (actual: unknown, expected: unknown, message?: string) => expect(actual, message).toEqual(expected) }),
       setTimeout: (done: () => void, ms: number) => { now += ms; done(); },
     });
     expect(enabled).toBe(true); expect(app.pool.query).toBe(query);

@@ -153,7 +153,7 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
   await vite.listen();
   // Playwright's page.request keeps its sockets open with no idle limit. A server that closes an idle socket after 5 s can
   // close it as the next fixture call starts on it ("socket hang up", CI run 39163839294). vite.close() ends each socket.
-  vite.httpServer!.keepAliveTimeout = 0;
+  (vite.httpServer as import('node:http').Server).keepAliveTimeout = 0;
   const url = vite.resolvedUrls!.local[0];
   if (!endpoint) {
     // The fixture server's public origin is this host, which serves the board art as the plugin origin does.

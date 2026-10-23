@@ -26,7 +26,6 @@ const isWhite = (p: number): boolean => p !== 0 && p < 97;   // uppercase byte
 const F = (s: number): number => s & 7;
 const R = (s: number): number => s >> 3;
 const parseSq = (n: string): number => ((n.charCodeAt(1) - 49) << 3) | (n.charCodeAt(0) - 97);
-const sqName = (s: number): string => `${'abcdefgh'[F(s)]}${R(s) + 1}`;
 const cheb = (a: number, b: number): number => Math.max(Math.abs(F(a) - F(b)), Math.abs(R(a) - R(b)));
 const C = (ch: string): number => ch.charCodeAt(0);
 const [G_, K_, P_, Q_, R_, B_, L_] = ['G', 'K', 'P', 'Q', 'R', 'B', 'L'].map(C);

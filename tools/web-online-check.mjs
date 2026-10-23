@@ -130,6 +130,12 @@ export function assertInterruptedPurge(events, after = 0) {
   assert.equal(slice.filter(event => ['reply', 'probe'].includes(event.event)).length, 0, 'Interrupted purge has no reply or send');
 }
 
+/** The profile pages send each request to the local server: no request leaves the runner. A data: or blob: URL is no network request. */
+export function assertLocalRequests(urls) {
+  const outside = urls.filter(url => !/^http:\/\/127\.0\.0\.1(:\d+)?\//.test(url) && !/^(data|blob):/.test(url));
+  assert.deepEqual(outside, [], 'Each profile request goes to http://127.0.0.1');
+}
+
 /** Compile the real private client for the fixture page. */
 export async function buildWorkerProbe() {
   const entry = resolve('tools/fixtures/web-worker/page.ts');
@@ -144,7 +150,8 @@ export async function main() {
   const work = await mkdtemp(join(tmpdir(), 'kingdown-web-check-'));
   let browser, persistent, server, cleaning, savedAccountAccess;
   const outputs = new Map();
-  const started = performance.now(), events = [], signal = new EventEmitter();
+  const started = performance.now(), events = [], signal = new EventEmitter(), requests = [];
+  let browserFacts;
   const record = event => { events.push(event); signal.emit('record'); };
   let served, old = false, instrument = false, deleteMode = 'ok', holdReply = false, failPrecache = false, offline = false, statusFixture = false, statusFailure = false;
   const held = new Set();
@@ -260,7 +267,8 @@ export async function main() {
     }
 
     browser = await launch();
-    await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify({ engine: env('PLAYABLE_BROWSER'), version: browser.version(), node: process.version, platform: process.platform, osRelease: osRelease(), arch: process.arch }, null, 2));
+    browserFacts = { engine: env('PLAYABLE_BROWSER'), version: browser.version(), node: process.version, platform: process.platform, osRelease: osRelease(), arch: process.arch };
+    await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify(browserFacts, null, 2));
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, hasTouch: true, reducedMotion: 'reduce', serviceWorkers: 'block' });
     page.setDefaultTimeout(30_000 * STEP);
     page.setDefaultNavigationTimeout(30_000 * STEP);
@@ -334,6 +342,7 @@ export async function main() {
       profileDir = profile;
       persistent = await launchPersistent(profile, PERSISTENT_OPTIONS);
       await persistent.exposeFunction('recordWorkerEvent', record);
+      persistent.on('request', request => requests.push(request.url()));
       const page = persistent.pages()[0] ?? await persistent.newPage();
       page.setDefaultTimeout(30_000 * STEP);
       page.setDefaultNavigationTimeout(30_000 * STEP);
@@ -644,12 +653,15 @@ export async function main() {
     assert.deepEqual(await active.evaluate(() => window.privateProbe('blocked-old')), { status: 503, code: 'UNAVAILABLE' });
     assert.equal(events.slice(after).filter(event => event.event === 'probe').length, 0, 'Blocked old controller keeps the send closed');
     await writeFile(join(env('PLAYABLE_OUT'), 'worker-events.json'), JSON.stringify(events, null, 2));
+    await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify({ ...browserFacts, requests }, null, 2));
+    assertLocalRequests(requests);
     console.log(`PASS: worker journeys; ${pair}; ${events.filter(event => event.event === 'probe').length} protected/bypass requests; ${((performance.now() - started) / 1000).toFixed(1)} s`);
     console.log(`PASS: web-online (${env('PLAYABLE_BROWSER')}): built root, test database, local move, End turn, saved reload, closed account and API routes`);
   } finally {
     try {
       await mkdir(env('PLAYABLE_OUT'), { recursive: true });
       await writeFile(join(env('PLAYABLE_OUT'), 'worker-events.json'), JSON.stringify(events, null, 2));
+      if (browserFacts) await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify({ ...browserFacts, requests }, null, 2));
     } finally { await cleanup(); }
   }
 }
