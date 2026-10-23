@@ -637,7 +637,8 @@ function homeActions() {
   const label = (id: string, symbol: string, text: string, detail = '') => {
     const span = document.createElement('span'); span.textContent = text;
     if (detail) { const small = document.createElement('small'); small.textContent = detail; span.append(' ', small); }
-    const html = `<svg class="icon" aria-hidden="true"><use href="#i-${symbol}"/></svg>${span.outerHTML}`;
+    // The serialized form (`</use>`, not `/>`), so the check below holds for an unchanged label and a render keeps it.
+    const html = `<svg class="icon" aria-hidden="true"><use href="#i-${symbol}"></use></svg>${span.outerHTML}`;
     if ($(id).innerHTML !== html) $(id).innerHTML = html;
   };
   label('home-play', back ? 'continue' : 'play', back ? 'Resume' : 'Play now', back && game ? `${game.status === 'waiting' ? waitingLine(game) : game.opponent?.computer ? 'Computer' : gameTitle(game)}${turn}` : '');
