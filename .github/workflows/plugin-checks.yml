@@ -196,6 +196,8 @@ jobs:
           --health-retries 10
     env:
       PLAYABLE_BROWSER: webkit
+      # No GPU here: WebKit's accelerated 2D canvas runs on software GL and took about 2.5 of the 4 CPUs (ticket 77, item 27).
+      PLAYABLE_CPU_CANVAS: '1'
       PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
     steps:
       - uses: actions/checkout@v4
@@ -259,6 +261,8 @@ jobs:
           --health-retries 10
     env:
       PLAYABLE_BROWSER: webkit
+      # No GPU here: WebKit's accelerated 2D canvas runs on software GL and took about 2.5 of the 4 CPUs (ticket 77, item 27).
+      PLAYABLE_CPU_CANVAS: '1'
       PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
     steps:
       - uses: actions/checkout@v4
@@ -316,6 +320,8 @@ jobs:
           --health-retries 10
     env:
       PLAYABLE_BROWSER: webkit
+      # No GPU here: WebKit's accelerated 2D canvas runs on software GL and took about 2.5 of the 4 CPUs (ticket 77, item 27).
+      PLAYABLE_CPU_CANVAS: '1'
       PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
     steps:
       - uses: actions/checkout@v4

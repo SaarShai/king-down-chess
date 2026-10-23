@@ -224,10 +224,15 @@ it.each([false, true])('pulses the checked side once (reduced motion %s)', async
     const bob = async (name: string, args: object) => (await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name, arguments: args } })).json());
     const id = result.structuredContent.game_id, view = (await bob('kingdown_get', { game_id: id }))._meta.view;
     await bob('kingdown_move', { game_id: id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision, lan: 'Ra1-a8' });
+    // The pulse class stays until the strips draw again 600 ms on (src/plugin/screens/board.ts strips()). A loaded runner
+    // can pass that time before a locator reads it (CI run 39965072628), so a recorder notes it as it comes.
+    const pulse = await watchMotion(page, '#strip-me .portrait.is-checked');
     await frame.locator('#board-menu').click(); await frame.locator('#reload').click();
     await frame.locator('#status').filter({ hasText: 'Check!' }).waitFor();
-    if (!reduced) await frame.locator('#strip-me .portrait.is-checked').waitFor({ state: 'attached', timeout: 500 });
-    await expect.poll(() => animations(frame, '#strip-me .portrait'), { timeout: 1500 }).toBe(0);
+    expect((await pulse()).count).toBe(reduced ? 0 : 1);
+    // It runs once: each animation of the portrait ends within 1.5 s of its start. One read of the animation timing; a
+    // poll for the end can spend its 1.5 s in one slow read.
+    expect(await frame.locator('#strip-me .portrait').first().evaluate(e => Math.max(0, ...e.getAnimations({ subtree: true }).map(a => Number(a.effect!.getComputedTiming().endTime))))).toBeLessThanOrEqual(1500);
   } finally { await page.close(); }
 });
 it.each([false, true])('opens the board after both Ready (reduced motion %s)', async reduced => {

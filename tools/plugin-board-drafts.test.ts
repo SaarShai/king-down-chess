@@ -4,6 +4,7 @@ import { expect, it } from 'vitest';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { STEP } from './lib/checks.mjs';
+import { pauseClock } from './lib/page-clock.mjs';
 import { startHarness, waitForSourceApp } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
 import { P, R, N, L, inCheck, legalMoves, makeMove, setRules, type Move, type Rules } from '../src/rules/engine';
@@ -90,9 +91,9 @@ it('W7-04: a press refused with INVALID_MOVE drops the draft and reads once (D11
   const {page,frame,base} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1', true);
   try {
     await chooseTurnMove(page,'e2-e4',12);
-    // The solo board reads every 5 s (src/plugin/poll.ts). Pause the page clock ahead of now (the page can pass a nearer
-    // time before the command reaches it), so no poll read falls between the count and the rollback read.
-    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 2000));
+    // The solo board reads every 5 s (src/plugin/poll.ts). Stop the page clock, so no poll read falls between the count
+    // and the rollback read.
+    await pauseClock(page);
     await settleBoardReads(page);
     const reads = await getCalls(page);
     await page.evaluate(() => { (window as any).rejectNextMove = 'INVALID_MOVE'; });

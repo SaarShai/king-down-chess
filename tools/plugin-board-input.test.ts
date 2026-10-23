@@ -9,7 +9,8 @@ import { readText } from '../src/read';
 import { describeMove } from '../src/move-text';
 import { GameRules } from '../src/game-rules';
 import { PRESETS, designCode, fromPreset } from '../src/workshop/model';
-import { view, insets, edgeMisses, open, marks, closeHeld, clickButton, squarePoint, squareTap, turnBoard, chooseTurnMove, moveCalls, boardFen, savedDraft, remountBoard } from './lib/plugin-board-fixture';
+import { view, insets, edgeMisses, open, marks, closeHeld, clickButton, squarePoint, squareTap, settleBoardReads, turnBoard, chooseTurnMove, moveCalls, boardFen, savedDraft, remountBoard } from './lib/plugin-board-fixture';
+import { pauseClock } from './lib/page-clock.mjs';
 
 // Spec G3 a (J9 a): a shove or swap onto your own piece waits for a second tap; any other tap lets it go and never plays a move.
 const cursorOf = (page: Page) => page.frameLocator('iframe').locator('html').evaluate(() => (window as any).testBoard.cursor);
@@ -605,9 +606,13 @@ it('W7: snaps to the draft if motion fails and keeps Undo available', async () =
 
 
 it('W7: keeps a lost-send error while pieces and coins remain readable', async () => {
-  const {page,frame} = await turnBoard();
+  const {page,frame} = await turnBoard(undefined, true);
   try {
     await chooseTurnMove(page,'e2-e4',12);
+    // The reply is lost after the server commits the move. A solo poll read (every 5 s, src/plugin/poll.ts) would then
+    // show the committed move and clear the selection that the checks below read (CI run 39965072628). Stop the page
+    // clock to the end; a read that started before the pause ends first.
+    await pauseClock(page); await settleBoardReads(page);
     await page.evaluate(() => { (window as any).dropNextMoveReply=true; });
     await frame.locator('#end-turn:not(:disabled):not([aria-disabled="true"])').waitFor();
     await clickButton(page, frame.locator('#end-turn')); await frame.locator('#retry').waitFor();

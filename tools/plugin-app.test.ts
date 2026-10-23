@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
+import { pauseClock } from './lib/page-clock.mjs';
 import { startHarness, waitForSourceApp } from './plugin-ui-harness';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string;
@@ -412,9 +413,9 @@ it('finds a game created elsewhere when Back returns a clean board to Play', asy
     await frame.locator('#end-turn[aria-disabled="false"]').waitFor();
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft?.lans)).toEqual(['e2-e4']);
     const draft = await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft);
-    // Stop the page clock, so no poll runs: Back is then the only source of calls. Pause ahead of now: the page clock
-    // can pass a nearer time before the command reaches it. The jump can start one poll read; the wait below ends it.
-    await page.clock.pauseAt(Date.now() + 2000);
+    // Stop the page clock, so no poll runs: Back is then the only source of calls. A poll read that started before the
+    // pause can still be in flight; the wait below ends it.
+    await pauseClock(page);
     await expect.poll(async () => await frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight) === await page.evaluate(() => (window as any).harnessHeld ?? 0)).toBe(true);
     const calls = await page.evaluate(() => (window as any).harnessCalls.length);
     const external = await (await page.request.post(new URL('/fixture-position?case=haste', harness.url).href)).json();

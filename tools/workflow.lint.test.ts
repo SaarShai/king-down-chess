@@ -38,10 +38,12 @@ describe('.github/workflows/plugin-checks.yml', () => {
     // The WebKit steps run with limits times 3 (tools/lib/checks.mjs STEP), so the job has 45 minutes.
     expect(webkit).toContain('timeout-minutes: 45');
     expect(webkit).toContain('PLAYABLE_BROWSER: webkit');
+    expect(webkit).toContain("PLAYABLE_CPU_CANVAS: '1'");
     expect(webkit).toContain('npx playwright install --with-deps webkit');
     expect(webkit).not.toContain('needs:');
     expect(job('browser')).toContain('npx playwright install --with-deps chromium');
     expect(job('browser')).not.toContain('webkit');
+    for (const other of ['verify', 'browser-board', 'browser', 'browser-web', 'browser-firefox']) expect(job(other)).not.toContain('PLAYABLE_CPU_CANVAS');
   });
 
   it('runs the Chromium board files that verify leaves out, one file to a runner', () => {

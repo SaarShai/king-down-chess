@@ -7,6 +7,7 @@ import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { checkCoinFocus } from './lib/plugin-coin-focus-check.mjs';
 import { settled } from './lib/plugin-settled.mjs';
+import { pauseClock } from './lib/page-clock.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { boxText, layoutMessage } from './lib/layout-message.mjs';
 import { assertCardReadState } from './lib/plugin-card-read.mjs';
@@ -1918,10 +1919,9 @@ try {
   await haste();
   // The move animation needs the running page clock, so choose the move first. Then stop the page clock until the Retry
   // send runs: a poll read before it would show the page the other tab's move, start the computer turn, and the turn
-  // would take the computer hold below (ticket 77, item 23). Pause ahead of the page's own now; the wait ends a read
-  // that the jump starts.
+  // would take the computer hold below (ticket 77, item 23). The wait ends a read that started before the pause.
   await clickSquare(4,1); await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await idleBoard();
-  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 2000));
+  await pauseClock(page);
   await page.waitForFunction(() => window.harnessWidgets.every(widget => !widget.inflight));
   const race = await page.evaluate(() => window.harnessView);
   const winner = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_move',arguments:{game_id:race.game_id,command_id:randomUUID(),expected_revision:race.revision,lan:'d2-d4'}}})).json();

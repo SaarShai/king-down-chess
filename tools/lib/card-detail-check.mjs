@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { createServer } from 'vite';
 import { shot, STEP } from './checks.mjs';
 import { settled } from './plugin-settled.mjs';
+import { pauseClock } from './page-clock.mjs';
 
 async function visibleDiagram(diagram) {
   await diagram.scrollIntoViewIfNeeded();
@@ -88,9 +89,9 @@ export async function checkCardDetails(browser, base, engine) {
             assert.equal(await sheet.locator('.card-reason').count(), 0);
             await sheet.locator('[aria-label="Close"]').click();
           };
-          // Stop the page clock until Try again ends, so no poll read clears the failed read first. Pause ahead of now: the
-          // page clock can pass a nearer time before the command reaches it. The wait ends a read that the jump starts.
-          await page.clock.pauseAt(Date.now() + 2000);
+          // Stop the page clock until Try again ends, so no poll read clears the failed read first. The wait ends a read
+          // that started before the pause.
+          await pauseClock(page);
           await page.waitForFunction(() => window.harnessWidgets.every(widget => !widget.inflight));
           await page.evaluate(() => { window.rejectNextGet = true; });
           await frame.locator('#board-menu').click(); await frame.locator('#reload').click();
@@ -105,9 +106,8 @@ export async function checkCardDetails(browser, base, engine) {
           await frame.locator('#board[aria-busy="false"]').waitFor(); await settled(page, frame);
           await frame.locator('#board-menu').click(); await frame.locator('#menu-draw').click();
           // failNextAction fails the next tool call, a board read too (tools/plugin-ui-host.ts callTool). Stop the page clock
-          // until the command ends, so no poll read takes the failure (ticket 77, item 20). Pause ahead of the page's own
-          // now: the fastForward steps below move the page clock ahead of this process's clock.
-          await page.clock.pauseAt(await page.evaluate(() => Date.now() + 2000));
+          // until the command ends, so no poll read takes the failure (ticket 77, item 20).
+          await pauseClock(page);
           await page.waitForFunction(() => window.harnessWidgets.every(widget => !widget.inflight));
           await page.evaluate(() => { window.holdBeforeNext = 'kingdown_draw'; window.failNextAction = true; });
           // Fail before the server receives the draw offer.
@@ -150,7 +150,7 @@ export async function checkCardDetails(browser, base, engine) {
           for (const key of ['ArrowRight', 'ArrowRight', 'Enter', 'ArrowUp', 'Enter']) await page.keyboard.press(key);
           await frame.locator('#board[data-animating="false"]').waitFor();
           // The three-second poll must not take the one-use failure before End turn sends (ticket 77, item 20).
-          await page.clock.pauseAt(await page.evaluate(() => Date.now() + 2000));
+          await pauseClock(page);
           await page.waitForFunction(() => window.harnessWidgets.every(widget => !widget.inflight));
           await page.evaluate(() => { window.failNextAction = true; });
           await frame.locator('#end-turn').click();
