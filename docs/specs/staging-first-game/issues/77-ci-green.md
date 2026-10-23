@@ -1,6 +1,6 @@
 # Make the new build pass CI
 
-Status: in review on PR SaarShai/king-down-chess#87 (branch `staging/lane-ci`, from `bdd886c7`). Round 2 fixes three failures of CI run 39901282212; round 3 splits the WebKit job (item 13); round 4 splits the board tests and fixes a card-detail race (items 14 and 15); round 5 splits the board input tests and fixes two `verify` failures (items 17 to 19); round 6 takes back the round 5 end card change, makes the end card miss print its state, and fixes its cause: a solo poll read left the finished view with no rules (item 16). The 200% zoom miss on WebKit stays open (item 12). No merge or deploy.
+Status: in review on PR SaarShai/king-down-chess#87 (branch `staging/lane-ci`, from `bdd886c7`). Round 2 fixes three failures of CI run 39901282212; round 3 splits the WebKit job (item 13); round 4 splits the board tests and fixes a card-detail race (items 14 and 15); round 5 splits the board input tests and fixes two `verify` failures (items 17 to 19); round 6 takes back the round 5 end card change, makes the end card miss print its state, and fixes its cause: a solo poll read left the finished view with no rules (item 16); round 7 closes the two other ways a poll read breaks a harness sample (item 16) and fixes a card check that a poll read took the failure of (item 20). The 200% zoom miss on WebKit stays open (item 12). No merge or deploy.
 
 ## What
 
@@ -288,3 +288,19 @@ An independent read-only review finds no fault. It rates the item 16 cause PLAUS
 - A/B on this machine in WebKit, with a 5.6 s wait before the check hides the page, so one poll read comes: the old check fails with the CI state (`{"host":{"calls":["kingdown_get","kingdown_get","kingdown_games"],...,"view":"playing@0",...},"frame":{"page":"board","open":false,...},"timer":0,"paint":0}` and `locator.waitFor: Timeout 10000ms exceeded`); the new check passes 2 of 2.
 - A local WebKit run with a selector that cannot match prints the miss line and then fails with the same error.
 - The full `npm run check:browser plugin-ui` in WebKit with the fix: all of its steps pass (`PASS: chat join preview ...`, 383 s). The run lists one fault: the ticket changed during the run.
+
+## CI round 7 (run 39938961976)
+
+`browser-firefox` passes. In `browser-webkit-ui` the shell check and the Android check now pass; the job fails in `tools/lib/card-detail-check.mjs` (item 20).
+
+16. **End card: the review findings.** An independent read-only review confirms the round 6 cause and fix and finds two more ways a poll read breaks a harness sample:
+    - A poll read that is in flight when the finished result comes takes its one-use view (`tools/plugin-ui-host.ts` `callTool`). The newer chat result detaches the old read, so the widget drops its reply, and the mount read gets the real game. Hiding the page after the board settles stops new polls, not a read in flight. The check now hides the page before it creates the game, as `tools/lib/plugin-android-check.mjs` does, so no poll starts. The rules repair stays.
+    - The route samples in `tools/plugin-ui-check.mjs` take `routeBase` from `window.harnessView`. After a poll read it has no rules, so a finished sample and each sample in a fresh frame read the board again and get the real game. `routeBase` now takes the full rules from a board read when it has none, as `zoomEndFits` does.
+20. **Card detail failed turn send.** `browser-webkit-ui` fails in `tools/lib/card-detail-check.mjs`: after the check sets `failNextAction` and clicks End turn, "Retry" does not show in 30 s. `failNextAction` fails the next tool call of any name but `kingdown_handle` and `kingdown_games`, a board read too. After the draw offer the friend game reads every 3 s (`src/plugin/poll.ts`), and the page clock runs again. A poll read between the arm and the click takes the failure, and the turn goes through. As in items 9, 15 and 19, the check pauses the page clock 2 s ahead of the page's now, waits for the reads to end, arms the failure, and resumes the clock after the step. The draw offer step arms the same failure, so it gets the same pause. The assertions and limits stay.
+
+### Proof
+
+- Held poll read, A/B in WebKit: the check holds the first poll read before the server runs it and releases it after the finished result. With the round 6 order the poll read comes, and the check fails with the CI state (`"calls":["kingdown_get","kingdown_games"]`, `"view":"playing@0"`, the board page). With the new order no poll read comes in 8 s, and the check passes.
+- Route samples, A/B in WebKit with a 5.6 s wait before `routeBase`: one poll read comes and `routeBase` has no rules. The old code fails in the fresh-frame samples (`[data-screen="friend"]` does not show in 30 s); with the new code the full `plugin-ui` check passes (372 s).
+- Item 20, A/B in WebKit with a 3.5 s wait after the arm: the old check gets one poll read in the wait and fails as on CI ("Retry" does not show); the new check gets no read and passes ("Card recovery: failed read, failed command, failed turn send ... pass").
+

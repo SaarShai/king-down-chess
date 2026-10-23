@@ -26,6 +26,9 @@ export async function checkShell(browser, base) {
     assert(grain.pixels >= 2 * grain.css, `Stone has two device pixels per CSS pixel: ${JSON.stringify(grain)}`);
     await shot(page, 'plugin-home-card-1280x800-light');
     await page.evaluate(() => window.harnessSetContext({ displayMode: 'fullscreen', deviceCapabilities: { touch: true } }));
+    // The finished sample below has no service game. No poll may start, so no poll read is in flight when the sample
+    // comes and takes its one-use view (ticket 77, item 16), as in tools/lib/plugin-android-check.mjs.
+    await frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
     const created = await page.evaluate(() => window.harnessTool({ name: 'kingdown_create', arguments: {
       kind: 'solo', colour: 'white', options: { fairy: false, pool: ['R', 'B', 'N', 'Q'], classic: true, arrangement: false, cards: false, cardPool: [], kingPowers: false }
     } }));
@@ -35,7 +38,6 @@ export async function checkShell(browser, base) {
     await page.setViewportSize({ width: 390, height: 844 });
     await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
     await frame.locator('#board-menu:not(:disabled)').waitFor();
-    await frame.locator('html').evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
     const bar = frame.locator('#table-bar');
     const colours = await bar.evaluate(bar => Object.fromEntries([...bar.querySelectorAll('button, svg, .line')].map(e => [e.id || `${e.closest('button').id}-${e.tagName}`, getComputedStyle(e).color])));
     const off = 'rgb(77, 69, 60)', soft = 'rgba(91, 80, 69, 0.75)';
@@ -58,10 +60,10 @@ export async function checkShell(browser, base) {
     await shot(page, 'plugin-board-bar-390x844-light', { clip: await bar.boundingBox() });
     await page.setViewportSize({ width: 1280, height: 800 });
     const callsBefore = await page.evaluate(() => (window.harnessCalls ?? []).length);
-    // A solo poll read can leave only a delta in the harness, with no rules (src/match/service.ts view()). The widget
-    // does not show a board of a new game with no rules (src/account-game/runtime.ts show()): it reads the board again,
-    // the server answers with the real game, which still plays, and no card opens (ticket 77, item 16). The created view
-    // has the full rules.
+    // A poll read leaves only a delta in the harness, with no rules (src/match/service.ts view()). The widget does not
+    // show a board of a new game with no rules (src/account-game/runtime.ts show()): it reads the board again, the server
+    // answers with the real game, which still plays, and no card opens (ticket 77, item 16). The created view has the
+    // full rules.
     assert(created._meta.view.rules, 'The created view has the full rules');
     await page.evaluate(rules => {
       const view = { ...window.harnessView, rules: window.harnessView.rules ?? rules, game_id: crypto.randomUUID(), revision: 100, status: 'finished', action: 'done', result: { winner: 0, reason: 'checkmate' }, legal: [] };

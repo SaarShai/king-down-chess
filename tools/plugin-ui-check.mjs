@@ -2924,6 +2924,13 @@ try {
     await openPlay(); await legacyStart('solo'); await idleBoard();
   }
   const routeBase = await page.evaluate(() => window.harnessView), routeBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
+  // A poll can leave only a delta in the harness. With no rules, a finished sample or a new frame reads the board again
+  // and gets the real game, which still plays (ticket 77, item 16). The samples need the full rules, as in zoomEndFits.
+  if (!routeBase.rules) {
+    const full = await tool('kingdown_get', { game_id: routeBase.game_id });
+    assert(!full.isError && full._meta?.view?.rules, 'The route samples need a complete rules projection');
+    routeBase.rules = full._meta.view.rules;
+  }
   const routeCases = [['waiting','friend',undefined,'friend'], ['waiting','random',undefined,'wait'], ['setup','friend',{},'seat'], ['setup','solo',undefined,'board'], ['playing','solo',undefined,'board'], ['finished','friend',undefined,'end'], ['aborted','random',undefined,'end']];
   for (const [status, kind, options, screen] of routeCases) {
     const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
