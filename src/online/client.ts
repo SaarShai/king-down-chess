@@ -30,7 +30,7 @@ export interface ClientOptions {
 /** A network fault, a busy instance or a server fault: the same command can go again. */
 const retryable = (error: unknown) => !(error instanceof OnlineError) || error.status >= 500;
 
-export function onlineClient({ token, origin = '', fetch: send = (...args) => fetch(...args), tries = 4, wait = ms => new Promise(done => setTimeout(done, ms)) }: ClientOptions) {
+export function onlineClient({ token, origin = '', fetch: send = (input, init) => fetch(input, init), tries = 4, wait = ms => new Promise(done => setTimeout(done, ms)) }: ClientOptions) {
   async function call<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
     const bearer = await token();
     signal?.throwIfAborted();

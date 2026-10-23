@@ -21,8 +21,6 @@ import { resultsRoot } from './lib/results-root.mjs';
 import { createReadStream, createWriteStream, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createInterface } from 'node:readline';
-import { resolve as resolvePath } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { Position, inCheck, makeMove } from '../src/rules/engine';
 import { fromFen, toLan } from '../src/rules/setup';
 import { resetSearchState, search } from '../src/ai/search';

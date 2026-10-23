@@ -17,7 +17,6 @@ import { parseLan } from '../src/sim/tune';
 import { parseKings, setRules } from '../src/rules/rules';
 import { fromFen } from '../src/rules/setup';
 import { B, K, P, Q, R, file, makeMove, rank, typeOf } from '../src/rules/engine';
-import type { GameRecord } from '../src/sim/game';
 
 const OUT = resultsRoot();
 const REPORT = 'docs/research/sim-kings-2026-09-16.md';
@@ -86,7 +85,7 @@ function counters(id: string, arm: string, rule: string): Record<string, number>
       if (t === P && m.captures.length && file(m.to) === file(m.from)) straightCaptures++;
       if (t === K && /^K[a-h][1-8]\*/.test(lan)) kingShots++;
       if (t === K && Math.max(dx, Math.abs(dy)) === 2) mercy2++;
-      if (m.strike) strikes++;
+      if ((m as { strike?: unknown }).strike) strikes++;
       // Leap: a slider whose path crosses one of its own pawns.
       if ((t === R || t === B || t === Q) && m.to !== m.from) {
         const sx = Math.sign(file(m.to) - file(m.from)), sy = Math.sign(rank(m.to) - rank(m.from));
@@ -175,7 +174,7 @@ if (altBase && altVar) {
 | decisive | ${f3(altBase.overall.decisiveness)} → ${f3(altVar.overall.decisiveness)} | ${signed(d3.decisive[0])} ± ${f3(d3.decisive[1])} |
 | draws | ${f3(altBase.overall.drawRate)} → ${f3(altVar.overall.drawRate)} | ${signed(d3.draws[0])} ± ${f3(d3.draws[1])} |
 | capped | ${f3(altBase.overall.timeouts)} → ${f3(altVar.overall.timeouts)} | ${signed(d3.capped[0])} ± ${f3(d3.capped[1])} |
-| mean plies | ${altBase.overall.meanPlies.toFixed(0)} → ${altVar.overall.meanPlies.toFixed(0)} | ${signed(d3.plies[0], 1)} ± ${f3(d3.plies[1])} |
+| mean plies | ${altBase.overall.meanPlies.toFixed(0)} → ${altVar.overall.meanPlies.toFixed(0)} | ${signed(d3.plies[0])} ± ${f3(d3.plies[1])} |
 ${d4 ? `\nDepth 4 (${b4!.games} games an arm): decisive ${signed(d4.decisive[0])} ± ${f3(d4.decisive[1])}, draws ${signed(d4.draws[0])} ± ${f3(d4.draws[1])}, score ${signed(d4.score[0])} ± ${f3(d4.score[1])}.\n` : ''}
 **Verdict:** the second reading is **worse**, not better: it lowers decisive share further (${signed(d3.decisive[0])} ± ${f3(d3.decisive[1])} at depth 3, ${d4 ? `${signed(d4.decisive[0])} ± ${f3(d4.decisive[1])} at depth 4` : 'depth 4 pending'}), adds capped games and length. Both readings of Death Touch drag draws; the power is not the anti-draw tool the proposal imagined.
 

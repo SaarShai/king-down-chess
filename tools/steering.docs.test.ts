@@ -61,6 +61,8 @@
 //   - the handoff rules of steering-cut/07 apply to it as an archived handoff: the archive line first,
 //     no model name, no `Co-Authored-By:` line; the link rule of steering-cut/01 finds a live link to the
 //     old path.
+// Rule of staging-first-game ticket 78 (AGENTS.md exempts only the tasks archive from the model-name rule):
+//   - no Markdown file in the specs folder holds a model name.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -1280,5 +1282,34 @@ describe('MATRIX.md Workshop note', () => {
   it('the Workshop note cites the revision 3 file, and that file exists', () => {
     expect(workshopNoteFaults(read(MATRIX)).map(show)).toEqual([]);
     expect(existsSync(join(root, REVISION_3)), `${REVISION_3} must exist`).toBe(true);
+  });
+});
+
+/** The tracked Markdown files of the specs folder. */
+const specFiles = () => spawnSync('git', ['ls-files', '-z', 'docs/specs/*.md'], { cwd: root, encoding: 'utf8' }).stdout.split('\0').filter(Boolean);
+
+/** Each model name in one file, with its section and line. */
+function specModelNameFaults(file: string, text: string): Fault[] {
+  const lines = markdownLines(text);
+  return findModelNames(text).map(({ word, line }) => ({
+    file, section: lines.find(l => l.line === line)?.section ?? '(fenced code)', where: `line ${line}`,
+    what: `the file must not hold the model name "${word}"; name the tool or the role`,
+  }));
+}
+
+describe('specs folder model names', () => {
+  it('names a ticket line with a model name, in fenced code too', () => {
+    const model = MODEL_NAMES[5][0].toUpperCase() + MODEL_NAMES[5].slice(1);
+    const fixture = ['# Ticket 77', '## Evidence', `- Review (${model}, xhigh): merge.`, '```', `${MODEL_NAMES[0]}-5`, '```', '- Review (Codex, xhigh): merge.'].join('\n');
+    expect(specModelNameFaults('fixture.md', fixture).map(show)).toEqual([
+      `fixture.md § Evidence (line 3): the file must not hold the model name "${model}"; name the tool or the role`,
+      `fixture.md § (fenced code) (line 5): the file must not hold the model name "${MODEL_NAMES[0]}-5"; name the tool or the role`,
+    ]);
+  });
+
+  it('no Markdown file in the specs folder holds a model name', () => {
+    const files = specFiles();
+    expect(files.length).toBeGreaterThan(100);
+    expect(files.flatMap(file => specModelNameFaults(file, read(file))).map(show)).toEqual([]);
   });
 });

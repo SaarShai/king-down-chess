@@ -141,7 +141,7 @@ export async function chooseTurnMove(page: Page, lan: string, from: number) {
   await frame.locator('#board[data-animating="false"]').waitFor();
 }
 export const moveCalls = (page: Page) => page.evaluate(() => ((window as any).harnessCalls ?? []).filter((c: any) => c.name === 'kingdown_move'));
-export const boardFen = (page: Page) => page.frameLocator('iframe').locator('html').evaluate<string>('(async () => { const { toFen } = await import("/src/rules/setup.ts"); return toFen(window.testBoard.pos); })()');
+export const boardFen = (page: Page) => page.frameLocator('iframe').locator('html').evaluate<string, undefined>('(async () => { const { toFen } = await import("/src/rules/setup.ts"); return toFen(window.testBoard.pos); })()');
 // W7 ticket 04 (design §7.4 D9 to D13): the draft in widget state.
 export const getCalls = (page: Page) => page.evaluate(() => ((window as any).harnessCalls ?? []).filter((c: any) => c.name === 'kingdown_get').length);
 export const savedDraft = (page: Page) => page.evaluate(() => (window as any).harnessWidgetState.privateContent?.draft ?? null);

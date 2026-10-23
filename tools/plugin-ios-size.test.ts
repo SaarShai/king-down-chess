@@ -446,7 +446,7 @@ it('wraps the page title at 320 px and never cuts it', async () => {
   } finally { await page.close(); }
 });
 it('gives each Android control a 48 px tap area at 360 × 800', async () => {
-  const { page, frame } = await hostPage(360, 800, 24, 80), small: unknown[] = [];
+  const { page, frame } = await hostPage(360, 800, 24, 80), small: { name: string; height: number; width: number }[] = [];
   const check = async () => small.push(...(await frame.locator('[data-screen]:not([hidden])').first().evaluate(hitSizes)).filter(c => c.height < 48 || c.width < 48));
   try {
     await check();
@@ -581,12 +581,12 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
       await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
       await frame.locator('#board[aria-busy="false"]').waitFor();
       await waitForBoardPaint(frame);
-      await expect.poll(() => canvasWidth(frame), all ? 'all-features seat' : 'seat').toBeGreaterThanOrEqual(192);
+      await expect.poll(() => canvasWidth(frame), { message: all ? 'all-features seat' : 'seat' }).toBeGreaterThanOrEqual(192);
       if (!all) {
         await frame.locator('#seat-shuffle').click();
         await frame.locator('#seat-context').filter({ hasText: 'Select one back-rank piece' }).waitFor();
         await waitForBoardPaint(frame);
-        await expect.poll(() => canvasWidth(frame), 'seat after Shuffle').toBeGreaterThanOrEqual(192);
+        await expect.poll(() => canvasWidth(frame), { message: 'seat after Shuffle' }).toBeGreaterThanOrEqual(192);
       }
       await settled(page, frame); // Finish the seat mount before scrolling to its controls.
       for (const id of ['seat-shuffle', 'seat-menu', 'seat-ready']) expect(await reachable(frame, id), id).toBe(true);
@@ -594,7 +594,7 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
       await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
       await frame.locator('#board[aria-busy="false"]').waitFor();
       await waitForBoardPaint(frame);
-      await expect.poll(() => canvasWidth(frame), all ? 'all-features board' : 'board').toBeGreaterThanOrEqual(192);
+      await expect.poll(() => canvasWidth(frame), { message: all ? 'all-features board' : 'board' }).toBeGreaterThanOrEqual(192);
       if (!all) {
         // White moves e2-e4 with two taps on the board.
         await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();

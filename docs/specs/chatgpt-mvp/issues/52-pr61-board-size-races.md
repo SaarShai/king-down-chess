@@ -81,7 +81,7 @@ The two name filters select all changed cases. They select 12 board cases
 from 11 test templates, and 18 size cases from 10 templates. The filters,
 full command records, case names and logs are in the supplied folder:
 
-`/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/sol/`
+`/private/tmp/claude-501/-Users-za-Documents-king-down-chess/b7cd01b9-9824-4854-8a44-29f55a926d5b/scratchpad/` (its review subfolder)
 
 The filter files are `race-a-board-filter.txt` and `race-a-ios-filter.txt`.
 `race-a-test-manifest.json` lists their name prefixes.
