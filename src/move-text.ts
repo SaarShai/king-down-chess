@@ -68,8 +68,12 @@ function checkPath(board: Uint8Array, from: number, king: number): Checker['path
 /** A short line for the last move, with the card or power name. */
 export function shortMove(pre: Position, m: Move, pieceName: (type: PieceType) => string): string {
   const side = SIDE[pre.turn], name = pieceName(typeOf(pre.board[m.from]));
+  const colouredPiece = (s: number): string => `${SIDE[colorOf(pre.board[s])].toLowerCase()} ${pieceName(typeOf(pre.board[s]))}`;
   const power = m.power ? `${m.via ? `${cardName(m.via === 'mirrorb' ? 'MirrorB' : 'Mirror')} · ` : ''}${cardName(TAG_POWER[m.power])} · ` : '';
   const action = m.pass ? `ends turn · ${pre.free ? pre.marks?.[pre.turn] ? 'mark' : 'draw' : pre.rage === 3 ? 'Rally' : 'Haste'}`
+    : m.power === 'curse' ? `moves ${colouredPiece(m.from)} ${sqName(m.from)} → ${sqName(m.to)}`
+    : m.power === 'quake' || m.power === 'quakeb' ? `at ${sqName(m.from)} · ${m.pushes!.map(push => `${colouredPiece(push.from)} ${sqName(push.from)} → ${sqName(push.to)}`).join(', ')}`
+    : m.power === 'salvation' ? `returns ${pieceName(m.drop!)} ${sqName(m.to)}`
     : m.drop !== undefined ? `adds ${pieceName(m.drop)} ${sqName(m.to)}${m.drop2 === undefined ? '' : `, ${sqName(m.drop2)}`}`
     : m.castle ? `castles ${file(m.to) === 6 ? 'short' : 'long'}`
     : `${name} ${sqName(m.from)}${m.from === m.to ? '' : ` ${m.swap ? '↔' : '→'} ${sqName(m.to)}`}${m.promo ? ` = ${pieceName(m.promo)}` : ''}${m.from === m.to && m.captures.length ? ` × ${m.captures.map(sqName).join(', ')}` : ''}`;
@@ -91,6 +95,9 @@ export function describeMove(context: MoveRules, pre: Position, m: Move, freePas
   if (m.power === 'firewall') return `${side} uses Firewall to protect all its pieces until its next turn.`;
   if (m.power === 'ward') return `${side} puts an Ice Wall on the ${colour(m.to)} ${the(m.to)}.`;
   if (m.power === 'sacrifice') return `${side} sacrifices the pawn on ${sqName(m.from)} and brings back ${context.aName(m.promo!)} there.`;
+  if (m.power === 'curse') return `${side} uses Curse to move the ${colour(m.from)} ${name} from ${sqName(m.from)} to ${sqName(m.to)}.`;
+  if (m.power === 'quake' || m.power === 'quakeb') return `${side} uses ${cardName(TAG_POWER[m.power])} at ${sqName(m.from)}, moving ${m.pushes!.map(push => `the ${colour(push.from)} ${context.nameOf(typeOf(pre.board[push.from]))} from ${sqName(push.from)} to ${sqName(push.to)}`).join(' and ')}.`;
+  if (m.power === 'salvation') return `${side} uses Salvation to bring back ${context.aName(m.drop!)} on ${sqName(m.to)}.`;
   if (m.power === 'morph' || m.power === 'morphb' || m.power === 'morphp') return `${side} turns ${theOn(m.from)} into ${context.aName(m.promo!)}.`;
   if (isSpawnTag(m.power)) return m.drop2 === undefined ? `${side} adds a pawn on ${sqName(m.to)}.` : `${side} adds pawns on ${sqName(m.to)} and ${sqName(m.drop2)}.`;
   if (m.castle) return `${side} castles ${file(m.to) === 6 ? 'short' : 'long'}.`;
