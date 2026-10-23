@@ -1916,15 +1916,25 @@ try {
     assert.equal(await frame.locator('#last-move').innerText(), 'Move 1.', `${code} restores the last server position and move line`);
   }
   await haste();
+  // The move animation needs the running page clock, so choose the move first. Then stop the page clock until the Retry
+  // send runs: a poll read before it would show the page the other tab's move, start the computer turn, and the turn
+  // would take the computer hold below (ticket 77, item 23). Pause ahead of the page's own now; the wait ends a read
+  // that the jump starts.
+  await clickSquare(4,1); await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await idleBoard();
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 2000));
+  await page.waitForFunction(() => window.harnessWidgets.every(widget => !widget.inflight));
   const race = await page.evaluate(() => window.harnessView);
   const winner = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_move',arguments:{game_id:race.game_id,command_id:randomUUID(),expected_revision:race.revision,lan:'d2-d4'}}})).json();
   assert(!winner.isError,'Another tab wins the move race');
   await page.evaluate(() => { window.dropNextReply='kingdown_move'; window.holdNext='kingdown_computer'; });
-  await clickSquare(4,1); await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await sendTurn();
+  await sendTurn();
   await frame.locator('#retry').waitFor();
   assert.match(await frame.locator('#last-move').innerText(),/White pawn e2 to e4/,'The lost refusal keeps the move until Retry');
   const raceReads = await page.evaluate(() => window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
-  await frame.locator('#retry').click(); await page.waitForFunction(()=>typeof window.releaseHeld==='function');
+  const raceSends = await page.evaluate(() => window.harnessCalls.filter(c=>c.name==='kingdown_move').length);
+  // The Retry send closes the poll gate (queue.writing()), and the computer turn after the refusal needs the clock.
+  await frame.locator('#retry').click(); await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_move').length>n,raceSends);
+  await page.clock.resume(); await page.waitForFunction(()=>typeof window.releaseHeld==='function');
   assert.doesNotMatch(await frame.locator('#last-move').innerText(),/e2 to e4/,'A final Retry refusal removes the refused move');
   // Retry sends the move with no read first (design 5.3); the refusal's rollback reads the board in full.
   assert(await page.evaluate(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>=n+1,raceReads),'Retry reads in full after the refusal');

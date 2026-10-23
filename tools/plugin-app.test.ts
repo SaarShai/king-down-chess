@@ -151,6 +151,9 @@ it('keeps a board open without a game on home and stores its ID only in private 
 });
 
 // Each screen but home shows only in fullscreen (spec Q25). A test that opens a screen directly puts the host there first.
+/** One read: the element with this id has focus. A coin row render (`strips()` in the board screen) can replace the coin
+ * between a locator's element lookup and its evaluate, and a handle check then compares the old coin (CI run 39953001791). */
+const hasFocus = (page: Page, id: string) => page.frameLocator('iframe').locator('html').evaluate((_, id) => document.activeElement === document.getElementById(id), id);
 const expand = (page: Page) => page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'] }));
 // Tests of the hall itself open it directly.
 async function hall(page: Page) { await expand(page); await page.frameLocator('iframe').locator('html').evaluate(() => (window as any).harnessApp.navigate('play')); }
@@ -2121,7 +2124,7 @@ it.each(['power-w', 'card-w-0'])('keeps focus on %s through a minute tick and up
     await page.clock.fastForward(60000);
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     expect(await frame.locator('#move-time-left').textContent()).toBe('2 min left');
-    expect(await frame.locator(`#${id}`).evaluate(b => document.activeElement === b)).toBe(true);
+    expect(await hasFocus(page, id)).toBe(true);
     await page.evaluate(() => (window as any).releaseHeld());
     await page.keyboard.press('Enter');
     await frame.locator('#board-sheet[open] h2').filter({hasText:id === 'power-w' ? 'Flame King' : 'Haste'}).waitFor();
@@ -2156,7 +2159,7 @@ it('keeps focus on a power coin through a presence update (an equal-revision pol
       host.harnessNextView = { ...host.harnessView, server_now: new Date().toISOString(), opponent: { ...host.harnessView.opponent, last_seen_ms: 120000 } };
     });
     await frame.locator('#power-w').focus();
-    expect(await frame.locator('#power-w').evaluate(b => document.activeElement === b)).toBe(true);
+    expect(await hasFocus(page, 'power-w')).toBe(true);
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
       await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true, true);
@@ -2164,7 +2167,7 @@ it('keeps focus on a power coin through a presence update (an equal-revision pol
     await settled(page);
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view)).toMatchObject({ ...identity, opponent: { last_seen_ms: 120000 } });
     // The poll preserves keyboard focus on the coin (design §3.4, OD A1389).
-    expect(await frame.locator('#power-w').evaluate(b => document.activeElement === b)).toBe(true);
+    expect(await hasFocus(page, 'power-w')).toBe(true);
   } finally { await page.close(); }
 });
 
