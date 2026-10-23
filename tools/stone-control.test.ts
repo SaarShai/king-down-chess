@@ -7,7 +7,8 @@ import sharp from 'sharp';
 
 const ASSET = 'src/plugin/assets/stone-control.webp';
 // The export needs numpy and Pillow, which the CI runners do not install. Normal import: 120 ms on the M1.
-const canExport = (() => { try { execFileSync('python3', ['-c', 'import numpy, PIL'], { stdio: 'pipe', timeout: 4000 }); return true; } catch { console.info('Skip source export: Python numpy and Pillow are not available. Shipped asset checks still run.'); return false; } })();
+// A slow import fails; only a missing module skips.
+const canExport = (() => { try { execFileSync('python3', ['-c', 'import numpy, PIL'], { stdio: 'pipe', timeout: 4000 }); return true; } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ETIMEDOUT') throw error; console.info('Skip source export: Python numpy and Pillow are not available. Shipped asset checks still run.'); return false; } })();
 
 it('ships stone with two pixels per CSS pixel at the widest 528 px control', async () => {
   const meta = await sharp(ASSET).metadata();

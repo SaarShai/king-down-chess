@@ -19,7 +19,7 @@ try {
     await page.goto(url.href);
     await page.waitForFunction(() => window.view);
     await page.evaluate(() => window.view.ready());
-    // Replay moves the Menu button as it returns from review. Open Menu after that work ends.
+    // A click during the replay animation only skips that animation (PaintedView), so Menu stays closed. Open Menu after the replay.
     await waitForLinkReplay(page);
     await setPace(page, 'off');
     const saved = () => page.evaluate(() => localStorage.getItem('kingdown.save'));
