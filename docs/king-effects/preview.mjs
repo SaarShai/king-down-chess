@@ -12,8 +12,8 @@ const TITLE_FLOOR = new URL('../../public/ui/stone-board.webp',import.meta.url).
 const HEADROOM = 64, PAD = 32, TILE = 112, pieces = { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName };
 const INFO = {
   flame: ['Flame', 'Lava light flows through the cracks and seams of his armour.', 'A bubbling lava pool opens under the piece; lava climbs it, with a glowing crust, drips, sparks and smoke, and the pool pulls it under.'],
-  frost: ['Frost', 'Ice flakes drift down around and in front of him and melt on his square.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
-  stratus: ['Stratus', 'The original Sky King hovers over soft clouds that gather, drift and fade below his feet.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the rook in its way and off the board: on the back rank along the band above the board, from an edge file back over the king.'],
+  frost: ['Frost', 'Faceted blue ice forms below him, holds, then melts away.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
+  stratus: ['Stratus', 'The original Sky King hovers over full clouds that visibly gather and dissolve below his feet.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the rook in its way and off the board: on the back rank along the band above the board, from an edge file back over the king.'],
   mud: ['Mud', 'Grass grows thick round his feet, and brown vines rise from the ground, arch over and go back into the ground; then the vines and the grass sink back.', 'The soil cracks; brown thorny vines wind round the piece and pull it down into the earth; three sprouts come up. Then his own grass, and after it a vine, grow on his new square.'],
   spirit: ['Spirit', 'The ivory king: a white and gold glow round him, short rays of light above his crown and light on his square. The charcoal king: a black aura, black rays and a dark pool on his square. Both breathe slowly in and out.', 'The piece turns into a glowing silhouette of itself (white for the ivory king, black for the charcoal one) and implodes.'],
   shadow: ['Shadow', 'Skeletal hands (white for the ivory king, black for the charcoal one) reach up out of cracks round his feet; his smoke drifts and curls upward.', 'A crack opens under the piece; skeletal hands rise out of it, take hold of the piece and pull it down. Death Touch takes it without moving.'],
@@ -54,10 +54,10 @@ export const capturesFor = design => CAPTURES.filter(c => !c.only || c.only === 
 const scenes = {}, frames = [];
 let size = 'desktop', animations = true;
 const resolution = scale => Math.min(2, Math.max(1, Math.ceil(scale * 960 * devicePixelRatio / 960 * 4) / 4));
-function makeScene(kings, pos, coords) {
+function makeScene(kings, pos, coords, lavaGround=null) {
   const canvas = document.createElement('canvas');
   canvas.width = 960; canvas.height = 960 + HEADROOM;
-  const scene = createScene({ canvas, pieces, headroom: HEADROOM, kings });
+  const scene = createScene({ canvas, pieces, headroom: HEADROOM, kings, lavaGround });
   scene.setCoords(coords); scene.setPosition(pos);
   scene.setLively({ moves: true, idle: true, atmosphere: true, kings: true, captures: true, pawns: true });
   return { canvas, scene };
@@ -95,6 +95,15 @@ for (const design of Object.keys(INFO)) {
   scenes[design] = { scene, canvas };
   const section = card(grid, INFO[design][0], `${INFO[design][1]} <span class="period">Loop ${PERIOD[design] / 1000} s.</span>`, scene, canvas);
   section.id = `idle-${design}`;
+}
+
+for(const [variant,title,description] of [
+ ['fissures','Lava A — branching fissures','The ground splits into narrow branching openings. Bright molten currents flow below dark rock lips.'],
+ ['plates','Lava B — broken crust','A wider molten bed opens below separated slabs of stone. Hot currents pass beneath the crust.'],
+]){
+ const {canvas,scene}=makeScene(['flame','flame'],KINGS_ROW,false,variant);
+ scenes[`lava-${variant}`]={scene,canvas};
+ const section=card(grid,title,`${description} Preview option; not enabled in the game.`,scene,canvas);section.id=`lava-${variant}`;
 }
 
 // 2. Captures: each card plays its captures in turn; a button plays one now.

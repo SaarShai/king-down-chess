@@ -46,13 +46,12 @@ const figureClock=s=>s.now??s.t;
 export function hoverAt(t,k=1){return k*(3+6*(1-Math.cos(TAU*t/PERIOD.stratus))/2);}
 
 /** A floor cloud's bounded, seamless life. The same clock drives movement fade and hover. */
+export function groundLife(t,period){const p=frac(Math.max(0,t)/period);return smooth(p/.28)*(1-smooth((p-.62)/.38));}
 export function cloudAt(t,i){
- const p=frac(t/PERIOD.stratus+i/11),life=Math.sin(Math.PI*p)**2;
- return {alpha:life*.86,x:(rand(i,31)*2-1)*29+(p-.5)*17,y:-5+(rand(i,32)*2-1)*8-3*life,radius:(17+rand(i,33)*12)*(.65+.35*life)};
+ const local=t+PERIOD.stratus-i*32,p=frac(local/PERIOD.stratus),life=groundLife(local,PERIOD.stratus);
+ return {alpha:life*.86,x:(rand(i,31)*2-1)*30+(p-.5)*8,y:-5+(rand(i,32)*2-1)*7,radius:(20+rand(i,33)*11)*(.38+.62*life)};
 }
-
-/** sheet(design): the loaded king sheet image or null. onLoad: called when an effect's own art arrives. */
-export function createKingEffects({sheet,onLoad=()=>{}}){
+export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
  const cache=new Map(),assets=new Map();
  // An effect's own art: null until it has loaded (then the layers built from it are rebuilt).
  function asset(url){
@@ -234,30 +233,66 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   }
   ctx.restore();
  }
- // A thin rime on the floor where the flakes land, with a few glints.
+ // The accepted frozen material: blue depth, pale facets and white fracture lips.
  function rime(ctx,s){
-  const g=ctx.createRadialGradient(0,0,0,0,0,1);g.addColorStop(0,'rgba(222,242,255,.75)');g.addColorStop(.6,'rgba(214,236,252,.45)');g.addColorStop(1,'rgba(214,236,252,0)');
-  ctx.save();ctx.globalAlpha=s.k*s.g*.6;ctx.translate(s.ground.x,s.ground.y-4);ctx.scale(50,15);ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
-  ctx.save();ctx.fillStyle='#ffffff';
-  for(let i=0;i<7;i++){const a=s.k*s.g*Math.max(0,Math.sin(TAU*(s.t/PERIOD.frost*3+rand(i,11))))**3;if(a<.02)continue;
-   const x=s.ground.x+(rand(i,12)*2-1)*40,y=s.ground.y-4+(rand(i,13)*2-1)*10;ctx.globalAlpha=a;ctx.beginPath();ctx.moveTo(x-2.4,y);ctx.lineTo(x,y-.6);ctx.lineTo(x+2.4,y);ctx.lineTo(x,y+.6);ctx.closePath();ctx.moveTo(x,y-2.4);ctx.lineTo(x+.6,y);ctx.lineTo(x,y+2.4);ctx.lineTo(x-.6,y);ctx.closePath();ctx.fill();}
+  const life=groundLife(s.t,PERIOD.frost);if(life<.001)return;
+  ctx.save();ctx.translate(s.ground.x,s.ground.y-3);ctx.globalAlpha=s.k*s.g*life;
+  for(let i=0;i<13;i++){
+   const angle=i*2.399,r=14+rand(i,43)*32,x=Math.cos(angle)*r,y=Math.sin(angle)*r*.32;
+   const grow=smooth(life*1.5-rand(i,44)*.35),w=8+rand(i,45)*10,h=(8+rand(i,46)*17)*grow;
+   const pts=[[-w,1],[-w*.7,-h*.55],[-w*.2,-h],[w*.55,-h*.72],[w,0],[w*.3,5],[-w*.6,4]];
+   ctx.save();ctx.translate(x,y);ctx.beginPath();pts.forEach(([px,py],j)=>j?ctx.lineTo(px,py):ctx.moveTo(px,py));ctx.closePath();
+   const fill=ctx.createLinearGradient(-w,4,w,-h);fill.addColorStop(0,'#195f8ac9');fill.addColorStop(.4,'#69c7e4d9');fill.addColorStop(.75,'#d5ffffef');fill.addColorStop(1,'#8ed4e5');
+   ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle='#e6ffffdb';ctx.lineWidth=1.2;ctx.stroke();
+   ctx.beginPath();ctx.moveTo(-w*.2,-h);ctx.lineTo(w*.15,-h*.25);ctx.lineTo(w*.3,5);ctx.lineTo(w,0);ctx.lineTo(w*.55,-h*.72);ctx.closePath();ctx.fillStyle='#edffff70';ctx.fill();
+   ctx.beginPath();ctx.moveTo(-w*.7,-h*.4);ctx.lineTo(-w*.1,-h*.3);ctx.lineTo(-w*.3,1);ctx.strokeStyle='#e9ffffb8';ctx.lineWidth=.8;ctx.stroke();ctx.restore();
+  }
   ctx.restore();
  }
 
- // —— Stratus ——
- // Soft cloud lobes form and dissolve on the floor. They never draw over the figure.
+ // Rounded, opaque bodies gather together, then loosen and dissolve below the figure.
  function clouds(ctx,s){
-  ctx.save();
   for(let i=0;i<11;i++){
    const c=cloudAt(s.t,i),a=c.alpha*s.k*s.g;if(a<.001)continue;
-   const x=s.ground.x+c.x*s.facing,y=s.ground.y+c.y;
-   ctx.save();ctx.translate(x,y);ctx.scale(c.radius,c.radius*.48);
-   const shade=ctx.createRadialGradient(0,.35,.05,0,0,1);
-   shade.addColorStop(0,'rgba(88,113,135,.36)');shade.addColorStop(.55,'rgba(124,145,160,.24)');shade.addColorStop(1,'rgba(149,169,181,0)');
-   ctx.globalAlpha=a;ctx.fillStyle=shade;ctx.beginPath();ctx.arc(0,.2,1,0,TAU);ctx.fill();
-   const light=ctx.createRadialGradient(-.2,-.28,.06,0,-.12,.92);
-   light.addColorStop(0,'rgba(255,253,243,.96)');light.addColorStop(.4,'rgba(237,245,247,.83)');light.addColorStop(.72,'rgba(211,228,237,.4)');light.addColorStop(1,'rgba(211,228,237,0)');
-   ctx.fillStyle=light;ctx.beginPath();ctx.arc(0,-.12,1,0,TAU);ctx.fill();ctx.restore();
+   ctx.save();ctx.globalAlpha=a;ctx.translate(s.ground.x+c.x*s.facing,s.ground.y+c.y);ctx.scale(c.radius,c.radius*.65);
+   const fill=ctx.createRadialGradient(-.25,-.42,.1,0,0,1.12);
+   fill.addColorStop(0,'#fffef5');fill.addColorStop(.43,'#f0f6f5');fill.addColorStop(.73,'#c4d8e3');fill.addColorStop(.94,'#8daaba90');fill.addColorStop(1,'#9cb5c000');
+   ctx.fillStyle=fill;ctx.beginPath();ctx.arc(0,0,1.12,0,TAU);ctx.fill();ctx.restore();
+  }
+ }
+
+ // Preview alternatives only. Molten currents sit inside openings with a raised dark lip.
+ function lavaFloor(ctx,s){
+  const life=groundLife(s.t,PERIOD.flame);if(life<.001)return;
+  ctx.save();ctx.translate(s.ground.x,s.ground.y-2);ctx.scale(1,.38);ctx.globalAlpha=s.k*s.g*life;
+  const opening=new Path2D();
+  if(lavaGround==='plates'){
+   opening.ellipse(0,0,51*life,43*life,0,0,TAU);
+  }else{
+   const seams=[[[ -49,-8],[-31,-12],[-21,-3],[-5,-7],[9,3],[27,-1],[48,12]],
+    [[-22,-3],[-29,12],[-20,24],[-33,34]],[[9,3],[18,-14],[12,-28],[27,-39]],
+    [[27,-1],[38,-18],[49,-22]], [[-5,-7],[-7,-24],[-21,-33]],[[9,3],[3,21],[17,34],[13,43]]];
+   for(const [i,points] of seams.entries()){
+    const w=(i?2.5:4.5)*life;
+    for(const side of [-1,1])for(let j=0;j<points.length;j++){
+     const index=side===-1?j:points.length-1-j,[x,y]=points[index],taper=index===points.length-1?.15:1;
+     const px=x*life,py=y*life+side*w*taper;
+     if(side===-1&&j===0)opening.moveTo(px,py);else opening.lineTo(px,py);
+    }opening.closePath();
+   }
+  }
+  ctx.strokeStyle='#211a1c';ctx.lineWidth=6;ctx.stroke(opening);ctx.fillStyle='#751a0a';ctx.fill(opening);
+  ctx.save();ctx.clip(opening);
+  const hot=ctx.createLinearGradient(-50,-40,50,40);hot.addColorStop(0,'#991e0a');hot.addColorStop(.4,'#ff7015');hot.addColorStop(.6,'#ffd35a');hot.addColorStop(1,'#be2709');ctx.fillStyle=hot;ctx.fillRect(-60,-50,120,100);
+  for(let i=0;i<12;i++){
+   const x=-75+frac(s.t/PERIOD.flame+i/12)*150;
+   ctx.beginPath();ctx.moveTo(x-15,-50);ctx.bezierCurveTo(x+28,-20,x-25,15,x+18,50);ctx.strokeStyle=i%3?'#ffb32c':'#fff2a2';ctx.lineWidth=3+rand(i,67)*5;ctx.stroke();
+  }
+  ctx.restore();
+  if(lavaGround==='plates')for(let i=0;i<8;i++){
+   const angle=i*TAU/8,r=24*life,x=Math.cos(angle)*r,y=Math.sin(angle)*r,w=16,h=13;
+   ctx.beginPath();ctx.moveTo(x-w,y-3);ctx.lineTo(x-w*.5,y-h);ctx.lineTo(x+w*.7,y-h*.7);ctx.lineTo(x+w,y+5);ctx.lineTo(x,y+h);ctx.closePath();ctx.fillStyle=i%2?'#50453f':'#665950';ctx.fill();ctx.strokeStyle='#241c1c';ctx.lineWidth=3;ctx.stroke();
+   ctx.beginPath();ctx.moveTo(x-w,y-3);ctx.lineTo(x-w*.5,y-h);ctx.lineTo(x+w*.7,y-h*.7);ctx.strokeStyle='#978374';ctx.lineWidth=1.3;ctx.stroke();
   }
   ctx.restore();
  }
@@ -490,7 +525,8 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
    *  reach round his feet, 1 on the board)}.
    */
   back(ctx,s){
-   if(s.design==='frost'){rime(ctx,s);flakes(ctx,s,false);}
+   if(s.design==='flame'&&lavaGround)lavaFloor(ctx,s);
+   else if(s.design==='frost'){rime(ctx,s);flakes(ctx,s,false);}
    else if(s.design==='stratus')clouds(ctx,s);
    else if(s.design==='mud'){earth(ctx,s);grass(ctx,s,false);vines(ctx,s,false);}
    else if(s.design==='spirit')holyBack(ctx,s);

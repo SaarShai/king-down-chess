@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {PERIOD,KING_EFFECTS,hoverAt,cloudAt} from './king-effects.mjs';
+import {PERIOD,KING_EFFECTS,hoverAt,cloudAt,groundLife} from './king-effects.mjs';
 import {KING_DESIGNS} from '../court-motion.mjs';
 
 test('every king design has an effect that loops',()=>{
@@ -25,4 +25,11 @@ test('Sky clouds loop without a seam and stay on the king floor',()=>{
  }
  assert.equal(cloudAt(0,0).alpha,0);
  assert.equal(cloudAt(PERIOD.stratus,0).alpha,0);
+});
+
+test('ground material forms, holds and fades to a seamless empty floor',()=>{
+ for(const period of [PERIOD.stratus,PERIOD.frost,PERIOD.flame]){
+  assert.equal(groundLife(0,period),0);assert.equal(groundLife(period,period),0);
+  assert.equal(groundLife(period*.5,period),1);assert.ok(groundLife(period*.9,period)<.2);
+ }
 });

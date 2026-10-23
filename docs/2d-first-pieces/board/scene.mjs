@@ -46,7 +46,7 @@ const BOARD_ART=new URL('../board-art/stone-board.webp',import.meta.url).href;
  * kings: [white, black] king designs (court.KING_DESIGNS); the trial and the trailer keep the Frost King.
  * floor: the colour round the board (floorOf: FLOOR when none is named; paintFloor); null leaves the canvas clear there.
  */
-export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost'],floor:floorOption}) {
+export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost'],floor:floorOption,lavaGround=null}) {
  const floor=floorOf(floorOption);
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
@@ -91,7 +91,7 @@ for(const [type,name] of Object.entries(courtNames)){
  // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, the board's frame and light,
  // and each king's own idle effect (king-effects.mjs). All off by default, so the trial and the trailer draw exactly as before.
  const lively={moves:false,idle:false,atmosphere:false,kings:false,captures:false,pawns:false};
- const kingFx=createKingEffects({sheet:design=>kingArt[design]?.image??null,onLoad:()=>wake()});
+ const kingFx=createKingEffects({lavaGround,sheet:design=>kingArt[design]?.image??null,onLoad:()=>wake()});
  // Square → when a king's effect started there (what stands on his square grows back after a move).
  // drawnBefore: how many kings' effects the frame before drew (none: they all start together now).
  let kingSince=new Map(),nextSince=new Map(),frames=0,fxDrawn=[],drawnBefore=0,pawnsAtRest=0,pawnsActing=0;
