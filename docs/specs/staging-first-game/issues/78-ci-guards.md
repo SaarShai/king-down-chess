@@ -1,6 +1,6 @@
 # Mechanical checks for the faults of ticket 77
 
-Status: in review (branch `staging/ci-guards`, from `staging/lane-ci` at `08c4dcda`). No merge or deploy.
+Status: in review on PR SaarShai/king-down-chess#88 (branch `staging/ci-guards`, rebased on `staging/lane-ci` at `18aa577b`). No merge or deploy.
 
 ## What
 
@@ -79,3 +79,5 @@ The audit says `worker-browser.json` records each request. It records only the b
 ### Full suite
 
 `npm test` at `57c43e79`: type checks (src and tools) exit 0; vitest 258 files, 4,785 passed, 8 skipped (383 s); Node checks 50 of 50. `npm run test:docs`: 13 files, 168 passed.
+
+After the rebase on `18aa577b` (the board tests split into `tools/plugin-board.test.ts`, `tools/plugin-board-input.test.ts` and `tools/lib/plugin-board-fixture.ts`), the board type fixes go to the file that now holds each test; the tools type check covers all three files. `tools/child-timeouts.test.ts` read the board build limit from `plugin-board.test.ts`, which no longer runs the build; it now reads `tools/lib/plugin-board-fixture.ts` (the first full run after the rebase failed only on this case).
