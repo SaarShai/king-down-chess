@@ -1,7 +1,7 @@
 # Four staging test players
 
 Type: task
-Status: claimed
+Status: needs-info
 
 ## Authority and scope
 
@@ -24,4 +24,16 @@ The form now requires an editable email and sends it with the password to the ex
 
 An independent read-only review finds no item to fix in the scoped diff. It confirms the exact project guard, normal SDK session check, form recovery and fixture account mapping. The compiled check remains necessary for native field validation and stored-session behavior.
 
-Selected tests are pending. The repository test lock belongs to an active run in another worktree. No other process is stopped.
+Selected source checks pass: 39 tests in `src/account/public-config.test.ts`, `src/account/client.test.ts` and `src/online/entry.test.ts`, plus typecheck and 54 artwork checks. The test command waits for an active run in another worktree, then completes. No other process is stopped. The command is `KINGDOWN_TEST_FILE='{src/account/{public-config,client}.test.ts,src/online/entry.test.ts}' npm test`. This is a selected pass, not a full-suite pass.
+
+The registered `staging-login` and `account-discovery` checks pass on clean source `51d78aa9`. They verify the staging password form, native field validation, failed-password retry, the SDK session, route return, real API private-game refusal and own-game access. The non-staging check verifies that the password form is absent and local/offline behavior stays intact. The run output is `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/four-test-players-zJUDK4/`.
+
+The isolated staging build, `check:vercel` compiled artifact check and deploy project guards pass. Guarded preview `dpl_EmVczpcbmyydNxR9Gu5Kna71aSh4` is READY and serves the staging alias. Root, `/play/` and service-worker bytes match the tested artifact. Account access is open. No production target, auth hook or runtime role changes.
+
+The actual staging inventory has one reusable confirmed test identity, `privacy-check@kingdown.example`, and the owner's provider identity. The owner stays out of the playtest. The existing test user has no game handle yet. The coordinator adds only `playtest-p2@kingdown.example`, `playtest-p3@kingdown.example` and `playtest-p4@kingdown.example` to the existing server allowlist. A hosted query verifies exactly these three intended addresses plus the existing test address. Existing users, passwords and games stay unchanged.
+
+## Remaining owner step
+
+Three normal Supabase Create new user forms have their synthetic email address filled and Auto Confirm User enabled. The owner must enter each new password and submit the form. The coordinator does not create, read, reset or store a password. After creation, the owner signs in once in each isolated browser; the coordinator verifies the saved identities and sets their game handles through the normal UI.
+
+All four real saved sign-ins remain unverified. The account setup is incomplete until this step passes. The parent workspace's `playtest/reports/SETUP-STATUS.md` is the operational checkpoint.
