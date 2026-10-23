@@ -1,6 +1,6 @@
 # Effects: review and integration coverage
 
-The owner authorizes integration of the accepted direction. This covers the original 51 studies: 12 states and indications, 21 card effects, and 18 interface studies. Category approval is not an individual rating of every sample. Firewall and Guard have explicit approval after their rebuilds. The later five interface studies have no feedback and stay in the workshop.
+The owner authorizes integration of the accepted direction. This covers the original 51 studies: 12 states and indications, 21 card effects, and 18 interface studies. Category approval is not an individual rating of every sample. Firewall and Guard have explicit approval after their rebuilds. The owner now says “bank all interface animations”. All 23 interface studies are approved and banked. The five later studies are saved in the workshop; their live-game wiring is not yet part of the original 51-study integration.
 
 ## Board states and indications
 
@@ -72,9 +72,9 @@ The owner says the original interface effects look great. These are category app
 | Connection | Integrated |
 | Lesson | Integrated |
 
-## Pending feedback
+## Banked interface additions
 
-These five later studies are built and available in the workshop, but are not part of this integration:
+These five later studies are approved by “bank all interface animations”. Their artwork is saved and available in the workshop; live-game wiring remains separate:
 
 - Coin spend: cast and spent-state feedback.
 - Draw reply: accepting or declining a draw.
@@ -90,6 +90,6 @@ Combat studies are cancelled. Existing character and king motion remains separat
 
 ## Product gaps
 
-The live deadline is expressed in hours and minutes, so the timer study must use that clock. Card refill has no game event. Neither is grounds to invent a rule or fake an event. The live deadline gets start, warning and expiry motion. No seconds clock or card-refill effect is added. The existing king motion remains the baseline; no new king-specific study is required by this approval.
+The live deadline is expressed in hours and minutes, so the timer study must use that clock. Card refill has no game event. The interactive [clock and refill preview](preview/gui/triggers.html) now demonstrates these events on demand. A refill rule still needs an explicit choice before it changes a match. The live deadline gets start, warning and expiry motion. No seconds clock or card-refill effect is added. The existing king motion remains the baseline; no new king-specific study is required by this approval.
 
 Detailed consumer maps: [states and indications](issues/14-state-integration.md), [cards](issues/15-card-integration.md), and [interface](issues/16-ui-integration.md). [Combined checks and review](issues/13-game-integration.md) record the release evidence.

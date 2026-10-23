@@ -5,7 +5,7 @@ Type: task
 
 ## Scope and result
 
-The owned UI implementation is complete. It applies the original 18 approved interface studies to real UI events. It keeps current art, text, layout and rules. The five later object studies stay in the workshop. Root owns the final review, combined checks and merge. No deploy, commit or PR runs.
+The owned UI implementation is complete. It applies the original 18 approved interface studies to real UI events. It keeps current art, text, layout and rules. The five later object studies are now approved and banked in the workshop (ticket 17); their live wiring is separate. Root owns the final review, combined checks and merge. No deploy, commit or PR runs.
 
 ## Plan and checks
 
@@ -86,4 +86,4 @@ The PR review's unsent-turn highlight regression is reproduced and fixed. The sa
 
 No implementation blocker remains in the owned scope. The engine has no card refill or seconds clock. A first host projection with no known creation event stays still. Promotion choice and native dismissal remain immediate. The account's existing Off choice is Symbols only; local play also has Normal/Fast/Off. OS reduced motion applies to both.
 
-The five later object samples remain unintegrated and need owner feedback: coin-spend, draw-reply, opponent-found, setup-ready and invite-copy. This work makes no new owner-approval claim. Root still owns combined card/state verification, independent review, registry changes and merge. Worker checks do not claim a full multiplayer/network-failure visual review or full unit-suite pass.
+The five later object samples remain unintegrated but are now approved and banked: coin-spend, draw-reply, opponent-found, setup-ready and invite-copy. The owner says “bank all interface animations”; ticket 17 records this approval. Root still owns combined card/state verification, independent review, registry changes and merge. Worker checks do not claim a full multiplayer/network-failure visual review or full unit-suite pass.
