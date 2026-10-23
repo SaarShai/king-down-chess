@@ -215,6 +215,6 @@ Each proof adds a delay to a temporary copy of the test and runs the old and the
 
 ### Review
 
-An independent read-only review (Sol, xhigh) confirms causes 9 to 11 and the remount and draw-offer fixes. It found two faults in the first draft of this round, both fixed before the commit: the Boolean loop name that hid the helper, and a call filter for Back to Play that could hide a real board read from Back (replaced by the paused clock). It finds the 200% zoom cause UNSURE and asks for the geometry that item 12 now prints.
+An independent read-only review confirms causes 9 to 11 and the remount and draw-offer fixes. It found two faults in the first draft of this round, both fixed before the commit: the Boolean loop name that hid the helper, and a call filter for Back to Play that could hide a real board read from Back (replaced by the paused clock). It finds the 200% zoom cause UNSURE and asks for the geometry that item 12 now prints.
 
 It also lists races of the same classes in tests that have not failed on CI: a one-time view in "keeps focus on a power coin through an unchanged poll reply", poll reads in the exact lists of "recovers a held move at 10 seconds" and "keeps a failed read board locked", one-time `rejectNextGet` and hold flags that a poll can take, and two-call scroll and hit pairs in the short-phone matrix. Other test files also click `#remount` directly. These stay out of this change: no run shows them.
