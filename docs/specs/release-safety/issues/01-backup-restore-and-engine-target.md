@@ -54,8 +54,11 @@ Base `bdd886c7` (origin/main), branch `staging/release-safety`. Local test clust
 - `KINGDOWN_TEST_FILE='tools/{deploy,staging-config,engines}.test.ts' npm test`: 3 files, 321 tests pass.
 - `KINGDOWN_TEST_FILE='tools/plugin-db/release-backup.db.test.ts' npm test`: 6 tests pass.
 - Mutation: with `begin;` in place of `begin isolation level repeatable read;` in `release-backup.sql`, the one-snapshot test fails with `backup count differs for game_commands: 4 vs 3`. The template was put back.
-- Full `npm test`: see the comment below.
+- Full `npm test` at `aff8104c`: 257 files, 4781 tests pass, 8 skipped. An earlier full run had one browser timeout in `tools/plugin-motion.test.ts` ("opens end actions during a live win") at load average 14; that file passed alone, and the next full run passed.
+- `npm run test:docs`: 13 files, 166 tests pass.
 
 Limits: the test database stands in for Supabase (`auth.users`, roles). No production backup was read and no production restore was run. The production backup `release_backup_20261022` was made with the plain `begin` form; these tests do not show that it is inconsistent. Before a restore from it, the restore's own consistency check (step 2) shows whether its games and command rows agree.
 
 ## Comments
+
+- Merge needs a review by a reader that did not write the diff (AGENTS.md). The release log line on the restore path (`evidence/production-release/LOG.md`, outside this repository) now points at `release-restore-games.sql`.
