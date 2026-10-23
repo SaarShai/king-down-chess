@@ -28,7 +28,7 @@ import { locks, noticeShows, pendingHere, staleRead, type Page, type Store } fro
 import { nextGame } from '../../account-game/next-game';
 import { actionButtons, playerBlockButton } from './board-actions';
 import { guardEndTaps, updateEnd } from './end';
-import { applyLan, boardActions, cardCoins, cardUseReason, committedPreview, draftChoices, draftLans, draftTurn, previewSteps, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
+import { applyLan, boardActions, cardCoins, cardUseReason, choicesFrom, choiceSources, committedPreview, draftChoices, draftLans, draftTurn, previewSteps, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
 import { policyLabel, policyDetail } from '../../account-game/rating-policy';
 import './board.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
@@ -141,7 +141,7 @@ export function boardScreen(store: Store) {
   const heldSquare = (move: Move) => move.shove?.from ?? move.to;
   const ownTarget = (move: Move, square: number) => !!pos!.board[square] && colorOf(pos!.board[square]) === view!.seat && (move.shove?.from === square || !!move.swap && move.to === square);
   // Keep the preview only while its piece stays selected and the move stays legal and offered.
-  const holding = () => { const now = held && moves.find(c => c.lan === held!.lan); return now && selected === now.move.from && canPlay() && reachable(now.move) ? now : undefined; };
+  const holding = () => { const now = held && choicesFrom(moves, selected).find(c => c.lan === held!.lan); return now && selected === now.move.from && canPlay() && reachable(now) ? now : undefined; };
   let computerCalls = 0, computerRunning = false, thinking = false, tornDown = false, thinkingTimer: ReturnType<typeof setTimeout> | undefined;
   let ownRating: PlayerRecord['rating'] | undefined, profileRead = false;
   let readAt = Date.now(), deadlineTimer: ReturnType<typeof setTimeout> | undefined;
@@ -191,7 +191,7 @@ export function boardScreen(store: Store) {
   };
   const tag = () => armed ? POWER_TAG[armed] ?? null : null;
   const cardChoices = () => armedCard === undefined || !pos || !view ? [] : moves.filter(c => cardCoins(pos!,view!.seat,gameRules.rules.hands[view!.seat],moves.map(c=>c.move))[armedCard!].moves.includes(c.move));
-  const reachable = (move: Move) => armedCard !== undefined ? cardChoices().some(c=>c.move===move) : gameRules.rules.hands[view!.seat].length ? !move.power : offered(move,tag());
+  const reachable = ({lan, move}: Choice) => armedCard !== undefined ? cardChoices().some(c=>c.lan===lan) : gameRules.rules.hands[view!.seat].length ? !move.power : offered(move,tag());
   const named = () => armedCard !== undefined ? cardChoices().filter(({move}) => !move.pass && (move.from === move.to || move.drop !== undefined)) : moves.filter(({move}) => ['freeze','ward','sacrifice'].includes(move.power ?? '') && move.power === tag());
   async function computer() {
     if (tornDown || !view || client.state.screen !== 'board' || document.hidden || blocked() || computerRunning || computerCalls >= 4 || view.kind !== 'solo' || view.status !== 'playing' || view.turn === view.seat || $<HTMLDialogElement>('over').open) return;
@@ -336,13 +336,13 @@ export function boardScreen(store: Store) {
     if (targets.length === 1) return choose(targets[0].lan);
     if (targets.length > 1) { choices(targets); boardSheet('Choose a move', $('choices')); return; }
     if (submit && selected === square) { selected = inspected = undefined; choices([]); refresh(); return; }
-    const options = hold || !submit || selected === undefined || !canPlay() ? [] : moves.filter(({move}) => move.from === selected && reachable(move) && ((move.to !== move.from && move.to === square) || move.captures.includes(square) || move.shove?.from === square));
+    const options = hold || !submit || selected === undefined || !canPlay() ? [] : choicesFrom(moves, selected).filter(c => reachable(c) && ((c.move.to !== c.move.from && c.move.to === square) || c.move.captures.includes(square) || c.move.shove?.from === square));
     const ordinary = options.filter(({move}) => !move.power), one = ordinary.length === 1 ? ordinary[0] : options.length === 1 ? options[0] : undefined;
     if (one && ownTarget(one.move, square)) { held = one; inspected = undefined; refresh(); return; }
     if (one) return choose(one.lan);
     if (options.length > 1) { choices(options); boardSheet('Choose a move', $('choices')); return; }
     if (!pos.board[square]) { selected = inspected = undefined; choices(named()); }
-    else if (canPlay() && (colorOf(pos.board[square]) === view.seat || armedCard !== undefined && cardChoices().some(c=>c.move.from===square))) { selected = square; inspected = undefined; choices(moves.filter(({move}) => move.from === square && (armed || armedCard !== undefined || gameRules.rules.hands[view!.seat].length ? reachable(move) : true))); }
+    else if (canPlay() && (colorOf(pos.board[square]) === view.seat || armedCard !== undefined && cardChoices().some(c=>c.move.from===square))) { selected = square; inspected = undefined; choices(choicesFrom(moves, square).filter(c => (armed || armedCard !== undefined || gameRules.rules.hands[view!.seat].length ? reachable(c) : true))); }
     else { inspected = square; }
     refresh();
   }
@@ -465,7 +465,7 @@ export function boardScreen(store: Store) {
     const check = (previewPosition()?.in_check ?? gameRules.inCheck(pos)) ? findKing(pos.board, pos.turn) : null;
     if (check !== checked) { checked = check; if (check !== null && board.motion()) checkAt = performance.now(); }
     // Show only the previewed move's marks.
-    const hold = holding(), cands = hold ? [hold.move] : selected === undefined ? [] : moves.filter(({move}) => move.from === selected && reachable(move)).map(c => c.move), marks = marksModel(cands);
+    const hold = holding(), cands = hold ? [hold.move] : selected === undefined ? [] : choicesFrom(moves, selected).filter(reachable).map(c => c.move), marks = marksModel(cands);
     // An armed power or target card has no selected piece; its marked squares are targets too.
     cursorTargets = [...marks.moves, ...marks.captures, ...marks.swaps, ...marks.shoves, ...named().map(c => c.move.to)];
     sayCursor();
@@ -474,7 +474,7 @@ export function boardScreen(store: Store) {
     if (lastMove && history.at(-1) === lastMove) while (start > 0 && history[start - 1].pre.turn === lastMove.pre.turn) start--;
     const trailSteps = steps.length ? steps : start < history.length ? history.slice(start) : lastMove ? [lastMove] : [];
     const trail = trailSteps.flatMap(({move: last}) => last.pass ? [] : [...(last.drop === undefined ? [last.from] : []), last.to, ...last.captures, ...(last.shove ? [last.shove.from, last.shove.to] : [])]);
-    const users = selected === undefined ? cardChoices().filter(c => !c.move.pass && c.move.drop === undefined).map(c => c.move.from) : [];
+    const users = selected === undefined ? choiceSources(cardChoices().filter(c => !c.move.pass && c.move.drop === undefined)) : [];
     highlight({ ...marks, selected, last: [...new Set(trail)], read: inspected === undefined ? undefined : reachOf(gameRules, pos, inspected), powers: [...new Set([...cands.filter(m => m.power && !m.pass).map(m => m.to), ...named().map(c => c.move.to), ...users])], rails: selected === undefined ? [] : railsOf(gameRules.rules.design, pos.board, selected, [...marks.moves, ...marks.captures], marks.captures), check: (previewPosition()?.in_check ?? gameRules.inCheck(pos)) ? findKing(pos.board, pos.turn) : null, checkers: checkersOf(gameRules, pos), threats: view.status === 'playing' && !animating ? threatsIn(gameRules, {...pos, turn:view.seat}) : [] });
     const square = inspected ?? selected, code = square === undefined ? 0 : pos.board[square];
     const [line = '', states = ''] = square === undefined ? [] : readText(gameRules, pos, square).split('\n');
@@ -522,7 +522,7 @@ export function boardScreen(store: Store) {
       if (!face) all.firstElementChild!.textContent = (type === T && gameRules.playedDesign()?.letter) || LETTERS[type];
       all.onclick = () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(gameRules, pos!, square!)}` : readText(gameRules, pos!, square!)));
     }
-    if ((!drawReply || unarmed) && selected !== undefined && moves.some(({move}) => move.from === selected && !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
+    if ((!drawReply || unarmed) && selected !== undefined && choicesFrom(moves, selected).some(({move}) => !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
     if (!unarmed) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; held = undefined; choices([]); refresh(); }));
     const gameActions = actionButtons(view,Date.now()-readAt,refused);
     if (!view.result) actions.push(...gameActions);
@@ -555,7 +555,7 @@ export function boardScreen(store: Store) {
   $('reload').addEventListener('click', closeBoardSheet, { signal });
   $('board-menu').onclick = () => {
     const chooseMove = button('Choose a move', () => {
-      if (canPlay() && selected === undefined && !armed && armedCard === undefined) choices(moves.filter(({move}) => !move.pass && reachable(move)));
+      if (canPlay() && selected === undefined && !armed && armedCard === undefined) choices(moves.filter(c => !c.move.pass && reachable(c)));
       boardSheet('Choose a move', $('choices'));
     }); chooseMove.className = 'game-action';
     const actions = [chooseMove, ...view ? [...actionButtons(view, Date.now() - readAt, refused, true), ...playerBlockButton(view)] : []];
