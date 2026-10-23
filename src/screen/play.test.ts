@@ -27,8 +27,11 @@ const request = { link: false, continues: false, urlRules: false, title: false, 
 beforeEach(() => {
   vi.clearAllMocks(); stored.clear();
   vi.stubGlobal('localStorage', { getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => stored.set(key, value) });
-  const nodes = new Map<string, object>(), node = () => ({ setAttribute: vi.fn(), appendChild: vi.fn(), close: vi.fn(), style: {} });
-  vi.stubGlobal('document', { createElement: node, getElementById: (id: string) => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); } });
+  const nodes = new Map<string, object>(), node = () => ({ setAttribute: vi.fn(), appendChild: vi.fn(), close: vi.fn(), querySelector: () => null, style: {} });
+  vi.stubGlobal('document', { hidden: false, documentElement: { dataset: { pace: 'off' } }, addEventListener: vi.fn(), removeEventListener: vi.fn(), querySelector: () => null, querySelectorAll: () => [], createElement: node, getElementById: (id: string) => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); } });
+  vi.stubGlobal('window', { addEventListener: vi.fn() });
+  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+  vi.stubGlobal('MutationObserver', class { observe() {} disconnect() {} });
   vi.stubGlobal('ResizeObserver', class { observe() {} });
 });
 afterEach(() => { vi.unstubAllGlobals(); });

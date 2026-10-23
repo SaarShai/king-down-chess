@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3ead7">
+  <title>King Down · Interface motion</title>
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/src/style.css">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./objects.css">
+  <link rel="stylesheet" href="./arrivals.css">
+</head>
+<body data-effects-study="gui">
+  <main class="study">
+    <header class="masthead"><a class="brand" href="../">King Down<span>Motion studies</span></a><p>Interface / <strong>Review sample</strong></p></header>
+    <div class="workbench">
+      <aside class="catalog"><div class="catalog-head"><span class="eyebrow">The interface</span><span id="sample-count"></span></div><nav id="sample-nav" aria-label="Motion studies"></nav></aside>
+      <div class="preview-column">
+        <div class="sample-heading"><div><span class="eyebrow" id="category"></span><h1 id="sample-title"></h1></div><label class="mobile-picker"><span class="sr-only">Choose study</span><select id="sample-select"></select></label></div>
+        <div class="game-frame">
+          <div class="game-bar"><span class="player"><img src="/ui/kings/frost.webp" alt=""><span><b>You</b><small>White · Frost</small></span></span><span class="match-label">King Down <small>Sample match</small></span><span class="player opponent"><span><b>Opponent</b><small>Black · Shadow</small></span><img src="/ui/kings/shadow-b.webp" alt=""></span></div>
+          <div class="scene" id="scene" aria-label="Motion preview"></div>
+          <div class="stage-footer"><span class="phase-dot" aria-hidden="true"></span><strong id="phase"></strong><span id="elapsed"></span></div>
+        </div>
+        <div class="transport" aria-label="Preview controls"><div class="transport-row"><button id="play" type="button">Pause</button><button id="replay" type="button" class="quiet">↺ Replay</button><label class="speed-label">Speed<select id="speed" aria-label="Playback speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label></div><label class="scrub-label"><span class="sr-only">Timeline</span><input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Timeline"></label><div class="transport-bottom"><label><input id="reduce" type="checkbox">Reduced motion</label><span class="key-help">Space play / R replay / ← → seek</span></div></div>
+        <p id="rationale" class="rationale"></p><p class="review-note">Visual review only. No live game, clock or connection.</p>
+      </div>
+    </div>
+  </main>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

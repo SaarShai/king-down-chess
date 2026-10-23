@@ -231,6 +231,7 @@ try {
   await page.focus('#level-club');
   await page.keyboard.press('Tab');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'design', 'Tab goes from the level to Bring a design');
+  await page.locator('#new-game').evaluate(async sheet => { await Promise.all(sheet.getAnimations().map(a => a.finished.catch(() => {}))); });
   assert.ok((await page.locator('#design').boundingBox()).height >= 44, 'a 44 px target');
   await setUpGame(page, { design: 'Old Ward', army: 'classic', side: 'black', level: 'beginner' });
   assert.equal(await page.textContent('#design-line'), 'Each side gets one Old Ward, in place of the piece nearest its worth.');

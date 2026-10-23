@@ -18,10 +18,11 @@ it('imports game tokens and components without lesson, account or title lineup r
     expect(html).toMatch(/id="end-turn"[^>]*aria-label="End turn"[^>]*><svg[^>]*>.*?<\/svg><\/button>/);
     expect(await readFile('public/support.html', 'utf8')).toContain('Sword by Studio Danro from Noun Project (CC BY 3.0)');
     for (const component of ['--mark-swap', '.title-kings', '.new-game-head', '.coin', '#game-table', '.piece-card']) expect(css).toContain(component);
-    // G2 a: a spent card coin keeps a lighter dim (0.85), in the settled state and at the end of its spend pulse.
+    // G2 a: the spend press settles into the lighter dim (0.85) and grey ring.
     const flat = css.replaceAll('"', '').replaceAll("'", '');
     expect(flat).toMatch(/\.coin\.card-coin\[data-state=used\]>.coin-paint\{[^}]*opacity:\.85(?:;|})/);
-    expect(flat).toMatch(/@keyframes card-spend\{to\{opacity:\.85\}/);
+    expect(flat).not.toContain('@keyframes card-spend');
+    expect(flat).toContain(':is(#game-table,[data-seat-id=game-table]) .card-coin[data-state=used]{transform:scale(.96)}');
     expect.soft(flat).toContain('--focus:#2b2621;--focus-gold:#e9c071');
     expect.soft(flat).toContain('#app-root #board:focus{outline-offset:-3px;outline-width:3px;box-shadow:none!important}');
     expect.soft(flat).toContain('#app-root :is(#game-table,[data-seat-id=game-table]) .table-back:focus{outline-offset:-2px;box-shadow:inset 0 0 0 4px var(--focus-gold)!important}');
@@ -40,7 +41,6 @@ it('imports game tokens and components without lesson, account or title lineup r
     expect(shared.match(/outline: 2px solid var\(--focus\)/g)).toHaveLength(1);
     expect(plugin).not.toMatch(/:focus|--focus:|data-state=['"]used['"]/);
     expect(entry.indexOf("import '../account-game/content.css'")).toBeGreaterThan(entry.indexOf("import '../plugin/app.css'"));
-    expect(flat.indexOf('#app-root :is(button:focus,')).toBeGreaterThan(flat.lastIndexOf('@keyframes card-spend'));
     expect(flat.indexOf('#app-root :is(button:focus,')).toBeGreaterThan(flat.indexOf('--focus:#2b2621'));
     for (const token of ['focus', 'focus-gold']) expect(flat.match(new RegExp(`--${token}:`, 'g'))).toHaveLength(1);
     expect(flat).toContain('#app-root #board:focus:after{content:"";z-index:5;pointer-events:none;border:2px solid var(--focus-gold);position:absolute;inset:3px}'.replaceAll('"', ''));
