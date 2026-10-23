@@ -1,7 +1,7 @@
 // The six kings' idle effects on the painted board (opt-in: scene.setLively({kings:true})).
 //   flame   lava light flows through the cracks and seams of his armour (king-flame/lava-mask.webp, cut from the art)
 //   frost   ice flakes drift down around and in front of him and fade out on his square's floor
-//   stratus he hovers a few board units up and down; his shadow shrinks as he rises
+//   stratus he hovers over clouds that gather, drift and fade below his feet
 //   mud     a thick patch of grass sprouts round his feet and brown vines rise from the earth, arch over
 //           and go back into it; grass and vines sway and sink back (colours: mud-palette.mjs)
 //   spirit  a holy glow round him, short rays behind his head and light on his square brighten and dim:
@@ -44,6 +44,12 @@ export function phaseOffset(design,side,together=true){return design==='mud'?(to
 const figureClock=s=>s.now??s.t;
 /** Stratus: how far he floats above his square (board units) at time t; k fades it. */
 export function hoverAt(t,k=1){return k*(3+6*(1-Math.cos(TAU*t/PERIOD.stratus))/2);}
+
+/** A floor cloud's bounded, seamless life. The same clock drives movement fade and hover. */
+export function cloudAt(t,i){
+ const p=frac(t/PERIOD.stratus+i/11),life=Math.sin(Math.PI*p)**2;
+ return {alpha:life*.86,x:(rand(i,31)*2-1)*29+(p-.5)*17,y:-5+(rand(i,32)*2-1)*8-3*life,radius:(17+rand(i,33)*12)*(.65+.35*life)};
+}
 
 /** sheet(design): the loaded king sheet image or null. onLoad: called when an effect's own art arrives. */
 export function createKingEffects({sheet,onLoad=()=>{}}){
@@ -239,17 +245,19 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  }
 
  // —— Stratus ——
- // Rings of downdraft spread over the floor under his feet, two per rise and fall.
- // Broken arcs, like wind, that turn as they spread.
- function downdraft(ctx,s){
-  ctx.save();ctx.lineWidth=1.2;ctx.lineCap='round';
-  for(let i=0;i<2;i++){
-   const p=frac(s.t/PERIOD.stratus*2+i/2),rx=12+36*smooth(p),a=s.k*s.g*.5*Math.sin(Math.PI*p);if(a<.02)continue;
-   const turn=(i?-1:1)*(.6+1.2*p);
-   for(const [colour,dy,alpha] of [['rgba(92,112,128,.8)',1,.5],['rgba(240,247,252,.95)',0,1]]){
-    ctx.globalAlpha=a*alpha;ctx.strokeStyle=colour;
-    for(let k=0;k<3;k++){const a0=turn+k*TAU/3;ctx.beginPath();ctx.ellipse(s.ground.x,s.ground.y-3+dy,rx,rx*.3,0,a0,a0+1.3);ctx.stroke();}
-   }
+ // Soft cloud lobes form and dissolve on the floor. They never draw over the figure.
+ function clouds(ctx,s){
+  ctx.save();
+  for(let i=0;i<11;i++){
+   const c=cloudAt(s.t,i),a=c.alpha*s.k*s.g;if(a<.001)continue;
+   const x=s.ground.x+c.x*s.facing,y=s.ground.y+c.y;
+   ctx.save();ctx.translate(x,y);ctx.scale(c.radius,c.radius*.48);
+   const shade=ctx.createRadialGradient(0,.35,.05,0,0,1);
+   shade.addColorStop(0,'rgba(88,113,135,.36)');shade.addColorStop(.55,'rgba(124,145,160,.24)');shade.addColorStop(1,'rgba(149,169,181,0)');
+   ctx.globalAlpha=a;ctx.fillStyle=shade;ctx.beginPath();ctx.arc(0,.2,1,0,TAU);ctx.fill();
+   const light=ctx.createRadialGradient(-.2,-.28,.06,0,-.12,.92);
+   light.addColorStop(0,'rgba(255,253,243,.96)');light.addColorStop(.4,'rgba(237,245,247,.83)');light.addColorStop(.72,'rgba(211,228,237,.4)');light.addColorStop(1,'rgba(211,228,237,0)');
+   ctx.fillStyle=light;ctx.beginPath();ctx.arc(0,-.12,1,0,TAU);ctx.fill();ctx.restore();
   }
   ctx.restore();
  }
@@ -483,7 +491,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
    */
   back(ctx,s){
    if(s.design==='frost'){rime(ctx,s);flakes(ctx,s,false);}
-   else if(s.design==='stratus')downdraft(ctx,s);
+   else if(s.design==='stratus')clouds(ctx,s);
    else if(s.design==='mud'){earth(ctx,s);grass(ctx,s,false);vines(ctx,s,false);}
    else if(s.design==='spirit')holyBack(ctx,s);
    else if(s.design==='shadow'){abyss(ctx,s);cracks(ctx,s);hands(ctx,s,false);smoke(ctx,s);}

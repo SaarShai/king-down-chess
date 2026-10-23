@@ -13,7 +13,7 @@ const HEADROOM = 64, PAD = 32, TILE = 112, pieces = { P, N, B, R, Q, K, S, L, M,
 const INFO = {
   flame: ['Flame', 'Lava light flows through the cracks and seams of his armour.', 'A bubbling lava pool opens under the piece; lava climbs it, with a glowing crust, drips, sparks and smoke, and the pool pulls it under.'],
   frost: ['Frost', 'Ice flakes drift down around and in front of him and melt on his square.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
-  stratus: ['Stratus', 'He hovers a little above his square; his shadow shrinks as he rises, over rings of wind.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the rook in its way and off the board: on the back rank along the band above the board, from an edge file back over the king.'],
+  stratus: ['Stratus', 'The original Sky King hovers over soft clouds that gather, drift and fade below his feet.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the rook in its way and off the board: on the back rank along the band above the board, from an edge file back over the king.'],
   mud: ['Mud', 'Grass grows thick round his feet, and brown vines rise from the ground, arch over and go back into the ground; then the vines and the grass sink back.', 'The soil cracks; brown thorny vines wind round the piece and pull it down into the earth; three sprouts come up. Then his own grass, and after it a vine, grow on his new square.'],
   spirit: ['Spirit', 'The ivory king: a white and gold glow round him, short rays of light above his crown and light on his square. The charcoal king: a black aura, black rays and a dark pool on his square. Both breathe slowly in and out.', 'The piece turns into a glowing silhouette of itself (white for the ivory king, black for the charcoal one) and implodes.'],
   shadow: ['Shadow', 'Skeletal hands (white for the ivory king, black for the charcoal one) reach up out of cracks round his feet; his smoke drifts and curls upward.', 'A crack opens under the piece; skeletal hands rise out of it, take hold of the piece and pull it down. Death Touch takes it without moving.'],
@@ -93,7 +93,8 @@ const grid = document.getElementById('grid');
 for (const design of Object.keys(INFO)) {
   const { canvas, scene } = makeScene([design, design], KINGS_ROW, false);
   scenes[design] = { scene, canvas };
-  card(grid, INFO[design][0], `${INFO[design][1]} <span class="period">Loop ${PERIOD[design] / 1000} s.</span>`, scene, canvas);
+  const section = card(grid, INFO[design][0], `${INFO[design][1]} <span class="period">Loop ${PERIOD[design] / 1000} s.</span>`, scene, canvas);
+  section.id = `idle-${design}`;
 }
 
 // 2. Captures: each card plays its captures in turn; a button plays one now.

@@ -18,7 +18,7 @@ export const KING_DESIGNS=['frost','flame','stratus','mud','spirit','shadow'];
 export const kings={
  frost:{origins:[[138,16],[228,16]],fit:1},
  flame:{origins:[[125,15],[242,15]],fit:.99},
- stratus:{origins:[[123,15],[127,13]],fit:.98},
+ stratus:{origins:[[214,120],[214,120]],fit:1.05},
  mud:{origins:[[116,6],[216,5]],fit:.97},
  spirit:{origins:[[123,27],[251,26]],fit:.99},
  // Shadow: centred on its mass, since smoke and the sword pull the upper body's centre apart.
