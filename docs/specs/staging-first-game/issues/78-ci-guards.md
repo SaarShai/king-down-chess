@@ -78,4 +78,4 @@ The audit says `worker-browser.json` records each request. It records only the b
 
 ### Full suite
 
-FULL_SUITE_RESULTS
+`npm test` at `57c43e79`: type checks (src and tools) exit 0; vitest 258 files, 4,785 passed, 8 skipped (383 s); Node checks 50 of 50. `npm run test:docs`: 13 files, 168 passed.
