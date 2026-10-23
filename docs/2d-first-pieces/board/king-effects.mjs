@@ -12,6 +12,7 @@
 // The scene draws back() before a king's figure and front() after it, so a figure standing in front
 // (a lower row) still covers both. Every effect repeats exactly after PERIOD[design] ms, so one
 // period recorded loops without a seam. Units are board units (the board is 960 wide).
+import {drawFreeze} from './ice-material.mjs';
 import {clamp} from '../painted-mesh.mjs';
 import * as court from '../court-motion.mjs';
 import {drawHand,drawCrack,crackLip} from './skeleton-hands.mjs';
@@ -20,7 +21,6 @@ import {GRASS_ROOT,GRASS_TIP,LEAF,VINE} from './mud-palette.mjs';
 export const PERIOD={flame:4800,frost:6000,stratus:4000,mud:8000,spirit:4000,shadow:6400};
 export const KING_EFFECTS=Object.keys(PERIOD);
 const LAVA_MASK=new URL('../king-flame/lava-mask.webp',import.meta.url).href;
-const ICE_GROUND=new URL('../king-frost/ice-ground.webp',import.meta.url).href;
 const LAVA_GROUND={fissures:new URL('../king-flame/ground-fissures.webp',import.meta.url).href,plates:new URL('../king-flame/ground-faults.webp',import.meta.url).href};
 const CLOUD_BANK=new URL('../king-stratus/cloud-bank.png',import.meta.url).href;
 const SMOKE_MASK=new URL('../king-shadow/smoke-mask.webp',import.meta.url).href;
@@ -233,14 +233,13 @@ export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
   ctx.restore();
  }
  // Ground paintings retain their brush texture; only their reveal and material light move.
- function groundPainting(url,molten){
+ function groundPainting(url){
   const image=asset(url);if(!image)return null;
   return cached(`ground:${url}`,()=>{
    const make=()=>{const c=document.createElement('canvas');c.width=384;c.height=160;return c;};
    const base=make(),work=make(),light=make(),mask=make(),g=base.getContext('2d');
    g.drawImage(image,0,0,384,160);
-   if(molten){
-    // Select the painted hot channels once. Moving light cannot wash over the stone faces.
+   // Select the painted hot channels once. Moving light cannot wash over the stone faces.
     const pixels=g.getImageData(0,0,384,160);
     for(let i=0;i<pixels.data.length;i+=4){
      const [r,green,b]=pixels.data.slice(i,i+3);
@@ -248,34 +247,34 @@ export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
      pixels.data[i]=pixels.data[i+1]=pixels.data[i+2]=255;
     }
     mask.getContext('2d').putImageData(pixels,0,0);
-   }
    return {base,work,light,mask};
   });
  }
- function paintedGround(ctx,s,url,molten){
-  const art=groundPainting(url,molten);if(!art)return;
-  const p=frac(s.t/PERIOD[s.design]),grow=smooth(p/(molten?.32:.38)),close=smooth((p-.64)/.36),life=grow*(1-close);
+ function paintedGround(ctx,s,url){
+  const art=groundPainting(url);if(!art)return;
+  const p=frac(s.t/PERIOD[s.design]),grow=smooth(p/.32),close=smooth((p-.64)/.36),life=grow*(1-close);
   if(life<.002)return;
   const g=art.work.getContext('2d'),l=art.light.getContext('2d');g.clearRect(0,0,384,160);g.drawImage(art.base,0,0);
   l.clearRect(0,0,384,160);
-  if(molten){
-   l.save();l.translate(p*96,p*32);l.fillStyle=lavaNoise()[0];l.fillRect(-p*96,-p*32,384,160);l.restore();
-   l.globalCompositeOperation='destination-in';l.drawImage(art.mask,0,0);l.globalCompositeOperation='source-over';
-   g.globalCompositeOperation='screen';g.globalAlpha=.38;g.drawImage(art.light,0,0);g.globalAlpha=1;g.globalCompositeOperation='source-over';
-  }else{
-   const x=-100+p*620,shine=g.createLinearGradient(x-45,0,x+45,20);
-   shine.addColorStop(0,'#edffff00');shine.addColorStop(.5,'#efffff50');shine.addColorStop(1,'#edffff00');
-   g.globalCompositeOperation='source-atop';g.fillStyle=shine;g.fillRect(0,0,384,160);g.globalCompositeOperation='source-over';
-  }
+  l.save();l.translate(p*96,p*32);l.fillStyle=lavaNoise()[0];l.fillRect(-p*96,-p*32,384,160);l.restore();
+  l.globalCompositeOperation='destination-in';l.drawImage(art.mask,0,0);l.globalCompositeOperation='source-over';
+  g.globalCompositeOperation='screen';g.globalAlpha=.38;g.drawImage(art.light,0,0);g.globalAlpha=1;g.globalCompositeOperation='source-over';
   // The fixed painting emerges from the feet, instead of scaling separate geometric pieces.
   const radius=8+life*290,reveal=g.createRadialGradient(192,85,radius*.63,192,85,radius);
   reveal.addColorStop(0,'#000');reveal.addColorStop(1,'#0000');
   g.globalCompositeOperation='destination-in';g.fillStyle=reveal;g.fillRect(0,0,384,160);g.globalCompositeOperation='source-over';
-  const w=molten?117:110,h=molten?47*(.64+.36*grow*(1-close)):43;
+  // Keep the rock painting registered at fixed proportions through the closing phase.
+  const w=117,h=47;
   ctx.save();ctx.globalAlpha=s.k*s.g*Math.min(1,life*5);
   ctx.drawImage(art.work,s.ground.x-w/2,s.ground.y-h*.58,w,h);ctx.restore();
  }
- function rime(ctx,s){paintedGround(ctx,s,ICE_GROUND,false);}
+ function rime(ctx,s){
+  const ice=cached('frost-ground',()=>layer()),g=ice.getContext('2d');
+  g.clearRect(0,0,L,L);g.save();g.translate(L/2,L/2);g.scale(.86,.32);
+  const frame={x:0,y:0,progress:frac(s.t/PERIOD.frost),seed:5};
+  drawFreeze(g,{...frame,front:false});drawFreeze(g,{...frame,front:true});g.restore();
+  ctx.save();ctx.globalAlpha=s.k*s.g;ctx.drawImage(ice,s.ground.x-L/2,s.ground.y-L/2-2);ctx.restore();
+ }
 
  // Painted, filled cumulus layers billow outward and separate as they dissolve.
  function clouds(ctx,s){
@@ -293,7 +292,7 @@ export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
  }
 
  // The workshop keeps both painted lava alternatives until the owner selects one.
- function lavaFloor(ctx,s){paintedGround(ctx,s,LAVA_GROUND[lavaGround],true);}
+ function lavaFloor(ctx,s){paintedGround(ctx,s,LAVA_GROUND[lavaGround]);}
 
  // —— Mud ——
  // A full patch of tufts round his feet (an inner and an outer ring), dark at the root, fresh at the tip.
@@ -504,7 +503,7 @@ export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
 
  return {
   /** Whether a design has an effect; starts loading that effect's own art. */
-  has(design){if(design==='frost')asset(ICE_GROUND);if(design==='flame'&&lavaGround)asset(LAVA_GROUND[lavaGround]);if(design==='stratus')asset(CLOUD_BANK);if(design==='flame')flameLayers(0);if(design==='shadow')shadowLayers(0);return design in PERIOD;},
+  has(design){if(design==='flame'&&lavaGround)asset(LAVA_GROUND[lavaGround]);if(design==='stratus')asset(CLOUD_BANK);if(design==='flame')flameLayers(0);if(design==='shadow')shadowLayers(0);return design in PERIOD;},
   /** The pose the figure is drawn with (Stratus floats; Shadow is drawn without his painted smoke, which moves). */
   pose(s){
    if(s.design==='shadow'){const l=shadowLayers(s.side);return l?{...s.pose,sheet:l.body}:s.pose;}
