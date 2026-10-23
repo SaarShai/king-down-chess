@@ -16,7 +16,7 @@ import './end.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 const readFailed = () => staleRead(store.page());
 let scrim: HTMLElement;
-let observer: MutationObserver | undefined, showFrame = 0;
+let observer: MutationObserver | undefined;
 let updateTimer: ReturnType<typeof setTimeout> | undefined;
 const read = new Set<string>(), resumed = new Set<string>();
 /** A selected history row opens that result, not a rematch it already has. */
@@ -26,7 +26,7 @@ export function openFinishedGame(game_id: string) {
     routeView(view);
   } });
 }
-let updating = false, stopped = false, opening = false;
+let updating = false, stopped = false;
 let blockKey = '', blockButtons: HTMLButtonElement[] = [];
 let contentKey: string | undefined;
 let endGame: string | undefined, looking = false;
@@ -42,7 +42,6 @@ function closeEnd() {
   if ($('over').classList.contains('end-card')) { $<HTMLDialogElement>('over').close(); $('over').classList.remove('end-card'); }
   if (scrim) scrim.hidden = true;
   skipBoardCeremony(); looking = false; queuedRematch = undefined; $('end-result').hidden = true;
-  opening = false;
 }
 function pollView() {
   const view = memory.view;
@@ -170,15 +169,9 @@ export function endScreen(schedule = true) {
   $('end-result').onclick = () => { looking=false; $('end-result').hidden=true; endScreen(); };
   (looking ? document.querySelector('.page-sheet')! : over).append(error);
   over.querySelector('.quiet-line')!.textContent = opponent?.deleted || rematchAllowed === false ? '' : view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematches.length ? view.kind==='solo' ? 'Play again with the same rules and colour.' : `A rematch is Casual. It keeps the features and swaps the colours.${rankedOffered() ? ' Return to Ranked to find another ranked opponent.' : ''}` : '';
+  // The actions show at once (owner decision C4 c), with no wait for a rendering frame: CI WebKit can stop sending frames.
+  if (!over.open && !looking) { over.show(); if (tapReadyAt === Infinity) tapReadyAt = performance.now() + 1000; }
   if (over.open) scrim.hidden=false;
-  else if (!opening && !looking) {
-    opening=true; const game=view.game_id;
-    const show=()=>{
-      if (stopped || queue.closed() || client.state.screen!=='end' || boardGame()?.game_id!==game) {opening=false; return;}
-      opening=false; if(!looking){if(!over.open) { over.show(); if (tapReadyAt === Infinity) tapReadyAt = performance.now() + 1000; } scrim.hidden=false;}
-    };
-    showFrame = requestAnimationFrame(show);
-  }
   followUp(schedule);
 }
 /** After each result pass, also an unchanged one: the poll takes its new target, and updateEnd sends a queued rematch. */
@@ -187,4 +180,4 @@ function followUp(schedule: boolean) {
   if (schedule) { clearTimeout(updateTimer); updateTimer = setTimeout(updateEnd,0); }
 }
 
-onStop(() => { stopped = true; clearTimeout(updateTimer); cancelAnimationFrame(showFrame); observer?.disconnect(); if (scrim) closeEnd(); read.clear(); resumed.clear(); });
+onStop(() => { stopped = true; clearTimeout(updateTimer); observer?.disconnect(); if (scrim) closeEnd(); read.clear(); resumed.clear(); });

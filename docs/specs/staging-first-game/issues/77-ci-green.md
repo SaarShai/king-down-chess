@@ -1,6 +1,6 @@
 # Make the new build pass CI
 
-Status: in review on PR SaarShai/king-down-chess#87 (branch `staging/lane-ci`, from `bdd886c7`). Round 2 fixes three failures of CI run 39901282212; round 3 splits the WebKit job (item 13); round 4 splits the board tests and fixes a card-detail race (items 14 and 15). The 200% zoom miss on WebKit stays open (item 12). No merge or deploy.
+Status: in review on PR SaarShai/king-down-chess#87 (branch `staging/lane-ci`, from `bdd886c7`). Round 2 fixes three failures of CI run 39901282212; round 3 splits the WebKit job (item 13); round 4 splits the board tests and fixes a card-detail race (items 14 and 15); round 5 opens the end card at once, splits the board input tests and fixes two `verify` failures (items 16 to 19). The 200% zoom miss on WebKit stays open (item 12). No merge or deploy.
 
 ## What
 
@@ -252,3 +252,25 @@ Two independent read-only audits (ponytail review of the code, a retro of the se
 - `tools/workflow.lint.test.ts` through `npm test`: `Tests  21 passed (21)`.
 - Type check of the three board files (a temporary config with `tools`): the same errors as the old file, all older than this branch; no new error.
 - Both board files through `npm test`: Chromium `Tests  196 passed (196)` (95 and 101, the old file's 196); WebKit, the `browser-webkit` file set `Tests  129 passed (129)` and `tools/plugin-board-input.test.ts` `Tests  101 passed (101)`.
+
+## CI round 5 (run 39923681818)
+
+`browser`, `browser-web` and `browser-firefox` pass. `browser-webkit` fails only in the 200% zoom test (item 12).
+
+16. **End card on WebKit.** `browser-webkit-ui` fails in `tools/lib/plugin-shell-check.mjs`: `#over.end-card[open]` does not show in 10 s. The WebKit page process used 0.35 s of CPU in the last 5 s of the wait (the sampler gives its total CPU time), so the page waited; it did not render slowly. `src/plugin/screens/end.ts` opened the card only in one `requestAnimationFrame` callback, and CI WebKit can stop sending frames (the clickButton comments in the board tests). A CI diagnostic that ran the check 10 times (run 39925393652) passed 10 times; there, one frame came 1085 ms after its request. The owner decision C4 c says "Show end actions at once" (`docs/specs/owner-decisions-2026-10-15/issues/06-end.md`). `endScreen()` now opens the card at once, so the card does not wait for a frame. Its conditions stay: `endScreen()` returns before this step unless the end screen shows the current game, and "See the board" keeps the card closed.
+17. **Board input tests time.** `browser-webkit-board` stops at the 20-minute step limit in `tools/plugin-board-input.test.ts`. No test failed and no test stopped: no WebKit page process lived longer than 46 s, and the page processes used about 300% CPU. The runner was about 2.5 times slower than usual: the tests of the first board file took 707 s, against 453 s for the same tests in run 39908178007. Vitest runs the tests of one file in order, one file to a worker. The file is now two files at its section break "W7 ticket 04 browser journeys": `tools/plugin-board-input.test.ts` (38 tests, about 227 s on the usual runner) and `tools/plugin-board-drafts.test.ts` (63 tests, about 256 s). The job runs both side by side. Their shared helpers moved without change to `tools/lib/plugin-board-fixture.ts`.
+18. **Child limit after the board split.** `verify` fails in `tools/child-timeouts.test.ts`: the board widget build moved to `tools/lib/plugin-board-fixture.ts` in round 4, and the test still read `tools/plugin-board.test.ts`. The test now reads the fixture, with the same limits. Open PR SaarShai/king-down-chess#88 has the same lines.
+19. **Board read count with the solo poll.** `verify` fails in `W7-04: a press refused with INVALID_MOVE drops the draft and reads once (D11)`: three `kingdown_get` calls against two. `/fixture-position` makes a solo game (`tools/plugin-protocol-fixture.ts` `seedPosition`), and the solo board reads every 5 s (`src/plugin/poll.ts`). A poll read in the count window adds one. As in items 9 and 15, the test installs the page clock before the page loads, pauses it 2 s ahead, waits for the reads to end, counts, and resumes the clock after the count check. The exact count stays.
+
+Item 12 has new data: a CI diagnostic (run 39925737196) printed the geometry at a `clickButton` miss for `#seat-ready`. The button box is 60, 318, 77, 52 and its center is at y 344. The seat screen scrolls (box 0, 51, 197, 279, so it shows y 51 to 330), and its scroll is at 95 of 135. So the button is 40 px under the visible area, and the hit test meets `main#app-root`. After one frame the box and the miss stay the same. The scroll was right when the box reads agreed; then a change of 40 px moved the button. A second diagnostic logs the seat changes between the scroll and the hit test.
+
+### Proof
+
+- Item 16: `npm run check:browser plugin-ui` passes in WebKit (321 s) and in Chromium (261 s), and `plugin-ui-http` passes in Chromium. `tools/plugin-motion.test.ts` (the live win and the 200 ms Skip with the end card): 3 of 3 with the new `end.ts` and 3 of 3 with the old.
+- Item 19: the old test with a 5.5 s wait after the count fails with the CI error (`expected 3 to be 2`); the new test with the same wait passes, in Chromium and in WebKit.
+- Items 17 and 18: `tools/child-timeouts.test.ts` and `tools/workflow.lint.test.ts` through `npm test` (with its type check): `Tests  32 passed (32)`. The three board files: Chromium `Tests  196 passed (196)` (95, 38 and 63); WebKit, the `browser-webkit` set `Tests  129 passed (129)` and the `browser-webkit-board` set `Tests  101 passed (101)` in 72 s, against 121 s as one file.
+- Type check of the board files with `noUnusedLocals` (a temporary config): the same errors as the old file, all older than this branch; no new error.
+
+### Review
+
+An independent read-only review finds no fault. It rates the item 16 cause PLAUSIBLE: the failed run does not prove that the frame callback stopped, but the code supports this cause, and the fix is sound either way. Each caller of `endScreen()` passes its checks, and with no wait between the game read and the open, the old second game check has nothing to check. It confirms items 18 and 19, and the split keeps all 101 cases, each assertion and the eight moved helpers unchanged. Not checked: the split on a slow CI runner.

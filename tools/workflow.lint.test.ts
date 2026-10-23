@@ -66,7 +66,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(webkit).toContain("KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size}.test.ts'");
     expect(webkit).toContain('name: webkit-check-logs');
     expect(board).toContain('- run: npm test');
-    expect(board).toContain('KINGDOWN_TEST_FILE: tools/plugin-board-input.test.ts');
+    expect(board).toContain("KINGDOWN_TEST_FILE: 'tools/plugin-board-{input,drafts}.test.ts'");
     expect(board).toContain('name: webkit-board-check-logs');
     expect(ui).toContain('- run: npm run check:browser plugin-ui');
     expect(ui).toContain('- run: npm run check:browser web-online');

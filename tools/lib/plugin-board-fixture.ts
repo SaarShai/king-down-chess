@@ -1,4 +1,5 @@
-// The shared setup and helpers of the board tests (tools/plugin-board.test.ts and tools/plugin-board-input.test.ts).
+// The shared setup and helpers of the board tests (tools/plugin-board.test.ts, tools/plugin-board-input.test.ts and
+// tools/plugin-board-drafts.test.ts).
 // Each test file that imports this module gets its own build, harness and browser.
 import { afterAll, beforeAll, expect, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -115,4 +116,38 @@ export async function squarePoint(page: Page, square: number) {
 export async function squareTap(page: Page, square: number) {
   const point = await squarePoint(page, square);
   await page.mouse.click(point.x, point.y);
+}
+
+// The board input journeys (tools/plugin-board-input.test.ts and tools/plugin-board-drafts.test.ts).
+// W7 journeys use board input. The endpoint only sets the starting position.
+// These calls start only after the mounted board has requested its preview.
+export const settleBoardReads = (page: Page) => expect.poll(() => page.frameLocator('iframe').locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
+export async function turnBoard(fen?: string, clock = false) {
+  const page = await open(view(''), 393, 852, clock), frame = page.frameLocator('iframe');
+  const result = await (await page.request.post(new URL(fen ? `/fixture-position?fen=${encodeURIComponent(fen)}` : '/fixture-position?case=haste', harness.url).href)).json();
+  expect(result.isError).not.toBe(true);
+  await page.evaluate(result => (window as any).harnessShow(result), result);
+  await frame.locator('#status').filter({hasText:'Your move'}).waitFor();
+  await frame.locator('#board[aria-busy="false"][data-animating="false"]').waitFor();
+  await settleBoardReads(page);
+  return {page, frame, base:result._meta.view as View};
+}
+export async function chooseTurnMove(page: Page, lan: string, from: number) {
+  const frame = page.frameLocator('iframe');
+  await squareTap(page, from); await frame.locator('#board-menu').click();
+  await frame.locator('#board-sheet').getByRole('button',{name:'Choose a move',exact:true}).click();
+  await frame.locator(`#choices button[title="${lan}"]`).click();
+  await expect.poll(async () => (await savedDraft(page))?.lans.at(-1)).toBe(lan);
+  await frame.locator('#board[data-animating="false"]').waitFor();
+}
+export const moveCalls = (page: Page) => page.evaluate(() => ((window as any).harnessCalls ?? []).filter((c: any) => c.name === 'kingdown_move'));
+export const boardFen = (page: Page) => page.frameLocator('iframe').locator('html').evaluate<string>('(async () => { const { toFen } = await import("/src/rules/setup.ts"); return toFen(window.testBoard.pos); })()');
+// W7 ticket 04 (design §7.4 D9 to D13): the draft in widget state.
+export const getCalls = (page: Page) => page.evaluate(() => ((window as any).harnessCalls ?? []).filter((c: any) => c.name === 'kingdown_get').length);
+export const savedDraft = (page: Page) => page.evaluate(() => (window as any).harnessWidgetState.privateContent?.draft ?? null);
+export async function remountBoard(page: Page) {
+  await page.locator('#remount').evaluate(e => (e as HTMLButtonElement).click());
+  const frame = page.frameLocator('iframe');
+  await frame.locator('#board[aria-busy="false"][data-animating="false"]').waitFor();
+  await frame.locator('html').evaluate('(async () => { window.testBoard = (await import("/src/plugin/board-view.ts")).board; })()');
 }

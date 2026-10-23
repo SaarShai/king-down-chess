@@ -133,7 +133,9 @@ jobs:
 
   # The WebKit tests and the WebKit journeys run in three jobs: in one job the browser install, 13-16 minutes of tests and
   # 18-19 minutes of plugin-ui left too little time, and a 9-minute install cancelled web-online (run 39908178007). On a
-  # slower runner the board tests alone passed the 20-minute step limit (run 39918579892), so they run in two jobs.
+  # slower runner the board tests alone passed the 20-minute step limit (run 39918579892), so they run in two jobs. Vitest
+  # runs one file's tests in order, one file to a worker: the second job's 101 tests in one file passed the step limit on
+  # a runner 2.5 times slower than usual (run 39923681818), so they are two files that run side by side.
   browser-webkit:
     runs-on: ubuntu-latest
     # WebKit runs here with the step limits times 3 (tools/lib/checks.mjs STEP).
@@ -231,7 +233,7 @@ jobs:
       - run: npm test
         timeout-minutes: 20
         env:
-          KINGDOWN_TEST_FILE: tools/plugin-board-input.test.ts
+          KINGDOWN_TEST_FILE: 'tools/plugin-board-{input,drafts}.test.ts'
       - name: Save kernel log
         if: failure() || cancelled()
         run: sudo dmesg -T | tail -n 400 > /tmp/kingdown-check-runs/dmesg.txt || true
