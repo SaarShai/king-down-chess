@@ -57,12 +57,17 @@ export async function checkShell(browser, base) {
     await writeFile(join(env('PLAYABLE_OUT'), 'plugin-shell-colours.json'), JSON.stringify(colours, null, 2) + '\n');
     await shot(page, 'plugin-board-bar-390x844-light', { clip: await bar.boundingBox() });
     await page.setViewportSize({ width: 1280, height: 800 });
+    const callsBefore = await page.evaluate(() => (window.harnessCalls ?? []).length);
     await page.evaluate(() => {
       const view = { ...window.harnessView, game_id: crypto.randomUUID(), revision: 100, status: 'finished', action: 'done', result: { winner: 0, reason: 'checkmate' }, legal: [] };
       window.harnessNextView = view;
       return window.harnessShow({ content: [], structuredContent: { game_id: view.game_id }, _meta: { board_id: window.harnessWidgetState.privateContent.board_id, view } });
     });
-    await frame.locator('#over.end-card[open]').waitFor();
+    // A miss on CI WebKit leaves the page idle (ticket 77, item 16). Print the state at the miss, then fail as before.
+    await frame.locator('#over.end-card[open]').waitFor().catch(async error => {
+      console.error(`Shell end card miss: ${JSON.stringify(await endCardState(page, frame, callsBefore))}`);
+      throw error;
+    });
     await frame.locator('#over').evaluate(async e => { await Promise.all(e.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {}))); });
     for (const [kind, label] of [['stone', 'New game'], ['red', 'Play again']]) {
       const button = frame.getByRole('button', { name: label, exact: true });
@@ -75,4 +80,22 @@ export async function checkShell(browser, base) {
     if (gameId) assert((await page.request.post(new URL('/fixture-delete-match', base).href, { data: { game_id: gameId } })).ok());
     await page.close();
   }
+}
+
+// The host calls since the finished result, the screen the frame saved, the frame's page and card, and whether a 0 ms
+// timer and an animation frame still run in the frame. Each read has its own 2 s limit, so a stalled frame still gives
+// the other reads.
+async function endCardState(page, frame, from) {
+  const within = (promise, label) => Promise.race([promise.catch(error => `${label}: ${error.message.split('\n')[0]}`), new Promise(resolve => setTimeout(() => resolve(`${label}: no answer in 2 s`), 2000))]);
+  const html = frame.locator('html');
+  return {
+    host: await within(page.evaluate(from => ({ calls: (window.harnessCalls ?? []).slice(from).map(call => call.name), nextView: window.harnessNextView !== undefined,
+      view: window.harnessView && `${window.harnessView.status}@${window.harnessView.revision}`, inflight: window.harnessInflight, held: window.harnessHeld, widgets: window.harnessWidgets?.length,
+      saved: window.harnessWidgetState?.privateContent && `${window.harnessWidgetState.privateContent.screen}/${window.harnessWidgetState.privateContent.pending?.name ?? '-'}`, visibility: document.visibilityState }), from), 'host'),
+    frame: await within(html.evaluate(() => { const over = document.getElementById('over'), board = document.getElementById('board');
+      return { page: document.body.dataset.page, open: over?.open, card: over?.className, scrim: document.getElementById('end-scrim')?.hidden, reload: document.getElementById('reload')?.disabled,
+        board: board && `${board.getAttribute('aria-busy')}/${board.dataset.animating}/${board.dataset.toppling ?? '-'}`, hidden: document.hidden, visibility: document.visibilityState }; }), 'frame'),
+    timer: await within(html.evaluate(() => new Promise(resolve => { const start = performance.now(); setTimeout(() => resolve(Math.round(performance.now() - start)), 0); })), 'timer'),
+    paint: await within(html.evaluate(() => new Promise(resolve => { const start = performance.now(); requestAnimationFrame(() => resolve(Math.round(performance.now() - start))); })), 'frame paint'),
+  };
 }
