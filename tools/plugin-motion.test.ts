@@ -157,6 +157,8 @@ it.each([false, true])('hands over the turn highlight and confirms only successf
       }
       expect(await frame.locator('.player-strip.is-turn').getAttribute('id')).toBe(failed ? 'strip-me' : 'strip-them');
       await expect.poll(() => frame.locator('.ui-send-check').count(), { timeout: 1500 }).toBe(0);
+      // Invisible handoff tokens must not extend the scroll area after a viewport change.
+      await expect.poll(() => frame.locator('.ui-turn-token').count(), { timeout: 1500 }).toBe(0);
     }
     expect(await motion('.ui-send-check')).toHaveLength(reduced ? 0 : 2);
   } finally { await page.close(); }

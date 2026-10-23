@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { UiMotion } from './motion';
+import { handoff, UiMotion } from './motion';
 
 let now: number, pace: string, hidden: boolean, reduced: boolean;
 let documentEvents: EventTarget, media: EventTarget;
@@ -95,4 +95,18 @@ it('consumes an event that arrives while hidden, before the tab returns', () => 
   hidden = false; now = 1250; motion.reveal(element(), 500, 8, 0, 1200);
   expect(animations).toHaveLength(0);
   motion.dispose();
+});
+
+it.each(['finished', 'cancelled', 'disabled'])('removes the handoff token when %s', async state => {
+  const token = { style: {}, setAttribute: vi.fn(), remove: vi.fn() };
+  Object.assign(document, { createElement: () => token });
+  const rect = () => ({ left: 0, top: 0, width: 36, height: 36 });
+  const target = { getBoundingClientRect: rect }, other = { getBoundingClientRect: rect };
+  const host = { querySelector: () => null, querySelectorAll: () => [other, target], getBoundingClientRect: rect, append: vi.fn() };
+  const a = animation(), motion = { play: () => state === 'disabled' ? undefined : a };
+  handoff(motion as unknown as UiMotion, host as unknown as HTMLElement, target as HTMLElement, now);
+  if (state === 'finished') a.finish();
+  if (state === 'cancelled') a.cancel();
+  await Promise.resolve();
+  expect(token.remove).toHaveBeenCalledOnce();
 });

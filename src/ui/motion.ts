@@ -21,7 +21,7 @@ export class UiMotion {
 
   private enabled() { return !this.stopped && !document.hidden && !this.reduced.matches && this.pace() !== 'off' && this.allowed(); }
 
-  play(element: Element | null, frames: Keyframe[], duration: number, delay = 0, at = performance.now()): void {
+  play(element: Element | null, frames: Keyframe[], duration: number, delay = 0, at = performance.now()): Animation | undefined {
     const speed = this.pace() === 'fast' ? 2 : 1;
     const age = performance.now() - at;
     if (!this.enabled()) { this.cutoff = Math.max(this.cutoff, at); return; }
@@ -34,6 +34,7 @@ export class UiMotion {
     this.running.set(animation, element);
     const clear = () => { this.running.delete(animation); animation.cancel(); };
     void animation.finished.then(clear, () => { this.running.delete(animation); });
+    return animation;
   }
 
   reveal(element: Element | null, duration = 420, distance = 18, delay = 0, at = performance.now()): void {
@@ -89,7 +90,10 @@ export function handoff(motion: UiMotion, host: HTMLElement, target: HTMLElement
   token.style.left = `${end.left + end.width / 2 - box.left}px`;
   token.style.top = `${end.top + end.height / 2 - box.top}px`;
   host.append(token);
-  motion.play(token, [{ opacity: 1, transform: `translate(${start.left - end.left}px, ${start.top - end.top}px) rotate(0deg)` }, { opacity: 1, transform: 'translate(0,0) rotate(90deg)', offset: .9 }, { opacity: 0, transform: 'translate(0,0) rotate(90deg)' }], 700, 0, at);
+  const animation = motion.play(token, [{ opacity: 1, transform: `translate(${start.left - end.left}px, ${start.top - end.top}px) rotate(0deg)` }, { opacity: 1, transform: 'translate(0,0) rotate(90deg)', offset: .9 }, { opacity: 0, transform: 'translate(0,0) rotate(90deg)' }], 700, 0, at);
+  // A transparent token at an old position can enlarge the board after a resize.
+  if (animation) void animation.finished.then(() => token.remove(), () => token.remove());
+  else token.remove();
 }
 
 /** The check frame tightens once; the portrait art stays in place. */
