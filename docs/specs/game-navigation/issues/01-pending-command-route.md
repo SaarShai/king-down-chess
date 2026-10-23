@@ -1,7 +1,7 @@
 # Keep the URL game while a prior command completes
 
 Type: task
-Status: claimed
+Status: resolved
 
 ## Authority and evidence
 
@@ -41,4 +41,8 @@ Evidence lives in the parent workspace at playtest/reports/f077-fix. The final r
 
 The full 44-case plugin race suite also passes after the final app changes. In total, 140 selected source tests and the 54 artwork checks pass. The test fixture is corrected to provide required piece/card pools and account for the deliberately failed network attempts and their one connection diagnostic. All other browser errors remain failures.
 
-Staging deployment and live account verification remain pending.
+Staging deployment and saved-account verification pass. Source f1cc5037 is published to isolated preview dpl_53ikro8xtHYp3QMhXmgHpmqZEH2e, then assigned to the staging alias. The artifact check passes. After alias propagation, the public page and service-worker hashes match. The server bundle equals a fresh build of the parent source; consent and all 11 engine archives match the verified baseline. For release comparisons, use a recorded source build, not an arbitrary pre-existing artifact.
+
+The original navigation sequence passes on Chromium and Firefox. The selected friend game stays correct without a recovery reload. Returning to each source shows one submitted move and one computer reply. Firefox also passes the two-tab/prior-offline sequence, with the same source history in both tabs. The phone and WebKit accounts reopen their correct saved games. Root checks the action timestamps, saved snapshots and screenshots. Evidence: parent workspace playtest/reports/f077-fix/verification.md and rounds/02/p1-f077-check.md / p4-f077-check.md.
+
+One source-command 503 in Chromium delays its computer reply until return. It recovers without lost or duplicate moves. This remains a separate observation in the ongoing playtest; its cause is not established. Production, account security and game rules do not change. All four player agents continue round 02 under the existing heartbeat. No stop condition is met.
