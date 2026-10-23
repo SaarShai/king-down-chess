@@ -91,7 +91,7 @@ async function mate(page: Page, frame: FrameLocator, paused = false) {
     }, { timeout: 15_000 }).toBe(true);
   } else await send.click();
 }
-it.each([false, true])('clears each successful send mark and never marks a failed send (reduced motion %s)', async reduced => {
+it.each([false, true])('hands over the turn highlight and confirms only successful sends (reduced motion %s)', async reduced => {
   const { page, frame } = await open(reduced);
   try {
     const motion = await recordMotion(page, frame, ['.ui-send-check']);
@@ -100,10 +100,13 @@ it.each([false, true])('clears each successful send mark and never marks a faile
       await page.evaluate(r => (window as any).harnessShow(r), result);
       await frame.locator('#board[aria-busy="false"]').waitFor();
       await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+      expect(await frame.locator('.player-strip.is-turn').getAttribute('id')).toBe('strip-me');
       await frame.locator('#board-menu').click();
       await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
       await frame.locator('#choices button[title="Rd3-d4"]').click();
       const send = frame.locator('#end-turn[aria-disabled="false"]'); await send.waitFor();
+      // The shown position has advanced, but this is still the sender's unsent turn.
+      expect(await frame.locator('.player-strip.is-turn').getAttribute('id')).toBe('strip-me');
       if (failed) await page.evaluate(() => { (window as any).failNextAction = true; });
       await send.click();
       if (failed) await frame.locator('#retry').waitFor({ state: 'visible' });
@@ -111,6 +114,7 @@ it.each([false, true])('clears each successful send mark and never marks a faile
         await page.waitForFunction(() => (window as any).harnessView.turn === 1);
         await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor({ state: 'hidden' });
       }
+      expect(await frame.locator('.player-strip.is-turn').getAttribute('id')).toBe(failed ? 'strip-me' : 'strip-them');
       await expect.poll(() => frame.locator('.ui-send-check').count(), { timeout: 1500 }).toBe(0);
     }
     expect(await motion('.ui-send-check')).toHaveLength(reduced ? 0 : 2);

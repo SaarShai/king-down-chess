@@ -23,7 +23,7 @@ All four steps pass the worker checks. The playback helper is 100 lines. It has 
 | victory | Local `connectGameEnd`; account `endScreen`, after a live finish | Reviewed title scale/blur settle, real king art and result detail. Existing real recap tiles remain. Reload is still. No fabricated recap or second king fall. |
 | timer | Account `updateTime`, on a new authoritative deadline, warning and expiry | Short start reveal, one border/lift beat when the real deadline crosses one minute, then readable expired feedback. Hours/minutes stay. The sample seconds clock has no real time-control trigger. |
 | army | Local `newGame`; account creation or setup/waiting → playing | King portrait first, real board/army fade, then first prompt. Pieces remain in the renderer. An unknown first host projection stays still because it cannot prove a new start. |
-| turn | Local `handOver`; account authoritative side change | The reviewed diamond travels once between the real portrait positions. No repeating waiting pulse. A staged move alone does not send the turn. |
+| turn | Local `handOver`; account authoritative side change | The reviewed diamond travels once between the real portrait positions. Both the active-player highlight and handoff use the authoritative turn; the shown draft position does not hand over an unsent turn. No repeating waiting pulse. |
 | check | Local committed check; account live check onset | One tightening red frame and word reveal. Portrait art stays still. The red state remains readable. Initial and historic checks are still. |
 | defeat | Live local/account loss | Quiet downward art/title settle and real result detail. No victory flourish or new board fall. |
 | draw | Live local/account draw | Both existing king portraits meet from opposite sides. The real reason stays. No invented agreement message. |
@@ -62,6 +62,8 @@ The focused baseline reproduces all five reported failures. Each old assertion n
 `KINGDOWN_TEST_FILE='tools/plugin-motion.test.ts' npm test` waits for the shared lock and passes typecheck, all 20 selected cases and all 50 required scene cases. Log: `/tmp/effects-ui-regression-check-2.log`. `git diff --check` passes. This is not a full-suite pass. The launch snapshot is `/tmp/effects-ui-game-launch.diff`; the file copies in `/tmp/effects-ui-regression-launch/` define the incremental diff. No renderer, engine, registry, global tracker, combat or excluded board indication changes.
 
 The final spent-card target correction and its independent review findings are covered by `KINGDOWN_TEST_FILE='tools/plugin-{motion,ui-style}.test.ts' npm test`: all 23 cases, typecheck and all 50 scene cases pass. The real browser checks unchanged target dimensions in normal and reduced motion, unclipped grey paint at onset, existing final styles and no replay. Log: `/tmp/effects-spent-target-reviewed.log`.
+
+The PR review's unsent-turn highlight regression is reproduced and fixed. The same focused command passes all 23 cases, typecheck and all 50 scene cases in `/tmp/effects-turn-highlight-final.log`. Normal and reduced-motion browser cases require the sender's highlight during an unsent draft and after a failed send, then the opponent's highlight after successful submission.
 
 ## Files owned and changed
 

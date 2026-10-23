@@ -430,7 +430,7 @@ export function boardScreen(store: Store) {
     const focused = document.activeElement?.closest('#strip-me, #strip-them') ? document.activeElement.id : '';
     for (const side of [0,1] as const) {
       const mine = side === view.seat, strip = $(mine ? 'strip-me' : 'strip-them');
-      strip.classList.toggle('is-turn', view.status === 'playing' && pos.turn === side);
+      strip.classList.toggle('is-turn', view.status === 'playing' && view.turn === side);
       strip.innerHTML = '<div class="coin-row"><span class="portrait"><img alt=""></span></div><span class="player-name"><b></b><small></small></span>';
       strip.querySelector('img')!.src = art(portraitPath(side));
 
