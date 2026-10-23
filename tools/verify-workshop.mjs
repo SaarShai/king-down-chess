@@ -1,5 +1,5 @@
 // The Workshop: the Proving Ground (docs/WORKSHOP.md; docs/specs/workshop-proving-ground, tickets 01 to 11).
-// Groups: opens (the menu door, ‹ Menu and Esc, the focus back on the menu), poolPieces (each pool piece opens;
+// Groups: opens (the menu door, ‹ Game and Esc, the focus back on the menu), poolPieces (each pool piece opens;
 // the Pawn's and the Paladin's marks equal src/workshop/scene.test.ts), yours (the shelf designs in the ledge; a damaged entry's toast),
 // link (a design link opens read only; a bad code shows the toast and no card face), keys (one tab stop, the arrow keys, the square
 // labels, Enter and Space on a ledge slot keep the focus), refused (grey barred marks and their stamps), isolate (hover, a tap and
@@ -197,9 +197,10 @@ async function opens() {
   await door(p);
   assert.equal(await p.getAttribute('#workshop', 'aria-labelledby'), 'pg-h', 'the dialog is named by its title');
   assert.equal(await name(p), 'Pawn', 'the Workshop opens on the Pawn');
-  await p.click('.pg-menu');
-  assert.equal(await p.locator('#workshop[open]').count(), 0, '‹ Menu closes the Workshop');
-  assert.equal(await focused(p), 'menu-btn', '‹ Menu gives the focus back to the menu');
+  assert.equal(await p.locator('.pg-menu .pg-word').textContent(), 'Game', 'the visible label names the destination');
+  await p.getByRole('button', { name: 'Back to game', exact: true }).click();
+  assert.equal(await p.locator('#workshop[open]').count(), 0, '‹ Game closes the Workshop');
+  assert.equal(await focused(p), 'menu-btn', '‹ Game gives the focus back to the menu');
   await door(p);
   await p.keyboard.press('Escape');
   assert.equal(await p.locator('#workshop[open]').count(), 0, 'Esc closes the Workshop');
@@ -469,7 +470,7 @@ async function landscape(p, size) {
   assert.equal(await tag(p), null, `${size}: and does nothing else`);
   await p.click('[data-act="pieces"]');
   await p.click('.pg-menu');
-  assert.deepEqual([await p.isHidden('.pg-ledge'), await p.locator('#workshop[open]').count()], [true, 1], `${size}: a tap on ‹ Menu closes the sheet, not the Workshop`);
+  assert.deepEqual([await p.isHidden('.pg-ledge'), await p.locator('#workshop[open]').count()], [true, 1], `${size}: a tap on ‹ Game closes the sheet, not the Workshop`);
   // The Why tag: a side sheet over the column, beside the board.
   await tap(p, 'd7');
   assert.equal((await tag(p))?.sq, 'd7', `${size}: a tap on d7 opens its tag`);
