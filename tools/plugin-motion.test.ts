@@ -231,10 +231,10 @@ it.each([false, true])('pulses the checked side once (reduced motion %s)', async
     await frame.locator('#board-menu').click(); await frame.locator('#reload').click();
     await frame.locator('#status').filter({ hasText: 'Check!' }).waitFor();
     expect((await pulse()).count).toBe(reduced ? 0 : 1);
-    // It runs once: no portrait animation runs 1.5 s after the pulse starts. The page reads it at that time on its own
-    // timeline; a poll from here can spend the 1.5 s in one slow read.
+    // It runs once: 1.5 s after the pulse starts, the portrait is there and no animation of it or of the pulse runs. The
+    // page reads it at that frame (watchMotionEnd); a poll from here can spend the 1.5 s in one slow read.
     if (reduced) expect(await animations(frame, '#strip-me .portrait')).toBe(0);
-    else expect(await pulseEnd()).toEqual({ seen: expect.toSatisfy((seen: number) => seen > 0), running: 0 });
+    else expect(await pulseEnd()).toEqual({ seen: expect.toSatisfy((seen: number) => seen > 0), found: expect.toSatisfy((found: number) => found > 0), running: 0 });
   } finally { await page.close(); }
 });
 it.each([false, true])('opens the board after both Ready (reduced motion %s)', async reduced => {

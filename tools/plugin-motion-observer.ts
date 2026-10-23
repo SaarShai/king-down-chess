@@ -22,31 +22,37 @@ export async function watchMotion(page: Page, selector: string) {
 }
 
 /**
- * Record whether the animations under `scope` end within `ms` of the first `trigger` match. The page counts the time
- * on its document timeline from that match, and reads the animations at its first frame `ms` on. So a slow browser call
- * cannot use up the time, and a page that stalls reads the timeline at its next frame, when a short animation has ended.
- * An animation that stops moving (playbackRate 0) is still running there.
- * The result comes at that frame: `seen`, the animations under `scope` at the match, and `running`, those that run then.
+ * Record whether the animations under `scope` end within `ms` of the first `trigger` match. The time runs from the
+ * first frame after the match, when its animations start, to the first frame `ms` on, in frame times. So a slow browser
+ * call cannot use up the time, and a page that stalls before or after the start reads the animations at a frame that
+ * shows each one's own progress. An animation that stops moving (playbackRate 0) is still running there.
+ * The result comes at that frame: `seen`, the animations under `scope` at the match; `found`, the `scope` elements then;
+ * and `running`, the animations under `scope` then, or of the match, that run. It is null when no match came.
+ * The page needs running frames: no paused page clock.
  */
 export async function watchMotionEnd(page: Page, trigger: string, scope: string, ms: number) {
   const watch = ({ trigger, scope, ms }: { trigger: string; scope: string; ms: number }) => {
     const animations = () => [...document.querySelectorAll(scope)].flatMap(e => e.getAnimations({ subtree: true }));
-    let done!: (result: { seen: number; running: number }) => void;
-    ((window as any).motionEnd ??= {})[trigger] = new Promise(resolve => done = resolve);
+    const state: { result: Promise<{ seen: number; found: number; running: number }> | null } = { result: null };
+    ((window as any).motionEnd ??= {})[trigger] = state;
     const start = () => {
       if (!document.querySelector(trigger)) return;
       observer.disconnect();
-      const from = Number(document.timeline.currentTime), seen = animations().length;
-      const frame = () => {
-        if (Number(document.timeline.currentTime) - from < ms) requestAnimationFrame(frame);
-        else done({ seen, running: animations().filter(a => a.playState === 'running').length });
-      };
-      requestAnimationFrame(frame);
+      // The match's own animations count too, also when its element leaves `scope`.
+      const seen = animations();
+      state.result = new Promise(done => requestAnimationFrame(from => {
+        const frame = (now: number) => {
+          if (now - from < ms) { requestAnimationFrame(frame); return; }
+          const running = new Set([...seen, ...animations()].filter(a => a.playState === 'running'));
+          done({ seen: seen.length, found: document.querySelectorAll(scope).length, running: running.size });
+        };
+        requestAnimationFrame(frame);
+      }));
     };
     const observer = new MutationObserver(start);
     observer.observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
     start();
   };
   await install(page, watch, { trigger, scope, ms });
-  return () => page.frameLocator('iframe').locator('html').evaluate((_, trigger) => (window as any).motionEnd[trigger] as Promise<{ seen: number; running: number }>, trigger);
+  return () => page.frameLocator('iframe').locator('html').evaluate((_, trigger) => (window as any).motionEnd[trigger].result as Promise<{ seen: number; found: number; running: number }> | null, trigger);
 }
