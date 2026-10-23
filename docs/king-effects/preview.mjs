@@ -11,8 +11,8 @@ const TITLE_FLOOR = new URL('../../public/ui/stone-board.webp',import.meta.url).
 
 const HEADROOM = 64, PAD = 32, TILE = 112, pieces = { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName };
 const INFO = {
-  flame: ['Flame', 'Lava light flows through the cracks and seams of his armour.', 'A bubbling lava pool opens under the piece; lava climbs it, with a glowing crust, drips, sparks and smoke, and the pool pulls it under.'],
-  frost: ['Frost', 'The frozen-state ice forms at ground height: the same translucent facets, frost cracks and melting flakes.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
+  flame: ['Flame', 'The selected Lava A ground opens into painted branching fissures, with molten light below the stone. Lava also flows through his armour.', 'A bubbling lava pool opens under the piece; lava climbs it, with a glowing crust, drips, sparks and smoke, and the pool pulls it under.'],
+  frost: ['Frost', 'No ground animation. His original drifting flakes remain.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
   stratus: ['Stratus', 'The original Sky King hovers over full clouds that visibly gather and dissolve below his feet.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the rook in its way and off the board: on the back rank along the band above the board, from an edge file back over the king.'],
   mud: ['Mud', 'Grass grows thick round his feet, and brown vines rise from the ground, arch over and go back into the ground; then the vines and the grass sink back.', 'The soil cracks; brown thorny vines wind round the piece and pull it down into the earth; three sprouts come up. Then his own grass, and after it a vine, grow on his new square.'],
   spirit: ['Spirit', 'The ivory king: a white and gold glow round him, short rays of light above his crown and light on his square. The charcoal king: a black aura, black rays and a dark pool on his square. Both breathe slowly in and out.', 'The piece turns into a glowing silhouette of itself (white for the ivory king, black for the charcoal one) and implodes.'],
@@ -54,10 +54,10 @@ export const capturesFor = design => CAPTURES.filter(c => !c.only || c.only === 
 const scenes = {}, frames = [];
 let size = 'desktop', animations = true;
 const resolution = scale => Math.min(2, Math.max(1, Math.ceil(scale * 960 * devicePixelRatio / 960 * 4) / 4));
-function makeScene(kings, pos, coords, lavaGround=null) {
+function makeScene(kings, pos, coords) {
   const canvas = document.createElement('canvas');
   canvas.width = 960; canvas.height = 960 + HEADROOM;
-  const scene = createScene({ canvas, pieces, headroom: HEADROOM, kings, lavaGround });
+  const scene = createScene({ canvas, pieces, headroom: HEADROOM, kings });
   scene.setCoords(coords); scene.setPosition(pos);
   scene.setLively({ moves: true, idle: true, atmosphere: true, kings: true, captures: true, pawns: true });
   return { canvas, scene };
@@ -106,17 +106,7 @@ for (const design of Object.keys(INFO)) {
   scenes[design] = { scene, canvas };
   const section = card(grid, INFO[design][0], `${INFO[design][1]} <span class="period">Loop ${PERIOD[design] / 1000} s.</span>`, scene, canvas);
   section.id = `idle-${design}`;
-  groundReplay(section,scene,INFO[design][0]);
-}
-
-for(const [variant,title,description] of [
- ['fissures','Lava A — branching fissures','Painted branching fissures expose deep rock walls and moving molten light below chipped stone.'],
- ['plates','Lava B — deep faults','Painted broken crust opens into wider channels, with deep textured walls above flowing molten light.'],
-]){
- const {canvas,scene}=makeScene(['flame','flame'],KINGS_ROW,false,variant);
- scenes[`lava-${variant}`]={scene,canvas};
- const section=card(grid,title,`${description} Preview option; not enabled in the game.`,scene,canvas);section.id=`lava-${variant}`;
- groundReplay(section,scene,title);
+  if(design!=='frost')groundReplay(section,scene,INFO[design][0]);
 }
 
 // 2. Captures: each card plays its captures in turn; a button plays one now.

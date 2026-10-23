@@ -12,7 +12,6 @@
 // The scene draws back() before a king's figure and front() after it, so a figure standing in front
 // (a lower row) still covers both. Every effect repeats exactly after PERIOD[design] ms, so one
 // period recorded loops without a seam. Units are board units (the board is 960 wide).
-import {drawFreeze} from './ice-material.mjs';
 import {clamp} from '../painted-mesh.mjs';
 import * as court from '../court-motion.mjs';
 import {drawHand,drawCrack,crackLip} from './skeleton-hands.mjs';
@@ -21,7 +20,7 @@ import {GRASS_ROOT,GRASS_TIP,LEAF,VINE} from './mud-palette.mjs';
 export const PERIOD={flame:4800,frost:6000,stratus:4000,mud:8000,spirit:4000,shadow:6400};
 export const KING_EFFECTS=Object.keys(PERIOD);
 const LAVA_MASK=new URL('../king-flame/lava-mask.webp',import.meta.url).href;
-const LAVA_GROUND={fissures:new URL('../king-flame/ground-fissures.webp',import.meta.url).href,plates:new URL('../king-flame/ground-faults.webp',import.meta.url).href};
+const LAVA_GROUND=new URL('../king-flame/ground-fissures.webp',import.meta.url).href;
 const CLOUD_BANK=new URL('../king-stratus/cloud-bank.png',import.meta.url).href;
 const SMOKE_MASK=new URL('../king-shadow/smoke-mask.webp',import.meta.url).href;
 const TAU=Math.PI*2;
@@ -50,7 +49,7 @@ export function hoverAt(t,k=1){return k*(3+6*(1-Math.cos(TAU*t/PERIOD.stratus))/
 
 /** A floor cloud's bounded, seamless life. The same clock drives movement fade and hover. */
 export function groundLife(t,period){const p=frac(Math.max(0,t)/period);return smooth(p/.28)*(1-smooth((p-.62)/.38));}
-export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
+export function createKingEffects({sheet,onLoad=()=>{}}){
  const cache=new Map(),assets=new Map();
  // An effect's own art: null until it has loaded (then the layers built from it are rebuilt).
  function asset(url){
@@ -268,14 +267,6 @@ export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
   ctx.save();ctx.globalAlpha=s.k*s.g*Math.min(1,life*5);
   ctx.drawImage(art.work,s.ground.x-w/2,s.ground.y-h*.58,w,h);ctx.restore();
  }
- function rime(ctx,s){
-  const ice=cached('frost-ground',()=>layer()),g=ice.getContext('2d');
-  g.clearRect(0,0,L,L);g.save();g.translate(L/2,L/2);g.scale(.86,.32);
-  const frame={x:0,y:0,progress:frac(s.t/PERIOD.frost),seed:5};
-  drawFreeze(g,{...frame,front:false});drawFreeze(g,{...frame,front:true});g.restore();
-  ctx.save();ctx.globalAlpha=s.k*s.g;ctx.drawImage(ice,s.ground.x-L/2,s.ground.y-L/2-2);ctx.restore();
- }
-
  // Painted, filled cumulus layers billow outward and separate as they dissolve.
  function clouds(ctx,s){
   const image=asset(CLOUD_BANK);if(!image)return;
@@ -291,8 +282,8 @@ export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
   ctx.restore();
  }
 
- // The workshop keeps both painted lava alternatives until the owner selects one.
- function lavaFloor(ctx,s){paintedGround(ctx,s,LAVA_GROUND[lavaGround]);}
+ // The owner selected the painted branching fissures (Lava A).
+ function lavaFloor(ctx,s){paintedGround(ctx,s,LAVA_GROUND);}
 
  // —— Mud ——
  // A full patch of tufts round his feet (an inner and an outer ring), dark at the root, fresh at the tip.
@@ -503,7 +494,7 @@ export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
 
  return {
   /** Whether a design has an effect; starts loading that effect's own art. */
-  has(design){if(design==='flame'&&lavaGround)asset(LAVA_GROUND[lavaGround]);if(design==='stratus')asset(CLOUD_BANK);if(design==='flame')flameLayers(0);if(design==='shadow')shadowLayers(0);return design in PERIOD;},
+  has(design){if(design==='flame')asset(LAVA_GROUND);if(design==='stratus')asset(CLOUD_BANK);if(design==='flame')flameLayers(0);if(design==='shadow')shadowLayers(0);return design in PERIOD;},
   /** The pose the figure is drawn with (Stratus floats; Shadow is drawn without his painted smoke, which moves). */
   pose(s){
    if(s.design==='shadow'){const l=shadowLayers(s.side);return l?{...s.pose,sheet:l.body}:s.pose;}
@@ -522,8 +513,8 @@ export function createKingEffects({sheet,onLoad=()=>{},lavaGround=null}){
    *  reach round his feet, 1 on the board)}.
    */
   back(ctx,s){
-   if(s.design==='flame'&&lavaGround)lavaFloor(ctx,s);
-   else if(s.design==='frost'){rime(ctx,s);flakes(ctx,s,false);}
+   if(s.design==='flame')lavaFloor(ctx,s);
+   else if(s.design==='frost')flakes(ctx,s,false);
    else if(s.design==='stratus')clouds(ctx,s);
    else if(s.design==='mud'){earth(ctx,s);grass(ctx,s,false);vines(ctx,s,false);}
    else if(s.design==='spirit')holyBack(ctx,s);

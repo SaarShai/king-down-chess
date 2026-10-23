@@ -1,6 +1,6 @@
 # King ground materials
 
-Status: preview ready; lava choice pending
+Status: Lava A and clouds accepted; ice ground removed
 
 The owner approved the restored Sky artwork but found its clouds too subtle. Keep that original art. Make clouds full and visible as they form and fade. Give Frost a forming ice floor with the accepted frozen state's blue depth, pale facets and white fracture lips. Show two Flame floor alternatives, with moving lava below cracks.
 
@@ -58,3 +58,9 @@ Lava now uses a fixed 117×47 ground image throughout the loop. The old closing-
 The Frost ground calls the same `drawFreeze` function used by frozen states and cards, projected to low ground height and composited behind the figure. `ice-material.mjs` now owns `drawFreeze`, `drawIceWall` and their shared material helpers. `materials.ts` imports and exports that module for existing consumers. The extracted JavaScript is byte-identical to the original TypeScript after type removal, excluding the module header. The original state and wall drawing logic is unchanged. Removed the unused rejected ice painting and its asset note. The accepted cloud code and asset are unchanged.
 
 Verification: `KINGDOWN_TEST_FILE='src/render/effects/board-effects.test.ts' npm test` passes typecheck, all six selected effects tests and all 51 scene cases (`/tmp/shared-ice-tests.log`). The king-effects browser check passes in 106.6 seconds (`/tmp/shared-ice-browser.log`, run `effects-integration-L3ANZu`). Reviewed the ground ice forming and melting and Lava A's fixed proportions in replay. Screenshot: `shared-frozen-ground.png` in the task visualization folder. No full-suite run or deployment. Lava A is the owner's preferred option; this correction and the revised ice remain ready for visual review.
+
+## Final owner selection
+
+Keep Lava A and the clouds. Remove the Ice King ground effect for now. The accepted Lava A is now the Flame ground in the shared game renderer. Removed the rejected Lava B asset and the temporary variant wiring. The main Flame preview shows Lava A, with its replay button. Frost has no ground animation or ground replay button. Original drifting snowflakes remain; frozen-state and ice-wall card effects remain unchanged. Impeccable is being evaluated separately, not installed.
+
+Final selection checks: typecheck, six selected board-effects tests and all 51 scene cases pass (`/tmp/final-ground-selection-tests.log`). The king-effects browser check passes in 105.7 seconds with Lava A enabled in the shared renderer (`/tmp/final-ground-selection-browser.log`, run `effects-integration-FhecNv`). Visually verified Flame has Lava A and Frost has no ground material. Screenshot: `accepted-lava-no-ice.png` in the task visualization folder. No full-suite run or deployment.
