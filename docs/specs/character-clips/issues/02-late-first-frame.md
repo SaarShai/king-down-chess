@@ -1,6 +1,6 @@
 # A late first frame skips the first clip drawing
 
-Status: ready-for-human
+Status: resolved
 Type: bug
 
 ## Fault
@@ -17,3 +17,8 @@ The clip clock starts on the first frame that draws the selected figure (`select
 
 - New unit test in `docs/2d-first-pieces/clips/clips.test.mjs`: the first frame comes 120 ms after the selection; the Knight and the Rook start on their first drawing. It fails on the old scene (Knight drawing 3) and passes with the fix.
 - `node --test "docs/2d-first-pieces/**/*.test.mjs"`: 57 pass.
+- CI on PR #105: 11 of 11 checks pass. Merged into `staging/first-game` as `8a47c982`; it reaches main with the next release.
+
+## Review
+
+- Independent review (Sol, xhigh, read-only), 2026-10-24: ready, no P0–P3 findings. It confirms the cause, checks every read and write of `selectedAt` and `clipShown` (reduced motion, idle off, symbols-only, deselection, re-selection, `dispose()`), and reruns the new test against the old scene (fails) and the fix (passes).
