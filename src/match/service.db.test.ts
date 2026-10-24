@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from './setup';
-import { GameService, UNFINISHED } from './service';
+import { GameService, TURN_DAYS, UNFINISHED } from './service';
 import { LocalMatch, loadMatch } from './index';
 import { PostgresMatchStore } from './store';
 import { PluginService } from '../plugin/service';
@@ -203,14 +203,14 @@ suite('PostgreSQL online games (real connections and processes)', () => {
  it('ends Daily games on a missed deadline: the sweep, a late command and a claim',async () => {
   const past = (id: string) => admin.query("update public.games set deadline_at=now()-interval '1 minute' where id=$1",[id]);
   // No first turn: cancelled with no result.
-  const silent = await friend(a,b,{days_per_move:1});
+  const silent = await friend(a,b);
   expect((await rows('select deadline_kind,deadline_at-now() > interval \'2 days\' as long from public.games where id=$1',[silent]))[0]).toEqual({deadline_kind:'first_turn',long:true});
   await past(silent);
   expect(await games[1].sweep()).toBeGreaterThanOrEqual(1);
   expect(await games[0].sweep()).toBe(0);
   expect((await rows('select status,result,end_reason from public.games where id=$1',[silent]))[0]).toEqual({status:'aborted',result:null,end_reason:'no_start'});
   // Both sides moved: White's next deadline is days per move; missing it loses on time.
-  const late = await friend(a,b,{days_per_move:1});
+  const late = await friend(a,b);
   await games[0].command(a,late,turn(1,(await games[0].view(a,late)).legal[0]));
   await games[1].command(b,late,turn(2,(await games[1].view(b,late)).legal[0]));
   expect((await rows('select deadline_kind from public.games where id=$1',[late]))[0].deadline_kind).toBe('move');
@@ -227,6 +227,23 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   const claim = await games[1].command(b,claimed,command(1,{type:'claim',reason:'timeout'}));
   expect([claim.status,claim.result?.reason,claim.last_commands.at(-1)?.action.type]).toEqual(['aborted','no_start','claim']);
  },60000);
+
+ it('gives a new game against a person the one turn time, and an older game keeps its own (F-031)',async () => {
+  for (const choice of [{speed:'daily'},{speed:'live'},{days_per_move:1},{days_per_move:7}])
+   await expect(games[0].create(a,{kind:'friend',options:CLASSIC_OPTIONS,...choice})).rejects.toMatchObject({code:'INVALID_INPUT'});
+  // Fresh players: each join by code counts toward the guest's hourly limit of 10.
+  const [host,guest] = [await user('turnhost'),await user('turnguest')];
+  const id = await friend(host,guest), days = async () => (await rows('select deadline_kind,round(extract(epoch from deadline_at-now())/86400)::int as days from public.games where id=$1',[id]))[0];
+  expect(await games[0].view(host,id)).toMatchObject({speed:'daily',days_per_move:TURN_DAYS});
+  await games[0].command(host,id,turn(1,(await games[0].view(host,id)).legal[0]));
+  await games[1].command(guest,id,turn(2,(await games[1].view(guest,id)).legal[0]));
+  expect(await days()).toEqual({deadline_kind:'move',days:TURN_DAYS});
+  // A game made before F-031 keeps its stored 1 or 7 days for each move.
+  await admin.query('update public.games set days_per_move=7 where id=$1',[id]);
+  await games[0].command(host,id,turn(3,(await games[0].view(host,id)).legal[0]));
+  expect(await days()).toEqual({deadline_kind:'move',days:7});
+  expect((await games[1].view(guest,id)).days_per_move).toBe(7);
+ },30000);
 
  it.each([
   ['first_turn', 'turn'], ['move', 'turn'], ['first_turn', 'claim'], ['move', 'claim'],
@@ -351,7 +368,7 @@ suite('PostgreSQL online games (real connections and processes)', () => {
  it('keeps views small and read-only, and lists your turn first',async () => {
   // Fresh players, so games of the other tests do not join the lists.
   const [d,e,f] = [await user('dee'),await user('eve'),await user('fay')];
-  const urgent = await friend(f,d), later = await friend(d,e,{days_per_move:7});
+  const urgent = await friend(f,d), later = await friend(d,e);
   const view = await games[0].command(d,later,turn(1,(await games[0].view(d,later)).legal[0]));
   expect(Buffer.byteLength(JSON.stringify(view))).toBeLessThan(3000);
   expect(view.rules).toBeUndefined(); expect((await games[0].view(d,later)).rules).toBeDefined();
