@@ -1,0 +1,58 @@
+{
+ "knight": {
+  "source": {
+   "sheet": "knight-tap-frames-v2.png",
+   "manifest": "knight-tap-frames-v2.json",
+   "sheetSha256": "f1ff5410b4addc1562d77c127364e73e7ccd8edbb160ffbacdacca28e603e09f"
+  },
+  "drawings": 9,
+  "ticks": 18,
+  "ms": 750,
+  "fit": {
+   "scale": 3.0345,
+   "tx": 444.7,
+   "ty": 997.2,
+   "restAlphaMisfit": 0.0758
+  },
+  "charcoalShift": [
+   16,
+   0
+  ],
+  "charcoalColourError": 18.14,
+  "atlas": {
+   "file": "knight/tap.webp",
+   "bytes": 558598,
+   "width": 1824,
+   "height": 1604,
+   "sha256": "ae49464b7bea5ad6f9ca7f67f5951ee49a576d8e9cb12d3db11d3006c9e4ec08"
+  }
+ },
+ "rook": {
+  "source": {
+   "sheet": "rook-slam-hq.png",
+   "manifest": "rook-slam-hq.json",
+   "sheetSha256": "308e24cfb247c311e7c17bf709e8306ce7158b7f4347919671fec67400186a06"
+  },
+  "drawings": 26,
+  "ticks": 120,
+  "ms": 2000,
+  "fit": {
+   "scale": 0.7463,
+   "tx": 594.3,
+   "ty": 950.1,
+   "restAlphaMisfit": 0.1552
+  },
+  "charcoalShift": [
+   3,
+   0
+  ],
+  "charcoalColourError": 12.62,
+  "atlas": {
+   "file": "rook/slam.webp",
+   "bytes": 1243744,
+   "width": 2576,
+   "height": 2648,
+   "sha256": "3f54c2b5b01295dabc2d2d02d4be28889f249c2d088b4be75a930c849f5f0acc"
+  }
+ }
+}

@@ -1,0 +1,124 @@
+// The character clips in the game's painted look (docs/2d-first-pieces/clips/clips.mjs).
+// Run: npm run check:browser character-clips (it builds and serves the app; the settings are in tools/lib/checks.mjs).
+// Checks: a selected Knight (lance tap) and Rook (slam, crack and heal) of each army play their clip once, through
+// every drawing, and end on the still figure; with reduced motion or Animations Off no clip shows. A page-side
+// recorder reads the scene each animation frame, so a slow browser call cannot miss a short clip. Then, with the
+// page's clock under the check's control, it saves each clip's key drawings (PLAYABLE_OUT) and a short video.
+import assert from 'node:assert/strict';
+import { endTurn } from './app-ui.mjs';
+import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
+import { CLIPS } from '../docs/2d-first-pieces/clips/clips.mjs';
+
+const url = new URL(env('PLAYABLE_URL'));
+url.searchParams.set('players', 'human,human');
+// White Knight b1, Rook h1; Black Knight g8, Rook a8.
+const FEN = 'r3k1n1/8/8/8/8/8/8/1N2K2R w - - 0 1';
+const browser = await launch();
+const pace = (page, value) => page.evaluate(v => { const s = document.getElementById('pace'); s.value = v; s.dispatchEvent(new Event('change')); }, value);
+async function open(options = {}, { clock = false } = {}) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, ...options });
+  const page = await context.newPage();
+  trapErrors(page);
+  await page.addInitScript(() => {
+    sessionStorage.setItem('kingdown.title-seen', '1');
+    // The clip each drawn frame showed: [name, drawing] or null, with the frame's time.
+    window.clipLog = [];
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = fn => raf(t => { fn(t); const c = window.view?.scene?.clip; window.clipLog.push([t, c && [c.name, c.frame]]); });
+  });
+  if (clock) await page.clock.install();
+  const u = new URL(url); u.searchParams.set('fen', FEN);
+  await page.goto(u.href);
+  if (clock) await page.clock.runFor(2000);
+  await page.waitForFunction(() => window.view?.scene && document.getElementById('asset-status')?.textContent === '');
+  await page.evaluate(() => window.view.ready());
+  return { context, page };
+}
+const select = async (page, sq) => { const p = await page.evaluate(s => window.view.screenOf(s), sq); await page.mouse.click(p.x, p.y); };
+const SQUARES = { knight: [1, 62], rook: [7, 56] };
+// Ends when the selected figure's clip has played and the scene has drawn its still figure after it.
+async function played(page, sq) {
+  await page.evaluate(() => { window.clipLog.length = 0; });
+  await select(page, sq);
+  await page.waitForFunction(() => { const l = window.clipLog, i = l.findIndex(e => e[1]); return i >= 0 && l.slice(i).some(e => !e[1]); }, null, { timeout: 8000 });
+  await page.waitForTimeout(1500); // it must not start again
+  return page.evaluate(() => window.clipLog);
+}
+try {
+  // 1. Motion on: each clip plays once, for each army (Black's figures are selectable in a two-player game after White moves).
+  {
+    const { context, page } = await open();
+    for (const side of [0, 1]) {
+      if (side) {
+        // White moves (Ke1-d1), so Black's figures are selectable.
+        await select(page, 4); await select(page, 3);
+        await page.waitForFunction(() => !window.view.scene.animating);
+        await endTurn(page);
+        await page.waitForFunction(() => window.view.scene.position.turn === 1, null, { timeout: 8000 });
+      }
+      for (const [name, squares] of Object.entries(SQUARES)) {
+        const log = await played(page, squares[side]), c = CLIPS[name];
+        const shown = log.filter(e => e[1]), first = log.findIndex(e => e[1]), last = log.findLastIndex(e => e[1]);
+        assert.ok(shown.every(e => e[1][0] === name), `${name}: only his clip plays`);
+        assert.ok(log.slice(first, last + 1).every(e => e[1]), `${name}: the clip plays without a break`);
+        const drawings = new Set(shown.map(e => e[1][1])), want = new Set(c.sequence);
+        // A 60 Hz browser may skip a 60 fps tick; at least 90% of the drawings show.
+        assert.ok(drawings.size >= Math.floor(want.size * .9), `${name}: ${drawings.size} of ${want.size} drawings show`);
+        const ms = log[last][0] - log[first][0];
+        assert.ok(ms > c.duration * .85 && ms < c.duration * 1.3, `${name}: plays for about ${c.duration} ms (${Math.round(ms)})`);
+        assert.ok(log.slice(last + 1).length > 0 && log.slice(last + 1).every(e => !e[1]), `${name}: plays once, then the still figure shows`);
+        console.log(`ok ${['Ivory', 'Charcoal'][side]} ${name}: ${drawings.size} drawings in ${Math.round(ms)} ms, then still`);
+        await select(page, squares[side]); // clear the selection
+      }
+    }
+    await context.close();
+  }
+  // 2. Reduced motion, then Animations Off: no clip shows; the selected figure is still at once.
+  for (const [label, options, off] of [['reduced motion', { reducedMotion: 'reduce' }, false], ['Animations Off', {}, true]]) {
+    const { context, page } = await open(options);
+    if (off) await pace(page, 'off');
+    for (const [name, [sq]] of Object.entries(SQUARES)) {
+      await page.evaluate(() => { window.clipLog.length = 0; });
+      await select(page, sq); await page.waitForTimeout(2500);
+      const log = await page.evaluate(() => window.clipLog);
+      assert.ok(log.every(e => !e[1]), `${label}: no ${name} clip`);
+      assert.equal(await page.evaluate(() => window.view.scene.clip), null);
+      await select(page, sq);
+    }
+    console.log(`ok ${label}: no clip, the still figure shows at once`);
+    await context.close();
+  }
+  // 3. For the owner: each clip's key drawings at board size, on a stopped clock, and a video of both clips.
+  {
+    const { context, page } = await open({ viewport: { width: 900, height: 900 }, deviceScaleFactor: 2 }, { clock: true });
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+    for (const [name, [sq]] of Object.entries(SQUARES)) {
+      const c = CLIPS[name], at = name === 'knight' ? [0, 250, 375, 540, 700] : [0, 300, 450, 560, 900, 1400, 1990];
+      await select(page, sq);
+      let t = 0;
+      for (const ms of at) {
+        await page.clock.runFor(Math.max(1, ms - t)); t = ms;
+        const p = await page.evaluate(s => window.view.screenOf(s), sq);
+        await shot(page, `${name}-${String(ms).padStart(4, '0')}ms`, { clip: { x: p.x - 90, y: p.y - 150, width: 180, height: 190 } });
+      }
+      await page.clock.runFor(c.duration + 200 - t);
+      assert.equal(await page.evaluate(() => window.view.scene.clip), null, `${name}: ended on the stopped clock`);
+      await select(page, sq);
+    }
+    await context.close();
+    const video = await browser.newContext({ viewport: { width: 900, height: 900 }, recordVideo: { dir: env('PLAYABLE_OUT'), size: { width: 900, height: 900 } } });
+    const page2 = await video.newPage();
+    await page2.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1'));
+    const u = new URL(url); u.searchParams.set('fen', FEN);
+    await page2.goto(u.href);
+    await page2.waitForFunction(() => window.view?.scene && document.getElementById('asset-status')?.textContent === '');
+    await page2.evaluate(() => window.view.ready()); await page2.waitForTimeout(800);
+    for (const sq of [1, 7, 1, 7]) { await select(page2, sq); await page2.waitForTimeout(sq === 1 ? 1300 : 2600); await select(page2, sq); await page2.waitForTimeout(400); }
+    await video.close();
+    console.log(`ok key drawings and video in ${env('PLAYABLE_OUT')}`);
+  }
+  assertNoErrors();
+  console.log('ok character clips');
+} finally {
+  await browser.close();
+}
