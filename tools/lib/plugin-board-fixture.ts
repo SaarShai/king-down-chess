@@ -73,6 +73,12 @@ export async function open(next: View, width = 393, height = 852, clock = false,
   await page.frameLocator('iframe').locator('html').evaluate('(async () => { window.testBoard = (await import("/src/plugin/board-view.ts")).board; })()');
   return page;
 }
+/** The board sheet closes at once (`open` is false); its close transition (PR #92 ui-dialog-motion) then hides it. */
+export async function sheetClosed(page: Page) {
+  const sheet = page.frameLocator('iframe').locator('#board-sheet');
+  expect(await sheet.evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
+  await sheet.waitFor({ state: 'hidden' });
+}
 export async function marks(page: Page) {
   return page.frameLocator('iframe').locator('html').evaluate(() => structuredClone((window as any).testBoard.marks));
 }

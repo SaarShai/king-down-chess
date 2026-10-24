@@ -13,7 +13,7 @@ import { describeMove } from '../src/move-text';
 import { GameRules } from '../src/game-rules';
 import { readText } from '../src/read';
 import { cardText, powerText, ruleLine } from '../src/powers-ui';
-import { harness, served, browser, view, insets, targetMisses, edgeMisses, open, marks, clickButton, squareTap } from './lib/plugin-board-fixture';
+import { harness, served, browser, view, insets, targetMisses, edgeMisses, open, marks, clickButton, squareTap, sheetClosed } from './lib/plugin-board-fixture';
 
 it.each(['See the board', 'New game'])('cancels a pending ceremony with %s during the final move', async action => {
   const before = view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'), pre = fromFen(before.fen);
@@ -894,7 +894,7 @@ it('gives live pawn move choices the shared tablet face', async () => {
     await checkButtonContent(frame, '#choices button');
     await frame.locator('#choices button[title="e2-e4"]').click();
     await frame.locator('#end-turn[aria-disabled="false"]').waitFor();
-    expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
+    await sheetClosed(page);
   } finally { await page.close(); }
 });
 
@@ -955,7 +955,7 @@ it('Escape from All rules puts focus on the board when the hidden opener cannot 
     const sheet = frame.getByRole('dialog', { name: 'All rules', exact: true });
     expect(await sheet.isVisible()).toBe(true);
     await page.keyboard.press('Escape');
-    expect(await sheet.isVisible()).toBe(false);
+    await sheetClosed(page);
     expect((await marks(page)).selected).toBeUndefined();
     expect(await frame.locator('#all-rules').isHidden()).toBe(true);
     expect(await frame.locator('html').evaluate(() => document.activeElement?.id)).toBe('board');
@@ -977,6 +977,8 @@ it('F-008: the focused sheet body shows its ring on all four sides', async () =>
     const body = frame.getByRole('dialog', { name: 'Moves', exact: true }).locator('.sheet-body');
     await page.keyboard.press('Tab');
     expect(await body.evaluate(el => el === document.activeElement && el.matches(':focus-visible'))).toBe(true);
+    // The sheet fades in (PR #92 ui-dialog-motion); read its colours at rest.
+    await frame.locator('#board-sheet').evaluate(async sheet => { await Promise.all(sheet.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {}))); });
     const box = (await body.boundingBox())!, clip = { x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width), height: Math.round(box.height) };
     const image = await sharp(await page.screenshot({ clip, scale: 'css' })).removeAlpha().raw().toBuffer({ resolveWithObject: true });
     const light = (x: number, y: number) => { const i = (y * image.info.width + x) * 3; return [...image.data.subarray(i, i + 3)].map(c => c / 255).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4).reduce((s, c, k) => s + c * [.2126, .7152, .0722][k], 0); };
