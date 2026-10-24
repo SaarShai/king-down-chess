@@ -1,6 +1,6 @@
 # Takeover baseline — 2026-09-16
 
-Phase 1 of [docs/TAKEOVER-PLAN.md](../TAKEOVER-PLAN.md). Work done inside opencode (deepseek-v4.1-flash).
+Phase 1 of [docs/TAKEOVER-PLAN.md](../TAKEOVER-PLAN.md). Work done inside OpenCode.
 The inherited chain is stopped, the working tree is preserved with hashes, and the source is under
 version control for the first time.
 

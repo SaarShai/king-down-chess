@@ -24,5 +24,5 @@ Quiet, plus: the four cards deal once when a Cards game starts live (560 ms); th
 - L0 board layout: taste/layout-a (d925bb68), taste/layout-b (6c430888), taste/layout-c (454dec63).
 - J2, D2, J3 quick start: taste/quick-start (67efc794). New player to first move: 7 taps → 3.
 - J8 first-game teaching (research report 05, option A): taste/teach-notes (bcaf866c), notes in Beginner games only.
-- J0 combined preview of the recommended picks: taste/recommended (2ca46584). An Opus UX journey review of it is in work.
+- J0 combined preview of the recommended picks: taste/recommended (2ca46584). A Claude Code UX journey review of it is in work.
 - Word items W3–W6 and decisions D13–D15 are on the approval page as text options.

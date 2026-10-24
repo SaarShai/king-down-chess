@@ -61,7 +61,7 @@ PLAYABLE_BROWSER=chromium KINGDOWN_TEST_FILE=tools/plugin-board.test.ts tools/te
 | `npm run typecheck` | Pass. |
 | `git diff --check` | Pass. |
 
-Logs use the prefix `anim-cursor-` in the owner's supplied `scratchpad/sol`
+Logs use the prefix `anim-cursor-` in the owner's supplied `scratchpad` review folder
 folder: `chromium-1.log` through `chromium-5.log`, `webkit-1.log` through
 `webkit-3.log` and `chromium-full.log`.
 

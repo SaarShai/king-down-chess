@@ -64,7 +64,7 @@ Run records have `ok:true` and `fault:null`. Their folders are under
 - Chromium: `rc-race-b-b80B4L/plugin-ui.log` and `run.json`.
 
 Command logs are `race-b-webkit.log` and `race-b-chromium.log` in the
-owner's supplied `scratchpad/sol` folder.
+owner's supplied `scratchpad` review folder.
 
 ## Review and limits
 
