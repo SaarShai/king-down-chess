@@ -16,13 +16,13 @@ const EXEMPT: { path: RegExp; why: string }[] = [
   { path: /^docs\/DELEGATION\.md$/, why: 'which model does which work, with the tested model IDs' },
   { path: /^docs\/LOCAL-AI-MACBOOK\.md$/, why: 'the M1 model inventory and the commands that name each model' },
   { path: /^docs\/research\/(m1-|direct-campaign-2026-09-22\.md$)/, why: 'the records of the 2026-09-21 and 2026-09-22 model trials' },
-  { path: /^docs\/research\/chatgpt-plugin-feasibility-2026-10-07\.md$/, why: 'cites the earlier ChatGPT plugin project by its folder name' },
   { path: /^docs\/research\/chatgpt-chess-market\.md$/, why: 'cites an outside repository by its name and address' },
 ];
 
-/** Each model name in one file, as `file:line: "word"`. An exempt file gives none. */
+const exempt = (file: string) => EXEMPT.some(entry => entry.path.test(file));
+
+/** Each model name in one file, as `file:line: "word"`. */
 function modelNameFaults(file: string, text: string): string[] {
-  if (EXEMPT.some(entry => entry.path.test(file))) return [];
   return findModelNames(text).map(find => `${file}:${find.line}: "${find.word}"`);
 }
 
@@ -46,9 +46,10 @@ describe('model names in the docs', () => {
     ]);
   });
 
-  it('passes an exempt file and a text with no model name', () => {
-    expect(modelNameFaults('docs/tasks-archive/2026-09.md', `A ${model} agent.`)).toEqual([]);
+  it('passes a text with no model name, and finds the exempt files by path', () => {
     expect(modelNameFaults('docs/specs/x/issues/01-x.md', 'An independent review by Codex and Claude Code.')).toEqual([]);
+    expect(exempt('docs/tasks-archive/2026-09.md')).toBe(true);
+    expect(exempt('docs/specs/x/issues/01-x.md')).toBe(false);
   });
 
   it('each exempt entry matches a file of the tree', () => {
@@ -57,6 +58,8 @@ describe('model names in the docs', () => {
   });
 
   it('no Markdown file outside the exempt files holds a model name', () => {
-    expect(markdownFiles().flatMap(file => modelNameFaults(file, readFileSync(join(root, file), 'utf8')))).toEqual([]);
+    // An exempt file is not read.
+    const files = markdownFiles().filter(file => !exempt(file));
+    expect(files.flatMap(file => modelNameFaults(file, readFileSync(join(root, file), 'utf8')))).toEqual([]);
   });
 });
