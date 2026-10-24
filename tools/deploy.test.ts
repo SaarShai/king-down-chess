@@ -19,7 +19,7 @@ const script = fileURLToPath(new URL('./deploy.sh', import.meta.url));
 const liveCheck = fileURLToPath(new URL('./deploy-live-check.mjs', import.meta.url));
 const pluginLiveCheck = fileURLToPath(new URL('./deploy-plugin-live-check.mjs', import.meta.url));
 const siteProject = { projectId: 'prj_SiteTest', orgId: 'team_mIlANWWDRbX1NT4jgJn9jAna', projectName: 'kingdown' };
-const enginesDatabase = 'postgresql://reader:fake-engines-password@db.example/postgres?sslmode=require';
+const enginesDatabase = 'postgresql://kingdown_plugin_runtime.utqzovjmclfyojedmwok:fake-engines-password@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require';
 const productionSupabase = 'https://utqzovjmclfyojedmwok.supabase.co', stagingSupabase = 'https://puhspsyjyzaghmgtkzqd.supabase.co';
 const pluginProject = { projectId: 'prj_2H4LcrzOXCQbFuKbq0z0G7lCFFC6', orgId: 'team_mIlANWWDRbX1NT4jgJn9jAna', projectName: 'kingdown-plugin' };
 
@@ -153,6 +153,41 @@ describe('deploy.sh', () => {
     expect(result.status).toBe(2);
     expect(result.stderr).toContain('set KINGDOWN_ENGINES_DATABASE_URL before --publish');
     expect(result.stdout).not.toMatch(/step|worktree|skipped/);
+    expect(calls()).toEqual([]);
+    expect(existsSync(gitLog)).toBe(false);
+  });
+
+  it.each([
+    ['staging', 'postgresql://kingdown_plugin_runtime.puhspsyjyzaghmgtkzqd:fake-engines-password@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require'],
+    ['staging direct', 'postgresql://kingdown_plugin_runtime:fake-engines-password@db.puhspsyjyzaghmgtkzqd.supabase.co/postgres?sslmode=require'],
+    ['loopback', 'postgresql://kingdown_test:fake-engines-password@127.0.0.1:55432/kingdown_test'],
+    ['other host', 'postgresql://reader:fake-engines-password@db.example/postgres?sslmode=require'],
+    ['NUL-split user', 'postgresql://postgres.puhspsyjyzaghmgtkzqd%00application_name%00x.utqzovjmclfyojedmwok:fake-engines-password@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require'],
+    ['cluster-alias user', 'postgresql://kingdown_plugin_runtime.cluster.review.utqzovjmclfyojedmwok:fake-engines-password@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require'],
+    ['NUL-split database', 'postgresql://kingdown_plugin_runtime.utqzovjmclfyojedmwok:fake-engines-password@aws-0-us-east-2.pooler.supabase.com:6543/postgres%00user%00postgres.puhspsyjyzaghmgtkzqd?sslmode=require'],
+  ])('refuses a %s engines database before any publish work', (_, database) => {
+    const { repo, deploy, calls } = setup();
+    const gitLog = join(repo.root, 'git-calls');
+    stub(join(repo.root, 'bin', 'git'), [`echo git >> "${gitLog}"`, 'exit 99']);
+    for (const target of ['website', 'plugin']) {
+      const result = deploy(['--target', target, '--publish'], { KINGDOWN_ENGINES_DATABASE_URL: database });
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain('KINGDOWN_ENGINES_DATABASE_URL must name the production Supabase database, with no PGOPTIONS, before --publish');
+      expect(result.stderr + result.stdout).not.toContain('fake-engines-password');
+      expect(result.stdout).not.toMatch(/step|worktree|skipped/);
+    }
+    expect(calls()).toEqual([]);
+    expect(existsSync(gitLog)).toBe(false);
+  });
+
+  it('refuses PGOPTIONS with a production engines database before any publish work', () => {
+    const { repo, deploy, calls } = setup();
+    const gitLog = join(repo.root, 'git-calls');
+    stub(join(repo.root, 'bin', 'git'), [`echo git >> "${gitLog}"`, 'exit 99']);
+    const result = deploy(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, PGOPTIONS: 'reference=puhspsyjyzaghmgtkzqd' });
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('with no PGOPTIONS, before --publish');
+    expect(result.stderr + result.stdout).not.toMatch(/fake-engines-password|reference=/);
     expect(calls()).toEqual([]);
     expect(existsSync(gitLog)).toBe(false);
   });
@@ -375,6 +410,9 @@ describe('deploy.sh', () => {
       `npm run ${build}`, `node tools/engines-check.mjs ${artifact}/.vercel/output/functions/mcp.func/runtime/engines`,
     ]);
     expect(result.stdout + result.stderr + calls().join('\n')).not.toContain('fake-engines-password');
+    // Check-only mode keeps the general checker: a local test database passes the shell gate.
+    const local = deploy(['--target', target], { ...database, KINGDOWN_ENGINES_DATABASE_URL: 'postgresql://kingdown_test@127.0.0.1:55432/kingdown_test' });
+    expect(local.status, local.stderr).toBe(0);
     const failed = deploy(['--target', target, '--publish'], { ...database, STUB_FAIL: 'tools/engines-check.mjs' });
     expect(failed.status).not.toBe(0);
     expect(failed.stderr).toContain('FAIL at engines in use');
@@ -921,7 +959,7 @@ describe('deploy.sh --target plugin --publish', () => {
       'npx --yes vercel@62.2.0 deploy --prebuilt --prod --scope saars-projects-2c777ec5 --yes',
     ]);
     expect(result.stdout).toContain('plugin-live-check: pass');
-    expect(calls().some(line => line.startsWith('node tools/engines-check.mjs plugin-deploy/.vercel/output/functions/mcp.func/runtime/engines '))).toBe(true);
+    expect(calls().some(line => line.startsWith('node tools/engines-check.mjs --production plugin-deploy/.vercel/output/functions/mcp.func/runtime/engines '))).toBe(true);
     expect(result.stdout).not.toContain('skipped the check of engines in use');
     expectGone(repo, worktreeOf(result.stdout));
   });
@@ -949,7 +987,7 @@ describe('deploy.sh --publish', () => {
     expect(result.status, result.stderr).toBe(0);
     const log = calls().map(words);
     const runner = log.indexOf('npm run check:browser');
-    const engines = log.indexOf('node tools/engines-check.mjs kingdown-deploy/.vercel/output/functions/mcp.func/runtime/engines');
+    const engines = log.indexOf('node tools/engines-check.mjs --production kingdown-deploy/.vercel/output/functions/mcp.func/runtime/engines');
     expect(engines).toBeGreaterThan(log.indexOf('npm run build:vercel'));
     expect(result.stdout).not.toContain('skipped the check of engines in use');
     expect(runner).toBeGreaterThan(-1);

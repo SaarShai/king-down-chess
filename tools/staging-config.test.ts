@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { stagingConfig, PRODUCTION_ORIGINS, STAGING_ORIGIN, STAGING_SUPABASE_URL, STAGING_SUPABASE_REF } from './staging-config.mjs';
+import { productionDatabase, stagingConfig, PRODUCTION_ORIGINS, STAGING_ORIGIN, STAGING_SUPABASE_URL, STAGING_SUPABASE_REF } from './staging-config.mjs';
 const env = { KINGDOWN_STAGE: 'staging', SUPABASE_URL: STAGING_SUPABASE_URL };
 const direct = `postgresql://kingdown_plugin_runtime:fake@db.${STAGING_SUPABASE_REF}.supabase.co/postgres?sslmode=require`;
 const check = (changes = {}, publicOrigin = STAGING_ORIGIN, db = direct) => stagingConfig({ ...env, ...changes }, { publicOrigin, database: new URL(db) });
@@ -63,4 +63,23 @@ it('local development skips only the production targets', () => {
   const local = (SUPABASE_URL: string | undefined, db: string) => stagingConfig({ SUPABASE_URL }, { publicOrigin: 'http://127.0.0.1:3100', database: new URL(db), localDev: true });
   expect(local(undefined, 'postgresql://postgres:fake@127.0.0.1/kingdown_test')).toBe(false);
   expect(() => local(STAGING_SUPABASE_URL.toUpperCase(), 'postgresql://postgres:fake@127.0.0.1/kingdown_test')).toThrow('Production refuses the staging project');
+});
+it('the publish database check accepts only the production project and refuses staging and loopback targets', () => {
+  for (const [, value] of caseAndDot('utqzovjmclfyojedmwok').filter(([key]) => key === 'db')) expect(() => productionDatabase(new URL(value))).not.toThrow();
+  expect(() => productionDatabase(new URL(productionPooler))).not.toThrow();
+  for (const db of [direct, `postgresql://kingdown_plugin_runtime.${STAGING_SUPABASE_REF}:fake@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require`,
+    'postgresql://kingdown_test@127.0.0.1:55432/kingdown_test', 'postgresql://postgres@localhost/postgres', 'postgresql://postgres@[::1]/postgres',
+    'postgresql://postgres.utqzovjmclfyojedmwok:fake@127.0.0.1/postgres', 'postgresql://postgres.utqzovjmclfyojedmwok:fake@db.example/postgres',
+    // A NUL byte ends a startup field, so the pooler would read the first user (staging) and the rest as other fields.
+    `postgresql://postgres.${STAGING_SUPABASE_REF}%00application_name%00review.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com/postgres?sslmode=require`,
+    `postgresql://postgres.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com/postgres%00user%00postgres.${STAGING_SUPABASE_REF}?sslmode=require`,
+    'postgresql://postgres:fake@db.utqzovjmclfyojedmwok.supabase.co/other?sslmode=require',
+    // The pooler reads `<role>.cluster.<alias>` as a cluster alias, which can name another project; only `<role>.<ref>` passes.
+    'postgresql://postgres.cluster.review.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require',
+    'postgresql://postgres%2Ecluster%2Ereview.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require',
+    'postgresql://a.b.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require',
+    'postgresql://.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require']) expect(() => productionDatabase(new URL(db))).toThrow('Production requires its Supabase database');
+  // The pooler's startup `reference` option selects the project before the user suffix does.
+  expect(() => productionDatabase(new URL(productionPooler), { PGOPTIONS: `reference=${STAGING_SUPABASE_REF}` })).toThrow('Production refuses PGOPTIONS');
+  expect(() => productionDatabase(new URL(productionPooler), { PGOPTIONS: '' })).not.toThrow();
 });
