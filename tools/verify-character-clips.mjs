@@ -15,7 +15,7 @@ url.searchParams.set('players', 'human,human');
 const FEN = 'r3k1n1/8/8/8/8/8/8/1N2K2R w - - 0 1';
 const browser = await launch();
 const pace = (page, value) => page.evaluate(v => { const s = document.getElementById('pace'); s.value = v; s.dispatchEvent(new Event('change')); }, value);
-async function open(options = {}, { clock = false } = {}) {
+async function open(options = {}, { clock = false, fen = FEN } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, ...options });
   const page = await context.newPage();
   trapErrors(page);
@@ -27,14 +27,29 @@ async function open(options = {}, { clock = false } = {}) {
     window.requestAnimationFrame = fn => raf(t => { fn(t); const c = window.view?.scene?.clip; window.clipLog.push([t, c && [c.name, c.frame]]); });
   });
   if (clock) await page.clock.install();
-  const u = new URL(url); u.searchParams.set('fen', FEN);
+  const u = new URL(url); u.searchParams.set('fen', fen);
   await page.goto(u.href);
   if (clock) await page.clock.runFor(2000);
   await page.waitForFunction(() => window.view?.scene && document.getElementById('asset-status')?.textContent === '');
   await page.evaluate(() => window.view.ready());
   return { context, page };
 }
+// A copy of the canvas pixels near the figure on `sq` (key: its name), and how much of two copies differs.
+const grab = (page, sq, key) => page.evaluate(([sq, key]) => {
+  const c = document.querySelector('#board canvas'), r = c.getBoundingClientRect(), p = window.view.screenOf(sq), k = c.width / r.width;
+  (window.snaps ??= {})[key] = c.getContext('2d').getImageData(Math.round((p.x - r.left - 60) * k), Math.round((p.y - r.top - 140) * k), Math.round(120 * k), Math.round(180 * k)).data;
+}, [sq, key]);
+const diff = (page, a, b) => page.evaluate(([a, b]) => {
+  // The share of pixels (%) whose colour differs by more than 48 in a channel.
+  const A = window.snaps[a], B = window.snaps[b]; let n = 0;
+  for (let i = 0; i < A.length; i += 4) if (Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > 48) n++;
+  return n / (A.length / 4) * 100;
+}, [a, b]);
 const select = async (page, sq) => { const p = await page.evaluate(s => window.view.screenOf(s), sq); await page.mouse.click(p.x, p.y); };
+// Shares (%) of changed pixels near the figure (part 3). Measured: rest 1.8–2.1 (Knight), 3.5–4.4 (Rook); raised
+// 1.2–1.5 (Knight), 6.3–7.3 (Rook). With the atlas draw removed, raised is 0 and rest 2.6–9.9.
+const LIMITS = { knight: { rest: 3, raised: .6 }, rook: { rest: 6, raised: 3 } };
+const RAISED = { knight: 8, rook: 8 };
 const SQUARES = { knight: [1, 62], rook: [7, 56] };
 // Ends when the selected figure's clip has played and the scene has drawn its still figure after it.
 async function played(page, sq) {
@@ -61,9 +76,9 @@ try {
         const shown = log.filter(e => e[1]), first = log.findIndex(e => e[1]), last = log.findLastIndex(e => e[1]);
         assert.ok(shown.every(e => e[1][0] === name), `${name}: only his clip plays`);
         assert.ok(log.slice(first, last + 1).every(e => e[1]), `${name}: the clip plays without a break`);
-        const drawings = new Set(shown.map(e => e[1][1])), want = new Set(c.sequence);
-        // A 60 Hz browser may skip a 60 fps tick; at least 90% of the drawings show.
-        assert.ok(drawings.size >= Math.floor(want.size * .9), `${name}: ${drawings.size} of ${want.size} drawings show`);
+        // (A slow browser may skip drawings here; part 3 checks every drawing on a controlled clock.)
+        const drawings = new Set(shown.map(e => e[1][1]));
+        assert.equal(shown[0][1][1], c.sequence[0], `${name}: starts on his first drawing`);
         const ms = log[last][0] - log[first][0];
         assert.ok(ms > c.duration * .85 && ms < c.duration * 1.3, `${name}: plays for about ${c.duration} ms (${Math.round(ms)})`);
         assert.ok(log.slice(last + 1).length > 0 && log.slice(last + 1).every(e => !e[1]), `${name}: plays once, then the still figure shows`);
@@ -88,24 +103,44 @@ try {
     console.log(`ok ${label}: no clip, the still figure shows at once`);
     await context.close();
   }
-  // 3. For the owner: each clip's key drawings at board size, on a stopped clock, and a video of both clips.
-  {
-    const { context, page } = await open({ viewport: { width: 900, height: 900 }, deviceScaleFactor: 2 }, { clock: true });
+  // 3. On a stopped clock, for each army: every drawing shows in order; the canvas shows the painted drawings (pixels
+  // near the figure: the clip's rest drawing stands where the still figure stands, its raised drawing differs from
+  // it); the key drawings are saved for the owner. The scene is selected directly, so no move markers cover the figure.
+  for (const side of [0, 1]) {
+    const { context, page } = await open({ viewport: { width: 900, height: 900 }, deviceScaleFactor: 2 }, { clock: true, fen: side ? FEN.replace(' w ', ' b ') : FEN });
     await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
-    for (const [name, [sq]] of Object.entries(SQUARES)) {
-      const c = CLIPS[name], at = name === 'knight' ? [0, 250, 375, 540, 700] : [0, 300, 450, 560, 900, 1400, 1990];
-      await select(page, sq);
-      let t = 0;
-      for (const ms of at) {
-        await page.clock.runFor(Math.max(1, ms - t)); t = ms;
-        const p = await page.evaluate(s => window.view.screenOf(s), sq);
-        await shot(page, `${name}-${String(ms).padStart(4, '0')}ms`, { clip: { x: p.x - 90, y: p.y - 150, width: 180, height: 190 } });
+    for (const [name, squares] of Object.entries(SQUARES)) {
+      const sq = squares[side], c = CLIPS[name], keys = name === 'knight' ? [0, 250, 375, 540, 700] : [0, 300, 450, 560, 900, 1400, 1900];
+      await grab(page, sq, 'before');
+      await page.evaluate(s => window.view.scene.setSelected(s), sq);
+      const seen = [], grabbed = {};
+      for (let t = 0; t < c.duration + 300; t += 1000 / 60) {
+        await page.clock.runFor(1000 / 60);
+        const clip = await page.evaluate(() => window.view.scene.clip);
+        seen.push(clip ? clip.frame : null);
+        // The raised drawing (lance up; stone arm overhead), then the rest drawing that ends the clip.
+        if (clip?.frame === RAISED[name] && !grabbed.raised) { grabbed.raised = true; await grab(page, sq, 'raised'); }
+        if (clip?.frame === c.sequence[0] && grabbed.raised && !grabbed.rest) { grabbed.rest = true; await grab(page, sq, 'rest'); }
+        const key = keys.find(k => k <= t && k > t - 1000 / 60);
+        if (key !== undefined) {
+          const p = await page.evaluate(s => window.view.screenOf(s), sq);
+          await shot(page, `${['ivory', 'charcoal'][side]}-${name}-${String(key).padStart(4, '0')}ms`, { clip: { x: p.x - 90, y: p.y - 150, width: 180, height: 190 } });
+        }
       }
-      await page.clock.runFor(c.duration + 200 - t);
-      assert.equal(await page.evaluate(() => window.view.scene.clip), null, `${name}: ended on the stopped clock`);
-      await select(page, sq);
+      const played = seen.filter(f => f !== null);
+      assert.deepEqual(new Set(played), new Set(c.sequence), `${name}: every drawing shows`);
+      assert.deepEqual([...new Set(played)], [...new Set(c.sequence)], `${name}: the drawings show in order`);
+      assert.equal(seen.at(-1), null, `${name}: ended on the stopped clock`);
+      const rest = await diff(page, 'rest', 'before'), raised = await diff(page, 'raised', 'rest');
+      console.log(`ok ${['Ivory', 'Charcoal'][side]} ${name}: ${played.length} ticks; ${rest.toFixed(1)}% of pixels near him differ between the rest drawing and the still figure, ${raised.toFixed(1)}% between the raised and the rest drawing`);
+      assert.ok(rest < LIMITS[name].rest, `${name}: the rest drawing stands where the still figure stands (${rest.toFixed(1)})`);
+      assert.ok(raised > LIMITS[name].raised, `${name}: the raised drawing differs from the rest drawing on the board (${raised.toFixed(1)})`);
+      await page.evaluate(() => window.view.scene.setSelected(null));
     }
     await context.close();
+  }
+  // 4. A video of both clips at normal speed.
+  {
     const video = await browser.newContext({ viewport: { width: 900, height: 900 }, recordVideo: { dir: env('PLAYABLE_OUT'), size: { width: 900, height: 900 } } });
     const page2 = await video.newPage();
     await page2.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1'));

@@ -69,8 +69,9 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   return entry;
  }
  const boardArt=corsImage();
- // Character clips (clips/clips.mjs): the selected Knight or Rook plays his once, then breathes. They load after
- // the scene is ready; a clip not yet loaded is not played.
+ // Character clips (clips/clips.mjs): the selected Knight or Rook plays his once, then breathes. load() waits for
+ // them (a failed one is skipped). Whether a selection plays its clip is decided when it is made (selectedClip),
+ // so an atlas that loads late never starts a clip in its middle.
  const CLIP_OF={[N]:'knight',[R]:'rook'},clipArt=Object.fromEntries(Object.keys(CLIPS).map(name=>[name,corsImage()]));
  const clipReady=name=>!!name&&!!clipArt[name].naturalWidth;
  const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.1166,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
@@ -99,7 +100,7 @@ for(const [type,name] of Object.entries(courtNames)){
  // Square → when a king's effect started there (what stands on his square grows back after a move).
  // drawnBefore: how many kings' effects the frame before drew (none: they all start together now).
  let kingSince=new Map(),nextSince=new Map(),frames=0,fxDrawn=[],drawnBefore=0,pawnsAtRest=0,pawnsActing=0;
- let clipShown=null, selectedAt=0, idleTimer=0, framePattern=null, awakeUntil=0, passiveUntil=0;
+ let clipShown=null, selectedClip=null, selectedAt=0, idleTimer=0, framePattern=null, awakeUntil=0, passiveUntil=0;
  const ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
  const mix=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
  const cell=s=>({col:flipped?7-(s&7):s&7,row:flipped?s>>3:7-(s>>3)});
@@ -631,9 +632,9 @@ function vortex(out,foot,phase,strength) {
  // The selected figure plays his clip once (if he has one), then breathes from where the clip ends.
  clipShown=null;
  if(idling()){
-  const p=poses.get(selected).pose,name=CLIP_OF[typeOf(poses.get(selected).value)],ms=time-selectedAt,index=clipReady(name)?frameAt(name,ms):null;
+  const p=poses.get(selected).pose,name=CLIP_OF[typeOf(poses.get(selected).value)]===selectedClip?selectedClip:null,ms=time-selectedAt,index=name?frameAt(name,ms):null;
   if(index!==null){p.clip={name,index};clipShown={name,frame:index};}
-  else{const i=idleAt(ms-(clipReady(name)?CLIPS[name].duration:0));Object.assign(p,{ground:p.foot,foot:{x:p.foot.x,y:p.foot.y-i.lift},sx:i.sx,sy:i.sy,shadow:i.shadow});}
+  else{const i=idleAt(ms-(name?CLIPS[name].duration:0));Object.assign(p,{ground:p.foot,foot:{x:p.foot.x,y:p.foot.y-i.lift},sx:i.sx,sy:i.sy,shadow:i.shadow});}
  }
  // The tell: a fixed lift; the contact shadow stays on the board.
  if(lifted!==null&&liftTell&&!reducedMotion&&!animation&&poses.has(lifted)){
@@ -971,10 +972,10 @@ function drawEncounter(a,t) {
   /** Board square under a point in canvas pixels, or null. */
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
-  load(){for(const [name,image] of Object.entries(clipArt))if(!image.src){image.onload=()=>wake();image.src=CLIPS[name].file;}const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;wake();});},
+  load(){const clips=Object.entries(clipArt).map(([name,image])=>new Promise(resolve=>{image.onload=image.onerror=resolve;image.src=CLIPS[name].file;}));const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...clips,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;wake();});},
   /** New position: ends any finished or running animation. */
   setPosition(next){endMove();lifted=null;position=next;aimAngle=0;wake();},
-  setSelected(sq){if(sq!==selected){selected=sq;selectedAt=performance.now();aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
+  setSelected(sq){if(sq!==selected){selected=sq;selectedAt=performance.now();const name=sq===null?null:CLIP_OF[typeOf(position.board[sq])];selectedClip=clipReady(name)?name:null;aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
   /** Opt-in tell; lift=false shows only the glow. A new position or move clears it. */
   setLifted(sq,lift=true){lifted=sq;liftTell=lift;wake();},
   get lifted(){return lifted;},

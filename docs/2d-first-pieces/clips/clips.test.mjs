@@ -5,11 +5,15 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 // A stand-in browser (as board/idle-stop.test.mjs): 2D calls are no-ops, images load at once, time is ours.
-let now=0;const frames=[],timers=[];
-const ctx2d=new Proxy({},{get:(t,k)=>k in t?t[k]:k==='getImageData'||k==='createImageData'?(x,y,w=1,h=1)=>({data:new Uint8ClampedArray(Math.max(1,w*h)*4)}):k==='getTransform'?()=>({a:1,b:0,c:0,d:1,e:0,f:0}):k==='measureText'?()=>({width:1}):()=>ctx2d,set:(t,k,v)=>(t[k]=v,true)});
+let now=0;const frames=[],timers=[],atlasDraws=[];
+// drawImage from a clip atlas is recorded: [atlas file, source x, source y].
+const drawImage=(image,...a)=>{if(/(tap|slam)\.webp/.test(image?._s??''))atlasDraws.push([image._s.match(/(tap|slam)\.webp/)[1],a[0],a[1]]);};
+const ctx2d=new Proxy({},{get:(t,k)=>k in t?t[k]:k==='drawImage'?drawImage:k==='getImageData'||k==='createImageData'?(x,y,w=1,h=1)=>({data:new Uint8ClampedArray(Math.max(1,w*h)*4)}):k==='getTransform'?()=>({a:1,b:0,c:0,d:1,e:0,f:0}):k==='measureText'?()=>({width:1}):()=>ctx2d,set:(t,k,v)=>(t[k]=v,true)});
 const canvas=()=>({width:1,height:1,style:{},getContext:()=>ctx2d,addEventListener(){},getBoundingClientRect:()=>({width:960})});
 globalThis.document={createElement:canvas,hidden:false,addEventListener(){}};
-globalThis.Image=class{constructor(){this.naturalWidth=this.width=this.height=1152;}set src(v){this._s=v;queueMicrotask(()=>this.onload?.());}get src(){return this._s;}decode(){return Promise.resolve();}};
+// A clip atlas in `failing` does not load (onerror; no size).
+const failing=new Set();
+globalThis.Image=class{constructor(){this.naturalWidth=this.width=this.height=1152;}set src(v){this._s=v;if([...failing].some(f=>String(v).includes(f))){this.naturalWidth=0;queueMicrotask(()=>this.onerror?.());}else queueMicrotask(()=>this.onload?.());}get src(){return this._s;}decode(){return Promise.resolve();}};
 Object.defineProperty(globalThis,'performance',{value:{now:()=>now},configurable:true});
 globalThis.requestAnimationFrame=fn=>{frames.push(fn);return frames.length;};
 globalThis.cancelAnimationFrame=()=>{};
@@ -29,10 +33,10 @@ function run(scene,ms){
  }
  return shown;
 }
-async function selected(value,lively){
+async function selected(value,lively,reduced=!lively.idle){
  const scene=createScene({canvas:canvas(),pieces:{P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName},headroom:64,kings:['plain','plain']});
  await scene.load().catch(()=>{});
- scene.setLively(lively);scene.setReducedMotion(!lively.idle);
+ scene.setLively(lively);scene.setReducedMotion(reduced);
  const pos=createPosition('king');pos.board=Array(64).fill(0);pos.board[parseSq('d4')]=value;scene.setPosition(pos);
  run(scene,100);scene.setSelected(parseSq('d4'));
  return scene;
@@ -52,10 +56,17 @@ test('the selected Knight and Rook play their clip once, through every drawing, 
  globalThis.setTimeout=(fn,ms)=>{timers.push({fn,at:now+ms});return timers.length;};
  try{
   for(const [value,name] of [[N,'knight'],[R,'rook'],[N|16,'knight'],[R|16,'rook']]){
+   atlasDraws.length=0;
    const scene=await selected(value,{idle:true,atmosphere:true,moves:true});
-   const c=CLIPS[name],shown=run(scene,c.duration+6000);
+   const c=CLIPS[name],shown=run(scene,c.duration+6000),side=colorOf(value);
    const playing=shown.map(s=>s?s.frame:null),first=playing.findIndex(f=>f!==null),last=playing.findLastIndex(f=>f!==null);
-   assert.ok(first>=0,`${name} (${colorOf(value)?'Charcoal':'Ivory'}) plays`);
+   assert.ok(first>=0,`${name} (${side?'Charcoal':'Ivory'}) plays`);
+   assert.equal(playing[first],c.sequence[0],`${name} starts on his first drawing`);
+   // Each shown drawing is drawn from its own cell, in the army's band of the atlas.
+   const want=[...new Set(playing.filter(f=>f!==null))].map(i=>`${c.cells[i][0]},${c.cells[i][1]+side*c.rows*c.cell[1]}`);
+   const got=new Set(atlasDraws.filter(d=>d[0]===(name==='knight'?'tap':'slam')).map(d=>`${d[1]},${d[2]}`));
+   assert.ok(want.every(w=>got.has(w)),`${name}: every shown drawing is drawn from its atlas cell`);
+   assert.equal(frames.length,0,`${name}: the board stops drawing five seconds after the clip`);
    assert.ok(shown.slice(first,last+1).every(s=>s?.name===name),`${name} plays without a break`);
    assert.deepEqual(new Set(playing.slice(first,last+1)),new Set(c.sequence),`${name} shows each of its drawings`);
    assert.ok((last-first+1)*16>=c.duration-50,`${name} plays at full rate for its whole length`);
@@ -67,16 +78,28 @@ test('the selected Knight and Rook play their clip once, through every drawing, 
  }finally{globalThis.setTimeout=realSetTimeout;}
 });
 
-test('with reduced motion or motion off the selected figure stays still: no clip',async()=>{
+test('with reduced motion, or with the idle motion off, the selected figure stays still: no clip',async()=>{
  globalThis.setTimeout=(fn,ms)=>{timers.push({fn,at:now+ms});return timers.length;};
  try{
-  for(const value of [N,R]){
-   const scene=await selected(value,{idle:false,atmosphere:true,moves:false});
+  for(const value of [N,R])for(const [lively,reduced] of [[{idle:false,atmosphere:true},false],[{idle:true,atmosphere:true},true]]){
+   atlasDraws.length=0;
+   const scene=await selected(value,lively,reduced);
    scene.redraw();
    assert.ok(run(scene,3000).every(s=>s===null),'no clip drawing shows');
+   assert.equal(atlasDraws.length,0,'nothing is drawn from a clip atlas');
    scene.dispose();
   }
  }finally{globalThis.setTimeout=realSetTimeout;}
+});
+
+test('a clip atlas that does not load plays no clip; the figure breathes as before',async()=>{
+ globalThis.setTimeout=(fn,ms)=>{timers.push({fn,at:now+ms});return timers.length;};
+ failing.add('slam.webp');
+ try{
+  const scene=await selected(R,{idle:true,atmosphere:true});
+  assert.ok(run(scene,3000).every(s=>s===null),'no clip drawing shows');
+  scene.dispose();
+ }finally{failing.clear();globalThis.setTimeout=realSetTimeout;}
 });
 
 test('the clip atlases are in the build graph and match their provenance',()=>{
