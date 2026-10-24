@@ -362,6 +362,9 @@ it.each([false, true])('releases Freeze at its card and rests in the same spent 
     await frame.locator('#setup-done').click(); await frame.locator('#setup-start').click();
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     const coin = frame.locator('#game-table .card-coin[aria-label^="Your Freeze"]'), id = await coin.getAttribute('id');
+    // The opening deal ends first: a coin row rebuild during the deal resumes the deal on the spent coin (motion.play).
+    // Find and read the current coin in one task: a rebuild between the two cancels the old coin's deal, so it reads 0.
+    await expect.poll(() => frame.locator('html').evaluate((_, id) => document.getElementById(id)?.getAnimations({ subtree: true }).filter(a => a.playState === 'running').length ?? -1, id!), { timeout: 2000 }).toBe(0);
     await coin.click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
     await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move' }).click();
     const motion = await recordMotion(page, frame, ['#game-table .card-coin[data-state="used"]', '#game-table .card-coin[data-state="used"] > .coin-paint', '.ui-cast-release']);
