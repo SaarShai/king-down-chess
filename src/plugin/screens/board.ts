@@ -1,11 +1,11 @@
 import { cursorText } from '../../cursor-text';
 import { railsOf, marksModel } from '../../marks-model';
 import { checkCause, checkersOf, describeMove, threatsIn, shortMove } from '../../move-text';
-import { pieceTitle, reachOf, readText, teachNote } from '../../read';
+import { guideTypes, pieceGuide, pieceTitle, reachOf, readText, teachNote } from '../../read';
 import { GameRules } from '../../game-rules';
 import { needsServerPreview } from '../../account-game/engine-identity';
 import { toFen } from '../../rules/setup';
-import { colorOf, findKing, K, moveNumber, NAMES, LETTERS, piece, PLAIN_KINGS, T, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
+import { colorOf, findKing, K, moveNumber, NAMES, LETTERS, piece, PLAIN_KINGS, T, typeOf, type Color, type Move, type PieceType, type Position, type PowerName } from '../../rules/engine';
 import { cardName, cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
 import { LESSONS } from '../../lessons';
 import { momentKind } from '../../moment';
@@ -43,31 +43,43 @@ let command: (name: string, args: Record<string, unknown>) => Promise<View | und
 export const sendBoardCommand = (name: string, args: Record<string, unknown> = {}) => command(name, args);
 const portraitPath = (side: Color) => `ui/kings/${(gameRules.rules.kings[side]?.king ?? PLAIN_KINGS[side]).toLowerCase()}${side ? '-b' : ''}.webp`;
 let sheet: HTMLDialogElement, scrim: HTMLDivElement, sheetFocus: HTMLElement | undefined;
+// Playtest F-032: a board tap opens a sheet on pointerup, and a touch tap's click then lands on the new scrim. Only a click
+// whose press started on the scrim closes it; each new press, a cancelled press, a click and the sheet's open and close reset it.
+let scrimPressed = false;
 let refreshCardSheet: (() => void) | undefined;
 let stopPlacingChoice = () => {};
 export function closeBoardSheet() {
   refreshCardSheet = undefined;
   if (!sheet) return;
-  stopPlacingChoice(); stopPlacingChoice = () => {};
-  for (const id of ['choices', 'reload', 'computer', 'invite', 'invitation']) $('board-park').append($(id));
+  stopPlacingChoice(); stopPlacingChoice = () => {}; scrimPressed = false;
+  // Read the focus before the parked controls leave the sheet: a moved control loses focus (playtest F-009).
   const restore = sheet.open && sheet.contains(document.activeElement);
+  for (const id of ['choices', 'reload', 'computer', 'invite', 'invitation']) $('board-park').append($(id));
   if (sheet.open) document.querySelector<HTMLElement>('.page-sheet')!.inert = false;
   sheet.close(); scrim.hidden = true;
   $('moves-line').setAttribute('aria-expanded', String(!$('recent-moves').hidden));
   const focus = sheetFocus?.id ? document.getElementById(sheetFocus.id) : sheetFocus;
-  if (restore) (focus?.isConnected ? focus : $('board')).focus({preventScroll:true}); client.state.sheet = undefined; client.save();
+  // A hidden opener cannot take focus (Escape clears the selection and hides All rules), so focus goes to the board.
+  if (restore) (focus?.isConnected && focus.getClientRects().length ? focus : $('board')).focus({preventScroll:true}); client.state.sheet = undefined; client.save();
 }
 export function boardSheet(title: string, ...nodes: HTMLElement[]) {
   if (!sheet) {
     scrim = document.createElement('div'); scrim.className = 'scrim'; scrim.hidden = true;
     sheet = document.createElement('dialog'); sheet.id = 'board-sheet'; sheet.setAttribute('aria-labelledby', 'board-sheet-title'); sheet.className = 'over-sheet'; sheet.setAttribute('aria-modal', 'true');
-    $('app-frame').append(scrim, sheet); scrim.onclick = closeBoardSheet;
+    $('app-frame').append(scrim, sheet);
+    document.addEventListener('pointerdown', event => { scrimPressed = event.target === scrim; }, true);
+    document.addEventListener('pointercancel', () => { scrimPressed = false; }, true);
+    document.addEventListener('click', () => { scrimPressed = false; });
+    // A touch's compatibility mousedown lands on the scrim too; it must not take focus from the open sheet.
+    scrim.onmousedown = event => event.preventDefault();
+    scrim.onclick = () => { if (scrimPressed) closeBoardSheet(); };
     sheet.onkeydown = event => {
       if (event.key === 'Tab') {
         const buttons = [...sheet.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, select, [tabindex="0"]')].filter(el => el.getClientRects().length), i = buttons.indexOf(document.activeElement as HTMLElement);
         if (event.shiftKey && i <= 0 || !event.shiftKey && i === buttons.length - 1) { event.preventDefault(); buttons[event.shiftKey ? buttons.length - 1 : 0]?.focus({preventScroll:true}); }
       }
     };
+    new ResizeObserver(fitSheetBody).observe(sheet);
   }
   const opener = sheet.contains(document.activeElement) ? sheetFocus : document.activeElement as HTMLElement;
   closeBoardSheet(); sheetFocus = opener;
@@ -75,7 +87,7 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
   sheet.removeAttribute('style'); scrim.classList.remove('move-choice-scrim');
   sheet.innerHTML = '<header class="sheet-head"><h2 id="board-sheet-title"></h2><button aria-label="Close">×</button></header><div class="sheet-body"></div>';
   sheet.querySelector('h2')!.textContent = title; sheet.querySelector('button')!.onclick = closeBoardSheet;
-  sheet.querySelector('.sheet-body')!.append(...nodes); scrim.hidden = false; document.querySelector<HTMLElement>('.page-sheet')!.inert = true; sheet.show(); sheet.querySelector('button')!.focus({preventScroll:true});
+  sheet.querySelector('.sheet-body')!.append(...nodes); scrim.hidden = false; scrimPressed = false; document.querySelector<HTMLElement>('.page-sheet')!.inert = true; sheet.show(); sheet.querySelector('button')!.focus({preventScroll:true}); fitSheetBody();
   if (nodes.includes($('choices'))) {
     const board = $('board'), frame = $('app-frame');
     sheet.classList.add('move-choice'); scrim.classList.add('move-choice-scrim');
@@ -92,8 +104,41 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
   }
   client.state.sheet = 'board-sheet'; client.save();
 }
+// Playtest F-008: a sheet body that scrolls is a named region in the Tab order, so PageDown and End reach every row.
+// A body whose overflow fits in its bottom padding hides nothing, so it is no Tab stop (Choose a move with four promotions on a phone).
+// A focused body stays a region until it loses focus; the blur checks the scroll size itself, as the body can still be the active element then.
+const scrolls = (body: HTMLElement) => body.scrollHeight - body.clientHeight > parseFloat(getComputedStyle(body).paddingBottom);
+function fitSheetBody() {
+  const body = sheet?.open ? sheet.querySelector<HTMLElement>('.sheet-body') : null;
+  if (!body) return;
+  if (scrolls(body)) {
+    body.tabIndex = 0; body.setAttribute('role', 'region'); body.setAttribute('aria-label', sheet.querySelector('h2')!.textContent!);
+    body.onblur = () => { if (!scrolls(body)) endRegion(body); };
+  } else if (body !== document.activeElement) endRegion(body);
+}
+// A body that still overflows a little gets tabindex -1: Firefox, and Chromium for a body with no control, make a scroller a Tab stop.
+const endRegion = (body: HTMLElement) => {
+  for (const name of ['role', 'aria-label']) body.removeAttribute(name);
+  if (body.scrollHeight > body.clientHeight) body.tabIndex = -1; else body.removeAttribute('tabindex');
+  body.onblur = null;
+};
 const text = (words: string) => { const p = document.createElement('p'); p.textContent = words; return p; };
 const button = (words: string, click: () => void) => { const b = document.createElement('button'); b.textContent = words; b.onclick = click; return b; };
+const element = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', words = '') => { const e = document.createElement(tag); e.className = className; e.textContent = words; return e; };
+// Playtest F-011: All rules gives each piece's moves, takes and special rule, as the web Guide does, with the read piece first.
+function ruleCards(first: PieceType, position: Position) {
+  const cards = element('div', 'piece-cards');
+  for (const type of [first, ...guideTypes(position).filter(type => type !== first)]) {
+    const guide = pieceGuide(gameRules, type), name = gameRules.nameOf(type), face = art(type === K ? portraitPath(0) : `ui/pieces/${NAMES[type]}-w.webp`);
+    const card = element('article', 'piece-card'), picture = element('div', 'pc-art'), body = element('div', 'pc-body'), rows = element('dl');
+    card.dataset.piece = NAMES[type];
+    if (face) { const image = element('img'); image.src = face; image.alt = ''; picture.append(image); }
+    else picture.append(element('span', 'pc-medallion', (type === T && gameRules.playedDesign()?.letter) || LETTERS[type]));
+    for (const [label, words] of [['Moves', guide.moves], ['Takes', guide.captures], ['Special', guide.special]]) if (words) rows.append(element('dt', '', label), element('dd', '', words));
+    body.append(element('h3', '', name[0].toUpperCase() + name.slice(1)), rows); card.append(picture, body); cards.append(card);
+  }
+  return cards;
+}
 export function boardScreen(store: Store) {
   let generation = 0, animating = false, rush = false, steps: BoardMove[] = [];
   let shownNextGame: string | undefined;
@@ -220,7 +265,7 @@ export function boardScreen(store: Store) {
     if (movesOpen()) {
       const body = sheet.querySelector('.sheet-body')!, scroll = body.scrollTop;
       body.replaceChildren(...moveRows());
-      body.scrollTop = scroll;
+      body.scrollTop = scroll; fitSheetBody();
     }
     fitMoves();
     $('short-move-words').textContent = lastMove ? shortMove(lastMove.pre, lastMove.move, type => gameRules.nameOf(type)) : `Move ${moveNumber(pos)}.`;
@@ -519,7 +564,7 @@ export function boardScreen(store: Store) {
       const face = art(type === K ? portraitPath(colorOf(code)) : `ui/pieces/${NAMES[type]}-${colorOf(code) ? 'b' : 'w'}.webp`);
       all.innerHTML = `<span class="portrait" aria-hidden="true">${face ? `<img id="piece-info-art" alt="" src="${face}">` : ''}</span>`;
       if (!face) all.firstElementChild!.textContent = (type === T && gameRules.playedDesign()?.letter) || LETTERS[type];
-      all.onclick = () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(gameRules, pos!, square!)}` : readText(gameRules, pos!, square!)));
+      all.onclick = () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(gameRules, pos!, square!)}` : readText(gameRules, pos!, square!)), ruleCards(type, pos!));
     }
     if ((!drawReply || unarmed) && selected !== undefined && choicesFrom(moves, selected).some(({move}) => !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
     if (!unarmed) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; held = undefined; choices([]); refresh(); }));

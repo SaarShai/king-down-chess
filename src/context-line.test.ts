@@ -14,6 +14,14 @@ describe('contextLine', () => {
       rank: 'armed', line: 'Freeze · 1 left', note: 'Select an enemy piece.', actions: ['power-cancel'],
     });
   });
+  it('keeps the armed power, its instruction and Cancel with a refusal (playtest F-103)', () => {
+    expect(contextLine({ voice: 'you', armed: 'Strike', armedLine: 'Strike · 1 left', armedRefusal: 'Strike cannot move this pawn.' })).toMatchObject({
+      rank: 'armed', line: 'Strike · 1 left', note: 'Strike cannot move this pawn. Choose a piece, then a marked square.', actions: ['power-cancel'],
+    });
+    expect(contextLine({ voice: 'you', armed: 'Freeze', armedRefusal: 'Strike cannot move this pawn.' }).note).toBe('Strike cannot move this pawn. Freeze lasts one turn.');
+    // A server refusal still outranks an armed power (the account board).
+    expect(contextLine({ voice: 'you', armed: 'Strike', refusal: 'The game changed.', read: 'White pawn.' })).toMatchObject({ rank: 'refusal', line: 'The game changed.', note: 'White pawn.' });
+  });
   it('shows Previously after the higher ranks, with its replay action', () => {
     const state = { voice: 'you' as const, previously: 'Black pawn e7 to e5.', previouslyBefore: 'White pawn e2 to e4.', seeAgain: true };
     expect(contextLine(state)).toEqual({ rank: 'previously', line: 'Previously: Black pawn e7 to e5.', note: '', before: 'You: White pawn e2 to e4.', actions: ['see-again'] });

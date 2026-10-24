@@ -33,6 +33,10 @@ body[data-page='end'] #table-bar { visibility: hidden; }
 }
 #board-sheet .sheet-body { display: flex; flex-direction: column; gap: 8px; }
 #board-sheet .sheet-body > button { justify-content: center; text-align: center; }
+/* A body that scrolls takes focus (playtest F-008). The sheet clips what lies outside the body, so the ring lies inside it,
+   2px in from the sheet's border, and shows on all four sides. It overrides the account focus ring (account-game/content.css). */
+#app-root #board-sheet .sheet-body:focus { outline: 2px solid var(--focus); outline-offset: -4px; box-shadow: none !important; }
+#board-sheet .piece-cards { margin: 0; }
 .frame #board-sheet.board-menu { max-height: 100%; }
 #board-sheet.board-menu .sheet-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
 @media (min-width: 300px) and (max-height: 640px) {

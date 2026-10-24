@@ -1,6 +1,6 @@
 import type { GameRules } from './game-rules';
-import { A, B, C, G, K, L, M, N, LETTERS, O, P, Q, R, S, T, V, colorOf, file, findKing, rank, sqName, type ArcherShots, type Color, type Move, typeOf, type PieceType, type Position, type Rules } from './rules/engine';
-import { needsArming, offered } from './powers-ui';
+import { A, B, C, G, K, L, M, N, LETTERS, O, P, Q, R, S, T, V, colorOf, file, findKing, rank, sqName, type ArcherShots, type Color, type Move, typeOf, type PieceType, type Position, type PowerName, type Rules } from './rules/engine';
+import { needsArming, offered, POWER_NAME, POWER_TAG } from './powers-ui';
 import { POOL } from './rules/setup';
 import { describe } from './workshop/text';
 
@@ -290,7 +290,11 @@ export function unmarkedTap(context: ReadRules, pos: Position, sq: number, selec
   const enemy = pos.board[sq] && colorOf(pos.board[sq]) !== pos.turn;
   let notice = selected != null && (!pos.board[sq] || enemy) ? whyNot(context, pos, selected, sq, tag) : '';
   if (next.selected != null && next.selected !== selected && !context.legalMoves(pos).some(m => m.from === next.selected && offered(m, tag))) {
-    notice = pieceStates(context, pos, sq).includes('Frozen') ? 'Frozen: it cannot move this turn.' : `${context.theName(typeOf(pos.board[sq]), 'This')} has no legal move.`;
+    // An armed power names itself, so the player knows to choose another piece or cancel (playtest F-103).
+    const power = tag && (Object.keys(POWER_TAG) as PowerName[]).find(name => POWER_TAG[name] === tag);
+    notice = pieceStates(context, pos, sq).includes('Frozen') ? 'Frozen: it cannot move this turn.'
+      : power ? `${POWER_NAME[power]} cannot move ${context.theName(typeOf(pos.board[sq]), 'this')}.`
+      : `${context.theName(typeOf(pos.board[sq]), 'This')} has no legal move.`;
   }
   return { ...next, pending: [], notice };
 }
