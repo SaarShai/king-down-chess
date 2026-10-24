@@ -43,14 +43,15 @@ let command: (name: string, args: Record<string, unknown>) => Promise<View | und
 export const sendBoardCommand = (name: string, args: Record<string, unknown> = {}) => command(name, args);
 const portraitPath = (side: Color) => `ui/kings/${(gameRules.rules.kings[side]?.king ?? PLAIN_KINGS[side]).toLowerCase()}${side ? '-b' : ''}.webp`;
 let sheet: HTMLDialogElement, scrim: HTMLDivElement, sheetFocus: HTMLElement | undefined;
-// Playtest F-032: a board tap opens a sheet on pointerup, and a touch tap's click then lands on the new scrim. Only a press on the scrim closes it.
+// Playtest F-032: a board tap opens a sheet on pointerup, and a touch tap's click then lands on the new scrim. Only a click
+// whose press started on the scrim closes it; each new press, a cancelled press, a click and the sheet's open and close reset it.
 let scrimPressed = false;
 let refreshCardSheet: (() => void) | undefined;
 let stopPlacingChoice = () => {};
 export function closeBoardSheet() {
   refreshCardSheet = undefined;
   if (!sheet) return;
-  stopPlacingChoice(); stopPlacingChoice = () => {};
+  stopPlacingChoice(); stopPlacingChoice = () => {}; scrimPressed = false;
   for (const id of ['choices', 'reload', 'computer', 'invite', 'invitation']) $('board-park').append($(id));
   const restore = sheet.open && sheet.contains(document.activeElement);
   if (sheet.open) document.querySelector<HTMLElement>('.page-sheet')!.inert = false;
@@ -64,8 +65,12 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
     scrim = document.createElement('div'); scrim.className = 'scrim'; scrim.hidden = true;
     sheet = document.createElement('dialog'); sheet.id = 'board-sheet'; sheet.setAttribute('aria-labelledby', 'board-sheet-title'); sheet.className = 'over-sheet'; sheet.setAttribute('aria-modal', 'true');
     $('app-frame').append(scrim, sheet);
-    scrim.onpointerdown = () => { scrimPressed = true; };
-    scrim.onclick = () => { if (scrimPressed) closeBoardSheet(); scrimPressed = false; };
+    document.addEventListener('pointerdown', event => { scrimPressed = event.target === scrim; }, true);
+    document.addEventListener('pointercancel', () => { scrimPressed = false; }, true);
+    document.addEventListener('click', () => { scrimPressed = false; });
+    // A touch's compatibility mousedown lands on the scrim too; it must not take focus from the open sheet.
+    scrim.onmousedown = event => event.preventDefault();
+    scrim.onclick = () => { if (scrimPressed) closeBoardSheet(); };
     sheet.onkeydown = event => {
       if (event.key === 'Tab') {
         const buttons = [...sheet.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, select, [tabindex="0"]')].filter(el => el.getClientRects().length), i = buttons.indexOf(document.activeElement as HTMLElement);
@@ -98,12 +103,16 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
   client.state.sheet = 'board-sheet'; client.save();
 }
 // Playtest F-008: a sheet body that scrolls is a named region in the Tab order, so PageDown and End reach every row.
+// A focused body stays a region until it loses focus; the blur checks the scroll size itself, as the body can still be the active element then.
 function fitSheetBody() {
   const body = sheet?.open ? sheet.querySelector<HTMLElement>('.sheet-body') : null;
   if (!body) return;
-  if (body.scrollHeight > body.clientHeight) { body.tabIndex = 0; body.setAttribute('role', 'region'); body.setAttribute('aria-label', sheet.querySelector('h2')!.textContent!); }
-  else if (body !== document.activeElement) for (const name of ['tabindex', 'role', 'aria-label']) body.removeAttribute(name);
+  if (body.scrollHeight > body.clientHeight) {
+    body.tabIndex = 0; body.setAttribute('role', 'region'); body.setAttribute('aria-label', sheet.querySelector('h2')!.textContent!);
+    body.onblur = () => { if (body.scrollHeight <= body.clientHeight) endRegion(body); };
+  } else if (body !== document.activeElement) endRegion(body);
 }
+const endRegion = (body: HTMLElement) => { for (const name of ['tabindex', 'role', 'aria-label']) body.removeAttribute(name); body.onblur = null; };
 const text = (words: string) => { const p = document.createElement('p'); p.textContent = words; return p; };
 const button = (words: string, click: () => void) => { const b = document.createElement('button'); b.textContent = words; b.onclick = click; return b; };
 export function boardScreen(store: Store) {

@@ -2596,6 +2596,15 @@ it.each([
     const sheet = frame.getByRole('dialog', { name: 'Choose a move', exact: true });
     expect(await sheet.isVisible()).toBe(true);
     expect((await frame.locator('#choices button').evaluateAll(buttons => buttons.map(b => (b as HTMLElement).title))).sort()).toEqual(lans);
+    // The touch's mousedown on the scrim keeps focus in the sheet, so Escape still closes it.
+    expect(await sheet.getByRole('button', { name: 'Close', exact: true }).evaluate(b => b === document.activeElement)).toBe(true);
+    await page.keyboard.press('Escape');
+    expect(await sheet.isVisible()).toBe(false);
+    expect((await marks(page)).selected).toBeUndefined();
+    await squareTouch(page, from);
+    await squareTouch(page, to);
+    await frames(page);
+    expect(await sheet.isVisible()).toBe(true);
     // A tap on the scrim still closes the sheet, and keeps the piece selected.
     const scrim = (await frame.locator('.scrim.move-choice-scrim').boundingBox())!;
     await page.touchscreen.tap(scrim.x + scrim.width / 2, scrim.y + 8);
@@ -2639,5 +2648,52 @@ it('F-008: the keyboard scrolls a long Moves sheet', async () => {
     expect(await sheet.getByRole('button', { name: 'Close', exact: true }).evaluate(b => b === document.activeElement)).toBe(true);
     await page.keyboard.press('Shift+Tab');
     expect(await body.evaluate(el => el === document.activeElement)).toBe(true);
+  } finally { await page.close(); }
+});
+
+// A body that stops scrolling while it has focus leaves the Tab order when focus leaves it.
+it('F-008: a Moves sheet body that stops scrolling leaves the Tab order on blur', async () => {
+  const initial_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', actions = ['Nb1-a3', 'Nb8-a6', 'Na3-b1', 'Na6-b8'];
+  const game = view(initial_fen, {}, { kind: 'friend', seat: 0 });
+  let pos = fromFen(initial_fen);
+  for (const lan of actions) { const step = applyLan(pos, lan, game.rules!); expect(step).toBeDefined(); pos = step!.pos; }
+  const page = await open(view(toFen(pos), game.rules!, { ...game, fen: toFen(pos), revision: actions.length, history: { initial_fen, actions } }), 390, 400), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board-menu').focus(); await page.keyboard.press('Enter');
+    await frame.getByRole('button', { name: 'Moves', exact: true }).focus(); await page.keyboard.press('Enter');
+    const body = frame.getByRole('dialog', { name: 'Moves', exact: true }).locator('.sheet-body');
+    await page.keyboard.press('Tab');
+    expect(await body.evaluate(el => el === document.activeElement && el.scrollHeight > el.clientHeight)).toBe(true);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await frames(page);
+    expect(await body.evaluate(el => el === document.activeElement && el.scrollHeight <= el.clientHeight)).toBe(true);
+    expect(await body.getAttribute('tabindex')).toBe('0');
+    await page.keyboard.press('Tab');
+    await frames(page);
+    expect(await body.evaluate(el => [el.getAttribute('tabindex'), el.getAttribute('role'), el.getAttribute('aria-label')])).toEqual([null, null, null]);
+    await page.keyboard.press('Shift+Tab');
+    expect(await frame.getByRole('button', { name: 'Close', exact: true }).evaluate(b => b === document.activeElement)).toBe(true);
+  } finally { await page.close(); }
+});
+
+// A press that starts on the scrim and ends on the sheet sends no click to the scrim. A later press that starts on the
+// sheet and ends on the scrim must not close the sheet with that old press. Chromium only: the test sends raw touches.
+it.skipIf(!!process.env.PLAYABLE_BROWSER && process.env.PLAYABLE_BROWSER !== 'chromium')('F-032: an old scrim press does not close the sheet for a later press from the sheet', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), 390, 844), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board-menu').focus(); await page.keyboard.press('Enter');
+    const sheet = frame.locator('#board-sheet'); await frame.locator('#board-sheet[open]').waitFor(); await frames(page);
+    const box = (await sheet.boundingBox())!, x = box.x + 12, cdp = await page.context().newCDPSession(page);
+    const drag = async (from: number, to: number) => {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: from, id: 1 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: to, id: 1 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await frames(page);
+    };
+    await drag(box.y - 2, box.y + 2);
+    expect(await sheet.isVisible()).toBe(true);
+    await drag(box.y + 2, box.y - 2);
+    expect(await sheet.isVisible()).toBe(true);
+    await cdp.detach();
   } finally { await page.close(); }
 });
