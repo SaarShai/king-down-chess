@@ -3,6 +3,7 @@ import { STEP } from './lib/checks.mjs';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
 import { legalMoves, makeMove, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import { applyLan } from '../src/plugin/screens/board-model';
+import sharp from 'sharp';
 import { LESSONS } from '../src/lessons';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { checkTabletButtons, checkButtonContent } from './lib/plugin-tablet-check.mjs';
@@ -954,5 +955,54 @@ it('Escape from All rules puts focus on the board when the hidden opener cannot 
     expect((await marks(page)).selected).toBeUndefined();
     expect(await frame.locator('#all-rules').isHidden()).toBe(true);
     expect(await frame.locator('html').evaluate(() => document.activeElement?.id)).toBe('board');
+  } finally { await page.close(); }
+});
+
+// Playtest F-008 follow-up: the focused sheet body's ring lies inside the body, with a light gap before the sheet's
+// own border, so all four sides show. The samples avoid the rows: the side padding holds no text.
+it('F-008: the focused sheet body shows its ring on all four sides', async () => {
+  const initial_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', actions: string[] = [];
+  for (let i = 0; i < 10; i++) actions.push('Nb1-a3', 'Nb8-a6', 'Na3-b1', 'Na6-b8');
+  const game = view(initial_fen, {}, { kind: 'friend', seat: 0 });
+  let pos = fromFen(initial_fen);
+  for (const lan of actions) pos = applyLan(pos, lan, game.rules!)!.pos;
+  const page = await open(view(toFen(pos), game.rules!, { ...game, fen: toFen(pos), revision: actions.length, history: { initial_fen, actions } }), 390, 844), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board-menu').focus(); await page.keyboard.press('Enter');
+    await frame.getByRole('button', { name: 'Moves', exact: true }).focus(); await page.keyboard.press('Enter');
+    const body = frame.getByRole('dialog', { name: 'Moves', exact: true }).locator('.sheet-body');
+    await page.keyboard.press('Tab');
+    expect(await body.evaluate(el => el === document.activeElement && el.matches(':focus-visible'))).toBe(true);
+    const box = (await body.boundingBox())!, clip = { x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width), height: Math.round(box.height) };
+    const image = await sharp(await page.screenshot({ clip, scale: 'css' })).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    const light = (x: number, y: number) => { const i = (y * image.info.width + x) * 3; return [...image.data.subarray(i, i + 3)].map(c => c / 255).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4).reduce((s, c, k) => s + c * [.2126, .7152, .0722][k], 0); };
+    const { width: w, height: h } = clip, mid = Math.round(h / 2);
+    // [side, ring pixel, gap pixel between the ring and the sheet's border]
+    const sides = [['left', [3, mid], [1, mid]], ['right', [w - 4, mid], [w - 2, mid]], ['top', [8, 3], [8, 1]], ['bottom', [8, h - 4], [8, h - 2]]] as const;
+    const contrast = sides.map(([side, ring, gap]) => [side, Math.round((light(gap[0], gap[1]) + .05) / (light(ring[0], ring[1]) + .05) * 10) / 10]);
+    for (const [side, ratio] of contrast) expect(ratio, `${side} ring against its gap: ${JSON.stringify(contrast)}`).toBeGreaterThanOrEqual(3);
+  } finally { await page.close(); }
+});
+
+// Playtest F-008 follow-up: on staging, Choose a move with the four promotions at 390 x 844 overflows by a few pixels,
+// into the body's bottom padding only. That body hides no choice, so it is not a Tab stop.
+// The harness page is shorter than the staging page; at 390 x 960 its overflow is a few pixels too.
+it('F-008: a sheet body that overflows only into its bottom padding is not a Tab stop', async () => {
+  const page = await open(view('7k/1P6/8/8/8/8/8/K7 w - - 0 1'), 390, 960), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    // The keyboard cursor starts on a1: b7, then b8, opens Choose a move.
+    await frame.locator('#board').focus();
+    for (const key of ['ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowRight', 'Enter', 'ArrowUp', 'Enter']) await page.keyboard.press(key);
+    const sheet = frame.getByRole('dialog', { name: 'Choose a move', exact: true }), body = sheet.locator('.sheet-body');
+    expect(await sheet.isVisible()).toBe(true);
+    const [overflow, padding] = await body.evaluate(el => [el.scrollHeight - el.clientHeight, parseFloat(getComputedStyle(el).paddingBottom)]);
+    expect(overflow, `overflow ${overflow}, bottom padding ${padding}`).toBeGreaterThan(0);
+    expect(overflow, `overflow ${overflow}, bottom padding ${padding}`).toBeLessThanOrEqual(padding);
+    // tabindex -1 keeps the browser from making the scroller a Tab stop by itself (Firefox does).
+    expect(await body.getAttribute('tabindex')).toBe('-1');
+    expect(await sheet.getByRole('button', { name: 'Close', exact: true }).evaluate(b => b === document.activeElement)).toBe(true);
+    await page.keyboard.press('Tab');
+    expect(await body.evaluate(el => el !== document.activeElement)).toBe(true);
   } finally { await page.close(); }
 });
