@@ -999,7 +999,16 @@ it('F-008: a sheet body that overflows only into its bottom padding is not a Tab
     await frame.locator('#board[aria-busy="false"]').waitFor();
     // The keyboard cursor starts on a1: b7, then b8, opens Choose a move.
     await frame.locator('#board').focus();
-    for (const key of ['ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowRight', 'Enter', 'ArrowUp', 'Enter']) await page.keyboard.press(key);
+    for (const key of ['ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowRight', 'Enter', 'ArrowUp']) await page.keyboard.press(key);
+    // The last Enter opens the sheet. Read the body in the same task, before a resize observer can run: the opening
+    // itself must fit the placed sheet (a loaded page reaches its next frame late).
+    const opened = await frame.locator('#board').evaluate(board => {
+      board.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      const body = document.querySelector<HTMLElement>('#board-sheet .sheet-body')!;
+      return { overflow: body.scrollHeight - body.clientHeight, tabindex: body.getAttribute('tabindex') };
+    });
+    expect(opened.overflow).toBeGreaterThan(0);
+    expect(opened.tabindex).toBe('-1');
     const sheet = frame.getByRole('dialog', { name: 'Choose a move', exact: true }), body = sheet.locator('.sheet-body');
     expect(await sheet.isVisible()).toBe(true);
     const [overflow, padding] = await body.evaluate(el => [el.scrollHeight - el.clientHeight, parseFloat(getComputedStyle(el).paddingBottom)]);
