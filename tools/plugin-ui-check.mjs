@@ -2794,6 +2794,8 @@ try {
     assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),false,'Failed background reads lock rematch without replacing the result');
     await frame.locator('#over #retry').click(); await frame.locator('#over #retry').waitFor({state:'hidden'}); await idleBoard();
     assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),true,'A fresh game read clears the rematch lock');
+    // F-006: a friend result never sends the player to Ranked, also in the staging build that offers Ranked.
+    assert.equal(await frame.locator('#over .quiet-line').innerText(),'A rematch is Casual. It keeps the features and swaps the colours.','A friend result does not name Ranked');
     if (mode==='fixture') { await frame.locator('.end-facts').filter({hasText:'New player'}).waitFor(); assert(!/1561|\+61|\?/.test(await frame.locator('.end-facts').innerText()), 'A new player sees no provisional number'); assert.match(await frame.locator('.new-badge img').getAttribute('src'),/badge-fairy-tale-/); }
     await page.setViewportSize({width:197,height:426});
     await page.locator('iframe').evaluate(e=>e.style.setProperty('height','100dvh','important'));
