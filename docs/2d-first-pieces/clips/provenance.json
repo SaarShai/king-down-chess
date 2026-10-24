@@ -53,6 +53,11 @@
    "width": 2576,
    "height": 2648,
    "sha256": "3f54c2b5b01295dabc2d2d02d4be28889f249c2d088b4be75a930c849f5f0acc"
+  },
+  "boardSheet": {
+   "file": "rook/rook.webp",
+   "bytes": 212578,
+   "sha256": "f6193c9a94c742caf7554cea4a7e80d3da0a822a4866fb8f2c638aa95d3aeaf3"
   }
  }
 }

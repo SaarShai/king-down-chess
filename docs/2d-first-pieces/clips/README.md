@@ -24,9 +24,10 @@ The samples folder holds the reviewed sample sheets and manifests (`knight-tap-f
 
 The script does not repaint a drawing. It fits one scale and one translation for each clip: the clip's rest drawing against the board's still sprite. It mirrors the Rook as the board does. Each drawing keeps the registration anchor of its sample manifest. The atlas stores each drawing at 0.36 of sprite size, which is more than the board's largest display needs.
 
-The samples are Ivory only. The Charcoal drawings are the Ivory drawings through a colour map. The map comes from the board's two painted armies: for each Ivory colour, the mean Charcoal colour at the same place. `provenance.json` records the map's mean error against the painted Charcoal still. The map cannot tell two parts with the same Ivory colour apart: the Charcoal Knight's cape comes out lighter than the painted cape.
+The Rook slam drawings are a redrawn Rook. So the board's Rook sheet `rook/rook.webp` is the clip's rest drawing (both armies), and the build writes it too. The figure does not change when the clip starts and ends. The build stops if the rest drawing does not fit the sheet windows (`CELLS`, `mirrorOrigin` in `rook/motion.mjs`).
+
+The samples are Ivory only. The Charcoal drawings are the Ivory drawings through a colour map. The map comes from the board's two painted armies: for each Ivory colour, the mean Charcoal colour at the same place. `provenance.json` records the map's mean error against the painted Charcoal still. The map cannot tell two parts with the same Ivory colour apart: the Charcoal Knight's cape comes out lighter than the painted cape. Generated Charcoal drawings are a later option.
 
 ## Known limits
 
-- The Rook slam drawings are a redrawn Rook. Face, skin colour and proportions differ from the board's Rook, so the figure changes when the clip starts and ends.
 - The Knight drawings are close to the board's Knight, but small drawing changes remain between them.

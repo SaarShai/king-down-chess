@@ -46,9 +46,9 @@ const diff = (page, a, b) => page.evaluate(([a, b]) => {
   return n / (A.length / 4) * 100;
 }, [a, b]);
 const select = async (page, sq) => { const p = await page.evaluate(s => window.view.screenOf(s), sq); await page.mouse.click(p.x, p.y); };
-// Shares (%) of changed pixels near the figure (part 3). Measured: rest 1.8–2.1 (Knight), 3.5–4.4 (Rook); raised
-// 1.2–1.5 (Knight), 6.3–7.3 (Rook). With the atlas draw removed, raised is 0 and rest 2.6–9.9.
-const LIMITS = { knight: { rest: 3, raised: .6 }, rook: { rest: 6, raised: 3 } };
+// Shares (%) of changed pixels near the figure (part 3). Measured: rest 1.8–2.1 (Knight), 0.2–0.6 (Rook: the board
+// sheet is his rest drawing); raised 1.2–1.5 (Knight), 6.3–7.3 (Rook). With the atlas draw removed, raised is 0 and rest 2.6–9.9.
+const LIMITS = { knight: { rest: 3, raised: .6 }, rook: { rest: 2, raised: 3 } };
 const RAISED = { knight: 8, rook: 8 };
 const SQUARES = { knight: [1, 62], rook: [7, 56] };
 // Ends when the selected figure's clip has played and the scene has drawn its still figure after it.

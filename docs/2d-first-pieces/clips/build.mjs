@@ -11,13 +11,15 @@ import fs from 'node:fs/promises';
 import crypto from 'node:crypto';
 import assert from 'node:assert/strict';
 import {fileURLToPath} from 'node:url';
+import {CELLS as ROOK_CELLS,mirrorOrigin as ROOK_MIRROR} from '../rook/motion.mjs';
 
 const here=fileURLToPath(new URL('./',import.meta.url)),pieces=here+'../';
 const samples=(process.argv[2]??pieces+'../specs/character-animation-samples/preview/assets').replace(/\/?$/,'/');
 const SPRITE=1152,FACTOR=.36,COLS=8,MARGIN=6;
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 
-// The board's still sprite for one army, as scene.mjs draws it (knight/motion.mjs drawKnight, rook/motion.mjs drawRook).
+// The board's still sprite for one army, as scene.mjs draws it from the painted sheet `art` (the fit and colour
+// reference; for the Rook it is no longer the sheet the game loads, see CLIPS.rook.board) (knight/motion.mjs drawKnight, rook/motion.mjs drawRook).
 const BOARD={
  knight:{art:'knight/knight.png',place:side=>({cell:[side*768,0,768,1024],left:side?148:60,top:15,flop:false})},
  rook:{art:'rook/rook.png',place:side=>{const cell=[[0,0,780,1024],[780,0,756,1024]][side];return {cell,left:[995,943][side]-cell[2],top:0,flop:true};}},
@@ -28,7 +30,9 @@ const CLIPS={
   // The banked sequence (knight-banked.json): lift, hold, drop, contact, recoil, settle, at 24 fps.
   fps:24,sequence:[0,1,2,3,4,5,6,7,8,8,6,3,0,1,2,1,0,0],
  },
- rook:{sheet:'rook-slam-hq.png',manifest:'rook-slam-hq.json',flop:true},
+ // The Rook's slam drawings are a redrawn Rook, so his board sheet (`board`) is made from the clip's rest drawing:
+ // the figure does not change when the clip starts and ends (ticket character-clips/01, decision 1).
+ rook:{sheet:'rook-slam-hq.png',manifest:'rook-slam-hq.json',flop:true,board:'rook/rook.webp'},
 };
 
 async function rgba(input){const {data,info}=await sharp(input).ensureAlpha().raw().toBuffer({resolveWithObject:true});return {data,width:info.width,height:info.height};}
@@ -125,7 +129,7 @@ function recolour(img,lut){
 // How far the colour map's Charcoal is from the painted Charcoal (mean absolute channel error over opaque pixels).
 function colourError(a,b){let sum=0,n=0;for(let i=0;i<a.data.length;i+=4)if(a.data[i+3]>250&&b.data[i+3]>250){for(let c=0;c<3;c++)sum+=Math.abs(a.data[i+c]-b.data[i+c]);n+=3;}return sum/n;}
 
-const out={},report={};
+const out={},report={},boardSheets={};
 for(const [name,clip] of Object.entries(CLIPS)){
  const manifest=JSON.parse(await fs.readFile(samples+clip.manifest)),sheetBytes=await fs.readFile(samples+clip.sheet);
  const sheet=await rgba(sheetBytes),frames=manifest.frames,sequence=clip.sequence??manifest.sequence,fps=clip.fps??manifest.fps;
@@ -168,12 +172,34 @@ for(const [name,clip] of Object.entries(CLIPS)){
  const file=`${name}/${name==='knight'?'tap':'slam'}.webp`;
  const atlas=await sharp({create:{width:COLS*cw,height:2*rows*ch,channels:4,background:'#0000'}}).composite(layers).webp({quality:88,alphaQuality:100,effort:6}).toBuffer();
  await fs.writeFile(pieces+file,atlas);
+ if(clip.board){
+  // The rest drawing at full size in sprite space (Charcoal: colour map and shift), put back into the painted sheet's
+  // cell windows: the board draws each window mirrored (flop) at `left`, so the sheet holds the mirror of the window.
+  const f=frames[0],b=boxes[0],w=Math.round(f.rect[2]*placed.s),h=Math.round(f.rect[3]*placed.s),PAD=400,cells=[];
+  for(let side=0;side<2;side++){
+   let part=sharp(sheetBytes).extract({left:f.rect[0],top:f.rect[1],width:f.rect[2],height:f.rect[3]}).resize(w,h,{kernel:'lanczos3'});
+   if(clip.flop)part=part.flop();
+   let img=await rgba(await part.png().toBuffer());
+   if(side)img=recolour(img,lut);
+   const input=await sharp(img.data,{raw:{width:img.width,height:img.height,channels:4}}).png().toBuffer();
+   const sprite=await sharp({create:{width:SPRITE+2*PAD,height:SPRITE+2*PAD,channels:4,background:'#0000'}}).composite([{input,left:PAD+Math.round(b.x0+side*shift.dx),top:PAD+Math.round(b.y0+side*shift.dy)}]).png().toBuffer();
+   const {top}=BOARD[name].place(side),cell=ROOK_CELLS[side],left=ROOK_MIRROR[side]-cell[2],whole=await rgba(sprite);
+   // Nothing painted may fall outside the window the board draws.
+   let outside=0,ob=[1e9,1e9,-1e9,-1e9];
+   for(let y=0;y<whole.height;y++)for(let x=0;x<whole.width;x++)if(whole.data[(y*whole.width+x)*4+3]>8&&(x<PAD+left||x>=PAD+left+cell[2]||y<PAD+top||y>=PAD+top+cell[3])){outside++;ob=[Math.min(ob[0],x-PAD),Math.min(ob[1],y-PAD),Math.max(ob[2],x-PAD),Math.max(ob[3],y-PAD)];}
+   assert.equal(outside,0,`${name}: the rest drawing of army ${side} fits its sheet window ${left}..${left+cell[2]} × ${top}..${top+cell[3]}; outside: ${ob}`);
+   cells.push({input:await sharp(sprite).extract({left:PAD+left,top:PAD+top,width:cell[2],height:cell[3]}).flop().png().toBuffer(),left:cell[0],top:cell[1]});
+  }
+  const sheetOut=await sharp({create:{width:ROOK_CELLS[1][0]+ROOK_CELLS[1][2],height:1024,channels:4,background:'#0000'}}).composite(cells).webp({quality:90,alphaQuality:100,effort:6}).toBuffer();
+  await fs.writeFile(pieces+clip.board,sheetOut);
+  boardSheets[name]={file:clip.board,bytes:sheetOut.length,sha256:sha(sheetOut)};
+ }
  const charcoalRest=recolour(stills[0],lut),shifted={...stills[1],data:Buffer.alloc(stills[1].data.length)};
  for(let y=0;y<SPRITE;y++)for(let x=0;x<SPRITE;x++){const u=x+shift.dx,v=y+shift.dy;if(u>=0&&v>=0&&u<SPRITE&&v<SPRITE)stills[1].data.copy(shifted.data,(y*SPRITE+x)*4,(v*SPRITE+u)*4,(v*SPRITE+u)*4+4);}
  out[name]={fps,sequence,factor:FACTOR,box,cell:[cw,ch],rows,cells};
  report[name]={source:{sheet:clip.sheet,manifest:clip.manifest,sheetSha256:sha(sheetBytes)},drawings:frames.length,ticks:sequence.length,ms:Math.round(sequence.length/fps*1000),
   fit:{scale:+placed.s.toFixed(4),tx:+placed.tx.toFixed(1),ty:+placed.ty.toFixed(1),restAlphaMisfit:+placed.e.toFixed(4)},
-  charcoalShift:[shift.dx,shift.dy],charcoalColourError:+colourError(charcoalRest,shifted).toFixed(2),atlas:{file,bytes:atlas.length,width:COLS*cw,height:2*rows*ch,sha256:sha(atlas)}};
+  charcoalShift:[shift.dx,shift.dy],charcoalColourError:+colourError(charcoalRest,shifted).toFixed(2),atlas:{file,bytes:atlas.length,width:COLS*cw,height:2*rows*ch,sha256:sha(atlas)},...boardSheets[name]&&{boardSheet:boardSheets[name]}};
  assert.equal(sequence[0],sequence.at(-1),`${name}: the clip ends on the drawing it starts with`);
 }
 const header='// Generated by clips/build.mjs from the owner-reviewed sample frames. Do not edit by hand.\n';

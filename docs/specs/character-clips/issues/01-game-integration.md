@@ -12,7 +12,7 @@ Sources of approval (character-animation thread and `docs/specs/character-animat
 - Knight lance tap, nine-drawing v2: the owner says "bank the previous version for knight".
 - Rook slam, crack and heal, two-second high-resolution loop: the owner says "that's great".
 
-The effects thread (states, cards, interface, king grounds) is in PR #92. This ticket does not touch that work.
+The effects thread (states, cards, interface, king grounds) is in PR #92. This ticket does not touch that work. The PR targets `staging/first-game`; the integration PR #94 takes it to main.
 
 ## Plan
 
@@ -23,9 +23,9 @@ The effects thread (states, cards, interface, king grounds) is in PR #92. This t
 ## Checks
 
 - `node --test docs/2d-first-pieces/clips/clips.test.mjs`: 5 cases pass. A copy of the scene without the atlas draw call fails the play case.
-- `PLAYABLE_BROWSER=chromium npm run check:browser character-clips`: passes (43 s). Both armies: Knight 9 drawings in 733 ms, Rook 26 drawings in 1983 ms, then the still figure; no restart while selected. On a stopped clock every drawing shows in order. Canvas pixels near the figure: the rest drawing differs from the still figure by 1.8–4.4 % of pixels, the raised drawing from the rest drawing by 1.2–7.3 %. Without the atlas draw, the raised change is 0 and the check fails. Reduced motion and Motion Off: no clip.
+- `PLAYABLE_BROWSER=chromium npm run check:browser character-clips`: passes (43 s). Both armies: Knight 9 drawings in 733 ms, Rook 26 drawings in 1983 ms, then the still figure; no restart while selected. On a stopped clock every drawing shows in order. Canvas pixels near the figure: the rest drawing differs from the still figure by 1.8–2.1 % of pixels (Knight) and 0.2–0.6 % (Rook, whose board sheet is the rest drawing; it was 3.5–4.4 % before), the raised drawing from the rest drawing by 1.2–7.3 %. Without the atlas draw, the raised change is 0 and the check fails. Reduced motion and Motion Off: no clip.
 - `npx tsc --noEmit -p .`: passes.
-- Full `npm test` (final commit): 4767 passed, 2 failed, 8 skipped; docs scene tests 55 of 55 pass. `src/match/service.db.test.ts` "runs a Daily friend game…" fails on `origin/main` too. `tools/plugin-app.test.ts` "makes one game after a lost Start reply…" passes alone on this branch and on `origin/main`. An earlier full run under heavy machine load had 19 plugin failures; the five failing files pass alone on both branches.
+- Full `npm test` (after the merge of `staging/first-game` and the Rook sheet change): 4830 passed, 2 failed, 8 skipped; docs scene tests 55 of 55 pass. `tools/plugin-motion.test.ts` "opens end actions during a live win (reduced motion true)" timed out under load and passes alone. Earlier run: 4767 passed, 2 failed. `src/match/service.db.test.ts` "runs a Daily friend game…" fails on `origin/main` too. `tools/plugin-app.test.ts` "makes one game after a lost Start reply…" passes alone on this branch and on `origin/main`. An earlier full run under heavy machine load had 19 plugin failures; the five failing files pass alone on both branches.
 
 ## Review
 
@@ -39,11 +39,13 @@ An independent review (read-only) found three faults; all are fixed:
 
 Evidence: `docs/specs/character-clips/evidence/knight-in-game.webp` and `rook-in-game.webp` (Ivory top row, Charcoal bottom row, in-game captures on a stopped clock). The check also records a video.
 
-## Open owner decisions
+## Decisions taken
 
-1. The Rook slam drawings are a redrawn Rook (face, skin and proportions differ from the board Rook). The figure changes when the clip starts and ends. Pick: keep the change, use the clip's rest drawing as the board Rook, or regenerate the clip from the board Rook.
-2. The samples are Ivory only. The Charcoal clips come from a colour map; the Charcoal Knight's cape is lighter than the painted one. Pick: accept, or generate Charcoal drawings.
-3. Trigger: the clip plays on selection. Alternative: now and then at rest, as the resting pawns do.
+The owner's standing rule is to act on the recommendation, so these are settled:
+
+1. Rook look: the board Rook is the slam clip's rest drawing, for both armies. `clips/build.mjs` writes `rook/rook.webp` from it, so the figure does not change when the clip starts and ends. The sheet windows are wider (840 px) and the Charcoal mirror origin moves to 970; the capture pound still deforms the stone arm as before. Before and after: `evidence/rook-board-before-after.webp`.
+2. Charcoal: keep the colour map. Generated Charcoal drawings are a later option.
+3. Trigger: the clip plays on selection.
 
 ## Not built
 
