@@ -82,7 +82,8 @@ it('W7-04: a refused press after a real draw offer keeps T6 and the note, then s
     expect(saved.fen).toBe(toFen(applyLan(fromFen(base.fen),'e2-e4',base.rules!)!.pos));
     expect(saved.draw_offer).toBeNull();
     expect(saved.history!.actions).toEqual(['e2-e4']);
-    expect(await savedDraft(page)).toBeNull();
+    // The host saves iframe state through postMessage. Wait for its draft clear.
+    await expect.poll(() => savedDraft(page)).toBeNull();
     expect((await moveCalls(page)).map((c: any) => c.arguments.actions)).toEqual([['e2-e4'], ['e2-e4']]);
   } finally { await page.close(); }
 });
