@@ -8,6 +8,7 @@ import { fromFen, randomBackRank, startPosition, toLan } from './rules/setup';
 import { checkCause, checkersOf, describeMove, shortMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
 import { offered } from './powers-ui';
 import { mulberry32 } from './sim/rng';
+import { applyLan } from './plugin/screens/board-model';
 
 const KING_OF: Partial<Record<PowerName, KingChoice['king']>> = {
   Freeze: 'Frost', IceWall: 'Frost', Haste: 'Flame', Flight: 'Stratus', Sacrifice: 'Stratus',
@@ -350,5 +351,24 @@ describe('screen-reader lines for released cards', () => {
   it('counts the pieces when an Earth Quake pushes more than two', () => {
     setRules({ hands: [['EarthQuake'], []] });
     expect(say(fromFen('4k3/8/8/2ppp3/8/8/8/4K3 w - - 0 1'), '!Q:d4')).toBe('White uses Earth Quake on d4 and pushes 3 pieces one square away.');
+  });
+});
+
+describe('the staging card moves name their card (F-033, F-030)', () => {
+  // The move sentence (status, Previously, Moves list) and the short history line for the two playtest moves.
+  // applyLan is the path of an account game's history: the computer's move arrives as its LAN.
+  const cases = [
+    { name: 'a Leap over an own pawn', hands: [['Leap'], []] as [CardName[], CardName[]], fen: '4k3/8/8/4p3/8/8/1P6/B3K3 w - - 0 1', power: 'leap', from: 'a1', to: 'e5',
+      words: 'White bishop a1 to e5, taking the pawn on e5 with Leap.', short: 'White Leap · bishop a1 → e5' },
+    { name: "the computer's Sky Lift", hands: [[], ['SkyLift']] as [CardName[], CardName[]], fen: '3m2ak/8/8/8/8/8/8/K7 b - - 0 1', power: 'skylift', from: 'd8', to: 'g8',
+      words: 'Black uses Sky Lift to swap the maester on d8 and the archer on g8.', short: 'Black Sky Lift · maester d8 ↔ g8' },
+  ];
+  it.each(cases)('$name', ({ hands, fen, power, from, to, words, short }) => {
+    const rules = { hands }, context = new GameRules(rules), pre = context.fromFen(fen);
+    const move = context.legalMoves(pre).find(m => m.power === power && m.from === parseSq(from) && m.to === parseSq(to))!;
+    expect(move).toBeDefined();
+    expect(describeMove(context, pre, move, true)).toBe(words);
+    expect(shortMove(pre, move, type => context.nameOf(type))).toBe(short);
+    expect(applyLan(pre, toLan(pre, move), rules)?.words).toBe(words);
   });
 });
