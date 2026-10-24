@@ -115,10 +115,11 @@ export const CAST_SPENT_MS = 500;
  * `host` holds the material layer (#game-table); `coin` is the spent card coin, found again by id after a rebuild.
  */
 export function castRelease(motion: UiMotion, host: HTMLElement, coin: HTMLElement, card: 'Freeze' | 'Firewall', at: number): void {
-  // The approved card glow, sampled at 0, 125, 250 and 375 ms on a linear clock. Each animation ends on the coin's own
-  // spent style (no last keyframe), so the static spent card does not change.
+  // The approved card glow on the coin face, sampled at 0, 125, 250 and 375 ms on a linear clock: brightness
+  // 1 + .2 sin(pi ms / 500), grey and fade by the spent value. The preview's emblem also dims by .28 of the spent value,
+  // to brightness .72 at rest; the game's spent coin keeps its own static style (brightness 1, the G2 contrast), so the
+  // release ends there instead. The animation has no last keyframe, so it ends on that static style.
   const paint = coin.querySelector('.coin-paint');
-  motion.play(coin, [{ filter: 'grayscale(0)' }, { filter: 'grayscale(0)', offset: .25 }, { filter: 'grayscale(.26)', offset: .5 }, { filter: 'grayscale(.74)', offset: .75 }], CAST_SPENT_MS, 0, at, 'linear');
   motion.play(paint, [
     { transform: 'translateY(-4px) scale(1)', filter: 'grayscale(0) brightness(1)', opacity: 1 },
     { transform: 'translateY(-4px) scale(1)', filter: 'grayscale(0) brightness(1.14)', opacity: 1, offset: .25 },
@@ -132,17 +133,20 @@ export function castRelease(motion: UiMotion, host: HTMLElement, coin: HTMLEleme
   const clock = motion.play(layer, [{ opacity: 1 }, { opacity: 1 }], CAST_SPENT_MS, 0, at, 'linear');
   if (!clock) { layer.remove(); return; }
   const draw = card === 'Freeze' ? drawFreeze : drawFirewall, total = Number(clock.effect?.getComputedTiming().duration) || CAST_SPENT_MS;
+  // The material sets its own alpha, so it draws on its own canvas first; the layer then fades that image, as the preview does.
+  const material = document.createElement('canvas');
   const frame = () => {
     const target = document.getElementById(coin.id), ms = Number(clock.currentTime ?? 0) * CAST_SPENT_MS / total;
     if (clock.playState !== 'running' || !target || !layer.isConnected) { layer.remove(); return; }
     const box = host.getBoundingClientRect(), face = target.getBoundingClientRect(), scale = face.width / 142, dpr = Math.min(2, devicePixelRatio || 1);
     // The material's foot sits low on the card face, as on a figure.
     Object.assign(layer.style, { left: `${face.left - box.left + face.width / 2 - 80 * scale}px`, top: `${face.top - box.top + face.height * .8 - 145 * scale}px`, width: `${160 * scale}px`, height: `${180 * scale}px` });
-    layer.width = Math.round(160 * scale * dpr); layer.height = Math.round(180 * scale * dpr);
-    const ctx = layer.getContext('2d')!;
-    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0); ctx.clearRect(0, 0, 160, 180);
+    layer.width = material.width = Math.round(160 * scale * dpr); layer.height = material.height = Math.round(180 * scale * dpr);
+    const paint = material.getContext('2d')!, ctx = layer.getContext('2d')!;
+    paint.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+    for (const front of [false, true]) draw(paint, { x: 80, y: 145, progress: .32 * ease(ms / CAST_PREPARE_MS), front, seed: 3 });
     ctx.globalAlpha = (1 - ease((ms - CAST_PREPARE_MS) / (CAST_SPENT_MS - CAST_PREPARE_MS))) * .86;
-    for (const front of [false, true]) draw(ctx, { x: 80, y: 145, progress: .32 * ease(ms / CAST_PREPARE_MS), front, seed: 3 });
+    ctx.drawImage(material, 0, 0);
     requestAnimationFrame(frame);
   };
   void clock.finished.then(() => layer.remove(), () => layer.remove());

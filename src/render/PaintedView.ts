@@ -65,6 +65,8 @@ export class PaintedView implements BoardView {
   private loaded: Promise<void>;
   private disposed = false;
   private card: CardPlayback | null = null;
+  /** The running promotion reveal (ticket 86): reduced motion or a hidden page ends it like a card. */
+  private reveal: PromotionPlayback | null = null;
   private cardStates = new StateEffects();
   private skippedMark?: { after: Position; owner: Color };
   private moveSquares?: ReadonlySet<number>;
@@ -199,6 +201,7 @@ export class PaintedView implements BoardView {
     if (this.card) this.skip();
     if (this.pos !== pos) this.sync(pos);
     this.skippedMark = undefined;
+    this.stateEffects.release(performance.now(), this.motion() && !document.hidden);
     const card = cardPlayback(this.context, pos, m);
     if (card) {
       this.skip();
@@ -229,8 +232,9 @@ export class PaintedView implements BoardView {
       const arrived = await this.scene.play(m, { onContact, speed: rate });
       // A promotion reveals the chosen piece after the pawn arrives (ticket 86). Motion off shows it at once.
       if (arrived && m.promo && this.moveSquares === moving && this.motion() && !document.hidden && !this.symbols) {
-        const reveal = new PromotionPlayback(pos, m, this.context.makeMove(pos, m));
-        await this.scene.play(reveal.scene, { effect: reveal, speed: rate });
+        const reveal = this.reveal = new PromotionPlayback(pos, m, this.context.makeMove(pos, m));
+        try { await this.scene.play(reveal.scene, { effect: reveal, speed: rate }); }
+        finally { if (this.reveal === reveal) this.reveal = null; }
       }
     }
     finally { if (this.moveSquares === moving) this.moveSquares = undefined; }
@@ -257,6 +261,7 @@ export class PaintedView implements BoardView {
   skip(): void {
     if (this.card && ['freeze', 'ward', 'firewall'].includes(this.card.move.power ?? '')) this.skippedMark = { after: this.card.after, owner: this.card.before.turn };
     this.card = null;
+    this.reveal = null;
     this.moveSquares = undefined;
     this.stopStateEffects();
     if (this.scene.animating) this.scene.cancel();
@@ -268,7 +273,8 @@ export class PaintedView implements BoardView {
    * Reduced motion keeps the slide and victim fade.
    */
   private applyLively(): void {
-    if (this.card && (!this.motion() || document.hidden)) this.skip();
+    // Reduced motion or a hidden page ends a card or a promotion reveal at once; the caller then shows the result.
+    if ((this.card || this.reveal) && (!this.motion() || document.hidden)) this.skip();
     const motion = this.pace !== 'off' && !this.motionQuery.matches, shown = motion && !document.hidden;
     if (this.pace === 'off') this.scene.setLifted(null);
     if (!shown) this.stateEffects.settle();
@@ -283,7 +289,7 @@ export class PaintedView implements BoardView {
     this.container.classList.toggle('king-in-check', h.check != null);
     this.scene.setSelected(h.selected ?? null);
     const now = performance.now(), motion = this.motion() && !document.hidden;
-    if (ended != null) this.stateEffects.withdraw(ended, now, motion && this.stateEffects.forward);
+    if (ended != null) this.stateEffects.endCheck(ended, now, motion);
     this.stateEffects.signal('archer', h.shots?.length ? `${h.selected}:${h.shots}` : '', now, motion);
     this.stateEffects.signal('swap', h.swaps?.length ? `${h.selected}:${h.swaps}` : '', now, motion);
     this.stateEffects.signal('shove', h.shoveTo?.length ? JSON.stringify(h.shoveTo) : '', now, motion);

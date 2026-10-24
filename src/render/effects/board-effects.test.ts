@@ -78,7 +78,10 @@ it('times the check onset from its live signal and holds it without motion', () 
 
 it('withdraws an ended check under the figures for 220 ms, and not at all without motion', () => {
   const effects = new StateEffects(), scene = sceneAt(false);
-  effects.withdraw(4, 1000, true);
+  // A highlight ends the shown check; the evasion's playback starts the withdrawal.
+  effects.signal('check', '4:[]', 0, true, false); effects.endCheck(4, 1000, true);
+  expect(effects.withdrawn).toBeUndefined();
+  effects.release(1000, true);
   drawBoardEffects(ctx, scene, 'over', 7, effects, {}, 960, 1110, true, false, null, 0);
   expect(drawWithdrawal).not.toHaveBeenCalled();
   drawBoardEffects(ctx, scene, 'under', undefined, effects, {}, 960, 1110, true, false, null, 0);
@@ -87,7 +90,7 @@ it('withdraws an ended check under the figures for 220 ms, and not at all withou
   drawBoardEffects(ctx, scene, 'under', undefined, effects, {}, 960, 1220, true, false, null, 0);
   expect(drawWithdrawal).toHaveBeenCalledOnce();
   expect(effects.withdrawn).toBeUndefined();
-  effects.withdraw(4, 2000, false);
+  effects.signal('check', '4:[]', 0, false); effects.endCheck(4, 2000, false); effects.release(2000, false);
   drawBoardEffects(ctx, scene, 'under', undefined, effects, {}, 960, 2001, true, false, null, 0);
   expect(drawWithdrawal).toHaveBeenCalledOnce();
 });

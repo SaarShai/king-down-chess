@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { handoff, UiMotion } from './motion';
+import { castRelease, handoff, UiMotion } from './motion';
+import { drawFreeze } from '../render/effects/materials';
+// The material sets its own alpha, as the real one does.
+vi.mock('../render/effects/materials', () => ({ drawFreeze: vi.fn((ctx: CanvasRenderingContext2D) => { ctx.globalAlpha = 1; }), drawFirewall: vi.fn() }));
 
 let now: number, pace: string, hidden: boolean, reduced: boolean;
 let documentEvents: EventTarget, media: EventTarget;
@@ -8,7 +11,7 @@ let animations: ReturnType<typeof animation>[];
 function animation() {
   let finish!: () => void, reject!: () => void;
   const finished = new Promise<void>((resolve, no) => { finish = resolve; reject = no; });
-  return { currentTime: 0, finished, finish, cancel: vi.fn(() => reject()) };
+  return { currentTime: 0, playState: 'running', effect: { getComputedTiming: () => ({ duration: 500 }) }, finished, finish, cancel: vi.fn(() => reject()) };
 }
 class Control {
   isConnected = true;
@@ -109,4 +112,30 @@ it.each(['finished', 'cancelled', 'disabled'])('removes the handoff token when %
   if (state === 'cancelled') a.cancel();
   await Promise.resolve();
   expect(token.remove).toHaveBeenCalledOnce();
+});
+
+it('fades the Freeze material at its card as one image, and greys only the coin face', () => {
+  const frames: FrameRequestCallback[] = [], canvases: Canvas[] = [];
+  class Canvas extends Control {
+    style = {}; dataset: Record<string, string> = {}; className = ''; width = 0; height = 0; alphas: number[] = [];
+    context = { globalAlpha: 1, setTransform() {}, drawImage: (_: unknown) => { this.alphas.push(this.context.globalAlpha); } };
+    getContext() { return this.context; }
+    setAttribute() {}
+    remove() { this.isConnected = false; }
+  }
+  const paint = new Control(), coin = Object.assign(new Control(), { id: 'card-w-0', querySelector: () => paint, getBoundingClientRect: () => ({ left: 10, top: 10, width: 142, height: 142 }) });
+  const host = { querySelector: () => null, append() {}, getBoundingClientRect: () => ({ left: 0, top: 0 }) } as unknown as HTMLElement;
+  Object.assign(document, { createElement: () => { const canvas = new Canvas(); canvases.push(canvas); return canvas; }, getElementById: () => coin });
+  vi.stubGlobal('requestAnimationFrame', (fn: FrameRequestCallback) => frames.push(fn));
+  vi.stubGlobal('devicePixelRatio', 1);
+  castRelease(new UiMotion(), host, coin as unknown as HTMLElement, 'Freeze', 1000);
+  expect(coin.animate).not.toHaveBeenCalled();
+  expect(paint.animate).toHaveBeenCalledOnce();
+  const [layer] = canvases, clock = animations[1];
+  for (const ms of [375, 499]) { clock.currentTime = ms; frames.shift()!(ms); }
+  // 0.86 x (1 - smoothstep((ms - 125) / 375)) at 0, 375 and 499 ms.
+  expect(layer.alphas[0]).toBe(.86);
+  expect(layer.alphas[1]).toBeCloseTo(.223, 3);
+  expect(layer.alphas[2]).toBeLessThan(.001);
+  expect(vi.mocked(drawFreeze).mock.calls.map(call => call[1].progress)).toEqual([0, 0, .32, .32, .32, .32]);
 });

@@ -344,15 +344,18 @@ it.each([false, true])('releases Freeze at its card and rests in the same spent 
     if (reduced) {
       expect([glow, grey, await layer.count()]).toEqual([[], [], 0]);
     } else {
-      // The card gathers its material and brightens for 125 ms, then drains into the spent style. Nothing crosses the board.
-      expect(glow.map(e => e.id)).toEqual([id]); expect(grey.map(e => e.id)).toEqual([id]);
+      // The card face gathers its material and brightens for 125 ms, then drains into the spent style. Nothing crosses the
+      // board. A coin row rebuild resumes the same beat on the new face; the coin itself does not animate.
+      expect([...new Set(glow.map(e => e.id))]).toEqual([id]); expect(grey).toEqual([]);
+      expect(Math.max(...glow.map(e => e.onset)) - Math.min(...glow.map(e => e.onset))).toBeLessThan(15);
       expect(glow[0]).toMatchObject({ options: { duration: 250, easing: 'linear' } });
       expect(glow[0].frames.map(f => f.filter)).toEqual(['grayscale(0) brightness(1)', 'grayscale(0) brightness(1.14)', 'grayscale(.26) brightness(1.2)', 'grayscale(.74) brightness(1.14)']);
       expect(glow[0].frames.at(-1)!.offset).toBe(.75);
       expect((await motion('.ui-cast-release')).length).toBe(1);
       await expect.poll(() => layer.count(), { timeout: 2000 }).toBe(0);
     }
-    await expect.poll(() => spentStyle(spent), { timeout: 5000 }).toEqual({ opacity: '1', filter: 'grayscale(1)', paintOpacity: '0.85', paintTransform: 'matrix(0.96, 0, 0, 0.96, 0, 0)', paintFilter: 'grayscale(1)' });
+    // The static spent style: the face greys and dims; the coin keeps no filter of its own.
+    await expect.poll(() => spentStyle(spent), { timeout: 5000 }).toEqual({ opacity: '1', filter: 'none', paintOpacity: '0.85', paintTransform: 'matrix(0.96, 0, 0, 0.96, 0, 0)', paintFilter: 'grayscale(1)' });
     await expect.poll(() => animations(frame, `#${id}`), { timeout: 1000 }).toBe(0);
     expect(await frame.locator('#game-table .card-coin[data-state="used"]').count()).toBe(1);
   } finally { await page.close(); }

@@ -77,6 +77,20 @@ describe('promotion reveal', () => {
     view.dispose();
   });
 
+  it.each(['reduced', 'hidden'] as const)('a running reveal ends at once when the page turns %s', async change => {
+    const { view, scene, advance, media, doc, docEvents } = await viewBoard();
+    view.setRules(rules);
+    const play = vi.spyOn(scene, 'play'), running = view.animateMove(promoting, legal(rules, promoting, 'd7-d8=Q'));
+    for (let i = 0; i < 400 && play.mock.calls.length < 2; i++) { advance(10); await Promise.resolve(); }
+    expect(play.mock.calls[1]?.[1]?.effect).toBeInstanceOf(PromotionPlayback);
+    advance(100); expect(scene.animating).toBe(true);
+    if (change === 'reduced') { media.matches = true; docEvents.get('reduced')!(); }
+    else { doc.hidden = true; docEvents.get('visibilitychange')!(); }
+    expect(scene.animating).toBe(false);
+    await running;
+    view.dispose();
+  });
+
   it.each(['reduced', 'off', 'skip'] as const)('%s shows the chosen piece with no reveal', async mode => {
     const { view, scene, advance } = await viewBoard(mode === 'reduced');
     view.setRules(rules); if (mode === 'off') view.setPace('off');
@@ -146,26 +160,52 @@ describe('card casting local release', () => {
 });
 
 describe('check withdrawal', () => {
-  it('withdraws on a live board when a highlight ends check; resync and reduced motion remove it at once', async () => {
-    for (const reduced of [false, true]) {
+  const checkers = [{ sq: 0, king: 4, path: 'straight' as const }];
+  it('starts when the evasion plays, after a live move or a load; reduced motion removes it at once', async () => {
+    for (const reduced of [false, true]) for (const loaded of [false, true]) {
       const { view, advance } = await viewBoard(reduced);
       const context = new GameRules({}), start = context.fromFen('7k/8/8/8/8/8/8/1r2K3 b - - 0 1'), checked = context.makeMove(start, legal(context, start, 'Rb1-a1'));
       const effects = (view as unknown as { stateEffects: StateEffects }).stateEffects;
-      view.setRules(context); view.sync(start); advance(10); view.sync(checked);
-      expect(effects.forward).toBe(!reduced);
-      view.highlight({ check: 4, checkers: [{ sq: 0, king: 4, path: 'straight' }] });
-      advance(10); view.highlight({});
-      expect(effects.withdrawn).toEqual(reduced ? undefined : { king: 4, since: expect.any(Number) });
-      // The web review clears the marks first, then shows the earlier board: no withdrawal stays.
-      view.highlight({ check: 4, checkers: [{ sq: 0, king: 4, path: 'straight' }] }); view.highlight({}); view.sync(start);
+      view.setRules(context);
+      const shown = loaded ? context.fromFen('7k/8/8/8/8/8/8/r3K3 w - - 1 2') : checked;
+      if (!loaded) { view.sync(start); advance(10); }
+      view.sync(shown);
+      // The plugin and the web game mark the move first, then play it.
+      view.highlight({ check: 4, checkers }); advance(10); view.highlight({});
       expect(effects.withdrawn).toBeUndefined();
+      void view.animateMove(shown, legal(context, shown, 'Ke1-e2'));
+      expect(effects.withdrawn).toEqual(reduced ? undefined : { king: 4, since: expect.any(Number) });
       view.dispose();
     }
+  });
+
+  it('shows no withdrawal when a page hides the mark, reviews, rewinds or resyncs', async () => {
     const { view, advance } = await viewBoard(), context = new GameRules({});
+    const start = context.fromFen('7k/8/8/8/8/8/8/1r2K3 b - - 0 1'), checked = context.makeMove(start, legal(context, start, 'Rb1-a1'));
     const effects = (view as unknown as { stateEffects: StateEffects }).stateEffects;
-    view.setRules(context); view.sync(context.fromFen('7k/8/8/8/8/8/8/r3K3 w - - 0 1'));
-    view.highlight({ check: 4, checkers: [{ sq: 0, king: 4, path: 'straight' }] }); advance(10); view.highlight({});
+    view.setRules(context); view.sync(start); advance(10); view.sync(checked);
+    // A modal promotion picker or the game-end ceremony hides the mark and plays no move; the mark can come back.
+    view.highlight({ check: 4, checkers }); view.highlight({}); advance(10);
+    view.highlight({ check: 4, checkers }); void view.animateMove(checked, legal(context, checked, 'Ke1-e2'));
     expect(effects.withdrawn).toBeUndefined();
+    view.skip(); view.sync(checked);
+    // The web review clears the marks first, then shows the earlier board.
+    view.highlight({ check: 4, checkers }); view.highlight({}); view.sync(start);
+    void view.animateMove(start, legal(context, start, 'Rb1-a1'));
+    expect(effects.withdrawn).toBeUndefined();
+    // An undo shows the earlier board first, then clears the marks.
+    view.skip(); view.sync(checked); view.highlight({ check: 4, checkers }); view.sync(start); view.highlight({});
+    expect(effects.withdrawn).toBeUndefined();
+    view.dispose();
+  });
+
+  it('withdraws at once when the board showed the live move first (a replayed reply)', async () => {
+    const { view, advance } = await viewBoard(), context = new GameRules({});
+    const checked = context.fromFen('7k/8/8/8/8/8/8/r3K3 w - - 0 1'), evaded = context.makeMove(checked, legal(context, checked, 'Ke1-f2'));
+    const effects = (view as unknown as { stateEffects: StateEffects }).stateEffects;
+    view.setRules(context); view.sync(checked); view.highlight({ check: 4, checkers }); advance(10);
+    view.sync(evaded); view.highlight({});
+    expect(effects.withdrawn).toEqual({ king: 4, since: expect.any(Number) });
     view.dispose();
   });
 });
