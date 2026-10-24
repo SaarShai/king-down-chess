@@ -24,7 +24,7 @@ function stubDom() {
     options?.signal?.addEventListener('abort', () => target.delete(name), { once: true });
   };
   const el = () => ({ style: {} as Record<string, string>, classList: { add() {}, toggle() {} },
-    addEventListener: listen(listeners), appendChild() {}, getContext: () => ({}), width: 0, height: 0,
+    addEventListener: listen(listeners), appendChild() {}, getContext: () => new Proxy({}, { get: () => () => {} }), width: 0, height: 0,
     getClientRects: () => [1], getBoundingClientRect: () => ({ left: 0, top: 0, width: 960 }), setPointerCapture() {}, hasPointerCapture: () => true, releasePointerCapture() {} });
   vi.stubGlobal('document', { createElement: el, addEventListener: listen(documentListeners), hidden: false });
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: listen(documentListeners) }));
@@ -228,15 +228,16 @@ it.each([false, true])('A15: keeps check and threat marks above the selected til
     stroke(this: CanvasRenderingContext2D) { calls.push(String(this.strokeStyle)); },
     createRadialGradient: () => ({ addColorStop() {}, toString: () => 'threat' }),
     createLinearGradient: () => ({ addColorStop() {} }),
-    drawImage: () => calls.push('figure'),
+    // The check mark is the rust wash under the king (ticket 86), drawn with multiply.
+    drawImage(this: CanvasRenderingContext2D, image: unknown) { calls.push(image === 'figure' ? 'figure' : this.globalCompositeOperation === 'multiply' ? 'check' : 'image'); },
   } as Record<string, unknown>, { get: (target, key: string) => key in target ? target[key] : () => {} });
   decorate.mock.lastCall![0](ctx, scene, 'under');
   const tile = calls.indexOf('#d8aa43'), threat = calls.indexOf('threat');
-  const ring = calls.indexOf('#b84d25'), figure = calls.indexOf('figure');
+  const check = calls.indexOf('check'), figure = calls.indexOf('figure');
   expect(tile).toBeGreaterThanOrEqual(0);
   expect(threat).toBeGreaterThan(tile);
-  expect(ring).toBeGreaterThan(tile);
-  expect(figure).toBeGreaterThan(Math.max(threat, ring));
+  expect(check).toBeGreaterThan(tile);
+  expect(figure).toBeGreaterThan(Math.max(threat, check));
 });
 
 it('does not wake the scene for excluded marks and stops state work on hidden, Off and disposal', async () => {
