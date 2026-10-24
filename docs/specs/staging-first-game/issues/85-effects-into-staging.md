@@ -59,6 +59,7 @@ Fix: `boardSheet()` fits the body after the placement. The test now opens the sh
 - **Card image in the 44 px coin** (plugin-ui: `image: 34.56` on `strip-them`). The computer cast a card before the measure. A spent card's paint is `scale(.96)` (PR #92, approved), so its image is 36 x .96. Not a product fault: `cardFaces` now returns the coin state and the check expects the .96 size on a spent coin.
 - **Tablet button face** (plugin-ui, after the faces step; local WebKit): `checkTabletButtons` measured a move choice at 47 px during the sheet's opening scale. It now measures after the finite animations end.
 - **F-032 old scrim press** (PR #100's test, after the staging merge): it read the sheet box during the opening motion (translate 22 px), so its press near the edge hit the sheet head. It now waits for the sheet at rest.
+- **Plugin server check** (`plugin:server:check`, after the tests): the page now names two PNG files, the app icon and PR #92's Stratus cloud bank (`king-stratus/cloud-bank.png`). The check expects two and names the cloud bank; it passes locally.
 - Local WebKit after the fixes: board and app tests 342 pass; `check:browser plugin-ui` ok.
 
 ### Runs
