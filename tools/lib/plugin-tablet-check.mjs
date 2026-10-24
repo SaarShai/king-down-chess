@@ -2,11 +2,15 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 
 export async function checkTabletButtons(root, selector) {
-  const buttons = await root.locator(selector).evaluateAll(buttons => buttons.filter(el => el.checkVisibility()).map(el => {
+  // The sheet opens at scale .98 (PR #92); measure the face at rest, after the finite animations end.
+  const buttons = await root.locator(selector).evaluateAll(async buttons => {
+    await Promise.all(document.getAnimations().filter(a => a.effect?.getComputedTiming().endTime !== Infinity).map(a => a.finished.catch(() => {})));
+    return buttons.filter(el => el.checkVisibility()).map(el => {
     const s = getComputedStyle(el), face = getComputedStyle(el, '::before');
     return { name: el.textContent, height: el.getBoundingClientRect().height, font: s.fontSize, weight: s.fontWeight,
       clip: s.clipPath, face: face.clipPath, pointer: face.pointerEvents, radius: s.borderRadius };
-  }));
+    });
+  });
   assert(buttons.length, `The tablet sample is visible: ${selector}`);
   for (const s of buttons) {
     assert(s.height >= 48, `${s.name} keeps a 48 px face`);

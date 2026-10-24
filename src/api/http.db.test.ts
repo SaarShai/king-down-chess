@@ -16,7 +16,7 @@ import { createPluginServer } from '../plugin/server';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS, type Choice } from '../match/setup';
 import type { View } from '../match/protocol';
-import { GameService } from '../match/service';
+import { GameService, TURN_DAYS } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
 import { AccountService } from '../online/accounts';
 import { onlineClient, type OnlineClient } from '../online/client';
@@ -432,8 +432,8 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
 
  it('plays a Daily friend game between two website identities, with retries that apply once', async () => {
   const [ann, bob] = [await player('ann'), await player('bob')];
-  const { view: created, invite } = await ann.api.create({ kind: 'friend', options: CLASSIC_OPTIONS, speed: 'daily', days_per_move: 1, colour: 'white' });
-  expect([created.status, created.seat, created.days_per_move, invite!.url]).toEqual(['waiting', 0, 1, `${address}/j#${invite!.token}`]);
+  const { view: created, invite } = await ann.api.create({ kind: 'friend', options: CLASSIC_OPTIONS, colour: 'white' });
+  expect([created.status, created.seat, created.days_per_move, invite!.url]).toEqual(['waiting', 0, TURN_DAYS, `${address}/j#${invite!.token}`]);
   const id = created.game_id;
   const joined = await bob.api.redeem({ code: `${invite!.code.slice(0, 3).toLowerCase()}-${invite!.code.slice(3)}` });
   expect([joined.game_id, joined.seat, joined.status, joined.opponent?.handle]).toEqual([id, 1, 'playing', ann.handle]);
@@ -492,7 +492,9 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   const { invite: next } = await fay.api.create({ kind: 'friend', options: CLASSIC_OPTIONS });
   await dan.api.relate('block', { handle: fay.handle });
   await expect(dan.api.redeem({ token: next!.token })).rejects.toMatchObject({ code: 'FORBIDDEN' });
-  await expect(dan.api.create({ kind: 'friend', options: CLASSIC_OPTIONS, days_per_move: 3, speed: 'live' })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  // No speed or days choice (F-031).
+  for (const choice of [{ speed: 'live' }, { speed: 'daily' }, { days_per_move: 3 }])
+   await expect(dan.api.create({ kind: 'friend', options: CLASSIC_OPTIONS, ...choice } as Parameters<typeof dan.api.create>[0])).rejects.toMatchObject({ code: 'INVALID_INPUT' });
  }, 60_000);
 
  it('serves the account, relation and report routes for the signed-in player only', async () => {

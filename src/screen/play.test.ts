@@ -8,7 +8,7 @@ import { readSave, SAVE_KEY, type Save } from './save';
 import { stamp, Sync } from '../account/sync';
 import { toFen } from '../rules/setup';
 import { POWERS_BALANCED, RULES_2017, parseKings, type Rules } from '../rules/engine';
-import { refreshTable } from '../ui/table';
+import { refreshTable, renderTable } from '../ui/table';
 
 vi.mock('../render/sfx', () => ({ setSound: vi.fn(), snd: {} }));
 vi.mock('../ui/table', () => ({ readPiece: vi.fn(), refreshTable: vi.fn(), renderTable: vi.fn() }));
@@ -27,8 +27,11 @@ const request = { link: false, continues: false, urlRules: false, title: false, 
 beforeEach(() => {
   vi.clearAllMocks(); stored.clear();
   vi.stubGlobal('localStorage', { getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => stored.set(key, value) });
-  const nodes = new Map<string, object>(), node = () => ({ setAttribute: vi.fn(), appendChild: vi.fn(), close: vi.fn(), style: {} });
-  vi.stubGlobal('document', { createElement: node, getElementById: (id: string) => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); } });
+  const nodes = new Map<string, object>(), node = () => ({ setAttribute: vi.fn(), appendChild: vi.fn(), close: vi.fn(), querySelector: () => null, style: {} });
+  vi.stubGlobal('document', { hidden: false, documentElement: { dataset: { pace: 'off' } }, addEventListener: vi.fn(), removeEventListener: vi.fn(), querySelector: () => null, querySelectorAll: () => [], createElement: node, getElementById: (id: string) => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); } });
+  vi.stubGlobal('window', { addEventListener: vi.fn() });
+  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+  vi.stubGlobal('MutationObserver', class { observe() {} disconnect() {} });
   vi.stubGlobal('ResizeObserver', class { observe() {} });
 });
 afterEach(() => { vi.unstubAllGlobals(); });
@@ -180,5 +183,80 @@ describe('a save without rules on the game page', () => {
     expect(play.savedGames.blocked()).toBe(false);
     expect(play.game().history).toHaveLength(0);
     expect(JSON.stringify(play.game().rules)).toBe(JSON.stringify(page({ ...RULES_2017 }).play.game().rules));
+  });
+});
+
+describe('a reload of a staged turn', () => {
+  const shown = () => vi.mocked(renderTable).mock.lastCall![0];
+  const stage = (play: ReturnType<typeof page>['play'], lan: string) => {
+    const g = play.game();
+    g.play(g.legal.find(m => g.context.toLan(g.pos, m) === lan)!);
+    play.save();
+    return JSON.parse(stored.get(SAVE_KEY)!) as Save;
+  };
+
+  it('keeps the staged ply staged: Undo stays on, the computer waits, and the next save keeps the count', async () => {
+    const first = page();
+    first.play.seat('human', 'ai');
+    first.play.restore(original, request);
+    const saved = stage(first.play, 'Ng1-f3');
+    expect(saved.staged).toBe(1);
+    const { play, engine } = page();
+    play.seat('human', 'ai');
+    play.restore(saved, request);
+    play.refresh();
+    expect(play.game().history.map(h => h.lan)).toEqual([...original.moves, 'Ng1-f3']);
+    expect([shown().staged, shown().undoOn, shown().activeSide]).toEqual([1, true, 0]);
+    await play.maybeAi();
+    expect(engine.think).not.toHaveBeenCalled();
+    play.save();
+    expect(JSON.parse(stored.get(SAVE_KEY)!).staged).toBe(1);
+  });
+
+  it('writes no count when nothing is staged, and a save without one hands every ply over', () => {
+    const { play } = page();
+    play.restore(original, request);
+    play.save();
+    expect('staged' in JSON.parse(stored.get(SAVE_KEY)!)).toBe(false);
+    play.refresh();
+    expect([shown().staged, shown().undoOn]).toEqual([0, false]);
+  });
+
+  it('keeps a staged Haste first move mid-way: the restore plays no pass', () => {
+    const haste: Partial<Rules> = { ...POWERS_BALANCED, kings: parseKings('flame:haste,none') };
+    const first = page(haste);
+    first.play.restore({ ...original, back: '', fen: '7k/p7/8/8/8/8/8/R5K1 w - - 0 1', moves: [], rules: { ...first.play.game().rules } }, request);
+    const saved = stage(first.play, 'Ra1-a4!H');
+    expect([saved.moves, saved.staged]).toEqual([['Ra1-a4!H'], 1]);
+    const { play } = page(haste);
+    play.restore(saved, request);
+    play.refresh();
+    expect(play.game().history.map(h => h.lan)).toEqual(['Ra1-a4!H']);
+    expect([shown().staged, shown().undoOn]).toEqual([1, true]);
+  });
+
+  it("opens an account save with that save's staged count", () => {
+    const { play } = page();
+    play.restore(original, request);
+    play.openSaved({ ...original, moves: [...original.moves, 'Ng1-f3'], staged: 1 });
+    expect([shown().staged, shown().undoOn]).toEqual([1, true]);
+    play.openSaved(original);
+    expect([shown().staged, shown().undoOn]).toEqual([0, false]);
+  });
+
+  it('hands over an old mid-Haste save whose count is too large, also after its pass', () => {
+    const haste: Partial<Rules> = { ...POWERS_BALANCED, kings: parseKings('flame:haste,none') };
+    const rules = { ...page(haste).play.game().rules };
+    const save: Save = { ...original, back: '', fen: '7k/p7/8/8/8/8/8/R5K1 w - - 0 1', moves: ['Ra1-a4!H'], rules, staged: 2 };
+    const restored = page(haste);
+    restored.play.restore(save, request);
+    restored.play.refresh();
+    expect(restored.play.game().history.map(h => h.lan)).toEqual(['Ra1-a4!H', '--']);
+    expect([shown().staged, shown().undoOn]).toEqual([0, false]);
+    const opened = page(haste);
+    opened.play.restore({ ...save, moves: [], staged: undefined }, request);
+    opened.play.openSaved(save);
+    expect(opened.play.game().history.map(h => h.lan)).toEqual(['Ra1-a4!H', '--']);
+    expect([shown().staged, shown().undoOn]).toEqual([0, false]);
   });
 });

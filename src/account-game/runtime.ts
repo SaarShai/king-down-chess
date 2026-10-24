@@ -53,7 +53,7 @@ const mounting = () => queue.mounting() || awaitingInitialResult;
 let rollingBack = false;
 // One state slot: the notice, the scoped locks and the message line (design §1 and §3).
 export const store = createStore({
-  page: () => ({ screen: state.screen, pending: state.pending, view, connected, mounting: mounting(), writing: queue.writing(), settings: !!memory.settings, handle_back: handleBack, settings_back: state.settings_back }),
+  page: () => ({ screen: state.screen, pending: state.pending, pendingScope: extension?.pendingScope, view, connected, mounting: mounting(), writing: queue.writing(), settings: !!memory.settings, handle_back: handleBack, settings_back: state.settings_back }),
   call,
 });
 // A stale board (a failed read: "Not current") locks its game actions until a read succeeds.
@@ -237,6 +237,8 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
   const body = async (): Promise<Outcome> => {
     try {
       if (retain) {
+        // The web transport owns one durable receipt per account. Keep its Retry until it settles.
+        if (extension?.pendingScope === 'account' && state.pending && (state.pending.name !== name || state.pending.args.command_id !== args.command_id)) return { status: 'failed', text: state.pending.error ?? CANNOT_CONNECT };
         if (state.pending?.name !== name || state.pending.args !== args) state.pending = { name, args, ...(game && { game_tag: game.slice(0, 8) }), screen: commandScreen, ...(job.options.quick && { quick: true }), ...(job.options.king !== undefined && { king: job.options.king }) };
         own = state.pending;
         state.pending.error = undefined; state.pending.error_screen = undefined; client.save();
@@ -421,7 +423,8 @@ async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
     }
     // A saved game follows its status. Keep its state.pending command on its screen unless the game ends.
     const savedGame = !!(initial && savedScreen && GAME_SCREENS.includes(queuedAtStart ?? savedScreen));
-    const route = initial && savedScreen ? savedGame && !state.pending : value?.screen === undefined || value.screen === 'board';
+    const otherGamePending = extension?.pendingScope === 'account' && state.pending?.args.game_id && state.pending.args.game_id !== state.board_id;
+    const route = initial && savedScreen ? savedGame && (!state.pending || !!otherGamePending) : value?.screen === undefined || value.screen === 'board';
     const readBoard = state.board_id && (typeof value?.game_id === 'string' || initial && savedScreen);
     // The board read waits for an idle lane, so it never reads through a write in flight (design §2, R6).
     if (readBoard) {
@@ -637,7 +640,8 @@ function homeActions() {
   const label = (id: string, symbol: string, text: string, detail = '') => {
     const span = document.createElement('span'); span.textContent = text;
     if (detail) { const small = document.createElement('small'); small.textContent = detail; span.append(' ', small); }
-    const html = `<svg class="icon" aria-hidden="true"><use href="#i-${symbol}"/></svg>${span.outerHTML}`;
+    // The serialized form (`</use>`, not `/>`), so the check below holds for an unchanged label and a render keeps it.
+    const html = `<svg class="icon" aria-hidden="true"><use href="#i-${symbol}"></use></svg>${span.outerHTML}`;
     if ($(id).innerHTML !== html) $(id).innerHTML = html;
   };
   label('home-play', back ? 'continue' : 'play', back ? 'Resume' : 'Play now', back && game ? `${game.status === 'waiting' ? waitingLine(game) : game.opponent?.computer ? 'Computer' : gameTitle(game)}${turn}` : '');

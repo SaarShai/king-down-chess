@@ -72,7 +72,7 @@ try {
     const beast = '7k/8/5p2/3pp3/2nS4/8/8/K7 w - - 0 1';
     await seed(beast); await tap(27); await tap(26);
     assert.match(await contextText(page), /Bite again/);
-    assert.match(await contextText(page), /Nothing moves until you stop\./);
+    assert.match(await contextText(page), /The chain ends when no more bites are available, or when you select Stop here\./);
     assert.match(await page.locator('#stop-chain').innerText(), /1 bite/);
     assert.deepEqual(await lanMoves(page), []);
     await page.keyboard.press('Escape'); await played(0);

@@ -13,7 +13,9 @@ export { MatchServiceError } from './store';
 const DAY = 86_400_000, FIRST_TURN_DAYS = 3, DRAW_OFFERS = 3, LIMIT = 1000; // the last revision in play
 // Each start receipt on an open game takes one of its revisions: Find with new command IDs on your own open game stops here, so play keeps its revisions.
 const START_RECEIPTS = 20;
-export const FRIEND_CODE_DAYS = 7; // a Daily friend code (owner, 2026-10-11)
+export const FRIEND_CODE_DAYS = 7; // a friend code in a game against a person (owner, 2026-10-11)
+// The one time for each move in a game against a person; there is no speed or days choice (owner, 2026-10-24; F-031). Older games keep 1 or 7.
+export const TURN_DAYS = 3 as const;
 export const UNFINISHED = 'This turn is not finished. Send the whole turn in one command.';
 const ENGINE_REJECTS = ['Illegal or ambiguous move', 'Match terminal', 'Match history limit reached', 'Stale revision', 'Command ID conflict', 'Malformed command'];
 const CODE = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no I, L, O, 0 or 1
@@ -34,12 +36,13 @@ export const RANKED_UNAVAILABLE = 'Ranked is not available. Play a Casual game.'
 function requireRanked(): void { if (process.env.KINGDOWN_STAGE !== 'staging') fail('RANKED_UNAVAILABLE', 409, RANKED_UNAVAILABLE); }
 function canonicalCreate(input: CreateOptions): CreateOptions {
  if (input.mode === 'ranked') requireRanked();
- return input.mode === 'ranked' ? { ...input, speed: 'daily', days_per_move: 3, colour: 'random', options: RANKED_OPTIONS } : input;
+ return input.mode === 'ranked' ? { ...input, colour: 'random', options: RANKED_OPTIONS } : input;
 }
-/** A start's input with its defaults. The start receipt keeps it; a resend with other input is COMMAND_CONFLICT. */
+/** A start's input with its defaults. The start receipt keeps it; a resend with other input is COMMAND_CONFLICT.
+ * Speed and days come from the kind; they stay in the key, so the receipts of older starts still match. */
 export function startKey(input: CreateOptions, anyRules = false) {
- const speed = input.speed ?? (input.kind === 'solo' ? 'live' : 'daily');
- return { mode: input.mode ?? 'casual', kind: input.kind, speed, days_per_move: speed === 'daily' ? input.days_per_move ?? 3 : null, colour: input.colour ?? 'white', level: input.level ?? 'club', options: input.options ?? null, setup: input.setup ?? null, any_rules: anyRules };
+ const speed: View['speed'] = input.kind === 'solo' ? 'live' : 'daily';
+ return { mode: input.mode ?? 'casual', kind: input.kind, speed, days_per_move: speed === 'daily' ? TURN_DAYS : null, colour: input.colour ?? 'white', level: input.level ?? 'club', options: input.options ?? null, setup: input.setup ?? null, any_rules: anyRules };
 }
 type StartKey = ReturnType<typeof startKey>;
 export function id(value: unknown): string { return typeof value === 'string' && uuid.test(value) ? value.toLowerCase() : fail('INVALID_INPUT', 400, 'Expected a UUID'); }
@@ -384,7 +387,7 @@ export class GameService {
     else if (action.choice === 'offer' && game.kind !== 'solo') next.rematch_offer = seat;
     else {
      const initiator = game.created_by ?? actor, previousSeat = seatOf(game, initiator);
-     const rematch = await this.newGame(initiator, { kind: game.kind, colour: colour(game.kind === 'solo' ? previousSeat : other(previousSeat)), speed: game.speed, ...(game.days_per_move && { days_per_move: game.days_per_move }), level: game.level, ...(game.options ? { options: game.options } : { setup: game.setup }) });
+     const rematch = await this.newGame(initiator, { kind: game.kind, colour: colour(game.kind === 'solo' ? previousSeat : other(previousSeat)), level: game.level, ...(game.options ? { options: game.options } : { setup: game.setup }) });
      if (game.kind !== 'solo') for (const p of rematch.players) { p.user_id = game.players[other(p.seat)].user_id; p.computer = game.players[other(p.seat)].computer; }
      if (game.kind !== 'solo') await this.enterSetup(rematch, at);
      turnTo(rematch, out, at, actor); settle(rematch, at);
@@ -417,7 +420,7 @@ export class GameService {
    if (game.kind !== 'friend' || game.status !== 'waiting') fail('FORBIDDEN', 403, 'Only the waiting creator can invite');
    // One invitation for each game: a new one ends the old one.
    await client.query('delete from public.game_invites where game_id=$1', [game.id]);
-   const expires = new Date(Date.now() + (game.speed === 'daily' ? FRIEND_CODE_DAYS : 1) * DAY);
+   const expires = new Date(Date.now() + FRIEND_CODE_DAYS * DAY);
    for (let attempt = 0; attempt < 5; attempt++) {
     const token = randomBytes(32).toString('base64url'), code = Array.from({ length: 6 }, () => CODE[randomInt(CODE.length)]).join('');
     const invite_id = hash(token);

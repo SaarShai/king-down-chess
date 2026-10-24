@@ -1,0 +1,62 @@
+/* New object studies use the accepted clock and leave the accepted stage rules intact. */
+.object-study { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; text-align:center; }
+.object-study h2 { font:600 28px/1.15 var(--font-display); margin:7px 0 18px; }
+.object-study .obj-status { font-size:15px; line-height:1.35; color:var(--ink-soft); min-height:40px; max-width:340px; margin:13px 0 5px; }
+.obj-action { min-width:190px; min-height:44px; justify-content:center; }
+.obj-strip { display:flex; align-items:center; justify-content:center; width:100%; max-width:440px; gap:18px; padding:15px 12px; border:1px solid var(--stone-300); border-radius:9px; background:var(--vellum); box-shadow:var(--shadow-card); }
+.obj-king { width:62px; height:94px; object-fit:contain; flex:none; }
+.obj-card-row { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; min-width:0; }
+.obj-card-cell { display:flex; flex-direction:column; align-items:center; min-width:0; font-size:14px; }
+.obj-card-cell b { margin-top:7px; font-size:13px; }
+.obj-card-cell small { color:var(--ink-soft); font-size:12px; min-width:45px; }
+.obj-coin { position:relative; display:block; flex:none; width:48px; height:48px; border-radius:50%; border:1px solid var(--gold-ink); background:var(--stone-100); box-shadow:0 2px 3px #46352322,inset 0 0 0 3px var(--vellum); }
+.obj-coin > img { position:absolute; inset:4px; width:calc(100% - 8px); height:calc(100% - 8px); object-fit:cover; border-radius:50%; }
+.obj-coin-light { position:absolute; inset:-2px; border-radius:50%; background:radial-gradient(ellipse at 50% 25%,#e1faffd9,transparent 68%); box-shadow:inset 0 0 0 2px #b3dce8,0 0 16px #9fdce6; pointer-events:none; }
+.obj-frost-breath { position:absolute; left:50%; top:0; width:65px; height:62px; background:radial-gradient(ellipse at 30% 65%,#c4e9ecc9,transparent 56%),radial-gradient(ellipse at 70% 45%,#d9f1f3c9,transparent 50%); filter:blur(3px); pointer-events:none; }
+.obj-spent-mark { position:absolute; bottom:-3px; right:-4px; width:18px; height:18px; border-radius:50%; display:grid; place-items:center; background:var(--stone-700); border:1px solid var(--vellum); color:var(--vellum); font-size:11px; }
+.obj-flecks { position:absolute; left:50%; top:50%; pointer-events:none; }
+.obj-flecks i { position:absolute; width:4px; height:7px; background:#c4e9f0; box-shadow:0 0 3px #fff; clip-path:polygon(15% 15%,75% 0,100% 70%,25% 100%); }
+.obj-flecks i:nth-child(3n) { width:3px; height:4px; }
+.obj-flecks.obj-gold i { background:#c59b46; width:3px; height:4px; box-shadow:none; }
+.obj-receipt { display:flex; align-items:center; gap:9px; padding:9px 18px; margin-top:15px; border-bottom:1px solid var(--stone-300); min-width:240px; text-align:left; }
+.obj-receipt b,.obj-receipt small { display:block; }
+.obj-receipt small { font-size:13px; color:var(--ink-soft); }
+.obj-receipt-seal { color:var(--gold-ink); font-size:25px; width:25px; }
+.obj-offer-players { display:flex; align-items:center; justify-content:center; gap:28px; margin:0 0 17px; }
+.obj-offer-players > div { display:flex; flex-direction:column; align-items:center; width:80px; font-size:14px; }
+.obj-offer-players img { height:96px; width:62px; object-fit:contain; margin-bottom:4px; }
+.obj-draw-seal { display:grid; place-items:center; background:var(--vellum); width:42px; height:42px; border:1px solid var(--stone-300); border-radius:50%; color:var(--gold-ink); font:27px var(--font-display); }
+.obj-offer-slip { position:relative; width:350px; max-width:100%; padding:14px 28px; border:1px solid var(--stone-300); border-radius:5px; box-shadow:0 3px 5px #4536260d; background:var(--vellum); }
+.obj-offer-line { display:block; font-size:17px; line-height:1.25; min-height:42px; }
+.obj-offer-detail { display:block; font-size:14px; color:var(--ink-soft); line-height:1.4; min-height:20px; }
+.obj-paper-light { position:absolute; inset:0; background:radial-gradient(ellipse at 50% 0,#e9c0718c,transparent 72%); pointer-events:none; }
+.obj-reply-mark { position:absolute; right:9px; top:9px; color:var(--stone-500); font-size:17px; }
+@media (max-width:800px) {
+  .scene:has(.object-study) { min-height:480px; }
+  body:has(.object-study) .preview-column { display:flex; flex-direction:column; }
+  body:has(.object-study) .sample-heading { order:0; }
+  body:has(.object-study) .transport { order:1; margin:0 0 14px; }
+  body:has(.object-study) .game-frame { order:2; }
+  body:has(.object-study) .rationale { order:3; }
+  body:has(.object-study) .review-note { order:4; }
+  .object-study { padding:20px 16px; }
+  .object-study h2 { font-size:25px; }
+  .obj-strip { gap:9px; padding:15px 8px; }
+  .obj-king { width:43px; height:83px; }
+  .obj-card-row { gap:8px; }
+  .obj-coin { width:42px; height:42px; }
+  .obj-card-cell b { font-size:12px; }
+  .obj-offer-players { gap:22px; }
+}
+@media (min-width:801px) and (max-height:820px) {
+  .object-study { padding:18px; }
+  .object-study h2 { font-size:25px; margin:4px 0 11px; }
+  .object-study .obj-status { margin:8px 0 4px; min-height:23px; }
+  .obj-strip { padding:10px 12px; }
+  .obj-king { height:75px; }
+  .obj-receipt { margin-top:8px; padding:5px 18px; }
+  .obj-offer-players { margin-bottom:9px; }
+  .obj-offer-players img { height:70px; }
+  .obj-offer-slip { padding:10px 28px; }
+  .obj-offer-line { min-height:22px; }
+}

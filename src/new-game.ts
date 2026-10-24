@@ -237,6 +237,7 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
       $('new-game-warn').textContent = warning;
       $('new-game-warn').hidden = !warning;
       $('start-game').textContent = warning ? 'Start new game' : 'Start game';
+      dlg.classList.add('ui-dialog-motion');
       dlg.showModal();
     },
   };

@@ -34,11 +34,12 @@ async function remount(page: Page) {
   await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, reads);
   await page.frameLocator('iframe').locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
 }
-it.each([false, true])('deals a chat game on first display (new widget %s)', async fresh => {
+it.each([false, true])('keeps an unknown first chat projection still (new widget %s)', async fresh => {
   const page = await open(), frame = page.frameLocator('iframe'); let game_id: string | undefined;
   try {
-    const deal = await watchMotion(page, '#game-table .card-coin.is-dealt');
+    const deal = await watchMotion(page, '#game-table .card-coin');
     await expand(page);
+    // A host result has no pending creation command in this widget and proves no live start.
     const created = await tool(page, false, 'kingdown_create', { kind: 'solo', colour: 'white', options: { ...options, cards: true } });
     expect(created.isError).toBeFalsy(); game_id = created._meta.view.game_id;
     if (fresh) {
@@ -54,7 +55,14 @@ it.each([false, true])('deals a chat game on first display (new widget %s)', asy
       await page.evaluate(() => (window as any).releaseBefore());
     } else await page.evaluate(result => (window as any).harnessShow(result), created);
     await frame.locator('#card-w-3').waitFor();
-    expect((await deal()).count).toBe(8);
+    expect(await frame.locator('#game-table .card-coin').count()).toBe(8);
+    expect(await deal()).toEqual({ count: 8, running: 0 });
+    await remount(page);
+    await frame.locator('#card-w-3').waitFor();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; app.routeView(app.memory.view); });
+    expect(await frame.locator('#game-table .card-coin').count()).toBe(8);
+    expect(await deal()).toEqual({ count: 8, running: 0 });
   } finally { if (game_id) await page.request.post(new URL('/fixture-delete-match', harness.url).href, { data: { game_id } }); await page.close(); }
 });
 it('names the current game on Resume after Play now and after the computer reply', async () => {
