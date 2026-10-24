@@ -183,7 +183,8 @@ describe('engine report', () => {
 
   it.each(['postgresql://kingdown_test:private-url@127.0.0.1:55432/kingdown_test', 'postgresql://kingdown_plugin_runtime.puhspsyjyzaghmgtkzqd:private-url@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require',
     'postgresql://postgres.puhspsyjyzaghmgtkzqd%00application_name%00x.utqzovjmclfyojedmwok:private-url@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require',
-    'postgresql://postgres.utqzovjmclfyojedmwok:private-url@aws-0-us-west-2.pooler.supabase.com:6543/postgres%00user%00postgres.puhspsyjyzaghmgtkzqd?sslmode=require'])('with --production, refuses a database outside the production project before any connection: %s', database => {
+    'postgresql://postgres.utqzovjmclfyojedmwok:private-url@aws-0-us-west-2.pooler.supabase.com:6543/postgres%00user%00postgres.puhspsyjyzaghmgtkzqd?sslmode=require',
+    'postgresql://postgres%2Ecluster%2Ereview.utqzovjmclfyojedmwok:private-url@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require'])('with --production, refuses a database outside the production project before any connection: %s', database => {
     const run = spawnSync(process.execPath, ['--import', './tools/fixtures/engine-report-query-error.mjs', 'tools/engines-check.mjs', '--production'], { encoding: 'utf8', env: { KINGDOWN_ENGINES_DATABASE_URL: database } });
     expect(run.status).toBe(2);
     expect(run.stderr).toContain('Production requires its Supabase database; refused before any connection');

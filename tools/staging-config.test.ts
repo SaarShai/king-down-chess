@@ -73,7 +73,12 @@ it('the publish database check accepts only the production project and refuses s
     // A NUL byte ends a startup field, so the pooler would read the first user (staging) and the rest as other fields.
     `postgresql://postgres.${STAGING_SUPABASE_REF}%00application_name%00review.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com/postgres?sslmode=require`,
     `postgresql://postgres.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com/postgres%00user%00postgres.${STAGING_SUPABASE_REF}?sslmode=require`,
-    'postgresql://postgres:fake@db.utqzovjmclfyojedmwok.supabase.co/other?sslmode=require']) expect(() => productionDatabase(new URL(db))).toThrow('Production requires its Supabase database');
+    'postgresql://postgres:fake@db.utqzovjmclfyojedmwok.supabase.co/other?sslmode=require',
+    // The pooler reads `<role>.cluster.<alias>` as a cluster alias, which can name another project; only `<role>.<ref>` passes.
+    'postgresql://postgres.cluster.review.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require',
+    'postgresql://postgres%2Ecluster%2Ereview.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require',
+    'postgresql://a.b.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require',
+    'postgresql://.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require']) expect(() => productionDatabase(new URL(db))).toThrow('Production requires its Supabase database');
   // The pooler's startup `reference` option selects the project before the user suffix does.
   expect(() => productionDatabase(new URL(productionPooler), { PGOPTIONS: `reference=${STAGING_SUPABASE_REF}` })).toThrow('Production refuses PGOPTIONS');
   expect(() => productionDatabase(new URL(productionPooler), { PGOPTIONS: '' })).not.toThrow();
