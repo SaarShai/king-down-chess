@@ -2573,7 +2573,7 @@ it('keeps source pages without an engine stamp on server preview', async () => {
   } finally { await page.close(); await unstamped.close(); }
 });
 
-// Playtest F-032: a real touch tap on a target with more than one move opens Choose a move. The browser sends the
+// Playtest F-032 and F-038: a real touch tap on a target with more than one move opens Choose a move. The browser sends the
 // tap's click after the touch ends, onto the scrim that the tap opened; that click must not close the sheet.
 async function squareTouch(page: Page, square: number) {
   const point = await squarePoint(page, square);
@@ -2582,6 +2582,7 @@ async function squareTouch(page: Page, square: number) {
 const frames = (page: Page) => page.frameLocator('iframe').locator('html').evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
 it.each([
   ['F-032 promotion', '7k/1P6/8/8/8/8/8/K7 w - - 0 1', 49, 57],
+  ['F-038 Beast bite chain', '7k/8/8/8/2Sp4/2p5/8/K7 w - - 0 1', 26, 27],
 ] as const)('%s: a touch tap on a target with more than one move opens Choose a move', async (_, fen, from, to) => {
   const base = view(fen), page = await open(base, 390, 844), frame = page.frameLocator('iframe');
   setRules(base.rules!); const pre = fromFen(fen);
