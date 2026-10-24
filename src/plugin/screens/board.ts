@@ -72,6 +72,7 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
         if (event.shiftKey && i <= 0 || !event.shiftKey && i === buttons.length - 1) { event.preventDefault(); buttons[event.shiftKey ? buttons.length - 1 : 0]?.focus({preventScroll:true}); }
       }
     };
+    new ResizeObserver(fitSheetBody).observe(sheet);
   }
   const opener = sheet.contains(document.activeElement) ? sheetFocus : document.activeElement as HTMLElement;
   closeBoardSheet(); sheetFocus = opener;
@@ -79,7 +80,7 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
   sheet.removeAttribute('style'); scrim.classList.remove('move-choice-scrim');
   sheet.innerHTML = '<header class="sheet-head"><h2 id="board-sheet-title"></h2><button aria-label="Close">×</button></header><div class="sheet-body"></div>';
   sheet.querySelector('h2')!.textContent = title; sheet.querySelector('button')!.onclick = closeBoardSheet;
-  sheet.querySelector('.sheet-body')!.append(...nodes); scrim.hidden = false; scrimPressed = false; document.querySelector<HTMLElement>('.page-sheet')!.inert = true; sheet.show(); sheet.querySelector('button')!.focus({preventScroll:true});
+  sheet.querySelector('.sheet-body')!.append(...nodes); scrim.hidden = false; scrimPressed = false; document.querySelector<HTMLElement>('.page-sheet')!.inert = true; sheet.show(); sheet.querySelector('button')!.focus({preventScroll:true}); fitSheetBody();
   if (nodes.includes($('choices'))) {
     const board = $('board'), frame = $('app-frame');
     sheet.classList.add('move-choice'); scrim.classList.add('move-choice-scrim');
@@ -95,6 +96,13 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
     stopPlacingChoice = () => { observer.disconnect(); board.classList.remove('choosing-move'); board.style.maxHeight = ''; };
   }
   client.state.sheet = 'board-sheet'; client.save();
+}
+// Playtest F-008: a sheet body that scrolls is a named region in the Tab order, so PageDown and End reach every row.
+function fitSheetBody() {
+  const body = sheet?.open ? sheet.querySelector<HTMLElement>('.sheet-body') : null;
+  if (!body) return;
+  if (body.scrollHeight > body.clientHeight) { body.tabIndex = 0; body.setAttribute('role', 'region'); body.setAttribute('aria-label', sheet.querySelector('h2')!.textContent!); }
+  else if (body !== document.activeElement) for (const name of ['tabindex', 'role', 'aria-label']) body.removeAttribute(name);
 }
 const text = (words: string) => { const p = document.createElement('p'); p.textContent = words; return p; };
 const button = (words: string, click: () => void) => { const b = document.createElement('button'); b.textContent = words; b.onclick = click; return b; };
@@ -224,7 +232,7 @@ export function boardScreen(store: Store) {
     if (movesOpen()) {
       const body = sheet.querySelector('.sheet-body')!, scroll = body.scrollTop;
       body.replaceChildren(...moveRows());
-      body.scrollTop = scroll;
+      body.scrollTop = scroll; fitSheetBody();
     }
     fitMoves();
     $('short-move-words').textContent = lastMove ? shortMove(lastMove.pre, lastMove.move, type => gameRules.nameOf(type)) : `Move ${moveNumber(pos)}.`;

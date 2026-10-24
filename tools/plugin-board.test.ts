@@ -2612,3 +2612,32 @@ it.each([
     expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('false');
   } finally { await page.close(); }
 });
+
+// Playtest F-008: a long Moves sheet scrolls by keyboard. Tab reaches the scroll region; PageDown and End move it.
+it('F-008: the keyboard scrolls a long Moves sheet', async () => {
+  const initial_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', actions: string[] = [];
+  for (let i = 0; i < 10; i++) actions.push('Nb1-a3', 'Nb8-a6', 'Na3-b1', 'Na6-b8');
+  const game = view(initial_fen, {}, { kind: 'friend', seat: 0 });
+  let pos = fromFen(initial_fen);
+  for (const lan of actions) { const step = applyLan(pos, lan, game.rules!); expect(step).toBeDefined(); pos = step!.pos; }
+  const page = await open(view(toFen(pos), game.rules!, { ...game, fen: toFen(pos), revision: actions.length, history: { initial_fen, actions } }), 390, 844), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board-menu').focus(); await page.keyboard.press('Enter');
+    await frame.getByRole('button', { name: 'Moves', exact: true }).focus(); await page.keyboard.press('Enter');
+    const sheet = frame.getByRole('dialog', { name: 'Moves', exact: true }), body = sheet.locator('.sheet-body');
+    expect(await sheet.getByRole('button', { name: 'Close', exact: true }).evaluate(b => b === document.activeElement)).toBe(true);
+    expect(await body.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
+    await page.keyboard.press('Tab');
+    expect(await body.evaluate(el => el === document.activeElement && el.matches(':focus-visible'))).toBe(true);
+    expect(await body.getAttribute('role')).toBe('region');
+    expect(await body.getAttribute('aria-label')).toBe('Moves');
+    await page.keyboard.press('PageDown');
+    await expect.poll(() => body.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+    await page.keyboard.press('End');
+    await expect.poll(() => body.evaluate(el => Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight)).toBe(true);
+    await page.keyboard.press('Tab');
+    expect(await sheet.getByRole('button', { name: 'Close', exact: true }).evaluate(b => b === document.activeElement)).toBe(true);
+    await page.keyboard.press('Shift+Tab');
+    expect(await body.evaluate(el => el === document.activeElement)).toBe(true);
+  } finally { await page.close(); }
+});
