@@ -36,7 +36,7 @@ const answer = async (handler: Function, method: string, url: string) => {
 
 describe('check host', () => {
   const host = CHECK_SITE_ENV.VITE_SUPABASE_URL;
-  it('answers the fake account project in each new context and each persistent profile', async () => {
+  it('answers the fake account project in each new context', async () => {
     vi.stubEnv('PLAYABLE_BROWSER', 'chromium');
     const engine = fakeBrowser(), open = engine.newContext;
     vi.spyOn(chromium, 'launch').mockResolvedValue(engine);
@@ -44,8 +44,12 @@ describe('check host', () => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     expect(open).toHaveBeenCalledWith({ viewport: { width: 390, height: 844 } });
     expect(context.routes.map(([p]: [string]) => p)).toEqual([`${host}/**`]);
+  });
+
+  it('keeps retained worker profiles free of request routing', async () => {
+    vi.stubEnv('PLAYABLE_BROWSER', 'chromium');
     vi.spyOn(chromium, 'launchPersistentContext').mockResolvedValue(fakeContext());
-    expect((await launchPersistent('/tmp/profile')).routes.map(([p]: [string]) => p)).toEqual([`${host}/**`]);
+    expect((await launchPersistent('/tmp/profile')).routes).toEqual([]);
   });
 
   it('lists Google and GitHub, and gives each other path an empty answer', async () => {

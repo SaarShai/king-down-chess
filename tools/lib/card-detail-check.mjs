@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { createServer } from 'vite';
 import { shot, STEP } from './checks.mjs';
 import { settled } from './plugin-settled.mjs';
+import { pauseClock } from './page-clock.mjs';
 
 async function visibleDiagram(diagram) {
   await diagram.scrollIntoViewIfNeeded();
@@ -43,6 +44,9 @@ export async function checkCardDetails(browser, base, engine) {
         assert.equal(await spawn.locator('[data-piece="king"]').count(), 1);
         assert.equal(await spawn.locator('[data-piece="pawn"]').count(), 1);
         await shot(page, `repair-A33-workshop-SpawnK-${width}x${height}-${theme}`);
+        // The solo board polls every 5 s (src/plugin/poll.ts), and a good read clears a failed one, so the failed-read
+        // check below stops the page clock. Install it before the page sets any timer.
+        if (width === 390 && theme === 'light') await page.clock.install();
         await page.goto(base);
         const frame = page.frameLocator('iframe');
         await frame.locator('#home-play:not(:disabled)').waitFor();
@@ -85,7 +89,10 @@ export async function checkCardDetails(browser, base, engine) {
             assert.equal(await sheet.locator('.card-reason').count(), 0);
             await sheet.locator('[aria-label="Close"]').click();
           };
-          // A computer game has no timed poll to clear a failed read.
+          // Stop the page clock until Try again ends, so no poll read clears the failed read first. The wait ends a read
+          // that started before the pause.
+          await pauseClock(page);
+          await page.waitForFunction(() => window.harnessWidgets.every(widget => !widget.inflight));
           await page.evaluate(() => { window.rejectNextGet = true; });
           await frame.locator('#board-menu').click(); await frame.locator('#reload').click();
           await retry.filter({ hasText: 'Try again' }).waitFor();
@@ -93,11 +100,15 @@ export async function checkCardDetails(browser, base, engine) {
           await shot(page, 'repair-A35-failed-read');
           await sheet.locator('[aria-label="Close"]').click(); await retry.click();
           await retry.waitFor({ state: 'hidden' }); await usable();
-          await page.clock.install();
+          await page.clock.resume();
           view = { ...view, game_id: randomUUID(), kind: 'friend' };
           await page.evaluate(result => window.harnessShow(result, true), result());
           await frame.locator('#board[aria-busy="false"]').waitFor(); await settled(page, frame);
           await frame.locator('#board-menu').click(); await frame.locator('#menu-draw').click();
+          // failNextAction fails the next tool call, a board read too (tools/plugin-ui-host.ts callTool). Stop the page clock
+          // until the command ends, so no poll read takes the failure (ticket 77, item 20).
+          await pauseClock(page);
+          await page.waitForFunction(() => window.harnessWidgets.every(widget => !widget.inflight));
           await page.evaluate(() => { window.holdBeforeNext = 'kingdown_draw'; window.failNextAction = true; });
           // Fail before the server receives the draw offer.
           await sheet.getByRole('button', { name: 'Offer draw', exact: true }).click();
@@ -110,6 +121,7 @@ export async function checkCardDetails(browser, base, engine) {
           assert(await frame.locator('#card-w-1').isDisabled(), 'A command in flight keeps the card coin off');
           await page.evaluate(() => window.releaseBefore());
           await retry.waitFor({ state: 'hidden' }); await usable();
+          await page.clock.resume();
           // A draw offer sets the friend game's poll delay to three seconds.
           await frame.locator('#card-w-1').click();
           await sheet.evaluate(el => { window.openCardFace = el.querySelector('.cf-art'); });
@@ -137,11 +149,15 @@ export async function checkCardDetails(browser, base, engine) {
           await frame.locator('#board').focus();
           for (const key of ['ArrowRight', 'ArrowRight', 'Enter', 'ArrowUp', 'Enter']) await page.keyboard.press(key);
           await frame.locator('#board[data-animating="false"]').waitFor();
+          // The three-second poll must not take the one-use failure before End turn sends (ticket 77, item 20).
+          await pauseClock(page);
+          await page.waitForFunction(() => window.harnessWidgets.every(widget => !widget.inflight));
           await page.evaluate(() => { window.failNextAction = true; });
           await frame.locator('#end-turn').click();
           await retry.filter({ hasText: 'Retry' }).waitFor();
           await readCard('Close this sheet and select Retry.');
           await shot(page, 'repair-A35-failed-turn-send');
+          await page.clock.resume();
           console.log('Card recovery: failed read, failed command, failed turn send, action in flight and an open sheet through failed polls and same-revision recovery pass');
         }
       } finally { await context.close(); }

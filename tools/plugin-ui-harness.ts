@@ -40,6 +40,22 @@ export function framePolicy(meta: UiMeta = {}) {
 // host page by postMessage before the app code runs, and each write goes back the same way. ChatGPT also keeps the
 // state outside the frame: "Widget state belongs to one rendered UI instance" (developers.openai.com/apps-sdk/build/state-management).
 const FRAME_SHIM = `<script>addEventListener('message', event => { if (event.source === parent && event.data?.harness === 'fence') parent.postMessage(event.data, '*'); });
+// Playwright's WebKit keeps each removed widget page, and its canvas buffers, until the host page navigates (ticket 45).
+// A board page holds 126 MB of them. On the CI runner, which has no GPU, each board remount kept about 700 MB, and
+// WebKit killed the page at 8192 MB; with the buffers dropped, about 125 MB (ticket 77, item 24). The host removes a
+// frame only for good, so its page drops them as it goes; a pagehide into the back-forward cache (persisted) keeps a
+// live page and its canvases.
+// On that runner WebKit draws an accelerated 2D canvas with software GL (Mesa llvmpipe), which took about 2.5 of the
+// 4 CPUs, and plugin-ui passed its time limit. PLAYABLE_CPU_CANVAS=1, set by the WebKit CI jobs, asks for CPU canvases
+// (willReadFrequently); plugin-ui then took 809 s, near the 750 s of Chromium (ticket 77, item 27).
+(() => {
+  const canvases = [], seen = new WeakSet();
+  for (const type of [HTMLCanvasElement, self.OffscreenCanvas].filter(Boolean)) {
+    const getContext = type.prototype.getContext;
+    type.prototype.getContext = function (...args) {${process.env.PLAYABLE_CPU_CANVAS === '1' ? " if (args[0] === '2d') args[1] = { ...args[1], willReadFrequently: true };" : ''} if (!seen.has(this)) { seen.add(this); canvases.push(new WeakRef(this)); } return getContext.apply(this, args); };
+  }
+  addEventListener('pagehide', event => { if (event.persisted) return; for (const ref of canvases) { const canvas = ref.deref(); try { if (canvas) canvas.width = canvas.height = 0; } catch {} } });
+})();
 window.harnessBoot = new Promise(resolve => {
   addEventListener('message', function boot(event) {
     const data = event.data;

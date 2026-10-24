@@ -22,8 +22,9 @@ describe('synchronous child limits', () => {
     ].join('\n'))).toEqual([4000, NaN]);
   });
 
-  it.each(['board', 'ios-size', 'motion', 'preview-size', 'real-host', 'ui-style'])('bounds the %s widget build below its hook or test limit', name => {
-    const limits = timeouts(`plugin-${name}.test.ts`);
+  // The board tests build the widget in their shared fixture.
+  it.each(['lib/plugin-board-fixture.ts', ...['ios-size', 'motion', 'preview-size', 'real-host', 'ui-style'].map(name => `plugin-${name}.test.ts`)])('bounds the widget build in %s below its hook or test limit', file => {
+    const limits = timeouts(file);
     expect(limits).toHaveLength(1);
     expect(limits[0]).toBeGreaterThan(0);
     expect(limits[0]).toBeLessThan(60_000);
