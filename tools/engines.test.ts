@@ -182,11 +182,21 @@ describe('engine report', () => {
   });
 
   it.each(['postgresql://kingdown_test:private-url@127.0.0.1:55432/kingdown_test', 'postgresql://kingdown_plugin_runtime.puhspsyjyzaghmgtkzqd:private-url@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require',
-    'postgresql://postgres.puhspsyjyzaghmgtkzqd%00application_name%00x.utqzovjmclfyojedmwok:private-url@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require'])('with --production, refuses a database outside the production project before any connection: %s', database => {
+    'postgresql://postgres.puhspsyjyzaghmgtkzqd%00application_name%00x.utqzovjmclfyojedmwok:private-url@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require',
+    'postgresql://postgres.utqzovjmclfyojedmwok:private-url@aws-0-us-west-2.pooler.supabase.com:6543/postgres%00user%00postgres.puhspsyjyzaghmgtkzqd?sslmode=require'])('with --production, refuses a database outside the production project before any connection: %s', database => {
     const run = spawnSync(process.execPath, ['--import', './tools/fixtures/engine-report-query-error.mjs', 'tools/engines-check.mjs', '--production'], { encoding: 'utf8', env: { KINGDOWN_ENGINES_DATABASE_URL: database } });
     expect(run.status).toBe(2);
     expect(run.stderr).toContain('Production requires its Supabase database; refused before any connection');
     expect(run.stderr).not.toMatch(/private-query-marker|private-url/);
+    expect(run.stdout).toBe('');
+  });
+
+  it('with --production, refuses PGOPTIONS before any connection and does not print it', () => {
+    const run = spawnSync(process.execPath, ['--import', './tools/fixtures/engine-report-query-error.mjs', 'tools/engines-check.mjs', '--production'], { encoding: 'utf8',
+      env: { KINGDOWN_ENGINES_DATABASE_URL: 'postgresql://postgres.utqzovjmclfyojedmwok:private-url@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require', PGOPTIONS: 'reference=puhspsyjyzaghmgtkzqd' } });
+    expect(run.status).toBe(2);
+    expect(run.stderr).toContain('Production refuses PGOPTIONS for its database check; refused before any connection');
+    expect(run.stderr).not.toMatch(/private-query-marker|private-url|reference=/);
     expect(run.stdout).toBe('');
   });
 

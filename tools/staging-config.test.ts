@@ -74,4 +74,7 @@ it('the publish database check accepts only the production project and refuses s
     `postgresql://postgres.${STAGING_SUPABASE_REF}%00application_name%00review.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com/postgres?sslmode=require`,
     `postgresql://postgres.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com/postgres%00user%00postgres.${STAGING_SUPABASE_REF}?sslmode=require`,
     'postgresql://postgres:fake@db.utqzovjmclfyojedmwok.supabase.co/other?sslmode=require']) expect(() => productionDatabase(new URL(db))).toThrow('Production requires its Supabase database');
+  // The pooler's startup `reference` option selects the project before the user suffix does.
+  expect(() => productionDatabase(new URL(productionPooler), { PGOPTIONS: `reference=${STAGING_SUPABASE_REF}` })).toThrow('Production refuses PGOPTIONS');
+  expect(() => productionDatabase(new URL(productionPooler), { PGOPTIONS: '' })).not.toThrow();
 });

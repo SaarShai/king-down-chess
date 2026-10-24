@@ -171,10 +171,22 @@ describe('deploy.sh', () => {
     for (const target of ['website', 'plugin']) {
       const result = deploy(['--target', target, '--publish'], { KINGDOWN_ENGINES_DATABASE_URL: database });
       expect(result.status).toBe(2);
-      expect(result.stderr).toContain('KINGDOWN_ENGINES_DATABASE_URL must name the production Supabase database before --publish');
+      expect(result.stderr).toContain('KINGDOWN_ENGINES_DATABASE_URL must name the production Supabase database, with no PGOPTIONS, before --publish');
       expect(result.stderr + result.stdout).not.toContain('fake-engines-password');
       expect(result.stdout).not.toMatch(/step|worktree|skipped/);
     }
+    expect(calls()).toEqual([]);
+    expect(existsSync(gitLog)).toBe(false);
+  });
+
+  it('refuses PGOPTIONS with a production engines database before any publish work', () => {
+    const { repo, deploy, calls } = setup();
+    const gitLog = join(repo.root, 'git-calls');
+    stub(join(repo.root, 'bin', 'git'), [`echo git >> "${gitLog}"`, 'exit 99']);
+    const result = deploy(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, PGOPTIONS: 'reference=puhspsyjyzaghmgtkzqd' });
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('with no PGOPTIONS, before --publish');
+    expect(result.stderr + result.stdout).not.toMatch(/fake-engines-password|reference=/);
     expect(calls()).toEqual([]);
     expect(existsSync(gitLog)).toBe(false);
   });

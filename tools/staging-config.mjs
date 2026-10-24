@@ -20,9 +20,11 @@ const userRefOf = database => { const user = decoded(database.username); return 
 /** Accept only the production project's database `postgres`: its direct host, or a Supabase pooler with a user of that project.
  *  A loopback, staging or other host is refused. A decoded NUL byte is refused too: the client sends the user and the
  *  database as NUL-ended fields, so `%00` in either could add a second user field that names another project.
- *  The errors never hold the URL. */
-export function productionDatabase(database) {
+ *  A non-empty PGOPTIONS in `env` is refused: the client sends it as the startup options, and the pooler's
+ *  `reference` option selects the project before the user suffix does. The errors never hold the URL or the options. */
+export function productionDatabase(database, env = {}) {
   const dbHost = host(database.hostname);
+  if (env.PGOPTIONS) throw new Error('Production refuses PGOPTIONS for its database check');
   if (decoded(database.username).includes('\0') || database.pathname !== '/postgres' ||
     (dbHost !== `db.${PRODUCTION_SUPABASE_REF}.supabase.co` && !(poolerHost(dbHost) && userRefOf(database) === PRODUCTION_SUPABASE_REF))) throw new Error('Production requires its Supabase database');
 }

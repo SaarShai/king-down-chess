@@ -101,7 +101,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     if (!process.env.KINGDOWN_ENGINES_DATABASE_URL) throw new Error('Set KINGDOWN_ENGINES_DATABASE_URL to the database of the live games');
     const db = new URL(process.env.KINGDOWN_ENGINES_DATABASE_URL);
     if (production) {
-      try { productionDatabase(db); } catch (error) { console.error(`engines-check: FAIL; ${error.message}; refused before any connection`); process.exit(2); }
+      try { productionDatabase(db, process.env); } catch (error) { console.error(`engines-check: FAIL; ${error.message}; refused before any connection`); process.exit(2); }
     }
     client = new pg.Client({ ...pluginDatabaseConfig(db, { localDev: ['localhost', '127.0.0.1', '[::1]'].includes(db.hostname) }), connectionTimeoutMillis: 10000 });
     await client.connect();

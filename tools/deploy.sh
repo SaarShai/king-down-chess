@@ -78,11 +78,11 @@ unset VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY
 if [ "$publish" = yes ]; then
   [ -n "${KINGDOWN_ENGINES_DATABASE_URL:-}" ] || die 'set KINGDOWN_ENGINES_DATABASE_URL before --publish; the engines-in-use check is required'
   # Publish checks the live games, so the engine check must read the production project, not a staging or loopback copy.
-  node --input-type=module - "$(cd "$(dirname "$0")" && pwd -P)/staging-config.mjs" <<'NODE' || die 'KINGDOWN_ENGINES_DATABASE_URL must name the production Supabase database before --publish'
+  node --input-type=module - "$(cd "$(dirname "$0")" && pwd -P)/staging-config.mjs" <<'NODE' || die 'KINGDOWN_ENGINES_DATABASE_URL must name the production Supabase database, with no PGOPTIONS, before --publish'
 try {
   const { pathToFileURL } = await import('node:url');
   const { productionDatabase } = await import(pathToFileURL(process.argv[2]).href);
-  productionDatabase(new URL(process.env.KINGDOWN_ENGINES_DATABASE_URL));
+  productionDatabase(new URL(process.env.KINGDOWN_ENGINES_DATABASE_URL), process.env);
 } catch { process.exit(2); }
 NODE
 fi
