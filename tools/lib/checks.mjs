@@ -16,8 +16,8 @@
 //                             of `path` that does not exist yet stays as it is. The runner and the sample tool
 //                             (docs/specs/web-ux/capture.mjs) refuse an output folder inside the checkout with it.
 //   launch(options = {})      Opens PLAYABLE_BROWSER; `options` go to that engine's launch method.
-//                             Each context of the browser (and a launchPersistent profile) answers the fake account
-//                             project of the check site (CHECK_SITE_ENV) with answerCheckHost, so no check reaches the network.
+//                             Each context of the browser answers the fake account
+//                             project of the check site (CHECK_SITE_ENV) with answerCheckHost, so requests to that project stay local.
 //
 // Errors
 //   trapErrors(page, allow = [])
@@ -112,15 +112,11 @@ export const launch = async ({ channel = env('PLAYABLE_BROWSER'), ...options } =
   : channel === 'firefox' ? firefox.launch(options)
   : chromium.launch({ channel, ...options })));
 
-/** Opens a retained profile with the same engine selection and check-host answers as launch(). */
-export const launchPersistent = async (profile, { channel = env('PLAYABLE_BROWSER'), ...options } = {}) => {
-  const context = await (channel === 'webkit'
-    ? webkit.launchPersistentContext(profile, options)
-    : channel === 'firefox' ? firefox.launchPersistentContext(profile, options)
-    : chromium.launchPersistentContext(profile, { channel, ...options }));
-  await answerCheckHost(context);
-  return context;
-};
+/** Retained worker checks use the native network. Firefox request routing loses the controller on restart. */
+export const launchPersistent = (profile, { channel = env('PLAYABLE_BROWSER'), ...options } = {}) => channel === 'webkit'
+  ? webkit.launchPersistentContext(profile, options)
+  : channel === 'firefox' ? firefox.launchPersistentContext(profile, options)
+  : chromium.launchPersistentContext(profile, { channel, ...options });
 
 /** Measures the viewport and each element that matches the selector. */
 const measure = (page, selector) => page.evaluate(sel => {

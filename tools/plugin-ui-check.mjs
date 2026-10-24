@@ -7,6 +7,7 @@ import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { checkCoinFocus } from './lib/plugin-coin-focus-check.mjs';
 import { settled } from './lib/plugin-settled.mjs';
+import { pauseClock } from './lib/page-clock.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { boxText, layoutMessage } from './lib/layout-message.mjs';
 import { assertCardReadState } from './lib/plugin-card-read.mjs';
@@ -1916,15 +1917,24 @@ try {
     assert.equal(await frame.locator('#last-move').innerText(), 'Move 1.', `${code} restores the last server position and move line`);
   }
   await haste();
+  // The move animation needs the running page clock, so choose the move first. Then stop the page clock until the Retry
+  // send runs: a poll read before it would show the page the other tab's move, start the computer turn, and the turn
+  // would take the computer hold below (ticket 77, item 23). The wait ends a read that started before the pause.
+  await clickSquare(4,1); await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await idleBoard();
+  await pauseClock(page);
+  await page.waitForFunction(() => window.harnessWidgets.every(widget => !widget.inflight));
   const race = await page.evaluate(() => window.harnessView);
   const winner = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_move',arguments:{game_id:race.game_id,command_id:randomUUID(),expected_revision:race.revision,lan:'d2-d4'}}})).json();
   assert(!winner.isError,'Another tab wins the move race');
   await page.evaluate(() => { window.dropNextReply='kingdown_move'; window.holdNext='kingdown_computer'; });
-  await clickSquare(4,1); await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await sendTurn();
+  await sendTurn();
   await frame.locator('#retry').waitFor();
   assert.match(await frame.locator('#last-move').innerText(),/White pawn e2 to e4/,'The lost refusal keeps the move until Retry');
   const raceReads = await page.evaluate(() => window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
-  await frame.locator('#retry').click(); await page.waitForFunction(()=>typeof window.releaseHeld==='function');
+  const raceSends = await page.evaluate(() => window.harnessCalls.filter(c=>c.name==='kingdown_move').length);
+  // The Retry send closes the poll gate (queue.writing()), and the computer turn after the refusal needs the clock.
+  await frame.locator('#retry').click(); await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_move').length>n,raceSends);
+  await page.clock.resume(); await page.waitForFunction(()=>typeof window.releaseHeld==='function');
   assert.doesNotMatch(await frame.locator('#last-move').innerText(),/e2 to e4/,'A final Retry refusal removes the refused move');
   // Retry sends the move with no read first (design 5.3); the refusal's rollback reads the board in full.
   assert(await page.evaluate(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>=n+1,raceReads),'Retry reads in full after the refusal');
@@ -2926,6 +2936,13 @@ try {
     await openPlay(); await legacyStart('solo'); await idleBoard();
   }
   const routeBase = await page.evaluate(() => window.harnessView), routeBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
+  // A poll can leave only a delta in the harness. With no rules, a finished sample or a new frame reads the board again
+  // and gets the real game, which still plays (ticket 77, item 16). The samples need the full rules, as in zoomEndFits.
+  if (!routeBase.rules) {
+    const full = await tool('kingdown_get', { game_id: routeBase.game_id });
+    assert(!full.isError && full._meta?.view?.rules, 'The route samples need a complete rules projection');
+    routeBase.rules = full._meta.view.rules;
+  }
   const routeCases = [['waiting','friend',undefined,'friend'], ['waiting','random',undefined,'wait'], ['setup','friend',{},'seat'], ['setup','solo',undefined,'board'], ['playing','solo',undefined,'board'], ['finished','friend',undefined,'end'], ['aborted','random',undefined,'end']];
   for (const [status, kind, options, screen] of routeCases) {
     const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);
