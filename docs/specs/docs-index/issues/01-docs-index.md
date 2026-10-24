@@ -41,3 +41,5 @@ An untracked `docs/NEW-NOTE.md` also gives one fault (1 of 45 entries).
 **Full suite.** `npm test` at `095a503d`: vitest 242 files passed, 15 skipped; 4560 tests passed, 221 skipped; node --test 50 of 50 passed; exit 0.
 
 **Review.** The PR waits for an independent review and the owner's merge. Hence `ready-for-human`.
+
+**Independent review (a Codex run, 2026-10-24).** Ready; no P0–P2 fault. All 44 entries have links and all 67 links have targets; the failure fixtures test missing entries and dead links; no release or board risk. One P3, fixed in `c9f4eb8d`: the status line gave both status files the date 2026-10-09; it now links the 2026-09-13 page and the 2026-10-09 workbook.
