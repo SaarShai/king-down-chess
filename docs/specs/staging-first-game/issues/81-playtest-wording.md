@@ -66,3 +66,22 @@ Cause: the playtest (2026-10-23) used a staging build of `staging/first-game` fr
 Result: no code change. New tests in `src/move-text.test.ts` hold the two playtest moves: a bishop Leap over its own pawn that takes on e5, and Black's Sky Lift of a maester and an archer. Each checks the move sentence, the short history line (`shortMove`), and `applyLan`, the path of an account game's history and Moves list, where a computer's move arrives as its LAN. They pass on the base code, as expected.
 
 ### Tests and checks
+
+| Check | Before (base `2f70eab2` with the new tests) | After |
+|---|---|---|
+| `KINGDOWN_TEST_FILE='src/{context-line,move-text,plugin/screens/end-model}.test.ts' npm test` | 4 failed, 87 passed: F-006 (1), F-102 (2), F-105 (1). The F-033/F-030 tests pass. | UNIT |
+| `npx tsc --noEmit -p .` | — | pass |
+| `npm run test:docs` | — | 13 files, 166 tests pass |
+| `npm run check:browser lessons` | FAIL: `the selection keeps the lesson task` (actual `White ogre.` / `Can shove a neighbour.`) | ok |
+| `npm run check:browser special-moves verb-marks lesson-return` | — | ok |
+| `VITE_KINGDOWN_STAGE=staging npm run check:browser plugin-ui` | — | ok, 345.8 s |
+
+New checks: `tools/verify-lessons.mjs` (the Ogre task through the selection, the sheet and Cancel; the Beast note, then the last bite completes the chain with no Stop here) and `tools/plugin-ui-check.mjs` (a friend result shows no Ranked line). `tools/verify-special-moves.mjs` asserts the new chain note in place of the old one.
+
+## Owner decisions
+
+1. The Take or Shove sheet shows the lesson task as a plain paragraph. Pick: keep. On no: drop it; a phone sheet then covers the task.
+2. Take stays the red primary button in the Ogre lesson. To stress Shove in a lesson is a visual change; not in this ticket.
+3. After a casual friend match, the line still says `A rematch is Casual.` Pick: keep.
+
+PR: https://github.com/SaarShai/king-down-chess/pull/95
