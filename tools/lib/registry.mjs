@@ -39,6 +39,7 @@ export const checks = [
   { name: 'plugin-privacy', script: 'tools/plugin-browser-check.mjs', args: ['privacy'], limit: 120, channel: 'chromium', byName: true, exclusive: true },
   { name: 'w6-parts', script: 'tools/verify-w6-parts.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'search-worker', script: 'tools/verify-search-worker.mjs', limit: 180, channel: 'chromium', byName: true },
+  { name: 'plugin-skylift', script: 'tools/plugin-browser-check.mjs', args: ['skylift'], limit: 180, channel: 'chromium', byName: true, exclusive: true },
   { name: 'plugin-ui', script: 'tools/plugin-browser-check.mjs', args: ['fixture'], limit: 420, channel: 'chromium', byName: true },
   // The board previews A8, A15, A17, A18 and A39 also open the site (docs/specs/gui-previews-2026-10-19/capture.mjs).
   // The full preview set takes about 160 s at normal load (ticket 71), so it gets 300 s.

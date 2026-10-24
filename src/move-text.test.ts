@@ -8,6 +8,7 @@ import { fromFen, randomBackRank, startPosition, toLan } from './rules/setup';
 import { checkCause, checkersOf, describeMove, shortMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
 import { offered } from './powers-ui';
 import { mulberry32 } from './sim/rng';
+import { applyLan } from './plugin/screens/board-model';
 
 const KING_OF: Partial<Record<PowerName, KingChoice['king']>> = {
   Freeze: 'Frost', IceWall: 'Frost', Haste: 'Flame', Flight: 'Stratus', Sacrifice: 'Stratus',
@@ -257,10 +258,49 @@ it('keeps owned designed names in short moves without changing the ambient rules
   const ambient = structuredClone(RULES), name = (type: Parameters<typeof context.nameOf>[0]) => context.nameOf(type);
   const move = { from: 8, to: 16, captures: [] };
   expect(shortMove(pos, move, name)).toBe('White Owned Ward a2 → a3');
-  expect(shortMove(pos, { from: 0, to: 16, captures: [], drop: T, power: 'salvation' }, name)).toBe('White Salvation · adds Owned Ward a3');
+  expect(shortMove(pos, { from: 0, to: 16, captures: [], drop: T, power: 'salvation' }, name)).toBe('White Salvation · returns Owned Ward a3');
+  expect(describeMove(context, pos, { from: 16, to: 16, captures: [], drop: T, power: 'salvation' })).toBe('White uses Salvation to bring back Owned Ward on a3.');
   expect(shortMove(pos, { from: 48, to: 56, captures: [], promo: T }, name)).toBe('White pawn a7 → a8 = Owned Ward');
   expect(shortMove(pos, move, nameOf)).toBe('White Ambient Ward a2 → a3');
   expect(RULES).toEqual(ambient);
+});
+
+
+describe('card effect text', () => {
+  const cases: { card: CardName; fen: string; lan: string; words: string; short: string }[] = [
+    { card: 'Curse', fen: '4k3/8/8/3n4/8/8/P7/4K3 w - - 0 1', lan: '!C:d5-e5',
+      words: 'White uses Curse to move the black knight on d5 to e5.', short: 'White Curse · moves black knight d5 → e5' },
+    { card: 'Curse', fen: '4k3/p7/8/8/3N4/8/8/4K3 b - - 0 1', lan: '!C:d4-e4',
+      words: 'Black uses Curse to move the white knight on d4 to e4.', short: 'Black Curse · moves white knight d4 → e4' },
+    { card: 'EarthQuake', fen: '4k3/8/8/3p4/2N5/4B3/5P2/4K3 w - - 0 1', lan: '!Q:d4',
+      words: 'White uses Earth Quake on d4 and pushes the white knight on c4 to b4 and the black pawn on d5 to d6.',
+      short: 'White Earth Quake · at d4 · white knight c4 → b4, black pawn d5 → d6' },
+    { card: 'EarthQuake', fen: '4k3/8/8/3p4/2N5/4B3/5P2/4K3 b - - 0 1', lan: '!Q:d4',
+      words: 'Black uses Earth Quake on d4 and pushes the white knight on c4 to b4 and the black pawn on d5 to d6.',
+      short: 'Black Earth Quake · at d4 · white knight c4 → b4, black pawn d5 → d6' },
+    { card: 'EarthQuake', fen: '4r1k1/8/8/8/8/8/4B3/4K3 w - - 0 1', lan: '!Q:e1',
+      words: 'White uses Earth Quake on e1 and pushes the white bishop on e2 to e3.', short: 'White Earth Quake · at e1 · white bishop e2 → e3' },
+    { card: 'EarthQuakeB', fen: '4r1k1/8/8/8/8/8/4B3/4K3 w - - 0 1', lan: '!U:e1',
+      words: 'White uses Earth Quake B on e1 and pushes the white bishop on e2 to e3.', short: 'White Earth Quake B · at e1 · white bishop e2 → e3' },
+    { card: 'Salvation', fen: '4k3/8/8/8/8/8/P7/N3K3 w - - 3 9 lPRQG', lan: 'R@h1!R',
+      words: 'White uses Salvation to bring back a rook on h1.', short: 'White Salvation · returns rook h1' },
+    { card: 'Salvation', fen: 'n3k3/p7/8/8/8/8/8/4K3 b - - 3 9 lprqg', lan: 'R@h8!R',
+      words: 'Black uses Salvation to bring back a rook on h8.', short: 'Black Salvation · returns rook h8' },
+  ];
+  it.each(cases)('$card: $lan in $fen', ({ card, fen, lan, words, short }) => {
+    setRules({ hands: [[card], [card]] });
+    const pre = fromFen(fen), move = find(pre, lan), context = new GameRules(RULES);
+    expect(describeMove(context, pre, move)).toBe(words);
+    expect(shortMove(pre, move, type => context.nameOf(type))).toBe(short);
+  });
+  it.each(cases.filter(row => row.fen.includes(' w ')))('keeps the copied $card effect', ({ card, fen, lan, words, short }) => {
+    setRules({ hands: [[card, 'MirrorB'], []] });
+    const pre = fromFen(fen), original = find(pre, lan);
+    const copy = legalMoves(pre).find(move => move.via === 'mirrorb' && move.power === original.power && move.from === original.from && move.to === original.to && move.drop === original.drop)!;
+    expect(copy).toBeDefined();
+    expect(describeMove(new GameRules(RULES), pre, copy)).toBe(`With Mirror, ${words}`);
+    expect(shortMove(pre, copy, nameOf)).toBe(short.replace('White ', 'White Mirror · '));
+  });
 });
 
 describe('screen-reader lines for released cards', () => {
@@ -308,8 +348,27 @@ describe('screen-reader lines for released cards', () => {
     expect(say(fromFen('4k3/8/8/2PpP3/8/8/8/4K3 w - - 0 1'), '!Q:c4')).toBe('White uses Earth Quake on c4 and pushes the white pawn on c5 to c6 and the black pawn on d5 to e6.');
   });
 
-  it('counts the pieces when an Earth Quake pushes more than two', () => {
+  it('names each piece when an Earth Quake pushes more than two', () => {
     setRules({ hands: [['EarthQuake'], []] });
-    expect(say(fromFen('4k3/8/8/2ppp3/8/8/8/4K3 w - - 0 1'), '!Q:d4')).toBe('White uses Earth Quake on d4 and pushes 3 pieces one square away.');
+    expect(say(fromFen('4k3/8/8/2ppp3/8/8/8/4K3 w - - 0 1'), '!Q:d4')).toBe('White uses Earth Quake on d4 and pushes the black pawn on d5 to d6, the black pawn on e5 to f6 and the black pawn on c5 to b6.');
+  });
+});
+
+describe('the staging card moves name their card (F-033, F-030)', () => {
+  // The move sentence (status, Previously, Moves list) and the short history line for the two playtest moves.
+  // applyLan is the path of an account game's history: the computer's move arrives as its LAN.
+  const cases = [
+    { name: 'a Leap over an own pawn', hands: [['Leap'], []] as [CardName[], CardName[]], fen: '4k3/8/8/4p3/8/8/1P6/B3K3 w - - 0 1', power: 'leap', from: 'a1', to: 'e5',
+      words: 'White bishop a1 to e5, taking the pawn on e5 with Leap.', short: 'White Leap · bishop a1 → e5' },
+    { name: "the computer's Sky Lift", hands: [[], ['SkyLift']] as [CardName[], CardName[]], fen: '3m2ak/8/8/8/8/8/8/K7 b - - 0 1', power: 'skylift', from: 'd8', to: 'g8',
+      words: 'Black uses Sky Lift to swap the maester on d8 and the archer on g8.', short: 'Black Sky Lift · maester d8 ↔ g8' },
+  ];
+  it.each(cases)('$name', ({ hands, fen, power, from, to, words, short }) => {
+    const rules = { hands }, context = new GameRules(rules), pre = context.fromFen(fen);
+    const move = context.legalMoves(pre).find(m => m.power === power && m.from === parseSq(from) && m.to === parseSq(to))!;
+    expect(move).toBeDefined();
+    expect(describeMove(context, pre, move, true)).toBe(words);
+    expect(shortMove(pre, move, type => context.nameOf(type))).toBe(short);
+    expect(applyLan(pre, toLan(pre, move), rules)?.words).toBe(words);
   });
 });

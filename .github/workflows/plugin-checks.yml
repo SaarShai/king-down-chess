@@ -16,8 +16,55 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    # The full npm test takes about 15 minutes on the runner, twice main's (Saar, 2026-10-18: "Raise CI limits").
+    # The full npm test takes about 15 minutes on the runner, twice main's (Saar, 2026-10-18: "Raise CI limits"). The board
+    # files run in browser-board.
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kingdown_test
+          POSTGRES_PASSWORD: local_test_only
+          POSTGRES_DB: kingdown_plugin_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run plugin:db:init-test
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+        env:
+          KINGDOWN_TEST_SKIP: 'tools/plugin-board{,-input,-drafts}.test.ts'
+      - run: npm run plugin:build
+      - run: npm run plugin:server:check
+      - run: npm run plugin:smoke
+      - run: npm run plugin:check:protocol
+      - run: npm run build:vercel
+      - run: npm run check:vercel
+
+  # The Chromium board tests, one file to a runner. With the three files side by side in verify, they took twice the time
+  # of the one file on main, every other test file ran about 1.5 times slower, and npm test grew from 15 to 23 minutes
+  # (ticket 77, round 9).
+  browser-board:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        file: [board, board-input, board-drafts]
     services:
       postgres:
         image: postgres:17
@@ -43,12 +90,8 @@ jobs:
       - run: npm run plugin:db:init-test
       - run: npx playwright install --with-deps chromium
       - run: npm test
-      - run: npm run plugin:build
-      - run: npm run plugin:server:check
-      - run: npm run plugin:smoke
-      - run: npm run plugin:check:protocol
-      - run: npm run build:vercel
-      - run: npm run check:vercel
+        env:
+          KINGDOWN_TEST_FILE: tools/plugin-${{ matrix.file }}.test.ts
 
   # The browser checks run beside npm test, so each job keeps its own 15 minutes.
   browser:
@@ -129,9 +172,14 @@ jobs:
           path: /tmp/kingdown-check-runs/
           retention-days: 7
 
+  # The WebKit tests and the WebKit journeys run in three jobs: in one job the browser install, 13-16 minutes of tests and
+  # 18-19 minutes of plugin-ui left too little time, and a 9-minute install cancelled web-online (run 39908178007). On a
+  # slower runner the board tests alone passed the 20-minute step limit (run 39918579892), so they run in two jobs. Vitest
+  # runs one file's tests in order, one file to a worker: the second job's 101 tests in one file passed the step limit on
+  # a runner 2.5 times slower than usual (run 39923681818), so they are two files that run side by side.
   browser-webkit:
     runs-on: ubuntu-latest
-    # WebKit runs here with the step limits times 3 (tools/lib/checks.mjs STEP), and then the full plugin-ui check.
+    # WebKit runs here with the step limits times 3 (tools/lib/checks.mjs STEP).
     timeout-minutes: 45
     services:
       postgres:
@@ -148,6 +196,8 @@ jobs:
           --health-retries 10
     env:
       PLAYABLE_BROWSER: webkit
+      # No GPU here: WebKit's accelerated 2D canvas runs on software GL and took about 2.5 of the 4 CPUs (ticket 77, item 27).
+      PLAYABLE_CPU_CANVAS: '1'
       PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
     steps:
       - uses: actions/checkout@v4
@@ -164,12 +214,131 @@ jobs:
           nproc
           free -m
           nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &
-      # Step limits under the 45-minute job limit, so a hung step still leaves time for the kernel log and the
-      # sampler upload below (the job limit cancels the whole job). Passing runs take 13-15 and 18-19 minutes.
+      # A step limit under the job limit, so a hung step still leaves time for the kernel log and the sampler upload below
+      # (the job limit cancels the whole job).
       - run: npm test
         timeout-minutes: 20
         env:
           KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size}.test.ts'
+      - name: Save kernel log
+        if: failure() || cancelled()
+        run: sudo dmesg -T | tail -n 400 > /tmp/kingdown-check-runs/dmesg.txt || true
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-sampler
+          path: /tmp/kingdown-check-runs/webkit-sampler.log
+          retention-days: 7
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-check-logs
+          path: /tmp/kingdown-check-runs/
+          retention-days: 7
+
+  browser-webkit-board:
+    runs-on: ubuntu-latest
+    # WebKit runs here with the step limits times 3 (tools/lib/checks.mjs STEP).
+    timeout-minutes: 45
+    # One board file to a runner. A CI WebKit page uses about 300% CPU; with both files side by side on one 4-CPU runner
+    # each page got about 175%, and the tests ran a median 4.6 times slower than one file alone (ticket 77, round 9).
+    strategy:
+      fail-fast: false
+      matrix:
+        file: [input, drafts]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kingdown_test
+          POSTGRES_PASSWORD: local_test_only
+          POSTGRES_DB: kingdown_plugin_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PLAYABLE_BROWSER: webkit
+      # No GPU here: WebKit's accelerated 2D canvas runs on software GL and took about 2.5 of the 4 CPUs (ticket 77, item 27).
+      PLAYABLE_CPU_CANVAS: '1'
+      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run plugin:db:init-test
+      - run: npx playwright install --with-deps webkit
+      - name: Start WebKit sampler
+        run: |
+          mkdir -p /tmp/kingdown-check-runs
+          nproc
+          free -m
+          nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &
+      # A step limit under the job limit, so a hung step still leaves time for the kernel log and the sampler upload below
+      # (the job limit cancels the whole job).
+      - run: npm test
+        timeout-minutes: 20
+        env:
+          KINGDOWN_TEST_FILE: tools/plugin-board-${{ matrix.file }}.test.ts
+      - name: Save kernel log
+        if: failure() || cancelled()
+        run: sudo dmesg -T | tail -n 400 > /tmp/kingdown-check-runs/dmesg.txt || true
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-board-sampler-${{ matrix.file }}
+          path: /tmp/kingdown-check-runs/webkit-sampler.log
+          retention-days: 7
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-board-check-logs-${{ matrix.file }}
+          path: /tmp/kingdown-check-runs/
+          retention-days: 7
+
+  browser-webkit-ui:
+    runs-on: ubuntu-latest
+    # The full plugin-ui check and the web journey in WebKit, with the step limits times 3 (tools/lib/checks.mjs STEP).
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kingdown_test
+          POSTGRES_PASSWORD: local_test_only
+          POSTGRES_DB: kingdown_plugin_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PLAYABLE_BROWSER: webkit
+      # No GPU here: WebKit's accelerated 2D canvas runs on software GL and took about 2.5 of the 4 CPUs (ticket 77, item 27).
+      PLAYABLE_CPU_CANVAS: '1'
+      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run plugin:db:init-test
+      - run: npx playwright install --with-deps webkit
+      - name: Start WebKit sampler
+        run: |
+          mkdir -p /tmp/kingdown-check-runs
+          nproc
+          free -m
+          nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &
+      # Step limits under the job limit, as in browser-webkit. Passing runs take 18-19 and 2 minutes.
       - run: npm run check:browser plugin-ui
         env:
           # The browser's own output goes to the check log, so a WebKit crash or memory kill names its reason
@@ -184,13 +353,13 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: webkit-sampler
+          name: webkit-ui-sampler
           path: /tmp/kingdown-check-runs/webkit-sampler.log
           retention-days: 7
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: webkit-check-logs
+          name: webkit-ui-check-logs
           path: /tmp/kingdown-check-runs/
           retention-days: 7
 

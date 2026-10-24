@@ -126,7 +126,7 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
   dlg.setAttribute('aria-labelledby', 'pg-h');
   const chev = '<svg class="pg-chev" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 10l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 13l5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/></svg>';
   const rows = Array.from({ length: 8 }, (_, i) => `<div role="row">${[...FILES].map(f => `<button type="button" class="sq" role="gridcell" data-sq="${f}${8 - i}" tabindex="-1"></button>`).join('')}</div>`).join('');
-  dlg.innerHTML = `<header class="pg-top"><button type="button" class="pg-menu" aria-label="Menu"><span aria-hidden="true">‹</span> <span class="pg-word">Menu</span></button>`
+  dlg.innerHTML = `<header class="pg-top"><button type="button" class="pg-menu" aria-label="Back to game"><span aria-hidden="true">‹</span> <span class="pg-word">Game</span></button>`
     + '<button type="button" class="pg-pieces" data-act="pieces" aria-expanded="false" aria-controls="pg-ledge">Pieces</button>'
     + '<h2 id="pg-h" class="pg-title" tabindex="-1"><i></i>Workshop<i class="r"></i></h2><div class="pg-acts"></div><div class="pg-morepop" id="pg-morepop" hidden></div></header>'
     + '<div class="pg-main"><section class="pg-plinth" aria-label="The open piece"></section>'
@@ -1555,7 +1555,7 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
   narrow.addEventListener('change', () => { row = peek = card = null; reach(null); if (dlg.open) render(); });
   // A turn of the phone moves the tray and the ledge (renderTray, renderLedge); the design, the brush, the tag and the shelf stay.
   short.addEventListener('change', () => { ledgeOpen = false; if (dlg.open) render(); });
-  // With the ledge's sheet open, ‹ Menu is a tap outside it: it closes the sheet only.
+  // With the ledge's sheet open, ‹ Game is a tap outside it: it closes the sheet only.
   q<HTMLButtonElement>('.pg-menu').onclick = () => (ledgeOpen ? closeLedge() : dlg.close());
 
   dlg.addEventListener('click', e => {

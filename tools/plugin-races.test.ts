@@ -555,8 +555,10 @@ it('R8: another game does not drop a failed command for the game it belongs to (
     await page.context().setOffline(false);
     // Then the player opens another game.
     const other = await soloGame(page);
-    await html(page).evaluate(async (_, game_id) => { await (window as any).harnessApp.call('kingdown_resume', { game_id }); }, other);
-    await expect.poll(() => shownGame(page).then(shown => shown.game)).toBe(other);
+    // The resume draws its game before it returns, so the same read reports the shown game. A second read in a 1 s poll
+    // timed the runner: in CI run 39953001791 that read itself took more than 1 s.
+    const shown = await html(page).evaluate(async (_, game_id) => { const app = (window as any).harnessApp; await app.call('kingdown_resume', { game_id }); return app.memory.view?.game_id; }, other);
+    expect(shown).toBe(other);
     // The failed resign stays with its own game.
     expect((await html(page).evaluate(() => (window as any).harnessApp.client.state.pending))?.game_tag).toBe(game.slice(0, 8));
   } finally { await page.context().setOffline(false).catch(() => {}); await page.close(); }
