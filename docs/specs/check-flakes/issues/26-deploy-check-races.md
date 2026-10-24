@@ -1,6 +1,6 @@
 # 26 Two browser checks that read the page before its start-up ends
 
-Status: claimed
+Status: resolved
 Branch: claude/strange-chaplygin-aae068
 Scope: check scripts and docs only. No `src/` change, no longer time limit, no retry.
 
@@ -50,6 +50,7 @@ On 2026-10-19 the production deploy (`tools/deploy.sh --publish`, which runs `np
 
 - `open()` waits only until `window.view.ready` exists. Home opens after `await view.ready()` (`src/main.ts:194`, `if (showHome) home.open()`), so the same art decode delays it. `locator.isVisible()` reads one time and does not wait.
 - Fix: `await arriveContinue(page).waitFor()` before the assertion. It waits for a visible Home or title Continue with the default time limit. The assertion stays.
+- Superseded: main now waits for this state in `open()`: `ready(page)` waits until `window.view.ready` exists and then for `view.ready()` itself (`docs/visual-design/verify.mjs:27-31`). `src/main.ts` opens Home in the continuation of its own earlier `await view.ready()`, so Home is open when the check reads it. This branch drops its own wait.
 
 ### Verification at `e0180cbd`
 
@@ -77,5 +78,6 @@ The load run started 10 `yes` processes on the M1 and stored their PIDs in one s
 
 ### Merge with main
 
-- PR 78 conflicted with main in `tools/verify-painted-game.mjs` (PR 75, see Cause 1). The merge takes main's file. The branch now changes only `docs/visual-design/verify.mjs` (the Home wait), `docs/COMPUTE.md` (the zsh line) and this ticket.
+- PR 78 conflicted with main in `tools/verify-painted-game.mjs` (PR 75, see Cause 1). The merge takes main's file. After the 2026-10-24 review (Cause 2 superseded), the branch changes only `docs/COMPUTE.md` (the zsh line) and this ticket.
+- Independent review (a Codex run, 2026-10-24): two P2 and one P3. Fixed: the `EXIT` trap rule now covers only temporary load and test processes, so a detached long run (`docs/LOCAL-AI-MACBOOK.md`) is not stopped; the repeated Home wait is dropped. Not in this PR: the fixed frame-time limits of case 2c' (`tools/verify-painted-game.mjs`) can still fail under load before a release; it needs a controlled animation clock, as a separate ticket.
 - The runs above tested this branch's own painted-game wait. Main's wait holds the same condition and more, and its ticket records five passing runs.
