@@ -43,6 +43,8 @@ let command: (name: string, args: Record<string, unknown>) => Promise<View | und
 export const sendBoardCommand = (name: string, args: Record<string, unknown> = {}) => command(name, args);
 const portraitPath = (side: Color) => `ui/kings/${(gameRules.rules.kings[side]?.king ?? PLAIN_KINGS[side]).toLowerCase()}${side ? '-b' : ''}.webp`;
 let sheet: HTMLDialogElement, scrim: HTMLDivElement, sheetFocus: HTMLElement | undefined;
+// Playtest F-032: a board tap opens a sheet on pointerup, and a touch tap's click then lands on the new scrim. Only a press on the scrim closes it.
+let scrimPressed = false;
 let refreshCardSheet: (() => void) | undefined;
 let stopPlacingChoice = () => {};
 export function closeBoardSheet() {
@@ -61,7 +63,9 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
   if (!sheet) {
     scrim = document.createElement('div'); scrim.className = 'scrim'; scrim.hidden = true;
     sheet = document.createElement('dialog'); sheet.id = 'board-sheet'; sheet.setAttribute('aria-labelledby', 'board-sheet-title'); sheet.className = 'over-sheet'; sheet.setAttribute('aria-modal', 'true');
-    $('app-frame').append(scrim, sheet); scrim.onclick = closeBoardSheet;
+    $('app-frame').append(scrim, sheet);
+    scrim.onpointerdown = () => { scrimPressed = true; };
+    scrim.onclick = () => { if (scrimPressed) closeBoardSheet(); scrimPressed = false; };
     sheet.onkeydown = event => {
       if (event.key === 'Tab') {
         const buttons = [...sheet.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, select, [tabindex="0"]')].filter(el => el.getClientRects().length), i = buttons.indexOf(document.activeElement as HTMLElement);
@@ -75,7 +79,7 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
   sheet.removeAttribute('style'); scrim.classList.remove('move-choice-scrim');
   sheet.innerHTML = '<header class="sheet-head"><h2 id="board-sheet-title"></h2><button aria-label="Close">×</button></header><div class="sheet-body"></div>';
   sheet.querySelector('h2')!.textContent = title; sheet.querySelector('button')!.onclick = closeBoardSheet;
-  sheet.querySelector('.sheet-body')!.append(...nodes); scrim.hidden = false; document.querySelector<HTMLElement>('.page-sheet')!.inert = true; sheet.show(); sheet.querySelector('button')!.focus({preventScroll:true});
+  sheet.querySelector('.sheet-body')!.append(...nodes); scrim.hidden = false; scrimPressed = false; document.querySelector<HTMLElement>('.page-sheet')!.inert = true; sheet.show(); sheet.querySelector('button')!.focus({preventScroll:true});
   if (nodes.includes($('choices'))) {
     const board = $('board'), frame = $('app-frame');
     sheet.classList.add('move-choice'); scrim.classList.add('move-choice-scrim');

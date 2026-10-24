@@ -2572,3 +2572,43 @@ it('keeps source pages without an engine stamp on server preview', async () => {
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.store.page().notice)).toBeUndefined();
   } finally { await page.close(); await unstamped.close(); }
 });
+
+// Playtest F-032: a real touch tap on a target with more than one move opens Choose a move. The browser sends the
+// tap's click after the touch ends, onto the scrim that the tap opened; that click must not close the sheet.
+async function squareTouch(page: Page, square: number) {
+  const point = await squarePoint(page, square);
+  await page.touchscreen.tap(point.x, point.y);
+}
+const frames = (page: Page) => page.frameLocator('iframe').locator('html').evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+it.each([
+  ['F-032 promotion', '7k/1P6/8/8/8/8/8/K7 w - - 0 1', 49, 57],
+] as const)('%s: a touch tap on a target with more than one move opens Choose a move', async (_, fen, from, to) => {
+  const base = view(fen), page = await open(base, 390, 844), frame = page.frameLocator('iframe');
+  setRules(base.rules!); const pre = fromFen(fen);
+  const lans = legalMoves(pre).filter(m => m.from === from && (m.to === to || m.captures.includes(to))).map(m => toLan(pre, m)).sort();
+  expect(lans.length).toBeGreaterThan(1);
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await squareTouch(page, from);
+    expect((await marks(page)).selected).toBe(from);
+    await squareTouch(page, to);
+    await frames(page);
+    const sheet = frame.getByRole('dialog', { name: 'Choose a move', exact: true });
+    expect(await sheet.isVisible()).toBe(true);
+    expect((await frame.locator('#choices button').evaluateAll(buttons => buttons.map(b => (b as HTMLElement).title))).sort()).toEqual(lans);
+    // A tap on the scrim still closes the sheet, and keeps the piece selected.
+    const scrim = (await frame.locator('.scrim.move-choice-scrim').boundingBox())!;
+    await page.touchscreen.tap(scrim.x + scrim.width / 2, scrim.y + 8);
+    await frames(page);
+    expect(await sheet.isVisible()).toBe(false);
+    expect((await marks(page)).selected).toBe(from);
+    await squareTouch(page, to);
+    await frames(page);
+    const choice = (await frame.locator(`#choices button[title="${lans[0]}"]`).boundingBox())!;
+    await page.touchscreen.tap(choice.x + choice.width / 2, choice.y + choice.height / 2);
+    await expect.poll(async () => (await savedDraft(page))?.lans.at(-1)).toBe(lans[0]);
+    expect(await sheet.isVisible()).toBe(false);
+    await frame.locator('#board[data-animating="false"]').waitFor();
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('false');
+  } finally { await page.close(); }
+});
