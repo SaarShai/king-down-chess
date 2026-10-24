@@ -937,3 +937,22 @@ it('F-011: All rules shows the full rules of the selected piece and the other pi
     expect(await sheet.innerText()).toContain('Moves in an L, over any piece.');
   } finally { await page.close(); }
 });
+
+// Escape in All rules clears the selection, and that hides the All rules button. Focus then goes to the board, not to the page body.
+it('Escape from All rules puts focus on the board when the hidden opener cannot take it', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), 390, 844), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    // The keyboard cursor starts on a1: ArrowUp, then Enter, selects the a2 pawn.
+    await frame.locator('#board').focus(); await page.keyboard.press('ArrowUp'); await page.keyboard.press('Enter');
+    expect((await marks(page)).selected).toBe(8);
+    await frame.locator('#all-rules').focus(); await page.keyboard.press('Enter');
+    const sheet = frame.getByRole('dialog', { name: 'All rules', exact: true });
+    expect(await sheet.isVisible()).toBe(true);
+    await page.keyboard.press('Escape');
+    expect(await sheet.isVisible()).toBe(false);
+    expect((await marks(page)).selected).toBeUndefined();
+    expect(await frame.locator('#all-rules').isHidden()).toBe(true);
+    expect(await frame.locator('html').evaluate(() => document.activeElement?.id)).toBe('board');
+  } finally { await page.close(); }
+});

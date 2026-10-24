@@ -59,7 +59,8 @@ export function closeBoardSheet() {
   sheet.close(); scrim.hidden = true;
   $('moves-line').setAttribute('aria-expanded', String(!$('recent-moves').hidden));
   const focus = sheetFocus?.id ? document.getElementById(sheetFocus.id) : sheetFocus;
-  if (restore) (focus?.isConnected ? focus : $('board')).focus({preventScroll:true}); client.state.sheet = undefined; client.save();
+  // A hidden opener cannot take focus (Escape clears the selection and hides All rules), so focus goes to the board.
+  if (restore) (focus?.isConnected && focus.getClientRects().length ? focus : $('board')).focus({preventScroll:true}); client.state.sheet = undefined; client.save();
 }
 export function boardSheet(title: string, ...nodes: HTMLElement[]) {
   if (!sheet) {
