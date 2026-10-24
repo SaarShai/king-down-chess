@@ -89,7 +89,7 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
   sheet.removeAttribute('style'); scrim.classList.remove('move-choice-scrim');
   sheet.innerHTML = '<header class="sheet-head"><h2 id="board-sheet-title"></h2><button aria-label="Close">×</button></header><div class="sheet-body"></div>';
   sheet.querySelector('h2')!.textContent = title; sheet.querySelector('button')!.onclick = closeBoardSheet;
-  sheet.querySelector('.sheet-body')!.append(...nodes); scrim.hidden = false; scrimPressed = false; document.querySelector<HTMLElement>('.page-sheet')!.inert = true; sheet.show(); sheet.querySelector('button')!.focus({preventScroll:true}); fitSheetBody();
+  sheet.querySelector('.sheet-body')!.append(...nodes); scrim.hidden = false; scrimPressed = false; document.querySelector<HTMLElement>('.page-sheet')!.inert = true; sheet.show(); sheet.querySelector('button')!.focus({preventScroll:true});
   if (nodes.includes($('choices'))) {
     const board = $('board'), frame = $('app-frame');
     sheet.classList.add('move-choice'); scrim.classList.add('move-choice-scrim');
@@ -104,6 +104,8 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
     const observer = new ResizeObserver(place); observer.observe(board); observer.observe(sheet); observer.observe(frame);
     stopPlacingChoice = () => { observer.disconnect(); board.classList.remove('choosing-move'); board.style.maxHeight = ''; };
   }
+  // Fit the body to the placed sheet: Choose a move changes the sheet's size above (F-008).
+  fitSheetBody();
   client.state.sheet = 'board-sheet'; client.save();
 }
 // Playtest F-008: a sheet body that scrolls is a named region in the Tab order, so PageDown and End reach every row.
