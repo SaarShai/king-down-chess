@@ -52,6 +52,14 @@ Cause: `boardSheet()` called `fitSheetBody()` before it added `move-choice` and 
 
 Fix: `boardSheet()` fits the body after the placement. The test now opens the sheet and reads the body in one task (a dispatched Enter), so it does not depend on frame timing: without the fix it fails each time (`expected null to be '-1'`, 2 of 2 runs); with the fix both F-008 tests pass (3 of 3 runs).
 
+### WebKit faults on Linux CI (PR #101 head `7ed05cb5`)
+
+- **ResizeObserver loop** (board drafts job: "ResizeObserver loop completed with undelivered notifications"). The board sheet's `place()` (`src/plugin/screens/board.ts`) and the promotion dialog's `place()` (`src/screen/play.ts`) read the dialog's drawn box (`getBoundingClientRect`). PR #92's opening motion scales the dialog (.98), so the drawn height changes during the opening, the board's `max-height` changes inside its own observer, and the observer runs again. Both now read the layout size (`offsetWidth`, `offsetHeight`), which the scale does not change.
+- **Spent power coin focus** (`#power-w` bottom 2.99:1, right 3.01:1). The focus ring sits on `::before` at `inset: -1px`, so the outer ink band lies on the spent coin's grey rim; PR #92's smaller spent notch (`scale: .9`) uncovers more of that rim, and Linux WebKit fell under 3:1. The spent card coin already draws its ring at `inset: 0` for the same reason; the rule (`src/plugin/screens/board.css`) now covers every spent coin. Local WebKit: the power sides go from [12.7, 4.2, 12.4, 3.3] to [12.2, 11.8, 11.9, 12.0].
+- **Card image in the 44 px coin** (plugin-ui: `image: 34.56` on `strip-them`). The computer cast a card before the measure. A spent card's paint is `scale(.96)` (PR #92, approved), so its image is 36 x .96. Not a product fault: `cardFaces` now returns the coin state and the check expects the .96 size on a spent coin.
+- **Tablet button face** (plugin-ui, after the faces step; local WebKit): `checkTabletButtons` measured a move choice at 47 px during the sheet's opening scale. It now measures after the finite animations end.
+- Local WebKit after the fixes: board and app tests 342 pass; `check:browser plugin-ui` ok.
+
 ### Runs
 
 - `npx tsc --noEmit -p .`: pass (after each merge and fix).

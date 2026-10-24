@@ -95,10 +95,11 @@ export function boardSheet(title: string, ...nodes: HTMLElement[]) {
     sheet.classList.add('move-choice'); scrim.classList.add('move-choice-scrim');
     board.classList.add('choosing-move');
     const place = () => {
-      const room = frame.getBoundingClientRect();
-      board.style.maxHeight = `${Math.max(0, room.bottom - board.getBoundingClientRect().top - sheet.getBoundingClientRect().height - 24)}px`;
+      // The layout size, not the drawn box: the sheet's opening scale must not resize the board inside this observer.
+      const room = frame.getBoundingClientRect(), size = {width:sheet.offsetWidth, height:sheet.offsetHeight};
+      board.style.maxHeight = `${Math.max(0, room.bottom - board.getBoundingClientRect().top - size.height - 24)}px`;
       const box = board.getBoundingClientRect();
-      Object.assign(sheet.style, boardFoot({left:box.left - room.left, bottom:box.bottom - room.top, width:box.width}, sheet.getBoundingClientRect(), room));
+      Object.assign(sheet.style, boardFoot({left:box.left - room.left, bottom:box.bottom - room.top, width:box.width}, size, room));
     };
     place();
     const observer = new ResizeObserver(place); observer.observe(board); observer.observe(sheet); observer.observe(frame);

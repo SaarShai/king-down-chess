@@ -60,8 +60,8 @@ body[data-page='end'] #table-bar { visibility: hidden; }
 #game-table .card-coin[data-state='armed'] > .coin-paint { transform: translateY(-4px); }
 #game-table .card-coin:is([data-state='armed'], [data-state='used']) { overflow: visible; }
 #game-table .card-coin[data-state='used'] > .coin-paint { transform: scale(.96); }
-/* Keep both focus bands clear against the smaller face inside the full-size button. */
-#app-root #game-table .card-coin[data-state='used']:focus::before { inset: 0; }
+/* Keep both focus bands clear of a spent coin's grey rim: on the smaller card face, and on the spent power coin's notch side. */
+#app-root #game-table .coin[data-state='used']:focus::before { inset: 0; }
 #game-table .portrait.is-checked { outline: 3px solid var(--accent); outline-offset: -3px; }
 #move-time-left[data-phase='warning'], #move-time-left[data-phase='expired'] { color: var(--accent); }
 #move-time-left { outline: 2px solid transparent; outline-offset: 3px; border-radius: var(--radius); }

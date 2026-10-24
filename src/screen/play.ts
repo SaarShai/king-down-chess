@@ -480,8 +480,10 @@ export function connectPlay(view: BoardView, c: {
     const board = $('board');
     const place = () => {
       board.classList.add('choosing-move');
-      board.style.maxHeight = `${Math.max(0, innerHeight - board.getBoundingClientRect().top - dlg.getBoundingClientRect().height - 24)}px`;
-      Object.assign(dlg.style, boardFoot(board.getBoundingClientRect(), dlg.getBoundingClientRect(), {width:innerWidth,height:innerHeight}));
+      // The layout size, not the drawn box: the dialog's opening scale must not move the board.
+      const size = {width:dlg.offsetWidth, height:dlg.offsetHeight};
+      board.style.maxHeight = `${Math.max(0, innerHeight - board.getBoundingClientRect().top - size.height - 24)}px`;
+      Object.assign(dlg.style, boardFoot(board.getBoundingClientRect(), size, {width:innerWidth,height:innerHeight}));
     };
     const move = await new Promise<Move | null>(resolve => {
       const done = (m: Move | null): void => { stopPlacing(); closeMoveChoice = null; dlg.close(); resolve(m); };
