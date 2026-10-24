@@ -49,23 +49,21 @@ The concept previews and their direction are on `codex/effects-integration`: `do
 ### Check
 
 - Onset, 440 ms (`check.ts`): the real checkers' edge (their silhouettes from the shown board, in warm gold) flashes once in the first 270 ms; a rust wash presses in under the king; at 175 to 325 ms a seal lands beside the king. The cause lines stay still: no travelling attack, no growing path, no pulse.
-- The held check is the preview's still result: the wash, the seal and the still cause lines. It replaces the old ring and danger plume (`checkImpact`, which stays for the signals preview). Reduced motion and a resync show it at once.
+- After the onset, the held check is PR #92's approved ember ring (`checkImpact` at rest, with no plume) and its still cause lines (see the decision below). Reduced motion and a resync show the ring at once, with no onset.
 - A legal move that ends check on a live board withdraws the wash in 220 ms on the king's old square; the seal and the cause lines go at once. The withdrawal starts when that move starts to play (`StateEffects.endCheck` and `release`), also for the first move after a load. A move with no playback (a drop) starts it at its forward sync. A resync, a rewind, a review or reduced motion removes the check at once. A web page that only hides the mark and plays no move (the promotion picker, the game-end ceremony) shows no withdrawal.
 - The fast pace (plugin) halves both times.
 
 ### Decision: the held check
 
-The preview holds its still result: the wash, the seal and the still cause lines. This branch holds the same, in place of PR #92's ember ring and danger plume (`checkImpact`). Reasons:
+Decided by the coordinator: the held check keeps PR #92's approved ring. The new check animation plays its onset (440 ms) and its withdrawal (220 ms); between them, and with no motion, the board shows the ring and the still cause lines that PR #92 draws.
 
-- The concept withdraws the held wash on a legal evasion. With the ring as the held mark, there is no wash to withdraw.
-- `checkImpact` is PR #92's earlier check effect, with its own onset. Staging before PR #92 drew a different check mark. The check effect is the thing that this ticket replaces.
-- The cause lines (`link`, the static cause indication) do not change. Other static indications do not change.
+Reason: the owner's approved static indications stay unchanged (effects-animation ticket 23: "No ... static indications ... changes"). The held ring is a static indication; the preview's held wash and seal are not approved as one.
 
-The independent review reads the coordinator's constraint ("static indications stay unchanged") to include the held ring, and asks for an explicit scope decision. The owner or the coordinator can keep the ring: the change is in `drawBoardEffects` (`src/render/effects/board-effects.ts`) only.
+The change is in `drawBoardEffects` (`src/render/effects/board-effects.ts`) only: `drawCheck` draws while the check's age is under `CHECK_ONSET_MS`; after that, `checkImpact` at progress 1 and the cause lines draw. `drawCheck` keeps the preview's held frame for its own unit test. The withdrawal still starts from the full wash, as in the concept.
 
 ### Frame comparison
 
-`tools/verify-motion-concepts.mjs` drives the production `PaintedView` on a paused page clock and saves frames at fixed times (±16 ms) at 390 x 844 and 1100 x 900, in both orientations, with and without reduced motion. The same times in the previews (`seek`), side by side, are in [86-motion-concepts-frames.webp](86-motion-concepts-frames.webp) (game left, preview right): the promotion at 370 ms of the reveal, the check at 60 ms (the rook's gold edge) and at rest (wash, seal, still cause line), and Freeze at 300 ms (the ice grows on d5). The reveal, the wash, the seal, the edge and the ice agree in place, size, colour and timing. The differences come from the game itself, not from the effects: the game's own king glow for the side to move, the game's Freeze fixture (a sparse board; the preview used a dense one), and the board frame of each page. In both orientations and at 390 x 844 the effects stay on their squares; the seal sits beside the king in the same screen direction as in the preview.
+`tools/verify-motion-concepts.mjs` drives the production `PaintedView` on a paused page clock and saves frames at fixed times (±16 ms) at 390 x 844 and 1100 x 900, in both orientations, with and without reduced motion. The same times in the previews (`seek`), side by side, are in [86-motion-concepts-frames.webp](86-motion-concepts-frames.webp) (game left, preview right): the promotion at 370 ms of the reveal, the check at 60 ms (the rook's gold edge) and at rest (wash, seal, still cause line; after the decision above the game holds the ring here instead), and Freeze at 300 ms (the ice grows on d5). The reveal, the wash, the seal, the edge and the ice agree in place, size, colour and timing. The differences come from the game itself, not from the effects: the game's own king glow for the side to move, the game's Freeze fixture (a sparse board; the preview used a dense one), and the board frame of each page. In both orientations and at 390 x 844 the effects stay on their squares; the seal sits beside the king in the same screen direction as in the preview.
 
 ### Review fixes
 
@@ -78,7 +76,7 @@ The independent review (a Sol run) of `fda28f3e` found five points; `df3ce9f3` f
 
 A second review run found one more fault: a card that ends check (for example Curse) lost the withdrawal, because the card setup settled it and card playback draws its own frames. The card now keeps it, and the board draws it during the card. A unit test fails without the fix.
 
-The fifth point is the held check (see the decision above). It stays open for the owner.
+The fifth point is the held check. The coordinator decided it (see the decision above): the ring holds.
 
 ### Runs
 

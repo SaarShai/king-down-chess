@@ -6,14 +6,14 @@ import { StateEffects } from './states';
 import { drawFreeze } from './materials';
 import { drawArcherFocus } from './archer-flare';
 import { drawSwap } from './state-flare';
-import { link, pips } from './indications';
+import { checkImpact, link, pips } from './indications';
 import { drawCheck, drawWithdrawal } from './check';
 import { fixtures } from '../../../docs/specs/effects-animation/preview/signals/fixtures';
 vi.mock('./materials', () => ({ drawFreeze: vi.fn(), drawIceWall: vi.fn(), drawFirewall: vi.fn() }));
 vi.mock('./archer-flare', () => ({ drawArcherFocus: vi.fn() }));
 vi.mock('./state-flare', () => ({ drawGuard: vi.fn(), drawShelter: vi.fn(), drawSwap: vi.fn() }));
 vi.mock('./indications', () => ({ SIGNAL_DURATION_MS: 4800, ring: vi.fn(), link: vi.fn(), pips: vi.fn(), checkImpact: vi.fn() }));
-vi.mock('./check', () => ({ CHECK_WITHDRAW_MS: 220, drawCheck: vi.fn(), drawWithdrawal: vi.fn() }));
+vi.mock('./check', () => ({ CHECK_ONSET_MS: 440, CHECK_WITHDRAW_MS: 220, drawCheck: vi.fn(), drawWithdrawal: vi.fn() }));
 afterEach(() => vi.clearAllMocks());
 const ctx = { save() {}, restore() {}, translate() {}, scale() {} } as unknown as CanvasRenderingContext2D;
 const sceneAt = (flipped: boolean) => ({ cell: (sq: number) => ({ col: flipped ? 7 - sq % 8 : sq % 8, row: flipped ? sq >> 3 : 7 - (sq >> 3) }), foot: (sq: number) => ({ x: sq * 10, y: sq * 20 }) }) as unknown as PaintedScene;
@@ -57,13 +57,12 @@ it('keeps Shove, Hint and Check traces above the last row without changing desti
   for (let row = 0; row < 7; row++) drawBoardEffects(ctx, scene, 'over', row, effects, marks, 390, 5000, false, false, null, 0);
   expect(link).not.toHaveBeenCalled();
   drawBoardEffects(ctx, scene, 'over', 7, effects, marks, 390, 5000, false, false, null, 0);
-  expect(vi.mocked(link).mock.calls.map(call => call.slice(2, 4))).toEqual([[34, 42], [27, 35], [27, 43]]);
-  // The check's still cause lines and seal draw in check.ts, in every row pass; it chooses the row.
-  expect(drawCheck).toHaveBeenCalledTimes(8);
-  expect(drawCheck).toHaveBeenLastCalledWith(ctx, scene, 'over', 7, { king: 4, checkers: marks.checkers, board: undefined, ms: Infinity, pixel: 960 / 390 });
+  // A held check keeps PR #92's still cause line after the last row; the concept draws only during its onset.
+  expect(vi.mocked(link).mock.calls.map(call => call.slice(2, 4))).toEqual([[60, 4], [34, 42], [27, 35], [27, 43]]);
+  expect(drawCheck).not.toHaveBeenCalled();
 });
 
-it('times the check onset from its live signal and holds it without motion', () => {
+it('plays the check onset from its live signal, then holds the approved ring', () => {
   const effects = new StateEffects(), scene = sceneAt(false), board = new Uint8Array(64);
   const marks = { check: 4, checkers: [{ sq: 60, king: 4, path: 'straight' as const }] };
   effects.signal('check', '4:60', 1000, true);
@@ -72,8 +71,14 @@ it('times the check onset from its live signal and holds it without motion', () 
   effects.rate = 2;
   drawBoardEffects(ctx, scene, 'under', undefined, effects, marks, 960, 1200, true, false, null, 0, undefined, board);
   expect(drawCheck).toHaveBeenLastCalledWith(ctx, scene, 'under', undefined, expect.objectContaining({ ms: 400 }));
-  drawBoardEffects(ctx, scene, 'under', undefined, effects, marks, 960, 1200, false, false, null, 0, undefined, board);
-  expect(drawCheck).toHaveBeenLastCalledWith(ctx, scene, 'under', undefined, expect.objectContaining({ ms: Infinity }));
+  expect(checkImpact).not.toHaveBeenCalled();
+  // At the onset's end (440 ms at this pace) and without motion, the held check is the ring at rest.
+  for (const motion of [true, false]) {
+    vi.clearAllMocks();
+    drawBoardEffects(ctx, scene, 'under', undefined, effects, marks, 960, 1220, motion, false, null, 0, undefined, board);
+    expect(drawCheck).not.toHaveBeenCalled();
+    expect(checkImpact).toHaveBeenCalledExactlyOnceWith(ctx, scene, 4, 1, !motion);
+  }
 });
 
 it('withdraws an ended check under the figures for 220 ms, and not at all without motion', () => {
