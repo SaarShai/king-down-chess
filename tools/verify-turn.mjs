@@ -27,6 +27,7 @@ const open = async (fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1
   await page.evaluate(() => window.view.ready());
 };
 const move = async (from, to) => { await tap(from); await tap(to); await page.waitForFunction(() => !window.view.scene.animating); };
+const reload = async () => { await page.reload(); await page.waitForFunction(() => window.view?.pos); await page.evaluate(() => window.view.ready()); };
 const undo = async () => page.click('#undo');
 const undoOff = () => page.getAttribute('#undo', 'aria-disabled');
 try {
@@ -96,6 +97,30 @@ try {
     await undo(); assert.deepEqual(await lanMoves(page), ['e2-e4']);
     assert.equal(await undoOff(), 'true');
     console.log('ok one device; next side waits and Undo takes one ply');
+
+    // A reload keeps the staged turn; only End turn hands it over (playtest F-010).
+    await open(); await move('d2', 'd3');
+    assert.match(await page.textContent('#context-text'), /Select End turn/);
+    await reload();
+    assert.deepEqual(await lanMoves(page), ['d2-d3'], 'the reload keeps the staged move');
+    assert.equal(await page.textContent('#turn'), 'White to move', 'the reload does not hand the turn over');
+    assert.match(await page.textContent('#context-text'), /Select End turn/);
+    assert.equal(await page.getAttribute('#end-turn', 'aria-disabled'), 'false');
+    assert.equal(await undoOff(), 'false');
+    await undo(); assert.deepEqual(await lanMoves(page), []);
+    await move('d2', 'd3'); await reload(); await endTurn(page);
+    assert.equal(await page.textContent('#turn'), 'Black to move');
+    await reload();
+    assert.equal(await undoOff(), 'true', 'a handed-over turn stays handed over after a reload');
+    await open(undefined, '', [], true); await move('e2', 'e4'); await reload(); await page.waitForTimeout(300);
+    assert.deepEqual(await lanMoves(page), ['e2-e4'], 'the computer waits after the reload');
+    assert.equal(await undoOff(), 'false');
+    await open('7k/p7/8/8/8/8/8/R5K1 w - - 0 1', '?kings=flame:haste,none');
+    await usePower(page); await move('a1', 'a4'); await reload();
+    assert.deepEqual(await lanMoves(page), ['Ra1-a4!H'], 'the reload plays no pass for a staged Haste move');
+    await endTurn(page);
+    assert.deepEqual(await lanMoves(page), ['Ra1-a4!H', '--']);
+    console.log('ok reload keeps a staged turn, a computer wait and a Haste first move; End turn commits');
 
     await open(); await move('e2', 'e4'); await endTurn(page);
     assert.equal(await page.evaluate(() => document.activeElement.id), 'board', 'a pointer press keeps board focus');

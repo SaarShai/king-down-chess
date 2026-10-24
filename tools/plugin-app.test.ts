@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
+import { pauseClock } from './lib/page-clock.mjs';
 import { startHarness, waitForSourceApp } from './plugin-ui-harness';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 let folder: string;
@@ -145,12 +146,15 @@ it('keeps a board open without a game on home and stores its ID only in private 
     expect(await frame.locator('body').getAttribute('data-page')).toBe('home');
     expect(await page.evaluate(()=>(window as any).harnessWidgetState.privateContent.board_id)).toBe(result._meta.board_id);
     await remount(page);
-    await frame.locator('#home-play:not(:disabled)').waitFor();
+    await frame.locator('body[data-page="home"] #home-play:not(:disabled)').waitFor();
     expect(await frame.locator('body').getAttribute('data-page')).toBe('home');
   } finally {await page.close();}
 });
 
 // Each screen but home shows only in fullscreen (spec Q25). A test that opens a screen directly puts the host there first.
+/** One read: the element with this id has focus. A coin row render (`strips()` in the board screen) can replace the coin
+ * between a locator's element lookup and its evaluate, and a handle check then compares the old coin (CI run 39953001791). */
+const hasFocus = (page: Page, id: string) => page.frameLocator('iframe').locator('html').evaluate((_, id) => document.activeElement === document.getElementById(id), id);
 const expand = (page: Page) => page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'] }));
 // Tests of the hall itself open it directly.
 async function hall(page: Page) { await expand(page); await page.frameLocator('iframe').locator('html').evaluate(() => (window as any).harnessApp.navigate('play')); }
@@ -409,9 +413,9 @@ it('finds a game created elsewhere when Back returns a clean board to Play', asy
     await frame.locator('#end-turn[aria-disabled="false"]').waitFor();
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft?.lans)).toEqual(['e2-e4']);
     const draft = await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft);
-    // Stop the page clock, so no poll runs: Back is then the only source of calls. Pause ahead of now: the page clock
-    // can pass a nearer time before the command reaches it. The jump can start one poll read; the wait below ends it.
-    await page.clock.pauseAt(Date.now() + 2000);
+    // Stop the page clock, so no poll runs: Back is then the only source of calls. A poll read that started before the
+    // pause can still be in flight; the wait below ends it.
+    await pauseClock(page);
     await expect.poll(async () => await frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight) === await page.evaluate(() => (window as any).harnessHeld ?? 0)).toBe(true);
     const calls = await page.evaluate(() => (window as any).harnessCalls.length);
     const external = await (await page.request.post(new URL('/fixture-position?case=haste', harness.url).href)).json();
@@ -909,6 +913,8 @@ it('draws Maester swap marks through the shared board adapter', async () => {
     const seeded = await (await page.request.post(new URL('/fixture-position?case=swap', harness.url).href)).json();
     await page.evaluate(result => (window as any).harnessShow(result), seeded);
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+    // A tap before the legal-move preview arrives only reads the piece (blocked() in board.ts), so wait for the reply.
+    await settled(page);
     const point = await frame.locator('html').evaluate(async () => {
       const { board } = await new Function('return import("/src/plugin/board-view.ts")')();
       await board.ready(); return board.screenOf(27);
@@ -1002,8 +1008,9 @@ it('closes board sheets with Escape, returns focus and returns from Settings to 
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', {kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
     for (const id of ['board-menu','moves-line']) {
       await frame.locator(`#${id}:not(:disabled)`).click(); await frame.locator('#board-sheet[open]').waitFor();
-      await page.keyboard.press('Escape'); expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
+      await page.keyboard.press('Escape'); expect(await frame.locator('#board-sheet').evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
       expect(await frame.locator(`#${id}`).evaluate(e => document.activeElement === e)).toBe(true);
+      await frame.locator('#board-sheet').waitFor({ state: 'hidden' });
     }
     await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Settings',exact:true}).click();
     expect(await frame.locator('#page-back').textContent()).toBe('‹ Game');
@@ -2121,7 +2128,7 @@ it.each(['power-w', 'card-w-0'])('keeps focus on %s through a minute tick and up
     await page.clock.fastForward(60000);
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     expect(await frame.locator('#move-time-left').textContent()).toBe('2 min left');
-    expect(await frame.locator(`#${id}`).evaluate(b => document.activeElement === b)).toBe(true);
+    expect(await hasFocus(page, id)).toBe(true);
     await page.evaluate(() => (window as any).releaseHeld());
     await page.keyboard.press('Enter');
     await frame.locator('#board-sheet[open] h2').filter({hasText:id === 'power-w' ? 'Flame King' : 'Haste'}).waitFor();
@@ -2156,7 +2163,7 @@ it('keeps focus on a power coin through a presence update (an equal-revision pol
       host.harnessNextView = { ...host.harnessView, server_now: new Date().toISOString(), opponent: { ...host.harnessView.opponent, last_seen_ms: 120000 } };
     });
     await frame.locator('#power-w').focus();
-    expect(await frame.locator('#power-w').evaluate(b => document.activeElement === b)).toBe(true);
+    expect(await hasFocus(page, 'power-w')).toBe(true);
     await frame.locator('html').evaluate(async () => {
       const app = (window as any).harnessApp;
       await app.call('kingdown_get', { since_revision: app.memory.view.revision }, false, true, true);
@@ -2164,7 +2171,7 @@ it('keeps focus on a power coin through a presence update (an equal-revision pol
     await settled(page);
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view)).toMatchObject({ ...identity, opponent: { last_seen_ms: 120000 } });
     // The poll preserves keyboard focus on the coin (design §3.4, OD A1389).
-    expect(await frame.locator('#power-w').evaluate(b => document.activeElement === b)).toBe(true);
+    expect(await hasFocus(page, 'power-w')).toBe(true);
   } finally { await page.close(); }
 });
 

@@ -4,6 +4,7 @@ import { expect, it } from 'vitest';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { STEP } from './lib/checks.mjs';
+import { pauseClock } from './lib/page-clock.mjs';
 import { startHarness, waitForSourceApp } from './plugin-ui-harness';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
 import { P, R, N, L, inCheck, legalMoves, makeMove, setRules, type Move, type Rules } from '../src/rules/engine';
@@ -81,7 +82,8 @@ it('W7-04: a refused press after a real draw offer keeps T6 and the note, then s
     expect(saved.fen).toBe(toFen(applyLan(fromFen(base.fen),'e2-e4',base.rules!)!.pos));
     expect(saved.draw_offer).toBeNull();
     expect(saved.history!.actions).toEqual(['e2-e4']);
-    expect(await savedDraft(page)).toBeNull();
+    // The host saves iframe state through postMessage. Wait for its draft clear.
+    await expect.poll(() => savedDraft(page)).toBeNull();
     expect((await moveCalls(page)).map((c: any) => c.arguments.actions)).toEqual([['e2-e4'], ['e2-e4']]);
   } finally { await page.close(); }
 });
@@ -90,9 +92,9 @@ it('W7-04: a press refused with INVALID_MOVE drops the draft and reads once (D11
   const {page,frame,base} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1', true);
   try {
     await chooseTurnMove(page,'e2-e4',12);
-    // The solo board reads every 5 s (src/plugin/poll.ts). Pause the page clock ahead of now (the page can pass a nearer
-    // time before the command reaches it), so no poll read falls between the count and the rollback read.
-    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 2000));
+    // The solo board reads every 5 s (src/plugin/poll.ts). Stop the page clock, so no poll read falls between the count
+    // and the rollback read.
+    await pauseClock(page);
     await settleBoardReads(page);
     const reads = await getCalls(page);
     await page.evaluate(() => { (window as any).rejectNextMove = 'INVALID_MOVE'; });
@@ -497,6 +499,7 @@ it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 by 48 px t
   const base = view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), page = await open(base, 390, 844), frame = page.frameLocator('iframe');
   const proof = join(tmpdir(), 'kingdown-gui-board-proof'); await import('node:fs/promises').then(fs => fs.mkdir(proof, { recursive: true }));
   async function centered(selector: string) {
+    await frame.locator(selector).evaluate(async button => { await Promise.all(button.closest('dialog')!.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {}))); });
     const box = await frame.locator(selector).evaluate(button => {
       const range = document.createRange(); range.selectNodeContents(button);
       const glyph = range.getBoundingClientRect(), box = button.getBoundingClientRect();
@@ -700,6 +703,11 @@ it.each([390, 1280])('live Moves: keeps reading position and focus across a remo
   try {
     const sheet = frame.locator('#board-sheet');
     const show = async () => { await frame.locator('#board-menu').click(); await frame.getByRole('button', { name: 'Moves', exact: true }).click(); };
+    const closed = async () => {
+      expect(await sheet.evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
+      expect(await frame.locator('.page-sheet').evaluate(e => (e as HTMLElement).inert)).toBe(false);
+      await sheet.waitFor({ state: 'hidden' });
+    };
     const route = (next: View) => frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), next);
     await show();
     const close = await sheet.getByRole('button', { name: 'Close', exact: true }).elementHandle();
@@ -718,18 +726,18 @@ it.each([390, 1280])('live Moves: keeps reading position and focus across a remo
     expect(await sheet.locator('.sheet-body p').allTextContents()).toEqual(await frame.locator('#recent-moves p').allTextContents());
     expect(await close!.evaluate(el => el.isConnected && el === document.activeElement)).toBe(true);
     expect(await sheet.locator('.sheet-body').evaluate(el => el.scrollTop)).toBe(scroll);
-    await close!.click(); await close!.dispose();
+    await close!.click(); await close!.dispose(); await closed();
     await frame.locator('#board[aria-busy="false"]').waitFor();
     await frame.locator('#board-menu').click();
     await route({ ...next, revision: next.revision + 1 });
-    expect(await sheet.isVisible()).toBe(false);
+    await closed();
     await show();
     const other = { ...next, game_id: crypto.randomUUID() };
     await route(other);
-    expect(await sheet.isVisible()).toBe(false);
+    await closed();
     await show();
     await route({ ...other, revision: other.revision + 1, status: 'finished', result: { winner: 1, reason: 'resignation' } });
-    expect(await sheet.isVisible()).toBe(false);
+    await closed();
   } finally { await page.close(); }
 });
 

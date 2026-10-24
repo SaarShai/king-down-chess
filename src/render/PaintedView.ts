@@ -1,9 +1,13 @@
-import { frozenPieces, frost, FROST_DEFS } from './frost';
+import { StateEffects } from './effects/states';
+import { drawBoardEffects } from './effects/board-effects';
 import { GameRules } from '../game-rules';
+import { cardPlayback, type CardPlayback } from './effects/card';
+import { PromotionPlayback, loadAscension } from './effects/promotion';
+import { drawWithdrawal } from './effects/check';
 import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, S, T, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { figureUrl, selectedFigure } from '../workshop/figures';
-import { drawMarks, POP_MS, RIPPLE_MS, type Highlights } from './marks';
+import { drawMarks, type Highlights } from './marks';
 import { boardInk, coordInk } from './board-ink';
 import { pastTap } from './tap';
 
@@ -61,12 +65,18 @@ export class PaintedView implements BoardView {
   private scene: PaintedScene;
   private loaded: Promise<void>;
   private disposed = false;
+  private card: CardPlayback | null = null;
+  /** The running promotion reveal (ticket 86): reduced motion or a hidden page ends it like a card. */
+  private reveal: PromotionPlayback | null = null;
+  private cardStates = new StateEffects();
+  private skippedMark?: { after: Position; owner: Color };
+  private moveSquares?: ReadonlySet<number>;
   private events = new AbortController();
   private resize: ResizeObserver;
   private pos: Position | null = null;
   private symbols?: (piece: number) => HTMLImageElement;
   private marks: Highlights = {};
-  private frostImages = new Map<string, HTMLImageElement>();
+  private stateEffects = new StateEffects();
   private hovered: number | null = null;
   private tap: PointerEvent | null = null;
   private tapSq: number | null = null; // the square under the press: a tap acts on it
@@ -81,9 +91,6 @@ export class PaintedView implements BoardView {
   private motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
   /** Keyboard cursor square, previewed like the hovered square. */
   private cursor: number | null = null;
-  /** When the current set of move markers appeared, and which set it was (they pop in once per set). */
-  private marksSince = 0;
-  private marksKey = '';
 
   /**
    * options.floor: the colour round the board (default: the scene's own floor, as the plugin page draws it);
@@ -149,11 +156,20 @@ export class PaintedView implements BoardView {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.card = null;
     this.events.abort(); this.resize.disconnect(); this.clearPointer(); this.scene.dispose();
-    this.pos = null; this.marks = {}; this.symbols = undefined; this.frostImages.clear();
+    this.pos = null; this.marks = {}; this.symbols = undefined; this.stateEffects.dispose(); this.cardStates.dispose(); this.moveSquares = undefined; this.skippedMark = undefined;
   }
 
   sync(pos: Position): void {
+    if (this.disposed) return;
+    this.card = null;
+    this.moveSquares = undefined;
+    this.stateEffects.sync(this.context, pos, performance.now(), this.motion() && !document.hidden);
+    const skipped = this.skippedMark; this.skippedMark = undefined;
+    if (skipped && skipped.after.ply === pos.ply && skipped.after.turn === pos.turn
+      && skipped.after.board.every((value, sq) => value === pos.board[sq])
+      && JSON.stringify(skipped.after.marks) === JSON.stringify(pos.marks)) this.stateEffects.settleMark(skipped.owner);
     this.pos = pos;
     this.scene.setKings([kingDesign(this.context, 0), kingDesign(this.context, 1)]);
     // The design that plays as `T` (ticket 17) stands as its Workshop figure.
@@ -162,6 +178,7 @@ export class PaintedView implements BoardView {
     this.scene.setPosition(this.symbols ? { ...pos, board: new Uint8Array(64) } : pos);
     const sq = this.fallen?.pos === pos ? this.fallen.sq : null;
     this.scene.setFallen(sq, false, this.fallRotation(sq));
+    this.wakeStateEffects();
   }
 
   setSymbols(symbols?: (piece: number) => HTMLImageElement): void {
@@ -181,13 +198,50 @@ export class PaintedView implements BoardView {
   }
 
   async animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void> {
+    if (this.disposed) return;
+    if (this.card) this.skip();
     if (this.pos !== pos) this.sync(pos);
+    this.skippedMark = undefined;
+    this.stateEffects.release(performance.now(), this.motion() && !document.hidden);
+    const card = cardPlayback(this.context, pos, m);
+    if (card) {
+      // A card that ends check keeps the withdrawal that release() started; skip() would settle it.
+      const withdrawn = this.stateEffects.withdrawn;
+      this.skip();
+      this.stateEffects.withdrawn = withdrawn;
+      if (!this.motion() || document.hidden) return;
+      this.card = card;
+      try {
+        const completed = await this.scene.play(m, { effect: card, onContact, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed });
+        if (completed && this.card === card) {
+          this.stateEffects.sync(this.context, card.after, performance.now(), this.motion() && !document.hidden);
+          // The card already reveals its new material; its persistent hold must not start again.
+          if (m.power === 'freeze' || m.power === 'ward' || m.power === 'firewall') this.stateEffects.settleMark(pos.turn);
+        }
+      } finally {
+        if (this.card === card) this.card = null;
+      }
+      return;
+    }
     if (this.pace === 'off') return;
     // Marks, passes, replacements and area pushes have no single-piece motion.
     // The caller syncs the resulting board after this resolves.
-    if (m.pass || m.power === 'freeze' || m.power === 'ward' || m.power === 'sacrifice' || m.pushes) return;
+    if (m.pass || m.drop !== undefined || m.power === 'freeze' || m.power === 'ward' || m.power === 'sacrifice' || m.pushes) return;
     // The scene scales duration; the caller gives playback speed.
-    await this.scene.play(m, { onContact, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed });
+    const moving = new Set([m.from, m.to, ...m.captures, ...(m.shove ? [m.shove.from, m.shove.to] : []), ...(m.castle ? [m.castle.from, m.castle.to] : [])]);
+    this.moveSquares = moving;
+    const rate = speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed;
+    if (m.promo) void loadAscension();
+    try {
+      const arrived = await this.scene.play(m, { onContact, speed: rate });
+      // A promotion reveals the chosen piece after the pawn arrives (ticket 86). Motion off shows it at once.
+      if (arrived && m.promo && this.moveSquares === moving && this.motion() && !document.hidden && !this.symbols) {
+        const reveal = this.reveal = new PromotionPlayback(pos, m, this.context.makeMove(pos, m));
+        try { await this.scene.play(reveal.scene, { effect: reveal, speed: rate }); }
+        finally { if (this.reveal === reveal) this.reveal = null; }
+      }
+    }
+    finally { if (this.moveSquares === moving) this.moveSquares = undefined; }
   }
 
   async animateBack(pre: Position, m: Move, post: Position): Promise<void> {
@@ -195,7 +249,9 @@ export class PaintedView implements BoardView {
     // A shot has no travel. A removed or changed figure has no reverse scene move.
     if (this.motion() && !m.pass && !m.promo && !m.selfRemove && m.from !== m.to
       && post.board[m.to] === pre.board[m.from]) {
-      await this.scene.play({ from: m.to, to: m.from, captures: [], swap: m.swap }, { speed: this.pace === 'fast' ? 0.5 : 1 });
+      const moving = new Set([m.from, m.to]); this.moveSquares = moving;
+      try { await this.scene.play({ from: m.to, to: m.from, captures: [], swap: m.swap }, { speed: this.pace === 'fast' ? 0.5 : 1 }); }
+      finally { if (this.moveSquares === moving) this.moveSquares = undefined; }
     }
     // A new position cancels the old rewind; never draw it over that position.
     if (this.pos === post) this.sync(pre);
@@ -203,8 +259,15 @@ export class PaintedView implements BoardView {
 
   setLifted(sq: number | null): void { this.scene.setLifted(this.pace !== 'off' ? sq : null, !this.motionQuery.matches); }
 
-  setPace(pace: Pace): void { this.pace = pace; if (pace === 'off') this.skip(); this.applyLively(); }
+  setPace(pace: Pace): void { this.pace = pace; this.stateEffects.rate = pace === 'fast' ? 2 : 1; if (pace === 'off') this.skip(); this.applyLively(); }
+  /** After skipping playback, discard history before another game's first position. */
+  resetEffects(): void { this.stateEffects.dispose(); this.cardStates.dispose(); this.skippedMark = undefined; }
   skip(): void {
+    if (this.card && ['freeze', 'ward', 'firewall'].includes(this.card.move.power ?? '')) this.skippedMark = { after: this.card.after, owner: this.card.before.turn };
+    this.card = null;
+    this.reveal = null;
+    this.moveSquares = undefined;
+    this.stopStateEffects();
     if (this.scene.animating) this.scene.cancel();
     if (this.scene.falling) this.scene.setFallen(this.fallen?.sq ?? null, false, this.fallRotation(this.fallen?.sq ?? null));
   }
@@ -214,29 +277,38 @@ export class PaintedView implements BoardView {
    * Reduced motion keeps the slide and victim fade.
    */
   private applyLively(): void {
+    // Reduced motion or a hidden page ends a card or a promotion reveal at once; the caller then shows the result.
+    if ((this.card || this.reveal) && (!this.motion() || document.hidden)) this.skip();
     const motion = this.pace !== 'off' && !this.motionQuery.matches, shown = motion && !document.hidden;
     if (this.pace === 'off') this.scene.setLifted(null);
-    this.scene.setReducedMotion(!motion);
+    if (!shown) this.stateEffects.settle();
+    this.scene.setReducedMotion(!shown);
     this.scene.setLively({ moves: motion, atmosphere: true, captures: motion, idle: motion, kings: shown, pawns: shown });
   }
 
   highlight(h: Highlights): void {
+    if (this.disposed) return;
+    const ended = this.marks.check != null && h.check == null ? this.marks.check : null;
     this.marks = h;
     this.container.classList.toggle('king-in-check', h.check != null);
     this.scene.setSelected(h.selected ?? null);
-    // The markers ripple out from a new selection.
-    const key = [h.selected, h.moves, h.captures, h.swaps, h.shoves, h.powers, h.shoveTo?.map(s => `${s.from}:${s.to}`), h.bites].map(l => String(l ?? '')).join('|');
-    if (key !== this.marksKey) {
-      this.marksKey = key; this.marksSince = performance.now();
-      if (this.motion()) this.scene.keepAwake(POP_MS + 12 * RIPPLE_MS + 50);
-    }
+    const now = performance.now(), motion = this.motion() && !document.hidden;
+    if (ended != null) this.stateEffects.endCheck(ended, now, motion);
+    this.stateEffects.signal('archer', h.shots?.length ? `${h.selected}:${h.shots}` : '', now, motion);
+    this.stateEffects.signal('swap', h.swaps?.length ? `${h.selected}:${h.swaps}` : '', now, motion);
+    this.stateEffects.signal('shove', h.shoveTo?.length ? JSON.stringify(h.shoveTo) : '', now, motion);
+    this.stateEffects.signal('hint', h.hint?.length ? String(h.hint) : '', now, motion);
+    this.stateEffects.signal('check', h.check != null ? `${h.check}:${JSON.stringify(h.checkers)}` : '', now, motion, this.stateEffects.forward);
+    this.updateGhostEffect();
+    this.wakeStateEffects();
     this.aim();
     this.scene.redraw();
   }
 
   setPreview(sq: number | null): void {
-    if (sq === this.cursor) return;
+    if (this.disposed || sq === this.cursor) return;
     this.cursor = sq;
+    this.updateGhostEffect();
     this.scene.redraw();
   }
 
@@ -265,22 +337,19 @@ export class PaintedView implements BoardView {
     this.scene.setAim(h != null && [...(m.captures ?? []), ...(m.moves ?? [])].includes(h) ? h : null);
   }
 
-  private drawFrost(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row?: number): void {
-    if (layer === 'over' && row != null && row !== 7) return;
-    for (const { sq, turns } of frozenPieces(this.context, this.pos)) {
-      const key = `${turns}-${layer}`;
-      let image = this.frostImages.get(key);
-      if (!image) {
-        image = new Image();
-        image.onload = () => scene.redraw();
-        const drawing = frost(0, 0, 112, turns)[layer === 'under' ? 0 : 1];
-        image.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="448" height="538" viewBox="0 0 112 134.4"><defs>${FROST_DEFS}</defs>${drawing}</svg>`)}`;
-        this.frostImages.set(key, image);
-      }
-      if (!image.complete || !image.naturalWidth) continue;
-      const c = scene.cell(sq);
-      ctx.drawImage(image, scene.PAD + c.col * scene.TILE, scene.PAD + c.row * scene.TILE, scene.TILE, scene.TILE * 1.2);
-    }
+  private stopStateEffects(): void { this.stateEffects.settle(); }
+
+  private wakeStateEffects(): void {
+    if (this.disposed || !this.motion() || document.hidden) return;
+    const remaining = this.stateEffects.remaining(performance.now());
+    if (remaining > 0) this.scene.keepAwake(remaining + 40);
+  }
+
+  private updateGhostEffect(): void {
+    const sq = this.hovered ?? this.cursor;
+    const key = sq != null && this.marks.moves?.includes(sq) ? `${this.marks.selected}:${sq}` : '';
+    this.stateEffects.signal('ghost', key, performance.now(), this.motion() && !document.hidden);
+    this.wakeStateEffects();
   }
 
   private drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row?: number): void {
@@ -301,23 +370,17 @@ export class PaintedView implements BoardView {
         ctx.drawImage(this.symbols!(piece), PAD + cell.col * TILE + 14, PAD + cell.row * TILE + 14, TILE - 28, TILE - 28);
         ctx.restore();
       },
-      motion: this.motion(), since: this.marksSince, ink: this.options.webInk ? boardInk(this.width) : undefined,
+      ink: this.options.webInk ? boardInk(this.width) : undefined,
     }, row);
-    if (layer === 'under') {
-      ctx.save();
-      if (m.check != null && (m.checkers === undefined || !scene.animating)) {
-        const f = scene.foot(m.check);
-        ctx.fillStyle = m.checkers === undefined ? '#c0392b55' : '#c4501f33';
-        ctx.strokeStyle = m.checkers === undefined ? '#b3261e' : '#c4501f'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.ellipse(f.x, f.y - 2, 44, 15, 0, 0, Math.PI * 2); ctx.fill();
-        if (this.options.webInk && m.checkers !== undefined) {
-          ctx.strokeStyle = '#fbf6e8'; ctx.lineWidth = boardInk(this.width).causeHalo; ctx.stroke();
-          ctx.strokeStyle = '#c4501f'; ctx.lineWidth = boardInk(this.width).checkRing; ctx.stroke();
-        } else ctx.stroke();
-      }
-      ctx.restore();
-    }
-    this.drawFrost(ctx, scene, layer, row);
+    const now = performance.now();
+    if (this.card && layer === 'under') this.cardStates.sync(this.context, this.card.shown, now, false);
+    // A card that ends check: its withdrawal belongs to the live board's state, not to the card's shown frames.
+    const cardWithdrawal = this.card && layer === 'under' ? this.stateEffects.withdrawal(now, this.motion() && !document.hidden) : undefined;
+    if (cardWithdrawal) drawWithdrawal(ctx, scene, cardWithdrawal.king, cardWithdrawal.progress);
+    // Keep unaffected states visible during playback. The scene owns moving figures and their material.
+    drawBoardEffects(ctx, scene, layer, row, this.card ? this.cardStates : this.stateEffects, scene.animating ? {} : m,
+      this.width, now, this.motion() && !document.hidden, !!this.symbols, scene.animating ? null : this.hovered ?? this.cursor, piece,
+      this.card ? undefined : this.moveSquares, this.pos?.board);
     if (scene.animating) return;
     if (layer === 'under' && this.symbols && this.pos) {
       this.pos.board.forEach((piece, sq) => {
@@ -325,24 +388,6 @@ export class PaintedView implements BoardView {
         const cell = scene.cell(sq);
         ctx.drawImage(this.symbols!(piece), PAD + cell.col * TILE + 14, PAD + cell.row * TILE + 14, TILE - 28, TILE - 28);
       });
-    }
-    // Row 7 runs after all figures, so the cause stays visible across the board.
-    if (layer === 'over' && row === 7 && m.check != null) {
-      ctx.save(); ctx.lineCap = 'round';
-      for (const ch of m.checkers ?? []) {
-        const a = scene.foot(ch.sq), b = scene.foot(ch.king);
-        ctx.beginPath(); ctx.moveTo(a.x, a.y - 24);
-        if (ch.path === 'arc') {
-          // A shot along a file bows to the side, as in the demo.
-          const alongFile = Math.abs(a.x - b.x) < 1;
-          const cx = (a.x + b.x) / 2 + (alongFile ? Math.abs(a.y - b.y) * 0.45 : 0);
-          const cy = alongFile ? (a.y + b.y) / 2 - 24 : Math.min(a.y, b.y) - TILE * 0.65;
-          ctx.quadraticCurveTo(cx, cy, b.x, b.y - 24);
-        } else ctx.lineTo(b.x, b.y - 24);
-        ctx.strokeStyle = '#fbf6e8dd'; ctx.lineWidth = this.options.webInk ? boardInk(this.width).causeHalo : 5.5; ctx.stroke();
-        ctx.strokeStyle = '#c4501f'; ctx.lineWidth = this.options.webInk ? boardInk(this.width).causeCore : 2.2; ctx.stroke();
-      }
-      ctx.restore();
     }
   }
 
@@ -398,6 +443,7 @@ export class PaintedView implements BoardView {
   private hover(sq: number | null): void {
     if (sq === this.hovered) return;
     this.hovered = sq;
+    this.updateGhostEffect();
     this.aim();
     this.scene.redraw();
     this.onSquareHover(sq);

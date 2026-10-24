@@ -4,10 +4,11 @@ Status: foundation build done on `claude/multiplayer-foundation` (tickets 02–1
 
 ## Purpose
 
-Give King Down one player account and online play against other people, on the website (kingdown.dev) and in the ChatGPT plugin. Play can be live or asynchronous (Daily: days per move).
+Give King Down one player account and online play against other people, on the website (kingdown.dev) and in the ChatGPT plugin. A game against a person is asynchronous: each move has one fixed time, three days (`TURN_DAYS` in `src/match/service.ts`). There is no speed and no days choice. A game against the computer has no time limit.
 
 ## Owner direction
 
+- 2026-10-24 (playtest finding F-031): "remove the daily feature altogether. the player doesn't need a choice of days per move. there should be a default and that's it." Create takes no `speed` or `days_per_move` input. Stored games keep their columns; an older game with 1 or 7 days plays out with its own time ([staging ticket 83](../staging-first-game/issues/83-one-turn-time.md)).
 - 2026-10-10: research request; the report is in [docs/research/multiplayer-2026-10-10/](../../research/multiplayer-2026-10-10/README.md) ([ticket 01](issues/01-deep-research.md)).
 - 2026-10-10: "build the infrastructure and foundation for what you recommend in a branch." The owner also named the helper models; this file does not record model names.
 

@@ -7,16 +7,17 @@ import { PLAIN_KINGS } from '../../rules/engine';
 import { pendingHere, staleRead, type Page } from '../../account-game/state';
 import { boardGame, closeBoardSheet, sendBoardCommand, skipBoardCeremony } from './board';
 import { playerBlockButton } from './board-actions';
-import { rematchChoices } from './end-model';
+import { rematchChoices, rematchNote } from './end-model';
 import { draftFromGame } from './setup';
 import { rankedOffered } from './setup-model';
 import { onStop } from './friend';
 import { policyLabel } from '../../account-game/rating-policy';
 import './end.css';
+import { UiMotion, revealResult } from '../../ui/motion';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 const readFailed = () => staleRead(store.page());
 let scrim: HTMLElement;
-let observer: MutationObserver | undefined;
+let observer: MutationObserver | undefined, showFrame = 0;
 let updateTimer: ReturnType<typeof setTimeout> | undefined;
 const read = new Set<string>(), resumed = new Set<string>();
 /** A selected history row opens that result, not a rematch it already has. */
@@ -26,22 +27,25 @@ export function openFinishedGame(game_id: string) {
     routeView(view);
   } });
 }
-let updating = false, stopped = false;
+let updating = false, stopped = false, opening = false;
 let blockKey = '', blockButtons: HTMLButtonElement[] = [];
 let contentKey: string | undefined;
 let endGame: string | undefined, looking = false;
 let guardedGame: string | undefined, tapReadyAt = 0;
+let resultOnset: string | undefined, motion: UiMotion | undefined;
 // Ignore a late board tap. Skip and See the board stay active.
-export function guardEndTaps(game: string) { guardedGame = game; tapReadyAt = Infinity; }
+export function guardEndTaps(game: string, hold = true) { guardedGame = resultOnset = game; tapReadyAt = hold ? Infinity : 0; }
 let queuedRematch: { game: string; choice: 'offer' | 'accept' | 'decline' } | undefined;
 const button = (label: string, click: () => void) => { const b = document.createElement('button'); b.textContent = label; b.setAttribute('data-free',''); b.onclick = click; return b; };
 function closeEnd() {
+  motion?.cancel();
   contentKey = undefined;
   blockKey = ''; blockButtons = [];
   const error = document.querySelector('.page-error'); if (error) document.querySelector('.page-sheet')!.append(error);
   if ($('over').classList.contains('end-card')) { $<HTMLDialogElement>('over').close(); $('over').classList.remove('end-card'); }
   if (scrim) scrim.hidden = true;
   skipBoardCeremony(); looking = false; queuedRematch = undefined; $('end-result').hidden = true;
+  opening = false;
 }
 function pollView() {
   const view = memory.view;
@@ -58,7 +62,10 @@ export function endSync(page: Page) {
   // Hand the table to the end screen in the same pass as the screen switch. The board then never sits in a
   // hidden box, so #board keeps its box and the canvas does not redraw at a new size. The end card overlays it.
   if (page.screen === 'end') { $('end-table').append($('game-table')); clearTimeout(updateTimer); updateTimer = setTimeout(updateEnd, 0); }
-  else if (scrim) closeEnd();
+  else {
+    if (page.screen !== 'board' || boardGame()?.game_id !== resultOnset) resultOnset = undefined;
+    if (scrim) closeEnd();
+  }
 }
 /** The rematch watch: the one poll reads the finished game until a rematch or a reply comes (design §4). */
 export function endPoll(): PollTarget | undefined {
@@ -164,14 +171,26 @@ export function endScreen(schedule = true) {
   form.append(...blockButtons);
   $('end-block-status').textContent = memory.blockNotice;
   form.append(button('New game',()=>{if (performance.now() < tapReadyAt) return; const current=boardGame(); if (!current) return; draftFromGame(current); closeEnd(); showNewGame();}));
-  const see = button('See the board',()=>{skipBoardCeremony(); looking=true; document.querySelector('.page-sheet')!.append(error); over.close(); scrim.hidden=true; $('end-result').hidden=false; $('end-result').focus();}); form.append(see);
+  const see = button('See the board',()=>{motion?.cancel(); skipBoardCeremony(); looking=true; document.querySelector('.page-sheet')!.append(error); over.close(); scrim.hidden=true; $('end-result').hidden=false; $('end-result').focus();}); form.append(see);
   const skip = button('Skip',()=>{skipBoardCeremony(); see.focus();}); skip.id='end-skip'; skip.hidden=!$('board').dataset.toppling; form.append(skip);
   $('end-result').onclick = () => { looking=false; $('end-result').hidden=true; endScreen(); };
   (looking ? document.querySelector('.page-sheet')! : over).append(error);
-  over.querySelector('.quiet-line')!.textContent = opponent?.deleted || rematchAllowed === false ? '' : view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematches.length ? view.kind==='solo' ? 'Play again with the same rules and colour.' : `A rematch is Casual. It keeps the features and swaps the colours.${rankedOffered() ? ' Return to Ranked to find another ranked opponent.' : ''}` : '';
-  // The actions show at once (owner decision C4 c), with no wait for a rendering frame: CI WebKit can stop sending frames.
-  if (!over.open && !looking) { over.show(); if (tapReadyAt === Infinity) tapReadyAt = performance.now() + 1000; }
+  over.querySelector('.quiet-line')!.textContent = opponent?.deleted || rematchAllowed === false ? '' : view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematches.length ? rematchNote(view, rankedOffered()) : '';
   if (over.open) scrim.hidden=false;
+  else if (!opening && !looking) {
+    opening=true; const game=view.game_id;
+    const show=()=>{
+      if (stopped || queue.closed() || client.state.screen!=='end' || boardGame()?.game_id!==game) {opening=false; return;}
+      opening=false; if(!looking){if(!over.open) { over.show(); if (tapReadyAt === Infinity) tapReadyAt = performance.now() + 1000;
+        if (resultOnset === game) {
+          resultOnset = undefined;
+          motion ??= new UiMotion(() => !stopped && client.state.screen === 'end', () => memory.settings?.symbols_only ? 'off' : 'fast');
+          revealResult(motion, over, !view.result || ['abort','no_start'].includes(view.result.reason) ? 'abort' : view.result.winner === null ? 'draw' : view.result.winner === view.seat ? 'victory' : 'defeat');
+        }
+      } scrim.hidden=false;}
+    };
+    showFrame = requestAnimationFrame(show);
+  }
   followUp(schedule);
 }
 /** After each result pass, also an unchanged one: the poll takes its new target, and updateEnd sends a queued rematch. */
@@ -180,4 +199,4 @@ function followUp(schedule: boolean) {
   if (schedule) { clearTimeout(updateTimer); updateTimer = setTimeout(updateEnd,0); }
 }
 
-onStop(() => { stopped = true; clearTimeout(updateTimer); observer?.disconnect(); if (scrim) closeEnd(); read.clear(); resumed.clear(); });
+onStop(() => { stopped = true; motion?.dispose(); clearTimeout(updateTimer); cancelAnimationFrame(showFrame); observer?.disconnect(); if (scrim) closeEnd(); read.clear(); resumed.clear(); });

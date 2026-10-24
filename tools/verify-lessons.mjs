@@ -64,6 +64,33 @@ try {
     assert.deepEqual(await board(), position, 'Return restores the kept board');
     console.log(`ok lessons ${width}: a figure opens its lesson with Show me`);
 
+    // F-105: the task stays in view while the player selects the ogre and while the Take or Shove sheet is open.
+    const ogreTask = 'Tap your ogre, then the marked knight. Choose Shove.';
+    await startLesson(page, 'Ogre');
+    await tap(27);
+    assert.match(await contextText(page), /^Tap your ogre, then the marked knight\.\s*Choose Shove\.$/, 'the selection keeps the lesson task');
+    await tap(35); await page.locator('#move-choice[open]').waitFor();
+    assert.equal(await page.locator('#move-choice-goal').innerText(), ogreTask, 'the Take or Shove sheet keeps the lesson task');
+    assert.equal(await page.locator('#move-choice-goal').isVisible(), true);
+    await page.click('#cancel-choice');
+    assert.match(await contextText(page), /^Tap your ogre, then the marked knight\.\s*Choose Shove\.$/);
+    await tap(27); await tap(35); await page.click('#choose-push');
+    await waitForUi(page, ui => ui.lessonLearned === 'Ogre');
+    await page.click('#return-game');
+    console.log(`ok lessons ${width}: Ogre keeps its task through the selection and the Take or Shove sheet`);
+
+    // F-102: the pending note says both ends of a chain; the last available bite completes it without Stop here.
+    await startLesson(page, 'Beast');
+    await tap(27); await tap(35);
+    assert.match(await contextText(page), /^Bite again, or stop here\.\s*The chain ends when no more bites are available, or when you select Stop here\.$/);
+    assert.match(await page.locator('#stop-chain').innerText(), /1 bite/);
+    await tap(43);
+    await waitForUi(page, ui => ui.lessonLearned === 'Beast');
+    assert.equal(await page.locator('#stop-chain').isVisible(), false);
+    await page.click('#return-game');
+    assert.equal(await saved(), before, 'the Ogre and Beast lessons keep the saved game');
+    console.log(`ok lessons ${width}: the Beast chain note names both ends, and the last bite completes the chain`);
+
     await page.evaluate(() => localStorage.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer', 'Beast', 'Maester', 'Ogre'], tricks: ['wall'] })));
     await startLesson(page, 'Archer');
     assert.equal(await page.locator('#lesson-progress [title=Archer]').getAttribute('aria-label'), 'Lesson 1 of 6 current', 'a learned lesson played again is current');

@@ -1,0 +1,12 @@
+{
+  "id": "card-freeze",
+  "family": "card",
+  "item": "Freeze",
+  "setup": { "fen": "4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1", "hand": ["Freeze"] },
+  "actions": ["!F:d5"],
+  "expected": {
+    "board": { "d5": "n" }, "turn": 1, "used": [1, 0],
+    "marks": [{ "sq": "d5" }, null], "legalExcludes": ["Nd5-c3"],
+    "rules": { "markFree": false }
+  }
+}

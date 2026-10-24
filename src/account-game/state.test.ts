@@ -10,6 +10,14 @@ const slot = (part: Partial<Slot> = {}): Slot => ({ polls: 0, ...part });
 // The client's one sentence for a lost connection (client.ts CANNOT_CONNECT). A copy keeps this unit file free of DOM code.
 const CANNOT_CONNECT = 'Cannot connect. Check your connection, then try again.';
 
+it.each(['board', 'seat', 'friend', 'play'] as const)('keeps an account receipt retry usable on %s while another game is selected', screen => {
+  const pending = { name: 'kingdown_move', args: { game_id: 'game-a', command_id: 'once' }, game_tag: 'game-a', screen: 'board' as const, error: CANNOT_CONNECT };
+  const shown = page({ screen, view: view('game-b'), pending, pendingScope: 'account' });
+  expect(messageLine(shown)).toMatchObject({ text: CANNOT_CONNECT, action: 'retry' });
+  expect(locks(shown)).toMatchObject({ blocked: false, game: true, start: true, retry: true });
+  expect(locks({ ...shown, pending: undefined })).toMatchObject({ game: false, start: false });
+});
+
 it('scopes a failed rematch selection to its finished result', () => {
   const pending = { name: 'kingdown_resume', args: {}, game_tag: 'new-game', screen: 'end' as const, error: CANNOT_CONNECT, error_screen: 'end' as const };
   const ended = { ...view('old-game'), status: 'finished', rematch_game_id: 'new-game-full' } as View;

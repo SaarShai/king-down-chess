@@ -3,6 +3,7 @@ import { STEP } from './lib/checks.mjs';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
 import { DEFAULT_RULES, legalMoves, makeMove, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import { applyLan } from '../src/plugin/screens/board-model';
+import sharp from 'sharp';
 import { LESSONS } from '../src/lessons';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
 import { checkTabletButtons, checkButtonContent } from './lib/plugin-tablet-check.mjs';
@@ -10,8 +11,9 @@ import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { checkCoinFocus } from './lib/plugin-coin-focus-check.mjs';
 import { describeMove } from '../src/move-text';
 import { GameRules } from '../src/game-rules';
+import { readText } from '../src/read';
 import { cardText, powerText, ruleLine } from '../src/powers-ui';
-import { harness, served, browser, view, insets, targetMisses, edgeMisses, open, marks, clickButton, squareTap } from './lib/plugin-board-fixture';
+import { harness, served, browser, view, insets, targetMisses, edgeMisses, open, marks, clickButton, squareTap, sheetClosed, sheetAtRest } from './lib/plugin-board-fixture';
 
 it.each(['See the board', 'New game'])('cancels a pending ceremony with %s during the final move', async action => {
   const before = view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'), pre = fromFen(before.fen);
@@ -199,7 +201,8 @@ it('keeps spent coin contrast and clear symbols together', async () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const coins = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll<HTMLButtonElement>('.card-coin')].map(coin => {
       coin.dataset.state = 'used'; coin.disabled = true;
-      const style = getComputedStyle(coin.querySelector('.coin-paint')!), symbol = coin.querySelector('svg')!, face = symbol.getBoundingClientRect(), box = coin.getBoundingClientRect();
+      // The paint compresses; its symbol inset is separate from the unchanged button target.
+      const paint = coin.querySelector('.coin-paint')!, style = getComputedStyle(paint), symbol = coin.querySelector('svg')!, face = symbol.getBoundingClientRect(), box = paint.getBoundingClientRect();
       return { opacity: style.opacity, buttonOpacity: getComputedStyle(coin).opacity, symbol: !!symbol, letters: coin.textContent, color: getComputedStyle(symbol).color, inset: box.width - face.width };
     }));
     expect(coins).toHaveLength(2);
@@ -816,6 +819,7 @@ it.each([197,240] as const)('keeps the narrow Menu policy header and details usa
     const page = await open(next, width, 760), frame = page.frameLocator('iframe');
     try {
       await frame.locator('#board-menu').click();
+      await frame.locator('#board-sheet').evaluate(async sheet => { await Promise.all(sheet.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {}))); });
       const geometry = await frame.locator('#board-sheet .sheet-head').evaluate(head => {
         const box = (el: Element) => { const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height }; };
         return { head: box(head), title: box(head.querySelector('h2')!), policy: box(head.querySelector('#game-policy')!), close: box(head.querySelector('[aria-label="Close"]')!) };
@@ -833,7 +837,9 @@ it.each([197,240] as const)('keeps the narrow Menu policy header and details usa
       expect(await frame.locator('#board-sheet h2').innerText()).toBe(label);
       expect(await frame.locator('#board-sheet .sheet-body').innerText()).toContain(detail);
       if (rating_policy === 'ranked-v1') expect(await frame.locator('#board-sheet .sheet-body').innerText()).toContain('3 days per move.');
-      await frame.locator('#board-sheet [aria-label="Close"]').click(); expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
+      await frame.locator('#board-sheet [aria-label="Close"]').click();
+      expect(await frame.locator('#board-sheet').evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
+      await frame.locator('#board-sheet').waitFor({ state: 'hidden' });
     } finally { await page.close(); }
   }
 });
@@ -884,11 +890,12 @@ it('gives live pawn move choices the shared tablet face', async () => {
     await frame.locator('html').evaluate(() => (window as any).testBoard.onSquareClick(12));
     await frame.locator('#board-menu').click();
     await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
+    await sheetAtRest(page);
     await checkTabletButtons(frame, '#choices button');
     await checkButtonContent(frame, '#choices button');
     await frame.locator('#choices button[title="e2-e4"]').click();
     await frame.locator('#end-turn[aria-disabled="false"]').waitFor();
-    expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
+    await sheetClosed(page);
   } finally { await page.close(); }
 });
 
@@ -913,5 +920,104 @@ it.each([[320, 568], [393, 852]])('keeps the board size after a beginner selects
     expect(after.width).toBeGreaterThanOrEqual(192);
     await frame.getByRole('button', { name: 'All rules', exact: true }).click();
     expect(await frame.locator('#board-sheet').innerText()).toContain(lesson);
+  } finally { await page.close(); }
+});
+
+// Playtest F-011: All rules gives the selected piece's moves, takes and special rule, then every piece of the game, as the Guide does.
+it('F-011: All rules shows the full rules of the selected piece and the other pieces', async () => {
+  const fen = '6gk/8/8/8/8/8/8/G6K w - - 0 1', base = view(fen), page = await open(base, 390, 844), frame = page.frameLocator('iframe');
+  const rules = new GameRules(base.rules);
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await squareTap(page, 0);
+    await frame.getByRole('button', { name: 'All rules', exact: true }).click();
+    const sheet = frame.getByRole('dialog', { name: 'All rules', exact: true });
+    expect(await sheet.isVisible()).toBe(true);
+    const cards = sheet.locator('.piece-card');
+    expect(await cards.first().locator('h3').textContent()).toBe('Guard');
+    expect(await cards.first().locator('dd').allTextContents()).toEqual(['Steps to empty squares beside it.', 'Cannot take.', 'Only a king can take it.']);
+    expect(await cards.first().locator('dt').allTextContents()).toEqual(['Moves', 'Takes', 'Special']);
+    const names = await cards.locator('h3').allTextContents();
+    expect(names).toContain('Knight'); expect(names).toContain('King'); expect(names.filter(name => name === 'Guard')).toHaveLength(1);
+    expect(await sheet.innerText()).toContain(readText(rules, fromFen(fen), 0));
+    expect(await sheet.innerText()).toContain('Moves in an L, over any piece.');
+  } finally { await page.close(); }
+});
+
+// Escape in All rules clears the selection, and that hides the All rules button. Focus then goes to the board, not to the page body.
+it('Escape from All rules puts focus on the board when the hidden opener cannot take it', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), 390, 844), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    // The keyboard cursor starts on a1: ArrowUp, then Enter, selects the a2 pawn.
+    await frame.locator('#board').focus(); await page.keyboard.press('ArrowUp'); await page.keyboard.press('Enter');
+    expect((await marks(page)).selected).toBe(8);
+    await frame.locator('#all-rules').focus(); await page.keyboard.press('Enter');
+    const sheet = frame.getByRole('dialog', { name: 'All rules', exact: true });
+    expect(await sheet.isVisible()).toBe(true);
+    await page.keyboard.press('Escape');
+    await sheetClosed(page);
+    expect((await marks(page)).selected).toBeUndefined();
+    expect(await frame.locator('#all-rules').isHidden()).toBe(true);
+    expect(await frame.locator('html').evaluate(() => document.activeElement?.id)).toBe('board');
+  } finally { await page.close(); }
+});
+
+// Playtest F-008 follow-up: the focused sheet body's ring lies inside the body, with a light gap before the sheet's
+// own border, so all four sides show. The samples avoid the rows: the side padding holds no text.
+it('F-008: the focused sheet body shows its ring on all four sides', async () => {
+  const initial_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', actions: string[] = [];
+  for (let i = 0; i < 10; i++) actions.push('Nb1-a3', 'Nb8-a6', 'Na3-b1', 'Na6-b8');
+  const game = view(initial_fen, {}, { kind: 'friend', seat: 0 });
+  let pos = fromFen(initial_fen);
+  for (const lan of actions) pos = applyLan(pos, lan, game.rules!)!.pos;
+  const page = await open(view(toFen(pos), game.rules!, { ...game, fen: toFen(pos), revision: actions.length, history: { initial_fen, actions } }), 390, 844), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board-menu').focus(); await page.keyboard.press('Enter');
+    await frame.getByRole('button', { name: 'Moves', exact: true }).focus(); await page.keyboard.press('Enter');
+    const body = frame.getByRole('dialog', { name: 'Moves', exact: true }).locator('.sheet-body');
+    await page.keyboard.press('Tab');
+    expect(await body.evaluate(el => el === document.activeElement && el.matches(':focus-visible'))).toBe(true);
+    await sheetAtRest(page);
+    const box = (await body.boundingBox())!, clip = { x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width), height: Math.round(box.height) };
+    const image = await sharp(await page.screenshot({ clip, scale: 'css' })).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    const light = (x: number, y: number) => { const i = (y * image.info.width + x) * 3; return [...image.data.subarray(i, i + 3)].map(c => c / 255).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4).reduce((s, c, k) => s + c * [.2126, .7152, .0722][k], 0); };
+    const { width: w, height: h } = clip, mid = Math.round(h / 2);
+    // [side, ring pixel, gap pixel between the ring and the sheet's border]
+    const sides = [['left', [3, mid], [1, mid]], ['right', [w - 4, mid], [w - 2, mid]], ['top', [8, 3], [8, 1]], ['bottom', [8, h - 4], [8, h - 2]]] as const;
+    const contrast = sides.map(([side, ring, gap]) => [side, Math.round((light(gap[0], gap[1]) + .05) / (light(ring[0], ring[1]) + .05) * 10) / 10]);
+    for (const [side, ratio] of contrast) expect(ratio, `${side} ring against its gap: ${JSON.stringify(contrast)}`).toBeGreaterThanOrEqual(3);
+  } finally { await page.close(); }
+});
+
+// Playtest F-008 follow-up: on staging, Choose a move with the four promotions at 390 x 844 overflows by a few pixels,
+// into the body's bottom padding only. That body hides no choice, so it is not a Tab stop.
+// The harness page is shorter than the staging page; at 390 x 960 its overflow is a few pixels too.
+it('F-008: a sheet body that overflows only into its bottom padding is not a Tab stop', async () => {
+  const page = await open(view('7k/1P6/8/8/8/8/8/K7 w - - 0 1'), 390, 960), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    // The keyboard cursor starts on a1: b7, then b8, opens Choose a move.
+    await frame.locator('#board').focus();
+    for (const key of ['ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowRight', 'Enter', 'ArrowUp']) await page.keyboard.press(key);
+    // The last Enter opens the sheet. Read the body in the same task, before a resize observer can run: the opening
+    // itself must fit the placed sheet (a loaded page reaches its next frame late).
+    const opened = await frame.locator('#board').evaluate(board => {
+      board.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      const body = document.querySelector<HTMLElement>('#board-sheet .sheet-body')!;
+      return { overflow: body.scrollHeight - body.clientHeight, tabindex: body.getAttribute('tabindex') };
+    });
+    expect(opened.overflow).toBeGreaterThan(0);
+    expect(opened.tabindex).toBe('-1');
+    const sheet = frame.getByRole('dialog', { name: 'Choose a move', exact: true }), body = sheet.locator('.sheet-body');
+    expect(await sheet.isVisible()).toBe(true);
+    const [overflow, padding] = await body.evaluate(el => [el.scrollHeight - el.clientHeight, parseFloat(getComputedStyle(el).paddingBottom)]);
+    expect(overflow, `overflow ${overflow}, bottom padding ${padding}`).toBeGreaterThan(0);
+    expect(overflow, `overflow ${overflow}, bottom padding ${padding}`).toBeLessThanOrEqual(padding);
+    // tabindex -1 keeps the browser from making the scroller a Tab stop by itself (Firefox does).
+    expect(await body.getAttribute('tabindex')).toBe('-1');
+    expect(await sheet.getByRole('button', { name: 'Close', exact: true }).evaluate(b => b === document.activeElement)).toBe(true);
+    await page.keyboard.press('Tab');
+    expect(await body.evaluate(el => el !== document.activeElement)).toBe(true);
   } finally { await page.close(); }
 });

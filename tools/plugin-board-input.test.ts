@@ -2,14 +2,15 @@
 // tools/plugin-board-drafts.test.ts, so that each CI WebKit runner ends its share in the step limit (ticket 77, items 14 and 17).
 import { expect, it } from 'vitest';
 import type { Page } from 'playwright';
-import { fromFen, toFen } from '../src/rules/setup';
+import { fromFen, toFen, toLan } from '../src/rules/setup';
 import { legalMoves, makeMove, parseRule, setRules, type Rules } from '../src/rules/engine';
 import { applyLan } from '../src/plugin/screens/board-model';
 import { readText } from '../src/read';
 import { describeMove } from '../src/move-text';
 import { GameRules } from '../src/game-rules';
 import { PRESETS, designCode, fromPreset } from '../src/workshop/model';
-import { view, insets, edgeMisses, open, marks, closeHeld, clickButton, squarePoint, squareTap, turnBoard, chooseTurnMove, moveCalls, boardFen, savedDraft, remountBoard } from './lib/plugin-board-fixture';
+import { view, insets, edgeMisses, open, marks, closeHeld, clickButton, squarePoint, squareTap, settleBoardReads, turnBoard, chooseTurnMove, moveCalls, boardFen, savedDraft, remountBoard, sheetClosed, sheetAtRest } from './lib/plugin-board-fixture';
+import { pauseClock } from './lib/page-clock.mjs';
 
 // Spec G3 a (J9 a): a shove or swap onto your own piece waits for a second tap; any other tap lets it go and never plays a move.
 const cursorOf = (page: Page) => page.frameLocator('iframe').locator('html').evaluate(() => (window as any).testBoard.cursor);
@@ -605,9 +606,13 @@ it('W7: snaps to the draft if motion fails and keeps Undo available', async () =
 
 
 it('W7: keeps a lost-send error while pieces and coins remain readable', async () => {
-  const {page,frame} = await turnBoard();
+  const {page,frame} = await turnBoard(undefined, true);
   try {
     await chooseTurnMove(page,'e2-e4',12);
+    // The reply is lost after the server commits the move. A solo poll read (every 5 s, src/plugin/poll.ts) would then
+    // show the committed move and clear the selection that the checks below read (CI run 39965072628). Stop the page
+    // clock to the end; a read that started before the pause ends first.
+    await pauseClock(page); await settleBoardReads(page);
     await page.evaluate(() => { (window as any).dropNextMoveReply=true; });
     await frame.locator('#end-turn:not(:disabled):not([aria-disabled="true"])').waitFor();
     await clickButton(page, frame.locator('#end-turn')); await frame.locator('#retry').waitFor();
@@ -638,5 +643,161 @@ it('W7: a lost send shows the waiting words beside Retry, not Sending, also afte
     await frame.locator('#retry').waitFor();
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.inflight)).toBe(0);
     expect(await frame.locator('#status').textContent()).toBe('Your turn is ready. Select End turn.');
+  } finally { await page.close(); }
+});
+
+// Playtest F-032 and F-038: a real touch tap on a target with more than one move opens Choose a move. The browser sends the
+// tap's click after the touch ends, onto the scrim that the tap opened; that click must not close the sheet.
+async function squareTouch(page: Page, square: number) {
+  const point = await squarePoint(page, square);
+  await page.touchscreen.tap(point.x, point.y);
+}
+const frames = (page: Page) => page.frameLocator('iframe').locator('html').evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+it.each([
+  ['F-032 promotion', '7k/1P6/8/8/8/8/8/K7 w - - 0 1', 49, 57],
+  ['F-038 Beast bite chain', '7k/8/8/8/2Sp4/2p5/8/K7 w - - 0 1', 26, 27],
+] as const)('%s: a touch tap on a target with more than one move opens Choose a move', async (_, fen, from, to) => {
+  const base = view(fen), page = await open(base, 390, 844), frame = page.frameLocator('iframe');
+  setRules(base.rules!); const pre = fromFen(fen);
+  const lans = legalMoves(pre).filter(m => m.from === from && (m.to === to || m.captures.includes(to))).map(m => toLan(pre, m)).sort();
+  expect(lans.length).toBeGreaterThan(1);
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await squareTouch(page, from);
+    expect((await marks(page)).selected).toBe(from);
+    await squareTouch(page, to);
+    await frames(page);
+    const sheet = frame.getByRole('dialog', { name: 'Choose a move', exact: true });
+    expect(await sheet.isVisible()).toBe(true);
+    expect((await frame.locator('#choices button').evaluateAll(buttons => buttons.map(b => (b as HTMLElement).title))).sort()).toEqual(lans);
+    // The touch's mousedown on the scrim keeps focus in the sheet, so Escape still closes it.
+    expect(await sheet.getByRole('button', { name: 'Close', exact: true }).evaluate(b => b === document.activeElement)).toBe(true);
+    await page.keyboard.press('Escape');
+    await sheetClosed(page);
+    expect((await marks(page)).selected).toBeUndefined();
+    await squareTouch(page, from);
+    await squareTouch(page, to);
+    await frames(page);
+    expect(await sheet.isVisible()).toBe(true);
+    // A tap on the scrim still closes the sheet, and keeps the piece selected.
+    const scrim = (await frame.locator('.scrim.move-choice-scrim').boundingBox())!;
+    await page.touchscreen.tap(scrim.x + scrim.width / 2, scrim.y + 8);
+    await frames(page);
+    await sheetClosed(page);
+    expect((await marks(page)).selected).toBe(from);
+    await squareTouch(page, to);
+    await frames(page);
+    const choice = (await frame.locator(`#choices button[title="${lans[0]}"]`).boundingBox())!;
+    await page.touchscreen.tap(choice.x + choice.width / 2, choice.y + choice.height / 2);
+    await expect.poll(async () => (await savedDraft(page))?.lans.at(-1)).toBe(lans[0]);
+    await sheetClosed(page);
+    await frame.locator('#board[data-animating="false"]').waitFor();
+    expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('false');
+  } finally { await page.close(); }
+});
+
+// Playtest F-008: a long Moves sheet scrolls by keyboard. Tab reaches the scroll region; PageDown and End move it.
+it('F-008: the keyboard scrolls a long Moves sheet', async () => {
+  const initial_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', actions: string[] = [];
+  for (let i = 0; i < 10; i++) actions.push('Nb1-a3', 'Nb8-a6', 'Na3-b1', 'Na6-b8');
+  const game = view(initial_fen, {}, { kind: 'friend', seat: 0 });
+  let pos = fromFen(initial_fen);
+  for (const lan of actions) { const step = applyLan(pos, lan, game.rules!); expect(step).toBeDefined(); pos = step!.pos; }
+  const page = await open(view(toFen(pos), game.rules!, { ...game, fen: toFen(pos), revision: actions.length, history: { initial_fen, actions } }), 390, 844), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board-menu').focus(); await page.keyboard.press('Enter');
+    await frame.getByRole('button', { name: 'Moves', exact: true }).focus(); await page.keyboard.press('Enter');
+    const sheet = frame.getByRole('dialog', { name: 'Moves', exact: true }), body = sheet.locator('.sheet-body');
+    expect(await sheet.getByRole('button', { name: 'Close', exact: true }).evaluate(b => b === document.activeElement)).toBe(true);
+    expect(await body.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
+    await page.keyboard.press('Tab');
+    expect(await body.evaluate(el => el === document.activeElement && el.matches(':focus-visible'))).toBe(true);
+    expect(await body.getAttribute('role')).toBe('region');
+    expect(await body.getAttribute('aria-label')).toBe('Moves');
+    await page.keyboard.press('PageDown');
+    await expect.poll(() => body.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+    await page.keyboard.press('End');
+    await expect.poll(() => body.evaluate(el => Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight)).toBe(true);
+    await page.keyboard.press('Tab');
+    expect(await sheet.getByRole('button', { name: 'Close', exact: true }).evaluate(b => b === document.activeElement)).toBe(true);
+    await page.keyboard.press('Shift+Tab');
+    expect(await body.evaluate(el => el === document.activeElement)).toBe(true);
+  } finally { await page.close(); }
+});
+
+// A body that stops scrolling while it has focus leaves the Tab order when focus leaves it.
+it('F-008: a Moves sheet body that stops scrolling leaves the Tab order on blur', async () => {
+  const initial_fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', actions = ['Nb1-a3', 'Nb8-a6', 'Na3-b1', 'Na6-b8'];
+  const game = view(initial_fen, {}, { kind: 'friend', seat: 0 });
+  let pos = fromFen(initial_fen);
+  for (const lan of actions) { const step = applyLan(pos, lan, game.rules!); expect(step).toBeDefined(); pos = step!.pos; }
+  const page = await open(view(toFen(pos), game.rules!, { ...game, fen: toFen(pos), revision: actions.length, history: { initial_fen, actions } }), 390, 400), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board-menu').focus(); await page.keyboard.press('Enter');
+    await frame.getByRole('button', { name: 'Moves', exact: true }).focus(); await page.keyboard.press('Enter');
+    const body = frame.getByRole('dialog', { name: 'Moves', exact: true }).locator('.sheet-body');
+    await page.keyboard.press('Tab');
+    expect(await body.evaluate(el => el === document.activeElement && el.scrollHeight > el.clientHeight)).toBe(true);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await frames(page);
+    expect(await body.evaluate(el => el === document.activeElement && el.scrollHeight <= el.clientHeight)).toBe(true);
+    expect(await body.getAttribute('tabindex')).toBe('0');
+    await page.keyboard.press('Tab');
+    await frames(page);
+    expect(await body.evaluate(el => [el.getAttribute('tabindex'), el.getAttribute('role'), el.getAttribute('aria-label')])).toEqual([null, null, null]);
+    await page.keyboard.press('Shift+Tab');
+    expect(await frame.getByRole('button', { name: 'Close', exact: true }).evaluate(b => b === document.activeElement)).toBe(true);
+  } finally { await page.close(); }
+});
+
+// A press that starts on the scrim and ends on the sheet must leave no press state behind: a later press that starts
+// on the sheet and ends on the scrim must not close the sheet. Chromium only: the test sends raw touches.
+// A short touch move is a tap, and the platform picks its click target: Linux Chromium sends the click to the element
+// under the touch start (the scrim, which closes the sheet, as a tap on the scrim must), macOS to the element under the
+// touch end. So the first press moves past the tap distance: the browser cancels it (pointercancel) and sends no click
+// on any platform. The second press is a short tap; its click goes to the sheet or to the scrim, and neither may close it.
+// Each step waits for its last event, not for a fixed time.
+it.skipIf(!!process.env.PLAYABLE_BROWSER && process.env.PLAYABLE_BROWSER !== 'chromium')('F-032: an old scrim press does not close the sheet for a later press from the sheet', async () => {
+  const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), 390, 844), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#board-menu').focus(); await page.keyboard.press('Enter');
+    const sheet = frame.locator('#board-sheet'); await frame.locator('#board-sheet[open]').waitFor(); await sheetAtRest(page); await frames(page);
+    await frame.locator('html').evaluate(() => {
+      const w = window as any; w.presses = [];
+      for (const type of ['pointerdown', 'pointercancel', 'click']) document.addEventListener(type, e => { const t = e.target as HTMLElement; w.presses.push(`${type} ${t.id || t.className}`); }, true);
+    });
+    const presses = () => frame.locator('html').evaluate(() => (window as any).presses as string[]);
+    const box = (await sheet.boundingBox())!, x = box.x + 12, cdp = await page.context().newCDPSession(page);
+    const drag = async (from: number, to: number, last: string) => {
+      await frame.locator('html').evaluate(() => { (window as any).presses = []; });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: from, id: 1 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: to, id: 1 }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await expect.poll(async () => (await presses()).some(event => event.startsWith(last))).toBe(true);
+      await frames(page);
+      return presses();
+    };
+    expect((await drag(box.y - 2, box.y + 40, 'pointercancel'))[0]).toBe('pointerdown scrim');
+    expect(await sheet.isVisible()).toBe(true);
+    expect((await drag(box.y + 2, box.y - 2, 'click'))[0]).toBe('pointerdown sheet-head');
+    expect(await sheet.isVisible()).toBe(true);
+    await cdp.detach();
+  } finally { await page.close(); }
+});
+
+// Playtest F-009: Escape from a Menu item returns visible focus to Menu. Refresh the board leaves the sheet as the sheet closes.
+it.each(['Close', 'Refresh the board'])('F-009: Escape from the Menu (%s) returns visible focus to Menu', async item => {
+  const {page, frame} = await turnBoard('7k/8/8/8/8/8/P7/K7 w - - 0 1');
+  try {
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    await frame.locator('#board-menu').focus(); await page.keyboard.press('Enter');
+    const sheet = frame.getByRole('dialog', { name: 'Menu', exact: true });
+    expect(await sheet.isVisible()).toBe(true);
+    // From Close, Shift+Tab goes to the game-policy button in the header, then wraps to the last Menu item.
+    if (item !== 'Close') for (let i = 0; i < 2; i++) await page.keyboard.press('Shift+Tab');
+    expect(await frame.locator('html').evaluate(() => { const e = document.activeElement as HTMLElement; return e.getAttribute('aria-label') ?? e.textContent; })).toBe(item);
+    await page.keyboard.press('Escape');
+    await sheetClosed(page);
+    expect(await frame.locator('#board-menu').evaluate(b => b === document.activeElement && b.matches(':focus-visible'))).toBe(true);
   } finally { await page.close(); }
 });

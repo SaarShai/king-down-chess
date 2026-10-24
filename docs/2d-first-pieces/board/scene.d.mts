@@ -16,6 +16,12 @@ export interface ScenePieces {
   LETTERS?: { readonly [index: number]: string };
 }
 export interface SceneMove { from: number; to: number; captures: number[]; swap?: boolean; shove?: { from: number; to: number }; selfRemove?: boolean }
+/** A card uses the scene's clock and cancellation. It supplies only the approved drawing and real positions. */
+export interface SceneEffect {
+  duration: number;
+  position(t: number): { board: ArrayLike<number> };
+  draw(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row: number | undefined, t: number): void;
+}
 export interface PaintedScene {
   readonly SIZE: number; readonly PAD: number; readonly TILE: number; readonly headroom: number;
   readonly animating: boolean;
@@ -47,7 +53,8 @@ export interface PaintedScene {
   setResolution(k: number): void;
   /**
    * Opt-in liveliness (all off by default, so the trial and the trailer are unchanged):
-   * moves: quiet moves use each figure's gait (gait.mjs); idle: the selected figure breathes;
+   * moves: quiet moves use each figure's gait (gait.mjs); idle: the selected figure plays his clip once
+   * (a Knight or a Rook: clips/clips.mjs), then breathes;
    * atmosphere: a stone frame, soft contact shadows and warm light on the board;
    * kings: each king's own idle effect (king-effects.mjs), redrawn about 30 times a second while one shows;
    * captures: a piece a king takes dies that king's way (king-captures.mjs);
@@ -56,6 +63,8 @@ export interface PaintedScene {
   setLively(options: { moves?: boolean; idle?: boolean; atmosphere?: boolean; kings?: boolean; captures?: boolean; pawns?: boolean }): void;
   /** The king designs whose effects the last frame drew (empty: none). */
   readonly effects: KingDesign[];
+  /** The clip drawing the last frame showed, or null: none plays. */
+  readonly clip: { name: 'knight' | 'rook'; frame: number } | null;
   /** Resting pawns in the last frame and how many of them were acting. */
   readonly pawns: { resting: number; acting: number };
   /** Frames drawn since the scene was made. */
@@ -73,7 +82,7 @@ export interface PaintedScene {
   /** onContact fires once when the strike lands (not for plain moves or swaps). */
   /** speed scales duration: 2 is half playback speed; 0.5 is double. */
   /** gait: play a quiet move with this gait (a GAITS name) even when `moves` is off. */
-  play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null }): Promise<boolean>;
+  play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null; effect?: SceneEffect }): Promise<boolean>;
   cancel(): void;
   dispose(): void;
 }

@@ -46,7 +46,7 @@ test('the policy names the alerts and notices that the server stores for an acco
  const kinds = [...code.matchAll(/insert into public\.notifications\(user_id,kind,payload\) values\(\$1,'(\w+)'|notify\.push\(\{ user_id: [^,]+, kind: '(\w+)'/g)].map(match => match[1] ?? match[2]);
  // A new kind fails here: add it to the list item in public/privacy.html, then here.
  expect([...new Set(kinds)].sort()).toEqual(['appeal', 'moderation', 'turn']);
- expect(text).toContain('alerts about your Daily games (that it is your move), and notices about an action on a report or about an appeal');
+ expect(text).toContain('alerts about your games against other players (that it is your move), and notices about an action on a report or about an appeal');
  // A deletion deletes them with the account (on delete cascade).
  expect(readFileSync('supabase/migrations/0006_games.sql', 'utf8')).toMatch(/table if not exists public\.notifications \([^;]*user_id uuid not null references auth\.users \(id\) on delete cascade/);
  expect(text).toContain('badges, alerts and games against the computer');

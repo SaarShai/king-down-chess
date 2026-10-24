@@ -1,0 +1,21 @@
+body { overflow: auto; }
+.trigger-lab { max-width: 1080px; margin: auto; padding: 32px 24px; display: grid; grid-template-columns: 1fr 1.3fr; gap: 24px; }
+.trigger-lab header, .trigger-lab footer { grid-column: 1 / -1; }
+.trigger-lab header a { display: block; margin-bottom: 24px; }
+.trigger-lab h1 { font: 500 42px/1.1 var(--font-display); margin: 8px 0 12px; }
+.trigger-lab h2 { font: 500 28px/1.2 var(--font-display); margin: 10px 0 24px; }
+.trigger-lab section { min-width: 0; border: 1px solid var(--stone-300); border-radius: 18px; padding: 28px; background: var(--vellum); box-shadow: var(--shadow-card); }
+.trigger-lab .timer-clock { margin: 32px auto; }
+.trigger-lab .timer-ring { opacity: 0; }
+.trigger-lab .card-hand { margin: 36px 0; gap: 10px; }
+.trigger-lab .study-card { width: 100%; min-width: 0; }
+.trigger-lab .study-card b { font-size: 14px; }
+.trigger-lab .card-picture { aspect-ratio: 1; height: auto; }
+.trigger-lab .card-tick { opacity: 0; }
+.trigger-lab [role=status] { min-height: 48px; margin: 20px 0; }
+.trigger-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.trigger-actions button { min-height: 44px; flex: 1 1 auto; padding: 8px 12px; }
+.trigger-lab footer p { color: var(--ink-soft); font-size: 13px; }
+@media(max-width: 720px) { .trigger-lab { grid-template-columns: 1fr; padding: 20px 14px; } .trigger-lab section { padding: 22px 16px; } .trigger-lab h1 { font-size: 34px; } }
+
+.trigger-lab footer label { display: flex; justify-content: flex-start; gap: 10px; width: fit-content; }

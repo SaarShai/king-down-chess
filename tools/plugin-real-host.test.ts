@@ -198,6 +198,8 @@ it('reads the board once when the page comes back from sleep, and never while it
     expect(await gets(page)).toBe(asleep + 1);
     expect(await page.frameLocator('iframe').locator('#error').textContent()).toBe('');
     expect(await page.frameLocator('iframe').locator('#retry').isHidden()).toBe(true);
+    // The page stays live through the back-forward cache, so the harness keeps its board canvases (FRAME_SHIM).
+    expect(await frame.evaluate(() => [...document.querySelectorAll('canvas')].map(canvas => canvas.width * canvas.height > 0))).not.toContain(false);
   } finally { await page.close(); }
 });
 

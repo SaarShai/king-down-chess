@@ -90,7 +90,8 @@ it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568
     expect(await frame.locator('#seat-context').textContent()).toBe('Select one back-rank piece, then another, to swap them.');
     expect(await frame.locator('#seat-note').textContent()).toBe('The guard stays next to the king.');
     const canvasWidth = () => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width);
-    const textFits = () => frame.locator(':is(#context-text, [data-seat-id="context-text"]):visible').evaluate(e => {
+    const textFits = () => frame.locator(':is(#context-text, [data-seat-id="context-text"]):visible').evaluate(async e => {
+      for (let run: Animation[]; (run = e.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
       const row = e.parentElement!.getBoundingClientRect(), problems: string[] = [];
       const actions = [...e.parentElement!.querySelectorAll('button')].map(b => b.getBoundingClientRect());
       for (const node of [e, ...e.querySelectorAll<HTMLElement>('*')]) {
@@ -589,6 +590,18 @@ it('keeps a usable board, seat and move at 200% zoom (197 CSS px, insets 51/59)'
         await expect.poll(() => canvasWidth(frame), { message: 'seat after Shuffle' }).toBeGreaterThanOrEqual(192);
       }
       await settled(page, frame); // Finish the seat mount before scrolling to its controls.
+      if (!all) {
+        // A poll read renders the seat again and must keep the player's scroll. WebKit moved it 40 px when each render
+        // replaced the seat text and the Home labels, and a click after the scroll missed (ticket 77, item 12).
+        const seat = frame.locator('#seat-screen'), reads = () => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
+        const bottom = await seat.evaluate(e => { document.getElementById('seat-ready')!.scrollIntoView({ block: 'nearest', behavior: 'instant' }); return e.scrollTop; });
+        expect(bottom).toBeGreaterThan(0);
+        // Count after the scroll: only a read that starts after it proves that a render keeps the scroll.
+        const before = await reads();
+        await expect.poll(reads, { timeout: 10_000 * STEP }).toBeGreaterThan(before); // the setup poll reads every 5 s
+        await settled(page, frame);
+        expect(await seat.evaluate(e => e.scrollTop), 'A poll render keeps the seat scroll').toBe(bottom);
+      }
       for (const id of ['seat-shuffle', 'seat-menu', 'seat-ready']) expect(await reachable(frame, id), id).toBe(true);
       await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
       await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();

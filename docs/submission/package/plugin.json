@@ -19,13 +19,13 @@
       "interface": {
         "displayName": "King Down",
         "shortDescription": "Chess with king powers",
-        "longDescription": "King Down is a chess variant by Saar Shai. Before each game you choose the features: kings with powers, new pieces such as the archer, the ogre and the paladin, cards, and your own back-rank arrangement. Classic gives normal chess.\n\nWith King Down in ChatGPT you can:\n- play against the computer at four levels, from beginner to strong;\n- start a friend game and send your friend a 6-character invitation code;\n- join a friend's game with a code;\n- play a random King Down player in Daily games, with days for each move;\n- see your active games and which ones wait for your move;\n- see your rating, totals and badges;\n- offer or accept a draw, resign, or cancel a game before it starts.\n\nYou play the moves on the King Down board in the chat. ChatGPT can start, open and end games for you, but it does not see the board position and does not choose moves for you. Every piece, king power and setup is unlocked; there is nothing to buy and there are no ads. Games against people use five preset messages only, with no free text chat.\n\nYou sign in with a King Down account. Limitations: moves need the board, so the full game works where ChatGPT shows app screens.",
+        "longDescription": "King Down is a chess variant by Saar Shai. Before each game you choose the features: kings with powers, new pieces such as the archer, the ogre and the paladin, cards, and your own back-rank arrangement. Classic gives normal chess.\n\nWith King Down in ChatGPT you can:\n- play against the computer at four levels, from beginner to strong;\n- start a friend game and send your friend a 6-character invitation code;\n- join a friend's game with a code;\n- play a random King Down player, with three days for each move;\n- see your active games and which ones wait for your move;\n- see your rating, totals and badges;\n- offer or accept a draw, resign, or cancel a game before it starts.\n\nYou play the moves on the King Down board in the chat. ChatGPT can start, open and end games for you, but it does not see the board position and does not choose moves for you. Every piece, king power and setup is unlocked; there is nothing to buy and there are no ads. Games against people use five preset messages only, with no free text chat.\n\nYou sign in with a King Down account. Limitations: moves need the board, so the full game works where ChatGPT shows app screens.",
         "developerName": "Saar Shai",
         "category": "Entertainment",
         "capabilities": [
           "Play against the computer",
           "Play friends with an invitation code",
-          "Play random opponents in Daily games",
+          "Play random opponents",
           "Show ratings, totals and badges"
         ],
         "websiteURL": "https://kingdown.dev",
@@ -99,7 +99,7 @@
         "commerce_description": "King Down sells nothing. Every piece, king power and setup is unlocked, and the app shows no ads."
       },
       "publication": {
-        "release_notes": "First release of King Down in ChatGPT. Play King Down chess against the computer at four levels, against a friend with an invitation code, or against a random player in Daily games. See your active games, your rating, totals and badges. Offer a draw, resign or cancel a game from the chat."
+        "release_notes": "First release of King Down in ChatGPT. Play King Down chess against the computer at four levels, against a friend with an invitation code, or against a random player. See your active games, your rating, totals and badges. Offer a draw, resign or cancel a game from the chat."
       }
     }
   }

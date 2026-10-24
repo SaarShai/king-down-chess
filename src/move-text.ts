@@ -68,8 +68,12 @@ function checkPath(board: Uint8Array, from: number, king: number): Checker['path
 /** A short line for the last move, with the card or power name. */
 export function shortMove(pre: Position, m: Move, pieceName: (type: PieceType) => string): string {
   const side = SIDE[pre.turn], name = pieceName(typeOf(pre.board[m.from]));
+  const colouredPiece = (s: number): string => `${SIDE[colorOf(pre.board[s])].toLowerCase()} ${pieceName(typeOf(pre.board[s]))}`;
   const power = m.power ? `${m.via ? `${cardName(m.via === 'mirrorb' ? 'MirrorB' : 'Mirror')} · ` : ''}${cardName(TAG_POWER[m.power])} · ` : '';
   const action = m.pass ? `ends turn · ${pre.free ? pre.marks?.[pre.turn] ? 'mark' : 'draw' : pre.rage === 3 ? 'Rally' : 'Haste'}`
+    : m.power === 'curse' ? `moves ${colouredPiece(m.from)} ${sqName(m.from)} → ${sqName(m.to)}`
+    : m.power === 'quake' || m.power === 'quakeb' ? `at ${sqName(m.from)} · ${m.pushes!.map(push => `${colouredPiece(push.from)} ${sqName(push.from)} → ${sqName(push.to)}`).join(', ')}`
+    : m.power === 'salvation' ? `returns ${pieceName(m.drop!)} ${sqName(m.to)}`
     : m.drop !== undefined ? `adds ${pieceName(m.drop)} ${sqName(m.to)}${m.drop2 === undefined ? '' : `, ${sqName(m.drop2)}`}`
     : m.castle ? `castles ${file(m.to) === 6 ? 'short' : 'long'}`
     : `${name} ${sqName(m.from)}${m.from === m.to ? '' : ` ${m.swap ? '↔' : '→'} ${sqName(m.to)}`}${m.promo ? ` = ${pieceName(m.promo)}` : ''}${m.from === m.to && m.captures.length ? ` × ${m.captures.map(sqName).join(', ')}` : ''}`;
@@ -105,7 +109,9 @@ function moveSentence(context: MoveRules, pre: Position, m: Move, freePass: bool
   if (m.power === 'curse') return `${side} uses ${cardName(TAG_POWER[m.power])} to move the ${colour(m.from)} ${the(m.from)} to ${sqName(m.to)}.`;
   if (m.power === 'skylift') return `${side} uses ${cardName(TAG_POWER[m.power])} to swap ${theOn(m.from)} and ${theOn(m.to)}.`;
   if (m.pushes) {
-    const pushed = m.pushes.length > 2 ? `${m.pushes.length} pieces one square away` : m.pushes.map(p => `the ${colour(p.from)} ${the(p.from)} to ${sqName(p.to)}`).join(' and ');
+    // Each pushed piece is named (card-move-text spec), also when the quake pushes more than two.
+    const each = m.pushes.map(p => `the ${colour(p.from)} ${the(p.from)} to ${sqName(p.to)}`);
+    const pushed = each.length > 2 ? `${each.slice(0, -1).join(', ')} and ${each.at(-1)}` : each.join(' and ');
     return `${side} uses ${cardName(TAG_POWER[m.power!])} on ${sqName(m.to)} and pushes ${pushed}.`;
   }
   if (m.castle) return `${side} castles ${file(m.to) === 6 ? 'short' : 'long'}.`;

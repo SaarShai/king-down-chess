@@ -7,7 +7,8 @@ describe('.github/workflows/plugin-checks.yml', () => {
   const workflow = readFileSync(join(import.meta.dirname, '..', '.github', 'workflows', 'plugin-checks.yml'), 'utf8');
   const job = (name: string) => workflow.split(`\n  ${name}:\n`)[1]?.split(/\n  [\w-]+:\n/)[0] ?? '';
   // The WebKit tests (two jobs) and the WebKit journeys (one job) run with the same install, sampler and diagnostics.
-  const webkitJobs = [['browser-webkit', 'webkit'], ['browser-webkit-board', 'webkit-board'], ['browser-webkit-ui', 'webkit-ui']] as const;
+  // The board job runs one file to a runner, so its artifact names end with the file.
+  const webkitJobs = [['browser-webkit', 'webkit', ''], ['browser-webkit-board', 'webkit-board', '-${{ matrix.file }}'], ['browser-webkit-ui', 'webkit-ui', '']] as const;
 
   it('runs once per PR update and keeps the Node 24 database suite', () => {
     const triggers = workflow.split('\non:\n')[1].split('\npermissions:')[0];
@@ -17,8 +18,8 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(verify).toContain('image: postgres:17');
     expect(verify).toContain('PLUGIN_TEST_DATABASE_URL:');
     expect(verify).toContain('- run: npm run plugin:db:init-test');
-    expect(verify).toContain('- run: npm test');
-    expect([...workflow.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):$/gm)].map(m => m[1])).toEqual(['verify', 'browser', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui', 'browser-firefox']);
+    expect(verify).toContain("- run: npm test\n        env:\n          KINGDOWN_TEST_SKIP: 'tools/plugin-board{,-input,-drafts}.test.ts'\n");
+    expect([...workflow.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):$/gm)].map(m => m[1])).toEqual(['verify', 'browser-board', 'browser', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui', 'browser-firefox']);
   });
 
   it('keeps the release and sample instructions in line with the CI and push gates', () => {
@@ -37,10 +38,22 @@ describe('.github/workflows/plugin-checks.yml', () => {
     // The WebKit steps run with limits times 3 (tools/lib/checks.mjs STEP), so the job has 45 minutes.
     expect(webkit).toContain('timeout-minutes: 45');
     expect(webkit).toContain('PLAYABLE_BROWSER: webkit');
+    expect(webkit).toContain("PLAYABLE_CPU_CANVAS: '1'");
     expect(webkit).toContain('npx playwright install --with-deps webkit');
     expect(webkit).not.toContain('needs:');
     expect(job('browser')).toContain('npx playwright install --with-deps chromium');
     expect(job('browser')).not.toContain('webkit');
+    for (const other of ['verify', 'browser-board', 'browser', 'browser-web', 'browser-firefox']) expect(job(other)).not.toContain('PLAYABLE_CPU_CANVAS');
+  });
+
+  it('runs the Chromium board files that verify leaves out, one file to a runner', () => {
+    // Side by side in verify, the three board files starved each other and every other test file (ticket 77, round 9).
+    const board = job('browser-board');
+    expect(board).toContain('timeout-minutes: 30');
+    expect(board).toContain('      matrix:\n        file: [board, board-input, board-drafts]\n');
+    expect(board).toContain('npx playwright install --with-deps chromium');
+    expect(board).toContain('- run: npm test\n        env:\n          KINGDOWN_TEST_FILE: tools/plugin-${{ matrix.file }}.test.ts\n');
+    expect(board).not.toContain('webkit');
   });
 
   it('gives the full test job and the Chromium checks 30 minutes for their CI step limits', () => {
@@ -66,8 +79,10 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(webkit).toContain("KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size}.test.ts'");
     expect(webkit).toContain('name: webkit-check-logs');
     expect(board).toContain('- run: npm test');
-    expect(board).toContain("KINGDOWN_TEST_FILE: 'tools/plugin-board-{input,drafts}.test.ts'");
-    expect(board).toContain('name: webkit-board-check-logs');
+    // One board file to a runner: side by side on one runner, the two files starved each other's WebKit page (ticket 77).
+    expect(board).toContain('      matrix:\n        file: [input, drafts]\n');
+    expect(board).toContain('KINGDOWN_TEST_FILE: tools/plugin-board-${{ matrix.file }}.test.ts');
+    expect(board).toContain('name: webkit-board-check-logs-${{ matrix.file }}');
     expect(ui).toContain('- run: npm run check:browser plugin-ui');
     expect(ui).toContain('- run: npm run check:browser web-online');
     expect(ui).toContain('name: webkit-ui-check-logs');
@@ -84,16 +99,16 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(sampler).toContain('nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &');
   });
 
-  it.each(webkitJobs)('saves kernel output in %s on failure or cancellation before the WebKit log upload', (name, prefix) => {
+  it.each(webkitJobs)('saves kernel output in %s on failure or cancellation before the WebKit log upload', (name, prefix, suffix) => {
     const webkit = job(name);
     const capture = webkit.split('      - name: Save kernel log\n')[1]?.split(/\n      - /)[0] ?? '';
     expect(capture).toContain('if: failure() || cancelled()');
     expect(capture).toContain('run: sudo dmesg -T | tail -n 400 > /tmp/kingdown-check-runs/dmesg.txt || true');
-    expect(webkit.indexOf('- name: Save kernel log')).toBeLessThan(webkit.indexOf(`name: ${prefix}-check-logs`));
+    expect(webkit.indexOf('- name: Save kernel log')).toBeLessThan(webkit.indexOf(`name: ${prefix}-check-logs${suffix}\n`));
   });
 
-  it.each(webkitJobs)('uploads the WebKit sampler log of %s on every result for seven days', (name, prefix) => {
-    const upload = job(name).split(/\n      - /).find(step => step.includes(`name: ${prefix}-sampler\n`)) ?? '';
+  it.each(webkitJobs)('uploads the WebKit sampler log of %s on every result for seven days', (name, prefix, suffix) => {
+    const upload = job(name).split(/\n      - /).find(step => step.includes(`name: ${prefix}-sampler${suffix}\n`)) ?? '';
     expect(upload).toContain('if: always()');
     expect(upload).toContain('uses: actions/upload-artifact@v4');
     expect(upload).toContain('path: /tmp/kingdown-check-runs/webkit-sampler.log');

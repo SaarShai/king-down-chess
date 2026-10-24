@@ -17,7 +17,7 @@ export async function checkStagingLogin({ browser, origin, accountOrigin, actors
     if (url.origin === accountOrigin && url.pathname === '/auth/v1/settings') return route.fulfill({ json: { external: { github: true, google: false } } });
     if (url.origin === accountOrigin && url.pathname === '/auth/v1/token' && url.searchParams.get('grant_type') === 'password') {
       const body = request.postDataJSON(); attempts++;
-      assert.equal(body.email, 'privacy-check@kingdown.example');
+      assert.equal(body.email, 'player-two@kingdown.example');
       if (body.password === 'wrong-fixture-password') return route.fulfill({ status: 400, json: { code: 'invalid_credentials', message: 'Private fixture failure detail' } });
       assert.equal(body.password, 'fixture-password');
       return route.fulfill({ json: { access_token: tokens[1], refresh_token: 'fixture-refresh', token_type: 'bearer', expires_in: 600,
@@ -29,10 +29,20 @@ export async function checkStagingLogin({ browser, origin, accountOrigin, actors
     const page = await context.newPage(); page.setDefaultTimeout(15_000);
     await page.goto(origin + '/g/' + games[0].game_id);
     const email = page.getByLabel('Email', { exact: true }), password = page.getByLabel('Password', { exact: true });
-    await password.waitFor(); assert.equal(await email.inputValue(), 'privacy-check@kingdown.example'); assert(await email.getAttribute('readonly') !== null);
+    await password.waitFor(); assert.equal(await email.inputValue(), ''); assert(await email.isEditable());
     await noSidewaysScroll(page); await shot(page, 'staging-password-form');
+    await password.fill('fixture-password'); await password.press('Enter');
+    assert.equal(attempts, 0, 'A required email stops an empty form before auth');
+    assert(await email.evaluate(input => input.validity.valueMissing));
+    await email.fill('invalid-email'); await password.press('Enter');
+    assert.equal(attempts, 0, 'The email field stops malformed input before auth');
+    assert(await email.evaluate(input => input.validity.typeMismatch));
+    await email.fill('player-two@kingdown.example');
+    await password.fill(''); await password.press('Enter');
+    assert.equal(attempts, 0, 'A required password stops an empty form before auth');
+    assert(await password.evaluate(input => input.validity.valueMissing));
     await password.fill('wrong-fixture-password'); await password.press('Enter');
-    await page.getByText('Sign-in failed. Check the password and try again.', { exact: true }).waitFor();
+    await page.getByText('Sign-in failed. Check the email and password and try again.', { exact: true }).waitFor();
     assert.equal(await password.inputValue(), ''); assert.equal(await page.getByText('Private fixture failure detail').count(), 0);
     const refused = page.waitForResponse(response => new URL(response.url()).pathname === '/api/games/' + games[0].game_id);
     await password.fill('fixture-password'); await password.press('Enter');
@@ -48,6 +58,6 @@ export async function checkStagingLogin({ browser, origin, accountOrigin, actors
     await page.locator('#board').waitFor({ state: 'visible' });
     await shot(page, 'staging-password-own-game');
     assert.equal(attempts, 2); assert.deepEqual(unexpected, []);
-    console.log('PASS staging-login: fixed account, failed password recovery, normal SDK session, route return, real API private refusal and own-game access; no external request');
+    console.log('PASS staging-login: entered email, native input validation, failed password recovery, normal SDK session, route return, real API private refusal and own-game access; no external request');
   } finally { await context.close(); }
 }
