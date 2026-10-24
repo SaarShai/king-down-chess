@@ -11,7 +11,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PluginService } from '../plugin/service';
 import { DEFAULT_OPTIONS } from '../match/setup';
 import { MAX_REVISION } from '../match/protocol';
-import { GameService } from '../match/service';
+import { GameService, TURN_DAYS } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
 import { cleanup, runDeletions, sweepDeadlines } from './jobs';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
@@ -35,7 +35,7 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
   await admin.query('update public.profiles set handle=$2 where id=$1', [id, `${name}${id.slice(0, 8)}`]);
   return id;
  }
- /** A Daily friend game: host White, guest Black, joined now. */
+ /** A friend game: host White, guest Black, joined now. */
  async function friend(host: string, guest: string, options: object = {}) {
   const created = await games[0].create(host, { kind: 'friend', options: CLASSIC_OPTIONS, colour: 'white', ...options });
   await games[1].join(guest, (await games[0].invite(host, created.game_id)).code);
@@ -78,7 +78,8 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
 
  it('ends a missed Daily deadline and a waiting game whose invitation ran out, once with two sweeps at once', async () => {
   const [a, b] = [await user('ann'), await user('bob')], start = at().getTime();
-  const late = await friend(a, b, { days_per_move: 1 });
+  const late = await friend(a, b);
+  await admin.query('update public.games set days_per_move=1 where id=$1', [late]); // a game made before F-031 keeps its 1 day
   await move(a, late); await move(b, late); // White to move by start + 1 day
   const open = await games[0].create(a, { kind: 'friend', options: CLASSIC_OPTIONS }); await games[0].invite(a, open.game_id);
   await admin.query('update public.game_invites set expires_at=$2 where game_id=$1', [open.game_id, new Date(start + DAY)]);
@@ -191,13 +192,13 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
   try {
    const service = new GameService(new PostgresMatchStore(runtime));
    const [h, p, gone] = [await user('uma'), await user('val'), await user('wes')];
-   const id = await friend(h, p, { days_per_move: 1 });
+   const id = await friend(h, p);
    await move(h, id); at(MINUTE); await move(p, id);
    await admin.query(`insert into public.account_deletions(user_id,run_after) values($1,now()-interval '1 minute')`, [gone]);
    await sweepDeadlines(service, at(MINUTE));
    expect(await runDeletions(service)).toBe(1);
    await cleanup(service, at());
-   expect(await sweepDeadlines(service, at(DAY))).toBeGreaterThanOrEqual(1);
+   expect(await sweepDeadlines(service, at(TURN_DAYS * DAY))).toBeGreaterThanOrEqual(1);
    for (const statement of [
     'select email from auth.users',
     'delete from auth.users',
