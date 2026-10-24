@@ -219,11 +219,13 @@ export function refreshTable(s: TableState): void {
     if (!h.move.pass) row.insertAdjacentHTML('afterbegin', pieceIcon(typeOf(h.pos.board[h.move.from]) as PieceType, colorOf(h.pos.board[h.move.from])));
   });
   const status = text('status');
+  // Playtest F-103: a tap refused while a power is armed keeps the power's line and Cancel.
+  const armed = s.armed ? s.rules.kings[s.game.pos.turn]?.power : undefined;
   const state: ContextState = {
     voice: s.sides.includes('ai') || s.linkSide != null ? 'you' : liveSide ? 'Black' : 'White',
     review: s.viewing != null && !s.previously?.playing ? `Review. ${s.power?.read || read || (s.viewing === 0 ? 'The start.' : `Move ${moveNumbers(history.map(h => h.pos.turn))[s.viewing - 1]}, ${shown!.pos.turn ? 'Black' : 'White'}.`)}` : '',
-    result: status && status !== 'thinking…' ? status : '', refusal: s.notice,
-    armed: s.armed ? s.rules.kings[s.game.pos.turn]?.power : undefined, chain: !!s.pending.length, canStop: !$('stop-chain').hidden,
+    result: status && status !== 'thinking…' ? status : '', refusal: armed ? '' : s.notice,
+    armed, armedRefusal: armed ? s.notice : '', chain: !!s.pending.length, canStop: !$('stop-chain').hidden,
     read: s.power?.read || (reading || s.selected == null ? read : ''),
     readNote: s.power?.read ? s.power.note : s.viewing != null && !read ? s.reviewNote : readNote,
     armedLine: s.power?.armedLine, powerUse: s.power?.use,

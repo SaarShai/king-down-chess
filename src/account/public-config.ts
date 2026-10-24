@@ -17,8 +17,7 @@ export function publicAccountConfig(env: Record<string, unknown>): { url: string
   return { url: url.origin, publishableKey };
 }
 
-/** The server's password allowlist remains the authority for this staging test account. */
-export function stagingTestEmail(env: Record<string, unknown>): string | null {
-  return env.VITE_KINGDOWN_STAGE === 'staging' && env.VITE_SUPABASE_URL === STAGING_URL
-    ? 'privacy-check@kingdown.example' : null;
+/** The server's password allowlist controls which staging accounts can sign in. */
+export function stagingPasswordSignInEnabled(env: Record<string, unknown>): boolean {
+  return env.VITE_KINGDOWN_STAGE === 'staging' && env.VITE_SUPABASE_URL === STAGING_URL;
 }

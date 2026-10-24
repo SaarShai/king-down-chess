@@ -661,10 +661,11 @@ try {
     // Ticket 22: measure the card image against its card coin. The image is centred when the two gaps on each axis
     // match (x and y are 0). It fills the coin face inside the ring when it keeps a 4 px gutter at each size:
     // 26 px in a 34 px coin and 36 px in a 44 px coin, with the 1 px border, the 2 px ring and 1 px of light.
+    // A spent coin (the computer can cast before the measure) draws its paint at scale .96 (PR #92), so its image is .96 of that.
     // `cardFaces` holds `#game-table` (a strip redraw keeps it) and finds the images in the same page call as the
     // measure, so the computer's reply, which redraws the strips, cannot detach a found image.
     const faceFaults = (faces, size) => faces.filter(face => !['strip-me', 'strip-them'].includes(face.side)
-      || face.coin !== size || face.image !== size - 8 || face.x !== 0 || face.y !== 0);
+      || face.coin !== size || face.image !== Math.round((size - 8) * (face.state === 'used' ? 96 : 100)) / 100 || face.x !== 0 || face.y !== 0);
     await page.setViewportSize({ width: 393, height: 852 });
     await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
     await frame.locator('#game-table').evaluate(async table => {
@@ -2794,6 +2795,8 @@ try {
     assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),false,'Failed background reads lock rematch without replacing the result');
     await frame.locator('#over #retry').click(); await frame.locator('#over #retry').waitFor({state:'hidden'}); await idleBoard();
     assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),true,'A fresh game read clears the rematch lock');
+    // F-006: a friend result never sends the player to Ranked, also in the staging build that offers Ranked.
+    assert.equal(await frame.locator('#over .quiet-line').innerText(),'A rematch is Casual. It keeps the features and swaps the colours.','A friend result does not name Ranked');
     if (mode==='fixture') { await frame.locator('.end-facts').filter({hasText:'New player'}).waitFor(); assert(!/1561|\+61|\?/.test(await frame.locator('.end-facts').innerText()), 'A new player sees no provisional number'); assert.match(await frame.locator('.new-badge img').getAttribute('src'),/badge-fairy-tale-/); }
     await page.setViewportSize({width:197,height:426});
     await page.locator('iframe').evaluate(e=>e.style.setProperty('height','100dvh','important'));

@@ -1,0 +1,663 @@
+[
+  {
+    "id": "card-freeze",
+    "family": "card",
+    "item": "Freeze",
+    "setup": {
+      "fen": "4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1",
+      "hand": [
+        "Freeze"
+      ]
+    },
+    "actions": [
+      "!F:d5"
+    ],
+    "expected": {
+      "board": {
+        "d5": "n"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ],
+      "marks": [
+        {
+          "sq": "d5"
+        },
+        null
+      ],
+      "legalExcludes": [
+        "Nd5-c3"
+      ],
+      "rules": {
+        "markFree": false
+      }
+    }
+  },
+  {
+    "id": "card-icewall",
+    "family": "card",
+    "item": "IceWall",
+    "setup": {
+      "fen": "4k3/8/8/8/R7/8/2b5/4K3 w - - 0 1",
+      "hand": [
+        "IceWall"
+      ]
+    },
+    "actions": [
+      "!W:a4"
+    ],
+    "expected": {
+      "board": {
+        "a4": "R",
+        "c2": "b"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ],
+      "marks": [
+        {
+          "sq": "a4",
+          "ward": true
+        },
+        null
+      ],
+      "legalExcludes": [
+        "Bc2xa4"
+      ]
+    }
+  },
+  {
+    "id": "card-strike",
+    "family": "card",
+    "item": "Strike",
+    "setup": {
+      "fen": "4k3/8/8/8/7p/8/3P4/4K3 w - - 0 1",
+      "hand": [
+        "Strike"
+      ]
+    },
+    "actions": [
+      "d2-d8!"
+    ],
+    "expected": {
+      "board": {
+        "d2": null,
+        "d8": "P"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ],
+      "rules": {
+        "strikePawns": true,
+        "strikeCaptures": true
+      }
+    }
+  },
+  {
+    "id": "card-haste",
+    "family": "card",
+    "item": "Haste",
+    "setup": {
+      "fen": "7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1",
+      "hand": [
+        "Haste"
+      ]
+    },
+    "actions": [
+      "Ra1xa5!H",
+      "Ra5xe5"
+    ],
+    "checkpoints": [
+      {
+        "after": 1,
+        "expected": {
+          "turn": 0,
+          "haste": "a5",
+          "used": [
+            1,
+            0
+          ],
+          "legalIncludes": [
+            "Ra5xe5",
+            "--"
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "board": {
+        "a1": null,
+        "a5": null,
+        "e5": "R"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ],
+      "haste": null,
+      "rules": {
+        "hasteCaptures": true
+      }
+    }
+  },
+  {
+    "id": "card-flight",
+    "family": "card",
+    "item": "Flight",
+    "setup": {
+      "fen": "4k3/8/8/8/8/8/1P6/RN2K3 w - - 0 1",
+      "hand": [
+        "Flight"
+      ]
+    },
+    "actions": [
+      "Nb1~d3"
+    ],
+    "expected": {
+      "board": {
+        "b1": null,
+        "d3": "N"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ]
+    }
+  },
+  {
+    "id": "card-sacrifice",
+    "family": "card",
+    "item": "Sacrifice",
+    "setup": {
+      "fen": "4k3/8/8/8/8/8/P7/4K3 w - - 0 1 lQG",
+      "hand": [
+        "Sacrifice"
+      ]
+    },
+    "actions": [
+      "!S:a2=Q"
+    ],
+    "expected": {
+      "board": {
+        "a2": "Q"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ],
+      "lost": {
+        "Q": 0,
+        "G": 1
+      }
+    }
+  },
+  {
+    "id": "card-march",
+    "family": "card",
+    "item": "March",
+    "setup": {
+      "fen": "7k/8/8/8/8/4P3/8/K7 w - - 0 1",
+      "hand": [
+        "March"
+      ]
+    },
+    "actions": [
+      "e3-e5!M"
+    ],
+    "expected": {
+      "board": {
+        "e3": null,
+        "e5": "P"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ]
+    }
+  },
+  {
+    "id": "card-leap",
+    "family": "card",
+    "item": "Leap",
+    "setup": {
+      "fen": "7k/8/8/p7/8/8/P7/R6K w - - 0 1",
+      "hand": [
+        "Leap"
+      ]
+    },
+    "actions": [
+      "Ra1-a3!L"
+    ],
+    "expected": {
+      "board": {
+        "a1": null,
+        "a2": "P",
+        "a3": "R"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ]
+    }
+  },
+  {
+    "id": "card-salvation",
+    "family": "card",
+    "item": "Salvation",
+    "setup": {
+      "fen": "4k3/8/8/8/8/8/P7/N3K3 w - - 3 9 lPRQG",
+      "hand": [
+        "Salvation"
+      ]
+    },
+    "actions": [
+      "R@h1!R"
+    ],
+    "expected": {
+      "board": {
+        "a1": "N",
+        "h1": "R"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ],
+      "lost": {
+        "P": 1,
+        "Q": 1,
+        "R": 0,
+        "G": 1
+      }
+    }
+  },
+  {
+    "id": "card-mirrorb",
+    "family": "card",
+    "item": "MirrorB",
+    "setup": {
+      "fen": "4k3/8/3n4/8/8/8/P7/4K3 w - - 0 1",
+      "hand": [
+        "MirrorB",
+        "Freeze"
+      ],
+      "kings": "Mud:March,none"
+    },
+    "actions": [
+      "!F:d6!Z",
+      "a2-a3"
+    ],
+    "expected": {
+      "board": {
+        "a2": null,
+        "a3": "P",
+        "d6": "n"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ],
+      "marks": [
+        {
+          "sq": "d6"
+        },
+        null
+      ]
+    }
+  },
+  {
+    "id": "card-firewall",
+    "family": "card",
+    "item": "Firewall",
+    "setup": {
+      "fen": "4k3/8/8/3r4/8/1n6/R7/N3K3 w - - 0 1",
+      "hand": [
+        "Firewall"
+      ],
+      "kings": "Mud:March,none"
+    },
+    "actions": [
+      "!P",
+      "Ra2-d2"
+    ],
+    "checkpoints": [
+      {
+        "after": 1,
+        "expected": {
+          "turn": 0,
+          "free": true,
+          "marks": [
+            {
+              "sq": "e1",
+              "ward": true,
+              "all": true
+            },
+            null
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "board": {
+        "a2": null,
+        "d2": "R"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ],
+      "free": false,
+      "marks": [
+        {
+          "sq": "e1",
+          "ward": true,
+          "all": true
+        },
+        null
+      ],
+      "legalExcludes": [
+        "Rd5xd2",
+        "Nb3xa1"
+      ]
+    }
+  },
+  {
+    "id": "card-earthquake",
+    "family": "card",
+    "item": "EarthQuake",
+    "setup": {
+      "fen": "4k3/8/8/3p4/2N5/4B3/5P2/4K3 w - - 0 1",
+      "hand": [
+        "EarthQuake"
+      ]
+    },
+    "actions": [
+      "!Q:d4"
+    ],
+    "expected": {
+      "board": {
+        "c4": null,
+        "b4": "N",
+        "d5": null,
+        "d6": "p",
+        "e3": "B",
+        "f2": "P"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ],
+      "halfmove": 0
+    }
+  },
+  {
+    "id": "card-burn",
+    "family": "card",
+    "item": "Burn",
+    "setup": {
+      "fen": "4k3/8/8/3n4/8/8/R7/3QK3 w - - 0 1",
+      "hand": [
+        "Burn"
+      ]
+    },
+    "actions": [
+      "Ra2xd5!N"
+    ],
+    "expected": {
+      "board": {
+        "a2": null,
+        "d5": "R",
+        "d1": "Q"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ]
+    }
+  },
+  {
+    "id": "card-firestarter",
+    "family": "card",
+    "item": "FireStarter",
+    "setup": {
+      "fen": "1n2k2r/8/8/8/8/8/8/R2QK3 w - - 0 1",
+      "hand": [
+        "FireStarter"
+      ]
+    },
+    "actions": [
+      "Ra1xh8!T"
+    ],
+    "expected": {
+      "board": {
+        "a1": null,
+        "h8": "R",
+        "b8": "n"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ]
+    }
+  },
+  {
+    "id": "card-control",
+    "family": "card",
+    "item": "Control",
+    "setup": {
+      "fen": "4k3/1p6/8/8/8/8/8/RN2K3 w - - 0 1",
+      "hand": [
+        "Control"
+      ]
+    },
+    "actions": [
+      "Nb1xb7!O"
+    ],
+    "expected": {
+      "board": {
+        "b1": null,
+        "b7": "N",
+        "a1": "R"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ]
+    }
+  },
+  {
+    "id": "card-rally",
+    "family": "card",
+    "item": "Rally",
+    "setup": {
+      "fen": "4k3/8/p7/8/8/2p5/8/RN2K3 w - - 0 1",
+      "hand": [
+        "Rally"
+      ]
+    },
+    "actions": [
+      "Ra1-a5!J",
+      "Nb1-d2"
+    ],
+    "checkpoints": [
+      {
+        "after": 1,
+        "expected": {
+          "turn": 0,
+          "haste": "a5",
+          "legalIncludes": [
+            "Nb1-d2",
+            "--"
+          ],
+          "legalExcludes": [
+            "Ra5-a4",
+            "Nb1xc3"
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "board": {
+        "a1": null,
+        "a5": "R",
+        "b1": null,
+        "d2": "N",
+        "c3": "p"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ],
+      "haste": null
+    }
+  },
+  {
+    "id": "card-morphp",
+    "family": "card",
+    "item": "MorphP",
+    "setup": {
+      "fen": "4k3/8/8/8/8/8/PP6/R3K3 w - - 7 12",
+      "hand": [
+        "MorphP"
+      ]
+    },
+    "actions": [
+      "!IP:b2=N"
+    ],
+    "expected": {
+      "board": {
+        "a2": "P",
+        "b2": "N"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ],
+      "halfmove": 0
+    }
+  },
+  {
+    "id": "card-mimic",
+    "family": "card",
+    "item": "Mimic",
+    "setup": {
+      "fen": "4k3/8/8/1n6/8/8/8/RN2K3 w - - 0 1",
+      "hand": [
+        "Mimic"
+      ]
+    },
+    "actions": [
+      "Nb1-b4!X"
+    ],
+    "expected": {
+      "board": {
+        "b1": null,
+        "b4": "N",
+        "b5": "n",
+        "a1": "R"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ]
+    }
+  },
+  {
+    "id": "card-vault",
+    "family": "card",
+    "item": "Vault",
+    "setup": {
+      "fen": "4k3/8/r7/8/8/n7/8/R3K3 w - - 0 1",
+      "hand": [
+        "Vault"
+      ]
+    },
+    "actions": [
+      "Ra1xa6!V"
+    ],
+    "expected": {
+      "board": {
+        "a1": null,
+        "a3": "n",
+        "a6": "R"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ]
+    }
+  },
+  {
+    "id": "card-curse",
+    "family": "card",
+    "item": "Curse",
+    "setup": {
+      "fen": "4k3/8/8/3n4/8/8/P7/4K3 w - - 0 1",
+      "hand": [
+        "Curse"
+      ]
+    },
+    "actions": [
+      "!C:d5-e5"
+    ],
+    "expected": {
+      "board": {
+        "d5": null,
+        "e5": "n"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ]
+    }
+  },
+  {
+    "id": "card-skylift",
+    "family": "card",
+    "item": "SkyLift",
+    "setup": {
+      "fen": "4k3/8/8/8/8/8/P7/RNB1K1N1 w - - 0 1",
+      "hand": [
+        "SkyLift"
+      ]
+    },
+    "actions": [
+      "!K:a1<>g1"
+    ],
+    "expected": {
+      "board": {
+        "a1": "N",
+        "g1": "R",
+        "b1": "N",
+        "c1": "B"
+      },
+      "turn": 1,
+      "used": [
+        1,
+        0
+      ]
+    }
+  }
+]

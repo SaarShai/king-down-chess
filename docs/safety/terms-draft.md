@@ -122,9 +122,9 @@ After that, we delete your profile and your data. Your finished and running game
 
 We can close your account if you break these terms.
 
-### 10. Daily games
+### 10. Time to move
 
-A Daily game has a time limit for each move. The players choose it when they start the game. A player who runs out of time loses.
+A game against another player has a time limit for each move: three days. A player who runs out of time loses.
 
 We send you an email when it is your turn. We send no more until you come back to the game. You can change this in your settings.
 
@@ -161,7 +161,7 @@ To contact us, see the contact page.
 | The live delete-data page says that deletion happens at once. | A 7-day wait; a sign-in cancels it; games stay (section 9). Change the delete-data page to match. |
 | No safety, reporting or complaints text | Sections 5 to 8 |
 | No ban on content | A list that applies to every user (section 5) |
-| No text on Daily games | Section 10 |
+| No text on the time to move | Section 10 |
 
 Two pages must change with these terms. The first is `public/privacy.html`. It needs a handle and an icon in place of the display name and photo. It needs text on messages, reports and the minimum age. It needs the deletion wait, and how long data stays after a report. The second is `public/delete-data.html`.
 

@@ -8,7 +8,11 @@ import type { Color, Rules } from '../rules/engine';
  * a new setting only when it is not at its default. Then an old save keeps its JSON. If not, the first
  * save after an update counts as a settings change, and it wins over newer settings in the account.
  */
-export interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; skill?: SkillName; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean; labels?: true }
+export interface Save {
+  daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; skill?: SkillName; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean; labels?: true;
+  /** The last plies of `moves` that are staged, not handed over (web-redesign spec §4.8); written only when more than 0. */
+  staged?: number;
+}
 /**
  * The fields of `Save` that are settings; the rest is the saved game. account/sync.ts keeps its own copy
  * (an import from here would add a shared chunk to the build); save.test.ts holds the two lists equal.
