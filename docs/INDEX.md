@@ -36,7 +36,7 @@ When you add, move or remove an entry at the top of `docs/`, change its line her
 - [specs/](specs/): What is planned or in progress for a feature? One folder per feature: `spec.md`, then one `issues/NN-<slug>.md` per ticket. [The issue tracker](agents/issue-tracker.md) gives the conventions. **TASKS.md is the source of truth for open items**; the ticket holds the detail.
 - [tasks-archive/](tasks-archive/): What did the old task sections, the old handoffs and the dated snapshots say? One file per month, the handoffs, and three snapshots: [STATUS-2026-09-13.md](tasks-archive/STATUS-2026-09-13.md), [TAKEOVER-REVIEW-2026-09-14.md](tasks-archive/TAKEOVER-REVIEW-2026-09-14.md), [RELEASE-REVIEW-2026-09-16.md](tasks-archive/RELEASE-REVIEW-2026-09-16.md).
 - [STATUS.md](STATUS.md): What was the state of the game after the takeover (2026-09-16)? History; for open work, TASKS.md wins.
-- [status/](status/): What did the status report of 2026-10-09 say? A page and a workbook.
+- [status/](status/): What did the old status reports say? A page of 2026-09-13 ([index.html](status/index.html)) and a workbook of 2026-10-09 ([king-down-status-2026-10-09.xlsx](status/king-down-status-2026-10-09.xlsx)).
 - [TAKEOVER-PLAN.md](TAKEOVER-PLAN.md): What was the plan to take over the v0.7 game (2026-09-14)? History.
 - [takeover/](takeover/): What was the state at the start of the takeover ([BASELINE.md](takeover/BASELINE.md), 2026-09-16)? History.
 
