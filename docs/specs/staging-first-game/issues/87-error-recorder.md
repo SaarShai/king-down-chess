@@ -27,7 +27,7 @@ The owner approves this task in the run request. Work stays on `staging/error-re
 - The database groups by fingerprint, build and UTC hour. It keeps one sample and at most 20 route and browser values. This bounds each row.
 - The function accepts at most 60 reports per minute, with at most two database writes in flight. It uses no address key.
 - Each write uses one client and one transaction, with local statement and lock limits of 500 ms. It deletes at most 100 expired rows and skips locked rows. A full pool drops the report. Daily cleanup uses the same limits and repeats 100-row batches until fewer than 100 unlocked expired rows remain. Its failure does not stop the other daily work. A missing table drops fault reports silently.
-- Approved message forms come from source error texts at build time and known browser and engine forms. Template values use a fixed mark. Every unlisted message uses one fixed text. Both browser and server apply this rule. The existing scrub rules are a second layer. Names use a fixed list. Unknown route words become ID marks. Browser frames must name JavaScript assets in the emitted site build. Server frames must start after the full message and use real stack lines.
+- Approved message forms come from source error texts at build time and known browser and engine forms. Every variable part uses a fixed mark, including short code names. Every unlisted message uses one fixed text. Both browser and server apply this rule. The existing scrub rules are a second layer. Names use a fixed list. Unknown route words become ID marks. Browser frames must name JavaScript assets in the emitted site build. Server frames must start after the full message and use real stack lines. Only the combined website build includes recorder setup, routes and cleanup. The plugin-only server and board bytes must match the base with the same packages.
 - Source maps are omitted. The repo has no private source-map store by build commit. A useful map step needs that store and a build/archive process. Bundle locations and build commits remain in the report.
 - The privacy text for play without an account now names fault reports. Its old claim that no data reaches the server conflicts with this task.
 
@@ -84,7 +84,7 @@ Check criteria: all review probe cases pass as tests; blocked SQL stops within i
 
 ### Fixes and proof
 
-- Messages: the build reads source error texts with the installed parser. This avoids a second manual list. It reads the message argument, including native error cause options. Template values use a fixed mark. Known engine forms keep only short code identifiers. All other messages become `Unlisted message`. The browser checks before send. The server checks before it accepts a report and before storage. The scrub stays as a second layer.
+- Messages: the build reads source error texts with the installed parser. This avoids a second manual list. It reads the message argument, including native error cause options. Template values and engine code names use a fixed mark. All other messages become `Unlisted message`. The browser checks before send. The server checks before it accepts a report and before storage. The scrub stays as a second layer.
 - Frames: the server build reads the emitted site JavaScript paths. Both the reader and writer drop unknown browser frames. A report with no remaining browser frame is dropped. The reader makes a new group code after it drops frames. Server stack parsing removes the full message first and accepts only real `    at ` lines.
 - Writes: each write uses one client and one transaction. Local statement and lock limits are 500 ms. The write slot stays active through rollback. A full pool drops the report. The API sends its fault response and releases its request slot before it calls `waitUntil`. The installed package and the [Vercel Node API](https://vercel.com/docs/functions/functions-api-reference/vercel-functions-package#waituntil) support this work after a response.
 - Retention: each delete takes at most 100 expired rows and skips locked rows. Daily cleanup repeats batches until fewer than 100 rows are removed. Each batch has the same local time limits. A fault cleanup failure has its own catch and rollback. Report cleanup and account deletion continue.
@@ -115,3 +115,45 @@ Logs are in `/private/tmp/claude-501/ci87/sol22/checks/`. The final browser deta
 ### Final code check
 
 The fix uses one shared message rule and one build helper. It adds no dependency. PostgreSQL controls the SQL time limit. The existing Node function package keeps recorder work active after the response. The daily job isolates fault cleanup failures. The tests prove the review cases through the real local database and emitted website. The board bytes match the staging base.
+
+## Second review fixes
+
+The owner requests both open fixes in `/private/tmp/claude-501/ci87/sol23/rereview.md`.
+The merge of `origin/staging/first-game` at `0c016348` has no conflict.
+
+Plan:
+
+1. Replace every variable part of an approved engine message with a fixed mark. Check the sent body and stored row for short private names and the old private-text cases.
+2. Include recorder code only in the combined website server build. Add a build test. Compare the plugin-only server and board bytes with a fresh build of `0c016348` with the same packages.
+3. Run the required type, selected test, full test, document and browser checks. Run copies of both review proof scripts. Record the results and commit. Do not push or deploy.
+
+Check criteria: no input value remains in sent or stored fields; all required checks pass; both byte comparisons pass; the temporary base worktree is removed; the final worktree is clean.
+
+### Second review results
+
+Both open findings are fixed.
+
+- Engine messages use fixed text for every variable part. The three short private names, UUID, email and move cases pass through the browser recorder and the real local database. Tests check the full sent body, all stored fields and the group code. The tests also send raw client messages and record server faults. The old FEN, player text, account number, full browser string, asset URL and Auth cases stay in place.
+- The server build enables recorder code only when it includes the website. The plugin build removes its setup, route, message data and daily cleanup. The build test checks the emitted file. The API reads recorder options only in a website build, so the plugin function stays unchanged. No dependency changes.
+- The copied review scripts change paths only. `identifiers.mjs` keeps no private name in sent or stored reports. `artifacts.mjs` returns 404 for the base and plugin-only recorder route, and 204 for the combined website route. The website stores one row. Old asset reports store no row. An absent table produces no error log. All of these servers run on loopback.
+- A fresh base worktree uses `0c016348` and a copy of this worktree's installed packages. The plugin-only server has 715,646 bytes and SHA-256 `48343160695990fb95dfd18a3eb4044e31794911b4f537cbcba278a545eee9b4`. Its bytes match the base. Both boards have 895,596 bytes and SHA-256 `34d2245fcec040d0e78c64e889880705ed834fbc7247015f6549fd631637a76f`. The combined website board also matches. The board CSP source has no change against the base. The temporary worktree and its branch are removed.
+
+| Check | Result |
+| --- | --- |
+| `npx tsc --noEmit -p .` | Pass. Exit 0. |
+| Selected `npm test` | Pass. Nine files, 158 tests and 56 drawing tests. |
+| Full `npm test`, once | Pass. 272 files, 5,081 tests and eight skips. All 56 drawing tests pass. |
+| `npm run test:docs` | Pass. 13 files and 167 tests. |
+| `npm run build:vercel` | Pass. |
+| `npm run plugin:build:vercel`, both revisions | Pass. Server and board byte checks pass. |
+| `npm run check:browser web-game plugin-ui` | Both pass. 41.9 seconds and 333.0 seconds. |
+| Copied `identifiers.mjs` and `artifacts.mjs` | Both pass under the shared test lock. |
+| `git diff --check` | Pass. |
+
+The selected test files are `src/diagnostics/*.test.ts`, `tools/errors-report.test.ts`, `src/api/http*.test.ts`, `src/online/jobs.db.test.ts`, `tools/plugin-server-build.test.ts` and `tools/lib/error-forms.test.ts`.
+
+The first byte check finds unused recorder data in the plugin output. The build now removes unused recorder modules too. The next check finds extra recorder fields in the API function arguments. Recorder options now use a website-only read. The final plugin bytes match the base. One test check rejects the word `fingerprint`, which also occurs in the unchanged game code. The check now uses recorder text. The next selected run and full run pass. The first package-copy command uses an incorrect relative path. The corrected command copies this worktree's installed packages to the base worktree. No dependency file changes.
+
+The full run takes 595.47 seconds. The browser runner waits for another run's exclusive lock, then both checks pass. No lock is removed. Logs, copied scripts, compared files and `build-compare.json` are in `/private/tmp/claude-501/ci87/sol24/`. Browser detail logs are in `kingdown-check-runs/sol-errors-XLmqDJ`.
+
+The code check finds no need for a new helper or dependency. Shared message rules fix the private-value fault once. A build flag and normal removal of unused modules keep the plugin output unchanged. All database work uses the approved loopback test database or its local test copies. No push, deploy, staging database connection or production database connection occurs.

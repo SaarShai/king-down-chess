@@ -156,6 +156,42 @@ suite('first-party fault HTTP and database writes', () => {
    expect(await rows()).toMatchObject([{ kind: 'server', message: raw.startsWith('bad FEN ') ? 'bad FEN [value]' : 'Unlisted message' }]);
   }
  });
+ it.each(['account123456789', 'K6X', 'MeetMeAtTheStation', 'd137864c-e174-4f38-9277-6bdd0a4289dc', 'person@example.com', 'e2e4'])('removes private engine names from sent bodies and stored rows: %s', async value => {
+  vi.resetModules();
+  const target = new EventTarget(), sent: Blob[] = [];
+  vi.stubGlobal('window', target);
+  vi.stubGlobal('location', { origin: 'https://kingdown.dev', pathname: '/play' });
+  vi.stubGlobal('navigator', { userAgent: 'Chrome/130.0', sendBeacon: (_: string, body: Blob) => { sent.push(body); return true; } });
+  vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  try {
+   const { installErrorRecorder } = await import('./browser'); installErrorRecorder();
+   let fault: Error;
+   try { const input = undefined as unknown as Record<string, unknown>; input[value]; } catch (error) { fault = error as Error; }
+   fault!.stack = `TypeError: ${fault!.message}\n at f (https://kingdown.dev/assets/app-test.js:2:4)`;
+   target.dispatchEvent(Object.assign(new Event('error'), { error: fault! }));
+   expect(sent).toHaveLength(1);
+   const body = await sent[0].text(), input = JSON.parse(body);
+   const message = ['person@example.com', 'd137864c-e174-4f38-9277-6bdd0a4289dc'].includes(value) ? 'Unlisted message' : 'Cannot read properties of [value] (reading [value])';
+   const fingerprint = errorFingerprint('TypeError', message, '/assets/app-test.js:2:4');
+   expect(body).not.toContain(value);
+   expect(input).toMatchObject({ message, fingerprint });
+   expect((await post(input)).status).toBe(204);
+   let stored = await rows();
+   expect(stored).toMatchObject([{ message, fingerprint, count: '1' }]);
+   expect(JSON.stringify(stored)).not.toContain(value);
+   // The server also checks raw messages from clients that omit the browser check.
+   expect((await post({ ...input, message: fault!.message })).status).toBe(204);
+   stored = await rows();
+   expect(stored).toMatchObject([{ message, fingerprint, count: '2' }]);
+   expect(JSON.stringify(stored)).not.toContain(value);
+   await admin.query('truncate public.client_errors');
+   fault!.stack = `TypeError: ${fault!.message}\n    at f (/var/task/server.mjs:2:4)`;
+   await recordServerError(options.recordError, fault!, '/api/me/profile', build);
+   stored = await rows();
+   expect(stored).toMatchObject([{ kind: 'server', message }]);
+   expect(JSON.stringify(stored)).not.toContain(value);
+  } finally { vi.unstubAllGlobals(); }
+ });
  it('drops unknown browser assets and removes false server frames from the message', async () => {
   const unknown = '/assets/d137864c-e174-4f38-9277-6bdd0a4289dc.js:1:2';
   const input = report(); input.frames = [unknown]; input.fingerprint = errorFingerprint(input.name, errorMessage(input.message), unknown);

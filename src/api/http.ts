@@ -92,7 +92,7 @@ function queryInput(query: URLSearchParams): Record<string, string> {
 }
 const redeemSchema = z.union([z.strictObject({ token: z.string().max(100) }), z.strictObject({ code: z.string().max(20) })]);
 
-export function createApiHandler({ games, accounts, safety, players, publicOrigin, verify, operations, webAccountAccess, admit, currentUser, recordError, build = '', errorAssets }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
+export function createApiHandler({ games, accounts, safety, players, publicOrigin, verify, operations, webAccountAccess, admit, currentUser }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
  const origin = pluginOrigin(publicOrigin);
  const readAccess = async (fresh = false) => {
   try {
@@ -177,20 +177,22 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
  const created = new Set(['POST /api/games', 'POST /api/reports']);
  const table = Object.entries(routes).map(([key, run]) => { const [method, path] = key.split(' '); return { key, method, dynamic: path.includes(':id'), pattern: new RegExp(`^${path.replace(':id', '([^/]+)')}$`), run }; });
  let active = 0;
- const admitError = errorAdmission();
+ // Read these options only in website builds to keep the plugin function unchanged.
+ const recorder = import.meta.env?.KINGDOWN_ERROR_RECORDER !== false ? arguments[0] as ApiOptions : undefined;
+ const admitError = import.meta.env?.KINGDOWN_ERROR_RECORDER !== false ? errorAdmission() : undefined;
  return async (req, res) => {
   const notFound = () => {
    res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff');
    req.resume(); respond(res, 404, { code: 'NOT_FOUND', message: 'Not found' });
   };
   // Fault reports need no account or account-access switch.
-  if (req.url?.split(/[?#]/, 1)[0] === '/api/client-errors' && req.method === 'POST') {
+  if (import.meta.env?.KINGDOWN_ERROR_RECORDER !== false && req.url?.split(/[?#]/, 1)[0] === '/api/client-errors' && req.method === 'POST') {
    res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff');
    try {
-    if (recordError && req.headers.host?.toLowerCase() === new URL(origin).host && req.headers.origin === origin
-     && (!req.headers['sec-fetch-site'] || req.headers['sec-fetch-site'] === 'same-origin') && admitError()) {
-     const report = await readClientError(req, errorAssets);
-     if (report) await recordError(report);
+    if (recorder?.recordError && req.headers.host?.toLowerCase() === new URL(origin).host && req.headers.origin === origin
+     && (!req.headers['sec-fetch-site'] || req.headers['sec-fetch-site'] === 'same-origin') && admitError!()) {
+     const report = await readClientError(req, recorder.errorAssets);
+     if (report) await recorder.recordError(report);
     }
    } catch { /* Dropped reports have the same empty response. */ }
    req.resume(); respond(res, 204); return;
@@ -247,8 +249,10 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
    if (known.status >= 500 && known.status !== 503) console.error('King Down API failed', { route: route.key, requestId: randomUUID(), ...diagnostic(error) });
    const commandId = (body as { command_id?: unknown } | undefined)?.command_id;
    respond(res, known.status, { ...(route.key === 'POST /api/games/:id/commands' && { type: 'reject', command_id: typeof commandId === 'string' ? commandId : '' }), code: known.code, message: known.message });
-   release?.(); release = undefined;
-   if (!(error instanceof MatchServiceError || error instanceof AuthenticationError || error instanceof AuthenticationUnavailable)) waitUntil(recordServerError(recordError, error, route.key.split(' ')[1], build));
+   if (import.meta.env?.KINGDOWN_ERROR_RECORDER !== false) {
+    release?.(); release = undefined;
+    if (!(error instanceof MatchServiceError || error instanceof AuthenticationError || error instanceof AuthenticationUnavailable)) waitUntil(recordServerError(recorder?.recordError, error, route.key.split(' ')[1], recorder?.build ?? ''));
+   }
   } finally { release?.(); }
  };
 }

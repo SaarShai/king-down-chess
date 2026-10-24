@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, mkdirSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
-import { vercelRoutes, siteErrorAssets } from './plugin-server-build.mjs';
+import { buildPluginServer, vercelRoutes, siteErrorAssets } from './plugin-server-build.mjs';
 
 it('routes only the site API boundary to the one MCP function for every method', () => {
   const site = mkdtempSync(join(tmpdir(), 'kingdown-api-routes-'));
@@ -48,3 +48,13 @@ it('takes browser frames only from emitted JavaScript in the site build', async 
   expect(await siteErrorAssets()).toEqual([]);
  } finally { rmSync(site, { recursive: true, force: true }); }
 });
+
+it('omits the website recorder from the emitted plugin-only server', async () => {
+ const out = mkdtempSync(join(tmpdir(), 'plugin-without-recorder-'));
+ try {
+  const output = await buildPluginServer(out, { vercel: true });
+  const server = readFileSync(join(output, 'functions/mcp.func/server.mjs'), 'utf8');
+  for (const text of ['/api/client-errors', 'client_errors', 'Unlisted message', 'Error message exceeds limit', 'Cannot read properties of [value]', '500ms']) expect(server.includes(text), text).toBe(false);
+  expect(server).toContain('King Down API failed');
+ } finally { rmSync(out, { recursive: true, force: true }); }
+}, 60_000);

@@ -28,11 +28,11 @@ function matchesSource(value: string, parts: string[]): boolean {
 }
 const identifier = '(?:\\[redacted\\]|[A-Za-z_$][A-Za-z0-9_$]{0,31}(?:\\.[A-Za-z_$][A-Za-z0-9_$]{0,31}){0,3})';
 const engineForms = [
- new RegExp(`^Cannot read properties of (?:undefined|null) \\(reading '?${identifier}'?\\)$`),
- new RegExp(`^${identifier} is not a function$`),
- new RegExp(`^(?:undefined|null) is not an object \\(evaluating '?${identifier}'?\\)$`),
- new RegExp(`^${identifier} is not defined$`),
-];
+ [new RegExp(`^Cannot read properties of (?:undefined|null) \\(reading '?${identifier}'?\\)$`), 'Cannot read properties of [value] (reading [value])'],
+ [new RegExp(`^${identifier} is not a function$`), '[value] is not a function'],
+ [new RegExp(`^(?:undefined|null) is not an object \\(evaluating '?${identifier}'?\\)$`), '[value] is not an object (evaluating [value])'],
+ [new RegExp(`^${identifier} is not defined$`), '[value] is not defined'],
+] as const;
 const fixedMessages = new Set(['Unlisted message', 'Failed to fetch', 'fetch failed', 'Load failed', 'NetworkError when attempting to fetch resource.', 'Maximum call stack size exceeded', 'too much recursion']);
 
 /** Keep approved forms only. The scrub is a second layer, not a free-text filter. */
@@ -42,7 +42,7 @@ export function errorMessage(value: string): string {
  for (const form of sourceForms) if (value === form.text || matchesSource(value, form.parts)) return form.text;
  if (/^(?:Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed)(?::[^\r\n]*)?\.?$/.test(value)) return 'Dynamic import failed';
  if (value === 'Dynamic import failed') return value;
- if (engineForms.some(pattern => pattern.test(value))) return scrub(value.replaceAll("'", ''));
+ for (const [pattern, text] of engineForms) if (value === text || pattern.test(value)) return text;
  return 'Unlisted message';
 }
 

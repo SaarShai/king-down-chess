@@ -56,12 +56,24 @@ it('keeps source forms and removes each template value', () => {
   ['unknown king "private" (private | none)', 'unknown king [redacted] ([value] | none)'],
  ]) { expect(errorMessage(raw)).toBe(expected); expect(errorMessage(expected)).toBe(expected); }
 });
-it('keeps only known engine forms and tight code identifiers', () => {
+it('keeps only fixed engine forms', () => {
  for (const text of ["Cannot read properties of undefined (reading 'x')", 'x is not a function', "undefined is not an object (evaluating 'a.b')", 'Failed to fetch', 'Load failed', 'NetworkError when attempting to fetch resource.', 'Maximum call stack size exceeded', 'fetch failed']) {
   const kept = errorMessage(text); expect(kept).not.toBe('Unlisted message'); expect(errorMessage(kept)).toBe(kept);
  }
  for (const text of ["Cannot read properties of undefined (reading 'private message')", '123456789 is not a function', 'a'.repeat(33) + ' is not a function', "undefined is not an object (evaluating '/path?private#fragment')"]) expect(errorMessage(text)).toBe('Unlisted message');
  expect(errorMessage('Failed to fetch dynamically imported module: https://example.com/private?id=secret#fragment')).toBe('Dynamic import failed');
+});
+it.each(['account123456789', 'K6X', 'MeetMeAtTheStation', 'e2e4'])('removes each engine name: %s', value => {
+ for (const [raw, expected] of [
+  [`Cannot read properties of undefined (reading '${value}')`, 'Cannot read properties of [value] (reading [value])'],
+  [`Cannot read properties of null (reading '${value}')`, 'Cannot read properties of [value] (reading [value])'],
+  [`${value} is not a function`, '[value] is not a function'],
+  [`undefined is not an object (evaluating '${value}')`, '[value] is not an object (evaluating [value])'],
+  [`${value} is not defined`, '[value] is not defined'],
+ ]) {
+  expect(errorMessage(raw)).toBe(expected);
+  expect(errorMessage(expected)).toBe(expected);
+ }
 });
 it('does not read false stack lines from the full error message', () => {
  const message = 'Unexpected input\nsrc/api/private-id.ts:1:2\n    at f (/task/src/api/private-id.ts:1:2)';

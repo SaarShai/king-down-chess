@@ -61,7 +61,7 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
   await buildRuntime(resolve(functionDir, 'runtime'));
   await build({
     configFile: false, root, publicDir: false, logLevel: 'warn', ssr: { noExternal: true },
-    define: { __KINGDOWN_ERROR_FORMS__: JSON.stringify(sourceErrorForms(resolve(root, 'src'))), __KINGDOWN_ERROR_ASSETS__: JSON.stringify(await siteErrorAssets(site)), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()) },
+    define: { 'import.meta.env.KINGDOWN_ERROR_RECORDER': JSON.stringify(Boolean(site)), ...(site && { __KINGDOWN_ERROR_FORMS__: JSON.stringify(sourceErrorForms(resolve(root, 'src'))), __KINGDOWN_ERROR_ASSETS__: JSON.stringify(await siteErrorAssets(site)), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()) }) },
     plugins: [{ name: 'isolated-match-runtime', enforce: 'pre', resolveId(source, importer) {
       if (!importer || !source.startsWith('.')) return;
       const path = resolve(dirname(importer), source);
@@ -69,7 +69,8 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     } }],
     build: {
       ssr: resolve(root, 'tools/plugin-server.mjs'), target: 'node20', outDir: functionDir, emptyOutDir: false, minify: true,
-      rollupOptions: { external: [...builtinModules, ...builtinModules.map(name => `node:${name}`), 'pg-native'], output: { entryFileNames: 'server.mjs', codeSplitting: false } },
+      // Recorder modules have no setup effects. Remove their unused schemas and message tables too.
+      rollupOptions: { treeshake: { moduleSideEffects: id => !id.startsWith(resolve(root, 'src/diagnostics') + '/') }, external: [...builtinModules, ...builtinModules.map(name => `node:${name}`), 'pg-native'], output: { entryFileNames: 'server.mjs', codeSplitting: false } },
     },
   });
   await writeFile(resolve(functionDir, 'package.json'), JSON.stringify({ private: true, type: 'module', engines: { node: '>=20' } }) + '\n');

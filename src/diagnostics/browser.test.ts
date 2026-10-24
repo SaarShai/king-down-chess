@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { MAX_ERROR_BODY } from './data';
+import { errorFingerprint, MAX_ERROR_BODY } from './data';
 
 let target: EventTarget, beacon: ReturnType<typeof vi.fn>, send: ReturnType<typeof vi.fn>;
 const fault = (message: string, stack = `Error: fault\n at f (https://kingdown.dev/assets/app.js:2:4)`) => Object.assign(new Error(message), { stack });
@@ -97,4 +97,15 @@ it('removes raw Auth text before send', async () => {
  const { error } = await auth.auth.signInWithPassword({ email: 'test@example.com', password: 'test' });
  expect(error).toBeTruthy(); emit('error', fault(error!.message));
  expect(JSON.parse(await (beacon.mock.calls[0][1] as Blob).text()).message).toBe('Unlisted message');
+});
+
+it.each(['account123456789', 'K6X', 'MeetMeAtTheStation', 'd137864c-e174-4f38-9277-6bdd0a4289dc', 'person@example.com', 'e2e4'])('removes private engine names from the full sent body: %s', async value => {
+ let error: Error;
+ try { const input = undefined as unknown as Record<string, unknown>; input[value]; } catch (caught) { error = caught as Error; }
+ error!.stack = `TypeError: ${error!.message}\n at f (https://kingdown.dev/assets/app.js:2:4)`;
+ emit('error', error!);
+ const body = await (beacon.mock.calls[0][1] as Blob).text();
+ expect(body).not.toContain(value);
+ const message = ['person@example.com', 'd137864c-e174-4f38-9277-6bdd0a4289dc'].includes(value) ? 'Unlisted message' : 'Cannot read properties of [value] (reading [value])';
+ expect(JSON.parse(body)).toMatchObject({ message, fingerprint: errorFingerprint('TypeError', message, '/assets/app.js:2:4') });
 });
