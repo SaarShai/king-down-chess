@@ -37,6 +37,8 @@ The four-player playtest on staging found six faults of the game board. The tick
 - **F-103.** `unmarkedTap` gave "This pawn has no legal move." for a pawn that the armed Strike cannot move, and `contextLine` ranks a refusal above the armed power. Now the refusal names the power ("Strike cannot move this pawn."). The web table passes it as `armedRefusal` while a power is armed: the armed rank keeps the power line and Cancel, and the refusal leads the note. A server refusal on the account board still outranks an armed power.
 - **F-008.** The sheet's Tab trap held only the Close button, so Tab never reached the Moves list, and PageDown on Close scrolls nothing. A sheet body that scrolls is now a named region (`role="region"`, the sheet title as its name) with `tabindex="0"`. A `ResizeObserver` and each Moves update keep this current. A focused body stays a region, so focus does not drop to the page; when it loses focus and no longer scrolls, it leaves the Tab order.
 - **F-009.** `closeBoardSheet` moved the parked controls (Refresh the board, the move choices) out of the sheet before it read whether the sheet held focus. A moved control loses focus, so the function did not restore focus. It now reads the focus first. The test opens the board through the fixture endpoint and waits for an enabled Refresh the board (without a board read it is disabled). From Close, Shift+Tab goes first to the game-policy button in the header ("Casual game"), so the test presses Shift+Tab two times to reach Refresh the board.
+- **Hidden opener (PR #99 review).** Escape in All rules clears the selection, and that hides the All rules button that opened the sheet. `focus()` on a hidden button does nothing, so focus stayed on the page body. `closeBoardSheet` now gives focus to the opener only if it is visible, else to the board.
+- **F-008 ring and small overflow (staging check).** The account focus rule (`src/account-game/content.css`) gives `[tabindex]:focus` an outline at offset 0 and an outer gold shadow, and it is more specific than the board.css rule. So the ring of a focused sheet body lay outside the body, and the sheet clipped all but its top edge. A stronger board.css rule now puts a 2px ink ring 2px inside the body. A body is a scroll region only when its overflow is more than its bottom padding: Choose a move with four promotions on a phone overflowed by a few pixels into the padding, and its first Tab stopped on an empty-looking region. Such a body gets `tabindex="-1"`, because Firefox (and Chromium, for a body with no control) makes any scroller a Tab stop by itself.
 
 ### Red runs (the tests without their fix)
 
@@ -52,6 +54,8 @@ F-009, the branch with only the F-009 code change undone: the Refresh the board 
 
 Review fix (`37ddecea`), its tests on `b3eb5e83`: Chromium 3 failed (Close loses focus after the touch tap, in the promotion and Beast cases; the old scrim press closes the sheet; the body keeps `tabindex`, `role` and `aria-label` after blur). WebKit 2 failed (the old-press test is Chromium only).
 
+Hidden opener: without the fix, the page body has focus after Escape, not the board, in Chromium, WebKit and Firefox. F-008 ring and small overflow: without the fix, the ring check finds no ring on any side, and the Choose a move body has `tabindex="0"`, in Chromium, WebKit and Firefox.
+
 ### Green runs
 
 - `37ddecea` on `b3eb5e83`, `F-032|F-008`: Chromium 4 passed, WebKit 3 passed. The same on `0041783d` with the three commits picked: Chromium 4 passed, WebKit 3 passed.
@@ -59,6 +63,7 @@ Review fix (`37ddecea`), its tests on `b3eb5e83`: Chromium 3 failed (Close loses
 - Branch tip, WebKit, the playtest tests (`F-0`): 7 passed.
 - `npx tsc --noEmit -p .` passes.
 - `npm run check:browser plugin-ui game-screen ux-defects special-moves powers`: all 5 passed.
+- After the hidden-opener and F-008 follow-up fixes (`27eed3bd`, merged with `583a5f54`): the touched files and `src/plugin/type-scale.test.ts`, 311 passed; WebKit, the playtest tests, 10 passed; the hidden-opener, ring and small-overflow tests also pass in Firefox; the five browser checks pass.
 
 ## Owner decisions
 
