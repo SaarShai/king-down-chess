@@ -56,6 +56,9 @@ try {
       const origin = `http://127.0.0.1:${server.address().port}`;
       const { configurePlugin } = await import(pathToFileURL(join(build, 'server.mjs')).href);
       app = await configurePlugin({ ...process.env, NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: randomUUID() }, { localDev: true });
+      // A staging widget build also needs a Ranked server. The service reads the stage at each start (ticket 67);
+      // the loopback settings above stay local, so the staging host checks do not run.
+      if (process.env.VITE_KINGDOWN_STAGE === 'staging') process.env.KINGDOWN_STAGE = 'staging';
       endpoint = new URL('/mcp', origin);
       const {createMatch} = await import(pathToFileURL(join(build,'runtime/index.mjs')).href);
       seedPosition = async (setup,black) => {
@@ -75,7 +78,9 @@ try {
     }
     unregister = register();
     const { startHarness } = await import('./plugin-ui-harness.ts');
-    harness = await startHarness({ boardPath: join(build, 'board.html'), endpoint, actor: actors[0], friendActor: actors[1], laterFriendActor: actors[2], seedPosition, deleteMatch });
+    // The fixture plays the built runtime: its games then carry the built page's engine, as on the hosted service.
+    const engine = endpoint ? undefined : await import(pathToFileURL(join(build, 'runtime/index.mjs')).href);
+    harness = await startHarness({ boardPath: join(build, 'board.html'), endpoint, actor: actors[0], friendActor: actors[1], laterFriendActor: actors[2], seedPosition, deleteMatch, engine });
   }
   if (mode === 'preview') {
     const items = process.argv[3] ? [process.argv[3]] : JSON.parse(readFileSync('docs/specs/gui-previews-2026-10-19/capture.json', 'utf8')).items;

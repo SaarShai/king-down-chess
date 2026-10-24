@@ -303,6 +303,47 @@ describe('Engine.cancel', () => {
     } finally { release(); vi.doUnmock('./ai/search'); vi.resetModules(); vi.useRealTimers(); }
   });
 
+  // The page does not load the evaluation (and its net) at start, so the inline search sets the
+  // adopted evaluator itself, in both entries: no worker at all, and a worker that stops replying.
+  it('sets the residual evaluator before each inline search', async () => {
+    const calls: string[] = [];
+    const setEvaluator = vi.fn((e: string) => { calls.push(`setEvaluator:${e}`); });
+    const searchOwned = vi.fn(() => { calls.push('searchOwned'); return { move: null, score: 0, depth: 0, nodes: 0 }; });
+    vi.doMock('./ai/search', () => ({ searchOwned }));
+    vi.doMock('./ai/eval', () => ({ setEvaluator }));
+    vi.resetModules();
+    try {
+      const { Engine: FreshEngine, Game: FreshGame } = await import('./game');
+      await new FreshEngine().think(new FreshGame(CLASSIC_CHESS), { maxDepth: 1 }); // no Worker global
+      expect(calls).toEqual(['setEvaluator:residual', 'searchOwned']);
+
+      calls.length = 0;
+      const prev = (globalThis as Record<string, unknown>).Worker;
+      (globalThis as Record<string, unknown>).Worker = FakeWorker;
+      FakeWorker.made = [];
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        const answer = new FreshEngine().think(new FreshGame(CLASSIC_CHESS), { timeMs: 1 });
+        expect(FakeWorker.made[0].posted).toHaveLength(1);
+        vi.advanceTimersByTime(1 + 2500); // the fake never replies: the fallback searches inline
+        await answer;
+        expect(FakeWorker.made[0].terminated).toBe(true);
+        expect(calls).toEqual(['setEvaluator:residual', 'searchOwned']);
+      } finally { (globalThis as Record<string, unknown>).Worker = prev; vi.useRealTimers(); }
+    } finally { vi.doUnmock('./ai/search'); vi.doUnmock('./ai/eval'); vi.resetModules(); }
+  });
+
+  it('plays an inline search with the residual net', async () => {
+    const { evaluatorName, setEvaluator } = await import('./ai/eval');
+    setEvaluator('linear');
+    try {
+      const engine = new Engine(), game = new Game(CLASSIC_CHESS);
+      const result = await engine.think(game, { maxDepth: 1 });
+      expect(result.move).toBeTruthy();
+      expect(evaluatorName()).toBe('residual');
+    } finally { setEvaluator('linear'); }
+  });
+
   it('refuses a callback before starting game search', () => {
     const engine = new Engine(), game = new Game(CLASSIC_CHESS);
     const rng = vi.fn(() => 0.5);

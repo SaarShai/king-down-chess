@@ -1,6 +1,5 @@
 import './style.css';
 import { Engine } from './game';
-import { setEvaluator } from './ai/eval';
 import { PaintedView, type BoardView } from './render/PaintedView';
 import { setSound } from './render/sfx';
 import { HISTORY_WHENS, POWERS_BALANCED, RULES_2017, RULES_2021, parseKings, parseRule, type Rules } from './rules/engine';
@@ -20,7 +19,7 @@ import { initHome } from './ui/home-view';
 import { connectGuide } from './ui/guide';
 import { gameLinkless } from './screen/links';
 import { connectSettings } from './screen/settings';
-import { readSave } from './screen/save';
+import { readSave, storedSettings } from './screen/save';
 import { connectKeys } from './screen/keys';
 
 const params = new URLSearchParams(location.search);
@@ -57,8 +56,6 @@ const fen = gameLink ? null : params.get('fen');
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
-// The adopted Q6 residual net: stronger play at the same time budget, validated before adoption.
-setEvaluator('residual');
 const engine = new Engine();
 // The painted board is the game's only look: an old `?look=` link or saved look opens it too (the clay look is parked).
 // It stands on the page's parchment floor: the scene draws no floor of its own.
@@ -150,6 +147,9 @@ const stored = params.has('fen') && !link ? { save: null, unreadable: false } : 
 if (saved) {
   play.seat(saved.white, saved.black);
   settings.applySettings(saved);
+} else if (stored.unreadable) {
+  const kept = storedSettings(); // a game that cannot replay keeps its settings: Animations Off still stills the title
+  if (kept) settings.applySettings(kept);
 }
 setup = loadSetup() ?? (saved ? setupOfGame(play.sides(), saved.rules?.kings ?? [null, null], play.skill()) : defaultSetup());
 /** `?players=human,ai` (White, then Black): who plays the game this page opens. For the lab and the browser checks. */

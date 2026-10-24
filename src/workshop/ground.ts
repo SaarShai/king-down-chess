@@ -370,7 +370,7 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
    *  shelf: only the designs, each with Delete; a delete makes room, and the open design is saved in its place. */
   function seeAll(room = false): void {
     const items = [...(room ? [] : PRESETS.map(p => pool(p.key))), ...shelf.map(d => ({ key: `design:${d.id}`, d, yours: true }))];
-    const thumb = (it: Item): string => { const t = thumbHtml(it.d, judge(it.d, false), figureOf(it.d), it.yours), name = esc(it.d.name);
+    const thumb = (it: Item): string => { const t = thumbHtml(it.d, judge(it.d), figureOf(it.d), it.yours), name = esc(it.d.name);
       return room ? `<div class="pg-thumb">${t}<button type="button" class="pg-room-del" data-id="${esc(it.d.id)}" aria-label="Delete ${name}">Delete</button></div>`
         : `<button type="button" class="pg-thumb" data-key="${esc(it.key)}" aria-label="${name}"${cur.key === it.key ? ' aria-current="true"' : ''}>${t}</button>`; };
     sheet(room ? 'Delete one design' : 'Pieces', (room ? `<p class="pg-note">Your shelf holds ${MAX} designs. Delete one, and ${esc(cur.d.name)} is saved in its place.</p>`
@@ -403,7 +403,7 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
   }
   /** Every design the editor makes fits a share code; this guard says so if one ever does not. */
   const shareable = (): boolean => !!parseDesign(designCode(cur.d)) || (toast('This design cannot be shared: it breaks a limit.'), false);
-  const face = (): string => faceHtml(cur.d, judge(cur.d, false), figureOf(cur.d));
+  const face = (): string => faceHtml(cur.d, judge(cur.d), figureOf(cur.d));
   /** The Share sheet (ticket 08): the card face, then Send link (the device's share), Copy link and Copy as text; with no
    *  device share, one Copy link. A device that refuses the copy gets the copy sheet (copyText). */
   function share(): void {
@@ -416,7 +416,7 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
       if (send) on('send', () => navigator.share({ title: d.name, text: `${d.name}: a King Down piece.`, url: link(d) })
         .catch((e: Error) => { if (e.name !== 'AbortError') void copyText(link(d), 'Link copied.'); }));
       on('copy', () => copyText(link(d), 'Link copied.'));
-      on('text', () => copyText(designText(d, judge(d, false), link(d)), 'Copied as text.'));
+      on('text', () => copyText(designText(d, judge(d), link(d)), 'Copied as text.'));
     });
   }
   /** A design link (decision 25): its card face first, read only. Keep a copy saves it and opens it on the board;
@@ -428,9 +428,9 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
       body.querySelector<HTMLButtonElement>('[data-board]')!.onclick = close;
     });
   }
-  /** Weigh (decision 13): the worth, the band word and the like line. `false` skips the Why parts, the fixes and the deltas. */
+  /** Weigh (decision 13): the worth, the band word and the like line. */
   function weighWords(): [string, string] {
-    const v = judge(cur.d, false);
+    const v = judge(cur.d);
     return empty(cur.d) ? [v.line, ''] : [`About ${pawns(v.worth.point)} (estimate). ${bandOf(v)}.`, v.like];
   }
 
@@ -1657,7 +1657,7 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
     if (act === 'share') return share();
     if (act === 'rename') return rename();
     if (act === 'looks') return looks();
-    if (act === 'astext') return void (shareable() && copyText(designText(cur.d, judge(cur.d, false), link(cur.d)), 'Copied as text.'));
+    if (act === 'astext') return void (shareable() && copyText(designText(cur.d, judge(cur.d), link(cur.d)), 'Copied as text.'));
     if (act === 'copydesign') return makeCopy();
     if (act === 'delete') return remove();
     if (act === 'done') return leave();

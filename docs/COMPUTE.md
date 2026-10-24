@@ -1,6 +1,6 @@
 # Compute
 
-The machine facts for runs: Kaggle, the M1, this Mac's power, the shell limit, the browser-check runner and the run recipes. The rules for runs (the owner's go, the smoke allowance) are in [AGENTS.md](../AGENTS.md). Runs are listed in [QUEUE.md](QUEUE.md).
+The machine facts for runs: Kaggle, the M1, this Mac's power, the shell limit, the browser-check runner and the run recipes. The run and machine-use rules are in [AGENTS.md](../AGENTS.md). Runs are listed in [QUEUE.md](QUEUE.md).
 
 ## Kaggle
 
@@ -35,7 +35,7 @@ The machine facts for runs: Kaggle, the M1, this Mac's power, the shell limit, t
 
 ## Recipes
 
-The run recipes of the 2026-10-03 handoff, now in the [tasks archive](tasks-archive/). Each run needs the owner's go ([AGENTS.md](../AGENTS.md)). For the tests and the browser checks, use `npm test` and `npm run check:browser`.
+The run recipes of the 2026-10-03 handoff, now in the [tasks archive](tasks-archive/). Follow the run and machine-use rules in [AGENTS.md](../AGENTS.md). For the tests and the browser checks, use `npm test` and `npm run check:browser`.
 
 Run the whole unit suite only as `npm test`. It waits for the machine's test lock, `tools/test-lock.sh`. A bare `vitest run` or `npx vitest` with no file skips the lock. Its load made the deploy's timed judge tests fail on 2026-10-19. Run one file as `bash tools/test-lock.sh npx vitest run <file>`.
 
@@ -60,4 +60,4 @@ Snapshots in `King Down/results-backups` contain a file manifest and compressed 
 
 To restore a snapshot, read its `manifest.json`. Each file names its object, decoded SHA-256 and size. Decode `gzip` objects, copy `plain` objects, or extract the named member from a `tar-gzip` pack. Verify every restored file against its SHA-256. Never delete `results-objects` while retaining manifests that reference it.
 
-Tracked `sim/out` files remain in Git as historical evidence and test fixtures. They do not define the runtime destination. Old worktrees that lack the new root module remain spools until their code is updated; the collector includes them.
+Git does not track `sim/out`. `.gitignore` ignores the whole folder. The old reports are at `1476f55c:sim/out/`. The [removal record](specs/retro-2026-10-20/issues/04-retro-records.md) gives the restore command. The tournament test fixtures are in `src/sim/fixtures/tournaments/`. Old worktrees that lack the new root module remain spools until their code is updated; the collector includes them.

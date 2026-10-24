@@ -29,9 +29,11 @@ export function quickSetup(saved: unknown): SetupState {
   const state = readSetup(saved);
   return { ...state, kind: 'solo', mode: 'casual', level: 'beginner', options: { ...state.options, arrangement: false } };
 }
+/** Ranked is offered only in the staging build (plan D2; ticket 67); the server refuses it in production. */
+export const rankedOffered = () => import.meta.env?.VITE_KINGDOWN_STAGE === 'staging';
 /** Ranked choices are fixed before the start or a saved draft is used. */
 export function withMode(state: SetupState, mode: CreationMode): SetupState {
-  if (state.kind !== 'random' || mode !== 'ranked') return { ...state, mode: 'casual', king: cleanKing(state.options, state.king, state.colour) };
+  if (state.kind !== 'random' || mode !== 'ranked' || !rankedOffered()) return { ...state, mode: 'casual', king: cleanKing(state.options, state.king, state.colour) };
   const options = { ...RANKED_OPTIONS, pool: [...RANKED_OPTIONS.pool], cardPool: [...RANKED_OPTIONS.cardPool] };
   return { ...state, mode, options, colour: 'random', king: cleanKing(options, state.king, 'random') };
 }

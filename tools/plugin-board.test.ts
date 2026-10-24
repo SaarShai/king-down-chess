@@ -782,6 +782,10 @@ it('stops passive drawing five seconds after changes and keeps move motion', asy
   const page = await open(view('7k/8/8/8/8/3p4/4P3/K7 w - - 0 1'), 393, 852, true), frame = page.frameLocator('iframe');
   try {
     await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
+    // Optional king art can finish after ready() and start a new draw window.
+    await page.waitForLoadState('networkidle');
+    // Keep elapsed time under test control between frame-count reads.
+    const now = new Date(); await page.clock.setFixedTime(now); await page.clock.pauseAt(now);
     await frame.locator('html').evaluate(() => (window as any).testBoard.scene.redraw());
     const frames = () => frame.locator('html').evaluate(() => (window as any).testBoard.scene.frames);
     const settle = async () => { await page.clock.fastForward(5_100); await page.clock.runFor(100); const count = await frames(); await page.clock.runFor(200); expect(await frames()).toBe(count); };
@@ -2456,7 +2460,7 @@ it('keeps a stored-engine draft through undo, remount and a late preview when th
   const match = new LocalMatch(pathToFileURL(resolve('engines', engine.slice(7) + '.mjs')));
   const page = await browser.newPage({viewport:{width:393,height:852}}); page.setDefaultTimeout(10_000);
   const errors:string[] = []; page.on('pageerror', error=>errors.push(error.message));
-  let release: (()=>void) | undefined, hold = false, commit:string[]|undefined, previews=0, returned=0, boardId:string|undefined, committedFen:string|undefined;
+  let release: (()=>void) | undefined, hold = false, commit:string[]|undefined, applied:Promise<void>|undefined, previews=0, returned=0, boardId:string|undefined, committedFen:string|undefined;
   try {
     await match.initialize({fen:'7k/p7/8/8/8/8/8/R5K1 w - - 0 1',kings:'Flame:Haste,none'});
     const snapshot = await match.snapshot(), state = await match.exportSave();
@@ -2485,8 +2489,10 @@ it('keeps a stored-engine draft through undo, remount and a late preview when th
       } else if (request.name === 'kingdown_get') await route.fulfill({json:{content:[],structuredContent:{screen:'board'},_meta:{board_id:boardId,view:base}}});
       else if (request.name === 'kingdown_move') {
         commit=request.arguments.actions;
-        for (const [index,lan] of commit!.entries()) await match.apply({id:`commit-${index}`,expectedRevision:index,lan});
-        const after = await match.snapshot(); committedFen=after.fen;
+        // The test sees commit before the match applies it; it waits for applied before it reads the match or committedFen.
+        applied=(async()=>{ for (const [index,lan] of commit!.entries()) await match.apply({id:`commit-${index}`,expectedRevision:index,lan}); committedFen=(await match.snapshot()).fen; })();
+        await applied;
+        const after = await match.snapshot();
         await route.fulfill({json:{content:[],_meta:{view:{...base,revision:1,fen:after.fen,turn:after.turn,action:'waiting',legal:[],history:{initial_fen:snapshot.fen,actions:commit},last_commands:[{seq:1,seat:0,at:'2026-10-20T00:00:00Z',action:{type:'turn',actions:commit}}]}}}});
       } else await route.continue();
     });
@@ -2525,6 +2531,7 @@ it('keeps a stored-engine draft through undo, remount and a late preview when th
     expect(await page.evaluate(()=>(window as any).harnessWidgetState.privateContent.draft.lans)).toEqual(['Ra1-a4!H']);
     await page.frameLocator('iframe').locator('#end-turn').click();
     await expect.poll(()=>commit).toEqual(['Ra1-a4!H','--']);
+    await applied;
     expect((await match.snapshot()).turn).toBe(1);
     await expect.poll(()=>boardFen(page)).toBe(committedFen);
     expect(await page.frameLocator('iframe').locator('#recent-moves').textContent()).toContain('White rook');

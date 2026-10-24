@@ -9,6 +9,7 @@ import { boardGame, closeBoardSheet, sendBoardCommand, skipBoardCeremony } from 
 import { playerBlockButton } from './board-actions';
 import { rematchChoices } from './end-model';
 import { draftFromGame } from './setup';
+import { rankedOffered } from './setup-model';
 import { onStop } from './friend';
 import { policyLabel } from '../../account-game/rating-policy';
 import './end.css';
@@ -105,7 +106,7 @@ export function endScreen(schedule = true) {
     ending(view), view.rules?.kings, view.outcome, rematches, view.rematch_offer,
     opponent?.computer, opponent?.deleted, rematchAllowed, memory.blockNotice, view.rematch_game_id]);
   // Poll times and presence do not change the result. Keep its controls, focus and board inspection mounted.
-  if (contentKey === nextContentKey && (over.open || looking)) return;
+  if (contentKey === nextContentKey && (over.open || looking)) { followUp(schedule); return; }
   contentKey = nextContentKey;
   if (!looking) closeBoardSheet();
   const error = document.querySelector('.page-error')!; error.remove();
@@ -168,7 +169,7 @@ export function endScreen(schedule = true) {
   const skip = button('Skip',()=>{skipBoardCeremony(); see.focus();}); skip.id='end-skip'; skip.hidden=!$('board').dataset.toppling; form.append(skip);
   $('end-result').onclick = () => { looking=false; $('end-result').hidden=true; endScreen(); };
   (looking ? document.querySelector('.page-sheet')! : over).append(error);
-  over.querySelector('.quiet-line')!.textContent = opponent?.deleted || rematchAllowed === false ? '' : view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematches.length ? view.kind==='solo' ? 'Play again with the same rules and colour.' : 'A rematch is Casual. It keeps the features and swaps the colours. Return to Ranked to find another ranked opponent.' : '';
+  over.querySelector('.quiet-line')!.textContent = opponent?.deleted || rematchAllowed === false ? '' : view.rematch_offer === view.seat ? 'Rematch offered. Waiting for your opponent.' : view.rematch_offer != null ? 'Your opponent offers a rematch.' : rematches.length ? view.kind==='solo' ? 'Play again with the same rules and colour.' : `A rematch is Casual. It keeps the features and swaps the colours.${rankedOffered() ? ' Return to Ranked to find another ranked opponent.' : ''}` : '';
   if (over.open) scrim.hidden=false;
   else if (!opening && !looking) {
     opening=true; const game=view.game_id;
@@ -178,6 +179,10 @@ export function endScreen(schedule = true) {
     };
     showFrame = requestAnimationFrame(show);
   }
+  followUp(schedule);
+}
+/** After each result pass, also an unchanged one: the poll takes its new target, and updateEnd sends a queued rematch. */
+function followUp(schedule: boolean) {
   pollUpdate();
   if (schedule) { clearTimeout(updateTimer); updateTimer = setTimeout(updateEnd,0); }
 }

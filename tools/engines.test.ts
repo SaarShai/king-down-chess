@@ -253,7 +253,17 @@ if (url) {
       if (tables.includes('games')) expect(report.tables[0]).toMatchObject({ unfinished: 3, emptySetup: 0, pendingSetup: 1, initialized: 2, agreement: 2, mismatch: 0, malformedState: 0, malformedEngine: 0 });
       if (tables.includes('plugin_matches')) expect(report.tables[1]).toMatchObject({ unfinished: 2, initialized: 2, engines: [{ engine: alias, games: 2 }] });
       expect(checkRuntime(report, ENGINES).ok).toBe(true);
-      expect(report.engines).toHaveLength(tables.length);
+      expect(report.engines.map(row => row.engine)).toEqual([tables.includes('games') ? stamp : alias]);
+    });
+  });
+
+  it('reports plugin stamps but needs their bundles only while games is absent', async () => {
+    const unknown = `sha256:${'0'.repeat(64)}`;
+    for (const tables of [['games', 'plugin_matches'], ['plugin_matches']]) await withTables(tables, async client => {
+      await client.query(`insert into plugin_matches values ($1,'{"status":"playing"}')`, [save(unknown)]);
+      const report = checkRuntime(await enginesInUse(client), ENGINES), legacy = tables.includes('games');
+      expect(report.tables[1]).toMatchObject({ loaded: !legacy, unfinished: 1, engines: [{ engine: unknown, games: 1 }] });
+      expect(report).toMatchObject({ ok: legacy, missingEngines: legacy ? 0 : 1, engines: legacy ? [] : [{ engine: unknown, games: 1 }] });
     });
   });
 

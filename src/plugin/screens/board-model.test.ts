@@ -379,8 +379,8 @@ test('a scoped draft advances only through a complete chain of commands that do 
 
 
 test.each([
-  { card: 'Curse', initial_fen: '4k3/8/8/3n4/8/8/P7/4K3 w - - 0 1', lan: '!C:d5-e5', words: 'White uses Curse to move the black knight from d5 to e5.' },
-  { card: 'EarthQuake', initial_fen: '4r1k1/8/8/8/8/8/4B3/4K3 w - - 0 1', lan: '!Q:e1', words: 'White uses Earth Quake at e1, moving the white bishop from e2 to e3.' },
+  { card: 'Curse', initial_fen: '4k3/8/8/3n4/8/8/P7/4K3 w - - 0 1', lan: '!C:d5-e5', words: 'White uses Curse to move the black knight on d5 to e5.' },
+  { card: 'EarthQuake', initial_fen: '4r1k1/8/8/8/8/8/4B3/4K3 w - - 0 1', lan: '!Q:e1', words: 'White uses Earth Quake on e1 and pushes the white bishop on e2 to e3.' },
   { card: 'Salvation', initial_fen: '4k3/8/8/8/8/8/P7/N3K3 w - - 3 9 lPRQG', lan: 'R@h1!R', words: 'White uses Salvation to bring back a rook on h1.' },
 ] as const)('$card keeps its action text in a draft and saved history', ({ card, initial_fen, lan, words }) => {
   const rules = { hands: [[card], []] as const };

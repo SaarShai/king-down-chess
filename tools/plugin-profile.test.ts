@@ -155,10 +155,14 @@ it('drops a held notice page after SDK teardown without changing DOM or saved st
     await frame.locator('#profile-notices-more').click();
     await page.waitForFunction(()=>typeof(window as any).releaseHeld==='function');
     await page.evaluate(()=>(window as any).harnessTeardown());
-    const before=await frame.locator('#profile-sheet').innerHTML(), saved=await page.evaluate(()=>(window as any).harnessWidgetStates.length);
+    // Teardown replaces the private page with the closed notice (src/account-game/runtime.ts app.onClose).
+    const closed='<p role="status">This game panel is closed. Open King Down again to continue.</p>', body=()=>frame.locator('body').evaluate(element=>element.innerHTML);
+    const saved=await page.evaluate(()=>(window as any).harnessWidgetStates.length);
+    expect(await body()).toBe(closed);
     await page.evaluate(()=>(window as any).releaseHeld());
     await expect.poll(()=>frame.locator('html').evaluate(()=>(window as any).harnessApp.client.inflight)).toBe(0);
-    expect(await frame.locator('#profile-sheet').innerHTML()).toBe(before);
+    await frame.locator('html').evaluate(()=>new Promise(resolve=>requestAnimationFrame(resolve)));
+    expect(await body()).toBe(closed);
     expect(await page.evaluate(()=>(window as any).harnessWidgetStates.length)).toBe(saved);
   } finally {await page.evaluate(()=>(window as any).releaseHeld?.()).catch(()=>{});await page.close();}
 });

@@ -1,6 +1,6 @@
 // W1: the real turn press, its Undo floor and the guarded link send.
 import assert from 'node:assert/strict';
-import { usePower, startLesson, confirmResign, endTurn, lanMoves, setPace, waitForUi } from './app-ui.mjs';
+import { powerCoin, rulesAt, usePower, startLesson, confirmResign, endTurn, lanMoves, setPace, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL'), browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -17,9 +17,12 @@ const tap = async name => {
   await page.mouse.click(p.x, p.y);
 };
 const open = async (fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', query = '', moves = [], computer = false) => {
+  const url = new URL(query || '?think=50', base).href;
+  // The seed holds the URL's rules, so the URL replays it (a save with no rules is a default-rules game).
+  const rules = /[?&](kings|rules)=/.test(url) ? await rulesAt(browser, url) : undefined;
   await page.goto(base);
-  await page.evaluate(({ fen, moves, computer }) => sessionStorage.setItem('w1.seed', JSON.stringify({ back: '', fen, moves, white: 'human', black: computer ? 'ai' : 'human', resigned: null, pace: 'off', sound: false, queen: false, skill: 'beginner' })), { fen, moves, computer });
-  await page.goto(new URL(query || '?think=50', base).href);
+  await page.evaluate(({ fen, moves, computer, rules }) => sessionStorage.setItem('w1.seed', JSON.stringify({ back: '', fen, moves, white: 'human', black: computer ? 'ai' : 'human', resigned: null, pace: 'off', sound: false, queen: false, skill: 'beginner', rules })), { fen, moves, computer, rules });
+  await page.goto(url);
   await page.waitForFunction(() => window.view?.pos);
   await page.evaluate(() => window.view.ready());
 };
@@ -40,6 +43,7 @@ try {
 
     await open('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', '?kings=frost:freeze,none');
     await setPace(page, 'normal');
+    assert.equal(await powerCoin(page).count(), 1, 'a save with the URL rules plays the URL king power');
     await usePower(page); await tap('d5'); await move('a2', 'a3');
     await page.evaluate(() => { document.getElementById('undo').click(); document.getElementById('undo').click(); });
     await waitForUi(page, ui => ui.lan.length === 0 && !window.view.scene.animating);

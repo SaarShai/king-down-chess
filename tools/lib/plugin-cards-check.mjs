@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { shot } from './checks.mjs';
+import { settled } from './plugin-settled.mjs';
 
 export async function checkCardChoices(page, frame, mount, setup, cards) {
   await mount(setup);
@@ -91,6 +92,8 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
   assert(!result.isError);
   await page.evaluate(result => window.harnessShow(result), result);
   await beforeCard.waitForElementState('hidden');
+  // Read the sheet after the mount ends: a later store pass draws the setup screen again.
+  await settled(page, frame);
   assert(await sheet.evaluate((el, before) => el === before, beforeSheet), 'A host refresh keeps the open sheet');
   await beforeSheet.dispose(); await beforeCard.dispose();
   assert.equal(await sheet.locator('input:focus').getAttribute('value'), focused, 'A host refresh keeps focus');

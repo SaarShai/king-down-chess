@@ -23,7 +23,8 @@ it('the desktop check ring keeps its old width', () => {
 });
 
 it('keeps the edge labels inside the frame or hides them (fault M10)', () => {
-  // The frame is 32 board units (PAD); rank 1 starts at 928. A label is about 0.7 em tall and 0.6 em wide.
+  // The frame is 32 board units (PAD); rank 1 starts at 928. The model takes a label as 0.7 em tall and 0.6 em wide; the measured capitals rise
+  // about 0.48 em above the middle line, so the real top can pass 928 by a few units, under the pieces.
   for (const width of [158, 169, 192, 210, 246, 302, 360, 483, 960]) {
     const { size, inset, shown } = coordInk(width);
     if (!shown) { expect(width).toBeLessThan(200); continue; }
@@ -32,4 +33,9 @@ it('keeps the edge labels inside the frame or hides them (fault M10)', () => {
     expect(size * width / 960).toBeGreaterThanOrEqual(8);
   }
   expect(coordInk(302).size * 302 / 960).toBeCloseTo(12, 8);
+});
+
+it('keeps the edge labels at 12 CSS px on a 287 px short-phone board', () => {
+  for (const width of [256, 287]) expect(coordInk(width).size * width / 960).toBeGreaterThanOrEqual(12);
+  for (const width of [288, 302, 360, 960]) expect(coordInk(width).size).toBe(Math.min(boardInk(width).coord, 40));
 });

@@ -14,6 +14,7 @@ const codex = 'Co-Authored-By: Codex <noreply@openai.com>';
 const markers = {
   none: { CLAUDECODE: undefined, CODEX_THREAD_ID: undefined },
   claudeCode: { CLAUDECODE: '1', CODEX_THREAD_ID: undefined },
+  codex: { CLAUDECODE: undefined, CODEX_THREAD_ID: 'thread' },
   both: { CLAUDECODE: '1', CODEX_THREAD_ID: 'thread' },
 };
 
@@ -38,10 +39,10 @@ describe('prepare-commit-msg', () => {
     expect(message.startsWith('Add a\n\nBody.\n')).toBe(true);
   });
 
-  it('with both markers, the commit ends with one Codex trailer', () => {
-    const message = commit(markers.both, 'Add a');
+  it.each([markers.codex, markers.both])('with a Codex marker, adds both required trailers once (%j)', env => {
+    const message = commit(env, 'Add a');
     expect(message.split('\n').at(-1)).toBe(codex);
-    expect(lines(message, 'Co-Authored-By:')).toEqual([codex]);
+    expect(lines(message, 'Co-Authored-By:')).toEqual([claudeCode, codex]);
   });
 
   it('with no marker, adds no trailer and still removes Claude-Session lines', () => {
@@ -49,15 +50,21 @@ describe('prepare-commit-msg', () => {
     expect(message).toBe('Add a\n\nReviewed-by: Owner <owner@example.invalid>');
   });
 
-  it('keeps exactly one trailer when the message already has a Co-Authored-By trailer', () => {
-    for (const env of [markers.claudeCode, markers.both]) {
-      const message = commit(env, 'Add a', `${session}\n${claudeCode}`);
-      expect(lines(message, 'Co-Authored-By:')).toEqual([claudeCode]);
-      expect(message).not.toContain('Claude-Session');
-    }
-    const lower = commit(markers.claudeCode, 'Add a', 'Co-authored-by: Codex <noreply@openai.com>');
-    expect(lines(lower, 'Co-')).toEqual(['Co-authored-by: Codex <noreply@openai.com>']);
-  }, 30_000); // three real commits with all hooks; a busy machine needs more than 5 s
+  it.each([
+    [claudeCode, [claudeCode, codex]],
+    [codex, [codex, claudeCode]],
+    [`${claudeCode}\n${codex}`, [claudeCode, codex]],
+    [`Co-authored-by: Claude Code <noreply@anthropic.com>\n${codex}`, ['Co-authored-by: Claude Code <noreply@anthropic.com>', codex]],
+    ['Co-Authored-By: OpenCode <noreply@opencode.ai>', ['Co-Authored-By: OpenCode <noreply@opencode.ai>', claudeCode, codex]],
+  ])('adds only missing trailers to %s', (existing, expected) => {
+    const message = commit(markers.both, 'Add a', `${session}\n${existing}`);
+    expect(lines(message, 'Co-')).toEqual(expected);
+    expect(message).not.toContain('Claude-Session');
+  }, 30_000);
+
+  it('keeps one Claude Code trailer in a Claude Code commit', () => {
+    expect(lines(commit(markers.claudeCode, 'Add a', claudeCode), 'Co-Authored-By:')).toEqual([claudeCode]);
+  }, 30_000);
 
   it('adds no trailer to an empty message, so git still refuses it', () => {
     const repo = make();

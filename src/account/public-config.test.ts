@@ -19,3 +19,17 @@ it('rejects the production project and another project in staging', () => {
   expect(() => publicAccountConfig({ ...config, VITE_SUPABASE_URL: 'https://utqzovjmclfyojedmwok.supabase.co' })).toThrow('production');
   expect(() => publicAccountConfig({ ...config, VITE_SUPABASE_URL: 'https://another.supabase.co' })).toThrow('isolated');
 });
+const production = { VITE_SUPABASE_URL: 'https://utqzovjmclfyojedmwok.supabase.co', VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test' };
+it.each([undefined, ''])('opens the production project when VITE_KINGDOWN_STAGE is %s', VITE_KINGDOWN_STAGE => {
+  expect(publicAccountConfig({ ...production, VITE_KINGDOWN_STAGE })).toEqual({ url: production.VITE_SUPABASE_URL, publishableKey: 'sb_publishable_test' });
+  expect(stagingPasswordSignInEnabled({ ...production, VITE_KINGDOWN_STAGE })).toBe(false);
+});
+it.each([undefined, ''])('production (stage %s) refuses the staging project', VITE_KINGDOWN_STAGE => {
+  expect(() => publicAccountConfig({ ...config, VITE_KINGDOWN_STAGE })).toThrow('Production refuses the staging account project');
+});
+it('staging refuses the production project', () => {
+  expect(() => publicAccountConfig({ ...production, VITE_KINGDOWN_STAGE: 'staging' })).toThrow('Staging refuses the production account project');
+});
+it.each(['production', 'preview', 'Staging'])('refuses unknown stage %s', VITE_KINGDOWN_STAGE => {
+  expect(() => publicAccountConfig({ ...production, VITE_KINGDOWN_STAGE })).toThrow('VITE_KINGDOWN_STAGE');
+});

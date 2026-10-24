@@ -27,10 +27,9 @@ it('builds the shared hall and web adapters without a server or local controller
     await writeFile(entry, [
       `import { createHall } from ${JSON.stringify(join(root, 'src/account-game/hall.ts'))};`,
       `import { art, symbols } from ${JSON.stringify(join(root, 'src/account-game/art.ts'))};`,
-      `import { webGameClient } from ${JSON.stringify(join(root, 'src/online/game-client.ts'))};`,
       `import { createWebPageHost } from ${JSON.stringify(join(root, 'src/online/page-host.ts'))};`,
       `import ${JSON.stringify(join(root, 'src/online/page-host.css'))};`,
-      'Object.assign(window, { createHall, art, symbols, webGameClient, createWebPageHost });',
+      'Object.assign(window, { createHall, art, symbols, createWebPageHost });',
     ].join('\n'));
     const out = join(folder, 'out'); await compile(entry, out);
     const files = await readdir(join(out, 'assets'));

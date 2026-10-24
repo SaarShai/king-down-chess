@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { REPORT_CATEGORIES } from '../account/profile';
@@ -6,6 +6,7 @@ import { DEFAULT_OPTIONS } from '../match/setup';
 import { createArguments, readSetup } from './screens/setup-model';
 import { ART_ORIGIN, createPluginServer } from './server';
 import { MatchServiceError } from '../match/service';
+afterEach(() => { vi.unstubAllEnvs(); });
 
 it.each([
  { name: 'automatic revision', expected: undefined, code: 'STALE_REVISION', always: false, calls: 2, error: false },
@@ -269,6 +270,7 @@ it('sends any rules from Create and Find to matchmaking, and says that the colou
 });
 
 it('keeps Ranked creation independent of saved Casual setup and carries deliberate acceptance through MCP', async () => {
+ vi.stubEnv('VITE_KINGDOWN_STAGE', 'staging'); // Ranked is offered only in staging (ticket 67).
  const game_id='00000000-0000-4000-8000-000000000001';
  const view={game_id,status:'waiting',rating_policy:'ranked-v1',seat:0,action:'waiting',fen:'private position',legal:['private move']};
  const find=vi.fn().mockResolvedValue(view), accept=vi.fn().mockResolvedValue(view), settings=vi.fn();

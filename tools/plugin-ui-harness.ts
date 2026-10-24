@@ -11,7 +11,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createPluginServer } from '../src/plugin/server';
 import type { MatchSetup } from '../src/match';
-import { fixtureService } from './plugin-protocol-fixture';
+import { fixtureService, type FixtureEngine } from './plugin-protocol-fixture';
 import { ART_HEADERS, artType } from './plugin-art-headers.mjs';
 import { pluginSymbols } from './lib/plugin-symbols.mjs';
 type UiMeta = { ui?: { csp?: { connectDomains?: string[]; resourceDomains?: string[]; frameDomains?: string[]; baseUriDomains?: string[] }; permissions?: Record<string, unknown> } };
@@ -64,11 +64,11 @@ async function board(client: Client) {
   console.log(`Read board resource through MCP: ${Buffer.byteLength(JSON.stringify(result))} JSON bytes`);
   return { html: resource.text, meta: (resource._meta ?? {}) as UiMeta };
 }
-export async function startHarness({ boardPath = 'plugin-server-dist/board.html', endpoint, actor, friendActor, laterFriendActor, seedPosition, deleteMatch, sourcePage = false, pageEngine }: { pageEngine?: string; sourcePage?: boolean; boardPath?: string; endpoint?: URL; actor?: string; friendActor?: string; laterFriendActor?: string; seedPosition?: (setup: MatchSetup, black: boolean) => Promise<string>; deleteMatch?: (id: string) => Promise<void> } = {}) {
+export async function startHarness({ boardPath = 'plugin-server-dist/board.html', endpoint, actor, friendActor, laterFriendActor, seedPosition, deleteMatch, sourcePage = false, pageEngine, engine }: { engine?: FixtureEngine; pageEngine?: string; sourcePage?: boolean; boardPath?: string; endpoint?: URL; actor?: string; friendActor?: string; laterFriendActor?: string; seedPosition?: (setup: MatchSetup, black: boolean) => Promise<string>; deleteMatch?: (id: string) => Promise<void> } = {}) {
   if (endpoint && (endpoint.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(endpoint.hostname) || endpoint.username || endpoint.password)) throw new Error('The HTTP harness accepts only a loopback development endpoint');
   let buddy: Client | undefined, laterBuddy: Client | undefined;
   const client = new Client({ name: 'local-browser-host', version: '1' });
-  const service = endpoint ? undefined : fixtureService();
+  const service = endpoint ? undefined : fixtureService(engine);
   let server: ReturnType<typeof createPluginServer> | undefined, buddyServer: ReturnType<typeof createPluginServer> | undefined, laterBuddyServer: ReturnType<typeof createPluginServer> | undefined;
   let resource: Awaited<ReturnType<typeof board>>;
   let vite: Awaited<ReturnType<typeof createServer>> | undefined;

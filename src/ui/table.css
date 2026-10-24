@@ -142,6 +142,7 @@
   #menu-sheet .fields { gap: 4px; }
 }
 
-#table-bar > button.primary { min-height: 52px; }
+/* End Turn keeps the primary height in every state, so the bar does not move when it becomes primary. */
+#table-bar > :is(button.primary, #end-turn) { min-height: 52px; }
 
 #table-bar > button .icon { width: 20px; height: 20px; }

@@ -1,7 +1,7 @@
 /**
- * The website's client of /api (no UI): typed calls, command retries with the same command_id, and a poll that
- * keeps one game's view by the rules of report part 03, section 4.3. It imports types only, so the website
- * bundle gets no zod and no server code.
+ * The website's client of /api (no UI): typed calls and command retries with the same command_id. The shared
+ * poll (src/plugin/poll.ts) keeps a game's view fresh. It imports types only, so the website bundle gets no zod
+ * and no server code.
  */
 import type { AccountNotices, MyProfile, NotifyKind, ReportCategory, Settings } from '../account/profile';
 import type { Action, CreateOptions, DraftInput, DraftPreview, ErrorCode, InboxEntry, Lobby, Preset, RatingPolicy, Reply, View, JoinPreview, HistoryEntry, PlayerRecord } from '../match/protocol';
@@ -92,60 +92,3 @@ export function onlineClient({ token, origin = '', fetch: send = (...args) => fe
 }
 export type OnlineClient = ReturnType<typeof onlineClient>;
 
-/**
- * The view rules (report part 03, section 4.3): a view that is not newer is dropped; a newer view replaces the local
- * one and adds its commands to the log; a view whose commands do not reach back to the local revision has a gap.
- * A full read keeps its rules; a later read without rules keeps the local ones.
- */
-export function merge(local: View | undefined, next: View): View | 'drop' | 'gap' {
-  if (!local) return next;
-  if (next.revision <= local.revision) return 'drop';
-  const first = next.last_commands[0]?.seq ?? next.revision + 1;
-  if (first > local.revision + 1) return 'gap';
-  return { ...next, rules: next.rules ?? local.rules, last_commands: [...local.last_commands.filter(c => c.seq < first), ...next.last_commands].slice(-50) };
-}
-
-/**
- * Keeps one game's view fresh by polling (Realtime pings come in phase 2): every 2 s while a live game waits for the
- * opponent, else every 30 s; never while the page is hidden; at once when the page comes back or the network returns.
- * A gap of 1 to 50 revisions is filled with `since`; a larger one reloads the full view. Stops when the game ends.
- */
-export function watch(api: OnlineClient, gameId: string, onView: (view: View) => void, { live = 2000, daily = 30_000 } = {}) {
-  let local: View | undefined, timer: ReturnType<typeof setTimeout> | undefined, stopped = false, running: Promise<void> | undefined;
-  const take = (view: View): boolean => {
-    const merged = merge(local, view);
-    if (merged === 'drop' || merged === 'gap') return merged === 'drop';
-    local = merged; onView(merged); return true;
-  };
-  async function read(): Promise<void> {
-    if (take(await api.game(gameId, local?.revision))) return;
-    // A gap: the server had more than 50 commands since our revision. Start again from a full view.
-    local = undefined; take(await api.game(gameId));
-  }
-  function schedule(): void {
-    clearTimeout(timer);
-    if (stopped || local && local.status !== 'waiting' && local.status !== 'playing') return;
-    timer = setTimeout(() => { void refresh(); }, local?.speed === 'live' && local.action === 'waiting' ? live : daily);
-  }
-  /** Reads now (one read at a time); errors wait for the next turn of the poll. */
-  function refresh(): Promise<void> {
-    if (stopped) return Promise.resolve();
-    if (typeof document !== 'undefined' && document.hidden) { schedule(); return Promise.resolve(); }
-    running ??= read().catch(() => {}).finally(() => { running = undefined; schedule(); });
-    return running;
-  }
-  const back = () => { if (typeof document === 'undefined' || !document.hidden) void refresh(); };
-  // visibilitychange comes to the document; pageshow (from the back/forward cache) and online come to the window.
-  const on = (add: boolean) => {
-    if (typeof document !== 'undefined') document[add ? 'addEventListener' : 'removeEventListener']('visibilitychange', back);
-    if (typeof window !== 'undefined') for (const name of ['pageshow', 'online']) window[add ? 'addEventListener' : 'removeEventListener'](name, back);
-  };
-  on(true); void refresh();
-  return {
-    refresh,
-    /** A command's reply goes through the same rules; a gap reads again. */
-    accept(view: View): void { if (!take(view)) void refresh(); },
-    get view() { return local; },
-    stop(): void { stopped = true; clearTimeout(timer); on(false); },
-  };
-}

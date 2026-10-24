@@ -60,8 +60,8 @@ The layouts are in `ground.css`. The regions are a CSS grid. The same media quer
 - **Labels** (the lines are in `THRESHOLDS`): Fair from 2.5 to 5.0 pawns. "Possibly overpowered" above 5.0. "Likely overpowered" when the low end of the band is above 5.0. "Possibly overpowered" also when the high end is above 5.5 and the error is 1 pawn or more. "Possibly too weak" below 2.5. "Likely too weak" when the high end is below 2.5. An unchanged Pawn says "The unit of worth", and an unchanged Queen says "The queen’s worth".
 - **Measured designs:** `anchors.ts` holds 17 designs that computer games measured. A design with the same key gets its label from the measurement. The number stays the formula. Each design names the source of its value, for example the runs pv2-d3 (Bishop, Rook, Ogre, Beast, Guard), pv2-A-vsR-d3 (Archer) and pv-A-af2 (Archer far2, 2.83 ± 0.28, one pass against the Rook). The Knight and the Queen use the prices of the engine (`src/ai/eval.ts`).
 - **Flags and memory:** the judge flags more draws, very frequent takes, shots over pieces, a long wait, a rule that is hard to judge or never measured, a piece that nothing can block, more squares than any measured piece, and an early queen. It scores how hard the piece is to remember, from level 0 to 3.
-- **On screen:** Weigh, the card face and Copy as text show the worth, the band word and (Weigh only) the like line. They call `judge(d, false)`.
-- **Not on screen:** the judge still computes the "Without …" lines, the fixes, the rule deltas, the flags, the memory score and the measured note. No screen shows them now.
+- **On screen:** Weigh, the card face and Copy as text show the worth, the band word and (Weigh only) the like line. They call `judge(d)`.
+- **Not on screen:** the judge still computes the flags, the memory score and the measured note. No screen shows them now.
 - **No wrong direction:** a test on random designs proves that no added square, line or ability lowers the worth, and no flaw raises it.
 
 ## Motion

@@ -67,5 +67,5 @@ nothing with a feature-only ballot (0.562 vs 0.500 control) and 8% overrides.
 
 - Execution ledger: `TASKS.md` → "Takeover execution — 2026-09-16"
 - Plan and review: `docs/TAKEOVER-PLAN.md`, `docs/TAKEOVER-REVIEW-2026-09-14.md`
-- Release: `docs/RELEASE-REVIEW-2026-09-16.md`, preserved v0.7 bundle in `docs/releases/v0.7.0/`
-- Baseline and hashes: `docs/takeover/BASELINE.md`, `docs/takeover/baseline.json`
+- Release: `docs/RELEASE-REVIEW-2026-09-16.md`, preserved v0.7 bundle at `d6021674:docs/releases/v0.7.0/`
+- Baseline and hashes: `docs/takeover/BASELINE.md`, `1476f55c:docs/takeover/baseline.json`
