@@ -89,6 +89,11 @@ async function checkNativeLocations({ context, origin, pool, asset, build, brows
   { label: 'syntax' }, { label: 'native-constructor' }, { label: 'native-properties' },
   { label: 'eval-input' }, { label: 'worker-eval-input' },
   { label: 'async' }, { label: 'eval' }, { label: 'eval-known' }, { label: 'eval-rejection' }, { label: 'worker', key: `${origin}${asset}:76543210:93\n    at x` },
+  { label: 'array-length', code: 'new Array(-1)', name: 'RangeError', message: 'Invalid array length' },
+  { label: 'time-value', code: 'new Date(NaN).toISOString()', name: 'RangeError', message: 'Invalid time value' },
+  { label: 'null-object', code: 'Object.keys(null)', name: 'TypeError', message: 'Cannot convert undefined or null to object' },
+  { label: 'constant', code: '(()=>{const v=1;v=2})()', name: 'TypeError', message: 'Assignment to constant variable.' },
+  { label: 'property-write', code: "(()=>{const v=undefined;v['account123456789']=1})()", name: 'TypeError', message: 'Cannot set properties of [value] (setting [value])' },
  ];
  let nameFingerprint;
  const privateValues = ['12345678', '87654321', '76543210', 'account123456789', 'account987654321', 'private-query', 'private-fragment'];
@@ -109,7 +114,7 @@ async function checkNativeLocations({ context, origin, pool, asset, build, brows
   page.on('request', request => { if (new URL(request.url()).pathname === '/api/client-errors') sent.push(request.postDataJSON()); });
   await page.evaluate(key => { globalThis.nativeKey = key; }, item.key);
   if (['eval-input', 'worker-eval-input'].includes(item.label)) await page.evaluate(({ origin, asset }) => { window.nativeInput = '\n'.repeat(12345677) + `throw new Error('Failed to fetch')\n//# sourceURL=${origin}${asset}`; }, { origin, asset });
-  const code = item.label === 'syntax' ? 'const bad = ;'
+  const code = item.code ?? (item.label === 'syntax' ? 'const bad = ;'
    : item.label === 'native-constructor' ? `throw new Error('Failed to fetch',${JSON.stringify(origin + asset)},12345678)`
    : item.label === 'native-properties' ? `const e=new Error('Failed to fetch');e.fileName=${JSON.stringify(origin + asset)};e.lineNumber=12345678;e.columnNumber=91;throw e`
    : item.label === 'eval-input' ? 'setTimeout(()=>eval(window.nativeInput),0)'
@@ -120,7 +125,7 @@ async function checkNativeLocations({ context, origin, pool, asset, build, brows
    : item.label === 'async' ? 'void (async()=>{await window.foreignFault()})()'
    : item.label === 'property' ? `const input=undefined;input[${JSON.stringify(item.key)}]`
    : item.label === 'rejection' ? `void (async()=>{const key=globalThis.nativeKey;const holder={[key](){throw new Error('Failed to fetch')}};holder[key]()})()`
-   : `const key=globalThis.nativeKey;const holder={[key](){throw new Error('Failed to fetch')}};holder[key]()`;
+   : `const key=globalThis.nativeKey;const holder={[key](){throw new Error('Failed to fetch')}};holder[key]()`);
   if (item.label === 'async') await page.addScriptTag({ content: `window.foreignFault=async function foreignFault(){await 0;throw new Error('Failed to fetch')};\n//# sourceURL=${origin}/external.js` });
   const source = origin + asset + '?recorder-native=' + item.label;
   await page.route(source, route => route.fulfill({ contentType: 'text/javascript', body: item.label === 'worker' ? `globalThis.nativeKey=${JSON.stringify(item.key)};` + code : code }));
@@ -141,7 +146,8 @@ async function checkNativeLocations({ context, origin, pool, asset, build, brows
   const native = await page.evaluate(() => window.nativeFault);
   assert(await response, item.label + ' response');
   assert.equal(sent.length, 1, item.label);
-  const report = sent[0], message = item.label === 'property' ? 'Cannot read properties of [value] (reading [value])' : ['worker', 'worker-eval-input', 'syntax'].includes(item.label) ? 'Unlisted message' : 'Failed to fetch';
+  const report = sent[0], message = item.message ?? (item.label === 'property' ? 'Cannot read properties of [value] (reading [value])' : item.label === 'syntax' ? 'Unlisted message' : 'Failed to fetch');
+  if (item.name) assert.equal(native.name, item.name);
   assert.deepEqual(report, { kind: native.kind, name: native.name, message, route: '/', build, browser: browserFamily, size: 'desktop', fingerprint: report.fingerprint });
   if (item.label.startsWith('name-')) {
    nameFingerprint ??= report.fingerprint;
@@ -157,5 +163,33 @@ async function checkNativeLocations({ context, origin, pool, asset, build, brows
   await pool.query('delete from public.client_errors where fingerprint=$1', [report.fingerprint]);
   await page.close();
  }
+ const page = await context.newPage(), sent = [];
+ await page.goto(origin + '/'); await page.waitForLoadState('networkidle');
+ page.on('request', request => { if (new URL(request.url()).pathname === '/api/client-errors') sent.push(request.postDataJSON()); });
+ for (const [name, code] of [
+  ['TypeError', "const v=undefined;v['account123456789']"],
+  ['ReferenceError', 'account123456789'], ['RangeError', 'new Array(-1)'],
+ ]) {
+  const source = origin + asset + '?worker-name=' + name;
+  await page.route(source, route => route.fulfill({ contentType: 'text/javascript', body: code }));
+  const response = page.waitForResponse(reply => new URL(reply.url()).pathname === '/api/client-errors' && reply.status() === 204);
+  await page.evaluate(url => {
+   const worker = new Worker(url);
+   worker.onerror = event => {
+    event.preventDefault();
+    window.workerNative = { trusted: event.isTrusted, error: event.error };
+    window.dispatchEvent(new CustomEvent('kingdown-worker-error', { detail: event })); worker.terminate();
+   };
+  }, source);
+  await response;
+  assert.deepEqual(await page.evaluate(() => window.workerNative), { trusted: true, error: null });
+  assert.equal(sent.at(-1).name, name);
+ }
+ assert.equal(sent.length, 3); assert.equal(new Set(sent.map(report => report.fingerprint)).size, 3);
+ const fingerprints = sent.map(report => report.fingerprint);
+ const stored = (await pool.query('select * from public.client_errors where fingerprint=any($1::text[])', [fingerprints])).rows;
+ assert.equal(stored.length, 3); assert(stored.every(row => row.count === '1'));
+ assert(!JSON.stringify(sent).includes('account123456789')); assert(!JSON.stringify(stored).includes('account123456789'));
+ await pool.query('delete from public.client_errors where fingerprint=any($1::text[])', [fingerprints]); await page.close();
  console.log('Native error cases: names with new lines, length cut, unknown asset, rejection, property, async, eval and worker pass');
 }

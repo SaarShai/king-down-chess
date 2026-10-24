@@ -3,7 +3,7 @@ begin;
 create table if not exists public.client_errors (
  id bigint generated always as identity primary key,
  fingerprint text not null check (fingerprint ~ '^[a-f0-9]{16}$'),
- build text not null check (build ~ '^[a-f0-9]{40}$'),
+ build text not null check (build = 'other' or build ~ '^[a-f0-9]{40}$'),
  hour timestamptz not null,
  kind text not null check (kind in ('error','rejection','worker','server')),
  name text not null check (length(name) <= 40),
@@ -17,6 +17,16 @@ create table if not exists public.client_errors (
  unique (fingerprint,build,hour)
 );
 create index if not exists client_errors_last_seen on public.client_errors(last_seen);
+alter table public.client_errors drop constraint if exists client_errors_build_check;
+alter table public.client_errors add constraint client_errors_build_check check (build = 'other' or build ~ '^[a-f0-9]{40}$');
+-- One row reserves at most 1,000 new fault groups per UTC hour across all instances.
+create table if not exists public.client_error_budget (
+ singleton boolean primary key check (singleton),
+ hour timestamptz not null,
+ count integer not null check (count between 1 and 1000)
+);
+alter table public.client_error_budget enable row level security;
+revoke all on public.client_error_budget from public, anon, authenticated;
 alter table public.client_errors enable row level security;
 revoke all on public.client_errors from public, anon, authenticated;
 revoke all on sequence public.client_errors_id_seq from public, anon, authenticated;
@@ -25,6 +35,9 @@ do $$ begin
  if exists(select from pg_roles where rolname='kingdown_plugin_runtime') then
   grant select, insert, update (count,last_seen,routes,browsers,size_classes), delete on public.client_errors to kingdown_plugin_runtime;
   grant usage on sequence public.client_errors_id_seq to kingdown_plugin_runtime;
+  grant select, insert, update on public.client_error_budget to kingdown_plugin_runtime;
+  drop policy if exists kingdown_plugin_runtime on public.client_error_budget;
+  create policy kingdown_plugin_runtime on public.client_error_budget for all to kingdown_plugin_runtime using (true) with check (true);
   drop policy if exists kingdown_plugin_runtime on public.client_errors;
   create policy kingdown_plugin_runtime on public.client_errors for all to kingdown_plugin_runtime using (true) with check (true);
   drop policy if exists kingdown_plugin_runtime_old_errors on public.client_errors;

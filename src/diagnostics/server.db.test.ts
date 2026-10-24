@@ -1,3 +1,5 @@
+declare const __KINGDOWN_BUILD__: string;
+
 import { runInThisContext } from 'node:vm';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
@@ -28,7 +30,7 @@ const suite = process.env.PLUGIN_TEST_DATABASE_URL ? describe : describe.skip;
 suite('first-party fault HTTP and database writes', () => {
  let own: URL, admin: pg.Pool, runtime: pg.Pool, server: Server, origin: string, options: ApiOptions;
  let handler: ReturnType<typeof createApiHandler>;
- const role = `errors_test_${randomUUID().replaceAll('-', '')}`, build = 'a'.repeat(40);
+ const role = `errors_test_${randomUUID().replaceAll('-', '')}`, build = __KINGDOWN_BUILD__;
  const profile = vi.fn(async (): Promise<unknown> => { throw new TypeError('Server person@example.com token=private'); });
  const pending: Promise<unknown>[] = [];
  const settle = async () => { await Promise.all(pending.splice(0)); };
@@ -50,9 +52,9 @@ suite('first-party fault HTTP and database writes', () => {
  beforeEach(async () => {
   await settle();
   vi.stubGlobal(Symbol.for('@vercel/request-context'), { get: () => ({ waitUntil: (work: Promise<unknown>) => { pending.push(work); } }) });
-  await admin.query('truncate public.client_errors'); profile.mockClear();
+  await admin.query('truncate public.client_errors, public.client_error_budget'); profile.mockClear();
   options = { games: {} as ApiOptions['games'], accounts: { profile } as unknown as ApiOptions['accounts'], safety: {} as ApiOptions['safety'], publicOrigin: origin,
-   operations: new Set(['GET /api/me/profile']), verify: async () => randomUUID(), webAccountAccess: async () => ({ enabled: true, expiresAt: performance.now() + 5000 }), recordError: createErrorWriter(runtime), build };
+   operations: new Set(['GET /api/me/profile']), verify: async () => randomUUID(), webAccountAccess: async () => ({ enabled: true, expiresAt: performance.now() + 5000 }), recordError: createErrorWriter(runtime, build), build };
   handler = createApiHandler(options);
  });
  afterAll(async () => {
@@ -132,9 +134,52 @@ suite('first-party fault HTTP and database writes', () => {
  it('adds four concurrent function writes without a lost count', async () => {
   const pools = Array.from({ length: 4 }, () => new pg.Pool({ connectionString: runtime.options.connectionString, max: 1 }));
   try {
-   await Promise.all(pools.map(pool => createErrorWriter(pool)(report())));
+   await Promise.all(pools.map(pool => createErrorWriter(pool, build)(report())));
    expect(await rows()).toMatchObject([{ count: '4' }]);
   } finally { await Promise.all(pools.map(pool => pool.end())); }
+ });
+ it('maps false builds and made-up routes to fixed groups through raw HTTP', async () => {
+  for (let i = 0; i < 30; i++) {
+   const falseBuild = i.toString(16).padStart(40, '0');
+   const route = '/play/profile/' + Array.from({ length: 5 }, (_, bit) => i & (1 << bit) ? 'settings' : 'profile').join('/');
+   await post({ ...report('Failed to fetch'), route, build: falseBuild, fingerprint: errorFingerprint('Error', 'Failed to fetch', route, falseBuild) });
+  }
+  expect(await rows()).toMatchObject([{ build: 'other', routes: ['/other'], count: '30', fingerprint: errorFingerprint('Error', 'Failed to fetch', '/other', 'other') }]);
+  expect(await rows()).toHaveLength(1);
+  await post(report('Failed to fetch'));
+  expect(await rows()).toHaveLength(2);
+  for (const badBuild of ['a'.repeat(39), 'a'.repeat(41), 'z'.repeat(40), 'a'.repeat(40) + '\n', 'other']) {
+   await post({ ...report('Load failed'), build: badBuild });
+  }
+  expect(await rows()).toHaveLength(2);
+ });
+ it('shares an atomic hourly limit across two HTTP handlers and keeps existing counts', async () => {
+  await post(report('Failed to fetch'));
+  await admin.query(`insert into public.client_errors(fingerprint,build,hour,kind,name,message,routes,browsers,size_classes)
+   select lpad(to_hex(n),16,'0'),$1,date_trunc('hour',now()),'error','Error','Unlisted message','{}','{}','{}'
+   from generate_series(1,998) n`, [build]);
+  await admin.query('update public.client_error_budget set count=999');
+  let peerHandler: ReturnType<typeof createApiHandler>;
+  const peer = createServer((req, res) => { void peerHandler(req, res); });
+  peer.listen(0, '127.0.0.1'); await once(peer, 'listening');
+  const peerOrigin = `http://127.0.0.1:${(peer.address() as { port: number }).port}`;
+  peerHandler = createApiHandler({ ...options, publicOrigin: peerOrigin, recordError: createErrorWriter(runtime, build) });
+  try {
+   const [a, b] = await Promise.all([
+    post(report('Invalid array length')),
+    fetch(peerOrigin + '/api/client-errors', { method: 'POST', headers: { Origin: peerOrigin, 'Content-Type': 'application/json' }, body: JSON.stringify(report('Invalid time value')) }),
+   ]);
+   expect(a.status).toBe(204); expect(b.status).toBe(204);
+   expect(await rows()).toHaveLength(1000);
+   expect((await admin.query('select count from public.client_error_budget')).rows).toEqual([{ count: 1000 }]);
+   handler = createApiHandler({ ...options, recordError: createErrorWriter(runtime, build) });
+   await post(report('Load failed')); expect(await rows()).toHaveLength(1000);
+   await post(report('Failed to fetch'));
+   expect((await rows()).find(row => row.message === 'Failed to fetch').count).toBe('2');
+   await admin.query("update public.client_error_budget set hour=hour-interval '1 hour'");
+   await post(report('Load failed')); expect(await rows()).toHaveLength(1001);
+   expect((await admin.query('select count from public.client_error_budget')).rows).toEqual([{ count: 1 }]);
+  } finally { peer.closeAllConnections(); await new Promise<void>(done => peer.close(() => done())); }
  });
  it('bounds each route group and caps its browser set at twenty values', async () => {
   for (let i = 0; i < 25; i++) await options.recordError!({ ...report(), browser: `Chrome ${100 + i}` });
@@ -253,7 +298,7 @@ suite('first-party fault HTTP and database writes', () => {
    // A new writer must also drop when other API work owns both pool clients.
    const a = await runtime.connect(), b = await runtime.connect();
    try {
-    const now = performance.now(); await createErrorWriter(runtime)(report());
+    const now = performance.now(); await createErrorWriter(runtime, build)(report());
     expect(performance.now() - now).toBeLessThan(100); expect(runtime.waitingCount).toBe(0);
    } finally { a.release(); b.release(); }
   } finally { await lock.query('rollback'); await lock.end(); }

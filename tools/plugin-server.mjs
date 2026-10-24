@@ -106,7 +106,7 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
   const mcp = createPluginHandler({ consent, service, publicOrigin, resourceHtml, auth, localDev });
   const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET });
   const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), players: service, publicOrigin,
-    ...(import.meta.env?.KINGDOWN_ERROR_RECORDER !== false && { recordError: createErrorWriter(pool), build: typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : '' }),
+    ...(import.meta.env?.KINGDOWN_ERROR_RECORDER !== false && { recordError: createErrorWriter(pool, typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : ''), build: typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : '' }),
     admit: createAdmission(),
     currentUser: websiteCurrentUser ?? (page ? createCurrentUserCheck({ supabaseUrl: page.supabaseUrl, publishableKey: page.publishableKey }) : undefined),
     webAccountAccess: createWebAccountAccess(pool),

@@ -1,7 +1,8 @@
-import { browserFamily, BUILD_ID, errorFingerprint, errorName, errorRoute, MAX_ERROR_BODY, errorMessage, type ClientErrorReport } from './data';
+import { browserFamily, BUILD_ID, ERROR_NAMES, errorFingerprint, errorName, errorRoute, MAX_ERROR_BODY, errorMessage, type ClientErrorReport } from './data';
 
 declare const __KINGDOWN_BUILD__: string;
 let installed = false;
+const workerPrefix = new RegExp(`^(?:Uncaught )?(${ERROR_NAMES.join('|')}): `);
 
 /** This module is imported by the website entry only. */
 export function installErrorRecorder(): void {
@@ -15,9 +16,11 @@ export function installErrorRecorder(): void {
    try {
     if (seen.size >= 5) return;
     const error = value instanceof Error ? value : undefined;
-    const raw = error?.message ?? (kind === 'rejection' ? 'Non-Error rejection' : event?.message ?? 'Worker failed');
+    let raw = error?.message ?? (kind === 'rejection' ? 'Non-Error rejection' : event?.message ?? 'Worker failed');
+    const prefix = kind === 'worker' && !error ? workerPrefix.exec(raw) : null;
+    if (prefix) raw = raw.slice(prefix[0].length);
     if (/^Script error\.?$/i.test(raw.trim()) || /ResizeObserver loop/i.test(raw)) return;
-    const name = errorName(error?.name), message = errorMessage(raw), route = errorRoute(location.pathname);
+    const name = errorName(error?.name ?? prefix?.[1]), message = errorMessage(raw), route = errorRoute(location.pathname);
     const fingerprint = errorFingerprint(name, message, route, build);
     if (seen.has(fingerprint)) return;
     const report: ClientErrorReport = { kind, name, message, route, build,

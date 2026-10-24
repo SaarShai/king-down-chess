@@ -28,6 +28,12 @@ function matchesSource(value: string, parts: string[]): boolean {
 const identifier = '(?:\\[redacted\\]|[A-Za-z_$][A-Za-z0-9_$]{0,31}(?:\\.[A-Za-z_$][A-Za-z0-9_$]{0,31}){0,3})';
 const engineForms = [
  [new RegExp(`^Cannot read properties of (?:undefined|null) \\(reading '?${identifier}'?\\)$`), 'Cannot read properties of [value] (reading [value])'],
+ [new RegExp(`^Cannot set properties of (?:undefined|null) \\(setting '?${identifier}'?\\)$`), 'Cannot set properties of [value] (setting [value])'],
+ [new RegExp(`^can't access property "${identifier}", ${identifier} is (?:undefined|null)$`), 'Cannot read properties of [value] (reading [value])'],
+ [/^(?:Invalid array length|invalid array length)$/, 'Invalid array length'],
+ [/^(?:Invalid time value|invalid date)$/, 'Invalid time value'],
+ [/^(?:Cannot convert undefined or null to object|can't convert (?:undefined|null) to object)$/, 'Cannot convert undefined or null to object'],
+ [new RegExp(`^(?:Assignment to constant variable\\.|invalid assignment to const '${identifier}')$`), 'Assignment to constant variable.'],
  [new RegExp(`^${identifier} is not a function$`), '[value] is not a function'],
  [new RegExp(`^(?:undefined|null) is not an object \\(evaluating '?${identifier}'?\\)$`), '[value] is not an object (evaluating [value])'],
  [new RegExp(`^${identifier} is not defined$`), '[value] is not defined'],
@@ -70,11 +76,21 @@ export function errorName(value: unknown): string {
  return typeof value === 'string' && (ERROR_NAMES as readonly string[]).includes(value) ? value : 'Error';
 }
 
-/** Keep fixed path words only. Every other segment is an ID. No query or fragment. */
+const fixedRoutes = new Set([
+ '/', '/play', '/play/profile', '/play/settings', '/g/:game', '/j', '/other',
+ '/api/status', '/api/client-errors', '/api/games', '/api/games/find', '/api/lobby',
+ '/api/invites/preview', '/api/invites/redeem', '/api/me/games', '/api/me/profile',
+ '/api/me/settings', '/api/me/handle', '/api/me/record', '/api/blocks',
+ '/api/me/deletion', '/api/me/notifications', '/api/relations', '/api/reports',
+]);
+
+/** Use only the patterns in online/routes.ts and api/http.ts. Drop all other paths. */
 export function errorRoute(path: string): string {
- const words = new Set(['play', 'profile', 'settings', 'g', 'j', 'api', 'games', 'me', 'status', 'client-errors', 'seen', 'commands', 'preview', 'invite', 'invites', 'redeem', 'lobby', 'find', 'accept', 'cancel', 'handle', 'deletion', 'notifications', 'relations', 'reports', 'record', 'blocks']);
- const parts = path.split(/[?#]/, 1)[0].split('/').filter(Boolean).slice(0, 8);
- return '/' + parts.map((part, i) => words.has(part) && !(i > 0 && ['g', 'games'].includes(parts[i - 1]) && !['find'].includes(part)) ? part : parts[i - 1] === 'g' || parts[i - 1] === 'play' || parts[i - 1] === 'games' ? ':game' : ':id').join('/');
+ const clean = path.split(/[?#]/, 1)[0].replace(/\/$/, '') || '/';
+ if (fixedRoutes.has(clean)) return clean;
+ if (/^\/g\/[^/]+$/.test(clean)) return '/g/:game';
+ const game = /^\/api\/games\/[^/]+(\/(?:accept|cancel|preview|seen|commands|invite))?$/.exec(clean);
+ return game ? '/api/games/:game' + (game[1] ?? '') : '/other';
 }
 
 export function browserFamily(ua: string): string {

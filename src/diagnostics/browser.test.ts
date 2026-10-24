@@ -139,3 +139,24 @@ it('sends one cleaned report for a non-Error rejection', async () => {
  expect(body).not.toContain('person@example.com');
  expect(JSON.parse(body)).toMatchObject({ kind: 'rejection', message: 'Unlisted message' });
 });
+
+it.each(['Uncaught ', ''])('reads only fixed worker names with prefix %s', async prefix => {
+ for (const [name, raw] of [
+  ['TypeError', "Cannot read properties of undefined (reading 'account123456789')"],
+  ['ReferenceError', 'account123456789 is not defined'], ['RangeError', 'Invalid array length'],
+ ]) {
+  const event = Object.assign(new Event('error'), { error: null, message: `${prefix}${name}: ${raw}` });
+  target.dispatchEvent(new CustomEvent('kingdown-worker-error', { detail: event }));
+ }
+ expect(beacon).toHaveBeenCalledTimes(3);
+ const bodies = await Promise.all(beacon.mock.calls.map(async call => (call[1] as Blob).text()));
+ expect(bodies.join()).not.toContain('account123456789');
+ expect(bodies.map(body => JSON.parse(body).name)).toEqual(['TypeError', 'ReferenceError', 'RangeError']);
+ expect(new Set(bodies.map(body => JSON.parse(body).fingerprint)).size).toBe(3);
+});
+
+it.each(['PrivateError: Failed to fetch', 'Uncaught privateValue: Invalid array length', 'prefix TypeError: Invalid array length'])('rejects a variable worker prefix: %s', async message => {
+ const event = Object.assign(new Event('error'), { error: null, message });
+ target.dispatchEvent(new CustomEvent('kingdown-worker-error', { detail: event }));
+ expect(JSON.parse(await (beacon.mock.calls[0][1] as Blob).text())).toMatchObject({ name: 'Error', message: 'Unlisted message' });
+});

@@ -178,6 +178,9 @@ commit;
 
 -- 13. Fault counts (0019). Only expired rows can be deleted.
 begin;
+grant select, insert, update on public.client_error_budget to kingdown_plugin_runtime;
+drop policy if exists kingdown_plugin_runtime on public.client_error_budget;
+create policy kingdown_plugin_runtime on public.client_error_budget for all to kingdown_plugin_runtime using (true) with check (true);
 grant select, insert, update (count,last_seen,routes,browsers,size_classes), delete on public.client_errors to kingdown_plugin_runtime;
 grant usage on sequence public.client_errors_id_seq to kingdown_plugin_runtime;
 drop policy if exists kingdown_plugin_runtime on public.client_errors;

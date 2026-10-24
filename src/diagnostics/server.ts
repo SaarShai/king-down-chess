@@ -5,7 +5,7 @@ import { BUILD_ID, ERROR_NAMES, errorFingerprint, errorName, errorRoute, MAX_ERR
 
 const reportSchema = z.strictObject({
  kind: z.enum(['error', 'rejection', 'worker']), name: z.enum(ERROR_NAMES), message: z.string().max(300),
- route: z.string().max(120).refine(value => errorRoute(value) === value), build: z.string().regex(BUILD_ID),
+ route: z.string().max(120), build: z.string().regex(BUILD_ID),
  browser: z.string().regex(/^(?:(?:Safari|Chrome|Firefox|Edge|Opera) [1-9]\d{0,2}|Other)$/),
  size: z.enum(['phone', 'desktop']), fingerprint: z.string().regex(/^[a-f0-9]{16}$/),
 });
@@ -44,7 +44,7 @@ export async function readClientError(req: IncomingMessage): Promise<ClientError
 }
 
 /** Keep one sample and bounded sets for the report. Never expose a write failure to the caller. */
-export function createErrorWriter(pool: Pool): ErrorWriter {
+export function createErrorWriter(pool: Pool, build: string): ErrorWriter {
  const admit = errorAdmission();
  let active = 0;
  return async report => {
@@ -60,16 +60,29 @@ export function createErrorWriter(pool: Pool): ErrorWriter {
    const cleanup = { text: `delete from public.client_errors where id in
     (select id from public.client_errors where last_seen < now()-interval '30 days' order by last_seen limit 100 for update skip locked)` };
    await client.query(cleanup);
-   const insert = { text: `insert into public.client_errors
+   const message = errorMessage(report.message), route = errorRoute(report.route);
+   const storedBuild = report.build === build ? build : 'other';
+   const insert = { text: `with existing as materialized (
+    select 1 from public.client_errors where fingerprint=$1 and build=$2 and hour=date_trunc('hour',now())
+   ), budget as (
+    insert into public.client_error_budget(singleton,hour,count)
+    select true,date_trunc('hour',now()),1 where not exists(select from existing)
+    on conflict(singleton) do update set hour=excluded.hour,
+     count=case when client_error_budget.hour<excluded.hour then 1 else client_error_budget.count+1 end
+    where client_error_budget.hour<excluded.hour or
+     (client_error_budget.hour=excluded.hour and client_error_budget.count<1000)
+    returning 1
+   ) insert into public.client_errors
     (fingerprint,build,hour,kind,name,message,routes,browsers,size_classes)
-    values($1,$2,date_trunc('hour',now()),$3,$4,$5,$6,$7,$8)
+    select $1,$2,date_trunc('hour',now()),$3,$4,$5,$6,$7,$8
+    where exists(select from existing) or exists(select from budget)
     on conflict(fingerprint,build,hour) do update set
      count=client_errors.count+1, last_seen=now(),
      routes=array(select distinct x from unnest(client_errors.routes || excluded.routes) x order by x limit 20),
      browsers=array(select distinct x from unnest(client_errors.browsers || excluded.browsers) x order by x limit 20),
      size_classes=array(select distinct x from unnest(client_errors.size_classes || excluded.size_classes) x order by x limit 2)`,
-    values: [errorFingerprint(report.name, errorMessage(report.message), report.route, report.build), report.build, report.kind, report.name, errorMessage(report.message),
-     [report.route], report.browser ? [report.browser] : [], report.size ? [report.size] : []] };
+    values: [errorFingerprint(report.name, message, route, storedBuild), storedBuild, report.kind, report.name, message,
+     [route], report.browser ? [report.browser] : [], report.size ? [report.size] : []] };
    await client.query(insert);
    await client.query('commit');
   } catch {

@@ -25,9 +25,9 @@ The owner approves this task in the run request. Work stays on `staging/error-re
 - The shared engine sends a local `kingdown-worker-error` event. Only the website listens. This keeps the recorder out of the board bundle.
 - Both builds read the full commit from `git rev-parse HEAD` at build time. The site and server use that value. A source server with no build value does not record server faults.
 - The database groups by fingerprint, build and UTC hour. It keeps one sample and at most 20 route and browser values. This bounds each row.
-- The function accepts at most 60 reports per minute, with at most two database writes in flight. It uses no address key.
+- The function accepts at most 60 reports per minute, with at most two database writes in flight. It uses no address key. One shared database counter permits at most 1,000 new rows per UTC hour. An atomic reservation and report write use one SQL statement. Existing groups can still gain counts at the limit.
 - Each write uses one client and one transaction, with local statement and lock limits of 500 ms. It deletes at most 100 expired rows and skips locked rows. A full pool drops the report. Daily cleanup uses the same limits and repeats 100-row batches until fewer than 100 unlocked expired rows remain. Its failure does not stop the other daily work. A missing table drops fault reports silently.
-- Approved message forms come from source error texts at build time and known browser and engine forms. Every variable part uses a fixed mark, including short code names. Every unlisted message uses one fixed text. Both browser and server apply this rule. The existing scrub rules are a second layer. Names use a fixed list. Unknown route words become ID marks. No report sends or stores a code location. Group codes use the fixed name, cleaned message, cleaned route and build. Reject all unknown request fields, including old location fields. The operator reads stacks in host logs and browser tools. Only the combined website build includes recorder setup, routes and cleanup. The plugin-only server and board bytes must match the base with the same packages.
+- Approved message forms come from source error texts at build time and known browser and engine forms. Every variable part uses a fixed mark, including short code names. Every unlisted message uses one fixed text. Both browser and server apply this rule. The existing scrub rules are a second layer. Names use a fixed list. Routes use fixed website and API patterns. Other routes use one fixed text. The server stores its own build or one fixed text for other builds. No report sends or stores a code location. Group codes use the fixed name, cleaned message, cleaned route and build. Reject all unknown request fields, including old location fields. The operator reads stacks in host logs and browser tools. Only the combined website build includes recorder setup, routes and cleanup. The plugin-only server and board bytes must match the base with the same packages.
 - The privacy text for play without an account now names fault reports. Its old claim that no data reaches the server conflicts with this task.
 
 ## Owner steps
@@ -300,3 +300,50 @@ The first type check finds old test calls and report fields. The first selected 
 The copied proofs keep all native error inputs. Assertions for accepted locations now require absent location fields; old requests with any `frames` field must store no row. The asset-change proof removes the deleted location helper and asset-set reader arguments, uses the location-free body and new group-code arguments, and requires acceptance both times. The WebKit proof now requires one report for syntax and eval faults, including an unknown filename.
 
 Proofs and logs are in `/private/tmp/claude-501/ci87/sol30/`. No push, deploy, staging database connection or production database connection occurs.
+
+
+## Sixth review fix
+
+Status: resolved
+
+The owner requests the three P2 fixes in the sixth review. The staging base is `762e42bc`. Fetch confirms no new base commit. No merge is needed.
+
+Plan:
+
+1. Store the current server build or `other`. Map routes to the fixed website and API patterns. Keep the build format check. Add one shared database counter that permits at most 1,000 new rows per UTC hour. Keep updates to existing groups, the instance limits and the row limits.
+2. Read only approved native worker name prefixes. Add fixed message categories for the six requested fault types. Keep all variable values out of reports.
+3. Check raw HTTP, two handlers on one database, native Chromium and Firefox events, and private probe values. Run all requested tests and browser checks. Compare build bytes with a temporary worktree at the staging base.
+4. Record proof and all check results. Commit on this branch. Do not push or deploy.
+
+Check criteria: false builds and routes produce only fixed groups. Concurrent new rows cannot pass the shared limit. Existing rows can still gain counts. The next UTC hour permits new rows. Each native worker name has its own group. Each requested message category has fixed text. Private values reach neither report bodies nor rows. All required checks pass. Board bytes, plugin-only function bytes and CSP source match the base.
+
+The hourly limit counts new fault groups, not visits or repeated reports. A bad release normally repeats a small set of faults. One thousand distinct name, message, route and build groups in one hour leaves much more room than that case needs. One fixed counter row bounds the budget data. An atomic insert or update reserves each new row in the same SQL statement as the report write. Concurrent duplicate requests can consume extra slots; they cannot exceed the limit.
+
+
+### Sixth review results
+
+All three P2 faults have fixes and proof. The server stores its own build or `other`, after the unchanged build format check. The writer maps all routes to the fixed website and API patterns, or `/other`. Migration 0019 permits the fixed build value and adds one counter row. The restricted server role can use the counter. Browser roles have no access.
+
+The worker reader accepts only the names in `ERROR_NAMES`, after an optional `Uncaught ` prefix. It sends the rest of the message through the shared cleaner. Fixed native categories cover invalid array length, invalid time, null-to-object conversion, constant assignment, property writes and Firefox property reads. Each variable part becomes fixed text. Other text stays `Unlisted message`.
+
+The copied sixth-review probe keeps all native fault inputs and private-value checks. Its assertions now require one false-build group, one unknown-route group, the new fixed message categories, four window groups and three correctly named worker groups in each browser. Its output path changes. Its direct writer call supplies the new required server-build argument. No other native input changes. `probe-changes.md` lists these changes.
+
+| Check | Result |
+| --- | --- |
+| Fetch and staging base | Pass. Base stays at `762e42bc`. No merge is needed. |
+| `npx tsc --noEmit -p .` | Pass. Exit 0. |
+| Selected recorder, report, HTTP, jobs, server-build, message-form and offline-build tests | Pass. 10 files and 204 tests. All 57 drawing tests pass. |
+| Full `npm test`, once | Pass. 272 files, 5,117 tests and eight skips. All 57 drawing tests pass. Duration: 354.80 seconds. |
+| `npm run test:docs` | Pass. 13 files and 167 tests. |
+| Local schema setup after the full test reset | Pass. Only the approved loopback database is used. |
+| Base and branch plugin-only builds | Both pass. |
+| Base and branch combined website builds | Both pass. |
+| Build byte comparison | Pass. All 22 plugin function files and four links match. Both board outputs match at 895,593 bytes. The full CSP source matches at 28,352 bytes. |
+| `npm run check:browser web-game plugin-ui` | Both pass. Website: 61.7 seconds. Plugin UI: 277.5 seconds. |
+| Copied sixth-review probe | Pass. 20 native cases and four group cases in Chromium and Firefox. False builds give one row after each of two fresh handlers. All 32 made-up routes give one row. Ten server faults give nine groups. |
+| Shared hourly-limit HTTP probe | Pass. With 990 seed rows, 40 distinct raw requests across two handlers stop at 1,000 rows. Two fresh handlers cannot add a row. An existing group reaches count 3. A new hour permits a new row. The counter has one row. Both browser roles have no counter grant. |
+| Privacy copies | Pass. Both paragraphs are identical. They now state the fixed values for other builds and paths. All prior data exclusions stay present. |
+| Temporary base worktree and branch | Removed after the byte comparison. |
+| `git diff --check` | Pass. |
+
+No check fails. The shared test lock stays in place. No dependency changes are needed. The final code check finds no smaller complete change: one fixed counter row gives the atomic shared bound, and the shared cleaner supplies all message categories. Logs, copied probes and JSON proof are in `/private/tmp/claude-501/ci87/sol32/`. No push, deploy, staging database connection or production database connection occurs.
