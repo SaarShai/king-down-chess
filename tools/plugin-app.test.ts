@@ -137,8 +137,10 @@ it('keeps a board open without a game on home and stores its ID only in private 
     await frame.locator('#home-play:not(:disabled)').waitFor();
     expect(await frame.locator('body').getAttribute('data-page')).toBe('home');
     expect(await page.evaluate(()=>(window as any).harnessWidgetState.privateContent.board_id)).toBe(result._meta.board_id);
+    const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length);
     await page.locator('#remount').click();
-    await frame.locator('#home-play:not(:disabled)').waitFor();
+    await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, reads);
+    await frame.locator('body[data-page="home"] #home-play:not(:disabled)').waitFor();
     expect(await frame.locator('body').getAttribute('data-page')).toBe('home');
   } finally {await page.close();}
 });
@@ -394,8 +396,10 @@ it('finds a game created elsewhere when Back returns a clean board to Play', asy
     });
     games.push(before.game); expect(before.dirty).toBe(false);
     await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
-    const canvas = frame.locator('#board canvas'), box = (await canvas.boundingBox())!;
-    for (const rank of [1, 3]) await canvas.click({ position: { x: (32 + 4.5 * 112) * box.width / 960, y: (96 + (7 - rank + .5) * 112) * box.width / 960 } });
+    // Stage the draft through the real chooser; this Back test does not depend on the opening board's geometry.
+    await frame.locator('#board-menu').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
+    await frame.locator('#choices button[title="e2-e4"]').click();
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft?.lans)).toEqual(['e2-e4']);
     const draft = await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft);
     const calls = await page.evaluate(() => (window as any).harnessCalls.length);
@@ -989,8 +993,9 @@ it('closes board sheets with Escape, returns focus and returns from Settings to 
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', {kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
     for (const id of ['board-menu','moves-line']) {
       await frame.locator(`#${id}:not(:disabled)`).click(); await frame.locator('#board-sheet[open]').waitFor();
-      await page.keyboard.press('Escape'); expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
+      await page.keyboard.press('Escape'); expect(await frame.locator('#board-sheet').evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
       expect(await frame.locator(`#${id}`).evaluate(e => document.activeElement === e)).toBe(true);
+      await frame.locator('#board-sheet').waitFor({ state: 'hidden' });
     }
     await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Settings',exact:true}).click();
     expect(await frame.locator('#page-back').textContent()).toBe('‹ Game');

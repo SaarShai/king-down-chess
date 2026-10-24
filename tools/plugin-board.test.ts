@@ -300,7 +300,8 @@ it('keeps spent coin contrast and clear symbols together', async () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const coins = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll<HTMLButtonElement>('.card-coin')].map(coin => {
       coin.dataset.state = 'used'; coin.disabled = true;
-      const style = getComputedStyle(coin.querySelector('.coin-paint')!), symbol = coin.querySelector('svg')!, face = symbol.getBoundingClientRect(), box = coin.getBoundingClientRect();
+      // The paint compresses; its symbol inset is separate from the unchanged button target.
+      const paint = coin.querySelector('.coin-paint')!, style = getComputedStyle(paint), symbol = coin.querySelector('svg')!, face = symbol.getBoundingClientRect(), box = paint.getBoundingClientRect();
       return { opacity: style.opacity, buttonOpacity: getComputedStyle(coin).opacity, symbol: !!symbol, letters: coin.textContent, color: getComputedStyle(symbol).color, inset: box.width - face.width };
     }));
     expect(coins).toHaveLength(2);
@@ -917,6 +918,7 @@ it.each([197,240] as const)('keeps the narrow Menu policy header and details usa
     const page = await open(next, width, 760), frame = page.frameLocator('iframe');
     try {
       await frame.locator('#board-menu').click();
+      await frame.locator('#board-sheet').evaluate(async sheet => { await Promise.all(sheet.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {}))); });
       const geometry = await frame.locator('#board-sheet .sheet-head').evaluate(head => {
         const box = (el: Element) => { const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height }; };
         return { head: box(head), title: box(head.querySelector('h2')!), policy: box(head.querySelector('#game-policy')!), close: box(head.querySelector('[aria-label="Close"]')!) };
@@ -934,7 +936,9 @@ it.each([197,240] as const)('keeps the narrow Menu policy header and details usa
       expect(await frame.locator('#board-sheet h2').innerText()).toBe(label);
       expect(await frame.locator('#board-sheet .sheet-body').innerText()).toContain(detail);
       if (rating_policy === 'ranked-v1') expect(await frame.locator('#board-sheet .sheet-body').innerText()).toContain('3 days per move.');
-      await frame.locator('#board-sheet [aria-label="Close"]').click(); expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
+      await frame.locator('#board-sheet [aria-label="Close"]').click();
+      expect(await frame.locator('#board-sheet').evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
+      await frame.locator('#board-sheet').waitFor({ state: 'hidden' });
     } finally { await page.close(); }
   }
 });
@@ -2168,6 +2172,7 @@ it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 by 48 px t
   const base = view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), page = await open(base, 390, 844), frame = page.frameLocator('iframe');
   const proof = join(tmpdir(), 'kingdown-gui-board-proof'); await import('node:fs/promises').then(fs => fs.mkdir(proof, { recursive: true }));
   async function centered(selector: string) {
+    await frame.locator(selector).evaluate(async button => { await Promise.all(button.closest('dialog')!.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {}))); });
     const box = await frame.locator(selector).evaluate(button => {
       const range = document.createRange(); range.selectNodeContents(button);
       const glyph = range.getBoundingClientRect(), box = button.getBoundingClientRect();
@@ -2371,6 +2376,11 @@ it.each([390, 1280])('live Moves: keeps reading position and focus across a remo
   try {
     const sheet = frame.locator('#board-sheet');
     const show = async () => { await frame.locator('#board-menu').click(); await frame.getByRole('button', { name: 'Moves', exact: true }).click(); };
+    const closed = async () => {
+      expect(await sheet.evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
+      expect(await frame.locator('.page-sheet').evaluate(e => (e as HTMLElement).inert)).toBe(false);
+      await sheet.waitFor({ state: 'hidden' });
+    };
     const route = (next: View) => frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), next);
     await show();
     const close = await sheet.getByRole('button', { name: 'Close', exact: true }).elementHandle();
@@ -2389,18 +2399,18 @@ it.each([390, 1280])('live Moves: keeps reading position and focus across a remo
     expect(await sheet.locator('.sheet-body p').allTextContents()).toEqual(await frame.locator('#recent-moves p').allTextContents());
     expect(await close!.evaluate(el => el.isConnected && el === document.activeElement)).toBe(true);
     expect(await sheet.locator('.sheet-body').evaluate(el => el.scrollTop)).toBe(scroll);
-    await close!.click(); await close!.dispose();
+    await close!.click(); await close!.dispose(); await closed();
     await frame.locator('#board[aria-busy="false"]').waitFor();
     await frame.locator('#board-menu').click();
     await route({ ...next, revision: next.revision + 1 });
-    expect(await sheet.isVisible()).toBe(false);
+    await closed();
     await show();
     const other = { ...next, game_id: crypto.randomUUID() };
     await route(other);
-    expect(await sheet.isVisible()).toBe(false);
+    await closed();
     await show();
     await route({ ...other, revision: other.revision + 1, status: 'finished', result: { winner: 1, reason: 'resign' } });
-    expect(await sheet.isVisible()).toBe(false);
+    await closed();
   } finally { await page.close(); }
 });
 

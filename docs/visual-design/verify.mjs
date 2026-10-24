@@ -207,7 +207,9 @@ try {
     .map(({ id, r }) => `${id} ${Math.round(r.width)}×${Math.round(r.height)}`));
   assert.deepEqual(await small('#game-table'), []);
   for (const [item, dlg] of [['New game', '#new-game'], ['Settings', '#menu-sheet'], ['Guide', '#rules']]) {
-    await pressMenu(page, item); assert.deepEqual(await small(dlg), [], dlg); await page.keyboard.press('Escape');
+    await pressMenu(page, item);
+    await page.locator(dlg).evaluate(async sheet => { await Promise.all(sheet.getAnimations().map(a => a.finished.catch(() => {}))); });
+    assert.deepEqual(await small(dlg), [], dlg); await page.keyboard.press('Escape');
   }
   // New game in each of its three modes, with More options open: the king picker's emblems and powers too.
   await pressMenu(page, 'New game'); await page.click('#more-options summary');
