@@ -13,7 +13,7 @@ import { describeMove } from '../src/move-text';
 import { GameRules } from '../src/game-rules';
 import { readText } from '../src/read';
 import { cardText, powerText, ruleLine } from '../src/powers-ui';
-import { harness, served, browser, view, insets, targetMisses, edgeMisses, open, marks, clickButton, squareTap, sheetClosed } from './lib/plugin-board-fixture';
+import { harness, served, browser, view, insets, targetMisses, edgeMisses, open, marks, clickButton, squareTap, sheetClosed, sheetAtRest } from './lib/plugin-board-fixture';
 
 it.each(['See the board', 'New game'])('cancels a pending ceremony with %s during the final move', async action => {
   const before = view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'), pre = fromFen(before.fen);
@@ -890,6 +890,7 @@ it('gives live pawn move choices the shared tablet face', async () => {
     await frame.locator('html').evaluate(() => (window as any).testBoard.onSquareClick(12));
     await frame.locator('#board-menu').click();
     await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
+    await sheetAtRest(page);
     await checkTabletButtons(frame, '#choices button');
     await checkButtonContent(frame, '#choices button');
     await frame.locator('#choices button[title="e2-e4"]').click();
@@ -977,8 +978,7 @@ it('F-008: the focused sheet body shows its ring on all four sides', async () =>
     const body = frame.getByRole('dialog', { name: 'Moves', exact: true }).locator('.sheet-body');
     await page.keyboard.press('Tab');
     expect(await body.evaluate(el => el === document.activeElement && el.matches(':focus-visible'))).toBe(true);
-    // The sheet fades in (PR #92 ui-dialog-motion); read its colours at rest.
-    await frame.locator('#board-sheet').evaluate(async sheet => { await Promise.all(sheet.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {}))); });
+    await sheetAtRest(page);
     const box = (await body.boundingBox())!, clip = { x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width), height: Math.round(box.height) };
     const image = await sharp(await page.screenshot({ clip, scale: 'css' })).removeAlpha().raw().toBuffer({ resolveWithObject: true });
     const light = (x: number, y: number) => { const i = (y * image.info.width + x) * 3; return [...image.data.subarray(i, i + 3)].map(c => c / 255).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4).reduce((s, c, k) => s + c * [.2126, .7152, .0722][k], 0); };

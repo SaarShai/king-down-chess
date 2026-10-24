@@ -79,6 +79,10 @@ export async function sheetClosed(page: Page) {
   expect(await sheet.evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
   await sheet.waitFor({ state: 'hidden' });
 }
+/** The board sheet opens with a short fade and scale (PR #92 ui-dialog-motion); geometry and colours are read at rest. */
+export async function sheetAtRest(page: Page) {
+  await page.frameLocator('iframe').locator('#board-sheet').evaluate(async sheet => { await Promise.all(sheet.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {}))); });
+}
 export async function marks(page: Page) {
   return page.frameLocator('iframe').locator('html').evaluate(() => structuredClone((window as any).testBoard.marks));
 }
