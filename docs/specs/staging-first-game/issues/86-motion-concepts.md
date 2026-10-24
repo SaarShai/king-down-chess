@@ -76,6 +76,8 @@ The independent review (a Sol run) of `fda28f3e` found five points; `df3ce9f3` f
 - The card material set its own alpha, so the fade did nothing and the material vanished at 500 ms. It now fades as one image.
 - Both the coin and its face greyed, so the grey doubled. Only the face animates now; the brightness difference is explained above.
 
+A second review run found one more fault: a card that ends check (for example Curse) lost the withdrawal, because the card setup settled it and card playback draws its own frames. The card now keeps it, and the board draws it during the card. A unit test fails without the fix.
+
 The fifth point is the held check (see the decision above). It stays open for the owner.
 
 ### Runs

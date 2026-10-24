@@ -3,6 +3,7 @@ import { drawBoardEffects } from './effects/board-effects';
 import { GameRules } from '../game-rules';
 import { cardPlayback, type CardPlayback } from './effects/card';
 import { PromotionPlayback, loadAscension } from './effects/promotion';
+import { drawWithdrawal } from './effects/check';
 import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, S, T, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { figureUrl, selectedFigure } from '../workshop/figures';
@@ -204,7 +205,10 @@ export class PaintedView implements BoardView {
     this.stateEffects.release(performance.now(), this.motion() && !document.hidden);
     const card = cardPlayback(this.context, pos, m);
     if (card) {
+      // A card that ends check keeps the withdrawal that release() started; skip() would settle it.
+      const withdrawn = this.stateEffects.withdrawn;
       this.skip();
+      this.stateEffects.withdrawn = withdrawn;
       if (!this.motion() || document.hidden) return;
       this.card = card;
       try {
@@ -370,6 +374,9 @@ export class PaintedView implements BoardView {
     }, row);
     const now = performance.now();
     if (this.card && layer === 'under') this.cardStates.sync(this.context, this.card.shown, now, false);
+    // A card that ends check: its withdrawal belongs to the live board's state, not to the card's shown frames.
+    const cardWithdrawal = this.card && layer === 'under' ? this.stateEffects.withdrawal(now, this.motion() && !document.hidden) : undefined;
+    if (cardWithdrawal) drawWithdrawal(ctx, scene, cardWithdrawal.king, cardWithdrawal.progress);
     // Keep unaffected states visible during playback. The scene owns moving figures and their material.
     drawBoardEffects(ctx, scene, layer, row, this.card ? this.cardStates : this.stateEffects, scene.animating ? {} : m,
       this.width, now, this.motion() && !document.hidden, !!this.symbols, scene.animating ? null : this.hovered ?? this.cursor, piece,

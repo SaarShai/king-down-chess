@@ -199,6 +199,16 @@ describe('check withdrawal', () => {
     view.dispose();
   });
 
+  it('keeps the withdrawal through a card that ends check', async () => {
+    const { view, advance } = await viewBoard(), context = new GameRules({ hands: [['Curse'] as never, []] });
+    const checked = context.fromFen('4k3/8/8/8/8/8/8/r3K3 w - - 0 1'), cast = legal(context, checked, '!C:a1-a2');
+    const effects = (view as unknown as { stateEffects: StateEffects }).stateEffects;
+    view.setRules(context); view.sync(checked); view.highlight({ check: 4, checkers }); advance(10); view.highlight({});
+    void view.animateMove(checked, cast);
+    expect(effects.withdrawn).toEqual({ king: 4, since: expect.any(Number) });
+    view.dispose();
+  });
+
   it('withdraws at once when the board showed the live move first (a replayed reply)', async () => {
     const { view, advance } = await viewBoard(), context = new GameRules({});
     const checked = context.fromFen('7k/8/8/8/8/8/8/r3K3 w - - 0 1'), evaded = context.makeMove(checked, legal(context, checked, 'Ke1-f2'));
