@@ -499,6 +499,7 @@ it.each(['dark', 'light'])('F13: centers both sheet close marks in 44 by 48 px t
   const base = view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), page = await open(base, 390, 844), frame = page.frameLocator('iframe');
   const proof = join(tmpdir(), 'kingdown-gui-board-proof'); await import('node:fs/promises').then(fs => fs.mkdir(proof, { recursive: true }));
   async function centered(selector: string) {
+    await frame.locator(selector).evaluate(async button => { await Promise.all(button.closest('dialog')!.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {}))); });
     const box = await frame.locator(selector).evaluate(button => {
       const range = document.createRange(); range.selectNodeContents(button);
       const glyph = range.getBoundingClientRect(), box = button.getBoundingClientRect();
@@ -702,6 +703,11 @@ it.each([390, 1280])('live Moves: keeps reading position and focus across a remo
   try {
     const sheet = frame.locator('#board-sheet');
     const show = async () => { await frame.locator('#board-menu').click(); await frame.getByRole('button', { name: 'Moves', exact: true }).click(); };
+    const closed = async () => {
+      expect(await sheet.evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
+      expect(await frame.locator('.page-sheet').evaluate(e => (e as HTMLElement).inert)).toBe(false);
+      await sheet.waitFor({ state: 'hidden' });
+    };
     const route = (next: View) => frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), next);
     await show();
     const close = await sheet.getByRole('button', { name: 'Close', exact: true }).elementHandle();
@@ -720,18 +726,18 @@ it.each([390, 1280])('live Moves: keeps reading position and focus across a remo
     expect(await sheet.locator('.sheet-body p').allTextContents()).toEqual(await frame.locator('#recent-moves p').allTextContents());
     expect(await close!.evaluate(el => el.isConnected && el === document.activeElement)).toBe(true);
     expect(await sheet.locator('.sheet-body').evaluate(el => el.scrollTop)).toBe(scroll);
-    await close!.click(); await close!.dispose();
+    await close!.click(); await close!.dispose(); await closed();
     await frame.locator('#board[aria-busy="false"]').waitFor();
     await frame.locator('#board-menu').click();
     await route({ ...next, revision: next.revision + 1 });
-    expect(await sheet.isVisible()).toBe(false);
+    await closed();
     await show();
     const other = { ...next, game_id: crypto.randomUUID() };
     await route(other);
-    expect(await sheet.isVisible()).toBe(false);
+    await closed();
     await show();
     await route({ ...other, revision: other.revision + 1, status: 'finished', result: { winner: 1, reason: 'resign' } });
-    expect(await sheet.isVisible()).toBe(false);
+    await closed();
   } finally { await page.close(); }
 });
 

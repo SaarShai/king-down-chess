@@ -90,7 +90,8 @@ it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568
     expect(await frame.locator('#seat-context').textContent()).toBe('Select one back-rank piece, then another, to swap them.');
     expect(await frame.locator('#seat-note').textContent()).toBe('The guard stays next to the king.');
     const canvasWidth = () => frame.locator('#board canvas').evaluate(e => e.getBoundingClientRect().width);
-    const textFits = () => frame.locator(':is(#context-text, [data-seat-id="context-text"]):visible').evaluate(e => {
+    const textFits = () => frame.locator(':is(#context-text, [data-seat-id="context-text"]):visible').evaluate(async e => {
+      for (let run: Animation[]; (run = e.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished')).length;) await Promise.all(run.map(a => a.finished.catch(() => {})));
       const row = e.parentElement!.getBoundingClientRect(), problems: string[] = [];
       const actions = [...e.parentElement!.querySelectorAll('button')].map(b => b.getBoundingClientRect());
       for (const node of [e, ...e.querySelectorAll<HTMLElement>('*')]) {

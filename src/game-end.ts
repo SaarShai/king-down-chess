@@ -1,3 +1,4 @@
+import { UiMotion, revealResult } from './ui/motion';
 import { startCeremony } from './ceremony';
 import { shouldPlayCeremony } from './ceremony-game';
 import type { Game, Side } from './game';
@@ -20,7 +21,10 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
   showPly(ply: number, replay: boolean): Promise<void>;
   rematch(): void;
 }) {
+  const motion = new UiMotion(c.motion);
+  window.addEventListener('pagehide', () => motion.cancel());
   let seen: Position | null = null, control: ReturnType<typeof startCeremony> | null = null;
+  let animateNext = false;
   let active = false, pending = false, allowRematch = false, run = 0, king: number | null = null;
   const onRematch = (e: MouseEvent): void => { e.stopImmediatePropagation(); c.rematch(); };
   const clearButton = (): void => {
@@ -39,7 +43,7 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
     c.turnButton.setAttribute('aria-disabled', 'false');
     c.turnButton.classList.add('ceremony-rematch', 'primary');
   };
-  const clear = (): void => { allowRematch = false; control?.cancel(); run++; pending = false; control = null; clearButton(); };
+  const clear = (): void => { motion.cancel(); animateNext = false; allowRematch = false; control?.cancel(); run++; pending = false; control = null; clearButton(); };
   const reset = (): void => { clear(); seen = null; tiles.replaceChildren(); };
   const dismiss = (): void => {
     if (!pending) return;
@@ -48,10 +52,10 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
   };
   new MutationObserver(() => { if (c.newGameSheet.open) dismiss(); })
     .observe(c.newGameSheet, { attributes: true, attributeFilter: ['open'] });
-  const open = (played: boolean, live: () => boolean): void => {
+  const open = (played: boolean, live: () => boolean, animate = false): void => {
     if (!live()) return;
     const sheet = document.querySelector<HTMLDialogElement>('dialog[open]');
-    if (sheet) { sheet.addEventListener('close', () => open(played, live), { once: true }); return; }
+    if (sheet) { sheet.addEventListener('close', () => open(played, live, animate), { once: true }); return; }
     control?.cancel();
     pending = false;
     c.lock(false); c.refresh(); c.announce(played);
@@ -59,9 +63,16 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
     allowRematch = true;
     dialog.showModal();
     dialog.querySelector<HTMLButtonElement>('[value="rematch"]')!.focus({ preventScroll: true });
+    if (animate) {
+      const game = c.game(), loser = c.resigned() ?? (game.status === 'checkmate' ? game.pos.turn : null);
+      const winner = loser === null ? null : (1 - loser) as Color;
+      const yours = winner !== null && (c.linkSide() === null ? c.sides()[winner] === 'human' : winner === c.linkSide());
+      revealResult(motion, dialog, winner === null ? 'draw' : yours ? 'victory' : 'defeat');
+    }
   };
   const show = async (): Promise<void> => {
     const game = c.game(), final = game.pos, generation = c.generation();
+    const animate = animateNext; animateNext = false;
     if (seen === final || dialog.open) return;
     reset(); seen = final; pending = true;
     const id = run;
@@ -71,24 +82,25 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
     king = square < 0 ? null : square;
     if (!shouldPlayCeremony(game.status, final.turn, c.sides(), c.linkSide(), c.resigned())) {
       view.setFallen(king, false);
-      open(false, live); return;
+      open(false, live, animate); return;
     }
     c.lock(true); c.refresh();
     refresh();
-    control = startCeremony({ context: game.context, view, board, captionHost: document.getElementById('context-line')!, moments: tiles, history: game.history, final, king, live, motion: c.motion(),
+    control = startCeremony({ context: game.context, view, board, captionHost: document.getElementById('context-line')!, moments: tiles, history: game.history, final, king, live, motion: c.motion() && animate,
       showPly: ply => { dialog.close(); clear(); void c.showPly(ply, false); },
     });
     const done = await control.done;
     if (!done || !live()) return;
-    open(true, live);
+    open(true, live, animate);
   };
   dialog.addEventListener('close', () => {
+    motion.cancel();
     if (!allowRematch || pending) return;
     active = true;
     c.turnButton.addEventListener('click', onRematch, true);
     refresh();
   });
-  return { show, clear, reset, refresh };
+  return { show, clear, reset, refresh, arm: () => { animateNext = true; } };
 }
 
 /** Key-moment search starts from Review, outside the result flow. */

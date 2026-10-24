@@ -154,45 +154,40 @@ it.each([false, true])('syncs the legal Earth Quake without a figure at its cent
   const before = game.pos, move = game.legal.find(move => game.context.toLan(before, move) === fixture.actions[0])!;
   expect(move).toMatchObject({ power: 'quake', from: 27, to: 27 });
   expect(before.board[move.from]).toBe(0);
-  const playing = vi.spyOn(scene, 'play'), synced = vi.spyOn(scene, 'setPosition');
+  const playing = vi.spyOn(scene, 'play').mockResolvedValue(true), synced = vi.spyOn(scene, 'setPosition');
   await expect(view.animateMove(before, move)).resolves.toBeUndefined();
-  expect(playing).not.toHaveBeenCalled();
+  if (systemReduced) expect(playing).not.toHaveBeenCalled();
+  else expect(playing).toHaveBeenCalledWith(move, expect.objectContaining({ effect: expect.anything() }));
   game.play(move); view.sync(game.pos);
   expect(synced).toHaveBeenLastCalledWith(game.pos);
   assertMechanicExpected({ fen: toFen(game.pos), rules: game.rules, turn: game.pos.turn, legal: game.legal.map(move => game.context.toLan(game.pos, move)) }, fixture.expected);
   view.dispose();
 });
 
-it('draws frost on the game board after Freeze and clears it on expiry and Undo', async () => {
-  const container = stubDom();
-  vi.stubGlobal('Image', class { complete = true; naturalWidth = 448; src = ''; });
-  const { PaintedView } = await import('./PaintedView');
-  const game = new Game(undefined, { kings: [{ king: 'Frost', power: 'Freeze' }, null] });
-  game.load(fromFen('7k/8/8/4p3/8/8/P7/K7 w - - 0 1'));
+it('replaces the old Freeze image with the shared volume and draws its front after its row', async () => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const { GameRules } = await import('../game-rules');
+  const context = new GameRules({ kings: [{ king: 'Frost', power: 'Freeze' }, null] });
+  const pos = context.fromFen('7k/8/8/4p3/8/8/P7/K7 w - - 0 1');
+  const frozen = context.makeMove(pos, context.legalMoves(pos).find(m => m.power === 'freeze' && m.to === 36)!);
   const view = new PaintedView(container as unknown as HTMLElement);
-  const scene = (view as unknown as {scene: PaintedScene}).scene;
-  const draw = decorate.mock.lastCall![0];
-  const drawImage = vi.fn();
-  const ctx = new Proxy({ drawImage }, { get: (target, key: string) => key === 'drawImage' ? target.drawImage : () => {} });
-  const boardDrawing = () => {
-    view.setRules(game.context); view.sync(game.pos); drawImage.mockClear();
-    draw(ctx, scene, 'under');
-    for (let row = 0; row < 8; row++) draw(ctx, scene, 'over', row);
-    return drawImage.mock.calls.map(([image, ...box]) => ({svg:decodeURIComponent(image.src),box}));
-  };
-  expect(boardDrawing()).toEqual([]);
-  const freeze = () => game.play(game.legal.find(move => move.power === 'freeze' && move.to === 36)!);
-  freeze();
-  const frozen = boardDrawing();
-  expect(frozen).toHaveLength(2);
-  expect(frozen[0].svg).toContain('fill="url(#kdm-frost)"');
-  expect(frozen[1].svg).toContain('<circle ');
-  for (const mark of frozen) expect(mark.box).toEqual([480,368,112,134.4]);
-  game.play(game.legal.find(move => move.from === 63 && move.to === 62)!);
-  expect(boardDrawing()).toEqual([]);
-  expect(game.undo()).toBe(true); expect(boardDrawing()).toEqual(frozen);
-  expect(game.undo()).toBe(true); expect(boardDrawing()).toEqual([]);
-  freeze(); expect(boardDrawing()).toEqual(frozen);
+  view.setRules(context); view.sync(frozen);
+  const scene = (view as unknown as { scene: PaintedScene }).scene;
+  Object.assign(scene, { foot: (sq: number) => ({ x: 32 + (sq % 8 + .5) * 112, y: 32 + (7 - (sq >> 3) + .8) * 112 }) });
+  const draw = decorate.mock.lastCall![0], calls: string[] = [];
+  const gradient = () => ({ addColorStop() {} });
+  const ctx = new Proxy({ globalAlpha: 1, createLinearGradient: gradient, createRadialGradient: gradient,
+    drawImage() { calls.push('image'); }, clip() { calls.push('ice'); }, roundRect() { calls.push('pip'); },
+  } as Record<string, unknown>, { get: (target, key: string) => key in target ? target[key] : () => {} });
+  draw(ctx, scene, 'under');
+  expect(calls).toEqual(['ice']);
+  calls.length = 0;
+  for (let row = 0; row < 8; row++) {
+    draw(ctx, scene, 'over', row);
+    expect(calls.length).toBe(row < 3 ? 0 : 2);
+  }
+  expect(calls).toEqual(['ice', 'pip']);
+  view.dispose();
 });
 
 
@@ -232,13 +227,59 @@ it.each([false, true])('A15: keeps check and threat marks above the selected til
     fill(this: CanvasRenderingContext2D) { calls.push(String(this.fillStyle)); },
     stroke(this: CanvasRenderingContext2D) { calls.push(String(this.strokeStyle)); },
     createRadialGradient: () => ({ addColorStop() {}, toString: () => 'threat' }),
+    createLinearGradient: () => ({ addColorStop() {} }),
     drawImage: () => calls.push('figure'),
   } as Record<string, unknown>, { get: (target, key: string) => key in target ? target[key] : () => {} });
   decorate.mock.lastCall![0](ctx, scene, 'under');
   const tile = calls.indexOf('#d8aa43'), threat = calls.indexOf('threat');
-  const ring = calls.indexOf(webInk ? '#c4501f' : '#b3261e'), figure = calls.indexOf('figure');
+  const ring = calls.indexOf('#b84d25'), figure = calls.indexOf('figure');
   expect(tile).toBeGreaterThanOrEqual(0);
   expect(threat).toBeGreaterThan(tile);
   expect(ring).toBeGreaterThan(tile);
   expect(figure).toBeGreaterThan(Math.max(threat, ring));
+});
+
+it('does not wake the scene for excluded marks and stops state work on hidden, Off and disposal', async () => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const { fixtures } = await import('../../docs/specs/effects-animation/preview/signals/fixtures');
+  const { StateEffects } = await import('./effects/states');
+  const view = new PaintedView(container as unknown as HTMLElement);
+  const { scene, stateEffects } = view as unknown as { scene: PaintedScene; stateEffects: InstanceType<typeof StateEffects> };
+  const awake = vi.fn(); Object.assign(scene, { keepAwake: awake });
+  view.highlight({ selected: 12, moves: [20, 28], captures: [21], last: [28], bites: [21], threats: [{ from: 36, to: 28 }] });
+  expect(awake).not.toHaveBeenCalled();
+  const f = fixtures.freeze;
+  view.setRules(f.rules); view.sync(f.before); view.sync(f.after);
+  expect(awake).toHaveBeenCalledOnce();
+  (document as unknown as { hidden: boolean }).hidden = true;
+  documentListeners.get('visibilitychange')!(new Event('visibilitychange'));
+  expect(stateEffects.remaining(performance.now())).toBe(0);
+  (document as unknown as { hidden: boolean }).hidden = false;
+  documentListeners.get('visibilitychange')!(new Event('visibilitychange'));
+  expect(stateEffects.remaining(performance.now())).toBe(0);
+  view.setPace('off');
+  expect(stateEffects.frames.every(frame => frame.since === -Infinity)).toBe(true);
+  view.dispose();
+  expect(stateEffects.frames).toEqual([]);
+  awake.mockClear();
+  view.sync(f.before); view.highlight({ hint: [1, 2] }); view.setPreview(2);
+  expect(awake).not.toHaveBeenCalled();
+  expect(stateEffects.remaining(performance.now())).toBe(0);
+});
+
+it('keeps the last-move wash static at different wall-clock times', async () => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const view = new PaintedView(container as unknown as HTMLElement);
+  const scene = (view as unknown as { scene: PaintedScene }).scene;
+  view.sync(fromFen('7k/8/8/8/8/8/P7/K7 w - - 0 1'));
+  view.highlight({ last: [16] });
+  const draw = decorate.mock.lastCall![0];
+  const record = (time: number) => {
+    const clock = vi.spyOn(performance, 'now').mockReturnValue(time), calls: unknown[][] = [];
+    const ctx = new Proxy({ globalAlpha: 1, fillRect(this: CanvasRenderingContext2D, ...box: number[]) { calls.push([this.fillStyle, ...box]); } } as Record<string, unknown>, { get: (target, key: string) => key in target ? target[key] : () => {} });
+    draw(ctx, scene, 'under'); clock.mockRestore(); return calls;
+  };
+  expect(record(1)).toEqual([['#e6b84a6e', 32, 592, 112, 112]]);
+  expect(record(1)).toEqual(record(9000));
+  view.dispose();
 });
