@@ -502,7 +502,7 @@ label.army select { width: 100%; font-weight: 400; }
 .coin:disabled { cursor: default; }
 .coin > .notches, .coin-paint > .notches { position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%); display: flex; gap: 3px; }
 .coin .notch { width: 9px; height: 9px; transform: rotate(45deg); background: #7fb2ff; border: 1.5px solid var(--frost-ink); }
-.coin .notch.is-spent { background: var(--stone-300); border-color: var(--stone-500); }
+.coin .notch.is-spent { scale: .9; background: var(--stone-300); border-color: var(--stone-500); }
 .coin:focus-visible { outline-offset: 0; transition: none; }
 .coin[aria-current='true'] { outline: 1px solid var(--ink); outline-offset: -3px; }
 .coin[aria-current='true']:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
@@ -788,3 +788,37 @@ button:is([aria-label='Close'], #menu-close, #seat-menu-close, .table-back) { pa
 
 .coin[data-state='used']:focus-visible { filter: none; }
 .coin[data-state='used']:focus-visible > img { filter: grayscale(1); }
+
+/* The approved sheet rise reverses on close. Native close keeps its focus rules. */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-pace='off']) dialog.ui-dialog-motion {
+    opacity: 0; translate: 0 22px; scale: .98;
+    transition: opacity 350ms ease-out, translate 350ms ease-out, scale 350ms ease-out, display 350ms allow-discrete, overlay 350ms allow-discrete;
+  }
+  :root:not([data-pace='off']) dialog.ui-dialog-motion[open] { opacity: 1; translate: 0 0; scale: 1; }
+  :root:not([data-pace='off']) dialog.ui-dialog-motion::backdrop {
+    opacity: 0; transition: opacity 350ms ease-out, display 350ms allow-discrete, overlay 350ms allow-discrete;
+  }
+  :root:not([data-pace='off']) dialog.ui-dialog-motion[open]::backdrop { opacity: 1; }
+  :root[data-pace='fast'] dialog.ui-dialog-motion, #app-root dialog.ui-dialog-motion { transition-duration: 175ms; }
+  @starting-style {
+    :root:not([data-pace='off']) dialog.ui-dialog-motion[open] { opacity: 0; translate: 0 22px; scale: .98; }
+    :root:not([data-pace='off']) dialog.ui-dialog-motion[open]::backdrop { opacity: 0; }
+  }
+}
+:root[data-pace='off'] button { transition: none; }
+:root[data-pace='off'] button:active { transform: none; }
+@media (prefers-reduced-motion: reduce) { button:active { transform: none; } }
+
+dialog.ui-dialog-motion:not([open]) { pointer-events: none; }
+
+#game-table { position: relative; }
+.ui-turn-token { position: absolute; z-index: 3; margin: -8px 0 0 -8px; width: 16px; text-align: center; color: var(--gold-ink); opacity: 0; pointer-events: none; }
+.ui-cast-release { position: absolute; z-index: 3; pointer-events: none; }
+.ui-check-frame { position: absolute; inset: 0; border: 3px solid var(--accent); border-radius: inherit; pointer-events: none; }
+.portrait.is-checked { outline: 3px solid var(--accent); outline-offset: -3px; }
+
+#app-root[data-ui-motion='off'] :is(button, dialog) { animation: none !important; transition: none !important; }
+#app-root[data-ui-motion='off'] button:active { transform: none; }
+
+.portrait:not(.is-checked) > .ui-check-frame { display: none; }

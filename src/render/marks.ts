@@ -28,7 +28,7 @@ export interface Highlights {
   last?: number[];
   hint?: number[];
   check?: number | null;
-  /** Opt in to the still ember ring and cause lines. Omit to keep the original check mark. */
+  /** The current check causes. The approved check onset settles into still cause lines. */
   checkers?: Checker[];
   /** The selected piece's lines (marks-model.ts railsOf); the painted board draws them as rails. */
   rails?: { to: number; end: 'x' | 'stop' | 'arrow' }[];
@@ -50,8 +50,8 @@ export interface Highlights {
  * The read of an enemy piece shows the same legend marks at half strength.
  * Show threats (the Workshop's threats): a red glow under each piece that an enemy can take, and a faint red arrow from
  * each attacker to it, over the figures.
- * The selected piece stands on a gold tile under the figures. When a piece is selected the marks ripple out from it. The legend marks then stand still; while
- * motion is allowed the swap, shove and rune marks keep moving (riding the selected figure's ~30 fps idle).
+ * The selected piece stands on a gold tile under the figures. Legend marks stay still.
+ * Approved indication onsets draw in the state effect layer.
  * The square under the pointer (or the keyboard cursor) gets a gold-bright edge and a larger badge; on a move
  * it also shows a faint copy of the piece standing there.
  */
@@ -68,21 +68,13 @@ export interface MarkState {
   px: number;
   /** The shown position's squares: a take on a figure is the occupied take. */
   board?: ArrayLike<number>;
-  /** Animate (pop-in, pulse, turn); false draws the settled markers. */
-  motion: boolean;
-  /** When the current markers appeared (performance.now()). */
-  since: number;
   /** Web text and strokes use CSS size; omitted keeps the plugin drawing. */
   ink?: ReturnType<typeof boardInk>;
 }
 
+/** Kept for the browser tool's settle interval. Legal marks draw at once. */
 export const POP_MS = 300;
-export const RIPPLE_MS = 38;
-
 const TAU = Math.PI * 2;
-const clamp = (x: number, a: number, b: number) => Math.min(b, Math.max(a, x));
-/** Overshoots a little, then settles: the pop. */
-const backOut = (t: number) => { t = clamp(t, 0, 1); const s = 1.9; return 1 + (s + 1) * (t - 1) ** 3 + s * (t - 1) ** 2; };
 
 /** Glow discs, made once per colour (a radial gradient drawn into an ellipse each frame costs more). */
 const glows = new Map<string, HTMLCanvasElement>();
@@ -112,14 +104,8 @@ const COLOURS = { swap: '160,120,220', shove: '64,190,176', power: '96,160,255' 
 /** `row`: for the 'over' layer, draw only that screen row's squares (the scene calls it row by row). */
 export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', s: MarkState, row?: number): void {
   const { PAD, TILE } = scene, m = s.marks, k = s.k;
-  const now = performance.now();
   const from = m.selected != null ? scene.cell(m.selected) : null;
-  const appear = (sq: number): number => {
-    if (!s.motion) return 1;
-    const c = scene.cell(sq), d = from ? Math.hypot(c.col - from.col, c.row - from.row) : 0;
-    return backOut((now - s.since - d * RIPPLE_MS) / POP_MS);
-  };
-  const time = s.motion ? now / 1000 : 0.6;
+  const time = 0.6;
   const pulse = (sq: number) => 0.5 + 0.5 * Math.sin(time * TAU - sq * 0.7);
   const box = (sq: number) => { const c = scene.cell(sq); return { x: PAD + c.col * TILE, y: PAD + c.row * TILE }; };
   const centre = (sq: number): [number, number] => { const b = box(sq); return [b.x + TILE / 2, b.y + TILE / 2]; };
@@ -130,23 +116,19 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
   const inRow = (sq: number) => row == null || scene.cell(sq).row === row;
   const figure = (sq: number) => !!s.board?.[sq];
   const readKind = (sq: number): Kind => m.read?.shot.has(sq) ? 'shot' : 'take';
-  /** A legend mark grows from 0.6 of its size round the square's centre as it appears; a read mark is at half strength. */
-  const legend = (sq: number, shapes: Shape[], alpha = 1): void => {
-    const a = appear(sq); if (a <= 0) return;
-    const b = box(sq), c = 0.6 + 0.4 * a, cx = b.x + TILE / 2, cy = b.y + TILE / 2;
-    ctx.save(); ctx.globalAlpha = Math.min(1, a) * alpha;
-    ctx.translate(cx, cy); ctx.scale(c, c); ctx.translate(-cx, -cy);
-    paint(ctx, shapes); ctx.restore();
+  /** A read mark is at half strength. All legend geometry stays still. */
+  const legend = (shapes: Shape[], alpha = 1): void => {
+    ctx.save(); ctx.globalAlpha = alpha; paint(ctx, shapes); ctx.restore();
   };
   /** The under part of a mark: the tile, or the occupied take on a figure. */
   const under = (sq: number, kind: Kind, alpha = 1, power = false): void => {
     const b = box(sq), o = { px: s.px, power, hover: alpha === 1 && hover(sq) };
-    legend(sq, kind !== 'move' && figure(sq) ? occupied(kind, b.x, b.y, TILE, ground(sq).y, o) : tile(kind, b.x, b.y, TILE, o), alpha);
+    legend(kind !== 'move' && figure(sq) ? occupied(kind, b.x, b.y, TILE, ground(sq).y, o) : tile(kind, b.x, b.y, TILE, o), alpha);
   };
   /** The badge of a take on a figure, after its row's figures. */
   const over = (sq: number, kind: Kind, alpha = 1): void => {
     if (!inRow(sq) || !figure(sq)) return;
-    const b = box(sq); legend(sq, badge(b.x, b.y, TILE, kind, { px: s.px, hover: alpha === 1 && hover(sq) }), alpha);
+    const b = box(sq); legend(badge(b.x, b.y, TILE, kind, { px: s.px, hover: alpha === 1 && hover(sq) }), alpha);
   };
   const readTakes = m.read ? new Set([...m.read.take, ...m.read.shot]) : new Set<number>();
 
@@ -173,28 +155,27 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
       ctx.fillStyle = '#d8aa43'; ctx.fillRect(b.x, b.y, TILE, TILE);
       ctx.strokeStyle = '#684819'; ctx.lineWidth = 2 * s.px;
       ctx.strokeRect(b.x + s.px, b.y + s.px, TILE - 2 * s.px, TILE - 2 * s.px);
-      ctx.globalAlpha = Math.min(1, appear(m.selected));
       for (const l of lines) atAlpha(l.rail);
       ctx.globalAlpha = 1;
     }
     for (const sq of new Set((m.threats ?? []).map(t => t.to))) { const g = ground(sq); paint(ctx, [footGlow(g.x, g.y, TILE, true)]); }
     for (const sq of m.powers ?? []) {
-      const a = appear(sq); if (a <= 0) continue;
+      const a = 1;
       const g = ground(sq); rune(ctx, g.x, g.y, 46 * a, time, pulse(sq), hover(sq));
     }
     for (const sq of new Set([...m.moves ?? [], ...m.captures ?? []])) {
       under(sq, kindOf(sq, m), 1, m.powers?.includes(sq));
       // Preview: the piece, see-through, standing where it would go.
-      if (m.moves?.includes(sq) && hover(sq) && s.piece && appear(sq) > 0) (s.ghost ?? scene.ghost)(ctx, s.piece, sq, 0.5);
+      if (m.moves?.includes(sq) && hover(sq) && s.piece) (s.ghost ?? scene.ghost)(ctx, s.piece, sq, 0.5);
     }
-    for (const l of lines) legend(l.to, l.end);
+    for (const l of lines) legend(l.end);
     for (const sq of m.swaps ?? []) {
-      const a = appear(sq); if (a <= 0) continue;
+      const a = 1;
       const g = ground(sq); groundGlow(ctx, g.x, g.y, 46 * a, COLOURS.swap, 0.6);
       chase(ctx, g.x, g.y, 42 * a, time, hover(sq));
     }
     for (const sq of m.shoves ?? []) {
-      const a = appear(sq); if (a <= 0) continue;
+      const a = 1;
       const g = ground(sq), f = from ? scene.cell(sq) : null;
       // Push direction on screen: from the Ogre to the target.
       const dir = from && f ? { x: f.col - from.col, y: f.row - from.row } : { x: 1, y: 0 };
@@ -203,7 +184,7 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
       if (m.shoveTo === undefined) chevrons(ctx, g.x, g.y, dir, a, time, k);
     }
     for (const shove of m.shoveTo ?? []) {
-      const a = appear(shove.to); if (a <= 0) continue;
+      const a = 1;
       const g = ground(shove.to), target = scene.cell(shove.from), landing = scene.cell(shove.to);
       shoveArrow(ctx, g.x, s.ink ? PAD + (landing.row + 0.5) * TILE : g.y, landing.col - target.col, landing.row - target.row, a, k, s.ink ? Math.max(3, s.ink.causeCore * 1.7) : 3);
     }
