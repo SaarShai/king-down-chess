@@ -1,6 +1,6 @@
 # Fix six playtest faults of the game board
 
-Status: resolved on branch `staging/lane-board` (from `origin/staging/first-game` `2f70eab2`, then merged with `4651f6da`); not merged into `staging/first-game`, not deployed. The F-032 and F-008 commits (`224e7ed7`, `b3eb5e83`) and their review fix (`37ddecea`) also go to the focused staging release on `0041783d`.
+Status: in review on PR SaarShai/king-down-chess#99; resolved on branch `staging/lane-board` (from `origin/staging/first-game` `2f70eab2`, then merged with `4651f6da`); not merged into `staging/first-game`, not deployed. The F-032 and F-008 commits (`224e7ed7`, `b3eb5e83`) and their review fix (`37ddecea`) also go to the focused staging release on `0041783d`.
 
 ## What
 
