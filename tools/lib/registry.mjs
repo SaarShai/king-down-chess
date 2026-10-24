@@ -25,6 +25,7 @@ export const checks = [
   { name: 'account', script: 'tools/verify-account.mjs', limit: 180 },
   { name: 'cursor-adoption', script: 'tools/verify-cursor-adoption.mjs', limit: 240, channel: 'chromium' },
   { name: 'king-effects', script: 'tools/verify-king-effects.mjs', limit: 240, exclusive: true },
+  { name: 'character-clips', script: 'tools/verify-character-clips.mjs', limit: 180 },
   { name: 'lesson-return', script: 'tools/verify-lesson-return.mjs', limit: 180 },
   { name: 'new-game', script: 'tools/verify-new-game.mjs', limit: 240 },
   { name: 'painted-game', script: 'tools/verify-painted-game.mjs', limit: 240, exclusive: true },

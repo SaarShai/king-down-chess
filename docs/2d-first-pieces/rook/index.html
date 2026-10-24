@@ -18,7 +18,7 @@
 <label class="motion-option"><input type="checkbox" id="slow-motion"> Slow motion</label>
 <hr><h2>Board scale</h2><p>The tower and pillar read as one heavy Rook silhouette. Move and capture along straight ranks and files. Other pieces block his path.</p>
 <div class="samples"><div class="sample"><canvas id="sample-ivory" width="1152" height="1152" role="img" aria-label="Ivory Rook at board size"></canvas></div><div class="sample dark"><canvas id="sample-charcoal" width="1152" height="1152" role="img" aria-label="Charcoal Rook at board size"></canvas></div></div>
-<div class="links"><a href="rook.png">Full-size artwork</a><a href="original-reference.png">Original reference</a><a href="README.md">Study notes</a></div>
+<div class="links"><a href="rook.webp">Board artwork</a><a href="rook.png">Painted study</a><a href="original-reference.png">Original reference</a><a href="README.md">Study notes</a></div>
 </aside></div><footer>Original Rook identity translated into painted 2D · ivory and charcoal · tower, pillar arm and amber eyes.</footer></main>
 <style>.sample canvas{width:134px;height:134px}.motion-option+.motion-option{margin-top:8px}</style>
 <script type="module">
@@ -37,5 +37,5 @@ $('ram').onclick=ram;$('reset').onclick=cancel;$('scene').onclick=ram;
 $('scene').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();ram();}};
 for(const button of document.querySelectorAll('[data-side]'))button.onclick=()=>{side=Number(button.dataset.side);cancel();for(const b of document.querySelectorAll('[data-side]'))b.setAttribute('aria-pressed',String(b===button));};
 $('reduce-motion').onchange=cancel;preference.onchange=()=>{$('reduce-motion').checked=preference.matches;cancel();};
-art.onload=()=>{ready=true;draw();};art.onerror=()=>{$('status').textContent='Artwork could not load. Reload the preview.';$('ram').disabled=true;};art.src='rook.png';
+art.onload=()=>{ready=true;draw();};art.onerror=()=>{$('status').textContent='Artwork could not load. Reload the preview.';$('ram').disabled=true;};art.src='rook.webp';
 </script></html>

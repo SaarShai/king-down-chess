@@ -10,6 +10,6 @@ test('Rook rocks around fixed stone contact without stretching tower or fist',()
  }
  assert.equal(actionAt(0),0);assert.equal(actionAt(1),0);assert.equal(actionAt(.48),1);
  assert.ok(transformPoint({x:576,y:964},1).y<964,'rear foot lifts as weight moves onto stone');
- assert.equal(CELLS[0][0]+CELLS[0][2],CELLS[1][0]);assert.equal(CELLS[1][0]+CELLS[1][2],1536);
+ assert.equal(CELLS[0][0]+CELLS[0][2],CELLS[1][0]);assert.equal(CELLS[1][0]+CELLS[1][2],1680);
  console.log('1,001 Rook poses: fixed stone contact, rigid tower/fist distances and recovery.');
 });
