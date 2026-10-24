@@ -88,8 +88,23 @@ describe('contextLine', () => {
 
 it('keeps the chain status below the next bite', () => {
   expect(contextLine({ voice: 'you', chain: true, canStop: true, readNote: 'Steps to empty squares beside it.' })).toMatchObject({
-    rank: 'chain', line: 'Bite again, or stop here.', note: 'Nothing moves until you stop.', actions: ['stop-chain'],
+    rank: 'chain', line: 'Bite again, or stop here.', note: 'The chain ends when no more bites are available, or when you select Stop here.', actions: ['stop-chain'],
   });
+});
+
+it('says that a chain also ends by itself when no bite is left (F-102)', () => {
+  expect(contextLine({ voice: 'you', chain: true, canStop: false })).toMatchObject({
+    rank: 'chain', line: 'Bite again.', note: 'The chain ends when no more bites are available.', actions: [],
+  });
+});
+
+it('keeps the lesson task while the player selects the lesson piece (F-105)', () => {
+  const ogre = LESSONS.find(l => l.name === 'Ogre')!;
+  const state = { voice: 'you' as const, lesson: 'Lesson 4 of 6: Ogre', lessonNote: ogre.task, selected: 'White ogre.', readNote: 'Can shove a neighbour.' };
+  expect(contextLine(state)).toMatchObject({ rank: 'lesson', line: 'Tap your ogre, then the marked knight.', note: 'Choose Shove.' });
+  expect(contextLine({ ...state, lessonNote: `Not quite. ${ogre.task}` })).toMatchObject({ rank: 'lesson', line: 'Not quite.', note: ogre.task });
+  // Outside a lesson the selection still names the piece and its rule.
+  expect(contextLine({ ...state, lesson: '', lessonNote: '' })).toMatchObject({ rank: 'selected', line: 'White ogre.', note: 'Can shove a neighbour.' });
 });
 
 it('names the computer move when its king is in check', () => {
