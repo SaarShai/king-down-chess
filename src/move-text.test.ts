@@ -347,8 +347,8 @@ describe('screen-reader lines for released cards', () => {
     expect(say(fromFen('4k3/8/8/2PpP3/8/8/8/4K3 w - - 0 1'), '!Q:c4')).toBe('White uses Earth Quake on c4 and pushes the white pawn on c5 to c6 and the black pawn on d5 to e6.');
   });
 
-  it('counts the pieces when an Earth Quake pushes more than two', () => {
+  it('names each piece when an Earth Quake pushes more than two', () => {
     setRules({ hands: [['EarthQuake'], []] });
-    expect(say(fromFen('4k3/8/8/2ppp3/8/8/8/4K3 w - - 0 1'), '!Q:d4')).toBe('White uses Earth Quake on d4 and pushes 3 pieces one square away.');
+    expect(say(fromFen('4k3/8/8/2ppp3/8/8/8/4K3 w - - 0 1'), '!Q:d4')).toBe('White uses Earth Quake on d4 and pushes the black pawn on d5 to d6, the black pawn on e5 to f6 and the black pawn on c5 to b6.');
   });
 });
