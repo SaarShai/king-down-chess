@@ -17,8 +17,8 @@ export function installErrorRecorder(): void {
     const error = value instanceof Error ? value : undefined;
     const raw = error?.message ?? (kind === 'rejection' ? 'Non-Error rejection' : event?.message ?? 'Worker failed');
     if (/^Script error\.?$/i.test(raw.trim()) && !error?.stack || /ResizeObserver loop/i.test(raw)) return;
-    const frames = browserFrames(error?.stack ?? '', location.origin);
-    if (!frames.length && kind === 'worker' && event?.filename) frames.push(...browserFrames(`${event.filename}:${event.lineno}:${event.colno}`, location.origin));
+    const frames = browserFrames(error?.stack ?? '', location.origin, raw, error?.name);
+    if (!frames.length && kind === 'worker' && event?.filename) frames.push(...browserFrames(`    at ${event.filename}:${event.lineno}:${event.colno}`, location.origin, ''));
     if (!frames.length) return;
     const name = errorName(error?.name), message = errorMessage(raw), fingerprint = errorFingerprint(name, message, frames[0]);
     if (seen.has(fingerprint)) return;

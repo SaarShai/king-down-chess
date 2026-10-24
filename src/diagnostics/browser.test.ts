@@ -1,8 +1,9 @@
+import { runInThisContext } from 'node:vm';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { errorFingerprint, MAX_ERROR_BODY } from './data';
 
 let target: EventTarget, beacon: ReturnType<typeof vi.fn>, send: ReturnType<typeof vi.fn>;
-const fault = (message: string, stack = `Error: fault\n at f (https://kingdown.dev/assets/app.js:2:4)`) => Object.assign(new Error(message), { stack });
+const fault = (message: string, stack = `Error: ${message}\n    at f (https://kingdown.dev/assets/app.js:2:4)`) => Object.assign(new Error(message), { stack });
 function emit(type: string, value: unknown) {
  target.dispatchEvent(Object.assign(new Event(type), type === 'unhandledrejection' ? { reason: value } : { error: value, message: (value as Error)?.message }));
 }
@@ -14,6 +15,30 @@ beforeEach(async () => {
  const { installErrorRecorder } = await import('./browser'); installErrorRecorder(); installErrorRecorder();
 });
 afterEach(() => vi.unstubAllGlobals());
+
+it.each([
+ ['error', 'account123456789.js:1:2', false],
+ ['unhandledrejection', 'app.js:12345678:91', false],
+ ['worker', 'MeetMeAtTheStation.js:1:2', false],
+ ['error', 'app.js:87654321:92', true],
+ ['error', 'app.js:76543210:93\n    at https://kingdown.dev/assets/private-line.js:1:2\nend', false],
+] as const)('removes false locations from a native %s: %s', async (kind, value, named) => {
+ const key = `https://kingdown.dev/assets/${value}`;
+ const error: Error = runInThisContext(named
+  ? `(key => { try { const holder = { [key]() { throw new Error('Failed to fetch'); } }; holder[key](); } catch (error) { return error; } })`
+  : `(key => { try { const input = undefined; input[key]; } catch (error) { return error; } })`,
+ { filename: 'https://kingdown.dev/assets/app.js' })(key);
+ expect(error.stack).toContain(key);
+ if (kind === 'worker') target.dispatchEvent(new CustomEvent('kingdown-worker-error', { detail: { error, message: error.message } }));
+ else emit(kind, error);
+ expect(beacon).toHaveBeenCalledOnce();
+ const body = await (beacon.mock.calls[0][1] as Blob).text(), report = JSON.parse(body);
+ for (const part of value.split('\n')) expect(body).not.toContain(part);
+ expect(report.message).toBe(named ? 'Failed to fetch' : 'Unlisted message');
+ expect(report.frames.length).toBeGreaterThan(0);
+ for (const frame of report.frames) expect(frame).toMatch(/^\/assets\/app\.js:1:\d+$/);
+ expect(report.fingerprint).toBe(errorFingerprint(error.name, report.message, report.frames[0]));
+});
 
 it('installs once, sends only the allowed fields and sends no duplicate', async () => {
  emit('error', fault('Fault person@example.com'));
@@ -27,7 +52,7 @@ it('installs once, sends only the allowed fields and sends no duplicate', async 
  expect(report.build).toMatch(/^[a-f0-9]{40}$/);
 });
 it('sends at most five different faults per page load', () => {
- for (let line = 1; line <= 6; line++) emit('error', fault('Private text', `Error: fault\n at f (https://kingdown.dev/assets/app.js:${line}:4)`));
+ for (let line = 1; line <= 6; line++) emit('error', fault('Private text', `Error: Private text\n    at f (https://kingdown.dev/assets/app.js:${line}:4)`));
  expect(beacon).toHaveBeenCalledTimes(5);
 });
 it('ignores extension faults, opaque scripts, resize notices and values with no own frame', () => {
@@ -69,7 +94,7 @@ it('uses fetch when beacon is missing or throws', () => {
  beacon.mockImplementation(() => { throw new Error('Beacon failed'); });
  emit('error', fault('Beacon unavailable')); expect(send).toHaveBeenCalledOnce();
  vi.stubGlobal('navigator', { userAgent: 'Firefox/130.0' });
- emit('error', fault('Beacon missing', 'at f (https://kingdown.dev/assets/app.js:3:4)')); expect(send).toHaveBeenCalledTimes(2);
+ emit('error', fault('Beacon missing', 'Error: Beacon missing\n    at f (https://kingdown.dev/assets/app.js:3:4)')); expect(send).toHaveBeenCalledTimes(2);
 });
 
 it('contains a fault in an event getter', () => {
@@ -102,7 +127,7 @@ it('removes raw Auth text before send', async () => {
 it.each(['account123456789', 'K6X', 'MeetMeAtTheStation', 'd137864c-e174-4f38-9277-6bdd0a4289dc', 'person@example.com', 'e2e4'])('removes private engine names from the full sent body: %s', async value => {
  let error: Error;
  try { const input = undefined as unknown as Record<string, unknown>; input[value]; } catch (caught) { error = caught as Error; }
- error!.stack = `TypeError: ${error!.message}\n at f (https://kingdown.dev/assets/app.js:2:4)`;
+ error!.stack = `TypeError: ${error!.message}\n    at f (https://kingdown.dev/assets/app.js:2:4)`;
  emit('error', error!);
  const body = await (beacon.mock.calls[0][1] as Blob).text();
  expect(body).not.toContain(value);

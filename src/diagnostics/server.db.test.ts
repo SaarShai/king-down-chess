@@ -1,3 +1,4 @@
+import { runInThisContext } from 'node:vm';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
@@ -167,7 +168,7 @@ suite('first-party fault HTTP and database writes', () => {
    const { installErrorRecorder } = await import('./browser'); installErrorRecorder();
    let fault: Error;
    try { const input = undefined as unknown as Record<string, unknown>; input[value]; } catch (error) { fault = error as Error; }
-   fault!.stack = `TypeError: ${fault!.message}\n at f (https://kingdown.dev/assets/app-test.js:2:4)`;
+   fault!.stack = `TypeError: ${fault!.message}\n    at f (https://kingdown.dev/assets/app-test.js:2:4)`;
    target.dispatchEvent(Object.assign(new Event('error'), { error: fault! }));
    expect(sent).toHaveLength(1);
    const body = await sent[0].text(), input = JSON.parse(body);
@@ -190,6 +191,56 @@ suite('first-party fault HTTP and database writes', () => {
    stored = await rows();
    expect(stored).toMatchObject([{ kind: 'server', message }]);
    expect(JSON.stringify(stored)).not.toContain(value);
+  } finally { vi.unstubAllGlobals(); }
+ });
+ it.each([
+  ['error', 'account123456789.js:1:2', false],
+  ['unhandledrejection', 'app-test.js:12345678:91', false],
+  ['worker', 'MeetMeAtTheStation.js:1:2', false],
+  ['error', 'app-test.js:87654321:92', true],
+  ['error', 'app-test.js:76543210:93\n    at https://kingdown.dev/assets/private-line.js:1:2\nend', false],
+ ] as const)('keeps false native %s locations out of sent bodies and stored rows: %s', async (kind, value, named) => {
+  vi.resetModules();
+  const target = new EventTarget(), sent: Blob[] = [], key = `https://kingdown.dev/assets/${value}`;
+  vi.stubGlobal('window', target);
+  vi.stubGlobal('location', { origin: 'https://kingdown.dev', pathname: '/play' });
+  vi.stubGlobal('navigator', { userAgent: 'Chrome/130.0', sendBeacon: (_: string, body: Blob) => { sent.push(body); return true; } });
+  vi.stubGlobal('matchMedia', () => ({ matches: false }));
+  try {
+   const { installErrorRecorder } = await import('./browser'); installErrorRecorder();
+   const error: Error = runInThisContext(named
+    ? `(key => { try { const holder = { [key]() { throw new Error('Failed to fetch'); } }; holder[key](); } catch (error) { return error; } })`
+    : `(key => { try { const input = undefined; input[key]; } catch (error) { return error; } })`,
+   { filename: 'https://kingdown.dev/assets/app-test.js' })(key);
+   expect(error.stack).toContain(key);
+   if (kind === 'worker') target.dispatchEvent(new CustomEvent('kingdown-worker-error', { detail: { error, message: error.message } }));
+   else target.dispatchEvent(Object.assign(new Event(kind), kind === 'unhandledrejection' ? { reason: error } : { error }));
+   expect(sent).toHaveLength(1);
+   const body = await sent[0].text(), input = JSON.parse(body);
+   const message = named ? 'Failed to fetch' : 'Unlisted message';
+   expect(input.message).toBe(message);
+   expect(input.frames.length).toBeGreaterThan(0);
+   for (const frame of input.frames) expect(frame).toMatch(/^\/assets\/app-test\.js:1:\d+$/);
+   const fingerprint = errorFingerprint(error.name, message, input.frames[0]);
+   expect(input.fingerprint).toBe(fingerprint);
+   expect((await post(input)).status).toBe(204);
+   let stored = await rows();
+   expect(stored).toMatchObject([{ message, fingerprint, frames: input.frames, count: '1' }]);
+   for (const part of value.split('\n')) {
+    expect(body).not.toContain(part); expect(JSON.stringify(stored)).not.toContain(part);
+   }
+   if (!named) {
+    // A raw message lets the server detect false frames from an old client.
+    const falseFrame = `/assets/${value.split('\n')[0]}`;
+    const old = { ...input, message: error.message, frames: [falseFrame, ...input.frames], fingerprint: errorFingerprint(error.name, message, falseFrame) };
+    expect((await post(old)).status).toBe(204);
+    stored = await rows();
+    expect(stored).toMatchObject([{ message, fingerprint, frames: input.frames, count: '2' }]);
+    for (const part of value.split('\n')) expect(JSON.stringify(stored)).not.toContain(part);
+    await admin.query('truncate public.client_errors');
+    await options.recordError!(old);
+    expect(await rows()).toMatchObject([{ message, fingerprint, frames: input.frames, count: '1' }]);
+   }
   } finally { vi.unstubAllGlobals(); }
  });
  it('drops unknown browser assets and removes false server frames from the message', async () => {

@@ -79,10 +79,15 @@ export function errorRoute(path: string): string {
 }
 
 /** Send locations only, with no function names, origins or URL parameters. */
-export function browserFrames(stack: string, origin: string): string[] {
+export function browserFrames(stack: string, origin: string, message: string, name = 'Error'): string[] {
  const frames: string[] = [];
- for (const match of stack.slice(0, 32_768).matchAll(/https?:\/\/[^\s()]+?:\d+:\d+/g)) {
-  const location = /^(.*):(\d+):(\d+)$/.exec(match[0])!;
+ const header = message ? `${name}: ${message}` : name;
+ const body = stack.startsWith(header + '\n') ? stack.slice(header.length + 1) : stack;
+ for (const line of body.slice(0, 32_768).split('\n')) {
+  const match = /^    at (?:.* \((https?:\/\/[^\s()]+)\)|(https?:\/\/[^\s()]+))$/.exec(line)
+   ?? /^.*@(https?:\/\/[^\s()]+)$/.exec(line);
+  const location = /^(.*):(\d+):(\d+)$/.exec(match?.[1] ?? match?.[2] ?? '');
+  if (!location) continue;
   try {
    const url = new URL(location[1]);
    const frame = `${url.pathname}:${location[2]}:${location[3]}`;

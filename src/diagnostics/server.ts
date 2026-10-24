@@ -36,11 +36,13 @@ export async function readClientError(req: IncomingMessage, assets: ReadonlySet<
  const parsed = reportSchema.safeParse(JSON.parse(Buffer.concat(chunks).toString('utf8')));
  if (!parsed.success) return;
  const report = parsed.data;
- report.message = errorMessage(report.message);
- if (report.fingerprint !== errorFingerprint(report.name, report.message, report.frames[0])) return;
- report.frames = report.frames.filter(frame => assets.has(frame.replace(/:\d+:\d+$/, '')));
+ const first = report.frames[0];
+ report.frames = report.frames.filter(frame => assets.has(frame.replace(/:\d+:\d+$/, '')) && !report.message.includes(frame));
  if (!report.frames.length) return;
- report.fingerprint = errorFingerprint(report.name, report.message, report.frames[0]);
+ report.message = errorMessage(report.message);
+ const fingerprint = errorFingerprint(report.name, report.message, report.frames[0]);
+ if (first === report.frames[0] && report.fingerprint !== fingerprint) return;
+ report.fingerprint = fingerprint;
  return report;
 }
 
@@ -50,7 +52,7 @@ export function createErrorWriter(pool: Pool, assets: ReadonlySet<string> = erro
  let active = 0;
  return async report => {
   if (active >= 2 || pool.idleCount <= pool.waitingCount && pool.totalCount >= (pool.options.max ?? 10) || !admit()) return;
-  const frames = report.kind === 'server' ? report.frames : report.frames.filter(frame => BUNDLE_FRAME.test(frame) && assets.has(frame.replace(/:\d+:\d+$/, '')));
+  const frames = report.kind === 'server' ? report.frames : report.frames.filter(frame => BUNDLE_FRAME.test(frame) && assets.has(frame.replace(/:\d+:\d+$/, '')) && !report.message.includes(frame));
   if (report.kind !== 'server' && !frames.length) return;
   active++;
   let client;
@@ -70,7 +72,7 @@ export function createErrorWriter(pool: Pool, assets: ReadonlySet<string> = erro
      routes=array(select distinct x from unnest(client_errors.routes || excluded.routes) x order by x limit 20),
      browsers=array(select distinct x from unnest(client_errors.browsers || excluded.browsers) x order by x limit 20),
      size_classes=array(select distinct x from unnest(client_errors.size_classes || excluded.size_classes) x order by x limit 2)`,
-    values: [report.fingerprint, report.build, report.kind, report.name, errorMessage(report.message), frames,
+    values: [errorFingerprint(report.name, errorMessage(report.message), frames[0] ?? ''), report.build, report.kind, report.name, errorMessage(report.message), frames,
      [report.route], report.browser ? [report.browser] : [], report.size ? [report.size] : []] };
    await client.query(insert);
    await client.query('commit');

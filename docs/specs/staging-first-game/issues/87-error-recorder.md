@@ -27,7 +27,7 @@ The owner approves this task in the run request. Work stays on `staging/error-re
 - The database groups by fingerprint, build and UTC hour. It keeps one sample and at most 20 route and browser values. This bounds each row.
 - The function accepts at most 60 reports per minute, with at most two database writes in flight. It uses no address key.
 - Each write uses one client and one transaction, with local statement and lock limits of 500 ms. It deletes at most 100 expired rows and skips locked rows. A full pool drops the report. Daily cleanup uses the same limits and repeats 100-row batches until fewer than 100 unlocked expired rows remain. Its failure does not stop the other daily work. A missing table drops fault reports silently.
-- Approved message forms come from source error texts at build time and known browser and engine forms. Every variable part uses a fixed mark, including short code names. Every unlisted message uses one fixed text. Both browser and server apply this rule. The existing scrub rules are a second layer. Names use a fixed list. Unknown route words become ID marks. Browser frames must name JavaScript assets in the emitted site build. Server frames must start after the full message and use real stack lines. Only the combined website build includes recorder setup, routes and cleanup. The plugin-only server and board bytes must match the base with the same packages.
+- Approved message forms come from source error texts at build time and known browser and engine forms. Every variable part uses a fixed mark, including short code names. Every unlisted message uses one fixed text. Both browser and server apply this rule. The existing scrub rules are a second layer. Names use a fixed list. Unknown route words become ID marks. Browser frames must start after the full message header and use only the file location in a real stack line. Function names cannot supply locations. Browser frames must name JavaScript assets in the emitted site build. The server removes false frames found in a raw client message. Group codes use accepted frames only. Server frames must start after the full message and use real stack lines. Only the combined website build includes recorder setup, routes and cleanup. The plugin-only server and board bytes must match the base with the same packages.
 - Source maps are omitted. The repo has no private source-map store by build commit. A useful map step needs that store and a build/archive process. Bundle locations and build commits remain in the report.
 - The privacy text for play without an account now names fault reports. Its old claim that no data reaches the server conflicts with this task.
 
@@ -157,3 +157,47 @@ The first byte check finds unused recorder data in the plugin output. The build 
 The full run takes 595.47 seconds. The browser runner waits for another run's exclusive lock, then both checks pass. No lock is removed. Logs, copied scripts, compared files and `build-compare.json` are in `/private/tmp/claude-501/ci87/sol24/`. Browser detail logs are in `kingdown-check-runs/sol-errors-XLmqDJ`.
 
 The code check finds no need for a new helper or dependency. Shared message rules fix the private-value fault once. A build flag and normal removal of unused modules keep the plugin output unchanged. All database work uses the approved loopback test database or its local test copies. No push, deploy, staging database connection or production database connection occurs.
+
+
+## Frame review fix
+
+The owner requests the remaining frame fix. The review at `/private/tmp/claude-501/ci87/sol25/rereview3.md` confirms private values in message headers and function names. The staging base is `30609582`; its merge has no conflict.
+
+Plan:
+
+1. Remove the full message header. Read only the file location from Chromium, WebKit and Firefox stack lines. Keep the server asset check. Remove false frames that occur in raw client messages. Make group codes from accepted frames only.
+2. Use native errors to check full sent bodies and stored rows for unknown assets, false lines in known assets, function names and messages with more than one line. Repair the browser test helper.
+3. Run the requested type, test, browser and review proof checks. Compare the board, plugin function files and CSP with a clean build of the staging base. Remove that temporary worktree.
+4. Record all results, commit on this branch, and leave a clean worktree. Do not push or deploy.
+
+Check criteria: each private value is absent from the full sent body and stored row. The group code uses the accepted first frame. All required checks pass. The board, plugin function files and CSP match the base bytes.
+
+
+### Frame fix and evidence
+
+The browser removes the full native message header before it reads frames. It reads only the final file location in Chromium, WebKit and Firefox stack lines. A function name does not supply a location. Worker file locations use the same reader. The server keeps its known-asset check. It also removes a frame that occurs in the raw client message. Both the reader and writer make the group code from accepted frames.
+
+The browser test helper keeps the real message in its stack header. Ten new native-error cases check full sent bodies and stored rows. They cover an unknown asset, a false line in a known asset, a computed function name, a worker fault and a message with more than one line. These new cases do not assign `Error.stack`. Four parser cases check the two browser stack forms, with and without function names.
+
+| Check | Result |
+| --- | --- |
+| Staging merge | Pass. Base `30609582` merges without a conflict in `794938b6`. |
+| `npx tsc --noEmit -p .` | Pass. Exit 0. |
+| Selected recorder, HTTP, jobs, server-build and message-form tests | Pass. Nine files and 172 tests pass. All 56 drawing tests pass. |
+| `npm run test:docs` | Pass. 13 files and 167 tests pass. |
+| Full `npm test`, one run | Pass. 272 files and 5,095 tests pass; eight tests skip. All 56 drawing tests pass. Duration: 352.82 seconds. |
+| `npm run check:browser web-game plugin-ui` | Pass. Website: 41.7 seconds. Plugin UI: 273.9 seconds. |
+| Copied source proof, with path changes only | Fails. Its direct frame-reader call omits the full message. It expects two large reports to be dropped. The fixed recorder removes their headers and sends safe reports. A separate copy passes the message to the reader and passes all 300 message cases, 300 client reports, 300 server reports and four false-frame cases. |
+| Copied artifact proof, with path changes only | Fails at its old assertion that requires the private value in a sent frame. A separate copy requires the private values to be absent. Its first run stops at the duplicate-report limit: the fixed locations now give the first three cases the same group code. With a fresh page for each case, all four native browser cases pass. Full sent bodies and stored rows contain no private probe value. |
+| Emitted recorder routes | Pass. Base and plugin-only builds return 404 and store no row. The website returns 204 and stores one row. |
+| Board, plugin function files and CSP source against the base build | Pass. All 22 function files and four links match. Both boards match the base. CSP source bytes match. |
+| Temporary base worktree and branch | Removed after the base build and first byte comparison. Saved base files remain in the proof folder. |
+| `git diff --check` | Pass. |
+
+The selected files are `src/diagnostics/*.test.ts`, `tools/errors-report.test.ts`, `src/api/http*.test.ts`, `src/online/jobs.db.test.ts`, `tools/plugin-server-build.test.ts` and `tools/lib/error-forms.test.ts`.
+
+The board has 895,596 bytes and SHA-256 `34d2245fcec040d0e78c64e889880705ed834fbc7247015f6549fd631637a76f`. The plugin server has 715,646 bytes and SHA-256 `48343160695990fb95dfd18a3eb4044e31794911b4f537cbcba278a545eee9b4`. The base uses a copy of this worktree's installed packages. The final byte check runs after both browser checks and passes.
+
+Proof scripts, results and logs are in `/private/tmp/claude-501/ci87/sol26/`. `build-compare.json` has each file hash and link target. Browser logs are in `kingdown-check-runs/sol-errors-YTB4qC`. Both original proof copies differ from the review files in paths only. The separate updated copies keep the original failure logs.
+
+The code check finds no need for a new helper or dependency. The full suite and browser checks use the final source code. Tests wait for the shared lock; no lock is removed. All database work uses the approved local test database or its local test copies. No push, deploy, staging database connection or production database connection occurs.

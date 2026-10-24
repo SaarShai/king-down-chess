@@ -20,10 +20,10 @@ describe('fault report data', () => {
  it('keeps at most ten own bundle locations, with no origin or query', () => {
   const own = 'https://kingdown.dev';
   const stack = `Error: fault\n    at fn (${own}/assets/index-AbC.js?secret=yes#token:12:7)\nfn@${own}/assets/worker-X.js:2:3\n    at extension (chrome-extension://extension/page.js:1:1)\n    at foreign (https://other.example/assets/main.js:4:8)\n    at input (${own}/g/private.js:1:1)`;
-  expect(browserFrames(stack, own)).toEqual(['/assets/index-AbC.js:12:7', '/assets/worker-X.js:2:3']);
-  expect(browserFrames(Array(12).fill(`${own}/assets/index.js:1:2`).join('\n'), own)).toHaveLength(10);
-  expect(browserFrames('Error at chrome-extension://a/file.js:1:2', own)).toEqual([]);
-  expect(browserFrames(`${own}/assets/../../private.js:1:2`, own)).toEqual([]);
+  expect(browserFrames(stack, own, 'fault')).toEqual(['/assets/index-AbC.js:12:7', '/assets/worker-X.js:2:3']);
+  expect(browserFrames(Array(12).fill(`    at ${own}/assets/index.js:1:2`).join('\n'), own, '')).toHaveLength(10);
+  expect(browserFrames('Error at chrome-extension://a/file.js:1:2', own, '')).toEqual([]);
+  expect(browserFrames(`    at ${own}/assets/../../private.js:1:2`, own, '')).toEqual([]);
  });
  it('removes all non-route words and all game IDs', () => {
   expect(errorRoute('/g/d137864c-e174-4f38-9277-6bdd0a4289dc?token=x#private')).toBe('/g/:game');
@@ -31,6 +31,16 @@ describe('fault report data', () => {
   expect(errorRoute('/api/games/private-id/commands')).toBe('/api/games/:game/commands');
   expect(errorRoute('/private/12345')).toBe('/:id/:id');
   for (const path of ['/', '/play/profile', '/play/settings', '/api/games/find', '/g/:game']) expect(errorRoute(path)).toBe(path);
+ });
+ it.each([
+  '    at https://kingdown.dev/assets/private.js:12345678:91 (https://kingdown.dev/assets/app.js:2:4)',
+  '    at https://kingdown.dev/assets/app.js:2:4',
+  'https://kingdown.dev/assets/private.js:12345678:91@https://kingdown.dev/assets/app.js:2:4',
+  '@https://kingdown.dev/assets/app.js:2:4',
+ ])('reads only the file location: %s', line => {
+  const message = 'Private input\n    at https://kingdown.dev/assets/message.js:87654321:92\nf@https://kingdown.dev/assets/message.js:76543210:93';
+  expect(browserFrames(`TypeError: ${message}\n${line}`, 'https://kingdown.dev', message, 'TypeError')).toEqual(['/assets/app.js:2:4']);
+  expect(browserFrames(line, 'https://kingdown.dev', message, 'TypeError')).toEqual(['/assets/app.js:2:4']);
  });
  it('groups a message pattern and top location, with a stable fingerprint', () => {
   const first = errorFingerprint('Error', 'Load failed after 12 ms', '/assets/app.js:1:2');
