@@ -69,7 +69,7 @@ Result: no code change. New tests in `src/move-text.test.ts` hold the two playte
 
 | Check | Before (base `2f70eab2` with the new tests) | After |
 |---|---|---|
-| `KINGDOWN_TEST_FILE='src/{context-line,move-text,plugin/screens/end-model}.test.ts' npm test` | 4 failed, 87 passed: F-006 (1), F-102 (2), F-105 (1). The F-033/F-030 tests pass. | UNIT |
+| `KINGDOWN_TEST_FILE='src/{context-line,move-text,plugin/screens/end-model}.test.ts' npm test` | 4 failed, 87 passed: F-006 (1), F-102 (2), F-105 (1). The F-033/F-030 tests pass. | typecheck and 3 files, 91 tests pass (on the merge with `4651f6da`) |
 | `npx tsc --noEmit -p .` | — | pass |
 | `npm run test:docs` | — | 13 files, 166 tests pass |
 | `npm run check:browser lessons` | FAIL: `the selection keeps the lesson task` (actual `White ogre.` / `Can shove a neighbour.`) | ok |
