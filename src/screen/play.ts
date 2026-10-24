@@ -24,7 +24,7 @@ import { POWER_TAG, autoQueen, hintMoves, offered } from '../powers-ui';
 import { kingsOf, newGameWarning, playersOf, withDesign, type Setup } from '../new-game';
 import { worthOf } from '../workshop/judge';
 import { pieceIcon } from '../piece-icons';
-import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnEnded, turnLine, turnOf } from '../turn';
+import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, savedTurnStart, turnEnded, turnLine, turnOf } from '../turn';
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from '../turn-controls';
 import { awardTurnSeals } from '../ui/tricks';
 import { readPiece, refreshTable, renderTable } from '../ui/table';
@@ -742,6 +742,8 @@ export function connectPlay(view: BoardView, c: {
       link: linkSide,
       daily,
       resigned,
+      // A reload keeps the staged turn for End turn (web-redesign spec §4.8).
+      ...(game.history.length > turnStart && { staged: game.history.length - turnStart }),
       // The rules the game is playing, so opening the save without its URL replays the same game
       // (`?rules=2017`, `?kings=…`; docs/TAKEOVER-PLAN.md §2).
       rules: { ...game.rules },
@@ -765,7 +767,8 @@ export function connectPlay(view: BoardView, c: {
   function replay(s: Save): Game | undefined {
     try {
       const candidate = savedGame(s);
-      finishLinkedTurn(candidate);
+      // A staged turn stays open for End turn; only a handed-over turn that stops mid-way (an old link) is finished.
+      if (savedTurnStart(candidate, s.staged) === handOver(candidate)) finishLinkedTurn(candidate);
       return candidate;
     } catch { keepUnreadableSave(); }
   }
@@ -803,7 +806,7 @@ export function connectPlay(view: BoardView, c: {
     linkSide = s.link === 0 || s.link === 1 ? s.link : null;
     daily = typeof s.daily === 'string' ? s.daily : null;
     resigned = s.resigned ?? null;
-    turnStart = handOver(game);
+    turnStart = savedTurnStart(game, s.staged);
     moments.restore();
     notice = 'Loaded your newer saved game from your account.';
     moments.say(notice);
@@ -828,6 +831,7 @@ export function connectPlay(view: BoardView, c: {
    * It runs before any async work starts, so it is the one game switch that does not call `reset()`.
    */
   function restore(saved: Save | null, r: { link: boolean; continues: boolean; urlRules: boolean; title: boolean; unreadable: boolean; notice: string }): void {
+    let staged: unknown;
     if (r.unreadable) keepUnreadableSave();
     else if (r.link) {
       previously.load(params, r.continues ? saved!.moves.length : 0);
@@ -846,13 +850,13 @@ export function connectPlay(view: BoardView, c: {
       } else {
         const candidate = replay(saved);
         if (candidate) {
-          game = candidate; resigned = saved.resigned ?? null;
+          game = candidate; resigned = saved.resigned ?? null; staged = saved.staged;
           if (saved.link === 0 || saved.link === 1) linkSide = saved.link;
           if (typeof saved.daily === 'string') daily = saved.daily;
         }
       }
     }
-    turnStart = handOver(game);
+    turnStart = savedTurnStart(game, staged);
     // The title's Continue names the move the restored game is on (set before the first paint; a
     // Haste turn is two plies by one side, so the number comes from the replayed game, not the save).
     if (r.title) labelContinue();
