@@ -162,6 +162,8 @@ describe('deploy.sh', () => {
     ['staging direct', 'postgresql://kingdown_plugin_runtime:fake-engines-password@db.puhspsyjyzaghmgtkzqd.supabase.co/postgres?sslmode=require'],
     ['loopback', 'postgresql://kingdown_test:fake-engines-password@127.0.0.1:55432/kingdown_test'],
     ['other host', 'postgresql://reader:fake-engines-password@db.example/postgres?sslmode=require'],
+    ['NUL-split user', 'postgresql://postgres.puhspsyjyzaghmgtkzqd%00application_name%00x.utqzovjmclfyojedmwok:fake-engines-password@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require'],
+    ['NUL-split database', 'postgresql://kingdown_plugin_runtime.utqzovjmclfyojedmwok:fake-engines-password@aws-0-us-east-2.pooler.supabase.com:6543/postgres%00user%00postgres.puhspsyjyzaghmgtkzqd?sslmode=require'],
   ])('refuses a %s engines database before any publish work', (_, database) => {
     const { repo, deploy, calls } = setup();
     const gitLog = join(repo.root, 'git-calls');

@@ -43,9 +43,9 @@ The script prints `backup_games`, `restored_games` (same revision and status as 
 - A staging pooler URL, a staging direct URL, a loopback URL and another host each stop `deploy.sh --publish` (website and plugin) before any Git call or step, without the password in the output.
 - The check-only mode still accepts a loopback engines database.
 - `engines-check.mjs --production` refuses a loopback and a staging URL with exit 2 before any connection, without the password in the output.
-- `productionDatabase` accepts the production direct host and pooler user in any case, with a trailing dot or percent-encoded. It refuses staging, loopback and other hosts.
+- `productionDatabase` accepts the production direct host and pooler user in any case, with a trailing dot or percent-encoded. It refuses staging, loopback and other hosts, a database other than `postgres`, and a decoded NUL byte in the user or the database name (`%00` ends a startup field, so the pooler could read a second user that names staging).
 - Backup: a move that commits while the backup waits between its `game_commands` copy and its `games` copy is in no backup table. Control: with a plain `begin`, a seat and game update in the same wait gives a backup whose `games` and `game_players` disagree, with every count equal.
-- Restore: the old insert fails with `23505`. The restore brings back the changed game and the deleted game, keeps the added game with its rows, keeps the report link, and gives the same result on a second run. A deleted account's seat becomes null and its invite stays deleted. A backup with a missing command row, a changed rating row, a revision-0 game with no seats or a game with one seat is refused, and the live rows do not change.
+- Restore: the old insert fails with `23505`. The restore brings back the changed game and the deleted game, keeps the added game with its rows, keeps the report link, and gives the same result on a second run. A deleted account's seat becomes null and its invite stays deleted. A backup with a missing command row, a changed rating row, a revision-0 game with no seats, a game with one seat, or an invite whose game is not in the backup is refused, and the live rows do not change.
 
 ## Evidence
 
@@ -59,6 +59,15 @@ Base `bdd886c7` (origin/main), branch `staging/release-safety`. Local test clust
 - After the seat check (`90674dd8`, main `0a043d4b` merged): full `npm test` 268 files, 5021 tests pass, 8 skipped.
 
 Limits: the test database stands in for Supabase (`auth.users`, roles). No production backup was read and no production restore was run. The production backup `release_backup_20261022` was made with the plain `begin` form; these tests do not show that it is inconsistent. Before a restore from it, the restore's own consistency check (step 2) shows whether its games and command rows agree.
+
+## Review
+
+- Automated PR review, finding 4357499620 (P1): the restore accepted a backup game with no player rows. Fixed in `90674dd8` (the seat check); the new test failed on the earlier SQL.
+- Independent review by a Codex run on `0a043d4b..37de31ba`: changes needed.
+  - Must-fix: a percent-encoded NUL byte in the pooler user or the database path passed `productionDatabase`, and the client sends both as NUL-ended startup fields, so the pooler could select staging. Fixed: the check refuses a NUL byte in the user and requires the database `postgres`. Refusal tests for both forms in the shared check, `deploy.sh --publish` and `engines-check.mjs --production`.
+  - Should-fix: no test held the orphan-child check. Added: a backup invite that points at a newer live game is refused, and the live rows do not change.
+  - Mutation: without the NUL check, 3 tests fail (shared check, deploy, CLI); without the orphan check, the new restore test fails.
+  - Correct as reviewed: the one-snapshot backup, lock mode, update in place, foreign-key actions, shared columns, triggers, refusal before live changes, and rollback in the SQL editor.
 
 ## Comments
 

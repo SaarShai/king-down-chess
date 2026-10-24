@@ -158,4 +158,14 @@ suite('the release backup and games restore', () => {
   await expect(run(restoreSql)).rejects.toThrow('backup refused: 2 game(s) lack seat 0 or seat 1');
   expect(await games()).toEqual(live);
  });
+
+ it('refuses a backup child row whose game is not in the backup, so a newer game keeps its rows', async () => {
+  await run(backupSql);
+  await game(c, 1, [users[1], users[0]]);
+  // A backup invite that points at newer game c: without the check, its foreign key passes and c gets a second invite.
+  await pool.query(`insert into ${B}.game_invites select (jsonb_populate_record(i, jsonb_build_object('token_hash', $2::text, 'code_hash', $3::text, 'game_id', $4::uuid))).* from ${B}.game_invites i where game_id=$1`, [a, randomUUID(), randomUUID(), c]);
+  const live = await games();
+  await expect(run(restoreSql)).rejects.toThrow('backup refused: 1 row(s) of game_invites have no backup game');
+  expect(await games()).toEqual(live);
+ });
 });

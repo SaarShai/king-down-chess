@@ -69,5 +69,9 @@ it('the publish database check accepts only the production project and refuses s
   expect(() => productionDatabase(new URL(productionPooler))).not.toThrow();
   for (const db of [direct, `postgresql://kingdown_plugin_runtime.${STAGING_SUPABASE_REF}:fake@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require`,
     'postgresql://kingdown_test@127.0.0.1:55432/kingdown_test', 'postgresql://postgres@localhost/postgres', 'postgresql://postgres@[::1]/postgres',
-    'postgresql://postgres.utqzovjmclfyojedmwok:fake@127.0.0.1/postgres', 'postgresql://postgres.utqzovjmclfyojedmwok:fake@db.example/postgres']) expect(() => productionDatabase(new URL(db))).toThrow('Production requires its Supabase database');
+    'postgresql://postgres.utqzovjmclfyojedmwok:fake@127.0.0.1/postgres', 'postgresql://postgres.utqzovjmclfyojedmwok:fake@db.example/postgres',
+    // A NUL byte ends a startup field, so the pooler would read the first user (staging) and the rest as other fields.
+    `postgresql://postgres.${STAGING_SUPABASE_REF}%00application_name%00review.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com/postgres?sslmode=require`,
+    `postgresql://postgres.utqzovjmclfyojedmwok:fake@aws-0-us-west-2.pooler.supabase.com/postgres%00user%00postgres.${STAGING_SUPABASE_REF}?sslmode=require`,
+    'postgresql://postgres:fake@db.utqzovjmclfyojedmwok.supabase.co/other?sslmode=require']) expect(() => productionDatabase(new URL(db))).toThrow('Production requires its Supabase database');
 });
