@@ -1,4 +1,4 @@
-import { browserFamily, browserFrames, BUILD_ID, errorFingerprint, errorName, errorRoute, MAX_ERROR_BODY, scrub, type ClientErrorReport } from './data';
+import { browserFamily, browserFrames, BUILD_ID, errorFingerprint, errorName, errorRoute, MAX_ERROR_BODY, errorMessage, type ClientErrorReport } from './data';
 
 declare const __KINGDOWN_BUILD__: string;
 let installed = false;
@@ -20,7 +20,7 @@ export function installErrorRecorder(): void {
     const frames = browserFrames(error?.stack ?? '', location.origin);
     if (!frames.length && kind === 'worker' && event?.filename) frames.push(...browserFrames(`${event.filename}:${event.lineno}:${event.colno}`, location.origin));
     if (!frames.length) return;
-    const name = errorName(error?.name), message = scrub(raw), fingerprint = errorFingerprint(name, message, frames[0]);
+    const name = errorName(error?.name), message = errorMessage(raw), fingerprint = errorFingerprint(name, message, frames[0]);
     if (seen.has(fingerprint)) return;
     const report: ClientErrorReport = { kind, name, message, frames, route: errorRoute(location.pathname), build,
      browser: browserFamily(navigator.userAgent), size: matchMedia('(max-width: 899px)').matches ? 'phone' : 'desktop', fingerprint };

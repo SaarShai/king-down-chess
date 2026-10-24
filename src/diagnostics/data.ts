@@ -11,6 +11,41 @@ export type ErrorReport = Omit<ClientErrorReport, 'kind' | 'browser' | 'size'> &
  kind: ClientErrorReport['kind'] | 'server'; browser?: string; size?: ClientErrorReport['size'];
 };
 
+declare const __KINGDOWN_ERROR_FORMS__: string[][];
+const sourceForms = (typeof __KINGDOWN_ERROR_FORMS__ === 'undefined' ? [] : __KINGDOWN_ERROR_FORMS__).map(parts => ({ parts, text: scrub(parts.join('[value]')) }));
+
+/** Match template parts in order, with no regular-expression backtracking. */
+function matchesSource(value: string, parts: string[]): boolean {
+ if (parts.length === 1) return value === parts[0];
+ if (!value.startsWith(parts[0]) || !value.endsWith(parts[parts.length - 1])) return false;
+ let cursor = parts[0].length;
+ for (const part of parts.slice(1, -1)) {
+  const next = value.indexOf(part, cursor);
+  if (next < 0) return false;
+  cursor = next + part.length;
+ }
+ return cursor <= value.length - parts[parts.length - 1].length;
+}
+const identifier = '(?:\\[redacted\\]|[A-Za-z_$][A-Za-z0-9_$]{0,31}(?:\\.[A-Za-z_$][A-Za-z0-9_$]{0,31}){0,3})';
+const engineForms = [
+ new RegExp(`^Cannot read properties of (?:undefined|null) \\(reading '?${identifier}'?\\)$`),
+ new RegExp(`^${identifier} is not a function$`),
+ new RegExp(`^(?:undefined|null) is not an object \\(evaluating '?${identifier}'?\\)$`),
+ new RegExp(`^${identifier} is not defined$`),
+];
+const fixedMessages = new Set(['Unlisted message', 'Failed to fetch', 'fetch failed', 'Load failed', 'NetworkError when attempting to fetch resource.', 'Maximum call stack size exceeded', 'too much recursion']);
+
+/** Keep approved forms only. The scrub is a second layer, not a free-text filter. */
+export function errorMessage(value: string): string {
+ if (value.length > 16_384) return 'Unlisted message';
+ if (fixedMessages.has(value)) return value;
+ for (const form of sourceForms) if (value === form.text || matchesSource(value, form.parts)) return form.text;
+ if (/^(?:Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed)(?::[^\r\n]*)?\.?$/.test(value)) return 'Dynamic import failed';
+ if (value === 'Dynamic import failed') return value;
+ if (engineForms.some(pattern => pattern.test(value))) return scrub(value.replaceAll("'", ''));
+ return 'Unlisted message';
+}
+
 /** Scrub before truncation, so a cut value cannot escape a full-value match. */
 export function scrub(value: string): string {
  if (value.length > 16_384) return 'Error message exceeds limit';
@@ -25,7 +60,7 @@ export function scrub(value: string): string {
   .replace(/\b(?:sb_(?:secret|publishable)_[A-Za-z0-9_-]+|(?:sk|ghp|gho)_[A-Za-z0-9_-]+|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\b/g, '[redacted]')
   .replace(/[A-Za-z0-9_+\/-]{32,}={0,2}/g, '[redacted]')
   .replace(/\b[0-9a-f]{16,}\b/gi, '[redacted]')
-  .replace(/\/[\w%/-]+[?#][^\s)\]}>]*/g, '[redacted]')
+  .replace(/\/[\w%/.-]+[?#][^\s)\]}>]*/g, '[redacted]')
   .replace(/\b[prnbqkpalgmso1-8]+(?:\/[prnbqkpalgmso1-8]+){7}\b/gi, '[redacted]')
   .replace(/\b(?:[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?)\b/g, '[redacted]')
   .replace(/\b(?:[KQRBNPALGMSO]?[a-h][1-8][-x]?[a-h][1-8][^\s,;]*|O-O(?:-O)?)\b/g, '[redacted]')

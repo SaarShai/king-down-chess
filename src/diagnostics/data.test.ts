@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { browserFamily, browserFrames, errorFingerprint, errorName, errorRoute, scrub } from './data';
+import { browserFamily, browserFrames, errorFingerprint, errorName, errorRoute, errorMessage, scrub } from './data';
 import { serverFrames } from './server';
+import { fromFen } from '../rules/setup';
 
 describe('fault report data', () => {
  it('removes private values before the 300-character cut', () => {
@@ -18,7 +19,7 @@ describe('fault report data', () => {
  });
  it('keeps at most ten own bundle locations, with no origin or query', () => {
   const own = 'https://kingdown.dev';
-  const stack = `Error: fault\n at fn (${own}/assets/index-AbC.js?secret=yes#token:12:7)\nfn@${own}/assets/worker-X.js:2:3\n at extension (chrome-extension://extension/page.js:1:1)\n at foreign (https://other.example/assets/main.js:4:8)\n at input (${own}/g/private.js:1:1)`;
+  const stack = `Error: fault\n    at fn (${own}/assets/index-AbC.js?secret=yes#token:12:7)\nfn@${own}/assets/worker-X.js:2:3\n    at extension (chrome-extension://extension/page.js:1:1)\n    at foreign (https://other.example/assets/main.js:4:8)\n    at input (${own}/g/private.js:1:1)`;
   expect(browserFrames(stack, own)).toEqual(['/assets/index-AbC.js:12:7', '/assets/worker-X.js:2:3']);
   expect(browserFrames(Array(12).fill(`${own}/assets/index.js:1:2`).join('\n'), own)).toHaveLength(10);
   expect(browserFrames('Error at chrome-extension://a/file.js:1:2', own)).toEqual([]);
@@ -45,6 +46,34 @@ describe('fault report data', () => {
   ['CriOS/130.0 Mobile Safari/604.1', 'Chrome 130'], ['EdgiOS/130.0 Safari/604.1', 'Edge 130'], ['private raw agent', 'Other'],
  ])('reduces %s to %s', (ua, expected) => expect(browserFamily(ua)).toBe(expected));
  it('keeps only app server locations, without a machine path', () => {
-  expect(serverFrames('Error: fault\n at f (/private/task/src/api/http.ts:23:8)\n at g (file:///var/task/server.mjs:4:9)\n at z (/var/task/runtime/index.mjs:1:2)\n at pg (/task/node_modules/pg/src/index.ts:2:3)\n at x (node:internal/thing:1:1)')).toEqual(['src/api/http.ts:23:8', 'server.mjs:4:9', 'runtime/index.mjs:1:2']);
+  expect(serverFrames('Error: fault\n    at f (/private/task/src/api/http.ts:23:8)\n    at g (file:///var/task/server.mjs:4:9)\n    at z (/var/task/runtime/index.mjs:1:2)\n    at pg (/task/node_modules/pg/src/index.ts:2:3)\n    at x (node:internal/thing:1:1)', 'fault')).toEqual(['src/api/http.ts:23:8', 'server.mjs:4:9', 'runtime/index.mjs:1:2']);
  });
+});
+
+it('keeps source forms and removes each template value', () => {
+ for (const [raw, expected] of [
+  ['Invalid game setup', 'Invalid game setup'], ['bad FEN t7/8/8/8/8/8/8/K6X w - - 0 1', 'bad FEN [value]'],
+  ['unknown king "private" (private | none)', 'unknown king [redacted] ([value] | none)'],
+ ]) { expect(errorMessage(raw)).toBe(expected); expect(errorMessage(expected)).toBe(expected); }
+});
+it('keeps only known engine forms and tight code identifiers', () => {
+ for (const text of ["Cannot read properties of undefined (reading 'x')", 'x is not a function', "undefined is not an object (evaluating 'a.b')", 'Failed to fetch', 'Load failed', 'NetworkError when attempting to fetch resource.', 'Maximum call stack size exceeded', 'fetch failed']) {
+  const kept = errorMessage(text); expect(kept).not.toBe('Unlisted message'); expect(errorMessage(kept)).toBe(kept);
+ }
+ for (const text of ["Cannot read properties of undefined (reading 'private message')", '123456789 is not a function', 'a'.repeat(33) + ' is not a function', "undefined is not an object (evaluating '/path?private#fragment')"]) expect(errorMessage(text)).toBe('Unlisted message');
+ expect(errorMessage('Failed to fetch dynamically imported module: https://example.com/private?id=secret#fragment')).toBe('Dynamic import failed');
+});
+it('does not read false stack lines from the full error message', () => {
+ const message = 'Unexpected input\nsrc/api/private-id.ts:1:2\n    at f (/task/src/api/private-id.ts:1:2)';
+ const error = new Error(message);
+ error.stack = `Error: ${message}\n    at f (/task/server.mjs:10:20)`;
+ expect(serverFrames(error.stack, error.message)).toEqual(['server.mjs:10:20']);
+ expect(serverFrames('Error: other\n    at f (/task/server.mjs:1:2)', error.message)).toEqual([]);
+});
+
+it('removes the board from the real FEN parser fault', () => {
+ let fault: Error | undefined;
+ try { fromFen('t7/8/8/8/8/8/8/K6X w - - 0 1'); } catch (error) { fault = error as Error; }
+ expect(fault?.message).toContain('bad FEN ');
+ expect(errorMessage(fault!.message)).toBe('bad FEN [value]');
 });

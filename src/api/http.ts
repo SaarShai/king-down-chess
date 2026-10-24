@@ -2,6 +2,7 @@
  * 4.3, 4.4 and 8). Thin adapters: the game, account and safety services decide; the actor is the verified `sub` of
  * a website session, never input. Errors carry the protocol codes: `{ code, message }`, and a command's refusal is
  * the protocol's `reject` reply. */
+import { waitUntil } from '@vercel/functions';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createRemoteJWKSet, errors, jwtVerify, type JWTVerifyGetKey } from 'jose';
@@ -65,7 +66,7 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
 
 export interface ApiOptions {
  games: GameService; accounts: AccountService; safety: SafetyService;
- recordError?: ErrorWriter; build?: string;
+ recordError?: ErrorWriter; build?: string; errorAssets?: ReadonlySet<string>;
  players?: Pick<PluginService, 'settings' | 'profile' | 'handle' | 'block' | 'blocks' | 'toolTry'>;
  publicOrigin: string; operations?: ReadonlySet<string>;
  /** undefined: website sign-in is not configured */ verify?: (token: string) => Promise<string>;
@@ -91,7 +92,7 @@ function queryInput(query: URLSearchParams): Record<string, string> {
 }
 const redeemSchema = z.union([z.strictObject({ token: z.string().max(100) }), z.strictObject({ code: z.string().max(20) })]);
 
-export function createApiHandler({ games, accounts, safety, players, publicOrigin, verify, operations, webAccountAccess, admit, currentUser, recordError, build = '' }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
+export function createApiHandler({ games, accounts, safety, players, publicOrigin, verify, operations, webAccountAccess, admit, currentUser, recordError, build = '', errorAssets }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
  const origin = pluginOrigin(publicOrigin);
  const readAccess = async (fresh = false) => {
   try {
@@ -188,7 +189,7 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
    try {
     if (recordError && req.headers.host?.toLowerCase() === new URL(origin).host && req.headers.origin === origin
      && (!req.headers['sec-fetch-site'] || req.headers['sec-fetch-site'] === 'same-origin') && admitError()) {
-     const report = await readClientError(req);
+     const report = await readClientError(req, errorAssets);
      if (report) await recordError(report);
     }
    } catch { /* Dropped reports have the same empty response. */ }
@@ -244,9 +245,10 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
    if (known.status === 401) res.setHeader('WWW-Authenticate', 'Bearer');
    if (known.status === 413) { res.setHeader('Connection', 'close'); req.resume(); }
    if (known.status >= 500 && known.status !== 503) console.error('King Down API failed', { route: route.key, requestId: randomUUID(), ...diagnostic(error) });
-   if (!(error instanceof MatchServiceError || error instanceof AuthenticationError || error instanceof AuthenticationUnavailable)) await recordServerError(recordError, error, route.key.split(' ')[1], build);
    const commandId = (body as { command_id?: unknown } | undefined)?.command_id;
    respond(res, known.status, { ...(route.key === 'POST /api/games/:id/commands' && { type: 'reject', command_id: typeof commandId === 'string' ? commandId : '' }), code: known.code, message: known.message });
+   release?.(); release = undefined;
+   if (!(error instanceof MatchServiceError || error instanceof AuthenticationError || error instanceof AuthenticationUnavailable)) waitUntil(recordServerError(recordError, error, route.key.split(' ')[1], build));
   } finally { release?.(); }
  };
 }

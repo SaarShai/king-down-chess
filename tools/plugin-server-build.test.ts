@@ -1,8 +1,8 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
-import { vercelRoutes } from './plugin-server-build.mjs';
+import { vercelRoutes, siteErrorAssets } from './plugin-server-build.mjs';
 
 it('routes only the site API boundary to the one MCP function for every method', () => {
   const site = mkdtempSync(join(tmpdir(), 'kingdown-api-routes-'));
@@ -37,4 +37,14 @@ it('keeps every isolated operation set equal to the handler route keys', () => {
     const set = /const (?:ENABLED_WEB_OPERATIONS|operations) = new Set\(\[([\s\S]*?)\]\);/.exec(source)![1];
     expect([...set.matchAll(/'([^']+)'/g)].map(match => match[1]).sort(), file).toEqual(keys);
   }
+});
+
+it('takes browser frames only from emitted JavaScript in the site build', async () => {
+ const site = mkdtempSync(join(tmpdir(), 'error-assets-'));
+ try {
+  mkdirSync(join(site, 'assets/worker'), { recursive: true });
+  for (const file of ['index-AbC.js', 'style.css', 'worker/search-X.js', 'index.js.map']) writeFileSync(join(site, 'assets', file), '');
+  expect(await siteErrorAssets(site)).toEqual(['/assets/index-AbC.js', '/assets/worker/search-X.js']);
+  expect(await siteErrorAssets()).toEqual([]);
+ } finally { rmSync(site, { recursive: true, force: true }); }
 });

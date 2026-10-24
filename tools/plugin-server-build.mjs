@@ -5,10 +5,11 @@ import { builtinModules } from 'node:module';
 import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { existsSync, readFileSync } from 'node:fs';
-import { cp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRuntime } from './plugin-runtime-build.mjs';
+import { sourceErrorForms } from './lib/error-forms.mjs';
 import { ART_HEADERS, ART_TYPES } from './plugin-art-headers.mjs';
 import { STAGING_ORIGIN, STAGING_PROJECT_ID, STAGING_SUPABASE_URL } from './staging-config.mjs';
 
@@ -27,6 +28,14 @@ export function vercelRoutes(site) {
     routes.push({ src: '^/(?:play(?:/.*)?|g/[^/]+/?|j/?)$', dest: '/index.html' });
   }
   return routes;
+}
+
+/** Only emitted site JavaScript paths can enter browser frames. */
+export async function siteErrorAssets(site) {
+  if (!site) return [];
+  return (await readdir(resolve(site, 'assets'), { recursive: true, withFileTypes: true }))
+    .filter(file => file.isFile() && file.name.endsWith('.js'))
+    .map(file => '/assets/' + resolve(file.parentPath, file.name).slice(resolve(site, 'assets').length + 1)).sort();
 }
 
 export async function buildPluginServer(outDir = resolve('plugin-server-dist'), { vercel = false, site } = {}) {
@@ -52,7 +61,7 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
   await buildRuntime(resolve(functionDir, 'runtime'));
   await build({
     configFile: false, root, publicDir: false, logLevel: 'warn', ssr: { noExternal: true },
-    define: { __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()) },
+    define: { __KINGDOWN_ERROR_FORMS__: JSON.stringify(sourceErrorForms(resolve(root, 'src'))), __KINGDOWN_ERROR_ASSETS__: JSON.stringify(await siteErrorAssets(site)), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()) },
     plugins: [{ name: 'isolated-match-runtime', enforce: 'pre', resolveId(source, importer) {
       if (!importer || !source.startsWith('.')) return;
       const path = resolve(dirname(importer), source);

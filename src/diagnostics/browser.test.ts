@@ -23,11 +23,11 @@ it('installs once, sends only the allowed fields and sends no duplicate', async 
  expect(path).toBe('/api/client-errors'); expect(blob.size).toBeLessThanOrEqual(MAX_ERROR_BODY);
  const report = JSON.parse(await blob.text());
  expect(Object.keys(report).sort()).toEqual(['browser', 'build', 'fingerprint', 'frames', 'kind', 'message', 'name', 'route', 'size']);
- expect(report).toMatchObject({ kind: 'error', message: 'Fault [redacted]', frames: ['/assets/app.js:2:4'], route: '/g/:game', browser: 'Safari 18', size: 'phone' });
+ expect(report).toMatchObject({ kind: 'error', message: 'Unlisted message', frames: ['/assets/app.js:2:4'], route: '/g/:game', browser: 'Safari 18', size: 'phone' });
  expect(report.build).toMatch(/^[a-f0-9]{40}$/);
 });
 it('sends at most five different faults per page load', () => {
- for (const word of ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot']) emit('error', fault(word));
+ for (let line = 1; line <= 6; line++) emit('error', fault('Private text', `Error: fault\n at f (https://kingdown.dev/assets/app.js:${line}:4)`));
  expect(beacon).toHaveBeenCalledTimes(5);
 });
 it('ignores extension faults, opaque scripts, resize notices and values with no own frame', () => {
@@ -69,7 +69,7 @@ it('uses fetch when beacon is missing or throws', () => {
  beacon.mockImplementation(() => { throw new Error('Beacon failed'); });
  emit('error', fault('Beacon unavailable')); expect(send).toHaveBeenCalledOnce();
  vi.stubGlobal('navigator', { userAgent: 'Firefox/130.0' });
- emit('error', fault('Beacon missing')); expect(send).toHaveBeenCalledTimes(2);
+ emit('error', fault('Beacon missing', 'at f (https://kingdown.dev/assets/app.js:3:4)')); expect(send).toHaveBeenCalledTimes(2);
 });
 
 it('contains a fault in an event getter', () => {
@@ -78,4 +78,23 @@ it('contains a fault in an event getter', () => {
   expect(() => target.dispatchEvent(event)).not.toThrow();
  }
  expect(beacon).not.toHaveBeenCalled();
+});
+
+it.each([
+ 'bad FEN t7/8/8/8/8/8/8/K6X w - - 0 1', 'Player message: Meet me at the station', 'account 123456789',
+ 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.4 Safari/605.1.15',
+ 'GET /assets/app.js?room=private-room#private-fragment failed',
+])('removes private message text before send: %s', async raw => {
+ emit('error', fault(raw));
+ const text = await (beacon.mock.calls[0][1] as Blob).text();
+ expect(text).not.toContain(raw);
+ expect(JSON.parse(text).message).toBe(raw.startsWith('bad FEN ') ? 'bad FEN [value]' : 'Unlisted message');
+});
+
+it('removes raw Auth text before send', async () => {
+ const { createClient } = await import('@supabase/supabase-js');
+ const auth = createClient('http://127.0.0.1:1', 'test-key', { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: async () => new Response(JSON.stringify({ msg: 'Player message: Meet me at the station' }), { status: 400, headers: { 'Content-Type': 'application/json' } }) } });
+ const { error } = await auth.auth.signInWithPassword({ email: 'test@example.com', password: 'test' });
+ expect(error).toBeTruthy(); emit('error', fault(error!.message));
+ expect(JSON.parse(await (beacon.mock.calls[0][1] as Blob).text()).message).toBe('Unlisted message');
 });
