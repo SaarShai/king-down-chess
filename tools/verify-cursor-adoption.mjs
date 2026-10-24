@@ -109,6 +109,7 @@ try {
   await seed(promotion); await click(48); await click(56);
   await page.locator('#promo').waitFor({ state: 'visible' });
   await page.click('#cancel-promo'); // Cancel keeps the pawn and frees the board
+  await page.locator('#promo').waitFor({ state: 'hidden' });
   assert.equal(await page.locator('#promo').isVisible(), false);
   assert.ok(await page.evaluate(() => window.view.pos.board[48] === 1 && document.getElementById('end-turn').getAttribute('aria-disabled') === 'true'));
   await click(48); await click(56);

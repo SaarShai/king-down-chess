@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>King Down · Effects workshop</title>
+<style>
+@font-face{font-family:Cinzel;src:url('/fonts/cinzel-latin.woff2')}@font-face{font-family:Alegreya;src:url('/fonts/alegreya-sans-regular-latin.woff2')}
+*{box-sizing:border-box}body{margin:0;color:#2b2621;background:#f3ead7;font:18px/1.4 Alegreya,system-ui,sans-serif}header{padding:16px 24px 12px;border-bottom:1px solid #c9bfac;background:#fbf7ee}header>div{display:flex;align-items:baseline;gap:18px;justify-content:space-between}h1{font:500 22px Cinzel,Georgia,serif;margin:0}.note{font-size:15px;color:#5b5045}nav{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}button,a{font:inherit}button{min-height:44px;border:1px solid #c9bfac;background:transparent;color:#5b5045;border-radius:5px;padding:7px 14px;cursor:pointer}button[aria-pressed=true]{color:#fbf7ee;background:#842c21;border-color:#842c21}button:disabled{opacity:.5;cursor:wait}button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #842c21;outline-offset:3px}a{color:#7a5712}nav a{margin-left:auto;font-size:16px}iframe{border:0;display:block;width:100%;height:calc(100dvh - 134px);min-height:600px;background:#f3ead7}.empty{padding:60px 24px;text-align:center}.empty h2{font:400 26px Cinzel,serif}dialog{max-width:920px;max-height:88dvh;border:1px solid #c9bfac;border-radius:8px;background:#fbf7ee;color:#2b2621;padding:25px}dialog::backdrop{background:#211c18aa}dialog header{padding:0 0 14px;background:none;display:flex;align-items:center;justify-content:space-between;gap:15px}dialog h2{font:400 22px Cinzel,serif;margin:0}dialog h3{font-size:21px;color:#7a5712;margin:22px 0 6px}dialog p{margin:6px 0}dialog ul{margin:5px 0;padding-left:24px}dialog li{margin:4px 0}.tag{font-size:14px;border:1px solid #c9bfac;padding:2px 6px;border-radius:4px;margin-left:6px}#inventory-open{margin-left:10px}
+@media(max-width:600px){header{padding:12px}header>div{display:block}h1{font-size:20px}.note{display:block;margin-top:4px}nav{gap:6px}nav button{font-size:16px;padding:7px 10px}#inventory-open{margin-left:0}nav a{margin-left:0}iframe{height:calc(100dvh - 190px);min-height:650px}dialog{padding:18px}}
+</style>
+<link rel="icon" href="/icons/icon-192.png"></head>
+<body>
+<header><div><h1>King Down · Effects workshop</h1><span class="note">Motion studies · review before game integration</span></div>
+<nav aria-label="Effect collections"><button data-group="signals" aria-pressed="false" disabled>States & targets</button><button data-group="cards" aria-pressed="false" disabled>Card effects</button><button data-group="gui" aria-pressed="false" disabled>Interface</button><button id="inventory-open">Full inventory</button><a id="direct" hidden>Open this study on its own ↗</a></nav></header>
+<div class="empty" id="waiting"><h2>The first effects are being assembled.</h2><p>The collections become available as each parallel study arrives.</p></div>
+<iframe id="study" title="Effects animation study" hidden></iframe>
+<dialog id="inventory"><header><h2>The full animation inventory</h2><button id="inventory-close" aria-label="Close inventory">Close</button></header>
+<p>New samples cover the gaps below. Existing action and king motion stays as the baseline. Each effect must have a clear still state as well as motion.</p>
+<h3>Interface <span class="tag">Study</span></h3><p>Game and army reveal; turn handoff; timer start, warning and expiry; check; victory; defeat; draw; neutral abort/no-start; card deal, selection, use and refill; power-use counter; promotion choice; move/send confirmation and failure; undo/replay; dialog transitions; button feedback; connection loss/recovery; lesson completion; card coin cast/spent; draw offer and reply; opponent-found notice; both players ready; invite-copy confirmation.</p>
+<h3>States and indications <span class="tag">12 studies</span></h3><p>Freeze onset, frozen hold and thaw; Ice Wall; Firewall; Guard protection; Holy Light shelter; Mercy shelter; distant Archer targets; hover/keyboard ghost; swap pair; shove direction and landing; dramatic Check and cause; Hint.</p><p class="note">Keep still: selection, extra-move availability, legal destinations, capture targets, Beast bite order, threats, last move and reserve placement. These do not need new animation. Ground rings stay below the characters.</p>
+<h3>All 21 released cards <span class="tag">Study</span></h3><p>Freeze · Ice Wall · Strike · Haste · Flight · Sacrifice · March · Leap · Salvation · Mirror · Firewall · Earth Quake · Burn · Fire Starter · Control · Rally · Morph · Mimic · Vault · Curse · Sky Lift.</p>
+<p class="note">All 21 card samples now use material effects: fire, frost, dust, airborne wisps, petals, smoke and magical transformations. The old route diagrams are removed. Visual review remains open.</p>
+<p class="note">Mirror copies a card in your own hand. Morph changes a pawn into a knight or bishop. Firewall protects the army. Strike follows the legal movement granted by the card.</p>
+<p class="note">Combat animations are outside this workshop. Existing character and action animation belongs to the separate character workstream.</p>
+<h3>Six king themes <span class="tag">Existing baseline</span></h3><p>Frost · Flame · Stratus wind · Mud earth · Spirit · Shadow. Existing idle and capture effects already distinguish them.</p>
+<p><a href="../../../2d-first-pieces/board/index.html" target="_blank" rel="noopener">Open the existing painted action board ↗</a></p>
+<h3>Current parallel batch</h3><p>Rebuild Firewall and Guard protection; finish the additional interface objects and interactions. Preserve the other state and card samples.</p>
+<h3>Review criteria</h3><p>Read the effect at board size. The figure must stay intact. Source, target and result must be clear. Check pause, replay, slow playback, reduced motion and both board directions. The preview does not alter saved games.</p>
+</dialog>
+<script type="module">
+const frame=document.querySelector('#study'),waiting=document.querySelector('#waiting'),direct=document.querySelector('#direct');
+const buttons=[...document.querySelectorAll('[data-group]')],available=new Set();let active=null;
+const requested=new URLSearchParams(location.search).get('group');
+function select(group){if(!available.has(group))return;active=group;buttons.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.group===group)));const url=new URL(`${group}/index.html`,location.href);frame.src=url.href;frame.hidden=false;waiting.hidden=true;direct.href=url.href;direct.hidden=false;history.replaceState(null,'',`?group=${group}`)}
+buttons.forEach(b=>b.onclick=()=>select(b.dataset.group));
+async function discover(){for(const b of buttons){const group=b.dataset.group;if(available.has(group))continue;try{const response=await fetch(`${group}/index.html`,{cache:'no-store'});const text=await response.text();if(response.ok&&text.includes('data-effects-study')){available.add(group);b.disabled=false}}catch{}}if(!active){const first=available.has(requested)?requested:[...available][0];if(first)select(first)}if(available.size<buttons.length)setTimeout(discover,12000)}
+const inventory=document.querySelector('#inventory');document.querySelector('#inventory-open').onclick=()=>inventory.showModal();document.querySelector('#inventory-close').onclick=()=>inventory.close();
+discover();
+</script>
+</body></html>

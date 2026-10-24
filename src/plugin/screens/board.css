@@ -56,18 +56,15 @@ body[data-page='end'] #table-bar { visibility: hidden; }
 
 #game-table[data-empty='true'] #board { visibility: hidden; }
 
-/* A card that a live use spends: a gold pulse while it fades, 300 ms, then the grey 'used' coin. Restarted coins keep their place in it. */
-#game-table .coin.card-coin.is-spending > .coin-paint { animation: card-spend 300ms var(--ease-out) var(--age, 0ms) both; }
-#game-table .coin.card-coin.is-spending > .coin-paint::after { content: ''; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 3px var(--gold-bright), inset 0 0 10px 4px var(--gold); animation: card-pulse 300ms var(--ease-out) var(--age, 0ms) both; pointer-events: none; }
-@keyframes card-spend { to { opacity: 0.85; } }
-@keyframes card-pulse { 0% { opacity: 0; transform: scale(0.8); } 35% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.1); } }
-
-/* Lively: the four cards deal once at a live game start (280 ms each, 60 ms apart), and the side in check gets one red pulse (600 ms). */
-#game-table .coin.card-coin.is-dealt > .coin-paint { animation: card-deal 320ms cubic-bezier(.05,.7,.1,1) calc(var(--i) * 60ms + var(--age, 0ms)) both; }
-@keyframes card-deal { from { opacity: 0; transform: translateY(-14px) scale(.85) rotate(-6deg); } 30% { opacity: 1; } }
-#game-table .portrait.is-checked::after { content: ''; position: absolute; inset: 0; z-index: 1; border-radius: 50%; box-shadow: inset 0 0 0 4px #b3261e, inset 0 0 14px 2px rgb(179 38 30 / 60%); animation: check-pulse 600ms var(--ease-out) var(--age, 0ms) both; pointer-events: none; }
-@keyframes check-pulse { 0% { opacity: 0; transform: scale(1.25); } 30% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
-
+/* Move card paint without moving its target or clipping its raised edge. */
+#game-table .card-coin[data-state='armed'] > .coin-paint { transform: translateY(-4px); }
+#game-table .card-coin:is([data-state='armed'], [data-state='used']) { overflow: visible; }
+#game-table .card-coin[data-state='used'] > .coin-paint { transform: scale(.96); }
+/* Keep both focus bands clear of a spent coin's grey rim: on the smaller card face, and on the spent power coin's notch side. */
+#app-root #game-table .coin[data-state='used']:focus::before { inset: 0; }
+#game-table .portrait.is-checked { outline: 3px solid var(--accent); outline-offset: -3px; }
+#move-time-left[data-phase='warning'], #move-time-left[data-phase='expired'] { color: var(--accent); }
+#move-time-left { outline: 2px solid transparent; outline-offset: 3px; border-radius: var(--radius); }
 
 @media (orientation: landscape) and (max-height: 500px) {
   #board-sheet.board-menu .sheet-head { padding: 2px 8px; }
@@ -80,3 +77,6 @@ body[data-page='end'] #table-bar { visibility: hidden; }
 #recent-moves p { margin: 0; min-height: 36px; padding: 8px 4px; }
 #recent-moves p:nth-child(odd) { background: rgba(231, 216, 184, .45); }
 #moves-line[aria-expanded='true'] .moves-label > span { display: inline-block; transform: rotate(180deg); }
+
+#end-turn { position: relative; }
+.ui-send-check { position: absolute; right: 4px; top: 2px; font-size: var(--fs-xs); pointer-events: none; }
