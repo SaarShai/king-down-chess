@@ -17,6 +17,7 @@ import {createKingEffects,phaseOffset} from './king-effects.mjs';
 import {KING_FILES} from './king-sheets.mjs';
 import {DEATHS,THEMED,drawDeath} from './king-captures.mjs';
 import * as pawnIdle from '../lance/idle.mjs';
+import {CLIPS,frameAt,drawFrame as drawClipFrame,inCell} from '../clips/clips.mjs';
 import {SHADE,shadowField,shadowWeights,fxFade} from './contact-shadow.mjs';
 export const SIZE=960, PAD=32, TILE=112;
 /** The floor round the board, by default: the trial, the trailer and the plugin page draw it. */
@@ -68,6 +69,11 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   return entry;
  }
  const boardArt=corsImage();
+ // Character clips (clips/clips.mjs): the selected Knight or Rook plays his once, then breathes. load() waits for
+ // them (a failed one is skipped). Whether a selection plays its clip is decided when it is made (selectedClip),
+ // so an atlas that loads late never starts a clip in its middle.
+ const CLIP_OF={[N]:'knight',[R]:'rook'},clipArt=Object.fromEntries(Object.keys(CLIPS).map(name=>[name,corsImage()]));
+ const clipReady=name=>!!name&&!!clipArt[name].naturalWidth;
  const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.1166,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
 specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.155};
 specs[N]={anchor:knight.ANCHOR,hit:knight.HIT,scale:.125};
@@ -95,7 +101,7 @@ for(const [type,name] of Object.entries(courtNames)){
  // Square → when a king's effect started there (what stands on his square grows back after a move).
  // drawnBefore: how many kings' effects the frame before drew (none: they all start together now).
  let kingSince=new Map(),nextSince=new Map(),frames=0,fxDrawn=[],drawnBefore=0,pawnsAtRest=0,pawnsActing=0;
- let selectedAt=0, idleTimer=0, framePattern=null, awakeUntil=0, passiveUntil=0;
+ let clipShown=null, selectedClip=null, selectedAt=0, idleTimer=0, framePattern=null, awakeUntil=0, passiveUntil=0;
  const ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
  const mix=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
  const cell=s=>({col:flipped?7-(s&7):s&7,row:flipped?s>>3:7-(s>>3)});
@@ -224,17 +230,26 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
  if(lively.atmosphere){if(shadow)contactShadow(out,value,pose,opacity);}
  else{const k=clamp(1-(pose.lift??0)/TILE*.4,.6,1)*(pose.shadow??1);out.fillStyle='#343a2229';out.beginPath();out.ellipse(ground.x,ground.y-2,210*pose.scale*k,36*pose.scale*k,0,0,Math.PI*2);out.fill();}
  out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);
+ // A clip's drawing is one atlas cell, at its clip's factor of the sprite's size.
+ const clip=pose.clip,anchor=clip?inCell(clip.name,spec.anchor):spec.anchor;
+ if(clip)out.scale(1/CLIPS[clip.name].factor,1/CLIPS[clip.name].factor);
  // A soft contrasting rim keeps each army readable on the painted board's light and dark zones.
  // (pose.rim: an effect may thin it, as the charcoal Spirit's black aura does.)
- const image=sprite(value,pose.angle,extension,pose.sheet,pose.rest),rim=colorOf(value)?`rgba(250,246,232,${.85*(pose.rim??1)})`:'rgba(28,24,16,.8)';
+ const image=clip?clipSprite(value,clip):sprite(value,pose.angle,extension,pose.sheet,pose.rest),rim=colorOf(value)?`rgba(250,246,232,${.85*(pose.rim??1)})`:'rgba(28,24,16,.8)';
  if(fade&&image!==blank){
   const key=spriteKey(value,pose.sheet);
   if(!pose.rotation&&image===idle.get(key)){out.globalAlpha=opacity*(pose.rim??1);out.drawImage(stillRim(key,image,spec),-spec.anchor.x,-spec.anchor.y,1152,1152);out.globalAlpha=opacity;}
-  else{const soles=pose.foot.y+(pose.rotation?lowerEdge(value,pose)*shadowWeights(pose).lying:0);fadedRim(out,image,spec.anchor,rim,5*res,base.b*pose.foot.x+base.d*soles+base.f,Math.sqrt(Math.abs(base.a*base.d-base.b*base.c)));}
-  out.drawImage(image,-spec.anchor.x,-spec.anchor.y);
+  else{const soles=pose.foot.y+(pose.rotation?lowerEdge(value,pose)*shadowWeights(pose).lying:0);fadedRim(out,image,anchor,rim,5*res,base.b*pose.foot.x+base.d*soles+base.f,Math.sqrt(Math.abs(base.a*base.d-base.b*base.c)));}
+  out.drawImage(image,-anchor.x,-anchor.y);
  }
- else{out.shadowColor=rim;out.shadowBlur=5*res;out.drawImage(image,-spec.anchor.x,-spec.anchor.y);} // shadows ignore the transform
+ else{out.shadowColor=rim;out.shadowBlur=5*res;out.drawImage(image,-anchor.x,-anchor.y);} // shadows ignore the transform
  out.restore();
+}
+// The drawing a clip shows now ({name, index}), in one canvas a clip (only the selected figure plays one).
+function clipSprite(value,{name,index}){
+ let canvas=work.get(`clip:${name}`);
+ if(!canvas){canvas=document.createElement('canvas');work.set(`clip:${name}`,canvas);}
+ drawClipFrame(canvas,clipArt[name],name,colorOf(value),index);return canvas;
 }
 // Contact shadows (atmosphere on; contact-shadow.mjs has the parts and their strengths), made once per still sprite
 // from its own outline and drawn with multiply, so the shade keeps the floor's own colour (dark wood gets a deeper
@@ -618,7 +633,13 @@ function vortex(out,foot,phase,strength) {
  const poses=new Map();
  for(let sq=0;sq<64;sq++)if(shown.board[sq])poses.set(sq,{value:shown.board[sq],pose:poseFor(shown.board[sq],sq),opacity:1,extension:0});
  if(selected!==null&&poses.has(selected))Object.assign(poses.get(selected).pose,{angle:aimAngle,facing:aimFacing});
- if(idling()){const p=poses.get(selected).pose,i=idleAt(time-selectedAt);Object.assign(p,{ground:p.foot,foot:{x:p.foot.x,y:p.foot.y-i.lift},sx:i.sx,sy:i.sy,shadow:i.shadow});}
+ // The selected figure plays his clip once (if he has one), then breathes from where the clip ends.
+ clipShown=null;
+ if(idling()){
+  const p=poses.get(selected).pose,name=CLIP_OF[typeOf(poses.get(selected).value)]===selectedClip?selectedClip:null,ms=time-selectedAt,index=name?frameAt(name,ms):null;
+  if(index!==null){p.clip={name,index};clipShown={name,frame:index};}
+  else{const i=idleAt(ms-(name?CLIPS[name].duration:0));Object.assign(p,{ground:p.foot,foot:{x:p.foot.x,y:p.foot.y-i.lift},sx:i.sx,sy:i.sy,shadow:i.shadow});}
+ }
  // The tell: a fixed lift; the contact shadow stays on the board.
  if(lifted!==null&&liftTell&&!reducedMotion&&!animation&&poses.has(lifted)){
   const p=poses.get(lifted).pose,lift=3*SIZE/(canvas.getBoundingClientRect().width||SIZE);
@@ -866,7 +887,7 @@ function drawEncounter(a,t) {
   if(a&&!a.done&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
   render(time);
   if(labels)drawLabels();
-  if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading)wake(false);
+  if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading||clipShown)wake(false);
   else{previousTime=0;if(time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }
  function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
@@ -957,10 +978,10 @@ function drawEncounter(a,t) {
   /** Board square under a point in canvas pixels, or null. */
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
-  load(){const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;wake();});},
+  load(){const clips=Object.entries(clipArt).map(([name,image])=>new Promise(resolve=>{image.onload=image.onerror=resolve;image.src=CLIPS[name].file;}));const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...clips,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;wake();});},
   /** New position: ends any finished or running animation. */
   setPosition(next){endMove();lifted=null;position=next;aimAngle=0;wake();},
-  setSelected(sq){if(sq!==selected){selected=sq;selectedAt=performance.now();aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
+  setSelected(sq){if(sq!==selected){selected=sq;selectedAt=performance.now();const name=sq===null?null:CLIP_OF[typeOf(position.board[sq])];selectedClip=clipReady(name)?name:null;aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
   /** Opt-in tell; lift=false shows only the glow. A new position or move clears it. */
   setLifted(sq,lift=true){lifted=sq;liftTell=lift;wake();},
   get lifted(){return lifted;},
@@ -996,6 +1017,8 @@ function drawEncounter(a,t) {
   setLively(options){Object.assign(lively,options);if(lively.kings)for(const design of kings)kingFx.has(design);wake();},
   /** The king designs whose effects the last frame drew (for checks). */
   get effects(){return [...fxDrawn];},
+  /** The clip drawing the last frame showed ({name, frame}), or null (for checks). */
+  get clip(){return clipShown&&{...clipShown};},
   /** Resting pawns in the last frame, and how many of them were acting (for checks). */
   get pawns(){return {resting:pawnsAtRest,acting:pawnsActing};},
   /** Frames drawn so far (for checks). */
