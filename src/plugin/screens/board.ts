@@ -48,9 +48,10 @@ let sheet: HTMLDialogElement, scrim: HTMLDivElement, sheetFocus: HTMLElement | u
 // whose press started on the scrim closes it; each new press, a cancelled press, a click and the sheet's open and close reset it.
 let scrimPressed = false;
 let refreshCardSheet: (() => void) | undefined;
+let allMoveChoices = false;
 let stopPlacingChoice = () => {};
 export function closeBoardSheet() {
-  refreshCardSheet = undefined;
+  refreshCardSheet = undefined; allMoveChoices = false;
   if (!sheet) return;
   stopPlacingChoice(); stopPlacingChoice = () => {}; scrimPressed = false;
   // Read the focus before the parked controls leave the sheet: a moved control loses focus (playtest F-009).
@@ -393,7 +394,7 @@ export function boardScreen(store: Store) {
     if (event.key !== 'Escape' || client.state.screen !== 'board' && !sheet?.contains(event.target as Node)) return;
     event.preventDefault();
     if (animating) { cursorShown = false; drawCursor(); rush = true; board.skip(); if (sheet?.open) closeBoardSheet(); return; }
-    cursorShown = false; armed = undefined; armedCard = undefined; selected = held = undefined; choices([]); refresh(); closeBoardSheet();
+    cursorShown = false; armed = undefined; armedCard = undefined; selected = held = undefined; allMoveChoices = false; choices([]); refresh(); closeBoardSheet();
   }, { signal });
   function select(square: number, submit = true) {
     if (!view || !pos || !canRead()) return;
@@ -548,6 +549,12 @@ export function boardScreen(store: Store) {
     turnControls(draft);
     $('board').dataset.animating = String(animating);
     if (stale()) { armed = undefined; armedCard = undefined; selected = inspected = held = undefined; choices([]); }
+    // An open full move list follows the preview. Keep an equal list and its focus.
+    if (allMoveChoices && canPlay() && selected === undefined && !armed && armedCard === undefined) {
+      const list = moves.filter(c => !c.move.pass && reachable(c));
+      const shown = [...$('choices').querySelectorAll('button')].map(b => b.title);
+      if (list.length !== shown.length || list.some((c, i) => c.lan !== shown[i])) choices(list);
+    }
     moveLine();
     updateTime();
     const check = (previewPosition()?.in_check ?? gameRules.inCheck(pos)) ? findKing(pos.board, pos.turn) : null;
@@ -646,8 +653,9 @@ export function boardScreen(store: Store) {
   $('reload').addEventListener('click', closeBoardSheet, { signal });
   $('board-menu').onclick = () => {
     const chooseMove = button('Choose a move', () => {
-      if (canPlay() && selected === undefined && !armed && armedCard === undefined) choices(moves.filter(c => !c.move.pass && reachable(c)));
-      boardSheet('Choose a move', $('choices'));
+      const all = selected === undefined && !armed && armedCard === undefined;
+      if (canPlay() && all) choices(moves.filter(c => !c.move.pass && reachable(c)));
+      boardSheet('Choose a move', $('choices')); allMoveChoices = all;
     }); chooseMove.className = 'game-action';
     const actions = [chooseMove, ...view ? [...actionButtons(view, Date.now() - readAt, refused, true), ...playerBlockButton(view)] : []];
     for (const action of actions) action.disabled = networkBlocked();

@@ -3,9 +3,11 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { chromium, type Browser, type FrameLocator, type Locator, type Page } from 'playwright';
+import type { Browser, FrameLocator, Locator, Page } from 'playwright';
+import { launch } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { watchMotion, watchMotionEnd } from './plugin-motion-observer';
+import { settled } from './lib/plugin-settled.mjs';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 120_000 });
 // Each motion moment exists, ends, and under reduced motion shows its final state at once.
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -13,7 +15,7 @@ beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-motion-'));
   // Normal shared build: at most 601 ms in the M1 style test.
   execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe', timeout: 30_000 });
-  harness = await startHarness({ boardPath: join(folder, 'board.html') }); browser = await chromium.launch({ headless: true });
+  harness = await startHarness({ boardPath: join(folder, 'board.html') }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
 async function open(reduced: boolean) {
@@ -118,6 +120,8 @@ async function mate(page: Page, frame: FrameLocator, paused = false) {
   const result = await (await page.request.post(new URL(`/fixture-position?fen=${encodeURIComponent('7k/8/6K1/8/8/8/8/Q7 w - - 0 1')}`, harness.url).href)).json();
   await page.evaluate(r => (window as any).harnessShow(r), result);
   await frame.locator('#board[aria-busy="false"]').waitFor(); await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+  // The remote move preview can finish after the artwork and turn words.
+  await settled(page, frame);
   await tapSquare(frame, 'a1');
   await tapSquare(frame, 'a8');
   const send = frame.locator('#end-turn[aria-disabled="false"]'); await send.waitFor();
@@ -132,6 +136,26 @@ async function mate(page: Page, frame: FrameLocator, paused = false) {
     }, { timeout: 15_000 }).toBe(true);
   } else await send.click();
 }
+it.each([false, true])('turn highlight choices fill after a held preview (reduced motion %s)', async reduced => {
+  const { page, frame } = await open(reduced);
+  try {
+    for (const iteration of [1, 2, 3]) {
+      const result = await (await page.request.post(new URL(`/fixture-position?fen=${encodeURIComponent('7k/8/8/8/8/3R4/8/K7 w - - 0 1')}`, harness.url).href)).json();
+      await page.evaluate(r => { const h = window as any; h.releaseHeld = undefined; h.holdNext = 'kingdown_preview'; return h.harnessShow(r); }, result);
+      await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
+      await settled(page, frame);
+      await frame.locator('#board-menu').click();
+      await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
+      expect(await frame.locator('#choices button').count(), `Iteration ${iteration}: preview is held`).toBe(0);
+      await page.evaluate(() => (window as any).releaseHeld());
+      await settled(page, frame);
+      expect(await frame.locator('#board-sheet[open] #choices button[title="Rd3-d4"]').count(), `Iteration ${iteration}: preview has arrived`).toBe(1);
+      await frame.locator('#choices button[title="Rd3-d4"]').click();
+      await frame.locator('#end-turn[aria-disabled="false"]').waitFor();
+      await settled(page, frame);
+    }
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()).catch(() => {}); await page.close(); }
+});
 it.each([false, true])('hands over the turn highlight and confirms only successful sends (reduced motion %s)', async reduced => {
   const { page, frame } = await open(reduced);
   try {
@@ -141,6 +165,7 @@ it.each([false, true])('hands over the turn highlight and confirms only successf
       await page.evaluate(r => (window as any).harnessShow(r), result);
       await frame.locator('#board[aria-busy="false"]').waitFor();
       await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+      await settled(page, frame);
       expect(await frame.locator('.player-strip.is-turn').getAttribute('id')).toBe('strip-me');
       await frame.locator('#board-menu').click();
       await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
@@ -149,19 +174,19 @@ it.each([false, true])('hands over the turn highlight and confirms only successf
       // The shown position has advanced, but this is still the sender's unsent turn.
       expect(await frame.locator('.player-strip.is-turn').getAttribute('id')).toBe('strip-me');
       if (failed) await page.evaluate(() => { (window as any).failNextAction = true; });
+      // Keep the handoff in view until its checks end.
+      else await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_computer'; });
       await send.click();
       if (failed) await frame.locator('#retry').waitFor({ state: 'visible' });
-      else {
-        await page.waitForFunction(() => (window as any).harnessView.turn === 1);
-        await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor({ state: 'hidden' });
-      }
+      else await page.waitForFunction(() => typeof (window as any).releaseBefore === 'function');
       expect(await frame.locator('.player-strip.is-turn').getAttribute('id')).toBe(failed ? 'strip-me' : 'strip-them');
       await expect.poll(() => frame.locator('.ui-send-check').count(), { timeout: 1500 }).toBe(0);
       // Invisible handoff tokens must not extend the scroll area after a viewport change.
       await expect.poll(() => frame.locator('.ui-turn-token').count(), { timeout: 1500 }).toBe(0);
+      if (!failed) { await page.evaluate(() => (window as any).releaseBefore()); await settled(page, frame); }
     }
     expect(await motion('.ui-send-check')).toHaveLength(reduced ? 0 : 2);
-  } finally { await page.close(); }
+  } finally { await page.evaluate(() => (window as any).releaseBefore?.()).catch(() => {}); await page.close(); }
 });
 it.each([false, true])('opens end actions during a live win (reduced motion %s)', async reduced => {
   const { page, frame } = await open(reduced);
@@ -259,10 +284,12 @@ it.each([false, true])('settles a live checkmate loss quietly and keeps the last
     expect(await motion('#end-reason')).toMatchObject(reduced ? [] : [{ frames: [{ opacity: 0, translate: '0 0px' }, { opacity: 1, translate: '0 0' }], options: { duration: 250, delay: 425 } }]);
     await expect.poll(() => animations(frame, '#over'), { timeout: 1500 }).toBe(0);
     const resultMotion = await motion('#over *');
+    await settled(page, frame);
     await frame.locator('#over').getByRole('button', { name: 'See the board', exact: true }).click();
     await frame.locator('#end-result').click(); await frame.locator('#over[open]').waitFor();
     expect(await motion('#over *')).toEqual(resultMotion);
     expect(await animations(frame, '#over')).toBe(0);
+    await settled(page, frame);
     await frame.locator('#over').getByRole('button', { name: 'See the board', exact: true }).click();
     await frame.locator('#moves-line').click(); await frame.locator('#board-sheet[open]').waitFor();
     await page.waitForTimeout(3300);
@@ -281,6 +308,7 @@ it.each([false, true])('presses a spent card into grey once (reduced motion %s)'
     await pickFour(frame, ['IceWall', 'Strike', 'MorphP', 'Vault']);
     await frame.locator('#setup-done').click(); await frame.locator('#setup-start').click();
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+    await settled(page, frame);
     let index = -1;
     for (let i = 0; i < 4 && index < 0; i++) {
       await frame.locator(`#card-w-${i}`).click();
@@ -313,6 +341,7 @@ it.each([false, true])('presses a spent card into grey once (reduced motion %s)'
     // strips() rebuilds the coin row on a poll. A detached coin reads no style, so poll until an attached coin dims.
     await expect.poll(() => coin.evaluate(e => e.isConnected ? { opacity: getComputedStyle(e).opacity, paintOpacity: getComputedStyle(e.querySelector('.coin-paint')!).opacity, transform: getComputedStyle(e).transform, paintTransform: getComputedStyle(e.querySelector('.coin-paint')!).transform, filter: getComputedStyle(e.querySelector('.coin-paint')!).filter } : null), { timeout: 5000 }).toEqual({ opacity: '1', paintOpacity: '0.85', transform: 'none', paintTransform: 'matrix(0.96, 0, 0, 0.96, 0, 0)', filter: 'grayscale(1)' });
     await expect.poll(targetSize).toEqual(targetBefore);
+    await settled(page, frame);
     await frame.locator('#board-menu').click();
     await frame.locator('#board-sheet .sheet-head button[aria-label="Close"]').click();
     expect(await motion('#game-table .card-coin[data-state="used"] > .coin-paint')).toEqual(press);
