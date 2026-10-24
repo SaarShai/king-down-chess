@@ -5,6 +5,7 @@ import { createPluginServer } from '../src/plugin/server';
 import { fixtureService } from './plugin-protocol-fixture';
 import type { View } from '../src/match/protocol';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
+import { TURN_DAYS } from '../src/match/service';
 import { POOL } from '../src/rules/setup';
 // The tool table of report part 03, section 4.5: who may call each tool, then its read-only and destructive hints.
 const TABLE: Record<string, [string, boolean, boolean]> = {
@@ -84,7 +85,9 @@ try {
   const next = await call('kingdown_open', { game_id: 'next' });
   assert.equal(next.structuredContent.game_id, view.game_id); assert.notEqual(next._meta.board_id, opened._meta.board_id);
   const friend = await call('kingdown_create', { kind: 'friend', options, colour: 'white', board_id: opened._meta.board_id });
-  assert.equal(friend.structuredContent.status, 'waiting'); assert.equal(friend.structuredContent.speed, 'daily');
+  assert.equal(friend.structuredContent.status, 'waiting');
+  // F-031: no speed field; a game against a person has the one fixed time for each move.
+  assert(!('speed' in friend.structuredContent)); assert.equal(friend.structuredContent.days_per_move, TURN_DAYS);
   assert.equal((await call('kingdown_get', { game_id: view.game_id, board_id: opened._meta.board_id })).structuredContent.game_id, friend.structuredContent.game_id);
   const invite = await call('kingdown_invite', { game_id: friend.structuredContent.game_id });
   assert.equal(invite.structuredContent.link, undefined); assert.match(invite.structuredContent.code, /^[A-HJKMNP-Z2-9]{6}$/);

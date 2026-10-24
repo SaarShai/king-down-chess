@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from './setup';
-import { GameService, MatchServiceError, UNFINISHED } from './service';
+import { GameService, MatchServiceError, startKey, TURN_DAYS, UNFINISHED } from './service';
 import { PostgresMatchStore } from './store';
 import { createMatch, loadMatch, MatchError, type LocalMatch } from './index';
 vi.mock('./index', async original => ({...await original<typeof import('./index')>(), createMatch: vi.fn(), loadMatch: vi.fn()}));
@@ -75,9 +75,13 @@ describe('game service failure boundaries', () => {
   for (const kind of ['random', 'friend'])
    await expect(service.create(actor,{kind,setup:{fen:'7k/8/8/8/8/8/8/K7 w - - 0 1'}})).rejects.toMatchObject({code:'INVALID_INPUT',status:400});
  });
- it('refuses live speed in a game against a person', async () => {
-  for (const kind of ['random', 'friend'])
-   await expect(service.create(actor,{kind,speed:'live',options:DEFAULT_OPTIONS})).rejects.toMatchObject({code:'INVALID_INPUT',status:400});
+ it('refuses a speed or days choice in every game: the server sets the turn time (F-031)', async () => {
+  for (const kind of ['solo', 'random', 'friend'])
+   for (const choice of [{speed:'live'},{speed:'daily'},{days_per_move:1},{days_per_move:3},{days_per_move:7}])
+    await expect(service.create(actor,{kind,options:DEFAULT_OPTIONS,...choice})).rejects.toMatchObject({code:'INVALID_INPUT',status:400});
+  expect(TURN_DAYS).toBe(3);
+  for (const kind of ['random', 'friend'] as const) expect(startKey({kind})).toMatchObject({speed:'daily',days_per_move:TURN_DAYS});
+  expect(startKey({kind:'solo'})).toMatchObject({speed:'live',days_per_move:null});
  });
  it('keeps worker faults retryable and hides their private details', async () => {
   for (const error of [new Error('Match worker timed out /private/path'),new Error('Match worker exited (1)'),new MatchError('unexpected private data')]) {

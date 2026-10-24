@@ -15,7 +15,7 @@ import { PluginService } from './service';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 const suite = process.env.PLUGIN_TEST_DATABASE_URL ? describe : describe.skip;
 type Result = { isError?: boolean; content: { type: string; text: string }[]; structuredContent?: any; _meta?: any };
-const SUMMARY = [ 'rating_policy', 'screen', 'colour', 'days_per_move', 'deadline_at', 'draw_offer', 'game_id', 'kind', 'move', 'speed', 'status', 'your_turn'];
+const SUMMARY = [ 'rating_policy', 'screen', 'colour', 'days_per_move', 'deadline_at', 'draw_offer', 'game_id', 'kind', 'move', 'status', 'your_turn'];
 
 suite('ChatGPT tools on PostgreSQL', () => {
  // Every transaction on readOnly is read-only: any write fails (25006), so a tool that succeeds on it wrote nothing.
@@ -712,7 +712,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
  it('plays a Daily friend game between two ChatGPT players and shows the model no position and no opponent text', async () => {
   const host = await connect(ann), guest = await connect(bob), handles = [`ann-${tag}`, `bob-${tag}`];
   const created = await host.ok('kingdown_create', { options: { ...DEFAULT_OPTIONS, arrangement: false }, kind: 'friend', colour: 'white' });
-  expect(created.structuredContent).toMatchObject({ kind: 'friend', speed: 'daily', days_per_move: 3, status: 'waiting', colour: 'white', your_turn: false });
+  expect(created.structuredContent).toMatchObject({ kind: 'friend', days_per_move: 3, status: 'waiting', colour: 'white', your_turn: false });
   expect(created.content[0].text).toBe('Waiting for the other player to join.');
   const game: string = created.structuredContent.game_id, invite = await host.ok('kingdown_invite', { game_id: game });
   expect(invite.structuredContent.code).toMatch(/^[A-HJKMNP-Z2-9]{6}$/);
@@ -799,7 +799,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(other.structuredContent).toMatchObject({ game_id: firstGame }); expect(other._meta.board_id).not.toBe(board);
   // White: with no colour the seat is random, and Black has no legal move before the computer plays.
   const created = await d.ok('kingdown_create', { options: { ...DEFAULT_OPTIONS, arrangement: false }, kind: 'solo', colour: 'white', board_id: board }), second: string = created.structuredContent.game_id;
-  expect(created.structuredContent).toMatchObject({kind:'solo',speed:'live',colour:'white'}); expect(created._meta.board_id).toBe(board);
+  expect(created.structuredContent).toMatchObject({kind:'solo',days_per_move:null,colour:'white'}); expect(created._meta.board_id).toBe(board);
   expect((await d.ok('kingdown_get', { game_id: firstGame, board_id: board })).structuredContent.game_id).toBe(second);
   expect((await d.ok('kingdown_get', { game_id: firstGame, board_id: other._meta.board_id })).structuredContent.game_id).toBe(firstGame);
   for (const [name, args] of [['kingdown_get', { game_id: firstGame, board_id: board }], ['kingdown_get', { game_id: firstGame }], ['kingdown_create', { options: { ...DEFAULT_OPTIONS, arrangement: false }, kind: 'solo', board_id: board }], ['kingdown_open', { game_id: firstGame }]] as const)

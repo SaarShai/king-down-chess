@@ -7,6 +7,7 @@ import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { checkCoinFocus } from './lib/plugin-coin-focus-check.mjs';
 import { settled } from './lib/plugin-settled.mjs';
+import { pauseClock } from './lib/page-clock.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { boxText, layoutMessage } from './lib/layout-message.mjs';
 import { assertCardReadState } from './lib/plugin-card-read.mjs';
@@ -660,10 +661,11 @@ try {
     // Ticket 22: measure the card image against its card coin. The image is centred when the two gaps on each axis
     // match (x and y are 0). It fills the coin face inside the ring when it keeps a 4 px gutter at each size:
     // 26 px in a 34 px coin and 36 px in a 44 px coin, with the 1 px border, the 2 px ring and 1 px of light.
+    // A spent coin (the computer can cast before the measure) draws its paint at scale .96 (PR #92), so its image is .96 of that.
     // `cardFaces` holds `#game-table` (a strip redraw keeps it) and finds the images in the same page call as the
     // measure, so the computer's reply, which redraws the strips, cannot detach a found image.
     const faceFaults = (faces, size) => faces.filter(face => !['strip-me', 'strip-them'].includes(face.side)
-      || face.coin !== size || face.image !== size - 8 || face.x !== 0 || face.y !== 0);
+      || face.coin !== size || face.image !== Math.round((size - 8) * (face.state === 'used' ? 96 : 100)) / 100 || face.x !== 0 || face.y !== 0);
     await page.setViewportSize({ width: 393, height: 852 });
     await frame.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
     await frame.locator('#game-table').evaluate(async table => {
@@ -1916,15 +1918,24 @@ try {
     assert.equal(await frame.locator('#last-move').innerText(), 'Move 1.', `${code} restores the last server position and move line`);
   }
   await haste();
+  // The move animation needs the running page clock, so choose the move first. Then stop the page clock until the Retry
+  // send runs: a poll read before it would show the page the other tab's move, start the computer turn, and the turn
+  // would take the computer hold below (ticket 77, item 23). The wait ends a read that started before the pause.
+  await clickSquare(4,1); await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await idleBoard();
+  await pauseClock(page);
+  await page.waitForFunction(() => window.harnessWidgets.every(widget => !widget.inflight));
   const race = await page.evaluate(() => window.harnessView);
   const winner = await (await page.request.post(new URL('/fixture-tool',base).href,{data:{name:'kingdown_move',arguments:{game_id:race.game_id,command_id:randomUUID(),expected_revision:race.revision,lan:'d2-d4'}}})).json();
   assert(!winner.isError,'Another tab wins the move race');
   await page.evaluate(() => { window.dropNextReply='kingdown_move'; window.holdNext='kingdown_computer'; });
-  await clickSquare(4,1); await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await sendTurn();
+  await sendTurn();
   await frame.locator('#retry').waitFor();
   assert.match(await frame.locator('#last-move').innerText(),/White pawn e2 to e4/,'The lost refusal keeps the move until Retry');
   const raceReads = await page.evaluate(() => window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
-  await frame.locator('#retry').click(); await page.waitForFunction(()=>typeof window.releaseHeld==='function');
+  const raceSends = await page.evaluate(() => window.harnessCalls.filter(c=>c.name==='kingdown_move').length);
+  // The Retry send closes the poll gate (queue.writing()), and the computer turn after the refusal needs the clock.
+  await frame.locator('#retry').click(); await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_move').length>n,raceSends);
+  await page.clock.resume(); await page.waitForFunction(()=>typeof window.releaseHeld==='function');
   assert.doesNotMatch(await frame.locator('#last-move').innerText(),/e2 to e4/,'A final Retry refusal removes the refused move');
   // Retry sends the move with no read first (design 5.3); the refusal's rollback reads the board in full.
   assert(await page.evaluate(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>=n+1,raceReads),'Retry reads in full after the refusal');
@@ -2784,6 +2795,8 @@ try {
     assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),false,'Failed background reads lock rematch without replacing the result');
     await frame.locator('#over #retry').click(); await frame.locator('#over #retry').waitFor({state:'hidden'}); await idleBoard();
     assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),true,'A fresh game read clears the rematch lock');
+    // F-006: a friend result never sends the player to Ranked, also in the staging build that offers Ranked.
+    assert.equal(await frame.locator('#over .quiet-line').innerText(),'A rematch is Casual. It keeps the features and swaps the colours.','A friend result does not name Ranked');
     if (mode==='fixture') { await frame.locator('.end-facts').filter({hasText:'New player'}).waitFor(); assert(!/1561|\+61|\?/.test(await frame.locator('.end-facts').innerText()), 'A new player sees no provisional number'); assert.match(await frame.locator('.new-badge img').getAttribute('src'),/badge-fairy-tale-/); }
     await page.setViewportSize({width:197,height:426});
     await page.locator('iframe').evaluate(e=>e.style.setProperty('height','100dvh','important'));
@@ -2924,6 +2937,13 @@ try {
     await openPlay(); await legacyStart('solo'); await idleBoard();
   }
   const routeBase = await page.evaluate(() => window.harnessView), routeBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
+  // A poll can leave only a delta in the harness. With no rules, a finished sample or a new frame reads the board again
+  // and gets the real game, which still plays (ticket 77, item 16). The samples need the full rules, as in zoomEndFits.
+  if (!routeBase.rules) {
+    const full = await tool('kingdown_get', { game_id: routeBase.game_id });
+    assert(!full.isError && full._meta?.view?.rules, 'The route samples need a complete rules projection');
+    routeBase.rules = full._meta.view.rules;
+  }
   const routeCases = [['waiting','friend',undefined,'friend'], ['waiting','random',undefined,'wait'], ['setup','friend',{},'seat'], ['setup','solo',undefined,'board'], ['playing','solo',undefined,'board'], ['finished','friend',undefined,'end'], ['aborted','random',undefined,'end']];
   for (const [status, kind, options, screen] of routeCases) {
     const reads = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_get').length);

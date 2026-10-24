@@ -4,7 +4,7 @@ import type { Page } from '../../account-game/state';
 import type { View } from '../../match/protocol';
 import { fromFen, toFen, toLan } from '../../rules/setup';
 import { legalMoves, setRules, status, type CardName, type Rules } from '../../rules/engine';
-import { applyLan, boardActions, cardCoins, cardUseReason, draftChoices, draftTurn, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
+import { applyLan, choicesFrom, choiceSources, boardActions, cardCoins, cardUseReason, draftChoices, draftTurn, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
 
 const view = (fields: Partial<View> = {}): View => ({ rating_policy: 'legacy', game_id: 'game', revision: 2, engine_fingerprint: 'engine-a', created_at: '2026-10-11T00:00:00Z', abort_open: false, seat: 0, kind: 'friend', speed: 'daily', days_per_move: 3, status: 'playing', turn: 1, action: 'waiting', fen: '7k/8/8/8/8/8/P7/K7 b - - 0 1', in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: '2026-10-11T00:00:01Z', server_now: '2026-10-11T00:00:00Z', ...fields });
 
@@ -375,4 +375,61 @@ test('a scoped draft advances only through a complete chain of commands that do 
   expect(restoreDraft({ ...followup, last_commands: followup.last_commands.slice(1) }, saved, hasteRules, 'account-a')).toBeUndefined();
   expect(restoreDraft({ ...next, last_commands: [command(base.revision + 1, { type: 'turn', actions: [] })] }, saved, hasteRules, 'account-a')).toBeUndefined();
   expect(restoreDraft({ ...next, last_commands: [command(base.revision + 2, { type: 'draw', choice: 'offer' })] }, saved, hasteRules, 'account-a')).toBeUndefined();
+});
+
+
+test.each([
+  { card: 'Curse', initial_fen: '4k3/8/8/3n4/8/8/P7/4K3 w - - 0 1', lan: '!C:d5-e5', words: 'White uses Curse to move the black knight on d5 to e5.' },
+  { card: 'EarthQuake', initial_fen: '4r1k1/8/8/8/8/8/4B3/4K3 w - - 0 1', lan: '!Q:e1', words: 'White uses Earth Quake on e1 and pushes the white bishop on e2 to e3.' },
+  { card: 'Salvation', initial_fen: '4k3/8/8/8/8/8/P7/N3K3 w - - 3 9 lPRQG', lan: 'R@h1!R', words: 'White uses Salvation to bring back a rook on h1.' },
+] as const)('$card keeps its action text in a draft and saved history', ({ card, initial_fen, lan, words }) => {
+  const rules = { hands: [[card], []] as const };
+  const { pos, steps } = stage(initial_fen, [lan], rules);
+  expect(steps[0].words).toBe(words);
+  const saved = view({ fen: toFen(pos), history: { initial_fen, actions: [lan] }, last_commands: [] });
+  expect(replayHistory(saved, rules)?.map(step => step.words)).toEqual([words]);
+});
+
+
+test('Sky Lift presents both ends of each legal pair with one canonical action', () => {
+  const rules: Partial<Rules> = { hands: [['SkyLift'], []] };
+  setRules(rules);
+  const pos = fromFen('4k3/8/8/8/8/8/P7/RNB1K1N1 w - - 0 1');
+  const choices = legalMoves(pos).filter(move => move.power === 'skylift').map(move => ({ move, lan: toLan(pos, move) }));
+  const original = structuredClone(choices);
+  expect(choiceSources(choices).sort()).toEqual([0, 1, 2, 6]);
+  for (const choice of choices) {
+    for (const [from, to] of [[choice.move.from, choice.move.to], [choice.move.to, choice.move.from]]) {
+      const selected = choicesFrom(choices, from).find(c => c.lan === choice.lan)!;
+      expect(selected.move).toEqual({ ...choice.move, from, to });
+      expect(applyLan(pos, selected.lan, rules)?.pos).toEqual(applyLan(pos, choice.lan, rules)?.pos);
+    }
+  }
+  expect(choices).toEqual(original);
+  expect(choicesFrom(choices, undefined)).toEqual([]);
+  expect(choicesFrom(choices, 4)).toEqual([]); // King is never added as a source.
+});
+
+test('symmetric selection does not bypass guard landing or check restrictions', () => {
+  const rules: Partial<Rules> = { hands: [['SkyLift'], []], guardNoSecondRank: true };
+  setRules(rules);
+  for (const fen of ['4k3/8/8/8/8/8/1N6/G3K3 w - - 0 1', '4k3/4r3/8/8/8/8/8/RN2K3 w - - 0 1']) {
+    const pos = fromFen(fen);
+    const choices = legalMoves(pos).filter(move => move.power === 'skylift').map(move => ({ move, lan: toLan(pos, move) }));
+    expect(choiceSources(choices)).toEqual([]);
+    expect(choicesFrom(choices, 0)).toEqual([]);
+    expect(choicesFrom(choices, 9)).toEqual([]);
+  }
+});
+
+test('only symmetric card swaps reverse; copied Sky Lift retains its card identity', () => {
+  const choice = { lan: '!K:a1<>b1!Z', move: { from: 0, to: 1, captures: [], swap: true, power: 'skylift' as const, via: 'mirrorb' as const } };
+  expect(choicesFrom([choice], 1)).toEqual([{ ...choice, move: { ...choice.move, from: 1, to: 0 } }]);
+  for (const power of [undefined, 'firewallb'] as const) {
+    const directional = { ...choice, move: { ...choice.move, power, via: undefined } };
+    expect(choicesFrom([directional], 1)).toEqual([]);
+    expect(choiceSources([directional])).toEqual([0]);
+  }
+  const morph = { ...choice, move: { ...choice.move, power: 'morphs' as const } };
+  expect(choicesFrom([morph], 1)[0].lan).toBe(morph.lan);
 });
