@@ -9,6 +9,10 @@
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
 // fails, selftest-hang never ends, selftest-hold sleeps 15 s so that two runs can be seen together.
 export const checks = [
+  { name: 'effects-animation', script: 'docs/specs/effects-animation/verify.mjs', limit: 180, channel: 'chromium', byName: true },
+  { name: 'effects-game', script: 'docs/specs/effects-animation/verify-game.mjs', limit: 240, channel: 'chromium', byName: true, exclusive: true },
+  { name: 'motion-concepts', script: 'tools/verify-motion-concepts.mjs', limit: 300, channel: 'chromium', byName: true },
+  { name: 'effects-states', script: 'docs/specs/effects-animation/evidence/14-state-integration/capture.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'read-piece', script: 'tools/verify-read-piece.mjs', limit: 180 },
   { name: 'verb-marks', script: 'tools/verify-verb-marks.mjs', limit: 180 },
   { name: 'lessons', script: 'tools/verify-lessons.mjs', limit: 180 },
@@ -22,6 +26,7 @@ export const checks = [
   { name: 'account', script: 'tools/verify-account.mjs', limit: 180 },
   { name: 'cursor-adoption', script: 'tools/verify-cursor-adoption.mjs', limit: 240, channel: 'chromium' },
   { name: 'king-effects', script: 'tools/verify-king-effects.mjs', limit: 240, exclusive: true },
+  { name: 'character-clips', script: 'tools/verify-character-clips.mjs', limit: 180 },
   { name: 'lesson-return', script: 'tools/verify-lesson-return.mjs', limit: 180 },
   { name: 'new-game', script: 'tools/verify-new-game.mjs', limit: 240 },
   { name: 'painted-game', script: 'tools/verify-painted-game.mjs', limit: 240, exclusive: true },
@@ -38,6 +43,7 @@ export const checks = [
   { name: 'plugin-privacy', script: 'tools/plugin-browser-check.mjs', args: ['privacy'], limit: 120, channel: 'chromium', byName: true, exclusive: true },
   { name: 'w6-parts', script: 'tools/verify-w6-parts.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'search-worker', script: 'tools/verify-search-worker.mjs', limit: 180, channel: 'chromium', byName: true },
+  { name: 'plugin-skylift', script: 'tools/plugin-browser-check.mjs', args: ['skylift'], limit: 180, channel: 'chromium', byName: true, exclusive: true },
   { name: 'plugin-ui', script: 'tools/plugin-browser-check.mjs', args: ['fixture'], limit: 420, channel: 'chromium', byName: true },
   // The board previews A8, A15, A17, A18 and A39 also open the site (docs/specs/gui-previews-2026-10-19/capture.mjs).
   // The full preview set takes about 160 s at normal load (ticket 71), so it gets 300 s.

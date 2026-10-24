@@ -33,6 +33,7 @@ Each check gets three settings:
                     when CLAUDE_CODE_REMOTE is "true", else chrome. Use webkit for plugin-ui, plugin-ui-http and
                     web-online, and firefox for web-online only: other checks can use CDP or open Chromium
                     directly, and they stop on WebKit and Firefox.
+PLAYABLE_CPU_CANVAS=1 makes the widget pages ask for CPU 2D canvases; the WebKit CI jobs set it (no GPU there).
 
 Output: one new folder for each run under ${outRoot}, printed at the start, with run.json and one
 log per check (<run folder>/<name>.log). The system removes old folders after three days.

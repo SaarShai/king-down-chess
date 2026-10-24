@@ -126,7 +126,7 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
   dlg.setAttribute('aria-labelledby', 'pg-h');
   const chev = '<svg class="pg-chev" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 10l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 13l5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/></svg>';
   const rows = Array.from({ length: 8 }, (_, i) => `<div role="row">${[...FILES].map(f => `<button type="button" class="sq" role="gridcell" data-sq="${f}${8 - i}" tabindex="-1"></button>`).join('')}</div>`).join('');
-  dlg.innerHTML = `<header class="pg-top"><button type="button" class="pg-menu" aria-label="Menu"><span aria-hidden="true">‹</span> <span class="pg-word">Menu</span></button>`
+  dlg.innerHTML = `<header class="pg-top"><button type="button" class="pg-menu" aria-label="Back to game"><span aria-hidden="true">‹</span> <span class="pg-word">Game</span></button>`
     + '<button type="button" class="pg-pieces" data-act="pieces" aria-expanded="false" aria-controls="pg-ledge">Pieces</button>'
     + '<h2 id="pg-h" class="pg-title" tabindex="-1"><i></i>Workshop<i class="r"></i></h2><div class="pg-acts"></div><div class="pg-morepop" id="pg-morepop" hidden></div></header>'
     + '<div class="pg-main"><section class="pg-plinth" aria-label="The open piece"></section>'
@@ -282,7 +282,8 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
   });
 
   /** A nested modal sheet; `wire` gets its body. A tap on the backdrop closes it (src/dialog-dismiss.ts).
-   *  A change under the sheet can redraw the control that opened it: the focus then goes back to its new copy. */
+   *  A change under the sheet can redraw the control that opened it: the focus then goes back to its new copy. With no copy
+   *  (a turn to the wide layout takes Details away) and no focus in the Workshop, it goes to the title. */
   function sheet(title: string, html: string, wire: (body: HTMLElement, close: () => void) => void): void {
     const s = document.createElement('dialog'), opener = document.activeElement as HTMLElement | null, act = opener?.dataset.act;
     s.className = 'pg-sheet';
@@ -290,7 +291,10 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
     s.innerHTML = `<header><h2 id="pg-sheet-h" tabindex="-1" autofocus>${esc(title)}</h2><button type="button" class="pg-x" aria-label="Close">×</button></header><div class="pg-sheet-body">${html}</div>`;
     dlg.append(s);
     const close = (): void => s.close();
-    s.addEventListener('close', () => { s.remove(); if (act && !opener!.isConnected) q<HTMLElement>(`[data-act="${act}"]`)?.focus(); });
+    s.addEventListener('close', () => {
+      s.remove();
+      if (act && !opener!.isConnected) (q<HTMLElement>(`[data-act="${act}"]`) ?? (dlg.contains(document.activeElement) ? null : q<HTMLElement>('#pg-h')))?.focus();
+    });
     s.querySelector<HTMLButtonElement>('.pg-x')!.onclick = close;
     wire(s.querySelector('.pg-sheet-body')!, close);
     s.showModal();
@@ -796,8 +800,9 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
     if (r) {
       const b = blockOf(r.does.a);
       shelfEl.className = 'pg-shelf pg-card';
+      // Under the line, the rule's whole sentence: the block's example tells of its default rule, and a choice changes the rule (F-037).
       shelfEl.innerHTML = `<header>${seal(b.a, 40, { asleep: asleepOf(r) })}<h3 id="pg-shelf-h">${esc(b.label)}</h3><button type="button" class="pg-x" data-act="closecard" aria-label="Close">×</button></header>`
-        + lineHtml(r) + (row ? rowHtml() : '') + `<p class="pg-ex">${esc(b.example)}</p>`
+        + lineHtml(r) + (row ? rowHtml() : '') + `<p class="pg-ex">${esc(ruleText(r))}</p>`
         + `<div class="pg-act">${whenButton(r)}<button type="button" class="pg-remove" data-rm="${b.a}">Remove</button></div>`;
       return;
     }
@@ -1304,19 +1309,31 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
 
   /* ---- the right column: the brushes (also the key), the tools, the hint, the live key row (renderBrushes, renderTools and keyKinds, :1184-1216, :1283-1295) ---- */
 
+  /** Card `c`'s words in the right column: the LAB note, its king for a power card, and its second form. */
+  function cardInfo(c: CardName): string {
+    const twin = c in USES_RULE ? kingOf(c as PowerName) : null, b = SECOND[c];
+    return '<p class="lab-note">Test deck. Not in the game.</p>'
+      + (twin ? `<h4 class="info-h">Also a king's power</h4><p class="twin"><button type="button" data-twin="${twin}" aria-label="Open the ${twin} king">${coinHtml(c as PowerName)}</button>${POWER_NAME[c as PowerName]}, a power of the ${twin} king.</p>` : '')
+      + (b ? `<h4 class="info-h">Second form</h4><p class="variant"><b>${cardName(b)}</b>${esc(cardWords(b))}.</p>` : '');
+  }
+  /** The phone's Details (F-104): the words of the desktop's plinth card and right column. The king's coin closes the
+   *  sheet, and the dialog's listener then opens the king. */
+  function cardDetails(): void {
+    const c = labOpen!;
+    sheet(cardName(c), `<div class="pg-powers"><p class="pg-cardwords">${esc(cardWords(c))}.</p>${cardInfo(c)}</div>`,
+      (body, close) => body.querySelector('[data-twin]')?.addEventListener('click', close));
+  }
   function renderRight(): void {
     const phone = narrow.matches;
     // An open king's words take the place of the brushes (renderInfo, proving-ground.html:1106-1117): each power with its
     // coin and its line; a tap arms it. The phone shows the board only (the mockup's phone state kings).
     brushesEl.classList.toggle('pg-powers', !!(kingOpen || labOpen) && !brush);
-    // An open card's words (renderInfo, :1118-1123): the LAB note, its king for a power card, its second form, and what to do.
+    // An open card's words (renderInfo, :1118-1123), then what to do. The phone keeps the board's height: the brush row says
+    // what to do, and Details opens the card's words in a sheet (F-104).
     if (labOpen && !brush) {
-      const c = labOpen, twin = c in USES_RULE ? kingOf(c as PowerName) : null, b = SECOND[c];
-      brushesEl.innerHTML = phone ? '' : '<p class="lab-note">Test deck. Not in the game.</p>'
-        + (twin ? `<h4 class="info-h">Also a king's power</h4><p class="twin"><button type="button" data-twin="${twin}" aria-label="Open the ${twin} king">${coinHtml(c as PowerName)}</button>${POWER_NAME[c as PowerName]}, a power of the ${twin} king.</p>` : '')
-        + (b ? `<h4 class="info-h">Second form</h4><p class="variant"><b>${cardName(b)}</b>${esc(cardWords(b))}.</p>` : '')
-        + `<p class="info-p">${!LAY.includes(c) ? 'No test board for this card yet.' : !powersWork() ? WAIT_CARDS : laid !== c ? 'Lay it from the card slot.'
-          : labNow().length ? 'Tap a blue ring on the board.' : pos.game.played ? `${cardName(c)} is played.` : `${cardName(c)} has no target on this board.`}</p>`;
+      const c = labOpen, now = `<p class="info-p">${!LAY.includes(c) ? 'No test board for this card yet.' : !powersWork() ? WAIT_CARDS : laid !== c ? 'Lay it from the card slot.'
+        : labNow().length ? 'Tap a blue ring on the board.' : pos.game.played ? `${cardName(c)} is played.` : `${cardName(c)} has no target on this board.`}</p>`;
+      brushesEl.innerHTML = phone ? `${now}<button type="button" class="pg-carddetails" data-act="carddetails" aria-haspopup="dialog">Details</button>` : cardInfo(c) + now;
     } else if (kingOpen && !brush) brushesEl.innerHTML = phone ? '' : KINGS[kingOpen].map(p => `<button type="button" class="pline" data-power="${p}" aria-pressed="${powersWork() && king === kingOpen && armed === p}"${powersWork() ? '' : ' aria-disabled="true"'}>`
       + `${coinHtml(p)}<span><b>${POWER_NAME[p]}</b><span class="pt">${esc(cap(powerText(p, kingRules(kingOpen!, p), true)))}.</span></span></button>`).join('');
     else brushesEl.innerHTML = BRUSHES.map(([k, w], i) => `<button type="button" class="brush${brush === k ? ' armed' : ''}" data-brush="${k}" aria-pressed="${brush === k}" title="${NAMES[k]}. Tap to paint (${i + 1})">`
@@ -1555,7 +1572,7 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
   narrow.addEventListener('change', () => { row = peek = card = null; reach(null); if (dlg.open) render(); });
   // A turn of the phone moves the tray and the ledge (renderTray, renderLedge); the design, the brush, the tag and the shelf stay.
   short.addEventListener('change', () => { ledgeOpen = false; if (dlg.open) render(); });
-  // With the ledge's sheet open, ‹ Menu is a tap outside it: it closes the sheet only.
+  // With the ledge's sheet open, ‹ Game is a tap outside it: it closes the sheet only.
   q<HTMLButtonElement>('.pg-menu').onclick = () => (ledgeOpen ? closeLedge() : dlg.close());
 
   dlg.addEventListener('click', e => {
@@ -1570,7 +1587,9 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
     if (lc) { lay(lc as CardName); return q<HTMLElement>('[data-act="lay"]')?.focus(); }
     // In short landscape openLab closed the sheet: the focus goes back to Pieces, as in the slots' listener.
     if (oc) { openLab(oc as CardName); return q<HTMLElement>(short.matches ? '.pg-pieces' : '.cface.open')?.focus({ preventScroll: true }); }
-    if (twin) { tab = 'kings'; return openKing(twin as KingName); }
+    // The coin goes away with the card's words (in the column, or in Details on the phone): the focus goes to the Kings tab,
+    // in short landscape to Pieces.
+    if (twin) { tab = 'kings'; openKing(twin as KingName); return q<HTMLElement>(short.matches ? '.pg-pieces' : '#pg-tab-kings')?.focus({ preventScroll: true }); }
     if (at) { if (brush) paint(at); else tapSquare(at); return; }
     if (tok) {
       token = token === tok ? null : tok as 'friend' | 'enemy';
@@ -1609,6 +1628,7 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
     if (act === 'closeshelf') return closeShelf();
     if (act === 'closecard') return closeCard();
     if (act === 'closewhy') return closeWhy();
+    if (act === 'carddetails') return cardDetails();
     if (act === 'stamp') return stamp();
     if (act === 'threats') { threats = !threats; return render(); }
     if (act === 'seat') { seating = !seating; laying = false; return render(); }

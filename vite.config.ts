@@ -1,6 +1,6 @@
 import { pluginSymbols } from './tools/lib/plugin-symbols.mjs';
 import { buildWorker } from './tools/plugin-runtime-build.mjs';
-import { defineConfig, type Plugin } from 'vitest/config';
+import { configDefaults, defineConfig, type Plugin } from 'vitest/config';
 import { createHash } from 'node:crypto';
 import { cpSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
@@ -93,6 +93,7 @@ export default defineConfig({
     return { define: { __KINGDOWN_PAGE_ENGINE__: JSON.stringify((await buildWorker()).engine) } };
   } }],
   // Vitest collects the source, tools and Claude hook tests. docs/2d-first-pieces uses node:test (npm test).
-  // Browser and engine checks share CPU; excess workers cause false timeouts.
-  test: { maxWorkers: 4, environment: 'node', env: { KINGDOWN_INTERNAL_SECRET: 'kingdown-test-internal-secret-not-for-live-use' }, include: process.env.KINGDOWN_TEST_FILE ? [process.env.KINGDOWN_TEST_FILE] : ['src/**/*.test.ts', 'tools/**/*.test.ts', '.claude/hooks/**/*.test.ts'], ...(process.env.KINGDOWN_TEST_NAME && { testNamePattern: new RegExp(process.env.KINGDOWN_TEST_NAME) }) },
+  // Browser and engine checks share CPU; excess workers cause false timeouts. CI leaves out (KINGDOWN_TEST_SKIP) the
+  // files that it runs in a job of their own.
+  test: { maxWorkers: 4, environment: 'node', env: { KINGDOWN_INTERNAL_SECRET: 'kingdown-test-internal-secret-not-for-live-use' }, include: process.env.KINGDOWN_TEST_FILE ? [process.env.KINGDOWN_TEST_FILE] : ['src/**/*.test.ts', 'tools/**/*.test.ts', '.claude/hooks/**/*.test.ts'], exclude: [...configDefaults.exclude, ...(process.env.KINGDOWN_TEST_SKIP ? [process.env.KINGDOWN_TEST_SKIP] : [])], ...(process.env.KINGDOWN_TEST_NAME && { testNamePattern: new RegExp(process.env.KINGDOWN_TEST_NAME) }) },
 });

@@ -15,9 +15,9 @@ import { testDatabase } from './plugin-db-config.mjs';
 import { buildPluginServer } from './plugin-server-build.mjs';
 
 const mode = process.argv[2];
-assert(['oauth', 'fixture', 'http', 'privacy', 'preview'].includes(mode), 'Choose oauth, fixture, http, privacy or preview');
+assert(['oauth', 'fixture', 'http', 'privacy', 'preview', 'skylift'].includes(mode), 'Choose oauth, fixture, http, privacy, preview or skylift');
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
-if (mode === 'oauth' || mode === 'http' || mode === 'privacy') testDatabase(connectionString);
+if (mode === 'oauth' || mode === 'http' || mode === 'privacy' || mode === 'skylift') testDatabase(connectionString);
 const work = await mkdtemp(join(tmpdir(), 'kingdown-plugin-check-'));
 const build = join(work, 'server');
 const actors = [randomUUID(), randomUUID(), randomUUID()];
@@ -48,7 +48,7 @@ try {
   process.env.NODE_ENV = 'test';
   if (mode !== 'oauth') {
     let endpoint, seedPosition, deleteMatch;
-    if (mode === 'http' || mode === 'privacy') {
+    if (mode === 'http' || mode === 'privacy' || mode === 'skylift') {
       pool = new pg.Pool({ connectionString, max: 1 });
       await pool.query('insert into auth.users(id) select unnest($1::uuid[])', [actors]);
       server = createServer((req, res) => { void app.handler(req, res).catch(() => { res.destroy(); }); });
@@ -92,7 +92,7 @@ try {
     }
   }
   if (mode !== 'preview') {
-  child = spawn(process.execPath, [mode === 'oauth' ? 'tools/plugin-oauth-check.mjs' : mode === 'privacy' ? 'tools/plugin-privacy-check.mjs' : 'tools/plugin-ui-check.mjs', build], {
+  child = spawn(process.execPath, [mode === 'oauth' ? 'tools/plugin-oauth-check.mjs' : mode === 'privacy' ? 'tools/plugin-privacy-check.mjs' : mode === 'skylift' ? 'tools/plugin-skylift-check.mjs' : 'tools/plugin-ui-check.mjs', build], {
     stdio: 'inherit', env: { ...process.env, ...(harness ? { PLAYABLE_URL: harness.url, PLUGIN_EXPECT_MODE: mode } : {}) },
   });
   const [code, signal] = await once(child, 'exit');

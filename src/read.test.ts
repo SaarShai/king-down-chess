@@ -6,6 +6,7 @@ import { fromFen } from './rules/setup';
 import { pieceGuide, guideTypes, reachOf, readText, pieceTitle, readTap, teachNote, unmarkedTap, whyNot } from './read';
 import { contextLine } from './context-line';
 import { GameRules } from './game-rules';
+import { POWERS_BALANCED } from './rules/rules';
 
 const at = parseSq;
 afterEach(() => setRules(DEFAULT_RULES));
@@ -187,6 +188,15 @@ it('names no legal move and an unmarked empty destination', () => {
   const pos = fromFen('4k3/4r3/8/8/8/8/4B3/4K3 w - - 0 1');
   expect(unmarkedTap(new GameRules(RULES), pos, at('e2'), null, null, []).notice).toBe('This bishop has no legal move.');
   expect(unmarkedTap(new GameRules(RULES), pos, at('d3'), at('e2'), null, []).notice).toBe('That leaves your king in check.');
+});
+
+// Playtest F-103: an armed power names why it cannot move the selected piece.
+it('names the armed power that cannot move the selected piece', () => {
+  const rules: Rules = { ...RULES, ...POWERS_BALANCED, kings: [{ king: 'Flame', power: 'Strike' }, null] };
+  const pos = fromFen('rnbqkbnr/1ppppppp/8/p7/8/5P2/PPPPP1PP/RNBQKBNR w KQkq - 0 2'), context = new GameRules(rules);
+  expect(unmarkedTap(context, pos, at('f3'), null, null, [], 'strike')).toMatchObject({ selected: at('f3'), notice: 'Strike cannot move this pawn.' });
+  expect(unmarkedTap(context, pos, at('f3'), null, null, []).notice).toBe('');
+  expect(unmarkedTap(context, pos, at('g1'), null, null, [], 'strike').notice).toBe('');
 });
 
 it('lists the lab pieces in the position that the Guide reads', () => {

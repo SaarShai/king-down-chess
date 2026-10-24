@@ -2,7 +2,7 @@
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { createMatch, loadMatch, type LocalMatch, type MatchSetup } from '../src/match';
 import { MatchServiceError, type PostgresMatchStore } from '../src/match/store';
-import { FRIEND_CODE_DAYS, GameService, startKey, UNFINISHED } from '../src/match/service';
+import { FRIEND_CODE_DAYS, GameService, startKey, TURN_DAYS, UNFINISHED } from '../src/match/service';
 import { createSchema, commandSchema, type CreateOptions, type RatingPolicy, type InboxEntry, type View, type Seat, type LoggedCommand, type HistoryEntry, type PlayerRecord } from '../src/match/protocol';
 import { RANKED_OPTIONS, buildSetup, defaultChoice, draw, seatChoicesNeeded, switches, validateChoice, type Draw, type Choice } from '../src/match/setup';
 import { handleSchema, type PluginService } from '../src/plugin/service';
@@ -15,7 +15,7 @@ const CODE = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', DAY = 86_400_000;
 const inviteId = (token: string) => createHash('sha256').update(token).digest('hex');
 const fail = (code: MatchServiceError['code'], status: number, message: string): never => { throw new MatchServiceError(code, status, message); };
 const parse = <T>(schema: {safeParse(input:unknown):{success:boolean;data?:T}}, input:unknown):T => { const value = schema.safeParse(input); return value.success ? value.data! : fail('INVALID_INPUT',400,'Invalid input'); };
-const creation = (input:unknown):CreateOptions => { const parsed = parse<CreateOptions>(createSchema,input); return parsed.mode === 'ranked' ? { ...parsed, speed:'daily', days_per_move:3, colour:'random', options:RANKED_OPTIONS } : parsed; };
+const creation = (input:unknown):CreateOptions => { const parsed = parse<CreateOptions>(createSchema,input); return parsed.mode === 'ranked' ? { ...parsed, colour:'random', options:RANKED_OPTIONS } : parsed; };
 interface Game { rating_policy:RatingPolicy; id:string; creator:string; input:CreateOptions; match?:LocalMatch; engine?:string; players:(string|null)[]; choices:[Choice|null,Choice|null]; ready:[boolean,boolean]; drawn?:Draw; turns:[number,number]; revision:number; status:View['status']; result?:View['result']; commands:Map<string,string>; log:LoggedCommand[]; invite?:{token:string;code:string;expires_at:string;used_by?:string}; draw_offer:Seat|null; rematch_offer:Seat|null; rematch_game_id:string|null; created:number; updated:number; setup_deadline:string|null; deadline:string|null }
 export interface FixtureSeed { notices?: AccountNotice[]; history?:HistoryEntry[]; games?:InboxEntry[]; record?:PlayerRecord; views?:Record<string,Partial<View>> }
 /** The match engine of the fixture's games. A compiled page check passes its built runtime, so each game carries the
@@ -62,10 +62,10 @@ export function fixtureService(engine: FixtureEngine = { createMatch: (...args) 
  }
  async function view(actor:string,id:string,since?:number):Promise<View> {
   const game = load(id), seat = seatOf(game,actor), snapshot = await game.match?.snapshot(), playing = game.status === 'playing', other = (1-seat) as Seat, opponent = game.players[other], solo = game.input.kind === 'solo';
-  const otherProfile = opponent ? await profile(opponent) : null, allReady = game.ready.every(Boolean), speed = game.input.speed ?? (solo ? 'live' : 'daily');
+  const otherProfile = opponent ? await profile(opponent) : null, allReady = game.ready.every(Boolean), speed = solo ? 'live' : 'daily';
   const canSwitch = solo && [...games.values()].some(g=>g.input.kind === 'random' && g.creator === actor && g.created<=game.created && ['setup','playing'].includes(g.status) && g.log.some(c=>c.action.type === 'join' && Date.parse(c.at)>game.created));
   const { outcome, rules: seededRules, ...seeded } = seeds.get(actor)?.views?.[id] ?? {};
-  return {...seeded, ...(game.input.kind === 'friend' && game.status === 'waiting' && {invite_id:game.invite ? inviteId(game.invite.token) : null}), rating_policy:game.rating_policy,game_id:id,engine_fingerprint:game.engine ?? null,revision:game.revision,created_at:new Date(game.created).toISOString(),abort_open:game.status === 'waiting' || game.status === 'setup' || playing && (game.turns.some(n=>!n) || canSwitch),seat,kind:game.input.kind,speed,days_per_move:speed === 'daily' ? game.input.days_per_move ?? 3 : null,status:game.status,turn:snapshot?.turn ?? 0,
+  return {...seeded, ...(game.input.kind === 'friend' && game.status === 'waiting' && {invite_id:game.invite ? inviteId(game.invite.token) : null}), rating_policy:game.rating_policy,game_id:id,engine_fingerprint:game.engine ?? null,revision:game.revision,created_at:new Date(game.created).toISOString(),abort_open:game.status === 'waiting' || game.status === 'setup' || playing && (game.turns.some(n=>!n) || canSwitch),seat,kind:game.input.kind,speed,days_per_move:speed === 'daily' ? TURN_DAYS : null,status:game.status,turn:snapshot?.turn ?? 0,
    action:playing ? snapshot!.turn === seat ? 'ready' : 'waiting' : game.status === 'setup' ? game.ready[seat] ? 'waiting' : 'ready' : game.status === 'waiting' ? 'waiting' : 'done',fen:snapshot?.fen ?? '',in_check:snapshot?.inCheck ?? false,legal:playing && snapshot!.turn === seat ? snapshot!.legal : [],
    last_commands:game.log.filter(c=>c.seq>(since ?? 0)).slice(since === undefined ? -10 : -50).map(c=>c.seat === other && (c.action.type === 'choose' && !allReady || c.action.type === 'say' && opponent && !unblocked(actor,opponent)) ? {...c,action:{type:'hidden'}} : c),
    opponent:opponent || solo ? {handle:otherProfile?.handle ?? null,icon:otherProfile?.icon ?? null,computer:solo,deleted:false,last_seen_ms:null,...(since === undefined && opponent && {rating:{rating:1500,provisional:true}})} : null,

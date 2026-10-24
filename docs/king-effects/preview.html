@@ -21,7 +21,7 @@
   .period { white-space: nowrap; }
   .frame { overflow: hidden; border-radius: 6px; max-width: 100%; }
   .frame canvas { display: block; }
-  .labels { display: flex; justify-content: space-around; font-size: 13px; color: var(--muted); }
+  .labels { max-width: 100%; display: grid; grid-template-columns: 1fr 1fr; text-align: center; font-size: 13px; color: var(--muted); }
   .whole { max-width: 1240px; margin: 28px auto 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
   .whole h2 { font: 600 20px/1.2 Georgia, serif; margin: 0; }
   select { font: inherit; padding: 4px 6px; }
@@ -45,11 +45,13 @@
   section.part > p { margin: 0 auto 14px; color: var(--muted); max-width: 70ch; text-align: center; }
   .buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; max-width: 46ch; }
   .buttons button { font: inherit; font-size: 13px; min-height: 32px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  .buttons button:disabled { opacity: .55; cursor: default; }
+  #motion-notice { color: var(--muted); }
   .buttons button[aria-pressed="true"] { border-color: var(--ink); font-weight: 600; }
 </style>
 <header>
   <h1>King effects: preview</h1>
-  <p>The game's own painted board and drawing code, at the size the game shows it. All of it is on the branch claude/king-effects, waiting for the owner's approval; none of it is in the live game yet. First each king at rest on a light and a dark square (ivory army left, charcoal right), then how each king takes a piece, then the title screen's kings, then a whole board with resting pawns.</p>
+  <p>The game's own painted board and drawing code, at the size the game shows it. This page shows the current local artwork and effects for review. First each king at rest on a light and a dark square (ivory army left, charcoal right), then how each king takes a piece, then the title screen's kings, then a whole board with resting pawns.</p>
   <div class="controls" role="group" aria-label="Preview options">
     <span>Size:</span>
     <label><input type="radio" name="size" value="desktop" checked> Desktop game</label>
@@ -57,6 +59,7 @@
     <label><input type="radio" name="size" value="double"> 2× close-up</label>
     <label><input type="checkbox" id="animations" checked> Effects on</label>
   </div>
+  <p id="motion-notice" role="status" hidden>Reduced motion is on in your system settings. Ground effects stay still.</p>
 </header>
 <main>
   <section class="part" aria-labelledby="effects-title">
