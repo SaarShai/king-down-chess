@@ -724,7 +724,8 @@ it.each(['Close', 'Refresh the board'])('F-009: Escape from the Menu (%s) return
     await frame.locator('#board-menu').focus(); await page.keyboard.press('Enter');
     const sheet = frame.getByRole('dialog', { name: 'Menu', exact: true });
     expect(await sheet.isVisible()).toBe(true);
-    if (item !== 'Close') await page.keyboard.press('Shift+Tab');
+    // From Close, Shift+Tab goes to the game-policy button in the header, then wraps to the last Menu item.
+    if (item !== 'Close') for (let i = 0; i < 2; i++) await page.keyboard.press('Shift+Tab');
     expect(await frame.locator('html').evaluate(() => { const e = document.activeElement as HTMLElement; return e.getAttribute('aria-label') ?? e.textContent; })).toBe(item);
     await page.keyboard.press('Escape');
     expect(await sheet.isVisible()).toBe(false);
