@@ -75,6 +75,9 @@ export class StateEffects {
     if (this.previous?.rulesKey !== rulesKey) this.seen = new WeakSet<Position>();
     const forward = motion && this.previous?.rulesKey === rulesKey && pos.ply === this.previous.ply + 1 && !this.seen.has(pos);
     this.forward = forward;
+    // Only a live move ends a check with a withdrawal. A review, rewind or resync removes it at once, whichever of the
+    // highlight and the sync comes first.
+    if (!forward) this.withdrawn = undefined;
     this.seen.add(pos);
     const prior = new Map(this.frames.filter(s => s.clear == null).map(s => [s.key, s]));
     const frames: StateFrame[] = states.map(s => {

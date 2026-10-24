@@ -156,6 +156,9 @@ describe('check withdrawal', () => {
       view.highlight({ check: 4, checkers: [{ sq: 0, king: 4, path: 'straight' }] });
       advance(10); view.highlight({});
       expect(effects.withdrawn).toEqual(reduced ? undefined : { king: 4, since: expect.any(Number) });
+      // The web review clears the marks first, then shows the earlier board: no withdrawal stays.
+      view.highlight({ check: 4, checkers: [{ sq: 0, king: 4, path: 'straight' }] }); view.highlight({}); view.sync(start);
+      expect(effects.withdrawn).toBeUndefined();
       view.dispose();
     }
     const { view, advance } = await viewBoard(), context = new GameRules({});

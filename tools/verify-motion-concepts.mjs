@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createServer } from 'vite';
-import { readyBoard } from './app-ui.mjs';
+import { endTurn, readyBoard } from './app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 
 const out = env('PLAYABLE_OUT');
@@ -183,6 +183,7 @@ try {
     const onset = await page.evaluate(() => window.view.stateEffects.age('check', performance.now(), true));
     assert.equal(Number.isFinite(onset), !reduced, `game ${size}: a live check starts its onset; reduced motion holds it still`);
     await shot('check');
+    await endTurn(page);
     await tap(4); await tap(5);
     await settled();
     assert.equal((await seen()).withdrawn > 0, !reduced, `game ${size}: the evasion withdraws the check wash only with motion`);
@@ -192,7 +193,7 @@ try {
       // Black's view is turned over. The computer answers the check; any legal answer ends it.
       await seed(CHECK, { white: 'ai', black: 'human' });
       assert.equal(await page.evaluate(() => window.view.screenOf(0).y < window.view.screenOf(63).y), true, `game ${size}: Black's board is turned over`);
-      await tap(19); await tap(20);
+      await tap(19); await tap(20); await endTurn(page);
       await page.waitForFunction(() => window.seen.withdrawn > 0, null, { timeout: 20_000 });
       await settled();
       await shot('check-flipped-resolved');
