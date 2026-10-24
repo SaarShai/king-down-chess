@@ -5,7 +5,7 @@ export type Voice = 'you' | 'White' | 'Black';
 export interface ContextState {
   voice: Voice;
   review?: string; result?: string; refusal?: string; link?: string;
-  armed?: PowerName; armedLine?: string; chain?: boolean; canStop?: boolean;
+  armed?: PowerName; armedLine?: string; armedRefusal?: string; chain?: boolean; canStop?: boolean;
   read?: string; readNote?: string; midWay?: boolean; free?: boolean;
   powerUse?: boolean;
   selected?: string; stagedEnd?: string; waiting?: boolean; check?: boolean; checkCause?: string;
@@ -29,7 +29,8 @@ export function contextLine(s: ContextState): ContextLine {
       Haste: ['Move a piece.', 'It can move again.'],
     };
     const [instruction, cause] = words[s.armed] ?? ['Choose a piece, then a marked square.', ''];
-    return line('armed', s.armedLine || instruction, s.armedLine ? instruction : cause, ['power-cancel']);
+    // A refused tap keeps the armed power's line and Cancel; the refusal leads the note (playtest F-103).
+    return line('armed', s.armedLine || instruction, [s.armedRefusal, s.armedLine ? instruction : cause].filter(Boolean).join(' '), ['power-cancel']);
   }
   if (s.chain) return line('chain', s.canStop ? 'Bite again, or stop here.' : 'Bite again.', 'Nothing moves until you stop.', s.canStop ? ['stop-chain'] : []);
   if (s.read) return line('read', s.read, s.readNote, s.powerUse ? ['power-use'] : []);

@@ -136,5 +136,20 @@ try {
     const coins = await phone.evaluate(() => ['strip-them', 'strip-me'].map(id => document.querySelector(`#${id} .coin`).getBoundingClientRect().width));
     assert.deepEqual(coins, [44, 48], 'coin size follows its strip on both board sides');
   }
+  // 6. Playtest F-103: Strike cannot move a pawn. A selected pawn names the reason; the power line and Cancel stay.
+  await open(page, 'flame:strike,none', 'rnbqkbnr/1ppppppp/8/p7/8/5P2/PPPPP1PP/RNBQKBNR w KQkq - 0 2');
+  await usePower(page);
+  const [armedLine, instruction] = (await contextText(page)).split('\n');
+  assert.match(armedLine, /^Strike · 1 left$/);
+  await tap(page, 'f3');
+  assert.equal(await contextText(page), `${armedLine}\nStrike cannot move this pawn. ${instruction}`);
+  assert.equal(await page.isVisible('#power-cancel'), true, 'Cancel stays after a refused piece');
+  assert.equal(await powerCoin(page, 'w').getAttribute('aria-pressed'), 'true');
+  await page.click('#power-cancel');
+  assert.equal(await powerCoin(page, 'w').getAttribute('aria-pressed'), 'false');
+  await tap(page, 'f3'); await tap(page, 'f4');
+  assert.deepEqual(await lanMoves(page), ['f3-f4'], 'the pawn moves after Cancel');
+  assert.equal(await page.locator('#power-w .notch.is-spent').count(), 0, 'the refused piece spends no Strike');
+  console.log('ok a piece that Strike cannot move keeps the power line and Cancel');
   assertNoErrors();
 } finally { await browser.close(); }
