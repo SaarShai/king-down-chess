@@ -121,6 +121,16 @@ export const canUndoTurn = (game: TurnGame, start: number): boolean => game.hist
 /** The press and a computer ply hand over all recorded plies. */
 export const handOver = (game: TurnGame): number => game.history.length;
 
+/**
+ * The staged plies of a replayed save: its `staged` count (web-redesign spec §4.8) when that count is one whole
+ * turn of one side, else 0 (an old save has none). So a bad count never makes a handed-over ply undoable.
+ */
+export function stagedPlies(game: TurnGame, staged: unknown): number {
+  const h = game.history, start = h.length - (staged as number), side = h[start]?.pos.turn;
+  return Number.isInteger(staged) && start >= 0 && start < h.length && h[start - 1]?.pos.turn !== side && h.slice(start).every(p => p.pos.turn === side)
+    ? staged as number : 0;
+}
+
 /** An old link can stop after a free mark or first move. Finish it for its sender. */
 export function finishLinkedTurn(game: Game): void {
   if (game.pos.haste !== undefined || game.pos.free) {

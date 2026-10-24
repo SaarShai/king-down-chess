@@ -47,14 +47,12 @@ export const createSchema = z.strictObject({
   mode: z.enum(['casual', 'ranked']).optional(),
   options: optionsSchema.optional(),
   level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(),
-  speed: z.enum(['daily', 'live']).optional(),      // default: daily for games against people, live for solo games
-  days_per_move: z.union([z.literal(1), z.literal(3), z.literal(7)]).optional(), // Daily only; default 3
   colour: z.enum(['white', 'black', 'random']).optional(), // default White
   // The engine worker validates the content; this only bounds the shape.
   setup: z.strictObject({ backRank: z.string().max(8).optional(), fen: z.string().max(4096).optional(), preset: z.enum(['current', '2017', '2021']).optional(), kings: z.string().max(100).optional() }).optional(),
-}).refine(input => !(input.days_per_move && (input.speed ?? (input.kind === 'solo' ? 'live' : 'daily')) !== 'daily' || input.kind === 'solo' && input.speed === 'daily' || input.options && input.setup))
-  .refine(input => input.kind === 'solo' || (!!input.options || input.mode === 'ranked') && !input.setup && input.speed !== 'live')
-  .refine(input => input.mode !== 'ranked' || input.kind === 'random' && !input.setup && !input.level && (input.speed === undefined || input.speed === 'daily') && (input.days_per_move === undefined || input.days_per_move === 3) && (input.colour === undefined || input.colour === 'random')
+}).refine(input => !(input.options && input.setup))
+  .refine(input => input.kind === 'solo' || (!!input.options || input.mode === 'ranked') && !input.setup)
+  .refine(input => input.mode !== 'ranked' || input.kind === 'random' && !input.setup && !input.level && (input.colour === undefined || input.colour === 'random')
     && (!input.options || switches(input.options) === switches(RANKED_OPTIONS) && input.options.pool.length === RANKED_OPTIONS.pool.length && input.options.pool.every(kind => RANKED_OPTIONS.pool.includes(kind))
       && input.options.cardPool.length === RANKED_OPTIONS.cardPool.length && input.options.cardPool.every(card => RANKED_OPTIONS.cardPool.includes(card))));
 export type Action = z.infer<typeof actionSchema>;
@@ -93,7 +91,7 @@ export interface View {
   seat: Seat;
   kind: 'solo' | 'friend' | 'random';
   speed: 'daily' | 'live';
-  days_per_move: 1 | 3 | 7 | null;
+  days_per_move: 1 | 3 | 7 | null; // TURN_DAYS in a new game against a person; an older game keeps 1 or 7
   status: GameStatus;
   turn: Seat;
   action: SeatAction;

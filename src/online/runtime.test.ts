@@ -1,6 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { createBrowserRuntime, createWebTransport } from './runtime';
 import { OnlineError, type OnlineClient } from './client';
+import { createPageClient } from '../plugin/client';
 import type { JoinPreview, View } from '../match/protocol';
 
 function storage() {
@@ -91,11 +92,83 @@ function browserAt(path: string) {
   const records = storage();
   const browser = Object.assign(new EventTarget(), {
     location: new URL(path, 'http://localhost'), localStorage: records, sessionStorage: records,
-    history: { pushState: vi.fn((_state: unknown, _title: string, path: string) => { browser.location = new URL(path, browser.location); }) },
+    history: {
+      pushState: vi.fn((_state: unknown, _title: string, path: string) => { browser.location = new URL(path, browser.location); }),
+      replaceState: vi.fn((_state: unknown, _title: string, path: string) => { browser.location = new URL(path, browser.location); }),
+    },
   });
   vi.stubGlobal('window', browser);
   return { browser, back(path: string) { browser.location = new URL(path, browser.location); browser.dispatchEvent(new Event('popstate')); } };
 }
+it.each(['kingdown_computer', 'kingdown_move'])('keeps the URL game while recovering another game\'s %s', async name => {
+  const target = '22222222-2222-4222-8222-222222222222';
+  const { browser } = browserAt(`/g/${target}`), receipt = { name, args };
+  browser.localStorage.setItem('kingdown.account-command.a', JSON.stringify(receipt));
+  browser.localStorage.setItem('kingdown.account-game.a', JSON.stringify({ screen: 'board', board_id: args.game_id, pending: { ...receipt, screen: 'board' } }));
+  const command = vi.fn(async () => ({ view })), host = createBrowserRuntime({ command } as unknown as OnlineClient, 'a');
+  try {
+    const state = host.stateHost?.widgetState?.privateContent;
+    expect(state).toMatchObject({ screen: 'board', board_id: target, pending: { ...receipt, screen: 'board' } });
+    expect(browser.location.pathname).toBe(`/g/${target}`);
+    expect(browser.history.replaceState).not.toHaveBeenCalled();
+    await host.call(name, args, {});
+    expect(command).toHaveBeenCalledExactlyOnceWith(args.game_id, args.expected_revision,
+      name === 'kingdown_computer' ? { type: 'computer' } : { type: 'turn', actions: args.actions }, args.command_id);
+    expect(browser.localStorage.getItem('kingdown.account-command.a')).toBeNull();
+    expect(state?.board_id).toBe(target);
+  } finally { vi.unstubAllGlobals(); }
+});
+it.each([
+  ['kingdown_computer', 'board', '/play/'], ['kingdown_move', 'board', '/play/settings'], ['kingdown_choose', 'seat', '/j'],
+] as const)('names the recovered game in the URL when %s recovery replaces the %s entry at %s', async (name, screen, path) => {
+  const { browser } = browserAt(path), receipt = { name, args };
+  browser.localStorage.setItem('kingdown.account-command.a', JSON.stringify(receipt));
+  browser.localStorage.setItem('kingdown.account-game.a', JSON.stringify({ screen, board_id: args.game_id, pending: { ...receipt, screen } }));
+  const host = createBrowserRuntime({} as OnlineClient, 'a'), results = vi.fn(); host.onResult = results;
+  try {
+    expect(host.stateHost?.widgetState?.privateContent).toMatchObject({ screen, board_id: args.game_id, pending: { ...receipt, screen } });
+    expect(browser.location.pathname).toBe(`/g/${args.game_id}`);
+    expect(browser.history.replaceState).toHaveBeenCalledOnce();
+    expect(browser.history.pushState).not.toHaveBeenCalled();
+    await host.connect(); await Promise.resolve();
+    // The mount reads the recovered game, as a reload of its own page does.
+    expect(results).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ structuredContent: { screen: 'board', game_id: args.game_id } }));
+  } finally { host.dispose?.(); vi.unstubAllGlobals(); }
+});
+it.each([['kingdown_create', 'play', '/play/'], ['kingdown_move', 'board', `/g/${args.game_id}`]] as const)('keeps the URL when %s recovery shows %s at %s', (name, screen, path) => {
+  const { browser } = browserAt(path), receipt = { name, args };
+  browser.localStorage.setItem('kingdown.account-command.a', JSON.stringify(receipt));
+  browser.localStorage.setItem('kingdown.account-game.a', JSON.stringify({ screen, board_id: args.game_id, pending: { ...receipt, screen } }));
+  try {
+    expect(createBrowserRuntime({} as OnlineClient, 'a').stateHost?.widgetState?.privateContent).toMatchObject({ screen });
+    expect(browser.location.pathname).toBe(path);
+    expect(browser.history.replaceState).not.toHaveBeenCalled();
+  } finally { vi.unstubAllGlobals(); }
+});
+it.each(['kingdown_create', 'kingdown_find'])('preserves the existing start continuation and exact board input for %s', async name => {
+  const target = '22222222-2222-4222-8222-222222222222', { browser } = browserAt(`/g/${target}`);
+  const input = { kind: 'solo', command_id: 'start-once', board_id: args.game_id }, receipt = { name, args: input };
+  browser.localStorage.setItem('kingdown.account-command.a', JSON.stringify(receipt));
+  browser.localStorage.setItem('kingdown.account-game.a', JSON.stringify({ screen: 'play', board_id: args.game_id, pending: { ...receipt, screen: 'play' } }));
+  const create = vi.fn(async () => ({ view })), find = vi.fn(async () => view);
+  const host = createBrowserRuntime({ create, find } as unknown as OnlineClient, 'a'), client = createPageClient(host.call, host.stateHost);
+  try {
+    expect(client.state).toMatchObject({ screen: 'play', board_id: args.game_id, pending: receipt });
+    await client.call(name, client.state.pending!.args);
+    expect(browser.localStorage.getItem('kingdown.account-command.a')).toBeNull();
+    if (name === 'kingdown_create') expect(create).toHaveBeenCalledExactlyOnceWith({ kind: 'solo' }, 'start-once');
+    else expect(find).toHaveBeenCalledExactlyOnceWith({ kind: 'solo', command_id: 'start-once' });
+  } finally { vi.unstubAllGlobals(); }
+});
+it('keeps a same-game setup continuation while recovering its saved command', () => {
+  const { browser } = browserAt(`/g/${args.game_id}`), receipt = { name: 'kingdown_choose', args: { game_id: args.game_id, command_id: 'ready-once', expected_revision: 0, ready: true } };
+  browser.localStorage.setItem('kingdown.account-command.a', JSON.stringify(receipt));
+  browser.localStorage.setItem('kingdown.account-game.a', JSON.stringify({ screen: 'seat', board_id: args.game_id, pending: { ...receipt, screen: 'seat' } }));
+  try {
+    expect(createBrowserRuntime({} as OnlineClient, 'a').stateHost?.widgetState?.privateContent)
+      .toMatchObject({ screen: 'seat', board_id: args.game_id, pending: { ...receipt, screen: 'seat' } });
+  } finally { vi.unstubAllGlobals(); }
+});
 it.each(['board', 'seat', 'friend', 'wait', 'end'] as const)('keeps the selected game URL while %s waits for its first view', async screen => {
   const game = '11111111-1111-4111-8111-111111111111';
   const { browser } = browserAt(`/g/${game}`), host = createBrowserRuntime({} as OnlineClient, 'a');

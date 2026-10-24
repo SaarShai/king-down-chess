@@ -8,6 +8,7 @@ import { pathToFileURL } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
 import { assertNoErrors, launch, shot, trapErrors } from './lib/checks.mjs';
 import pg from 'pg';
+import { STAGING_ORIGIN, STAGING_SUPABASE_REF, STAGING_SUPABASE_URL } from './staging-config.mjs';
 const root = resolve(process.argv[2] || 'plugin-server-dist');
 const clientId = '11111111-1111-4111-8111-111111111111', actor = '22222222-2222-4222-8222-222222222222', authorizationId = '33333333-3333-4333-8333-333333333333';
 const config = { supabaseUrl: 'https://project.supabase.co', publishableKey: 'sb_publishable_browsercheck', clientIds: [clientId] };
@@ -170,7 +171,7 @@ try {
 const { default: functionHandler } = await import(pathToFileURL(resolve(root, 'server.mjs')).href);
 const previousEnv = { ...process.env }, originalFetch = globalThis.fetch; let attempts = 0;
 try {
-  Object.assign(process.env, { KINGDOWN_PLUGIN_ORIGIN: 'https://plugin.example', KINGDOWN_PLUGIN_DATABASE_URL: process.env.PLUGIN_TEST_DATABASE_URL, SUPABASE_URL: config.supabaseUrl, SUPABASE_PUBLISHABLE_KEY: config.publishableKey, KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: clientId, KINGDOWN_PLUGIN_OAUTH_READY: '1' });
+  Object.assign(process.env, { KINGDOWN_STAGE: 'staging', KINGDOWN_PLUGIN_ORIGIN: STAGING_ORIGIN, KINGDOWN_PLUGIN_DATABASE_URL: `postgresql://kingdown_plugin_runtime@db.${STAGING_SUPABASE_REF}.supabase.co/postgres?sslmode=require`, SUPABASE_URL: STAGING_SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY: config.publishableKey, KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: clientId, KINGDOWN_PLUGIN_OAUTH_READY: '1' });
   globalThis.fetch = async () => { attempts++; throw new Error('Mock transient discovery failure'); };
   for (let attempt = 0; attempt < 2; attempt++) {
     const response = { headersSent: false, writeHead(code) { assert.equal(code, 503); }, end(body) { assert.equal(JSON.parse(body).error, 'King Down server is not configured'); } };

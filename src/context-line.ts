@@ -5,7 +5,7 @@ export type Voice = 'you' | 'White' | 'Black';
 export interface ContextState {
   voice: Voice;
   review?: string; result?: string; refusal?: string; link?: string;
-  armed?: PowerName; armedLine?: string; chain?: boolean; canStop?: boolean;
+  armed?: PowerName; armedLine?: string; armedRefusal?: string; chain?: boolean; canStop?: boolean;
   read?: string; readNote?: string; midWay?: boolean; free?: boolean;
   powerUse?: boolean;
   selected?: string; stagedEnd?: string; waiting?: boolean; check?: boolean; checkCause?: string;
@@ -29,12 +29,14 @@ export function contextLine(s: ContextState): ContextLine {
       Haste: ['Move a piece.', 'It can move again.'],
     };
     const [instruction, cause] = words[s.armed] ?? ['Choose a piece, then a marked square.', ''];
-    return line('armed', s.armedLine || instruction, s.armedLine ? instruction : cause, ['power-cancel']);
+    // A refused tap keeps the armed power's line and Cancel; the refusal leads the note (playtest F-103).
+    return line('armed', s.armedLine || instruction, [s.armedRefusal, s.armedLine ? instruction : cause].filter(Boolean).join(' '), ['power-cancel']);
   }
-  if (s.chain) return line('chain', s.canStop ? 'Bite again, or stop here.' : 'Bite again.', 'Nothing moves until you stop.', s.canStop ? ['stop-chain'] : []);
+  if (s.chain) return line('chain', s.canStop ? 'Bite again, or stop here.' : 'Bite again.', `The chain ends when no more bites are available${s.canStop ? ', or when you select Stop here' : ''}.`, s.canStop ? ['stop-chain'] : []);
   if (s.read) return line('read', s.read, s.readNote, s.powerUse ? ['power-use'] : []);
   if (!s.lesson && s.midWay) return line('mid-way', s.turnLine || (s.free ? 'Make your move, or select End turn.' : 'Move it again, or select End turn.'));
-  if (s.selected) return line('selected', s.selected, s.readNote);
+  // A lesson keeps its task in view while its piece is selected.
+  if (!s.lesson && s.selected) return line('selected', s.selected, s.readNote);
   if (!s.lesson && s.stagedEnd) return line('staged-end', s.turnLine || `${s.stagedEnd} Select End turn to finish.`);
   if (!s.lesson && s.waiting) return line('waiting', s.turnLine || `${s.check ? 'Check. ' : ''}Your turn is ready.`, s.turnLine ? '' : 'Select End turn, or Undo.');
   if (s.previously) return { ...line('previously', `Previously: ${s.previously}`, s.previouslyDetail, s.seeAgain ? ['see-again'] : []), before: s.previouslyBefore ? `You: ${s.previouslyBefore}` : '' };

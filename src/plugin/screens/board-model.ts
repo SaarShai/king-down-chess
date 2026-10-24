@@ -66,6 +66,21 @@ export function draftChoices(view: View, pos: Position, steps: readonly BoardMov
   return context.legalMoves(pos).map(move => ({ lan: toLan(pos, move), move })).filter(({ lan }) => steps.length > 0 || view.legal.includes(lan));
 }
 
+type Choice = { lan: string; move: Move };
+const symmetricSwap = (move: Move): boolean => !!move.swap && (move.power === 'skylift' || move.power === 'morphs');
+
+/** A symmetric card pair has one server action, but either piece can start its UI selection. */
+export function choicesFrom(choices: readonly Choice[], square: number | undefined): Choice[] {
+  if (square === undefined) return [];
+  return choices.flatMap(choice => choice.move.from === square ? [choice]
+    : symmetricSwap(choice.move) && choice.move.to === square
+      ? [{ ...choice, move: { ...choice.move, from: square, to: choice.move.from } }] : []);
+}
+
+export function choiceSources(choices: readonly Choice[]): number[] {
+  return [...new Set(choices.flatMap(({ move }) => symmetricSwap(move) ? [move.from, move.to] : [move.from]))];
+}
+
 export function draftLans(view: View, saved: Draft | undefined, rules: Partial<Rules>, account: string): string[] | undefined {
   if (!saved || saved.game_tag !== view.game_id.slice(0, 8) || saved.fen !== view.fen || view.action !== 'ready' || view.status !== 'playing') return;
   const scope = saved.scope;

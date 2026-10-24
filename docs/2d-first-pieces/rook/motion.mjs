@@ -4,10 +4,12 @@ export const HIT={x:576,y:505};
 export const PIVOT={x:928,y:964};
 export const MAX_ROCK=.025;
 const smooth=t=>t*t*(3-2*t),clamp=t=>Math.max(-.14,Math.min(1,t));
-// The generated gutter lies at x=780, not the requested x=768. Keep the
-// original PNG intact and register complete source windows at the same scale.
-export const CELLS=[[0,0,780,1024],[780,0,756,1024]];
-const mirrorOrigin=[995,943];
+// The board sheet rook.webp (clips/build.mjs): each army's figure in its own window, drawn mirrored at
+// mirrorOrigin. The windows are wider than those of the painted rook.png ([0,0,780,1024], [780,0,756,1024]),
+// so the Rook drawn from the slam clip's rest drawing fits them whole.
+export const CELLS=[[0,0,840,1024],[840,0,840,1024]];
+// Charcoal's window ends at 970 (the painted rook.png's at 943): his stone arm reaches further right.
+export const mirrorOrigin=[995,970];
 export function actionAt(progress){
  const t=Math.max(0,Math.min(1,progress));
  if(t<=0||t>=1)return 0;
@@ -33,9 +35,9 @@ export function drawRook(canvas,image,side,extension=0){
 // Ground pound: the stone forearm (the tower below the elbow) lifts forward and
 // slams down twice. A small mesh bends at the elbow so the tower never tears;
 // everything above ELBOW_TOP stays put. Ivory cell coordinates; the charcoal
-// figure sits 58 px further left in its cell.
+// figure sits 28 px further left in its cell.
 import {paintTriangle,rotate} from '../painted-mesh.mjs';
-const POUND_SHIFT=[0,-58];
+const POUND_SHIFT=[0,-28];
 export const ELBOW={x:205,y:450};
 const COLUMNS=[52,120,190,250,282],ROWS=[380,420,460,500,560,640,720,800,880,975],ELBOW_TOP=400,ELBOW_FULL=500;
 export const POUND={duration:1500,approach:350,thumps:[[350,620],[620,900]],lift:.42,settle:1250};

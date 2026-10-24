@@ -17,6 +17,7 @@ import {createKingEffects,phaseOffset} from './king-effects.mjs';
 import {KING_FILES} from './king-sheets.mjs';
 import {DEATHS,THEMED,drawDeath} from './king-captures.mjs';
 import * as pawnIdle from '../lance/idle.mjs';
+import {CLIPS,frameAt,drawFrame as drawClipFrame,inCell} from '../clips/clips.mjs';
 import {SHADE,shadowField,shadowWeights,fxFade} from './contact-shadow.mjs';
 export const SIZE=960, PAD=32, TILE=112;
 /** The floor round the board, by default: the trial, the trailer and the plugin page draw it. */
@@ -68,6 +69,11 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   return entry;
  }
  const boardArt=corsImage();
+ // Character clips (clips/clips.mjs): the selected Knight or Rook plays his once, then breathes. load() waits for
+ // them (a failed one is skipped). Whether a selection plays its clip is decided when it is made (selectedClip),
+ // so an atlas that loads late never starts a clip in its middle.
+ const CLIP_OF={[N]:'knight',[R]:'rook'},clipArt=Object.fromEntries(Object.keys(CLIPS).map(name=>[name,corsImage()]));
+ const clipReady=name=>!!name&&!!clipArt[name].naturalWidth;
  const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.1166,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
 specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.155};
 specs[N]={anchor:knight.ANCHOR,hit:knight.HIT,scale:.125};
@@ -87,6 +93,7 @@ for(const [type,name] of Object.entries(courtNames)){
  const idle=new Map(), work=new Map();
  let position={board:new Uint8Array(64)}, selected=null, lifted=null, liftTell=true, aimSquare=null, animation=null, aimAngle=0, aimFacing=1;
  let fallen=null, res=1, frame=0, previousTime=0, ready=false, disposed=false, flipped=false, coords=true, coordSize=13, coordInset=14, labels=false, reducedMotion=false, decorate=null;
+ let effectTime=0;
  // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, the board's frame and light,
  // and each king's own idle effect (king-effects.mjs). All off by default, so the trial and the trailer draw exactly as before.
  const lively={moves:false,idle:false,atmosphere:false,kings:false,captures:false,pawns:false};
@@ -94,7 +101,7 @@ for(const [type,name] of Object.entries(courtNames)){
  // Square → when a king's effect started there (what stands on his square grows back after a move).
  // drawnBefore: how many kings' effects the frame before drew (none: they all start together now).
  let kingSince=new Map(),nextSince=new Map(),frames=0,fxDrawn=[],drawnBefore=0,pawnsAtRest=0,pawnsActing=0;
- let selectedAt=0, idleTimer=0, framePattern=null, awakeUntil=0, passiveUntil=0;
+ let clipShown=null, selectedClip=null, selectedAt=0, idleTimer=0, framePattern=null, awakeUntil=0, passiveUntil=0;
  const ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
  const mix=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
  const cell=s=>({col:flipped?7-(s&7):s&7,row:flipped?s>>3:7-(s>>3)});
@@ -223,17 +230,26 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
  if(lively.atmosphere){if(shadow)contactShadow(out,value,pose,opacity);}
  else{const k=clamp(1-(pose.lift??0)/TILE*.4,.6,1)*(pose.shadow??1);out.fillStyle='#343a2229';out.beginPath();out.ellipse(ground.x,ground.y-2,210*pose.scale*k,36*pose.scale*k,0,0,Math.PI*2);out.fill();}
  out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);
+ // A clip's drawing is one atlas cell, at its clip's factor of the sprite's size.
+ const clip=pose.clip,anchor=clip?inCell(clip.name,spec.anchor):spec.anchor;
+ if(clip)out.scale(1/CLIPS[clip.name].factor,1/CLIPS[clip.name].factor);
  // A soft contrasting rim keeps each army readable on the painted board's light and dark zones.
  // (pose.rim: an effect may thin it, as the charcoal Spirit's black aura does.)
- const image=sprite(value,pose.angle,extension,pose.sheet,pose.rest),rim=colorOf(value)?`rgba(250,246,232,${.85*(pose.rim??1)})`:'rgba(28,24,16,.8)';
+ const image=clip?clipSprite(value,clip):sprite(value,pose.angle,extension,pose.sheet,pose.rest),rim=colorOf(value)?`rgba(250,246,232,${.85*(pose.rim??1)})`:'rgba(28,24,16,.8)';
  if(fade&&image!==blank){
   const key=spriteKey(value,pose.sheet);
   if(!pose.rotation&&image===idle.get(key)){out.globalAlpha=opacity*(pose.rim??1);out.drawImage(stillRim(key,image,spec),-spec.anchor.x,-spec.anchor.y,1152,1152);out.globalAlpha=opacity;}
-  else{const soles=pose.foot.y+(pose.rotation?lowerEdge(value,pose)*shadowWeights(pose).lying:0);fadedRim(out,image,spec.anchor,rim,5*res,base.b*pose.foot.x+base.d*soles+base.f,Math.sqrt(Math.abs(base.a*base.d-base.b*base.c)));}
-  out.drawImage(image,-spec.anchor.x,-spec.anchor.y);
+  else{const soles=pose.foot.y+(pose.rotation?lowerEdge(value,pose)*shadowWeights(pose).lying:0);fadedRim(out,image,anchor,rim,5*res,base.b*pose.foot.x+base.d*soles+base.f,Math.sqrt(Math.abs(base.a*base.d-base.b*base.c)));}
+  out.drawImage(image,-anchor.x,-anchor.y);
  }
- else{out.shadowColor=rim;out.shadowBlur=5*res;out.drawImage(image,-spec.anchor.x,-spec.anchor.y);} // shadows ignore the transform
+ else{out.shadowColor=rim;out.shadowBlur=5*res;out.drawImage(image,-anchor.x,-anchor.y);} // shadows ignore the transform
  out.restore();
+}
+// The drawing a clip shows now ({name, index}), in one canvas a clip (only the selected figure plays one).
+function clipSprite(value,{name,index}){
+ let canvas=work.get(`clip:${name}`);
+ if(!canvas){canvas=document.createElement('canvas');work.set(`clip:${name}`,canvas);}
+ drawClipFrame(canvas,clipArt[name],name,colorOf(value),index);return canvas;
 }
 // Contact shadows (atmosphere on; contact-shadow.mjs has the parts and their strengths), made once per still sprite
 // from its own outline and drawn with multiply, so the shade keeps the floor's own colour (dark wood gets a deeper
@@ -506,6 +522,7 @@ function vortex(out,foot,phase,strength) {
    ctx.strokeStyle='#656e4d14';ctx.strokeRect(PAD+col*TILE+.5,PAD+row*TILE+.5,TILE-1,TILE-1);
   }
   decorate?.(ctx,api,'under');
+  animation?.effect?.draw(ctx,api,'under',undefined,effectTime);
   // A host that draws its own marks (setDecorate) draws its own selection.
   if(selected!==null&&!decorate){const c=cell(selected);ctx.strokeStyle='#6b7954';ctx.lineWidth=3;ctx.strokeRect(PAD+c.col*TILE+1.5,PAD+c.row*TILE+1.5,TILE-3,TILE-3);ctx.lineWidth=1;}
   // On the framed board, the Workshop's coordinates: gold capitals and numbers in the display serif.
@@ -603,6 +620,8 @@ function vortex(out,foot,phase,strength) {
  function render(time=performance.now()) {
  frames++;frameTime=time;shadowsFading=false;drawnBefore=fxDrawn.length;fxDrawn=[];nextSince=new Map();
  const a0=animation,since=a0?.shakeAt!=null?(time-a0.start)/a0.speed-a0.shakeAt:-1,shake=!reducedMotion&&since>=0&&since<240?7*(1-since/240):0;
+ effectTime=a0?.effect?clamp((time-a0.start)/(a0.speed*a0.duration),0,1):0;
+ const shown=a0?.effect?.position(effectTime)??position;
  ctx.save();ctx.translate(0,headroom);if(shake)ctx.translate(Math.sin(since*.09)*shake,Math.cos(since*.13)*shake*.6);
  boardBackground();
  if(lifted!==null&&!animation&&position.board[lifted]){
@@ -612,9 +631,15 @@ function vortex(out,foot,phase,strength) {
   ctx.fillStyle=glow;ctx.fillRect(-48,-48,96,96);ctx.restore();
  }
  const poses=new Map();
- for(let sq=0;sq<64;sq++)if(position.board[sq])poses.set(sq,{value:position.board[sq],pose:poseFor(position.board[sq],sq),opacity:1,extension:0});
+ for(let sq=0;sq<64;sq++)if(shown.board[sq])poses.set(sq,{value:shown.board[sq],pose:poseFor(shown.board[sq],sq),opacity:1,extension:0});
  if(selected!==null&&poses.has(selected))Object.assign(poses.get(selected).pose,{angle:aimAngle,facing:aimFacing});
- if(idling()){const p=poses.get(selected).pose,i=idleAt(time-selectedAt);Object.assign(p,{ground:p.foot,foot:{x:p.foot.x,y:p.foot.y-i.lift},sx:i.sx,sy:i.sy,shadow:i.shadow});}
+ // The selected figure plays his clip once (if he has one), then breathes from where the clip ends.
+ clipShown=null;
+ if(idling()){
+  const p=poses.get(selected).pose,name=CLIP_OF[typeOf(poses.get(selected).value)]===selectedClip?selectedClip:null,ms=time-selectedAt,index=name?frameAt(name,ms):null;
+  if(index!==null){p.clip={name,index};clipShown={name,frame:index};}
+  else{const i=idleAt(ms-(name?CLIPS[name].duration:0));Object.assign(p,{ground:p.foot,foot:{x:p.foot.x,y:p.foot.y-i.lift},sx:i.sx,sy:i.sy,shadow:i.shadow});}
+ }
  // The tell: a fixed lift; the contact shadow stays on the board.
  if(lifted!==null&&liftTell&&!reducedMotion&&!animation&&poses.has(lifted)){
   const p=poses.get(lifted).pose,lift=3*SIZE/(canvas.getBoundingClientRect().width||SIZE);
@@ -623,7 +648,7 @@ function vortex(out,foot,phase,strength) {
  // King Down: the beaten king topples backwards onto the board.
  if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq);u.pose={...u.pose,rotation:fallen.rotation*ease((time-fallen.start)/FALL)};}
  let shot=null,hit=null;const effects=[];
- if(animation){
+ if(animation&&!animation.effect){
   const a=animation,t=clamp((time-a.start)/a.speed,0,a.duration),actor=poses.get(a.move.from),victim=poses.get(a.move.swap?a.move.to:a.move.shove?.from??a.move.captures[0]);
   if(a.type==='slash'){
    const s=bishop.SLASH,tipWorld=ms=>world(bishop.tipAt(bishop.slashAngle(ms),colorOf(a.value)),{...a.pose,foot:a.approach},B);
@@ -803,11 +828,11 @@ function vortex(out,foot,phase,strength) {
   if(rest){u.pose={...u.pose,rest};pawnsActing++;}
  }
  const ordered=[...poses].sort((a,b)=>a[1].pose.foot.y-b[1].pose.foot.y);
- if(animation){const i=ordered.findIndex(([sq])=>sq===animation.move.from);ordered.push(...ordered.splice(i,1));}
+ if(animation&&!animation.effect){const i=ordered.findIndex(([sq])=>sq===animation.move.from);ordered.push(...ordered.splice(i,1));}
  // 'over' markers are drawn one screen row at a time, after that row's figures: a marker sits on its
  // own square's figure, and a tall figure standing in front of it (a lower row) covers it.
  let overRow=0;
- const over=last=>{for(;overRow<=last;overRow++)decorate?.(ctx,api,'over',overRow);};
+ const over=last=>{for(;overRow<=last;overRow++){decorate?.(ctx,api,'over',overRow);animation?.effect?.draw(ctx,api,'over',overRow,effectTime);}};
  // A piece thrown into the air (a king's capture whose death has an `above` time) is drawn in two parts once
  // it leaves the ground: what stays on the floor in its own place ('back'), the piece itself over every figure ('front').
  const late=[];
@@ -818,7 +843,7 @@ function vortex(out,foot,phase,strength) {
  for(const [sq,unit] of ordered)if(typeOf(unit.value)===K){const fx=kingEffect(sq,unit,time);if(fx)kingFxOf.set(sq,fx);}
  if(lively.atmosphere)for(const [sq,unit] of ordered){const fade=fxFade(unit.fx);if(fade>0)contactShadow(ctx,unit.value,kingFxOf.get(sq)?.pose??unit.pose,unit.opacity*fade);}
  for(const [sq,unit] of ordered){
-  if(!animation)over(Math.floor((unit.pose.foot.y-40-PAD)/TILE)-1);
+  if(!animation||animation.effect)over(Math.floor((unit.pose.foot.y-40-PAD)/TILE)-1);
   const fx=kingFxOf.get(sq);
   if(fx){kingFx.back(ctx,fx);fxDrawn.push(fx.design);}
   // (above: a time, or a test of the death's own state: the piece is clear of the king or over his head.)
@@ -857,10 +882,12 @@ function drawEncounter(a,t) {
   const wanted=animation?null:desiredPose();
   if(wanted){aimFacing=wanted.facing;aimAngle+=(wanted.angle-aimAngle)*(reducedMotion?1:1-Math.exp(-14*dt));if(Math.abs(wanted.angle-aimAngle)<.0001)aimAngle=wanted.angle;}
   const a=animation;
+  if(a?.effect&&!a.done&&!a.contacted&&(time-a.start)>=a.duration*a.speed*.62){a.contacted=true;if(a.move.captures.length)a.onContact?.();}
+  if(animation!==a){wake();return;}
   if(a&&!a.done&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
   render(time);
   if(labels)drawLabels();
-  if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading)wake(false);
+  if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading||clipShown)wake(false);
   else{previousTime=0;if(time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }
  function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
@@ -951,10 +978,10 @@ function drawEncounter(a,t) {
   /** Board square under a point in canvas pixels, or null. */
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
-  load(){const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;wake();});},
+  load(){const clips=Object.entries(clipArt).map(([name,image])=>new Promise(resolve=>{image.onload=image.onerror=resolve;image.src=CLIPS[name].file;}));const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...clips,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;wake();});},
   /** New position: ends any finished or running animation. */
   setPosition(next){endMove();lifted=null;position=next;aimAngle=0;wake();},
-  setSelected(sq){if(sq!==selected){selected=sq;selectedAt=performance.now();aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
+  setSelected(sq){if(sq!==selected){selected=sq;selectedAt=performance.now();const name=sq===null?null:CLIP_OF[typeOf(position.board[sq])];selectedClip=clipReady(name)?name:null;aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
   /** Opt-in tell; lift=false shows only the glow. A new position or move clears it. */
   setLifted(sq,lift=true){lifted=sq;liftTell=lift;wake();},
   get lifted(){return lifted;},
@@ -964,6 +991,8 @@ function drawEncounter(a,t) {
   /** [white, black] king designs ('frost' … 'shadow'): each side's king figure. */
   setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;kings=[...next];for(const design of kings){kingImage(design).loaded.catch(()=>{});if(lively.kings)kingFx.has(design);}wake();},
   get kings(){return [...kings];},
+  /** Restart the visible ground loops together for the effects workshop. */
+  restartKingGround(){const since=performance.now();for(const entry of kingSince.values()){entry.since=since;entry.offset=0;}wake();},
   /** [white, black] figure URLs for a lab `type` with no painted art (a Workshop design), or null for its lettered token. */
   setFigure(type,urls){
    if(String(urls)===String(figures[type]?.urls??null))return;
@@ -988,6 +1017,8 @@ function drawEncounter(a,t) {
   setLively(options){Object.assign(lively,options);if(lively.kings)for(const design of kings)kingFx.has(design);wake();},
   /** The king designs whose effects the last frame drew (for checks). */
   get effects(){return [...fxDrawn];},
+  /** The clip drawing the last frame showed ({name, frame}), or null (for checks). */
+  get clip(){return clipShown&&{...clipShown};},
   /** Resting pawns in the last frame, and how many of them were acting (for checks). */
   get pawns(){return {resting:pawnsAtRest,acting:pawnsActing};},
   /** Frames drawn so far (for checks). */
@@ -999,11 +1030,11 @@ function drawEncounter(a,t) {
   /** A see-through copy of a figure standing on `square` (a move preview); for setDecorate. */
   ghost(out,value,square,opacity=.4){if(ready&&value)drawPiece(out,value,poseFor(value,square),opacity);},
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */
-  play(move,{speed=1,onContact=null,gait=null}={}){
+  play(move,{speed=1,onContact=null,gait=null,effect=null}={}){
    if(disposed)return Promise.resolve(false);
    lifted=null;
    if(animation&&!animation.done)animation.resolve(false);
-   const {base,verb}=plan(move,speed,gait);
+   const {base,verb}=effect?{base:{type:'effect',move,start:performance.now(),speed,duration:effect.duration,effect},verb:'Playing card…'}:plan(move,speed,gait);
    return new Promise(resolve=>{animation={...base,resolve,onContact};onStatus(verb);wake();});
   },
   cancel(){endMove();if(closeup)closeup.panel.hidden=true;aimAngle=0;wake();},
