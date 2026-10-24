@@ -1,11 +1,11 @@
 import { cursorText } from '../../cursor-text';
 import { railsOf, marksModel } from '../../marks-model';
 import { checkCause, checkersOf, describeMove, threatsIn, shortMove } from '../../move-text';
-import { pieceTitle, reachOf, readText, teachNote } from '../../read';
+import { guideTypes, pieceGuide, pieceTitle, reachOf, readText, teachNote } from '../../read';
 import { GameRules } from '../../game-rules';
 import { needsServerPreview } from '../../account-game/engine-identity';
 import { toFen } from '../../rules/setup';
-import { colorOf, findKing, K, moveNumber, NAMES, LETTERS, piece, PLAIN_KINGS, T, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
+import { colorOf, findKing, K, moveNumber, NAMES, LETTERS, piece, PLAIN_KINGS, T, typeOf, type Color, type Move, type PieceType, type Position, type PowerName } from '../../rules/engine';
 import { cardName, cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
 import { LESSONS } from '../../lessons';
 import { momentKind } from '../../moment';
@@ -28,9 +28,10 @@ import { locks, noticeShows, pendingHere, staleRead, type Page, type Store } fro
 import { nextGame } from '../../account-game/next-game';
 import { actionButtons, playerBlockButton } from './board-actions';
 import { guardEndTaps, updateEnd } from './end';
-import { applyLan, boardActions, cardCoins, cardUseReason, committedPreview, draftChoices, draftLans, draftTurn, previewSteps, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
+import { applyLan, boardActions, cardCoins, cardUseReason, choicesFrom, choiceSources, committedPreview, draftChoices, draftLans, draftTurn, previewSteps, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
 import { policyLabel, policyDetail } from '../../account-game/rating-policy';
 import './board.css';
+import { UiMotion, castRelease, checkFrame, handoff } from '../../ui/motion';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 type Choice = { lan: string; move: Move };
 let view: View | undefined, pos: Position | undefined;
@@ -43,59 +44,117 @@ let command: (name: string, args: Record<string, unknown>) => Promise<View | und
 export const sendBoardCommand = (name: string, args: Record<string, unknown> = {}) => command(name, args);
 const portraitPath = (side: Color) => `ui/kings/${(gameRules.rules.kings[side]?.king ?? PLAIN_KINGS[side]).toLowerCase()}${side ? '-b' : ''}.webp`;
 let sheet: HTMLDialogElement, scrim: HTMLDivElement, sheetFocus: HTMLElement | undefined;
+// Playtest F-032: a board tap opens a sheet on pointerup, and a touch tap's click then lands on the new scrim. Only a click
+// whose press started on the scrim closes it; each new press, a cancelled press, a click and the sheet's open and close reset it.
+let scrimPressed = false;
 let refreshCardSheet: (() => void) | undefined;
+let allMoveChoices = false;
 let stopPlacingChoice = () => {};
 export function closeBoardSheet() {
-  refreshCardSheet = undefined;
+  refreshCardSheet = undefined; allMoveChoices = false;
   if (!sheet) return;
-  stopPlacingChoice(); stopPlacingChoice = () => {};
-  for (const id of ['choices', 'reload', 'computer', 'invite', 'invitation']) $('board-park').append($(id));
+  stopPlacingChoice(); stopPlacingChoice = () => {}; scrimPressed = false;
+  // Read the focus before the parked controls leave the sheet: a moved control loses focus (playtest F-009).
   const restore = sheet.open && sheet.contains(document.activeElement);
+  for (const id of ['choices', 'reload', 'computer', 'invite', 'invitation']) $('board-park').append($(id));
   if (sheet.open) document.querySelector<HTMLElement>('.page-sheet')!.inert = false;
   sheet.close(); scrim.hidden = true;
   $('moves-line').setAttribute('aria-expanded', String(!$('recent-moves').hidden));
   const focus = sheetFocus?.id ? document.getElementById(sheetFocus.id) : sheetFocus;
-  if (restore) (focus?.isConnected ? focus : $('board')).focus({preventScroll:true}); client.state.sheet = undefined; client.save();
+  // A hidden opener cannot take focus (Escape clears the selection and hides All rules), so focus goes to the board.
+  if (restore) (focus?.isConnected && focus.getClientRects().length ? focus : $('board')).focus({preventScroll:true}); client.state.sheet = undefined; client.save();
 }
 export function boardSheet(title: string, ...nodes: HTMLElement[]) {
   if (!sheet) {
     scrim = document.createElement('div'); scrim.className = 'scrim'; scrim.hidden = true;
-    sheet = document.createElement('dialog'); sheet.id = 'board-sheet'; sheet.setAttribute('aria-labelledby', 'board-sheet-title'); sheet.className = 'over-sheet'; sheet.setAttribute('aria-modal', 'true');
-    $('app-frame').append(scrim, sheet); scrim.onclick = closeBoardSheet;
+    sheet = document.createElement('dialog'); sheet.id = 'board-sheet'; sheet.setAttribute('aria-labelledby', 'board-sheet-title'); sheet.className = 'over-sheet ui-dialog-motion'; sheet.setAttribute('aria-modal', 'true');
+    $('app-frame').append(scrim, sheet);
+    document.addEventListener('pointerdown', event => { scrimPressed = event.target === scrim; }, true);
+    document.addEventListener('pointercancel', () => { scrimPressed = false; }, true);
+    document.addEventListener('click', () => { scrimPressed = false; });
+    // A touch's compatibility mousedown lands on the scrim too; it must not take focus from the open sheet.
+    scrim.onmousedown = event => event.preventDefault();
+    scrim.onclick = () => { if (scrimPressed) closeBoardSheet(); };
     sheet.onkeydown = event => {
       if (event.key === 'Tab') {
         const buttons = [...sheet.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, select, [tabindex="0"]')].filter(el => el.getClientRects().length), i = buttons.indexOf(document.activeElement as HTMLElement);
         if (event.shiftKey && i <= 0 || !event.shiftKey && i === buttons.length - 1) { event.preventDefault(); buttons[event.shiftKey ? buttons.length - 1 : 0]?.focus({preventScroll:true}); }
       }
     };
+    new ResizeObserver(fitSheetBody).observe(sheet);
   }
   const opener = sheet.contains(document.activeElement) ? sheetFocus : document.activeElement as HTMLElement;
   closeBoardSheet(); sheetFocus = opener;
   sheet.classList.remove('board-menu', 'move-choice');
+  sheet.classList.toggle('ui-dialog-motion', !memory.settings?.symbols_only);
   sheet.removeAttribute('style'); scrim.classList.remove('move-choice-scrim');
   sheet.innerHTML = '<header class="sheet-head"><h2 id="board-sheet-title"></h2><button aria-label="Close">×</button></header><div class="sheet-body"></div>';
   sheet.querySelector('h2')!.textContent = title; sheet.querySelector('button')!.onclick = closeBoardSheet;
-  sheet.querySelector('.sheet-body')!.append(...nodes); scrim.hidden = false; document.querySelector<HTMLElement>('.page-sheet')!.inert = true; sheet.show(); sheet.querySelector('button')!.focus({preventScroll:true});
+  sheet.querySelector('.sheet-body')!.append(...nodes); scrim.hidden = false; scrimPressed = false; document.querySelector<HTMLElement>('.page-sheet')!.inert = true; sheet.show(); sheet.querySelector('button')!.focus({preventScroll:true});
   if (nodes.includes($('choices'))) {
     const board = $('board'), frame = $('app-frame');
     sheet.classList.add('move-choice'); scrim.classList.add('move-choice-scrim');
     board.classList.add('choosing-move');
     const place = () => {
-      const room = frame.getBoundingClientRect();
-      board.style.maxHeight = `${Math.max(0, room.bottom - board.getBoundingClientRect().top - sheet.getBoundingClientRect().height - 24)}px`;
+      // The layout size, not the drawn box: the sheet's opening scale must not resize the board inside this observer.
+      const room = frame.getBoundingClientRect(), size = {width:sheet.offsetWidth, height:sheet.offsetHeight};
+      board.style.maxHeight = `${Math.max(0, room.bottom - board.getBoundingClientRect().top - size.height - 24)}px`;
       const box = board.getBoundingClientRect();
-      Object.assign(sheet.style, boardFoot({left:box.left - room.left, bottom:box.bottom - room.top, width:box.width}, sheet.getBoundingClientRect(), room));
+      Object.assign(sheet.style, boardFoot({left:box.left - room.left, bottom:box.bottom - room.top, width:box.width}, size, room));
     };
     place();
     const observer = new ResizeObserver(place); observer.observe(board); observer.observe(sheet); observer.observe(frame);
     stopPlacingChoice = () => { observer.disconnect(); board.classList.remove('choosing-move'); board.style.maxHeight = ''; };
   }
+  // Fit the body to the placed sheet: Choose a move changes the sheet's size above (F-008).
+  fitSheetBody();
   client.state.sheet = 'board-sheet'; client.save();
 }
+// Playtest F-008: a sheet body that scrolls is a named region in the Tab order, so PageDown and End reach every row.
+// A body whose overflow fits in its bottom padding hides nothing, so it is no Tab stop (Choose a move with four promotions on a phone).
+// A focused body stays a region until it loses focus; the blur checks the scroll size itself, as the body can still be the active element then.
+const scrolls = (body: HTMLElement) => body.scrollHeight - body.clientHeight > parseFloat(getComputedStyle(body).paddingBottom);
+function fitSheetBody() {
+  const body = sheet?.open ? sheet.querySelector<HTMLElement>('.sheet-body') : null;
+  if (!body) return;
+  if (scrolls(body)) {
+    body.tabIndex = 0; body.setAttribute('role', 'region'); body.setAttribute('aria-label', sheet.querySelector('h2')!.textContent!);
+    body.onblur = () => { if (!scrolls(body)) endRegion(body); };
+  } else if (body !== document.activeElement) endRegion(body);
+}
+// A body that still overflows a little gets tabindex -1: Firefox, and Chromium for a body with no control, make a scroller a Tab stop.
+const endRegion = (body: HTMLElement) => {
+  for (const name of ['role', 'aria-label']) body.removeAttribute(name);
+  if (body.scrollHeight > body.clientHeight) body.tabIndex = -1; else body.removeAttribute('tabindex');
+  body.onblur = null;
+};
 const text = (words: string) => { const p = document.createElement('p'); p.textContent = words; return p; };
 const button = (words: string, click: () => void) => { const b = document.createElement('button'); b.textContent = words; b.onclick = click; return b; };
+const element = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', words = '') => { const e = document.createElement(tag); e.className = className; e.textContent = words; return e; };
+// Playtest F-011: All rules gives each piece's moves, takes and special rule, as the web Guide does, with the read piece first.
+function ruleCards(first: PieceType, position: Position) {
+  const cards = element('div', 'piece-cards');
+  for (const type of [first, ...guideTypes(position).filter(type => type !== first)]) {
+    const guide = pieceGuide(gameRules, type), name = gameRules.nameOf(type), face = art(type === K ? portraitPath(0) : `ui/pieces/${NAMES[type]}-w.webp`);
+    const card = element('article', 'piece-card'), picture = element('div', 'pc-art'), body = element('div', 'pc-body'), rows = element('dl');
+    card.dataset.piece = NAMES[type];
+    if (face) { const image = element('img'); image.src = face; image.alt = ''; picture.append(image); }
+    else picture.append(element('span', 'pc-medallion', (type === T && gameRules.playedDesign()?.letter) || LETTERS[type]));
+    for (const [label, words] of [['Moves', guide.moves], ['Takes', guide.captures], ['Special', guide.special]]) if (words) rows.append(element('dt', '', label), element('dd', '', words));
+    body.append(element('h3', '', name[0].toUpperCase() + name.slice(1)), rows); card.append(picture, body); cards.append(card);
+  }
+  return cards;
+}
 export function boardScreen(store: Store) {
   let generation = 0, animating = false, rush = false, steps: BoardMove[] = [];
+  const motion = new UiMotion(() => !tornDown && active() && board.motion(), () => memory.settings?.symbols_only ? 'off' : 'fast');
+  const clearConfirmation = () => {
+    const check = $('end-turn').querySelector('.ui-send-check');
+    check?.getAnimations().forEach(animation => animation.cancel()); check?.remove();
+  };
+  let liveOnsets = false, openingAt = -Infinity, turnAt = -Infinity, selectedAt = -Infinity;
+  const powerSpent = new Map<Color, number>(), powerAt = new Map<Color, number>();
+  let deadlineKey = '', deadlinePhase = '';
   let shownNextGame: string | undefined;
   let serverDraft: DraftPreview | undefined, previewing = false, previewAbort: AbortController | undefined;
   const remote = () => needsServerPreview(view?.engine_fingerprint);
@@ -140,7 +199,7 @@ export function boardScreen(store: Store) {
   const heldSquare = (move: Move) => move.shove?.from ?? move.to;
   const ownTarget = (move: Move, square: number) => !!pos!.board[square] && colorOf(pos!.board[square]) === view!.seat && (move.shove?.from === square || !!move.swap && move.to === square);
   // Keep the preview only while its piece stays selected and the move stays legal and offered.
-  const holding = () => { const now = held && moves.find(c => c.lan === held!.lan); return now && selected === now.move.from && canPlay() && reachable(now.move) ? now : undefined; };
+  const holding = () => { const now = held && choicesFrom(moves, selected).find(c => c.lan === held!.lan); return now && selected === now.move.from && canPlay() && reachable(now) ? now : undefined; };
   let computerCalls = 0, computerRunning = false, thinking = false, tornDown = false, thinkingTimer: ReturnType<typeof setTimeout> | undefined;
   let ownRating: PlayerRecord['rating'] | undefined, profileRead = false;
   let readAt = Date.now(), deadlineTimer: ReturnType<typeof setTimeout> | undefined;
@@ -149,14 +208,12 @@ export function boardScreen(store: Store) {
   let stopCeremony = () => {};
   skipBoardCeremony = () => { toppling = false; stopCeremony(); };
   board.onSkipAnimation = () => { rush = true; skipBoardCeremony(); };
-  // Each card coin's last spent state, and when a live use spent it (for the gold pulse).
+  // Keep event times when a render replaces a control.
   const cardSpent = new Map<string, boolean>(), spentAt = new Map<string, number>();
   // Q3 b: the board's height on the last render with no draw reply. A draw offer pins the board to it.
   let boardRoom = 0;
   // When the four cards dealt (a live game start), and when a check last began.
   let dealtAt = -Infinity, dealing = false, opening = false, checkAt = -Infinity, checked: number | null = null;
-  // strips() rebuilds the coins; a negative delay keeps a running moment in its place.
-  const moment = (el: HTMLElement, name: string, start: number, ms: number) => { const age = performance.now() - start; if (age >= ms) return false; el.classList.add(name); el.style.setProperty('--age', `${-age}ms`); return true; };
   // Sound is off unless the player turns it on in Settings (render/sfx.ts).
   const hitSound = (step: BoardMove, token: number) => {
     const sounds = soundsFor(momentKind(step.pre, step.move), step.move);
@@ -190,7 +247,7 @@ export function boardScreen(store: Store) {
   };
   const tag = () => armed ? POWER_TAG[armed] ?? null : null;
   const cardChoices = () => armedCard === undefined || !pos || !view ? [] : moves.filter(c => cardCoins(pos!,view!.seat,gameRules.rules.hands[view!.seat],moves.map(c=>c.move))[armedCard!].moves.includes(c.move));
-  const reachable = (move: Move) => armedCard !== undefined ? cardChoices().some(c=>c.move===move) : gameRules.rules.hands[view!.seat].length ? !move.power : offered(move,tag());
+  const reachable = ({lan, move}: Choice) => armedCard !== undefined ? cardChoices().some(c=>c.lan===lan) : gameRules.rules.hands[view!.seat].length ? !move.power : offered(move,tag());
   const named = () => armedCard !== undefined ? cardChoices().filter(({move}) => !move.pass && (move.from === move.to || move.drop !== undefined)) : moves.filter(({move}) => ['freeze','ward','sacrifice'].includes(move.power ?? '') && move.power === tag());
   async function computer() {
     if (tornDown || !view || client.state.screen !== 'board' || document.hidden || blocked() || computerRunning || computerCalls >= 4 || view.kind !== 'solo' || view.status !== 'playing' || view.turn === view.seat || $<HTMLDialogElement>('over').open) return;
@@ -207,6 +264,7 @@ export function boardScreen(store: Store) {
   }
   const scheduleComputer = () => { if (!tornDown) setTimeout(() => void computer(), 0); };
   const events = new AbortController(), signal = events.signal;
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(deadlineTimer); skipBoardCeremony(); } else if (!tornDown && active()) updateTime(); }, { signal });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleComputer(); }, { signal });
   function moveLine() {
     if (!pos) return;
@@ -220,17 +278,27 @@ export function boardScreen(store: Store) {
     if (movesOpen()) {
       const body = sheet.querySelector('.sheet-body')!, scroll = body.scrollTop;
       body.replaceChildren(...moveRows());
-      body.scrollTop = scroll;
+      body.scrollTop = scroll; fitSheetBody();
     }
     fitMoves();
     $('short-move-words').textContent = lastMove ? shortMove(lastMove.pre, lastMove.move, type => gameRules.nameOf(type)) : `Move ${moveNumber(pos)}.`;
   }
   const remainingTime = () => view?.deadline_at ? Date.parse(view.deadline_at) - Date.parse(view.server_now) - (Date.now() - readAt) : 0;
   function updateTime() {
-    $('move-time-left').textContent = view ? timeLeft(view, Date.now() - readAt) : '';
+    const clock = $('move-time-left');
+    clock.textContent = view ? timeLeft(view, Date.now() - readAt) : '';
+    const key = `${view?.game_id}:${view?.deadline_at}`, left = remainingTime();
+    const phase = left <= 0 ? 'expired' : left <= 60000 ? 'warning' : 'running';
+    clock.dataset.phase = view?.status === 'playing' && view.deadline_at ? phase : '';
+    if (key !== deadlineKey && liveOnsets && view?.status === 'playing' && view.deadline_at) motion.reveal(clock, 420, 8);
+    if (key === deadlineKey && phase !== deadlinePhase) {
+      if (phase === 'warning') motion.play(clock, [{ transform: 'translateY(0)', outlineColor: 'transparent' }, { transform: 'translateY(-2px)', outlineColor: 'var(--accent)', offset: .5 }, { transform: 'translateY(0)', outlineColor: 'transparent' }], 700);
+      if (phase === 'expired') motion.reveal($('context-text'), 350, 8);
+    }
+    deadlineKey = key; deadlinePhase = phase;
     clearTimeout(deadlineTimer);
     const remaining = remainingTime();
-    if (!tornDown && view?.status === 'playing' && remaining > 0) deadlineTimer = setTimeout(() => remainingTime() > 0 ? updateTime() : refresh(), Math.min(60000, remaining + 1));
+    if (!tornDown && !document.hidden && view?.status === 'playing' && remaining > 0) deadlineTimer = setTimeout(() => remainingTime() > 0 ? updateTime() : refresh(), Math.min(60000, remaining + 1));
   }
   function choose(lan: string) {
     if (!canPlay()) return;
@@ -242,11 +310,12 @@ export function boardScreen(store: Store) {
   function stageMove(step: BoardMove) {
     const keyboard = document.activeElement === $('board') || !!sheet?.contains(document.activeElement);
     closeBoardSheet(); armed = undefined; armedCard = undefined; selected = inspected = held = undefined; choices([]);
+    liveOnsets = true;
     const token = ++generation; steps.push(step); lastMove = step; pos = step.pos; animating = true;
     board.skip(); board.setLifted(null); moveLine(); refresh(); saveDraft();
-    if (step.move.drop !== undefined) board.sync(step.pos);
+    if (step.move.drop !== undefined && !step.move.power) board.sync(step.pos);
     const hit = hitSound(step, token);
-    void (step.move.drop === undefined ? board.animateMove(step.pre, step.move, hit) : Promise.resolve()).then(() => {
+    void ((step.move.drop === undefined || step.move.power) ? board.animateMove(step.pre, step.move, hit) : Promise.resolve()).then(() => {
       if (token !== generation) return;
       hit(); if (previewPosition()?.in_check ?? gameRules.inCheck(step.pos)) snd.check();
     }).finally(() => {
@@ -298,6 +367,7 @@ export function boardScreen(store: Store) {
     const step = steps.pop()!; ++generation; board.skip(); pos = step.pre; lastMove = steps.at(-1) ?? history.at(-1);
     armed = undefined; armedCard = undefined; selected = inspected = held = undefined; choices([]);
     board.sync(pos); refresh(); saveDraft();
+    motion.play($('moves-line'), [{ transform: 'translateX(12px)' }, { transform: 'translateX(0)' }], 600);
   }
   $('undo').onclick = undo;
   $('end-turn').onclick = () => {
@@ -324,7 +394,7 @@ export function boardScreen(store: Store) {
     if (event.key !== 'Escape' || client.state.screen !== 'board' && !sheet?.contains(event.target as Node)) return;
     event.preventDefault();
     if (animating) { cursorShown = false; drawCursor(); rush = true; board.skip(); if (sheet?.open) closeBoardSheet(); return; }
-    cursorShown = false; armed = undefined; armedCard = undefined; selected = held = undefined; choices([]); refresh(); closeBoardSheet();
+    cursorShown = false; armed = undefined; armedCard = undefined; selected = held = undefined; allMoveChoices = false; choices([]); refresh(); closeBoardSheet();
   }, { signal });
   function select(square: number, submit = true) {
     if (!view || !pos || !canRead()) return;
@@ -333,15 +403,15 @@ export function boardScreen(store: Store) {
     if (hold && submit && heldSquare(hold.move) === square) return choose(hold.lan);
     const targets = !hold && submit && canPlay() ? named().filter(({move}) => move.to === square || move.from === square) : [];
     if (targets.length === 1) return choose(targets[0].lan);
-    if (targets.length > 1) { choices(targets); boardSheet('Choose a move', $('choices')); return; }
+    if (targets.length > 1) { choices(targets); boardSheet('Choose a move', $('choices')); if (targets.every(c => c.move.promo)) [...$('choices').children].forEach((b, i) => motion.reveal(b, 350, 12, 550 + i * 90)); return; }
     if (submit && selected === square) { selected = inspected = undefined; choices([]); refresh(); return; }
-    const options = hold || !submit || selected === undefined || !canPlay() ? [] : moves.filter(({move}) => move.from === selected && reachable(move) && ((move.to !== move.from && move.to === square) || move.captures.includes(square) || move.shove?.from === square));
+    const options = hold || !submit || selected === undefined || !canPlay() ? [] : choicesFrom(moves, selected).filter(c => reachable(c) && ((c.move.to !== c.move.from && c.move.to === square) || c.move.captures.includes(square) || c.move.shove?.from === square));
     const ordinary = options.filter(({move}) => !move.power), one = ordinary.length === 1 ? ordinary[0] : options.length === 1 ? options[0] : undefined;
     if (one && ownTarget(one.move, square)) { held = one; inspected = undefined; refresh(); return; }
     if (one) return choose(one.lan);
     if (options.length > 1) { choices(options); boardSheet('Choose a move', $('choices')); return; }
     if (!pos.board[square]) { selected = inspected = undefined; choices(named()); }
-    else if (canPlay() && (colorOf(pos.board[square]) === view.seat || armedCard !== undefined && cardChoices().some(c=>c.move.from===square))) { selected = square; inspected = undefined; choices(moves.filter(({move}) => move.from === square && (armed || armedCard !== undefined || gameRules.rules.hands[view!.seat].length ? reachable(move) : true))); }
+    else if (canPlay() && (colorOf(pos.board[square]) === view.seat || armedCard !== undefined && cardChoices().some(c=>c.move.from===square))) { selected = square; inspected = undefined; choices(choicesFrom(moves, square).filter(c => (armed || armedCard !== undefined || gameRules.rules.hands[view!.seat].length ? reachable(c) : true))); }
     else { inspected = square; }
     refresh();
   }
@@ -380,7 +450,7 @@ export function boardScreen(store: Store) {
         if (action?.textContent === (reason || 'Use')) return;
         const next = reason ? text(reason) : button('Use', () => {
           if (!canPlay()) return;
-          armed = undefined; armedCard = index; selected = inspected = held = undefined; closeBoardSheet(); choices(cardChoices()); refresh();
+          armed = undefined; armedCard = index; selectedAt = performance.now(); selected = inspected = held = undefined; closeBoardSheet(); choices(cardChoices()); refresh();
         });
         if (reason) next.className = 'card-reason';
         const focused = action === document.activeElement;
@@ -405,14 +475,14 @@ export function boardScreen(store: Store) {
     if (tornDown || !view || !pos) return;
     // The deal starts when the board shows, not when the view arrives.
     if (dealing && client.state.screen === 'board') { dealing = false; dealtAt = performance.now(); }
-    if (opening && client.state.screen === 'board') { opening = false; $('board').animate([{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 320, easing: 'cubic-bezier(.05,.7,.1,1)' }); }
+    if (opening && client.state.screen === 'board') { opening = false; openingAt = performance.now(); }
     const focused = document.activeElement?.closest('#strip-me, #strip-them') ? document.activeElement.id : '';
     for (const side of [0,1] as const) {
       const mine = side === view.seat, strip = $(mine ? 'strip-me' : 'strip-them');
       strip.classList.toggle('is-turn', view.status === 'playing' && view.turn === side);
       strip.innerHTML = '<div class="coin-row"><span class="portrait"><img alt=""></span></div><span class="player-name"><b></b><small></small></span>';
       strip.querySelector('img')!.src = art(portraitPath(side));
-      if (checked !== null && pos.turn === side) moment(strip.querySelector<HTMLElement>('.portrait')!, 'is-checked', checkAt, 600);
+
       strip.querySelector('b')!.textContent = mine ? memory.me?.handle ?? 'You' : view.opponent?.computer ? 'Computer' : view.opponent?.deleted ? 'Deleted player' : view.opponent?.handle ?? 'Opponent';
       strip.querySelector('b')!.title = strip.querySelector('b')!.textContent;
       strip.querySelector('small')!.textContent = stripLine(side, mine ? ownRating : view.opponent?.rating, !mine && view.opponent?.computer ? view.level : undefined) + (!mine && thinking ? ' · thinking…' : '');
@@ -422,24 +492,44 @@ export function boardScreen(store: Store) {
         const paint = document.createElement('span'); paint.className = 'coin-paint'; b.append(paint);
         const image = document.createElement('img'); image.src = art(`ui/emblems/${coin.king.toLowerCase()}.webp`); image.alt = ''; paint.append(image);
         if (coin.total !== null && coin.total > 0) { const n = document.createElement('span'); n.className = 'notches'; n.setAttribute('aria-hidden','true'); for (let i=0;i<coin.total;i++) { const notch = document.createElement('span'); notch.className = 'notch' + (i < coin.spent ? ' is-spent' : ''); n.append(notch); } paint.append(n); }
+        if (liveOnsets && powerSpent.has(side) && coin.spent > powerSpent.get(side)!) powerAt.set(side, performance.now());
+        powerSpent.set(side, coin.spent);
         row.append(b);
+        motion.play(image, [{ scale: '1' }, { scale: '1.06', offset: .5 }, { scale: '1' }], 650, 0, powerAt.get(side) ?? -Infinity);
+        const notch = [...b.querySelectorAll('.notch.is-spent')].at(-1) ?? null;
+        motion.play(notch, [{ scale: '1' }, { scale: '.9' }], 500, 0, powerAt.get(side) ?? -Infinity);
       }
       for (const [index, card] of cardCoins(pos, side, gameRules.rules.hands[side], []).entries()) {
         const b = button('', () => coinRead(side, index)), image = document.createElement('img'), face = art(`ui/cards/${card.card.toLowerCase()}.webp`);
         const key = `${view.game_id}:${side}:${index}`;
-        if (card.spent && cardSpent.get(key) === false && !matchMedia('(prefers-reduced-motion: reduce)').matches) { spentAt.set(key, performance.now()); setTimeout(strips, 300); }
+        if (liveOnsets && card.spent && cardSpent.get(key) === false) spentAt.set(key, performance.now());
         cardSpent.set(key, card.spent);
         b.className = 'coin card-coin'; b.id = `card-${side ? 'b' : 'w'}-${index}`;
-        const spending = card.spent && moment(b, 'is-spending', spentAt.get(key) ?? -Infinity, 300);
-        b.dataset.state = mine && armedCard === index && !card.spent ? 'armed' : card.spent && !spending ? 'used' : 'always';
+        b.dataset.state = mine && armedCard === index && !card.spent ? 'armed' : card.spent ? 'used' : 'always';
         if (mine && !card.spent) b.setAttribute('aria-pressed', String(armedCard === index));
-        if (!spending) { b.style.setProperty('--i', String(index)); moment(b, 'is-dealt', dealtAt, 560); } b.setAttribute('aria-label', (mine ? 'Your ' : "Opponent's ") + cardName(card.card) + (card.spent ? ', spent' : ''));
+        b.setAttribute('aria-label', (mine ? 'Your ' : "Opponent's ") + cardName(card.card) + (card.spent ? ', spent' : ''));
         const paint = document.createElement('span'); paint.className = 'coin-paint'; b.append(paint);
         if (face) { image.src = face; image.alt = ''; paint.append(image); }
         else paint.innerHTML = cardSymbol(card.card);
         row.append(b);
+        motion.play(b, [{ opacity: 0, transform: `translateY(16px) rotate(${(index - 1.5) * 9}deg) scale(.9)` }, { opacity: 1, transform: 'translateY(0) rotate(0) scale(1)' }], 500, 150 + index * 130, dealtAt);
+        // Freeze and Firewall release their material at the card itself (ticket 86); the board shows where it lands.
+        if (card.spent && (card.card === 'Freeze' || card.card === 'Firewall')) castRelease(motion, $('game-table'), b, card.card, spentAt.get(key) ?? -Infinity);
+        else if (card.spent) motion.play(paint, [{ transform: 'translateY(-4px) scale(1)' }, { transform: 'translateY(0) scale(.96)' }], 400, 0, spentAt.get(key) ?? -Infinity);
+        else if (mine && armedCard === index) motion.play(paint, [{ transform: 'translateY(0)' }, { transform: 'translateY(-4px)' }], 300, 0, selectedAt);
       }
+      const portrait = strip.querySelector<HTMLElement>('.portrait')!;
+      if (checked !== null && pos.turn === side) {
+        portrait.classList.add('is-checked');
+        checkFrame(motion, portrait, checkAt);
+      }
+      motion.reveal(portrait, 600, 20, 250, openingAt);
+      motion.reveal(strip.querySelector('.player-name'), 450, 25, 850 + side * 130, openingAt);
+
     }
+    const current = document.querySelector<HTMLElement>('.player-strip.is-turn .portrait');
+    if (current) handoff(motion, $('game-table'), current, turnAt);
+    motion.reveal($('board').querySelector('canvas'), 450, 0, 850, openingAt);
     if (focused) document.getElementById(focused)?.focus({preventScroll:true});
   }
   function turnControls(draft?: ReturnType<typeof draftTurn>) {
@@ -459,12 +549,18 @@ export function boardScreen(store: Store) {
     turnControls(draft);
     $('board').dataset.animating = String(animating);
     if (stale()) { armed = undefined; armedCard = undefined; selected = inspected = held = undefined; choices([]); }
+    // An open full move list follows the preview. Keep an equal list and its focus.
+    if (allMoveChoices && canPlay() && selected === undefined && !armed && armedCard === undefined) {
+      const list = moves.filter(c => !c.move.pass && reachable(c));
+      const shown = [...$('choices').querySelectorAll('button')].map(b => b.title);
+      if (list.length !== shown.length || list.some((c, i) => c.lan !== shown[i])) choices(list);
+    }
     moveLine();
     updateTime();
     const check = (previewPosition()?.in_check ?? gameRules.inCheck(pos)) ? findKing(pos.board, pos.turn) : null;
-    if (check !== checked) { checked = check; if (check !== null && board.motion()) checkAt = performance.now(); }
+    if (check !== checked) { checked = check; if (liveOnsets && check !== null) checkAt = performance.now(); }
     // Show only the previewed move's marks.
-    const hold = holding(), cands = hold ? [hold.move] : selected === undefined ? [] : moves.filter(({move}) => move.from === selected && reachable(move)).map(c => c.move), marks = marksModel(cands);
+    const hold = holding(), cands = hold ? [hold.move] : selected === undefined ? [] : choicesFrom(moves, selected).filter(reachable).map(c => c.move), marks = marksModel(cands);
     // An armed power or target card has no selected piece; its marked squares are targets too.
     cursorTargets = [...marks.moves, ...marks.captures, ...marks.swaps, ...marks.shoves, ...named().map(c => c.move.to)];
     sayCursor();
@@ -473,7 +569,7 @@ export function boardScreen(store: Store) {
     if (lastMove && history.at(-1) === lastMove) while (start > 0 && history[start - 1].pre.turn === lastMove.pre.turn) start--;
     const trailSteps = steps.length ? steps : start < history.length ? history.slice(start) : lastMove ? [lastMove] : [];
     const trail = trailSteps.flatMap(({move: last}) => last.pass ? [] : [...(last.drop === undefined ? [last.from] : []), last.to, ...last.captures, ...(last.shove ? [last.shove.from, last.shove.to] : [])]);
-    const users = selected === undefined ? cardChoices().filter(c => !c.move.pass && c.move.drop === undefined).map(c => c.move.from) : [];
+    const users = selected === undefined ? choiceSources(cardChoices().filter(c => !c.move.pass && c.move.drop === undefined)) : [];
     highlight({ ...marks, selected, last: [...new Set(trail)], read: inspected === undefined ? undefined : reachOf(gameRules, pos, inspected), powers: [...new Set([...cands.filter(m => m.power && !m.pass).map(m => m.to), ...named().map(c => c.move.to), ...users])], rails: selected === undefined ? [] : railsOf(gameRules.rules.design, pos.board, selected, [...marks.moves, ...marks.captures], marks.captures), check: (previewPosition()?.in_check ?? gameRules.inCheck(pos)) ? findKing(pos.board, pos.turn) : null, checkers: checkersOf(gameRules, pos), threats: view.status === 'playing' && !animating ? threatsIn(gameRules, {...pos, turn:view.seat}) : [] });
     const square = inspected ?? selected, code = square === undefined ? 0 : pos.board[square];
     const [line = '', states = ''] = square === undefined ? [] : readText(gameRules, pos, square).split('\n');
@@ -508,6 +604,8 @@ export function boardScreen(store: Store) {
     $('context-note').textContent = ['armed','held'].includes(context.rank) ? [context.note, memory.blockNotice].filter(Boolean).join(' ') : memory.blockNotice || context.note;
     if (fresh && $('context-note').textContent?.includes(teach[1])) taught.set(teach[0], history.length);
     $('context-text').dataset.rank = context.rank;
+    if (checked !== null) motion.reveal($('status'), 430, 10, 250, checkAt);
+    motion.reveal($('context-text'), 420, 8, 2200, openingAt);
     $('context-text').tabIndex = context.rank === 'armed' ? 0 : -1;
     const actions: HTMLButtonElement[] = [];
     const drawReply = !view.result && view.draw_offer != null && view.draw_offer !== view.seat && view.kind !== 'solo';
@@ -519,9 +617,9 @@ export function boardScreen(store: Store) {
       const face = art(type === K ? portraitPath(colorOf(code)) : `ui/pieces/${NAMES[type]}-${colorOf(code) ? 'b' : 'w'}.webp`);
       all.innerHTML = `<span class="portrait" aria-hidden="true">${face ? `<img id="piece-info-art" alt="" src="${face}">` : ''}</span>`;
       if (!face) all.firstElementChild!.textContent = (type === T && gameRules.playedDesign()?.letter) || LETTERS[type];
-      all.onclick = () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(gameRules, pos!, square!)}` : readText(gameRules, pos!, square!)));
+      all.onclick = () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(gameRules, pos!, square!)}` : readText(gameRules, pos!, square!)), ruleCards(type, pos!));
     }
-    if ((!drawReply || unarmed) && selected !== undefined && moves.some(({move}) => move.from === selected && !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
+    if ((!drawReply || unarmed) && selected !== undefined && choicesFrom(moves, selected).some(({move}) => !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
     if (!unarmed) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; held = undefined; choices([]); refresh(); }));
     const gameActions = actionButtons(view,Date.now()-readAt,refused);
     if (!view.result) actions.push(...gameActions);
@@ -542,6 +640,7 @@ export function boardScreen(store: Store) {
     if (!$('board').dataset.toppling) board.setFallen(fallen, toppling && win && fallen !== null);
     if (toppling && win && fallen !== null && board.motion()) kingDown(fallen);
     if (fallen !== null) toppling = false;
+    liveOnsets = false;
   }
   // Keep the short web ceremony. Skip and See the board work at once.
   function kingDown(fallen: number) {
@@ -554,8 +653,9 @@ export function boardScreen(store: Store) {
   $('reload').addEventListener('click', closeBoardSheet, { signal });
   $('board-menu').onclick = () => {
     const chooseMove = button('Choose a move', () => {
-      if (canPlay() && selected === undefined && !armed && armedCard === undefined) choices(moves.filter(({move}) => !move.pass && reachable(move)));
-      boardSheet('Choose a move', $('choices'));
+      const all = selected === undefined && !armed && armedCard === undefined;
+      if (canPlay() && all) choices(moves.filter(c => !c.move.pass && reachable(c)));
+      boardSheet('Choose a move', $('choices')); allMoveChoices = all;
     }); chooseMove.className = 'game-action';
     const actions = [chooseMove, ...view ? [...actionButtons(view, Date.now() - readAt, refused, true), ...playerBlockButton(view)] : []];
     for (const action of actions) action.disabled = networkBlocked();
@@ -593,7 +693,21 @@ export function boardScreen(store: Store) {
   // The board redraws on a screen change, or when its game, board data, lock or refusal changes. An equal-revision poll
   // reply changes only opponent and server_now, so the key holds and the coin row (and its focus) stay (design §3.4).
   const key = (p: Page) => { const l = locks(p); return [p.screen, p.view?.game_id, p.view?.revision, p.view?.status, p.view?.fen, l.game, l.blocked, staleRead(p), p.notice?.kind === 'refusal' ? p.notice.text : ''].join('|'); };
-  const unsubscribe = store.subscribe((page, before) => { if (active()) { if (key(page) !== key(before)) refresh(); if (page.screen !== before.screen) restorePreview(); } else { movesChoice = undefined; fitMoves(); skipBoardCeremony(); } scheduleComputer(); if (client.state.screen === 'end') updateEnd(); });
+  const unsubscribe = store.subscribe((page, before) => {
+    if (!active() || page.writing || page.pending?.error || page.view?.game_id !== before.view?.game_id || page.view?.turn !== before.view?.turn) clearConfirmation();
+    $('app-root').dataset.uiMotion = memory.settings?.symbols_only ? 'off' : 'fast'; if (memory.settings?.symbols_only) motion.cancel(); if (active()) { if (key(page) !== key(before)) refresh(); if (page.screen !== before.screen) restorePreview(); } else { movesChoice = undefined; fitMoves(); skipBoardCeremony(); motion.cancel(); if (['board', 'end'].includes(before.screen)) { dealing = opening = false; dealtAt = openingAt = turnAt = checkAt = -Infinity; } }
+    if (active() && page.pending?.error && page.pending.error !== before.pending?.error) { motion.reveal($('error'), 400, 8); motion.reveal($('retry'), 350, 5, 650); }
+    if (active() && before.writing && !page.writing && !page.pending && before.pending?.name === 'kingdown_move') {
+      clearConfirmation();
+      const check = document.createElement('span'); check.className = 'ui-send-check'; check.textContent = '✓'; check.setAttribute('aria-hidden', 'true'); $('end-turn').append(check);
+      motion.play(check, [{ opacity: 0, scale: '.6' }, { opacity: 1, scale: '1' }], 350);
+      const animation = check.getAnimations()[0];
+      if (animation) void animation.finished.then(() => check.remove(), () => check.remove());
+      else check.remove();
+    }
+    if (active() && page.notice?.kind === 'read' && page.notice.text !== before.notice?.text) motion.reveal(document.querySelector('.page-error'), 350, -18);
+    if (active() && before.notice?.kind === 'read' && !page.notice) motion.reveal($('status'), 350, 0);
+    scheduleComputer(); if (client.state.screen === 'end') updateEnd(); });
   const resultObserver = new MutationObserver(() => { if (active()) refresh(); else skipBoardCeremony(); scheduleComputer(); if (client.state.screen === 'end') updateEnd(); });
   resultObserver.observe($('over'), {attributes:true, attributeFilter:['open']});
   const sheetObserver = new MutationObserver(() => turnControls());
@@ -602,12 +716,17 @@ export function boardScreen(store: Store) {
     if (tornDown) return;
     if (view?.game_id === next.game_id && next.revision < view.revision) return;
     const before = view, same = view?.game_id === next.game_id, previousDraft = serverDraft;
+    liveOnsets = same && !restoring && before?.revision !== next.revision;
+    if (liveOnsets && before?.turn !== next.turn) turnAt = performance.now();
+    if (restoring || same && before?.status === 'playing' && next.status !== 'playing') motion.cancel();
+    if (!same) { motion.cancel(); dealtAt = openingAt = turnAt = checkAt = -Infinity; cardSpent.clear(); spentAt.clear(); powerSpent.clear(); powerAt.clear(); checked = null; }
     if (!same || next.status !== 'finished') skipBoardCeremony();
-    if (same && before?.status === 'playing' && next.status === 'finished') { toppling = true; guardEndTaps(next.game_id); }
+    if (same && !restoring && ['playing', 'waiting', 'setup'].includes(before?.status ?? '') && ['finished', 'aborted'].includes(next.status)) { toppling = true; guardEndTaps(next.game_id, next.status === 'finished' && before?.status === 'playing'); }
     // A live game start: the cards deal once, and after the seat both Ready open the board.
-    const started = !restoring && next.status === 'playing' && next.history?.actions.length === 0 && (!same || before?.status === 'setup') && board.motion();
+    const createdHere = !same && ['kingdown_create', 'kingdown_find', 'kingdown_join', 'kingdown_rematch'].includes(store.page().pending?.name ?? '');
+    const started = !restoring && next.status === 'playing' && next.history?.actions.length === 0 && (createdHere || same && ['setup', 'waiting'].includes(before?.status ?? '')) && board.motion();
     if (started && next.options?.cards) dealing = true;
-    if (started && (next.options?.arrangement || next.options?.kingPowers)) opening = true;
+    if (started) opening = true;
     const unchanged = same && before?.revision === next.revision && before.fen === next.fen && before.status === next.status && before.engine_fingerprint === next.engine_fingerprint;
     view = {...next, rules:next.rules ?? (same ? view?.rules : undefined), outcome:next.outcome ?? (same ? view?.outcome : undefined), opponent:next.opponent && {...next.opponent, rating:next.rules ? next.opponent.rating : next.opponent.rating ?? (same ? view?.opponent?.rating : undefined)}};
     if (['finished','aborted'].includes(next.status)) setTimeout(()=>{
@@ -630,7 +749,7 @@ export function boardScreen(store: Store) {
     }
     previewAbort?.abort(); previewAbort = undefined; previewing = false; serverDraft = undefined;
     const token = ++generation; board.skip(); animating = false; $('board').dataset.animating='false';
-    if (!same) { movesChoice = undefined; history = []; lastMove = undefined; steps = []; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
+    if (!same) { board.resetEffects(); movesChoice = undefined; history = []; lastMove = undefined; steps = []; computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; refused.clear(); taught.clear(); }
     if (next.turn === next.seat || next.status !== 'playing') { computerCalls = 0; clearTimeout(thinkingTimer); thinking = false; }
     const local = steps; steps = []; if (local.length) lastMove = history.at(-1);
     armed = undefined; armedCard = undefined; selected = inspected = held = undefined;
@@ -670,7 +789,7 @@ export function boardScreen(store: Store) {
         for (const step of replay) {
           if (token !== generation) return;
           const hit = hitSound(step, token);
-          if (!rush && step.move.drop === undefined) await board.animateMove(step.pre, step.move, hit);
+          if (!rush && (step.move.drop === undefined || step.move.power)) await board.animateMove(step.pre, step.move, hit);
           if (token !== generation) return;
           board.sync(step.pos); hit(); if (previewPosition()?.in_check ?? gameRules.inCheck(step.pos)) snd.check();
         }
@@ -685,7 +804,7 @@ export function boardScreen(store: Store) {
   return Object.assign(draw, { dispose() {
     if (tornDown) return;
     tornDown = true; ++generation; previewAbort?.abort(); previewAbort = undefined;
-    skipBoardCeremony(); stopPlacingChoice(); refreshCardSheet = undefined;
+    clearConfirmation(); motion.dispose(); skipBoardCeremony(); stopPlacingChoice(); refreshCardSheet = undefined;
     clearTimeout(thinkingTimer); clearTimeout(deadlineTimer);
     events.abort(); unsubscribe(); cursorObserver.disconnect(); movesObserver.disconnect(); resultObserver.disconnect(); sheetObserver.disconnect();
     disposeBoard(); view = undefined; pos = undefined; history = []; lastMove = undefined; steps = [];

@@ -134,6 +134,7 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
           : scenario === 'gallery' ? {fen:'rnbqkalg/msoppppp/8/8/8/8/MSOPPPPP/RNBQKALG w - - 0 1',kings}
           : scenario === 'apart' ? {fen:'8/8/8/k4p2/2P4K/8/8/8 w - - 0 1',kings}
           : {fen:'7k/8/8/2p5/8/2A5/8/K7 w - - 0 1',kings:'none,none'};
+        if (scenario === 'skylift') Object.assign(setup, { hand: ['SkyLift'] });
         let matchId;
         if (seedPosition) matchId = await seedPosition(setup,black);
         else matchId = await service!.seedPosition(setup,black);

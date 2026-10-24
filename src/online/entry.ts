@@ -1,5 +1,5 @@
 import { AUTH_KEY } from '../account/session';
-import { stagingTestEmail } from '../account/public-config';
+import { stagingPasswordSignInEnabled } from '../account/public-config';
 import { configureRuntime } from '../account-game/host';
 import { onlineClient } from './client';
 import { createBrowserRuntime } from './runtime';
@@ -31,12 +31,11 @@ function message(words: string, providers: readonly ('google' | 'github')[] = []
   if (retry) {
     const button = document.createElement('button'); button.textContent = 'Try again'; button.onclick = () => location.reload(); main.append(button);
   }
-  const testEmail = testSignIn && stagingTestEmail(import.meta.env);
-  if (testEmail) {
+  if (testSignIn && stagingPasswordSignInEnabled(import.meta.env)) {
     const form = document.createElement('form'); form.className = 'staging-sign-in';
     const heading = document.createElement('h2'); heading.textContent = 'Staging test account';
     const emailLabel = document.createElement('label'); emailLabel.textContent = 'Email';
-    const email = document.createElement('input'); email.type = 'email'; email.name = 'username'; email.autocomplete = 'username'; email.value = testEmail; email.readOnly = true; emailLabel.append(email);
+    const email = document.createElement('input'); email.type = 'email'; email.name = 'username'; email.autocomplete = 'username'; email.required = true; emailLabel.append(email);
     const passwordLabel = document.createElement('label'); passwordLabel.textContent = 'Password';
     const password = document.createElement('input'); password.type = 'password'; password.name = 'password'; password.autocomplete = 'current-password'; password.required = true; passwordLabel.append(password);
     const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = 'Sign in to test account';
@@ -47,11 +46,11 @@ function message(words: string, providers: readonly ('google' | 'github')[] = []
       line.textContent = 'Signing in…';
       const secret = password.value; password.value = '';
       try {
-        await (await getClient()).signInTestAccount(secret);
+        await (await getClient()).signInWithPassword(email.value, secret);
         const route = parseAccountRoute(new URL(location.href));
         location.assign(route ? accountPath(route) : '/play/');
       } catch {
-        line.textContent = 'Sign-in failed. Check the password and try again.';
+        line.textContent = 'Sign-in failed. Check the email and password and try again.';
         main.querySelectorAll('button, input').forEach(control => { (control as HTMLInputElement).disabled = false; });
         pending = false; password.focus();
       }

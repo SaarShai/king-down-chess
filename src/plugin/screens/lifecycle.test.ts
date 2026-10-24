@@ -3,7 +3,7 @@ import { DEFAULT_OPTIONS } from '../../match/setup';
 import type { View } from '../../match/protocol';
 
 const runtime = vi.hoisted(() => ({
-  closed: false, call: vi.fn(), send: vi.fn(), clientCall: vi.fn(), navigate: vi.fn(), renderRows: vi.fn(), routeView: vi.fn(),
+  motionResult: vi.fn(), closed: false, call: vi.fn(), send: vi.fn(), clientCall: vi.fn(), navigate: vi.fn(), renderRows: vi.fn(), routeView: vi.fn(),
   client: { state: { screen: 'wait', sheet: undefined as string | undefined, pending: undefined }, save: vi.fn() },
   memory: { view: undefined as View | undefined, games: [] as any[], settings: undefined as any, me: undefined },
   board: { ready: vi.fn(), setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), setPreview: vi.fn(), screenOf: () => ({ x: 0, y: 0 }), onSquareClick: () => {}, onDragSelect: () => {}, onSquareHover: () => {} },
@@ -15,6 +15,7 @@ vi.mock('../../account-game/runtime', () => ({
   gameActionsBlocked: () => false, pollUpdate() {}, start: vi.fn(), showNewGame() {}, actions() {},
   store: { page: () => ({ screen: runtime.client.state.screen, connected: true, mounting: false, writing: false }) },
 }));
+vi.mock('../../ui/motion', () => ({ UiMotion: class { cancel() {} dispose() {} }, revealResult: runtime.motionResult }));
 vi.mock('../../account-game/art', () => ({ art: (path: string) => path }));
 vi.mock('../board-view', () => ({ board: runtime.board, highlight() {} }));
 vi.mock('./board', () => ({ boardGame: () => runtime.memory.view, closeBoardSheet() {}, sendBoardCommand() {}, skipBoardCeremony() {} }));
@@ -215,4 +216,27 @@ it('explains a replaced code and keeps renewal explicit', async () => {
   expect(lookup('friend-new').hidden).toBe(false); expect(lookup('friend-help').textContent).toContain('replaced');
   expect(runtime.clientCall).not.toHaveBeenCalled();
   friend.stopAll();
+});
+
+it('keeps a live result through the board unlock, plays it once and cancels it on navigation', async () => {
+  const end = await import('./end');
+  document.querySelector = ((selector: string) => selector.includes('[open]') ? null : lookup(selector)) as typeof document.querySelector;
+  const result = (game_id: string) => ({ game_id, revision: 4, kind: 'solo', status: 'finished', seat: 0, turn: 1, result: { reason: 'checkmate', winner: 0 }, rules: {} }) as View;
+  runtime.client.state.screen = 'end'; runtime.memory.view = result('old');
+  end.endScreen(false); await vi.advanceTimersByTimeAsync(20);
+  lookup('over').classList.contains = () => true;
+  runtime.client.state.screen = 'board'; runtime.memory.view = result('live');
+  end.endSync({screen:'board', connected:true, mounting:false, writing:true});
+  end.guardEndTaps('live'); lookup('reload').disabled = true;
+  end.endSync({screen:'board', connected:true, mounting:false, writing:false});
+  runtime.client.state.screen = 'end';
+  end.endScreen(false); await vi.advanceTimersByTimeAsync(20);
+  expect(runtime.motionResult).toHaveBeenCalledTimes(1);
+  expect(runtime.motionResult.mock.calls[0][2]).toBe('victory');
+  end.endScreen(false); await vi.advanceTimersByTimeAsync(20);
+  expect(runtime.motionResult).toHaveBeenCalledTimes(1);
+  end.guardEndTaps('live');
+  runtime.client.state.screen = 'profile'; end.endSync({screen:'profile', connected:true, mounting:false, writing:false});
+  runtime.client.state.screen = 'end'; end.endScreen(false); await vi.advanceTimersByTimeAsync(20);
+  expect(runtime.motionResult).toHaveBeenCalledTimes(1);
 });

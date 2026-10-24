@@ -15,6 +15,7 @@ const gameResult = (view: View): ToolResult => result({ view, board_id: view.gam
 const inviteKey = (key: string): { token: string } | { code: string } => key.length === 43 ? { token: key } : { code: key };
 
 type Receipt = { name: string; args: Record<string, unknown> };
+const GAME_SCREENS: string[] = ['board', 'seat', 'friend', 'wait', 'end'];
 /** The receipt is durable before the send. A network fault retains the exact ID, game, revision and payload. */
 export function createWebTransport(api: OnlineClient, userId: string, storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>) {
   const key = `kingdown.account-command.${userId}`;
@@ -101,11 +102,18 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
   if (receipt) {
     const previous = saved?.pending?.name === receipt.name && saved.pending.args.command_id === receipt.args.command_id ? saved.pending : undefined;
     const screen = previous?.screen ?? (receipt.name === 'kingdown_create' || receipt.name === 'kingdown_find' ? 'play' : 'board');
-    saved = { ...saved, screen, board_id: String(receipt.args.game_id ?? receipt.args.board_id ?? saved?.board_id ?? '') || undefined,
+    const board_id = String(receipt.args.game_id ?? receipt.args.board_id ?? saved?.board_id ?? '') || undefined;
+    // Recover the original command without replacing a different game selected by its URL.
+    const selection = entry?.screen === 'game' && entry.gameId !== board_id && ['kingdown_move', 'kingdown_computer'].includes(receipt.name) ? { screen: 'board' as const, board_id: entry.gameId } : { screen, board_id };
+    saved = { ...saved, ...selection,
       pending: { ...previous, ...receipt, screen, error: undefined, error_screen: undefined } };
+    // Recovery shows the receipt's game in place of the entry: the address names it, as a reload of its page does.
+    if (selection.board_id && GAME_SCREENS.includes(selection.screen) && !(entry?.screen === 'game' && entry.gameId === selection.board_id)) {
+      try { window.history.replaceState(null, '', accountPath({ screen: 'game', gameId: selection.board_id })); } catch { /* An unreadable saved game ID keeps the entry address. */ }
+    }
   }
   const stateHost: WidgetHost = {
-    accountId: userId, widgetState: { privateContent: saved },
+    accountId: userId, pendingScope: 'account', widgetState: { privateContent: saved },
     savePage(state) { window.localStorage.setItem(key, JSON.stringify(state)); },
   };
   let stopped = false, started = false, routeGeneration = 0;
@@ -135,7 +143,7 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
     async openLink({ url }) { window.location.assign(url); return {}; },
     route(screen, gameId) {
       if (!started) return;
-      const gameScreen = ['board', 'seat', 'friend', 'wait', 'end'].includes(screen);
+      const gameScreen = GAME_SCREENS.includes(screen);
       // Fullscreen startup restores the screen before the first authoritative game view arrives.
       if (gameScreen && !gameId) return;
       routeGeneration++;

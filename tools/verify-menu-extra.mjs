@@ -180,6 +180,8 @@ try {
     assert.match(await page.locator('.coming-row').innerText(), /Card mode/);
     await shot(page, `extra-${width}`);
     await openAccount(page); assert.equal(await page.locator('#account').isVisible(), true);
+    // Let Account finish its asynchronous render before replacing its test content.
+    await page.locator('#account-body [data-provider="github"]').waitFor({ state: 'visible' });
     const accountContent = await page.locator('#account-body').innerHTML();
     await page.locator('#account-body').evaluate(body => { body.innerHTML = '<p>Account</p>' + '<label>Saved game</label>'.repeat(30); });
     await page.waitForFunction(() => document.getElementById('menu-sheet').classList.contains('has-overflow'));

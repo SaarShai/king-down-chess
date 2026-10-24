@@ -146,7 +146,7 @@ it('keeps a board open without a game on home and stores its ID only in private 
     expect(await frame.locator('body').getAttribute('data-page')).toBe('home');
     expect(await page.evaluate(()=>(window as any).harnessWidgetState.privateContent.board_id)).toBe(result._meta.board_id);
     await remount(page);
-    await frame.locator('#home-play:not(:disabled)').waitFor();
+    await frame.locator('body[data-page="home"] #home-play:not(:disabled)').waitFor();
     expect(await frame.locator('body').getAttribute('data-page')).toBe('home');
   } finally {await page.close();}
 });
@@ -1006,8 +1006,9 @@ it('closes board sheets with Escape, returns focus and returns from Settings to 
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', {kind:'solo',colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
     for (const id of ['board-menu','moves-line']) {
       await frame.locator(`#${id}:not(:disabled)`).click(); await frame.locator('#board-sheet[open]').waitFor();
-      await page.keyboard.press('Escape'); expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
+      await page.keyboard.press('Escape'); expect(await frame.locator('#board-sheet').evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
       expect(await frame.locator(`#${id}`).evaluate(e => document.activeElement === e)).toBe(true);
+      await frame.locator('#board-sheet').waitFor({ state: 'hidden' });
     }
     await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Settings',exact:true}).click();
     expect(await frame.locator('#page-back').textContent()).toBe('‹ Game');
