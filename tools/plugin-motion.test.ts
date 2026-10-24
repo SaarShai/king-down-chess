@@ -3,9 +3,11 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { chromium, type Browser, type FrameLocator, type Page } from 'playwright';
+import type { Browser, FrameLocator, Page } from 'playwright';
+import { launch } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { watchMotion, watchMotionEnd } from './plugin-motion-observer';
+import { settled } from './lib/plugin-settled.mjs';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 120_000 });
 // Each motion moment exists, ends, and under reduced motion shows its final state at once.
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -13,7 +15,7 @@ beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-motion-'));
   // Normal shared build: at most 601 ms in the M1 style test.
   execFileSync(process.execPath, ['tools/plugin-ui-build.mjs', folder], { stdio: 'pipe', timeout: 30_000 });
-  harness = await startHarness({ boardPath: join(folder, 'board.html') }); browser = await chromium.launch({ headless: true });
+  harness = await startHarness({ boardPath: join(folder, 'board.html') }); browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
 async function open(reduced: boolean) {
@@ -40,6 +42,8 @@ async function mate(page: Page, frame: FrameLocator, paused = false) {
   const result = await (await page.request.post(new URL(`/fixture-position?fen=${encodeURIComponent('7k/8/6K1/8/8/8/8/Q7 w - - 0 1')}`, harness.url).href)).json();
   await page.evaluate(r => (window as any).harnessShow(r), result);
   await frame.locator('#board[aria-busy="false"]').waitFor(); await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+  // The remote move preview can finish after the artwork and turn words.
+  await settled(page, frame);
   await tapSquare(frame, 'a1');
   await tapSquare(frame, 'a8');
   const send = frame.locator('#end-turn[aria-disabled="false"]'); await send.waitFor();
@@ -143,6 +147,7 @@ it('keeps a live checkmate loss calm and leaves the last move on the board', asy
     expect(await frame.locator('#last-move').textContent()).toContain('a8');
     expect(await frame.locator('#board[data-toppling], #board .kd-words, #over.is-win').count()).toBe(0);
     expect(await animations(frame, '#over')).toBe(0);
+    await settled(page, frame);
     await frame.locator('#over').getByRole('button', { name: 'See the board', exact: true }).click();
     await frame.locator('#moves-line').click(); await frame.locator('#board-sheet[open]').waitFor();
     await page.waitForTimeout(3300);
