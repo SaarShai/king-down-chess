@@ -9,6 +9,12 @@ import { drawFreeze, drawIceWall, drawFirewall } from './materials';
 import type { CardFrame, CardLayer } from './card-types';
 
 const released = new Set(RELEASED_CARDS.map(card => card.id));
+/**
+ * The local release (motion concepts, ticket 86): Freeze and Firewall prepare at their card for CAST_PREPARE_MS, then the
+ * approved material grows on the board where it acts. No light crosses the board, so the cast never reads as an attack.
+ */
+export const CAST_PREPARE_MS = 125;
+const LOCAL = new Set(['Freeze', 'Firewall']);
 const durations: Record<string, number> = { Burn: 1500, Freeze: 1600, EarthQuake: 1650, ...MOVEMENT_DURATIONS, ...SPELL_DURATIONS };
 const clamp = (t: number) => Math.max(0, Math.min(1, t));
 const ease = (t: number) => { t = clamp(t); return t * t * (3 - 2 * t); };
@@ -56,6 +62,8 @@ export function cardLender(context: GameRules, before: Position, move: Move): nu
 export class CardPlayback implements SceneEffect {
   readonly duration: number;
   readonly after: Position;
+  /** Freeze or Firewall cast with the local release: no hero, trail or spell drawing; the material grows in place. */
+  readonly local: boolean;
   shown: Position;
   private frame: CardFrame;
   private units: Unit[];
@@ -69,6 +77,7 @@ export class CardPlayback implements SceneEffect {
     // The approved multi-action studies divide their duration equally over their two actions.
     this.duration = action.mirror ? SPELL_DURATIONS.MirrorB / 2
       : durations[action.id] / (['Haste', 'Rally', 'Firewall'].includes(action.id) ? 2 : 1);
+    this.local = !action.mirror && action.index === 0 && LOCAL.has(action.id);
     this.units = movingUnits(before, move);
     this.travelBoard = new Uint8Array(before.board);
     for (const unit of this.units) this.travelBoard[unit.from] = 0;
@@ -77,6 +86,8 @@ export class CardPlayback implements SceneEffect {
   }
 
   position(t: number): Position {
+    // The local release shows the result board from the release; the new mark's own state starts at the end.
+    if (this.local && t < 1) t = t * this.duration < CAST_PREPARE_MS ? 0 : .62 + .38 * clamp((t * this.duration - CAST_PREPARE_MS) / (this.duration - CAST_PREPARE_MS));
     this.frame.t = t;
     this.frame.travel = ease((t - .22) / .4);
     const board = t >= .62 ? this.after.board : t > .35 ? this.replaceBoard : t > .22 ? this.travelBoard : this.before.board;
@@ -92,6 +103,7 @@ export class CardPlayback implements SceneEffect {
 
   draw(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: CardLayer, row: number | undefined, t: number): void {
     if (t >= 1) return;
+    if (this.local) { this.drawRelease(ctx, scene, layer, row, t * this.duration); return; }
     const { id, mirror } = this.action, event = this.frame;
     if (layer === 'under' || row === 7) {
       if (HEROES.has(id)) drawHero(ctx, scene, id, event, layer);
@@ -101,6 +113,22 @@ export class CardPlayback implements SceneEffect {
     }
     if (layer === 'over' && row === 7) this.drawActors(ctx, scene);
     this.drawMaterial(ctx, scene, layer, row);
+  }
+
+  /** The approved material grows from the release to its held strength (.42) in 450 ms (Freeze) or 480 ms (Firewall). */
+  releaseProgress(ms: number): number {
+    return .42 * ease((ms - CAST_PREPARE_MS) / (this.move.power === 'freeze' ? 450 : 480));
+  }
+
+  private drawRelease(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: CardLayer, row: number | undefined, ms: number): void {
+    const progress = this.releaseProgress(ms), mark = this.after.marks?.[this.before.turn], front = layer === 'over';
+    if (progress <= 0 || !mark) return;
+    const draw = this.move.power === 'freeze' ? drawFreeze : drawFirewall;
+    for (let sq = 0; sq < 64; sq++) {
+      if (!this.after.board[sq] || (mark.all ? colorOf(this.after.board[sq]) !== this.before.turn : mark.sq !== sq)) continue;
+      if (front && scene.cell(sq).row !== row) continue;
+      draw(ctx, { ...scene.foot(sq), progress, front, seed: sq });
+    }
   }
 
   private drawMaterial(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: CardLayer, row: number | undefined): void {

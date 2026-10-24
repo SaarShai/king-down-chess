@@ -1,3 +1,6 @@
+import { drawFirewall, drawFreeze } from '../render/effects/materials';
+import { CAST_PREPARE_MS } from '../render/effects/card';
+
 /** Short interface motion. The DOM always holds the readable result. */
 export class UiMotion {
   private running = new Map<Animation, Element>();
@@ -21,7 +24,7 @@ export class UiMotion {
 
   private enabled() { return !this.stopped && !document.hidden && !this.reduced.matches && this.pace() !== 'off' && this.allowed(); }
 
-  play(element: Element | null, frames: Keyframe[], duration: number, delay = 0, at = performance.now()): Animation | undefined {
+  play(element: Element | null, frames: Keyframe[], duration: number, delay = 0, at = performance.now(), easing = 'cubic-bezier(.333333,1,.666667,1)'): Animation | undefined {
     const speed = this.pace() === 'fast' ? 2 : 1;
     const age = performance.now() - at;
     if (!this.enabled()) { this.cutoff = Math.max(this.cutoff, at); return; }
@@ -29,7 +32,7 @@ export class UiMotion {
     if (!element || !element.isConnected || typeof element.animate !== 'function' || at <= this.cutoff || age >= (delay + duration) / speed) return;
     // A rebuilt control resumes its current beat. It never starts the beat again.
     for (const [animation, target] of this.running) if (target === element || !target.isConnected) { animation.cancel(); this.running.delete(animation); }
-    const animation = element.animate(frames, { duration: duration / speed, delay: delay / speed, easing: 'cubic-bezier(.333333,1,.666667,1)', fill: 'both' });
+    const animation = element.animate(frames, { duration: duration / speed, delay: delay / speed, easing, fill: 'both' });
     animation.currentTime = Math.max(0, age);
     this.running.set(animation, element);
     const clear = () => { this.running.delete(animation); animation.cancel(); };
@@ -101,4 +104,47 @@ export function checkFrame(motion: UiMotion, portrait: HTMLElement, at = perform
   let frame = portrait.querySelector<HTMLElement>('.ui-check-frame');
   if (!frame) { frame = document.createElement('i'); frame.className = 'ui-check-frame'; frame.setAttribute('aria-hidden', 'true'); portrait.append(frame); }
   motion.play(frame, [{ opacity: 0, scale: '1.2' }, { opacity: 1, scale: '1' }], 430, 250, at);
+}
+
+const clamp = (n: number) => Math.max(0, Math.min(1, n));
+const ease = (n: number) => { n = clamp(n); return n * n * (3 - 2 * n); };
+export const CAST_SPENT_MS = 500;
+/**
+ * The local release at the card (ticket 86): Freeze or Firewall gathers a little of its board material on the card for
+ * CAST_PREPARE_MS, then the card's light drains into the spent state by CAST_SPENT_MS. Nothing travels to the board.
+ * `host` holds the material layer (#game-table); `coin` is the spent card coin, found again by id after a rebuild.
+ */
+export function castRelease(motion: UiMotion, host: HTMLElement, coin: HTMLElement, card: 'Freeze' | 'Firewall', at: number): void {
+  // The approved card glow, sampled at 0, 125, 250 and 375 ms on a linear clock. Each animation ends on the coin's own
+  // spent style (no last keyframe), so the static spent card does not change.
+  const paint = coin.querySelector('.coin-paint');
+  motion.play(coin, [{ filter: 'grayscale(0)' }, { filter: 'grayscale(0)', offset: .25 }, { filter: 'grayscale(.26)', offset: .5 }, { filter: 'grayscale(.74)', offset: .75 }], CAST_SPENT_MS, 0, at, 'linear');
+  motion.play(paint, [
+    { transform: 'translateY(-4px) scale(1)', filter: 'grayscale(0) brightness(1)', opacity: 1 },
+    { transform: 'translateY(-4px) scale(1)', filter: 'grayscale(0) brightness(1.14)', opacity: 1, offset: .25 },
+    { filter: 'grayscale(.26) brightness(1.2)', opacity: .96, offset: .5 },
+    { filter: 'grayscale(.74) brightness(1.14)', opacity: .89, offset: .75 },
+  ], CAST_SPENT_MS, 0, at, 'linear');
+  if (host.querySelector(`.ui-cast-release[data-coin="${coin.id}"]`)) return;
+  const layer = document.createElement('canvas'); layer.className = 'ui-cast-release'; layer.dataset.coin = coin.id; layer.setAttribute('aria-hidden', 'true');
+  host.append(layer);
+  // The layer's own opacity animation is the clock, so pace, reduced motion, hiding and cancel stop it with the rest.
+  const clock = motion.play(layer, [{ opacity: 1 }, { opacity: 1 }], CAST_SPENT_MS, 0, at, 'linear');
+  if (!clock) { layer.remove(); return; }
+  const draw = card === 'Freeze' ? drawFreeze : drawFirewall, total = Number(clock.effect?.getComputedTiming().duration) || CAST_SPENT_MS;
+  const frame = () => {
+    const target = document.getElementById(coin.id), ms = Number(clock.currentTime ?? 0) * CAST_SPENT_MS / total;
+    if (clock.playState !== 'running' || !target || !layer.isConnected) { layer.remove(); return; }
+    const box = host.getBoundingClientRect(), face = target.getBoundingClientRect(), scale = face.width / 142, dpr = Math.min(2, devicePixelRatio || 1);
+    // The material's foot sits low on the card face, as on a figure.
+    Object.assign(layer.style, { left: `${face.left - box.left + face.width / 2 - 80 * scale}px`, top: `${face.top - box.top + face.height * .8 - 145 * scale}px`, width: `${160 * scale}px`, height: `${180 * scale}px` });
+    layer.width = Math.round(160 * scale * dpr); layer.height = Math.round(180 * scale * dpr);
+    const ctx = layer.getContext('2d')!;
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0); ctx.clearRect(0, 0, 160, 180);
+    ctx.globalAlpha = (1 - ease((ms - CAST_PREPARE_MS) / (CAST_SPENT_MS - CAST_PREPARE_MS))) * .86;
+    for (const front of [false, true]) draw(ctx, { x: 80, y: 145, progress: .32 * ease(ms / CAST_PREPARE_MS), front, seed: 3 });
+    requestAnimationFrame(frame);
+  };
+  void clock.finished.then(() => layer.remove(), () => layer.remove());
+  frame();
 }

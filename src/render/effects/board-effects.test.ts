@@ -7,11 +7,13 @@ import { drawFreeze } from './materials';
 import { drawArcherFocus } from './archer-flare';
 import { drawSwap } from './state-flare';
 import { link, pips } from './indications';
+import { drawCheck, drawWithdrawal } from './check';
 import { fixtures } from '../../../docs/specs/effects-animation/preview/signals/fixtures';
 vi.mock('./materials', () => ({ drawFreeze: vi.fn(), drawIceWall: vi.fn(), drawFirewall: vi.fn() }));
 vi.mock('./archer-flare', () => ({ drawArcherFocus: vi.fn() }));
 vi.mock('./state-flare', () => ({ drawGuard: vi.fn(), drawShelter: vi.fn(), drawSwap: vi.fn() }));
 vi.mock('./indications', () => ({ SIGNAL_DURATION_MS: 4800, ring: vi.fn(), link: vi.fn(), pips: vi.fn(), checkImpact: vi.fn() }));
+vi.mock('./check', () => ({ CHECK_WITHDRAW_MS: 220, drawCheck: vi.fn(), drawWithdrawal: vi.fn() }));
 afterEach(() => vi.clearAllMocks());
 const ctx = { save() {}, restore() {}, translate() {}, scale() {} } as unknown as CanvasRenderingContext2D;
 const sceneAt = (flipped: boolean) => ({ cell: (sq: number) => ({ col: flipped ? 7 - sq % 8 : sq % 8, row: flipped ? sq >> 3 : 7 - (sq >> 3) }), foot: (sq: number) => ({ x: sq * 10, y: sq * 20 }) }) as unknown as PaintedScene;
@@ -55,7 +57,39 @@ it('keeps Shove, Hint and Check traces above the last row without changing desti
   for (let row = 0; row < 7; row++) drawBoardEffects(ctx, scene, 'over', row, effects, marks, 390, 5000, false, false, null, 0);
   expect(link).not.toHaveBeenCalled();
   drawBoardEffects(ctx, scene, 'over', 7, effects, marks, 390, 5000, false, false, null, 0);
-  expect(vi.mocked(link).mock.calls.map(call => call.slice(2, 4))).toEqual([[34, 42], [27, 35], [27, 43], [60, 4]]);
+  expect(vi.mocked(link).mock.calls.map(call => call.slice(2, 4))).toEqual([[34, 42], [27, 35], [27, 43]]);
+  // The check's still cause lines and seal draw in check.ts, in every row pass; it chooses the row.
+  expect(drawCheck).toHaveBeenCalledTimes(8);
+  expect(drawCheck).toHaveBeenLastCalledWith(ctx, scene, 'over', 7, { king: 4, checkers: marks.checkers, board: undefined, ms: Infinity, pixel: 960 / 390 });
+});
+
+it('times the check onset from its live signal and holds it without motion', () => {
+  const effects = new StateEffects(), scene = sceneAt(false), board = new Uint8Array(64);
+  const marks = { check: 4, checkers: [{ sq: 60, king: 4, path: 'straight' as const }] };
+  effects.signal('check', '4:60', 1000, true);
+  drawBoardEffects(ctx, scene, 'under', undefined, effects, marks, 960, 1200, true, false, null, 0, undefined, board);
+  expect(drawCheck).toHaveBeenLastCalledWith(ctx, scene, 'under', undefined, expect.objectContaining({ ms: 200, board, pixel: 1 }));
+  effects.rate = 2;
+  drawBoardEffects(ctx, scene, 'under', undefined, effects, marks, 960, 1200, true, false, null, 0, undefined, board);
+  expect(drawCheck).toHaveBeenLastCalledWith(ctx, scene, 'under', undefined, expect.objectContaining({ ms: 400 }));
+  drawBoardEffects(ctx, scene, 'under', undefined, effects, marks, 960, 1200, false, false, null, 0, undefined, board);
+  expect(drawCheck).toHaveBeenLastCalledWith(ctx, scene, 'under', undefined, expect.objectContaining({ ms: Infinity }));
+});
+
+it('withdraws an ended check under the figures for 220 ms, and not at all without motion', () => {
+  const effects = new StateEffects(), scene = sceneAt(false);
+  effects.withdraw(4, 1000, true);
+  drawBoardEffects(ctx, scene, 'over', 7, effects, {}, 960, 1110, true, false, null, 0);
+  expect(drawWithdrawal).not.toHaveBeenCalled();
+  drawBoardEffects(ctx, scene, 'under', undefined, effects, {}, 960, 1110, true, false, null, 0);
+  expect(drawWithdrawal).toHaveBeenCalledExactlyOnceWith(ctx, scene, 4, .5);
+  expect(effects.remaining(1110)).toBeCloseTo(110);
+  drawBoardEffects(ctx, scene, 'under', undefined, effects, {}, 960, 1220, true, false, null, 0);
+  expect(drawWithdrawal).toHaveBeenCalledOnce();
+  expect(effects.withdrawn).toBeUndefined();
+  effects.withdraw(4, 2000, false);
+  drawBoardEffects(ctx, scene, 'under', undefined, effects, {}, 960, 2001, true, false, null, 0);
+  expect(drawWithdrawal).toHaveBeenCalledOnce();
 });
 
 

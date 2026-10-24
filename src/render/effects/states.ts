@@ -2,6 +2,7 @@ import type { GameRules } from '../../game-rules';
 import { stable } from '../../balance/measurements';
 import { G, K, colorOf, findKing, typeOf, type Color, type Position } from '../../rules/engine';
 import { SIGNAL_DURATION_MS } from './indications';
+import { CHECK_WITHDRAW_MS } from './check';
 
 export type StateKind = 'freeze' | 'ward' | 'firewall' | 'guard' | 'holy-light' | 'mercy';
 export interface BoardState {
@@ -61,6 +62,8 @@ export class StateEffects {
   private previous?: { rulesKey: string; signature: string; ply: number };
   private seen = new WeakSet<Position>();
   forward = false;
+  /** A check that a live move just ended: its wash withdraws from the king's old square (check.ts). */
+  withdrawn?: { king: number; since: number };
   private signals = new Map<string, { key: string; since: number }>();
 
   sync(context: GameRules, pos: Position, now: number, motion: boolean): void {
@@ -94,6 +97,24 @@ export class StateEffects {
     this.signals.set(name, { key, since: key && motion && onset ? now : -Infinity });
   }
 
+  /** A legal move ended the check on `king`. Only a live board shows the withdrawal; any other end removes check at once. */
+  withdraw(king: number, now: number, motion: boolean): void {
+    this.withdrawn = motion ? { king, since: now } : undefined;
+  }
+
+  /** The withdrawal's progress (0..1), or undefined when none shows. */
+  withdrawal(now: number, motion: boolean): { king: number; progress: number } | undefined {
+    const w = this.withdrawn, progress = w && motion ? (now - w.since) * this.rate / CHECK_WITHDRAW_MS : 1;
+    if (!w || progress >= 1) { this.withdrawn = undefined; return; }
+    return { king: w.king, progress: Math.max(0, progress) };
+  }
+
+  /** Milliseconds of a signal's onset at this pace; Infinity when it holds (no motion, resync). */
+  age(name: string, now: number, motion: boolean): number {
+    const since = this.signals.get(name)?.since ?? -Infinity;
+    return motion && since > -Infinity ? Math.max(0, (now - since) * this.rate) : Infinity;
+  }
+
   elapsed(since: number, now: number, motion: boolean): number {
     return motion ? Math.min(1, (now - since) * this.rate / SIGNAL_DURATION_MS) : 1;
   }
@@ -112,6 +133,7 @@ export class StateEffects {
     this.frames = this.frames.filter(s => s.clear == null || now - s.clear < .28 * duration);
     const ends = this.frames.map(s => s.clear == null ? s.since + (['freeze', 'ward', 'firewall'].includes(s.kind) ? .42 : .7) * duration : s.clear + .28 * duration);
     for (const s of this.signals.values()) ends.push(s.since + .75 * duration);
+    if (this.withdrawn) ends.push(this.withdrawn.since + CHECK_WITHDRAW_MS / this.rate);
     return Math.max(0, ...ends.map(end => end - now));
   }
 
@@ -123,7 +145,8 @@ export class StateEffects {
   settle(): void {
     this.frames = this.frames.filter(s => s.clear == null).map(s => ({ ...s, since: -Infinity }));
     for (const s of this.signals.values()) s.since = -Infinity;
+    this.withdrawn = undefined;
   }
 
-  dispose(): void { this.frames = []; this.signals.clear(); this.previous = undefined; this.seen = new WeakSet<Position>(); this.forward = false; }
+  dispose(): void { this.frames = []; this.signals.clear(); this.previous = undefined; this.seen = new WeakSet<Position>(); this.forward = false; this.withdrawn = undefined; }
 }

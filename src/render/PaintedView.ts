@@ -2,6 +2,7 @@ import { StateEffects } from './effects/states';
 import { drawBoardEffects } from './effects/board-effects';
 import { GameRules } from '../game-rules';
 import { cardPlayback, type CardPlayback } from './effects/card';
+import { PromotionPlayback, loadAscension } from './effects/promotion';
 import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, S, T, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { figureUrl, selectedFigure } from '../workshop/figures';
@@ -222,7 +223,16 @@ export class PaintedView implements BoardView {
     // The scene scales duration; the caller gives playback speed.
     const moving = new Set([m.from, m.to, ...m.captures, ...(m.shove ? [m.shove.from, m.shove.to] : []), ...(m.castle ? [m.castle.from, m.castle.to] : [])]);
     this.moveSquares = moving;
-    try { await this.scene.play(m, { onContact, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed }); }
+    const rate = speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed;
+    if (m.promo) void loadAscension();
+    try {
+      const arrived = await this.scene.play(m, { onContact, speed: rate });
+      // A promotion reveals the chosen piece after the pawn arrives (ticket 86). Motion off shows it at once.
+      if (arrived && m.promo && this.moveSquares === moving && this.motion() && !document.hidden && !this.symbols) {
+        const reveal = new PromotionPlayback(pos, m, this.context.makeMove(pos, m));
+        await this.scene.play(reveal.scene, { effect: reveal, speed: rate });
+      }
+    }
     finally { if (this.moveSquares === moving) this.moveSquares = undefined; }
   }
 
@@ -268,10 +278,12 @@ export class PaintedView implements BoardView {
 
   highlight(h: Highlights): void {
     if (this.disposed) return;
+    const ended = this.marks.check != null && h.check == null ? this.marks.check : null;
     this.marks = h;
     this.container.classList.toggle('king-in-check', h.check != null);
     this.scene.setSelected(h.selected ?? null);
     const now = performance.now(), motion = this.motion() && !document.hidden;
+    if (ended != null) this.stateEffects.withdraw(ended, now, motion && this.stateEffects.forward);
     this.stateEffects.signal('archer', h.shots?.length ? `${h.selected}:${h.shots}` : '', now, motion);
     this.stateEffects.signal('swap', h.swaps?.length ? `${h.selected}:${h.swaps}` : '', now, motion);
     this.stateEffects.signal('shove', h.shoveTo?.length ? JSON.stringify(h.shoveTo) : '', now, motion);
@@ -355,7 +367,7 @@ export class PaintedView implements BoardView {
     // Keep unaffected states visible during playback. The scene owns moving figures and their material.
     drawBoardEffects(ctx, scene, layer, row, this.card ? this.cardStates : this.stateEffects, scene.animating ? {} : m,
       this.width, now, this.motion() && !document.hidden, !!this.symbols, scene.animating ? null : this.hovered ?? this.cursor, piece,
-      this.card ? undefined : this.moveSquares);
+      this.card ? undefined : this.moveSquares, this.pos?.board);
     if (scene.animating) return;
     if (layer === 'under' && this.symbols && this.pos) {
       this.pos.board.forEach((piece, sq) => {
