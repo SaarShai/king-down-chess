@@ -9,9 +9,9 @@ The listing fields live in [package/plugin.json](package/plugin.json) under `ext
 | `shortDescription` (subtitle) | 30, one line | Chess with king powers | 22 |
 | `developerName` | 80 | Saar Shai | 9 |
 | `category` | one allowed value | Entertainment | — |
-| `longDescription` | 4,000 | below | 1,162 |
+| `longDescription` | 4,000 | below | 1,153 |
 | `defaultPrompt` (starter prompts) | 3; 128 each; unique; no `@` | below | 36 each |
-| `capabilities` | 20 labels; 120 each | below | 25–36 |
+| `capabilities` | 20 labels; 120 each | below | 21–36 |
 | `logo`, `composerIcon` | square, 48–4,096 px, ≤ 5 MiB | `./assets/logo.png` (512 × 512, copy of `public/icons/icon-512.png`) | 409 KiB |
 | `websiteURL` | HTTPS, ≤ 1,024 | https://kingdown.dev | — |
 | `supportURL` | HTTPS, ≤ 1,024 | https://kingdown.dev/support.html | needs a deploy |
@@ -34,7 +34,7 @@ The listing fields live in [package/plugin.json](package/plugin.json) under `ext
 > - play against the computer at four levels, from beginner to strong;
 > - start a friend game and send your friend a 6-character invitation code;
 > - join a friend's game with a code;
-> - play a random King Down player in Daily games, with days for each move;
+> - play a random King Down player, with three days for each move;
 > - see your active games and which ones wait for your move;
 > - see your rating, totals and badges;
 > - offer or accept a draw, resign, or cancel a game before it starts.
@@ -43,7 +43,7 @@ The listing fields live in [package/plugin.json](package/plugin.json) under `ext
 >
 > You sign in with a King Down account. Limitations: moves need the board, so the full game works where ChatGPT shows app screens.
 
-Each claim matches a tool in `src/plugin/server.ts`: levels (`kingdown_create`), invitation codes (`kingdown_invite`, `kingdown_join`), random Daily games (`kingdown_create` kind `random`), the games list (`kingdown_games`), the profile (`kingdown_profile`), draw, resign and abort (`kingdown_draw`, `kingdown_resign`, `kingdown_abort`), the five presets (`PRESETS` in `src/match/protocol.ts`). Moves are app-only tools (`kingdown_move`, visibility `app`).
+Each claim matches a tool in `src/plugin/server.ts`: levels (`kingdown_create`), invitation codes (`kingdown_invite`, `kingdown_join`), random games (`kingdown_create` kind `random`), the games list (`kingdown_games`), the profile (`kingdown_profile`), draw, resign and abort (`kingdown_draw`, `kingdown_resign`, `kingdown_abort`), the five presets (`PRESETS` in `src/match/protocol.ts`). Moves are app-only tools (`kingdown_move`, visibility `app`).
 
 ## Starter prompts
 
@@ -55,5 +55,5 @@ Each claim matches a tool in `src/plugin/server.ts`: levels (`kingdown_create`),
 
 - Play against the computer
 - Play friends with an invitation code
-- Play random opponents in Daily games
+- Play random opponents
 - Show ratings, totals and badges
