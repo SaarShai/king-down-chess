@@ -17,7 +17,8 @@
 // Stamp; the phone's bottom sheet), threeOfThree (the Add row, the dotted rows, the limit words), pill (no two 44 px buttons
 // of the lines overlap, the row, the arrows, the preview, Esc, Enter, a refused choice), whenChip (the When choices, More
 // choices, an asleep seal, "Always" for "moves like" with the queen's lines in the design, no choices for
-// "takes again") and removeRule (the × of a line, Undo; the phone's rule card from a tap on the kept seal). The keys group also opens and closes the shelf with S.
+// "takes again") and removeRule (the × of a line, Undo; the phone's rule card from a tap on the kept seal; F-037: by real taps, its sentence follows a
+// choice in its pill, and the wide layout has no card). The keys group also opens and closes the shelf with S.
 // Then ticket 05: whyTag (a tap on d7 of the Paladin opens the Why tag with its parts; g7 says refused; a second tap, Esc and ×
 // close it; Enter opens it; the frame, the rim notch and the pointer; a brush closes it and a tap in brush mode paints; the
 // phone's bottom sheet stays inside the screen) and hoverOnly (hover or focus on the Beast's e5 shows f6, the barred g7 and
@@ -66,7 +67,10 @@
 // Freeze card on the plinth with its art and words, its king, the burgundy plaque; its picks as runes on the Paladin's
 // board, the king's rune barred and the piece's own marks stepped back; d7 plays it: frost, and Take back gives it back; a second
 // form; LAY A LAB CARD and Esc; Leap laid on the Rook; one power or one card at a time; a copy's slot works, and the slot of a
-// design whose rule counts cards waits and says why (ticket 17); the phone).
+// design whose rule counts cards waits and says why (ticket 17); the phone; F-104: on the phone the brush row says what to do or why there is
+// no pick, Details opens the card's words, the LAB note and its king, Esc gives the focus back (to the title after a turn to the wide
+// layout), and its coin opens the king; the row fits
+// 320 x 568, 768 x 1024 and 844 x 390; the coin's focus goes to the Kings tab, in short landscape to Pieces; the wide layout has no Details).
 // Run it with `npm run check:browser workshop`.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -1094,7 +1098,28 @@ async function removeRule() {
   assert.deepEqual(await cards(), three.filter(a => a !== 'cannotTake'), 'Remove takes the seal away');
   await q.click('[data-act="undo"]');
   assert.deepEqual(await cards(), three, 'Undo gives it back');
+  // F-037: the card's sentence is the rule's sentence. A choice in the card changes it too, by real taps.
+  await q.tap('.slot[data-piece="pawn"]');
+  await stampRule(q, 'movesLike');
+  const like = '.pg-pseals [data-card="movesLike"]', says = () => q.locator('.pg-card .pg-ex').textContent();
+  await q.tap(like);
+  await q.tap(like);
+  assert.equal(await says(), 'On a center square, it also moves and takes like a queen.', 'the card says the rule: a queen');
+  for (const as of ['rook', 'bishop']) {
+    await q.tap('.pg-card [data-pill="movesLike"]');
+    await q.locator('.pg-card .choices button', { hasText: new RegExp(`^a ${as}$`) }).tap();
+    assert.equal(await q.locator('.pg-card [data-pill="movesLike"]').textContent(), `a ${as}`, `the pill says a ${as}`);
+    assert.equal(await says(), `On a center square, it also moves and takes like a ${as}.`, `the card's sentence follows the pill: a ${as}`);
+  }
   await q.context().close();
+  // The wide layout has no card: the line's pill is the rule, and no sentence repeats it.
+  const w = await open();
+  await door(w);
+  await stampRule(w, 'movesLike');
+  await w.click('[data-pill="movesLike"]');
+  await w.locator('.choices button', { hasText: /^a rook$/ }).click();
+  assert.deepEqual([(await lines(w)).includes('also moves like a rook'), await w.locator('.pg-card, .pg-plinth .pg-ex').count()], [true, 0], 'the wide layout: the line says a rook');
+  await w.context().close();
 }
 
 async function whyTag() {
@@ -2118,6 +2143,7 @@ async function labCards() {
   assert.deepEqual([await p.locator('.pg-board [data-k="frost"]').count(), await runes(p)], [0, ['b6', 'd7', 'g7 barred']], 'Take back gives the card back');
   await p.click('.twin button');
   assert.deepEqual([await name(p), await p.getAttribute('[data-tab="kings"]', 'aria-selected')], ['Frost King', 'true'], 'its coin opens its king');
+  assert.equal(await focusOn(p, '#pg-tab-kings'), true, 'and the focus goes to the Kings tab');
   // A second form, and a card with no test board.
   await p.click('[data-tab="cards"]');
   await p.click('.cstack');
@@ -2171,7 +2197,63 @@ async function labCards() {
   assert.deepEqual([await name(f), await f.$eval('.pg-bigcard', c => c.offsetWidth), await f.locator('.lab-note').count(), await runes(f)], ['Freeze', 56, 0, ['b6', 'd7', 'g7 barred']], 'the phone: the card in the 56 px window, and the board');
   await minTarget(f, '#workshop .pg-ledge button', 44);
   await shot(f, 'cards-390x844');
+  // F-104: the row under the board says what to do, and Details opens the card's words, the LAB note and its king.
+  const details = '[data-act="carddetails"]', row = () => f.locator('.pg-brushes .info-p').textContent();
+  assert.equal(await row(), 'Tap a blue ring on the board.', 'the phone says what to do');
+  await f.tap(details);
+  assert.deepEqual([await f.locator(`${SHEET} h2`).textContent(), await f.locator(`${SHEET} .pg-cardwords`).textContent(), await f.locator(`${SHEET} .lab-note`).textContent(), await f.locator(`${SHEET} .twin`).textContent()],
+    ['Freeze', 'As your move, freeze an enemy piece (not the king): it cannot move on its next turn.', 'Test deck. Not in the game.', 'Freeze, a power of the Frost king.'], 'Details: the effect, its turn, the LAB note and its king');
+  await insideViewport(f, SHEET);
+  await minTarget(f, `${SHEET} button`, 44);
+  await shot(f, 'card-details-390x844');
+  await f.keyboard.press('Escape');
+  assert.equal(await focusOn(f, details), true, 'Esc gives the focus back to Details');
+  // A turn to the wide layout under Details (a tablet turned) takes Details away: Esc gives the focus to the title.
+  await f.tap(details);
+  await f.setViewportSize({ width: 1440, height: 900 });
+  // The page gets the layout change in a later task: Esc waits until it takes Details away, else Esc closes the sheet
+  // first, the focus goes back to Details, and the layout change then removes Details with the focus on it.
+  await f.locator(details).waitFor({ state: 'detached' });
+  await f.keyboard.press('Escape');
+  // The sheet's close event (a later task) moves the focus and removes the sheet.
+  await f.locator('.pg-sheet').waitFor({ state: 'detached' });
+  assert.deepEqual([await f.locator(SHEET).count(), await focusOn(f, '#pg-h'), await f.locator('.pg-brushes .lab-note').textContent()],
+    [0, true, 'Test deck. Not in the game.'], 'a turn to the wide layout under Details: Esc gives the focus to the title, and the column has the words');
+  await f.setViewportSize({ width: 390, height: 844 });
+  await f.tap(details);
+  await f.tap(`${SHEET} .twin button`);
+  assert.deepEqual([await f.locator(SHEET).count(), await name(f), await focusOn(f, '#pg-tab-kings')], [0, 'Frost King', true], 'its coin closes Details and opens its king');
+  // The Pawn alone on the board: no target, and the row says so.
+  await f.tap('[data-tab="pieces"]');
+  await f.tap('.slot[data-piece="pawn"]');
+  await f.tap('[data-tab="cards"]');
+  assert.equal(await row(), 'Freeze has no target on this board.', 'the phone says why Freeze has no pick');
   await f.context().close();
+  // The row fits a small phone, a tablet and a phone held sideways.
+  for (const [width, height] of [[320, 568], [768, 1024], [844, 390]]) {
+    const s = await open('', { width, height });
+    await door(s);
+    if (height <= 500) await s.click('[data-act="pieces"]');
+    await s.click('[data-tab="cards"]');
+    if (height <= 500) await s.click('.cface[data-lab="Freeze"]');
+    await insideViewport(s, `.pg-brushes .info-p, ${details}`);
+    await textNotCut(s, '.pg-brushes .info-p');
+    await minTarget(s, details, 44);
+    if (height <= 500) {
+      await s.click(details);
+      await insideViewport(s, SHEET);
+      await s.click(`${SHEET} .twin button`);
+      assert.deepEqual([await s.locator(SHEET).count(), await name(s), await focusOn(s, '.pg-pieces')], [0, 'Frost King', true], `${width} x ${height}: its coin opens its king, and the focus goes to Pieces`);
+    }
+    await s.context().close();
+  }
+  // The wide layout shows the words in the column: no Details.
+  const d = await open();
+  await door(d);
+  await d.click('[data-tab="cards"]');
+  assert.deepEqual([await d.locator(details).count(), await d.locator('.lab-note').textContent(), await d.locator('.info-p').textContent()],
+    [0, 'Test deck. Not in the game.', 'Freeze has no target on this board.'], 'the wide layout: the words in the column, no Details');
+  await d.context().close();
 }
 /** Plays `steps` at `pace` (normal, fast or off; `reduce` emulates reduced motion): after each action the motions that it
  *  plays, none past `limit` ms, the board in its place, and 100 ms after the limit (700 ms at Normal) none running. With no
