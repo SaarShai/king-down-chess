@@ -57,6 +57,7 @@ Base `bdd886c7` (origin/main), branch `staging/release-safety`. Local test clust
 - Full `npm test` at `aff8104c`: 257 files, 4781 tests pass, 8 skipped. An earlier full run had one browser timeout in `tools/plugin-motion.test.ts` ("opens end actions during a live win") at load average 14; that file passed alone, and the next full run passed.
 - `npm run test:docs`: 13 files, 166 tests pass.
 - After the seat check (`90674dd8`, main `0a043d4b` merged): full `npm test` 268 files, 5021 tests pass, 8 skipped.
+- After the review fixes (`3abad803`): focused `tools/{deploy,staging-config,engines,plugin-db-config}.test.ts` 365 pass; `npm run test:docs` 166 pass. Full `npm test` at `3abad803` had one timing failure in `tools/plugin-app.test.ts` ("keeps two failed polls silent ...") at load average 13.8 while the review also ran tests; that file passed alone (136 tests).
 
 Limits: the test database stands in for Supabase (`auth.users`, roles). No production backup was read and no production restore was run. The production backup `release_backup_20261022` was made with the plain `begin` form; these tests do not show that it is inconsistent. Before a restore from it, the restore's own consistency check (step 2) shows whether its games and command rows agree.
 
@@ -69,6 +70,7 @@ Limits: the test database stands in for Supabase (`auth.users`, roles). No produ
   - Mutation: without the NUL check, 3 tests fail (shared check, deploy, CLI); without the orphan check, the new restore test fails.
   - Re-check of `37de31ba..165d24ab`: changes needed. Must-fix: `PGOPTIONS=reference=<staging ref>` still selected another project through the pooler's startup options. Fixed: the shared check refuses a non-empty `PGOPTIONS`; refusal tests in the shared check, `deploy.sh --publish` and `engines-check.mjs --production`, none of which prints the value. Should-fix: the CLI table lacked the NUL database-path form; added. Mutation: without the `PGOPTIONS` refusal, those 3 tests fail.
   - Second re-check of `165d24ab..2297dd8a`: changes needed. Must-fix: a pooler user `<role>.cluster.<alias>.<production ref>` passed the last-dot check, and the pooler reads it as a cluster alias that can name another project. Fixed with an allow-list: the pooler user must be exactly `<role>.<production ref>`, where the role is letters, digits and `_`. Refusal tests (plain and percent-encoded) in the shared check, `deploy.sh --publish` and `engines-check.mjs --production`. Mutation: with the last-dot check back, those 3 tests fail. The review found no other route through the URL, the client's environment inputs or the startup fields.
+  - Third re-check of `2297dd8a..3abad803`: approve, no findings. The cluster-alias route is closed; the runtime pooler user and the direct host still pass; no earlier route reopens.
   - Correct as reviewed: the one-snapshot backup, lock mode, update in place, foreign-key actions, shared columns, triggers, refusal before live changes, and rollback in the SQL editor.
 
 ## Comments
