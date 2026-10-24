@@ -89,7 +89,7 @@ The stored-data list names the players you follow and block. The policy names Me
 Evidence: `kingdown_block` uses `AccountService.relate()` and `unrelate()`, as the website's `/api/relations` routes do. The game store checks blocks both ways for Find, accept, invitation joins and message privacy. `src/plugin/server.db.test.ts` checks the tool through the database, including reads, repeat blocks, saved status, unblock and refused targets.
 
 
-## First-party website fault reports (ticket 87)
+## First-party website fault reports (ticket 88)
 
 Where: in "Where it is kept", next to the server log paragraph. The paragraph about play without an account also names fault reports.
 
