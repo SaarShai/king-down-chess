@@ -2,6 +2,8 @@ import { StateEffects } from './effects/states';
 import { drawBoardEffects } from './effects/board-effects';
 import { GameRules } from '../game-rules';
 import { cardPlayback, type CardPlayback } from './effects/card';
+import { PromotionPlayback, loadAscension } from './effects/promotion';
+import { drawWithdrawal } from './effects/check';
 import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, S, T, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { figureUrl, selectedFigure } from '../workshop/figures';
@@ -64,6 +66,8 @@ export class PaintedView implements BoardView {
   private loaded: Promise<void>;
   private disposed = false;
   private card: CardPlayback | null = null;
+  /** The running promotion reveal (ticket 86): reduced motion or a hidden page ends it like a card. */
+  private reveal: PromotionPlayback | null = null;
   private cardStates = new StateEffects();
   private skippedMark?: { after: Position; owner: Color };
   private moveSquares?: ReadonlySet<number>;
@@ -198,9 +202,13 @@ export class PaintedView implements BoardView {
     if (this.card) this.skip();
     if (this.pos !== pos) this.sync(pos);
     this.skippedMark = undefined;
+    this.stateEffects.release(performance.now(), this.motion() && !document.hidden);
     const card = cardPlayback(this.context, pos, m);
     if (card) {
+      // A card that ends check keeps the withdrawal that release() started; skip() would settle it.
+      const withdrawn = this.stateEffects.withdrawn;
       this.skip();
+      this.stateEffects.withdrawn = withdrawn;
       if (!this.motion() || document.hidden) return;
       this.card = card;
       try {
@@ -222,7 +230,17 @@ export class PaintedView implements BoardView {
     // The scene scales duration; the caller gives playback speed.
     const moving = new Set([m.from, m.to, ...m.captures, ...(m.shove ? [m.shove.from, m.shove.to] : []), ...(m.castle ? [m.castle.from, m.castle.to] : [])]);
     this.moveSquares = moving;
-    try { await this.scene.play(m, { onContact, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed }); }
+    const rate = speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed;
+    if (m.promo) void loadAscension();
+    try {
+      const arrived = await this.scene.play(m, { onContact, speed: rate });
+      // A promotion reveals the chosen piece after the pawn arrives (ticket 86). Motion off shows it at once.
+      if (arrived && m.promo && this.moveSquares === moving && this.motion() && !document.hidden && !this.symbols) {
+        const reveal = this.reveal = new PromotionPlayback(pos, m, this.context.makeMove(pos, m));
+        try { await this.scene.play(reveal.scene, { effect: reveal, speed: rate }); }
+        finally { if (this.reveal === reveal) this.reveal = null; }
+      }
+    }
     finally { if (this.moveSquares === moving) this.moveSquares = undefined; }
   }
 
@@ -247,6 +265,7 @@ export class PaintedView implements BoardView {
   skip(): void {
     if (this.card && ['freeze', 'ward', 'firewall'].includes(this.card.move.power ?? '')) this.skippedMark = { after: this.card.after, owner: this.card.before.turn };
     this.card = null;
+    this.reveal = null;
     this.moveSquares = undefined;
     this.stopStateEffects();
     if (this.scene.animating) this.scene.cancel();
@@ -258,7 +277,8 @@ export class PaintedView implements BoardView {
    * Reduced motion keeps the slide and victim fade.
    */
   private applyLively(): void {
-    if (this.card && (!this.motion() || document.hidden)) this.skip();
+    // Reduced motion or a hidden page ends a card or a promotion reveal at once; the caller then shows the result.
+    if ((this.card || this.reveal) && (!this.motion() || document.hidden)) this.skip();
     const motion = this.pace !== 'off' && !this.motionQuery.matches, shown = motion && !document.hidden;
     if (this.pace === 'off') this.scene.setLifted(null);
     if (!shown) this.stateEffects.settle();
@@ -268,10 +288,12 @@ export class PaintedView implements BoardView {
 
   highlight(h: Highlights): void {
     if (this.disposed) return;
+    const ended = this.marks.check != null && h.check == null ? this.marks.check : null;
     this.marks = h;
     this.container.classList.toggle('king-in-check', h.check != null);
     this.scene.setSelected(h.selected ?? null);
     const now = performance.now(), motion = this.motion() && !document.hidden;
+    if (ended != null) this.stateEffects.endCheck(ended, now, motion);
     this.stateEffects.signal('archer', h.shots?.length ? `${h.selected}:${h.shots}` : '', now, motion);
     this.stateEffects.signal('swap', h.swaps?.length ? `${h.selected}:${h.swaps}` : '', now, motion);
     this.stateEffects.signal('shove', h.shoveTo?.length ? JSON.stringify(h.shoveTo) : '', now, motion);
@@ -352,10 +374,13 @@ export class PaintedView implements BoardView {
     }, row);
     const now = performance.now();
     if (this.card && layer === 'under') this.cardStates.sync(this.context, this.card.shown, now, false);
+    // A card that ends check: its withdrawal belongs to the live board's state, not to the card's shown frames.
+    const cardWithdrawal = this.card && layer === 'under' ? this.stateEffects.withdrawal(now, this.motion() && !document.hidden) : undefined;
+    if (cardWithdrawal) drawWithdrawal(ctx, scene, cardWithdrawal.king, cardWithdrawal.progress);
     // Keep unaffected states visible during playback. The scene owns moving figures and their material.
     drawBoardEffects(ctx, scene, layer, row, this.card ? this.cardStates : this.stateEffects, scene.animating ? {} : m,
       this.width, now, this.motion() && !document.hidden, !!this.symbols, scene.animating ? null : this.hovered ?? this.cursor, piece,
-      this.card ? undefined : this.moveSquares);
+      this.card ? undefined : this.moveSquares, this.pos?.board);
     if (scene.animating) return;
     if (layer === 'under' && this.symbols && this.pos) {
       this.pos.board.forEach((piece, sq) => {

@@ -5,11 +5,12 @@ import { drawFreeze, drawIceWall, drawFirewall } from './materials';
 import { drawGuard, drawShelter, drawSwap } from './state-flare';
 import { drawArcherFocus } from './archer-flare';
 import { checkImpact, link, pips, ring } from './indications';
+import { CHECK_ONSET_MS, drawCheck, drawWithdrawal } from './check';
 import type { StateEffects } from './states';
 
 /** Production decoration only. All positions and indications come from the real board. */
 export function drawBoardEffects(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row: number | undefined,
-  effects: StateEffects, marks: Highlights, width: number, now: number, motion: boolean, symbols: boolean, preview: number | null, selectedPiece: number, moving?: ReadonlySet<number>): void {
+  effects: StateEffects, marks: Highlights, width: number, now: number, motion: boolean, symbols: boolean, preview: number | null, selectedPiece: number, moving?: ReadonlySet<number>, board?: ArrayLike<number>): void {
   const front = layer === 'over', inRow = (sq: number) => !front || row == null || row === scene.cell(sq).row;
   const last = front && (row == null || row === 7), reduced = !motion;
   for (const state of effects.frames) {
@@ -51,7 +52,12 @@ export function drawBoardEffects(ctx: CanvasRenderingContext2D, scene: PaintedSc
       if (!front || row == null || row === Math.max(scene.cell(selected).row, scene.cell(sq).row)) drawSwap(ctx, source, scene.foot(sq), { progress: progress('swap'), front, reduced });
     }
   }
-  if (!front && marks.check != null) checkImpact(ctx, scene, marks.check, progress('check'), reduced);
+  const withdrawal = front ? undefined : effects.withdrawal(now, motion);
+  if (withdrawal) drawWithdrawal(ctx, scene, withdrawal.king, withdrawal.progress);
+  // The onset plays the concept; the held check is PR #92's approved ring and still cause lines (static indications stay).
+  const checkMs = marks.check == null ? Infinity : effects.age('check', now, motion), held = marks.check != null && checkMs >= CHECK_ONSET_MS;
+  if (marks.check != null && !held) drawCheck(ctx, scene, layer, row, { king: marks.check, checkers: marks.checkers ?? [], board, ms: checkMs, pixel: 960 / Math.max(1, width) });
+  if (held && !front) checkImpact(ctx, scene, marks.check!, 1, reduced);
   if (!front) {
     const ghost = effects.progress('ghost', now, motion);
     const target = preview;
@@ -62,13 +68,13 @@ export function drawBoardEffects(ctx: CanvasRenderingContext2D, scene: PaintedSc
   }
   if (!last) return;
   const enter = (name: string) => { const t = Math.min(1, progress(name) / .24); return t * t * (3 - 2 * t); };
+  if (held) {
+    ctx.save(); ctx.globalAlpha = .9;
+    for (const ch of marks.checkers ?? []) link(ctx, scene, ch.sq, ch.king, '#b84d25', ch.path === 'arc', 1);
+    ctx.restore();
+  }
   for (const shove of marks.shoveTo ?? []) link(ctx, scene, shove.from, shove.to, '#2f7f75', false, enter('shove'));
   if (marks.hint && marks.hint.length > 1) {
     for (const to of marks.hint.slice(1)) link(ctx, scene, marks.hint[0], to, '#a77b25', false, enter('hint'), true);
-  }
-  if (marks.check != null) {
-    ctx.save(); ctx.globalAlpha = progress('check') < .3 ? 1 : .9;
-    for (const ch of marks.checkers ?? []) link(ctx, scene, ch.sq, ch.king, '#b84d25', ch.path === 'arc', Math.max(.06, enter('check')));
-    ctx.restore();
   }
 }

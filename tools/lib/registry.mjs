@@ -11,6 +11,7 @@
 export const checks = [
   { name: 'effects-animation', script: 'docs/specs/effects-animation/verify.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'effects-game', script: 'docs/specs/effects-animation/verify-game.mjs', limit: 240, channel: 'chromium', byName: true, exclusive: true },
+  { name: 'motion-concepts', script: 'tools/verify-motion-concepts.mjs', limit: 300, channel: 'chromium', byName: true },
   { name: 'effects-states', script: 'docs/specs/effects-animation/evidence/14-state-integration/capture.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'read-piece', script: 'tools/verify-read-piece.mjs', limit: 180 },
   { name: 'verb-marks', script: 'tools/verify-verb-marks.mjs', limit: 180 },

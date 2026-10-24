@@ -31,7 +31,7 @@ import { guardEndTaps, updateEnd } from './end';
 import { applyLan, boardActions, cardCoins, cardUseReason, choicesFrom, choiceSources, committedPreview, draftChoices, draftLans, draftTurn, previewSteps, replayHistory, replayLans, restoreDraft, sendActions, stripLine, timeLeft, type BoardMove } from './board-model';
 import { policyLabel, policyDetail } from '../../account-game/rating-policy';
 import './board.css';
-import { UiMotion, checkFrame, handoff } from '../../ui/motion';
+import { UiMotion, castRelease, checkFrame, handoff } from '../../ui/motion';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 type Choice = { lan: string; move: Move };
 let view: View | undefined, pos: Position | undefined;
@@ -512,7 +512,9 @@ export function boardScreen(store: Store) {
         else paint.innerHTML = cardSymbol(card.card);
         row.append(b);
         motion.play(b, [{ opacity: 0, transform: `translateY(16px) rotate(${(index - 1.5) * 9}deg) scale(.9)` }, { opacity: 1, transform: 'translateY(0) rotate(0) scale(1)' }], 500, 150 + index * 130, dealtAt);
-        if (card.spent) motion.play(paint, [{ transform: 'translateY(-4px) scale(1)' }, { transform: 'translateY(0) scale(.96)' }], 400, 0, spentAt.get(key) ?? -Infinity);
+        // Freeze and Firewall release their material at the card itself (ticket 86); the board shows where it lands.
+        if (card.spent && (card.card === 'Freeze' || card.card === 'Firewall')) castRelease(motion, $('game-table'), b, card.card, spentAt.get(key) ?? -Infinity);
+        else if (card.spent) motion.play(paint, [{ transform: 'translateY(-4px) scale(1)' }, { transform: 'translateY(0) scale(.96)' }], 400, 0, spentAt.get(key) ?? -Infinity);
         else if (mine && armedCard === index) motion.play(paint, [{ transform: 'translateY(0)' }, { transform: 'translateY(-4px)' }], 300, 0, selectedAt);
       }
       const portrait = strip.querySelector<HTMLElement>('.portrait')!;

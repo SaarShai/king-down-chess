@@ -814,6 +814,7 @@ dialog.ui-dialog-motion:not([open]) { pointer-events: none; }
 
 #game-table { position: relative; }
 .ui-turn-token { position: absolute; z-index: 3; margin: -8px 0 0 -8px; width: 16px; text-align: center; color: var(--gold-ink); opacity: 0; pointer-events: none; }
+.ui-cast-release { position: absolute; z-index: 3; pointer-events: none; }
 .ui-check-frame { position: absolute; inset: 0; border: 3px solid var(--accent); border-radius: inherit; pointer-events: none; }
 .portrait.is-checked { outline: 3px solid var(--accent); outline-offset: -3px; }
 

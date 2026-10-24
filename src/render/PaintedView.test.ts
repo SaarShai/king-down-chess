@@ -24,7 +24,7 @@ function stubDom() {
     options?.signal?.addEventListener('abort', () => target.delete(name), { once: true });
   };
   const el = () => ({ style: {} as Record<string, string>, classList: { add() {}, toggle() {} },
-    addEventListener: listen(listeners), appendChild() {}, getContext: () => ({}), width: 0, height: 0,
+    addEventListener: listen(listeners), appendChild() {}, getContext: () => new Proxy({}, { get: () => () => {} }), width: 0, height: 0,
     getClientRects: () => [1], getBoundingClientRect: () => ({ left: 0, top: 0, width: 960 }), setPointerCapture() {}, hasPointerCapture: () => true, releasePointerCapture() {} });
   vi.stubGlobal('document', { createElement: el, addEventListener: listen(documentListeners), hidden: false });
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: listen(documentListeners) }));

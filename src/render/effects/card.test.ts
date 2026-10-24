@@ -5,9 +5,8 @@ import { toFen } from '../../rules/setup';
 import * as pieces from '../../rules/engine';
 import { SHARED_MECHANICS, assertMechanicExpected, type SharedMechanic } from '../../../tools/fixtures/shared-mechanics';
 import { RELEASED_CARDS } from '../../content/cards';
-import { cardAction, cardPlayback } from './card';
-import { PaintedView } from '../PaintedView';
-import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import { CAST_PREPARE_MS, cardAction, cardPlayback } from './card';
+import { viewBoard } from './view-harness';
 
 const fixtures = RELEASED_CARDS.map(card => SHARED_MECHANICS.find(row => row.id === card.fixtureId)!);
 function game(fixture: SharedMechanic) {
@@ -86,48 +85,13 @@ describe('released card playback uses real engine frames', () => {
     let before = context.fromFen('7k/8/8/3nn3/8/8/P7/K7 w - - 0 1');
     before = context.makeMove(before, legal(context, before, '!F:d5'));
     before = context.makeMove(before, legal(context, before, 'Kh8-g8'));
-    const effect = cardPlayback(context, before, legal(context, before, '!F:e5'))!;
-    expect(effect.position(.61).marks?.[0]?.sq).toBe(35);
-    expect(effect.position(.63).marks?.[0]).toBeUndefined();
+    // Freeze uses the local release (ticket 86): the old mark goes at the release, after the preparation.
+    const effect = cardPlayback(context, before, legal(context, before, '!F:e5'))!, release = CAST_PREPARE_MS / effect.duration;
+    expect(effect.position(release * .99).marks?.[0]?.sq).toBe(35);
+    expect(effect.position(release * 1.01).marks?.[0]).toBeUndefined();
     expect(effect.position(1).marks?.[0]?.sq).toBe(36);
   });
 });
-
-/** The real scene runs on a controlled frame clock. No production timer is replaced by a sample player. */
-function dom(reduced = false) {
-  let now = 0, id = 0;
-  const raf = new Map<number, FrameRequestCallback>(), docEvents = new Map<string, () => void>();
-  const ctx = new Proxy({} as CanvasRenderingContext2D, {
-    get(target, key) {
-      if (Reflect.has(target, key)) return Reflect.get(target, key);
-      if (key === 'measureText') return () => ({ width: 1 });
-      if (key === 'getImageData' || key === 'createImageData') return (_x: number, _y: number, w = 1, h = 1) => ({ data: new Uint8ClampedArray(Math.max(1, w * h) * 4) });
-      return () => ctx;
-    },
-    set(target, key, value) { Reflect.set(target, key, value); return true; },
-  });
-  const element = () => ({ width: 960, height: 1024, style: {}, classList: { add() {}, toggle() {} }, getContext: () => ctx, appendChild() {}, addEventListener() {}, getBoundingClientRect: () => ({ width: 960, height: 1024 }), getClientRects: () => [1] });
-  const doc = { createElement: element, hidden: false, addEventListener: (name: string, fn: () => void) => docEvents.set(name, fn) };
-  const media = { matches: reduced, addEventListener: (_: string, fn: () => void) => docEvents.set('reduced', fn) };
-  vi.stubGlobal('document', doc);
-  vi.stubGlobal('DOMMatrix', class { scale() { return this; } translate() { return this; } });
-  vi.stubGlobal('setTimeout', () => 0);
-  vi.stubGlobal('clearTimeout', () => {});
-  vi.stubGlobal('Image', class { width = 1152; height = 1152; naturalWidth = 1152; complete = true; onload?: () => void; set src(_: string) { queueMicrotask(() => this.onload?.()); } decode() { return Promise.resolve(); } });
-  vi.stubGlobal('matchMedia', () => media);
-  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
-  vi.stubGlobal('performance', { now: () => now });
-  vi.stubGlobal('requestAnimationFrame', (fn: FrameRequestCallback) => { raf.set(++id, fn); return id; });
-  vi.stubGlobal('cancelAnimationFrame', (id: number) => raf.delete(id));
-  const advance = (ms: number) => { now += ms; const tasks = [...raf.values()]; raf.clear(); tasks.forEach(fn => fn(now)); };
-  return { element, doc, media, docEvents, advance };
-}
-async function viewBoard(reduced = false) {
-  const clock = dom(reduced), view = new PaintedView(clock.element() as unknown as HTMLElement);
-  for (let i = 0; i < 12; i++) await Promise.resolve();
-  clock.advance(0); await view.ready();
-  return { ...clock, view, scene: (view as unknown as { scene: PaintedScene }).scene };
-}
 
 describe('production PaintedView card invocation and scene lifecycle', () => {
   it('starts another game quietly at the next ply with equal rules, then allows its live effects', async () => {
