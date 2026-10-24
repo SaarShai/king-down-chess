@@ -29,7 +29,7 @@ body{background:var(--floor);color:var(--ink);font-family:var(--font-body)}
 .timeline{order:4;display:flex;flex:none;align-items:center;gap:10px;width:min(100%,540px);margin:5px 0 0;padding:0}
 .study .timeline input{flex:1;width:100%;height:22px;accent-color:var(--accent)}
 .timeline output{flex:none;min-width:40px;font-size:12px;line-height:1;font-variant-numeric:tabular-nums}
-.phase-labels{order:5;display:flex;justify-content:space-between;width:min(calc(100% - 50px),490px);margin:0 50px 0 0;padding:0;font-size:10px;line-height:1.2;color:var(--ink-soft)}
+.phase-labels{order:5;display:flex;justify-content:space-between;width:min(calc(100% - 50px),490px);margin:0 50px 0 0;padding:0;font-size:12px;line-height:1.2;color:var(--ink-soft)}
 .study .reduce-label{order:6;display:flex;flex:none;margin:6px 0 0;font-size:12px}
 .details{min-width:0;margin:0;padding:0 4px 0 0;max-height:calc(100dvh - 108px);overflow:auto}
 .active-detail{border-bottom:1px solid var(--line);padding:0 0 18px}
@@ -48,7 +48,7 @@ body{background:var(--floor);color:var(--ink);font-family:var(--font-body)}
 .study .card-choice[aria-pressed=true]{background:var(--accent);color:var(--vellum);border-color:var(--accent-deep)}
 .study .study-note{font-size:12px;color:var(--ink-soft);line-height:1.4;margin:15px 0 10px}
 @media(max-width:850px){
- .study{padding:10px 12px 24px}.study-header{padding-bottom:9px}.study-header h1{display:none}.sample-tag{float:none;display:block;margin-top:5px;font-size:8px}
+ .study{padding:10px 12px 24px}.study-header{padding-bottom:9px}.study-header h1{display:none}.sample-tag{float:none;display:block;margin-top:5px;font-size:12px}
  .study-layout{display:flex;flex-direction:column;gap:20px;padding-top:8px}.study .stage-panel,.details{width:100%}.stage-heading{padding:0}.stage-heading .eyebrow{display:none}.study .stage-heading h2{font-size:21px}
  .study .quick-select{display:flex;order:2;width:100%;margin-top:5px;justify-content:flex-start}.quick-select select{flex:1;height:36px}
  .transport{order:3;margin-top:7px;gap:5px}.study .transport button,.study .transport select{height:38px;padding:0 10px;font-size:14px}.study .speed-label{font-size:0;gap:0}

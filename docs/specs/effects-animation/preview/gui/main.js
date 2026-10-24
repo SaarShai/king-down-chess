@@ -16,7 +16,7 @@ const image = (path, cls = '', alt = '') => `<img class="${cls}" src="/ui/${path
 const samples = [
   {
     id: 'victory', name: 'Victory', group: 'Hero moments', duration: 3800,
-    phases: [[0, 'The result holds'], [450, 'King Down'], [1300, 'A quiet victory'], [2100, 'Moves to look at again']],
+    phases: [[0, 'The result holds'], [450, 'King Down'], [1300, 'A quiet victory'], [1350, 'Moves to look at again']],
     note: 'A short breath, one large title, then a soft settle. The live final-blow replay and fallen king come before this UI; this study begins at the result reveal.',
     html: `<div class="result victory"><div class="soft-ray"></div>${image('kings/frost', 'hero-art')}${image('kings/shadow-b', 'hero-art dark')}${image('emblems/frost', 'result-emblem')}<p class="result-label">White wins</p><h2 class="result-title">King Down</h2><div class="gold-rule"></div><p class="result-copy">A kingdom won. A game to remember.</p><div class="result-recap"><div class="recap-tile"><small>Move 18</small>A path opens</div><div class="recap-tile"><small>Move 24</small>The king exposed</div><div class="recap-tile"><small>Move 27 · Final blow</small>The last capture</div></div></div>`,
     render(t) {
@@ -25,7 +25,7 @@ const samples = [
       reveal('.result-emblem', t, 180, 700, 12); reveal('.result-label', t, 750, 400, 5);
       style('.gold-rule', {opacity: phase(t, 950, 500), transform: `scaleX(${phase(t, 950, 650)})`});
       reveal('.result-copy', t, 1350, 500, 8);
-      scene.querySelectorAll('.recap-tile').forEach((node, i) => { const p = phase(t, 2050 + i * 130, 400); Object.assign(node.style, {opacity: p, transform: `translateY(${(1-p)*15}px)`}); });
+      scene.querySelectorAll('.recap-tile').forEach((node, i) => { const p = phase(t, 1350 + i * 100, 400); Object.assign(node.style, {opacity: p, transform: `translateY(${(1-p)*15}px)`}); });
       style('.hero-art', {opacity: .15 * phase(t, 300, 1100)});
       style('.soft-ray', {opacity: Math.sin(clamp((t-350)/2200)*Math.PI) * .75});
     }

@@ -23,15 +23,15 @@ export function otherSamples({ $, scene, phase, style, reveal, image, clamp }) {
       id: 'check', name: 'Check', group: 'The game', duration: 2500,
       phases: [[0, 'The king is threatened'], [350, 'One warning beat'], [1000, 'The warning stays readable']],
       note: 'A single tightening frame marks check. The red word and direct instruction stay after the motion stops. This is GUI feedback; board threat marks belong to the board study.',
-      html: `<div class="center-study check-study"><div class="check-portrait">${image('kings/frost')}<div class="check-frame"></div></div><p class="result-label">Your king is threatened</p><h2 class="check-title">Check</h2><p>Move your king out of danger.</p><span class="notice-tag">White to move</span></div>`,
+      html: `<div class="center-study check-study"><div class="check-portrait">${image('kings/frost')}<div class="check-frame"></div></div><p class="result-label">Your king is threatened</p><h2 class="check-title">Check</h2><p>Get your king out of check.</p><span class="notice-tag">White to move</span></div>`,
       render(t){const p=phase(t,250,430);style('.check-frame',{opacity:p,transform:`scale(${1.2-.2*p})`});style('.check-title',{opacity:p,transform:`translateY(${(1-p)*10}px)`});reveal('.check-study > p, .notice-tag',t,650,400,5);}
     },
     {
       id:'defeat', name:'Defeat', group:'Game endings', duration:3000,
-      phases:[[0,'A quiet pause'],[700,'The loss is clear'],[1600,'A useful next step']],
+      phases:[[0,'A quiet pause'],[700,'The loss is clear'],[1300,'A useful next step']],
       note:'Loss uses a slower downward settle and quiet stone. No victory burst, flourish or taunt. The result appears before the review action.',
-      html:result('defeat','Black wins','Your king falls.','Every game leaves a lesson.',button('Review the final move',1600)),
-      render(t){reveal('.result-seal',t,200,700,-12);reveal('.result-title',t,650,700,-8);reveal('.result-label, .gold-rule',t,850,500,0);reveal('.result-copy',t,1300,450,5);reveal('.result-detail',t,1800,450,10);}
+      html:result('defeat','Black wins','Your king falls.','Every game leaves a lesson.',button('Review the final move',1300)),
+      render(t){reveal('.result-seal',t,200,700,-12);reveal('.result-title',t,650,700,-8);reveal('.result-label, .gold-rule',t,850,500,0);reveal('.result-copy, .result-detail',t,1300,450,5);}
     },
     {
       id:'draw', name:'Draw', group:'Game endings', duration:2800,
@@ -42,10 +42,10 @@ export function otherSamples({ $, scene, phase, style, reveal, image, clamp }) {
     },
     {
       id:'abort',name:'Abort / game did not start',group:'Game endings',duration:2600,
-      phases:[[0,'The invitation closes'],[550,'No result is recorded'],[1300,'Return to the table']],
+      phases:[[0,'The invitation closes'],[550,'No result is recorded'],[850,'Return to the table']],
       note:'Neutral closure uses a small, level fade. There is no fallen king or score. “Game did not start” is explicit so this cannot read as a defeat.',
       html:result('abort','Game closed','No game played.','The game did not start.','<p class="ending-reason">No result recorded.</p>'+button('Back to games',1400)),
-      render(t){reveal('.result-seal',t,100,400,0);reveal('.result-title, .result-label',t,450,450,0);reveal('.gold-rule, .result-copy',t,850,350,0);reveal('.result-detail',t,1300,350,5);}
+      render(t){reveal('.result-seal',t,100,400,0);reveal('.result-title, .result-label',t,450,450,0);reveal('.gold-rule, .result-copy, .result-detail',t,850,350,0);}
     },
     {
       id:'cards',name:'Cards · deal, select, use, refill',group:'Cards & powers',duration:6200,

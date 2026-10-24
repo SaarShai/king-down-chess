@@ -26,13 +26,16 @@ export function pips(ctx: CanvasRenderingContext2D, scene: PaintedScene, width: 
   const scale = Math.min(1.7, Math.max(1, 650 / Math.max(1, width)));
   ctx.translate(p.x, p.y + 8); ctx.scale(scale, scale); ctx.translate(-p.x, -p.y - 8);
   ctx.fillStyle = '#fcf6e8'; ctx.strokeStyle = color; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.roundRect(p.x-23, p.y+7, 46, 24, 10); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(p.x-(exception?28:23), p.y+7, exception?56:46, exception?28:24, 10); ctx.fill(); ctx.stroke();
   if (shield) { ctx.beginPath(); ctx.moveTo(p.x-14,p.y+12); ctx.lineTo(p.x-4,p.y+12); ctx.lineTo(p.x-4,p.y+20); ctx.lineTo(p.x-9,p.y+25); ctx.lineTo(p.x-14,p.y+20); ctx.closePath(); ctx.stroke(); }
   else { ctx.beginPath(); ctx.moveTo(p.x-14,p.y+13); ctx.lineTo(p.x-4,p.y+23); ctx.moveTo(p.x-4,p.y+13); ctx.lineTo(p.x-14,p.y+23); ctx.stroke(); }
   if(exception) {
-    ctx.fillStyle='#a34530';ctx.beginPath();
+    // The exception must read as clearly as the shield at phone size.
+    ctx.save();ctx.translate(p.x+9,p.y+20);ctx.scale(1.45,1.45);ctx.translate(-p.x-8,-p.y-18);
+    ctx.fillStyle='#96351f';ctx.beginPath();
     if(exception==='king') { ctx.moveTo(p.x+1,p.y+15);ctx.lineTo(p.x+4,p.y+18);ctx.lineTo(p.x+8,p.y+12);ctx.lineTo(p.x+12,p.y+18);ctx.lineTo(p.x+15,p.y+15);ctx.lineTo(p.x+13,p.y+23);ctx.lineTo(p.x+3,p.y+23);ctx.closePath();ctx.fill(); }
     else { ctx.arc(p.x+8,p.y+14.5,3.5,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.moveTo(p.x+6,p.y+18);ctx.lineTo(p.x+3,p.y+24);ctx.lineTo(p.x+13,p.y+24);ctx.lineTo(p.x+10,p.y+18);ctx.closePath();ctx.fill(); }
+    ctx.restore();
   }
   for (let i=0;i<count;i++) { ctx.beginPath(); ctx.arc(p.x+8+i*7,p.y+19,3.3,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); } ctx.restore();
 }

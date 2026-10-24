@@ -67,7 +67,7 @@ export function drawBoardEffects(ctx: CanvasRenderingContext2D, scene: PaintedSc
     for (const to of marks.hint.slice(1)) link(ctx, scene, marks.hint[0], to, '#a77b25', false, enter('hint'), true);
   }
   if (marks.check != null) {
-    ctx.save(); ctx.globalAlpha = progress('check') < .3 ? 1 : .48;
+    ctx.save(); ctx.globalAlpha = progress('check') < .3 ? 1 : .9;
     for (const ch of marks.checkers ?? []) link(ctx, scene, ch.sq, ch.king, '#b84d25', ch.path === 'arc', Math.max(.06, enter('check')));
     ctx.restore();
   }

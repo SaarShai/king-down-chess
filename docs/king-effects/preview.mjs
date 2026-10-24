@@ -53,17 +53,21 @@ export const capturesFor = design => CAPTURES.filter(c => !c.only || c.only === 
 
 const scenes = {}, frames = [];
 let size = 'desktop', animations = true;
+const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
 const resolution = scale => Math.min(2, Math.max(1, Math.ceil(scale * 960 * devicePixelRatio / 960 * 4) / 4));
 function makeScene(kings, pos, coords) {
   const canvas = document.createElement('canvas');
   canvas.width = 960; canvas.height = 960 + HEADROOM;
   const scene = createScene({ canvas, pieces, headroom: HEADROOM, kings });
   scene.setCoords(coords); scene.setPosition(pos);
+  scene.setReducedMotion(motionPreference.matches);
   scene.setLively({ moves: true, idle: true, atmosphere: true, kings: true, captures: true, pawns: true });
   return { canvas, scene };
 }
 function place(frame, box, scale) {
   frame.style.width = `${box.w * scale}px`; frame.style.height = `${box.h * scale}px`;
+  const labels = frame.nextElementSibling;
+  if (labels?.classList.contains('labels')) labels.style.width = frame.style.width;
   const c = frame.firstChild;
   c.style.width = `${960 * scale}px`; c.style.height = `${(960 + HEADROOM) * scale}px`;
   c.style.marginLeft = `${-box.x * scale}px`; c.style.marginTop = `${-box.y * scale}px`;
@@ -91,8 +95,10 @@ function card(parent, title, text, scene, canvas, box = CROP) {
 function groundReplay(section,scene,title){
  const controls=document.createElement('div'),button=document.createElement('button');
  controls.className='buttons';button.type='button';button.textContent='Replay ground animation';
+ button.dataset.groundReplay='';button.disabled=motionPreference.matches;
  button.setAttribute('aria-label',`Replay ${title} ground animation`);
  button.addEventListener('click',()=>{
+  if(motionPreference.matches)return;
   const enabled=document.getElementById('animations');if(!enabled.checked)enabled.click();
   scene.restartKingGround();scene.keepAwake(10000);
  });
@@ -164,10 +170,24 @@ for (const [id, stage, kings, floor, phone] of [['title-desktop', [1040, 503], 3
       .map(([c, d]) => `<img class="${c}" src="${TITLE_ART[d]}" alt="" data-king="${d}">`).join('')}</div>`;
   titles[id] = box;
 }
-const titleKings = {};
-function startTitles() {
-  for (const [id, box] of Object.entries(titles)) { titleKings[id]?.stop(); titleKings[id] = startTitleKings(box.querySelector('.title-kings')); }
+const titleKings = {}, visibleTitles = new Set();
+function updateTitles() {
+  for (const [id, box] of Object.entries(titles)) {
+    if (animations && !motionPreference.matches && visibleTitles.has(id)) {
+      if (!titleKings[id]?.running) titleKings[id] = startTitleKings(box.querySelector('.title-kings'));
+    } else titleKings[id]?.stop();
+  }
 }
+const titleVisibility = new IntersectionObserver(entries => {
+  for (const entry of entries) {
+    if (entry.isIntersecting) visibleTitles.add(entry.target.id);
+    else visibleTitles.delete(entry.target.id);
+  }
+  updateTitles();
+});
+for (const box of Object.values(titles)) titleVisibility.observe(box);
+addEventListener('pagehide', () => { visibleTitles.clear(); updateTitles(); titleVisibility.disconnect(); });
+addEventListener('pageshow', () => { for (const box of Object.values(titles)) titleVisibility.observe(box); });
 
 // 4. A whole board: resting pawns and two kings.
 const board = makeScene(['spirit', 'shadow'], START, true);
@@ -182,15 +202,21 @@ for (const [i, id] of ['white', 'black'].entries()) {
   select.addEventListener('change', () => board.scene.setKings([document.getElementById('white').value, document.getElementById('black').value]));
 }
 for (const input of document.querySelectorAll('input[name=size]')) input.addEventListener('change', () => { size = input.value; layout(); });
-document.getElementById('animations').addEventListener('change', e => {
-  animations = e.target.checked;
-  for (const { scene } of Object.values(scenes)) scene.setLively({ kings: animations, pawns: animations });
-  if (animations) startTitles(); else for (const t of Object.values(titleKings)) t.stop();
-});
+function updateMotion() {
+  for (const { scene } of Object.values(scenes)) {
+    scene.setReducedMotion(motionPreference.matches);
+    scene.setLively({ kings: animations, pawns: animations });
+  }
+  for (const button of document.querySelectorAll('[data-ground-replay]')) button.disabled = motionPreference.matches;
+  document.getElementById('motion-notice').hidden = !motionPreference.matches;
+  updateTitles();
+}
+document.getElementById('animations').addEventListener('change', e => { animations = e.target.checked; updateMotion(); });
+motionPreference.addEventListener('change', updateMotion);
 addEventListener('resize', layout);
 layout();
 const ready = Promise.all(Object.values(scenes).map(({ scene }) => scene.load()));
-startTitles();
+updateMotion();
 // The recording tool drives the captures itself (?record).
 if (!new URLSearchParams(location.search).has('record')) ready.then(() => { for (const s of Object.values(scenes)) s.start?.(); });
 window.preview = { scenes, CROP, boxOf, CAPTURES, capturesFor, setUpCapture, afterCapture, ready, titleKings, titles };

@@ -93,7 +93,7 @@ function renderDecoration(ctx: CanvasRenderingContext2D, layer: 'under'|'over', 
     case 'holy-light': pips(ctx,scene,canvas.getBoundingClientRect().width,at('e3'),'#87611e',0,true);break;
     case 'mercy': pips(ctx,scene,canvas.getBoundingClientRect().width,at('d3'),'#87611e',0,true,'pawn');break;
     case 'shove': link(ctx,scene,at('c5'),at('c6'),'#2f7f75',false,enter());break;
-    case 'check': ctx.save();ctx.globalAlpha=progress<.3?1:.48;for(const ch of checkersOf(active.f.rules,active.f.before))link(ctx,scene,ch.sq,ch.king,'#b84d25',ch.path==='arc',Math.max(.06,smooth(progress/.16)));ctx.restore();break;
+    case 'check': ctx.save();ctx.globalAlpha=progress<.3?1:.9;for(const ch of checkersOf(active.f.rules,active.f.before))link(ctx,scene,ch.sq,ch.king,'#b84d25',ch.path==='arc',Math.max(.06,smooth(progress/.16)));ctx.restore();break;
     case 'hint': link(ctx,scene,active.f.move!.from,target!,'#a77b25',false,enter(),true);break;
   }
 }

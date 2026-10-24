@@ -100,6 +100,14 @@ try {
     report.groups.push({ group, samples: samples.length, frameChecks: samples.length * frames.length });
     if (group === 'gui') {
       await reduce.uncheck();
+      await page.evaluate(() => { window.effectsStudy.select('check'); window.effectsStudy.seek(1); });
+      assert((await page.locator('#scene').innerText()).includes('Get your king out of check.'));
+      for (const id of ['victory', 'defeat']) {
+        await page.evaluate(id => { window.effectsStudy.select(id); window.effectsStudy.seek(id === 'victory' ? 1750 / 3800 : 1750 / 3000); }, id);
+        const actionOpacity = await page.locator(id === 'victory' ? '.recap-tile' : '.result-detail').first().evaluate(el => +getComputedStyle(el).opacity);
+        assert(actionOpacity > .9, `${id}: next step is readable with the explanation`);
+        await shot(page, `gui-${id}-earlier-action`, { fullPage: true });
+      }
       for (const sample of samples.slice(18)) {
         await page.setViewportSize({ width: 1280, height: 800 });
         await page.evaluate(id => { window.effectsStudy.select(id); window.effectsStudy.seek(.5); }, sample.id);
@@ -112,6 +120,17 @@ try {
       for (const id of ['firewall', 'archer', 'guard', 'holy-light', 'mercy', 'swap']) {
         await page.evaluate(id => { window.effectsStudy.select(id); window.effectsStudy.seek(.36); }, id);
         await shot(page, `signals-${id}`, { fullPage: true });
+      }
+    }
+    if (group === 'signals') {
+      await reduce.uncheck();
+      await page.setViewportSize({ width: 390, height: 844 });
+      for (const id of ['check', 'guard', 'mercy']) {
+        await page.evaluate(id => { window.effectsStudy.select(id); window.effectsStudy.seek(.5); }, id);
+        await shot(page, `signals-${id}-phone-hold`, { fullPage: true });
+        await page.locator('#flip').click();
+        await shot(page, `signals-${id}-phone-flipped`, { fullPage: true });
+        await page.locator('#flip').click();
       }
     }
     await reduce.uncheck();
@@ -138,6 +157,54 @@ try {
     await page.close();
   }
   await touchContext.close();
+  // Review scenes must obey the same motion preference as the game; unseen titles must not draw.
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+    const errors = trapErrors(page);
+    await page.goto(`${origin}docs/king-effects/preview.html?record`);
+    await page.evaluate(() => window.preview.ready);
+    const replay = page.getByRole('button', { name: 'Replay Flame ground animation', exact: true });
+    assert(await replay.isDisabled(), 'system reduced motion disables ground replay');
+    await page.waitForFunction(() => window.preview.scenes.flame.scene.effects.length === 0);
+    await page.waitForTimeout(800);
+    const before = await page.evaluate(() => window.preview.scenes.flame.scene.frames);
+    await page.waitForTimeout(200);
+    assert((await page.evaluate(() => window.preview.scenes.flame.scene.frames)) - before <= 1, 'reduced ground stops redraws');
+    for (const size of ['desktop', 'phone', 'double']) {
+      await page.locator(`input[name=size][value=${size}]`).check();
+      const bounds = await page.locator('#idle-flame').evaluate(el => {
+        const frame = el.querySelector('.frame').getBoundingClientRect(), labels = el.querySelector('.labels').getBoundingClientRect();
+        return [frame.x, frame.width, labels.x, labels.width];
+      });
+      assert(Math.abs(bounds[0] - bounds[2]) < 1 && Math.abs(bounds[1] - bounds[3]) < 1, `${size}: army labels track the painted crop`);
+    }
+    await page.locator('input[name=size][value=phone]').check();
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.waitForFunction(() => !document.querySelector('[data-ground-replay]').disabled);
+    await replay.click();
+    await page.waitForFunction(() => window.preview.scenes.flame.scene.effects.includes('flame'));
+    assert.equal(await page.locator('.title-kings canvas').count(), 0, 'offscreen title examples do not start');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForFunction(() => window.preview.scenes.flame.scene.effects.length === 0);
+    assert(await replay.isDisabled(), 'preference change interrupts replay');
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.locator('#title-phone').scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => window.preview.titleKings['title-phone']?.started === 6);
+    await page.locator('#idle-flame').scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => Object.values(window.preview.titleKings).every(t => !t.running));
+    const stopped = await page.evaluate(() => Object.values(window.preview.titleKings).map(t => t.frames));
+    await page.waitForTimeout(200);
+    assert.deepEqual(await page.evaluate(() => Object.values(window.preview.titleKings).map(t => t.frames)), stopped, 'offscreen titles stop drawing');
+    await page.locator('#title-phone').scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => window.preview.titleKings['title-phone']?.started === 6 && window.preview.titleKings['title-phone'].running);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForFunction(() => document.querySelectorAll('.title-kings canvas').length === 0);
+    await page.locator('#idle-flame').scrollIntoViewIfNeeded();
+    await shot(page, 'king-preview-phone-reduced', { fullPage: false });
+    assertNoErrors(errors);
+    await page.close();
+    report.checks.push('king preview initial and changing reduced motion, Replay interruption, title viewport stop/resume, crop-aligned labels at three scales');
+  }
   for (const [group, ids] of Object.entries({ heroes: ['Burn', 'Freeze', 'EarthQuake'], movement: ['Strike', 'FireStarter', 'Haste', 'Rally', 'March', 'Flight', 'Leap', 'Vault', 'SkyLift'], spells: ['Sacrifice', 'Salvation', 'MorphP', 'Control', 'Mimic', 'Curse', 'IceWall', 'Firewall', 'MirrorB'] })) {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await page.setContent(`<html><body style="margin:0;padding:16px;background:#f3ead7;color:#332d25;font:18px Georgia"><h1>${group} · action / contact</h1><main style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">${ids.map(id => { const sample = cardProof.find(s => s.id === id); return `<section><h2 style="font-size:21px;margin:8px">${sample.name}</h2><div style="display:flex">${sample.images.map(data => `<img style="width:50%;height:auto" src="data:image/png;base64,${data}">`).join('')}</div></section>`; }).join('')}</main></body></html>`);
