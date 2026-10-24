@@ -177,8 +177,8 @@ try {
   await tab.setViewportSize({ width: 1500, height: 1100 });
   for (const id of ['title-desktop', 'title-phone']) {
     await tab.evaluate(() => window.rec.only('none'));
-    await tab.waitForFunction(id => window.preview.titleKings[id]?.started === 6, id, { timeout: 20000 });
     const el = tab.locator(`#${id}`); await el.scrollIntoViewIfNeeded();
+    await tab.waitForFunction(id => window.preview.titleKings[id]?.started === 6, id, { timeout: 20000 });
     // Around the kings and their effects (the desktop stage is wider than they need).
     const clip = await tab.evaluate(id => {
       const box = document.getElementById(id).getBoundingClientRect(), k = document.querySelector(`#${id} .title-kings`).getBoundingClientRect();

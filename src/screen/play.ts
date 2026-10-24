@@ -1,3 +1,4 @@
+import { UiMotion, checkFrame, handoff } from '../ui/motion';
 import { railsOf, clickPath, landingMoves, marksModel } from '../marks-model';
 import { checkersOf, describeMove, threatsIn, nextMoveNumber } from '../move-text';
 import { reachOf, readTap, unmarkedTap } from '../read';
@@ -71,6 +72,9 @@ export function connectPlay(view: BoardView, c: {
   openNewGame(): void;
 }) {
   const { params, preset, withPowers, fen, engine, guide, settings, home } = c;
+  const uiMotion = new UiMotion();
+  window.addEventListener('pagehide', () => uiMotion.cancel());
+  let handoffAt = -Infinity;
   let game = new Game(undefined, c.rules);
   const sync = (pos: Position): void => { view.setRules?.(game.context); view.sync(pos); };
   /** The keyboard cursor, drawn over the board (pointer events pass through). */
@@ -143,6 +147,7 @@ export function connectPlay(view: BoardView, c: {
       if (game.pos.haste !== undefined && game.pos.rage !== 3) selected = game.pos.haste;
       $('announce').textContent = 'Move taken back.';
       refresh(); save();
+      uiMotion.play($('moves-line'), [{ transform: 'translateX(12px)' }, { transform: 'translateX(0)' }], 600);
     },
   });
   const gameEnd = connectGameEnd(view, $('board'), $<HTMLDialogElement>('over'), $('over-tiles'), {
@@ -171,10 +176,10 @@ export function connectPlay(view: BoardView, c: {
       const seals = awardTurnSeals(game, turnStart, sides, linkSide);
       const line = !seals.length ? '' : seals.length === 1 ? `New seal: ${seals[0]}.` : 'New seals.';
       if (line) $('announce').textContent = `${line} See Menu, Extra, Tricks.`;
-      turnStart = handOver(game); selected = null; pending = [];
+      turnStart = handOver(game); handoffAt = performance.now(); selected = null; pending = [];
       return line;
     },
-    refresh, save, next: () => { if (ended()) moments.showOver(); else void maybeAi(); },
+    refresh, save, next: () => { if (ended()) { gameEnd.arm(); moments.showOver(); } else void maybeAi(); },
     link: lans => links.gameLink(lans), notice: line => { notice = line; },
     focusBoard: keyboard => c.keys().focus(keyboard),
   });
@@ -264,6 +269,9 @@ export function connectPlay(view: BoardView, c: {
     drawMarks();
     refreshTable({ game, sides, skill, rules: game.rules, flipped, thinking, viewing, lesson, lessonDone, notice, armed, selected, pending, linkSide, reviewNote: moments.reviewNote(), turn: currentTurn(), mode: turnMode(), power: coins.context, previously: previously.state() });
     home?.refresh();
+    const current = document.querySelector<HTMLElement>('.player-strip.is-turn .portrait');
+    if (current) handoff(uiMotion, $('game-table'), current, handoffAt);
+    for (const row of document.querySelectorAll<HTMLElement>('.coin-row[data-side]')) row.querySelector('.portrait')?.classList.toggle('is-checked', viewing === null && game.inCheck && row.dataset.side === (game.pos.turn ? 'b' : 'w'));
   }
 
   /** The keyboard cursor, placed with view.screenOf(). */
@@ -286,6 +294,7 @@ export function connectPlay(view: BoardView, c: {
   async function commit(m: Move): Promise<void> {
     if (saveBlocked) return;
     const g = gen;
+    uiMotion.cancel(); handoffAt = -Infinity;
     busy = true;
     hintSquares = [];
     const pre = game.pos;
@@ -293,7 +302,7 @@ export function connectPlay(view: BoardView, c: {
     if (viewing != null) { viewing = null; sync(pre); } // a review ends when a move is played
     const computer = lesson == null && sides[pre.turn] === 'ai';
     game.play(m);
-    if (computer) turnStart = handOver(game);
+    if (computer) { turnStart = handOver(game); handoffAt = performance.now(); }
     notice = '';
     $('announce').textContent = describeMove(game.context, pre, m, true) + (game.inCheck && !finished() ? ' Check.' : '');
     moments.played(pre, m);
@@ -316,9 +325,20 @@ export function connectPlay(view: BoardView, c: {
     // After a Haste's first move the same piece is ready for its second.
     if (game.pos.haste !== undefined && game.pos.rage !== 3 && myTurn()) selected = game.pos.haste;
     refresh();
+    if (game.inCheck) {
+      const portrait = document.querySelector<HTMLElement>(`.coin-row[data-side='${game.pos.turn ? 'b' : 'w'}'] .portrait`);
+      if (portrait) checkFrame(uiMotion, portrait);
+      uiMotion.reveal($('status'), 430, 10, 250);
+    }
+    if (m.power) {
+      const coin = $(`power-${pre.turn ? 'b' : 'w'}`);
+      uiMotion.play(coin?.querySelector('img') ?? null, [{ scale: '1' }, { scale: '1.06', offset: .5 }, { scale: '1' }], 650);
+      const spentNotches = coin?.querySelectorAll('.notch.is-spent');
+      uiMotion.play(spentNotches?.[spentNotches.length - 1] ?? null, [{ scale: '1' }, { scale: '.9' }], 500);
+    }
     save();
     if (currentTurn().waits && !computer) announceTurn();
-    if (ended()) moments.showOver(); else void maybeAi();
+    if (ended()) { gameEnd.arm(); moments.showOver(); } else void maybeAi();
   }
 
   /** A lesson move: the goal ends the lesson; any other move is taken back with the task again. */
@@ -327,6 +347,11 @@ export function connectPlay(view: BoardView, c: {
     if (l.goal(pre, m)) { lessonDone = true; moments.say(`Well done. ${l.done}`); noteLesson(l.name); }
     else { game.undo(); sync(game.pos); moments.say(`Not quite. ${l.task}`); }
     refresh();
+    if (lessonDone) {
+      uiMotion.play($('lesson-progress').querySelector(`[title='${l.name}']`), [{ opacity: 0, scale: '.85', rotate: '-8deg' }, { opacity: 1, scale: '1', rotate: '0deg' }], 450, 350);
+      uiMotion.reveal($('context-text'), 450, 8, 600);
+      uiMotion.reveal($('next-lesson'), 400, 10, 2250);
+    }
   }
 
   /** Lessons done, by name, in localStorage `kingdown.lessons` (the shelf and account read this store). */
@@ -408,7 +433,7 @@ export function connectPlay(view: BoardView, c: {
     $('promo-title').textContent = `Promote the pawn on ${sqName(options[0].to)}`;
     box.innerHTML = '';
     return new Promise(resolve => {
-      const done = (m: Move | null): void => { closePromo = null; dlg.close(); resolve(m); };
+      const done = (m: Move | null): void => { uiMotion.cancel(); closePromo = null; dlg.close(); resolve(m); };
       closePromo = () => done(null);
       for (const m of options) {
         const b = document.createElement('button');
@@ -420,7 +445,9 @@ export function connectPlay(view: BoardView, c: {
       $('cancel-promo').onclick = () => done(null);
       dlg.oncancel = e => { e.preventDefault(); done(null); };
       refresh();
+      dlg.classList.add('ui-dialog-motion');
       dlg.showModal();
+      [...box.children].forEach((button, i) => uiMotion.reveal(button, 350, 12, 550 + i * 90));
     });
   }
 
@@ -611,6 +638,7 @@ export function connectPlay(view: BoardView, c: {
     viewing = step.viewing;
     selected = null; pending = []; hintSquares = []; moments.clearNote(); inspected = null;
     refresh();
+    uiMotion.play($('moves-line'), [{ transform: `translateX(${n < from ? 12 : -12}px)` }, { transform: 'translateX(0)' }], n < from ? 600 : 650);
     c.keys().say(); // the keyboard cursor reads the board now shown
     if (replay && n === from + 1) {
       sync(at(from));
@@ -634,6 +662,7 @@ export function connectPlay(view: BoardView, c: {
    * (moments.ts listMoments keeps the game across its awaits).
    */
   function reset(): void {
+    uiMotion.cancel(); handoffAt = -Infinity;
     gameEnd.reset();
     moveMoments.cancel();
     clearCoinRead();
@@ -691,6 +720,9 @@ export function connectPlay(view: BoardView, c: {
     orient();
     refresh();
     save(true);
+    for (const portrait of document.querySelectorAll('.player-strip .portrait')) uiMotion.reveal(portrait, 600, 20, 250);
+    uiMotion.reveal($('board').querySelector('canvas'), 450, 0, 850);
+    uiMotion.reveal($('context-text'), 420, 8, 2200);
     void maybeAi();
   }
 
@@ -716,6 +748,7 @@ export function connectPlay(view: BoardView, c: {
     dropTurn(game, turnStart);
     sync(game.pos);
     resigned = side;
+    gameEnd.arm();
     refresh();
     save();
     moments.showOver();

@@ -11,9 +11,9 @@ const TITLE_FLOOR = new URL('../../public/ui/stone-board.webp',import.meta.url).
 
 const HEADROOM = 64, PAD = 32, TILE = 112, pieces = { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName };
 const INFO = {
-  flame: ['Flame', 'Lava light flows through the cracks and seams of his armour.', 'A bubbling lava pool opens under the piece; lava climbs it, with a glowing crust, drips, sparks and smoke, and the pool pulls it under.'],
-  frost: ['Frost', 'Ice flakes drift down around and in front of him and melt on his square.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
-  stratus: ['Stratus', 'He hovers a little above his square; his shadow shrinks as he rises, over rings of wind.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the rook in its way and off the board: on the back rank along the band above the board, from an edge file back over the king.'],
+  flame: ['Flame', 'The selected Lava A ground opens into painted branching fissures, with molten light below the stone. Lava also flows through his armour.', 'A bubbling lava pool opens under the piece; lava climbs it, with a glowing crust, drips, sparks and smoke, and the pool pulls it under.'],
+  frost: ['Frost', 'No ground animation. His original drifting flakes remain.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
+  stratus: ['Stratus', 'The original Sky King hovers over full clouds that visibly gather and dissolve below his feet.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the rook in its way and off the board: on the back rank along the band above the board, from an edge file back over the king.'],
   mud: ['Mud', 'Grass grows thick round his feet, and brown vines rise from the ground, arch over and go back into the ground; then the vines and the grass sink back.', 'The soil cracks; brown thorny vines wind round the piece and pull it down into the earth; three sprouts come up. Then his own grass, and after it a vine, grow on his new square.'],
   spirit: ['Spirit', 'The ivory king: a white and gold glow round him, short rays of light above his crown and light on his square. The charcoal king: a black aura, black rays and a dark pool on his square. Both breathe slowly in and out.', 'The piece turns into a glowing silhouette of itself (white for the ivory king, black for the charcoal one) and implodes.'],
   shadow: ['Shadow', 'Skeletal hands (white for the ivory king, black for the charcoal one) reach up out of cracks round his feet; his smoke drifts and curls upward.', 'A crack opens under the piece; skeletal hands rise out of it, take hold of the piece and pull it down. Death Touch takes it without moving.'],
@@ -53,17 +53,21 @@ export const capturesFor = design => CAPTURES.filter(c => !c.only || c.only === 
 
 const scenes = {}, frames = [];
 let size = 'desktop', animations = true;
+const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
 const resolution = scale => Math.min(2, Math.max(1, Math.ceil(scale * 960 * devicePixelRatio / 960 * 4) / 4));
 function makeScene(kings, pos, coords) {
   const canvas = document.createElement('canvas');
   canvas.width = 960; canvas.height = 960 + HEADROOM;
   const scene = createScene({ canvas, pieces, headroom: HEADROOM, kings });
   scene.setCoords(coords); scene.setPosition(pos);
+  scene.setReducedMotion(motionPreference.matches);
   scene.setLively({ moves: true, idle: true, atmosphere: true, kings: true, captures: true, pawns: true });
   return { canvas, scene };
 }
 function place(frame, box, scale) {
   frame.style.width = `${box.w * scale}px`; frame.style.height = `${box.h * scale}px`;
+  const labels = frame.nextElementSibling;
+  if (labels?.classList.contains('labels')) labels.style.width = frame.style.width;
   const c = frame.firstChild;
   c.style.width = `${960 * scale}px`; c.style.height = `${(960 + HEADROOM) * scale}px`;
   c.style.marginLeft = `${-box.x * scale}px`; c.style.marginTop = `${-box.y * scale}px`;
@@ -88,12 +92,27 @@ function card(parent, title, text, scene, canvas, box = CROP) {
   return section;
 }
 
+function groundReplay(section,scene,title){
+ const controls=document.createElement('div'),button=document.createElement('button');
+ controls.className='buttons';button.type='button';button.textContent='Replay ground animation';
+ button.dataset.groundReplay='';button.disabled=motionPreference.matches;
+ button.setAttribute('aria-label',`Replay ${title} ground animation`);
+ button.addEventListener('click',()=>{
+  if(motionPreference.matches)return;
+  const enabled=document.getElementById('animations');if(!enabled.checked)enabled.click();
+  scene.restartKingGround();scene.keepAwake(10000);
+ });
+ controls.appendChild(button);section.insertBefore(controls,section.children[1]);
+}
+
 // 1. The idle effects.
 const grid = document.getElementById('grid');
 for (const design of Object.keys(INFO)) {
   const { canvas, scene } = makeScene([design, design], KINGS_ROW, false);
   scenes[design] = { scene, canvas };
-  card(grid, INFO[design][0], `${INFO[design][1]} <span class="period">Loop ${PERIOD[design] / 1000} s.</span>`, scene, canvas);
+  const section = card(grid, INFO[design][0], `${INFO[design][1]} <span class="period">Loop ${PERIOD[design] / 1000} s.</span>`, scene, canvas);
+  section.id = `idle-${design}`;
+  if(design!=='frost')groundReplay(section,scene,INFO[design][0]);
 }
 
 // 2. Captures: each card plays its captures in turn; a button plays one now.
@@ -151,10 +170,24 @@ for (const [id, stage, kings, floor, phone] of [['title-desktop', [1040, 503], 3
       .map(([c, d]) => `<img class="${c}" src="${TITLE_ART[d]}" alt="" data-king="${d}">`).join('')}</div>`;
   titles[id] = box;
 }
-const titleKings = {};
-function startTitles() {
-  for (const [id, box] of Object.entries(titles)) { titleKings[id]?.stop(); titleKings[id] = startTitleKings(box.querySelector('.title-kings')); }
+const titleKings = {}, visibleTitles = new Set();
+function updateTitles() {
+  for (const [id, box] of Object.entries(titles)) {
+    if (animations && !motionPreference.matches && visibleTitles.has(id)) {
+      if (!titleKings[id]?.running) titleKings[id] = startTitleKings(box.querySelector('.title-kings'));
+    } else titleKings[id]?.stop();
+  }
 }
+const titleVisibility = new IntersectionObserver(entries => {
+  for (const entry of entries) {
+    if (entry.isIntersecting) visibleTitles.add(entry.target.id);
+    else visibleTitles.delete(entry.target.id);
+  }
+  updateTitles();
+});
+for (const box of Object.values(titles)) titleVisibility.observe(box);
+addEventListener('pagehide', () => { visibleTitles.clear(); updateTitles(); titleVisibility.disconnect(); });
+addEventListener('pageshow', () => { for (const box of Object.values(titles)) titleVisibility.observe(box); });
 
 // 4. A whole board: resting pawns and two kings.
 const board = makeScene(['spirit', 'shadow'], START, true);
@@ -169,15 +202,21 @@ for (const [i, id] of ['white', 'black'].entries()) {
   select.addEventListener('change', () => board.scene.setKings([document.getElementById('white').value, document.getElementById('black').value]));
 }
 for (const input of document.querySelectorAll('input[name=size]')) input.addEventListener('change', () => { size = input.value; layout(); });
-document.getElementById('animations').addEventListener('change', e => {
-  animations = e.target.checked;
-  for (const { scene } of Object.values(scenes)) scene.setLively({ kings: animations, pawns: animations });
-  if (animations) startTitles(); else for (const t of Object.values(titleKings)) t.stop();
-});
+function updateMotion() {
+  for (const { scene } of Object.values(scenes)) {
+    scene.setReducedMotion(motionPreference.matches);
+    scene.setLively({ kings: animations, pawns: animations });
+  }
+  for (const button of document.querySelectorAll('[data-ground-replay]')) button.disabled = motionPreference.matches;
+  document.getElementById('motion-notice').hidden = !motionPreference.matches;
+  updateTitles();
+}
+document.getElementById('animations').addEventListener('change', e => { animations = e.target.checked; updateMotion(); });
+motionPreference.addEventListener('change', updateMotion);
 addEventListener('resize', layout);
 layout();
 const ready = Promise.all(Object.values(scenes).map(({ scene }) => scene.load()));
-startTitles();
+updateMotion();
 // The recording tool drives the captures itself (?record).
 if (!new URLSearchParams(location.search).has('record')) ready.then(() => { for (const s of Object.values(scenes)) s.start?.(); });
 window.preview = { scenes, CROP, boxOf, CAPTURES, capturesFor, setUpCapture, afterCapture, ready, titleKings, titles };

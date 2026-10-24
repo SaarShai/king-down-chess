@@ -9,6 +9,12 @@ const check = (actual, expected, name) => {
 };
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 await page.addInitScript(() => {
+  window.uiMotionEvents = [];
+  const animate = Element.prototype.animate;
+  Element.prototype.animate = function(frames, options) {
+    window.uiMotionEvents.push({id:this.id, className:this.getAttribute('class'), frames, options});
+    return animate.call(this,frames,options);
+  };
   window.resultsSpoken = [];
   let last = '';
   new MutationObserver(() => {
@@ -71,6 +77,16 @@ try {
   assert.equal(await page.evaluate(() => window.view.pos.board[0]), 4, 'the tile opens before its capture');
   assert.equal(await page.locator('.kd-words').count(), 0, 'Review clears the end words');
   console.log('ok Ceremony tiles open their review ply');
+  for (const width of [430, 390]) {
+    await page.setViewportSize({width, height: 844});
+    await mate();
+    for (const flipped of [false, true]) {
+      await page.evaluate(flipped => window.view.flip(flipped), flipped);
+      await noSidewaysScroll(page);
+      await shot(page, `ui-ready-${width}-${flipped ? 'black' : 'white'}`);
+    }
+  }
+
 
   await open('7k/6pp/8/8/8/R7/8/6MK w - - 0 1', [], 'off', ['human', 'human'], '&kings=flame:haste,none');
   await usePower(page); await tap(16); await tap(56); await endTurn(page);
@@ -115,7 +131,8 @@ try {
       assert.equal(await page.locator('dialog[open]').count(), 1, 'only New game stays open');
       assert.equal(await page.evaluate(() => document.activeElement.id), 'start-game', 'the sheet keeps focus');
       await page.keyboard.press('Escape');
-      assert.equal(await page.locator('#new-game').isVisible(), false, 'Escape belongs to New game');
+      assert.equal(await page.locator('#new-game').evaluate(d => d.open), false, 'Escape belongs to New game');
+      await page.locator('#new-game').waitFor({state:'hidden'});
     }
     assert.equal(await page.locator('#over').isVisible(), false, 'the old result does not open');
     assert.equal(await page.locator('.kd-words').count(), 0, 'the old Ceremony is cancelled');
@@ -148,7 +165,7 @@ try {
   assert.equal((await lanMoves(page)).length, 5, 'Enter skips and does not Rematch');
   assert.equal(await page.locator('#over .ceremony-tile').count(), 3, 'skip shows the tiles');
   assert.equal(await page.evaluate(() => document.activeElement.value), 'rematch', 'Rematch has the end focus');
-  assert.equal(await page.evaluate(() => [...document.querySelectorAll('.over-king')].flatMap(k => k.getAnimations()).length), 0, 'the dialog has no second king fall');
+  assert.equal(await page.evaluate(() => [...document.querySelectorAll('.over-king')].flatMap(k => k.getAnimations()).some(a => a.effect.getKeyframes().some(f => /rotate/.test(f.transform ?? '')))), false, 'the dialog has no second king fall');
   await minTarget(page, '#over button'); await noSidewaysScroll(page);
   await shot(page, 'ceremony-phone');
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -173,6 +190,30 @@ try {
   assert.equal(await page.locator('.kd-words').count(), 0, 'a draw stays quiet');
   assert.equal(await page.evaluate(() => window.view.fallen), null, 'a draw has no beaten king');
   console.log('checked quiet loss, draw and result announcement');
+  for (const pace of ['normal', 'fast']) {
+    await stageMate(pace); await endTurn(page);
+    await page.locator('#over').waitFor({state:'visible'});
+    await page.waitForFunction(() => window.uiMotionEvents.some(event => event.id === 'over-words'));
+    const beat = await page.evaluate(() => window.uiMotionEvents.filter(event => event.id === 'over-words'));
+    assert.equal(beat.length, 1, 'The live victory title enters once');
+    assert.equal(beat[0].options.duration, pace === 'fast' ? 310 : 620, 'Result motion uses the chosen pace');
+    await page.locator('#over').evaluate(el => Promise.all(el.getAnimations({subtree:true}).map(a => a.finished.catch(() => {}))));
+    for (const width of [430, 390]) {
+      await page.setViewportSize({width, height:844}); await noSidewaysScroll(page);
+      await shot(page, `ui-motion-${pace}-${width}`);
+    }
+    assert.equal(await page.evaluate(() => window.uiMotionEvents.filter(event => event.id === 'over-words').length), 1, 'Resize never replays a result');
+    await page.reload(); await readyBoard(page); await page.locator('#over').waitFor({state:'visible'});
+    assert.equal(await page.evaluate(() => window.uiMotionEvents.length), 0, 'Reload shows a stable historic result');
+    assert.equal(await page.locator('.kd-words').count(), 0, 'Reload never starts the final-blow replay');
+  }
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await stageMate('normal'); await endTurn(page); await page.locator('#over').waitFor({state:'visible'});
+  assert.equal(await page.evaluate(() => window.uiMotionEvents.length), 0, 'System reduced motion leaves the UI still');
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await stageMate('off'); await endTurn(page); await page.locator('#over').waitFor({state:'visible'});
+  assert.equal(await page.evaluate(() => window.uiMotionEvents.length), 0, 'Motion Off leaves the UI still');
+  console.log('ok UI motion: live once, Fast, 430/390, resize, reload, reduced and Off');
   assertNoErrors();
   if (faults.length) throw new AggregateError(faults, 'End frame checks fail');
   console.log('ok end frames and one result announcement');

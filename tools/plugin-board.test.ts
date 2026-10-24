@@ -201,7 +201,8 @@ it('keeps spent coin contrast and clear symbols together', async () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const coins = await frame.locator('#game-table').evaluate(table => [...table.querySelectorAll<HTMLButtonElement>('.card-coin')].map(coin => {
       coin.dataset.state = 'used'; coin.disabled = true;
-      const style = getComputedStyle(coin.querySelector('.coin-paint')!), symbol = coin.querySelector('svg')!, face = symbol.getBoundingClientRect(), box = coin.getBoundingClientRect();
+      // The paint compresses; its symbol inset is separate from the unchanged button target.
+      const paint = coin.querySelector('.coin-paint')!, style = getComputedStyle(paint), symbol = coin.querySelector('svg')!, face = symbol.getBoundingClientRect(), box = paint.getBoundingClientRect();
       return { opacity: style.opacity, buttonOpacity: getComputedStyle(coin).opacity, symbol: !!symbol, letters: coin.textContent, color: getComputedStyle(symbol).color, inset: box.width - face.width };
     }));
     expect(coins).toHaveLength(2);
@@ -818,6 +819,7 @@ it.each([197,240] as const)('keeps the narrow Menu policy header and details usa
     const page = await open(next, width, 760), frame = page.frameLocator('iframe');
     try {
       await frame.locator('#board-menu').click();
+      await frame.locator('#board-sheet').evaluate(async sheet => { await Promise.all(sheet.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {}))); });
       const geometry = await frame.locator('#board-sheet .sheet-head').evaluate(head => {
         const box = (el: Element) => { const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height }; };
         return { head: box(head), title: box(head.querySelector('h2')!), policy: box(head.querySelector('#game-policy')!), close: box(head.querySelector('[aria-label="Close"]')!) };
@@ -835,7 +837,9 @@ it.each([197,240] as const)('keeps the narrow Menu policy header and details usa
       expect(await frame.locator('#board-sheet h2').innerText()).toBe(label);
       expect(await frame.locator('#board-sheet .sheet-body').innerText()).toContain(detail);
       if (rating_policy === 'ranked-v1') expect(await frame.locator('#board-sheet .sheet-body').innerText()).toContain('3 days per move.');
-      await frame.locator('#board-sheet [aria-label="Close"]').click(); expect(await frame.locator('#board-sheet').isVisible()).toBe(false);
+      await frame.locator('#board-sheet [aria-label="Close"]').click();
+      expect(await frame.locator('#board-sheet').evaluate(e => (e as HTMLDialogElement).open)).toBe(false);
+      await frame.locator('#board-sheet').waitFor({ state: 'hidden' });
     } finally { await page.close(); }
   }
 });

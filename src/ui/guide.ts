@@ -84,6 +84,7 @@ export function connectGuide(c: { shownPos(): Position; context(): GameRules; pr
   $('rules-btn').onclick = () => {
     refreshLessonShelf();
     fill();
+    $('rules').classList.add('ui-dialog-motion');
     $<HTMLDialogElement>('rules').showModal();
     document.querySelector<HTMLElement>('.lesson-guide-body')!.scrollTop = 0;
   };
