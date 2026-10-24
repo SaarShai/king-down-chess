@@ -750,23 +750,36 @@ it('F-008: a Moves sheet body that stops scrolling leaves the Tab order on blur'
   } finally { await page.close(); }
 });
 
-// A press that starts on the scrim and ends on the sheet sends no click to the scrim. A later press that starts on the
-// sheet and ends on the scrim must not close the sheet with that old press. Chromium only: the test sends raw touches.
+// A press that starts on the scrim and ends on the sheet must leave no press state behind: a later press that starts
+// on the sheet and ends on the scrim must not close the sheet. Chromium only: the test sends raw touches.
+// A short touch move is a tap, and the platform picks its click target: Linux Chromium sends the click to the element
+// under the touch start (the scrim, which closes the sheet, as a tap on the scrim must), macOS to the element under the
+// touch end. So the first press moves past the tap distance: the browser cancels it (pointercancel) and sends no click
+// on any platform. The second press is a short tap; its click goes to the sheet or to the scrim, and neither may close it.
+// Each step waits for its last event, not for a fixed time.
 it.skipIf(!!process.env.PLAYABLE_BROWSER && process.env.PLAYABLE_BROWSER !== 'chromium')('F-032: an old scrim press does not close the sheet for a later press from the sheet', async () => {
   const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), 390, 844), frame = page.frameLocator('iframe');
   try {
     await frame.locator('#board-menu').focus(); await page.keyboard.press('Enter');
     const sheet = frame.locator('#board-sheet'); await frame.locator('#board-sheet[open]').waitFor(); await frames(page);
+    await frame.locator('html').evaluate(() => {
+      const w = window as any; w.presses = [];
+      for (const type of ['pointerdown', 'pointercancel', 'click']) document.addEventListener(type, e => { const t = e.target as HTMLElement; w.presses.push(`${type} ${t.id || t.className}`); }, true);
+    });
+    const presses = () => frame.locator('html').evaluate(() => (window as any).presses as string[]);
     const box = (await sheet.boundingBox())!, x = box.x + 12, cdp = await page.context().newCDPSession(page);
-    const drag = async (from: number, to: number) => {
+    const drag = async (from: number, to: number, last: string) => {
+      await frame.locator('html').evaluate(() => { (window as any).presses = []; });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: from, id: 1 }] });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: to, id: 1 }] });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await expect.poll(async () => (await presses()).some(event => event.startsWith(last))).toBe(true);
       await frames(page);
+      return presses();
     };
-    await drag(box.y - 2, box.y + 2);
+    expect((await drag(box.y - 2, box.y + 40, 'pointercancel'))[0]).toBe('pointerdown scrim');
     expect(await sheet.isVisible()).toBe(true);
-    await drag(box.y + 2, box.y - 2);
+    expect((await drag(box.y + 2, box.y - 2, 'click'))[0]).toBe('pointerdown sheet-head');
     expect(await sheet.isVisible()).toBe(true);
     await cdp.detach();
   } finally { await page.close(); }

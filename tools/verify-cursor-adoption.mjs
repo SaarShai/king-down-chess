@@ -65,7 +65,8 @@ try {
   assert.equal(await savedSkill(), 'club');
   assert.equal(await page.locator('#clock,#time-w,#time-b,#try-these').count(), 0);
   await startGame(page, { mode: 'two', army: 'classic' }); await ready();
-  await click(12); await click(28); await played(1);
+  // A staged local turn stays staged over a reload (F-010), so White ends the turn before it.
+  await click(12); await click(28); await played(1); await endTurn(page);
 
   await page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem('kingdown.save'));
