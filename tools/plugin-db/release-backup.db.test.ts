@@ -147,4 +147,15 @@ suite('the release backup and games restore', () => {
   await expect(run(restoreSql)).rejects.toThrow('restore refused: 1 rating row(s) of backup games changed since the backup');
   expect(await games()).toEqual(live);
  });
+
+ it('refuses a backup game without both seats, as a plain-begin copy can make for a game that starts mid-copy, and changes nothing', async () => {
+  await run(backupSql);
+  // A revision-0 game in the games copy but not in the earlier game_players copy: no commands, so the command check passes.
+  const d = randomUUID();
+  await pool.query(`insert into ${B}.games select (jsonb_populate_record(g, '{"revision":0,"turn":0,"status":"waiting"}'::jsonb || jsonb_build_object('id', $2::uuid))).* from ${B}.games g where id=$1`, [a, d]);
+  await pool.query(`delete from ${B}.game_players where game_id=$1 and seat=1`, [b]);
+  const live = await games();
+  await expect(run(restoreSql)).rejects.toThrow('backup refused: 2 game(s) lack seat 0 or seat 1');
+  expect(await games()).toEqual(live);
+ });
 });

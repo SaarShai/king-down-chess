@@ -4,8 +4,9 @@
 --
 -- Tables: games, game_players, game_commands, game_invites. Order:
 --   1. Lock the four tables against writes (reads continue) until the commit, so the game service and the jobs wait.
---   2. Refuse a backup in which a game and its command rows disagree, and refuse when the rating rows of a backup game
---      changed since the backup (a rating restore is a separate decision).
+--   2. Refuse a backup in which a game and its command rows disagree, a child row has no game, or a game lacks seat 0
+--      or seat 1. Refuse when the rating rows of a backup game changed since the backup (a rating restore is a
+--      separate decision).
 --   3. Delete the live player, command and invite rows of each backup game.
 --   4. Insert each backup game that was deleted since the backup, then write every backup game in place (an update, so
 --      reports, badges, boards and rematches keep their link).
@@ -39,6 +40,11 @@ begin
     execute format('select count(*) from %1$I.%2$I c where not exists (select from %1$I.games g where g.id = c.game_id)', b, t) into n;
     if n > 0 then raise exception 'backup refused: % row(s) of % have no backup game', n, t; end if;
   end loop;
+  -- Every game has both seats from its first write (src/match/service.ts makes seats 0 and 1, store.ts inserts them in
+  -- the game's transaction), for every kind and status. A plain-begin copy can hold a game that started after its
+  -- game_players copy: no commands, so the command check passes, but no seats.
+  execute format('select count(*) from %1$I.games g where (select count(distinct p.seat) from %1$I.game_players p where p.game_id = g.id and p.seat in (0, 1)) <> 2', b) into n;
+  if n > 0 then raise exception 'backup refused: % game(s) lack seat 0 or seat 1', n; end if;
   execute format('select count(*) from ((select to_jsonb(r) from public.rating_history r where r.game_id in (select id from %1$I.games)
     except all select to_jsonb(r) from %1$I.rating_history r) union all (select to_jsonb(r) from %1$I.rating_history r
     except all select to_jsonb(r) from public.rating_history r where r.game_id in (select id from %1$I.games))) d', b) into n;

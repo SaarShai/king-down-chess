@@ -22,7 +22,7 @@ Two independent read-only audits of the 2026-10-23 production release (commit `b
 `plugin-deploy/release-restore-games.sql` runs as one transaction. Tables: `games`, `game_players`, `game_commands`, `game_invites`.
 
 1. Lock the four tables in `exclusive` mode until the commit. Reads continue; the game service and the jobs wait.
-2. Refuse the backup when a backup game does not have exactly the command rows `1..revision`, or when a backup child row has no backup game. Refuse when the `rating_history` rows of a backup game changed since the backup: a rating restore is a separate decision.
+2. Refuse the backup when a backup game does not have exactly the command rows `1..revision`, when a backup child row has no backup game, or when a backup game lacks seat 0 or seat 1. Every game needs both seats, for every kind and status: `src/match/service.ts` makes `players: [player(0), player(1)]`, `src/match/store.ts` `insert` writes both seats in the game's transaction, and `game_players` allows only `seat in (0, 1)` with the primary key `(game_id, seat)` (`0006_games.sql`). A solo game's computer seat is a row too. A plain-`begin` copy can hold a game that started after its `game_players` copy: revision 0 and no commands pass the command check, but the game has no seats. Refuse when the `rating_history` rows of a backup game changed since the backup: a rating restore is a separate decision.
 3. Apply the foreign-key actions of accounts deleted since the backup to the backup rows: the reference becomes null, and an invite that the account made stays deleted.
 4. Delete the live player, command and invite rows of each backup game.
 5. Insert each backup game that was deleted since the backup. Then write every backup game in place, with an update, so reports, badges, boards and rematches keep their link.
@@ -45,14 +45,14 @@ The script prints `backup_games`, `restored_games` (same revision and status as 
 - `engines-check.mjs --production` refuses a loopback and a staging URL with exit 2 before any connection, without the password in the output.
 - `productionDatabase` accepts the production direct host and pooler user in any case, with a trailing dot or percent-encoded. It refuses staging, loopback and other hosts.
 - Backup: a move that commits while the backup waits between its `game_commands` copy and its `games` copy is in no backup table. Control: with a plain `begin`, a seat and game update in the same wait gives a backup whose `games` and `game_players` disagree, with every count equal.
-- Restore: the old insert fails with `23505`. The restore brings back the changed game and the deleted game, keeps the added game with its rows, keeps the report link, and gives the same result on a second run. A deleted account's seat becomes null and its invite stays deleted. A backup with a missing command row and a changed rating row are refused, and the live rows do not change.
+- Restore: the old insert fails with `23505`. The restore brings back the changed game and the deleted game, keeps the added game with its rows, keeps the report link, and gives the same result on a second run. A deleted account's seat becomes null and its invite stays deleted. A backup with a missing command row, a changed rating row, a revision-0 game with no seats or a game with one seat is refused, and the live rows do not change.
 
 ## Evidence
 
 Base `bdd886c7` (origin/main), branch `staging/release-safety`. Local test cluster on port 55432; the database test runs on its own copy `kingdown_release_safety_releasebackup_test`.
 
 - `KINGDOWN_TEST_FILE='tools/{deploy,staging-config,engines}.test.ts' npm test`: 3 files, 321 tests pass.
-- `KINGDOWN_TEST_FILE='tools/plugin-db/release-backup.db.test.ts' npm test`: 6 tests pass.
+- `KINGDOWN_TEST_FILE='tools/plugin-db/release-backup.db.test.ts' npm test`: 7 tests pass. The seat test (review finding 4357499620) failed on the earlier SQL: the restore accepted the backup.
 - Mutation: with `begin;` in place of `begin isolation level repeatable read;` in `release-backup.sql`, the one-snapshot test fails with `backup count differs for game_commands: 4 vs 3`. The template was put back.
 - Full `npm test` at `aff8104c`: 257 files, 4781 tests pass, 8 skipped. An earlier full run had one browser timeout in `tools/plugin-motion.test.ts` ("opens end actions during a live win") at load average 14; that file passed alone, and the next full run passed.
 - `npm run test:docs`: 13 files, 166 tests pass.
