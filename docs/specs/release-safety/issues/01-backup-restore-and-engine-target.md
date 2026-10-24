@@ -56,6 +56,7 @@ Base `bdd886c7` (origin/main), branch `staging/release-safety`. Local test clust
 - Mutation: with `begin;` in place of `begin isolation level repeatable read;` in `release-backup.sql`, the one-snapshot test fails with `backup count differs for game_commands: 4 vs 3`. The template was put back.
 - Full `npm test` at `aff8104c`: 257 files, 4781 tests pass, 8 skipped. An earlier full run had one browser timeout in `tools/plugin-motion.test.ts` ("opens end actions during a live win") at load average 14; that file passed alone, and the next full run passed.
 - `npm run test:docs`: 13 files, 166 tests pass.
+- After the seat check (`90674dd8`, main `0a043d4b` merged): full `npm test` 268 files, 5021 tests pass, 8 skipped.
 
 Limits: the test database stands in for Supabase (`auth.users`, roles). No production backup was read and no production restore was run. The production backup `release_backup_20261022` was made with the plain `begin` form; these tests do not show that it is inconsistent. Before a restore from it, the restore's own consistency check (step 2) shows whether its games and command rows agree.
 
