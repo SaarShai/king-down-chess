@@ -2663,3 +2663,19 @@ it('F-011: All rules shows the full rules of the selected piece and the other pi
     expect(await sheet.innerText()).toContain('Moves in an L, over any piece.');
   } finally { await page.close(); }
 });
+
+// Playtest F-009: Escape from a Menu item returns visible focus to Menu. Refresh the board leaves the sheet as the sheet closes.
+it.each(['Close', 'Refresh the board'])('F-009: Escape from the Menu (%s) returns visible focus to Menu', async item => {
+  const {page, frame} = await turnBoard('7k/8/8/8/8/8/P7/K7 w - - 0 1');
+  try {
+    await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
+    await frame.locator('#board-menu').focus(); await page.keyboard.press('Enter');
+    const sheet = frame.getByRole('dialog', { name: 'Menu', exact: true });
+    expect(await sheet.isVisible()).toBe(true);
+    if (item !== 'Close') await page.keyboard.press('Shift+Tab');
+    expect(await frame.locator('html').evaluate(() => { const e = document.activeElement as HTMLElement; return e.getAttribute('aria-label') ?? e.textContent; })).toBe(item);
+    await page.keyboard.press('Escape');
+    expect(await sheet.isVisible()).toBe(false);
+    expect(await frame.locator('#board-menu').evaluate(b => b === document.activeElement && b.matches(':focus-visible'))).toBe(true);
+  } finally { await page.close(); }
+});

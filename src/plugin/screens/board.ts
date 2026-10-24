@@ -51,8 +51,9 @@ export function closeBoardSheet() {
   refreshCardSheet = undefined;
   if (!sheet) return;
   stopPlacingChoice(); stopPlacingChoice = () => {};
-  for (const id of ['choices', 'reload', 'computer', 'invite', 'invitation']) $('board-park').append($(id));
+  // Read the focus before the parked controls leave the sheet: a moved control loses focus (playtest F-009).
   const restore = sheet.open && sheet.contains(document.activeElement);
+  for (const id of ['choices', 'reload', 'computer', 'invite', 'invitation']) $('board-park').append($(id));
   if (sheet.open) document.querySelector<HTMLElement>('.page-sheet')!.inert = false;
   sheet.close(); scrim.hidden = true;
   $('moves-line').setAttribute('aria-expanded', String(!$('recent-moves').hidden));
