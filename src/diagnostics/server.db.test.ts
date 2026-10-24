@@ -29,7 +29,7 @@ suite('first-party fault HTTP and database writes', () => {
  let own: URL, admin: pg.Pool, runtime: pg.Pool, server: Server, origin: string, options: ApiOptions;
  let handler: ReturnType<typeof createApiHandler>;
  const role = `errors_test_${randomUUID().replaceAll('-', '')}`, build = 'a'.repeat(40);
- const profile = vi.fn(async (): Promise<unknown> => { throw Object.assign(new TypeError('Server person@example.com token=private'), { stack: 'TypeError: Server person@example.com token=private\n    at f (/var/task/server.mjs:12:8)' }); });
+ const profile = vi.fn(async (): Promise<unknown> => { throw new TypeError('Server person@example.com token=private'); });
  const assets = new Set(['/assets/app-test.js']);
  const pending: Promise<unknown>[] = [];
  const settle = async () => { await Promise.all(pending.splice(0)); };
@@ -107,7 +107,7 @@ suite('first-party fault HTTP and database writes', () => {
  it('records only an unexpected server fault, with no request or actor data', async () => {
   const response = await fetch(origin + '/api/me/profile?token=private', { headers: { Authorization: 'Bearer test' } });
   expect(response.status).toBe(500);
-  expect(await rows()).toMatchObject([{ kind: 'server', name: 'TypeError', message: 'Unlisted message', frames: ['server.mjs:12:8'], routes: ['/api/me/profile'], browsers: [], size_classes: [] }]);
+  expect(await rows()).toMatchObject([{ kind: 'server', name: 'TypeError', message: 'Unlisted message', frames: [], routes: ['/api/me/profile'], browsers: [], size_classes: [] }]);
   for (const error of [new MatchServiceError('FORBIDDEN', 403, 'Expected refusal'), new AuthenticationError()]) {
    profile.mockRejectedValueOnce(error); await fetch(origin + '/api/me/profile', { headers: { Authorization: 'Bearer test' } });
   }
@@ -160,6 +160,7 @@ suite('first-party fault HTTP and database writes', () => {
  it.each(['account123456789', 'K6X', 'MeetMeAtTheStation', 'd137864c-e174-4f38-9277-6bdd0a4289dc', 'person@example.com', 'e2e4'])('removes private engine names from sent bodies and stored rows: %s', async value => {
   vi.resetModules();
   const target = new EventTarget(), sent: Blob[] = [];
+  vi.stubGlobal('document', { querySelector: () => ({ content: '/assets/app-test.js' }) });
   vi.stubGlobal('window', target);
   vi.stubGlobal('location', { origin: 'https://kingdown.dev', pathname: '/play' });
   vi.stubGlobal('navigator', { userAgent: 'Chrome/130.0', sendBeacon: (_: string, body: Blob) => { sent.push(body); return true; } });
@@ -168,8 +169,7 @@ suite('first-party fault HTTP and database writes', () => {
    const { installErrorRecorder } = await import('./browser'); installErrorRecorder();
    let fault: Error;
    try { const input = undefined as unknown as Record<string, unknown>; input[value]; } catch (error) { fault = error as Error; }
-   fault!.stack = `TypeError: ${fault!.message}\n    at f (https://kingdown.dev/assets/app-test.js:2:4)`;
-   target.dispatchEvent(Object.assign(new Event('error'), { error: fault! }));
+   target.dispatchEvent(Object.assign(new Event('error'), { error: fault!, filename: 'https://kingdown.dev/assets/app-test.js', lineno: 2, colno: 4 }));
    expect(sent).toHaveLength(1);
    const body = await sent[0].text(), input = JSON.parse(body);
    const message = ['person@example.com', 'd137864c-e174-4f38-9277-6bdd0a4289dc'].includes(value) ? 'Unlisted message' : 'Cannot read properties of [value] (reading [value])';
@@ -186,73 +186,52 @@ suite('first-party fault HTTP and database writes', () => {
    expect(stored).toMatchObject([{ message, fingerprint, count: '2' }]);
    expect(JSON.stringify(stored)).not.toContain(value);
    await admin.query('truncate public.client_errors');
-   fault!.stack = `TypeError: ${fault!.message}\n    at f (/var/task/server.mjs:2:4)`;
    await recordServerError(options.recordError, fault!, '/api/me/profile', build);
    stored = await rows();
    expect(stored).toMatchObject([{ kind: 'server', message }]);
    expect(JSON.stringify(stored)).not.toContain(value);
   } finally { vi.unstubAllGlobals(); }
  });
- it.each([
-  ['error', 'account123456789.js:1:2', false],
-  ['unhandledrejection', 'app-test.js:12345678:91', false],
-  ['worker', 'MeetMeAtTheStation.js:1:2', false],
-  ['error', 'app-test.js:87654321:92', true],
-  ['error', 'app-test.js:76543210:93\n    at https://kingdown.dev/assets/private-line.js:1:2\nend', false],
- ] as const)('keeps false native %s locations out of sent bodies and stored rows: %s', async (kind, value, named) => {
-  vi.resetModules();
-  const target = new EventTarget(), sent: Blob[] = [], key = `https://kingdown.dev/assets/${value}`;
-  vi.stubGlobal('window', target);
-  vi.stubGlobal('location', { origin: 'https://kingdown.dev', pathname: '/play' });
-  vi.stubGlobal('navigator', { userAgent: 'Chrome/130.0', sendBeacon: (_: string, body: Blob) => { sent.push(body); return true; } });
-  vi.stubGlobal('matchMedia', () => ({ matches: false }));
-  try {
-   const { installErrorRecorder } = await import('./browser'); installErrorRecorder();
-   const error: Error = runInThisContext(named
-    ? `(key => { try { const holder = { [key]() { throw new Error('Failed to fetch'); } }; holder[key](); } catch (error) { return error; } })`
-    : `(key => { try { const input = undefined; input[key]; } catch (error) { return error; } })`,
-   { filename: 'https://kingdown.dev/assets/app-test.js' })(key);
-   expect(error.stack).toContain(key);
-   if (kind === 'worker') target.dispatchEvent(new CustomEvent('kingdown-worker-error', { detail: { error, message: error.message } }));
-   else target.dispatchEvent(Object.assign(new Event(kind), kind === 'unhandledrejection' ? { reason: error } : { error }));
-   expect(sent).toHaveLength(1);
-   const body = await sent[0].text(), input = JSON.parse(body);
-   const message = named ? 'Failed to fetch' : 'Unlisted message';
-   expect(input.message).toBe(message);
-   expect(input.frames.length).toBeGreaterThan(0);
-   for (const frame of input.frames) expect(frame).toMatch(/^\/assets\/app-test\.js:1:\d+$/);
-   const fingerprint = errorFingerprint(error.name, message, input.frames[0]);
-   expect(input.fingerprint).toBe(fingerprint);
-   expect((await post(input)).status).toBe(204);
-   let stored = await rows();
-   expect(stored).toMatchObject([{ message, fingerprint, frames: input.frames, count: '1' }]);
-   for (const part of value.split('\n')) {
-    expect(body).not.toContain(part); expect(JSON.stringify(stored)).not.toContain(part);
+ it('requires one known frame for errors and workers, and no frames for rejections', async () => {
+  const input = report('person@example.com');
+  for (const kind of ['error', 'worker'] as const) {
+   for (const frames of [[], ['/assets/account123456789.js:1:2'], ['/assets/app-test.js:12345678:91', '/assets/app-test.js:2:4']]) {
+    await post({ ...input, kind, frames });
+    await options.recordError!({ ...input, kind, frames });
    }
-   if (!named) {
-    // A raw message lets the server detect false frames from an old client.
-    const falseFrame = `/assets/${value.split('\n')[0]}`;
-    const old = { ...input, message: error.message, frames: [falseFrame, ...input.frames], fingerprint: errorFingerprint(error.name, message, falseFrame) };
-    expect((await post(old)).status).toBe(204);
-    stored = await rows();
-    expect(stored).toMatchObject([{ message, fingerprint, frames: input.frames, count: '2' }]);
-    for (const part of value.split('\n')) expect(JSON.stringify(stored)).not.toContain(part);
-    await admin.query('truncate public.client_errors');
-    await options.recordError!(old);
-    expect(await rows()).toMatchObject([{ message, fingerprint, frames: input.frames, count: '1' }]);
-   }
-  } finally { vi.unstubAllGlobals(); }
+  }
+  await post({ ...input, kind: 'rejection' });
+  await options.recordError!({ ...input, kind: 'rejection' });
+  expect(await rows()).toEqual([]);
+  const rejection = { ...input, kind: 'rejection' as const, frames: [], fingerprint: errorFingerprint('Error', 'Unlisted message', '') };
+  await post(rejection);
+  const stored = await rows();
+  expect(stored).toMatchObject([{ kind: 'rejection', message: 'Unlisted message', frames: [], fingerprint: rejection.fingerprint, count: '1' }]);
+  expect(JSON.stringify(stored)).not.toContain('person@example.com');
  });
- it('drops unknown browser assets and removes false server frames from the message', async () => {
-  const unknown = '/assets/d137864c-e174-4f38-9277-6bdd0a4289dc.js:1:2';
-  const input = report(); input.frames = [unknown]; input.fingerprint = errorFingerprint(input.name, errorMessage(input.message), unknown);
-  await post(input); expect(await rows()).toEqual([]);
-  input.frames.push('/assets/app-test.js:2:4'); await post(input);
-  expect(await rows()).toMatchObject([{ frames: ['/assets/app-test.js:2:4'] }]);
-  const message = 'Unexpected input\nsrc/api/d137864c-e174-4f38-9277-6bdd0a4289dc.ts:1:2\n    at f (/task/src/api/d137864c-e174-4f38-9277-6bdd0a4289dc.ts:1:2)';
-  const error = new Error(message); error.stack = `Error: ${message}\n    at f (/task/server.mjs:10:20)`;
-  await recordServerError(options.recordError, error, '/api/me/profile', build);
-  expect((await rows()).find(row => row.kind === 'server')?.frames).toEqual(['server.mjs:10:20']);
+ it.each(['private https://kingdown.dev/assets/app-test.js:12345678:91', 'private https://kingdown.dev/assets/app-test.js?query:12345678:91', 'Unlisted message'])('drops an old raw report with false frames: %s', async message => {
+  const input = { ...report(message), frames: ['/assets/app-test.js:12345678:91', '/assets/app-test.js:2:4'], fingerprint: errorFingerprint('Error', 'Unlisted message', '/assets/app-test.js:12345678:91') };
+  expect((await post(input)).status).toBe(204);
+  await options.recordError!(input);
+  expect(await rows()).toEqual([]);
+ });
+ it('stores no server frame from a native computed name before or after a stack read', async () => {
+  const key = '/task/src/api/account123456789.ts:1:2\n    at x';
+  const make = runInThisContext(`key => { try { const holder = { [key]() { throw new Error('Failed to fetch'); } }; holder[key](); } catch (error) { return error; } }`, { filename: '/task/server.mjs' });
+  for (const read of [false, true]) {
+   const error: Error = make(key);
+   if (read) expect(error.stack).toContain(key);
+   else Object.defineProperty(error, 'stack', { get() { throw new Error('Stack read'); } });
+   await recordServerError(options.recordError, error, '/api/me/profile?private-query', build);
+  }
+  let stored = await rows();
+  const fingerprint = errorFingerprint('Error', 'Failed to fetch', '/api/me/profile');
+  expect(stored).toMatchObject([{ kind: 'server', message: 'Failed to fetch', frames: [], routes: ['/api/me/profile'], fingerprint, count: '2' }]);
+  expect(JSON.stringify(stored)).not.toMatch(/account123456789|private-query|task|server\.mjs/);
+  await recordServerError(options.recordError, make(key), '/api/status', build);
+  stored = await rows();
+  expect(stored).toHaveLength(2);
+  expect(stored[1].fingerprint).not.toBe(fingerprint);
  });
  it('stops blocked SQL, holds write slots, drops pool waits and sends the fault response first', async () => {
   const lock = new pg.Client({ connectionString: own.href }); await lock.connect();

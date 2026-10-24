@@ -1,4 +1,4 @@
-import { browserFamily, browserFrames, BUILD_ID, errorFingerprint, errorName, errorRoute, MAX_ERROR_BODY, errorMessage, type ClientErrorReport } from './data';
+import { browserFamily, browserLocation, BUILD_ID, errorFingerprint, errorName, errorRoute, MAX_ERROR_BODY, errorMessage, type ClientErrorReport } from './data';
 
 declare const __KINGDOWN_BUILD__: string;
 let installed = false;
@@ -10,17 +10,17 @@ export function installErrorRecorder(): void {
   installed = true;
   const build = typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : '';
   if (!BUILD_ID.test(build)) return;
+  const assets = new Set(document.querySelector<HTMLMetaElement>('meta[name="kingdown-error-assets"]')?.content.split(' ') ?? []);
   const seen = new Set<string>();
   const record = (kind: ClientErrorReport['kind'], value: unknown, event?: ErrorEvent) => {
    try {
     if (seen.size >= 5) return;
     const error = value instanceof Error ? value : undefined;
     const raw = error?.message ?? (kind === 'rejection' ? 'Non-Error rejection' : event?.message ?? 'Worker failed');
-    if (/^Script error\.?$/i.test(raw.trim()) && !error?.stack || /ResizeObserver loop/i.test(raw)) return;
-    const frames = browserFrames(error?.stack ?? '', location.origin, raw, error?.name);
-    if (!frames.length && kind === 'worker' && event?.filename) frames.push(...browserFrames(`    at ${event.filename}:${event.lineno}:${event.colno}`, location.origin, ''));
-    if (!frames.length) return;
-    const name = errorName(error?.name), message = errorMessage(raw), fingerprint = errorFingerprint(name, message, frames[0]);
+    if (/^Script error\.?$/i.test(raw.trim()) || /ResizeObserver loop/i.test(raw)) return;
+    const frames = kind !== 'rejection' && event ? browserLocation(event, location.origin, assets) : [];
+    if (kind !== 'rejection' && !frames.length) return;
+    const name = errorName(error?.name), message = errorMessage(raw), fingerprint = errorFingerprint(name, message, frames[0] ?? '');
     if (seen.has(fingerprint)) return;
     const report: ClientErrorReport = { kind, name, message, frames, route: errorRoute(location.pathname), build,
      browser: browserFamily(navigator.userAgent), size: matchMedia('(max-width: 899px)').matches ? 'phone' : 'desktop', fingerprint };

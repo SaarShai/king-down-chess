@@ -78,24 +78,14 @@ export function errorRoute(path: string): string {
  return '/' + parts.map((part, i) => words.has(part) && !(i > 0 && ['g', 'games'].includes(parts[i - 1]) && !['find'].includes(part)) ? part : parts[i - 1] === 'g' || parts[i - 1] === 'play' || parts[i - 1] === 'games' ? ':game' : ':id').join('/');
 }
 
-/** Send locations only, with no function names, origins or URL parameters. */
-export function browserFrames(stack: string, origin: string, message: string, name = 'Error'): string[] {
- const frames: string[] = [];
- const header = message ? `${name}: ${message}` : name;
- const body = stack.startsWith(header + '\n') ? stack.slice(header.length + 1) : stack;
- for (const line of body.slice(0, 32_768).split('\n')) {
-  const match = /^    at (?:.* \((https?:\/\/[^\s()]+)\)|(https?:\/\/[^\s()]+))$/.exec(line)
-   ?? /^.*@(https?:\/\/[^\s()]+)$/.exec(line);
-  const location = /^(.*):(\d+):(\d+)$/.exec(match?.[1] ?? match?.[2] ?? '');
-  if (!location) continue;
-  try {
-   const url = new URL(location[1]);
-   const frame = `${url.pathname}:${location[2]}:${location[3]}`;
-   if (url.origin === origin && BUNDLE_FRAME.test(frame)) frames.push(frame);
-  } catch { /* An invalid location is not a frame. */ }
-  if (frames.length === 10) break;
- }
- return frames;
+/** Only native event fields supply a location. Never read stack text. */
+export function browserLocation(event: Pick<ErrorEvent, 'filename' | 'lineno' | 'colno'>, origin: string, assets: ReadonlySet<string>): string[] {
+ try {
+  const url = new URL(event.filename);
+  const frame = `${url.pathname}:${event.lineno}:${event.colno}`;
+  if (url.origin === origin && assets.has(url.pathname) && BUNDLE_FRAME.test(frame)) return [frame];
+ } catch { /* An invalid location is not a frame. */ }
+ return [];
 }
 
 export function browserFamily(ua: string): string {
@@ -110,7 +100,7 @@ export function browserFamily(ua: string): string {
  return 'Other';
 }
 
-/** FNV-1a 64-bit groups the scrubbed message pattern and first location. */
+/** FNV-1a 64-bit groups the cleaned message and an accepted location or route. */
 export function errorFingerprint(name: string, message: string, top: string): string {
  let hash = 0xcbf29ce484222325n;
  for (const c of `${name}\n${message.replace(/\b\d+\b/g, ':n')}\n${top}`) hash = BigInt.asUintN(64, (hash ^ BigInt(c.codePointAt(0)!)) * 0x100000001b3n);

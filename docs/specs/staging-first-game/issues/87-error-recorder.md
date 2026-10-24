@@ -27,7 +27,7 @@ The owner approves this task in the run request. Work stays on `staging/error-re
 - The database groups by fingerprint, build and UTC hour. It keeps one sample and at most 20 route and browser values. This bounds each row.
 - The function accepts at most 60 reports per minute, with at most two database writes in flight. It uses no address key.
 - Each write uses one client and one transaction, with local statement and lock limits of 500 ms. It deletes at most 100 expired rows and skips locked rows. A full pool drops the report. Daily cleanup uses the same limits and repeats 100-row batches until fewer than 100 unlocked expired rows remain. Its failure does not stop the other daily work. A missing table drops fault reports silently.
-- Approved message forms come from source error texts at build time and known browser and engine forms. Every variable part uses a fixed mark, including short code names. Every unlisted message uses one fixed text. Both browser and server apply this rule. The existing scrub rules are a second layer. Names use a fixed list. Unknown route words become ID marks. Browser frames must start after the full message header and use only the file location in a real stack line. Function names cannot supply locations. Browser frames must name JavaScript assets in the emitted site build. The server removes false frames found in a raw client message. Group codes use accepted frames only. Server frames must start after the full message and use real stack lines. Only the combined website build includes recorder setup, routes and cleanup. The plugin-only server and board bytes must match the base with the same packages.
+- Approved message forms come from source error texts at build time and known browser and engine forms. Every variable part uses a fixed mark, including short code names. Every unlisted message uses one fixed text. Both browser and server apply this rule. The existing scrub rules are a second layer. Names use a fixed list. Unknown route words become ID marks. Browser and worker errors use only native event file, line and column fields. The file must be a same-origin JavaScript asset in the emitted site build. The browser reads that asset list from the built page. Rejections have no native location and store no frames. Error and worker reports require exactly one known-asset frame. Rejection reports require zero frames. Group codes use accepted frames only. Server faults store no frames and group by name, cleaned message and route. Never read stack text for report locations. Only the combined website build includes recorder setup, routes and cleanup. The plugin-only server and board bytes must match the base with the same packages.
 - Source maps are omitted. The repo has no private source-map store by build commit. A useful map step needs that store and a build/archive process. Bundle locations and build commits remain in the report.
 - The privacy text for play without an account now names fault reports. Its old claim that no data reaches the server conflicts with this task.
 
@@ -201,3 +201,62 @@ The board has 895,596 bytes and SHA-256 `34d2245fcec040d0e78c64e889880705ed834fb
 Proof scripts, results and logs are in `/private/tmp/claude-501/ci87/sol26/`. `build-compare.json` has each file hash and link target. Browser logs are in `kingdown-check-runs/sol-errors-YTB4qC`. Both original proof copies differ from the review files in paths only. The separate updated copies keep the original failure logs.
 
 The code check finds no need for a new helper or dependency. The full suite and browser checks use the final source code. Tests wait for the shared lock; no lock is removed. All database work uses the approved local test database or its local test copies. No push, deploy, staging database connection or production database connection occurs.
+
+
+## Native field fix
+
+The owner replaces stack text parsing after the fourth review. The staging base is `762e42bc`. Its merge has no conflict.
+
+Plan:
+
+1. Delete both stack text parsers. Use native browser and worker event fields. Send no frames for rejections. Store no server frames. Keep message cleaning, known-asset checks, group codes and repeat suppression.
+2. Check native computed names, names with new lines, the old length cut, unknown assets, raw HTTP reports, async faults and eval faults. Check full sent bodies and stored rows.
+3. Run the required type, selected test, full test, document, browser and copied proof checks. Compare board bytes, plugin function bytes and CSP source with a fresh build of the merged staging base. Remove the temporary worktree.
+4. Record each result, commit, and leave a clean worktree. Do not push or deploy.
+
+Check criteria: private probe values are absent from recorder bodies and stored rows. Error and worker reports use one native known-asset location. Rejections store one row with no frames and a cleaned message. Server faults use no stack data. All required checks pass.
+
+Server choice: no frames is the smaller correct option. Structured V8 call sites need stack capture control and can depend on an earlier stack read. The recorder needs neither. It groups server faults by name, cleaned message and cleaned route. The operator keeps the full stack in host logs.
+
+The HTTP reader checks shape and known asset paths. It cannot prove that an arbitrary HTTP caller gets a location from a native event. Reports with more than one frame are invalid. A caller can still forge one valid known-asset location; no client-only change can authenticate that value.
+
+
+### Native field evidence
+
+- `browserFrames()` and `serverFrames()` are removed. Their text-parser tests are removed. The browser and server do not read `.stack`. A throwing stack getter test checks this rule.
+- The built page lists all emitted JavaScript assets in one meta element. This includes worker assets. The browser and the server check known asset paths. Both remove query and fragment values from locations.
+- Native browser checks cover computed names with Chromium and WebKit frame text, new lines, parentheses, the old 32,768-character cut, unknown assets, property errors, async rejections, eval faults and a real worker. They check the complete report body and stored fields. Different private names at one native location give the same group code.
+- The copied `native-artifacts.mjs` passes eight browser cases. Each has no private value in its sent body or stored row. Its three raw HTTP cases store no row. Its two server computed-name cases store no frames. The selected database tests also check server capture before and after a stack read, and separate groups for separate cleaned routes.
+- Async and eval rejections store one row with no frames. Eval with a known native filename stores its real event location. The original review eval event has an empty filename. It sends no error report, because an error report requires one known native location. The recorder does not infer an eval caller from stack text.
+- The copied proofs change output paths and parser-dependent assertions only. Private-frame assertions now require no private value. The cut-name case now stores one safe row. Rejection group checks use an empty location. Raw two-frame reports are invalid. Server checks use no frames and include the route in the group code. `native-extra.mjs` replaces its deleted parser call with native event fields.
+- The first temporary native check server lacks `/api/status`. This makes the existing missing-table fixture fail with 404 instead of 200. The temporary server now has that fixture route. The next native check and both copied proofs pass. No product fix is needed for that failure.
+- A fresh build of `762e42bc` uses a copy of the same installed packages. All 22 plugin function files and four links match. Both boards match the base: 895,593 bytes, SHA-256 `915f65ce0c860d35d1c2aa1043981dfcd27f04cc08317a7865ed98a30747380a`. The plugin server has 715,646 bytes, SHA-256 `48343160695990fb95dfd18a3eb4044e31794911b4f537cbcba278a545eee9b4`. CSP source bytes match. The temporary worktree and branch are removed.
+- The public privacy paragraph and submission copy stay identical. They now name one native error location and no locations for rejections or server faults.
+
+The final code check finds no need for a new dependency or V8 global state. The smaller server choice is complete: no frames and a group code from name, cleaned message and route. The HTTP reader cannot authenticate a forged single known-asset frame. It rejects the old two-frame reports; the shipped browser no longer makes false frames from private text.
+
+Logs, native proof data, proof changes and byte hashes are in `/private/tmp/claude-501/ci87/sol28/`. All database work uses the approved loopback test database or its local test copies. Shared locks stay in place. No push, deploy, staging database connection or production database connection occurs.
+
+
+### Native field final checks
+
+| Check | Result |
+| --- | --- |
+| Fetch and staging merge | Pass. `762e42bc` merges without a conflict in `6aa4d643`. |
+| `npx tsc --noEmit -p .` | Pass. Exit 0. |
+| Required selected tests | Pass. Nine files and 162 tests. All 57 drawing tests pass. |
+| Final selected tests, with the emitted asset-list test | Pass. Ten files and 172 tests. All 57 drawing tests pass. |
+| Full `npm test`, once | Pass. 272 files and 5,085 tests pass. Eight tests skip. All 57 drawing tests pass. Duration: 346.50 seconds. |
+| `npm run test:docs` | Pass. 13 files and 167 tests. The privacy paragraphs match. |
+| `npm run check:browser web-game plugin-ui` | Pass. 59.5 seconds and 271.7 seconds. |
+| Native browser, HTTP and database check | Pass. The built site uses native locations. Async and eval rejections have no frames. |
+| Copied `native-artifacts.mjs` | Pass. Eight safe browser reports, three dropped raw reports and two server reports with no frames. |
+| Copied `native-extra.mjs` | Pass. Eval has no native filename. Anonymous and real worker locations use native fields. |
+| Site and plugin builds | Pass. Both plugin builds use the same installed packages. |
+| Board bytes, all plugin function bytes and CSP source | Pass against `762e42bc`. |
+| Temporary base worktree and branch | Removed. |
+| `git diff --check` | Pass. |
+
+The selected files are `src/diagnostics/*.test.ts`, `tools/errors-report.test.ts`, `src/api/http*.test.ts`, `src/online/jobs.db.test.ts`, `tools/plugin-server-build.test.ts` and `tools/lib/error-forms.test.ts`. The final selected run also includes `tools/offline-build.test.ts`. Both selected runs are separate from the full-suite pass.
+
+Browser detail logs are in `kingdown-check-runs/sol-errors-1kKlmA`. The full test and browser commands end before the final report.

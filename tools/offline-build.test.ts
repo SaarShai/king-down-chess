@@ -138,6 +138,8 @@ it('uses real build metadata for the worker, loader, lazy code, CSS and emitted 
     expect(worker).not.toContain("const VERSION = 'dev';");
     expect(worker).not.toContain('const ALLOWLIST = [];'); expect(worker).not.toContain('const PRECACHE = [];');
     const html = readFileSync(join(output, 'index.html'), 'utf8');
+    const errorAssets = /<meta name="kingdown-error-assets" content="([^"]+)"/.exec(html)![1].split(' ');
+    expect(errorAssets).toEqual(assets.filter(file => file.endsWith('.js')).sort().map(file => '/assets/' + file));
     const urls = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map(match => match[1]).filter(url => !url.startsWith('#'));
     expect(urls.some(url => url.startsWith('/assets/'))).toBe(true);
     expect(urls).toContain('/ui/pawn.webp');

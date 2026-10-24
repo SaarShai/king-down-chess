@@ -8,11 +8,11 @@ export const errorAssets = new Set(typeof __KINGDOWN_ERROR_ASSETS__ === 'undefin
 
 const reportSchema = z.strictObject({
  kind: z.enum(['error', 'rejection', 'worker']), name: z.enum(ERROR_NAMES), message: z.string().max(300),
- frames: z.array(z.string().max(180).regex(BUNDLE_FRAME)).min(1).max(10),
+ frames: z.array(z.string().max(180).regex(BUNDLE_FRAME)).max(1),
  route: z.string().max(120).refine(value => errorRoute(value) === value), build: z.string().regex(BUILD_ID),
  browser: z.string().regex(/^(?:(?:Safari|Chrome|Firefox|Edge|Opera) [1-9]\d{0,2}|Other)$/),
  size: z.enum(['phone', 'desktop']), fingerprint: z.string().regex(/^[a-f0-9]{16}$/),
-});
+}).refine(report => report.frames.length === (report.kind === 'rejection' ? 0 : 1));
 export type ErrorWriter = (report: ErrorReport) => Promise<void>;
 
 /** No IP keys. The fixed window and in-flight bound apply to the whole function instance. */
@@ -36,12 +36,11 @@ export async function readClientError(req: IncomingMessage, assets: ReadonlySet<
  const parsed = reportSchema.safeParse(JSON.parse(Buffer.concat(chunks).toString('utf8')));
  if (!parsed.success) return;
  const report = parsed.data;
- const first = report.frames[0];
- report.frames = report.frames.filter(frame => assets.has(frame.replace(/:\d+:\d+$/, '')) && !report.message.includes(frame));
- if (!report.frames.length) return;
+ report.frames = report.frames.filter(frame => assets.has(frame.replace(/:\d+:\d+$/, '')));
+ if (report.kind !== 'rejection' && !report.frames.length) return;
  report.message = errorMessage(report.message);
- const fingerprint = errorFingerprint(report.name, report.message, report.frames[0]);
- if (first === report.frames[0] && report.fingerprint !== fingerprint) return;
+ const fingerprint = errorFingerprint(report.name, report.message, report.frames[0] ?? '');
+ if (report.fingerprint !== fingerprint) return;
  report.fingerprint = fingerprint;
  return report;
 }
@@ -52,8 +51,10 @@ export function createErrorWriter(pool: Pool, assets: ReadonlySet<string> = erro
  let active = 0;
  return async report => {
   if (active >= 2 || pool.idleCount <= pool.waitingCount && pool.totalCount >= (pool.options.max ?? 10) || !admit()) return;
-  const frames = report.kind === 'server' ? report.frames : report.frames.filter(frame => BUNDLE_FRAME.test(frame) && assets.has(frame.replace(/:\d+:\d+$/, '')) && !report.message.includes(frame));
-  if (report.kind !== 'server' && !frames.length) return;
+  const needsFrame = report.kind === 'error' || report.kind === 'worker';
+  if (report.kind !== 'server' && report.frames.length !== (needsFrame ? 1 : 0)) return;
+  const frames = report.kind === 'server' || report.kind === 'rejection' ? [] : report.frames.filter(frame => BUNDLE_FRAME.test(frame) && assets.has(frame.replace(/:\d+:\d+$/, '')));
+  if (needsFrame && !frames.length) return;
   active++;
   let client;
   try {
@@ -72,7 +73,7 @@ export function createErrorWriter(pool: Pool, assets: ReadonlySet<string> = erro
      routes=array(select distinct x from unnest(client_errors.routes || excluded.routes) x order by x limit 20),
      browsers=array(select distinct x from unnest(client_errors.browsers || excluded.browsers) x order by x limit 20),
      size_classes=array(select distinct x from unnest(client_errors.size_classes || excluded.size_classes) x order by x limit 2)`,
-    values: [errorFingerprint(report.name, errorMessage(report.message), frames[0] ?? ''), report.build, report.kind, report.name, errorMessage(report.message), frames,
+    values: [errorFingerprint(report.name, errorMessage(report.message), report.kind === 'server' ? errorRoute(report.route) : frames[0] ?? ''), report.build, report.kind, report.name, errorMessage(report.message), frames,
      [report.route], report.browser ? [report.browser] : [], report.size ? [report.size] : []] };
    await client.query(insert);
    await client.query('commit');
@@ -82,26 +83,12 @@ export function createErrorWriter(pool: Pool, assets: ReadonlySet<string> = erro
  };
 }
 
-/** Keep only app locations. Drop machine paths, arguments and dependency frames. */
-export function serverFrames(stack: string, message: string, name = 'Error'): string[] {
- const frames: string[] = [];
- const header = `${name}: ${message}`;
- if (!stack.startsWith(header + '\n')) return frames;
- for (const line of stack.slice(header.length, header.length + 32_768).split('\n')) {
-  if (!line.startsWith('    at ') || line.includes('/node_modules/')) continue;
-  const match = /(?:^|[\s(/])((?:src\/[\w/-]+\.ts|runtime\/[\w/-]+\.mjs|server\.mjs)):(\d{1,8}):(\d{1,8})\)?$/.exec(line);
-  if (match) frames.push(`${match[1]}:${match[2]}:${match[3]}`);
-  if (frames.length === 10) break;
- }
- return frames;
-}
-
 export async function recordServerError(write: ErrorWriter | undefined, error: unknown, route: string, build: string): Promise<void> {
  try {
   if (!write || !BUILD_ID.test(build)) return;
   const name = errorName(error instanceof Error ? error.name : undefined);
   const message = errorMessage(error instanceof Error ? error.message : 'Non-Error server fault');
-  const frames = error instanceof Error ? serverFrames(error.stack ?? '', error.message, error.name) : [];
-  await write({ kind: 'server', name, message, frames, route: errorRoute(route), build, fingerprint: errorFingerprint(name, message, frames[0] ?? '') });
+  const path = errorRoute(route);
+  await write({ kind: 'server', name, message, frames: [], route: path, build, fingerprint: errorFingerprint(name, message, path) });
  } catch { /* The HTTP response must stay the same. */ }
 }
