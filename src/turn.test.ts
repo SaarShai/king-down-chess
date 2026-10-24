@@ -3,7 +3,7 @@ import { Game, resigningSide } from './game';
 import { CLASSIC_CHESS, fromFen, toFen } from './rules/setup';
 import { POWERS_BALANCED } from './rules/engine';
 import { contextLine } from './context-line';
-import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, pressPass, savedTurnStart, sendLans, turnAnnouncement, turnButton, turnLine, turnOf, waitNotice } from './turn';
+import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, pressPass, sendLans, stagedPlies, turnAnnouncement, turnButton, turnLine, turnOf, waitNotice } from './turn';
 
 /** Play the first legal move whose LAN matches, so the tests read like a score sheet. */
 const play = (g: Game, ...lans: string[]): Game => {
@@ -255,26 +255,26 @@ describe('the turn boundary', () => {
     expect(canUndoTurn(g, handOver(g))).toBe(false);
   });
 
-  it("a save's staged count restores the turn start of one side's staged turn", () => {
+  it("a save's staged count is one side's staged turn", () => {
     const g = play(new Game(CLASSIC_CHESS), 'e2-e4', 'e7-e5', 'Ng1-f3');
-    expect(savedTurnStart(g, 1)).toBe(2);
-    expect(savedTurnStart(g, undefined)).toBe(3);
+    expect(stagedPlies(g, 1)).toBe(1);
+    expect(stagedPlies(g, undefined)).toBe(0);
     const haste = new Game(undefined, { kings: [{ king: 'Flame', power: 'Haste' }, null] });
     haste.load(fromFen('7k/p7/8/8/8/8/8/R5K1 w - - 0 1'));
     play(haste, 'Ra1-a4!H');
-    expect(savedTurnStart(haste, 1)).toBe(0);
-    expect(savedTurnStart(play(haste, '--'), 2)).toBe(0);
+    expect(stagedPlies(haste, 1)).toBe(1);
+    expect(stagedPlies(play(haste, '--'), 2)).toBe(2);
     const double = play(new Game(CLASSIC_CHESS, { secondPlayerDoubleFirstTurn: true }), 'e2-e4', 'e7-e5', 'd7-d6');
-    expect(savedTurnStart(double, 2)).toBe(1);
+    expect(stagedPlies(double, 2)).toBe(2);
   });
 
-  it('a staged count that is not a whole turn of one side hands every ply over', () => {
+  it('a staged count that is not a whole turn of one side reads as 0', () => {
     const g = play(new Game(CLASSIC_CHESS), 'e2-e4', 'e7-e5', 'Ng1-f3');
-    for (const staged of [0, -1, 1.5, '1', 2, 3, 4, null]) expect(savedTurnStart(g, staged), String(staged)).toBe(3);
+    for (const staged of [0, -1, 1.5, '1', 2, 3, 4, null]) expect(stagedPlies(g, staged), String(staged)).toBe(0);
     const haste = new Game(undefined, { kings: [{ king: 'Flame', power: 'Haste' }, null] });
     haste.load(fromFen('7k/p7/8/8/8/8/8/R5K1 w - - 0 1'));
     play(haste, 'Ra1-a4!H', '--');
-    expect(savedTurnStart(haste, 1), 'a count that starts inside a turn').toBe(2);
+    expect(stagedPlies(haste, 1), 'a count that starts inside a turn').toBe(0);
   });
 });
 

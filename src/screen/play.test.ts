@@ -240,4 +240,20 @@ describe('a reload of a staged turn', () => {
     play.openSaved(original);
     expect([shown().staged, shown().undoOn]).toEqual([0, false]);
   });
+
+  it('hands over an old mid-Haste save whose count is too large, also after its pass', () => {
+    const haste: Partial<Rules> = { ...POWERS_BALANCED, kings: parseKings('flame:haste,none') };
+    const rules = { ...page(haste).play.game().rules };
+    const save: Save = { ...original, back: '', fen: '7k/p7/8/8/8/8/8/R5K1 w - - 0 1', moves: ['Ra1-a4!H'], rules, staged: 2 };
+    const restored = page(haste);
+    restored.play.restore(save, request);
+    restored.play.refresh();
+    expect(restored.play.game().history.map(h => h.lan)).toEqual(['Ra1-a4!H', '--']);
+    expect([shown().staged, shown().undoOn]).toEqual([0, false]);
+    const opened = page(haste);
+    opened.play.restore({ ...save, moves: [], staged: undefined }, request);
+    opened.play.openSaved(save);
+    expect(opened.play.game().history.map(h => h.lan)).toEqual(['Ra1-a4!H', '--']);
+    expect([shown().staged, shown().undoOn]).toEqual([0, false]);
+  });
 });

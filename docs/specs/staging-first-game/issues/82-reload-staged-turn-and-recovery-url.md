@@ -18,8 +18,8 @@ Two confirmed S4 findings of the four-player staging playtest. The tickets and t
 
 - `src/screen/save.ts`: the `staged` field of `Save`.
 - `src/account/sync.ts`: `staged` joins the synced game fields (spec §4.8).
-- `src/turn.ts`: `savedTurnStart(game, staged)`. A count that is not one whole turn of one side reads as 0, so a bad count never makes a handed-over ply undoable.
-- `src/screen/play.ts`: `save()` writes the count only when more than 0 (an old save keeps its JSON). The start-up restore and `openSaved` set the turn start from it. `replay()` finishes a mid-way turn (the old-link fix) only when nothing is staged, so a staged Haste first move stays open.
+- `src/turn.ts`: `stagedPlies(game, staged)`. A count that is not one whole turn of one side reads as 0, so a bad count never makes a handed-over ply undoable.
+- `src/screen/play.ts`: `save()` writes the count only when more than 0 (an old save keeps its JSON). `replay()` reads the count once, before the old-link pass, and gives it to the start-up restore and `openSaved`. It finishes a mid-way turn (the old-link fix) only when nothing is staged, so a staged Haste first move stays open.
 - `src/online/runtime.ts`: the start-up address replace; the game screens list is one constant.
 - Tests: `src/turn.test.ts`, `src/screen/play.test.ts`, `src/online/runtime.test.ts`, `tools/verify-turn.mjs` (`turn` check), `tools/web-game-check.mjs` (`web-game` check).
 - No file of another lane changes. No assertion is removed; the F-077 unit test gets two more assertions (its URL stays, and no replace happens).
@@ -45,18 +45,22 @@ Two confirmed S4 findings of the four-player staging playtest. The tickets and t
 ### Evidence: red on the old code
 
 - `npm run check:browser turn` (new reload case, old `play.ts`): `FAIL turn 12.8 s AssertionError [ERR_ASSERTION]: the reload does not hand the turn over`, actual `'Black to move'`, expected `'White to move'`. This is the playtest result.
-- `KINGDOWN_TEST_FILE='{src/screen/play.test.ts,src/turn.test.ts}' npm test` (old `play.ts`): 3 failed, 50 passed. The save has no `staged` (`expected undefined to be 1`), and the restore gives `[0, false]` for the staged count and Undo, not `[1, true]`. The Haste case alone (`KINGDOWN_TEST_NAME='Haste first move'`): `expected [ [ 'Ra1-a4!H' ], undefined ] to deeply equal [ [ 'Ra1-a4!H' ], 1 ]`. Before `savedTurnStart` existed, `src/turn.test.ts` stopped at the type check (TS2305).
+- `KINGDOWN_TEST_FILE='{src/screen/play.test.ts,src/turn.test.ts}' npm test` (old `play.ts`): 3 failed, 50 passed. The save has no `staged` (`expected undefined to be 1`), and the restore gives `[0, false]` for the staged count and Undo, not `[1, true]`. The Haste case alone (`KINGDOWN_TEST_NAME='Haste first move'`): `expected [ [ 'Ra1-a4!H' ], undefined ] to deeply equal [ [ 'Ra1-a4!H' ], 1 ]`. Before the helper existed, `src/turn.test.ts` stopped at the type check (TS2305).
 - `KINGDOWN_TEST_FILE=src/online/runtime.test.ts` (old `runtime.ts`): the 3 new cases fail, with the URL `'/play/'`, `'/play/settings'` and `'/j'` where `'/g/11111111-1111-4111-8111-111111111111'` is expected.
 - `PLUGIN_TEST_DATABASE_URL=… npm run check:browser web-game` (new solo case, old `runtime.ts`): `FAIL web-game 34.6 s AssertionError [ERR_ASSERTION]: Recovery names the source game in the URL`, actual `'/play/'`, expected `'/g/48b75577-d7e3-8865-98a7-2a6cdd02c29f'`. The source board showed. This is the playtest result.
 
 ### Evidence: green with the fix
 
 - `npx tsc --noEmit -p .`: exit 0.
-- `KINGDOWN_TEST_FILE='{src/screen/play.test.ts,src/turn.test.ts,src/online/runtime.test.ts,src/account/sync.test.ts,src/screen/save.test.ts}' npm test`: 5 files, 123 tests pass (with the type check of `npm test`). This includes the F-077 unit tests, `keeps the URL game while recovering another game's kingdown_computer` and `…kingdown_move`, now with two more assertions each.
+- `KINGDOWN_TEST_FILE='{src/screen/play.test.ts,src/turn.test.ts,src/online/runtime.test.ts,src/account/sync.test.ts,src/screen/save.test.ts}' npm test`: 5 files, 124 tests pass (with the type check of `npm test`; the count includes the review regression below). This includes the F-077 unit tests, `keeps the URL game while recovering another game's kingdown_computer` and `…kingdown_move`, now with two more assertions each.
 - `npm run check:browser turn home lesson-return account`: all 4 pass (18.9 s, 11.8 s, 6.9 s, 59.7 s). `turn` prints `ok reload keeps a staged turn, a computer wait and a Haste first move; End turn commits`.
 - `PLUGIN_TEST_DATABASE_URL=… npm run check:browser web-game`: pass, 42.5 s. The same run keeps the F-077 case (a different game's URL stays selected while the source command recovers, and Retry sends the exact payload once) and prints `web: a fresh /play/ load recovers a pending computer reply under its source game URL`. The new case checks: the URL is `/g/<source>` when the board shows; the computer reply comes once (revision + 1, last command `computer`); the URL stays after the reply; Play opens the list at `/play/`.
 - `PLUGIN_TEST_DATABASE_URL=… npm run check:browser web-online`: pass, 119.3 s (the local reload after End turn and the account entry).
 - Test database: `lane_routes_test` on the local 55432 cluster.
+
+### Independent review
+
+A separate reviewer (`agent-roster` `sol:xhigh`, read-only) found one P2 fault and no other blocking finding. An old mid-Haste save with `moves: ['Ra1-a4!H']` and a bad `staged: 2` was read twice: `replay()` rejected the count and added the pass `--`, then the restore read the same count against the longer history, accepted it, and set the turn start to 0. Undo could then take back both handed-over plies. Fix: `replay()` reads the count once, before the pass, and returns it with the game. Regression: `src/screen/play.test.ts`, "hands over an old mid-Haste save whose count is too large, also after its pass" (restore and `openSaved`). Before the fix: `expected [ 2, true ] to deeply equal [ +0, false ]`. After the fix it passes, and `npm run check:browser turn home lesson-return account` passes again (15.9 s, 10.6 s, 5.8 s, 56.0 s).
 
 ### Limits
 

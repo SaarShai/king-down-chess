@@ -24,7 +24,7 @@ import { POWER_TAG, autoQueen, hintMoves, offered } from '../powers-ui';
 import { kingsOf, newGameWarning, playersOf, withDesign, type Setup } from '../new-game';
 import { worthOf } from '../workshop/judge';
 import { pieceIcon } from '../piece-icons';
-import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, savedTurnStart, turnEnded, turnLine, turnOf } from '../turn';
+import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, stagedPlies, turnEnded, turnLine, turnOf } from '../turn';
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from '../turn-controls';
 import { awardTurnSeals } from '../ui/tricks';
 import { readPiece, refreshTable, renderTable } from '../ui/table';
@@ -763,13 +763,13 @@ export function connectPlay(view: BoardView, c: {
     return saveBlocked;
   }
 
-  /** Validate before changing the live game or its UI state. */
-  function replay(s: Save): Game | undefined {
+  /** Validate before changing the live game or its UI state. The staged count is read before an old link's pass. */
+  function replay(s: Save): { game: Game; staged: number } | undefined {
     try {
-      const candidate = savedGame(s);
+      const candidate = savedGame(s), staged = stagedPlies(candidate, s.staged);
       // A staged turn stays open for End turn; only a handed-over turn that stops mid-way (an old link) is finished.
-      if (savedTurnStart(candidate, s.staged) === handOver(candidate)) finishLinkedTurn(candidate);
-      return candidate;
+      if (!staged) finishLinkedTurn(candidate);
+      return { game: candidate, staged };
     } catch { keepUnreadableSave(); }
   }
 
@@ -794,10 +794,10 @@ export function connectPlay(view: BoardView, c: {
 
   /** The account's saved game replaces the one on the board (but not a position opened by `?fen=`). */
   function openSaved(s: Save): void {
-    const candidate = replay(s);
-    if (!candidate) { refresh(); return; }
+    const replayed = replay(s);
+    if (!replayed) { refresh(); return; }
     reset();
-    game = candidate;
+    game = replayed.game;
     $<HTMLDialogElement>('over').close();
     cloudGame = false;
     lesson = null; lessonDone = false; lessonReturn = null;
@@ -806,7 +806,7 @@ export function connectPlay(view: BoardView, c: {
     linkSide = s.link === 0 || s.link === 1 ? s.link : null;
     daily = typeof s.daily === 'string' ? s.daily : null;
     resigned = s.resigned ?? null;
-    turnStart = savedTurnStart(game, s.staged);
+    turnStart = handOver(game) - replayed.staged;
     moments.restore();
     notice = 'Loaded your newer saved game from your account.';
     moments.say(notice);
@@ -831,7 +831,7 @@ export function connectPlay(view: BoardView, c: {
    * It runs before any async work starts, so it is the one game switch that does not call `reset()`.
    */
   function restore(saved: Save | null, r: { link: boolean; continues: boolean; urlRules: boolean; title: boolean; unreadable: boolean; notice: string }): void {
-    let staged: unknown;
+    let staged = 0;
     if (r.unreadable) keepUnreadableSave();
     else if (r.link) {
       previously.load(params, r.continues ? saved!.moves.length : 0);
@@ -848,15 +848,15 @@ export function connectPlay(view: BoardView, c: {
         // reinterpret them, so keep the URL's fresh game and let the next save overwrite the old one.
         console.warn('kingdown: the autosave played different rules than the URL asks for; starting fresh');
       } else {
-        const candidate = replay(saved);
-        if (candidate) {
-          game = candidate; resigned = saved.resigned ?? null; staged = saved.staged;
+        const replayed = replay(saved);
+        if (replayed) {
+          ({ game, staged } = replayed); resigned = saved.resigned ?? null;
           if (saved.link === 0 || saved.link === 1) linkSide = saved.link;
           if (typeof saved.daily === 'string') daily = saved.daily;
         }
       }
     }
-    turnStart = savedTurnStart(game, staged);
+    turnStart = handOver(game) - staged;
     // The title's Continue names the move the restored game is on (set before the first paint; a
     // Haste turn is two plies by one side, so the number comes from the replayed game, not the save).
     if (r.title) labelContinue();
