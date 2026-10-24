@@ -44,6 +44,7 @@ try {
   const origin = `http://127.0.0.1:${server.address().port}`;
   const webEnv = { NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: secret,
     SUPABASE_URL: 'https://project.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: randomUUID() };
+  const productionEnv = { KINGDOWN_PLUGIN_ORIGIN: 'https://kingdown.dev', KINGDOWN_PLUGIN_DATABASE_URL: 'postgresql://kingdown_plugin_runtime.utqzovjmclfyojedmwok:fake@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require', SUPABASE_URL: 'https://utqzovjmclfyojedmwok.supabase.co', KINGDOWN_PLUGIN_OAUTH_READY: '0' };
   const pair = await generateKeyPair('ES256'), websiteKeys = createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'website', alg: 'ES256' }] });
   const sign = (claims = {}) => new SignJWT({ iss: `${webEnv.SUPABASE_URL}/auth/v1`, aud: 'authenticated', sub: actors[0], role: 'authenticated', is_anonymous: false, exp: Math.floor(Date.now() / 1000) + 300, ...claims }).setProtectedHeader({ alg: 'ES256', kid: 'website' }).sign(pair.privateKey);
   const token = await sign();
@@ -52,7 +53,8 @@ try {
   globalThis.fetch = async () => { providerCalls++; throw new Error('Unexpected provider call'); };
   try {
     for (const [changes, localDev] of [
-      [{}, false], [{ NODE_ENV: 'production' }, true], [{ NODE_ENV: undefined }, true],
+      // Pass the profile guard so this case reaches the website-key guard.
+      [productionEnv, false], [{ NODE_ENV: 'production' }, true], [{ NODE_ENV: undefined }, true],
       [{ KINGDOWN_PLUGIN_ORIGIN: 'https://plugin.example' }, true],
       [{ KINGDOWN_PLUGIN_DATABASE_URL: 'postgresql://test@db.example/kingdown_test' }, true],
       [{ KINGDOWN_PLUGIN_DATABASE_URL: 'postgresql://test@127.0.0.1/kingdown' }, true],
@@ -174,7 +176,7 @@ try {
     assert.match(response.headers.get('cache-control'), /max-age=31536000.*immutable/); assert((await response.arrayBuffer()).byteLength > 0);
   }
   assert.equal((await fetch(`${origin}/plugin-art/missing.webp`)).status, 404); assert.equal((await fetch(`${origin}/plugin-art/..%2fserver.mjs`)).status, 404);
-  await assert.rejects(configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: 'https://kingdown.dev', KINGDOWN_PLUGIN_DATABASE_URL: 'postgresql://kingdown_plugin_runtime.utqzovjmclfyojedmwok:fake@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require', SUPABASE_URL: 'https://utqzovjmclfyojedmwok.supabase.co', KINGDOWN_PLUGIN_OAUTH_READY: '0' }), /Enable Supabase OAuth/);
+  await assert.rejects(configurePlugin(productionEnv), /Enable Supabase OAuth/);
   await assert.rejects(configurePlugin({ NODE_ENV: 'production', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString, KINGDOWN_INTERNAL_SECRET: secret }, { localDev: true }), /Local personas/);
   if (process.argv[3]) {
     recoveryArtifact = await mkdtemp(join(tmpdir(), 'kingdown-recovery-artifact-'));

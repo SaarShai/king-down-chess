@@ -443,6 +443,9 @@ export function connectPlay(view: BoardView, c: {
     busy = true;
     const dlg = $<HTMLDialogElement>('move-choice');
     const target = sqName(push.shove!.from), destination = sqName(push.shove!.to);
+    // The sheet covers the context line on a phone: a lesson keeps its task in the sheet.
+    $('move-choice-goal').textContent = lesson == null ? '' : LESSONS[lesson].task;
+    $('move-choice-goal').hidden = lesson == null;
     $('move-choice-detail').textContent = `Take removes the enemy on ${target}. Shove moves it to ${destination}${push.to === push.from ? ' and leaves your Ogre in place' : ` and moves your Ogre to ${target}`}.`;
     $('choose-capture').textContent = `Take on ${target}`;
     $('choose-push').textContent = `Shove to ${destination}`;

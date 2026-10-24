@@ -87,7 +87,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     return {
       content: text(view.status === 'waiting' ? 'Waiting for the other player to join.' : view.status === 'setup' ? view.ready?.[view.seat] ? 'Waiting for the other player to choose.' : 'Choose your king and arrangement.' : result ? `Game over: ${result}${result.endsWith('.') ? '' : '.'}`
         : `${view.action === 'ready' ? 'Your move' : 'The other side moves'}, move ${move}.${offer === 'opponent' ? ' The other side offers a draw.' : ''}`),
-      structuredContent: { screen: 'board', game_id: view.game_id, kind: view.kind, speed: view.speed, days_per_move: view.days_per_move, status: view.status, rating_policy: view.rating_policy,
+      structuredContent: { screen: 'board', game_id: view.game_id, kind: view.kind, days_per_move: view.days_per_move, status: view.status, rating_policy: view.rating_policy,
         colour: view.seat === 0 ? 'white' : 'black', your_turn: view.action === 'ready', ...(move !== undefined && { move }), deadline_at: view.deadline_at, draw_offer: offer, ...(result && { result }) },
       _meta: { ...(board && { board_id: board }), view, me: { handle, icon } },
     };
@@ -134,7 +134,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       if (preview) result.content = text('Review the game features before you join.');
       return result;
     });
-  register('kingdown_create', 'Use this when the player wants a new King Down game. New games are Casual unless the player chooses Ranked. Ranked uses random opponents and colours, three days per move, the full fairy pool, four shared cards and always-on king powers in the drawn arrangement. Built-in help is allowed; outside advice on active ranked positions is not. For Casual, choose features, colour and computer level; omitted options use the last setup, then defaults. Casual random matching uses the five feature switches, or any_rules for any Casual rules; the colour applies only to a new table. Ranked never broadens matching. With no board_id, call kingdown_open with the new game_id for board setup and play.',
+  register('kingdown_create', 'Use this when the player wants a new King Down game. New games are Casual unless the player chooses Ranked. A game against a person gives three days for each move; there is no speed or time choice. Ranked uses random opponents and colours, the full fairy pool, four shared cards and always-on king powers in the drawn arrangement. Built-in help is allowed; outside advice on active ranked positions is not. For Casual, choose features, colour and computer level; omitted options use the last setup, then defaults. Casual random matching uses the five feature switches, or any_rules for any Casual rules; the colour applies only to a new table. Ranked never broadens matching. With no board_id, call kingdown_open with the new game_id for board setup and play.',
     { kind: z.enum(['solo', 'friend', 'random']), mode: createSchema.shape.mode, options: optionsSchema.optional(), colour: z.enum(['white', 'black', 'random']).optional(), level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(), any_rules: z.boolean().optional(),
       // RV5-3: the model sees this field, so it must know that one ID names one request.
       command_id: command.command_id.optional().describe('For the King Down board only: leave it out. The same value with other input gives COMMAND_CONFLICT.'), board_id: boardId },
@@ -152,7 +152,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   });
   register('kingdown_games', 'Use this when the player asks about their King Down games, or "is it my turn?". Lists the active games, your turn first, then the nearest deadline. Open one with kingdown_open.',
     {}, { visibility: ['model', 'app'], readOnly: true }, async () => {
-      const rows = await service.inbox(actorId), games = rows.map(entry => ({ game_id: entry.game_id, kind: entry.kind, speed: entry.speed, status: entry.status, rating_policy: entry.rating_policy,
+      const rows = await service.inbox(actorId), games = rows.map(entry => ({ game_id: entry.game_id, kind: entry.kind, status: entry.status, rating_policy: entry.rating_policy,
         deadline_at: entry.deadline_at, colour: entry.seat === 0 ? 'white' : 'black', your_turn: entry.action === 'ready',
         opponent: !entry.opponent ? 'none yet' : entry.opponent.computer ? 'computer' : entry.opponent.deleted ? 'deleted player' : 'player' }));
       const ready = games.filter(game => game.your_turn).length;
@@ -189,7 +189,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   register('kingdown_say', 'Send one preset message to the opponent; each preset goes once in each game.', { ...command, preset: z.enum(PRESETS) }, { openWorld: true, visibility: ['app'], destructive: true }, ({ preset, ...args }) => play(args, { type: 'say', preset }));
   register('kingdown_draw', 'Use this when the player wants to offer a draw in a King Down game, or to accept or decline the other side’s offer (draw_offer "opponent"). Accept ends the game.',
     { ...optional, choice: z.enum(['offer', 'accept', 'decline']) }, { visibility: ['model', 'app'], destructive: true }, ({ choice, ...args }) => decide(args, { type: 'draw', choice }));
-  register('kingdown_claim', 'Claim the game when the opponent missed the Daily deadline.', command, { visibility: ['app'], destructive: true }, args => play(args, { type: 'claim', reason: 'timeout' }));
+  register('kingdown_claim', 'Claim the game when the opponent ran out of time to move.', command, { visibility: ['app'], destructive: true }, args => play(args, { type: 'claim', reason: 'timeout' }));
   register('kingdown_resign', 'Use this when the player wants to resign a King Down game. The opponent wins, so first ask the player in the chat to confirm, and call this only after a yes.', optional, { visibility: ['model', 'app'], destructive: true }, args => decide(args, { type: 'resign' }));
   register('kingdown_abort', 'Use this when the player wants to cancel a King Down game before each side has played a turn. Nobody wins.', optional, { visibility: ['model', 'app'], destructive: true }, args => decide(args, { type: 'abort' }));
   register('kingdown_invite', 'Use this when the player wants to invite a friend to their waiting friend game. Gives a short code; a new invitation ends the old one.',

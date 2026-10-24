@@ -109,7 +109,9 @@ function moveSentence(context: MoveRules, pre: Position, m: Move, freePass: bool
   if (m.power === 'curse') return `${side} uses ${cardName(TAG_POWER[m.power])} to move the ${colour(m.from)} ${the(m.from)} to ${sqName(m.to)}.`;
   if (m.power === 'skylift') return `${side} uses ${cardName(TAG_POWER[m.power])} to swap ${theOn(m.from)} and ${theOn(m.to)}.`;
   if (m.pushes) {
-    const pushed = m.pushes.length > 2 ? `${m.pushes.length} pieces one square away` : m.pushes.map(p => `the ${colour(p.from)} ${the(p.from)} to ${sqName(p.to)}`).join(' and ');
+    // Each pushed piece is named (card-move-text spec), also when the quake pushes more than two.
+    const each = m.pushes.map(p => `the ${colour(p.from)} ${the(p.from)} to ${sqName(p.to)}`);
+    const pushed = each.length > 2 ? `${each.slice(0, -1).join(', ')} and ${each.at(-1)}` : each.join(' and ');
     return `${side} uses ${cardName(TAG_POWER[m.power!])} on ${sqName(m.to)} and pushes ${pushed}.`;
   }
   if (m.castle) return `${side} castles ${file(m.to) === 6 ? 'short' : 'long'}.`;

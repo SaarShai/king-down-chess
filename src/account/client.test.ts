@@ -27,9 +27,10 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe('account identity client', () => {
-  it.each(['', 'production', 'preview'])('refuses password sign-in outside staging (%s)', async stage => {
-    vi.stubEnv('VITE_KINGDOWN_STAGE', stage);
-    vi.stubEnv('VITE_SUPABASE_URL', 'https://puhspsyjyzaghmgtkzqd.supabase.co');
+  // A build outside staging cannot open the staging project (public-config.test.ts), so it uses the production one here.
+  it.each([undefined, ''])('refuses password sign-in outside staging (stage %s)', async stage => {
+    if (stage !== undefined) vi.stubEnv('VITE_KINGDOWN_STAGE', stage);
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://utqzovjmclfyojedmwok.supabase.co');
     await expect(connect(AUTH_KEY).signInWithPassword('player-one@kingdown.example', 'fixture-password')).rejects.toThrow('only in staging');
     expect(sdk.auth.signInWithPassword).not.toHaveBeenCalled();
   });

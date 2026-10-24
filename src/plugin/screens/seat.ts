@@ -28,6 +28,9 @@ let closeMenu: (() => void) | undefined, cursor = 0;
 const current = () => !stopped && !queue.closed() && client.state.screen === 'seat' && memory.view?.game_id === game ? memory.view : undefined;
 const locked = () => stopped || queue.closed() || sending || picking || $<HTMLButtonElement>('seat-menu').disabled || gameActionsBlocked() || !!current()?.ready?.[current()!.seat];
 const uuid = () => crypto.randomUUID().replaceAll('-', '');
+// Each poll renders the seat again. Write only changed text: when a render replaces the text nodes of the scrolled seat
+// screen, WebKit can move its scroll (ticket 77, item 12).
+const text = (id: string, value: string) => { if ($(id).textContent !== value) $(id).textContent = value; };
 
 function release() {
   closeMenu?.();
@@ -85,18 +88,18 @@ function render() {
   $('game-table').dataset.empty = 'false'; $('seat-ready').classList.toggle('primary', !ready);
   const days = view.setup_deadline_at ? Math.max(0, Math.ceil((Date.parse(view.setup_deadline_at) - Date.parse(view.server_now)) / 86400000)) : null;
   const them = view.opponent?.computer ? `Computer · ${view.level ? view.level[0].toUpperCase() + view.level.slice(1) : 'Club'}` : view.opponent?.handle ?? 'Opponent';
-  $('seat-them-name').textContent = them; $('seat-them-name').title = them; $('seat-them-line').textContent = `${view.ready?.[other] ? 'Ready' : 'Choosing'}${ready && days !== null ? ` · ${days} ${days === 1 ? 'day' : 'days'} left` : ''}`;
+  text('seat-them-name', them); $('seat-them-name').title = them; text('seat-them-line', `${view.ready?.[other] ? 'Ready' : 'Choosing'}${ready && days !== null ? ` · ${days} ${days === 1 ? 'day' : 'days'} left` : ''}`);
   $<HTMLImageElement>('seat-them-picture').src = art(`ui/kings/${PLAIN_KINGS[other].toLowerCase()}${other ? '-b' : ''}.webp`);
-  $('seat-me-name').textContent = memory.me?.handle ?? 'You'; $('seat-me-name').title = $('seat-me-name').textContent;
+  text('seat-me-name', memory.me?.handle ?? 'You'); $('seat-me-name').title = $('seat-me-name').textContent;
   $<HTMLImageElement>('seat-me-picture').src = art(ICONS[memory.me?.icon ?? (view.seat === 0 ? 'spirit' : 'shadow')]);
-  $('seat-me-line').textContent = choice.king ? `${choice.king.king} · ${POWER_NAME[choice.king.power]}` : view.seat === 0 ? 'White · Spirit King' : 'Black · Shadow King';
+  text('seat-me-line', choice.king ? `${choice.king.king} · ${POWER_NAME[choice.king.power]}` : view.seat === 0 ? 'White · Spirit King' : 'Black · Shadow King');
   $('strip-me').classList.toggle('is-turn', !ready); $('seat-king').hidden = !needs.king; $('seat-shuffle').hidden = !needs.order;
   if (choice.king) $<HTMLImageElement>('seat-king').querySelector('img')!.src = art(`ui/emblems/${choice.king.king.toLowerCase()}.webp`);
   const error = validateChoice(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice, view.setup_admission);
   const piece = selected === null ? '' : NAMES[LETTERS.indexOf(choice.order[selected % 8])];
-  $('seat-context').textContent = ready ? 'Waiting for the other player.' : error ?? (selected === null ? needs.order ? 'Select one back-rank piece, then another, to swap them.' : 'Choose your king, then press Ready.' : `Select a marked piece to swap the ${piece} with it.`);
-  $('seat-note').textContent = ready ? days === null ? '' : `${them} has ${days} ${days === 1 ? 'day' : 'days'} to choose.` : choice.order.includes('G') && needs.order ? 'The guard stays next to the king.' : '';
-  $('last-move').textContent = '';
+  text('seat-context', ready ? 'Waiting for the other player.' : error ?? (selected === null ? needs.order ? 'Select one back-rank piece, then another, to swap them.' : 'Choose your king, then press Ready.' : `Select a marked piece to swap the ${piece} with it.`));
+  text('seat-note', ready ? days === null ? '' : `${them} has ${days} ${days === 1 ? 'day' : 'days'} to choose.` : choice.order.includes('G') && needs.order ? 'The guard stays next to the king.' : '');
+  text('last-move', '');
   const kings: [KingChoice | null, KingChoice | null] = [null,null]; kings[view.seat] = choice.king; const context = new GameRules({ kings }); board.setRules(context);
   const pos = context.fromFen(seatFen(choice.order, view.seat)); pos.turn = view.seat; board.sync(pos); board.flip(view.seat === 1);
   highlight({ selected: ready ? null : selected, swaps: !ready && selected !== null ? legalSwaps(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice, view.seat, selected, view.setup_admission) : [] });
