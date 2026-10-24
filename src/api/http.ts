@@ -16,6 +16,7 @@ import type { SafetyService } from '../online/safety';
 import { cleanup, runDeletions, sweepDeadlines } from '../online/jobs';
 import { ACTOR_UUID, AuthenticationError, AuthenticationUnavailable, pluginOrigin } from '../plugin/auth';
 import { diagnostic } from '../plugin/diagnostics';
+import { errorAdmission, readClientError, recordServerError, type ErrorWriter } from '../diagnostics/server';
 import { WEB_ACCOUNT_ACCESS_TTL_MS } from './account-access';
 import type { WebAccountStatus } from '../online/account-access';
 
@@ -64,6 +65,7 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
 
 export interface ApiOptions {
  games: GameService; accounts: AccountService; safety: SafetyService;
+ recordError?: ErrorWriter; build?: string;
  players?: Pick<PluginService, 'settings' | 'profile' | 'handle' | 'block' | 'blocks' | 'toolTry'>;
  publicOrigin: string; operations?: ReadonlySet<string>;
  /** undefined: website sign-in is not configured */ verify?: (token: string) => Promise<string>;
@@ -89,7 +91,7 @@ function queryInput(query: URLSearchParams): Record<string, string> {
 }
 const redeemSchema = z.union([z.strictObject({ token: z.string().max(100) }), z.strictObject({ code: z.string().max(20) })]);
 
-export function createApiHandler({ games, accounts, safety, players, publicOrigin, verify, operations, webAccountAccess, admit, currentUser }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
+export function createApiHandler({ games, accounts, safety, players, publicOrigin, verify, operations, webAccountAccess, admit, currentUser, recordError, build = '' }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
  const origin = pluginOrigin(publicOrigin);
  const readAccess = async (fresh = false) => {
   try {
@@ -174,11 +176,24 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
  const created = new Set(['POST /api/games', 'POST /api/reports']);
  const table = Object.entries(routes).map(([key, run]) => { const [method, path] = key.split(' '); return { key, method, dynamic: path.includes(':id'), pattern: new RegExp(`^${path.replace(':id', '([^/]+)')}$`), run }; });
  let active = 0;
+ const admitError = errorAdmission();
  return async (req, res) => {
   const notFound = () => {
    res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff');
    req.resume(); respond(res, 404, { code: 'NOT_FOUND', message: 'Not found' });
   };
+  // Fault reports need no account or account-access switch.
+  if (req.url?.split(/[?#]/, 1)[0] === '/api/client-errors' && req.method === 'POST') {
+   res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff');
+   try {
+    if (recordError && req.headers.host?.toLowerCase() === new URL(origin).host && req.headers.origin === origin
+     && (!req.headers['sec-fetch-site'] || req.headers['sec-fetch-site'] === 'same-origin') && admitError()) {
+     const report = await readClientError(req);
+     if (report) await recordError(report);
+    }
+   } catch { /* Dropped reports have the same empty response. */ }
+   req.resume(); respond(res, 204); return;
+  }
   if (!operations?.size) { notFound(); return; }
   const path = req.url?.startsWith('/') && URL.canParse(req.url, origin) ? new URL(req.url, origin).pathname : '';
   const matched = table.flatMap(route => { const found = route.pattern.exec(path); return found ? [{ ...route, id: found[1] ?? '' }] : []; });
@@ -229,6 +244,7 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
    if (known.status === 401) res.setHeader('WWW-Authenticate', 'Bearer');
    if (known.status === 413) { res.setHeader('Connection', 'close'); req.resume(); }
    if (known.status >= 500 && known.status !== 503) console.error('King Down API failed', { route: route.key, requestId: randomUUID(), ...diagnostic(error) });
+   if (!(error instanceof MatchServiceError || error instanceof AuthenticationError || error instanceof AuthenticationUnavailable)) await recordServerError(recordError, error, route.key.split(' ')[1], build);
    const commandId = (body as { command_id?: unknown } | undefined)?.command_id;
    respond(res, known.status, { ...(route.key === 'POST /api/games/:id/commands' && { type: 'reject', command_id: typeof commandId === 'string' ? commandId : '' }), code: known.code, message: known.message });
   } finally { release?.(); }

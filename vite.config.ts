@@ -1,6 +1,7 @@
 import { pluginSymbols } from './tools/lib/plugin-symbols.mjs';
 import { buildWorker } from './tools/plugin-runtime-build.mjs';
 import { configDefaults, defineConfig, type Plugin } from 'vitest/config';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cpSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
@@ -83,6 +84,7 @@ export function sharedSeatSelectors() {
 export default defineConfig({
   // Account routes share the site root; their assets must not resolve below /play/ or /g/.
   base: '/',
+  define: { __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()) },
   // Both servers listen on 127.0.0.1, the address that the checks call; a `--host` flag overrides it.
   server: { host: '127.0.0.1', port: +(process.env.PORT || 5173), strictPort: true },
   preview: { host: '127.0.0.1' },

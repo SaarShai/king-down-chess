@@ -2,7 +2,7 @@
  *  built website), the tree is the whole of kingdown.dev: the static site plus the one function. */
 import { build } from 'vite';
 import { builtinModules } from 'node:module';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { existsSync, readFileSync } from 'node:fs';
 import { cp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
@@ -52,6 +52,7 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
   await buildRuntime(resolve(functionDir, 'runtime'));
   await build({
     configFile: false, root, publicDir: false, logLevel: 'warn', ssr: { noExternal: true },
+    define: { __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()) },
     plugins: [{ name: 'isolated-match-runtime', enforce: 'pre', resolveId(source, importer) {
       if (!importer || !source.startsWith('.')) return;
       const path = resolve(dirname(importer), source);

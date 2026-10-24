@@ -175,3 +175,14 @@ grant select on public.web_account_access to kingdown_plugin_runtime;
 drop policy if exists kingdown_plugin_runtime on public.web_account_access;
 create policy kingdown_plugin_runtime on public.web_account_access for select to kingdown_plugin_runtime using (true);
 commit;
+
+-- 13. Fault counts (0019). Only expired rows can be deleted.
+begin;
+grant select, insert, update (count,last_seen,routes,browsers,size_classes), delete on public.client_errors to kingdown_plugin_runtime;
+grant usage on sequence public.client_errors_id_seq to kingdown_plugin_runtime;
+drop policy if exists kingdown_plugin_runtime on public.client_errors;
+create policy kingdown_plugin_runtime on public.client_errors for all to kingdown_plugin_runtime using (true) with check (true);
+drop policy if exists kingdown_plugin_runtime_old_errors on public.client_errors;
+create policy kingdown_plugin_runtime_old_errors on public.client_errors as restrictive for delete to kingdown_plugin_runtime
+ using (last_seen < now()-interval '30 days');
+commit;

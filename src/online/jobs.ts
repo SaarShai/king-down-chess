@@ -55,6 +55,7 @@ export async function cleanup(games: GameService, now = new Date()): Promise<{ i
   and not exists(select from public.games g where g.id=i.game_id and g.status='waiting')`, [now]);
  const outbox = await pool.query(`delete from public.outbox where done_at<=$1::timestamptz-interval '30 days' or created_at<=$1::timestamptz-interval '30 days'`, [now]);
  const boards = await pool.query("delete from public.plugin_boards where created_at<$1::timestamptz-interval '7 days'", [now]);
+ await pool.query("delete from public.client_errors where last_seen<now()-interval '30 days'");
  const reports = await pool.query("delete from public.reports where created_at<now()-interval '12 months' and (hold_until is null or hold_until<=now())");
  return { invites: invites.rowCount ?? 0, outbox: outbox.rowCount ?? 0, boards: boards.rowCount ?? 0, reports: reports.rowCount ?? 0 };
 }

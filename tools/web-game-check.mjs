@@ -16,6 +16,7 @@ import { buildPluginServer } from './plugin-server-build.mjs';
 import { recoveryOutput, serveSite } from './web-online-check.mjs';
 import { launch, shot, trapErrors, assertNoErrors, env } from './lib/checks.mjs';
 import { checkRecoveryConsumers, checkSharedMechanics } from './lib/shared-mechanics-check.mjs';
+import { checkErrorRecorder } from './lib/error-recorder-check.mjs';
 import { checkSoloSync } from './lib/solo-sync-check.mjs';
 
 const unregister = register();
@@ -80,6 +81,7 @@ try {
   }
   if (!mechanics && !recovery) for (const seat of [0, 1]) await tool(seat, 'kingdown_handle', { handle: `web${seat}-${actors[seat].slice(0, 8)}` });
   browser = await launch({ headless: true });
+  if (!mechanics && !recovery && !desktop && !discovery && !stagingLogin) await checkErrorRecorder({ browser, origin, pool, root });
   const context = await browser.newContext({ viewport: { width: 1100, height: 1000 } });
   await context.addInitScript(({ origin, actor, token }) => { if (location.origin === origin && !localStorage.getItem('kingdown.auth')) localStorage.setItem('kingdown.auth', JSON.stringify({
     access_token: token, refresh_token: 'local-test-refresh', token_type: 'bearer', expires_in: 600, expires_at: Math.floor(Date.now() / 1000) + 600, user: { id: actor, aud: 'authenticated', role: 'authenticated', email: 'browser@example.invalid', app_metadata: { provider: 'google' }, user_metadata: {}, created_at: new Date().toISOString() },

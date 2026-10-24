@@ -22,6 +22,7 @@ import { SafetyService } from '../src/online/safety.ts';
 import { ART_HEADERS, artType } from './plugin-art-headers.mjs';
 import { stagingConfig } from './staging-config.mjs';
 import { createAdmission } from '../src/api/admission.ts';
+import { createErrorWriter } from '../src/diagnostics/server.ts';
 import { createCurrentUserCheck } from '../src/api/current-user.ts';
 
 // A deployed server (staging or production) serves the website account API. The 0016 web_account_access
@@ -105,6 +106,7 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
   const mcp = createPluginHandler({ consent, service, publicOrigin, resourceHtml, auth, localDev });
   const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET });
   const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), players: service, publicOrigin,
+    recordError: createErrorWriter(pool), build: typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : '',
     admit: createAdmission(),
     currentUser: websiteCurrentUser ?? (page ? createCurrentUserCheck({ supabaseUrl: page.supabaseUrl, publishableKey: page.publishableKey }) : undefined),
     webAccountAccess: createWebAccountAccess(pool),
