@@ -35,6 +35,7 @@ body[data-page='end'] #table-bar { visibility: hidden; }
 #board-sheet .sheet-body > button { justify-content: center; text-align: center; }
 /* A body that scrolls takes focus (playtest F-008); keep its ring inside the sheet's clipped edge. */
 #board-sheet .sheet-body:focus-visible { outline-offset: -2px; }
+#board-sheet .piece-cards { margin: 0; }
 .frame #board-sheet.board-menu { max-height: 100%; }
 #board-sheet.board-menu .sheet-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
 @media (min-width: 300px) and (max-height: 640px) {

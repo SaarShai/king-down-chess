@@ -2642,3 +2642,24 @@ it('F-008: the keyboard scrolls a long Moves sheet', async () => {
     expect(await body.evaluate(el => el === document.activeElement)).toBe(true);
   } finally { await page.close(); }
 });
+
+// Playtest F-011: All rules gives the selected piece's moves, takes and special rule, then every piece of the game, as the Guide does.
+it('F-011: All rules shows the full rules of the selected piece and the other pieces', async () => {
+  const fen = '6gk/8/8/8/8/8/8/G6K w - - 0 1', base = view(fen), page = await open(base, 390, 844), frame = page.frameLocator('iframe');
+  const rules = new GameRules(base.rules);
+  try {
+    await frame.locator('#board[aria-busy="false"]').waitFor();
+    await squareTap(page, 0);
+    await frame.getByRole('button', { name: 'All rules', exact: true }).click();
+    const sheet = frame.getByRole('dialog', { name: 'All rules', exact: true });
+    expect(await sheet.isVisible()).toBe(true);
+    const cards = sheet.locator('.piece-card');
+    expect(await cards.first().locator('h3').textContent()).toBe('Guard');
+    expect(await cards.first().locator('dd').allTextContents()).toEqual(['Steps to empty squares beside it.', 'Cannot take.', 'Only a king can take it.']);
+    expect(await cards.first().locator('dt').allTextContents()).toEqual(['Moves', 'Takes', 'Special']);
+    const names = await cards.locator('h3').allTextContents();
+    expect(names).toContain('Knight'); expect(names).toContain('King'); expect(names.filter(name => name === 'Guard')).toHaveLength(1);
+    expect(await sheet.innerText()).toContain(readText(rules, fromFen(fen), 0));
+    expect(await sheet.innerText()).toContain('Moves in an L, over any piece.');
+  } finally { await page.close(); }
+});

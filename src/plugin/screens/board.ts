@@ -1,11 +1,11 @@
 import { cursorText } from '../../cursor-text';
 import { railsOf, marksModel } from '../../marks-model';
 import { checkCause, checkersOf, describeMove, threatsIn, shortMove } from '../../move-text';
-import { pieceTitle, reachOf, readText, teachNote } from '../../read';
+import { guideTypes, pieceGuide, pieceTitle, reachOf, readText, teachNote } from '../../read';
 import { GameRules } from '../../game-rules';
 import { needsServerPreview } from '../../account-game/engine-identity';
 import { toFen } from '../../rules/setup';
-import { colorOf, findKing, K, moveNumber, NAMES, LETTERS, piece, PLAIN_KINGS, T, typeOf, type Color, type Move, type Position, type PowerName } from '../../rules/engine';
+import { colorOf, findKing, K, moveNumber, NAMES, LETTERS, piece, PLAIN_KINGS, T, typeOf, type Color, type Move, type PieceType, type Position, type PowerName } from '../../rules/engine';
 import { cardName, cardText, coinState, coinWords, needsArming, offered, POWER_TAG, powerText, ruleLine } from '../../powers-ui';
 import { LESSONS } from '../../lessons';
 import { momentKind } from '../../moment';
@@ -106,6 +106,21 @@ function fitSheetBody() {
 }
 const text = (words: string) => { const p = document.createElement('p'); p.textContent = words; return p; };
 const button = (words: string, click: () => void) => { const b = document.createElement('button'); b.textContent = words; b.onclick = click; return b; };
+const element = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', words = '') => { const e = document.createElement(tag); e.className = className; e.textContent = words; return e; };
+// Playtest F-011: All rules gives each piece's moves, takes and special rule, as the web Guide does, with the read piece first.
+function ruleCards(first: PieceType, position: Position) {
+  const cards = element('div', 'piece-cards');
+  for (const type of [first, ...guideTypes(position).filter(type => type !== first)]) {
+    const guide = pieceGuide(gameRules, type), name = gameRules.nameOf(type), face = art(type === K ? portraitPath(0) : `ui/pieces/${NAMES[type]}-w.webp`);
+    const card = element('article', 'piece-card'), picture = element('div', 'pc-art'), body = element('div', 'pc-body'), rows = element('dl');
+    card.dataset.piece = NAMES[type];
+    if (face) { const image = element('img'); image.src = face; image.alt = ''; picture.append(image); }
+    else picture.append(element('span', 'pc-medallion', (type === T && gameRules.playedDesign()?.letter) || LETTERS[type]));
+    for (const [label, words] of [['Moves', guide.moves], ['Takes', guide.captures], ['Special', guide.special]]) if (words) rows.append(element('dt', '', label), element('dd', '', words));
+    body.append(element('h3', '', name[0].toUpperCase() + name.slice(1)), rows); card.append(picture, body); cards.append(card);
+  }
+  return cards;
+}
 export function boardScreen(store: Store) {
   let generation = 0, animating = false, rush = false, steps: BoardMove[] = [];
   let shownNextGame: string | undefined;
@@ -531,7 +546,7 @@ export function boardScreen(store: Store) {
       const face = art(type === K ? portraitPath(colorOf(code)) : `ui/pieces/${NAMES[type]}-${colorOf(code) ? 'b' : 'w'}.webp`);
       all.innerHTML = `<span class="portrait" aria-hidden="true">${face ? `<img id="piece-info-art" alt="" src="${face}">` : ''}</span>`;
       if (!face) all.firstElementChild!.textContent = (type === T && gameRules.playedDesign()?.letter) || LETTERS[type];
-      all.onclick = () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(gameRules, pos!, square!)}` : readText(gameRules, pos!, square!)));
+      all.onclick = () => boardSheet('All rules', text(lesson ? `${lesson}\n\n${readText(gameRules, pos!, square!)}` : readText(gameRules, pos!, square!)), ruleCards(type, pos!));
     }
     if ((!drawReply || unarmed) && selected !== undefined && choicesFrom(moves, selected).some(({move}) => !move.pass && needsArming(move))) actions.push(button('Choose a move', () => boardSheet('Choose a move', $('choices'))));
     if (!unarmed) actions.push(button('Cancel', () => { armed = undefined; armedCard = undefined; held = undefined; choices([]); refresh(); }));
