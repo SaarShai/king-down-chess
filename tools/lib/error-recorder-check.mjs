@@ -13,27 +13,26 @@ export async function checkErrorRecorder({ browser, origin, pool, root }) {
  assert(asset?.startsWith('/assets/'), 'The website uses an emitted bundle');
  const context = await browser.newContext({ viewport: { width: 1100, height: 1000 } });
  let nativeChecks = false;
- const reports = [], fingerprints = new Set(), locations = new Map(), tag = `Recorder check ${randomUUID().slice(0, 8)}`;
+ const reports = [], fingerprints = new Set(), names = new Map(), tag = `Recorder check ${randomUUID().slice(0, 8)}`;
  await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
  context.on('request', request => {
   if (nativeChecks) return;
   if (new URL(request.url()).pathname !== '/api/client-errors') return;
   const text = request.postData(); assert(Buffer.byteLength(text) <= 4096);
   const report = JSON.parse(text); reports.push(report); fingerprints.add(report.fingerprint);
-  assert.deepEqual(Object.keys(report).sort(), ['browser', 'build', 'fingerprint', 'frames', 'kind', 'message', 'name', 'route', 'size']);
+  assert.deepEqual(Object.keys(report).sort(), ['browser', 'build', 'fingerprint', 'kind', 'message', 'name', 'route', 'size']);
   assert.equal(report.route, '/play'); assert.match(report.build, /^[a-f0-9]{40}$/);
   assert.match(report.browser, /^(?:Chrome|Safari|Firefox|Edge|Opera) \d+$/);
   assert.equal(report.size, 'desktop'); assert.equal(report.message, 'Unlisted message');
-  assert.equal(report.frames.length, report.kind === 'rejection' ? 0 : 1);
-  for (const frame of report.frames) assert.match(frame, /^\/assets\/[\w.-]+\.js:\d+:\d+$/);
   for (const privateValue of ['person@example.com', 'private-query', 'private-fragment', 'private-token', 'chrome-extension://']) assert(!text.includes(privateValue));
  });
  const stored = async () => (await pool.query('select * from public.client_errors where fingerprint=any($1::text[])', [[...fingerprints]])).rows;
  const emit = async (page, kind, word) => {
-  const body = kind === 'rejection' ? `void Promise.reject(new Error(${JSON.stringify(`${tag} ${word}`)}));` : `setTimeout(() => { throw new Error(${JSON.stringify(`${tag} ${word}`)}); }, 0);`;
-  if (!locations.has(word)) locations.set(word, locations.size + 1);
-  // Playwright trims leading white space; keep a comment before each test location.
-  await page.evaluate('/* Fault location */' + '\n'.repeat(locations.get(word)) + body + `\n//# sourceURL=${origin}${asset}`);
+  const errorNames = ['Error', 'TypeError', 'RangeError', 'SyntaxError', 'URIError', 'EvalError', 'ReferenceError', 'AggregateError', 'Error', 'Error'];
+  if (!names.has(word)) names.set(word, errorNames[names.size]);
+  const fault = `new ${names.get(word)}(${JSON.stringify(`${tag} ${word}`)})`;
+  const body = kind === 'rejection' ? `void Promise.reject(${fault});` : `setTimeout(() => { throw ${fault}; }, 0);`;
+  await page.evaluate(body);
  };
  const response = page => page.waitForResponse(reply => new URL(reply.url()).pathname === '/api/client-errors' && reply.status() === 204);
  const open = async () => { const page = await context.newPage(); await page.goto(origin + '/play/?private-query#private-fragment'); return page; };
@@ -44,7 +43,7 @@ export async function checkErrorRecorder({ browser, origin, pool, root }) {
   let rows = await stored(); assert.equal(rows.length, 2); assert.deepEqual(rows.map(row => row.kind).sort(), ['error', 'rejection']);
   assert(rows.every(row => row.count === '1' && row.routes.join() === '/play'));
   await page.evaluate(() => {
-   const error = new Error('Extension fault');
+   const error = new Error('Script error.');
    window.dispatchEvent(new ErrorEvent('error', { error, message: error.message, filename: 'chrome-extension://private/page.js', lineno: 1, colno: 2 }));
   });
   await emit(page, 'error', 'thrown person@example.com token=private-token');
@@ -59,7 +58,7 @@ export async function checkErrorRecorder({ browser, origin, pool, root }) {
   await limited.request.get(origin + '/api/status');
   assert.equal(reports.length, 8); rows = await stored(); assert.equal(rows.length, 8); assert(rows.every(row => row.count === '1'));
   const columns = (await pool.query("select column_name from information_schema.columns where table_schema='public' and table_name='client_errors'")).rows.map(row => row.column_name).sort();
-  assert.deepEqual(columns, ['id', 'fingerprint', 'build', 'hour', 'kind', 'name', 'message', 'frames', 'routes', 'browsers', 'size_classes', 'count', 'first_seen', 'last_seen'].sort());
+  assert.deepEqual(columns, ['id', 'fingerprint', 'build', 'hour', 'kind', 'name', 'message', 'routes', 'browsers', 'size_classes', 'count', 'first_seen', 'last_seen'].sort());
   const rollout = await open();
   await pool.query('alter table public.client_errors rename to recorder_rollout_errors');
   try {
@@ -69,7 +68,7 @@ export async function checkErrorRecorder({ browser, origin, pool, root }) {
   } finally { await pool.query('alter table public.recorder_rollout_errors rename to client_errors'); }
   nativeChecks = true;
   await checkNativeLocations({ context, origin, pool, asset, build: reports[0].build, browserFamily: reports[0].browser });
-  console.log('Error recorder: thrown error, rejection, private fields, extension filter, duplicate, five-report limit and missing table pass; ChatGPT bundle has no recorder');
+  console.log('Error recorder: thrown error, rejection, private fields, opaque script filter, duplicate, five-report limit and missing table pass; ChatGPT bundle has no recorder');
  } finally {
   await context.close();
   await pool.query('delete from public.client_errors where fingerprint=any($1::text[])', [[...fingerprints]]);
@@ -87,6 +86,8 @@ async function checkNativeLocations({ context, origin, pool, asset, build, brows
   { label: 'name-cut', key: (() => { const prefix = origin + '/assets/account987654321.js?'; return prefix + 'x'.repeat(32768 - 7 - prefix.length - 4) + ':1:2'; })() },
   { label: 'rejection', key: `private\nf@${origin}${asset}:87654321:92\nx` },
   { label: 'property', key: 'account123456789' },
+  { label: 'syntax' }, { label: 'native-constructor' }, { label: 'native-properties' },
+  { label: 'eval-input' }, { label: 'worker-eval-input' },
   { label: 'async' }, { label: 'eval' }, { label: 'eval-known' }, { label: 'eval-rejection' }, { label: 'worker', key: `${origin}${asset}:76543210:93\n    at x` },
  ];
  let nameFingerprint;
@@ -107,7 +108,13 @@ async function checkNativeLocations({ context, origin, pool, asset, build, brows
   });
   page.on('request', request => { if (new URL(request.url()).pathname === '/api/client-errors') sent.push(request.postDataJSON()); });
   await page.evaluate(key => { globalThis.nativeKey = key; }, item.key);
-  const code = item.label === 'eval-known' ? `eval(${JSON.stringify('setTimeout(()=>{throw new Error("Failed to fetch")},0)\n//# sourceURL=' + origin + asset + '?eval-private-query#private-fragment')})`
+  if (['eval-input', 'worker-eval-input'].includes(item.label)) await page.evaluate(({ origin, asset }) => { window.nativeInput = '\n'.repeat(12345677) + `throw new Error('Failed to fetch')\n//# sourceURL=${origin}${asset}`; }, { origin, asset });
+  const code = item.label === 'syntax' ? 'const bad = ;'
+   : item.label === 'native-constructor' ? `throw new Error('Failed to fetch',${JSON.stringify(origin + asset)},12345678)`
+   : item.label === 'native-properties' ? `const e=new Error('Failed to fetch');e.fileName=${JSON.stringify(origin + asset)};e.lineNumber=12345678;e.columnNumber=91;throw e`
+   : item.label === 'eval-input' ? 'setTimeout(()=>eval(window.nativeInput),0)'
+   : item.label === 'worker-eval-input' ? 'self.onmessage=e=>eval(e.data)'
+   : item.label === 'eval-known' ? `eval(${JSON.stringify('setTimeout(()=>{throw new Error("Failed to fetch")},0)\n//# sourceURL=' + origin + asset + '?eval-private-query#private-fragment')})`
    : item.label === 'eval-rejection' ? `eval('void (async()=>{await 0;throw new Error("Failed to fetch")})()')`
    : item.label === 'eval' ? `eval('setTimeout(()=>{throw new Error("Failed to fetch")},0)')`
    : item.label === 'async' ? 'void (async()=>{await window.foreignFault()})()'
@@ -118,8 +125,8 @@ async function checkNativeLocations({ context, origin, pool, asset, build, brows
   const source = origin + asset + '?recorder-native=' + item.label;
   await page.route(source, route => route.fulfill({ contentType: 'text/javascript', body: item.label === 'worker' ? `globalThis.nativeKey=${JSON.stringify(item.key)};` + code : code }));
   const response = page.waitForResponse(reply => new URL(reply.url()).pathname === '/api/client-errors' && reply.status() === 204, { timeout: 5000 }).catch(() => undefined);
-  if (item.label === 'worker') {
-   await page.evaluate(url => {
+  if (['worker', 'worker-eval-input'].includes(item.label)) {
+   await page.evaluate(({ url, input }) => {
     const worker = new Worker(url);
     worker.onerror = event => {
      event.preventDefault();
@@ -127,34 +134,28 @@ async function checkNativeLocations({ context, origin, pool, asset, build, brows
      window.dispatchEvent(new CustomEvent('kingdown-worker-error', { detail: event }));
      worker.terminate();
     };
-   }, source);
-  } else await page.addScriptTag({ url: source });
+    if (input) worker.postMessage(window.nativeInput);
+   }, { url: source, input: item.label === 'worker-eval-input' });
+  } else try { await page.addScriptTag({ url: source }); } catch { /* Syntax errors can reject the script load. */ }
   await page.waitForFunction(() => window.nativeFault);
   const native = await page.evaluate(() => window.nativeFault);
-  const frames = native.filename && new URL(native.filename).origin === origin && new URL(native.filename).pathname === asset && native.line > 0 && native.column > 0
-   ? [`${asset}:${native.line}:${native.column}`] : [];
-  const hasReport = native.kind === 'rejection' || frames.length > 0;
-  if (hasReport) {
-   assert(await response, item.label + ' response');
-   assert.equal(sent.length, 1, item.label);
-   const report = sent[0], message = item.label === 'property' ? 'Cannot read properties of [value] (reading [value])' : item.label === 'worker' ? 'Unlisted message' : 'Failed to fetch';
-   assert.deepEqual(report, { kind: native.kind, name: native.name, message, frames: native.kind === 'rejection' ? [] : frames, route: '/', build, browser: browserFamily, size: 'desktop', fingerprint: report.fingerprint });
-   if (item.label.startsWith('name-')) {
-    nameFingerprint ??= report.fingerprint;
-    assert.equal(report.fingerprint, nameFingerprint, item.label + ' same native location');
-   }
-   const stored = (await pool.query('select * from public.client_errors where fingerprint=$1', [report.fingerprint])).rows;
-   assert.equal(stored.length, 1, item.label);
-   assert.deepEqual(stored[0].frames, report.frames);
-   assert.equal(stored[0].message, message); assert.equal(stored[0].name, report.name);
-   assert.deepEqual(stored[0].routes, ['/']); assert.deepEqual(stored[0].browsers, [browserFamily]); assert.deepEqual(stored[0].size_classes, ['desktop']);
-   assert.equal(stored[0].build, build); assert.equal(stored[0].kind, report.kind);
-   for (const value of privateValues) { assert(!JSON.stringify(sent).includes(value), item.label + ' body'); assert(!JSON.stringify(stored).includes(value), item.label + ' row'); }
-   await pool.query('delete from public.client_errors where fingerprint=$1', [report.fingerprint]);
-  } else {
-   await response; await page.request.get(origin + '/api/status'); assert.equal(sent.length, 0, item.label);
+  assert(await response, item.label + ' response');
+  assert.equal(sent.length, 1, item.label);
+  const report = sent[0], message = item.label === 'property' ? 'Cannot read properties of [value] (reading [value])' : ['worker', 'worker-eval-input', 'syntax'].includes(item.label) ? 'Unlisted message' : 'Failed to fetch';
+  assert.deepEqual(report, { kind: native.kind, name: native.name, message, route: '/', build, browser: browserFamily, size: 'desktop', fingerprint: report.fingerprint });
+  if (item.label.startsWith('name-')) {
+   nameFingerprint ??= report.fingerprint;
+   assert.equal(report.fingerprint, nameFingerprint, item.label + ' same group');
   }
+  const stored = (await pool.query('select * from public.client_errors where fingerprint=$1', [report.fingerprint])).rows;
+  assert.equal(stored.length, 1, item.label);
+  assert(!Object.hasOwn(stored[0], 'frames'));
+  assert.equal(stored[0].message, message); assert.equal(stored[0].name, report.name);
+  assert.deepEqual(stored[0].routes, ['/']); assert.deepEqual(stored[0].browsers, [browserFamily]); assert.deepEqual(stored[0].size_classes, ['desktop']);
+  assert.equal(stored[0].build, build); assert.equal(stored[0].kind, report.kind);
+  for (const value of [...privateValues, asset]) { assert(!JSON.stringify(sent).includes(value), item.label + ' body'); assert(!JSON.stringify(stored).includes(value), item.label + ' row'); }
+  await pool.query('delete from public.client_errors where fingerprint=$1', [report.fingerprint]);
   await page.close();
  }
- console.log('Native error locations: names with new lines, length cut, unknown asset, rejection, property, async, eval and worker pass');
+ console.log('Native error cases: names with new lines, length cut, unknown asset, rejection, property, async, eval and worker pass');
 }

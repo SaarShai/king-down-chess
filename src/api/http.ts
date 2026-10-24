@@ -66,7 +66,7 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
 
 export interface ApiOptions {
  games: GameService; accounts: AccountService; safety: SafetyService;
- recordError?: ErrorWriter; build?: string; errorAssets?: ReadonlySet<string>;
+ recordError?: ErrorWriter; build?: string;
  players?: Pick<PluginService, 'settings' | 'profile' | 'handle' | 'block' | 'blocks' | 'toolTry'>;
  publicOrigin: string; operations?: ReadonlySet<string>;
  /** undefined: website sign-in is not configured */ verify?: (token: string) => Promise<string>;
@@ -191,7 +191,7 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
    try {
     if (recorder?.recordError && req.headers.host?.toLowerCase() === new URL(origin).host && req.headers.origin === origin
      && (!req.headers['sec-fetch-site'] || req.headers['sec-fetch-site'] === 'same-origin') && admitError!()) {
-     const report = await readClientError(req, recorder.errorAssets);
+     const report = await readClientError(req);
      if (report) await recorder.recordError(report);
     }
    } catch { /* Dropped reports have the same empty response. */ }

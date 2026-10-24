@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { browserFamily, browserLocation, errorFingerprint, errorName, errorRoute, errorMessage, scrub } from './data';
+import { browserFamily, errorFingerprint, errorName, errorRoute, errorMessage, scrub } from './data';
 import { fromFen } from '../rules/setup';
 
 describe('fault report data', () => {
@@ -16,15 +16,6 @@ describe('fault report data', () => {
   expect(scrub(scrub('Fault token=secret'))).toBe(scrub('Fault token=secret'));
   expect(errorName('person@example.com')).toBe('Error');
  });
- it('uses native event fields only for a same-origin known asset', () => {
-  const origin = 'https://kingdown.dev', assets = new Set(['/assets/app.js']);
-  const event = { filename: origin + '/assets/app.js?private-query#private-fragment', lineno: 2, colno: 4 };
-  expect(browserLocation(event, origin, assets)).toEqual(['/assets/app.js:2:4']);
-  for (const filename of ['chrome-extension://private/app.js', 'https://foreign.example/assets/app.js', origin + '/assets/unknown.js', origin + '/private.js', 'invalid']) {
-   expect(browserLocation({ ...event, filename }, origin, assets)).toEqual([]);
-  }
-  for (const lineno of [0, -1, NaN, 1.5, 100_000_000]) expect(browserLocation({ ...event, lineno }, origin, assets)).toEqual([]);
- });
  it('removes all non-route words and all game IDs', () => {
   expect(errorRoute('/g/d137864c-e174-4f38-9277-6bdd0a4289dc?token=x#private')).toBe('/g/:game');
   expect(errorRoute('/play/private-id')).toBe('/play/:game');
@@ -32,12 +23,14 @@ describe('fault report data', () => {
   expect(errorRoute('/private/12345')).toBe('/:id/:id');
   for (const path of ['/', '/play/profile', '/play/settings', '/api/games/find', '/g/:game']) expect(errorRoute(path)).toBe(path);
  });
- it('groups a message pattern and top location, with a stable fingerprint', () => {
-  const first = errorFingerprint('Error', 'Load failed after 12 ms', '/assets/app.js:1:2');
+ it('groups by fixed name, cleaned message, cleaned route and build', () => {
+  const build = 'a'.repeat(40), first = errorFingerprint('Error', 'Failed to fetch', '/play', build);
   expect(first).toMatch(/^[a-f0-9]{16}$/);
-  expect(errorFingerprint('Error', 'Load failed after 99 ms', '/assets/app.js:1:2')).toBe(first);
-  expect(errorFingerprint('Error', 'Load failed after 12 ms', '/assets/app.js:1:3')).not.toBe(first);
-  expect(errorFingerprint('TypeError', 'Load failed after 12 ms', '/assets/app.js:1:2')).not.toBe(first);
+  expect(errorFingerprint('Error', 'Failed to fetch', '/play', build)).toBe(first);
+  expect(errorFingerprint('Error', 'Load failed', '/play', build)).not.toBe(first);
+  expect(errorFingerprint('Error', 'Failed to fetch', '/profile', build)).not.toBe(first);
+  expect(errorFingerprint('Error', 'Failed to fetch', '/play', 'b'.repeat(40))).not.toBe(first);
+  expect(errorFingerprint('TypeError', 'Failed to fetch', '/play', build)).not.toBe(first);
  });
  it.each([
   ['Mozilla Version/18.4 Safari/605.1.15', 'Safari 18'], ['Chrome/131.0 Safari/537.36', 'Chrome 131'],

@@ -1,4 +1,4 @@
-import { browserFamily, browserLocation, BUILD_ID, errorFingerprint, errorName, errorRoute, MAX_ERROR_BODY, errorMessage, type ClientErrorReport } from './data';
+import { browserFamily, BUILD_ID, errorFingerprint, errorName, errorRoute, MAX_ERROR_BODY, errorMessage, type ClientErrorReport } from './data';
 
 declare const __KINGDOWN_BUILD__: string;
 let installed = false;
@@ -10,7 +10,6 @@ export function installErrorRecorder(): void {
   installed = true;
   const build = typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : '';
   if (!BUILD_ID.test(build)) return;
-  const assets = new Set(document.querySelector<HTMLMetaElement>('meta[name="kingdown-error-assets"]')?.content.split(' ') ?? []);
   const seen = new Set<string>();
   const record = (kind: ClientErrorReport['kind'], value: unknown, event?: ErrorEvent) => {
    try {
@@ -18,11 +17,10 @@ export function installErrorRecorder(): void {
     const error = value instanceof Error ? value : undefined;
     const raw = error?.message ?? (kind === 'rejection' ? 'Non-Error rejection' : event?.message ?? 'Worker failed');
     if (/^Script error\.?$/i.test(raw.trim()) || /ResizeObserver loop/i.test(raw)) return;
-    const frames = kind !== 'rejection' && event ? browserLocation(event, location.origin, assets) : [];
-    if (kind !== 'rejection' && !frames.length) return;
-    const name = errorName(error?.name), message = errorMessage(raw), fingerprint = errorFingerprint(name, message, frames[0] ?? '');
+    const name = errorName(error?.name), message = errorMessage(raw), route = errorRoute(location.pathname);
+    const fingerprint = errorFingerprint(name, message, route, build);
     if (seen.has(fingerprint)) return;
-    const report: ClientErrorReport = { kind, name, message, frames, route: errorRoute(location.pathname), build,
+    const report: ClientErrorReport = { kind, name, message, route, build,
      browser: browserFamily(navigator.userAgent), size: matchMedia('(max-width: 899px)').matches ? 'phone' : 'desktop', fingerprint };
     const body = JSON.stringify(report);
     if (new TextEncoder().encode(body).length > MAX_ERROR_BODY) return;

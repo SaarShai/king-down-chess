@@ -8,7 +8,6 @@ function emit(type: string, value: unknown, fields = { filename: 'https://kingdo
 }
 beforeEach(async () => {
  vi.resetModules(); target = new EventTarget(); beacon = vi.fn(() => true); send = vi.fn(async () => new Response(null, { status: 204 }));
- vi.stubGlobal('document', { querySelector: () => ({ content: '/assets/app.js /assets/worker.js' }) });
  vi.stubGlobal('window', target); vi.stubGlobal('location', { origin: 'https://kingdown.dev', pathname: '/g/private-id', search: '?private=secret', hash: '#private' });
  vi.stubGlobal('navigator', { userAgent: 'Version/18.3 Safari/605.1', sendBeacon: beacon });
  vi.stubGlobal('matchMedia', () => ({ matches: true })); vi.stubGlobal('fetch', send);
@@ -20,9 +19,8 @@ it('never reads a stack, even when its getter throws', async () => {
  const error = new Error('Failed to fetch');
  Object.defineProperty(error, 'stack', { get() { throw new Error('Stack read'); } });
  emit('error', error); emit('unhandledrejection', error);
- expect(beacon).toHaveBeenCalledTimes(2);
- expect(JSON.parse(await (beacon.mock.calls[0][1] as Blob).text()).frames).toEqual(['/assets/app.js:2:4']);
- expect(JSON.parse(await (beacon.mock.calls[1][1] as Blob).text()).frames).toEqual([]);
+ expect(beacon).toHaveBeenCalledOnce();
+ expect(JSON.parse(await (beacon.mock.calls[0][1] as Blob).text())).not.toHaveProperty('frames');
 });
 
 it('installs once, sends only the allowed fields and sends no duplicate', async () => {
@@ -32,26 +30,42 @@ it('installs once, sends only the allowed fields and sends no duplicate', async 
  const [path, blob] = beacon.mock.calls[0] as unknown as [string, Blob];
  expect(path).toBe('/api/client-errors'); expect(blob.size).toBeLessThanOrEqual(MAX_ERROR_BODY);
  const report = JSON.parse(await blob.text());
- expect(Object.keys(report).sort()).toEqual(['browser', 'build', 'fingerprint', 'frames', 'kind', 'message', 'name', 'route', 'size']);
- expect(report).toMatchObject({ kind: 'error', message: 'Unlisted message', frames: ['/assets/app.js:2:4'], route: '/g/:game', browser: 'Safari 18', size: 'phone' });
+ expect(Object.keys(report).sort()).toEqual(['browser', 'build', 'fingerprint', 'kind', 'message', 'name', 'route', 'size']);
+ expect(report).toMatchObject({ kind: 'error', message: 'Unlisted message', route: '/g/:game', browser: 'Safari 18', size: 'phone' });
  expect(report.build).toMatch(/^[a-f0-9]{40}$/);
 });
 it('sends at most five different faults per page load', () => {
- for (let line = 1; line <= 6; line++) emit('error', fault('Private text'), { filename: 'https://kingdown.dev/assets/app.js', lineno: line, colno: 4 });
+ for (const message of ['Failed to fetch', 'fetch failed', 'Load failed', 'NetworkError when attempting to fetch resource.', 'Maximum call stack size exceeded', 'too much recursion']) emit('error', fault(message));
  expect(beacon).toHaveBeenCalledTimes(5);
 });
-it('ignores extension faults, opaque scripts, resize notices and unknown assets', () => {
- for (const filename of ['chrome-extension://extension/a.js', 'https://foreign.example/assets/app.js', 'https://kingdown.dev/assets/unknown.js', '']) emit('error', fault('Fault'), { filename, lineno: 1, colno: 2 });
+it('drops opaque scripts and resize notices', () => {
  emit('error', fault('Script error.')); emit('error', fault('ResizeObserver loop limit exceeded'));
  expect(beacon).not.toHaveBeenCalled(); expect(send).not.toHaveBeenCalled();
 });
-it('records a rejection and the worker location', async () => {
- emit('unhandledrejection', fault('Promise failed'));
+it.each(['chrome-extension://extension/a.js', 'https://foreign.example/assets/app.js', 'https://kingdown.dev/assets/unknown.js', ''])('keeps a fault without a known filename: %s', async filename => {
+ emit('error', fault('Failed to fetch'), { filename, lineno: 12345678, colno: 91 });
+ expect(beacon).toHaveBeenCalledOnce();
+ const body = await (beacon.mock.calls[0][1] as Blob).text();
+ expect(body).not.toMatch(/filename|frames|12345678|assets|extension/);
+});
+it('keeps a syntax error with column zero', async () => {
+ emit('error', new SyntaxError('Private source'), { filename: 'https://kingdown.dev/assets/app.js', lineno: 1, colno: 0 });
+ expect(beacon).toHaveBeenCalledOnce();
+ expect(JSON.parse(await (beacon.mock.calls[0][1] as Blob).text())).toMatchObject({ name: 'SyntaxError', message: 'Unlisted message' });
+});
+it('does not read native location fields', () => {
+ const event = Object.assign(new Event('error'), { error: fault('Failed to fetch') });
+ for (const key of ['filename', 'lineno', 'colno']) Object.defineProperty(event, key, { get() { throw new Error('Location read'); } });
+ target.dispatchEvent(event);
+ expect(beacon).toHaveBeenCalledOnce();
+});
+it('records a rejection and a worker fault without locations', async () => {
+ emit('unhandledrejection', fault('Failed to fetch'));
  const event = Object.assign(new Event('worker'), { filename: 'https://kingdown.dev/assets/worker.js', lineno: 3, colno: 5, message: 'Worker failed' });
  target.dispatchEvent(new CustomEvent('kingdown-worker-error', { detail: event }));
  expect(beacon).toHaveBeenCalledTimes(2);
- expect(JSON.parse(await (beacon.mock.calls[0][1] as Blob).text())).toMatchObject({ kind: 'rejection', frames: [], message: 'Unlisted message', fingerprint: errorFingerprint('Error', 'Unlisted message', '') });
- expect(JSON.parse(await (beacon.mock.calls[1][1] as Blob).text())).toMatchObject({ kind: 'worker', frames: ['/assets/worker.js:3:5'] });
+ expect(JSON.parse(await (beacon.mock.calls[0][1] as Blob).text())).toMatchObject({ kind: 'rejection', message: 'Failed to fetch' });
+ expect(JSON.parse(await (beacon.mock.calls[1][1] as Blob).text())).toMatchObject({ kind: 'worker', message: 'Unlisted message' });
 });
 it('uses one keepalive request when beacon is unavailable or refuses', () => {
  beacon.mockReturnValue(false); emit('error', fault('Transport failed'));
@@ -78,7 +92,7 @@ it('uses fetch when beacon is missing or throws', () => {
  beacon.mockImplementation(() => { throw new Error('Beacon failed'); });
  emit('error', fault('Beacon unavailable')); expect(send).toHaveBeenCalledOnce();
  vi.stubGlobal('navigator', { userAgent: 'Firefox/130.0' });
- emit('error', fault('Beacon missing'), { filename: 'https://kingdown.dev/assets/app.js', lineno: 3, colno: 4 }); expect(send).toHaveBeenCalledTimes(2);
+ emit('error', fault('Failed to fetch'), { filename: 'https://kingdown.dev/assets/app.js', lineno: 3, colno: 4 }); expect(send).toHaveBeenCalledTimes(2);
 });
 
 it('contains a fault in an event getter', () => {
@@ -115,7 +129,7 @@ it.each(['account123456789', 'K6X', 'MeetMeAtTheStation', 'd137864c-e174-4f38-92
  const body = await (beacon.mock.calls[0][1] as Blob).text();
  expect(body).not.toContain(value);
  const message = ['person@example.com', 'd137864c-e174-4f38-9277-6bdd0a4289dc'].includes(value) ? 'Unlisted message' : 'Cannot read properties of [value] (reading [value])';
- expect(JSON.parse(body)).toMatchObject({ message, fingerprint: errorFingerprint('TypeError', message, '/assets/app.js:2:4') });
+ expect(JSON.parse(body)).toMatchObject({ message, fingerprint: errorFingerprint('TypeError', message, '/g/:game', JSON.parse(body).build) });
 });
 
 it('sends one cleaned report for a non-Error rejection', async () => {
@@ -123,5 +137,5 @@ it('sends one cleaned report for a non-Error rejection', async () => {
  expect(beacon).toHaveBeenCalledOnce();
  const body = await (beacon.mock.calls[0][1] as Blob).text();
  expect(body).not.toContain('person@example.com');
- expect(JSON.parse(body)).toMatchObject({ kind: 'rejection', frames: [], message: 'Unlisted message' });
+ expect(JSON.parse(body)).toMatchObject({ kind: 'rejection', message: 'Unlisted message' });
 });

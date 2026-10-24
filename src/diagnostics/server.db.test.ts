@@ -30,12 +30,10 @@ suite('first-party fault HTTP and database writes', () => {
  let handler: ReturnType<typeof createApiHandler>;
  const role = `errors_test_${randomUUID().replaceAll('-', '')}`, build = 'a'.repeat(40);
  const profile = vi.fn(async (): Promise<unknown> => { throw new TypeError('Server person@example.com token=private'); });
- const assets = new Set(['/assets/app-test.js']);
  const pending: Promise<unknown>[] = [];
  const settle = async () => { await Promise.all(pending.splice(0)); };
  const report = (message = 'Board failed'): ClientErrorReport => {
-  const frames = ['/assets/app-test.js:2:4'];
-  return { kind: 'error', name: 'Error', message, frames, route: '/g/:game', build, browser: 'Safari 18', size: 'phone', fingerprint: errorFingerprint('Error', errorMessage(message), frames[0]) };
+  return { kind: 'error', name: 'Error', message, route: '/g/:game', build, browser: 'Safari 18', size: 'phone', fingerprint: errorFingerprint('Error', errorMessage(message), '/g/:game', build) };
  };
  const rows = async () => { await settle(); return (await admin.query('select * from public.client_errors order by id')).rows; };
  const post = (body: unknown = report(), site: string | null = origin) => fetch(origin + '/api/client-errors', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(site !== null && { Origin: site }) }, body: typeof body === 'string' ? body : JSON.stringify(body) });
@@ -54,7 +52,7 @@ suite('first-party fault HTTP and database writes', () => {
   vi.stubGlobal(Symbol.for('@vercel/request-context'), { get: () => ({ waitUntil: (work: Promise<unknown>) => { pending.push(work); } }) });
   await admin.query('truncate public.client_errors'); profile.mockClear();
   options = { games: {} as ApiOptions['games'], accounts: { profile } as unknown as ApiOptions['accounts'], safety: {} as ApiOptions['safety'], publicOrigin: origin,
-   operations: new Set(['GET /api/me/profile']), verify: async () => randomUUID(), webAccountAccess: async () => ({ enabled: true, expiresAt: performance.now() + 5000 }), recordError: createErrorWriter(runtime, assets), errorAssets: assets, build };
+   operations: new Set(['GET /api/me/profile']), verify: async () => randomUUID(), webAccountAccess: async () => ({ enabled: true, expiresAt: performance.now() + 5000 }), recordError: createErrorWriter(runtime), build };
   handler = createApiHandler(options);
  });
  afterAll(async () => {
@@ -67,7 +65,7 @@ suite('first-party fault HTTP and database writes', () => {
   handler = createApiHandler({ ...options, operations: new Set(), verify: undefined });
   const response = await post(); expect(response.status).toBe(204); expect(await response.text()).toBe('');
   expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull();
-  expect(await rows()).toMatchObject([{ count: '1', frames: ['/assets/app-test.js:2:4'], routes: ['/g/:game'], browsers: ['Safari 18'] }]);
+  expect(await rows()).toMatchObject([{ count: '1', routes: ['/g/:game'], browsers: ['Safari 18'] }]);
  });
  it('drops a wrong or absent origin, wrong shape, bad JSON and oversized body', async () => {
   for (const site of ['https://wrong.example', 'null', null]) expect((await post(report(), site)).status).toBe(204);
@@ -79,14 +77,18 @@ suite('first-party fault HTTP and database writes', () => {
   });
   expect(status).toBe(204); expect(await rows()).toEqual([]);
  });
- it('scrubs at the server boundary and adds counts in the same hour', async () => {
-  const first = report('Fault person@example.com');
+ it('cleans messages, counts repeats, and separates messages, routes, builds and hours', async () => {
+  const first = report('Failed to fetch');
   expect((await post(first)).status).toBe(204);
-  expect((await post({ ...first, browser: 'Chrome 131', route: '/play' })).status).toBe(204);
-  expect(await rows()).toMatchObject([{ count: '2', message: 'Unlisted message', routes: ['/g/:game', '/play'], browsers: ['Chrome 131', 'Safari 18'] }]);
+  expect((await post({ ...first, browser: 'Chrome 131' })).status).toBe(204);
+  expect(await rows()).toMatchObject([{ count: '2', message: 'Failed to fetch', routes: ['/g/:game'], browsers: ['Chrome 131', 'Safari 18'] }]);
+  await post(report('Load failed')); expect(await rows()).toHaveLength(2);
+  await post({ ...first, route: '/play', fingerprint: errorFingerprint('Error', 'Failed to fetch', '/play', build) });
+  expect(await rows()).toHaveLength(3);
+  await post({ ...first, build: 'b'.repeat(40), fingerprint: errorFingerprint('Error', 'Failed to fetch', '/g/:game', 'b'.repeat(40)) });
+  expect(await rows()).toHaveLength(4);
   await admin.query("update public.client_errors set hour=hour-interval '1 hour'"); await post(first);
-  expect(await rows()).toHaveLength(2);
-  await post({ ...first, build: 'b'.repeat(40) }); expect(await rows()).toHaveLength(3);
+  expect(await rows()).toHaveLength(5);
  });
  it('deletes a 31-day-old row, keeps current rows, and runs daily cleanup without a new fault', async () => {
   await post(); await admin.query("update public.client_errors set first_seen=now()-interval '31 days',last_seen=now()-interval '31 days'");
@@ -107,7 +109,7 @@ suite('first-party fault HTTP and database writes', () => {
  it('records only an unexpected server fault, with no request or actor data', async () => {
   const response = await fetch(origin + '/api/me/profile?token=private', { headers: { Authorization: 'Bearer test' } });
   expect(response.status).toBe(500);
-  expect(await rows()).toMatchObject([{ kind: 'server', name: 'TypeError', message: 'Unlisted message', frames: [], routes: ['/api/me/profile'], browsers: [], size_classes: [] }]);
+  expect(await rows()).toMatchObject([{ kind: 'server', name: 'TypeError', message: 'Unlisted message', routes: ['/api/me/profile'], browsers: [], size_classes: [] }]);
   for (const error of [new MatchServiceError('FORBIDDEN', 403, 'Expected refusal'), new AuthenticationError()]) {
    profile.mockRejectedValueOnce(error); await fetch(origin + '/api/me/profile', { headers: { Authorization: 'Bearer test' } });
   }
@@ -130,15 +132,14 @@ suite('first-party fault HTTP and database writes', () => {
  it('adds four concurrent function writes without a lost count', async () => {
   const pools = Array.from({ length: 4 }, () => new pg.Pool({ connectionString: runtime.options.connectionString, max: 1 }));
   try {
-   await Promise.all(pools.map(pool => createErrorWriter(pool, assets)(report())));
+   await Promise.all(pools.map(pool => createErrorWriter(pool)(report())));
    expect(await rows()).toMatchObject([{ count: '4' }]);
   } finally { await Promise.all(pools.map(pool => pool.end())); }
  });
- it('caps route and browser sets at twenty values', async () => {
-  const words = ['play', 'profile', 'settings', 'g', 'j', 'api', 'games', 'me', 'status', 'client-errors', 'seen', 'commands', 'preview', 'invite', 'invites', 'redeem', 'lobby', 'find', 'accept', 'cancel', 'handle', 'deletion', 'notifications', 'relations', 'reports'];
-  for (const [i, word] of words.entries()) await options.recordError!({ ...report(), route: `/api/${word}`, browser: `Chrome ${100 + i}` });
+ it('bounds each route group and caps its browser set at twenty values', async () => {
+  for (let i = 0; i < 25; i++) await options.recordError!({ ...report(), browser: `Chrome ${100 + i}` });
   const stored = await rows(); expect(stored).toHaveLength(1);
-  expect(stored[0].count).toBe('25'); expect(stored[0].routes).toHaveLength(20); expect(stored[0].browsers).toHaveLength(20);
+  expect(stored[0].count).toBe('25'); expect(stored[0].routes).toEqual(['/g/:game']); expect(stored[0].browsers).toHaveLength(20);
  });
  it('stores only approved forms for every private-text probe, including an Auth error', async () => {
   const { createClient } = await import('@supabase/supabase-js');
@@ -160,8 +161,7 @@ suite('first-party fault HTTP and database writes', () => {
  it.each(['account123456789', 'K6X', 'MeetMeAtTheStation', 'd137864c-e174-4f38-9277-6bdd0a4289dc', 'person@example.com', 'e2e4'])('removes private engine names from sent bodies and stored rows: %s', async value => {
   vi.resetModules();
   const target = new EventTarget(), sent: Blob[] = [];
-  vi.stubGlobal('document', { querySelector: () => ({ content: '/assets/app-test.js' }) });
-  vi.stubGlobal('window', target);
+   vi.stubGlobal('window', target);
   vi.stubGlobal('location', { origin: 'https://kingdown.dev', pathname: '/play' });
   vi.stubGlobal('navigator', { userAgent: 'Chrome/130.0', sendBeacon: (_: string, body: Blob) => { sent.push(body); return true; } });
   vi.stubGlobal('matchMedia', () => ({ matches: false }));
@@ -173,7 +173,7 @@ suite('first-party fault HTTP and database writes', () => {
    expect(sent).toHaveLength(1);
    const body = await sent[0].text(), input = JSON.parse(body);
    const message = ['person@example.com', 'd137864c-e174-4f38-9277-6bdd0a4289dc'].includes(value) ? 'Unlisted message' : 'Cannot read properties of [value] (reading [value])';
-   const fingerprint = errorFingerprint('TypeError', message, '/assets/app-test.js:2:4');
+   const fingerprint = errorFingerprint('TypeError', message, '/play', input.build);
    expect(body).not.toContain(value);
    expect(input).toMatchObject({ message, fingerprint });
    expect((await post(input)).status).toBe(204);
@@ -192,25 +192,20 @@ suite('first-party fault HTTP and database writes', () => {
    expect(JSON.stringify(stored)).not.toContain(value);
   } finally { vi.unstubAllGlobals(); }
  });
- it('requires one known frame for errors and workers, and no frames for rejections', async () => {
-  const input = report('person@example.com');
-  for (const kind of ['error', 'worker'] as const) {
-   for (const frames of [[], ['/assets/account123456789.js:1:2'], ['/assets/app-test.js:12345678:91', '/assets/app-test.js:2:4']]) {
-    await post({ ...input, kind, frames });
-    await options.recordError!({ ...input, kind, frames });
-   }
-  }
-  await post({ ...input, kind: 'rejection' });
-  await options.recordError!({ ...input, kind: 'rejection' });
-  expect(await rows()).toEqual([]);
-  const rejection = { ...input, kind: 'rejection' as const, frames: [], fingerprint: errorFingerprint('Error', 'Unlisted message', '') };
-  await post(rejection);
+ it.each(['error', 'worker', 'rejection'] as const)('stores a %s report with no location field', async kind => {
+  await post({ ...report('Failed to fetch'), kind });
   const stored = await rows();
-  expect(stored).toMatchObject([{ kind: 'rejection', message: 'Unlisted message', frames: [], fingerprint: rejection.fingerprint, count: '1' }]);
-  expect(JSON.stringify(stored)).not.toContain('person@example.com');
+  expect(stored).toMatchObject([{ kind, message: 'Failed to fetch', count: '1' }]);
+  expect(stored[0]).not.toHaveProperty('frames');
  });
- it.each(['private https://kingdown.dev/assets/app-test.js:12345678:91', 'private https://kingdown.dev/assets/app-test.js?query:12345678:91', 'Unlisted message'])('drops an old raw report with false frames: %s', async message => {
-  const input = { ...report(message), frames: ['/assets/app-test.js:12345678:91', '/assets/app-test.js:2:4'], fingerprint: errorFingerprint('Error', 'Unlisted message', '/assets/app-test.js:12345678:91') };
+ it.each(['frames', 'filename', 'lineno', 'colno', 'stack', 'extra'])('rejects the unknown field %s at both boundaries', async key => {
+  const input = { ...report(), [key]: key === 'frames' ? [] : 'private' };
+  expect((await post(input)).status).toBe(204);
+  await options.recordError!(input);
+  expect(await rows()).toEqual([]);
+ });
+ it('rejects an old report with a single location', async () => {
+  const input = { ...report(), frames: ['/assets/app-test.js:12345678:91'] };
   expect((await post(input)).status).toBe(204);
   await options.recordError!(input);
   expect(await rows()).toEqual([]);
@@ -225,8 +220,8 @@ suite('first-party fault HTTP and database writes', () => {
    await recordServerError(options.recordError, error, '/api/me/profile?private-query', build);
   }
   let stored = await rows();
-  const fingerprint = errorFingerprint('Error', 'Failed to fetch', '/api/me/profile');
-  expect(stored).toMatchObject([{ kind: 'server', message: 'Failed to fetch', frames: [], routes: ['/api/me/profile'], fingerprint, count: '2' }]);
+  const fingerprint = errorFingerprint('Error', 'Failed to fetch', '/api/me/profile', build);
+  expect(stored).toMatchObject([{ kind: 'server', message: 'Failed to fetch', routes: ['/api/me/profile'], fingerprint, count: '2' }]);
   expect(JSON.stringify(stored)).not.toMatch(/account123456789|private-query|task|server\.mjs/);
   await recordServerError(options.recordError, make(key), '/api/status', build);
   stored = await rows();
@@ -258,7 +253,7 @@ suite('first-party fault HTTP and database writes', () => {
    // A new writer must also drop when other API work owns both pool clients.
    const a = await runtime.connect(), b = await runtime.connect();
    try {
-    const now = performance.now(); await createErrorWriter(runtime, assets)(report());
+    const now = performance.now(); await createErrorWriter(runtime)(report());
     expect(performance.now() - now).toBeLessThan(100); expect(runtime.waitingCount).toBe(0);
    } finally { a.release(); b.release(); }
   } finally { await lock.query('rollback'); await lock.end(); }
@@ -280,8 +275,8 @@ suite('first-party fault HTTP and database writes', () => {
  });
  it('runs capped retention batches and skips a locked expired row', async () => {
   await post();
-  await admin.query(`insert into public.client_errors(fingerprint,build,hour,kind,name,message,frames,routes,browsers,size_classes,first_seen,last_seen)
-   select lpad(to_hex(n),16,'0'),$1,now(),'error','Error','Unlisted message','{}','{}','{}','{}',now()-interval '31 days',now()-interval '31 days' from generate_series(1,351) n`, [build]);
+  await admin.query(`insert into public.client_errors(fingerprint,build,hour,kind,name,message,routes,browsers,size_classes,first_seen,last_seen)
+   select lpad(to_hex(n),16,'0'),$1,now(),'error','Error','Unlisted message','{}','{}','{}',now()-interval '31 days',now()-interval '31 days' from generate_series(1,351) n`, [build]);
   const lock = new pg.Client({ connectionString: own.href }); await lock.connect(); await lock.query('begin');
   await lock.query('select id from public.client_errors where fingerprint=$1 for update', ['0000000000000001']);
   await admin.query(`create table public.error_cleanup_batches(n integer);

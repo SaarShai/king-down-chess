@@ -4,7 +4,7 @@ import pg from 'pg';
 
 type FaultRow = {
  fingerprint: string; count: string; first_seen: Date; last_seen: Date; build: string; kind: string;
- name: string; message: string; frames: string[]; routes: string[]; browsers: string[]; size_classes: string[];
+ name: string; message: string; routes: string[]; browsers: string[]; size_classes: string[];
 };
 export function formatErrorReport(rows: FaultRow[]): string {
  const groups = new Map<string, { count: bigint; first: Date; last: Date; builds: Set<string>; routes: Set<string>; browsers: Set<string>; sizes: Set<string>; sample: FaultRow }>();
@@ -27,7 +27,7 @@ export function formatErrorReport(rows: FaultRow[]): string {
   `First: ${group.first.toISOString()} | Last: ${group.last.toISOString()}`,
   `Builds: ${[...group.builds].sort().join(', ')}`, `Routes: ${[...group.routes].sort().join(', ')}`,
   `Browsers: ${[...group.browsers].sort().join(', ') || 'server'} | Size: ${[...group.sizes].sort().join(', ') || 'server'}`,
-  `${group.sample.name}: ${group.sample.message}`, ...group.sample.frames.map(frame => `  ${frame}`),
+  `${group.sample.name}: ${group.sample.message}`,
  ].join('\n')).join('\n\n') || 'No fault reports.';
 }
 export function sinceDays(args: string[]): number {
@@ -40,7 +40,7 @@ export async function reportErrors(args = process.argv.slice(2)): Promise<void> 
  if (!connectionString) throw new Error('Set PLUGIN_DATABASE_URL to read fault reports');
  const pool = new pg.Pool({ connectionString, max: 1, connectionTimeoutMillis: 5000, statement_timeout: 10_000 });
  try {
-  const { rows } = await pool.query<FaultRow>(`select fingerprint,count,first_seen,last_seen,build,kind,name,message,frames,routes,browsers,size_classes
+  const { rows } = await pool.query<FaultRow>(`select fingerprint,count,first_seen,last_seen,build,kind,name,message,routes,browsers,size_classes
    from public.client_errors where last_seen >= now()-($1::int * interval '1 day') order by last_seen desc`, [days]);
   console.log(formatErrorReport(rows));
  } finally { await pool.end(); }

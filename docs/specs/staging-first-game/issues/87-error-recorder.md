@@ -13,7 +13,7 @@ The owner approves this task in the run request. Work stays on `staging/error-re
 
 ## Check criteria
 
-- Unit tests cover scrub rules, own frames, route IDs, fingerprints, limits and browser versions.
+- Unit tests cover scrub rules, absent code locations, route IDs, fingerprints, limits and browser versions.
 - HTTP and database tests cover accepted and dropped reports, counts, retention, restricted roles and failed writes.
 - The browser test uses the emitted website and a local database. It checks errors, rejections, extensions, repeat faults and the page limit.
 - Run each new test file twice, type check, the full test suite, and `check:browser web-game plugin-ui`.
@@ -27,8 +27,7 @@ The owner approves this task in the run request. Work stays on `staging/error-re
 - The database groups by fingerprint, build and UTC hour. It keeps one sample and at most 20 route and browser values. This bounds each row.
 - The function accepts at most 60 reports per minute, with at most two database writes in flight. It uses no address key.
 - Each write uses one client and one transaction, with local statement and lock limits of 500 ms. It deletes at most 100 expired rows and skips locked rows. A full pool drops the report. Daily cleanup uses the same limits and repeats 100-row batches until fewer than 100 unlocked expired rows remain. Its failure does not stop the other daily work. A missing table drops fault reports silently.
-- Approved message forms come from source error texts at build time and known browser and engine forms. Every variable part uses a fixed mark, including short code names. Every unlisted message uses one fixed text. Both browser and server apply this rule. The existing scrub rules are a second layer. Names use a fixed list. Unknown route words become ID marks. Browser and worker errors use only native event file, line and column fields. The file must be a same-origin JavaScript asset in the emitted site build. The browser reads that asset list from the built page. Rejections have no native location and store no frames. Error and worker reports require exactly one known-asset frame. Rejection reports require zero frames. Group codes use accepted frames only. Server faults store no frames and group by name, cleaned message and route. Never read stack text for report locations. Only the combined website build includes recorder setup, routes and cleanup. The plugin-only server and board bytes must match the base with the same packages.
-- Source maps are omitted. The repo has no private source-map store by build commit. A useful map step needs that store and a build/archive process. Bundle locations and build commits remain in the report.
+- Approved message forms come from source error texts at build time and known browser and engine forms. Every variable part uses a fixed mark, including short code names. Every unlisted message uses one fixed text. Both browser and server apply this rule. The existing scrub rules are a second layer. Names use a fixed list. Unknown route words become ID marks. No report sends or stores a code location. Group codes use the fixed name, cleaned message, cleaned route and build. Reject all unknown request fields, including old location fields. The operator reads stacks in host logs and browser tools. Only the combined website build includes recorder setup, routes and cleanup. The plugin-only server and board bytes must match the base with the same packages.
 - The privacy text for play without an account now names fault reports. Its old claim that no data reaches the server conflicts with this task.
 
 ## Owner steps
@@ -260,3 +259,44 @@ Logs, native proof data, proof changes and byte hashes are in `/private/tmp/clau
 The selected files are `src/diagnostics/*.test.ts`, `tools/errors-report.test.ts`, `src/api/http*.test.ts`, `src/online/jobs.db.test.ts`, `tools/plugin-server-build.test.ts` and `tools/lib/error-forms.test.ts`. The final selected run also includes `tools/offline-build.test.ts`. Both selected runs are separate from the full-suite pass.
 
 Browser detail logs are in `kingdown-check-runs/sol-errors-1kKlmA`. The full test and browser commands end before the final report.
+
+
+## No code locations: plan and checks
+
+Status: resolved
+
+Five reviews test the recorder. Reviews 3 and 4 show that stack text can contain input, and review 5 shows the same fault in native event fields. The owner decides to store no code location; the operator reads stacks in host logs and browser tools.
+
+1. Remove location fields and asset lists from all recorder paths and the unused migration column.
+2. Group by fixed name, cleaned message, cleaned route and build. Reject all unknown request fields.
+3. Check native browser and worker cases, syntax errors, old requests, groups and rate limits.
+4. Run all requested tests, browser checks and base byte checks. Commit and record the results.
+
+The sent body and stored row must contain no file, line or column. Each native case must send at most one report. The WebKit syntax case must send one report. The board, plugin-only function files and CSP source must match the staging base.
+
+
+### No-location results
+
+All requested checks pass. The staging base stays at `762e42bc`; no merge is needed. The final code check uses one strict shape at each server boundary and no location reader or asset list.
+
+| Check | Result |
+| --- | --- |
+| Type check | Pass. |
+| Selected recorder, report, HTTP, jobs, build and message-form tests | 10 files and 182 tests pass. All 57 drawing tests pass. |
+| Document checks | 13 files and 167 tests pass. The privacy paragraphs match. |
+| Full test suite, once | 272 files pass; 5,095 tests pass and eight skip. All 57 drawing tests pass. |
+| Website browser check | Pass in 57.7 seconds. Native errors, workers, rejections, syntax, repeat suppression and the five-report limit pass. |
+| Plugin UI browser check | Pass in 273.6 seconds. |
+| Copied native eval proof | Browser and worker each send one report. The sent bodies and stored rows contain no code location. |
+| Copied complete proof | All 16 browser cases, five rejected old requests and two server route groups pass. Both Firefox location-input cases send one report and store one row with no location field. |
+| Copied WebKit proof | All six cases send one report each. The syntax event has column zero. |
+| Copied asset-change proof | The old asset name differs. The same location-free report passes before and after the change. |
+| Base and branch builds | Both plugin-only and combined builds pass with the same installed packages. |
+| Base byte check | All 22 plugin function files and four links match. Both board outputs match at 895,593 bytes. The complete CSP source matches at 28,352 bytes. |
+| Diff check | Pass. |
+
+The first type check finds old test calls and report fields. The first selected run finds six expected group codes with the test build in place of the browser build; the tests now use the report build. The first document check requires the old location text; it now requires the no-location text. The first website check has no local fault table after the test reset; the local schema setup and the next website check pass. No product fault remains from these checks.
+
+The copied proofs keep all native error inputs. Assertions for accepted locations now require absent location fields; old requests with any `frames` field must store no row. The asset-change proof removes the deleted location helper and asset-set reader arguments, uses the location-free body and new group-code arguments, and requires acceptance both times. The WebKit proof now requires one report for syntax and eval faults, including an unknown filename.
+
+Proofs and logs are in `/private/tmp/claude-501/ci87/sol30/`. No push, deploy, staging database connection or production database connection occurs.

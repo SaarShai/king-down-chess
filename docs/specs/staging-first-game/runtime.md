@@ -39,3 +39,8 @@ Run `node tools/deploy-staging.mjs` to check the project and artifact without pu
 Keep the deploy JSON with the source, build and selected check receipts. It includes provider `createdAt`, `buildingAt` and `readyAt` in milliseconds since epoch; an absent value is `null`. `readyAt` comes from the provider's `ready` field, not container exit time. Record alias verification and the first successful web and host observations separately. Hosting readiness does not prove game readiness. Label local commit-to-preview measurements as checkpoint times; use merge-to-preview only with a recorded merge. Reuse accepted checks only with their source and artifact evidence. Do not rerun them to create a timing sample.
 
 `tools/deploy.sh` is blocked in this independent staging repository. It belongs to the source project's production release flow.
+
+
+## Fault reports
+
+Five reviews test the recorder; reviews 3 and 4 find input in stack locations, and review 5 finds input in native event locations. The recorder sends and stores no code location, rejects unknown fields, and groups faults by fixed name, cleaned message, cleaned route and build. The operator reads stacks in host logs and browser tools; syntax errors with column zero and faults from open pages remain valid after an asset name change.

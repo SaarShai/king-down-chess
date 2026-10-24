@@ -47,10 +47,9 @@ function offlineBuild(): Plugin {
     name: 'king-down-offline',
     apply: 'build',
     configResolved(config) { publicDir = config.publicDir; root = config.root; outDir = resolve(root, config.build.outDir); },
-    transformIndexHtml: { order: 'post', handler(_html, { bundle }) {
-      const assets = Object.keys(bundle ?? {}).filter(file => file.startsWith('assets/') && file.endsWith('.js')).sort().map(file => '/' + file);
+    transformIndexHtml: { order: 'post', handler() {
       // Start the offline cache after the board is ready.
-      return [{ tag: 'meta', attrs: { name: 'kingdown-error-assets', content: assets.join(' ') } }, { tag: 'script', injectTo: 'head', children: `if ('serviceWorker' in navigator) addEventListener('load', async () => {
+      return [{ tag: 'script', injectTo: 'head', children: `if ('serviceWorker' in navigator) addEventListener('load', async () => {
   for (let t = 0; !window.view && t < 300; t++) await new Promise(r => setTimeout(r, 200));
   await Promise.race([window.view?.ready(), new Promise(r => setTimeout(r, 60000))]);
   navigator.serviceWorker.register('/sw.js').catch(() => {});

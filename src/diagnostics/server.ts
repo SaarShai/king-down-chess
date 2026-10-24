@@ -1,18 +1,18 @@
 import type { IncomingMessage } from 'node:http';
 import type { Pool } from 'pg';
 import { z } from 'zod';
-import { BUNDLE_FRAME, BUILD_ID, ERROR_NAMES, errorFingerprint, errorName, errorRoute, MAX_ERROR_BODY, errorMessage, type ClientErrorReport, type ErrorReport } from './data';
-
-declare const __KINGDOWN_ERROR_ASSETS__: string[];
-export const errorAssets = new Set(typeof __KINGDOWN_ERROR_ASSETS__ === 'undefined' ? [] : __KINGDOWN_ERROR_ASSETS__);
+import { BUILD_ID, ERROR_NAMES, errorFingerprint, errorName, errorRoute, MAX_ERROR_BODY, errorMessage, type ClientErrorReport, type ErrorReport } from './data';
 
 const reportSchema = z.strictObject({
  kind: z.enum(['error', 'rejection', 'worker']), name: z.enum(ERROR_NAMES), message: z.string().max(300),
- frames: z.array(z.string().max(180).regex(BUNDLE_FRAME)).max(1),
  route: z.string().max(120).refine(value => errorRoute(value) === value), build: z.string().regex(BUILD_ID),
  browser: z.string().regex(/^(?:(?:Safari|Chrome|Firefox|Edge|Opera) [1-9]\d{0,2}|Other)$/),
  size: z.enum(['phone', 'desktop']), fingerprint: z.string().regex(/^[a-f0-9]{16}$/),
-}).refine(report => report.frames.length === (report.kind === 'rejection' ? 0 : 1));
+});
+const storedReportSchema = reportSchema.extend({
+ kind: z.enum(['error', 'rejection', 'worker', 'server']),
+ browser: reportSchema.shape.browser.optional(), size: reportSchema.shape.size.optional(),
+});
 export type ErrorWriter = (report: ErrorReport) => Promise<void>;
 
 /** No IP keys. The fixed window and in-flight bound apply to the whole function instance. */
@@ -25,7 +25,7 @@ export function errorAdmission(): () => boolean {
  };
 }
 
-export async function readClientError(req: IncomingMessage, assets: ReadonlySet<string> = errorAssets): Promise<ClientErrorReport | undefined> {
+export async function readClientError(req: IncomingMessage): Promise<ClientErrorReport | undefined> {
  if (Number(req.headers['content-length']) > MAX_ERROR_BODY) return;
  let bytes = 0;
  const chunks: Buffer[] = [];
@@ -36,25 +36,20 @@ export async function readClientError(req: IncomingMessage, assets: ReadonlySet<
  const parsed = reportSchema.safeParse(JSON.parse(Buffer.concat(chunks).toString('utf8')));
  if (!parsed.success) return;
  const report = parsed.data;
- report.frames = report.frames.filter(frame => assets.has(frame.replace(/:\d+:\d+$/, '')));
- if (report.kind !== 'rejection' && !report.frames.length) return;
  report.message = errorMessage(report.message);
- const fingerprint = errorFingerprint(report.name, report.message, report.frames[0] ?? '');
+ const fingerprint = errorFingerprint(report.name, report.message, report.route, report.build);
  if (report.fingerprint !== fingerprint) return;
  report.fingerprint = fingerprint;
  return report;
 }
 
 /** Keep one sample and bounded sets for the report. Never expose a write failure to the caller. */
-export function createErrorWriter(pool: Pool, assets: ReadonlySet<string> = errorAssets): ErrorWriter {
+export function createErrorWriter(pool: Pool): ErrorWriter {
  const admit = errorAdmission();
  let active = 0;
  return async report => {
   if (active >= 2 || pool.idleCount <= pool.waitingCount && pool.totalCount >= (pool.options.max ?? 10) || !admit()) return;
-  const needsFrame = report.kind === 'error' || report.kind === 'worker';
-  if (report.kind !== 'server' && report.frames.length !== (needsFrame ? 1 : 0)) return;
-  const frames = report.kind === 'server' || report.kind === 'rejection' ? [] : report.frames.filter(frame => BUNDLE_FRAME.test(frame) && assets.has(frame.replace(/:\d+:\d+$/, '')));
-  if (needsFrame && !frames.length) return;
+  if (!storedReportSchema.safeParse(report).success) return;
   active++;
   let client;
   try {
@@ -66,14 +61,14 @@ export function createErrorWriter(pool: Pool, assets: ReadonlySet<string> = erro
     (select id from public.client_errors where last_seen < now()-interval '30 days' order by last_seen limit 100 for update skip locked)` };
    await client.query(cleanup);
    const insert = { text: `insert into public.client_errors
-    (fingerprint,build,hour,kind,name,message,frames,routes,browsers,size_classes)
-    values($1,$2,date_trunc('hour',now()),$3,$4,$5,$6,$7,$8,$9)
+    (fingerprint,build,hour,kind,name,message,routes,browsers,size_classes)
+    values($1,$2,date_trunc('hour',now()),$3,$4,$5,$6,$7,$8)
     on conflict(fingerprint,build,hour) do update set
      count=client_errors.count+1, last_seen=now(),
      routes=array(select distinct x from unnest(client_errors.routes || excluded.routes) x order by x limit 20),
      browsers=array(select distinct x from unnest(client_errors.browsers || excluded.browsers) x order by x limit 20),
      size_classes=array(select distinct x from unnest(client_errors.size_classes || excluded.size_classes) x order by x limit 2)`,
-    values: [errorFingerprint(report.name, errorMessage(report.message), report.kind === 'server' ? errorRoute(report.route) : frames[0] ?? ''), report.build, report.kind, report.name, errorMessage(report.message), frames,
+    values: [errorFingerprint(report.name, errorMessage(report.message), report.route, report.build), report.build, report.kind, report.name, errorMessage(report.message),
      [report.route], report.browser ? [report.browser] : [], report.size ? [report.size] : []] };
    await client.query(insert);
    await client.query('commit');
@@ -89,6 +84,6 @@ export async function recordServerError(write: ErrorWriter | undefined, error: u
   const name = errorName(error instanceof Error ? error.name : undefined);
   const message = errorMessage(error instanceof Error ? error.message : 'Non-Error server fault');
   const path = errorRoute(route);
-  await write({ kind: 'server', name, message, frames: [], route: path, build, fingerprint: errorFingerprint(name, message, path) });
+  await write({ kind: 'server', name, message, route: path, build, fingerprint: errorFingerprint(name, message, path, build) });
  } catch { /* The HTTP response must stay the same. */ }
 }

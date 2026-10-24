@@ -8,7 +8,6 @@ create table if not exists public.client_errors (
  kind text not null check (kind in ('error','rejection','worker','server')),
  name text not null check (length(name) <= 40),
  message text not null check (length(message) <= 300),
- frames text[] not null check (cardinality(frames) <= 10),
  routes text[] not null check (cardinality(routes) <= 20),
  browsers text[] not null check (cardinality(browsers) <= 20),
  size_classes text[] not null check (size_classes <@ array['phone','desktop']::text[]),
