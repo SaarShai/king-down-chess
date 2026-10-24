@@ -9,7 +9,7 @@ import { readText } from '../src/read';
 import { describeMove } from '../src/move-text';
 import { GameRules } from '../src/game-rules';
 import { PRESETS, designCode, fromPreset } from '../src/workshop/model';
-import { view, insets, edgeMisses, open, marks, closeHeld, clickButton, squarePoint, squareTap, settleBoardReads, turnBoard, chooseTurnMove, moveCalls, boardFen, savedDraft, remountBoard, sheetClosed } from './lib/plugin-board-fixture';
+import { view, insets, edgeMisses, open, marks, closeHeld, clickButton, squarePoint, squareTap, settleBoardReads, turnBoard, chooseTurnMove, moveCalls, boardFen, savedDraft, remountBoard, sheetClosed, sheetAtRest } from './lib/plugin-board-fixture';
 import { pauseClock } from './lib/page-clock.mjs';
 
 // Spec G3 a (J9 a): a shove or swap onto your own piece waits for a second tap; any other tap lets it go and never plays a move.
@@ -761,7 +761,7 @@ it.skipIf(!!process.env.PLAYABLE_BROWSER && process.env.PLAYABLE_BROWSER !== 'ch
   const page = await open(view('7k/8/8/8/8/8/P7/K7 w - - 0 1'), 390, 844), frame = page.frameLocator('iframe');
   try {
     await frame.locator('#board-menu').focus(); await page.keyboard.press('Enter');
-    const sheet = frame.locator('#board-sheet'); await frame.locator('#board-sheet[open]').waitFor(); await frames(page);
+    const sheet = frame.locator('#board-sheet'); await frame.locator('#board-sheet[open]').waitFor(); await sheetAtRest(page); await frames(page);
     await frame.locator('html').evaluate(() => {
       const w = window as any; w.presses = [];
       for (const type of ['pointerdown', 'pointercancel', 'click']) document.addEventListener(type, e => { const t = e.target as HTMLElement; w.presses.push(`${type} ${t.id || t.className}`); }, true);
