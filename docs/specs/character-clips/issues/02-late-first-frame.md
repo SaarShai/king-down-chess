@@ -21,4 +21,4 @@ The clip clock starts on the first frame that draws the selected figure (`select
 
 ## Review
 
-- Independent review (Sol, xhigh, read-only), 2026-10-24: ready, no P0–P3 findings. It confirms the cause, checks every read and write of `selectedAt` and `clipShown` (reduced motion, idle off, symbols-only, deselection, re-selection, `dispose()`), and reruns the new test against the old scene (fails) and the fix (passes).
+- Independent review (a Codex run, read-only), 2026-10-24: ready, no P0–P3 findings. It confirms the cause, checks every read and write of `selectedAt` and `clipShown` (reduced motion, idle off, symbols-only, deselection, re-selection, `dispose()`), and reruns the new test against the old scene (fails) and the fix (passes).
