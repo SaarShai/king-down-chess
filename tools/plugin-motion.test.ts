@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { chromium, type Browser, type FrameLocator, type Page } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
-import { watchMotion } from './plugin-motion-observer';
+import { watchMotion, watchMotionEnd } from './plugin-motion-observer';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 120_000 });
 // Each motion moment exists, ends, and under reduced motion shows its final state at once.
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -224,10 +224,17 @@ it.each([false, true])('pulses the checked side once (reduced motion %s)', async
     const bob = async (name: string, args: object) => (await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name, arguments: args } })).json());
     const id = result.structuredContent.game_id, view = (await bob('kingdown_get', { game_id: id }))._meta.view;
     await bob('kingdown_move', { game_id: id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision, lan: 'Ra1-a8' });
+    // The pulse class stays until the strips draw again 600 ms on (src/plugin/screens/board.ts strips()). A loaded runner
+    // can pass that time before a locator reads it (CI run 39965072628), so a recorder notes it as it comes.
+    const pulse = await watchMotion(page, '#strip-me .portrait.is-checked');
+    const pulseEnd = await watchMotionEnd(page, '#strip-me .portrait.is-checked', '#strip-me .portrait', 1500);
     await frame.locator('#board-menu').click(); await frame.locator('#reload').click();
     await frame.locator('#status').filter({ hasText: 'Check!' }).waitFor();
-    if (!reduced) await frame.locator('#strip-me .portrait.is-checked').waitFor({ state: 'attached', timeout: 500 });
-    await expect.poll(() => animations(frame, '#strip-me .portrait'), { timeout: 1500 }).toBe(0);
+    expect((await pulse()).count).toBe(reduced ? 0 : 1);
+    // It runs once: 1.5 s after the pulse starts, the portrait is there and no animation of it or of the pulse runs. The
+    // page reads it at that frame (watchMotionEnd); a poll from here can spend the 1.5 s in one slow read.
+    if (reduced) expect(await animations(frame, '#strip-me .portrait')).toBe(0);
+    else expect(await pulseEnd()).toEqual({ seen: expect.toSatisfy((seen: number) => seen > 0), found: expect.toSatisfy((found: number) => found > 0), running: 0 });
   } finally { await page.close(); }
 });
 it.each([false, true])('opens the board after both Ready (reduced motion %s)', async reduced => {
