@@ -320,11 +320,12 @@ try {
     await page.goto(origin + soloPath);
     await page.locator('[data-screen="board"]:not([hidden])').waitFor();
     await page.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
-    let computerSent, releaseComputer;
+    let computerSent, releaseComputer, heldId;
     const sent = new Promise(resolve => { computerSent = resolve; }), released = new Promise(resolve => { releaseComputer = resolve; });
     const holdComputer = async route => {
-      if (route.request().postDataJSON()?.action?.type !== 'computer') return route.continue();
-      computerSent(); await released;
+      const body = route.request().postDataJSON();
+      if (body?.action?.type !== 'computer') return route.continue();
+      heldId = body.command_id; computerSent(); await released;
       await route.abort('aborted').catch(() => {});
     };
     await page.route('**/api/games/*/commands', holdComputer);
@@ -335,22 +336,35 @@ try {
     await sent;
     const moved = await readSolo();
     await page.unroute('**/api/games/*/commands', holdComputer);
+    const computerCalls = [];
+    const logComputer = response => {
+      const request = response.request(), body = request.method() === 'POST' && request.postDataJSON();
+      if (body?.action?.type === 'computer') computerCalls.push({ id: body.command_id, status: response.status() });
+    };
+    page.on('response', logComputer);
     await page.goto(origin + '/play/');
     releaseComputer();
     await page.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal(new URL(page.url()).pathname, soloPath, 'Recovery names the source game in the URL');
-    for (let i = 0; (await readSolo()).revision === moved.revision; i++) { assert(i < 100, 'The recovered computer reply arrives'); await new Promise(resolve => setTimeout(resolve, 100)); }
-    await page.clock.fastForward(5000);
+    // A tap during a board animation only skips it (owner pick A8 a), so Back waits for the board to stop.
     await page.locator('#status').filter({ hasText: 'Your move' }).waitFor();
-    const replied = await readSolo();
-    assert.equal(replied.revision, moved.revision + 1, 'Recovery sends the computer reply once');
-    assert.equal(replied.last_commands.at(-1).action.type, 'computer');
+    await page.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    page.off('response', logComputer);
+    // The server plays one computer action for each call (W7 ticket 06). A card or a Haste first move keeps the
+    // computer's turn, and the board then sends one more call with a new ID.
+    const replied = await readSolo(), reply = replied.last_commands.filter(command => command.seq > moved.last_commands.at(-1).seq);
+    assert.equal(computerCalls[0]?.id, heldId, 'Recovery sends the held computer command first');
+    assert.equal(new Set(computerCalls.map(call => call.id)).size, computerCalls.length, 'No computer command goes twice');
+    assert.deepEqual(computerCalls.map(call => call.status), computerCalls.map(() => 200), 'The server accepts each computer call');
+    assert.deepEqual(reply.map(command => command.action.type), computerCalls.map(() => 'computer'), 'Each computer call adds one computer action and nothing else');
+    assert.equal(replied.revision, moved.revision + computerCalls.length);
+    assert.equal(replied.turn, replied.seat, 'The player moves after the computer turn');
     assert.equal(new URL(page.url()).pathname, soloPath, 'The settled reply keeps the source game URL');
     await shot(page, 'web-recovered-solo-url');
     await page.locator('#page-back:visible, #game-table .table-back:visible').first().click();
     await page.locator('[data-screen="play"]:not([hidden])').waitFor();
     assert.equal(new URL(page.url()).pathname, '/play/', 'Play returns to the games list');
-    console.log('web: a fresh /play/ load recovers a pending computer reply under its source game URL');
+    console.log(`web: a fresh /play/ load recovers a pending computer reply under its source game URL (computer calls: ${computerCalls.length})`);
   }
   // Seven weighted pool pieces force the army's contents; each seat still submits a real setup choice.
   const options = { fairy: true, pool: ['O', 'A', 'G', 'M', 'S'], arrangement: true, classic: false,
