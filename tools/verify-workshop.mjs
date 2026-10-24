@@ -2211,6 +2211,9 @@ async function labCards() {
   // A turn to the wide layout under Details (a tablet turned) takes Details away: Esc gives the focus to the title.
   await f.tap(details);
   await f.setViewportSize({ width: 1440, height: 900 });
+  // The page gets the layout change in a later task: Esc waits until it takes Details away, else Esc closes the sheet
+  // first, the focus goes back to Details, and the layout change then removes Details with the focus on it.
+  await f.locator(details).waitFor({ state: 'detached' });
   await f.keyboard.press('Escape');
   // The sheet's close event (a later task) moves the focus and removes the sheet.
   await f.locator('.pg-sheet').waitFor({ state: 'detached' });

@@ -58,6 +58,7 @@ Runs on this branch, in this order (`npm run check:browser workshop`):
 4. After the focus fix for short landscape (the first version of the branch): `ok workshop 156.2 s`.
 5. The review's resize case (below), test only: `FAIL workshop 108.7 s AssertionError: a turn to the wide layout under Details: Esc gives the focus to the title`, focus `false`. A probe on the dev server shows the cause: after Esc the focus is on `BODY`, outside `#workshop`. With the `sheet()` fix the same probe shows `H2#pg-h`.
 6. With the `sheet()` fix, a first run failed the same assertion: the test read the focus before the sheet's `close` event, which is a later task. The test now waits until the sheet leaves the page. Then: `ok workshop 156.2 s`, "workshop: all groups pass".
+7. The integration run found the same assertion failing 3 of 3 on `8a9a7d0f` (actual `[0, false, 'Test deck. Not in the game.']`). Cause: a race in the check, not in the product. `setViewportSize` returns before the page gets the layout change: the media query's `change` event comes in a later task. A probe with a log of each dialog event (8 runs, the same steps) shows the bad order in run 6: `keydown` Esc, `cancel`, then `media-change`, then the sheet's `close` event. So Esc closes the sheet under the narrow layout, and the browser gives the focus back to Details. The layout change then removes Details while it has the focus. At the `close` event a Workshop button has the focus, so `sheet()` correctly keeps it. The check meant the other order: the layout change first, then Esc. The check now waits until Details leaves the page (the end state of the layout change), then presses Esc. No fixed wait. With that wait, the probe gives the focus to `#pg-h` in 6 of 6 runs.
 
 Other checks after the fixes:
 
@@ -89,5 +90,6 @@ An independent review by a second agent (read only, code inspection) of the firs
 
 ## Follow-ups
 
+- A layout change that removes a narrow-only control while it has the focus (Details, a plinth seal, the + seal) leaves the focus on no useful control. This is a general Workshop behaviour of the `narrow` change listener, older than this branch.
 - `menu-extra` fails on `staging/first-game` `02adf61c` at `tools/verify-menu-extra.mjs:185` (the Account sheet's overflow shade). Another lane must look at it.
 - The narrow layout drops an open king's power words the same way (`renderRight`, `kingOpen` on the phone). F-104 names the card view only, so this branch does not change it.
