@@ -311,6 +311,61 @@ try {
     await shot(page, 'web-rematch-selection-recovered');
   } finally { releaseRematch?.(); await page.unroute('**/api/games/*', holdRematch); }
   await checkSoloSync({ page, ui: page, tool: (name, args) => tool(0, name, args), open: id => page.goto(origin + '/g/' + id), label: 'web' });
+  {
+    // A fresh /play/ load recovers a pending computer reply on its source board; the URL names that board.
+    const solo = (await tool(0, 'kingdown_create', { kind: 'solo', mode: 'casual', colour: 'white', level: 'beginner', command_id: randomUUID(),
+      options: { fairy: true, pool: ['Q', 'O', 'L', 'R', 'B', 'N', 'A', 'G', 'M', 'S'], arrangement: false, classic: false, cards: true, cardPool: ['Freeze', 'IceWall', 'March', 'MorphP'], kingPowers: true } }))._meta.view;
+    const soloPath = '/g/' + solo.game_id, readSolo = async () => (await tool(0, 'kingdown_get', { game_id: solo.game_id }))._meta.view;
+    await tool(0, 'kingdown_choose', { game_id: solo.game_id, command_id: randomUUID(), expected_revision: solo.revision, order: solo.draw, king: { king: 'Mud', power: 'March' }, ready: true });
+    await page.goto(origin + soloPath);
+    await page.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await page.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    let computerSent, releaseComputer, heldId;
+    const sent = new Promise(resolve => { computerSent = resolve; }), released = new Promise(resolve => { releaseComputer = resolve; });
+    const holdComputer = async route => {
+      const body = route.request().postDataJSON();
+      if (body?.action?.type !== 'computer') return route.continue();
+      heldId = body.command_id; computerSent(); await released;
+      await route.abort('aborted').catch(() => {});
+    };
+    await page.route('**/api/games/*/commands', holdComputer);
+    const canvas = page.locator('#board canvas'), box = await canvas.boundingBox(); assert(box);
+    const square = (file, rank) => canvas.click({ position: { x: (32 + (file + .5) * 112) * box.width / 960, y: (96 + (7 - rank + .5) * 112) * box.width / 960 } });
+    await square(0, 1); await square(0, 2);
+    await page.locator('#end-turn[aria-disabled="false"]').click();
+    await sent;
+    const moved = await readSolo();
+    await page.unroute('**/api/games/*/commands', holdComputer);
+    const computerCalls = [];
+    const logComputer = response => {
+      const request = response.request(), body = request.method() === 'POST' && request.postDataJSON();
+      if (body?.action?.type === 'computer') computerCalls.push({ id: body.command_id, status: response.status() });
+    };
+    page.on('response', logComputer);
+    await page.goto(origin + '/play/');
+    releaseComputer();
+    await page.locator('[data-screen="board"]:not([hidden])').waitFor();
+    assert.equal(new URL(page.url()).pathname, soloPath, 'Recovery names the source game in the URL');
+    // A tap during a board animation only skips it (owner pick A8 a), so Back waits for the board to stop.
+    await page.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+    await page.locator('#board[aria-busy="false"]:not([data-animating="true"])').waitFor();
+    page.off('response', logComputer);
+    // The server plays one computer action for each call (W7 ticket 06). A card or a Haste first move keeps the
+    // computer's turn, and the board then sends one more call with a new ID.
+    const replied = await readSolo(), reply = replied.last_commands.filter(command => command.seq > moved.last_commands.at(-1).seq);
+    assert.equal(computerCalls[0]?.id, heldId, 'Recovery sends the held computer command first');
+    assert.equal(new Set(computerCalls.map(call => call.id)).size, computerCalls.length, 'No computer command goes twice');
+    assert.deepEqual(computerCalls.map(call => call.status), computerCalls.map(() => 200), 'The server accepts each computer call');
+    assert.deepEqual(reply.map(command => command.action.type), computerCalls.map(() => 'computer'), 'Each computer call adds one computer action and nothing else');
+    assert.equal(replied.revision, moved.revision + computerCalls.length);
+    assert.equal(replied.turn, replied.seat, 'The player moves after the computer turn');
+    assert.equal(new URL(page.url()).pathname, soloPath, 'The settled reply keeps the source game URL');
+    await shot(page, 'web-recovered-solo-url');
+    await page.locator('#page-back:visible, #game-table .table-back:visible').first().click();
+    await page.locator('[data-screen="play"]:not([hidden])').waitFor();
+    assert.equal(new URL(page.url()).pathname, '/play/', 'Play returns to the games list');
+    console.log(`web: a fresh /play/ load recovers a pending computer reply under its source game URL (computer calls: ${computerCalls.length})`);
+  }
   // Seven weighted pool pieces force the army's contents; each seat still submits a real setup choice.
   const options = { fairy: true, pool: ['O', 'A', 'G', 'M', 'S'], arrangement: true, classic: false,
     cards: true, cardPool: ['Freeze', 'IceWall', 'MorphP', 'Vault'], kingPowers: true };
@@ -502,7 +557,7 @@ try {
   const recoveryError = 'console.error: King Down connection failed TypeError: Failed to fetch';
   assert.equal(errors.filter(error => String(error).startsWith(recoveryError)).length, 1);
   assertNoErrors(errors.filter(error => !String(error).includes('net::ERR_FAILED') && !String(error).startsWith(recoveryError)));
-  await writeFile(join(env('PLAYABLE_OUT'), 'proof.json'), JSON.stringify({ game_id: gameId, origin, revision: a.revision, commands: commands.length, result: a.result, checks: ['emitted /play/ and /g assets', 'real HTTP create', 'MCP join', 'hidden setup', 'UI ready and two-action Haste turn', 'lost reply navigation', 'failed recovery Retry keeps destination setup', 'same account MCP', 'shared result'] }, null, 2));
+  await writeFile(join(env('PLAYABLE_OUT'), 'proof.json'), JSON.stringify({ game_id: gameId, origin, revision: a.revision, commands: commands.length, result: a.result, checks: ['emitted /play/ and /g assets', 'real HTTP create', 'MCP join', 'hidden setup', 'UI ready and two-action Haste turn', 'lost reply navigation', 'failed recovery Retry keeps destination setup', 'same account MCP', 'shared result', 'pending solo recovery names its game URL'] }, null, 2));
   console.log(`PASS web-game: emitted website, HTTP and MCP share one game; proof ${resolve(env('PLAYABLE_OUT'))}`);
   }
 } finally {
