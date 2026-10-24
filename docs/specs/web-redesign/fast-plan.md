@@ -338,7 +338,7 @@ Ponytail never cuts these: the `gen` guards (no old result over a new game); "co
 ### 6.1 A cut of an owner choice (§1.1). Propose; do not cut without a yes
 
 - **Y1. Defer the second look (ticket 20).** §1.1: "The other picks: ours, for now … the second look as an opt-in practice aid". It is off by default, it needs a search before the press and a score baseline, and it can give false alarms. Saves about 2 hours now. Pick: defer. On yes: ticket 20 goes to `needs-info`. On no: add it as W13 after W6 (about 2 hours), with the search before the press (about 1.5 hours more).
-- **Y2. A reload counts as the press.** §1.1: "Undo works only before the player presses it." This plan cuts the save of a staged turn (spec §4.8). After a reload, the staged plies are handed over, and Undo cannot take them back. This is today's behaviour and is stricter than the owner's rule, never looser. Saves about 1 hour and a change to the account sync. Pick: yes. On no: add the `staged` save field back to W1.
+- **Y2. A reload counts as the press.** §1.1: "Undo works only before the player presses it." This plan cuts the save of a staged turn (spec §4.8). After a reload, the staged plies are handed over, and Undo cannot take them back. This is today's behaviour and is stricter than the owner's rule, never looser. Saves about 1 hour and a change to the account sync. Pick: yes. On no: add the `staged` save field back to W1. Reversed after staging playtest finding F-010: the save now keeps the staged turn as spec §4.8 says ([staging-first-game ticket 82](../staging-first-game/issues/82-reload-staged-turn-and-recovery-url.md)).
 
 ### 6.2 Owner choices that this plan builds in a simpler form. The owner sees each at its sample; a "no" there brings the part back
 
