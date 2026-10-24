@@ -24,9 +24,9 @@
 /* ---- the top bar (:38-49) ---- */
 .pg-top { position: relative; flex: none; height: 56px; display: flex; align-items: center; padding: 0 24px; border-bottom: 1px solid var(--line); }
 /* the quiet buttons: one selector each, so that each keeps its own weight against the narrow rules */
-#workshop.pg .pg-menu, #workshop.pg .pg-acts button, #workshop.pg .pg-weigh, #workshop.pg .pg-alert button, #workshop.pg .pg-room-del, #workshop.pg .pg-remove {
+#workshop.pg .pg-menu, #workshop.pg .pg-acts button, #workshop.pg .pg-weigh, #workshop.pg .pg-alert button, #workshop.pg .pg-room-del, #workshop.pg .pg-remove, #workshop.pg .pg-carddetails {
   min-height: 44px; padding: 6px 16px; gap: 4px; border: 1px solid var(--stone-500); border-radius: var(--radius); }
-@media (hover: hover) { #workshop.pg button:is(.pg-menu, .pg-undo, .pg-share, .pg-weigh, .pg-room-del):hover:not(:disabled), #workshop.pg .pg-alert button:hover { background: rgba(255, 255, 255, 0.35); } }
+@media (hover: hover) { #workshop.pg button:is(.pg-menu, .pg-undo, .pg-share, .pg-weigh, .pg-room-del, .pg-carddetails):hover:not(:disabled), #workshop.pg .pg-alert button:hover { background: rgba(255, 255, 255, 0.35); } }
 #workshop.pg button:disabled:not(:where(.primary)) { opacity: 0.45; cursor: default; }
 /* Undo and Share once the piece is the player's (:952-969); ⋯ opens the design menu (ticket 07), on the phone with Share and Weigh */
 .pg-acts { margin-left: auto; display: flex; gap: 8px; }
@@ -345,6 +345,8 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .pg-powers .variant { margin: 6px 0 0; padding: 8px 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.35); font-size: var(--fs-sm); }
 .variant b { margin-right: 6px; font: 600 13px/1 var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; }
 .pg-powers .info-p { margin: 12px 0 0; font-size: var(--fs-md); line-height: 1.35; color: var(--ink-soft); }
+/* the phone's Details sheet (F-104): the card's words, then the words of the column */
+.pg-cardwords { margin: 0 0 16px; font-size: var(--fs-md); line-height: 1.35; }
 .tok.cardslot .cs { position: relative; width: 40px; height: 56px; margin-bottom: 2px; overflow: hidden; border-radius: 4px; background: var(--parchment-deep) center/cover; box-shadow: inset 0 2px 4px rgba(29, 25, 21, 0.4); }
 .tok.cardslot .cs::before { content: ''; position: absolute; inset: 0; background: url('/ui/cards/back.webp') center/cover; opacity: 0.3; }
 .tok.cardslot .cs.filled { box-shadow: 0 2px 5px rgba(29, 25, 21, 0.45), 0 0 0 1px var(--stone-500); }
@@ -635,6 +637,10 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .pg-brushes { height: 62px; padding: 0; justify-content: flex-start; align-items: center; gap: 10px; }
   #workshop.pg .brush { width: 48px; gap: 1px; }
   .phint { flex: 1; padding-left: 4px; font: italic 14px/1.2 var(--font-body); color: var(--ink-soft); }
+  /* an open card: the brush row says what to do, and Details opens the card's words (F-104) */
+  .pg-brushes.pg-powers { flex-direction: row; align-items: center; gap: 10px; padding: 0; }
+  .pg-powers .info-p { flex: 1; margin: 0; padding-left: 4px; font: italic 14px/1.2 var(--font-body); }
+  #workshop.pg .pg-carddetails { flex: none; font-weight: 700; }
   #workshop.pg .pg-moretools { margin-left: auto; width: 44px; height: 44px; justify-content: center; font-size: 20px; line-height: 1;
     background: linear-gradient(var(--vellum), #efe4cc); border: 1px solid var(--stone-700); border-radius: var(--radius); box-shadow: var(--lift), inset 0 1px 0 rgba(255, 255, 255, 0.8); }
   /* the tools in a popover over the brush row */
