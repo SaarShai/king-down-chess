@@ -9,7 +9,7 @@ import { readText } from '../src/read';
 import { describeMove } from '../src/move-text';
 import { GameRules } from '../src/game-rules';
 import { PRESETS, designCode, fromPreset } from '../src/workshop/model';
-import { view, insets, edgeMisses, open, marks, closeHeld, clickButton, squarePoint, squareTap, settleBoardReads, turnBoard, chooseTurnMove, moveCalls, boardFen, savedDraft, remountBoard } from './lib/plugin-board-fixture';
+import { view, insets, edgeMisses, open, marks, closeHeld, clickButton, squarePoint, squareTap, settleBoardReads, turnBoard, chooseTurnMove, moveCalls, boardFen, savedDraft, remountBoard, sheetClosed } from './lib/plugin-board-fixture';
 import { pauseClock } from './lib/page-clock.mjs';
 
 // Spec G3 a (J9 a): a shove or swap onto your own piece waits for a second tap; any other tap lets it go and never plays a move.
@@ -673,7 +673,7 @@ it.each([
     // The touch's mousedown on the scrim keeps focus in the sheet, so Escape still closes it.
     expect(await sheet.getByRole('button', { name: 'Close', exact: true }).evaluate(b => b === document.activeElement)).toBe(true);
     await page.keyboard.press('Escape');
-    expect(await sheet.isVisible()).toBe(false);
+    await sheetClosed(page);
     expect((await marks(page)).selected).toBeUndefined();
     await squareTouch(page, from);
     await squareTouch(page, to);
@@ -683,14 +683,14 @@ it.each([
     const scrim = (await frame.locator('.scrim.move-choice-scrim').boundingBox())!;
     await page.touchscreen.tap(scrim.x + scrim.width / 2, scrim.y + 8);
     await frames(page);
-    expect(await sheet.isVisible()).toBe(false);
+    await sheetClosed(page);
     expect((await marks(page)).selected).toBe(from);
     await squareTouch(page, to);
     await frames(page);
     const choice = (await frame.locator(`#choices button[title="${lans[0]}"]`).boundingBox())!;
     await page.touchscreen.tap(choice.x + choice.width / 2, choice.y + choice.height / 2);
     await expect.poll(async () => (await savedDraft(page))?.lans.at(-1)).toBe(lans[0]);
-    expect(await sheet.isVisible()).toBe(false);
+    await sheetClosed(page);
     await frame.locator('#board[data-animating="false"]').waitFor();
     expect(await frame.locator('#undo').getAttribute('aria-disabled')).toBe('false');
   } finally { await page.close(); }
@@ -784,7 +784,7 @@ it.each(['Close', 'Refresh the board'])('F-009: Escape from the Menu (%s) return
     if (item !== 'Close') for (let i = 0; i < 2; i++) await page.keyboard.press('Shift+Tab');
     expect(await frame.locator('html').evaluate(() => { const e = document.activeElement as HTMLElement; return e.getAttribute('aria-label') ?? e.textContent; })).toBe(item);
     await page.keyboard.press('Escape');
-    expect(await sheet.isVisible()).toBe(false);
+    await sheetClosed(page);
     expect(await frame.locator('#board-menu').evaluate(b => b === document.activeElement && b.matches(':focus-visible'))).toBe(true);
   } finally { await page.close(); }
 });

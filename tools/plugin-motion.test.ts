@@ -398,13 +398,15 @@ it.each([false, true])('pulses the checked side once (reduced motion %s)', async
     const bob = async (name: string, args: object) => (await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name, arguments: args } })).json());
     const id = result.structuredContent.game_id, view = (await bob('kingdown_get', { game_id: id }))._meta.view;
     await bob('kingdown_move', { game_id: id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision, lan: 'Ra1-a8' });
-    // The pulse class stays until the strips draw again 600 ms on (src/plugin/screens/board.ts strips()). A loaded runner
-    // can pass that time before a locator reads it (CI run 39965072628), so a recorder notes it as it comes.
+    // The checked portrait keeps a still frame (is-checked); its pulse is the frame's one animation (src/ui/motion.ts
+    // checkFrame). A loaded runner can pass the pulse before a locator reads it (CI run 39965072628), so a recorder notes it as it comes.
     const pulse = await watchMotion(page, '#strip-me .portrait.is-checked');
     const pulseEnd = await watchMotionEnd(page, '#strip-me .portrait.is-checked', '#strip-me .portrait', 1500);
     await frame.locator('#board-menu').click(); await frame.locator('#reload').click();
     await frame.locator('#status').filter({ hasText: 'Check!' }).waitFor();
-    expect((await pulse()).count).toBe(reduced ? 0 : 1);
+    const seen = await pulse();
+    expect(seen.count).toBe(1);
+    if (reduced) expect(seen.running).toBe(0); else expect(seen.running).toBeGreaterThan(0);
     // It runs once: 1.5 s after the pulse starts, the portrait is there and no animation of it or of the pulse runs. The
     // page reads it at that frame (watchMotionEnd); a poll from here can spend the 1.5 s in one slow read.
     if (reduced) expect(await animations(frame, '#strip-me .portrait')).toBe(0);
