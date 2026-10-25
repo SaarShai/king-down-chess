@@ -1,6 +1,6 @@
 # Effects: review and integration coverage
 
-The owner authorizes integration of the accepted direction. This covers the original 51 studies: 12 states and indications, 21 card effects, and 18 interface studies. Category approval is not an individual rating of every sample. Firewall and Guard have explicit approval after their rebuilds. The owner now says “bank all interface animations”. All 23 interface studies are approved and banked. The five later studies are saved in the workshop; their live-game wiring is not yet part of the original 51-study integration.
+The owner authorizes integration of the accepted direction. This covers the original 51 studies: 12 states and indications, 21 card effects, and 18 interface studies. Category approval is not an individual rating of every sample. Firewall keeps its approved material. The owner removes the permanent Guard shield in F-106. The Guard rule sample stays without an effect. The owner now says “bank all interface animations”. All 23 interface studies are approved and banked. The five later studies are saved in the workshop; their live-game wiring is not yet part of the original 51-study integration.
 
 ## Board states and indications
 
@@ -9,7 +9,7 @@ The owner authorizes integration of the accepted direction. This covers the orig
 | Freeze | Revised state batch: good or okay | Integrated |
 | Ice Wall | Revised state batch: good or okay | Integrated |
 | Firewall | Explicit: both look great | Integrated |
-| Guard protection | Explicit: both look great | Integrated |
+| Guard rule | F-106: remove the permanent shield | No permanent effect; rules and temporary protection stay |
 | Holy Light | Revised state batch: good or okay | Integrated |
 | Mercy | Revised state batch: good or okay | Integrated |
 | Distant Archer targets | Revised direction accepted; no individual rating | Integrated |
