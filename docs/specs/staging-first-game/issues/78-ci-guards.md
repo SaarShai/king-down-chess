@@ -1,6 +1,6 @@
 # Mechanical checks for the faults of ticket 77
 
-Status: in review on PR SaarShai/king-down-chess#88 (branch `staging/ci-guards`, rebased on `staging/lane-ci` at `0e0f2602`). No merge or deploy.
+Status: in review on PR SaarShai/king-down-chess#88 (branch `staging/ci-guards`, base `main`; `main` merged in at `4c779072`). No merge or deploy.
 
 ## What
 
@@ -15,7 +15,7 @@ Two independent audits of the ticket 77 work list five faults that a session mad
 ## Plan
 
 1. Add `tsconfig.tools.json` (extends `tsconfig.json`, `noImplicitAny: false`, includes `tools`). Fix its errors one by one; no blanket suppression. Run it from the `typecheck` script, so `npm test` and the pre-commit hook run it.
-2. Lint each Markdown file of the specs folder with `findModelNames`. Fix the finds. Add a regression case.
+2. Lint each Markdown file of the specs folder with `findModelNames`. Fix the finds. Add a regression case. (Dropped: `main` holds the wider lint of PR SaarShai/king-down-chess#91.)
 3. Add a vitest `globalSetup` that stops a run with no lock mark. Keep `npm run test:docs` working.
 4. One shared Python probe: skip only when a required module is missing; fail on every other fault.
 5. Record each request URL of the profile pages in `worker-browser.json`; assert that each goes to `http://127.0.0.1`.
@@ -54,9 +54,7 @@ Old fault: the remount loop in a tools file gives `TS2349: This expression is no
 
 ### 2. Model names in the specs folder
 
-`tools/steering.docs.test.ts` § specs folder model names: each tracked `docs/specs/**/*.md` file, with the fenced code. The first run found 66 names in 23 files. Each now names the tool or the role (Codex, Claude Code panel, reviewer). Three tickets named review files by model; they now name the folders that hold them. The regression case puts a review line with a model name and a fenced model name in a fixture ticket; the lint names both lines.
-
-Not in scope: 21 files outside the specs folder (`docs/DELEGATION.md`, `docs/LOCAL-AI-MACBOOK.md`, `docs/research/`, `docs/lessons/agents-and-tools.md`, `docs/submission/checklist.md`, `docs/takeover/BASELINE.md`) hold model names. Some record measured model capabilities. They need an owner decision before a lint can cover them.
+Dropped from this PR. PR SaarShai/king-down-chess#91 reached `main` first: `tools/model-names.docs.test.ts` lints each Markdown file of the tree outside its exempt files, with a regression case, and rewords the same tickets. The merge of `main` takes its lint and its wording; this branch keeps no doc change of its own except this ticket.
 
 ### 3. Test lock guard
 

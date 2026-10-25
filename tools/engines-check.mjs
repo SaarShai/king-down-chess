@@ -1,11 +1,13 @@
 /** Check the engines of unfinished games against the exact runtime bundles. Read-only.
- *  KINGDOWN_ENGINES_DATABASE_URL=... node tools/engines-check.mjs [engines folder, default engines/] */
+ *  KINGDOWN_ENGINES_DATABASE_URL=... node tools/engines-check.mjs [--production] [engines folder, default engines/]
+ *  --production refuses a database that is not the production project (the publish gate). Without it a local test database works. */
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { pluginDatabaseConfig } from './plugin-db-config.mjs';
+import { productionDatabase } from './staging-config.mjs';
 
 const engineHex = engine => typeof engine === 'string' && /^sha256:([a-f0-9]{64})$/.exec(engine)?.[1];
 const engineRows = counts => [...counts].sort(([a], [b]) => a.localeCompare(b)).map(([engine, games]) => ({ engine, games }));
@@ -90,11 +92,17 @@ export function checkRuntime(report, dir) {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   let client;
   try {
-    if (process.argv.length > 3) throw new Error('Usage: node tools/engines-check.mjs [engines folder]');
-    const dir = resolve(process.argv[2] ?? fileURLToPath(new URL('../engines/', import.meta.url)));
+    const args = process.argv.slice(2);
+    const production = args[0] === '--production';
+    if (production) args.shift();
+    if (args.length > 1) throw new Error('Usage: node tools/engines-check.mjs [--production] [engines folder]');
+    const dir = resolve(args[0] ?? fileURLToPath(new URL('../engines/', import.meta.url)));
     // The URL stays in the environment. No report or error prints it.
     if (!process.env.KINGDOWN_ENGINES_DATABASE_URL) throw new Error('Set KINGDOWN_ENGINES_DATABASE_URL to the database of the live games');
     const db = new URL(process.env.KINGDOWN_ENGINES_DATABASE_URL);
+    if (production) {
+      try { productionDatabase(db, process.env); } catch (error) { console.error(`engines-check: FAIL; ${error.message}; refused before any connection`); process.exit(2); }
+    }
     client = new pg.Client({ ...pluginDatabaseConfig(db, { localDev: ['localhost', '127.0.0.1', '[::1]'].includes(db.hostname) }), connectionTimeoutMillis: 10000 });
     await client.connect();
     const report = checkRuntime(await enginesInUse(client), dir);

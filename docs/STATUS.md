@@ -10,7 +10,7 @@ One page to point at. Everything else is history or detail.
   depth-4 confirmed, 1 s = depth 5.92. The balance lab stays on `linear` so past numbers still mean
   what they meant.
 - **Review build of the takeover work** (`dist-review/`, built from `ce90454`, not published): the same
-  gameplay plus the fixes below. `docs/RELEASE-REVIEW-2026-09-16.md` has the evidence list.
+  gameplay plus the fixes below. `docs/tasks-archive/RELEASE-REVIEW-2026-09-16.md` has the evidence list.
 - Run it locally: `npm run dev` → http://localhost:5173. URL variants: `?rules=2017|2021`,
   `?kings=<king>:<power>[,<king>:<power>]`, `?style=…`, `?fen=…`.
 
@@ -66,6 +66,6 @@ nothing with a feature-only ballot (0.562 vs 0.500 control) and 8% overrides.
 ## Where the detail lives
 
 - Execution ledger: `TASKS.md` → "Takeover execution — 2026-09-16"
-- Plan and review: `docs/TAKEOVER-PLAN.md`, `docs/TAKEOVER-REVIEW-2026-09-14.md`
-- Release: `docs/RELEASE-REVIEW-2026-09-16.md`, preserved v0.7 bundle at `d6021674:docs/releases/v0.7.0/`
+- Plan and review: `docs/TAKEOVER-PLAN.md`, `docs/tasks-archive/TAKEOVER-REVIEW-2026-09-14.md`
+- Release: `docs/tasks-archive/RELEASE-REVIEW-2026-09-16.md`, preserved v0.7 bundle at `d6021674:docs/releases/v0.7.0/`
 - Baseline and hashes: `docs/takeover/BASELINE.md`, `1476f55c:docs/takeover/baseline.json`

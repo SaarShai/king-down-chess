@@ -24,9 +24,9 @@ An Install button establishes a public listing, not universal account/client eli
 
 | Product | Primary evidence | What is established / missing |
 |---|---|---|
-| **Chess Coach Buddy** | [Public GPT page](https://chatgpt.com/g/g-X7gWZvcVU-chess-coach-buddy?locale=sv-SE). | Community-built tutor listing advertising chess advice, exercises and analysis. This does not establish a deterministic engine, a playable board, native plugin installation or a public user count. |
+| **Chess Coach Buddy** | [Public ChatGPT store page](https://chatgpt.com/g/g-X7gWZvcVU-chess-coach-buddy?locale=sv-SE). | Community-built tutor listing advertising chess advice, exercises and analysis. This does not establish a deterministic engine, a playable board, native plugin installation or a public user count. |
 
-Other GPT search hits sometimes returned only login shells; they were not promoted to verified competitor entries. A GPT conversation count, if later found, must be recorded under that metric and product rather than treated as users of a similarly named plugin.
+Other ChatGPT store search hits sometimes returned only login shells; they were not promoted to verified competitor entries. A ChatGPT store conversation count, if later found, must be recorded under that metric and product rather than treated as users of a similarly named plugin.
 
 ## Open-source implementations and adjacent tools
 
@@ -68,7 +68,7 @@ These surfaced during searches but need stronger primary evidence before moving 
 - [jalpp/chessagine-mcp](https://github.com/jalpp/chessagine-mcp), surfaced through an [MCP app directory](https://mcpapp-store.com/apps/chessagine-mcp); repository not inspected in this research.
 - [fuzzylabs/chess-agent](https://github.com/fuzzylabs/chess-agent) and [rutvij26/chess-context](https://github.com/rutvij26/chess-context), surfaced in author discussions; source not inspected.
 - **Chessvia Openings, PlyMove, Xiangqi, Go Game by BlueMoon**, named by a [third-party tracker](https://agentdiscoverability.com/track/chatgpt/chessy). Official identities/capabilities unverified. Xiangqi/Go are adjacent board-game leads. Chessvia's Chessy persona is not Altmatter's Chessy plugin.
-- [Chess Mentor](https://chatgpt.com/g/g-x5YU3adHk-chess-mentor), [Chess Coach](https://chatgpt.com/g/g-Xx80bxAca-chess-coach), [Chess Game Assistant](https://chatgpt.com/g/g-ga7YMCVYv-chess-game-assistant): direct GPT URLs returned login shells; capabilities, continued availability and usage are unknown.
+- [Chess Mentor](https://chatgpt.com/g/g-x5YU3adHk-chess-mentor), [Chess Coach](https://chatgpt.com/g/g-Xx80bxAca-chess-coach), [Chess Game Assistant](https://chatgpt.com/g/g-ga7YMCVYv-chess-game-assistant): direct store URLs returned login shells; capabilities, continued availability and usage are unknown.
 - A [third-party Smart Chess entry](https://tedix.dev/apps/accelerator-chess/) uses an **Accelerator Chess** slug. No primary rename confirmation found; do not count it as another product without an identity check.
 
 ## Infrastructure and platform references

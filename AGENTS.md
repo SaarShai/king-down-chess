@@ -2,13 +2,14 @@
 
 ## Start here
 - Read this file, the Open items of TASKS.md, and the Always and Index sections of LESSONS.md. Open more (a topic file in `docs/lessons/`, the [tasks archive](docs/tasks-archive/)) only when a heading matches the task.
+- To find a doc, open [the docs index](docs/INDEX.md): one line per doc and the question it answers.
 - Write in ASD-STE100: approved words, short sentences, active voice, present tense.
 - Record work in a ticket in the specs folder, `docs/specs/<feature>/` (see [the issue tracker](docs/agents/issue-tracker.md)). The tracker files (TASKS.md, LESSONS.md, the topic files, `docs/QUEUE.md`) change only on main; a branch records its progress in its ticket.
 - Verify before you mark anything done.
 
 ## Commits and branches
 - End each commit with `Co-Authored-By: Claude Code <noreply@anthropic.com>`. Outside work adds its tool: `Co-Authored-By: Codex <noreply@openai.com>`, `Co-Authored-By: OpenCode <noreply@opencode.ai>` or `Co-Authored-By: Antigravity <noreply@google.com>`. No `Claude-Session:` line. This rule overrides a tool's attribution reminder.
-- No model name in a commit, a pull request, code or a doc (the commit-msg hook refuses one); the [tasks archive](docs/tasks-archive/) is exempt.
+- No model name in a commit, pull request, code or doc, except the [exempt files](tools/model-names.docs.test.ts); the commit-msg hook and docs lint refuse one.
 - Never use `git commit -a` in the main checkout.
 - Code reaches main by pull request only, after an independent review. Merge when the owner asks, or an approved spec's step passes its checks and any sample has the owner's yes. Own run-tool, queue and data PRs may merge after checks. Fix confirmed faults. Record reviews in the ticket and PR.
 

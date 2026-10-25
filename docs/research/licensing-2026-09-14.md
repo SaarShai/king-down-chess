@@ -128,7 +128,7 @@ Using the CDN adds one document: by using the API
 ## 4. Imperator — not shipped, confirmed by grep
 
 `grep -ril imperator` over the repo (excluding `node_modules` and `.git`) returns **seven documents
-and no asset**: `TASKS.md`, `docs/STATUS-2026-09-13.md`, `docs/research/drive-cards.md`,
+and no asset**: `TASKS.md`, `docs/tasks-archive/STATUS-2026-09-13.md`, `docs/research/drive-cards.md`,
 `docs/research/drive-final-art.md`, `docs/status/index.html`, `art-src/MANIFEST.md` and
 `art-src/fonts/README.md`. Every hit is prose about the font.
 
@@ -235,7 +235,7 @@ Add to the rules dialog or a footer, once the designer confirms the wording:
 
 > Design and art © Saar Shai / Double Edged Games. Sculpts by Dream Catcher.
 
-This matches question 3 already open in `docs/STATUS-2026-09-13.md`.
+This matches question 3 already open in `docs/tasks-archive/STATUS-2026-09-13.md`.
 
 ### 6.4 Fonts — no action
 
