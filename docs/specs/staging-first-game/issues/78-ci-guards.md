@@ -74,8 +74,19 @@ The audit says `worker-browser.json` records each request. It records only the b
 
 `npm run check:browser web-online` passes on Chromium (104.8 s; 5,029 requests, each to `http://127.0.0.1`) and on Firefox (110.3 s; 1,211 requests, each to `http://127.0.0.1`). Old fault: before this change, the check had no assertion on request hosts.
 
+After the review (below), the check also covers worker requests in Firefox and WebKit. Those engines give the context no request event for a worker's own request, so their profiles use a local proxy (`bypass: '127.0.0.1'`) that records and refuses each request to another host. The proxy log goes into `worker-browser.json` as `outside`. A control request to `http://outside.invalid/request-control` must reach the record (the proxy log, or the request events in Chromium), so an empty record proves something. `outsideRequests` leaves out the control and the browser maker's own service hosts (`mozilla.org`, `mozilla.com`, `mozilla.net`, `mozaws.net`): Firefox sent `CONNECT aus5.mozilla.org:443` (its update check) in one run of three. Chromium uses no proxy: it gives request events for worker requests, and branded Chrome sends its own `google.com` service requests. Results: Chromium 123.9 s (5,126 requests, each local but the control); Firefox 111.2 s and 111.3 s, and WebKit 88.9 s, each with only the control in the proxy log.
+
 ### Full suite
 
 `npm test` at `57c43e79`: type checks (src and tools) exit 0; vitest 258 files, 4,785 passed, 8 skipped (383 s); Node checks 50 of 50. `npm run test:docs`: 13 files, 168 passed.
 
 After the rebases on `18aa577b` and `0e0f2602` (the board tests split into `tools/plugin-board.test.ts`, `tools/plugin-board-input.test.ts`, `tools/plugin-board-drafts.test.ts` and `tools/lib/plugin-board-fixture.ts`), the board type fixes go to the file that now holds each test; the tools type check covers all four files. `tools/child-timeouts.test.ts` read the board build limit from `plugin-board.test.ts`, which no longer runs the build; it now reads `tools/lib/plugin-board-fixture.ts` (the first full run after the rebase failed only on this case).
+
+## Review
+
+Independent review of `b9eb56cf` (read-only, Codex at the highest effort): merge after fixes.
+
+1. Should-fix, confirmed: `tools/kings-summary.ts` cast `m.strike`, a field that `parseLan` does not set; it sets `power: 'strike'`. The Strike count was always 0. Fixed: `m.power === 'strike'`. `parseLan` gives `strike` for `Qd1d3!` and no power for `Qd1d3`.
+2. Should-fix, plausible: Firefox and WebKit give no context request event for a worker's own request, so the local-only check could miss one. Fixed with the proxy and the control above.
+
+The review found no other fault in the type fixes, the test lock guard, the Python probe or the callers of vitest.

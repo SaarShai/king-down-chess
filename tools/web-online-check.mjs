@@ -136,6 +136,14 @@ export function assertLocalRequests(urls) {
   assert.deepEqual(outside, [], 'Each profile request goes to http://127.0.0.1');
 }
 
+/** The browser's own service hosts (Firefox update and settings checks), which the page does not call. */
+const BROWSER_SERVICE = /^(?:CONNECT |https?:\/\/)(?:[a-z0-9-]+\.)*(?:mozilla\.(?:org|com|net)|mozaws\.net)(?::\d+)?(?:\/|$)/;
+
+/** The proxy log of the profiles: each request to another host, but the control and the browser's own service requests. */
+export function outsideRequests(log, control) {
+  return log.filter(entry => entry !== control && !BROWSER_SERVICE.test(entry));
+}
+
 /** Compile the real private client for the fixture page. */
 export async function buildWorkerProbe() {
   const entry = resolve('tools/fixtures/web-worker/page.ts');
@@ -148,9 +156,9 @@ export async function buildWorkerProbe() {
 export async function main() {
   const connectionString = testDatabase(process.env.PLUGIN_TEST_DATABASE_URL);
   const work = await mkdtemp(join(tmpdir(), 'kingdown-web-check-'));
-  let browser, persistent, server, cleaning, savedAccountAccess;
+  let browser, persistent, server, outsideProxy, cleaning, savedAccountAccess;
   const outputs = new Map();
-  const started = performance.now(), events = [], signal = new EventEmitter(), requests = [];
+  const started = performance.now(), events = [], signal = new EventEmitter(), requests = [], outside = [];
   let browserFacts;
   const record = event => { events.push(event); signal.emit('record'); };
   let served, old = false, instrument = false, deleteMode = 'ok', holdReply = false, failPrecache = false, offline = false, statusFixture = false, statusFailure = false;
@@ -163,6 +171,7 @@ export async function main() {
         () => persistent?.close(),
         () => { for (const response of held) response.end(); held.clear(); },
         async () => { if (server?.listening) { server.closeAllConnections(); await new Promise((done, reject) => server.close(error => error ? reject(error) : done())); } },
+        async () => { if (outsideProxy?.listening) { outsideProxy.closeAllConnections(); await new Promise((done, reject) => outsideProxy.close(error => error ? reject(error) : done())); } },
         async () => { if (savedAccountAccess !== undefined) {
           const { pool } = outputs.values().next().value;
           await pool.query('update public.web_account_access set enabled=$1 where singleton=true', [savedAccountAccess]);
@@ -250,6 +259,14 @@ export async function main() {
     });
     server.listen(0, '127.0.0.1'); await once(server, 'listening');
     const origin = `http://127.0.0.1:${server.address().port}`;
+    // Firefox and WebKit give the context no request event for a worker's own request, so their profiles send each
+    // request to another host through this proxy, which records and refuses it. Chromium gives the event for worker
+    // requests; its branded build also sends its own service requests (google.com), so it uses no proxy.
+    outsideProxy = createServer((req, res) => { outside.push(req.url); res.writeHead(502).end(); });
+    outsideProxy.on('connect', (req, socket) => { outside.push(`CONNECT ${req.url}`); socket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n'); });
+    outsideProxy.listen(0, '127.0.0.1'); await once(outsideProxy, 'listening');
+    const proxied = ['firefox', 'webkit'].includes(env('PLAYABLE_BROWSER'));
+    const profileOptions = proxied ? { ...PERSISTENT_OPTIONS, proxy: { server: `http://127.0.0.1:${outsideProxy.address().port}`, bypass: '127.0.0.1' } } : PERSISTENT_OPTIONS;
     const pairKeys = await generateKeyPair('ES256'), websiteKeys = createLocalJWKSet({ keys: [{ ...await exportJWK(pairKeys.publicKey), kid: 'status', alg: 'ES256' }] });
     for (const root of [tree, recovery.root]) {
       const config = JSON.parse(await readFile(join(root, 'config.json'), 'utf8'));
@@ -340,7 +357,7 @@ export async function main() {
     let profileDir;
     const openProfile = async profile => {
       profileDir = profile;
-      persistent = await launchPersistent(profile, PERSISTENT_OPTIONS);
+      persistent = await launchPersistent(profile, profileOptions);
       await persistent.exposeFunction('recordWorkerEvent', record);
       persistent.on('request', request => requests.push(request.url()));
       const page = persistent.pages()[0] ?? await persistent.newPage();
@@ -653,15 +670,21 @@ export async function main() {
     assert.deepEqual(await active.evaluate(() => window.privateProbe('blocked-old')), { status: 503, code: 'UNAVAILABLE' });
     assert.equal(events.slice(after).filter(event => event.event === 'probe').length, 0, 'Blocked old controller keeps the send closed');
     await writeFile(join(env('PLAYABLE_OUT'), 'worker-events.json'), JSON.stringify(events, null, 2));
-    await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify({ ...browserFacts, requests }, null, 2));
-    assertLocalRequests(requests);
+    // Control: a request to another host reaches the record (the proxy, else the request events), so an empty record
+    // proves that no other request left the profiles.
+    const control = 'http://outside.invalid/request-control';
+    await active.evaluate(url => fetch(url, { mode: 'no-cors' }).catch(() => {}), control);
+    assert.ok((proxied ? outside : requests).includes(control), `The ${proxied ? 'proxy' : 'request record'} receives a request to another host`);
+    await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify({ ...browserFacts, requests, outside }, null, 2));
+    assertLocalRequests(requests.filter(url => url !== control));
+    assert.deepEqual(outsideRequests(outside, control), [], 'No profile request goes to another host');
     console.log(`PASS: worker journeys; ${pair}; ${events.filter(event => event.event === 'probe').length} protected/bypass requests; ${((performance.now() - started) / 1000).toFixed(1)} s`);
     console.log(`PASS: web-online (${env('PLAYABLE_BROWSER')}): built root, test database, local move, End turn, saved reload, closed account and API routes`);
   } finally {
     try {
       await mkdir(env('PLAYABLE_OUT'), { recursive: true });
       await writeFile(join(env('PLAYABLE_OUT'), 'worker-events.json'), JSON.stringify(events, null, 2));
-      if (browserFacts) await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify({ ...browserFacts, requests }, null, 2));
+      if (browserFacts) await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify({ ...browserFacts, requests, outside }, null, 2));
     } finally { await cleanup(); }
   }
 }

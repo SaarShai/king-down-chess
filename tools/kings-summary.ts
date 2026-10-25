@@ -85,7 +85,7 @@ function counters(id: string, arm: string, rule: string): Record<string, number>
       if (t === P && m.captures.length && file(m.to) === file(m.from)) straightCaptures++;
       if (t === K && /^K[a-h][1-8]\*/.test(lan)) kingShots++;
       if (t === K && Math.max(dx, Math.abs(dy)) === 2) mercy2++;
-      if ((m as { strike?: unknown }).strike) strikes++;
+      if (m.power === 'strike') strikes++;
       // Leap: a slider whose path crosses one of its own pawns.
       if ((t === R || t === B || t === Q) && m.to !== m.from) {
         const sx = Math.sign(file(m.to) - file(m.from)), sy = Math.sign(rank(m.to) - rank(m.from));
