@@ -28,9 +28,9 @@ export function createHall(memory: HallMemory, client: GameClient, host: PageHos
   if (start) $('games-empty').append(start);
   if (controls) body.append(controls);
   const navigation: HTMLButtonElement[] = [];
-  for (const [screen, title, line] of [['profile', 'Profile', 'Your scroll, rating and badges.'], ['settings', 'Settings', 'Symbols only, Show threats, Who sees when you are online.']] as const) {
+  for (const [screen, title] of [['settings', 'Settings'], ['profile', 'Profile']] as const) {
     const button = document.createElement('button'); button.className = 'menu-row'; button.dataset.nav = screen;
-    button.innerHTML = `<span class="row-title">${title}</span><span class="line">${line}</span><i aria-hidden="true">›</i>`;
+    button.innerHTML = `<span class="row-title">${title}</span><i aria-hidden="true">›</i>`;
     button.onclick = () => { if (!disposed) host.navigate({ screen }); }; navigation.push(button); body.append(button);
   }
   if (footer) $('new-game').append(footer);

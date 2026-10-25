@@ -34,7 +34,7 @@ const ward = { v: 1, kind: 'piece', id: 'ward', name: 'Old Ward', named: true, l
   rules: [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }], from: [], updated: 1760000000000 };
 const SHELF = JSON.stringify({ v: 1, designs: [ward, { ...ward, id: 'late', name: 'Late Queen', updated: 1759000000000,
   rules: [{ when: { on: 'fromMove', n: 10 }, does: { a: 'movesLike', as: 'queen' } }] }] });
-const checked = (page, name) => page.evaluate(n => document.querySelector(`#new-game input[name="${n}"]:checked`)?.value, name);
+const checked = (page, name) => name === 'level' ? page.locator('#level-slider').getAttribute('aria-valuetext').then(name => ({Casual:'beginner',Clever:'casual',Club:'club',Strong:'strong'}[name])) : page.evaluate(n => document.querySelector(`#new-game input[name="${n}"]:checked`)?.value, name);
 const pressed = (page, c) => page.evaluate(c => [...document.querySelectorAll(`#pick-${c} [aria-pressed="true"]`)].map(b => b.dataset.king ?? b.dataset.power), c);
 const powerLine = (page, c) => page.textContent(`#pick-${c} .power-text`);
 const shown = (page, id) => page.isVisible(`#${id}`);
@@ -60,7 +60,7 @@ try {
     const style = getComputedStyle(el);
     return { border: style.borderTopWidth, ink: style.color, fill: style.backgroundColor, shadow: style.boxShadow };
   }));
-  assert.deepEqual(selected.map(({ shadow, ...finish }) => finish), Array(4).fill({ border: '0px', ink: 'rgb(251, 247, 238)', fill: 'rgb(77, 69, 60)' }), 'mode, level and side use the same dark selected finish');
+  assert.deepEqual(selected.map(({ shadow, ...finish }) => finish), Array(3).fill({ border: '0px', ink: 'rgb(251, 247, 238)', fill: 'rgb(77, 69, 60)' }), 'mode, side and army use the same dark selected finish');
   for (const { shadow } of selected) assert.match(shadow, /rgb\(233, 192, 113\).*2px.*inset/, 'each selected choice has an inset gold ring');
   assert.equal(await page.evaluate(() => document.getElementById('more-options').open), false, 'More options starts folded');
   assert.equal(await shown(page, 'king-picker'), false, 'no king picker without powers');
@@ -228,7 +228,7 @@ try {
   assert.deepEqual(await page.$$eval('#design option', os => os.map(o => [o.textContent, o.disabled])),
     [['No design', false], ['Old Ward', false], ['Late Queen (not yet: a rule counts moves or cards)', true]], 'the designs on this device; one waits, with the reason');
   assert.equal(await page.textContent('#design-line'), 'Play one of your Workshop pieces.');
-  await page.focus('#level-club');
+  await page.focus('#level-slider');
   await page.keyboard.press('Tab');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'design', 'Tab goes from the level to Bring a design');
   await page.locator('#new-game').evaluate(async sheet => { await Promise.all(sheet.getAnimations().map(a => a.finished.catch(() => {}))); });
@@ -266,11 +266,11 @@ try {
   // 8. A save from before the dialog remembered its setup: New game opens on that game.
   page = await open({ save: { back: 'RNBQKBNR', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', moves: [], white: 'ai', black: 'human', skill: 'strong', rules: { kings: [{ king: 'Frost', power: 'Freeze' }, null] }, sound: false } });
   await pressMenu(page, 'New game');
-  assert.deepEqual([await checked(page, 'mode'), await checked(page, 'level'), await checked(page, 'side')], ['powers', 'strong', '1']);
+  assert.deepEqual([await checked(page, 'mode'), await checked(page, 'level'), await checked(page, 'side')], ['powers', 'club', '1']);
   assert.deepEqual(await pressed(page, 0), ['Frost', 'Freeze']);
   assert.deepEqual(await pressed(page, 1), ['Shadow', '']);
   await page.context().close();
-  ok("an older save: Kings' powers, Strong, you play Black, Frost Freeze against Shadow with no power");
+  ok("an older save: Kings' powers, Club for the next game, you play Black, Frost Freeze against Shadow with no power");
 
   // 9. `?rules=2017` plays the powers as printed (the preset overrides the official readings, as newGame
   // sets them), so the picker shows them so, and the game it starts plays the line the picker showed.

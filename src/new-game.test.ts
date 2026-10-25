@@ -138,3 +138,11 @@ describe('Bring a design (ticket 17)', () => {
     expect(withDesign('RTBQKBNR', 3)).toBe('RTBQKBNR'); // one design: a custom back rank that holds it already
   });
 });
+
+it('keeps old level values and maps the three menu stops', async () => {
+  const { MENU_LEVELS, LEVEL_NAMES, menuLevel, levelPosition } = await import('./level-ui');
+  expect(MENU_LEVELS.map(level => LEVEL_NAMES[level])).toEqual(['Casual','Clever','Club']);
+  expect(MENU_LEVELS).toEqual(['beginner','casual','club']);
+  for (const level of [...MENU_LEVELS, 'strong'] as const) expect(parseSetup({ ...defaultSetup(), level })?.level).toBe(level);
+  expect(menuLevel('strong')).toBe('club'); expect(LEVEL_NAMES.strong).toBe('Strong'); expect(levelPosition('strong')).toBe(2);
+});

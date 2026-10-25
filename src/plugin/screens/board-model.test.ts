@@ -433,3 +433,7 @@ test('only symmetric card swaps reverse; copied Sky Lift retains its card identi
   const morph = { ...choice, move: { ...choice.move, power: 'morphs' as const } };
   expect(choicesFrom([morph], 1)[0].lan).toBe(morph.lan);
 });
+
+test.each([['beginner','Casual'],['casual','Clever'],['club','Club'],['strong','Strong']] as const)('shows the name for stored level %s', (level, label) => {
+  expect(stripLine(1, undefined, level)).toBe(label);
+});

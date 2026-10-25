@@ -131,6 +131,7 @@ async function hall(page: Page) {
   const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'play' } }));
   await page.evaluate(result => (window as any).harnessShow(result), result);
   await page.frameLocator('iframe').locator('[data-screen="play"]:not([hidden])').waitFor();
+  await page.frameLocator('iframe').locator('#setup-options').evaluate(e => { (e as HTMLDetailsElement).open = true; });
 }
 it('sizes the seat and the board from their screens, with no viewport units and the short-phone rows', async () => {
   const page = await browser.newPage({ viewport: { width: 393, height: 760 }, hasTouch: true }), frame = page.frameLocator('iframe');
@@ -294,7 +295,7 @@ it('returns focus to each sheet opener after a pointer opens the sheet', async (
     focus[`${id} ${close}`] = await active();
   };
   try {
-    await page.goto(harness.url); await frame.locator('#home-games:not(:disabled)').click();
+    await page.goto(harness.url); await frame.locator('#home-games:not(:disabled)').click(); await frame.locator('#setup-options').evaluate(e => { (e as HTMLDetailsElement).open = true; });
     await page.evaluate(async()=>{await (window as any).harnessSetContext({deviceCapabilities:{touch:true},displayMode:'fullscreen',safeAreaInsets:{top:20,bottom:0,left:0,right:0}});});
     await frame.getByRole('radio',{name:'Computer',exact:true}).locator('..').click();
     await frame.getByRole('checkbox',{name:'Arrangement',exact:true}).check();
@@ -402,7 +403,7 @@ it('shows each checked flat choice in light and dark mode', async () => {
     for (const theme of ['light', 'dark'] as const) {
       await page.emulateMedia({ colorScheme: theme });
       await page.evaluate(theme => (window as any).harnessSetContext({ theme }), theme);
-      for (const [first, second] of [['A friend', 'Computer'], ['Strong', 'Club'], ['Black', 'White']]) {
+      for (const [first, second] of [['A friend', 'Computer'], ['Black', 'White']]) {
         await frame.getByRole('radio', { name: first, exact: true }).locator('..').click();
         const selected = await face(first), clear = await face(second);
         expect(selected.fill).not.toBe(clear.fill); expect(selected.colour).not.toBe(clear.colour);
@@ -468,7 +469,7 @@ it('reflows New game and a waiting friend invite at 200% zoom (197 CSS px)', asy
   try {
     for (const name of ['Computer', 'A friend', 'Computer']) await frame.getByRole('radio', { name, exact: true }).locator('..').click({ timeout: 3000 * STEP });
     for (const name of ['Fairy pieces', 'Cards', 'King powers']) await frame.getByRole('checkbox', { name, exact: true }).check({ timeout: 3000 * STEP });
-    await frame.getByRole('radio', { name: 'Strong', exact: true }).locator('..').click({ timeout: 3000 * STEP });
+    await frame.locator('#setup-level').fill('2', { timeout: 3000 * STEP });
     expect(await frame.locator('#setup-body').evaluate(e => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(1);
     // The segments wrap two to a line; a tap 1 px inside each edge selects that segment, not the one below.
     const misses = await frame.locator('#setup-body .seg-row label').evaluateAll(labels => labels.filter(l => (l as HTMLElement).offsetParent).flatMap(label => {

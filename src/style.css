@@ -822,3 +822,16 @@ dialog.ui-dialog-motion:not([open]) { pointer-events: none; }
 #app-root[data-ui-motion='off'] button:active { transform: none; }
 
 .portrait:not(.is-checked) > .ui-check-frame { display: none; }
+
+/* F-109 to F-113: shared Level and colour controls. */
+.level-control { margin-top: var(--space-3); }
+.level-control > label { display: block; font-weight: 700; }
+.level-control input[type='range'] { display: block; width: 100%; height: 48px; margin: 0; padding: 0; accent-color: var(--accent); cursor: pointer; }
+.level-control input[type='range']:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; }
+.level-stops { display: flex; justify-content: space-between; gap: var(--space-2); font-size: var(--fs-sm); }
+.level-stops > span { flex: 1; text-align: center; }
+.level-stops > span:first-child { text-align: left; }
+.level-stops > span:last-child { text-align: right; }
+#new-game .colour-switch { width: 184px; max-width: 100%; margin-top: var(--space-2); }
+#new-game .colour-switch .seg-row { flex-wrap: nowrap; }
+#new-game .colour-switch .seg-row label { min-height: 48px; }

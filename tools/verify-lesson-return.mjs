@@ -33,7 +33,7 @@ try {
     await checkButtonContent(page, '#table-bar > button');
     assert.notEqual(await page.locator('#return-game use').getAttribute('href'), await page.locator('#undo use').getAttribute('href'), 'Return to game has its own icon');
     // This used to abandon the lesson and save its tiny board over the match.
-    await setUpGame(page, { mode: 'computer', level: 'strong' }); await page.keyboard.press('Escape');
+    await setUpGame(page, { mode: 'computer', level: 'club' }); await page.keyboard.press('Escape');
     assert.equal(await saved(), before, 'choosing a future opponent in a lesson preserves the saved match');
     assert.match(await page.textContent('#turn'), /Lesson 1 of 6/);
     // Under 2021 rules the straight Beast bites are impossible and the Paladin removes itself.

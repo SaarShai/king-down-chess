@@ -7,7 +7,7 @@ import { pressMenu, startNewGame } from './app-ui.mjs';
  *   await startGame(page, { mode: 'two', army: 'classic' });
  *   await startGame(page, { mode: 'powers', kings: ['Mud:March', 'Frost:none'] });
  *
- * mode: 'computer' | 'powers' | 'two' · level: 'beginner' | 'casual' | 'club' | 'strong' ·
+ * mode: 'computer' | 'powers' | 'two' · level: 'beginner' | 'casual' | 'club' ·
  * side: 'white' | 'black' (against the computer) · powers: the Two players box ·
  * kings: [White, Black] as 'King:Power' or 'King:none' · army: 'random' (the default), 'daily',
  * 'classic', 'custom', an example army's code or 'ogre' · design: a Workshop design's name, or 'No design'.
@@ -16,7 +16,7 @@ import { pressMenu, startNewGame } from './app-ui.mjs';
 export async function setUpGame(page, { mode, level, side, powers, kings, design, army = 'random' } = {}) {
   if (!await page.evaluate(() => document.getElementById('new-game').open)) await pressMenu(page, 'New game');
   if (mode) await page.click(`#new-game label:has(#mode-${mode})`);
-  if (level) await page.click(`#new-game label:has(#level-${level})`);
+  if (level) await page.locator('#level-slider').fill(String(['beginner','casual','club'].indexOf(level)));
   if (powers !== undefined) await page.setChecked('#two-powers', powers);
   if (design) await page.selectOption('#design', { label: design });
   for (const [c, choice] of (kings ?? []).entries()) {

@@ -139,15 +139,15 @@
             <span class="mode-art" aria-hidden="true"><img src="/ui/kings/spirit.webp" alt="" /><img class="face-left" src="/ui/kings/shadow-b.webp" alt="" /></span>
             <span class="mode-text"><b>Two players</b></span></label>
         </fieldset>
-        <fieldset class="seg" id="level" aria-describedby="level-line">
-          <legend>Computer level</legend>
+        <h3 class="group-head">The game</h3>
+        <fieldset class="seg colour-switch" id="side-choice">
+          <legend class="sr-only">Colour</legend>
           <div class="seg-row">
-            <label><input type="radio" name="level" value="beginner" id="level-beginner" /><span>Beginner</span></label>
-            <label><input type="radio" name="level" value="casual" id="level-casual" /><span>Casual</span></label>
-            <label><input type="radio" name="level" value="club" id="level-club" /><span>Club</span></label>
-            <label><input type="radio" name="level" value="strong" id="level-strong" /><span>Strong</span></label>
+            <label><input type="radio" name="side" value="0" id="side-white" /><span>White</span></label>
+            <label><input type="radio" name="side" value="1" id="side-black" /><span>Black</span></label>
           </div>
         </fieldset>
+        <div id="level"></div>
         <p id="level-line"></p>
         <label class="check" id="two-powers-row" hidden><input type="checkbox" id="two-powers" /><span>Play with kings' powers <small>Each king brings one power.</small></span></label>
         <div id="king-picker" hidden>
@@ -157,14 +157,7 @@
         <label class="army" id="design-row">Bring a design <select id="design" aria-describedby="design-line"></select></label>
         <p id="design-line"></p>
         <details id="more-options">
-          <summary><span id="side-army-label">Side and army</span><small id="side-army-value"></small></summary>
-          <fieldset class="seg" id="side-choice">
-            <legend>You play</legend>
-            <div class="seg-row">
-              <label><input type="radio" name="side" value="0" id="side-white" /><span>White</span></label>
-              <label><input type="radio" name="side" value="1" id="side-black" /><span>Black</span></label>
-            </div>
-          </fieldset>
+          <summary><span id="side-army-label">Army</span><small id="side-army-value"></small></summary>
           <fieldset class="seg" id="army-choice">
             <legend>Army</legend>
             <div class="seg-row">
