@@ -89,10 +89,12 @@ try {
     window.harnessBootDelay = 300;
     window.harnessArrowLines = [];
     window.harnessGhostSymbols = [];
+    window.harnessSymbolPaints = 0;
     window.harnessSwapMarks = 0;
     const paths = new WeakMap(), proto = CanvasRenderingContext2D.prototype;
     const drawImage = proto.drawImage;
     proto.drawImage = function(image, ...args) {
+      if (this.canvas.parentElement?.id === 'board' && this.globalAlpha === 1 && image.src?.includes('.svg')) window.harnessSymbolPaints++;
       if (this.globalAlpha === 0.5 && image.src?.includes('.svg')) window.harnessGhostSymbols.push(image.src);
       return drawImage.call(this, image, ...args);
     };
@@ -235,14 +237,13 @@ try {
   async function openPlay() {
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
     for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) {
+      await idleBoard();
+      if (await frame.locator('[data-screen="play"]:not([hidden])').count()) break;
       if (await frame.locator('body[data-page="board"]').count()) {
-        // A new board reply can close Menu between steps. Open and return in the same frame.
-        await frame.locator('#board-menu:not(:disabled)').evaluate(button => {
-          button.click();
-          const main = [...document.querySelectorAll('#board-sheet .sheet-body > button')].find(row => row.textContent === 'Main menu');
-          if (!main) throw new Error('Menu has no Main menu row');
-          main.click();
-        });
+        await frame.locator('#board-menu').click();
+        const main = frame.locator('#board-sheet[open]').getByRole('button', { name: 'Main menu', exact: true });
+        await main.waitFor();
+        await main.click();
         continue;
       }
       await widget().waitForFunction(() => {
@@ -256,6 +257,7 @@ try {
       });
     }
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor({ timeout: 5000 * STEP });
+    await idleBoard();
     await frame.locator('#setup-options').evaluate(e => { e.open = true; });
   }
   async function chooseKind(name) {
@@ -951,6 +953,12 @@ try {
     async function seatFits(state) {
       for (const [width,height] of [[390,844],[1280,800],[400,900],[1440,900],[360,844]]) {
         await page.setViewportSize({ width, height }); await boardBox(); await seatLine();
+        // The veil uses a later resize frame than the canvas.
+        await widget().waitForFunction(() => {
+          const board = document.querySelector('canvas').getBoundingClientRect(), veil = document.querySelector('#seat-veil-layer .veil').getBoundingClientRect(), k = board.width / 960;
+          return Math.abs(veil.x - board.x - 32 * k) < 1 && Math.abs(veil.y - board.y - 96 * k) < 1
+            && Math.abs(veil.width - 896 * k) < 1 && Math.abs(veil.height - 448 * k) < 1;
+        });
         assert(!await frame.locator('body').evaluate(el => el.scrollWidth > innerWidth), `${state} document fits ${width}px`);
         assert(await frame.locator('[data-seat-id="game-table"]').evaluate(el => el.scrollWidth <= el.clientWidth + 1), `${state} table fits ${width}px`);
         for (const id of ['#seat-ready','#seat-shuffle','#seat-menu','#seat-king','#page-back','#seat-screen .table-back']) {
@@ -2131,9 +2139,13 @@ try {
     const blank=GALLERY.filter((_,i)=>change[i]<8).map(([f,r])=>'abcdefgh'[f]+(r+1));
     assert.deepEqual(blank,[],`King pair ${kings}: every piece and king is drawn (least change ${Math.min(...change).toFixed(1)})`);
     await shot(page,`board-gallery-${kings}-${mode}`);
-    await openScreen('settings'); await frame.locator('#symbols-only').check();
+    await openScreen('settings');
+    await frame.locator('canvas').evaluate(() => { window.harnessSymbolPaints = 0; });
+    await frame.locator('#symbols-only').check();
     await page.evaluate(result => window.harnessShow(result), (await (await page.request.post(new URL(`/fixture-position?case=gallery&kings=${kings}`,base).href)).json()));
     await idleBoard(); await boardBox();
+    // The settings reply can end before the SVG images load and the board draws them.
+    await widget().waitForFunction(() => window.harnessSymbolPaints >= 32);
     const symbolErrors = await frame.locator('canvas').evaluate(async (c, { sources, names }) => {
       const images = new Map();
       for (const [name, source] of Object.entries(sources)) for (const side of [0,1]) {
