@@ -5,7 +5,7 @@
 // script calls the `wt` of the commit that it tests; the stub logs `wt add <path>`.
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -17,6 +17,7 @@ import { tempRepo } from './lib/temp-repo.mjs';
 
 const script = fileURLToPath(new URL('./deploy.sh', import.meta.url));
 const liveCheck = fileURLToPath(new URL('./deploy-live-check.mjs', import.meta.url));
+const keepAssets = fileURLToPath(new URL('./deploy-keep-assets.mjs', import.meta.url));
 const pluginLiveCheck = fileURLToPath(new URL('./deploy-plugin-live-check.mjs', import.meta.url));
 const siteProject = { projectId: 'prj_SiteTest', orgId: 'team_mIlANWWDRbX1NT4jgJn9jAna', projectName: 'kingdown' };
 const enginesDatabase = 'postgresql://kingdown_plugin_runtime.utqzovjmclfyojedmwok:fake-engines-password@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require';
@@ -44,6 +45,7 @@ function setup() {
   mkdirSync(join(repo.dir, 'tools'));
   stub(join(repo.dir, 'tools', 'wt.sh'), [record, '[ -z "$STUB_LINK_MODULES" ] || ln -s "$STUB_LINK_MODULES" node_modules']);
   cpSync(liveCheck, join(repo.dir, 'tools', 'deploy-live-check.mjs'));
+  cpSync(keepAssets, join(repo.dir, 'tools', 'deploy-keep-assets.mjs'));
   cpSync(pluginLiveCheck, join(repo.dir, 'tools', 'deploy-plugin-live-check.mjs'));
   repo.write('vercel.json', readFileSync(fileURLToPath(new URL('../vercel.json', import.meta.url)), 'utf8'));
   repo.write('app.txt', 'one\n');
@@ -89,9 +91,11 @@ function setup() {
   stub(join(bin, 'npx'), [...behave,
     `case " $* " in *" link --project kingdown-plugin "*) project='${JSON.stringify(pluginProject)}' ;; *" link --project kingdown "*) project='${JSON.stringify(siteProject)}' ;; esac; if [ -n "$project" ]; then mkdir -p .vercel; [ -z "$STUB_PROJECT" ] || project="$STUB_PROJECT"; printf "%s\\n" "$project" > .vercel/project.json; fi`,
     'case " $* " in *" deploy --prebuilt --prod "*) if [ "$(basename "$PWD")" = kingdown ]; then test -f .vercel/output/config.json && test -f .vercel/output/functions/mcp.func/consent.mjs && cmp -s "$STUB_DIST/index.html" .vercel/output/static/index.html || exit 1; fi ;; esac',
+    // STUB_PUBLISH_DIR: the fake CLI puts the published static tree there, as the live site after the switch.
+    'case " $* " in *" deploy --prebuilt --prod "*) if [ -n "$STUB_PUBLISH_DIR" ]; then rm -rf "$STUB_PUBLISH_DIR" && cp -R .vercel/output/static "$STUB_PUBLISH_DIR"; fi ;; esac',
     'case " $* " in *" env add "*) cat > "$STUB_ENV_DIR/$5" ;; esac',
   ]);
-  const env = { PATH: `${bin}:${repo.env.PATH}`, STUB_FAIL: '', STUB_HANG: '', STUB_DIST: '', STUB_PROJECT: '', STUB_NEW_ENGINE: '', STUB_TAMPER_ENGINE: '', STUB_STAGING_MANIFEST: '', STUB_LINK_MODULES: '', KINGDOWN_STAGE: '', VITE_KINGDOWN_STAGE: '', VITE_SUPABASE_URL: productionSupabase, VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test', PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', KINGDOWN_ENGINES_DATABASE_URL: '', DEPLOY_LIVE_URL: 'http://127.0.0.1:9', DEPLOY_LIVE_TIMEOUT_MS: '1500' };
+  const env = { PATH: `${bin}:${repo.env.PATH}`, STUB_FAIL: '', STUB_HANG: '', STUB_DIST: '', STUB_PROJECT: '', STUB_NEW_ENGINE: '', STUB_TAMPER_ENGINE: '', STUB_STAGING_MANIFEST: '', STUB_LINK_MODULES: '', STUB_PUBLISH_DIR: '', KINGDOWN_STAGE: '', VITE_KINGDOWN_STAGE: '', VITE_SUPABASE_URL: productionSupabase, VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test', PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', KINGDOWN_ENGINES_DATABASE_URL: '', DEPLOY_LIVE_URL: 'http://127.0.0.1:9', DEPLOY_LIVE_TIMEOUT_MS: '1500' };
   const deploy = (args: string[] = [], extra: Record<string, string> = {}) => repo.run(script, args, { env: { ...env, ...extra } });
   const deployAsync = (args: string[] = [], extra: Record<string, string> = {}) => runAsync(script, args, { cwd: repo.dir, env: { ...repo.env, ...env, ...extra } });
   const calls = () => (existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : []);
@@ -596,7 +600,7 @@ function siteRoute(req: IncomingMessage, res: ServerResponse, path: string, file
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }).end(JSON.stringify(body));
   return true;
 }
-const contentType = (path: string) => ({ js: 'text/javascript', css: 'text/css', woff2: 'font/woff2', png: 'image/png', webp: 'image/webp', svg: 'image/svg+xml', webmanifest: 'application/manifest+json' })[path.split('.').at(-1)!] ?? 'text/html';
+const contentType = (path: string) => ({ js: 'text/javascript', css: 'text/css', json: 'application/json', woff2: 'font/woff2', png: 'image/png', webp: 'image/webp', svg: 'image/svg+xml', webmanifest: 'application/manifest+json' })[path.split('.').at(-1)!] ?? 'text/html';
 
 /** A build folder with the given pages. */
 function buildFolder(files: Record<string, string>) {
@@ -608,6 +612,19 @@ function buildFolder(files: Record<string, string>) {
   }
   return dir;
 }
+
+/** The files of a folder by path, as `pages()` gives them. */
+const tree = (dir: string): Record<string, string> => Object.fromEntries(readdirSync(dir, { recursive: true }).map(String)
+  .filter(file => statSync(join(dir, file)).isFile()).map(file => [file, readFileSync(join(dir, file), 'utf8')]));
+
+/** An old live build: its bundle imports a lazy chunk, the chunk names a style and the style an image. */
+const oldBuild = (): Record<string, string> => ({
+  ...pages('index-OldA1234'),
+  'assets/index-OldA1234.js': 'import("./chunk-OldB1234.js")',
+  'assets/chunk-OldB1234.js': 'const style = "assets/style-OldC1234.css";',
+  'assets/style-OldC1234.css': 'body { background: url(/assets/art-OldD1234.webp) }',
+  'assets/art-OldD1234.webp': 'old art',
+});
 
 /** A local site. `files` can change between requests; `/` serves `index.html`. */
 async function site(files: () => Record<string, string>, challengeReply: { status?: number; type?: string | null; location?: string; path?: string; body?: string; cache?: string | null } = {}, access: Access = 'closed') {
@@ -710,6 +727,23 @@ describe('deploy-live-check.mjs', () => {
     const result = await check(buildFolder(files), live.url, 0);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(`${path}: the live page differs`);
+  });
+
+  it('compares every file under assets/, also one that no worker list names', async () => {
+    const files = { ...pages(), 'assets/chunk-OldB1234.js': 'old chunk' };
+    const live = await site(() => files);
+    const pass = await check(buildFolder(files), live.url);
+    expect(pass.status, pass.stderr).toBe(0);
+    expect(live.requests.some(r => r.path === '/assets/chunk-OldB1234.js')).toBe(true);
+    expect(pass.stdout).toContain('public files match bytes and types (5 under /assets/)');
+    const stale = await site(() => ({ ...files, 'assets/chunk-OldB1234.js': 'other bytes' }));
+    const changed = await check(buildFolder(files), stale.url, 0);
+    expect(changed.status).toBe(1);
+    expect(changed.stderr).toContain('assets/chunk-OldB1234.js: the live page differs');
+    const missing = await site(() => pages());
+    const fail = await check(buildFolder(files), missing.url, 0);
+    expect(fail.status).toBe(1);
+    expect(fail.stderr).toContain('/assets/chunk-OldB1234.js: HTTP 404');
   });
 
   it('rejects a missing offline asset', async () => {
@@ -876,14 +910,85 @@ describe('deploy-live-check.mjs', () => {
   });
 });
 
-async function pluginSite(fault = '', files?: Record<string, string>) {
+const keep = (folder: string, url: string) => runAsync(process.execPath, [keepAssets, folder], { env: { ...process.env, DEPLOY_LIVE_URL: url } });
+
+describe('deploy-keep-assets.mjs', () => {
+  // Each form in which a Vite build names a file under assets/. The image holds a quoted name that the
+  // walk must not read; the page holds a sibling name outside assets/. The live list of a previous
+  // release names a file that this release does not keep.
+  const live = (): Record<string, string> => ({
+    'index.html': '<script type="module" src="/assets/index-AAAA1111.js"></script><link rel="stylesheet" href="./assets/style-BBBB2222.css"><a href="./page-CCCC3333.js">',
+    'sw.js': 'const PRECACHE = ["assets/pre-DDDD4444.js","assets/plain.js"];',
+    'assets/index-AAAA1111.js': 'import{a}from"./shared-EEEE5555.js";const m=()=>import(\'./lazy-FFFF6666.js\');const d=["assets/dep-GGGG7777.js"];new URL("/assets/worker-HHHH8888.js",import.meta.url);const p=`/assets/pic-II-I9999.webp`;',
+    'assets/style-BBBB2222.css': '@font-face{src:url(/assets/font-JJJJ0000.woff2)}',
+    'assets/pre-DDDD4444.js': 'pre', 'assets/shared-EEEE5555.js': 'shared', 'assets/lazy-FFFF6666.js': 'lazy', 'assets/dep-GGGG7777.js': 'dep', 'assets/worker-HHHH8888.js': 'worker',
+    'assets/pic-II-I9999.webp': 'image "./bogus-KKKK1111.js"', 'assets/font-JJJJ0000.woff2': 'font', 'assets/plain.js': 'plain', 'page-CCCC3333.js': 'page',
+    'assets/kept-files.json': '["older-LLLL2222.js"]\n', 'assets/older-LLLL2222.js': 'older',
+  });
+  const build = (): Record<string, string> => ({ 'index.html': '<script type="module" src="/assets/index-New11111.js"></script>', 'sw.js': 'new worker', 'assets/index-New11111.js': 'import"./shared-EEEE5555.js"', 'assets/shared-EEEE5555.js': 'shared' });
+  const kept = ['dep-GGGG7777.js', 'font-JJJJ0000.woff2', 'index-AAAA1111.js', 'lazy-FFFF6666.js', 'pic-II-I9999.webp', 'pre-DDDD4444.js', 'style-BBBB2222.css', 'worker-HHHH8888.js'];
+
+  it('keeps each file that the live build names, and changes no file of the build', async () => {
+    const site_ = await site(live), folder = buildFolder(build());
+    const result = await keep(folder, site_.url);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain(`serves 9 content-named files under /assets/; 1 are in the build with the same bytes; kept 8: ${kept.join(', ')}`);
+    expect(tree(folder)).toEqual({ ...build(), ...Object.fromEntries(kept.map(file => [`assets/${file}`, live()[`assets/${file}`]])), 'assets/kept-files.json': `${JSON.stringify(kept)}\n` });
+    expect(site_.requests.map(r => `${r.method} ${r.path}`).sort()).toEqual(['GET /', 'GET /sw.js', ...['shared-EEEE5555.js', ...kept].map(file => `GET /assets/${file}`)].sort());
+    expect(site_.requests.filter(r => r.cookie !== undefined)).toEqual([]);
+  });
+
+  it.each([
+    ['a missing file', { 'assets/lazy-FFFF6666.js': undefined }, {}, 'GET /assets/lazy-FFFF6666.js: expected HTTP 200, got 404'],
+    ['an HTML fallback', {}, { path: '/assets/lazy-FFFF6666.js', type: 'text/html', body: '<!doctype html>' }, 'GET /assets/lazy-FFFF6666.js: expected text/javascript or application/javascript, got text/html'],
+    ['other bytes at a name of the build', { 'assets/shared-EEEE5555.js': 'changed' }, {}, '/assets/shared-EEEE5555.js: the live file differs from the build\'s file of the same name'],
+    ['a page that names no asset', { 'index.html': 'no script', 'sw.js': 'no list' }, {}, 'name no file under /assets/'],
+    ['a missing worker', { 'sw.js': undefined }, {}, 'GET /sw.js: expected HTTP 200, got 404'],
+  ])('stops at %s and writes no file', async (_, change, reply, message) => {
+    const files = { ...live(), ...change } as Record<string, string>;
+    const site_ = await site(() => files, reply), folder = buildFolder(build());
+    const result = await keep(folder, site_.url);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(`keep-assets: ${message}`);
+    expect(tree(folder)).toEqual(build());
+  });
+
+  it('keeps the files of the live list again when the live page is the page of this build', async () => {
+    // A first publish of this build kept lazy-FFFF6666.js and named it in its list. A rerun keeps it again.
+    const first = { ...build(), 'assets/lazy-FFFF6666.js': 'lazy', 'assets/kept-files.json': '["lazy-FFFF6666.js"]\n' };
+    const site_ = await site(() => first), folder = buildFolder(build());
+    const result = await keep(folder, site_.url);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('also the files of its live list (the live page is the page of this build); 2 are in the build with the same bytes; kept 1: lazy-FFFF6666.js; assets/kept-files.json names them');
+    expect(tree(folder)).toEqual(first);
+    // The first publish with this tool finds no live list; a list with another name stops the publish.
+    for (const [list, status, message] of [[undefined, 0, 'kept 0'], ['["../index.html"]', 1, 'the live list is not a list of content names'], ['{"files":[]}', 1, 'the live list is not a list of content names']] as const) {
+      const served = { ...build(), ...(list === undefined ? {} : { 'assets/kept-files.json': list }) };
+      const rerun = await keep(buildFolder(build()), (await site(() => served)).url);
+      expect([rerun.status, rerun.stdout + rerun.stderr]).toEqual([status, expect.stringContaining(message)]);
+    }
+  });
+
+  it('refuses invalid arguments, a build without assets/, a build file with no checked type and a build with a list before any request', async () => {
+    const site_ = await site(live);
+    for (const [args, message] of [[[], 'usage:'], [[buildFolder({ 'index.html': 'page', 'sw.js': 'worker' })], 'the build has no assets'], [[buildFolder({ ...build(), 'assets/song-ABCD1234.mp3': 'song' })], 'no checked content type for assets/song-ABCD1234.mp3'], [[buildFolder({ ...build(), 'assets/kept-files.json': '[]' })], 'the build already has assets/kept-files.json']] as const) {
+      const result = await runAsync(process.execPath, [keepAssets, ...args], { env: { ...process.env, DEPLOY_LIVE_URL: site_.url } });
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain(message);
+    }
+    expect(site_.requests).toEqual([]);
+  });
+});
+
+async function pluginSite(fault = '', files?: Record<string, string> | (() => Record<string, string>)) {
   const requests: { path: string; cookie?: string; authorization?: string }[] = [];
   let url = '';
   const server = createServer((req, res) => {
     const path = req.url ?? '/';
     requests.push({ path, cookie: req.headers.cookie, authorization: req.headers.authorization });
     res.setHeader('set-cookie', 'visit=1; Path=/');
-    const file = files?.[path === '/' ? 'index.html' : path.slice(1)];
+    const served = typeof files === 'function' ? files() : files;
+    const file = served?.[path === '/' ? 'index.html' : path.slice(1)];
     if (file !== undefined) { res.setHeader('content-type', contentType(path)); res.end(file); }
     else if (path === '/.well-known/oauth-protected-resource/mcp' || path === '/.well-known/oauth-protected-resource') {
       if (fault === 'metadata-root' && path === '/.well-known/oauth-protected-resource') { res.writeHead(404).end(); return; }
@@ -901,7 +1006,7 @@ async function pluginSite(fault = '', files?: Record<string, string>) {
       if (fault === 'cors') delete headers['Access-Control-Allow-Origin'];
       res.writeHead(200, headers).end(fault === 'art' ? 'stale-art' : 'art-v1');
     } else if (path === '/consent.mjs') res.end(fault === 'script' ? 'old-consent' : 'consent-v1');
-    else if (!(files && siteRoute(req, res, path, files, 'closed'))) res.writeHead(404).end();
+    else if (!(served && siteRoute(req, res, path, served, 'closed'))) res.writeHead(404).end();
   });
   await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
   servers.push(server);
@@ -1041,7 +1146,8 @@ describe('deploy.sh --publish', () => {
 
   it('a failed Vercel deploy stops the script before the live check', async () => {
     const { repo, deployAsync } = setup();
-    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_FAIL: 'deploy', STUB_DIST: buildFolder(pages()) });
+    const live = await site(() => pages());
+    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_FAIL: 'deploy', STUB_DIST: buildFolder(pages()), DEPLOY_LIVE_URL: live.url });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('FAIL at publish');
     expect(result.stdout).not.toContain('live-check');
@@ -1055,6 +1161,48 @@ describe('deploy.sh --publish', () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toMatch(/terms\.html: the live page differs/);
     expect(result.stderr).toContain('FAIL at live check');
+    expectGone(repo, worktreeOf(result.stdout));
+  });
+
+  it('keeps the files of the live build in the publish copy, so an old page loads its lazy chunk after the switch', async () => {
+    const { repo, deployAsync } = setup();
+    const files = pages(), old = oldBuild(), oldFiles = Object.keys(old).filter(name => name.includes('-Old'));
+    // The live site serves the old build until the fake CLI puts the publish copy in its place.
+    const published = join(buildFolder({}), 'live');
+    cpSync(buildFolder(old), published, { recursive: true });
+    const live = await pluginSite('', () => tree(published));
+    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), STUB_PUBLISH_DIR: published, DEPLOY_LIVE_URL: live.url });
+    expect(result.status, result.stderr).toBe(0);
+    const steps = [...result.stdout.matchAll(/^deploy: step (.+)$/gm)].map(match => match[1]);
+    expect(steps.slice(steps.indexOf('copy artifact'))).toEqual(['copy artifact', 'link site project', 'verify site project', 'keep live assets', 'publish', 'live check', 'plugin live check']);
+    const kept = ['art-OldD1234.webp', 'chunk-OldB1234.js', 'index-OldA1234.js', 'style-OldC1234.css'];
+    expect(result.stdout).toContain(`kept 4: ${kept.join(', ')}; assets/kept-files.json names them`);
+    // After the switch: the new build byte for byte, each old file with its own bytes, and the list.
+    const after = { ...files, ...Object.fromEntries(oldFiles.map(name => [name, old[name]])), 'assets/kept-files.json': `${JSON.stringify(kept)}\n` };
+    expect(tree(published)).toEqual(after);
+    expect(result.stdout).toMatch(/live-check: pass: .*\(9 under \/assets\/\)/);
+    const chunk = await fetch(`${live.url}/assets/chunk-OldB1234.js`);
+    expect([chunk.status, await chunk.text()]).toEqual([200, old['assets/chunk-OldB1234.js']]);
+    // A rerun of the same build, as after a failed live check, keeps the old files again.
+    const rerun = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), STUB_PUBLISH_DIR: published, DEPLOY_LIVE_URL: live.url });
+    expect(rerun.status, rerun.stderr).toBe(0);
+    expect(rerun.stdout).toContain(`the live page is the page of this build); 1 are in the build with the same bytes; kept 4: ${kept.join(', ')}`);
+    expect(tree(published)).toEqual(after);
+    expect(live.requests.filter(r => r.cookie !== undefined)).toEqual([]);
+    expectGone(repo, worktreeOf(result.stdout));
+  });
+
+  it('stops before publication when a file of the live build cannot be read', async () => {
+    const { repo, deployAsync, calls } = setup();
+    const old = oldBuild();
+    delete old['assets/chunk-OldB1234.js'];
+    const live = await site(() => old);
+    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(pages()), DEPLOY_LIVE_URL: live.url });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('keep-assets: GET /assets/chunk-OldB1234.js: expected HTTP 200, got 404');
+    expect(result.stderr).toContain('FAIL at keep live assets');
+    expect(calls().some(line => line.includes(' deploy --prebuilt'))).toBe(false);
+    expect(result.stdout).not.toContain('live-check');
     expectGone(repo, worktreeOf(result.stdout));
   });
 });
