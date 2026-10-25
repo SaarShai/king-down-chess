@@ -7,10 +7,23 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
   const noLoops = async target => assert(await target.evaluate(e => e.getAnimations({subtree:true}).every(a => a.playState !== 'running' || a.effect.getComputedTiming().endTime !== Infinity)), 'Cards have no infinite animation');
   const grid=frame.locator('#setup-card-pool'), body=frame.locator('#cards-body'), sheet=frame.locator('#menu-sheet');
   const selected=()=>grid.locator('input:checked').evaluateAll(inputs=>inputs.map(i=>i.value));
+  const transform = face => face.evaluate(async el => {
+    await Promise.all(el.getAnimations().map(a => a.finished));
+    await new Promise(resolve => requestAnimationFrame(() => resolve()));
+    return getComputedStyle(el).transform;
+  });
   assert.equal(await grid.locator('[data-card]').count(),cards.length);
   assert.equal(await grid.locator('small, .cf-cost').count(),0,'Tiles show art and name only');
-  for(const [width,height] of [[1280,800],[390,844],[320,568]]) {
+  for(const [width,height] of [[1280,800],[1000,900],[393,900],[390,844],[320,568],[197,900]]) {
     await page.setViewportSize({width,height});
+    // Each tile, name and corner check fits the box; a name breaks only between words; the clear 44 px hit area holds a small check in the tile corner.
+    const fit=await grid.evaluate(g=>{ g.scrollTop=0; const r=g.getBoundingClientRect(), labels=[...g.querySelectorAll('.card-use')];
+      return { grid:r.left>=0&&r.right<=document.documentElement.clientWidth,
+        tiles:[...g.querySelectorAll('.setup-card')].every(t=>{ const b=t.getBoundingClientRect(); return b.left>=r.left&&b.right<=r.right; }),
+        names:[...g.querySelectorAll('b')].every(b=>b.scrollWidth<=b.clientWidth&&getComputedStyle(b).overflowWrap==='normal'&&getComputedStyle(b).wordBreak==='normal'),
+        checks:labels.every(l=>{ const box=l.getBoundingClientRect(), input=l.querySelector('input').getBoundingClientRect(), tile=l.parentElement.getBoundingClientRect();
+          return box.width>=44&&box.height>=44&&box.left>=r.left&&box.right<=r.right&&input.width<=22&&input.right<=tile.right&&tile.right-input.right<=8&&input.top>=tile.top&&input.top-tile.top<=8; })&&labels[0].getBoundingClientRect().top>=r.top }; });
+    assert.deepEqual(fit,{grid:true,tiles:true,names:true,checks:true},`The card box fits at ${width} px`);
     assert(await grid.evaluate(e=>e.scrollHeight>e.clientHeight && getComputedStyle(e).overflowY==='auto' && getComputedStyle(e).overscrollBehaviorY==='contain'),'The card box contains its scroll');
     assert(await frame.locator('html').evaluate(e=>e.scrollWidth<=e.clientWidth),'The page fits');
     await grid.evaluate(e=>{e.scrollTop=e.scrollHeight;});
@@ -19,13 +32,31 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
   await page.setViewportSize({width:393,height:900});
   await frame.locator('#setup-card-Haste').click();
   assert(await sheet.locator('small').innerText()); assert(await sheet.locator('.cf-cost').innerText());
+  await noLoops(sheet);
   await frame.locator('#menu-close').click();
   assert(await frame.locator('#setup-card-Haste').evaluate(e=>e===document.activeElement),'Close returns focus to the tile');
+  for(const exit of ['Escape','scrim','Done']) {
+    await frame.locator('#setup-card-Haste').click(); await sheet.waitFor();
+    if(exit==='Escape') await page.keyboard.press('Escape');
+    else if(exit==='scrim') await frame.locator('.scrim').click({position:{x:2,y:2}});
+    else await frame.locator('#setup-done').click();
+    assert.equal(await sheet.count(),0,`${exit} closes the full card`);
+    assert(await frame.locator('#setup-card-Haste').evaluate(e=>e===document.activeElement),`${exit} returns focus to the tile`);
+  }
   await body.getByRole('radio',{name:'Pick four',exact:true}).locator('..').click();
   assert.equal((await selected()).length,0);
   await frame.locator('#setup-start').click();
   assert.equal(await frame.locator('#setup-card-status').innerText(),'Pick 4 more cards.');
+  await frame.locator('#setup-start-status',{hasText:/^Pick 4 more cards\.$/}).waitFor({state:'attached'});
   assert(await frame.locator('[data-screen="play"]').isVisible(),'An incomplete pool does not start a game');
+  const haste=grid.locator('[data-card="Haste"] .card-face');
+  assert.equal(await haste.evaluate(el=>getComputedStyle(el).transitionDuration),'0.14s');
+  assert.equal(await transform(haste),'none');
+  await grid.locator('input[value="Haste"]').check();
+  assert.equal(await transform(haste),'matrix(1, 0, 0, 1, 0, -3)','A checked card lifts 3 px');
+  assert.deepEqual(await grid.locator('.setup-card:not(:has(input:checked)) .card-face').evaluateAll(faces=>faces.map(f=>getComputedStyle(f).transform)),cards.slice(1).map(()=>'none'));
+  await grid.locator('input[value="Haste"]').uncheck();
+  assert.equal(await transform(haste),'none','An unchecked card returns to its first position');
   const picked=['MirrorB','MorphP','Haste','Flight'];
   for(const card of picked) await grid.locator(`input[value="${card}"]`).check();
   assert.equal(await grid.locator('input:not(:checked):disabled').count(),cards.length-4);
@@ -33,6 +64,8 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
   assert(!await grid.locator('input[value="Freeze"]').isDisabled());
   await grid.locator('input[value="MirrorB"]').check();
   assert.deepEqual(new Set(await selected()),new Set(picked));
+  assert.equal(await grid.locator('[data-card="MirrorB"] b').innerText(),'Mirror');
+  assert.equal(await grid.locator('[data-card="MorphP"] b').innerText(),'Morph');
   await shot(page,'cards-picked-four');
   await body.getByRole('radio',{name:'Use all cards',exact:true}).locator('..').click();
   assert.equal((await selected()).length,cards.length);

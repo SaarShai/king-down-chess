@@ -29,14 +29,14 @@ At your first game with a person, pick a unique **Name** and a preset **Picture*
 
 ## Choose the features
 
-The first defaults are Fairy pieces on, Arrangement on, Classic chess off, Cards off, and King powers off. The app then saves your last choices.
+The first defaults are Fairy pieces on, First rank sorting set to Player, Classic chess off, Cards off, and King powers off. The app then saves your last choices.
 
 | Control | What it does |
 |---|---|
-| **Fairy pieces** | Draw seven back-rank pieces from the pool. Open the button that shows the number of **kinds** to choose the pool. The king and pawns stay in. Locked boxes keep enough pieces for the draw. |
-| **Arrangement** | With Fairy pieces on, each player orders their own back rank. Tap two pieces to swap them. **Shuffle** gives a legal order. Keep bishops on opposite colours and the guard next to the king. |
+| **Fairy pieces** | Draw seven back-rank pieces from the pool. Turn the switch on to open the section. Tap the header to close or open it again. The section shows **First rank sorting** and the kinds. Check the kinds for the pool. The king and pawns stay in. Locked boxes keep enough pieces for the draw. |
+| **First rank sorting** | Shows in the Fairy pieces section. **Random** gives a random back rank. With **Player**, each player orders their own back rank. Tap two pieces to swap them. **Shuffle** gives a legal order. Keep bishops on opposite colours and the guard next to the king. |
 | **Classic chess** | Shows with Fairy pieces off. On gives the normal start, castling, and en passant. Off gives the chess pieces in a random order, with King Down rules. |
-| **Cards** | Both players get the same four cards. Open the button that shows the number of **cards** to choose the deal pool. Keep at least four checked. Both hands show. A card you play leaves only your hand. |
+| **Cards** | Both players get the same four cards. Turn the switch on to open the section. Tap the header to close or open it again. **Use all cards** deals from the checked cards; the last four checked cards lock. **Pick four** uses the four cards you check. All the cards show as tiles with art and name, in a box that scrolls. Tap the small box in the corner of a tile to put the card in or out of the pool. Tap a tile to open the full card with its rule, its cost and a **Use** box. With fewer than four cards in Pick four, **Start game** and **Open games** stay on New game and the section says how many more to pick. Both hands show. A card you play leaves only your hand. |
 | **King powers** | Tap your king coin to choose a king and a power. With Cards on, only powers that are always on are available. With powers off, White uses Spirit and Black uses Shadow. |
 
 For a game with a person, each player chooses their own king and order when these controls are on. Each selects **Ready**. The seat then says **Waiting for the other player.** Use **Menu → Abort** to cancel setup while it is available. The orders stay hidden until both players are ready. Setup lasts up to three days. An unfinished setup ends with no result.

@@ -146,11 +146,19 @@ it.each(['profile', 'play'])('clears a badge on normal Close while the screen is
   } finally { await page.close(); }
 });
 
-it.each(['pieces', 'cards'])('clears the old %s sheet on mount', async sheet => {
-  const page=await open(), frame=page.frameLocator('iframe');
+it.each(['pieces', 'cards'])('clears the old %s sheet on a remount', async sheet => {
+  const page = await open(), frame = page.frameLocator('iframe'), errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
   try {
-    await frame.locator('html').evaluate((_,sheet)=>{ const app=(window as any).harnessApp; app.client.state.sheet=sheet; app.client.save(); app.navigate('play'); },sheet);
-    await expect.poll(async ()=>(await state(page)).sheet).toBeUndefined();
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('play'));
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.locator('html').evaluate((_, sheet) => { const app = (window as any).harnessApp; app.client.state.sheet = sheet; app.client.save(); }, sheet);
+    await expect.poll(async () => (await state(page)).sheet).toBe(sheet);
+    await page.evaluate(() => (window as any).harnessTeardown());
+    await page.locator('#remount').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await expect.poll(async () => (await state(page)).sheet).toBeUndefined();
     expect(await frame.locator('#menu-sheet').count()).toBe(0);
+    expect(errors).toEqual([]);
   } finally { await page.close(); }
 });

@@ -240,3 +240,36 @@ it('F-117 guards Create and applies both card pool limits inline', async () => {
     expect(await cards.locator('input[type="checkbox"]:checked').count()).toBe(5);
   } finally {await page.close();}
 });
+it('F-117 keeps Open games on New game with an incomplete Pick four pool', async () => {
+  const {page, frame}=await sections();
+  try {
+    await frame.locator('#setup-body .modes').getByRole('radio',{name:'Random',exact:true}).locator('..').click();
+    await frame.locator('#setup-toggle-cards').check();
+    const cards=frame.locator('#cards-body');
+    await cards.getByRole('radio',{name:'Pick four',exact:true}).locator('..').click();
+    for(const i of [0,1]) await cards.locator('input[type="checkbox"]').nth(i).check();
+    await frame.locator('#cards-heading').click();
+    await frame.locator('#play-open').click();
+    expect(await frame.locator('[data-screen="lobby"]').isHidden()).toBe(true);
+    expect(await frame.locator('#cards-body').isVisible()).toBe(true);
+    await expect.poll(()=>frame.locator('#setup-start-status').textContent()).toBe('Pick 2 more cards.');
+    expect(await sent(page,'kingdown_find')).toBe(0);
+  } finally {await page.close();}
+});
+it('F-117 speaks the incomplete pool on each blocked Start and keeps focus', async () => {
+  const {page, frame}=await sections();
+  try {
+    await frame.locator('#setup-toggle-cards').check();
+    const cards=frame.locator('#cards-body'), live=frame.locator('#setup-start-status');
+    await cards.getByRole('radio',{name:'Pick four',exact:true}).locator('..').click();
+    await cards.locator('input[type="checkbox"]').nth(0).check();
+    expect(await live.getAttribute('role')).toBe('status');
+    await live.evaluate(e=>{ (window as any).liveTexts=[]; new MutationObserver(()=>(window as any).liveTexts.push(e.textContent)).observe(e,{childList:true,characterData:true,subtree:true}); });
+    for (const press of [1,2]) {
+      await frame.locator('#setup-start').focus(); await page.keyboard.press('Enter');
+      await expect.poll(()=>frame.locator('html').evaluate(()=>(window as any).liveTexts.filter((t:string)=>t==='Pick 3 more cards.').length)).toBe(press);
+      expect(await frame.locator('#setup-start').evaluate(e=>e===document.activeElement)).toBe(true);
+    }
+    expect(await sent(page,'kingdown_create')).toBe(0);
+  } finally {await page.close();}
+});

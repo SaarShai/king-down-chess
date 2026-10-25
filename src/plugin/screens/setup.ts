@@ -65,7 +65,7 @@ function build() {
     ${section('cards', 'Cards', segment('setup-card-mode', 'Choose cards', ['Use all cards', 'Pick four']) + '<p id="setup-card-status" class="quiet-line" role="status"></p><p id="setup-card-lock" class="lock-note" hidden>' + icon('lock') + '<span>Keep at least 4 cards checked. Check another card to free a lock.</span></p>' + cardTiles())}
     ${toggle('kingPowers', 'powers', 'King powers', 'Each king brings one power.')}
     <div id="setup-your-king" class="king-pick your-king"><div class="coin-row"><button id="setup-king" class="coin" data-state="always" aria-label="Choose your king"><img alt=""></button></div><div class="grow"><h3>Your king</h3><div id="setup-king-name"></div><p id="setup-power-text" class="power-text"></p></div><span class="chev" aria-hidden="true">›</span></div>
-    </details>`;
+    </details><p id="setup-start-status" class="sr-only" role="status"></p>`;
   $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-mode"]').forEach(input => { input.onchange = () => { draft = withMode({ ...draft!, kind: memory.kind = input.value as SetupState['kind'] }, draft!.mode); anyRules = false; render(); }; });
   $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-rating"]').forEach(input => { input.onchange = () => { draft = withMode(draft!, input.value as SetupState['mode']); anyRules = false; cardMode = 'all'; render(); }; });
   $<HTMLInputElement>('setup-level').oninput = event => { draft = { ...draft!, level: MENU_LEVELS[+(event.target as HTMLInputElement).value] }; render(); };
@@ -89,7 +89,7 @@ function build() {
   $('setup-card-pool').querySelectorAll<HTMLInputElement>('input').forEach(input => { input.onchange = () => changeCard(input.value as CardName, input.checked); });
   $('setup-king').onclick = () => void pickKing();
   $('setup-start').onclick = () => void launch();
-  $('play-open').onclick = () => navigate('lobby');
+  $('play-open').onclick = () => { if (!blocked(draft!)) navigate('lobby'); };
   $('join-form').onsubmit = event => { event.preventDefault(); memory.code = $<HTMLInputElement>('token').value.trim(); navigate('join'); };
 }
 function render() {
@@ -213,12 +213,18 @@ async function finish(view: View, pick: KingChoice | null, origin: Job, scope: P
   if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, { retain: true, route: false, origin, king: pick, ...scope }); if (!full) return; view = full; }
   routeView(view);
 }
+/** Start and Open games send nothing with an invalid pool: Cards opens, and the live region speaks the status again. */
+function blocked(setup: SetupState) {
+  if (!validate(setupOptions(setup.options)) && !(setup === draft && setup.options.cards && cardMode === 'four' && setup.options.cardPool.length !== 4)) return false;
+  sectionOpen.cards = true; $<HTMLDetailsElement>('setup-options').open = true; render();
+  $('setup-card-status').scrollIntoView({ block: 'nearest' });
+  // A live region speaks only a change, so a second blocked press clears it first.
+  const live = $('setup-start-status'), text = $('setup-card-status').textContent;
+  live.textContent = ''; setTimeout(() => { live.textContent = text; }, 100);
+  return true;
+}
 async function launch(setup = draft, saveSetup = true) {
-  if (!setup || setupBusy()) return;
-  if (validate(setupOptions(setup.options)) || setup === draft && setup.options.cards && cardMode === 'four' && setup.options.cardPool.length !== 4) {
-    sectionOpen.cards = true; $<HTMLDetailsElement>('setup-options').open = true; render();
-    $('setup-card-status').scrollIntoView({ block: 'nearest' }); return;
-  }
+  if (!setup || setupBusy() || blocked(setup)) return;
   const origin = queue.command('write', 'kingdown_create', {}), scope = { screen: 'play', quick: !saveSetup } as const;
   starting = true; render();
   // A quick start shows no words; after 1 s the button says 'Starting…'. After 5 s, Back is a safe way out: the start stays
