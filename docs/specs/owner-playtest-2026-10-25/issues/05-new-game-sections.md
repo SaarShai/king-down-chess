@@ -105,3 +105,6 @@ Logs use `/private/tmp/claude-501/ci87/run38/agents/sections-fix-files/`.
 - R6: a blocked Start or Open games writes the status into the `role="status"` region `#setup-start-status`. The region clears first, so each blocked press speaks. Focus stays on the pressed control.
 - R9: the feature label "Arrangement" is "First rank sorting" in the lobby key, the badges and the invite text. The stored field and the protocol keep `arrangement`.
 
+- Results on `bd1ed7c3`: the type check passes (`typecheck.log`). The six changed test files pass 189 of 189 tests (`focused-tests-final.log`). All 178 doc tests pass (`docs.log`). The browser checks plugin-ui (305.8 s) and new-game (27.7 s) pass after the live publish ends (`browser.log`, `publish-check.log`).
+- Images: `sections-fix-390.png` and `sections-fix-197.png` show Cards open. The corner checks do not cover the art, and the names stay whole.
+- Known limit: after the pool is complete, the hidden live region keeps its last text. It speaks nothing more.
