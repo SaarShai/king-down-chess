@@ -100,7 +100,7 @@ describe('save-secret.sh', () => {
     const linked = join(root, 'linked');
     const gitConfig = join(root, 'gitconfig');
     writeFileSync(gitConfig, '');
-    const gitEnv = { ...env, GIT_CONFIG_GLOBAL: gitConfig, GIT_CONFIG_NOSYSTEM: '1' };
+    const gitEnv: Record<string, string> = { ...env, GIT_CONFIG_GLOBAL: gitConfig, GIT_CONFIG_NOSYSTEM: '1' };
     delete gitEnv.GATE_SECRETS_DIR;
     const git = (cwd: string, ...args: string[]) => {
       const result = spawnSync('git', args, { cwd, env: gitEnv, encoding: 'utf8' });

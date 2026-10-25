@@ -113,7 +113,7 @@ it('W7-04: a press refused with INVALID_MOVE drops the draft and reads once (D11
 });
 
 it('W7-04: a lost send keeps the ID, revision and actions for Retry, and drops the draft when the FEN moves (D12)', async () => {
-  const {page,frame,base} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1');
+  const {page,frame} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1');
   try {
     await chooseTurnMove(page,'e2-e4',12);
     await page.evaluate(() => { (window as any).dropNextMoveReply=true; });
@@ -379,7 +379,7 @@ it.each(['tap', 'Escape', 'drag', 'Menu Escape', 'Moves Escape'] as const)('F11:
       expect(await close.evaluate(button => button === document.activeElement)).toBe(true);
       await close.press('Escape');
       expect(await frame.locator('#board-sheet[open]').count()).toBe(0);
-      expect(await frame.locator('.page-sheet').evaluate(page => page.inert)).toBe(false);
+      expect(await frame.locator('.page-sheet').evaluate(page => (page as HTMLElement).inert)).toBe(false);
       expect(await frame.locator('#board-menu').evaluate(button => button === document.activeElement)).toBe(true);
     }
     const result = await frame.locator('html').evaluate(async (_, input) => {
@@ -635,7 +635,7 @@ it.each(soundCases.flatMap(test => ['local', 'replay'].map(path => ({ ...test, p
           last_commands: [{ seq: 1, seat: 0, at: base.server_now, action: { type: 'turn', actions: [lan] } }],
         });
       }
-      const events = () => frame.locator('html').evaluate<string[]>(() => (window as any).soundEvents);
+      const events = () => frame.locator('html').evaluate<string[], undefined>(() => (window as any).soundEvents);
       expect(await events()).toEqual([...(now ? [`sound:${now}`] : []), 'animate']);
       await frame.locator('html').evaluate(() => { (window as any).soundContact(); (window as any).soundContact(); });
       expect((await events()).filter(event => event.startsWith('sound:'))).toEqual([now, hit].filter(Boolean).map(name => `sound:${name}`));
@@ -736,7 +736,7 @@ it.each([390, 1280])('live Moves: keeps reading position and focus across a remo
     await route(other);
     await closed();
     await show();
-    await route({ ...other, revision: other.revision + 1, status: 'finished', result: { winner: 1, reason: 'resign' } });
+    await route({ ...other, revision: other.revision + 1, status: 'finished', result: { winner: 1, reason: 'resignation' } });
     await closed();
   } finally { await page.close(); }
 });

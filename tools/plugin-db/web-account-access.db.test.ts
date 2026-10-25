@@ -26,7 +26,7 @@ suite('web account access: switch migration with current game storage', () => {
  let own: URL, admin: pg.Pool, runtime: pg.Pool, plugin: PluginService, gameId: string, boardId: string;
  const actor = randomUUID(), role = `webaccess_${randomUUID().replaceAll('-', '')}`;
  const snapshot = async () => {
-  const rows = [];
+  const rows: unknown[] = [];
   for (const table of ['profiles', 'user_data', 'player_settings', 'games', 'game_players', 'game_commands', 'plugin_boards']) {
    rows.push((await admin.query(`select to_jsonb(t) as row from public.${table} t order by to_jsonb(t)::text`)).rows);
   }

@@ -37,9 +37,9 @@ describe('synchronous child limits', () => {
     expect(limits[0]).toBeLessThan(120_000);
   });
 
-  it.each(['results-store.test.ts', 'stone-control.test.ts'])('bounds both Python calls in %s below the default test limit', file => {
+  it.each([['results-store.test.ts', 2], ['stone-control.test.ts', 1], ['lib/python-modules.ts', 1]] as const)('bounds each Python call in %s (%i) below the default test limit', (file, count) => {
     const limits = timeouts(file);
-    expect(limits).toHaveLength(2);
+    expect(limits).toHaveLength(count);
     for (const limit of limits) {
       expect(limit).toBeGreaterThan(0);
       expect(limit).toBeLessThan(5000);
