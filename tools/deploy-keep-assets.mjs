@@ -35,13 +35,17 @@ if (existsSync(join(folder, 'assets', list))) fault(2, `the build already has as
 const name = String.raw`[\w.-]+-[\w-]{8}\.[A-Za-z0-9]+`;
 const reference = new RegExp(String.raw`["'\x60(\s,]((?:\.?\/)?assets\/|\.\/)(${name})(?=["'\x60)?#\s,])`, 'g');
 
-/** GET with no cookie and no redirect. A fault stops the publish before it starts. */
+/** GET with no cookie and no redirect. A network fault gets two more tries, as one slow file on a busy link
+ * stopped the 2026-10-25 publish; an HTTP reply gets none. A fault after the third try stops the publish. */
 async function get(path) {
-  try {
-    const res = await fetch(base + path, { credentials: 'omit', redirect: 'manual', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15_000) });
-    return { status: res.status, type: (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase(), bytes: Buffer.from(await res.arrayBuffer()) };
-  } catch (error) {
-    fault(1, `GET ${path}: fetch failed (${error.cause?.code ?? error.message})`);
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const res = await fetch(base + path, { credentials: 'omit', redirect: 'manual', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15_000) });
+      return { status: res.status, type: (res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase(), bytes: Buffer.from(await res.arrayBuffer()) };
+    } catch (error) {
+      if (attempt === 3) fault(1, `GET ${path}: fetch failed (${error.cause?.code ?? error.message})`);
+      await new Promise(done => setTimeout(done, 1000 * attempt));
+    }
   }
 }
 
