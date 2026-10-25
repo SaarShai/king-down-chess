@@ -2,6 +2,7 @@
  * 4.3, 4.4 and 8). Thin adapters: the game, account and safety services decide; the actor is the verified `sub` of
  * a website session, never input. Errors carry the protocol codes: `{ code, message }`, and a command's refusal is
  * the protocol's `reject` reply. */
+import { waitUntil } from '@vercel/functions';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createRemoteJWKSet, errors, jwtVerify, type JWTVerifyGetKey } from 'jose';
@@ -16,6 +17,7 @@ import type { SafetyService } from '../online/safety';
 import { cleanup, runDeletions, sweepDeadlines } from '../online/jobs';
 import { ACTOR_UUID, AuthenticationError, AuthenticationUnavailable, pluginOrigin } from '../plugin/auth';
 import { diagnostic } from '../plugin/diagnostics';
+import { errorAdmission, readClientError, recordServerError, type ErrorWriter } from '../diagnostics/server';
 import { WEB_ACCOUNT_ACCESS_TTL_MS } from './account-access';
 import type { WebAccountStatus } from '../online/account-access';
 
@@ -64,6 +66,7 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
 
 export interface ApiOptions {
  games: GameService; accounts: AccountService; safety: SafetyService;
+ recordError?: ErrorWriter; build?: string;
  players?: Pick<PluginService, 'settings' | 'profile' | 'handle' | 'block' | 'blocks' | 'toolTry'>;
  publicOrigin: string; operations?: ReadonlySet<string>;
  /** undefined: website sign-in is not configured */ verify?: (token: string) => Promise<string>;
@@ -174,11 +177,26 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
  const created = new Set(['POST /api/games', 'POST /api/reports']);
  const table = Object.entries(routes).map(([key, run]) => { const [method, path] = key.split(' '); return { key, method, dynamic: path.includes(':id'), pattern: new RegExp(`^${path.replace(':id', '([^/]+)')}$`), run }; });
  let active = 0;
+ // Read these options only in website builds to keep the plugin function unchanged.
+ const recorder = import.meta.env?.KINGDOWN_ERROR_RECORDER !== false ? arguments[0] as ApiOptions : undefined;
+ const admitError = import.meta.env?.KINGDOWN_ERROR_RECORDER !== false ? errorAdmission() : undefined;
  return async (req, res) => {
   const notFound = () => {
    res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff');
    req.resume(); respond(res, 404, { code: 'NOT_FOUND', message: 'Not found' });
   };
+  // Fault reports need no account or account-access switch.
+  if (import.meta.env?.KINGDOWN_ERROR_RECORDER !== false && req.url?.split(/[?#]/, 1)[0] === '/api/client-errors' && req.method === 'POST') {
+   res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff');
+   try {
+    if (recorder?.recordError && req.headers.host?.toLowerCase() === new URL(origin).host && req.headers.origin === origin
+     && (!req.headers['sec-fetch-site'] || req.headers['sec-fetch-site'] === 'same-origin') && admitError!()) {
+     const report = await readClientError(req);
+     if (report) await recorder.recordError(report);
+    }
+   } catch { /* Dropped reports have the same empty response. */ }
+   req.resume(); respond(res, 204); return;
+  }
   if (!operations?.size) { notFound(); return; }
   const path = req.url?.startsWith('/') && URL.canParse(req.url, origin) ? new URL(req.url, origin).pathname : '';
   const matched = table.flatMap(route => { const found = route.pattern.exec(path); return found ? [{ ...route, id: found[1] ?? '' }] : []; });
@@ -231,6 +249,10 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
    if (known.status >= 500 && known.status !== 503) console.error('King Down API failed', { route: route.key, requestId: randomUUID(), ...diagnostic(error) });
    const commandId = (body as { command_id?: unknown } | undefined)?.command_id;
    respond(res, known.status, { ...(route.key === 'POST /api/games/:id/commands' && { type: 'reject', command_id: typeof commandId === 'string' ? commandId : '' }), code: known.code, message: known.message });
+   if (import.meta.env?.KINGDOWN_ERROR_RECORDER !== false) {
+    release?.(); release = undefined;
+    if (!(error instanceof MatchServiceError || error instanceof AuthenticationError || error instanceof AuthenticationUnavailable)) waitUntil(recordServerError(recorder?.recordError, error, route.key.split(' ')[1], recorder?.build ?? ''));
+   }
   } finally { release?.(); }
  };
 }

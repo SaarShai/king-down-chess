@@ -34,7 +34,7 @@
 <p>The website has sign-in and cloud saves. The King Down app in ChatGPT also has games against people, ratings and badges. Every piece, king, power and card is unlocked in the app.</p>
 
 <h2>Playing without an account</h2>
-<p>You can play without signing in. Then the game keeps your settings, lessons and saved games only in your own browser (local storage). Nothing about you goes to us.</p>
+<p>You can play without signing in. Then the game keeps your settings, lessons and saved games only in your own browser (local storage). Fault reports can go to us as described below.</p>
 
 <h2>When you sign in</h2>
 <p>You can sign in with Google or GitHub on the website and in the ChatGPT app. Facebook sign-in is not available in ChatGPT. On the website, it is hidden unless the address includes <code>?facebook=1</code>. The sign-in service sends:</p>
@@ -74,6 +74,7 @@
 <h2>Where it is kept</h2>
 <p>Accounts and game data are stored with Supabase (servers in the United States). The website itself is served by Vercel. Both process data for us only to provide their service. Sign-in goes through Google or GitHub under their own privacy policies. The hidden website Facebook option uses Meta's privacy policy.</p>
 <p>Like most websites, our servers keep short technical logs. Vercel records each request to kingdown.dev, with its time, address (URL), result and your IP address. Supabase records each sign-in, with its time and your IP address. When a game action fails, our server logs the time, the tool name and an error code, but not your moves or your messages. We use these logs only to keep the game running, find faults and stop abuse. Vercel keeps them for 1 day. Supabase keeps them for the log period of our Supabase plan, at most 90 days.</p>
+<p id="fault-reports">To find and fix faults, the website sends fault reports to our server. A report holds the fault type and name, and an approved code message with private values removed (at most 300 characters). Variable values use a fixed mark. Other messages use one fixed text. No code location is sent or stored. The report holds the route path with IDs removed. Other paths use one fixed text. It includes the current build commit (other builds use one fixed text), browser family and major version, phone or desktop size class, and fault group code. Server faults hold the fault name, approved message and route, without code file locations or browser details. We store these reports, their counts and their first and last times in Supabase for 30 days. Reports are not linked to your account. They hold no account number, IP address, full browser string, moves, player messages or game IDs. They hold no URL query or fragment. We use no third-party tracking tool.</p>
 <p>When you play King Down in ChatGPT, OpenAI receives what the app sends to ChatGPT. That is a short summary for the chat (for example, whose move it is, or your rating), and the board data that ChatGPT shows in the King Down board (the position, the moves, and your and your opponent's handles and pictures). OpenAI handles this data under its own privacy policy. We do not receive your ChatGPT conversation.</p>
 
 <h2>How long we keep it</h2>

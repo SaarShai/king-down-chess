@@ -55,6 +55,24 @@ export async function cleanup(games: GameService, now = new Date()): Promise<{ i
   and not exists(select from public.games g where g.id=i.game_id and g.status='waiting')`, [now]);
  const outbox = await pool.query(`delete from public.outbox where done_at<=$1::timestamptz-interval '30 days' or created_at<=$1::timestamptz-interval '30 days'`, [now]);
  const boards = await pool.query("delete from public.plugin_boards where created_at<$1::timestamptz-interval '7 days'", [now]);
+ if (import.meta.env?.KINGDOWN_ERROR_RECORDER !== false) {
+  // Fault cleanup must not stop report cleanup or account deletion.
+  let client;
+  try {
+   client = await pool.connect();
+   for (;;) {
+    await client.query('begin');
+    await client.query("set local statement_timeout = '500ms'; set local lock_timeout = '500ms'; set local timezone = 'UTC'");
+    const batch = await client.query(`delete from public.client_errors where id in
+     (select id from public.client_errors where last_seen<now()-interval '30 days'
+      order by last_seen limit 100 for update skip locked)`);
+    await client.query('commit');
+    if ((batch.rowCount ?? 0) < 100) break;
+   }
+  } catch {
+   if (client) try { await client.query('rollback'); } catch { client.release(true); client = undefined; }
+  } finally { client?.release(); }
+ }
  const reports = await pool.query("delete from public.reports where created_at<now()-interval '12 months' and (hold_until is null or hold_until<=now())");
  return { invites: invites.rowCount ?? 0, outbox: outbox.rowCount ?? 0, boards: boards.rowCount ?? 0, reports: reports.rowCount ?? 0 };
 }
