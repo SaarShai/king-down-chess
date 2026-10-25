@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { statSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import sharp from 'sharp';
+import { pythonModules } from './lib/python-modules';
 
 const master = 'docs/2d-first-pieces/board-art/stone-board.png';
 const copies = [
@@ -9,8 +10,8 @@ const copies = [
   ['docs/2d-first-pieces/board-art/stone-board.webp', 1024, 112_300],
   ['public/ui/stone-board.webp', 640, 29_566],
 ] as const;
-// The source export needs numpy and Pillow, as does the stone-control export. A slow import fails; only a missing module skips.
-const canExport = (() => { try { execFileSync('python3', ['-c', 'import numpy, PIL'], { stdio: 'pipe', timeout: 4000 }); return true; } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ETIMEDOUT') throw error; console.info('Skip source export: Python numpy and Pillow are not available. Shipped asset checks still run.'); return false; } })();
+// The source export needs numpy and Pillow, as does the stone-control export. Only a missing module skips.
+const canExport = pythonModules('numpy', 'PIL');
 const python = (code: string) => JSON.parse(execFileSync('python3', ['-c', `
 import runpy, json, numpy as np
 from PIL import Image

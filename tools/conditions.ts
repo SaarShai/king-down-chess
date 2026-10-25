@@ -97,8 +97,6 @@ const show = (st: RunStat): void => {
   console.log('  piece | per game | still (no move) | survive | captures');
   for (const l of letters) {
     const p = st.pieces.get(l)!;
-    // Owner-armies = games x armies that actually start with it.
-    const owners = [...st.pieces.values()][0] && st.games; // each side owns it in these symmetric runs
     console.log(`  ${l.padEnd(5)} | ${(p.moves / (2 * g)).toFixed(2).padStart(8)} | ${pct(p.zero / (2 * g)).padStart(15)} | ${pct(p.survived / (2 * g)).padStart(7)} | ${(p.captures / (2 * g)).toFixed(2)}`.replace('$owners', ''));
     void caps;
   }

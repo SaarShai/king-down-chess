@@ -318,6 +318,17 @@ async function friend(host: string, guest: string) {
   expect((await owner.show(first)).actions).toHaveLength(3);
  }, 30000);
 
+ it.each([['2026-03-01T12:00:00Z', 167], ['2026-10-25T12:00:00Z', 169]])('uses UTC for a 7-day grace from %s', async (at, localHours) => {
+  const local = new pg.Client({ connectionString: own.href, options: '-c timezone=America/Los_Angeles' });
+  await local.connect();
+  try {
+   expect((await runtime.query('show timezone')).rows[0].TimeZone).toBe('UTC');
+   const sql = "select (extract(epoch from (($1::timestamptz + interval '7 days') - $1::timestamptz)) / 3600)::int as hours";
+   expect((await runtime.query(sql, [at])).rows[0].hours).toBe(168);
+   expect((await local.query(sql, [at])).rows[0].hours).toBe(localHours);
+  } finally { await local.end(); }
+ });
+
  it('asks for a deletion with a 7-day grace that a sign-in cancels, and holds a reported player’s data', async () => {
   const [x, y, z] = [await user('del'), await user('held'), await user('rpc')];
   const asked = await accounts.requestDeletion(x);

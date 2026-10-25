@@ -5,7 +5,7 @@
 //   - a Sources section with a link to a regulator's own page (and https links only);
 //   - no model name, and no relative link to a file that does not exist.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { findModelNames } from './lib/model-names.mjs';
 
