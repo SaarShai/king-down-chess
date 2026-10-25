@@ -1,6 +1,6 @@
 # 87 — A first tap before the legal-move preview only reads the piece
 
-Status: fixed on branch `staging/early-tap` (from `origin/staging/first-game` `a89a9381`), PR SaarShai/king-down-chess#111 into `staging/first-game`. Independent review: ready. Merge open.
+Status: fixed on branch `staging/early-tap` (from `origin/staging/first-game` `a89a9381`), PR SaarShai/king-down-chess#111 into `staging/first-game`. Independent review: ready. CI green. Merge open.
 Type: task
 
 ## Fault
@@ -51,8 +51,11 @@ All runs use `npm test` or `npm run check:browser` under `tools/test-lock.sh`, o
 | Mutation: the restored preview reply is dropped | `dae1e9a8` | test 4 fails: `expected 'RAGQKMSO' to be 'RAGQKSMO'` |
 | Full `npm test` | `a89300ca` | 5155 passed, 1 failed, 8 skipped (see below) |
 | `check:browser plugin-ui plugin-ui-http` | `a89300ca` | both pass (276 s, 299 s) |
+| CI run 40183623337 (11 jobs) | `fb8d8897` | all pass; `verify` (the full `npm test` in UTC) passes, the accounts test too |
 
 The one full-suite failure is not from this change: `src/online/accounts.db.test.ts`, "asks for a deletion with a 7-day grace that a sign-in cancels", gets 608400000 ms, not 604800000 ms. The local test PostgreSQL runs in `America/Los_Angeles`. There, `now() + interval '7 days'` crosses the clock change of 2026-11-01 and is 608400 s; in UTC it is 604800 s. CI runs in UTC. This change does not touch that test or its code.
+
+In CI run 40183623337, the first attempt of `browser-board (board-input)` failed once: "F-008: the keyboard scrolls a long Moves sheet" (`plugin-board-input.test.ts:720`, the poll after End did not see the end of the Moves sheet). That test uses the local preview and the keyboard, not the changed code. The same file passes in the WebKit job of that run, locally (45 of 45), and on the job rerun.
 
 ## Review
 
