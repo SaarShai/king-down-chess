@@ -896,7 +896,13 @@ it('shows the server character rule beside the Free mark for a bad name', async 
     expect(await page.evaluate(() => (window as any).harnessCalls.findLast((c: any) => c.name === 'kingdown_handle').arguments)).toEqual({ handle: 'a?', check: true });
   } finally { await page.close(); }
 });
-it('draws Maester swap marks through the shared board adapter', async () => {
+// Ticket 87: a tap on the Maester before the legal-move preview arrives selects it when the reply comes, with no second tap.
+// Escape before the reply lets that tap go.
+it.each([
+  ['after the preview reply', false, false],
+  ['before the preview reply', true, false],
+  ['before the preview reply, then Escape', true, true],
+] as const)('draws Maester swap marks through the shared board adapter for a tap %s', async (_, early, escape) => {
   const page = await browser.newPage(); page.setDefaultTimeout(5000);
   await page.addInitScript(() => {
     (window as any).swapMarks = 0;
@@ -911,9 +917,10 @@ it('draws Maester swap marks through the shared board adapter', async () => {
     await frame.locator('#home-play:not(:disabled)').waitFor();
     await expand(page);
     const seeded = await (await page.request.post(new URL('/fixture-position?case=swap', harness.url).href)).json();
+    if (early) await page.evaluate(() => { (window as any).holdNext = 'kingdown_preview'; });
     await page.evaluate(result => (window as any).harnessShow(result), seeded);
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
-    // A tap before the legal-move preview arrives only reads the piece (blocked() in board.ts), so wait for the reply.
+    if (early) await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
     await settled(page);
     const point = await frame.locator('html').evaluate(async () => {
       const { board } = await new Function('return import("/src/plugin/board-view.ts")')();
@@ -921,8 +928,72 @@ it('draws Maester swap marks through the shared board adapter', async () => {
     });
     const pane = await page.locator('iframe').boundingBox();
     await page.mouse.click(point.x + pane!.x, point.y + pane!.y);
-    await page.frames().find(f => f.url().endsWith('/board-resource'))!.waitForFunction(() => (window as any).swapMarks > 0);
-  } finally { await page.close(); }
+    const resource = page.frames().find(f => f.url().endsWith('/board-resource'))!;
+    if (early) {
+      // While the reply waits, the tap reads the Maester and draws no swap mark.
+      await frame.locator('#status').filter({ hasText: 'White Maester' }).waitFor();
+      expect(await resource.evaluate(() => (window as any).swapMarks)).toBe(0);
+      if (escape) { await frame.locator('#board').focus(); await page.keyboard.press('Escape'); }
+      await page.evaluate(() => (window as any).releaseHeld());
+    }
+    const selected = () => frame.locator('html').evaluate(async () => (await new Function('return import("/src/plugin/board-view.ts")')()).board.marks.selected);
+    if (escape) {
+      await settled(page);
+      expect(await selected()).toBeUndefined();
+      expect(await resource.evaluate(() => (window as any).swapMarks)).toBe(0);
+    } else {
+      await resource.waitForFunction(() => (window as any).swapMarks > 0);
+      expect(await selected()).toBe(27);
+    }
+  } finally { await page.evaluate(() => (window as any).releaseHeld?.()).catch(() => {}); await page.close(); }
+});
+// Ticket 87: the kept tap belongs to the board the player taps. A restored draft step changes that board, so the tap stays a read.
+it('keeps a tap before a restored draft preview as a read when the draft moves another piece there', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  const boardView = 'return import("/src/plugin/board-view.ts")';
+  const tap = async (square: number) => {
+    const point = await frame.locator('html').evaluate(async (_, [source, square]) => {
+      const { board } = await new Function(source)(); await board.ready(); return board.screenOf(square);
+    }, [boardView, square] as const);
+    const pane = (await page.locator('iframe').boundingBox())!;
+    await page.mouse.click(point.x + pane.x, point.y + pane.y);
+  };
+  const selected = () => frame.locator('html').evaluate(async (_, source) => (await new Function(source)()).board.marks.selected, boardView);
+  let game_id: string | undefined;
+  try {
+    await expand(page);
+    // Back rank RAGQKMSO: the Maester stands on f1 (square 5) beside the Beast on g1.
+    const seeded = await (await page.request.post(new URL('/fixture-position?case=haste', harness.url).href)).json();
+    game_id = seeded._meta.view.game_id;
+    await page.evaluate(result => (window as any).harnessShow(result), seeded);
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+    await settled(page);
+    await frame.locator('#power-w').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
+    await tap(5);
+    await frame.locator('#board-menu').click();
+    await frame.locator('#board-sheet').getByRole('button', { name: 'Choose a move', exact: true }).click();
+    await frame.locator('#choices button[title="Mf1<>g1!H"]').click();
+    await frame.locator('#board[data-animating="false"]').waitFor();
+    await settled(page);
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft.lans)).toEqual(['Mf1<>g1!H']);
+    // The new widget restores the draft through a held preview. Until the reply, it shows the base board.
+    await page.evaluate(() => { (window as any).holdNext = 'kingdown_preview'; });
+    await remount(page);
+    await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
+    await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
+    await settled(page);
+    await tap(5);
+    await frame.locator('#status').filter({ hasText: 'White Maester' }).waitFor();
+    await page.evaluate(() => (window as any).releaseHeld());
+    await settled(page);
+    // The swap puts the Beast on f1. The player tapped the Maester, so the board must not select the Beast.
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft.lans)).toEqual(['Mf1<>g1!H']);
+    expect(await selected()).toBeUndefined();
+  } finally {
+    await page.evaluate(() => (window as any).releaseHeld?.()).catch(() => {}); await page.close();
+    if (game_id) await fetch(new URL('/fixture-delete-match', harness.url), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game_id }) });
+  }
 });
 it('declares inline and fullscreen modes in the App handshake', async () => {
   const page = await open();
