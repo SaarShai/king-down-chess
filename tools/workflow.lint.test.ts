@@ -12,7 +12,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
 
   it('runs once per PR update and keeps the Node 24 database suite', () => {
     const triggers = workflow.split('\non:\n')[1].split('\npermissions:')[0];
-    expect(triggers).toBe('  pull_request:\n  push:\n    branches: [main]\n  workflow_dispatch:\n');
+    expect(triggers).toBe('  pull_request:\n  push:\n    # staging/first-game too: the staging deploy needs CI on the exact commit it publishes.\n    branches: [main, staging/first-game]\n  workflow_dispatch:\n');
     const verify = job('verify');
     expect(verify).toContain('node-version: 24');
     expect(verify).toContain('image: postgres:17');
@@ -25,7 +25,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
   it('keeps the release and sample instructions in line with the CI and push gates', () => {
     const read = (path: string) => readFileSync(join(import.meta.dirname, '..', path), 'utf8');
     const release = read('docs/specs/web-adaptation/release-route.md');
-    expect(release).toContain('Keep `plugin-checks.yml` for PRs and pushes to `main`. Open a PR to start branch checks.');
+    expect(release).toContain('Keep `plugin-checks.yml` for PRs and pushes to `main` and `staging/first-game`. Open a PR to start branch checks.');
     expect(release).toContain('The pre-push hook runs only the repo gate.');
     const sample = read('docs/specs/chatgpt-mvp/sample/candidates/rollers/README.md');
     expect(sample).toContain('CI and the deploy run `npm test`.');
