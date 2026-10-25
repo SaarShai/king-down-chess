@@ -2142,6 +2142,9 @@ try {
     await openScreen('settings');
     await frame.locator('canvas').evaluate(() => { window.harnessSymbolPaints = 0; });
     await frame.locator('#symbols-only').check();
+    // The fixture view carries the saved settings, and the board applies them. A read before the write commits turns
+    // Symbols only off again after the write reply drew the symbols. Wait for the write first.
+    await idleBoard();
     await page.evaluate(result => window.harnessShow(result), (await (await page.request.post(new URL(`/fixture-position?case=gallery&kings=${kings}`,base).href)).json()));
     await idleBoard(); await boardBox();
     // The settings reply can end before the SVG images load and the board draws them.
@@ -2174,7 +2177,8 @@ try {
     const box = await boardBox(); await page.mouse.move(box.x+(32+.5*112)*box.width/960, box.y+(96+5.5*112)*box.width/960);
     await frame.locator('canvas').evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
     assert(await frame.locator('canvas').evaluate(() => window.harnessGhostSymbols.some(src => /knight-0-/.test(src))), 'The knight move preview uses the same symbol at half opacity');
-    await openScreen('settings'); await frame.locator('#symbols-only').uncheck();
+    // The next king pair's fixture view must read Symbols only off.
+    await openScreen('settings'); await frame.locator('#symbols-only').uncheck(); await idleBoard();
   }
   await openPlay(); await legacyStart('solo'); await idleBoard();
   const cardBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
