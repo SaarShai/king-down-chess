@@ -3,7 +3,8 @@ name: Validate game and private plugin
 on:
   pull_request:
   push:
-    branches: [main]
+    # staging/first-game too: the staging deploy needs CI on the exact commit it publishes.
+    branches: [main, staging/first-game]
   workflow_dispatch:
 
 permissions:

@@ -11,7 +11,7 @@ import { drawCheck, drawWithdrawal } from './check';
 import { fixtures } from '../../../docs/specs/effects-animation/preview/signals/fixtures';
 vi.mock('./materials', () => ({ drawFreeze: vi.fn(), drawIceWall: vi.fn(), drawFirewall: vi.fn() }));
 vi.mock('./archer-flare', () => ({ drawArcherFocus: vi.fn() }));
-vi.mock('./state-flare', () => ({ drawGuard: vi.fn(), drawShelter: vi.fn(), drawSwap: vi.fn() }));
+vi.mock('./state-flare', () => ({ drawShelter: vi.fn(), drawSwap: vi.fn() }));
 vi.mock('./indications', () => ({ SIGNAL_DURATION_MS: 4800, ring: vi.fn(), link: vi.fn(), pips: vi.fn(), checkImpact: vi.fn() }));
 vi.mock('./check', () => ({ CHECK_ONSET_MS: 440, CHECK_WITHDRAW_MS: 220, drawCheck: vi.fn(), drawWithdrawal: vi.fn() }));
 afterEach(() => vi.clearAllMocks());

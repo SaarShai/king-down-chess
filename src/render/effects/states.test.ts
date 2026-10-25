@@ -183,12 +183,24 @@ describe('real state lifecycle', () => {
 });
 
 describe('protection comes from the current game context', () => {
-  it('keeps Guard immunity and the king exception only when the rule enables it', () => {
+  it('gives an immune Guard no shield state and keeps its capture rule', () => {
     const f = fixtures.guard;
-    expect(boardStates(f.rules, f.after)).toContainEqual(expect.objectContaining({ kind: 'guard', sq: at('d4'), exception: 'king' }));
+    expect(f.rules.rules.guardImmune).toBe(true);
+    expect(boardStates(f.rules, f.after)).toEqual([]);
+    const moves = f.rules.legalMoves(f.after);
+    expect(moves.some(m => m.captures.includes(at('d4')) && m.from === at('d8'))).toBe(false);
+    expect(moves.some(m => m.captures.includes(at('d4')) && m.from === at('e5'))).toBe(true);
     const disabled = new GameRules({ guardImmune: false });
     expect(boardStates(disabled, f.after)).toEqual([]);
     expect(disabled.legalMoves(f.after).some(m => m.captures.includes(at('d4')) && m.from === at('d8'))).toBe(true);
+  });
+
+  it.each(['ward', 'firewall', 'freeze'] as const)('keeps temporary %s on an immune Guard', kind => {
+    const f = fixtures.guard, pos = structuredClone(f.after), sq = at('d4');
+    const rules = new GameRules({ ...f.rules.rules, hands: [['Freeze', 'IceWall', 'Firewall'], ['Freeze', 'IceWall', 'Firewall']] });
+    pos.marks = kind === 'freeze' ? [undefined, { sq, left: 1 }] : [{ sq, ward: true, all: kind === 'firewall', left: 1 }, undefined];
+    const states = boardStates(rules, pos).filter(state => state.sq === sq);
+    expect(states).toEqual([expect.objectContaining({ kind, sq, turns: 1 })]);
   });
 
   it('keeps Holy Light orthogonal shelter and Mercy pawn captures exact', () => {
@@ -208,8 +220,10 @@ describe('protection comes from the current game context', () => {
     const f = fixtures.mercy, pos = structuredClone(f.after);
     pos.board[at('d3')] = fixtures.guard.after.board[at('d4')];
     const states = boardStates(f.rules, pos);
-    expect(states.filter(s => s.sq === at('d3')).map(s => [s.kind, s.exception])).toEqual([['guard', undefined], ['mercy', undefined]]);
+    expect(states.filter(s => s.sq === at('d3')).map(s => [s.kind, s.exception])).toEqual([['mercy', undefined]]);
     expect(f.rules.legalMoves(pos).some(m => m.captures.includes(at('d3')))).toBe(false);
+    const noImmunity = new GameRules({ ...f.rules.rules, guardImmune: false });
+    expect(boardStates(noImmunity, pos).find(s => s.sq === at('d3'))?.exception).toBe('pawn');
   });
 
   it('keeps two mark slots, left zero and wrong-side marks separate', () => {

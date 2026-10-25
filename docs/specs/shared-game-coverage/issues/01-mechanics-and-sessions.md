@@ -22,7 +22,7 @@ Staging source `d92991cb` passes all 112 compiled mechanics executions and the c
 
 Three fresh native ChatGPT opens pass without Try again after tool refresh, with the automation debugger detached. ChatGPT creates `1ccbc2a2-71f6-8b47-a4db-aede1260beed` and commits Freeze/Ogre. Web shows the same history and commits March. A fresh ChatGPT instance shows all five actions, including the computer’s Morph. Scoped staging DB reads confirm row and save engine `cdac045d`, revision 6; the old `a9a59436` game keeps `8d628361`.
 
-Ticket 04’s actual navigation check passes: the cached Play list discovers a game created on web, without Refresh. The original b2–b3 draft survives the return. Undo removes only that draft; confirmed history and revision stay unchanged. Fresh native Profile and account notices also pass. This closes U05’s staging gate. Physical-phone/performance and operator public-readiness checks remain separate U09/U07 gates. No production release is authorized.
+Ticket 04’s actual navigation check passes: the cached Menu list discovers a game created on web, without Refresh. The original b2–b3 draft survives the return. Undo removes only that draft; confirmed history and revision stay unchanged. Fresh native Profile and account notices also pass. This closes U05’s staging gate. Physical-phone/performance and operator public-readiness checks remain separate U09/U07 gates. No production release is authorized.
 
 The sections below retain historical failures and repairs. They do not supersede this current evidence.
 

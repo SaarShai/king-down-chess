@@ -197,8 +197,8 @@ try {
   await checkMenuContent(frame, '[data-screen="play"] [data-nav="settings"]');
   await page.setViewportSize(menuViewport);
   assert.equal(await frame.locator('[data-screen="play"] [data-nav="settings"]').evaluate(row => row.getBoundingClientRect().height), 48, 'The plain Settings row is exactly 48 px tall');
-  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'play', 'Home Choose a game opens the Play hall');
-  // M3: a failed first read on Play has one error and one way to read again.
+  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'play', 'Home Choose a game opens the Menu hall');
+  // M3: a failed first read on Menu has one error and one way to read again.
   async function readErrorOnce(screen) {
     const message = 'Harness saved-game read failed';
     await frame.locator('#error').filter({ hasText: message }).waitFor();
@@ -212,7 +212,7 @@ try {
   await readErrorOnce('Menu');
   await frame.getByRole('button', { name: 'Try again', exact: true }).click();
   await frame.locator('#retry').waitFor({ state: 'hidden' });
-  assert.equal(await frame.locator('#error').innerText(), '', 'A good Play read clears the error');
+  assert.equal(await frame.locator('#error').innerText(), '', 'A good Menu read clears the error');
   const homeAgain = await (await page.request.post(new URL('/fixture-tool',base).href, { data: { name: 'kingdown_open', arguments: { screen: 'home' } } })).json();
   await page.evaluate(result => window.harnessShow(result), homeAgain);
   await frame.locator('#home-play:not(:disabled)').waitFor();
@@ -235,11 +235,21 @@ try {
   async function openPlay() {
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
     for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) {
+      if (await frame.locator('body[data-page="board"]').count()) {
+        // A new board reply can close Menu between steps. Open and return in the same frame.
+        await frame.locator('#board-menu:not(:disabled)').evaluate(button => {
+          button.click();
+          const main = [...document.querySelectorAll('#board-sheet .sheet-body > button')].find(row => row.textContent === 'Main menu');
+          if (!main) throw new Error('Menu has no Main menu row');
+          main.click();
+        });
+        continue;
+      }
       await widget().waitForFunction(() => {
         const d=document;
         return !d.querySelector('[data-screen="play"]').hidden || [...d.querySelectorAll('#page-back, .table-back')].some(b=>!b.disabled&&b.getClientRects().length);
       });
-      // A computer abort can open Play while Back waits for a call. Check and act in the same frame.
+      // A computer abort can open Menu while Back waits for a call. Check and act in the same frame.
       await frame.locator('html').evaluate(() => {
         if (!document.querySelector('[data-screen="play"]').hidden) return;
         [...document.querySelectorAll('#page-back, .table-back')].find(b=>!b.disabled&&b.getClientRects().length)?.click();
@@ -512,7 +522,7 @@ try {
     !['kingdown_get', 'kingdown_games', 'kingdown_lobby', 'kingdown_profile'].includes(name)
     && !(name === 'kingdown_join' && a.preview === true) && !(name === 'kingdown_handle' && a.check === true)
     && !(name === 'kingdown_settings' && Object.keys(a).every(k => k === 'board_id'))).map(c => c.name), navCalls);
-  assert.deepEqual(navWrites, [], 'Play rows and Back send no write call');
+  assert.deepEqual(navWrites, [], 'Menu rows and Back send no write call');
   assert.equal(await page.evaluate(() => JSON.stringify(window.harnessWidgetState).includes('K7QX2M')), false, 'The join code stays in page memory');
   await freshHost('play');
   // Ticket 12: setup and its three sheets.
@@ -543,7 +553,7 @@ try {
       await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length > n, reads);
       await frame.locator('#setup-start:not(:disabled)').waitFor();
       await page.evaluate(()=>{window.harnessDropWidgetWrites=false;});
-      // The mount's Play read ends later, and each store pass draws the setup card grid again with new buttons.
+      // The mount's Menu read ends later, and each store pass draws the setup card grid again with new buttons.
       await settled(page, frame);
       await frame.locator('#setup-options').evaluate(e => { e.open = true; });
     }
@@ -1210,7 +1220,7 @@ try {
   }
   await page.setViewportSize({width:1000,height:1000});
   await openPlay();
-  // The rows of the last visit show at once; the Play read draws them again.
+  // The rows of the last visit show at once; the Menu read draws them again.
   await settled(page, frame);
   const savedGame = frame.locator('#games-list button').first();
   await savedGame.waitFor();
@@ -2614,7 +2624,7 @@ try {
   });
   // T3: at 197 x 426 the hall scrolls to its end above the pinned Start game bar, and the page clips nothing.
   async function zoomHallFits() {
-    // The Play read that the hall starts draws the game rows again.
+    // The Menu read that the hall starts draws the game rows again.
     await settled(page, frame);
     const viewport = page.viewportSize();
     await zoomViewport(402,874,0,0);

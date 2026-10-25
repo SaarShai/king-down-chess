@@ -96,7 +96,7 @@ test.each(['TESTER-GUIDE.md', 'LIVE-CHECKS.md', 'RUNBOOK.md'])('%s describes the
   const text = readFileSync(`docs/specs/chatgpt-mvp/release/${file}`, 'utf8').replaceAll('**', '');
   for (const words of ['New game', 'See the board', 'Game result', 'Skip',
     'Play again keeps your colour against the computer',
-    'A computer abort returns to Play with the same setup', '1 s after a live result opens']) expect(text).toContain(words);
+    'A computer abort returns to Menu with the same setup', '1 s after a live result opens']) expect(text).toContain(words);
   expect(text).not.toContain('Your games opens the profile scroll');
 });
 

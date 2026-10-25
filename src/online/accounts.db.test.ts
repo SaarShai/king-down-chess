@@ -341,6 +341,47 @@ async function friend(host: string, guest: string) {
   expect(Object.keys((await accounts.profile(y)).deletion!)).toEqual(['requested_at', 'run_after']);
  }, 30000);
 
+ it.each(['first request', 'request after cancel'])('keeps a 168-hour grace in Los Angeles: %s', async request => {
+  const actor = await user(), client = await admin.connect();
+  try {
+   await client.query('begin');
+   await client.query("set local timezone = 'America/Los_Angeles'");
+   if (request === 'request after cancel') await client.query(`insert into public.account_deletions(user_id,requested_at,run_after,cancelled_at)
+    values($1,now()-interval '1 year',now()-interval '1 day',now())`, [actor]);
+   await client.query("select set_config('request.jwt.claim.sub',$1,true)", [actor]);
+   const rpc = async () => {
+    await client.query('set local role authenticated');
+    expect((await client.query('select current_user as role')).rows[0].role).toBe('authenticated');
+    await client.query('select public.delete_my_account()');
+    expect((await client.query('show timezone')).rows[0].TimeZone).toBe('America/Los_Angeles');
+    await client.query('reset role');
+   };
+   await rpc();
+   const deletion = async () => (await client.query(`select requested_at,run_after,cancelled_at,
+    extract(epoch from run_after-requested_at)::float8 as seconds from public.account_deletions where user_id=$1`, [actor])).rows[0];
+   const first = await deletion();
+   expect(first.seconds).toBe(168 * 3600);
+   expect(first.cancelled_at).toBeNull();
+   if (request === 'request after cancel') expect(first.requested_at.getTime()).toBe((await client.query('select now() as at')).rows[0].at.getTime());
+   await rpc();
+   expect(await deletion()).toEqual(first);
+  } finally { await client.query('rollback'); client.release(); }
+ });
+
+ it.each(['2026-03-07T12:00:00Z', '2026-10-31T12:00:00Z'])('keeps the deletion default at 168 hours across the clock change from %s', async at => {
+  const client = await admin.connect();
+  try {
+   await client.query('begin');
+   await client.query("set local timezone = 'America/Los_Angeles'");
+   const { expression } = (await client.query(`select pg_get_expr(d.adbin,d.adrelid) as expression
+    from pg_attrdef d join pg_attribute a on a.attrelid=d.adrelid and a.attnum=d.adnum
+    where d.adrelid='public.account_deletions'::regclass and a.attname='run_after'`)).rows[0];
+   // The function uses the database clock. Use fixed dates in its stored insert default.
+   const fixed = expression.replace('now()', '$1::timestamptz');
+   expect((await client.query(`select extract(epoch from (${fixed})-$1::timestamptz)::float8 as seconds`, [at])).rows[0].seconds).toBe(168 * 3600);
+  } finally { await client.query('rollback'); client.release(); }
+ });
+
  it('keeps alert choices with defaults and partial changes', async () => {
   const x = await user();
   expect(await accounts.notificationPrefs(x)).toEqual({ turn: { email: true, push: false }, reminder: { email: true, push: false }, game_finished: { email: false, push: false } });

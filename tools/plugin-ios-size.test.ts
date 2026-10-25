@@ -375,7 +375,7 @@ it.each([
   } finally { await page.close(); }
 });
 
-it('opens Play from the seat and board Back buttons on a portrait phone', async () => {
+it('opens Menu from seat Back and board Main menu on a portrait phone', async () => {
   const page = await browser.newPage({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
   try {
     await page.goto(harness.url); await hall(page); await frame.getByRole('radio', { name: 'Artificial', exact: true }).locator('..').click();
@@ -388,7 +388,8 @@ it('opens Play from the seat and board Back buttons on a portrait phone', async 
     await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
     await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await frame.locator('#page-head').isVisible()).toBe(false);
-    await frame.getByRole('button', { name: 'Back to Menu', exact: true }).click();
+    expect(await frame.getByRole('button', { name: 'Back to Menu', exact: true }).count()).toBe(0);
+    await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', {name: 'Main menu', exact: true}).click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });

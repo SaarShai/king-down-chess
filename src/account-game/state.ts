@@ -123,7 +123,7 @@ export function renderPage(page: Page) {
   if (document.body.dataset.page !== page.screen) document.body.dataset.page = page.screen;
   document.querySelectorAll<HTMLElement>('[data-screen]').forEach(el => { el.hidden = el.dataset.screen !== page.screen; });
   const frame = $('app-frame'); if (frame) frame.hidden = page.screen === 'home';
-  const head = $('page-head'); if (head) head.hidden = page.screen === 'home' || page.screen === 'play';
+  const head = $('page-head'); if (head) head.hidden = page.screen === 'home' || page.screen === 'play' || page.screen === 'board';
   const back = $('page-back'); if (back) back.textContent = backLabel(page);
   const title = $('page-title'); if (title) title.textContent = TITLES[page.screen] ?? '';
   const line = messageLine(page);

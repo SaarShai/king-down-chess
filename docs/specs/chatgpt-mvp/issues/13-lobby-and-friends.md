@@ -49,7 +49,7 @@ The page build passes: 596,876 HTML bytes and 599,279 JSON bytes through the MCP
 
 Sample comparisons for Play, friend-code, lobby, lobby-wait, opponent-found and handle are in `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-look/13`. Each state has a phone and desktop pair, with the sample on the left. Join and side-panel captures are there too. Code lettering uses the sample's size rule. Names, codes, features, pictures, counts, ages and end dates use the server data.
 
-Kept look differences: the check host has a 24-pixel Remount control and an empty composer zone; the sample has a mock host bar and composer. Each page has the required “‹ Play” head control. GAP: the shared phone frame fills the width; the sample has a 24-pixel right gutter. Ticket 11 owns that frame. The board behind Opponent found uses the shared board screen; ticket 15 owns that screen. This ticket adds no frame or board override.
+Kept look differences: the check host has a 24-pixel Remount control and an empty composer zone; the sample has a mock host bar and composer. Each page has the required “‹ Menu” head control. GAP: the shared phone frame fills the width; the sample has a 24-pixel right gutter. Ticket 11 owns that frame. The board behind Opponent found uses the shared board screen; ticket 15 owns that screen. This ticket adds no frame or board override.
 
 The old local PostgreSQL cluster lacks its version file and file map. A new disposable cluster runs at `127.0.0.1:55432`, in `/tmp/kingdown-mvp13-pg-8vmlww4u`. It holds `kingdown_mvp13_test`. The full suite and HTTP check pass on that cluster. Other ticket databases need creation there before use.
 

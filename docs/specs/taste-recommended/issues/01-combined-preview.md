@@ -18,7 +18,7 @@ The owner asks for one local preview on `taste/recommended`. The base is
 
 ## Acceptance checks
 
-- The seven picks work together. The back button has the name Back to Play.
+- The seven picks work together. The back button has the name Back to Menu.
 - The home count is correct for zero, one and more than one game.
 - All required tests pass. No old test is removed to pass.
 - Both players reach the friend board. New, resume, end and next flows work.

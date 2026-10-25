@@ -74,7 +74,7 @@ The code check uses the native controls and one shared level map. It finds no ne
 The server schemas still accept Random and all four old level values. The tests check this.
 The owner checks the final images before merge. Independent review and CI remain before merge.
 The full test suite does not run on this Mac, as the task requires.
-No push, PR, merge or deploy is in this task.
+No push, PR or deploy is in this task.
 
 ## F-114 — plain game type icons
 
@@ -142,7 +142,7 @@ The owner checks the images before merge. CI and independent review remain befor
 The shared heading says Menu. The default back button says ‹ Menu. Both board arrows have the name Back to Menu. Friend invite help and the empty-board reply also name Menu.
 Play now, Start, Play again and the local title Play action stay the same. Internal screen names, routes and stored values stay the same. The other server text stays the same.
 The final code check finds no need for another layer. Native controls keep the same work. Rules and the protocol keep the same values and shape. The two protected source files stay the same.
-The owner checks the images before merge. CI and independent review remain before merge. No push, PR, merge or deploy is in this task.
+The owner checks the images before merge. CI and independent review remain before merge. No push, PR or deploy is in this task.
 
 ## Review repair plan
 
@@ -171,3 +171,49 @@ It finds Beginner for Casual and Casual for Clever on both the board and Home.
 The same command passes after the fix. It also checks an old Strong game's two names
 and stored value. See `local-red.log`, `local-green.log` and their run folders in the
 repair log folder. The final merged head still needs the required checks.
+
+## M1 merge repair
+
+The branch merges `origin/staging/first-game` at `2f20021384f25376c2fa6b7ba72389e0576dbe3e`.
+Both test conflicts keep the board Menu to Main menu path. The phone test keeps
+its seat Back to Menu path and checks that the board has no separate Back to Menu.
+The result page head says `‹ Menu`. The short phone return keeps its arrow and
+its Back to Menu name.
+
+Tests, browser checks and current main menu instructions use Menu. Play now,
+Play again, other Play actions, route values and IDs keep their names.
+Research reports and past device evidence keep the words that their source shows.
+
+The first final-move run finds a caption overlap at 852 by 393 with the longer
+Menu label. It also exposes an over-broad new assertion on the phone arrow.
+The assertion now checks the visible return type. The caption margin changes
+from 72 to 88 pixels; its maximum width changes by the same 16 pixels.
+`KINGDOWN_TEST_FILE=tools/plugin-board.test.ts KINGDOWN_TEST_NAME='cancels a pending ceremony' npm test`
+then passes all seven selected cases and 57 art checks. It covers all five required
+sizes, both coin edge clicks, the full caption, the return input and the board size.
+See `result-label.log` and `result-green.log`. The final type, selected test,
+browser and doc runs follow this merge commit.
+
+## Merged check results
+
+All commands use the repair log folder. The selected tests and browser checks use
+`PLUGIN_TEST_DATABASE_URL=postgresql://kingdown_test@127.0.0.1:55432/kingdown_plugin_test`.
+`TMPDIR` names the repair log folder's `tmp` child. The shared lock wait ends normally.
+No publish PID appears before either browser run. No checkout file changes during a browser run.
+
+| Command | Result | Log |
+| --- | --- | --- |
+| `npx tsc --noEmit -p .` | Pass | `merged-typecheck.log` |
+| `KINGDOWN_TEST_FILE='{tools/plugin-setup-owner.test.ts,tools/plugin-app.test.ts,tools/plugin-lobby.test.ts,tools/plugin-menus.test.ts,tools/plugin-ios-size.test.ts,tools/plugin-board*.test.ts,src/account-game/*.test.ts,src/plugin/server.test.ts,src/new-game.test.ts}' npm test` | 558 tests in 14 files pass; 57 art checks pass | `merged-focused.log` |
+| `bash tools/test-lock.sh npm run check:browser plugin-ui plugin-ui-http web-game game-screen new-game` | All five pass | `merged-browser.log` |
+| `PLAYABLE_BROWSER=webkit bash tools/test-lock.sh npm run check:browser plugin-ui` | Pass | `merged-webkit.log` |
+| `npm run test:docs` | First run: three guides use the old Menu name. The guide text fix passes all 178 tests | `merged-docs.log`, `merged-docs-retry.log` |
+
+The final commit gets the same required check set. Its logs use the `final-` prefix.
+The repair report gives the final commit, log paths and four inspected screen files.
+The complete unit suite stays for CI. The two commit hooks run unchanged.
+No push, PR, other-branch merge, deploy, owner account or remote database is used.
+
+The code check finds no need for a new control or map. Two imports and two map reads
+fix the local names. One CSS rule gives the result caption enough space. The existing
+return path, input checks and stored values stay in use.

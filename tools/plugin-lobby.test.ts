@@ -353,7 +353,7 @@ it('shows Any rules only for a random player and sends it with Find from New gam
     expect(await find(() => frame.locator('#find-opponent').click())).toBe(true);
   } finally { await page.close(); }
 });
-it('reuses a new open game after returning through Play without a second Find', async () => {
+it('reuses a new open game after returning through Menu without a second Find', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await frame.locator('html').evaluate(async () => {
@@ -395,7 +395,7 @@ it('opens the human game when the friend joins before a saved wait remounts', as
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });
-it('shows code errors on a chat mount and permits a new code from Play', async () => {
+it('shows code errors on a chat mount and permits a new code from Menu', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     for (const [code, words] of [['INVITE_UNAVAILABLE','No game has this code. Check the code with your friend.'],['FORBIDDEN','You cannot join this game.'],['INVALID_INPUT','Check the code: 6 letters and digits.'],['RATE_LIMITED','Too many code tries. Wait one hour.']]) {

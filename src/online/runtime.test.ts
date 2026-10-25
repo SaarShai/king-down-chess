@@ -207,7 +207,7 @@ function held<T>() {
   return { promise, resolve, reject };
 }
 
-it.each(['reply', 'error'] as const)('ignores a held invitation %s after Back opens Play', async outcome => {
+it.each(['reply', 'error'] as const)('ignores a held invitation %s after Back opens Menu', async outcome => {
   const { browser, back } = browserAt('/j#K7QX2M'), pending = held<JoinPreview>();
   const host = createBrowserRuntime({ preview: () => pending.promise } as unknown as OnlineClient, 'a');
   const results = vi.fn(); host.onResult = results;

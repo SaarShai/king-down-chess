@@ -34,7 +34,7 @@ const seedGames = (page: Page, games: unknown[]) => page.request.post(new URL('/
 const readGames = (page: Page) => page.frameLocator('iframe').locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_games', {}); });
 const entry = (n: number, action: string) => ({ game_id: `menus-${n}`, kind: 'friend', speed: 'daily', status: 'playing', seat: 0, action, turn: action === 'ready' ? 0 : 1, revision: 4, deadline_at: null, opponent: { handle: `rival_${n}`, icon: null, computer: false, deleted: false, last_seen_ms: null }, updated_at: '2026-10-15T12:00:00Z', created_at: '2026-10-15T12:00:00Z', options: null, move: 3, open_until: null, level: 'club' });
 
-it('keeps the home kings in the card, equal New game margins, a 640 px Play list and token type sizes', async () => {
+it('keeps the home kings in the card, equal New game margins, a 640 px Menu list and token type sizes', async () => {
   const page = await open({ width: 360, height: 740, top: 0, bottom: 0 }), frame = page.frameLocator('iframe');
   try {
     // F21: the side kings stay inside the home card at 360 px.
@@ -47,7 +47,7 @@ it('keeps the home kings in the card, equal New game margins, a 640 px Play list
     await go(page, 'play');
     const margins = await frame.locator('#setup-body .modes').evaluate(el => { const r = el.getBoundingClientRect(), s = el.closest('.page-sheet')!.getBoundingClientRect(); return [r.left - s.left, s.right - r.right]; });
     expect(margins[1]).toBeCloseTo(margins[0], 0);
-    // F23 and F25: on a wide screen the Play list stops at 640 px; Play uses only the token type sizes.
+    // F23 and F25: on a wide screen the Menu list stops at 640 px; Menu uses only the token type sizes.
     await seedGames(page, [entry(1, 'ready')]); await readGames(page);
     for (const width of [OWNER.width, 820]) {
       await page.setViewportSize({ width, height: 1180 }); await go(page, 'play');
@@ -103,7 +103,7 @@ it('opens New game at the top', async () => {
   } finally { await page.close(); }
 });
 
-it('keeps every game row within reach after a saved Play mount', async () => {
+it('keeps every game row within reach after a saved Menu mount', async () => {
   const page = await open({ width: 390, height: 844, top: 24, bottom: 120 }), frame = page.frameLocator('iframe');
   const savedGames = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.games);
   try {
@@ -230,7 +230,7 @@ it('shows a busy Start at once, Starting… after 1 s and a safe way back at 5 s
     await expect.poll(() => start.textContent()).toBe('Starting…');
     expect(await frame.locator('#page-back').isDisabled()).toBe(true);
     await page.clock.fastForward(4_000);
-    // Play has no ‹ Menu: its Settings row is the way out that the 5 s wait frees.
+    // Menu has no ‹ Menu: its Settings row is the way out that the 5 s wait frees.
     await frame.locator('[data-screen="play"] [data-nav="settings"]:not(:disabled)').waitFor();
     expect(await start.textContent()).toBe('Starting…');
     await frame.locator('[data-screen="play"] [data-nav="settings"]').click();
