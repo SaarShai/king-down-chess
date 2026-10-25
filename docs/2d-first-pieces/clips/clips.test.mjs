@@ -78,6 +78,20 @@ test('the selected Knight and Rook play their clip once, through every drawing, 
  }finally{globalThis.setTimeout=realSetTimeout;}
 });
 
+test('a first frame that comes late still starts the clip on its first drawing',async()=>{
+ globalThis.setTimeout=(fn,ms)=>{timers.push({fn,at:now+ms});return timers.length;};
+ try{
+  for(const [value,name] of [[N,'knight'],[R,'rook']]){
+   const scene=await selected(value,{idle:true,atmosphere:true,moves:true});
+   try{
+    now+=120; // A busy page draws its first frame after the selection late.
+    const playing=run(scene,400).map(s=>s?s.frame:null),first=playing.findIndex(f=>f!==null);
+    assert.equal(playing[first],CLIPS[name].sequence[0],`${name} starts on his first drawing`);
+   }finally{scene.dispose();frames.length=0;}
+  }
+ }finally{globalThis.setTimeout=realSetTimeout;}
+});
+
 test('with reduced motion, or with the idle motion off, the selected figure stays still: no clip',async()=>{
  globalThis.setTimeout=(fn,ms)=>{timers.push({fn,at:now+ms});return timers.length;};
  try{

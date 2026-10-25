@@ -2,13 +2,14 @@
  *  built website), the tree is the whole of kingdown.dev: the static site plus the one function. */
 import { build } from 'vite';
 import { builtinModules } from 'node:module';
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { existsSync, readFileSync } from 'node:fs';
 import { cp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRuntime } from './plugin-runtime-build.mjs';
+import { sourceErrorForms } from './lib/error-forms.mjs';
 import { ART_HEADERS, ART_TYPES } from './plugin-art-headers.mjs';
 import { STAGING_ORIGIN, STAGING_PROJECT_ID, STAGING_SUPABASE_URL } from './staging-config.mjs';
 
@@ -52,6 +53,7 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
   await buildRuntime(resolve(functionDir, 'runtime'));
   await build({
     configFile: false, root, publicDir: false, logLevel: 'warn', ssr: { noExternal: true },
+    define: { 'import.meta.env.KINGDOWN_ERROR_RECORDER': JSON.stringify(Boolean(site)), ...(site && { __KINGDOWN_ERROR_FORMS__: JSON.stringify(sourceErrorForms(resolve(root, 'src'))), __KINGDOWN_BUILD__: JSON.stringify(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()) }) },
     plugins: [{ name: 'isolated-match-runtime', enforce: 'pre', resolveId(source, importer) {
       if (!importer || !source.startsWith('.')) return;
       const path = resolve(dirname(importer), source);
@@ -59,7 +61,8 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     } }],
     build: {
       ssr: resolve(root, 'tools/plugin-server.mjs'), target: 'node20', outDir: functionDir, emptyOutDir: false, minify: true,
-      rollupOptions: { external: [...builtinModules, ...builtinModules.map(name => `node:${name}`), 'pg-native'], output: { entryFileNames: 'server.mjs', codeSplitting: false } },
+      // Recorder modules have no setup effects. Remove their unused schemas and message tables too.
+      rollupOptions: { treeshake: { moduleSideEffects: id => !id.startsWith(resolve(root, 'src/diagnostics') + '/') }, external: [...builtinModules, ...builtinModules.map(name => `node:${name}`), 'pg-native'], output: { entryFileNames: 'server.mjs', codeSplitting: false } },
     },
   });
   await writeFile(resolve(functionDir, 'package.json'), JSON.stringify({ private: true, type: 'module', engines: { node: '>=20' } }) + '\n');

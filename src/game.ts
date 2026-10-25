@@ -122,7 +122,10 @@ export class Engine {
   private spawn(): Worker | null {
     try {
       const w = new Worker(new URL('./ai/worker.ts', import.meta.url), { type: 'module' });
-      w.onerror = () => { if (this.worker === w) this.worker = null; w.terminate(); };
+      w.onerror = event => {
+        try { window.dispatchEvent(new CustomEvent('kingdown-worker-error', { detail: event })); } catch { /* The worker cleanup must run. */ }
+        if (this.worker === w) this.worker = null; w.terminate();
+      };
       return w;
     } catch { return null; }
   }
