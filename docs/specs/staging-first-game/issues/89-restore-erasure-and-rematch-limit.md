@@ -1,7 +1,7 @@
 # Restore keeps erasures; a rematch counts on the Create limit
 
 Type: task
-Status: resolved
+Status: in review (branch `staging/restore-erasure-limits`; independent review 2026-10-25: approve, two P3 items fixed)
 
 A read-only server audit of `e3fd4411` confirmed two faults. This ticket fixes them. It deploys nothing and touches no remote database.
 
@@ -12,7 +12,7 @@ A read-only server audit of `e3fd4411` confirmed two faults. This ticket fixes t
 
 ## Changes
 
-- Restore: before the foreign-key actions, the restore leaves out each backup solo game with a seat account that is not in `auth.users` now, with its seats, commands and invites. A backup seat named an account that existed at the backup, so a missing account was deleted since the backup. This also covers an owner's delete in `auth.users`, which `account_deletions` does not record. A game with another human seat stays, with the seat null: the rule of `delete_account`, which keeps such a game for the opponent and keeps its `handle_at_start`. The script prints `erased_games_left_out`. The comment of the script, `docs/HOSTING.md` and release-safety ticket 01 say the same.
+- Restore: before the foreign-key actions, the restore leaves out each backup solo game with a seat account that is not in `auth.users` now, with its seats, commands and invites. A backup seat named an account that existed at the backup, so a missing account was deleted since the backup. This also covers an owner's delete in `auth.users`, which `account_deletions` does not record. A game with another human seat stays, with the seat null: the rule of `delete_account`, which keeps such a game for the opponent and keeps its `handle_at_start`. Limit: in a rated game with a deleted seat, `delete_account` also deletes that account's `rating_history` rows (`0012_results.sql`), so the restore's rating check refuses the whole restore and restores nothing. The erasure stays safe; the owner decides on such a restore. The script prints `erased_games_left_out`. The comment of the script, `docs/HOSTING.md` and release-safety ticket 01 say the same.
 - Limit: `commandLimit` (`src/plugin/service.ts`) names the counter of a game command. A rematch offer or accept counts on `kingdown_create`; a computer turn on `kingdown_computer`; a decline, a resign and the other commands count nothing. The MCP server (`kingdown_rematch`) and the website route (`POST /api/games/:id/commands`) both use it. `kingdown_find` keeps the Create counter.
 
 ## Verification

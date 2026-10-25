@@ -19,7 +19,8 @@
 -- (supabase/migrations/0007_jobs.sql), which the privacy page promises. Its solo games stay deleted, with their seats
 -- (and the handle at start), commands and invites. A game with another human seat stays, as delete_account keeps it
 -- for the opponent: each reference to the account follows its foreign key, so it becomes null, or (an invite that the
--- account made) the row stays deleted.
+-- account made) the row stays deleted. Limit: in a rated game, delete_account also deletes the account's rating_history
+-- rows (0012_results.sql), so the rating check below refuses the whole restore and restores nothing; the owner decides.
 -- Not restored: accounts, settings, ratings, notifications and the outbox. A restored deadline that passed since the
 -- backup ends its game at the next kingdown-tick, unless the owner pauses that job first.
 -- Columns: only the columns that the backup and the live table share; a column added since the backup keeps its default.
