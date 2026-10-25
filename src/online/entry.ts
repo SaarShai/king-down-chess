@@ -89,6 +89,19 @@ try {
         const games = document.createElement('a'); games.href = '/play/'; games.textContent = 'Open your games'; main.append(games);
       };
       configureRuntime(host);
+      const logout = document.createElement('button'); logout.type = 'button'; logout.id = 'settings-logout'; logout.className = 'menu-row'; logout.textContent = 'Log out';
+      const logoutError = document.createElement('p'); logoutError.setAttribute('role', 'alert'); logoutError.hidden = true; logoutError.textContent = 'Could not log out. Try again.';
+      let logoutPending = false;
+      logout.onclick = async () => {
+        if (logoutPending) return;
+        logoutPending = true; logout.disabled = true; logout.setAttribute('aria-busy', 'true'); logoutError.hidden = true;
+        try {
+          await auth.signOut();
+          // A fresh account entry drops the private screen and checks the cleared session.
+          location.replace('/play/');
+        } catch { logoutPending = false; logout.disabled = false; logout.removeAttribute('aria-busy'); logoutError.hidden = false; }
+      };
+      document.querySelector('#settings-sheet .new-game-body')!.append(logoutError, logout);
       await import('../account-game/runtime');
       auth.onSession(current => {
         if (current?.user.id === session.userId) return;
