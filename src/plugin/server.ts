@@ -13,7 +13,7 @@ import { REPORT_CATEGORIES } from '../account/profile';
 import { noticesBeforeSchema } from '../online/accounts';
 import { settingsSchema } from './settings';
 import { ending } from './ending';
-import { handleSchema, TOOL_LIMITS } from './service';
+import { commandLimit, handleSchema, TOOL_LIMITS } from './service';
 import type { PluginService } from './service';
 
 /** The plugin build writes this origin before each art file (tools/plugin-ui-build.mjs); the server swaps in its own. */
@@ -69,9 +69,9 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     registerAppTool(server, name, { description, inputSchema, ...(output && { outputSchema: z.object(output).strict() }), annotations: { readOnlyHint: readOnly, destructiveHint: destructive, idempotentHint: idempotent, openWorldHint: openWorld },
       _meta: { ...meta, ui: { ...(name === 'kingdown_open' && { resourceUri: boardResource }), visibility } } }, async (args: z.infer<z.ZodObject<T>>) => {
       try {
-        // Find can open a new table, so it shares the Create counter.
-        const limit = name === 'kingdown_find' ? 'kingdown_create' : name;
-        if (Object.hasOwn(TOOL_LIMITS, limit)) await service.toolTry(actorId, limit as keyof typeof TOOL_LIMITS);
+        // Every tool that can make a game shares the Create counter: Find can open a new table, and a rematch can make the next game.
+        const limit = name === 'kingdown_find' ? 'kingdown_create' : name === 'kingdown_rematch' ? commandLimit({ type: 'rematch', choice: (args as { choice?: unknown }).choice }) : name;
+        if (limit && Object.hasOwn(TOOL_LIMITS, limit)) await service.toolTry(actorId, limit as keyof typeof TOOL_LIMITS);
         return await run(args);
       }
       catch (error) { const known = error instanceof MatchServiceError; if (!known || error.status >= 500) console.error('King Down tool failed', { tool: name, requestId: randomUUID(), ...diagnostic(error) }); return { isError: true, content: text(!known ? 'Could not update the game. Retry or reload.' : REFUSED[error.code] ?? error.message), _meta: { code: known ? error.code : 'INTERNAL_ERROR' } }; }
