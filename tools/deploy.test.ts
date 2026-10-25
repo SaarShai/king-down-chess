@@ -635,11 +635,13 @@ const oldBuild = (): Record<string, string> => ({
 });
 
 /** A local site. `files` can change between requests; `/` serves `index.html`. */
-async function site(files: () => Record<string, string>, challengeReply: { status?: number; type?: string | null; location?: string; path?: string; body?: string; cache?: string | null } = {}, access: Access = 'closed') {
+async function site(files: () => Record<string, string>, challengeReply: { status?: number; type?: string | null; location?: string; path?: string; body?: string; cache?: string | null; drop?: number } = {}, access: Access = 'closed') {
   const requests: { path: string; method?: string; cookie?: string }[] = [];
   const server = createServer((req, res) => {
     const path = (req.url ?? '/').split('?')[0];
     requests.push({ path, method: req.method, cookie: req.headers.cookie });
+    // drop: close the connection with no reply this many times, as a network fault does.
+    if (challengeReply.drop && path === challengeReply.path) { challengeReply.drop--; req.socket.destroy(); return; }
     if (req.headers.cookie !== undefined) { res.writeHead(400).end('cookie sent'); return; }
     const body = files()[path === '/' ? 'index.html' : path.slice(1)];
     if (path === (challengeReply.path ?? '/.well-known/openai-apps-challenge')) {
@@ -964,6 +966,20 @@ describe('deploy-keep-assets.mjs', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/^keep-assets: /);
     expect(result.stderr).toContain(message);
+    expect(tree(folder)).toEqual(build());
+  });
+
+  it('tries a file again after a network fault, and stops after the third fault', async () => {
+    const path = '/assets/lazy-FFFF6666.js', reply = { path, type: 'text/javascript' };
+    const once = await site(live, { ...reply, drop: 2 });
+    const result = await keep(buildFolder(build()), once.url);
+    expect(result.status, result.stderr).toBe(0);
+    expect(once.requests.filter(r => r.path === path)).toHaveLength(3);
+    const always = await site(live, { ...reply, drop: 3 }), folder = buildFolder(build());
+    const failed = await keep(folder, always.url);
+    expect(failed.status).toBe(1);
+    expect(failed.stderr).toContain(`keep-assets: GET ${path}: fetch failed`);
+    expect(always.requests.filter(r => r.path === path)).toHaveLength(3);
     expect(tree(folder)).toEqual(build());
   });
 
