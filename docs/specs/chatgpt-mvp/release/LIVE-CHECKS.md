@@ -30,7 +30,7 @@ Each required row must pass before testers start. For the side-panel and sidebar
 | Opponent found · both devices | B joins while A plays the computer. Not now keeps the computer. Switch now opens the human game and ends the computer game with no result. | |
 | Waiting game · both devices | Close ChatGPT and reopen Your games. The waiting game stays. Cancel my open game removes it. Confirm the 24-hour expiry with a due test game. | |
 | Setup and code expiry | Confirm due test setups end with no result after three days. Confirm a due seven-day friend code fails. Do not change live data to shorten a deadline. | |
-| Piece pool · both devices | Change the kinds. Locks prevent too small a pool. Arrangement keeps opposite-colour bishops and a guard next to the king. Shuffle gives a legal order. | |
+| Piece pool · both devices | Change the kinds. Locks prevent too small a pool. First rank sorting (Player) keeps opposite-colour bishops and a guard next to the king. Shuffle gives a legal order. | |
 | Card pool · both devices | Keep four checked; the last boxes lock. Both players get the same four. A played card leaves only that player's hand. | |
 | King picker · both devices | Pick both powers where allowed. With Cards on, powers with uses stay unavailable. With powers off, White is Spirit and Black is Shadow. | |
 | Actions · both devices | The bar shows Undo, End turn (Send your turn in a game with a person) and Menu. Make a move, select Undo, make a move again and send the turn. In Menu, Offer draw and confirm; on the board, Accept draw or Decline draw and confirm. Resign in Menu opens Lay your king down? with Resign and Keep playing. Menu offers Abort before both first moves. The board offers End game for a missed first move and Claim the win for a later missed deadline. Accept and decline a Rematch against a person. Check the result and swapped colours. Play again keeps your colour against the computer. A computer abort returns to Menu with the same setup. | |
@@ -52,7 +52,7 @@ Each required row must pass before testers start. For the side-panel and sidebar
 
 Run every row once on the web and once on the iPhone. Start a game, finish any seat setup, and make a legal move. Use computer mode for this matrix; the human mode rows above cover two-seat setup. Cards and powers remain legal together. “Off” in a hidden control means its stored value is off.
 
-| Mix | Fairy pieces | Arrangement | Classic chess | Cards | King powers | Web result | iPhone result |
+| Mix | Fairy pieces | First rank sorting | Classic chess | Cards | King powers | Web result | iPhone result |
 |---|---|---|---|---|---|---|---|
 | 01 | On | Off | Off | Off | Off | | |
 | 02 | On | Off | Off | Off | On | | |
