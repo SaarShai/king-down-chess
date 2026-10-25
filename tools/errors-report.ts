@@ -43,8 +43,9 @@ export async function reportErrors(args = process.argv.slice(2)): Promise<void> 
  try {
   const { rows } = await pool.query<FaultRow>(`select fingerprint,count,first_seen,last_seen,build,kind,name,message,routes,browsers,size_classes
    from public.client_errors where last_seen >= now()-($1::int * interval '24 hours') order by last_seen desc`, [days]);
+  // The writer moves limited_at at most once a minute, so a refusal in the window can carry a mark up to a minute older.
   const limit = await pool.query<{ limited_at: Date }>(`select limited_at from public.client_error_budget
-   where limited_at >= now()-($1::int * interval '24 hours')`, [days]);
+   where limited_at >= now()-($1::int * interval '24 hours')-interval '1 minute'`, [days]);
   console.log(formatErrorReport(rows, limit.rows[0]?.limited_at));
  } finally { await pool.end(); }
 }

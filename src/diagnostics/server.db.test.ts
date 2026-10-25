@@ -184,6 +184,10 @@ suite('first-party fault HTTP and database writes', () => {
    try {
     await reportErrors(['--since', '1']);
     expect(log).toHaveBeenLastCalledWith(expect.stringContaining(`Hourly group limit: ${limitedAt.toISOString()}. Later groups can be absent.`));
+    // A refusal 30 seconds inside the window can keep a mark 30 seconds outside it.
+    await admin.query("update public.client_error_budget set limited_at=now()-interval '24 hours 30 seconds'");
+    await reportErrors(['--since', '1']);
+    expect(log.mock.calls.at(-1)![0]).toContain('Hourly group limit');
     await admin.query("update public.client_error_budget set limited_at=now()-interval '2 days'");
     await reportErrors(['--since', '1']);
     expect(log.mock.calls.at(-1)![0]).not.toContain('Hourly group limit');

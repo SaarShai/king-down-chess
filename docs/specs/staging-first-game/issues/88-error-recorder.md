@@ -396,3 +396,7 @@ The shared cleaner uses native WebKit texts from the review and new native runs.
 The copied probes keep their native fault inputs. `probe-changes.md` names each changed assertion and path. The code check finds no simpler complete fix. One extra column keeps the limit notice on the existing counter row. The existing insert handles both tries.
 
 Proofs and logs are in `/private/tmp/claude-501/ci87/sol34/`. The shared test lock stays in place. No push, deploy or remote database connection occurs.
+
+## Eighth review (2026-10-24)
+
+The eighth review (`/private/tmp/claude-501/ci87/sol35/rereview8.md`) confirms the four fixes and finds one P2. The writer moves the limit time at most once a minute, so a refusal inside the report window can carry a time up to one minute before the window, and the report hid the notice. The report now reads the limit time with one extra minute. A database test sets the time 30 seconds before a one-day window and requires the notice.
