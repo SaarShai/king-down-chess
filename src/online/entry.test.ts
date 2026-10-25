@@ -1,13 +1,18 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { readWebAccountAccess } from './account-access';
 import { connect } from '../account/client';
+import { applyLocks } from '../account-game/state';
 
 vi.mock('./account-access', () => ({ readWebAccountAccess: vi.fn() }));
-const { providers, startAccountSignIn, signInWithPassword } = vi.hoisted(() => ({ providers: vi.fn(), startAccountSignIn: vi.fn(), signInWithPassword: vi.fn() }));
-vi.mock('../account/client', () => ({ connect: vi.fn(() => ({ readSession: vi.fn(async () => null), providers, startAccountSignIn, signInWithPassword })) }));
+const { providers, readSession, signOut, onSession, dispose, startAccountSignIn, signInWithPassword } = vi.hoisted(() => ({ providers: vi.fn(), readSession: vi.fn(), signOut: vi.fn(), onSession: vi.fn(), dispose: vi.fn(), startAccountSignIn: vi.fn(), signInWithPassword: vi.fn() }));
+vi.mock('../account/client', () => ({ connect: vi.fn(() => ({ readSession, signOut, onSession, providers, startAccountSignIn, signInWithPassword })) }));
+vi.mock('./client', () => ({ onlineClient: vi.fn(() => ({})) }));
+vi.mock('./runtime', () => ({ createBrowserRuntime: vi.fn(() => ({ dispose })) }));
+vi.mock('../account-game/runtime', () => ({}));
 
 class Element {
   children: Element[] = [];
+  parentElement?: Element;
   textContent = '';
   className = '';
   onclick?: () => void;
@@ -17,22 +22,33 @@ class Element {
   required = false;
   disabled = false;
   readOnly = false;
+  hidden = false;
+  attributes = new Map<string, string>();
   focus = vi.fn();
   constructor(readonly tag: string) {}
-  append(...nodes: Element[]) { this.children.push(...nodes); }
+  append(...nodes: Element[]) { for (const node of nodes) node.parentElement = this; this.children.push(...nodes); }
   replaceChildren(...nodes: Element[]) { this.children = nodes; }
-  setAttribute() {}
+  setAttribute(name: string, value: string) { this.attributes.set(name, value); }
+  removeAttribute(name: string) { this.attributes.delete(name); }
+  hasAttribute(name: string) { return this.attributes.has(name); }
+  matches(selector: string): boolean {
+    if (selector === ':disabled') return this.disabled || !!this.parentElement?.matches(':disabled');
+    return selector.includes('[aria-busy="true"]') && this.attributes.get('aria-busy') === 'true';
+  }
   querySelectorAll(tag: string): Element[] { return this.children.flatMap(node => [...(tag.split(', ').includes(node.tag) ? [node] : []), ...node.querySelectorAll(tag)]); }
 }
-let body: Element, reload: ReturnType<typeof vi.fn>;
+let body: Element, settings: Element, profile: Element, reload: ReturnType<typeof vi.fn>, replace: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   vi.resetModules(); vi.clearAllMocks();
   vi.stubEnv('VITE_KINGDOWN_STAGE', '');
   providers.mockResolvedValue(['google', 'github']);
+  readSession.mockReset().mockResolvedValue(null);
+  signOut.mockReset().mockResolvedValue(undefined);
   signInWithPassword.mockReset().mockResolvedValue(undefined);
-  body = new Element('body'); reload = vi.fn();
-  vi.stubGlobal('document', { title: '', body, createElement: (tag: string) => new Element(tag) });
-  vi.stubGlobal('location', { href: 'https://kingdown.test/play/', reload });
+  body = new Element('body'); settings = new Element('div'); profile = new Element('div'); reload = vi.fn(); replace = vi.fn();
+  vi.stubGlobal('document', { title: '', body, createElement: (tag: string) => new Element(tag), querySelectorAll: (selector: string) => body.querySelectorAll(selector), querySelector: (selector: string) => selector === '#settings-sheet .new-game-body' ? settings : selector === '#profile-sheet .new-game-body' ? profile : null });
+  vi.stubGlobal('DOMParser', class { parseFromString() { return { querySelectorAll: () => [], body: { childNodes: [settings, profile] } }; } });
+  vi.stubGlobal('location', { href: 'https://kingdown.test/play/', reload, replace });
   vi.stubGlobal('history', {}); vi.stubGlobal('sessionStorage', {});
 });
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
@@ -140,4 +156,56 @@ it('returns to the game open when sign-in starts, not the list where the page fi
     flow: 'flow_test_123', target: '/g/02207813-587c-867d-99be-7d448c5e30b0',
   });
   expect(assign).toHaveBeenCalledWith('https://provider.test/authorize');
+});
+
+it('puts Log out last in Settings only and sends one logout before returning to sign-in', async () => {
+  vi.mocked(readWebAccountAccess).mockResolvedValue({ enabled: true, expiresAt: 5000 });
+  readSession.mockResolvedValue({ userId: 'test-user', accessToken: 'test-token' });
+  let finish!: () => void;
+  signOut.mockImplementation(() => new Promise<void>(resolve => { finish = resolve; }));
+  await import('./entry');
+  const logout = settings.querySelectorAll('button')[0];
+  expect(logout?.textContent).toBe('Log out');
+  expect(settings.children.at(-1)).toBe(logout.parentElement);
+  expect(profile.querySelectorAll('button')).toEqual([]);
+  const pending = logout.onclick!();
+  for (const screen of ['handle', 'settings'] as const) {
+    applyLocks({ screen, connected: true, mounting: false, writing: false });
+    expect(logout.disabled).toBe(false);
+    expect(logout.matches(':disabled')).toBe(true);
+    expect(logout.attributes.get('aria-busy')).toBe('true');
+  }
+  // A second activation cannot depend on the DOM lock alone.
+  logout.disabled = false;
+  await logout.onclick!();
+  applyLocks({ screen: 'settings', connected: true, mounting: false, writing: false });
+  expect(logout.matches(':disabled')).toBe(true);
+  expect(signOut).toHaveBeenCalledOnce();
+  expect(replace).not.toHaveBeenCalled();
+  finish(); await pending;
+  expect(replace).toHaveBeenCalledExactlyOnceWith('/play/');
+});
+
+it('keeps Log out available after an error and shows a plain retry message', async () => {
+  vi.mocked(readWebAccountAccess).mockResolvedValue({ enabled: true, expiresAt: 5000 });
+  readSession.mockResolvedValue({ userId: 'test-user', accessToken: 'test-token' });
+  signOut.mockRejectedValueOnce(new Error('private upstream detail'));
+  await import('./entry');
+  const logout = settings.querySelectorAll('button')[0];
+  expect(logout?.textContent).toBe('Log out');
+  await logout.onclick!();
+  expect(logout.matches(':disabled')).toBe(false);
+  applyLocks({ screen: 'settings', connected: true, mounting: false, writing: false });
+  expect(logout.disabled).toBe(false);
+  expect(logout.matches(':disabled')).toBe(false);
+  expect(logout.hasAttribute('aria-busy')).toBe(false);
+  expect(replace).not.toHaveBeenCalled();
+  const error = settings.querySelectorAll('p')[0];
+  expect(error.attributes.get('role')).toBe('alert');
+  expect(error.hidden).toBe(false);
+  expect(error.textContent).toBe('Could not log out. Try again.');
+  await logout.onclick!();
+  expect(error.hidden).toBe(true);
+  expect(signOut).toHaveBeenCalledTimes(2);
+  expect(replace).toHaveBeenCalledExactlyOnceWith('/play/');
 });
