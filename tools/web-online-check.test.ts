@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { assertInterruptedPurge, assertLocalData, assertLocalRequests, outsideRequests, assertProbeOrder, buildWorkerProbe, checkAccountOff, localData, PERSISTENT_OPTIONS, recoveryOutput, restoreLocalSave, savedGameSynced, serveSite, siteRoute, WORKSHOP_SHELF } from './web-online-check.mjs';
+import { assertInterruptedPurge, assertLocalData, assertLocalRequests, OUTSIDE_CONTROLS, outsideRequests, proxiedOptions, assertProbeOrder, buildWorkerProbe, checkAccountOff, localData, PERSISTENT_OPTIONS, recoveryOutput, restoreLocalSave, savedGameSynced, serveSite, siteRoute, WORKSHOP_SHELF } from './web-online-check.mjs';
 import { vercelRoutes } from './plugin-server-build.mjs';
 import { ART_HEADERS } from './plugin-art-headers.mjs';
 import { loadShelf } from '../src/workshop/store';
@@ -96,11 +96,15 @@ describe('profile requests', () => {
       expect(() => assertLocalRequests([...local, url])).toThrow(url);
   });
 
-  it('leaves out the control and the browser maker\'s service hosts from the proxy log, and keeps every other host', () => {
-    const control = 'http://outside.invalid/request-control';
-    const service = ['CONNECT aus5.mozilla.org:443', 'CONNECT firefox.settings.services.mozilla.com:443', 'http://detectportal.mozaws.net/'];
-    const other = ['CONNECT project.supabase.co:443', 'CONNECT mozilla.org.example.com:443', 'http://evilmozilla.org/', 'CONNECT www.google.com:443'];
-    expect(outsideRequests([control, ...service, ...other], control)).toEqual(other);
+  it('keeps every proxy entry but the two controls', () => {
+    const other = ['CONNECT aus5.mozilla.org:443', 'CONNECT project.supabase.co:443', 'http://outside.invalid/other', 'CONNECT outside.invalid:443'];
+    expect(outsideRequests([OUTSIDE_CONTROLS.fetch, OUTSIDE_CONTROLS.tunnel, ...other])).toEqual(other);
+  });
+
+  it('sends each profile request to another host through the proxy and keeps the local server direct', () => {
+    const options = proxiedOptions(PERSISTENT_OPTIONS, 5555);
+    expect(options).toMatchObject({ ...PERSISTENT_OPTIONS, proxy: { server: 'http://127.0.0.1:5555', bypass: '127.0.0.1' } });
+    expect(options.firefoxUserPrefs).toEqual({ 'media.gmp-manager.updateEnabled': false, 'media.gmp-manager.url': '' });
   });
 });
 
