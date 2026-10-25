@@ -130,3 +130,21 @@ it('stores an optional setup mode without rejecting old saved settings', async (
   expect(lastSetupSchema.safeParse(withMode({ ...saved, kind: 'random' }, 'ranked')).success).toBe(true);
   expect(lastSetupSchema.safeParse({ ...saved, mode: 'legacy' }).success).toBe(false);
 });
+
+it.each(['solo','friend','random'] as const)('loads a saved Random colour as White for %s', kind => {
+  const setup = readSetup({ ...readSetup(null), kind, colour: 'random', level: 'strong' });
+  expect(setup.colour).toBe('white'); expect(setup.level).toBe('strong');
+  expect(createArguments(setup).colour).toBe('white');
+});
+
+it('keeps Random and all old level values in the server and settings schemas', async () => {
+  const { createSchema } = await import('../../match/protocol');
+  const { lastSetupSchema } = await import('../settings');
+  for (const level of ['beginner','casual','club','strong'] as const) {
+    for (const kind of ['solo','friend','random'] as const) {
+      const saved = { ...readSetup(null), kind, level, colour: 'random' as const };
+      expect(lastSetupSchema.parse(saved)).toMatchObject({ level, colour: 'random' });
+      expect(createSchema.parse({ kind, options: saved.options, level, colour: 'random' })).toMatchObject({ level, colour: 'random' });
+    }
+  }
+});

@@ -51,7 +51,7 @@ Web overlap: Inventory B12, B14, B29 and the ticket 12 Part 2 od-board port chan
 
 ### F13
 
-Fix: Center the close mark. The base button (src/style.css:163-166) is display:flex with text-align:left, and these two rules have no justify-content. In src/plugin/screens/board.css:25 change `#board-sheet .sheet-head button` to `width: 44px; min-width: 44px; padding: 0; justify-content: center;`. In src/plugin/screens/seat.css:13 add `justify-content: center;` to `#seat-menu-sheet .sheet-head button`. The page-sheet rule at app.css:203 already centers. Keep the text '×' and '‹ Play' (tools/plugin-ui-check.mjs:1077 asserts the Back text); a new SVG close mark, chevron or gap is taste for Saar.
+Fix: Center the close mark. The base button (src/style.css:163-166) is display:flex with text-align:left, and these two rules have no justify-content. In src/plugin/screens/board.css:25 change `#board-sheet .sheet-head button` to `width: 44px; min-width: 44px; padding: 0; justify-content: center;`. In src/plugin/screens/seat.css:13 add `justify-content: center;` to `#seat-menu-sheet .sheet-head button`. The page-sheet rule at app.css:203 already centers. Keep the text '×' and '‹ Menu' (tools/plugin-ui-check.mjs:1077 asserts the Back text); a new SVG close mark, chevron or gap is taste for Saar.
 
 Files: src/plugin/screens/board.css, src/plugin/screens/seat.css
 

@@ -39,8 +39,9 @@ it('keeps coins in the frame and the first name word visible at 320 px with Card
     await page.locator('iframe').evaluate(e => { e.style.setProperty('height', '100dvh', 'important'); });
     await frame.locator('#home-games:not(:disabled)').click();
     await page.evaluate(async () => { await (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top: 63, bottom: 84, left: 0, right: 0 }, deviceCapabilities: { touch: true } }); });
-    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
-    await frame.getByRole('radio', { name: 'Club', exact: true }).locator('..').click();
+    await frame.getByRole('radio', { name: 'Artificial', exact: true }).locator('..').click();
+    await frame.locator('#setup-options summary').click();
+    await frame.locator('#setup-level').fill('2');
     await frame.getByRole('radio', { name: 'Black', exact: true }).locator('..').click();
     await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).uncheck();
     await frame.getByRole('checkbox', { name: 'Cards', exact: true }).check();

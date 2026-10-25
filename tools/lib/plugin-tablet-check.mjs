@@ -34,7 +34,7 @@ export async function checkButtonContent(root, selector) {
 
 export async function checkMenuContent(root, selector) {
   const gaps = await root.locator(selector).evaluateAll(rows => rows.filter(el => el.checkVisibility()).map(el => {
-    const chevron = el.querySelector('i').getBoundingClientRect(), line = el.querySelector('.line');
+    const chevron = el.querySelector('i').getBoundingClientRect(), line = el.querySelector('.line') ?? el.querySelector('.row-title');
     const range = document.createRange(); range.selectNodeContents(line);
     return { gap: Math.min(chevron.left - line.getBoundingClientRect().right, ...[...range.getClientRects()].filter(r => r.top < chevron.bottom && r.bottom > chevron.top).map(r => chevron.left - r.right)), padding: getComputedStyle(el).paddingRight };
   }));

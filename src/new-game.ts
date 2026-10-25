@@ -1,8 +1,9 @@
 import { GameRules } from './game-rules';
+import { MENU_LEVELS, LEVEL_NAMES, LEVEL_LINES, menuLevel, levelPosition, levelSlider } from './level-ui';
 import { POWERS_BALANCED } from './rules/rules';
 /**
  * The New game dialog (index.html #new-game): three suggested games, the computer's level, a king
- * picker per side, "Bring a design" (ticket 17) and a folded "Side and army". The dialog edits a copy of the next game's setup;
+ * picker per side, "Bring a design" (ticket 17) and a folded "Army". The dialog edits a copy of the next game's setup;
  * Start game hands it to main.ts. Close drops it.
  */
 import type { SkillName } from './ai/skill';
@@ -155,7 +156,8 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
     }
   }
   for (const r of radios('mode')) r.onchange = () => { draft = withMode(draft, r.value as Mode); render(); };
-  for (const r of radios('level')) r.onchange = () => { draft.level = r.value as SkillName; render(); };
+  $('level').innerHTML = levelSlider('level-slider');
+  $<HTMLInputElement>('level-slider').oninput = event => { draft.level = MENU_LEVELS[+(event.target as HTMLInputElement).value]; render(); };
   for (const r of radios('side')) r.onchange = () => { draft.side = +r.value as Color; render(); };
   $<HTMLInputElement>('two-powers').onchange = e => { draft = withMode(draft, draft.mode, (e.target as HTMLInputElement).checked); render(); };
   const army = $<HTMLSelectElement>('army');
@@ -172,12 +174,13 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
 
   function render(): void {
     for (const r of radios('mode')) r.checked = r.value === draft.mode;
-    for (const r of radios('level')) r.checked = r.value === draft.level;
+    $<HTMLInputElement>('level-slider').value = String(levelPosition(draft.level));
+    $('level-slider').setAttribute('aria-valuetext', LEVEL_NAMES[draft.level]);
     for (const r of radios('side')) r.checked = +r.value === draft.side;
     $<HTMLInputElement>('two-powers').checked = draft.twoPowers;
     const two = draft.mode === 'two';
     $('level').hidden = $('level-line').hidden = $('side-choice').hidden = two;
-    $('level-line').textContent = { beginner: 'New to King Down? Start here.', casual: 'Makes some mistakes.', club: 'Plays well. Keep your pieces safe.', strong: 'Thinks longer. Plays stronger.' }[draft.level];
+    $('level-line').textContent = LEVEL_LINES[draft.level];
     $('two-powers-row').hidden = !two;
     $('king-picker').hidden = !powersOn(draft);
     for (const c of [0, 1] as const) {
@@ -205,8 +208,8 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
     if (army.value !== draft.army) army.value = draft.army = 'random'; // an example army that is gone
     for (const r of radios('army')) r.checked = r.value === draft.army;
     const name = { random: 'Random army', daily: "Today's army", classic: 'Chess' }[draft.army] ?? army.selectedOptions[0].textContent;
-    $('side-army-label').textContent = two ? 'Army' : 'Side and army';
-    $('side-army-value').textContent = two ? name : `${SIDE[draft.side]} · ${name}`;
+    $('side-army-label').textContent = 'Army';
+    $('side-army-value').textContent = name;
     $('army-line').textContent = { random: 'A new army for each game.', daily: 'The same army for everyone today.', classic: 'The chess starting army.' }[draft.army] ?? 'Try this army.';
     const context = new GameRules({ ...(powersOn(draft) ? POWERS_BALANCED : {}), ...preset, kings: kingsOf(draft) });
     const code = draft.army === 'daily' ? context.randomBackRank(mulberry32(+new Date().toLocaleDateString('en-CA').replace(/-/g, '')))
@@ -222,7 +225,7 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
 
   return {
     open(s: Setup, warning = ''): void {
-      draft = copy(s);
+      draft = { ...copy(s), level: menuLevel(s.level) };
       // The designs on this device; one with a When that counts moves or cards is listed, not chosen, with the reason.
       shelf = loadShelf().designs;
       design.replaceChildren(new Option('No design', ''), ...shelf.map(d => {

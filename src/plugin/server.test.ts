@@ -348,3 +348,15 @@ it('keeps stored-engine draft previews app-only and private, without selecting o
   expect(previewDraft).toHaveBeenCalledOnce(); expect(command).not.toHaveBeenCalled(); expect(seen).not.toHaveBeenCalled(); expect(selectBoard).not.toHaveBeenCalled();
  } finally {await client.close();await server.close();}
 });
+
+it('F-115 names Menu when a board has no game to resume', async () => {
+ const board_id = '00000000-0000-4000-8000-000000000003';
+ const service = { toolTry: async () => {}, board: async () => null, inbox: async () => [], profile: async () => ({ handle: null, icon: null }) } as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({ service, actorId: 'alice', resourceHtml: '<html>board</html>', publicOrigin: 'https://kingdown.example' });
+ const client = new Client({ name: 'empty-board-host', version: '1' }), [a,b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const result = await client.callTool({ name: 'kingdown_resume', arguments: { board_id } });
+  expect(result.content).toEqual([{ type: 'text', text: 'King Down. Start a game from Menu.' }]);
+ } finally { await client.close(); await server.close(); }
+});

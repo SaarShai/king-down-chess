@@ -92,7 +92,7 @@ Rule: a read in one `locator.evaluate` on a node that no draw replaces is safe. 
 | 2205-2211 spent coin focus | Fixed: `idleBoard()` is `settled` (the cause above). |
 | 2363 `zoomBoardFits` coin rows | Safe: each caller follows a settled wait and local clicks only. |
 | 2547 `#strip-them .player-name` box | Safe: the swap preview follows `seedBoard` (settled) and local taps. |
-| 2598-2603 `zoomHallFits` game rows | Fixed: `settled` first; New game opens Play, and its read draws the rows again. |
+| 2598-2603 `zoomHallFits` game rows | Fixed: `settled` first; New game opens Menu, and its read draws the rows again. |
 | 3380 Cancel focus (G1) | Safe: after `seedBoard` (settled) and local clicks. |
 | 2484, 2531, 3048 `iframe` boxes; 2496 touch action; 2950 screen list | Safe: host or static nodes. |
 | The other 70 `idleBoard()` callers | Fixed by the stronger `idleBoard`. |

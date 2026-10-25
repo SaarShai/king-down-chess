@@ -125,7 +125,7 @@ Work starts from a clean worktree.
 
 All four parts are complete. No part is omitted.
 
-- J4 c: a computer abort returns to Play with the same draft. The
+- J4 c: a computer abort returns to Menu with the same draft. The
   board and seat keep the Abort confirmation. Router, draft and app
   tests cover the return and the saved choices.
 - W9 a: the card shows a plain reason for the player's seat. It keeps

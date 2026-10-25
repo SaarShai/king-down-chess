@@ -289,7 +289,9 @@ await caseFn('full AI vs AI game reaches a result', '?think=200', async (page, e
 // Strong takes the whole `?think=` time (the other levels cap it under a second), so the computer still
 // thinks after the New game clicks, and Start cancels a search that is in flight.
 await caseFn('cancelling mid-search starts a clean game', '?think=30000', async (page, errors) => {
-  await startGame(page, { level: 'strong' }); // you play White against the strong computer
+  await startGame(page, { level: 'club' });
+  await page.evaluate(() => { const save = JSON.parse(localStorage.getItem('kingdown.save')); save.skill = 'strong'; localStorage.setItem('kingdown.save', JSON.stringify(save)); const setup = JSON.parse(localStorage.getItem('kingdown.new-game')); setup.level = 'strong'; localStorage.setItem('kingdown.new-game', JSON.stringify(setup)); });
+  await page.reload(); await page.waitForFunction(() => !!window.view?.ready); await page.evaluate(() => window.view.ready());
   await clickSq(page, 'e2');
   await clickSq(page, 'e4');
   await endTurn(page); // the turn goes to the computer

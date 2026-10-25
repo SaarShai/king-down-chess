@@ -7,16 +7,16 @@ Each required row must pass before testers start. For the side-panel and sidebar
 | Check | Action and expected result | Result |
 |---|---|---|
 | Release identity | Record the release commit and UI resource hash. In a new chat, confirm the new setup controls. | |
-| Account A · web | Add the new MCP connection. Sign in, approve, and open Play. | |
+| Account A · web | Add the new MCP connection. Sign in, approve, and open Menu. | |
 | Account B · web | Add the connection with a separate account. Confirm its own name, record, and games. | |
-| Account A · iPhone | Use the same account as A web. Open the connection and Play. Record the actual app selector path. | |
-| Account B · iPhone | Use the same account as B web. Open the connection and Play. | |
+| Account A · iPhone | Use the same account as A web. Open the connection and Menu. Record the actual app selector path. | |
+| Account B · iPhone | Use the same account as B web. Open the connection and Menu. | |
 | Consent and isolation | Deny consent once. Reconnect. Switch accounts. Neither account sees the other's private games or settings. Old-resource tokens fail at the new MCP resource. | |
 | Inline · web | “play King Down” shows Play and Your games. Both open the right fullscreen screen. | |
 | Inline · iPhone | Repeat both inline actions. Board and controls fit; the composer does not cover them. | |
-| Side-panel · web | Open the declared entry. Confirm the same home, Play, and saved account; or record not shown. | |
+| Side-panel · web | Open the declared entry. Confirm the same home, Menu, and saved account; or record not shown. | |
 | Side-panel · iPhone | Repeat, or record not shown. | |
-| Sidebar · web | Open the declared entry. Confirm the same home, Play, and saved account; or record not shown. | |
+| Sidebar · web | Open the declared entry. Confirm the same home, Menu, and saved account; or record not shown. | |
 | Sidebar · iPhone | Repeat, or record not shown. | |
 | Computer · web | Play each of Beginner, Casual, Club, Strong. Check White, Black, and Random across these games. The reply runs on its own. | |
 | Computer · iPhone | Repeat all four levels. Tap a piece and destination; reopen and confirm the saved move. | |
@@ -24,7 +24,7 @@ Each required row must pass before testers start. For the side-panel and sidebar
 | Friend · iPhone | Repeat with A and B on phones. Both pick their own king and order, then Ready. Orders stay hidden until both are ready. | |
 | Random · web | A opens a game. B sees its features and Accept. Repeat with Find an opponent taking the oldest game. | |
 | Random request twice · both devices | A starts a random game, then repeats the request before anyone joins. Your games shows one open random game. Cancel it once; no second open game remains. | |
-| Create options · both devices | Friend and random chat requests with no options ask for game features or return a clear error. Open Play, choose features and Start game; the new game uses those features. No silent fixed setup starts. | |
+| Create options · both devices | Friend and random chat requests with no options ask for game features or return a clear error. Open Menu, choose features and Start game; the new game uses those features. No silent fixed setup starts. | |
 | Report boundary · both devices | Chat does not list or call kingdown_report. The app has no Report or Block control. The report tool stays app-only on the server. Use the private test report channel. | |
 | Random · iPhone | Repeat acceptance and Find. With no open opponent, wait 25 seconds, then play the computer. The open game stays. | |
 | Opponent found · both devices | B joins while A plays the computer. Not now keeps the computer. Switch now opens the human game and ends the computer game with no result. | |
@@ -33,8 +33,8 @@ Each required row must pass before testers start. For the side-panel and sidebar
 | Piece pool · both devices | Change the kinds. Locks prevent too small a pool. Arrangement keeps opposite-colour bishops and a guard next to the king. Shuffle gives a legal order. | |
 | Card pool · both devices | Keep four checked; the last boxes lock. Both players get the same four. A played card leaves only that player's hand. | |
 | King picker · both devices | Pick both powers where allowed. With Cards on, powers with uses stay unavailable. With powers off, White is Spirit and Black is Shadow. | |
-| Actions · both devices | The bar shows Undo, End turn (Send your turn in a game with a person) and Menu. Make a move, select Undo, make a move again and send the turn. In Menu, Offer draw and confirm; on the board, Accept draw or Decline draw and confirm. Resign in Menu opens Lay your king down? with Resign and Keep playing. Menu offers Abort before both first moves. The board offers End game for a missed first move and Claim the win for a later missed deadline. Accept and decline a Rematch against a person. Check the result and swapped colours. Play again keeps your colour against the computer. A computer abort returns to Play with the same setup. | |
-| End card · both devices | You win, You lose or Draw agrees with the result. Check the end reason, human Rating and change, New player with no change while new, New badge where earned, Play again against the computer, or Rematch and Accept/Decline against a person. Play again keeps your colour against the computer. New game opens the draft with the same setup. See the board hides the card; Game result opens it again. Skip stops the win motion. Skip and See the board work at once. Game actions ignore taps for 1 s after a live result opens. A computer abort returns to Play with the same setup. | |
+| Actions · both devices | The bar shows Undo, End turn (Send your turn in a game with a person) and Menu. Make a move, select Undo, make a move again and send the turn. In Menu, Offer draw and confirm; on the board, Accept draw or Decline draw and confirm. Resign in Menu opens Lay your king down? with Resign and Keep playing. Menu offers Abort before both first moves. The board offers End game for a missed first move and Claim the win for a later missed deadline. Accept and decline a Rematch against a person. Check the result and swapped colours. Play again keeps your colour against the computer. A computer abort returns to Menu with the same setup. | |
+| End card · both devices | You win, You lose or Draw agrees with the result. Check the end reason, human Rating and change, New player with no change while new, New badge where earned, Play again against the computer, or Rematch and Accept/Decline against a person. Play again keeps your colour against the computer. New game opens the draft with the same setup. See the board hides the card; Game result opens it again. Skip stops the win motion. Skip and See the board work at once. Game actions ignore taps for 1 s after a live result opens. A computer abort returns to Menu with the same setup. | |
 | Resume and retry · both devices | Close a chat after a move. Resume in a new chat on the other device. One accepted move stays one move after Retry. | |
 | Profile · web | Check open games first, turn marks, totals, history date, opponent, colour, result, end reason, feature icons, More, rating, and ten badge goals. Only human games change rating. | |
 | Profile · iPhone | Repeat. Tap an open game to resume. Tap earned and unearned badges. | |

@@ -133,6 +133,7 @@ try {
   await page.goto(origin + '/play/');
   try { await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor(); }
   catch (error) { await shot(page, 'web-bootstrap-failure'); console.error({ resources: failures, errors, page: await page.locator('body').innerText() }); throw error; }
+  await page.locator('#setup-options summary').click();
   await page.locator('label.mode').filter({ has: page.getByRole('radio', { name: 'A friend', exact: true }) }).click();
   await page.locator('#setup-colour label').filter({ has: page.getByRole('radio', { name: 'White', exact: true }) }).click();
   for (const [key, on] of [['arrangement', false], ['cards', false], ['kingPowers', true]]) {
@@ -365,7 +366,7 @@ try {
     await shot(page, 'web-recovered-solo-url');
     await page.locator('#board-menu').click(); await page.locator('#board-sheet').getByRole('button', {name: 'Main menu', exact: true}).click();
     await page.locator('[data-screen="play"]:not([hidden])').waitFor();
-    assert.equal(new URL(page.url()).pathname, '/play/', 'Play returns to the games list');
+    assert.equal(new URL(page.url()).pathname, '/play/', 'Menu returns to the games list');
     console.log(`web: a fresh /play/ load recovers a pending computer reply under its source game URL (computer calls: ${computerCalls.length})`);
   }
   // Seven weighted pool pieces force the army's contents; each seat still submits a real setup choice.
@@ -468,7 +469,8 @@ try {
   if (rankedStage) {
     // The real shared setup creates the fixed ranked family; MCP takes the other seat.
     await page.goto(origin + '/play/');
-    await page.getByRole('radio', {name:'A random player',exact:true}).locator('..').click();
+    await page.locator('#setup-options summary').click();
+    await page.getByRole('radio', {name:'Random',exact:true}).locator('..').click();
     await page.locator('#setup-rating input[value="ranked"]').locator('..').click();
     assert.match(await page.locator('#setup-ranked-rules').innerText(), /3 days per move/);
     for (const id of ['anyRules-row','fairy-row','cards-row','arrangement-row','setup-colour']) assert(await page.locator('#'+id).isHidden(), `Ranked fixes ${id}`);
@@ -515,7 +517,8 @@ try {
   } else {
     // Production: the shared setup offers no Ranked choice, and HTTP and MCP refuse a ranked start.
     await page.goto(origin + '/play/');
-    await page.getByRole('radio', {name:'A random player',exact:true}).locator('..').click();
+    await page.locator('#setup-options summary').click();
+    await page.getByRole('radio', {name:'Random',exact:true}).locator('..').click();
     assert(await page.locator('#setup-rating').isHidden(), 'Production shows no Ranked choice');
     assert.doesNotMatch(await page.locator('#setup-body').innerText(), /Ranked/);
     const refused = await http(0, '/api/games/find', { mode: 'ranked', command_id: randomUUID() }, 409);
@@ -528,7 +531,8 @@ try {
   // Hold an actual old HTTP list while the player leaves and returns after the offer is cancelled.
   const staleOffer = (await tool(1, 'kingdown_create', { kind: 'random', mode: 'casual', command_id: randomUUID() }))._meta.view;
   await page.goto(origin + '/play/'); await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor();
-  await page.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click();
+  await page.locator('#setup-options summary').click();
+  await page.getByRole('radio', { name: 'Random', exact: true }).locator('..').click();
   if (rankedStage) await page.locator('#setup-rating input[value="casual"]').locator('..').click();
   let releaseLobby, heldLobby;
   const held = new Promise(resolve => { heldLobby = resolve; });

@@ -57,13 +57,13 @@ The app runs as one page. D7 a (owner, 2026-10-15): ChatGPT opens the game in fu
 | Q25, Q25b | Display | D7 a (owner, 2026-10-15): ChatGPT opens the game in fullscreen at once. The app requests fullscreen only after a player selects an action. The inline home card has at most 2 actions; setup, board, profile and settings use fullscreen. No picture-in-picture (ChatGPT does not support it). Q25b (the owner delegated the choice, then agreed: "Q25b - agreed."): the page also declares a side-panel entry and a sidebar entry, which open the same fullscreen home. Only the chat path must work for the release; if the two entries do not show for the private plugin, the release goes without them. One layout serves fullscreen, the side panel and a phone. |
 | Q26 | Defaults | A new game starts with Fairy on (all pieces), Arrangement on, Classic off, Cards off, King powers off. The setup screen then remembers the player's last choices. |
 | Q27 | Setup time | In a game against a person, each player has 3 days to pick a king and arrange; a player who does not finish ends the game with no result. |
-| Q28, J5 a | Friend invite | Share first, with Copy beside it. Both use the full invite with the 6-character code and rule names. If Share is absent or refuses, it copies the invite. If Copy fails, the page says "Select the invite and copy it" and selects the full text. Your games shows the known code with Share. The friend says "Join King Down game K7QX2M" in ChatGPT, or types it in Play → Join. The preview shows the rules and "Join and take White" or "Join and take Black" for the open side. The friend needs the plugin connection. The code works for 7 days; the Ends line stays. J5 a changes Q28 (owner, 2026-10-15; [ticket 04](../owner-decisions/issues/04-friend.md)). |
+| Q28, J5 a | Friend invite | Share first, with Copy beside it. Both use the full invite with the 6-character code and rule names. If Share is absent or refuses, it copies the invite. If Copy fails, the page says "Select the invite and copy it" and selects the full text. Your games shows the known code with Share. The friend says "Join King Down game K7QX2M" in ChatGPT, or types it in Menu → Join. The preview shows the rules and "Join and take White" or "Join and take Black" for the open side. The friend needs the plugin connection. The code works for 7 days; the Ends line stays. J5 a changes Q28 (owner, 2026-10-15; [ticket 04](../owner-decisions/issues/04-friend.md)). |
 | — | Agent decisions | Art loads from the plugin's own site, not inside the page. A move shows at once, before the server confirms it. In games against people, ChatGPT gets no position and no opponent name, only a short line such as "Your move, move 14". The look is painted only (clay is parked). No "Bring a design" in the plugin: plugin games keep `design` empty. |
 
 ## User Stories
 
 Play menu and the computer
-1. As a player, I want to say "play King Down" in ChatGPT and see the Play hall in fullscreen, so that I can choose a game at once.
+1. As a player, I want to say "play King Down" in ChatGPT and see the Menu hall in fullscreen, so that I can choose a game at once.
 2. As a player, I want the app to request fullscreen only after I select an action on the inline home card, so that I control when it opens.
 3. As a player, I want to open King Down from the ChatGPT side panel or sidebar, so that I can play beside a conversation.
 4. As a player, I want to choose the computer, a friend or a random player on one New game screen, so that I can play the way I like.
@@ -99,7 +99,7 @@ Arrangement and the joiner
 
 Friends and random players
 30. As an initiator, I want Share first and Copy beside it, with the full invite and rule names, so that I can send it to a friend in any messenger.
-31. As a friend, I want to say "Join King Down game K7QX2M" or type the code in Play → Join, so that I can join the game.
+31. As a friend, I want to say "Join King Down game K7QX2M" or type the code in Menu → Join, so that I can join the game.
 32. As a player, I want a list of open games of other players, each with its features and Accept, so that I can choose a game I like.
 33. As a player, I want a Find an opponent button that takes the oldest open game with my rules (or with any rules, when I choose Any rules), or opens mine when there is none, so that I get a game with one tap.
 34. As a waiting player, I want to play the computer after 25 seconds while my open game stays, so that waiting is not boring.

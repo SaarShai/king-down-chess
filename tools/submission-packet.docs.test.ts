@@ -55,7 +55,7 @@ test('the two P2 copies agree word for word, and the two P1 expected results agr
 });
 
 test('P1 gives the D7 fullscreen open', () => {
-  expect(rows.get('P1')![3]).toContain('ChatGPT opens King Down fullscreen at the Play hall. The app sends no fullscreen request on mount.');
+  expect(rows.get('P1')![3]).toContain('ChatGPT opens King Down fullscreen at the Menu hall. The app sends no fullscreen request on mount.');
 });
 
 test('P2: a board move sends nothing, Undo takes it back, and the turn button sends the whole turn', () => {

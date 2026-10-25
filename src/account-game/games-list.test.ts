@@ -67,3 +67,8 @@ it('marks an old computer game as Legacy without calling it rated', async () => 
   const { gameDetail } = await import('./games-list');
   expect(gameDetail(entry('computer', true, { kind: 'solo', rating_policy: 'legacy', created_at: '2026-10-17T16:00:00Z', seat: 0 }))).toMatch(/^Legacy ·\u00a0White/);
 });
+
+it.each([['beginner','Casual'],['casual','Clever'],['club','Club'],['strong','Strong']] as const)('names an old computer game at level %s', async (level, label) => {
+  const { gameTitle } = await import('./games-list');
+  expect(gameTitle(entry('computer', true, { level }))).toBe(`Computer · ${label}`);
+});

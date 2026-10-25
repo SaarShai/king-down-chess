@@ -64,7 +64,7 @@ Status stays resolved. This fix round starts from `161f9cc1`. It adds no integra
 
 - A full read clears the old cursor and hides More before the read starts. The request guard drops an older cursor reply. The delayed page test checks the new result, totals and open game after the old reply arrives.
 - More updates an open badge sheet in place. It keeps the Close control and its focus. Close clears the one dark layer and returns focus to the current badge button. The delayed page test checks this sequence and an updated earned date.
-- Profile live rows now follow the phone sample: a left red Turn or tan Open pill, the seat's king coin, the name and a normal-weight detail line. Profile owns these rows. The shared Play list stays unchanged. The page test checks both row forms, their order and resume.
+- Profile live rows now follow the phone sample: a left red Turn or tan Open pill, the seat's king coin, the name and a normal-weight detail line. Profile owns these rows. The shared Menu list stays unchanged. The page test checks both row forms, their order and resume.
 - The collection test checks every piece's Moves, Takes and Special rows and both power rows for each king exactly against the game's rule readers. A temporary wrong Takes line fails the new check. The correct collection code stays unchanged.
 - Each code fix starts with a failing page test. The detail-weight check also fails before its style fix. Small commits keep these changes separate.
 

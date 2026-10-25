@@ -107,7 +107,7 @@ it('preserves the website game URL while fullscreen startup waits for the first 
   }
 });
 // These two run before any game waits for the player.
-it('opens the Play hall from the inline Choose a game action', async () => {
+it('opens the Menu hall from the inline Choose a game action', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await page.setViewportSize({ width: 393, height: 600 });
@@ -157,7 +157,7 @@ it('keeps a board open without a game on home and stores its ID only in private 
 const hasFocus = (page: Page, id: string) => page.frameLocator('iframe').locator('html').evaluate((_, id) => document.activeElement === document.getElementById(id), id);
 const expand = (page: Page) => page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', availableDisplayModes: ['inline', 'fullscreen'] }));
 // Tests of the hall itself open it directly.
-async function hall(page: Page) { await expand(page); await page.frameLocator('iframe').locator('html').evaluate(() => (window as any).harnessApp.navigate('play')); }
+async function hall(page: Page) { await expand(page); await page.frameLocator('iframe').locator('html').evaluate(() => (window as any).harnessApp.navigate('play')); await page.frameLocator('iframe').locator('#setup-options').evaluate(e => { (e as HTMLDetailsElement).open = true; }); }
 it.each(['games', 'profile'] as const)('keeps a valid Resume route after a %s result clears the game behind home', async route => {
   const page = await open(), frame = page.frameLocator('iframe');
   let game_id: string | undefined;
@@ -295,7 +295,7 @@ it('shows the saved failure words and Retry after a remount of a lost Create or 
 it('opens a usable solo board after Retry of a lost Choose reply without a remount', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await hall(page); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await hall(page); await frame.getByRole('radio', { name: 'Artificial', exact: true }).locator('..').click();
     await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).uncheck();
     await frame.getByRole('checkbox', { name: 'King powers', exact: true }).check();
     await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_choose'; });
@@ -316,7 +316,7 @@ it('opens a usable solo board after Retry of a lost Choose reply without a remou
 it('keeps Start blocked and retries the same solo game after its board read fails', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await hall(page); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await hall(page); await frame.getByRole('radio', { name: 'Artificial', exact: true }).locator('..').click();
     await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).uncheck();
     await frame.getByRole('checkbox', { name: 'King powers', exact: true }).check();
     await page.evaluate(() => { (window as any).rejectNextGet = true; });
@@ -370,7 +370,7 @@ it('blocks Retry and screen actions until both mount reads finish', async () => 
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(switched._meta.view.game_id);
   } finally { await page.evaluate(() => { (window as any).releaseHeld?.(); (window as any).releaseHeldGet?.(); }); await page.close(); }
 });
-it('refreshes the Play rows after Create and Move from the page', async () => {
+it('refreshes the Menu rows after Create and Move from the page', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await expand(page);
@@ -392,7 +392,7 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
     expect(await frame.locator('html').evaluate((_, game_id) => (window as any).harnessApp.memory.games.find((entry: any) => entry.game_id === game_id).revision, game_id)).toBe(1);
   } finally { await page.close(); }
 });
-it('finds a game created elsewhere when Back returns a clean board to Play', async () => {
+it('finds a game created elsewhere when Back returns a clean board to Menu', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   const games: string[] = [];
   try {
@@ -499,7 +499,7 @@ it('keeps the inline route when the host refuses a button request', async () => 
 it('shows the home card when the player leaves fullscreen, and Resume returns to the game', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await hall(page); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await hall(page); await frame.getByRole('radio', { name: 'Artificial', exact: true }).locator('..').click();
     // The saved setup decides whether a computer game opens on the seat or on the board.
     const game = frame.locator('[data-screen="seat"]:not([hidden]), [data-screen="board"]:not([hidden])');
     await frame.locator('#setup-start').click(); await game.waitFor(); const screen = await game.getAttribute('data-screen');
@@ -511,7 +511,7 @@ it('shows the home card when the player leaves fullscreen, and Resume returns to
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
   } finally { await page.close(); }
 });
-it('keeps the opponent picked in the Play hall for the session', async () => {
+it('keeps the opponent picked in the Menu hall for the session', async () => {
   const page = await open(), frame = page.frameLocator('iframe'), friend = frame.getByRole('radio', { name: 'A friend', exact: true });
   try {
     await hall(page); await friend.locator('..').click();
@@ -656,7 +656,7 @@ it('reads the games list after a move before it offers Next game', async () => {
     await expect.poll(() => frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(next);
   } finally { await page.close(); }
 });
-it('keeps the opponent picked after a remount in the Play hall', async () => {
+it('keeps the opponent picked after a remount in the Menu hall', async () => {
   const page = await open(), frame = page.frameLocator('iframe'), friend = frame.getByRole('radio', { name: 'A friend', exact: true });
   try {
     await hall(page); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
@@ -814,7 +814,7 @@ it('keeps the start through HANDLE_NEEDED and Back, and Save finishes it', async
     await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
     expect(await frame.locator('#retry').isVisible()).toBe(false);
     expect(await frame.locator('#error').textContent()).toBe('');
-    expect(await frame.locator('#page-back').textContent()).toBe('‹ Play');
+    expect(await frame.locator('#page-back').textContent()).toBe('‹ Menu');
     await frame.locator('#page-back').click();
     expect(await frame.locator('[data-screen="play"]').isVisible()).toBe(true);
     await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('handle'); });
@@ -1264,11 +1264,12 @@ it.each(['Abort', 'New game'])('opens the draft heading after %s and a held game
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     if (action === 'Abort') { await page.waitForFunction(() => !!(window as any).releaseHeld); await page.evaluate(() => (window as any).releaseHeld()); }
     await frame.locator('#games-list [data-game-id]').nth(5).waitFor({state:'attached'});
-    await expect.poll(() => frame.locator('#new-game-head').evaluate(e => Math.abs(e.getBoundingClientRect().top - e.closest('.new-game-body')!.getBoundingClientRect().top))).toBeLessThan(2);
-    expect(await frame.locator('[data-screen="play"] .new-game-body').evaluate(e => e.scrollTop)).toBeGreaterThan(100);
-    expect(await frame.getByRole('radio', {name:'Computer',exact:true}).isChecked()).toBe(true);
+    expect(await frame.locator('#new-game-head').evaluate(e => { const h = e.getBoundingClientRect(), body = e.closest('.new-game-body')!.getBoundingClientRect(); return h.top >= body.top && h.bottom <= body.bottom; })).toBe(true);
+    expect(await frame.locator('#setup-options').evaluate(e => (e as HTMLDetailsElement).open)).toBe(false);
+    await frame.locator('#setup-options summary').click();
+    expect(await frame.getByRole('radio', {name:'Artificial',exact:true}).isChecked()).toBe(true);
     expect(await frame.getByRole('radio', {name:'White',exact:true}).isChecked()).toBe(true);
-    expect(await frame.getByRole('radio', {name:'Casual',exact:true}).isChecked()).toBe(true);
+    expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Clever');
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
@@ -1317,9 +1318,10 @@ it.each([false, true])('keeps Abort confirmation and returns its game draft from
     if (seat) { await frame.locator('#seat-menu').click(); await frame.locator('#seat-abort').click(); await frame.locator('#seat-abort-confirm').click(); }
     else { await frame.locator('#board-menu').click(); await frame.locator('#menu-abort').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Abort', exact: true }).click(); }
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-    expect(await frame.getByRole('radio', { name: 'Computer', exact: true }).isChecked()).toBe(true);
+    expect(await frame.getByRole('radio', { name: 'Artificial', exact: true }).isChecked()).toBe(true);
+    await frame.locator('#setup-options summary').click();
     expect(await frame.getByRole('radio', { name: seat ? 'Black' : 'White', exact: true }).isChecked()).toBe(true);
-    expect(await frame.getByRole('radio', { name: 'Strong', exact: true }).isChecked()).toBe(true);
+    expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Club');
     expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(seat);
     expect(await frame.getByRole('checkbox', { name: 'King powers', exact: true }).isChecked()).toBe(seat);
     expect(await frame.locator('#over[open], #board[data-toppling], #board .kd-words').count()).toBe(0);
@@ -1392,11 +1394,11 @@ it('gives one offline sentence on Start and Join', async () => {
   } finally { await page.close(); }
 });
 
-it('starts a friend game from the Play hall in three taps, with each list under its opponent', async () => {
+it('starts a friend game from the Menu hall in three taps, with each list under its opponent', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await hall(page); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-    await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click();
+    await frame.getByRole('radio', { name: 'Random', exact: true }).locator('..').click();
     expect([await frame.locator('#play-open').isVisible(), await frame.locator('#join-form').isVisible()]).toEqual([true, false]);
     await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
     expect([await frame.locator('#play-open').isVisible(), await frame.locator('#join-form').isVisible()]).toEqual([false, true]);
@@ -1446,8 +1448,8 @@ it.each(['retry', 'remount'])('keeps the saved New game choices after a lost Pla
     expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
     expect(await frame.locator('#hall-play').isDisabled()).toBe(true);
     expect(await frame.locator('#games-start').isDisabled()).toBe(true);
-    expect(await frame.getByRole('radio', { name: 'Computer', exact: true }).isChecked()).toBe(true);
-    expect(await frame.getByRole('radio', { name: 'Beginner', exact: true }).isChecked()).toBe(true);
+    expect(await frame.getByRole('radio', { name: 'Artificial', exact: true }).isChecked()).toBe(true);
+    expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Casual');
     expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(false);
     expect(await frame.locator('#setup-start').textContent()).not.toMatch(/Strong|Arrangement/);
     if (recovery === 'remount') await remount(page);
@@ -1461,7 +1463,7 @@ it.each(['retry', 'remount'])('keeps the saved New game choices after a lost Pla
     expect(await page.evaluate(() => (window as any).harnessView)).toMatchObject({ kind: 'solo', level: 'beginner', options: { arrangement: false } });
     await hall(page);
     expect(await frame.getByRole('radio', { name: 'A friend', exact: true }).isChecked()).toBe(true);
-    expect(await frame.locator('input[name="setup-level"][value="strong"]').isChecked()).toBe(true);
+    expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Club');
     expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(true);
     await frame.locator('#setup-start').click();
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
@@ -1498,7 +1500,7 @@ it.each(['kingdown_choose', 'kingdown_get'])('shows Retry when Play now times ou
     if (name === 'kingdown_choose') expect(await page.evaluate(() => (window as any).harnessCalls.findLast((c: any) => c.name === 'kingdown_choose').arguments.command_id)).toBe(pending.args.command_id);
     await hall(page);
     expect(await frame.getByRole('radio', { name: 'A friend', exact: true }).isChecked()).toBe(true);
-    expect(await frame.locator('input[name="setup-level"][value="strong"]').isChecked()).toBe(true);
+    expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Club');
     expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(true);
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
@@ -1808,19 +1810,19 @@ it('keeps a timed-out start and its Retry on New game when the player leaves at 
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
-// A failed start keeps its text and Retry on Play only; another game plays and is free (fault b).
-it('keeps a timed-out start on Play and finishes it there while another game plays', async () => {
+// A failed start keeps its text and Retry on Menu only; another game plays and is free (fault b).
+it('keeps a timed-out start on Menu and finishes it there while another game plays', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await friendGame(page);
     const friend = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
     await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('play'));
-    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await frame.getByRole('radio', { name: 'Artificial', exact: true }).locator('..').click();
     await page.clock.install();
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
     await frame.locator('#setup-start').click();
     await page.waitForFunction(() => !!(window as any).releaseHeld);
-    // The 10 s client limit ends the start; its error stays on Play.
+    // The 10 s client limit ends the start; its error stays on Menu.
     await page.clock.fastForward(10_001);
     await frame.locator('#retry').waitFor();
     expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
@@ -1830,7 +1832,7 @@ it('keeps a timed-out start on Play and finishes it there while another game pla
     expect(await frame.locator('#error').textContent()).toBe('');
     expect(await frame.locator('#retry').isHidden()).toBe(true);
     expect(await frame.locator('#board-menu').isEnabled()).toBe(true);
-    // Play keeps the start's text and Retry; Retry sends the same command ID and finishes the start.
+    // Menu keeps the start's text and Retry; Retry sends the same command ID and finishes the start.
     await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', {name: 'Main menu', exact: true}).click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await expect.poll(() => frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
@@ -2083,7 +2085,7 @@ it.each(['timeout', 'remount'])('retries Play now with the same command ID after
       await frame.locator('#retry:not(:disabled)').waitFor();
       expect(await frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
       expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
-      expect(await frame.getByRole('radio', { name: 'Beginner', exact: true }).isChecked()).toBe(true);
+      expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Casual');
       expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(false);
       await frame.locator('#retry').click();
     } else await remount(page);
@@ -2101,7 +2103,7 @@ it.each(['timeout', 'remount'])('retries Play now with the same command ID after
     expect(games.filter((entry: any) => entry.game_id === game)).toHaveLength(1);
     await hall(page);
     expect(await frame.getByRole('radio', { name: 'A friend', exact: true }).isChecked()).toBe(true);
-    expect(await frame.locator('input[name="setup-level"][value="strong"]').isChecked()).toBe(true);
+    expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Club');
     expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(true);
   } finally { await page.evaluate(() => (window as any).releaseBefore?.()); await page.close(); }
 });
@@ -2163,11 +2165,11 @@ it.each(['offer', 'accept', 'decline'])('disables the end card %s action after a
   } finally { await page.close(); }
 });
 
-it('sends the end card Rematch while a failed start keeps its error for Play', async () => {
+it('sends the end card Rematch while a failed start keeps its error for Menu', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await friendGame(page);
-    // A start fails: its error and Retry belong to Play, and the pending command stays.
+    // A start fails: its error and Retry belong to Menu, and the pending command stays.
     await page.evaluate(() => { (window as any).failNextAction = true; });
     await frame.locator('html').evaluate(async () => { await (window as any).harnessApp.call('kingdown_create', { kind: 'friend', colour: 'white', options: { fairy: false, pool: [], arrangement: false, classic: true, cards: false, cardPool: [], kingPowers: false } }, true); });
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending?.error)).toBeTruthy();

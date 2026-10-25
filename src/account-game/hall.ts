@@ -22,15 +22,15 @@ export function createHall(memory: HallMemory, client: GameClient, host: PageHos
   const controls = document.querySelector<HTMLTemplateElement>('#hall-controls')?.content;
   const start = controls?.querySelector('#games-start'), footer = controls?.querySelector('.new-game-foot');
   start?.remove(); footer?.remove();
-  $('new-game').innerHTML = '<header class="new-game-head"><h2>Play</h2></header><div class="new-game-body"><h3 id="games-head" class="group-head">Your games</h3><div id="games-empty" hidden><p>No games yet.</p></div><p id="games-status" role="status"></p></div>';
+  $('new-game').innerHTML = '<header class="new-game-head"><h2>Menu</h2></header><div class="new-game-body"><h3 id="games-head" class="group-head">Your games</h3><div id="games-empty" hidden><p>No games yet.</p></div><p id="games-status" role="status"></p></div>';
   const body = $('new-game').querySelector('.new-game-body')!;
   body.append(rows);
   if (start) $('games-empty').append(start);
   if (controls) body.append(controls);
   const navigation: HTMLButtonElement[] = [];
-  for (const [screen, title, line] of [['profile', 'Profile', 'Your scroll, rating and badges.'], ['settings', 'Settings', 'Symbols only, Show threats, Who sees when you are online.']] as const) {
+  for (const [screen, title] of [['settings', 'Settings'], ['profile', 'Profile']] as const) {
     const button = document.createElement('button'); button.className = 'menu-row'; button.dataset.nav = screen;
-    button.innerHTML = `<span class="row-title">${title}</span><span class="line">${line}</span><i aria-hidden="true">›</i>`;
+    button.innerHTML = `<span class="row-title">${title}</span><i aria-hidden="true">›</i>`;
     button.onclick = () => { if (!disposed) host.navigate({ screen }); }; navigation.push(button); body.append(button);
   }
   if (footer) $('new-game').append(footer);

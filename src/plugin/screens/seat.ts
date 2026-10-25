@@ -1,3 +1,4 @@
+import { LEVEL_NAMES } from '../../level-ui';
 import { GameRules } from '../../game-rules';
 import { call, client, gameActionsBlocked, memory, navigate, routeView, queue } from '../../account-game/runtime';
 import type { Job } from '../queue';
@@ -87,7 +88,7 @@ function render() {
   $('seat-king').onclick = () => void pickKing();
   $('game-table').dataset.empty = 'false'; $('seat-ready').classList.toggle('primary', !ready);
   const days = view.setup_deadline_at ? Math.max(0, Math.ceil((Date.parse(view.setup_deadline_at) - Date.parse(view.server_now)) / 86400000)) : null;
-  const them = view.opponent?.computer ? `Computer · ${view.level ? view.level[0].toUpperCase() + view.level.slice(1) : 'Club'}` : view.opponent?.handle ?? 'Opponent';
+  const them = view.opponent?.computer ? `Computer · ${view.level ? LEVEL_NAMES[view.level] : 'Club'}` : view.opponent?.handle ?? 'Opponent';
   text('seat-them-name', them); $('seat-them-name').title = them; text('seat-them-line', `${view.ready?.[other] ? 'Ready' : 'Choosing'}${ready && days !== null ? ` · ${days} ${days === 1 ? 'day' : 'days'} left` : ''}`);
   $<HTMLImageElement>('seat-them-picture').src = art(`ui/kings/${PLAIN_KINGS[other].toLowerCase()}${other ? '-b' : ''}.webp`);
   text('seat-me-name', memory.me?.handle ?? 'You'); $('seat-me-name').title = $('seat-me-name').textContent;

@@ -28,6 +28,9 @@
       <symbol id="i-learn" viewBox="0 0 24 24"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2.5 9 2.5 12 0v-5M22 9v6"/></symbol>
       <symbol id="i-continue" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></symbol>
       <symbol id="i-crown" viewBox="0 0 24 24"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></symbol>
+      <symbol id="i-brain" viewBox="0 0 24 24"><path d="M12 6c0-4-6-4-6-.5-3-.5-4.5 3-3 5C1 13.5 3 17 6 17c0 4 6 4 6 .5 0 3.5 6 3.5 6-.5 3 0 5-3.5 3-6.5 1.5-2 0-5.5-3-5C18 2 12 2 12 6v11.5M7 8v3h2v4H6M17 8v3h-2v4h3"/></symbol>
+      <symbol id="i-smiling-pawn" viewBox="0 0 24 24"><circle cx="12" cy="7" r="5"/><path d="M10 6h.01M14 6h.01M10 8q2 2 4 0M8.5 13h7M10 13l-1 4-2.5 3v1h11v-1L15 17l-1-4"/></symbol>
+      <symbol id="i-die" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M8 8h.01M16 8h.01M12 12h.01M8 16h.01M16 16h.01"/></symbol>
       <symbol id="i-workshop" viewBox="0 0 24 24"><path d="M2 7h14c2 0 4.5-.6 6-1.6V7c0 2.4-2.6 4-6 4h-1v3l3 4v2H6v-2l3-4v-3H7.5C4.3 11 2 9.4 2 7z"/></symbol>
     </svg>
     <main id="game-table" aria-label="Game">
@@ -129,25 +132,25 @@
       <div class="new-game-body">
         <fieldset class="modes" id="modes">
           <legend class="sr-only">Choose a game</legend>
-          <label class="mode"><input type="radio" name="mode" value="computer" id="mode-computer" aria-label="Play the computer" />
-            <span class="mode-art" aria-hidden="true"><img src="/ui/kings/spirit.webp" alt="" /></span>
-            <span class="mode-text"><b>Computer</b></span></label>
+          <label class="mode"><input type="radio" name="mode" value="computer" id="mode-computer" aria-label="Artificial" />
+            <svg class="icon" aria-hidden="true"><use href="#i-brain"/></svg>
+            <span class="mode-text"><b>Artificial</b></span></label>
           <label class="mode"><input type="radio" name="mode" value="powers" id="mode-powers" />
-            <span class="mode-art emblem-fan" aria-hidden="true"><img src="/ui/emblems/frost.webp" alt="" /><img src="/ui/emblems/flame.webp" alt="" /><img src="/ui/emblems/stratus.webp" alt="" /></span>
+            <svg class="icon" aria-hidden="true"><use href="#i-crown"/></svg>
             <span class="mode-text"><b>Kings' powers</b></span></label>
-          <label class="mode"><input type="radio" name="mode" value="two" id="mode-two" />
-            <span class="mode-art" aria-hidden="true"><img src="/ui/kings/spirit.webp" alt="" /><img class="face-left" src="/ui/kings/shadow-b.webp" alt="" /></span>
-            <span class="mode-text"><b>Two players</b></span></label>
+          <label class="mode"><input type="radio" name="mode" value="two" id="mode-two" aria-label="A friend" />
+            <svg class="icon" aria-hidden="true"><use href="#i-smiling-pawn"/></svg>
+            <span class="mode-text"><b>A friend</b></span></label>
         </fieldset>
-        <fieldset class="seg" id="level" aria-describedby="level-line">
-          <legend>Computer level</legend>
+        <h3 class="group-head">The game</h3>
+        <fieldset class="seg colour-switch" id="side-choice">
+          <legend class="sr-only">Colour</legend>
           <div class="seg-row">
-            <label><input type="radio" name="level" value="beginner" id="level-beginner" /><span>Beginner</span></label>
-            <label><input type="radio" name="level" value="casual" id="level-casual" /><span>Casual</span></label>
-            <label><input type="radio" name="level" value="club" id="level-club" /><span>Club</span></label>
-            <label><input type="radio" name="level" value="strong" id="level-strong" /><span>Strong</span></label>
+            <label><input type="radio" name="side" value="0" id="side-white" /><span>White</span></label>
+            <label><input type="radio" name="side" value="1" id="side-black" /><span>Black</span></label>
           </div>
         </fieldset>
+        <div id="level"></div>
         <p id="level-line"></p>
         <label class="check" id="two-powers-row" hidden><input type="checkbox" id="two-powers" /><span>Play with kings' powers <small>Each king brings one power.</small></span></label>
         <div id="king-picker" hidden>
@@ -157,14 +160,7 @@
         <label class="army" id="design-row">Bring a design <select id="design" aria-describedby="design-line"></select></label>
         <p id="design-line"></p>
         <details id="more-options">
-          <summary><span id="side-army-label">Side and army</span><small id="side-army-value"></small></summary>
-          <fieldset class="seg" id="side-choice">
-            <legend>You play</legend>
-            <div class="seg-row">
-              <label><input type="radio" name="side" value="0" id="side-white" /><span>White</span></label>
-              <label><input type="radio" name="side" value="1" id="side-black" /><span>Black</span></label>
-            </div>
-          </fieldset>
+          <summary><span id="side-army-label">Army</span><small id="side-army-value"></small></summary>
           <fieldset class="seg" id="army-choice">
             <legend>Army</legend>
             <div class="seg-row">

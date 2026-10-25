@@ -10,6 +10,9 @@
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5l12 7.5-12 7.5z"/></symbol>
   <symbol id="i-continue" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></symbol>
   <symbol id="i-crown" viewBox="0 0 24 24"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M12 6c0-4-6-4-6-.5-3-.5-4.5 3-3 5C1 13.5 3 17 6 17c0 4 6 4 6 .5 0 3.5 6 3.5 6-.5 3 0 5-3.5 3-6.5 1.5-2 0-5.5-3-5C18 2 12 2 12 6v11.5M7 8v3h2v4H6M17 8v3h-2v4h3"/></symbol>
+  <symbol id="i-smiling-pawn" viewBox="0 0 24 24"><circle cx="12" cy="7" r="5"/><path d="M10 6h.01M14 6h.01M10 8q2 2 4 0M8.5 13h7M10 13l-1 4-2.5 3v1h11v-1L15 17l-1-4"/></symbol>
+  <symbol id="i-die" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M8 8h.01M16 8h.01M12 12h.01M8 16h.01M16 16h.01"/></symbol>
   <symbol id="i-share" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
   <symbol id="i-fairy" viewBox="0 0 24 24"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M18 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></symbol>
   <symbol id="i-arrange" viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"/></symbol>
@@ -34,9 +37,9 @@
 <p class="inline-line">Chess, the way it was never meant to be played.</p><p id="home-line" class="inline-line" hidden></p><div class="title-actions"><button id="home-play" disabled class="primary"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span>Play now</span></button><button id="home-games" disabled><svg class="icon" aria-hidden="true"><use href="#i-guide"/></svg><span>Choose a game</span></button></div><p id="home-error" role="alert"></p></div>
 </section>
 <div id="app-frame" class="frame" hidden>
-<dialog open class="page-sheet" aria-label="King Down"><header id="page-head" class="sheet-head" hidden><button id="page-back">‹ Play</button><h2 id="page-title"></h2></header>
+<dialog open class="page-sheet" aria-label="King Down"><header id="page-head" class="sheet-head" hidden><button id="page-back">‹ Menu</button><h2 id="page-title"></h2></header>
 <section id="new-game" data-screen="play" hidden><div id="games-list"></div><template id="hall-controls">
-<button id="games-start">Start</button><h3 id="new-game-head" class="group-head">New game</h3><button id="hall-play" class="primary wide-btn">Play now</button><div id="setup-body"></div>
+<button id="games-start">Start</button><section class="new-game-panel" aria-labelledby="new-game-head"><h3 id="new-game-head">New game</h3><button id="hall-play" class="primary wide-btn">Play now</button><div id="setup-body"></div></section>
 <footer class="new-game-foot"><button id="setup-start" class="primary">Start game</button></footer>
 </template></section>
 <section data-screen="friend" hidden><div class="new-game-body">
@@ -48,7 +51,7 @@
 <section data-screen="wait" hidden><div class="new-game-body"><div class="wait-stage" aria-hidden="true"><img class="title-floor" data-art="ui/stone-board.webp" alt=""><div class="wait-kings"><img data-art="ui/kings/spirit.webp" alt=""><span class="wait-dots"><i></i><i></i><i></i></span><img class="face-left" data-art="ui/kings/shadow-b.webp" alt=""></div></div><p id="wait-time" class="quiet-line"></p><p id="wait-status" role="alert"></p><p id="wait-features"></p><p class="quiet-line">It stays open for 24 hours, also when you close ChatGPT. It shows in Your games.</p><button id="wait-computer" class="primary wide-btn" hidden><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span class="label">Play the computer while you wait</span></button><button id="wait-cancel" class="quiet wide-btn">Cancel my open game</button></div></section>
 <section data-screen="lobby" hidden><div class="new-game-body"><p id="lobby-online" class="online" hidden></p><button id="find-opponent" class="primary wide-btn"><svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg><span class="label">Find an opponent</span></button><p class="quiet-line">It takes the oldest open game with your features, or opens yours.</p><label id="find-any-row" class="check toggle"><input id="find-any-rules" type="checkbox" aria-label="Any rules"><span class="t-ico"><svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg></span><span class="grow">Any rules<small id="find-any-line"></small></span></label><p id="find-features" class="quiet-line"></p><p id="lobby-empty" hidden>No open games yet.</p><p id="lobby-status" role="alert"></p><div id="lobby-list"></div><p id="lobby-key" class="quiet-line key"></p></div></section>
 <section id="seat-screen" data-screen="seat" hidden><div data-seat-id="game-table" aria-label="Set up your side"><div id="seat-board-slot"></div><div class="table-side">
-<button class="table-back" data-nav="play" aria-label="Back to Play">‹</button>
+<button class="table-back" data-nav="play" aria-label="Back to Menu">‹</button>
 <div data-seat-id="strip-them" class="player-strip"><span class="portrait"><img id="seat-them-picture" alt=""></span><div class="player-name"><b id="seat-them-name"></b><small id="seat-them-line"></small></div></div>
 <div data-seat-id="strip-me" class="player-strip"><span class="portrait"><img id="seat-me-picture" alt=""></span><div class="coin-row"><button id="seat-king" class="coin" data-state="always" aria-label="Choose your king" hidden><img alt=""></button></div><div class="player-name"><b id="seat-me-name"></b><small id="seat-me-line"></small></div></div>
 <div data-seat-id="context-line"><div data-seat-id="context-text" role="status" aria-live="polite"><span id="seat-context"></span><span id="seat-note"></span></div></div>
@@ -64,7 +67,7 @@
 <section data-screen="board" hidden><div id="game-table" data-empty="true" aria-label="Game">
 <div id="board" aria-label="Chess board" aria-busy="true"></div>
 <div id="cursor-say" class="sr-only" aria-live="polite"></div>
-<div class="table-side"><button class="table-back" data-nav="play" aria-label="Back to Play">‹</button><div id="strip-them" class="player-strip"></div><div id="strip-me" class="player-strip"></div>
+<div class="table-side"><button class="table-back" data-nav="play" aria-label="Back to Menu">‹</button><div id="strip-them" class="player-strip"></div><div id="strip-me" class="player-strip"></div>
 <div id="context-line"><button id="all-rules" data-free type="button" aria-label="All rules" hidden></button><div id="context-text" role="status" aria-live="polite"><span id="status">Connecting…</span><span id="context-note"></span></div><div id="context-actions"></div></div>
 <button id="moves-line" aria-controls="recent-moves" aria-expanded="false"><span id="last-move">Move 1.</span><span class="moves-label">Moves <span aria-hidden="true">⌄</span></span></button>
 <div id="moves-band" class="table-space"><div id="recent-moves" tabindex="0" role="region" aria-label="Moves" hidden></div></div>

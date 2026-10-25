@@ -57,7 +57,7 @@ try {
   /** The level New game shows when it opens. */
   const dialogLevel = async () => {
     await pressMenu(page, 'New game');
-    const level = await page.evaluate(() => document.querySelector('#new-game input[name="level"]:checked')?.value);
+    const level = await page.evaluate(() => ({Casual:'beginner',Clever:'casual',Club:'club',Strong:'strong'})[document.querySelector('#level-slider')?.getAttribute('aria-valuetext')]);
     await page.keyboard.press('Escape');
     return level;
   };

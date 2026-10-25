@@ -1,3 +1,4 @@
+import { LEVEL_NAMES } from '../../level-ui';
 import { describeMove } from '../../move-text';
 import { GameRules } from '../../game-rules';
 import type { Draft } from '../client';
@@ -9,7 +10,7 @@ import { pendingHere, staleRead, type Page } from '../../account-game/state';
 
 export type BoardMove = { pre: Position; pos: Position; move: Move; lan: string; words: string };
 export function stripLine(side: Color, rating?: NonNullable<View['opponent']>['rating'], level?: View['level']): string {
-  if (level) return level[0].toUpperCase() + level.slice(1);
+  if (level) return LEVEL_NAMES[level];
   const colour = side === 0 ? 'White' : 'Black';
   return rating ? `${rating.provisional ? 'New player' : Math.round(rating.rating)} · ${colour}` : colour;
 }

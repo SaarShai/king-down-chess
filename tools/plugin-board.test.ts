@@ -59,6 +59,8 @@ it.each([
       const visible = await caption.isVisible();
       console.log('F-107 result caption', { width, height, state: visible ? 'present' : 'absent', text: await caption.textContent() });
       const back = frame.locator('#page-back:visible, #game-table .table-back:visible').first();
+      if (await frame.locator('#page-back').isVisible()) expect(await back.innerText()).toBe('‹ Menu');
+      else expect(await back.getAttribute('aria-label')).toBe('Back to Menu');
       const backBox = (await back.boundingBox())!;
       expect(backBox.width).toBeGreaterThanOrEqual(48);
       expect(backBox.height).toBeGreaterThanOrEqual(48);
