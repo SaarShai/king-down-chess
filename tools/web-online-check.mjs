@@ -689,7 +689,7 @@ export async function main() {
     // request left the profiles.
     await active.evaluate(({ fetch: url, socket }) => { new WebSocket(socket); return fetch(url, { mode: 'no-cors' }).catch(() => {}); }, OUTSIDE_CONTROLS);
     const controlEnd = Date.now() + 10_000 * STEP;
-    while (!outside.some(socketControl) && Date.now() < controlEnd) await new Promise(done => setTimeout(done, 100));
+    while (!(outside.some(socketControl) && requests.includes(OUTSIDE_CONTROLS.socket)) && Date.now() < controlEnd) await new Promise(done => setTimeout(done, 100));
     await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify({ ...browserFacts, requests, outside }, null, 2));
     assert.ok(outside.includes(OUTSIDE_CONTROLS.fetch), 'The proxy receives a fetch to another host');
     assert.ok(outside.some(socketControl), 'The proxy receives a WebSocket to another host');
