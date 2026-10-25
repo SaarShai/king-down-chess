@@ -1,6 +1,6 @@
 # 87 — A first tap before the legal-move preview only reads the piece
 
-Status: fixed on branch `staging/early-tap` (from `origin/staging/first-game` `a89a9381`); review and merge open.
+Status: fixed on branch `staging/early-tap` (from `origin/staging/first-game` `a89a9381`), PR SaarShai/king-down-chess#111 into `staging/first-game`. Independent review: ready. Merge open.
 Type: task
 
 ## Fault
@@ -45,9 +45,10 @@ All runs use `npm test` or `npm run check:browser` under `tools/test-lock.sh`, o
 | --- | --- | --- |
 | Test 2 | base `a89a9381` | fails: no swap mark after the release (`frame.waitForFunction` timeout at `plugin-app.test.ts:933`) |
 | Test 4 | first fix, without the staged-step rule | fails: `expected 5 to be undefined` (the Beast is selected) |
-| Tests 1–4, three runs | `a89300ca` and this commit | 4 passed each run |
+| Tests 1–4, three runs (test 4 without the first-rank checks) | `a89300ca` | 4 passed each run |
+| Tests 1–4, three runs | `dae1e9a8` | 4 passed each run |
 | Mutation: Escape keeps `earlyTap` | `a89300ca` | test 3 fails: `expected 27 to be undefined` |
-| Mutation: the restored preview reply is dropped | this commit | test 4 fails: `expected 'RAGQKMSO' to be 'RAGQKSMO'` |
+| Mutation: the restored preview reply is dropped | `dae1e9a8` | test 4 fails: `expected 'RAGQKMSO' to be 'RAGQKSMO'` |
 | Full `npm test` | `a89300ca` | 5155 passed, 1 failed, 8 skipped (see below) |
 | `check:browser plugin-ui plugin-ui-http` | `a89300ca` | both pass (276 s, 299 s) |
 
@@ -55,7 +56,8 @@ The one full-suite failure is not from this change: `src/online/accounts.db.test
 
 ## Review
 
-Independent review (an outside agent, three rounds):
+Independent review (an outside agent, three rounds of `a89300ca` and `dae1e9a8`):
 
 1. Not ready. P2: a reply that restores staged draft steps changes the board, so the kept tap selected another piece (fixed: the staged-step rule and test 4). P3: a comment in past tense (fixed).
 2. Not ready. Both round-1 findings fixed, no new product fault. P2: test 4 could pass when the restored preview failed (fixed: test 4 checks the drawn first rank before and after the release).
+3. Ready. P3: the Proof table named one set of runs for two commits (fixed).
