@@ -717,7 +717,9 @@ it('F-008: the keyboard scrolls a long Moves sheet', async () => {
     await page.keyboard.press('PageDown');
     await expect.poll(() => body.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
     await page.keyboard.press('End');
-    await expect.poll(() => body.evaluate(el => Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight)).toBe(true);
+    // A failure shows the scroll box, the rows and the focus: CI runs 40183623337 and 40225675633 stopped short of the end.
+    await expect.poll(() => body.evaluate(el => ({ end: Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight, top: el.scrollTop, client: el.clientHeight,
+      height: el.scrollHeight, rows: el.childElementCount, focused: el === document.activeElement, open: (el.closest('dialog') as HTMLDialogElement).open }))).toMatchObject({ end: true });
     await page.keyboard.press('Tab');
     expect(await sheet.getByRole('button', { name: 'Close', exact: true }).evaluate(b => b === document.activeElement)).toBe(true);
     await page.keyboard.press('Shift+Tab');
