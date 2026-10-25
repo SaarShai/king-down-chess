@@ -136,6 +136,26 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(await games()).toBe(before);
  });
 
+ it('counts a rematch offer on the Create limit, so resign and rematch cannot make games past it, and leaves resign free', async () => {
+  const actor = await user('cap-rematch'), player = await connect(actor), options = { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true };
+  const games = async () => (await rows('select count(*)::int as n from public.games where created_by=$1', [actor]))[0].n;
+  const tries = async () => (await rows("select tries from public.plugin_tool_tries where user_id=$1 and tool='kingdown_create'", [actor]))[0].tries;
+  const first = view(await player.ok('kingdown_create', { kind: 'solo', colour: 'white', level: 'beginner', options }));
+  // One slot left: a solo rematch offer makes the next game at once and takes it.
+  await admin.query("update public.plugin_tool_tries set tries=59 where user_id=$1 and tool='kingdown_create'", [actor]);
+  const resigned = view(await player.ok('kingdown_resign', { game_id: first.game_id, command_id: randomUUID(), expected_revision: first.revision }));
+  const offered = view(await player.ok('kingdown_rematch', { game_id: first.game_id, command_id: randomUUID(), expected_revision: resigned.revision, choice: 'offer' }));
+  expect(offered.rematch_game_id).toBeTruthy(); expect(await tries()).toBe(60);
+  // The limit is spent: resign still works, the next rematch makes no game.
+  const second = view(await player.ok('kingdown_get', { game_id: offered.rematch_game_id! }));
+  const ended = view(await player.ok('kingdown_resign', { game_id: second.game_id, command_id: randomUUID(), expected_revision: second.revision }));
+  expect(ended.status).toBe('finished');
+  const before = await games(), limited = await player.call('kingdown_rematch', { game_id: second.game_id, command_id: randomUUID(), expected_revision: ended.revision, choice: 'offer' });
+  expect(limited).toMatchObject({ isError: true, _meta: { code: 'RATE_LIMITED' } }); expect(limited.content[0].text).toMatch(/Too many new games/);
+  expect(await games()).toBe(before);
+  expect((await rows('select rematch_game_id from public.games where id=$1', [second.game_id]))[0].rematch_game_id).toBeNull();
+ });
+
  it('stores an HMAC for short codes and joins with the same code after a server restart', async () => {
   const actor = await user('hmac-host'), guestId = await user('hmac-guest'), host = await connect(actor), guest = await connect(guestId);
   const game = view(await host.ok('kingdown_create', { kind: 'friend', options: DEFAULT_OPTIONS })).game_id;

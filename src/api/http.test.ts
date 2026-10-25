@@ -378,6 +378,17 @@ describe('website API boundary', () => {
   expect((await call('/api/games', { token, method: 'POST', body: { kind: 'solo', command_id: commandId } })).status).toBe(429); expect(games.create).not.toHaveBeenCalled();
   useApi({ players: undefined }); expect((await call('/api/me/settings', { token })).status).toBe(503);
  });
+ it('counts a rematch offer or accept on the Create quota, and a resign or decline on none', async () => {
+  const token = await sign(), command = (action: object) => call(`/api/games/${gameId}/commands`, { token, method: 'POST', body: { command_id: commandId, expected_revision: 0, action } });
+  for (const choice of ['offer', 'accept']) {
+   players.toolTry.mockClear();
+   await command({ type: 'rematch', choice }); expect(players.toolTry).toHaveBeenCalledExactlyOnceWith(alice, 'kingdown_create');
+  }
+  players.toolTry.mockClear();
+  await command({ type: 'resign' }); await command({ type: 'rematch', choice: 'decline' }); expect(players.toolTry).not.toHaveBeenCalled();
+  games.command.mockClear(); players.toolTry.mockRejectedValueOnce(new MatchServiceError('RATE_LIMITED', 429, 'Too many new games. Wait one minute, then try again.'));
+  expect((await command({ type: 'rematch', choice: 'offer' })).status).toBe(429); expect(games.command).not.toHaveBeenCalled();
+ });
  it('keeps full, zero, delta and equal-revision reads free of activity and write checks', async () => {
   const admit = vi.fn(), currentUser = vi.fn(); useApi({ admit, currentUser });
   const token = await sign();

@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { parse, MatchServiceError, type GameService } from '../match/service';
 import { commandSchema, createSchema, draftSchema, type Invite } from '../match/protocol';
 import { optionsSchema } from '../match/setup-schema';
-import { handleSchema, type PluginService } from '../plugin/service';
+import { commandLimit, handleSchema, type PluginService } from '../plugin/service';
 import { settingsSchema } from '../plugin/settings';
 import { noticesBeforeSchema, type AccountService } from '../online/accounts';
 import type { SafetyService } from '../online/safety';
@@ -147,7 +147,7 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
   },
   'POST /api/games/:id/preview': (actor, id, body) => games.previewDraft(actor, id, parse(draftSchema, body)),
   'POST /api/games/:id/seen': (actor, id, body) => { parse(z.strictObject({}).optional(), body); return games.seen(actor, id); },
-  'POST /api/games/:id/commands': async (actor, id, body) => { if ((body as { action?: { type?: unknown } } | null)?.action?.type === 'computer') await playerService().toolTry(actor, 'kingdown_computer'); const view = await games.command(actor, id, body, 'web'); return { type: 'ack', command_id: (body as { command_id: string }).command_id, revision: view.revision, view }; },
+  'POST /api/games/:id/commands': async (actor, id, body) => { const limit = commandLimit((body as { action?: { type?: unknown; choice?: unknown } } | null)?.action); if (limit) await playerService().toolTry(actor, limit); const view = await games.command(actor, id, body, 'web'); return { type: 'ack', command_id: (body as { command_id: string }).command_id, revision: view.revision, view }; },
   'POST /api/games/:id/invite': (actor, id) => link(actor, id),
   'POST /api/invites/preview': (actor, _, body) => { const key = parse(redeemSchema, body); return games.preview(actor, 'token' in key ? key.token : key.code); },
   'POST /api/invites/redeem': (actor, _, body) => { const key = parse(redeemSchema, body); return games.join(actor, 'token' in key ? key.token : key.code); },
