@@ -29,9 +29,11 @@ if (existsSync(join(folder, 'assets', list))) fault(2, `the build already has as
 // A Vite content name: <name>-<8-character hash>.<extension>, of any extension: an old file of a type
 // with no check stops the walk, so that no old file goes without a word. "/assets/x", "./assets/x" and
 // "assets/x" name a file under /assets/ (the page, the CSS, Vite's preload lists and the worker lists).
-// "./x" names one only in a file under /assets/ (a sibling chunk).
-const name = String.raw`[\w.-]+-[\w-]{8}\.[a-z0-9]+`;
-const reference = new RegExp(String.raw`["'\x60(]((?:\.?\/)?assets\/|\.\/)(${name})(?=["'\x60)])`, 'g');
+// "./x" names one only in a file under /assets/ (a sibling chunk). A query or a fragment can follow the
+// name ("/assets/x.svg#mark" in CSS); the walk reads the file without it. A space or a comma can also
+// end or start a name, as in a srcset list.
+const name = String.raw`[\w.-]+-[\w-]{8}\.[A-Za-z0-9]+`;
+const reference = new RegExp(String.raw`["'\x60(\s,]((?:\.?\/)?assets\/|\.\/)(${name})(?=["'\x60)?#\s,])`, 'g');
 
 /** GET with no cookie and no redirect. A fault stops the publish before it starts. */
 async function get(path) {

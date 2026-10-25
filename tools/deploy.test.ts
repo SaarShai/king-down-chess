@@ -921,26 +921,27 @@ describe('deploy-live-check.mjs', () => {
 const keep = (folder: string, url: string) => runAsync(process.execPath, [keepAssets, folder], { env: { ...process.env, DEPLOY_LIVE_URL: url } });
 
 describe('deploy-keep-assets.mjs', () => {
-  // Each form in which a Vite build names a file under assets/. The image holds a quoted name that the
-  // walk must not read; the page holds a sibling name outside assets/. The live list of a previous
-  // release names a file that this release does not keep.
+  // Each form in which a Vite build names a file under assets/, also with a query or a fragment. The
+  // image holds a quoted name that the walk must not read; the page holds a sibling name outside
+  // assets/. The live list of a previous release names a file that this release does not keep.
   const live = (): Record<string, string> => ({
-    'index.html': '<script type="module" src="/assets/index-AAAA1111.js"></script><link rel="stylesheet" href="./assets/style-BBBB2222.css"><a href="./page-CCCC3333.js">',
+    'index.html': '<script type="module" src="/assets/index-AAAA1111.js"></script><link rel="stylesheet" href="./assets/style-BBBB2222.css"><a href="./page-CCCC3333.js"><img srcset="/assets/small-PPPP6666.webp 1x, /assets/big-QQQQ7777.webp 2x">',
     'sw.js': 'const PRECACHE = ["assets/pre-DDDD4444.js","assets/plain.js"];',
-    'assets/index-AAAA1111.js': 'import{a}from"./shared-EEEE5555.js";const m=()=>import(\'./lazy-FFFF6666.js\');const d=["assets/dep-GGGG7777.js"];new URL("/assets/worker-HHHH8888.js",import.meta.url);const p=`/assets/pic-II-I9999.webp`;',
-    'assets/style-BBBB2222.css': '@font-face{src:url(/assets/font-JJJJ0000.woff2)}',
+    'assets/index-AAAA1111.js': 'import{a}from"./shared-EEEE5555.js";const m=()=>import(\'./lazy-FFFF6666.js\');const d=["assets/dep-GGGG7777.js"];new URL("/assets/worker-HHHH8888.js",import.meta.url);const p=`/assets/pic-II-I9999.webp`;const q="/assets/data-OOOO5555.json?raw";',
+    'assets/style-BBBB2222.css': '@font-face{src:url(/assets/font-JJJJ0000.woff2)}.m{mask-image:url("/assets/shape-NNNN4444.svg#mark")}',
+    'assets/data-OOOO5555.json': '{}', 'assets/shape-NNNN4444.svg': '<svg/>', 'assets/small-PPPP6666.webp': 'small', 'assets/big-QQQQ7777.webp': 'big',
     'assets/pre-DDDD4444.js': 'pre', 'assets/shared-EEEE5555.js': 'shared', 'assets/lazy-FFFF6666.js': 'lazy', 'assets/dep-GGGG7777.js': 'dep', 'assets/worker-HHHH8888.js': 'worker',
     'assets/pic-II-I9999.webp': 'image "./bogus-KKKK1111.js"', 'assets/font-JJJJ0000.woff2': 'font', 'assets/plain.js': 'plain', 'page-CCCC3333.js': 'page',
     'assets/kept-files.json': '["older-LLLL2222.js"]\n', 'assets/older-LLLL2222.js': 'older',
   });
   const build = (): Record<string, string> => ({ 'index.html': '<script type="module" src="/assets/index-New11111.js"></script>', 'sw.js': 'new worker', 'assets/index-New11111.js': 'import"./shared-EEEE5555.js"', 'assets/shared-EEEE5555.js': 'shared' });
-  const kept = ['dep-GGGG7777.js', 'font-JJJJ0000.woff2', 'index-AAAA1111.js', 'lazy-FFFF6666.js', 'pic-II-I9999.webp', 'pre-DDDD4444.js', 'style-BBBB2222.css', 'worker-HHHH8888.js'];
+  const kept = ['big-QQQQ7777.webp', 'data-OOOO5555.json', 'dep-GGGG7777.js', 'font-JJJJ0000.woff2', 'index-AAAA1111.js', 'lazy-FFFF6666.js', 'pic-II-I9999.webp', 'pre-DDDD4444.js', 'shape-NNNN4444.svg', 'small-PPPP6666.webp', 'style-BBBB2222.css', 'worker-HHHH8888.js'];
 
   it('keeps each file that the live build names, and changes no file of the build', async () => {
     const site_ = await site(live), folder = buildFolder(build());
     const result = await keep(folder, site_.url);
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain(`serves 9 content-named files under /assets/; 1 are in the build with the same bytes; kept 8: ${kept.join(', ')}`);
+    expect(result.stdout).toContain(`serves 13 content-named files under /assets/; 1 are in the build with the same bytes; kept 12: ${kept.join(', ')}`);
     expect(tree(folder)).toEqual({ ...build(), ...Object.fromEntries(kept.map(file => [`assets/${file}`, live()[`assets/${file}`]])), 'assets/kept-files.json': `${JSON.stringify(kept)}\n` });
     expect(site_.requests.map(r => `${r.method} ${r.path}`).sort()).toEqual(['GET /', 'GET /sw.js', ...['shared-EEEE5555.js', ...kept].map(file => `GET /assets/${file}`)].sort());
     expect(site_.requests.filter(r => r.cookie !== undefined)).toEqual([]);
@@ -955,6 +956,7 @@ describe('deploy-keep-assets.mjs', () => {
     ['an HTML fallback for the worker', {}, { path: '/sw.js', type: 'text/html' }, 'GET /sw.js: expected text/javascript or application/javascript, got text/html'],
     ['a page of another type', {}, { path: '/', type: 'text/plain' }, 'GET /: expected text/html, got text/plain'],
     ['an old file of a type with no check', { 'assets/style-BBBB2222.css': 'b{background:url(/assets/photo-MMMM3333.jpg)}', 'assets/photo-MMMM3333.jpg': 'jpeg' }, {}, 'GET /assets/photo-MMMM3333.jpg: the live build names a file of a type with no check'],
+    ['an old file with an upper-case extension', { 'assets/style-BBBB2222.css': 'b{background:url(/assets/photo-MMMM3333.PNG)}', 'assets/photo-MMMM3333.PNG': 'png' }, {}, 'GET /assets/photo-MMMM3333.PNG: the live build names a file of a type with no check'],
   ])('stops at %s and writes no file', async (_, change, reply, message) => {
     const files = { ...live(), ...change } as Record<string, string>;
     const site_ = await site(() => files, reply), folder = buildFolder(build());
