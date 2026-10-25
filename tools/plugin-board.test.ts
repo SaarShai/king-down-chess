@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { STEP } from './lib/checks.mjs';
+import { shot, STEP } from './lib/checks.mjs';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
 import { legalMoves, makeMove, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import { applyLan } from '../src/plugin/screens/board-model';
@@ -15,11 +15,17 @@ import { readText } from '../src/read';
 import { cardText, powerText, ruleLine } from '../src/powers-ui';
 import { harness, served, browser, view, insets, targetMisses, edgeMisses, open, marks, clickButton, squareTap, sheetClosed, sheetAtRest } from './lib/plugin-board-fixture';
 
-it.each(['See the board', 'New game'])('cancels a pending ceremony with %s during the final move', async action => {
-  const before = view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'), pre = fromFen(before.fen);
+it.each([
+  { action: 'See the board', width: 393, height: 852 },
+  { action: 'New game', width: 393, height: 852 },
+  { action: 'See the board', width: 1280, height: 800 },
+  { action: 'See the board', width: 852, height: 393 },
+])('cancels a pending ceremony with $action during the final move ($width by $height)', async ({ action, width, height }) => {
+  const before = view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1', { kings: [{ king: 'Flame', power: 'Haste' }, { king: 'Frost', power: 'Freeze' }] }), pre = fromFen(before.fen);
   const move = legalMoves(pre).find(m => toLan(pre,m) === 'Qa1-a8')!, post = makeMove(pre,move);
-  const page = await open(before, 393, 852, true), frame = page.frameLocator('iframe');
+  const page = await open(before, width, height, true), frame = page.frameLocator('iframe');
   try {
+    if (width > height) await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top: 0, bottom: 0, left: 0, right: 0 }, deviceCapabilities: { touch: true } }));
     // Artwork load is separate from the first visible frame; it can outlast an action wait on a cold load.
     await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
     await frame.locator('#board canvas').waitFor({ state: 'visible' });
@@ -43,6 +49,25 @@ it.each(['See the board', 'New game'])('cancels a pending ceremony with %s durin
     await frame.locator('#board[data-animating="false"]').waitFor({ state: 'attached' });
     expect(await frame.locator('html').evaluate(() => (window as any).falls.includes(true))).toBe(false);
     expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
+    if (width > height) {
+      await shot(page, `F-107-coin-edge-${width}`);
+      const point = await frame.locator('#power-b').evaluate(coin => {
+        const r = coin.getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + 4;
+        const hit = document.elementFromPoint(x, y);
+        return { x, y, hit: hit?.closest('button')?.id || hit?.id };
+      });
+      console.log('F-107 coin edge', { width, height, ...point });
+      expect(point.y).toBeGreaterThan(0);
+      expect(point.y).toBeLessThan(52);
+      expect.soft(point.hit).toBe('power-b');
+      const pane = (await page.locator('iframe').boundingBox())!;
+      await page.mouse.click(pane.x + point.x, pane.y + point.y);
+      await frame.locator('#board-sheet[open]').waitFor();
+      expect(await frame.locator('#board-sheet').innerText()).toContain('Freeze');
+      await page.keyboard.press('Escape'); await sheetClosed(page);
+      await clickButton(page, frame.locator('#page-back'));
+      await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    }
   } finally { await page.close(); }
 });
 

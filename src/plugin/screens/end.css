@@ -4,7 +4,8 @@
 #end-result { position: absolute; bottom: 12px; right: 12px; z-index: 2; width: auto; }
 #end-scrim { z-index: 1; }
 /* Keep the board size when the result adds its return control. */
-body[data-page='end'] #page-head { position: absolute; inset: 0 0 auto; z-index: 3; }
+body[data-page='end'] #page-head { position: absolute; inset: 0 0 auto; z-index: 3; pointer-events: none; }
+body[data-page='end'] #page-back { pointer-events: auto; }
 #over.end-card .over-art { height: 96px; }
 #over.end-card .over-king { height: 92px; }
 .end-card .over-words { text-align: center; color: var(--gold-ink); font-family: var(--font-display); font-size: var(--fs-lg); margin: 0 0 var(--space-2); }

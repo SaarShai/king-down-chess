@@ -32,6 +32,46 @@ The approved samples are `F-107-menu-sample-1280.png` and `F-107-menu-sample-390
 - Close and Escape return focus to Menu.
 - Tap and move preview input do not change. Ticket 87 owns that code.
 
+## Review fix plan
+
+The independent review of PR #117 confirms one P2 fault. After See the board, the result page head covers the upper 18 px of the opponent power coin at 1280 by 800 and 852 by 393. A click in that area does not open the power details.
+
+1. Add an upper-edge hit check to the current result-board test. Show that it fails with the current CSS.
+2. Keep the absolute head position. Let clicks pass through the head. Keep its one control, `#page-back`, active.
+3. Show that the edge click opens the power details at both landscape sizes. Use a real return click. Save both board images.
+4. Run the required type check, selected tests, three browser checks and doc checks. Record the results and commit the three changed files.
+
+The check uses a point 4 px below the top of the opponent power coin. The point must stay inside the old 52 px head band. The coin must receive the click, its details must open, and the return must open Play.
+
+## Review fix evidence
+
+The page head keeps its absolute position and board size. It uses `pointer-events: none`. Its only control, `#page-back`, uses `pointer-events: auto`.
+
+The current final-move test now includes 1280 by 800 and 852 by 393. Each case opens See the board with king powers. It checks the point 4 px below the top of the opponent coin. Both points have y=38, inside the old head band. The test checks the hit target and sends a real mouse click. It checks that the Freeze details open. It then closes the details, clicks the page return with real input, and checks that Play opens.
+
+The first run uses the CSS from the review commit. Both landscape cases fail. The hit target is `page-head` at `(970, 38)` and `(578, 38)`. The real clicks do not open the details. The two portrait cases pass.
+
+The selected run with the fix passes all 347 tests and 57 Node tests. It includes both edge cases and the real return clicks. The type check also passes. The logs are in `/private/tmp/claude-501/ci87/run38/menu-fix-files/`: `regression-before.log`, `focused.log` and `typecheck.log`.
+
+The result-board images are `/private/tmp/claude-501/ci87/run38/shots/F-107-coin-edge-1280.png` and `F-107-coin-edge-852.png`. Both images are viewed. They show the board after See the board, with the return and both power coins visible.
+
+The checks below use `/private/tmp/claude-501/ci87/run38/menu-fix-files/`. The selected tests and browser checks use `PLUGIN_TEST_DATABASE_URL=postgresql://kingdown_test@127.0.0.1:55432/kingdown_plugin_test`. The local database port is already open. No database start is necessary.
+
+| Command | Result | Log |
+| --- | --- | --- |
+| `npx tsc --noEmit -p .` | Pass | `typecheck.log` |
+| `KINGDOWN_TEST_FILE=tools/plugin-board.test.ts KINGDOWN_TEST_NAME='cancels a pending ceremony' npm test`, before the CSS fix | Two expected landscape failures; two portrait cases pass | `regression-before.log` |
+| `KINGDOWN_TEST_FILE='{tools/plugin-board*.test.ts,tools/plugin-app.test.ts}' npm test` | 347 tests and 57 Node tests pass | `focused.log` |
+| `pgrep -f '[t]ools/deploy[.]sh|[d]eploy-staging[.]mjs'`; `ps -o pid=,command= -p 90319` | The first PID is absent at the command check. Both later searches find no PID. No deploy wait is necessary. | `publish-check.log`, `publish-command.log`, `publish-recheck.log`, `publish-plugin-ui.log` |
+| `bash tools/test-lock.sh npm run check:browser plugin-ui game-screen web-game` | The runner refuses plugin-ui because the ticket changes during its run. Game screen and website pass in 8.5 s and 67.0 s. | `browser.log` |
+| `bash tools/test-lock.sh npm run check:browser plugin-ui` | Pass in 291.8 s with a fixed checkout | `browser-plugin-ui.log` |
+| `npm run test:docs` | 176 tests pass; the final doc check verifies this ticket | `docs.log`, `docs-final.log` |
+| `git diff --check` | Pass | `final-check.log` |
+
+The first browser run completes its UI checks. Its file-change check refuses the run because this ticket changes while plugin-ui is active. The repeat keeps the checkout fixed and passes. No source fix follows that first browser run. The other two browser checks pass in the first run.
+
+The full test suite does not run for this fix. CI runs it. No push, pull request, merge or deploy occurs.
+
 ## Evidence
 
 Main menu is the first Menu row. It closes Menu and uses `navigate('play')`. The return does not call a game command. The test stages e2-e4, returns to Play and opens the same game. The saved turn, shown position, game ID, revision and game status stay the same. No move, resign, abort or draw call occurs.
