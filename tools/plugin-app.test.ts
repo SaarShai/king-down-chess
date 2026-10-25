@@ -959,6 +959,12 @@ it('keeps a tap before a restored draft preview as a read when the draft moves a
     await page.mouse.click(point.x + pane.x, point.y + pane.y);
   };
   const selected = () => frame.locator('html').evaluate(async (_, source) => (await new Function(source)()).board.marks.selected, boardView);
+  // The drawn first rank, White's side. Both imports start before the first await: the frame's CSP lets a Playwright
+  // call run `new Function` only in its synchronous part.
+  const rank1 = () => frame.locator('html').evaluate(async (_, source) => {
+    const [{ board }, { toFen }] = await Promise.all([new Function(source)(), new Function('return import("/src/rules/setup.ts")')()]);
+    return toFen(board.pos).split(' ')[0].split('/')[7];
+  }, boardView);
   let game_id: string | undefined;
   try {
     await expand(page);
@@ -983,11 +989,13 @@ it('keeps a tap before a restored draft preview as a read when the draft moves a
     await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     await settled(page);
+    expect(await rank1()).toBe('RAGQKMSO');
     await tap(5);
     await frame.locator('#status').filter({ hasText: 'White Maester' }).waitFor();
     await page.evaluate(() => (window as any).releaseHeld());
     await settled(page);
-    // The swap puts the Beast on f1. The player tapped the Maester, so the board must not select the Beast.
+    // The restored swap puts the Beast on f1. The player tapped the Maester, so the board must not select the Beast.
+    expect(await rank1()).toBe('RAGQKSMO');
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.draft.lans)).toEqual(['Mf1<>g1!H']);
     expect(await selected()).toBeUndefined();
   } finally {

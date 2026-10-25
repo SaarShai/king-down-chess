@@ -35,4 +35,27 @@ The player sees what a normal tap shows: the read words while the reply waits, t
 1. "draws Maester swap marks through the shared board adapter for a tap after the preview reply": the old test.
 2. "… for a tap before the preview reply": the harness holds the `kingdown_preview` reply (`holdNext`). The tap reads the Maester ("White Maester") and draws no swap mark. After `releaseHeld()`, the swap marks show and the Maester is selected, with no second tap.
 3. "… for a tap before the preview reply, then Escape": after the release, nothing is selected and no swap mark shows.
-4. "keeps a tap before a restored draft preview as a read when the draft moves another piece there": a saved Haste swap `Mf1<>g1!H` (Maester and Beast). A new widget restores it through a held preview. A tap on f1 reads the Maester. After the release, the Beast stands on f1 and nothing is selected.
+4. "keeps a tap before a restored draft preview as a read when the draft moves another piece there": a saved Haste swap `Mf1<>g1!H` (Maester and Beast). A new widget restores it through a held preview. The drawn first rank is `RAGQKMSO`, and a tap on f1 reads the Maester. After the release, the first rank is `RAGQKSMO` (the Beast stands on f1) and nothing is selected.
+
+## Proof (2026-10-25)
+
+All runs use `npm test` or `npm run check:browser` under `tools/test-lock.sh`, on this Mac with the local test PostgreSQL.
+
+| Check | Code | Result |
+| --- | --- | --- |
+| Test 2 | base `a89a9381` | fails: no swap mark after the release (`frame.waitForFunction` timeout at `plugin-app.test.ts:933`) |
+| Test 4 | first fix, without the staged-step rule | fails: `expected 5 to be undefined` (the Beast is selected) |
+| Tests 1–4, three runs | `a89300ca` and this commit | 4 passed each run |
+| Mutation: Escape keeps `earlyTap` | `a89300ca` | test 3 fails: `expected 27 to be undefined` |
+| Mutation: the restored preview reply is dropped | this commit | test 4 fails: `expected 'RAGQKMSO' to be 'RAGQKSMO'` |
+| Full `npm test` | `a89300ca` | 5155 passed, 1 failed, 8 skipped (see below) |
+| `check:browser plugin-ui plugin-ui-http` | `a89300ca` | both pass (276 s, 299 s) |
+
+The one full-suite failure is not from this change: `src/online/accounts.db.test.ts`, "asks for a deletion with a 7-day grace that a sign-in cancels", gets 608400000 ms, not 604800000 ms. The local test PostgreSQL runs in `America/Los_Angeles`. There, `now() + interval '7 days'` crosses the clock change of 2026-11-01 and is 608400 s; in UTC it is 604800 s. CI runs in UTC. This change does not touch that test or its code.
+
+## Review
+
+Independent review (an outside agent, three rounds):
+
+1. Not ready. P2: a reply that restores staged draft steps changes the board, so the kept tap selected another piece (fixed: the staged-step rule and test 4). P3: a comment in past tense (fixed).
+2. Not ready. Both round-1 findings fixed, no new product fault. P2: test 4 could pass when the restored preview failed (fixed: test 4 checks the drawn first rank before and after the release).
