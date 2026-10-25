@@ -135,14 +135,14 @@ export function renderPage(page: Page) {
   if (line.status) $('status')?.replaceChildren(document.createTextNode('Not current'));
 }
 
-/** The lock pass of render(): each button off under the scoped lock; busy buttons stay off. */
+/** The lock pass of render(): each button off under the scoped lock. */
 export function applyLocks(page: Page) {
   const lock = locks(page);
   document.querySelectorAll<HTMLButtonElement>('button').forEach(button => {
     // Retry follows the message line alone; a failed connect must leave it on while blocked.
     if (button.id === 'retry') { button.disabled = !lock.retry; return; }
     const free = button.hasAttribute('data-free') || button.id === 'page-back' && page.screen === 'settings' && page.connected && !page.mounting;
-    button.disabled = button.matches('#king-picker [aria-disabled="true"], [aria-busy="true"]')
+    button.disabled = button.matches('#king-picker [aria-disabled="true"]')
       || !free && (lock.blocked || lock.game && button.matches('.game-action, #choices button, #context-actions button'));
   });
 }

@@ -12,6 +12,7 @@ vi.mock('../account-game/runtime', () => ({}));
 
 class Element {
   children: Element[] = [];
+  parentElement?: Element;
   textContent = '';
   className = '';
   onclick?: () => void;
@@ -25,12 +26,15 @@ class Element {
   attributes = new Map<string, string>();
   focus = vi.fn();
   constructor(readonly tag: string) {}
-  append(...nodes: Element[]) { this.children.push(...nodes); }
+  append(...nodes: Element[]) { for (const node of nodes) node.parentElement = this; this.children.push(...nodes); }
   replaceChildren(...nodes: Element[]) { this.children = nodes; }
   setAttribute(name: string, value: string) { this.attributes.set(name, value); }
   removeAttribute(name: string) { this.attributes.delete(name); }
   hasAttribute(name: string) { return this.attributes.has(name); }
-  matches(selector: string) { return selector.includes('[aria-busy="true"]') && this.attributes.get('aria-busy') === 'true'; }
+  matches(selector: string): boolean {
+    if (selector === ':disabled') return this.disabled || !!this.parentElement?.matches(':disabled');
+    return selector.includes('[aria-busy="true"]') && this.attributes.get('aria-busy') === 'true';
+  }
   querySelectorAll(tag: string): Element[] { return this.children.flatMap(node => [...(tag.split(', ').includes(node.tag) ? [node] : []), ...node.querySelectorAll(tag)]); }
 }
 let body: Element, settings: Element, profile: Element, reload: ReturnType<typeof vi.fn>, replace: ReturnType<typeof vi.fn>;
@@ -162,18 +166,20 @@ it('puts Log out last in Settings only and sends one logout before returning to 
   await import('./entry');
   const logout = settings.querySelectorAll('button')[0];
   expect(logout?.textContent).toBe('Log out');
-  expect(settings.children.at(-1)).toBe(logout);
+  expect(settings.children.at(-1)).toBe(logout.parentElement);
   expect(profile.querySelectorAll('button')).toEqual([]);
   const pending = logout.onclick!();
   for (const screen of ['handle', 'settings'] as const) {
     applyLocks({ screen, connected: true, mounting: false, writing: false });
-    expect(logout.disabled).toBe(true);
+    expect(logout.disabled).toBe(false);
+    expect(logout.matches(':disabled')).toBe(true);
+    expect(logout.attributes.get('aria-busy')).toBe('true');
   }
   // A second activation cannot depend on the DOM lock alone.
   logout.disabled = false;
   await logout.onclick!();
   applyLocks({ screen: 'settings', connected: true, mounting: false, writing: false });
-  expect(logout.disabled).toBe(true);
+  expect(logout.matches(':disabled')).toBe(true);
   expect(signOut).toHaveBeenCalledOnce();
   expect(replace).not.toHaveBeenCalled();
   finish(); await pending;
@@ -188,7 +194,10 @@ it('keeps Log out available after an error and shows a plain retry message', asy
   const logout = settings.querySelectorAll('button')[0];
   expect(logout?.textContent).toBe('Log out');
   await logout.onclick!();
+  expect(logout.matches(':disabled')).toBe(false);
+  applyLocks({ screen: 'settings', connected: true, mounting: false, writing: false });
   expect(logout.disabled).toBe(false);
+  expect(logout.matches(':disabled')).toBe(false);
   expect(logout.hasAttribute('aria-busy')).toBe(false);
   expect(replace).not.toHaveBeenCalled();
   const error = settings.querySelectorAll('p')[0];

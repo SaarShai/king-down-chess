@@ -591,7 +591,7 @@ try {
       const logout = screen.getByRole('button', { name: 'Log out', exact: true });
       await logout.scrollIntoViewIfNeeded();
       assert.equal(await logout.count(), 1, 'Settings has one logout button');
-      assert(await logout.evaluate(button => button === button.parentElement.lastElementChild), 'Log out is the last Settings row');
+      assert(await logout.evaluate(button => button.parentElement === button.parentElement.parentElement.lastElementChild), 'Log out is the last Settings row');
       const box = await logout.boundingBox();
       assert(box && box.width >= 48 && box.height >= 48, 'Log out has a 48 by 48 pixel target');
       await screen.evaluate(() => document.fonts.ready);
@@ -608,9 +608,12 @@ try {
       await sent;
       await screen.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);
       await screen.locator('#settings-sheet [data-nav="handle"]').click();
+      await screen.locator('[data-screen="handle"]:not([hidden])').waitFor();
+      assert(await screen.locator('#settings-logout').isDisabled(), 'The name screen lock keeps pending logout disabled');
       await screen.locator('#page-back').click();
-      assert(await logout.isDisabled(), 'A page update keeps pending logout disabled');
-      await logout.evaluate(button => { button.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+      await screen.locator('[data-screen="settings"]:not([hidden])').waitFor();
+      assert(await logout.evaluate(button => !button.disabled && button.matches(':disabled')), 'The fieldset keeps pending logout disabled after the real lock clears the button state');
+      await logout.evaluate(button => { button.disabled = false; button.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
       assert.equal(logouts, 1, 'Repeated activation sends one local logout across a page update');
       releaseLogout();
       await screen.getByText('Sign in to play with your account.', { exact: true }).waitFor();
@@ -622,7 +625,7 @@ try {
       assert.equal(await screen.evaluate(key => localStorage.getItem(key), receiptKey), receipt, 'Logout keeps the pending game receipt');
       assert.equal(logouts, 1, 'One activation sends one local logout');
       assertNoErrors(logoutErrors);
-      logoutProof.push({ width, height, target: { width: box.width, height: box.height }, logouts, focus: true, pageUpdate: true, signedOutReload: true });
+      logoutProof.push({ width, height, target: { width: box.width, height: box.height }, logouts, focus: true, pageUpdate: true, nativeFieldsetLock: true, signedOutReload: true });
     } finally { releaseLogout(); await ctx.close(); }
   }
   await checkLogout(1280, 800, false);
