@@ -33,7 +33,8 @@ The deletion job trusts the stored date.
 
 ## Release
 
-Production needs migration 0020 applied before the release that carries it.
+Apply 0020 on staging before a deploy that depends on it.
+Apply 0020 on production before the release that carries it.
 
 ## Scope check
 
@@ -91,6 +92,18 @@ The log folder is `/private/tmp/claude-501/ci87/run38/deletion-utc-files/`.
 The shared lock delays the setup and two test commands. Each command ends.
 The full test suite is reserved for CI. No remote database or deploy is used.
 
+### Release doc check
+
+The release check requires both release steps in the README and this ticket.
+The log folder for this check is
+`/private/tmp/claude-501/ci87/run38/deletion-fix-files/`.
+
+| Command | Result | Log |
+| --- | --- | --- |
+| `npm run test:docs` with the new check and the old doc text | Exit 1, as required. The two new cases fail. The other 176 tests pass. | `docs-before.log` |
+| `npm run test:docs` with the corrected doc text | Exit 0. All 178 tests in 15 files pass. | `docs-after.log` |
+| `npx tsc --noEmit -p .` | Exit 0. | `typecheck.log` |
+
 ## Review and risk
 
 Finding 1 in `/private/tmp/claude-501/ci87/run38/dst-review.md` identifies the
@@ -98,3 +111,8 @@ fault. The four tests confirm it on this branch before 0020.
 The fix uses function settings and a column default. It adds no service code.
 Both migration lists and the release steps include 0020.
 Existing requests keep their stored dates, including any old non-UTC date.
+
+Finding 1 in `/private/tmp/claude-501/ci87/run38/deletion-review.md` identifies
+the missing staging requirement. Both release steps now require 0020 on staging
+before a deploy that depends on it, and on production before its release.
+The doc check requires both conditions in each file.

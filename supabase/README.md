@@ -193,4 +193,6 @@ Confirm the two internal routes work before you paste the MVP file.
 
 - `0020_deletion_utc.sql`: sets UTC for `kingdown_jobs.request_deletion(uuid)`.
   The column default uses 168 hours. A caller's time zone cannot change the grace.
-  Existing rows and grants stay the same. Apply 0020 on production before the release that carries it.
+  Existing rows and grants stay the same.
+  Apply 0020 on staging before a deploy that depends on it.
+  Apply 0020 on production before the release that carries it.

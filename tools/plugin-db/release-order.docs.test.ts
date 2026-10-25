@@ -15,6 +15,14 @@ it('names the last server migration and the last role block in the release steps
   expect(readme).toContain(`- \`${last}_`);
 });
 
+it.each(['supabase/README.md', 'docs/specs/test-guards/issues/02-deletion-grace-utc.md'])(
+  'requires 0020 before a staging deploy and production release in %s', file => {
+    const text = read(file);
+    expect(text).toContain('Apply 0020 on staging before a deploy that depends on it.');
+    expect(text).toContain('Apply 0020 on production before the release that carries it.');
+  },
+);
+
 it('keeps the migration lists ordered with one number per migration', () => {
   const files = readdirSync('supabase/migrations').filter(name => /^\d{4}_.*\.sql$/.test(name)).sort();
   expect(new Set(files.map(name => name.slice(0, 4))).size).toBe(files.length);
