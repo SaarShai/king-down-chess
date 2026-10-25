@@ -76,7 +76,9 @@ The audit says `worker-browser.json` records each request. It records only the b
 
 After the reviews (below), all profiles run behind a local proxy (`bypass: '127.0.0.1'`) that records and refuses each request to another host. The proxy sees a worker's own request and a WebSocket, which give no context request event in some engines (Firefox and WebKit for worker requests; every engine for a worker's WebSocket). The proxy log goes into `worker-browser.json` as `outside`. Two controls, `fetch('http://outside.invalid/request-control')` and `new WebSocket('ws://outside.invalid/socket-control')` (logged as `CONNECT outside.invalid:80`), must reach the proxy, so an empty log proves something. Every other proxy entry is a fault: no host rule names the sender from the destination. Firefox's media plug-in update check (`media.gmp-manager`, the source of `CONNECT aus5.mozilla.org:443` in one local run) is off.
 
-First proxy version (Firefox and WebKit only, with a service-host rule): Chromium 123.9 s; Firefox 111.2 s and 111.3 s; WebKit 88.9 s; each proxy log held only the control. The current version waits for local runs after the live release checks; branded Chrome sent its own Google service requests through the first proxy (`CONNECT www.google.com:443` and others), so its result decides the Chromium path.
+WebKit sends the WebSocket control to the proxy as its URL (`ws://outside.invalid/socket-control`); Chromium and Firefox send a tunnel. Full Chromium and branded Chrome send their own service requests through the proxy (`www.google.com`, `accounts.google.com`, `update.googleapis.com` and others) with every switch tried, so a Chromium profile opens the bundled headless shell (`chromium-headless-shell`), which sends none. The other pages of the check keep `PLAYABLE_BROWSER`.
+
+`npm run check:browser web-online` at the current version: Chrome 102.8 s and Chromium 97.3 s (profiles in the headless shell), Firefox 111.4 s, WebKit 89.3 s. Each proxy log holds only the two controls.
 
 ### Full suite
 

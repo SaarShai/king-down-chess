@@ -136,17 +136,24 @@ export function assertLocalRequests(urls) {
   assert.deepEqual(outside, [], 'Each profile request goes to http://127.0.0.1');
 }
 
-/** The two control requests to another host: one fetch and one WebSocket. The proxy logs the socket as a tunnel. */
+/** The two control requests to another host: one fetch and one WebSocket. Chromium and Firefox send the socket to
+ * the proxy as a tunnel; WebKit sends its URL. */
 export const OUTSIDE_CONTROLS = { fetch: 'http://outside.invalid/request-control', socket: 'ws://outside.invalid/socket-control', tunnel: 'CONNECT outside.invalid:80' };
+
+/** True when a proxy log entry is the WebSocket control. */
+export const socketControl = entry => entry === OUTSIDE_CONTROLS.socket || entry === OUTSIDE_CONTROLS.tunnel;
 
 /** The proxy log of the profiles without the controls: each other request to another host. Each one is a fault. */
 export function outsideRequests(log) {
-  return log.filter(entry => entry !== OUTSIDE_CONTROLS.fetch && entry !== OUTSIDE_CONTROLS.tunnel);
+  return log.filter(entry => entry !== OUTSIDE_CONTROLS.fetch && !socketControl(entry));
 }
 
-/** Profile options: each request to another host goes through the proxy. Firefox's media plug-in update check is off. */
-export function proxiedOptions(options, proxyPort) {
-  return { ...options, proxy: { server: `http://127.0.0.1:${proxyPort}`, bypass: '127.0.0.1' },
+/** Profile options: each request to another host goes through the proxy. Firefox's media plug-in update check is
+ * off. Full Chromium and the branded channels (chromium, chrome, msedge) send their own service requests to google.com
+ * and other hosts with every switch tried, so a Chromium profile opens the bundled headless shell, which sends none. */
+export function proxiedOptions(options, proxyPort, channel = env('PLAYABLE_BROWSER')) {
+  return { ...options, channel: channel === 'webkit' || channel === 'firefox' ? channel : 'chromium-headless-shell',
+    proxy: { server: `http://127.0.0.1:${proxyPort}`, bypass: '127.0.0.1' },
     firefoxUserPrefs: { 'media.gmp-manager.updateEnabled': false, 'media.gmp-manager.url': '' } };
 }
 
@@ -268,7 +275,7 @@ export async function main() {
     // The profiles send each request to another host through this proxy, which records and refuses it. The proxy sees
     // a worker's own request and a WebSocket, which give no context request event in some engines.
     outsideProxy = createServer((req, res) => { outside.push(req.url); res.writeHead(502).end(); });
-    outsideProxy.on('connect', (req, socket) => { outside.push(`CONNECT ${req.url}`); socket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n'); });
+    outsideProxy.on('connect', (req, socket) => { socket.on('error', () => {}); outside.push(`CONNECT ${req.url}`); socket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n'); });
     outsideProxy.listen(0, '127.0.0.1'); await once(outsideProxy, 'listening');
     const profileOptions = proxiedOptions(PERSISTENT_OPTIONS, outsideProxy.address().port);
     const pairKeys = await generateKeyPair('ES256'), websiteKeys = createLocalJWKSet({ keys: [{ ...await exportJWK(pairKeys.publicKey), kid: 'status', alg: 'ES256' }] });
@@ -678,14 +685,14 @@ export async function main() {
     // request left the profiles.
     await active.evaluate(({ fetch: url, socket }) => { new WebSocket(socket); return fetch(url, { mode: 'no-cors' }).catch(() => {}); }, OUTSIDE_CONTROLS);
     const controlEnd = Date.now() + 10_000 * STEP;
-    while (!outside.includes(OUTSIDE_CONTROLS.tunnel) && Date.now() < controlEnd) await new Promise(done => setTimeout(done, 100));
+    while (!outside.some(socketControl) && Date.now() < controlEnd) await new Promise(done => setTimeout(done, 100));
     await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify({ ...browserFacts, requests, outside }, null, 2));
     assert.ok(outside.includes(OUTSIDE_CONTROLS.fetch), 'The proxy receives a fetch to another host');
-    assert.ok(outside.includes(OUTSIDE_CONTROLS.tunnel), 'The proxy receives a WebSocket to another host');
+    assert.ok(outside.some(socketControl), 'The proxy receives a WebSocket to another host');
     assertLocalRequests(requests.filter(url => url !== OUTSIDE_CONTROLS.fetch && url !== OUTSIDE_CONTROLS.socket));
     assert.deepEqual(outsideRequests(outside), [], 'No profile request goes to another host');
     console.log(`PASS: worker journeys; ${pair}; ${events.filter(event => event.event === 'probe').length} protected/bypass requests; ${((performance.now() - started) / 1000).toFixed(1)} s`);
-    console.log(`PASS: web-online (${env('PLAYABLE_BROWSER')}): built root, test database, local move, End turn, saved reload, closed account and API routes`);
+    console.log(`PASS: web-online (${env('PLAYABLE_BROWSER')}; profiles ${profileOptions.channel}): built root, test database, local move, End turn, saved reload, closed account and API routes`);
   } finally {
     try {
       await mkdir(env('PLAYABLE_OUT'), { recursive: true });
