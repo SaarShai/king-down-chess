@@ -1227,7 +1227,7 @@ it('updates a waiting friend screen when a same-revision poll reports a replaced
   expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_invite')).toHaveLength(0);
 });
 
-it('invalidates a cached code when the accepted Play list reports a replacement', async () => {
+it('invalidates a cached code when the accepted Menu list reports a replacement', async () => {
   const app = await mounted(), { friendInvites } = await import('./invite');
   const saved = { code: 'ABC234', invite_id: 'old', expires_at: new Date(Date.now() + 60_000).toISOString() };
   friendInvites.set(game.game_id, saved);

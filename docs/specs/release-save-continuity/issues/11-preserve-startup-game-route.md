@@ -10,7 +10,7 @@ The fullscreen restoration opens the saved board before its first authoritative 
 
 ## Plan and verification
 
-- Add focused browser-host route checks and an actual source UI bootstrap with its first game read held. Assert the selected URL before release, after drawing, after reload, and after an explicit Back to Play.
+- Add focused browser-host route checks and an actual source UI bootstrap with its first game read held. Assert the selected URL before release, after drawing, after reload, and after an explicit Back to Menu.
 - Preserve the selected route when a game screen has no game ID yet. Keep explicit Play/Home and identified game navigation unchanged. Change no shared plugin runtime or gameplay code.
 - Run the focused red before the product change, then the affected host/UI checks after it. Wait for the shared compute lane before commands.
 - Obtain independent read review. The parent owns the final registered `shared-mechanics` and `web-online` checks.
@@ -19,7 +19,7 @@ The fullscreen restoration opens the saved board before its first authoritative 
 
 - The focused red fails six cases and passes one, with 146 cases filtered. The actual source UI fails before the first view is released: the selected `/g/<id>` has already become `/play/`. All five game-screen mapping checks fail for the same route loss. Log: `/tmp/kingdown-startup-game-route-red.log`.
 - The browser host now returns before changing its route generation when a game screen has no game ID. Explicit Play/Home, Profile, Settings and identified game routes keep their existing behavior. No shared runtime change is needed.
-- The focused green passes 14 cases, with 139 filtered: six host checks and eight actual source UI checks. The new UI check holds the first view on both startup and reload, verifies the same selected game after release, and then clicks the phone's Back to Play control. The first green attempt reaches its final Back check at desktop width, where that phone control is hidden; the test now uses the phone viewport. The product guard is unchanged. Log: `/tmp/kingdown-startup-game-route-green.log`.
+- The focused green passes 14 cases, with 139 filtered: six host checks and eight actual source UI checks. The new UI check holds the first view on both startup and reload, verifies the same selected game after release, and then clicks the phone's Back to Menu control. The first green attempt reaches its final Back check at desktop width, where that phone control is hidden; the test now uses the phone viewport. The product guard is unchanged. Log: `/tmp/kingdown-startup-game-route-green.log`.
 - The complete `src/online/runtime.test.ts` passes all 18 tests without a name filter, including the existing route, invitation, preview and cancellation checks. Log: `/tmp/kingdown-startup-game-route-runtime-full.log`.
 - Both green commands pass full typecheck and all 54 artwork checks. The focused selection uses `KINGDOWN_TEST_FILE='{src/online/runtime.test.ts,tools/plugin-app.test.ts}'` and `KINGDOWN_TEST_NAME='keeps the selected game URL|still routes explicit|preserves the website game URL|opens a chat route|keeps an inline.*route|leaves fullscreen|reads the selected board'` with `npm test`.
 

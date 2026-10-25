@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-// Fault F25: the Play screen uses one type scale. Every font-size is a --fs-* token (src/style.css), never a
+// Fault F25: the Menu screen uses one type scale. Every font-size is a --fs-* token (src/style.css), never a
 // raw pixel value, so Play cannot grow a second, off-scale list of text sizes. The rating badge keeps its
 // 20 px box; only its text follows the scale.
 const pluginCss = ['app.css', 'screens/board.css', 'screens/seat.css', 'screens/setup.css', 'screens/end.css', 'screens/profile.css'];

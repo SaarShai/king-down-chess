@@ -546,7 +546,7 @@ it.each([[768, 1024], [820, 600], [899, 900]])('keeps each W mark and date of 12
     marks.forEach((mark, k) => expect(Math.min(...ratios[k]), mark).toBeGreaterThanOrEqual(4.5));
   } finally { await close(); }
 });
-it.each(['de-DE', 'ja-JP', 'en-US'])('uses one English date style in Play, Profile and friend codes under %s', async locale => {
+it.each(['de-DE', 'ja-JP', 'en-US'])('uses one English date style in Menu, Profile and friend codes under %s', async locale => {
   const { frame, close } = await openAt(393, 852, locale);
   try {
     await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_games', {}); app.navigate('play'); });

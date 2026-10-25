@@ -1,3 +1,4 @@
+import { LEVEL_NAMES } from '../level-ui';
 import type { InboxEntry, View } from '../match/protocol';
 import { ICONS } from '../account/profile';
 import { art } from './art';
@@ -14,7 +15,7 @@ export function gameDetail(entry: InboxEntry): string {
   return `${policyLabel(entry.rating_policy, entry.kind)} ·\u00a0${entry.seat === 0 ? 'White' : 'Black'} ·\u00a0${formatDate(entry.created_at, {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`;
 }
 
-export const gameTitle = (entry: Pick<View, 'opponent' | 'level'>) => entry.opponent?.computer ? entry.level ? `Computer · ${entry.level[0].toUpperCase() + entry.level.slice(1)}` : 'Computer' : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';
+export const gameTitle = (entry: Pick<View, 'opponent' | 'level'>) => entry.opponent?.computer ? entry.level ? `Computer · ${LEVEL_NAMES[entry.level]}` : 'Computer' : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';
 export function gamesList(target: HTMLElement, entries: InboxEntry[], openGame: (gameId: string) => void, now = Date.now()): Map<string, HTMLButtonElement> {
   const rows = new Map<string, HTMLButtonElement>();
   target.replaceChildren(...entries.map(entry => {

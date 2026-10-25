@@ -1,3 +1,4 @@
+import { LEVEL_NAMES } from '../level-ui';
 import { describeMove, nextMoveNumber } from '../move-text';
 import { GameRules } from '../game-rules';
 import type { SkillName } from '../ai/skill';
@@ -31,7 +32,7 @@ export function homeState({ game, sides, level, linkSide, staged, result }: Home
   else if (!game.history.length) detail = `A new game. You play ${you === 0 ? 'White' : 'Black'}.`;
   else detail = oneDevice ? `${side} to move.` : mine ? 'Your move.' : 'Their move.';
   return {
-    opponent: linkSide != null ? 'vs your friend' : sides.every(s => s === 'human') ? 'White vs Black' : `vs Computer · ${level[0].toUpperCase()}${level.slice(1)}`,
+    opponent: linkSide != null ? 'vs your friend' : sides.every(s => s === 'human') ? 'White vs Black' : `vs Computer · ${LEVEL_NAMES[level]}`,
     progress: finished ? 'Finished' : `Move ${nextMoveNumber(game.history.map(h => h.pos.turn), game.pos.turn)}`,
     action: finished ? 'Rematch' : 'Continue',
     detail,

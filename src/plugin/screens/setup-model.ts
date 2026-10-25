@@ -8,7 +8,7 @@ export function readSetup(value: unknown): SetupState {
   if (!value || typeof value !== 'object') return state;
   const saved = value as Partial<SetupState>, o = saved.options;
   if (saved.kind && ['solo', 'friend', 'random'].includes(saved.kind)) state.kind = saved.kind;
-  if (saved.colour && ['white', 'black', 'random'].includes(saved.colour)) state.colour = saved.colour;
+  if (saved.colour && ['white', 'black'].includes(saved.colour)) state.colour = saved.colour;
   if (saved.level && ['beginner', 'casual', 'club', 'strong'].includes(saved.level)) state.level = saved.level;
   if (o && ['fairy', 'arrangement', 'classic', 'cards', 'kingPowers'].every(key => typeof o[key as keyof Options] === 'boolean') && Array.isArray(o.pool) && Array.isArray(o.cardPool)) {
     const options = { ...o, pool: o.pool.filter(k => POOL_KINDS.includes(k)), cardPool: o.cardPool.filter(c => DEAL_CARDS.includes(c)) };
@@ -27,13 +27,13 @@ export function gameSetup(view: View): SetupState {
 /** Play now uses Beginner and an automatic army, and keeps the saved setup. */
 export function quickSetup(saved: unknown): SetupState {
   const state = readSetup(saved);
-  return { ...state, kind: 'solo', mode: 'casual', level: 'beginner', options: { ...state.options, arrangement: false } };
+  return { ...state, kind: 'solo', mode: 'casual', colour: state.colour === 'black' ? 'black' : 'white', level: 'beginner', options: { ...state.options, arrangement: false } };
 }
 /** Ranked is offered only in the staging build (plan D2; ticket 67); the server refuses it in production. */
 export const rankedOffered = () => import.meta.env?.VITE_KINGDOWN_STAGE === 'staging';
 /** Ranked choices are fixed before the start or a saved draft is used. */
 export function withMode(state: SetupState, mode: CreationMode): SetupState {
-  if (state.kind !== 'random' || mode !== 'ranked' || !rankedOffered()) return { ...state, mode: 'casual', king: cleanKing(state.options, state.king, state.colour) };
+  if (state.kind !== 'random' || mode !== 'ranked' || !rankedOffered()) return { ...state, mode: 'casual', colour: state.colour === 'random' ? 'white' : state.colour, king: cleanKing(state.options, state.king, state.colour) };
   const options = { ...RANKED_OPTIONS, pool: [...RANKED_OPTIONS.pool], cardPool: [...RANKED_OPTIONS.cardPool] };
   return { ...state, mode, options, colour: 'random', king: cleanKing(options, state.king, 'random') };
 }

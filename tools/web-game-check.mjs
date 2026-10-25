@@ -133,6 +133,7 @@ try {
   await page.goto(origin + '/play/');
   try { await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor(); }
   catch (error) { await shot(page, 'web-bootstrap-failure'); console.error({ resources: failures, errors, page: await page.locator('body').innerText() }); throw error; }
+  await page.locator('#setup-options summary').click();
   await page.locator('label.mode').filter({ has: page.getByRole('radio', { name: 'A friend', exact: true }) }).click();
   await page.locator('#setup-colour label').filter({ has: page.getByRole('radio', { name: 'White', exact: true }) }).click();
   for (const [key, on] of [['arrangement', false], ['cards', false], ['kingPowers', true]]) {
@@ -269,7 +270,7 @@ try {
   assert.equal((await view(0)).fen, moved);
   await shot(page, 'web-shared-board');
   // Keep the return route in this document; a page reload would clear the result screen's attempt state.
-  await page.locator('#page-back:visible, #game-table .table-back:visible').first().click();
+  await page.locator('#board-menu').click(); await page.locator('#board-sheet').getByRole('button', {name: 'Main menu', exact: true}).click();
   await page.locator(`#games-list [data-game-id="${gameId}"]`).click();
   await page.locator('[data-screen="board"]:not([hidden])').waitFor();
   const rematchDocument = await page.evaluate(() => performance.timeOrigin);
@@ -363,9 +364,9 @@ try {
     assert.equal(replied.turn, replied.seat, 'The player moves after the computer turn');
     assert.equal(new URL(page.url()).pathname, soloPath, 'The settled reply keeps the source game URL');
     await shot(page, 'web-recovered-solo-url');
-    await page.locator('#page-back:visible, #game-table .table-back:visible').first().click();
+    await page.locator('#board-menu').click(); await page.locator('#board-sheet').getByRole('button', {name: 'Main menu', exact: true}).click();
     await page.locator('[data-screen="play"]:not([hidden])').waitFor();
-    assert.equal(new URL(page.url()).pathname, '/play/', 'Play returns to the games list');
+    assert.equal(new URL(page.url()).pathname, '/play/', 'Menu returns to the games list');
     console.log(`web: a fresh /play/ load recovers a pending computer reply under its source game URL (computer calls: ${computerCalls.length})`);
   }
   // Seven weighted pool pieces force the army's contents; each seat still submits a real setup choice.
@@ -468,7 +469,8 @@ try {
   if (rankedStage) {
     // The real shared setup creates the fixed ranked family; MCP takes the other seat.
     await page.goto(origin + '/play/');
-    await page.getByRole('radio', {name:'A random player',exact:true}).locator('..').click();
+    await page.locator('#setup-options summary').click();
+    await page.getByRole('radio', {name:'Random',exact:true}).locator('..').click();
     await page.locator('#setup-rating input[value="ranked"]').locator('..').click();
     assert.match(await page.locator('#setup-ranked-rules').innerText(), /3 days per move/);
     for (const id of ['anyRules-row','fairy-row','cards-row','arrangement-row','setup-colour']) assert(await page.locator('#'+id).isHidden(), `Ranked fixes ${id}`);
@@ -515,7 +517,8 @@ try {
   } else {
     // Production: the shared setup offers no Ranked choice, and HTTP and MCP refuse a ranked start.
     await page.goto(origin + '/play/');
-    await page.getByRole('radio', {name:'A random player',exact:true}).locator('..').click();
+    await page.locator('#setup-options summary').click();
+    await page.getByRole('radio', {name:'Random',exact:true}).locator('..').click();
     assert(await page.locator('#setup-rating').isHidden(), 'Production shows no Ranked choice');
     assert.doesNotMatch(await page.locator('#setup-body').innerText(), /Ranked/);
     const refused = await http(0, '/api/games/find', { mode: 'ranked', command_id: randomUUID() }, 409);
@@ -528,7 +531,8 @@ try {
   // Hold an actual old HTTP list while the player leaves and returns after the offer is cancelled.
   const staleOffer = (await tool(1, 'kingdown_create', { kind: 'random', mode: 'casual', command_id: randomUUID() }))._meta.view;
   await page.goto(origin + '/play/'); await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor();
-  await page.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click();
+  await page.locator('#setup-options summary').click();
+  await page.getByRole('radio', { name: 'Random', exact: true }).locator('..').click();
   if (rankedStage) await page.locator('#setup-rating input[value="casual"]').locator('..').click();
   let releaseLobby, heldLobby;
   const held = new Promise(resolve => { heldLobby = resolve; });
@@ -553,6 +557,86 @@ try {
     assert.equal(await page.locator('#lobby-list').innerText(), currentRows, 'An old website lobby reply cannot restore the cancelled offer');
     await shot(page, 'web-current-opponents');
   } finally { releaseLobby?.(); await page.unroute('**/api/lobby', delayedLobby); }
+  // Settings-only logout uses the real auth client with local fake identities; no provider is contacted.
+  const savedGames = async () => (await pool.query('select id,revision,status,state from public.games where created_by=any($1::uuid[]) order by id', [actors])).rows;
+  const gamesBeforeLogout = await savedGames(), commandsBeforeLogout = commands.length;
+  const logoutProof = [];
+  async function checkLogout(width, height, touch) {
+    const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: touch });
+    let releaseLogout;
+    const held = new Promise(resolve => { releaseLogout = resolve; });
+    try {
+      await ctx.addInitScript(({ origin, actor, token }) => {
+        if (location.origin !== origin || sessionStorage.getItem('logout-proof')) return;
+        sessionStorage.setItem('logout-proof', '1');
+        localStorage.setItem('kingdown.auth', JSON.stringify({ access_token: token, refresh_token: 'local-test-refresh', token_type: 'bearer', expires_in: 600, expires_at: Math.floor(Date.now() / 1000) + 600,
+          user: { id: actor, aud: 'authenticated', role: 'authenticated', email: 'browser@example.invalid', app_metadata: { provider: 'google' }, user_metadata: {}, created_at: new Date().toISOString() } }));
+      }, { origin, actor: actors[0], token: tokens[0] });
+      await ctx.route('**/*', route => {
+        if (new URL(route.request().url()).origin !== origin) { failures.push('External request blocked'); return route.abort(); }
+        return route.continue();
+      });
+      const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
+      let logouts = 0;
+      await ctx.route(`${accountOrigin}/auth/v1/settings`, route => route.fulfill({ headers, json: { external: { google: true, github: true } } }));
+      await ctx.route(`${accountOrigin}/auth/v1/logout**`, async route => {
+        if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
+        assert.equal(route.request().method(), 'POST');
+        assert.equal(new URL(route.request().url()).searchParams.get('scope'), 'local');
+        logouts++; await held;
+        return route.fulfill({ headers, json: {} });
+      });
+      const screen = await ctx.newPage(); screen.setDefaultTimeout(15_000);
+      const logoutErrors = trapErrors(screen);
+      await screen.goto(origin + '/play/profile');
+      await screen.locator('#profile-status').filter({ hasText: /^$/ }).waitFor({ state: 'attached' });
+      assert.equal(await screen.locator('#profile-sheet').getByRole('button', { name: 'Log out', exact: true }).count(), 0, 'Profile has no logout button');
+      await screen.goto(origin + '/play/settings');
+      const logout = screen.getByRole('button', { name: 'Log out', exact: true });
+      await logout.scrollIntoViewIfNeeded();
+      assert.equal(await logout.count(), 1, 'Settings has one logout button');
+      assert(await logout.evaluate(button => button.parentElement === button.parentElement.parentElement.lastElementChild), 'Log out is the last Settings row');
+      const box = await logout.boundingBox();
+      assert(box && box.width >= 48 && box.height >= 48, 'Log out has a 48 by 48 pixel target');
+      await screen.evaluate(() => document.fonts.ready);
+      await screen.mouse.move(0, 0);
+      await shot(screen, touch ? 'settings-logout-phone' : 'settings-logout-desktop');
+      await screen.keyboard.press('Tab'); await logout.focus();
+      assert(await logout.evaluate(button => button.matches(':focus-visible') && getComputedStyle(button).outlineStyle !== 'none'), 'Log out has visible keyboard focus');
+      const receiptKey = `kingdown.account-command.${actors[0]}`;
+      const receipt = JSON.stringify({ name: 'kingdown_move', args: { game_id: combinedId, command_id: randomUUID(), expected_revision: finishedCombined.revision, actions: ['e2-e4'] } });
+      await screen.evaluate(({ key, value }) => localStorage.setItem(key, value), { key: receiptKey, value: receipt });
+      const sent = screen.waitForRequest(request => new URL(request.url()).pathname === '/auth/v1/logout' && request.method() === 'POST');
+      if (touch) await logout.tap();
+      else { await screen.keyboard.down('Enter'); await screen.keyboard.down('Enter'); await screen.keyboard.up('Enter'); }
+      await sent;
+      await screen.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);
+      await screen.locator('#settings-sheet [data-nav="handle"]').click();
+      await screen.locator('[data-screen="handle"]:not([hidden])').waitFor();
+      assert(await screen.locator('#settings-logout').isDisabled(), 'The name screen lock keeps pending logout disabled');
+      await screen.locator('#page-back').click();
+      await screen.locator('[data-screen="settings"]:not([hidden])').waitFor();
+      assert(await logout.evaluate(button => !button.disabled && button.matches(':disabled')), 'The fieldset keeps pending logout disabled after the real lock clears the button state');
+      await logout.evaluate(button => { button.disabled = false; button.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+      assert.equal(logouts, 1, 'Repeated activation sends one local logout across a page update');
+      releaseLogout();
+      await screen.getByText('Sign in to play with your account.', { exact: true }).waitFor();
+      assert.equal(new URL(screen.url()).pathname, '/play/');
+      assert.equal(await screen.locator('#app-root').count(), 0, 'Logout removes the private screen');
+      await screen.reload();
+      await screen.getByRole('button', { name: 'Continue with Google', exact: true }).waitFor();
+      assert.equal(await screen.locator('#app-root').count(), 0, 'A reload stays signed out');
+      assert.equal(await screen.evaluate(key => localStorage.getItem(key), receiptKey), receipt, 'Logout keeps the pending game receipt');
+      assert.equal(logouts, 1, 'One activation sends one local logout');
+      assertNoErrors(logoutErrors);
+      logoutProof.push({ width, height, target: { width: box.width, height: box.height }, logouts, focus: true, pageUpdate: true, nativeFieldsetLock: true, signedOutReload: true });
+    } finally { releaseLogout(); await ctx.close(); }
+  }
+  await checkLogout(1280, 800, false);
+  await checkLogout(390, 844, true);
+  assert.deepEqual(await savedGames(), gamesBeforeLogout, 'Keyboard and touch logout keep every saved game unchanged');
+  assert.equal(commands.length, commandsBeforeLogout, 'Logout sends no game command');
+  await writeFile(join(env('PLAYABLE_OUT'), 'settings-logout-proof.json'), JSON.stringify({ screens: logoutProof, savedGames: 'unchanged', pendingReceipt: 'unchanged', gameCommands: 0 }, null, 2));
   assert.deepEqual(failures, [], 'No failed resource or external request');
   assert.equal(lostReplies, 5, 'Only the lost reply and four deliberate recovery attempts fail on the network');
   // The exhausted retry reports one connection diagnostic; all other app errors remain failures.

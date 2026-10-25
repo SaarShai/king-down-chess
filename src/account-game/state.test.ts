@@ -209,7 +209,7 @@ describe('the back label', () => {
     expect(backLabel(page({ screen: 'handle', handle_back: 'settings' }))).toBe('‹ Settings');
     expect(backLabel(page({ screen: 'collection' }))).toBe('‹ Profile');
     expect(backLabel(page({ screen: 'settings', settings_back: 'board' }))).toBe('‹ Game');
-    expect(backLabel(page({ screen: 'play' }))).toBe('‹ Play');
+    expect(backLabel(page({ screen: 'play' }))).toBe('‹ Menu');
   });
 });
 

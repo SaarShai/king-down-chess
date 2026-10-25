@@ -113,7 +113,7 @@ export function locks(page: Page): Locks {
 const TITLES: Partial<Record<Screen, string>> = { friend: 'A friend', join: 'Join a game', wait: 'Looking for an opponent', lobby: 'Open games', seat: 'Set up your side', end: 'Game over', profile: 'Profile', collection: 'Collection', settings: 'Settings', handle: 'Pick a name and a picture' };
 
 /** The back label of the page header (design §3.1). */
-export const backLabel = (page: Page) => page.screen === 'handle' && page.handle_back === 'settings' ? '‹ Settings' : page.screen === 'collection' ? '‹ Profile' : page.screen === 'settings' && (page.settings_back === 'board' || page.settings_back === 'seat') ? '‹ Game' : '‹ Play';
+export const backLabel = (page: Page) => page.screen === 'handle' && page.handle_back === 'settings' ? '‹ Settings' : page.screen === 'collection' ? '‹ Profile' : page.screen === 'settings' && (page.settings_back === 'board' || page.settings_back === 'seat') ? '‹ Game' : '‹ Menu';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T | null;
 
@@ -123,7 +123,7 @@ export function renderPage(page: Page) {
   if (document.body.dataset.page !== page.screen) document.body.dataset.page = page.screen;
   document.querySelectorAll<HTMLElement>('[data-screen]').forEach(el => { el.hidden = el.dataset.screen !== page.screen; });
   const frame = $('app-frame'); if (frame) frame.hidden = page.screen === 'home';
-  const head = $('page-head'); if (head) head.hidden = page.screen === 'home' || page.screen === 'play';
+  const head = $('page-head'); if (head) head.hidden = page.screen === 'home' || page.screen === 'play' || page.screen === 'board';
   const back = $('page-back'); if (back) back.textContent = backLabel(page);
   const title = $('page-title'); if (title) title.textContent = TITLES[page.screen] ?? '';
   const line = messageLine(page);

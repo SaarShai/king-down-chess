@@ -4,7 +4,7 @@ import { G, K, colorOf, findKing, typeOf, type Color, type Position } from '../.
 import { SIGNAL_DURATION_MS } from './indications';
 import { CHECK_WITHDRAW_MS } from './check';
 
-export type StateKind = 'freeze' | 'ward' | 'firewall' | 'guard' | 'holy-light' | 'mercy';
+export type StateKind = 'freeze' | 'ward' | 'firewall' | 'holy-light' | 'mercy';
 export interface BoardState {
   key: string;
   owner: number;
@@ -13,7 +13,7 @@ export interface BoardState {
   code: number;
   source?: number;
   turns: number;
-  exception?: 'king' | 'pawn';
+  exception?: 'pawn';
 }
 export interface StateFrame extends BoardState { since: number; clear?: number }
 
@@ -35,7 +35,6 @@ export function boardStates(context: GameRules, pos: Position): BoardState[] {
   pos.board.forEach((v, sq) => {
     if (!v) return;
     const side = colorOf(v), rules = context.rules, power = rules.kings[side]?.power;
-    if (typeOf(v) === G && rules.guardImmune) add('guard', sq, side, 0, undefined, 'king');
     if (typeOf(v) === K) return;
     const holy = power === 'HolyLight' && rules.holyLightShelter;
     const mercy = power === 'Mercy' && rules.mercyAura;
@@ -45,12 +44,12 @@ export function boardStates(context: GameRules, pos: Position): BoardState[] {
     if (king < 0) return;
     const dx = Math.abs((king % 8) - (sq % 8)), dy = Math.abs((king >> 3) - (sq >> 3));
     const ortho = holy ? rules.holyLightShelterOrtho : rules.mercyAuraOrtho;
-    if (Math.max(dx, dy) === 1 && (!ortho || dx + dy === 1)) add(holy ? 'holy-light' : 'mercy', sq, side, 0, king, mercy && rules.mercyAuraPawnsTake ? 'pawn' : undefined);
+    if (Math.max(dx, dy) === 1 && (!ortho || dx + dy === 1)) add(holy ? 'holy-light' : 'mercy', sq, side, 0, king,
+      mercy && rules.mercyAuraPawnsTake && !(typeOf(v) === G && rules.guardImmune) ? 'pawn' : undefined);
   });
   for (const state of out) {
     const same = out.filter(other => other.sq === state.sq && other.kind !== 'freeze');
-    if (same.some(other => ['ward', 'firewall', 'holy-light'].includes(other.kind))
-      || (same.some(other => other.kind === 'guard') && same.some(other => other.kind === 'mercy'))) state.exception = undefined;
+    if (same.some(other => ['ward', 'firewall', 'holy-light'].includes(other.kind))) state.exception = undefined;
   }
   return out;
 }
@@ -85,7 +84,7 @@ export class StateEffects {
     this.seen.add(pos);
     const prior = new Map(this.frames.filter(s => s.clear == null).map(s => [s.key, s]));
     const frames: StateFrame[] = states.map(s => {
-      const held = prior.get(s.key) ?? (s.kind === 'firewall' || s.kind === 'guard' ? [...prior.values()].find(p => p.kind === s.kind && p.owner === s.owner) : undefined);
+      const held = prior.get(s.key) ?? (s.kind === 'firewall' ? [...prior.values()].find(p => p.kind === s.kind && p.owner === s.owner) : undefined);
       return { ...s, since: forward ? held?.since ?? now : -Infinity };
     });
     if (forward) for (const old of prior.values()) {

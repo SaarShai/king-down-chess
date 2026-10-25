@@ -75,6 +75,9 @@ it.each(['pieces', 'cards', 'king', 'seat-king', 'seat-menu', 'seat-abort'])('pr
       else { await frame.locator('#seat-menu:not(:disabled)').click(); if (name === 'seat-abort') await frame.locator('#seat-abort').click(); }
     } else {
       await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('play'));
+      // Game options starts closed (F-113).
+      const options = frame.locator('#setup-options');
+      if (!await options.evaluate(e => (e as HTMLDetailsElement).open)) await options.locator('summary').click();
       if (name === 'cards') await frame.locator('#setup-toggle-cards').check();
       if (name === 'king') await frame.locator('#setup-toggle-kingPowers').check();
       await frame.locator(`#setup-${name}`).click();

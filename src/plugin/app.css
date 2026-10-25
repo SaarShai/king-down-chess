@@ -212,8 +212,8 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
   #game-table #table-bar { padding-block: 0; }
   #game-table #table-bar > button { flex-direction: row; }
   body:is([data-page='board'], [data-page='seat'], [data-page='end']) #page-head { display: none; }
-  body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table #strip-them { padding-left: 60px; }
-  body:is([data-page='board'], [data-page='seat'], [data-page='end']) #game-table .table-back { position: absolute; display: grid; grid-area: them; justify-self: start; align-self: start; place-items: center; margin-left: 8px; width: 48px; height: 48px; min-height: 48px; padding: 0; z-index: 2; font-size: var(--fs-xl); line-height: 1; }
+  body:is([data-page='seat'], [data-page='end']) #game-table #strip-them { padding-left: 60px; }
+  body:is([data-page='seat'], [data-page='end']) #game-table .table-back { position: absolute; display: grid; grid-area: them; justify-self: start; align-self: start; place-items: center; margin-left: 8px; width: 48px; height: 48px; min-height: 48px; padding: 0; z-index: 2; font-size: var(--fs-xl); line-height: 1; }
   #game-table .table-back::after, #game-table #strip-them button::after { top: 0; transform: translate(-50%, 0); }
 @container table-screen (max-height: 560px) {
   #game-table { grid-template-rows: minmax(var(--strip-row, 36px), max-content) minmax(var(--board-floor, 0px), max-content) minmax(var(--strip-row, 36px), max-content) minmax(var(--context-floor, 44px), max-content) 0 minmax(0, 1fr) var(--bar-height); }

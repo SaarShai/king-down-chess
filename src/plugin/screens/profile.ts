@@ -1,3 +1,4 @@
+import { LEVEL_NAMES } from '../../level-ui';
 import { formatDate, gameDetail, waitingLine } from '../../account-game/games-list';
 import { call, client, navigate, queue } from '../../account-game/runtime';
 import { art, symbols } from '../../account-game/art';
@@ -163,7 +164,7 @@ function openRow(entry: InboxEntry) {
   const mark = document.createElement('b'); mark.className = yours ? 'turn-mark' : 'open-mark'; mark.textContent = yours ? 'Turn' : 'Open'; when.append(mark);
   const colour = document.createElement('img'); colour.className = 'pi'; colour.alt = `${entry.seat === 0 ? 'white' : 'black'} king`; colour.src = entry.seat === 0 ? art('ui/icons/king.svg') : symbols['../../public/ui/icons/king.svg'][1];
   const player = document.createElement('span'); player.className = 'grow';
-  const name = document.createElement('b'); name.textContent = waiting ? 'Open game' : entry.opponent?.computer ? `Computer · ${entry.level[0].toUpperCase()}${entry.level.slice(1)}` : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';
+  const name = document.createElement('b'); name.textContent = waiting ? 'Open game' : entry.opponent?.computer ? `Computer · ${LEVEL_NAMES[entry.level]}` : entry.opponent?.deleted ? 'Deleted player' : entry.opponent?.handle ?? 'Player';
   const line = document.createElement('small'); line.textContent = waiting ? waitingLine(entry) : entry.status === 'setup' ? yours ? 'Choose your side' : 'Waiting for the other player' : yours ? `Move ${entry.move}` : `Their turn ·\u00a0move ${entry.move}`; const detail = document.createElement('small'); detail.textContent = gameDetail(entry); player.append(name, line, detail);
   const feats = features(entry.options);
   row.append(when, colour, player, feats);
@@ -177,7 +178,7 @@ function historyRow(entry: HistoryEntry) {
   const when = document.createElement('time'); when.className = 'when'; when.dateTime = entry.finished_at; when.textContent = date(entry.finished_at);
   const colour = document.createElement('img'); colour.className = 'pi'; colour.alt = `${entry.colour} king`; colour.src = entry.colour === 'white' ? art('ui/icons/king.svg') : symbols['../../public/ui/icons/king.svg'][1];
   const player = document.createElement('span'); player.className = 'grow';
-  const name = document.createElement('b'); name.textContent = entry.opponent.computer ? `Computer${entry.opponent.level ? ` · ${entry.opponent.level[0].toUpperCase()}${entry.opponent.level.slice(1)}` : ''}` : entry.opponent.deleted ? 'Deleted player' : entry.opponent.handle ?? 'A player';
+  const name = document.createElement('b'); name.textContent = entry.opponent.computer ? `Computer${entry.opponent.level ? ` · ${LEVEL_NAMES[entry.opponent.level]}` : ''}` : entry.opponent.deleted ? 'Deleted player' : entry.opponent.handle ?? 'A player';
   const reason = document.createElement('small'); reason.textContent = `${policyLabel(entry.rating_policy, entry.kind)} · ${WHY[entry.reason]}`; player.append(name, reason);
   const feats = features({ ...DEFAULT_OPTIONS, ...entry.features, kingPowers: entry.features.powers });
   const res = document.createElement('span'), letter = { won: 'W', drawn: 'D', lost: 'L' }[entry.result]; res.className = `res res-${letter.toLowerCase()}`; res.textContent = letter; res.setAttribute('role', 'img'); res.setAttribute('aria-label', entry.result);

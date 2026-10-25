@@ -29,10 +29,6 @@ label.check.toggle .all { flex: none; width: auto; padding: 6px 10px; white-spac
 .your-king h3 { margin: 0 !important; }
 .your-king .power-text { min-height: 0; margin: 2px 0 0; color: var(--ink-soft); }
 .your-king .chev { font-size: var(--fs-xl); color: var(--ink); }
-.kings-off { display: flex; align-items: flex-end; gap: 4px; margin-top: var(--space-3); padding: var(--space-3); background: color-mix(in srgb, var(--vellum) 70%, transparent); border: 1px solid var(--stone-300); border-radius: var(--radius); }
-.kings-off img { height: 56px; }
-.kings-off .face-left { transform: scaleX(-1); margin-left: -10px; }
-.kings-off p { margin: 0 0 0 8px; align-self: center; color: var(--ink-soft); font-size: var(--fs-sm); }
 .pick-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: var(--space-2); }
 label.check.pick { height: auto; margin: 0; padding: 4px 12px 4px 4px; gap: var(--space-2); }
 .pick-art { display: flex; align-items: flex-end; justify-content: center; width: 52px; height: 56px; flex: none; border-radius: var(--radius-sm); background: radial-gradient(55% 12% at 50% 90%, color-mix(in srgb, var(--ink) 30%, transparent), transparent), linear-gradient(color-mix(in srgb, var(--stone-100) 59%, var(--stone-300)), color-mix(in srgb, var(--stone-300) 95%, var(--stone-100))); }
@@ -53,3 +49,10 @@ label.check.pick.locked input:disabled { background-color: var(--stone-500); bor
 /* Lively: the chosen king's emblem turns over once (320 ms). */
 .setup-sheet button.emblem.is-flip img { animation: emblem-flip 320ms cubic-bezier(.05,.7,.1,1); }
 @keyframes emblem-flip { from { transform: perspective(240px) rotateY(-180deg) scale(1.1); } }
+
+/* F-109 to F-113: separate New game from the game list. */
+.new-game-panel { margin-top: var(--space-4); padding: var(--space-3); border: 1px solid var(--stone-500); border-radius: var(--radius); background: var(--vellum); }
+.new-game-panel > h3 { margin: 0 0 var(--space-3); font-family: var(--font-display); font-size: var(--fs-xl); }
+#setup-options { margin-top: var(--space-2); }
+#setup-options > summary { min-height: 48px; line-height: 48px; font-weight: 700; cursor: pointer; }
+#setup-options > .group-head { margin-top: var(--space-4); }
