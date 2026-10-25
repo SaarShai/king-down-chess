@@ -9,7 +9,7 @@ Run the QA protocol's technical steps (state sync, actions between two people, n
 
 ## Answer
 
-Astra stress QA at a7edf54a (steps 0 and 16–25 of the plugin QA protocol): no blocker, 1 major, 2 minor. The 150-move soak (heap +9.52%), 500 random inputs, rules counts, state races and abuse checks pass.
+Codex stress QA at a7edf54a (steps 0 and 16–25 of the plugin QA protocol): no blocker, 1 major, 2 minor. The 150-move soak (heap +9.52%), 500 random inputs, rules counts, state races and abuse checks pass.
 
 - Major: a late move reply leaves the board frozen with no warning (approval F31).
 - Minor: an idle board uses about 71% of one CPU core (F32).

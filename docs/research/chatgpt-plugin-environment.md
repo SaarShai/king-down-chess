@@ -26,7 +26,7 @@ The next module work should stay concrete: a permitted public board view, server
 - **The iframe is replaceable.** Treat widget state as presentation state and our database as match authority. Do not use localStorage or a mounted widget's lifetime as the save contract. CSP declarations must cover actual resources/connections; subframes are restricted. [State and CSP](https://developers.openai.com/plugins/build/chatgpt-ui)
 - **Private testing has several routes.** Inspector can exercise tools before ChatGPT. A supported custom connection uses public HTTPS or Secure MCP Tunnel; complete package testing follows. Tunnel/workspace access is a separate entitlement check, and a tunnel does not satisfy public submission hosting. [Connect and test](https://developers.openai.com/plugins/deploy/connect-chatgpt), [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
 
-These are documented capabilities, not King Down host-test passes. The existing project GPT evidence remains useful background, but its previous package, clients and companion behavior are not our product contract.
+These are documented capabilities, not King Down host-test passes. The earlier ChatGPT project evidence remains useful background, but its previous package, clients and companion behavior are not our product contract.
 
 ## Host experiment matrix
 

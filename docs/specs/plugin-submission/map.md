@@ -8,7 +8,7 @@ The King Down ChatGPT plugin is ready to submit to OpenAI: no known fault on the
 
 ## Notes
 
-- Owner's brief (2026-10-15): orchestrate the QA and UI/UX team (Opus 5.5, Codex Sol 6.1, Codex Astra, both at xhigh); fix, improve, test and review again and again; stress tests; simulated devices and settings; research agents; "for implementations that are related to taste - create multiple options"; "don't over-engineer"; simplify the code, the user experience and the interface; "fun and faultless".
+- Owner's brief (2026-10-15): orchestrate the QA and UI/UX team (Claude Code and two Codex reviewers at the highest effort); fix, improve, test and review again and again; stress tests; simulated devices and settings; research agents; "for implementations that are related to taste - create multiple options"; "don't over-engineer"; simplify the code, the user experience and the interface; "fun and faultless".
 - Faults with one right fix go ahead. Taste items (look, words, motion, layout, menu structure) wait for the owner: build 2–3 options, show them on the approval page, do not merge them.
 - Skills: ponytail (code), research, prototype, to-spec, implement-spec, retro.
 - Branch: claude/plugin-ui-iphone (PR 57). Protocols: docs/qa/plugin-qa-protocol.md, docs/qa/plugin-ux-review-protocol.md.

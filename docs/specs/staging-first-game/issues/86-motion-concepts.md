@@ -67,7 +67,7 @@ The change is in `drawBoardEffects` (`src/render/effects/board-effects.ts`) only
 
 ### Review fixes
 
-The independent review (a Sol run) of `fda28f3e` found five points; `df3ce9f3` fixes four:
+The independent review (a Codex run) of `fda28f3e` found five points; `df3ce9f3` fixes four:
 
 - The first evasion after a load showed no withdrawal (the highlight used a stale `forward`). The withdrawal now starts when the move plays.
 - Reduced motion or a hidden page during a reveal did not end it. It now ends like a card.

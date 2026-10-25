@@ -78,7 +78,7 @@ The fixed file is restored after that check. This task does not change
 the separate focus case. Two earlier D10 checks fail before the scroll
 step: one with direct helper calls, one with a temporary hit probe.
 
-Logs use the prefix `wk-flakes-` in the owner's supplied `scratchpad/sol`
+Logs use the prefix `wk-flakes-` in the owner's supplied `scratchpad` review folder
 folder: `coin-1.log` through `coin-3.log`, `send-1.log` through
 `send-4.log`, `send-probe.log`, `webkit-full.log`, `chromium-full.log`
 and `webkit-base-focus.log`.
