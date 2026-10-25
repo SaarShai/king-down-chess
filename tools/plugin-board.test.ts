@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { STEP } from './lib/checks.mjs';
+import { shot, STEP } from './lib/checks.mjs';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
 import { legalMoves, makeMove, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import { applyLan } from '../src/plugin/screens/board-model';
@@ -15,14 +15,24 @@ import { readText } from '../src/read';
 import { cardText, powerText, ruleLine } from '../src/powers-ui';
 import { harness, served, browser, view, insets, targetMisses, edgeMisses, open, marks, clickButton, squareTap, sheetClosed, sheetAtRest } from './lib/plugin-board-fixture';
 
-it.each(['See the board', 'New game'])('cancels a pending ceremony with %s during the final move', async action => {
-  const before = view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1'), pre = fromFen(before.fen);
+it.each([
+  { action: 'See the board', width: 393, height: 852 },
+  { action: 'New game', width: 393, height: 852 },
+  { action: 'See the board', width: 1280, height: 800 },
+  { action: 'See the board', width: 852, height: 393 },
+  { action: 'See the board', width: 390, height: 844 },
+  { action: 'See the board', width: 375, height: 667 },
+  { action: 'See the board', width: 320, height: 568 },
+])('cancels a pending ceremony with $action during the final move ($width by $height)', async ({ action, width, height }) => {
+  const before = view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1', { kings: [{ king: 'Flame', power: 'Haste' }, { king: 'Frost', power: 'Freeze' }] }), pre = fromFen(before.fen);
   const move = legalMoves(pre).find(m => toLan(pre,m) === 'Qa1-a8')!, post = makeMove(pre,move);
-  const page = await open(before, 393, 852, true), frame = page.frameLocator('iframe');
+  const page = await open(before, width, height, true), frame = page.frameLocator('iframe');
   try {
+    if (width > height) await page.evaluate(() => (window as any).harnessSetContext({ displayMode: 'fullscreen', safeAreaInsets: { top: 0, bottom: 0, left: 0, right: 0 }, deviceCapabilities: { touch: true } }));
     // Artwork load is separate from the first visible frame; it can outlast an action wait on a cold load.
     await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
     await frame.locator('#board canvas').waitFor({ state: 'visible' });
+    const boardSize = await frame.locator('#board').evaluate(e => ({ width: e.clientWidth, height: e.clientHeight }));
     await frame.locator('html').evaluate(() => {
       const w = window as any; w.falls = []; const set = w.testBoard.setFallen.bind(w.testBoard);
       w.testBoard.setFallen = (sq: number|null, animate: boolean) => { if (sq !== null) w.falls.push(animate); set(sq,animate); };
@@ -43,6 +53,50 @@ it.each(['See the board', 'New game'])('cancels a pending ceremony with %s durin
     await frame.locator('#board[data-animating="false"]').waitFor({ state: 'attached' });
     expect(await frame.locator('html').evaluate(() => (window as any).falls.includes(true))).toBe(false);
     expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
+    if (action === 'See the board') {
+      expect(await frame.locator('#board').evaluate(e => ({ width: e.clientWidth, height: e.clientHeight }))).toEqual(boardSize);
+      const caption = frame.locator('#short-last-move');
+      const visible = await caption.isVisible();
+      console.log('F-107 result caption', { width, height, state: visible ? 'present' : 'absent', text: await caption.textContent() });
+      const back = frame.locator('#page-back:visible, #game-table .table-back:visible').first();
+      const backBox = (await back.boundingBox())!;
+      expect(backBox.width).toBeGreaterThanOrEqual(48);
+      expect(backBox.height).toBeGreaterThanOrEqual(48);
+      if (visible) {
+        const box = (await caption.boundingBox())!;
+        expect.soft(box.x + box.width <= backBox.x || box.x >= backBox.x + backBox.width || box.y + box.height <= backBox.y || box.y >= backBox.y + backBox.height, 'The caption must clear the return control.').toBe(true);
+        expect(await caption.evaluate(e => {
+          const words = e.querySelector('#short-move-words')!, range = document.createRange();
+          range.selectNodeContents(words);
+          const text = range.getBoundingClientRect(), box = e.getBoundingClientRect(), wordBox = words.getBoundingClientRect();
+          return words.scrollWidth <= words.clientWidth && text.left >= wordBox.left && text.right <= wordBox.right + 1
+            && text.top >= box.top && text.bottom <= box.bottom && box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight;
+        })).toBe(true);
+      }
+      if (width < height) {
+        await clickButton(page, back);
+        await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+      }
+    }
+    if (width > height) {
+      await shot(page, `F-107-coin-edge-${width}`);
+      const point = await frame.locator('#power-b').evaluate(coin => {
+        const r = coin.getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + 4;
+        const hit = document.elementFromPoint(x, y);
+        return { x, y, hit: hit?.closest('button')?.id || hit?.id };
+      });
+      console.log('F-107 coin edge', { width, height, ...point });
+      expect(point.y).toBeGreaterThan(0);
+      expect(point.y).toBeLessThan(52);
+      expect.soft(point.hit).toBe('power-b');
+      const pane = (await page.locator('iframe').boundingBox())!;
+      await page.mouse.click(pane.x + point.x, pane.y + point.y);
+      await frame.locator('#board-sheet[open]').waitFor();
+      expect(await frame.locator('#board-sheet').innerText()).toContain('Freeze');
+      await page.keyboard.press('Escape'); await sheetClosed(page);
+      await clickButton(page, frame.locator('#page-back'));
+      await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    }
   } finally { await page.close(); }
 });
 
@@ -403,11 +457,7 @@ it.each([{ width: 393, height: 852, cards: true }, { width: 320, height: 568, ca
     expect(await frame.locator('html').evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
     expect(await frame.locator('#game-table').evaluate(targetMisses)).toEqual([]);
     expect(await frame.locator('#game-table').evaluate(edgeMisses)).toEqual([]);
-    const clearance = await frame.locator('.table-back:visible').evaluate(back => {
-      const board = (window as any).testBoard, top = board.screenOf(56), below = board.screenOf(48);
-      return top.y - Math.abs(below.y - top.y) / 2 - back.getBoundingClientRect().bottom;
-    });
-    expect(clearance, 'Back stays above the board squares').toBeGreaterThanOrEqual(0);
+    expect(await frame.locator('#page-back:visible, #game-table .table-back:visible').count()).toBe(0);
     if (cards) {
       await frame.locator('#card-w-1').click(); await frame.getByRole('button', { name: 'Use', exact: true }).click();
       await frame.getByRole('button', { name: 'Cancel', exact: true }).waitFor();
@@ -794,10 +844,13 @@ it.each([[320, 568, 84], [320, 568, 180], [393, 852, 118], [820, 600, 34], [852,
     expect(await frame.locator('#menu-draw').isVisible()).toBe(true);
     expect(await frame.locator('#menu-abort small').textContent()).toBe('No result, until each side moves once.');
     expect(await frame.locator('#reload').textContent()).toBe('Refresh the board');
-    expect(await frame.locator('#board-sheet').evaluate(sheet => {
-      const body = sheet.querySelector('.sheet-body')!, box = sheet.getBoundingClientRect();
-      return body.scrollHeight <= body.clientHeight + 1 && [...sheet.querySelectorAll<HTMLElement>('button')].filter(b => b.getClientRects().length).every(b => {const r=b.getBoundingClientRect();return r.top>=box.top && r.bottom<=box.bottom+1;});
-    })).toBe(true);
+    for (const button of await frame.locator('#board-sheet .sheet-body > button:visible').all()) {
+      await button.scrollIntoViewIfNeeded();
+      expect(await button.evaluate(button => {
+        const r = button.getBoundingClientRect(), body = button.parentElement!.getBoundingClientRect();
+        return r.height >= 48 && r.top >= body.top && r.bottom <= body.bottom + 1;
+      })).toBe(true);
+    }
     await page.keyboard.press('Escape');
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView({...next,draw_offer:1}), next);
     expect(await frame.locator('#context-actions #accept-draw').isVisible()).toBe(true);
