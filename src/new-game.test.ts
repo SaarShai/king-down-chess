@@ -7,7 +7,7 @@ import { CLASSIC_CHESS, toLan } from './rules/setup';
 import { turnEnded } from './turn';
 
 describe('New game setup', () => {
-  it('starts as Play the computer: White against the Club computer, Spirit and Shadow with no power', () => {
+  it('starts as Artificial: White against the Club computer, Spirit and Shadow with no power', () => {
     const s = defaultSetup();
     expect([s.mode, s.level, s.side, s.army]).toEqual(['computer', 'club', 0, 'random']);
     expect(s.picks).toEqual([{ king: 'Spirit', power: null }, { king: 'Shadow', power: null }]);
@@ -24,7 +24,7 @@ describe('New game setup', () => {
     expect(s.picks[0].king).toBe('Spirit'); // the setup is copied, not changed
     mud.picks[1].power = null;
     expect(kingsOf(mud)).toEqual([{ king: 'Mud', power: 'March' }, null]);
-    // Back to Play the computer: no powers, whatever the picker holds.
+    // Back to Artificial: no powers, whatever the picker holds.
     expect(kingsOf(withMode(mud, 'computer'))).toEqual([null, null]);
   });
 
@@ -35,7 +35,7 @@ describe('New game setup', () => {
     expect(withKing(s, 0, 'Spirit').picks[0].power).toBe('Mercy');
   });
 
-  it('Two players: both sides are people; the Kings\' powers box turns the picker on', () => {
+  it('A friend: both sides are people; the Kings\' powers box turns the picker on', () => {
     const two = withMode(defaultSetup(), 'two');
     expect(playersOf(two)).toEqual(['human', 'human']);
     expect(powersOn(two)).toBe(false);

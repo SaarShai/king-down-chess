@@ -1,6 +1,6 @@
 # 04 — Main menu and New game
 
-Status: resolved
+Status: claimed
 Type: task
 
 ## Owner words
@@ -75,3 +75,56 @@ The server schemas still accept Random and all four old level values. The tests 
 The owner checks the final images before merge. Independent review and CI remain before merge.
 The full test suite does not run on this Mac, as the task requires.
 No push, PR, merge or deploy is in this task.
+
+## F-114 — plain game type icons
+
+Status: complete. The owner approves the build. The owner checks the images before merge.
+
+The owner says: "remove all of the artwork for the 3 selections of opponent. \"computer\" - change to \"Artificial\" and create an icon for an electronic brain. keep \"a friend\" text, with an icon of a pawn with a smiley face. \"a random player\" change to \"random\" and create an icon of a dice."
+
+Plan:
+
+1. Save the current build and screens at 1280 and 390 pixels.
+2. Add a test for names, icons, sprite symbols and no images. Check that it fails first.
+3. Draw three symbols in the existing line style. Change the choices and all checks that use their names.
+4. Remove unused art CSS. Keep the Open games and waiting art.
+5. Check types, selected tests, browser flows, keyboard focus and both device colour modes.
+6. Inspect the images. Record the results. Commit F-114 on this branch.
+
+Acceptance checks:
+
+- The shared choices show Artificial, A friend and Random. Each has one icon and no image.
+- Both source sprites have the same three symbols. The account website uses the plugin sprite.
+- Each choice has a target of at least 48 by 48 pixels. Selection and keyboard focus stay clear.
+- The local game uses the same plain icons for its Artificial and A friend choices. Kings' powers keeps its function and uses the crown icon. It has no Random choice.
+- Stored values and game rules stay the same.
+
+## F-115 — Menu name
+
+Status: planned. The owner approves the build.
+
+The owner says: "change \"play\" to \"menu\" wherever the main menu is referred."
+
+Plan: save the current menu and back button screens at both widths. Add a test for the heading, default back label and both board back names. Check that it fails first. Change only names of this screen. Run the affected tests and browser checks. Save the final screens. Commit F-115 after F-114.
+
+Acceptance checks: the heading says Menu. The default back label says ‹ Menu. Both board back names say Back to Menu. Actions and internal names stay the same.
+
+## F-114 checks and result
+
+Logs use `/private/tmp/claude-501/ci87/run38/game-type-icons-files/`.
+
+- The five new checks fail first. They find six images and no new symbols. See `f114-red.log`.
+- All 13 owner setup tests pass after the change. See `f114-green.log`.
+- All 474 cases in the 15 selected test files have passing results across the recorded runs. The 57 art checks also pass.
+- The first selected run has 30 failures in two old test helpers. The helpers now open Game options before use, also after a new screen mount. Motion passes in `focused-f114-retry.log`. All 34 lobby cases pass in `focused-f114-final.log`. The default closed-state test still passes.
+- The type check passes. See `typecheck-f114.log`.
+- Seven browser checks pass: plugin-ui, web-game, game-screen, new-game, plugin-ui-http, web-game-staging and plugin-ui-http-staging. See `browser-f114.log` and `browser-f114-retry.log`.
+- The first plugin check expects 23 symbols. The sprite now has 26. The check now uses the correct count. The run stops by its PID after this cause is clear.
+- All 34 icon images pass a visual check. They show both widths, both device colour modes, each selected choice and the two 2x views. See `visual-review.md`.
+- The icons use 32 pixels. The smallest target is 110 by 70.47 pixels. Selection, keyboard focus and contrast pass.
+
+Artificial uses the brain symbol. A friend uses the smiling pawn. Random uses the die. Both source sprites have the same definitions. The account website reads the plugin template.
+The local game uses the same brain and pawn. Its Kings' powers choice uses the existing crown. It has no Random mode.
+The removed art classes have no source user. The Open games fan and the waiting kings keep their art and CSS.
+Stored values, game rules and the two protected source files stay the same.
+The owner checks the images before merge. CI and independent review remain before merge.

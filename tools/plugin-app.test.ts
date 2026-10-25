@@ -295,7 +295,7 @@ it('shows the saved failure words and Retry after a remount of a lost Create or 
 it('opens a usable solo board after Retry of a lost Choose reply without a remount', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await hall(page); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await hall(page); await frame.getByRole('radio', { name: 'Artificial', exact: true }).locator('..').click();
     await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).uncheck();
     await frame.getByRole('checkbox', { name: 'King powers', exact: true }).check();
     await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_choose'; });
@@ -316,7 +316,7 @@ it('opens a usable solo board after Retry of a lost Choose reply without a remou
 it('keeps Start blocked and retries the same solo game after its board read fails', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await hall(page); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await hall(page); await frame.getByRole('radio', { name: 'Artificial', exact: true }).locator('..').click();
     await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).uncheck();
     await frame.getByRole('checkbox', { name: 'King powers', exact: true }).check();
     await page.evaluate(() => { (window as any).rejectNextGet = true; });
@@ -499,7 +499,7 @@ it('keeps the inline route when the host refuses a button request', async () => 
 it('shows the home card when the player leaves fullscreen, and Resume returns to the game', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await hall(page); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await hall(page); await frame.getByRole('radio', { name: 'Artificial', exact: true }).locator('..').click();
     // The saved setup decides whether a computer game opens on the seat or on the board.
     const game = frame.locator('[data-screen="seat"]:not([hidden]), [data-screen="board"]:not([hidden])');
     await frame.locator('#setup-start').click(); await game.waitFor(); const screen = await game.getAttribute('data-screen');
@@ -1188,7 +1188,7 @@ it.each(['Abort', 'New game'])('opens the draft heading after %s and a held game
     expect(await frame.locator('#new-game-head').evaluate(e => { const h = e.getBoundingClientRect(), body = e.closest('.new-game-body')!.getBoundingClientRect(); return h.top >= body.top && h.bottom <= body.bottom; })).toBe(true);
     expect(await frame.locator('#setup-options').evaluate(e => (e as HTMLDetailsElement).open)).toBe(false);
     await frame.locator('#setup-options summary').click();
-    expect(await frame.getByRole('radio', {name:'Computer',exact:true}).isChecked()).toBe(true);
+    expect(await frame.getByRole('radio', {name:'Artificial',exact:true}).isChecked()).toBe(true);
     expect(await frame.getByRole('radio', {name:'White',exact:true}).isChecked()).toBe(true);
     expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Clever');
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
@@ -1239,7 +1239,7 @@ it.each([false, true])('keeps Abort confirmation and returns its game draft from
     if (seat) { await frame.locator('#seat-menu').click(); await frame.locator('#seat-abort').click(); await frame.locator('#seat-abort-confirm').click(); }
     else { await frame.locator('#board-menu').click(); await frame.locator('#menu-abort').click(); await frame.locator('#board-sheet').getByRole('button', { name: 'Abort', exact: true }).click(); }
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-    expect(await frame.getByRole('radio', { name: 'Computer', exact: true }).isChecked()).toBe(true);
+    expect(await frame.getByRole('radio', { name: 'Artificial', exact: true }).isChecked()).toBe(true);
     await frame.locator('#setup-options summary').click();
     expect(await frame.getByRole('radio', { name: seat ? 'Black' : 'White', exact: true }).isChecked()).toBe(true);
     expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Club');
@@ -1319,7 +1319,7 @@ it('starts a friend game from the Play hall in three taps, with each list under 
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await hall(page); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-    await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click();
+    await frame.getByRole('radio', { name: 'Random', exact: true }).locator('..').click();
     expect([await frame.locator('#play-open').isVisible(), await frame.locator('#join-form').isVisible()]).toEqual([true, false]);
     await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
     expect([await frame.locator('#play-open').isVisible(), await frame.locator('#join-form').isVisible()]).toEqual([false, true]);
@@ -1369,7 +1369,7 @@ it.each(['retry', 'remount'])('keeps the saved New game choices after a lost Pla
     expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
     expect(await frame.locator('#hall-play').isDisabled()).toBe(true);
     expect(await frame.locator('#games-start').isDisabled()).toBe(true);
-    expect(await frame.getByRole('radio', { name: 'Computer', exact: true }).isChecked()).toBe(true);
+    expect(await frame.getByRole('radio', { name: 'Artificial', exact: true }).isChecked()).toBe(true);
     expect(await frame.locator('#setup-level').getAttribute('aria-valuetext')).toBe('Casual');
     expect(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()).toBe(false);
     expect(await frame.locator('#setup-start').textContent()).not.toMatch(/Strong|Arrangement/);
@@ -1738,7 +1738,7 @@ it('keeps a timed-out start on Play and finishes it there while another game pla
     await friendGame(page);
     const friend = await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id);
     await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('play'));
-    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await frame.getByRole('radio', { name: 'Artificial', exact: true }).locator('..').click();
     await page.clock.install();
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
     await frame.locator('#setup-start').click();

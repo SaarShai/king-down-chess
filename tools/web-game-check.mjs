@@ -470,7 +470,7 @@ try {
     // The real shared setup creates the fixed ranked family; MCP takes the other seat.
     await page.goto(origin + '/play/');
     await page.locator('#setup-options summary').click();
-    await page.getByRole('radio', {name:'A random player',exact:true}).locator('..').click();
+    await page.getByRole('radio', {name:'Random',exact:true}).locator('..').click();
     await page.locator('#setup-rating input[value="ranked"]').locator('..').click();
     assert.match(await page.locator('#setup-ranked-rules').innerText(), /3 days per move/);
     for (const id of ['anyRules-row','fairy-row','cards-row','arrangement-row','setup-colour']) assert(await page.locator('#'+id).isHidden(), `Ranked fixes ${id}`);
@@ -518,7 +518,7 @@ try {
     // Production: the shared setup offers no Ranked choice, and HTTP and MCP refuse a ranked start.
     await page.goto(origin + '/play/');
     await page.locator('#setup-options summary').click();
-    await page.getByRole('radio', {name:'A random player',exact:true}).locator('..').click();
+    await page.getByRole('radio', {name:'Random',exact:true}).locator('..').click();
     assert(await page.locator('#setup-rating').isHidden(), 'Production shows no Ranked choice');
     assert.doesNotMatch(await page.locator('#setup-body').innerText(), /Ranked/);
     const refused = await http(0, '/api/games/find', { mode: 'ranked', command_id: randomUUID() }, 409);
@@ -532,7 +532,7 @@ try {
   const staleOffer = (await tool(1, 'kingdown_create', { kind: 'random', mode: 'casual', command_id: randomUUID() }))._meta.view;
   await page.goto(origin + '/play/'); await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor();
   await page.locator('#setup-options summary').click();
-  await page.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click();
+  await page.getByRole('radio', { name: 'Random', exact: true }).locator('..').click();
   if (rankedStage) await page.locator('#setup-rating input[value="casual"]').locator('..').click();
   let releaseLobby, heldLobby;
   const held = new Promise(resolve => { heldLobby = resolve; });

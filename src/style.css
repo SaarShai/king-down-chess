@@ -331,10 +331,8 @@ dialog small { color: var(--ink-soft); }
 .modes input, .seg input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
 label.mode { position: relative; flex-direction: column; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; text-align: center; cursor: pointer; border-radius: var(--radius); }
 label.mode:has(input:checked) { color: var(--ink); background: var(--parchment-deep); }
-.mode-art { display: flex; align-items: center; justify-content: center; height: 24px; }
-.mode-art img { height: 100%; width: auto; }
-.mode-art .face-left { transform: scaleX(-1); margin-left: -4px; }
-.emblem-fan img { margin: 0 -3px; }
+/* F-114: plain game type icons use the shared line style. */
+.modes .mode > .icon { width: 32px; height: 32px; }
 .mode-text b { font-size: var(--fs-sm); line-height: 1.2; }
 label.mode:has(input:focus-visible), .seg-row label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 0; }
 

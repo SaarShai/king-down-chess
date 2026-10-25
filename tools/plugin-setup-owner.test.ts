@@ -81,16 +81,51 @@ it('F-113 closes the options by default and starts with the defaults', async () 
   try {
     await frame.locator('#home-games:not(:disabled)').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     expect(await frame.locator('#setup-options').evaluate(e => (e as HTMLDetailsElement).open)).toBe(false);
-    for (const name of ['Computer','A friend','A random player']) expect(await frame.getByRole('radio', {name,exact:true}).isVisible()).toBe(true);
+    for (const name of ['Artificial','A friend','Random']) expect(await frame.getByRole('radio', {name,exact:true}).isVisible()).toBe(true);
     expect(await frame.locator('.new-game-panel #new-game-head').textContent()).toBe('New game');
     await frame.locator('#setup-options summary').click();
     await frame.getByRole('radio', {name:'A friend',exact:true}).locator('..').click();
     expect(await frame.locator('#setup-options').evaluate(e => (e as HTMLDetailsElement).open)).toBe(true);
-    await frame.getByRole('radio', {name:'Computer',exact:true}).locator('..').click();
+    await frame.getByRole('radio', {name:'Artificial',exact:true}).locator('..').click();
     await frame.locator('#setup-options summary').click();
     const calls = await sent(page, 'kingdown_create');
     await frame.locator('#setup-start').click();
     await expect.poll(() => sent(page, 'kingdown_create')).toBe(calls + 1);
     await frame.locator('[data-screen="seat"]:not([hidden]), [data-screen="board"]:not([hidden])').waitFor();
   } finally { await page.close(); }
+});
+
+it.each([[1280, 'light'], [390, 'light'], [1280, 'dark'], [390, 'dark']] as const)('F-114 shows plain game type icons at %s pixels in %s device mode', async (width, colorScheme) => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await page.setViewportSize({ width, height: 844 }); await page.emulateMedia({ colorScheme });
+    await frame.locator('#home-games:not(:disabled)').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    const modes = frame.locator('#setup-body .modes');
+    expect(await modes.locator('img').count()).toBe(0);
+    for (const [value, name, symbol] of [['solo', 'Artificial', 'brain'], ['friend', 'A friend', 'smiling-pawn'], ['random', 'Random', 'die']]) {
+      const radio = modes.getByRole('radio', { name, exact: true }), label = radio.locator('..');
+      expect(await radio.inputValue()).toBe(value);
+      expect(await label.locator('b').textContent()).toBe(name);
+      expect(await label.locator('svg[aria-hidden="true"] use').getAttribute('href')).toBe(`#i-${symbol}`);
+      expect(await frame.locator(`symbol#i-${symbol}`).getAttribute('viewBox')).toBe('0 0 24 24');
+      const box = (await label.boundingBox())!;
+      expect(box.width).toBeGreaterThanOrEqual(48); expect(box.height).toBeGreaterThanOrEqual(48);
+      await label.click(); expect(await radio.isChecked()).toBe(true);
+    }
+    await modes.getByRole('radio', { name: 'Artificial', exact: true }).focus();
+    await page.keyboard.press('ArrowRight');
+    expect(await modes.getByRole('radio', { name: 'A friend', exact: true }).isChecked()).toBe(true);
+    expect(await modes.locator('label:has(input:focus-visible)').evaluate(e => getComputedStyle(e).outlineStyle)).toBe('solid');
+  } finally { await page.close(); }
+});
+it('F-114 has the same game type symbols in both source sprites', async () => {
+  const sprites = await Promise.all(['src/plugin/index.html', 'index.html'].map(path => readFile(path, 'utf8')));
+  for (const name of ['brain', 'smiling-pawn', 'die']) {
+    const symbols = sprites.map(html => html.match(new RegExp(`<symbol id="i-${name}"[^>]*>[\\s\\S]*?</symbol>`))?.[0]);
+    expect(symbols[0]).toContain('viewBox="0 0 24 24"'); expect(symbols[1]).toBe(symbols[0]);
+  }
+  const local = sprites[1].match(/<fieldset class="modes"[\s\S]*?<\/fieldset>/)![0];
+  expect(local).not.toContain('<img');
+  expect(local).toContain('href="#i-brain"'); expect(local).toContain('href="#i-smiling-pawn"'); expect(local).toContain('href="#i-crown"');
 });

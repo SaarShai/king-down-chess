@@ -51,7 +51,7 @@ const kingsDrawn = (page, kings) => page.waitForFunction(k => {
 }, kings, { timeout: 10000 });
 
 try {
-  // 1. Defaults on a first visit: Play the computer, Club, White, a random army; Spirit and Shadow.
+  // 1. Defaults on a first visit: Artificial, Club, White, a random army; Spirit and Shadow.
   let page = await open();
   await pressMenu(page, 'New game');
   assert.deepEqual([await checked(page, 'mode'), await checked(page, 'level'), await checked(page, 'side')], ['computer', 'club', '0']);
@@ -65,9 +65,9 @@ try {
   assert.equal(await page.evaluate(() => document.getElementById('more-options').open), false, 'More options starts folded');
   assert.equal(await shown(page, 'king-picker'), false, 'no king picker without powers');
   assert.equal(await page.locator('#modes input[type="radio"]').count(), 3);
-  assert.equal(await page.getByRole('radio', { name: /Play the computer/ }).isChecked(), true);
+  assert.equal(await page.getByRole('radio', { name: /Artificial/ }).isChecked(), true);
   await shot(page, 'desktop-computer.jpg', jpeg);
-  ok('defaults: Play the computer, Club, you play White, Random King Down army, no picker');
+  ok('defaults: Artificial, Club, you play White, Random King Down army, no picker');
 
   // Kings' powers: each side's six emblems in the KINGS order, Spirit and Shadow chosen, first powers.
   await page.click('label:has(#mode-powers)');
@@ -140,14 +140,14 @@ try {
   await page.keyboard.press('Escape');
   ok('Cancel: the changes are dropped');
 
-  // 2. Play the computer (the default) starts White against the Club computer with no powers.
+  // 2. Artificial (the default) starts White against the Club computer with no powers.
   await startGame(page);
   let s = await saved(page);
   assert.deepEqual([s.white, s.black, s.skill, s.rules.kings], ['human', 'ai', 'club', [null, null]]);
   assert.match(s.back, /^[A-Z]{8}$/);
   assert.equal(await powersHidden(page), true, 'no power bar');
   await kingsDrawn(page, ['spirit', 'shadow']);
-  ok('Play the computer: White against the Club computer, kings without powers, drawn as Spirit and Shadow');
+  ok('Artificial: White against the Club computer, kings without powers, drawn as Spirit and Shadow');
 
   // As Black against the beginner: the computer opens and the board turns round.
   await startGame(page, { mode: 'computer', level: 'beginner', side: 'black', army: 'classic' });
@@ -158,7 +158,7 @@ try {
   await page.locator('#resign[aria-disabled="false"]').waitFor({ state: 'attached' });
   const [a1, a8] = await page.evaluate(() => [window.view.screenOf(0), window.view.screenOf(56)]);
   assert.ok(a8.y > a1.y, 'Black at the bottom');
-  ok('Play the computer as Black: the beginner computer moves first, the board turns round');
+  ok('Artificial as Black: the beginner computer moves first, the board turns round');
 
   // 3. Kings' powers: the default kings play their first powers against the computer.
   await startGame(page, { mode: 'powers', side: 'white', level: 'club', army: 'classic' });
@@ -172,7 +172,7 @@ try {
   await kingsDrawn(page, ['mud', 'shadow']); // a king with no power is drawn as the plain king
   ok("Kings' powers: Spirit Holy Light and Shadow Death Touch by default; Mud March against a king with no power");
 
-  // 4. Two players: both sides on this device; the Kings' powers box adds the picker.
+  // 4. A friend: both sides on this device; the Kings' powers box adds the picker.
   await startGame(page, { mode: 'two' });
   s = await saved(page);
   assert.deepEqual([s.white, s.black, s.rules.kings], ['human', 'human', [null, null]]);
@@ -187,7 +187,7 @@ try {
   assert.deepEqual([s.white, s.black], ['human', 'human']);
   assert.deepEqual(s.rules.kings, [{ king: 'Flame', power: 'Haste' }, { king: 'Stratus', power: 'Flight' }]);
   await kingsDrawn(page, ['flame', 'stratus']); // the chosen kings, each in its army's colour
-  ok("Two players: two people; with the Kings' powers box, Flame Haste against Stratus Flight, drawn as Flame and Stratus");
+  ok("A friend: two people; with the Kings' powers box, Flame Haste against Stratus Flight, drawn as Flame and Stratus");
 
   // 5. The dialog remembers the last game's setup across a reload.
   await page.reload(); await page.waitForFunction(() => window.view?.ready);
