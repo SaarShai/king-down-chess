@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { assertInterruptedPurge, assertLocalData, assertProbeOrder, buildWorkerProbe, checkAccountOff, localData, PERSISTENT_OPTIONS, recoveryOutput, restoreLocalSave, savedGameSynced, serveSite, siteRoute, WORKSHOP_SHELF } from './web-online-check.mjs';
+import { assertInterruptedPurge, assertLocalData, assertLocalRequests, OUTSIDE_CONTROLS, outsideRequests, proxiedOptions, assertProbeOrder, buildWorkerProbe, checkAccountOff, localData, PERSISTENT_OPTIONS, recoveryOutput, restoreLocalSave, savedGameSynced, serveSite, siteRoute, WORKSHOP_SHELF } from './web-online-check.mjs';
 import { vercelRoutes } from './plugin-server-build.mjs';
 import { ART_HEADERS } from './plugin-art-headers.mjs';
 import { loadShelf } from '../src/workshop/store';
@@ -86,6 +86,28 @@ it('serves each selected output with its own files, API routes and function', as
     server.closeAllConnections(); await new Promise<void>(done => server.close(() => done()));
     await rm(work, { recursive: true, force: true });
   }
+});
+
+describe('profile requests', () => {
+  it('passes local, data and blob requests and names each request to another host', () => {
+    const local = ['http://127.0.0.1:52011/', 'http://127.0.0.1:52011/sw.js', 'data:image/png;base64,AA==', 'blob:http://127.0.0.1:52011/1'];
+    expect(() => assertLocalRequests(local)).not.toThrow();
+    for (const url of ['https://project.supabase.co/auth/v1/user', 'http://127.0.0.1.example/', 'http://localhost:52011/'])
+      expect(() => assertLocalRequests([...local, url])).toThrow(url);
+  });
+
+  it('keeps every proxy entry but the two controls', () => {
+    const other = ['CONNECT aus5.mozilla.org:443', 'CONNECT project.supabase.co:443', 'http://outside.invalid/other', 'CONNECT outside.invalid:443'];
+    expect(outsideRequests([OUTSIDE_CONTROLS.fetch, OUTSIDE_CONTROLS.tunnel, OUTSIDE_CONTROLS.socket, ...other])).toEqual(other);
+  });
+
+  it('sends each profile request to another host through the proxy and keeps the local server direct', () => {
+    const options = proxiedOptions(PERSISTENT_OPTIONS, 5555, 'firefox');
+    expect(options).toMatchObject({ ...PERSISTENT_OPTIONS, channel: 'firefox', proxy: { server: 'http://127.0.0.1:5555', bypass: '127.0.0.1' } });
+    expect(options.firefoxUserPrefs).toEqual({ 'media.gmp-manager.updateEnabled': false, 'media.gmp-manager.url': '' });
+    for (const channel of ['chrome', 'msedge', 'chromium']) expect(proxiedOptions(PERSISTENT_OPTIONS, 5555, channel).channel).toBe('chromium-headless-shell');
+    expect(proxiedOptions(PERSISTENT_OPTIONS, 5555, 'webkit').channel).toBe('webkit');
+  });
 });
 
 describe('worker probe order', () => {
@@ -267,7 +289,7 @@ it.each([0, 5001])('checks the compiled switch with %s ms between requests', asy
   };
   try {
     await runInNewContext(`(async () => { ${drill} })()`, { app, api, pool, signed: {}, performance,
-      assert: Object.assign((value: unknown, message?: string) => assert(value, message), { equal: assert.equal, deepEqual: (actual: unknown, expected: unknown, message?: string) => expect(actual, message).toEqual(expected) }),
+      assert: Object.assign((value: unknown, message?: string) => assert.ok(value, message as string), { equal: assert.equal, deepEqual: (actual: unknown, expected: unknown, message?: string) => expect(actual, message).toEqual(expected) }),
       setTimeout: (done: () => void, ms: number) => { now += ms; done(); },
     });
     expect(enabled).toBe(true); expect(app.pool.query).toBe(query);

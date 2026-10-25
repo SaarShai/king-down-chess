@@ -15,7 +15,7 @@
  * as "not endorsed", never silently kept. If a theme's controls fail, the theme is dropped.
  */
 import { writeFileSync } from 'node:fs';
-import { ask, choice, noul, prob } from './jev';
+import { ask, choice, noul } from './jev';
 
 const OUT = 'docs/research/jev-review-2026-09-17.md';
 

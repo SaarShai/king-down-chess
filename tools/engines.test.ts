@@ -73,7 +73,7 @@ describe('engine archive', () => {
     const before = await m.snapshot();
     expect(before.rules.hands[0]).toEqual([]);
     expect(before.rules.hands[1]).toEqual([]);
-    before.rules.hands[0].push('Haste');
+    (before.rules.hands[0] as string[]).push('Haste');
     expect((await m.snapshot()).rules.hands).toEqual([[], []]);
     const after = await m.apply({ id: 'old-hands', expectedRevision: before.revision, lan: before.legal[0] });
     expect(after.rules.hands).toEqual([[], []]);
@@ -382,7 +382,7 @@ function comparePosition(snapshot: MatchSnapshot, pos: Position) {
   expect(legal.sort()).toEqual([...snapshot.legal].sort());
 }
 function historyView(snapshot: MatchSnapshot, initialFen: string): View {
-  return { game_id: 'archive-test', revision: snapshot.revision, fen: snapshot.fen,
+  return { rating_policy: 'casual', game_id: 'archive-test', revision: snapshot.revision, fen: snapshot.fen,
     created_at: '2026-10-19T00:00:00Z', abort_open: false, seat: snapshot.turn,
     kind: 'friend', speed: 'daily', days_per_move: 3, status: snapshot.status === 'playing' ? 'playing' : 'finished',
     turn: snapshot.turn, action: snapshot.status === 'playing' ? 'ready' : 'done', in_check: snapshot.inCheck,

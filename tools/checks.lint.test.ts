@@ -121,7 +121,7 @@ describe('check lint on the registry', () => {
     expect(linted.length).toBeGreaterThanOrEqual(14);
   });
 
-  it.each(linted.map(c => [c.name, c.script]))('%s (%s) follows every rule', (_name, script) => {
+  it.each(linted.map(c => [c.name, c.script]) as [string, string][])('%s (%s) follows every rule', (_name, script) => {
     expect(lintFile(script)).toEqual([]);
   });
 
