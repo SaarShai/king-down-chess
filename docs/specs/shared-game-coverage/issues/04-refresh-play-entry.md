@@ -4,13 +4,13 @@ Status: complete in staging
 
 ## Evidence and cause
 
-An existing actual ChatGPT app shows four cached games after the player creates a new game on the website. Returning from its board to Play and waiting does not show the new game. Menu → Refresh the board → Play does show it. That workaround is not closure.
+An existing actual ChatGPT app shows four cached games after the player creates a new game on the website. Returning from its board to Menu and waiting does not show the new game. Menu → Refresh the board → Menu does show it. That workaround is not closure.
 
 `acceptGames` marks the list clean. `enter({ screen: 'play' })` reads again only when that local dirty flag is true; external creation never sets it. The regular board poll reads its selected game, not the account list. A nonquiet board refresh separately reads games, which explains the observed workaround.
 
 ## Plan and verification
 
-- Add an actual source UI board → Play case after external creation. Stage a real pawn move first and check that both its draft and the accepted game state stay unchanged.
+- Add an actual source UI board → Menu case after external creation. Stage a real pawn move first and check that both its draft and the accepted game state stay unchanged.
 - Refresh on deliberate Play entry through the existing read/cancellation path. Keep cached rows visible while the read runs. Add no poller, receipt, game mutation or draft reset.
 - Retain route/disposal/account-lifetime invalidation and existing error/retry behavior. Run focused red before the product correction and affected source checks after it, once the parent grants the lane.
 - Obtain independent read review and record source evidence. The parent owns compiled and actual-host acceptance. Do not count a data refresh as a fresh app-resource load.
@@ -29,4 +29,4 @@ The product change marks the list dirty only when navigation enters Play from an
 
 ## Current artifact acceptance
 
-Staging `d92991cb` passes the actual native ChatGPT journey. Its Play list first has eight games. Open `1ccbc2a2-71f6-8b47-a4db-aede1260beed` and stage b2–b3. Create `94ab950c-b385-801d-beff-82e5410b7521` on web. Back to Play reads nine games and shows the new game without Refresh. Reopen the original game: b2–b3 and enabled End turn remain. Undo clears only the test draft; the accepted history stays at five actions and a scoped database read confirms revision 6. The full 4,521-test gate supersedes the earlier cumulative source warning above. Screenshots and the live receipt are in the outer current U05 report. No further product change is needed.
+Staging `d92991cb` passes the actual native ChatGPT journey. Its Menu list first has eight games. Open `1ccbc2a2-71f6-8b47-a4db-aede1260beed` and stage b2–b3. Create `94ab950c-b385-801d-beff-82e5410b7521` on web. Back to Menu reads nine games and shows the new game without Refresh. Reopen the original game: b2–b3 and enabled End turn remain. Undo clears only the test draft; the accepted history stays at five actions and a scoped database read confirms revision 6. The full 4,521-test gate supersedes the earlier cumulative source warning above. Screenshots and the live receipt are in the outer current U05 report. No further product change is needed.

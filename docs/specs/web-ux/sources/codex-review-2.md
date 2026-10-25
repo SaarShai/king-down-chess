@@ -51,7 +51,7 @@ The AA target rule is **24×24 CSS px**, with stated exceptions, including spaci
 ```text
 Title
 ├─ Learn the pieces → lesson 1 → ... → lesson 6 → New game
-├─ Play → New game → Game
+├─ Menu → New game → Game
 ├─ Continue → saved Game
 └─ Workshop → Home → figure choice → editor → Try it
 
@@ -79,7 +79,7 @@ Evidence: `index.html:38`, `index.html:117`, `index.html:172`, `index.html:227`,
 ```text
 Title: Try one move / Play / quiet Menu
 ├─ Try one move → Archer lesson → Play beginner game / Next piece
-├─ Play → New game: Computer / Kings' powers / Two players
+├─ Menu → New game: Computer / Kings' powers / Two players
 ├─ Continue replaces the leading action when a game is saved
 └─ Menu → Learn / Workshop / Settings
 

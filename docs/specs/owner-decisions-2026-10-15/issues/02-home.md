@@ -57,7 +57,7 @@ The owner approves the picks and asks for this build in the task message.
 - D7: The resource asks the host to open fullscreen. Mount and route changes send no display request. Inline routes stay behind home and survive a remount. P1 in both copies describes the fullscreen hall.
 - B4: Shared piece and power hints use Select. The first fairy-piece note uses Select too.
 
-Taste choices: The hall keeps its existing order and controls. Start in the empty games list uses the same quick setup as Play now. Open games keeps Find an opponent as its one action. The existing beginner level selects the first piece lessons. The first host fullscreen entry opens the Play hall.
+Taste choices: The hall keeps its existing order and controls. Start in the empty games list uses the same quick setup as Play now. Open games keeps Find an opponent as its one action. The existing beginner level selects the first piece lessons. The first host fullscreen entry opens the Menu hall.
 
 ### Review
 

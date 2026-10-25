@@ -227,7 +227,7 @@ it.each([
 
 it.each([
   ['the shown game', 'game'],
-  ['the Play screen', 'play'],
+  ['the Menu screen', 'play'],
   ['the Profile screen', 'profile'],
 ] as const)('keeps the board of a chat result for %s that comes while a game the player tapped selects', async (_, kind) => {
   const page = await open();
@@ -251,7 +251,7 @@ it.each([
 it.each([
   ['Profile', { screen: 'profile' }, 'profile'],
   ['home', {}, 'home'],
-  ['Play', { screen: 'play' }, 'play'],
+  ['Menu', { screen: 'play' }, 'play'],
   ['join error', undefined, 'join'],
 ] as const)('keeps the screen of a newer %s result when an older chat result reads its games list', async (_, args, screen) => {
   const page = await open();
@@ -376,7 +376,7 @@ it('sends a start that a chat result detached only once, and keeps the chat resu
     const creates = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_create' || c.name === 'kingdown_find').map((c: any) => c.arguments.command_id));
     expect(creates).toHaveLength(1);
     expect(await shownGame(page)).toMatchObject({ screen: 'play' });
-    // The older start settles its own pending (design §1.2): Play keeps its Start, with no Retry.
+    // The older start settles its own pending (design §1.2): Menu keeps its Start, with no Retry.
     await expect.poll(() => html(page).evaluate(() => { const app = (window as any).harnessApp; return { pending: app.client.state.pending ?? null, start: (document.getElementById('setup-start') as HTMLButtonElement).disabled, retry: document.getElementById('retry')!.hidden }; })).toEqual({ pending: null, start: false, retry: true });
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
@@ -491,7 +491,7 @@ it('R2: a failed start does not lock another game (a.out 2)', async () => {
   try {
     const { game: friend } = await friendGame(page);
     await html(page).evaluate(() => (window as any).harnessApp.navigate('play'));
-    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await frame.getByRole('radio', { name: 'Artificial', exact: true }).locator('..').click();
     await page.clock.install();
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
     // This action has no navigation; wait for its held create request.
@@ -504,7 +504,7 @@ it('R2: a failed start does not lock another game (a.out 2)', async () => {
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await frame.locator(`#games-list [data-game-id="${friend}"]:not(:disabled)`).click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
-    // Changed (fault b): the start's text and Retry show on Play only; the other game plays.
+    // Changed (fault b): the start's text and Retry show on Menu only; the other game plays.
     expect(await frame.locator('#error').textContent()).toBe('');
     expect(await frame.locator('#retry').isHidden()).toBe(true);
     expect(await frame.locator('#board-menu').isEnabled()).toBe(true);

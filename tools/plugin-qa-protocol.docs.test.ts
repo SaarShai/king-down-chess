@@ -21,11 +21,11 @@ test('the QA hall step names the current home actions, setup and menu rows', () 
     expect(hall).toContain(`"${control.replace(/<[^>]+>/g, '')}"`);
   }
   const rows = [...shared.matchAll(/\['(?:profile|settings)', '([^']+)'/g)].map(match => match[1]);
-  expect(rows).toEqual(['Profile', 'Settings']);
+  expect(rows).toEqual(['Settings', 'Profile']);
   for (const row of rows) expect(hall).toContain(row);
-  expect(hall).toContain('"Play now" always starts a Beginner computer game with an automatic army and no seat screen.');
+  expect(hall).toContain('"Play now" always starts a Casual computer game with an automatic army and no seat screen.');
   expect(hall).toContain('Check this for a new player and for a saved A friend setup with Arrangement on and level Strong.');
-  expect(hall).toContain('Select A friend to see "Join with a code"');
+  expect(hall).toContain('Open Game options to see "Join with a code"');
   expect(hall).toContain('The saved setup stays after Play now, including the opponent, level and Arrangement choices.');
   expect(hall).toContain('Open New game to check these saved choices.');
 });
@@ -96,7 +96,7 @@ test.each(['TESTER-GUIDE.md', 'LIVE-CHECKS.md', 'RUNBOOK.md'])('%s describes the
   const text = readFileSync(`docs/specs/chatgpt-mvp/release/${file}`, 'utf8').replaceAll('**', '');
   for (const words of ['New game', 'See the board', 'Game result', 'Skip',
     'Play again keeps your colour against the computer',
-    'A computer abort returns to Play with the same setup', '1 s after a live result opens']) expect(text).toContain(words);
+    'A computer abort returns to Menu with the same setup', '1 s after a live result opens']) expect(text).toContain(words);
   expect(text).not.toContain('Your games opens the profile scroll');
 });
 

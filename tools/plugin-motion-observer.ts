@@ -1,7 +1,8 @@
 import type { Page } from 'playwright';
 
 // A fresh widget has a new document. Install a watch before its app starts, and in the widget that runs now.
-async function install<A>(page: Page, watch: (arg: A) => void, arg: A) {
+// Each caller types its own watch; Playwright's argument types do not follow a generic one.
+async function install(page: Page, watch: (arg: any) => void, arg: unknown) {
   await page.addInitScript(watch, arg);
   // Frame.evaluate passes the argument directly, as addInitScript does.
   await page.frames().find(f => f.parentFrame() === page.mainFrame())!.evaluate(watch, arg);

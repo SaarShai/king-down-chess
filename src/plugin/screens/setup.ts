@@ -13,6 +13,7 @@ import { locks, type Page } from '../../account-game/state';
 import { availablePowers, cleanKing, createArguments, gameSetup, pieceLocked, quickSetup, rankedOffered, readSetup, setupOptions, shownKing, soloChoice, withCard, withPiece, withToggle, withMode, type SetupState } from './setup-model';
 import { onStop } from './friend';
 import { RANKED_RULES, RANKED_HELP } from '../../account-game/rating-policy';
+import { MENU_LEVELS, LEVEL_NAMES, LEVEL_LINES, menuLevel, levelPosition, levelSlider } from '../../level-ui';
 import './setup.css';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
@@ -20,13 +21,12 @@ const icon = (name: string) => `<svg class="icon" aria-hidden="true"><use href="
 const image = (path: string, cls = '') => `<img class="${cls}" src="${art(path)}" alt="">`;
 const name = (word: string) => word[0].toUpperCase() + word.slice(1);
 export const ANY_RULES = 'Join the oldest open game, whatever its rules.';
-const levelLines = { beginner: 'New to King Down? Start here.', casual: 'Makes some mistakes.', club: 'Plays well. Keep your pieces safe.', strong: 'Thinks longer. Plays stronger.' };
 const pieceLines = { A: 'Shoots without moving.', L: 'Jumps over its own pieces.', G: 'Only a king takes it.', M: 'Swaps with a friend.', S: 'Bites in a chain.', O: 'Shoves a neighbour.', R: 'Moves in straight lines.', B: 'Moves on diagonals.', N: 'Jumps in an L.', Q: 'Moves in any line.' };
 /** The rules of a game with king powers; a game without them plays DEFAULT_RULES (src/match/worker.ts). */
 export const kingRules = powersRules({ ...DEFAULT_RULES, ...POWERS_BALANCED });
 let stopped = false;
 let cardMode: 'all' | 'four' = 'all';
-// anyRules: 'Any rules' under A random player (owner item D1 a). It applies to this start only and is not saved.
+// anyRules: 'Any rules' under Random (owner item D1 a). It applies to this start only and is not saved.
 let draft: SetupState | undefined, anyRules = false, starting = false, late = false, closeSheet: (() => void) | undefined;
 export const setupBusy = () => starting || locks(store.page()).start;
 /** A start of this screen runs: Start is busy, and no other start or game command waits on it. */
@@ -38,13 +38,14 @@ function toggle(key: string, symbol: string, title: string, line: string, sheet 
   return `<label id="${key}-row" class="check toggle${sub ? ' sub' : ''}"><input id="setup-toggle-${key}" type="checkbox" aria-label="${title}"><span class="t-ico">${icon(symbol)}</span><span class="grow">${title}<small id="${key}-line">${line}</small></span>${sheet ? `<button type="button" id="setup-${sheet}" class="all" aria-label="Choose ${sheet}"></button>` : ''}</label>`;
 }
 function build() {
-  $('setup-body').innerHTML = `<fieldset class="modes"><legend class="sr-only">Who you play</legend>${(['solo','friend','random'] as const).map(kind => `<label class="mode"><input type="radio" name="setup-mode" value="${kind}" aria-label="${{ solo: 'Computer', friend: 'A friend', random: 'A random player' }[kind]}"><span class="mode-art${kind === 'random' ? ' emblem-fan' : ''}">${kind === 'random' ? ['frost','flame','stratus'].map(k => image(`ui/emblems/${k}.webp`)).join('') : image('ui/kings/spirit.webp') + (kind === 'friend' ? image('ui/kings/shadow-b.webp', 'face-left') : '')}</span><span class="mode-text"><b>${{ solo: 'Computer', friend: 'A friend', random: 'A random player' }[kind]}</b></span></label>`).join('')}</fieldset>
+  $('setup-body').innerHTML = `<fieldset class="modes"><legend class="sr-only">Who you play</legend>${(['solo','friend','random'] as const).map(kind => `<label class="mode"><input type="radio" name="setup-mode" value="${kind}" aria-label="${{ solo: 'Artificial', friend: 'A friend', random: 'Random' }[kind]}">${icon({ solo: 'brain', friend: 'smiling-pawn', random: 'die' }[kind])}<span class="mode-text"><b>${{ solo: 'Artificial', friend: 'A friend', random: 'Random' }[kind]}</b></span></label>`).join('')}</fieldset>
+    <details id="setup-options"><summary>Game options</summary>
     ${segment('setup-rating', 'Game mode', ['casual','ranked'])}<p id="setup-rating-line" class="quiet-line">${rankedOffered() ? 'Casual does not change ratings. Ranked uses your existing rating.' : 'A game with a random player is Casual. Casual does not change ratings.'}</p><p id="setup-ranked-rules" class="quiet-line" hidden>${RANKED_RULES} ${RANKED_HELP}</p>
     ${toggle('anyRules', 'globe', 'Any rules', ANY_RULES)}
     <button id="play-open" class="menu-row has-lead"><span class="row-art fan">${['frost','flame','stratus'].map(k => image(`ui/emblems/${k}.webp`)).join('')}</span><span class="row-title">Open games</span><span class="line">Join a game that another player opened.</span><i aria-hidden="true">›</i></button>
     <div id="play-join"><h3 class="group-head">Join with a code</h3><form id="join-form" class="code-row"><input id="token" class="field" aria-label="Game code" placeholder="K7QX2M" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" required maxlength="300"><button id="join" type="submit">Join</button></form></div>
-    ${segment('setup-level', 'Computer level', ['beginner','casual','club','strong'])}<p id="level-line" class="seg-line"></p>
-    ${segment('setup-colour', 'You play', ['white','black','random'])}<h3 id="setup-game-heading" class="group-head">The game</h3>
+    ${levelSlider('setup-level')}<p id="level-line" class="seg-line"></p>
+    <h3 id="setup-game-heading" class="group-head">The game</h3><fieldset id="setup-colour" class="seg colour-switch"><legend class="sr-only">Colour</legend><div class="seg-row">${['white','black'].map(value => `<label><input type="radio" name="setup-colour" value="${value}" aria-label="${name(value)}"><span>${name(value)}</span></label>`).join('')}</div></fieldset>
     ${toggle('fairy', 'fairy', 'Fairy pieces', '', 'pieces')}
     ${toggle('arrangement', 'arrange', 'Arrangement', 'Each player orders their own back rank.', '', true)}
     ${toggle('classic', 'classic', 'Classic chess', '', '', true)}
@@ -52,10 +53,11 @@ function build() {
     <div id="setup-deal"><p id="setup-deal-note" class="quiet-line"></p><div id="setup-card-grid" class="card-grid" role="group" aria-label="Four cards"></div></div>
     ${toggle('kingPowers', 'powers', 'King powers', 'Each king brings one power.')}
     <div id="setup-your-king" class="king-pick your-king"><div class="coin-row"><button id="setup-king" class="coin" data-state="always" aria-label="Choose your king"><img alt=""></button></div><div class="grow"><h3>Your king</h3><div id="setup-king-name"></div><p id="setup-power-text" class="power-text"></p></div><span class="chev" aria-hidden="true">›</span></div>
-    <div id="setup-kings-off" class="kings-off">${image('ui/kings/spirit.webp')}${image('ui/kings/shadow-b.webp', 'face-left')}<p>King powers are off. White plays the Spirit King, Black the Shadow King.</p></div>`;
+    </details>`;
   $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-mode"]').forEach(input => { input.onchange = () => { draft = withMode({ ...draft!, kind: memory.kind = input.value as SetupState['kind'] }, draft!.mode); anyRules = false; render(); }; });
   $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-rating"]').forEach(input => { input.onchange = () => { draft = withMode(draft!, input.value as SetupState['mode']); anyRules = false; cardMode = 'all'; render(); }; });
-  for (const key of ['level', 'colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.onchange = () => { draft = { ...draft!, [key]: input.value }; render(); }; });
+  $<HTMLInputElement>('setup-level').oninput = event => { draft = { ...draft!, level: MENU_LEVELS[+(event.target as HTMLInputElement).value] }; render(); };
+  $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-colour"]').forEach(input => { input.onchange = () => { draft = { ...draft!, colour: input.value as 'white' | 'black' }; render(); }; });
   for (const key of ['fairy','arrangement','classic','cards','kingPowers'] as const) $<HTMLInputElement>(`setup-toggle-${key}`).onchange = event => { draft = withToggle(draft!, key, (event.target as HTMLInputElement).checked); render(); };
   $<HTMLInputElement>('setup-toggle-anyRules').onchange = event => { anyRules = (event.target as HTMLInputElement).checked; render(); };
   for (const sheet of ['pieces','cards'] as const) $(`setup-${sheet}`).onclick = event => { event.preventDefault(); event.stopPropagation(); poolSheet(sheet); };
@@ -68,8 +70,10 @@ function render() {
   if (stopped || queue.closed()) return;
   if (!draft) return;
   const setup = client.state.pending?.quick ? quickSetup(memory.settings?.last_setup) : currentSetup(), o = setup.options;
-  for (const key of ['mode','level','colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.checked = input.value === (key === 'mode' ? setup.kind : setup[key]); });
-  $('setup-level').hidden = $('level-line').hidden = setup.kind !== 'solo'; $('play-open').hidden = setup.kind !== 'random'; $('play-join').hidden = setup.kind !== 'friend'; $('level-line').textContent = levelLines[setup.level];
+  for (const key of ['mode','colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.checked = input.value === (key === 'mode' ? setup.kind : setup[key]); });
+  $<HTMLInputElement>('setup-level').value = String(levelPosition(setup.level));
+  $('setup-level').setAttribute('aria-valuetext', LEVEL_NAMES[setup.level]);
+  $('setup-level-control').hidden = $('level-line').hidden = setup.kind !== 'solo'; $('play-open').hidden = setup.kind !== 'random'; $('play-join').hidden = setup.kind !== 'friend'; $('level-line').textContent = LEVEL_LINES[setup.level];
   const ranked = setup.mode === 'ranked';
   $('setup-rating').hidden = setup.kind !== 'random' || !rankedOffered(); $('setup-rating-line').hidden = setup.kind !== 'random';
   $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-rating"]').forEach(input => { input.checked = input.value === setup.mode; });
@@ -86,7 +90,7 @@ function render() {
   const cards = o.cardPool.slice(0, 4), rules = o.kingPowers ? kingRules : DEFAULT_RULES;
   $('setup-card-grid').innerHTML = cards.map(card => `<button type="button" class="card-face" data-card="${card}" aria-haspopup="dialog" aria-label="Choose cards: ${cardName(card)}"><span class="cf-art">${cardArt(card)}</span><span class="cf-text"><b>${cardName(card)}</b><small>${ruleLine(cardText(card, rules))}</small><span class="cf-cost">${cardCost(card, rules)}</span></span></button>`).join('');
   $('setup-card-grid').querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.onclick = () => cardsSheet(button.dataset.card as CardName); });
-  $('setup-your-king').hidden = !o.kingPowers; $('setup-kings-off').hidden = o.kingPowers;
+  $('setup-your-king').hidden = !o.kingPowers;
   const pick = shownKing(setup); $<HTMLImageElement>('setup-king').querySelector('img')!.src = art(`ui/emblems/${pick.king.toLowerCase()}.webp`);
   $('setup-king-name').innerHTML = `<b>${pick.king}</b> · ${POWER_NAME[pick.power]}`;
   $('setup-power-text').textContent = ruleLine(powerText(pick.power, kingRules));
@@ -228,12 +232,12 @@ export function setupSync(page: Page) {
 }
 /** An exact four-card saved pool opens as Pick four. */
 function readDraft() {
-  draft = currentSetup(); cardMode = draft.options.cardPool.length === 4 ? 'four' : 'all';
+  draft = currentSetup(); draft.level = menuLevel(draft.level); cardMode = draft.options.cardPool.length === 4 ? 'four' : 'all';
   return draft;
 }
 /** End New game opens the hall with the setup of the game that ended (the same card rule as a saved setup). */
 export function draftFromGame(view: View) {
-  draft = gameSetup(view); cardMode = draft.options.cardPool.length === 4 ? 'four' : 'all'; memory.kind = draft.kind;
+  draft = gameSetup(view); draft.level = menuLevel(draft.level); cardMode = draft.options.cardPool.length === 4 ? 'four' : 'all'; memory.kind = draft.kind;
 }
 /** A retained Find owns its mode and rules even when a lobby remount does not open Play. */
 export function currentSetup(): SetupState {

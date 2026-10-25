@@ -50,7 +50,8 @@ export async function checkShell(browser, base) {
     assert.equal(colours['board-menu'], 'rgb(43, 38, 33)', 'Enabled Menu keeps dark ink');
     const row = frame.locator('[data-screen="play"] [data-nav="profile"]');
     await row.evaluate(e => { e.disabled = true; });
-    assert.equal(await row.locator('.line').evaluate(e => getComputedStyle(e).color), soft, 'Nested line text follows a native disabled button');
+    assert.equal(await row.locator('.line').count(), 0, 'Profile has no second line');
+    assert.equal(await row.locator('.row-title').evaluate(e => getComputedStyle(e).color), await row.evaluate(e => getComputedStyle(e).color), 'The title follows a native disabled button');
     assert.equal(await row.evaluate(e => {
       const span = document.createElement('span'); span.style.color = 'var(--fg-soft)'; e.append(span);
       const colour = getComputedStyle(span).color; span.remove(); return colour;

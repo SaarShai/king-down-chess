@@ -172,7 +172,7 @@ it.each(['Resign', 'Abort'])('W7: Menu %s drops the draft move from the end card
     await frame.locator('#board-menu').click();
     await frame.locator('#board-sheet').getByRole('button',{name:action,exact:action === 'Resign'}).click();
     await frame.locator('#board-sheet').getByRole('button',{name:action,exact:true}).click();
-    // od-end ticket 06: a computer abort opens the Play hall with its setup; a resign opens the end card.
+    // od-end ticket 06: a computer abort opens the Menu hall with its setup; a resign opens the end card.
     await frame.locator(action === 'Resign' ? '#over[open]' : '[data-screen="play"]:not([hidden])').waitFor();
     expect(await moveCalls(page)).toEqual([]);
     expect(await page.evaluate(() => (window as any).harnessView.fen)).toBe(base.fen);

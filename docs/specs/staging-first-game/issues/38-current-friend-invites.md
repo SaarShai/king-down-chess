@@ -15,7 +15,7 @@ No new table, migration, invitation service, polling loop, gameplay rule or artw
 
 ## Source checkpoint
 
-Three missing-behavior tests fail before implementation. The final repair passes 238 selected tests across invite, lifecycle, app, plugin HTTP, website API and hall modules, plus typecheck and 54 art checks. The source cases cover a same-revision poll, an accepted Play list, a retained Share/Copy action and a pre-renewal read that arrives late. Three selected real PostgreSQL cases pass: replacement identity, seven-day lifetime and competing joiners. The other 23 cases in that file are outside this selection.
+Three missing-behavior tests fail before implementation. The final repair passes 238 selected tests across invite, lifecycle, app, plugin HTTP, website API and hall modules, plus typecheck and 54 art checks. The source cases cover a same-revision poll, an accepted Menu list, a retained Share/Copy action and a pre-renewal read that arrives late. Three selected real PostgreSQL cases pass: replacement identity, seven-day lifetime and competing joiners. The other 23 cases in that file are outside this selection.
 
 The identifier is the existing 256-bit token hash. A database test proves that it cannot redeem or preview the invitation, another account cannot read the game, reads do not rotate the invite, and a new code changes the identifier without changing the game revision. No schema change is needed. The existing command lane discards pre-renewal reads.
 

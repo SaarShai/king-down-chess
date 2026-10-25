@@ -177,7 +177,7 @@ try {
   await page.waitForFunction(() => typeof window.releaseBefore === 'function');
   await frame.locator('#home-card').waitFor();
   assert.equal(await frame.locator('#app-head').count(), 0, 'The approved sample has no page title or tabs');
-  assert.equal(await frame.locator('symbol').count(), 23, 'The page has the full game sprite');
+  assert.equal(await frame.locator('symbol').count(), 26, 'The page has the full game sprite');
   assert.equal(await frame.locator('#over').count(), 1, 'The frame has one shared overlay');
   assert.equal(await frame.locator('#i-back, #i-close, #i-plus, #i-mic').count(), 0, 'Host icons stay with the host');
   assert(await frame.locator('#home-play').isDisabled(), 'Play waits for the page and the host to connect');
@@ -199,8 +199,8 @@ try {
   await checkMenuContent(frame, '[data-screen="play"] [data-nav="settings"]');
   await page.setViewportSize(menuViewport);
   assert.equal(await frame.locator('[data-screen="play"] [data-nav="settings"]').evaluate(row => row.getBoundingClientRect().height), 48, 'The plain Settings row is exactly 48 px tall');
-  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'play', 'Home Choose a game opens the Play hall');
-  // M3: a failed first read on Play has one error and one way to read again.
+  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.screen), 'play', 'Home Choose a game opens the Menu hall');
+  // M3: a failed first read on Menu has one error and one way to read again.
   async function readErrorOnce(screen) {
     const message = 'Harness saved-game read failed';
     await frame.locator('#error').filter({ hasText: message }).waitFor();
@@ -211,10 +211,10 @@ try {
   await page.evaluate(() => { window.rejectNextGet = true; });
   await remountFrame();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-  await readErrorOnce('Play');
+  await readErrorOnce('Menu');
   await frame.getByRole('button', { name: 'Try again', exact: true }).click();
   await frame.locator('#retry').waitFor({ state: 'hidden' });
-  assert.equal(await frame.locator('#error').innerText(), '', 'A good Play read clears the error');
+  assert.equal(await frame.locator('#error').innerText(), '', 'A good Menu read clears the error');
   const homeAgain = await (await page.request.post(new URL('/fixture-tool',base).href, { data: { name: 'kingdown_open', arguments: { screen: 'home' } } })).json();
   await page.evaluate(result => window.harnessShow(result), homeAgain);
   await frame.locator('#home-play:not(:disabled)').waitFor();
@@ -230,9 +230,10 @@ try {
   await page.setViewportSize({width:1000,height:1000});
   await frame.getByRole('button', { name: 'Choose a game', exact: true }).click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-  assert.deepEqual(await frame.locator('[data-screen="play"] .row-title:visible').allTextContents(), ['Profile', 'Settings']);
+  assert.deepEqual(await frame.locator('[data-screen="play"] .row-title:visible').allTextContents(), ['Settings', 'Profile']);
   assert(await frame.locator('[data-screen="play"] h2').evaluate(el => getComputedStyle(el).fontFamily.includes('Cinzel')), 'The page uses the approved Cinzel heading');
   assert.deepEqual(await page.evaluate(() => window.harnessDisplayRequests), ['fullscreen'], 'Choose a game asks the host for fullscreen');
+  await frame.locator('#setup-options summary').click();
   async function openPlay() {
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
     for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) {
@@ -249,7 +250,7 @@ try {
         const d=document;
         return !d.querySelector('[data-screen="play"]').hidden || [...d.querySelectorAll('#page-back, .table-back')].some(b=>!b.disabled&&b.getClientRects().length);
       });
-      // A computer abort can open Play while Back waits for a call. Check and act in the same frame.
+      // A computer abort can open Menu while Back waits for a call. Check and act in the same frame.
       await frame.locator('html').evaluate(() => {
         if (!document.querySelector('[data-screen="play"]').hidden) return;
         [...document.querySelectorAll('#page-back, .table-back')].find(b=>!b.disabled&&b.getClientRects().length)?.click();
@@ -257,6 +258,11 @@ try {
     }
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor({ timeout: 5000 * STEP });
     await idleBoard();
+    await frame.locator('#setup-options').evaluate(e => { e.open = true; });
+  }
+  async function chooseKind(name) {
+    await frame.getByRole('radio', { name, exact: true }).locator('..').click();
+    if (!await frame.locator('#setup-options').evaluate(e => e.open)) await frame.locator('#setup-options summary').click();
   }
   async function openScreen(screen) {
     await openPlay();
@@ -511,14 +517,14 @@ try {
     await openPlay(); console.log(`Profile and collection: two open games, ${mode==='fixture'?'23 rows in two pages, six badges, provisional change':'three real PostgreSQL results and private handles'}, all four collection tabs, images, remounts and three viewport sizes. Look: ${look}`);
   }
   const navCalls = await page.evaluate(() => window.harnessCalls.length);
-  await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click(); await frame.locator('[data-screen="lobby"]:not([hidden])').waitFor(); await openPlay();
-  await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill('K7QX2M'); await frame.locator('#join').click(); await frame.locator('[data-screen="join"]:not([hidden])').waitFor(); await openPlay();
+  await chooseKind('Random'); await frame.locator('#play-open').click(); await frame.locator('[data-screen="lobby"]:not([hidden])').waitFor(); await openPlay();
+  await chooseKind('A friend'); await frame.locator('#token').fill('K7QX2M'); await frame.locator('#join').click(); await frame.locator('[data-screen="join"]:not([hidden])').waitFor(); await openPlay();
   // Opening a screen may read (the lobby list, a join preview, the games rows) but never writes: no game, seat or setting changes.
   const navWrites = await page.evaluate(n => window.harnessCalls.slice(n).filter(({ name, arguments: a = {} }) =>
     !['kingdown_get', 'kingdown_games', 'kingdown_lobby', 'kingdown_profile'].includes(name)
     && !(name === 'kingdown_join' && a.preview === true) && !(name === 'kingdown_handle' && a.check === true)
     && !(name === 'kingdown_settings' && Object.keys(a).every(k => k === 'board_id'))).map(c => c.name), navCalls);
-  assert.deepEqual(navWrites, [], 'Play rows and Back send no write call');
+  assert.deepEqual(navWrites, [], 'Menu rows and Back send no write call');
   assert.equal(await page.evaluate(() => JSON.stringify(window.harnessWidgetState).includes('K7QX2M')), false, 'The join code stays in page memory');
   await freshHost('play');
   // Ticket 12: setup and its three sheets.
@@ -549,8 +555,9 @@ try {
       await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length > n, reads);
       await frame.locator('#setup-start:not(:disabled)').waitFor();
       await page.evaluate(()=>{window.harnessDropWidgetWrites=false;});
-      // The mount's Play read ends later, and each store pass draws the setup card grid again with new buttons.
+      // The mount's Menu read ends later, and each store pass draws the setup card grid again with new buttons.
       await settled(page, frame);
+      await frame.locator('#setup-options').evaluate(e => { e.open = true; });
     }
     async function setupFits(width, height, state, compare = true) {
       await page.setViewportSize({ width, height });
@@ -562,7 +569,7 @@ try {
       }
       assert(await frame.locator('#new-game label.toggle').evaluateAll(rows => rows.every(row => { const r = row.getBoundingClientRect(), text = row.querySelector('.grow').getBoundingClientRect(); return text.top >= r.top - 1 && text.bottom <= r.bottom + 1; })), `${state} toggle text stays inside its row`);
       const sheet = await frame.locator('#menu-sheet').count();
-      const controls = frame.locator(sheet ? '#menu-sheet button:visible, #menu-sheet label:visible' : '#setup-body button:visible, #setup-body label:visible, #setup-start');
+      const controls = frame.locator(sheet ? '#menu-sheet button:visible, #menu-sheet label:visible' : '#setup-body button:visible, #setup-body label:visible:not([for="setup-level"]), #setup-level:visible, #setup-start');
       const bounds = await controlsInView(controls), labels = await controls.allInnerTexts();
       for (const [i, control] of bounds.entries()) {
         assert(control.accessible, `${state} control fits ${width}px: ${labels[i]}`);
@@ -579,16 +586,18 @@ try {
         await sharp({ create: { width: width * 2, height, channels: 4, background: '#ffffff' } }).composite([{ input: reference, left: 0, top: 0 }, { input: actual, left: width, top: 0 }]).png().toFile(join(look, `${state}-${size}-${mode}.png`));
       }
     }
-    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    assert.equal(await frame.locator('#setup-options').evaluate(e => e.open), false, 'Game options starts closed');
+    await frame.locator('#setup-options summary').click();
+    await chooseKind('Artificial');
     assert.equal(await frame.locator('#setup-start').count(), 1, 'Setup has the game controls and its fixed Start footer');
     assert(await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).isChecked());
     assert(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
     assert(!await frame.getByRole('checkbox', { name: 'Cards', exact: true }).isChecked());
     assert(!await frame.getByRole('checkbox', { name: 'King powers', exact: true }).isChecked());
     assert(await frame.locator('input[name="setup-colour"][value="white"]').isChecked());
-    assert(await frame.locator('input[name="setup-level"][value="club"]').isChecked());
-    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); assert(!await frame.locator('#setup-level').isVisible());
-    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    assert.equal(await frame.locator('#setup-level').inputValue(), '2');
+    await chooseKind('A friend'); assert(!await frame.locator('#setup-level').isVisible());
+    await chooseKind('Artificial');
     await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).uncheck();
     assert(!await frame.locator('#arrangement-row').isVisible()); assert(!await frame.locator('#setup-pieces').isVisible());
     await frame.getByRole('checkbox', { name: 'Classic chess', exact: true }).check();
@@ -665,7 +674,7 @@ try {
     assert(await frame.locator('[data-power="Leap"]').isDisabled());
     assert.equal(await frame.getByRole('button', { name: 'No power', exact: true }).count(), 0);
     await frame.locator('[data-king="Shadow"]').click(); await frame.locator('[data-power="Darkness"]').click(); await frame.locator('#setup-done').click();
-    await frame.getByRole('radio', { name: 'Strong', exact: true }).locator('..').click(); await frame.getByRole('radio', { name: 'Black', exact: true }).locator('..').click();
+    await frame.locator('#setup-level').fill('2'); await frame.getByRole('radio', { name: 'Black', exact: true }).locator('..').click();
     await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).uncheck();
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal(await page.evaluate(() => window.harnessView.seat), 1);
@@ -724,10 +733,10 @@ try {
       assert.deepEqual(faceFaults(faces34, 34), [], 'The card image is centred in the 34 px card coin and fills its face in both strips');
     } finally { await desktop.close(); }
     const saved = (await setupTool('kingdown_settings'))._meta.settings.last_setup;
-    assert.deepEqual(saved.king, { king: 'Shadow', power: 'Darkness' }); assert.equal(saved.level, 'strong'); assert.equal(saved.colour, 'black');
+    assert.deepEqual(saved.king, { king: 'Shadow', power: 'Darkness' }); assert.equal(saved.level, 'club'); assert.equal(saved.colour, 'black');
     await abortSetup(await page.evaluate(() => window.harnessView.game_id));
     await setupMount(saved); assert.equal(await frame.locator('#setup-king-name').innerText(), 'Shadow · Darkness');
-    assert(await frame.getByRole('radio', { name: 'Strong', exact: true }).isChecked()); assert(await frame.getByRole('radio', { name: 'Black', exact: true }).isChecked());
+    assert.equal(await frame.locator('#setup-level').getAttribute('aria-valuetext'), 'Club'); assert(await frame.getByRole('radio', { name: 'Black', exact: true }).isChecked());
     for (const kind of ['friend', 'random']) {
       const remembered = { ...saved, kind, options: { ...saved.options, arrangement: true } };
       await setupMount(remembered);
@@ -742,10 +751,10 @@ try {
       assert(await frame.locator('[data-screen="seat"]').isHidden(), 'Play now skips the seat screen with saved Arrangement on');
       assert.deepEqual((await setupTool('kingdown_settings'))._meta.settings.last_setup, remembered, `Play now keeps the saved ${kind} setup`);
       await openPlay();
-      assert(await frame.getByRole('radio', { name: kind === 'friend' ? 'A friend' : 'A random player', exact: true }).isChecked());
+      assert(await frame.getByRole('radio', { name: kind === 'friend' ? 'A friend' : 'Random', exact: true }).isChecked());
       assert(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
-      await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
-      assert(await frame.getByRole('radio', { name: 'Strong', exact: true }).isChecked(), 'New game keeps the saved level');
+      await chooseKind('Artificial');
+      assert.equal(await frame.locator('#setup-level').getAttribute('aria-valuetext'), 'Club', 'New game uses Club for an old Strong draft');
       await abortSetup(quick.game_id);
     }
     for (const [name, recovery] of [['kingdown_create', 'retry'], ['kingdown_create', 'remount'], ['kingdown_choose', 'retry'], ['kingdown_get', 'retry']]) {
@@ -759,8 +768,8 @@ try {
       assert.equal(pending.name, name);
       assert.equal(pending.quick, true, `${name} keeps the Play now marker`);
       if (name === 'kingdown_create') assert.equal(pending.args.mode,'casual','A pending Play now keeps its Casual mode');
-      assert(await frame.getByRole('radio', { name: 'Computer', exact: true }).isChecked());
-      assert(await frame.getByRole('radio', { name: 'Beginner', exact: true }).isChecked());
+      assert(await frame.getByRole('radio', { name: 'Artificial', exact: true }).isChecked());
+      assert.equal(await frame.locator('#setup-level').getAttribute('aria-valuetext'), 'Casual');
       assert(!await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
       assert.doesNotMatch(await frame.locator('#setup-start').innerText(), /Strong|Arrangement/);
       // A remount of a pending with an error shows its saved words and Retry; the player taps Retry (design §5.3).
@@ -773,24 +782,24 @@ try {
       if (name === 'kingdown_choose') assert.equal(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_choose').arguments.command_id), pending.args.command_id, 'Retry keeps the king choice command ID');
       await openPlay();
       assert(await frame.getByRole('radio', { name: 'A friend', exact: true }).isChecked());
-      assert(await frame.locator('input[name="setup-level"][value="strong"]').isChecked());
+      assert.equal(await frame.locator('#setup-level').getAttribute('aria-valuetext'), 'Club');
       assert(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
       await abortSetup(quick.game_id);
     }
     assert.deepEqual(page.viewportSize(), { width: 390, height: 844 }, 'The setup mixes and recovery checks use the phone size');
     await freshHost('play');
-    const levels = ['beginner','casual','club','strong']; let mix = 0;
+    const levels = ['beginner','casual','club']; let mix = 0;
     for (const fairy of [true,false]) for (const secondary of [false,true]) for (const cards of [false,true]) for (const powers of [false,true]) {
       const options = { ...DEFAULT_OPTIONS, fairy, arrangement: fairy && secondary, classic: !fairy && secondary, cards, kingPowers: powers };
-      const last = { ...baseSetup, options, colour: ['white','black','random'][mix % 3], level: levels[mix++ % 4] };
+      const last = { ...baseSetup, options, colour: ['white','black'][mix % 2], level: levels[mix++ % 3] };
       // Abort keeps the last game's king. Give each toggle case the same starting draft.
-      await setupMount(baseSetup); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+      await setupMount(baseSetup); await chooseKind('Artificial');
       await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).setChecked(fairy);
       await frame.getByRole('checkbox', { name: fairy ? 'Arrangement' : 'Classic chess', exact: true }).setChecked(secondary);
       await frame.getByRole('checkbox', { name: 'Cards', exact: true }).setChecked(cards);
       await frame.getByRole('checkbox', { name: 'King powers', exact: true }).setChecked(powers);
       await frame.getByRole('radio', { name: last.colour[0].toUpperCase() + last.colour.slice(1), exact: true }).locator('..').click();
-      await frame.getByRole('radio', { name: last.level[0].toUpperCase() + last.level.slice(1), exact: true }).locator('..').click();
+      await frame.locator('#setup-level').fill(String(levels.indexOf(last.level)));
       await frame.locator('#setup-start').click();
       await page.waitForFunction(() => ['board','seat'].includes(window.harnessWidgetState.privateContent.screen) && !window.harnessWidgetState.privateContent.pending);
       let view = await page.evaluate(() => window.harnessView);
@@ -824,7 +833,7 @@ try {
     const privateState = await page.evaluate(() => window.harnessWidgetState.privateContent);
     assert.deepEqual(Object.keys(privateState).sort(), ['board_id','pending','screen','sheet']);
     assert.equal(await page.evaluate(() => JSON.stringify(window.harnessWidgetState.modelContent)), '{}', 'Setup puts no choice or draw in model context');
-    await openPlay(); await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
+    await openPlay(); await chooseKind('Artificial');
     assert.equal(await frame.locator('#setup-body .modes label').count(), 3, 'Setup still builds after a restored Start');
     const recovered = await page.evaluate(() => window.harnessView); await abortSetup(recovered.game_id);
     await setupMount({ ...baseSetup, kind: 'random', options: { ...DEFAULT_OPTIONS, arrangement: false } }); await frame.locator('#setup-start').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
@@ -1176,7 +1185,7 @@ try {
     } finally { button.remove(); }
   }), 'A preset button outside the name pictures keeps its stone face and control shape');
   assert.equal(await frame.locator('[data-screen="handle"] .quiet-line').last().innerText(), 'Each name is unique.');
-  assert.equal(await frame.locator('#page-back').innerText(), '‹ Play');
+  assert.equal(await frame.locator('#page-back').innerText(), '‹ Menu');
 
   async function fits(screen, width) {
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
@@ -1219,7 +1228,7 @@ try {
   }
   await page.setViewportSize({width:1000,height:1000});
   await openPlay();
-  // The rows of the last visit show at once; the Play read draws them again.
+  // The rows of the last visit show at once; the Menu read draws them again.
   await settled(page, frame);
   const savedGame = frame.locator('#games-list button').first();
   await savedGame.waitFor();
@@ -1309,7 +1318,8 @@ try {
   await remountFrame();
   await frame.locator('#retry').waitFor(); await frame.locator('#retry').click();
   await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
-  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending), undefined);
+  // The host page gets each widget save by a later message, so its copy can lag the friend screen.
+  await page.waitForFunction(() => window.harnessWidgetState.privateContent.screen === 'friend' && window.harnessWidgetState.privateContent.pending === undefined);
   await openPlay(); await legacyStart('solo'); await idleBoard();
 
   // Ticket 15: the board and end routes.
@@ -1645,7 +1655,7 @@ try {
       return { game: game._meta.view, code: invite.structuredContent.code };
     }
     const offered = await buddyCode(); await openPlay();
-    const lower = offered.code.toLowerCase(); await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill(`${lower.slice(0,3)}-${lower.slice(3)}`); await frame.locator('#join').click();
+    const lower = offered.code.toLowerCase(); await chooseKind('A friend'); await frame.locator('#token').fill(`${lower.slice(0,3)}-${lower.slice(3)}`); await frame.locator('#join').click();
     await frame.locator('#join-confirm').waitFor();
     assert.equal(await frame.locator('#join-confirm').innerText(), 'Join and take Black');
     await lookAt('join', 'join');
@@ -1657,7 +1667,7 @@ try {
     await frame.locator('#join-decline').click();
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_join' && !c.arguments.preview).length), joins, 'Decline sends no Join');
     assert.equal((await tool('kingdown_get', { game_id: offered.game.game_id }, true))._meta.view.status, 'waiting', 'Decline keeps the buddy game waiting');
-    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill(lower); await frame.locator('#join').click(); await frame.locator('#join-confirm').waitFor(); await frame.locator('#join-confirm').click();
+    await chooseKind('A friend'); await frame.locator('#token').fill(lower); await frame.locator('#join').click(); await frame.locator('#join-confirm').waitFor(); await frame.locator('#join-confirm').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert(!(await page.evaluate(code => JSON.stringify(window.harnessWidgetState).includes(code), offered.code)), 'The code stays out of widget state');
     const seatCode = await buddyCode({ ...options, arrangement: true });
@@ -1670,7 +1680,7 @@ try {
     assert(!(await tool('kingdown_handle', { handle: longName, icon: 'paladin' }, true)).isError);
     // A reply from a departed Find visit must not restore an offer cancelled before the next visit.
     const staleOffer = await tool('kingdown_create', { kind: 'random', options, colour: 'white' }, true); assert(!staleOffer.isError);
-    await openPlay(); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click();
+    await openPlay(); await chooseKind('Random');
     await page.evaluate(() => { window.holdNext = 'kingdown_lobby'; });
     await frame.locator('#play-open').click(); await page.waitForFunction(() => typeof window.releaseHeld === 'function');
     try {
@@ -1682,7 +1692,7 @@ try {
       assert.equal(await frame.locator('#lobby-list').innerText(), currentRows, 'An old embedded lobby reply cannot restore the cancelled offer');
     } finally { await page.evaluate(() => window.releaseHeld?.()); }
     const random = await tool('kingdown_create', { kind: 'random', options, colour: 'white' }, true); assert(!random.isError);
-    await openPlay(); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click(); await frame.locator('#lobby-list .game-row').filter({ hasText: longName }).waitFor();
+    await openPlay(); await chooseKind('Random'); await frame.locator('#play-open').click(); await frame.locator('#lobby-list .game-row').filter({ hasText: longName }).waitFor();
     const lobbyRow = frame.locator('#lobby-list .game-row').filter({ hasText: longName });
     assert.equal(await lobbyRow.locator('.row-title').innerText(), longName);
     assert(await lobbyRow.locator('.row-title').evaluate(el => { const r = el.getBoundingClientRect(), hit = document.elementFromPoint(r.x+r.width/2, r.y+r.height/2); return el.contains(hit) || hit?.closest('button')?.classList.contains('menu-row'); }), 'The name stays visible beside Accept');
@@ -1696,7 +1706,7 @@ try {
     if (rankedStage) {
       const rankedOpen=await tool('kingdown_create',{kind:'random',mode:'ranked',command_id:randomUUID()},true); assert(!rankedOpen.isError);
       assert.equal(rankedOpen._meta.view.rating_policy,'ranked-v1'); assert.equal(rankedOpen._meta.view.days_per_move,3); assert.deepEqual(rankedOpen._meta.view.options,RANKED_OPTIONS);
-      await openPlay(); await frame.getByRole('radio',{name:'A random player',exact:true}).locator('..').click();
+      await openPlay(); await chooseKind('Random');
       await frame.locator('#setup-rating input[value="ranked"]').locator('..').click();
       assert.match(await frame.locator('#setup-ranked-rules').innerText(),/3 days per move/);
       await frame.locator('#play-open').click();
@@ -1718,7 +1728,7 @@ try {
       await shot(page,'plugin-ranked-policy');
       assert(!(await tool('kingdown_abort',{game_id:rankedOther.game_id},true)).isError);
     } else {
-      await openPlay(); await frame.getByRole('radio',{name:'A random player',exact:true}).locator('..').click();
+      await openPlay(); await chooseKind('Random');
       assert(await frame.locator('#setup-rating').isHidden(), 'Production shows no Ranked choice');
       assert.equal(await frame.locator('#setup-rating-line').innerText(), 'A game with a random player is Casual. Casual does not change ratings.');
       await frame.locator('#play-open').click(); await frame.locator('#find-features').filter({hasText:'Casual'}).waitFor();
@@ -1733,7 +1743,7 @@ try {
     // Only Open mounts the app. It carries the board ID and the new saved settings.
     const play = await tool('kingdown_open', { screen: 'play' }); assert(!play.isError);
     await page.evaluate(result => window.harnessShow(result, true), play);
-    await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click(); await frame.locator('#lobby-status').filter({ hasText: /^$/ }).waitFor({ state: 'attached' });
+    await chooseKind('Random'); await frame.locator('#play-open').click(); await frame.locator('#lobby-status').filter({ hasText: /^$/ }).waitFor({ state: 'attached' });
     await frame.locator('#find-opponent').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     await remount('wait'); await frame.locator('#wait-cancel').click(); await frame.locator('[data-screen="lobby"]:not([hidden])').waitFor();
     await frame.locator('#lobby-status').filter({ hasText: /^$/ }).waitFor({ state: 'attached' });
@@ -1770,7 +1780,7 @@ try {
     for (let i=0;i<5;i++) await advance(5000);
     await frame.locator('#wait-computer').waitFor(); await lookAt('lobby-wait', 'wait');
     const count = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_find').length);
-    await openPlay(); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click(); await frame.locator('#find-opponent').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
+    await openPlay(); await chooseKind('Random'); await frame.locator('#play-open').click(); await frame.locator('#find-opponent').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_find').length), count, 'The page reuses its open game');
     const first = await page.evaluate(() => window.ticket13Reads.length), initialRead = receipt(first);
     await frame.locator('#wait-computer').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); await initialRead;
@@ -2627,7 +2637,7 @@ try {
   });
   // T3: at 197 x 426 the hall scrolls to its end above the pinned Start game bar, and the page clips nothing.
   async function zoomHallFits() {
-    // The Play read that the hall starts draws the game rows again.
+    // The Menu read that the hall starts draws the game rows again.
     await settled(page, frame);
     const viewport = page.viewportSize();
     await zoomViewport(402,874,0,0);
@@ -2759,7 +2769,7 @@ try {
   await frame.locator('#board-sheet').getByRole('button',{name:'Abort',exact:true}).click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); await idleBoard();
   assert.equal(await frame.locator('#over[open], #board[data-toppling]').count(),0,'A computer abort returns to the draft with no ceremony');
-  assert(await frame.getByRole('radio',{name:'Computer',exact:true}).isChecked());
+  assert(await frame.getByRole('radio',{name:'Artificial',exact:true}).isChecked());
   assert(await frame.getByRole('radio',{name:'White',exact:true}).isChecked());
   if (capabilities.friend) {
     // harnessShow returns when the host sends the chat result, before the frame mounts it, so #reload can still show the

@@ -11,11 +11,12 @@
 # run leaves behind (a stray server) holds it too. With no perl, or outside git, the command runs with
 # no lock. A run that waits prints one line. KINGDOWN_TEST_LOCK_WAIT: the most seconds to wait (default
 # 7200); then it exits 75. A command that already holds the lock (KINGDOWN_TEST_LOCKED) runs at once, so
-# a nested run cannot wait on itself.
+# a nested run cannot wait on itself. The mark is set on every path, so the vitest guard (tools/test-lock-guard.ts) lets
+# the run start.
 [ -n "${KINGDOWN_TEST_LOCKED:-}" ] && exec "$@"
+export KINGDOWN_TEST_LOCKED=1
 dir=$(git rev-parse --git-common-dir 2>/dev/null) || exec "$@"
 command -v perl >/dev/null || exec "$@"
-export KINGDOWN_TEST_LOCKED=1
 exec perl -MFcntl=:flock -MTime::HiRes=time,sleep -e '
   my ($lock, $wait) = (shift, shift);
   $^F = 255; # keep the lock file open across exec

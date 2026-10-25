@@ -53,7 +53,7 @@ Each new check fails on `f1017eea` and passes on this branch:
 
 Results:
 
-- `bash tools/test-lock.sh npx vitest run` on `board-ink`, `plugin-board`, `plugin-profile`, `plugin-ios-size`, `plugin-app`, `plugin-lobby`, `plugin-menus` and `plugin-ui-style` (`--no-file-parallelism`): 139 of 141 pass. The two failures are in `plugin-menus.test.ts` ("shows Starting at once…" and "keeps ‹ Play free…"). They fail in the same way on a clean copy of `f1017eea`, so this round did not cause them. After the checkbox fix, `plugin-ios-size` and `plugin-app` pass again: 60 of 60.
+- `bash tools/test-lock.sh npx vitest run` on `board-ink`, `plugin-board`, `plugin-profile`, `plugin-ios-size`, `plugin-app`, `plugin-lobby`, `plugin-menus` and `plugin-ui-style` (`--no-file-parallelism`): 139 of 141 pass. The two failures are in `plugin-menus.test.ts` ("shows Starting at once…" and "keeps ‹ Menu free…"). They fail in the same way on a clean copy of `f1017eea`, so this round did not cause them. After the checkbox fix, `plugin-ios-size` and `plugin-app` pass again: 60 of 60.
 - `npm run typecheck`: pass.
 - `npm run check:browser plugin-ui`: pass (260 s). Two of its assertions now expect "Waiting for a friend" for friend games (item 5). The first run found the Settings hit layer over the checkbox; the checkbox now sits above it.
 

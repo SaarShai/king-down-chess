@@ -50,7 +50,7 @@ function storage() {
   };
 }
 
-type WorkerState = Pick<ServiceWorker, 'scriptURL' | 'state'>;
+type WorkerState = { scriptURL: string; state: ServiceWorkerState };
 
 function worker(caches = storage(), build = version, buildFiles = files, registration = {
   scope: `${origin}/`, installing: null as WorkerState | null, waiting: null as WorkerState | null,
@@ -152,18 +152,18 @@ const privatePaths = ['/api', '/mcp', '/authorize', '/auth', '/oauth', '/consent
 describe('public request boundary', () => {
   it.each([...privatePaths.flatMap(path => [path, `${path}/child`]), '/play.html', '/consent.mjs', '/privacy.html', '/terms.html', '/delete-data.html', '/support.html', '/assets/unknown.js', '/sw.js'])('bypasses %s with queries and navigation', async path => {
     const w = worker();
-    for (const suffix of ['', '?probe=1']) for (const mode of ['navigate', 'cors']) {
+    for (const suffix of ['', '?probe=1']) for (const mode of ['navigate', 'cors'] as const) {
       expect(w.request(path + suffix, { mode }).response).toBeUndefined();
     }
     expect(w.caches.open).not.toHaveBeenCalled();
     expect(w.fetch).not.toHaveBeenCalled();
   });
 
-  it.each([
+  it.each<RequestInit>([
     { headers: { Authorization: 'Bearer test' } }, { headers: { authorization: '' } },
     { cache: 'no-store' }, { headers: { 'Cache-Control': 'max-age=0, NO-STORE' } },
     { method: 'POST' }, { method: 'PUT' }, { method: 'DELETE' }, { method: 'HEAD' },
-  ] satisfies RequestInit[])('bypasses a public file with %j before cache access', init => {
+  ])('bypasses a public file with %j before cache access', init => {
     const w = worker();
     for (const path of ['/assets/main.js', '/?fen=local', '/index.html?fen=local']) {
       expect(w.request(path, init).response).toBeUndefined();

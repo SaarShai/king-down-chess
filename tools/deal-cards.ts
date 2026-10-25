@@ -1,7 +1,7 @@
 import { resultsRoot } from './lib/results-root.mjs';
 // deal-d1, each card: pairs whose six-card hand holds it against pairs whose hand does not (White score, draws). `npx tsx tools/deal-cards.ts`
 import { readFileSync, readdirSync } from 'node:fs';
-import { handFor } from '../src/sim/tournament.ts';
+import { handFor } from '../src/sim/tournament';
 const dir = resultsRoot();
 const id = process.argv[2] ?? 'deal-d1';
 const spec = JSON.parse(readFileSync(`${dir}/${id}.tournament.json`, 'utf8'));

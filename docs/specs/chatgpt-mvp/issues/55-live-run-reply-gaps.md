@@ -17,10 +17,10 @@ the run record in `docs/submission/checklist.md` row 48, a P4 note in
 - P3, P5 and N1–N3 pass. P5: the model asked which computer game, showed a
   "Confirm resignation" button, and then ChatGPT asked for approval. N2
   started ChatGPT's own browser tool and no King Down tool; the run stopped it.
-- P1 partial: King Down opened at the Play hall, but the reply left out
+- P1 partial: King Down opened at the Menu hall, but the reply left out
   "Your move in 1 game.", which the tool sends.
 - P2 partial: the model called `kingdown_create` but not `kingdown_open`, so
-  the open board kept the Play hall. After "Open that game." the setup,
+  the open board kept the Menu hall. After "Open that game." the setup,
   Shuffle, Ready, a move, Undo, the move again and End turn all worked.
 - P4 fails: the model called `kingdown_open` with screen "profile" in place
   of `kingdown_profile`. That reply had only "Your move in 2 games.", so the

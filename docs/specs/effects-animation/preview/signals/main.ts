@@ -7,7 +7,7 @@ import { checkersOf } from '../../../../../src/move-text';
 import { frozenPieces } from '../../../../../src/render/frost';
 import { fixtures, at, type Fixture } from './fixtures';
 import { drawFreeze, drawIceWall, drawFirewall, materialState } from '../../../../../src/render/effects/materials';
-import { drawGuard, drawShelter, drawSwap } from '../../../../../src/render/effects/state-flare';
+import { drawShelter, drawSwap } from '../../../../../src/render/effects/state-flare';
 import { drawArcherFocus } from '../../../../../src/render/effects/archer-flare';
 import { ring, link, pips, checkImpact, SIGNAL_DURATION_MS } from '../../../../../src/render/effects/indications';
 import './style.css';
@@ -18,7 +18,7 @@ const samples: Sample[] = [
   { id: 'archer', title: 'Distant Archer targets', group: '02 · Target', f: fixtures.archer, selected: at('c3'), detail: 'The Archer on c3 can shoot c5 over the pawn on c4. The Archer stays on c3.', change: 'New: warm focus feathers gather at the Archer and its distant eligible target. No shot is fired. The production target and shot badge stay still.' },
   { id: 'ward', title: 'Ice Wall', group: '01 · Conditions', f: fixtures.ward, detail: 'The rook on a4 cannot be captured during the next turn. The wall does not stop a shove.', change: 'New: a thick curved ice wall forms around the figure. Its front and back surfaces show its depth.' },
   { id: 'firewall', title: 'Firewall', group: '01 · Conditions', f: fixtures.firewall, detail: 'Every White piece is safe from capture until White’s next turn. White can still make its move.', change: 'New: red-orange flames with gold cores rise around each White piece. The fire protects the army.' },
-  { id: 'guard', title: 'Guard protection', group: '01 · Conditions', f: fixtures.guard, detail: 'Only a king can capture this Guard on d4. The rook on d8 cannot capture it. The Black king on e5 can.', change: 'New: three steel plates form a broad shield below the Guard’s face. One bright reflection crosses the metal, then it holds still. The red crown stays: only a king can capture the Guard.' },
+  { id: 'guard', title: 'Guard rule', group: '01 · Conditions', f: fixtures.guard, detail: 'Only a king can take this Guard on d4. The rook on d8 cannot take it. The Black king on e5 can.', change: 'The Guard has no permanent shield effect. Only a king can take it. It cannot take a piece.' },
   { id: 'holy-light', title: 'Holy Light shelter', group: '01 · Conditions', f: fixtures.holyLight, detail: 'The Spirit king on e2 shelters the knight on e3. The rook and pawn cannot capture that knight.', change: 'New: the Spirit king gathers warm light and sends it into a broad mantle behind the supported knight. The shield stays.' },
   { id: 'mercy', title: 'Mercy shelter', group: '01 · Conditions', f: fixtures.mercy, detail: 'The Spirit king on e2 shelters the knight on d3 from the rook. The pawn on c4 can still capture the knight.', change: 'New: the king sends soft light to an open mantle behind the knight. The shield keeps a red pawn symbol: the pawn can still capture.' },
   { id: 'ghost', title: 'Hovered move', group: '03 · Move marks', f: fixtures.rook, selected: at('d4'), detail: 'The faint rook on d5 shows where the selected rook will stand. The real rook stays on d4.', change: 'Reused: the production figure ghost and hover mark. New: a short foot ring.' },
@@ -76,10 +76,9 @@ function renderDecoration(ctx: CanvasRenderingContext2D, layer: 'under'|'over', 
   if(active.id==='freeze' && (layer==='under'||row===scene.cell(at('d5')).row)) material(ctx,at('d5'),layer==='over','freeze');
   if(active.id==='ward' && (layer==='under'||row===scene.cell(at('a4')).row)) material(ctx,at('a4'),layer==='over','ward');
   if(active.id==='firewall') currentPosition.board.forEach((v,sq)=>{if(v && pieces.colorOf(v)===0 && (layer==='under'||row===scene.cell(sq).row))material(ctx,sq,layer==='over','firewall');});
-  if (layer==='under' && ['guard','holy-light','mercy'].includes(active.id)) ring(ctx,scene,at(active.id==='guard'?'d4':active.id==='holy-light'?'e3':'d3'),'#a57d2f');
+  if (layer==='under' && ['holy-light','mercy'].includes(active.id)) ring(ctx,scene,at(active.id==='holy-light'?'e3':'d3'),'#a57d2f');
   if(layer==='under' && active.id==='check') checkImpact(ctx,scene,at('e1'),progress,reduced);
   const frame={progress,front:layer==='over',reduced};
-  if(active.id==='guard' && (layer==='under'||row===scene.cell(at('d4')).row)) drawGuard(ctx,scene.foot(at('d4')),frame);
   if(active.id==='holy-light' && (layer==='under'||row===Math.max(scene.cell(at('e2')).row,scene.cell(at('e3')).row))) drawShelter(ctx,scene.foot(at('e2')),scene.foot(at('e3')),frame);
   if(active.id==='mercy' && (layer==='under'||row===Math.max(scene.cell(at('e2')).row,scene.cell(at('d3')).row))) drawShelter(ctx,scene.foot(at('e2')),scene.foot(at('d3')),frame,true);
   if(active.id==='archer') {
@@ -89,7 +88,6 @@ function renderDecoration(ctx: CanvasRenderingContext2D, layer: 'under'|'over', 
   if(active.id==='swap' && (layer==='under'||row===Math.max(scene.cell(at('a1')).row,scene.cell(at('e1')).row))) drawSwap(ctx,scene.foot(at('a1')),scene.foot(at('e1')),frame);
   if(!last)return;
   switch(active.id) {
-    case 'guard': pips(ctx,scene,canvas.getBoundingClientRect().width,at('d4'),'#87611e',0,true,'king');break;
     case 'holy-light': pips(ctx,scene,canvas.getBoundingClientRect().width,at('e3'),'#87611e',0,true);break;
     case 'mercy': pips(ctx,scene,canvas.getBoundingClientRect().width,at('d3'),'#87611e',0,true,'pawn');break;
     case 'shove': link(ctx,scene,at('c5'),at('c6'),'#2f7f75',false,enter());break;

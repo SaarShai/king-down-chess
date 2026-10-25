@@ -2,7 +2,7 @@ import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs
 import { A, typeOf } from '../../rules/engine';
 import type { Highlights } from '../marks';
 import { drawFreeze, drawIceWall, drawFirewall } from './materials';
-import { drawGuard, drawShelter, drawSwap } from './state-flare';
+import { drawShelter, drawSwap } from './state-flare';
 import { drawArcherFocus } from './archer-flare';
 import { checkImpact, link, pips, ring } from './indications';
 import { CHECK_ONSET_MS, drawCheck, drawWithdrawal } from './check';
@@ -24,8 +24,7 @@ export function drawBoardEffects(ctx: CanvasRenderingContext2D, scene: PaintedSc
       } else {
         if (!front) ring(ctx, scene, state.sq, '#a57d2f');
         const frame = { progress, front, reduced };
-        if (state.kind === 'guard') drawGuard(ctx, foot, frame);
-        else if (state.source != null) drawShelter(ctx, scene.foot(state.source), foot, frame, state.kind === 'mercy');
+        if (state.source != null) drawShelter(ctx, scene.foot(state.source), foot, frame, state.kind === 'mercy');
       }
       ctx.restore();
     };

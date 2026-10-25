@@ -131,7 +131,7 @@ for (let g = 0; g < GAMES; g++) {
     history.push(positionKey(pos));
     const legal = game.legal;
     const r = search(pos, { maxDepth: DEPTH, history });
-    const best = legal.find(m => toLan(pos, m) === toLan(pos, r.move)) ?? legal[0];
+    const best = legal.find(m => r.move && toLan(pos, m) === toLan(pos, r.move)) ?? legal[0];
     const bestLan = toLan(pos, best);
     let move = best;
     let entry: Partial<PlyLog> = {};

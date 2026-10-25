@@ -8,7 +8,7 @@ Base: origin/staging/first-game, a89a9381a73c0744574bdd27bb2b8c96a6e773c6
 
 ## Request and approval
 
-Saar approves the desktop and phone samples. Menu has Main menu as its first row. The game screen has no separate Play return button. The return keeps the game. It does not send a turn or a game action.
+Saar approves the desktop and phone samples. Menu has Main menu as its first row. The game screen has no separate Menu return button. The return keeps the game. It does not send a turn or a game action.
 
 The approved samples are `F-107-menu-sample-1280.png` and `F-107-menu-sample-390.png` in `playtest/reports/owner-playtest/F-106-F-108/run-02/`. The before images and both samples are viewed. The sample changes only the page. This ticket replaces the old draft's pending approval with the owner's current build approval.
 
@@ -23,9 +23,9 @@ The approved samples are `F-107-menu-sample-1280.png` and `F-107-menu-sample-390
 ## Acceptance checks
 
 - Main menu is the first Menu row on phone and desktop.
-- The separate Play return is absent on the game screen.
+- The separate Menu return is absent on the game screen.
 - Other screens keep their return path.
-- Main menu uses the current navigation path to Play.
+- Main menu uses the current navigation path to Menu.
 - The return does not resign, abort, offer a draw or send a turn.
 - The game and its staged turn remain available on return.
 - The row uses the role, focus order and visible focus of the other rows.
@@ -41,7 +41,7 @@ The independent review of PR #117 confirms one P2 fault. After See the board, th
 3. Show that the edge click opens the power details at both landscape sizes. Use a real return click. Save both board images.
 4. Run the required type check, selected tests, three browser checks and doc checks. Record the results and commit the three changed files.
 
-The check uses a point 4 px below the top of the opponent power coin. The point must stay inside the old 52 px head band. The coin must receive the click, its details must open, and the return must open Play.
+The check uses a point 4 px below the top of the opponent power coin. The point must stay inside the old 52 px head band. The coin must receive the click, its details must open, and the return must open Menu.
 
 ## Caption fix plan
 
@@ -95,7 +95,7 @@ The full test suite does not run for this fix. CI runs it.
 
 The page head keeps its absolute position and board size. It uses `pointer-events: none`. Its only control, `#page-back`, uses `pointer-events: auto`.
 
-The current final-move test now includes 1280 by 800 and 852 by 393. Each case opens See the board with king powers. It checks the point 4 px below the top of the opponent coin. Both points have y=38, inside the old head band. The test checks the hit target and sends a real mouse click. It checks that the Freeze details open. It then closes the details, clicks the page return with real input, and checks that Play opens.
+The current final-move test now includes 1280 by 800 and 852 by 393. Each case opens See the board with king powers. It checks the point 4 px below the top of the opponent coin. Both points have y=38, inside the old head band. The test checks the hit target and sends a real mouse click. It checks that the Freeze details open. It then closes the details, clicks the page return with real input, and checks that Menu opens.
 
 The first run uses the CSS from the review commit. Both landscape cases fail. The hit target is `page-head` at `(970, 38)` and `(578, 38)`. The real clicks do not open the details. The two portrait cases pass.
 
@@ -122,7 +122,7 @@ The full test suite does not run for this fix. CI runs it. No push, pull request
 
 ## Evidence
 
-Main menu is the first Menu row. It closes Menu and uses `navigate('play')`. The return does not call a game command. The test stages e2-e4, returns to Play and opens the same game. The saved turn, shown position, game ID, revision and game status stay the same. No move, resign, abort or draw call occurs.
+Main menu is the first Menu row. It closes Menu and uses `navigate('play')`. The return does not call a game command. The test stages e2-e4, returns to Menu and opens the same game. The saved turn, shown position, game ID, revision and game status stay the same. No move, resign, abort or draw call occurs.
 
 The row uses the same native button helper and CSS as the other rows. Keyboard checks pass at both sizes. Tab reaches Main menu, then Moves. Escape and Close return focus to Menu.
 
@@ -207,3 +207,13 @@ The other attempts stay in the logs. The first art test stops at an ambiguous Se
 An intermediate return helper uses the manual pointer helper. One full HTTP repeat finds that the saved host screen can lag Play and send cleanup into a wait for hidden board status (`merge-final-http-3.log`). The final return settle step fixes this gap. Another WebKit repeat fails the manual helper's single hit read (`merge-proof-webkit-2.log`). The standard locator click now waits for hit readiness. The foreground test does not reproduce that fault (`merge-foreground-probe.log`). The sample block sets `document.hidden` itself to stop polls, so this flag does not prove a background tab. The manual pointer helper stays in the checks that stop the page clock. The intermediate passing runs stay in the `merge-final-*` and `merge-proof-*` logs.
 
 After the commit, run the required branch type check, selected tests, browser checks and doc checks. The final report at `/private/tmp/claude-501/ci87/run38/menu-ci.md` records those commands and results. No push, pull request, base merge or deploy forms part of this task.
+
+## Menu name after the New game merge
+
+F-115 names the main menu Menu. The result page head now says `‹ Menu`.
+The old 72 pixel caption margin is too small at 852 by 393 with this label.
+The margin is now 88 pixels. The maximum width is `calc(100% - 104px)`.
+All seven selected final-move cases and 57 art checks pass. The five required
+sizes keep a clear caption, a working return and the same board size.
+Both landscape coin edge clicks still open Freeze. Ticket 04 records the
+merged checks. Repair logs use `new-game-fix-files/` in the same run folder.

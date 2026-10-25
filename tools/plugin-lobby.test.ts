@@ -2,7 +2,7 @@ import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { chromium, type Browser, type Page } from 'playwright';
+import { chromium, type Browser, type Page, type FrameLocator } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
 import { DEFAULT_OPTIONS, switches } from '../src/match/setup';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
@@ -38,6 +38,13 @@ async function hall(page: Page) {
   const result = await page.evaluate(() => (window as any).harnessTool({ name: 'kingdown_open', arguments: { screen: 'play' } }));
   await page.evaluate(result => (window as any).harnessShow(result), result);
   await page.frameLocator('iframe').locator('[data-screen="play"]:not([hidden])').waitFor();
+  const options = page.frameLocator('iframe').locator('#setup-options');
+  if (!await options.evaluate(e => (e as HTMLDetailsElement).open)) await options.locator('summary').click();
+}
+async function chooseKind(frame: FrameLocator, name: string) {
+  await frame.getByRole('radio', { name, exact: true }).locator('..').click();
+  const options = frame.locator('#setup-options');
+  if (!await options.evaluate(e => (e as HTMLDetailsElement).open)) await options.locator('summary').click();
 }
 it('makes a friend code after create and offers a new code after remount', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
@@ -166,14 +173,14 @@ it('previews a lower-case code, declines without taking a seat and then joins', 
     const created = await buddy(page, 'kingdown_create', { kind: 'friend', options, colour: 'black' });
     const invite = await buddy(page, 'kingdown_invite', { game_id: created._meta.view.game_id });
     const code = invite.structuredContent.code.toLowerCase();
-    await hall(page); await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill(`${code.slice(0,3)}-${code.slice(3)}`); await frame.locator('#join').click();
+    await hall(page); await chooseKind(frame, 'A friend'); await frame.locator('#token').fill(`${code.slice(0,3)}-${code.slice(3)}`); await frame.locator('#join').click();
     await frame.locator('#join-confirm').waitFor();
     expect(await frame.locator('#join-preview .row-title').allTextContents()).toEqual(['Your opponent', 'Features']);
     expect(await frame.locator('#join-preview .line').last().textContent()).toContain('You play White.');
     expect(await frame.locator('#join-confirm').textContent()).toBe('Join and take White');
     await frame.locator('#join-decline').click();
     expect((await buddy(page, 'kingdown_get', { game_id: created._meta.view.game_id }))._meta.view.status).toBe('waiting');
-    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill(code); await frame.locator('#join').click(); await frame.locator('#join-confirm').waitFor(); await frame.locator('#join-confirm').click();
+    await chooseKind(frame, 'A friend'); await frame.locator('#token').fill(code); await frame.locator('#join').click(); await frame.locator('#join-confirm').waitFor(); await frame.locator('#join-confirm').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect((await buddy(page, 'kingdown_get', { game_id: created._meta.view.game_id }))._meta.view.status).toBe('playing');
     expect(JSON.stringify(await page.evaluate(() => (window as any).harnessWidgetState)).includes(code.toUpperCase())).toBe(false);
@@ -183,7 +190,7 @@ it('lists another player with features and accepts the open seat', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     const created = await buddy(page, 'kingdown_create', { kind: 'random', options, colour: 'white' });
-    await hall(page); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click();
+    await hall(page); await chooseKind(frame, 'Random'); await frame.locator('#play-open').click();
     await frame.locator('#lobby-list .accept').first().waitFor();
     expect(await frame.locator('#lobby-list .feats [title="Fairy pieces"]').count()).toBe(1);
     await frame.locator('#lobby-list .accept').first().click();
@@ -198,7 +205,7 @@ it('clears Casual rows before a held Ranked lobby reply and accepts only the ran
   try {
     const casualOpen = await buddy(page, 'kingdown_create', { kind: 'random', options, colour: 'white' }); casual = casualOpen._meta.view.game_id;
     const rankedOpen = await buddy(page, 'kingdown_create', { kind: 'random', mode: 'ranked' }); ranked = rankedOpen._meta.view.game_id;
-    await hall(page); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click();
+    await hall(page); await chooseKind(frame, 'Random');
     await frame.locator('#setup-rating input[value="casual"]').locator('..').click(); await frame.locator('#play-open').click();
     await frame.locator('#lobby-list .game-row').filter({ hasText: 'Casual' }).first().waitFor();
     await frame.locator('#page-back').click(); await frame.locator('#setup-rating input[value="ranked"]').locator('..').click();
@@ -228,7 +235,7 @@ it('reads the visible lobby every fifteen seconds and pauses while hidden', asyn
   try {
     await freeze(page);
     waiting = (await buddy(page, 'kingdown_create', { kind: 'random', options, colour: 'white' }))._meta.view.game_id;
-    await hall(page); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click();
+    await hall(page); await chooseKind(frame, 'Random'); await frame.locator('#play-open').click();
     await frame.locator('#lobby-list .accept').first().waitFor();
     const reads = () => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_lobby').length);
     const initial = await reads();
@@ -240,7 +247,7 @@ it('reads the visible lobby every fifteen seconds and pauses while hidden', asyn
     await expect.poll(reads).toBe(initial + 2);
     await frame.locator('#page-back').click();
     await page.clock.fastForward(30000); expect(await reads()).toBe(initial + 2);
-    await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click(); await expect.poll(reads).toBe(initial + 3);
+    await chooseKind(frame, 'Random'); await frame.locator('#play-open').click(); await expect.poll(reads).toBe(initial + 3);
     await page.clock.resume();
   } finally { if (waiting) await buddy(page, 'kingdown_cancel', { game_id: waiting }); await page.close(); }
 });
@@ -292,7 +299,7 @@ it('keeps the five-second wait budget through the computer handoff, then uses fi
       if (watch) await expect.poll(() => frame.locator('html').evaluate(() => (window as any).ticketReads.length)).toBe(all+2);
     };
     for (let i=0;i<5;i++) await advance(5000);
-    await frame.locator('#page-back').click(); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click(); await frame.locator('#find-any-row').click(); await frame.locator('#find-opponent').click();
+    await frame.locator('#page-back').click(); await chooseKind(frame, 'Random'); await frame.locator('#play-open').click(); await frame.locator('#find-any-row').click(); await frame.locator('#find-opponent').click();
     await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     await frame.locator('#wait-computer').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
@@ -317,7 +324,7 @@ it('keeps the five-second wait budget through the computer handoff, then uses fi
     expect(await frame.locator('html').evaluate(() => (window as any).ticketReads.length)).toBe(closed);
   } finally { await page.close(); }
 });
-// The owner's item D1 a: 'Any rules' under A random player and in Open games. Find sends any_rules only when it is on.
+// The owner's item D1 a: 'Any rules' under Random and in Open games. Find sends any_rules only when it is on.
 it('shows Any rules only for a random player and sends it with Find from New game and Open games', async () => {
   const page = await open(), frame = page.frameLocator('iframe'), html = frame.locator('html'), line = 'Join the oldest open game, whatever its rules.';
   // One Find, then its game ends, so the next Find has no open game of its own.
@@ -330,9 +337,9 @@ it('shows Any rules only for a random player and sends it with Find from New gam
   }
   try {
     await hall(page);
-    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
+    await chooseKind(frame, 'A friend');
     expect(await frame.locator('#anyRules-row').isHidden()).toBe(true);
-    await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click();
+    await chooseKind(frame, 'Random');
     expect([await frame.locator('#anyRules-row').isVisible(), await frame.locator('#anyRules-line').textContent()]).toEqual([true, line]);
     expect(await find(() => frame.locator('#setup-start').click())).toBeUndefined();
     await html.evaluate(() => (window as any).harnessApp.navigate('play'));
@@ -346,7 +353,7 @@ it('shows Any rules only for a random player and sends it with Find from New gam
     expect(await find(() => frame.locator('#find-opponent').click())).toBe(true);
   } finally { await page.close(); }
 });
-it('reuses a new open game after returning through Play without a second Find', async () => {
+it('reuses a new open game after returning through Menu without a second Find', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await frame.locator('html').evaluate(async () => {
@@ -356,7 +363,7 @@ it('reuses a new open game after returning through Play without a second Find', 
     });
     await start(page, 'random', true);
     await frame.locator('#page-back').click(); await page.evaluate(() => { (window as any).holdNext = 'kingdown_games'; });
-    await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click(); await frame.locator('#find-any-row').click(); await frame.locator('#find-opponent').click();
+    await chooseKind(frame, 'Random'); await frame.locator('#play-open').click(); await frame.locator('#find-any-row').click(); await frame.locator('#find-opponent').click();
     await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
     await page.evaluate(() => (window as any).releaseHeld?.());
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_find').length)).toBe(1);
@@ -388,7 +395,7 @@ it('opens the human game when the friend joins before a saved wait remounts', as
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });
-it('shows code errors on a chat mount and permits a new code from Play', async () => {
+it('shows code errors on a chat mount and permits a new code from Menu', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     for (const [code, words] of [['INVITE_UNAVAILABLE','No game has this code. Check the code with your friend.'],['FORBIDDEN','You cannot join this game.'],['INVALID_INPUT','Check the code: 6 letters and digits.'],['RATE_LIMITED','Too many code tries. Wait one hour.']]) {
@@ -402,7 +409,7 @@ it('shows code errors on a chat mount and permits a new code from Play', async (
     await frame.locator('#join-message').filter({ hasText: boards }).waitFor();
     const created = await buddy(page, 'kingdown_create', { kind: 'friend', options, colour: 'white' });
     const invite = await buddy(page, 'kingdown_invite', { game_id: created._meta.view.game_id });
-    await frame.locator('#page-back').click(); await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill(invite.structuredContent.code); await frame.locator('#join').click();
+    await frame.locator('#page-back').click(); await chooseKind(frame, 'A friend'); await frame.locator('#token').fill(invite.structuredContent.code); await frame.locator('#join').click();
     await frame.locator('#join-confirm').waitFor();
   } finally { await page.close(); }
 });
@@ -461,7 +468,7 @@ it('keeps Accept through handle Save when the board has no game', async () => {
         return send(name, args, opts);
       };
     });
-    await hall(page); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click(); await frame.locator('#lobby-list .accept').first().waitFor();
+    await hall(page); await chooseKind(frame, 'Random'); await frame.locator('#play-open').click(); await frame.locator('#lobby-list .accept').first().waitFor();
     await frame.locator('#lobby-list .accept').first().click(); await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
     await frame.locator('#save-handle').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await frame.locator('html').evaluate(() => (window as any).ticketAccepts)).toEqual(Array(2).fill({ game_id: created._meta.view.game_id, rating_policy: created._meta.view.rating_policy }));
@@ -480,7 +487,7 @@ it('keeps Join through handle Save and sends nothing when Back cancels it', asyn
         return send(name, args, opts);
       };
     });
-    await hall(page); await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill(invite.structuredContent.code); await frame.locator('#join').click(); await frame.locator('#join-confirm').waitFor();
+    await hall(page); await chooseKind(frame, 'A friend'); await frame.locator('#token').fill(invite.structuredContent.code); await frame.locator('#join').click(); await frame.locator('#join-confirm').waitFor();
     await frame.locator('#join-confirm').click(); await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
     expect(await page.evaluate(code => JSON.stringify((window as any).harnessWidgetState).includes(code), invite.structuredContent.code)).toBe(false);
     await frame.locator('#page-back').click(); await frame.locator('[data-screen="join"]:not([hidden])').waitFor();
@@ -504,10 +511,10 @@ it.each(['join', 'accept'])('keeps %s through a collapse to inline on the name s
     }, `kingdown_${action}`);
     await hall(page);
     if (action === 'join') {
-      await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill(code); await frame.locator('#join').click();
+      await chooseKind(frame, 'A friend'); await frame.locator('#token').fill(code); await frame.locator('#join').click();
       await frame.locator('#join-confirm').click();
     } else {
-      await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click();
+      await chooseKind(frame, 'Random'); await frame.locator('#play-open').click();
       await frame.locator('#lobby-list .accept').first().click();
     }
     await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
@@ -522,7 +529,7 @@ it('shows the lobby name beside Accept without a button over the text', async ()
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await buddy(page, 'kingdown_create', { kind: 'random', options, colour: 'white' });
-    await hall(page); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click(); await frame.locator('#lobby-list .row-title').first().waitFor();
+    await hall(page); await chooseKind(frame, 'Random'); await frame.locator('#play-open').click(); await frame.locator('#lobby-list .row-title').first().waitFor();
     expect(await frame.locator('#lobby-list .row-title').first().evaluate(el => {
       const box = el.getBoundingClientRect(), hit = document.elementFromPoint(box.x+box.width/2,box.y+box.height/2);
       return el.contains(hit) || hit?.closest('button')?.classList.contains('menu-row');
@@ -580,9 +587,9 @@ it('previews the current code after Back while the old preview loads', async () 
     const a = await buddy(page, 'kingdown_invite', { game_id: first._meta.view.game_id });
     const b = await buddy(page, 'kingdown_invite', { game_id: second._meta.view.game_id });
     await hall(page); await page.evaluate(() => { (window as any).holdNext = 'kingdown_join'; });
-    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill(a.structuredContent.code); await frame.locator('#join').click();
+    await chooseKind(frame, 'A friend'); await frame.locator('#token').fill(a.structuredContent.code); await frame.locator('#join').click();
     await page.waitForFunction(() => !!(window as any).releaseHeld);
-    await frame.locator('#page-back').click(); await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill(b.structuredContent.code); await frame.locator('#join').click();
+    await frame.locator('#page-back').click(); await chooseKind(frame, 'A friend'); await frame.locator('#token').fill(b.structuredContent.code); await frame.locator('#join').click();
     await page.evaluate(() => (window as any).releaseHeld());
     await frame.locator('#join-confirm').waitFor();
     expect(await frame.locator('#join-preview .line').last().textContent()).toContain('You play White.');
@@ -635,7 +642,7 @@ it('locks the Join input until a saved screen finishes its mount read', async ()
 it('keeps a bad code, hides the review and gives words for each code error', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await hall(page); await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill('ZZZZZZ'); await frame.locator('#join').click();
+    await hall(page); await chooseKind(frame, 'A friend'); await frame.locator('#token').fill('ZZZZZZ'); await frame.locator('#join').click();
     await frame.locator('#join-message').filter({hasText:'No game has this code.'}).waitFor();
     expect(await frame.locator('#join-code').inputValue()).toBe('ZZZZZZ');
     for (const id of ['join-game-head','join-preview','join-decline','join-confirm']) expect(await frame.locator(`#${id}`).isVisible()).toBe(false);
@@ -656,7 +663,7 @@ it('shows feature words and a fallback portrait in the join review', async () =>
   try {
     const made=await buddy(page,'kingdown_create',{kind:'friend',options:{...options,fairy:false,pool:[],classic:true},colour:'white'});
     const invite=await buddy(page,'kingdown_invite',{game_id:made._meta.view.game_id});
-    await hall(page); await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill(invite.structuredContent.code); await frame.locator('#join').click();
+    await hall(page); await chooseKind(frame, 'A friend'); await frame.locator('#token').fill(invite.structuredContent.code); await frame.locator('#join').click();
     await frame.locator('#join-confirm').waitFor();
     expect(await frame.locator('#join-preview .feats').textContent()).toBe('Classic chess');
     expect(await frame.locator('#join-preview .portrait img').getAttribute('src')).toContain('spirit');
@@ -669,7 +676,7 @@ it('calls a newly opened game just opened and gives an opponent a fallback portr
   let game: string | undefined;
   try {
     const made=await buddy(page,'kingdown_create',{kind:'random',options,colour:'white'}); game=made._meta.view.game_id;
-    await hall(page); await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click();
+    await hall(page); await chooseKind(frame, 'Random'); await frame.locator('#play-open').click();
     await frame.locator('#lobby-list .menu-row').filter({hasText:'just opened'}).first().waitFor();
     expect(await frame.locator('#lobby-list .portrait img').first().getAttribute('src')).toContain('spirit');
   } finally { if(game) await buddy(page,'kingdown_cancel',{game_id:game}); await page.close(); }
@@ -686,10 +693,10 @@ it.each(['join', 'accept'])('clears a failed read of the shown game when %s open
     await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('play'));
     if (path === 'join') {
       const { code } = (await buddy(page, 'kingdown_invite', { game_id: created._meta.view.game_id })).structuredContent;
-      await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#token').fill(code); await frame.locator('#join').click();
+      await chooseKind(frame, 'A friend'); await frame.locator('#token').fill(code); await frame.locator('#join').click();
       await frame.locator('#join-confirm').waitFor(); await frame.locator('#join-confirm').click();
     } else {
-      await frame.getByRole('radio', { name: 'A random player', exact: true }).locator('..').click(); await frame.locator('#play-open').click();
+      await chooseKind(frame, 'Random'); await frame.locator('#play-open').click();
       await frame.locator('#lobby-list .accept').first().waitFor(); await frame.locator('#lobby-list .accept').first().click();
     }
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();

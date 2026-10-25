@@ -167,7 +167,8 @@ export function boardScreen(store: Store) {
   const stale = () => staleRead(store.page());
   // Send-turn 03 A3: "Sending…" only while a write is in flight; a failed command waits for Retry with the normal words.
   const sending = () => { const page = store.page(); return page.writing || (pendingHere(page) && !page.pending!.error); };
-  const blocked = () => networkBlocked() || animating || previewing || remote() && view?.action === 'ready' && !serverDraft;
+  const previewWaits = () => previewing || remote() && view?.action === 'ready' && !serverDraft;
+  const blocked = () => networkBlocked() || animating || previewWaits();
   const mode = () => view!.kind === 'solo' ? 'computer' : 'link';
   const nextReadyGame = () => view?.status === 'playing' && view.kind !== 'solo' && view.turn !== view.seat ? nextGame(memory.games, view.game_id)?.game_id : undefined;
   // A reload restores a draft only in the same account, complete game, revision, rules and engine implementation.
@@ -179,6 +180,9 @@ export function boardScreen(store: Store) {
   const canRead = () => !animating;
   let armed: PowerName | undefined, armedCard: number | undefined;
   let selected: number | undefined, inspected: number | undefined, moves: Choice[] = [], cursor = 0, cursorShown = false, cursorTargets: number[] = [];
+  // Ticket 87: a tap that only reads a piece because the legal-move preview is not there yet. A reply that stages no move
+  // applies it again; a staged step changes the tapped board, so the tap stays a read.
+  let earlyTap: number | undefined;
   function sayCursor() {
     if (!pos) return;
     const label = cursorShown ? cursorText(gameRules, pos, cursor, selected, cursorTargets.includes(cursor)) : '';
@@ -354,6 +358,7 @@ export function boardScreen(store: Store) {
       else {
         steps = staged; lastMove = staged.at(-1) ?? history.at(-1); pos = gameRules.fromFen(preview!.positions.at(-1)!.fen);
         board.sync(pos); moveLine(); refresh(); saveDraft();
+        if (!staged.length && earlyTap !== undefined && earlyTap === inspected) select(earlyTap);
       }
     } catch {
       if (current() && !controller.signal.aborted) store.dispatch({ type: 'failed-read', game: base.game_id, text: 'Could not preview this turn. Select Try again.' });
@@ -394,12 +399,12 @@ export function boardScreen(store: Store) {
     if (event.key !== 'Escape' || client.state.screen !== 'board' && !sheet?.contains(event.target as Node)) return;
     event.preventDefault();
     if (animating) { cursorShown = false; drawCursor(); rush = true; board.skip(); if (sheet?.open) closeBoardSheet(); return; }
-    cursorShown = false; armed = undefined; armedCard = undefined; selected = held = undefined; allMoveChoices = false; choices([]); refresh(); closeBoardSheet();
+    cursorShown = false; armed = undefined; armedCard = undefined; selected = held = earlyTap = undefined; allMoveChoices = false; choices([]); refresh(); closeBoardSheet();
   }, { signal });
   function select(square: number, submit = true) {
     if (!view || !pos || !canRead()) return;
     // A second target tap plays the move. Any other tap ends the preview and only selects or reads.
-    const hold = holding(); held = undefined;
+    const hold = holding(); held = earlyTap = undefined;
     if (hold && submit && heldSquare(hold.move) === square) return choose(hold.lan);
     const targets = !hold && submit && canPlay() ? named().filter(({move}) => move.to === square || move.from === square) : [];
     if (targets.length === 1) return choose(targets[0].lan);
@@ -412,7 +417,7 @@ export function boardScreen(store: Store) {
     if (options.length > 1) { choices(options); boardSheet('Choose a move', $('choices')); return; }
     if (!pos.board[square]) { selected = inspected = undefined; choices(named()); }
     else if (canPlay() && (colorOf(pos.board[square]) === view.seat || armedCard !== undefined && cardChoices().some(c=>c.move.from===square))) { selected = square; inspected = undefined; choices(choicesFrom(moves, square).filter(c => (armed || armedCard !== undefined || gameRules.rules.hands[view!.seat].length ? reachable(c) : true))); }
-    else { inspected = square; }
+    else { inspected = square; if (submit && previewWaits()) earlyTap = square; }
     refresh();
   }
   function mountTable() {

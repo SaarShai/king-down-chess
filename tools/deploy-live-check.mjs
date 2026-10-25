@@ -3,7 +3,7 @@
 // DEPLOY_LIVE_URL defaults to https://kingdown.dev; DEPLOY_LIVE_TIMEOUT_MS defaults to 180000.
 // Exit: 0 pass, 1 live difference, 2 invalid build or arguments.
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { extname, join } from 'node:path';
 
 const legalPages = ['privacy.html', 'terms.html', 'delete-data.html', 'support.html'];
@@ -63,7 +63,10 @@ const worker = readFileSync(join(folder, 'sw.js'), 'utf8');
 const version = /\bconst VERSION = ['"]([^'"]+)['"];/.exec(worker)?.[1], policy = policyOf(worker);
 if (!version || !policy) fault('the build\'s sw.js has no version or policy ID');
 const checkedPages = [...legalPages, ...(existsSync(join(folder, challenge)) ? [challenge] : [])];
-const paths = [...new Set(['/', '/sw.js', publicPath(bundle), ...checkedPages.map(name => `/${name}`), ...workerFiles(worker, 'ALLOWLIST'), ...workerFiles(worker, 'PRECACHE')])];
+// Every file under assets/: the build's own files, also lazy chunks that no worker list names, and the
+// files of the previous build that tools/deploy-keep-assets.mjs keeps.
+const assetFiles = existsSync(join(folder, 'assets')) ? readdirSync(join(folder, 'assets'), { recursive: true }).filter(file => statSync(join(folder, 'assets', file)).isFile()).map(file => `/assets/${file}`) : [];
+const paths = [...new Set(['/', '/sw.js', publicPath(bundle), ...checkedPages.map(name => `/${name}`), ...workerFiles(worker, 'ALLOWLIST'), ...workerFiles(worker, 'PRECACHE'), ...assetFiles])];
 const built = new Map(paths.map(path => {
   const file = path === '/' ? 'index.html' : path.slice(1);
   if (!existsSync(join(folder, file))) fault(`the build has no ${file} in ${folder}`);
@@ -139,7 +142,7 @@ console.log(`live-check: sw.js version ${version}, policy ${policy}, sha256 ${cr
 for (;;) {
   const found = await differences();
   if (!found.length) {
-    console.log(`live-check: pass: ${base} loads ${bundle}; ${checkedPages.join(', ')} are identical to the build; ${paths.length} public files match bytes and types; ${appPages.length} app pages serve the build's index.html; ${closedPages.length} closed paths answer 404; account_access ${access}; ${apiProbes.length} API probes pass`);
+    console.log(`live-check: pass: ${base} loads ${bundle}; ${checkedPages.join(', ')} are identical to the build; ${paths.length} public files match bytes and types (${assetFiles.length} under /assets/); ${appPages.length} app pages serve the build's index.html; ${closedPages.length} closed paths answer 404; account_access ${access}; ${apiProbes.length} API probes pass`);
     process.exit(0);
   }
   const left = deadline - Date.now();

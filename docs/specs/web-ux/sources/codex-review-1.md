@@ -55,7 +55,7 @@ These are test rules. They apply [Nielsen’s usability heuristics](https://www.
 ```text
 Title
 ├─ Learn the pieces → Lesson 1 → ... → Lesson 6 → New game
-├─ Play → New game
+├─ Menu → New game
 ├─ Continue → Game, or Result for a finished saved match
 └─ Workshop → Home → 34 figures → Editor → Try it
 
@@ -81,7 +81,7 @@ Evidence: `index.html:38`, `index.html:117`, `index.html:172`, `index.html:227`,
 ```text
 Title: Learn the pieces / Play; Continue when a match exists
 ├─ Learn → one Archer shot → Next piece or Play
-└─ Play → same three-mode New game → Start game
+└─ Menu → same three-mode New game → Start game
 
 Game: board + one context area + Hint / Undo / Learn / Menu
 ├─ Learn → current piece first; six special pieces; chess basics

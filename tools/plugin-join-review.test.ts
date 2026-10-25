@@ -202,7 +202,7 @@ it.each([['inline', 'home'], ['fullscreen', 'home'], ['collapse', 'settings']])(
     } else { if (mode === 'fullscreen') await go('home'); await go('handle'); }
     if (mode !== 'fullscreen') { await frame.locator('#home-card').waitFor({ state: 'visible' }); await frame.locator('#home-play').click(); }
     await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
-    expect(await frame.locator('#page-back').textContent()).toBe(back === 'settings' ? '‹ Settings' : '‹ Play');
+    expect(await frame.locator('#page-back').textContent()).toBe(back === 'settings' ? '‹ Settings' : '‹ Menu');
     await frame.locator('#page-back').click();
     await frame.locator(`[data-screen="${back}"]:not([hidden])`).waitFor();
   } finally { await page.close(); }

@@ -34,7 +34,7 @@ const ward = { v: 1, kind: 'piece', id: 'ward', name: 'Old Ward', named: true, l
   rules: [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }], from: [], updated: 1760000000000 };
 const SHELF = JSON.stringify({ v: 1, designs: [ward, { ...ward, id: 'late', name: 'Late Queen', updated: 1759000000000,
   rules: [{ when: { on: 'fromMove', n: 10 }, does: { a: 'movesLike', as: 'queen' } }] }] });
-const checked = (page, name) => page.evaluate(n => document.querySelector(`#new-game input[name="${n}"]:checked`)?.value, name);
+const checked = (page, name) => name === 'level' ? page.locator('#level-slider').getAttribute('aria-valuetext').then(name => ({Casual:'beginner',Clever:'casual',Club:'club',Strong:'strong'}[name])) : page.evaluate(n => document.querySelector(`#new-game input[name="${n}"]:checked`)?.value, name);
 const pressed = (page, c) => page.evaluate(c => [...document.querySelectorAll(`#pick-${c} [aria-pressed="true"]`)].map(b => b.dataset.king ?? b.dataset.power), c);
 const powerLine = (page, c) => page.textContent(`#pick-${c} .power-text`);
 const shown = (page, id) => page.isVisible(`#${id}`);
@@ -51,7 +51,33 @@ const kingsDrawn = (page, kings) => page.waitForFunction(k => {
 }, kings, { timeout: 10000 });
 
 try {
-  // 1. Defaults on a first visit: Play the computer, Club, White, a random army; Spirit and Shadow.
+  const labels = [];
+  for (const [level, name] of [['beginner', 'Casual'], ['casual', 'Clever']]) {
+    const page = await open();
+    await startGame(page, { mode: 'computer', side: 'white', level, army: 'classic' });
+    assert.equal((await saved(page)).skill, level, 'Start keeps the engine level');
+    const board = await page.locator('#strip-them small').innerText();
+    await page.evaluate(() => window.home.open());
+    const home = await page.locator('#home-opponent').innerText();
+    labels.push({ level, name, board, home });
+    console.log('local level:', JSON.stringify(labels.at(-1)));
+    await page.context().close();
+  }
+  assert.deepEqual(labels.map(({ board, home }) => [board, home]), [
+    ['Casual', 'vs Computer · Casual'], ['Clever', 'vs Computer · Clever'],
+  ], 'the board and Home use the selected level names');
+  ok('Casual and Clever: Start keeps each engine level; the board and Home show the selected name');
+  {
+    const page = await open({ save: { back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'ai', skill: 'strong', sound: false } });
+    assert.equal(await page.locator('#strip-them small').innerText(), 'Strong', 'an old game keeps its Strong board name');
+    await page.evaluate(() => window.home.open());
+    assert.equal(await page.locator('#home-opponent').innerText(), 'vs Computer · Strong', 'an old game keeps its Strong Home name');
+    assert.equal((await saved(page)).skill, 'strong', 'the old game keeps its engine level');
+    await page.context().close();
+    ok('an old Strong game keeps its board name, Home name and engine level');
+  }
+
+  // 1. Defaults on a first visit: Artificial, Club, White, a random army; Spirit and Shadow.
   let page = await open();
   await pressMenu(page, 'New game');
   assert.deepEqual([await checked(page, 'mode'), await checked(page, 'level'), await checked(page, 'side')], ['computer', 'club', '0']);
@@ -60,14 +86,14 @@ try {
     const style = getComputedStyle(el);
     return { border: style.borderTopWidth, ink: style.color, fill: style.backgroundColor, shadow: style.boxShadow };
   }));
-  assert.deepEqual(selected.map(({ shadow, ...finish }) => finish), Array(4).fill({ border: '0px', ink: 'rgb(251, 247, 238)', fill: 'rgb(77, 69, 60)' }), 'mode, level and side use the same dark selected finish');
+  assert.deepEqual(selected.map(({ shadow, ...finish }) => finish), Array(3).fill({ border: '0px', ink: 'rgb(251, 247, 238)', fill: 'rgb(77, 69, 60)' }), 'mode, side and army use the same dark selected finish');
   for (const { shadow } of selected) assert.match(shadow, /rgb\(233, 192, 113\).*2px.*inset/, 'each selected choice has an inset gold ring');
   assert.equal(await page.evaluate(() => document.getElementById('more-options').open), false, 'More options starts folded');
   assert.equal(await shown(page, 'king-picker'), false, 'no king picker without powers');
   assert.equal(await page.locator('#modes input[type="radio"]').count(), 3);
-  assert.equal(await page.getByRole('radio', { name: /Play the computer/ }).isChecked(), true);
+  assert.equal(await page.getByRole('radio', { name: /Artificial/ }).isChecked(), true);
   await shot(page, 'desktop-computer.jpg', jpeg);
-  ok('defaults: Play the computer, Club, you play White, Random King Down army, no picker');
+  ok('defaults: Artificial, Club, you play White, Random King Down army, no picker');
 
   // Kings' powers: each side's six emblems in the KINGS order, Spirit and Shadow chosen, first powers.
   await page.click('label:has(#mode-powers)');
@@ -140,14 +166,14 @@ try {
   await page.keyboard.press('Escape');
   ok('Cancel: the changes are dropped');
 
-  // 2. Play the computer (the default) starts White against the Club computer with no powers.
+  // 2. Artificial (the default) starts White against the Club computer with no powers.
   await startGame(page);
   let s = await saved(page);
   assert.deepEqual([s.white, s.black, s.skill, s.rules.kings], ['human', 'ai', 'club', [null, null]]);
   assert.match(s.back, /^[A-Z]{8}$/);
   assert.equal(await powersHidden(page), true, 'no power bar');
   await kingsDrawn(page, ['spirit', 'shadow']);
-  ok('Play the computer: White against the Club computer, kings without powers, drawn as Spirit and Shadow');
+  ok('Artificial: White against the Club computer, kings without powers, drawn as Spirit and Shadow');
 
   // As Black against the beginner: the computer opens and the board turns round.
   await startGame(page, { mode: 'computer', level: 'beginner', side: 'black', army: 'classic' });
@@ -158,7 +184,7 @@ try {
   await page.locator('#resign[aria-disabled="false"]').waitFor({ state: 'attached' });
   const [a1, a8] = await page.evaluate(() => [window.view.screenOf(0), window.view.screenOf(56)]);
   assert.ok(a8.y > a1.y, 'Black at the bottom');
-  ok('Play the computer as Black: the beginner computer moves first, the board turns round');
+  ok('Artificial as Black: the beginner computer moves first, the board turns round');
 
   // 3. Kings' powers: the default kings play their first powers against the computer.
   await startGame(page, { mode: 'powers', side: 'white', level: 'club', army: 'classic' });
@@ -172,7 +198,7 @@ try {
   await kingsDrawn(page, ['mud', 'shadow']); // a king with no power is drawn as the plain king
   ok("Kings' powers: Spirit Holy Light and Shadow Death Touch by default; Mud March against a king with no power");
 
-  // 4. Two players: both sides on this device; the Kings' powers box adds the picker.
+  // 4. A friend: both sides on this device; the Kings' powers box adds the picker.
   await startGame(page, { mode: 'two' });
   s = await saved(page);
   assert.deepEqual([s.white, s.black, s.rules.kings], ['human', 'human', [null, null]]);
@@ -187,7 +213,7 @@ try {
   assert.deepEqual([s.white, s.black], ['human', 'human']);
   assert.deepEqual(s.rules.kings, [{ king: 'Flame', power: 'Haste' }, { king: 'Stratus', power: 'Flight' }]);
   await kingsDrawn(page, ['flame', 'stratus']); // the chosen kings, each in its army's colour
-  ok("Two players: two people; with the Kings' powers box, Flame Haste against Stratus Flight, drawn as Flame and Stratus");
+  ok("A friend: two people; with the Kings' powers box, Flame Haste against Stratus Flight, drawn as Flame and Stratus");
 
   // 5. The dialog remembers the last game's setup across a reload.
   await page.reload(); await page.waitForFunction(() => window.view?.ready);
@@ -228,7 +254,7 @@ try {
   assert.deepEqual(await page.$$eval('#design option', os => os.map(o => [o.textContent, o.disabled])),
     [['No design', false], ['Old Ward', false], ['Late Queen (not yet: a rule counts moves or cards)', true]], 'the designs on this device; one waits, with the reason');
   assert.equal(await page.textContent('#design-line'), 'Play one of your Workshop pieces.');
-  await page.focus('#level-club');
+  await page.focus('#level-slider');
   await page.keyboard.press('Tab');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'design', 'Tab goes from the level to Bring a design');
   await page.locator('#new-game').evaluate(async sheet => { await Promise.all(sheet.getAnimations().map(a => a.finished.catch(() => {}))); });
@@ -266,11 +292,11 @@ try {
   // 8. A save from before the dialog remembered its setup: New game opens on that game.
   page = await open({ save: { back: 'RNBQKBNR', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', moves: [], white: 'ai', black: 'human', skill: 'strong', rules: { kings: [{ king: 'Frost', power: 'Freeze' }, null] }, sound: false } });
   await pressMenu(page, 'New game');
-  assert.deepEqual([await checked(page, 'mode'), await checked(page, 'level'), await checked(page, 'side')], ['powers', 'strong', '1']);
+  assert.deepEqual([await checked(page, 'mode'), await checked(page, 'level'), await checked(page, 'side')], ['powers', 'club', '1']);
   assert.deepEqual(await pressed(page, 0), ['Frost', 'Freeze']);
   assert.deepEqual(await pressed(page, 1), ['Shadow', '']);
   await page.context().close();
-  ok("an older save: Kings' powers, Strong, you play Black, Frost Freeze against Shadow with no power");
+  ok("an older save: Kings' powers, Club for the next game, you play Black, Frost Freeze against Shadow with no power");
 
   // 9. `?rules=2017` plays the powers as printed (the preset overrides the official readings, as newGame
   // sets them), so the picker shows them so, and the game it starts plays the line the picker showed.
