@@ -15,6 +15,10 @@ The release review of 2026-10-25 (`origin/main` `4c779072` against `staging/firs
 
 ## Verification
 
-To do.
+- Green: `KINGDOWN_TEST_FILE=tools/deploy.test.ts npm test` at `318339e9`: `Test Files  1 passed (1)`, `Tests  151 passed (151)`. New cases: the walk of each reference form, five stop cases that write no file, the rerun list, the argument checks, the live check of every file under `assets/`, and two `--publish` runs (an old live build kept through a publish and a rerun; a missing live file stops before publication).
+- Red: the same test file with `origin/main`'s `tools/deploy.sh` and `tools/deploy-live-check.mjs`: `Tests  3 failed | 148 passed (151)`. The three are the live check of every file under `assets/`, the kept publish (no `keep live assets` step) and the stop before publication (the publish goes on to the live check).
+- Staged publish with real builds: `0a043d4b` (the build that was live before the release) as the live site, `36c5cc2b` as the new build, a local server that serves one folder at a time. Leg A (no keep step): exactly the five files of the review answer 404, and a Chromium page of the old build cannot fetch `entry`, `runtime`, `motion` or `main` after the switch. Leg B (keep step): `kept 5: entry-BblAJ16t.js, index-CybTdZD_.js, main-BD111CZQ.js, motion-CYGm_5rj.js, runtime-CUtY1z6d.js`; all 146 old asset files answer 200 with their old bytes; every new file is unchanged; the old page fetches all four chunks. Leg C (a rerun against leg B): the same five kept, the same tree. Script and result: `/private/tmp/claude-501/ci87/keep-assets-review/proof/`.
+- Read-only run against https://kingdown.dev (unsigned GETs) with a fresh `36c5cc2b` build as the new tree: `serves 146 content-named files under /assets/; 146 are in the build with the same bytes; kept 0`, in 7.6 s.
+- `npm run test:docs`: 15 files, 176 tests pass. `npx tsc --noEmit -p .`: pass.
 
 ## Comments
