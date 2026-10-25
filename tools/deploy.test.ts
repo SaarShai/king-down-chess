@@ -617,6 +617,14 @@ function buildFolder(files: Record<string, string>) {
 const tree = (dir: string): Record<string, string> => Object.fromEntries(readdirSync(dir, { recursive: true }).map(String)
   .filter(file => statSync(join(dir, file)).isFile()).map(file => [file, readFileSync(join(dir, file), 'utf8')]));
 
+/** A folder that a local site serves as the live site: `files` until the fake CLI puts the publish copy
+ *  there (STUB_PUBLISH_DIR), as Vercel switches to a new deployment. */
+function liveFolder(files: Record<string, string>) {
+  const dir = join(buildFolder({}), 'live');
+  cpSync(buildFolder(files), dir, { recursive: true });
+  return dir;
+}
+
 /** An old live build: its bundle imports a lazy chunk, the chunk names a style and the style an image. */
 const oldBuild = (): Record<string, string> => ({
   ...pages('index-OldA1234'),
@@ -942,14 +950,15 @@ describe('deploy-keep-assets.mjs', () => {
     ['a missing file', { 'assets/lazy-FFFF6666.js': undefined }, {}, 'GET /assets/lazy-FFFF6666.js: expected HTTP 200, got 404'],
     ['an HTML fallback', {}, { path: '/assets/lazy-FFFF6666.js', type: 'text/html', body: '<!doctype html>' }, 'GET /assets/lazy-FFFF6666.js: expected text/javascript or application/javascript, got text/html'],
     ['other bytes at a name of the build', { 'assets/shared-EEEE5555.js': 'changed' }, {}, '/assets/shared-EEEE5555.js: the live file differs from the build\'s file of the same name'],
-    ['a page that names no asset', { 'index.html': 'no script', 'sw.js': 'no list' }, {}, 'name no file under /assets/'],
+    ['a page that names no asset', { 'index.html': 'no script', 'sw.js': 'no list' }, {}, 'and /sw.js name no file under /assets/'],
     ['a missing worker', { 'sw.js': undefined }, {}, 'GET /sw.js: expected HTTP 200, got 404'],
   ])('stops at %s and writes no file', async (_, change, reply, message) => {
     const files = { ...live(), ...change } as Record<string, string>;
     const site_ = await site(() => files, reply), folder = buildFolder(build());
     const result = await keep(folder, site_.url);
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain(`keep-assets: ${message}`);
+    expect(result.stderr).toMatch(/^keep-assets: /);
+    expect(result.stderr).toContain(message);
     expect(tree(folder)).toEqual(build());
   });
 
@@ -1086,9 +1095,9 @@ describe('deploy.sh --publish', () => {
 
   it('after the checks, publishes the tested build with the pinned Vercel CLI and confirms the live site', async () => {
     const { repo, deployAsync, calls } = setup();
-    const files = pages();
-    const live = await pluginSite('', files);
-    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), DEPLOY_LIVE_URL: live.url, DEPLOY_LIVE_TIMEOUT_MS: '900000' });
+    const files = pages(), published = liveFolder(files);
+    const live = await pluginSite('', () => tree(published));
+    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), STUB_PUBLISH_DIR: published, DEPLOY_LIVE_URL: live.url, DEPLOY_LIVE_TIMEOUT_MS: '900000' });
     expect(result.status, result.stderr).toBe(0);
     const log = calls().map(words);
     const runner = log.indexOf('npm run check:browser');
@@ -1126,8 +1135,8 @@ describe('deploy.sh --publish', () => {
 
   it('stops on a failed plugin live check after the site check passes', async () => {
     const { repo, deployAsync } = setup();
-    const files = pages(), live = await pluginSite('challenge', files);
-    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), DEPLOY_LIVE_URL: live.url });
+    const files = pages(), published = liveFolder(files), live = await pluginSite('challenge', () => tree(published));
+    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), STUB_PUBLISH_DIR: published, DEPLOY_LIVE_URL: live.url });
     expect(result.status).not.toBe(0); expect(result.stdout).toContain('live-check: pass:');
     expect(result.stderr).toContain('FAIL at plugin live check');
     expectGone(repo, worktreeOf(result.stdout));
@@ -1168,8 +1177,7 @@ describe('deploy.sh --publish', () => {
     const { repo, deployAsync } = setup();
     const files = pages(), old = oldBuild(), oldFiles = Object.keys(old).filter(name => name.includes('-Old'));
     // The live site serves the old build until the fake CLI puts the publish copy in its place.
-    const published = join(buildFolder({}), 'live');
-    cpSync(buildFolder(old), published, { recursive: true });
+    const published = liveFolder(old);
     const live = await pluginSite('', () => tree(published));
     const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), STUB_PUBLISH_DIR: published, DEPLOY_LIVE_URL: live.url });
     expect(result.status, result.stderr).toBe(0);
