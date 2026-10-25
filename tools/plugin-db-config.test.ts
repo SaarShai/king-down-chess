@@ -5,14 +5,17 @@ import pg from 'pg';
 import { describe, expect, it } from 'vitest';
 import { pluginDatabaseConfig, testDatabase } from './plugin-db-config.mjs';
 
+// pg keeps the resolved settings in `connectionParameters`, which its types leave out.
+const params = (client: pg.Client) => (client as pg.Client & { connectionParameters: any }).connectionParameters;
+
 const url = 'postgresql://kingdown_plugin_runtime.project:p%40ss%2Fword@pooler.supabase.com:6543/postgres';
 
 describe('plugin database TLS', () => {
   it.each(['5432', '6543', ''])('uses transaction pooling for a serverless Supabase connection (port %s)', port => {
     const db = new URL(`postgresql://kingdown_plugin_runtime.project:fake@aws-0-eu-west-1.pooler.supabase.com${port ? ':' + port : ''}/postgres?sslmode=require`);
     const serverless = new pg.Client(pluginDatabaseConfig(db, { serverless: true }));
-    expect(serverless.connectionParameters.port).toBe(6543);
-    expect(serverless.connectionParameters).toMatchObject({ host: db.hostname, user: 'kingdown_plugin_runtime.project', ssl: { rejectUnauthorized: true, servername: db.hostname } });
+    expect(params(serverless).port).toBe(6543);
+    expect(params(serverless)).toMatchObject({ host: db.hostname, user: 'kingdown_plugin_runtime.project', ssl: { rejectUnauthorized: true, servername: db.hostname } });
     expect(db.port).toBe(port);
     expect(pluginDatabaseConfig(db).port).toBe(Number(port || 5432));
   });
@@ -26,12 +29,12 @@ describe('plugin database TLS', () => {
     const config = pluginDatabaseConfig(new URL(`${url}?sslmode=require`));
     expect(config).not.toHaveProperty('connectionString');
     const client = new pg.Client(config);
-    expect(client.connectionParameters).toMatchObject({
+    expect(params(client)).toMatchObject({
       host: 'pooler.supabase.com', port: 6543, user: 'kingdown_plugin_runtime.project', password: 'p@ss/word', database: 'postgres',
       ssl: { ca: config.ssl.ca, rejectUnauthorized: true, servername: 'pooler.supabase.com' },
     });
-    expect(client.connectionParameters.ssl.checkServerIdentity).toBeUndefined();
-    const ca = new X509Certificate(client.connectionParameters.ssl.ca);
+    expect(params(client).ssl.checkServerIdentity).toBeUndefined();
+    const ca = new X509Certificate(params(client).ssl.ca);
     expect(ca.ca).toBe(true);
     expect(ca.verify(ca.publicKey)).toBe(true);
     expect(ca.fingerprint256.replaceAll(':', '')).toBe('807025AD50D4ED219D2C9C7D299C004F824EB00CF7F65AFEF607D07B72E6CAFA');
@@ -47,7 +50,7 @@ describe('plugin database TLS', () => {
     for (const [hostname, host] of [['127.0.0.1', '127.0.0.1'], ['[::1]', '::1']]) {
       const db = new URL(`postgresql://kingdown_test@${hostname}:55432/kingdown_plugin_test`);
       const client = new pg.Client(pluginDatabaseConfig(db, { localDev: true }));
-      expect(client.connectionParameters).toMatchObject({ host, port: 55432, database: 'kingdown_plugin_test', ssl: false });
+      expect(params(client)).toMatchObject({ host, port: 55432, database: 'kingdown_plugin_test', ssl: false });
       db.search = '?sslmode=require';
       expect(() => pluginDatabaseConfig(db, { localDev: true })).toThrow('Database URL');
     }

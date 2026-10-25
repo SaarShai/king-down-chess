@@ -44,7 +44,7 @@ it('keeps source symbols intact beside protection badges', async () => {
     await frame.locator('[data-screen="play"] [data-nav="settings"]').click();
     await frame.locator('#symbols-only').check();
     const names: Record<string, string> = { P: 'pawn', N: 'knight', B: 'bishop', R: 'rook', Q: 'queen', K: 'king', A: 'archer', L: 'paladin', G: 'guard', M: 'maester', S: 'beast', O: 'ogre' };
-    const sources = Object.fromEntries(await Promise.all(Object.values(names).map(async name => [name, await readFile(`public/ui/icons/${name}.svg`, 'utf8')])));
+    const sources: Record<string, string> = Object.fromEntries(await Promise.all(Object.values(names).map(async name => [name, await readFile(`public/ui/icons/${name}.svg`, 'utf8')])));
     for (const kings of [0, 1, 2]) {
       const result = await (await page.request.post(new URL(`/fixture-position?case=gallery&kings=${kings}`, harness.url).href)).json();
       await page.evaluate(r => (window as any).harnessShow(r), result);
@@ -83,7 +83,8 @@ it('keeps source symbols intact beside protection badges', async () => {
 type RecordedMotion = { id: string; frames: Keyframe[]; options: KeyframeAnimationOptions; onset: number; paint?: { filter: string; clip: string } };
 async function recordMotion(page: Page, frame: FrameLocator, selectors: string[]) {
   const install = (selectors: string[]) => {
-    const events = (window as any).uiMotion = [];
+    const events: object[] = [];
+    (window as any).uiMotion = events;
     const animate = Element.prototype.animate;
     const time = Object.getOwnPropertyDescriptor(Animation.prototype, 'currentTime')!;
     Element.prototype.animate = function(frames, options) {

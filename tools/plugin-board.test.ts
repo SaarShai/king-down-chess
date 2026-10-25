@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { shot, STEP } from './lib/checks.mjs';
 import { fromFen, toFen, toLan } from '../src/rules/setup';
-import { legalMoves, makeMove, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
+import { DEFAULT_RULES, legalMoves, makeMove, RULES, setRules, type Move, type Rules } from '../src/rules/engine';
 import { applyLan } from '../src/plugin/screens/board-model';
 import sharp from 'sharp';
 import { LESSONS } from '../src/lessons';
@@ -383,7 +383,7 @@ it.each(['card','power'] as const)('keeps the full armed %s rule and block notic
     await frame.locator('html').evaluate(() => { (window as any).harnessApp.memory.blockNotice = 'Player blocked.'; });
     await frame.locator(kind === 'card' ? '#card-w-0' : '#power-w').click();
     await frame.locator('#board-sheet').getByRole('button',{name:'Use',exact:true}).click();
-    const rule = ruleLine(kind === 'card' ? cardText('EarthQuake') : powerText('Freeze',base.rules!));
+    const rule = ruleLine(kind === 'card' ? cardText('EarthQuake') : powerText('Freeze',{...DEFAULT_RULES,...base.rules!}));
     expect(await frame.locator('#context-note').textContent()).toContain(`${rule} Player blocked.`);
     expect(await frame.locator('#context-text').getAttribute('data-rank')).toBe('armed');
     const text = await frame.locator('#context-text').evaluate(async el => {
@@ -482,7 +482,7 @@ it.each(['normal', 'fast'])('uses a slide, a 150 ms fade and no shake under redu
     await page.clock.pauseAt(new Date(Date.now() + 1000));
     const result = await frame.locator('html').evaluate(async () => {
       const board = (window as any).testBoard, scene = board.scene, pre = board.pos;
-      const moves = [];
+      const moves: unknown[] = [];
       for (let type = 1; type <= 12; type++) {
         const position = { ...pre, board: new Uint8Array(pre.board) }; position.board[0] = type;
         scene.setPosition(position); void scene.play({ from: 0, to: 8, captures: [8] }); moves.push(scene.playing); scene.cancel();
@@ -530,7 +530,7 @@ it.each([[197,426,51], [197,800,51], [201,357,31], [201,357,62], [206,395,27]])(
       ['checkmate', 0, 'You gave checkmate.'], ['resignation', 1, 'You resigned.'],
       ['timeout', 0, 'Your opponent ran out of time.'], ['drawMaterial', null, 'Neither side has enough pieces to give checkmate.'],
     ] as const) {
-      const next = view('7k/8/8/8/8/8/P7/K7 w - - 0 1', {}, { rating_policy, status: 'finished', action: 'finished', result: { reason, winner } });
+      const next = view('7k/8/8/8/8/8/P7/K7 w - - 0 1', {}, { rating_policy, status: 'finished', action: 'done', result: { reason, winner } });
       await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView(next), next);
       await frame.locator('#over[open]').waitFor();
       await frame.locator('html').evaluate('(async () => { (await import("/src/plugin/screens/board.ts")).skipBoardCeremony(); await document.fonts.ready; await Promise.all(document.getAnimations().map(a => a.finished.catch(() => {}))); })()');
@@ -721,7 +721,7 @@ it('measures the card coin face in one page call on a root a redraw keeps', asyn
     const found = await frame.locator('#game-table .card-coin img').elementHandles();
     expect(found.length).toBe(8);
     await frame.locator('#game-table').evaluate(table => { for (const strip of table.querySelectorAll('.player-strip')) (strip as HTMLElement).innerHTML = (strip as HTMLElement).innerHTML; });
-    expect(await Promise.all(found.map(handle => handle.evaluate(image => Math.round(image.getBoundingClientRect().width))))).toEqual(Array(8).fill(0));
+    expect(await Promise.all(found.map(handle => handle.evaluate(image => Math.round((image as Element).getBoundingClientRect().width))))).toEqual(Array(8).fill(0));
     // `cardFaces` holds `#game-table` and finds the images in the same page call as the measure, so it reads them all.
     await settle();
     const after: { coin: number; image: number; x: number; y: number }[] = await cardFaces(frame);

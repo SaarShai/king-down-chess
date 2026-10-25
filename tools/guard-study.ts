@@ -17,7 +17,7 @@ import { resultsRoot } from './lib/results-root.mjs';
  *   npx tsx tools/guard-study.ts --specs          # write sim/specs/guard/*.json
  *   npx tsx tools/guard-study.ts --runs b3-guard2 --stride 4
  */
-import { createReadStream, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createReadStream, mkdirSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { globSync } from 'node:fs';
 import { basename } from 'node:path';
