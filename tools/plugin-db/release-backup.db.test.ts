@@ -22,19 +22,19 @@ suite('the release backup and games restore', () => {
  }, 120_000);
  afterAll(async () => { await pool?.end(); });
  beforeEach(async () => {
-  await pool.query(`drop schema if exists ${B} cascade; truncate public.games cascade; delete from auth.users`);
+  await pool.query(`drop schema if exists ${B} cascade; truncate public.games cascade; delete from auth.users; delete from public.account_deletions`);
   await pool.query('insert into auth.users(id) select unnest($1::uuid[])', [users]);
   await game(a, 2, [users[0], users[1]]);
   await game(b, 1, [users[2], null]);
  });
 
- /** A friend game at `revision` with commands 1..revision, two seats and one invite. */
- async function game(id: string, revision: number, seats: (string | null)[]) {
+ /** A friend game at `revision` with commands 1..revision, two seats and one invite; or a solo game, whose empty seat is the computer and which has no invite. */
+ async function game(id: string, revision: number, seats: (string | null)[], kind: 'friend' | 'solo' = 'friend') {
   await pool.query(`insert into public.games(id,kind,speed,category,colour_rule,setup,rules,engine_fingerprint,status,turn,revision,state,snapshot,created_by)
-   values($1,'friend','daily','standard','white','{}','{}','sha256:${'0'.repeat(64)}','playing',$2,$3,'{}','{}',$4)`, [id, revision % 2, revision, seats[0]]);
-  for (const [seat, user] of seats.entries()) await pool.query(`insert into public.game_players(game_id,seat,user_id,action) values($1,$2,$3,'waiting')`, [id, seat, user]);
+   values($1,$5,'daily','standard','white','{}','{}','sha256:${'0'.repeat(64)}','playing',$2,$3,'{}','{}',$4)`, [id, revision % 2, revision, seats[0], kind]);
+  for (const [seat, user] of seats.entries()) await pool.query(`insert into public.game_players(game_id,seat,user_id,computer,action) values($1,$2,$3,$4,'waiting')`, [id, seat, user, kind === 'solo' && !user]);
   for (let seq = 1; seq <= revision; seq++) await command(pool, id, seq, seats[(seq - 1) % 2]);
-  await pool.query(`insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,1,$4,now()+interval '1 day')`, [randomUUID(), randomUUID(), id, seats[0]]);
+  if (kind === 'friend') await pool.query(`insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,1,$4,now()+interval '1 day')`, [randomUUID(), randomUUID(), id, seats[0]]);
  }
  const command = (client: pg.Pool | pg.PoolClient, id: string, seq: number, actor: string | null) => client.query(`insert into public.game_commands(game_id,seq,seat,actor_id,command_id,kind,payload,turn_after,status_after,received_at)
   values($1,$2,$3,$4,$5,'move','{}',$6,'playing',now())`, [id, seq, (seq - 1) % 2, actor, randomUUID(), seq % 2]);
@@ -132,6 +132,32 @@ suite('the release backup and games restore', () => {
   await pool.query('delete from auth.users where id=$1', [users[2]]);
   await run(restoreSql);
   expect((await games())[b]).toMatchObject({ revision: 1, seqs: [1], seats: ['-:waiting', '-:waiting'], invites: 0 });
+ });
+
+ it('keeps the solo game of an account that delete_account erased since the backup erased, and keeps its shared game as delete_account left it', async () => {
+  // users[1] has a solo game and a seat in friend game a with users[0]. Each seat keeps the handle at the game start.
+  const solo = randomUUID();
+  await game(solo, 1, [users[1], null], 'solo');
+  await pool.query("update public.game_players set handle_at_start='erased-handle' where user_id=$1", [users[1]]);
+  await run(backupSql);
+  // The deletion job ends the active games (src/online/jobs.ts runDeletions), then delete_account erases the account.
+  await pool.query('update public.game_players set active=false where user_id=$1', [users[1]]);
+  await pool.query("insert into public.account_deletions(user_id,requested_at,run_after) values($1,now()-interval '8 days',now()-interval '1 day')", [users[1]]);
+  expect((await pool.query('select kingdown_jobs.delete_account($1) as done', [users[1]])).rows[0].done).toBe(true);
+  const erased = await games(), handles = async () => (await pool.query('select game_id,seat,handle_at_start from public.game_players where handle_at_start is not null order by game_id')).rows;
+  expect(erased[solo]).toBeUndefined();
+  const shared = await handles();
+  expect(shared).toEqual([{ game_id: a, seat: 1, handle_at_start: 'erased-handle' }]);
+  const result = (await run(restoreSql)) as unknown as pg.QueryResult[];
+  expect(result.at(-1)!.rows[0]).toMatchObject({ backup_games: '3', restored_games: '2', newer_games_kept: '0', erased_games_left_out: '1' });
+  const after = await games();
+  expect(after[solo]).toBeUndefined();
+  for (const table of ['game_players', 'game_commands', 'game_invites']) expect((await pool.query(`select count(*)::int as n from public.${table} where game_id=$1`, [solo])).rows[0].n).toBe(0);
+  // The shared game comes back from the backup, with the deleted seat null and the handle that delete_account kept.
+  expect(after[a]).toMatchObject({ revision: 2, seqs: [1, 2], seats: [`${users[0]}:waiting`, '-:waiting'], invites: 1 });
+  expect(await handles()).toEqual(shared);
+  await run(restoreSql);
+  expect(await games()).toEqual(after);
  });
 
  it('refuses a backup whose games and commands disagree, and rating rows that changed, and changes nothing', async () => {
