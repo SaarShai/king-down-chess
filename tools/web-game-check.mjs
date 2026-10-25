@@ -269,7 +269,7 @@ try {
   assert.equal((await view(0)).fen, moved);
   await shot(page, 'web-shared-board');
   // Keep the return route in this document; a page reload would clear the result screen's attempt state.
-  await page.locator('#page-back:visible, #game-table .table-back:visible').first().click();
+  await page.locator('#board-menu').click(); await page.locator('#board-sheet').getByRole('button', {name: 'Main menu', exact: true}).click();
   await page.locator(`#games-list [data-game-id="${gameId}"]`).click();
   await page.locator('[data-screen="board"]:not([hidden])').waitFor();
   const rematchDocument = await page.evaluate(() => performance.timeOrigin);
@@ -363,7 +363,7 @@ try {
     assert.equal(replied.turn, replied.seat, 'The player moves after the computer turn');
     assert.equal(new URL(page.url()).pathname, soloPath, 'The settled reply keeps the source game URL');
     await shot(page, 'web-recovered-solo-url');
-    await page.locator('#page-back:visible, #game-table .table-back:visible').first().click();
+    await page.locator('#board-menu').click(); await page.locator('#board-sheet').getByRole('button', {name: 'Main menu', exact: true}).click();
     await page.locator('[data-screen="play"]:not([hidden])').waitFor();
     assert.equal(new URL(page.url()).pathname, '/play/', 'Play returns to the games list');
     console.log(`web: a fresh /play/ load recovers a pending computer reply under its source game URL (computer calls: ${computerCalls.length})`);

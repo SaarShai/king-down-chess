@@ -97,7 +97,7 @@ it('preserves the website game URL while fullscreen startup waits for the first 
       expect(await page.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(game);
       expect(new URL(page.url()).pathname).toBe(path);
     }
-    await page.getByRole('button', { name: 'Back to Play', exact: true }).click();
+    await page.locator('#board-menu').click(); await page.locator('#board-sheet').getByRole('button', {name: 'Main menu', exact: true}).click();
     await page.locator('[data-screen="play"]:not([hidden])').waitFor();
     expect(new URL(page.url()).pathname).toBe('/play/');
     expect(errors).toEqual([]);
@@ -378,7 +378,7 @@ it('refreshes the Play rows after Create and Move from the page', async () => {
       await (window as any).harnessApp.call('kingdown_create', { kind: 'solo', colour: 'white', options: { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false } });
     });
     const game_id = await page.evaluate(() => (window as any).harnessView.game_id);
-    await frame.locator('#page-back').click();
+    await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', {name: 'Main menu', exact: true}).click();
     const row = frame.locator(`#games-list [data-game-id="${game_id}"]`);
     await row.waitFor();
     expect(await row.locator('.line').textContent()).toMatch(/Move 1 ·\sCasual ·\sWhite/);
@@ -421,7 +421,7 @@ it('finds a game created elsewhere when Back returns a clean board to Play', asy
     const external = await (await page.request.post(new URL('/fixture-position?case=haste', harness.url).href)).json();
     const other = external._meta.view.game_id; games.push(other);
     expect(await frame.locator('html').evaluate((_, id) => (window as any).harnessApp.memory.games.some((entry: any) => entry.game_id === id), other)).toBe(false);
-    await frame.locator('#page-back').click();
+    await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', {name: 'Main menu', exact: true}).click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await frame.locator(`#games-list [data-game-id="${other}"]`).waitFor();
     expect(await frame.locator(`#games-list [data-game-id="${before.game}"]`).count()).toBe(1);
@@ -1752,7 +1752,7 @@ it('keeps a timed-out start on Play and finishes it there while another game pla
     expect(await frame.locator('#retry').isHidden()).toBe(true);
     expect(await frame.locator('#board-menu').isEnabled()).toBe(true);
     // Play keeps the start's text and Retry; Retry sends the same command ID and finishes the start.
-    await frame.locator('#page-back').click();
+    await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', {name: 'Main menu', exact: true}).click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await expect.poll(() => frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
     await frame.locator('#retry').click();

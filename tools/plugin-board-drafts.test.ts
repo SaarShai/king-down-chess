@@ -15,6 +15,43 @@ import { momentKind } from '../src/moment';
 import { soundsFor } from '../src/screen/moments';
 import { folder, harness, browser, view, open, marks, clickButton, squareTap, settleBoardReads, turnBoard, chooseTurnMove, moveCalls, boardFen, getCalls, savedDraft, remountBoard } from './lib/plugin-board-fixture';
 
+it.each([[1280, 800], [390, 844]])('F-107: Main menu keeps the game and its staged turn at %i × %i', async (width, height) => {
+  const {page, frame, base} = await turnBoard('4k3/7p/8/8/8/8/4P3/4K3 w - - 0 1');
+  try {
+    await page.setViewportSize({width, height});
+    await chooseTurnMove(page, 'e2-e4', 12);
+    const draft = await savedDraft(page), fen = await boardFen(page);
+    const menu = frame.locator('#board-menu'), sheet = frame.locator('#board-sheet');
+    await menu.focus(); await page.keyboard.press('Enter');
+    expect(await sheet.locator('.sheet-body > button').first().textContent()).toBe('Main menu');
+    expect(await frame.locator('#page-back:visible, #game-table .table-back:visible').count()).toBe(0);
+    await page.keyboard.press('Tab');
+    const home = sheet.getByRole('button', {name: 'Main menu', exact: true});
+    expect(await home.evaluate(b => b === document.activeElement && b.matches(':focus-visible'))).toBe(true);
+    await page.keyboard.press('Tab');
+    expect(await sheet.getByRole('button', {name: 'Moves', exact: true}).evaluate(b => b === document.activeElement)).toBe(true);
+    await page.keyboard.press('Escape');
+    expect(await menu.evaluate(b => b === document.activeElement && b.matches(':focus-visible'))).toBe(true);
+    await page.keyboard.press('Enter'); await sheet.getByRole('button', {name: 'Close', exact: true}).click();
+    expect(await menu.evaluate(b => b === document.activeElement)).toBe(true);
+    await menu.focus(); await page.keyboard.press('Enter'); await page.keyboard.press('Tab'); await page.keyboard.press('Enter');
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await sheet.waitFor({state: 'hidden'});
+    expect(await savedDraft(page)).toEqual(draft);
+    await frame.locator(`#games-list [data-game-id="${base.game_id}"]`).click();
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    await settleBoardReads(page);
+    expect(await frame.locator('html').evaluate(() => {
+      const view = (window as any).harnessApp.memory.view;
+      return {game_id: view.game_id, revision: view.revision, fen: view.fen, status: view.status, draw_offer: view.draw_offer};
+    })).toEqual({game_id: base.game_id, revision: base.revision, fen: base.fen, status: 'playing', draw_offer: null});
+    expect(await savedDraft(page)).toEqual(draft);
+    expect(await boardFen(page)).toBe(fen);
+    expect(await frame.locator('#end-turn').getAttribute('aria-disabled')).toBe('false');
+    expect(await page.evaluate(() => ((window as any).harnessCalls ?? []).filter((c: any) => ['kingdown_move', 'kingdown_resign', 'kingdown_abort', 'kingdown_draw'].includes(c.name)))).toEqual([]);
+  } finally { await page.close(); }
+});
+
 // W7 ticket 04 browser journeys (design §7.4 D9 to D13): the draft in widget state, its restore and its keep-or-drop.
 it('W7-04: restores a saved draft after a remount only when the game, the base FEN and the replay agree (D9)', async () => {
   for (const change of ['same', 'fen', 'lan'] as const) {

@@ -234,6 +234,16 @@ try {
   async function openPlay() {
     if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
     for (let i = 0; i < 2 && !await frame.locator('[data-screen="play"]:not([hidden])').count(); i++) {
+      if (await frame.locator('body[data-page="board"]').count()) {
+        // A new board reply can close Menu between steps. Open and return in the same frame.
+        await frame.locator('#board-menu:not(:disabled)').evaluate(button => {
+          button.click();
+          const main = [...document.querySelectorAll('#board-sheet .sheet-body > button')].find(row => row.textContent === 'Main menu');
+          if (!main) throw new Error('Menu has no Main menu row');
+          main.click();
+        });
+        continue;
+      }
       await widget().waitForFunction(() => {
         const d=document;
         return !d.querySelector('[data-screen="play"]').hidden || [...d.querySelectorAll('#page-back, .table-back')].some(b=>!b.disabled&&b.getClientRects().length);

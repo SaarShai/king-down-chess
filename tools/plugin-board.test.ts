@@ -403,11 +403,7 @@ it.each([{ width: 393, height: 852, cards: true }, { width: 320, height: 568, ca
     expect(await frame.locator('html').evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
     expect(await frame.locator('#game-table').evaluate(targetMisses)).toEqual([]);
     expect(await frame.locator('#game-table').evaluate(edgeMisses)).toEqual([]);
-    const clearance = await frame.locator('.table-back:visible').evaluate(back => {
-      const board = (window as any).testBoard, top = board.screenOf(56), below = board.screenOf(48);
-      return top.y - Math.abs(below.y - top.y) / 2 - back.getBoundingClientRect().bottom;
-    });
-    expect(clearance, 'Back stays above the board squares').toBeGreaterThanOrEqual(0);
+    expect(await frame.locator('#page-back:visible, #game-table .table-back:visible').count()).toBe(0);
     if (cards) {
       await frame.locator('#card-w-1').click(); await frame.getByRole('button', { name: 'Use', exact: true }).click();
       await frame.getByRole('button', { name: 'Cancel', exact: true }).waitFor();
@@ -794,10 +790,13 @@ it.each([[320, 568, 84], [320, 568, 180], [393, 852, 118], [820, 600, 34], [852,
     expect(await frame.locator('#menu-draw').isVisible()).toBe(true);
     expect(await frame.locator('#menu-abort small').textContent()).toBe('No result, until each side moves once.');
     expect(await frame.locator('#reload').textContent()).toBe('Refresh the board');
-    expect(await frame.locator('#board-sheet').evaluate(sheet => {
-      const body = sheet.querySelector('.sheet-body')!, box = sheet.getBoundingClientRect();
-      return body.scrollHeight <= body.clientHeight + 1 && [...sheet.querySelectorAll<HTMLElement>('button')].filter(b => b.getClientRects().length).every(b => {const r=b.getBoundingClientRect();return r.top>=box.top && r.bottom<=box.bottom+1;});
-    })).toBe(true);
+    for (const button of await frame.locator('#board-sheet .sheet-body > button:visible').all()) {
+      await button.scrollIntoViewIfNeeded();
+      expect(await button.evaluate(button => {
+        const r = button.getBoundingClientRect(), body = button.parentElement!.getBoundingClientRect();
+        return r.height >= 48 && r.top >= body.top && r.bottom <= body.bottom + 1;
+      })).toBe(true);
+    }
     await page.keyboard.press('Escape');
     await frame.locator('html').evaluate((_, next) => (window as any).harnessApp.routeView({...next,draw_offer:1}), next);
     expect(await frame.locator('#context-actions #accept-draw').isVisible()).toBe(true);
