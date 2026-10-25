@@ -231,3 +231,5 @@ A probe holds the write at the host and gives this exact state in three of
 three rounds. It passes in three of three rounds when the write ends first.
 The check now waits for the board to settle after each Symbols only change.
 The report `flakes.md` and its `flakes-files/` logs are under the same run folder.
+
+Product note from the second art-check cause (not fixed here): a chat result whose saved settings the server read before a settings write ended puts the old settings back on screen (`src/account-game/runtime.ts` `remember()` and `show()`). The check now waits for the write. A product fix needs its own ticket.

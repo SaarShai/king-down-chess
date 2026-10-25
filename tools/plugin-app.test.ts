@@ -6,8 +6,8 @@ import { chromium, type Browser, type Page } from 'playwright';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { pauseClock } from './lib/page-clock.mjs';
 import { startHarness, waitForSourceApp } from './plugin-ui-harness';
-// A frame read can take more than the 1 s poll default under full-suite load in CI (runs 40225675633, 40223950211);
-// the board fixture sets the same kind of limit.
+// A frame read can take more than the 1 s poll default under full-suite load in CI (runs 40225675633, 40223950211).
+// The board fixture also raises it (1000 ms × STEP); this file has no STEP, so it uses a fixed 5 s.
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000, expect: { poll: { timeout: 5000 } } });
 let folder: string;
 let harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
