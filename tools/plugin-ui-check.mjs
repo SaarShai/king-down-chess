@@ -1291,7 +1291,8 @@ try {
   await remountFrame();
   await frame.locator('#retry').waitFor(); await frame.locator('#retry').click();
   await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
-  assert.equal(await page.evaluate(() => window.harnessWidgetState.privateContent.pending), undefined);
+  // The widget clears pending after it shows the friend screen; the host copy arrives by a later message.
+  await page.waitForFunction(() => window.harnessWidgetState.privateContent.screen === 'friend' && window.harnessWidgetState.privateContent.pending === undefined);
   await openPlay(); await legacyStart('solo'); await idleBoard();
 
   // Ticket 15: the board and end routes.
