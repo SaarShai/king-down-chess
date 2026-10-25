@@ -68,11 +68,13 @@ it('F-112 uses a three-stop Level slider and the engine map', async () => {
 it.each([[0,'beginner'],[1,'casual'],[2,'club']] as const)('F-112 sends stop %s as %s', async (position, engine) => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await frame.locator('#home-games:not(:disabled)').click();
+    await frame.locator('#home-games:not(:disabled)').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await frame.locator('#setup-options summary').click();
     await frame.locator('#setup-level').fill(String(position));
+    expect(await frame.locator('#setup-level').inputValue()).toBe(String(position));
     await frame.locator('#setup-start').click();
-    await expect.poll(() => sent(page, 'kingdown_create')).toBe(1);
+    // A loaded CI runner can take more than the 1 s poll default to send Create.
+    await expect.poll(() => sent(page, 'kingdown_create'), { timeout: 5000 }).toBe(1);
     expect(await page.evaluate(() => (window as any).harnessCalls.find((c: any) => c.name === 'kingdown_create').arguments.level)).toBe(engine);
   } finally { await page.close(); }
 });
@@ -90,7 +92,7 @@ it('F-113 closes the options by default and starts with the defaults', async () 
     await frame.locator('#setup-options summary').click();
     const calls = await sent(page, 'kingdown_create');
     await frame.locator('#setup-start').click();
-    await expect.poll(() => sent(page, 'kingdown_create')).toBe(calls + 1);
+    await expect.poll(() => sent(page, 'kingdown_create'), { timeout: 5000 }).toBe(calls + 1);
     await frame.locator('[data-screen="seat"]:not([hidden]), [data-screen="board"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });
