@@ -7,8 +7,8 @@
 // assets/kept-files.json names the kept files. When the live page is the page of this build (a rerun,
 // for example after a failed live check), the walk also reads that live list and keeps its files again.
 // Send no cookie. DEPLOY_LIVE_URL defaults to https://kingdown.dev.
-// Exit: 0 pass, 1 live fault (a failed read, a wrong type, or other bytes at a name of the build),
-// 2 invalid build or arguments.
+// Exit: 0 pass, 1 live fault (a failed read, a wrong type, a type with no check, or other bytes at a
+// name of the build), 2 invalid build or arguments.
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 
@@ -26,10 +26,11 @@ const typeOf = file => types[extname(file).slice(1)];
 for (const file of readdirSync(join(folder, 'assets'))) if (!typeOf(file)) fault(2, `the build has no checked content type for assets/${file}`);
 const list = 'kept-files.json';
 if (existsSync(join(folder, 'assets', list))) fault(2, `the build already has assets/${list}`);
-// A Vite content name: <name>-<8-character hash>.<type>. "/assets/x", "./assets/x" and "assets/x" name a
-// file under /assets/ (the page, the CSS, Vite's preload lists and the worker lists). "./x" names one
-// only in a file under /assets/ (a sibling chunk).
-const name = String.raw`[\w.-]+-[\w-]{8}\.(?:${Object.keys(types).join('|')})`;
+// A Vite content name: <name>-<8-character hash>.<extension>, of any extension: an old file of a type
+// with no check stops the walk, so that no old file goes without a word. "/assets/x", "./assets/x" and
+// "assets/x" name a file under /assets/ (the page, the CSS, Vite's preload lists and the worker lists).
+// "./x" names one only in a file under /assets/ (a sibling chunk).
+const name = String.raw`[\w.-]+-[\w-]{8}\.[a-z0-9]+`;
 const reference = new RegExp(String.raw`["'\x60(]((?:\.?\/)?assets\/|\.\/)(${name})(?=["'\x60)])`, 'g');
 
 /** GET with no cookie and no redirect. A fault stops the publish before it starts. */
@@ -44,14 +45,16 @@ async function get(path) {
 
 const live = new Map(), queue = [], roots = {};
 const read = (path, text) => { for (const [, prefix, file] of text.matchAll(reference)) if (prefix !== './' || path.startsWith('/assets/')) queue.push(file); };
-for (const path of ['/', '/sw.js']) {
-  const { status, bytes } = await get(path);
+for (const [path, accepted] of [['/', ['text/html']], ['/sw.js', types.js]]) {
+  const { status, type, bytes } = await get(path);
   if (status !== 200) fault(1, `GET ${path}: expected HTTP 200, got ${status}`);
+  if (!accepted.includes(type)) fault(1, `GET ${path}: expected ${accepted.join(' or ')}, got ${type || 'no content type'}`);
   read(path, bytes.toString('utf8'));
   roots[path] = bytes;
 }
 if (!queue.length) fault(1, `${base}/ and /sw.js name no file under /assets/`);
 const rerun = roots['/'].equals(readFileSync(join(folder, 'index.html')));
+let listed = 'no live list';
 if (rerun) {
   const { status, type, bytes } = await get(`/assets/${list}`);
   if (status === 200 && type === 'application/json') {
@@ -59,6 +62,7 @@ if (rerun) {
     try { names = JSON.parse(bytes.toString('utf8')); } catch { /* checked below */ }
     if (!Array.isArray(names) || names.some(file => typeof file !== 'string' || !new RegExp(`^${name}$`).test(file))) fault(1, `/assets/${list}: the live list is not a list of content names`);
     queue.push(...names);
+    listed = `the live list names ${names.length}`;
   } else if (status !== 404) fault(1, `GET /assets/${list}: expected JSON with HTTP 200, or HTTP 404, got HTTP ${status} ${type || 'no content type'}`);
 }
 while (queue.length) {
@@ -70,6 +74,7 @@ while (queue.length) {
       const file = level[next++], path = `/assets/${file}`;
       const { status, type, bytes } = await get(path);
       if (status !== 200) fault(1, `GET ${path}: expected HTTP 200, got ${status}`);
+      if (!typeOf(file)) fault(1, `GET ${path}: the live build names a file of a type with no check; add the type here and in tools/deploy-live-check.mjs`);
       if (!typeOf(file).includes(type)) fault(1, `GET ${path}: expected ${typeOf(file).join(' or ')}, got ${type || 'no content type'}`);
       live.set(file, bytes);
       if (!binary.includes(extname(file).slice(1))) read(path, bytes.toString('utf8'));
@@ -88,4 +93,4 @@ for (const [file, bytes] of [...live].sort(([a], [b]) => (a < b ? -1 : 1))) {
 }
 for (const [file, bytes] of kept) writeFileSync(join(folder, 'assets', file), bytes, { flag: 'wx' });
 writeFileSync(join(folder, 'assets', list), JSON.stringify(kept.map(([file]) => file)) + '\n', { flag: 'wx' });
-console.log(`keep-assets: ${base} serves ${live.size} content-named files under /assets/${rerun ? ', also the files of its live list (the live page is the page of this build)' : ''}; ${same} are in the build with the same bytes; kept ${kept.length}${kept.length ? `: ${kept.map(([file]) => file).join(', ')}` : ''}; assets/${list} names them`);
+console.log(`keep-assets: ${base} serves ${live.size} content-named files under /assets/${rerun ? ` (a rerun: the live page is the page of this build; ${listed})` : ''}; ${same} are in the build with the same bytes; kept ${kept.length}${kept.length ? `: ${kept.map(([file]) => file).join(', ')}` : ''}; assets/${list} names them`);

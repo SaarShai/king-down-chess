@@ -952,6 +952,9 @@ describe('deploy-keep-assets.mjs', () => {
     ['other bytes at a name of the build', { 'assets/shared-EEEE5555.js': 'changed' }, {}, '/assets/shared-EEEE5555.js: the live file differs from the build\'s file of the same name'],
     ['a page that names no asset', { 'index.html': 'no script', 'sw.js': 'no list' }, {}, 'and /sw.js name no file under /assets/'],
     ['a missing worker', { 'sw.js': undefined }, {}, 'GET /sw.js: expected HTTP 200, got 404'],
+    ['an HTML fallback for the worker', {}, { path: '/sw.js', type: 'text/html' }, 'GET /sw.js: expected text/javascript or application/javascript, got text/html'],
+    ['a page of another type', {}, { path: '/', type: 'text/plain' }, 'GET /: expected text/html, got text/plain'],
+    ['an old file of a type with no check', { 'assets/style-BBBB2222.css': 'b{background:url(/assets/photo-MMMM3333.jpg)}', 'assets/photo-MMMM3333.jpg': 'jpeg' }, {}, 'GET /assets/photo-MMMM3333.jpg: the live build names a file of a type with no check'],
   ])('stops at %s and writes no file', async (_, change, reply, message) => {
     const files = { ...live(), ...change } as Record<string, string>;
     const site_ = await site(() => files, reply), folder = buildFolder(build());
@@ -968,10 +971,10 @@ describe('deploy-keep-assets.mjs', () => {
     const site_ = await site(() => first), folder = buildFolder(build());
     const result = await keep(folder, site_.url);
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain('also the files of its live list (the live page is the page of this build); 2 are in the build with the same bytes; kept 1: lazy-FFFF6666.js; assets/kept-files.json names them');
+    expect(result.stdout).toContain('serves 3 content-named files under /assets/ (a rerun: the live page is the page of this build; the live list names 1); 2 are in the build with the same bytes; kept 1: lazy-FFFF6666.js; assets/kept-files.json names them');
     expect(tree(folder)).toEqual(first);
     // The first publish with this tool finds no live list; a list with another name stops the publish.
-    for (const [list, status, message] of [[undefined, 0, 'kept 0'], ['["../index.html"]', 1, 'the live list is not a list of content names'], ['{"files":[]}', 1, 'the live list is not a list of content names']] as const) {
+    for (const [list, status, message] of [[undefined, 0, '(a rerun: the live page is the page of this build; no live list); 2 are in the build with the same bytes; kept 0'], ['["../index.html"]', 1, 'the live list is not a list of content names'], ['{"files":[]}', 1, 'the live list is not a list of content names']] as const) {
       const served = { ...build(), ...(list === undefined ? {} : { 'assets/kept-files.json': list }) };
       const rerun = await keep(buildFolder(build()), (await site(() => served)).url);
       expect([rerun.status, rerun.stdout + rerun.stderr]).toEqual([status, expect.stringContaining(message)]);
@@ -1194,7 +1197,7 @@ describe('deploy.sh --publish', () => {
     // A rerun of the same build, as after a failed live check, keeps the old files again.
     const rerun = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), STUB_PUBLISH_DIR: published, DEPLOY_LIVE_URL: live.url });
     expect(rerun.status, rerun.stderr).toBe(0);
-    expect(rerun.stdout).toContain(`the live page is the page of this build); 1 are in the build with the same bytes; kept 4: ${kept.join(', ')}`);
+    expect(rerun.stdout).toContain(`(a rerun: the live page is the page of this build; the live list names 4); 1 are in the build with the same bytes; kept 4: ${kept.join(', ')}`);
     expect(tree(published)).toEqual(after);
     expect(live.requests.filter(r => r.cookie !== undefined)).toEqual([]);
     expectGone(repo, worktreeOf(result.stdout));
