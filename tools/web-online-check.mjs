@@ -137,7 +137,7 @@ export function assertLocalRequests(urls) {
 }
 
 /** The two control requests to another host: one fetch and one WebSocket. Chromium and Firefox send the socket to
- * the proxy as a tunnel; WebKit sends its URL. */
+ * the proxy as a tunnel; WebKit sends its URL. The page records the socket too. */
 export const OUTSIDE_CONTROLS = { fetch: 'http://outside.invalid/request-control', socket: 'ws://outside.invalid/socket-control', tunnel: 'CONNECT outside.invalid:80' };
 
 /** True when a proxy log entry is the WebSocket control. */
@@ -371,6 +371,10 @@ export async function main() {
       persistent = await launchPersistent(profile, profileOptions);
       await persistent.exposeFunction('recordWorkerEvent', record);
       persistent.on('request', request => requests.push(request.url()));
+      // No engine sends a loopback or link-local address to the proxy, and a WebSocket gives no request event, so
+      // each page records its own WebSockets. A worker's WebSocket to such an address stays outside both records.
+      const recordSockets = page => page.on('websocket', socket => requests.push(socket.url()));
+      persistent.pages().forEach(recordSockets); persistent.on('page', recordSockets);
       const page = persistent.pages()[0] ?? await persistent.newPage();
       page.setDefaultTimeout(30_000 * STEP);
       page.setDefaultNavigationTimeout(30_000 * STEP);
@@ -689,6 +693,7 @@ export async function main() {
     await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify({ ...browserFacts, requests, outside }, null, 2));
     assert.ok(outside.includes(OUTSIDE_CONTROLS.fetch), 'The proxy receives a fetch to another host');
     assert.ok(outside.some(socketControl), 'The proxy receives a WebSocket to another host');
+    assert.ok(requests.includes(OUTSIDE_CONTROLS.socket), 'The page records its WebSocket');
     assertLocalRequests(requests.filter(url => url !== OUTSIDE_CONTROLS.fetch && url !== OUTSIDE_CONTROLS.socket));
     assert.deepEqual(outsideRequests(outside), [], 'No profile request goes to another host');
     console.log(`PASS: worker journeys; ${pair}; ${events.filter(event => event.event === 'probe').length} protected/bypass requests; ${((performance.now() - started) / 1000).toFixed(1)} s`);

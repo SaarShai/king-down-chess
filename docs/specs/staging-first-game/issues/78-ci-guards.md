@@ -78,6 +78,8 @@ After the reviews (below), all profiles run behind a local proxy (`bypass: '127.
 
 WebKit sends the WebSocket control to the proxy as its URL (`ws://outside.invalid/socket-control`); Chromium and Firefox send a tunnel. Full Chromium and branded Chrome send their own service requests through the proxy (`www.google.com`, `accounts.google.com`, `update.googleapis.com` and others) with every switch tried, so a Chromium profile opens the bundled headless shell (`chromium-headless-shell`), which sends none. The other pages of the check keep `PLAYABLE_BROWSER`.
 
+Loopback and link-local addresses (`localhost`, `127.0.0.2`, `[::1]`, `169.254.x.x`, `[fe80::1]`, `*.localhost`) never reach the proxy in a local probe of the three engines: not with Chromium's `<-loopback>` bypass rule and not with Firefox's `network.proxy.allow_hijacking_localhost`. A named host always reaches it. So each profile page also records its own WebSockets into `requests`, and `assertLocalRequests` names a page WebSocket to such an address. A worker's WebSocket to a loopback or link-local IP address stays outside both records; the app opens no WebSocket.
+
 `npm run check:browser web-online` at the current version: Chrome 102.8 s and Chromium 97.3 s (profiles in the headless shell), Firefox 111.4 s, WebKit 89.3 s. Each proxy log holds only the two controls.
 
 ### Full suite
@@ -99,3 +101,5 @@ Re-review of `d4bdffe9` (read-only, Codex at the highest effort): merge after fi
 
 1. Chromium had no proxy and a WebSocket gives no context request event, so `new WebSocket('wss://project.supabase.co/...')` entered neither record. Fixed: the proxy for every engine and a WebSocket control.
 2. The service-host rule named the sender from the destination: a worker's own `fetch('https://www.mozilla.org/leak')` in Firefox would pass. Fixed: the rule is removed; the Firefox check that sent the one service request is off.
+
+Re-review of `0b550240` (main merged; read-only, Codex at the highest effort): merge after fixes. Both earlier findings are closed for named hosts; the merge breaks none of the five checks. One should-fix: Chromium's default bypass rules let `new WebSocket('ws://localhost:52011/leak')` escape both records. The suggested `<-loopback>` rule does not send loopback or link-local addresses to the proxy in any engine (local probe), so each page now records its WebSockets; the worker case stays a known limit (above).
