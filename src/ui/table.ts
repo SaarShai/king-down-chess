@@ -1,3 +1,4 @@
+import { LEVEL_NAMES } from '../level-ui';
 import { checkCause, describeMove, moveNumbers } from '../move-text';
 import { readText } from '../read';
 import { GameRules } from '../game-rules';
@@ -203,7 +204,7 @@ export function refreshTable(s: TableState): void {
       : s.sides.includes('ai') ? 'You' : c ? 'Black' : 'White';
     strip.querySelector('b')!.textContent = name;
     strip.querySelector('small')!.textContent = s.thinking && liveSide === c && performance.now() - thinkingAt >= 1000
-      ? 'thinking…' : s.sides[c] === 'ai' ? s.skill[0].toUpperCase() + s.skill.slice(1) : '';
+      ? 'thinking…' : s.sides[c] === 'ai' ? LEVEL_NAMES[s.skill] : '';
     strip.classList.toggle('is-turn', liveSide === c && (!text('status') || text('status') === 'thinking…'));
   }
   const history = s.game.history, shown = s.viewing == null ? history.at(-1) : history[s.viewing - 1];

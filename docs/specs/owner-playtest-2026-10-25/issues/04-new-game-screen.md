@@ -143,3 +143,31 @@ The shared heading says Menu. The default back button says ‹ Menu. Both board 
 Play now, Start, Play again and the local title Play action stay the same. Internal screen names, routes and stored values stay the same. The other server text stays the same.
 The final code check finds no need for another layer. Native controls keep the same work. Rules and the protocol keep the same values and shape. The two protected source files stay the same.
 The owner checks the images before merge. CI and independent review remain before merge. No push, PR, merge or deploy is in this task.
+
+## Review repair plan
+
+S1 and R1 name one fault. The local board and Home use old level names.
+M1 blocks the merge with the current staging base.
+
+1. Add Casual and Clever board and Home cases to the local browser check. Record the failure.
+2. Use `LEVEL_NAMES` in both displays. Check the stored values and old Strong games. Commit this fix.
+3. Merge `origin/staging/first-game`. Keep the board Menu to Main menu path and the seat Back to Menu path.
+4. Change old main menu names in checks and current docs. Check the result return control at all five sizes.
+5. Run the required type, selected test, browser and doc checks. Inspect the four final images.
+
+The repair passes when both local names match the slider, old Strong games keep Strong,
+the merge has no conflict, and all required checks pass. Logs use
+`/private/tmp/claude-501/ci87/run38/new-game-fix-files/`.
+
+## S1 and R1 repair
+
+The local board and Home now read `LEVEL_NAMES`. The engine values stay the same.
+The account board, game list, profile and seat already use this map. The end card
+has no level name. Server text defines level inputs but does not make a display name.
+No other display needs a change. The map keeps Strong for existing games.
+
+`bash tools/test-lock.sh npm run check:browser new-game` fails before the fix.
+It finds Beginner for Casual and Casual for Clever on both the board and Home.
+The same command passes after the fix. It also checks an old Strong game's two names
+and stored value. See `local-red.log`, `local-green.log` and their run folders in the
+repair log folder. The final merged head still needs the required checks.

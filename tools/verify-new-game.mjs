@@ -51,6 +51,32 @@ const kingsDrawn = (page, kings) => page.waitForFunction(k => {
 }, kings, { timeout: 10000 });
 
 try {
+  const labels = [];
+  for (const [level, name] of [['beginner', 'Casual'], ['casual', 'Clever']]) {
+    const page = await open();
+    await startGame(page, { mode: 'computer', side: 'white', level, army: 'classic' });
+    assert.equal((await saved(page)).skill, level, 'Start keeps the engine level');
+    const board = await page.locator('#strip-them small').innerText();
+    await page.evaluate(() => window.home.open());
+    const home = await page.locator('#home-opponent').innerText();
+    labels.push({ level, name, board, home });
+    console.log('local level:', JSON.stringify(labels.at(-1)));
+    await page.context().close();
+  }
+  assert.deepEqual(labels.map(({ board, home }) => [board, home]), [
+    ['Casual', 'vs Computer · Casual'], ['Clever', 'vs Computer · Clever'],
+  ], 'the board and Home use the selected level names');
+  ok('Casual and Clever: Start keeps each engine level; the board and Home show the selected name');
+  {
+    const page = await open({ save: { back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'ai', skill: 'strong', sound: false } });
+    assert.equal(await page.locator('#strip-them small').innerText(), 'Strong', 'an old game keeps its Strong board name');
+    await page.evaluate(() => window.home.open());
+    assert.equal(await page.locator('#home-opponent').innerText(), 'vs Computer · Strong', 'an old game keeps its Strong Home name');
+    assert.equal((await saved(page)).skill, 'strong', 'the old game keeps its engine level');
+    await page.context().close();
+    ok('an old Strong game keeps its board name, Home name and engine level');
+  }
+
   // 1. Defaults on a first visit: Artificial, Club, White, a random army; Spirit and Shadow.
   let page = await open();
   await pressMenu(page, 'New game');
