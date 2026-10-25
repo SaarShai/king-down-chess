@@ -12,3 +12,6 @@ it('accepts only a bounded day count', () => {
  expect(sinceDays([])).toBe(30); expect(sinceDays(['--since', '7'])).toBe(7);
  for (const args of [['--since', '0'], ['--since', '31'], ['--since', '1;select'], ['--since'], ['7']]) expect(() => sinceDays(args)).toThrow();
 });
+it('shows the last limit time even when no fault row is present', () => {
+ expect(formatErrorReport([], new Date('2026-10-24T12:30:00Z'))).toBe('Hourly group limit: 2026-10-24T12:30:00.000Z. Later groups can be absent.\n\nNo fault reports.');
+});

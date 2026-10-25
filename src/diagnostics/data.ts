@@ -26,17 +26,21 @@ function matchesSource(value: string, parts: string[]): boolean {
  return cursor <= value.length - parts[parts.length - 1].length;
 }
 const identifier = '(?:\\[redacted\\]|[A-Za-z_$][A-Za-z0-9_$]{0,31}(?:\\.[A-Za-z_$][A-Za-z0-9_$]{0,31}){0,3})';
+const property = `${identifier}(?:\\[(?:'${identifier}'|"${identifier}"|${identifier})\\])?`;
 const engineForms = [
  [new RegExp(`^Cannot read properties of (?:undefined|null) \\(reading '?${identifier}'?\\)$`), 'Cannot read properties of [value] (reading [value])'],
  [new RegExp(`^Cannot set properties of (?:undefined|null) \\(setting '?${identifier}'?\\)$`), 'Cannot set properties of [value] (setting [value])'],
  [new RegExp(`^can't access property "${identifier}", ${identifier} is (?:undefined|null)$`), 'Cannot read properties of [value] (reading [value])'],
- [/^(?:Invalid array length|invalid array length)$/, 'Invalid array length'],
- [/^(?:Invalid time value|invalid date)$/, 'Invalid time value'],
- [/^(?:Cannot convert undefined or null to object|can't convert (?:undefined|null) to object)$/, 'Cannot convert undefined or null to object'],
- [new RegExp(`^(?:Assignment to constant variable\\.|invalid assignment to const '${identifier}')$`), 'Assignment to constant variable.'],
+ [/^(?:Invalid array length|invalid array length|Array length must be a positive integer of safe magnitude\.)$/, 'Invalid array length'],
+ [/^(?:Invalid time value|invalid date|Invalid Date)$/, 'Invalid time value'],
+ [/^(?:Cannot convert undefined or null to object|can't convert (?:undefined|null) to object|Object\.(?:values|entries) requires that input parameter not be null or undefined)$/, 'Cannot convert undefined or null to object'],
+ [new RegExp(`^(?:undefined|null) is not an object \\(evaluating 'Object\\.(?:keys|getOwnPropertyNames|getOwnPropertySymbols|getPrototypeOf)\\(${identifier}\\)'\\)$`), 'Cannot convert undefined or null to object'],
+ [new RegExp(`^(?:Assignment to constant variable\\.|invalid assignment to const '${identifier}'|Attempted to assign to readonly property\\.)$`), 'Assignment to constant variable.'],
  [new RegExp(`^${identifier} is not a function$`), '[value] is not a function'],
- [new RegExp(`^(?:undefined|null) is not an object \\(evaluating '?${identifier}'?\\)$`), '[value] is not an object (evaluating [value])'],
- [new RegExp(`^${identifier} is not defined$`), '[value] is not defined'],
+ [new RegExp(`^${property} is not a function\\. \\(In '${property}\\([^\\r\\n]*\\)', '${property}' is [^\\r\\n]+\\)$`), '[value] is not a function'],
+ [new RegExp(`^(?:undefined|null) is not an object \\(evaluating '${property} *= *[^\\r\\n]+'\\)$`), 'Cannot set properties of [value] (setting [value])'],
+ [new RegExp(`^(?:undefined|null) is not an object \\(evaluating '${property}'\\)$`), 'Cannot read properties of [value] (reading [value])'],
+ [new RegExp(`^(?:${identifier} is not defined|Can't find variable: ${identifier})$`), '[value] is not defined'],
 ] as const;
 const fixedMessages = new Set(['Unlisted message', 'Failed to fetch', 'fetch failed', 'Load failed', 'NetworkError when attempting to fetch resource.', 'Maximum call stack size exceeded', 'too much recursion']);
 

@@ -55,7 +55,7 @@ export function createErrorWriter(pool: Pool, build: string): ErrorWriter {
   try {
    client = await pool.connect();
    await client.query('begin');
-   await client.query("set local statement_timeout = '500ms'; set local lock_timeout = '500ms'");
+   await client.query("set local statement_timeout = '500ms'; set local lock_timeout = '500ms'; set local timezone = 'UTC'");
    // An index bounds the search; each write deletes at most 100 expired rows.
    const cleanup = { text: `delete from public.client_errors where id in
     (select id from public.client_errors where last_seen < now()-interval '30 days' order by last_seen limit 100 for update skip locked)` };
@@ -83,7 +83,11 @@ export function createErrorWriter(pool: Pool, build: string): ErrorWriter {
      size_classes=array(select distinct x from unnest(client_errors.size_classes || excluded.size_classes) x order by x limit 2)`,
     values: [errorFingerprint(report.name, message, route, storedBuild), storedBuild, report.kind, report.name, message,
      [route], report.browser ? [report.browser] : [], report.size ? [report.size] : []] };
-   await client.query(insert);
+   // A new statement sees a group that another writer commits at the last slot.
+   if ((await client.query(insert)).rowCount === 0 && (await client.query(insert)).rowCount === 0) {
+    await client.query(`update public.client_error_budget set limited_at=now()
+     where singleton and (limited_at is null or limited_at<=now()-interval '1 minute')`);
+   }
    await client.query('commit');
   } catch {
    if (client) try { await client.query('rollback'); } catch { client.release(true); client = undefined; }

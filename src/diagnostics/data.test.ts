@@ -59,7 +59,7 @@ it.each(['account123456789', 'K6X', 'MeetMeAtTheStation', 'e2e4'])('removes each
   [`Cannot read properties of undefined (reading '${value}')`, 'Cannot read properties of [value] (reading [value])'],
   [`Cannot read properties of null (reading '${value}')`, 'Cannot read properties of [value] (reading [value])'],
   [`${value} is not a function`, '[value] is not a function'],
-  [`undefined is not an object (evaluating '${value}')`, '[value] is not an object (evaluating [value])'],
+  [`undefined is not an object (evaluating '${value}')`, 'Cannot read properties of [value] (reading [value])'],
   [`${value} is not defined`, '[value] is not defined'],
  ]) {
   expect(errorMessage(raw)).toBe(expected);

@@ -14,6 +14,7 @@ import { PostgresMatchStore } from '../match/store';
 import { cleanup } from '../online/jobs';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
+import { reportErrors } from '../../tools/errors-report';
 import { errorFingerprint, MAX_ERROR_BODY, errorMessage, type ClientErrorReport } from './data';
 import { createErrorWriter, errorAdmission, recordServerError } from './server';
 
@@ -174,12 +175,57 @@ suite('first-party fault HTTP and database writes', () => {
    expect((await admin.query('select count from public.client_error_budget')).rows).toEqual([{ count: 1000 }]);
    handler = createApiHandler({ ...options, recordError: createErrorWriter(runtime, build) });
    await post(report('Load failed')); expect(await rows()).toHaveLength(1000);
+   const limitedAt = (await admin.query('select limited_at from public.client_error_budget')).rows[0].limited_at;
+   expect(limitedAt).toBeInstanceOf(Date);
+   await post(report('Load failed')); await settle();
+   expect((await admin.query('select limited_at from public.client_error_budget')).rows[0].limited_at).toEqual(limitedAt);
+   vi.stubEnv('PLUGIN_DATABASE_URL', own.href);
+   const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+   try {
+    await reportErrors(['--since', '1']);
+    expect(log).toHaveBeenLastCalledWith(expect.stringContaining(`Hourly group limit: ${limitedAt.toISOString()}. Later groups can be absent.`));
+    await admin.query("update public.client_error_budget set limited_at=now()-interval '2 days'");
+    await reportErrors(['--since', '1']);
+    expect(log.mock.calls.at(-1)![0]).not.toContain('Hourly group limit');
+    await admin.query('update public.client_error_budget set limited_at=$1', [limitedAt]);
+   } finally { log.mockRestore(); vi.unstubAllEnvs(); }
    await post(report('Failed to fetch'));
    expect((await rows()).find(row => row.message === 'Failed to fetch').count).toBe('2');
    await admin.query("update public.client_error_budget set hour=hour-interval '1 hour'");
    await post(report('Load failed')); expect(await rows()).toHaveLength(1001);
    expect((await admin.query('select count from public.client_error_budget')).rows).toEqual([{ count: 1 }]);
+   expect((await admin.query('select limited_at from public.client_error_budget')).rows[0].limited_at).toEqual(limitedAt);
   } finally { peer.closeAllConnections(); await new Promise<void>(done => peer.close(() => done())); }
+ });
+ it('counts both writers at the last slot after they wait for the counter', async () => {
+  await post(report('Failed to fetch')); await settle();
+  await admin.query(`insert into public.client_errors(fingerprint,build,hour,kind,name,message,routes,browsers,size_classes)
+   select lpad(to_hex(n),16,'0'),$1,date_trunc('hour',now()),'error','Error','Unlisted message','{}','{}','{}'
+   from generate_series(1,998) n`, [build]);
+  await admin.query('update public.client_error_budget set count=999');
+  const peers = Array.from({ length: 2 }, () => new pg.Pool({ connectionString: runtime.options.connectionString, max: 1 }));
+  const lock = new pg.Client({ connectionString: own.href }); await lock.connect();
+  await lock.query('begin'); await lock.query('select * from public.client_error_budget for update');
+  const work = Promise.all(peers.map(pool => createErrorWriter(pool, build)(report('Invalid array length'))));
+  try {
+   await vi.waitFor(async () => expect((await admin.query("select pid from pg_stat_activity where datname=current_database() and usename=$1 and wait_event_type='Lock'", [role])).rowCount).toBe(2), { interval: 5, timeout: 400 });
+  } finally { await lock.query('rollback'); await lock.end(); await work; await Promise.all(peers.map(pool => pool.end())); }
+  expect((await rows()).find(row => row.message === 'Invalid array length').count).toBe('2');
+  expect(await rows()).toHaveLength(1000);
+  expect((await admin.query('select count,limited_at from public.client_error_budget')).rows).toEqual([{ count: 1000, limited_at: null }]);
+ });
+ it('uses UTC hours when the session starts in Asia/Kolkata', async () => {
+  const pool = new pg.Pool({ connectionString: runtime.options.connectionString, max: 1, options: '-c timezone=Asia/Kolkata' });
+  try {
+   expect((await pool.query('show timezone')).rows[0].TimeZone).toBe('Asia/Kolkata');
+   await admin.query("insert into public.client_error_budget(singleton,hour,count) values(true,date_trunc('hour',now(),'UTC')-interval '1 hour',1000)");
+   await createErrorWriter(pool, build)(report('Invalid array length'));
+   const stored = await rows(); expect(stored).toHaveLength(1);
+   const utcHour = (await admin.query("select date_trunc('hour',now(),'UTC') as hour")).rows[0].hour;
+   expect(stored[0].hour).toEqual(utcHour);
+   expect((await admin.query('select hour,count from public.client_error_budget')).rows).toEqual([{ hour: utcHour, count: 1 }]);
+   expect((await pool.query('show timezone')).rows[0].TimeZone).toBe('Asia/Kolkata');
+  } finally { await pool.end(); }
  });
  it('bounds each route group and caps its browser set at twenty values', async () => {
   for (let i = 0; i < 25; i++) await options.recordError!({ ...report(), browser: `Chrome ${100 + i}` });
@@ -236,6 +282,46 @@ suite('first-party fault HTTP and database writes', () => {
    expect(stored).toMatchObject([{ kind: 'server', message }]);
    expect(JSON.stringify(stored)).not.toContain(value);
   } finally { vi.unstubAllGlobals(); }
+ });
+ it('keeps fixed WebKit aliases and removes private values from bodies and rows', async () => {
+  const value = 'privateProbe731';
+  const aliases: [string, string][] = [
+   ['Array length must be a positive integer of safe magnitude.', 'Invalid array length'],
+   ['Invalid Date', 'Invalid time value'],
+   ['Attempted to assign to readonly property.', 'Assignment to constant variable.'],
+   ...['values', 'entries'].map(method => [`Object.${method} requires that input parameter not be null or undefined`, 'Cannot convert undefined or null to object'] as [string, string]),
+   ...['keys', 'getOwnPropertyNames', 'getOwnPropertySymbols', 'getPrototypeOf'].flatMap(method => ['null', 'undefined', value].map(input => [`${input === 'null' ? 'null' : 'undefined'} is not an object (evaluating 'Object.${method}(${input})')`, 'Cannot convert undefined or null to object'] as [string, string])),
+   ...['null', 'undefined'].flatMap(input => [
+    [`${input} is not an object (evaluating 'v.${value}')`, 'Cannot read properties of [value] (reading [value])'],
+    [`${input} is not an object (evaluating 'v['${value}']')`, 'Cannot read properties of [value] (reading [value])'],
+    [`${input} is not an object (evaluating 'v.${value}=731')`, 'Cannot set properties of [value] (setting [value])'],
+    [`${input} is not an object (evaluating 'v['${value}']=731')`, 'Cannot set properties of [value] (setting [value])'],
+   ] as [string, string][]),
+   ...['undefined', 'null', '731', 'an instance of Object'].map(input => [`v.${value} is not a function. (In 'v.${value}()', 'v.${value}' is ${input})`, '[value] is not a function'] as [string, string]),
+   [`Can't find variable: ${value}`, '[value] is not defined'],
+  ];
+  for (const [raw, message] of aliases) {
+   expect(errorMessage(raw)).toBe(message); expect(errorMessage(message)).toBe(message);
+   expect(errorMessage(raw + ' ' + value)).toBe('Unlisted message');
+   vi.resetModules();
+   const target = new EventTarget(), sent: Blob[] = [];
+   vi.stubGlobal('window', target);
+   vi.stubGlobal('location', { origin: 'https://kingdown.dev', pathname: '/play' });
+   vi.stubGlobal('navigator', { userAgent: 'Version/18.4 Safari/605.1', sendBeacon: (_: string, body: Blob) => { sent.push(body); return true; } });
+   vi.stubGlobal('matchMedia', () => ({ matches: false }));
+   try {
+    const { installErrorRecorder } = await import('./browser'); installErrorRecorder();
+    const error = new TypeError(raw); Object.defineProperty(error, 'stack', { get() { throw new Error(value); } });
+    target.dispatchEvent(Object.assign(new Event('error'), { error }));
+    expect(sent).toHaveLength(1);
+    const body = await sent[0].text(), input = JSON.parse(body);
+    expect(input.message).toBe(message); expect(body).not.toMatch(/privateProbe731|\b731\b/);
+    await admin.query('truncate public.client_errors');
+    await post(input);
+    const stored = await rows(); expect(stored).toMatchObject([{ message, count: '1' }]);
+    expect(JSON.stringify(stored)).not.toMatch(/privateProbe731|\b731\b/);
+   } finally { vi.unstubAllGlobals(); }
+  }
  });
  it.each(['error', 'worker', 'rejection'] as const)('stores a %s report with no location field', async kind => {
   await post({ ...report('Failed to fetch'), kind });

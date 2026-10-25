@@ -25,6 +25,7 @@ create table if not exists public.client_error_budget (
  hour timestamptz not null,
  count integer not null check (count between 1 and 1000)
 );
+alter table public.client_error_budget add column if not exists limited_at timestamptz;
 alter table public.client_error_budget enable row level security;
 revoke all on public.client_error_budget from public, anon, authenticated;
 alter table public.client_errors enable row level security;

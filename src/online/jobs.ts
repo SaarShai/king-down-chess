@@ -62,7 +62,7 @@ export async function cleanup(games: GameService, now = new Date()): Promise<{ i
    client = await pool.connect();
    for (;;) {
     await client.query('begin');
-    await client.query("set local statement_timeout = '500ms'; set local lock_timeout = '500ms'");
+    await client.query("set local statement_timeout = '500ms'; set local lock_timeout = '500ms'; set local timezone = 'UTC'");
     const batch = await client.query(`delete from public.client_errors where id in
      (select id from public.client_errors where last_seen<now()-interval '30 days'
       order by last_seen limit 100 for update skip locked)`);

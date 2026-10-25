@@ -6,7 +6,7 @@ type FaultRow = {
  fingerprint: string; count: string; first_seen: Date; last_seen: Date; build: string; kind: string;
  name: string; message: string; routes: string[]; browsers: string[]; size_classes: string[];
 };
-export function formatErrorReport(rows: FaultRow[]): string {
+export function formatErrorReport(rows: FaultRow[], limitedAt?: Date): string {
  const groups = new Map<string, { count: bigint; first: Date; last: Date; builds: Set<string>; routes: Set<string>; browsers: Set<string>; sizes: Set<string>; sample: FaultRow }>();
  for (const row of rows) {
   let group = groups.get(row.fingerprint);
@@ -22,13 +22,14 @@ export function formatErrorReport(rows: FaultRow[]): string {
   for (const browser of row.browsers) group.browsers.add(browser);
   for (const size of row.size_classes) group.sizes.add(size);
  }
- return [...groups.entries()].sort((a, b) => b[1].last.getTime() - a[1].last.getTime()).map(([fingerprint, group]) => [
+ const report = [...groups.entries()].sort((a, b) => b[1].last.getTime() - a[1].last.getTime()).map(([fingerprint, group]) => [
   `${fingerprint} | count ${group.count} | ${group.sample.kind}`,
   `First: ${group.first.toISOString()} | Last: ${group.last.toISOString()}`,
   `Builds: ${[...group.builds].sort().join(', ')}`, `Routes: ${[...group.routes].sort().join(', ')}`,
   `Browsers: ${[...group.browsers].sort().join(', ') || 'server'} | Size: ${[...group.sizes].sort().join(', ') || 'server'}`,
   `${group.sample.name}: ${group.sample.message}`,
  ].join('\n')).join('\n\n') || 'No fault reports.';
+ return limitedAt ? `Hourly group limit: ${limitedAt.toISOString()}. Later groups can be absent.\n\n${report}` : report;
 }
 export function sinceDays(args: string[]): number {
  if (!args.length) return 30;
@@ -41,8 +42,10 @@ export async function reportErrors(args = process.argv.slice(2)): Promise<void> 
  const pool = new pg.Pool({ connectionString, max: 1, connectionTimeoutMillis: 5000, statement_timeout: 10_000 });
  try {
   const { rows } = await pool.query<FaultRow>(`select fingerprint,count,first_seen,last_seen,build,kind,name,message,routes,browsers,size_classes
-   from public.client_errors where last_seen >= now()-($1::int * interval '1 day') order by last_seen desc`, [days]);
-  console.log(formatErrorReport(rows));
+   from public.client_errors where last_seen >= now()-($1::int * interval '24 hours') order by last_seen desc`, [days]);
+  const limit = await pool.query<{ limited_at: Date }>(`select limited_at from public.client_error_budget
+   where limited_at >= now()-($1::int * interval '24 hours')`, [days]);
+  console.log(formatErrorReport(rows, limit.rows[0]?.limited_at));
  } finally { await pool.end(); }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

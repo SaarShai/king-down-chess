@@ -68,10 +68,51 @@ export async function checkErrorRecorder({ browser, origin, pool, root }) {
   } finally { await pool.query('alter table public.recorder_rollout_errors rename to client_errors'); }
   nativeChecks = true;
   await checkNativeLocations({ context, origin, pool, asset, build: reports[0].build, browserFamily: reports[0].browser });
+  await checkNativeGroups({ context, origin, pool, asset });
   console.log('Error recorder: thrown error, rejection, private fields, opaque script filter, duplicate, five-report limit and missing table pass; ChatGPT bundle has no recorder');
  } finally {
   await context.close();
   await pool.query('delete from public.client_errors where fingerprint=any($1::text[])', [[...fingerprints]]);
+ }
+}
+
+/** Each pair must send two groups from the same page, in a window and a worker. */
+async function checkNativeGroups({ context, origin, pool, asset }) {
+ for (const worker of [false, true]) for (const [name, cases] of [
+  ['RangeError', [['new Array(-1)', 'Invalid array length'], ['new Date(NaN).toISOString()', 'Invalid time value']]],
+  ['TypeError', [['Object.keys(null)', 'Cannot convert undefined or null to object'], ['(()=>{const v=1;v=2})()', 'Assignment to constant variable.']]],
+ ]) {
+  const page = await context.newPage(), sent = [];
+  try {
+   await page.goto(origin); await page.waitForLoadState('networkidle');
+   await page.evaluate(() => addEventListener('error', event => event.preventDefault()));
+   page.on('request', request => { if (new URL(request.url()).pathname === '/api/client-errors') sent.push(request.postDataJSON()); });
+   for (const [index, [code]] of cases.entries()) {
+    const source = origin + asset + '?native-group=' + worker + name + index;
+    await page.route(source, route => route.fulfill({ contentType: 'text/javascript', body: code }));
+    const response = page.waitForResponse(reply => new URL(reply.url()).pathname === '/api/client-errors' && reply.status() === 204, { timeout: 5000 });
+    if (worker) await page.evaluate(url => {
+     const worker = new Worker(url);
+     worker.onerror = event => {
+      event.preventDefault();
+      window.dispatchEvent(new CustomEvent('kingdown-worker-error', { detail: event }));
+      worker.terminate();
+     };
+    }, source);
+    else try { await page.addScriptTag({ url: source }); } catch { /* The native event supplies the fault. */ }
+    await response;
+   }
+   assert.equal(sent.length, 2);
+   assert.deepEqual(sent.map(report => report.message), cases.map(([, message]) => message));
+   assert(sent.every(report => report.name === name && report.kind === (worker ? 'worker' : 'error')));
+   const stored = (await pool.query('select name,message,count from public.client_errors where fingerprint=any($1::text[])', [sent.map(report => report.fingerprint)])).rows;
+   assert.equal(stored.length, 2);
+   assert.deepEqual(stored.map(row => row.message).sort(), cases.map(([, message]) => message).sort());
+   assert(stored.every(row => row.name === name && row.count === '1'));
+  } finally {
+   await page.close();
+   await pool.query('delete from public.client_errors where fingerprint=any($1::text[])', [sent.map(report => report.fingerprint)]);
+  }
  }
 }
 

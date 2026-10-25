@@ -347,3 +347,52 @@ The copied sixth-review probe keeps all native fault inputs and private-value ch
 | `git diff --check` | Pass. |
 
 No check fails. The shared test lock stays in place. No dependency changes are needed. The final code check finds no smaller complete change: one fixed counter row gives the atomic shared bound, and the shared cleaner supplies all message categories. Logs, copied probes and JSON proof are in `/private/tmp/claude-501/ci87/sol32/`. No push, deploy, staging database connection or production database connection occurs.
+
+
+## Seventh review fix
+
+Status: resolved
+
+Plan:
+
+1. Keep the last refused-group time on the one counter row. Show a notice in the report window. Keep the 1,000-group limit and write the time at most once per minute.
+2. Add fixed aliases from native WebKit texts. Check the two fault pairs in windows and workers. Check every alias with private probe values.
+3. Repeat a zero-row insert once in the same transaction. Set the writer and fault cleanup to UTC. Use fixed 24-hour days in the report.
+4. Run the required tests, browser checks and four review probes. Compare the board, plugin function files and CSP with the staging base. Record the proof and commit. Do not push or deploy.
+
+Check criteria: a refused new group sets the notice time, and the next hour keeps it. The report shows the notice only inside its window. Two writers at slot 1,000 store one group with count 2. A session in `Asia/Kolkata` uses UTC hours. Native WebKit pairs remain separate, and private values reach no report body or row. All required checks pass. Build bytes match the base.
+
+
+### Seventh review results
+
+The four findings have fixes and proof. Migration 0019 adds `limited_at` with `if not exists`. The writer records a refused group at most once per minute. A new hour keeps that time. The report shows the time inside its window and states that later groups can be absent.
+
+The writer repeats the same insert once if it writes no row. Two blocked writers at slot 1,000 now store one group with count 2. The counter stays at 1,000. The writer and fault cleanup set UTC in each transaction. The report uses 24-hour days, so its window does not change with the session time zone.
+
+The shared cleaner uses native WebKit texts from the review and new native runs. Each alias returns fixed text. Thirty table cases check the full sent body and stored row with private probe values. The browser check now requires separate native fault pairs in windows and workers.
+
+| Check | Result |
+| --- | --- |
+| Fetch and staging base | Pass. The base stays at `762e42bc`. No merge is needed. |
+| `npx tsc --noEmit -p .` | Pass. Exit 0. |
+| Selected recorder, report, HTTP, jobs, build and message-form tests | Pass. 10 files and 208 tests. All 57 drawing tests pass. |
+| Full `npm test`, once | Pass. 272 files, 5,121 tests and eight skips. All 57 drawing tests pass. Duration: 354.47 seconds. |
+| `npm run test:docs` | Pass. 13 files and 167 tests. |
+| Local schema setup after the full test reset | Pass. Only the approved loopback database is used. |
+| Four base and branch builds | Pass. Both plugin-only builds and both combined website builds pass. |
+| Build byte comparison | Pass. All 22 plugin function files and four links match. The board is 895,593 bytes. The CSP source is 28,352 bytes. |
+| `npm run check:browser web-game plugin-ui` | The first website run fails its file-change guard because the runtime notes change during the run. Its game and recorder cases pass. Plugin UI passes in 272.9 seconds. |
+| `npm run check:browser web-game`, repeated with fixed files | Pass. Exit 0 in 65.6 seconds. This corrects the guard failure. |
+| Copied `saturation-http.mjs` | Pass. 1,000 raw reports fill the counter. A new group adds no row. The report shows the limit time. |
+| Copied `webkit-group.mjs` | Pass. All four window and worker pairs send two reports and store two fixed groups. |
+| Copied `sql-probe.mjs` | Pass. Both last-slot cases have count 2. The limit notice, hour reset, grants, retention and repeated migration pass. |
+| Copied `edge-probe.mjs` | Pass. The half-hour session does not reset at 12:30 UTC. It resets at 13:00 UTC. Migration checks also pass. |
+| Extra Chromium and Firefox review probe | Pass. 20 native cases and four group cases pass. Private values reach no body or row. |
+| Extra native worker probe | Pass. All 12 cases pass in each of Chromium, Firefox and WebKit. |
+| Privacy copies | Pass. The paragraphs match. The new server limit time changes no fault report field or stated data exclusion. |
+| Temporary base worktree and branch | Removed after the build comparison. |
+| `git diff --check` | Pass. |
+
+The copied probes keep their native fault inputs. `probe-changes.md` names each changed assertion and path. The code check finds no simpler complete fix. One extra column keeps the limit notice on the existing counter row. The existing insert handles both tries.
+
+Proofs and logs are in `/private/tmp/claude-501/ci87/sol34/`. The shared test lock stays in place. No push, deploy or remote database connection occurs.
