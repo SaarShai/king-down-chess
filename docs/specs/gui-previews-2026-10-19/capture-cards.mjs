@@ -53,11 +53,10 @@ try {
     }
     if(wanted('A5')||wanted('A33')) {
       await open('play');
-      await f.locator('#setup-toggle-cards').locator('..').click();
+      await f.locator('#setup-options').evaluate(e=>{e.open=true;});
+      await f.locator('#setup-toggle-cards').check();
       if(wanted('A5')) await shot('A5','setup-cards');
-      await f.locator('#setup-cards').click();
-      for(const item of ['A5','A33'].filter(wanted)) await scrollShots(item,'card-pool',f.locator('#menu-sheet .sheet-body'));
-      await f.locator('#menu-close').click();
+      for(const item of ['A5','A33'].filter(wanted)) await scrollShots(item,'card-pool',f.locator('#setup-card-pool'));
     }
     for(const item of ['A5','A33','A40'].filter(wanted)) {
       await open('collection');

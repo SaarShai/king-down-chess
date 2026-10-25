@@ -4,116 +4,66 @@ import { settled } from './plugin-settled.mjs';
 
 export async function checkCardChoices(page, frame, mount, setup, cards) {
   await mount(setup);
-  const grid = frame.locator('#setup-card-grid'), sheet = frame.locator('#menu-sheet');
-  const noLoops = async root => assert.equal(await root.evaluate(el => el.getAnimations({ subtree: true }).filter(a => a.playState === 'running' && a.effect.getComputedTiming().iterations === Infinity).length), 0, 'Card art has no running loop');
-  const transform = face => face.evaluate(async el => {
-    await Promise.all(el.getAnimations().map(a => a.finished));
-    await new Promise(resolve => requestAnimationFrame(() => resolve()));
-    return getComputedStyle(el).transform;
-  });
+  const noLoops = async target => assert(await target.evaluate(e => e.getAnimations({subtree:true}).every(a => a.playState !== 'running' || a.effect.getComputedTiming().endTime !== Infinity)), 'Cards have no infinite animation');
+  const grid=frame.locator('#setup-card-pool'), body=frame.locator('#cards-body'), sheet=frame.locator('#menu-sheet');
+  const selected=()=>grid.locator('input:checked').evaluateAll(inputs=>inputs.map(i=>i.value));
+  assert.equal(await grid.locator('[data-card]').count(),cards.length);
+  assert.equal(await grid.locator('small, .cf-cost').count(),0,'Tiles show art and name only');
+  for(const [width,height] of [[1280,800],[390,844],[320,568]]) {
+    await page.setViewportSize({width,height});
+    assert(await grid.evaluate(e=>e.scrollHeight>e.clientHeight && getComputedStyle(e).overflowY==='auto' && getComputedStyle(e).overscrollBehaviorY==='contain'),'The card box contains its scroll');
+    assert(await frame.locator('html').evaluate(e=>e.scrollWidth<=e.clientWidth),'The page fits');
+    await grid.evaluate(e=>{e.scrollTop=e.scrollHeight;});
+    assert(await grid.evaluate(e=>e.scrollTop>0));
+  }
+  await page.setViewportSize({width:393,height:900});
+  await frame.locator('#setup-card-Haste').click();
+  assert(await sheet.locator('small').innerText()); assert(await sheet.locator('.cf-cost').innerText());
+  await frame.locator('#menu-close').click();
+  assert(await frame.locator('#setup-card-Haste').evaluate(e=>e===document.activeElement),'Close returns focus to the tile');
+  await body.getByRole('radio',{name:'Pick four',exact:true}).locator('..').click();
+  assert.equal((await selected()).length,0);
+  await frame.locator('#setup-start').click();
+  assert.equal(await frame.locator('#setup-card-status').innerText(),'Pick 4 more cards.');
+  assert(await frame.locator('[data-screen="play"]').isVisible(),'An incomplete pool does not start a game');
+  const picked=['MirrorB','MorphP','Haste','Flight'];
+  for(const card of picked) await grid.locator(`input[value="${card}"]`).check();
+  assert.equal(await grid.locator('input:not(:checked):disabled').count(),cards.length-4);
+  await grid.locator('input[value="MirrorB"]').uncheck();
+  assert(!await grid.locator('input[value="Freeze"]').isDisabled());
+  await grid.locator('input[value="MirrorB"]').check();
+  assert.deepEqual(new Set(await selected()),new Set(picked));
+  await shot(page,'cards-picked-four');
+  await body.getByRole('radio',{name:'Use all cards',exact:true}).locator('..').click();
+  assert.equal((await selected()).length,cards.length);
+  for(const card of cards.slice(4)) await grid.locator(`input[value="${card}"]`).uncheck();
+  assert.equal(await grid.locator('input:checked:disabled').count(),4,'The last four cards lock');
+  assert(await frame.locator('#setup-card-lock').isVisible());
+  for(const card of cards.slice(4,6)) await grid.locator(`input[value="${card}"]`).check();
+  await body.getByRole('radio',{name:'Pick four',exact:true}).locator('..').click();
+  await body.getByRole('radio',{name:'Use all cards',exact:true}).locator('..').click();
+  assert.deepEqual(await selected(),cards.slice(0,6),'A mode round trip keeps the all-card pool');
+  await frame.locator('#setup-card-Haste').click();
+  await sheet.locator('input').uncheck(); await sheet.locator('input').focus();
+  const before=await sheet.elementHandle();
+  const result=await (await page.request.post(new URL('/fixture-tool',page.url()).href,{data:{name:'kingdown_open',arguments:{screen:'play'}}})).json();
+  assert(!result.isError); await page.evaluate(result=>window.harnessShow(result),result); await settled(page,frame);
+  assert(await sheet.evaluate((e,before)=>e===before,before),'A host refresh keeps the card sheet'); await before.dispose();
+  assert(await sheet.locator('input').evaluate(e=>e===document.activeElement),'A host refresh keeps focus');
+  assert(!await sheet.locator('input').isChecked(),'The sheet keeps the inline pool change');
+  await frame.locator('#menu-close').click();
+  assert.equal((await selected()).length,5);
+  const art=await grid.locator('[data-card]').evaluateAll(faces=>faces.map(f=>({card:f.dataset.card,image:!!f.querySelector('.cf-art img'),scene:!!f.querySelector('.cf-art .pm'),picture:!!f.querySelector('.cf-art .card-picture'),name:f.querySelector('b').textContent})));
+  assert.equal(art.filter(a=>a.image).length,12); assert.equal(art.filter(a=>a.picture).length,9);
+  assert.equal(await grid.locator('img[src*="back.webp"]').count(),0);
   await noLoops(grid);
-  assert.equal(await grid.locator('.card-face').count(), 4);
-  for (const width of [197, 393, 1000]) {
-    await page.setViewportSize({ width, height: 900 });
-    const boxes = await grid.locator('.card-face').evaluateAll(faces => faces.map(f => { const r = f.getBoundingClientRect(); return { x: r.x, y: r.y, right: r.right }; }));
-    assert.equal(boxes[0].y, boxes[1].y); assert.equal(boxes[2].y, boxes[3].y);
-    assert(boxes[2].y > boxes[0].y && boxes[1].x > boxes[0].x, 'The four faces form two rows and two columns');
-    assert(boxes.every(b => b.x >= 0 && b.right <= width), 'The grid fits the frame');
-  }
-  await page.setViewportSize({ width: 393, height: 900 });
-  assert.equal(await grid.locator('[aria-pressed]').count(), 0, 'New game cards do not claim a toggle state');
-  for (const face of await grid.locator('.card-face').all()) {
-    assert(await face.locator('b').innerText()); assert(await face.locator('small').innerText()); assert(await face.locator('.cf-cost').innerText());
-  }
-  await grid.locator('[data-card="Haste"]').click();
-  assert(await sheet.locator('input[value="Haste"]').evaluate(el => el === document.activeElement), 'A card tap opens Cards at that card');
-  await frame.locator('#menu-close').click();
-  assert(await grid.locator('[data-card="Haste"]').evaluate(el => el === document.activeElement), 'Close returns focus to the card');
-  await frame.locator('#setup-cards').click();
-  await sheet.getByRole('radio', { name: 'Pick four', exact: true }).locator('..').click();
-  assert.equal(await sheet.locator('.card-grid input:checked').count(), 0);
-  const haste = sheet.locator('label.card-face:has(input[value="Haste"])');
-  assert.equal(await haste.evaluate(el => getComputedStyle(el).transitionDuration), '0.14s');
-  assert.equal(await transform(haste), 'none');
-  await haste.locator('input').check();
-  assert.equal(await transform(haste), 'matrix(1, 0, 0, 1, 0, -3)', 'A checked card lifts 3 px');
-  assert.deepEqual(await sheet.locator('label.card-face:not(:has(input:checked))').evaluateAll(faces => faces.map(f => getComputedStyle(f).transform)), cards.slice(1).map(() => 'none'));
-  await haste.locator('input').uncheck();
-  assert.equal(await transform(haste), 'none', 'An unchecked card returns to its first position');
-  await noLoops(sheet);
-  await frame.locator('#setup-done').click();
-  assert.equal(await sheet.locator('.foot-count').innerText(), 'Choose exactly 4 cards.');
-  const picked = ['MirrorB','MorphP','Haste','Flight'];
-  for (const card of picked) await sheet.locator(`input[value="${card}"]`).check();
-  assert.equal(await sheet.locator('.card-grid input:checked:disabled').count(), 0);
-  assert.equal(await sheet.locator('.card-grid input:not(:checked):disabled').count(), cards.length - 4);
-  await sheet.locator('input[value="MirrorB"]').uncheck();
-  assert(!await sheet.locator('input[value="Freeze"]').isDisabled());
-  await sheet.locator('input[value="MirrorB"]').check();
-  await frame.locator('#setup-done').click();
-  const shown = () => grid.locator('[data-card]').evaluateAll(faces => faces.map(f => f.dataset.card));
-  assert.deepEqual(await shown(), picked.filter(c => c !== 'MirrorB').concat('MirrorB'));
-  assert.equal(await grid.locator('[data-card="MirrorB"] b').innerText(), 'Mirror');
-  assert.equal(await grid.locator('[data-card="MorphP"] b').innerText(), 'Morph');
-  const saved = await shown();
-  await grid.scrollIntoViewIfNeeded(); await shot(page, 'cards-picked-four');
-  for (const exit of ['Close','Escape','scrim']) {
-    await frame.locator('#setup-cards').click(); await sheet.locator('input[value="MorphP"]').uncheck();
-    if (exit === 'Close') await frame.locator('#menu-close').click();
-    else if (exit === 'Escape') await page.keyboard.press('Escape');
-    else await frame.locator('.scrim').click({ position: { x: 2, y: 2 } });
-    assert.equal(await sheet.count(), 0); assert.deepEqual(await shown(), saved, `${exit} keeps the last valid pool`);
-  }
-  await frame.locator('#setup-cards').click();
-  await sheet.getByRole('radio', { name: 'Use all cards', exact: true }).locator('..').click();
-  assert.equal(await sheet.locator('.card-grid input:checked').count(), cards.length);
-  for (const card of cards.slice(3)) await sheet.locator(`input[value="${card}"]`).uncheck();
-  await frame.locator('#setup-done').click();
-  assert.equal(await sheet.locator('.foot-count').innerText(), 'Keep at least 4 cards checked.');
-  for (const card of cards.slice(3, 6)) await sheet.locator(`input[value="${card}"]`).check();
-  await frame.locator('#setup-done').click();
-  assert((await frame.locator('#setup-cards').innerText()).startsWith('6 cards'));
-  assert((await frame.locator('#setup-deal-note').innerText()).includes('at random'));
-  await frame.locator('#setup-cards').click();
-  assert(await sheet.getByRole('radio', { name: 'Use all cards', exact: true }).isChecked());
-  await sheet.getByRole('radio', { name: 'Pick four', exact: true }).locator('..').click();
-  await sheet.getByRole('radio', { name: 'Use all cards', exact: true }).locator('..').click();
-  assert.deepEqual(await sheet.locator('.card-grid input:checked').evaluateAll(inputs => inputs.map(i => i.value)), cards.slice(0, 6), 'A mode round trip keeps the saved pool');
-  await frame.locator('#setup-done').click();
-  assert((await frame.locator('#setup-cards').innerText()).startsWith('6 cards'));
-  await frame.locator('#setup-cards').click();
-  await sheet.locator('input[value="Haste"]').uncheck();
-  // WebKit does not give keyboard focus to a checkbox on a pointer click.
-  await sheet.locator('input[value="Haste"]').focus();
-  const beforeSheet = await sheet.elementHandle(), beforeCard = await grid.locator('.card-face').first().elementHandle();
-  const focused = await sheet.locator('input:focus').getAttribute('value');
-  assert.equal(focused, 'Haste', 'The refresh starts with keyboard focus on the changed card');
-  const result = await (await page.request.post(new URL('/fixture-tool', page.url()).href, { data: { name: 'kingdown_open', arguments: { screen: 'play' } } })).json();
-  assert(!result.isError);
-  await page.evaluate(result => window.harnessShow(result), result);
-  await beforeCard.waitForElementState('hidden');
-  // Read the sheet after the mount ends: a later store pass draws the setup screen again.
-  await settled(page, frame);
-  assert(await sheet.evaluate((el, before) => el === before, beforeSheet), 'A host refresh keeps the open sheet');
-  await beforeSheet.dispose(); await beforeCard.dispose();
-  assert.equal(await sheet.locator('input:focus').getAttribute('value'), focused, 'A host refresh keeps focus');
-  assert(!await sheet.locator('input[value="Haste"]').isChecked(), 'A host refresh keeps the card draft');
-  assert.equal(await sheet.locator('.card-grid input:checked').count(), 5);
-  await frame.locator('#setup-done').click();
-  assert((await frame.locator('#setup-cards').innerText()).startsWith('5 cards'), 'Done saves the draft after a host refresh');
-  await frame.locator('#setup-cards').click();
-  const art = await sheet.locator('.card-face').evaluateAll(faces => faces.map(f => ({ card: f.querySelector('input').value, image: !!f.querySelector('.cf-art img'), scene: !!f.querySelector('.cf-art .pm'), picture: !!f.querySelector('.cf-art .card-picture'), name: f.querySelector('b').textContent })));
-  assert.equal(art.filter(a => a.image).length, 12); assert.equal(art.filter(a => a.scene).length, 0); assert.equal(art.filter(a => a.picture).length, 9);
-  assert(!await sheet.locator('img[src*="back.webp"]').count());
-  await frame.locator('#menu-close').click();
-  // Built-page checks use visible controls; source-harness app helpers are absent.
   await frame.locator('[data-screen="play"] [data-nav="profile"]').click();
   await frame.locator('[data-screen="profile"] [data-nav="collection"]').click();
-  await frame.locator('#collection-tabs label').filter({ hasText: 'Cards' }).click();
-  const collection = await frame.locator('#collection-items .card-face').evaluateAll(faces => faces.map(f => ({ card: f.dataset.card, image: !!f.querySelector('.cf-art img'), scene: !!f.querySelector('.cf-art .pm'), picture: !!f.querySelector('.cf-art .card-picture'), name: f.querySelector('b').textContent })));
-  assert.deepEqual(collection, art, 'The sheet and Collection share card art and names');
+  await frame.locator('#collection-tabs label').filter({hasText:'Cards'}).click();
+  const collection=await frame.locator('#collection-items .card-face').evaluateAll(faces=>faces.map(f=>({card:f.dataset.card,image:!!f.querySelector('.cf-art img'),scene:!!f.querySelector('.cf-art .pm'),picture:!!f.querySelector('.cf-art .card-picture'),name:f.querySelector('b').textContent})));
+  assert.deepEqual(collection,art,'The pool and Collection share art and names');
   await noLoops(frame.locator('#collection-items'));
-  console.log('Cards: grid, names, art, costs, both modes and all three cancel paths pass');
+  console.log('Cards: inline grid, full card, focus, art, both modes, locks and refresh pass');
 }
 
 export async function measureCardCoins(frame, output) {

@@ -36,10 +36,10 @@ async function newGame(frame: FrameLocator, toggles: [string, boolean][], start 
   const options = frame.locator('#setup-options');
   if (!await options.evaluate(e => (e as HTMLDetailsElement).open)) await options.locator('summary').click();
   await frame.getByRole('radio', { name: 'White', exact: true }).locator('..').click();
-  for (const [name, on] of toggles) { const box = frame.getByRole('checkbox', { name, exact: true }); if (await box.count()) await box.setChecked(on); }
+  for (const [name, on] of toggles) { if (name === 'First rank sorting') { if (await frame.locator('#setup-sorting').isVisible()) await frame.locator('#setup-sorting').getByRole('radio', {name: on ? 'Player' : 'Random', exact:true}).locator('..').click(); continue; } const box = frame.getByRole('checkbox', { name, exact: true }); if (await box.count()) await box.setChecked(on); }
   if (start) await frame.locator('#setup-start').click();
 }
-const only = (on: string[]) => ['Fairy pieces', 'Arrangement', 'Classic chess', 'King powers', 'Cards'].map(name => [name, on.includes(name)] as [string, boolean]);
+const only = (on: string[]) => ['Fairy pieces', 'First rank sorting', 'Classic chess', 'King powers', 'Cards'].map(name => [name, on.includes(name)] as [string, boolean]);
 it('keeps source symbols intact beside protection badges', async () => {
   const { page, frame } = await open(false);
   try {
@@ -307,8 +307,7 @@ it.each([false, true])('presses a spent card into grey once (reduced motion %s)'
   try {
     // A random hand can have no legal card at the start. Keep a playable hand for the press check.
     // Freeze and Firewall have their own local release (the next test).
-    await pickFour(frame, ['IceWall', 'Strike', 'MorphP', 'Vault']);
-    await frame.locator('#setup-done').click(); await frame.locator('#setup-start').click();
+    await pickFour(frame, ['IceWall', 'Strike', 'MorphP', 'Vault']); await frame.locator('#setup-start').click();
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     await settled(page, frame);
     let index = -1;
@@ -351,17 +350,16 @@ it.each([false, true])('presses a spent card into grey once (reduced motion %s)'
 });
 
 async function pickFour(frame: FrameLocator, cards: string[]) {
-  await newGame(frame, only(['Cards']), false); await frame.locator('#setup-cards').click();
-  await frame.locator('[name="card-mode"][value="Use all cards"]').locator('..').click();
-  await frame.locator('[name="card-mode"][value="Pick four"]').locator('..').click();
+  await newGame(frame, only(['Cards']), false);
+  await frame.locator('[name="setup-card-mode"][value="Use all cards"]').locator('..').click();
+  await frame.locator('[name="setup-card-mode"][value="Pick four"]').locator('..').click();
   for (const card of cards) await frame.locator(`.card-grid input[value="${card}"]`).check();
 }
 const spentStyle = (coin: Locator) => coin.evaluate(e => e.isConnected ? { opacity: getComputedStyle(e).opacity, filter: getComputedStyle(e).filter, paintOpacity: getComputedStyle(e.querySelector('.coin-paint')!).opacity, paintTransform: getComputedStyle(e.querySelector('.coin-paint')!).transform, paintFilter: getComputedStyle(e.querySelector('.coin-paint')!).filter } : null);
 it.each([false, true])('releases Freeze at its card and rests in the same spent style (reduced motion %s)', async reduced => {
   const { page, frame } = await open(reduced);
   try {
-    await pickFour(frame, ['Freeze', 'IceWall', 'MorphP', 'Vault']);
-    await frame.locator('#setup-done').click(); await frame.locator('#setup-start').click();
+    await pickFour(frame, ['Freeze', 'IceWall', 'MorphP', 'Vault']); await frame.locator('#setup-start').click();
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
     const coin = frame.locator('#game-table .card-coin[aria-label^="Your Freeze"]'), id = await coin.getAttribute('id');
     // The opening deal ends first: a coin row rebuild during the deal resumes the deal on the spent coin (motion.play).
@@ -453,7 +451,7 @@ it.each([false, true])('pulses the checked side once (reduced motion %s)', async
 it.each([false, true])('opens the board after both Ready (reduced motion %s)', async reduced => {
   const { page, frame } = await open(reduced);
   try {
-    await newGame(frame, only(['Fairy pieces', 'Arrangement'])); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
+    await newGame(frame, only(['Fairy pieces', 'First rank sorting'])); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
     await frame.locator('#board[aria-busy="false"]').waitFor(); await frame.locator('#seat-ready:not(:disabled)').waitFor();
     const motion = await recordMotion(page, frame, ['#game-table .portrait', '#board canvas', '#board', '#game-table *']);
     await frame.locator('#seat-ready').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();

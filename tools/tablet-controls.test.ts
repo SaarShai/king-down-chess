@@ -204,9 +204,12 @@ it('keeps lesson text and icons inside their faces and the bar at phone width', 
   } finally { await page.close(); }
 });
 
-it('gives both setup choosers the shared tablet face', async () => {
-  const page = await fixture(true, '<div id="app-root"><dialog open id="new-game" class="page-sheet"><label class="check toggle"><span class="grow">Fairy pieces</span><button id="setup-pieces" class="all">10 kinds ›</button></label><label class="check toggle"><span class="grow">Cards</span><button id="setup-cards" class="all">21 cards ›</button></label></dialog></div>');
-  try { await checkTabletButtons(page, '#setup-pieces, #setup-cards'); }
+it('gives both setup section buttons a clear 48 pixel target', async () => {
+  const page = await fixture(true, '<div id="app-root"><dialog open id="new-game" class="page-sheet"><div class="section-head"><button id="fairy-heading">Fairy pieces <small>10 kinds</small></button><label class="section-switch"><input type="checkbox" aria-label="Fairy pieces"></label></div><div class="section-head"><button id="cards-heading">Cards <small>21 cards</small></button><label class="section-switch"><input type="checkbox" aria-label="Cards"></label></div></dialog></div>');
+  try {
+    await checkButtonContent(page, '#fairy-heading, #cards-heading');
+    for (const button of await page.locator('.section-head > button').all()) { const box=(await button.boundingBox())!; expect(box.height).toBeGreaterThanOrEqual(48); expect(box.width).toBeGreaterThanOrEqual(48); }
+  }
   finally { await page.close(); }
 });
 
