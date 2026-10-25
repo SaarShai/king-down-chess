@@ -971,10 +971,17 @@ describe('deploy-keep-assets.mjs', () => {
 
   it('tries a file again after a network fault, and stops after the third fault', async () => {
     const path = '/assets/lazy-FFFF6666.js', reply = { path, type: 'text/javascript' };
-    const once = await site(live, { ...reply, drop: 2 });
-    const result = await keep(buildFolder(build()), once.url);
+    const once = await site(live, { ...reply, drop: 2 }), kept_ = buildFolder(build());
+    const result = await keep(kept_, once.url);
     expect(result.status, result.stderr).toBe(0);
     expect(once.requests.filter(r => r.path === path)).toHaveLength(3);
+    expect(tree(kept_)['assets/lazy-FFFF6666.js']).toBe('lazy');
+    // An HTTP reply gets no second try.
+    const gone = live();
+    delete gone['assets/lazy-FFFF6666.js'];
+    const missing = await site(() => gone);
+    expect((await keep(buildFolder(build()), missing.url)).status).toBe(1);
+    expect(missing.requests.filter(r => r.path === path)).toHaveLength(1);
     const always = await site(live, { ...reply, drop: 3 }), folder = buildFolder(build());
     const failed = await keep(folder, always.url);
     expect(failed.status).toBe(1);
