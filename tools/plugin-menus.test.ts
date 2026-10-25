@@ -143,7 +143,7 @@ it('locks Name until settings finish on a saved screen', async () => {
 
 it('scrolls the Profile parchment with the page and keeps its roller and trailing controls reachable', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
-  const history: HistoryEntry[] = Array.from({ length: 20 }, (_, i) => ({ game_id: randomUUID(), finished_at: new Date(Date.UTC(2026, 9, 10, 12 - i)).toISOString(), kind: 'friend', colour: 'white', result: 'won', reason: 'resignation', opponent: { handle: `player_${i}`, icon: 'spirit', computer: false, deleted: false, level: null }, features: { fairy: true, arrangement: true, classic: false, cards: false, powers: false, king: null, power: null } }));
+  const history: HistoryEntry[] = Array.from({ length: 20 }, (_, i) => ({ rating_policy: 'legacy', game_id: randomUUID(), finished_at: new Date(Date.UTC(2026, 9, 10, 12 - i)).toISOString(), kind: 'friend', colour: 'white', result: 'won', reason: 'resignation', opponent: { handle: `player_${i}`, icon: 'spirit', computer: false, deleted: false, level: null }, features: { fairy: true, arrangement: true, classic: false, cards: false, powers: false, king: 'Flame', power: null } }));
   try {
     await page.request.post(new URL('/fixture-seed', harness.url).href, { data: { actor: 'alice', data: { history } } });
     await go(page, 'profile');

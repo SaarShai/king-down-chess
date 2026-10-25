@@ -231,7 +231,7 @@ it('gives Keep playing and Review the shared tablet face on the web', async () =
   const page = await fixture(false, '');
   try {
     await webParts(page, ['#menu-sheet', '#over']);
-    await page.locator('[data-menu-page="resign"]').evaluate(el => { el.hidden = false; });
+    await page.locator('[data-menu-page="resign"]').evaluate(el => { (el as HTMLElement).hidden = false; });
     await checkTabletButtons(page, '#menu-sheet [data-go="menu"], #over-review');
   } finally { await page.close(); }
 });

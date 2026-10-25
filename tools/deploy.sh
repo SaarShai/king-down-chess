@@ -17,10 +17,12 @@
 # A build that adds an uncommitted engine stops. KINGDOWN_ENGINES_DATABASE_URL enables the read-only
 # check of engines in use; publish stops without it. Check-only mode can skip it.
 #
-# --publish copies the tested Build Output API tree, links the approved team and project, and uses
-# the pinned CLI with --prebuilt --prod. No website-only tree can publish to kingdown.
+# --publish copies the tested Build Output API tree, links the approved team and project, adds the
+# content-named files of the live build that the new static tree does not have (deploy-keep-assets.mjs),
+# and uses the pinned CLI with --prebuilt --prod. No website-only tree can publish to kingdown.
 # Both unsigned live checks use DEPLOY_LIVE_TIMEOUT_MS (site default 180000, plugin default 120000;
-# migration window 900000). The site check compares the public bytes, the app routes and /api/status.
+# migration window 900000). The site check compares the public bytes, every file under assets/ (kept files
+# too), the app routes and /api/status.
 # The plugin check uses https://kingdown.dev.
 # Every exit removes the temporary worktree and artifact copy.
 set -eu
@@ -299,6 +301,11 @@ cd "$site"
 unset VERCEL_PROJECT_ID VERCEL_ORG_ID
 step "link $kind project" npx --yes "$vercel" link --project "$project" --scope "$scope" --yes </dev/null
 step "verify $kind project" verify_project "$project" "$expected"
+if [ "$target" = website ]; then
+  # Only the publish copy gets the live build's content-named files under assets/; the tested tree stays
+  # as built. A page of the live build can then load its own chunks after the switch.
+  step 'keep live assets' node "$dir/tools/deploy-keep-assets.mjs" "$site/.vercel/output/static"
+fi
 step "$publish_step" npx --yes "$vercel" deploy --prebuilt --prod --scope "$scope" --yes </dev/null
 if [ "$target" = website ]; then
   step 'live check' node "$dir/tools/deploy-live-check.mjs" "$site/.vercel/output/static"

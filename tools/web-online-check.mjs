@@ -130,6 +130,33 @@ export function assertInterruptedPurge(events, after = 0) {
   assert.equal(slice.filter(event => ['reply', 'probe'].includes(event.event)).length, 0, 'Interrupted purge has no reply or send');
 }
 
+/** The profile pages send each request to the local server: no request leaves the runner. A data: or blob: URL is no network request. */
+export function assertLocalRequests(urls) {
+  const outside = urls.filter(url => !/^http:\/\/127\.0\.0\.1(:\d+)?\//.test(url) && !/^(data|blob):/.test(url));
+  assert.deepEqual(outside, [], 'Each profile request goes to http://127.0.0.1');
+}
+
+/** The two control requests to another host: one fetch and one WebSocket. Chromium and Firefox send the socket to
+ * the proxy as a tunnel; WebKit sends its URL. The page records the socket too. */
+export const OUTSIDE_CONTROLS = { fetch: 'http://outside.invalid/request-control', socket: 'ws://outside.invalid/socket-control', tunnel: 'CONNECT outside.invalid:80' };
+
+/** True when a proxy log entry is the WebSocket control. */
+export const socketControl = entry => entry === OUTSIDE_CONTROLS.socket || entry === OUTSIDE_CONTROLS.tunnel;
+
+/** The proxy log of the profiles without the controls: each other request to another host. Each one is a fault. */
+export function outsideRequests(log) {
+  return log.filter(entry => entry !== OUTSIDE_CONTROLS.fetch && !socketControl(entry));
+}
+
+/** Profile options: each request to another host goes through the proxy. Firefox's media plug-in update check is
+ * off. Full Chromium and the branded channels (chromium, chrome, msedge) send their own service requests to google.com
+ * and other hosts with every switch tried, so a Chromium profile opens the bundled headless shell, which sends none. */
+export function proxiedOptions(options, proxyPort, channel = env('PLAYABLE_BROWSER')) {
+  return { ...options, channel: channel === 'webkit' || channel === 'firefox' ? channel : 'chromium-headless-shell',
+    proxy: { server: `http://127.0.0.1:${proxyPort}`, bypass: '127.0.0.1' },
+    firefoxUserPrefs: { 'media.gmp-manager.updateEnabled': false, 'media.gmp-manager.url': '' } };
+}
+
 /** Compile the real private client for the fixture page. */
 export async function buildWorkerProbe() {
   const entry = resolve('tools/fixtures/web-worker/page.ts');
@@ -142,9 +169,10 @@ export async function buildWorkerProbe() {
 export async function main() {
   const connectionString = testDatabase(process.env.PLUGIN_TEST_DATABASE_URL);
   const work = await mkdtemp(join(tmpdir(), 'kingdown-web-check-'));
-  let browser, persistent, server, cleaning, savedAccountAccess;
+  let browser, persistent, server, outsideProxy, cleaning, savedAccountAccess;
   const outputs = new Map();
-  const started = performance.now(), events = [], signal = new EventEmitter();
+  const started = performance.now(), events = [], signal = new EventEmitter(), requests = [], outside = [];
+  let browserFacts;
   const record = event => { events.push(event); signal.emit('record'); };
   let served, old = false, instrument = false, deleteMode = 'ok', holdReply = false, failPrecache = false, offline = false, statusFixture = false, statusFailure = false;
   const held = new Set();
@@ -156,6 +184,7 @@ export async function main() {
         () => persistent?.close(),
         () => { for (const response of held) response.end(); held.clear(); },
         async () => { if (server?.listening) { server.closeAllConnections(); await new Promise((done, reject) => server.close(error => error ? reject(error) : done())); } },
+        async () => { if (outsideProxy?.listening) { outsideProxy.closeAllConnections(); await new Promise((done, reject) => outsideProxy.close(error => error ? reject(error) : done())); } },
         async () => { if (savedAccountAccess !== undefined) {
           const { pool } = outputs.values().next().value;
           await pool.query('update public.web_account_access set enabled=$1 where singleton=true', [savedAccountAccess]);
@@ -243,6 +272,12 @@ export async function main() {
     });
     server.listen(0, '127.0.0.1'); await once(server, 'listening');
     const origin = `http://127.0.0.1:${server.address().port}`;
+    // The profiles send each request to another host through this proxy, which records and refuses it. The proxy sees
+    // a worker's own request and a WebSocket, which give no context request event in some engines.
+    outsideProxy = createServer((req, res) => { outside.push(req.url); res.writeHead(502).end(); });
+    outsideProxy.on('connect', (req, socket) => { socket.on('error', () => {}); outside.push(`CONNECT ${req.url}`); socket.end('HTTP/1.1 502 Bad Gateway\r\n\r\n'); });
+    outsideProxy.listen(0, '127.0.0.1'); await once(outsideProxy, 'listening');
+    const profileOptions = proxiedOptions(PERSISTENT_OPTIONS, outsideProxy.address().port);
     const pairKeys = await generateKeyPair('ES256'), websiteKeys = createLocalJWKSet({ keys: [{ ...await exportJWK(pairKeys.publicKey), kid: 'status', alg: 'ES256' }] });
     for (const root of [tree, recovery.root]) {
       const config = JSON.parse(await readFile(join(root, 'config.json'), 'utf8'));
@@ -260,7 +295,8 @@ export async function main() {
     }
 
     browser = await launch();
-    await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify({ engine: env('PLAYABLE_BROWSER'), version: browser.version(), node: process.version, platform: process.platform, osRelease: osRelease(), arch: process.arch }, null, 2));
+    browserFacts = { engine: env('PLAYABLE_BROWSER'), version: browser.version(), node: process.version, platform: process.platform, osRelease: osRelease(), arch: process.arch };
+    await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify(browserFacts, null, 2));
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, hasTouch: true, reducedMotion: 'reduce', serviceWorkers: 'block' });
     page.setDefaultTimeout(30_000 * STEP);
     page.setDefaultNavigationTimeout(30_000 * STEP);
@@ -332,8 +368,13 @@ export async function main() {
     let profileDir;
     const openProfile = async profile => {
       profileDir = profile;
-      persistent = await launchPersistent(profile, PERSISTENT_OPTIONS);
+      persistent = await launchPersistent(profile, profileOptions);
       await persistent.exposeFunction('recordWorkerEvent', record);
+      persistent.on('request', request => requests.push(request.url()));
+      // No engine sends a loopback or link-local address to the proxy, and a WebSocket gives no request event, so
+      // each page records its own WebSockets. A worker's WebSocket to such an address stays outside both records.
+      const recordSockets = page => page.on('websocket', socket => requests.push(socket.url()));
+      persistent.pages().forEach(recordSockets); persistent.on('page', recordSockets);
       const page = persistent.pages()[0] ?? await persistent.newPage();
       page.setDefaultTimeout(30_000 * STEP);
       page.setDefaultNavigationTimeout(30_000 * STEP);
@@ -644,12 +685,24 @@ export async function main() {
     assert.deepEqual(await active.evaluate(() => window.privateProbe('blocked-old')), { status: 503, code: 'UNAVAILABLE' });
     assert.equal(events.slice(after).filter(event => event.event === 'probe').length, 0, 'Blocked old controller keeps the send closed');
     await writeFile(join(env('PLAYABLE_OUT'), 'worker-events.json'), JSON.stringify(events, null, 2));
+    // Controls: a fetch and a WebSocket to another host reach the proxy, so an empty proxy log proves that no other
+    // request left the profiles.
+    await active.evaluate(({ fetch: url, socket }) => { new WebSocket(socket); return fetch(url, { mode: 'no-cors' }).catch(() => {}); }, OUTSIDE_CONTROLS);
+    const controlEnd = Date.now() + 10_000 * STEP;
+    while (!(outside.some(socketControl) && requests.includes(OUTSIDE_CONTROLS.socket)) && Date.now() < controlEnd) await new Promise(done => setTimeout(done, 100));
+    await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify({ ...browserFacts, requests, outside }, null, 2));
+    assert.ok(outside.includes(OUTSIDE_CONTROLS.fetch), 'The proxy receives a fetch to another host');
+    assert.ok(outside.some(socketControl), 'The proxy receives a WebSocket to another host');
+    assert.ok(requests.includes(OUTSIDE_CONTROLS.socket), 'The page records its WebSocket');
+    assertLocalRequests(requests.filter(url => url !== OUTSIDE_CONTROLS.fetch && url !== OUTSIDE_CONTROLS.socket));
+    assert.deepEqual(outsideRequests(outside), [], 'No profile request goes to another host');
     console.log(`PASS: worker journeys; ${pair}; ${events.filter(event => event.event === 'probe').length} protected/bypass requests; ${((performance.now() - started) / 1000).toFixed(1)} s`);
-    console.log(`PASS: web-online (${env('PLAYABLE_BROWSER')}): built root, test database, local move, End turn, saved reload, closed account and API routes`);
+    console.log(`PASS: web-online (${env('PLAYABLE_BROWSER')}; profiles ${profileOptions.channel}): built root, test database, local move, End turn, saved reload, closed account and API routes`);
   } finally {
     try {
       await mkdir(env('PLAYABLE_OUT'), { recursive: true });
       await writeFile(join(env('PLAYABLE_OUT'), 'worker-events.json'), JSON.stringify(events, null, 2));
+      if (browserFacts) await writeFile(join(env('PLAYABLE_OUT'), 'worker-browser.json'), JSON.stringify({ ...browserFacts, requests, outside }, null, 2));
     } finally { await cleanup(); }
   }
 }

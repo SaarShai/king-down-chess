@@ -232,7 +232,7 @@ interface Acc {
   rank: string; n: number; score: number; wins: number; draws: number; losses: number; capped: number;
   plies: number; coverage: number;
   killerMove: number; leadChange: number; uncertaintyLate: number; permanence: number; dramaLead: number;
-  branching: number; leadChanges: number; volatility: number; uncertainty: number;
+  branching: number; leadChanges: number; volatility: number;
   ev: Record<string, number>;
   moves: Record<string, number>; start: Record<string, number>;
   survived: Record<string, number>; taken: Record<string, number>; captures: Record<string, number>;
@@ -243,7 +243,7 @@ interface Acc {
 const acc = (rank: string): Acc => ({
   rank, n: 0, score: 0, wins: 0, draws: 0, losses: 0, capped: 0, plies: 0, coverage: 0,
   killerMove: 0, leadChange: 0, uncertaintyLate: 0, permanence: 0, dramaLead: 0,
-  branching: 0, leadChanges: 0, volatility: 0, uncertainty: 0,
+  branching: 0, leadChanges: 0, volatility: 0,
   ev: {}, moves: {}, start: {}, survived: {}, taken: {}, captures: {},
   homeGames: {}, homeTotal: {},
 });
@@ -427,7 +427,7 @@ function scan(rec: GameRecord, a: Acc, g: Global): void {
   a.killerMove += l.killerMove; a.leadChange += l.leadChange; a.uncertaintyLate += l.uncertaintyLate;
   a.permanence += l.permanence; a.dramaLead += l.drama;
   a.branching += t.branchingFactor; a.leadChanges += t.leadChanges;
-  a.volatility += t.volatility; a.uncertainty += t.uncertainty;
+  a.volatility += t.volatility;
 
   const e = rec.events;
   const pair = (x: readonly number[]): number => x[0] + x[1];
@@ -494,7 +494,6 @@ function scan(rec: GameRecord, a: Acc, g: Global): void {
 
 // ---------------------------------------------------------------- derived per-rank row
 
-interface Row extends Record<string, number> { }
 
 function rowOf(a: Acc): Record<string, number> {
   const n = a.n || 1;

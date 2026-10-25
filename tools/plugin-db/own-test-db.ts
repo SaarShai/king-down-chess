@@ -12,7 +12,11 @@ export async function ownTestDatabase(suffix: string, shared = process.env.PLUGI
  const own = new URL(url.href), name = url.pathname.slice(1).replace(/_test$/, `_${suffix}_test`); own.pathname = `/${name}`;
  const server = new URL(url.href); server.pathname = '/postgres';
  const client = new pg.Client({ connectionString: server.href }); await client.connect();
- try { if (!(await client.query('select from pg_database where datname=$1', [name])).rowCount) await client.query(`create database ${name}`); }
+ try {
+  if (!(await client.query('select from pg_database where datname=$1', [name])).rowCount) await client.query(`create database ${name}`);
+  // Match production for all new test sessions; each session can still select another time zone.
+  await client.query(`alter database ${name} set timezone to 'UTC'`);
+ }
  finally { await client.end(); }
  execFileSync(process.execPath, [fileURLToPath(new URL('./bootstrap-test.mjs', import.meta.url))], { env: { ...process.env, PLUGIN_TEST_DATABASE_URL: own.href } });
  // No autovacuum on the copy. A VACUUM or ANALYZE that ends after a role script grants on its table waits for the script's

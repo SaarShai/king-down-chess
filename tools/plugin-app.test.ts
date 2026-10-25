@@ -325,7 +325,7 @@ it('keeps Start blocked and retries the same solo game after its board read fail
     expect(await frame.locator('#setup-start').isDisabled()).toBe(true);
     await frame.locator('#retry').waitFor();
     const completed = await page.evaluate(() => (window as any).harnessView.game_id);
-    await frame.locator('#setup-start').evaluate(button => button.click());
+    await frame.locator('#setup-start').evaluate(button => (button as HTMLElement).click());
     await frame.locator('#retry').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     await frame.locator('#status').filter({ hasText: 'Your move' }).waitFor();
@@ -355,12 +355,12 @@ it('blocks Retry and screen actions until both mount reads finish', async () => 
     await page.waitForFunction(() => typeof (window as any).releaseHeld === 'function');
     expect(await frame.locator('#retry').isDisabled()).toBe(true);
     expect(await frame.locator('button:visible').evaluateAll(buttons => buttons.every(button => (button as HTMLButtonElement).disabled))).toBe(true);
-    await frame.locator('#retry').evaluate(button => button.click());
+    await frame.locator('#retry').evaluate(button => (button as HTMLElement).click());
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').length)).toBe(sends);
     await page.evaluate(() => { (window as any).holdNextGet = true; (window as any).releaseHeld(); });
     await page.waitForFunction(() => typeof (window as any).releaseHeldGet === 'function');
     expect(await frame.locator('#retry').isDisabled()).toBe(true);
-    await frame.locator('#retry').evaluate(button => button.click());
+    await frame.locator('#retry').evaluate(button => (button as HTMLElement).click());
     await page.evaluate(() => { (window as any).releaseHeldGet(); });
     await frame.locator('#reload:not(:disabled)').waitFor({ state: 'attached' });
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_move').length)).toBe(sends);
@@ -909,7 +909,7 @@ it.each([
     const stroke = CanvasRenderingContext2D.prototype.stroke;
     CanvasRenderingContext2D.prototype.stroke = function(...args: any[]) {
       if (this.strokeStyle === '#7d5ba6') (window as any).swapMarks++;
-      return stroke.apply(this, args as []);
+      return stroke.apply(this, args as [Path2D]);
     };
   });
   try {
@@ -2157,7 +2157,7 @@ it.each(['offer', 'accept', 'decline'])('disables the end card %s action after a
     const action = frame.locator('#over').getByRole('button',{name:label,exact:true});
     await expect.poll(() => action.isDisabled()).toBe(true);
     const calls = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_rematch').length);
-    await action.evaluate(b => b.click());
+    await action.evaluate(b => (b as HTMLElement).click());
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_rematch').length)).toBe(calls);
     await frame.locator('#retry').click();
     await expect.poll(() => action.isEnabled()).toBe(true); await action.click();
@@ -2375,7 +2375,7 @@ it('keeps a failed read board locked until a good read, and offers Try again aft
     expect(await frame.locator('#menu-resign').isDisabled()).toBe(true);
     expect(await frame.locator('#menu-abort').isDisabled()).toBe(true);
     const sends = await page.evaluate(() => (window as any).harnessCalls.length);
-    await frame.locator('#menu-resign').evaluate(b => b.click());
+    await frame.locator('#menu-resign').evaluate(b => (b as HTMLElement).click());
     expect(await page.evaluate(() => (window as any).harnessCalls.length)).toBe(sends);
     await page.keyboard.press('Escape');
     expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.memory.view.fen)).toBe(before);
