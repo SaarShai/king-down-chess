@@ -71,3 +71,14 @@ test('the policy names stored relations, the block control, its effects and the 
  expect(text).toContain('Unblock does not restore follows');
  expect(text).toContain('Profile also lists blocked players, with Unblock for each player');
 });
+
+
+test('the policy keeps the first-party fault disclosure and its 30-day period', () => {
+ const paragraph = policy.match(/<p id="fault-reports">([\s\S]*?)<\/p>/)?.[1];
+ expect(paragraph).toBeDefined();
+ expect(readFileSync('docs/submission/privacy-additions.md', 'utf8')).toContain(`<p id="fault-reports">${paragraph}</p>`);
+ for (const words of ['To find and fix faults', 'fault type and name', 'private values removed', '300 characters', 'No code location is sent or stored', 'without code file locations or browser details', 'route path with IDs removed', 'build commit', 'browser family and major version', 'phone or desktop', 'fault group code', 'first and last times', 'Supabase for 30 days', 'not linked to your account', 'no account number, IP address, full browser string, moves, player messages or game IDs', 'no URL query or fragment']) expect(paragraph).toContain(words);
+ expect(policy.indexOf('id="fault-reports"')).toBeGreaterThan(policy.indexOf('Vercel keeps them for 1 day'));
+ expect(readFileSync('src/diagnostics/server.ts', 'utf8')).toContain("interval '30 days'");
+ expect(readFileSync('src/online/jobs.ts', 'utf8')).toContain("client_errors where last_seen<now()-interval '30 days'");
+});
