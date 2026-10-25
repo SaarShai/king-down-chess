@@ -382,13 +382,13 @@ it('opens Play from the seat and board Back buttons on a portrait phone', async 
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="seat"]:not([hidden])').waitFor();
     const gameId = await page.evaluate(() => (window as any).harnessView.game_id);
     expect(await frame.locator('#page-head').isVisible()).toBe(false);
-    await frame.getByRole('button', { name: 'Back to Play', exact: true }).click();
+    await frame.getByRole('button', { name: 'Back to Menu', exact: true }).click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     await frame.locator(`#games-list [data-game-id="${gameId}"]`).click();
     await frame.locator('#seat-ready:not(:disabled):not([aria-disabled="true"])').waitFor();
     await clickButton(page, frame.locator('#seat-ready')); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     expect(await frame.locator('#page-head').isVisible()).toBe(false);
-    await frame.getByRole('button', { name: 'Back to Play', exact: true }).click();
+    await frame.getByRole('button', { name: 'Back to Menu', exact: true }).click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
   } finally { await page.close(); }
 });

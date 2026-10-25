@@ -129,3 +129,20 @@ it('F-114 has the same game type symbols in both source sprites', async () => {
   expect(local).not.toContain('<img');
   expect(local).toContain('href="#i-brain"'); expect(local).toContain('href="#i-smiling-pawn"'); expect(local).toContain('href="#i-crown"');
 });
+
+it('F-115 names the main menu in the heading, back controls and invite help', async () => {
+  const page = await open(), frame = page.frameLocator('iframe');
+  try {
+    await frame.locator('#home-games:not(:disabled)').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    expect.soft(await frame.locator('[data-screen="play"] > .new-game-head h2').textContent()).toBe('Menu');
+    await frame.locator('[data-screen="play"] [data-nav="settings"]').click();
+    expect.soft(await frame.locator('#page-back').textContent()).toBe('‹ Menu');
+    for (const screen of ['seat', 'board']) expect.soft(await frame.locator(`[data-screen="${screen}"] .table-back`).getAttribute('aria-label')).toBe('Back to Menu');
+    await frame.locator('#page-back').click();
+    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
+    await frame.locator('#setup-start').click();
+    await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    expect.soft(await frame.locator('#friend-help').textContent()).toContain('types the code in Menu.');
+  } finally { await page.close(); }
+});

@@ -113,7 +113,7 @@ export function locks(page: Page): Locks {
 const TITLES: Partial<Record<Screen, string>> = { friend: 'A friend', join: 'Join a game', wait: 'Looking for an opponent', lobby: 'Open games', seat: 'Set up your side', end: 'Game over', profile: 'Profile', collection: 'Collection', settings: 'Settings', handle: 'Pick a name and a picture' };
 
 /** The back label of the page header (design §3.1). */
-export const backLabel = (page: Page) => page.screen === 'handle' && page.handle_back === 'settings' ? '‹ Settings' : page.screen === 'collection' ? '‹ Profile' : page.screen === 'settings' && (page.settings_back === 'board' || page.settings_back === 'seat') ? '‹ Game' : '‹ Play';
+export const backLabel = (page: Page) => page.screen === 'handle' && page.handle_back === 'settings' ? '‹ Settings' : page.screen === 'collection' ? '‹ Profile' : page.screen === 'settings' && (page.settings_back === 'board' || page.settings_back === 'seat') ? '‹ Game' : '‹ Menu';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T | null;
 

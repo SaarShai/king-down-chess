@@ -22,7 +22,7 @@ export function createHall(memory: HallMemory, client: GameClient, host: PageHos
   const controls = document.querySelector<HTMLTemplateElement>('#hall-controls')?.content;
   const start = controls?.querySelector('#games-start'), footer = controls?.querySelector('.new-game-foot');
   start?.remove(); footer?.remove();
-  $('new-game').innerHTML = '<header class="new-game-head"><h2>Play</h2></header><div class="new-game-body"><h3 id="games-head" class="group-head">Your games</h3><div id="games-empty" hidden><p>No games yet.</p></div><p id="games-status" role="status"></p></div>';
+  $('new-game').innerHTML = '<header class="new-game-head"><h2>Menu</h2></header><div class="new-game-body"><h3 id="games-head" class="group-head">Your games</h3><div id="games-empty" hidden><p>No games yet.</p></div><p id="games-status" role="status"></p></div>';
   const body = $('new-game').querySelector('.new-game-body')!;
   body.append(rows);
   if (start) $('games-empty').append(start);

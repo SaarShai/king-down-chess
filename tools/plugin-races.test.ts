@@ -251,7 +251,7 @@ it.each([
 it.each([
   ['Profile', { screen: 'profile' }, 'profile'],
   ['home', {}, 'home'],
-  ['Play', { screen: 'play' }, 'play'],
+  ['Menu', { screen: 'play' }, 'play'],
   ['join error', undefined, 'join'],
 ] as const)('keeps the screen of a newer %s result when an older chat result reads its games list', async (_, args, screen) => {
   const page = await open();

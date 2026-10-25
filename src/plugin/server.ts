@@ -100,7 +100,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
     return reply(view, board);
   }
   const recordText = ({ rating, totals: { played, won, drawn, lost }, badges }: Awaited<ReturnType<typeof service.record>>) => `Rating ${Math.round(rating.rating)}${rating.provisional ? '?' : ''}; ${played} played, ${won} won, ${drawn} drawn, ${lost} lost; ${badges.length} badge${badges.length === 1 ? '' : 's'}.`;
-  const home = async (board?: string): Promise<Reply> => { const { handle, icon } = await service.profile(actorId); return { content: text('King Down. Start a game from Play.'), structuredContent: { screen: 'home' }, _meta: { ...(board && { board_id: board }), me: { handle, icon } } }; };
+  const home = async (board?: string): Promise<Reply> => { const { handle, icon } = await service.profile(actorId); return { content: text('King Down. Start a game from Menu.'), structuredContent: { screen: 'home' }, _meta: { ...(board && { board_id: board }), me: { handle, icon } } }; };
   /** The most urgent game, or home when no game is open. */
   async function next(): Promise<View | null> {
     const inbox = await service.inbox(actorId), urgent = nextGame(inbox) ?? inbox[0];

@@ -209,7 +209,7 @@ try {
   await page.evaluate(() => { window.rejectNextGet = true; });
   await remountFrame();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
-  await readErrorOnce('Play');
+  await readErrorOnce('Menu');
   await frame.getByRole('button', { name: 'Try again', exact: true }).click();
   await frame.locator('#retry').waitFor({ state: 'hidden' });
   assert.equal(await frame.locator('#error').innerText(), '', 'A good Play read clears the error');
@@ -1167,7 +1167,7 @@ try {
     } finally { button.remove(); }
   }), 'A preset button outside the name pictures keeps its stone face and control shape');
   assert.equal(await frame.locator('[data-screen="handle"] .quiet-line').last().innerText(), 'Each name is unique.');
-  assert.equal(await frame.locator('#page-back').innerText(), '‹ Play');
+  assert.equal(await frame.locator('#page-back').innerText(), '‹ Menu');
 
   async function fits(screen, width) {
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();

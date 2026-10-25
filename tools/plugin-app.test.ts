@@ -97,7 +97,7 @@ it('preserves the website game URL while fullscreen startup waits for the first 
       expect(await page.locator('html').evaluate(() => (window as any).harnessApp.memory.view.game_id)).toBe(game);
       expect(new URL(page.url()).pathname).toBe(path);
     }
-    await page.getByRole('button', { name: 'Back to Play', exact: true }).click();
+    await page.getByRole('button', { name: 'Back to Menu', exact: true }).click();
     await page.locator('[data-screen="play"]:not([hidden])').waitFor();
     expect(new URL(page.url()).pathname).toBe('/play/');
     expect(errors).toEqual([]);
@@ -814,7 +814,7 @@ it('keeps the start through HANDLE_NEEDED and Back, and Save finishes it', async
     await frame.locator('[data-screen="handle"]:not([hidden])').waitFor();
     expect(await frame.locator('#retry').isVisible()).toBe(false);
     expect(await frame.locator('#error').textContent()).toBe('');
-    expect(await frame.locator('#page-back').textContent()).toBe('‹ Play');
+    expect(await frame.locator('#page-back').textContent()).toBe('‹ Menu');
     await frame.locator('#page-back').click();
     expect(await frame.locator('[data-screen="play"]').isVisible()).toBe(true);
     await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('handle'); });

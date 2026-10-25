@@ -1,6 +1,6 @@
 # 04 — Main menu and New game
 
-Status: claimed
+Status: resolved
 Type: task
 
 ## Owner words
@@ -101,13 +101,13 @@ Acceptance checks:
 
 ## F-115 — Menu name
 
-Status: planned. The owner approves the build.
+Status: complete. The owner approves the build.
 
 The owner says: "change \"play\" to \"menu\" wherever the main menu is referred."
 
 Plan: save the current menu and back button screens at both widths. Add a test for the heading, default back label and both board back names. Check that it fails first. Change only names of this screen. Run the affected tests and browser checks. Save the final screens. Commit F-115 after F-114.
 
-Acceptance checks: the heading says Menu. The default back label says ‹ Menu. Both board back names say Back to Menu. Actions and internal names stay the same.
+Acceptance checks: the heading says Menu. The default back label says ‹ Menu. Both board back names say Back to Menu. Invite help and the empty-board reply also name Menu. Actions and internal names stay the same.
 
 ## F-114 checks and result
 
@@ -128,3 +128,18 @@ The local game uses the same brain and pawn. Its Kings' powers choice uses the e
 The removed art classes have no source user. The Open games fan and the waiting kings keep their art and CSS.
 Stored values, game rules and the two protected source files stay the same.
 The owner checks the images before merge. CI and independent review remain before merge.
+
+## F-115 checks and result
+
+- The two new tests fail first. They find Play in the heading, back label, both board back names, invite help and empty-board reply. See `f115-red.log`.
+- All 367 cases in the ten selected files have passing results across the recorded runs. The 57 art checks also pass.
+- The first selected run has one failure in a Cards test from before F-113. The test now opens Game options before use. All 13 cases in that file pass. See `focused-f115.log` and `focused-f115-retry.log`.
+- `npx tsc --noEmit -p .` passes. See `typecheck-f115.log`.
+- The final browser checks pass: plugin-ui, web-game, game-screen, plugin-ui-http, web-game-staging and plugin-ui-http-staging. See `browser-f115.log`. New-game also passes in the F-114 run.
+- The four final Menu images and all choice images pass inspection. The full set has 42 PNG files. See `screenshots.json` and `visual-review.md`.
+- The design scan returns 22 findings: 20 existing dynamic image tags and two existing style rules. The source comparison and rendered screens pass. See `design-detect.json` and `design-review.json`.
+
+The shared heading says Menu. The default back button says ‹ Menu. Both board arrows have the name Back to Menu. Friend invite help and the empty-board reply also name Menu.
+Play now, Start, Play again and the local title Play action stay the same. Internal screen names, routes and stored values stay the same. The other server text stays the same.
+The final code check finds no need for another layer. Native controls keep the same work. Rules and the protocol keep the same values and shape. The two protected source files stay the same.
+The owner checks the images before merge. CI and independent review remain before merge. No push, PR, merge or deploy is in this task.

@@ -176,6 +176,7 @@ it('shows each card and power with the same rules and words on the Cards sheet, 
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await go(page, 'play');
+    await frame.locator('#setup-options summary').click();
     await frame.locator('#cards-row').click();
     await frame.locator('#setup-cards').click();
     const sheet = Object.fromEntries(await frame.locator('#menu-sheet .card-face').evaluateAll(faces => faces.map(f => [f.querySelector('input')!.value, f.querySelector('small')!.textContent])));
@@ -213,7 +214,7 @@ it('keeps the Collection tab names whole and inside their labels at 197 px', asy
   } finally { await page.close(); }
 });
 
-// F5 and the owner's item W3 b: Start is busy at once, says 'Starting…' after 1 s, and frees ‹ Play at 5 s.
+// F5 and the owner's item W3 b: Start is busy at once, says 'Starting…' after 1 s, and frees ‹ Menu at 5 s.
 it('shows a busy Start at once, Starting… after 1 s and a safe way back at 5 s, with one Create', async () => {
   const page = await open(OWNER, true), frame = page.frameLocator('iframe');
   try {
@@ -229,7 +230,7 @@ it('shows a busy Start at once, Starting… after 1 s and a safe way back at 5 s
     await expect.poll(() => start.textContent()).toBe('Starting…');
     expect(await frame.locator('#page-back').isDisabled()).toBe(true);
     await page.clock.fastForward(4_000);
-    // Play has no ‹ Play: its Settings row is the way out that the 5 s wait frees.
+    // Play has no ‹ Menu: its Settings row is the way out that the 5 s wait frees.
     await frame.locator('[data-screen="play"] [data-nav="settings"]:not(:disabled)').waitFor();
     expect(await start.textContent()).toBe('Starting…');
     await frame.locator('[data-screen="play"] [data-nav="settings"]').click();
@@ -248,7 +249,7 @@ it('shows a busy Start at once, Starting… after 1 s and a safe way back at 5 s
   } finally { await page.close(); }
 });
 
-it('keeps ‹ Play free after a slow settings save, while Create still waits', async () => {
+it('keeps ‹ Menu free after a slow settings save, while Create still waits', async () => {
   const page = await open(OWNER, true), frame = page.frameLocator('iframe');
   try {
     await go(page, 'play');
