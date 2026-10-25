@@ -43,6 +43,54 @@ The independent review of PR #117 confirms one P2 fault. After See the board, th
 
 The check uses a point 4 px below the top of the opponent power coin. The point must stay inside the old 52 px head band. The coin must receive the click, its details must open, and the return must open Play.
 
+## Caption fix plan
+
+The owner reports that the result return covers the move caption at 852 by 393.
+
+1. Find the caption and compare the same view with base `a89a9381` in a temporary worktree.
+2. Add a caption check to the final-move test. Show that the check fails before the CSS fix.
+3. Reserve space for the return with the smallest CSS change. Keep the board size, 48 px return target and power coin edge input.
+4. Check the result board at 1280 by 800, 852 by 393, 390 by 844, 375 by 667 and 320 by 568. Save and view each image.
+5. Run the required type, selected test, browser and doc checks. Record the results and commit the three changed files.
+
+The caption and return boxes must not intersect. The full caption must stay visible when present. An absent caption must have an explicit test result. The return must take real input. The power coin edge check must pass. The temporary worktree and all processes from this run must end before the report.
+
+## Caption fix evidence
+
+`#short-last-move` holds the short caption. `#short-move-words` holds its words. `moveLine()` in `src/plugin/screens/board.ts` sets the text. The short-table rule in `src/plugin/app.css` shows the caption. The short-landscape rule puts it at `top: 0; left: 8px` in the table.
+
+The base capture uses `a89a9381` in a temporary detached worktree. At 852 by 393, the base result head takes a 52 px row. The caption starts at `(8, 52)`. The return ends at y=50. The boxes do not intersect. At the current head before this fix, the absolute result head takes no row. The caption starts at `(8, 0)` under the return. This confirms the new fault from `5ef80636`. The caption is absent at 1280 by 800 in both captures. The temporary worktree is removed.
+
+One rule in `src/plugin/screens/end.css` adds a 72 px left margin and a maximum width of `calc(100% - 88px)` to the result caption. It keeps the full words clear of both return controls. At 852 by 393, the caption starts at x=80. The return ends at x=70.39. The board keeps its size. The head keeps its click settings from the power coin fix.
+
+The final-move test adds 390 by 844, 375 by 667 and 320 by 568. It checks the board size, a return target of at least 48 by 48 px, the caption box and the full text bounds. It reports an absent caption and passes that case. The phone cases use the current safe-area fixture. The test sends real return input at each size. Both landscape cases keep the upper-edge coin hit check and its real click.
+
+Before the CSS fix, the caption check fails at 852 by 393, 375 by 667 and 320 by 568. Four cases pass. The two short phone cases expose a caption box that meets the 48 px table return. After the fix, all seven cases and all 57 Node tests pass. The selected test set passes all 350 tests and all 57 Node tests. Both coin edge points still hit `power-b` at y=38. Both clicks open Freeze details.
+
+All logs below use `/private/tmp/claude-501/ci87/run38/menu-caption-files/`. The test and browser commands use `PLUGIN_TEST_DATABASE_URL=postgresql://kingdown_test@127.0.0.1:55432/kingdown_plugin_test`.
+
+| Command | Result | Log |
+| --- | --- | --- |
+| `git worktree add --detach /private/tmp/claude-501/ci87/run38/menu-caption-files/base a89a9381` | Pass | `base-add.log` |
+| `node /private/tmp/claude-501/ci87/run38/menu-caption-files/capture.mjs base`, in the base worktree | Pass; both base images are viewed | `base-capture.log`, `base-geometry.json` |
+| `node /private/tmp/claude-501/ci87/run38/menu-caption-files/capture.mjs before` | Pass; records the overlap before the fix | `before-capture.log`, `before-geometry.json` |
+| `git worktree remove /private/tmp/claude-501/ci87/run38/menu-caption-files/base` | Pass | `base-remove.log` |
+| `npx tsc --noEmit -p .` | Pass | `typecheck.log` |
+| `KINGDOWN_TEST_FILE=tools/plugin-board.test.ts KINGDOWN_TEST_NAME='cancels a pending ceremony' npm test`, before the CSS fix | Three expected failures; four pass; 97 skip | `regression-before.log` |
+| The same selected command, after the CSS fix | Seven pass; 97 skip; 57 Node tests pass | `regression-after.log` |
+| `KINGDOWN_TEST_FILE='{tools/plugin-board*.test.ts,tools/plugin-app.test.ts}' npm test` | 350 tests and 57 Node tests pass | `focused.log` |
+| `bash tools/test-lock.sh node /private/tmp/claude-501/ci87/run38/menu-caption-files/capture.mjs after` | Pass at all five sizes; all images are viewed | `after-capture.log`, `after-geometry.json` |
+| `pgrep -f '[t]ools/deploy[.]sh|[d]eploy-staging[.]mjs'` | No PID; no publish wait is necessary | `publish-check.log` |
+| `bash tools/test-lock.sh npm run check:browser plugin-ui game-screen web-game` | All three pass in 312.0 s, 9.3 s and 69.1 s | `browser.log` |
+| `npm run test:docs` | 176 tests pass; the final repeat checks this evidence text | `docs.log`, `docs-final.log` |
+| `git diff --check` | Pass | `diff-check.log` |
+
+The browser command uses this log folder as `TMPDIR`. Its full logs are in `kingdown-check-runs/playtest-game-menu-E9nejl/`. The checkout stays fixed for the complete browser command. The shared test lock waits end without process changes.
+
+The base images are `F-107-result-base-1280.png` and `F-107-result-base-852.png` in the log folder. The after images are `/private/tmp/claude-501/ci87/run38/shots/F-107-result-after-{1280,852,390,375,320}.png`. Each image shows the result board after See the board. The captures use fullscreen with zero safe-area insets. The caption is absent at 1280, 390 and 375. It is fully visible at 852 and 320. No visible control covers the caption or return. The board size before the result equals its size after the result at all five sizes.
+
+The full test suite does not run for this fix. CI runs it.
+
 ## Review fix evidence
 
 The page head keeps its absolute position and board size. It uses `pointer-events: none`. Its only control, `#page-back`, uses `pointer-events: auto`.

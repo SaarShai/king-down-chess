@@ -20,6 +20,9 @@ it.each([
   { action: 'New game', width: 393, height: 852 },
   { action: 'See the board', width: 1280, height: 800 },
   { action: 'See the board', width: 852, height: 393 },
+  { action: 'See the board', width: 390, height: 844 },
+  { action: 'See the board', width: 375, height: 667 },
+  { action: 'See the board', width: 320, height: 568 },
 ])('cancels a pending ceremony with $action during the final move ($width by $height)', async ({ action, width, height }) => {
   const before = view('7k/8/6K1/8/8/8/8/Q7 w - - 0 1', { kings: [{ king: 'Flame', power: 'Haste' }, { king: 'Frost', power: 'Freeze' }] }), pre = fromFen(before.fen);
   const move = legalMoves(pre).find(m => toLan(pre,m) === 'Qa1-a8')!, post = makeMove(pre,move);
@@ -29,6 +32,7 @@ it.each([
     // Artwork load is separate from the first visible frame; it can outlast an action wait on a cold load.
     await frame.locator('html').evaluate(async () => { await (window as any).testBoard.ready(); });
     await frame.locator('#board canvas').waitFor({ state: 'visible' });
+    const boardSize = await frame.locator('#board').evaluate(e => ({ width: e.clientWidth, height: e.clientHeight }));
     await frame.locator('html').evaluate(() => {
       const w = window as any; w.falls = []; const set = w.testBoard.setFallen.bind(w.testBoard);
       w.testBoard.setFallen = (sq: number|null, animate: boolean) => { if (sq !== null) w.falls.push(animate); set(sq,animate); };
@@ -49,6 +53,31 @@ it.each([
     await frame.locator('#board[data-animating="false"]').waitFor({ state: 'attached' });
     expect(await frame.locator('html').evaluate(() => (window as any).falls.includes(true))).toBe(false);
     expect(await frame.locator('#board[data-toppling], #board .kd-words').count()).toBe(0);
+    if (action === 'See the board') {
+      expect(await frame.locator('#board').evaluate(e => ({ width: e.clientWidth, height: e.clientHeight }))).toEqual(boardSize);
+      const caption = frame.locator('#short-last-move');
+      const visible = await caption.isVisible();
+      console.log('F-107 result caption', { width, height, state: visible ? 'present' : 'absent', text: await caption.textContent() });
+      const back = frame.locator('#page-back:visible, #game-table .table-back:visible').first();
+      const backBox = (await back.boundingBox())!;
+      expect(backBox.width).toBeGreaterThanOrEqual(48);
+      expect(backBox.height).toBeGreaterThanOrEqual(48);
+      if (visible) {
+        const box = (await caption.boundingBox())!;
+        expect.soft(box.x + box.width <= backBox.x || box.x >= backBox.x + backBox.width || box.y + box.height <= backBox.y || box.y >= backBox.y + backBox.height, 'The caption must clear the return control.').toBe(true);
+        expect(await caption.evaluate(e => {
+          const words = e.querySelector('#short-move-words')!, range = document.createRange();
+          range.selectNodeContents(words);
+          const text = range.getBoundingClientRect(), box = e.getBoundingClientRect(), wordBox = words.getBoundingClientRect();
+          return words.scrollWidth <= words.clientWidth && text.left >= wordBox.left && text.right <= wordBox.right + 1
+            && text.top >= box.top && text.bottom <= box.bottom && box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight;
+        })).toBe(true);
+      }
+      if (width < height) {
+        await clickButton(page, back);
+        await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+      }
+    }
     if (width > height) {
       await shot(page, `F-107-coin-edge-${width}`);
       const point = await frame.locator('#power-b').evaluate(coin => {
