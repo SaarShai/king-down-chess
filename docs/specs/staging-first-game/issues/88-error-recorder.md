@@ -58,7 +58,7 @@ Both website browser runs check the emitted site through HTTP and PostgreSQL. Th
 
 The HTTP database tests run as a copy of the restricted runtime role. They check 204 responses for good and dropped reports, byte bounds, count updates, 31-day retention and failed inserts. They check server faults, RLS, browser grants and repeat migration runs.
 
-Logs are in `/private/tmp/claude-501/ci87/sol19/checks/`. The browser runner also keeps its own detailed logs under `kingdown-check-runs/sol-errors-4XHgHl` and `kingdown-check-runs/sol-errors-BJ1yN9`.
+Logs are in `/private/tmp/claude-501/ci87/run19/checks/`. The browser runner also keeps its own detailed logs under `kingdown-check-runs/*-4XHgHl` and `kingdown-check-runs/*-BJ1yN9`.
 
 ## Code check
 
@@ -109,7 +109,7 @@ The first test start finds that the installed TypeScript package has no parser A
 
 The first browser run finds that Playwright trims leading blank lines in the fault fixture. Those faults then have the same code location and the same approved message. The fixture now places a fixed comment before its blank lines. The final browser run passes. The first plugin check also passes in 274.3 seconds.
 
-Logs are in `/private/tmp/claude-501/ci87/sol22/checks/`. The final browser detail logs are in `kingdown-check-runs/sol-errors-FyvPJL`. Every test run uses the approved loopback database or its own loopback copy. The shared locks stay in place. No staging or production database connection, push, or deploy occurs.
+Logs are in `/private/tmp/claude-501/ci87/run22/checks/`. The final browser detail logs are in `kingdown-check-runs/*-FyvPJL`. Every test run uses the approved loopback database or its own loopback copy. The shared locks stay in place. No staging or production database connection, push, or deploy occurs.
 
 ### Final code check
 
@@ -117,7 +117,7 @@ The fix uses one shared message rule and one build helper. It adds no dependency
 
 ## Second review fixes
 
-The owner requests both open fixes in `/private/tmp/claude-501/ci87/sol23/rereview.md`.
+The owner requests both open fixes in `/private/tmp/claude-501/ci87/run23/rereview.md`.
 The merge of `origin/staging/first-game` at `0c016348` has no conflict.
 
 Plan:
@@ -153,14 +153,14 @@ The selected test files are `src/diagnostics/*.test.ts`, `tools/errors-report.te
 
 The first byte check finds unused recorder data in the plugin output. The build now removes unused recorder modules too. The next check finds extra recorder fields in the API function arguments. Recorder options now use a website-only read. The final plugin bytes match the base. One test check rejects the word `fingerprint`, which also occurs in the unchanged game code. The check now uses recorder text. The next selected run and full run pass. The first package-copy command uses an incorrect relative path. The corrected command copies this worktree's installed packages to the base worktree. No dependency file changes.
 
-The full run takes 595.47 seconds. The browser runner waits for another run's exclusive lock, then both checks pass. No lock is removed. Logs, copied scripts, compared files and `build-compare.json` are in `/private/tmp/claude-501/ci87/sol24/`. Browser detail logs are in `kingdown-check-runs/sol-errors-XLmqDJ`.
+The full run takes 595.47 seconds. The browser runner waits for another run's exclusive lock, then both checks pass. No lock is removed. Logs, copied scripts, compared files and `build-compare.json` are in `/private/tmp/claude-501/ci87/run24/`. Browser detail logs are in `kingdown-check-runs/*-XLmqDJ`.
 
 The code check finds no need for a new helper or dependency. Shared message rules fix the private-value fault once. A build flag and normal removal of unused modules keep the plugin output unchanged. All database work uses the approved loopback test database or its local test copies. No push, deploy, staging database connection or production database connection occurs.
 
 
 ## Frame review fix
 
-The owner requests the remaining frame fix. The review at `/private/tmp/claude-501/ci87/sol25/rereview3.md` confirms private values in message headers and function names. The staging base is `30609582`; its merge has no conflict.
+The owner requests the remaining frame fix. The review at `/private/tmp/claude-501/ci87/run25/rereview3.md` confirms private values in message headers and function names. The staging base is `30609582`; its merge has no conflict.
 
 Plan:
 
@@ -197,7 +197,7 @@ The selected files are `src/diagnostics/*.test.ts`, `tools/errors-report.test.ts
 
 The board has 895,596 bytes and SHA-256 `34d2245fcec040d0e78c64e889880705ed834fbc7247015f6549fd631637a76f`. The plugin server has 715,646 bytes and SHA-256 `48343160695990fb95dfd18a3eb4044e31794911b4f537cbcba278a545eee9b4`. The base uses a copy of this worktree's installed packages. The final byte check runs after both browser checks and passes.
 
-Proof scripts, results and logs are in `/private/tmp/claude-501/ci87/sol26/`. `build-compare.json` has each file hash and link target. Browser logs are in `kingdown-check-runs/sol-errors-YTB4qC`. Both original proof copies differ from the review files in paths only. The separate updated copies keep the original failure logs.
+Proof scripts, results and logs are in `/private/tmp/claude-501/ci87/run26/`. `build-compare.json` has each file hash and link target. Browser logs are in `kingdown-check-runs/*-YTB4qC`. Both original proof copies differ from the review files in paths only. The separate updated copies keep the original failure logs.
 
 The code check finds no need for a new helper or dependency. The full suite and browser checks use the final source code. Tests wait for the shared lock; no lock is removed. All database work uses the approved local test database or its local test copies. No push, deploy, staging database connection or production database connection occurs.
 
@@ -234,7 +234,7 @@ The HTTP reader checks shape and known asset paths. It cannot prove that an arbi
 
 The final code check finds no need for a new dependency or V8 global state. The smaller server choice is complete: no frames and a group code from name, cleaned message and route. The HTTP reader cannot authenticate a forged single known-asset frame. It rejects the old two-frame reports; the shipped browser no longer makes false frames from private text.
 
-Logs, native proof data, proof changes and byte hashes are in `/private/tmp/claude-501/ci87/sol28/`. All database work uses the approved loopback test database or its local test copies. Shared locks stay in place. No push, deploy, staging database connection or production database connection occurs.
+Logs, native proof data, proof changes and byte hashes are in `/private/tmp/claude-501/ci87/run28/`. All database work uses the approved loopback test database or its local test copies. Shared locks stay in place. No push, deploy, staging database connection or production database connection occurs.
 
 
 ### Native field final checks
@@ -258,7 +258,7 @@ Logs, native proof data, proof changes and byte hashes are in `/private/tmp/clau
 
 The selected files are `src/diagnostics/*.test.ts`, `tools/errors-report.test.ts`, `src/api/http*.test.ts`, `src/online/jobs.db.test.ts`, `tools/plugin-server-build.test.ts` and `tools/lib/error-forms.test.ts`. The final selected run also includes `tools/offline-build.test.ts`. Both selected runs are separate from the full-suite pass.
 
-Browser detail logs are in `kingdown-check-runs/sol-errors-1kKlmA`. The full test and browser commands end before the final report.
+Browser detail logs are in `kingdown-check-runs/*-1kKlmA`. The full test and browser commands end before the final report.
 
 
 ## No code locations: plan and checks
@@ -299,7 +299,7 @@ The first type check finds old test calls and report fields. The first selected 
 
 The copied proofs keep all native error inputs. Assertions for accepted locations now require absent location fields; old requests with any `frames` field must store no row. The asset-change proof removes the deleted location helper and asset-set reader arguments, uses the location-free body and new group-code arguments, and requires acceptance both times. The WebKit proof now requires one report for syntax and eval faults, including an unknown filename.
 
-Proofs and logs are in `/private/tmp/claude-501/ci87/sol30/`. No push, deploy, staging database connection or production database connection occurs.
+Proofs and logs are in `/private/tmp/claude-501/ci87/run30/`. No push, deploy, staging database connection or production database connection occurs.
 
 
 ## Sixth review fix
@@ -346,7 +346,7 @@ The copied sixth-review probe keeps all native fault inputs and private-value ch
 | Temporary base worktree and branch | Removed after the byte comparison. |
 | `git diff --check` | Pass. |
 
-No check fails. The shared test lock stays in place. No dependency changes are needed. The final code check finds no smaller complete change: one fixed counter row gives the atomic shared bound, and the shared cleaner supplies all message categories. Logs, copied probes and JSON proof are in `/private/tmp/claude-501/ci87/sol32/`. No push, deploy, staging database connection or production database connection occurs.
+No check fails. The shared test lock stays in place. No dependency changes are needed. The final code check finds no smaller complete change: one fixed counter row gives the atomic shared bound, and the shared cleaner supplies all message categories. Logs, copied probes and JSON proof are in `/private/tmp/claude-501/ci87/run32/`. No push, deploy, staging database connection or production database connection occurs.
 
 
 ## Seventh review fix
@@ -395,8 +395,10 @@ The shared cleaner uses native WebKit texts from the review and new native runs.
 
 The copied probes keep their native fault inputs. `probe-changes.md` names each changed assertion and path. The code check finds no simpler complete fix. One extra column keeps the limit notice on the existing counter row. The existing insert handles both tries.
 
-Proofs and logs are in `/private/tmp/claude-501/ci87/sol34/`. The shared test lock stays in place. No push, deploy or remote database connection occurs.
+Proofs and logs are in `/private/tmp/claude-501/ci87/run34/`. The shared test lock stays in place. No push, deploy or remote database connection occurs.
 
 ## Eighth review (2026-10-24)
 
-The eighth review (`/private/tmp/claude-501/ci87/sol35/rereview8.md`) confirms the four fixes and finds one P2. The writer moves the limit time at most once a minute, so a refusal inside the report window can carry a time up to one minute before the window, and the report hid the notice. The report now reads the limit time with one extra minute. A database test sets the time 30 seconds before a one-day window and requires the notice.
+The eighth review (`/private/tmp/claude-501/ci87/run35/rereview8.md`) confirms the four fixes and finds one P2. The writer moves the limit time at most once a minute, so a refusal inside the report window can carry a time up to one minute before the window, and the report hid the notice. The report now reads the limit time with one extra minute. A database test sets the time 30 seconds before a one-day window and requires the notice.
+
+A narrow ninth review (`/private/tmp/claude-501/ci87/run36/rereview9.md`) checks only this fix. The notice now shows in the review 8 case, and the new test fails without the fix. The extra minute can show a notice for a mark just before the window; the notice gives the exact time and says only that groups can be absent, so this is accepted. Verdict: ready.
