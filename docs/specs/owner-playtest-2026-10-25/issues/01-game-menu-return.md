@@ -128,7 +128,7 @@ The row uses the same native button helper and CSS as the other rows. Keyboard c
 
 The shared return buttons stay in `src/plugin/index.html`. The board screen hides the page head and table return. The seat and result screens keep their return. The result header sits over the table, so the board keeps its size when the result card opens.
 
-The shortest phone view can scroll the Menu body. The check scrolls each row into view and checks its full 48 px height. The browser helper opens Menu and clicks Main menu in one frame. A new board reply can close Menu between separate steps. The helper uses the real row; it throws an error if the row is absent. The pointer and keyboard tests remain in place.
+The shortest phone view can scroll the Menu body. The check scrolls each row into view and checks its full 48 px height. The browser helper waits for the board to settle. It opens Menu with pointer input, waits for Main menu and clicks that row with pointer input. Each click waits for the button to be visible, enabled and able to receive input. The pointer and keyboard tests remain in place.
 
 All logs below use `/private/tmp/claude-501/ci87/run38/game-menu-files/`.
 
@@ -149,7 +149,7 @@ The full run has only the known failure in `src/online/accounts.db.test.ts:324`.
 
 The first focused run finds six faults. It finds a result header that moves the board, a short-menu fit assumption and three old test paths. The selected retest passes all 14 cases after the fixes. The first other-caller run finds one more old phone path. Its retest passes. Logs: `focused.log`, `corrections.log` and `control-refs.log`.
 
-The browser trace has a first failed probe: it reads the dialog before the first open creates it. The second probe passes and changes the timing. The final helper removes the gap between open and return. No trace code remains. Logs: `browser-trace.log`, `browser-trace-2.log` and `browser-confirm.log`.
+The browser trace has a first failed probe: it reads the dialog before the first open creates it. The second probe passes and changes the timing. The first helper removes the gap between open and return. The CI fix below replaces that helper. No trace code remains. Logs: `browser-trace.log`, `browser-trace-2.log` and `browser-confirm.log`.
 
 After images: `/private/tmp/claude-501/ci87/run38/shots/F-107-menu-after-1280.png` and `F-107-menu-after-390.png`. Both images are viewed and compared with the approved samples. The rows, type, spacing and removed return match. The background pieces and player name differ. The current Close face is 44 px; the sample face is 48 px. Its touch target remains 48 px. This patch does not change that face. The full menu areas differ at 0.67% and 1.47% of pixels, at a channel threshold of 16.
 
@@ -158,3 +158,52 @@ The source review finds one Menu-line change in `board.ts`. Tap and move preview
 ## Comments
 
 Work stays in this worktree. The code change stays in the menu and return controls. The old ticket and other worktrees are read-only.
+
+## CI fault plan
+
+1. Test Chromium HTTP and WebKit UI on a temporary merge with the current base. If a check fails, test the base alone.
+2. Measure the failing state. Find the cause in the code. Keep a failing test or a focused test of each fault.
+3. Apply the smallest correct fix. Keep the art limit. Use pointer input for the menu return and wait for its row.
+4. Pass each failing check three times on the temporary merge. Apply the fix to this branch in one commit.
+5. Run the required branch checks. Record each command, result and log. Remove the temporary worktree.
+
+Acceptance: each fault has local failure evidence. Each repaired check passes three times on the temporary merge. The type check, selected tests, required branch browser checks and doc checks pass.
+
+
+## CI causes and fix
+
+The local proof uses a temporary merge of `edab83ef` and base `2c69ce08`. The remote base reference later moves to `2f200213`. The proof keeps the original base SHA. Node 24 and PostgreSQL 17 match CI. The local test database uses port 55432. The merge checks set `CI=1`. WebKit also sets `PLAYABLE_CPU_CANVAS=1`. Each browser command checks for a live publish and holds the shared test lock.
+
+The art check compares each gallery piece with its source SVG. `setSettings()` in `src/plugin/board-view.ts` waits for 24 image decodes before it sets the symbols. The settings call can end before this work ends. The board-idle helper does not wait for the image load. The old comparison can thus read painted pieces. A focused test holds the 24 local SVG replies. All 32 comparisons fail. The rook error is 99.16; CI reports 99.26. The canvas is 960 by 1024 and draws no symbol. After the test releases the replies, all comparisons pass on that same canvas. The test on base `2c69ce08` gives the same numbers. The new board head and Guard shield change do not cause this fault.
+
+The art check now counts opaque SVG draws on the board canvas. It clears the count before Symbols only changes. It waits for 32 gallery draws before it reads the pixels. Both armies, all three king pairs and the error limit of 3 stay the same. A missing draw or wrong image still fails.
+
+The old Menu helper selects an enabled button, then runs its page function in a later browser step. A computer write can disable Menu in that gap. `applyLocks()` in `src/account-game/state.ts` sets this state. A script click on the disabled button sends no click event. Main menu does not exist, so the helper throws the CI error. The focused WebKit test finds this state on its first attempt. Menu stays connected and has its handler, but it is disabled. A real return after the board settles passes. This helper comes from F-107; the base uses the separate return control.
+
+The return now waits for the board to settle. It uses real locator clicks for Menu and Main menu. It waits for the row in the open sheet. Each click waits for a visible, stable and enabled button that can receive input. After Play appears, the helper waits for the host and frame to settle. This final step lets the navigation messages reach the host before a later helper reads the saved screen. The product code does not change.
+
+Verification finds one more timing fault in the seat check, on both the merge and base. A focused test changes the viewport 100 times. It finds two early width failures. At 400 px, the table scroll width is 667 px, then 400 px after 100 ms. At 360 px, it is 463 px, then 360 px. The canvas bounds stay the same. Fonts are loaded. The old veil bounds cause the excess width. `placeVeil()` in `src/plugin/screens/seat.ts` sets these bounds in a later resize frame. The seat check now waits for the veil to match the current canvas before it reads the table width. All existing width, target and veil checks stay. The repaired focused test passes all 100 viewport changes.
+
+All logs below use `/private/tmp/claude-501/ci87/run38/menu-ci-files/`.
+
+| Check | Result | Log |
+| --- | --- | --- |
+| Chromium HTTP, unchanged merge, three attempts | Three passes: 333.5 s, 296.2 s and 294.1 s | `merge-before-http.log`, `merge-before-http-2.log`, `merge-before-http-3.log` |
+| WebKit UI, unchanged merge, three attempts | Two passes: 568.0 s and 441.8 s. The third fails the seat-table width check at 360 px. It passes the earlier Menu path. | `merge-before-webkit.log`, `merge-before-webkit-2.log`, `merge-before-webkit-3.log` |
+| Chromium HTTP, base alone | Pass: 303.2 s | `base-before-http.log` |
+| WebKit UI, base alone | Fails the same seat-table width check at 400 px | `base-before-webkit.log` |
+| Art load test, merge and base | Each old comparison fails on all 32 pieces before release. Each passes after release. | `merge-art-probe-2.log`, `base-art-probe.log` |
+| Repaired art wait | Stays blocked while SVG replies wait. All comparisons pass after release. | `merge-art-fixed-probe.log` |
+| Menu test, unchanged merge | Gives the exact CI error. Menu is disabled. The real return after idle passes. | `merge-menu-probe.log` |
+| Final locator test | Ten computer starts pass. The host saves Play before the helper returns. | `merge-locator-probe.log` |
+| Seat resize test, before and after | Before: two early width failures in 100 changes. After: all 100 pass. | `merge-seat-probe-3.log`, `merge-seat-fixed-probe.log` |
+| Final WebKit UI, temporary merge | Three passes: 458.6 s, 508.0 s and 470.0 s | `merge-verified-webkit-1.log`, `merge-verified-webkit-2.log`, `merge-verified-webkit-3.log` |
+| Final Chromium HTTP, temporary merge | Three passes: 317.2 s, 316.9 s and 318.5 s | `merge-verified-http-1.log`, `merge-verified-http-2.log`, `merge-verified-http-3.log` |
+
+The six final full checks use the same source. No file changes during a browser run. The ticket changes only after all browser commands end.
+
+The other attempts stay in the logs. The first art test stops at an ambiguous Settings selector and gives no art result (`merge-art-probe.log`). The first two seat tests omit parts of the friend join route and give no layout result (`merge-seat-probe.log`, `merge-seat-probe-2.log`). The first repaired full run finds the seat-width timing fault (`merge-after-webkit-1.log`).
+
+An intermediate return helper uses the manual pointer helper. One full HTTP repeat finds that the saved host screen can lag Play and send cleanup into a wait for hidden board status (`merge-final-http-3.log`). The final return settle step fixes this gap. Another WebKit repeat fails the manual helper's single hit read (`merge-proof-webkit-2.log`). The standard locator click now waits for hit readiness. The foreground test does not reproduce that fault (`merge-foreground-probe.log`). The sample block sets `document.hidden` itself to stop polls, so this flag does not prove a background tab. The manual pointer helper stays in the checks that stop the page clock. The intermediate passing runs stay in the `merge-final-*` and `merge-proof-*` logs.
+
+After the commit, run the required branch type check, selected tests, browser checks and doc checks. The final report at `/private/tmp/claude-501/ci87/run38/menu-ci.md` records those commands and results. No push, pull request, base merge or deploy forms part of this task.
