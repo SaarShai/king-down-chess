@@ -57,7 +57,7 @@ Images use `/private/tmp/claude-501/ci87/run38/shots/`.
 The account website uses this plugin screen. The local game has no copy of these two pools. It needs no source change.
 The piece model, stored fields, protocol and server rules keep their values. Start checks the options before it makes a command.
 The pools use stable DOM nodes. A pool edit keeps the current scroll position and focus.
-The current specs and capture tool use the inline pools. Past screen names, measurements, owner quotes and the Arrangement feature name keep their source meaning.
+The current specs and capture tool use the inline pools. Past screen names, measurements and owner quotes keep their source meaning. The feature label is First rank sorting (review item R9).
 
 
 ## Final result
@@ -89,3 +89,19 @@ The final commit gets the required check set again. Its logs use the `final-` pr
 The report gives the commit and each final result. The full unit suite stays for CI.
 The owner checks the images before merge. Independent review and CI remain before merge.
 This task has no push, PR, merge or deploy.
+
+## Review fixes
+
+The independent review of commit `46c48b6e` lists the items R1 to R10.
+Logs use `/private/tmp/claude-501/ci87/run38/agents/sections-fix-files/`.
+
+- Merge: `origin/staging/first-game` merges with no conflict. The new waits in `tools/plugin-ui-check.mjs` stay.
+- R1: Open games uses the Start pool guard. With an incomplete Pick four pool it stays on New game, opens Cards and sends no Find. The new owner test fails before the fix (the lobby opens) and passes after. See `r1-r6-before.log`.
+- R2: the tester guide and the QA protocol name the sections, First rank sorting, the card tiles with their corner boxes and the full card sheet.
+- R3: the card check helper again checks the 140 ms transition and the 3 px lift, the fit at 197, 393 and 1000 pixels (with 1280, 390 and 320), the Close, Escape, scrim and Done exits with focus back on the tile, no infinite animation in the full card sheet, and the names Mirror and Morph.
+- R3, not restored: "Close, Escape and scrim keep the last valid pool" no longer applies, because each tap changes the pool at once. The Done refusals ("Choose exactly 4 cards.", "Keep at least 4 cards checked.") no longer apply, because the pool has no Done step; the inline locks and the Start guard replace them.
+- R4: the old `pieces` and `cards` sheet test saves the value, waits for the host widget state, tears the frame down and remounts it.
+- R5: the visible card check is an 18 pixel box in the tile corner. Its clear 44 pixel hit area reaches 8 pixels past the tile corner, inside the box padding. The focus ring marks the visible box. Names break only between words. Under a 260 pixel container the box uses one column.
+- R6: a blocked Start or Open games writes the status into the `role="status"` region `#setup-start-status`. The region clears first, so each blocked press speaks. Focus stays on the pressed control.
+- R9: the feature label "Arrangement" is "First rank sorting" in the lobby key, the badges and the invite text. The stored field and the protocol keep `arrangement`.
+
