@@ -1,7 +1,7 @@
 # Release safety: keep the live build's assets through a publish
 
 Type: task
-Status: in-progress
+Status: resolved
 
 The release review of 2026-10-25 (`origin/main` `4c779072` against `staging/first-game` `a89a9381`) confirmed one P2. A publish through `tools/deploy.sh --publish` removes the content-named files of the live build. That release removed five: `index-CybTdZD_.js`, `entry-BblAJ16t.js`, `main-BD111CZQ.js`, `motion-CYGm_5rj.js` and `runtime-CUtY1z6d.js`. A page of the old build that is still starting at the switch, or that loads a lazy chunk later, gets a 404 for its runtime and shows "Try again". No offline list names the runtime, so the worker cache does not help. This ticket fixes the publish. It deploys nothing.
 
@@ -26,3 +26,5 @@ The release review of 2026-10-25 (`origin/main` `4c779072` against `staging/firs
 Review 1 (independent, at `318339e9`): not ready. Two CONFIRMED findings, both fixed. P2: the walk matched only the extensions of its type table, so an old file of another type (a `.jpg`) did not enter the walk and gave a 404 after the switch; now a content name of any extension enters the walk, and a type with no check stops it before publication. P3: the walk did not check the content type of `/` and `/sw.js`, so an HTML fallback for the worker passed; now `/` needs `text/html` and `/sw.js` a JavaScript type. Report: `/private/tmp/claude-501/ci87/keep-assets-review/review.md`.
 
 Review 2 (independent, at `98fe09b8`): not ready. Both fixes of review 1 hold. One CONFIRMED P2, fixed. The walk needed a quote or `)` right after the extension, so a name with a fragment or a query (`url("/assets/shape-BjV5c0aS.svg#mark")`, which Vite writes for a CSS mask) did not enter the walk, and the file gave a 404 after the switch. Now a `?` or `#` can follow the name, and the walk reads the file without it. The same change also accepts a space or a comma around a name (a `srcset` list) and an extension of any letter case. On the reviewer's Vite build the walk now keeps `shape-BjV5c0aS.svg`; on the two real builds it still reads 146 files and keeps 5 and 0. Report: `/private/tmp/claude-501/ci87/keep-assets-review/rereview.md`.
+
+Review 3 (independent, at `2ccfc162`): ready. No finding. The fixes of reviews 1 and 2 hold, also for a query, a fragment, a `srcset` list with and without a space, an unquoted CSS URL and an upper-case extension. On the two real builds the walk reads exactly 146 names with no false match. The tests of the latest fix fail with the walk of `98fe09b8`. Report: `/private/tmp/claude-501/ci87/keep-assets-review/rereview2.md`.
