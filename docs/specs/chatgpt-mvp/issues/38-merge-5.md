@@ -30,7 +30,7 @@ Expected conflicts:
 - npx tsc --noEmit, npm test (through the test lock), plugin-ui (check-runner, the M1), plugin-ui-http (this Mac, the test database) and WebKit plugin-ui (PLAYABLE_BROWSER=webkit check-runner.sh ... plugin-ui; this Mac) pass at the head.
 - The answer lists the head, each merge, each conflict, N1, the touch guard, and the check results.
 
-Then: the iOS Simulator recheck (swipe, End turn, K1 and K2 look), the Android F9 recheck, rolling QA 3, and a Sol + Astra review of the delta.
+Then: the iOS Simulator recheck (swipe, End turn, K1 and K2 look), the Android F9 recheck, rolling QA 3, and two Codex reviews of the delta.
 
 Note for the end.css merge: android-fixes measured the end card at 197 x 426 (loss: scrollTop 137, title and result out of view at first view). qa2-faults C owns the under-320 px end card. After the merge, the qa2-faults zoomEndFits and the android-fixes T-B check must both pass; neither rule may change the other's case.
 

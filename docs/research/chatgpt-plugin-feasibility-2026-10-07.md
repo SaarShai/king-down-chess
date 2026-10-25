@@ -1,16 +1,16 @@
 # King Down in ChatGPT: feasibility and product direction
 
-Research date: **October 7, 2026**. Recommendation, not an approved implementation or release plan. The investigation read the `project GPT` project and its [main chat](codex://threads/01a0fc0b-78ed-7160-bd47-c9496604b18d), current primary platform sources, public chess listings, and King Down code at `main` **dd34fa5**. Three Sol 6.1 helpers investigated platform requirements, competitors, and code reuse. No plugins were installed, games run, models benchmarked, or services deployed.
+Research date: **October 7, 2026**. Recommendation, not an approved implementation or release plan. The investigation read the earlier ChatGPT project and its [main chat](codex://threads/01a0fc0b-78ed-7160-bd47-c9496604b18d), current primary platform sources, public chess listings, and King Down code at `main` **dd34fa5**. Three Codex helpers investigated platform requirements, competitors, and code reuse. No plugins were installed, games run, models benchmarked, or services deployed.
 
 ## Recommendation
 
-Develop **King Down** as a playable native ChatGPT plugin, sharing the website's game engine and artwork. **Owner direction: the game itself is the main feature.** Teaching, hints and review are optional supporting features. The product does not need to interact with, monitor or animate the surrounding chat; project GPT's companion requirements must not drive its scope. Picture-in-picture may be useful where supported, but is not a prerequisite.
+Develop **King Down** as a playable native ChatGPT plugin, sharing the website's game engine and artwork. **Owner direction: the game itself is the main feature.** Teaching, hints and review are optional supporting features. The product does not need to interact with, monitor or animate the surrounding chat; the earlier ChatGPT project's companion requirements must not drive its scope. Picture-in-picture may be useful where supported, but is not a prerequisite.
 
 The product promise is: **“Play King Down inside ChatGPT.”** Its distinctiveness is the game: its pieces, powers, art and interactions. Prioritize a complete, enjoyable match with direct board controls, the existing computer opponent, save/resume and a path to friend multiplayer. Optional explanations can make unfamiliar rules approachable without requiring conversation to play.
 
 A first experience should be opening the game, choosing an army/king and opponent, and playing. A player may ask about a piece or review a turning point when useful. Fullscreen/expanded presentation should be judged for board usability; side-by-side chat, inline cards and PiP are presentation options rather than requirements defining what we build.
 
-## What project GPT actually established
+## What the earlier ChatGPT project actually established
 
 The latest experiment reports are more informative than the earlier recommendations in the chat. They provide reusable implementation evidence, not King Down's product requirements. Persistent companionship and automatic activity classification were specific to that project. Older browser-overlay experiments were subsequently excluded by the owner.
 
@@ -23,13 +23,13 @@ The latest experiment reports are more informative than the earlier recommendati
 | Explicit app context works. | Selected task identifiers reached chat through `updateModelContext` and `sendMessage`. | Share selected piece, current position and revision deliberately; do not infer a passive feed of the whole conversation. |
 | Installed skills can guide normal tool use, but are not an execution guarantee. | Server instructions/tool metadata alone produced **0/8 applied reports**. A later installed-skill run after opt-in changed all eight workflows, with **7/8 expected outcomes**. | Package coaching instructions, but let explicit user requests and UI actions drive gameplay. Never depend on the assistant noticing every turn. |
 
-Sources: [native gap audit](</Users/za/Documents/project GPT/.scratch/gamified-chat-mvp/experiments/native-gap-report.md>), [native classifier report](</Users/za/Documents/project GPT/.scratch/gamified-chat-mvp/experiments/native-classifier-report.md>), [current project decision map](</Users/za/Documents/project GPT/.scratch/gamified-chat-mvp/map.md>). Sampled underlying receipts confirm the menu failure and separate restored task states. The classifier run was small, synthetic, and used a different visible host/model setting; its result does not establish Sol 6.1 coaching performance. Package installation and successful behavior occurred together, without proving causality or repeat reliability.
+Sources, in the `.scratch/gamified-chat-mvp/` folder of the earlier ChatGPT project (on 2026-10-24 that folder is no longer at its 2026-10-07 path): the native gap audit (`experiments/native-gap-report.md`), the native classifier report (`experiments/native-classifier-report.md`) and the current project decision map (`map.md`). Sampled underlying receipts confirm the menu failure and separate restored task states. The classifier run was small, synthetic, and used a different visible host/model setting; its result does not establish the coaching performance of the ChatGPT model. Package installation and successful behavior occurred together, without proving causality or repeat reliability.
 
 Reusable lessons are the native UI bridge, explicit context, durable state, request deduplication, revision checks and separation of human/model authority. Do not copy the old manifest unchanged, assume its private identity covers our users, or treat its Worker deployment as a proven host for King Down search. No browser extension is needed for the recommended design.
 
 ## Current platform: possible and required
 
-This is the current **Plugins** system, combining skills, MCP tools and optional interactive UI. It is distinct from historical 2023 plugin manifests and from a custom GPT with instructions alone. A skill explains when/how to use a capability; tools and game code implement it. [Plugin architecture](https://developers.openai.com/plugins/concepts/plugins)
+This is the current **Plugins** system, combining skills, MCP tools and optional interactive UI. It is distinct from historical 2023 plugin manifests and from an instructions-only custom ChatGPT assistant. A skill explains when/how to use a capability; tools and game code implement it. [Plugin architecture](https://developers.openai.com/plugins/concepts/plugins)
 
 | Capability | Current documented support | Our use / qualification |
 |---|---|---|
@@ -47,7 +47,7 @@ Source: [Plugin Extensions](https://developers.openai.com/plugins/build/extensio
 
 **A full existing web UI can potentially be embedded.** Current rules permit pages under the MCP server's own registrable domain, with declared iframe origins and submission justification. Same hosting provider is insufficient; review is still required. Compare reuse of the existing game UI with a native board shell based on playability and integration effort; do not assume a teaching-specific UI is preferable. Both approaches need actual CSP, assets, worker and narrow-screen checks. [Iframe requirements](https://developers.openai.com/plugins/plugin-guidelines#iframes-and-embedded-pages), [security and privacy](https://developers.openai.com/plugins/guides/security-privacy)
 
-**No extra model API is inherently required.** ChatGPT already supplies the conversational model, and King Down already supplies a computer opponent. This is an architectural inference, not a free-hosting guarantee. We still need hosting/storage/search capacity; host usage and access depend on the user's plan. Do not import project GPT's external classifier or a separate LLM service without a demonstrated need.
+**No extra model API is inherently required.** ChatGPT already supplies the conversational model, and King Down already supplies a computer opponent. This is an architectural inference, not a free-hosting guarantee. We still need hosting/storage/search capacity; host usage and access depend on the user's plan. Do not import the earlier ChatGPT project's external classifier or a separate LLM service without a demonstrated need.
 
 **Events are optional notification infrastructure.** Documented MCP Events use explicit webhook subscriptions for supported Work/dot surfaces. They do not provide a passive full-chat feed, native matchmaking or a guaranteed low-latency chess clock. Multiplayer can instead use direct client connections to our match service; see the concrete precedent below. [MCP Events](https://developers.openai.com/plugins/build/mcp-events)
 
@@ -72,7 +72,7 @@ The tutorial is not production-ready authorization: its sample accepts client-ge
 
 ### Packaging, publication and business constraints
 
-Current portable packaging uses root `plugin.json`, optional `mcp.json`, `skills/` and assets, with OpenAI settings in `extensions.com.openai`. This differs from the older private `.codex-plugin/plugin.json`/`.app.json` package used in project GPT. Local/personal/workspace distribution and public review are separate routes. [Packaging](https://developers.openai.com/plugins/build/plugins)
+Current portable packaging uses root `plugin.json`, optional `mcp.json`, `skills/` and assets, with OpenAI settings in `extensions.com.openai`. This differs from the older private `.codex-plugin/plugin.json`/`.app.json` package used in the earlier ChatGPT project. Local/personal/workspace distribution and public review are separate routes. [Packaging](https://developers.openai.com/plugins/build/plugins)
 
 Public submission requires verified publishing identity, appropriate organization permissions, package/tool scans, MCP domain verification and review. Prepare support/privacy information, five positive and three negative test cases, a walkthrough video and usable reviewer credentials when authenticated. Approval and explicit publication are separate steps. Currently only one connected MCP server is supported per submitted plugin. A stable public endpoint is needed; a private tunnel is not the public distribution path. Public ZIPs containing app references or lifecycle hooks are currently ineligible, so a successful private Sites package is not automatically a public submission package. [Submission requirements](https://developers.openai.com/plugins/deploy/submission)
 
@@ -128,7 +128,7 @@ The [preparation architecture](chatgpt-plugin-preparation.md) identifies work th
 
 Prove **a complete game against the existing computer opponent** inside ChatGPT: new game, direct board controls, special moves, correct ending, save/resume and rematch. Reuse rendering, artwork and engine logic rather than rebuilding a separate game. Then prove a friend can join the same server-owned match from a separate client, with both boards updating and reconnecting correctly. This gives multiplayer an explicit early proof instead of excluding it because of unrelated chat-companion constraints.
 
-The engine decides legality and outcomes; the server decides ownership and revision for shared matches. Save the session and deduplicate mutations. ChatGPT may receive permitted position context when the player asks for explanations or control, but ordinary gameplay must work without generating assistant turns or observing chat activity. Reuse project GPT's integration patterns where relevant. PiP can be explored independently after the main board works.
+The engine decides legality and outcomes; the server decides ownership and revision for shared matches. Save the session and deduplicate mutations. ChatGPT may receive permitted position context when the player asks for explanations or control, but ordinary gameplay must work without generating assistant turns or observing chat activity. Reuse the earlier ChatGPT project's integration patterns where relevant. PiP can be explored independently after the main board works.
 
 ### Technical acceptance checks
 

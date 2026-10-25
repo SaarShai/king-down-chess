@@ -11,14 +11,14 @@ Keep **one game implementation**, with the website and ChatGPT as two ways to pl
 ```mermaid
 flowchart TD
   Web[kingdown.dev board] --> HTTP[HTTP adapter]
-  GPT[ChatGPT board] --> MCP[MCP adapter]
+  Board[ChatGPT board] --> MCP[MCP adapter]
   HTTP --> Match[Shared match module]
   MCP --> Match
   Match --> Engine[Existing King Down engine]
   Match --> DB[Supabase match storage]
   DB --> Realtime[Private change notifications]
   Realtime --> Web
-  Realtime --> GPT
+  Realtime --> Board
 ```
 
 Notifications tell clients to refresh an authorized view; they do not determine legal moves. The ChatGPT board can call tools through the app bridge without generating a model reply. Real-time subscriptions require a separately verified session/permission path; the diagram is a proposed design, not proof that current accounts already support it.

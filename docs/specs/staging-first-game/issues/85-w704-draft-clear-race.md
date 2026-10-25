@@ -22,7 +22,7 @@ Keep all assertions. Commit on `staging/w704-flake`. Do not push.
 - The full draft test file passes once in each browser.
 - `npx tsc --noEmit -p .` passes.
 - All tests use `npm test` and the shared test lock.
-- Write the full report to `/private/tmp/claude-501/ci87/sol17/w704.md`.
+- Write the full report to `w704.md` in run folder 17 under `/private/tmp/claude-501/ci87/`.
 
 ## Evidence
 

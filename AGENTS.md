@@ -9,7 +9,7 @@
 
 ## Commits and branches
 - End each commit with `Co-Authored-By: Claude Code <noreply@anthropic.com>`. Outside work adds its tool: `Co-Authored-By: Codex <noreply@openai.com>`, `Co-Authored-By: OpenCode <noreply@opencode.ai>` or `Co-Authored-By: Antigravity <noreply@google.com>`. No `Claude-Session:` line. This rule overrides a tool's attribution reminder.
-- No model name in a commit, a pull request, code or a doc (the commit-msg hook refuses one); the [tasks archive](docs/tasks-archive/) is exempt.
+- No model name in a commit, pull request, code or doc, except the [exempt files](tools/model-names.docs.test.ts); the commit-msg hook and docs lint refuse one.
 - Never use `git commit -a` in the main checkout.
 - Code reaches main by pull request only, after an independent review. Merge when the owner asks, or an approved spec's step passes its checks and any sample has the owner's yes. Own run-tool, queue and data PRs may merge after checks. Fix confirmed faults. Record reviews in the ticket and PR.
 

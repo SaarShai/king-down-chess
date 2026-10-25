@@ -72,4 +72,4 @@ Fix: `boardSheet()` fits the body after the placement. The test now opens the sh
   - Firefox on `24c517a9`: 45 fail, 161 pass. The same 45 tests fail on `origin/staging/first-game` `af8e8c06` (a separate worktree, same command): old faults, not from this merge (for example the A8 mouse skip tests and a `getByRole('button', { name: 'All rules' })` wait). On `b7f565e9`: the same 45 fail, 161 pass.
 - `npm run check:browser` on `1f3e80de`: `plugin-ui`, `effects-animation`, `effects-game`, `effects-states`, `end`, `cursor-adoption`, `menu-extra`, `new-game`, `visual-design`, `king-effects`: all ok. (A first `plugin-ui` run stopped because this ticket changed during the run; the rerun is ok.)
 - `npm run check:browser` on `c37aad2b` (PR #98's checks and the web effects): `turn`, `home`, `lesson-return`, `account`, `web-game`, `effects-game`, `end`, `new-game`: all ok.
-- Independent review (a Sol run) of `1f3e80de`: no findings, Ready. A second run of the delta (`c37aad2b`, `b7f565e9`): no findings, Ready.
+- Independent review (a Codex run) of `1f3e80de`: no findings, Ready. A second run of the delta (`c37aad2b`, `b7f565e9`): no findings, Ready.
