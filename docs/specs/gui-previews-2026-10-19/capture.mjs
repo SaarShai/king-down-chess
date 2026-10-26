@@ -16,28 +16,26 @@ assert(['A14','A15','A17','A18','A27','A39','A8','Y3'].includes(item), 'Name a b
 const browser = await chromium.launch({ headless: true });
 let current, web;
 const notes = [];
+// Since the effects integration (afb03f97) the board draws Freeze as the shared ice volume, its back face under the figures
+// and its front face after its row, then a badge with one dot per turn left (src/render/effects/board-effects.ts).
+// Only the ice fill makes this gradient; only the Freeze and Ice Wall badges use this ink.
 function watchFrost() {
-  const clear = CanvasRenderingContext2D.prototype.clearRect, draw = CanvasRenderingContext2D.prototype.drawImage;
-  CanvasRenderingContext2D.prototype.clearRect = function (...args) {
-    if (this.canvas.closest('#board')) window.frostDraws = [];
-    return clear.apply(this,args);
+  const see = (name, record) => {
+    const real = CanvasRenderingContext2D.prototype[name];
+    CanvasRenderingContext2D.prototype[name] = function (...args) { if (this.canvas.closest('#board')) record(this, args); return real.apply(this,args); };
   };
-  CanvasRenderingContext2D.prototype.drawImage = function (image,...args) {
-    if (this.canvas.closest('#board') && image instanceof HTMLImageElement && image.src.startsWith('data:image/svg+xml,')) {
-      const svg = decodeURIComponent(image.src);
-      if (svg.includes('kdm-frost')) (window.frostDraws ??= []).push({svg,box:args});
-    }
-    return draw.call(this,image,...args);
-  };
+  see('clearRect', () => { window.frostDraws = []; });
+  see('createLinearGradient', (_, box) => { if (box.join() === '-58,16,48,-108') (window.frostDraws ??= []).push('ice'); });
+  see('roundRect', ctx => { if (ctx.strokeStyle === '#316d89') (window.frostDraws ??= []).push(0); });
+  see('fill', ctx => { const draws = window.frostDraws ?? []; if (ctx.fillStyle === '#316d89' && typeof draws.at(-1) === 'number') draws[draws.length - 1]++; });
 }
 async function assertFrost(locator, turns) {
   await locator.evaluate(async (_, turns) => {
     for (let tries = 0; tries < 100; tries++) {
-      const marks = window.frostDraws ?? [];
-      if (turns ? marks.length === 2 && marks[0].svg.includes('fill="url(#kdm-frost)"') && (marks[1].svg.match(/<circle /g) ?? []).length === turns : marks.length === 0) return;
+      if (String(window.frostDraws ?? []) === (turns ? `ice,ice,${turns}` : '')) return;
       await new Promise(resolve => setTimeout(resolve,20));
     }
-    throw new Error(`Frost draw mismatch: turns=${turns}, pips=${window.frostDraws?.map(m => (m.svg.match(/<circle /g) ?? []).length)}`);
+    throw new Error(`Frost draw mismatch: turns=${turns}, draws=${window.frostDraws}`);
   },turns);
 }
 try {
