@@ -143,11 +143,12 @@ export function connectMoments(c: {
       const h = game.history[k], next = game.history[k + 1]?.pos ?? game.pos;
       const best = await c.engine.think(game, { timeMs: 200, maxDepth: 3, history: keys.slice(0, k) }, h.pos);
       if (g !== c.generation()) return; // the game changed (New game, Rematch, Undo): its search was cancelled
-      // The played move, one ply shallower: the same horizon as the root's view of it.
-      const reply = await c.engine.think(game, { timeMs: 200, maxDepth: 2, history: keys.slice(0, k + 1) }, next);
+      const changesTurn = next.turn !== h.pos.turn;
+      // Search counts turns: a free action keeps the root's depth and score direction.
+      const reply = await c.engine.think(game, { timeMs: 200, maxDepth: changesTurn ? 2 : 3, history: keys.slice(0, k + 1) }, next);
       if (g !== c.generation()) return;
       const same = best.move != null && toLan(h.pos, best.move) === h.lan;
-      results.push(best); before.push(best.score); after.push(same ? -best.score : reply.score);
+      results.push(best); before.push(best.score); after.push(same ? -best.score : changesTurn ? reply.score : -reply.score);
     }
     const found = keyMoments(before, after);
     box.innerHTML = found.length ? '<h3>Key moments</h3>' : '<small>No move gave away 2 pawns or more.</small>';
