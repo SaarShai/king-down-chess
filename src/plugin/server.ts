@@ -155,7 +155,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
         deadline_at: entry.deadline_at, colour: entry.seat === 0 ? 'white' : 'black', your_turn: entry.action === 'ready',
         opponent: !entry.opponent ? 'none yet' : entry.opponent.computer ? 'computer' : entry.opponent.deleted ? 'deleted player' : 'player' }));
       const ready = games.filter(game => game.your_turn).length;
-      return { content: text(games.length ? `${games.length} active game${games.length === 1 ? '' : 's'}; your turn in ${ready}.` : 'No active games. Start one with kingdown_create.'), structuredContent: { games, invitations: invitations.invitations.map(({ player: _player, ...row }) => row), next_before: invitations.next_before }, _meta: { games: rows, ...invitations } };
+      return { content: text(games.length ? `${games.length} active game${games.length === 1 ? '' : 's'}; your turn in ${ready}.` : 'No active games. Start one with kingdown_create.'), structuredContent: { games, invitations: invitations.invitations.map(({ player: _player, revision: _revision, ...row }) => row), next_before: invitations.next_before }, _meta: { games: rows, ...invitations } };
     });
   register('kingdown_get', 'Reload the authoritative board. With since_revision, only the commands after that revision. Read-only.',
     { game_id: gameId.optional(), since_revision: z.number().int().min(0).max(MAX_REVISION).optional(), board_id: boardId }, { visibility: ['app'], readOnly: true }, async args => {
