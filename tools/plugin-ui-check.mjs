@@ -2666,7 +2666,9 @@ try {
     const datedGames = await tool('kingdown_games');
     assert(!datedGames.isError, JSON.stringify(datedGames.content));
     for (const game of datedGames._meta.games ?? []) game.created_at = '2026-01-01T09:00:00.000Z';
+    datedGames.structuredContent = { ...datedGames.structuredContent, screen: 'play' };
     await page.evaluate(result => window.harnessShow(result), datedGames);
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     const viewport = page.viewportSize();
     await zoomViewport(402,874,0,0);
     await frame.locator('#new-game .new-game-body').evaluate(el => { el.scrollTop = 0; });
