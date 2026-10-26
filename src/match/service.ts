@@ -566,7 +566,7 @@ export class GameService {
   const invite = (await this.store.pool.query(`select * from public.game_invites where ${column}=$1`, [value])).rows[0] ?? this.unavailable();
   this.visible(invite, actor, byId);
   const game = await this.store.load(invite.game_id), host = game.players[other(invite.seat as Seat)];
-  if ((invite.state === 'open' || game.end_reason === 'no_start') && await this.store.inviteExpired(this.store.pool, invite.token_hash)) fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.expired);
+  if ((invite.state === 'open' || invite.state === 'cancelled' && game.end_reason === 'no_start') && await this.store.inviteExpired(this.store.pool, invite.token_hash)) fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.expired);
   if (host.user_id !== actor && (!host.user_id || !await this.store.mayJoin(this.store.pool, invite.recipient_id ?? host.user_id, invite.recipient_id ? host.user_id : actor))) this.unavailable();
   if (invite.state !== 'open' || game.status !== 'waiting') fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.closed);
   const recipient = invite.recipient_id ? (await this.store.pool.query('select handle from public.profiles where id=$1', [invite.recipient_id])).rows[0]?.handle : null;
@@ -598,7 +598,7 @@ export class GameService {
    const seat = invite.seat as Seat, host = game.players[other(seat)].user_id;
    if (invite.state === 'accepted' && invite.used_by === actor && game.players[seat].user_id === actor) return this.render(game, seat, { client, rules: true });
    const at = await this.store.now(client);
-   if ((invite.state === 'open' || game.end_reason === 'no_start') && await this.store.inviteExpired(client, invite.token_hash)) fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.expired);
+   if ((invite.state === 'open' || invite.state === 'cancelled' && game.end_reason === 'no_start') && await this.store.inviteExpired(client, invite.token_hash)) fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.expired);
    if (invite.state !== 'open') fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.closed);
    if (game.status !== 'waiting' || game.players[seat].user_id || host === actor || !host) this.unavailable();
    if (!await this.store.mayJoin(client, invite.recipient_id ?? host!, invite.recipient_id ? host! : actor)) this.unavailable();
@@ -648,7 +648,7 @@ export class GameService {
   const r = (await client.query(`select i.*,g.options,g.end_reason,p.id as player_id,p.handle,p.icon from public.game_invites i join public.games g on g.id=i.game_id
    left join public.profiles p on p.id=case when i.created_by=$2 then i.recipient_id else i.created_by end where token_hash=$1`, [inviteId, actor])).rows[0] ?? this.unavailable();
   return { invite_id: r.token_hash, game_id: r.game_id, recipient_id: r.recipient_id, direction: r.created_by === actor ? 'outgoing' : 'incoming', player: r.player_id ? { user_id: r.player_id, handle: r.handle, icon: r.icon } : null,
-   options: r.options, expires_at: r.expires_at.toISOString(), state: (r.state === 'open' || r.end_reason === 'no_start') && await this.store.inviteExpired(client, r.token_hash) ? 'expired' : r.state };
+   options: r.options, expires_at: r.expires_at.toISOString(), state: (r.state === 'open' || r.state === 'cancelled' && r.end_reason === 'no_start') && await this.store.inviteExpired(client, r.token_hash) ? 'expired' : r.state };
  }
  /** Ends missed deadlines, expired invitations and 24-hour open games; safe to run twice at once. */
  async sweep(now = new Date()): Promise<number> {

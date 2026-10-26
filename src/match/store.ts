@@ -64,7 +64,7 @@ export class PostgresMatchStore {
  async invitations(actor: string, before?: [string, string], limit = 20, client: Client = this.pool): Promise<InvitationPage> {
   const rows = (await client.query(`select i.token_hash as invite_id,i.game_id,i.recipient_id,i.created_at,
    case when i.created_by=$1 then 'outgoing' else 'incoming' end as direction,
-   case when i.state='open' and i.expires_at<=statement_timestamp() then 'expired' else i.state end as state,
+   case when (i.state='open' or i.state='cancelled' and g.end_reason='no_start') and i.expires_at<=statement_timestamp() then 'expired' else i.state end as state,
    i.expires_at,g.options,p.id as user_id,p.handle,p.icon from public.game_invites i join public.games g on g.id=i.game_id
    left join public.profiles p on p.id=case when i.created_by=$1 then i.recipient_id else i.created_by end
    where (i.created_by=$1 or i.recipient_id=$1 and ${unblocked('i.created_by', '$1')})
@@ -80,7 +80,7 @@ export class PostgresMatchStore {
    join public.game_players op on op.game_id=me.game_id and op.seat<>me.seat and not op.computer
    join public.games g on g.id=me.game_id where me.user_id=$1 and op.user_id is not null group by op.user_id
    union all select other_id,'follow',null::timestamptz from public.relations where user_id=$1 and kind='follow'
-  ), people as (select (select max(c.recent) from candidates c where c.user_id=p.id) as recent,p.id as user_id,p.handle,p.icon,case when exists(select from candidates c where c.user_id=p.id and c.source='recent') then 'recent' else 'follow' end as source
+  ), people as (select (select max(c.recent) from candidates c where c.user_id=p.id) as recent,p.id as user_id,p.handle,p.icon,case when exists(select from candidates c where c.user_id=p.id and c.source='recent') then 'recent' when exists(select from candidates c where c.user_id=p.id) then 'follow' else 'lookup' end as source
    from public.profiles p where p.id<>$1 and p.handle is not null and ${unblocked('$1', 'p.id')}
    and (p.challenge_from in ('signed-in','everyone') or p.challenge_from='follows' and exists(select from public.relations where user_id=p.id and other_id=$1 and kind='follow'))
    and ($4::text is null and exists(select from candidates c where c.user_id=p.id) or p.handle=$4))

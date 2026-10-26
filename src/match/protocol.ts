@@ -144,7 +144,7 @@ export interface InboxEntry { invite_id?: string | null; rating_policy: RatingPo
 export type InvitationState = 'open' | 'accepted' | 'declined' | 'cancelled' | 'expired';
 export interface InvitationRow { invite_id: string; game_id: string; direction: 'incoming' | 'outgoing'; recipient_id: string | null; player: { user_id: string; handle: string | null; icon: Icon | null } | null; options: Options | null; expires_at: string; state: InvitationState }
 export interface InvitationPage { invitations: InvitationRow[]; next_before: string | null }
-export interface Friend { user_id: string; handle: string; icon: Icon | null; source: 'recent' | 'follow' }
+export interface Friend { user_id: string; handle: string; icon: Icon | null; source: 'recent' | 'follow' | 'lookup' }
 export interface FriendsPage { friends: Friend[]; next_after: string | null }
 export interface LimitDetails { count: number; handle?: string | null }
 export interface Invite { token: string; code: string; expires_at: string; invite_id: string; recipient_id?: string | null }

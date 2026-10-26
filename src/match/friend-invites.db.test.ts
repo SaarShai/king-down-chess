@@ -114,7 +114,7 @@ suite('friend invitation transactions', () => {
   await accounts.setHandle(users[1], { handle: 'new-rowan' });
   expect((await services[0].invitations(users[0])).invitations[0].player?.handle).toBe('new-rowan');
   await expect(services[0].friends(users[0], { handle: 'rowan' })).rejects.toMatchObject({ code: 'NOT_FOUND' });
-  expect((await services[0].friends(users[0], { handle: 'new-rowan' })).friends[0].user_id).toBe(users[1]);
+  expect((await services[0].friends(users[0], { handle: 'new-rowan' })).friends[0]).toMatchObject({ user_id: users[1], source: 'lookup' });
   expect(await join(sent)).toMatchObject({ status: 'setup' });
  });
  it('ends received waiting games and removes invites at actual deletion', async () => {
@@ -290,10 +290,19 @@ suite('friend invitation transactions', () => {
   const sent = await send();
   await admin.query("update public.game_invites set expires_at=statement_timestamp()-interval '1 second' where game_id=$1", [sent.game_id]);
   expect(await services[0].sweep()).toBe(1);
+  expect((await services[0].invitations(users[0])).invitations[0].state).toBe('expired');
   await expect(services[0].preview(users[1], sent.invite!.token)).rejects.toMatchObject({ message: INVITE_NOTICES.expired });
   await expect(join(sent)).rejects.toMatchObject({ message: INVITE_NOTICES.expired });
   await expect(services[0].invite(users[0], sent.game_id)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
   expect((await send()).game_id).not.toBe(sent.game_id);
+ });
+
+ it('keeps an accepted receipt accepted after its expiry and a no-start result', async () => {
+  const sent = await send(); await join(sent);
+  await admin.query("update public.games set status='aborted',end_reason='no_start' where id=$1", [sent.game_id]);
+  await admin.query("update public.game_invites set expires_at=statement_timestamp()-interval '1 second' where game_id=$1", [sent.game_id]);
+  const retried = await join(sent);
+  expect(retried.invitation?.state).toBe('accepted');
  });
 
 });
