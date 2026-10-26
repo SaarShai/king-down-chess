@@ -7,6 +7,7 @@
 import { Sync, stamp, type SavedGameAccess, type Section } from './sync';
 import type { Client, Provider } from './client';
 import { AUTH_KEY } from './session';
+import { canWriteLocal } from './local';
 export type User = { name: string; avatar: string | null; provider: string };
 type AuthUser = { user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> };
 
@@ -56,11 +57,11 @@ let sync: Sync | null = null;
 
 /** The game saved something (screen/play.ts save; main.ts once at load): note what changed, and send it soon when signed in. */
 export function changed(): void {
-  try { if (sync) sync.changed(); else stamp(localStorage); } catch { /* storage blocked: nothing to sync */ }
+  try { if (sync) sync.changed(); else if (canWriteLocal(localStorage)) stamp(localStorage); } catch { /* storage blocked: nothing to sync */ }
 }
 
 /** Draws the Account section and starts the cloud save; `onApply` gets the sections the account had newer. */
-export function startAccount(onApply: (down: Section[]) => void, savedGame: SavedGameAccess): void {
+export function startAccount(onApply: (down: Section[], switched?: boolean) => void, savedGame: SavedGameAccess): void {
   const $ = (id: string) => document.getElementById(id)!;
   const body = $('account-body'), note = $('account-note'), ask = $('delete-account') as HTMLDialogElement;
   const params = new URLSearchParams(location.search);
