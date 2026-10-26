@@ -1,5 +1,6 @@
 import { copyText } from '../clipboard';
 import type { Game } from '../game';
+import { moveNumbers } from '../move-text';
 import { kingsParam } from '../powers-ui';
 import { type Rules } from '../rules/engine';
 import { toFen } from '../rules/setup';
@@ -43,7 +44,8 @@ export async function copyAndSay(button: HTMLElement, text: string, done: string
  */
 export function connectLinks(c: { game(): Game; turnStart(): number; rules: string | null; blocked(): boolean }) {
   $('copy').onclick = () => {
-    const text = c.game().history.map((h, i) => (i % 2 === 0 ? `${i / 2 + 1}. ${h.lan}` : h.lan)).join(' ');
+    const history = c.game().history, numbers = moveNumbers(history.map(h => h.pos.turn));
+    const text = history.map((h, i) => (i === 0 || numbers[i] !== numbers[i - 1] ? `${numbers[i]}${h.pos.turn ? '…' : '.'} ${h.lan}` : h.lan)).join(' ');
     void copyAndSay($('copy'), text, 'Moves copied');
   };
 

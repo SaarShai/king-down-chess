@@ -151,13 +151,14 @@ export function connectMoments(c: {
       results.push(best); before.push(best.score); after.push(same ? -best.score : changesTurn ? reply.score : -reply.score);
     }
     const found = keyMoments(before, after);
+    const numbers = moveNumbers(game.history.map(h => h.pos.turn));
     box.innerHTML = found.length ? '<h3>Key moments</h3>' : '<small>No move gave away 2 pawns or more.</small>';
     for (const km of found) {
       const h = game.history[km.ply], better = results[km.ply].move;
       const what = km.kind === 'missedMate' ? 'missed a forced mate'
         : km.kind === 'allowedMate' ? 'allowed a forced mate'
         : `gave away about ${Math.round(km.loss / 100)} pawns`;
-      const text = `${Math.floor(km.ply / 2) + 1}${km.ply % 2 ? '…' : '.'} ${h.lan}: ${h.pos.turn ? 'Black' : 'White'} ${what}.${better ? ` Better: ${toLan(h.pos, better)}.` : ''}`;
+      const text = `${numbers[km.ply]}${h.pos.turn ? '…' : '.'} ${h.lan}: ${h.pos.turn ? 'Black' : 'White'} ${what}.${better ? ` Better: ${toLan(h.pos, better)}.` : ''}`;
       marked.push({ ...km, text });
       const b = document.createElement('button');
       b.textContent = text;

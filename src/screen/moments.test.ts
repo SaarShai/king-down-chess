@@ -50,6 +50,21 @@ describe('key moments in the game review', () => {
     await review(freezeMate(), think).listMoments();
     expect(think.mock.calls.map(([, opts]) => opts.maxDepth)).toEqual([3, 3, 3, 2]);
   });
+
+  it.each([
+    { side: 0, lans: ['e2-e3!H', 'e3-e4', 'e7-e5'], labels: ['1. e2-e3!H', '1. e3-e4', '1… e7-e5'] },
+    { side: 1, lans: ['e2-e4', 'e7-e6!H', 'e6-e5'], labels: ['1. e2-e4', '1… e7-e6!H', '1… e6-e5'] },
+    { side: 1, blackStart: true, lans: ['e7-e5'], labels: ['1… e7-e5'] },
+  ])('numbers key moments by the recorded turns for $lans', async ({ side, blackStart, lans, labels }) => {
+    const game = new Game('RNBQKBNR', { ...POWERS_BALANCED, kings: side === 0
+      ? [{ king: 'Flame', power: 'Haste' }, null] : [null, { king: 'Flame', power: 'Haste' }] });
+    if (blackStart) game.load({ ...game.pos, turn: 1 });
+    expect(game.playLan(lans)).toBe(lans.length);
+    let calls = 0;
+    const moments = review(game, async () => ({ move: null, score: calls++ % 2 ? 0 : 300, depth: 3, nodes: 0 }));
+    await moments.listMoments();
+    expect(moments.marked().map(km => km.text.split(': ')[0])).toEqual(labels);
+  });
 });
 
 describe('the result line', () => {
