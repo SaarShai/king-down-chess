@@ -24,7 +24,7 @@ export const SETTINGS = ['skill', 'coords', 'sound', 'queen', 'pace', 'threats',
 export const SAVE_KEY = 'kingdown.save';
 
 /** Unreadable data includes the raw text for a later replacement check. */
-export interface SaveRead { save: Save | null; unreadable: boolean; raw?: string }
+export interface SaveRead { save: Save | null; unreadable: boolean; raw?: string; failed?: true }
 
 /** Compare only game fields; settings and JSON key order can change without changing the game. */
 export function gameJSON(s: Save | null): string {
@@ -42,7 +42,7 @@ export function readSave(): SaveRead {
     raw = localStorage.getItem(SAVE_KEY);
     if (!canWriteLocal(localStorage)) return { save: null, unreadable: true };
   }
-  catch { return { save: null, unreadable: false }; } // Storage can be unavailable while local practice still works.
+  catch { return { save: null, unreadable: false, failed: true }; } // Storage can be unavailable while local practice still works.
   if (raw === null) return { save: null, unreadable: false };
   try {
     const s = JSON.parse(raw);
