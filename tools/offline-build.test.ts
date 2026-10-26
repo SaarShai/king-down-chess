@@ -66,6 +66,21 @@ it('excludes other entries, account-only output, maps, metadata, auth and legal 
   expect(precache).not.toContain('index.html');
 });
 
+it('F7: the offline install does not fetch optional clip sheets', () => {
+  const { bundle, files } = fixture();
+  const clips = ['assets/tap-Abcd1234.webp', 'assets/slam-Efgh5678.webp'];
+  for (const name of [...clips, 'assets/knight-Abcd1234.webp']) {
+    bundle[name] = asset(name); files.push(name);
+    (bundle['assets/main.js'] as OutputChunk).viteMetadata!.importedAssets.add(name);
+  }
+  const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
+  for (const file of clips) {
+    expect(precache).not.toContain(file);
+    expect(allowlist).not.toContain(file);
+  }
+  expect(precache).toContain('assets/knight-Abcd1234.webp');
+});
+
 it('does not select an account entry just because it has the same chunk name', () => {
   const { bundle, files } = fixture();
   (bundle['assets/main.js'] as OutputChunk).facadeModuleId = '/other/src/main.ts';
@@ -101,7 +116,8 @@ function site() {
   write('src/main.ts', "import './local.css'; import './shared'; new Worker(new URL('./ai/worker.ts', import.meta.url), { type: 'module' }); window.publicArt = import.meta.env.BASE_URL + 'ui/pawn.webp'; window.openWorkshop = () => import('./workshop'); window.signIn = () => import('./account/client');");
   write('src/local.css', '@font-face { font-family: Local; src: url(./font.woff2); } body { background-image: url(./art.svg); }');
   write('src/font.woff2', 'font bytes'); write('src/art.svg', '<svg xmlns="http://www.w3.org/2000/svg"/>');
-  write('src/shared.ts', 'console.log("shared local code");');
+  write('src/knight/tap.webp', 'optional knight clip'); write('src/rook/slam.webp', 'optional rook clip');
+  write('src/shared.ts', 'console.log(new URL("./knight/tap.webp", import.meta.url), new URL("./rook/slam.webp", import.meta.url));');
   write('src/ai/worker.ts', 'self.onmessage = () => self.postMessage("AI ready");');
   write('src/workshop.ts', 'export const design = "local design";');
   write('src/account/client.ts', 'export const token = "account only";');
@@ -133,6 +149,9 @@ it('uses real build metadata for the worker, loader, lazy code, CSS and emitted 
     expect(allowlist).not.toContain('play.html');
     expect(allowlist).not.toContain(named('play'));
     expect(allowlist).not.toContain(named('client'));
+    for (const file of [named('tap', 'webp'), named('slam', 'webp')]) {
+      expect(file).not.toContain('undefined'); expect(allowlist).not.toContain(file); expect(precache).not.toContain(file);
+    }
     expect(worker).toMatch(/const VERSION = '[a-f0-9]{12}';/);
     expect(worker).toContain("const POLICY = 'public-build-v1';");
     expect(worker).not.toContain("const VERSION = 'dev';");
