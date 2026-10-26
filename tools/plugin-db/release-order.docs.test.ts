@@ -23,11 +23,19 @@ it.each(['supabase/README.md', 'docs/specs/test-guards/issues/02-deletion-grace-
   },
 );
 
+it.each(['supabase/README.md', 'docs/specs/staging-first-game/issues/90-board-expiry-find-lock-history-limit.md'])(
+  'requires 0021 before a staging deploy and production release in %s', file => {
+    const text = read(file);
+    expect(text).toContain('Apply 0021 on staging before a deploy that depends on it.');
+    expect(text).toContain('Apply 0021 on production before the release that carries it.');
+  },
+);
+
 it('keeps the migration lists ordered with one number per migration', () => {
   const files = readdirSync('supabase/migrations').filter(name => /^\d{4}_.*\.sql$/.test(name)).sort();
   expect(new Set(files.map(name => name.slice(0, 4))).size).toBe(files.length);
   const listed = (file: string) => [...read(file).matchAll(/'(\d{4}_\w+\.sql)'/g)].map(match => match[1]);
   expect(listed('tools/plugin-db/bootstrap-test.mjs')).toEqual(files);
   expect(listed('tools/plugin-db/migrate.ts')).toEqual(files.slice(1));
-  expect(files.slice(-2)).toEqual(['0019_client_errors.sql', '0020_deletion_utc.sql']);
+  expect(files.slice(-2)).toEqual(['0020_deletion_utc.sql', '0021_history_draw.sql']);
 });

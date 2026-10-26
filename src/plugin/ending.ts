@@ -2,7 +2,7 @@
 import type { View } from '../match/protocol';
 
 const WHY: Record<NonNullable<View['result']>['reason'], string> = {
-  checkmate: 'Checkmate', stalemate: 'Stalemate', draw50: 'Fifty-move rule', drawRepetition: 'Repetition', drawMaterial: 'Insufficient material',
+  checkmate: 'Checkmate', stalemate: 'Stalemate', draw50: 'Fifty-move rule', drawRepetition: 'Repetition', drawMaterial: 'Insufficient material', history: 'Game length limit',
   resignation: 'Resignation', agreement: 'Agreement', timeout: 'Time', abort: 'Game aborted', no_start: 'No first move. No result.',
 };
 export { WHY };
@@ -15,6 +15,7 @@ export function endReason(view: View): string {
     case 'agreement': return 'Draw by agreement.';
     case 'stalemate': return 'Draw by stalemate.';
     case 'draw50': return 'Draw by the fifty-move rule.';
+    case 'history': return 'Draw: the game reached its length limit.';
     case 'drawRepetition': return 'Draw by repetition.';
     case 'drawMaterial': return 'Neither side has enough pieces to give checkmate.';
     case 'checkmate': return result.winner === view.seat ? 'You gave checkmate.' : 'Your opponent gave checkmate.';

@@ -15,6 +15,7 @@ Classic chess on 8×8 (check, checkmate, stalemate) with these deltas:
 | 50-move draw | not stated | on (100 plies) | on |
 | Threefold repetition | not stated | on (3rd occurrence of the same board, side to move and spent-Strike state) | on; the castling rights and the en-passant square are part of the position |
 | Insufficient material | not stated | on (conservative engine check; a live Strike power prevents this draw) | on |
+| History limit (online games) | not stated | a turn that fills the game history ends the game in a draw (about 500 turns each; owner, 2026-10-26) | the same |
 
 **Classic** is the plugin's real-chess setup (the normal start position, spec Q30, Q31). Only it sets the rule flag `classicChess`; every other setup keeps King Down's rules.
 

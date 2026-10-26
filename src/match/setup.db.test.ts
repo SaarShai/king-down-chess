@@ -94,6 +94,16 @@ suite('game setup through PostgreSQL', () => {
  it('refuses a computer level without game options', async () => {
   await expect(service.create(a, { kind: 'solo', level: 'strong' })).rejects.toMatchObject({ code: 'INVALID_INPUT', status: 400 });
  });
+ it('stops unready choices at revision 100 so setup keeps the revisions of play; Ready still starts the game (server audit F5)', async () => {
+  const created = await service.create(a, { kind: 'friend', options: { ...DEFAULT_OPTIONS, kingPowers: true } });
+  await service.join(b, (await service.invite(a, created.game_id)).token);
+  const host = (await service.view(a, created.game_id)).choices![0]!, guest = (await service.view(b, created.game_id)).choices![1]!;
+  await service.command(a, created.game_id, command(1, { type: 'choose', choice: host, ready: true }));
+  await admin.query('update public.games set revision=99 where id=$1', [created.game_id]);
+  expect(await service.command(b, created.game_id, command(99, { type: 'choose', choice: guest, ready: false }))).toMatchObject({ status: 'setup', revision: 100 });
+  await expect(service.command(b, created.game_id, command(100, { type: 'choose', choice: guest, ready: false }))).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+  expect(await service.command(b, created.game_id, command(100, { type: 'choose', choice: guest, ready: true }))).toMatchObject({ status: 'playing', revision: 101 });
+ }, 30_000);
  it('ends late setup once with no result and refuses a late Ready command', async () => {
   const create = async () => {
    const game = await service.create(a, { kind: 'friend', options: DEFAULT_OPTIONS });
