@@ -662,6 +662,23 @@ it.each([0, 1])('opens the chat result game when a remounted board expired; anot
   }
 });
 
+it('opens the chat result game again with Try again after a failed recovery Open', async () => {
+  const pending = receipt(), opened = { content: [], _meta: { board_id: 'board-b', view: { ...game, seat: 0, revision: 2 }, games: [] } };
+  (window as any).openai.widgetState = { privateContent: { screen: 'board', board_id: 'board-a', pending } };
+  let opens = 0;
+  transport.call.mockImplementation(async ({ name, arguments: args }) => name === 'kingdown_get' && args.board_id === 'board-a' ? expired
+    : name === 'kingdown_open' ? ++opens === 1 ? { content: [{ type: 'text', text: 'Open failed' }], isError: true, _meta: { code: 'INTERNAL_ERROR' } } : opened
+      : name === 'kingdown_settings' ? { settings, me: { handle: 'player', icon: 'spirit' } } : { games: [] });
+  const app = await import('./app');
+  transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'board', game_id: game.game_id }, _meta: { board_id: 'board-a', view: { ...game, seat: 0 } } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(calls('kingdown_open')).toHaveLength(1); expect(app.memory.view).toBeUndefined();
+  expect((await import('../account-game/state')).messageLine(app.store.page()).action).toBe('try-again');
+  press('retry'); await vi.advanceTimersByTimeAsync(0);
+  expect(calls('kingdown_open')).toEqual([{ game_id: game.game_id }, { game_id: game.game_id }]);
+  expect(app.client.state.board_id).toBe('board-b'); expect(app.client.state.pending).toEqual(pending); expect(app.memory.view?.revision).toBe(2);
+});
+
 it.each(['foreground', 'poll', 'expired board', 'expired board, other seat'])('clears private state when a reconnected account refuses the current board: %s', async path => {
   const app = await mounted(); app.routeView({ ...game, seat: 0 }); app.client.state.pending = receipt();
   const accessLost = vi.fn(() => { expect(app.queue.closed()).toBe(true); expect(app.memory.view).toBeUndefined(); });

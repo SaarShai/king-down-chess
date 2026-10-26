@@ -40,6 +40,8 @@ const queuedAtStart = state.queued;
 let awaitingInitialResult = true;
 let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
+// The chat result's game of the last mount: Try again after a failed recovery opens it again (ticket 90).
+let mountShown: Pick<View, 'game_id' | 'seat'> | undefined;
 let polling = false, newGameFirst = false;
 let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0;
 let handleBack: Screen = state.handle_back ?? state.pending?.screen ?? 'settings';
@@ -356,7 +358,7 @@ $('reload').onclick = () => { if (state.board_id) void call('kingdown_get', {});
 $('retry').onclick = () => {
   const action = messageLine(store.page()).action;
   if (action === 'connect') location.reload();
-  else if (action === 'try-again') { if (state.board_id) void call('kingdown_get', {}, false, false, true); }
+  else if (action === 'try-again') { if (state.board_id) void call('kingdown_get', {}, { route: true, shown: view ? undefined : mountShown }); }
   // Retry sends the state.pending command again; its continuation finishes what the command started (design §5.2 and §5.3).
   else if (state.pending) void call(state.pending.name, state.pending.args, true, false, undefined, true);
 };
@@ -397,6 +399,7 @@ app.onResult = result => {
 };
 async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
   const initial = job.options.initial === true;
+  mountShown = result._meta?.view as View | undefined;
   // A newer chat result detaches this job; every write below stops at the next wait.
   const stale = () => !queue.current(job);
   try {
@@ -440,7 +443,7 @@ async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
     const readBoard = state.board_id && (typeof value?.game_id === 'string' || initial && savedScreen);
     // The board read waits for an idle lane, so it never reads through a write in flight (design §2, R6).
     if (readBoard) {
-      const next = await call('kingdown_get', {}, { route, origin: job, mount: true, user: false, signal, shown: result._meta?.view as View | undefined });
+      const next = await call('kingdown_get', {}, { route, origin: job, mount: true, user: false, signal, shown: mountShown });
       if (stale()) return;
       if (savedGame && !route && next && (next.status === 'finished' || next.status === 'aborted')) routeView(next);
     } else if (!result._meta?.view) {

@@ -1,9 +1,9 @@
-# Server audit P3: board expiry, the Find lock and the history limit
+# Server audit P3: board expiry and the Find lock
 
 Type: task
-Status: in progress (branch `staging/server-p3`; not reviewed, not pushed)
+Status: in review (branch `staging/server-board-find`)
 
-A read-only server audit of `e3fd4411` (`playtest/reports/audit-2026-10-25/audit-server.md`) confirmed three P3 faults: F3, F4 and F5. This ticket fixes them, one commit for each. It adds no migration, deploys nothing and touches no remote database.
+A read-only server audit of `e3fd4411` (`playtest/reports/audit-2026-10-25/audit-server.md`) confirmed three P3 faults: F3, F4 and F5. This ticket fixes F3 and F4. The F5 fix (a draw when the history is full) adds a game rule, so it waits for the owner on branch `staging/server-f5-history-draw`. It adds no migration, deploys nothing and touches no remote database.
 
 ## F3: a board in use loses its record after 7 days
 
@@ -34,7 +34,8 @@ An independent review found two P2 faults in the first page change. Both are fix
 - A remount did not recover. The mount read runs before `show()` sets the view, so the recovery had no game and the page showed the notice for each Try again. Proof: a saved board screen and a chat result for `game-a000` gave no `kingdown_open`.
 - An in-place reconnect to the opponent's account kept the page. The missing row gives `BOARD_EXPIRED` before the owner check, and the opponent's Open of the shown game passes the seat check. The first account's receipt stayed, and its Retry sent that command as the new account. Proof: a database case (the opponent's read of the deleted board gives `BOARD_EXPIRED`, its Open gives seat 1) and an app case. The first text of this ticket said that another account always gets `FORBIDDEN`; that was false for an account with a seat.
 - Red on the old page code, 3 new cases in `src/plugin/app.test.ts`: "opens the chat result game when a remounted board expired; another seat clears the page" (seat 0 and seat 1: no Open) and the "expired board, other seat" path of "clears private state when a reconnected account refuses the current board" (the page stays open).
-- Green on the new code: `src/plugin/app.test.ts`, 124 tests, with the type check. The two proof cases of the review now fail on their defect assertions. Related files (`src/online/entry`, `src/plugin/queue`, `client`, `screens/lifecycle`, `screens/lobby`, `src/account-game/state`): 121 tests pass. `npm run test:docs` (178 tests) and `npm run check:browser plugin-privacy` pass.
+- A second review found that the remount recovery ran once: after a failed recovery Open, Try again read with no game and showed the notice. The page now keeps the chat result's game of the last mount (`mountShown`), and Try again opens it while no view shows. Red on the old code: "opens the chat result game again with Try again after a failed recovery Open" (one Open, not two).
+- Green on the new code: `src/plugin/app.test.ts`, 125 tests, with the type check. The two proof cases of the review now fail on their defect assertions. Related files (`src/online/entry`, `src/plugin/queue`, `client`, `screens/lifecycle`, `screens/lobby`, `src/account-game/state`): 121 tests pass. `npm run test:docs` (178 tests) and `npm run check:browser plugin-privacy` pass.
 
 ## F4: every Find waits on one global lock during engine work
 
