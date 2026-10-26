@@ -3515,6 +3515,13 @@ try {
   await page.setViewportSize({width:1000,height:1000});
   console.log('PASS: G1 targets first; G3 tap, drag, cancel and one draft step at 320, 393, 852 and 1280 px');
   console.log(`Ticket 15 look comparisons: ${look}`);
+  // This recovery case needs a fresh open-link slot after the earlier friend cases.
+  const priorLinks = await tool('kingdown_games');
+  assert(!priorLinks.isError, JSON.stringify(priorLinks.content));
+  for (const game of priorLinks._meta.games ?? []) if (game.kind === 'friend' && game.status === 'waiting') {
+    const closed = await tool('kingdown_abort', { game_id: game.game_id, expected_revision: game.revision });
+    assert(!closed.isError, JSON.stringify(closed.content));
+  }
   await openScreen('settings'); await boardSetting('symbols-only',false); await boardSetting('show-threats',false); await openPlay(); await legacyStart('solo');
   for (const [kind,features,status] of [['friend',options,'waiting'],['solo',{...options,arrangement:true},'setup']]) {
     const start = await legacyStart('solo');
@@ -3522,6 +3529,7 @@ try {
     await clickSquare(4,1); await page.evaluate(()=>{window.dropNextMoveReply=true;});
     await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await sendTurn(); await frame.locator('#retry').waitFor();
     const switched = await tool('kingdown_create',{kind,options:features,colour:'white'});
+    assert(!switched.isError, JSON.stringify(switched.content));
     assert.equal(switched._meta.view.status,status); assert.equal(switched._meta.view.fen,'');
     await page.evaluate(result=>window.harnessShow(result),switched);
     await frame.locator('#retry').waitFor({state:'hidden'});
