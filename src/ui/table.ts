@@ -171,7 +171,7 @@ export function renderTable(s: TableSnapshot): void {
 export interface TableState {
   game: Game; sides: readonly Side[]; skill: SkillName; rules: Rules;
   flipped: boolean; thinking: boolean; viewing: number | null; lesson: number | null; lessonDone: boolean;
-  notice: string; armed: boolean; selected: number | null; pending: readonly number[];
+  notice: string; saveNotice?: string; armed: boolean; selected: number | null; pending: readonly number[];
   linkSide: Color | null; reviewNote: string;
   turn: Turn; mode: Mode;
   power?: CoinContext;
@@ -249,6 +249,8 @@ export function refreshTable(s: TableState): void {
   }
   $('all-rules').hidden ||= !!s.pending.length || s.armed;
   const line = contextLine(state);
+  // A save failure stays first; keep the current instruction and its actions below it.
+  if (s.saveNotice) { line.note = [line.line, line.note].filter(Boolean).join(' '); line.line = s.saveNotice; line.rank = 'refusal'; }
   $('context-text').replaceChildren(...[line.line, line.note, line.before ?? ''].filter(Boolean).map((words, i) => {
     const row = document.createElement('span');
     if (words === line.before) row.id = 'previously-before';

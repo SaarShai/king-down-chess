@@ -80,6 +80,7 @@ export function connect(storageKey: string, { manualCallback = false }: { manual
     },
     remote(userId: string): Remote {
       return {
+        userId,
         async pull() {
           const { data, error } = await sb.from('user_data').select('settings, lessons, saved_game').eq('user_id', userId).maybeSingle();
           if (error) throw error;
