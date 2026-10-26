@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { endTurn } from './app-ui.mjs';
 import { env, launch, noSidewaysScroll, shot } from './lib/checks.mjs';
 
 const mode = process.argv[2];
@@ -11,17 +12,65 @@ const evidence = [], faults = [];
 const check = (value, words) => { try { assert.ok(value, words); } catch (error) { faults.push(error); } };
 try {
   for (const [width, height] of sizes) {
+    if (mode === 'result' && height === 200) continue;
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', hasTouch: true, serviceWorkers: 'block' });
     const page = await context.newPage();
     await page.clock.install({ time: new Date('2026-10-26T12:00:00Z') });
-    if (mode === 'zoom') await page.addInitScript(() => {
+    if (mode !== 'title') await page.addInitScript(mode => {
       sessionStorage.setItem('kingdown.title-seen', '1');
-      localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', moves: [], white: 'human', black: 'human', sound: false, pace: 'off' }));
-    });
+      const fen = mode === 'result' ? '7k/6pp/8/8/8/R7/8/6MK w - - 0 1' : 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1';
+      localStorage.setItem('kingdown.save', JSON.stringify({ back: mode === 'result' ? '' : 'RNBQKBNR', fen, moves: [], white: 'human', black: 'human', sound: false, pace: 'off' }));
+    }, mode);
     await page.goto(env('PLAYABLE_URL'));
     await page.waitForFunction(() => window.view?.ready);
     await page.evaluate(() => window.view.ready());
     await page.evaluate(() => document.fonts.ready);
+    if (mode === 'result') {
+      await page.clock.runFor(100);
+      for (const square of [16, 56]) {
+        const point = await page.evaluate(square => window.view.screenOf(square), square);
+        await page.mouse.click(point.x, point.y);
+      }
+      await endTurn(page);
+      await page.locator('#over').waitFor({ state: 'visible' });
+      await page.locator('#over img').evaluateAll(images => Promise.all(images.map(image => image.decode())));
+      await page.clock.runFor(100);
+      const measure = () => page.evaluate(() => {
+        const dialog = document.getElementById('over');
+        const rect = selector => dialog.querySelector(selector).getBoundingClientRect().toJSON();
+        return { focus: document.activeElement.id, scrollTop: dialog.scrollTop, height: dialog.clientHeight,
+          scrollHeight: dialog.scrollHeight, dialog: dialog.getBoundingClientRect().toJSON(),
+          art: rect('.over-art'), words: rect('#over-words'), heading: rect('#over-title'),
+          rematch: rect('[value="rematch"]') };
+      });
+      const initial = await measure();
+      await shot(page, `${mode}-${width}x${height}`);
+      check(initial.scrollTop === 0, `${width}×${height}: the result starts at the top`);
+      check(initial.focus === 'over-title', `${width}×${height}: the result heading takes focus`);
+      check(initial.art.top >= initial.dialog.top, `${width}×${height}: the king art is in view`);
+      check(initial.heading.bottom <= initial.dialog.bottom, `${width}×${height}: the full heading is in view`);
+      if (width === 320) {
+        await page.locator('#over').evaluate(dialog => { dialog.scrollTop = 0; });
+        await page.mouse.move(width / 2, height / 2);
+        await page.mouse.wheel(0, 1000);
+        await page.waitForFunction(() => document.getElementById('over').scrollTop > 0);
+        await shot(page, `${mode}-${width}x${height}-actions`);
+        for (const value of ['rematch', 'new', 'close']) {
+          const box = await page.locator(`#over [value="${value}"]`).boundingBox();
+          check(box.y >= 0 && box.y + box.height <= height, `320×568: scroll reaches ${value}`);
+        }
+        await page.locator('#over-title').focus();
+        for (let n = 0; n < 6; n++) {
+          if (await page.locator('#over [value="rematch"]').evaluate(button => button === document.activeElement)) break;
+          await page.keyboard.press('Tab');
+        }
+        check(await page.locator('#over [value="rematch"]').evaluate(button => button === document.activeElement), '320×568: Tab reaches Rematch');
+      }
+      await noSidewaysScroll(page);
+      evidence.push({ width, height, initial, final: await measure() });
+      await context.close();
+      continue;
+    }
     if (mode === 'zoom') {
       await page.clock.runFor(100);
       const measure = () => page.evaluate(() => {
@@ -91,5 +140,5 @@ try {
   }
   writeFileSync(join(env('PLAYABLE_OUT'), 'layout.json'), JSON.stringify(evidence, null, 2));
   if (faults.length) throw new AggregateError(faults, 'Layout checks fail');
-  console.log(`ok ${mode}: six sizes; content stays in reach`);
+  console.log(`ok ${mode}: ${evidence.length} sizes; content stays in reach`);
 } finally { await browser.close(); }
