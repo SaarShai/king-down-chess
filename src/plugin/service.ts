@@ -51,7 +51,10 @@ export class PluginService {
   record(actor: string) { return this.games.record(actor); }
   notices(actor: string, before?: string) { return this.accounts.notices(actor, before); }
   command(actor: string, gameId: string, input: unknown) { return this.games.command(actor, gameId, input, 'chatgpt'); }
-  invite(actor: string, gameId: string) { return this.games.invite(actor, gameId); }
+  invite(actor: string, gameId: string, input: unknown = {}) { return this.games.invite(actor, gameId, input); }
+  friends(actor: string, input: unknown = {}) { return this.games.friends(actor, input); }
+  invitations(actor: string, input: unknown = {}) { return this.games.invitations(actor, input); }
+  declineInvite(actor: string, inviteId: string) { return this.games.declineInvite(actor, inviteId); }
   join(actor: string, invitation: unknown) { return this.games.join(actor, invitation); }
   preview(actor: string, code: unknown) { return this.games.preview(actor, code); }
   lobby(actor: string) { return this.games.lobby(actor); }

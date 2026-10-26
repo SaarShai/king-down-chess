@@ -5,9 +5,9 @@ import type { Icon } from '../account/profile';
 import type { SkillName } from '../ai/skill';
 import type { CardName } from '../rules/rules';
 import type { MatchSetup, MatchSnapshot, PublicMatchRules } from './index';
-import type { EndReason, ErrorCode, RatingPolicy, GameStatus, InboxEntry, LobbyEntry, LoggedCommand, Preset, Seat, SeatAction, Surface } from './protocol';
+import type { EndReason, ErrorCode, RatingPolicy, GameStatus, InboxEntry, LobbyEntry, LoggedCommand, Preset, Seat, SeatAction, Surface, LimitDetails, InvitationPage, FriendsPage } from './protocol';
 export class MatchServiceError extends Error {
- constructor(public code: ErrorCode, public status: number, message: string) { super(message); this.name = 'MatchServiceError'; }
+ constructor(public code: ErrorCode, public status: number, message: string, public details?: LimitDetails) { super(message); this.name = 'MatchServiceError'; }
 }
 export interface Player { seat: Seat; user_id: string | null; computer: boolean; handle_at_start: string | null; /** current, from profiles */ handle: string | null; icon?: Icon | null; power: string; choice: Choice | null; ready: boolean; action: SeatAction; turns_played: number; draw_offers: number; said: Preset[]; last_seen_at: Date | null; last_seen_ms: number | null; last_surface: Surface | null; active: boolean; ended_at: Date | null }
 export interface Game {
@@ -31,6 +31,51 @@ const online = (viewer: string, other: string, setting: string) => `${unblocked(
  and exists(select from public.relations where user_id=${viewer} and other_id=${other} and kind='follow') and exists(select from public.relations where user_id=${other} and other_id=${viewer} and kind='follow'))`;
 
 export class PostgresMatchStore {
+ /** Account locks precede game and invite row locks. Permission writes use the same order. */
+ async lockAccounts(client: PoolClient, users: (string | null | undefined)[]): Promise<void> {
+  for (const user of [...new Set(users.filter((u): u is string => !!u))].sort())
+   await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [`account:${user}`]);
+ }
+ async now(client: Client = this.pool): Promise<Date> { return (await client.query('select statement_timestamp() as at')).rows[0].at; }
+ async pairCount(client: Client, a: string, b: string): Promise<number> {
+  return (await client.query(`select count(distinct g.id)::int as n from public.game_players a
+   join public.game_players b on b.game_id=a.game_id join public.games g on g.id=a.game_id
+   where a.user_id=$1 and b.user_id=$2 and not a.computer and not b.computer and g.kind<>'solo' and g.status in ('setup','playing')`, [a, b])).rows[0].n;
+ }
+ async pendingCount(client: Client, sender: string, recipient: string | null): Promise<number> {
+  return (await client.query(`select count(*)::int as n from public.game_invites i join public.games g on g.id=i.game_id
+   where i.created_by=$1 and ${recipient ? 'i.recipient_id=$2' : 'i.recipient_id is null'} and i.state='open'
+   and i.expires_at>statement_timestamp() and g.status='waiting'`, recipient ? [sender, recipient] : [sender])).rows[0].n;
+ }
+ async invitations(actor: string, before?: [string, string], limit = 20, client: Client = this.pool): Promise<InvitationPage> {
+  const rows = (await client.query(`select i.token_hash as invite_id,i.game_id,i.recipient_id,i.created_at,
+   case when i.created_by=$1 then 'outgoing' else 'incoming' end as direction,
+   case when i.state='open' and i.expires_at<=statement_timestamp() then 'expired' else i.state end as state,
+   i.expires_at,g.options,p.id as user_id,p.handle,p.icon from public.game_invites i join public.games g on g.id=i.game_id
+   left join public.profiles p on p.id=case when i.created_by=$1 then i.recipient_id else i.created_by end
+   where (i.created_by=$1 or i.recipient_id=$1 and ${unblocked('i.created_by', '$1')})
+   and ($2::timestamptz is null or (i.created_at,i.token_hash)<($2::timestamptz,$3::text))
+   order by i.created_at desc,i.token_hash desc limit $4`, [actor, before?.[0] ?? null, before?.[1] ?? null, limit + 1])).rows;
+  return { invitations: rows.slice(0, limit).map(({ created_at: _at, user_id, handle, icon, ...row }) => ({ ...row,
+   player: user_id ? { user_id, handle, icon } : null, expires_at: row.expires_at.toISOString() })),
+   next_before: rows.length > limit ? `${rows[limit-1].created_at.toISOString()}|${rows[limit-1].invite_id}` : null };
+ }
+ async friends(actor: string, after?: string, limit = 20, handle?: string): Promise<FriendsPage> {
+  const rows = (await this.pool.query(`with candidates as (
+   select op.user_id as user_id,'recent' as source,max(g.updated_at) as recent from public.game_players me
+   join public.game_players op on op.game_id=me.game_id and op.seat<>me.seat and not op.computer
+   join public.games g on g.id=me.game_id where me.user_id=$1 and op.user_id is not null group by op.user_id
+   union all select other_id,'follow',null::timestamptz from public.relations where user_id=$1 and kind='follow'
+  ), people as (select p.id as user_id,p.handle,p.icon,case when exists(select from candidates c where c.user_id=p.id and c.source='recent') then 'recent' else 'follow' end as source
+   from public.profiles p where p.id<>$1 and p.handle is not null and ${unblocked('$1', 'p.id')}
+   and (p.challenge_from='signed-in' or p.challenge_from='follows' and exists(select from public.relations where user_id=p.id and other_id=$1 and kind='follow'))
+   and ($4::text is null and exists(select from candidates c where c.user_id=p.id) or p.handle=$4))
+   select * from people where $2::uuid is null or (source < (select source from people where user_id=$2) or source=(select source from people where user_id=$2) and user_id>$2)
+   order by source desc,user_id limit $3`, [actor, after ?? null, limit + 1, handle?.trim().toLowerCase() ?? null])).rows;
+  // Recent opponents precede follows. The cursor includes a user ID from this actor's own list.
+  return { friends: rows.slice(0, limit), next_after: rows.length > limit ? rows[limit-1].user_id : null };
+ }
+
  constructor(readonly pool: Pool) {}
  async transaction<T>(action: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await this.pool.connect();
@@ -88,7 +133,7 @@ export class PostgresMatchStore {
   // A start receipt is no move: its time would show when a player who hides online status chose Find (RV7-2).
   const result = await client.query(`select seq,seat,kind,payload,actions,created_at from public.game_commands where game_id=$1 and seq>$2 and kind<>'start' order by seq desc limit $3`, [game, since ?? 0, since === undefined ? 10 : 50]);
   return result.rows.reverse().map(r => ({ seq: r.seq, seat: r.seat, at: r.created_at.toISOString(),
-   action: r.kind === 'join' || r.kind === 'expire' ? { type: r.kind } : r.kind === 'computer' ? { type: 'computer', actions: r.actions } : r.payload.action }));
+   action: r.kind === 'join' || r.kind === 'expire' || r.kind === 'decline' ? { type: r.kind } : r.kind === 'computer' ? { type: 'computer', actions: r.actions } : r.payload.action }));
  }
  async hasJoined(game: string, client: Client = this.pool): Promise<boolean> {
   return (await client.query("select exists(select from public.game_commands where game_id=$1 and kind='join') as joined", [game])).rows[0].joined;
@@ -97,9 +142,9 @@ export class PostgresMatchStore {
   return (await client.query(`select exists(select from public.games g join public.game_commands c on c.game_id=g.id and c.kind='join'
    where g.created_by=$1 and g.kind='random' and g.status in ('setup','playing') and g.created_at<=$2 and c.created_at>$2) as available`, [actor, started])).rows[0].available;
  }
- async addInvite(client: PoolClient, row: { token_hash: string; code_hash: string; game_id: string; seat: Seat; created_by: string; expires_at: Date }): Promise<boolean> {
-  const result = await client.query('insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,$4,$5,$6) on conflict do nothing',
-   [row.token_hash, row.code_hash, row.game_id, row.seat, row.created_by, row.expires_at]);
+ async addInvite(client: PoolClient, row: { token_hash: string; code_hash: string; game_id: string; seat: Seat; created_by: string; expires_at: Date; recipient_id: string | null }): Promise<boolean> {
+  const result = await client.query('insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at,recipient_id) values($1,$2,$3,$4,$5,$6,$7) on conflict do nothing',
+   [row.token_hash, row.code_hash, row.game_id, row.seat, row.created_by, row.expires_at, row.recipient_id]);
   return result.rowCount === 1;
  }
  /** Counts one short-code try, on its own commit so a refused join still counts: RATE_LIMITED after 10 in one hour
@@ -112,7 +157,7 @@ export class PostgresMatchStore {
  }
  /** A block either way refuses; so does the host's "who can challenge me" setting (nobody, or only people they follow). */
  async mayJoin(client: Client, host: string, joiner: string): Promise<boolean> {
-  const result = await client.query(`select ${unblocked('$1', '$2')}
+  const result = await client.query(`select exists(select from public.profiles where id=$1 and handle is not null) and ${unblocked('$1', '$2')}
    and case (select challenge_from from public.profiles where id=$1) when 'nobody' then false
     when 'follows' then exists(select from public.relations where user_id=$1 and other_id=$2 and kind='follow') else true end as allowed`, [host, joiner]);
   return result.rows[0].allowed;
@@ -154,7 +199,7 @@ export class PostgresMatchStore {
  async due(now: Date, limit = 100): Promise<string[]> {
   return (await this.pool.query(`(select id from public.games where status='playing' and deadline_at<=$1 order by deadline_at limit $2)
    union all (select id from public.games where status='setup' and setup_deadline_at<=$1 order by setup_deadline_at limit $2)
-   union all (select i.game_id from public.game_invites i join public.games g on g.id=i.game_id where g.status='waiting' and g.kind<>'random' and i.used_by is null and i.expires_at<=$1 limit $2)
+   union all (select i.game_id from public.game_invites i join public.games g on g.id=i.game_id where g.status='waiting' and g.kind<>'random' and i.state='open' and i.expires_at<=$1 limit $2)
    union all (select g.id from public.games g where g.kind='friend' and g.status='waiting' and g.created_at<=$1::timestamptz-interval '7 days' and not exists(select from public.game_invites where game_id=g.id) order by g.created_at limit $2)
    union all (select id from public.games where kind='random' and status='waiting' and created_at<=$1::timestamptz-interval '24 hours' order by created_at limit $2)`, [now, limit])).rows.map(r => r.id);
  }
