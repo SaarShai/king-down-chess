@@ -121,6 +121,9 @@ already immune to everything but a king?
 **Seam.** Same `Move` shape as Freeze. The block is **one filter in `pseudoMoves`**: drop any move
 whose `captures` include the warded square. That is cheaper and safer than a square-aware
 `canCaptureAt`, because `canCapture(att, vic)` sees no squares and is called from eight places.
+The warded square is the piece's current square: since `markFree` the marking side moves after the
+mark, so `makeMove` and the search move every mark with its piece (`followSq`), and a mark ends
+when its piece leaves the board. A Freeze mark follows its piece the same way.
 
 **`isAttacked` needs no change.** It is only ever asked about a king square (`inCheck` in
 `engine.ts`, `attacked()` in `search.ts`) and a king can never be warded. Worth a comment in the

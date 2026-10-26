@@ -372,12 +372,12 @@ describe('the Salvation card', () => {
     legalSame(open);
   });
 
-  it('a mark on a square emptied since does not bar a return there', () => {
+  it('a mark ends with its taken piece, so it does not bar a return there', () => {
     hands(['Salvation'], ['Freeze']);
-    // Black freezes the knight on b1 and, the mark being free, its archer shoots it: b1 is empty,
-    // and Black's mark there still binds White this turn, but the returned knight is a new piece.
+    // Black freezes the knight on b1 and, the mark being free, its archer shoots it: the mark ends
+    // with the knight, and the returned knight is a new piece.
     const pos = play(play(fromFen('4k3/8/8/8/8/1a6/8/1N2K3 b - - 0 1 l'), '!F:b1'), 'Ab3*b1');
-    expect(pos.marks?.[BLACK]?.sq).toBe(parseSq('b1'));
+    expect(pos.marks).toBeUndefined();
     expect(returns(pos)).toContain('N@b1!R');
     legalSame(pos);
   });
