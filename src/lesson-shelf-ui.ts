@@ -28,12 +28,13 @@ export function progress(): LessonProgress {
   catch { return {}; }
 }
 
-export function recordLesson(name: string): void {
+export function recordLesson(name: string): boolean {
   try {
-    if (!canWriteLocal(localStorage)) return;
+    if (!canWriteLocal(localStorage)) return false;
     const store = progress(), next = completeLesson(store, name);
     if (next !== store) localStorage.setItem('kingdown.lessons', JSON.stringify(next));
-  } catch { /* The lesson still works when the store is off. */ }
+    return true;
+  } catch { return false; }
 }
 
 export function refreshLessonShelf(): void {

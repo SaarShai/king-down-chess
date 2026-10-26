@@ -67,9 +67,10 @@ export function savedGame(value: unknown): Game {
 }
 
 /** Writes the autosave; `s` holds the settings and the game that the caller gives. */
-export function writeSave(s: Save): void {
+export function writeSave(s: Save): boolean {
   try {
-    if (!canWriteLocal(localStorage)) return;
+    if (!canWriteLocal(localStorage)) return false;
     localStorage.setItem(SAVE_KEY, JSON.stringify(s));
-  } catch { /* private mode or a full quota: play on without a save */ }
+    return true;
+  } catch { return false; }
 }

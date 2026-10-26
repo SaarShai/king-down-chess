@@ -11,6 +11,7 @@ import { toFen } from '../rules/setup';
 import { POWERS_BALANCED, RULES_2017, parseKings, type Rules } from '../rules/engine';
 import { refreshTable, renderTable } from '../ui/table';
 import { progress, recordLesson } from '../lesson-shelf-ui';
+import { LESSONS } from '../lessons';
 
 vi.mock('../render/sfx', () => ({ setSound: vi.fn(), snd: {} }));
 vi.mock('../ui/table', () => ({ readPiece: vi.fn(), refreshTable: vi.fn(), renderTable: vi.fn() }));
@@ -19,7 +20,7 @@ vi.mock('../move-moments', () => ({ connectMoveMoments: () => ({ cancel: vi.fn()
 vi.mock('../game-end', () => ({ connectEndReview: vi.fn(), connectGameEnd: () => ({ reset: vi.fn(), refresh: vi.fn() }) }));
 vi.mock('../turn-controls', () => ({ connectTurnPress: vi.fn(), renderTurnButton: vi.fn(), announceWaiting: vi.fn(), waitingRead: vi.fn() }));
 vi.mock('../ui/previously', () => ({ connectPreviously: (_button: unknown, c: { game(): { pos: unknown } }) => ({ clear: vi.fn(), position: () => c.game().pos, state: vi.fn() }) }));
-vi.mock('./moments', () => ({ soundsFor: vi.fn(), connectMoments: () => ({ clear: vi.fn(), start: vi.fn(), restore: vi.fn(), say: vi.fn(), result: () => '', reviewNote: () => '', marked: () => [] }) }));
+vi.mock('./moments', () => ({ soundsFor: () => ({ now: null, hit: null }), connectMoments: () => ({ clear: vi.fn(), start: vi.fn(), restore: vi.fn(), played: vi.fn(), say: vi.fn(), result: () => '', reviewNote: () => '', marked: () => [] }) }));
 vi.mock('./links', () => ({ connectLinks: () => ({}) }));
 vi.mock('../lesson-shelf', () => ({ lessonShelf: () => ({ next: null }) }));
 
@@ -39,7 +40,7 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); });
 
 function page(rules: Partial<Rules> = {}, realSettings = false) {
-  const view = { setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), highlight: vi.fn(), setPreview: vi.fn(), setCoords: vi.fn(), setLabels: vi.fn() } as unknown as BoardView;
+  const view = { setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), highlight: vi.fn(), setPreview: vi.fn(), setCoords: vi.fn(), setLabels: vi.fn(), animateMove: vi.fn().mockResolvedValue(undefined), skip: vi.fn() } as unknown as BoardView;
   const engine = { cancel: vi.fn(), think: vi.fn().mockResolvedValue({ move: null }) }, changed = vi.fn();
   const settings = { pace: () => 'off', threats: () => false, queen: () => true, settingsNow: () => ({ coords: true }), applySettings: vi.fn(), resetSettings: vi.fn(),
     sound: () => true, coords: () => true, labels: () => false, applyPace: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['settings'];
@@ -72,6 +73,75 @@ describe('review account boundaries', () => {
   const keys = [SAVE_KEY, 'kingdown.lessons', 'kingdown.sync'];
   const copy = (moves: string[]) => [JSON.stringify({ ...original, moves }), JSON.stringify({ done: ['Guard'] }), null];
   const access = { blocked: () => false, accepts: () => true };
+
+  it('review 6: returns failure from both writers when another account owns the keys', () => {
+    stored.set('kingdown.sync-owner', JSON.stringify({ userId: 'A' }));
+    page();
+    stored.set('kingdown.sync-owner', JSON.stringify({ userId: 'B' }));
+    const before = [...stored];
+    expect.soft(recordLesson('Guard')).toBe(false);
+    expect.soft(writeSave(original)).toBe(false);
+    expect([...stored]).toEqual(before);
+  });
+
+  it.each(['other account', 'storage error'])('review 6: keeps a failure notice for a blocked lesson record (%s)', async cause => {
+    stored.set('kingdown.sync-owner', JSON.stringify({ userId: 'A' }));
+    const { play, view, changed } = page();
+    play.startLesson(4);
+    if (cause === 'other account') stored.set('kingdown.sync-owner', JSON.stringify({ userId: 'B' }));
+    else {
+      const set = localStorage.setItem.bind(localStorage);
+      localStorage.setItem = (key, value) => { if (key === 'kingdown.lessons') throw new Error('quota'); set(key, value); };
+    }
+    const before = [...stored], game = play.game();
+    const move = game.legal.find(m => LESSONS[4].goal(game.pos, m))!;
+    view.onSquareClick(move.from, false); view.onSquareClick(move.to, false);
+    await vi.advanceTimersByTimeAsync(0);
+    const shown = () => vi.mocked(refreshTable).mock.lastCall![0];
+    expect(shown().notice).toContain('cannot save');
+    expect(shown().lessonDone).toBe(false);
+    expect(play.moments.say).not.toHaveBeenCalledWith(expect.stringContaining('Well done'));
+    play.commands.escape(); view.onSquareClick(move.to, false); play.refresh();
+    expect(shown().notice).toContain('cannot save');
+    if (cause === 'other account') expect(shown().notice).toContain('Reload');
+    expect([...stored]).toEqual(before);
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it('review 6: records a lesson before it shows success', async () => {
+    const { play, view, changed } = page();
+    play.startLesson(4);
+    const game = play.game(), move = game.legal.find(m => LESSONS[4].goal(game.pos, m))!;
+    view.onSquareClick(move.from, false); view.onSquareClick(move.to, false);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(progress().done).toContain('Guard');
+    expect(play.moments.say).toHaveBeenCalledWith(expect.stringContaining('Well done'));
+    expect(vi.mocked(refreshTable).mock.lastCall![0].lessonDone).toBe(true);
+    expect(changed).toHaveBeenCalledOnce();
+  });
+
+  it.each(['other account', 'storage error'])('review 6: keeps a failure notice when New game cannot save (%s)', cause => {
+    stored.set('kingdown.sync-owner', JSON.stringify({ userId: 'A' }));
+    const { play, view, changed, engine } = page();
+    if (cause === 'other account') stored.set('kingdown.sync-owner', JSON.stringify({ userId: 'B' }));
+    else {
+      const set = localStorage.setItem.bind(localStorage);
+      localStorage.setItem = (key, value) => { if (key === SAVE_KEY) throw new Error('quota'); set(key, value); };
+    }
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const before = [...stored];
+    play.newGame('RNBQKBNR', null, false, null, ['ai', 'human']);
+    const failure = vi.mocked(refreshTable).mock.lastCall![0].notice;
+    expect(failure).toContain('cannot save');
+    expect(failure).toContain('Reload');
+    expect(failure).not.toContain('Start a New game');
+    play.commands.escape(); view.onSquareClick(12, false); play.refresh();
+    expect(vi.mocked(refreshTable).mock.lastCall![0].notice).toBe(failure);
+    expect([...stored]).toEqual(before);
+    expect(changed).not.toHaveBeenCalled();
+    if (cause === 'other account') expect(engine.think).not.toHaveBeenCalled();
+    expect(play.save()).toBe(false);
+  });
 
   it('review 2: selects B before a failed cloud read', async () => {
     const { play } = page();

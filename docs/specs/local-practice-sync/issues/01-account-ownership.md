@@ -1,7 +1,7 @@
 # Keep local cloud data with its account
 
 Type: task
-Status: claimed
+Status: resolved
 
 ## Second review plan and checks
 
@@ -80,5 +80,24 @@ The local data module counts only confirmed copies. It keeps unknown, changed an
 - Red: four failures. The probes lose A's move or lesson data after sign-out, failed sync or no cloud receipt. The limit also removes copies with unknown status.
 - Green: all 121 tests in seven files pass. Both type checks and all 57 art checks pass. Tests use fake timers.
 - The probes switch A, B, C, D, A. They retain `e7-e5` and Guard. The limit test retains unknown copies and removes an old confirmed copy.
-- Logs: `dist/web-sync-review2/finding1-red.log` and `dist/web-sync-review2/finding1-green.log`.
+- The session output holds both command results. The browser build clears the original logs in `dist/`. The result record stays in `dist-review/web-sync2/results.md`.
 - Change check: the existing stamp record holds confirmation. The raw copy format and the restore path stay the same. No new key or dependency is needed.
+
+## Second review: finding 2
+
+The lesson writer and the game writer now return `true` only after an accepted write. They return `false` on an account block or storage error. The page returns a save result. It calls the account change handler only after success.
+
+The lesson records progress before it shows success. A failed record leaves the lesson incomplete and shows a persistent failure notice. New game checks the write result, including its explicit replacement path. The existing notice path keeps the failure text through a tap, Escape and refresh. An account block gives Reload as the recovery action. Storage denial still permits local play.
+
+- Red and green command: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,account/account,account/client,lesson-shelf,lesson-store}.test.ts' npm test`.
+- Red: six tests fail. The writers return no result. A blocked lesson and New game show no failure notice. The successful lesson control passes.
+- Green: all 127 tests in seven files pass. Both type checks and all 57 art checks pass. The final selection adds a New game storage-error case.
+- The lesson probes use the real Guard goal and move path. They check account conflict and storage failure. They check that no success message or account change signal follows failure.
+- The session output holds both command results. The final selected log stays in `dist-review/web-sync2/selected-green.log`.
+- Change check: the page uses the existing notice and save block. It adds one failure flag. The table module stays unchanged. The other save lane keeps its own work.
+
+## Second review: final checks
+
+`npm run test:docs` passes all 178 tests in 15 files. `npm run check:browser new-game` passes its one check. The browser reports no page or console error. Its report stays in `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/web-sync-y5fHgb/`.
+
+All new timed cases use fake timers. No real-time sleep runs in a test. The checks use local substitutes. No full suite, live account request or database check runs. The two commits use the unchanged hooks. No push, merge, rebase or deploy runs.
