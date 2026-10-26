@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Check · King Down motion proposal</title><link rel="icon" href="/icons/icon-192.png"><link rel="stylesheet" href="/src/style.css"><link rel="stylesheet" href="./style.css"></head>
+<body><main class="concept">
+<header><h1>Check, with weight.</h1><span class="proposal">Proposed preview</span></header>
+<div class="layout">
+<section class="stage" aria-label="Check animation preview">
+<div class="board-wrap"><canvas id="board" width="960" height="1024" role="img" aria-label="Black rook on e3 checks the White king on e1."></canvas><p id="loading" role="status">Loading the painted board…</p></div>
+<div class="board-caption"><span id="phase">Settled</span><span id="position-label">28 pieces · White to move</span></div>
+</section>
+<aside aria-label="Preview controls">
+<div class="meaning" aria-live="polite"><h2 id="state-title">Check</h2><p id="instruction">Get the White king out of check.</p><p id="cause">Black rook e3 → White king e1</p></div>
+<div class="actions"><button id="replay" class="primary" type="button">Replay check</button><button id="resolve" type="button">Resolve check</button></div>
+<div class="transport"><button id="play" type="button" aria-label="Play animation">Play</button><button id="flip" type="button" aria-pressed="false">Flip board</button></div>
+<label class="timeline-label" for="scrub"><span id="timeline-title">Check onset</span><output id="time">440 / 440 ms</output></label>
+<input type="range" id="scrub" min="0" max="1000" value="1000" aria-label="Animation timeline">
+<div class="timeline-labels"><span id="start-label">Checker</span><span id="middle-label">Impression</span><span id="end-label">Still check</span></div>
+<div class="settings"><label for="sample">Position<select id="sample"><option value="dense">Dense board</option><option value="open">Open board</option></select></label><label for="speed">Speed<select id="speed"><option value="1">Normal</option><option value="0.5">Slow</option></select></label></div>
+<label class="reduce"><input id="reduced" type="checkbox">Reduced motion</label>
+<p class="note">A warm edge at the rook. Rust-red paint presses beneath the king. The seal lands, then holds still.</p>
+<p class="quiet" id="resolve-note">Resolve plays the legal reply: king e1 to f1.</p>
+<p class="quiet">Use Replay to start. Space plays or pauses the focused preview. The arrow keys scrub the timeline.</p>
+</aside>
+</div></main><script type="module" src="./main.ts"></script></body></html>

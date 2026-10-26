@@ -29,7 +29,7 @@ export const RELEASED_CARDS: readonly ReleasedCard[] = [
   { id: 'Rally', name: 'Rally', availability: 'released', art: null, fixtureId: 'card-rally' },
   { id: 'MorphP', name: 'Morph', availability: 'released', art: null, fixtureId: 'card-morphp' },
   { id: 'Mimic', name: 'Mimic', availability: 'released', art: 'ui/cards/mimic.webp', fixtureId: 'card-mimic' },
-  { id: 'Vault', name: 'Vault', availability: 'released', art: 'ui/cards/vault.webp', fixtureId: 'card-vault' },
+  { id: 'Vault', name: 'Hop', availability: 'released', art: 'ui/cards/vault.webp', fixtureId: 'card-vault' },
   { id: 'Curse', name: 'Curse', availability: 'released', art: null, fixtureId: 'card-curse' },
   { id: 'SkyLift', name: 'Sky Lift', availability: 'released', art: 'ui/cards/skylift.webp', fixtureId: 'card-skylift' },
 ];

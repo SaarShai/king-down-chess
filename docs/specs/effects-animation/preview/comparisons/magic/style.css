@@ -1,0 +1,59 @@
+html,body { height:auto; min-height:100%; overflow:auto }
+body { margin:0; background:var(--floor); color:var(--ink); font-family:var(--font-body) }
+.magic-study,.magic-study * { box-sizing:border-box; text-shadow:none }
+.magic-study { max-width:1220px; margin:auto; padding:22px 30px 28px; line-height:1.4 }
+.magic-study h1,.magic-study h2,.magic-study h3,.magic-study p { margin:0 }
+.magic-study header { border-bottom:1px solid var(--line); padding-bottom:14px }
+.magic-study h1 { font:400 28px/1.2 var(--font-display); letter-spacing:-.025em }
+.magic-study header p { color:var(--ink-soft); font-size:15px; margin-top:6px }
+.workspace { display:grid; grid-template-columns:minmax(0,1fr) 360px; grid-template-areas:'board samples' 'board variant' 'board transport' 'board timeline' 'board motion' 'board details'; grid-template-rows:auto auto auto auto auto 1fr; column-gap:40px; row-gap:10px; padding-top:18px; align-items:start }
+.board-wrap { grid-area:board; justify-self:center; position:relative; width:min(100%,calc((100dvh - 156px)*.9375)); min-width:280px; line-height:0 }
+.board-wrap canvas { display:block; width:100%; height:auto; aspect-ratio:960/1024; touch-action:pan-y }
+#loading { position:absolute; inset:45% 0 auto; text-align:center; font-size:18px; line-height:1.4; background:var(--vellum); padding:12px }
+.sample-row { grid-area:samples; display:grid; grid-template-columns:1fr 1fr; gap:6px }
+.magic-study button,.magic-study select { font:600 16px/1 var(--font-body); min-height:42px; width:auto; border:1px solid var(--stone-300); border-radius:4px; background:var(--vellum); color:var(--ink); padding:0 14px; margin:0; cursor:pointer; box-shadow:none; transition:background .12s }
+.magic-study select { appearance:auto }
+.magic-study button:hover,.magic-study select:hover { background:var(--parchment-deep) }
+.magic-study button:active { transform:none }
+.magic-study button:disabled { opacity:.5; cursor:default }
+.sample-row button[aria-pressed=true] { border-color:var(--gold-ink); background:var(--parchment-deep); box-shadow:inset 0 -2px var(--gold-ink) }
+.variant { grid-area:variant; display:flex; gap:6px }
+.variant button { flex:1 }
+.variant button[aria-pressed=true],.magic-study #replay { background:var(--accent); color:var(--vellum); border-color:var(--accent-deep) }
+.transport { grid-area:transport; display:flex; gap:6px; align-items:center }
+.transport button,.transport select { flex:1; min-width:0; padding:0 8px; white-space:nowrap }
+.timeline { grid-area:timeline; display:flex; align-items:center; gap:10px }
+.magic-study input[type=range] { margin:0; flex:1; min-width:0; width:100%; height:28px; accent-color:var(--accent) }
+.timeline output { font-size:13px; font-variant-numeric:tabular-nums; min-width:48px; text-align:right }
+.motion { grid-area:motion; display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:12px; color:var(--ink-soft) }
+.motion label { display:flex; gap:7px; align-items:center; min-height:30px }
+.magic-study input[type=checkbox] { accent-color:var(--accent); width:18px; height:18px; margin:0 }
+.magic-study aside { grid-area:details; border-top:1px solid var(--line); padding-top:12px }
+#phase { color:var(--ink-soft); font-size:14px; margin-bottom:8px }
+.magic-study h2 { font:400 27px/1.25 var(--font-display) }
+.magic-study .meaning { font-size:21px; line-height:1.25; margin:10px 0 }
+.magic-study aside>p { font-size:17px }
+.notes { margin-top:16px }
+.magic-study h3 { font:600 15px/1.3 var(--font-body); color:var(--gold-ink); margin-bottom:5px }
+.notes p { font-size:16px }
+.magic-study details { font-size:13px; color:var(--ink-soft); margin-top:16px }
+.magic-study summary { cursor:pointer }
+.magic-study details p { margin-top:8px }
+.magic-study :focus-visible { outline:3px solid var(--gold-ink); outline-offset:3px }
+::selection { background:#cbb478; color:#251f18 }
+a { text-underline-offset:3px }
+* { scrollbar-color:#9b8b6a #ece2cd }
+@media(max-width:800px) {
+  .magic-study { padding:12px 12px 24px }
+  .magic-study h1 { font-size:22px }
+  .magic-study header { padding-bottom:10px }
+  .magic-study header p { font-size:13px }
+  .workspace { grid-template-columns:minmax(0,1fr); grid-template-areas:'samples' 'variant' 'board' 'transport' 'timeline' 'motion' 'details'; gap:10px; padding-top:12px }
+  .sample-row { grid-template-columns:repeat(4,1fr) }
+  .sample-row button { padding:0 5px; font-size:15px }
+  .board-wrap { width:min(100%,520px); min-width:0 }
+  .magic-study button,.magic-study select { min-height:44px }
+  .magic-study aside { margin-top:8px; padding-top:18px }
+  .magic-study h2 { font-size:24px }
+}
+@media(prefers-reduced-motion:reduce) { .magic-study * { transition:none } }

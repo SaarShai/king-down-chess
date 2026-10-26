@@ -1,0 +1,164 @@
+{
+  "passed": true,
+  "errors": [],
+  "baseline": [
+    {
+      "size": "desktop-short",
+      "sample": "rook",
+      "changedChannels": 0,
+      "maxDelta": 0,
+      "currentSize": [
+        960,
+        1024
+      ],
+      "actualSize": [
+        960,
+        1024
+      ],
+      "actualBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 597.328125,
+        "top": 0,
+        "right": 560,
+        "bottom": 597.328125,
+        "left": 0
+      }
+    },
+    {
+      "size": "desktop-short",
+      "sample": "archer",
+      "changedChannels": 0,
+      "maxDelta": 0,
+      "currentSize": [
+        960,
+        1024
+      ],
+      "actualSize": [
+        960,
+        1024
+      ],
+      "actualBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 560,
+        "height": 597.328125,
+        "top": 0,
+        "right": 560,
+        "bottom": 597.328125,
+        "left": 0
+      }
+    },
+    {
+      "size": "desktop",
+      "sample": "rook",
+      "changedChannels": 0,
+      "maxDelta": 0,
+      "currentSize": [
+        960,
+        1024
+      ],
+      "actualSize": [
+        960,
+        1024
+      ],
+      "actualBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 660,
+        "height": 704,
+        "top": 0,
+        "right": 660,
+        "bottom": 704,
+        "left": 0
+      }
+    },
+    {
+      "size": "desktop",
+      "sample": "archer",
+      "changedChannels": 0,
+      "maxDelta": 0,
+      "currentSize": [
+        960,
+        1024
+      ],
+      "actualSize": [
+        960,
+        1024
+      ],
+      "actualBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 660,
+        "height": 704,
+        "top": 0,
+        "right": 660,
+        "bottom": 704,
+        "left": 0
+      }
+    },
+    {
+      "size": "phone",
+      "sample": "rook",
+      "changedChannels": 0,
+      "maxDelta": 0,
+      "currentSize": [
+        960,
+        1024
+      ],
+      "actualSize": [
+        960,
+        1024
+      ],
+      "actualBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 366,
+        "height": 390.390625,
+        "top": 0,
+        "right": 366,
+        "bottom": 390.390625,
+        "left": 0
+      }
+    },
+    {
+      "size": "phone",
+      "sample": "archer",
+      "changedChannels": 0,
+      "maxDelta": 0,
+      "currentSize": [
+        960,
+        1024
+      ],
+      "actualSize": [
+        960,
+        1024
+      ],
+      "actualBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 366,
+        "height": 390.390625,
+        "top": 0,
+        "right": 366,
+        "bottom": 390.390625,
+        "left": 0
+      }
+    }
+  ],
+  "checks": [
+    "32 pieces in both samples",
+    "engine move/target equality",
+    "freeze and ward counterfactual controls",
+    "current equals real PaintedView pixels",
+    "same bounds, board and selected square across toggle",
+    "12 still-image checks over 900 ms",
+    "1280x720, 1440x900 and 390x844",
+    "keyboard controls, inspect and flip",
+    "reduced motion",
+    "no horizontal overflow",
+    "controls and readout visible",
+    "zero browser errors"
+  ]
+}

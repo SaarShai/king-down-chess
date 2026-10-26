@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Crowded board · King Down</title><link rel="stylesheet" href="./style.css"></head>
+<body><main>
+<header><h1>Read the crowded board.</h1><p>The same position. Two ways to mark it.</p></header>
+<section class="study" aria-label="Board mark comparison">
+<div class="controls"><div class="variants" role="group" aria-label="Board marks"><button id="current" aria-pressed="false">Current</button><button id="proposed" aria-pressed="true">Proposed</button></div><button id="flip" aria-pressed="false">Flip board</button></div>
+<div class="sample-row"><label>Position <select id="sample"><option value="rook">Rook in traffic</option><option value="archer">Archer at close range</option></select></label><label>Inspect <select id="selection"><option value="27">d4 · selected piece</option><option value="21">f3 · knight</option><option value="18">c3 · frozen knight</option></select></label></div>
+<div class="board-wrap"><canvas id="board" width="960" height="1024" tabindex="0" aria-label="Crowded painted board. Use arrow keys to inspect squares, Enter to select a White piece."></canvas><p id="loading" role="status">Load painted pieces…</p></div>
+<div class="readout" aria-live="polite"><strong id="detail"></strong><span id="target-count"></span></div>
+<div id="key" class="key" aria-label="Mark key"></div>
+<p class="state-note"><strong>c3 frozen.</strong> The knight cannot move. <strong>e4 protected.</strong> Ice Wall prevents a capture. Both states come from legal card plays.</p>
+<details><summary>Position and legal evidence</summary><pre id="evidence"></pre></details>
+</section>
+<footer>Static comparison · White to move · No move playback<br>Use Tab for controls. On the board: arrows to inspect, Enter to select. F flips the board.</footer>
+</main><script type="module" src="./main.ts"></script></body></html>

@@ -1,0 +1,165 @@
+{
+  "cards": [
+    {
+      "id": "Freeze",
+      "name": "Freeze",
+      "status": "keep",
+      "note": "Keep current artwork, as requested",
+      "proposal": "./art/freeze.webp"
+    },
+    {
+      "id": "IceWall",
+      "name": "Ice Wall",
+      "status": "redesigned",
+      "note": "Recomposed for the wide card window",
+      "proposal": "./art/icewall.png"
+    },
+    {
+      "id": "Strike",
+      "name": "Strike",
+      "status": "redesigned",
+      "note": "Recomposed for the wide card window",
+      "proposal": "./art/strike.png"
+    },
+    {
+      "id": "Haste",
+      "name": "Haste",
+      "status": "redesigned",
+      "note": "Recomposed for the wide card window",
+      "proposal": "./art/haste.png"
+    },
+    {
+      "id": "Flight",
+      "name": "Flight",
+      "status": "redesigned",
+      "note": "Recomposed for the wide card window",
+      "proposal": "./art/flight.png"
+    },
+    {
+      "id": "Sacrifice",
+      "name": "Sacrifice",
+      "status": "redesigned",
+      "note": "Revised: an ivory pawn breaks open to reveal an ivory rook \u00b7 awaiting feedback",
+      "proposal": "./art/sacrifice.png"
+    },
+    {
+      "id": "March",
+      "name": "March",
+      "status": "keep",
+      "note": "Keep current artwork, as requested",
+      "proposal": "./art/march.webp"
+    },
+    {
+      "id": "Leap",
+      "name": "Leap",
+      "status": "redesigned",
+      "note": "Recomposed for the wide card window",
+      "proposal": "./art/leap.png"
+    },
+    {
+      "id": "Salvation",
+      "name": "Salvation",
+      "status": "approved",
+      "note": "Called Home rising from the dead world \u00b7 approved",
+      "proposal": "./art/salvation.png"
+    },
+    {
+      "id": "MirrorB",
+      "name": "Mirror",
+      "status": "approved",
+      "note": "Option2 approved: real card faces glass; reflected card stays behind it",
+      "proposal": "./art/mirrorb.png"
+    },
+    {
+      "id": "Firewall",
+      "name": "Firewall",
+      "status": "approved",
+      "note": "First painting \u00b7 approved",
+      "proposal": "./art/firewall.png"
+    },
+    {
+      "id": "EarthQuake",
+      "name": "Earth Quake",
+      "status": "approved",
+      "note": "First painting \u00b7 approved",
+      "proposal": "./art/earthquake.png"
+    },
+    {
+      "id": "Burn",
+      "name": "Burn",
+      "status": "approved",
+      "note": "First painting \u00b7 approved",
+      "proposal": "./art/burn.png"
+    },
+    {
+      "id": "FireStarter",
+      "name": "Fire Starter",
+      "status": "approved",
+      "note": "First painting \u00b7 approved",
+      "proposal": "./art/firestarter.png"
+    },
+    {
+      "id": "Control",
+      "name": "Control",
+      "status": "approved",
+      "note": "First painting \u00b7 approved",
+      "proposal": "./art/control.png"
+    },
+    {
+      "id": "Rally",
+      "name": "Rally",
+      "status": "approved",
+      "note": "Answer the banner \u00b7 approved",
+      "proposal": "./art/rally.png"
+    },
+    {
+      "id": "MorphP",
+      "name": "Morph",
+      "status": "approved",
+      "note": "First painting \u00b7 approved",
+      "proposal": "./art/morphp.png"
+    },
+    {
+      "id": "Mimic",
+      "name": "Mimic",
+      "status": "redesigned",
+      "note": "Recomposed for the wide card window",
+      "proposal": "./art/mimic.png"
+    },
+    {
+      "id": "Vault",
+      "name": "Hop",
+      "status": "redesigned",
+      "note": "Hop \u00b7 name corrected by the owner",
+      "proposal": "./art/vault.png"
+    },
+    {
+      "id": "Curse",
+      "name": "Curse",
+      "status": "approved",
+      "note": "First painting \u00b7 approved",
+      "proposal": "./art/curse.png"
+    },
+    {
+      "id": "SkyLift",
+      "name": "Sky Lift",
+      "status": "redesigned",
+      "note": "Recomposed for the wide card window",
+      "proposal": "./art/skylift.png"
+    },
+    {
+      "id": "Rescue",
+      "name": "Rescue",
+      "status": "legacy",
+      "note": "Revised: stylized painted hand \u00b7 awaiting feedback",
+      "proposal": "./art/rescue.png"
+    },
+    {
+      "id": "Back",
+      "name": "Card back",
+      "status": "legacy",
+      "note": "Refresh of the original-game card back",
+      "proposal": "./art/back.png"
+    }
+  ]
+}
