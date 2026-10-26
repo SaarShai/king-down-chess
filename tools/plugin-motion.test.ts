@@ -326,7 +326,8 @@ it.each([false, true])('presses a spent card into grey once (reduced motion %s)'
       return [box.width, box.height].map(value => Math.round(value * 100) / 100);
     });
     let targetBefore: number[] | null = null;
-    await expect.poll(async () => targetBefore = await targetSize()).not.toBeNull();
+    // coin.evaluate waits for a coin that strips() rebuilt; on a loaded runner that takes over the 1 s default poll budget.
+    await expect.poll(async () => targetBefore = await targetSize(), { timeout: 5000 }).not.toBeNull();
     const motion = await recordMotion(page, frame, ['#game-table .card-coin[data-state="used"] > .coin-paint']);
     await frame.locator('#board-sheet #choices button').first().click();
     await coin.and(frame.locator('[data-state="used"]')).waitFor();
@@ -342,7 +343,7 @@ it.each([false, true])('presses a spent card into grey once (reduced motion %s)'
     // G2 a: a spent card coin dims to 0.85, so its word keeps 4.5:1.
     // strips() rebuilds the coin row on a poll. A detached coin reads no style, so poll until an attached coin dims.
     await expect.poll(() => coin.evaluate(e => e.isConnected ? { opacity: getComputedStyle(e).opacity, paintOpacity: getComputedStyle(e.querySelector('.coin-paint')!).opacity, transform: getComputedStyle(e).transform, paintTransform: getComputedStyle(e.querySelector('.coin-paint')!).transform, filter: getComputedStyle(e.querySelector('.coin-paint')!).filter } : null), { timeout: 5000 }).toEqual({ opacity: '1', paintOpacity: '0.85', transform: 'none', paintTransform: 'matrix(0.96, 0, 0, 0.96, 0, 0)', filter: 'grayscale(1)' });
-    await expect.poll(targetSize).toEqual(targetBefore);
+    await expect.poll(targetSize, { timeout: 5000 }).toEqual(targetBefore);
     await settled(page, frame);
     await frame.locator('#board-menu').click();
     await frame.locator('#board-sheet .sheet-head button[aria-label="Close"]').click();
