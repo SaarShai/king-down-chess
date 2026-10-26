@@ -1,0 +1,64 @@
+/* Sample layout only. Fonts, paint, colours and controls come from the game. */
+.frame { bottom: 0; }
+.sample-note { flex: none; margin: 0; padding: 6px 16px; border-bottom: 1px solid var(--line); color: var(--ink-soft); font-size: var(--fs-xs); }
+.sample-screen { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.sample-screen .sheet-lead { margin-bottom: var(--space-4); }
+.sample-screen .group-head:first-child { margin-top: var(--space-2) !important; }
+.sample-screen .group-head { font-size: var(--fs-sm); }
+.sample-screen .new-game-body { padding-bottom: var(--space-5); }
+.sample-screen .new-game-foot { flex-direction: column; align-items: stretch; gap: var(--space-2); }
+.sample-screen .new-game-foot p { margin: 0; color: var(--ink-soft); }
+.sample-screen .new-game-foot button { flex: none; width: 100%; }
+.sample-screen .new-game-head h2 { font-size: var(--fs-xl); }
+.sample-screen .new-game-head button { min-width: 48px; min-height: 48px; padding: 8px; }
+.sample-screen .new-game-head h2 { flex: 1; }
+.sample-screen :is(button,input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),select) { min-height: 48px; }
+.sample-screen .wait-stage { height: 150px; margin-block: 0 var(--space-4); }
+.sample-screen .wait-kings img { height: 132px; }
+.sample-screen .wait-kings { gap: 30px; }
+.sample-screen .menu-row { flex-shrink: 0; }
+.sample-screen .row-title { white-space: normal; overflow-wrap: anywhere; }
+.sample-screen .portrait { display: block; }
+.sample-screen .choice[aria-pressed='true'] { background: var(--wash); }
+.sample-screen .choice-mark { color: var(--accent); font-size: var(--fs-sm); font-weight: 700; }
+.sample-screen .choice[aria-pressed='true'] { padding-inline-end: 78px !important; }
+.sample-screen label.handle-label { margin-top: var(--space-4); margin-bottom: var(--space-2); font-weight: 700; }
+.sample-screen .link-choice { margin-top: var(--space-4); }
+.sample-screen .invitation { padding-block: var(--space-3) var(--space-4); border-bottom: 1px solid var(--line); }
+.sample-screen .invitation .menu-row { border: 0; padding-inline-end: 0; }
+.sample-screen .invite-time { color: var(--ink-soft); font-size: var(--fs-sm); margin: 8px 0 12px 52px; }
+.sample-screen .row-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-left: 52px; }
+.sample-screen .row-actions button { flex: 1 1 auto; justify-content: center; }
+.sample-screen .notice { background: var(--vellum); border: 1px solid var(--stone-500); border-radius: var(--radius); padding: var(--space-4); margin: 0 0 var(--space-4); }
+.sample-screen .notice h3 { margin: 0 0 var(--space-2); font-family: var(--font-display); font-size: var(--fs-lg); }
+.sample-screen .notice p { margin: 0 0 var(--space-3); font-size: var(--fs-lg); }
+.sample-screen .notice .quiet-line { font-size: var(--fs-sm); }
+.sample-screen .notice button { width: 100%; justify-content: center; }
+.sample-screen .summary { padding-block: var(--space-3); margin-bottom: var(--space-3); border-block: 1px solid var(--line); }
+.sample-screen .summary p { margin: 0; }
+.sample-screen .summary small { color: var(--ink-soft); }
+.sample-screen .share-rule { font-size: var(--fs-lg); margin-top: var(--space-3); }
+.sample-screen .share-code { margin-block: var(--space-4); }
+.sample-screen .share-code p { margin: 0 0 var(--space-2); }
+.sample-screen .friend-actions { margin-top: var(--space-4); }
+.sample-screen .friend-actions button { justify-content: center; }
+.sample-screen .modes button.mode { display: flex; flex-direction: column; gap: 4px; background: transparent; border: 0; box-shadow: none; padding: 6px 4px; color: var(--ink); border-inline-start: 1px solid var(--line); }
+.sample-screen .modes .icon { width: 28px; height: 28px; }
+.sample-screen .mode-text small { display: block; font-weight: 400; font-size: var(--fs-xs); }
+.sample-screen .field { font-size: var(--fs-lg); }
+.sample-screen .seg { margin-top: var(--space-3); }
+.sample-screen .settings-line { display: flex; justify-content: space-between; align-items: center; padding-block: var(--space-3); border-bottom: 1px solid var(--line); }
+.sample-screen .settings-line label { display: block; }
+.sample-screen .settings-line select { max-width: 60%; }
+.sample-screen .status:empty { display: none; }
+.sample-screen .status { margin-top: var(--space-3); }
+@media (max-width: 340px) {
+  .sample-screen .new-game-head h2 { font-size: var(--fs-lg); }
+  .sample-screen .new-game-head { padding-block: 8px; }
+  .sample-screen .new-game-foot { padding-block: 10px; }
+  .sample-screen .row-actions { margin-left: 0; }
+}
+/* The shared button default is full width. Keep the header and row actions local. */
+.sample-screen .new-game-head > button { width: 48px; flex: 0 0 48px; }
+.sample-screen .new-game-head > h2 { min-width: 0; }
+.sample-screen .row-actions > button { width: auto; flex: 1 1 0; }
