@@ -636,6 +636,35 @@ describe('failed local autosaves', () => {
   const unsaved = 'Changes not saved. Keep this tab open.';
   const shown = () => vi.mocked(refreshTable).mock.lastCall![0];
 
+  it('keeps the Guard warning after Maester saves and clears it after Guard saves', async () => {
+    const { play, view, changed } = page();
+    const finish = async (index: number) => {
+      play.startLesson(index);
+      const game = play.game(), move = game.legal.find(m => LESSONS[index].goal(game.pos, m))!;
+      view.onSquareClick(move.from, false); view.onSquareClick(move.to, false);
+      await vi.advanceTimersByTimeAsync(0);
+    };
+    const write = vi.spyOn(localStorage, 'setItem').mockImplementation((key, value) => {
+      if (key === 'kingdown.lessons') throw new DOMException('Full', 'QuotaExceededError');
+      stored.set(key, value);
+    });
+    await finish(4);
+    expect(progress().done ?? []).not.toContain('Guard');
+    expect(shown()).toMatchObject({ lessonDone: false, saveNotice: unsaved });
+    expect(changed).not.toHaveBeenCalled();
+    write.mockRestore();
+    await finish(2);
+    expect(progress().done).toEqual(['Maester']);
+    expect(shown()).toMatchObject({ lessonDone: true, saveNotice: unsaved });
+    expect(changed).toHaveBeenCalledOnce();
+    play.commands.escape(); play.refresh();
+    expect(shown().saveNotice).toBe(unsaved);
+    await finish(4);
+    expect(progress().done).toEqual(['Maester', 'Guard']);
+    expect(shown()).toMatchObject({ lessonDone: true, saveNotice: '' });
+    expect(changed).toHaveBeenCalledTimes(2);
+  });
+
   it.each(['game', 'lesson'] as const)('round 4: keeps both failures when %s fails first', async first => {
     const empty = { ...original, moves: [] };
     stored.set(SAVE_KEY, JSON.stringify(empty));

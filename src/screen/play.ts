@@ -125,7 +125,7 @@ export function connectPlay(view: BoardView, c: {
   let replaying = false;
   /** Why the last tap did nothing ("Not allowed: the rook cannot reach b2."); shown in the help line until the next action. */
   let notice = '';
-  const unsaved = new Set<'game' | 'settings' | 'lesson'>();
+  const unsaved = new Set<'game' | 'settings' | `lesson:${string}`>();
   const unsavedNotice = 'Changes not saved. Keep this tab open.';
   let saveBlocked = false;
   const unreadableNotice = 'This page cannot load your saved game. It keeps the saved data. Start a New game to replace it.';
@@ -364,12 +364,12 @@ export function connectPlay(view: BoardView, c: {
   /** Lessons done, by name, in localStorage `kingdown.lessons` (the shelf and account read this store). */
   function noteLesson(name: string): boolean {
     if (!recordLesson(name)) {
-      unsaved.add('lesson');
+      unsaved.add(`lesson:${name}`);
       savedDataBlocked();
       moments.say(saveWarning());
       return false;
     }
-    unsaved.delete('lesson');
+    unsaved.delete(`lesson:${name}`);
     c.account()?.changed();
     return true;
   }

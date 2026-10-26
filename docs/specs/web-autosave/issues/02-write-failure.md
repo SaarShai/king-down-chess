@@ -28,7 +28,7 @@ The old writer catches a storage error and returns no result. The page cannot sh
 
 `writeSave()` now returns success or failure. A failed write keeps a notice apart from tap and turn notices. The existing context live region shows `Changes not saved. Keep this tab open.` first. It keeps the current instruction and controls. It uses the existing refusal style. No new CSS or layout is needed.
 
-A write clears only the failures for the data it saves. A settings change also retries a failed game write when the stored game still matches this page. During a lesson, that retry saves the kept game. It never saves the lesson board over the game. A settings change cannot clear a failed lesson record. A newer stored game stays safe. New game first records the stored game it replaces, so a failed write can retry. A successful game write sets the next comparison. Only a successful write notifies account sync.
+A write clears only the failures for the data it saves. Each failed lesson keeps its own name in the failure set. Only a successful write for that lesson clears its name. A settings change also retries a failed game write when the stored game still matches this page. During a lesson, that retry saves the kept game. It never saves the lesson board over the game. A settings change cannot clear a failed lesson record. A newer stored game stays safe. New game first records the stored game it replaces, so a failed write can retry. A successful game write sets the next comparison. Only a successful write notifies account sync.
 
 ## Evidence
 
@@ -89,3 +89,19 @@ Green check: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,ui/t
 Review: The retry uses the existing game data, comparison, owner check, writer, and failure set. It adds no storage key, dependency, or retry timer. A settings-only write clears only the settings cause. A write that also saves the pending game can clear the game cause. No full suite or live account check runs. The storage comparison and write remain separate operations across browser processes.
 
 Final checks: `npm run test:docs` passes 178 tests in 15 files. The one `npm run check:browser new-game` run passes in 34.9 seconds. Its log shows no page or console errors. The diff check passes. Finding 1 is in commit `1e5525d4`. The commit uses the unchanged hooks. No push, rebase, or deploy runs.
+
+## Joined lane final review, finding 1
+
+Plan: Reproduce a failed Guard record, then a successful Maester record. Keep each failed lesson name in the existing failure set. Clear a name only after its own record saves. Commit this finding alone.
+
+Checks: Maester saves after storage recovers. The Guard warning stays. A Guard retry saves Guard and clears the warning. Use the real lesson handlers and fake timers. Run the eight requested source test files before and after the fix. Then run the doc checks and one final `new-game` browser check.
+
+Result: The fault reproduces. The existing failure set now keeps `lesson:<name>` for each failed lesson. Maester saves without clearing Guard. A Guard retry saves Guard and clears its warning. An account switch still clears the prior account's failure set.
+
+Source command: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,ui/table,account/account,account/client,lesson-shelf,lesson-store}.test.ts' npm test`.
+
+- Red: Both type checks pass. Two tests fail and 172 pass. This case loses the Guard warning after Maester saves. The other failure is finding 2.
+- Green: Both type checks, all 174 tests in eight files, and all 67 art checks pass. The Guard warning stays until Guard saves.
+- Review: The fix keeps one failure set and one notice. It adds no timer, stored field, or dependency. The test checks the failed record, the other saved record, the warning, and the final retry.
+
+Final checks: `npm run test:docs` passes all 178 tests in 15 files. The one `npm run check:browser new-game` run passes in 31.0 seconds. The diff check passes. No full suite or live account check runs. No push, rebase, or deploy runs.
