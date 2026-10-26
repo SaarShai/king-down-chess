@@ -96,3 +96,19 @@ Finding 1 does not reproduce. Two new tests fail game and lesson writes in each 
 Finding 2: Sound keeps the warning, but reload loses the unsaved move. The red test shows no stored move after Sound. A settings change now retries the pending game when the stored game still matches this page. It saves the kept game during a lesson. Only that game save can clear the game failure. A lesson failure keeps the notice. Tests also check a newer tab game and an accepted account game. Both keep their data and the pending-game warning. The comparison and owner checks stay in place.
 
 Final checks: All 171 tests in the eight requested source files, both type checks, and 67 art checks pass. The doc check passes 178 tests in 15 files. The one `npm run check:browser new-game` run passes in 34.9 seconds. Its log shows no page or console errors. The diff check passes. Finding 1 is in commit `1e5525d4`. No push, rebase, or deploy runs.
+
+## Joined lane final review, finding 2
+
+Plan: Reproduce an account switch from A to B with no saved game. Apply the reset settings to sound and the board through the normal settings path before New game starts. Commit this finding alone.
+
+Checks: A sets Sound and Coordinates to Off and Animations to Normal. Sync selects B. B's controls, saved settings, sound, and board agree. Check B with and without a saved game. Use real settings handlers, Sync, and fake timers. Run the eight requested source test files before and after the fix. Then run the doc checks and one final `new-game` browser check.
+
+Result: The fault reproduces. The account callback applies settings to sound and the board before the empty-account return. Reset values and saved values use the same path. New game then saves the values that the controls and board use.
+
+Source command: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,ui/table,account/account,account/client,lesson-shelf,lesson-store}.test.ts' npm test`.
+
+- Red: Both type checks pass. Two tests fail and 172 pass. Empty B saves On, On, and Off. Sound and the board still use Off, Off, and Normal. The other failure is finding 1. The control with B's saved game passes.
+- Green: Both type checks, all 174 tests in eight files, and all 67 art checks pass. Both account cases pass. Controls, saved values, sound, board coordinates, board pace, and page pace agree.
+- Review: The fix moves the early return below the existing settings path. It adds no helper, state, stored field, or dependency. No live account check or full suite runs.
+
+Final checks: `npm run test:docs` passes all 178 tests in 15 files. The one `npm run check:browser new-game` run passes in 31.0 seconds. The diff check passes. No push, rebase, or deploy runs.

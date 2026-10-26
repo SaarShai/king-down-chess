@@ -871,12 +871,12 @@ export function connectPlay(view: BoardView, c: {
     const stored = readSave();
     if (stored.unreadable) { keepUnreadableSave(); refresh(); return; }
     const s = stored.save;
-    if (!s) { if (switched) newGame(); return; }
-    if (down.includes('settings')) {
-      settings.applySettings(s);
+    if (switched || down.includes('settings')) {
+      if (s) settings.applySettings(s);
       setSound(settings.sound()); settings.applyPace(); view.setCoords(settings.coords()); view.setLabels(settings.labels());
       refresh();
     }
+    if (!s) { if (switched) newGame(); return; }
     if (down.includes('saved_game')) {
       replacementRaw = undefined;
       savedJSON = gameJSON(s);

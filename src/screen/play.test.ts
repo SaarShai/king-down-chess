@@ -12,6 +12,7 @@ import { POWERS_BALANCED, RULES_2017, parseKings, type Rules } from '../rules/en
 import { refreshTable, renderTable } from '../ui/table';
 import { progress, recordLesson } from '../lesson-shelf-ui';
 import { LESSONS } from '../lessons';
+import { setSound } from '../render/sfx';
 
 vi.mock('../render/sfx', () => ({ setSound: vi.fn(), snd: {} }));
 vi.mock('../ui/table', () => ({ readPiece: vi.fn(), refreshTable: vi.fn(), renderTable: vi.fn() }));
@@ -41,7 +42,7 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 function page(rules: Partial<Rules> = {}, fen: string | null = null, realSettings = false) {
-  const view = { setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), highlight: vi.fn(), setPreview: vi.fn(), setCoords: vi.fn(), setLabels: vi.fn(), animateMove: vi.fn().mockResolvedValue(undefined), skip: vi.fn() } as unknown as BoardView;
+  const view = { setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), highlight: vi.fn(), setPreview: vi.fn(), setCoords: vi.fn(), setLabels: vi.fn(), setPace: vi.fn(), animateMove: vi.fn().mockResolvedValue(undefined), skip: vi.fn() } as unknown as BoardView;
   const engine = { cancel: vi.fn(), think: vi.fn().mockResolvedValue({ move: null }) }, changed = vi.fn();
   const settings = { pace: () => 'off', threats: () => false, queen: () => true, settingsNow: () => ({ coords: true }), applySettings: vi.fn(), resetSettings: vi.fn(),
     sound: () => true, coords: () => true, labels: () => false, applyPace: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['settings'];
@@ -74,6 +75,40 @@ describe('review account boundaries', () => {
   const keys = [SAVE_KEY, 'kingdown.lessons', 'kingdown.sync'];
   const copy = (moves: string[]) => [JSON.stringify({ ...original, moves }), JSON.stringify({ done: ['Guard'] }), null];
   const access = { blocked: () => false, accepts: () => true };
+
+  it.each([false, true])('applies B settings to sound and the board when B has a saved game: %s', async hasSave => {
+    const sound = document.getElementById('sound') as HTMLInputElement;
+    const coords = document.getElementById('coords') as HTMLInputElement;
+    const pace = document.getElementById('pace') as HTMLSelectElement;
+    sound.checked = coords.checked = true;
+    (document.getElementById('queen') as HTMLInputElement).checked = true;
+    for (const id of ['threats', 'labels']) (document.getElementById(id) as HTMLInputElement).checked = false;
+    pace.value = 'off';
+    const empty = { ...original, moves: [], sound: true, pace: 'off' as const };
+    stored.set(SAVE_KEY, JSON.stringify(empty));
+    stored.set('kingdown.sync-owner', JSON.stringify({ userId: 'A' }));
+    const { play, view } = page({}, null, true);
+    play.restore(empty, request);
+    sound.checked = coords.checked = false;
+    sound.onchange!.call(sound, {} as Event);
+    coords.onchange!.call(coords, {} as Event);
+    pace.value = 'normal'; pace.onchange!.call(pace, {} as Event);
+    expect(setSound).toHaveBeenLastCalledWith(false);
+    expect(view.setCoords).toHaveBeenLastCalledWith(false);
+    expect(view.setPace).toHaveBeenLastCalledWith('normal');
+    if (hasSave) stored.set('kingdown.local.B', JSON.stringify([JSON.stringify(empty), null, null]));
+    const b = new Sync(localStorage, { userId: 'B', pull: async () => null, push: async row => row }, play.fromAccount, play.savedGames);
+    await b.pull(); b.stop();
+    expect(JSON.parse(stored.get('kingdown.sync-owner')!).userId).toBe('B');
+    expect(readSave().save).toMatchObject({ sound: true, coords: true, pace: 'off' });
+    expect(sound.checked).toBe(true);
+    expect(coords.checked).toBe(true);
+    expect(pace.value).toBe('off');
+    expect.soft(setSound).toHaveBeenLastCalledWith(true);
+    expect.soft(view.setCoords).toHaveBeenLastCalledWith(true);
+    expect.soft(view.setPace).toHaveBeenLastCalledWith('off');
+    expect(document.documentElement.dataset.pace).toBe('off');
+  });
 
   it('review 6: returns failure from both writers when another account owns the keys', () => {
     stored.set('kingdown.sync-owner', JSON.stringify({ userId: 'A' }));
