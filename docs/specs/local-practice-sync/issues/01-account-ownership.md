@@ -145,3 +145,11 @@ Fault: `connectPlay` read the tab owner with an unguarded `localStorage` access 
 Fix: remove the early call. `readSave()` already reads the tab owner inside its `try` block during page setup, and `canWriteLocal` reads it before each write, so the owner is still read once when the page opens.
 
 Checks: the new test `starts local practice when the browser denies the storage accessor` fails before the fix (`SecurityError: Denied`) and passes after it. The eight requested source test files pass (175 tests, both type checks, 67 art checks). `npm run test:docs` passes 178 tests.
+
+## Joined lane final review, round 3, finding 1
+
+Fault: three recovery checks in `src/screen/play.ts` (`save`, `keepUnreadableSave`, `savedDataBlocked`) passed `localStorage` to `canWriteLocal` outside a `try` block. When the accessor became denied after the saved data was read, or after a failed New game write over unreadable data, `play.save()` and the account check threw before the recovery notice updated.
+
+Fix: a local `canWrite()` reads the accessor inside a `try` block and returns false when it throws. The three checks use it, so the page shows "This page cannot save your changes. Reload this page." Every other `canWriteLocal(localStorage)` call already sits in a `try` block (`save.ts`, `lesson-shelf-ui.ts`, `account.ts`).
+
+Checks: four new tests (both reviewer reproductions, through `save` and through the account check) fail before the fix with `SecurityError: Denied` and pass after it. The eight requested source test files pass (179 tests, both type checks, 67 art checks).

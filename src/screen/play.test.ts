@@ -862,6 +862,29 @@ describe('failed local autosaves', () => {
     expect(write).toHaveBeenCalledOnce();
   });
 
+  it.each(['save', 'account check'] as const)('asks for a reload through %s when storage access is denied after a quota failure', check => {
+    stored.set(SAVE_KEY, '{raw save');
+    const { play } = page();
+    play.restore(null, { ...request, unreadable: true });
+    vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => { throw new DOMException('Full', 'QuotaExceededError'); });
+    play.newGame('RNBQKBNR');
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { throw new DOMException('Denied', 'SecurityError'); } });
+    if (check === 'save') expect(play.save()).toBe(false);
+    expect(play.savedGames.blocked()).toBe(true);
+    expect(shown()).toMatchObject({ saveNotice: 'This page cannot save your changes. Reload this page.' });
+  });
+
+  it.each(['save', 'account check'] as const)('asks for a reload through %s when storage access is denied after the saved data is read', check => {
+    const { play } = page();
+    stored.set(SAVE_KEY, '{raw save');
+    const store = localStorage;
+    let reads = 0;
+    // readSave() reads the accessor three times; the next read is denied.
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { if (++reads > 3) throw new DOMException('Denied', 'SecurityError'); return store; } });
+    expect(check === 'save' ? play.save() : !play.savedGames.blocked()).toBe(false);
+    expect(shown()).toMatchObject({ saveNotice: 'This page cannot save your changes. Reload this page.' });
+  });
+
   it('keeps the same raw data open for a save after a quota failure', () => {
     const raw = '{raw save';
     stored.set(SAVE_KEY, raw);

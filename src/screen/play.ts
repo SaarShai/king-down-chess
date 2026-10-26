@@ -129,6 +129,8 @@ export function connectPlay(view: BoardView, c: {
   let saveBlocked = false;
   const unreadableNotice = 'This page cannot load your saved game. It keeps the saved data. Start a New game to replace it.';
   const accountNotice = 'This page cannot save your changes. Reload this page.';
+  /** A denied storage accessor throws before canWriteLocal runs: treat it as a blocked write. */
+  const canWrite = (): boolean => { try { return canWriteLocal(localStorage); } catch { return false; } };
   let recoveryNotice = unreadableNotice;
   /** The board is seen from Black's side (orient()). */
   let flipped = false;
@@ -791,7 +793,7 @@ export function connectPlay(view: BoardView, c: {
   function save(replaceUnreadable = false, settingsOnly = lesson != null): boolean {
     if (saveBlocked) return false;
     const stored = readSave();
-    if (stored.unreadable && !canWriteLocal(localStorage)) { keepUnreadableSave(accountNotice); refresh(); return false; }
+    if (stored.unreadable && !canWrite()) { keepUnreadableSave(accountNotice); refresh(); return false; }
     if (replaceUnreadable) replacementRaw = stored.raw;
     else if (savedDataBlocked(stored)) return false;
     // Retry unsaved moves with settings only while the stored game still matches this tab.
@@ -841,7 +843,7 @@ export function connectPlay(view: BoardView, c: {
     return saved;
   }
 
-  function keepUnreadableSave(line = canWriteLocal(localStorage) ? unreadableNotice : accountNotice): void {
+  function keepUnreadableSave(line = canWrite() ? unreadableNotice : accountNotice): void {
     reset();
     saveBlocked = true;
     recoveryNotice = line;
@@ -850,7 +852,7 @@ export function connectPlay(view: BoardView, c: {
 
   /** Another tab can change the shared key after boot; recheck it before any ordinary write. */
   function savedDataBlocked(stored = readSave()): boolean {
-    if (!saveBlocked && (stored.unreadable && !canWriteLocal(localStorage) || (stored.unreadable || replacementRaw !== undefined) && stored.raw !== replacementRaw)) { keepUnreadableSave(); refresh(); }
+    if (!saveBlocked && (stored.unreadable && !canWrite() || (stored.unreadable || replacementRaw !== undefined) && stored.raw !== replacementRaw)) { keepUnreadableSave(); refresh(); }
     return saveBlocked;
   }
 
