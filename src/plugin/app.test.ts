@@ -679,6 +679,21 @@ it('opens the chat result game again with Try again after a failed recovery Open
   expect(app.client.state.board_id).toBe('board-b'); expect(app.client.state.pending).toEqual(pending); expect(app.memory.view?.revision).toBe(2);
 });
 
+it('opens the newest chat result game, not an older view, with Try again after a failed recovery Open', async () => {
+  const app = await mounted(); app.routeView({ ...game, seat: 0 });
+  let opens = 0;
+  transport.call.mockImplementation(async ({ name, arguments: args }) => name === 'kingdown_get' && args.board_id === 'board-b' ? expired
+    : name === 'kingdown_open' ? ++opens === 1 ? { content: [{ type: 'text', text: 'Open failed' }], isError: true, _meta: { code: 'INTERNAL_ERROR' } }
+      : { content: [], _meta: { board_id: 'board-c', view: { ...game, game_id: args.game_id, seat: 0, revision: 2 }, games: [] } }
+      : { content: [], _meta: { games: [] } });
+  transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'board', game_id: 'game-b000' }, _meta: { board_id: 'board-b', view: { ...game, game_id: 'game-b000', seat: 0 } } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(app.memory.view?.game_id).toBe(game.game_id);
+  press('retry'); await vi.advanceTimersByTimeAsync(0);
+  expect(calls('kingdown_open')).toEqual([{ game_id: 'game-b000' }, { game_id: 'game-b000' }]);
+  expect(app.memory.view?.game_id).toBe('game-b000'); expect(app.client.state.board_id).toBe('board-c');
+});
+
 it.each(['foreground', 'poll', 'expired board', 'expired board, other seat'])('clears private state when a reconnected account refuses the current board: %s', async path => {
   const app = await mounted(); app.routeView({ ...game, seat: 0 }); app.client.state.pending = receipt();
   const accessLost = vi.fn(() => { expect(app.queue.closed()).toBe(true); expect(app.memory.view).toBeUndefined(); });

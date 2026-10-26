@@ -40,7 +40,7 @@ const queuedAtStart = state.queued;
 let awaitingInitialResult = true;
 let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
-// The chat result's game of the last mount: Try again after a failed recovery opens it again (ticket 90).
+// The chat result's game of the last mount until a view shows: Try again after a failed recovery opens it (ticket 90).
 let mountShown: Pick<View, 'game_id' | 'seat'> | undefined;
 let polling = false, newGameFirst = false;
 let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0;
@@ -136,7 +136,7 @@ function show(next: View | undefined, job?: Job) {
   if (view?.game_id !== next.game_id || view.revision !== next.revision || view.status !== next.status || view.action !== next.action) memory.dirty = true;
   if (view?.game_id !== next.game_id || view.revision !== next.revision) memory.blockNotice = '';
   if (view?.game_id !== next.game_id) $('invitation').textContent = '';
-  view = next;
+  view = next; mountShown = undefined;
   syncFriendInvites([next]);
   // The mount job restores a saved screen only on the first mount (design §2, step 2).
   drawBoard(next, mounting() && queue.mountJob()?.options.initial === true && !!savedScreen);
@@ -358,7 +358,7 @@ $('reload').onclick = () => { if (state.board_id) void call('kingdown_get', {});
 $('retry').onclick = () => {
   const action = messageLine(store.page()).action;
   if (action === 'connect') location.reload();
-  else if (action === 'try-again') { if (state.board_id) void call('kingdown_get', {}, { route: true, shown: view ? undefined : mountShown }); }
+  else if (action === 'try-again') { if (state.board_id) void call('kingdown_get', {}, { route: true, shown: mountShown }); }
   // Retry sends the state.pending command again; its continuation finishes what the command started (design §5.2 and §5.3).
   else if (state.pending) void call(state.pending.name, state.pending.args, true, false, undefined, true);
 };
