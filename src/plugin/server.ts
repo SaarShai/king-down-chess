@@ -203,7 +203,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const key = args.invite_id ? { invite_id: args.invite_id } : args.token ?? args.code;
       return args.preview ? { content: text('Review the game features before you join.'), structuredContent: { screen: 'join' }, _meta: { ...(args.board_id && { board_id: args.board_id }), preview: await service.preview(actorId, key) } } : select(args.board_id, () => service.join(actorId, key)); });
   register('kingdown_friends', 'Find an eligible friend by exact handle, or list your recent opponents and follows.',
-    friendsSchema.shape, { visibility: ['app'], readOnly: true }, async args => ({ content: text('Choose a friend.'), _meta: { ...await service.friends(actorId, args) } }));
+    friendsSchema.shape, { visibility: ['app'] }, async args => ({ content: text('Choose a friend.'), _meta: { ...await service.friends(actorId, args) } }));
   register('kingdown_decline_invite', 'Decline a named invitation. A retry returns its current state.',
     { invite_id: z.string().regex(/^[a-f0-9]{64}$/) }, { visibility: ['app'], destructive: true }, async args => ({ content: text('Invitation state is ready.'), _meta: { invitation: await service.declineInvite(actorId, args.invite_id) } }));
   register('kingdown_block', 'Read whether you block a player (by a shared game or user ID), or set blocked to true to block them or false to unblock them. A block ends follows both ways, prevents matches through Find and joins to open games, and hides their messages. Your current game continues. Unblock does not restore follows.',

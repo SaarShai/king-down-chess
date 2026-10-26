@@ -37,6 +37,20 @@ export class PostgresMatchStore {
    await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [`account:${user}`]);
  }
  async now(client: Client = this.pool): Promise<Date> { return (await client.query('select statement_timestamp() as at')).rows[0].at; }
+ /** Count on its own commit so failed writes still use the budget. */
+ async toolTry(actor: string, tool: string, { count, seconds, message }: { count: number; seconds: number; message: string }): Promise<void> {
+  const fresh = "t.window_start>now()-$3*interval '1 second'";
+  const { tries } = (await this.pool.query(`insert into public.plugin_tool_tries as t(user_id,tool) values($1,$2)
+   on conflict(user_id,tool) do update set tries=case when ${fresh} then least(t.tries+1,$4) else 1 end,
+   window_start=case when ${fresh} then t.window_start else now() end returning tries`, [actor, tool, seconds, count+1])).rows[0];
+  if (tries > count) throw new MatchServiceError('RATE_LIMITED', 429, message);
+ }
+ async friendTry(actor: string): Promise<void> {
+  await this.toolTry(actor, 'kingdown_friends', { count: 60, seconds: 60, message: 'Too many invitation requests. Wait one minute, then try again.' });
+ }
+ async inviteExpired(client: Client, inviteId: string): Promise<boolean> {
+  return (await client.query('select expires_at<=statement_timestamp() as expired from public.game_invites where token_hash=$1', [inviteId])).rows[0]?.expired ?? true;
+ }
  async pairCount(client: Client, a: string, b: string): Promise<number> {
   return (await client.query(`select count(distinct g.id)::int as n from public.game_players a
    join public.game_players b on b.game_id=a.game_id join public.games g on g.id=a.game_id
@@ -66,12 +80,13 @@ export class PostgresMatchStore {
    join public.game_players op on op.game_id=me.game_id and op.seat<>me.seat and not op.computer
    join public.games g on g.id=me.game_id where me.user_id=$1 and op.user_id is not null group by op.user_id
    union all select other_id,'follow',null::timestamptz from public.relations where user_id=$1 and kind='follow'
-  ), people as (select p.id as user_id,p.handle,p.icon,case when exists(select from candidates c where c.user_id=p.id and c.source='recent') then 'recent' else 'follow' end as source
+  ), people as (select (select max(c.recent) from candidates c where c.user_id=p.id) as recent,p.id as user_id,p.handle,p.icon,case when exists(select from candidates c where c.user_id=p.id and c.source='recent') then 'recent' else 'follow' end as source
    from public.profiles p where p.id<>$1 and p.handle is not null and ${unblocked('$1', 'p.id')}
-   and (p.challenge_from='signed-in' or p.challenge_from='follows' and exists(select from public.relations where user_id=p.id and other_id=$1 and kind='follow'))
+   and (p.challenge_from in ('signed-in','everyone') or p.challenge_from='follows' and exists(select from public.relations where user_id=p.id and other_id=$1 and kind='follow'))
    and ($4::text is null and exists(select from candidates c where c.user_id=p.id) or p.handle=$4))
-   select * from people where $2::uuid is null or (source < (select source from people where user_id=$2) or source=(select source from people where user_id=$2) and user_id>$2)
-   order by source desc,user_id limit $3`, [actor, after ?? null, limit + 1, handle?.trim().toLowerCase() ?? null])).rows;
+   , ordered as (select *,row_number() over(order by source desc,recent desc nulls last,user_id) as position from people)
+   select user_id,handle,icon,source from ordered where $2::uuid is null or position>(select position from ordered where user_id=$2)
+   order by position limit $3`, [actor, after ?? null, limit + 1, handle?.trim().toLowerCase() ?? null])).rows;
   // Recent opponents precede follows. The cursor includes a user ID from this actor's own list.
   return { friends: rows.slice(0, limit), next_after: rows.length > limit ? rows[limit-1].user_id : null };
  }
@@ -183,6 +198,8 @@ export class PostgresMatchStore {
    join public.game_players p on p.game_id=g.id and p.user_id is null and not p.computer
    join public.profiles pr on pr.id=g.created_by
    where g.kind='random' and g.status='waiting' and g.created_at>statement_timestamp()-interval '24 hours' and g.created_by<>$1 and pr.handle is not null and ${unblocked('$1', 'g.created_by')}
+   and (select count(distinct paired.id) from public.game_players a join public.game_players b on b.game_id=a.game_id join public.games paired on paired.id=a.game_id
+    where a.user_id=$1 and b.user_id=g.created_by and not a.computer and not b.computer and paired.kind<>'solo' and paired.status in ('setup','playing'))<5
    and ($2::jsonb is null or g.options @> $2::jsonb) and ($3::text is null or g.rating_policy=$3) order by g.created_at,g.id limit ${lock ? 1 : 100}${lock ? ' for update of g skip locked' : ''}`, [actor, switches ?? null, ratingPolicy ?? null]);
   return result.rows.map(({ seat, handle, icon, created_at, ...row }) => ({ ...row, colour: seat === 0 ? 'white' : 'black', creator: { handle, icon }, created_at: created_at.toISOString() }));
  }

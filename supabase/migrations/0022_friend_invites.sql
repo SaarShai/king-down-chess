@@ -17,6 +17,7 @@ do $$ begin
 end $$;
 alter table public.game_invites drop constraint if exists game_invites_one_game;
 alter table public.game_invites add constraint game_invites_one_game unique(game_id);
+drop index if exists public.game_invites_game;
 alter table public.game_invites drop constraint if exists game_invites_recipient;
 alter table public.game_invites add constraint game_invites_recipient check(recipient_id<>created_by);
 alter table public.game_invites drop constraint if exists game_invites_state;

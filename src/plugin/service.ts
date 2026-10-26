@@ -31,12 +31,7 @@ export class PluginService {
   constructor(private store: PostgresMatchStore, inviteSecret = process.env.KINGDOWN_INTERNAL_SECRET) { this.games = new GameService(store, inviteSecret); this.safety = new SafetyService(store); this.accounts = new AccountService(store); this.playerSettings = new SettingsService(store.pool); }
   /** Count before the tool runs, in a separate commit, so a refused call still counts. The upsert locks the row. */
   async toolTry(actor: string, tool: keyof typeof TOOL_LIMITS): Promise<void> {
-    const { count, seconds, message } = TOOL_LIMITS[tool];
-    const fresh = "t.window_start>now()-$3*interval '1 second'";
-    const { tries } = (await this.store.pool.query(`insert into public.plugin_tool_tries as t (user_id,tool) values($1,$2)
-      on conflict (user_id,tool) do update set tries=case when ${fresh} then least(t.tries+1,$4) else 1 end,
-      window_start=case when ${fresh} then t.window_start else now() end returning tries`, [id(actor), tool, seconds, count + 1])).rows[0];
-    if (tries > count) fail('RATE_LIMITED', 429, message);
+    await this.store.toolTry(id(actor), tool, TOOL_LIMITS[tool]);
   }
   create(actor: string, input: unknown, commandId?: string) { return this.games.create(actor, input, commandId); }
   /** Read-only. */

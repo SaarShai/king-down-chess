@@ -147,6 +147,7 @@ export class GameService {
   if (options.kind !== 'solo') await this.requireHandle(actor);
   const done = commandId === undefined ? undefined : await this.started(undefined, actor, commandId, key, options.mode === undefined);
   if (done) return done;
+  if (options.kind === 'friend' && (options.recipient_id || options.recipient_handle || options.open_link)) await this.store.friendTry(actor);
   const game = await this.newGame(actor, options, commandId === undefined ? randomUUID() : startId(actor, commandId));
   settle(game, game.created_at);
   if (options.kind === 'solo' && commandId === undefined) { await this.store.insert(game); return this.render(game, seatOf(game, actor), { rules: true }); }
@@ -294,7 +295,11 @@ export class GameService {
  }
  async accept(actor: string, gameId: string, ratingPolicy?: RatingPolicy): Promise<View> {
   actor = id(actor); gameId = id(gameId);
-  const before = await this.store.load(gameId), prepared = before.status === 'waiting' ? await this.prepareEntry(before) : undefined;
+  await this.requireHandle(actor);
+  const before = await this.store.load(gameId);
+  if (before.rating_policy === 'ranked-v1') requireRanked();
+  if (ratingPolicy !== before.rating_policy && !(ratingPolicy === undefined && before.rating_policy === 'legacy')) fail('MATCH_INCOMPATIBLE', 409, 'Choose this game policy before you accept the seat');
+  const prepared = before.status === 'waiting' ? await this.prepareEntry(before) : undefined;
   return this.store.transaction(async client => {
    await this.store.lockAccounts(client, [actor, before.created_by]);
    await this.requireHandle(actor, client);
@@ -324,18 +329,20 @@ export class GameService {
    if (own) {
     await this.store.lockAccounts(client, [actor]);
     const game = await this.store.load(own.id, { client, lock: true });
-    if (game.status === 'waiting') return commandId === undefined ? this.render(game, seatOf(game, actor), { client, rules: true }) : this.receipt(client, game, actor, commandId, key);
+    if (game.status !== 'waiting') return;
+    return commandId === undefined ? this.render(game, seatOf(game, actor), { client, rules: true }) : this.receipt(client, game, actor, commandId, key);
    }
    const candidates = await this.store.lobby(actor, { client, switches: wanted, ratingPolicy });
    for (const open of candidates) {
     const before = await this.store.load(open.game_id, { client });
     const ready = prepared.get(before.id);
     if (!ready || ready.revision !== before.revision + 1) return { prepare: before };
+    await client.query('savepoint candidate');
     await this.store.lockAccounts(client, [actor, before.created_by]);
     // A candidate row can be busy. Do not wait on it while the global search lock is held.
-    if (!(await client.query('select id from public.games where id=$1 for update skip locked', [before.id])).rowCount) continue;
+    if (!(await client.query('select id from public.games where id=$1 for update skip locked', [before.id])).rowCount) { await client.query('rollback to savepoint candidate'); continue; }
     const game = await this.store.load(before.id, { client }), at = await this.store.now(client);
-    if (game.status !== 'waiting' || game.created_at.getTime() + DAY <= at.getTime()) continue;
+    if (game.status !== 'waiting' || game.created_at.getTime() + DAY <= at.getTime() || !game.created_by || await this.store.pairCount(client, actor, game.created_by) >= 5 || !await this.store.unblocked(client, actor, game.created_by)) { await client.query('rollback to savepoint candidate'); continue; }
     return this.acceptSeat(client, game, actor, at, commandId, key, ready);
    }
    if (!made) return;
@@ -381,6 +388,7 @@ export class GameService {
   const seat = game.players.find(p => !p.user_id && !p.computer)?.seat;
   if (game.status !== 'waiting' || seat === undefined || game.created_at.getTime() + DAY <= at.getTime()) return fail('NOT_ALLOWED', 409, 'This open game is no longer available');
   if (!game.created_by || !await this.store.unblocked(client, game.created_by, actor)) fail('FORBIDDEN', 403, 'This open game cannot be accepted');
+  await this.checkPair(client, actor, game.created_by!, true);
   const next = step(game), out: Outgoing = { notify: [], outbox: [] };
   Object.assign(next.players[seat], { user_id: actor, last_seen_at: at });
   this.enterPrepared(next, prepared!, at); turnTo(next, out, at, actor);
@@ -400,6 +408,7 @@ export class GameService {
   const payload = { expected_revision: command.expected_revision, action };
   // Engine work runs before the lock; the commit re-checks the revision, so a race costs the loser STALE_REVISION, never a wrong write.
   const before = await this.store.load(gameId, { state: true }), seat = seatOf(before, actor);
+  if (before.kind === 'friend' && action.type === 'abort') await this.store.friendTry(actor);
   let played: Played | undefined;
   if ((action.type === 'turn' || action.type === 'computer') && !await this.store.receipt(this.store.pool, gameId, seat, command.command_id, payload) && !check(before, seat, command, at))
    played = await play(before, action.type === 'turn' ? seat : before.turn, action.type === 'turn' ? action.actions : 'computer', index => hash(`${seat}:${command.command_id}:${index}`));
@@ -422,6 +431,7 @@ export class GameService {
    if (action.type === 'rematch' && action.choice !== 'decline' && game.kind !== 'solo' && game.players.every(p => p.user_id) && !await this.store.unblocked(client, actor, game.players[other(seat)].user_id!)) fail('NOT_ALLOWED', 409, 'No rematch is available with this player');
    if (action.type === 'abort' && game.kind === 'friend' && game.created_by === actor && game.status === 'aborted') return this.render(game, seat, { client });
    if (action.type === 'abort' && before.status === 'waiting' && game.status !== 'waiting') fail('NOT_ALLOWED', 409, INVITE_NOTICES.closed);
+   if (action.type === 'rematch' && action.choice !== 'decline' && game.kind !== 'solo') await this.checkPair(client, actor, game.players[other(seat)].user_id!);
    const switchOpen = action.type === 'abort' && game.kind === 'solo' && await this.store.canSwitch(actor, game.created_at, client);
    // Only unseen commands check time again after engine work, permission reads and the row-lock wait.
    const at = new Date(), next = step(game), out: Outgoing = { notify: [], outbox: [] };
@@ -485,6 +495,21 @@ export class GameService {
  }
  private async checkSend(client: Parameters<PostgresMatchStore['save']>[0], actor: string, recipient: string | null): Promise<void> {
   if (recipient && !await this.store.mayJoin(client, recipient, actor)) fail('FORBIDDEN', 403, INVITE_NOTICES.permission);
+  if (recipient) await this.checkPair(client, actor, recipient);
+  const count = await this.store.pendingCount(client, actor, recipient);
+  if (count >= 2) throw new MatchServiceError(recipient ? 'FRIEND_INVITE_LIMIT' : 'OPEN_INVITE_LIMIT', 409,
+   recipient ? INVITE_NOTICES.namedLimit(await this.currentHandle(client, recipient), count) : INVITE_NOTICES.openLimit,
+   { count, ...(recipient && { handle: await this.currentHandle(client, recipient) }) });
+ }
+ private async currentHandle(client: Parameters<PostgresMatchStore['privacy']>[0], user: string): Promise<string | null> {
+  return (await client.query('select handle from public.profiles where id=$1', [user])).rows[0]?.handle ?? null;
+ }
+ private async checkPair(client: Parameters<PostgresMatchStore['privacy']>[0], actor: string, opponent: string, accepting = false): Promise<void> {
+  const count = await this.store.pairCount(client, actor, opponent);
+  if (count >= 5) {
+   const handle = await this.currentHandle(client, opponent);
+   throw new MatchServiceError('FRIEND_GAME_LIMIT', 409, INVITE_NOTICES.gameLimit(count, handle, accepting), { count, handle });
+  }
  }
  private async issue(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, recipient: string | null, expires?: Date): Promise<Invite> {
   expires ??= new Date((await this.store.now(client)).getTime() + FRIEND_CODE_DAYS * DAY);
@@ -498,6 +523,7 @@ export class GameService {
  }
  async invite(actor: string, gameId: string, input: unknown = {}): Promise<Invite> {
   actor = id(actor); gameId = id(gameId); const options = parse(inviteSchema, input);
+  await this.store.friendTry(actor);
   return this.store.transaction(async client => {
    const old = (await client.query('select * from public.game_invites where game_id=$1', [gameId])).rows[0];
    const recipient = old?.recipient_id ?? (old ? null : await this.recipient(client, actor, options));
@@ -508,7 +534,7 @@ export class GameService {
    // Re-read after account locks. A concurrent send can add the first invitation.
    if ((stored?.recipient_id ?? null) !== recipient) fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.unavailable);
    if (game.status !== 'waiting' || stored && stored.state !== 'open') fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.closed);
-   if (stored && stored.expires_at <= await this.store.now(client)) fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.expired);
+   if (stored && await this.store.inviteExpired(client, stored.token_hash)) fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.expired);
    if (stored && (options.recipient_id && options.recipient_id !== recipient || options.recipient_handle || options.open_link && recipient)) fail('INVALID_INPUT', 400, 'Keep the invitation recipient.');
    if (stored && options.rotate === false) fail('NOT_ALLOWED', 409, 'Make a new code to share this invitation.');
    if (recipient && !await this.store.mayJoin(client, recipient, actor)) fail('FORBIDDEN', 403, INVITE_NOTICES.permission);
@@ -540,9 +566,9 @@ export class GameService {
   const invite = (await this.store.pool.query(`select * from public.game_invites where ${column}=$1`, [value])).rows[0] ?? this.unavailable();
   this.visible(invite, actor, byId);
   const game = await this.store.load(invite.game_id), host = game.players[other(invite.seat as Seat)];
-  if (invite.state !== 'open' || game.status !== 'waiting') fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.closed);
-  if (invite.expires_at <= await this.store.now()) fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.expired);
+  if ((invite.state === 'open' || game.end_reason === 'no_start') && await this.store.inviteExpired(this.store.pool, invite.token_hash)) fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.expired);
   if (host.user_id !== actor && (!host.user_id || !await this.store.mayJoin(this.store.pool, invite.recipient_id ?? host.user_id, invite.recipient_id ? host.user_id : actor))) this.unavailable();
+  if (invite.state !== 'open' || game.status !== 'waiting') fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.closed);
   const recipient = invite.recipient_id ? (await this.store.pool.query('select handle from public.profiles where id=$1', [invite.recipient_id])).rows[0]?.handle : null;
   return { code, options: game.options, colour: colour(invite.seat), kind: game.kind, creator: { handle: host.handle, icon: host.icon ?? null }, expires_at: invite.expires_at.toISOString(), recipient_id: invite.recipient_id, recipient_handle: recipient, invite_id: invite.token_hash };
  }
@@ -558,7 +584,7 @@ export class GameService {
   for (const p of next.players) p.power = prepared.players[p.seat].power;
  }
  async join(actor: string, tokenOrCode: unknown): Promise<View> {
-  actor = id(actor); await this.requireHandle(actor);
+  actor = id(actor); await this.requireHandle(actor); await this.store.friendTry(actor);
   const { column, value, byId } = await this.invitation(actor, tokenOrCode);
   const found = (await this.store.pool.query(`select * from public.game_invites where ${column}=$1`, [value])).rows[0] ?? this.unavailable();
   this.visible(found, actor, byId);
@@ -571,12 +597,13 @@ export class GameService {
    this.visible(invite, actor, byId);
    const seat = invite.seat as Seat, host = game.players[other(seat)].user_id;
    if (invite.state === 'accepted' && invite.used_by === actor && game.players[seat].user_id === actor) return this.render(game, seat, { client, rules: true });
-   if (invite.state !== 'open') fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.closed);
    const at = await this.store.now(client);
-   if (invite.expires_at <= at) fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.expired);
+   if ((invite.state === 'open' || game.end_reason === 'no_start') && await this.store.inviteExpired(client, invite.token_hash)) fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.expired);
+   if (invite.state !== 'open') fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.closed);
    if (game.status !== 'waiting' || game.players[seat].user_id || host === actor || !host) this.unavailable();
    if (!await this.store.mayJoin(client, invite.recipient_id ?? host!, invite.recipient_id ? host! : actor)) this.unavailable();
    await this.requireHandle(actor, client);
+   await this.checkPair(client, actor, host!, true);
    const next = step(game), out: Outgoing = { notify: [], outbox: [] };
    Object.assign(next.players[seat], { user_id: actor, last_seen_at: at });
    this.enterPrepared(next, prepared!, at); turnTo(next, out, at, actor);
@@ -592,12 +619,14 @@ export class GameService {
  }
  async friends(actor: string, input: unknown = {}): Promise<FriendsPage> {
   actor = id(actor); const page = parse(friendsSchema, input);
+  await this.store.friendTry(actor);
   const result = await this.store.friends(actor, page.after, page.limit, page.handle);
   if (page.handle && !result.friends.length) fail('NOT_FOUND', 404, INVITE_NOTICES.notFound);
   return result;
  }
  async declineInvite(actor: string, inviteId: string): Promise<InvitationRow> {
   actor = id(actor); inviteId = parse(z.string().regex(/^[a-f0-9]{64}$/), inviteId);
+  await this.store.friendTry(actor);
   const found = (await this.store.pool.query('select * from public.game_invites where token_hash=$1', [inviteId])).rows[0] ?? this.unavailable();
   this.visible(found, actor, true);
   return this.store.transaction(async client => {
@@ -606,7 +635,7 @@ export class GameService {
    const invite = (await client.query('select * from public.game_invites where token_hash=$1 for update', [inviteId])).rows[0] ?? this.unavailable();
    this.visible(invite, actor, true);
    const at = await this.store.now(client);
-   if (invite.state === 'open' && invite.expires_at > at && game.status === 'waiting') {
+   if (invite.state === 'open' && !await this.store.inviteExpired(client, invite.token_hash) && game.status === 'waiting') {
     const next = step(game), out: Outgoing = { notify: [], outbox: [] };
     end(next, out, null, 'abort', at);
     await this.write(client, game, next, { seat: null, actor_id: actor, command_id: null, kind: 'decline', payload: {}, actions: null, surface: null, received_at: at }, out);
@@ -615,11 +644,11 @@ export class GameService {
    return this.invitationRow(client, actor, inviteId);
   });
  }
- private async invitationRow(client: Parameters<PostgresMatchStore['save']>[0], actor: string, inviteId: string): Promise<InvitationRow> {
-  const r = (await client.query(`select i.*,g.options,p.id as player_id,p.handle,p.icon from public.game_invites i join public.games g on g.id=i.game_id
+ private async invitationRow(client: Parameters<PostgresMatchStore['privacy']>[0], actor: string, inviteId: string): Promise<InvitationRow> {
+  const r = (await client.query(`select i.*,g.options,g.end_reason,p.id as player_id,p.handle,p.icon from public.game_invites i join public.games g on g.id=i.game_id
    left join public.profiles p on p.id=case when i.created_by=$2 then i.recipient_id else i.created_by end where token_hash=$1`, [inviteId, actor])).rows[0] ?? this.unavailable();
   return { invite_id: r.token_hash, game_id: r.game_id, recipient_id: r.recipient_id, direction: r.created_by === actor ? 'outgoing' : 'incoming', player: r.player_id ? { user_id: r.player_id, handle: r.handle, icon: r.icon } : null,
-   options: r.options, expires_at: r.expires_at.toISOString(), state: r.state === 'open' && r.expires_at <= await this.store.now(client) ? 'expired' : r.state };
+   options: r.options, expires_at: r.expires_at.toISOString(), state: (r.state === 'open' || r.end_reason === 'no_start') && await this.store.inviteExpired(client, r.token_hash) ? 'expired' : r.state };
  }
  /** Ends missed deadlines, expired invitations and 24-hour open games; safe to run twice at once. */
  async sweep(now = new Date()): Promise<number> {
@@ -661,7 +690,7 @@ export class GameService {
   const db = client ?? this.store.pool;
   const invitation = game.kind === 'friend'
    ? { invite_id: (await db.query('select token_hash from public.game_invites where game_id=$1', [game.id])).rows[0]?.token_hash ?? null } : {};
-  const inviteMeta = invitation.invite_id ? await this.invitationRow(db as Parameters<PostgresMatchStore['save']>[0], game.players[seat].user_id!, invitation.invite_id) : undefined;
+  const inviteMeta = invitation.invite_id ? await this.invitationRow(db, game.players[seat].user_id!, invitation.invite_id) : undefined;
   const vacant = !opponent.user_id && !opponent.computer && !opponent.handle_at_start && !await this.store.hasJoined(game.id, db);
   const rating = rules && opponent.user_id ? await opponentRating(db, opponent.user_id) : undefined;
   const outcome = rules && game.status === 'finished' ? await gameOutcome(db, game.players[seat].user_id!, game.id) : undefined;
