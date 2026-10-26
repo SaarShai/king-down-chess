@@ -32,6 +32,7 @@ const retryable = (error: unknown) => !(error instanceof OnlineError) || error.s
 
 export function onlineClient({ token, origin = '', fetch: send = (input, init) => fetch(input, init), tries = 4, wait = ms => new Promise(done => setTimeout(done, ms)) }: ClientOptions) {
   async function call<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+    signal?.throwIfAborted();
     const bearer = await token();
     signal?.throwIfAborted();
     if (!bearer) throw new OnlineError('UNAUTHENTICATED', 401, 'Sign in to play online');
@@ -50,31 +51,31 @@ export function onlineClient({ token, origin = '', fetch: send = (input, init) =
   }
   return {
     /** A friend game comes with its invitation. */
-    create: (options: CreateOptions, command_id: string = crypto.randomUUID()) => call<{ view: View; invite?: InviteLink }>('POST', '/api/games', { ...options, ...(command_id && { command_id }) }),
-    preview: (key: { token: string } | { code: string }) => call<JoinPreview>('POST', '/api/invites/preview', key),
-    settings: (changes?: Partial<PlayerSettings>) => call<{ settings: PlayerSettings; me: { handle: string | null; icon: Icon | null } }>(changes && Object.keys(changes).length ? 'PATCH' : 'GET', '/api/me/settings', changes && Object.keys(changes).length ? changes : undefined),
-    handle: (input: { handle: string; icon?: Icon; check?: boolean }) => call<{ me: { handle: string | null; icon: Icon | null }; available?: boolean }>('POST', '/api/me/handle', input),
-    record: (cursor: { before?: string; blocks_after?: string; notices_before?: string } = {}) => call<{ handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null } & AccountNotices>('GET', '/api/me/record' + (Object.keys(cursor).length ? '?' + new URLSearchParams(cursor) : '')),
-    lobby: () => call<Lobby & { server_now: string }>('GET', '/api/lobby'),
-    find: (input: Record<string, unknown>) => call<View>('POST', '/api/games/find', input),
-    accept: (gameId: string, rating_policy?: RatingPolicy) => call<View>('POST', `/api/games/${encodeURIComponent(gameId)}/accept`, { ...(rating_policy && { rating_policy }) }),
-    cancel: (gameId: string) => call<View>('POST', `/api/games/${encodeURIComponent(gameId)}/cancel`, {}),
-    block: (input: { game_id?: string; user_id?: string; blocked?: boolean }) => call<{ blocked: boolean; view?: View }>('POST', '/api/blocks', input),
+    create: (options: CreateOptions, command_id: string = crypto.randomUUID(), signal?: AbortSignal) => call<{ view: View; invite?: InviteLink }>('POST', '/api/games', { ...options, ...(command_id && { command_id }) }, signal),
+    preview: (key: { token: string } | { code: string }, signal?: AbortSignal) => call<JoinPreview>('POST', '/api/invites/preview', key, signal),
+    settings: (changes?: Partial<PlayerSettings>, signal?: AbortSignal) => call<{ settings: PlayerSettings; me: { handle: string | null; icon: Icon | null } }>(changes && Object.keys(changes).length ? 'PATCH' : 'GET', '/api/me/settings', changes && Object.keys(changes).length ? changes : undefined, signal),
+    handle: (input: { handle: string; icon?: Icon; check?: boolean }, signal?: AbortSignal) => call<{ me: { handle: string | null; icon: Icon | null }; available?: boolean }>('POST', '/api/me/handle', input, signal),
+    record: (cursor: { before?: string; blocks_after?: string; notices_before?: string } = {}, signal?: AbortSignal) => call<{ handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null } & AccountNotices>('GET', '/api/me/record' + (Object.keys(cursor).length ? '?' + new URLSearchParams(cursor) : ''), undefined, signal),
+    lobby: (signal?: AbortSignal) => call<Lobby & { server_now: string }>('GET', '/api/lobby', undefined, signal),
+    find: (input: Record<string, unknown>, signal?: AbortSignal) => call<View>('POST', '/api/games/find', input, signal),
+    accept: (gameId: string, rating_policy?: RatingPolicy, signal?: AbortSignal) => call<View>('POST', `/api/games/${encodeURIComponent(gameId)}/accept`, { ...(rating_policy && { rating_policy }) }, signal),
+    cancel: (gameId: string, signal?: AbortSignal) => call<View>('POST', `/api/games/${encodeURIComponent(gameId)}/cancel`, {}, signal),
+    block: (input: { game_id?: string; user_id?: string; blocked?: boolean }, signal?: AbortSignal) => call<{ blocked: boolean; view?: View }>('POST', '/api/blocks', input, signal),
     /** The full view (with the rules), or the commands after `since`. */
     game: (gameId: string, since?: number, signal?: AbortSignal) => call<View>('GET', `/api/games/${encodeURIComponent(gameId)}${since === undefined ? '' : `?since=${since}`}`, undefined, signal),
     previewDraft: (gameId: string, input: DraftInput, signal?: AbortSignal) => call<DraftPreview>('POST', `/api/games/${encodeURIComponent(gameId)}/preview`, input, signal),
     /** Records activity only when the caller asks for it. */
-    seen: (gameId: string) => call<void>('POST', `/api/games/${encodeURIComponent(gameId)}/seen`),
+    seen: (gameId: string, signal?: AbortSignal) => call<void>('POST', `/api/games/${encodeURIComponent(gameId)}/seen`, undefined, signal),
     /** One command; a lost reply sends it again with the same command_id, and the server applies it once. */
-    async command(gameId: string, expected_revision: number, action: Action, command_id: string = crypto.randomUUID()): Promise<Extract<Reply, { type: 'ack' }>> {
+    async command(gameId: string, expected_revision: number, action: Action, command_id: string = crypto.randomUUID(), signal?: AbortSignal): Promise<Extract<Reply, { type: 'ack' }>> {
       for (let attempt = 1; ; attempt++) {
-        try { return await call('POST', `/api/games/${encodeURIComponent(gameId)}/commands`, { command_id, expected_revision, action }); }
-        catch (error) { if (attempt >= tries || !retryable(error)) throw error; await wait(250 * 2 ** attempt); }
+        try { return await call('POST', `/api/games/${encodeURIComponent(gameId)}/commands`, { command_id, expected_revision, action }, signal); }
+        catch (error) { signal?.throwIfAborted(); if (attempt >= tries || !retryable(error)) throw error; await wait(250 * 2 ** attempt); }
       }
     },
     /** A new invitation; the old one ends. */
-    invite: (gameId: string) => call<InviteLink>('POST', `/api/games/${encodeURIComponent(gameId)}/invite`),
-    redeem: (key: { token: string } | { code: string }) => call<View>('POST', '/api/invites/redeem', key),
+    invite: (gameId: string, signal?: AbortSignal) => call<InviteLink>('POST', `/api/games/${encodeURIComponent(gameId)}/invite`, undefined, signal),
+    redeem: (key: { token: string } | { code: string }, signal?: AbortSignal) => call<View>('POST', '/api/invites/redeem', key, signal),
     /** Your active games: your turn first, then the nearest deadline. */
     games: (signal?: AbortSignal) => call<InboxEntry[]>('GET', '/api/me/games', undefined, signal),
     profile: () => call<MyProfile>('GET', '/api/me/profile'),
@@ -87,7 +88,7 @@ export function onlineClient({ token, origin = '', fetch: send = (input, init) =
     relations: () => call<{ kind: 'follow' | 'block'; user_id: string; handle: string | null; created_at: string }[]>('GET', '/api/relations'),
     relate: (kind: 'follow' | 'block', target: Target) => call<void>('POST', '/api/relations', { kind, ...target }),
     unrelate: (kind: 'follow' | 'block', target: Target) => call<void>('DELETE', '/api/relations', { kind, ...target }),
-    report: (report: Report) => call<{ id: number; created_at: string }>('POST', '/api/reports', report),
+    report: (report: Report, signal?: AbortSignal) => call<{ id: number; created_at: string }>('POST', '/api/reports', report, signal),
   };
 }
 export type OnlineClient = ReturnType<typeof onlineClient>;
