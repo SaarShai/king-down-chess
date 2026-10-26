@@ -21,6 +21,16 @@ Scope: the shared motion clock and its tests. No longer limit or retry.
 - `npm run test:docs` passes. The full suite does not run.
 - The commit stays on this branch. There is no push, rebase or deploy.
 
+## Review repair plan
+
+1. Add the review probe: hold the timeline at 7000 ms, add 40 ms of setup, then replace the face in the same frame.
+2. Remove saved-start reuse for one test run. Require a failure with starts of 7000 and 6960 ms. Restore the fix and require 7000 ms for both faces.
+3. Run `plugin-ui` twice on this branch and twice on `origin/staging/first-game`, one command at a time. Check the quiet lock before each run.
+4. Trace the Moves sheet scroll path. Run `tools/plugin-board-input.test.ts` twice on each tree.
+5. Record the results. Fetch and merge the base before the last commit. Run the affected checks and doc checks. Commit without a push.
+
+Pass conditions: the new test fails without reuse and passes with it; branch and base have two recorded runs of each requested check; any branch fault has a fix and a passing check.
+
 ## Evidence
 
 - CI run 40308293426 fails with an 18.6 ms spread at line 339. Run 40307940113 passes at the same commit.
@@ -108,3 +118,46 @@ The browser checks run one command at a time. The times below exclude time in th
 - A direct local probe loads the real `UiMotion` class in Chromium and WebKit. It installs the page clock, advances it by 60001 ms, and starts a 100 ms animation. With PR head `1845cc83`, both engines still run after a 350 ms finish bound. With the repair, both start at age zero and their native finish promises resolve. The probe does not change a check limit.
 - Probe values: Chromium red age -59896.31 ms; WebKit red age -59691 ms. Both green ages are 0 ms. Chromium ends after 116.602 ms of timeline time; WebKit ends after 113 ms. Log: `spent-fix2-native-clocks.log` in the output folder.
 - Change review: the saved event start is needed because the simple conversion fails under the setup load. The shared helper owns that conversion. It removes expired entries and clears them on cancel. The event window, motion guards and recorder stay. No dependency or game rule changes.
+
+## Review repair results
+
+- The independent review returns CHANGES. All 17 old unit cases pass when saved-start reuse is removed. The old row-rebuild case advances both clocks, so it cannot prove reuse within one frame.
+- The new case in `src/ui/motion.test.ts` starts from the review probe. It holds the timeline at 7000 ms. Setup advances wall time from 100000 to 100040 ms. The first face disconnects, and its replacement starts at once with the same event time.
+- Red: remove only `this.onsets.get(at) ??` from `UiMotion.play()`. `KINGDOWN_TEST_FILE=src/ui/motion.test.ts npm test` fails only the new case: actual starts are `[7000, 6960]`; expected starts are `[7000, 7000]`. The other 17 cases and the type check pass. The source is then restored.
+- Green: the same command passes all 18 cases, 67 Node tests and the type check. Both faces use 7000 ms. The test also checks the 40 ms setup and cancellation of the old face. No product code changes in this review repair.
+
+### Full browser comparison
+
+Branch: `3bbc64e4`. Base: `origin/staging/first-game` at `f306d452`, in a clean worktree. Each row below uses `npm run check:browser plugin-ui`. Times exclude the shared scheduler queue.
+
+| Tree | First run | Second run | All browser slots reserved |
+| --- | --- | --- | --- |
+| Branch | Pass, 467.776 s | Whole-run limit, 480.407 s | Pass, 413.654 s |
+| Base | Pass, 443.652 s | Pass, 431.718 s | Pass, 414.020 s |
+
+- The commands above run one at a time. The quiet lock is clear at each start. Other worktrees use the shared scheduler, so some commands queue before the check starts.
+- The failed branch run passes touch input and the tablet step. It reaches the whole-run limit in `idleBoard()` through `sendTurn()`, at `tools/plugin-ui-check.mjs:3482`. It does not repeat the review failure in `touchStroke()` at line 2052. Its browser log also reports macOS display-link errors; these errors alone do not prove the cause.
+- The extra pair changes only the `plugin-ui` registry entry to `exclusive: true`, once in each tree. This reserves all browser slots. The same cases, code and 480 s limit run. Both registry files are restored after their commands end. The two check times differ by 0.366 s.
+- The evidence points to shared machine load in the late timeout. It shows no branch slowdown with browser slots reserved. The exact cause of the reviewer's touch timeout remains unproved. No runtime fix or limit change is supported by these results.
+- An earlier branch run passes in 437.998 s, but a base runner starts before it ends. That base runner is stopped by PID after 17.482 s. Both runs are excluded from the table. A local runner lock then prevents overlap within this task.
+
+### F-008 comparison
+
+- Command: `KINGDOWN_TEST_FILE=tools/plugin-board-input.test.ts npm test`, twice on each tree, without a name filter.
+- Each run passes all 45 file cases, including both F-008 cases, 67 Node tests and the type check.
+- Branch command times: 128.069 s and 145.991 s. Base command times: 131.398 s and 138.318 s. These times include the type check and Node tests.
+- `boardSheet()` opens the Moves sheet and sets focus. `fitSheetBody()` puts its scroll region in the Tab order. PageDown and End use native browser scroll. The open transition comes from `src/style.css` and takes 175 ms. The sheet open and scroll paths do not call `UiMotion.play()`.
+- The board, sheet styles and board-input test are identical on branch and base. The motion change does not set the sheet's scroll position or replace its rows. No F-008 failure repeats, so no scroll fix is made.
+
+### Review evidence
+
+- Logs use the `spent-fix3-` prefix in the output folder. `spent-fix3-results.json` lists the results. `spent-fix3-evidence/` keeps the browser logs and run records. The two scheduling patches also stay in the output folder.
+- Change review: the 13-line test uses the existing clock and control stubs. It tests the missing behavior directly. No new helper, dependency, game rule, retry or time limit is needed.
+- The full suite and WebKit checks do not run in this review repair. No push or deploy occurs.
+
+### Review repair commit and final checks
+
+- Test commit: `b46d94f2fd84c37fe69c491c89d2410132f04a22`.
+- Before the final ticket commit, `git fetch origin` completes. `git merge --no-edit origin/staging/first-game` reports that the branch is up to date with `f306d45267f5ce58f983c09a1ecc106c48c776ba`. The measured product code does not change.
+- `npm run test:docs` passes all 180 cases in 15 files. `git diff --check` passes.
+- The normal commit hooks run without input overrides. The test change is 13 lines; this ticket holds the review evidence.
