@@ -92,3 +92,7 @@ Update: Both lanes merge. All tests stay. One save notice clears each failure af
 Plan: Test both failure orders and the real Sound handler on this branch. Keep the stored-game comparison and the account owner check. Record results in [ticket 02](02-write-failure.md). Make one commit per finding.
 
 Finding 1 does not reproduce. Two new tests fail game and lesson writes in each order. Only one write can retry. The other failure keeps the notice. A final retry clears the notice after both data sets save. The first requested source check passes all 166 tests, both type checks, and 67 art checks. No source change is necessary. The game, lesson, and settings causes stay separate from the account block.
+
+Finding 2: Sound keeps the warning, but reload loses the unsaved move. The red test shows no stored move after Sound. A settings change now retries the pending game when the stored game still matches this page. It saves the kept game during a lesson. Only that game save can clear the game failure. A lesson failure keeps the notice. Tests also check a newer tab game and an accepted account game. Both keep their data and the pending-game warning. The comparison and owner checks stay in place.
+
+Final checks: All 171 tests in the eight requested source files, both type checks, and 67 art checks pass. The doc check passes 178 tests in 15 files. The one `npm run check:browser new-game` run passes in 34.9 seconds. Its log shows no page or console errors. The diff check passes. Finding 1 is in commit `1e5525d4`. No push, rebase, or deploy runs.

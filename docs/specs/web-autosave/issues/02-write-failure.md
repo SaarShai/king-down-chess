@@ -22,25 +22,13 @@ The owner requests this fix for audit finding F3. Work stays on `staging/web-aut
 - A later successful game write saves all moves and clears the notice.
 - Record the failing and passing test runs here. Do not run browser checks or the full suite under the quiet lock.
 
-## Joined lane review, round 4
-
-Plan: Test two failed writes in each order with fake timers. Permit only one retry. Keep the notice for the other data. Test Sound through the real settings handler after a failed game write. Check the stored moves and the game after reload. Keep each finding in its own commit.
-
-Checks: Track game, lesson, settings, and account blocks by their own data. A successful write clears only its own failure. Run the eight requested source test files, then the doc checks. Run `new-game` once at the end. Keep the hooks unchanged. Make no push, rebase, or deploy.
-
-Finding 1 does not reproduce on this branch. The first probe passes both failure orders. The game write fails, then Guard fails. Only Guard can retry; the game notice stays. In the reverse order, only the game can retry; the lesson notice stays. The final retry clears the notice only after both data sets save. Each case uses real move and lesson handlers with fake timers.
-
-Before check: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,ui/table,account/account,account/client,lesson-shelf,lesson-store}.test.ts' npm test`. Both type checks, 166 tests in eight files, and 67 art checks pass. There is no red result for finding 1. The joined branch already keeps a set of failure causes. The new tests keep this rule in code. No source change is necessary for this finding.
-
-Green check: The same command passes all 166 tests, both type checks, and 67 art checks. The change adds tests and ticket records only. Each data set keeps its own failure cause; one shared notice displays the causes.
-
 ## Result
 
 The old writer catches a storage error and returns no result. The page cannot show that moves remain unsaved. The red tests reproduce both a quota error and a storage refusal.
 
 `writeSave()` now returns success or failure. A failed write keeps a notice apart from tap and turn notices. The existing context live region shows `Changes not saved. Keep this tab open.` first. It keeps the current instruction and controls. It uses the existing refusal style. No new CSS or layout is needed.
 
-A successful game write saves all current moves and clears the notice. A settings write clears only a settings failure. It cannot hide unsaved game moves. New game first records the stored game it replaces, so a failed write can retry. A successful game write sets the next comparison. Only a successful write notifies account sync.
+A write clears only the failures for the data it saves. A settings change also retries a failed game write when the stored game still matches this page. During a lesson, that retry saves the kept game. It never saves the lesson board over the game. A settings change cannot clear a failed lesson record. A newer stored game stays safe. New game first records the stored game it replaces, so a failed write can retry. A successful game write sets the next comparison. Only a successful write notifies account sync.
 
 ## Evidence
 
@@ -77,3 +65,27 @@ Result: The save warning keeps both `line.line` and `line.note` in its detail ro
 - Green: `KINGDOWN_TEST_FILE=src/ui/table.test.ts npm test`. Type checks and all four tests pass. The 57 art checks also pass.
 - Docs: `npm run test:docs`. All 15 files and 178 tests pass.
 - Review: One assignment joins the existing context parts. It adds no style rule, layout state, or new control. The test uses the real lesson task and renderer.
+
+## Joined lane review, round 4
+
+Plan: Test two failed writes in each order with fake timers. Permit only one retry. Keep the notice for the other data. Test Sound through the real settings handler after a failed game write. Check the stored moves and the game after reload. Keep each finding in its own commit.
+
+Checks: Track game, lesson, settings, and account blocks by their own data. A successful write clears only its own failure. Run the eight requested source test files, then the doc checks. Run `new-game` once at the end. Keep the hooks unchanged. Make no push, rebase, or deploy.
+
+Finding 1 does not reproduce on this branch. The first probe passes both failure orders. The game write fails, then Guard fails. Only Guard can retry; the game notice stays. In the reverse order, only the game can retry; the lesson notice stays. The final retry clears the notice only after both data sets save. Each case uses real move and lesson handlers with fake timers.
+
+Before check: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,ui/table,account/account,account/client,lesson-shelf,lesson-store}.test.ts' npm test`. Both type checks, 166 tests in eight files, and 67 art checks pass. There is no red result for finding 1. The joined branch already keeps a set of failure causes. The new tests keep this rule in code. No source change is necessary for this finding.
+
+Green check: The same command passes all 166 tests, both type checks, and 67 art checks. The change adds tests and ticket records only. Each data set keeps its own failure cause; one shared notice displays the causes.
+
+Finding 2: The notice fault does not reproduce. Sound keeps each unsaved-data notice on the joined branch. The reload fault does reproduce. A game move fails to save. Sound then saves the old stored game. Reload loses e2-e4. The first red check passes both type checks and 167 tests; one reload test fails.
+
+Fix: A settings change retries the pending game only when the stored game still matches this page. It uses the kept game during a lesson. A successful write clears the game cause only when it saves that game. It keeps any lesson cause. A newer tab or account game prevents this retry; a settings-only write keeps the newer game and the warning. The owner check still runs before each write. No new stored field or timer is needed.
+
+Red check with the final cases: The same requested source command passes both type checks and 167 tests. Four tests fail on the prior source: the two Sound cases with unsaved moves and the quota and storage-refusal retries. Each failure shows the old stored moves. All cases use fake timers.
+
+Green check: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,ui/table,account/account,account/client,lesson-shelf,lesson-store}.test.ts' npm test`. Both type checks, all 171 tests in eight files, and 67 art checks pass. Sound keeps each cause while its write fails. After storage recovers, the game saves and reload keeps e2-e4. A lesson failure stays. The next game move saves against the updated comparison. The newer-tab and account controls pass.
+
+Review: The retry uses the existing game data, comparison, owner check, writer, and failure set. It adds no storage key, dependency, or retry timer. A settings-only write clears only the settings cause. A write that also saves the pending game can clear the game cause. No full suite or live account check runs. The storage comparison and write remain separate operations across browser processes.
+
+Final checks: `npm run test:docs` passes 178 tests in 15 files. The one `npm run check:browser new-game` run passes in 34.9 seconds. Its log shows no page or console errors. The diff check passes. Finding 1 is in commit `1e5525d4`. The commit uses the unchanged hooks. No push, rebase, or deploy runs.

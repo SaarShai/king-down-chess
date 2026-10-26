@@ -795,28 +795,31 @@ export function connectPlay(view: BoardView, c: {
     if (stored.unreadable && !canWriteLocal(localStorage)) { keepUnreadableSave(accountNotice); refresh(); return false; }
     if (replaceUnreadable) replacementRaw = stored.raw;
     else if (savedDataBlocked(stored)) return false;
-    // Settings and lessons keep the stored game, even when this tab's game is older.
-    const kept = settingsOnly ? stored.save : null;
-    if (settingsOnly && !kept) return false;
+    // Retry unsaved moves with settings only while the stored game still matches this tab.
+    const retryGame = settingsOnly && unsaved.has('game') && !cloudGame && gameJSON(stored.save) === savedJSON;
+    const savesGame = !settingsOnly || retryGame;
+    const kept = savesGame ? null : stored.save;
+    if (!savesGame && !kept) return false;
     if (!settingsOnly && !replaceUnreadable && gameJSON(stored.save) !== savedJSON) {
       keepUnreadableSave('Your saved game changed in another tab. Reload to load it, or start a New game.');
       $('announce').textContent = recoveryNotice;
       refresh(); return false;
     }
+    const live = lessonReturn ?? { game, sides, resigned, linkSide, turnStart };
     const next: Save = kept ? { ...kept, ...settings.settingsNow() } : {
-      back: game.backRank,
-      fen: toFen(game.history[0]?.pos ?? game.pos), // the position the game started from
-      moves: game.history.map(h => h.lan),
-      white: sides[0], black: sides[1],
+      back: live.game.backRank,
+      fen: toFen(live.game.history[0]?.pos ?? live.game.pos), // the position the game starts from
+      moves: live.game.history.map(h => h.lan),
+      white: live.sides[0], black: live.sides[1],
       ...settings.settingsNow(),
-      link: linkSide,
+      link: live.linkSide,
       daily,
-      resigned,
+      resigned: live.resigned,
       // A reload keeps the staged turn for End turn (web-redesign spec §4.8).
-      ...(game.history.length > turnStart && { staged: game.history.length - turnStart }),
+      ...(live.game.history.length > live.turnStart && { staged: live.game.history.length - live.turnStart }),
       // The rules the game is playing, so opening the save without its URL replays the same game
       // (`?rules=2017`, `?kings=…`; docs/TAKEOVER-PLAN.md §2).
-      rules: { ...game.rules },
+      rules: { ...live.game.rules },
     };
     // A new game must retry its replacement if the first write fails.
     if (replaceUnreadable) savedJSON = gameJSON(stored.save);
@@ -826,10 +829,10 @@ export function connectPlay(view: BoardView, c: {
       savedDataBlocked();
     }
     else {
-      if (!settingsOnly) { savedJSON = gameJSON(next); replacementRaw = undefined; }
+      if (savesGame) { savedJSON = gameJSON(next); replacementRaw = undefined; }
       // Saving only settings cannot clear a warning about moves that are still unsaved.
       unsaved.delete('settings');
-      if (!settingsOnly) unsaved.delete('game');
+      if (savesGame) unsaved.delete('game');
       c.account()?.changed();
     }
     if (saveWarning() !== before) {

@@ -689,6 +689,70 @@ describe('failed local autosaves', () => {
     expect(changed).toHaveBeenCalledTimes(2);
   });
 
+  it.each(['game', 'lesson', 'both'] as const)('round 4: Sound keeps each failure until its data saves (%s)', async failed => {
+    const empty = { ...original, moves: [], sound: true };
+    stored.set(SAVE_KEY, JSON.stringify(empty));
+    const { play, view, settings, changed } = page({}, null, true);
+    settings.applySettings(empty); play.restore(empty, request);
+    const failedKeys = new Set(failed === 'both' ? [SAVE_KEY, 'kingdown.lessons'] : [failed === 'game' ? SAVE_KEY : 'kingdown.lessons']);
+    const write = vi.spyOn(localStorage, 'setItem').mockImplementation((key, value) => {
+      if (failedKeys.has(key)) throw new DOMException('Full', 'QuotaExceededError');
+      stored.set(key, value);
+    });
+    if (failed !== 'lesson') {
+      view.onSquareClick(12, false); view.onSquareClick(28, false);
+      await vi.advanceTimersByTimeAsync(0);
+    }
+    play.startLesson(4);
+    if (failed !== 'game') {
+      const game = play.game(), move = game.legal.find(m => LESSONS[4].goal(game.pos, m))!;
+      view.onSquareClick(move.from, false); view.onSquareClick(move.to, false);
+      await vi.advanceTimersByTimeAsync(0);
+    }
+    expect(shown().saveNotice).toBe(unsaved);
+    expect(changed).not.toHaveBeenCalled();
+    const sound = document.getElementById('sound') as HTMLInputElement;
+    sound.checked = false;
+    sound.onchange!.call(sound, {} as Event);
+    play.refresh();
+    expect(shown().saveNotice).toBe(unsaved);
+    write.mockRestore();
+    sound.checked = true;
+    sound.onchange!.call(sound, {} as Event);
+    play.refresh();
+    expect(readSave().save?.sound).toBe(true);
+    expect(readSave().save?.moves).toEqual(failed === 'lesson' ? [] : ['e2-e4']);
+    expect(shown().saveNotice).toBe(failed === 'game' ? '' : unsaved);
+    expect(progress().done ?? []).not.toContain('Guard');
+    expect(play.game().backRank).not.toBe(empty.back);
+    if (failed !== 'lesson') {
+      const saved = readSave();
+      const reloaded = page({}, null, true);
+      reloaded.play.restore(saved.save, { ...request, unreadable: saved.unreadable });
+      expect(reloaded.play.game().history.map(h => h.lan)).toEqual(['e2-e4']);
+    }
+  });
+
+  it.each(['tab', 'account'] as const)('round 4: Sound keeps the newer %s game and the pending game notice', async source => {
+    const empty = { ...original, moves: [], sound: true };
+    stored.set(SAVE_KEY, JSON.stringify(empty));
+    const { play, view, settings } = page({}, null, true);
+    settings.applySettings(empty); play.restore(empty, request);
+    vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => { throw new DOMException('Full', 'QuotaExceededError'); });
+    view.onSquareClick(12, false); view.onSquareClick(28, false);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(shown().saveNotice).toBe(unsaved);
+    play.startLesson(4);
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    if (source === 'account') play.fromAccount(['saved_game']);
+    const sound = document.getElementById('sound') as HTMLInputElement;
+    sound.checked = false;
+    sound.onchange!.call(sound, {} as Event);
+    play.refresh();
+    expect(readSave().save).toMatchObject({ ...original, sound: false });
+    expect(shown().saveNotice).toBe(unsaved);
+  });
+
   it('saves the next move after unreadable data and one quota failure', () => {
     const raw = '{raw save';
     stored.set(SAVE_KEY, raw);
@@ -785,13 +849,14 @@ describe('failed local autosaves', () => {
     expect(shown()).toMatchObject({ saveNotice: unsaved });
     refused = false;
     play.saveSettings();
-    expect(JSON.parse(stored.get(SAVE_KEY)!).moves).toEqual(original.moves);
-    expect(shown()).toMatchObject({ saveNotice: unsaved });
-    play.save();
     expect(readSave().save!.moves).toEqual([...original.moves, 'Ng1-f3', 'Nb8-c6']);
     expect(shown()).toMatchObject({ saveNotice: '' });
     expect(document.getElementById('announce')!.textContent).toBe('Changes saved.');
-    expect(changed).toHaveBeenCalledTimes(2);
+    expect(changed).toHaveBeenCalledOnce();
+    play.game().playLan(['Bf1-c4']);
+    expect(play.save()).toBe(true);
+    expect(readSave().save!.moves).toEqual([...original.moves, 'Ng1-f3', 'Nb8-c6', 'Bf1-c4']);
+    expect(shown().saveNotice).toBe('');
   });
 
   it('clears a settings-only failure when the settings save succeeds', () => {
