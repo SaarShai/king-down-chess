@@ -67,7 +67,7 @@ export function connectPlay(view: BoardView, c: {
   /** The keyboard cursor (screen/keys.ts). */
   keys(): { cursor(): number | null; say(): void; focus(keyboard: boolean): void };
   /** Settings → Account and the cloud save: null until it loads, or offline. */
-  account(): { changed(recovered?: boolean): void } | null;
+  account(): { changed(): void } | null;
   /** The next game's setup: the last one started from New game. */
   setup(): Setup;
   openNewGame(): void;
@@ -744,6 +744,7 @@ export function connectPlay(view: BoardView, c: {
     orient();
     refresh();
     save(true);
+    $('board').focus({ preventScroll: true });
     for (const portrait of document.querySelectorAll('.player-strip .portrait')) uiMotion.reveal(portrait, 600, 20, 250);
     uiMotion.reveal($('board').querySelector('canvas'), 450, 0, 850);
     uiMotion.reveal($('context-text'), 420, 8, 2200);
@@ -829,7 +830,7 @@ export function connectPlay(view: BoardView, c: {
     };
     // A new game must retry its replacement if the first write fails.
     if (replaceUnreadable) savedJSON = gameJSON(stored.save);
-    const before = saveWarning(), saved = writeSave(next);
+    const before = saveWarning(), saved = writeSave(next, recovered);
     if (!saved) {
       unsaved.add(settingsOnly ? 'settings' : 'game');
       savedDataBlocked();
@@ -839,7 +840,7 @@ export function connectPlay(view: BoardView, c: {
       // Saving only settings cannot clear a warning about moves that are still unsaved.
       unsaved.delete('settings');
       if (savesGame) unsaved.delete('game');
-      if (recovered) c.account()?.changed(true); else c.account()?.changed();
+      c.account()?.changed();
     }
     if (saveWarning() !== before) {
       $('announce').textContent = saveWarning() || 'Changes saved.';
@@ -866,11 +867,11 @@ export function connectPlay(view: BoardView, c: {
   $('recover-save').onclick = event => {
     if (recoverySource === undefined) return;
     const stored = readSave();
-    if (stored.failed || !canWrite()) { keepUnreadableSave(accountNotice); refresh(); return; }
+    if (stored.failed || !canWrite()) { keepUnreadableSave(accountNotice); refresh(); $('menu-btn').focus({ preventScroll: true }); return; }
     if (gameJSON(stored.save) !== recoverySource) {
       keepUnreadableSave('Your saved game changed in another tab. Reload to load it, or start a New game.');
       $('announce').textContent = recoveryNotice;
-      refresh(); return;
+      refresh(); $('menu-btn').focus({ preventScroll: true }); return;
     }
     saveBlocked = false;
     replacementRaw = stored.raw;
@@ -878,7 +879,9 @@ export function connectPlay(view: BoardView, c: {
       saveBlocked = true;
       if (!recoveryNotice.includes(unsavedNotice)) recoveryNotice += ` ${unsavedNotice}`;
       $('announce').textContent = recoveryNotice;
-      refresh(); return;
+      refresh();
+      $(recoverySource === undefined ? 'menu-btn' : 'recover-save').focus({ preventScroll: true });
+      return;
     }
     recoverySource = undefined;
     notice = '';
@@ -921,7 +924,7 @@ export function connectPlay(view: BoardView, c: {
     if (down.includes('saved_game')) {
       replacementRaw = undefined;
       savedJSON = gameJSON(s);
-      if (switched || stored.partial && !fen) openSaved(s);
+      if (switched || stored.partial) openSaved(s);
       else if (lesson != null) cloudGame = true;
       else if (!fen) openSaved(s);
     }
@@ -932,7 +935,7 @@ export function connectPlay(view: BoardView, c: {
     $('title-continue').querySelector('.label')!.textContent = `Continue · move ${nextMoveNumber(game.history.map(h => h.pos.turn), game.pos.turn)}`;
   }
 
-  /** The account's saved game replaces the one on the board (but not a position opened by `?fen=`). */
+  /** Load an account game, including the legal part offered for recovery. */
   function openSaved(s: Save): void {
     const replayed = replay(s);
     if (!replayed) { refresh(); return; }

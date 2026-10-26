@@ -56,8 +56,8 @@ export function accountHtml(user: User | null, facebook: boolean, available: rea
 let sync: Sync | null = null;
 
 /** The game saved something (screen/play.ts save; main.ts once at load): note what changed, and send it soon when signed in. */
-export function changed(recovered = false): void {
-  try { if (sync) sync.changed(recovered); else if (canWriteLocal(localStorage)) stamp(localStorage, Date.now(), recovered); } catch { /* storage blocked: nothing to sync */ }
+export function changed(): void {
+  try { if (sync) sync.changed(); else if (canWriteLocal(localStorage)) stamp(localStorage); } catch { /* storage blocked: nothing to sync */ }
 }
 
 /** Draws the Account section and starts the cloud save; `onApply` gets the sections the account had newer. */

@@ -75,6 +75,7 @@ try {
     await page.waitForFunction(() => document.getElementById('new-game').open);
     assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.save')), raw, 'opening New game keeps the source');
     await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.getElementById('new-game').open && document.activeElement?.id === 'recovery-new-game');
     await offer.focus();
     await page.keyboard.press('Enter');
     await offer.waitFor({ state: 'hidden' });
@@ -92,6 +93,45 @@ try {
     await page.context().close();
   }
   ok('save recovery: the full source stays until acceptance; keyboard choices, live notice, reload and three screen sizes pass');
+
+  for (const choice of ['cancel', 'start', 'failed read', 'late close']) {
+    const source = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5', 'Qd1-d8'], white: 'human', black: 'human', coords: true, resigned: null, pace: 'off', sound: false };
+    const page = await open({ save: source });
+    const offer = page.locator('#recover-save');
+    await offer.waitFor({ state: 'visible' });
+    if (choice === 'failed read') {
+      await page.evaluate(() => {
+        const get = Storage.prototype.getItem;
+        Storage.prototype.getItem = function (key) {
+          if (key === 'kingdown.save') throw new Error('read blocked');
+          return get.call(this, key);
+        };
+      });
+      await offer.click();
+      assert.equal(await page.evaluate(() => document.activeElement?.id), 'menu-btn', 'a failed read keeps a visible focus target');
+    } else {
+      await page.click('#recovery-new-game');
+      if (choice === 'cancel') {
+        await page.click('#new-game button[value="cancel"]');
+        await page.waitForFunction(() => !document.getElementById('new-game').open && document.activeElement?.id === 'recovery-new-game');
+      } else if (choice === 'start') {
+        await page.click('#start-game');
+        await page.waitForFunction(() => !document.getElementById('new-game').open && document.activeElement?.id === 'board');
+      } else {
+        await page.evaluate(() => new Promise(resolve => {
+          const sheet = document.getElementById('new-game');
+          sheet.addEventListener('close', resolve, { once: true });
+          sheet.close();
+          document.getElementById('recover-save').focus();
+        }));
+        assert.equal(await page.evaluate(() => document.activeElement?.id), 'recover-save', 'a late close keeps the current focus');
+      }
+    }
+    assertNoErrors(page);
+    await page.context().close();
+  }
+  ok('save recovery focus: Cancel, New game, failed read, and late close pass');
+
 
   const labels = [];
   for (const [level, name] of [['beginner', 'Casual'], ['casual', 'Clever']]) {

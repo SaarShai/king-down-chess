@@ -551,3 +551,38 @@ describe('Sync with a fake server', () => {
     expect((c.row?.saved_game?.v as { moves: string[] }).moves).toEqual([]);
   });
 });
+
+
+describe('recovery confirmation', () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(1_000_000); });
+  afterEach(() => vi.useRealTimers());
+
+  it('uses the recovery time in the saved game when the sync record is stale', () => {
+    const st = store({ 'kingdown.save': save(['e2-e4', 'bad']) });
+    const before = stamp(st);
+    before.saved_game!.at = 500;
+    st.setItem('kingdown.sync', JSON.stringify(before));
+    st.setItem('kingdown.save', JSON.stringify({ ...save(['e2-e4']), recovery: 500 }));
+    expect(stamp(st).saved_game?.at).toBe(501);
+    st.setItem('kingdown.save', JSON.stringify({ ...save(['e2-e4'], false), recovery: 500 }));
+    expect(stamp(st).saved_game?.at).toBe(501);
+    expect(readLocal(st).saved_game).not.toHaveProperty('recovery');
+    st.setItem('kingdown.save', JSON.stringify(save(['e2-e4', 'e7-e5'])));
+    expect(stamp(st).saved_game?.at).toBe(1_000_000);
+    expect(stamp(st).recovery).toBeUndefined();
+  });
+
+  it('keeps the local time and does not apply an equal recovery reply', async () => {
+    const c = cloud({ saved_game: { at: 500, v: save(['e2-e4', 'bad']) } });
+    const d = device({}, c);
+    await d.sync.pull();
+    d.applied.length = 0;
+    d.st.setItem('kingdown.save', JSON.stringify({ ...save(['e2-e4']), recovery: 500 }));
+    d.sync.changed();
+    await d.sync.flush();
+    expect(stamp(d.st).saved_game?.at).toBe(501);
+    expect(d.applied).toEqual([]);
+    expect(stamp(d.st).recovery).toBeUndefined();
+    d.sync.stop();
+  });
+});

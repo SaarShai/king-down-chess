@@ -7,6 +7,7 @@ import type { BoardView } from '../render/PaintedView';
 import { connectTurnPress } from '../turn-controls';
 import { gameJSON, readSave, writeSave, SAVE_KEY, type Save } from './save';
 import { stamp, Sync, type Row } from '../account/sync';
+import { changed as accountChanged } from '../account/account';
 import { toFen } from '../rules/setup';
 import { POWERS_BALANCED, RULES_2017, parseKings, type Rules } from '../rules/engine';
 import { refreshTable, renderTable } from '../ui/table';
@@ -41,7 +42,7 @@ beforeEach(() => {
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-function page(rules: Partial<Rules> = {}, fen: string | null = null, realSettings = false) {
+function page(rules: Partial<Rules> = {}, fen: string | null = null, realSettings = false, accountReady = true) {
   const view = { setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), highlight: vi.fn(), setPreview: vi.fn(), setCoords: vi.fn(), setLabels: vi.fn(), setPace: vi.fn(), animateMove: vi.fn().mockResolvedValue(undefined), skip: vi.fn() } as unknown as BoardView;
   const engine = { cancel: vi.fn(), think: vi.fn().mockResolvedValue({ move: null }) }, changed = vi.fn();
   const settings = { pace: () => 'off', threats: () => false, queen: () => true, settingsNow: () => ({ coords: true }), applySettings: vi.fn(), resetSettings: vi.fn(),
@@ -51,7 +52,7 @@ function page(rules: Partial<Rules> = {}, fen: string | null = null, realSetting
   const play = connectPlay(view, { params: new URLSearchParams(), preset: undefined, rules, withPowers: () => ({}), fen,
     engine: engine as unknown as Engine, guide: { fill: vi.fn() }, settings: controls,
     home: { visible: false, close: vi.fn(), refresh: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['home'],
-    keys: () => ({ cursor: () => null, say: vi.fn(), focus: vi.fn() }), account: () => ({ changed }),
+    keys: () => ({ cursor: () => null, say: vi.fn(), focus: vi.fn() }), account: () => accountReady ? ({ changed }) : null,
     setup: () => ({ ...defaultSetup(), mode: 'two' }), openNewGame: vi.fn(),
   });
   return { play, view, engine, changed, settings: controls };
@@ -1160,7 +1161,7 @@ describe('partial save recovery', () => {
     expect(readSave().save).toMatchObject({ moves: original.moves, resigned: null });
     expect(readSave().save?.staged).toBeUndefined();
     expect(document.getElementById('recover-save')!.hidden).toBe(true);
-    expect(changed).toHaveBeenCalledWith(true);
+    expect(changed).toHaveBeenCalledWith();
     expect(document.getElementById('board')!.focus).toHaveBeenCalledWith({ preventScroll: true });
     view.onSquareClick(6, false); view.onSquareClick(21, false);
     await vi.advanceTimersByTimeAsync(0);
@@ -1307,4 +1308,179 @@ describe('partial save recovery', () => {
     next.stop();
   });
 
+});
+
+
+describe('review recovery faults', () => {
+  const partial: Save = { ...original, moves: [...original.moves, 'Qd1-d8'], resigned: 0, staged: 1 };
+  const newer: Save = { ...original, moves: ['d2-d4'] };
+  const clickAccept = () => {
+    const button = document.getElementById('recover-save') as HTMLButtonElement;
+    expect(button.hidden).toBe(false);
+    button.onclick!.call(button, { detail: 0 } as PointerEvent);
+  };
+  function bootRecovery(accountReady = true) {
+    stored.set(SAVE_KEY, JSON.stringify(partial));
+    const p = page({}, null, false, accountReady), read = readSave();
+    p.play.seat(partial.white, partial.black);
+    p.play.restore(read.save, { ...request, unreadable: read.unreadable });
+    p.play.refresh();
+    const stamps = stamp(localStorage, 500);
+    stamps.saved_game!.at = 500;
+    localStorage.setItem('kingdown.sync', JSON.stringify(stamps));
+    return p;
+  }
+  function cloud() {
+    let row: Row = { saved_game: { at: 600, v: newer } };
+    return {
+      get row() { return row; },
+      remote: {
+        userId: 'player', pull: async () => row,
+        push: async (sent: Row) => {
+          for (const section of ['settings', 'lessons', 'saved_game'] as const) {
+            if (sent[section] && (!row[section] || sent[section]!.at > row[section]!.at)) row[section] = sent[section];
+          }
+          return row;
+        },
+      },
+    };
+  }
+
+  it('P1: a failed recovery stamp must not replace a newer cloud game after reload', async () => {
+    vi.setSystemTime(1_000_000);
+    const { play, changed } = bootRecovery();
+    changed.mockImplementation(accountChanged);
+    const set = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = (key, value) => {
+      if (key === 'kingdown.sync') throw new Error('quota');
+      set(key, value);
+    };
+    clickAccept();
+    expect(readSave().save?.moves).toEqual(original.moves);
+    expect(JSON.parse(stored.get('kingdown.sync')!).saved_game.at).toBe(500);
+    localStorage.setItem = set;
+    // main.ts calls account.changed() once on load, with no recovery argument.
+    accountChanged();
+    const c = cloud();
+    const sync = new Sync(localStorage, c.remote, play.fromAccount, play.savedGames);
+    await sync.pull(); sync.stop();
+    expect((c.row.saved_game?.v as Save).moves).toEqual(newer.moves);
+  });
+
+  it('P1: acceptance before the account module loads must not replace a newer cloud game', async () => {
+    vi.setSystemTime(1_000_000);
+    const { play, changed } = bootRecovery(false);
+    // The actual page account getter is null until the dynamic import completes.
+    clickAccept();
+    expect(changed).not.toHaveBeenCalled();
+    accountChanged();
+    const c = cloud();
+    const sync = new Sync(localStorage, c.remote, play.fromAccount, play.savedGames);
+    await sync.pull(); sync.stop();
+    expect((c.row.saved_game?.v as Save).moves).toEqual(newer.moves);
+  });
+
+  it('control: a failed second save read keeps the full source', () => {
+    const { play } = bootRecovery();
+    const get = localStorage.getItem.bind(localStorage);
+    let reads = 0;
+    localStorage.getItem = key => {
+      if (key === SAVE_KEY && ++reads === 2) throw new Error('read blocked');
+      return get(key);
+    };
+    clickAccept();
+    localStorage.getItem = get;
+    expect(readSave().save?.moves).toEqual(partial.moves);
+    expect(play.savedGames.blocked()).toBe(true);
+  });
+
+
+  it('P2: an identical upload reply must not cancel a move in progress', async () => {
+    const { play, view, changed } = bootRecovery();
+    let row: Row = { saved_game: { at: 500, v: partial } };
+    let reply!: () => void;
+    const remote = {
+      userId: 'player', pull: async () => row,
+      push: async (sent: Row) => {
+        row = { ...row, ...sent };
+        return new Promise<Row>(resolve => { reply = () => resolve(row); });
+      },
+    };
+    const sync = new Sync(localStorage, remote, play.fromAccount, play.savedGames);
+    changed.mockImplementation((...args) => Reflect.apply(sync.changed, sync, args));
+    await sync.pull(); clickAccept();
+    const upload = sync.flush();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(reply).toBeTypeOf('function');
+    let finish!: () => void;
+    vi.mocked(view.animateMove).mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+    view.onSquareClick(6, false); view.onSquareClick(21, false);
+    expect(play.game().history.map(h => h.lan)).toEqual([...original.moves, 'Ng1-f3']);
+    reply(); await upload;
+    finish(); await vi.advanceTimersByTimeAsync(0);
+    sync.stop();
+    expect(play.game().history.map(h => h.lan)).toEqual([...original.moves, 'Ng1-f3']);
+  });
+
+  it('P2: a partial cloud save must give a recovery path on a FEN page', async () => {
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const { play } = page({}, '7k/8/8/8/8/8/8/K6R w - - 0 1');
+    play.restore(original, request); play.refresh();
+    const row: Row = { saved_game: { at: 500, v: partial } };
+    const sync = new Sync(localStorage, { userId: 'player', pull: async () => row, push: async () => row }, play.fromAccount, play.savedGames);
+    await sync.pull(); sync.stop();
+    expect(play.savedGames.blocked() && document.getElementById('recover-save')!.hidden).toBe(false);
+  });
+
+
+  it('control: a stored recovery stamp keeps the newer cloud game', async () => {
+    vi.setSystemTime(1_000_000);
+    const { play, changed } = bootRecovery();
+    changed.mockImplementation(accountChanged);
+    clickAccept();
+    accountChanged();
+    const c = cloud();
+    const sync = new Sync(localStorage, c.remote, play.fromAccount, play.savedGames);
+    await sync.pull(); sync.stop();
+    expect((c.row.saved_game?.v as Save).moves).toEqual(newer.moves);
+  });
+
+
+  it('control: partial cloud recovery leaves a lesson and saves the recovered match', async () => {
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const { play, changed } = page();
+    play.restore(original, request);
+    play.startLesson(4);
+    expect(vi.mocked(refreshTable).mock.lastCall![0].lesson).toBe(4);
+    const row: Row = { saved_game: { at: 500, v: partial } };
+    const sync = new Sync(localStorage, { userId: 'player', pull: async () => row, push: async sent => sent }, play.fromAccount, play.savedGames);
+    changed.mockImplementation((...args) => Reflect.apply(sync.changed, sync, args));
+    await sync.pull();
+    expect(vi.mocked(refreshTable).mock.lastCall![0].lesson).toBe(null);
+    expect(readSave().save?.moves).toEqual(partial.moves);
+    clickAccept(); sync.stop();
+    expect(readSave().save?.moves).toEqual(original.moves);
+    expect(play.game().history.map(h=>h.lan)).toEqual(original.moves);
+  });
+});
+
+
+it.each([1, 2])('keeps focus and the source after recovery read failure %s', readNumber => {
+  const partial = { ...original, moves: [...original.moves, 'bad'] };
+  stored.set(SAVE_KEY, JSON.stringify(partial));
+  const { play } = page();
+  play.restore(partial, request); play.refresh();
+  const get = localStorage.getItem.bind(localStorage);
+  let reads = 0;
+  localStorage.getItem = key => {
+    if (key === SAVE_KEY && ++reads === readNumber) throw new Error('read blocked');
+    return get(key);
+  };
+  const button = document.getElementById('recover-save') as HTMLButtonElement;
+  button.onclick!.call(button, { detail: 0 } as PointerEvent);
+  localStorage.getItem = get;
+  expect(readSave().save?.moves).toEqual(partial.moves);
+  const target = document.getElementById(button.hidden ? 'menu-btn' : 'recover-save')!;
+  expect(target.focus).toHaveBeenCalled();
+  expect(play.savedGames.blocked()).toBe(true);
 });

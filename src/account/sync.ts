@@ -67,6 +67,7 @@ function writeLocal(store: Store, s: Section, v: unknown): void {
   if (s === 'lessons') return store.setItem(LESSONS, JSON.stringify(v));
   const save = parse(store.getItem(SAVE)) ?? {}, keys = s === 'settings' ? SETTINGS : GAME;
   for (const k of keys) delete save[k];
+  if (s === 'saved_game') delete save.recovery;
   store.setItem(SAVE, JSON.stringify({ ...save, ...pick(v as Record<string, unknown>, keys) }));
 }
 
@@ -76,23 +77,24 @@ function writeLocal(store: Store, s: Section, v: unknown): void {
  * call ever gets 0, older than any cloud copy: the first device signed in sets the account's copy.
  * A copy that differs only by a field this version dropped is the same copy: it keeps its time.
  */
-export function stamp(store: Store, now = Date.now(), recovered = false): Stamps {
-  const raw = store.getItem(STAMPS), stamps: Stamps = parse(raw) ?? {}, local = readLocal(store);
-  const sourceAt = stamps.saved_game?.at ?? 0;
-  let changed = false;
+export function stamp(store: Store, now = Date.now()): Stamps {
+  const raw = store.getItem(STAMPS), stamps: Stamps = parse(raw) ?? {}, rawSave = store.getItem(SAVE);
+  const local = readSections(rawSave, store.getItem(LESSONS)), sourceAt = parse(rawSave)?.recovery;
+  const recovery = typeof sourceAt === 'number' && Number.isFinite(sourceAt) && sourceAt >= 0 ? sourceAt : undefined;
+  let changed = stamps.recovery !== recovery;
+  delete stamps.recovery;
   for (const s of SECTIONS) {
     if (local[s] == null) continue;
     const json = canon(local[s]), was = stamps[s];
     if (was?.json === json) continue;
-    if (s === 'saved_game') delete stamps.recovery;
     stamps[s] = { at: was && canon(own(s, parse(was.json))) === json ? was.at : raw == null ? 0 : Math.max(now, (was?.at ?? -1) + 1), json };
     changed = true;
   }
-  if (recovered && stamps.saved_game) {
+  if (recovery !== undefined && stamps.saved_game) {
     // One step above the source: the server keeps any newer copy, even with clock skew.
-    stamps.recovery = sourceAt;
-    stamps.saved_game.at = sourceAt + 1;
-    changed = true;
+    stamps.recovery = recovery;
+    changed ||= stamps.saved_game.at !== recovery + 1;
+    stamps.saved_game.at = recovery + 1;
   }
   if (changed) store.setItem(STAMPS, JSON.stringify(stamps));
   return stamps;
@@ -149,10 +151,10 @@ export class Sync {
   }
 
   /** A local change: stamped now, sent after a quiet moment, so a burst of moves is one write. */
-  changed(recovered = false): void {
+  changed(): void {
     if (this.stopped || !this.selected || !this.ownsLocal()) return;
-    if (recovered) this.rejectedGame = undefined;
-    const stamps = stamp(this.store, Date.now(), recovered), local = readLocal(this.store).saved_game;
+    const stamps = stamp(this.store), local = readLocal(this.store).saved_game;
+    if (stamps.recovery !== undefined) this.rejectedGame = undefined;
     // An explicit replacement or a new local move can supersede a rejected copy, even with a future clock.
     if (!this.savedGame.blocked() && this.rejectedGame && local != null && canon(local) !== this.rejectedGame.local && stamps.saved_game) {
       stamps.saved_game.at = Math.max(stamps.saved_game.at, this.rejectedGame.at + 1);
@@ -199,11 +201,6 @@ export class Sync {
     if (kept) this.take(kept); // another device sent a newer copy meanwhile: it comes down now
     else {
       for (const s of SECTIONS) if (row[s]) this.cloudAt[s] = row[s]!.at;
-      if (row.saved_game) {
-        const stamps = stamp(this.store);
-        delete stamps.recovery;
-        this.store.setItem(STAMPS, JSON.stringify(stamps));
-      }
     }
   }
 
@@ -211,9 +208,16 @@ export class Sync {
   private take(row: Row | null): void {
     const stamps = stamp(this.store);
     if (stamps.recovery !== undefined && row?.saved_game && row.saved_game.at > stamps.recovery) {
-      // On a recovery tie, the server's copy wins. Recheck after upload and after reload.
-      if (stamps.saved_game) stamps.saved_game.at = stamps.recovery;
-      delete stamps.recovery;
+      if (stamps.saved_game && canon(own('saved_game', row.saved_game.v)) === stamps.saved_game.json) {
+        // The upload is confirmed. Keep the live game and any move still in motion.
+        writeLocal(this.store, 'saved_game', row.saved_game.v);
+        stamps.saved_game.at = Math.max(stamps.saved_game.at, row.saved_game.at);
+        delete stamps.recovery;
+        this.store.setItem(STAMPS, JSON.stringify(stamps));
+      } else if (stamps.saved_game) {
+        // On a recovery tie, a different server copy wins, also after a reload.
+        stamps.saved_game.at = stamps.recovery;
+      }
     }
     const { down } = merge(stamps, row);
     this.cloudAt = {};
