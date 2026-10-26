@@ -339,13 +339,14 @@ jobs:
           nproc
           free -m
           nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &
-      # Step limits under the job limit, as in browser-webkit. Passing runs take 18-19 and 2 minutes.
+      # Step limits under the job limit, as in browser-webkit. Passing runs take 19-21 and 2 minutes; the plugin-ui
+      # step limit stays above its 1440 s check limit (480 s x 3).
       - run: npm run check:browser plugin-ui
         env:
           # The browser's own output goes to the check log, so a WebKit crash or memory kill names its reason
           # (chatgpt-mvp ticket 53: run 39230893586 crashed with no reason; WebKit kills its page at 8192 MB).
           DEBUG: pw:browser
-        timeout-minutes: 24
+        timeout-minutes: 26
       - run: npm run check:browser web-online
         timeout-minutes: 4
       - name: Save kernel log

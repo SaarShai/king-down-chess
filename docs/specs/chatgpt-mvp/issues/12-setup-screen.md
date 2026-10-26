@@ -7,8 +7,8 @@ Blocked by: 11
 
 ## Scope
 
-- The five toggles with their visibility rules (Arrangement shows only with Fairy on; Classic in the same place with Fairy off), the one-line texts, the defaults and the remembered last choices (spec Q7, Q26).
-- The pieces "all" sheet (locks at 7), the cards "all" sheet (locks at 4).
+- The feature controls with their visibility rules (First rank sorting shows inside Fairy pieces; Classic shows with Fairy off), the one-line texts, the defaults and the remembered last choices (spec Q7, Q26).
+- The inline kinds list keeps at least 7 pieces. The inline card pool keeps at least 4 cards in Use all cards. A card tile opens its full card sheet.
 - The king coin and its sheet (six kings, then two powers; only always-on powers with Cards on); the coin shows the chosen king's emblem.
 - Colour (White, Black, Random) and, against the computer, the level.
 - Start calls `kingdown_create` (computer, friend) or `kingdown_find` (random).
@@ -50,7 +50,7 @@ The current local integration tip adds a newer pending and mount recovery contra
 
 Fix round plan: Keep the public exports unchanged. Add one failing app-page test for each retry fault, then make it pass. Set the 16 toggle mixes through the controls if the change stays small. Run npm test, plugin:build and check:browser plugin-ui. Check that Retry loads full rules and opens the same game without a second Create. Keep the held Create remount case open. Do not merge the integration branch again.
 
-The setup page has the modes, four levels, colour, five toggles and three sheets. It uses the game styles, fonts, sprite and art. Start saves all five last_setup fields, then sends the same choices through the shared Start function. A handle stop keeps these choices. A solo king-only game starts at once. Arrangement keeps the seat step. The initiator of a waiting game keeps the king in last_setup.king; Create and Find take no king, and Choose is refused while waiting.
+The setup page has the modes, Level, colour, two inline sections, First rank sorting, Classic chess and King powers. A card tile opens one full card sheet. It uses the game styles, fonts, sprite and art. Start saves all five last_setup fields, then sends the same choices through the shared Start function. A handle stop keeps these choices. A solo king-only game starts at once. Arrangement keeps the seat step. The initiator of a waiting game keeps the king in last_setup.king; Create and Find take no king, and Choose is refused while waiting.
 
 The pure model is in src/plugin/screens/setup-model.ts. It exports SetupState, readSetup, setupOptions, withToggle, withPiece, withCard, pieceLocked, cardLocked, availablePowers, cleanKing, shownKing, createArguments and soloChoice. Ticket 14 can use cleanKing with the game's options and seat colour. It keeps null as no pick. It moves a power with uses to the same king's always-on power, else the colour default. The DOM module exports kingSheet(options, pick). It returns a promise for the pick. It returns the input object when nothing changes, so a mere inspection does not save a king pick.
 

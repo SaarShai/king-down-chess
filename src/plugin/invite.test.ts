@@ -11,7 +11,7 @@ const text = 'Join King Down game ABC234. Rules: Standard pieces.';
 const status = () => ({ textContent: '' }) as HTMLElement;
 
 it('names each enabled rule in the full invite', () => {
-  expect(inviteText('K7QX2M', { ...DEFAULT_OPTIONS, fairy: true, arrangement: true, classic: true, cards: true, kingPowers: true })).toBe('Join King Down game K7QX2M. Rules: Fairy pieces, Arrangement, Classic chess, Cards, King powers.');
+  expect(inviteText('K7QX2M', { ...DEFAULT_OPTIONS, fairy: true, arrangement: true, classic: true, cards: true, kingPowers: true })).toBe('Join King Down game K7QX2M. Rules: Fairy pieces, First rank sorting, Classic chess, Cards, King powers.');
   expect(inviteText('K7QX2M', { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true, cards: false, kingPowers: false })).toBe('Join King Down game K7QX2M. Rules: Classic chess.');
   expect(inviteText('K7QX2M', null)).toBe('Join King Down game K7QX2M. Rules: Standard pieces.');
 });

@@ -15,13 +15,13 @@ Each part names the owner's pick (approval page, 2026-10-15) and the work that t
 ## C3
 
 - Pick: b: A 2 × 2 grid, no chest (recommended c)
-- Today: not-built. Today the card choice is src/plugin/screens/setup.ts poolSheet('cards'). It is a sheet that shows all 21 DEAL_CARDS in .card-grid with check boxes and back.webp for the missing faces. New game has a 'N cards ›' row from build()/render(). The styles are app.css .card-grid and label.card-face. The Lively deal (board.ts is-dealt) is a moment on the board and is not this choice.
+- Today: not-built. The current card choice is the inline Cards section in src/plugin/screens/setup.ts. All 21 DEAL_CARDS show art and name in a box that scrolls. A tile opens its full card sheet. A separate checkbox changes the pool. The styles are app.css .card-grid and label.card-face. The Lively deal (board.ts is-dealt) is a moment on the board and is not this choice.
 - Build: With Cards on, New game shows the four cards in place as a 2 × 2 grid. Each face shows the name, the effect and the cost, and the chosen card lifts (transform only, 120–150 ms). Build the grid on the D4 a modes (Pick four, Use all). For faces with no painting, use powerArt() from src/power-motion.ts. But only Strike, Haste and Flight have a scene. Nine deal cards have no face and no scene (MirrorB, Firewall, EarthQuake, Burn, FireStarter, Control, Rally, MorphP, Curse), so they need a plain named face or new scenes.
 
 ## L1
 
 - Pick: a: Art and power scenes
-- Today: partly. In the integration branch, the card-coin loop in src/plugin/screens/board.ts strips() uses ui/cards/<card>.webp when a face exists. For a missing face it uses back.webp and a 2-letter .cc-word (app.css). coinRead() opens a sheet with the card name as its title, so the name on tap exists. The F8 screen reader names ('Your …', 'Opponent's …') are in. setup.ts poolSheet() and collection.ts show back.webp for the missing faces. Only the web file new-game.ts uses powerArt() from src/power-motion.ts.
+- Today: partly. In the integration branch, the card-coin loop in src/plugin/screens/board.ts strips() uses ui/cards/<card>.webp when a face exists. For a missing face it uses back.webp and a 2-letter .cc-word (app.css). coinRead() opens a sheet with the card name as its title, so the name on tap exists. The F8 screen reader names ('Your …', 'Opponent's …') are in. setup.ts and collection.ts use cardArt() for each face. Only the web file new-game.ts uses powerArt() from src/power-motion.ts.
 - Build: Replace the back image and the 2-letter word with powerArt() scenes in the board coins, the Cards sheet and the Collection. Only Strike, Haste and Flight have scenes. Nine deal cards have no face and no scene, so they need a plain named face, new scenes or the L1 c paintings. Give the two hands a different look in app.css .coin.card-coin, for example a gold ring on your coins and a dark ring on the opponent's coins.
 
 ## W10
@@ -33,8 +33,8 @@ Each part names the owner's pick (approval page, 2026-10-15) and the work that t
 ## D4
 
 - Pick: a: Pick four, or use all (Use all cards deals a random 4; Pick four starts empty and deals exactly those four)
-- Today: not-built. src/plugin/screens/setup.ts poolSheet() (cards branch, lock note); src/plugin/screens/setup-model.ts cardLocked(), withCard(); src/match/setup.ts validate() and draw() need no change.
-- Build: Add a 'Use all cards' / 'Pick four' choice to the card sheet. Pick four starts empty and stops at four. Remove the lock on each tap (cardLocked) and check the pool at Done only; Close, Escape and the scrim keep the last valid pool. No server change: a 4-card pool already deals exactly those four.
+- Today: not-built. src/plugin/screens/setup.ts (inline pool and lock note); src/plugin/screens/setup-model.ts withCard(); src/match/setup.ts validate() and draw() need no change.
+- Build: The inline Cards section has Use all cards and Pick four. Pick four starts empty and stops at four. Use all cards locks the last four checked cards. Start checks the pool before Create. No server change: a 4-card pool already deals exactly those four.
 
 ## F38
 
@@ -68,13 +68,13 @@ J6, including the Collection cost words, the board coins and OPEN-coins197 belon
 3. Add unit and browser tests. Measure text contrast and the hand rings on the M1. Run the type check, all tests and plugin-ui. Run plugin-ui-http only if server code changes.
 4. Get two independent code reviews. Fix confirmed faults. Record results and commit on `claude/od-cards`.
 
-Checks: Pick four starts empty and stops at four. Use all cards accepts any pool of at least four. Done saves only a valid pool. Other exits keep the last valid pool. Both modes show four slots in a 2 × 2 grid. Every face has its name, effect and cost. A selected face lifts in 140 ms. Missing faces use three existing scenes or nine plain names.
+Checks: Pick four starts empty and stops at four. Use all cards accepts any pool of at least four. Start accepts only a valid pool. Both modes show all cards in a short grid that scrolls. Each tile has art and name. Its full sheet has the rule and cost. A selected face lifts in 140 ms. Missing faces use three existing scenes or nine plain names.
 
 
 ### Build and review
 
-- C3 b: New game shows four faces in two rows and two columns. Each face has a name, rule and cost. A selected face lifts in 140 ms. In Use all cards, the faces are the first four pool entries and the note calls them examples. The game still draws at random.
-- D4 a: Use all cards permits any pool of at least four. Pick four starts empty and stops at four. Done saves a valid pool. Close, Escape and the scrim discard the sheet draft. An exact four-card saved pool opens as Pick four. A switch to Use all cards checks all 21 cards.
+- C3 b: New game shows all deal cards in two columns, in a box that shows about two rows. Each tile has art and name. A tap opens a full card with its rule and cost. A selected face lifts in 140 ms. Each card has a separate pool checkbox. The game still draws at random.
+- D4 a: Use all cards permits any pool of at least four. Pick four starts empty and stops at four. Pool edits apply inline. Use all cards locks the last four cards. Start refuses an incomplete Pick four pool. An exact four-card saved pool opens as Pick four. A mode round trip keeps the all-card pool. A saved Pick four pool switches to all 21 cards.
 - W10 a: `cardName()` in `powers-ui.ts` gives Mirror and Morph. Setup and Collection use it. The board lane must replace its local copy.
 - L1 a: Setup and Collection use one `cardArt()` helper. It shows nine paintings, three existing power scenes and nine plain names. Your card ring uses dark gold (`--gold-ink`). The other hand uses dark stone (`--stone-700`). Both rings keep the armed state.
 - Costs use the current rules. Mirror says “Same cost as the copied card” because the target card sets the cost.
@@ -135,17 +135,17 @@ The source and tests are committed. This final ticket update records the checks 
 3. Give the New game card tap a useful action. Check the 3 px lift after its transition. Measure the rings against the coin face and each other. Update Q20.
 4. Add a test for each confirmed fault. Run `npm test` on this Mac and `plugin-ui` on the M1 with the current limits. Run `plugin-ui-http` if server code changes. Record each result and commit.
 
-Checks: no infinite card animation in New game, Cards or Collection; the same six-card pool after a mode round trip; the same sheet, focus and draft after a host refresh; a useful card action; a measured 3 px lift; measured ring contrast; Q20 states both modes and checks the pool at Done only.
+Checks: no infinite card animation in New game, Cards or Collection; the same six-card pool after a mode round trip; the same sheet, focus and draft after a host refresh; a useful card action; a measured 3 px lift; measured ring contrast; Q20 states both modes. Use all cards locks the last four checked cards. Start checks the pool.
 
 ### Review findings and repairs
 
 | Finding | Source check and repair | Check |
 | --- | --- | --- |
 | A1 | Confirmed. Card faces use the shared scenes, which loop. A rule under `.cf-art` stops their animations. | Check New game, Cards and Collection for running infinite animations. |
-| A2 | Confirmed. A switch to Use all cards replaces a saved pool with all 21 cards. The sheet now keeps its opening pool for that switch. A sheet that opens in Pick four still switches to all 21. | Save six cards, switch to Pick four and back, then save the same six. Keep the existing four-to-all check. |
+| A2 | Confirmed. A switch to Use all cards replaces a saved pool with all 21 cards. The inline section keeps its all-card pool for that switch. A saved Pick four pool still switches to all 21. | Save six cards, switch to Pick four and back, then save the same six. Keep the existing four-to-all check. |
 | A3 | Confirmed. `selectedCard` changes no setup or deal. Remove that state and `aria-pressed`. A tap now opens Cards at that card. Close returns focus to the card. | Tap Haste, check the dialog and focus, then close and check focus again. |
 | A4 | Confirmed. The old checks read only a duration, different colour strings and vellum. The lift check now reads the final transform. Your ring uses gold on a dark stone face. The other hand keeps a dark ring on a pale face. | Check a 3 px lift, no lift on other cards, and the return after an uncheck. Require 3:1 between rings and against the face under each ring. Read the face pixels with the ring and art hidden. |
-| A5 | Confirmed. Q20 still gives the old tap lock. It now gives both modes and the check at Done only. | `tools/plugin-cards.docs.test.ts` checks the deal row. The browser check still tests an invalid pool at Done in both modes. |
+| A5 | Confirmed. Q20 gives both inline modes, the four-card lock and the Start check. | `tools/plugin-cards.docs.test.ts` checks the deal row. The browser check tests the inline lock and an incomplete Pick four pool at Start. |
 | B1 | Confirmed. `setupScreen()` opens a saved sheet again on each host read. It now restores a saved sheet only when no sheet is open. | Uncheck Haste, send another `kingdown_open({screen: 'play'})` result, then check the same dialog, focus and five-card draft. Done saves that draft. |
 | B2 | Confirmed. This is the lift-test fault in A4. | The same transform check covers it. |
 

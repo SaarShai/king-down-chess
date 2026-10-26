@@ -3,11 +3,6 @@
 #setup-body { display: contents; }
 #setup-body > .modes { margin-top: var(--space-2); }
 #setup-body > * { flex-shrink: 0; }
-#setup-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-block: 4px; }
-#setup-card-grid .card-face { min-width: 0; text-align: left; font-family: var(--font-body); }
-#app-root #setup-card-grid .card-face { transition: transform 140ms; }
-#setup-card-grid .cf-text b { padding-right: 0; overflow-wrap: anywhere; }
-/* 200% zoom: the rows reflow; the text takes its own line and the "kinds" button goes below it. */
 [data-screen='play'] .new-game-body { container-type: inline-size; }
 @container (max-width: 260px) {
   #setup-body .modes { grid-template-columns: minmax(0, 1fr); }
@@ -24,7 +19,6 @@ label.check.toggle { margin-top: var(--space-2); align-items: center; height: au
 label.check.toggle .t-ico { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 50%; color: var(--gold-ink); background: var(--vellum); box-shadow: 0 0 0 1px var(--stone-300); }
 label.check.toggle:has(input:not(:checked)) .t-ico { color: var(--stone-500); }
 label.check.toggle.sub { margin-left: 28px; }
-label.check.toggle .all { flex: none; width: auto; padding: 6px 10px; white-space: nowrap; }
 .your-king { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
 .your-king h3 { margin: 0 !important; }
 .your-king .power-text { min-height: 0; margin: 2px 0 0; color: var(--ink-soft); }
@@ -56,3 +50,39 @@ label.check.pick.locked input:disabled { background-color: var(--stone-500); bor
 #setup-options { margin-top: var(--space-2); }
 #setup-options > summary { min-height: 48px; line-height: 48px; font-weight: 700; cursor: pointer; }
 #setup-options > .group-head { margin-top: var(--space-4); }
+
+/* The section button and its switch use separate input targets. */
+.setup-section { margin-top: var(--space-2); border-bottom: 1px solid var(--line); }
+.section-head { display: grid; grid-template-columns: minmax(0, 1fr) 48px; align-items: center; }
+.section-head > button { grid-area: 1 / 1; display: grid; grid-template-columns: 32px minmax(0, 1fr) 16px; gap: 8px; min-width: 0; min-height: 64px; padding: 8px 4px; text-align: left; font-family: var(--font-body); font-size: var(--fs-md); background: transparent; border: 0; box-shadow: none; }
+.section-head .t-ico { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--stone-300); border-radius: 50%; color: var(--gold-ink); }
+.section-head small { display: block; color: var(--ink-soft); font-size: var(--fs-sm); font-weight: 400; }
+.section-head .chev { grid-column: 3; font-size: var(--fs-xl); color: var(--ink-soft); }
+.section-head [aria-expanded='true'] .chev { transform: rotate(90deg); }
+.section-head .section-switch { grid-area: 1 / 2; z-index: 1; display: grid; place-items: center; justify-content: center; min-height: 48px; cursor: pointer; }
+.section-head:has(input:not(:checked)) .t-ico { color: var(--stone-500); }
+.section-body { padding-block: var(--space-2) var(--space-3); }
+.section-body .seg { margin-top: 0; }
+.section-body > .quiet-line { margin-block: var(--space-2) var(--space-3); }
+#setup-card-pool { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 300px; margin-top: var(--space-2); border: 1px solid var(--stone-300); border-radius: var(--radius); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 8px; }
+.setup-card { position: relative; min-width: 0; }
+#setup-card-pool .card-face { width: 100%; height: 100%; min-width: 0; text-align: left; font-family: var(--font-body); }
+#setup-card-pool .cf-text b { padding-right: 0; overflow-wrap: normal; }
+.setup-card.out .card-face { opacity: .62; }
+/* The 44 px hit area is clear and reaches 8 px past the tile corner (the box padding keeps it in view); the visible check sits in the corner. */
+#setup-card-pool .card-use { position: absolute; top: -8px; right: -8px; width: 44px; min-height: 44px; height: 44px; padding: 12px; z-index: 1; display: grid; place-items: start end; cursor: pointer; }
+#setup-card-pool .card-use input { width: 18px; height: 18px; }
+/* The focus ring marks the visible check, not the clear hit area. */
+#app-root #setup-card-pool label.card-use:has(input:focus) { outline: none; box-shadow: none !important; }
+.setup-card:has(input:checked) .card-face { border-color: var(--stone-700); transform: translateY(-3px); }
+#setup-card-pool input:disabled { background-color: var(--stone-500); border-color: var(--stone-700); cursor: default; }
+@container (max-width: 360px) { #setup-card-pool { max-height: 240px; } }
+/* At 200% zoom one column keeps each name whole. */
+@container (max-width: 260px) { #setup-card-pool { grid-template-columns: minmax(0, 1fr); } }
+
+.section-head .grow { overflow-wrap: anywhere; }
+body[data-touch='true'] #setup-card-pool .card-use { width: 48px; height: 48px; min-height: 48px; }
+@container (max-width: 260px) {
+  .section-head > button { grid-template-columns: 24px minmax(0, 1fr) 12px; gap: 4px; }
+  .section-head .t-ico { width: 24px; height: 24px; }
+}

@@ -60,7 +60,7 @@ Use browser history and the real account screens with a page host and a game cli
 24. As a initiator, I want to choose the computer, a friend, or a random player, so that I can choose an opponent type.
 25. As a initiator, I want to choose Beginner, Casual, Club, or Strong for a computer game, so that I can choose its level.
 26. As a initiator, I want to choose White, Black, or Random, so that I can choose my side.
-27. As a initiator, I want to set Fairy pieces, Arrangement, Classic chess, Cards, and King powers, so that I can choose the supported game.
+27. As a initiator, I want to set Fairy pieces, First rank sorting, Classic chess, Cards, and King powers, so that I can choose the supported game.
 28. As a initiator, I want to select a valid piece pool, so that the drawn army uses the pieces I choose.
 29. As a initiator, I want to see why a piece choice cannot turn off, so that I can keep a valid pool.
 30. As a initiator, I want to choose Classic chess explicitly, so that I can play with castling and en passant.
