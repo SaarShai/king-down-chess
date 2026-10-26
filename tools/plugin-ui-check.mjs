@@ -1387,6 +1387,12 @@ try {
       }
       await page.setViewportSize({ width: 390, height: 844 });
     }
+    // Earlier cases must release their waiting links before this section uses the two slots.
+    const earlier = await tool('kingdown_games');
+    for (const game of earlier._meta.games ?? []) if (game.kind === 'friend' && game.status === 'waiting') {
+      const closed = await tool('kingdown_abort', { game_id: game.game_id, expected_revision: game.revision });
+      assert(!closed.isError, JSON.stringify(closed.content));
+    }
     await openPlay(); await lookAt('play', 'play');
     const friend = await showCreated('friend'); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
