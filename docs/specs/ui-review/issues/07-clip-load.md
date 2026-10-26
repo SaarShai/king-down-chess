@@ -56,6 +56,9 @@ The offline install excludes both optional sheets. An offline board can use the 
   Clip playback and the zero-request check with reduced motion pass.
   The dark Knight pixel check fails at 9.2%. The same case with the original scene and check fails at 9.4%.
   This existing pixel fault stays outside F7. No art or check limit changes.
+- Review: the 9.2% comes from Chrome 155. It returns stray pixels above the canvas, where the sample of a
+  top-row figure reaches (y = -135). Chromium 156 returns blank pixels there and gives 2.1%.
+  The check now counts pixels outside the canvas as blank. The video also waits for both clip sheets.
 - The cold built site uses a fresh profile with reduced motion and no service worker.
   Each normal size transfers 4,859,144 bytes before and 3,056,263 bytes after: 37.1% less.
   Clip transfer falls from 1,802,942 bytes in two requests to zero.
