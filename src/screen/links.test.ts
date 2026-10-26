@@ -1,8 +1,55 @@
-import { describe, expect, it } from 'vitest';
-import { parseKings } from '../rules/engine';
-import { gameUrl } from './links';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Game } from '../game';
+import { copyText } from '../clipboard';
+import { LESSONS } from '../lessons';
+import { parseKings, POWERS_BALANCED } from '../rules/engine';
+import { toFen } from '../rules/setup';
+import { connectLinks, gameUrl } from './links';
+
+vi.mock('../clipboard', () => ({ copyText: vi.fn(async () => true) }));
 
 const page = { origin: 'https://kingdown.dev', pathname: '/' };
+
+describe('Copy moves', () => {
+  afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
+
+  async function copy(game: Game, expected: string) {
+    vi.useFakeTimers();
+    const button = { onclick: () => {}, textContent: 'Copy moves', dataset: {}, querySelector: () => null };
+    vi.stubGlobal('document', { getElementById: (id: string) => id === 'copy' ? button : {} });
+    vi.stubGlobal('location', page);
+    const share = connectLinks({ game: () => game, turnStart: () => game.history.length, rules: null, blocked: () => false });
+    button.onclick();
+    await Promise.resolve();
+    expect(copyText).toHaveBeenCalledWith(expected);
+    expect(expected.split(/\s+/).filter(s => !/^\d+[.…]$/.test(s))).toEqual(game.history.map(h => h.lan));
+    const params = new URL(share.gameLink()).searchParams, replay = new Game('RNBQKBNR', game.rules);
+    if (params.has('fen')) replay.load(replay.context.fromFen(params.get('fen')!));
+    const lans = params.get('moves')!.split('_').filter(Boolean);
+    expect(replay.playLan(lans)).toBe(game.history.length);
+    expect(toFen(replay.pos)).toBe(toFen(game.pos));
+  }
+
+  it.each([
+    { side: 0, lans: ['e2-e3!H', 'e3-e4', 'e7-e5', 'd2-d4'], text: '1. e2-e3!H e3-e4 e7-e5 2. d2-d4' },
+    { side: 1, lans: ['e2-e4', 'e7-e6!H', 'e6-e5', 'd2-d4'], text: '1. e2-e4 e7-e6!H e6-e5 2. d2-d4' },
+    { side: 0, lans: ['e2-e4', 'e7-e5', 'd2-d4'], text: '1. e2-e4 e7-e5 2. d2-d4' },
+    { side: 1, blackStart: true, lans: ['e7-e5', 'e2-e4'], text: '1… e7-e5 2. e2-e4' },
+  ])('keeps the turn numbers and LAN tokens for $lans', async ({ side, blackStart, lans, text }) => {
+    const game = new Game('RNBQKBNR', { ...POWERS_BALANCED, kings: side === 0
+      ? [{ king: 'Flame', power: 'Haste' }, null] : [null, { king: 'Flame', power: 'Haste' }] });
+    if (blackStart) game.load({ ...game.pos, turn: 1 });
+    expect(game.playLan(lans)).toBe(lans.length);
+    await copy(game, text);
+  });
+
+  it.each(LESSONS)('keeps $name lesson moves valid for link replay', async lesson => {
+    const game = new Game('RNBQKBNR');
+    game.load(game.context.fromFen(lesson.fen));
+    game.play(game.legal.find(m => lesson.goal(game.pos, m))!);
+    await copy(game, `1. ${game.history[0].lan}`);
+  });
+});
 
 describe('gameLink', () => {
   it('holds the army and the moves, joined by _', () => {

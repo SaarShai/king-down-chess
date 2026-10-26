@@ -1,14 +1,71 @@
-import { describe, expect, it } from 'vitest';
-import type { Side } from '../game';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Game, type Engine, type Side } from '../game';
+import { searchOwned } from '../ai/search';
 import { momentText } from '../moment';
-import { findKing, type Move, type Position, type Status } from '../rules/engine';
+import { findKing, POWERS_BALANCED, type Move, type Position, type Status } from '../rules/engine';
 import { fromFen } from '../rules/setup';
-import { endReason, previewText, resultText, shareResultText, soundsFor } from './moments';
+import { connectMoments, endReason, previewText, resultText, shareResultText, soundsFor } from './moments';
 
 /** Black to move: the position of a mate (the rules' status comes from the caller). */
 const mated = fromFen('k7/1Q6/1K6/8/8/8/8/8 b - - 0 1');
 /** The same, with the black king taken. */
 const noKing: Position = { ...mated, board: mated.board.map((p, sq) => (sq === findKing(mated.board, 1) ? 0 : p)) };
+
+describe('key moments in the game review', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  function review(game: Game, think: Engine['think']) {
+    const nodes = new Map<string, object>(), node = () => ({ appendChild: vi.fn() });
+    vi.stubGlobal('document', { createElement: node, getElementById: (id: string) => {
+      if (!nodes.has(id)) nodes.set(id, node());
+      return nodes.get(id);
+    } });
+    return connectMoments({ game: () => game, sides: () => ['human', 'human'], resigned: () => null,
+      daily: () => null, skill: () => 'club', generation: () => 0, engine: { think } as Engine,
+      end: { show: async () => {} }, showPly: async () => {}, hint: vi.fn(), refresh: vi.fn() });
+  }
+
+  function freezeMate() {
+    const game = new Game('RNBQKBNR', { ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });
+    game.load(game.context.fromFen('7k/5ppp/8/8/8/8/6Q1/K7 w - - 0 1'));
+    expect(game.playLan(['!F:f7', 'Qg2-a8'])).toBe(2);
+    expect(game.history.map(h => h.pos.turn)).toEqual([0, 0]);
+    expect(game.pos.turn).toBe(1);
+    expect(game.status).toBe('checkmate');
+    return game;
+  }
+
+  it('does not call a winning free Freeze an allowed mate', async () => {
+    const game = freezeMate();
+    const think = vi.fn<Engine['think']>(async (game, opts, pos = game.pos) => searchOwned(game.identity, game.rules, pos, opts));
+    const moments = review(game, think);
+    await moments.listMoments();
+    expect((await think.mock.results[0].value).score).toBeGreaterThanOrEqual(99_000);
+    expect((await think.mock.results[1].value).score).toBeGreaterThanOrEqual(99_000);
+    expect(moments.marked()).toEqual([]);
+  });
+
+  it('keeps the search depth until the side to move changes', async () => {
+    const think = vi.fn<Engine['think']>(async () => ({ move: null, score: 0, depth: 3, nodes: 0 }));
+    await review(freezeMate(), think).listMoments();
+    expect(think.mock.calls.map(([, opts]) => opts.maxDepth)).toEqual([3, 3, 3, 2]);
+  });
+
+  it.each([
+    { side: 0, lans: ['e2-e3!H', 'e3-e4', 'e7-e5'], labels: ['1. e2-e3!H', '1. e3-e4', '1… e7-e5'] },
+    { side: 1, lans: ['e2-e4', 'e7-e6!H', 'e6-e5'], labels: ['1. e2-e4', '1… e7-e6!H', '1… e6-e5'] },
+    { side: 1, blackStart: true, lans: ['e7-e5'], labels: ['1… e7-e5'] },
+  ])('numbers key moments by the recorded turns for $lans', async ({ side, blackStart, lans, labels }) => {
+    const game = new Game('RNBQKBNR', { ...POWERS_BALANCED, kings: side === 0
+      ? [{ king: 'Flame', power: 'Haste' }, null] : [null, { king: 'Flame', power: 'Haste' }] });
+    if (blackStart) game.load({ ...game.pos, turn: 1 });
+    expect(game.playLan(lans)).toBe(lans.length);
+    let calls = 0;
+    const moments = review(game, async () => ({ move: null, score: calls++ % 2 ? 0 : 300, depth: 3, nodes: 0 }));
+    await moments.listMoments();
+    expect(moments.marked().map(km => km.text.split(': ')[0])).toEqual(labels);
+  });
+});
 
 describe('the result line', () => {
   it('names who resigned and who wins', () => {
