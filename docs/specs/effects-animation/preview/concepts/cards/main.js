@@ -1,3 +1,4 @@
+import { art } from '/src/account-game/art';
 import { createScene } from '/docs/2d-first-pieces/board/scene.mjs';
 import { GameRules } from '/src/game-rules';
 import * as pieces from '/src/rules/engine';
@@ -61,7 +62,7 @@ let displayed, sourceSlot, sourceEmblem, sourceState, overlayBox, anchor, destin
 let materialProgress = .42, elapsed = active.duration;
 
 function cardArt(name) {
-  return name === 'Firewall' ? cardPicture(name) : `<img src="/ui/cards/${name.toLowerCase()}.webp" alt="">`;
+  return name === 'Firewall' ? cardPicture(name) : `<img src="${art(`ui/cards/${name.toLowerCase()}.webp`)}" alt="">`;
 }
 function fillHand() {
   $('hand').innerHTML = active.hand.map((name, index) => `<div class="card-slot${index === 0 ? ' is-source' : ''}" data-slot="${index}"><span class="emblem">${cardArt(name)}</span><b>${name}</b><span class="card-state">Ready</span></div>`).join('');

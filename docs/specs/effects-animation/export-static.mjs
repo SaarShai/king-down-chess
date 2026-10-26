@@ -66,6 +66,11 @@ assert.equal(catalog.cards.length, 23);
 assert.deepEqual(new Set(catalog.cards.map(card => card.id)), new Set(manifest.cards.map(card => card.id.toLowerCase())));
 const files = await walk(output);
 const present = new Set(files.map(file => resolve(file)));
+for (const file of files.filter(path => path.endsWith('.js'))) {
+  const code = await readFile(file, 'utf8');
+  assert(!/["'`]\/(?:ui|fonts|icons)\//.test(code), `Root-relative runtime art URL in ${file}`);
+}
+
 for (const file of files.filter(path => path.endsWith('.html'))) {
   const html = await readFile(file, 'utf8');
   for (const [, value] of html.matchAll(/(?:src|href)="([^"]+)"/g)) {

@@ -46,3 +46,9 @@ The existing static server opens the export at `http://127.0.0.1:5197/.claude/wo
 Logs are in `/tmp/kingdown-effects-merge/`. The browser report is under the standard local check output root. The export's source hash inventory records all preview inputs, including the unchanged final renderer hashes.
 
 No full engine suite, physical-phone check, commit, pull request or deployment occurs in this work phase. Live integration of the new wide card art/motion and the banked GUI object studies stays separate. The approved Freeze-ending proposal also stays a preview. Root owns independent review and the final merge.
+
+## Final independent review
+
+The independent reviewer finds one export fault: the GUI card refill uses root-relative image URLs during playback. The new emitted-JavaScript URL guard also finds the same fault in the card-casting concept hand. Both runtime assignments now use the existing art helper. The 19-page export passes after the fixes. Root checks the consolidated static URL: Freeze at 2.2 seconds, Leap at 5.6 seconds, and all four concept-hand images load from local emitted assets with nonzero native dimensions. The reviewer approves the final three-file correction with no other blocking findings.
+
+The combined integration passes `npm test` with the card catalog and repository gate selection: 34 cases, app/tools typechecks and all 67 painted-module cases. This is a focused pass. No full local engine-suite claim.
