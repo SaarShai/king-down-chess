@@ -45,7 +45,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run plugin:db:init-test
-      - run: npx playwright install --with-deps chromium
+      # Limit mirror waits and retry failed downloads twice; keep time for tests.
+      - run: |
+          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
+          npx playwright install --with-deps chromium
+        timeout-minutes: 10
       - run: npm test
         env:
           KINGDOWN_TEST_SKIP: 'tools/plugin-board{,-input,-drafts}.test.ts'
@@ -89,7 +93,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run plugin:db:init-test
-      - run: npx playwright install --with-deps chromium
+      - run: |
+          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
+          npx playwright install --with-deps chromium
+        timeout-minutes: 10
       - run: npm test
         env:
           KINGDOWN_TEST_FILE: tools/plugin-${{ matrix.file }}.test.ts
@@ -123,7 +130,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run plugin:db:init-test
-      - run: npx playwright install --with-deps chromium
+      - run: |
+          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
+          npx playwright install --with-deps chromium
+        timeout-minutes: 10
       - run: npm run check:browser plugin-oauth plugin-ui plugin-ui-http
       - if: always()
         uses: actions/upload-artifact@v4
@@ -160,7 +170,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run plugin:db:init-test
-      - run: npx playwright install --with-deps chromium
+      - run: |
+          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
+          npx playwright install --with-deps chromium
+        timeout-minutes: 10
       - run: npm run check:browser home account link-game lessons lesson-return workshop workshop-cast
         env:
           PLAYABLE_BROWSER: chromium
@@ -209,7 +222,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run plugin:db:init-test
-      - run: npx playwright install --with-deps webkit
+      - run: |
+          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
+          npx playwright install --with-deps webkit
+        timeout-minutes: 10
       - name: Start WebKit sampler
         run: |
           mkdir -p /tmp/kingdown-check-runs
@@ -274,7 +290,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run plugin:db:init-test
-      - run: npx playwright install --with-deps webkit
+      - run: |
+          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
+          npx playwright install --with-deps webkit
+        timeout-minutes: 10
       - name: Start WebKit sampler
         run: |
           mkdir -p /tmp/kingdown-check-runs
@@ -333,7 +352,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run plugin:db:init-test
-      - run: npx playwright install --with-deps webkit
+      - run: |
+          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
+          npx playwright install --with-deps webkit
+        timeout-minutes: 10
       - name: Start WebKit sampler
         run: |
           mkdir -p /tmp/kingdown-check-runs
@@ -394,7 +416,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run plugin:db:init-test
-      - run: npx playwright install --with-deps firefox
+      - run: |
+          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
+          npx playwright install --with-deps firefox
+        timeout-minutes: 10
       - run: npm run check:browser web-online
       - if: always()
         uses: actions/upload-artifact@v4
