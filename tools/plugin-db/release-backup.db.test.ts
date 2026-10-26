@@ -44,7 +44,8 @@ suite('the release backup and games restore', () => {
   await command(client, id, revision, null);
   await client.query("update public.game_players set action='done', turns_played=turns_played+1 where game_id=$1 and seat=$2", [id, (revision - 1) % 2]);
  }
- /** `seat` resigns game `id` (the other seat wins) or aborts it, as runDeletions does through the game service: the end, one command row, both seats done. */
+ /** `seat` resigns game `id` (the other seat wins) or aborts it, as runDeletions does through the game service: the end, one command row, both seats done,
+  * and for a finished legacy or ranked-v1 game of two accounts one rating_history row for each, as recordResult (src/match/results.ts) writes. */
  async function end(id: string, seat: number, reason: 'resignation' | 'abort') {
   const status = reason === 'abort' ? 'aborted' : 'finished';
   const { rows: [{ revision, turn }] } = await pool.query(`update public.games set revision=revision+1, status=$2, result=$3, end_reason=$4, finished_at=now(), updated_at=now()
@@ -52,6 +53,10 @@ suite('the release backup and games restore', () => {
   await pool.query(`insert into public.game_commands(game_id,seq,seat,actor_id,command_id,kind,payload,turn_after,status_after,received_at)
    select $1,$2,$3,user_id,$4,$5,'{}',$6,$7,now() from public.game_players where game_id=$1 and seat=$3`, [id, revision, seat, randomUUID(), reason === 'abort' ? 'abort' : 'resign', turn, status]);
   await pool.query("update public.game_players set action='done', active=false, ended_at=now() where game_id=$1", [id]);
+  await pool.query(`insert into public.rating_history(game_id,user_id,rating_before,rd_before,volatility_before,rating,rd,volatility,created_at)
+   select g.id,p.user_id,1500,350,0.06,1500,300,0.06,now() from public.games g join public.game_players p on p.game_id=g.id
+   where g.id=$1 and g.status='finished' and g.rating_policy in ('legacy','ranked-v1') and g.kind<>'solo'
+    and not exists (select from public.game_players q where q.game_id=g.id and (q.user_id is null or q.computer))`, [id]);
  }
  const outcome = async (id: string) => (await pool.query('select status, result, end_reason from public.games where id=$1', [id])).rows[0];
  /** Each game with its revision, its command seqs, its seat actions and its invite count. */
@@ -191,6 +196,8 @@ suite('the release backup and games restore', () => {
   expect(await outcome(a)).toEqual({ status: 'finished', result: 'white', end_reason: 'resignation' });
   expect(await outcome(w)).toEqual({ status: 'aborted', result: null, end_reason: 'abort' });
   expect(await games()).toEqual(live);
+  // The rated game keeps its live rating row: users[0]'s, as delete_account deleted users[1]'s. The restore does not refuse it.
+  expect((await pool.query('select user_id from public.rating_history where game_id=$1', [a])).rows).toEqual([{ user_id: users[0] }]);
   expect(result.at(-1)!.rows[0]).toMatchObject({ backup_games: '3', restored_games: '1', erased_games_left_out: '0', ended_games_kept: '2' });
   await run(restoreSql);
   expect(await games()).toEqual(live);

@@ -5,10 +5,11 @@
 -- Tables: games, game_players, game_commands, game_invites. Order:
 --   1. Lock the four tables against writes (reads continue) until the commit, so the game service and the jobs wait.
 --   2. Refuse a backup in which a game and its command rows disagree, a child row has no game, or a game lacks seat 0
---      or seat 1. Refuse when the rating rows of a backup game changed since the backup (a rating restore is a
---      separate decision).
+--      or seat 1.
 --   3. Leave out each backup game that the deletion of an account since the backup changed, with all its rows: its
---      solo games stay erased, and its other active games keep the live end.
+--      solo games stay erased, and its other active games keep the live end (and their live rating rows). Then refuse
+--      when the rating rows of a game that the restore writes changed since the backup (a rating restore is a separate
+--      decision).
 --   4. Delete the live player, command and invite rows of each backup game.
 --   5. Insert each backup game that was deleted since the backup, then write every backup game in place (an update, so
 --      reports, badges, boards and rematches keep their link).
@@ -23,9 +24,9 @@
 -- has it, with all its rows: a solo game stays deleted with its seats (and the handle at start), commands and invites,
 -- and a shared game keeps its live end, not the backup's play with a seat that nobody can play. A game with no live
 -- copy stays deleted. A backup game that had ended is restored: each reference to the account follows its foreign key,
--- so it becomes null, or (an invite that the account made) the row stays deleted. Limit: in a rated game,
--- delete_account also deletes the account's rating_history rows (0012_results.sql), so the rating check below refuses
--- the whole restore and restores nothing; the owner decides.
+-- so it becomes null, or (an invite that the account made) the row stays deleted. Limit: in a rated game that had
+-- ended, delete_account also deletes the account's rating_history rows (0012_results.sql), so the rating check below
+-- refuses the whole restore and restores nothing; the owner decides.
 -- Not restored: accounts, settings, ratings, notifications and the outbox. A restored deadline that passed since the
 -- backup ends its game at the next kingdown-tick, unless the owner pauses that job first.
 -- Columns: only the columns that the backup and the live table share; a column added since the backup keeps its default.
@@ -56,10 +57,6 @@ begin
   -- game_players copy: no commands, so the command check passes, but no seats.
   execute format('select count(*) from %1$I.games g where (select count(distinct p.seat) from %1$I.game_players p where p.game_id = g.id and p.seat in (0, 1)) <> 2', b) into n;
   if n > 0 then raise exception 'backup refused: % game(s) lack seat 0 or seat 1', n; end if;
-  execute format('select count(*) from ((select to_jsonb(r) from public.rating_history r where r.game_id in (select id from %1$I.games)
-    except all select to_jsonb(r) from %1$I.rating_history r) union all (select to_jsonb(r) from %1$I.rating_history r
-    except all select to_jsonb(r) from public.rating_history r where r.game_id in (select id from %1$I.games))) d', b) into n;
-  if n > 0 then raise exception 'restore refused: % rating row(s) of backup games changed since the backup', n; end if;
 
   for t in select unnest(array['games', 'game_players', 'game_commands', 'game_invites']) loop
     execute format('create temp table restore_%1$s on commit drop as select * from %2$I.%1$I', t, b);
@@ -80,6 +77,13 @@ begin
   update restore_game_commands r set actor_id = null where not exists (select from auth.users u where u.id = r.actor_id);
   delete from restore_game_invites r where r.created_by is not null and not exists (select from auth.users u where u.id = r.created_by);
   update restore_game_invites r set used_by = null where not exists (select from auth.users u where u.id = r.used_by);
+  -- The rating check covers only the games that the restore writes. A left-out game keeps its live rows: runDeletions
+  -- rated it when it ended it (recordResult, src/match/results.ts), then delete_account deleted the account's row.
+  execute format('select count(*) from ((select to_jsonb(r) from public.rating_history r where r.game_id in (select id from restore_games)
+    except all select to_jsonb(r) from %1$I.rating_history r) union all (select to_jsonb(r) from %1$I.rating_history r
+    where r.game_id in (select id from restore_games) except all select to_jsonb(r) from public.rating_history r
+    where r.game_id in (select id from restore_games))) d', b) into n;
+  if n > 0 then raise exception 'restore refused: % rating row(s) of backup games changed since the backup', n; end if;
 
   delete from public.game_players where game_id in (select id from restore_games);
   delete from public.game_commands where game_id in (select id from restore_games);

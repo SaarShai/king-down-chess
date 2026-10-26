@@ -12,13 +12,19 @@ The release review found one P3 in `plugin-deploy/release-restore-games.sql`. Th
 ## Change
 
 - The restore leaves out each backup game with a seat account that is not in `auth.users` now, when the game is solo (as before, [ticket 89](../../staging-first-game/issues/89-restore-erasure-and-rematch-limit.md)) or that seat was active at the backup. The seat's `active` flag is the condition of `runDeletions`. The live copy keeps its end, with all its rows; a game with no live copy stays deleted. A game that had ended at the backup is restored as before, with the foreign-key actions.
-- The script also prints `ended_games_kept`. The order of the deletes and inserts, the checks and the foreign-key actions do not change.
+- The script also prints `ended_games_kept`. The order of the deletes and inserts, the other checks and the foreign-key actions do not change.
+- The rating check runs after the leave-out, on the games that the restore writes only. `runDeletions` ends a game through the game service, so `recordResult` (`src/match/results.ts`) writes one `rating_history` row for each seat of a legacy or ranked-v1 game, and `delete_account` then deletes the account's row. A left-out game keeps these live rows. Before, the check ran over all backup games and refused the whole restore for such a game.
 - Ticket 01 (steps 3 and 4, the printed counts, Verification), the script comment and `docs/HOSTING.md` say the same.
 
 ## Verification
 
 - `tools/plugin-db/release-backup.db.test.ts`, new case: after the backup, the deletion job resigns friend game `a` and aborts waiting game `w`, and `delete_account` erases the account. The restore keeps `a` finished (White wins by resignation) and `w` aborted, leaves every game row as it was, and gives the same result on a second run.
 - The solo case now ends the games as `runDeletions` does (before, it only cleared `active`), and expects the shared game as the deletion left it.
+- The `end()` helper writes the rating rows that `recordResult` writes for a finished legacy or ranked-v1 game of two accounts. The fixture games are legacy (the column default). The new case also expects the opponent's live rating row of `a` after the restore.
 - The foreign-key case now uses a game that ended before the backup and that a fault deleted, so only the backup copy can bring it back. Mutation: without the seat null-out, this case fails with `game_players_user_id_fkey`.
 - Red on the old script: 2 of 10 fail. The new case reads `status: 'playing'`, `result: null`, `end_reason: null` for `a`; the solo case reads `restored_games: '2'`.
 - Green: `KINGDOWN_TEST_FILE=tools/plugin-db/release-backup.db.test.ts npm test`: 10 tests pass.
+
+## Review
+
+- Independent review of `63847e2e`, P2: the rating check ran over all backup games, so the restore still refused a rated (legacy or ranked-v1) friend game that the deletion job ended. The tests passed only because `end()` wrote no rating rows. Fixed: the check runs on the games that the restore writes. Red on `63847e2e` with the faithful `end()`: 2 of 10 fail with `restore refused: 1 rating row(s) of backup games changed since the backup` (the solo case and the new case). Green: 10 pass.
