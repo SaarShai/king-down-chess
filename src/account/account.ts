@@ -60,7 +60,7 @@ export function changed(): void {
 }
 
 /** Draws the Account section and starts the cloud save; `onApply` gets the sections the account had newer. */
-export function startAccount(onApply: (down: Section[]) => void, savedGame: SavedGameAccess): void {
+export function startAccount(onApply: (down: Section[], switched?: boolean) => void, savedGame: SavedGameAccess): void {
   const $ = (id: string) => document.getElementById(id)!;
   const body = $('account-body'), note = $('account-note'), ask = $('delete-account') as HTMLDialogElement;
   const params = new URLSearchParams(location.search);

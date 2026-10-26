@@ -26,7 +26,7 @@ const original: Save = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], w
 const request = { link: false, continues: false, urlRules: false, title: false, unreadable: false, notice: '' };
 beforeEach(() => {
   vi.clearAllMocks(); stored.clear();
-  vi.stubGlobal('localStorage', { getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => stored.set(key, value) });
+  vi.stubGlobal('localStorage', { getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => stored.set(key, value), removeItem: (key: string) => stored.delete(key) });
   const nodes = new Map<string, object>(), node = () => ({ setAttribute: vi.fn(), appendChild: vi.fn(), close: vi.fn(), querySelector: () => null, style: {} });
   vi.stubGlobal('document', { hidden: false, documentElement: { dataset: { pace: 'off' } }, addEventListener: vi.fn(), removeEventListener: vi.fn(), querySelector: () => null, querySelectorAll: () => [], createElement: node, getElementById: (id: string) => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); } });
   vi.stubGlobal('window', { addEventListener: vi.fn() });
@@ -37,9 +37,10 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); });
 
 function page(rules: Partial<Rules> = {}) {
-  const view = { setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), highlight: vi.fn(), setPreview: vi.fn() } as unknown as BoardView;
+  const view = { setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), highlight: vi.fn(), setPreview: vi.fn(), setCoords: vi.fn(), setLabels: vi.fn() } as unknown as BoardView;
   const engine = { cancel: vi.fn(), think: vi.fn().mockResolvedValue({ move: null }) }, changed = vi.fn();
-  const settings = { pace: () => 'off', threats: () => false, queen: () => true, settingsNow: () => ({ coords: true }), applySettings: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['settings'];
+  const settings = { pace: () => 'off', threats: () => false, queen: () => true, settingsNow: () => ({ coords: true }), applySettings: vi.fn(), resetSettings: vi.fn(),
+    sound: () => true, coords: () => true, labels: () => false, applyPace: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['settings'];
   const play = connectPlay(view, { params: new URLSearchParams(), preset: undefined, rules, withPowers: () => ({}), fen: null,
     engine: engine as unknown as Engine, guide: { fill: vi.fn() }, settings,
     home: { visible: false, close: vi.fn(), refresh: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['home'],
@@ -50,6 +51,25 @@ function page(rules: Partial<Rules> = {}) {
 }
 
 describe('local save recovery on the game page', () => {
+  it.each([true, false])('F1 opens B without keeping A on the board (B has a game: %s)', async existing => {
+    const { play } = page();
+    stored.set(SAVE_KEY, JSON.stringify(original)); play.restore(original, request);
+    const access = play.savedGames;
+    const a = new Sync(localStorage, { userId: 'A', pull: async () => null, push: async row => row }, play.fromAccount, access);
+    await a.pull(); a.stop();
+    const moves = existing ? ['d2-d4'] : [];
+    const b = new Sync(localStorage, { userId: 'B', pull: async () => existing ? {
+      settings: { at: 500, v: { sound: false } }, saved_game: { at: 500, v: { ...original, moves } },
+    } : null, push: async row => row }, play.fromAccount, access);
+    await b.pull(); b.stop();
+    expect(play.game().history.map(h => h.lan)).toEqual(moves);
+    expect(JSON.parse(stored.get(SAVE_KEY)!).moves).toEqual(moves);
+    expect(play.savedGames.blocked()).toBe(false);
+    const returned = new Sync(localStorage, { userId: 'A', pull: async () => null, push: async row => row }, play.fromAccount, access);
+    await returned.pull(); returned.stop();
+    expect(play.game().history.map(h => h.lan)).toEqual(original.moves);
+  });
+
   it.each([
     { ...original, moves: ['e2-e4', 'e7-e5', 'Qd1-d8'] },
     { ...original, back: '', fen: 'bad', moves: [] },
@@ -114,7 +134,7 @@ describe('local save recovery on the game page', () => {
     const current = play.game();
     stamp(localStorage);
     const onApply = vi.fn(play.fromAccount), push = vi.fn(async () => null);
-    const sync = new Sync(localStorage, { pull: async () => ({ settings: { at: 9_000_000, v: { sound: false } } }), push }, onApply, play.savedGames);
+    const sync = new Sync(localStorage, { userId: 'player', pull: async () => ({ settings: { at: 9_000_000, v: { sound: false } } }), push }, onApply, play.savedGames);
     stored.set(SAVE_KEY, '{another tab raw data');
     await sync.pull();
     expect(stored.get(SAVE_KEY)).toBe('{another tab raw data');

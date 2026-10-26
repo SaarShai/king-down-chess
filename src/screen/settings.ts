@@ -57,6 +57,7 @@ export function connectSettings(view: BoardView, c: {
     threats: $<HTMLInputElement>('threats').checked,
     labels: labels.checked,
   });
+  const defaults = settingsNow();
 
   /** A save's settings onto the controls (at start-up, or newer ones from the account). */
   function applySettings(s: Partial<Save>): void {
@@ -71,7 +72,7 @@ export function connectSettings(view: BoardView, c: {
   }
 
   return {
-    applySettings, applyPace, settingsNow,
+    applySettings, applyPace, settingsNow, resetSettings: () => applySettings(defaults),
     pace: (): Pace => pace.value as Pace,
     sound: (): boolean => $<HTMLInputElement>('sound').checked,
     queen: (): boolean => $<HTMLInputElement>('queen').checked,

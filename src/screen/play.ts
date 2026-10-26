@@ -812,17 +812,18 @@ export function connectPlay(view: BoardView, c: {
   }
 
   /** Sections the account had newer than this device; account/sync.ts already wrote them to the save. */
-  function fromAccount(down: string[]): void {
+  function fromAccount(down: string[], switched = false): void {
+    if (switched) { saveBlocked = false; settings.resetSettings(); }
     const stored = readSave();
     if (stored.unreadable) { keepUnreadableSave(); refresh(); return; }
     const s = stored.save;
-    if (!s) return;
+    if (!s) { if (switched) newGame(); return; }
     if (down.includes('settings')) {
       settings.applySettings(s);
       setSound(settings.sound()); settings.applyPace(); view.setCoords(settings.coords()); view.setLabels(settings.labels());
       refresh();
     }
-    if (down.includes('saved_game')) { if (lesson != null) cloudGame = true; else if (!fen) openSaved(s); }
+    if (down.includes('saved_game')) { if (switched) openSaved(s); else if (lesson != null) cloudGame = true; else if (!fen) openSaved(s); }
   }
 
   function labelContinue(): void {

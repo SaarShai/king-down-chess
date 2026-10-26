@@ -13,7 +13,7 @@ export type Row = Partial<Record<Section, Stamped | null>>;
  * The player's user_data row. Both calls throw when the server cannot be reached. `push` answers with
  * the row as the database kept it: it keeps a section only when the one sent is newer (0001_accounts.sql).
  */
-export interface Remote { pull(): Promise<Row | null>; push(row: Row): Promise<Row | null> }
+export interface Remote { userId: string; pull(): Promise<Row | null>; push(row: Row): Promise<Row | null> }
 /** Supplied by the game page, so this storage/sync module does not import the engine. */
 export interface SavedGameAccess {
   /** Rechecks the current local save, including changes made after boot. */
@@ -21,10 +21,15 @@ export interface SavedGameAccess {
   accepts(value: unknown): boolean;
 }
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
+type AccountStore = Store & Pick<Storage, 'removeItem'>;
 /** When each section last changed here, and its value then (to see the next change). */
 type Stamps = Partial<Record<Section, { at: number; json: string }>>;
 
 const SAVE = 'kingdown.save', LESSONS = 'kingdown.lessons', STAMPS = 'kingdown.sync';
+const OWNER = 'kingdown.sync-owner', COPIES = 'kingdown.local.';
+const LOCAL_KEYS = [SAVE, LESSONS, STAMPS];
+type LocalCopy = (string | null)[];
+type Owner = { userId: string; restore?: LocalCopy };
 /**
  * screen/save.ts `Save` fields: these are settings; the rest is the saved game. The look stays per device.
  * screen/save.ts SETTINGS is the same list (screen/save.test.ts); it is not imported, because an import
@@ -41,6 +46,32 @@ const own = (s: Section, v: unknown): unknown =>
 /** JSON with sorted keys: the database reorders the keys of what it keeps. */
 const canon = (v: unknown): string => JSON.stringify(v, (_k, x) =>
   x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : 1))) : x);
+
+/** Keep the old account's raw copy before loading the next one. A failed write can resume after reload. */
+function selectAccount(store: AccountStore, userId: string): boolean {
+  let owner: Owner | null = parse(store.getItem(OWNER));
+  let switched = false;
+  if (owner?.restore) {
+    for (const [i, key] of LOCAL_KEYS.entries()) {
+      const raw = owner.restore[i];
+      if (raw == null) store.removeItem(key); else store.setItem(key, raw);
+    }
+    owner = { userId: owner.userId };
+    store.setItem(OWNER, JSON.stringify(owner));
+    switched = true;
+  }
+  if (owner?.userId === userId) return switched;
+  if (owner) {
+    stamp(store);
+    store.setItem(COPIES + owner.userId, JSON.stringify(LOCAL_KEYS.map(key => store.getItem(key))));
+    const restore: LocalCopy = parse(store.getItem(COPIES + userId)) ?? [null, null, null];
+    // Record the target before separate key writes, so a quota failure cannot relabel the old bytes.
+    store.setItem(OWNER, JSON.stringify({ userId, restore }));
+    return selectAccount(store, userId);
+  }
+  store.setItem(OWNER, JSON.stringify({ userId })); // Only the first sign-in imports anonymous play.
+  return false;
+}
 
 /** A cloud copy this version can use: an object, and the saved game and lessons need their lists. */
 function usable(s: Section, v: unknown): v is Record<string, unknown> {
@@ -107,14 +138,27 @@ export class Sync {
   private retryMs = 0;
   private queue: Promise<void> = Promise.resolve();
   private rejectedGame: { at: number; local: string } | undefined;
+  private selected = false;
 
-  constructor(private store: Store, private remote: Remote, private onApply: (down: Section[]) => void, private savedGame: SavedGameAccess, private delayMs = 2000) {}
+  constructor(private store: AccountStore, private remote: Remote, private onApply: (down: Section[], switched?: boolean) => void, private savedGame: SavedGameAccess, private delayMs = 2000) {}
+
+  private ownsLocal(): boolean {
+    const owner: Owner | null = parse(this.store.getItem(OWNER));
+    return owner?.userId === this.remote.userId && !owner.restore;
+  }
 
   /** Takes each section the cloud has newer, then sends each this device has newer. */
   pull(): Promise<void> {
     return this.run(async () => {
+      if (this.stopped || this.selected && !this.ownsLocal()) return;
+      // An offline first sign-in still owns its local play before the cloud can answer.
+      if (this.store.getItem(OWNER) === null) selectAccount(this.store, this.remote.userId);
+      const owner = this.store.getItem(OWNER);
       const row = await this.remote.pull();
-      if (this.stopped) return;
+      if (this.stopped || owner !== this.store.getItem(OWNER)) return;
+      const switched = this.selected ? false : selectAccount(this.store, this.remote.userId);
+      if (switched) this.onApply([...SECTIONS], true);
+      this.selected = true;
       this.take(row);
       this.pulled = true;
       await this.send();
@@ -123,7 +167,7 @@ export class Sync {
 
   /** A local change: stamped now, sent after a quiet moment, so a burst of moves is one write. */
   changed(): void {
-    if (this.stopped) return;
+    if (this.stopped || !this.selected || !this.ownsLocal()) return;
     const stamps = stamp(this.store), local = readLocal(this.store).saved_game;
     // An explicit replacement or a new local move can supersede a rejected copy, even with a future clock.
     if (!this.savedGame.blocked() && this.rejectedGame && local != null && canon(local) !== this.rejectedGame.local && stamps.saved_game) {
@@ -143,6 +187,7 @@ export class Sync {
   stop(): void { this.stopped = true; clearTimeout(this.timer); }
 
   private async send(): Promise<void> {
+    if (this.stopped || !this.ownsLocal()) return;
     const stamps = stamp(this.store), local = readLocal(this.store), row: Row = {};
     for (const s of SECTIONS) {
       if (s !== 'lessons' && this.savedGame.blocked()) continue;
@@ -154,7 +199,7 @@ export class Sync {
     }
     if (this.stopped || !Object.keys(row).length) return;
     const kept = await this.remote.push(row);
-    if (this.stopped) return;
+    if (this.stopped || !this.ownsLocal()) return;
     if (kept) this.take(kept); // another device sent a newer copy meanwhile: it comes down now
     else for (const s of SECTIONS) if (row[s]) this.cloudAt[s] = row[s]!.at;
   }
