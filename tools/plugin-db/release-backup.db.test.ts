@@ -44,6 +44,16 @@ suite('the release backup and games restore', () => {
   await command(client, id, revision, null);
   await client.query("update public.game_players set action='done', turns_played=turns_played+1 where game_id=$1 and seat=$2", [id, (revision - 1) % 2]);
  }
+ /** `seat` resigns game `id` (the other seat wins) or aborts it, as runDeletions does through the game service: the end, one command row, both seats done. */
+ async function end(id: string, seat: number, reason: 'resignation' | 'abort') {
+  const status = reason === 'abort' ? 'aborted' : 'finished';
+  const { rows: [{ revision, turn }] } = await pool.query(`update public.games set revision=revision+1, status=$2, result=$3, end_reason=$4, finished_at=now(), updated_at=now()
+   where id=$1 returning revision, turn`, [id, status, reason === 'abort' ? null : ['white', 'black'][1 - seat], reason]);
+  await pool.query(`insert into public.game_commands(game_id,seq,seat,actor_id,command_id,kind,payload,turn_after,status_after,received_at)
+   select $1,$2,$3,user_id,$4,$5,'{}',$6,$7,now() from public.game_players where game_id=$1 and seat=$3`, [id, revision, seat, randomUUID(), reason === 'abort' ? 'abort' : 'resign', turn, status]);
+  await pool.query("update public.game_players set action='done', active=false, ended_at=now() where game_id=$1", [id]);
+ }
+ const outcome = async (id: string) => (await pool.query('select status, result, end_reason from public.games where id=$1', [id])).rows[0];
  /** Each game with its revision, its command seqs, its seat actions and its invite count. */
  async function games(schema = 'public') {
   const { rows } = await pool.query(`select g.id, g.revision,
@@ -127,21 +137,25 @@ suite('the release backup and games restore', () => {
   expect(await games()).toEqual(after);
  });
 
- it('nulls the seat of an account deleted since the backup and drops the invite that it made', async () => {
+ it('brings back a game that ended before the backup with the seat of an account deleted since null and without the invite that it made', async () => {
+  await end(b, 0, 'abort');
   await run(backupSql);
+  // An owner's delete in auth.users, then a fault deletes the game: only the backup copy can bring it back.
   await pool.query('delete from auth.users where id=$1', [users[2]]);
+  await pool.query('delete from public.games where id=$1', [b]);
   await run(restoreSql);
-  expect((await games())[b]).toMatchObject({ revision: 1, seqs: [1], seats: ['-:waiting', '-:waiting'], invites: 0 });
+  expect((await games())[b]).toMatchObject({ revision: 2, seqs: [1, 2], seats: ['-:done', '-:done'], invites: 0 });
  });
 
- it('keeps the solo game of an account that delete_account erased since the backup erased, and keeps its shared game as delete_account left it', async () => {
+ it('keeps the solo game of an account that delete_account erased since the backup erased, and keeps its shared game as the deletion left it', async () => {
   // users[1] has a solo game and a seat in friend game a with users[0]. Each seat keeps the handle at the game start.
   const solo = randomUUID();
   await game(solo, 1, [users[1], null], 'solo');
   await pool.query("update public.game_players set handle_at_start='erased-handle' where user_id=$1", [users[1]]);
   await run(backupSql);
   // The deletion job ends the active games (src/online/jobs.ts runDeletions), then delete_account erases the account.
-  await pool.query('update public.game_players set active=false where user_id=$1', [users[1]]);
+  await end(solo, 0, 'resignation');
+  await end(a, 1, 'resignation');
   await pool.query("insert into public.account_deletions(user_id,requested_at,run_after) values($1,now()-interval '8 days',now()-interval '1 day')", [users[1]]);
   expect((await pool.query('select kingdown_jobs.delete_account($1) as done', [users[1]])).rows[0].done).toBe(true);
   const erased = await games(), handles = async () => (await pool.query('select game_id,seat,handle_at_start from public.game_players where handle_at_start is not null order by game_id')).rows;
@@ -149,15 +163,37 @@ suite('the release backup and games restore', () => {
   const shared = await handles();
   expect(shared).toEqual([{ game_id: a, seat: 1, handle_at_start: 'erased-handle' }]);
   const result = (await run(restoreSql)) as unknown as pg.QueryResult[];
-  expect(result.at(-1)!.rows[0]).toMatchObject({ backup_games: '3', restored_games: '2', newer_games_kept: '0', erased_games_left_out: '1' });
+  expect(result.at(-1)!.rows[0]).toMatchObject({ backup_games: '3', restored_games: '1', newer_games_kept: '0', erased_games_left_out: '1', ended_games_kept: '1' });
   const after = await games();
   expect(after[solo]).toBeUndefined();
   for (const table of ['game_players', 'game_commands', 'game_invites']) expect((await pool.query(`select count(*)::int as n from public.${table} where game_id=$1`, [solo])).rows[0].n).toBe(0);
-  // The shared game comes back from the backup, with the deleted seat null and the handle that delete_account kept.
-  expect(after[a]).toMatchObject({ revision: 2, seqs: [1, 2], seats: [`${users[0]}:waiting`, '-:waiting'], invites: 1 });
+  // The shared game stays as the deletion left it (the next test), with the deleted seat null and the handle that delete_account kept.
+  expect(after[a]).toEqual(erased[a]);
   expect(await handles()).toEqual(shared);
   await run(restoreSql);
   expect(await games()).toEqual(after);
+ });
+
+ it('keeps the live end of each shared game that the deletion job ended, not a backup game in play with a seat that nobody can play', async () => {
+  // users[1] plays Black in friend game a; w is a friend game that users[1] made and that nobody joined.
+  const w = randomUUID();
+  await game(w, 0, [users[1], null]);
+  await pool.query("update public.games set status='waiting' where id=$1", [w]);
+  await run(backupSql);
+  // runDeletions resigns a (users[0] wins) and aborts w, then delete_account erases the account.
+  await end(a, 1, 'resignation');
+  await end(w, 0, 'abort');
+  await pool.query("insert into public.account_deletions(user_id,requested_at,run_after) values($1,now()-interval '8 days',now()-interval '1 day')", [users[1]]);
+  expect((await pool.query('select kingdown_jobs.delete_account($1) as done', [users[1]])).rows[0].done).toBe(true);
+  const live = await games();
+  const result = (await run(restoreSql)) as unknown as pg.QueryResult[];
+  // A backup copy would put a in play again, and the sweep could then end it on time against users[0].
+  expect(await outcome(a)).toEqual({ status: 'finished', result: 'white', end_reason: 'resignation' });
+  expect(await outcome(w)).toEqual({ status: 'aborted', result: null, end_reason: 'abort' });
+  expect(await games()).toEqual(live);
+  expect(result.at(-1)!.rows[0]).toMatchObject({ backup_games: '3', restored_games: '1', erased_games_left_out: '0', ended_games_kept: '2' });
+  await run(restoreSql);
+  expect(await games()).toEqual(live);
  });
 
  it('refuses a backup whose games and commands disagree, and rating rows that changed, and changes nothing', async () => {
