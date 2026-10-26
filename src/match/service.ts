@@ -48,7 +48,7 @@ function canonicalCreate(input: CreateOptions): CreateOptions {
  * Speed and days come from the kind; they stay in the key, so the receipts of older starts still match. */
 export function startKey(input: CreateOptions, anyRules = false) {
  const speed: View['speed'] = input.kind === 'solo' ? 'live' : 'daily';
- return { mode: input.mode ?? 'casual', kind: input.kind, speed, days_per_move: speed === 'daily' ? TURN_DAYS : null, colour: input.colour ?? 'white', level: input.level ?? 'club', options: input.options ?? null, setup: input.setup ?? null, any_rules: anyRules, ...(input.recipient_id && { recipient_id: input.recipient_id }), ...(input.recipient_handle && { recipient_handle: input.recipient_handle.trim().toLowerCase() }), ...(input.open_link && { open_link: true }) };
+ return { mode: input.mode ?? 'casual', kind: input.kind, speed, days_per_move: speed === 'daily' ? TURN_DAYS : null, colour: input.colour ?? 'white', level: input.level ?? 'club', options: input.options ?? null, setup: input.setup ?? null, any_rules: anyRules, ...(input.recipient_id && { recipient_id: input.recipient_id }), ...(input.recipient_handle && { recipient_handle: input.recipient_handle.trim().toLowerCase() }) };
 }
 type StartKey = ReturnType<typeof startKey>;
 export function id(value: unknown): string { return typeof value === 'string' && uuid.test(value) ? value.toLowerCase() : fail('INVALID_INPUT', 400, 'Expected a UUID'); }

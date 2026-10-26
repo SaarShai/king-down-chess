@@ -330,4 +330,11 @@ suite('friend invitation transactions', () => {
   expect(await services[0].view(users[0], sent.game_id)).toMatchObject({ status: 'setup' });
  });
 
+ it('returns a legacy open creation receipt before the new sender limit', async () => {
+  const command_id = randomUUID();
+  const legacy = await services[0].create(users[0], { kind: 'friend', options: DEFAULT_OPTIONS }, command_id);
+  await services[0].invite(users[0], legacy.game_id); await open();
+  expect(await services[1].create(users[0], { kind: 'friend', options: DEFAULT_OPTIONS, open_link: true }, command_id)).toMatchObject({ game_id: legacy.game_id });
+ });
+
 });

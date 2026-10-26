@@ -1428,7 +1428,14 @@ try {
         else assert(Math.abs((labels[0].top + labels[0].bottom) / 2 - (labels[1].top + labels[1].bottom) / 2) < 1 && labels[0].right <= labels[1].left, `Share and Copy keep one centre line: ${all}`);
         await host.frame.locator('#friend-copy').scrollIntoViewIfNeeded();
         await shot(host.page, `friend-actions-${width}-${mode}`);
-      } finally { await host.page.close(); }
+      } finally {
+        const created = await host.page.evaluate(() => window.harnessView).catch(() => null);
+        if (created?.kind === 'friend' && created.status === 'waiting') {
+          const closed = await tool('kingdown_abort', { game_id: created.game_id, expected_revision: created.revision });
+          assert(!closed.isError, JSON.stringify(closed.content));
+        }
+        await host.page.close();
+      }
     }
 
     await frame.locator('html').evaluate(() => {
