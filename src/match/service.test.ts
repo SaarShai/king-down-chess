@@ -146,6 +146,6 @@ describe('game service failure boundaries', () => {
   for (const revision of [996, 997]) apply.mockResolvedValueOnce({turn:1,status:'playing',history:[],rules:{kings:[null,null],hands:[[],[]]},revision});
   for (const command_id of ['fits', 'fills']) await writer.command(actor,id,{command_id,expected_revision:0,action:{type:'turn',actions:['e2-e4']}});
   expect(save.mock.calls.map(call => call[2].status)).toEqual(['playing','finished']);
-  expect(save.mock.calls[1][2]).toMatchObject({result:'draw',end_reason:'draw50',deadline_at:null});
+  expect(save.mock.calls[1][2]).toMatchObject({result:'draw',end_reason:'history',deadline_at:null});
  });
 });

@@ -66,14 +66,15 @@ Limits: a Find that takes a table with no seat choice (Arrange off and King powe
 - The turn that fills the history ends the game as a draw. The history is full at revision 1000, or when the engine has room for less than one whole turn (more than 996 actions; `TURN_ACTIONS` in `src/match/protocol.ts` is 4). Checkmate or a natural draw on that turn keeps its own result. `end()` clears the deadline, so nobody can claim on time.
 - At revision 999 a turn, a computer turn, resign, abort and draw accept go through. Say, draw offer and draw decline stop with `MATCH_LIMIT`. A claim and the sweep go through as before.
 - Unready setup choices stop at revision 100 with `RATE_LIMITED`; Ready stays open. Without this cap, setup spam would give a forced draw on demand.
-- With no migration, the end reason is `draw50`, the nearest reason that the `end_reason` check of migration 0006 allows. Players see "Draw by the fifty-move rule." These games stay easy to find: `end_reason='draw50'` and `snapshot->>'status'='playing'`.
+- The end reason is `history`. Migration `0021_history_draw.sql` adds it to the `end_reason` check of migration 0006; it must run before the server code. Players see "Draw: the game reached its length limit." (`src/plugin/ending.ts`).
 - Revision budget: a waiting game writes at most 21, setup at most 102, play at most 999 while in play and 1000 at the end. The database bound of 1100 keeps 100 revisions for rematch commands.
 - `ENGINE_ACTIONS` (1000) copies `MAX_COMMANDS` of `src/match/worker.ts`; a change there makes a new engine fingerprint. An old game whose engine save already holds 1000 actions stays stuck; new states cannot get there.
 - Docs: `docs/specs/chatgpt-mvp/notes/b-multiplayer.md` (the last-revision rule) and `docs/match-foundation.md` (the service ends a game as a draw before either limit).
 
-### Owner decision (open)
+### Owner decision
 
-This is a new automatic draw rule, so it needs the owner's yes before merge (AGENTS.md: rule changes). Rule: a turn that fills the game history ends an online game as a draw. Numbers: about 500 turns for each side, or 997 engine actions; 100 setup revisions. Pick: draw, shown as the fifty-move draw until a migration adds a true reason. On yes: add the row "History limit (online games): a turn that fills the game history ends the game in a draw." to the draw table of `docs/RULES.md`, and decide whether a migration and new texts give the reason its own name.
+Owner, 2026-10-26 ("always do what you recommend"; option 2 of `rule-options.md`): a turn that fills the game history ends an online game as a draw with its own reason. Numbers: about 500 turns for each side, or 997 engine actions; 100 setup revisions. The row is in the draw table of `docs/RULES.md`. Apply 0021 on staging before a deploy that depends on it.
+Apply 0021 on production before the release that carries it.
 
 ### Verification
 

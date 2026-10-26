@@ -392,8 +392,7 @@ export class GameService {
     const status = played.snapshot.status;
     if (status !== 'playing' || next.turn !== mover) next.players[mover].turns_played++;
     if (status !== 'playing') end(next, out, status === 'checkmate' ? colour(other(next.turn)) : 'draw', status, at);
-    // The end_reason check (0006) has no reason for this, so it is draw50; snapshot.status 'playing' tells these games apart.
-    else if (full(next)) end(next, out, 'draw', 'draw50', at);
+    else if (full(next)) end(next, out, 'draw', 'history', at); // migration 0021 adds the reason
     else if (next.turn !== mover) turnTo(next, out, at, actor);
    } else if (action.type === 'rematch') {
     if (action.choice === 'decline') next.rematch_offer = null;

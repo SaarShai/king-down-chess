@@ -309,8 +309,8 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   expect(await games[0].command(w,drawn,turn(998,await legal(w,drawn)))).toMatchObject({status:'playing',revision:999});
   await expect(games[0].command(w,drawn,command(999,{type:'say',preset:'hello'}))).rejects.toMatchObject({code:'MATCH_LIMIT'});
   await expect(games[1].command(k,drawn,command(999,{type:'draw',choice:'offer'}))).rejects.toMatchObject({code:'MATCH_LIMIT'});
-  expect(await games[1].command(k,drawn,turn(999,await legal(k,drawn)))).toMatchObject({status:'finished',revision:1000,deadline_at:null,result:{winner:null,reason:'draw50'}});
-  expect((await rows("select result,end_reason,snapshot->>'status' as engine from public.games where id=$1",[drawn]))[0]).toEqual({result:'draw',end_reason:'draw50',engine:'playing'});
+  expect(await games[1].command(k,drawn,turn(999,await legal(k,drawn)))).toMatchObject({status:'finished',revision:1000,deadline_at:null,result:{winner:null,reason:'history'}});
+  expect((await rows("select result,end_reason,snapshot->>'status' as engine from public.games where id=$1",[drawn]))[0]).toEqual({result:'draw',end_reason:'history',engine:'playing'});
   await expect(games[0].command(w,drawn,command(1000,{type:'claim',reason:'timeout'}))).rejects.toMatchObject({code:'MATCH_TERMINAL'});
   const accepted = await near();
   await admin.query('update public.games set draw_offer=1 where id=$1',[accepted]);

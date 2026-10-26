@@ -67,7 +67,7 @@ export type ErrorCode = 'INVALID_INPUT' | 'NOT_FOUND' | 'FORBIDDEN' | 'WAITING' 
 export type Reply = { type: 'ack'; command_id: string; revision: number; view: View } | { type: 'reject'; command_id: string; code: ErrorCode; message: string };
 
 export type GameStatus = 'waiting' | 'setup' | 'playing' | 'finished' | 'aborted';
-export type EndReason = Exclude<Status, 'playing'> | 'resignation' | 'agreement' | 'timeout' | 'abort' | 'no_start';
+export type EndReason = Exclude<Status, 'playing'> | 'history' | 'resignation' | 'agreement' | 'timeout' | 'abort' | 'no_start';
 /** Who must act: ready (your turn), waiting, or done (the game ended). Every list, badge and alert reads it. */
 export type SeatAction = 'waiting' | 'ready' | 'done';
 /** What one revision did. `actions` are the moves (LAN) that a turn or the computer played. A join and an
