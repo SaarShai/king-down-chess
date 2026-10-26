@@ -291,7 +291,7 @@ export class GameService {
   if (input.mode === 'ranked' && anyRules) fail('INVALID_INPUT', 400, 'Ranked uses the fixed ranked rules');
   const ratingPolicy = input.mode === 'ranked' ? 'ranked-v1' : 'casual';
   const gameId = commandId === undefined ? randomUUID() : startId(actor, commandId), wanted = key.any_rules ? undefined : switches(input.options!);
-  return this.store.transaction(async client => {
+  const seek = (made?: Game) => this.store.transaction(async client => {
    await this.requireHandle(actor, client);
    // An empty lobby has no row to lock; serialize the search and create as one step.
    await client.query('select pg_advisory_xact_lock(7007008)');
@@ -308,11 +308,15 @@ export class GameService {
     if (game.created_at.getTime() + DAY <= at.getTime()) continue;
     return this.acceptSeat(client, game, actor, at, commandId, key);
    }
-   const game = await this.newGame(actor, input, gameId); settle(game, game.created_at);
+   if (!made) return; // nothing to take: the caller builds a table with no lock held and searches again
    // started() found no game with this ID, and the start lock keeps it so.
-   if (!await this.store.insert(game, client)) return this.view(actor, game.id);
-   return commandId === undefined ? this.render(game, seatOf(game, actor), { client, rules: true }) : this.receipt(client, game, actor, commandId, key);
+   if (!await this.store.insert(made, client)) return this.view(actor, made.id);
+   return commandId === undefined ? this.render(made, seatOf(made, actor), { client, rules: true }) : this.receipt(client, made, actor, commandId, key);
   });
+  // The engine builds a new table between two searches, so the search lock and the connection are held for SQL only (audit F4); a table that opens meanwhile is still taken.
+  const found = await seek(); if (found) return found;
+  const made = await this.newGame(actor, input, gameId); settle(made, made.created_at);
+  return (await seek(made))!;
  }
  async cancel(actor: string, gameId: string): Promise<View> {
   actor = id(actor); gameId = id(gameId);
