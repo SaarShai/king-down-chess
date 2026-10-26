@@ -52,4 +52,36 @@ The data of the reproduction are in the session scratchpad (`openplay-repro/`), 
 
 The full test suite does not run for this fix. CI runs it.
 
+## Other board taps after a computer write
+
+Branch: staging/harness-menu. Base: staging/openplay-race, 7941f1d1. Scope: tools only, as above.
+
+The review of the fix found more taps in the checks that can come right after a computer write with no `settled()` before them. The audit read each `#board-menu` tap and each other board control tap in `tools/plugin-ui-check.mjs` and in the check modules that it and `tools/web-game-check.mjs` call.
+
+| Tap | Before | Now |
+| --- | --- | --- |
+| `menuAction` (`tools/plugin-ui-check.mjs`) | Waited only for `#board:not([data-animating="true"])`. That wait passes between the two replays of a two-command computer turn, so the Menu tap can land during the second replay. | `openBoardMenu()` |
+| `openMoveChoices` (`tools/plugin-ui-check.mjs`) | Tapped Menu with no wait. | `idleBoard()` before its sheet test, then `openBoardMenu()` |
+| Close of the Moves sheet in `checkSoloSync` (`tools/lib/solo-sync-check.mjs`), after the computer answers a remote turn | Waited for the board to stop, which can pass before the computer answers, then for 'Your move', which shows when the answer draws and its replay starts. The Close tap then can land during the replay; the later resign closes the sheet, so the check did not fail. | The embedded check passes `settle: idleBoard`. |
+
+`openBoardMenu(page, frame)` (`tools/lib/plugin-settled.mjs`) waits for `settled()`, closes an open board sheet, and taps Menu. The sheet closes after the wait: its scrim blocks Menu, and a Close tap during a replay does nothing either.
+
+Taps that need no change:
+
+- `openPlay` taps Menu after `idleBoard()`. It has no recovery for a tap that the board takes during a replay, and it needs none: after `settled()`, no replay runs and no computer command is due. A retry would hide a fault of the wait.
+- The other direct Menu taps in `tools/plugin-ui-check.mjs` (block player, Ranked, draft words, resign, abort, draw offer) are in friend games, or in solo games that `legacyStart` opens with the player as White to move, so no computer write comes before them. `tools/lib/card-detail-check.mjs` taps Menu on fixed views where the player has the move, after `settled()`. The square, coin, End turn and Undo taps after a computer turn come after `idleBoard()` (`sendTurn` starts with it).
+- `tools/web-game-check.mjs` and `tools/lib/shared-mechanics-check.mjs` drive the website, which has no host call count, so `settled()` does not apply there. The website path of `checkSoloSync` keeps its old wait, so its Close tap can still land during the replay. This lane does not change the website checks.
+
+| Check | Result |
+| --- | --- |
+| `KINGDOWN_TEST_FILE=tools/plugin-settled.test.ts npm test`, `openBoardMenu()` with the old `menuAction` wait, Chromium and WebKit | Fails: the sheet does not open (`expected false to be true`) |
+| The same test with no wait, as the old `openMoveChoices`, Chromium | Fails the same way |
+| The same test with the new helper, Chromium and WebKit | 2 tests pass |
+| `KINGDOWN_TEST_FILE='tools/{checks.lint,plugin-ui-check}.test.ts' npm test` | 36 tests pass |
+| `KINGDOWN_TEST_FILE='{src,tools,.claude/hooks}/**/*.docs.test.ts' npm test` | 178 tests pass |
+| `npm run check:browser plugin-ui` | Passes in 337.3 s |
+| `PLAYABLE_BROWSER=webkit npm run check:browser plugin-ui` | Passes in 407.3 s |
+
+Other work loaded the machine during the two browser checks (load average 15 to 22), so their times do not compare with the runs above. The full test suite does not run for this change. CI runs it.
+
 ## Comments
