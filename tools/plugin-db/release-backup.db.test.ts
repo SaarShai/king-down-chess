@@ -29,9 +29,9 @@ suite('the release backup and games restore', () => {
  });
 
  /** A friend game at `revision` with commands 1..revision, two seats and one invite; or a solo game, whose empty seat is the computer and which has no invite. */
- async function game(id: string, revision: number, seats: (string | null)[], kind: 'friend' | 'solo' = 'friend') {
-  await pool.query(`insert into public.games(id,kind,speed,category,colour_rule,setup,rules,engine_fingerprint,status,turn,revision,state,snapshot,created_by)
-   values($1,$5,'daily','standard','white','{}','{}','sha256:${'0'.repeat(64)}','playing',$2,$3,'{}','{}',$4)`, [id, revision % 2, revision, seats[0], kind]);
+ async function game(id: string, revision: number, seats: (string | null)[], kind: 'friend' | 'solo' = 'friend', policy: 'legacy' | 'casual' = 'legacy') {
+  await pool.query(`insert into public.games(id,kind,speed,category,colour_rule,setup,rules,engine_fingerprint,status,turn,revision,state,snapshot,created_by,rating_policy)
+   values($1,$5,'daily','standard','white','{}','{}','sha256:${'0'.repeat(64)}','playing',$2,$3,'{}','{}',$4,$6)`, [id, revision % 2, revision, seats[0], kind, policy]);
   for (const [seat, user] of seats.entries()) await pool.query(`insert into public.game_players(game_id,seat,user_id,computer,action) values($1,$2,$3,$4,'waiting')`, [id, seat, user, kind === 'solo' && !user]);
   for (let seq = 1; seq <= revision; seq++) await command(pool, id, seq, seats[(seq - 1) % 2]);
   if (kind === 'friend') await pool.query(`insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,1,$4,now()+interval '1 day')`, [randomUUID(), randomUUID(), id, seats[0]]);
@@ -201,6 +201,26 @@ suite('the release backup and games restore', () => {
   expect(result.at(-1)!.rows[0]).toMatchObject({ backup_games: '3', restored_games: '1', erased_games_left_out: '0', ended_games_kept: '2' });
   await run(restoreSql);
   expect(await games()).toEqual(live);
+ });
+
+ it('nulls the rematch link of a restored game to a left-out game with no live copy, as its foreign key does', async () => {
+  // p is a casual friend game that ended before the backup; its rematch x (casual, as the service makes it) is in play, with users[1] at seat 0.
+  const [p, x] = [randomUUID(), randomUUID()];
+  await game(p, 1, [users[0], users[1]], 'friend', 'casual');
+  await end(p, 1, 'resignation');
+  await game(x, 1, [users[1], users[0]], 'friend', 'casual');
+  await pool.query('update public.games set rematch_game_id=$2 where id=$1', [p, x]);
+  await run(backupSql);
+  // A fault deletes x (the foreign key nulls the live link). Then runDeletions resigns a, and delete_account erases users[1].
+  await pool.query('delete from public.games where id=$1', [x]);
+  await end(a, 1, 'resignation');
+  await pool.query("insert into public.account_deletions(user_id,requested_at,run_after) values($1,now()-interval '8 days',now()-interval '1 day')", [users[1]]);
+  expect((await pool.query('select kingdown_jobs.delete_account($1) as done', [users[1]])).rows[0].done).toBe(true);
+  const live = await games();
+  // The restore leaves x out (users[1]'s seat was active) and x has no live copy, so the backup link of p to x would break games_rematch_game_id_fkey.
+  await run(restoreSql);
+  expect(await games()).toEqual(live);
+  expect((await pool.query('select rematch_game_id from public.games where id=$1', [p])).rows).toEqual([{ rematch_game_id: null }]);
  });
 
  it('refuses a backup whose games and commands disagree, and rating rows that changed, and changes nothing', async () => {

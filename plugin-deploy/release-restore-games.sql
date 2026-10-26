@@ -23,8 +23,9 @@
 -- So each backup solo game of the account, and each backup game in which its seat was active, stays as the live data
 -- has it, with all its rows: a solo game stays deleted with its seats (and the handle at start), commands and invites,
 -- and a shared game keeps its live end, not the backup's play with a seat that nobody can play. A game with no live
--- copy stays deleted. A backup game that had ended is restored: each reference to the account follows its foreign key,
--- so it becomes null, or (an invite that the account made) the row stays deleted. Limit: in a rated game that had
+-- copy stays deleted, and a backup rematch link to it becomes null, as its foreign key does (0010_game_setup.sql).
+-- A backup game that had ended is restored: each reference to the account follows its foreign key, so it becomes
+-- null, or (an invite that the account made) the row stays deleted. Limit: in a rated game that had
 -- ended, delete_account also deletes the account's rating_history rows (0012_results.sql), so the rating check below
 -- refuses the whole restore and restores nothing; the owner decides.
 -- Not restored: accounts, settings, ratings, notifications and the outbox. A restored deadline that passed since the
@@ -77,6 +78,9 @@ begin
   update restore_game_commands r set actor_id = null where not exists (select from auth.users u where u.id = r.actor_id);
   delete from restore_game_invites r where r.created_by is not null and not exists (select from auth.users u where u.id = r.created_by);
   update restore_game_invites r set used_by = null where not exists (select from auth.users u where u.id = r.used_by);
+  -- A left-out game with no live copy stays deleted, so a rematch link to it follows its foreign key (on delete set null).
+  update restore_games r set rematch_game_id = null where not exists (select from restore_games g where g.id = r.rematch_game_id)
+    and not exists (select from public.games g where g.id = r.rematch_game_id);
   -- The rating check covers only the games that the restore writes. A left-out game keeps its live rows: runDeletions
   -- rated it when it ended it (recordResult, src/match/results.ts), then delete_account deleted the account's row.
   execute format('select count(*) from ((select to_jsonb(r) from public.rating_history r where r.game_id in (select id from restore_games)
