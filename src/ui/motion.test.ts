@@ -4,22 +4,22 @@ import { drawFreeze } from '../render/effects/materials';
 // The material sets its own alpha, as the real one does.
 vi.mock('../render/effects/materials', () => ({ drawFreeze: vi.fn((ctx: CanvasRenderingContext2D) => { ctx.globalAlpha = 1; }), drawFirewall: vi.fn() }));
 
-let now: number, pace: string, hidden: boolean, reduced: boolean;
+let now: number, setupDelay: number, pace: string, hidden: boolean, reduced: boolean;
 let documentEvents: EventTarget, media: EventTarget;
 let settingsChanged: () => void;
 let animations: ReturnType<typeof animation>[];
 function animation() {
   let finish!: () => void, reject!: () => void;
   const finished = new Promise<void>((resolve, no) => { finish = resolve; reject = no; });
-  return { currentTime: 0, playState: 'running', effect: { getComputedTiming: () => ({ duration: 500 }) }, finished, finish, cancel: vi.fn(() => reject()) };
+  return { startTime: null as number | null, currentTime: 0, playState: 'running', effect: { getComputedTiming: () => ({ duration: 500 }) }, finished, finish, cancel: vi.fn(() => reject()) };
 }
 class Control {
   isConnected = true;
-  animate = vi.fn((_frames: Keyframe[], _options: KeyframeAnimationOptions) => { const a = animation(); animations.push(a); return a; });
+  animate = vi.fn((_frames: Keyframe[], _options: KeyframeAnimationOptions) => { now += setupDelay; const a = animation(); animations.push(a); return a; });
   contains(target: unknown) { return target === this; }
 }
 beforeEach(() => {
-  now = 1000; pace = 'normal'; hidden = reduced = false; animations = [];
+  now = 1000; setupDelay = 0; pace = 'normal'; hidden = reduced = false; animations = [];
   documentEvents = new EventTarget(); media = new EventTarget();
   vi.spyOn(performance, 'now').mockImplementation(() => now);
   vi.stubGlobal('document', {
@@ -33,13 +33,14 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 const element = () => new Control() as unknown as Element;
 
-it('seeks a rebuilt control to its original onset and never replays a finished onset', async () => {
+it.each([0, 40])('keeps the original onset through %s ms of setup and never replays a finished onset', async delay => {
+  setupDelay = delay;
   const motion = new UiMotion(), first = element(), next = element();
   motion.reveal(first, 400, 12, 100, 1000);
   now = 1250; first.remove?.(); (first as unknown as Control).isConnected = false;
   motion.reveal(next, 400, 12, 100, 1000);
   expect(animations[0].cancel).toHaveBeenCalledOnce();
-  expect(animations[1].currentTime).toBe(250);
+  expect(animations.map(a => a.startTime)).toEqual([1000, 1000]);
   now = 1500;
   motion.reveal(next, 400, 12, 100, 1000);
   expect(animations).toHaveLength(2);

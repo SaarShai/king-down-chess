@@ -30,10 +30,10 @@ export class UiMotion {
     if (!this.enabled()) { this.cutoff = Math.max(this.cutoff, at); return; }
     if (document.activeElement && element?.contains(document.activeElement)) return;
     if (!element || !element.isConnected || typeof element.animate !== 'function' || at <= this.cutoff || age >= (delay + duration) / speed) return;
-    // A rebuilt control resumes its current beat. It never starts the beat again.
+    // A rebuilt control keeps the same start time, including time spent in animation setup.
     for (const [animation, target] of this.running) if (target === element || !target.isConnected) { animation.cancel(); this.running.delete(animation); }
     const animation = element.animate(frames, { duration: duration / speed, delay: delay / speed, easing, fill: 'both' });
-    animation.currentTime = Math.max(0, age);
+    animation.startTime = at;
     this.running.set(animation, element);
     const clear = () => { this.running.delete(animation); animation.cancel(); };
     void animation.finished.then(clear, () => { this.running.delete(animation); });
