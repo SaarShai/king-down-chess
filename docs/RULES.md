@@ -89,6 +89,10 @@ A Freeze or Ice Wall mark holds a piece, not a square (owner, 2026-10-25): when 
 shoved or pushed, also by the marking side's move after a free mark, the mark goes with it. The mark ends when the piece leaves the board.
 In card mode a Firewall's mark names its king's square and follows the king; a Rescue renews a mark where its piece stands now.
 
+A pawn that Strikes never lands on the first or last rank (owner, 2026-10-26): Strike does not promote, so a pawn there
+could not move on, and a pawn that cannot land there gives no long-range promotion either. The capture reading (`strikeMode: 'capture'`)
+leaves the pawn where it stands, so it may still take a piece on those ranks.
+
 Holy Light's shelter was added after round 6 (owner asked for Mercy and Holy Light variations to be
 tested): it lifted Holy Light from 43% to 53%; sheltering all eight neighbours overshot to 64%, and
 narrower Mercy shelters (beside/front/behind only, or only against pawns) fell to 37% and 27%.
