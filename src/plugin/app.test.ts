@@ -615,13 +615,41 @@ it.each(['foreground', 'remount'])('keeps another game receipt after a refused %
   expect((await import('../account-game/state')).messageLine(app.store.page()).action).toBe('retry');
 });
 
-it.each(['foreground', 'poll'])('clears private state when a reconnected account refuses the current board: %s', async path => {
+const EXPIRED = 'This board expired. Start, resume or join a game.';
+const expired = { content: [{ type: 'text', text: EXPIRED }], isError: true, _meta: { code: 'BOARD_EXPIRED' } };
+it.each(['foreground', 'poll'])('opens the shown game on a new board when its record expired, and keeps the receipt: %s', async path => {
+  const app = await mounted(), pending = receipt(), accessLost = vi.fn();
+  app.routeView(game); app.client.state.pending = pending;
+  (await import('../account-game/host')).runtimeHost().onAccessLost = accessLost;
+  transport.call.mockImplementation(async ({ name, arguments: args }) => name === 'kingdown_get' && args.board_id === 'board-a' ? expired
+    : { content: [], _meta: name === 'kingdown_open' ? { board_id: 'board-b', view: { ...game, revision: 2 }, games: [] } : { games: [] } });
+  if (path === 'poll') await transport.target().read(); else await app.send('kingdown_get', {});
+  const calls = (name: string) => transport.call.mock.calls.filter(([input]) => input.name === name).map(([input]) => input.arguments);
+  expect(calls('kingdown_open')).toEqual([{ game_id: 'game-a000' }]);
+  expect(app.client.state.board_id).toBe('board-b'); expect(app.client.state.pending).toBe(pending);
+  expect(app.queue.closed()).toBe(false); expect(accessLost).not.toHaveBeenCalled(); expect(app.memory.view?.revision).toBe(2);
+  transport.call.mockClear(); await app.send('kingdown_get', {});
+  expect(calls('kingdown_get').map(args => args.board_id)).toEqual(['board-b']); expect(calls('kingdown_open')).toEqual([]);
+});
+
+it('keeps the page and its receipt when an expired board shows no game', async () => {
+  const app = await mounted(), pending = receipt(); app.client.state.pending = pending;
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_get' ? expired : { content: [], _meta: { games: [] } });
+  await app.send('kingdown_get', {});
+  expect(transport.call.mock.calls.some(([input]) => input.name === 'kingdown_open')).toBe(false);
+  expect(app.queue.closed()).toBe(false); expect(app.client.state.pending).toBe(pending); expect(app.client.state.board_id).toBe('board-a');
+  expect(app.store.page().notice).toMatchObject({ kind: 'read', text: EXPIRED });
+});
+
+it.each(['foreground', 'poll', 'expired board'])('clears private state when a reconnected account refuses the current board: %s', async path => {
   const app = await mounted(); app.routeView(game); app.client.state.pending = receipt();
   const accessLost = vi.fn(() => { expect(app.queue.closed()).toBe(true); expect(app.memory.view).toBeUndefined(); });
   (await import('../account-game/host')).runtimeHost().onAccessLost = accessLost;
   app.client.state.draft = { game_tag: 'game-a00', fen: 'private-position', lans: ['e2-e4'], scope: { account: 'board-a', game: game.game_id, revision: 1, rules: '{}', engine: 'engine' } };
   const saved = vi.spyOn((window as any).openai, 'setWidgetState');
-  transport.call.mockResolvedValue({ content: [{ type: 'text', text: 'Board unavailable for this account' }], isError: true, _meta: { code: 'FORBIDDEN' } });
+  const refusal = { content: [{ type: 'text', text: 'Board unavailable for this account' }], isError: true, _meta: { code: 'FORBIDDEN' } };
+  // An expired board: the recovery Open of the shown game is refused, because the new account has no seat in it.
+  transport.call.mockImplementation(async ({ name }) => path === 'expired board' && name === 'kingdown_get' ? expired : refusal);
   if (path === 'poll') await transport.target().read(); else await app.send('kingdown_get', {});
   expect(app.queue.closed()).toBe(true); expect(app.memory.view).toBeUndefined();
   expect(app.client.state).toEqual({ screen: 'home' });

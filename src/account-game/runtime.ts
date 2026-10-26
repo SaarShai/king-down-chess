@@ -258,6 +258,14 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       if (retry && state.pending) args = resend(state.pending);
       let result = await client.call(name, args, transport);
       if (late()) { settleLate(result); return { status: 'superseded' }; }
+      // The 7-day cleanup deleted this board's record: open the shown game on a new board, as a mount does for a game with
+      // no board. Another account gets FORBIDDEN from that Open, so the refused read below still clears the page.
+      const showing = view?.game_id;
+      if (name === 'kingdown_get' && showing && resultCode(result) === 'BOARD_EXPIRED') {
+        result = await client.call('kingdown_open', { game_id: showing }, transport);
+        if (late()) { settleLate(result); return { status: 'superseded' }; }
+        const board = result._meta?.board_id; if (typeof board === 'string') { state.board_id = board; client.save(); }
+      }
       // A current selection reply selects the page's board; an older one leaves it (the epoch gate, design §1.2).
       const selected = result._meta?.board_id;
       if (!quiet && queue.current(job) && SELECTION_TOOLS.includes(name) && typeof selected === 'string') state.board_id = selected;

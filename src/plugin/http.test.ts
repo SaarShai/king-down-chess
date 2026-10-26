@@ -63,6 +63,14 @@ describe('stateless authenticated MCP HTTP', () => {
     expect((await (await post(request,await token())).json()).result._meta.code).toBe('FORBIDDEN');
     expect(service.selectBoard).not.toHaveBeenCalled(); expect(service.create).not.toHaveBeenCalled(); expect(service.join).not.toHaveBeenCalled(); expect(service.inbox).not.toHaveBeenCalled();
   });
+  it.each(['kingdown_create','kingdown_resume','kingdown_join'])('gives %s a new board when the cleanup deleted the old one', async name => {
+    const args = name === 'kingdown_create' ? {kind:'solo'} : name === 'kingdown_join' ? {code:'ABCDEF'} : {}, fresh = '44444444-4444-4444-8444-444444444444';
+    vi.mocked(service.board).mockRejectedValueOnce(new MatchServiceError('BOARD_EXPIRED',404,'Expired'));
+    vi.mocked(service.openBoard).mockResolvedValueOnce(fresh);
+    const result = (await (await post({...get,params:{name,arguments:{...args,board_id:matchId}}},await token())).json()).result;
+    expect(result._meta.board_id).toBe(fresh);
+    expect(service.toolTry).toHaveBeenCalledWith(alice,'kingdown_open'); expect(service.openBoard).toHaveBeenCalledWith(alice,matchId); expect(service.selectBoard).not.toHaveBeenCalled();
+  });
   it('serves public consent assets with a restricted CSP before OAuth authentication', async () => {
     const response = await fetch(`${address}/authorize?authorization_id=test`);
     expect(response.status).toBe(200); expect(await response.text()).toBe('<html>consent</html>');
