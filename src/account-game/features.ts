@@ -1,6 +1,6 @@
 import type { Options } from '../match/setup';
 
-export const featureNames = [['fairy', 'fairy', 'Fairy pieces'], ['arrangement', 'arrange', 'First rank sorting'], ['classic', 'classic', 'Classic chess'], ['cards', 'cards', 'Cards'], ['kingPowers', 'powers', 'King powers']] as const;
+export const featureNames = [['fairy', 'fairy', 'Fairy pieces'], ['arrangement', 'arrange', 'First rank sorting: Player'], ['classic', 'classic', 'Classic chess'], ['cards', 'cards', 'Cards'], ['kingPowers', 'powers', 'King powers']] as const;
 export const ruleNames = (options: Options | null | undefined) => featureNames.filter(([field]) => options?.[field]).map(([, , label]) => label).join(', ') || 'Standard pieces';
 export const icon = (name: string) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 export function features(options: Options | null | undefined, words = false) {

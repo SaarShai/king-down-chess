@@ -108,3 +108,11 @@ Logs use `/private/tmp/claude-501/ci87/run38/agents/sections-fix-files/`.
 - Results on `bd1ed7c3`: the type check passes (`typecheck.log`). The six changed test files pass 189 of 189 tests (`focused-tests-final.log`). All 178 doc tests pass (`docs.log`). The browser checks plugin-ui (305.8 s) and new-game (27.7 s) pass after the live publish ends (`browser.log`, `publish-check.log`).
 - Images: `sections-fix-390.png` and `sections-fix-197.png` show Cards open. The corner checks do not cover the art, and the names stay whole.
 - Known limit: after the pool is complete, the hidden live region keeps its last text. It speaks nothing more.
+
+## Release review notes (P3)
+
+The release review of New game lists two P3 notes.
+
+- Start status: render clears `#setup-start-status` when the pool fault changes or ends (a complete pool, Cards off, Ranked or Use all cards). The card status region speaks each pool change, so the Start region writes words only on a blocked press. The delayed write reads the fault at that time, so a quick pool change writes no old count. This replaces the known limit above.
+- Feature label: the feature shows only with Player, so its label is "First rank sorting: Player" (the owner's words "first rank sorting: random | player"). The invite, the join preview, the lobby key, the lobby rows and the badges use this label. The setup control and the stored field keep their names.
+- Checks (logs in the session scratchpad `ui-a11y/`): both new tests fail on the old code (`red.log`: the Start status keeps "Pick 3 more cards." after the pool is complete; the label is "First rank sorting"). After the change, the features, invite and setup owner files pass 36 of 36 (`green-a.log`). The board badge test and the profile feature test pass (`green-b.log`, `green-c.log`). The type check and all 178 doc tests pass (`docs.log`). After the live publish ends, the plugin-ui browser check passes in 345.8 s (`browser.log`).

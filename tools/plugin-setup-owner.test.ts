@@ -305,3 +305,26 @@ it('F-117 speaks the incomplete pool on each blocked Start and keeps focus', asy
     expect(await sent(page,'kingdown_create')).toBe(0);
   } finally {await page.close();}
 });
+it('F-117 clears the Start status when the pool fault changes or ends', async () => {
+  const {page, frame}=await sections();
+  try {
+    await frame.locator('#setup-toggle-cards').check();
+    const cards=frame.locator('#cards-body'), boxes=cards.locator('input[type="checkbox"]'), live=frame.locator('#setup-start-status');
+    await cards.getByRole('radio',{name:'Pick four',exact:true}).locator('..').click();
+    await boxes.nth(0).check();
+    await live.evaluate(e=>{ (window as any).liveTexts=[]; new MutationObserver(()=>(window as any).liveTexts.push(e.textContent)).observe(e,{childList:true,characterData:true,subtree:true}); });
+    await frame.locator('#setup-start').click();
+    await expect.poll(()=>live.textContent()).toBe('Pick 3 more cards.');
+    for (const i of [1,2,3]) await boxes.nth(i).check();
+    expect(await live.textContent()).toBe('');
+    await boxes.nth(3).uncheck();
+    expect(await live.textContent()).toBe('');
+    await frame.locator('#setup-start').click();
+    await expect.poll(()=>live.textContent()).toBe('Pick 1 more card.');
+    await frame.locator('#setup-toggle-cards').uncheck();
+    expect(await live.textContent()).toBe('');
+    // The card status speaks each pool change, so only the two blocked presses write words here.
+    expect(await frame.locator('html').evaluate(()=>(window as any).liveTexts.filter(Boolean))).toEqual(['Pick 3 more cards.','Pick 1 more card.']);
+    expect(await sent(page,'kingdown_create')).toBe(0);
+  } finally {await page.close();}
+});
