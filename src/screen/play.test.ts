@@ -622,6 +622,38 @@ describe('local saves from two tabs', () => {
     expect(play.savedGames.blocked()).toBe(true);
   });
 
+  it('saves the game with a settings change when no game is saved yet', () => {
+    const fen = '4k3/8/8/3r4/8/8/3N4/4K3 w - - 0 1';
+    const { play } = page({}, fen);
+    play.restore(null, request);
+    expect(play.saveSettings()).toBe(true);
+    expect(readSave().save).toMatchObject({ fen, moves: [], coords: true });
+    expect(play.savedGames.blocked()).toBe(false);
+  });
+
+  it('keeps another tab\'s game when a settings change follows an empty load', () => {
+    const { play } = page({}, '4k3/8/8/3r4/8/8/3N4/4K3 w - - 0 1');
+    play.restore(null, request);
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    expect(play.saveSettings()).toBe(true);
+    expect(readSave().save!.moves).toEqual(original.moves);
+  });
+
+  it('keeps another tab\'s game when the settings read fails once', () => {
+    const { play } = page({}, '4k3/8/8/3r4/8/8/3N4/4K3 w - - 0 1');
+    play.restore(null, request);
+    const raw = JSON.stringify(original);
+    stored.set(SAVE_KEY, raw);
+    const get = localStorage.getItem.bind(localStorage);
+    let fail = true;
+    vi.spyOn(localStorage, 'getItem').mockImplementation(key => {
+      if (key === SAVE_KEY && fail) { fail = false; throw new DOMException('Busy', 'UnknownError'); }
+      return get(key);
+    });
+    expect(play.saveSettings()).toBe(false);
+    expect(stored.get(SAVE_KEY)).toBe(raw);
+  });
+
   it('changes only settings in another tab\'s newer save, then still detects the game conflict', () => {
     const { play } = load({ ...original, moves: ['e2-e4'] });
     const newer = { ...original, coords: false, staged: 1, daily: '2026-10-26', link: 1 as const, labels: true as const };
