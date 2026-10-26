@@ -90,8 +90,9 @@ describe('the end reason of the result dialog', () => {
       'The same position came up three times.', 'Neither side has enough material to mate.']);
   });
 
-  it('a resign gives up; else the last moment line stays', () => {
-    expect(endReason('playing', mated, 1, 'said')).toBe('That side gave up.');
+  it('names the side that resigns; else the last moment line stays', () => {
+    expect(endReason('playing', mated, 0, 'said')).toBe('White resigns.');
+    expect(endReason('playing', mated, 1, 'said')).toBe('Black resigns.');
     expect(endReason('playing', mated, null, 'The archer shot without moving.')).toBe('The archer shot without moving.');
   });
 });
