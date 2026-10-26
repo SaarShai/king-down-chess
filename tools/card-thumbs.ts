@@ -1,9 +1,10 @@
 #!/usr/bin/env -S npx tsx
 /**
  * The small card paintings of the New game tiles. A tile shows its painting in a 16:9 window (app.css `.cf-art`,
- * object-fit: cover) that is 236 CSS px wide in the 560 px sheet (two columns) and about 153 px on a 393 px phone.
- * This tool writes that centre window at 480 × 270 (two pixels for each CSS pixel in the sheet, three on the phone)
- * for each released painting of public/ui/cards. The full card keeps the full painting. tools/card-thumbs.test.ts
+ * object-fit: cover) in two columns. The widest tile is 264 CSS px, in a 640 to 899 px frame (ChatGPT inline is
+ * 760 px) where the New game box is 560 px; it is 223 px in the 560 px sheet and 139 px on a 390 px phone.
+ * This tool writes that centre window at 528 × 297 (two pixels for each CSS pixel at the widest tile) for each
+ * released painting of public/ui/cards. The full card keeps the full painting. tools/card-thumbs.test.ts
  * checks each file against its painting.
  *
  *   npx tsx tools/card-thumbs.ts
@@ -15,7 +16,7 @@ import { basename, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RELEASED_CARDS } from '../src/content/cards';
 
-export const THUMBS = 'src/plugin/assets/card-thumbs', WIDTH = 480, HEIGHT = 270;
+export const THUMBS = 'src/plugin/assets/card-thumbs', WIDTH = 528, HEIGHT = 297;
 export const paintings = RELEASED_CARDS.flatMap(card => card.art ? [`public/${card.art}`] : []);
 /** The part of a painting that a tile shows (the centre crop of object-fit: cover), at the thumbnail size. */
 export const tileWindow = (painting: string) => sharp(painting).resize(WIDTH, HEIGHT, { fit: 'cover' });

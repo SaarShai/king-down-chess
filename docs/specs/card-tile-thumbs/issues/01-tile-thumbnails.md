@@ -6,14 +6,16 @@ Type: task
 ## Problem
 
 The New game Cards section (F-117) shows 21 card tiles. Twelve tiles show a painting. Each tile loads the full card
-painting (491 to 800 px wide), 685 KB for the twelve. A tile shows only a 16:9 window of the painting. That
-window is 236 CSS px wide in the 560 px sheet (two columns) and about 153 px on a 393 px phone.
+painting (491 to 800 px wide), 685 KB for the twelve. A tile shows only a 16:9 window of the painting, in two
+columns. The widest window is 264 CSS px, in a 640 to 899 px frame (ChatGPT inline is 760 px), where the New game
+box is 560 px. It is 223 px in the 560 px sheet and 139 px on a 390 px phone.
 
 ## Design
 
 - `tools/card-thumbs.ts` cuts the centre 16:9 window (the crop of `object-fit: cover`) of each released painting
-  at 480 × 270, quality 80 webp, into `src/plugin/assets/card-thumbs/`. 480 px is two pixels for each CSS pixel at
-  the 560 px sheet and three at a 393 px phone. The files are committed: CI and the Linux build make no image.
+  at 528 × 297, quality 80 webp, into `src/plugin/assets/card-thumbs/`. 528 px is two pixels for each CSS pixel at
+  the widest tile (264 CSS px). A 491 or 512 px painting gets up to 8% larger; that is no less detail than the full
+  painting gave. The files are committed: CI and the Linux build make no image.
   The tool uses sharp, which the repo already has. Run it again after a card painting changes.
 - The thumbnails are plugin assets, not `public/` files. The website precaches each `public/ui` file for offline
   play; the plugin build loads each asset of `src/account-game/art.ts` from `plugin-art/`.
@@ -23,10 +25,10 @@ window is 236 CSS px wide in the 560 px sheet (two columns) and about 153 px on 
 
 ## Result
 
-- The twelve thumbnails are 207 KB in all, against 685 KB for the full paintings (70% less).
+- The twelve thumbnails are 246 KB in all, against 685 KB for the full paintings (64% less).
 - A side by side of the full painting window and the thumbnail shows no visible difference at tile size.
-- Known limit: a window from 600 to 899 px wide shows tiles up to 406 CSS px wide. There the thumbnail has about
-  1.2 to 1.7 pixels for each CSS pixel. The 512 px full paintings also had less than 2 there.
+- Each tile has at least two thumbnail pixels for each CSS pixel: 2.0 at the widest tile (264 CSS px), 2.4 in the
+  560 px sheet and 3.8 on a 390 px phone.
 
 ## Checks
 
@@ -36,7 +38,7 @@ window is 236 CSS px wide in the 560 px sheet (two columns) and about 153 px on 
   each thumbnail.
 - `src/plugin/card-face.test.ts`: a tile gets the lazy thumbnail; the full card gets the full painting.
 - `tools/plugin-setup-owner.test.ts` (F-117): the tiles request only thumbnails; opening Haste requests the full
-  painting.
+  painting. At a 760 px frame (the widest tile), the loaded thumbnail has at least two pixels for each CSS pixel.
 
 ## Verification
 
@@ -50,3 +52,11 @@ window is 236 CSS px wide in the 560 px sheet (two columns) and about 153 px on 
 - `npm run check:browser plugin-ui` passes (329.9 s).
 - Not run here: the full unit suite and the other browser checks. CI runs them on the PR. Independent review and CI
   remain before merge.
+
+## Review fixes
+
+- P2, tile size: the reviewer measured the widest tile at 264 CSS px (frames from 640 to 899 px, ChatGPT inline
+  760 px included). There 480 px gave 1.82 pixels for each CSS pixel. The old Known limit (406 CSS px) was wrong.
+  The fix cuts 528 × 297. Red on 480 × 270: the new F-117 test fails, "expected 480 to be greater than or equal to
+  528". Green: `tools/card-thumbs.test.ts`, `src/plugin/card-face.test.ts` and `tools/plugin-setup-owner.test.ts`
+  pass 41 of 41, with the type check.

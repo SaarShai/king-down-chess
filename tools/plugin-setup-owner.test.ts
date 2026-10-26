@@ -32,10 +32,24 @@ it('F-117 loads no card painting until the Cards section shows, then tile thumbn
     expect(cards).toEqual([]);
     await frame.locator('#setup-options summary').click(); await frame.locator('#setup-toggle-cards').check();
     await expect.poll(() => cards.length).toBeGreaterThan(0);
-    // A tile is about 240 CSS px wide at most, so it loads the small thumbnail; the full card loads the full painting.
+    // A tile is 264 CSS px wide at most, so it loads the small thumbnail; the full card loads the full painting.
     expect(cards.filter(url => !url.includes('/card-thumbs/'))).toEqual([]);
     await frame.locator('#setup-card-Haste').click(); await frame.locator('#menu-sheet .cf-art img').waitFor();
     await expect.poll(() => cards.some(url => url.includes('/cards/haste.webp'))).toBe(true);
+  } finally { await page.close(); }
+});
+it('F-117 gives the widest card tile two thumbnail pixels for each CSS pixel', async () => {
+  // From 640 to 899 px the 560 px New game box makes the widest tile; ChatGPT inline (760 px) is one of them.
+  const page = await browser.newPage({ viewport: {width:760,height:900} }), frame = page.frameLocator('iframe'), img = frame.locator('#setup-card-Haste .cf-art img');
+  page.setDefaultTimeout(5000);
+  try {
+    await page.goto(harness.url);
+    await frame.locator('#home-games:not(:disabled)').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.locator('#setup-options summary').click(); await frame.locator('#setup-toggle-cards').check();
+    await img.scrollIntoViewIfNeeded(); await expect.poll(() => img.evaluate((i: HTMLImageElement) => i.naturalWidth)).toBeGreaterThan(0);
+    const [css, pixels] = await img.evaluate((i: HTMLImageElement) => [i.getBoundingClientRect().width, i.naturalWidth]);
+    expect(css).toBeGreaterThan(260);
+    expect(pixels).toBeGreaterThanOrEqual(2 * css);
   } finally { await page.close(); }
 });
 it('F-109 puts Settings before Profile with one line per row', async () => {
