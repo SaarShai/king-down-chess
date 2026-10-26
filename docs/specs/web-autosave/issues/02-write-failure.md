@@ -52,3 +52,16 @@ Result: New game records the stored game before its replacement write. A quota f
 - Green: `KINGDOWN_TEST_FILE=src/screen/play.test.ts npm test`. Type checks and all 29 tests pass. The 57 art checks also pass.
 - Docs: `npm run test:docs`. All 15 files and 178 tests pass.
 - Review: The fix uses the existing comparison and adds no retry state. A later change to the stored game still fails the ordinary comparison.
+
+## Review finding 4
+
+Plan: Test the table renderer with the Guard lesson's two-sentence task. Run the test before the fix. Keep both context parts below the save warning. Run the test after the fix, then run the doc checks. Commit this finding alone.
+
+Checks: The warning stays first. Both sentences stay below it. Both sentences stay after the warning clears. The power detail and existing controls stay available. Tests use fake timers.
+
+Result: The save warning keeps both `line.line` and `line.note` in its detail row. The Guard lesson keeps its full task. The renderer keeps its existing two-row structure and action list.
+
+- Red: `KINGDOWN_TEST_FILE=src/ui/table.test.ts npm test`. Type checks pass. Two tests fail and two pass. The Guard goal and power detail are absent.
+- Green: `KINGDOWN_TEST_FILE=src/ui/table.test.ts npm test`. Type checks and all four tests pass. The 57 art checks also pass.
+- Docs: `npm run test:docs`. All 15 files and 178 tests pass.
+- Review: One assignment joins the existing context parts. It adds no style rule, layout state, or new control. The test uses the real lesson task and renderer.
