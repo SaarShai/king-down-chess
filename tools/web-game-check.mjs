@@ -1,12 +1,13 @@
 /** Real emitted website + HTTP + MCP on one disposable local database. No provider or production calls. */
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'vite';
 import pg from 'pg';
 import { register } from 'tsx/esm/api';
@@ -38,6 +39,8 @@ const { fromFen } = await import('../src/rules/setup.ts');
 const { M, N, P, parseSq, typeOf } = await import('../src/rules/engine.ts');
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
 testDatabase(connectionString);
+// Another branch can change the shared test schema before this check gets its slot.
+execFileSync(process.execPath, [fileURLToPath(new URL('./plugin-db/bootstrap-test.mjs', import.meta.url))], { timeout: 60_000 });
 const work = await mkdtemp(join(tmpdir(), 'kingdown-web-game-'));
 const actors = Array.from({ length: recovery ? 4 : 2 }, () => randomUUID());
 const pool = new pg.Pool({ connectionString, max: 1 });
