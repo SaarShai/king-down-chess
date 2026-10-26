@@ -21,10 +21,10 @@ async function open() {
 }
 const sent = (page: import('playwright').Page, name: string) => page.evaluate(name => (window as any).harnessCalls.filter((call: any) => call.name === name).length, name);
 
-it('F-117 loads no card painting until the Cards section shows', async () => {
+it('F-117 loads no card painting until the Cards section shows, then tile thumbnails until a card opens', async () => {
   // New game builds every card tile at start; an eager painting would load all of them in each page.
   const page = await browser.newPage({ viewport: {width:390,height:844} }), frame = page.frameLocator('iframe'), cards: string[] = [];
-  page.setDefaultTimeout(5000); page.on('request', r => { if (r.resourceType() === 'image' && /\/cards\/[^/?]+\.webp/.test(r.url())) cards.push(r.url()); });
+  page.setDefaultTimeout(5000); page.on('request', r => { if (r.resourceType() === 'image' && /\/card(?:s|-thumbs)\/[^/?]+\.webp/.test(r.url())) cards.push(r.url()); });
   try {
     await page.goto(harness.url);
     await frame.locator('#home-games:not(:disabled)').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
@@ -32,6 +32,10 @@ it('F-117 loads no card painting until the Cards section shows', async () => {
     expect(cards).toEqual([]);
     await frame.locator('#setup-options summary').click(); await frame.locator('#setup-toggle-cards').check();
     await expect.poll(() => cards.length).toBeGreaterThan(0);
+    // A tile is about 240 CSS px wide at most, so it loads the small thumbnail; the full card loads the full painting.
+    expect(cards.filter(url => !url.includes('/card-thumbs/'))).toEqual([]);
+    await frame.locator('#setup-card-Haste').click(); await frame.locator('#menu-sheet .cf-art img').waitFor();
+    await expect.poll(() => cards.some(url => url.includes('/cards/haste.webp'))).toBe(true);
   } finally { await page.close(); }
 });
 it('F-109 puts Settings before Profile with one line per row', async () => {
