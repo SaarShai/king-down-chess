@@ -586,7 +586,7 @@ try {
     }
     assert.equal(await frame.locator('#setup-options').evaluate(e => e.open), false, 'Game options starts closed');
     await frame.locator('#setup-options summary').click();
-    await chooseKind('Artificial');
+    await chooseKind('Computer');
     assert.equal(await frame.locator('#setup-start').count(), 1, 'Setup has the game controls and its fixed Start footer');
     assert(await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).isChecked());
     assert(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).isChecked());
@@ -595,7 +595,7 @@ try {
     assert(await frame.locator('input[name="setup-colour"][value="white"]').isChecked());
     assert.equal(await frame.locator('#setup-level').inputValue(), '2');
     await chooseKind('A friend'); assert(!await frame.locator('#setup-level').isVisible());
-    await chooseKind('Artificial');
+    await chooseKind('Computer');
     await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).uncheck();
     assert(!await frame.locator('#setup-sorting').isVisible()); assert(!await frame.locator('#fairy-body').isVisible());
     await frame.getByRole('checkbox', { name: 'Classic chess', exact: true }).check();
@@ -750,7 +750,7 @@ try {
       await openPlay();
       assert(await frame.locator('#setup-body .modes').getByRole('radio', { name: kind === 'friend' ? 'A friend' : 'Random', exact: true }).isChecked());
       assert(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).isChecked());
-      await chooseKind('Artificial');
+      await chooseKind('Computer');
       assert.equal(await frame.locator('#setup-level').getAttribute('aria-valuetext'), 'Club', 'New game uses Club for an old Strong draft');
       await abortSetup(quick.game_id);
     }
@@ -765,7 +765,7 @@ try {
       assert.equal(pending.name, name);
       assert.equal(pending.quick, true, `${name} keeps the Play now marker`);
       if (name === 'kingdown_create') assert.equal(pending.args.mode,'casual','A pending Play now keeps its Casual mode');
-      assert(await frame.getByRole('radio', { name: 'Artificial', exact: true }).isChecked());
+      assert(await frame.getByRole('radio', { name: 'Computer', exact: true }).isChecked());
       assert.equal(await frame.locator('#setup-level').getAttribute('aria-valuetext'), 'Casual');
       assert(!await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).isChecked());
       assert.doesNotMatch(await frame.locator('#setup-start').innerText(), /Strong|Arrangement/);
@@ -790,7 +790,7 @@ try {
       const options = { ...DEFAULT_OPTIONS, fairy, arrangement: fairy && secondary, classic: !fairy && secondary, cards, kingPowers: powers };
       const last = { ...baseSetup, options, colour: ['white','black'][mix % 2], level: levels[mix++ % 3] };
       // Abort keeps the last game's king. Give each toggle case the same starting draft.
-      await setupMount(baseSetup); await chooseKind('Artificial');
+      await setupMount(baseSetup); await chooseKind('Computer');
       await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).setChecked(fairy);
       if (fairy) await frame.locator('#setup-sorting').getByRole('radio', {name: secondary ? 'Player' : 'Random', exact:true}).locator('..').click();
       else await frame.getByRole('checkbox', {name:'Classic chess',exact:true}).setChecked(secondary);
@@ -831,7 +831,7 @@ try {
     const privateState = await page.evaluate(() => window.harnessWidgetState.privateContent);
     assert.deepEqual(Object.keys(privateState).sort(), ['board_id','pending','screen','sheet']);
     assert.equal(await page.evaluate(() => JSON.stringify(window.harnessWidgetState.modelContent)), '{}', 'Setup puts no choice or draw in model context');
-    await openPlay(); await chooseKind('Artificial');
+    await openPlay(); await chooseKind('Computer');
     assert.equal(await frame.locator('#setup-body .modes label').count(), 3, 'Setup still builds after a restored Start');
     const recovered = await page.evaluate(() => window.harnessView); await abortSetup(recovered.game_id);
     await setupMount({ ...baseSetup, kind: 'random', options: { ...DEFAULT_OPTIONS, arrangement: false } }); await frame.locator('#setup-start').click(); await frame.locator('[data-screen="wait"]:not([hidden])').waitFor();
@@ -2771,7 +2771,7 @@ try {
   await frame.locator('#board-sheet').getByRole('button',{name:'Abort',exact:true}).click();
   await frame.locator('[data-screen="play"]:not([hidden])').waitFor(); await idleBoard();
   assert.equal(await frame.locator('#over[open], #board[data-toppling]').count(),0,'A computer abort returns to the draft with no ceremony');
-  assert(await frame.getByRole('radio',{name:'Artificial',exact:true}).isChecked());
+  assert(await frame.getByRole('radio',{name:'Computer',exact:true}).isChecked());
   assert(await frame.getByRole('radio',{name:'White',exact:true}).isChecked());
   if (capabilities.friend) {
     // harnessShow returns when the host sends the chat result, before the frame mounts it, so #reload can still show the

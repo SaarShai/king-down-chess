@@ -77,7 +77,7 @@ try {
     ok('an old Strong game keeps its board name, Home name and engine level');
   }
 
-  // 1. Defaults on a first visit: Artificial, Club, White, a random army; Spirit and Shadow.
+  // 1. Defaults on a first visit: Computer, Club, White, a random army; Spirit and Shadow.
   let page = await open();
   await pressMenu(page, 'New game');
   assert.deepEqual([await checked(page, 'mode'), await checked(page, 'level'), await checked(page, 'side')], ['computer', 'club', '0']);
@@ -90,10 +90,10 @@ try {
   for (const { shadow } of selected) assert.match(shadow, /rgb\(233, 192, 113\).*2px.*inset/, 'each selected choice has an inset gold ring');
   assert.equal(await page.evaluate(() => document.getElementById('more-options').open), false, 'More options starts folded');
   assert.equal(await shown(page, 'king-picker'), false, 'no king picker without powers');
-  assert.equal(await page.locator('#modes input[type="radio"]').count(), 3);
-  assert.equal(await page.getByRole('radio', { name: /Artificial/ }).isChecked(), true);
+  assert.equal(await page.locator('#modes input[type="radio"]').count(), 2);
+  assert.equal(await page.getByRole('radio', { name: 'No powers', exact: true }).isChecked(), true);
   await shot(page, 'desktop-computer.jpg', jpeg);
-  ok('defaults: Artificial, Club, you play White, Random King Down army, no picker');
+  ok('defaults: Computer, Club, you play White, Random King Down army, no picker');
 
   // Kings' powers: each side's six emblems in the KINGS order, Spirit and Shadow chosen, first powers.
   await page.click('label:has(#mode-powers)');
@@ -166,14 +166,14 @@ try {
   await page.keyboard.press('Escape');
   ok('Cancel: the changes are dropped');
 
-  // 2. Artificial (the default) starts White against the Club computer with no powers.
+  // 2. Computer (the default) starts White against the Club computer with no powers.
   await startGame(page);
   let s = await saved(page);
   assert.deepEqual([s.white, s.black, s.skill, s.rules.kings], ['human', 'ai', 'club', [null, null]]);
   assert.match(s.back, /^[A-Z]{8}$/);
   assert.equal(await powersHidden(page), true, 'no power bar');
   await kingsDrawn(page, ['spirit', 'shadow']);
-  ok('Artificial: White against the Club computer, kings without powers, drawn as Spirit and Shadow');
+  ok('Computer: White against the Club computer, kings without powers, drawn as Spirit and Shadow');
 
   // As Black against the beginner: the computer opens and the board turns round.
   await startGame(page, { mode: 'computer', level: 'beginner', side: 'black', army: 'classic' });
@@ -184,7 +184,7 @@ try {
   await page.locator('#resign[aria-disabled="false"]').waitFor({ state: 'attached' });
   const [a1, a8] = await page.evaluate(() => [window.view.screenOf(0), window.view.screenOf(56)]);
   assert.ok(a8.y > a1.y, 'Black at the bottom');
-  ok('Artificial as Black: the beginner computer moves first, the board turns round');
+  ok('Computer as Black: the beginner computer moves first, the board turns round');
 
   // 3. Kings' powers: the default kings play their first powers against the computer.
   await startGame(page, { mode: 'powers', side: 'white', level: 'club', army: 'classic' });
@@ -198,28 +198,20 @@ try {
   await kingsDrawn(page, ['mud', 'shadow']); // a king with no power is drawn as the plain king
   ok("Kings' powers: Spirit Holy Light and Shadow Death Touch by default; Mud March against a king with no power");
 
-  // 4. A friend: both sides on this device; the Kings' powers box adds the picker.
-  await startGame(page, { mode: 'two' });
+  // 4. A friend opens the account setup. No local two-player choice remains.
+  await pressMenu(page, 'New game');
+  assert.equal(await page.locator('#new-game-friend').getAttribute('href'), '/play/friend');
+  assert.equal(await page.locator('#mode-two, #two-powers').count(), 0);
+  await startGame(page, { mode: 'powers', kings: ['Flame:Haste', 'Stratus:Flight'], army: 'classic' });
   s = await saved(page);
-  assert.deepEqual([s.white, s.black, s.rules.kings], ['human', 'human', [null, null]]);
-  await setUpGame(page, { mode: 'two', powers: true });
-  assert.equal(await shown(page, 'king-picker'), true);
-  assert.equal(await shown(page, 'level'), false, 'no computer level for two people');
-  assert.equal(await shown(page, 'side-choice'), false);
-  assert.deepEqual(await pressed(page, 0), ['Mud', 'March'], 'the picker keeps the last kings');
-  assert.deepEqual(await pressed(page, 1), ['Frost', 'Freeze'], 'turning powers on gives a king with no power its first power');
-  await startGame(page, { kings: ['Flame:Haste', 'Stratus:Flight'], army: 'classic' });
-  s = await saved(page);
-  assert.deepEqual([s.white, s.black], ['human', 'human']);
-  assert.deepEqual(s.rules.kings, [{ king: 'Flame', power: 'Haste' }, { king: 'Stratus', power: 'Flight' }]);
-  await kingsDrawn(page, ['flame', 'stratus']); // the chosen kings, each in its army's colour
-  ok("A friend: two people; with the Kings' powers box, Flame Haste against Stratus Flight, drawn as Flame and Stratus");
+  assert.deepEqual([s.white, s.black], ['human', 'ai']);
+  await kingsDrawn(page, ['flame', 'stratus']);
+  ok('A friend opens online setup. Powers keep the computer opponent.');
 
   // 5. The dialog remembers the last game's setup across a reload.
   await page.reload(); await page.waitForFunction(() => window.view?.ready);
   await pressMenu(page, 'New game');
-  assert.equal(await checked(page, 'mode'), 'two');
-  assert.equal(await page.isChecked('#two-powers'), true);
+  assert.equal(await checked(page, 'mode'), 'powers');
   assert.deepEqual(await pressed(page, 0), ['Flame', 'Haste']);
   await page.keyboard.press('Escape');
   ok('memory: a reload opens New game on the last setup');
@@ -236,10 +228,7 @@ try {
 
   // 7. Keyboard: the modes are one radio group; arrows move through it.
   await pressMenu(page, 'New game');
-  await page.focus('#mode-two');
-  await page.keyboard.press('ArrowUp');
-  assert.equal(await checked(page, 'mode'), 'powers');
-  assert.equal(await shown(page, 'level'), true);
+  await page.focus('#mode-powers');
   await page.keyboard.press('ArrowUp');
   assert.equal(await checked(page, 'mode'), 'computer');
   assert.equal(await shown(page, 'king-picker'), false);
@@ -285,7 +274,9 @@ try {
   await page.context().close();
   page = await open();
   await pressMenu(page, 'New game');
-  assert.deepEqual([await page.$$eval('#design option', os => os.map(o => o.textContent)), await page.textContent('#design-line')], [['No design'], 'No designs yet. Make one in the Workshop.'], 'no designs: the line says where to make one');
+  assert.deepEqual([await page.$$eval('#design option', os => os.map(o => o.textContent)), await page.textContent('#design-line')], [['No design'], 'No designs yet. Make one in the Workshop.'], 'no designs: the stored words stay available');
+  assert.equal(await page.locator('#design-row').isVisible(), false);
+  assert.equal(await page.locator('#design-line').isVisible(), false);
   await page.keyboard.press('Escape');
   ok('Bring a design: the designs, a reason for one that waits, Tab and 44 px, one each side in place of the nearest piece, the computer plays it, memory, a game link, and a link this version cannot read');
 
@@ -386,8 +377,8 @@ try {
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
     page = await open({ viewport, touch: true });
-    for (const mode of ['computer', 'powers', 'two']) {
-      await setUpGame(page, { mode, powers: mode === 'two' ? true : undefined, army: 'MMSSNBNK' });
+    for (const mode of ['computer', 'powers']) {
+      await setUpGame(page, { mode, army: 'MMSSNBNK' });
       await insideViewport(page, '#start-game');
       assert.equal(await page.inputValue('#army'), 'MMSSNBNK');
       assert.equal(await page.evaluate(() => document.getElementById('other-armies').open), true);
@@ -401,9 +392,8 @@ try {
   await pressMenu(page, 'New game');
   await shot(page, 'phone-computer.jpg', jpeg);
   await page.click('#more-options summary');
-  for (const mode of ['computer', 'powers', 'two']) {
+  for (const mode of ['computer', 'powers']) {
     await page.click(`label:has(#mode-${mode})`);
-    if (mode === 'two') await page.check('#two-powers');
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.getElementById('new-game').scrollWidth <= document.getElementById('new-game').clientWidth), mode);
     if (mode === 'powers') await shot(page, 'phone-powers.jpg', jpeg);
   }

@@ -1,10 +1,10 @@
-/* The table grid follows the chosen prototype. Its rows stay fixed during play. */
+/* Status rows keep their minimum height and grow with their text. */
 #game-table {
   --strip-height: 56px;
   --context-height: 77px; /* Three 20 px lines, padding and the top border. */
   height: 100vh; height: 100dvh;
   display: grid; grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: var(--strip-row, var(--strip-height)) minmax(0, max-content) var(--strip-row, var(--strip-height)) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) minmax(calc(60px + max(8px, env(safe-area-inset-bottom))), max-content);
+  grid-template-rows: var(--strip-row, var(--strip-height)) minmax(0, max-content) var(--strip-row, var(--strip-height)) max-content max-content minmax(0, 1fr) minmax(calc(60px + max(8px, env(safe-area-inset-bottom))), max-content);
   grid-template-areas: 'them' 'board' 'me' 'context' 'moves' 'space' 'bar';
   max-width: 760px; margin: auto; padding-top: env(safe-area-inset-top);
 }
@@ -28,9 +28,9 @@
 #context-text { flex: 1; min-width: 0; font-size: 16px; line-height: 1.25; white-space: normal; }
 #context-actions { display: flex; gap: 4px; flex-shrink: 0; }
 #context-actions button { width: auto; min-width: 44px; white-space: nowrap; padding: 4px 8px; }
-#moves-line { grid-area: moves; width: calc(100% - 24px); margin: 0 12px; height: 48px; min-height: 48px; display: flex; gap: 8px; border: 0; border-block: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; padding: 0; text-align: left; color: var(--ink-soft); }
+#moves-line { grid-area: moves; width: calc(100% - 24px); margin: 0 12px; height: auto; min-height: 48px; display: flex; gap: 8px; border: 0; border-block: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; padding: 4px 0; text-align: left; color: var(--ink-soft); }
 #last-move { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
-#last-move span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: normal; line-height: 1.2; font-size: 14px; }
+#last-move span { display: block; white-space: normal; line-height: 1.2; font-size: 14px; }
 #last-move .pi { width: 26px; height: 26px; flex: none; }
 #game-table .moves-label { flex: none; font-size: 14px; font-weight: 700; }
 #game-table .table-space { grid-area: space; }
@@ -62,7 +62,7 @@
 @media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
   #game-table { --strip-height: 64px; --context-height: 72px; max-width: 1360px; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: minmax(0, 1fr); grid-template-areas: 'board side'; gap: 24px; padding: 24px; }
   #game-table #board { width: 100%; height: 100%; aspect-ratio: auto; }
-  #game-table .table-side { grid-area: side; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--strip-height) var(--strip-height) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) minmax(calc(60px + max(8px, env(safe-area-inset-bottom))), max-content); grid-template-areas: 'them' 'me' 'context' 'moves' 'space' 'bar'; }
+  #game-table .table-side { grid-area: side; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--strip-height) var(--strip-height) max-content max-content minmax(0, 1fr) minmax(calc(60px + max(8px, env(safe-area-inset-bottom))), max-content); grid-template-areas: 'them' 'me' 'context' 'moves' 'space' 'bar'; }
   #context-line, #moves-line { margin-inline: 0; width: 100%; }
   #table-bar { padding-inline: 0; border-top: 1px solid var(--line); }
   #game-table .player-strip { padding-inline: 4px; }
@@ -77,7 +77,7 @@
 
 /* Each context row keeps room for its rule words. */
 #context-text > span { display: block; white-space: normal; }
-#context-text > span + span { font-size: 14px; }
+#context-text > span + span { font-size: 14px; line-height: 1.4; }
 #context-text[data-rank="lesson"] > span { display: inline; font-size: 14px; }
 #context-text[data-rank="lesson"] > span + span::before { content: " "; }
 /* The note borrows the free row. The board and bar keep their fixed rows. */
@@ -105,7 +105,7 @@
 @media (max-height: 640px) and (max-width: 899px) and (orientation: portrait) {
   #game-table {
     --strip-height: 44px; --context-height: 57px;
-    grid-template-rows: var(--strip-row, 44px) minmax(0, max-content) var(--strip-row, 44px) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) minmax(calc(60px + max(8px, env(safe-area-inset-bottom))), max-content);
+    grid-template-rows: var(--strip-row, 44px) minmax(0, max-content) var(--strip-row, 44px) max-content max-content minmax(0, 1fr) minmax(calc(60px + max(8px, env(safe-area-inset-bottom))), max-content);
   }
   #game-table .player-strip { padding-block: 0; }
   #game-table .portrait { width: 36px; height: 36px; }
@@ -119,7 +119,7 @@
   #context-text #previously-before { display: none; }
   #context-actions #all-rules { font-size: 0; width: 44px; padding: 4px; }
   #all-rules::after { content: 'ⓘ'; font-size: 22px; }
-  #moves-line { height: 48px; min-height: 48px; }
+  #moves-line { height: auto; min-height: 48px; }
 }
 
 #menu-sheet { height: fit-content; --menu-bottom-pad: 16px; }
@@ -146,3 +146,11 @@
 #table-bar > :is(button.primary, #end-turn) { min-height: 52px; }
 
 #table-bar > button .icon { width: 20px; height: 20px; }
+
+#context-text:is([data-rank='read'], [data-rank='selected'], [data-rank='lesson']) { display: block; overflow: visible; }
+@media (max-width: 899px) {
+  #context-text[data-rank='lesson'] > span { font-size: 16px; line-height: 1.4; }
+}
+@media (max-width: 350px) {
+  #menu-back .back-label { display: none; }
+}

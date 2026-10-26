@@ -52,7 +52,7 @@ function cardTiles() {
   return `<div id="setup-card-pool" class="card-grid" role="group" aria-label="Card pool">${DEAL_CARDS.map(card => `<div class="setup-card" data-card="${card}"><button id="setup-card-${card}" type="button" class="card-face" aria-haspopup="dialog" aria-label="${cardName(card)}"><span class="cf-art">${cardArt(card, true)}</span><span class="cf-text"><b>${cardName(card)}</b></span></button><label class="card-use"><input type="checkbox" value="${card}" aria-label="Use ${cardName(card)}"></label></div>`).join('')}</div>`;
 }
 function build() {
-  $('setup-body').innerHTML = `<fieldset class="modes"><legend class="sr-only">Who you play</legend>${(['solo','friend','random'] as const).map(kind => `<label class="mode"><input type="radio" name="setup-mode" value="${kind}" aria-label="${{ solo: 'Artificial', friend: 'A friend', random: 'Random' }[kind]}">${icon({ solo: 'brain', friend: 'smiling-pawn', random: 'die' }[kind])}<span class="mode-text"><b>${{ solo: 'Artificial', friend: 'A friend', random: 'Random' }[kind]}</b></span></label>`).join('')}</fieldset>
+  $('setup-body').innerHTML = `<fieldset class="modes"><legend class="sr-only">Who you play</legend>${(['solo','friend','random'] as const).map(kind => `<label class="mode"><input type="radio" name="setup-mode" value="${kind}" aria-label="${{ solo: 'Computer', friend: 'A friend', random: 'Random' }[kind]}">${icon({ solo: 'brain', friend: 'smiling-pawn', random: 'die' }[kind])}<span class="mode-text"><b>${{ solo: 'Computer', friend: 'A friend', random: 'Random' }[kind]}</b></span></label>`).join('')}</fieldset>
     <details id="setup-options"><summary>Game options</summary>
     ${segment('setup-rating', 'Game mode', ['casual','ranked'])}<p id="setup-rating-line" class="quiet-line">${rankedOffered() ? 'Casual does not change ratings. Ranked uses your existing rating.' : 'A game with a random player is Casual. Casual does not change ratings.'}</p><p id="setup-ranked-rules" class="quiet-line" hidden>${RANKED_RULES} ${RANKED_HELP}</p>
     ${toggle('anyRules', 'globe', 'Any rules', ANY_RULES)}
@@ -284,6 +284,14 @@ export function currentSetup(): SetupState {
   const setup = draft ?? readSetup(memory.settings?.last_setup), pending = client.state.pending;
   return pending?.name === 'kingdown_find' ? readSetup({ ...setup, kind: 'random', mode: pending.args.mode === 'ranked' ? 'ranked' : 'casual', options: pending.args.options ?? setup.options, colour: pending.args.colour ?? setup.colour, king: pending.king === undefined ? setup.king : pending.king }) : setup;
 }
+/** Open the friend setup without starting a game or changing saved choices. */
+export function setUpFriend(): void {
+  draft = withMode({ ...readDraft(), kind: 'friend' }, 'casual');
+  memory.kind = 'friend';
+  anyRules = false;
+  if (client.state.screen === 'play') setupScreen();
+}
+
 export function setupScreen() {
   if (stopped || queue.closed()) return;
   if (!memory.settings) return;

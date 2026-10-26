@@ -18,7 +18,7 @@ import { pollSince, runPoll, type PollTarget } from '../plugin/poll';
 import { createRouter } from '../plugin/router';
 import { applyLocks, createStore, isStart, isStartStep, locks, messageLine } from '../account-game/state';
 import { createQueue, EMPTY, REFUSALS, resultCode, resultText, type Job, type JobOptions, type Kind, type Outcome, userCommand } from '../plugin/queue';
-import { draftFromGame, finishStart, playNow, setupBusy, setupScreen, setupStarting, setupSync } from '../plugin/screens/setup';
+import { draftFromGame, finishStart, playNow, setupBusy, setupScreen, setupStarting, setupSync, setUpFriend } from '../plugin/screens/setup';
 import { readSetup } from '../plugin/screens/setup-model';
 import { finishCancel, friendScreen, stopAll } from '../plugin/screens/friend';
 import { joinScreen, joinSync } from '../plugin/screens/join';
@@ -426,6 +426,7 @@ async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
       state.board_id = (home._meta?.board_id as string | undefined) ?? state.board_id;
       remember(home, job); client.save(); return;
     }
+    if (!state.pending && value?.new_friend === true) setUpFriend();
     if (!initial && value?.screen === 'home') openHallOnExpand = false;
     if (value?.screen === 'join') { memory.preview = result._meta?.preview as JoinPreview | undefined; memory.code = memory.preview?.code ?? ''; memory.joinError = undefined; }
     if (value && ['home', 'play', 'board', 'profile', 'join', 'settings'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen === 'home' && initial && !savedScreen && displayMode === 'fullscreen' ? 'play' : value.screen as Screen);

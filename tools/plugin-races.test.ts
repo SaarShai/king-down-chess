@@ -492,7 +492,7 @@ it('R2: a failed start does not lock another game (a.out 2)', async () => {
   try {
     const { game: friend } = await friendGame(page);
     await html(page).evaluate(() => (window as any).harnessApp.navigate('play'));
-    await frame.getByRole('radio', { name: 'Artificial', exact: true }).locator('..').click();
+    await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await page.clock.install();
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_create'; });
     // This action has no navigation; wait for its held create request.

@@ -2,7 +2,7 @@ import { GameRules } from './game-rules';
 import { MENU_LEVELS, LEVEL_NAMES, LEVEL_LINES, menuLevel, levelPosition, levelSlider } from './level-ui';
 import { POWERS_BALANCED } from './rules/rules';
 /**
- * The New game dialog (index.html #new-game): three suggested games, the computer's level, a king
+ * The New game dialog (index.html #new-game): computer games and an online friend link, the computer's level, a king
  * picker per side, "Bring a design" (ticket 17) and a folded "Army". The dialog edits a copy of the next game's setup;
  * Start game hands it to main.ts. Close drops it.
  */
@@ -54,6 +54,11 @@ export const defaultSetup = (): Setup => ({
   picks: [{ king: PLAIN_KINGS[0], power: null }, { king: PLAIN_KINGS[1], power: null }],
   army: 'random', design: null,
 });
+
+/** The local sheet starts computer games. Old two-player games can still resume. */
+export function dialogSetup(s: Setup): Setup {
+  return { ...copy(s), mode: s.mode === 'two' ? s.twoPowers ? 'powers' : 'computer' : s.mode, level: menuLevel(s.level) };
+}
 
 export const powersOn = (s: Setup): boolean => s.mode === 'powers' || (s.mode === 'two' && s.twoPowers);
 export const playersOf = (s: Setup): [Side, Side] =>
@@ -159,7 +164,6 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
   $('level').innerHTML = levelSlider('level-slider');
   $<HTMLInputElement>('level-slider').oninput = event => { draft.level = MENU_LEVELS[+(event.target as HTMLInputElement).value]; render(); };
   for (const r of radios('side')) r.onchange = () => { draft.side = +r.value as Color; render(); };
-  $<HTMLInputElement>('two-powers').onchange = e => { draft = withMode(draft, draft.mode, (e.target as HTMLInputElement).checked); render(); };
   const army = $<HTMLSelectElement>('army');
   let example = 0;
   for (const option of $('army-examples').querySelectorAll('option')) {
@@ -177,15 +181,11 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
     $<HTMLInputElement>('level-slider').value = String(levelPosition(draft.level));
     $('level-slider').setAttribute('aria-valuetext', LEVEL_NAMES[draft.level]);
     for (const r of radios('side')) r.checked = +r.value === draft.side;
-    $<HTMLInputElement>('two-powers').checked = draft.twoPowers;
-    const two = draft.mode === 'two';
-    $('level').hidden = $('level-line').hidden = $('side-choice').hidden = two;
     $('level-line').textContent = LEVEL_LINES[draft.level];
-    $('two-powers-row').hidden = !two;
     $('king-picker').hidden = !powersOn(draft);
     for (const c of [0, 1] as const) {
       const box = $(`pick-${c}`), { king, power } = draft.picks[c];
-      box.querySelector('.who')!.textContent = two ? '' : c === draft.side ? '· you' : '· computer';
+      box.querySelector('.who')!.textContent = c === draft.side ? '· you' : '· computer';
       for (const b of box.querySelectorAll<HTMLButtonElement>('.emblem')) b.setAttribute('aria-pressed', String(b.dataset.king === king));
       const opts = options.get(king)!;
       for (const b of box.querySelectorAll<HTMLButtonElement>('.power-choice button')) {
@@ -199,6 +199,7 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
       const text = chosen ? newGamePowerLine(chosen.label, chosen.title) : 'No power: a plain chess king.';
       if (line.textContent !== text) line.textContent = text; // a live region: say only a change
     }
+    $('design-row').hidden = $('design-line').hidden = shelf.length === 0;
     design.value = draft.design ?? '';
     if (design.value !== (draft.design ?? '')) design.value = '', draft.design = null; // a design that is gone or changed
     const brought = draft.design ? parseDesign(draft.design) : null;
@@ -210,6 +211,7 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
     const name = { random: 'Random army', daily: "Today's army", classic: 'Chess' }[draft.army] ?? army.selectedOptions[0].textContent;
     $('side-army-label').textContent = 'Army';
     $('side-army-value').textContent = name;
+    $('new-game-summary').replaceChildren(...[name, ...draft.picks.map((p, c) => `${SIDE[c]}: ${powersOn(draft) && p.power ? POWER_NAME[p.power] : 'No power'}.`)].map(text => { const row = document.createElement('span'); row.textContent = text; return row; }));
     $('army-line').textContent = { random: 'A new army for each game.', daily: 'The same army for everyone today.', classic: 'The chess starting army.' }[draft.army] ?? 'Try this army.';
     const context = new GameRules({ ...(powersOn(draft) ? POWERS_BALANCED : {}), ...preset, kings: kingsOf(draft) });
     const code = draft.army === 'daily' ? context.randomBackRank(mulberry32(+new Date().toLocaleDateString('en-CA').replace(/-/g, '')))
@@ -225,7 +227,7 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
 
   return {
     open(s: Setup, warning = ''): void {
-      draft = { ...copy(s), level: menuLevel(s.level) };
+      draft = dialogSetup(s);
       // The designs on this device; one with a When that counts moves or cards is listed, not chosen, with the reason.
       shelf = loadShelf().designs;
       design.replaceChildren(new Option('No design', ''), ...shelf.map(d => {

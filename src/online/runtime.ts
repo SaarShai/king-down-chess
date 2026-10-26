@@ -112,7 +112,7 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
   let saved: Partial<PageState> | undefined;
   try { saved = JSON.parse(window.localStorage.getItem(key) ?? 'null') ?? undefined; } catch { /* A bad page record does not change a saved command. */ }
   const entry = parseAccountRoute(new URL(window.location.href));
-  if (entry) saved = { ...saved, screen: entry.screen === 'game' ? 'board' : entry.screen, board_id: entry.screen === 'game' ? entry.gameId : undefined };
+  if (entry) saved = { ...saved, screen: entry.screen === 'game' ? 'board' : entry.screen === 'new-friend' ? 'play' : entry.screen, board_id: entry.screen === 'game' ? entry.gameId : undefined };
   const receipt = transport.pending();
   if (receipt) {
     const previous = saved?.pending?.name === receipt.name && saved.pending.args.command_id === receipt.args.command_id ? saved.pending : undefined;
@@ -139,7 +139,8 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
       if (route.screen === 'join') {
         const preview = route.key ? await api.preview(inviteKey(route.key)) : undefined;
         if (current()) host.onResult?.(result({ ...(preview && { preview }) }, { screen: 'join' }));
-      } else if (route.screen === 'game') host.onResult?.(result({ board_id: route.gameId }, { screen: 'board', game_id: route.gameId }));
+      } else if (route.screen === 'new-friend') host.onResult?.(result({}, { screen: 'play', new_friend: true }));
+      else if (route.screen === 'game') host.onResult?.(result({ board_id: route.gameId }, { screen: 'board', game_id: route.gameId }));
       else host.onResult?.(result({}, { screen: route.screen }));
     } catch (error) {
       if (current()) host.onResult?.({ isError: true, content: text(error instanceof Error ? error.message : String(error)), _meta: { code: error instanceof OnlineError ? error.code : 'UNAVAILABLE' } });

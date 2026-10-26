@@ -126,3 +126,9 @@ it('uses Select in the shared turn instructions', () => {
     expect(`${result.line} ${result.note}`).toMatch(/select/i);
   }
 });
+
+it('offers the read hint and lesson only when the first game asks for them', () => {
+  expect(contextLine({ voice: 'you', teach: 'Tap a piece to read.' })).toMatchObject({ line: 'Your move.', note: 'Tap a piece to read.', actions: ['first-lesson'] });
+  expect(contextLine({ voice: 'you' }).actions).toEqual([]);
+  expect(contextLine({ voice: 'you', teach: 'Tap a piece to read.', selected: 'White pawn.' }).actions).toEqual([]);
+});

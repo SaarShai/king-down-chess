@@ -18,6 +18,8 @@ import type { PreviouslyState } from './previously';
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 const text = (id: string): string => $(id).textContent?.trim() ?? '';
 let read = '', readNote = '', reading = false;
+let firstGame: Game | undefined;
+export function teachFirstGame(game: Game): void { firstGame = game; }
 let thinkingAt = 0, thinkTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function readPiece(pos: Position, sq: number | null, inspecting: boolean, context: GameRules = new GameRules()): void {
@@ -241,6 +243,7 @@ export function refreshTable(s: TableState): void {
     lessonLearned: s.lessonDone && s.lesson != null ? LESSONS[s.lesson].name : '',
     link: s.linkSide != null && s.game.pos.turn !== s.linkSide && !s.turn.waits ? "Wait for your friend's link." : '',
     asset: text('asset-status'),
+    teach: s.game === firstGame && history.length === 0 ? 'Tap a piece to read.' : '',
     previously: s.previously?.line, previouslyDetail: s.previously?.detail, previouslyBefore: s.previously?.before ?? '', seeAgain: s.previously?.seeAgain,
   };
   if (s.power?.power && !s.armed) {
@@ -249,6 +252,7 @@ export function refreshTable(s: TableState): void {
   }
   $('all-rules').hidden ||= !!s.pending.length || s.armed;
   const line = contextLine(state);
+  $('first-lesson').hidden = !line.actions.includes('first-lesson');
   $('context-text').replaceChildren(...[line.line, line.note, line.before ?? ''].filter(Boolean).map((words, i) => {
     const row = document.createElement('span');
     if (words === line.before) row.id = 'previously-before';

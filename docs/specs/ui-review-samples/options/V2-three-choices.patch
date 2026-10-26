@@ -1,0 +1,35 @@
+--- a/index.html
++++ b/index.html
+@@ -131,16 +131,15 @@
+         <form method="dialog"><button value="cancel" aria-label="Close">×</button></form>
+       </header>
+       <div class="new-game-body">
+-        <div class="modes opponents" aria-label="Who you play">
+-          <div class="mode computer-choice"><svg class="icon" aria-hidden="true"><use href="#i-brain"/></svg><span class="mode-text"><b>Computer</b></span></div>
++        <fieldset class="modes" id="modes">
++          <legend class="sr-only">Choose a game</legend>
++          <label class="mode"><input type="radio" name="mode" value="computer" id="mode-computer" aria-label="Computer" />
++            <svg class="icon" aria-hidden="true"><use href="#i-brain"/></svg><span class="mode-text"><b>Computer</b><small>No powers</small></span></label>
++          <label class="mode"><input type="radio" name="mode" value="powers" id="mode-powers" />
++            <svg class="icon" aria-hidden="true"><use href="#i-crown"/></svg><span class="mode-text"><b>Kings' powers</b><small>Computer</small></span></label>
+           <a class="mode" id="new-game-friend" href="/play/friend"><svg class="icon" aria-hidden="true"><use href="#i-smiling-pawn"/></svg><span class="mode-text"><b>A friend</b><small>Online</small></span></a>
+-        </div>
++        </fieldset>
+         <h3 class="group-head">The game</h3>
+-        <fieldset class="modes" id="modes">
+-          <legend class="sr-only">King powers</legend>
+-          <label class="mode"><input type="radio" name="mode" value="computer" id="mode-computer" aria-label="No powers" /><span class="mode-text"><b>No powers</b></span></label>
+-          <label class="mode"><input type="radio" name="mode" value="powers" id="mode-powers" /><span class="mode-text"><b>Kings' powers</b></span></label>
+-        </fieldset>
+         <fieldset class="seg colour-switch" id="side-choice">
+           <legend class="sr-only">Colour</legend>
+           <div class="seg-row">
+--- a/src/style.css
++++ b/src/style.css
+@@ -841,4 +841,5 @@
+ #new-game .mode-text small { display: block; font-size: var(--fs-xs); line-height: 1.2; }
+ #new-game .opponents { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ #new-game .computer-choice { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--vellum); background: var(--stone-700); box-shadow: inset 0 0 0 2px var(--gold-bright); }
+-#new-game #modes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
++#new-game #modes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
++#new-game .mode:has(input:checked) small { color: inherit; }

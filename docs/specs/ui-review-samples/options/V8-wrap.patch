@@ -1,0 +1,10 @@
+--- a/src/ui/table.css
++++ b/src/ui/table.css
+@@ -152,5 +152,6 @@
+   #context-text[data-rank='lesson'] > span { font-size: 16px; line-height: 1.4; }
+ }
+ @media (max-width: 350px) {
+-  #menu-back .back-label { display: none; }
++  #menu-back .back-label { display: inline; }
++  #menu-sheet .sheet-head h2 { white-space: normal; }
+ }

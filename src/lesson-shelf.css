@@ -55,7 +55,7 @@
   background: radial-gradient(closest-side, rgb(233 192 113 / 75%), rgb(233 192 113 / 0%));
 }
 .lesson-shelf .shelf-next { width: 100%; min-height: 44px; justify-content: center; }
-.lesson-shelf .shelf-safe { max-width: none; margin: var(--space-3) 0 0; color: var(--ink-soft); font-size: var(--fs-sm); text-align: center; }
+.lesson-shelf .shelf-safe { max-width: none; margin: var(--space-2) 0 0; color: var(--ink-soft); font-size: var(--fs-sm); text-align: center; }
 @media (min-width: 900px) {
   .lesson-shelf .shelf-list { --sq: 108px; --fig-h: 154px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .lesson-shelf .shelf-list li:nth-child(n)::after { border-radius: 0; }
@@ -65,3 +65,6 @@
 }
 
 #powers-list [data-power] { display: block; margin: 4px 0 8px; padding: 4px; }
+
+.lesson-shelf .shelf-next { margin-top: var(--space-3); }
+#rules-notation { max-width: 55ch; }

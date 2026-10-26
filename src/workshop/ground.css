@@ -781,3 +781,10 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .sentence > .kd-seal { display: none; }
   .sentence .say { grid-column: 1 / -1; }
 }
+
+#workshop.pg .pg-name .lab-note { margin: 0; color: var(--ink-soft); font-size: var(--fs-sm); font-family: var(--font-body); }
+#workshop.pg [data-act='cardexample'] { flex: none; font-size: var(--fs-sm); padding-inline: 8px; }
+@media (max-width: 700px) {
+  .pg-brushes.pg-powers:has([data-act='cardexample']) { height: auto; min-height: 62px; flex-wrap: wrap; gap: 4px 8px; padding-block: 4px; }
+  .pg-brushes.pg-powers:has([data-act='cardexample']) .info-p { flex-basis: 100%; margin: 0; }
+}

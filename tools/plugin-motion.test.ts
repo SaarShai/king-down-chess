@@ -32,7 +32,7 @@ const tapSquare = async (frame: FrameLocator, name: string) => {
   await frame.locator('#board canvas').click({ position: { x: box.width * 11 / 302 + (name.charCodeAt(0) - 97 + .5) * s, y: box.height * 30 / 322.1 + (8 - Number(name[1]) + .5) * s } });
 };
 async function newGame(frame: FrameLocator, toggles: [string, boolean][], start = true) {
-  await frame.getByRole('radio', { name: 'Artificial', exact: true }).locator('..').click();
+  await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
   const options = frame.locator('#setup-options');
   if (!await options.evaluate(e => (e as HTMLDetailsElement).open)) await options.locator('summary').click();
   await frame.getByRole('radio', { name: 'White', exact: true }).locator('..').click();

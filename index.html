@@ -51,6 +51,7 @@
         <div id="context-line">
           <div id="context-text" role="status" aria-live="polite" aria-atomic="true"></div>
           <div id="context-actions">
+            <button id="first-lesson" hidden>Learn</button>
             <button id="all-rules" aria-label="All rules" hidden>All rules</button>
             <button id="power-use" hidden>Use</button>
             <button id="power-cancel" hidden>Cancel</button>
@@ -130,19 +131,16 @@
         <form method="dialog"><button value="cancel" aria-label="Close">×</button></form>
       </header>
       <div class="new-game-body">
-        <fieldset class="modes" id="modes">
-          <legend class="sr-only">Choose a game</legend>
-          <label class="mode"><input type="radio" name="mode" value="computer" id="mode-computer" aria-label="Artificial" />
-            <svg class="icon" aria-hidden="true"><use href="#i-brain"/></svg>
-            <span class="mode-text"><b>Artificial</b></span></label>
-          <label class="mode"><input type="radio" name="mode" value="powers" id="mode-powers" />
-            <svg class="icon" aria-hidden="true"><use href="#i-crown"/></svg>
-            <span class="mode-text"><b>Kings' powers</b></span></label>
-          <label class="mode"><input type="radio" name="mode" value="two" id="mode-two" aria-label="A friend" />
-            <svg class="icon" aria-hidden="true"><use href="#i-smiling-pawn"/></svg>
-            <span class="mode-text"><b>A friend</b></span></label>
-        </fieldset>
+        <div class="modes opponents" aria-label="Who you play">
+          <div class="mode computer-choice"><svg class="icon" aria-hidden="true"><use href="#i-brain"/></svg><span class="mode-text"><b>Computer</b></span></div>
+          <a class="mode" id="new-game-friend" href="/play/friend"><svg class="icon" aria-hidden="true"><use href="#i-smiling-pawn"/></svg><span class="mode-text"><b>A friend</b><small>Online</small></span></a>
+        </div>
         <h3 class="group-head">The game</h3>
+        <fieldset class="modes" id="modes">
+          <legend class="sr-only">King powers</legend>
+          <label class="mode"><input type="radio" name="mode" value="computer" id="mode-computer" aria-label="No powers" /><span class="mode-text"><b>No powers</b></span></label>
+          <label class="mode"><input type="radio" name="mode" value="powers" id="mode-powers" /><span class="mode-text"><b>Kings' powers</b></span></label>
+        </fieldset>
         <fieldset class="seg colour-switch" id="side-choice">
           <legend class="sr-only">Colour</legend>
           <div class="seg-row">
@@ -152,7 +150,6 @@
         </fieldset>
         <div id="level"></div>
         <p id="level-line"></p>
-        <label class="check" id="two-powers-row" hidden><input type="checkbox" id="two-powers" /><span>Play with kings' powers <small>Each king brings one power.</small></span></label>
         <div id="king-picker" hidden>
           <div class="king-pick" id="pick-0"></div>
           <div class="king-pick" id="pick-1"></div>
@@ -189,12 +186,13 @@
         </details>
       </div>
       <footer class="new-game-foot">
+        <p id="new-game-summary" aria-live="polite"></p>
         <p id="new-game-warn" hidden></p>
         <button id="start-game" type="button" class="primary">Start game</button>
       </footer>
     </dialog>
     <dialog id="menu-sheet" aria-labelledby="menu-title">
-      <header class="sheet-head"><button id="menu-back" aria-label="Back to Menu" hidden>‹ Menu</button><h2 id="menu-title" tabindex="-1">Menu</h2><button id="menu-close" aria-label="Close">×</button></header>
+      <header class="sheet-head"><button id="menu-back" aria-label="Back to Menu" hidden><span class="back-mark" aria-hidden="true">‹</span><span class="back-label">Menu</span></button><h2 id="menu-title" tabindex="-1">Menu</h2><button id="menu-close" aria-label="Close">×</button></header>
       <div class="sheet-body">
       <section data-menu-page="menu">
         <a class="menu-row account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Same games on web and in ChatGPT. Online only.</small></a>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSetup, newGamePowerLine, newGameWarning, kingsOf, parseSetup, playersOf, powersOn, refusal, setupOfGame, withDesign, withKing, withMode } from './new-game';
+import { defaultSetup, dialogSetup, newGamePowerLine, newGameWarning, kingsOf, parseSetup, playersOf, powersOn, refusal, setupOfGame, withDesign, withKing, withMode } from './new-game';
 import { PRESETS, designCode, fromPreset } from './workshop/model';
 import { powerOptions } from './powers-ui';
 import { Game } from './game';
@@ -7,7 +7,7 @@ import { CLASSIC_CHESS, toLan } from './rules/setup';
 import { turnEnded } from './turn';
 
 describe('New game setup', () => {
-  it('starts as Artificial: White against the Club computer, Spirit and Shadow with no power', () => {
+  it('starts as Computer: White against the Club computer, Spirit and Shadow with no power', () => {
     const s = defaultSetup();
     expect([s.mode, s.level, s.side, s.army]).toEqual(['computer', 'club', 0, 'random']);
     expect(s.picks).toEqual([{ king: 'Spirit', power: null }, { king: 'Shadow', power: null }]);
@@ -24,7 +24,7 @@ describe('New game setup', () => {
     expect(s.picks[0].king).toBe('Spirit'); // the setup is copied, not changed
     mud.picks[1].power = null;
     expect(kingsOf(mud)).toEqual([{ king: 'Mud', power: 'March' }, null]);
-    // Back to Artificial: no powers, whatever the picker holds.
+    // Back to Computer: no powers, whatever the picker holds.
     expect(kingsOf(withMode(mud, 'computer'))).toEqual([null, null]);
   });
 
@@ -145,4 +145,11 @@ it('keeps old level values and maps the three menu stops', async () => {
   expect(MENU_LEVELS).toEqual(['beginner','casual','club']);
   for (const level of [...MENU_LEVELS, 'strong'] as const) expect(parseSetup({ ...defaultSetup(), level })?.level).toBe(level);
   expect(menuLevel('strong')).toBe('club'); expect(LEVEL_NAMES.strong).toBe('Strong'); expect(levelPosition('strong')).toBe(2);
+});
+
+it('opens a computer setup when the saved game has two local players', () => {
+  const saved = withMode(defaultSetup(), 'two', true);
+  expect(dialogSetup(saved).mode).toBe('powers');
+  expect(dialogSetup({ ...saved, twoPowers: false }).mode).toBe('computer');
+  expect(saved.mode).toBe('two');
 });

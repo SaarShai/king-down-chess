@@ -1,3 +1,4 @@
+import { teachFirstGame } from './ui/table';
 import './style.css';
 import { Engine } from './game';
 import { PaintedView, type BoardView } from './render/PaintedView';
@@ -84,6 +85,7 @@ const play = connectPlay(view, {
   keys: () => keys, account: () => account, setup: () => setup, openNewGame: () => openNewGame(),
 });
 
+$('first-lesson').onclick = () => play.startLesson(0);
 initLessonShelf(play.startLesson, () => $('return-game').click());
 
 /** The Workshop (docs/WORKSHOP.md): its own chunk, loaded on the first tap. It opens over its caller, which stays open. */
@@ -201,7 +203,7 @@ if (designLink) {
 }
 const titleChoice = await titleClosed; // the computer waits for the player, and no dialog opens over the title
 await play.previously.start();
-if (titleChoice === 'start') startFirstDeal(SETUP_KEY, (s, army) => { setup = s; play.newGame(army); });
+if (titleChoice === 'start') startFirstDeal(SETUP_KEY, (s, army) => { setup = s; play.newGame(army); teachFirstGame(play.game()); play.refresh(); });
 else if (titleChoice === 'learn') play.startLesson(0);
 else {
   if (titleChoice === 'play') {
