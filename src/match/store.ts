@@ -218,7 +218,7 @@ export class PostgresMatchStore {
  async due(now: Date, limit = 100): Promise<string[]> {
   return (await this.pool.query(`(select id from public.games where status='playing' and deadline_at<=$1 order by deadline_at limit $2)
    union all (select id from public.games where status='setup' and setup_deadline_at<=$1 order by setup_deadline_at limit $2)
-   union all (select i.game_id from public.game_invites i join public.games g on g.id=i.game_id where g.status='waiting' and g.kind<>'random' and i.state='open' and i.expires_at<=$1 limit $2)
+   union all (select i.game_id from public.game_invites i join public.games g on g.id=i.game_id where g.status='waiting' and g.kind<>'random' and i.state='open' and i.expires_at<=statement_timestamp() limit $2)
    union all (select g.id from public.games g where g.kind='friend' and g.status='waiting' and g.created_at<=$1::timestamptz-interval '7 days' and not exists(select from public.game_invites where game_id=g.id) order by g.created_at limit $2)
    union all (select id from public.games where kind='random' and status='waiting' and created_at<=$1::timestamptz-interval '24 hours' order by created_at limit $2)`, [now, limit])).rows.map(r => r.id);
  }

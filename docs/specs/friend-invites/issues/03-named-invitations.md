@@ -1,6 +1,6 @@
 # Add named invitation state and service paths
 
-Status: resolved
+Status: claimed
 Type: task
 Blocked by: none; migration run is approved with the spec
 Spec: [Online friend invitations](../README.md)
@@ -111,3 +111,27 @@ Local browser checks load this branch's schema after they get the shared slot. S
 - Source merges: `a598f8c6`, `d42e15de`. The final fetch and merge report up to date at `f306d452`. No conflict occurs. The merge keeps the source UI and settings fixes.
 
 No acceptance check remains open. This work runs no remote migration, push or deploy. The local database cluster stays up.
+
+## PR 156 review repair
+
+The independent review requests six fixes. The named cap stays per sender and recipient pair.
+
+1. Add failing repo tests for the old join writer, first named send, tool privacy, receipt cleanup, solo deletion race and database expiry.
+2. Fix each cause. Split migration 0022 into short schema steps and concurrent index builds. Keep old writers valid.
+3. Run the invitation file twice, the four API/tool files, doc checks, the full suite and the four required browser checks.
+4. Fetch and merge `origin/staging/first-game` before the last commit. Record counts and commits. Do not push.
+
+Pass criteria: each new test fails before its fix and passes after it. The deletion race uses separate database connections. All required checks pass on the local cluster. The quiet lock blocks full and browser checks.
+
+The repair has 14 failing regression cases before the fixes: 9 database cases and 5 tool cases.
+The first green invitation run passes 43 cases. The four API/tool files pass 153 cases. Each run also passes 67 artwork cases and both type checks.
+
+- Migration: the exact old join statement passes with the state trigger. Schema locks end before backfill and validation. Five indexes use concurrent builds. The shared migration runner sends each phase as one query.
+- First send: the service compares recipients only when a stored invitation exists. ID and handle cases pass.
+- Tool privacy: all three limit notices and both invitation output paths keep player data in `_meta`. Model fields use an explicit safe list. The full host notice is `_meta.message`.
+- Receipts: recipient IDs and handles use SHA-256 digests for input comparison. Same-input retries pass and changed inputs fail. Deletion removes raw fields from old receipts.
+- Solo creation: every create takes the account lock. The real deletion race leaves no solo game after deletion.
+- Expiry: selection and the recheck use database time for invitations. Fast and slow app clocks do not change validity.
+
+Logs: `/tmp/friend2-db-red.log`, `/tmp/friend2-tool-red.log`, `/tmp/friend2-db-green1.log`, `/tmp/friend2-api-tools.log`.
+The local branch database is `kingdown_friend156_test` on `127.0.0.1:55432`. Migrations 0001–0022 pass twice.

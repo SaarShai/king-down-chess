@@ -45,10 +45,11 @@ function canonicalCreate(input: CreateOptions): CreateOptions {
  return input.mode === 'ranked' ? { ...input, colour: 'random', options: RANKED_OPTIONS } : input;
 }
 /** A start's input with its defaults. The start receipt keeps it; a resend with other input is COMMAND_CONFLICT.
+ * Recipient fields use digests so receipts do not keep raw player data.
  * Speed and days come from the kind; they stay in the key, so the receipts of older starts still match. */
 export function startKey(input: CreateOptions, anyRules = false) {
  const speed: View['speed'] = input.kind === 'solo' ? 'live' : 'daily';
- return { mode: input.mode ?? 'casual', kind: input.kind, speed, days_per_move: speed === 'daily' ? TURN_DAYS : null, colour: input.colour ?? 'white', level: input.level ?? 'club', options: input.options ?? null, setup: input.setup ?? null, any_rules: anyRules, ...(input.recipient_id && { recipient_id: input.recipient_id }), ...(input.recipient_handle && { recipient_handle: input.recipient_handle.trim().toLowerCase() }) };
+ return { mode: input.mode ?? 'casual', kind: input.kind, speed, days_per_move: speed === 'daily' ? TURN_DAYS : null, colour: input.colour ?? 'white', level: input.level ?? 'club', options: input.options ?? null, setup: input.setup ?? null, any_rules: anyRules, ...(input.recipient_id && { recipient_id_hash: hash(input.recipient_id) }), ...(input.recipient_handle && { recipient_handle_hash: hash(input.recipient_handle.trim().toLowerCase()) }) };
 }
 type StartKey = ReturnType<typeof startKey>;
 export function id(value: unknown): string { return typeof value === 'string' && uuid.test(value) ? value.toLowerCase() : fail('INVALID_INPUT', 400, 'Expected a UUID'); }
@@ -150,7 +151,6 @@ export class GameService {
   if (options.kind === 'friend' && (options.recipient_id || options.recipient_handle || options.open_link)) await this.store.friendTry(actor);
   const game = await this.newGame(actor, options, commandId === undefined ? randomUUID() : startId(actor, commandId));
   settle(game, game.created_at);
-  if (options.kind === 'solo' && commandId === undefined) { await this.store.insert(game); return this.render(game, seatOf(game, actor), { rules: true }); }
   return this.store.transaction(async client => {
    if (commandId !== undefined) await startLock(client, actor, commandId);
    const done = commandId === undefined ? undefined : await this.started(client, actor, commandId, key, options.mode === undefined);
@@ -532,7 +532,7 @@ export class GameService {
    if (game.created_by !== actor || game.kind !== 'friend') fail('FORBIDDEN', 403, INVITE_NOTICES.unavailable);
    const stored = (await client.query('select *,expires_at::text as exact_expiry from public.game_invites where game_id=$1 for update', [gameId])).rows[0];
    // Re-read after account locks. A concurrent send can add the first invitation.
-   if ((stored?.recipient_id ?? null) !== recipient) fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.unavailable);
+   if (stored && (stored.recipient_id ?? null) !== recipient) fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.unavailable);
    if (game.status !== 'waiting' || stored && stored.state !== 'open') fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.closed);
    if (stored && await this.store.inviteExpired(client, stored.token_hash)) fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.expired);
    if (stored && (options.recipient_id && options.recipient_id !== recipient || options.recipient_handle || options.open_link && recipient)) fail('INVALID_INPUT', 400, 'Keep the invitation recipient.');
@@ -664,12 +664,13 @@ export class GameService {
     // A command, a new invitation or another sweep may have come first.
     const late = game.status === 'setup' ? !!game.setup_deadline_at && game.setup_deadline_at <= now : game.status === 'playing' ? !!game.deadline_at && game.deadline_at <= now
      : game.status === 'waiting' && (game.kind === 'random' ? game.created_at.getTime() + DAY <= now.getTime()
-      : !!(await client.query("select from public.game_invites where game_id=$1 and state='open' and expires_at<=$2", [gameId, now])).rowCount || game.created_at.getTime() + FRIEND_CODE_DAYS * DAY <= now.getTime() && !(await client.query('select from public.game_invites where game_id=$1', [gameId])).rowCount);
+      : !!(await client.query("select from public.game_invites where game_id=$1 and state='open' and expires_at<=statement_timestamp()", [gameId])).rowCount || game.created_at.getTime() + FRIEND_CODE_DAYS * DAY <= now.getTime() && !(await client.query('select from public.game_invites where game_id=$1', [gameId])).rowCount);
     if (!late) return 0;
     if (game.status === 'waiting') await client.query("update public.game_invites set state='cancelled',closed_at=statement_timestamp() where game_id=$1 and state='open'", [gameId]);
     const next = step(game), out: Outgoing = { notify: [], outbox: [] };
-    if (game.status === 'waiting') end(next, out, null, 'no_start', now); else expire(next, out, now);
-    await this.write(client, game, next, { seat: null, actor_id: null, command_id: null, kind: 'expire', payload: {}, actions: null, surface: null, received_at: now }, out);
+    const at = game.status === 'waiting' && game.kind === 'friend' ? await this.store.now(client) : now;
+    if (game.status === 'waiting') end(next, out, null, 'no_start', at); else expire(next, out, at);
+    await this.write(client, game, next, { seat: null, actor_id: null, command_id: null, kind: 'expire', payload: {}, actions: null, surface: null, received_at: at }, out);
     return 1;
    });
   } catch (error) {

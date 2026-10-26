@@ -1,13 +1,14 @@
 /** Bootstrap only a disposable loopback PostgreSQL database for local/CI checks. */
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
+import { applyMigration } from './apply-migration.mjs';
 import { withRoleLock } from './role-lock.mjs';
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
 if (!connectionString) throw new Error('PLUGIN_TEST_DATABASE_URL must name a disposable database');
 const target = new URL(connectionString);
 if (!['localhost', '127.0.0.1', '[::1]'].includes(target.hostname) || !target.pathname.endsWith('_test')) throw new Error('Test bootstrap requires a loopback database with a name ending _test');
 const pool = new pg.Pool({ connectionString, max: 1 });
-const sql = async name => pool.query(await readFile(new URL(`../../${name}`, import.meta.url), 'utf8'));
+const sql = async name => applyMigration(pool, await readFile(new URL(`../../${name}`, import.meta.url), 'utf8'));
 try {
   await withRoleLock(connectionString, async () => {
     // Stand-ins for what Supabase provides: the roles, auth.users, auth.sessions and auth.uid().

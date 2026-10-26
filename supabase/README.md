@@ -210,6 +210,20 @@ Confirm the two internal routes work before you paste the MVP file.
 - `0022_friend_invites.sql`: adds a named recipient, terminal state, close time and count indexes.
   It keeps row security and runtime grants. It checks duplicates before the unique game constraint.
   Account deletion ends affected waiting games and removes sent and received invitations in one transaction.
+  It also removes raw recipient fields from old command receipts.
   Apply 0022 on staging before a deploy that depends on it.
   Apply 0022 on production before the release that carries it.
   The owner session runs each remote migration. This build tests only the local disposable cluster.
+
+Run each `-- migrate:next` phase as a separate query, in file order. Do not put the file in one transaction.
+The migration and test bootstrap tools use `applyMigration` for these phases.
+
+1. Add columns and the old-join trigger in a short transaction. The old server can still write only `used_by` and `used_at`. The trigger sets `state` and `closed_at` before the check.
+2. Backfill old rows and check for duplicates after the schema locks end. Repair duplicate rows before the next phase.
+3. Build the unique and count indexes with `CONCURRENTLY`. Attach the unique index and add `NOT VALID` checks in a short transaction. Validate them in the next phase. Data scans do not hold the schema locks.
+4. Apply the deletion function and runtime grants. Validate the tool check. Confirm that all indexes are valid and all constraints pass before the new server deploys.
+5. Deploy the new server on staging and check old and new invitation joins. Then use the same order for the approved production release. Keep the trigger while an old server can still write.
+
+Schema steps have a five-second lock timeout. If a step fails, stop before the deploy and repeat after the cause is fixed.
+A failed concurrent build can leave an invalid index. Drop only that failed index with `DROP INDEX CONCURRENTLY`, then repeat 0022.
+The file checks for invalid indexes before it attaches constraints. Do not skip that check.

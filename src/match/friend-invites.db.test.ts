@@ -2,6 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { applyMigration } from '../../tools/plugin-db/apply-migration.mjs';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { GameService } from './service';
 import { PostgresMatchStore } from './store';
@@ -28,6 +29,73 @@ suite('friend invitation transactions', () => {
  afterAll(async () => { if (pools) await Promise.all([...pools, admin].map(pool => pool.end())); });
  const rows = async (sql: string, params: unknown[] = []) => (await admin.query(sql, params)).rows;
  const send = (n = 0, command = randomUUID()) => services[n].create(users[0], { kind: 'friend', options: DEFAULT_OPTIONS, recipient_id: users[1] }, command);
+ it('accepts the exact old join statement after migration 0022', async () => {
+  const sent = await open();
+  await admin.query('update public.game_invites set used_by=$2,used_at=$3 where token_hash=$1', [sent.invite_id, users[1], new Date()]);
+  expect(await rows('select state,closed_at=used_at as closed from public.game_invites')).toEqual([{ state: 'accepted', closed: true }]);
+ });
+ it.each(['recipient_id', 'recipient_handle'] as const)('sends the first named invitation on an old waiting game by %s', async field => {
+  const game = await services[0].create(users[0], { kind: 'friend', options: DEFAULT_OPTIONS });
+  const invite = await services[0].invite(users[0], game.game_id, { [field]: field === 'recipient_id' ? users[1] : 'rowan' });
+  expect(invite.recipient_id).toBe(users[1]);
+  expect(await services[1].join(users[1], { invite_id: invite.invite_id })).toMatchObject({ game_id: game.game_id, status: 'setup' });
+ });
+ it.each(['recipient_id', 'recipient_handle'] as const)('compares %s receipts without raw player data', async field => {
+  const command = randomUUID(), input = { kind: 'friend', options: DEFAULT_OPTIONS, [field]: field === 'recipient_id' ? users[1] : 'rowan' };
+  const sent = await services[0].create(users[0], input, command);
+  const payload = JSON.stringify((await rows('select payload from public.game_commands where game_id=$1', [sent.game_id]))[0].payload);
+  expect.soft(payload).not.toContain(users[1]); expect.soft(payload).not.toContain('rowan');
+  expect(await services[1].create(users[0], input, command)).toMatchObject({ game_id: sent.game_id });
+  await expect(services[1].create(users[0], { ...input, [field]: field === 'recipient_id' ? users[2] : 'alex' }, command)).rejects.toMatchObject({ code: 'COMMAND_CONFLICT' });
+ });
+ it('removes raw recipient data in old receipts at account deletion', async () => {
+  const sent = await send();
+  await admin.query("update public.game_commands set payload=payload||jsonb_build_object('recipient_id',$2::text,'recipient_handle','rowan') where game_id=$1", [sent.game_id, users[1]]);
+  await admin.query("insert into public.account_deletions(user_id,requested_at,run_after) values($1,now()-interval '8 days',now()-interval '1 day')", [users[1]]);
+  expect((await rows('select kingdown_jobs.delete_account($1) as done', [users[1]]))[0].done).toBe(true);
+  const payload = JSON.stringify(await rows('select payload from public.game_commands where game_id=$1', [sent.game_id]));
+  expect.soft(payload).not.toContain(users[1]); expect.soft(payload).not.toContain('rowan');
+ });
+ it('locks solo creation without a command ID against actual account deletion', async () => {
+  await admin.query("insert into public.account_deletions(user_id,requested_at,run_after) values($1,now()-interval '8 days',now()-interval '1 day')", [users[0]]);
+  const original = (await rows("select pg_get_functiondef('kingdown_jobs.delete_account(uuid)'::regprocedure) as sql"))[0].sql as string;
+  // Pause only at the boundary after the solo scan. The deletion SQL stays unchanged.
+  await admin.query(original.replace('  delete from auth.users where id=uid;', '  perform pg_advisory_xact_lock(156156);\n  delete from auth.users where id=uid;'));
+  const blocker = await admin.connect();
+  await blocker.query('begin'); await blocker.query('select pg_advisory_xact_lock(156156)');
+  const deleting = pools[1].query('select kingdown_jobs.delete_account($1) as done', [users[0]]);
+  let creating: Promise<PromiseSettledResult<unknown>[]> | undefined, settled = false, waited = false;
+  try {
+   await expect.poll(async () => (await rows("select count(*)::int as n from pg_stat_activity where datname=current_database() and wait_event='advisory'"))[0].n).toBe(1);
+   creating = Promise.allSettled([services[0].create(users[0], { kind: 'solo', options: DEFAULT_OPTIONS })]).then(result => { settled = true; return result; });
+   await expect.poll(async () => {
+    waited = (await rows("select count(*)::int as n from pg_stat_activity where datname=current_database() and wait_event='advisory'"))[0].n === 2;
+    return settled || waited;
+   }, { timeout: 10000 }).toBe(true);
+  } finally {
+   await blocker.query('rollback'); blocker.release();
+   await deleting; await creating; await admin.query(original);
+  }
+  expect.soft(waited).toBe(true);
+  expect.soft((await deleting).rows[0].done).toBe(true);
+  expect(await rows("select id from public.games where kind='solo'")).toEqual([]);
+ }, 20000);
+ it('selects due invitations with database time despite app clock skew', async () => {
+  const sent = await send();
+  await admin.query("update public.game_invites set expires_at=statement_timestamp()+interval '1 day' where game_id=$1", [sent.game_id]);
+  expect.soft(await services[0].store.due(new Date(Date.now() + 2 * 86400000))).not.toContain(sent.game_id);
+  await admin.query("update public.game_invites set expires_at=statement_timestamp()-interval '1 second' where game_id=$1", [sent.game_id]);
+  expect(await services[0].store.due(new Date(Date.now() - 2 * 86400000))).toContain(sent.game_id);
+ });
+ it('rechecks invitation expiry with database time after the sweep locks', async () => {
+  const sent = await send();
+  await admin.query("update public.game_invites set expires_at=statement_timestamp()+interval '1 day' where game_id=$1", [sent.game_id]);
+  const due = vi.spyOn(services[0].store, 'due').mockResolvedValue([sent.game_id]);
+  try { expect(await services[0].sweep(new Date(Date.now() + 2 * 86400000))).toBe(0); }
+  finally { due.mockRestore(); }
+  expect(await rows('select state from public.game_invites')).toEqual([{ state: 'open' }]);
+  expect((await services[0].view(users[0], sent.game_id)).status).toBe('waiting');
+ });
  it('creates the game and named invitation in one write and returns the same receipt', async () => {
   const command = randomUUID(), sent = await send(0, command);
   expect(sent.invite_id).toEqual(expect.any(String));
@@ -240,13 +308,14 @@ suite('friend invitation transactions', () => {
   await services[0].invite(users[0], terminal.game_id); await abort(terminal);
   const sql = await readFile(new URL('../../supabase/migrations/0022_friend_invites.sql', import.meta.url), 'utf8');
   await admin.query('delete from auth.users where id=$1', [users[1]]);
+  await admin.query('drop trigger if exists game_invites_old_join on public.game_invites');
   await admin.query('alter table public.game_invites drop column recipient_id cascade, drop column state cascade, drop column closed_at cascade; alter table public.game_invites drop constraint game_invites_one_game');
   // Deletion removes a named row. Recreate an old accepted row whose used_by is already null.
   await admin.query("insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at,used_at) values($1,$2,$3,1,$4,now()+interval '1 day',now())", ['a'.repeat(64), 'b'.repeat(64), sent.game_id, users[0]]);
   await admin.query("insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,1,$4,now()+interval '1 day')", ['c'.repeat(64), 'd'.repeat(64), unused.game_id, users[0]]);
-  await expect(admin.query(sql)).rejects.toMatchObject({ message: 'Duplicate invitations for one game. Repair the rows before this migration.' }); await admin.query('rollback');
+  await expect(applyMigration(admin, sql)).rejects.toMatchObject({ message: 'Duplicate invitations for one game. Repair the rows before this migration.' }); await admin.query('rollback');
   await admin.query('delete from public.game_invites where token_hash=$1', ['c'.repeat(64)]);
-  await admin.query(sql); await admin.query(sql);
+  await applyMigration(admin, sql); await applyMigration(admin, sql);
   expect(await rows('select state,used_by from public.game_invites where game_id=$1', [sent.game_id])).toEqual([{ state: 'accepted', used_by: null }]);
   expect(await rows('select state from public.game_invites where game_id=$1', [unused.game_id])).toEqual([{ state: 'open' }]);
   expect(await rows('select state from public.game_invites where game_id=$1', [terminal.game_id])).toEqual([{ state: 'cancelled' }]);

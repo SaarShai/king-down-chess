@@ -27,7 +27,7 @@ const text = (value: string) => [{ type: 'text' as const, text: value }];
 /** Plugin words for two refusals. The board reads the game again at once after each, so neither says "Reload".
  *  STALE_REVISION: the view is old (the owner's pick, approval W7, option a). INVALID_MOVE: the service checks the
  *  revision first, so the view is current and only the move is wrong. Change the words here only. */
-const REFUSED: Partial<Record<string, string>> = { STALE_REVISION: 'Your opponent moved. Check the board.', INVALID_MOVE: 'This move is not available. Choose another move.' };
+const REFUSED: Partial<Record<string, string>> = { STALE_REVISION: 'Your opponent moved. Check the board.', INVALID_MOVE: 'This move is not available. Choose another move.', FRIEND_GAME_LIMIT: 'The game limit is reached. See the board for details.', FRIEND_INVITE_LIMIT: 'The invitation limit is reached. See the board for details.', OPEN_INVITE_LIMIT: 'The open invitation limit is reached. See the board for details.' };
 let page = { source: '', origin: '', html: '', uri: '' };
 /** The page with its art origin, and its URI. Hosts cache resources by URI, so a changed board must not reuse old
  *  controls. The HTTP handler makes a server for each request: the swap and the hash run once for each page and origin. */
@@ -74,7 +74,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
         if (limit && Object.hasOwn(TOOL_LIMITS, limit)) await service.toolTry(actorId, limit as keyof typeof TOOL_LIMITS);
         return await run(args);
       }
-      catch (error) { const known = error instanceof MatchServiceError; if (!known || error.status >= 500) console.error('King Down tool failed', { tool: name, requestId: randomUUID(), ...diagnostic(error) }); return { isError: true, content: text(!known ? 'Could not update the game. Retry or reload.' : REFUSED[error.code] ?? error.message), _meta: { code: known ? error.code : 'INTERNAL_ERROR', ...(known && error.details) } }; }
+      catch (error) { const known = error instanceof MatchServiceError; if (!known || error.status >= 500) console.error('King Down tool failed', { tool: name, requestId: randomUUID(), ...diagnostic(error) }); return { isError: true, content: text(!known ? 'Could not update the game. Retry or reload.' : REFUSED[error.code] ?? error.message), _meta: { code: known ? error.code : 'INTERNAL_ERROR', ...(known && { ...error.details, message: error.message }) } }; }
     });
   }
   /** The position, the legal moves, the opponent's handle and presets go in `_meta`, which only the board reads.
@@ -155,7 +155,7 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
         deadline_at: entry.deadline_at, colour: entry.seat === 0 ? 'white' : 'black', your_turn: entry.action === 'ready',
         opponent: !entry.opponent ? 'none yet' : entry.opponent.computer ? 'computer' : entry.opponent.deleted ? 'deleted player' : 'player' }));
       const ready = games.filter(game => game.your_turn).length;
-      return { content: text(games.length ? `${games.length} active game${games.length === 1 ? '' : 's'}; your turn in ${ready}.` : 'No active games. Start one with kingdown_create.'), structuredContent: { games, invitations: invitations.invitations.map(({ player: _player, revision: _revision, ...row }) => row), next_before: invitations.next_before }, _meta: { games: rows, ...invitations } };
+      return { content: text(games.length ? `${games.length} active game${games.length === 1 ? '' : 's'}; your turn in ${ready}.` : 'No active games. Start one with kingdown_create.'), structuredContent: { games, invitations: invitations.invitations.map(({ invite_id, game_id, direction, state, options, expires_at }) => ({ invite_id, game_id, direction, state, options, expires_at })), next_before: invitations.next_before }, _meta: { games: rows, ...invitations } };
     });
   register('kingdown_get', 'Reload the authoritative board. With since_revision, only the commands after that revision. Read-only.',
     { game_id: gameId.optional(), since_revision: z.number().int().min(0).max(MAX_REVISION).optional(), board_id: boardId }, { visibility: ['app'], readOnly: true }, async args => {
@@ -193,8 +193,8 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   register('kingdown_abort', 'Use this when the player wants to cancel a King Down game before each side has played a turn. Nobody wins.', optional, { visibility: ['model', 'app'], destructive: true }, args => decide(args, { type: 'abort' }));
   register('kingdown_invite', 'Use this when the player wants to invite a friend to their waiting friend game. Gives a short code; a new invitation ends the old one.',
     { game_id: gameId, ...inviteSchema.shape }, { openWorld: true, visibility: ['model', 'app'], idempotent: false, destructive: true }, async ({ game_id, ...input }) => {
-      const { code, expires_at, invite_id, recipient_id } = await service.invite(actorId, game_id, input);
-      return { content: text(`Send your friend the code ${code}. It works until ${expires_at}.`), structuredContent: { code, expires_at, invite_id, recipient_id } };
+      const invite = await service.invite(actorId, game_id, input), { code, expires_at, invite_id } = invite;
+      return { content: text('Invitation is ready. Share the code with your friend.'), structuredContent: { code, expires_at, invite_id }, _meta: { invite } };
     });
   register('kingdown_join', 'Use this when the player has a King Down invitation: a 6-character code. Each short-code preview or join, a retry included, counts one attempt toward the hourly limit of 10. Join takes the open seat and uses the invitation. Then show the game with kingdown_open.',
     { code: z.string().min(1).max(300).optional(), token: z.string().min(1).max(100).optional(), invite_id: z.string().regex(/^[a-f0-9]{64}$/).optional(), preview: z.boolean().optional(), board_id: boardId }, { openWorld: true, visibility: ['model', 'app'], idempotent: false, destructive: true },

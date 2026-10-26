@@ -388,3 +388,32 @@ it('exposes named invitation tool fields, private rows and safe limit errors', a
   expect(await client.callTool({ name: 'kingdown_decline_invite', arguments: { invite_id } })).toMatchObject({ _meta: { invitation: { state: 'declined' } } });
  } finally { await client.close(); await server.close(); }
 });
+
+it.each(['FRIEND_GAME_LIMIT', 'FRIEND_INVITE_LIMIT', 'OPEN_INVITE_LIMIT'] as const)('keeps the full %s notice in host metadata', async code => {
+ const message = 'Private notice for rowan.', details = { count: 5, handle: 'rowan' };
+ const service = { toolTry: vi.fn(), join: async () => { throw new MatchServiceError(code, 409, message, details); } } as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({ service, actorId: 'alice', resourceHtml: '<html>board</html>', publicOrigin: 'http://localhost' });
+ const client = new Client({ name: 'privacy-host', version: '1' }), [a, b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const reply = await client.callTool({ name: 'kingdown_join', arguments: { code: 'ABCDEF' } });
+  expect.soft(JSON.stringify([reply.content, reply.structuredContent])).not.toContain('rowan');
+  expect(reply._meta).toMatchObject({ code, ...details, message });
+ } finally { await client.close(); await server.close(); }
+});
+
+it.each(['kingdown_games', 'kingdown_invite'])('keeps recipient IDs in host metadata for %s', async name => {
+ const game_id = '00000000-0000-4000-8000-000000000001', recipient_id = '00000000-0000-4000-8000-000000000002', invite_id = 'a'.repeat(64);
+ const invite = { token: 'private-token', code: 'ABCDEF', expires_at: 'soon', invite_id, recipient_id };
+ const row = { ...invite, game_id, direction: 'outgoing', state: 'open', player: { handle: 'rowan' }, revision: 1 };
+ const service = { toolTry: vi.fn(), inbox: async () => [], invitations: async () => ({ invitations: [row], next_before: null }), invite: async () => invite } as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({ service, actorId: 'alice', resourceHtml: '<html>board</html>', publicOrigin: 'http://localhost' });
+ const client = new Client({ name: 'privacy-host', version: '1' }), [a, b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const reply = await client.callTool({ name, arguments: name === 'kingdown_games' ? {} : { game_id } });
+  const visible = JSON.stringify([reply.content, reply.structuredContent]);
+  expect.soft(visible).not.toContain(recipient_id); expect.soft(visible).not.toContain('rowan'); expect.soft(visible).not.toContain('private-token');
+  expect(reply._meta).toMatchObject(name === 'kingdown_games' ? { invitations: [row] } : { invite });
+ } finally { await client.close(); await server.close(); }
+});
