@@ -39,7 +39,7 @@ export function powerText(power: PowerName, r: Rules = DEFAULT_RULES, web = fals
     case 'Strike': {
       const who = r.strikePawns ? 'any piece except the king' : 'any piece except a pawn or the king';
       if (r.strikeMode === 'capture') return `${who} takes an enemy a queen\u2019s move away without moving`;
-      return `move ${who} as if it were a queen${r.strikeCaptures ? '' : ', to an empty square'}`;
+      return `move ${who} as if it were a queen${r.strikeCaptures ? '' : ', to an empty square'}${r.strikePawns ? '; a pawn cannot end on the first or last rank' : ''}`;
     }
     case 'Haste': return `move one piece twice in one turn (the second move is optional)${!r.hasteCaptures ? '; neither move captures' : r.hasteSecond === 'quiet' ? '; the second move cannot capture' : ''}`
       + `${r.hasteNoCheck ? '; neither move may give check' : ''}${r.hasteApart ? '; the second move may not end next to an enemy piece' : ''}`
