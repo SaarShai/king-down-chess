@@ -18,14 +18,17 @@ const frameState = report => {
  *   harnessNextView waits for its board read;
  * - fence: the frame has every reply the host sent (a message that the frame sends back comes after them, because
  *   postMessage keeps the order);
- * - frame timers: each 0 ms timer that the frame set before has run. HTML runs the timers of one window with an equal
- *   or shorter timeout in the order they were set, so the end routing after a finished or aborted view
- *   (src/plugin/screens/board.ts draw()) and the computer turn after a move run first;
  * - frame: the mount and each write have ended (#reload is on), no coin is in its spend moment (strips() draws the
  *   coins again 300 ms after a spend), the visible board does not animate (the end of a move animation draws the
  *   strips again), and the King Down ceremony does not run (data-toppling; its own timer clears it after 1130 ms);
- * - call count: a second fence brings each call that the frame started to the host, and the host's call count did
- *   not change over the pass. Else the pass runs again.
+ * - frame timers, after the frame condition holds: each 0 ms timer that the frame set before has run. The end routing
+ *   after a finished or aborted view (src/plugin/screens/board.ts draw()) and the computer turn after a move use these
+ *   timers. The end of a move animation sets one too: after a computer action that keeps the turn, the next computer
+ *   command starts when the replay ends. The probe is a 1 ms timer: HTML runs it after each earlier timer of the
+ *   window with an equal or shorter timeout, and the page clock (page.clock.install) gives a 0 ms timer that a timer
+ *   callback sets 1 ms, so a 0 ms probe can run first there;
+ * - call count: a second fence brings each call that the frame started to the host, the host's call count did not
+ *   change over the pass, and the frame condition still holds. Else the pass runs again.
  * It does not cover a timer longer than 0 ms other than the two above (the poll, the deadline, the thinking line),
  * or a read that the frame has not started yet. When the page clock is paused (page.clock.pauseAt), no frame timer can
  * run until the check moves the clock, so the frame timer condition holds when the frame's Date.now() does not move.
@@ -55,7 +58,7 @@ export async function settled(page, frame) {
   // A detached frame (a remount) gives no answer; the pass then runs again.
   const timers = async widget => {
     const now = () => widget.evaluate(() => Date.now()).catch(() => undefined), start = await now();
-    if (await roundTrip(widget.evaluate(() => new Promise(resolve => setTimeout(() => resolve(true), 0))).catch(() => false))) return true;
+    if (await roundTrip(widget.evaluate(() => new Promise(resolve => setTimeout(() => resolve(true), 1))).catch(() => false))) return true;
     // A paused page clock: no frame timer runs before the check moves the clock.
     return start !== undefined && await now() === start;
   };
@@ -64,14 +67,28 @@ export async function settled(page, frame) {
       .then(handle => handle.jsonValue(), error => timedOut(error) ? fail('host idle', hostState) : Promise.reject(error));
     const answered = await fence();
     const widget = await (await frame.owner().elementHandle({ timeout: timeout() })).contentFrame();
-    const ran = await timers(widget);
     await widget.waitForFunction(frameState, false, { timeout: timeout() })
       .catch(error => timedOut(error) ? fail('frame (#reload on, no spending coin, no animating board, no ceremony)', () => widget.evaluate(frameState, true)) : Promise.reject(error));
+    const ran = await timers(widget);
     const again = await fence();
     const after = await hostState();
+    // A timer above can change the frame; a remount (no answer) runs the pass again.
+    const still = await roundTrip(widget.evaluate(frameState, false).catch(() => false));
     const idle = !after.nextView && after.inflight === after.held;
-    if (answered && ran && again && idle && after.calls === before.calls) return;
-    last = { answered, ran, again, before, after };
-    if (Date.now() > end) await fail(!answered || !again ? 'fence answers' : !ran ? 'frame timers' : !idle ? 'host idle' : 'call count', async () => ({ answered, ran, again, before, after }));
+    if (answered && ran && again && still && idle && after.calls === before.calls) return;
+    last = { answered, ran, again, still, before, after };
+    if (Date.now() > end) await fail(!answered || !again ? 'fence answers' : !ran ? 'frame timers' : !idle ? 'host idle' : !still ? 'frame after the timers' : 'call count', async () => ({ answered, ran, again, still, before, after }));
   }
+}
+
+/**
+ * Taps the board Menu when the widget frame is settled. A tap during a replay only ends the replay (owner pick A8,
+ * src/render/PaintedView.ts). After a computer action that keeps the turn, the next computer command starts when the
+ * replay ends: its write turns Menu off, and its reply turns Menu on and starts the next replay. An open board sheet
+ * blocks Menu (scrim and inert page), so the helper closes it after the wait; a Close tap during a replay does nothing.
+ */
+export async function openBoardMenu(page, frame) {
+  await settled(page, frame);
+  if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
+  await frame.locator('#board-menu').click();
 }

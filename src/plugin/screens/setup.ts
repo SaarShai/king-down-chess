@@ -127,6 +127,8 @@ function render() {
   $('setup-card-mode').querySelectorAll<HTMLInputElement>('input').forEach(input => { input.checked = input.value === (cardMode === 'four' ? 'Pick four' : 'Use all cards'); });
   $('setup-card-status').textContent = o.cardPool.length < 4 ? `Pick ${4 - o.cardPool.length} more card${o.cardPool.length === 3 ? '' : 's'}.` : '';
   $('setup-card-status').hidden = o.cardPool.length >= 4;
+  // The card status speaks each pool change, so the Start status clears when its fault changes or ends.
+  if ($('setup-start-status').textContent !== poolFault()) $('setup-start-status').textContent = '';
   $('setup-card-lock').hidden = cardMode !== 'all' || o.cardPool.length > 4;
   $('setup-card-pool').querySelectorAll<HTMLInputElement>('input').forEach(input => {
     input.checked = o.cardPool.includes(input.value as CardName); input.disabled = cardLocked(input.value as CardName);
@@ -213,14 +215,18 @@ async function finish(view: View, pick: KingChoice | null, origin: Job, scope: P
   if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, { retain: true, route: false, origin, king: pick, ...scope }); if (!full) return; view = full; }
   routeView(view);
 }
+/** The pool fault that blocks Start, as render shows it: none with Cards off or a complete pool. */
+function poolFault() {
+  return $<HTMLInputElement>('setup-toggle-cards').checked ? $('setup-card-status').textContent ?? '' : '';
+}
 /** Start and Open games send nothing with an invalid pool: Cards opens, and the live region speaks the status again. */
 function blocked(setup: SetupState) {
   if (!validate(setupOptions(setup.options)) && !(setup === draft && setup.options.cards && cardMode === 'four' && setup.options.cardPool.length !== 4)) return false;
   sectionOpen.cards = true; $<HTMLDetailsElement>('setup-options').open = true; render();
   $('setup-card-status').scrollIntoView({ block: 'nearest' });
   // A live region speaks only a change, so a second blocked press clears it first.
-  const live = $('setup-start-status'), text = $('setup-card-status').textContent;
-  live.textContent = ''; setTimeout(() => { live.textContent = text; }, 100);
+  const live = $('setup-start-status');
+  live.textContent = ''; setTimeout(() => { if (live.isConnected) live.textContent = poolFault(); }, 100);
   return true;
 }
 async function launch(setup = draft, saveSetup = true) {

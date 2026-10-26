@@ -21,10 +21,10 @@ async function open() {
 }
 const sent = (page: import('playwright').Page, name: string) => page.evaluate(name => (window as any).harnessCalls.filter((call: any) => call.name === name).length, name);
 
-it('F-117 loads no card painting until the Cards section shows', async () => {
+it('F-117 loads no card painting until the Cards section shows, then tile thumbnails until a card opens', async () => {
   // New game builds every card tile at start; an eager painting would load all of them in each page.
   const page = await browser.newPage({ viewport: {width:390,height:844} }), frame = page.frameLocator('iframe'), cards: string[] = [];
-  page.setDefaultTimeout(5000); page.on('request', r => { if (r.resourceType() === 'image' && /\/cards\/[^/?]+\.webp/.test(r.url())) cards.push(r.url()); });
+  page.setDefaultTimeout(5000); page.on('request', r => { if (r.resourceType() === 'image' && /\/card(?:s|-thumbs)\/[^/?]+\.webp/.test(r.url())) cards.push(r.url()); });
   try {
     await page.goto(harness.url);
     await frame.locator('#home-games:not(:disabled)').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
@@ -32,6 +32,24 @@ it('F-117 loads no card painting until the Cards section shows', async () => {
     expect(cards).toEqual([]);
     await frame.locator('#setup-options summary').click(); await frame.locator('#setup-toggle-cards').check();
     await expect.poll(() => cards.length).toBeGreaterThan(0);
+    // A tile is 264 CSS px wide at most, so it loads the small thumbnail; the full card loads the full painting.
+    expect(cards.filter(url => !url.includes('/card-thumbs/'))).toEqual([]);
+    await frame.locator('#setup-card-Haste').click(); await frame.locator('#menu-sheet .cf-art img').waitFor();
+    await expect.poll(() => cards.some(url => url.includes('/cards/haste.webp'))).toBe(true);
+  } finally { await page.close(); }
+});
+it('F-117 gives the widest card tile two thumbnail pixels for each CSS pixel', async () => {
+  // From 640 to 899 px the 560 px New game box makes the widest tile; ChatGPT inline (760 px) is one of them.
+  const page = await browser.newPage({ viewport: {width:760,height:900} }), frame = page.frameLocator('iframe'), img = frame.locator('#setup-card-Haste .cf-art img');
+  page.setDefaultTimeout(5000);
+  try {
+    await page.goto(harness.url);
+    await frame.locator('#home-games:not(:disabled)').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.locator('#setup-options summary').click(); await frame.locator('#setup-toggle-cards').check();
+    await img.scrollIntoViewIfNeeded(); await expect.poll(() => img.evaluate((i: HTMLImageElement) => i.naturalWidth)).toBeGreaterThan(0);
+    const [css, pixels] = await img.evaluate((i: HTMLImageElement) => [i.getBoundingClientRect().width, i.naturalWidth]);
+    expect(css).toBeGreaterThan(260);
+    expect(pixels).toBeGreaterThanOrEqual(2 * css);
   } finally { await page.close(); }
 });
 it('F-109 puts Settings before Profile with one line per row', async () => {
@@ -284,6 +302,29 @@ it('F-117 speaks the incomplete pool on each blocked Start and keeps focus', asy
       await expect.poll(()=>frame.locator('html').evaluate(()=>(window as any).liveTexts.filter((t:string)=>t==='Pick 3 more cards.').length)).toBe(press);
       expect(await frame.locator('#setup-start').evaluate(e=>e===document.activeElement)).toBe(true);
     }
+    expect(await sent(page,'kingdown_create')).toBe(0);
+  } finally {await page.close();}
+});
+it('F-117 clears the Start status when the pool fault changes or ends', async () => {
+  const {page, frame}=await sections();
+  try {
+    await frame.locator('#setup-toggle-cards').check();
+    const cards=frame.locator('#cards-body'), boxes=cards.locator('input[type="checkbox"]'), live=frame.locator('#setup-start-status');
+    await cards.getByRole('radio',{name:'Pick four',exact:true}).locator('..').click();
+    await boxes.nth(0).check();
+    await live.evaluate(e=>{ (window as any).liveTexts=[]; new MutationObserver(()=>(window as any).liveTexts.push(e.textContent)).observe(e,{childList:true,characterData:true,subtree:true}); });
+    await frame.locator('#setup-start').click();
+    await expect.poll(()=>live.textContent()).toBe('Pick 3 more cards.');
+    for (const i of [1,2,3]) await boxes.nth(i).check();
+    expect(await live.textContent()).toBe('');
+    await boxes.nth(3).uncheck();
+    expect(await live.textContent()).toBe('');
+    await frame.locator('#setup-start').click();
+    await expect.poll(()=>live.textContent()).toBe('Pick 1 more card.');
+    await frame.locator('#setup-toggle-cards').uncheck();
+    expect(await live.textContent()).toBe('');
+    // The card status speaks each pool change, so only the two blocked presses write words here.
+    expect(await frame.locator('html').evaluate(()=>(window as any).liveTexts.filter(Boolean))).toEqual(['Pick 3 more cards.','Pick 1 more card.']);
     expect(await sent(page,'kingdown_create')).toBe(0);
   } finally {await page.close();}
 });

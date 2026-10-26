@@ -1408,20 +1408,21 @@ function genPowerMovesRaw(power: CardName | '', board: Uint8Array, c: Color, los
     case 'Strike': {
       // Any own non-king piece moves as a queen, as the whole turn; it keeps its own type (`landed`)
       // and its own capture rules (`canCapture` with the real byte), and never takes a king.
+      // A pawn never lands on the first or last rank: it would not promote, and could not move on.
       const capture = RULES.strikeMode === 'capture';
       for (let s = 0; s < 64; s++) {
         const p = board[s];
         if (!p || colorOf(p) !== c || typeOf(p) === K || (typeOf(p) === P && !RULES.strikePawns)) continue;
         for (const [df, dr] of DIRS8) {
           for (let to = step(s, df, dr); to >= 0; to = step(to, df, dr)) {
-            const v = board[to];
+            const v = board[to], edge = typeOf(p) === P && (rank(to) === 0 || rank(to) === 7);
             if (!v) {
-              if (!capture) out.push({ from: s, to, captures: [], power: 'strike' });
+              if (!capture && !edge) out.push({ from: s, to, captures: [], power: 'strike' });
               continue;
             }
             // The first occupied square stops the walk in both readings; only `move` passes through
             // empty squares. `capture` takes a queen-reach victim and stays where it stood.
-            if (RULES.strikeCaptures && colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v)) && !(typeOf(p) === P && inLight(board, to, c ^ 1))) {
+            if (RULES.strikeCaptures && colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v)) && !(typeOf(p) === P && inLight(board, to, c ^ 1)) && (capture || !edge)) {
               out.push(capture ? { from: s, to: s, captures: [to], power: 'strike' } : { from: s, to, captures: [to], power: 'strike' });
             }
             break;

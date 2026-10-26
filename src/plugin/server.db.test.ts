@@ -834,4 +834,28 @@ suite('ChatGPT tools on PostgreSQL', () => {
   expect(resumed.structuredContent).toMatchObject({game_id:firstGame}); expect(resumed._meta.board_id).toBe(board);
   expect((await d.ok('kingdown_get', { game_id: second, board_id: board })).structuredContent.game_id).toBe(firstGame);
  }, 60000);
+ it('opens a new board after the cleanup deletes a board record, and never brings back the old ID (server audit F3)', async () => {
+  const [fay, gus] = [await user('fay'), await user('gus')], f = await connect(fay), g = await connect(gus), options = { ...DEFAULT_OPTIONS, arrangement: false };
+  const boards = async (where: string, value: unknown) => (await rows(`select count(*)::int as n from public.plugin_boards where ${where}`, [value]))[0].n;
+  const game: string = (await f.ok('kingdown_create', { kind: 'solo', options })).structuredContent.game_id;
+  const board: string = (await f.ok('kingdown_open', { game_id: game }))._meta.board_id, home: string = (await f.ok('kingdown_open'))._meta.board_id;
+  const live: string = (await f.ok('kingdown_open', { game_id: game }))._meta.board_id;
+  await admin.query('delete from public.plugin_boards where id=any($1)', [[board, home]]); // as the 7-day cleanup does
+  expect((await f.call('kingdown_get', { board_id: board }))._meta.code).toBe('BOARD_EXPIRED');
+  expect((await g.call('kingdown_get', { board_id: live }))._meta.code).toBe('FORBIDDEN');
+  expect((await g.call('kingdown_resume', { board_id: board, game_id: game }))._meta.code).toBe('FORBIDDEN');
+  expect(await boards('actor_id=$1', gus)).toBe(0);
+  const resumed = await f.ok('kingdown_resume', { board_id: board, game_id: game });
+  expect(resumed.structuredContent.game_id).toBe(game); expect(resumed._meta.board_id).not.toBe(board);
+  expect((await f.ok('kingdown_get', { board_id: resumed._meta.board_id })).structuredContent.game_id).toBe(game);
+  const created = await f.ok('kingdown_create', { kind: 'solo', options, board_id: home });
+  expect(created._meta.board_id).not.toBe(home);
+  expect((await f.ok('kingdown_get', { board_id: created._meta.board_id })).structuredContent.game_id).toBe(created.structuredContent.game_id);
+  expect(await boards('id=any($1)', [board, home])).toBe(0);
+  // A recovery counts as an Open, so made-up board IDs make no boards past that limit.
+  await admin.query("insert into public.plugin_tool_tries(user_id,tool,tries) values($1,'kingdown_open',60) on conflict (user_id,tool) do update set tries=60", [fay]);
+  const before = await boards('actor_id=$1', fay);
+  expect((await f.call('kingdown_resume', { board_id: randomUUID(), game_id: game }))._meta.code).toBe('RATE_LIMITED');
+  expect(await boards('actor_id=$1', fay)).toBe(before);
+ }, 60000);
 });

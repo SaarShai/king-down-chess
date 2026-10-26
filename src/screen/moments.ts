@@ -143,20 +143,22 @@ export function connectMoments(c: {
       const h = game.history[k], next = game.history[k + 1]?.pos ?? game.pos;
       const best = await c.engine.think(game, { timeMs: 200, maxDepth: 3, history: keys.slice(0, k) }, h.pos);
       if (g !== c.generation()) return; // the game changed (New game, Rematch, Undo): its search was cancelled
-      // The played move, one ply shallower: the same horizon as the root's view of it.
-      const reply = await c.engine.think(game, { timeMs: 200, maxDepth: 2, history: keys.slice(0, k + 1) }, next);
+      const changesTurn = next.turn !== h.pos.turn;
+      // Search counts turns: a free action keeps the root's depth and score direction.
+      const reply = await c.engine.think(game, { timeMs: 200, maxDepth: changesTurn ? 2 : 3, history: keys.slice(0, k + 1) }, next);
       if (g !== c.generation()) return;
       const same = best.move != null && toLan(h.pos, best.move) === h.lan;
-      results.push(best); before.push(best.score); after.push(same ? -best.score : reply.score);
+      results.push(best); before.push(best.score); after.push(same ? -best.score : changesTurn ? reply.score : -reply.score);
     }
     const found = keyMoments(before, after);
+    const numbers = moveNumbers(game.history.map(h => h.pos.turn));
     box.innerHTML = found.length ? '<h3>Key moments</h3>' : '<small>No move gave away 2 pawns or more.</small>';
     for (const km of found) {
       const h = game.history[km.ply], better = results[km.ply].move;
       const what = km.kind === 'missedMate' ? 'missed a forced mate'
         : km.kind === 'allowedMate' ? 'allowed a forced mate'
         : `gave away about ${Math.round(km.loss / 100)} pawns`;
-      const text = `${Math.floor(km.ply / 2) + 1}${km.ply % 2 ? '…' : '.'} ${h.lan}: ${h.pos.turn ? 'Black' : 'White'} ${what}.${better ? ` Better: ${toLan(h.pos, better)}.` : ''}`;
+      const text = `${numbers[km.ply]}${h.pos.turn ? '…' : '.'} ${h.lan}: ${h.pos.turn ? 'Black' : 'White'} ${what}.${better ? ` Better: ${toLan(h.pos, better)}.` : ''}`;
       marked.push({ ...km, text });
       const b = document.createElement('button');
       b.textContent = text;

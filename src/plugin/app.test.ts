@@ -88,6 +88,39 @@ it.each(['normal', 'fast', 'off'])('A8: ignores the removed device animation cho
 
 const press = (id: string) => { const button = document.getElementById(id)!; return Reflect.apply(button.onclick!, button, [{}]); };
 
+it('shows Settings when browser Back returns to /play/settings', async () => {
+  const records = new Map<string, string>(), storage = { getItem: (key: string) => records.get(key) ?? null, setItem: (key: string, value: string) => { records.set(key, value); }, removeItem: (key: string) => { records.delete(key); } };
+  const browser = Object.assign(new EventTarget(), {
+    location: new URL('http://localhost/play/'), localStorage: storage, sessionStorage: storage,
+    history: { pushState: vi.fn((_state: unknown, _title: string, path: string) => { browser.location = new URL(path, browser.location); }) },
+  });
+  vi.stubGlobal('window', browser);
+  const { createBrowserRuntime } = await import('../online/runtime'), { configureRuntime } = await import('../account-game/host');
+  const host = createBrowserRuntime({ settings: async () => ({ settings, me: { handle: 'player', icon: 'spirit' } }), games: async () => [] } as unknown as import('../online/client').OnlineClient, 'player');
+  vi.spyOn(host, 'getHostContext').mockReturnValue({ displayMode: 'fullscreen' });
+  configureRuntime(host);
+  const app = await import('../account-game/runtime');
+  await vi.advanceTimersByTimeAsync(0);
+  app.navigate('settings'); press('page-back');
+  expect(app.client.state.screen).toBe('play');
+  browser.history.pushState.mockClear();
+  browser.location = new URL('http://localhost/play/settings'); browser.dispatchEvent(new Event('popstate'));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(browser.location.pathname).toBe('/play/settings');
+  expect(app.client.state.screen).toBe('settings');
+  expect(browser.history.pushState).not.toHaveBeenCalled();
+  host.dispose?.();
+});
+
+it('routes later ChatGPT results after a Settings result', async () => {
+  const app = await mounted();
+  for (const screen of ['settings', 'profile', 'play'] as const) {
+    transport.instance.ontoolresult({ content: [], structuredContent: { screen } });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(app.client.state.screen).toBe(screen);
+  }
+});
+
 it.each(['home', 'play'])('enables Play after a chat result opens %s and settings arrive', async screen => {
   let release!: (value: unknown) => void;
   transport.call.mockImplementation(async ({ name }) => name === 'kingdown_settings'
@@ -615,13 +648,96 @@ it.each(['foreground', 'remount'])('keeps another game receipt after a refused %
   expect((await import('../account-game/state')).messageLine(app.store.page()).action).toBe('retry');
 });
 
-it.each(['foreground', 'poll'])('clears private state when a reconnected account refuses the current board: %s', async path => {
-  const app = await mounted(); app.routeView(game); app.client.state.pending = receipt();
+const EXPIRED = 'This board expired. Start, resume or join a game.';
+const expired = { content: [{ type: 'text', text: EXPIRED }], isError: true, _meta: { code: 'BOARD_EXPIRED' } };
+const calls = (name: string) => transport.call.mock.calls.filter(([input]) => input.name === name).map(([input]) => input.arguments);
+it.each(['foreground', 'poll'])('opens the shown game on a new board when its record expired, and keeps the receipt: %s', async path => {
+  const app = await mounted(), pending = receipt(), accessLost = vi.fn();
+  app.routeView({ ...game, seat: 1 }); app.client.state.pending = pending;
+  (await import('../account-game/host')).runtimeHost().onAccessLost = accessLost;
+  transport.call.mockImplementation(async ({ name, arguments: args }) => name === 'kingdown_get' && args.board_id === 'board-a' ? expired
+    : { content: [], _meta: name === 'kingdown_open' ? { board_id: 'board-b', view: { ...game, seat: 1, revision: 2 }, games: [] } : { games: [] } });
+  if (path === 'poll') await transport.target().read(); else await app.send('kingdown_get', {});
+  expect(calls('kingdown_open')).toEqual([{ game_id: 'game-a000' }]);
+  expect(app.client.state.board_id).toBe('board-b'); expect(app.client.state.pending).toBe(pending);
+  expect(app.queue.closed()).toBe(false); expect(accessLost).not.toHaveBeenCalled(); expect(app.memory.view?.revision).toBe(2);
+  transport.call.mockClear(); await app.send('kingdown_get', {});
+  expect(calls('kingdown_get').map(args => args.board_id)).toEqual(['board-b']); expect(calls('kingdown_open')).toEqual([]);
+});
+
+it('keeps the page and its receipt when an expired board shows no game', async () => {
+  const app = await mounted(), pending = receipt(); app.client.state.pending = pending;
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_get' ? expired : { content: [], _meta: { games: [] } });
+  await app.send('kingdown_get', {});
+  expect(transport.call.mock.calls.some(([input]) => input.name === 'kingdown_open')).toBe(false);
+  expect(app.queue.closed()).toBe(false); expect(app.client.state.pending).toBe(pending); expect(app.client.state.board_id).toBe('board-a');
+  expect(app.store.page().notice).toMatchObject({ kind: 'read', text: EXPIRED });
+});
+
+// A Daily game: the player opens the chat again days later, and the old chat result names the board that the cleanup deleted.
+it.each([0, 1])('opens the chat result game when a remounted board expired; another seat clears the page (seat %s)', async seat => {
+  const pending = receipt();
+  (window as any).openai.widgetState = { privateContent: { screen: 'board', board_id: 'board-a', pending } };
+  transport.call.mockImplementation(async ({ name, arguments: args }) => name === 'kingdown_get' && args.board_id === 'board-a' ? expired
+    : { content: [], _meta: name === 'kingdown_open' ? { board_id: 'board-b', view: { ...game, seat, revision: 2 }, games: [] }
+      : name === 'kingdown_settings' ? { settings, me: { handle: 'player', icon: 'spirit' } } : { games: [] } });
+  const app = await import('./app'), accessLost = vi.fn();
+  (await import('../account-game/host')).runtimeHost().onAccessLost = accessLost;
+  transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'board', game_id: game.game_id }, _meta: { board_id: 'board-a', view: { ...game, seat: 0 } } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(calls('kingdown_open')).toEqual([{ game_id: game.game_id }]);
+  if (seat === 0) {
+    expect(app.client.state.board_id).toBe('board-b'); expect(app.client.state.pending).toEqual(pending);
+    expect(app.memory.view?.revision).toBe(2); expect(app.store.page().notice).toBeUndefined();
+    expect(app.queue.closed()).toBe(false); expect(accessLost).not.toHaveBeenCalled();
+  } else {
+    expect(app.queue.closed()).toBe(true); expect(app.client.state).toEqual({ screen: 'home' }); expect(accessLost).toHaveBeenCalledOnce();
+  }
+});
+
+it('opens the chat result game again with Try again after a failed recovery Open', async () => {
+  const pending = receipt(), opened = { content: [], _meta: { board_id: 'board-b', view: { ...game, seat: 0, revision: 2 }, games: [] } };
+  (window as any).openai.widgetState = { privateContent: { screen: 'board', board_id: 'board-a', pending } };
+  let opens = 0;
+  transport.call.mockImplementation(async ({ name, arguments: args }) => name === 'kingdown_get' && args.board_id === 'board-a' ? expired
+    : name === 'kingdown_open' ? ++opens === 1 ? { content: [{ type: 'text', text: 'Open failed' }], isError: true, _meta: { code: 'INTERNAL_ERROR' } } : opened
+      : name === 'kingdown_settings' ? { settings, me: { handle: 'player', icon: 'spirit' } } : { games: [] });
+  const app = await import('./app');
+  transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'board', game_id: game.game_id }, _meta: { board_id: 'board-a', view: { ...game, seat: 0 } } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(calls('kingdown_open')).toHaveLength(1); expect(app.memory.view).toBeUndefined();
+  expect((await import('../account-game/state')).messageLine(app.store.page()).action).toBe('try-again');
+  press('retry'); await vi.advanceTimersByTimeAsync(0);
+  expect(calls('kingdown_open')).toEqual([{ game_id: game.game_id }, { game_id: game.game_id }]);
+  expect(app.client.state.board_id).toBe('board-b'); expect(app.client.state.pending).toEqual(pending); expect(app.memory.view?.revision).toBe(2);
+});
+
+it('opens the newest chat result game, not an older view, with Try again after a failed recovery Open', async () => {
+  const app = await mounted(); app.routeView({ ...game, seat: 0 });
+  let opens = 0;
+  transport.call.mockImplementation(async ({ name, arguments: args }) => name === 'kingdown_get' && args.board_id === 'board-b' ? expired
+    : name === 'kingdown_open' ? ++opens === 1 ? { content: [{ type: 'text', text: 'Open failed' }], isError: true, _meta: { code: 'INTERNAL_ERROR' } }
+      : { content: [], _meta: { board_id: 'board-c', view: { ...game, game_id: args.game_id, seat: 0, revision: 2 }, games: [] } }
+      : { content: [], _meta: { games: [] } });
+  transport.instance.ontoolresult({ content: [], structuredContent: { screen: 'board', game_id: 'game-b000' }, _meta: { board_id: 'board-b', view: { ...game, game_id: 'game-b000', seat: 0 } } });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(app.memory.view?.game_id).toBe(game.game_id);
+  press('retry'); await vi.advanceTimersByTimeAsync(0);
+  expect(calls('kingdown_open')).toEqual([{ game_id: 'game-b000' }, { game_id: 'game-b000' }]);
+  expect(app.memory.view?.game_id).toBe('game-b000'); expect(app.client.state.board_id).toBe('board-c');
+});
+
+it.each(['foreground', 'poll', 'expired board', 'expired board, other seat'])('clears private state when a reconnected account refuses the current board: %s', async path => {
+  const app = await mounted(); app.routeView({ ...game, seat: 0 }); app.client.state.pending = receipt();
   const accessLost = vi.fn(() => { expect(app.queue.closed()).toBe(true); expect(app.memory.view).toBeUndefined(); });
   (await import('../account-game/host')).runtimeHost().onAccessLost = accessLost;
   app.client.state.draft = { game_tag: 'game-a00', fen: 'private-position', lans: ['e2-e4'], scope: { account: 'board-a', game: game.game_id, revision: 1, rules: '{}', engine: 'engine' } };
   const saved = vi.spyOn((window as any).openai, 'setWidgetState');
-  transport.call.mockResolvedValue({ content: [{ type: 'text', text: 'Board unavailable for this account' }], isError: true, _meta: { code: 'FORBIDDEN' } });
+  const refusal = { content: [{ type: 'text', text: 'Board unavailable for this account' }], isError: true, _meta: { code: 'FORBIDDEN' } };
+  // An expired board: the recovery Open of the shown game is refused (the new account has no seat), or it gives the other seat (the opponent's account).
+  const opened = { content: [], _meta: { board_id: 'board-b', view: { ...game, seat: 1, revision: 2 }, games: [] } };
+  transport.call.mockImplementation(async ({ name }) => path.startsWith('expired') && name === 'kingdown_get' ? expired
+    : path === 'expired board, other seat' && name === 'kingdown_open' ? opened : refusal);
   if (path === 'poll') await transport.target().read(); else await app.send('kingdown_get', {});
   expect(app.queue.closed()).toBe(true); expect(app.memory.view).toBeUndefined();
   expect(app.client.state).toEqual({ screen: 'home' });

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Living card art · King Down</title>
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/src/style.css">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main class="motion-study">
+  <header>
+    <h1>Living card art</h1>
+    <a href="../all.html">All card artwork</a>
+  </header>
+  <nav class="paging" aria-label="Browse ready card animations">
+    <button id="previous" type="button" disabled>Previous</button>
+    <p id="position" aria-live="polite">Loading cards…</p>
+    <button id="next" type="button" disabled>Next</button>
+  </nav>
+  <details id="chooser">
+    <summary id="choose-summary">Choose a card</summary>
+    <div id="card-nav" role="group" aria-label="Ready card animations"></div>
+  </details>
+  <section id="review" aria-label="Compare original and animated artwork">
+    <div class="controls" aria-label="Animation controls">
+      <div class="transport">
+        <div class="mode-controls" role="group" aria-label="Animation mode">
+          <button id="idle" type="button" aria-pressed="true" disabled>Gentle loop · 8 s</button>
+          <button id="awaken" type="button" aria-pressed="false" disabled>Awakening · 3.2 s</button>
+        </div>
+        <div class="play-controls" role="group" aria-label="Playback">
+          <button id="play" type="button" disabled>Play</button>
+          <button id="replay" type="button" disabled>Replay</button>
+        </div>
+      </div>
+      <div class="timeline">
+        <label class="sr-only" for="scrub">Animation progress</label>
+        <input id="scrub" type="range" min="0" max="1000" value="0" disabled>
+        <output id="time" for="scrub">0.00 / 8.00 s</output>
+      </div>
+      <div class="preferences">
+        <p id="phase" role="status">Preparing the first preview…</p>
+        <label><input id="half-speed" type="checkbox"> Half speed</label>
+        <label><input id="reduced" type="checkbox"> Reduced motion</label>
+      </div>
+    </div>
+    <div class="comparison">
+      <figure class="card-panel original-view" aria-labelledby="original-label original-title">
+        <p id="original-label" class="version-label">Original</p>
+        <canvas id="original" width="512" height="288" role="img" aria-label="Original card painting"></canvas>
+        <figcaption class="card-copy"><h2 id="original-title" class="card-title">Card artwork</h2><p class="card-rule"></p></figcaption>
+      </figure>
+      <figure id="animated-view" class="card-panel animated-view" aria-labelledby="animated-label animated-title">
+        <p id="animated-label" class="version-label">Animated</p>
+        <div class="animated-painting">
+          <canvas id="animated" width="512" height="288" role="img" aria-label="Animated card painting"></canvas>
+          <div id="loading" class="loading"><p id="load-message" role="status">Loading artwork…</p><button id="retry" type="button" hidden>Try again</button></div>
+        </div>
+        <figcaption class="card-copy"><h2 id="animated-title" class="card-title">Card artwork</h2><p class="card-rule"></p></figcaption>
+      </figure>
+    </div>
+    <p id="description" class="description"></p>
+  </section>
+</main>
+<script type="module" src="./main.js"></script>
+</body>
+</html>

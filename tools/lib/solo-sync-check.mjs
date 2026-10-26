@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { shot } from './checks.mjs';
 
-export async function checkSoloSync({ page, ui, tool, open, label }) {
+// settle waits until the computer has answered the remote turn: the embedded check passes settled()
+// (tools/lib/plugin-settled.mjs); the website has no host call count, so it waits for the board to stop.
+export async function checkSoloSync({ page, ui, tool, open, label, settle = () => ui.locator('#board:not([data-animating="true"])').waitFor() }) {
   const call = async (name, args) => { const result = await tool(name, args); assert(!result.isError, `${name}: ${JSON.stringify(result)}`); return result._meta.view; };
   const created = await call('kingdown_create', { kind: 'solo', mode: 'casual', colour: 'white', level: 'beginner', command_id: randomUUID(),
     options: { fairy: true, pool: ['Q','O','L','R','B','N','A','G','M','S'], arrangement: false, classic: false,
@@ -35,7 +37,8 @@ export async function checkSoloSync({ page, ui, tool, open, label }) {
   await command('kingdown_move', { actions: ['b2-b3'] });
   await page.clock.fastForward(5000);
   await ui.locator('#undo[aria-disabled="true"]').waitFor();
-  await ui.locator('#board:not([data-animating="true"])').waitFor();
+  // A tap during the replay of the computer's answer only ends the replay (owner pick A8), so Close waits for it.
+  await settle();
   await ui.locator('#status').filter({ hasText: 'Your move' }).waitFor();
   assert(await ui.getByRole('dialog', { name: 'Moves', exact: true }).isVisible(), 'A remote turn keeps the read-only Moves sheet open');
   assert.deepEqual(await ui.locator('#board-sheet .sheet-body p').allTextContents(), await ui.locator('#recent-moves p').allTextContents(), 'The open sheet receives the accepted moves');

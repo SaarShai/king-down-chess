@@ -1,0 +1,58 @@
+{
+  "requestedMs": 16000,
+  "samples": [
+    {
+      "elapsedMs": 74.2999997138977,
+      "frames": 5,
+      "effects": [
+        "mud",
+        "mud",
+        "mud",
+        "mud"
+      ]
+    },
+    {
+      "elapsedMs": 4002.4000000953674,
+      "frames": 236,
+      "effects": [
+        "mud",
+        "mud",
+        "mud",
+        "mud"
+      ],
+      "screenshot": "/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/animation-session-merge-8HbqLB/king-effects/mud-replay-4000.png"
+    },
+    {
+      "elapsedMs": 8001.400000095367,
+      "frames": 475,
+      "effects": [
+        "mud",
+        "mud",
+        "mud",
+        "mud"
+      ]
+    },
+    {
+      "elapsedMs": 12001.900000095367,
+      "frames": 715,
+      "effects": [
+        "mud",
+        "mud",
+        "mud",
+        "mud"
+      ],
+      "screenshot": "/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/animation-session-merge-8HbqLB/king-effects/mud-replay-12000.png"
+    },
+    {
+      "elapsedMs": 16102.099999904633,
+      "frames": 955,
+      "effects": [
+        "mud",
+        "mud",
+        "mud",
+        "mud"
+      ],
+      "screenshot": "/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/animation-session-merge-8HbqLB/king-effects/mud-replay-16100.png"
+    }
+  ]
+}

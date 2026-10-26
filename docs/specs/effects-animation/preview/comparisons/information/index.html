@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" data-pace="off">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>King Down · Contextual information</title><link rel="icon" href="/icons/icon-192.png"></head>
+<body data-variant="current">
+<header class="study-controls" aria-label="Comparison controls">
+  <div class="variant-controls" role="group" aria-label="Information layout"><button type="button" data-variant="current" aria-pressed="true">Current</button><button type="button" data-variant="proposed" aria-pressed="false">Proposed</button></div>
+  <label for="sample">Sample <select id="sample"><option value="pawn">Pawn · full rule</option><option value="archer">Archer · longer rule</option><option value="frozen">Frozen · one turn</option><option value="mercy">Mercy · pawn exception</option><option value="staged">Turn ready · End turn</option></select></label>
+</header>
+<svg style="display:none" aria-hidden="true"><symbol id="i-undo" viewBox="0 0 24 24"><path d="M8 5L3 10l5 5M3 10h11a6 6 0 0 1 0 12"/></symbol><symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="9" cy="18" r="2"/></symbol></svg>
+<main id="game-table" aria-label="Game information comparison">
+  <div id="board" tabindex="0" role="application" aria-label="Game board. Select a piece to read its rules. Arrow keys move the cursor. Enter selects."></div>
+  <div class="table-side">
+    <div id="strip-them" class="player-strip"><span class="portrait"><img src="/ui/kings/shadow-b.webp" alt=""></span><span class="player-name"><b>Black</b><small></small></span></div>
+    <div class="table-space"></div>
+    <div id="strip-me" class="player-strip is-turn"><span class="portrait"><img src="/ui/kings/spirit.webp" alt=""></span><span class="player-name"><b>White</b><small></small></span></div>
+    <div id="context-line"><div id="context-text" role="status" aria-live="polite" aria-atomic="true"></div><div id="context-actions"><button id="all-rules" type="button" aria-label="All rules">All rules</button><button id="power-use" hidden>Use</button><button id="power-cancel" hidden>Cancel</button><button id="see-again" hidden>See again</button><button id="back-to-game" hidden>Back to game</button><div id="selection-actions"><button id="stop-chain" hidden>Stop here</button></div></div></div>
+    <div id="piece-reading" hidden aria-live="polite"><div class="reading-head"><h1 id="piece-name"></h1><button id="piece-rules" type="button">All rules</button></div><p id="piece-state" hidden></p><p id="piece-movement"></p><p id="piece-special" hidden></p></div>
+    <button id="moves-line" type="button"><span id="last-move"></span><span class="moves-label">Moves <span aria-hidden="true">⌄</span></span></button>
+    <nav id="table-bar" aria-label="Game controls"><button id="undo" type="button"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Undo</span></button><button id="end-turn" type="button" aria-disabled="true">End turn</button><button id="menu-btn" type="button" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="label">Menu</span></button></nav>
+    <div id="turn-guidance" hidden><p id="turn-instruction"></p></div>
+  </div>
+</main>
+<dialog id="rules" aria-labelledby="rules-title"><header class="rules-head"><h2 id="rules-title">All rules</h2><button id="rules-close" type="button" aria-label="Close all rules">×</button></header><div id="rule-content"></div></dialog>
+<dialog id="utility" aria-labelledby="utility-title"><h2 id="utility-title"></h2><div id="utility-content"></div><form method="dialog"><button>Close</button></form></dialog>
+<div id="loading" role="status">Loading pieces…</div>
+<script type="module" src="./main.ts"></script>
+</body></html>

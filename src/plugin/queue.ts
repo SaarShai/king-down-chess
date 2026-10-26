@@ -31,6 +31,8 @@ export type JobOptions = {
   retry?: boolean;
   user?: boolean;
   mount?: boolean;
+  /** A mount read: the chat result's game and seat. No view shows yet, so an expired board opens this game (ticket 90). */
+  shown?: Pick<View, 'game_id' | 'seat'>;
   initial?: boolean;
   board?: boolean;
   signal?: AbortSignal;

@@ -5,9 +5,11 @@
 -- Tables: games, game_players, game_commands, game_invites. Order:
 --   1. Lock the four tables against writes (reads continue) until the commit, so the game service and the jobs wait.
 --   2. Refuse a backup in which a game and its command rows disagree, a child row has no game, or a game lacks seat 0
---      or seat 1. Refuse when the rating rows of a backup game changed since the backup (a rating restore is a
---      separate decision).
---   3. Leave out each backup solo game of an account deleted since the backup, with all its rows, so it stays erased.
+--      or seat 1.
+--   3. Leave out each backup game that the deletion of an account since the backup changed, with all its rows: its
+--      solo games stay erased, and its other active games keep the live end (and their live rating rows). Then refuse
+--      when the rating rows of a game that the restore writes changed since the backup (a rating restore is a separate
+--      decision).
 --   4. Delete the live player, command and invite rows of each backup game.
 --   5. Insert each backup game that was deleted since the backup, then write every backup game in place (an update, so
 --      reports, badges, boards and rematches keep their link).
@@ -15,12 +17,17 @@
 --   7. Refuse (and roll back) when a restored game and its command rows disagree.
 -- Newer rows: a game made after the backup stays as it is, with all its rows. A backup game loses the moves, joins,
 -- seats and invites written after the backup.
--- Deleted accounts: an account deleted since the backup keeps the erasure of kingdown_jobs.delete_account
--- (supabase/migrations/0007_jobs.sql), which the privacy page promises. Its solo games stay deleted, with their seats
--- (and the handle at start), commands and invites. A game with another human seat stays, as delete_account keeps it
--- for the opponent: each reference to the account follows its foreign key, so it becomes null, or (an invite that the
--- account made) the row stays deleted. Limit: in a rated game, delete_account also deletes the account's rating_history
--- rows (0012_results.sql), so the rating check below refuses the whole restore and restores nothing; the owner decides.
+-- Deleted accounts: an account deleted since the backup keeps what its deletion did. runDeletions (src/online/jobs.ts)
+-- ends each game in which the account's seat is active (the opponent wins by resignation, or the game is aborted), then
+-- kingdown_jobs.delete_account (supabase/migrations/0007_jobs.sql) deletes its solo games, as the privacy page promises.
+-- So each backup solo game of the account, and each backup game in which its seat was active, stays as the live data
+-- has it, with all its rows: a solo game stays deleted with its seats (and the handle at start), commands and invites,
+-- and a shared game keeps its live end, not the backup's play with a seat that nobody can play. A game with no live
+-- copy stays deleted, and a backup rematch link to it becomes null, as its foreign key does (0010_game_setup.sql).
+-- A backup game that had ended is restored: each reference to the account follows its foreign key, so it becomes
+-- null, or (an invite that the account made) the row stays deleted. Limit: in a rated game that had
+-- ended, delete_account also deletes the account's rating_history rows (0012_results.sql), so the rating check below
+-- refuses the whole restore and restores nothing; the owner decides.
 -- Not restored: accounts, settings, ratings, notifications and the outbox. A restored deadline that passed since the
 -- backup ends its game at the next kingdown-tick, unless the owner pauses that job first.
 -- Columns: only the columns that the backup and the live table share; a column added since the backup keeps its default.
@@ -51,22 +58,18 @@ begin
   -- game_players copy: no commands, so the command check passes, but no seats.
   execute format('select count(*) from %1$I.games g where (select count(distinct p.seat) from %1$I.game_players p where p.game_id = g.id and p.seat in (0, 1)) <> 2', b) into n;
   if n > 0 then raise exception 'backup refused: % game(s) lack seat 0 or seat 1', n; end if;
-  execute format('select count(*) from ((select to_jsonb(r) from public.rating_history r where r.game_id in (select id from %1$I.games)
-    except all select to_jsonb(r) from %1$I.rating_history r) union all (select to_jsonb(r) from %1$I.rating_history r
-    except all select to_jsonb(r) from public.rating_history r where r.game_id in (select id from %1$I.games))) d', b) into n;
-  if n > 0 then raise exception 'restore refused: % rating row(s) of backup games changed since the backup', n; end if;
 
   for t in select unnest(array['games', 'game_players', 'game_commands', 'game_invites']) loop
     execute format('create temp table restore_%1$s on commit drop as select * from %2$I.%1$I', t, b);
   end loop;
   -- An account deleted since the backup. A backup seat named an account that existed at the backup (its foreign key held
   -- in the snapshot), so a seat account that is not in auth.users now was deleted since the backup, by delete_account or
-  -- by an owner's delete in auth.users (account_deletions records only the first). First leave out its solo games, as
-  -- delete_account deletes them, with every row of them; a live copy (after an owner's delete) stays as it is. This runs
-  -- before the next lines, which null the seat and so lose the account. Then apply its foreign key actions to the other
-  -- backup rows.
-  delete from restore_games r where r.kind = 'solo' and exists (select from restore_game_players p
-    where p.game_id = r.id and p.user_id is not null and not exists (select from auth.users u where u.id = p.user_id));
+  -- by an owner's delete in auth.users (account_deletions records only the first). First leave out, with every row of
+  -- them, its solo games (delete_account deletes them) and the games in which its seat was active (runDeletions ended
+  -- them first), so the live copy, or its absence, stays as it is. This runs before the next lines, which null the seat
+  -- and so lose the account. Then apply its foreign key actions to the other backup rows.
+  delete from restore_games r where exists (select from restore_game_players p where p.game_id = r.id and p.user_id is not null
+    and (r.kind = 'solo' or p.active) and not exists (select from auth.users u where u.id = p.user_id));
   for t in select unnest(array['game_players', 'game_commands', 'game_invites']) loop
     execute format('delete from restore_%1$s c where not exists (select from restore_games g where g.id = c.game_id)', t);
   end loop;
@@ -75,6 +78,16 @@ begin
   update restore_game_commands r set actor_id = null where not exists (select from auth.users u where u.id = r.actor_id);
   delete from restore_game_invites r where r.created_by is not null and not exists (select from auth.users u where u.id = r.created_by);
   update restore_game_invites r set used_by = null where not exists (select from auth.users u where u.id = r.used_by);
+  -- A left-out game with no live copy stays deleted, so a rematch link to it follows its foreign key (on delete set null).
+  update restore_games r set rematch_game_id = null where not exists (select from restore_games g where g.id = r.rematch_game_id)
+    and not exists (select from public.games g where g.id = r.rematch_game_id);
+  -- The rating check covers only the games that the restore writes. A left-out game keeps its live rows: runDeletions
+  -- rated it when it ended it (recordResult, src/match/results.ts), then delete_account deleted the account's row.
+  execute format('select count(*) from ((select to_jsonb(r) from public.rating_history r where r.game_id in (select id from restore_games)
+    except all select to_jsonb(r) from %1$I.rating_history r) union all (select to_jsonb(r) from %1$I.rating_history r
+    where r.game_id in (select id from restore_games) except all select to_jsonb(r) from public.rating_history r
+    where r.game_id in (select id from restore_games))) d', b) into n;
+  if n > 0 then raise exception 'restore refused: % rating row(s) of backup games changed since the backup', n; end if;
 
   delete from public.game_players where game_id in (select id from restore_games);
   delete from public.game_commands where game_id in (select id from restore_games);
@@ -98,4 +111,6 @@ select (select count(*) from release_backup_20261022.games) as backup_games,
   (select count(*) from public.games g where not exists (select from release_backup_20261022.games k where k.id = g.id)) as newer_games_kept,
   (select count(*) from release_backup_20261022.games k where k.kind = 'solo' and exists (select from release_backup_20261022.game_players p
     where p.game_id = k.id and p.user_id is not null and not exists (select from auth.users u where u.id = p.user_id))) as erased_games_left_out,
+  (select count(*) from release_backup_20261022.games k where k.kind <> 'solo' and exists (select from release_backup_20261022.game_players p
+    where p.game_id = k.id and p.active and p.user_id is not null and not exists (select from auth.users u where u.id = p.user_id))) as ended_games_kept,
   clock_timestamp() as restored_at;

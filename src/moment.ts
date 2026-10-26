@@ -80,7 +80,7 @@ export interface KeyMoment { ply: number; loss: number; kind: 'loss' | 'missedMa
 
 /**
  * `before[k]`: the search score of the position before ply k, for its mover. `after[k]`: the score
- * of the position after it, for the opponent, searched one ply shallower so both see the same horizon.
+ * of the position after it, for the opponent, searched to the same horizon (depth counts turns).
  * Move k gave away before[k] + after[k]. Returns up to `limit` moves that gave away `threshold`
  * or more, largest first, then in game order.
  */

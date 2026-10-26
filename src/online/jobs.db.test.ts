@@ -63,7 +63,7 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
   await Promise.all([admin, ...pools].map(pool => pool.end()));
  });
 
- it('cleans up boards older than seven days and keeps their games', async () => {
+ it('cleans up boards older than seven days and keeps their games: the owner reads BOARD_EXPIRED, another account FORBIDDEN', async () => {
   const actor = await user('boards'), plugin = new PluginService(games[0].store);
   const game = await games[0].create(actor, {kind:'solo'});
   const empty = await plugin.openBoard(actor), selected = await plugin.openBoard(actor, game.game_id), fresh = await plugin.openBoard(actor, game.game_id);
@@ -71,7 +71,8 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
   await admin.query('update public.plugin_boards set created_at=$2 where id=any($1)', [[empty, selected], new Date(now.getTime()-7*DAY-1)]);
   await admin.query('update public.plugin_boards set created_at=$2 where id=$1', [fresh, new Date(now.getTime()-7*DAY)]);
   await cleanup(games[0], now);
-  for (const board of [empty, selected]) await expect(plugin.board(actor, board)).rejects.toMatchObject({code:'FORBIDDEN'});
+  for (const board of [empty, selected]) await expect(plugin.board(actor, board)).rejects.toMatchObject({code:'BOARD_EXPIRED'});
+  await expect(plugin.board(await user('stranger'), fresh)).rejects.toMatchObject({code:'FORBIDDEN'});
   expect(await plugin.board(actor, fresh)).toBe(game.game_id);
   expect(await plugin.view(actor, game.game_id)).toMatchObject({status:'playing'});
  });

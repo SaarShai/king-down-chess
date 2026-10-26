@@ -6,7 +6,7 @@ import { checkCardDetails } from './lib/card-detail-check.mjs';
 import { checkShell } from './lib/plugin-shell-check.mjs';
 import { cardFaces } from './lib/plugin-card-faces.mjs';
 import { checkCoinFocus } from './lib/plugin-coin-focus-check.mjs';
-import { settled } from './lib/plugin-settled.mjs';
+import { openBoardMenu, settled } from './lib/plugin-settled.mjs';
 import { pauseClock } from './lib/page-clock.mjs';
 import { controlBounds } from './lib/plugin-control-bounds.mjs';
 import { boxText, layoutMessage } from './lib/layout-message.mjs';
@@ -290,16 +290,13 @@ try {
     await idleBoard();
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
   }
+  // A computer reply draws the board again and closes its sheets, so the sheet test waits for the frame to settle.
   async function openMoveChoices() {
+    await idleBoard();
     if (await frame.locator('#board-sheet[open] h2').count() && await frame.locator('#board-sheet h2').innerText() === 'Choose a move') return;
-    if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
-    await frame.locator('#board-menu').click(); await frame.locator('#board-sheet').getByRole('button', {name:'Choose a move', exact:true}).click();
+    await openBoardMenu(page, frame); await frame.locator('#board-sheet').getByRole('button', {name:'Choose a move', exact:true}).click();
   }
-  async function menuAction(id) {
-    await frame.locator('#board:not([data-animating="true"])').waitFor({ state: 'attached' });
-    if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
-    await frame.locator('#board-menu').click(); await frame.locator('#' + id).click();
-  }
+  async function menuAction(id) { await openBoardMenu(page, frame); await frame.locator('#' + id).click(); }
   // A chat-made game opens the screen of its status (U1): a waiting friend game opens its code screen.
   async function legacyStart(kind, screen = 'board') {
     const board_id = await page.evaluate(() => window.harnessWidgetState?.privateContent?.board_id);
@@ -2239,7 +2236,7 @@ try {
       }, cardView);
       await host.frame.locator('#card-w-' + cardIndex).click();
       await host.frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
-      assert.equal(await host.frame.locator('#status').textContent(), 'Vault.', `The armed card name ends with a stop at ${width} x ${height}`);
+      assert.equal(await host.frame.locator('#status').textContent(), 'Hop.', `The armed card name ends with a stop at ${width} x ${height}`);
       await host.frame.locator('#context-text').scrollIntoViewIfNeeded();
       await host.frame.locator('html').evaluate(() => document.fonts.ready);
       await shot(host.page, `board-cards-armed-${width}-${mode}`);
@@ -2312,7 +2309,7 @@ try {
   const friendTool = async (name,args={}) => (await page.request.post(new URL('/fixture-friend-tool',base).href,{data:{name,arguments:args,fresh:true}})).json();
   const tool = async (name,args={}) => (await page.request.post(new URL('/fixture-tool',base).href,{data:{name,arguments:args}})).json();
   const { checkSoloSync } = await import('./lib/solo-sync-check.mjs');
-  await checkSoloSync({ page, ui: frame, tool, label: 'embedded', open: async game_id => {
+  await checkSoloSync({ page, ui: frame, tool, label: 'embedded', settle: idleBoard, open: async game_id => {
     const result = await tool('kingdown_open', { game_id }); assert(!result.isError, JSON.stringify(result.content));
     await page.evaluate(result => window.harnessShow(result), result);
   } });

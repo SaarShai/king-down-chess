@@ -437,3 +437,17 @@ The taste choice is a solid gold tile (`#d8aa43`) with a dark gold edge (`#68481
 The ticket's M1 helper replaces the requested local npm test command. It runs the Vitest suite, not the separate Node art phase. The skips include database cases and existing engine and balance cases. No local unit suite or browser check runs. No server code changes, so plugin-ui-http is not required. No part remains unbuilt. No assertion, touch floor, time limit, or retry is weakened. Nothing is pushed, merged to main, or deployed.
 
 Evidence is in the lane output folder: `unit-5.txt`, `checks-picks-5.txt`, `plugin-ui-final.log`, the earlier pick-check logs, `shots-review.json`, and `shots/`. The complete handoff is `picks-board-build.md` in that folder.
+
+## A17 check after the effects integration (2026-10-26)
+
+`gui-board-preview` stops at A17 with "Frost draw mismatch: turns=2, pips=". The check sees no frost drawing at all.
+
+Cause: the effects integration (PR #92, commit `afb03f97`) replaces the Workshop frost image with the approved ice volume and a badge with one dot per turn left (`src/render/effects/board-effects.ts`). The effects ticket records the change as approved (`docs/specs/effects-animation/issues/14-state-integration.md`, the Freeze row). That commit does not change `capture.mjs`, so the check still waits for the old SVG image. The app draws Freeze correctly. The check is out of date. CI does not run this check, so the fault stayed hidden.
+
+Fix: the check now watches the new drawing on the real game canvas: the ice fill gradient of the back face and the front face, and the dots in the Freeze badge. While the mark holds, it expects `ice,ice,<turns>`. After Undo or expiry, it expects no drawing. No product code changes.
+
+Check results at base `dab2cc41`:
+
+- Old check: fails at A17 with "turns=2, pips=" (23.4 seconds).
+- New check: passes all six items (A15, A17, A18, A27, A39, A8) in 170.3 seconds. The A17 shots show the ice and two dots on the plugin board, and the ice and one dot on the web board.
+- New check with a planted fault: one dot for every mark fails with "draws=ice,ice,1". No front ice face fails with "draws=ice,2".

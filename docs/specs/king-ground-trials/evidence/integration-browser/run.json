@@ -1,0 +1,22 @@
+{
+  "pid": 72622,
+  "worktree": "/Users/za/Documents/king down chess (new)/app/.claude/worktrees/animation-session-merge",
+  "head": "dab2cc41",
+  "node": "v26.0.0",
+  "slots": 3,
+  "started": "2026-10-26T07:29:14.494Z",
+  "checks": [
+    "king-effects"
+  ],
+  "results": [
+    {
+      "name": "king-effects",
+      "start": "2026-10-26T07:29:26.905Z",
+      "end": "2026-10-26T07:31:31.163Z",
+      "ok": true,
+      "seconds": 124.142,
+      "fault": null,
+      "log": "/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/animation-session-merge-8HbqLB/king-effects.log"
+    }
+  ]
+}

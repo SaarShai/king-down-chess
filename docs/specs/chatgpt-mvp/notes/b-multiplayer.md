@@ -75,7 +75,7 @@ Evidence: `npm run plugin:db:init-test` applies 0001–0009 twice ("every migrat
 - `invite` (line 164): one invite per game; 43-char token + 6-char code (`ABCDEFGHJKMNPQRSTUVWXYZ23456789`); 14 days (Daily) or 1 day (live). The Daily value is replaced by 7 days (owner, 2026-10-11); the earlier value stays here as history.
 - `join` (line 180): token or code; code tries counted; block check through `mayJoin` (`challenge_from` and blocks).
 - `sweep` (line 207): ends due Daily games and waiting games with an expired invite; one bad game does not stop the rest.
-- The last revision (1000) stays free for a resign, abort, claim or the sweep.
+- The last revision (1000) stays free for a turn or the end of the game. A turn that fills the history (1000 revisions, or less than one whole turn left in the engine) ends the game as a draw (reason `history`, migration 0021). Unready setup choices stop at revision 100.
 - Live games: speed `live` exists but has **no clock**. A live friend game has no deadline at all.
 
 Protocol `src/match/protocol.ts`: `PRESETS = ['hello','good_luck','good_game','well_played','thanks']`; `ErrorCode` list; `View`, `InboxEntry`, `Opponent { handle, computer, deleted, last_seen_ms }`, `Invite`.

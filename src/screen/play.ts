@@ -695,18 +695,23 @@ export function connectPlay(view: BoardView, c: {
    */
   function newGame(backRank?: string, fen?: string | null, rematch = false, dailyDate: string | null = null, players?: [Side, Side]): void {
     const setup = c.setup();
-    home?.close();
-    $<HTMLDialogElement>('new-game').close(); // every army choice in the dialog starts here
-    reset();
-    if (!rematch) {
+    let candidate: Game;
+    if (rematch) candidate = new Game(undefined, game.rules);
+    else {
       const k = kingsOf(setup);
       // "Bring a design" (ticket 17): the design plays as `T`, in place of one back-rank piece; a position (`fen`) has no place for it.
       const design = setup.design && !fen ? parseRule(`design=${setup.design}`).design! : null;
-      game = new Game(undefined, { ...withPowers(k), ...preset, kings: k, design });
-      if (dailyDate) backRank = game.context.randomBackRank(mulberry32(+dailyDate.replace(/-/g, '')));
-      if (design) backRank = withDesign(backRank ?? game.context.randomBackRank(), worthOf(design));
-      skill = setup.level;
+      candidate = new Game(undefined, { ...withPowers(k), ...preset, kings: k, design });
+      if (dailyDate) backRank = candidate.context.randomBackRank(mulberry32(+dailyDate.replace(/-/g, '')));
+      if (design) backRank = withDesign(backRank ?? candidate.context.randomBackRank(), worthOf(design));
     }
+    // A refused army or position keeps the live game, its turn and the dialog.
+    if (fen) candidate.load(candidate.context.fromFen(fen)); else candidate.newGame(backRank);
+    home?.close();
+    $<HTMLDialogElement>('new-game').close(); // every army choice in the dialog starts here
+    reset();
+    game = candidate;
+    if (!rematch) skill = setup.level;
     resigned = null;
     linkSide = null;
     lesson = null; lessonDone = false;
@@ -715,7 +720,6 @@ export function connectPlay(view: BoardView, c: {
     daily = dailyDate;
     moments.start('');
     [sides[0], sides[1]] = players ?? (rematch ? [sides[1], sides[0]] : playersOf(setup));
-    if (fen) game.load(game.context.fromFen(fen)); else game.newGame(backRank);
     saveBlocked = false;
     turnStart = 0;
     sync(game.pos);

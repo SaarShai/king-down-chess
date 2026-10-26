@@ -15,6 +15,7 @@ Classic chess on 8×8 (check, checkmate, stalemate) with these deltas:
 | 50-move draw | not stated | on (100 plies) | on |
 | Threefold repetition | not stated | on (3rd occurrence of the same board, side to move and spent-Strike state) | on; the castling rights and the en-passant square are part of the position |
 | Insufficient material | not stated | on (conservative engine check; a live Strike power prevents this draw) | on |
+| History limit (online games) | not stated | a turn that fills the game history ends the game in a draw (about 500 turns each; owner, 2026-10-26) | the same |
 
 **Classic** is the plugin's real-chess setup (the normal start position, spec Q30, Q31). Only it sets the rule flag `classicChess`; every other setup keeps King Down's rules.
 
@@ -88,6 +89,10 @@ rule defaults, `?rules=2017` and the lab keep the rulebook as printed. Every rea
 A Freeze or Ice Wall mark holds a piece, not a square (owner, 2026-10-25): when the frozen or walled piece moves, swaps, or is
 shoved or pushed, also by the marking side's move after a free mark, the mark goes with it. The mark ends when the piece leaves the board.
 In card mode a Firewall's mark names its king's square and follows the king; a Rescue renews a mark where its piece stands now.
+
+A pawn that Strikes never lands on the first or last rank (owner, 2026-10-26): Strike does not promote, so a pawn there
+could not move on, and a pawn that cannot land there gives no long-range promotion either. The capture reading (`strikeMode: 'capture'`)
+leaves the pawn where it stands, so it may still take a piece on those ranks.
 
 Holy Light's shelter was added after round 6 (owner asked for Mercy and Holy Light variations to be
 tested): it lifted Holy Light from 43% to 53%; sheltering all eight neighbours overshot to 64%, and

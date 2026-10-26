@@ -178,12 +178,12 @@ it('keeps Their move through the opponent Haste turn', async () => {
   } finally { await page.close(); }
 });
 
-it('marks the pieces that can use Vault with the power target mark', async () => {
+it('marks the pieces that can use Hop with the power target mark', async () => {
   const rules: Partial<Rules> = { hands: [['Vault'], []] }, next = view('7k/8/8/8/8/8/P7/R6K w - - 0 1', rules);
   const page = await open(next), frame = page.frameLocator('iframe');
   try {
     await frame.locator('#card-w-0').click(); await frame.getByRole('button', { name: 'Use', exact: true }).click();
-    expect(await frame.locator('#status').textContent()).toBe('Vault.');
+    expect(await frame.locator('#status').textContent()).toBe('Hop.');
     setRules(rules); const sources = [...new Set(legalMoves(fromFen(next.fen)).filter(m => m.power === 'vault').map(m => m.from))];
     expect(sources.length).toBeGreaterThan(0); expect((await marks(page)).powers).toEqual(sources);
   } finally { await page.close(); }
@@ -419,7 +419,7 @@ it('names the power coin owner when both kings have the same power', async () =>
     expect.soft(await frame.locator('#power-b').getAttribute('aria-label')).toMatch(/^Opponent's Freeze, /);
     expect.soft((await frame.locator('#strip-them').innerText()).match(/Computer/g)).toHaveLength(1);
     const names = await frame.locator('html').evaluate('(async () => { const { features } = await import("/src/account-game/features.ts"); return [...features({ fairy: true, arrangement: true, cards: true, kingPowers: true }).children].map(e => [e.getAttribute("role"), e.getAttribute("aria-label")]); })()');
-    expect.soft(names).toEqual(['Fairy pieces', 'First rank sorting', 'Cards', 'King powers'].map(name => ['img', name]));
+    expect.soft(names).toEqual(['Fairy pieces', 'First rank sorting: Player', 'Cards', 'King powers'].map(name => ['img', name]));
   } finally { await page.close(); }
 });
 

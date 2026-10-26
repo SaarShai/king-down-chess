@@ -1,0 +1,22 @@
+ok default game: Spirit and Shadow effects at 20.0 fps; 16 pawns resting, 4 acting
+ok Animations Off: nothing extra drawn, no redraw loop; Normal brings the effects back
+ok reduced motion: no effects, no redraw loop
+ok hidden tab: 0 frames in 1.5 s; visible again: 20 frames in 1 s
+ok King Down: the fallen king's effect stops, the winner's stays; the result window shows the kings that played (Spirit and Shadow; Frost and Flame)
+ok a king's move keeps both effects
+ok king captures: normal 1657 ms, fast 835 ms, off none
+ok title: with Animations Off saved, no entrance animation and no kings' effects (with Normal the entrance runs)
+ok title kings: a phone in landscape (568×320, 667×375) has no error, and turned to portrait shows all six running
+ok title kings: none blinks when they start at different times; six effects at 17 fps (5.06 ms mean, 137.60 ms max a frame, 1440×900), stopped while hidden, removed on close, none with reduced motion
+  desktop 1440×900 @2x no effects, pawns still, redrawn every display frame: 0.51 ms mean, 0.70 ms p95, 0.90 ms max, 60.2 fps
+  desktop 1440×900 @2x spirit+shadow and 16 resting pawns (2.9 acting on average): 0.97 ms mean, 1.30 ms p95, 1.70 ms max, 19.2 fps
+  desktop 1440×900 @2x flame+frost and 16 resting pawns (2.1 acting on average): 0.78 ms mean, 1.00 ms p95, 1.20 ms max, 19.5 fps
+  desktop 1440×900 @2x mud+stratus and 16 resting pawns (2.2 acting on average): 0.84 ms mean, 1.20 ms p95, 1.30 ms max, 19.5 fps
+  desktop 1440×900 @2x flame+frost and 16 resting pawns (2.4 acting on average), redrawn every display frame: 0.83 ms mean, 1.20 ms p95, 1.50 ms max, 60.0 fps
+  phone 390×844 @3x no effects, pawns still, redrawn every display frame: 0.49 ms mean, 0.60 ms p95, 0.70 ms max, 60.2 fps
+  phone 390×844 @3x spirit+shadow and 16 resting pawns (2.9 acting on average): 0.95 ms mean, 1.30 ms p95, 1.40 ms max, 19.2 fps
+  phone 390×844 @3x flame+frost and 16 resting pawns (2.1 acting on average): 0.89 ms mean, 1.10 ms p95, 1.20 ms max, 19.7 fps
+  phone 390×844 @3x mud+stratus and 16 resting pawns (2.2 acting on average): 0.93 ms mean, 1.30 ms p95, 2.00 ms max, 19.5 fps
+  phone 390×844 @3x flame+frost and 16 resting pawns (2.4 acting on average), redrawn every display frame: 0.88 ms mean, 1.20 ms p95, 1.40 ms max, 60.0 fps
+ok selected preview: full 16 s Mud replay, both styles and end-of-cycle screenshots recorded
+ok all king-effect checks

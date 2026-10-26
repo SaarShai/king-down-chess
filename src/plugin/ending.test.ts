@@ -13,6 +13,7 @@ test.each([0, 1] as const)('names the end reason for seat %i', seat => {
   expect(reason('agreement')).toBe('Draw by agreement.');
   expect(reason('stalemate')).toBe('Draw by stalemate.');
   expect(reason('draw50')).toBe('Draw by the fifty-move rule.');
+  expect(reason('history')).toBe('Draw: the game reached its length limit.');
   expect(reason('drawRepetition')).toBe('Draw by repetition.');
   expect(reason('drawMaterial')).toBe('Neither side has enough pieces to give checkmate.');
   expect(reason('abort')).toBe('');

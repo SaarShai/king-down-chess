@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Salvation · Artwork concepts</title>
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/src/style.css">
+  <link rel="stylesheet" href="../style.css">
+  <style>
+    .concepts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; margin-top:24px }
+    .concepts h2 { margin-bottom:6px }
+    .concepts p { min-height:3em; margin-bottom:14px }
+    .concepts img { display:block; width:100%; height:auto }
+    .concepts .crop { aspect-ratio:16/9; object-fit:cover; margin-top:20px }
+    .concepts figcaption { margin-bottom:20px }
+    .back { display:inline-block; margin-top:20px; color:var(--ink); text-underline-offset:3px }
+    .revision { margin-top:24px }
+    .revision p { margin-bottom:16px; max-width:65ch }
+    .revision img { display:block; width:100%; height:auto }
+    .revision .card-window { width:min(100%,400px); aspect-ratio:16/9; object-fit:cover; margin-top:24px }
+    .revision figcaption { margin:8px 0 24px }
+    details { margin-top:28px; border-top:1px solid var(--line); padding-top:16px }
+    summary { cursor:pointer; font-weight:600 }
+    @media(max-width:560px) { .concepts { gap:12px } .concepts h2 { font-size:22px } .concepts p { min-height:6em; font-size:14px } }
+  </style>
+</head>
+<body>
+<main class="art-study">
+  <header><h1>Salvation</h1><p>Called Home · rising from the dead world</p></header>
+  <article class="revision" aria-label="Revised Called Home artwork">
+    <p>The rook rises from a ruined world beneath the board, becoming solid in the dawn light. This landscape composition fits the card window.</p>
+    <figure><a href="./called-home-rising.png" aria-label="Open revised Called Home at full size"><img src="./called-home-rising.png" alt="An ivory rook rises on turquoise spirit mist from a deep chasm containing a ruined dead kingdom and a fallen chess piece, into the golden living world above." width="1672" height="941"></a><figcaption>Revised painting</figcaption></figure>
+    <figure><img class="card-window" src="./called-home-rising.png" alt="The revised Salvation illustration inside the current 16 by 9 card window."><figcaption>In the card · the crown, lifted base and dead world remain visible</figcaption></figure>
+  </article>
+  <details><summary>Previous concepts</summary>
+  <section class="concepts" aria-label="Compare artwork concepts">
+    <article>
+      <h2>A · Reforged</h2>
+      <p>An ivory knight draws itself back together with golden light.</p>
+      <figure><a href="./reforged.png" aria-label="Open Reforged at full size"><img src="./reforged.png" alt="A carved ivory knight with floating stone fragments reconnecting through warm golden light." width="1254" height="1254"></a><figcaption>Full painting</figcaption></figure>
+      <figure><img class="crop" src="./reforged.png" alt="Reforged in the game's center card crop."><figcaption>In the card · center crop</figcaption></figure>
+    </article>
+    <article>
+      <h2>B · Called Home</h2>
+      <p>A spectral rook returns through mist and becomes solid in the dawn light.</p>
+      <figure><a href="./called-home.png" aria-label="Open Called Home at full size"><img src="./called-home.png" alt="A rook becoming solid ivory as it emerges from turquoise spectral mist onto a sunlit chessboard." width="1254" height="1254"></a><figcaption>Full painting</figcaption></figure>
+      <figure><img class="crop" src="./called-home.png" alt="Called Home in the game's center card crop."><figcaption>In the card · center crop</figcaption></figure>
+    </article>
+  </section>
+  </details>
+  <a class="back" href="../index.html?card=salvation">Back to card animations</a>
+</main>
+</body>
+</html>

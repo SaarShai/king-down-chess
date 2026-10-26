@@ -81,12 +81,12 @@
       ]
     },
     "actions": [
-      "d2-d8!"
+      "d2-d6!"
     ],
     "expected": {
       "board": {
         "d2": null,
-        "d8": "P"
+        "d6": "P"
       },
       "turn": 1,
       "used": [

@@ -40,6 +40,8 @@ const queuedAtStart = state.queued;
 let awaitingInitialResult = true;
 let connected = false;
 let view: View | undefined, rules: { game: string; value: NonNullable<View['rules']> } | undefined;
+// The chat result's game of the last mount until a view shows: Try again after a failed recovery opens it (ticket 90).
+let mountShown: Pick<View, 'game_id' | 'seat'> | undefined;
 let polling = false, newGameFirst = false;
 let poll: ReturnType<typeof runPoll> | undefined, seenAt = 0;
 let handleBack: Screen = state.handle_back ?? state.pending?.screen ?? 'settings';
@@ -134,7 +136,7 @@ function show(next: View | undefined, job?: Job) {
   if (view?.game_id !== next.game_id || view.revision !== next.revision || view.status !== next.status || view.action !== next.action) memory.dirty = true;
   if (view?.game_id !== next.game_id || view.revision !== next.revision) memory.blockNotice = '';
   if (view?.game_id !== next.game_id) $('invitation').textContent = '';
-  view = next;
+  view = next; mountShown = undefined;
   syncFriendInvites([next]);
   // The mount job restores a saved screen only on the first mount (design §2, step 2).
   drawBoard(next, mounting() && queue.mountJob()?.options.initial === true && !!savedScreen);
@@ -231,6 +233,12 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
     // the state.pending change it owns here, else a cleared state.pending leaves the page locked (design §1.2 rule 1).
     store.sync();
   }
+  /** Reconnect can replace the account without closing the host frame. A refused private read is not stale data. */
+  function accessLost(code: string, text: string): Outcome {
+    for (const key of Object.keys(state)) delete state[key as keyof typeof state];
+    state.screen = 'home'; client.save(); app.onClose?.(); app.onAccessLost?.();
+    return { status: 'refused', code, text, result: EMPTY };
+  }
   let followup: Pending | undefined, received: View | undefined, refused: { text: string; code: string; game?: string } | undefined;
   let code: string | undefined;
   if (quiet) polling = true;
@@ -258,6 +266,17 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       if (retry && state.pending) args = resend(state.pending);
       let result = await client.call(name, args, transport);
       if (late()) { settleLate(result); return { status: 'superseded' }; }
+      // The 7-day cleanup deleted this board's record: open the shown game on a new board, as a mount does for a game with
+      // no board. A mount reads before its view shows, so it opens the chat result's game.
+      const showing = job.options.shown ?? view;
+      if (name === 'kingdown_get' && showing && resultCode(result) === 'BOARD_EXPIRED') {
+        result = await client.call('kingdown_open', { game_id: showing.game_id }, transport);
+        if (late()) { settleLate(result); return { status: 'superseded' }; }
+        // An account has one seat in a game, so another seat is another account: the host reconnected as the opponent.
+        // An account with no seat gets FORBIDDEN from this Open. Both clear the page, as the refused read below does.
+        if (!result.isError && (result._meta as { view?: View } | undefined)?.view?.seat !== showing.seat) return accessLost('FORBIDDEN', 'Board unavailable for this account');
+        const board = result._meta?.board_id; if (typeof board === 'string') { state.board_id = board; client.save(); }
+      }
       // A current selection reply selects the page's board; an older one leaves it (the epoch gate, design §1.2).
       const selected = result._meta?.board_id;
       if (!quiet && queue.current(job) && SELECTION_TOOLS.includes(name) && typeof selected === 'string') state.board_id = selected;
@@ -268,12 +287,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       }
       if (result.isError) {
         const text = resultText(result); code = resultCode(result);
-        // Reconnect can replace the account without closing the host frame. A refused private read is not stale data.
-        if (name === 'kingdown_get' && code === 'FORBIDDEN') {
-          for (const key of Object.keys(state)) delete state[key as keyof typeof state];
-          state.screen = 'home'; client.save(); app.onClose?.(); app.onAccessLost?.();
-          return { status: 'refused', code, text, result: EMPTY };
-        }
+        if (name === 'kingdown_get' && code === 'FORBIDDEN') return accessLost(code, text);
         if (code === 'HANDLE_NEEDED') {
           // A retained command keeps state.pending with its error (design §2); a selection keeps its own continuation.
           if (own && state.pending === own) failPending(text, own, job);
@@ -344,7 +358,7 @@ $('reload').onclick = () => { if (state.board_id) void call('kingdown_get', {});
 $('retry').onclick = () => {
   const action = messageLine(store.page()).action;
   if (action === 'connect') location.reload();
-  else if (action === 'try-again') { if (state.board_id) void call('kingdown_get', {}, false, false, true); }
+  else if (action === 'try-again') { if (state.board_id) void call('kingdown_get', {}, { route: true, shown: mountShown }); }
   // Retry sends the state.pending command again; its continuation finishes what the command started (design §5.2 and §5.3).
   else if (state.pending) void call(state.pending.name, state.pending.args, true, false, undefined, true);
 };
@@ -385,6 +399,7 @@ app.onResult = result => {
 };
 async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
   const initial = job.options.initial === true;
+  mountShown = result._meta?.view as View | undefined;
   // A newer chat result detaches this job; every write below stops at the next wait.
   const stale = () => !queue.current(job);
   try {
@@ -413,7 +428,7 @@ async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
     }
     if (!initial && value?.screen === 'home') openHallOnExpand = false;
     if (value?.screen === 'join') { memory.preview = result._meta?.preview as JoinPreview | undefined; memory.code = memory.preview?.code ?? ''; memory.joinError = undefined; }
-    if (value && ['home', 'play', 'board', 'profile', 'join'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen === 'home' && initial && !savedScreen && displayMode === 'fullscreen' ? 'play' : value.screen as Screen);
+    if (value && ['home', 'play', 'board', 'profile', 'join', 'settings'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen === 'home' && initial && !savedScreen && displayMode === 'fullscreen' ? 'play' : value.screen as Screen);
     // A game with no board gets its own new board, so mounts never race on one server board; only a current mount takes it.
     if (typeof value?.game_id === 'string' && !board && (!initial || !state.board_id)) {
       const selected = await client.call('kingdown_open', { game_id: value.game_id }, { limit: false, background: true, signal });
@@ -428,7 +443,7 @@ async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
     const readBoard = state.board_id && (typeof value?.game_id === 'string' || initial && savedScreen);
     // The board read waits for an idle lane, so it never reads through a write in flight (design §2, R6).
     if (readBoard) {
-      const next = await call('kingdown_get', {}, { route, origin: job, mount: true, user: false, signal });
+      const next = await call('kingdown_get', {}, { route, origin: job, mount: true, user: false, signal, shown: mountShown });
       if (stale()) return;
       if (savedGame && !route && next && (next.status === 'finished' || next.status === 'aborted')) routeView(next);
     } else if (!result._meta?.view) {

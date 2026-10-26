@@ -101,9 +101,11 @@ export class PluginService {
     const result = await this.store.pool.query(`insert into public.plugin_boards(id,actor_id,match_id) select $1,$2,$3 where ${seated}`, [board, id(actor), id(gameId)]);
     return result.rowCount ? board : fail('FORBIDDEN', 403, 'You do not have a seat in this game');
   }
-  /** Read-only: the game that the actor's board shows now. */
+  /** Read-only: the game that the actor's board shows now. A missing board (the 7-day cleanup deleted it) is BOARD_EXPIRED,
+   *  so the page opens a new one; another account's board stays FORBIDDEN. */
   async board(actor: string, boardId: string): Promise<string | null> {
-    const row = (await this.store.pool.query('select match_id,game_selected from public.plugin_boards where id=$1 and actor_id=$2', [id(boardId), id(actor)])).rows[0] ?? fail('FORBIDDEN', 403, 'Board unavailable for this account');
+    const row = (await this.store.pool.query('select actor_id,match_id,game_selected from public.plugin_boards where id=$1', [id(boardId)])).rows[0] ?? fail('BOARD_EXPIRED', 404, 'This board expired. Start, resume or join a game.');
+    if (row.actor_id !== id(actor)) fail('FORBIDDEN', 403, 'Board unavailable for this account');
     if (!row.game_selected) return null;
     return row.match_id ?? fail('MATCH_REMOVED', 404, 'This game was deleted. Start, resume or join another game.');
   }

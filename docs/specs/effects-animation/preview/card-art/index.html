@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Living card art · King Down</title>
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/src/style.css">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main class="art-study">
+  <header><h1>Living card art</h1><p>Bring the painting to life. These studies await your feedback.</p></header>
+  <nav class="samples" aria-label="Choose a card">
+    <button id="choose-freeze" disabled>Freeze</button>
+    <button id="choose-skylift" disabled>Sky Lift</button>
+    <button id="choose-mimic" disabled>Mimic</button>
+    <button id="choose-haste" disabled>Haste</button>
+    <button id="choose-flight" disabled>Flight</button>
+    <button id="choose-salvation" disabled>Salvation</button>
+  </nav>
+  <section class="workspace" aria-label="Card artwork preview">
+    <div class="view-controls" role="group" aria-label="Artwork version">
+      <button id="original" aria-pressed="false">Original</button>
+      <button id="animated" aria-pressed="true">Animated</button>
+    </div>
+    <div class="transport" role="group" aria-label="Animation controls">
+      <button id="idle" aria-pressed="true">Gentle loop</button>
+      <button id="awaken" aria-pressed="false">Awakening</button>
+      <button id="replay">Replay</button>
+      <button id="play">Play</button>
+    </div>
+    <div class="timeline"><input id="scrub" aria-label="Animation progress" type="range" min="0" max="1000" value="0"><output id="time">0.00 s</output></div>
+    <figure class="full-art"><canvas id="art" width="512" height="512" aria-label="Full card illustration"></canvas><p id="loading" role="status">Preparing the first preview…</p></figure>
+    <aside>
+      <h2 id="title">Card artwork</h2>
+      <p id="description">Choose a ready card to explore its painting.</p>
+      <figure class="card-crop"><canvas id="crop" width="640" height="360" aria-label="Artwork in the game's card crop"></canvas><figcaption>In the card · the game’s current crop</figcaption></figure>
+      <div class="hand"><figure><canvas id="coin-desktop" width="68" height="68" aria-label="Desktop hand icon, actual size"></canvas><figcaption>Desktop</figcaption></figure><figure><canvas id="coin-touch" width="88" height="88" aria-label="Touch hand icon, actual size"></canvas><figcaption>Touch</figcaption></figure><p>In the hand<br><span>Shown at actual size</span></p></div>
+      <p id="phase" role="status">Loading artwork…</p>
+      <div class="preferences"><label><input id="reduced" type="checkbox"> Reduced motion</label><label>Speed <select id="speed"><option value="1">Normal</option><option value="0.35">Slow</option></select></label></div>
+      <p class="note">Preview only. The game and original artwork are unchanged.</p>
+    </aside>
+  </section>
+</main>
+<script type="module" src="./main.js"></script>
+</body>
+</html>

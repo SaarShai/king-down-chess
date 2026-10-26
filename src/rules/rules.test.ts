@@ -1646,11 +1646,11 @@ describe('king power: Strike (Flame A, tier 2)', () => {
     setRules(flame);
     const pos = fromFen('4k3/8/8/8/7p/8/3P4/4K3 w - - 0 1');
     const d2 = strikes(pos).filter(m => m.from === parseSq('d2'));
-    expect(lan(pos, d2)).toContain('d2-d8!');
+    expect(lan(pos, d2)).toContain('d2-d6!');
     expect(d2.every(m => m.from !== parseSq('e1'))).toBe(true);
     expect(strikes(pos).some(m => m.from === parseSq('e1'))).toBe(false); // the king never strikes
 
-    const after = makeMove(pos, d2.find(m => toLan(pos, m) === 'd2-d8!')!);
+    const after = makeMove(pos, d2.find(m => toLan(pos, m) === 'd2-d6!')!);
     expect(after.used).toEqual([1, 0]);
     expect(strikes(after).length).toBeGreaterThan(0);  // Black's is still live
     expect(strikes(makeMove(after, legalMoves(after)[0]))).toHaveLength(0); // White's is spent
@@ -1660,10 +1660,25 @@ describe('king power: Strike (Flame A, tier 2)', () => {
     setRules(flame);
     const rook = fromFen('4k3/8/8/8/8/8/8/4R1K1 w - - 0 1');
     expect(strikes(rook).some(m => m.to === parseSq('e8'))).toBe(false);
-    const pawn = fromFen('6k1/P7/8/8/8/8/8/4K3 w - - 0 1');
-    const s = strikes(pawn).find(m => m.from === parseSq('a7') && m.to === parseSq('a8'));
+    const knight = fromFen('6k1/N7/8/8/8/8/8/4K3 w - - 0 1');
+    const s = strikes(knight).find(m => m.from === parseSq('a7') && m.to === parseSq('a8'));
     expect(s).toBeDefined();
-    expect(typeOf(at(makeMove(pawn, s!), 'a8'))).toBe(P);
+    expect(typeOf(at(makeMove(knight, s!), 'a8'))).toBe(N);
+  });
+
+  it('never lands a pawn on the first or last rank, quiet or taking', () => {
+    setRules(flame);
+    // White: c7 could reach c8 or take on b8, c2 could reach c1. Black: f2 could reach f1 or take on g1.
+    const fen = '1n5k/2P5/8/8/8/8/2P2p2/K5N1 w - - 0 1', pos = fromFen(fen);
+    const white = strikes(pos), edge = (m: Move) => [0, 7].includes(Math.floor(m.to / 8));
+    expect(white.filter(m => typeOf(at(pos, sqName(m.from))) === P).some(edge)).toBe(false);
+    expect(lan(pos, white)).toContain('c7-c6!');
+    const black = strikes(fromFen(fen.replace(' w ', ' b ')));
+    expect(black.filter(m => m.from === parseSq('f2')).some(edge)).toBe(false);
+    expect(black.some(m => m.from === parseSq('f2'))).toBe(true);
+    // The capture reading leaves the pawn where it stands, so it may take a piece on the last rank.
+    setRules({ ...flame, strikeMode: 'capture' });
+    expect(strikes(pos).some(m => m.from === parseSq('c7') && m.captures[0] === parseSq('b8'))).toBe(true);
   });
 
   it('can block a check, and its use survives FEN and the LAN parser', () => {

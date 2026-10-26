@@ -1,0 +1,71 @@
+{
+  "key_checks": [
+    {
+      "side": 0,
+      "key": 0,
+      "max_visible_rgba_delta": 0
+    },
+    {
+      "side": 0,
+      "key": 1,
+      "max_visible_rgba_delta": 0
+    },
+    {
+      "side": 0,
+      "key": 2,
+      "max_visible_rgba_delta": 0
+    },
+    {
+      "side": 0,
+      "key": 3,
+      "max_visible_rgba_delta": 0
+    },
+    {
+      "side": 0,
+      "key": 4,
+      "max_visible_rgba_delta": 0
+    },
+    {
+      "side": 1,
+      "key": 0,
+      "max_visible_rgba_delta": 0
+    },
+    {
+      "side": 1,
+      "key": 1,
+      "max_visible_rgba_delta": 0
+    },
+    {
+      "side": 1,
+      "key": 2,
+      "max_visible_rgba_delta": 0
+    },
+    {
+      "side": 1,
+      "key": 3,
+      "max_visible_rgba_delta": 0
+    },
+    {
+      "side": 1,
+      "key": 4,
+      "max_visible_rgba_delta": 0
+    }
+  ],
+  "all_gutters_zero": true,
+  "middle_alpha_vs_plain_crossfade_mean_abs": [
+    0.04160001999931917,
+    0.022991557734204793,
+    0.029323310270288668,
+    0.041408218018110024,
+    0.03947174138752724,
+    0.0227292794287854,
+    0.03410793462350218,
+    0.04086148131127451
+  ],
+  "warp_max_abs": {
+    "x0": 7.31264702125145e-08,
+    "x1": 8.887727531714518e-08
+  },
+  "charcoal_opaque_dark_min": 2510,
+  "status": "passed"
+}
