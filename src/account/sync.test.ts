@@ -44,6 +44,34 @@ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(1_000_000); });
 afterEach(() => { vi.useRealTimers(); });
 
 describe('F1 account ownership', () => {
+  it('review 7: keeps a second tab move after a failed upload and A, B, C, D, E, A', async () => {
+    const a = cloud(null, 'A'), d = device({ 'kingdown.save': save(['e2-e4']) }, a);
+    await d.sync.pull();
+    const tab2 = { ...d.st }, get = d.st.getItem;
+    let reads = 0;
+    d.st.getItem = key => {
+      const raw = get(key);
+      // The second save read checks the cloud copy. The other tab writes after that read.
+      if (key === 'kingdown.save' && ++reads === 2) tab2.setItem(key, JSON.stringify(save(['e2-e4', 'e7-e5'])));
+      return raw;
+    };
+    const push = vi.fn(async (_row: Row): Promise<Row> => { throw new Error('offline'); });
+    a.remote.push = push;
+    await d.sync.pull(); d.sync.stop();
+    d.st.getItem = get;
+    expect(push).toHaveBeenCalledWith(expect.objectContaining({ saved_game: expect.objectContaining({ v: expect.objectContaining({ moves: ['e2-e4', 'e7-e5'] }) }) }));
+    expect(a.row?.saved_game?.v).toMatchObject({ moves: ['e2-e4'] });
+    for (const userId of ['B', 'C', 'D', 'E']) {
+      const next = new Sync(d.st, cloud(null, userId).remote, () => {}, { blocked: () => false, accepts: () => true });
+      await next.pull();
+      d.st.setItem('kingdown.save', JSON.stringify(save(['d2-d4'])));
+      next.changed(); await next.flush(); next.stop();
+    }
+    const returned = new Sync(d.st, a.remote, () => {}, { blocked: () => false, accepts: () => true });
+    await returned.pull(); returned.stop();
+    expect(readLocal(d.st).saved_game).toMatchObject({ moves: ['e2-e4', 'e7-e5'] });
+  });
+
   it('review storage: limits confirmed copies and keeps copies with unknown status', async () => {
     const st = store({ 'kingdown.save': save(['e2-e4']) });
     for (let i = 0; i < 5; i++) st.setItem(`kingdown.local.old-${i}`, JSON.stringify([null, null, null]));

@@ -3,6 +3,24 @@
 Type: task
 Status: resolved
 
+## Third review plan and checks
+
+1. Capture the raw game and lesson bytes once for each cloud confirmation check. Use those bytes for the check and its record. Test a second tab that adds `e7-e5` during the check, a failed upload and return through A, B, C, D, E, A.
+2. Clear each write failure and its notice after a successful retry. Test a game storage error and a failed lesson record. Keep a failure for the other data until its write succeeds.
+
+Run the selected tests before and after each fix. Use fake timers. Run the doc checks after both fixes. Make one commit per finding. Use the unchanged hooks. Do not push, merge, rebase or deploy.
+
+## Third review: finding 1
+
+The confirmation check and its record now use the same captured game and lesson bytes. The parser uses those bytes. It does not read a later value for the record. A second tab can save a new move during the check. The old confirmation cannot make that new move safe to remove.
+
+- Red and green command: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,account/account,account/client,lesson-shelf,lesson-store}.test.ts' npm test`.
+- Red: one test fails; 127 pass. After a failed upload and A, B, C, D, E, A, the game loses `e7-e5`.
+- Green: all 128 tests in seven files pass. Both type checks and all 57 art checks pass. The new move survives the failed upload and account return.
+- The test uses fake timers and two storage objects with shared keys. It checks that the upload contains the new move while the cloud keeps only `e2-e4`.
+- Logs: `web-sync-fix3-1-red.log` and `web-sync-fix3-1-green.log` in the session output folder. `git diff --check` passes.
+- Change review: the existing section parser accepts raw bytes. The confirmation format, account limit and upload path stay the same. No new key or dependency is needed.
+
 ## Second review plan and checks
 
 1. Keep all copies with unconfirmed changes. Treat unknown status as unconfirmed. Apply the three-account limit only to copies that the cloud confirms. Test sign-out, failed sync, return to A and old copies without a list entry.
