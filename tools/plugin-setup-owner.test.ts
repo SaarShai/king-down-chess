@@ -15,7 +15,8 @@ beforeAll(async () => {
 });
 afterAll(async () => { await browser?.close(); await harness?.close(); await rm(folder, { recursive: true, force: true }); });
 async function open() {
-  const page = await browser.newPage({ viewport: {width:390,height:844} }); page.setDefaultTimeout(3000);
+  // A loaded verify runner took over 3 s for the first click after load (run 40262605705).
+  const page = await browser.newPage({ viewport: {width:390,height:844} }); page.setDefaultTimeout(5000);
   await page.goto(harness.url); return page;
 }
 const sent = (page: import('playwright').Page, name: string) => page.evaluate(name => (window as any).harnessCalls.filter((call: any) => call.name === name).length, name);
@@ -23,7 +24,7 @@ const sent = (page: import('playwright').Page, name: string) => page.evaluate(na
 it('F-117 loads no card painting until the Cards section shows', async () => {
   // New game builds every card tile at start; an eager painting would load all of them in each page.
   const page = await browser.newPage({ viewport: {width:390,height:844} }), frame = page.frameLocator('iframe'), cards: string[] = [];
-  page.setDefaultTimeout(3000); page.on('request', r => { if (r.resourceType() === 'image' && /\/cards\/[^/?]+\.webp/.test(r.url())) cards.push(r.url()); });
+  page.setDefaultTimeout(5000); page.on('request', r => { if (r.resourceType() === 'image' && /\/cards\/[^/?]+\.webp/.test(r.url())) cards.push(r.url()); });
   try {
     await page.goto(harness.url);
     await frame.locator('#home-games:not(:disabled)').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
