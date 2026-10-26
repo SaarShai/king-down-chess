@@ -1,0 +1,16 @@
+main { width: min(1440px, calc(100% - 32px)); }
+.art-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: var(--space-5); margin-top: var(--space-5); align-items: start; }
+.art-card { padding: 6px; min-width: 0; background: var(--vellum); border: 1px solid var(--stone-300); border-radius: 12px; }
+.art-card > a { display: block; }
+.all-art { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: var(--radius); background: var(--stone-100); }
+.all-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.art-card > .cf-art { display: grid; }
+.art-card .cf-text { margin: 6px 0 0; padding: 0; }
+.art-card h2 { font-size: var(--fs-lg); margin: 0 0 3px; }
+.art-card p { font-size: var(--fs-sm); line-height: var(--lh); }
+.additional { margin-top: var(--space-7); }
+.additional > p { margin-top: var(--space-2); color: var(--ink-soft); }
+#additional-art { max-width: 720px; }
+@media (max-width: 520px) { .art-grid { gap: var(--space-3); } }
+
+.watch-animation { display: inline-flex; align-items: center; min-height: var(--tap); font-size: var(--fs-sm); }

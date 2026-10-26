@@ -324,7 +324,7 @@ describe('screen-reader lines for released cards', () => {
     Rally: [['Rally'], '4k3/8/8/8/8/8/8/R3K3 w - - 0 1', 'Ra1-a5!J', 'White rook a1 to a5, with Rally: a different piece may move next.'],
     MorphP: [['MorphP'], '4k3/8/8/8/8/8/P7/4K3 w - - 0 1', '!IP:a2=N', 'White turns the pawn on a2 into a knight.'],
     Mimic: [['Mimic'], '4k3/8/8/8/8/8/8/1NR1K3 w - - 0 1', 'Nb1-b5!X', 'White knight b1 to b5 with Mimic.'],
-    Vault: [['Vault'], '4k3/8/8/8/8/8/p7/R3K3 w - - 0 1', 'Ra1-a3!V', 'White rook a1 to a3 with Vault.'],
+    Vault: [['Vault'], '4k3/8/8/8/8/8/p7/R3K3 w - - 0 1', 'Ra1-a3!V', 'White rook a1 to a3 with Hop.'],
     Curse: [['Curse'], '4k3/8/8/3n4/8/8/8/4K3 w - - 0 1', '!C:d5-e5', 'White uses Curse to move the black knight on d5 to e5.'],
     SkyLift: [['SkyLift'], '4k3/8/8/8/8/8/8/1NB1K3 w - - 0 1', '!K:b1<>c1', 'White uses Sky Lift to swap the knight on b1 and the bishop on c1.'],
   };

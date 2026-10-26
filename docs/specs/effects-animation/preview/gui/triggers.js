@@ -1,4 +1,5 @@
 import { UiMotion } from '/src/ui/motion.ts';
+import { art } from '../../../../../src/account-game/art';
 const $ = id => document.getElementById(id);
 const reduce = $('reduce');
 reduce.checked = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -35,7 +36,7 @@ $('pause-clock').onclick = () => { paintClock(); running = false; clearInterval(
 $('reset-clock').onclick = () => { clearInterval(interval); running = false; left = 15000; warning = false; motion.cancel(); $('clock-status').textContent = 'Ready when you are.'; $('clock-heading').textContent = 'Your turn.'; paintClock(); };
 function resetHand() {
   motion.cancel();
-  $('hand').innerHTML = ['Freeze', 'Strike', 'Haste', 'Flight'].map(name => `<div class="study-card"><div class="card-picture"><img src="/ui/cards/${name.toLowerCase()}.webp" alt=""><span class="card-tick">✓</span></div><b>${name}</b><small class="card-state">Ready</small></div>`).join('');
+  $('hand').innerHTML = ['Freeze', 'Strike', 'Haste', 'Flight'].map(name => `<div class="study-card"><div class="card-picture"><img src="${art(`ui/cards/${name.toLowerCase()}.webp`)}" alt=""><span class="card-tick">✓</span></div><b>${name}</b><small class="card-state">Ready</small></div>`).join('');
   $('spend-card').disabled = false; $('spend-card').textContent = 'Use Freeze'; $('refill-card').disabled = true;
   $('card-status').textContent = 'Freeze is ready. The other three cards keep their place.';
 }
@@ -49,7 +50,7 @@ $('spend-card').onclick = () => {
 };
 $('refill-card').onclick = () => {
   const card = $('hand').firstElementChild, name = card.querySelector('b').textContent === 'Freeze' ? 'Leap' : 'Freeze';
-  card.querySelector('img').src = `/ui/cards/${name.toLowerCase()}.webp`; card.querySelector('b').textContent = name;
+  card.querySelector('img').src = art(`ui/cards/${name.toLowerCase()}.webp`); card.querySelector('b').textContent = name;
   card.querySelector('.card-state').textContent = 'Ready'; card.querySelector('.card-picture').style.filter = 'none'; card.querySelector('.card-tick').style.opacity = 0;
   motion.play(card, [{opacity: 0, transform: 'translateY(25px) rotate(-6deg)'}, {opacity: 1, transform: 'translateY(0) rotate(0)'}], 500);
   $('card-status').textContent = `${name} fills the spent slot. Your other cards stay unchanged.`;

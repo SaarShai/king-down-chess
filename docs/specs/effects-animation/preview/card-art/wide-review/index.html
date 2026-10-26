@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>King Down · Wide card art review</title>
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/src/plugin/app.css">
+  <link rel="stylesheet" href="./review.css">
+</head>
+<body>
+  <main>
+    <header>
+      <a href="../../index.html">King Down / Effects study</a>
+      <h1>Wide card art review</h1>
+      <p>Compare all 21 released cards and 2 additional files. New paintings show in full at 16:9. Freeze and March keep their current art.</p>
+      <p><a href="./all.html">See all artwork on cards</a></p>
+    </header>
+    <nav class="paging" aria-label="Review cards">
+      <button id="previous" type="button">Previous</button>
+      <p id="position" aria-live="polite"></p>
+      <button id="next" type="button">Next</button>
+    </nav>
+    <details id="choose-card">
+      <summary>Choose a card</summary>
+      <nav id="card-nav" aria-label="Choose a card"></nav>
+    </details>
+    <p id="manifest-error" role="status" hidden></p>
+    <section id="review" aria-labelledby="card-title">
+      <div class="review-heading"><h2 id="card-title"></h2><span id="card-status"></span></div>
+      <p id="card-note"></p>
+      <div class="comparison">
+        <figure class="current">
+          <figcaption><span>Current game card</span><a id="current-source" target="_blank" rel="noopener">Open full image</a></figcaption>
+          <div id="current-face" class="card-face"></div>
+        </figure>
+        <figure class="proposal">
+          <figcaption><span id="proposal-label">Proposal · full 16:9 painting</span><a id="proposal-source" target="_blank" rel="noopener" hidden>Open full image</a></figcaption>
+          <div id="proposal-face" class="proposal-face">
+            <div id="proposal-art" class="proposal-art"><p role="status">Generating proposal</p></div>
+            <div id="proposal-text" class="cf-text"></div>
+          </div>
+        </figure>
+      </div>
+    </section>
+    <footer>Review sample. Art in the game stays unchanged.</footer>
+  </main>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

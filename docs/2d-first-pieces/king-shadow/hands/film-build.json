@@ -1,0 +1,37 @@
+{
+  "model": "/tmp/kingdown-film/weights/film-1",
+  "source_sha256": "7ee50d25da8a5e0258f1283e579c7e2e24dc343204c12c3b642bb7e283e006c5",
+  "size": 192,
+  "pivot": [
+    96,
+    176
+  ],
+  "intervals_per_gap": 16,
+  "inferences": 120,
+  "warp_check_max": 1.1920928955078125e-07,
+  "alpha_method": "Original alpha backward-warped with FILM backward_flow_pyramid[0]/2 and forward_flow_pyramid[0]/2; averaged only after alignment. FILM synthesized neutral-matte RGB is uncomposited with the transported alpha. No chromakey.",
+  "frames_per_army": 65,
+  "atlas_columns": 8,
+  "atlas_rows_per_army": 9,
+  "checks": [
+    {
+      "side": 0,
+      "frames": 65,
+      "wrist_x_min": 93.16565707411571,
+      "wrist_x_max": 99.67956112235248,
+      "zero_alpha_gutter": true,
+      "max_adjacent_alpha_delta": 0.012327238917350769
+    },
+    {
+      "side": 1,
+      "frames": 65,
+      "wrist_x_min": 92.87079177798505,
+      "wrist_x_max": 100.1012572542421,
+      "zero_alpha_gutter": true,
+      "max_adjacent_alpha_delta": 0.01261489000171423
+    }
+  ],
+  "seconds": 144.78,
+  "output_sha256": "9018c7b0eeb0c6a81cc5539d4f59c72e9d59fbcbf917d953c121b79dd8bed944",
+  "status": "complete"
+}

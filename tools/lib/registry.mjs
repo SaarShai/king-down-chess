@@ -10,6 +10,12 @@
 // fails, selftest-hang never ends, selftest-hold sleeps 15 s so that two runs can be seen together.
 export const checks = [
   { name: 'effects-animation', script: 'docs/specs/effects-animation/verify.mjs', limit: 180, channel: 'chromium', byName: true },
+  { name: 'effects-concepts', script: 'docs/specs/effects-animation/verify-concepts.mjs', limit: 120, channel: 'chromium', byName: true },
+  { name: 'effects-comparisons', script: 'docs/specs/effects-animation/verify-comparisons.mjs', limit: 120, channel: 'chromium', byName: true },
+  { name: 'card-art', script: 'docs/specs/effects-animation/verify-card-art.mjs', limit: 120, channel: 'chromium', byName: true },
+  { name: 'card-crops', script: 'docs/specs/effects-animation/preview/card-art/crop-review/verify.mjs', limit: 120, channel: 'chromium', byName: true },
+  { name: 'card-art-wide', script: 'docs/specs/effects-animation/preview/card-art/wide-review/verify.mjs', limit: 180, channel: 'chromium', byName: true },
+  { name: 'wide-card-motion', script: 'docs/specs/effects-animation/preview/card-art/wide-review/motion/verify.mjs', limit: 240, channel: 'chromium', byName: true },
   { name: 'effects-game', script: 'docs/specs/effects-animation/verify-game.mjs', limit: 240, channel: 'chromium', byName: true, exclusive: true },
   { name: 'motion-concepts', script: 'tools/verify-motion-concepts.mjs', limit: 300, channel: 'chromium', byName: true },
   { name: 'effects-states', script: 'docs/specs/effects-animation/evidence/14-state-integration/capture.mjs', limit: 180, channel: 'chromium', byName: true },

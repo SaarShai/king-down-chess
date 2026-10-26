@@ -2239,7 +2239,7 @@ try {
       }, cardView);
       await host.frame.locator('#card-w-' + cardIndex).click();
       await host.frame.locator('#board-sheet').getByRole('button', { name: 'Use', exact: true }).click();
-      assert.equal(await host.frame.locator('#status').textContent(), 'Vault.', `The armed card name ends with a stop at ${width} x ${height}`);
+      assert.equal(await host.frame.locator('#status').textContent(), 'Hop.', `The armed card name ends with a stop at ${width} x ${height}`);
       await host.frame.locator('#context-text').scrollIntoViewIfNeeded();
       await host.frame.locator('html').evaluate(() => document.fonts.ready);
       await shot(host.page, `board-cards-armed-${width}-${mode}`);

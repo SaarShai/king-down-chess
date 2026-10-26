@@ -1,0 +1,65 @@
+html, body { height: auto; min-height: 100%; overflow: auto; }
+body { margin: 0; background-attachment: fixed; }
+.motion-study { width: min(1140px, calc(100% - 32px)); margin: auto; padding: 20px 0 32px; }
+.motion-study h1, .motion-study h2, .motion-study p, .motion-study figure { margin: 0; }
+.motion-study header { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; }
+.motion-study h1 { font: 400 clamp(24px, 3vw, 30px)/1.2 var(--font-display); }
+.motion-study a { color: var(--accent); text-underline-offset: .18em; }
+.motion-study a:hover { color: var(--accent-deep); }
+.motion-study button { width: auto; min-height: var(--tap); justify-content: center; padding: 8px 14px; background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius-sm); box-shadow: none; transform: none; }
+.motion-study button:hover:enabled { background: var(--parchment-deep); }
+.motion-study button[aria-pressed='true'] { background: var(--accent); color: var(--vellum); border-color: var(--accent); }
+.motion-study button:disabled { color: var(--ink-soft); background: var(--stone-100); cursor: default; }
+.motion-study :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.paging { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; align-items: center; margin-top: 14px; }
+.paging #previous { justify-self: start; }
+.paging #next { justify-self: end; }
+#position { color: var(--ink-soft); text-align: center; font-variant-numeric: tabular-nums; }
+#chooser { border-bottom: 1px solid var(--line); margin-block: 4px 10px; }
+#choose-summary { width: fit-content; min-height: var(--tap); padding-block: 11px; color: var(--accent); font-weight: 700; cursor: pointer; }
+#card-nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; padding-bottom: 14px; }
+#card-nav button { font-weight: 400; }
+#card-nav button[aria-pressed='true'] { font-weight: 700; }
+.controls { position: sticky; top: 0; z-index: 2; padding: 8px 0; background: var(--floor-base); border-bottom: 1px solid var(--line); }
+.transport { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.mode-controls, .play-controls { display: flex; gap: 8px; }
+.play-controls button { min-width: 88px; }
+.timeline { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+.timeline input { flex: 1; width: 100%; min-width: 0; height: 32px; margin: 0; }
+.timeline output { min-width: 105px; text-align: right; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.preferences { display: flex; align-items: center; gap: 20px; }
+.preferences #phase { flex: 1; color: var(--ink-soft); font-size: var(--fs-sm); }
+.preferences label { justify-content: flex-start; min-height: var(--tap); gap: 8px; white-space: nowrap; }
+.preferences input[type='checkbox'] { flex: none; margin: 0; accent-color: var(--accent); }
+.comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; margin-top: 14px; }
+.card-panel { min-width: 0; padding: 6px; border: 1px solid var(--stone-300); border-radius: 12px; background: var(--vellum); }
+.version-label { padding: 3px 2px 7px; font-size: var(--fs-sm); color: var(--ink-soft); }
+.card-panel canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: var(--radius); background: var(--stone-100); }
+.animated-painting { position: relative; }
+.loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 20px; background: var(--vellum); color: var(--ink-soft); text-align: center; border-radius: var(--radius); }
+.card-copy { padding: 8px 3px 4px; }
+.card-copy h2 { font: 400 var(--fs-xl)/var(--lh-tight) var(--font-display); }
+.card-copy .card-rule { margin-top: 4px; line-height: 1.4; }
+.description { max-width: 70ch; margin-top: 14px !important; color: var(--ink-soft); }
+::selection { background: var(--accent); color: var(--vellum); }
+* { scrollbar-color: var(--stone-500) var(--parchment); }
+@media (max-width: 680px) {
+  .motion-study { width: calc(100% - 24px); padding-top: 14px; }
+  .motion-study header { flex-wrap: wrap; gap: 6px 14px; }
+  .motion-study header a { font-size: var(--fs-sm); }
+  .paging { gap: 8px; margin-top: 10px; }
+  .paging button { padding-inline: 10px; }
+  #position { font-size: var(--fs-sm); }
+  .transport { flex-wrap: wrap; gap: 8px; }
+  .mode-controls { width: 100%; }
+  .mode-controls button { flex: 1; padding-inline: 7px; font-size: var(--fs-sm); }
+  .play-controls { width: 100%; }
+  .play-controls button { flex: 1; }
+  .preferences { flex-wrap: wrap; justify-content: space-between; gap: 0 14px; }
+  .preferences #phase { order: 1; flex-basis: 100%; padding-bottom: 2px; }
+  .preferences label { font-size: var(--fs-sm); }
+  .comparison { grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 12px; }
+  .animated-view { order: -1; }
+  .card-copy h2 { font-size: 21px; }
+}
+@media (prefers-reduced-motion: reduce) { .motion-study * { transition: none; } }
