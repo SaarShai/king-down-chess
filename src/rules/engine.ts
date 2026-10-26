@@ -162,10 +162,11 @@ export interface Position {
   used?: readonly [number, number];
   /**
    * Freeze and Ice Wall marks, one slot per marking side (`[by White, by Black]`), so a side bound
-   * by the opponent's mark can set its own without lifting it. A mark binds the other side only; its
-   * marker's power says which kind (`markKind`). It lasts through the marking side's own moves and
-   * `left` turns of the bound side (absent = 1; `markTurns: 2` makes it 2); a Haste's second move is
-   * part of the same turn. `ward` (card mode only): an Ice Wall, since a hand may hold both; `all`
+   * by the opponent's mark can set its own without lifting it. A mark holds a piece: it follows the
+   * piece to each new square (`followSq`) and ends when the piece leaves the board. A mark binds the
+   * other side only; its marker's power says which kind (`markKind`). It lasts through the marking
+   * side's own moves and `left` turns of the bound side (absent = 1; `markTurns: 2` makes it 2); a
+   * Haste's second move is part of the same turn. `ward` (card mode only): an Ice Wall, since a hand may hold both; `all`
    * (with `ward`): a Firewall, every piece of the marking side. `left: 0` (Rescue in play): the mark
    * has just ended and binds nothing; its side may renew it on this turn, and it goes when that turn ends.
    */
@@ -1014,6 +1015,19 @@ function loseInto(lost: readonly number[] | undefined, board: Uint8Array, m: Mov
   return out;
 }
 
+/**
+ * Where the piece on `s` stands after `m`, a move that changes squares; -1 when `m` takes it or it
+ * leaves the board. A mark holds a piece, not a square, so `makeMove` and the search move it with this.
+ */
+export function followSq(m: Move, s: number): number {
+  if (m.captures.includes(s)) return -1;
+  if (m.shove?.from === s) return m.shove.to;
+  if (m.pushes) return m.pushes.find(p => p.from === s)?.to ?? s;
+  if (m.castle?.from === s) return m.castle.to;
+  if (s === m.from) return m.selfRemove ? -1 : m.to;
+  return m.swap && s === m.to ? m.from : s;
+}
+
 export function makeMove(pos: Position, m: Move): Position {
   const c = pos.turn;
   const board = new Uint8Array(pos.board);
@@ -1058,7 +1072,14 @@ export function makeMove(pos: Position, m: Move): Position {
   // Haste's first move and a free mark do not). The mover's own mark lasts through its own moves; a
   // new mark replaces only the mover's own slot. While a Rescue may renew it (`lapsing`), a mark
   // that ends stays one more turn as `left: 0`, binding nothing, and goes when its side's turn ends.
+  // A mark follows its piece, also on the marking side's move after a free mark.
   const marks: [Mark | undefined, Mark | undefined] = [pos.marks?.[0], pos.marks?.[1]];
+  if (!still) for (let by = 0; by < 2; by++) {
+    const k = marks[by];
+    if (!k) continue;
+    const s = followSq(m, k.sq);
+    if (s !== k.sq) marks[by] = s < 0 ? undefined : { ...k, sq: s };
+  }
   const o = (c ^ 1) as Color, theirs = marks[o], mine = marks[c];
   if (theirs && !hold) {
     const left = (theirs.left ?? 1) - 1, { left: _, ...rest } = theirs;

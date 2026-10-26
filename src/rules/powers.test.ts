@@ -305,6 +305,33 @@ describe('Freeze and Ice Wall readings: free action, two turns', () => {
     expect(lans(p)).not.toContain('Nd5xc3'); // still walled for Black's turn
   });
 
+  it('markFree: a walled piece that moves stays walled on its new square', () => {
+    powers('IceWall', null, { markFree: true });
+    const p = play(play(fromFen('2r1k3/8/8/8/3N4/8/8/4K3 w - - 0 1'), '!W:d4'), 'Nd4-c6');
+    expect(lans(p)).not.toContain('Rc8xc6');
+    expect(p.marks?.[WHITE]?.sq).toBe(parseSq('c6'));
+  });
+
+  it('markFree: a frozen piece that an Ogre shoves stays frozen on its new square', () => {
+    powers('Freeze', null, { markFree: true });
+    const p = play(play(fromFen('4k3/8/8/3n4/3O4/8/8/4K3 w - - 0 1'), '!F:d5'), 'Od4>d5-d6');
+    expect(lans(p).filter(l => l.startsWith('Nd6'))).toEqual([]);
+    expect(p.marks?.[WHITE]?.sq).toBe(parseSq('d6'));
+  });
+
+  it('markFree: a maester swap carries the wall with the walled piece', () => {
+    powers('IceWall', null, { markFree: true });
+    const p = play(play(fromFen('k7/7b/8/8/3NM3/8/8/K7 w - - 0 1'), '!W:d4'), 'Me4<>d4');
+    expect(lans(p)).not.toContain('Bh7xe4');
+    expect(p.marks?.[WHITE]?.sq).toBe(parseSq('e4'));
+  });
+
+  it('markFree: the mark ends when its piece is taken', () => {
+    powers('Freeze', null, { markFree: true });
+    const p = play(play(fromFen('4k3/8/8/3n4/8/8/8/3QK3 w - - 0 1'), '!F:d5'), 'Qd1xd5');
+    expect(p.marks).toBeUndefined();
+  });
+
   it('markTurns 2: an Ice Wall covers two of the opponent\u2019s turns', () => {
     powers('IceWall', null, { markTurns: 2 });
     let p = play(fromFen('4k3/8/8/8/R7/8/2b5/4K3 w - - 0 1'), '!W:a4');
@@ -336,6 +363,8 @@ describe('the search keeps the power state exactly as positionKey does', () => {
     ['leap', 'Leap', 'March', '7k/8/8/p7/8/8/P7/R6K w - - 0 1'],
     ['frozen side', 'Freeze', null, '4k3/8/8/3n4/8/8/8/4K3 b - - 1 1 u1.0/md5w'],
     ['free mark', 'Freeze', null, '4k3/8/8/3n4/8/8/P7/4K3 w - - 1 1 u1.0/md5w/f'],
+    ['free wall, then its piece moves', 'IceWall', null, '2r1k3/8/8/8/3N4/8/8/4K3 w - - 1 1 u1.0/md4w/f'],
+    ['free freeze, then a shove or a take', 'Freeze', null, '4k3/8/8/2Mnm3/3O4/8/8/3QK3 w - - 1 1 u1.0/md5w/f'],
     ['two-turn mark', 'IceWall', 'Freeze', '4k3/8/8/8/R7/8/2b5/4K3 b - - 1 1 u1.0/ma4w2'],
   ];
   for (const [name, white, black, fen] of cases) {

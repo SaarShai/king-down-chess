@@ -85,6 +85,10 @@ rule defaults, `?rules=2017` and the lab keep the rulebook as printed. Every rea
 | Shadow | **Death Touch** (always on) | king captures adjacent enemies without moving | as printed, and **it also reaches two squares straight forward or back (never sideways), over an empty square** (`deathTouchReach`, `deathTouchReachForwardBack`; §6 decision 24) |
 | Shadow | **Darkness** (always on) | own pawns move 1 diagonally and capture 1 straight forward; no double first move | pawns also keep their straight steps (double from the start); they still capture only straight ahead (`darknessMoves`); **the king may also step two squares in a straight line, over an empty square** (`darknessKingStep2`, owner 2026-10-04) |
 
+A Freeze or Ice Wall mark holds a piece, not a square (owner, 2026-10-25): when the frozen or walled piece moves, swaps, or is
+shoved or pushed, also by the marking side's move after a free mark, the mark goes with it. The mark ends when the piece leaves the board.
+In card mode a Firewall's mark names its king's square and follows the king; a Rescue renews a mark where its piece stands now.
+
 Holy Light's shelter was added after round 6 (owner asked for Mercy and Holy Light variations to be
 tested): it lifted Holy Light from 43% to 53%; sheltering all eight neighbours overshot to 64%, and
 narrower Mercy shelters (beside/front/behind only, or only against pawns) fell to 37% and 27%.
