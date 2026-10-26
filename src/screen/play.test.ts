@@ -5,7 +5,7 @@ import { defaultSetup } from '../new-game';
 import type { Engine } from '../game';
 import type { BoardView } from '../render/PaintedView';
 import { connectTurnPress } from '../turn-controls';
-import { readSave, writeSave, SAVE_KEY, type Save } from './save';
+import { gameJSON, readSave, writeSave, SAVE_KEY, type Save } from './save';
 import { stamp, Sync, type Row } from '../account/sync';
 import { toFen } from '../rules/setup';
 import { POWERS_BALANCED, RULES_2017, parseKings, type Rules } from '../rules/engine';
@@ -207,6 +207,75 @@ describe('review account boundaries', () => {
     second.game().playLan(['d7-d5']); second.save(); b2.changed(); await b2.flush(); b2.stop();
     expect(readSave().save?.moves).toEqual(['d2-d4', 'd7-d5']);
     expect(pushes.at(-1)).toMatchObject({ saved_game: { v: { moves: ['d2-d4', 'd7-d5'] } } });
+  });
+
+  it.each(['move', 'settings'])('account finding 1: keeps A out of B when games match (%s first)', async firstWrite => {
+    const aSave = { ...original, sound: false }, bSave = { ...original, sound: true };
+    expect(gameJSON(aSave)).toBe(gameJSON(bSave));
+    const tabA = localStorage;
+    stored.set(SAVE_KEY, JSON.stringify(aSave));
+    const first = page(); first.play.restore(aSave, request);
+    vi.spyOn(first.settings, 'settingsNow').mockReturnValue({ ...first.settings.settingsNow(), sound: false });
+    const a = new Sync(tabA, { userId: 'A', pull: async () => null, push: async row => row }, first.play.fromAccount, first.play.savedGames);
+    await a.pull();
+    const tabB = { getItem: tabA.getItem, setItem: tabA.setItem, removeItem: tabA.removeItem, key: tabA.key, get length() { return tabA.length; } } as Storage;
+    vi.stubGlobal('localStorage', tabB);
+    const second = page(); second.play.restore(aSave, request);
+    stored.set('kingdown.local.B', JSON.stringify([JSON.stringify(bSave), null, null]));
+    let cloud: Row = { settings: { at: 500, v: { coords: true, sound: true } }, saved_game: { at: 500, v: bSave } };
+    const push = vi.fn(async (row: Row) => { cloud = { ...cloud, ...row }; return cloud; });
+    const b = new Sync(tabB, { userId: 'B', pull: async () => cloud, push }, second.play.fromAccount, second.play.savedGames);
+    await b.pull();
+    vi.spyOn(second.settings, 'settingsNow').mockReturnValue({ ...second.settings.settingsNow(), sound: true });
+    expect(second.settings.applySettings).toHaveBeenCalledWith(expect.objectContaining({ sound: true }));
+    const before = keys.map(key => stored.get(key)), cloudBefore = JSON.stringify(cloud);
+    for (const action of firstWrite === 'move' ? ['move', 'settings'] : ['settings', 'move']) {
+      vi.stubGlobal('localStorage', tabA);
+      if (action === 'move') {
+        first.play.game().playLan(['Ng1-f3']);
+        expect(first.play.save()).toBe(false);
+      } else expect(first.play.saveSettings()).toBe(false);
+      expect(keys.map(key => stored.get(key))).toEqual(before);
+      expect(first.changed).not.toHaveBeenCalled();
+      first.play.commands.escape(); first.play.refresh();
+      expect(vi.mocked(refreshTable).mock.lastCall![0]).toMatchObject({ notice: '', saveNotice: 'This page cannot save your changes. Reload this page.' });
+      a.changed(); await a.flush();
+      vi.stubGlobal('localStorage', tabB);
+      b.changed(); await b.flush();
+      expect(keys.map(key => stored.get(key))).toEqual(before);
+      expect(JSON.stringify(cloud)).toBe(cloudBefore);
+    }
+    push.mockClear();
+    second.play.game().playLan(['d2-d4']);
+    expect(second.play.save()).toBe(true);
+    b.changed(); await b.flush();
+    expect(readSave().save).toMatchObject({ moves: [...original.moves, 'd2-d4'], sound: true });
+    expect(cloud).toMatchObject({ saved_game: { v: { moves: [...original.moves, 'd2-d4'] } }, settings: { v: { sound: true } } });
+    expect(push).toHaveBeenCalledOnce();
+    a.stop(); b.stop();
+  });
+
+  it('keeps a lesson failure after a settings write and clears it after a lesson retry', async () => {
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const { play, view } = page(); play.restore(original, request);
+    const set = localStorage.setItem.bind(localStorage);
+    const write = vi.spyOn(localStorage, 'setItem').mockImplementation((key, value) => {
+      if (key === 'kingdown.lessons') throw new Error('quota');
+      set(key, value);
+    });
+    const finish = async () => {
+      play.startLesson(4);
+      const game = play.game(), move = game.legal.find(m => LESSONS[4].goal(game.pos, m))!;
+      view.onSquareClick(move.from, false); view.onSquareClick(move.to, false);
+      await vi.advanceTimersByTimeAsync(0);
+    };
+    await finish();
+    expect(play.saveSettings()).toBe(true);
+    expect(vi.mocked(refreshTable).mock.lastCall![0]).toMatchObject({ saveNotice: 'Changes not saved. Keep this tab open.', lessonDone: false });
+    write.mockRestore();
+    await finish();
+    expect(progress().done).toContain('Guard');
+    expect(vi.mocked(refreshTable).mock.lastCall![0]).toMatchObject({ saveNotice: '', lessonDone: true });
   });
 
   it('review 4: finishes a pending restore before the page loads and saves a new move', async () => {

@@ -72,3 +72,15 @@ Merge result: The merge has four text conflicts. `play.ts` keeps both guards and
 Notice design: All persistent save warnings use `saveNotice`. An account block shows Reload and stops writes. A storage failure shows “Changes not saved. Keep this tab open.” and permits local play. The page shows one warning, even with both causes. It tracks game, settings, and lesson failures. A successful write clears only the failures for the data it saves. A settings write cannot hide unsaved moves or lesson progress. An account switch clears the prior account's failure state.
 
 Merge check: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,ui/table,account/account,account/client,lesson-shelf,lesson-store}.test.ts' npm test` passes. Both type checks, 147 tests in eight files, and 57 art checks pass. `src/account/local.test.ts` does not exist, so the command omits it. The merge adds no dependency or save field.
+
+Finding 1 result: The two-tab test starts with equal game fields and different sound settings. It checks each first write: A's move, then A's settings; and A's settings, then A's move. Both writes return `false`. B's save, lessons, stamps, and cloud row stay equal to their prior data after each flush. B can then save and send its own move. The test also checks one persistent account notice with Reload. It uses separate Storage objects, shared keys, and the real `Sync` class.
+
+Red check: The new cases pass on the merged owner checks on their first run. No new source repair or failing run is necessary for finding 1. The owner check closes the fault. Keep this check before every local write, including settings writes and New game; equal game fields cannot prove equal account ownership.
+
+Green: The same selected source command passes 150 tests in eight files, both type checks, and 57 art checks. This includes both account write orders and a lesson retry. The lesson test proves that a settings write keeps a lesson failure notice, and a successful lesson retry clears it. All new timed cases use fake timers.
+
+Final checks: `npm run test:docs` passes 178 tests in 15 files. The one `npm run check:browser new-game` run passes. The browser log reports no page or console errors. `git diff --check 6e0c9cfb` passes.
+
+Staging check: After a fetch, `origin/staging/first-game` points to `e862c75a`. `git merge-tree --write-tree origin/staging/first-game HEAD` at merge commit `3b04606e` exits 1. It finds a content conflict in `src/screen/play.test.ts` and an add/add conflict in `src/ui/table.test.ts`. It merges the play and table source files without a text conflict. No staging merge runs. The final report also checks the test commit.
+
+Limits: The new account test uses shared in-memory keys and a cloud substitute. It does not check separate browser processes or a live account. The save comparison and write remain separate operations. No full suite, push, rebase, or deploy runs. The merge commit uses the unchanged hooks and both required trailers.
