@@ -15,7 +15,8 @@ box is 560 px. It is 223 px in the 560 px sheet and 139 px on a 390 px phone.
 - `tools/card-thumbs.ts` cuts the centre 16:9 window (the crop of `object-fit: cover`) of each released painting
   at 528 × 297, quality 80 webp, into `src/plugin/assets/card-thumbs/`. 528 px is two pixels for each CSS pixel at
   the widest tile (264 CSS px). A 491 or 512 px painting gets up to 8% larger; that is no less detail than the full
-  painting gave. The files are committed: CI and the Linux build make no image.
+  painting gave. The files are committed: CI and the Linux build make no image. The tool also writes the sha256 of
+  each painting to `sources.json` in that folder.
   The tool uses sharp, which the repo already has. Run it again after a card painting changes.
 - The thumbnails are plugin assets, not `public/` files. The website precaches each `public/ui` file for offline
   play; the plugin build loads each asset of `src/account-game/art.ts` from `plugin-art/`.
@@ -32,9 +33,10 @@ box is 560 px. It is 223 px in the 560 px sheet and 139 px on a 390 px phone.
 
 ## Checks
 
-- `tools/card-thumbs.test.ts`: one thumbnail for each released painting and no other file; each is webp, 480 × 270,
-  smaller than its painting, and within 6 levels (mean) of a fresh cut of its current painting. Another painting is
-  more than 50 levels away. It also checks the 16:9 `.cf-art` window in `app.css` and that the plugin art finds
+- `tools/card-thumbs.test.ts`: one thumbnail for each released painting and `sources.json`, no other file. The
+  sha256 in `sources.json` is that of the current painting, so each repaint needs a new run of the tool. Each
+  thumbnail is webp, 528 × 297, smaller than its painting, and within 6 levels (mean) of a fresh cut of its
+  painting. Another painting is more than 50 levels away. It also checks the 16:9 `.cf-art` window in `app.css` and that the plugin art finds
   each thumbnail.
 - `src/plugin/card-face.test.ts`: a tile gets the lazy thumbnail; the full card gets the full painting.
 - `tools/plugin-setup-owner.test.ts` (F-117): the tiles request only thumbnails; opening Haste requests the full
@@ -60,3 +62,9 @@ box is 560 px. It is 223 px in the 560 px sheet and 139 px on a 390 px phone.
   The fix cuts 528 × 297. Red on 480 × 270: the new F-117 test fails, "expected 480 to be greater than or equal to
   528". Green: `tools/card-thumbs.test.ts`, `src/plugin/card-face.test.ts` and `tools/plugin-setup-owner.test.ts`
   pass 41 of 41, with the type check.
+- P2, stale check: the 6 level mean did not see a repaint of a plain painting. With the centre 30% of sacrifice.webp
+  and salvation.webp mirrored, the old test passed 14 of 14. The fix compares the sha256 of each painting with
+  `sources.json`. Red: the same two repaints fail the new test (2 of 14), "the painting changed: run npx tsx
+  tools/card-thumbs.ts". A new run of the tool writes the same twelve thumbnails, byte for byte. Green: the three
+  test files pass 41 of 41 with the type check; `tools/account-game-build.test.ts` passes 4 of 4; doc lints pass
+  178 of 178.
