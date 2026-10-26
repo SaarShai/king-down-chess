@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>King Down · Card art crop review</title>
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/src/plugin/app.css">
+  <link rel="stylesheet" href="./review.css">
+</head>
+<body>
+  <main>
+    <header id="top">
+      <a href="../../index.html">King Down / Effects study</a>
+      <h1>Card art crop review</h1>
+      <p>All 21 released cards: 12 paintings and 9 rule pictures. Compare each full source with the current card window.</p>
+      <label class="guide-control"><input id="guides" type="checkbox" checked> Show crop guides</label>
+      <p class="guide-note">The clear band stays in the card. The shaded areas are cut. Turn guides off to see the full painting.</p>
+      <details class="jump-list"><summary>Jump to a card</summary><nav id="jump-index" aria-label="Jump to a released card"></nav></details>
+      <p class="proposal-link"><a href="../salvation-concepts/index.html">Salvation proposals</a> · The released art stays below.</p>
+    </header>
+    <div id="released"><p role="status">Loading current card art…</p></div>
+    <section class="extras" aria-labelledby="extras-title">
+      <h2 id="extras-title">Additional files</h2>
+      <p>These two files are outside the released deck.</p>
+      <div id="additional"></div>
+    </section>
+    <footer><a href="#top">Back to the card index</a><p>Current art only. No crop changes.</p></footer>
+  </main>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

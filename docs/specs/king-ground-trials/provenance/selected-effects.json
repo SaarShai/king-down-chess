@@ -1,0 +1,220 @@
+{
+  "selectedSourceHead": "0a043d4b0fed130c307a731147c8ac79bc8a5298",
+  "integrationBase": "dab2cc41e64d9c35ae01228cdc04a7a30b421e03",
+  "files": [
+    {
+      "path": "docs/2d-first-pieces/board/king-effects.mjs",
+      "sha256": "52a8bb04413024da1b1f5647ad8bfa6cad216dc70d400912733d7a5b603336d8",
+      "sourceWorktree": "ground-selected"
+    },
+    {
+      "path": "docs/2d-first-pieces/board/king-effects.test.mjs",
+      "sha256": "c37e26a9d90f39cbf5c9f95146611bc9f79527efadc6bb862e19e51c994d5671",
+      "sourceWorktree": "ground-selected"
+    },
+    {
+      "path": "docs/2d-first-pieces/board/painted-shadow-hands.mjs",
+      "sha256": "c6521a566beca5f65e146982270208bf1f27e91762fbcf3922087b7d7ff82ab9",
+      "sourceWorktree": "ground-selected"
+    },
+    {
+      "path": "docs/2d-first-pieces/board/painted-shadow-hands.test.mjs",
+      "sha256": "98d59e217314c0967b33f6497dfc06a8e6fcdbcf47504880b847a41f26505962",
+      "sourceWorktree": "ground-selected"
+    },
+    {
+      "path": "docs/2d-first-pieces/board/mud-growth.mjs",
+      "sha256": "b5aab419acdc0883c75727b41a0a0c5a22dd8d8e6302776646421a98e2258890",
+      "sourceWorktree": "ground-selected"
+    },
+    {
+      "path": "docs/2d-first-pieces/board/mud-growth.test.mjs",
+      "sha256": "6f8cb57d089d700ff4264094e25071067517d1a36b23d1edf87d5e2bc7d58a3e",
+      "sourceWorktree": "ground-selected"
+    },
+    {
+      "path": "docs/2d-first-pieces/king-shadow/hands/film-poses.webp",
+      "sha256": "9018c7b0eeb0c6a81cc5539d4f59c72e9d59fbcbf917d953c121b79dd8bed944",
+      "sourceWorktree": "ground-selected"
+    },
+    {
+      "path": "docs/2d-first-pieces/king-shadow/hands/painted-poses.png",
+      "sha256": "7ee50d25da8a5e0258f1283e579c7e2e24dc343204c12c3b642bb7e283e006c5",
+      "sourceWorktree": "ground-selected"
+    },
+    {
+      "path": "docs/2d-first-pieces/king-shadow/hands/prompt.txt",
+      "sha256": "14c1eb6e348ddd550deb69de31e1cbc1f200d3ff49261c9c33c7f9e418e592c2",
+      "sourceWorktree": "ground-selected"
+    },
+    {
+      "path": "docs/2d-first-pieces/king-shadow/hands/provenance.md",
+      "sha256": "e1bf279f2e53acdb274c90f6c8cb6696c550a68ecd2a620a74181c42aaae5390",
+      "sourceWorktree": "ground-selected"
+    },
+    {
+      "path": "docs/2d-first-pieces/king-shadow/hands/film-build.json",
+      "sha256": "a481a2a479a19386705da3a3998b11743bfc3193552985474039ac8b74c70329",
+      "sourceWorktree": "ground-selected"
+    },
+    {
+      "path": "docs/2d-first-pieces/king-shadow/hands/build-film.py",
+      "sha256": "a31ee6c00d0a1eaf1e0e13eca0415c54ec08bf2c198cafc01475d3aa71e44352",
+      "sourceWorktree": "ground-selected"
+    },
+    {
+      "path": "docs/2d-first-pieces/king-mud/ground-plants.webp",
+      "sha256": "3c5b96fd4fb2393401dc18b5b7eb6fb3251b15fed08606eb402be5b1ddc7b0a3",
+      "sourceWorktree": "ground-selected"
+    },
+    {
+      "path": "docs/2d-first-pieces/king-mud/ground-plants-source.png",
+      "sha256": "7b2804bafd23b7e6f28e9a55012265931734b227c3deb4f2d11bedf7c1dda7bc",
+      "sourceWorktree": "ground-selected"
+    },
+    {
+      "path": "docs/2d-first-pieces/king-mud/ground-plants.md",
+      "sha256": "a9bff7cf9027d60f645fc22791f724d3f733b0e29e54edb24407316e94a7b677",
+      "sourceWorktree": "ground-selected"
+    },
+    {
+      "path": "docs/2d-first-pieces/king-shadow/hands/film-audit.json",
+      "sha256": "0b5a4bd797c94a03b0b4feb59c9f2ce7259847dd49b2bb09b589febb93561b40",
+      "sourceWorktree": "ground-trial-shadow"
+    },
+    {
+      "path": "docs/2d-first-pieces/king-shadow/hands/audit-film.py",
+      "sha256": "781dbfadd3a8fc0f48a1b7e79c998de11ad87df093f3e7cd3217146a1fa98601",
+      "sourceWorktree": "ground-trial-shadow"
+    },
+    {
+      "path": "docs/2d-first-pieces/king-flame/ground-fissures.webp",
+      "sha256": "90a278b21c5f6fc2b0b6c052f523f2ca8975ca2cb2654f48866d52dc4bc17f4f",
+      "sourceWorktree": "upstream-already-exact"
+    },
+    {
+      "path": "docs/2d-first-pieces/king-stratus/cloud-bank.png",
+      "sha256": "aa80ee43c9e2f0061bf840454fcf507b9de262823051a6a81e65fd99701ca5fd",
+      "sourceWorktree": "upstream-already-exact"
+    },
+    {
+      "path": "docs/2d-first-pieces/king-shadow/hands/film-alpha-review.png",
+      "sha256": "9743b43bf208ffc87425aee2e28e4747e3b2ea1ef6fa03a8220ea7ee3eba828b",
+      "sourceWorktree": "ground-selected"
+    }
+  ],
+  "copyVerification": {
+    "sourceHashCount": 20,
+    "handFramesWithFourPixelTransparentGutters": 130,
+    "nativeAlpha": {
+      "king-shadow/hands/painted-poses.png": {
+        "size": [
+          1983,
+          793
+        ],
+        "alphaRange": [
+          0,
+          255
+        ]
+      },
+      "king-mud/ground-plants-source.png": {
+        "size": [
+          1536,
+          1024
+        ],
+        "alphaRange": [
+          0,
+          254
+        ]
+      },
+      "king-mud/ground-plants.webp": {
+        "size": [
+          768,
+          512
+        ],
+        "alphaRange": [
+          0,
+          255
+        ]
+      }
+    },
+    "upstreamCodeSectionsUnchanged": [
+      "function flameLayers(side){",
+      "function lavaNoise(){",
+      "function lava(ctx,s){",
+      "// \u2014\u2014 Spirit \u2014\u2014",
+      "// Smoke:"
+    ],
+    "frostGroundPainting": false
+  },
+  "integrationTests": {
+    "command": "KINGDOWN_TEST_FILE=src/piece-icons.test.ts KINGDOWN_TEST_LOCK_WAIT=60 npm test",
+    "exitCode": 0,
+    "typecheck": "pass: app and tools",
+    "vitestFile": "src/piece-icons.test.ts",
+    "paintedTests": 67,
+    "paintedPassed": 67,
+    "paintedFailed": 0,
+    "logPath": "/tmp/kingdown-selected-effects-merge/test.log",
+    "logSha256": "75eda3226f8e5738b6e7fb752659a5c86256cb01f4718847ef85c1f758480b65",
+    "fullSuite": "Not run.",
+    "vitestPassed": 14
+  },
+  "integrationFiles": [
+    {
+      "path": "docs/king-effects/preview.mjs",
+      "sha256": "1916f4ac279a16b7e205c9820711c9eb12e851053c1dbd70b3c37f6c82467ed8"
+    },
+    {
+      "path": "tools/verify-king-effects.mjs",
+      "sha256": "3abbc13bdad15032b812e7d310342be4cd42a900d6c5642385601794b906456d"
+    }
+  ],
+  "integrationBrowser": {
+    "command": "npm run check:browser king-effects",
+    "exitCode": 0,
+    "seconds": 124.142,
+    "runFolder": "/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/animation-session-merge-8HbqLB",
+    "evidencePath": "docs/specs/king-ground-trials/evidence/integration-browser",
+    "evidenceFiles": [
+      {
+        "path": "docs/specs/king-ground-trials/evidence/integration-browser/king-effects.log",
+        "sha256": "c9ab5beec04e3bef97d1dd9f4c1e4aeec96eb07c61fffc1855bed0599a7303bc"
+      },
+      {
+        "path": "docs/specs/king-ground-trials/evidence/integration-browser/mud-replay-12000.png",
+        "sha256": "12ba6a8c6edbb6eec7e20b955aa50b60b718375c14a1e6d3be33cccafa957ce5"
+      },
+      {
+        "path": "docs/specs/king-ground-trials/evidence/integration-browser/mud-replay-16100.png",
+        "sha256": "83926b014321c30d6372720b94e7e77d750c2bfc0f688509cb2241e9f8d7dc46"
+      },
+      {
+        "path": "docs/specs/king-ground-trials/evidence/integration-browser/mud-replay-4000.png",
+        "sha256": "ceaa1bb68ed360201ae571945c7b9a70759544a7d696500d36166b274a9bdc89"
+      },
+      {
+        "path": "docs/specs/king-ground-trials/evidence/integration-browser/mud-replay.json",
+        "sha256": "f09112033911bc628472827283149a4d2ceb3b70ca104ad3a155b3984f3a743f"
+      },
+      {
+        "path": "docs/specs/king-ground-trials/evidence/integration-browser/run.json",
+        "sha256": "86de9946c3b9d84aac52e6de72b05b3c235fda36ec903b7c342147bc01e61eb5"
+      }
+    ],
+    "mudRequestedMs": 16000,
+    "mudFinalElapsedMs": 16102.099999904633,
+    "mudFinalFrames": 955,
+    "sourcePreviewUrl": "http://127.0.0.1:5197/.claude/worktrees/animation-session-merge/docs/king-effects/preview.html#idle-mud"
+  },
+  "independentReview": {
+    "reviewer": "Parent reader, independent of this implementation",
+    "scope": [
+      "effects modules and existing tests",
+      "final preview and managed checker diff",
+      "Mud four-second and twelve-second screenshots"
+    ],
+    "verdict": "No blocking findings",
+    "date": "2026-10-26"
+  }
+}

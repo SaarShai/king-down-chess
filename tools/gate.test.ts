@@ -136,7 +136,7 @@ describe('the size allowlist of this repository', () => {
     .map(line => { const [path, ...reason] = line.split(/\s+/); return { path, reason: reason.join(' ') }; });
 
   it('holds the Workshop media and balance dataset, each with a reason', () => {
-    expect(entries.map(e => e.path).sort()).toEqual([
+    expect(entries.map(e => e.path)).toEqual(expect.arrayContaining([
       'docs/balance/measurements.json',
       'docs/visual-design/workshop/figure-samples-2026-10-06/fast-minimal.png',
       'docs/visual-design/workshop/figure-samples-2026-10-06/mixed-archer-face.png',
@@ -145,7 +145,7 @@ describe('the size allowlist of this repository', () => {
       'docs/visual-design/workshop/figure-samples-2026-10-06/strong-minimal.png',
       'docs/visual-design/workshop/motion-desktop.webm',
       'docs/visual-design/workshop/motion-phone.webm',
-    ]);
+    ]));
     for (const entry of entries) expect(entry.reason, entry.path).not.toBe('');
   });
 

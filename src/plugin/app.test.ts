@@ -88,6 +88,39 @@ it.each(['normal', 'fast', 'off'])('A8: ignores the removed device animation cho
 
 const press = (id: string) => { const button = document.getElementById(id)!; return Reflect.apply(button.onclick!, button, [{}]); };
 
+it('shows Settings when browser Back returns to /play/settings', async () => {
+  const records = new Map<string, string>(), storage = { getItem: (key: string) => records.get(key) ?? null, setItem: (key: string, value: string) => { records.set(key, value); }, removeItem: (key: string) => { records.delete(key); } };
+  const browser = Object.assign(new EventTarget(), {
+    location: new URL('http://localhost/play/'), localStorage: storage, sessionStorage: storage,
+    history: { pushState: vi.fn((_state: unknown, _title: string, path: string) => { browser.location = new URL(path, browser.location); }) },
+  });
+  vi.stubGlobal('window', browser);
+  const { createBrowserRuntime } = await import('../online/runtime'), { configureRuntime } = await import('../account-game/host');
+  const host = createBrowserRuntime({ settings: async () => ({ settings, me: { handle: 'player', icon: 'spirit' } }), games: async () => [] } as unknown as import('../online/client').OnlineClient, 'player');
+  vi.spyOn(host, 'getHostContext').mockReturnValue({ displayMode: 'fullscreen' });
+  configureRuntime(host);
+  const app = await import('../account-game/runtime');
+  await vi.advanceTimersByTimeAsync(0);
+  app.navigate('settings'); press('page-back');
+  expect(app.client.state.screen).toBe('play');
+  browser.history.pushState.mockClear();
+  browser.location = new URL('http://localhost/play/settings'); browser.dispatchEvent(new Event('popstate'));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(browser.location.pathname).toBe('/play/settings');
+  expect(app.client.state.screen).toBe('settings');
+  expect(browser.history.pushState).not.toHaveBeenCalled();
+  host.dispose?.();
+});
+
+it('routes later ChatGPT results after a Settings result', async () => {
+  const app = await mounted();
+  for (const screen of ['settings', 'profile', 'play'] as const) {
+    transport.instance.ontoolresult({ content: [], structuredContent: { screen } });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(app.client.state.screen).toBe(screen);
+  }
+});
+
 it.each(['home', 'play'])('enables Play after a chat result opens %s and settings arrive', async screen => {
   let release!: (value: unknown) => void;
   transport.call.mockImplementation(async ({ name }) => name === 'kingdown_settings'

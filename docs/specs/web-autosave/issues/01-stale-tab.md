@@ -84,3 +84,5 @@ Final checks: `npm run test:docs` passes 178 tests in 15 files. The one `npm run
 Staging check: After a fetch, `origin/staging/first-game` points to `e862c75a`. `git merge-tree --write-tree origin/staging/first-game HEAD` at merge commit `3b04606e` exits 1. It finds a content conflict in `src/screen/play.test.ts` and an add/add conflict in `src/ui/table.test.ts`. It merges the play and table source files without a text conflict. No staging merge runs. The final report also checks the test commit.
 
 Limits: The new account test uses shared in-memory keys and a cloud substitute. It does not check separate browser processes or a live account. The save comparison and write remain separate operations. No full suite, push, rebase, or deploy runs. The merge commit uses the unchanged hooks and both required trailers.
+
+Update: Both lanes merge. All tests stay. One save notice clears each failure after a successful write.

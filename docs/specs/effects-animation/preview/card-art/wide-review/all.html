@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>King Down · All card artwork</title>
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/src/plugin/app.css">
+  <link rel="stylesheet" href="./review.css">
+  <link rel="stylesheet" href="./all.css">
+</head>
+<body>
+  <main>
+    <header>
+      <a href="./index.html">Compare with previous artwork</a>
+      <h1>All card artwork</h1>
+      <p>The latest artwork on all 21 cards. Select a painting to see it larger. Freeze and March keep their current artwork.</p>
+      <p><a href="./corrections.html">New revisions and both Rally concepts</a> · <a href="./motion/index.html">Animated cards</a></p>
+    </header>
+    <section id="all-cards" class="art-grid" aria-label="All 21 cards"><p role="status">Loading artwork…</p></section>
+    <section class="additional" aria-labelledby="additional-title">
+      <h2 id="additional-title">Additional artwork</h2>
+      <p>Rescue and the card back are outside the released deck.</p>
+      <div id="additional-art" class="art-grid"></div>
+    </section>
+  </main>
+  <script type="module" src="./all.ts"></script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Magic · Current / Proposed</title>
+  <link rel="icon" href="/icons/icon-192.png"><link rel="stylesheet" href="/src/style.css"><link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main class="magic-study">
+  <header><h1>Magic, shaped from light</h1><p>Choose an effect to replay. Compare Current and Proposed at the same moment.</p></header>
+  <section class="workspace stage" aria-label="Magic comparison">
+    <div class="sample-row" role="group" aria-label="Choose an effect">
+      <button id="choose-holy-light" aria-pressed="true">Holy Light</button><button id="choose-mercy" aria-pressed="false">Mercy</button>
+      <button id="choose-Control" aria-pressed="false">Control</button><button id="choose-Mimic" aria-pressed="false">Mimic</button>
+    </div>
+    <div class="variant" role="group" aria-label="Effect variant"><button id="current" aria-pressed="false">Current</button><button id="proposed" aria-pressed="true">Proposed</button></div>
+    <div class="board-wrap"><canvas id="board" width="960" height="1024" aria-label="Magic effect on the painted chessboard"></canvas><p id="loading">Loading the painted board…</p></div>
+    <div class="transport"><button id="replay">Replay</button><button id="play">Play</button><select id="speed" aria-label="Playback speed"><option value="1">Normal</option><option value="0.35">Slow</option></select><button id="flip" aria-pressed="false">Flip board</button></div>
+    <div class="timeline"><input id="scrub" type="range" min="0" max="1000" value="1000" aria-label="Animation progress"><output id="time">Settled</output></div>
+    <div class="motion"><label><input id="reduced" type="checkbox"> Reduced motion</label><span id="clock-note">Same board. Same moment.</span></div>
+    <aside>
+      <h2 id="title">Holy Light</h2><p id="meaning" class="meaning"></p><p id="phase" role="status">Loading art…</p><p id="description"></p>
+      <div class="notes"><h3 id="variant-title">Proposed</h3><p id="choice"></p></div>
+      <details><summary>Fixture and source</summary><p id="provenance"></p><p>The game draws the board, figures and marks. The engine supplies each legal action. These are previews before game integration.</p></details>
+    </aside>
+  </section>
+</main>
+<script type="module" src="./main.js"></script>
+</body>
+</html>

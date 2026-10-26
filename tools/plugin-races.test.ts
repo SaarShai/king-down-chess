@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import { startHarness, waitForSourceApp } from './plugin-ui-harness';
-vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
+// A frame read can take more than the 1 s poll default under full-suite load in CI (plugin-app runs 40225675633, 40223950211).
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000, expect: { poll: { timeout: 5000 } } });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => { folder = await mkdtemp(join(tmpdir(), 'kingdown-races-test-'));
   const boardPath = join(folder, 'board.html'); await writeFile(boardPath, await readFile('src/plugin/index.html'));
@@ -551,7 +552,7 @@ it('R8: another game does not drop a failed command for the game it belongs to (
     await frame.locator('#board-menu:not(:disabled)').click();
     await frame.locator('#menu-resign').click();
     await frame.locator('#board-sheet').getByRole('button', { name: 'Resign', exact: true }).click();
-    await expect.poll(() => frame.locator('#error').textContent(), { timeout: 5000 }).toBe(CANNOT_CONNECT);
+    await expect.poll(() => frame.locator('#error').textContent()).toBe(CANNOT_CONNECT);
     await page.context().setOffline(false);
     // Then the player opens another game.
     const other = await soloGame(page);
@@ -579,7 +580,7 @@ it('R9: a failed connect shows an enabled Try again that connects again (a.out 9
     await retry.click();
     await sourceReady(page);
     await frame.locator('#home-play:not(:disabled)').waitFor({ state: 'attached' });
-    await expect.poll(() => line.count(), { timeout: 5000 }).toBe(0);
+    await expect.poll(() => line.count()).toBe(0);
     await expect.poll(() => page.evaluate(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_games').length, mounts)).toBeGreaterThan(mounts);
   } finally { await page.close(); }
 });

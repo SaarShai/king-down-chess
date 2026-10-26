@@ -119,7 +119,7 @@ describe('power texts follow the rules in force', () => {
   it('reads the rulebook by default', () => {
     expect(powerText('Freeze')).toBe('as your move, freeze an enemy piece (not the king): it cannot move on its next turn');
     expect(powerText('HolyLight')).toBe('enemy pawns cannot take your king, and it cannot take pawns');
-    expect(powerText('Strike')).toBe('move any piece except the king as if it were a queen');
+    expect(powerText('Strike')).toBe('move any piece except the king as if it were a queen; a pawn cannot end on the first or last rank');
   });
 
   it('names the balance-lab readings', () => {

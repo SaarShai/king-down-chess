@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>King Down · Card casting</title>
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/src/style.css"><link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main class="casting-study">
+  <header class="study-heading"><h1>Card casting</h1><p>Proposed preview</p></header>
+  <div class="study-layout">
+    <section class="stage" aria-label="Painted card casting preview">
+      <div class="board-frame"><canvas id="board" width="960" height="1024" aria-label="Painted board. Freeze holds the black knight on d5."></canvas><p id="loading" role="status">Loading painted pieces…</p></div>
+      <div class="hand-label"><span>White’s cards</span><span id="hand-count">3 ready · 1 spent</span></div>
+      <div class="hand" id="hand" aria-label="White’s four card slots"></div>
+      <canvas id="source-material" aria-hidden="true"></canvas>
+    </section>
+    <aside class="controls" aria-label="Preview controls">
+      <div class="sample-row"><h2 id="sample-title">Freeze</h2><div class="choices" role="group" aria-label="Card"><button data-sample="freeze" aria-pressed="true">Freeze</button><button data-sample="firewall" aria-pressed="false">Firewall</button></div></div>
+      <div class="release-choice"><span id="release-label">Release</span><div class="choices" role="group" aria-labelledby="release-label"><button data-treatment="local" aria-pressed="true">Local</button><button data-treatment="wisp" aria-pressed="false">Short wisp</button></div></div>
+      <button class="replay" id="replay" disabled>Replay Freeze</button>
+      <div class="transport"><button id="play" disabled>Play</button><label class="speed-label">Speed <select id="speed"><option value="1">Normal</option><option value="0.5">Slow</option></select></label><button id="flip" aria-pressed="false">Flip board</button></div>
+      <div class="timeline"><label for="scrub">Timeline</label><output id="time" for="scrub">1.6 / 1.6 s</output><input id="scrub" type="range" min="0" max="1000" value="1000" step="1" aria-label="Animation timeline"></div>
+      <div class="options"><label><input id="reduced" type="checkbox"> Reduced motion</label><label><input id="dense" type="checkbox" checked> Crowded board</label></div>
+      <div class="outcome"><p id="phase" role="status">Result</p><p id="meaning">The knight stays on d5. Its next turn is frozen.</p><p id="cost">Freeze is spent. Three cards stay ready.</p></div>
+    </aside>
+  </div>
+</main>
+<script type="module" src="./main.js"></script>
+</body>
+</html>

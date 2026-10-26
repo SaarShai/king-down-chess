@@ -1,9 +1,8 @@
 // The six kings' idle effects on the painted board (opt-in: scene.setLively({kings:true})).
 //   flame   lava light flows through the cracks and seams of his armour (king-flame/lava-mask.webp, cut from the art)
 //   frost   ice flakes drift down around and in front of him and fade out on his square's floor
-//   stratus he hovers over clouds that gather, drift and fade below his feet
-//   mud     a thick patch of grass sprouts round his feet and brown vines rise from the earth, arch over
-//           and go back into it; grass and vines sway and sink back (colours: mud-palette.mjs)
+//   stratus he hovers over a cloud core while separate outer billows form, roll and fade
+//   mud     original growth for eight seconds, then painted growth for eight seconds, with quiet soil joins
 //   spirit  a holy glow round him, short rays behind his head and light on his square brighten and dim:
 //           white and gold for the ivory king, warm black for the charcoal king
 //   shadow  skeletal hands (black for the charcoal army, bone white for the ivory) reach up out of cracks
@@ -14,14 +13,18 @@
 // period recorded loops without a seam. Units are board units (the board is 960 wide).
 import {clamp} from '../painted-mesh.mjs';
 import * as court from '../court-motion.mjs';
-import {drawHand,drawCrack,crackLip} from './skeleton-hands.mjs';
+import {drawCrack,crackLip} from './skeleton-hands.mjs';
+import {shadowHandsAt,drawPaintedShadowHand} from './painted-shadow-hands.mjs';
 import {GRASS_ROOT,GRASS_TIP,LEAF,VINE} from './mud-palette.mjs';
+import {MUD_CYCLE,mudCycle,MUD_TUFTS,MUD_VINES,mudTuftLife,mudVineLife,mudVinePoint} from './mud-growth.mjs';
 
-export const PERIOD={flame:4800,frost:6000,stratus:4000,mud:8000,spirit:4000,shadow:6400};
+export const PERIOD={flame:4800,frost:6000,stratus:4000,mud:MUD_CYCLE*2,spirit:4000,shadow:6400};
 export const KING_EFFECTS=Object.keys(PERIOD);
 const LAVA_MASK=new URL('../king-flame/lava-mask.webp',import.meta.url).href;
 const LAVA_GROUND=new URL('../king-flame/ground-fissures.webp',import.meta.url).href;
+const MUD_PLANTS=new URL('../king-mud/ground-plants.webp',import.meta.url).href;
 const CLOUD_BANK=new URL('../king-stratus/cloud-bank.png',import.meta.url).href;
+const HAND_BANK=new URL('../king-shadow/hands/film-poses.webp',import.meta.url).href;
 const SMOKE_MASK=new URL('../king-shadow/smoke-mask.webp',import.meta.url).href;
 const TAU=Math.PI*2;
 const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
@@ -47,8 +50,25 @@ const figureClock=s=>s.now??s.t;
 /** Stratus: how far he floats above his square (board units) at time t; k fades it. */
 export function hoverAt(t,k=1){return k*(3+6*(1-Math.cos(TAU*t/PERIOD.stratus))/2);}
 
-/** A floor cloud's bounded, seamless life. The same clock drives movement fade and hover. */
+/** A ground material's bounded, seamless reveal. */
 export function groundLife(t,period){const p=frac(Math.max(0,t)/period);return smooth(p/.28)*(1-smooth((p-.62)/.38));}
+// Each billow uses a different painted lobe, start, lifetime and path. The core never dissolves.
+const CLOUD_BILLOWS=[
+ {crop:[.02,.28,.36,.68],phase:.04,life:.61,side:-1,start:19,travel:18,y:-3,rise:5,w:56},
+ {crop:[.70,.24,.29,.73],phase:.31,life:.53,side:1,start:20,travel:18,y:0,rise:4,w:50},
+ {crop:[.24,.14,.34,.82],phase:.57,life:.69,side:-1,start:4,travel:17,y:-5,rise:6,w:46},
+ {crop:[.42,.07,.35,.90],phase:.79,life:.57,side:1,start:7,travel:18,y:2,rise:4,w:53}
+];
+/** Floor-clock positions; every reset occurs while that billow is fully transparent. */
+export function stratusCloudAt(t){
+ const p=frac(t/PERIOD.stratus);
+ return {core:{x:.7*Math.sin(TAU*p),y:-2-.6*Math.cos(TAU*p),w:92},billows:CLOUD_BILLOWS.map(b=>{
+  const u=frac(p-b.phase),v=clamp(u/b.life,0,1),roll=smooth(v);
+  return {alpha:smooth(v/.25)*(1-smooth((v-.48)/.52))*.86,
+   x:b.side*(b.start+b.travel*roll),y:b.y-b.rise*Math.sin(Math.PI*v),
+   angle:b.side*(-.09+.18*roll),w:b.w};
+ })};
+}
 export function createKingEffects({sheet,onLoad=()=>{}}){
  const cache=new Map(),assets=new Map();
  // An effect's own art: null until it has loaded (then the layers built from it are rebuilt).
@@ -267,17 +287,28 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   ctx.save();ctx.globalAlpha=s.k*s.g*Math.min(1,life*5);
   ctx.drawImage(art.work,s.ground.x-w/2,s.ground.y-h*.58,w,h);ctx.restore();
  }
- // Painted, filled cumulus layers billow outward and separate as they dissolve.
+ function cloudLayers(){
+  const image=asset(CLOUD_BANK);if(!image)return null;
+  return cached('stratus:billows',()=>({image,billows:CLOUD_BILLOWS.map(({crop:[x,y,w,h]})=>{
+   const c=document.createElement('canvas');c.width=256;c.height=Math.round(256*image.height*h/(image.width*w));
+   const g=c.getContext('2d');g.drawImage(image,x*image.width,y*image.height,w*image.width,h*image.height,0,0,c.width,c.height);
+   // Feather only the crop edges; the source painting keeps its filled, rounded cloud forms.
+   g.globalCompositeOperation='destination-in';g.translate(c.width/2,c.height*.54);g.scale(c.width*.59,c.height*.65);
+   const mask=g.createRadialGradient(0,0,.56,0,0,1);mask.addColorStop(0,'#000');mask.addColorStop(1,'#0000');
+   g.fillStyle=mask;g.fillRect(-1,-1,2,2);return c;
+  })}));
+ }
+ // Fixed-size painted core with independently rolling outer lobes, all below the figure.
  function clouds(ctx,s){
-  const image=asset(CLOUD_BANK);if(!image)return;
-  const p=frac(s.t/PERIOD.stratus),life=groundLife(s.t,PERIOD.stratus);if(life<.002)return;
+  const art=cloudLayers();if(!art)return;
+  const {core,billows}=stratusCloudAt(s.t),fade=s.k*s.g;
   ctx.save();ctx.translate(s.ground.x,s.ground.y+5);
-  for(const [i,side] of [0,-1,1].entries()){
-   const grow=smooth(p/(.28+i*.035)),fade=1-smooth((p-.58-i*.035)/(.42-i*.035));
-   const k=grow*fade,w=(side?61:112)*(.62+.38*grow),h=w*(side?.34:.39);
-   const x=side*(22+(1-fade)*12)+Math.sin(p*TAU+i)*2,y=(side?2:0)-(side?1:4)*grow;
-   ctx.globalAlpha=s.k*s.g*k*(side?.58:1);
-   ctx.drawImage(image,x-w/2,y-h,w,h);
+  for(let i=0;i<billows.length;i++){
+   if(i===2){const h=core.w*art.image.height/art.image.width;ctx.globalAlpha=fade;ctx.drawImage(art.image,core.x-core.w/2,core.y-h,core.w,h);}
+   const b=billows[i],image=art.billows[i];if(b.alpha<.002)continue;
+   const h=b.w*image.height/image.width;
+   ctx.save();ctx.globalAlpha=fade*b.alpha;ctx.translate(b.x,b.y-h/2);ctx.rotate(b.angle);
+   ctx.drawImage(image,-b.w/2,-h/2,b.w,h);ctx.restore();
   }
   ctx.restore();
  }
@@ -286,6 +317,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  function lavaFloor(ctx,s){paintedGround(ctx,s,LAVA_GROUND);}
 
  // —— Mud ——
+ // Original Mud: keep the release drawing and its eight-second timing.
  // A full patch of tufts round his feet (an inner and an outer ring), dark at the root, fresh at the tip.
  const TUFTS=52,ROOT=GRASS_ROOT,TIP=GRASS_TIP;
  // Each tuft, a little apart from the others: sprouts to full height, holds, and sinks back to a short
@@ -301,8 +333,8 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   if(!f){f=[];for(const r of ROOT)for(const t of TIP){const g=ctx.createLinearGradient(0,0,0,-1);g.addColorStop(0,r);g.addColorStop(1,t);f.push(g);}bladeFills.set(ctx,f);}
   return f;
  }
- function grass(ctx,s,front){
-  const u0=Math.max(0,s.t)/PERIOD.mud,f=fills(ctx),m=ctx.getTransform();
+ function originalGrass(ctx,s,front){
+  const u0=Math.max(0,s.t)/MUD_CYCLE,f=fills(ctx),m=ctx.getTransform();
   for(let i=0;i<TUFTS;i++){
    const ringNo=i%3,angle=TAU*(i+.37*ringNo+rand(i,1)*.6)/TUFTS,depth=Math.sin(angle);if((depth>0)!==front)continue;
    const ring=[.32,.6,.86][ringNo]+.14*rand(i,2),bx=s.ground.x+Math.cos(angle)*50*ring,by=s.ground.y-4+depth*16*ring;
@@ -319,8 +351,8 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   }
   ctx.setTransform(m);
  }
- function earth(ctx,s){
-  const u0=Math.max(0,s.t)/PERIOD.mud,k=s.k*s.g*(.55+.45*grownAt(u0,.06));
+ function originalEarth(ctx,s){
+  const u0=Math.max(0,s.t)/MUD_CYCLE,k=s.k*s.g*(.55+.45*grownAt(u0,.06));
   const g=ctx.createRadialGradient(0,0,0,0,0,1);g.addColorStop(0,'rgba(66,44,20,.7)');g.addColorStop(.7,'rgba(66,44,20,.45)');g.addColorStop(1,'rgba(66,44,20,0)');
   ctx.save();ctx.globalAlpha=k;ctx.translate(s.ground.x,s.ground.y-4);ctx.scale(56,18);ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
  }
@@ -347,8 +379,8 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   ctx.strokeStyle='rgba(43,38,33,.75)';ctx.lineWidth=.55;ctx.stroke();
   ctx.strokeStyle='rgba(214,206,160,.5)';ctx.lineWidth=.45;ctx.beginPath();ctx.moveTo(.8,0);ctx.lineTo(l*.85,0);ctx.stroke();
  }
- function vines(ctx,s,front){
-  const u0=Math.max(0,s.t)/PERIOD.mud;
+ function originalVines(ctx,s,front){
+  const u0=Math.max(0,s.t)/MUD_CYCLE;
   ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
   for(const v of VINES){
    const [, d0,, d1,, phase,seed]=v;if(((d0+d1)/2>0)!==front)continue;
@@ -378,6 +410,71 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   ctx.restore();
  }
  const side0=seed=>seed%2?1:-1;
+
+ // Painted clumps stay at their soil roots as each one grows and folds back to a low bed.
+ function grass(ctx,s,front){
+  const art=asset(MUD_PLANTS);if(!art)return;
+  const u=Math.max(0,s.t)/MUD_CYCLE,fade=s.g*s.k,cell=art.naturalWidth/3;if(fade<.002)return;
+  ctx.save();ctx.globalAlpha=fade;
+  for(const [x,d,w,h,variant,lag,peak]of MUD_TUFTS){
+   if((d>0)!==front)continue;
+   const life=mudTuftLife(u,lag,peak)*s.g;if(life<.02)continue;
+   ctx.save();ctx.translate(s.ground.x+x*s.facing,s.ground.y-4+d*15);
+   ctx.transform(s.facing,0,Math.sin(TAU*(u+lag))*life*.07,1,0,0);
+   ctx.drawImage(art,variant*cell,0,cell,cell,-w*.5,-h*life,w,h*life*1.12);ctx.restore();
+  }
+  ctx.restore();
+ }
+ function earth(ctx,s){
+  const k=s.k*s.g;if(k<.002)return;
+  const g=ctx.createRadialGradient(0,0,0,0,0,1);g.addColorStop(0,'rgba(66,49,28,.32)');g.addColorStop(.65,'rgba(66,49,28,.21)');g.addColorStop(1,'rgba(66,49,28,0)');
+  ctx.save();ctx.globalAlpha=k;ctx.translate(s.ground.x,s.ground.y-4);ctx.scale(56,17);ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
+ }
+ // The vine's painted leaves unfold along +x from the petiole, after the shoot has passed them.
+ function mudLeaf(ctx,art,l,variant){
+  const cell=art.naturalWidth/3;ctx.save();ctx.rotate(Math.PI/2);ctx.drawImage(art,variant*cell,cell,cell,cell,-l*.5,-l*.9,l,l);ctx.restore();
+ }
+ function vines(ctx,s,front){
+  const art=asset(MUD_PLANTS);if(!art)return;
+  const u=Math.max(0,s.t)/MUD_CYCLE,fade=s.g*s.k;if(fade<.002)return;
+  const N=56;
+  ctx.save();ctx.lineCap='round';ctx.lineJoin='round';ctx.globalAlpha=fade;
+  for(const v of MUD_VINES){
+   if(v.front!==front)continue;
+   const len=mudVineLife(u,v)*s.g;if(len<.008)continue;
+   const sway=Math.sin(TAU*(u*2+v.seed*.17))*.8;
+   const point=f=>{const p=mudVinePoint(v,f);return{x:s.ground.x+(p.x+sway*Math.sin(Math.PI*f))*s.facing,y:s.ground.y-4+p.y};};
+   const n=Math.ceil(N*len),pts=Array.from({length:n+1},(_,i)=>point(Math.min(len,i/N)));
+   // A soft earth-brown core, a broken lit edge and small bark marks avoid an ink-outlined arch.
+   for(let i=1;i<pts.length;i++){
+    const p=pts[i-1],q=pts[i],f=i/N,width=(2.4-1.35*f)*(.2+.8*Math.min(1,(len-f+.07)/.1));
+    ctx.strokeStyle=VINE.body;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();
+    ctx.strokeStyle=i%4===0?VINE.outline:VINE.lit;ctx.globalAlpha=fade*(i%4===0?.24:.48);ctx.lineWidth=width*.29;
+    ctx.beginPath();ctx.moveTo(p.x-.25,p.y-.3);ctx.lineTo(q.x-.25,q.y-.3);ctx.stroke();ctx.globalAlpha=fade;
+   }
+   for(let i=6;i<N-4;i+=8){
+    const f=i/N,open=smooth((len-f)/.13);if(open<.015)continue;
+    const p=point(f),q=point(f+.01),side=(Math.floor(i/8)+v.seed)%2?1:-1;
+    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(Math.atan2(q.y-p.y,q.x-p.x)+side*(.72+.4*rand(v.seed,i)));
+    ctx.scale(open,.15+.85*open);mudLeaf(ctx,art,5.4+1.8*rand(v.seed,i+20),(i+v.seed)%3);ctx.restore();
+   }
+   if(len<.98){
+    const t=pts.at(-1),b=pts.at(-2),a=Math.atan2(t.y-b.y,t.x-b.x);
+    ctx.strokeStyle=VINE.body;ctx.lineWidth=.65;ctx.beginPath();
+    for(let i=0;i<=9;i++){const r=2.3*(1-i/11),th=a+i*.55*(v.seed%2?1:-1),x=t.x+Math.cos(th)*r-Math.cos(a)*2.3,y=t.y+Math.sin(th)*r-Math.sin(a)*2.3;i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();
+   }
+   ctx.fillStyle='rgba(58,41,24,.52)';
+   for(const f of [0,...(len>.98?[1]:[])]){const p=point(f);ctx.beginPath();ctx.ellipse(p.x,p.y+.7,2.7,1.1,0,0,TAU);ctx.fill();}
+  }
+  ctx.restore();
+ }
+
+ // Only one growth cycle draws. The boundary fade lets its stubble and soil settle before the handoff.
+ function mud(ctx,s,front){
+  const cycle=mudCycle(s.t),state={...s,t:cycle.t,k:s.k*cycle.fade};
+  if(cycle.painted){if(!front)earth(ctx,state);grass(ctx,state,front);vines(ctx,state,front);}
+  else{if(!front)originalEarth(ctx,state);originalGrass(ctx,state,front);originalVines(ctx,state,front);}
+ }
 
  // —— Spirit ——
  // A slow breath from dim to a white-gold peak (no flicker: one smooth cosine).
@@ -427,41 +524,34 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  }
 
  // —— Shadow ——
- // Base points on the floor around his feet (x, depth: + in front), lean, size, phase.
- const HANDS=[[-34,-.6,-.34,1,0],[32,-.75,.3,.95,.47],[-41,.5,-.3,1.15,.24],[39,.4,.36,1.1,.7],[-12,.95,-.12,.95,.86]];
- // Rise 0..1, then the fingers close (0 open .. 1 clutched) at the top, and the hand sinks back.
- const rise=u=>u<.24?1-(1-smooth(u/.24))**2:u<.56?1:u<.8?1-smooth((u-.56)/.24):0;
- // The crack opens just before the hand comes up and closes only once it is all the way down.
- const gap=u=>u<.05?smooth(u/.05):u<.82?1:u<.9?1-smooth((u-.82)/.08):0;
- const clutch=u=>u<.2?.1:u<.5?.1+.85*smooth((u-.2)/.3):.95;
- // Where each hand is now: its crack and its pose. spread: how far round his feet the hands come up (the
- // title screen sets it from the room between its kings); depth is kept, so a front hand stays in front.
+ // FILM frames carry the painted hand through its poses; the wrist stays in its floor crevice.
  function handsNow(s){
-  const u0=s.t/PERIOD.shadow,out=[];
-  for(const [i,[hx,depth,lean,size,phase]] of HANDS.entries()){
-   const u=frac(u0-phase),r=rise(u)*s.g*s.k,open=gap(u)*s.g*s.k;if(open<.02)continue;
-   // (A small spread also leans the hands less, so they stay in the room he has.)
-   const sp=s.spread??1,x=s.ground.x+hx*s.facing*sp,y=s.ground.y-4+depth*13,k=size*(.92+.08*depth),sway=.05*Math.sin(TAU*(u0*2+phase)),tilt=(lean+sway)*Math.min(1,sp*1.6);
-   // The crack is open before the hand comes through it; it is wide and lies a little toward the side the
-   // hand leans, so a leaning hand's fingers cross the floor inside it, not beside its end.
-   out.push({i,x,y,k,r,front:depth>0,open,cx:x+lean*s.facing*Math.min(1,sp*1.6)*14*k,w:12.5*k,hand:{side:s.side,size:k,flip:hx*s.facing<0,angle:tilt*s.facing*(r*.6+.4),rise:r,curl:clutch(u)}});
-  }
-  return out;
+  const sp=s.spread??1;
+  return shadowHandsAt(s.t,PERIOD.shadow).map(h=>{
+   const x=s.ground.x+h.x*s.facing*sp,y=s.ground.y-4+h.depth*13,k=h.size*(.92+.08*h.depth);
+   return {...h,x,y,k,r:h.rise*s.g*s.k,open:h.open*s.g*s.k,front:h.depth>0,w:12*k,
+    hand:{side:s.side,frame:h.frame,size:k,flip:h.x*s.facing<0,angle:h.lean*s.facing*Math.min(1,sp*1.6),alpha:s.g*s.k}};
+  }).filter(h=>h.open>.01);
  }
  // Cracks are drawn with the floor (before the figure), so none is ever drawn over him.
- function cracks(ctx,s){for(const h of handsNow(s))drawCrack(ctx,h.cx,h.y,h.w,h.open*2.9*h.k,h.i+1);}
+ function cracks(ctx,s){for(const h of handsNow(s)){
+  const shade=ctx.createRadialGradient(h.x,h.y,1,h.x,h.y,20*h.k);
+  shade.addColorStop(0,'rgba(7,5,10,.62)');shade.addColorStop(1,'rgba(7,5,10,0)');
+  ctx.save();ctx.globalAlpha=h.open;ctx.fillStyle=shade;ctx.beginPath();ctx.ellipse(h.x,h.y,20*h.k,6*h.k,0,0,TAU);ctx.fill();ctx.restore();
+  drawCrack(ctx,h.x,h.y,h.w,h.open*3.2*h.k,h.i+1,{branches:2});
+ }}
  function hands(ctx,s,front){
+  const bank=asset(HAND_BANK);if(!bank)return;
   for(const h of handsNow(s)){
    if(h.front!==front||h.r<.01)continue;
-   // The hand shows above its crack's near lip only, so it comes up out of the dark gap.
-   const lip=crackLip(h.cx,h.y,h.w,h.open*2.9*h.k,h.i+1);
-   drawHand(ctx,h.x,h.y,{...h.hand,lip});
+   const lip=crackLip(h.x,h.y,h.w,h.open*3.2*h.k,h.i+1);
+   drawPaintedShadowHand(ctx,bank,h.x,h.y,{...h.hand,rise:h.r,lip});
   }
  }
  function abyss(ctx,s){
-  const u0=s.t/PERIOD.shadow;let up=0;for(const h of HANDS)up=Math.max(up,rise(frac(u0-h[4])));
+  const up=Math.max(0,...shadowHandsAt(s.t,PERIOD.shadow).map(h=>h.rise));
   const g=ctx.createRadialGradient(0,0,0,0,0,1);g.addColorStop(0,'rgba(6,4,10,.6)');g.addColorStop(.65,'rgba(10,6,16,.32)');g.addColorStop(1,'rgba(10,6,16,0)');
-  ctx.save();ctx.globalAlpha=s.k*s.g*(.45+.4*up);ctx.translate(s.ground.x,s.ground.y-4);ctx.scale(54,17);ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
+  ctx.save();ctx.globalAlpha=s.k*s.g*(.35+.4*up);ctx.translate(s.ground.x,s.ground.y-4);ctx.scale(49,15);ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
  }
  // Smoke: the sheet split by the smoke mask into the figure (the scene draws it) and the smoke, here at
  // half the sprite's size. Two copies drift upward half a period apart and cross-fade (they add up to
@@ -494,7 +584,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
 
  return {
   /** Whether a design has an effect; starts loading that effect's own art. */
-  has(design){if(design==='flame')asset(LAVA_GROUND);if(design==='stratus')asset(CLOUD_BANK);if(design==='flame')flameLayers(0);if(design==='shadow')shadowLayers(0);return design in PERIOD;},
+  has(design){if(design==='mud')asset(MUD_PLANTS);if(design==='flame')asset(LAVA_GROUND);if(design==='stratus')asset(CLOUD_BANK);if(design==='flame')flameLayers(0);if(design==='shadow'){shadowLayers(0);asset(HAND_BANK);}return design in PERIOD;},
   /** The pose the figure is drawn with (Stratus floats; Shadow is drawn without his painted smoke, which moves). */
   pose(s){
    if(s.design==='shadow'){const l=shadowLayers(s.side);return l?{...s.pose,sheet:l.body}:s.pose;}
@@ -516,14 +606,14 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
    if(s.design==='flame')lavaFloor(ctx,s);
    else if(s.design==='frost')flakes(ctx,s,false);
    else if(s.design==='stratus')clouds(ctx,s);
-   else if(s.design==='mud'){earth(ctx,s);grass(ctx,s,false);vines(ctx,s,false);}
+   else if(s.design==='mud')mud(ctx,s,false);
    else if(s.design==='spirit')holyBack(ctx,s);
    else if(s.design==='shadow'){abyss(ctx,s);cracks(ctx,s);hands(ctx,s,false);smoke(ctx,s);}
   },
   front(ctx,s){
    if(s.design==='flame')lava(ctx,s);
    else if(s.design==='frost')flakes(ctx,s,true);
-   else if(s.design==='mud'){grass(ctx,s,true);vines(ctx,s,true);}
+   else if(s.design==='mud')mud(ctx,s,true);
    else if(s.design==='spirit')holyFront(ctx,s);
    else if(s.design==='shadow')hands(ctx,s,true);
   },

@@ -1,6 +1,7 @@
 import { otherSamples } from './samples.js';
 import { objectSamples } from './objects.js';
 import { arrivalSamples } from './arrivals.js';
+import { art } from '../../../../../src/account-game/art';
 document.body.classList.toggle('embedded', window.parent !== window);
 const $ = selector => document.querySelector(selector);
 const scene = $('#scene');
@@ -12,7 +13,7 @@ const reveal = (selector, time, start, length = 420, distance = 18) => {
   const p = phase(time, start, length);
   style(selector, { opacity: p, transform: `translateY(${(1 - p) * distance}px)` });
 };
-const image = (path, cls = '', alt = '') => `<img class="${cls}" src="/ui/${path}.webp" alt="${alt}">`;
+const image = (path, cls = '', alt = '') => `<img class="${cls}" src="${art(`ui/${path}.webp`)}" alt="${alt}">`;
 const samples = [
   {
     id: 'victory', name: 'Victory', group: 'Hero moments', duration: 3800,
@@ -122,7 +123,7 @@ window.effectsStudy={ready:false,select,seek,getState:()=>({id:active.id,progres
 const requested = new URLSearchParams(location.search).get('sample');
 select(samples.some(sample => sample.id === requested) ? requested : 'victory');
 const sources = new Set(samples.flatMap(sample => [...sample.html.matchAll(/src="([^"]+)"/g)].map(match => match[1])));
-sources.add('/ui/cards/leap.webp');
+sources.add(art('ui/cards/leap.webp'));
 Promise.all([document.fonts.ready, ...[...sources].map(src => {
   const asset = new Image(); asset.src = src; return asset.decode();
 })]).then(() => { window.effectsStudy.ready = true; }).catch(error => { window.effectsStudy.error = String(error); });

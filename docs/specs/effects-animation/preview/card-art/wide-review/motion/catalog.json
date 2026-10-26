@@ -1,0 +1,119 @@
+{
+  "cards": [
+    {
+      "id": "freeze",
+      "group": "freeze",
+      "description": "The approved frost, snowfall and cold mist around the still knight."
+    },
+    {
+      "id": "icewall",
+      "group": "air",
+      "description": "Cold light travels through the painted ice as snow and mist drift."
+    },
+    {
+      "id": "strike",
+      "group": "movement",
+      "description": "Red plume and cloth stir; warm dust and metal glints move around the fixed warrior."
+    },
+    {
+      "id": "haste",
+      "group": "movement",
+      "description": "Golden painted dust flows while the rook\u2019s banner catches the wind."
+    },
+    {
+      "id": "flight",
+      "group": "movement",
+      "description": "Ribbon tips, wind and leaves move around the suspended bishop."
+    },
+    {
+      "id": "sacrifice",
+      "group": "magic",
+      "description": "Warm light and fine ivory dust gather in the pawn shell around the revealed rook."
+    },
+    {
+      "id": "march",
+      "group": "movement",
+      "description": "Standards stir and dusty air rolls above the marching scene."
+    },
+    {
+      "id": "leap",
+      "group": "movement",
+      "description": "A light leaf-and-mist gust follows the leap; the stag stays still."
+    },
+    {
+      "id": "salvation",
+      "group": "air",
+      "description": "Turquoise spirit mist rises from the dead world toward the ivory rook."
+    },
+    {
+      "id": "mirrorb",
+      "group": "air",
+      "description": "Painted glass wisps and faint frost light move behind the mirror surface; hands and cards stay steady."
+    },
+    {
+      "id": "firewall",
+      "group": "magic",
+      "description": "Living painted fire and embers protect the still ivory army."
+    },
+    {
+      "id": "earthquake",
+      "group": "magic",
+      "description": "Dust and loose chips drift around the frozen shockwave."
+    },
+    {
+      "id": "burn",
+      "group": "magic",
+      "description": "The painted fire wake and embers shimmer; the clash stays still."
+    },
+    {
+      "id": "firestarter",
+      "group": "magic",
+      "description": "Red-gold fire travels through the existing wake at the enemy\u2019s fortress."
+    },
+    {
+      "id": "control",
+      "group": "magic",
+      "description": "Translucent teal breath flows between the friendly rook and knight."
+    },
+    {
+      "id": "rally",
+      "group": "movement",
+      "description": "The crimson banner and streamers flutter while two separate dust wakes stir around the allies."
+    },
+    {
+      "id": "morphp",
+      "group": "magic",
+      "description": "Lilac light and ivory flecks breathe around the carved transformation."
+    },
+    {
+      "id": "mimic",
+      "group": "air",
+      "description": "Prominent painted clouds drift in moonlight around the steady figure and shadow."
+    },
+    {
+      "id": "vault",
+      "group": "movement",
+      "description": "Leaves and loose painted debris catch the wind around Hop\u2019s leap."
+    },
+    {
+      "id": "curse",
+      "group": "air",
+      "description": "Purple painted wisps curl around the still ebony knight."
+    },
+    {
+      "id": "skylift",
+      "group": "air",
+      "description": "Visible painted rocks rise through cloud and wind around both towers."
+    },
+    {
+      "id": "rescue",
+      "group": "air",
+      "description": "Painted water ripples, lake mist and frost move around the steady rescue clasp."
+    },
+    {
+      "id": "back",
+      "group": "magic",
+      "description": "A gentle source-gold sheen travels through the crown and painted ornament."
+    }
+  ]
+}

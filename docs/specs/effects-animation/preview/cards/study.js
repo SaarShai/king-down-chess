@@ -28,7 +28,7 @@ const $ = id => document.getElementById(id);
 const descriptions = {
   Freeze: ['Pin the enemy knight on d5 in ice.', 'The knight stays on d5. Its next turn is frozen.'],
   IceWall: ['Build an ice ward around the rook on a4.', 'The bishop on c2 cannot capture the warded rook.'],
-  Strike: ['Send the pawn from d2 to d8 along a queen line.', 'The pawn stays a pawn. This move takes no piece.'],
+  Strike: ['Send the pawn from d2 to d6 along a queen line.', 'The pawn stays a pawn. This move takes no piece.'],
   Haste: ['The rook captures on a5, then moves again to capture on e5.', 'Both captures use the same rook. White then ends the turn.'],
   Flight: ['Lift the knight from b1 to the empty d3 square.', 'The knight lands in its own half. It takes no piece.'],
   Sacrifice: ['Trade the pawn on a2 for a queen from White’s captured reserve.', 'The queen stands on a2. The captured Guard stays in reserve.'],

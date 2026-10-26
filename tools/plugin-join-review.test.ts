@@ -6,7 +6,8 @@ import { chromium, type Browser, type Page } from 'playwright';
 import { startHarness } from './plugin-ui-harness';
 import { watchMotion } from './plugin-motion-observer';
 import { DEFAULT_OPTIONS } from '../src/match/setup';
-vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
+// A frame read can take more than the 1 s poll default under full-suite load in CI (plugin-app runs 40225675633, 40223950211).
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000, expect: { poll: { timeout: 5000 } } });
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
 beforeAll(async () => {
   folder = await mkdtemp(join(tmpdir(), 'kingdown-join-review-'));

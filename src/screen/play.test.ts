@@ -382,6 +382,54 @@ describe('review account boundaries', () => {
   });
 });
 
+describe('new local game validation', () => {
+  it.each(['army', 'position', 'rematch'])('keeps the live game, turn and dialog after an invalid %s', kind => {
+    const { play, view, engine, changed } = page();
+    play.restore({ ...original, moves: [...original.moves, 'Ng1-f3'], staged: 1 }, request);
+    play.seat('human', 'ai'); play.setSkill('strong'); play.save();
+    const current = play.game(), before = toFen(current.pos), raw = stored.get(SAVE_KEY);
+    const turn = vi.mocked(connectTurnPress).mock.calls[0][2].turn();
+    const dialog = document.getElementById('new-game') as HTMLDialogElement;
+    Object.assign(dialog, { open: true }); vi.mocked(dialog.close).mockClear();
+    vi.mocked(view.sync).mockClear(); engine.cancel.mockClear(); changed.mockClear();
+    expect(() => kind === 'position' ? play.newGame(undefined, 'bad') : play.newGame('ABC', null, kind === 'rematch')).toThrow();
+    expect(play.game()).toBe(current);
+    expect(toFen(current.pos)).toBe(before);
+    expect(current.history.map(h => h.lan)).toEqual([...original.moves, 'Ng1-f3']);
+    expect(vi.mocked(connectTurnPress).mock.calls[0][2].turn()).toEqual(turn);
+    expect(play.sides()).toEqual(['human', 'ai']); expect(play.skill()).toBe('strong');
+    expect(dialog.open).toBe(true); expect(dialog.close).not.toHaveBeenCalled();
+    expect(view.sync).not.toHaveBeenCalled(); expect(engine.cancel).not.toHaveBeenCalled();
+    expect(changed).not.toHaveBeenCalled(); expect(stored.get(SAVE_KEY)).toBe(raw);
+  });
+
+  it('replaces the game and resets the turn after a valid custom army', () => {
+    const { play } = page();
+    play.restore({ ...original, moves: [...original.moves, 'Ng1-f3'], staged: 1 }, request);
+    const current = play.game(), dialog = document.getElementById('new-game') as HTMLDialogElement;
+    play.newGame('RNBQKBNR');
+    expect(play.game()).not.toBe(current); expect(play.game().backRank).toBe('RNBQKBNR');
+    expect(play.game().history).toEqual([]); expect(dialog.close).toHaveBeenCalledOnce();
+    expect(vi.mocked(connectTurnPress).mock.calls[0][2].turn()).toMatchObject({ staged: 0, activeSide: 0 });
+    expect(JSON.parse(stored.get(SAVE_KEY)!).moves).toEqual([]);
+  });
+
+  it('keeps the daily army and rematch rules, level and player swap', () => {
+    const { play } = page();
+    play.newGame(undefined, null, false, '2026-10-26');
+    const daily = play.game().backRank;
+    play.newGame(undefined, null, false, '2026-10-26');
+    expect(play.game().backRank).toBe(daily);
+    const rules = { ...play.game().rules, ...POWERS_BALANCED, kings: parseKings('flame:haste,none') };
+    play.openSaved({ ...original, rules }); play.seat('human', 'ai'); play.setSkill('strong');
+    const current = play.game(), before = { ...current.rules };
+    play.rematch();
+    expect(play.game().rules).toEqual(before);
+    expect(play.game().backRank).toBe(original.back); expect(play.game().history).toEqual([]);
+    expect(play.sides()).toEqual(['ai', 'human']); expect(play.skill()).toBe('strong');
+  });
+});
+
 describe('local save recovery on the game page', () => {
   it.each([true, false])('F1 opens B without keeping A on the board (B has a game: %s)', async existing => {
     const { play } = page();

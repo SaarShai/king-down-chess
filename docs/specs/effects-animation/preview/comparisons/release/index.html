@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Material release · King Down</title><link rel="icon" href="/icons/icon-192.png"><link rel="stylesheet" href="/src/style.css"><link rel="stylesheet" href="./style.css"></head>
+<body><main class="study">
+<header><h1>When protection ends.</h1><span>Material release preview</span></header>
+<div class="layout">
+<section class="stage" aria-label="Material release comparison">
+<div class="view-switch" role="group" aria-label="Comparison view"><button id="current" aria-pressed="true">Current</button><button id="proposed" aria-pressed="false">Proposed</button><output id="view-time">0 ms</output></div>
+<div class="board-wrap"><canvas id="board" width="960" height="1024" role="img" aria-label="King Down material release"></canvas><p id="loading" role="status">Loading the painted board…</p></div>
+<div class="board-caption"><strong id="phase">Active · settled</strong><span id="badge">Freeze active</span></div>
+</section>
+<aside aria-label="Preview controls">
+<label for="sample">Material<select id="sample"><option value="freeze">FREEZE release</option><option value="wall">ICE WALL release</option><option value="shelter">Holy Light release</option></select></label>
+<div class="meaning"><h2 id="title">Freeze</h2><p id="detail"></p><p id="action"></p></div>
+<div class="transport"><button id="replay" class="primary">Replay release</button><button id="play">Play</button><button id="flip" aria-pressed="false">Flip board</button></div>
+<label class="timeline-label" for="scrub"><span>Shared time</span><output id="time"></output></label><input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Release timeline"><div class="timeline-labels"><span>Settled</span><span>Rule ends at 250 ms</span><span>Result</span></div>
+<div class="settings"><label for="speed">Speed<select id="speed"><option value="1">Normal</option><option value="0.5">Slow</option></select></label><label class="reduce"><input id="reduced" type="checkbox">Reduced motion</label></div>
+<p class="note" id="proposal"></p><p class="quiet" id="baseline"></p><p class="quiet">Switch views at any time. Both use the same clock and board. The badge ends with the rule. Later material is residue.</p>
+</aside></div></main><script type="module" src="./main.js"></script></body></html>

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3ead7">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="./style.css">
+  <title>King Down · Promotion preview</title>
+</head>
+<body>
+  <main>
+    <header><h1>Promotion</h1><span>Proposed preview</span></header>
+    <div class="study">
+      <section class="stage" aria-label="Painted promotion preview">
+        <div class="board-wrap"><canvas id="board" width="960" height="1056" role="img" aria-label="Painted chessboard. A white pawn promotes on d8."></canvas><p id="loading" role="status">Loading the painted board…</p></div>
+        <div class="caption"><strong id="outcome">Pawn to queen · d7–d8</strong><span id="phase" aria-live="polite">Ready to replay</span></div>
+      </section>
+      <aside aria-label="Preview controls">
+        <fieldset class="choices"><legend>Promote to</legend><div><button type="button" data-choice="queen" aria-pressed="true">Queen</button><button type="button" data-choice="knight" aria-pressed="false">Knight</button></div></fieldset>
+        <p class="description">A close gold veil reveals the chosen piece.</p>
+        <div class="transport"><button type="button" id="replay" class="primary" disabled>Replay promotion</button><button type="button" id="play" disabled>Play</button></div>
+        <label for="scrub" class="timeline-label">Timeline <output id="time" for="scrub">0.84 s</output></label>
+        <input type="range" id="scrub" min="0" max="1000" step="1" value="1000" aria-label="Promotion timeline" disabled>
+        <div class="beats" aria-hidden="true"><span>Arrive</span><span>Reveal</span><span>Settle</span></div>
+        <div class="options"><label for="speed">Speed <select id="speed"><option value="1">Normal</option><option value="0.4">Slow</option></select></label><button type="button" id="flip" aria-pressed="false">Flip board</button></div>
+        <label class="reduce"><input type="checkbox" id="reduced"> Reduced motion</label>
+        <p class="timing">740 ms ascension · quiet promotion</p>
+        <p id="motion-note">Replay once, or scrub to inspect a frame.</p>
+      </aside>
+    </div>
+  </main>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

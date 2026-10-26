@@ -118,9 +118,10 @@ export function renderTable(s: TableSnapshot): void {
       : selected == null || busy ? ''
       : help[selectedType as PieceType] ?? 'Select a marked square to move or take.';
   const turn = s.activeSide ? 'Black' : 'White';
+  const numbers = moveNumbers(s.history.map(h => h.turn));
   // In review the header names the move shown, as the list numbers it ("after 5… a5-a4").
   const shown = viewing == null ? '' : viewing === 0 ? 'the start'
-    : `after ${Math.ceil(viewing / 2)}${viewing % 2 ? '.' : '…'} ${s.history[viewing - 1].lan}`;
+    : `after ${numbers[viewing - 1]}${s.history[viewing - 1].turn ? '…' : '.'} ${s.history[viewing - 1].lan}`;
   $('turn').textContent = viewing != null ? `Reviewing ${shown}`
     : lesson != null ? `Lesson ${lesson + 1} of ${LESSONS.length}: ${LESSONS[lesson].name}`
     : s.ended ? '' : `${turn} to move${s.check ? ' — CHECK' : ''}`;
@@ -130,7 +131,6 @@ export function renderTable(s: TableSnapshot): void {
   const moves = $('moves');
   // Each move is a button to the board after it (data-ply = plies played by then). A line is White's
   // turn and Black's; a Haste turn is two plies by one side, so turns follow the side that moved.
-  const numbers = moveNumbers(s.history.map(h => h.turn));
   let html = '';
   s.history.forEach((h, i) => {
     const km = s.marked.find(k => k.ply === i), mark = !km ? '' : km.kind !== 'loss' || km.loss >= 500 ? '??' : '?';
