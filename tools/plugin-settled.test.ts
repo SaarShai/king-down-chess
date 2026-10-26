@@ -26,7 +26,7 @@ const widget = `<button id="reload">Reload</button><div id="board" data-animatin
 </script>`;
 
 it('waits for a call that a timer starts when the board animation ends', async () => {
-  const browser = await launch({ headless: true });
+  const browser = await launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chromium' });
   try {
     const page = await browser.newPage();
     await page.setContent(host);

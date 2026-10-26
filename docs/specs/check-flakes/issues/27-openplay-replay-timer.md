@@ -1,6 +1,6 @@
 # 27 The settled wait misses the computer command that starts when a replay ends
 
-Status: resolved
+Status: in review (CI and the full suite run on the PR)
 Branch: staging/openplay-race
 Base: origin/staging/first-game, 9b5b8016
 Scope: tools only. No `src/` change, no longer time limit, no retry.
@@ -38,8 +38,8 @@ Under Playwright's page clock (`page.clock.install`), a 0 ms timer that a timer 
 
 The data of the reproduction are in the session scratchpad (`openplay-repro/`), not in the repository.
 
-- Reproduction with the old helper (WebKit, CPU canvas, page clock, the exact `openPlay` steps): 2 of 40 natural games lose the Menu open, each with a two-command computer turn. With an engine wrapper that makes the first computer action keep the turn, 9 of 20 lose it. In each loss, `settled()` returns before (by up to 87 ms) or within 3 ms of the start of the second `kingdown_computer` call, and the Menu pointerdown comes during the second replay with no mousedown.
-- The same forced reproduction with the fixed helper: 20 of 20 open the Menu. In each game, `settled()` returns after the second `kingdown_computer` call.
+- Reproduction with the old helper (WebKit, CPU canvas, page clock; the `openPlay` steps after a Play now start, from the script's own saved setup with cards Freeze, Ice Wall, Strike, Haste and Leap): 2 of 40 natural games lose the Menu open (`check40.out`), each with a two-command computer turn. With an engine wrapper that makes the first computer action keep the turn, the check variant loses it in 3 of 6 games (`forceB.out`) and the logged variant in 3 of 10 (`loadD.out`). In each loss, `settled()` returns before (by up to 87 ms) or within 3 ms of the start of the second `kingdown_computer` call, and the Menu pointerdown comes during the second replay with no mousedown.
+- The same forced reproduction with the fixed helper: 20 of 20 open the Menu (`after-forced.out`). In each game, `settled()` returns after the second `kingdown_computer` call.
 
 | Check | Result |
 | --- | --- |
