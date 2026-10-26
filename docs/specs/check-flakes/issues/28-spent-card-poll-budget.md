@@ -11,11 +11,12 @@ Scope: one test file. No `src/` change, no retry.
 
 ## Cause
 
-The poll uses the vitest default budget of 1 s. Its callback is `coin.evaluate`, which waits for the coin element. `strips()` rebuilds the coin row, so the callback can wait for a new coin. On a loaded runner this wait is longer than 1 s, and the poll ends before its first answer. The next poll in the same test (the dimmed style) already uses 5 s for the same reason.
+The error says the poll callback gave no answer within the vitest default budget of 1 s. The callback was `coin.evaluate`, one Playwright browser read that also waits for the coin to be attached (up to the page's 15 s default). `strips()` replaces the coin row in one synchronous call (`src/plugin/screens/board.ts`), so the coin is not absent for long, and the move sheet does not remove it. The likely cause is a slow browser reply on a loaded CI runner; this is not proved. The other polls in the test that read the coin already use 5 s.
 
 ## Fix
 
-Both coin-size polls in the test use a 5 s budget, the same as the style poll between them.
+- `targetSize` uses `coin.evaluateAll`: one browser read that returns null when the coin is absent or detached, with no wait inside the poll.
+- The two coin-size polls and the poll for the end of the press animation use a 5 s budget, the same as the style poll. A coin that stays absent, or an animation that does not end, still fails.
 
 ## Check
 
