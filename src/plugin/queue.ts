@@ -64,7 +64,7 @@ export const DETACHABLE = ['kingdown_open', 'kingdown_resume', 'kingdown_join', 
 export const REFUSALS = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'NOT_ALLOWED', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE', 'RATE_LIMITED', 'RANKED_UNAVAILABLE'];
 
 export const EMPTY: ToolResult = { content: [] };
-export const resultText = (result: ToolResult) => result.content.filter(part => part.type === 'text').map(part => part.text ?? '').join(' ');
+export const resultText = (result: ToolResult) => result.isError && typeof result._meta?.message === 'string' ? result._meta.message : result.content.filter(part => part.type === 'text').map(part => part.text ?? '').join(' ');
 /** The code of a refusal or a failure (HANDLE_NEEDED is a failure with a code, design §2). */
 export const resultCode = (result: ToolResult) => String(result._meta?.code ?? '');
 

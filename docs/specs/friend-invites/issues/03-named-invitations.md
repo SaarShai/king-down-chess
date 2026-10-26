@@ -166,6 +166,27 @@ Logs: `/tmp/friend2-db-init-green.log`, `/tmp/friend2-db-green1.log`, `/tmp/frie
 
 The final `git fetch origin` succeeds. `git merge origin/staging/first-game` reports already up to date at `f306d452`. No conflict occurs. Commit hooks run unchanged.
 
-Release order: add columns and the old-join trigger; backfill and check duplicates; build indexes concurrently; attach and validate constraints; apply deletion cleanup and grants; then deploy the new server. Run each marked SQL phase as one query. Keep the trigger while old servers can write. The [release steps](../../../../supabase/README.md#friend-invitations-0022) give the full order and failed-index recovery.
+Release order: pause daily jobs and let active daily requests finish; add columns and both handover triggers; backfill and check duplicates; build indexes concurrently; attach and validate constraints; apply deletion cleanup and grants; deploy the new server; let all old requests finish; then resume daily jobs. Run each marked SQL phase as one query. Keep both triggers while old servers can write. The [release steps](../../../../supabase/README.md#friend-invitations-0022) give the full order and failed-index recovery.
 
 No review finding remains open. No push or deploy runs. Large-table production timing is not measured; all database checks use the local cluster.
+
+## Round 2 repair plan
+
+The independent review finds three faults. Keep all six round 1 fixes.
+
+1. Add failing tests for an old join during deletion, old game-end writes after backfill, and the private board notice.
+2. Lock affected game rows before the deletion check. Close open invitations when an old writer ends a game. Read the private notice on the board.
+3. Test each migration phase with old writes between phases. Set the release order and deletion-job pause in the database guide.
+4. Run the required local database, focused, document and browser checks, one command at a time. Fetch and merge the source branch before the last commit. Do not push.
+
+Pass criteria: each new fault has a red test, then a green test. All six earlier fixes still pass. The migration can repeat. Only the local branch database receives writes. The quiet lock blocks browser checks and the full suite.
+
+## Round 2 repair results
+
+- Old join and deletion: lock affected games in ID order before the active-seat check. The join-first test is red (`deleted=true`), then green (`deleted=false`). The deletion-first test and the old-service boundary probe pass: the join waits, then refuses the ended game.
+- Old game ends: a database trigger closes open invitations on terminal game writes. Four old-write cases are red (`state=open`), then green (`state=cancelled`). The trigger works with the old game writer grants. Accepted invitations keep their state.
+- Board notice: `resultText` reads a string `_meta.message` for errors. The queue case and three connected tool cases are red, then green. The exact notice reaches the board; model text stays fixed. Invalid metadata and successful results keep their existing text.
+- Migration: the repo test checks old writes between all 13 phases, repeats each phase and repeats the file. The old-service phase probe also passes on a fresh 0021 database. The old service and store match `origin/main` after import-path changes only. All constraints validate; no index is invalid.
+- The first full invitation-file run passes 51 cases, both type checks and 67 artwork cases. The six round 1 fixes remain covered. The local branch database is `kingdown_friend156r3_test` on `127.0.0.1:55432`, made with the repo helper.
+
+The [release guide](../../../../supabase/README.md#friend-invitations-0022) gives the daily-job pause and resume commands. Keep daily jobs paused through a failed release or a rollback. Old create and rematch paths have no account locks. The minute tick can continue.

@@ -6,6 +6,7 @@ import { DEFAULT_OPTIONS } from '../match/setup';
 import { createArguments, readSetup } from './screens/setup-model';
 import { ART_ORIGIN, createPluginServer } from './server';
 import { MatchServiceError } from '../match/service';
+import { resultText, type ToolResult } from './queue';
 afterEach(() => { vi.unstubAllEnvs(); });
 
 it.each([
@@ -390,7 +391,7 @@ it('exposes named invitation tool fields, private rows and safe limit errors', a
 });
 
 it.each(['FRIEND_GAME_LIMIT', 'FRIEND_INVITE_LIMIT', 'OPEN_INVITE_LIMIT'] as const)('keeps the full %s notice in host metadata', async code => {
- const message = 'Private notice for rowan.', details = { count: 5, handle: 'rowan' };
+ const message = 'You have 5 games with rowan. Finish one to accept this invitation.', details = { count: 5, handle: 'rowan' };
  const service = { toolTry: vi.fn(), join: async () => { throw new MatchServiceError(code, 409, message, details); } } as unknown as Parameters<typeof createPluginServer>[0]['service'];
  const server = createPluginServer({ service, actorId: 'alice', resourceHtml: '<html>board</html>', publicOrigin: 'http://localhost' });
  const client = new Client({ name: 'privacy-host', version: '1' }), [a, b] = InMemoryTransport.createLinkedPair();
@@ -399,6 +400,7 @@ it.each(['FRIEND_GAME_LIMIT', 'FRIEND_INVITE_LIMIT', 'OPEN_INVITE_LIMIT'] as con
   const reply = await client.callTool({ name: 'kingdown_join', arguments: { code: 'ABCDEF' } });
   expect.soft(JSON.stringify([reply.content, reply.structuredContent])).not.toContain('rowan');
   expect(reply._meta).toMatchObject({ code, ...details, message });
+  expect(resultText(reply as ToolResult)).toBe(message);
  } finally { await client.close(); await server.close(); }
 });
 

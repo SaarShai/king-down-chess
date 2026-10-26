@@ -4,6 +4,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyMigration } from '../../tools/plugin-db/apply-migration.mjs';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
+import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 import { GameService } from './service';
 import { PostgresMatchStore } from './store';
 import { AccountService } from '../online/accounts';
@@ -33,6 +34,73 @@ suite('friend invitation transactions', () => {
   const sent = await open();
   await admin.query('update public.game_invites set used_by=$2,used_at=$3 where token_hash=$1', [sent.invite_id, users[1], new Date()]);
   expect(await rows('select state,closed_at=used_at as closed from public.game_invites')).toEqual([{ state: 'accepted', closed: true }]);
+ });
+ it('keeps the creator account when an old join holds the game before deletion', async () => {
+  const sent = await open();
+  await admin.query("insert into public.account_deletions(user_id,requested_at,run_after) values($1,now()-interval '8 days',now()-interval '1 day')", [users[0]]);
+  const old = await pools[0].connect();
+  let deleting: Promise<pg.QueryResult> | undefined;
+  try {
+   await old.query('begin');
+   const pid = (await old.query('select pg_backend_pid() as pid')).rows[0].pid;
+   // The old join locks the game before it writes the invitation and seats. It has no account lock.
+   await old.query('select id from public.games where id=$1 for update', [sent.game_id]);
+   deleting = pools[1].query('select kingdown_jobs.delete_account($1) as done', [users[0]]);
+   await expect.poll(async () => (await rows('select count(*)::int as n from pg_stat_activity where datname=current_database() and $1=any(pg_blocking_pids(pid))', [pid]))[0].n).toBe(1);
+   await old.query('update public.game_invites set used_by=$2,used_at=$3 where token_hash=$1', [sent.invite_id, users[1], new Date()]);
+   await old.query("update public.games set status='setup',revision=revision+1 where id=$1", [sent.game_id]);
+   await old.query('update public.game_players set user_id=$2 where game_id=$1 and seat=1', [sent.game_id, users[1]]);
+   await old.query('commit');
+   expect((await deleting).rows[0].done).toBe(false);
+   expect(await rows('select user_id,active from public.game_players where game_id=$1 and seat=0', [sent.game_id])).toEqual([{ user_id: users[0], active: true }]);
+   expect(await rows('select status from public.games where id=$1', [sent.game_id])).toEqual([{ status: 'setup' }]);
+  } finally { await old.query('rollback'); old.release(); await deleting; }
+ });
+ it('blocks an old join after the deletion check until the waiting game ends', async () => {
+  const sent = await open();
+  await admin.query("insert into public.account_deletions(user_id,requested_at,run_after) values($1,now()-interval '8 days',now()-interval '1 day')", [users[0]]);
+  const original = (await rows("select pg_get_functiondef('kingdown_jobs.delete_account(uuid)'::regprocedure) as sql"))[0].sql as string;
+  await admin.query(original.replace('  for waiting in', '  perform pg_advisory_xact_lock(156157);\n  for waiting in'));
+  const blocker = await admin.connect();
+  await blocker.query('begin'); await blocker.query('select pg_advisory_xact_lock(156157)');
+  const deleting = pools[1].query('select kingdown_jobs.delete_account($1) as done', [users[0]]);
+  let joining: Promise<pg.QueryResult> | undefined;
+  try {
+   await expect.poll(async () => (await rows("select count(*)::int as n from pg_stat_activity where datname=current_database() and wait_event='advisory'"))[0].n).toBe(1);
+   joining = pools[0].query('select status from public.games where id=$1 for update', [sent.game_id]);
+   await expect.poll(async () => (await rows("select count(*)::int as n from pg_stat_activity where datname=current_database() and wait_event='transactionid'"))[0].n).toBe(1);
+  } finally {
+   await blocker.query('rollback'); blocker.release();
+   await deleting; await joining; await admin.query(original);
+  }
+  expect((await deleting).rows[0].done).toBe(true);
+  expect((await joining)?.rows).toEqual([{ status: 'aborted' }]);
+  expect(await rows('select active from public.game_players where game_id=$1', [sent.game_id])).toEqual([{ active: false }, { active: false }]);
+ });
+ it.each(['abort', 'finish', 'expiry', 'deletion'] as const)('closes an open invitation after an old %s write', async action => {
+  const sent = await open();
+  // The old save writes the game only; it does not write invitation state.
+  const status = action === 'finish' ? 'finished' : 'aborted';
+  await admin.query('update public.games set status=$2,end_reason=$3,result=$4,finished_at=statement_timestamp(),updated_at=statement_timestamp() where id=$1', [sent.game_id, status, action === 'finish' ? 'resignation' : action === 'expiry' ? 'no_start' : 'abort', action === 'finish' ? 'white' : null]);
+  expect(await rows('select i.state,i.closed_at=g.finished_at as closed from public.game_invites i join public.games g on g.id=i.game_id where g.id=$1', [sent.game_id])).toEqual([{ state: 'cancelled', closed: true }]);
+  expect((await services[0].invitations(users[0])).invitations[0].state).toBe('cancelled');
+ });
+ it('closes an invitation with only the old game writer grants', async () => {
+  const sent = await open(), role = `old_friend_${randomUUID().replaceAll('-', '')}`;
+  await withRoleLock(process.env.PLUGIN_TEST_DATABASE_URL!, async () => {
+   await admin.query(`create role ${role} nologin bypassrls`);
+   const client = await pools[0].connect();
+   try {
+    await admin.query(`grant usage on schema public to ${role}; grant select on public.games to ${role}; grant update(status,end_reason,finished_at,updated_at) on public.games to ${role}`);
+    await client.query('begin'); await client.query(`set local role ${role}`);
+    await client.query("update public.games set status='aborted',end_reason='abort',finished_at=statement_timestamp(),updated_at=statement_timestamp() where id=$1", [sent.game_id]);
+    await client.query('commit');
+    expect(await rows('select state from public.game_invites where game_id=$1', [sent.game_id])).toEqual([{ state: 'cancelled' }]);
+   } finally {
+    await client.query('rollback'); client.release();
+    await admin.query(`drop owned by ${role}; drop role ${role}`);
+   }
+  });
  });
  it.each(['recipient_id', 'recipient_handle'] as const)('sends the first named invitation on an old waiting game by %s', async field => {
   const game = await services[0].create(users[0], { kind: 'friend', options: DEFAULT_OPTIONS });
@@ -308,7 +376,7 @@ suite('friend invitation transactions', () => {
   await services[0].invite(users[0], terminal.game_id); await abort(terminal);
   const sql = await readFile(new URL('../../supabase/migrations/0022_friend_invites.sql', import.meta.url), 'utf8');
   await admin.query('delete from auth.users where id=$1', [users[1]]);
-  await admin.query('drop trigger if exists game_invites_old_join on public.game_invites');
+  await admin.query('drop trigger if exists game_invites_old_join on public.game_invites; drop trigger if exists game_invites_game_end on public.games');
   await admin.query('alter table public.game_invites drop column recipient_id cascade, drop column state cascade, drop column closed_at cascade; alter table public.game_invites drop constraint game_invites_one_game');
   // Deletion removes a named row. Recreate an old accepted row whose used_by is already null.
   await admin.query("insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at,used_at) values($1,$2,$3,1,$4,now()+interval '1 day',now())", ['a'.repeat(64), 'b'.repeat(64), sent.game_id, users[0]]);
@@ -321,6 +389,55 @@ suite('friend invitation transactions', () => {
   expect(await rows('select state from public.game_invites where game_id=$1', [terminal.game_id])).toEqual([{ state: 'cancelled' }]);
   expect((await rows("select relrowsecurity from pg_class where oid='public.game_invites'::regclass"))[0].relrowsecurity).toBe(true);
  });
+
+ it('keeps old writes valid between all migration 0022 phases', async () => {
+  const sql = await readFile(new URL('../../supabase/migrations/0022_friend_invites.sql', import.meta.url), 'utf8');
+  const phases = sql.split(/^-- migrate:next\s*$/m);
+  const seed = await services[0].create(users[0], { kind: 'friend', options: DEFAULT_OPTIONS });
+  const template = await services[0].store.load(seed.game_id);
+  await admin.query('drop trigger if exists game_invites_game_end on public.games; drop trigger if exists game_invites_old_join on public.game_invites');
+  await admin.query('alter table public.game_invites drop column recipient_id cascade, drop column state cascade, drop column closed_at cascade; alter table public.game_invites drop constraint game_invites_one_game');
+  await admin.query(await readFile(new URL('../../supabase/migrations/0020_deletion_utc.sql', import.meta.url), 'utf8'));
+  const writes = async (hasState: boolean) => {
+   const guest = randomUUID(); await admin.query('insert into auth.users(id) values($1)', [guest]);
+   const ids: string[] = [];
+   // These old write paths have no account lock and no invitation state fields.
+   for (const action of ['join', 'abort', 'finish', 'expiry', 'delete', 'rotate']) {
+    const game = structuredClone(template); game.id = randomUUID(); ids.push(game.id);
+    await services[0].store.insert(game);
+    const add = () => admin.query("insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,1,$4,now()+interval '7 days')", [randomUUID().replaceAll('-', '').repeat(2), randomUUID().replaceAll('-', '').repeat(2), game.id, users[0]]);
+    await add();
+    if (action === 'join') {
+     await admin.query('update public.game_invites set used_by=$2,used_at=$3 where game_id=$1', [game.id, guest, new Date()]);
+     await admin.query("update public.games set status='setup' where id=$1", [game.id]);
+     await admin.query('update public.game_players set user_id=$2 where game_id=$1 and seat=1', [game.id, guest]);
+     await admin.query('delete from auth.users where id=$1', [guest]);
+    } else if (['abort', 'finish', 'expiry'].includes(action)) {
+     if (action === 'expiry') await admin.query("update public.game_invites set expires_at=now()-interval '1 second' where game_id=$1", [game.id]);
+     await admin.query('update public.games set status=$2,end_reason=$3,finished_at=statement_timestamp(),updated_at=statement_timestamp() where id=$1', [game.id, action === 'finish' ? 'finished' : 'aborted', action === 'finish' ? 'resignation' : action === 'expiry' ? 'no_start' : 'abort']);
+    } else {
+     await admin.query('delete from public.game_invites where game_id=$1', [game.id]);
+     await add();
+     if (action === 'delete') await admin.query('delete from public.games where id=$1', [game.id]);
+    }
+   }
+   if (hasState) {
+    expect(await rows('select state,used_by,closed_at=used_at as closed from public.game_invites where game_id=$1', [ids[0]])).toEqual([{ state: 'accepted', used_by: null, closed: true }]);
+    expect(await rows('select state,closed_at is not null as closed from public.game_invites where game_id=any($1::uuid[])', [ids.slice(1, 4)])).toEqual(Array(3).fill({ state: 'cancelled', closed: true }));
+    expect(await rows('select state from public.game_invites where game_id=$1', [ids[5]])).toEqual([{ state: 'open' }]);
+   }
+   expect(await rows('select game_id from public.game_invites where game_id=$1', [ids[4]])).toEqual([]);
+  };
+  try {
+   await writes(false);
+   for (const phase of phases) { await admin.query(phase); await admin.query(phase); await writes(true); }
+   await applyMigration(admin, sql); await applyMigration(admin, sql);
+   expect(await rows("select i.game_id from public.game_invites i join public.games g on g.id=i.game_id where i.state='open' and g.status in ('finished','aborted')")).toEqual([]);
+   expect(await rows("select conname from pg_constraint where conrelid='public.game_invites'::regclass and not convalidated")).toEqual([]);
+   expect(await rows("select indexrelid from pg_index where indrelid in ('public.game_invites'::regclass,'public.game_players'::regclass) and not indisvalid")).toEqual([]);
+   const sent = await send(); expect(await join(sent)).toMatchObject({ status: 'setup' });
+  } finally { await applyMigration(admin, sql); }
+ }, 20000);
 
  it('shares the lookup and invitation write budget across services', async () => {
   for (let i = 0; i < 60; i++) await services[i % 2].friends(users[0], { handle: 'rowan' });

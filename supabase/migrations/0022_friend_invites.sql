@@ -2,6 +2,8 @@
 -- Schema locks end before the backfill, validation and concurrent index builds.
 begin;
 set local lock_timeout = '5s';
+-- Block old SELECT FOR UPDATE calls before the invitation schema lock. Plain reads can continue.
+lock table public.games in exclusive mode;
 alter table public.game_invites add column if not exists recipient_id uuid;
 alter table public.game_invites add column if not exists state text not null default 'open';
 alter table public.game_invites add column if not exists closed_at timestamptz;
@@ -20,6 +22,19 @@ revoke all on function public.game_invites_old_join() from public;
 drop trigger if exists game_invites_old_join on public.game_invites;
 create trigger game_invites_old_join before insert or update on public.game_invites
   for each row execute function public.game_invites_old_join();
+
+-- Old game-end writes do not update invitations. Keep the same game-before-invitation lock order.
+create or replace function public.game_invites_game_end() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  update public.game_invites set state='cancelled',closed_at=coalesce(new.finished_at,new.updated_at)
+    where game_id=new.id and state='open' and used_at is null;
+  return new;
+end $$;
+revoke all on function public.game_invites_game_end() from public;
+drop trigger if exists game_invites_game_end on public.games;
+create trigger game_invites_game_end after update of status on public.games
+  for each row when (new.status in ('finished','aborted')) execute function public.game_invites_game_end();
 commit;
 
 -- migrate:next
@@ -102,8 +117,13 @@ begin
     perform pg_advisory_xact_lock(hashtextextended('account:'||account_id::text,0));
   end loop;
   perform from public.account_deletions where user_id=uid and run_after<=statement_timestamp() and cancelled_at is null and done_at is null for update;
-  if not found or exists(select from public.reports where uid in (reported_id,reporter_id) and hold_until>statement_timestamp())
-    or exists(select from public.game_players p join public.games g on g.id=p.game_id where p.user_id=uid and p.active and g.status<>'waiting') then return false; end if;
+  if not found or exists(select from public.reports where uid in (reported_id,reporter_id) and hold_until>statement_timestamp()) then return false; end if;
+  -- Old writers lock games, not accounts. Lock all affected games before the active-seat check.
+  perform from public.games g where g.created_by=uid
+    or exists(select from public.game_players p where p.game_id=g.id and p.user_id=uid)
+    or exists(select from public.game_invites i where i.game_id=g.id and i.recipient_id=uid)
+    order by g.id for update;
+  if exists(select from public.game_players p join public.games g on g.id=p.game_id where p.user_id=uid and p.active and g.status<>'waiting') then return false; end if;
   for waiting in select g.id,g.revision from public.games g where g.status='waiting' and
     (g.created_by=uid or exists(select from public.game_invites i where i.game_id=g.id and i.recipient_id=uid)) order by g.id for update loop
     update public.games set status='aborted',result=null,end_reason='no_start',finished_at=statement_timestamp(),updated_at=statement_timestamp(),revision=revision+1 where id=waiting.id;

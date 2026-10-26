@@ -218,11 +218,13 @@ Confirm the two internal routes work before you paste the MVP file.
 Run each `-- migrate:next` phase as a separate query, in file order. Do not put the file in one transaction.
 The migration and test bootstrap tools use `applyMigration` for these phases.
 
-1. Add columns and the old-join trigger in a short transaction. The old server can still write only `used_by` and `used_at`. The trigger sets `state` and `closed_at` before the check.
-2. Backfill old rows and check for duplicates after the schema locks end. Repair duplicate rows before the next phase.
-3. Build the unique and count indexes with `CONCURRENTLY`. Attach the unique index and add `NOT VALID` checks in a short transaction. Validate them in the next phase. Data scans do not hold the schema locks.
-4. Apply the deletion function and runtime grants. Validate the tool check. Confirm that all indexes are valid and all constraints pass before the new server deploys.
-5. Deploy the new server on staging and check old and new invitation joins. Then use the same order for the approved production release. Keep the trigger while an old server can still write.
+1. Pause `kingdown-daily` before the first phase. In the SQL Editor, run `select cron.alter_job(jobid, active := false) from cron.job where jobname='kingdown-daily';`. Confirm that its `active` value is false. Do not call `/internal/daily` by hand. Check the daily handler logs and let any daily request already sent by pg_net finish before the first phase. The daily route runs deletion and cleanup. The minute tick can continue.
+2. Add columns and both handover triggers in a short transaction. Lock the game table before the invitation table, as old writes do. The old join still writes only `used_by` and `used_at`; its trigger sets `state` and `closed_at`. The game-end trigger closes open invitations when an old writer aborts, finishes or expires a game, including a deletion job's game-end write. Accepted and declined rows keep their state. Game deletion removes its invitations through the existing foreign key.
+3. Backfill old rows and check for duplicates after the schema locks end. Repair duplicate rows before the next phase.
+4. Build the unique and count indexes with `CONCURRENTLY`. Attach the unique index and add `NOT VALID` checks in a short transaction. Validate them in the next phase. Data scans do not hold the schema locks.
+5. Apply the deletion function and runtime grants. The function locks all affected games in ID order before it checks active seats. An old join that wins the game lock keeps the account; a deletion that wins ends the waiting game before a join can read it. Validate the tool check. Confirm that all indexes are valid and all constraints pass before the new server deploys.
+6. Deploy the new server after the last phase. Check old and new invitation joins on staging. Stop routing requests to the old release and let all old requests finish. Keep both triggers while any old server can write. Do not resume deletion on a mixed release: old create and rematch paths do not take the new account locks.
+7. After all writers use the new account locks, resume with `select cron.alter_job(jobid, active := true) from cron.job where jobname='kingdown-daily';`. Confirm that `active` is true and the next daily job completes. Due deletion rows remain due during the pause. If the release stops or rolls back to the old server, keep daily jobs paused. Use the same order for the approved production release.
 
 Schema steps have a five-second lock timeout. If a step fails, stop before the deploy and repeat after the cause is fixed.
 A failed concurrent build can leave an invalid index. Drop only that failed index with `DROP INDEX CONCURRENTLY`, then repeat 0022.
