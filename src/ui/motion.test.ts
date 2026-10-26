@@ -4,25 +4,34 @@ import { drawFreeze } from '../render/effects/materials';
 // The material sets its own alpha, as the real one does.
 vi.mock('../render/effects/materials', () => ({ drawFreeze: vi.fn((ctx: CanvasRenderingContext2D) => { ctx.globalAlpha = 1; }), drawFirewall: vi.fn() }));
 
-let now: number, pace: string, hidden: boolean, reduced: boolean;
+let now: number, timelineOffset: number, setupDelay: number, pace: string, hidden: boolean, reduced: boolean;
 let documentEvents: EventTarget, media: EventTarget;
 let settingsChanged: () => void;
 let animations: ReturnType<typeof animation>[];
-function animation() {
+function animation(options: KeyframeAnimationOptions = { duration: 500 }) {
   let finish!: () => void, reject!: () => void;
   const finished = new Promise<void>((resolve, no) => { finish = resolve; reject = no; });
-  return { currentTime: 0, playState: 'running', effect: { getComputedTiming: () => ({ duration: 500 }) }, finished, finish, cancel: vi.fn(() => reject()) };
+  let heldTime: number | undefined;
+  const a = {
+    startTime: null as number | null,
+    get currentTime() { return heldTime ?? (a.startTime === null ? 0 : Number(document.timeline.currentTime) - a.startTime); },
+    set currentTime(value: number) { heldTime = value; },
+    playState: 'running', effect: { getComputedTiming: () => ({ duration: options.duration, endTime: Number(options.duration) + Number(options.delay ?? 0) }) },
+    finished, finish, cancel: vi.fn(() => reject()),
+  };
+  return a;
 }
 class Control {
   isConnected = true;
-  animate = vi.fn((_frames: Keyframe[], _options: KeyframeAnimationOptions) => { const a = animation(); animations.push(a); return a; });
+  animate = vi.fn((_frames: Keyframe[], _options: KeyframeAnimationOptions) => { now += setupDelay; const a = animation(_options); animations.push(a); return a; });
   contains(target: unknown) { return target === this; }
 }
 beforeEach(() => {
-  now = 1000; pace = 'normal'; hidden = reduced = false; animations = [];
+  now = 1000; timelineOffset = 0; setupDelay = 0; pace = 'normal'; hidden = reduced = false; animations = [];
   documentEvents = new EventTarget(); media = new EventTarget();
   vi.spyOn(performance, 'now').mockImplementation(() => now);
   vi.stubGlobal('document', {
+    timeline: { get currentTime() { return now - timelineOffset; } },
     get hidden() { return hidden; }, documentElement: { dataset: { get pace() { return pace; } } },
     addEventListener: documentEvents.addEventListener.bind(documentEvents), removeEventListener: documentEvents.removeEventListener.bind(documentEvents),
   });
@@ -33,18 +42,69 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 const element = () => new Control() as unknown as Element;
 
-it('seeks a rebuilt control to its original onset and never replays a finished onset', async () => {
+it.each([0, 40])('keeps the original onset through %s ms of setup and never replays a finished onset', async delay => {
+  setupDelay = delay;
   const motion = new UiMotion(), first = element(), next = element();
   motion.reveal(first, 400, 12, 100, 1000);
   now = 1250; first.remove?.(); (first as unknown as Control).isConnected = false;
   motion.reveal(next, 400, 12, 100, 1000);
   expect(animations[0].cancel).toHaveBeenCalledOnce();
-  expect(animations[1].currentTime).toBe(250);
+  expect(animations.map(a => a.startTime)).toEqual([1000, 1000]);
   now = 1500;
   motion.reveal(next, 400, 12, 100, 1000);
   expect(animations).toHaveLength(2);
   animations[1].finish(); await Promise.resolve();
   expect(animations[1].cancel).toHaveBeenCalledOnce();
+  motion.dispose();
+});
+
+it.each([-60_000, 60_000])('ends at the correct age when the timeline has a %s ms clock offset', async offset => {
+  timelineOffset = offset; now = 100_000; setupDelay = 40;
+  const motion = new UiMotion();
+  const a = motion.play(element(), [{ opacity: 0 }, { opacity: 1 }], 500, 0, now - 125)!;
+  expect(a.currentTime).toBe(165);
+  let ended = false;
+  void a.finished.then(() => { ended = true; });
+  const step = async (ms: number) => {
+    now += ms;
+    for (const animation of animations) {
+      if (animation.currentTime >= animation.effect.getComputedTiming().endTime) animation.finish();
+    }
+    await Promise.resolve();
+  };
+  await step(334); expect(ended).toBe(false);
+  await step(1); expect(ended).toBe(true);
+  expect(animations[0].cancel).toHaveBeenCalledOnce();
+  motion.dispose();
+});
+
+it('keeps the saved start when setup and replacement occur in the same frame', () => {
+  Object.assign(document, { timeline: { currentTime: 7000 } });
+  now = 100_000; setupDelay = 40;
+  const motion = new UiMotion(), first = element();
+  motion.reveal(first, 500, 0, 0, 100_000);
+  expect(now).toBe(100_040);
+  (first as unknown as Control).isConnected = false;
+  motion.reveal(element(), 500, 0, 0, 100_000);
+  expect(animations.map(a => a.startTime)).toEqual([7000, 7000]);
+  expect(animations[0].cancel).toHaveBeenCalledOnce();
+  motion.dispose();
+});
+
+it('keeps one timeline start through frozen-frame setup, other events and a row rebuild', () => {
+  let timelineNow = 7000;
+  Object.assign(document, { timeline: { get currentTime() { return timelineNow; } } });
+  now = 100_000; setupDelay = 40;
+  const motion = new UiMotion(), first = element();
+  motion.reveal(first, 500, 0, 0, 100_000);
+  now = 100_100; timelineNow = 7100;
+  motion.reveal(element(), 500, 0, 0, 100_100);
+  now = 100_200; timelineNow = 7200;
+  (first as unknown as Control).isConnected = false;
+  motion.reveal(element(), 500, 0, 0, 100_000);
+  expect(animations.map(a => a.startTime)).toEqual([7000, 7100, 7000]);
+  expect(animations[0].cancel).toHaveBeenCalledOnce();
+  expect(animations[2].currentTime).toBe(200);
   motion.dispose();
 });
 

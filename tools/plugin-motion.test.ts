@@ -83,27 +83,32 @@ it('keeps source symbols intact beside protection badges', async () => {
 });
 // Record native motion at onset. A browser call can miss a short effect after it ends.
 type RecordedMotion = { id: string; frames: Keyframe[]; options: KeyframeAnimationOptions; onset: number; paint?: { filter: string; clip: string } };
-async function recordMotion(page: Page, frame: FrameLocator, selectors: string[]) {
-  const install = (selectors: string[]) => {
+async function recordMotion(page: Page, frame: FrameLocator, selectors: string[], setupDelay = 0) {
+  const install = ({ selectors, setupDelay }: { selectors: string[]; setupDelay: number }) => {
     const events: object[] = [];
     (window as any).uiMotion = events;
     const animate = Element.prototype.animate;
-    const time = Object.getOwnPropertyDescriptor(Animation.prototype, 'currentTime')!;
+    const time = Object.getOwnPropertyDescriptor(Animation.prototype, 'startTime')!;
     Element.prototype.animate = function(frames, options) {
       const animation = animate.call(this, frames, options);
-      const event = { id: this.id || this.closest('.card-coin')?.id || this.closest('.player-strip')?.id || '', selectors: selectors.filter(s => this.matches(s)), frames, options, onset: 0, paint: this.matches('.coin-paint') ? { filter: getComputedStyle(this).filter, clip: getComputedStyle(this.parentElement!).overflow } : undefined };
+      const event = { id: this.id || this.closest('.card-coin')?.id || this.closest('.player-strip')?.id || '', selectors: selectors.filter(s => this.matches(s)), frames, options, onset: NaN, paint: this.matches('.coin-paint') ? { filter: getComputedStyle(this).filter, clip: getComputedStyle(this.parentElement!).overflow } : undefined };
       if (!event.selectors.length) return animation;
       events.push(event);
-      // Read the seek before a same-task rebuild can cancel this animation.
-      Object.defineProperty(animation, 'currentTime', {
+      // Uneven setup work must not change the start time of one press across row rebuilds.
+      if (events.length % 2 === 0 && setupDelay) {
+        const from = performance.now();
+        while (performance.now() - from < setupDelay) { /* busy page */ }
+      }
+      // Read the native start time before a same-task rebuild can cancel this animation.
+      Object.defineProperty(animation, 'startTime', {
         get: () => time.get!.call(animation),
-        set: value => { time.set!.call(animation, value); event.onset = performance.now() - Number(value); },
+        set: value => { time.set!.call(animation, value); event.onset = Number(time.get!.call(animation) ?? NaN); },
       });
       return animation;
     };
   };
-  await page.addInitScript(install, selectors);
-  await page.frames().find(f => f.parentFrame() === page.mainFrame())!.evaluate(install, selectors);
+  await page.addInitScript(install, { selectors, setupDelay });
+  await page.frames().find(f => f.parentFrame() === page.mainFrame())!.evaluate(install, { selectors, setupDelay });
   return (selector: string) => frame.locator('html').evaluate((_, selector) => ((window as any).uiMotion as (RecordedMotion & { selectors: string[] })[])
     .filter(e => e.selectors.includes(selector)).map(({ id, frames, options, onset, paint }) => ({ id, frames, options, onset, paint })), selector);
 }
@@ -329,7 +334,7 @@ it.each([false, true])('presses a spent card into grey once (reduced motion %s)'
     let targetBefore: number[] | null = null;
     // CI verify saw no answer from this read within the 1 s default budget (runs 40235825055, 40278775868).
     await expect.poll(async () => targetBefore = await targetSize(), { timeout: 5000 }).not.toBeNull();
-    const motion = await recordMotion(page, frame, ['#game-table .card-coin[data-state="used"] > .coin-paint']);
+    const motion = await recordMotion(page, frame, ['#game-table .card-coin[data-state="used"] > .coin-paint'], 40);
     await frame.locator('#board-sheet #choices button').first().click();
     await coin.and(frame.locator('[data-state="used"]')).waitFor();
     const press = await motion('#game-table .card-coin[data-state="used"] > .coin-paint');
