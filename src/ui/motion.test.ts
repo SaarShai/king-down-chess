@@ -78,6 +78,19 @@ it.each([-60_000, 60_000])('ends at the correct age when the timeline has a %s m
   motion.dispose();
 });
 
+it('keeps the saved start when setup and replacement occur in the same frame', () => {
+  Object.assign(document, { timeline: { currentTime: 7000 } });
+  now = 100_000; setupDelay = 40;
+  const motion = new UiMotion(), first = element();
+  motion.reveal(first, 500, 0, 0, 100_000);
+  expect(now).toBe(100_040);
+  (first as unknown as Control).isConnected = false;
+  motion.reveal(element(), 500, 0, 0, 100_000);
+  expect(animations.map(a => a.startTime)).toEqual([7000, 7000]);
+  expect(animations[0].cancel).toHaveBeenCalledOnce();
+  motion.dispose();
+});
+
 it('keeps one timeline start through frozen-frame setup, other events and a row rebuild', () => {
   let timelineNow = 7000;
   Object.assign(document, { timeline: { get currentTime() { return timelineNow; } } });
