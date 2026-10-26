@@ -62,7 +62,7 @@ export class PostgresMatchStore {
    and i.expires_at>statement_timestamp() and g.status='waiting'`, recipient ? [sender, recipient] : [sender])).rows[0].n;
  }
  async invitations(actor: string, before?: [string, string], limit = 20, client: Client = this.pool): Promise<InvitationPage> {
-  const rows = (await client.query(`select i.token_hash as invite_id,i.game_id,i.recipient_id,i.created_at,
+  const rows = (await client.query(`select i.token_hash as invite_id,i.game_id,g.revision,i.recipient_id,i.created_at,
    case when i.created_by=$1 then 'outgoing' else 'incoming' end as direction,
    case when (i.state='open' or i.state='cancelled' and g.end_reason='no_start') and i.expires_at<=statement_timestamp() then 'expired' else i.state end as state,
    i.expires_at,g.options,p.id as user_id,p.handle,p.icon from public.game_invites i join public.games g on g.id=i.game_id

@@ -645,10 +645,10 @@ export class GameService {
   });
  }
  private async invitationRow(client: Parameters<PostgresMatchStore['privacy']>[0], actor: string, inviteId: string, byGame = false): Promise<InvitationRow | null> {
-  const r = (await client.query(`select i.*,i.expires_at<=statement_timestamp() as expired,g.options,g.end_reason,p.id as player_id,p.handle,p.icon from public.game_invites i join public.games g on g.id=i.game_id
+  const r = (await client.query(`select i.*,i.expires_at<=statement_timestamp() as expired,g.revision,g.options,g.end_reason,p.id as player_id,p.handle,p.icon from public.game_invites i join public.games g on g.id=i.game_id
    left join public.profiles p on p.id=case when i.created_by=$2 then i.recipient_id else i.created_by end where ${byGame ? 'i.game_id' : 'i.token_hash'}=$1`, [inviteId, actor])).rows[0];
   if (!r) return null;
-  return { invite_id: r.token_hash, game_id: r.game_id, recipient_id: r.recipient_id, direction: r.created_by === actor ? 'outgoing' : 'incoming', player: r.player_id ? { user_id: r.player_id, handle: r.handle, icon: r.icon } : null,
+  return { revision: r.revision, invite_id: r.token_hash, game_id: r.game_id, recipient_id: r.recipient_id, direction: r.created_by === actor ? 'outgoing' : 'incoming', player: r.player_id ? { user_id: r.player_id, handle: r.handle, icon: r.icon } : null,
    options: r.options, expires_at: r.expires_at.toISOString(), state: (r.state === 'open' || r.state === 'cancelled' && r.end_reason === 'no_start') && r.expired ? 'expired' : r.state };
  }
  /** Ends missed deadlines, expired invitations and 24-hour open games; safe to run twice at once. */

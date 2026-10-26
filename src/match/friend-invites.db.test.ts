@@ -321,4 +321,13 @@ suite('friend invitation transactions', () => {
   } finally { resume(); await reading.catch(() => {}); hold.mockRestore(); }
  });
 
+ it('gives cancellation the list revision and refuses a stale accepted row', async () => {
+  const sent = await send();
+  const row = (await services[0].invitations(users[0])).invitations[0];
+  expect(row).toMatchObject({ revision: sent.revision });
+  await join(sent, 1);
+  await expect(services[0].command(users[0], sent.game_id, { command_id: randomUUID(), expected_revision: sent.revision, action: { type: 'abort' } })).rejects.toMatchObject({ code: 'STALE_REVISION' });
+  expect(await services[0].view(users[0], sent.game_id)).toMatchObject({ status: 'setup' });
+ });
+
 });

@@ -142,7 +142,7 @@ export interface GameOutcome { rating_before: number | null; rating: number | nu
 export interface InboxEntry { invite_id?: string | null; rating_policy: RatingPolicy; options: Options | null; move: number | null; created_at: string; open_until: string | null; level: SkillName; game_id: string; kind: 'solo' | 'friend' | 'random'; speed: 'daily' | 'live'; status: 'waiting' | 'setup' | 'playing'; seat: Seat; action: SeatAction; turn: Seat; revision: number; deadline_at: string | null; opponent: Opponent | null; updated_at: string }
 /** The link token (43 characters) and the short code (6 characters) open the same seat. */
 export type InvitationState = 'open' | 'accepted' | 'declined' | 'cancelled' | 'expired';
-export interface InvitationRow { invite_id: string; game_id: string; direction: 'incoming' | 'outgoing'; recipient_id: string | null; player: { user_id: string; handle: string | null; icon: Icon | null } | null; options: Options | null; expires_at: string; state: InvitationState }
+export interface InvitationRow { revision: number; invite_id: string; game_id: string; direction: 'incoming' | 'outgoing'; recipient_id: string | null; player: { user_id: string; handle: string | null; icon: Icon | null } | null; options: Options | null; expires_at: string; state: InvitationState }
 export interface InvitationPage { invitations: InvitationRow[]; next_before: string | null }
 export interface Friend { user_id: string; handle: string; icon: Icon | null; source: 'recent' | 'follow' | 'lookup' }
 export interface FriendsPage { friends: Friend[]; next_after: string | null }
