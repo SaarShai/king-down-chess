@@ -1,5 +1,5 @@
 // One CI workflow runs the suite on each PR and on pushes to main.
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { checks } from './lib/registry.mjs';
@@ -34,6 +34,24 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(read('tools/lib/checks.mjs')).not.toContain('pre-push');
   });
 
+  it('removes the slow Azure mirror and limits downloads in all eight browser install steps', () => {
+    const directory = join(import.meta.dirname, '..', '.github', 'workflows');
+    const removeMirror = "sudo sed -i '/azure\\.archive\\.ubuntu\\.com/d' /etc/apt/apt-mirrors.txt";
+    let installs = 0;
+    for (const file of readdirSync(directory).filter(name => /\.ya?ml$/.test(name))) {
+      const source = readFileSync(join(directory, file), 'utf8');
+      for (const step of source.split(/^      - /m).filter(step => /\bplaywright install\b/.test(step))) {
+        installs++;
+        expect(step).toContain(removeMirror);
+        expect(step).toContain('timeout-minutes: 10');
+        expect(step).toContain('echo \'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";\' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads');
+        expect(step.indexOf(removeMirror)).toBeLessThan(step.indexOf('npx playwright install'));
+        expect(step.indexOf('sudo tee')).toBeLessThan(step.indexOf('npx playwright install'));
+      }
+    }
+    expect(installs).toBe(8);
+  });
+
   it.each(webkitJobs)('runs WebKit in the separate job %s with its own install and the time limit for its scaled steps', name => {
     const webkit = job(name);
     // The WebKit steps run with limits times 3 (tools/lib/checks.mjs STEP), so the job has 45 minutes.
@@ -62,8 +80,8 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(job('verify')).toContain('timeout-minutes: 30');
     const browser = job('browser'), names = browser.match(/- run: npm run check:browser (.+)\n/)![1].split(' ');
     const seconds = names.reduce((sum, name) => sum + checks.find(check => check.name === name)!.limit * 2, 0);
-    // The checks in turn after the setup, whose browser install took 7 minutes in run 40262605705.
-    expect(seconds / 60 + 10).toBeLessThan(Number(browser.match(/^    timeout-minutes: (\d+)$/m)![1]));
+    // Allow the 10-minute install limit and four minutes for the other setup steps.
+    expect(seconds / 60 + 10 + 4).toBeLessThan(Number(browser.match(/^    timeout-minutes: (\d+)$/m)![1]));
   });
 
   it('runs the web journeys on Chromium in their own job beside the plugin checks', () => {
@@ -95,7 +113,9 @@ describe('.github/workflows/plugin-checks.yml', () => {
   it.each(webkitJobs)('starts the five-second WebKit sampler in %s after install and before the first check', name => {
     const webkit = job(name);
     const start = webkit.indexOf('      - name: Start WebKit sampler\n');
-    expect(start).toBeGreaterThan(webkit.indexOf('- run: npx playwright install --with-deps webkit'));
+    const install = webkit.indexOf('npx playwright install --with-deps webkit');
+    expect(install).toBeGreaterThan(0);
+    expect(start).toBeGreaterThan(install);
     expect(start).toBeLessThan(webkit.search(/- run: npm (test|run check:browser)/));
     const sampler = webkit.slice(start).split(/\n      - /)[0];
     expect(sampler).toContain('mkdir -p /tmp/kingdown-check-runs');
@@ -122,9 +142,9 @@ describe('.github/workflows/plugin-checks.yml', () => {
   it.each(webkitJobs)('keeps time under the job limit of %s for the WebKit diagnostics after a hung step', name => {
     const webkit = job(name), limit = Number(webkit.match(/^    timeout-minutes: (\d+)$/m)![1]);
     const steps = [...webkit.matchAll(/^        timeout-minutes: (\d+)$/gm)].map(m => Number(m[1]));
-    expect(steps).toHaveLength(name === 'browser-webkit-ui' ? 2 : 1);
-    // Every step limit in turn after the setup, which took 10 minutes with a slow package mirror (run 39908178007).
-    expect(steps.reduce((sum, minutes) => sum + minutes, 0) + 10).toBeLessThan(limit);
+    expect(steps).toHaveLength(name === 'browser-webkit-ui' ? 3 : 2);
+    // Count the install limit too; allow four minutes for the other setup steps.
+    expect(steps.reduce((sum, minutes) => sum + minutes, 0) + 4).toBeLessThan(limit);
   });
 
   it('writes the WebKit browser output to the plugin-ui log, so a crash names its reason', () => {
