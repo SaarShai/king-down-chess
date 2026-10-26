@@ -75,9 +75,14 @@ try {
     await page.waitForFunction(() => window.view.scene.animating);
     await page.locator('#menu-btn').click();
     assert.equal(await page.evaluate(() => window.menuPress?.animating), true, 'Menu receives a press during the active final blow');
-    assert.equal(await page.locator('#menu-sheet').evaluate(d => d.open), true, 'the real-clock press opens Menu');
-    assert.equal(await page.locator('#over').isVisible(), false, 'Menu does not skip to the result');
-    console.log('ok real-clock Menu press during the active final blow', await page.evaluate(() => window.menuPress));
+    assert.equal(await page.locator('#menu-sheet').evaluate(d => d.open), false, 'A8: the skip press keeps Menu closed');
+    assert.equal(await page.evaluate(() => window.view.scene.animating || window.view.scene.falling), false, 'A8: the Menu press ends board motion');
+    await page.locator('#over').waitFor({ state: 'visible' });
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'over-title', 'A9: the skip opens the result with heading focus');
+    console.log('ok real-clock A8/A9 Menu press during the active final blow', await page.evaluate(() => window.menuPress));
+    await page.locator('#over [value=close]').click();
+    await page.locator('#menu-btn').click();
+    assert.equal(await page.locator('#menu-sheet').evaluate(d => d.open), true, 'Menu opens after board motion ends');
     await page.locator('[data-go="new"]').click();
     await page.locator('#new-game-btn').click();
     await page.locator('#new-game').waitFor({ state: 'visible' });
@@ -97,7 +102,7 @@ try {
     assert.equal(await page.locator('#over').isVisible(), false, 'the old result does not open');
     assert.equal(await page.locator('.kd-words').count(), 0, 'the old Ceremony is cancelled');
   }
-  console.log('ok New game keeps its keys and focus during the Ceremony');
+  console.log('ok New game keeps its keys and focus after the skip');
 
   await page.clock.install();
 

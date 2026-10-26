@@ -134,7 +134,7 @@ export class PaintedView implements BoardView {
     const consume = (e: Event) => { e.preventDefault(); e.stopImmediatePropagation(); };
     document.addEventListener('pointerdown', e => {
       skippedPointer = null;
-      if (e.target !== this.canvas || e.button !== 0 || !this.canvas.getClientRects().length || !(this.scene.animating || this.scene.falling)) return;
+      if (e.button !== 0 || !this.canvas.getClientRects().length || !(this.scene.animating || this.scene.falling)) return;
       skippedPointer = e.pointerId;
       this.clearPointer(); this.onSkipAnimation?.(); this.skip(); consume(e);
     }, { capture: true, signal });

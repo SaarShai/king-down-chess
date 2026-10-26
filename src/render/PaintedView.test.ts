@@ -214,26 +214,6 @@ it.each([['move', 'mouse'], ['move', 'touch'], ['fall', 'mouse'], ['fall', 'touc
   expect(next.preventDefault).not.toHaveBeenCalled();
 });
 
-it.each([['move', 'mouse'], ['move', 'touch'], ['fall', 'mouse'], ['fall', 'touch']])('keeps controls outside the board active during a %s for %s input', async (kind, pointerType) => {
-  const container = stubDom(), { PaintedView } = await import('./PaintedView');
-  const view = new PaintedView(container as unknown as HTMLElement);
-  const scene = (view as unknown as { scene: PaintedScene }).scene;
-  Object.assign(scene, { animating: kind === 'move', falling: kind === 'fall' });
-  view.onSkipAnimation = vi.fn();
-  const skip = vi.spyOn(view, 'skip');
-  for (const target of [container, document.createElement('button'), document.createElement('span')]) {
-    for (const type of ['pointerdown', 'pointerup', 'click']) {
-      const event = { target, pointerType, button: 0, pointerId: 7, detail: 1, preventDefault: vi.fn(), stopImmediatePropagation: vi.fn() };
-      documentListeners.get(type)!(event as unknown as Event);
-      expect(event.preventDefault).not.toHaveBeenCalled();
-      expect(event.stopImmediatePropagation).not.toHaveBeenCalled();
-    }
-  }
-  expect(view.onSkipAnimation).not.toHaveBeenCalled();
-  expect(skip).not.toHaveBeenCalled();
-  view.dispose();
-});
-
 it.each([false, true])('A15: keeps check and threat marks above the selected tile (web %s)', async webInk => {
   const container = stubDom(), { PaintedView } = await import('./PaintedView');
   const view = new PaintedView(container as unknown as HTMLElement, { webInk });
