@@ -76,16 +76,18 @@ export function createWebTransport(api: OnlineClient, userId: string, storage: P
     }
   };
   const call: GameTransport = async (name, args, options) => {
-    const deadline = options.timeout === undefined ? undefined : new AbortController();
-    const signal = deadline ? options.signal ? AbortSignal.any([options.signal, deadline.signal]) : deadline.signal : options.signal;
-    signal?.throwIfAborted();
-    if (!signal) return send(name, args, options);
+    options.signal?.throwIfAborted();
+    if (options.timeout === undefined && !options.signal) return send(name, args, options);
+    // A deadline gets one controller that follows the caller's signal: Safari before 17.4 has no AbortSignal.any.
+    const control = options.timeout === undefined ? undefined : new AbortController();
+    const signal = control ? control.signal : options.signal!, follow = () => control!.abort(options.signal!.reason);
+    if (control) options.signal?.addEventListener('abort', follow, { once: true });
     let abort!: () => void;
     const stopped = new Promise<never>((_resolve, reject) => { abort = () => reject(signal.reason); signal.addEventListener('abort', abort, { once: true }); });
-    const timer = deadline && setTimeout(() => deadline.abort(new Error('Request timed out')), options.timeout);
+    const timer = control && setTimeout(() => control.abort(new Error('Request timed out')), options.timeout);
     // The deadline also ends token, cache-proof and retry waits; late replies keep the receipt.
     try { return await Promise.race([send(name, args, { ...options, signal }), stopped]); }
-    finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
+    finally { clearTimeout(timer); signal.removeEventListener('abort', abort); options.signal?.removeEventListener('abort', follow); }
   };
   return { call, pending };
 }

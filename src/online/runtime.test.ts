@@ -278,6 +278,8 @@ it('keeps caller cancellation with a deadline and refuses a pre-aborted command 
     return request.promise;
   });
   const transport = createWebTransport(onlineClient({ token: async () => 'jwt', fetch }), 'a', saved);
+  // Safari before 17.4 has no AbortSignal.any.
+  vi.spyOn(AbortSignal, 'any').mockImplementation(() => { throw new TypeError('AbortSignal.any is not a function'); });
   const pending = transport.call('kingdown_move', args, { timeout: 25, signal: controller.signal }), rejected = expect(pending).rejects.toBe(reason);
   try {
     await vi.advanceTimersByTimeAsync(10); controller.abort(reason); await rejected;
@@ -286,7 +288,7 @@ it('keeps caller cancellation with a deadline and refuses a pre-aborted command 
     saved.records.clear();
     await expect(transport.call('kingdown_move', args, { timeout: 25, signal: controller.signal })).rejects.toBe(reason);
     expect(saved.records.size).toBe(0); expect(fetch).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
-  } finally { request.resolve(new Response('{}')); await Promise.allSettled([pending, rejected]); vi.useRealTimers(); }
+  } finally { request.resolve(new Response('{}')); await Promise.allSettled([pending, rejected]); vi.useRealTimers(); vi.restoreAllMocks(); }
 });
 
 it.each(['token', 'retry'] as const)('ends the %s wait at the deadline and sends no later command', async phase => {
