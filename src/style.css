@@ -660,11 +660,12 @@ label.army select { width: 100%; font-weight: 400; }
   .title-actions { flex-direction: column; align-items: stretch; width: min(100%, 340px); }
   .title-actions button { min-width: 0; }
 }
-/* Phones in landscape (up to 899 px wide): two rows of figures and three stacked buttons are taller than the
-   screen. One row of twelve, a smaller wordmark and the buttons side by side fit; if a screen is still too short,
-   the title scrolls instead of cutting off the top row and Play. */
+/* Short landscape titles scroll without changes to their layout. */
 @media (max-width: 899px) and (orientation: landscape) {
   #title-screen { overflow-y: auto; }
+}
+/* Phones in landscape: one row of figures, a smaller title and buttons side by side. */
+@media (max-width: 720px) and (orientation: landscape) {
   .title-lineup { --fig: min(64px, 15vh); flex-wrap: nowrap; width: 100%; padding: 0 var(--space-2); }
   .title-lineup li { flex: 1 1 0; }
   .title-lineup span { font-size: 8.5px; letter-spacing: 0; }

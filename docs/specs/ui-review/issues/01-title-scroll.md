@@ -1,24 +1,29 @@
 # Title scroll
 
-Status: resolved
+Status: claimed
 
 ## Finding
 
 Review 1, F5: At 852×393, the title hides the account note. The dialog does not scroll.
 
+The independent review returns P2. The rule at 899 px also reduces the title text and piece images. It shows a cut hero board at 852×393 and changes 150,203 pixels. The title check does not catch these changes.
+
 ## Plan and checks
 
-1. Add a browser check. Save the title at 375×812, 320×568, 852×393, 768×1024, 1280×800, and 320×200.
-2. Show that the check fails. Let short landscape titles scroll. Extend the landscape rule to 899 px.
-3. Run the focused tests, docs checks, and title and Home browser checks. Compare the images. Commit this fix.
+1. Add a geometry check for the hero, title text and piece images at 375×812, 320×568, 852×393, 768×1024 and 1280×800. Show that it fails on the current code.
+2. Keep the layout rule at 720 px. Add a separate scroll rule through 899 px. Compare title images with `de2a724b` at all five sizes.
+3. Fetch and merge `origin/staging/first-game`. Run the three named test files, docs checks and all seven named browser checks. Commit the fix and record the results.
 
-The account note must be in view or reachable by scroll. Other normal sizes must stay the same.
+The account note must be in view or reachable by scroll. All five normal title layouts must match the base outside scroll behavior. Keep this check with the scroll check.
 
 ## Fix and proof
 
-- Extend the existing landscape rule from 720 px to 899 px. It keeps scroll and the compact title in one rule.
-- Red: `npm run check:browser layout-title` fails at 852×393. Content is 447 px high; overflow is hidden.
-- Green: `KINGDOWN_TEST_FILE='src/first-deal.test.ts' npm test`, `npm run test:docs`, and `npm run check:browser layout-title home` pass.
-- The full account note fits at 852×393. Wheel and touch scroll show it at 320×200.
-- The other four normal title images have zero changed pixels. The initial 320×200 image also stays the same.
-- The output report holds the images, logs, and pixel counts. The fix changes no UI text or selector.
+- Keep the layout rule at 720 px. The separate rule through 899 px only sets `overflow-y: auto`.
+- The new check uses base measurements for the hero board, title text and all 12 piece images at the five normal sizes.
+- Red: `npm run check:browser layout-title` exits 1 on `69677e2d` with the new check. At 852×393, the hero, text and pieces fail. The other four sizes pass.
+- Two captures of `de2a724b` match exactly at all five sizes.
+- Green: `npm run check:browser layout-title` passes at all six sizes. It uses localhost port 4327. External browser requests are blocked.
+- All five normal layouts match the base geometry. Four images match exactly. At 852×393, 29,122 pixels differ by at most 3/255. The fixed images match the base with only scroll enabled at all five sizes, with zero changed pixels.
+- At 852×393, a 54 px scroll shows the full account note. Its bottom is at 357.08 px. Wheel and touch checks pass.
+- The staging merge and final checks remain open.
+- The output folder holds the images, logs and pixel counts. The fix changes no UI text or selector.
