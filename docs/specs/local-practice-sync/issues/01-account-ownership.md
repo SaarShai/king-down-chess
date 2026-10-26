@@ -3,6 +3,42 @@
 Type: task
 Status: resolved
 
+## Third review plan and checks
+
+1. Capture the raw game and lesson bytes once for each cloud confirmation check. Use those bytes for the check and its record. Test a second tab that adds `e7-e5` during the check, a failed upload and return through A, B, C, D, E, A.
+2. Clear each write failure and its notice after a successful retry. Test a game storage error and a failed lesson record. Keep a failure for the other data until its write succeeds.
+
+Run the selected tests before and after each fix. Use fake timers. Run the doc checks after both fixes. Make one commit per finding. Use the unchanged hooks. Do not push, merge, rebase or deploy.
+
+## Third review: finding 1
+
+The confirmation check and its record now use the same captured game and lesson bytes. The parser uses those bytes. It does not read a later value for the record. A second tab can save a new move during the check. The old confirmation cannot make that new move safe to remove.
+
+- Red and green command: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,account/account,account/client,lesson-shelf,lesson-store}.test.ts' npm test`.
+- Red: one test fails; 127 pass. After a failed upload and A, B, C, D, E, A, the game loses `e7-e5`.
+- Green: all 128 tests in seven files pass. Both type checks and all 57 art checks pass. The new move survives the failed upload and account return.
+- The test uses fake timers and two storage objects with shared keys. It checks that the upload contains the new move while the cloud keeps only `e2-e4`.
+- Logs: `web-sync-fix3-1-red.log` and `web-sync-fix3-1-green.log` in the session output folder. `git diff --check` passes.
+- Change review: the existing section parser accepts raw bytes. The confirmation format, account limit and upload path stay the same. No new key or dependency is needed.
+
+## Third review: finding 2
+
+The failure state now names the game or lesson write. A successful retry clears that failure and its notice. A game retry also refreshes the page at once. A successful write keeps the notice when the failure names the other data.
+
+- Red and green command: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,account/account,account/client,lesson-shelf,lesson-store}.test.ts' npm test`.
+- Red: both retry tests fail; 130 tests pass. The game stores its move and the lesson records Guard, but each old failure notice stays on the page.
+- Green: all 132 tests in seven files pass. Both type checks and all 57 art checks pass. The game and lesson retries clear their notices. Two controls keep a notice after a successful write to the other data.
+- The page tests use fake timers and the real lesson goal. They check the write result, stored data, account change signal and page state after refresh.
+- Logs: `web-sync-fix3-2-red.log` and `web-sync-fix3-2-green.log` in the session output folder. `git diff --check` passes.
+- Change review: one existing failure flag now names its write. Each success path clears only its own failure. The account block and unreadable-save checks stay in effect.
+- Finding 1 is in commit `e86957a5`.
+
+## Third review: final checks
+
+`npm run test:docs` passes all 178 tests in 15 files. `npm run check:browser new-game` passes its one check. The browser report is in `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/web-sync-hIWi7b/`. The session output folder holds `web-sync-fix3-docs.log` and `web-sync-fix3-browser.log`.
+
+The selected test command omits `src/account/local.test.ts` because that file does not exist. All timed tests use fake timers. No full suite, live account request or database check runs. Both commits use the unchanged hooks. No push, merge, rebase or deploy runs.
+
 ## Second review plan and checks
 
 1. Keep all copies with unconfirmed changes. Treat unknown status as unconfirmed. Apply the three-account limit only to copies that the cloud confirms. Test sign-out, failed sync, return to A and old copies without a list entry.

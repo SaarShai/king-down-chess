@@ -53,9 +53,13 @@ function usable(s: Section, v: unknown): v is Record<string, unknown> {
 
 /** This device's copy of each section, or null when it has none. */
 export function readLocal(store: Store): Record<Section, unknown> {
-  const save = parse(store.getItem(SAVE));
+  return readSections(store.getItem(SAVE), store.getItem(LESSONS));
+}
+
+function readSections(rawSave: string | null, rawLessons: string | null): Record<Section, unknown> {
+  const save = parse(rawSave);
   const ok = save && typeof save === 'object' && Array.isArray(save.moves);
-  return { settings: ok ? pick(save, SETTINGS) : null, lessons: parse(store.getItem(LESSONS)), saved_game: ok ? pick(save, GAME) : null };
+  return { settings: ok ? pick(save, SETTINGS) : null, lessons: parse(rawLessons), saved_game: ok ? pick(save, GAME) : null };
 }
 
 function writeLocal(store: Store, s: Section, v: unknown): void {
@@ -213,13 +217,13 @@ export class Sync {
     }
     if (applied.length) { this.store.setItem(STAMPS, JSON.stringify(stamps)); this.onApply(applied); }
     if (!this.ownsLocal()) return;
-    const local = readLocal(this.store);
+    const rawSave = this.store.getItem(SAVE), rawLessons = this.store.getItem(LESSONS);
+    const local = readSections(rawSave, rawLessons);
     // A successful request alone is not a receipt. Each stored section must match the cloud.
-    if (this.store.getItem(SAVE) !== null && local.saved_game === null
-      || this.store.getItem(LESSONS) !== null && local.lessons === null) return;
+    if (rawSave !== null && local.saved_game === null || rawLessons !== null && local.lessons === null) return;
     if (SECTIONS.every(s => local[s] === null || usable(s, row?.[s]?.v) && canon(local[s]) === canon(own(s, row![s]!.v)))) {
       const current = stamp(this.store);
-      current.confirmed = JSON.stringify([this.store.getItem(SAVE), this.store.getItem(LESSONS)]);
+      current.confirmed = JSON.stringify([rawSave, rawLessons]);
       this.store.setItem(STAMPS, JSON.stringify(current));
     }
   }
