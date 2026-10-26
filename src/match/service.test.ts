@@ -163,4 +163,13 @@ describe('game service failure boundaries', () => {
    expect(save.mock.calls[1][2]).toMatchObject({result:'draw',end_reason:'history'});
   }
  });
+ it('draws an older save when the computer fills the engine history in the middle of its turn (server audit F5)', async () => {
+  // Saved before the reserve: 999 engine actions. The Haste first move takes the last one, so the turn cannot finish.
+  const save = vi.fn(), chooseMove = vi.fn().mockResolvedValue('Ra4-a3!H'), writer = new GameService({load,seen,receipt,transaction:(write: (client: object) => unknown) => write({}),save,commands:vi.fn().mockResolvedValue([]),pool:{}} as unknown as PostgresMatchStore);
+  vi.mocked(loadMatch).mockResolvedValue({apply,close,exportSave,chooseMove} as unknown as LocalMatch);
+  load.mockResolvedValue({id,kind:'solo',status:'playing',turn:1,revision:998,deadline_at:null,draw_offer:null,state:'saved',setup:{},created_at:new Date(),snapshot:{turn:1,status:'playing',revision:999},players:[seat(0,actor),seat(1,null)]});
+  apply.mockResolvedValueOnce({turn:1,status:'playing',history:[],rules:{kings:[null,null],hands:[[],[]]},revision:1000});
+  await writer.command(actor,id,{command_id:'last',expected_revision:998,action:{type:'computer'}});
+  expect(save.mock.calls[0][2]).toMatchObject({status:'finished',result:'draw',end_reason:'history'});
+ });
 });
