@@ -24,6 +24,14 @@ export const SAVE_KEY = 'kingdown.save';
 
 export interface SaveRead { save: Save | null; unreadable: boolean }
 
+/** Compare only game fields; settings and JSON key order can change without changing the game. */
+export function gameJSON(s: Save | null): string {
+  const game: Partial<Save> | null = s ? { ...s } : null;
+  if (game) for (const k of SETTINGS) delete game[k];
+  return JSON.stringify(game, (_k, v) => v && typeof v === 'object' && !Array.isArray(v)
+    ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a < b ? -1 : 1)) : v);
+}
+
 /** Missing data is different from data that this page must preserve until the player replaces it. */
 export function readSave(): SaveRead {
   let raw: string | null;

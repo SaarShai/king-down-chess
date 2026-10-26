@@ -37,7 +37,7 @@ import type { initHome } from '../ui/home-view';
 import { connectPreviously } from '../ui/previously';
 import { pieceArt } from '../ui/guide';
 import { connectLinks } from './links';
-import { readSave, savedGame, writeSave, type Save } from './save';
+import { gameJSON, readSave, savedGame, writeSave, type Save } from './save';
 import type { connectSettings } from './settings';
 import { connectMoments, soundsFor } from './moments';
 
@@ -124,7 +124,8 @@ export function connectPlay(view: BoardView, c: {
   /** Why the last tap did nothing ("Not allowed: the rook cannot reach b2."); shown in the help line until the next action. */
   let notice = '';
   let saveBlocked = false;
-  const recoveryNotice = 'Your saved game could not be loaded. It is kept. Start a New game to replace it.';
+  const unreadableNotice = 'Your saved game could not be loaded. It is kept. Start a New game to replace it.';
+  let recoveryNotice = unreadableNotice;
   /** The board is seen from Black's side (orient()). */
   let flipped = false;
 
@@ -763,14 +764,20 @@ export function connectPlay(view: BoardView, c: {
   /* ---- autosave ---- */
   /** A newer saved game came from the account during a lesson: Return to game opens it. */
   let cloudGame = false;
+  let savedJSON = gameJSON(readSave().save);
 
-  function save(replaceUnreadable = false): void {
-    if (saveBlocked || !replaceUnreadable && savedDataBlocked()) return;
-    // A lesson never replaces the saved game: it changes only the settings in the save.
-    const stored = lesson == null ? null : readSave();
-    if (stored?.unreadable) { keepUnreadableSave(); refresh(); return; }
-    const kept = stored?.save;
-    if (lesson != null && !kept) return;
+  function save(replaceUnreadable = false, settingsOnly = lesson != null): void {
+    if (saveBlocked) return;
+    const stored = readSave();
+    if (!replaceUnreadable && stored.unreadable) { keepUnreadableSave(); refresh(); return; }
+    // Settings and lessons keep the stored game, even when this tab's game is older.
+    const kept = settingsOnly ? stored.save : null;
+    if (settingsOnly && !kept) return;
+    if (!settingsOnly && !replaceUnreadable && gameJSON(stored.save) !== savedJSON) {
+      keepUnreadableSave('Your saved game changed in another tab. Reload to load it, or start a New game.');
+      $('announce').textContent = recoveryNotice;
+      refresh(); return;
+    }
     writeSave(kept ? { ...kept, ...settings.settingsNow() } : {
       back: game.backRank,
       fen: toFen(game.history[0]?.pos ?? game.pos), // the position the game started from
@@ -786,12 +793,14 @@ export function connectPlay(view: BoardView, c: {
       // (`?rules=2017`, `?kings=…`; docs/TAKEOVER-PLAN.md §2).
       rules: { ...game.rules },
     });
+    if (!settingsOnly) savedJSON = gameJSON(readSave().save);
     c.account()?.changed();
   }
 
-  function keepUnreadableSave(): void {
+  function keepUnreadableSave(line = unreadableNotice): void {
     reset();
     saveBlocked = true;
+    recoveryNotice = line;
     notice = recoveryNotice;
   }
 
@@ -835,6 +844,8 @@ export function connectPlay(view: BoardView, c: {
     const replayed = replay(s);
     if (!replayed) { refresh(); return; }
     reset();
+    saveBlocked = false;
+    savedJSON = gameJSON(readSave().save);
     game = replayed.game;
     $<HTMLDialogElement>('over').close();
     cloudGame = false;
@@ -869,6 +880,7 @@ export function connectPlay(view: BoardView, c: {
    * It runs before any async work starts, so it is the one game switch that does not call `reset()`.
    */
   function restore(saved: Save | null, r: { link: boolean; continues: boolean; urlRules: boolean; title: boolean; unreadable: boolean; notice: string }): void {
+    savedJSON = gameJSON(readSave().save);
     let staged = 0;
     if (r.unreadable) keepUnreadableSave();
     else if (r.link) {
@@ -914,7 +926,7 @@ export function connectPlay(view: BoardView, c: {
   return {
     game: () => game, sides: (): readonly [Side, Side] => sides, skill: () => skill, setSkill: (level: SkillName): void => { skill = level; },
     shownPos, selected: () => selected, pending: () => pending, inspected: () => inspected, candidates, flipped: () => flipped,
-    refresh, drawMarks, save, reset, maybeAi, ended, resigner, showPly, newGame, startLesson, openSaved, fromAccount, seat, restore,
+    refresh, drawMarks, save, saveSettings: () => save(false, true), reset, maybeAi, ended, resigner, showPly, newGame, startLesson, openSaved, fromAccount, seat, restore,
     savedGames: {
       blocked: savedDataBlocked,
       accepts: (value: unknown): boolean => {

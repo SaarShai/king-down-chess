@@ -37,7 +37,7 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); });
 
 function page(rules: Partial<Rules> = {}) {
-  const view = { setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), highlight: vi.fn(), setPreview: vi.fn() } as unknown as BoardView;
+  const view = { setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), highlight: vi.fn(), setPreview: vi.fn(), skip: vi.fn() } as unknown as BoardView;
   const engine = { cancel: vi.fn(), think: vi.fn().mockResolvedValue({ move: null }) }, changed = vi.fn();
   const settings = { pace: () => 'off', threats: () => false, queen: () => true, settingsNow: () => ({ coords: true }), applySettings: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['settings'];
   const play = connectPlay(view, { params: new URLSearchParams(), preset: undefined, rules, withPowers: () => ({}), fen: null,
@@ -136,6 +136,82 @@ describe('local save recovery on the game page', () => {
     play.save();
     expect(stored.get(SAVE_KEY)).toBe('{another tab raw data');
     expect(play.savedGames.blocked()).toBe(true);
+  });
+});
+
+describe('local saves from two tabs', () => {
+  const shownNotice = () => vi.mocked(refreshTable).mock.lastCall![0].notice;
+  const load = (save: Save) => {
+    stored.set(SAVE_KEY, JSON.stringify(save));
+    const tab = page();
+    tab.play.restore(save, request);
+    return tab;
+  };
+
+  it.each([
+    { ...original, moves: [...original.moves, 'Ng1-f3'] },
+    { ...original, resigned: 0 as const },
+    { ...original, staged: 1 },
+  ])('keeps another tab\'s changed game and blocks the stale writer', newer => {
+    const { play, changed } = load(original);
+    const raw = JSON.stringify(newer);
+    stored.set(SAVE_KEY, raw);
+    play.game().playLan(['d2-d4']);
+    play.save();
+    expect(stored.get(SAVE_KEY)).toBe(raw);
+    expect(changed).not.toHaveBeenCalled();
+    expect(play.savedGames.blocked()).toBe(true);
+    expect(shownNotice()).toContain('another tab');
+    play.commands.escape();
+    expect(shownNotice()).toContain('another tab');
+    expect(document.getElementById('announce')!.textContent).toContain('another tab');
+    play.newGame('RNBQKBNR');
+    expect(play.savedGames.blocked()).toBe(false);
+    expect(JSON.parse(stored.get(SAVE_KEY)!).moves).toEqual([]);
+  });
+
+  it('keeps a game another tab saves after this tab starts with no save', () => {
+    const { play } = page();
+    play.restore(null, request);
+    const raw = JSON.stringify(original);
+    stored.set(SAVE_KEY, raw);
+    play.save();
+    expect(stored.get(SAVE_KEY)).toBe(raw);
+    expect(play.savedGames.blocked()).toBe(true);
+  });
+
+  it('changes only settings in another tab\'s newer save, then still detects the game conflict', () => {
+    const { play } = load({ ...original, moves: ['e2-e4'] });
+    const newer = { ...original, coords: false, staged: 1, daily: '2026-10-26', link: 1 as const, labels: true as const };
+    stored.set(SAVE_KEY, JSON.stringify(newer));
+    play.saveSettings();
+    expect(JSON.parse(stored.get(SAVE_KEY)!)).toEqual({ ...newer, coords: true });
+    expect(play.savedGames.blocked()).toBe(false);
+    play.save();
+    expect(JSON.parse(stored.get(SAVE_KEY)!)).toEqual({ ...newer, coords: true });
+    expect(play.savedGames.blocked()).toBe(true);
+  });
+
+  it('accepts an account game as the next write baseline', () => {
+    const { play } = load(original);
+    const newer = { ...original, moves: [...original.moves, 'Ng1-f3'] };
+    stored.set(SAVE_KEY, JSON.stringify(newer));
+    play.save();
+    expect(play.savedGames.blocked()).toBe(true);
+    play.openSaved(newer);
+    play.game().playLan(['Nb8-c6']); play.save();
+    expect(JSON.parse(stored.get(SAVE_KEY)!).moves).toEqual([...newer.moves, 'Nb8-c6']);
+    expect(play.savedGames.blocked()).toBe(false);
+  });
+
+  it('tracks its own writes and accepts settings changes without a game conflict', () => {
+    const { play } = load(original);
+    play.game().playLan(['Ng1-f3']); play.save();
+    const saved = JSON.parse(stored.get(SAVE_KEY)!);
+    stored.set(SAVE_KEY, JSON.stringify({ sound: false, ...saved, coords: false }));
+    play.game().playLan(['Nb8-c6']); play.save();
+    expect(JSON.parse(stored.get(SAVE_KEY)!).moves).toEqual([...original.moves, 'Ng1-f3', 'Nb8-c6']);
+    expect(play.savedGames.blocked()).toBe(false);
   });
 });
 
