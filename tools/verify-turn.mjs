@@ -79,6 +79,7 @@ try {
 
     await open(undefined, '', [], true);
     assert.equal(await page.locator('#hint,#end-haste').count(), 0);
+    assert.equal(await page.getAttribute('#undo', 'title'), 'Undo a move in this turn (Z)', 'the title states the turn limit');
     assert.equal(await page.getAttribute('#end-turn', 'aria-disabled'), 'true');
     await move('e2', 'e4'); await page.waitForTimeout(300);
     assert.deepEqual(await lanMoves(page), ['e2-e4'], 'the computer waits');
@@ -87,6 +88,7 @@ try {
     await move('e2', 'e4'); await endTurn(page);
     await waitForUi(page, ui => ui.lan.length === 2 && !ui.thinking);
     assert.equal(await undoOff(), 'true');
+    assert.equal(await page.getAttribute('#undo', 'title'), 'Undo a move in this turn (Z)', 'the title keeps the limit after End turn');
     console.log('ok computer waits; Undo stops at the press');
 
     await open(); await move('e2', 'e4'); await move('e7', 'e5');

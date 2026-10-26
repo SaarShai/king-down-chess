@@ -1,6 +1,6 @@
 // W6: the handed-over end, board Ceremony and result review tiles.
 import assert from 'node:assert/strict';
-import { readyBoard, rulesAt,ceremonyTile, ceremonyWords, endTurn, usePower, lanMoves, openEndReview, openMoves, pressMenu, startNewGame, waitForUi } from './app-ui.mjs';
+import { readyBoard, rulesAt,ceremonyTile, ceremonyWords, confirmResign, endTurn, usePower, lanMoves, openEndReview, openMoves, pressMenu, startNewGame, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL'), browser = await launch();
 const faults = [];
@@ -214,6 +214,19 @@ try {
   await stageMate('off'); await endTurn(page); await page.locator('#over').waitFor({state:'visible'});
   assert.equal(await page.evaluate(() => window.uiMotionEvents.length), 0, 'Motion Off leaves the UI still');
   console.log('ok UI motion: live once, Fast, 430/390, resize, reload, reduced and Off');
+  for (const [side, moves, last] of [
+    ['White', ['e2-e4', 'e7-e5'], 'Black pawn e7 to e5.'],
+    ['Black', ['e2-e4'], 'White pawn e2 to e4.'],
+  ]) {
+    await open('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', moves);
+    await confirmResign(page);
+    await page.locator('#over').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#over-detail').textContent(), `${last} ${side} resigns. 1 move.`, 'the last move and the side that resigns have separate sentences');
+    assert.match(await page.locator('#announce').textContent(), new RegExp(`${side} resigns`), 'the announcement names the side');
+    await openEndReview(page);
+    assert.match(await page.locator('#context-text').textContent(), new RegExp(`${side} resigns`), 'Review keeps the result');
+  }
+  console.log('ok resignation detail, Review and announcement for both sides');
   assertNoErrors();
   if (faults.length) throw new AggregateError(faults, 'End frame checks fail');
   console.log('ok end frames and one result announcement');
