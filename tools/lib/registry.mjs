@@ -10,6 +10,7 @@
 // fails, selftest-hang never ends, selftest-hold sleeps 15 s so that two runs can be seen together.
 export const checks = [
   { name: 'layout-title', script: 'tools/verify-layout.mjs', args: ['title'], limit: 120, channel: 'chromium', byName: true },
+  { name: 'layout-zoom', script: 'tools/verify-layout.mjs', args: ['zoom'], limit: 120, channel: 'chromium', byName: true },
   { name: 'effects-animation', script: 'docs/specs/effects-animation/verify.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'effects-concepts', script: 'docs/specs/effects-animation/verify-concepts.mjs', limit: 120, channel: 'chromium', byName: true },
   { name: 'effects-comparisons', script: 'docs/specs/effects-animation/verify-comparisons.mjs', limit: 120, channel: 'chromium', byName: true },
