@@ -80,3 +80,15 @@ export async function settled(page, frame) {
     if (Date.now() > end) await fail(!answered || !again ? 'fence answers' : !ran ? 'frame timers' : !idle ? 'host idle' : !still ? 'frame after the timers' : 'call count', async () => ({ answered, ran, again, still, before, after }));
   }
 }
+
+/**
+ * Taps the board Menu when the widget frame is settled. A tap during a replay only ends the replay (owner pick A8,
+ * src/render/PaintedView.ts). After a computer action that keeps the turn, the next computer command starts when the
+ * replay ends: its write turns Menu off, and its reply turns Menu on and starts the next replay. An open board sheet
+ * blocks Menu (scrim and inert page), so the helper closes it after the wait; a Close tap during a replay does nothing.
+ */
+export async function openBoardMenu(page, frame) {
+  await settled(page, frame);
+  if (await frame.locator('#board-sheet[open]').count()) await frame.locator('#board-sheet [aria-label="Close"]').click();
+  await frame.locator('#board-menu').click();
+}
