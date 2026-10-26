@@ -1,8 +1,8 @@
 # Add named invitation state and service paths
 
-Status: needs-info
+Status: ready-for-agent
 Type: task
-Blocked by: Owner approval; migration approval is a separate step
+Blocked by: none; migration run is approved with the spec
 Spec: [Online friend invitations](../README.md)
 
 ## Scope

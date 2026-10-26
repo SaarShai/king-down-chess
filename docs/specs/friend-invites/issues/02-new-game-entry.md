@@ -1,8 +1,8 @@
 # Route A friend to online setup
 
-Status: needs-info
+Status: ready-for-agent
 Type: task
-Blocked by: 01; owner approval of New game sample
+Blocked by: 01
 Spec: [Online friend invitations](../README.md)
 
 ## Scope

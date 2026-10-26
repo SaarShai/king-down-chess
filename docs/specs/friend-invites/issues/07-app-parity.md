@@ -1,8 +1,8 @@
 # Use the same invitations in the ChatGPT app
 
-Status: needs-info
+Status: ready-for-agent
 Type: task
-Blocked by: 03, 04, 05, 06; owner approval of shared samples
+Blocked by: 03, 04, 05, 06
 Spec: [Online friend invitations](../README.md)
 
 ## Scope

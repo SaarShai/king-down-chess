@@ -1,8 +1,8 @@
 # Check the full friend flow
 
-Status: needs-info
+Status: ready-for-agent
 Type: task
-Blocked by: 01 through 07; owner approval
+Blocked by: 01 through 07
 Spec: [Online friend invitations](../README.md)
 
 ## Scope

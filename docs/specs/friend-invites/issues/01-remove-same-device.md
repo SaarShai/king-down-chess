@@ -1,8 +1,8 @@
 # Remove the same-device entry
 
-Status: needs-info
+Status: ready-for-agent
 Type: task
-Blocked by: P1; owner approval
+Blocked by: P1
 Spec: [Online friend invitations](../README.md)
 
 ## Scope

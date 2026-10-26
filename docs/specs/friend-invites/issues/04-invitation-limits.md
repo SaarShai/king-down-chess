@@ -1,8 +1,8 @@
 # Enforce the two limits in transactions
 
-Status: needs-info
+Status: ready-for-agent
 Type: task
-Blocked by: 03; owner approval
+Blocked by: 03
 Spec: [Online friend invitations](../README.md)
 
 ## Scope

@@ -1,8 +1,8 @@
 # Show incoming and outgoing invitations
 
-Status: needs-info
+Status: ready-for-agent
 Type: task
-Blocked by: 03, 04; owner approval of row and notice samples
+Blocked by: 03, 04
 Spec: [Online friend invitations](../README.md)
 
 ## Scope

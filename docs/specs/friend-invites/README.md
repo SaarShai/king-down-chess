@@ -1,6 +1,6 @@
 # Online friend invitations
 
-Status: needs-info. The owner must approve this spec and the rendered samples before the build.
+Status: ready-for-agent. The owner approves this spec, the rendered samples and all picks on 2026-10-26.
 Source: `de2a724b`, branch `staging/friend-invites`.
 
 ## Goal
@@ -195,7 +195,9 @@ The [capture guide](samples/README.md) lists screens and checks.
 
 ## Owner choices
 
-Approve the spec and the rendered samples before the product build.
+The owner approves the spec, the rendered samples and every pick below on 2026-10-26: "Fix plan: yes to all picks."
+The fix plan page states that this yes also covers the `0022_friend_invites.sql` run on staging and production.
+Run it on staging first, then production, each before the deploy that needs it.
 
 1. Open links or named invites only? **Pick: open links**, with two open links per sender.
 2. Does decline free a pending slot? **Pick: yes**, as P6 states. A new invitation can then be sent.

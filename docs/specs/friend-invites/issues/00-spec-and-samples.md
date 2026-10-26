@@ -1,6 +1,6 @@
 # Spec and samples
 
-Status: needs-info
+Status: resolved
 Type: task
 
 ## Scope
@@ -39,5 +39,5 @@ The source base is `de2a724b`. Work starts on `staging/friend-invites` with a cl
 The spec and eight build tickets are complete for owner review. All 13 sample screens render.
 The capture produces 30 PNGs and passes its layout, asset and local-request checks.
 A visual pass checks the phone, desktop and both small-picker views.
-The design detector reports no findings. The owner has not approved the product build.
+The design detector reports no findings. The owner approves the spec, the samples and all picks on 2026-10-26.
 The output note records the commit result and the docs check after the commit.

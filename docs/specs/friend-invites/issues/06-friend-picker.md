@@ -1,8 +1,8 @@
 # Choose a friend and share a link
 
-Status: needs-info
+Status: ready-for-agent
 Type: task
-Blocked by: 03, 04; owner approval of picker and share samples
+Blocked by: 03, 04
 Spec: [Online friend invitations](../README.md)
 
 ## Scope
