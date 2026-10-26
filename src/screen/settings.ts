@@ -48,8 +48,8 @@ export function connectSettings(view: BoardView, c: {
   coords.onchange = () => { view.setCoords(coords.checked); c.save(); };
 
   /** The save's settings fields (account/sync.ts SETTINGS). */
-  const settingsNow = () => settingsOf({
-    skill: c.skill(),
+  const settingsNow = (skill = c.skill()) => settingsOf({
+    skill,
     coords: coords.checked,
     sound: $<HTMLInputElement>('sound').checked,
     queen: $<HTMLInputElement>('queen').checked,
@@ -57,6 +57,7 @@ export function connectSettings(view: BoardView, c: {
     threats: $<HTMLInputElement>('threats').checked,
     labels: labels.checked,
   });
+  const defaults = settingsNow('club'); // play does not exist until after these controls connect.
 
   /** A save's settings onto the controls (at start-up, or newer ones from the account). */
   function applySettings(s: Partial<Save>): void {
@@ -71,7 +72,7 @@ export function connectSettings(view: BoardView, c: {
   }
 
   return {
-    applySettings, applyPace, settingsNow,
+    applySettings, applyPace, settingsNow, resetSettings: () => applySettings(defaults),
     pace: (): Pace => pace.value as Pace,
     sound: (): boolean => $<HTMLInputElement>('sound').checked,
     queen: (): boolean => $<HTMLInputElement>('queen').checked,
