@@ -301,7 +301,7 @@ suite('PostgreSQL online games (real connections and processes)', () => {
  }, 30_000);
 
  it('keeps the last revision for a turn or the end of a game: a full history ends as a draw (server audit F5)',async () => {
-  // The schema stops at revision 1000; these games start just before it. New players: a short code counts 10 joins in one hour.
+  // The service keeps revisions to 1000 (a computer turn may go past it); these games start just before it. New players: a short code counts 10 joins in one hour.
   const [w,k] = [await user('wil'),await user('kit')];
   const near = async (revision = 999, late = false) => { const id = await friend(w,k); await admin.query(`update public.games set revision=$2${late ? ",deadline_at=now()-interval '1 minute'" : ''} where id=$1`,[id,revision]); return id; };
   const legal = async (actor: string, id: string) => (await games[0].view(actor,id)).legal[0];
@@ -321,6 +321,14 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   expect(await games[1].command(k,claimed,command(999,{type:'claim',reason:'timeout'}))).toMatchObject({status:'aborted',revision:1000});
   await games[0].sweep();
   expect((await rows('select status,revision from public.games where id=$1',[swept]))[0]).toEqual({status:'aborted',revision:1000});
+  // The computer finishes its turn first: a Haste move at 999 leaves the turn with it, and its next action draws at 1001.
+  const computer = (await games[0].create(w,{kind:'solo',colour:'black',setup:HASTE})).game_id, choose = vi.spyOn(LocalMatch.prototype,'chooseMove');
+  try {
+   await admin.query('update public.games set revision=999 where id=$1',[computer]);
+   choose.mockResolvedValueOnce('Ra1-a2!H');
+   expect(await games[0].command(w,computer,command(999,{type:'computer'}))).toMatchObject({status:'playing',revision:1000,turn:0});
+   expect(await games[0].command(w,computer,command(1000,{type:'computer'}))).toMatchObject({status:'finished',revision:1001,result:{winner:null,reason:'history'}});
+  } finally { choose.mockRestore(); }
  },30000);
 
  it('runs resign, abort, draw offers and presets through the command log',async () => {

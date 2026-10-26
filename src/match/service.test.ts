@@ -148,4 +148,19 @@ describe('game service failure boundaries', () => {
   expect(save.mock.calls.map(call => call[2].status)).toEqual(['playing','finished']);
   expect(save.mock.calls[1][2]).toMatchObject({result:'draw',end_reason:'history',deadline_at:null});
  });
+ it.each([['Haste', ['Ra4-a3!H', 'Ra3-h3']], ['a free mark', ['!F:d5', 'Ra4-a3']]])('finishes a computer turn with %s before the history draw (server audit F5)', async (_name, lans) => {
+  // Each call plays one action: the first leaves the turn with the computer, at the service limit (999) and at the engine limit (996).
+  for (const [revision, engine] of [[999, 10], [10, 996]]) {
+   const save = vi.fn(), chooseMove = vi.fn(), writer = new GameService({load,seen,receipt,transaction:(write: (client: object) => unknown) => write({}),save,commands:vi.fn().mockResolvedValue([]),pool:{}} as unknown as PostgresMatchStore);
+   vi.mocked(loadMatch).mockResolvedValue({apply,close,exportSave,chooseMove} as unknown as LocalMatch);
+   for (const [index, lan] of lans.entries()) {
+    load.mockResolvedValue({id,kind:'solo',status:'playing',turn:1,revision:revision + index,deadline_at:null,draw_offer:null,state:'saved',setup:{},created_at:new Date(),snapshot:{turn:1,status:'playing',revision:engine + index},players:[seat(0,actor),seat(1,null)]});
+    chooseMove.mockResolvedValueOnce(lan);
+    apply.mockResolvedValueOnce({turn:1 - index,status:'playing',history:[],rules:{kings:[null,null],hands:[[],[]]},revision:engine + index + 1});
+    await writer.command(actor,id,{command_id:`${revision}-${index}`,expected_revision:revision + index,action:{type:'computer'}});
+   }
+   expect(save.mock.calls.map(call => [call[2].status, call[2].turn])).toEqual([['playing',1],['finished',0]]);
+   expect(save.mock.calls[1][2]).toMatchObject({result:'draw',end_reason:'history'});
+  }
+ });
 });

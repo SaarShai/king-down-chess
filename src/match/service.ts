@@ -392,7 +392,8 @@ export class GameService {
     const status = played.snapshot.status;
     if (status !== 'playing' || next.turn !== mover) next.players[mover].turns_played++;
     if (status !== 'playing') end(next, out, status === 'checkmate' ? colour(other(next.turn)) : 'draw', status, at);
-    else if (full(next)) end(next, out, 'draw', 'history', at); // migration 0021 adds the reason
+    // After the whole turn only: the computer plays one action for each call and finishes its turn in the space that full keeps.
+    else if (full(next) && next.turn !== mover) end(next, out, 'draw', 'history', at); // migration 0021 adds the reason
     else if (next.turn !== mover) turnTo(next, out, at, actor);
    } else if (action.type === 'rematch') {
     if (action.choice === 'decline') next.rematch_offer = null;
