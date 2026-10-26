@@ -2662,6 +2662,11 @@ try {
   async function zoomHallFits() {
     // The Menu read that the hall starts draws the game rows again.
     await settled(page, frame);
+    // A fixed date gives this spacing check a compact, unwrapped row at every run time.
+    const datedGames = await tool('kingdown_games');
+    assert(!datedGames.isError, JSON.stringify(datedGames.content));
+    for (const game of datedGames._meta.games ?? []) game.created_at = '2026-01-01T09:00:00.000Z';
+    await page.evaluate(result => window.harnessShow(result), datedGames);
     const viewport = page.viewportSize();
     await zoomViewport(402,874,0,0);
     await frame.locator('#new-game .new-game-body').evaluate(el => { el.scrollTop = 0; });

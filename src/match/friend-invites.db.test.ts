@@ -127,6 +127,7 @@ suite('friend invitation transactions', () => {
  });
  it('pages invitation rows independently and returns no raw tokens', async () => {
   const first = await send(), second = await send();
+  await admin.query("update public.game_invites set created_at=case when token_hash=$1 then '2026-10-26T12:00:00.000001Z'::timestamptz else '2026-10-26T12:00:00.000002Z'::timestamptz end", [first.invite_id]);
   const page = await services[0].invitations(users[1], { limit: 1 });
   expect(page.invitations).toHaveLength(1); expect(page.next_before).toBeTruthy();
   const next = await services[0].invitations(users[1], { limit: 1, before: page.next_before });

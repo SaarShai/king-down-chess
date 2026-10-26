@@ -62,7 +62,9 @@ export class PostgresMatchStore {
    and i.expires_at>statement_timestamp() and g.status='waiting'`, recipient ? [sender, recipient] : [sender])).rows[0].n;
  }
  async invitations(actor: string, before?: [string, string], limit = 20, client: Client = this.pool): Promise<InvitationPage> {
+  // The cursor keeps PostgreSQL microseconds. JavaScript dates keep only milliseconds.
   const rows = (await client.query(`select i.token_hash as invite_id,i.game_id,g.revision,i.recipient_id,i.created_at,
+   to_char(i.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_at,
    case when i.created_by=$1 then 'outgoing' else 'incoming' end as direction,
    case when (i.state='open' or i.state='cancelled' and g.end_reason='no_start') and i.expires_at<=statement_timestamp() then 'expired' else i.state end as state,
    i.expires_at,g.options,p.id as user_id,p.handle,p.icon from public.game_invites i join public.games g on g.id=i.game_id
@@ -70,9 +72,9 @@ export class PostgresMatchStore {
    where (i.created_by=$1 or i.recipient_id=$1 and ${unblocked('i.created_by', '$1')})
    and ($2::timestamptz is null or (i.created_at,i.token_hash)<($2::timestamptz,$3::text))
    order by i.created_at desc,i.token_hash desc limit $4`, [actor, before?.[0] ?? null, before?.[1] ?? null, limit + 1])).rows;
-  return { invitations: rows.slice(0, limit).map(({ created_at: _at, user_id, handle, icon, ...row }) => ({ ...row,
+  return { invitations: rows.slice(0, limit).map(({ created_at: _at, cursor_at: _cursor, user_id, handle, icon, ...row }) => ({ ...row,
    player: user_id ? { user_id, handle, icon } : null, expires_at: row.expires_at.toISOString() })),
-   next_before: rows.length > limit ? `${rows[limit-1].created_at.toISOString()}|${rows[limit-1].invite_id}` : null };
+   next_before: rows.length > limit ? `${rows[limit-1].cursor_at}|${rows[limit-1].invite_id}` : null };
  }
  async friends(actor: string, after?: string, limit = 20, handle?: string): Promise<FriendsPage> {
   const rows = (await this.pool.query(`with candidates as (
