@@ -394,6 +394,7 @@ export function connectPlay(view: BoardView, c: {
     sync(game.pos);
     orient();
     refresh();
+    $('board').focus({ preventScroll: true });
   }
 
   $('return-game').onclick = () => {

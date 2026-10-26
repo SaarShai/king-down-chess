@@ -48,16 +48,18 @@
         <div class="table-space"></div>
         <div id="strip-me" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span>
         </div>
-        <div id="context-line">
-          <div id="context-text" role="status" aria-live="polite" aria-atomic="true"></div>
-          <div id="context-actions">
-            <button id="first-lesson" hidden>Learn</button>
-            <button id="all-rules" aria-label="All rules" hidden>All rules</button>
-            <button id="power-use" hidden>Use</button>
-            <button id="power-cancel" hidden>Cancel</button>
-            <button id="see-again" hidden aria-disabled="false">See again</button>
-            <button id="back-to-game" hidden>Back to game</button>
-            <div id="selection-actions" hidden><button id="stop-chain" hidden>Stop here</button></div>
+        <div class="context-scroll">
+          <div id="context-line">
+            <div id="context-text" role="status" aria-live="polite" aria-atomic="true"></div>
+            <div id="context-actions">
+              <button id="first-lesson" hidden>Learn</button>
+              <button id="all-rules" aria-label="All rules" hidden>All rules</button>
+              <button id="power-use" hidden>Use</button>
+              <button id="power-cancel" hidden>Cancel</button>
+              <button id="see-again" hidden aria-disabled="false">See again</button>
+              <button id="back-to-game" hidden>Back to game</button>
+              <div id="selection-actions" hidden><button id="stop-chain" hidden>Stop here</button></div>
+            </div>
           </div>
         </div>
         <button id="moves-line" aria-controls="sheet-moves" aria-expanded="false"><span id="last-move"></span><span class="moves-label">Moves <span aria-hidden="true">⌄</span></span></button>

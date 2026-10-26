@@ -22,6 +22,32 @@ const enlarge = page => page.evaluate(() => {
   const values = [...document.querySelectorAll('#game-table, #game-table *')].map(e => [e, getComputedStyle(e).fontSize]);
   for (const [e, size] of values) e.style.fontSize = `${2 * parseFloat(size)}px`;
 });
+const largeText = async (page, check) => {
+  await page.evaluate(() => {
+    window.originalFonts = [...document.querySelectorAll('body, body *')].map(e => [e, e.style.fontSize, getComputedStyle(e).fontSize]);
+    for (const [e, , size] of window.originalFonts) e.style.fontSize = `${2 * parseFloat(size)}px`;
+  });
+  await settled(page);
+  try { await check(); } finally {
+    await page.evaluate(() => { for (const [e, size] of window.originalFonts) e.style.fontSize = size; delete window.originalFonts; });
+    await settled(page);
+  }
+};
+const textFits = async (page, selector) => {
+  const faults = await page.locator(selector).evaluateAll(elements => elements.filter(e => e.checkVisibility()).flatMap(e => {
+    const range = new Range(); range.selectNodeContents(e);
+    const box = e.getBoundingClientRect(), text = range.getBoundingClientRect();
+    return text.left < box.left - 1 || text.right > box.right + 1 ? [e.textContent] : [];
+  }));
+  assert.deepEqual(faults, [], `${selector}: text stays inside its box`);
+};
+const target24 = async (page, selector) => {
+  await page.locator(selector).scrollIntoViewIfNeeded();
+  assert.ok(await page.locator(selector).evaluate(e => {
+    const r = e.getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + r.height / 2;
+    return [-11.5, 11.5].every(dy => e.contains(document.elementFromPoint(x, y + dy)));
+  }), `${selector}: the hit area is at least 24 px high`);
+};
 const fixture = 'fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20-%20-%200%201&players=human,human&title=0';
 try {
   for (const [width, height] of [[320,568],[375,812],[852,393],[768,1024],[1280,800]]) {
@@ -40,10 +66,15 @@ try {
     }));
     assert.ok(names.every(n => n.size >= 11 && n.left >= -1 && n.right <= width + 1), 'Title names stay on screen at 11 px');
     assert.ok(names.slice(1).every((n, i) => Math.abs(n.top - names[i].top) >= 4 || n.left >= names[i].right - .5), 'Title names stay clear of each other');
+    await largeText(page, () => textFits(page, '.title-lineup li > span'));
     await page.locator('#title-start').click(); await page.locator('#first-lesson').waitFor({ state: 'visible' }); await ready(page);
     assert.equal(await page.locator('#context-text').innerText(), 'Your move.\nTap a piece to read.');
     assert.ok(await page.locator('#first-lesson').isVisible());
-    await page.locator('#first-lesson').click(); await page.locator('#return-game').click();
+    await page.locator('#first-lesson').focus(); await page.keyboard.press('Enter');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'board', 'Learn moves focus to the board');
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await page.locator('#cursor-say').textContent(), 'f2, empty', 'ArrowRight moves the lesson cursor');
+    await page.locator('#return-game').click();
     await pressMenu(page, 'New game');
     assert.equal(await page.locator('#mode-two, #two-powers').count(), 0);
     assert.equal(await page.locator('#design-row').isVisible(), false);
@@ -93,6 +124,7 @@ try {
       assert.ok(Math.max(...lengths) <= 80, `Notation line: ${Math.max(...lengths)}`);
       results.push({ size: `${width}x${height}`, notation: Math.max(...lengths) });
     }
+    await largeText(page, () => textFits(page, '.shelf-name'));
     await page.keyboard.press('Escape');
     if (width === 320) {
       await pressMenu(page, 'Settings'); await settled(page);
@@ -142,6 +174,59 @@ try {
       assert.equal(await friend.locator('#new-game').count(), 0, 'A friend leaves local setup');
       await friend.close();
     }
+    await page.goto(`${env('PLAYABLE_URL')}?${fixture}`); await ready(page);
+    await pressMenu(page, 'Settings');
+    await largeText(page, async () => {
+      await textFits(page, '#menu-title');
+      const title = await rect(page, '#menu-title'), close = await rect(page, '#menu-close');
+      assert.ok(title.x + title.width <= close.x, 'Board help stays clear of Close');
+    });
+    await page.locator('#menu-close').click();
+    if (width === 852) {
+      await tap(page, 52);
+      const rowsFit = async () => {
+        const line = await rect(page, '.context-scroll'), moves = await rect(page, '#moves-line'), bar = await fit(page, '#table-bar', height);
+        assert.ok(line.y + line.height <= moves.y + 1 && moves.y + moves.height <= bar.y + 1, 'Text, Moves, and actions stay apart');
+        for (const button of await page.locator('#table-bar > button:visible').all()) {
+          const r = await button.boundingBox();
+          assert.ok(r.y >= bar.y - 1 && r.y + r.height <= height, 'Each action stays inside the bar');
+        }
+      };
+      await largeText(page, rowsFit);
+      await pressMenu(page, 'Guide'); await page.locator('.shelf-piece[data-piece="archer"]').click();
+      await largeText(page, rowsFit);
+      await page.locator('#return-game').click();
+    }
+    await pressMenu(page, 'Workshop');
+    if (width === 852) await page.locator('.pg-pieces').click();
+    await page.locator('#pg-tab-cards').click();
+    if (width === 852) await page.locator('[data-lab="Freeze"]').click();
+    await target24(page, '[data-act="cardexample"]');
+    if (width < 1000) {
+      assert.ok(await page.locator('.pg-coords span').evaluateAll(labels => labels.every(e => {
+        const s = getComputedStyle(e);
+        return s.color === 'rgb(43, 38, 33)' && s.backgroundColor === 'rgb(243, 234, 215)';
+      })), 'Lab coordinates use the 12.53:1 ink and parchment pair');
+    }
+    await largeText(page, async () => {
+      await textFits(page, '.pg-title, .pg-name .lab-note, .cface .t');
+      assert.ok(await page.locator('.cface').evaluateAll(cards => cards.every(card => {
+        const text = card.querySelector('.t').getBoundingClientRect();
+        const box = card.getBoundingClientRect(), row = card.closest('.lrow').getBoundingClientRect();
+        return text.bottom <= box.bottom + 1 && box.bottom <= row.bottom + 1;
+      })), 'Each card name fits its card and the shelf');
+      if (width !== 852) {
+        const controls = await rect(page, '.pg-right'), shelf = await rect(page, '.pg-ledge');
+        assert.ok(controls.y + controls.height <= shelf.y + 1, 'The shelf stays below the controls');
+      }
+      await page.locator('[data-act="cardexample"]').scrollIntoViewIfNeeded();
+      await target24(page, '[data-act="cardexample"]');
+    });
+    await page.goto(`${env('PLAYABLE_URL')}play/friend`);
+    await page.locator('.account-entry a').waitFor();
+    await page.waitForFunction(() => !document.querySelector('.account-entry')?.textContent.includes('Loading'));
+    await settled(page);
+    await target24(page, '.account-entry a');
     await context.close();
   }
   assert.deepEqual(errors, []); assert.deepEqual(external, []);

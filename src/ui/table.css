@@ -8,7 +8,7 @@
   grid-template-areas: 'them' 'board' 'me' 'context' 'moves' 'space' 'bar';
   max-width: 760px; margin: auto; padding-top: env(safe-area-inset-top);
 }
-#game-table .table-side { display: contents; }
+#game-table .table-side, .context-scroll { display: contents; }
 #game-table #board {
   grid-area: board; position: relative; inset: auto; min-width: 0; min-height: 0;
   width: calc(100% - 8px); height: 100%;
@@ -62,9 +62,10 @@
 @media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
   #game-table { --strip-height: 64px; --context-height: 72px; max-width: 1360px; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: minmax(0, 1fr); grid-template-areas: 'board side'; gap: 24px; padding: 24px; }
   #game-table #board { width: 100%; height: 100%; aspect-ratio: auto; }
-  #game-table .table-side { grid-area: side; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--strip-height) var(--strip-height) max-content max-content minmax(0, 1fr) minmax(calc(60px + max(8px, env(safe-area-inset-bottom))), max-content); grid-template-areas: 'them' 'me' 'context' 'moves' 'space' 'bar'; }
+  #game-table .table-side { grid-area: side; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--strip-height) var(--strip-height) minmax(0, max-content) max-content minmax(0, 1fr) auto; grid-template-areas: 'them' 'me' 'context' 'moves' 'space' 'bar'; }
   #context-line, #moves-line { margin-inline: 0; width: 100%; }
-  #table-bar { padding-inline: 0; border-top: 1px solid var(--line); }
+  .context-scroll { grid-area: context; display: block; min-height: 0; overflow-y: auto; }
+  #table-bar { height: max-content; min-height: calc(60px + max(8px, env(safe-area-inset-bottom))); padding-inline: 0; border-top: 1px solid var(--line); }
   #game-table .player-strip { padding-inline: 4px; }
 }
 /* The sheet controls keep touch size in landscape too. */
@@ -131,7 +132,7 @@
 #menu-sheet.has-overflow::after { display: block; }
 @media (max-width: 899px) {
   #menu-sheet, #menu-sheet.is-placed { top: auto; bottom: 0; height: fit-content; max-height: calc(100dvh - 24px); margin-block: auto 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
-  #menu-sheet .sheet-head h2 { white-space: nowrap; }
+  #menu-sheet .sheet-head h2 { overflow-wrap: anywhere; }
   #menu-sheet { --menu-bottom-pad: max(16px, env(safe-area-inset-bottom)); }
   #menu-sheet .sheet-body { padding-bottom: var(--menu-bottom-pad); }
 }

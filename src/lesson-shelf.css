@@ -13,7 +13,7 @@
   --sq: 74px; --fig-h: 104px;
   /* Keep an 8 px gap after the shelf. The lesson action comes before it. */
   list-style: none; margin: var(--space-4) 0 var(--space-2); padding: 0;
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--space-3);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(max(calc(100% / 3), 5em), 1fr)); row-gap: var(--space-3);
 }
 .lesson-shelf .shelf-list li { position: relative; display: flex; min-width: 0; }
 .lesson-shelf .shelf-list li::after {
@@ -46,7 +46,7 @@
 .lesson-shelf [data-piece='ogre'] { --figure-height: 1.354; }
 .lesson-shelf [data-piece='guard'], .lesson-shelf [data-piece='paladin'] { --figure-height: 1.165; }
 .lesson-shelf [data-piece='maester'] img { transform: scaleX(-1); }
-.lesson-shelf .shelf-name { margin-top: 14px; font-family: var(--font-display); font-size: var(--fs-md); }
+.lesson-shelf .shelf-name { max-width: 100%; overflow-wrap: anywhere; margin-top: 14px; font-family: var(--font-display); font-size: var(--fs-md); }
 .lesson-shelf .shelf-line { min-height: 2.5em; color: var(--ink-soft); font-size: var(--fs-sm); font-weight: 400; line-height: 1.25; }
 .lesson-shelf .shelf-status { min-height: 22px; margin-top: 6px; color: var(--gold-ink); font-size: var(--fs-xs); }
 .lesson-shelf [data-status='Next'] .shelf-figure::before {
@@ -57,7 +57,7 @@
 .lesson-shelf .shelf-next { width: 100%; min-height: 44px; justify-content: center; }
 .lesson-shelf .shelf-safe { max-width: none; margin: var(--space-2) 0 0; color: var(--ink-soft); font-size: var(--fs-sm); text-align: center; }
 @media (min-width: 900px) {
-  .lesson-shelf .shelf-list { --sq: 108px; --fig-h: 154px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .lesson-shelf .shelf-list { --sq: 108px; --fig-h: 154px; grid-template-columns: repeat(auto-fit, minmax(max(calc(100% / 6), 5em), 1fr)); }
   .lesson-shelf .shelf-list li:nth-child(n)::after { border-radius: 0; }
   .lesson-shelf .shelf-list li:first-child::after { border-radius: 5px 0 0 5px; }
   .lesson-shelf .shelf-list li:last-child::after { border-radius: 0 5px 5px 0; }
