@@ -8,7 +8,6 @@ const check = (actual, expected, name) => {
   try { assert.equal(actual, expected, name); } catch (error) { faults.push(error); }
 };
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-await page.clock.install();
 await page.addInitScript(() => {
   window.uiMotionEvents = [];
   const animate = Element.prototype.animate;
@@ -61,6 +60,47 @@ const mate = async () => {
   await page.locator('#over').waitFor({ state: 'visible' });
 };
 try {
+  // These input checks run before a test clock is installed.
+  for (const start of [false, true]) {
+    await stageMate('normal');
+    // Window capture records the press before the board's document capture handler.
+    await page.evaluate(() => {
+      window.menuPress = null;
+      window.addEventListener('pointerdown', e => {
+        if (!e.target.closest('#menu-btn')) return;
+        window.menuPress = { animating: window.view.scene.animating, falling: window.view.scene.falling };
+      }, { capture: true });
+    });
+    await endTurn(page);
+    await page.waitForFunction(() => window.view.scene.animating);
+    await page.locator('#menu-btn').click();
+    assert.equal(await page.evaluate(() => window.menuPress?.animating), true, 'Menu receives a press during the active final blow');
+    assert.equal(await page.locator('#menu-sheet').evaluate(d => d.open), true, 'the real-clock press opens Menu');
+    assert.equal(await page.locator('#over').isVisible(), false, 'Menu does not skip to the result');
+    console.log('ok real-clock Menu press during the active final blow', await page.evaluate(() => window.menuPress));
+    await page.locator('[data-go="new"]').click();
+    await page.locator('#new-game-btn').click();
+    await page.locator('#new-game').waitFor({ state: 'visible' });
+    await page.locator('#start-game').focus();
+    if (start) {
+      await page.keyboard.press('Enter');
+      await waitForUi(page, ui => ui.lan.length === 0);
+      assert.equal(await page.locator('dialog[open]').count(), 0, 'Enter starts the new game');
+    } else {
+      await page.waitForTimeout(2500); // No result may cover the sheet after the Ceremony ends.
+      assert.equal(await page.locator('dialog[open]').count(), 1, 'only New game stays open');
+      assert.equal(await page.evaluate(() => document.activeElement.id), 'start-game', 'the sheet keeps focus');
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('#new-game').evaluate(d => d.open), false, 'Escape belongs to New game');
+      await page.locator('#new-game').waitFor({state:'hidden'});
+    }
+    assert.equal(await page.locator('#over').isVisible(), false, 'the old result does not open');
+    assert.equal(await page.locator('.kd-words').count(), 0, 'the old Ceremony is cancelled');
+  }
+  console.log('ok New game keeps its keys and focus during the Ceremony');
+
+  await page.clock.install();
+
   await mate();
   assert.equal(await page.locator('#over .ceremony-tile').count(), 3, 'three review tiles');
   assert.equal(await ceremonyWords(page).textContent(), 'King Down');
@@ -117,33 +157,6 @@ try {
   assert.equal(await page.locator('.kd-words').count(), 0, 'Rematch clears the old end');
   assert.equal(await page.locator('#over').isVisible(), false, 'no old result opens on the new game');
   console.log('ok disabled turn button and dialog Rematch');
-
-  for (const start of [false, true]) {
-    await stageMate('normal');
-    // Keep the Ceremony active while the menu opens.
-    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
-    await endTurn(page);
-    await page.locator('.kd-words').waitFor({ state: 'attached' });
-    await pressMenu(page, 'New game');
-    await page.locator('#new-game').waitFor({ state: 'visible' });
-    await page.locator('#start-game').focus();
-    if (start) {
-      await page.keyboard.press('Enter');
-      await waitForUi(page, ui => ui.lan.length === 0);
-      assert.equal(await page.locator('dialog[open]').count(), 0, 'Enter starts the new game');
-    } else {
-      await page.clock.runFor(2500); // No result may cover the sheet after the Ceremony ends.
-      assert.equal(await page.locator('dialog[open]').count(), 1, 'only New game stays open');
-      assert.equal(await page.evaluate(() => document.activeElement.id), 'start-game', 'the sheet keeps focus');
-      await page.keyboard.press('Escape');
-      assert.equal(await page.locator('#new-game').evaluate(d => d.open), false, 'Escape belongs to New game');
-      await page.locator('#new-game').waitFor({state:'hidden'});
-    }
-    assert.equal(await page.locator('#over').isVisible(), false, 'the old result does not open');
-    assert.equal(await page.locator('.kd-words').count(), 0, 'the old Ceremony is cancelled');
-    await page.clock.resume();
-  }
-  console.log('ok New game keeps its keys and focus during the Ceremony');
 
   await stageMate('normal'); await endTurn(page);
   await page.locator('.kd-words').waitFor({ state: 'attached' });
