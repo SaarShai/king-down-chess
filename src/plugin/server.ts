@@ -92,12 +92,16 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       _meta: { ...(board && { board_id: board }), view, me: { handle, icon } },
     };
   }
-  /** A board that switches games keeps its ID, so a remount finds the new game. A board whose game was deleted may pick another; another player's board may not. */
-  async function select(board: string | undefined, action: () => Promise<View>): Promise<Reply> {
-    if (board) await service.board(actorId, board).catch(error => { if (!(error instanceof MatchServiceError) || error.code !== 'MATCH_REMOVED') throw error; });
+  /** A board that switches games keeps its ID, so a remount finds the new game. A board whose game was deleted may pick another; another player's board may not.
+   *  A board that the 7-day cleanup deleted gets a new board, counted as an Open; its old ID never comes back, so nobody can claim it. */
+  async function select(board: string | undefined, action: () => Promise<View | null>): Promise<Reply> {
+    const expired = !!board && await service.board(actorId, board).then(() => false, error => { if (!(error instanceof MatchServiceError) || !['MATCH_REMOVED', 'BOARD_EXPIRED'].includes(error.code)) throw error; return error.code === 'BOARD_EXPIRED'; });
+    // Count before the action, as toolTry says: a refused call still counts, so made-up board IDs cannot make boards past the limit.
+    if (expired) await service.toolTry(actorId, 'kingdown_open');
     const view = await action();
-    if (board) await service.selectBoard(actorId, board, view.game_id);
-    return reply(view, board);
+    if (expired) board = await service.openBoard(actorId, view?.game_id);
+    else if (board && view) await service.selectBoard(actorId, board, view.game_id);
+    return view ? reply(view, board) : home(board);
   }
   const recordText = ({ rating, totals: { played, won, drawn, lost }, badges }: Awaited<ReturnType<typeof service.record>>) => `Rating ${Math.round(rating.rating)}${rating.provisional ? '?' : ''}; ${played} played, ${won} won, ${drawn} drawn, ${lost} lost; ${badges.length} badge${badges.length === 1 ? '' : 's'}.`;
   const home = async (board?: string): Promise<Reply> => { const { handle, icon } = await service.profile(actorId); return { content: text('King Down. Start a game from Menu.'), structuredContent: { screen: 'home' }, _meta: { ...(board && { board_id: board }), me: { handle, icon } } }; };
@@ -142,14 +146,8 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
       const options = input.options ?? (input.mode === 'ranked' ? undefined : (await service.settings(actorId)).last_setup?.options ?? DEFAULT_OPTIONS);
       return input.kind === 'random' ? service.find(actorId, options, input.colour, command_id, any_rules, input.mode) : service.create(actorId, { ...input, options }, command_id);
     }));
-  register('kingdown_resume', 'Show a selected game, or your most urgent game, on this board.', { board_id: z.string().uuid(), game_id: gameId.optional() }, { visibility: ['app'], idempotent: false }, async args => {
-    if (args.game_id) return select(args.board_id, () => service.view(actorId, args.game_id!));
-    await service.board(actorId, args.board_id).catch(error => { if (!(error instanceof MatchServiceError) || error.code !== 'MATCH_REMOVED') throw error; });
-    const view = await next();
-    if (!view) return home(args.board_id);
-    await service.selectBoard(actorId, args.board_id, view.game_id);
-    return reply(view, args.board_id);
-  });
+  register('kingdown_resume', 'Show a selected game, or your most urgent game, on this board.', { board_id: z.string().uuid(), game_id: gameId.optional() }, { visibility: ['app'], idempotent: false },
+    args => select(args.board_id, () => args.game_id ? service.view(actorId, args.game_id) : next()));
   register('kingdown_games', 'Use this when the player asks about their King Down games, or "is it my turn?". Lists the active games, your turn first, then the nearest deadline. Open one with kingdown_open.',
     {}, { visibility: ['model', 'app'], readOnly: true }, async () => {
       const rows = await service.inbox(actorId), games = rows.map(entry => ({ game_id: entry.game_id, kind: entry.kind, status: entry.status, rating_policy: entry.rating_policy,

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { createMatch } from './index';
 import { GameService } from './service';
 import { PostgresMatchStore } from './store';
 import { DEFAULT_OPTIONS } from './setup';
@@ -11,6 +12,8 @@ import { AccountService } from '../online/accounts';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 import { withRoleLock } from '../../tools/plugin-db/role-lock.mjs';
 
+// The real engine; a case can hold a table build at a gate (server audit F4).
+vi.mock('./index', async original => { const real = await original<typeof import('./index')>(); return { ...real, createMatch: vi.fn(real.createMatch) }; });
 const suite = process.env.PLUGIN_TEST_DATABASE_URL ? describe : describe.skip;
 suite('matchmaking through PostgreSQL', () => {
  let admin: pg.Pool, runtime: pg.Pool, service: GameService, plugin: PluginService, own: URL, login: URL, role: string;
@@ -173,6 +176,40 @@ suite('matchmaking through PostgreSQL', () => {
    expect(found.map(game => game.status).sort()).toEqual(['setup', 'waiting']);
    expect(await service.view(users[0], found[0].game_id)).toMatchObject({ status: 'setup', revision: 1, opponent: { handle: handles[1] } });
   } finally { await admin.query('drop trigger slow_seek on public.games; drop function public.slow_seek()'); }
+ });
+ it('builds a new table with no search lock or connection held, and a Find that takes a table starts no engine worker (server audit F4)', async () => {
+  const table = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS }), build = vi.mocked(createMatch).getMockImplementation()!, cards = { ...DEFAULT_OPTIONS, cards: true };
+  let reached!: () => void, open!: () => void;
+  const atBuild = new Promise<void>(resolve => { reached = resolve; }), gate = new Promise<void>(resolve => { open = resolve; });
+  vi.mocked(createMatch).mockClear().mockImplementationOnce(async setup => { reached(); await gate; return build(setup); });
+  // Other switches than the open table: this Find must build a table.
+  const made = plugin.find(users[1], cards, 'white', 'build'); void made.catch(() => {});
+  try {
+   await atBuild;
+   // Only this database: other test files hold their own databases on the same cluster.
+   expect((await admin.query("select count(*)::int as n from pg_locks where locktype='advisory' and database=(select oid from pg_database where datname=current_database()) and objid=7007008 and granted")).rows[0].n).toBe(0);
+   expect(runtime.totalCount - runtime.idleCount).toBe(0);
+   await expect(plugin.find(users[2], DEFAULT_OPTIONS)).resolves.toMatchObject({ game_id: table.game_id, status: 'setup' });
+   open();
+   await expect(made).resolves.toMatchObject({ status: 'waiting', options: cards, revision: 1 });
+   expect(createMatch).toHaveBeenCalledOnce();
+  } finally { open(); await made.catch(() => {}); }
+ });
+ it('pairs two Finds that both build a table on an empty lobby: one joins the other, and its own table is never written (server audit F4)', async () => {
+  const build = vi.mocked(createMatch).getMockImplementation()!;
+  let builds = 0, open!: () => void;
+  const gate = new Promise<void>(resolve => { open = resolve; });
+  vi.mocked(createMatch).mockImplementation(async setup => { builds++; await gate; return build(setup); });
+  const found = Promise.all([plugin.find(users[0], DEFAULT_OPTIONS, 'white'), plugin.find(users[1], DEFAULT_OPTIONS, 'black')]); void found.catch(() => {});
+  try {
+   await expect.poll(() => builds, { timeout: 2000 }).toBe(2);
+   open();
+   const games = await found;
+   expect(new Set(games.map(game => game.game_id)).size).toBe(1);
+   expect(games.map(game => game.status).sort()).toEqual(['setup', 'waiting']);
+   expect((await admin.query('select count(*)::int as n from public.games where created_by=any($1)', [[users[0], users[1]]])).rows[0].n).toBe(1);
+   expect(await service.view(users[0], games[0].game_id)).toMatchObject({ status: 'setup', revision: 1 });
+  } finally { open(); vi.mocked(createMatch).mockImplementation(build); await found.catch(() => {}); }
  });
  it('finds a fresh game after the oldest expires during the search lock wait', async () => {
   const late = await service.create(users[0], { kind: 'random', options: DEFAULT_OPTIONS });
