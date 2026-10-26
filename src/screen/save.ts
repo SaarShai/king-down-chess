@@ -2,6 +2,7 @@ import type { SkillName } from '../ai/skill';
 import { Game, type Side } from '../game';
 import type { Pace } from '../render/PaintedView';
 import type { Color, Rules } from '../rules/engine';
+import { canWriteLocal, localAccess } from '../account/local';
 
 /**
  * account/sync.ts splits these fields into settings and the saved game: name a new one there too. Write
@@ -36,7 +37,11 @@ export function gameJSON(s: Save | null): string {
 /** Missing data is different from data that this page must preserve until the player replaces it. */
 export function readSave(): SaveRead {
   let raw: string | null;
-  try { raw = localStorage.getItem(SAVE_KEY); }
+  try {
+    localAccess(localStorage);
+    raw = localStorage.getItem(SAVE_KEY);
+    if (!canWriteLocal(localStorage)) return { save: null, unreadable: true };
+  }
   catch { return { save: null, unreadable: false }; } // Storage can be unavailable while local practice still works.
   if (raw === null) return { save: null, unreadable: false };
   try {
@@ -52,6 +57,7 @@ export function readSave(): SaveRead {
  */
 export function storedSettings(): Partial<Pick<Save, (typeof SETTINGS)[number]>> | null {
   try {
+    if (!canWriteLocal(localStorage)) return null;
     const s: unknown = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null');
     return s && typeof s === 'object' && !Array.isArray(s) ? Object.fromEntries(SETTINGS.filter(k => k in s).map(k => [k, (s as Save)[k]])) : null;
   } catch { return null; }
@@ -72,6 +78,7 @@ export function savedGame(value: unknown): Game {
 /** Writes the autosave; false means the caller must keep its unsaved-data notice. */
 export function writeSave(s: Save): boolean {
   try {
+    if (!canWriteLocal(localStorage)) return false;
     localStorage.setItem(SAVE_KEY, JSON.stringify(s));
     return true;
   } catch { return false; }

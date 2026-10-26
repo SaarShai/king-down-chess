@@ -5,15 +5,16 @@ import { savedGame } from '../screen/save';
 /** localStorage stand-in. */
 const store = (init: Record<string, unknown> = {}) => {
   const m = new Map(Object.entries(init).map(([k, v]) => [k, JSON.stringify(v)]));
-  return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), m };
+  return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k), key: (i: number) => [...m.keys()][i] ?? null, get length() { return m.size; }, m };
 };
 /** The database keeps jsonb with its keys in its own order: reverse them to be sure order never matters. */
 const reorder = (v: unknown): unknown => Array.isArray(v) ? v.map(reorder)
   : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).reverse().map(([k, x]) => [k, reorder(x)])) : v;
 /** The player's user_data row, shared by every "device" in a test. */
-const cloud = (row: Row | null = null) => {
+const cloud = (row: Row | null = null, userId = 'player') => {
   const r = { row, pulls: 0, pushes: 0, fail: 0 } as { row: Row | null; pulls: number; pushes: number; fail: number };
   const remote: Remote = {
+    userId,
     async pull() { r.pulls++; if (r.fail > 0) { r.fail--; throw new Error('offline'); } return r.row && reorder(r.row) as Row; },
     async push(part) {
       r.pushes++;
@@ -41,6 +42,136 @@ const device = (s: Record<string, unknown>, c: ReturnType<typeof cloud>, access:
 
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(1_000_000); });
 afterEach(() => { vi.useRealTimers(); });
+
+describe('F1 account ownership', () => {
+  it('review storage: limits confirmed copies and keeps copies with unknown status', async () => {
+    const st = store({ 'kingdown.save': save(['e2-e4']) });
+    for (let i = 0; i < 5; i++) st.setItem(`kingdown.local.old-${i}`, JSON.stringify([null, null, null]));
+    for (const userId of ['A', 'B', 'C', 'D', 'E']) {
+      const c = cloud(null, userId), sync = new Sync(st, c.remote, () => {}, { blocked: () => false, accepts: () => true });
+      await sync.pull();
+      st.setItem('kingdown.save', JSON.stringify(save([userId === 'D' ? 'd2-d4' : 'e2-e4'])));
+      sync.changed(); await sync.flush(); sync.stop();
+    }
+    expect([...st.m.keys()].filter(key => key.startsWith('kingdown.local.')).length).toBeLessThanOrEqual(8);
+    for (let i = 0; i < 5; i++) expect(st.getItem(`kingdown.local.old-${i}`)).toBe(JSON.stringify([null, null, null]));
+    expect(st.getItem('kingdown.local.A')).toBeNull();
+    expect(st.getItem('kingdown.local.B')).not.toBeNull();
+    const d = new Sync(st, cloud(null, 'D').remote, () => {}, { blocked: () => false, accepts: () => true });
+    await d.pull(); d.stop();
+    expect(readLocal(st).saved_game).toMatchObject({ moves: ['d2-d4'] });
+  });
+
+  it.each(['signed out', 'failed sync', 'no receipt'])('review 5: keeps A through four accounts after %s', async state => {
+    const a = cloud(null, 'A');
+    const d = device({
+      'kingdown.save': save(state === 'no receipt' ? ['e2-e4', 'e7-e5'] : ['e2-e4']),
+      'kingdown.lessons': { done: state === 'no receipt' ? ['Archer', 'Guard'] : ['Archer'] },
+    }, a);
+    if (state === 'no receipt') a.remote.push = async () => null;
+    await d.sync.pull();
+    if (state === 'signed out') d.sync.stop();
+    d.st.setItem('kingdown.save', JSON.stringify(save(['e2-e4', 'e7-e5'])));
+    d.st.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer', 'Guard'] }));
+    if (state === 'failed sync') {
+      a.fail = 1; d.sync.changed(); await d.sync.flush();
+    }
+    d.sync.stop();
+    for (const userId of ['B', 'C', 'D']) {
+      const next = new Sync(d.st, cloud(null, userId).remote, () => {}, { blocked: () => false, accepts: () => true });
+      await next.pull(); next.stop();
+    }
+    expect(a.row?.saved_game?.v).not.toMatchObject({ moves: ['e2-e4', 'e7-e5'] });
+    const returned = new Sync(d.st, a.remote, () => {}, { blocked: () => false, accepts: () => true });
+    await returned.pull(); returned.stop();
+    expect(readLocal(d.st).saved_game).toMatchObject({ moves: ['e2-e4', 'e7-e5'] });
+    expect(readLocal(d.st).lessons).toEqual({ done: ['Archer', 'Guard'] });
+  });
+
+  it('binds A before its first cloud read, even when A is offline', async () => {
+    const a = cloud(null, 'A'), b = cloud(null, 'B');
+    const d = device({ 'kingdown.save': save(['e2-e4']), 'kingdown.lessons': { done: ['Archer'] } }, a);
+    a.fail = 1;
+    await d.sync.pull(); d.sync.stop();
+    const switched = new Sync(d.st, b.remote, () => {}, { blocked: () => false, accepts: () => true });
+    await switched.pull(); switched.stop();
+    expect(b.pushes).toBe(0);
+    expect(readLocal(d.st).lessons).toBeNull();
+    const returned = new Sync(d.st, a.remote, () => {}, { blocked: () => false, accepts: () => true });
+    await returned.pull(); returned.stop();
+    expect(a.row?.saved_game?.v).toMatchObject({ moves: ['e2-e4'] });
+  });
+
+  it.each([true, false])('keeps A out of B and restores A on return (B has data: %s)', async existing => {
+    const a = cloud(null, 'A'), b = cloud(existing ? {
+      saved_game: { at: 500, v: save(['d2-d4'], false) }, lessons: { at: 500, v: { done: ['Guard'] } },
+    } : null, 'B');
+    const d = device({ 'kingdown.save': save(['e2-e4']), 'kingdown.lessons': { done: ['Archer'] }, 'kingdown.sync': {} }, a);
+    await d.sync.pull();
+    d.sync.stop();
+    // Sign-out keeps the game; play while signed out still belongs to A.
+    d.st.setItem('kingdown.save', JSON.stringify(save(['e2-e4', 'e7-e5'])));
+    stamp(d.st);
+    const kept = ['kingdown.save', 'kingdown.lessons'].map(k => d.st.getItem(k));
+    const times = stamp(d.st);
+    const switched = new Sync(d.st, b.remote, () => {}, { blocked: () => false, accepts: () => true });
+    await switched.pull();
+    expect(b.row?.saved_game?.v ?? null).toEqual(existing ? save(['d2-d4'], false) : null);
+    expect(readLocal(d.st).lessons).toEqual(existing ? { done: ['Guard'] } : null);
+    expect(readLocal(d.st).saved_game).toEqual(existing ? readLocal(store({ 'kingdown.save': save(['d2-d4']) })).saved_game : null);
+    switched.stop();
+    const returned = new Sync(d.st, a.remote, () => {}, { blocked: () => false, accepts: () => true });
+    await returned.pull();
+    expect(['kingdown.save', 'kingdown.lessons'].map(k => d.st.getItem(k))).toEqual(kept);
+    for (const section of ['settings', 'lessons', 'saved_game'] as const) expect(stamp(d.st)[section]).toEqual(times[section]);
+    expect(a.row?.saved_game?.v).toMatchObject({ moves: ['e2-e4', 'e7-e5'] });
+    returned.stop();
+  });
+
+  it('does not apply or send an old request after another account owns the local copy', async () => {
+    const a = cloud(null, 'A'), b = cloud({ saved_game: { at: 500, v: save(['d2-d4']) } }, 'B');
+    const d = device({ 'kingdown.save': save(['e2-e4']) }, a);
+    await d.sync.pull();
+    let resolve!: (row: Row) => void;
+    a.remote.pull = () => new Promise(r => { resolve = r; });
+    const pending = d.sync.pull();
+    await Promise.resolve();
+    const switched = new Sync(d.st, b.remote, () => {}, { blocked: () => false, accepts: () => true });
+    await switched.pull();
+    resolve({ saved_game: { at: 9_000_000, v: save(['a2-a3']) } });
+    await pending;
+    d.sync.changed(); await d.sync.flush();
+    expect(readLocal(d.st).saved_game).toMatchObject({ moves: ['d2-d4'] });
+    expect(a.row?.saved_game?.v).toMatchObject({ moves: ['e2-e4'] });
+    d.sync.stop(); switched.stop();
+  });
+
+  it.each(['archive', 'restore'])('keeps A when storage fails during %s, then completes B after reload', async phase => {
+    const a = cloud(null, 'A'), b = cloud({ saved_game: { at: 500, v: save(['d2-d4']) } }, 'B');
+    const d = device({ 'kingdown.save': save(['e2-e4']), 'kingdown.lessons': { done: ['Archer'] } }, a);
+    await d.sync.pull(); d.sync.stop();
+    const kept = d.st.getItem('kingdown.save'), set = d.st.setItem, remove = d.st.removeItem;
+    let fail = true;
+    d.st.setItem = (key, value) => {
+      if (fail && key === (phase === 'archive' ? 'kingdown.local.A' : 'kingdown.lessons')) { fail = false; throw new Error('quota'); }
+      set(key, value);
+    };
+    d.st.removeItem = key => {
+      if (fail && phase === 'restore' && key === 'kingdown.lessons') { fail = false; throw new Error('quota'); }
+      remove(key);
+    };
+    const switched = new Sync(d.st, b.remote, () => {}, { blocked: () => false, accepts: () => true });
+    await switched.pull(); switched.stop();
+    expect(b.pushes).toBe(0);
+    const reloaded = new Sync(d.st, b.remote, () => {}, { blocked: () => false, accepts: () => true });
+    await reloaded.pull(); reloaded.stop();
+    expect(readLocal(d.st).saved_game).toMatchObject({ moves: ['d2-d4'] });
+    const returned = new Sync(d.st, a.remote, () => {}, { blocked: () => false, accepts: () => true });
+    await returned.pull(); returned.stop();
+    expect(d.st.getItem('kingdown.save')).toBe(kept);
+    expect(readLocal(d.st).lessons).toEqual({ done: ['Archer'] });
+  });
+});
 
 describe('saved-game validation before cloud writes', () => {
   const supported = (moves: string[]) => ({ back: 'RNBQKBNR', fen: '', moves, white: 'human', black: 'human', resigned: null });
@@ -148,6 +279,88 @@ describe('merge', () => {
     expect(merge({}, { settings: { at: 9, v: 'junk' }, lessons: null })).toEqual({ down: [], up: [] });
     expect(merge({}, { saved_game: { at: 9, v: { fen: 'x' } }, lessons: { at: 9, v: { done: 'Archer' } } })).toEqual({ down: [], up: [] });
     expect(merge({}, { settings: { at: 9, v: [1] } })).toEqual({ down: [], up: [] });
+  });
+});
+
+describe('F4 add-only lesson completion', () => {
+  it('keeps both devices\' completions when a stale device sends the newer list', async () => {
+    const c = cloud({ lessons: { at: 0, v: { done: ['Archer'] } } });
+    const a = device({ 'kingdown.lessons': { done: ['Archer'] } }, c), b = device({ 'kingdown.lessons': { done: ['Archer'] } }, c);
+    await a.sync.pull(); await b.sync.pull();
+    vi.setSystemTime(3_000_000);
+    a.st.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer', 'Guard'] }));
+    a.sync.changed(); await a.sync.flush();
+    vi.setSystemTime(4_000_000);
+    b.st.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer', 'Ogre'] }));
+    b.sync.changed(); await b.sync.flush();
+    expect(c.row?.lessons?.v).toEqual({ done: ['Archer', 'Guard', 'Ogre'] });
+    expect(readLocal(b.st).lessons).toEqual(c.row?.lessons?.v);
+    a.sync.stop(); b.sync.stop();
+  });
+
+  it.each([1000, 2_000_000, 9_000_000])('unites names on a pull regardless of the cloud time (%s)', async at => {
+    const c = cloud({ lessons: { at: 0, v: { done: ['Archer'] } } }), d = device({ 'kingdown.lessons': { done: ['Archer'] } }, c);
+    await d.sync.pull();
+    vi.setSystemTime(2_000_000);
+    d.st.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer', 'Ogre'] }));
+    d.sync.changed();
+    c.row = { lessons: { at, v: { done: ['Archer', 'Guard'] } } };
+    await d.sync.pull();
+    expect(c.row.lessons?.v).toEqual({ done: ['Archer', 'Guard', 'Ogre'] });
+    expect(c.row.lessons!.at).toBeGreaterThanOrEqual(at);
+    expect(readLocal(d.st).lessons).toEqual(c.row.lessons?.v);
+    d.sync.stop();
+  });
+
+  it('does not upload a stale list when the fresh read fails', async () => {
+    const c = cloud(), d = device({ 'kingdown.lessons': { done: ['Archer'] } }, c);
+    await d.sync.pull();
+    d.st.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer', 'Ogre'] }));
+    d.sync.changed();
+    const pushes = c.pushes;
+    c.remote.pull = vi.fn().mockRejectedValue(new Error('offline'));
+    await d.sync.flush();
+    expect(c.pushes).toBe(pushes);
+    expect(c.remote.pull).toHaveBeenCalledOnce();
+    expect(readLocal(d.st).lessons).toEqual({ done: ['Archer', 'Ogre'] });
+    d.sync.stop();
+  });
+
+  it('keeps a completion made while the fresh cloud read is in flight', async () => {
+    const c = cloud(), d = device({ 'kingdown.lessons': { done: ['Archer'] } }, c);
+    await d.sync.pull();
+    d.st.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer', 'Ogre'] }));
+    d.sync.changed();
+    let resolve: ((row: Row) => void) | undefined;
+    c.remote.pull = () => new Promise(r => { resolve = r; });
+    const pending = d.sync.flush();
+    await Promise.resolve();
+    expect(resolve).toBeTypeOf('function');
+    d.st.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer', 'Ogre', 'Paladin'] }));
+    d.sync.changed();
+    resolve!({ lessons: { at: 1000, v: { done: ['Archer', 'Guard'] } } });
+    await pending;
+    expect(c.row?.lessons?.v).toEqual({ done: ['Archer', 'Guard', 'Ogre', 'Paladin'] });
+    d.sync.stop();
+  });
+
+  it.each([true, false])('ignores a late fresh read after a switch or stop (switch: %s)', async switched => {
+    const a = cloud(null, 'A'), b = cloud({ lessons: { at: 500, v: { done: ['Guard'] } } }, 'B');
+    const d = device({ 'kingdown.lessons': { done: ['Archer'] } }, a);
+    await d.sync.pull();
+    d.st.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer', 'Ogre'] }));
+    d.sync.changed();
+    let resolve!: (row: Row) => void;
+    a.remote.pull = () => new Promise(r => { resolve = r; });
+    const pending = d.sync.flush(), pushes = a.pushes;
+    await Promise.resolve();
+    const next = new Sync(d.st, b.remote, () => {}, { blocked: () => false, accepts: () => true });
+    if (switched) await next.pull(); else d.sync.stop();
+    resolve({ lessons: { at: 9_000_000, v: { done: ['Archer', 'Paladin'] } } });
+    await pending;
+    expect(a.pushes).toBe(pushes);
+    expect(readLocal(d.st).lessons).toEqual({ done: switched ? ['Guard'] : ['Archer', 'Ogre'] });
+    d.sync.stop(); next.stop();
   });
 });
 

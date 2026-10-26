@@ -1,9 +1,10 @@
 import type { Save } from '../screen/save';
+import { canWriteLocal, localAccess, selectLocal } from './local';
 
 /**
  * Cloud save. The game keeps its data in localStorage as before; this splits it into sections that
  * sync one by one with the player's row in public.user_data. Each section carries the time it last
- * changed on the device that changed it ({at, v}), and the newer copy wins.
+ * changed on the device that changed it ({at, v}). The newer copy wins; lesson names add up.
  */
 export const SECTIONS = ['settings', 'lessons', 'saved_game'] as const;
 export type Section = (typeof SECTIONS)[number];
@@ -13,7 +14,7 @@ export type Row = Partial<Record<Section, Stamped | null>>;
  * The player's user_data row. Both calls throw when the server cannot be reached. `push` answers with
  * the row as the database kept it: it keeps a section only when the one sent is newer (0001_accounts.sql).
  */
-export interface Remote { pull(): Promise<Row | null>; push(row: Row): Promise<Row | null> }
+export interface Remote { userId: string; pull(): Promise<Row | null>; push(row: Row): Promise<Row | null> }
 /** Supplied by the game page, so this storage/sync module does not import the engine. */
 export interface SavedGameAccess {
   /** Rechecks the current local save, including changes made after boot. */
@@ -21,8 +22,9 @@ export interface SavedGameAccess {
   accepts(value: unknown): boolean;
 }
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
+type AccountStore = Store & Pick<Storage, 'removeItem' | 'length' | 'key'>;
 /** When each section last changed here, and its value then (to see the next change). */
-type Stamps = Partial<Record<Section, { at: number; json: string }>>;
+type Stamps = Partial<Record<Section, { at: number; json: string }>> & { confirmed?: string };
 
 const SAVE = 'kingdown.save', LESSONS = 'kingdown.lessons', STAMPS = 'kingdown.sync';
 /**
@@ -86,13 +88,13 @@ export function stamp(store: Store, now = Date.now()): Stamps {
 /**
  * Per section: down when the cloud copy is newer, up when this device's is newer or the cloud has
  * none. Copies of the same time are the same copy, except data from before syncing (time 0) on two
- * devices: the cloud's wins, so both agree.
+ * devices: the cloud's wins, so both agree. Different lesson lists merge at any time.
  */
 export function merge(local: Stamps, cloud: Row | null): { up: Section[]; down: Section[] } {
   const up: Section[] = [], down: Section[] = [];
   for (const s of SECTIONS) {
     const l = local[s], c = cloud?.[s];
-    if (c && typeof c.at === 'number' && usable(s, c.v) && (!l || c.at > l.at || (c.at === 0 && l.at === 0 && canon(own(s, c.v)) !== l.json))) down.push(s);
+    if (c && typeof c.at === 'number' && usable(s, c.v) && (!l || c.at > l.at || ((s === 'lessons' || c.at === 0 && l.at === 0) && canon(own(s, c.v)) !== l.json))) down.push(s);
     else if (l && (!c || l.at > c.at)) up.push(s);
   }
   return { up, down };
@@ -107,14 +109,26 @@ export class Sync {
   private retryMs = 0;
   private queue: Promise<void> = Promise.resolve();
   private rejectedGame: { at: number; local: string } | undefined;
+  private selected = false;
 
-  constructor(private store: Store, private remote: Remote, private onApply: (down: Section[]) => void, private savedGame: SavedGameAccess, private delayMs = 2000) {}
+  constructor(private store: AccountStore, private remote: Remote, private onApply: (down: Section[], switched?: boolean) => void, private savedGame: SavedGameAccess, private delayMs = 2000) {}
 
-  /** Takes each section the cloud has newer, then sends each this device has newer. */
+  private ownsLocal(): boolean {
+    return canWriteLocal(this.store) && localAccess(this.store).userId === this.remote.userId;
+  }
+
+  /** Takes newer cloud sections, unites lesson names, then sends local changes. */
   pull(): Promise<void> {
     return this.run(async () => {
+      if (this.stopped || this.selected && !this.ownsLocal()) return;
+      if (!this.selected) {
+        const switched = selectLocal(this.store, this.remote.userId, () => { stamp(this.store); });
+        try { if (switched) this.onApply([...SECTIONS], true); }
+        catch (error) { localAccess(this.store).blocked = true; throw error; }
+        this.selected = true;
+      }
       const row = await this.remote.pull();
-      if (this.stopped) return;
+      if (this.stopped || !this.ownsLocal()) return;
       this.take(row);
       this.pulled = true;
       await this.send();
@@ -123,7 +137,7 @@ export class Sync {
 
   /** A local change: stamped now, sent after a quiet moment, so a burst of moves is one write. */
   changed(): void {
-    if (this.stopped) return;
+    if (this.stopped || !this.selected || !this.ownsLocal()) return;
     const stamps = stamp(this.store), local = readLocal(this.store).saved_game;
     // An explicit replacement or a new local move can supersede a rejected copy, even with a future clock.
     if (!this.savedGame.blocked() && this.rejectedGame && local != null && canon(local) !== this.rejectedGame.local && stamps.saved_game) {
@@ -143,6 +157,14 @@ export class Sync {
   stop(): void { this.stopped = true; clearTimeout(this.timer); }
 
   private async send(): Promise<void> {
+    if (this.stopped || !this.ownsLocal()) return;
+    const lessons = stamp(this.store).lessons;
+    if (lessons && lessons.at > (this.cloudAt.lessons ?? -1)) {
+      // shortcut: writes can race after this read, use a server union when simultaneous writes must keep all names.
+      const latest = await this.remote.pull();
+      if (this.stopped || !this.ownsLocal()) return;
+      this.take(latest);
+    }
     const stamps = stamp(this.store), local = readLocal(this.store), row: Row = {};
     for (const s of SECTIONS) {
       if (s !== 'lessons' && this.savedGame.blocked()) continue;
@@ -154,7 +176,7 @@ export class Sync {
     }
     if (this.stopped || !Object.keys(row).length) return;
     const kept = await this.remote.push(row);
-    if (this.stopped) return;
+    if (this.stopped || !this.ownsLocal()) return;
     if (kept) this.take(kept); // another device sent a newer copy meanwhile: it comes down now
     else for (const s of SECTIONS) if (row[s]) this.cloudAt[s] = row[s]!.at;
   }
@@ -185,11 +207,21 @@ export class Sync {
         writeLocal(this.store, s, more.length ? { ...cloud, done: [...cloud.done, ...more] } : cloud);
         if (more.length) this.later(this.delayMs);
       } else writeLocal(this.store, s, v);
-      stamps[s] = { at, json: canon(s === 'lessons' ? v : readLocal(this.store)[s]) };
+      stamps[s] = { at: s === 'lessons' ? Math.max(at, stamps[s]?.at ?? at) : at, json: canon(s === 'lessons' ? v : readLocal(this.store)[s]) };
       if (s === 'saved_game') this.rejectedGame = undefined;
       applied.push(s);
     }
     if (applied.length) { this.store.setItem(STAMPS, JSON.stringify(stamps)); this.onApply(applied); }
+    if (!this.ownsLocal()) return;
+    const local = readLocal(this.store);
+    // A successful request alone is not a receipt. Each stored section must match the cloud.
+    if (this.store.getItem(SAVE) !== null && local.saved_game === null
+      || this.store.getItem(LESSONS) !== null && local.lessons === null) return;
+    if (SECTIONS.every(s => local[s] === null || usable(s, row?.[s]?.v) && canon(local[s]) === canon(own(s, row![s]!.v)))) {
+      const current = stamp(this.store);
+      current.confirmed = JSON.stringify([this.store.getItem(SAVE), this.store.getItem(LESSONS)]);
+      this.store.setItem(STAMPS, JSON.stringify(current));
+    }
   }
 
   private rejectGame(at: number): void {

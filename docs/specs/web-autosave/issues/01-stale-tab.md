@@ -60,3 +60,15 @@ Result: An unreadable-save read now includes its raw text. New game keeps permis
 - Green: `KINGDOWN_TEST_FILE='src/{screen/play,screen/save,ui/table}.test.ts' npm test`. Both type checks, all 55 selected tests, and all 57 art checks pass.
 - Docs: `npm run test:docs`. All 15 files and 178 tests pass.
 - Review: The fix uses one raw-text comparison for both checks. It adds no stored field or dependency. The tests check the retry, changed raw data, and the end of replacement permission. No full suite or browser check runs.
+
+## Lane merge and account finding 1
+
+Plan: Merge `staging/web-sync` into this branch. Keep the account owner check and the saved game comparison. Use one persistent save notice for storage failures and account blocks. Add a two-tab test with equal game fields and different settings. Check the current staging tip with `git merge-tree`; do not merge that tip.
+
+Checks: A stale A tab cannot write its move or settings to B's local copy or cloud row. An accepted account load updates the comparison, including a FEN page. An owner block returns `false` from `writeSave()`. A successful write clears the notice for the data it saves. Run the selected source tests, doc checks, and one `new-game` browser check. Keep the commit hooks unchanged.
+
+Merge result: The merge has four text conflicts. `play.ts` keeps both guards and the switched callback. Each accepted account game sets the comparison before the board path runs. `play.test.ts` keeps the FEN input, real settings, fake timers, and both sets of view methods. `save.ts` keeps the boolean result and returns `false` on an owner block. `save.test.ts` keeps the false-result check; it needs no second write to check for a thrown error.
+
+Notice design: All persistent save warnings use `saveNotice`. An account block shows Reload and stops writes. A storage failure shows “Changes not saved. Keep this tab open.” and permits local play. The page shows one warning, even with both causes. It tracks game, settings, and lesson failures. A successful write clears only the failures for the data it saves. A settings write cannot hide unsaved moves or lesson progress. An account switch clears the prior account's failure state.
+
+Merge check: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,ui/table,account/account,account/client,lesson-shelf,lesson-store}.test.ts' npm test` passes. Both type checks, 147 tests in eight files, and 57 art checks pass. `src/account/local.test.ts` does not exist, so the command omits it. The merge adds no dependency or save field.
