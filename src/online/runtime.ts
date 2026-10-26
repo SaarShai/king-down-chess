@@ -16,7 +16,7 @@ const inviteKey = (key: string): { token: string } | { code: string } => key.len
 
 type Receipt = { name: string; args: Record<string, unknown> };
 const GAME_SCREENS: string[] = ['board', 'seat', 'friend', 'wait', 'end'];
-/** The receipt is durable before the send. A network fault retains the exact ID, game, revision and payload. */
+/** The receipt is durable before the send. A network fault or timeout retains the exact ID, game, revision and payload. */
 export function createWebTransport(api: OnlineClient, userId: string, storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>) {
   const key = `kingdown.account-command.${userId}`;
   function pending(): Receipt | undefined {
@@ -26,7 +26,7 @@ export function createWebTransport(api: OnlineClient, userId: string, storage: P
     if (!receipt || typeof receipt.name !== 'string' || !receipt.args || typeof receipt.args.command_id !== 'string') throw new Error('The saved command cannot be read.');
     return receipt;
   }
-  const call: GameTransport = async (name, args, options) => {
+  const send: GameTransport = async (name, args, options) => {
     options.signal?.throwIfAborted();
     const game = String(args.game_id ?? args.board_id ?? '');
     const action = commandAction(name, args);
@@ -39,40 +39,53 @@ export function createWebTransport(api: OnlineClient, userId: string, storage: P
     }
     try {
       let reply: ToolResult;
-      if (action) reply = gameResult((await api.command(game, Number(args.expected_revision), action, String(args.command_id))).view);
+      if (action) reply = gameResult((await api.command(game, Number(args.expected_revision), action, String(args.command_id), options.signal)).view);
       else switch (name) {
         case 'kingdown_get': case 'kingdown_resume': case 'kingdown_open':
           reply = game ? gameResult(await api.game(game, typeof args.since_revision === 'number' ? args.since_revision : undefined, options.signal)) : result({}, { screen: 'play' }); break;
         case 'kingdown_create': {
           const { command_id, board_id: _, ...input } = args;
-          const created = await api.create(input as CreateOptions, String(command_id));
+          const created = await api.create(input as CreateOptions, String(command_id), options.signal);
           if (created.invite) friendInvites.set(created.view.game_id, created.invite);
           reply = gameResult(created.view); break;
         }
         case 'kingdown_preview': { const { game_id: _, ...input } = args; reply = result({ draft: await api.previewDraft(game, input as DraftInput, options.signal) }); break; }
         case 'kingdown_games': reply = result({ games: await api.games(options.signal) }); break;
-        case 'kingdown_settings': reply = result(await api.settings(args as Partial<PlayerSettings>)); break;
-        case 'kingdown_handle': { const value = await api.handle(args as { handle: string; icon?: Icon; check?: boolean }); reply = result({ me: value.me }, args.check ? { available: value.available } : undefined); break; }
-        case 'kingdown_profile': reply = result(await api.record(args as { before?: string; blocks_after?: string; notices_before?: string })); break;
-        case 'kingdown_join': reply = args.preview ? result({ preview: await api.preview(inviteKey(String(args.code))) }, { screen: 'join' }) : gameResult(await api.redeem(inviteKey(String(args.code)))); break;
-        case 'kingdown_invite': reply = result({}, await api.invite(game)); break;
-        case 'kingdown_seen': await api.seen(game); reply = result(); break;
-        case 'kingdown_lobby': reply = result({ lobby: await api.lobby() }); break;
-        case 'kingdown_find': { const { board_id: _, ...input } = args; reply = gameResult(await api.find(input)); break; }
-        case 'kingdown_accept': reply = gameResult(await api.accept(game, args.rating_policy as RatingPolicy | undefined)); break;
-        case 'kingdown_cancel': reply = gameResult(await api.cancel(game)); break;
-        case 'kingdown_block': { const value = await api.block(args); reply = value.view ? gameResult(value.view) : result(); reply._meta = { ...reply._meta, blocked: value.blocked }; reply.content = text(value.blocked ? 'Player blocked. Your current game continues.' : 'Player unblocked. Follows stay off.'); break; }
-        case 'kingdown_report': reply = result(await api.report(args as Parameters<OnlineClient['report']>[0])); break;
+        case 'kingdown_settings': reply = result(await api.settings(args as Partial<PlayerSettings>, options.signal)); break;
+        case 'kingdown_handle': { const value = await api.handle(args as { handle: string; icon?: Icon; check?: boolean }, options.signal); reply = result({ me: value.me }, args.check ? { available: value.available } : undefined); break; }
+        case 'kingdown_profile': reply = result(await api.record(args as { before?: string; blocks_after?: string; notices_before?: string }, options.signal)); break;
+        case 'kingdown_join': reply = args.preview ? result({ preview: await api.preview(inviteKey(String(args.code)), options.signal) }, { screen: 'join' }) : gameResult(await api.redeem(inviteKey(String(args.code)), options.signal)); break;
+        case 'kingdown_invite': reply = result({}, await api.invite(game, options.signal)); break;
+        case 'kingdown_seen': await api.seen(game, options.signal); reply = result(); break;
+        case 'kingdown_lobby': reply = result({ lobby: await api.lobby(options.signal) }); break;
+        case 'kingdown_find': { const { board_id: _, ...input } = args; reply = gameResult(await api.find(input, options.signal)); break; }
+        case 'kingdown_accept': reply = gameResult(await api.accept(game, args.rating_policy as RatingPolicy | undefined, options.signal)); break;
+        case 'kingdown_cancel': reply = gameResult(await api.cancel(game, options.signal)); break;
+        case 'kingdown_block': { const value = await api.block(args, options.signal); reply = value.view ? gameResult(value.view) : result(); reply._meta = { ...reply._meta, blocked: value.blocked }; reply.content = text(value.blocked ? 'Player blocked. Your current game continues.' : 'Player unblocked. Follows stay off.'); break; }
+        case 'kingdown_report': reply = result(await api.report(args as Parameters<OnlineClient['report']>[0], options.signal)); break;
         default: throw new Error(`The game request is not supported: ${name}`);
       }
-      if (durable) storage.removeItem(key);
       options.signal?.throwIfAborted();
+      if (durable) storage.removeItem(key);
       return reply;
     } catch (error) {
+      options.signal?.throwIfAborted();
       if (!(error instanceof OnlineError) || error.status >= 500) throw error;
       if (durable) storage.removeItem(key);
       return { isError: true, content: text(error.message), _meta: { code: error.code } };
     }
+  };
+  const call: GameTransport = async (name, args, options) => {
+    const deadline = options.timeout === undefined ? undefined : new AbortController();
+    const signal = deadline ? options.signal ? AbortSignal.any([options.signal, deadline.signal]) : deadline.signal : options.signal;
+    signal?.throwIfAborted();
+    if (!signal) return send(name, args, options);
+    let abort!: () => void;
+    const stopped = new Promise<never>((_resolve, reject) => { abort = () => reject(signal.reason); signal.addEventListener('abort', abort, { once: true }); });
+    const timer = deadline && setTimeout(() => deadline.abort(new Error('Request timed out')), options.timeout);
+    // The deadline also ends token, cache-proof and retry waits; late replies keep the receipt.
+    try { return await Promise.race([send(name, args, { ...options, signal }), stopped]); }
+    finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
   };
   return { call, pending };
 }

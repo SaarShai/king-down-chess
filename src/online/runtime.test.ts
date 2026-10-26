@@ -1,7 +1,9 @@
 import { expect, it, vi } from 'vitest';
 import { createBrowserRuntime, createWebTransport } from './runtime';
-import { OnlineError, type OnlineClient } from './client';
+import { onlineClient, OnlineError, type OnlineClient } from './client';
 import { createPageClient } from '../plugin/client';
+import { createQueue } from '../plugin/queue';
+import { CANNOT_CONNECT } from '../account-game/types';
 import type { JoinPreview, View } from '../match/protocol';
 
 function storage() {
@@ -23,14 +25,14 @@ it('persists the full command before sending, then retries the exact input after
   expect(reloaded.pending()).toEqual({ name: 'kingdown_move', args });
   command.mockImplementationOnce(async () => ({ view }) as never);
   expect((await reloaded.call(reloaded.pending()!.name, reloaded.pending()!.args, {}))._meta?.view).toEqual(view);
-  expect(command.mock.calls).toEqual(Array.from({ length: 2 }, () => [args.game_id, 5, { type: 'turn', actions: args.actions }, 'fixed']));
+  expect(command.mock.calls).toEqual(Array.from({ length: 2 }, () => [args.game_id, 5, { type: 'turn', actions: args.actions }, 'fixed', undefined]));
   expect(saved.records.size).toBe(0);
 });
 
 it('reads private account notices through the existing profile adapter without persistence', async () => {
   const saved = storage(), page = {notices:[{id:'9007199254740993',text:'A private reason.'}],next_notices_before:null}, record = vi.fn(async()=>page);
   const result = await createWebTransport({record} as unknown as OnlineClient,'account-a',saved).call('kingdown_profile',{notices_before:'9007199254740993'},{});
-  expect(record).toHaveBeenCalledWith({notices_before:'9007199254740993'});
+  expect(record).toHaveBeenCalledWith({notices_before:'9007199254740993'},undefined);
   expect(result._meta).toEqual(page); expect(result.structuredContent ?? {}).toEqual({}); expect(saved.records.size).toBe(0);
 });
 
@@ -57,7 +59,7 @@ it('uses one stable creation ID and keeps the HTTP game selection local to this 
   const saved = storage(), create = vi.fn(async () => ({ view }));
   const client = createWebTransport({ create } as unknown as OnlineClient, 'a', saved);
   const reply = await client.call('kingdown_create', { kind: 'friend', options: {}, command_id: 'creation', board_id: 'old-board' }, {});
-  expect(create).toHaveBeenCalledExactlyOnceWith({ kind: 'friend', options: {} }, 'creation');
+  expect(create).toHaveBeenCalledExactlyOnceWith({ kind: 'friend', options: {} }, 'creation', undefined);
   expect(reply).toMatchObject({ _meta: { view, board_id: view.game_id } });
   expect(saved.records.size).toBe(0);
 });
@@ -70,9 +72,9 @@ it('preserves Ranked Find after a lost reply and forwards the displayed acceptan
   expect(reloaded.pending()).toEqual({name:'kingdown_find',args});
   find.mockImplementationOnce(async()=>view as never);
   await reloaded.call(reloaded.pending()!.name,reloaded.pending()!.args,{});
-  expect(find.mock.calls).toEqual([[args],[args]]); expect(saved.records.size).toBe(0);
+  expect(find.mock.calls).toEqual([[args,undefined],[args,undefined]]); expect(saved.records.size).toBe(0);
   await reloaded.call('kingdown_accept',{game_id:view.game_id,rating_policy:'ranked-v1'},{});
-  expect(accept).toHaveBeenCalledExactlyOnceWith(view.game_id,'ranked-v1');
+  expect(accept).toHaveBeenCalledExactlyOnceWith(view.game_id,'ranked-v1',undefined);
 });
 
 
@@ -113,7 +115,7 @@ it.each(['kingdown_computer', 'kingdown_move'])('keeps the URL game while recove
     expect(browser.history.replaceState).not.toHaveBeenCalled();
     await host.call(name, args, {});
     expect(command).toHaveBeenCalledExactlyOnceWith(args.game_id, args.expected_revision,
-      name === 'kingdown_computer' ? { type: 'computer' } : { type: 'turn', actions: args.actions }, args.command_id);
+      name === 'kingdown_computer' ? { type: 'computer' } : { type: 'turn', actions: args.actions }, args.command_id, undefined);
     expect(browser.localStorage.getItem('kingdown.account-command.a')).toBeNull();
     expect(state?.board_id).toBe(target);
   } finally { vi.unstubAllGlobals(); }
@@ -156,8 +158,8 @@ it.each(['kingdown_create', 'kingdown_find'])('preserves the existing start cont
     expect(client.state).toMatchObject({ screen: 'play', board_id: args.game_id, pending: receipt });
     await client.call(name, client.state.pending!.args);
     expect(browser.localStorage.getItem('kingdown.account-command.a')).toBeNull();
-    if (name === 'kingdown_create') expect(create).toHaveBeenCalledExactlyOnceWith({ kind: 'solo' }, 'start-once');
-    else expect(find).toHaveBeenCalledExactlyOnceWith({ kind: 'solo', command_id: 'start-once' });
+    if (name === 'kingdown_create') expect(create).toHaveBeenCalledExactlyOnceWith({ kind: 'solo' }, 'start-once', expect.any(AbortSignal));
+    else expect(find).toHaveBeenCalledExactlyOnceWith({ kind: 'solo', command_id: 'start-once' }, expect.any(AbortSignal));
   } finally { vi.unstubAllGlobals(); }
 });
 it('keeps a same-game setup continuation while recovering its saved command', () => {
@@ -206,6 +208,131 @@ function held<T>() {
   const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
   return { promise, resolve, reject };
 }
+
+it.each(['request', 'body'] as const)('ends a stalled HTTP %s at the page deadline and retries the saved command', async phase => {
+  vi.useFakeTimers();
+  const diagnostic = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const saved = storage(), queue = createQueue(), request = held<Response>(), body = held<unknown>();
+  const ack = { type: 'ack', command_id: args.command_id, revision: view.revision, view };
+  const response = () => new Response(JSON.stringify(ack), { headers: { 'Content-Type': 'application/json' } });
+  let signal: AbortSignal | undefined;
+  const fetch = vi.fn<typeof globalThis.fetch>().mockImplementationOnce(async (_url, init) => {
+    signal = init?.signal ?? undefined;
+    signal?.addEventListener('abort', () => { if (phase === 'request') request.reject(signal!.reason); else body.reject(signal!.reason); }, { once: true });
+    if (phase === 'request') return request.promise;
+    const reply = response(); vi.spyOn(reply, 'json').mockImplementation(() => body.promise);
+    return reply;
+  }).mockImplementation(async () => response());
+  const transport = createWebTransport(onlineClient({ token: async () => 'jwt', fetch }), 'a', saved);
+  const client = createPageClient(transport.call);
+  const run = () => queue.run(queue.command('write', 'kingdown_move', args), async () => ({ status: 'done', result: await client.call('kingdown_move', args) }));
+  const pending = run();
+  try {
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(queue.writing()).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(queue.writing()).toBe(false);
+    expect(await pending).toEqual({ status: 'failed', text: CANNOT_CONNECT });
+    expect(signal?.aborted).toBe(true);
+    expect(client.inflight).toBe(0);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(transport.pending()).toEqual({ name: 'kingdown_move', args });
+    expect(await run()).toMatchObject({ status: 'done', result: { _meta: { view } } });
+    expect(fetch.mock.calls.map(([, init]) => JSON.parse(init!.body as string))).toEqual(Array.from({ length: 2 }, () => ({ command_id: args.command_id, expected_revision: args.expected_revision, action: { type: 'turn', actions: args.actions } })));
+    expect(transport.pending()).toBeUndefined();
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    request.resolve(response()); body.resolve(ack); await pending;
+    vi.useRealTimers(); diagnostic.mockRestore();
+  }
+});
+
+it.each([
+  ['kingdown_move', args], ['kingdown_get', { game_id: args.game_id }], ['kingdown_resume', { game_id: args.game_id }], ['kingdown_open', { game_id: args.game_id }],
+  ['kingdown_create', { kind: 'friend', command_id: 'create-once' }], ['kingdown_find', { mode: 'ranked', command_id: 'find-once' }],
+  ['kingdown_preview', { game_id: args.game_id, expected_revision: 5, actions: [] }], ['kingdown_games', {}], ['kingdown_settings', {}],
+  ['kingdown_handle', { handle: 'player', check: true }], ['kingdown_profile', {}], ['kingdown_join', { code: 'K7QX2M', preview: true }], ['kingdown_join', { code: 'K7QX2M' }],
+  ['kingdown_invite', { game_id: args.game_id }], ['kingdown_seen', { game_id: args.game_id }], ['kingdown_lobby', {}],
+  ['kingdown_accept', { game_id: args.game_id }], ['kingdown_cancel', { game_id: args.game_id }], ['kingdown_block', { user_id: 'other' }], ['kingdown_report', { target: 'player', user_id: 'other', category: 'other' }],
+] as [string, Record<string, unknown>][])('applies the transport deadline to %s HTTP', async (name, input) => {
+  vi.useFakeTimers();
+  const request = held<Response>(); let signal: AbortSignal | undefined;
+  const fetch = vi.fn<typeof globalThis.fetch>(async (_url, init) => {
+    signal = init?.signal ?? undefined;
+    signal?.addEventListener('abort', () => request.reject(signal!.reason), { once: true });
+    return request.promise;
+  });
+  const transport = createWebTransport(onlineClient({ token: async () => 'jwt', fetch }), 'a', storage());
+  const pending = transport.call(name, input, { timeout: 25 }), rejected = expect(pending).rejects.toThrow('Request timed out');
+  try {
+    await vi.advanceTimersByTimeAsync(25); expect(signal?.aborted).toBe(true); await rejected;
+    expect(fetch).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
+  } finally { request.resolve(new Response('{}')); await Promise.allSettled([pending, rejected]); vi.useRealTimers(); }
+});
+
+it('keeps caller cancellation with a deadline and refuses a pre-aborted command before storage', async () => {
+  vi.useFakeTimers();
+  const request = held<Response>(), saved = storage(), controller = new AbortController(), reason = new Error('Page closed');
+  const fetch = vi.fn<typeof globalThis.fetch>(async (_url, init) => {
+    init!.signal!.addEventListener('abort', () => request.reject(init!.signal!.reason), { once: true });
+    return request.promise;
+  });
+  const transport = createWebTransport(onlineClient({ token: async () => 'jwt', fetch }), 'a', saved);
+  const pending = transport.call('kingdown_move', args, { timeout: 25, signal: controller.signal }), rejected = expect(pending).rejects.toBe(reason);
+  try {
+    await vi.advanceTimersByTimeAsync(10); controller.abort(reason); await rejected;
+    expect(fetch.mock.calls[0][1]?.signal?.reason).toBe(reason);
+    expect(transport.pending()).toEqual({ name: 'kingdown_move', args });
+    saved.records.clear();
+    await expect(transport.call('kingdown_move', args, { timeout: 25, signal: controller.signal })).rejects.toBe(reason);
+    expect(saved.records.size).toBe(0); expect(fetch).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
+  } finally { request.resolve(new Response('{}')); await Promise.allSettled([pending, rejected]); vi.useRealTimers(); }
+});
+
+it.each(['token', 'retry'] as const)('ends the %s wait at the deadline and sends no later command', async phase => {
+  vi.useFakeTimers();
+  const session = held<string>(), saved = storage(), fetch = vi.fn<typeof globalThis.fetch>().mockRejectedValue(new TypeError('offline'));
+  const token = vi.fn(() => phase === 'token' ? session.promise : Promise.resolve('jwt'));
+  const transport = createWebTransport(onlineClient({ token, fetch }), 'a', saved);
+  const pending = transport.call('kingdown_move', args, { timeout: 25 }), rejected = expect(pending).rejects.toThrow('Request timed out');
+  try {
+    await vi.advanceTimersByTimeAsync(25); await rejected;
+    expect(transport.pending()).toEqual({ name: 'kingdown_move', args });
+    session.resolve('jwt'); await vi.advanceTimersByTimeAsync(1_000);
+    expect(fetch).toHaveBeenCalledTimes(phase === 'token' ? 0 : 1);
+    expect(token).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
+  } finally { session.resolve('jwt'); await Promise.allSettled([pending, rejected]); vi.useRealTimers(); }
+});
+
+it.each(['success', 'refusal'] as const)('keeps the receipt when an aborted call returns a late %s', async outcome => {
+  vi.useFakeTimers();
+  const command = held<{ view: View }>(), saved = storage();
+  const transport = createWebTransport({ command: () => command.promise } as unknown as OnlineClient, 'a', saved);
+  const pending = transport.call('kingdown_move', args, { timeout: 25 }), rejected = expect(pending).rejects.toThrow('Request timed out');
+  try {
+    await vi.advanceTimersByTimeAsync(25); await rejected;
+    if (outcome === 'success') command.resolve({ view }); else command.reject(new OnlineError('STALE_REVISION', 409, 'The game changed'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(transport.pending()).toEqual({ name: 'kingdown_move', args });
+    expect(vi.getTimerCount()).toBe(0);
+  } finally { command.resolve({ view }); await Promise.allSettled([pending, rejected]); vi.useRealTimers(); }
+});
+
+it('keeps mount reads without a page deadline and cancels a completed deadline', async () => {
+  vi.useFakeTimers();
+  const request = held<Response>(), fetch = vi.fn<typeof globalThis.fetch>().mockReturnValueOnce(request.promise).mockResolvedValue(new Response('[]'));
+  const transport = createWebTransport(onlineClient({ token: async () => 'jwt', fetch }), 'a', storage()), client = createPageClient(transport.call);
+  let done = false;
+  const pending = client.call('kingdown_games', {}, { limit: false }).then(result => { done = true; return result; });
+  try {
+    await vi.advanceTimersByTimeAsync(60_000); expect(done).toBe(false); expect(fetch.mock.calls[0][1]?.signal).toBeUndefined();
+    request.resolve(new Response('[]')); await pending;
+    await client.call('kingdown_games');
+    const signal = fetch.mock.calls[1][1]?.signal;
+    expect(signal).toBeInstanceOf(AbortSignal); expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(10_000); expect(signal?.aborted).toBe(false);
+  } finally { request.resolve(new Response('[]')); await pending; vi.useRealTimers(); }
+});
 
 it.each(['reply', 'error'] as const)('ignores a held invitation %s after Back opens Menu', async outcome => {
   const { browser, back } = browserAt('/j#K7QX2M'), pending = held<JoinPreview>();
