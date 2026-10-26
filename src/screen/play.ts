@@ -799,7 +799,9 @@ export function connectPlay(view: BoardView, c: {
     else if (savedDataBlocked(stored)) return false;
     // Retry unsaved moves with settings only while the stored game still matches this tab.
     const retryGame = settingsOnly && unsaved.has('game') && !cloudGame && gameJSON(stored.save) === savedJSON;
-    const savesGame = !settingsOnly || retryGame;
+    // With no saved game yet (a fresh page or a `?fen=` position), settings save the game too, as before.
+    const firstSave = settingsOnly && lesson == null && !cloudGame && !stored.save && !stored.failed && savedJSON === gameJSON(null);
+    const savesGame = !settingsOnly || retryGame || firstSave;
     const kept = savesGame ? null : stored.save;
     if (!savesGame && !kept) return false;
     if (!settingsOnly && !replaceUnreadable && gameJSON(stored.save) !== savedJSON) {

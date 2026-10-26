@@ -73,7 +73,7 @@ describe('the autosave', () => {
 
   it('does not treat a denied storage read as existing unreadable saved data', () => {
     vi.stubGlobal('localStorage', { getItem: () => { throw new DOMException('Denied', 'SecurityError'); } });
-    expect(readSave()).toEqual({ save: null, unreadable: false });
+    expect(readSave()).toEqual({ save: null, unreadable: false, failed: true });
   });
 });
 

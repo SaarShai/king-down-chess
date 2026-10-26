@@ -31,7 +31,7 @@ export function endReason(status: Status, pos: Position, resigned: Color | null,
     || (status === 'draw50' ? 'Fifty moves with no take and no pawn move.' : '')
     || (status === 'drawRepetition' ? 'The same position came up three times.' : '')
     || (status === 'drawMaterial' ? 'Neither side has enough material to mate.' : '')
-    || (resigned != null ? 'That side gave up.' : '')
+    || (resigned != null ? `${resigned ? 'Black' : 'White'} resigns.` : '')
     || said;
 }
 
