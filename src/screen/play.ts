@@ -126,7 +126,7 @@ export function connectPlay(view: BoardView, c: {
   /** Why the last tap did nothing ("Not allowed: the rook cannot reach b2."); shown in the help line until the next action. */
   let notice = '';
   let saveBlocked = false;
-  let saveFailed = false;
+  let saveFailed: 'game' | 'lesson' | false = false;
   const unreadableNotice = 'This page cannot load your saved game. It keeps the saved data. Start a New game to replace it.';
   const accountNotice = 'This page cannot save your changes. Reload this page.';
   let recoveryNotice = unreadableNotice;
@@ -364,11 +364,15 @@ export function connectPlay(view: BoardView, c: {
   /** Lessons done, by name, in localStorage `kingdown.lessons` (the shelf and account read this store). */
   function noteLesson(name: string): boolean {
     if (!recordLesson(name)) {
-      saveFailed = true;
+      saveFailed = 'lesson';
       savedDataBlocked();
       notice = recoveryNotice = canWriteLocal(localStorage) ? 'This page cannot save your lesson progress. Check browser storage. Reload this page.' : accountNotice;
       moments.say(recoveryNotice);
       return false;
+    }
+    if (saveFailed === 'lesson') {
+      saveFailed = false;
+      if (notice === recoveryNotice) notice = '';
     }
     c.account()?.changed();
     return true;
@@ -801,11 +805,16 @@ export function connectPlay(view: BoardView, c: {
       rules: { ...game.rules },
     });
     if (!saved) {
-      saveFailed = true;
+      saveFailed = 'game';
       savedDataBlocked();
       notice = recoveryNotice = canWriteLocal(localStorage) ? 'This page cannot save your game. Check browser storage. Reload this page.' : accountNotice;
       refresh();
       return false;
+    }
+    if (saveFailed === 'game') {
+      saveFailed = false;
+      if (notice === recoveryNotice) notice = '';
+      refresh();
     }
     c.account()?.changed();
     return true;

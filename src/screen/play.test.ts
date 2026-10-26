@@ -120,6 +120,68 @@ describe('review account boundaries', () => {
     expect(changed).toHaveBeenCalledOnce();
   });
 
+  it('review 8: clears the game failure notice after storage recovers', () => {
+    const { play, changed } = page(), set = localStorage.setItem.bind(localStorage);
+    play.game().playLan(['e2-e4']);
+    localStorage.setItem = (key, value) => { if (key === SAVE_KEY) throw new Error('quota'); set(key, value); };
+    expect(play.save()).toBe(false);
+    expect(vi.mocked(refreshTable).mock.lastCall![0].notice).toContain('cannot save your game');
+    expect(changed).not.toHaveBeenCalled();
+    localStorage.setItem = set;
+    expect(play.save()).toBe(true);
+    expect(readSave().save?.moves).toEqual(['e2-e4']);
+    expect(changed).toHaveBeenCalledOnce();
+    expect(vi.mocked(refreshTable).mock.lastCall![0].notice).toBe('');
+    play.refresh();
+    expect(vi.mocked(refreshTable).mock.lastCall![0].notice).toBe('');
+    play.commands.escape(); play.refresh();
+    expect(vi.mocked(refreshTable).mock.lastCall![0].notice).toBe('');
+  });
+
+  it('review 8: clears the lesson failure notice after a successful retry', async () => {
+    const { play, view, changed } = page(), set = localStorage.setItem.bind(localStorage);
+    const complete = async () => {
+      const game = play.game(), move = game.legal.find(m => LESSONS[4].goal(game.pos, m))!;
+      view.onSquareClick(move.from, false); view.onSquareClick(move.to, false);
+      await vi.advanceTimersByTimeAsync(0);
+    };
+    play.startLesson(4);
+    localStorage.setItem = (key, value) => { if (key === 'kingdown.lessons') throw new Error('quota'); set(key, value); };
+    await complete();
+    expect(vi.mocked(refreshTable).mock.lastCall![0].notice).toContain('cannot save your lesson');
+    expect(vi.mocked(refreshTable).mock.lastCall![0].lessonDone).toBe(false);
+    expect(changed).not.toHaveBeenCalled();
+    localStorage.setItem = set;
+    play.startLesson(4);
+    await complete();
+    expect(progress().done).toContain('Guard');
+    expect(vi.mocked(refreshTable).mock.lastCall![0].lessonDone).toBe(true);
+    expect(play.moments.say).toHaveBeenCalledWith(expect.stringContaining('Well done'));
+    expect(changed).toHaveBeenCalledOnce();
+    play.refresh();
+    expect(vi.mocked(refreshTable).mock.lastCall![0].notice).toBe('');
+  });
+
+  it.each(['game', 'lesson'])('review 8: keeps the %s failure after the other write succeeds', async failed => {
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const { play, view } = page(), set = localStorage.setItem.bind(localStorage);
+    const complete = async () => {
+      play.startLesson(4);
+      const game = play.game(), move = game.legal.find(m => LESSONS[4].goal(game.pos, m))!;
+      view.onSquareClick(move.from, false); view.onSquareClick(move.to, false);
+      await vi.advanceTimersByTimeAsync(0);
+    };
+    const keyToFail = failed === 'game' ? SAVE_KEY : 'kingdown.lessons';
+    localStorage.setItem = (key, value) => { if (key === keyToFail) throw new Error('quota'); set(key, value); };
+    if (failed === 'game') expect(play.save()).toBe(false); else await complete();
+    const failure = vi.mocked(refreshTable).mock.lastCall![0].notice;
+    expect(failure).toContain(`cannot save your ${failed}`);
+    localStorage.setItem = set;
+    if (failed === 'game') await complete(); else expect(play.save()).toBe(true);
+    play.refresh();
+    expect(vi.mocked(refreshTable).mock.lastCall![0].notice).toBe(failure);
+  });
+
   it.each(['other account', 'storage error'])('review 6: keeps a failure notice when New game cannot save (%s)', cause => {
     stored.set('kingdown.sync-owner', JSON.stringify({ userId: 'A' }));
     const { play, view, changed, engine } = page();
