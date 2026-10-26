@@ -8,8 +8,11 @@ import { endTurn } from './app-ui.mjs';
 // at Fast, not at all at Off. Then it measures the main-thread time of a frame with the kings' effects
 // and the 16 resting pawns, at desktop size and on a 390 px phone.
 import assert from 'node:assert/strict';
+import { writeFileSync } from 'node:fs';
+import { dirname, extname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { titleStart } from './app-ui.mjs';
-import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, env, isInside, launch, shot, trapErrors } from './lib/checks.mjs';
 
 const url = new URL(env('PLAYABLE_URL'));
 url.searchParams.set('players', 'human,human');
@@ -274,6 +277,48 @@ try {
     }
   }
   console.log(report.map(l => `  ${l}`).join('\n'));
+
+  // The source preview must replay both complete Mud styles, even though a quiet scene normally settles.
+  const preview = await newPage({ viewport: { width: 1440, height: 900 } });
+  const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const mime = { '.mjs': 'text/javascript', '.html': 'text/html', '.css': 'text/css', '.png': 'image/png', '.webp': 'image/webp', '.svg': 'image/svg+xml' };
+  // The managed site serves the build; fulfill this page's source-only docs and public art from this checkout.
+  await preview.route('**/*', async route => {
+    const pathname = decodeURIComponent(new URL(route.request().url()).pathname);
+    if (!/^\/(docs|public)\//.test(pathname)) return route.continue();
+    const file = resolve(sourceRoot, `.${pathname}`);
+    assert.ok(isInside(sourceRoot, file), 'preview source stays inside the checkout');
+    await route.fulfill({ path: file, contentType: mime[extname(file)] || 'application/octet-stream' });
+  });
+  await preview.goto(new URL('docs/king-effects/preview.html?record#idle-mud', url).href);
+  await preview.evaluate(() => window.preview.ready);
+  await preview.locator('#idle-mud').scrollIntoViewIfNeeded();
+  await preview.evaluate(() => {
+    const scene = window.preview.scenes.mud.scene, keepAwake = scene.keepAwake.bind(scene);
+    scene.keepAwake = ms => {
+      window.__mudReplay = { requestedMs: ms, start: performance.now(), firstFrame: scene.frames };
+      keepAwake(ms);
+    };
+  });
+  await preview.getByRole('button', { name: 'Replay Mud ground animation', exact: true }).click();
+  assert.equal(await preview.evaluate(() => window.__mudReplay.requestedMs), 16000, 'Mud replay covers both eight-second styles');
+  const samples = [];
+  for (const at of [0, 4000, 8000, 12000, 16100]) {
+    const elapsed = await preview.evaluate(() => performance.now() - window.__mudReplay.start);
+    await wait(Math.max(0, at - elapsed));
+    const sample = await preview.evaluate(() => {
+      const scene = window.preview.scenes.mud.scene;
+      return { elapsedMs: performance.now() - window.__mudReplay.start, frames: scene.frames - window.__mudReplay.firstFrame, effects: scene.effects };
+    });
+    assert.deepEqual(sample.effects, ['mud', 'mud', 'mud', 'mud']);
+    if (at === 4000 || at === 12000 || at === 16100) sample.screenshot = await shot(preview, `mud-replay-${at}`, { clip: await preview.locator('#idle-mud').boundingBox() });
+    samples.push(sample);
+  }
+  assert.ok(samples.at(-1).elapsedMs >= 16000, 'the full alternating cycle completes');
+  assert.ok(samples.at(-1).frames > samples[3].frames + 30, 'Mud still draws after twelve seconds');
+  writeFileSync(join(env('PLAYABLE_OUT'), 'mud-replay.json'), `${JSON.stringify({ requestedMs: 16000, samples }, null, 2)}\n`);
+  await preview.close();
+  console.log('ok selected preview: full 16 s Mud replay, both styles and end-of-cycle screenshots recorded');
 } finally { await browser.close(); }
 assertNoErrors();
 console.log('ok all king-effect checks');

@@ -13,8 +13,8 @@ const HEADROOM = 64, PAD = 32, TILE = 112, pieces = { P, N, B, R, Q, K, S, L, M,
 const INFO = {
   flame: ['Flame', 'The selected Lava A ground opens into painted branching fissures, with molten light below the stone. Lava also flows through his armour.', 'A bubbling lava pool opens under the piece; lava climbs it, with a glowing crust, drips, sparks and smoke, and the pool pulls it under.'],
   frost: ['Frost', 'No ground animation. His original drifting flakes remain.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
-  stratus: ['Stratus', 'The original Sky King hovers over full clouds that visibly gather and dissolve below his feet.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the rook in its way and off the board: on the back rank along the band above the board, from an edge file back over the king.'],
-  mud: ['Mud', 'Grass grows thick round his feet, and brown vines rise from the ground, arch over and go back into the ground; then the vines and the grass sink back.', 'The soil cracks; brown thorny vines wind round the piece and pull it down into the earth; three sprouts come up. Then his own grass, and after it a vine, grow on his new square.'],
+  stratus: ['Stratus', 'The original Sky King hovers over a persistent painted cloud core while outer billows roll and fade independently.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the rook in its way and off the board: on the back rank along the band above the board, from an edge file back over the king.'],
+  mud: ['Mud', 'The original dense growth plays for eight seconds, then sparse painted grass and vines play for eight seconds. Both return to soil between cycles.', 'The soil cracks; brown thorny vines wind round the piece and pull it down into the earth; three sprouts come up. Then his own grass, and after it a vine, grow on his new square.'],
   spirit: ['Spirit', 'The ivory king: a white and gold glow round him, short rays of light above his crown and light on his square. The charcoal king: a black aura, black rays and a dark pool on his square. Both breathe slowly in and out.', 'The piece turns into a glowing silhouette of itself (white for the ivory king, black for the charcoal one) and implodes.'],
   shadow: ['Shadow', 'Skeletal hands (white for the ivory king, black for the charcoal one) reach up out of cracks round his feet; his smoke drifts and curls upward.', 'A crack opens under the piece; skeletal hands rise out of it, take hold of the piece and pull it down. Death Touch takes it without moving.'],
 };
@@ -92,15 +92,15 @@ function card(parent, title, text, scene, canvas, box = CROP) {
   return section;
 }
 
-function groundReplay(section,scene,title){
+function groundReplay(section,scene,design){
  const controls=document.createElement('div'),button=document.createElement('button');
  controls.className='buttons';button.type='button';button.textContent='Replay ground animation';
  button.dataset.groundReplay='';button.disabled=motionPreference.matches;
- button.setAttribute('aria-label',`Replay ${title} ground animation`);
+ button.setAttribute('aria-label',`Replay ${INFO[design][0]} ground animation`);
  button.addEventListener('click',()=>{
   if(motionPreference.matches)return;
   const enabled=document.getElementById('animations');if(!enabled.checked)enabled.click();
-  scene.restartKingGround();scene.keepAwake(10000);
+  scene.restartKingGround();scene.keepAwake(PERIOD[design]);
  });
  controls.appendChild(button);section.insertBefore(controls,section.children[1]);
 }
@@ -112,7 +112,7 @@ for (const design of Object.keys(INFO)) {
   scenes[design] = { scene, canvas };
   const section = card(grid, INFO[design][0], `${INFO[design][1]} <span class="period">Loop ${PERIOD[design] / 1000} s.</span>`, scene, canvas);
   section.id = `idle-${design}`;
-  if(design!=='frost')groundReplay(section,scene,INFO[design][0]);
+  if(design!=='frost')groundReplay(section,scene,design);
 }
 
 // 2. Captures: each card plays its captures in turn; a button plays one now.

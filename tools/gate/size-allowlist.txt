@@ -10,3 +10,4 @@ docs/visual-design/workshop/figure-samples-2026-10-06/mixed-minimal.png  Worksho
 docs/visual-design/workshop/figure-samples-2026-10-06/mixed.png  Workshop figure sample sheet of 2026-10-06; git tracks the sample folder as the record of the figure choice
 docs/visual-design/workshop/figure-samples-2026-10-06/strong-minimal.png  Workshop figure sample sheet of 2026-10-06; git tracks the sample folder as the record of the figure choice
 docs/balance/measurements.json  Requested generated balance dataset and per-file source ledger; rebuild with npm run balance:build
+docs/2d-first-pieces/king-shadow/hands/film-poses.webp  Approved transparent hand atlas; preserve all 130 selected interpolation poses and source quality for both armies
