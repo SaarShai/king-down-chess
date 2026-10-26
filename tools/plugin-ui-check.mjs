@@ -578,7 +578,8 @@ try {
       const footer = frame.locator(sheet ? '#setup-done' : '#setup-start');
       assert((await footer.evaluate(controlBounds)).accessible, `${state} footer stays above the composer`);
       await frame.locator(sheet ? '#menu-sheet .sheet-body' : '#new-game .new-game-body').evaluate(el => { el.scrollTop = 0; });
-      await frame.locator('#new-game img, #menu-sheet img').evaluateAll(images => Promise.all(images.map(image => image.decode())));
+      // A lazy card painting that is not shown never loads, so its decode() never ends: wait only for loaded or eager images.
+      await frame.locator('#new-game img, #menu-sheet img').evaluateAll(images => Promise.all(images.filter(image => image.loading !== 'lazy' || image.complete).map(image => image.decode())));
       const shotPath = await shot(page, `${state}-${width}-${mode}`);
       if (compare && (width === 390 || width === 1440)) {
         const size = width === 390 ? 'phone' : 'desktop', reference = await sharp(`docs/specs/chatgpt-mvp/sample/png/${state}-${size}.png`).resize(width, height).toBuffer();
@@ -1379,7 +1380,7 @@ try {
       for (const [width, height, suffix] of [[390,844,'phone'],[1440,900,'desktop'],[400,900,'side']]) {
         await page.setViewportSize({ width, height }); await fits(screen, width);
         await frame.locator('html').evaluate(() => document.fonts.ready);
-        await frame.locator(`[data-screen="${screen}"] img`).evaluateAll(images => Promise.all(images.map(img => img.decode())));
+        await frame.locator(`[data-screen="${screen}"] img`).evaluateAll(images => Promise.all(images.filter(img => img.loading !== 'lazy' || img.complete).map(img => img.decode())));
         for (const button of await frame.locator('#over.found button:visible').all()) assert((await button.evaluate(controlBounds)).accessible, 'Found controls stay above the composer');
         const capture = await page.screenshot(); await sharp(capture).toFile(join(look, `${state}-${suffix}-${mode}.png`));
         if (suffix !== 'side' && state !== 'join') {
