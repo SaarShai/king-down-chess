@@ -365,7 +365,7 @@ function apply(m: Move, c: Color): number {
     }
   }
   if (castleR) setCastle(rightsAfter(castleR, m));
-  if (classic) setEp(still ? -1 : epAfter(board, m, c));
+  if (classic) setEp(!still ? epAfter(board, m, c) : holdsTurn(m) ? epSq : -1);
   if (m.power) setUsed(c, spend(c, usedPair[c], m.power, drawnN[c], m.via));
   if (m.power === 'growth' || m.power === 'growthb') setDrawn(c, drawnN[c] + 1);
   if (m.power && trackLast && handAt[c].length) setLast(c, TAG_POWER[m.power]);

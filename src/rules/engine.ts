@@ -1112,7 +1112,8 @@ export function makeMove(pos: Position, m: Move): Position {
   if (m.drop && !m.power && waiting) { const w: [number, number] = [waiting[0], waiting[1]]; w[c]--; waiting = w; }
   if (waiting && (waiting[0] || waiting[1])) next.waiting = waiting;
   if (pos.castle) { const r = rightsAfter(pos.castle, m); if (r) next.castle = r; }
-  if (RULES.classicChess && !still) { const e = epAfter(board, m, c); if (e >= 0) next.ep = e; }
+  // A still move that holds the turn (a free mark) keeps the right for the move that follows it.
+  if (RULES.classicChess) { const e = !still ? epAfter(board, m, c) : holdsTurn(m) ? pos.ep ?? -1 : -1; if (e >= 0) next.ep = e; }
   return next;
 }
 
