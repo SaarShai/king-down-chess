@@ -14,11 +14,17 @@ url.searchParams.set('players', 'human,human');
 // White Knight b1, Rook h1; Black Knight g8, Rook a8.
 const FEN = 'r3k1n1/8/8/8/8/8/8/1N2K2R w - - 0 1';
 const browser = await launch();
+// Ends when both clip sheets finish loading.
+const sheets = page => Promise.all(['tap', 'slam'].map(name =>
+  page.waitForEvent('requestfinished', { predicate: request => new URL(request.url()).pathname.includes('/' + name + '-') })));
 const pace = (page, value) => page.evaluate(v => { const s = document.getElementById('pace'); s.value = v; s.dispatchEvent(new Event('change')); }, value);
 async function open(options = {}, { clock = false, fen = FEN } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, ...options });
+  const clipRequests = [];
+  context.on('request', request => { if (/\/(?:tap|slam)-[\w-]+\.webp$/.test(new URL(request.url()).pathname)) clipRequests.push(request.url()); });
   const page = await context.newPage();
   trapErrors(page);
+  const clipsLoaded = options.reducedMotion !== 'reduce' && sheets(page);
   await page.addInitScript(() => {
     sessionStorage.setItem('kingdown.title-seen', '1');
     // The clip each drawn frame showed: [name, drawing] or null, with the frame's time.
@@ -32,12 +38,21 @@ async function open(options = {}, { clock = false, fen = FEN } = {}) {
   if (clock) await page.clock.runFor(2000);
   await page.waitForFunction(() => window.view?.scene && document.getElementById('asset-status')?.textContent === '');
   await page.evaluate(() => window.view.ready());
-  return { context, page };
+  // Board readiness excludes clips. Clip playback checks wait for the optional sheets.
+  if (clipsLoaded) {
+    await clipsLoaded;
+    if (clock) await page.clock.runFor(32);
+    else await page.evaluate(() => new Promise(requestAnimationFrame));
+  }
+  return { context, page, clipRequests };
 }
 // A copy of the canvas pixels near the figure on `sq` (key: its name), and how much of two copies differs.
 const grab = (page, sq, key) => page.evaluate(([sq, key]) => {
   const c = document.querySelector('#board canvas'), r = c.getBoundingClientRect(), p = window.view.screenOf(sq), k = c.width / r.width;
-  (window.snaps ??= {})[key] = c.getContext('2d').getImageData(Math.round((p.x - r.left - 60) * k), Math.round((p.y - r.top - 140) * k), Math.round(120 * k), Math.round(180 * k)).data;
+  const x = Math.round((p.x - r.left - 60) * k), y = Math.round((p.y - r.top - 140) * k), w = Math.round(120 * k), d = c.getContext('2d').getImageData(x, y, w, Math.round(180 * k)).data;
+  // Chrome 155 returns stray colours outside the canvas (the top-row figures reach above it); count them as blank.
+  for (let i = 0; i < d.length; i += 4) { const px = x + i / 4 % w, py = y + Math.floor(i / 4 / w); if (px < 0 || py < 0 || px >= c.width || py >= c.height) d.fill(0, i, i + 4); }
+  (window.snaps ??= {})[key] = d;
 }, [sq, key]);
 const diff = (page, a, b) => page.evaluate(([a, b]) => {
   // The share of pixels (%) whose colour differs by more than 48 in a channel.
@@ -90,7 +105,7 @@ try {
   }
   // 2. Reduced motion, then Animations Off: no clip shows; the selected figure is still at once.
   for (const [label, options, off] of [['reduced motion', { reducedMotion: 'reduce' }, false], ['Animations Off', {}, true]]) {
-    const { context, page } = await open(options);
+    const { context, page, clipRequests } = await open(options);
     if (off) await pace(page, 'off');
     for (const [name, [sq]] of Object.entries(SQUARES)) {
       await page.evaluate(() => { window.clipLog.length = 0; });
@@ -101,6 +116,10 @@ try {
       await select(page, sq);
     }
     console.log(`ok ${label}: no clip, the still figure shows at once`);
+    if (options.reducedMotion === 'reduce') {
+      await page.evaluate(() => navigator.serviceWorker.ready);
+      assert.equal(clipRequests.length, 0, 'reduced motion: board and offline install request no clips');
+    }
     await context.close();
   }
   // 3. On a stopped clock, for each army: every drawing shows in order; the canvas shows the painted drawings (pixels
@@ -145,9 +164,10 @@ try {
     const page2 = await video.newPage();
     await page2.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1'));
     const u = new URL(url); u.searchParams.set('fen', FEN);
+    const clipsLoaded = sheets(page2);
     await page2.goto(u.href);
     await page2.waitForFunction(() => window.view?.scene && document.getElementById('asset-status')?.textContent === '');
-    await page2.evaluate(() => window.view.ready()); await page2.waitForTimeout(800);
+    await page2.evaluate(() => window.view.ready()); await clipsLoaded; await page2.evaluate(() => new Promise(requestAnimationFrame));
     for (const sq of [1, 7, 1, 7]) { await select(page2, sq); await page2.waitForTimeout(sq === 1 ? 1300 : 2600); await select(page2, sq); await page2.waitForTimeout(400); }
     await video.close();
     console.log(`ok key drawings and video in ${env('PLAYABLE_OUT')}`);

@@ -2,6 +2,7 @@ import type { SkillName } from '../ai/skill';
 import { Game, type Side } from '../game';
 import type { Pace } from '../render/PaintedView';
 import type { Color, Rules } from '../rules/engine';
+import { canWriteLocal, localAccess } from '../account/local';
 
 /**
  * account/sync.ts splits these fields into settings and the saved game: name a new one there too. Write
@@ -22,19 +23,32 @@ export const SETTINGS = ['skill', 'coords', 'sound', 'queen', 'pace', 'threats',
 /** The autosave's localStorage key (account/sync.ts reads it there too). */
 export const SAVE_KEY = 'kingdown.save';
 
-export interface SaveRead { save: Save | null; unreadable: boolean }
+/** Unreadable data includes the raw text for a later replacement check. */
+export interface SaveRead { save: Save | null; unreadable: boolean; raw?: string; failed?: true }
+
+/** Compare only game fields; settings and JSON key order can change without changing the game. */
+export function gameJSON(s: Save | null): string {
+  const game: Partial<Save> | null = s ? { ...s } : null;
+  if (game) for (const k of SETTINGS) delete game[k];
+  return JSON.stringify(game, (_k, v) => v && typeof v === 'object' && !Array.isArray(v)
+    ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a < b ? -1 : 1)) : v);
+}
 
 /** Missing data is different from data that this page must preserve until the player replaces it. */
 export function readSave(): SaveRead {
   let raw: string | null;
-  try { raw = localStorage.getItem(SAVE_KEY); }
-  catch { return { save: null, unreadable: false }; } // Storage can be unavailable while local practice still works.
+  try {
+    localAccess(localStorage);
+    raw = localStorage.getItem(SAVE_KEY);
+    if (!canWriteLocal(localStorage)) return { save: null, unreadable: true };
+  }
+  catch { return { save: null, unreadable: false, failed: true }; } // Storage can be unavailable while local practice still works.
   if (raw === null) return { save: null, unreadable: false };
   try {
     const s = JSON.parse(raw);
     savedGame(s);
     return { save: s, unreadable: false };
-  } catch { return { save: null, unreadable: true }; }
+  } catch { return { save: null, unreadable: true, raw }; }
 }
 
 /**
@@ -43,6 +57,7 @@ export function readSave(): SaveRead {
  */
 export function storedSettings(): Partial<Pick<Save, (typeof SETTINGS)[number]>> | null {
   try {
+    if (!canWriteLocal(localStorage)) return null;
     const s: unknown = JSON.parse(localStorage.getItem(SAVE_KEY) ?? 'null');
     return s && typeof s === 'object' && !Array.isArray(s) ? Object.fromEntries(SETTINGS.filter(k => k in s).map(k => [k, (s as Save)[k]])) : null;
   } catch { return null; }
@@ -60,9 +75,11 @@ export function savedGame(value: unknown): Game {
   return game;
 }
 
-/** Writes the autosave; `s` holds the settings and the game that the caller gives. */
-export function writeSave(s: Save): void {
+/** Writes the autosave; false means the caller must keep its unsaved-data notice. */
+export function writeSave(s: Save): boolean {
   try {
+    if (!canWriteLocal(localStorage)) return false;
     localStorage.setItem(SAVE_KEY, JSON.stringify(s));
-  } catch { /* private mode or a full quota: play on without a save */ }
+    return true;
+  } catch { return false; }
 }

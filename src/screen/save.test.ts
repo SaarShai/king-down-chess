@@ -36,7 +36,7 @@ describe('the autosave', () => {
     const s = storage();
     vi.stubGlobal('localStorage', s);
     expect(readSave()).toEqual({ save: null, unreadable: false });
-    writeSave(game);
+    expect(writeSave(game)).toBe(true);
     expect(SAVE_KEY).toBe('kingdown.save');
     expect(s.m.get('kingdown.save')).toBe(JSON.stringify(game));
     expect(readSave()).toEqual({ save: game, unreadable: false });
@@ -46,10 +46,10 @@ describe('the autosave', () => {
     const s = storage();
     vi.stubGlobal('localStorage', s);
     s.m.set(SAVE_KEY, '{');
-    expect(readSave()).toEqual({ save: null, unreadable: true });
+    expect(readSave()).toEqual({ save: null, unreadable: true, raw: '{' });
     expect(s.m.get(SAVE_KEY)).toBe('{');
     s.m.set(SAVE_KEY, JSON.stringify({ ...game, moves: 'e2-e4' }));
-    expect(readSave()).toEqual({ save: null, unreadable: true });
+    expect(readSave()).toEqual({ save: null, unreadable: true, raw: JSON.stringify({ ...game, moves: 'e2-e4' }) });
     expect(s.m.get(SAVE_KEY)).toBe(JSON.stringify({ ...game, moves: 'e2-e4' }));
   });
 
@@ -60,20 +60,20 @@ describe('the autosave', () => {
     s.m.set(SAVE_KEY, '{');
     expect(storedSettings()).toBeNull();
     s.m.set(SAVE_KEY, JSON.stringify({ moves: [], pace: 'off', sound: false }));
-    expect(readSave()).toEqual({ save: null, unreadable: true });
+    expect(readSave()).toEqual({ save: null, unreadable: true, raw: JSON.stringify({ moves: [], pace: 'off', sound: false }) });
     expect(storedSettings()).toEqual({ pace: 'off', sound: false });
     expect(s.m.get(SAVE_KEY)).toBe(JSON.stringify({ moves: [], pace: 'off', sound: false }));
   });
 
   it('plays on without a save when the storage refuses it (private mode, a full quota)', () => {
     vi.stubGlobal('localStorage', storage(true));
-    expect(() => writeSave(game)).not.toThrow();
+    expect(writeSave(game)).toBe(false);
     expect(readSave()).toEqual({ save: null, unreadable: false });
   });
 
   it('does not treat a denied storage read as existing unreadable saved data', () => {
     vi.stubGlobal('localStorage', { getItem: () => { throw new DOMException('Denied', 'SecurityError'); } });
-    expect(readSave()).toEqual({ save: null, unreadable: false });
+    expect(readSave()).toEqual({ save: null, unreadable: false, failed: true });
   });
 });
 

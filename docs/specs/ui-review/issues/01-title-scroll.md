@@ -1,6 +1,6 @@
 # Title scroll
 
-Status: claimed
+Status: resolved
 
 ## Finding
 
@@ -25,5 +25,10 @@ The account note must be in view or reachable by scroll. All five normal title l
 - Green: `npm run check:browser layout-title` passes at all six sizes. It uses localhost port 4327. External browser requests are blocked.
 - All five normal layouts match the base geometry. Four images match exactly. At 852×393, 29,122 pixels differ by at most 3/255. The fixed images match the base with only scroll enabled at all five sizes, with zero changed pixels.
 - At 852×393, a 54 px scroll shows the full account note. Its bottom is at 357.08 px. Wheel and touch checks pass.
-- The staging merge and final checks remain open.
+- Fetch and merge `origin/staging/first-game` at `f306d452`. Keep all six ticket links in the shared index. This is the only merge conflict.
+- Final tests: `KINGDOWN_TEST_FILE='src/{first-deal,context-line,ceremony-game}.test.ts' npm test` passes 40 cases. `npm run test:docs` passes 180 cases.
+- Final browser checks: `npm run check:browser layout-title home layout-zoom game-screen layout-result end new-game` passes all seven checks.
+- During the merge checks, the end check fails at the New game click or its focus check. Pause the browser clock while its menu opens. Wait for New game to be visible before focus. The end check then passes alone and with all seven checks. The assertions and limits stay the same.
+- The title images before and after the merge match exactly at all five sizes in the same browser.
+- Fix commit: `eb99a030`.
 - The output folder holds the images, logs and pixel counts. The fix changes no UI text or selector.

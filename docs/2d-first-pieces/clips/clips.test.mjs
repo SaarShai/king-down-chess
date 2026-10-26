@@ -11,9 +11,10 @@ const drawImage=(image,...a)=>{if(/(tap|slam)\.webp/.test(image?._s??''))atlasDr
 const ctx2d=new Proxy({},{get:(t,k)=>k in t?t[k]:k==='drawImage'?drawImage:k==='getImageData'||k==='createImageData'?(x,y,w=1,h=1)=>({data:new Uint8ClampedArray(Math.max(1,w*h)*4)}):k==='getTransform'?()=>({a:1,b:0,c:0,d:1,e:0,f:0}):k==='measureText'?()=>({width:1}):()=>ctx2d,set:(t,k,v)=>(t[k]=v,true)});
 const canvas=()=>({width:1,height:1,style:{},getContext:()=>ctx2d,addEventListener(){},getBoundingClientRect:()=>({width:960})});
 globalThis.document={createElement:canvas,hidden:false,addEventListener(){}};
+globalThis.DOMMatrix=class{scale(){return this;}};
 // A clip atlas in `failing` does not load (onerror; no size).
 const failing=new Set();
-globalThis.Image=class{constructor(){this.naturalWidth=this.width=this.height=1152;}set src(v){this._s=v;if([...failing].some(f=>String(v).includes(f))){this.naturalWidth=0;queueMicrotask(()=>this.onerror?.());}else queueMicrotask(()=>this.onload?.());}get src(){return this._s;}decode(){return Promise.resolve();}};
+globalThis.Image=class{constructor(){this.naturalWidth=0;this.complete=false;this.width=this.height=1152;}set src(v){this._s=v;queueMicrotask(()=>{this.complete=true;if([...failing].some(f=>String(v).includes(f)))this.onerror?.();else{this.naturalWidth=1152;this.onload?.();}});}get src(){return this._s;}decode(){return Promise.resolve();}};
 Object.defineProperty(globalThis,'performance',{value:{now:()=>now},configurable:true});
 globalThis.requestAnimationFrame=fn=>{frames.push(fn);return frames.length;};
 globalThis.cancelAnimationFrame=()=>{};
@@ -35,10 +36,10 @@ function run(scene,ms){
 }
 async function selected(value,lively,reduced=!lively.idle){
  const scene=createScene({canvas:canvas(),pieces:{P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName},headroom:64,kings:['plain','plain']});
- await scene.load().catch(()=>{});
  scene.setLively(lively);scene.setReducedMotion(reduced);
+ await scene.load().catch(()=>{});
  const pos=createPosition('king');pos.board=Array(64).fill(0);pos.board[parseSq('d4')]=value;scene.setPosition(pos);
- run(scene,100);scene.setSelected(parseSq('d4'));
+ run(scene,100);await Promise.resolve();scene.setSelected(parseSq('d4'));
  return scene;
 }
 
