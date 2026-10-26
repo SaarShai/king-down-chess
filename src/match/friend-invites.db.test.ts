@@ -82,10 +82,13 @@ suite('friend invitation transactions', () => {
  });
  it('keeps the recipient and expiry on rotation; reads keep the identity', async () => {
   const sent = await send(), expires = sent.invite!.expires_at;
+  await admin.query("update public.game_invites set expires_at=date_trunc('milliseconds',expires_at)+interval '1 microsecond' where game_id=$1", [sent.game_id]);
+  const exactExpiry = (await rows('select expires_at::text as at from public.game_invites where game_id=$1', [sent.game_id]))[0].at;
   expect((await services[0].view(users[0], sent.game_id)).invite_id).toBe(sent.invite_id);
   expect((await services[0].invitations(users[1])).invitations[0]).toMatchObject({ invite_id: sent.invite_id, direction: 'incoming', player: { handle: 'mira' } });
   const rotated = await services[0].invite(users[0], sent.game_id, { rotate: true });
   expect(rotated).toMatchObject({ recipient_id: users[1], expires_at: expires }); expect(rotated.invite_id).not.toBe(sent.invite_id);
+  expect((await rows('select expires_at::text as at from public.game_invites where game_id=$1', [sent.game_id]))[0].at).toBe(exactExpiry);
   await expect(services[0].join(users[1], sent.invite!.token)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
   expect(await services[0].join(users[1], rotated.token)).toMatchObject({ status: 'setup' });
  });

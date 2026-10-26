@@ -511,13 +511,13 @@ export class GameService {
    throw new MatchServiceError('FRIEND_GAME_LIMIT', 409, INVITE_NOTICES.gameLimit(count, handle, accepting), { count, handle });
   }
  }
- private async issue(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, recipient: string | null, expires?: Date): Promise<Invite> {
+ private async issue(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, recipient: string | null, expires?: Date | string): Promise<Invite> {
   expires ??= new Date((await this.store.now(client)).getTime() + FRIEND_CODE_DAYS * DAY);
   for (let attempt = 0; attempt < 5; attempt++) {
    const token = randomBytes(32).toString('base64url'), code = Array.from({ length: 6 }, () => CODE[randomInt(CODE.length)]).join('');
    const invite_id = hash(token);
    if (await this.store.addInvite(client, { token_hash: invite_id, code_hash: this.codeHash(code), game_id: game.id, seat: other(seatOf(game, actor)), created_by: actor, expires_at: expires, recipient_id: recipient }))
-    return { token, code, expires_at: expires.toISOString(), invite_id, recipient_id: recipient };
+    return { token, code, expires_at: (typeof expires === 'string' ? new Date(expires) : expires).toISOString(), invite_id, recipient_id: recipient };
   }
   return fail('UNAVAILABLE', 503, 'Could not make an invitation. Retry.');
  }
@@ -530,7 +530,7 @@ export class GameService {
    await this.store.lockAccounts(client, [actor, recipient]);
    const game = await this.store.load(gameId, { client, lock: true });
    if (game.created_by !== actor || game.kind !== 'friend') fail('FORBIDDEN', 403, INVITE_NOTICES.unavailable);
-   const stored = (await client.query('select * from public.game_invites where game_id=$1 for update', [gameId])).rows[0];
+   const stored = (await client.query('select *,expires_at::text as exact_expiry from public.game_invites where game_id=$1 for update', [gameId])).rows[0];
    // Re-read after account locks. A concurrent send can add the first invitation.
    if ((stored?.recipient_id ?? null) !== recipient) fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.unavailable);
    if (game.status !== 'waiting' || stored && stored.state !== 'open') fail('INVITE_UNAVAILABLE', 409, INVITE_NOTICES.closed);
@@ -540,7 +540,8 @@ export class GameService {
    if (recipient && !await this.store.mayJoin(client, recipient, actor)) fail('FORBIDDEN', 403, INVITE_NOTICES.permission);
    if (!stored) await this.checkSend(client, actor, recipient);
    if (stored) await client.query('delete from public.game_invites where game_id=$1', [gameId]);
-   return this.issue(client, game, actor, recipient, stored?.expires_at);
+   // Keep PostgreSQL microseconds when rotation replaces the row.
+   return this.issue(client, game, actor, recipient, stored?.exact_expiry);
   });
  }
  private async invitation(actor: string, tokenOrCode: unknown) {

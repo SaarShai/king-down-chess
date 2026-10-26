@@ -159,7 +159,7 @@ export class PostgresMatchStore {
   return (await client.query(`select exists(select from public.games g join public.game_commands c on c.game_id=g.id and c.kind='join'
    where g.created_by=$1 and g.kind='random' and g.status in ('setup','playing') and g.created_at<=$2 and c.created_at>$2) as available`, [actor, started])).rows[0].available;
  }
- async addInvite(client: PoolClient, row: { token_hash: string; code_hash: string; game_id: string; seat: Seat; created_by: string; expires_at: Date; recipient_id: string | null }): Promise<boolean> {
+ async addInvite(client: PoolClient, row: { token_hash: string; code_hash: string; game_id: string; seat: Seat; created_by: string; expires_at: Date | string; recipient_id: string | null }): Promise<boolean> {
   const result = await client.query('insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at,recipient_id) values($1,$2,$3,$4,$5,$6,$7) on conflict do nothing',
    [row.token_hash, row.code_hash, row.game_id, row.seat, row.created_by, row.expires_at, row.recipient_id]);
   return result.rowCount === 1;
