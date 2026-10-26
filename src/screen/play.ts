@@ -123,6 +123,8 @@ export function connectPlay(view: BoardView, c: {
   let replaying = false;
   /** Why the last tap did nothing ("Not allowed: the rook cannot reach b2."); shown in the help line until the next action. */
   let notice = '';
+  let unsaved: 'game' | 'settings' | null = null;
+  const unsavedNotice = 'Changes not saved. Keep this tab open.';
   let saveBlocked = false;
   const unreadableNotice = 'Your saved game could not be loaded. It is kept. Start a New game to replace it.';
   let recoveryNotice = unreadableNotice;
@@ -268,7 +270,7 @@ export function connectPlay(view: BoardView, c: {
     const coins = refreshCoins({ pos: shownPos(), history: game.history, rules: game.rules, legal: viewing == null ? game.legal : undefined, activeSide: currentTurn().activeSide, armed, canPlay: !finished() && viewing == null && lesson == null && myTurn(), busy, flipped, lesson, mode: turnMode(), viewer: linkSide ?? (sides[0] === 'ai' ? 1 : 0), waiting: currentTurn().waits, selection: selected != null || inspected != null || !!notice });
     armed = coins.armed;
     drawMarks();
-    refreshTable({ game, sides, skill, rules: game.rules, flipped, thinking, viewing, lesson, lessonDone, notice, armed, selected, pending, linkSide, reviewNote: moments.reviewNote(), turn: currentTurn(), mode: turnMode(), power: coins.context, previously: previously.state() });
+    refreshTable({ game, sides, skill, rules: game.rules, flipped, thinking, viewing, lesson, lessonDone, notice, saveNotice: unsaved ? unsavedNotice : '', armed, selected, pending, linkSide, reviewNote: moments.reviewNote(), turn: currentTurn(), mode: turnMode(), power: coins.context, previously: previously.state() });
     home?.refresh();
     const current = document.querySelector<HTMLElement>('.player-strip.is-turn .portrait');
     if (current) handoff(uiMotion, $('game-table'), current, handoffAt);
@@ -778,7 +780,7 @@ export function connectPlay(view: BoardView, c: {
       $('announce').textContent = recoveryNotice;
       refresh(); return;
     }
-    writeSave(kept ? { ...kept, ...settings.settingsNow() } : {
+    const next: Save = kept ? { ...kept, ...settings.settingsNow() } : {
       back: game.backRank,
       fen: toFen(game.history[0]?.pos ?? game.pos), // the position the game started from
       moves: game.history.map(h => h.lan),
@@ -792,9 +794,19 @@ export function connectPlay(view: BoardView, c: {
       // The rules the game is playing, so opening the save without its URL replays the same game
       // (`?rules=2017`, `?kings=…`; docs/TAKEOVER-PLAN.md §2).
       rules: { ...game.rules },
-    });
-    if (!settingsOnly) savedJSON = gameJSON(readSave().save);
-    c.account()?.changed();
+    };
+    const wasUnsaved = !!unsaved;
+    if (!writeSave(next)) unsaved = settingsOnly ? unsaved ?? 'settings' : 'game';
+    else {
+      if (!settingsOnly) savedJSON = gameJSON(next);
+      // Saving only settings cannot clear a warning about moves that are still unsaved.
+      if (!settingsOnly || unsaved === 'settings') unsaved = null;
+      c.account()?.changed();
+    }
+    if (!!unsaved !== wasUnsaved) {
+      $('announce').textContent = unsaved ? unsavedNotice : 'Changes saved.';
+      refresh();
+    }
   }
 
   function keepUnreadableSave(line = unreadableNotice): void {

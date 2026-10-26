@@ -215,6 +215,58 @@ describe('local saves from two tabs', () => {
   });
 });
 
+describe('failed local autosaves', () => {
+  const unsaved = 'Changes not saved. Keep this tab open.';
+  const shown = () => vi.mocked(refreshTable).mock.lastCall![0];
+
+  it.each(['QuotaExceededError', 'SecurityError'])('keeps a persistent notice after %s and saves all moves on retry', name => {
+    const raw = JSON.stringify(original);
+    stored.set(SAVE_KEY, raw);
+    const { play, changed } = page();
+    play.restore(original, request);
+    play.refresh();
+    let refused = true;
+    vi.spyOn(localStorage, 'setItem').mockImplementation((key, value) => {
+      if (refused) throw new DOMException('Refused', name);
+      stored.set(key, value);
+    });
+    play.game().playLan(['Ng1-f3']); play.save();
+    expect(stored.get(SAVE_KEY)).toBe(raw);
+    expect(shown()).toMatchObject({ saveNotice: unsaved });
+    expect(document.getElementById('announce')!.textContent).toBe(unsaved);
+    expect(changed).not.toHaveBeenCalled();
+    expect(play.savedGames.blocked()).toBe(false);
+    play.commands.escape(); play.refresh();
+    expect(shown()).toMatchObject({ saveNotice: unsaved });
+    play.game().playLan(['Nb8-c6']); play.save();
+    expect(stored.get(SAVE_KEY)).toBe(raw);
+    expect(shown()).toMatchObject({ saveNotice: unsaved });
+    refused = false;
+    play.saveSettings();
+    expect(JSON.parse(stored.get(SAVE_KEY)!).moves).toEqual(original.moves);
+    expect(shown()).toMatchObject({ saveNotice: unsaved });
+    play.save();
+    expect(readSave().save!.moves).toEqual([...original.moves, 'Ng1-f3', 'Nb8-c6']);
+    expect(shown()).toMatchObject({ saveNotice: '' });
+    expect(document.getElementById('announce')!.textContent).toBe('Changes saved.');
+    expect(changed).toHaveBeenCalledTimes(2);
+  });
+
+  it('clears a settings-only failure when the settings save succeeds', () => {
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const { play } = page();
+    play.restore(original, request);
+    play.refresh();
+    const write = vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => { throw new DOMException('Full', 'QuotaExceededError'); });
+    play.saveSettings();
+    expect(shown()).toMatchObject({ saveNotice: unsaved });
+    write.mockRestore();
+    play.saveSettings();
+    expect(shown()).toMatchObject({ saveNotice: '' });
+    expect(readSave().save!.moves).toEqual(original.moves);
+  });
+});
+
 describe('a save without rules on the game page', () => {
   const frost: Partial<Rules> = { ...POWERS_BALANCED, kings: parseKings('frost:freeze,none') };
   const shownNotice = () => vi.mocked(refreshTable).mock.lastCall![0].notice;

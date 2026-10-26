@@ -36,7 +36,7 @@ describe('the autosave', () => {
     const s = storage();
     vi.stubGlobal('localStorage', s);
     expect(readSave()).toEqual({ save: null, unreadable: false });
-    writeSave(game);
+    expect(writeSave(game)).toBe(true);
     expect(SAVE_KEY).toBe('kingdown.save');
     expect(s.m.get('kingdown.save')).toBe(JSON.stringify(game));
     expect(readSave()).toEqual({ save: game, unreadable: false });
@@ -67,7 +67,7 @@ describe('the autosave', () => {
 
   it('plays on without a save when the storage refuses it (private mode, a full quota)', () => {
     vi.stubGlobal('localStorage', storage(true));
-    expect(() => writeSave(game)).not.toThrow();
+    expect(writeSave(game)).toBe(false);
     expect(readSave()).toEqual({ save: null, unreadable: false });
   });
 
