@@ -49,7 +49,7 @@ function pieceList() {
   }).join('')}</div>`;
 }
 function cardTiles() {
-  return `<div id="setup-card-pool" class="card-grid" role="group" aria-label="Card pool">${DEAL_CARDS.map(card => `<div class="setup-card" data-card="${card}"><button id="setup-card-${card}" type="button" class="card-face" aria-haspopup="dialog" aria-label="${cardName(card)}"><span class="cf-art">${cardArt(card)}</span><span class="cf-text"><b>${cardName(card)}</b></span></button><label class="card-use"><input type="checkbox" value="${card}" aria-label="Use ${cardName(card)}"></label></div>`).join('')}</div>`;
+  return `<div id="setup-card-pool" class="card-grid" role="group" aria-label="Card pool">${DEAL_CARDS.map(card => `<div class="setup-card" data-card="${card}"><button id="setup-card-${card}" type="button" class="card-face" aria-haspopup="dialog" aria-label="${cardName(card)}"><span class="cf-art">${cardArt(card, true)}</span><span class="cf-text"><b>${cardName(card)}</b></span></button><label class="card-use"><input type="checkbox" value="${card}" aria-label="Use ${cardName(card)}"></label></div>`).join('')}</div>`;
 }
 function build() {
   $('setup-body').innerHTML = `<fieldset class="modes"><legend class="sr-only">Who you play</legend>${(['solo','friend','random'] as const).map(kind => `<label class="mode"><input type="radio" name="setup-mode" value="${kind}" aria-label="${{ solo: 'Artificial', friend: 'A friend', random: 'Random' }[kind]}">${icon({ solo: 'brain', friend: 'smiling-pawn', random: 'die' }[kind])}<span class="mode-text"><b>${{ solo: 'Artificial', friend: 'A friend', random: 'Random' }[kind]}</b></span></label>`).join('')}</fieldset>

@@ -20,6 +20,19 @@ async function open() {
 }
 const sent = (page: import('playwright').Page, name: string) => page.evaluate(name => (window as any).harnessCalls.filter((call: any) => call.name === name).length, name);
 
+it('F-117 loads no card painting until the Cards section shows', async () => {
+  // New game builds every card tile at start; an eager painting would load all of them in each page.
+  const page = await browser.newPage({ viewport: {width:390,height:844} }), frame = page.frameLocator('iframe'), cards: string[] = [];
+  page.setDefaultTimeout(3000); page.on('request', r => { if (r.resourceType() === 'image' && /\/cards\/[^/?]+\.webp/.test(r.url())) cards.push(r.url()); });
+  try {
+    await page.goto(harness.url);
+    await frame.locator('#home-games:not(:disabled)').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.locator('html').evaluate(() => new Promise(done => setTimeout(done, 500)));
+    expect(cards).toEqual([]);
+    await frame.locator('#setup-options summary').click(); await frame.locator('#setup-toggle-cards').check();
+    await expect.poll(() => cards.length).toBeGreaterThan(0);
+  } finally { await page.close(); }
+});
 it('F-109 puts Settings before Profile with one line per row', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
