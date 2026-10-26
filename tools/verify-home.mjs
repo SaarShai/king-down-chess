@@ -36,7 +36,7 @@ try {
     await page.keyboard.press('Escape');
     await context.close();
     const ended = await open(MATE);
-    assert.equal(await ended.page.locator('#home-main .label').innerText(), 'Rematch');
+    assert.equal(await ended.page.locator('#home-main .label').innerText(), 'New game');
     assert.equal(await ended.page.locator('#home-progress').innerText(), 'Finished');
     assert.equal(await ended.page.locator('#home-result').innerText(), 'Black wins by checkmate.');
     assert.equal(await ended.page.locator('#over').isVisible(), false, 'a finished save opens no result dialog');
@@ -47,6 +47,10 @@ try {
     assert.notEqual(await ended.page.locator('#home-review').evaluate(b => getComputedStyle(b).borderStyle), 'none', 'Review has a button edge');
     assert.equal(await ended.page.locator('#home-review').evaluate(b => b.classList.contains('quiet')), true, 'Home Review uses the same quiet class as result Review');
     assert.equal(await ended.page.locator('#home-review').evaluate(b => getComputedStyle(b).backgroundColor), 'rgba(0, 0, 0, 0)', 'Home Review has a quiet background');
+    await ended.page.click('#home-main');
+    assert.equal(await ended.page.locator('#new-game').isVisible(), true, 'an old local game opens New game');
+    assert.deepEqual(await lanMoves(ended.page), MATE.moves, 'New game keeps the old match until Start');
+    await ended.page.keyboard.press('Escape');
     await ended.page.click('#home-review');
     assert.equal(await ended.page.locator('#back-to-game').isVisible(), true, 'Review opens the saved game');
     await ended.context.close();

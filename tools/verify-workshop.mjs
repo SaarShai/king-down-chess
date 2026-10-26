@@ -2194,7 +2194,7 @@ async function labCards() {
   await f.click('.slot[data-piece="paladin"]');
   await f.click('[data-tab="cards"]');
   await f.click('.cface[data-lab="Freeze"]');
-  assert.deepEqual([await name(f), await f.$eval('.pg-bigcard', c => c.offsetWidth), await f.locator('.lab-note').count(), await runes(f)], ['Freeze', 56, 0, ['b6', 'd7', 'g7 barred']], 'the phone: the card in the 56 px window, and the board');
+  assert.deepEqual([await name(f), await f.$eval('.pg-bigcard', c => c.offsetWidth), await f.locator('.lab-note').count(), await runes(f)], ['Freeze', 56, 1, ['b6', 'd7', 'g7 barred']], 'the phone: the 56 px card window, the test-deck note, and the board');
   await minTarget(f, '#workshop .pg-ledge button', 44);
   await shot(f, 'cards-390x844');
   // F-104: the row under the board says what to do, and Details opens the card's words, the LAB note and its king.

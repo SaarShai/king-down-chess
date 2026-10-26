@@ -1,4 +1,4 @@
-// The New game dialog in a real browser: its defaults, the game each of the three modes starts
+// The New game dialog in a real browser: its defaults, both rule choices and the online friend path
 // (players, computer level, kings and powers), the king picker's power texts, Cancel, memory, an
 // older save, a custom army, Bring a design (ticket 17), the keyboard, the phone layout, and the picker's motion art.
 // Screenshots in PLAYABLE_OUT: desktop-computer.jpg, desktop-powers.jpg, phone-computer.jpg, phone-powers.jpg.
@@ -234,7 +234,7 @@ try {
   assert.equal(await shown(page, 'king-picker'), false);
   await page.keyboard.press('Escape');
   await page.context().close();
-  ok('keyboard: the arrow keys step through the three modes');
+  ok('keyboard: the arrow keys step through both rule choices');
 
   // 7b. Bring a design (ticket 17): the shelf's designs, and one that waits with its reason; Tab reaches the 44 px choice;
   // each side gets the design in place of one piece, the computer plays it, a reload remembers it, and a game link holds it.
@@ -338,6 +338,11 @@ try {
   await page.context().close();
   ok('More: Start uses the example army and remembers it when the sheet opens again');
 
+  page = await open();
+  await startGame(page, { mode: 'computer', army: 'ogre', side: 'white' });
+  assert.deepEqual([(await saved(page)).white, (await saved(page)).black], ['human', 'ai'], 'Ogre practice keeps a computer opponent');
+  await page.context().close();
+
   // A staged mate is still a live game, also when a lesson keeps it.
   page = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['f2-f3', 'e7-e5', 'g2-g4'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'off' } });
   for (const sq of [59, 31]) {
@@ -416,7 +421,7 @@ try {
     return { w: r.width, h: r.height, fs: parseFloat(getComputedStyle(l).fontSize), whole: l.scrollWidth <= l.clientWidth + 1 };
   }))) assert.ok(b.w >= 44 && b.h >= 44 && b.fs >= 14 && b.whole, JSON.stringify(b));
   await page.context().close();
-  ok('phone: no sideways scroll in the three modes with More options open; power buttons 44 px or more with whole 14 px labels');
+  ok('phone: no sideways scroll in both rule choices with More options open; power buttons 44 px or more with whole 14 px labels');
 
   // 11. Reduced motion: nothing in the picker moves; each picture keeps its still frame.
   page = await open({ reducedMotion: 'reduce' });

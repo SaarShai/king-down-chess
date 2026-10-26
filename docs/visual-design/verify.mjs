@@ -123,7 +123,7 @@ try {
   await page.context().close();
 
   // 3. Show threats (move-legend ticket 04, the Workshop's threats): the rook on d5 attacks the knight on d2.
-  page = await open('?fen=' + encodeURIComponent('4k3/8/8/3r4/8/8/3N4/4K3 w - - 0 1'));
+  page = await open('?fen=' + encodeURIComponent('4k3/8/8/3r4/8/8/3N4/4K3 w - - 0 1'), { save: { back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'ai', sound: false, pace: 'off' } });
   await ready(page);
   const threats = () => page.evaluate(() => window.view.marks.threats);
   // The most red (red less green) on a row of 13 canvas pixels across the arrow's middle, half way from d5 to d2.
@@ -145,6 +145,7 @@ try {
   assert.ok((await page.evaluate(() => window.view.marks.moves.length)) > 0, 'the knight shows its moves');
   assert.deepEqual(await threats(), [{ from: 35, to: 11 }], 'the threat stays with the moves');
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).threats), true, 'the choice is saved');
+  assert.deepEqual(await page.evaluate(() => { const save = JSON.parse(localStorage.getItem('kingdown.save')); return [save.back, save.moves]; }), ['RNBQKBNR', []], 'a FEN preview keeps the saved game when a setting changes');
   ok('Show threats: off by default; the red arrow from the rook d5 to the knight d2, also with moves shown; saved');
   await page.context().close();
 
@@ -200,7 +201,7 @@ try {
   // 6. Phone: tap targets of at least 44 px, no sideways scroll.
   page = await open('', { viewport: { width: 390, height: 844 }, touch: true, save });
   await ready(page);
-  const small = async scope => page.$$eval(`${scope} button, ${scope} select, ${scope} label, ${scope} summary`, els => els
+  const small = async scope => page.$$eval(`${scope} button, ${scope} a[href], ${scope} select, ${scope} label, ${scope} summary`, els => els
     .filter(e => e.offsetParent && getComputedStyle(e).visibility !== 'hidden')
     .map(e => ({ id: e.id || e.textContent.trim().slice(0, 24), r: e.getBoundingClientRect() }))
     .filter(({ r }) => r.height < 44 || r.width < 44)
@@ -211,17 +212,16 @@ try {
     await page.locator(dlg).evaluate(async sheet => { await Promise.all(sheet.getAnimations().map(a => a.finished.catch(() => {}))); });
     assert.deepEqual(await small(dlg), [], dlg); await page.keyboard.press('Escape');
   }
-  // New game in each of its three modes, with More options open: the king picker's emblems and powers too.
+  // New game in both rule choices, with More options open: the king picker's emblems and powers too.
   await pressMenu(page, 'New game'); await page.click('#more-options summary');
-  for (const mode of ['computer', 'powers', 'two']) {
+  for (const mode of ['computer', 'powers']) {
     await page.click(`label:has(#mode-${mode})`);
-    if (mode === 'two') await page.check('#two-powers');
     assert.deepEqual(await small('#new-game'), [], `New game: ${mode}`);
   }
   assert.equal(await page.locator('#new-game .emblem:visible').count(), 12, 'six emblems a side');
   await page.keyboard.press('Escape');
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  ok('phone: every visible control in the panel, New game (all three modes, More options open), Settings and Guide is at least 44 px');
+  ok('phone: every visible control in the panel, New game (both rule choices, More options open), Settings and Guide is at least 44 px');
   await page.context().close();
 
   // 7. Round 2: the title's lineup shows all twelve pieces and leaves the buttons on screen.
@@ -263,9 +263,10 @@ try {
       const lineup = [...document.querySelectorAll('.title-lineup li')], buttons = [...document.querySelectorAll('.title-actions button:not([hidden])')];
       const row = { left: Math.min(...buttons.map(b => r(b).left)), right: Math.max(...buttons.map(b => r(b).right)) };
       const tall = [...lineup, document.getElementById('title-word'), ...buttons].filter(e => r(e).top < -0.5 || r(e).bottom > innerHeight + 0.5).map(e => e.textContent.trim().slice(0, 16));
-      return { out, into, tall, wide: r(document.getElementById('title-screen')).width - vw,
+      return { out, into, tall, fontMin: Math.min(...[...document.querySelectorAll('.title-lineup span')].map(e => parseFloat(getComputedStyle(e).fontSize))), wide: r(document.getElementById('title-screen')).width - vw,
         off: [(r(lineup[0]).left + r(lineup.at(-1)).right) / 2 - vw / 2, mid(document.querySelector('.title-kings')), mid(document.getElementById('title-word')), (row.left + row.right) / 2 - vw / 2] };
     });
+    assert.ok(m.fontMin >= 11, `${w}×${h}: title names are at least 11 px`);
     assert.deepEqual(m.out, [], `${w}×${h}: names off the screen`);
     assert.deepEqual(m.into, [], `${w}×${h}: names running into the one before`);
     assert.deepEqual(m.tall, [], `${w}×${h}: off the top or the bottom of the screen`);

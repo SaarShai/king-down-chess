@@ -1,4 +1,4 @@
-// The fixed table at the four W2 sizes, through real board input.
+// The table at the four W2 sizes: fixed actions and status rows that grow with text.
 import assert from 'node:assert/strict';
 import { recordBoardText, boardText } from './board-ink-check.mjs';
 import { rulesAt, usePower, startLesson, contextWordsInView, endTurn, openMoves } from './app-ui.mjs';
@@ -41,7 +41,13 @@ try {
       assert.ok(file.size >= 11.99 && rank.size >= 11.99, 'board labels draw at 12 CSS px');
       assert.ok(file.bottom <= file.height - 1, 'file letters clear the canvas edge');
     }
-    const same = async state => assert.deepEqual(await boxes(), rest, `${width}×${height}: the table stays fixed at ${state}`);
+    const same = async state => {
+      const current = await boxes();
+      assert.deepEqual(current.filter(b => b.id !== 'board'), rest.filter(b => b.id !== 'board'), `${width}×${height}: the actions stay fixed at ${state}`);
+      await insideViewport(page, '#board, #context-line, #moves-line');
+      await stripsClear(state);
+      assert.ok(await page.locator('#context-text').evaluate(e => e.getBoundingClientRect().bottom <= document.getElementById('moves-line').getBoundingClientRect().top + 1), `${state}: status words stay above Moves`);
+    };
     const tap = async square => { const p = await page.evaluate(s => window.view.screenOf(s), square); await (touch ? page.touchscreen.tap(p.x, p.y) : page.mouse.click(p.x, p.y)); };
     if (width === 390) {
       const tile = await page.evaluate(() => window.view.screenOf(1).x - window.view.screenOf(0).x);
@@ -75,7 +81,7 @@ try {
     assert.ok(red <= 1, 'one crimson control at most');
     assert.equal(await page.locator('#undo').getAttribute('aria-disabled') !== null, true);
     await shot(page, `table-${width}x${height}`);
-    console.log(`ok game-screen ${width}×${height}: fixed board and bar, targets, Moves, check, no sideways scroll`);
+    console.log(`ok game-screen ${width}×${height}: fixed actions, growing status rows, targets, Moves, check, no sideways scroll`);
     await startLesson(page);
     await visibleWords(page, 'marked enemy pawn');
     assert.ok((await page.locator('#context-text > span').first().innerText()).split(/\s+/).length <= 8, 'the first lesson sentence has at most eight words');
@@ -85,7 +91,8 @@ try {
     await page.waitForFunction(() => document.getElementById('context-text').textContent.includes('Archer learned.'));
     await visibleWords(page, 'Archer learned.');
     await stripsClear('lesson done');
-    assert.deepEqual(await fixedRows(), restRows, `${width}×${height}: strips, context, Moves and bar stay fixed with the lesson words`);
+    assert.deepEqual((await fixedRows()).find(row => row.id === 'table-bar'), restRows.find(row => row.id === 'table-bar'), `${width}×${height}: the bar stays fixed with the lesson words`);
+    await insideViewport(page, '#context-line, #moves-line, #table-bar');
     assert.equal(await page.locator('#lesson-progress .done').first().getAttribute('aria-label'), 'Lesson 1 of 6 done', 'lesson progress names its done state');
     assert.ok(await page.evaluate(() => document.getElementById('context-text').getBoundingClientRect().bottom <= document.getElementById('moves-line').getBoundingClientRect().top), 'the lesson words do not cover Moves');
     if (width === 844) {

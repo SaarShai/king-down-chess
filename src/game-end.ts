@@ -39,7 +39,7 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
       return;
     }
     if (!active || dialog.open) return;
-    c.turnButton.textContent = 'Rematch';
+    c.turnButton.textContent = c.sides().every(side => side === 'human') ? 'New game' : 'Rematch';
     c.turnButton.setAttribute('aria-disabled', 'false');
     c.turnButton.classList.add('ceremony-rematch', 'primary');
   };

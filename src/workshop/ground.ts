@@ -1633,10 +1633,12 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
     if (act === 'cardexample' && labOpen === 'Freeze') {
       const b = restored(), target = parseSq('d7') === pos.from ? parseSq('e7') : parseSq('d7');
       b[target] = piece(P, BLACK);
+      kbd = sqName(target);
       setUp(b);
       pos = { ...pos, game: { uses: pos.game.uses } };
       why = null;
       render();
+      q<HTMLElement>(`.pg-hits .sq[data-sq="${kbd}"]`).focus({ preventScroll: true });
       return ripple();
     }
     if (act === 'stamp') return stamp();

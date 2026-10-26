@@ -1,4 +1,4 @@
-import { teachFirstGame } from './ui/table';
+import { initTable, teachFirstGame } from './ui/table';
 import './style.css';
 import { Engine } from './game';
 import { PaintedView, type BoardView } from './render/PaintedView';
@@ -12,7 +12,6 @@ import './dialog-dismiss';
 import { firstVisit, openTitle, startFirstDeal } from './ui/title';
 import './ui/table.css';
 import { initMenu } from './ui/menu';
-import { initTable } from './ui/table';
 // Before ui/home-view: the CSS keeps its order (game-end.ts brings ceremony.css, then home.css).
 import { connectPlay, isSide } from './screen/play';
 import { shouldShowHome } from './ui/home';
@@ -126,7 +125,7 @@ const dialog = newGameDialog(s => {
   try { localStorage.setItem(SETUP_KEY, JSON.stringify(s)); } catch { /* private mode: the choices last this visit */ }
   if (s.army === 'daily') { const d = today(); play.newGame(undefined, null, false, d); }
   else if (s.army === 'classic') play.newGame(CLASSIC_CHESS);
-  else if (s.army === 'ogre') play.newGame(undefined, OGRE_PRACTICE, false, null, ['human', 'human']);
+  else if (s.army === 'ogre') play.newGame(undefined, OGRE_PRACTICE);
   else if (back) { try { play.newGame(back); } catch (e) { alert((e as Error).message); } }
   else if (s.army !== 'random') {
     play.newGame(s.army);

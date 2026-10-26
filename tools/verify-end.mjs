@@ -111,8 +111,13 @@ try {
   await page.locator('#over').waitFor({ state: 'visible' });
   assert.equal(await page.locator('.kd-words').count(), 0, 'the result hides the board words');
   await page.locator('#over [value=rematch]').click();
-  await page.waitForTimeout(100);
-  assert.deepEqual(await lanMoves(page), [], 'dialog Rematch starts the next game');
+  await page.locator('#new-game').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#over [value=rematch]').innerText(), 'New game');
+  assert.equal((await lanMoves(page)).length, 5, 'New game keeps the finished local match until Start');
+  await page.locator('#start-game').click();
+  assert.deepEqual(await lanMoves(page), [], 'Start begins the next game');
+  const nextPlayers = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('kingdown.save')); return [s.white, s.black]; });
+  assert.deepEqual(nextPlayers, ['human', 'ai'], 'the next game has a computer opponent');
   assert.equal(await page.locator('.kd-words').count(), 0, 'Rematch clears the old end');
   assert.equal(await page.locator('#over').isVisible(), false, 'no old result opens on the new game');
   console.log('ok disabled turn button and dialog Rematch');

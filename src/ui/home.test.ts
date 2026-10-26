@@ -51,7 +51,7 @@ it('offers Rematch and review after the game ends', () => {
   expect(state(game, { result: 'Black wins by checkmate' })).toMatchObject({
     action: 'Rematch', detail: 'Same army. You play Black.', progress: 'Finished', review: true, result: 'Black wins by checkmate',
   });
-  expect(state(game, { sides: ['human', 'human'], result: 'Black wins by checkmate' }).detail).toBe('Same army. Two players on this device.');
+  expect(state(game, { sides: ['human', 'human'], result: 'Black wins by checkmate' })).toMatchObject({ action: 'New game', detail: 'Choose your next game.', review: true });
   const live = new Game('RNBQKBNR');
   live.playLan(['e2-e4']);
   expect(state(live, { sides: ['ai', 'human'], result: 'Black resigns — White wins' })).toMatchObject({

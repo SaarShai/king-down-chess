@@ -23,7 +23,8 @@ export function homeState({ game, sides, level, linkSide, staged, result }: Home
   const mine = linkSide != null ? game.pos.turn === linkSide : sides[game.pos.turn] === 'human';
   const finished = !staged && (game.status !== 'playing' || result !== '');
   const you = linkSide ?? (sides[0] === 'human' ? 0 : 1);
-  const rematch = linkSide == null && sides.every(s => s === 'human') ? 'Same army. Two players on this device.' : `Same army. You play ${you === 0 ? 'Black' : 'White'}.`;
+  const twoHumans = sides.every(s => s === 'human');
+  const rematch = twoHumans ? 'Choose your next game.' : `Same army. You play ${you === 0 ? 'Black' : 'White'}.`;
   const oneDevice = linkSide == null && sides.every(s => s === 'human');
   const side = (staged ? last?.pos.turn ?? game.pos.turn : game.pos.turn) === 0 ? 'White' : 'Black';
   let detail: string;
@@ -34,7 +35,7 @@ export function homeState({ game, sides, level, linkSide, staged, result }: Home
   return {
     opponent: linkSide != null ? 'vs your friend' : sides.every(s => s === 'human') ? 'White vs Black' : `vs Computer · ${LEVEL_NAMES[level]}`,
     progress: finished ? 'Finished' : `Move ${nextMoveNumber(game.history.map(h => h.pos.turn), game.pos.turn)}`,
-    action: finished ? 'Rematch' : 'Continue',
+    action: finished ? twoHumans ? 'New game' : 'Rematch' : 'Continue',
     detail,
     review: finished,
     lastMove: last ? describeMove(game.context, last.pos, last.move, true) : '',

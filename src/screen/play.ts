@@ -22,7 +22,7 @@ import { LESSONS } from '../lessons';
 import { progress, recordLesson } from '../lesson-shelf-ui';
 import { lessonShelf } from '../lesson-shelf';
 import { POWER_TAG, autoQueen, hintMoves, offered } from '../powers-ui';
-import { kingsOf, newGameWarning, playersOf, withDesign, type Setup } from '../new-game';
+import { dialogSetup, kingsOf, newGameWarning, playersOf, withDesign, type Setup } from '../new-game';
 import { worthOf } from '../workshop/judge';
 import { pieceIcon } from '../piece-icons';
 import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, stagedPlies, turnEnded, turnLine, turnOf } from '../turn';
@@ -706,9 +706,10 @@ export function connectPlay(view: BoardView, c: {
 
   /**
    * A game from `setup` (New game's last Start), or a rematch of this one with the sides swapped.
-   * `players` overrides who plays (Ogre practice is for two people).
+   * `players` sets the players for a test fixture.
    */
   function newGame(backRank?: string, fen?: string | null, rematch = false, dailyDate: string | null = null, players?: [Side, Side]): void {
+    if (rematch && sides.every(side => side === 'human')) { c.openNewGame(); return; }
     const setup = c.setup();
     let candidate: Game;
     if (rematch) candidate = new Game(undefined, game.rules);
@@ -734,7 +735,7 @@ export function connectPlay(view: BoardView, c: {
     cloudGame = false;
     daily = dailyDate;
     moments.start('');
-    [sides[0], sides[1]] = players ?? (rematch ? [sides[1], sides[0]] : playersOf(setup));
+    [sides[0], sides[1]] = players ?? (rematch ? [sides[1], sides[0]] : playersOf(dialogSetup(setup)));
     saveBlocked = false;
     turnStart = 0;
     sync(game.pos);

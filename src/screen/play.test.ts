@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { connectPlay } from './play';
 import { connectSettings } from './settings';
-import { defaultSetup } from '../new-game';
+import { defaultSetup, type Setup } from '../new-game';
 import type { Engine } from '../game';
 import type { BoardView } from '../render/PaintedView';
 import { connectTurnPress } from '../turn-controls';
@@ -48,13 +48,14 @@ function page(rules: Partial<Rules> = {}, fen: string | null = null, realSetting
     sound: () => true, coords: () => true, labels: () => false, applyPace: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['settings'];
   // main.ts connects settings before it creates play. Keep the same start order here.
   const controls: ReturnType<typeof connectSettings> = realSettings ? connectSettings(view, { skill: () => play.skill(), setSkill: level => play.setSkill(level), save: () => play.saveSettings(), refresh: () => play.refresh() }) : settings;
+  const openNewGame = vi.fn(), setup: Setup = { ...defaultSetup(), mode: 'two' };
   const play = connectPlay(view, { params: new URLSearchParams(), preset: undefined, rules, withPowers: () => ({}), fen,
     engine: engine as unknown as Engine, guide: { fill: vi.fn() }, settings: controls,
     home: { visible: false, close: vi.fn(), refresh: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['home'],
     keys: () => ({ cursor: () => null, say: vi.fn(), focus: vi.fn() }), account: () => ({ changed }),
-    setup: () => ({ ...defaultSetup(), mode: 'two' }), openNewGame: vi.fn(),
+    setup: () => setup, openNewGame,
   });
-  return { play, view, engine, changed, settings: controls };
+  return { play, view, engine, changed, settings: controls, openNewGame, setup };
 }
 
 it('review 1: starts local practice with the real settings before play', () => {
@@ -1088,4 +1089,28 @@ describe('a reload of a staged turn', () => {
     expect(opened.play.game().history.map(h => h.lan)).toEqual(['Ra1-a4!H', '--']);
     expect([shown().staged, shown().undoOn]).toEqual([0, false]);
   });
+});
+
+
+it('keeps an old two-human save and opens the sheet for its next game', () => {
+  const { play, openNewGame } = page();
+  play.seat(original.white!, original.black!);
+  play.restore(original, request);
+  expect(play.sides()).toEqual(['human', 'human']);
+  const game = play.game();
+  play.rematch();
+  expect(openNewGame).toHaveBeenCalledOnce();
+  expect(play.game()).toBe(game);
+  expect(play.game().history.map(h => h.lan)).toEqual(original.moves);
+  play.newGame('RNBQKBNR');
+  expect(play.sides()).toEqual(['human', 'ai']);
+});
+
+
+it('keeps a remembered Strong level when a new game replaces two human seats', () => {
+  const { play, setup } = page();
+  setup.level = 'strong';
+  play.newGame('RNBQKBNR');
+  expect(play.sides()).toEqual(['human', 'ai']);
+  expect(play.skill()).toBe('strong');
 });

@@ -660,13 +660,17 @@ label.army select { width: 100%; font-weight: 400; }
   .title-actions { flex-direction: column; align-items: stretch; width: min(100%, 340px); }
   .title-actions button { min-width: 0; }
 }
+/* Narrow phones keep the 11 px names clear of the next cell. */
+@media (max-width: 350px) {
+  .title-lineup { padding-inline: var(--space-1); }
+}
 /* Phones in landscape (568×320 to 720 px wide): two rows of figures and three stacked buttons are taller than the
    screen. One row of twelve, a smaller wordmark and the buttons side by side fit; if a screen is still too short,
    the title scrolls instead of cutting off the top row and Play. */
 @media (max-width: 720px) and (orientation: landscape) {
   #title-screen { overflow-y: auto; }
   .title-lineup { --fig: min(64px, 15vh); flex-wrap: nowrap; width: 100%; padding: 0 var(--space-2); }
-  .title-lineup li { flex: 1 1 0; }
+  .title-lineup li { flex: 1 1 auto; }
   .title-lineup span { font-size: 11px; letter-spacing: 0; }
   .title-lineup .pi { width: 14px; height: 14px; }
   .title-copy { gap: var(--space-2); padding: var(--space-2) var(--space-4) var(--space-3); }

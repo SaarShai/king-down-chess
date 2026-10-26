@@ -35,7 +35,7 @@ describe('New game setup', () => {
     expect(withKing(s, 0, 'Spirit').picks[0].power).toBe('Mercy');
   });
 
-  it('A friend: both sides are people; the Kings\' powers box turns the picker on', () => {
+  it('reads the powers of an old two-human setup', () => {
     const two = withMode(defaultSetup(), 'two');
     expect(playersOf(two)).toEqual(['human', 'human']);
     expect(powersOn(two)).toBe(false);
