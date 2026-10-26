@@ -591,7 +591,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
 
  it('keeps the retry hints for each tool', async () => {
   const player = await connect(await user('retry-hints')), tools = (await player.client.listTools()).tools;
-  expect(tools).toHaveLength(27);
+  expect(tools).toHaveLength(29);
   expect(tools.filter(tool => tool.annotations?.idempotentHint === false).map(tool => tool.name).sort()).toEqual(['kingdown_create', 'kingdown_find', 'kingdown_invite', 'kingdown_join', 'kingdown_open', 'kingdown_report', 'kingdown_resume', 'kingdown_seen']);
   for (const tool of tools) expect(typeof tool.annotations?.idempotentHint).toBe('boolean');
  });
@@ -685,12 +685,12 @@ suite('ChatGPT tools on PostgreSQL', () => {
   await host.ok('kingdown_handle', { icon: 'mud' });
   const options = { ...DEFAULT_OPTIONS, arrangement: false };
   const game_id = view(await host.ok('kingdown_create', { kind: 'friend', colour: 'black', options })).game_id;
-  const { code, expires_at } = (await host.ok('kingdown_invite', { game_id })).structuredContent;
+  const { code, expires_at, invite_id } = (await host.ok('kingdown_invite', { game_id })).structuredContent;
   const preview = await guest.ok('kingdown_join', { code, preview: true });
   const opened = await guest.ok('kingdown_open', { code });
   for (const result of [preview, opened]) {
    expect(result.structuredContent.screen).toBe('join');
-   expect(result._meta.preview).toEqual({ code, options, colour: 'white', kind: 'friend', creator: { handle: `preview-a-${tag}`, icon: 'mud' }, expires_at });
+   expect(result._meta.preview).toEqual({ code, options, colour: 'white', kind: 'friend', creator: { handle: `preview-a-${tag}`, icon: 'mud' }, expires_at, invite_id, recipient_id: null, recipient_handle: null });
    for (const secret of [code, `preview-a-${tag}`, 'mud']) expect(JSON.stringify([result.content, result.structuredContent])).not.toContain(secret);
   }
   expect(view(await host.ok('kingdown_get', { game_id })).status).toBe('waiting');

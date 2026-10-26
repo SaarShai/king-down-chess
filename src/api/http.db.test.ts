@@ -37,6 +37,8 @@ const operations = new Set([
  'POST /api/games/:id/invite',
  'POST /api/invites/redeem',
  'GET /api/me/games',
+ 'GET /api/friends',
+ 'POST /api/invites/:id/decline',
  'GET /api/me/profile',
  'PATCH /api/me/profile',
  'POST /api/me/handle',
@@ -171,7 +173,8 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   const second = await start(), retry = await second.json(); expect(second.status).toBe(201); expect(retry.view.game_id).toBe(made.view.game_id);
   expect((await rows('select id from public.games where created_by=$1', [host.id])).map(row => row.id)).toEqual([made.view.game_id]);
   const changed = await start({ ...body, options: DEFAULT_OPTIONS }); expect([changed.status, (await changed.json()).code]).toEqual([409, 'COMMAND_CONFLICT']);
-  await guest.api.redeem({ token: retry.invite.token });
+  expect(retry.invite).toBeUndefined(); expect(retry.view.invite_id).toBe(made.invite.invite_id);
+  await guest.api.redeem({ token: made.invite.token });
   const joined = await start(); expect(joined.status).toBe(201); expect(await joined.json()).toMatchObject({ view: { game_id: made.view.game_id, status: 'playing' } });
  }, 60_000);
 
@@ -181,7 +184,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   const preview = await fetch(`${address}/api/invites/preview`, { method: 'POST', headers: { Authorization: `Bearer ${await sign(guest.id)}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ token: made.invite!.token }) });
   expect(preview.status).toBe(200);
   const value = await preview.json();
-  expect(Object.keys(value).sort()).toEqual(['code', 'colour', 'creator', 'expires_at', 'kind', 'options']);
+  expect(Object.keys(value).sort()).toEqual(['code', 'colour', 'creator', 'expires_at', 'invite_id', 'kind', 'options', 'recipient_handle', 'recipient_id']);
   expect(value.creator.handle).toBe(host.handle);
   expect((await rows('select user_id from public.game_players where game_id=$1 and user_id is not null', [made.view.game_id])).map(row => row.user_id)).toEqual([host.id]);
   await expect(guest.api.game(made.view.game_id)).rejects.toMatchObject({ code: 'FORBIDDEN' });
@@ -247,6 +250,22 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   } finally { await hostMcp.close(); await guestMcp.close(); }
  }, 60_000);
 
+ it('shares the last friend request slot across HTTP lookup and MCP send', async () => {
+  const actor = await player('friend-quota');
+  const mcp = createPluginServer({ service: new PluginService(new PostgresMatchStore(runtime), secret), actorId: actor.id, resourceHtml: '<html>board</html>', publicOrigin: address });
+  const client = new Client({ name: 'friend-quota-test', version: '1' }), [a, b] = InMemoryTransport.createLinkedPair();
+  await mcp.connect(a); await client.connect(b);
+  try {
+   await admin.query("insert into public.plugin_tool_tries(user_id,tool,tries) values($1,'kingdown_friends',59)", [actor.id]);
+   const [http, tool] = await Promise.all([
+    fetch(`${address}/api/friends`, { headers: { Authorization: `Bearer ${await sign(actor.id)}` } }),
+    client.callTool({ name: 'kingdown_create', arguments: { kind: 'friend', options: DEFAULT_OPTIONS, open_link: true, command_id: randomUUID() } }),
+   ]);
+   if (http.status === 200) expect(tool).toMatchObject({ isError: true, _meta: { code: 'RATE_LIMITED' } });
+   else { expect(http.status).toBe(429); expect(tool.isError).not.toBe(true); }
+   expect(await rows("select tries from public.plugin_tool_tries where user_id=$1 and tool='kingdown_friends'", [actor.id])).toEqual([{ tries: 61 }]);
+  } finally { await client.close(); await mcp.close(); }
+ });
  it('shares the last Create quota slot atomically across HTTP and MCP', async () => {
   const actor = await player('quota-cross'), token = await sign(actor.id);
   const mcp = createPluginServer({ service: new PluginService(new PostgresMatchStore(runtime), secret), actorId: actor.id, resourceHtml: '<html>board</html>', publicOrigin: address });
@@ -271,7 +290,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
     gameId = meta.view!.game_id;
    }
    expect(await rows('select id from public.games where created_by=$1', [actor.id])).toEqual([{ id: gameId }]);
-   expect(await rows('select tool,tries from public.plugin_tool_tries where user_id=$1', [actor.id])).toEqual([{ tool: 'kingdown_create', tries: 61 }]);
+   expect(await rows("select tool,tries from public.plugin_tool_tries where user_id=$1 and tool='kingdown_create'", [actor.id])).toEqual([{ tool: 'kingdown_create', tries: 61 }]);
   } finally { await client.close(); await mcp.close(); }
  }, 60_000);
 
@@ -491,7 +510,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   // A block refuses the join both ways.
   const { invite: next } = await fay.api.create({ kind: 'friend', options: CLASSIC_OPTIONS });
   await dan.api.relate('block', { handle: fay.handle });
-  await expect(dan.api.redeem({ token: next!.token })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  await expect(dan.api.redeem({ token: next!.token })).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
   // No speed or days choice (F-031).
   for (const choice of [{ speed: 'live' }, { speed: 'daily' }, { days_per_move: 3 }])
    await expect(dan.api.create({ kind: 'friend', options: CLASSIC_OPTIONS, ...choice } as Parameters<typeof dan.api.create>[0])).rejects.toMatchObject({ code: 'INVALID_INPUT' });

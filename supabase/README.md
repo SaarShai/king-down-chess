@@ -61,7 +61,7 @@ Install the audience hook and runtime-role blocks 1–2 once, through the privat
 ## Online games: 0005 to 0014
 
 Apply only missing files in order, after 0001–0004, through the approved privileged SQL Editor path.
-`npm run plugin:db:migrate` applies 0002–0021. Use it only for a disposable test database. Do not run its
+`npm run plugin:db:migrate` applies 0002–0022. Use it only for a disposable test database. Do not run its
 `tsx` entry against a live database. For the 0014 MVP, apply the third to the eleventh blocks of
 `plugin-deploy/runtime-role.sql` to the existing runtime role. The web section below adds block 12.
 The migrations are safe to run again.
@@ -129,7 +129,7 @@ in one short window:
 
 - `0014_plugin_tool_tries.sql`: one counter for each user and tool. Role block 11 grants the server access. Browser roles have no access.
 
-`npm run plugin:db:init-test` applies 0001–0021 twice to a disposable loopback database, and
+`npm run plugin:db:init-test` applies 0001–0022 twice to a disposable loopback database, and
 `src/match/service.db.test.ts`, `src/match/setup.db.test.ts`, `src/match/matchmaking.db.test.ts`,
 `src/match/results.db.test.ts`, `src/online/jobs.db.test.ts`, `src/online/accounts.db.test.ts` and
 `src/api/http.db.test.ts` check them.
@@ -142,7 +142,7 @@ in one short window:
 
 ## Web account access: 0016
 
-For a new database after 0001–0004, apply 0005–0021, then blocks 3–13 of `plugin-deploy/runtime-role.sql`.
+For a new database after 0001–0004, apply 0005–0022, then blocks 3–13 of `plugin-deploy/runtime-role.sql`.
 An existing database needs only the missing files and blocks, under the authority below.
 
 Apply only missing migrations in order through `0016_web_account_access.sql`, then block 12 of
@@ -204,3 +204,12 @@ Confirm the two internal routes work before you paste the MVP file.
   Existing rows and grants stay the same.
   Apply 0021 on staging before a deploy that depends on it.
   Apply 0021 on production before the release that carries it.
+
+## Friend invitations: 0022
+
+- `0022_friend_invites.sql`: adds a named recipient, terminal state, close time and count indexes.
+  It keeps row security and runtime grants. It checks duplicates before the unique game constraint.
+  Account deletion ends affected waiting games and removes sent and received invitations in one transaction.
+  Apply 0022 on staging before a deploy that depends on it.
+  Apply 0022 on production before the release that carries it.
+  The owner session runs each remote migration. This build tests only the local disposable cluster.

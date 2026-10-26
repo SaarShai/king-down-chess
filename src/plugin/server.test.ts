@@ -360,3 +360,31 @@ it('F-115 names Menu when a board has no game to resume', async () => {
   expect(result.content).toEqual([{ type: 'text', text: 'King Down. Start a game from Menu.' }]);
  } finally { await client.close(); await server.close(); }
 });
+
+
+it('exposes named invitation tool fields, private rows and safe limit errors', async () => {
+ const invite_id = 'a'.repeat(64), game_id = '00000000-0000-4000-8000-000000000001';
+ const service = {
+  toolTry: vi.fn(), profile: async () => ({ handle: null, icon: null }), inbox: async () => [],
+  invitations: vi.fn(async () => ({ invitations: [{ invite_id, game_id, direction: 'incoming', state: 'open', recipient_id: game_id, player: { handle: '<private>' }, options: null, expires_at: 'soon' }], next_before: null })),
+  friends: vi.fn(async () => ({ friends: [], next_after: null })), declineInvite: vi.fn(async () => ({ invite_id, state: 'declined' })),
+  join: vi.fn(async () => { throw new MatchServiceError('FRIEND_GAME_LIMIT', 409, 'You have 5 games with rowan. Finish one to accept this invitation.', { count: 5, handle: 'rowan' }); }),
+ } as unknown as Parameters<typeof createPluginServer>[0]['service'];
+ const server = createPluginServer({ service, actorId: 'alice', resourceHtml: '<html>board</html>', publicOrigin: 'https://kingdown.example' });
+ const client = new Client({ name: 'friend-host', version: '1' }), [a, b] = InMemoryTransport.createLinkedPair();
+ await server.connect(a); await client.connect(b);
+ try {
+  const tools = (await client.listTools()).tools;
+  for (const name of ['kingdown_create', 'kingdown_invite']) expect(tools.find(t => t.name === name)!.inputSchema.properties).toHaveProperty('recipient_id');
+  expect(tools.find(t => t.name === 'kingdown_friends')!._meta?.ui).toMatchObject({ visibility: ['app'] });
+  expect(tools.find(t => t.name === 'kingdown_decline_invite')!.annotations).toMatchObject({ destructiveHint: true });
+  const rows = await client.callTool({ name: 'kingdown_games', arguments: {} });
+  expect(rows.structuredContent).toMatchObject({ invitations: [{ invite_id }], next_before: null });
+  expect(JSON.stringify(rows.structuredContent)).not.toContain('<private>');
+  expect(rows._meta).toMatchObject({ invitations: [{ player: { handle: '<private>' } }] });
+  const refused = await client.callTool({ name: 'kingdown_join', arguments: { invite_id } });
+  expect(refused).toMatchObject({ isError: true, _meta: { code: 'FRIEND_GAME_LIMIT', count: 5, handle: 'rowan' } });
+  expect(await client.callTool({ name: 'kingdown_join', arguments: { invite_id, code: 'ABCDEF' } })).toMatchObject({ isError: true, _meta: { code: 'INVALID_INPUT' } });
+  expect(await client.callTool({ name: 'kingdown_decline_invite', arguments: { invite_id } })).toMatchObject({ _meta: { invitation: { state: 'declined' } } });
+ } finally { await client.close(); await server.close(); }
+});
