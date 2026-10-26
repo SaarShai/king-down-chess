@@ -69,11 +69,14 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
   return entry;
  }
  const boardArt=corsImage();
- // Character clips (clips/clips.mjs): the selected Knight or Rook plays his once, then breathes. load() waits for
- // them (a failed one is skipped). Whether a selection plays its clip is decided when it is made (selectedClip),
- // so an atlas that loads late never starts a clip in its middle.
+ // Clips load after the first frame with motion on, or when a selection needs one. They never gate readiness.
+ // Choose the clip at selection time, so a late sheet never starts a clip in the middle of a selection.
  const CLIP_OF={[N]:'knight',[R]:'rook'},clipArt=Object.fromEntries(Object.keys(CLIPS).map(name=>[name,corsImage()]));
- const clipReady=name=>!!name&&!!clipArt[name].naturalWidth;
+ const clipReady=name=>!!clipArt[name]?.complete&&clipArt[name].naturalWidth>0;
+ function loadClips(name=null){
+  if(disposed||reducedMotion||!frames)return;
+  for(const key of name?[name]:Object.keys(clipArt))if(!clipArt[key].src)clipArt[key].src=CLIPS[key].file;
+ }
  const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.1166,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
 specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.155};
 specs[N]={anchor:knight.ANCHOR,hit:knight.HIT,scale:.125};
@@ -890,6 +893,7 @@ function drawEncounter(a,t) {
   if(a&&!a.done&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
   render(time);
   if(labels)drawLabels();
+  if(frames===1&&!reducedMotion)requestAnimationFrame(()=>loadClips());
   if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading||clipShown)wake(false);
   else{previousTime=0;if(time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }
@@ -981,10 +985,10 @@ function drawEncounter(a,t) {
   /** Board square under a point in canvas pixels, or null. */
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
-  load(){const clips=Object.entries(clipArt).map(([name,image])=>new Promise(resolve=>{image.onload=image.onerror=resolve;image.src=CLIPS[name].file;}));const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...clips,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;wake();});},
+  load(){const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;wake();});},
   /** New position: ends any finished or running animation. */
   setPosition(next){endMove();lifted=null;position=next;aimAngle=0;wake();},
-  setSelected(sq){if(sq!==selected){selected=sq;selectedAt=null;const name=sq===null?null:CLIP_OF[typeOf(position.board[sq])];selectedClip=clipReady(name)?name:null;aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
+  setSelected(sq){if(sq!==selected){selected=sq;selectedAt=null;const name=sq===null?null:CLIP_OF[typeOf(position.board[sq])];if(name&&lively.idle)loadClips(name);selectedClip=clipReady(name)?name:null;aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
   /** Opt-in tell; lift=false shows only the glow. A new position or move clears it. */
   setLifted(sq,lift=true){lifted=sq;liftTell=lift;wake();},
   get lifted(){return lifted;},
@@ -1007,7 +1011,7 @@ function drawEncounter(a,t) {
   /** size: letter height in board units (default 13); a small board on a phone needs more. */
   setCoords(on,size=13,inset=14){coords=on;coordSize=size;coordInset=inset;wake();},
   setLabels(on){labels=on;wake();},
-  setReducedMotion(on){reducedMotion=on;if(on)awakeUntil=0;},
+  setReducedMotion(on){const was=reducedMotion;reducedMotion=on;if(on)awakeUntil=0;else if(was)loadClips();wake();},
   /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. */
   setFallen(sq,animate=true,rotation=-1.5){fallen=sq==null?null:{sq,rotation,start:animate?performance.now():-Infinity};wake();},
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
