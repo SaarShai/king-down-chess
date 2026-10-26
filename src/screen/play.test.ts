@@ -622,6 +622,15 @@ describe('local saves from two tabs', () => {
     expect(play.savedGames.blocked()).toBe(true);
   });
 
+  it('saves the game with a settings change when no game is saved yet', () => {
+    const fen = '4k3/8/8/3r4/8/8/3N4/4K3 w - - 0 1';
+    const { play } = page({}, fen);
+    play.restore(null, request);
+    expect(play.saveSettings()).toBe(true);
+    expect(readSave().save).toMatchObject({ fen, moves: [], coords: true });
+    expect(play.savedGames.blocked()).toBe(false);
+  });
+
   it('changes only settings in another tab\'s newer save, then still detects the game conflict', () => {
     const { play } = load({ ...original, moves: ['e2-e4'] });
     const newer = { ...original, coords: false, staged: 1, daily: '2026-10-26', link: 1 as const, labels: true as const };
