@@ -2,8 +2,6 @@
 -- Schema locks end before the backfill, validation and concurrent index builds.
 begin;
 set local lock_timeout = '5s';
--- Block old SELECT FOR UPDATE calls before the invitation schema lock. Plain reads can continue.
-lock table public.games in exclusive mode;
 alter table public.game_invites add column if not exists recipient_id uuid;
 alter table public.game_invites add column if not exists state text not null default 'open';
 alter table public.game_invites add column if not exists closed_at timestamptz;
@@ -22,7 +20,12 @@ revoke all on function public.game_invites_old_join() from public;
 drop trigger if exists game_invites_old_join on public.game_invites;
 create trigger game_invites_old_join before insert or update on public.game_invites
   for each row execute function public.game_invites_old_join();
+commit;
 
+-- migrate:next
+begin;
+set local lock_timeout = '5s';
+-- Keep game and invitation schema locks separate: old joins read invitations before games.
 -- Old game-end writes do not update invitations. Keep the same game-before-invitation lock order.
 create or replace function public.game_invites_game_end() returns trigger
 language plpgsql security definer set search_path = '' as $$

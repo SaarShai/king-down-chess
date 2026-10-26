@@ -186,7 +186,34 @@ Pass criteria: each new fault has a red test, then a green test. All six earlier
 - Old join and deletion: lock affected games in ID order before the active-seat check. The join-first test is red (`deleted=true`), then green (`deleted=false`). The deletion-first test and the old-service boundary probe pass: the join waits, then refuses the ended game.
 - Old game ends: a database trigger closes open invitations on terminal game writes. Four old-write cases are red (`state=open`), then green (`state=cancelled`). The trigger works with the old game writer grants. Accepted invitations keep their state.
 - Board notice: `resultText` reads a string `_meta.message` for errors. The queue case and three connected tool cases are red, then green. The exact notice reaches the board; model text stays fixed. Invalid metadata and successful results keep their existing text.
-- Migration: the repo test checks old writes between all 13 phases, repeats each phase and repeats the file. The old-service phase probe also passes on a fresh 0021 database. The old service and store match `origin/main` after import-path changes only. All constraints validate; no index is invalid.
-- The first full invitation-file run passes 51 cases, both type checks and 67 artwork cases. The six round 1 fixes remain covered. The local branch database is `kingdown_friend156r3_test` on `127.0.0.1:55432`, made with the repo helper.
+- Migration: the repo test checks old writes between all 14 phases, repeats each phase and repeats the file. The old-service phase probe also passes on a fresh 0021 database. The old service and store match `origin/main` after import-path changes only. All constraints validate; no index is invalid.
+- The final invitation-file runs each pass 52 cases, both type checks and 67 artwork cases. The six round 1 fixes remain covered. The local branch database is `kingdown_friend156r3_test` on `127.0.0.1:55432`, made with the repo helper.
 
 The [release guide](../../../../supabase/README.md#friend-invitations-0022) gives the daily-job pause and resume commands. Keep daily jobs paused through a failed release or a rollback. Old create and rematch paths have no account locks. The minute tick can continue.
+
+## Round 2 final checks
+
+All three round 2 findings are fixed. Keep all six round 1 fixes.
+The final source fetch succeeds. The source merge includes `b07d7f74`; the last merge check is already up to date.
+
+Use `PLUGIN_TEST_DATABASE_URL=postgresql://kingdown_test@127.0.0.1:55432/kingdown_friend156r3_test`.
+The old-service phase probe uses `kingdown_friend156r3final_test` on the same local port. Both databases use the repo helper.
+
+- `npm run plugin:db:init-test`: all 22 migrations pass twice.
+- `KINGDOWN_TEST_FILE=src/match/friend-invites.db.test.ts npm test`, twice: 52 passes each. Both type checks and 67 artwork cases pass each time.
+- `KINGDOWN_TEST_FILE='{src/plugin/server.db.test.ts,src/plugin/server.test.ts,src/plugin/queue.test.ts,src/api/http.test.ts,src/api/http.db.test.ts,src/online/jobs.db.test.ts}' npm test`: 184 passes in six files. Both type checks and 67 artwork cases pass.
+- `npm run test:docs`: 180 passes in 15 files.
+- `PLAYABLE_BROWSER=chrome npm run check:browser plugin-privacy web-online account plugin-ui-http`: all four pass, in 8.8 s, 96.6 s, 67.2 s and 318.2 s. The quiet lock is absent. Commands run one at a time. Shared slots delay two browser starts.
+- The final old-service probe starts from 0021. Old join, retry, abort, expiry, rotation, game deletion and accepted-user deletion pass between all 14 phases. Each phase runs twice; the whole migration then runs twice. New named send and join pass. All 10 invitation constraints validate; no index is invalid.
+- The deletion boundary probe passes with the old service. A join after the active-seat check waits for deletion, then refuses the ended game. The connected board probe returns the exact private notice and no player data in model fields.
+
+The final review finds a schema-lock conflict with an old join's first read. Its new test fails with the combined schema step and passes with separate invitation and game schema steps. The repo phase test checks the gap before the game-end trigger; the later backfill repairs those rows.
+The second invitation run also finds an old plan-test fault: a small fixture can select the history index. The test now accepts either indexed user path and separately requires the valid pair index, its columns and its predicate. Two final full-file runs pass.
+The final SQL phase split changes no board code. Database checks and the full phase probe repeat after that split.
+
+Release: pause `kingdown-daily` and let daily requests finish; add columns and the old-join trigger; add the game-end trigger in a separate phase; backfill; build indexes; attach and validate constraints; install deletion cleanup and grants; deploy; let all old requests finish; resume daily jobs. Keep both triggers while old writers exist. Keep daily jobs paused on a failed release or rollback. The minute tick can continue. The database guide gives the exact pause and resume commands.
+
+Commits: `cc8be0cd` fixes and regression cases; `9ef1ee955` source merge; the final repair commit adds the schema-race test, separate schema phases, stable index checks and this evidence. Hooks run unchanged.
+Logs: `/tmp/friend3-red.log`, `/tmp/friend3-end-red.log`, `/tmp/friend3-schema-red.log`, `/tmp/friend3-schema-green.log`, `/tmp/friend3-init-final.log`, `/tmp/friend3-friends-final1.log`, `/tmp/friend3-friends-final2.log`, `/tmp/friend3-api-tools-jobs-final.log`, `/tmp/friend3-phases-final.log`, `/tmp/friend3-old-delete-race.log`, `/tmp/friend3-board-notice.log`, `/tmp/friend3-docs-final.log`, `/tmp/friend3-browsers.log`.
+Browser proof: `friend-invites-JbWYvA` under the system `kingdown-check-runs` folder.
+No full suite, remote database write, push or deploy runs. Large-table production timing is not measured.

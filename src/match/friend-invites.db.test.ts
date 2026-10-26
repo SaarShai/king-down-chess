@@ -361,11 +361,16 @@ suite('friend invitation transactions', () => {
    const plan = JSON.stringify((await client.query("explain select game_id from public.game_invites where created_by=$1 and recipient_id=$2 and state='open' and expires_at>statement_timestamp()", [users[0], users[1]])).rows);
    expect(plan).toMatch(/game_invites_(named_pending|recipient_inbox)/);
    const pair = JSON.stringify((await client.query("explain select game_id from public.game_players where user_id=$1 and not computer", [users[0]])).rows);
-   expect(pair).toContain('game_players_pair');
+   // Tiny fixtures can use the history index for the same user lookup.
+   expect(pair).toMatch(/Index (Only )?Scan using game_players_(pair|history)/);
+   const pairIndex = (await rows("select indisvalid,pg_get_indexdef(indexrelid) as definition from pg_index where indexrelid='public.game_players_pair'::regclass"))[0];
+   expect(pairIndex.indisvalid).toBe(true);
+   expect(pairIndex.definition).toContain('USING btree (user_id, game_id)');
+   expect(pairIndex.definition).toContain('NOT computer');
    const openPlan = JSON.stringify((await client.query("explain select count(*) from public.game_invites i join public.games g on g.id=i.game_id where i.created_by=$1 and i.recipient_id is null and i.state='open' and i.expires_at>statement_timestamp() and g.status='waiting'", [users[0]])).rows);
    expect(openPlan).toMatch(/Index (Only )?Scan/);
    const pairPlan = JSON.stringify((await client.query("explain select count(distinct g.id) from public.game_players a join public.game_players b on b.game_id=a.game_id join public.games g on g.id=a.game_id where a.user_id=$1 and b.user_id=$2 and not a.computer and not b.computer and g.kind<>'solo' and g.status in ('setup','playing')", [users[0], users[1]])).rows);
-   expect(pairPlan).toContain('game_players_pair');
+   expect(pairPlan).toMatch(/Index (Only )?Scan using game_players_(pair|history)/);
    const definitions = JSON.stringify(await rows("select indexdef from pg_indexes where tablename='game_invites'"));
    expect(definitions).not.toMatch(/now\(\)/i);
   } finally { await client.query('rollback'); client.release(); }
@@ -390,6 +395,35 @@ suite('friend invitation transactions', () => {
   expect((await rows("select relrowsecurity from pg_class where oid='public.game_invites'::regclass"))[0].relrowsecurity).toBe(true);
  });
 
+ it('lets an old join finish while the column phase waits', async () => {
+  const sent = await open();
+  const sql = await readFile(new URL('../../supabase/migrations/0022_friend_invites.sql', import.meta.url), 'utf8');
+  const phase = sql.split(/^-- migrate:next\s*$/m)[0];
+  const old = await pools[0].connect();
+  await old.query('begin');
+  const pid = (await old.query('select pg_backend_pid() as pid')).rows[0].pid;
+  // The old join reads the invitation before it locks the game.
+  await old.query('select game_id from public.game_invites where token_hash=$1', [sent.invite_id]);
+  const migrating = Promise.allSettled([pools[1].query(phase)]);
+  try {
+   await expect.poll(async () => (await rows('select count(*)::int as n from pg_stat_activity where datname=current_database() and $1=any(pg_blocking_pids(pid))', [pid]))[0].n).toBe(1);
+   const joined = await Promise.allSettled([(async () => {
+    await old.query('select id from public.games where id=$1 for update', [sent.game_id]);
+    await old.query("update public.games set status='setup' where id=$1", [sent.game_id]);
+    await old.query('update public.game_players set user_id=$2 where game_id=$1 and seat=1', [sent.game_id, users[1]]);
+    await old.query('update public.game_invites set used_by=$2,used_at=$3 where token_hash=$1', [sent.invite_id, users[1], new Date()]);
+    await old.query('commit');
+   })()]);
+   await old.query('rollback');
+   expect.soft(joined).toMatchObject([{ status: 'fulfilled' }]);
+   expect(await migrating).toMatchObject([{ status: 'fulfilled' }]);
+   expect(await rows('select state from public.game_invites where game_id=$1', [sent.game_id])).toEqual([{ state: 'accepted' }]);
+  } finally {
+   await old.query('rollback'); old.release();
+   await migrating; await pools[1].query('rollback'); await applyMigration(admin, sql);
+  }
+ }, 20000);
+
  it('keeps old writes valid between all migration 0022 phases', async () => {
   const sql = await readFile(new URL('../../supabase/migrations/0022_friend_invites.sql', import.meta.url), 'utf8');
   const phases = sql.split(/^-- migrate:next\s*$/m);
@@ -398,7 +432,7 @@ suite('friend invitation transactions', () => {
   await admin.query('drop trigger if exists game_invites_game_end on public.games; drop trigger if exists game_invites_old_join on public.game_invites');
   await admin.query('alter table public.game_invites drop column recipient_id cascade, drop column state cascade, drop column closed_at cascade; alter table public.game_invites drop constraint game_invites_one_game');
   await admin.query(await readFile(new URL('../../supabase/migrations/0020_deletion_utc.sql', import.meta.url), 'utf8'));
-  const writes = async (hasState: boolean) => {
+  const writes = async (hasState: boolean, closesEnds: boolean) => {
    const guest = randomUUID(); await admin.query('insert into auth.users(id) values($1)', [guest]);
    const ids: string[] = [];
    // These old write paths have no account lock and no invitation state fields.
@@ -423,14 +457,14 @@ suite('friend invitation transactions', () => {
    }
    if (hasState) {
     expect(await rows('select state,used_by,closed_at=used_at as closed from public.game_invites where game_id=$1', [ids[0]])).toEqual([{ state: 'accepted', used_by: null, closed: true }]);
-    expect(await rows('select state,closed_at is not null as closed from public.game_invites where game_id=any($1::uuid[])', [ids.slice(1, 4)])).toEqual(Array(3).fill({ state: 'cancelled', closed: true }));
+    expect(await rows('select state,closed_at is not null as closed from public.game_invites where game_id=any($1::uuid[])', [ids.slice(1, 4)])).toEqual(Array(3).fill({ state: closesEnds ? 'cancelled' : 'open', closed: closesEnds }));
     expect(await rows('select state from public.game_invites where game_id=$1', [ids[5]])).toEqual([{ state: 'open' }]);
    }
    expect(await rows('select game_id from public.game_invites where game_id=$1', [ids[4]])).toEqual([]);
   };
   try {
-   await writes(false);
-   for (const phase of phases) { await admin.query(phase); await admin.query(phase); await writes(true); }
+   await writes(false, false);
+   for (const [index, phase] of phases.entries()) { await admin.query(phase); await admin.query(phase); await writes(true, index > 0); }
    await applyMigration(admin, sql); await applyMigration(admin, sql);
    expect(await rows("select i.game_id from public.game_invites i join public.games g on g.id=i.game_id where i.state='open' and g.status in ('finished','aborted')")).toEqual([]);
    expect(await rows("select conname from pg_constraint where conrelid='public.game_invites'::regclass and not convalidated")).toEqual([]);
