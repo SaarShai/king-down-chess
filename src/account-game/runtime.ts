@@ -231,6 +231,12 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
     // the state.pending change it owns here, else a cleared state.pending leaves the page locked (design §1.2 rule 1).
     store.sync();
   }
+  /** Reconnect can replace the account without closing the host frame. A refused private read is not stale data. */
+  function accessLost(code: string, text: string): Outcome {
+    for (const key of Object.keys(state)) delete state[key as keyof typeof state];
+    state.screen = 'home'; client.save(); app.onClose?.(); app.onAccessLost?.();
+    return { status: 'refused', code, text, result: EMPTY };
+  }
   let followup: Pending | undefined, received: View | undefined, refused: { text: string; code: string; game?: string } | undefined;
   let code: string | undefined;
   if (quiet) polling = true;
@@ -259,11 +265,14 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       let result = await client.call(name, args, transport);
       if (late()) { settleLate(result); return { status: 'superseded' }; }
       // The 7-day cleanup deleted this board's record: open the shown game on a new board, as a mount does for a game with
-      // no board. Another account gets FORBIDDEN from that Open, so the refused read below still clears the page.
-      const showing = view?.game_id;
+      // no board. A mount reads before its view shows, so it opens the chat result's game.
+      const showing = job.options.shown ?? view;
       if (name === 'kingdown_get' && showing && resultCode(result) === 'BOARD_EXPIRED') {
-        result = await client.call('kingdown_open', { game_id: showing }, transport);
+        result = await client.call('kingdown_open', { game_id: showing.game_id }, transport);
         if (late()) { settleLate(result); return { status: 'superseded' }; }
+        // An account has one seat in a game, so another seat is another account: the host reconnected as the opponent.
+        // An account with no seat gets FORBIDDEN from this Open. Both clear the page, as the refused read below does.
+        if (!result.isError && (result._meta as { view?: View } | undefined)?.view?.seat !== showing.seat) return accessLost('FORBIDDEN', 'Board unavailable for this account');
         const board = result._meta?.board_id; if (typeof board === 'string') { state.board_id = board; client.save(); }
       }
       // A current selection reply selects the page's board; an older one leaves it (the epoch gate, design §1.2).
@@ -276,12 +285,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       }
       if (result.isError) {
         const text = resultText(result); code = resultCode(result);
-        // Reconnect can replace the account without closing the host frame. A refused private read is not stale data.
-        if (name === 'kingdown_get' && code === 'FORBIDDEN') {
-          for (const key of Object.keys(state)) delete state[key as keyof typeof state];
-          state.screen = 'home'; client.save(); app.onClose?.(); app.onAccessLost?.();
-          return { status: 'refused', code, text, result: EMPTY };
-        }
+        if (name === 'kingdown_get' && code === 'FORBIDDEN') return accessLost(code, text);
         if (code === 'HANDLE_NEEDED') {
           // A retained command keeps state.pending with its error (design §2); a selection keeps its own continuation.
           if (own && state.pending === own) failPending(text, own, job);
@@ -436,7 +440,7 @@ async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
     const readBoard = state.board_id && (typeof value?.game_id === 'string' || initial && savedScreen);
     // The board read waits for an idle lane, so it never reads through a write in flight (design §2, R6).
     if (readBoard) {
-      const next = await call('kingdown_get', {}, { route, origin: job, mount: true, user: false, signal });
+      const next = await call('kingdown_get', {}, { route, origin: job, mount: true, user: false, signal, shown: result._meta?.view as View | undefined });
       if (stale()) return;
       if (savedGame && !route && next && (next.status === 'finished' || next.status === 'aborted')) routeView(next);
     } else if (!result._meta?.view) {

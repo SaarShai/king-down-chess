@@ -15,17 +15,26 @@ The daily cleanup (`src/online/jobs.ts`) deletes each `plugin_boards` row 7 days
 
 - `PluginService.board` reads the row by ID only. A missing row is `BOARD_EXPIRED` (404, "This board expired. Start, resume or join a game."). A row of another account stays `FORBIDDEN`. A deleted game stays `MATCH_REMOVED`.
 - `select()` in `src/plugin/server.ts`: a selection through an expired board counts one `kingdown_open` try before the action, then gets a new board from `openBoard` (seat check). The old ID never comes back. `kingdown_resume` now uses `select()` for both of its forms.
-- The page: a `kingdown_get` that gets `BOARD_EXPIRED` while the page shows a game calls `kingdown_open` with that game, as a mount does for a game with no board, and keeps the new board ID. The pending command stays. If that Open gets `FORBIDDEN` (a new account with no seat), the refused-read branch still clears the page. A page that shows no game shows the read notice and keeps its state.
+- The page: a `kingdown_get` that gets `BOARD_EXPIRED` while the page shows a game calls `kingdown_open` with that game, as a mount does for a game with no board, and keeps the new board ID. The pending command stays. A mount reads before its view shows, so the mount read opens the game of the chat result (the `shown` job option): this is the usual case, a Daily game whose chat the player opens again days later. The page clears, as for a refused read, when the host reconnected as another account: that Open gets `FORBIDDEN` (no seat in the game), or it gives another seat than the shown view (the opponent's account; an account has one seat in a game). A page that shows no game shows the read notice and keeps its state.
 - `kingdown_get` stays read-only and makes no board. Retention stays 7 days from creation, so `public/privacy.html` does not change. `docs/plugin-preparation.md` names the new code.
 
 This replaces the line "A foreign or missing board remains forbidden" in [match-foundation ticket 14](../../match-foundation/issues/14-deleted-board-recovery.md). A missing board is now `BOARD_EXPIRED`; a foreign board stays `FORBIDDEN`. The limits of ticket 14 still hold: the server never makes a row again under an old ID, so no account can claim an existing board, and the new board passes the same seat check as any Open.
 
-Limits: each recovery changes the board ID, so a draft turn that is not yet sent is lost once (the draft scope is the board ID). A remounted widget with no shown game shows the notice until the player picks a game. The tools fixture (`tools/plugin-protocol-fixture.ts`) still gives `FORBIDDEN` for a missing board; its boards never expire.
+Limits: each recovery changes the board ID, so a draft turn that is not yet sent is lost once (the draft scope is the board ID). A remount whose chat result names no game (a home or profile result over a saved board screen) shows the notice until the player picks a game. The tools fixture (`tools/plugin-protocol-fixture.ts`) still gives `FORBIDDEN` for a missing board; its boards never expire.
 
 ### Verification
 
 - Red on the old code (after the type-only `ErrorCode` change), 8 cases: `src/online/jobs.db.test.ts` (owner gets `FORBIDDEN`, not `BOARD_EXPIRED`); `src/plugin/server.db.test.ts`, new case "opens a new board after the cleanup deletes a board record" (`FORBIDDEN` on the first read); `src/plugin/http.test.ts`, new `it.each` for Create, Resume and Join (no `board_id` in the reply); `src/plugin/app.test.ts`, new `it.each` for the foreground read and the poll (no Open) and the new "expired board" path of the refused-board test (no wipe).
 - Green on the new code: the four files, 193 tests, with the type check. Related files (`src/plugin/server`, `client`, `queue`, `screens/lifecycle`, `screens/lobby`, `src/account-game/state`, `src/api/http.db`, `tools/plugin-db/seed-review.db`): 152 tests pass.
+
+### Review
+
+An independent review found two P2 faults in the first page change. Both are fixed in the commit "Recover an expired board on a remount, and clear it for the opponent's account".
+
+- A remount did not recover. The mount read runs before `show()` sets the view, so the recovery had no game and the page showed the notice for each Try again. Proof: a saved board screen and a chat result for `game-a000` gave no `kingdown_open`.
+- An in-place reconnect to the opponent's account kept the page. The missing row gives `BOARD_EXPIRED` before the owner check, and the opponent's Open of the shown game passes the seat check. The first account's receipt stayed, and its Retry sent that command as the new account. Proof: a database case (the opponent's read of the deleted board gives `BOARD_EXPIRED`, its Open gives seat 1) and an app case. The first text of this ticket said that another account always gets `FORBIDDEN`; that was false for an account with a seat.
+- Red on the old page code, 3 new cases in `src/plugin/app.test.ts`: "opens the chat result game when a remounted board expired; another seat clears the page" (seat 0 and seat 1: no Open) and the "expired board, other seat" path of "clears private state when a reconnected account refuses the current board" (the page stays open).
+- Green on the new code: `src/plugin/app.test.ts`, 124 tests, with the type check. The two proof cases of the review now fail on their defect assertions. Related files (`src/online/entry`, `src/plugin/queue`, `client`, `screens/lifecycle`, `screens/lobby`, `src/account-game/state`): 121 tests pass. `npm run test:docs` (178 tests) and `npm run check:browser plugin-privacy` pass.
 
 ## F4: every Find waits on one global lock during engine work
 
