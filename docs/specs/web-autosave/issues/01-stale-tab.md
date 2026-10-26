@@ -86,3 +86,9 @@ Staging check: After a fetch, `origin/staging/first-game` points to `e862c75a`. 
 Limits: The new account test uses shared in-memory keys and a cloud substitute. It does not check separate browser processes or a live account. The save comparison and write remain separate operations. No full suite, push, rebase, or deploy runs. The merge commit uses the unchanged hooks and both required trailers.
 
 Update: Both lanes merge. All tests stay. One save notice clears each failure after a successful write.
+
+## Joined lane review, round 4
+
+Plan: Test both failure orders and the real Sound handler on this branch. Keep the stored-game comparison and the account owner check. Record results in [ticket 02](02-write-failure.md). Make one commit per finding.
+
+Finding 1 does not reproduce. Two new tests fail game and lesson writes in each order. Only one write can retry. The other failure keeps the notice. A final retry clears the notice after both data sets save. The first requested source check passes all 166 tests, both type checks, and 67 art checks. No source change is necessary. The game, lesson, and settings causes stay separate from the account block.

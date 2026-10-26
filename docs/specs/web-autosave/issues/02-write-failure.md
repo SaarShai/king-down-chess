@@ -22,6 +22,18 @@ The owner requests this fix for audit finding F3. Work stays on `staging/web-aut
 - A later successful game write saves all moves and clears the notice.
 - Record the failing and passing test runs here. Do not run browser checks or the full suite under the quiet lock.
 
+## Joined lane review, round 4
+
+Plan: Test two failed writes in each order with fake timers. Permit only one retry. Keep the notice for the other data. Test Sound through the real settings handler after a failed game write. Check the stored moves and the game after reload. Keep each finding in its own commit.
+
+Checks: Track game, lesson, settings, and account blocks by their own data. A successful write clears only its own failure. Run the eight requested source test files, then the doc checks. Run `new-game` once at the end. Keep the hooks unchanged. Make no push, rebase, or deploy.
+
+Finding 1 does not reproduce on this branch. The first probe passes both failure orders. The game write fails, then Guard fails. Only Guard can retry; the game notice stays. In the reverse order, only the game can retry; the lesson notice stays. The final retry clears the notice only after both data sets save. Each case uses real move and lesson handlers with fake timers.
+
+Before check: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,ui/table,account/account,account/client,lesson-shelf,lesson-store}.test.ts' npm test`. Both type checks, 166 tests in eight files, and 67 art checks pass. There is no red result for finding 1. The joined branch already keeps a set of failure causes. The new tests keep this rule in code. No source change is necessary for this finding.
+
+Green check: The same command passes all 166 tests, both type checks, and 67 art checks. The change adds tests and ticket records only. Each data set keeps its own failure cause; one shared notice displays the causes.
+
 ## Result
 
 The old writer catches a storage error and returns no result. The page cannot show that moves remain unsaved. The red tests reproduce both a quota error and a storage refusal.

@@ -636,6 +636,59 @@ describe('failed local autosaves', () => {
   const unsaved = 'Changes not saved. Keep this tab open.';
   const shown = () => vi.mocked(refreshTable).mock.lastCall![0];
 
+  it.each(['game', 'lesson'] as const)('round 4: keeps both failures when %s fails first', async first => {
+    const empty = { ...original, moves: [] };
+    stored.set(SAVE_KEY, JSON.stringify(empty));
+    const { play, view, changed } = page();
+    play.restore(empty, request);
+    const refused = new Set([SAVE_KEY, 'kingdown.lessons']);
+    vi.spyOn(localStorage, 'setItem').mockImplementation((key, value) => {
+      if (refused.has(key)) throw new DOMException('Full', 'QuotaExceededError');
+      stored.set(key, value);
+    });
+    const finishLesson = async () => {
+      play.startLesson(4);
+      const game = play.game(), move = game.legal.find(m => LESSONS[4].goal(game.pos, m))!;
+      view.onSquareClick(move.from, false); view.onSquareClick(move.to, false);
+      await vi.advanceTimersByTimeAsync(0);
+    };
+    const returnToGame = () => {
+      const button = document.getElementById('return-game')!;
+      button.onclick!.call(button, {} as PointerEvent);
+    };
+    if (first === 'lesson') { await finishLesson(); returnToGame(); }
+    view.onSquareClick(12, false); view.onSquareClick(28, false);
+    await vi.advanceTimersByTimeAsync(0);
+    if (first === 'game') await finishLesson();
+    expect(readSave().save?.moves).toEqual([]);
+    expect(progress().done ?? []).not.toContain('Guard');
+    expect(shown().saveNotice).toBe(unsaved);
+    expect(changed).not.toHaveBeenCalled();
+
+    if (first === 'game') {
+      refused.delete('kingdown.lessons');
+      await finishLesson();
+      expect(progress().done).toContain('Guard');
+      expect(shown().lessonDone).toBe(true);
+      expect(readSave().save?.moves).toEqual([]);
+    } else {
+      refused.delete(SAVE_KEY);
+      expect(play.save()).toBe(true);
+      expect(readSave().save?.moves).toEqual(['e2-e4']);
+      expect(progress().done ?? []).not.toContain('Guard');
+    }
+    play.commands.escape(); play.refresh();
+    expect(shown().saveNotice).toBe(unsaved);
+    expect(changed).toHaveBeenCalledOnce();
+
+    refused.clear();
+    if (first === 'game') returnToGame(); else await finishLesson();
+    expect(readSave().save?.moves).toEqual(['e2-e4']);
+    expect(progress().done).toContain('Guard');
+    expect(shown().saveNotice).toBe('');
+    expect(changed).toHaveBeenCalledTimes(2);
+  });
+
   it('saves the next move after unreadable data and one quota failure', () => {
     const raw = '{raw save';
     stored.set(SAVE_KEY, raw);
