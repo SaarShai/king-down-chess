@@ -428,7 +428,7 @@ async function mountBody(job: Job, result: ToolResult, signal: AbortSignal) {
     }
     if (!initial && value?.screen === 'home') openHallOnExpand = false;
     if (value?.screen === 'join') { memory.preview = result._meta?.preview as JoinPreview | undefined; memory.code = memory.preview?.code ?? ''; memory.joinError = undefined; }
-    if (value && ['home', 'play', 'board', 'profile', 'join'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen === 'home' && initial && !savedScreen && displayMode === 'fullscreen' ? 'play' : value.screen as Screen);
+    if (value && ['home', 'play', 'board', 'profile', 'join', 'settings'].includes(String(value.screen)) && (!initial || !savedScreen)) navigate(value.screen === 'home' && initial && !savedScreen && displayMode === 'fullscreen' ? 'play' : value.screen as Screen);
     // A game with no board gets its own new board, so mounts never race on one server board; only a current mount takes it.
     if (typeof value?.game_id === 'string' && !board && (!initial || !state.board_id)) {
       const selected = await client.call('kingdown_open', { game_id: value.game_id }, { limit: false, background: true, signal });
