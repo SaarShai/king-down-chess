@@ -217,3 +217,19 @@ All seven selected final-move cases and 57 art checks pass. The five required
 sizes keep a clear caption, a working return and the same board size.
 Both landscape coin edge clicks still open Freeze. Ticket 04 records the
 merged checks. Repair logs use `new-game-fix-files/` in the same run folder.
+
+## Second art cause after the CI fix
+
+CI run 40228138417 fails the art check again on `e3fd4411`, for king pair 1.
+All 32 pieces fail; the rook error is 99.26. The 32-draw wait passes.
+The check sets Symbols only and at once asks for a gallery view. That view
+carries the saved settings (`kingdown_open` in `src/plugin/server.ts`). When
+the server reads them before the write commits, the write reply draws the
+symbols first. Then the older view turns Symbols only off again through
+`remember()` and `applySettings()` in `src/account-game/runtime.ts`.
+A probe holds the write at the host and gives this exact state in three of
+three rounds. It passes in three of three rounds when the write ends first.
+The check now waits for the board to settle after each Symbols only change.
+The report `flakes.md` and its `flakes-files/` logs are under the same run folder.
+
+Product note from the second art-check cause (not fixed here): a chat result whose saved settings the server read before a settings write ended puts the old settings back on screen (`src/account-game/runtime.ts` `remember()` and `show()`). The check now waits for the write. A product fix needs its own ticket.

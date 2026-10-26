@@ -19,6 +19,13 @@ export const TOOL_LIMITS = {
   kingdown_open: { count: 60, seconds: 60, message: 'Too many new boards. Wait one minute, then try again.' },
   kingdown_report: { count: 30, seconds: 3600, message: 'Too many reports. Wait one hour, then try again.' },
 };
+/** The counter of a game command on any surface. A rematch offer or accept can make the next game (a solo offer makes it
+ *  at once), so it shares the Create counter. A decline, a resign and the other commands make no game and count nothing. */
+export function commandLimit(action: { type?: unknown; choice?: unknown } | null | undefined): keyof typeof TOOL_LIMITS | undefined {
+  if (action?.type === 'computer') return 'kingdown_computer';
+  if (action?.type === 'rematch' && action.choice !== 'decline') return 'kingdown_create';
+  return undefined;
+}
 export class PluginService {
   private games: GameService; private safety: SafetyService; private accounts: AccountService; private playerSettings: SettingsService;
   constructor(private store: PostgresMatchStore, inviteSecret = process.env.KINGDOWN_INTERNAL_SECRET) { this.games = new GameService(store, inviteSecret); this.safety = new SafetyService(store); this.accounts = new AccountService(store); this.playerSettings = new SettingsService(store.pool); }

@@ -419,7 +419,7 @@ it('names the power coin owner when both kings have the same power', async () =>
     expect.soft(await frame.locator('#power-b').getAttribute('aria-label')).toMatch(/^Opponent's Freeze, /);
     expect.soft((await frame.locator('#strip-them').innerText()).match(/Computer/g)).toHaveLength(1);
     const names = await frame.locator('html').evaluate('(async () => { const { features } = await import("/src/account-game/features.ts"); return [...features({ fairy: true, arrangement: true, cards: true, kingPowers: true }).children].map(e => [e.getAttribute("role"), e.getAttribute("aria-label")]); })()');
-    expect.soft(names).toEqual(['Fairy pieces', 'Arrangement', 'Cards', 'King powers'].map(name => ['img', name]));
+    expect.soft(names).toEqual(['Fairy pieces', 'First rank sorting', 'Cards', 'King powers'].map(name => ['img', name]));
   } finally { await page.close(); }
 });
 

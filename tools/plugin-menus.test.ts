@@ -172,15 +172,19 @@ it('scrolls the Profile parchment with the page and keeps its roller and trailin
   } finally { await page.close(); }
 });
 
-it('shows each card and power with the same rules and words on the Cards sheet, the king sheet and the Collection', async () => {
+it('shows each card and power with the same rules and words on each card sheet, the king sheet and the Collection', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await go(page, 'play');
     await frame.locator('#setup-options summary').click();
-    await frame.locator('#cards-row').click();
-    await frame.locator('#setup-cards').click();
-    const sheet = Object.fromEntries(await frame.locator('#menu-sheet .card-face').evaluateAll(faces => faces.map(f => [f.querySelector('input')!.value, f.querySelector('small')!.textContent])));
-    await frame.locator('#menu-close').click();
+    await frame.locator('#setup-toggle-cards').check();
+    const sheet: Record<string, string | null> = {};
+    const cards = await frame.locator('#setup-card-pool [data-card]').evaluateAll(rows=>rows.map(row=>(row as HTMLElement).dataset.card!));
+    for (const card of cards) {
+      await frame.locator(`#setup-card-${card}`).click();
+      sheet[card]=await frame.locator('#menu-sheet small').textContent();
+      await frame.locator('#menu-close').click();
+    }
     await frame.locator('#kingPowers-row').click();
     await frame.locator('#setup-king').click();
     const power = await frame.locator('#menu-sheet .power-text').first().textContent();

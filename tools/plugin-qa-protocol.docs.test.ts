@@ -24,9 +24,9 @@ test('the QA hall step names the current home actions, setup and menu rows', () 
   expect(rows).toEqual(['Settings', 'Profile']);
   for (const row of rows) expect(hall).toContain(row);
   expect(hall).toContain('"Play now" always starts a Casual computer game with an automatic army and no seat screen.');
-  expect(hall).toContain('Check this for a new player and for a saved A friend setup with Arrangement on and level Strong.');
+  expect(hall).toContain('Check this for a new player and for a saved A friend setup with First rank sorting set to Player and level Strong.');
   expect(hall).toContain('Open Game options to see "Join with a code"');
-  expect(hall).toContain('The saved setup stays after Play now, including the opponent, level and Arrangement choices.');
+  expect(hall).toContain('The saved setup stays after Play now, including the opponent, level and First rank sorting choices.');
   expect(hall).toContain('Open New game to check these saved choices.');
 });
 

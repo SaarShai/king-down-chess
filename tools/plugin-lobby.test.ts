@@ -42,7 +42,7 @@ async function hall(page: Page) {
   if (!await options.evaluate(e => (e as HTMLDetailsElement).open)) await options.locator('summary').click();
 }
 async function chooseKind(frame: FrameLocator, name: string) {
-  await frame.getByRole('radio', { name, exact: true }).locator('..').click();
+  await frame.locator('#setup-body .modes').getByRole('radio', { name, exact: true }).locator('..').click();
   const options = frame.locator('#setup-options');
   if (!await options.evaluate(e => (e as HTMLDetailsElement).open)) await options.locator('summary').click();
 }

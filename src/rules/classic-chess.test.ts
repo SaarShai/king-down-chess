@@ -212,6 +212,17 @@ describe('classic chess: en passant', () => {
     expect(best.captures).toEqual([parseSq('d5')]);
   });
 
+  it('a free mark keeps the right for the move that follows it, and the search agrees', () => {
+    classic({ ...POWERS_BALANCED, kings: [null, { king: 'Frost', power: 'Freeze' }] });
+    const pos = fromFen('4k3/8/8/8/3pP3/8/8/R3K3 b - e3 0 1');
+    const freeze = find(pos, '!F:a1'), after = makeMove(pos, freeze);
+    expect(after.turn).toBe(pos.turn);
+    expect(lans(after)).toContain('d4xe3');
+    expect(searchLegal(after).map(m => toLan(after, m)).sort()).toEqual(lans(after));
+    expect(probeApply(pos, freeze).after).toBe(positionKey(after));
+    expect(makeMove(after, find(after, '--')).ep).toBeUndefined(); // the right ends with the turn
+  });
+
   it('positions that differ only in the en-passant square are not the same position', () => {
     classic();
     expect(positionKey(fromFen('4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1'))).not.toBe(positionKey(fromFen('4k3/8/8/3pP3/8/8/8/4K3 w - - 0 1')));

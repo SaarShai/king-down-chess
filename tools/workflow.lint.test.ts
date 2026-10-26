@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { checks } from './lib/registry.mjs';
 
 describe('.github/workflows/plugin-checks.yml', () => {
   const workflow = readFileSync(join(import.meta.dirname, '..', '.github', 'workflows', 'plugin-checks.yml'), 'utf8');
@@ -56,10 +57,13 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(board).not.toContain('webkit');
   });
 
-  it('gives the full test job and the Chromium checks 30 minutes for their CI step limits', () => {
+  it('gives the full test job 30 minutes and the Chromium checks their CI step limits', () => {
     // CI runs the steps with limits times 2 (tools/lib/checks.mjs STEP); the full npm test takes about 15 minutes there.
     expect(job('verify')).toContain('timeout-minutes: 30');
-    expect(job('browser')).toContain('timeout-minutes: 30');
+    const browser = job('browser'), names = browser.match(/- run: npm run check:browser (.+)\n/)![1].split(' ');
+    const seconds = names.reduce((sum, name) => sum + checks.find(check => check.name === name)!.limit * 2, 0);
+    // The checks in turn after the setup, whose browser install took 7 minutes in run 40262605705.
+    expect(seconds / 60 + 10).toBeLessThan(Number(browser.match(/^    timeout-minutes: (\d+)$/m)![1]));
   });
 
   it('runs the web journeys on Chromium in their own job beside the plugin checks', () => {

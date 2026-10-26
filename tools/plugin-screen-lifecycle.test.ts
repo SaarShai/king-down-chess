@@ -61,7 +61,7 @@ it('uses neutral copy for a pinned unavailable power when cards are off', async 
     expect(await frame.locator('.power-text.off').allTextContents()).toEqual(['Holy Light is not available in this game.']);
   } finally { await page.close(); }
 });
-it.each(['pieces', 'cards', 'king', 'seat-king', 'seat-menu', 'seat-abort'])('preserves %s through SDK teardown and restores it on remount', async name => {
+it.each(['card:Haste', 'king', 'seat-king', 'seat-menu', 'seat-abort'])('preserves %s through SDK teardown and restores it on remount', async name => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     if (name.startsWith('seat-')) {
@@ -78,9 +78,9 @@ it.each(['pieces', 'cards', 'king', 'seat-king', 'seat-menu', 'seat-abort'])('pr
       // Game options starts closed (F-113).
       const options = frame.locator('#setup-options');
       if (!await options.evaluate(e => (e as HTMLDetailsElement).open)) await options.locator('summary').click();
-      if (name === 'cards') await frame.locator('#setup-toggle-cards').check();
+      if (name.startsWith('card:')) await frame.locator('#setup-toggle-cards').check();
       if (name === 'king') await frame.locator('#setup-toggle-kingPowers').check();
-      await frame.locator(`#setup-${name}`).click();
+      await frame.locator(name.startsWith('card:') ? `#setup-card-${name.slice(5)}` : `#setup-${name}`).click();
     }
     const sheet = name.startsWith('seat-') && name !== 'seat-king' ? name : name === 'seat-king' ? 'king' : name;
     await expect.poll(async () => (await state(page)).sheet).toBe(sheet);
@@ -92,6 +92,7 @@ it.each(['pieces', 'cards', 'king', 'seat-king', 'seat-menu', 'seat-abort'])('pr
     await expect.poll(async () => (await state(page)).sheet).toBe(sheet);
     await frame.locator(name.startsWith('seat-') && name !== 'seat-king' ? '#seat-menu-close' : '#menu-close').click();
     await expect.poll(async () => (await state(page)).sheet).toBeUndefined();
+    if (name.startsWith('card:')) expect(await frame.locator(`#setup-card-${name.slice(5)}`).evaluate(e=>e===document.activeElement)).toBe(true);
   } finally { await page.close(); }
 });
 it.each([false, true])('drops a held Profile reply after SDK teardown (failed %s)', async failed => {
@@ -142,5 +143,22 @@ it.each(['profile', 'play'])('clears a badge on normal Close while the screen is
     await frame.locator('#badge-close').click();
     await expect.poll(async () => (await state(page)).sheet).toBeUndefined();
     expect(await frame.locator('.badge-sheet[open]').count()).toBe(0);
+  } finally { await page.close(); }
+});
+
+it.each(['pieces', 'cards'])('clears the old %s sheet on a remount', async sheet => {
+  const page = await open(), frame = page.frameLocator('iframe'), errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  try {
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('play'));
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await frame.locator('html').evaluate((_, sheet) => { const app = (window as any).harnessApp; app.client.state.sheet = sheet; app.client.save(); }, sheet);
+    await expect.poll(async () => (await state(page)).sheet).toBe(sheet);
+    await page.evaluate(() => (window as any).harnessTeardown());
+    await page.locator('#remount').click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await expect.poll(async () => (await state(page)).sheet).toBeUndefined();
+    expect(await frame.locator('#menu-sheet').count()).toBe(0);
+    expect(errors).toEqual([]);
   } finally { await page.close(); }
 });

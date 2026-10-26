@@ -56,7 +56,7 @@ Map each journey step by step: the screen, the action, what the persona expects,
 
 1. Sam: from the inline card, a first game with the computer at the easiest level, with the defaults.
 2. Noa: a Casual computer game as Black, with Fairy pieces and Cards, no King powers.
-3. Ari: a friend game with Classic chess only (no Fairy pieces, no Arrangement, no Cards, no King powers), then send the code.
+3. Ari: a friend game with Classic chess only (no Fairy pieces, First rank sorting Random, no Cards, no King powers), then send the code.
 4. Ari: a friend game with all the options, a chosen king and chosen cards, then the same game again tomorrow (a rematch, or the same options in a new game).
 5. Kai: a random player now, with any options. Then the same with Cards on.
 6. Noa: start with the defaults, then see on the board that a wanted option is off. How does the player go back and change it?

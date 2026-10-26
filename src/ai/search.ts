@@ -14,7 +14,7 @@
  * Runs inside a Web Worker (worker.ts).
  */
 import {
-  A, BLACK, CardCtx, Color, G, GenMode, K, Move, P, Position, RULES, TAG_POWER, WHITE, cardAt, colorOf, drawsOnLost, filterFree, filterHeld, filterMarks, freePass, genGuardDrops,
+  A, BLACK, CardCtx, Color, G, GenMode, K, Move, P, Position, RULES, TAG_POWER, WHITE, cardAt, colorOf, drawsOnLost, filterFree, filterHeld, filterMarks, followSq, freePass, genGuardDrops,
   epAfter, genClassic, genHasteFollowUp, genPiece, genPowerMoves, handOf, heldCount, holdsTurn, isAttacked, isMarkTag, isStill, keepsLost, landed, lapsing, materialDraw, moverOf, overShots, piece,
   moveNumber, powerOf, powerUses, returnable, rightsAfter, spend, tracksLast, typeOf,
 } from '../rules/engine';
@@ -365,7 +365,7 @@ function apply(m: Move, c: Color): number {
     }
   }
   if (castleR) setCastle(rightsAfter(castleR, m));
-  if (classic) setEp(still ? -1 : epAfter(board, m, c));
+  if (classic) setEp(!still ? epAfter(board, m, c) : holdsTurn(m) ? epSq : -1);
   if (m.power) setUsed(c, spend(c, usedPair[c], m.power, drawnN[c], m.via));
   if (m.power === 'growth' || m.power === 'growthb') setDrawn(c, drawnN[c] + 1);
   if (m.power && trackLast && handAt[c].length) setLast(c, TAG_POWER[m.power]);
@@ -373,7 +373,11 @@ function apply(m: Move, c: Color): number {
   const holdTurn = holdsTurn(m);
   // Mirror of makeMove: the opponent's mark uses up a turn when this move passes the turn (an ended
   // one stays as `left` 0 while a Rescue may renew it); the mover's own ended mark goes when its turn
-  // ends; a new mark replaces only the mover's own slot, and a Rescue renews it.
+  // ends; a new mark replaces only the mover's own slot, and a Rescue renews it. A mark follows its piece.
+  if (!still) for (let by = 0; by < 2; by++) {
+    const s = markSq[by] >= 0 ? followSq(m, markSq[by]) : -1;
+    if (s !== markSq[by]) setMark(by, s, s < 0 ? 1 : markLeft[by], markWard[by] === 1, markAll[by] === 1);
+  }
   const o = c ^ 1;
   const mineSq = markSq[c], mineLeft = markLeft[c], mineWard = markWard[c] === 1, mineAll = markAll[c] === 1;
   if (markSq[o] >= 0 && !holdTurn) { const left = markLeft[o] - 1; setMark(o, left > 0 || (left === 0 && lapse) ? markSq[o] : -1, left, markWard[o] === 1, markAll[o] === 1); }

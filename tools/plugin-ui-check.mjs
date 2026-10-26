@@ -261,7 +261,7 @@ try {
     await frame.locator('#setup-options').evaluate(e => { e.open = true; });
   }
   async function chooseKind(name) {
-    await frame.getByRole('radio', { name, exact: true }).locator('..').click();
+    await frame.locator('#setup-body .modes').getByRole('radio', { name, exact: true }).locator('..').click();
     if (!await frame.locator('#setup-options').evaluate(e => e.open)) await frame.locator('#setup-options summary').click();
   }
   async function openScreen(screen) {
@@ -527,7 +527,7 @@ try {
   assert.deepEqual(navWrites, [], 'Menu rows and Back send no write call');
   assert.equal(await page.evaluate(() => JSON.stringify(window.harnessWidgetState).includes('K7QX2M')), false, 'The join code stays in page memory');
   await freshHost('play');
-  // Ticket 12: setup and its three sheets.
+  // Setup has inline pools and full card and king sheets.
   {
     const { DEFAULT_OPTIONS, DEAL_CARDS } = await import('../src/match/setup.ts');
     const { tmpdir } = await import('node:os');
@@ -555,7 +555,7 @@ try {
       await page.waitForFunction(n => window.harnessCalls.filter(c => c.name === 'kingdown_settings').length > n, reads);
       await frame.locator('#setup-start:not(:disabled)').waitFor();
       await page.evaluate(()=>{window.harnessDropWidgetWrites=false;});
-      // The mount's Menu read ends later, and each store pass draws the setup card grid again with new buttons.
+      // The mount's Menu read ends before the controls are used.
       await settled(page, frame);
       await frame.locator('#setup-options').evaluate(e => { e.open = true; });
     }
@@ -578,7 +578,8 @@ try {
       const footer = frame.locator(sheet ? '#setup-done' : '#setup-start');
       assert((await footer.evaluate(controlBounds)).accessible, `${state} footer stays above the composer`);
       await frame.locator(sheet ? '#menu-sheet .sheet-body' : '#new-game .new-game-body').evaluate(el => { el.scrollTop = 0; });
-      await frame.locator('#new-game img, #menu-sheet img').evaluateAll(images => Promise.all(images.map(image => image.decode())));
+      // A lazy card painting that is not shown never loads, so its decode() never ends: wait only for loaded or eager images.
+      await frame.locator('#new-game img, #menu-sheet img').evaluateAll(images => Promise.all(images.filter(image => image.loading !== 'lazy' || image.complete).map(image => image.decode())));
       const shotPath = await shot(page, `${state}-${width}-${mode}`);
       if (compare && (width === 390 || width === 1440)) {
         const size = width === 390 ? 'phone' : 'desktop', reference = await sharp(`docs/specs/chatgpt-mvp/sample/png/${state}-${size}.png`).resize(width, height).toBuffer();
@@ -591,7 +592,7 @@ try {
     await chooseKind('Artificial');
     assert.equal(await frame.locator('#setup-start').count(), 1, 'Setup has the game controls and its fixed Start footer');
     assert(await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).isChecked());
-    assert(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
+    assert(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).isChecked());
     assert(!await frame.getByRole('checkbox', { name: 'Cards', exact: true }).isChecked());
     assert(!await frame.getByRole('checkbox', { name: 'King powers', exact: true }).isChecked());
     assert(await frame.locator('input[name="setup-colour"][value="white"]').isChecked());
@@ -599,10 +600,10 @@ try {
     await chooseKind('A friend'); assert(!await frame.locator('#setup-level').isVisible());
     await chooseKind('Artificial');
     await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).uncheck();
-    assert(!await frame.locator('#arrangement-row').isVisible()); assert(!await frame.locator('#setup-pieces').isVisible());
+    assert(!await frame.locator('#setup-sorting').isVisible()); assert(!await frame.locator('#fairy-body').isVisible());
     await frame.getByRole('checkbox', { name: 'Classic chess', exact: true }).check();
     await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).check();
-    assert(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked()); assert(!await frame.locator('#classic-row').isVisible());
+    assert(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).isChecked()); assert(!await frame.locator('#classic-row').isVisible());
     await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).uncheck(); assert(await frame.getByRole('checkbox', { name: 'Classic chess', exact: true }).isChecked());
     await setupMount({ ...baseSetup, colour: 'random', options: { ...DEFAULT_OPTIONS, arrangement: false, kingPowers: true } });
     await frame.locator('#setup-king').click(); await frame.locator('#setup-done').click();
@@ -617,17 +618,17 @@ try {
     await abortSetup(await page.evaluate(() => window.harnessView.game_id));
     const { checkCardChoices } = await import('./lib/plugin-cards-check.mjs');
     await checkCardChoices(page, frame, setupMount, { ...baseSetup, options: { ...DEFAULT_OPTIONS, cards: true } }, DEAL_CARDS);
-    await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, cards: true } }); await frame.locator('#setup-cards').click();
-    assert((await frame.locator('label.card-face:has(input[value="Freeze"]) small').innerText()).startsWith('As your move, freeze'), 'Card text uses the rules of a game with king powers off');
+    await setupMount({ ...baseSetup, options: { ...DEFAULT_OPTIONS, cards: true } }); await frame.locator('#setup-card-Freeze').click();
+    assert((await frame.locator('#menu-sheet small').innerText()).startsWith('As your move, freeze'), 'Card text uses the rules of a game with king powers off');
     await frame.locator('#setup-done').click();
     const sampleSetup = { ...baseSetup, options: { ...DEFAULT_OPTIONS, cards: true, kingPowers: true, cardPool: DEAL_CARDS.filter((_, i) => ![9,12,13,16,18].includes(i)) }, king: { king: 'Mud', power: 'March' } };
     for (const state of ['setup','setup-classic','setup-pieces','setup-cards','setup-king']) {
       const last = state === 'setup-classic' ? { ...baseSetup, options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } }
         : state === 'setup-pieces' ? { ...sampleSetup, options: { ...sampleSetup.options, pool: ['N','A','M','S'] } } : sampleSetup;
       await setupMount(last);
-      if (state === 'setup') await checkTabletButtons(frame, '#setup-pieces, #setup-cards');
-      if (state === 'setup-pieces') await frame.locator('#setup-pieces').click();
-      if (state === 'setup-cards') await frame.locator('#setup-cards').click();
+      if (state === 'setup') assert(await frame.locator('.section-head > button').evaluateAll(buttons=>buttons.every(button=>button.getBoundingClientRect().height>=48)), 'Section buttons keep a 48 pixel target');
+      if (state === 'setup-pieces') assert(await frame.locator('#fairy-body').isVisible());
+      if (state === 'setup-cards') await frame.locator('#setup-card-Haste').click();
       if (state === 'setup-king') {
         await frame.locator('#setup-king').click();
         await checkTabletSelection(frame);
@@ -655,27 +656,26 @@ try {
       await page.evaluate(() => window.harnessSetContext({ theme: 'light', deviceCapabilities: { touch: true }, safeAreaInsets: { top: 6, right: 8, bottom: 18, left: 12 } }));
       await setupFits(390, 844, `${state}-safe`, false);
       await page.evaluate(() => window.harnessSetContext({ theme: 'light', deviceCapabilities: { touch: true }, safeAreaInsets: { top: 0, right: 0, bottom: 0, left: 0 } }));
-      if (state !== 'setup' && state !== 'setup-classic') await frame.locator('#setup-done').click();
+      if (state === 'setup-cards' || state === 'setup-king') await frame.locator('#setup-done').click();
     }
     await page.setViewportSize({ width: 390, height: 844 });
     await setupMount({ ...sampleSetup, options: { ...sampleSetup.options, pool: ['N','A','M','S'] } });
-    await frame.locator('#setup-pieces').click();
     assert.equal(await frame.locator('.pick-list input:checked:disabled').count(), 4, 'Four kinds supply exactly seven pieces');
     await frame.getByRole('checkbox', { name: 'Queen', exact: true }).check();
     assert(!await frame.getByRole('checkbox', { name: 'Beast', exact: true }).isDisabled(), 'Adding one piece frees the one-piece lock');
     assert(await frame.getByRole('checkbox', { name: 'Archer', exact: true }).isDisabled(), 'Eight pieces still cannot lose two archers');
-    await frame.locator('#setup-done').click(); await frame.locator('#setup-cards').click();
+    assert(await frame.locator('#cards-body').isVisible());
     const keep = ['Freeze','IceWall','Strike','Haste'];
     for (const card of sampleSetup.options.cardPool.filter(c => !keep.includes(c))) await frame.locator(`.card-grid input[value="${card}"]`).uncheck();
-    assert.equal(await frame.locator('.card-grid input:checked:disabled').count(), 0, 'Cards do not lock at four');
+    assert.equal(await frame.locator('.card-grid input:checked:disabled').count(), 4, 'The last four cards lock');
     await frame.locator('.card-grid input[value="Leap"]').check(); assert(!await frame.locator('.card-grid input[value="Freeze"]').isDisabled());
-    await frame.locator('#setup-done').click(); await frame.locator('#setup-king').click();
+    await frame.locator('#setup-king').click();
     assert.equal(await frame.locator('.emblem.is-out[aria-disabled="true"]').count(), 3, 'Cards exclude Frost, Flame and Stratus');
     assert(await frame.locator('[data-power="Leap"]').isDisabled());
     assert.equal(await frame.getByRole('button', { name: 'No power', exact: true }).count(), 0);
     await frame.locator('[data-king="Shadow"]').click(); await frame.locator('[data-power="Darkness"]').click(); await frame.locator('#setup-done').click();
     await frame.locator('#setup-level').fill('2'); await frame.getByRole('radio', { name: 'Black', exact: true }).locator('..').click();
-    await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).uncheck();
+    await frame.locator('#setup-sorting').getByRole('radio', { name: 'Random', exact: true }).locator('..').click();
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert.equal(await page.evaluate(() => window.harnessView.seat), 1);
     assert.deepEqual(await page.evaluate(() => window.harnessView.kings[1]), { king: 'Shadow', power: 'Darkness' });
@@ -751,8 +751,8 @@ try {
       assert(await frame.locator('[data-screen="seat"]').isHidden(), 'Play now skips the seat screen with saved Arrangement on');
       assert.deepEqual((await setupTool('kingdown_settings'))._meta.settings.last_setup, remembered, `Play now keeps the saved ${kind} setup`);
       await openPlay();
-      assert(await frame.getByRole('radio', { name: kind === 'friend' ? 'A friend' : 'Random', exact: true }).isChecked());
-      assert(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
+      assert(await frame.locator('#setup-body .modes').getByRole('radio', { name: kind === 'friend' ? 'A friend' : 'Random', exact: true }).isChecked());
+      assert(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).isChecked());
       await chooseKind('Artificial');
       assert.equal(await frame.locator('#setup-level').getAttribute('aria-valuetext'), 'Club', 'New game uses Club for an old Strong draft');
       await abortSetup(quick.game_id);
@@ -770,7 +770,7 @@ try {
       if (name === 'kingdown_create') assert.equal(pending.args.mode,'casual','A pending Play now keeps its Casual mode');
       assert(await frame.getByRole('radio', { name: 'Artificial', exact: true }).isChecked());
       assert.equal(await frame.locator('#setup-level').getAttribute('aria-valuetext'), 'Casual');
-      assert(!await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
+      assert(!await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).isChecked());
       assert.doesNotMatch(await frame.locator('#setup-start').innerText(), /Strong|Arrangement/);
       // A remount of a pending with an error shows its saved words and Retry; the player taps Retry (design §5.3).
       if (recovery === 'remount') { await page.locator('#remount').click(); await frame.locator('#retry:not(:disabled)').waitFor(); }
@@ -783,7 +783,7 @@ try {
       await openPlay();
       assert(await frame.getByRole('radio', { name: 'A friend', exact: true }).isChecked());
       assert.equal(await frame.locator('#setup-level').getAttribute('aria-valuetext'), 'Club');
-      assert(await frame.getByRole('checkbox', { name: 'Arrangement', exact: true }).isChecked());
+      assert(await frame.locator('#setup-sorting').getByRole('radio', { name: 'Player', exact: true }).isChecked());
       await abortSetup(quick.game_id);
     }
     assert.deepEqual(page.viewportSize(), { width: 390, height: 844 }, 'The setup mixes and recovery checks use the phone size');
@@ -795,7 +795,8 @@ try {
       // Abort keeps the last game's king. Give each toggle case the same starting draft.
       await setupMount(baseSetup); await chooseKind('Artificial');
       await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).setChecked(fairy);
-      await frame.getByRole('checkbox', { name: fairy ? 'Arrangement' : 'Classic chess', exact: true }).setChecked(secondary);
+      if (fairy) await frame.locator('#setup-sorting').getByRole('radio', {name: secondary ? 'Player' : 'Random', exact:true}).locator('..').click();
+      else await frame.getByRole('checkbox', {name:'Classic chess',exact:true}).setChecked(secondary);
       await frame.getByRole('checkbox', { name: 'Cards', exact: true }).setChecked(cards);
       await frame.getByRole('checkbox', { name: 'King powers', exact: true }).setChecked(powers);
       await frame.getByRole('radio', { name: last.colour[0].toUpperCase() + last.colour.slice(1), exact: true }).locator('..').click();
@@ -1379,7 +1380,7 @@ try {
       for (const [width, height, suffix] of [[390,844,'phone'],[1440,900,'desktop'],[400,900,'side']]) {
         await page.setViewportSize({ width, height }); await fits(screen, width);
         await frame.locator('html').evaluate(() => document.fonts.ready);
-        await frame.locator(`[data-screen="${screen}"] img`).evaluateAll(images => Promise.all(images.map(img => img.decode())));
+        await frame.locator(`[data-screen="${screen}"] img`).evaluateAll(images => Promise.all(images.filter(img => img.loading !== 'lazy' || img.complete).map(img => img.decode())));
         for (const button of await frame.locator('#over.found button:visible').all()) assert((await button.evaluate(controlBounds)).accessible, 'Found controls stay above the composer');
         const capture = await page.screenshot(); await sharp(capture).toFile(join(look, `${state}-${suffix}-${mode}.png`));
         if (suffix !== 'side' && state !== 'join') {
@@ -2142,6 +2143,9 @@ try {
     await openScreen('settings');
     await frame.locator('canvas').evaluate(() => { window.harnessSymbolPaints = 0; });
     await frame.locator('#symbols-only').check();
+    // The fixture view carries the saved settings, and the board applies them. A read before the write commits turns
+    // Symbols only off again after the write reply drew the symbols. Wait for the write first.
+    await idleBoard();
     await page.evaluate(result => window.harnessShow(result), (await (await page.request.post(new URL(`/fixture-position?case=gallery&kings=${kings}`,base).href)).json()));
     await idleBoard(); await boardBox();
     // The settings reply can end before the SVG images load and the board draws them.
@@ -2174,7 +2178,8 @@ try {
     const box = await boardBox(); await page.mouse.move(box.x+(32+.5*112)*box.width/960, box.y+(96+5.5*112)*box.width/960);
     await frame.locator('canvas').evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
     assert(await frame.locator('canvas').evaluate(() => window.harnessGhostSymbols.some(src => /knight-0-/.test(src))), 'The knight move preview uses the same symbol at half opacity');
-    await openScreen('settings'); await frame.locator('#symbols-only').uncheck();
+    // The next king pair's fixture view must read Symbols only off.
+    await openScreen('settings'); await frame.locator('#symbols-only').uncheck(); await idleBoard();
   }
   await openPlay(); await legacyStart('solo'); await idleBoard();
   const cardBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);

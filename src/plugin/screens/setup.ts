@@ -3,7 +3,7 @@ import type { Job, JobOptions } from '../queue';
 import { art } from '../../account-game/art';
 import { cardArt } from '../card-face';
 import { errorText } from '../../account-game/types';
-import { ALWAYS_ON, DEAL_CARDS, POOL_KINDS, type Options } from '../../match/setup';
+import { ALWAYS_ON, DEAL_CARDS, POOL_KINDS, validate, type Options } from '../../match/setup';
 import { LETTERS, NAMES } from '../../rules/engine';
 import type { SetupAdmission } from '../../match/setup';
 import { DEFAULT_RULES, POWERS_BALANCED, KINGS, type KingChoice, type KingName, type CardName, type PowerName } from '../../rules/rules';
@@ -25,7 +25,9 @@ const pieceLines = { A: 'Shoots without moving.', L: 'Jumps over its own pieces.
 /** The rules of a game with king powers; a game without them plays DEFAULT_RULES (src/match/worker.ts). */
 export const kingRules = powersRules({ ...DEFAULT_RULES, ...POWERS_BALANCED });
 let stopped = false;
-let cardMode: 'all' | 'four' = 'all';
+let cardMode: 'all' | 'four' = 'all', allCardPool: CardName[] = [...DEAL_CARDS];
+const sectionOpen = { fairy: true, cards: true };
+const pieceLetters = Object.keys(pieceLines).filter(letter => POOL_KINDS.includes(letter)) as (keyof typeof pieceLines)[];
 // anyRules: 'Any rules' under Random (owner item D1 a). It applies to this start only and is not saved.
 let draft: SetupState | undefined, anyRules = false, starting = false, late = false, closeSheet: (() => void) | undefined;
 export const setupBusy = () => starting || locks(store.page()).start;
@@ -34,8 +36,20 @@ export const setupStarting = () => starting;
 function segment(id: string, title: string, values: readonly string[]) {
   return `<fieldset id="${id}" class="seg"><legend>${title}</legend><div class="seg-row">${values.map(value => `<label><input type="radio" name="${id}" value="${value}" aria-label="${name(value)}"><span>${name(value)}</span></label>`).join('')}</div></fieldset>`;
 }
-function toggle(key: string, symbol: string, title: string, line: string, sheet = '', sub = false) {
-  return `<label id="${key}-row" class="check toggle${sub ? ' sub' : ''}"><input id="setup-toggle-${key}" type="checkbox" aria-label="${title}"><span class="t-ico">${icon(symbol)}</span><span class="grow">${title}<small id="${key}-line">${line}</small></span>${sheet ? `<button type="button" id="setup-${sheet}" class="all" aria-label="Choose ${sheet}"></button>` : ''}</label>`;
+function toggle(key: string, symbol: string, title: string, line: string, sub = false) {
+  return `<label id="${key}-row" class="check toggle${sub ? ' sub' : ''}"><input id="setup-toggle-${key}" type="checkbox" aria-label="${title}"><span class="t-ico">${icon(symbol)}</span><span class="grow">${title}<small id="${key}-line">${line}</small></span></label>`;
+}
+function section(key: 'fairy' | 'cards', title: string, body: string) {
+  return `<section id="${key}-row" class="setup-section"><div class="section-head"><button id="${key}-heading" type="button" aria-expanded="false" aria-controls="${key}-body"><span class="t-ico">${icon(key)}</span><span class="grow">${title}<small id="${key}-count"></small></span><span class="chev" aria-hidden="true">›</span></button><label class="section-switch"><input id="setup-toggle-${key}" type="checkbox" aria-label="${title}"></label></div><div id="${key}-body" class="section-body" hidden>${body}</div></section>`;
+}
+function pieceList() {
+  return `<p class="quiet-line">The draw takes 7 pieces from the checked kinds. The king and the pawns are always in.</p><p class="lock-note" hidden>${icon('lock')}<span>Keep at least 7 pieces in the pool. Check another kind to free a lock.</span></p><div class="pick-list">${pieceLetters.map(letter => {
+    const n = NAMES[LETTERS.indexOf(letter)];
+    return `<label class="check pick"><span class="pick-art">${image(`ui/pieces/${n}-w.webp`)}</span><span class="grow">${image(`ui/icons/${n}.svg`, 'pi')} ${name(n)}<small>${pieceLines[letter]}</small></span><span class="lock" hidden>${icon('lock')}</span><input type="checkbox" value="${letter}" aria-label="${name(n)}"></label>`;
+  }).join('')}</div>`;
+}
+function cardTiles() {
+  return `<div id="setup-card-pool" class="card-grid" role="group" aria-label="Card pool">${DEAL_CARDS.map(card => `<div class="setup-card" data-card="${card}"><button id="setup-card-${card}" type="button" class="card-face" aria-haspopup="dialog" aria-label="${cardName(card)}"><span class="cf-art">${cardArt(card, true)}</span><span class="cf-text"><b>${cardName(card)}</b></span></button><label class="card-use"><input type="checkbox" value="${card}" aria-label="Use ${cardName(card)}"></label></div>`).join('')}</div>`;
 }
 function build() {
   $('setup-body').innerHTML = `<fieldset class="modes"><legend class="sr-only">Who you play</legend>${(['solo','friend','random'] as const).map(kind => `<label class="mode"><input type="radio" name="setup-mode" value="${kind}" aria-label="${{ solo: 'Artificial', friend: 'A friend', random: 'Random' }[kind]}">${icon({ solo: 'brain', friend: 'smiling-pawn', random: 'die' }[kind])}<span class="mode-text"><b>${{ solo: 'Artificial', friend: 'A friend', random: 'Random' }[kind]}</b></span></label>`).join('')}</fieldset>
@@ -46,24 +60,36 @@ function build() {
     <div id="play-join"><h3 class="group-head">Join with a code</h3><form id="join-form" class="code-row"><input id="token" class="field" aria-label="Game code" placeholder="K7QX2M" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" required maxlength="300"><button id="join" type="submit">Join</button></form></div>
     ${levelSlider('setup-level')}<p id="level-line" class="seg-line"></p>
     <h3 id="setup-game-heading" class="group-head">The game</h3><fieldset id="setup-colour" class="seg colour-switch"><legend class="sr-only">Colour</legend><div class="seg-row">${['white','black'].map(value => `<label><input type="radio" name="setup-colour" value="${value}" aria-label="${name(value)}"><span>${name(value)}</span></label>`).join('')}</div></fieldset>
-    ${toggle('fairy', 'fairy', 'Fairy pieces', '', 'pieces')}
-    ${toggle('arrangement', 'arrange', 'Arrangement', 'Each player orders their own back rank.', '', true)}
-    ${toggle('classic', 'classic', 'Classic chess', '', '', true)}
-    ${toggle('cards', 'cards', 'Cards', 'Both players get the same 4 cards.', 'cards')}
-    <div id="setup-deal"><p id="setup-deal-note" class="quiet-line"></p><div id="setup-card-grid" class="card-grid" role="group" aria-label="Four cards"></div></div>
+    ${section('fairy', 'Fairy pieces', segment('setup-sorting', 'First rank sorting', ['Random', 'Player']) + pieceList())}
+    ${toggle('classic', 'classic', 'Classic chess', '', true)}
+    ${section('cards', 'Cards', segment('setup-card-mode', 'Choose cards', ['Use all cards', 'Pick four']) + '<p id="setup-card-status" class="quiet-line" role="status"></p><p id="setup-card-lock" class="lock-note" hidden>' + icon('lock') + '<span>Keep at least 4 cards checked. Check another card to free a lock.</span></p>' + cardTiles())}
     ${toggle('kingPowers', 'powers', 'King powers', 'Each king brings one power.')}
     <div id="setup-your-king" class="king-pick your-king"><div class="coin-row"><button id="setup-king" class="coin" data-state="always" aria-label="Choose your king"><img alt=""></button></div><div class="grow"><h3>Your king</h3><div id="setup-king-name"></div><p id="setup-power-text" class="power-text"></p></div><span class="chev" aria-hidden="true">›</span></div>
-    </details>`;
+    </details><p id="setup-start-status" class="sr-only" role="status"></p>`;
   $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-mode"]').forEach(input => { input.onchange = () => { draft = withMode({ ...draft!, kind: memory.kind = input.value as SetupState['kind'] }, draft!.mode); anyRules = false; render(); }; });
   $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-rating"]').forEach(input => { input.onchange = () => { draft = withMode(draft!, input.value as SetupState['mode']); anyRules = false; cardMode = 'all'; render(); }; });
   $<HTMLInputElement>('setup-level').oninput = event => { draft = { ...draft!, level: MENU_LEVELS[+(event.target as HTMLInputElement).value] }; render(); };
   $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-colour"]').forEach(input => { input.onchange = () => { draft = { ...draft!, colour: input.value as 'white' | 'black' }; render(); }; });
-  for (const key of ['fairy','arrangement','classic','cards','kingPowers'] as const) $<HTMLInputElement>(`setup-toggle-${key}`).onchange = event => { draft = withToggle(draft!, key, (event.target as HTMLInputElement).checked); render(); };
+  for (const key of ['fairy','classic','cards','kingPowers'] as const) $<HTMLInputElement>(`setup-toggle-${key}`).onchange = event => {
+    const on = (event.target as HTMLInputElement).checked; draft = withToggle(draft!, key, on);
+    if (key === 'fairy' || key === 'cards') sectionOpen[key] = on;
+    if (key === 'cards' && on && draft.options.cardPool.length > 4) cardMode = 'all';
+    render();
+  };
   $<HTMLInputElement>('setup-toggle-anyRules').onchange = event => { anyRules = (event.target as HTMLInputElement).checked; render(); };
-  for (const sheet of ['pieces','cards'] as const) $(`setup-${sheet}`).onclick = event => { event.preventDefault(); event.stopPropagation(); poolSheet(sheet); };
+  for (const key of ['fairy', 'cards'] as const) $(`${key}-heading`).onclick = () => { if (draft!.options[key]) { sectionOpen[key] = !sectionOpen[key]; render(); } };
+  $('setup-sorting').querySelectorAll<HTMLInputElement>('input').forEach(input => { input.onchange = () => { draft = withToggle(draft!, 'arrangement', input.value === 'Player'); render(); }; });
+  $('fairy-body').querySelectorAll<HTMLInputElement>('.pick-list input').forEach(input => { input.onchange = () => { draft = withPiece(draft!, input.value, input.checked); render(); }; });
+  $('setup-card-mode').querySelectorAll<HTMLInputElement>('input').forEach(input => { input.onchange = () => {
+    if (input.value === 'Pick four') { allCardPool = [...draft!.options.cardPool]; cardMode = 'four'; }
+    else cardMode = 'all';
+    draft = { ...draft!, options: { ...draft!.options, cardPool: cardMode === 'four' ? [] : [...allCardPool] } }; render();
+  }; });
+  $('setup-card-pool').querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.onclick = () => cardSheet(button.closest<HTMLElement>('[data-card]')!.dataset.card as CardName); });
+  $('setup-card-pool').querySelectorAll<HTMLInputElement>('input').forEach(input => { input.onchange = () => changeCard(input.value as CardName, input.checked); });
   $('setup-king').onclick = () => void pickKing();
   $('setup-start').onclick = () => void launch();
-  $('play-open').onclick = () => navigate('lobby');
+  $('play-open').onclick = () => { if (!blocked(draft!)) navigate('lobby'); };
   $('join-form').onsubmit = event => { event.preventDefault(); memory.code = $<HTMLInputElement>('token').value.trim(); navigate('join'); };
 }
 function render() {
@@ -80,16 +106,32 @@ function render() {
   $('setup-ranked-rules').hidden = !ranked;
   for (const id of ['setup-colour','setup-game-heading','fairy-row','cards-row','kingPowers-row']) $(id).hidden = ranked;
   $('anyRules-row').hidden = setup.kind !== 'random' || ranked; $<HTMLInputElement>('setup-toggle-anyRules').checked = anyRules;
-  for (const key of ['fairy','arrangement','classic','cards','kingPowers'] as const) $<HTMLInputElement>(`setup-toggle-${key}`).checked = o[key];
-  $('arrangement-row').hidden = ranked || !o.fairy; $('classic-row').hidden = ranked || o.fairy; $('setup-pieces').hidden = !o.fairy; $('setup-cards').hidden = !o.cards;
-  $('fairy-line').textContent = o.fairy ? 'Draw 7 pieces from the King Down pool.' : 'Only the chess pieces.';
+  for (const key of ['fairy','classic','cards','kingPowers'] as const) $<HTMLInputElement>(`setup-toggle-${key}`).checked = o[key];
+  $('classic-row').hidden = ranked || o.fairy;
   $('classic-line').textContent = o.classic ? 'The normal start, castling, en passant.' : 'The chess pieces in a random order.';
-  $('setup-pieces').textContent = `${o.pool.length} kinds ›`; $('setup-cards').textContent = `${o.cardPool.length} cards ›`;
-  $('setup-deal').hidden = ranked || !o.cards;
-  $('setup-deal-note').textContent = cardMode === 'four' ? 'Pick four. Both players get these cards.' : 'Use all cards. These are examples. The deal takes 4 at random from your pool.';
-  const cards = o.cardPool.slice(0, 4), rules = o.kingPowers ? kingRules : DEFAULT_RULES;
-  $('setup-card-grid').innerHTML = cards.map(card => `<button type="button" class="card-face" data-card="${card}" aria-haspopup="dialog" aria-label="Choose cards: ${cardName(card)}"><span class="cf-art">${cardArt(card)}</span><span class="cf-text"><b>${cardName(card)}</b><small>${ruleLine(cardText(card, rules))}</small><span class="cf-cost">${cardCost(card, rules)}</span></span></button>`).join('');
-  $('setup-card-grid').querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.onclick = () => cardsSheet(button.dataset.card as CardName); });
+  for (const key of ['fairy', 'cards'] as const) {
+    const open = !ranked && o[key] && sectionOpen[key];
+    $(`${key}-body`).hidden = !open;
+    $(`${key}-heading`).setAttribute('aria-expanded', String(open));
+    $(`${key}-heading`).setAttribute('aria-disabled', String(!o[key]));
+  }
+  $('fairy-count').textContent = `${o.pool.length} kinds`;
+  $('cards-count').textContent = cardMode === 'four' ? `${o.cardPool.length} of 4` : `${o.cardPool.length} cards`;
+  $('setup-sorting').querySelectorAll<HTMLInputElement>('input').forEach(input => { input.checked = input.value === (o.arrangement ? 'Player' : 'Random'); });
+  $('fairy-body').querySelector<HTMLElement>('.lock-note')!.hidden = !pieceLetters.some(k => pieceLocked(o, k));
+  $('fairy-body').querySelectorAll<HTMLInputElement>('.pick-list input').forEach(input => {
+    const locked = pieceLocked(o, input.value), row = input.closest('label')!;
+    input.checked = o.pool.includes(input.value); input.disabled = locked;
+    row.classList.toggle('locked', locked); row.querySelector<HTMLElement>('.lock')!.hidden = !locked;
+  });
+  $('setup-card-mode').querySelectorAll<HTMLInputElement>('input').forEach(input => { input.checked = input.value === (cardMode === 'four' ? 'Pick four' : 'Use all cards'); });
+  $('setup-card-status').textContent = o.cardPool.length < 4 ? `Pick ${4 - o.cardPool.length} more card${o.cardPool.length === 3 ? '' : 's'}.` : '';
+  $('setup-card-status').hidden = o.cardPool.length >= 4;
+  $('setup-card-lock').hidden = cardMode !== 'all' || o.cardPool.length > 4;
+  $('setup-card-pool').querySelectorAll<HTMLInputElement>('input').forEach(input => {
+    input.checked = o.cardPool.includes(input.value as CardName); input.disabled = cardLocked(input.value as CardName);
+    input.closest('.setup-card')!.classList.toggle('out', !input.checked);
+  });
   $('setup-your-king').hidden = !o.kingPowers;
   const pick = shownKing(setup); $<HTMLImageElement>('setup-king').querySelector('img')!.src = art(`ui/emblems/${pick.king.toLowerCase()}.webp`);
   $('setup-king-name').innerHTML = `<b>${pick.king}</b> · ${POWER_NAME[pick.power]}`;
@@ -114,47 +156,29 @@ function sheet(name: string, title: string, done: () => void) {
   document.addEventListener('keydown', key); $('menu-close').onclick = $('setup-done').onclick = scrim.onclick = close; closeSheet = close;
   $('menu-close').focus(); return dialog;
 }
-function poolSheet(kind: 'pieces' | 'cards') {
-  if (draft?.mode === 'ranked') return;
-  if (kind === 'cards') { cardsSheet(); return; }
-  const dialog = sheet(kind, 'Fairy pieces', render), body = dialog.querySelector<HTMLElement>('.sheet-body')!, count = dialog.querySelector('.foot-count')!;
-  const draw = () => {
-    const scroll = body.scrollTop, focus = (document.activeElement as HTMLInputElement)?.value, o = draft!.options;
-    const letters = Object.keys(pieceLines).filter(letter => POOL_KINDS.includes(letter)) as (keyof typeof pieceLines)[];
-      body.innerHTML = `<p class="sheet-lead">The draw takes 7 pieces from the checked kinds. The king and the pawns are always in.</p><p class="lock-note" ${letters.some(k => pieceLocked(o, k)) ? '' : 'hidden'}>${icon('lock')}<span>Keep at least 7 pieces in the pool. Check another kind to free a lock.</span></p><div class="pick-list">${letters.map(letter => { const n = NAMES[LETTERS.indexOf(letter)], locked = pieceLocked(o, letter); return `<label class="check pick${locked ? ' locked' : ''}"><span class="pick-art">${image(`ui/pieces/${n}-w.webp`)}</span><span class="grow">${image(`ui/icons/${n}.svg`, 'pi')} ${name(n)}<small>${pieceLines[letter]}</small></span>${locked ? `<span class="lock">${icon('lock')}</span>` : ''}<input type="checkbox" value="${letter}" aria-label="${name(n)}" ${o.pool.includes(letter) ? 'checked' : ''} ${locked ? 'disabled' : ''}></label>`; }).join('')}</div>`;
-    count.textContent = `${o.pool.length} of ${POOL_KINDS.length} kinds`;
-    body.querySelectorAll<HTMLInputElement>('input').forEach(input => { input.onchange = () => { draft = withPiece(draft!, input.value, input.checked); render(); draw(); }; });
-    body.scrollTop = scroll; body.querySelector<HTMLInputElement>(`input[value="${focus}"]`)?.focus({ preventScroll: true });
-  }; draw();
+function cardLocked(card: CardName) {
+  const pool = draft!.options.cardPool;
+  return cardMode === 'four' ? pool.length >= 4 && !pool.includes(card) : pool.length <= 4 && pool.includes(card);
 }
-function cardsSheet(card?: CardName) {
-  if (draft?.mode === 'ranked') return;
-  let edited = draft!, mode = cardMode;
-  const allPool = cardMode === 'all' ? draft!.options.cardPool : [...DEAL_CARDS];
-  const dialog = sheet('cards', 'Cards', () => {
-    if (stopped || queue.closed()) return;
-    render();
-    if (card) ($('setup-card-grid').querySelector<HTMLButtonElement>(`[data-card="${card}"]`) ?? $('setup-cards')).focus();
-  }), body = dialog.querySelector<HTMLElement>('.sheet-body')!, count = dialog.querySelector('.foot-count')!;
-  const draw = () => {
-    const scroll = body.scrollTop, focus = (document.activeElement as HTMLInputElement)?.value, o = edited.options;
-    body.innerHTML = `${segment('card-mode', 'Choose cards', ['Use all cards', 'Pick four'])}<p class="sheet-lead">${mode === 'four' ? 'Choose exactly 4 cards. Both players get those cards.' : 'Keep at least 4 cards checked. Both players get the same random 4.'}</p><div class="card-grid">${DEAL_CARDS.map(card => `<label class="card-face${o.cardPool.includes(card) ? '' : ' out'}"><span class="cf-art">${cardArt(card)}</span><span class="cf-text"><b>${cardName(card)}</b><small>${ruleLine(cardText(card, o.kingPowers ? kingRules : DEFAULT_RULES))}</small><span class="cf-cost">${cardCost(card, o.kingPowers ? kingRules : DEFAULT_RULES)}</span></span><input type="checkbox" value="${card}" aria-label="${cardName(card)}" ${o.cardPool.includes(card) ? 'checked' : ''} ${mode === 'four' && o.cardPool.length >= 4 && !o.cardPool.includes(card) ? 'disabled' : ''}></label>`).join('')}</div>`;
-    count.textContent = mode === 'four' ? `${o.cardPool.length} of 4 cards` : `${o.cardPool.length} of ${DEAL_CARDS.length} cards`;
-    body.querySelectorAll<HTMLInputElement>('[name="card-mode"]').forEach(input => { input.checked = input.value === (mode === 'four' ? 'Pick four' : 'Use all cards'); input.onchange = () => { mode = input.value === 'Pick four' ? 'four' : 'all'; edited = { ...edited, options: { ...edited.options, cardPool: mode === 'four' ? [] : allPool } }; draw(); }; });
-    body.querySelectorAll<HTMLInputElement>('.card-grid input').forEach(input => { input.onchange = () => {
-      edited = withCard(edited, input.value as CardName, input.checked, mode === 'four');
-      body.querySelectorAll<HTMLInputElement>('.card-grid input').forEach(box => { box.checked = edited.options.cardPool.includes(box.value as CardName); box.disabled = mode === 'four' && edited.options.cardPool.length >= 4 && !box.checked; box.closest('label')!.classList.toggle('out', !box.checked); });
-      count.textContent = mode === 'four' ? `${edited.options.cardPool.length} of 4 cards` : `${edited.options.cardPool.length} of ${DEAL_CARDS.length} cards`;
-    }; });
-    body.scrollTop = scroll; body.querySelector<HTMLInputElement>(`input[value="${focus}"]`)?.focus({ preventScroll: true });
+function changeCard(card: CardName, on: boolean) {
+  if (!cardLocked(card)) draft = withCard(draft!, card, on, cardMode === 'four');
+  render();
+}
+function cardSheet(card: CardName) {
+  if (!draft || draft.mode === 'ranked' || !draft.options.cards) return;
+  $<HTMLDetailsElement>('setup-options').open = true;
+  const tile = () => $(`setup-card-${card}`);
+  tile().focus();
+  const dialog = sheet(`card:${card}`, cardName(card), () => { if (!stopped && !queue.closed()) { render(); tile().focus({ preventScroll: true }); } });
+  const body = dialog.querySelector<HTMLElement>('.sheet-body')!, rules = draft.options.kingPowers ? kingRules : DEFAULT_RULES;
+  body.innerHTML = `<div class="card-face"><span class="cf-art">${cardArt(card)}</span><span class="cf-text"><b>${cardName(card)}</b><small>${ruleLine(cardText(card, rules))}</small><span class="cf-cost">${cardCost(card, rules)}</span></span></div><label class="check"><input type="checkbox" aria-label="Use ${cardName(card)}"><span>Use ${cardName(card)}</span></label><p class="lock-note" hidden></p>`;
+  const input = body.querySelector<HTMLInputElement>('input')!, note = body.querySelector<HTMLElement>('.lock-note')!;
+  const sync = () => {
+    input.checked = draft!.options.cardPool.includes(card); input.disabled = cardLocked(card);
+    note.hidden = !input.disabled; note.textContent = cardMode === 'four' ? 'Uncheck another card to use this card.' : 'Keep at least 4 cards checked. Check another card to free a lock.';
+    dialog.querySelector('.foot-count')!.textContent = cardMode === 'four' ? `${draft!.options.cardPool.length} of 4` : `${draft!.options.cardPool.length} cards`;
   };
-  count.setAttribute('role', 'status');
-  $('setup-done').onclick = () => {
-    if (edited.options.cardPool.length < 4 || mode === 'four' && edited.options.cardPool.length !== 4) { count.textContent = mode === 'four' ? 'Choose exactly 4 cards.' : 'Keep at least 4 cards checked.'; return; }
-    draft = { ...draft!, options: { ...draft!.options, cardPool: edited.options.cardPool } }; cardMode = mode; closeSheet?.();
-  };
-  draw();
-  if (card) body.querySelector<HTMLInputElement>(`input[value="${card}"]`)!.focus();
+  input.onchange = () => { changeCard(card, input.checked); sync(); }; sync();
 }
 export function kingSheet(options: Options, pick: KingChoice, admission?: SetupAdmission): Promise<KingChoice> {
   if (stopped || queue.closed()) return Promise.resolve(pick);
@@ -189,8 +213,18 @@ async function finish(view: View, pick: KingChoice | null, origin: Job, scope: P
   if (view.status === 'playing' && !view.rules) { const full = await call('kingdown_get', {}, { retain: true, route: false, origin, king: pick, ...scope }); if (!full) return; view = full; }
   routeView(view);
 }
+/** Start and Open games send nothing with an invalid pool: Cards opens, and the live region speaks the status again. */
+function blocked(setup: SetupState) {
+  if (!validate(setupOptions(setup.options)) && !(setup === draft && setup.options.cards && cardMode === 'four' && setup.options.cardPool.length !== 4)) return false;
+  sectionOpen.cards = true; $<HTMLDetailsElement>('setup-options').open = true; render();
+  $('setup-card-status').scrollIntoView({ block: 'nearest' });
+  // A live region speaks only a change, so a second blocked press clears it first.
+  const live = $('setup-start-status'), text = $('setup-card-status').textContent;
+  live.textContent = ''; setTimeout(() => { live.textContent = text; }, 100);
+  return true;
+}
 async function launch(setup = draft, saveSetup = true) {
-  if (!setup || setupBusy()) return;
+  if (!setup || setupBusy() || blocked(setup)) return;
   const origin = queue.command('write', 'kingdown_create', {}), scope = { screen: 'play', quick: !saveSetup } as const;
   starting = true; render();
   // A quick start shows no words; after 1 s the button says 'Starting…'. After 5 s, Back is a safe way out: the start stays
@@ -225,19 +259,19 @@ export function setupSync(page: Page) {
   if (stopped || queue.closed()) return;
   if (page.screen !== 'play' && !(page.screen === 'seat' && client.state.sheet === 'king')) {
     if (closeSheet) closeSheet();
-    else if (['pieces','cards','king'].includes(client.state.sheet ?? '')) { client.state.sheet = undefined; client.save(); }
+    else if (['pieces','cards','king'].includes(client.state.sheet ?? '') || client.state.sheet?.startsWith('card:')) { client.state.sheet = undefined; client.save(); }
   }
   if (page.screen === 'play' && $('setup-body').childElementCount) render();
 
 }
 /** An exact four-card saved pool opens as Pick four. */
 function readDraft() {
-  draft = currentSetup(); draft.level = menuLevel(draft.level); cardMode = draft.options.cardPool.length === 4 ? 'four' : 'all';
+  draft = currentSetup(); draft.level = menuLevel(draft.level); cardMode = draft.options.cardPool.length === 4 ? 'four' : 'all'; allCardPool = cardMode === 'all' ? [...draft.options.cardPool] : [...DEAL_CARDS];
   return draft;
 }
 /** End New game opens the hall with the setup of the game that ended (the same card rule as a saved setup). */
 export function draftFromGame(view: View) {
-  draft = gameSetup(view); draft.level = menuLevel(draft.level); cardMode = draft.options.cardPool.length === 4 ? 'four' : 'all'; memory.kind = draft.kind;
+  draft = gameSetup(view); draft.level = menuLevel(draft.level); cardMode = draft.options.cardPool.length === 4 ? 'four' : 'all'; allCardPool = cardMode === 'all' ? [...draft.options.cardPool] : [...DEAL_CARDS]; memory.kind = draft.kind;
 }
 /** A retained Find owns its mode and rules even when a lobby remount does not open Play. */
 export function currentSetup(): SetupState {
@@ -257,7 +291,12 @@ export function setupScreen() {
   if (!$('setup-body').childElementCount) build();
   render();
   if (!closeSheet) {
-    if (client.state.sheet === 'pieces' || client.state.sheet === 'cards') poolSheet(client.state.sheet);
+    if (client.state.sheet === 'pieces' || client.state.sheet === 'cards') { client.state.sheet = undefined; client.save(); }
+    else if (client.state.sheet?.startsWith('card:')) {
+      const card = client.state.sheet.slice(5) as CardName;
+      if (DEAL_CARDS.includes(card) && draft.mode !== 'ranked') { draft = withToggle(draft, 'cards', true); sectionOpen.cards = true; render(); cardSheet(card); }
+      else { client.state.sheet = undefined; client.save(); }
+    }
     else if (client.state.sheet === 'king') void pickKing();
   }
 }
