@@ -2662,17 +2662,21 @@ try {
   async function zoomHallFits() {
     // The Menu read that the hall starts draws the game rows again.
     await settled(page, frame);
-    // A fixed date gives this spacing check a compact, unwrapped row at every run time.
+    // One compact waiting row makes this spacing check independent of prior game cleanup and the run date.
+    const compactRow = result => {
+      const game = result._meta?.games?.[0];
+      if (game) Object.assign(game, { kind: 'friend', status: 'waiting', created_at: `${new Date().getUTCFullYear() + 1}-01-01T09:00:00.000Z` });
+    };
     const dateGames = async route => {
       if (route.request().postDataJSON()?.name !== 'kingdown_games') return route.continue();
       const response = await route.fetch(), result = await response.json();
-      for (const game of result._meta?.games ?? []) game.created_at = '2026-01-01T09:00:00.000Z';
+      compactRow(result);
       await route.fulfill({ response, json: result });
     };
     await page.route('**/fixture-tool', dateGames);
     const datedGames = await tool('kingdown_games');
     assert(!datedGames.isError, JSON.stringify(datedGames.content));
-    for (const game of datedGames._meta.games ?? []) game.created_at = '2026-01-01T09:00:00.000Z';
+    compactRow(datedGames);
     datedGames.structuredContent = { ...datedGames.structuredContent, screen: 'play' };
     await page.evaluate(result => window.harnessShow(result), datedGames);
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
