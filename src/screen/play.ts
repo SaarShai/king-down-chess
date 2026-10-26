@@ -795,6 +795,8 @@ export function connectPlay(view: BoardView, c: {
       // (`?rules=2017`, `?kings=…`; docs/TAKEOVER-PLAN.md §2).
       rules: { ...game.rules },
     };
+    // A new game must retry its replacement if the first write fails.
+    if (replaceUnreadable) savedJSON = gameJSON(stored.save);
     const wasUnsaved = !!unsaved;
     if (!writeSave(next)) unsaved = settingsOnly ? unsaved ?? 'settings' : 'game';
     else {

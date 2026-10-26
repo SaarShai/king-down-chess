@@ -237,6 +237,28 @@ describe('failed local autosaves', () => {
   const unsaved = 'Changes not saved. Keep this tab open.';
   const shown = () => vi.mocked(refreshTable).mock.lastCall![0];
 
+  it('retries a new game after a stale-save conflict and one quota failure', () => {
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const { play, changed } = page();
+    play.restore(original, request);
+    const raw = JSON.stringify({ ...original, moves: [...original.moves, 'Ng1-f3'] });
+    stored.set(SAVE_KEY, raw);
+    play.game().playLan(['d2-d4']); play.save();
+    expect(play.savedGames.blocked()).toBe(true);
+    const write = vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => { throw new DOMException('Full', 'QuotaExceededError'); });
+    play.newGame('RNBQKBNR');
+    expect(stored.get(SAVE_KEY)).toBe(raw);
+    expect(play.savedGames.blocked()).toBe(false);
+    expect(shown()).toMatchObject({ saveNotice: unsaved });
+    expect(changed).not.toHaveBeenCalled();
+    play.game().playLan(['e2-e4']); play.save();
+    expect(readSave().save).toMatchObject({ back: 'RNBQKBNR', moves: ['e2-e4'] });
+    expect(play.savedGames.blocked()).toBe(false);
+    expect(shown()).toMatchObject({ saveNotice: '' });
+    expect(changed).toHaveBeenCalledOnce();
+    expect(write).toHaveBeenCalledTimes(2);
+  });
+
   it.each(['QuotaExceededError', 'SecurityError'])('keeps a persistent notice after %s and saves all moves on retry', name => {
     const raw = JSON.stringify(original);
     stored.set(SAVE_KEY, raw);

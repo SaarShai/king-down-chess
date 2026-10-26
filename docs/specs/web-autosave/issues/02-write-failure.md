@@ -28,7 +28,7 @@ The old writer catches a storage error and returns no result. The page cannot sh
 
 `writeSave()` now returns success or failure. A failed write keeps a notice apart from tap and turn notices. The existing context live region shows `Changes not saved. Keep this tab open.` first. It keeps the current instruction and controls. It uses the existing refusal style. No new CSS or layout is needed.
 
-A successful game write saves all current moves and clears the notice. A settings write clears only a settings failure. It cannot hide unsaved game moves. Only a successful write updates the game comparison and notifies account sync.
+A successful game write saves all current moves and clears the notice. A settings write clears only a settings failure. It cannot hide unsaved game moves. New game first records the stored game it replaces, so a failed write can retry. A successful game write sets the next comparison. Only a successful write notifies account sync.
 
 ## Evidence
 
@@ -39,3 +39,16 @@ A successful game write saves all current moves and clears the notice. A setting
 - Docs: `KINGDOWN_TEST_FILE='tools/{docs-index,model-names}.docs.test.ts' npm test`. Type checks pass. Both files and all nine tests pass. `git diff --check` passes.
 - Review: The three failure states distinguish unsaved moves from unsaved settings. A single flag could clear the warning while moves remain unsaved. The change keeps the save format and the existing notice style.
 - Limits: No browser check, full suite, or production request runs. Storage and DOM tests use substitutes. CI must check browser layout and real tab behavior.
+
+## Review finding 3
+
+Plan: Test a stale-save conflict, New game, one quota failure, and a move after storage recovers. Run the test before the fix. Keep the comparison for the stored game that New game replaces. Run the test after the fix, then run the doc checks. Commit this finding alone.
+
+Checks: The failed write keeps the stored data and the save warning. The next write saves the new game's move and clears the warning. Only that successful write notifies account sync. The storage write fails once. Tests use fake timers.
+
+Result: New game records the stored game before its replacement write. A quota failure keeps this comparison. The next move saves the new game after storage recovers.
+
+- Red: `KINGDOWN_TEST_FILE=src/screen/play.test.ts npm test`. Type checks pass. One test fails and 28 pass. Storage keeps the old moves after the retry.
+- Green: `KINGDOWN_TEST_FILE=src/screen/play.test.ts npm test`. Type checks and all 29 tests pass. The 57 art checks also pass.
+- Docs: `npm run test:docs`. All 15 files and 178 tests pass.
+- Review: The fix uses the existing comparison and adds no retry state. A later change to the stored game still fails the ordinary comparison.
