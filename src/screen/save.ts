@@ -22,7 +22,8 @@ export const SETTINGS = ['skill', 'coords', 'sound', 'queen', 'pace', 'threats',
 /** The autosave's localStorage key (account/sync.ts reads it there too). */
 export const SAVE_KEY = 'kingdown.save';
 
-export interface SaveRead { save: Save | null; unreadable: boolean }
+/** Unreadable data includes the raw text for a later replacement check. */
+export interface SaveRead { save: Save | null; unreadable: boolean; raw?: string }
 
 /** Compare only game fields; settings and JSON key order can change without changing the game. */
 export function gameJSON(s: Save | null): string {
@@ -42,7 +43,7 @@ export function readSave(): SaveRead {
     const s = JSON.parse(raw);
     savedGame(s);
     return { save: s, unreadable: false };
-  } catch { return { save: null, unreadable: true }; }
+  } catch { return { save: null, unreadable: true, raw }; }
 }
 
 /**

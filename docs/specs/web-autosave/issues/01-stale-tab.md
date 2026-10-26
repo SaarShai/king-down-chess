@@ -47,3 +47,16 @@ Result: The FEN path now sets the comparison from the accepted account save. It 
 - Green: `KINGDOWN_TEST_FILE=src/screen/play.test.ts npm test`. Type checks and all 28 tests pass. The 57 art checks also pass.
 - Docs: `npm run test:docs`. All 15 files and 178 tests pass.
 - Review: The fix uses the existing comparison. It adds no save field or account code. Finding 1 stays with the account-sync lane.
+
+## Re-review finding 1
+
+Plan: Add tests for unreadable stored data, New game, and one quota failure. Run the tests before the fix. Keep permission to replace the same raw data until a game write succeeds. Run the tests after the fix, then run the doc checks. Make one commit.
+
+Checks: The next move saves when writes recover. A change to the raw data blocks writes. The save check and the account sync check use the same permission. Tests use fake timers. Work stays out of `src/account/`.
+
+Result: An unreadable-save read now includes its raw text. New game keeps permission for that text after a failed write. Both checks compare the raw text. A successful game write or an accepted account game clears the permission. A later return of the old raw text blocks writes again.
+
+- Red: `KINGDOWN_TEST_FILE='src/{screen/play,screen/save,ui/table}.test.ts' npm test`. Both type checks pass. Two tests fail and 53 pass. The move does not save. The account sync check blocks the same raw data. Both changed-data cases pass.
+- Green: `KINGDOWN_TEST_FILE='src/{screen/play,screen/save,ui/table}.test.ts' npm test`. Both type checks, all 55 selected tests, and all 57 art checks pass.
+- Docs: `npm run test:docs`. All 15 files and 178 tests pass.
+- Review: The fix uses one raw-text comparison for both checks. It adds no stored field or dependency. The tests check the retry, changed raw data, and the end of replacement permission. No full suite or browser check runs.

@@ -46,10 +46,10 @@ describe('the autosave', () => {
     const s = storage();
     vi.stubGlobal('localStorage', s);
     s.m.set(SAVE_KEY, '{');
-    expect(readSave()).toEqual({ save: null, unreadable: true });
+    expect(readSave()).toEqual({ save: null, unreadable: true, raw: '{' });
     expect(s.m.get(SAVE_KEY)).toBe('{');
     s.m.set(SAVE_KEY, JSON.stringify({ ...game, moves: 'e2-e4' }));
-    expect(readSave()).toEqual({ save: null, unreadable: true });
+    expect(readSave()).toEqual({ save: null, unreadable: true, raw: JSON.stringify({ ...game, moves: 'e2-e4' }) });
     expect(s.m.get(SAVE_KEY)).toBe(JSON.stringify({ ...game, moves: 'e2-e4' }));
   });
 
@@ -60,7 +60,7 @@ describe('the autosave', () => {
     s.m.set(SAVE_KEY, '{');
     expect(storedSettings()).toBeNull();
     s.m.set(SAVE_KEY, JSON.stringify({ moves: [], pace: 'off', sound: false }));
-    expect(readSave()).toEqual({ save: null, unreadable: true });
+    expect(readSave()).toEqual({ save: null, unreadable: true, raw: JSON.stringify({ moves: [], pace: 'off', sound: false }) });
     expect(storedSettings()).toEqual({ pace: 'off', sound: false });
     expect(s.m.get(SAVE_KEY)).toBe(JSON.stringify({ moves: [], pace: 'off', sound: false }));
   });

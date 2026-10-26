@@ -767,11 +767,14 @@ export function connectPlay(view: BoardView, c: {
   /** A newer saved game came from the account during a lesson: Return to game opens it. */
   let cloudGame = false;
   let savedJSON = gameJSON(readSave().save);
+  /** Keep New game's permission for this raw data until a game write succeeds. */
+  let replacementRaw: string | undefined;
 
   function save(replaceUnreadable = false, settingsOnly = lesson != null): void {
     if (saveBlocked) return;
     const stored = readSave();
-    if (!replaceUnreadable && stored.unreadable) { keepUnreadableSave(); refresh(); return; }
+    if (replaceUnreadable) replacementRaw = stored.raw;
+    else if (savedDataBlocked(stored)) return;
     // Settings and lessons keep the stored game, even when this tab's game is older.
     const kept = settingsOnly ? stored.save : null;
     if (settingsOnly && !kept) return;
@@ -800,7 +803,7 @@ export function connectPlay(view: BoardView, c: {
     const wasUnsaved = !!unsaved;
     if (!writeSave(next)) unsaved = settingsOnly ? unsaved ?? 'settings' : 'game';
     else {
-      if (!settingsOnly) savedJSON = gameJSON(next);
+      if (!settingsOnly) { savedJSON = gameJSON(next); replacementRaw = undefined; }
       // Saving only settings cannot clear a warning about moves that are still unsaved.
       if (!settingsOnly || unsaved === 'settings') unsaved = null;
       c.account()?.changed();
@@ -819,8 +822,8 @@ export function connectPlay(view: BoardView, c: {
   }
 
   /** Another tab can change the shared key after boot; recheck it before any ordinary write. */
-  function savedDataBlocked(): boolean {
-    if (!saveBlocked && readSave().unreadable) { keepUnreadableSave(); refresh(); }
+  function savedDataBlocked(stored = readSave()): boolean {
+    if (!saveBlocked && (stored.unreadable || replacementRaw !== undefined) && stored.raw !== replacementRaw) { keepUnreadableSave(); refresh(); }
     return saveBlocked;
   }
 
@@ -846,6 +849,7 @@ export function connectPlay(view: BoardView, c: {
       refresh();
     }
     if (down.includes('saved_game')) {
+      replacementRaw = undefined;
       if (lesson != null) cloudGame = true;
       else if (!fen) openSaved(s);
       else savedJSON = gameJSON(s);
@@ -864,6 +868,7 @@ export function connectPlay(view: BoardView, c: {
     reset();
     saveBlocked = false;
     savedJSON = gameJSON(readSave().save);
+    replacementRaw = undefined;
     game = replayed.game;
     $<HTMLDialogElement>('over').close();
     cloudGame = false;
