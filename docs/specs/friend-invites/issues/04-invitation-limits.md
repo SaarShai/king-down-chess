@@ -1,6 +1,6 @@
 # Enforce the two limits in transactions
 
-Status: claimed
+Status: resolved
 Type: task
 Blocked by: 03
 Spec: [Online friend invitations](../README.md)
@@ -124,3 +124,37 @@ The first green invitation run passes 43 cases. The four API/tool files pass 153
 
 Logs: `/tmp/friend2-db-red.log`, `/tmp/friend2-tool-red.log`, `/tmp/friend2-db-green1.log`, `/tmp/friend2-api-tools.log`.
 The local branch database is `kingdown_friend156_test` on `127.0.0.1:55432`. Migrations 0001–0022 pass twice.
+
+## Final repair checks
+
+All six review findings are fixed. The new regression cases pass. The named limit remains per sender and recipient pair.
+The original build counts above stay as history. The counts below cover this repair.
+
+Use `PLUGIN_TEST_DATABASE_URL=postgresql://kingdown_test@127.0.0.1:55432/kingdown_friend156_test` for these commands.
+This branch database is local and uses the repo database helper. No remote database is used.
+
+- `npm run plugin:db:init-test`: migrations 0001–0022 pass twice. The split runner also passes the fresh-schema, duplicate, backfill and repeat fixtures.
+- `KINGDOWN_TEST_FILE=src/match/friend-invites.db.test.ts npm test`, twice: 43 passes each. The nine new cases first fail before the fixes.
+- `KINGDOWN_TEST_FILE='{src/plugin/server.db.test.ts,src/plugin/server.test.ts,src/api/http.test.ts,src/api/http.db.test.ts}' npm test`: 153 passes in four files. The five new privacy cases first fail before the fixes.
+- `PLAYABLE_BROWSER=chrome npm test`, one full run: 5495 passes, 9 skips and 1 failure in 286 files. The failure is the old job fixture, which advances the app clock to expire an invitation.
+- `KINGDOWN_TEST_FILE=src/online/jobs.db.test.ts npm test`: 7 passes after the fixture sets expiry with database time. The two-sweep race still checks one event and one outbox row. The full suite is not repeated, as requested.
+- Each green focused `npm test` also passes both type checks and 67 artwork cases. The full run stops before its artwork phase because of the fixture failure.
+- `npm run test:docs`: 180 passes in 15 files after this final ticket edit.
+- `PLAYABLE_BROWSER=chrome npm run check:browser plugin-privacy web-online account plugin-ui-http`: privacy, online play and account pass in 14.4 s, 116.3 s and 81.9 s. The HTTP check reaches its 480 s limit during a screenshot.
+- `PLAYABLE_BROWSER=chrome bash tools/test-lock.sh npm run check:browser plugin-ui-http`: passes in 437.1 s with the same assertions and limit. All four requested browser checks have a pass.
+
+The quiet lock is absent before each full or browser run. The commands run one at a time. Shared browser locks can delay a start.
+Browser proof: `friend-invites-oyNdjW` and `friend-invites-66BRUH` under the system `kingdown-check-runs` folder.
+Logs: `/tmp/friend2-db-init-green.log`, `/tmp/friend2-db-green1.log`, `/tmp/friend2-db-green2.log`, `/tmp/friend2-api-tools.log`, `/tmp/friend2-full.log`, `/tmp/friend2-jobs-green.log`, `/tmp/friend2-docs-final.log`, `/tmp/friend2-browsers.log`, `/tmp/friend2-browser-http-retry.log`.
+
+## Repair commits and release
+
+- `04948500`: all six fixes, the split migration runner, release order and 14 regression cases.
+- `5a568d0c`: the job fixture uses database time for invitation expiry. All 7 job cases pass.
+- The final evidence commit records these results in tickets 03 and 04.
+
+The final `git fetch origin` succeeds. `git merge origin/staging/first-game` reports already up to date at `f306d452`. No conflict occurs. Commit hooks run unchanged.
+
+Release order: add columns and the old-join trigger; backfill and check duplicates; build indexes concurrently; attach and validate constraints; apply deletion cleanup and grants; then deploy the new server. Run each marked SQL phase as one query. Keep the trigger while old servers can write. The [release steps](../../../../supabase/README.md#friend-invitations-0022) give the full order and failed-index recovery.
+
+No review finding remains open. No push or deploy runs. Large-table production timing is not measured; all database checks use the local cluster.

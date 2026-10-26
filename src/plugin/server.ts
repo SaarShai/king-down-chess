@@ -24,7 +24,7 @@ type Reply = { content: { type: 'text'; text: string }[]; structuredContent?: Re
 /** Who may call a tool (MCP Apps visibility) and its hints, which ChatGPT's review requires on every tool (report part 03, section 4.5). */
 interface Hints { visibility: ('model' | 'app')[]; readOnly?: boolean; openWorld?: boolean; destructive?: boolean; idempotent?: boolean; meta?: Record<string, unknown>; output?: z.ZodRawShape }
 const text = (value: string) => [{ type: 'text' as const, text: value }];
-/** Plugin words for two refusals. The board reads the game again at once after each, so neither says "Reload".
+/** Plugin words for refusals. The board reads the game again after a stale or invalid move, so neither says "Reload".
  *  STALE_REVISION: the view is old (the owner's pick, approval W7, option a). INVALID_MOVE: the service checks the
  *  revision first, so the view is current and only the move is wrong. Change the words here only. */
 const REFUSED: Partial<Record<string, string>> = { STALE_REVISION: 'Your opponent moved. Check the board.', INVALID_MOVE: 'This move is not available. Choose another move.', FRIEND_GAME_LIMIT: 'The game limit is reached. See the board for details.', FRIEND_INVITE_LIMIT: 'The invitation limit is reached. See the board for details.', OPEN_INVITE_LIMIT: 'The open invitation limit is reached. See the board for details.' };
