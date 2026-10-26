@@ -46,7 +46,7 @@ grant update (status, result, end_reason, turn, revision, draw_offer, state, sna
 grant update (user_id, handle_at_start, action, turns_played, draw_offers, said, last_seen_at, last_surface,
   active, ended_at) on public.game_players to kingdown_plugin_runtime;
 grant select, insert, delete on public.game_invites to kingdown_plugin_runtime;
-grant update (used_by, used_at) on public.game_invites to kingdown_plugin_runtime;
+grant update (used_by, used_at, state, closed_at) on public.game_invites to kingdown_plugin_runtime;
 grant select on public.relations to kingdown_plugin_runtime;
 grant select (id, handle, challenge_from) on public.profiles to kingdown_plugin_runtime;
 grant usage on sequence public.notifications_id_seq, public.outbox_id_seq to kingdown_plugin_runtime;
