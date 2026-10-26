@@ -2663,12 +2663,20 @@ try {
     // The Menu read that the hall starts draws the game rows again.
     await settled(page, frame);
     // A fixed date gives this spacing check a compact, unwrapped row at every run time.
+    const dateGames = async route => {
+      if (route.request().postDataJSON()?.name !== 'kingdown_games') return route.continue();
+      const response = await route.fetch(), result = await response.json();
+      for (const game of result._meta?.games ?? []) game.created_at = '2026-01-01T09:00:00.000Z';
+      await route.fulfill({ response, json: result });
+    };
+    await page.route('**/fixture-tool', dateGames);
     const datedGames = await tool('kingdown_games');
     assert(!datedGames.isError, JSON.stringify(datedGames.content));
     for (const game of datedGames._meta.games ?? []) game.created_at = '2026-01-01T09:00:00.000Z';
     datedGames.structuredContent = { ...datedGames.structuredContent, screen: 'play' };
     await page.evaluate(result => window.harnessShow(result), datedGames);
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await settled(page, frame);
     const viewport = page.viewportSize();
     await zoomViewport(402,874,0,0);
     await frame.locator('#new-game .new-game-body').evaluate(el => { el.scrollTop = 0; });
@@ -2699,6 +2707,7 @@ try {
     await shot(page, `zoom-fit-hall-${mode}`);
     await body.evaluate(el => { el.scrollTop = 0; });
     await zoomViewport(viewport.width, viewport.height, 0, 0);
+    await page.unroute('**/fixture-tool', dateGames);
   }
   async function tapEndAtZoom(name) {
     const viewport = page.viewportSize();
