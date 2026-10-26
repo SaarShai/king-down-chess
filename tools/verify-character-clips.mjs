@@ -17,8 +17,12 @@ const browser = await launch();
 const pace = (page, value) => page.evaluate(v => { const s = document.getElementById('pace'); s.value = v; s.dispatchEvent(new Event('change')); }, value);
 async function open(options = {}, { clock = false, fen = FEN } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, ...options });
+  const clipRequests = [];
+  context.on('request', request => { if (/\/(?:tap|slam)-[\w-]+\.webp$/.test(new URL(request.url()).pathname)) clipRequests.push(request.url()); });
   const page = await context.newPage();
   trapErrors(page);
+  const clipsLoaded = options.reducedMotion !== 'reduce' && Promise.all(['tap', 'slam'].map(name =>
+    page.waitForEvent('requestfinished', { predicate: request => new URL(request.url()).pathname.includes('/' + name + '-') })));
   await page.addInitScript(() => {
     sessionStorage.setItem('kingdown.title-seen', '1');
     // The clip each drawn frame showed: [name, drawing] or null, with the frame's time.
@@ -32,7 +36,13 @@ async function open(options = {}, { clock = false, fen = FEN } = {}) {
   if (clock) await page.clock.runFor(2000);
   await page.waitForFunction(() => window.view?.scene && document.getElementById('asset-status')?.textContent === '');
   await page.evaluate(() => window.view.ready());
-  return { context, page };
+  // Board readiness excludes clips. Clip playback checks wait for the optional sheets.
+  if (clipsLoaded) {
+    await clipsLoaded;
+    if (clock) await page.clock.runFor(32);
+    else await page.evaluate(() => new Promise(requestAnimationFrame));
+  }
+  return { context, page, clipRequests };
 }
 // A copy of the canvas pixels near the figure on `sq` (key: its name), and how much of two copies differs.
 const grab = (page, sq, key) => page.evaluate(([sq, key]) => {
@@ -90,7 +100,7 @@ try {
   }
   // 2. Reduced motion, then Animations Off: no clip shows; the selected figure is still at once.
   for (const [label, options, off] of [['reduced motion', { reducedMotion: 'reduce' }, false], ['Animations Off', {}, true]]) {
-    const { context, page } = await open(options);
+    const { context, page, clipRequests } = await open(options);
     if (off) await pace(page, 'off');
     for (const [name, [sq]] of Object.entries(SQUARES)) {
       await page.evaluate(() => { window.clipLog.length = 0; });
@@ -101,6 +111,10 @@ try {
       await select(page, sq);
     }
     console.log(`ok ${label}: no clip, the still figure shows at once`);
+    if (options.reducedMotion === 'reduce') {
+      await page.evaluate(() => navigator.serviceWorker.ready);
+      assert.equal(clipRequests.length, 0, 'reduced motion: board and offline install request no clips');
+    }
     await context.close();
   }
   // 3. On a stopped clock, for each army: every drawing shows in order; the canvas shows the painted drawings (pixels

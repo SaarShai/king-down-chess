@@ -36,7 +36,9 @@ export function offlineCacheFiles(bundle: OutputBundle, root: string, files: str
   for (const file of graph) {
     if (!emitted.has(file) || !/^assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)$/.test(file)) throw new Error(`Invalid offline graph file: ${file}`);
   }
-  const publicFiles = files.filter(file => graph.has(file) || /^(?:ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file)).sort();
+  // Optional clips load only with motion; the offline board can use the plain figures.
+  const publicFiles = files.filter(file => !/^assets\/(?:tap|slam)-[\w-]+\.webp$/.test(file)
+    && (graph.has(file) || /^(?:ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file))).sort();
   return { allowlist: ['./', 'index.html', ...publicFiles], precache: ['./', ...publicFiles] };
 }
 
