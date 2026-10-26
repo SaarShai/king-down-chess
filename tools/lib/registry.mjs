@@ -44,7 +44,9 @@ export const checks = [
   { name: 'w6-parts', script: 'tools/verify-w6-parts.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'search-worker', script: 'tools/verify-search-worker.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'plugin-skylift', script: 'tools/plugin-browser-check.mjs', args: ['skylift'], limit: 180, channel: 'chromium', byName: true, exclusive: true },
-  { name: 'plugin-ui', script: 'tools/plugin-browser-check.mjs', args: ['fixture'], limit: 420, channel: 'chromium', byName: true },
+  // CI WebKit (limit x 3) took 1130-1218 s of 1260 s; New game's open Cards section draws its paintings in each setup step
+  // (+30-90 s), and run 40253834383 passed the old limit near the end. 480 s gives 1440 s there.
+  { name: 'plugin-ui', script: 'tools/plugin-browser-check.mjs', args: ['fixture'], limit: 480, channel: 'chromium', byName: true },
   // The board previews A8, A15, A17, A18 and A39 also open the site (docs/specs/gui-previews-2026-10-19/capture.mjs).
   // The full preview set takes about 160 s at normal load (ticket 71), so it gets 300 s.
   { name: 'gui-board-preview', script: 'tools/plugin-browser-check.mjs', args: ['preview'], limit: 300, channel: 'chromium', byName: true, site: true },
