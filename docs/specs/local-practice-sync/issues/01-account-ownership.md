@@ -3,6 +3,18 @@
 Type: task
 Status: resolved
 
+## Review fix plan and checks
+
+The independent review requests four P1 fixes and a storage limit.
+
+1. Test the real settings module before the play module starts. Remove the early skill read.
+2. Select local account data before the cloud read. Block all affected local writers if selection fails.
+3. Track the account shown in each tab. Check that account before local and cloud writes.
+4. Finish a pending restore before the page reads its save or lessons. Test a new move after reload.
+5. Keep copies for at most three recent accounts. Test removal and return to a kept account.
+
+Each fault gets a failing test before its fix. Use fake timers. Run selected tests in series, then the doc checks. Commit on this branch. Do not push, merge or deploy.
+
 ## Plan and checks
 
 The owner requests audit finding F1. The local save has no account ID. A switch can send A's data to B.
@@ -16,7 +28,7 @@ The source of the existing behavior is the accounts section in [the task archive
 
 ## Limits
 
-The quiet lock is present. No full suite, browser check, build, publish or database change is in scope.
+The owner permits selected tests, doc checks and one `new-game` browser check for the review fix. No full suite, publish or database change is in scope.
 
 ## Result and evidence
 
@@ -30,3 +42,23 @@ The page replaces its live game on a switch. A new account with no game starts f
 - Green: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,account/account,account/client}.test.ts' npm test`. All 85 tests in five files pass. Both type checks and all 57 art checks pass. Log: `web-sync-f1-green.log`.
 - The checks include first import, offline first sign-in, sign-out, both B states, return to A, late reads, failed archive writes and a restore that resumes after reload.
 - Review: the change keeps the existing save keys and section merge. It adds one owner record and one raw copy per account. No new dependency, service, game rule or SQL change is needed.
+
+## Review fixes and evidence
+
+The review finds four P1 faults. The first test uses the real settings and play modules in the start order from `main.ts`. It fails with `ReferenceError`. Settings now take the initial skill without reading play before it exists.
+
+Account selection now runs before the first cloud read. A failed read leaves the correct account on the board. A failed local selection closes game, lesson and stamp writers. The local data module keeps the account shown in each tab. Each write checks that account against the shared owner. The account callback loads the selected data even when another tab already selects the same account and the cloud data is equal.
+
+The page finishes a pending restore before it loads game data or lesson data. A failed restore keeps both readers and writers closed. Tests cover both read orders, a failed stamp write, a retry and a new move before account loading ends. The move stays in the active save and its later account copy.
+
+Copies now keep the active account and the two most recent accounts. A switch removes older copies, including copies without a list entry from the first lane. The cloud copy stays. An old account can lose local changes that do not reach the cloud before removal. The owner requests a storage limit. The code adds no account list UI.
+
+- Review 1 red: `KINGDOWN_TEST_FILE=src/screen/play.test.ts KINGDOWN_TEST_NAME='review 1' npm test`. One test fails with the early play read. Green: the same command passes one test. Logs: `.web-sync-review1-red.log`, `.web-sync-review1-green.log`.
+- Review 2 to 4 and storage red: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play}.test.ts' KINGDOWN_TEST_NAME='review (2|3|4|storage)' npm test`. Six tests fail. Green: the same command passes six tests. Logs: `.web-sync-review2-5-red.log`, `.web-sync-review2-5-green.log`.
+- Storage also checks old copies without a list entry. Red: `KINGDOWN_TEST_FILE=src/account/sync.test.ts KINGDOWN_TEST_NAME='review storage' npm test`. One test fails with seven retained copies. The final selected run checks the fix.
+- Final selection: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,account/account,account/client,lesson-shelf,lesson-store}.test.ts' npm test`. All 118 tests in seven files pass. Both type checks and all 57 art checks pass. Log: `.web-sync-focused.log`.
+- The tests use fake timers. No real-time sleep runs in a test. The account checks use local storage and cloud substitutes.
+- Review of the change: one local data module holds the restore order and the write check. Save and lesson writers use it. The settings fix stays separate. The other save lane still owns its stale-game check and failed-save notice.
+- `npm run test:docs` passes all 178 tests in 15 files. `npm run check:browser new-game` passes. It builds the page and checks the local game, saved settings, reload, phone layout and start controls. No page or console error occurs.
+- `git diff --check` passes. Review logs stay in `dist/web-sync-review/`. The browser run uses `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/web-sync-HGDHon/`.
+- No full suite, live account request or database test runs. The separate lesson write race in ticket 02 stays open. No push, merge or deploy runs.

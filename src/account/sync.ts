@@ -1,4 +1,5 @@
 import type { Save } from '../screen/save';
+import { canWriteLocal, localAccess, selectLocal } from './local';
 
 /**
  * Cloud save. The game keeps its data in localStorage as before; this splits it into sections that
@@ -21,15 +22,11 @@ export interface SavedGameAccess {
   accepts(value: unknown): boolean;
 }
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
-type AccountStore = Store & Pick<Storage, 'removeItem'>;
+type AccountStore = Store & Pick<Storage, 'removeItem' | 'length' | 'key'>;
 /** When each section last changed here, and its value then (to see the next change). */
 type Stamps = Partial<Record<Section, { at: number; json: string }>>;
 
 const SAVE = 'kingdown.save', LESSONS = 'kingdown.lessons', STAMPS = 'kingdown.sync';
-const OWNER = 'kingdown.sync-owner', COPIES = 'kingdown.local.';
-const LOCAL_KEYS = [SAVE, LESSONS, STAMPS];
-type LocalCopy = (string | null)[];
-type Owner = { userId: string; restore?: LocalCopy };
 /**
  * screen/save.ts `Save` fields: these are settings; the rest is the saved game. The look stays per device.
  * screen/save.ts SETTINGS is the same list (screen/save.test.ts); it is not imported, because an import
@@ -46,32 +43,6 @@ const own = (s: Section, v: unknown): unknown =>
 /** JSON with sorted keys: the database reorders the keys of what it keeps. */
 const canon = (v: unknown): string => JSON.stringify(v, (_k, x) =>
   x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : 1))) : x);
-
-/** Keep the old account's raw copy before loading the next one. A failed write can resume after reload. */
-function selectAccount(store: AccountStore, userId: string): boolean {
-  let owner: Owner | null = parse(store.getItem(OWNER));
-  let switched = false;
-  if (owner?.restore) {
-    for (const [i, key] of LOCAL_KEYS.entries()) {
-      const raw = owner.restore[i];
-      if (raw == null) store.removeItem(key); else store.setItem(key, raw);
-    }
-    owner = { userId: owner.userId };
-    store.setItem(OWNER, JSON.stringify(owner));
-    switched = true;
-  }
-  if (owner?.userId === userId) return switched;
-  if (owner) {
-    stamp(store);
-    store.setItem(COPIES + owner.userId, JSON.stringify(LOCAL_KEYS.map(key => store.getItem(key))));
-    const restore: LocalCopy = parse(store.getItem(COPIES + userId)) ?? [null, null, null];
-    // Record the target before separate key writes, so a quota failure cannot relabel the old bytes.
-    store.setItem(OWNER, JSON.stringify({ userId, restore }));
-    return selectAccount(store, userId);
-  }
-  store.setItem(OWNER, JSON.stringify({ userId })); // Only the first sign-in imports anonymous play.
-  return false;
-}
 
 /** A cloud copy this version can use: an object, and the saved game and lessons need their lists. */
 function usable(s: Section, v: unknown): v is Record<string, unknown> {
@@ -143,22 +114,21 @@ export class Sync {
   constructor(private store: AccountStore, private remote: Remote, private onApply: (down: Section[], switched?: boolean) => void, private savedGame: SavedGameAccess, private delayMs = 2000) {}
 
   private ownsLocal(): boolean {
-    const owner: Owner | null = parse(this.store.getItem(OWNER));
-    return owner?.userId === this.remote.userId && !owner.restore;
+    return canWriteLocal(this.store) && localAccess(this.store).userId === this.remote.userId;
   }
 
   /** Takes newer cloud sections, unites lesson names, then sends local changes. */
   pull(): Promise<void> {
     return this.run(async () => {
       if (this.stopped || this.selected && !this.ownsLocal()) return;
-      // An offline first sign-in still owns its local play before the cloud can answer.
-      if (this.store.getItem(OWNER) === null) selectAccount(this.store, this.remote.userId);
-      const owner = this.store.getItem(OWNER);
+      if (!this.selected) {
+        const switched = selectLocal(this.store, this.remote.userId, () => { stamp(this.store); });
+        try { if (switched) this.onApply([...SECTIONS], true); }
+        catch (error) { localAccess(this.store).blocked = true; throw error; }
+        this.selected = true;
+      }
       const row = await this.remote.pull();
-      if (this.stopped || owner !== this.store.getItem(OWNER)) return;
-      const switched = this.selected ? false : selectAccount(this.store, this.remote.userId);
-      if (switched) this.onApply([...SECTIONS], true);
-      this.selected = true;
+      if (this.stopped || !this.ownsLocal()) return;
       this.take(row);
       this.pulled = true;
       await this.send();

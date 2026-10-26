@@ -38,6 +38,7 @@ import { connectPreviously } from '../ui/previously';
 import { pieceArt } from '../ui/guide';
 import { connectLinks } from './links';
 import { readSave, savedGame, writeSave, type Save } from './save';
+import { localAccess } from '../account/local';
 import type { connectSettings } from './settings';
 import { connectMoments, soundsFor } from './moments';
 
@@ -72,6 +73,7 @@ export function connectPlay(view: BoardView, c: {
   openNewGame(): void;
 }) {
   const { params, preset, withPowers, fen, engine, guide, settings, home } = c;
+  localAccess(localStorage);
   const uiMotion = new UiMotion();
   window.addEventListener('pagehide', () => uiMotion.cancel());
   let handoffAt = -Infinity;

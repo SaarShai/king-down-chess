@@ -5,7 +5,7 @@ import { savedGame } from '../screen/save';
 /** localStorage stand-in. */
 const store = (init: Record<string, unknown> = {}) => {
   const m = new Map(Object.entries(init).map(([k, v]) => [k, JSON.stringify(v)]));
-  return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k), m };
+  return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k), key: (i: number) => [...m.keys()][i] ?? null, get length() { return m.size; }, m };
 };
 /** The database keeps jsonb with its keys in its own order: reverse them to be sure order never matters. */
 const reorder = (v: unknown): unknown => Array.isArray(v) ? v.map(reorder)
@@ -44,6 +44,22 @@ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(1_000_000); });
 afterEach(() => { vi.useRealTimers(); });
 
 describe('F1 account ownership', () => {
+  it('review storage: keeps copies for only three recent accounts', async () => {
+    const st = store({ 'kingdown.save': save(['e2-e4']) });
+    for (let i = 0; i < 5; i++) st.setItem(`kingdown.local.old-${i}`, JSON.stringify([null, null, null]));
+    for (const userId of ['A', 'B', 'C', 'D', 'E']) {
+      const c = cloud(null, userId), sync = new Sync(st, c.remote, () => {}, { blocked: () => false, accepts: () => true });
+      await sync.pull(); sync.stop();
+      st.setItem('kingdown.save', JSON.stringify(save([userId === 'D' ? 'd2-d4' : 'e2-e4'])));
+    }
+    expect([...st.m.keys()].filter(key => key.startsWith('kingdown.local.')).length).toBeLessThanOrEqual(3);
+    expect(st.getItem('kingdown.local.A')).toBeNull();
+    expect(st.getItem('kingdown.local.B')).toBeNull();
+    const d = new Sync(st, cloud(null, 'D').remote, () => {}, { blocked: () => false, accepts: () => true });
+    await d.pull(); d.stop();
+    expect(readLocal(st).saved_game).toMatchObject({ moves: ['d2-d4'] });
+  });
+
   it('binds A before its first cloud read, even when A is offline', async () => {
     const a = cloud(null, 'A'), b = cloud(null, 'B');
     const d = device({ 'kingdown.save': save(['e2-e4']), 'kingdown.lessons': { done: ['Archer'] } }, a);

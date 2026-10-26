@@ -1,14 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { connectPlay } from './play';
+import { connectSettings } from './settings';
 import { defaultSetup } from '../new-game';
 import type { Engine } from '../game';
 import type { BoardView } from '../render/PaintedView';
 import { connectTurnPress } from '../turn-controls';
-import { readSave, SAVE_KEY, type Save } from './save';
-import { stamp, Sync } from '../account/sync';
+import { readSave, writeSave, SAVE_KEY, type Save } from './save';
+import { stamp, Sync, type Row } from '../account/sync';
 import { toFen } from '../rules/setup';
 import { POWERS_BALANCED, RULES_2017, parseKings, type Rules } from '../rules/engine';
 import { refreshTable, renderTable } from '../ui/table';
+import { progress, recordLesson } from '../lesson-shelf-ui';
 
 vi.mock('../render/sfx', () => ({ setSound: vi.fn(), snd: {} }));
 vi.mock('../ui/table', () => ({ readPiece: vi.fn(), refreshTable: vi.fn(), renderTable: vi.fn() }));
@@ -26,7 +28,7 @@ const original: Save = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], w
 const request = { link: false, continues: false, urlRules: false, title: false, unreadable: false, notice: '' };
 beforeEach(() => {
   vi.clearAllMocks(); stored.clear();
-  vi.stubGlobal('localStorage', { getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => stored.set(key, value), removeItem: (key: string) => stored.delete(key) });
+  vi.stubGlobal('localStorage', { getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => stored.set(key, value), removeItem: (key: string) => stored.delete(key), key: (i: number) => [...stored.keys()][i] ?? null, get length() { return stored.size; } });
   const nodes = new Map<string, object>(), node = () => ({ setAttribute: vi.fn(), appendChild: vi.fn(), close: vi.fn(), querySelector: () => null, style: {} });
   vi.stubGlobal('document', { hidden: false, documentElement: { dataset: { pace: 'off' } }, addEventListener: vi.fn(), removeEventListener: vi.fn(), querySelector: () => null, querySelectorAll: () => [], createElement: node, getElementById: (id: string) => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); } });
   vi.stubGlobal('window', { addEventListener: vi.fn() });
@@ -36,19 +38,147 @@ beforeEach(() => {
 });
 afterEach(() => { vi.unstubAllGlobals(); });
 
-function page(rules: Partial<Rules> = {}) {
+function page(rules: Partial<Rules> = {}, realSettings = false) {
   const view = { setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), highlight: vi.fn(), setPreview: vi.fn(), setCoords: vi.fn(), setLabels: vi.fn() } as unknown as BoardView;
   const engine = { cancel: vi.fn(), think: vi.fn().mockResolvedValue({ move: null }) }, changed = vi.fn();
   const settings = { pace: () => 'off', threats: () => false, queen: () => true, settingsNow: () => ({ coords: true }), applySettings: vi.fn(), resetSettings: vi.fn(),
     sound: () => true, coords: () => true, labels: () => false, applyPace: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['settings'];
+  // main.ts connects settings before it creates play. Keep the same start order here.
+  const controls: ReturnType<typeof connectSettings> = realSettings ? connectSettings(view, { skill: () => play.skill(), setSkill: level => play.setSkill(level), save: () => play.save(), refresh: () => play.refresh() }) : settings;
   const play = connectPlay(view, { params: new URLSearchParams(), preset: undefined, rules, withPowers: () => ({}), fen: null,
-    engine: engine as unknown as Engine, guide: { fill: vi.fn() }, settings,
+    engine: engine as unknown as Engine, guide: { fill: vi.fn() }, settings: controls,
     home: { visible: false, close: vi.fn(), refresh: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['home'],
     keys: () => ({ cursor: () => null, say: vi.fn(), focus: vi.fn() }), account: () => ({ changed }),
     setup: () => ({ ...defaultSetup(), mode: 'two' }), openNewGame: vi.fn(),
   });
-  return { play, view, engine, changed };
+  return { play, view, engine, changed, settings: controls };
 }
+
+it('review 1: starts local practice with the real settings before play', () => {
+  const { play, settings } = page({}, true);
+  expect(play.skill()).toBe('club');
+  expect(settings.settingsNow().skill).toBe('club');
+  play.setSkill('strong');
+  settings.resetSettings();
+  expect(play.skill()).toBe('club');
+  play.game().play(play.game().legal[0]);
+  play.save();
+  expect(readSave().save?.moves).toHaveLength(1);
+});
+
+describe('review account boundaries', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+  const keys = [SAVE_KEY, 'kingdown.lessons', 'kingdown.sync'];
+  const copy = (moves: string[]) => [JSON.stringify({ ...original, moves }), JSON.stringify({ done: ['Guard'] }), null];
+  const access = { blocked: () => false, accepts: () => true };
+
+  it('review 2: selects B before a failed cloud read', async () => {
+    const { play } = page();
+    stored.set(SAVE_KEY, JSON.stringify(original)); play.restore(original, request);
+    const a = new Sync(localStorage, { userId: 'A', pull: async () => null, push: async row => row }, play.fromAccount, play.savedGames);
+    await a.pull(); a.stop();
+    stored.set('kingdown.local.B', JSON.stringify(copy(['d2-d4'])));
+    const pull = vi.fn(async () => {
+      expect(play.game().history.map(h => h.lan)).toEqual(['d2-d4']);
+      throw new Error('offline');
+    });
+    const b = new Sync(localStorage, { userId: 'B', pull, push: async row => row }, play.fromAccount, play.savedGames);
+    await b.pull(); b.stop();
+    expect(pull).toHaveBeenCalledOnce();
+    expect(JSON.parse(stored.get('kingdown.sync-owner')!).userId).toBe('B');
+    expect(play.game().history.map(h => h.lan)).toEqual(['d2-d4']);
+    expect(progress().done).toEqual(['Guard']);
+  });
+
+  it.each(['archive', 'restore'])('review 2: blocks game and lesson writes after a failed %s', async phase => {
+    const { play } = page();
+    stored.set(SAVE_KEY, JSON.stringify(original)); play.restore(original, request);
+    const a = new Sync(localStorage, { userId: 'A', pull: async () => null, push: async row => row }, play.fromAccount, play.savedGames);
+    await a.pull(); a.stop();
+    const set = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = (key, value) => {
+      if (key === (phase === 'archive' ? 'kingdown.local.A' : 'kingdown.sync-owner')) throw new Error('quota');
+      set(key, value);
+    };
+    const pull = vi.fn(async () => null);
+    const b = new Sync(localStorage, { userId: 'B', pull, push: async row => row }, play.fromAccount, play.savedGames);
+    await b.pull(); b.stop();
+    const before = keys.map(key => stored.get(key));
+    play.game().play(play.game().legal[0]); play.save(); recordLesson('Ogre');
+    expect(keys.map(key => stored.get(key))).toEqual(before);
+    expect(pull).not.toHaveBeenCalled();
+  });
+
+  it('review 3: blocks a stale tab and loads B even when the shared owner is already B', async () => {
+    const tab1 = localStorage, { play: first } = page();
+    stored.set(SAVE_KEY, JSON.stringify(original)); first.restore(original, request);
+    const a = new Sync(tab1, { userId: 'A', pull: async () => null, push: async row => row }, first.fromAccount, first.savedGames);
+    await a.pull(); a.stop();
+    // Each tab has its own Storage object and the same backing keys.
+    const tab2 = { getItem: tab1.getItem, setItem: tab1.setItem, removeItem: tab1.removeItem, key: tab1.key, get length() { return tab1.length; } } as Storage;
+    vi.stubGlobal('localStorage', tab2);
+    const { play: second } = page(); second.restore(original, request);
+    stored.set('kingdown.local.B', JSON.stringify(copy(['d2-d4'])));
+    const pushes: unknown[] = [];
+    let cloud: Row | null = null;
+    const remote = { userId: 'B', pull: async () => cloud, push: async (row: Row) => { pushes.push(row); cloud = { ...cloud, ...row }; return cloud; } };
+    vi.stubGlobal('localStorage', tab1);
+    const b1 = new Sync(tab1, remote, first.fromAccount, first.savedGames);
+    await b1.pull(); b1.stop();
+    vi.stubGlobal('localStorage', tab2);
+    const before = keys.map(key => stored.get(key));
+    second.save(); recordLesson('Ogre');
+    expect(keys.map(key => stored.get(key))).toEqual(before);
+    const b2 = new Sync(tab2, remote, second.fromAccount, second.savedGames);
+    await b2.pull();
+    expect(second.game().history.map(h => h.lan)).toEqual(['d2-d4']);
+    second.game().playLan(['d7-d5']); second.save(); b2.changed(); await b2.flush(); b2.stop();
+    expect(readSave().save?.moves).toEqual(['d2-d4', 'd7-d5']);
+    expect(pushes.at(-1)).toMatchObject({ saved_game: { v: { moves: ['d2-d4', 'd7-d5'] } } });
+  });
+
+  it('review 4: finishes a pending restore before the page loads and saves a new move', async () => {
+    stored.set('kingdown.sync-owner', JSON.stringify({ userId: 'B', restore: copy(['d2-d4']) }));
+    stored.set(SAVE_KEY, JSON.stringify({ ...original, moves: ['d2-d4'] }));
+    stored.set('kingdown.lessons', JSON.stringify({ done: ['Archer'] }));
+    const { play } = page();
+    const initial = readSave(); play.restore(initial.save, { ...request, unreadable: initial.unreadable });
+    expect(progress().done).toEqual(['Guard']);
+    play.game().playLan(['d7-d5']); play.save();
+    const b = new Sync(localStorage, { userId: 'B', pull: async () => null, push: async row => row }, play.fromAccount, play.savedGames);
+    await b.pull(); b.stop();
+    expect(readSave().save?.moves).toEqual(['d2-d4', 'd7-d5']);
+    const a = new Sync(localStorage, { userId: 'A', pull: async () => null, push: async row => row }, () => {}, access);
+    await a.pull(); a.stop();
+    expect(JSON.parse(JSON.parse(stored.get('kingdown.local.B')!)[0]).moves).toEqual(['d2-d4', 'd7-d5']);
+  });
+
+  it.each(['save', 'lessons'])('review 4: blocks a failed boot restore when %s loads first', async first => {
+    const target = copy(['d2-d4']);
+    target[2] = '{}';
+    stored.set('kingdown.sync-owner', JSON.stringify({ userId: 'B', restore: target }));
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const set = localStorage.setItem.bind(localStorage);
+    let fail = true;
+    localStorage.setItem = (key, value) => {
+      if (fail && key === 'kingdown.sync') throw new Error('quota');
+      set(key, value);
+    };
+    if (first === 'lessons') expect(progress()).toEqual({});
+    expect(readSave()).toEqual({ save: null, unreadable: true });
+    const before = keys.map(key => stored.get(key));
+    writeSave(original); recordLesson('Ogre');
+    expect(keys.map(key => stored.get(key))).toEqual(before);
+    fail = false;
+    const { play } = page();
+    const b = new Sync(localStorage, { userId: 'B', pull: async () => null, push: async row => row }, play.fromAccount, play.savedGames);
+    await b.pull(); b.stop();
+    expect(play.game().history.map(h => h.lan)).toEqual(['d2-d4']);
+    play.game().playLan(['d7-d5']); play.save();
+    expect(readSave().save?.moves).toEqual(['d2-d4', 'd7-d5']);
+  });
+});
 
 describe('local save recovery on the game page', () => {
   it.each([true, false])('F1 opens B without keeping A on the board (B has a game: %s)', async existing => {
