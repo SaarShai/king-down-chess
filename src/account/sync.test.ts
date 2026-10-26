@@ -586,3 +586,46 @@ describe('recovery confirmation', () => {
     d.sync.stop();
   });
 });
+
+
+describe('round 2 recovery retry', () => {
+  it('keeps the source time after a failed upload and takes newer cloud data after reload', async () => {
+    const c = cloud({ saved_game: { at: 500, v: save(['e2-e4', 'bad']) } });
+    const d = device({}, c);
+    await d.sync.pull();
+    d.st.setItem('kingdown.save', JSON.stringify({ ...save(['e2-e4']), recovery: 500 }));
+    const push = c.remote.push;
+    c.remote.push = async () => { throw new Error('offline'); };
+    d.sync.changed(); await d.sync.flush(); d.sync.stop();
+    expect(JSON.parse(d.st.getItem('kingdown.save')!).recovery).toBe(500);
+    expect(c.row?.saved_game?.v).toMatchObject({ moves: ['e2-e4', 'bad'] });
+    c.row = { saved_game: { at: 600, v: save(['d2-d4']) } };
+    c.remote.push = push;
+    const next = new Sync(d.st, c.remote, () => {}, { blocked: () => false, accepts: () => true });
+    await next.pull(); next.stop();
+    expect(readLocal(d.st).saved_game).toMatchObject({ moves: ['d2-d4'] });
+  });
+
+  it('keeps a safe retry after sign-out during the recovery upload', async () => {
+    const c = cloud({ saved_game: { at: 500, v: save(['e2-e4', 'bad']) } });
+    const d = device({}, c);
+    await d.sync.pull();
+    d.st.setItem('kingdown.save', JSON.stringify({ ...save(['e2-e4']), recovery: 500 }));
+    const push = c.remote.push;
+    let reply!: () => void;
+    c.remote.push = async sent => {
+      const row = await push(sent);
+      return new Promise<Row | null>(resolve => { reply = () => resolve(row); });
+    };
+    d.sync.changed(); const sending = d.sync.flush();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(reply).toBeTypeOf('function');
+    d.sync.stop(); reply(); await sending;
+    expect(JSON.parse(d.st.getItem('kingdown.save')!)).toMatchObject({ moves: ['e2-e4'], recovery: 500 });
+    c.remote.push = push;
+    const next = new Sync(d.st, c.remote, () => {}, { blocked: () => false, accepts: () => true });
+    await next.pull(); next.stop();
+    expect(readLocal(d.st).saved_game).toMatchObject({ moves: ['e2-e4'] });
+    expect(JSON.parse(d.st.getItem('kingdown.save')!)).not.toHaveProperty('recovery');
+  });
+});

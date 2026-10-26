@@ -36,6 +36,8 @@ beforeEach(() => {
   const nodes = new Map<string, object>(), node = () => ({ setAttribute: vi.fn(), appendChild: vi.fn(), close: vi.fn(), focus: vi.fn(), querySelector: () => null, style: {} });
   vi.stubGlobal('document', { hidden: false, documentElement: { dataset: { pace: 'off' } }, addEventListener: vi.fn(), removeEventListener: vi.fn(), querySelector: () => null, querySelectorAll: () => [], createElement: node, getElementById: (id: string) => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); } });
   vi.stubGlobal('window', { addEventListener: vi.fn() });
+  vi.stubGlobal('location', { href: 'http://localhost/' });
+  vi.stubGlobal('history', { replaceState: vi.fn() });
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   vi.stubGlobal('MutationObserver', class { observe() {} disconnect() {} });
   vi.stubGlobal('ResizeObserver', class { observe() {} });
@@ -49,6 +51,7 @@ function page(rules: Partial<Rules> = {}, fen: string | null = null, realSetting
     sound: () => true, coords: () => true, labels: () => false, applyPace: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['settings'];
   // main.ts connects settings before it creates play. Keep the same start order here.
   const controls: ReturnType<typeof connectSettings> = realSettings ? connectSettings(view, { skill: () => play.skill(), setSkill: level => play.setSkill(level), save: () => play.saveSettings(), refresh: () => play.refresh() }) : settings;
+  if (fen) location.href = 'http://localhost/?fen=' + encodeURIComponent(fen);
   const play = connectPlay(view, { params: new URLSearchParams(), preset: undefined, rules, withPowers: () => ({}), fen,
     engine: engine as unknown as Engine, guide: { fill: vi.fn() }, settings: controls,
     home: { visible: false, close: vi.fn(), refresh: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['home'],
@@ -1462,6 +1465,106 @@ describe('review recovery faults', () => {
     expect(readSave().save?.moves).toEqual(original.moves);
     expect(play.game().history.map(h=>h.lan)).toEqual(original.moves);
   });
+  it.each(['late account', 'failed stamp'])('round 2: startup save keeps recovery time after %s', async failure => {
+    vi.setSystemTime(1_000_000);
+    const { changed } = bootRecovery(failure === 'failed stamp');
+    const set = localStorage.setItem.bind(localStorage);
+    if (failure === 'failed stamp') {
+      changed.mockImplementation(accountChanged);
+      localStorage.setItem = (key, value) => {
+        if (key === 'kingdown.sync') throw new Error('quota');
+        set(key, value);
+      };
+    }
+    clickAccept();
+    localStorage.setItem = set;
+    expect(readSave().save?.recovery).toBe(500);
+    const loaded = readSave();
+    const { play } = page({}, null, false, false);
+    play.seat(loaded.save!.white, loaded.save!.black);
+    play.restore(loaded.save, { ...request, unreadable: loaded.unreadable });
+    play.refresh();
+    // Startup saves the restored game before its account import completes.
+    play.save();
+    accountChanged();
+    const c = cloud();
+    const sync = new Sync(localStorage, c.remote, play.fromAccount, play.savedGames);
+    await sync.pull(); sync.stop();
+    expect((c.row.saved_game?.v as Save).moves).toEqual(newer.moves);
+  });
+
+  it('round 2: unchanged saves keep recovery time and a new move clears it', async () => {
+    bootRecovery(false); clickAccept();
+    const loaded = readSave().save!;
+    const { play, view } = page({}, null, false, false);
+    play.seat(loaded.white, loaded.black); play.restore(loaded, request); play.refresh();
+    play.save(); play.saveSettings(); play.save();
+    expect(readSave().save?.recovery).toBe(500);
+    view.onSquareClick(6, false); view.onSquareClick(21, false);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(readSave().save?.moves).toEqual([...original.moves, 'Ng1-f3']);
+    expect(readSave().save?.recovery).toBeUndefined();
+  });
+
+  it('round 2: a FEN reload keeps both recovery choices', async () => {
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const fen = '7k/8/8/8/8/8/8/K6R w - - 0 1';
+    const first = page({}, fen);
+    first.play.restore(original, request); first.play.refresh();
+    const row: Row = { saved_game: { at: 500, v: partial } };
+    const sync = new Sync(localStorage, { userId: 'player', pull: async () => row, push: async () => row }, first.play.fromAccount, first.play.savedGames);
+    await sync.pull(); sync.stop();
+    expect(document.getElementById('recover-save')!.hidden).toBe(false);
+    // Restore must also find a partial save when the caller omits it on a FEN page.
+    const next = page({}, fen);
+    next.play.restore(null, request); next.play.refresh();
+    expect(stored.get(SAVE_KEY)).toContain('Qd1-d8');
+    expect(next.play.savedGames.blocked()).toBe(true);
+    expect(document.getElementById('recover-save')!.hidden).toBe(false);
+    expect(document.getElementById('recovery-new-game')!.hidden).toBe(false);
+    expect(next.play.game().history.map(h => h.lan)).toEqual(original.moves);
+  });
+
+  it('round 2: an account switch keeps the source and restores the offer', async () => {
+    const { play } = bootRecovery();
+    const a = new Sync(localStorage, { userId: 'A', pull: async () => null, push: async sent => sent }, play.fromAccount, play.savedGames);
+    await a.pull(); a.stop();
+    const b = new Sync(localStorage, { userId: 'B', pull: async () => ({ saved_game: { at: 600, v: newer } }), push: async sent => sent }, play.fromAccount, play.savedGames);
+    await b.pull(); b.stop();
+    expect(readSave().save?.moves).toEqual(newer.moves);
+    const again = new Sync(localStorage, { userId: 'A', pull: async () => ({ saved_game: { at: 500, v: partial } }), push: async sent => sent }, play.fromAccount, play.savedGames);
+    await again.pull(); again.stop();
+    expect(readSave().save?.moves).toEqual(partial.moves);
+    expect(document.getElementById('recover-save')!.hidden).toBe(false);
+  });
+
+
+  it('round 2: FEN recovery loads the winning cloud board before the next move', async () => {
+    vi.setSystemTime(1_000_000);
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const { play, view, changed } = page({}, '7k/8/8/8/8/8/8/K6R w - - 0 1');
+    play.restore(null, request); play.refresh();
+    const row: Row = { saved_game: { at: 500, v: partial } };
+    const sync = new Sync(localStorage, { userId: 'player', pull: async () => row, push: async sent => {
+      for (const section of ['settings', 'lessons', 'saved_game'] as const) {
+        if (sent[section] && (!row[section] || sent[section]!.at > row[section]!.at)) row[section] = sent[section];
+      }
+      return row;
+    } }, play.fromAccount, play.savedGames);
+    changed.mockImplementation(() => sync.changed());
+    await sync.pull();
+    row.saved_game = { at: 600, v: newer };
+    clickAccept(); await sync.flush();
+    expect(readSave().save?.moves).toEqual(newer.moves);
+    expect(play.game().history.map(h => h.lan)).toEqual(newer.moves);
+    expect(vi.mocked(history.replaceState).mock.lastCall?.[2]?.toString()).toBe('http://localhost/');
+    // The board must now be the same game. A White knight move on the old line must not overwrite it.
+    view.onSquareClick(6, false); view.onSquareClick(21, false);
+    await vi.advanceTimersByTimeAsync(0); await sync.flush(); sync.stop();
+    expect((row.saved_game.v as Save).moves).toEqual(newer.moves);
+  });
+
+
 });
 
 

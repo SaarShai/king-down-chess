@@ -84,15 +84,37 @@ try {
     assert.equal(kept.resigned, null);
     assert.equal(kept.staged, undefined);
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'board', 'acceptance returns focus to the board');
+    assert.equal(typeof kept.recovery, 'number', 'acceptance stores the source time');
     await page.reload();
     await page.waitForFunction(() => window.view?.ready);
     await page.evaluate(() => window.view.ready());
     assert.equal(await offer.isVisible(), false, 'the accepted game reloads without an offer');
     assert.deepEqual((await saved(page)).moves, source.moves.slice(0, 2));
+    assert.equal((await saved(page)).recovery, kept.recovery, 'reload keeps the source time until a move or cloud confirmation');
     assertNoErrors(page);
     await page.context().close();
   }
   ok('save recovery: the full source stays until acceptance; keyboard choices, live notice, reload and three screen sizes pass');
+
+  {
+    const source = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5', 'Qd1-d8'], white: 'human', black: 'human', coords: true, resigned: null, pace: 'off', sound: false };
+    const query = '?fen=' + encodeURIComponent('7k/8/8/8/8/8/8/K6R w - - 0 1');
+    const page = await open({ save: source, query });
+    for (let load = 0; load < 2; load++) {
+      await page.locator('#recover-save').waitFor({ state: 'visible' });
+      assert.equal(await page.locator('#recovery-new-game').isVisible(), true, 'FEN recovery keeps both choices');
+      assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.save')), JSON.stringify(source), 'FEN recovery keeps the full source');
+      assert.deepEqual(await lanMoves(page), source.moves.slice(0, 2), 'FEN recovery shows the legal part');
+      if (load === 0) {
+        await page.reload();
+        await page.waitForFunction(() => window.view?.ready);
+        await page.evaluate(() => window.view.ready());
+      }
+    }
+    assertNoErrors(page);
+    await page.context().close();
+  }
+  ok('save recovery: a FEN reload keeps the full source and both choices');
 
   for (const choice of ['cancel', 'start', 'failed read', 'late close']) {
     const source = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5', 'Qd1-d8'], white: 'human', black: 'human', coords: true, resigned: null, pace: 'off', sound: false };

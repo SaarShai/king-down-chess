@@ -72,7 +72,8 @@ export function connectPlay(view: BoardView, c: {
   setup(): Setup;
   openNewGame(): void;
 }) {
-  const { params, preset, withPowers, fen, engine, guide, settings, home } = c;
+  const { params, preset, withPowers, engine, guide, settings, home } = c;
+  let fen = c.fen;
   const uiMotion = new UiMotion();
   window.addEventListener('pagehide', () => uiMotion.cancel());
   let handoffAt = -Infinity;
@@ -828,6 +829,8 @@ export function connectPlay(view: BoardView, c: {
       // (`?rules=2017`, `?kings=…`; docs/TAKEOVER-PLAN.md §2).
       rules: { ...live.game.rules },
     };
+    // An unchanged startup save keeps the source time until a move or cloud confirmation.
+    if (!replaceUnreadable && stored.save?.recovery !== undefined && gameJSON(next) === gameJSON(stored.save)) next.recovery = stored.save.recovery;
     // A new game must retry its replacement if the first write fails.
     if (replaceUnreadable) savedJSON = gameJSON(stored.save);
     const before = saveWarning(), saved = writeSave(next, recovered);
@@ -935,10 +938,20 @@ export function connectPlay(view: BoardView, c: {
     $('title-continue').querySelector('.label')!.textContent = `Continue · move ${nextMoveNumber(game.history.map(h => h.pos.turn), game.pos.turn)}`;
   }
 
+  /** Recovery and account games replace the FEN position, also after reload. */
+  function endFen(): void {
+    if (!fen) return;
+    fen = null;
+    const url = new URL(location.href);
+    url.searchParams.delete('fen');
+    history.replaceState(null, '', url);
+  }
+
   /** Load an account game, including the legal part offered for recovery. */
   function openSaved(s: Save): void {
     const replayed = replay(s);
     if (!replayed) { refresh(); return; }
+    endFen();
     reset();
     saveBlocked = false;
     recoverySource = undefined;
@@ -978,7 +991,9 @@ export function connectPlay(view: BoardView, c: {
    * It runs before any async work starts, so it is the one game switch that does not call `reset()`.
    */
   function restore(saved: Save | null, r: { link: boolean; continues: boolean; urlRules: boolean; title: boolean; unreadable: boolean; notice: string }): void {
-    savedJSON = gameJSON(readSave().save);
+    const stored = readSave();
+    savedJSON = gameJSON(stored.save);
+    if (fen && !r.link && stored.partial) { saved = stored.save; endFen(); }
     let staged = 0;
     if (r.unreadable) keepUnreadableSave();
     else if (r.link) {

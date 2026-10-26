@@ -142,8 +142,9 @@ initTable(() => { void play.showPly(null, false); });
 // Nothing between connectPlay and this line may call refresh(), drawMarks() or showPly(): they read `keys`.
 const keys = connectKeys($('board'), play, play.commands);
 
-/** A plain `?fen=` wins over the autosave; restore player settings before loading the game. */
-const stored = params.has('fen') && !link ? { save: null, unreadable: false } : readSave(), saved = stored.save;
+/** A partial save needs a recovery choice, also on a plain `?fen=` page. */
+const localSave = readSave();
+const stored = params.has('fen') && !link && !localSave.partial ? { save: null, unreadable: false } : localSave, saved = stored.save;
 if (saved) {
   play.seat(saved.white, saved.black);
   settings.applySettings(saved);
