@@ -161,7 +161,7 @@ try {
   const created = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/games');
   await page.locator('#setup-start').click();
   const startResponse = await created; assert.equal(startResponse.status(), 201);
-  const start = await startResponse.json(), gameId = start.view.game_id;
+  const start = await startResponse.json(); let gameId = start.view.game_id;
   const view = async seat => (await tool(seat, 'kingdown_get', { game_id: gameId }))._meta.view;
   assert.equal(start.view.options.arrangement, false); assert.equal(start.view.options.kingPowers, true);
   await page.locator('#friend-code').filter({ hasText: /[A-Z0-9]{6}/ }).waitFor();
@@ -177,9 +177,14 @@ try {
   await shot(page, 'web-expired-friend-code');
   await page.clock.setSystemTime(new Date());
   const oldCode = code;
+  // An expired game stays closed. Use a new game for the code rotation checks.
+  const fresh = await http(0, '/api/games', { kind: 'friend', options: start.view.options, colour: 'white', command_id: randomUUID() }, 201);
+  gameId = fresh.view.game_id;
+  await page.goto(`${origin}/g/${gameId}`);
+  await page.locator('#friend-new').waitFor();
   await page.locator('#friend-new').click(); await page.locator('#friend-code').filter({ hasText: /[A-Z0-9]{6}/ }).waitFor();
   code = (await page.locator('#friend-code').innerText()).trim(); assert.notEqual(code, oldCode);
-  assert.equal((await http(1, '/api/invites/preview', { code: oldCode }, 404)).code, 'INVITE_UNAVAILABLE');
+  assert.equal((await http(1, '/api/invites/preview', { code: oldCode }, 409)).code, 'INVITE_UNAVAILABLE');
   // Another host replaces this still-open page's code. The ordinary read must revoke its Share/Copy.
   const replacedCode = code;
   const remoteInvite = await tool(0, 'kingdown_invite', { game_id: gameId });

@@ -305,4 +305,20 @@ suite('friend invitation transactions', () => {
   expect(retried.invitation?.state).toBe('accepted');
  });
 
+ it('reads complete invitation metadata while another connection rotates its code', async () => {
+  const sent = await send();
+  const hooks = services[0] as unknown as { invitationRow: (...args: unknown[]) => Promise<unknown> };
+  const read = hooks.invitationRow.bind(services[0]);
+  let reached!: () => void, resume!: () => void;
+  const atRead = new Promise<void>(r => { reached = r; }), gate = new Promise<void>(r => { resume = r; });
+  const hold = vi.spyOn(hooks, 'invitationRow').mockImplementation(async (...args) => { reached(); await gate; return read(...args); });
+  const reading = services[0].view(users[0], sent.game_id); void reading.catch(() => {});
+  try {
+   await atRead;
+   const rotated = await services[1].invite(users[0], sent.game_id, { rotate: true });
+   resume();
+   expect(await reading).toMatchObject({ invite_id: rotated.invite_id, invitation: { invite_id: rotated.invite_id, state: 'open' } });
+  } finally { resume(); await reading.catch(() => {}); hold.mockRestore(); }
+ });
+
 });

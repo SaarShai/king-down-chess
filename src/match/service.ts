@@ -641,14 +641,15 @@ export class GameService {
     await this.write(client, game, next, { seat: null, actor_id: actor, command_id: null, kind: 'decline', payload: {}, actions: null, surface: null, received_at: at }, out);
     await client.query("update public.game_invites set state='declined',closed_at=$2 where token_hash=$1", [inviteId, at]);
    }
-   return this.invitationRow(client, actor, inviteId);
+   return await this.invitationRow(client, actor, inviteId) ?? this.unavailable();
   });
  }
- private async invitationRow(client: Parameters<PostgresMatchStore['privacy']>[0], actor: string, inviteId: string): Promise<InvitationRow> {
-  const r = (await client.query(`select i.*,g.options,g.end_reason,p.id as player_id,p.handle,p.icon from public.game_invites i join public.games g on g.id=i.game_id
-   left join public.profiles p on p.id=case when i.created_by=$2 then i.recipient_id else i.created_by end where token_hash=$1`, [inviteId, actor])).rows[0] ?? this.unavailable();
+ private async invitationRow(client: Parameters<PostgresMatchStore['privacy']>[0], actor: string, inviteId: string, byGame = false): Promise<InvitationRow | null> {
+  const r = (await client.query(`select i.*,i.expires_at<=statement_timestamp() as expired,g.options,g.end_reason,p.id as player_id,p.handle,p.icon from public.game_invites i join public.games g on g.id=i.game_id
+   left join public.profiles p on p.id=case when i.created_by=$2 then i.recipient_id else i.created_by end where ${byGame ? 'i.game_id' : 'i.token_hash'}=$1`, [inviteId, actor])).rows[0];
+  if (!r) return null;
   return { invite_id: r.token_hash, game_id: r.game_id, recipient_id: r.recipient_id, direction: r.created_by === actor ? 'outgoing' : 'incoming', player: r.player_id ? { user_id: r.player_id, handle: r.handle, icon: r.icon } : null,
-   options: r.options, expires_at: r.expires_at.toISOString(), state: (r.state === 'open' || r.state === 'cancelled' && r.end_reason === 'no_start') && await this.store.inviteExpired(client, r.token_hash) ? 'expired' : r.state };
+   options: r.options, expires_at: r.expires_at.toISOString(), state: (r.state === 'open' || r.state === 'cancelled' && r.end_reason === 'no_start') && r.expired ? 'expired' : r.state };
  }
  /** Ends missed deadlines, expired invitations and 24-hour open games; safe to run twice at once. */
  async sweep(now = new Date()): Promise<number> {
@@ -688,9 +689,9 @@ export class GameService {
   const sees = opponent.user_id ? await this.store.privacy(client ?? this.store.pool, game.players[seat].user_id!, opponent.user_id) : { presets: true, online: true, unblocked: true };
   const commands = await this.store.commands(game.id, since, client);
   const db = client ?? this.store.pool;
-  const invitation = game.kind === 'friend'
-   ? { invite_id: (await db.query('select token_hash from public.game_invites where game_id=$1', [game.id])).rows[0]?.token_hash ?? null } : {};
-  const inviteMeta = invitation.invite_id ? await this.invitationRow(db, game.players[seat].user_id!, invitation.invite_id) : undefined;
+  // Read the identity and metadata together. A concurrent rotation must not split this read.
+  const inviteMeta = game.kind === 'friend' ? await this.invitationRow(db, game.players[seat].user_id!, game.id, true) : null;
+  const invitation = game.kind === 'friend' ? { invite_id: inviteMeta?.invite_id ?? null } : {};
   const vacant = !opponent.user_id && !opponent.computer && !opponent.handle_at_start && !await this.store.hasJoined(game.id, db);
   const rating = rules && opponent.user_id ? await opponentRating(db, opponent.user_id) : undefined;
   const outcome = rules && game.status === 'finished' ? await gameOutcome(db, game.players[seat].user_id!, game.id) : undefined;

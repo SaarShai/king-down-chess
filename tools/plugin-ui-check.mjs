@@ -1370,7 +1370,7 @@ try {
     const tool = async (name, args = {}, friend = false) => (await page.request.post(new URL(friend ? '/fixture-friend-tool' : '/fixture-tool', base).href, { data: { name, arguments: args } })).json();
     const binding = () => page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
     async function showCreated(kind, choices = options) {
-      const result = await tool('kingdown_create', { kind, options: choices, colour: 'white', board_id: await binding() }); assert(!result.isError);
+      const result = await tool('kingdown_create', { kind, options: choices, colour: 'white', board_id: await binding() }); assert(!result.isError, JSON.stringify(result.content));
       await page.evaluate(result => window.harnessShow({ ...result, structuredContent: { ...result.structuredContent, screen: undefined } }, true), result); return result._meta.view;
     }
     async function lookAt(state, screen) {
