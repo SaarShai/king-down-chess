@@ -25,6 +25,7 @@ const stored = new Map<string, string>();
 const original: Save = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'human', coords: true, resigned: null };
 const request = { link: false, continues: false, urlRules: false, title: false, unreadable: false, notice: '' };
 beforeEach(() => {
+  vi.useFakeTimers();
   vi.clearAllMocks(); stored.clear();
   vi.stubGlobal('localStorage', { getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => stored.set(key, value) });
   const nodes = new Map<string, object>(), node = () => ({ setAttribute: vi.fn(), appendChild: vi.fn(), close: vi.fn(), querySelector: () => null, style: {} });
@@ -34,13 +35,13 @@ beforeEach(() => {
   vi.stubGlobal('MutationObserver', class { observe() {} disconnect() {} });
   vi.stubGlobal('ResizeObserver', class { observe() {} });
 });
-afterEach(() => { vi.unstubAllGlobals(); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-function page(rules: Partial<Rules> = {}) {
+function page(rules: Partial<Rules> = {}, fen: string | null = null) {
   const view = { setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), highlight: vi.fn(), setPreview: vi.fn(), skip: vi.fn() } as unknown as BoardView;
   const engine = { cancel: vi.fn(), think: vi.fn().mockResolvedValue({ move: null }) }, changed = vi.fn();
   const settings = { pace: () => 'off', threats: () => false, queen: () => true, settingsNow: () => ({ coords: true }), applySettings: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['settings'];
-  const play = connectPlay(view, { params: new URLSearchParams(), preset: undefined, rules, withPowers: () => ({}), fen: null,
+  const play = connectPlay(view, { params: new URLSearchParams(), preset: undefined, rules, withPowers: () => ({}), fen,
     engine: engine as unknown as Engine, guide: { fill: vi.fn() }, settings,
     home: { visible: false, close: vi.fn(), refresh: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['home'],
     keys: () => ({ cursor: () => null, say: vi.fn(), focus: vi.fn() }), account: () => ({ changed }),
@@ -202,6 +203,23 @@ describe('local saves from two tabs', () => {
     play.game().playLan(['Nb8-c6']); play.save();
     expect(JSON.parse(stored.get(SAVE_KEY)!).moves).toEqual([...newer.moves, 'Nb8-c6']);
     expect(play.savedGames.blocked()).toBe(false);
+  });
+
+  it('accepts an account restore on a FEN page and keeps the FEN board', () => {
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const fen = '7k/8/8/8/8/8/4P3/K7 w - - 0 1';
+    const { play, changed } = page({}, fen);
+    play.restore(original, request);
+    const current = play.game(), before = toFen(current.pos);
+    stored.set(SAVE_KEY, JSON.stringify({ ...original, moves: [...original.moves, 'Ng1-f3'] }));
+    play.fromAccount(['saved_game']);
+    expect(play.game()).toBe(current);
+    expect(toFen(current.pos)).toBe(before);
+    expect(current.history).toHaveLength(0);
+    current.playLan(['e2-e4']); play.save();
+    expect(readSave().save).toMatchObject({ fen, moves: ['e2-e4'] });
+    expect(play.savedGames.blocked()).toBe(false);
+    expect(changed).toHaveBeenCalledOnce();
   });
 
   it('tracks its own writes and accepts settings changes without a game conflict', () => {

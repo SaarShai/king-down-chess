@@ -34,3 +34,16 @@ Settings now call `saveSettings()`. That write keeps the stored game fields. Gam
 - Green: `KINGDOWN_TEST_FILE='src/screen/{play,save}.test.ts' npm test`. Type checks pass. Both files and all 42 tests pass.
 - Review: The change uses the existing save, recovery block, notice, and live region. It adds no dependency or save format. The tests cover the game fields that can change without a new move.
 - Limits: No browser check or full suite runs under the quiet lock. The tests use shared in-memory storage. They do not test two browser processes that write at the same instant. This synchronous storage check does not supply an atomic compare-and-write operation.
+
+## Review finding 2
+
+Plan: Test an accepted account restore through `fromAccount()` on a FEN page. Run the test before the fix. Update the stored-save comparison and keep the FEN board. Run the test after the fix, then run the doc checks. Commit this finding alone.
+
+Checks: The callback keeps the current game and FEN position. The next move saves from that position. The page stays open for play and notifies account sync once. Tests use fake timers.
+
+Result: The FEN path now sets the comparison from the accepted account save. It keeps the board. The test calls `fromAccount()` and saves a move from the FEN position.
+
+- Red: `KINGDOWN_TEST_FILE=src/screen/play.test.ts npm test`. Type checks pass. One test fails and 27 pass. Storage keeps the account moves instead of the FEN move.
+- Green: `KINGDOWN_TEST_FILE=src/screen/play.test.ts npm test`. Type checks and all 28 tests pass. The 57 art checks also pass.
+- Docs: `npm run test:docs`. All 15 files and 178 tests pass.
+- Review: The fix uses the existing comparison. It adds no save field or account code. Finding 1 stays with the account-sync lane.

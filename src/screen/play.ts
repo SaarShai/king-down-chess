@@ -843,7 +843,11 @@ export function connectPlay(view: BoardView, c: {
       setSound(settings.sound()); settings.applyPace(); view.setCoords(settings.coords()); view.setLabels(settings.labels());
       refresh();
     }
-    if (down.includes('saved_game')) { if (lesson != null) cloudGame = true; else if (!fen) openSaved(s); }
+    if (down.includes('saved_game')) {
+      if (lesson != null) cloudGame = true;
+      else if (!fen) openSaved(s);
+      else savedJSON = gameJSON(s);
+    }
   }
 
   function labelContinue(): void {
