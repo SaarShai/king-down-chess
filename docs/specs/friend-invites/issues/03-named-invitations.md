@@ -1,6 +1,6 @@
 # Add named invitation state and service paths
 
-Status: claimed
+Status: resolved
 Type: task
 Blocked by: none; migration run is approved with the spec
 Spec: [Online friend invitations](../README.md)
@@ -35,10 +35,79 @@ Own `0022_friend_invites.sql`, invitation state in `src/match/protocol.ts`, `src
 Pass criteria: all acceptance checks above pass. Race tests use separate PostgreSQL connections.
 Only the local disposable cluster receives the migration. No remote database or deploy runs.
 
-## Evidence
+## Answer
 
-- Migration commit: `a253344b`. The local bootstrap runs `0001` through `0022` twice. It passes.
-- `friend-invites.db.test.ts`: 12 state cases pass before the limit change. The 13 remaining cases fail on missing limits or the small index fixture.
-- State cases cover atomic send and retry, recipient privacy, rotation, settings and blocks, rename, deletion, paging, both terminal races, expiry and migration fixtures.
-- The migration fixture checks a deleted accepted user, an unused old link and duplicate detection. Row security stays on.
-- Full checks and final review remain open until ticket 04 is complete.
+All six acceptance checks pass. Ticket 04 is part of the same server release.
+
+- The service stores the recipient user ID. Wrong recipients receive the same unavailable notice with no private fields.
+- Game creation and the invitation use one transaction. A refused send leaves no game. Same-command retries return the first game.
+- Decline, cancellation and acceptance commit one terminal state. Expiry uses database time after the locks. No sweep is required to free a slot.
+- Rotation keeps the recipient and exact database expiry, including microseconds. It changes the hash ID. Old codes stop. Reads keep the current ID.
+- Old open links remain valid until their first expiry. Actual deletion removes sent and received invitations and ends their waiting games.
+- The migration review checks the cascade, backfill, duplicate guard, constraints, indexes, runtime grants and row security. Local fixtures pass.
+
+The files are `supabase/migrations/0022_friend_invites.sql`, `src/match/{protocol,store,service,invite-notices}.ts`, `src/api/http.ts`, `src/online/accounts.ts` and `src/plugin/{service,server}.ts`. Local bootstrap and runtime grants include the new columns. This ticket adds no product screen.
+
+## Tests and evidence
+
+`src/match/friend-invites.db.test.ts` passes all 34 cases. These names cover the state checks:
+
+- `creates the game and named invitation in one write and returns the same receipt`
+- `hides private details from a wrong recipient with a token or ID`
+- `keeps the recipient and expiry on rotation; reads keep the identity`
+- `checks recipient settings, follows and blocks in the correct direction`
+- `keeps the user ID after a rename and returns current handles`
+- `ends received waiting games and removes invites at actual deletion`
+- `pages invitation rows independently and returns no raw tokens`
+- `uses database expiry at equality and frees the slot before a sweep`
+- `backfills deleted accepted users and unused old invites; rejects duplicates`
+- `gives cancellation the list revision and refuses a stale accepted row`
+
+The migration fixture covers an accepted row with deleted `used_by`, unused waiting and terminal rows, duplicate detection and row security. It runs migration `0022` twice.
+The expiry equality case uses one real SQL statement for the timestamp and comparison. The rotation case checks the stored timestamp to one microsecond.
+Ticket 04 lists the eight invitation race cases and the HTTP/MCP budget race. They use separate database connections.
+
+Red checks catch atomic input, limits, terminal state, the rotation read race, stale cancellation, old receipts and cursor precision. The exact-expiry check has 1 failure and 33 passes before `bab99388`; all 34 pass after it. The full tool privacy guard catches the revision field before `de76f357`; the focused check then passes 49 cases.
+
+## Server contract for the screen tickets
+
+- `POST /api/games` takes `recipient_id`, `recipient_handle`, or `open_link: true`. Use one intent. Keep `command_id` on retry.
+- The first send returns `view` and `invite`. A retry returns the same game and stored invitation identity. It returns no new raw code.
+- `POST /api/games/:id/invite` takes the same recipient fields and `rotate`. Rotation keeps the recipient and original expiry. An old client cannot clear a named recipient.
+- `GET /api/friends` takes `handle`, `after` and `limit` (1 to 50). It returns `friends` and `next_after`. A result has source `recent`, `follow` or `lookup`.
+- `GET /api/me/games?invitations=1` returns `games`, `invitations` and `next_before`. Use `before` and `limit` to page invitations apart from the 100-game list.
+- Invitation rows carry direction, a non-redeemable ID, game ID, game revision, recipient ID, current handle/icon, options, expiry and effective state. They contain no raw code or token.
+- Cancel uses the outgoing row's game revision with the existing abort command. Keep that revision; do not replace it with a new read. A stale accepted row cannot abort the game.
+- Preview and redeem accept `token`, `code`, or `invite_id`. An ID requires the named recipient. `POST /api/invites/:id/decline` returns the current invitation row.
+- The tools use the same service. Add `kingdown_friends` and `kingdown_decline_invite`. `kingdown_games` takes invitation cursors. Full rows and friend results go in host metadata. The model list omits player details and game revisions.
+- HTTP limit errors carry safe `count` and `handle` fields. Tool errors carry them in `_meta`. Both hosts use `src/match/invite-notices.ts`.
+
+## Final checks
+
+The database URL for these checks is `postgresql://kingdown_test@127.0.0.1:55432/kingdown_plugin_test`.
+
+- `PLUGIN_TEST_DATABASE_URL=<local URL> npm run plugin:db:init-test`: passes migrations `0001` through `0022`. Every migration is repeatable.
+- `PLUGIN_TEST_DATABASE_URL=<local URL> KINGDOWN_TEST_FILE=src/match/friend-invites.db.test.ts npm test`: 34 passes, plus 67 artwork passes.
+- `PLUGIN_TEST_DATABASE_URL=<local URL> PLAYABLE_BROWSER=chrome npm test`: 5482 passes, 9 skips in 286 files, plus 67 artwork passes. Both type checks pass. The run holds the three shared browser slots.
+- `npm run test:docs`: 180 passes in 15 files.
+- `PLAYABLE_BROWSER=chromium KINGDOWN_TEST_FILE=tools/plugin-board-input.test.ts KINGDOWN_TEST_NAME=F-032 npm test`: 2 passes, 43 selected-out cases, plus 67 artwork passes. This covers the Chromium-only case that Chrome skips.
+
+The other eight skips are existing suite skips. The earlier merged full run has 5 failures: two tool privacy guards and three timeouts. The next full run has one offline-poll failure. That unchanged poll case passes alone. The final full run passes.
+
+`PLUGIN_TEST_DATABASE_URL=<local URL> PLAYABLE_BROWSER=chrome npm run check:browser plugin-ui-http plugin-ui-http-staging account web-online plugin-privacy web-game web-game-staging account-discovery staging-login plugin-oauth` passes all 10 registered checks. Each name counts as one check. No separate scenario count is inferred.
+
+Logs: `/tmp/friend-db-merged.log`, `/tmp/friend-expiry-green.log`, `/tmp/friend-full-complete.log`, `/tmp/friend-chromium-case.log` and `/tmp/friend-browsers-merged.log`. Browser proof: `friend-invites-rgeIY9` under the system `kingdown-check-runs` folder.
+
+Local browser checks load this branch's schema after they get the shared slot. Separate cases close their old waiting links and human games. The hall spacing fixture includes one compact row. The expiry case creates a new game after expiry. All assertions remain.
+
+## Commits and source review
+
+- Migration: `a253344b`.
+- State and host contracts: `125bbe53`.
+- Limits and tests: `2f629d34`, `bf39ed29`.
+- State, read, cancellation and receipt fixes: `f6fd73df`, `8634f97c`, `7c3b4aa3`, `b51c1967`.
+- Timestamp and privacy fixes: `f35b8b49`, `bab99388`, `de76f357`.
+- Browser schema and fixtures: `a51ec280`, `b5f9cc74`, `2ebf1cad`, `84ddfcaf`, `408e061f`, `1d4182c0`, `95050195`.
+- Source merges: `a598f8c6`, `d42e15de`. The final fetch and merge report up to date at `f306d452`. No conflict occurs. The merge keeps the source UI and settings fixes.
+
+No acceptance check remains open. This work runs no remote migration, push or deploy. The local database cluster stays up.
