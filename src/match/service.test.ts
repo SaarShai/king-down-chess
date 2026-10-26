@@ -4,6 +4,7 @@ import { GameService, MatchServiceError, startKey, TURN_DAYS, UNFINISHED } from 
 import { PostgresMatchStore } from './store';
 import { createMatch, loadMatch, MatchError, type LocalMatch } from './index';
 vi.mock('./index', async original => ({...await original<typeof import('./index')>(), createMatch: vi.fn(), loadMatch: vi.fn()}));
+vi.mock('./results', async original => ({...await original<typeof import('./results')>(), recordResult: vi.fn()}));
 const actor='11111111-1111-4111-8111-111111111111', id='22222222-2222-4222-8222-222222222222';
 const load=vi.fn(), seen=vi.fn(), receipt=vi.fn(), transaction=vi.fn(), apply=vi.fn(), close=vi.fn(), exportSave=vi.fn();
 const service=new GameService({load,seen,receipt,transaction,pool:{}} as unknown as PostgresMatchStore);
@@ -137,5 +138,14 @@ describe('game service failure boundaries', () => {
   for (const options of [{kind:'solo',speed:'daily'},{kind:'friend',speed:'live',days_per_move:3},{kind:'friend',days_per_move:2},{kind:'open'}])
    await expect(service.create(actor,options)).rejects.toMatchObject({code:'INVALID_INPUT'});
   expect(load).not.toHaveBeenCalled(); expect(createMatch).not.toHaveBeenCalled();
+ });
+ it('ends the game as a draw when the engine history has no room for a whole turn (server audit F5)', async () => {
+  const save = vi.fn(), writer = new GameService({load,seen,receipt,transaction:(write: (client: object) => unknown) => write({}),save,commands:vi.fn().mockResolvedValue([]),pool:{}} as unknown as PostgresMatchStore);
+  load.mockResolvedValue({id,kind:'solo',status:'playing',turn:0,revision:0,deadline_at:null,draw_offer:null,state:'saved',setup:{},created_at:new Date(),snapshot:{turn:0,status:'playing',revision:995},players:[seat(0,actor),seat(1,null)]});
+  // The engine refuses an action at 1000, so a turn of four actions fits from 996 but not from 997.
+  for (const revision of [996, 997]) apply.mockResolvedValueOnce({turn:1,status:'playing',history:[],rules:{kings:[null,null],hands:[[],[]]},revision});
+  for (const command_id of ['fits', 'fills']) await writer.command(actor,id,{command_id,expected_revision:0,action:{type:'turn',actions:['e2-e4']}});
+  expect(save.mock.calls.map(call => call[2].status)).toEqual(['playing','finished']);
+  expect(save.mock.calls[1][2]).toMatchObject({result:'draw',end_reason:'draw50',deadline_at:null});
  });
 });

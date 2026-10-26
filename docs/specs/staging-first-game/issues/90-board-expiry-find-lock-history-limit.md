@@ -54,3 +54,33 @@ Limits: a Find that takes a table with no seat choice (Arrange off and King powe
 - `src/match/matchmaking.db.test.ts` now passes the real `createMatch` through a mock, so a case can hold a table build at a gate. Two new cases: "builds a new table with no search lock or connection held, and a Find that takes a table starts no engine worker" and "pairs two Finds that both build a table on an empty lobby".
 - Red on the old code: exactly the two new cases fail (the global lock is granted during the build, `1` not `0`; the second build never starts, `1` not `2`).
 - Green on the new code: `src/match/matchmaking.db.test.ts`, `src/match/ranked-policy.db.test.ts`, `src/plugin/server.db.test.ts`, `src/match/service.db.test.ts`, `src/match/service.test.ts` and `src/api/http.test.ts`, 171 tests, with the type check. The older Find cases pass with no change, among them the exact lock-text case and the Create and Find race on one command ID.
+
+## F5: the history limit forces a time loss
+
+### Fault
+
+`check()` in `src/match/service.ts` refused every command but resign and abort at revision 999. The player to move could not play a turn or offer a draw, so that player could only resign or lose on time. Two more ways led to the same end. A seat in setup could send unready choices with no limit; a local proof took a game to revision 996 in 1.7 s, then forced a win on time. And the engine refuses an action when its save holds 1000 actions (`src/match/worker.ts`); a Haste turn, a free mark or a card uses more than one action, so in games with powers that limit can come first.
+
+### Change
+
+- The turn that fills the history ends the game as a draw. The history is full at revision 1000, or when the engine has room for less than one whole turn (more than 996 actions; `TURN_ACTIONS` in `src/match/protocol.ts` is 4). Checkmate or a natural draw on that turn keeps its own result. `end()` clears the deadline, so nobody can claim on time.
+- At revision 999 a turn, a computer turn, resign, abort and draw accept go through. Say, draw offer and draw decline stop with `MATCH_LIMIT`. A claim and the sweep go through as before.
+- Unready setup choices stop at revision 100 with `RATE_LIMITED`; Ready stays open. Without this cap, setup spam would give a forced draw on demand.
+- With no migration, the end reason is `draw50`, the nearest reason that the `end_reason` check of migration 0006 allows. Players see "Draw by the fifty-move rule." These games stay easy to find: `end_reason='draw50'` and `snapshot->>'status'='playing'`.
+- Revision budget: a waiting game writes at most 21, setup at most 102, play at most 999 while in play and 1000 at the end. The database bound of 1100 keeps 100 revisions for rematch commands.
+- `ENGINE_ACTIONS` (1000) copies `MAX_COMMANDS` of `src/match/worker.ts`; a change there makes a new engine fingerprint. An old game whose engine save already holds 1000 actions stays stuck; new states cannot get there.
+- Docs: `docs/specs/chatgpt-mvp/notes/b-multiplayer.md` (the last-revision rule) and `docs/match-foundation.md` (the service ends a game as a draw before either limit).
+
+### Owner decision (open)
+
+This is a new automatic draw rule, so it needs the owner's yes before merge (AGENTS.md: rule changes). Rule: a turn that fills the game history ends an online game as a draw. Numbers: about 500 turns for each side, or 997 engine actions; 100 setup revisions. Pick: draw, shown as the fifty-move draw until a migration adds a true reason. On yes: add the row "History limit (online games): a turn that fills the game history ends the game in a draw." to the draw table of `docs/RULES.md`, and decide whether a migration and new texts give the reason its own name.
+
+### Verification
+
+- Red on the old code, 3 cases: `src/match/service.db.test.ts`, the replaced case "keeps the last revision for a turn or the end of a game: a full history ends as a draw" (`MATCH_LIMIT` on Black's turn at 999); `src/match/service.test.ts`, new case "ends the game as a draw when the engine history has no room for a whole turn" (saves `playing` twice); `src/match/setup.db.test.ts`, new case "stops unready choices at revision 100" (the unready choice at 100 is accepted).
+- Green on the new code: `src/match/service.db.test.ts`, `src/match/service.test.ts`, `src/match/setup.db.test.ts`, `src/match/matchmaking.db.test.ts`, `src/plugin/server.db.test.ts`, `src/api/http.db.test.ts` and `src/online/jobs.db.test.ts`, 148 tests, with the type check. The local setup-spam proof now stops with `RATE_LIMITED` at revision 100.
+
+## Branch checks
+
+- `npm run typecheck` and `npm run test:docs` (178 tests) pass on the branch head.
+- `npm run check:browser plugin-ui` passes (332 s): the board flows still work with the page change of F3. `npm run check:browser plugin-privacy` passes with the local test database: a second account still gets `FORBIDDEN` and the page still clears its private content.

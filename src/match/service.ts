@@ -2,7 +2,7 @@
 import { createHash, createHmac, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { createMatch, createPinnedMatch, loadMatch, MatchError, type MatchSnapshot } from './index';
-import { commandSchema, createSchema, draftSchema, MAX_REVISION, type Command, type CreationMode, type RatingPolicy, type CreateOptions, type DraftPosition, type DraftPreview, type EndReason, type InboxEntry, type Invite, type JoinPreview, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
+import { commandSchema, createSchema, draftSchema, MAX_REVISION, TURN_ACTIONS, type Command, type CreationMode, type RatingPolicy, type CreateOptions, type DraftPosition, type DraftPreview, type EndReason, type InboxEntry, type Invite, type JoinPreview, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
 import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Outgoing, type Player } from './store';
 import { diagnostic } from '../plugin/diagnostics';
 import { buildSetup, RANKED_OPTIONS, defaultChoice, draw, seatChoicesNeeded, switches, setupAdmission, validateChoice } from './setup';
@@ -13,6 +13,10 @@ export { MatchServiceError } from './store';
 const DAY = 86_400_000, FIRST_TURN_DAYS = 3, DRAW_OFFERS = 3, LIMIT = 1000; // the last revision in play
 // Each start receipt on an open game takes one of its revisions: Find with new command IDs on your own open game stops here, so play keeps its revisions.
 const START_RECEIPTS = 20;
+// The same for an unready setup choice: past this revision only Ready is open, so setup cannot spend the revisions of play.
+const SETUP_REVISIONS = 100;
+// The engine keeps at most this many actions (worker.ts MAX_COMMANDS, the same in every released bundle). A copy: a worker.ts change makes a new engine fingerprint.
+const ENGINE_ACTIONS = 1000;
 export const FRIEND_CODE_DAYS = 7; // a friend code in a game against a person (owner, 2026-10-11)
 // The one time for each move in a game against a person; there is no speed or days choice (owner, 2026-10-24; F-031). Older games keep 1 or 7.
 export const TURN_DAYS = 3 as const;
@@ -52,6 +56,8 @@ const colour = (seat: Seat) => seat === 0 ? 'white' : 'black';
 const other = (seat: Seat) => (1 - seat) as Seat;
 /** The next revision of a game, for one change to edit. */
 function step(game: Game): Game { return { ...game, revision: game.revision + 1, players: [{ ...game.players[0] }, { ...game.players[1] }] }; }
+/** No room for the next whole turn, in the revisions or in the engine history: the turn that fills it ends the game as a draw. */
+const full = (game: Game) => game.revision >= LIMIT || game.snapshot!.revision > ENGINE_ACTIONS - TURN_ACTIONS;
 function actionOf(game: Game, seat: Seat): SeatAction { return game.status === 'playing' ? (game.turn === seat ? 'ready' : 'waiting') : game.status === 'setup' ? (game.players[seat].ready ? 'waiting' : 'ready') : game.status === 'waiting' ? 'waiting' : 'done'; }
 
 /** Refuses what the seat may not do now. True when a Daily deadline has passed: the game then ends on time instead. */
@@ -68,8 +74,9 @@ function check(game: Game, seat: Seat, { expected_revision, action }: Command, a
  if (action.type === 'claim' && (game.status !== 'playing' || !expired || game.turn === seat)) fail('NOT_ALLOWED', 409, 'There is no missed deadline to claim');
  if (expired) return true;
  if (game.status === 'setup' && action.type !== 'choose' && action.type !== 'abort' || action.type === 'choose' && (game.status !== 'setup' || game.players[seat].ready)) fail('NOT_ALLOWED', 409, 'This action is not available during setup');
- // The last revision is kept for the end of the game (a resignation, an abort, a claim or the sweep), so a game never stops at the limit while in play.
- if (game.revision >= LIMIT - 1 && action.type !== 'resign' && action.type !== 'abort') fail('MATCH_LIMIT', 409, 'Match history limit reached');
+ if (action.type === 'choose' && !action.ready && game.revision >= SETUP_REVISIONS) fail('RATE_LIMITED', 429, 'Too many setup changes in this game. Mark your seat Ready.');
+ // The last revision is kept for a turn or the end of the game: a turn that fills the history ends the game as a draw (full), so the player to move can always play.
+ if (game.revision >= LIMIT - 1 && !['turn', 'computer', 'resign', 'abort'].includes(action.type) && !(action.type === 'draw' && action.choice === 'accept')) fail('MATCH_LIMIT', 409, 'Match history limit reached');
  const me = game.players[seat], offer = game.draw_offer;
  if (action.type === 'turn' && game.turn !== seat || action.type === 'computer' && !game.players[game.turn].computer) fail('WRONG_TURN', 403, 'This operation is not permitted on the current turn');
  // Abort stays open until each side has completed its first turn (turns, not actions: Haste).
@@ -385,6 +392,8 @@ export class GameService {
     const status = played.snapshot.status;
     if (status !== 'playing' || next.turn !== mover) next.players[mover].turns_played++;
     if (status !== 'playing') end(next, out, status === 'checkmate' ? colour(other(next.turn)) : 'draw', status, at);
+    // The end_reason check (0006) has no reason for this, so it is draw50; snapshot.status 'playing' tells these games apart.
+    else if (full(next)) end(next, out, 'draw', 'draw50', at);
     else if (next.turn !== mover) turnTo(next, out, at, actor);
    } else if (action.type === 'rematch') {
     if (action.choice === 'decline') next.rematch_offer = null;

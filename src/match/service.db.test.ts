@@ -300,15 +300,24 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   }
  }, 30_000);
 
- it('keeps the last revision for the end of a game: a resignation, a claim or the sweep',async () => {
-  // The schema stops at revision 1000; these games start one revision before it. New players: a short code counts 10 joins in one hour.
+ it('keeps the last revision for a turn or the end of a game: a full history ends as a draw (server audit F5)',async () => {
+  // The schema stops at revision 1000; these games start just before it. New players: a short code counts 10 joins in one hour.
   const [w,k] = [await user('wil'),await user('kit')];
-  const near = async (late = false) => { const id = await friend(w,k); await admin.query(`update public.games set revision=999${late ? ",deadline_at=now()-interval '1 minute'" : ''} where id=$1`,[id]); return id; };
+  const near = async (revision = 999, late = false) => { const id = await friend(w,k); await admin.query(`update public.games set revision=$2${late ? ",deadline_at=now()-interval '1 minute'" : ''} where id=$1`,[id,revision]); return id; };
+  const legal = async (actor: string, id: string) => (await games[0].view(actor,id)).legal[0];
+  const drawn = await near(998);
+  expect(await games[0].command(w,drawn,turn(998,await legal(w,drawn)))).toMatchObject({status:'playing',revision:999});
+  await expect(games[0].command(w,drawn,command(999,{type:'say',preset:'hello'}))).rejects.toMatchObject({code:'MATCH_LIMIT'});
+  await expect(games[1].command(k,drawn,command(999,{type:'draw',choice:'offer'}))).rejects.toMatchObject({code:'MATCH_LIMIT'});
+  expect(await games[1].command(k,drawn,turn(999,await legal(k,drawn)))).toMatchObject({status:'finished',revision:1000,deadline_at:null,result:{winner:null,reason:'draw50'}});
+  expect((await rows("select result,end_reason,snapshot->>'status' as engine from public.games where id=$1",[drawn]))[0]).toEqual({result:'draw',end_reason:'draw50',engine:'playing'});
+  await expect(games[0].command(w,drawn,command(1000,{type:'claim',reason:'timeout'}))).rejects.toMatchObject({code:'MATCH_TERMINAL'});
+  const accepted = await near();
+  await admin.query('update public.games set draw_offer=1 where id=$1',[accepted]);
+  expect(await games[0].command(w,accepted,command(999,{type:'draw',choice:'accept'}))).toMatchObject({status:'finished',revision:1000,result:{winner:null,reason:'agreement'}});
   const resigned = await near();
-  await expect(games[0].command(w,resigned,turn(999,(await games[0].view(w,resigned)).legal[0]))).rejects.toMatchObject({code:'MATCH_LIMIT'});
-  await expect(games[1].command(k,resigned,command(999,{type:'say',preset:'hello'}))).rejects.toMatchObject({code:'MATCH_LIMIT'});
   expect(await games[1].command(k,resigned,command(999,{type:'resign'}))).toMatchObject({status:'finished',revision:1000});
-  const claimed = await near(true), swept = await near(true);
+  const claimed = await near(999,true), swept = await near(999,true);
   expect(await games[1].command(k,claimed,command(999,{type:'claim',reason:'timeout'}))).toMatchObject({status:'aborted',revision:1000});
   await games[0].sweep();
   expect((await rows('select status,revision from public.games where id=$1',[swept]))[0]).toEqual({status:'aborted',revision:1000});

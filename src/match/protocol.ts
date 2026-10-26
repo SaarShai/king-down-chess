@@ -16,6 +16,8 @@ export type Seat = 0 | 1;
 export type RatingPolicy = 'legacy' | 'casual' | 'ranked-v1';
 export type CreationMode = 'casual' | 'ranked';
 export const MAX_REVISION = 1100;
+/** The most actions in one turn command. */
+export const TURN_ACTIONS = 4;
 export type Surface = 'web' | 'chatgpt';
 /** Fixed phrases only: a preset never carries free text, a number or a link (part 01, section 8.2). */
 export const PRESETS = ['hello', 'good_luck', 'good_game', 'well_played', 'thanks'] as const;
@@ -23,13 +25,13 @@ export type Preset = typeof PRESETS[number];
 
 const text = (max: number) => z.string().min(1).max(max).regex(/^[^\u0000-\u001f\u007f]+$/);
 /** A private, uncommitted prefix of the current seat's turn. */
-export const draftSchema = z.strictObject({ expected_revision: z.number().int().min(0).max(MAX_REVISION), engine_fingerprint: z.string().regex(/^sha256:[a-f0-9]{64}$/), actions: z.array(text(120)).max(4) });
+export const draftSchema = z.strictObject({ expected_revision: z.number().int().min(0).max(MAX_REVISION), engine_fingerprint: z.string().regex(/^sha256:[a-f0-9]{64}$/), actions: z.array(text(120)).max(TURN_ACTIONS) });
 export type DraftInput = z.infer<typeof draftSchema>;
 export interface DraftPosition { fen: string; status: Status; turn: Seat; in_check: boolean; moves: { lan: string; move: Move }[] }
 export interface DraftPreview { game_id: string; revision: number; engine_fingerprint: string; actions: string[]; positions: DraftPosition[] }
 export const actionSchema = z.discriminatedUnion('type', [
   // One or more actions of the mover, applied in order, all or nothing (a Daily website turn is one command).
-  z.strictObject({ type: z.literal('turn'), actions: z.array(text(120)).min(1).max(4) }),
+  z.strictObject({ type: z.literal('turn'), actions: z.array(text(120)).min(1).max(TURN_ACTIONS) }),
   // Solo games: the computer plays its turn when the player asks.
   z.strictObject({ type: z.literal('computer') }),
   z.strictObject({ type: z.literal('choose'), choice: choiceSchema, ready: z.boolean() }),
