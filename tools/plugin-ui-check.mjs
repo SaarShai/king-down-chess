@@ -2277,9 +2277,17 @@ try {
   assert.match(spentFocus.gold, /rgb\(233, 192, 113\).*4px/);
   await spentCoin.blur();
   async function arrivalTool(name,args,friend=false) {return (await page.request.post(new URL(friend?'/fixture-friend-tool':'/fixture-tool',base).href,{data:{name,arguments:args}})).json();}
+  // Finish earlier human-game cases before this case needs one of the five pair seats.
+  const earlierHuman = await arrivalTool('kingdown_games');
+  for (const game of earlierHuman._meta.games ?? []) if (game.kind !== 'solo' && game.status !== 'waiting') {
+    const current = await arrivalTool('kingdown_get', { game_id: game.game_id });
+    const name = current._meta.view.abort_open ? 'kingdown_abort' : 'kingdown_resign';
+    const ended = await arrivalTool(name, { game_id: game.game_id, expected_revision: current._meta.view.revision });
+    assert(!ended.isError, JSON.stringify(ended.content));
+  }
   const arrival=await arrivalTool('kingdown_create',{kind:'friend',colour:'white',board_id:cardBoard,options:{...DEFAULT_OPTIONS,fairy:false,arrangement:false,kingPowers:false,cards:true,cardPool:['Salvation','Freeze','IceWall','Vault']}}); assert(!arrival.isError);
   const arrivalInvite=await arrivalTool('kingdown_invite',{game_id:arrival._meta.view.game_id}); assert(!arrivalInvite.isError);
-  const arrivalJoin=await arrivalTool('kingdown_join',{code:arrivalInvite.structuredContent.code},true); assert(!arrivalJoin.isError);
+  const arrivalJoin=await arrivalTool('kingdown_join',{code:arrivalInvite.structuredContent.code},true); assert(!arrivalJoin.isError, JSON.stringify(arrivalJoin.content));
   async function arrivalRead() {const result=await arrivalTool('kingdown_get',{board_id:cardBoard}); await page.evaluate(r=>window.harnessShow(r),result); await page.waitForFunction(id=>window.harnessView.game_id===id,arrival._meta.view.game_id); await idleBoard(); await boardBox(); return result._meta.view;}
   let arrivalView=await arrivalRead();
   const arrivalRules=arrivalView.rules; setRules(arrivalRules);
