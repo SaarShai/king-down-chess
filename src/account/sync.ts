@@ -24,7 +24,7 @@ export interface SavedGameAccess {
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
 type AccountStore = Store & Pick<Storage, 'removeItem' | 'length' | 'key'>;
 /** When each section last changed here, and its value then (to see the next change). */
-type Stamps = Partial<Record<Section, { at: number; json: string }>>;
+type Stamps = Partial<Record<Section, { at: number; json: string }>> & { confirmed?: string };
 
 const SAVE = 'kingdown.save', LESSONS = 'kingdown.lessons', STAMPS = 'kingdown.sync';
 /**
@@ -212,6 +212,16 @@ export class Sync {
       applied.push(s);
     }
     if (applied.length) { this.store.setItem(STAMPS, JSON.stringify(stamps)); this.onApply(applied); }
+    if (!this.ownsLocal()) return;
+    const local = readLocal(this.store);
+    // A successful request alone is not a receipt. Each stored section must match the cloud.
+    if (this.store.getItem(SAVE) !== null && local.saved_game === null
+      || this.store.getItem(LESSONS) !== null && local.lessons === null) return;
+    if (SECTIONS.every(s => local[s] === null || usable(s, row?.[s]?.v) && canon(local[s]) === canon(own(s, row![s]!.v)))) {
+      const current = stamp(this.store);
+      current.confirmed = JSON.stringify([this.store.getItem(SAVE), this.store.getItem(LESSONS)]);
+      this.store.setItem(STAMPS, JSON.stringify(current));
+    }
   }
 
   private rejectGame(at: number): void {

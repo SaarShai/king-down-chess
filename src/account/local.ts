@@ -8,6 +8,15 @@ type Access = { userId: string | null; blocked: boolean };
 const tabs = new WeakMap<LocalStore, Access>();
 const ownerOf = (store: LocalStore): Owner | null => JSON.parse(store.getItem(OWNER) ?? 'null');
 
+/** Only a cloud receipt for these exact bytes makes a copy safe to remove. */
+function confirmed(raw: string): boolean {
+  try {
+    const copy: LocalCopy = JSON.parse(raw);
+    return Array.isArray(copy) && copy.length === LOCAL_KEYS.length
+      && JSON.parse(copy[2] ?? 'null')?.confirmed === JSON.stringify(copy.slice(0, 2));
+  } catch { return false; }
+}
+
 /** Finish a pending key change before the page can read or write any of its data. */
 function recover(store: LocalStore): Owner | null {
   let owner = ownerOf(store);
@@ -51,16 +60,23 @@ export function selectLocal(store: LocalStore, userId: string, beforeArchive: ()
   const owner = recover(store);
   if (owner && owner.userId !== userId) {
     beforeArchive();
-    // Keep the active account and the two most recent accounts. Remove older copies before adding one.
+    store.setItem(COPIES + owner.userId, JSON.stringify(LOCAL_KEYS.map(key => store.getItem(key))));
+    // Unknown or changed copies stay. Only confirmed copies count toward the limit.
     const accounts = [userId, owner.userId, ...(owner.accounts ?? [])].filter((id, i, all) => all.indexOf(id) === i);
-    const keep = accounts.slice(0, 3);
     for (let i = store.length - 1; i >= 0; i--) {
       const key = store.key(i);
-      if (key?.startsWith(COPIES) && !keep.includes(key.slice(COPIES.length))) store.removeItem(key);
+      if (key?.startsWith(COPIES) && !accounts.includes(key.slice(COPIES.length))) accounts.push(key.slice(COPIES.length));
     }
-    store.setItem(COPIES + owner.userId, JSON.stringify(LOCAL_KEYS.map(key => store.getItem(key))));
+    let count = 0;
+    const keep = accounts.filter(id => {
+      const raw = store.getItem(COPIES + id);
+      if (raw === null) return id === userId;
+      if (!confirmed(raw) || ++count <= 3) return true;
+      store.removeItem(COPIES + id);
+      return false;
+    });
     const restore: LocalCopy = JSON.parse(store.getItem(COPIES + userId) ?? 'null') ?? [null, null, null];
-    store.setItem(OWNER, JSON.stringify({ userId, restore, accounts: accounts.slice(0, 3) }));
+    store.setItem(OWNER, JSON.stringify({ userId, restore, accounts: keep }));
     recover(store);
   } else if (!owner) {
     store.setItem(OWNER, JSON.stringify({ userId })); // Only the first account imports anonymous play.

@@ -44,20 +44,48 @@ beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(1_000_000); });
 afterEach(() => { vi.useRealTimers(); });
 
 describe('F1 account ownership', () => {
-  it('review storage: keeps copies for only three recent accounts', async () => {
+  it('review storage: limits confirmed copies and keeps copies with unknown status', async () => {
     const st = store({ 'kingdown.save': save(['e2-e4']) });
     for (let i = 0; i < 5; i++) st.setItem(`kingdown.local.old-${i}`, JSON.stringify([null, null, null]));
     for (const userId of ['A', 'B', 'C', 'D', 'E']) {
       const c = cloud(null, userId), sync = new Sync(st, c.remote, () => {}, { blocked: () => false, accepts: () => true });
-      await sync.pull(); sync.stop();
+      await sync.pull();
       st.setItem('kingdown.save', JSON.stringify(save([userId === 'D' ? 'd2-d4' : 'e2-e4'])));
+      sync.changed(); await sync.flush(); sync.stop();
     }
-    expect([...st.m.keys()].filter(key => key.startsWith('kingdown.local.')).length).toBeLessThanOrEqual(3);
+    expect([...st.m.keys()].filter(key => key.startsWith('kingdown.local.')).length).toBeLessThanOrEqual(8);
+    for (let i = 0; i < 5; i++) expect(st.getItem(`kingdown.local.old-${i}`)).toBe(JSON.stringify([null, null, null]));
     expect(st.getItem('kingdown.local.A')).toBeNull();
-    expect(st.getItem('kingdown.local.B')).toBeNull();
+    expect(st.getItem('kingdown.local.B')).not.toBeNull();
     const d = new Sync(st, cloud(null, 'D').remote, () => {}, { blocked: () => false, accepts: () => true });
     await d.pull(); d.stop();
     expect(readLocal(st).saved_game).toMatchObject({ moves: ['d2-d4'] });
+  });
+
+  it.each(['signed out', 'failed sync', 'no receipt'])('review 5: keeps A through four accounts after %s', async state => {
+    const a = cloud(null, 'A');
+    const d = device({
+      'kingdown.save': save(state === 'no receipt' ? ['e2-e4', 'e7-e5'] : ['e2-e4']),
+      'kingdown.lessons': { done: state === 'no receipt' ? ['Archer', 'Guard'] : ['Archer'] },
+    }, a);
+    if (state === 'no receipt') a.remote.push = async () => null;
+    await d.sync.pull();
+    if (state === 'signed out') d.sync.stop();
+    d.st.setItem('kingdown.save', JSON.stringify(save(['e2-e4', 'e7-e5'])));
+    d.st.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer', 'Guard'] }));
+    if (state === 'failed sync') {
+      a.fail = 1; d.sync.changed(); await d.sync.flush();
+    }
+    d.sync.stop();
+    for (const userId of ['B', 'C', 'D']) {
+      const next = new Sync(d.st, cloud(null, userId).remote, () => {}, { blocked: () => false, accepts: () => true });
+      await next.pull(); next.stop();
+    }
+    expect(a.row?.saved_game?.v).not.toMatchObject({ moves: ['e2-e4', 'e7-e5'] });
+    const returned = new Sync(d.st, a.remote, () => {}, { blocked: () => false, accepts: () => true });
+    await returned.pull(); returned.stop();
+    expect(readLocal(d.st).saved_game).toMatchObject({ moves: ['e2-e4', 'e7-e5'] });
+    expect(readLocal(d.st).lessons).toEqual({ done: ['Archer', 'Guard'] });
   });
 
   it('binds A before its first cloud read, even when A is offline', async () => {
@@ -84,7 +112,8 @@ describe('F1 account ownership', () => {
     // Sign-out keeps the game; play while signed out still belongs to A.
     d.st.setItem('kingdown.save', JSON.stringify(save(['e2-e4', 'e7-e5'])));
     stamp(d.st);
-    const kept = ['kingdown.save', 'kingdown.lessons', 'kingdown.sync'].map(k => d.st.getItem(k));
+    const kept = ['kingdown.save', 'kingdown.lessons'].map(k => d.st.getItem(k));
+    const times = stamp(d.st);
     const switched = new Sync(d.st, b.remote, () => {}, { blocked: () => false, accepts: () => true });
     await switched.pull();
     expect(b.row?.saved_game?.v ?? null).toEqual(existing ? save(['d2-d4'], false) : null);
@@ -93,7 +122,8 @@ describe('F1 account ownership', () => {
     switched.stop();
     const returned = new Sync(d.st, a.remote, () => {}, { blocked: () => false, accepts: () => true });
     await returned.pull();
-    expect(['kingdown.save', 'kingdown.lessons', 'kingdown.sync'].map(k => d.st.getItem(k))).toEqual(kept);
+    expect(['kingdown.save', 'kingdown.lessons'].map(k => d.st.getItem(k))).toEqual(kept);
+    for (const section of ['settings', 'lessons', 'saved_game'] as const) expect(stamp(d.st)[section]).toEqual(times[section]);
     expect(a.row?.saved_game?.v).toMatchObject({ moves: ['e2-e4', 'e7-e5'] });
     returned.stop();
   });

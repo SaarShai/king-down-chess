@@ -1,7 +1,14 @@
 # Keep local cloud data with its account
 
 Type: task
-Status: resolved
+Status: claimed
+
+## Second review plan and checks
+
+1. Keep all copies with unconfirmed changes. Treat unknown status as unconfirmed. Apply the three-account limit only to copies that the cloud confirms. Test sign-out, failed sync, return to A and old copies without a list entry.
+2. Return a result from each local writer. Show a persistent failure notice for a blocked lesson record and New game. Give Reload when another account owns the keys. Use the existing notice path.
+
+For each finding, run the failing test before the fix. Then run the same selected checks after the fix. Use fake timers. Run the selected tests in series, then the doc checks. Make one commit per finding. Keep the hooks unchanged. Do not push, merge or deploy.
 
 ## Review fix plan and checks
 
@@ -11,7 +18,7 @@ The independent review requests four P1 fixes and a storage limit.
 2. Select local account data before the cloud read. Block all affected local writers if selection fails.
 3. Track the account shown in each tab. Check that account before local and cloud writes.
 4. Finish a pending restore before the page reads its save or lessons. Test a new move after reload.
-5. Keep copies for at most three recent accounts. Test removal and return to a kept account.
+5. Keep at most three confirmed account copies. Keep all unconfirmed copies. Test removal and return to a kept account.
 
 Each fault gets a failing test before its fix. Use fake timers. Run selected tests in series, then the doc checks. Commit on this branch. Do not push, merge or deploy.
 
@@ -51,7 +58,7 @@ Account selection now runs before the first cloud read. A failed read leaves the
 
 The page finishes a pending restore before it loads game data or lesson data. A failed restore keeps both readers and writers closed. Tests cover both read orders, a failed stamp write, a retry and a new move before account loading ends. The move stays in the active save and its later account copy.
 
-Copies now keep the active account and the two most recent accounts. A switch removes older copies, including copies without a list entry from the first lane. The cloud copy stays. An old account can lose local changes that do not reach the cloud before removal. The owner requests a storage limit. The code adds no account list UI.
+Copies keep all unconfirmed changes. Only copies with a cloud confirmation record count toward the limit of three. Unknown status stays unconfirmed, including copies without a list entry. The code adds no account list UI.
 
 - Review 1 red: `KINGDOWN_TEST_FILE=src/screen/play.test.ts KINGDOWN_TEST_NAME='review 1' npm test`. One test fails with the early play read. Green: the same command passes one test. Logs: `.web-sync-review1-red.log`, `.web-sync-review1-green.log`.
 - Review 2 to 4 and storage red: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play}.test.ts' KINGDOWN_TEST_NAME='review (2|3|4|storage)' npm test`. Six tests fail. Green: the same command passes six tests. Logs: `.web-sync-review2-5-red.log`, `.web-sync-review2-5-green.log`.
@@ -62,3 +69,16 @@ Copies now keep the active account and the two most recent accounts. A switch re
 - `npm run test:docs` passes all 178 tests in 15 files. `npm run check:browser new-game` passes. It builds the page and checks the local game, saved settings, reload, phone layout and start controls. No page or console error occurs.
 - `git diff --check` passes. Review logs stay in `dist/web-sync-review/`. The browser run uses `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/web-sync-HGDHon/`.
 - No full suite, live account request or database test runs. The separate lesson write race in ticket 02 stays open. No push, merge or deploy runs.
+
+## Second review: finding 1
+
+The age limit can remove A's only current game and lesson list. The sync module now records cloud confirmation only when every stored section matches the returned cloud data. The record names the exact game and lesson bytes. A later local change makes the record stale. A request with no returned row gives no confirmation.
+
+The local data module counts only confirmed copies. It keeps unknown, changed and unreadable copies, with or without a list entry. Three confirmed copies can remain beside unconfirmed copies. Storage can grow while changes stay unconfirmed.
+
+- Red and green command: `KINGDOWN_TEST_FILE='src/{account/sync,screen/play,screen/save,account/account,account/client,lesson-shelf,lesson-store}.test.ts' npm test`.
+- Red: four failures. The probes lose A's move or lesson data after sign-out, failed sync or no cloud receipt. The limit also removes copies with unknown status.
+- Green: all 121 tests in seven files pass. Both type checks and all 57 art checks pass. Tests use fake timers.
+- The probes switch A, B, C, D, A. They retain `e7-e5` and Guard. The limit test retains unknown copies and removes an old confirmed copy.
+- Logs: `dist/web-sync-review2/finding1-red.log` and `dist/web-sync-review2/finding1-green.log`.
+- Change check: the existing stamp record holds confirmation. The raw copy format and the restore path stay the same. No new key or dependency is needed.
