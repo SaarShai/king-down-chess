@@ -3,7 +3,7 @@ import type { Save } from '../screen/save';
 /**
  * Cloud save. The game keeps its data in localStorage as before; this splits it into sections that
  * sync one by one with the player's row in public.user_data. Each section carries the time it last
- * changed on the device that changed it ({at, v}), and the newer copy wins.
+ * changed on the device that changed it ({at, v}). The newer copy wins; lesson names add up.
  */
 export const SECTIONS = ['settings', 'lessons', 'saved_game'] as const;
 export type Section = (typeof SECTIONS)[number];
@@ -117,13 +117,13 @@ export function stamp(store: Store, now = Date.now()): Stamps {
 /**
  * Per section: down when the cloud copy is newer, up when this device's is newer or the cloud has
  * none. Copies of the same time are the same copy, except data from before syncing (time 0) on two
- * devices: the cloud's wins, so both agree.
+ * devices: the cloud's wins, so both agree. Different lesson lists merge at any time.
  */
 export function merge(local: Stamps, cloud: Row | null): { up: Section[]; down: Section[] } {
   const up: Section[] = [], down: Section[] = [];
   for (const s of SECTIONS) {
     const l = local[s], c = cloud?.[s];
-    if (c && typeof c.at === 'number' && usable(s, c.v) && (!l || c.at > l.at || (c.at === 0 && l.at === 0 && canon(own(s, c.v)) !== l.json))) down.push(s);
+    if (c && typeof c.at === 'number' && usable(s, c.v) && (!l || c.at > l.at || ((s === 'lessons' || c.at === 0 && l.at === 0) && canon(own(s, c.v)) !== l.json))) down.push(s);
     else if (l && (!c || l.at > c.at)) up.push(s);
   }
   return { up, down };
@@ -147,7 +147,7 @@ export class Sync {
     return owner?.userId === this.remote.userId && !owner.restore;
   }
 
-  /** Takes each section the cloud has newer, then sends each this device has newer. */
+  /** Takes newer cloud sections, unites lesson names, then sends local changes. */
   pull(): Promise<void> {
     return this.run(async () => {
       if (this.stopped || this.selected && !this.ownsLocal()) return;
@@ -188,6 +188,13 @@ export class Sync {
 
   private async send(): Promise<void> {
     if (this.stopped || !this.ownsLocal()) return;
+    const lessons = stamp(this.store).lessons;
+    if (lessons && lessons.at > (this.cloudAt.lessons ?? -1)) {
+      // shortcut: writes can race after this read, use a server union when simultaneous writes must keep all names.
+      const latest = await this.remote.pull();
+      if (this.stopped || !this.ownsLocal()) return;
+      this.take(latest);
+    }
     const stamps = stamp(this.store), local = readLocal(this.store), row: Row = {};
     for (const s of SECTIONS) {
       if (s !== 'lessons' && this.savedGame.blocked()) continue;
@@ -230,7 +237,7 @@ export class Sync {
         writeLocal(this.store, s, more.length ? { ...cloud, done: [...cloud.done, ...more] } : cloud);
         if (more.length) this.later(this.delayMs);
       } else writeLocal(this.store, s, v);
-      stamps[s] = { at, json: canon(s === 'lessons' ? v : readLocal(this.store)[s]) };
+      stamps[s] = { at: s === 'lessons' ? Math.max(at, stamps[s]?.at ?? at) : at, json: canon(s === 'lessons' ? v : readLocal(this.store)[s]) };
       if (s === 'saved_game') this.rejectedGame = undefined;
       applied.push(s);
     }
