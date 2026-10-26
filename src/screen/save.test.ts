@@ -4,6 +4,7 @@ import { readSave, savedGame, SAVE_KEY, SETTINGS, storedSettings, writeSave, typ
 import { settingsOf } from './settings';
 import { toFen } from '../rules/setup';
 import { RULES_2017 } from '../rules/rules';
+import { Game } from '../game';
 
 const controls = { skill: 'club', coords: true, sound: false, queen: true, pace: 'fast', threats: false, labels: false } as const;
 
@@ -98,7 +99,6 @@ describe('saved game candidates', () => {
   });
 
   it.each([
-    { ...base, moves: ['e2-e4', 'e7-e5', 'Qd1-d8'] },
     { ...base, back: 'bad', moves: [] },
     { ...base, back: '', fen: 'bad', moves: [] },
     { ...base, rules: { kings: null }, moves: [] },
@@ -110,6 +110,28 @@ describe('saved game candidates', () => {
     expect(JSON.stringify(save)).toBe(raw);
     expect(toFen(current.pos)).toBe(before);
     expect(current.history.map(h => h.lan)).toEqual(['d2-d4']);
+  });
+
+  it.each([0, 2])('keeps the full source and returns its %s legal actions', count => {
+    const save = { ...base, moves: [...['e2-e4', 'e7-e5'].slice(0, count), 'Qd1-d8', 'Nb8-c6'] };
+    const raw = JSON.stringify(save), s = storage();
+    vi.stubGlobal('localStorage', s);
+    s.m.set(SAVE_KEY, raw);
+    try {
+      expect(savedGame(save).history.map(h => h.lan)).toEqual(save.moves.slice(0, count));
+      expect(readSave()).toMatchObject({ save, unreadable: false, partial: true, raw });
+      expect(s.m.get(SAVE_KEY)).toBe(raw);
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it.each([
+    ['Freeze', '4k3/8/8/3n4/3O4/8/8/4K3 w - - 0 1', ['!F:d5', 'Od4>d5-d6', 'Nd6-f7']],
+    ['IceWall', '2r1k3/8/8/8/3N4/8/8/4K3 w - - 0 1', ['!W:d4', 'Nd4-c6', 'Rc8xc6']],
+  ] as const)('keeps two actions when a moved piece keeps its %s mark', (power, fen, moves) => {
+    const rules = { ...new Game('RNBQKBNR', { markFree: true, kings: [{ king: 'Frost', power }, null] }).rules };
+    const game = savedGame({ ...base, back: '', fen, moves: [...moves], rules });
+    expect(game.history.map(h => h.lan)).toEqual(moves.slice(0, 2));
+    expect(game.legal.map(m => game.context.toLan(game.pos, m))).not.toContain(moves[2]);
   });
 
   it('continues the historical spent-Strike FEN without restoring the spent use', () => {

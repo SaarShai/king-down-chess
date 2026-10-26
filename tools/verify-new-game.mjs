@@ -51,6 +51,48 @@ const kingsDrawn = (page, kings) => page.waitForFunction(k => {
 }, kings, { timeout: 10000 });
 
 try {
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    const source = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5', 'Qd1-d8'], white: 'human', black: 'human', coords: true, resigned: 0, staged: 1, pace: 'off', sound: false };
+    const page = await open({ viewport, save: source });
+    const offer = page.getByRole('button', { name: 'Use recovered game', exact: true });
+    await offer.waitFor({ state: 'visible' });
+    const raw = await page.evaluate(() => localStorage.getItem('kingdown.save'));
+    assert.equal(raw, JSON.stringify(source), 'the full source stays before acceptance');
+    assert.deepEqual(await lanMoves(page), source.moves.slice(0, 2), 'the board shows the legal part');
+    assert.match(await page.textContent('#context-text'), /Rules changed\. Loaded 2 of 3 actions\. The next action is not legal\./);
+    assert.equal(await page.getAttribute('#context-text', 'role'), 'status');
+    assert.equal(await page.getAttribute('#context-text', 'aria-live'), 'polite');
+    assert.equal(await offer.getAttribute('aria-describedby'), 'context-text');
+    await insideViewport(page, '#recover-save');
+    await insideViewport(page, '#recovery-new-game');
+    await insideViewport(page, '#context-text');
+    await insideViewport(page, '#table-bar');
+    await shot(page, `save-recovery-${viewport.width}.jpg`, jpeg);
+    await offer.focus();
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'recovery-new-game', 'Tab reaches New game');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.getElementById('new-game').open);
+    assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.save')), raw, 'opening New game keeps the source');
+    await page.keyboard.press('Escape');
+    await offer.focus();
+    await page.keyboard.press('Enter');
+    await offer.waitFor({ state: 'hidden' });
+    const kept = await saved(page);
+    assert.deepEqual(kept.moves, source.moves.slice(0, 2));
+    assert.equal(kept.resigned, null);
+    assert.equal(kept.staged, undefined);
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'board', 'acceptance returns focus to the board');
+    await page.reload();
+    await page.waitForFunction(() => window.view?.ready);
+    await page.evaluate(() => window.view.ready());
+    assert.equal(await offer.isVisible(), false, 'the accepted game reloads without an offer');
+    assert.deepEqual((await saved(page)).moves, source.moves.slice(0, 2));
+    assertNoErrors(page);
+    await page.context().close();
+  }
+  ok('save recovery: the full source stays until acceptance; keyboard choices, live notice, reload and three screen sizes pass');
+
   const labels = [];
   for (const [level, name] of [['beginner', 'Casual'], ['casual', 'Clever']]) {
     const page = await open();

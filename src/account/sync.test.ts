@@ -203,10 +203,10 @@ describe('F1 account ownership', () => {
 
 describe('saved-game validation before cloud writes', () => {
   const supported = (moves: string[]) => ({ back: 'RNBQKBNR', fen: '', moves, white: 'human', black: 'human', resigned: null });
-  const accepts = (value: unknown): boolean => { try { savedGame(value); return true; } catch { return false; } };
+  const accepts = (value: unknown, partial = false): boolean => { try { const game = savedGame(value); return partial || game.history.length === (value as { moves: string[] }).moves.length; } catch { return false; } };
 
   it.each([
-    supported(['e2-e4', 'e7-e5', 'Qd1-d8']), { moves: 'future-format' }, 'unreadable',
+    { moves: 'future-format' }, 'unreadable',
   ])('keeps a valid local game and its stamp when a newer remote game is unreadable (%s)', async bad => {
     const c = cloud({ saved_game: { at: 9_000_000, v: bad } }), d = device({ 'kingdown.save': supported(['e2-e4']) }, c, { blocked: () => false, accepts });
     const before = stamp(d.st), raw = d.st.getItem('kingdown.save');
@@ -236,6 +236,20 @@ describe('saved-game validation before cloud writes', () => {
     d.st.setItem('kingdown.save', JSON.stringify(supported([])));
     d.sync.changed(); await d.sync.flush();
     expect(c.row?.saved_game).toMatchObject({ at: 9_000_001, v: { moves: [] } });
+  });
+
+  it.each([100, 600])('takes a partial cloud copy only when it is newer than the local game (%s)', async at => {
+    const partial = supported(['e2-e4', 'e7-e5', 'Qd1-d8']);
+    const c = cloud({ saved_game: { at, v: partial } });
+    const d = device({ 'kingdown.save': supported(['d2-d4']) }, c, { blocked: (): boolean => !accepts(readLocal(d.st).saved_game), accepts });
+    const stamps = stamp(d.st);
+    stamps.saved_game!.at = 500;
+    d.st.setItem('kingdown.sync', JSON.stringify(stamps));
+    await d.sync.pull();
+    expect(readLocal(d.st).saved_game).toMatchObject({ moves: at > 500 ? partial.moves : ['d2-d4'] });
+    expect(d.applied).toEqual(at > 500 ? [['saved_game']] : []);
+    expect(c.row?.saved_game?.v).toMatchObject({ moves: at > 500 ? partial.moves : ['d2-d4'] });
+    d.sync.stop();
   });
 
   it('still applies a newer supported remote game', async () => {

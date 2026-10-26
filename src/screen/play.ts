@@ -67,7 +67,7 @@ export function connectPlay(view: BoardView, c: {
   /** The keyboard cursor (screen/keys.ts). */
   keys(): { cursor(): number | null; say(): void; focus(keyboard: boolean): void };
   /** Settings → Account and the cloud save: null until it loads, or offline. */
-  account(): { changed(): void } | null;
+  account(): { changed(recovered?: boolean): void } | null;
   /** The next game's setup: the last one started from New game. */
   setup(): Setup;
   openNewGame(): void;
@@ -132,6 +132,7 @@ export function connectPlay(view: BoardView, c: {
   /** A denied storage accessor throws before canWriteLocal runs: treat it as a blocked write. */
   const canWrite = (): boolean => { try { return canWriteLocal(localStorage); } catch { return false; } };
   let recoveryNotice = unreadableNotice;
+  let recoverySource: string | undefined;
   /** The board is seen from Black's side (orient()). */
   let flipped = false;
 
@@ -273,6 +274,7 @@ export function connectPlay(view: BoardView, c: {
     const coins = refreshCoins({ pos: shownPos(), history: game.history, rules: game.rules, legal: viewing == null ? game.legal : undefined, activeSide: currentTurn().activeSide, armed, canPlay: !finished() && viewing == null && lesson == null && myTurn(), busy, flipped, lesson, mode: turnMode(), viewer: linkSide ?? (sides[0] === 'ai' ? 1 : 0), waiting: currentTurn().waits, selection: selected != null || inspected != null || !!notice });
     armed = coins.armed;
     drawMarks();
+    $('recover-save').hidden = $('recovery-new-game').hidden = recoverySource === undefined;
     refreshTable({ game, sides, skill, rules: game.rules, flipped, thinking, viewing, lesson, lessonDone, notice: saveBlocked ? '' : notice, saveNotice: saveWarning(), armed, selected, pending, linkSide, reviewNote: moments.reviewNote(), turn: currentTurn(), mode: turnMode(), power: coins.context, previously: previously.state() });
     home?.refresh();
     const current = document.querySelector<HTMLElement>('.player-strip.is-turn .portrait');
@@ -736,6 +738,7 @@ export function connectPlay(view: BoardView, c: {
     moments.start('');
     [sides[0], sides[1]] = players ?? (rematch ? [sides[1], sides[0]] : playersOf(setup));
     saveBlocked = false;
+    recoverySource = undefined;
     turnStart = 0;
     sync(game.pos);
     orient();
@@ -790,7 +793,7 @@ export function connectPlay(view: BoardView, c: {
     return saveBlocked ? recoveryNotice : unsaved.size ? unsavedNotice : '';
   }
 
-  function save(replaceUnreadable = false, settingsOnly = lesson != null): boolean {
+  function save(replaceUnreadable = false, settingsOnly = lesson != null, recovered = false): boolean {
     if (saveBlocked) return false;
     const stored = readSave();
     if (stored.unreadable && !canWrite()) { keepUnreadableSave(accountNotice); refresh(); return false; }
@@ -836,7 +839,7 @@ export function connectPlay(view: BoardView, c: {
       // Saving only settings cannot clear a warning about moves that are still unsaved.
       unsaved.delete('settings');
       if (savesGame) unsaved.delete('game');
-      c.account()?.changed();
+      if (recovered) c.account()?.changed(true); else c.account()?.changed();
     }
     if (saveWarning() !== before) {
       $('announce').textContent = saveWarning() || 'Changes saved.';
@@ -848,29 +851,64 @@ export function connectPlay(view: BoardView, c: {
   function keepUnreadableSave(line = canWrite() ? unreadableNotice : accountNotice): void {
     reset();
     saveBlocked = true;
+    recoverySource = undefined;
     recoveryNotice = line;
     notice = recoveryNotice;
   }
 
+  function offerRecovery(source: Save, played: number): void {
+    keepUnreadableSave(`Rules changed. Loaded ${played} of ${source.moves.length} actions. The next action is not legal.`);
+    recoverySource = gameJSON(source);
+    $('announce').textContent = recoveryNotice;
+  }
+
+  $('recovery-new-game').onclick = () => c.openNewGame();
+  $('recover-save').onclick = event => {
+    if (recoverySource === undefined) return;
+    const stored = readSave();
+    if (stored.failed || !canWrite()) { keepUnreadableSave(accountNotice); refresh(); return; }
+    if (gameJSON(stored.save) !== recoverySource) {
+      keepUnreadableSave('Your saved game changed in another tab. Reload to load it, or start a New game.');
+      $('announce').textContent = recoveryNotice;
+      refresh(); return;
+    }
+    saveBlocked = false;
+    replacementRaw = stored.raw;
+    if (!save(false, false, true)) {
+      saveBlocked = true;
+      if (!recoveryNotice.includes(unsavedNotice)) recoveryNotice += ` ${unsavedNotice}`;
+      $('announce').textContent = recoveryNotice;
+      refresh(); return;
+    }
+    recoverySource = undefined;
+    notice = '';
+    $('announce').textContent = 'Recovered game saved. Play continues under the current rules.';
+    refresh();
+    $('board').focus({ preventScroll: true });
+    c.keys().focus(event.detail === 0);
+    void maybeAi();
+  };
+
   /** Another tab can change the shared key after boot; recheck it before any ordinary write. */
   function savedDataBlocked(stored = readSave()): boolean {
-    if (!saveBlocked && (stored.unreadable && !canWrite() || (stored.unreadable || replacementRaw !== undefined) && stored.raw !== replacementRaw)) { keepUnreadableSave(); refresh(); }
+    if (!saveBlocked && (stored.unreadable && !canWrite() || (stored.unreadable || stored.partial || replacementRaw !== undefined) && stored.raw !== replacementRaw)) { keepUnreadableSave(); refresh(); }
     return saveBlocked;
   }
 
   /** Validate before changing the live game or its UI state. The staged count is read before an old link's pass. */
-  function replay(s: Save): { game: Game; staged: number } | undefined {
+  function replay(s: Save): { game: Game; staged: number; played: number } | undefined {
     try {
-      const candidate = savedGame(s), staged = stagedPlies(candidate, s.staged);
+      const candidate = savedGame(s), played = candidate.history.length;
+      const staged = played < s.moves.length ? 0 : stagedPlies(candidate, s.staged);
       // A staged turn stays open for End turn; only a handed-over turn that stops mid-way (an old link) is finished.
       if (!staged) finishLinkedTurn(candidate);
-      return { game: candidate, staged };
+      return { game: candidate, staged, played };
     } catch { keepUnreadableSave(); }
   }
 
   /** Sections the account had newer than this device; account/sync.ts already wrote them to the save. */
   function fromAccount(down: string[], switched = false): void {
-    if (switched) { saveBlocked = false; unsaved.clear(); settings.resetSettings(); }
+    if (switched) { saveBlocked = false; recoverySource = undefined; unsaved.clear(); settings.resetSettings(); }
     const stored = readSave();
     if (stored.unreadable) { keepUnreadableSave(); refresh(); return; }
     const s = stored.save;
@@ -883,7 +921,7 @@ export function connectPlay(view: BoardView, c: {
     if (down.includes('saved_game')) {
       replacementRaw = undefined;
       savedJSON = gameJSON(s);
-      if (switched) openSaved(s);
+      if (switched || stored.partial && !fen) openSaved(s);
       else if (lesson != null) cloudGame = true;
       else if (!fen) openSaved(s);
     }
@@ -900,6 +938,7 @@ export function connectPlay(view: BoardView, c: {
     if (!replayed) { refresh(); return; }
     reset();
     saveBlocked = false;
+    recoverySource = undefined;
     savedJSON = gameJSON(readSave().save);
     replacementRaw = undefined;
     game = replayed.game;
@@ -910,11 +949,11 @@ export function connectPlay(view: BoardView, c: {
     if (isSide(s.black)) sides[1] = s.black;
     linkSide = s.link === 0 || s.link === 1 ? s.link : null;
     daily = typeof s.daily === 'string' ? s.daily : null;
-    resigned = s.resigned ?? null;
+    resigned = replayed.played < s.moves.length ? null : s.resigned ?? null;
     turnStart = handOver(game) - replayed.staged;
     moments.restore();
-    notice = 'Loaded your newer saved game from your account.';
-    moments.say(notice);
+    if (replayed.played < s.moves.length) offerRecovery(s, replayed.played);
+    else { notice = 'Loaded your newer saved game from your account.'; moments.say(notice); }
     sync(game.pos);
     orient();
     guide.fill();
@@ -956,7 +995,9 @@ export function connectPlay(view: BoardView, c: {
       } else {
         const replayed = replay(saved);
         if (replayed) {
-          ({ game, staged } = replayed); resigned = saved.resigned ?? null;
+          ({ game, staged } = replayed);
+          resigned = replayed.played < saved.moves.length ? null : saved.resigned ?? null;
+          if (replayed.played < saved.moves.length) offerRecovery(saved, replayed.played);
           if (saved.link === 0 || saved.link === 1) linkSide = saved.link;
           if (typeof saved.daily === 'string') daily = saved.daily;
         }
@@ -985,8 +1026,8 @@ export function connectPlay(view: BoardView, c: {
     refresh, drawMarks, save, saveSettings: () => save(false, true), reset, maybeAi, ended, resigner, showPly, newGame, startLesson, openSaved, fromAccount, seat, restore,
     savedGames: {
       blocked: savedDataBlocked,
-      accepts: (value: unknown): boolean => {
-        try { savedGame(value); return true; }
+      accepts: (value: unknown, partial = false): boolean => {
+        try { const candidate = savedGame(value); return partial || candidate.history.length === (value as Save).moves.length; }
         catch { notice = 'The account save could not be loaded. Your current game stays.'; refresh(); return false; }
       },
     },

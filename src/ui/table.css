@@ -146,3 +146,8 @@
 #table-bar > :is(button.primary, #end-turn) { min-height: 52px; }
 
 #table-bar > button .icon { width: 20px; height: 20px; }
+
+/* Give the save offer and its buttons separate rows, also on a small screen. */
+#game-table #context-line:has(#recover-save:not([hidden])) { flex-wrap: wrap; }
+#context-line:has(#recover-save:not([hidden])) #context-text { flex-basis: 100%; display: block; }
+#context-actions:has(#recover-save:not([hidden])) { flex-wrap: wrap; }

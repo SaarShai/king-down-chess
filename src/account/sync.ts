@@ -19,12 +19,13 @@ export interface Remote { userId: string; pull(): Promise<Row | null>; push(row:
 export interface SavedGameAccess {
   /** Rechecks the current local save, including changes made after boot. */
   blocked(): boolean;
-  accepts(value: unknown): boolean;
+  /** A partial copy may come down for recovery, but it must not go up. */
+  accepts(value: unknown, partial?: boolean): boolean;
 }
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
 type AccountStore = Store & Pick<Storage, 'removeItem' | 'length' | 'key'>;
 /** When each section last changed here, and its value then (to see the next change). */
-type Stamps = Partial<Record<Section, { at: number; json: string }>> & { confirmed?: string };
+type Stamps = Partial<Record<Section, { at: number; json: string }>> & { confirmed?: string; recovery?: number };
 
 const SAVE = 'kingdown.save', LESSONS = 'kingdown.lessons', STAMPS = 'kingdown.sync';
 /**
@@ -75,14 +76,22 @@ function writeLocal(store: Store, s: Section, v: unknown): void {
  * call ever gets 0, older than any cloud copy: the first device signed in sets the account's copy.
  * A copy that differs only by a field this version dropped is the same copy: it keeps its time.
  */
-export function stamp(store: Store, now = Date.now()): Stamps {
+export function stamp(store: Store, now = Date.now(), recovered = false): Stamps {
   const raw = store.getItem(STAMPS), stamps: Stamps = parse(raw) ?? {}, local = readLocal(store);
+  const sourceAt = stamps.saved_game?.at ?? 0;
   let changed = false;
   for (const s of SECTIONS) {
     if (local[s] == null) continue;
     const json = canon(local[s]), was = stamps[s];
     if (was?.json === json) continue;
+    if (s === 'saved_game') delete stamps.recovery;
     stamps[s] = { at: was && canon(own(s, parse(was.json))) === json ? was.at : raw == null ? 0 : Math.max(now, (was?.at ?? -1) + 1), json };
+    changed = true;
+  }
+  if (recovered && stamps.saved_game) {
+    // One step above the source: the server keeps any newer copy, even with clock skew.
+    stamps.recovery = sourceAt;
+    stamps.saved_game.at = sourceAt + 1;
     changed = true;
   }
   if (changed) store.setItem(STAMPS, JSON.stringify(stamps));
@@ -140,9 +149,10 @@ export class Sync {
   }
 
   /** A local change: stamped now, sent after a quiet moment, so a burst of moves is one write. */
-  changed(): void {
+  changed(recovered = false): void {
     if (this.stopped || !this.selected || !this.ownsLocal()) return;
-    const stamps = stamp(this.store), local = readLocal(this.store).saved_game;
+    if (recovered) this.rejectedGame = undefined;
+    const stamps = stamp(this.store, Date.now(), recovered), local = readLocal(this.store).saved_game;
     // An explicit replacement or a new local move can supersede a rejected copy, even with a future clock.
     if (!this.savedGame.blocked() && this.rejectedGame && local != null && canon(local) !== this.rejectedGame.local && stamps.saved_game) {
       stamps.saved_game.at = Math.max(stamps.saved_game.at, this.rejectedGame.at + 1);
@@ -162,6 +172,11 @@ export class Sync {
 
   private async send(): Promise<void> {
     if (this.stopped || !this.ownsLocal()) return;
+    if (stamp(this.store).recovery !== undefined) {
+      const latest = await this.remote.pull();
+      if (this.stopped || !this.ownsLocal()) return;
+      this.take(latest);
+    }
     const lessons = stamp(this.store).lessons;
     if (lessons && lessons.at > (this.cloudAt.lessons ?? -1)) {
       // shortcut: writes can race after this read, use a server union when simultaneous writes must keep all names.
@@ -182,12 +197,25 @@ export class Sync {
     const kept = await this.remote.push(row);
     if (this.stopped || !this.ownsLocal()) return;
     if (kept) this.take(kept); // another device sent a newer copy meanwhile: it comes down now
-    else for (const s of SECTIONS) if (row[s]) this.cloudAt[s] = row[s]!.at;
+    else {
+      for (const s of SECTIONS) if (row[s]) this.cloudAt[s] = row[s]!.at;
+      if (row.saved_game) {
+        const stamps = stamp(this.store);
+        delete stamps.recovery;
+        this.store.setItem(STAMPS, JSON.stringify(stamps));
+      }
+    }
   }
 
   /** Writes here each section the cloud has newer, and notes the cloud's times. */
   private take(row: Row | null): void {
-    const stamps = stamp(this.store), { down } = merge(stamps, row);
+    const stamps = stamp(this.store);
+    if (stamps.recovery !== undefined && row?.saved_game && row.saved_game.at > stamps.recovery) {
+      // On a recovery tie, the server's copy wins. Recheck after upload and after reload.
+      if (stamps.saved_game) stamps.saved_game.at = stamps.recovery;
+      delete stamps.recovery;
+    }
+    const { down } = merge(stamps, row);
     this.cloudAt = {};
     for (const s of SECTIONS) if (typeof row?.[s]?.at === 'number') this.cloudAt[s] = row[s]!.at;
     const remoteGame = row?.saved_game;
@@ -198,7 +226,7 @@ export class Sync {
     const applied: Section[] = [];
     for (const s of down) {
       const { at, v } = row![s]!;
-      if (s === 'saved_game' && (this.savedGame.blocked() || !this.savedGame.accepts(v))) {
+      if (s === 'saved_game' && (this.savedGame.blocked() || !this.savedGame.accepts(v, true))) {
         this.rejectGame(at);
         continue;
       }

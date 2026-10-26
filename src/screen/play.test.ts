@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { connectPlay } from './play';
 import { connectSettings } from './settings';
 import { defaultSetup } from '../new-game';
-import type { Engine } from '../game';
+import { Game, type Engine } from '../game';
 import type { BoardView } from '../render/PaintedView';
 import { connectTurnPress } from '../turn-controls';
 import { gameJSON, readSave, writeSave, SAVE_KEY, type Save } from './save';
@@ -32,7 +32,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks(); stored.clear();
   vi.stubGlobal('localStorage', { getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => stored.set(key, value), removeItem: (key: string) => stored.delete(key), key: (i: number) => [...stored.keys()][i] ?? null, get length() { return stored.size; } });
-  const nodes = new Map<string, object>(), node = () => ({ setAttribute: vi.fn(), appendChild: vi.fn(), close: vi.fn(), querySelector: () => null, style: {} });
+  const nodes = new Map<string, object>(), node = () => ({ setAttribute: vi.fn(), appendChild: vi.fn(), close: vi.fn(), focus: vi.fn(), querySelector: () => null, style: {} });
   vi.stubGlobal('document', { hidden: false, documentElement: { dataset: { pace: 'off' } }, addEventListener: vi.fn(), removeEventListener: vi.fn(), querySelector: () => null, querySelectorAll: () => [], createElement: node, getElementById: (id: string) => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); } });
   vi.stubGlobal('window', { addEventListener: vi.fn() });
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
@@ -486,7 +486,6 @@ describe('local save recovery on the game page', () => {
   });
 
   it.each([
-    { ...original, moves: ['e2-e4', 'e7-e5', 'Qd1-d8'] },
     { ...original, back: '', fen: 'bad', moves: [] },
     { ...original, rules: { kings: null } } as unknown as Save,
   ])('keeps the current game and raw save when candidate replay fails', async save => {
@@ -1120,4 +1119,192 @@ describe('a reload of a staged turn', () => {
     expect(opened.play.game().history.map(h => h.lan)).toEqual(['Ra1-a4!H', '--']);
     expect([shown().staged, shown().undoOn]).toEqual([0, false]);
   });
+});
+
+
+describe('partial save recovery', () => {
+  const partial: Save = { ...original, moves: [...original.moves, 'Qd1-d8'], resigned: 0, staged: 1 };
+  const shown = () => vi.mocked(refreshTable).mock.lastCall![0];
+  const accept = () => {
+    const button = document.getElementById('recover-save') as HTMLButtonElement;
+    expect(button.hidden).toBe(false);
+    expect(button.disabled).not.toBe(true);
+    button.onclick!.call(button, { detail: 0 } as PointerEvent);
+  };
+  const boot = (save = partial) => {
+    const raw = JSON.stringify(save);
+    stored.set(SAVE_KEY, raw);
+    const p = page(), read = readSave();
+    p.play.seat(save.white, save.black);
+    p.play.restore(read.save, { ...request, unreadable: read.unreadable });
+    p.play.refresh();
+    return { ...p, raw };
+  };
+
+  it('offers two legal actions, blocks play, and keeps the full source until acceptance', async () => {
+    const { play, view, engine, changed, raw } = boot();
+    const line = 'Rules changed. Loaded 2 of 3 actions. The next action is not legal.';
+    expect(play.game().history.map(h => h.lan)).toEqual(original.moves);
+    expect(shown().saveNotice).toBe(line);
+    expect(document.getElementById('announce')!.textContent).toBe(line);
+    expect(play.savedGames.blocked()).toBe(true);
+    expect(play.save()).toBe(false); expect(play.saveSettings()).toBe(false);
+    play.seat('ai', 'human'); await play.maybeAi();
+    view.onSquareClick(6, false); view.onSquareClick(21, false);
+    expect(engine.think).not.toHaveBeenCalled(); expect(changed).not.toHaveBeenCalled();
+    expect(stored.get(SAVE_KEY)).toBe(raw);
+    play.seat('human', 'human');
+    accept();
+    expect(play.savedGames.blocked()).toBe(false);
+    expect(play.ended()).toBe(false);
+    expect(readSave().save).toMatchObject({ moves: original.moves, resigned: null });
+    expect(readSave().save?.staged).toBeUndefined();
+    expect(document.getElementById('recover-save')!.hidden).toBe(true);
+    expect(changed).toHaveBeenCalledWith(true);
+    expect(document.getElementById('board')!.focus).toHaveBeenCalledWith({ preventScroll: true });
+    view.onSquareClick(6, false); view.onSquareClick(21, false);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(readSave().save?.moves).toEqual([...original.moves, 'Ng1-f3']);
+  });
+
+  it('offers the start when the first action is illegal and permits New game', () => {
+    const { play } = boot({ ...partial, moves: ['Qd1-d8'] });
+    expect(shown().saveNotice).toContain('Loaded 0 of 1 actions.');
+    expect(play.game().history).toEqual([]);
+    play.newGame('RNBQKBNR');
+    expect(play.savedGames.blocked()).toBe(false);
+    expect(document.getElementById('recover-save')!.hidden).toBe(true);
+    expect(readSave().save?.moves).toEqual([]);
+  });
+
+  it('keeps a legal pass after a partial Haste turn and drops the stale staged count', () => {
+    const rules = { ...new Game('RNBQKBNR', { ...POWERS_BALANCED, kings: parseKings('flame:haste,none') }).rules };
+    const { play } = boot({ ...partial, back: '', fen: '7k/p7/8/8/8/8/8/R5K1 w - - 0 1', rules, moves: ['Ra1-a4!H', 'bad'] });
+    expect(shown().saveNotice).toContain('Loaded 1 of 2 actions.');
+    accept();
+    expect(play.game().history.map(h => h.lan)).toEqual(['Ra1-a4!H', '--']);
+    expect(readSave().save?.staged).toBeUndefined();
+    expect(play.game().pos.turn).toBe(1);
+  });
+
+  it('keeps the offer and full source when acceptance cannot save, then retries', () => {
+    const { play, raw, changed } = boot();
+    const write = vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => { throw new Error('quota'); });
+    accept();
+    expect(stored.get(SAVE_KEY)).toBe(raw);
+    expect(play.savedGames.blocked()).toBe(true);
+    expect(changed).not.toHaveBeenCalled();
+    expect(shown().saveNotice).toContain('Changes not saved.');
+    write.mockRestore();
+    accept();
+    expect(play.savedGames.blocked()).toBe(false);
+    expect(readSave().save?.moves).toEqual(original.moves);
+  });
+
+  it('keeps a newer local game when the player accepts an old offer', () => {
+    const { play, changed } = boot();
+    const newer = JSON.stringify({ ...original, moves: ['d2-d4'] });
+    stored.set(SAVE_KEY, newer);
+    accept();
+    expect(stored.get(SAVE_KEY)).toBe(newer);
+    expect(changed).not.toHaveBeenCalled();
+    expect(play.savedGames.blocked()).toBe(true);
+    expect(document.getElementById('recover-save')!.hidden).toBe(true);
+    expect(shown().saveNotice).toContain('another tab');
+  });
+
+  it('offers a newer partial cloud copy and leaves both full sources intact', async () => {
+    const { play } = boot(original);
+    const row: Row = { saved_game: { at: 500, v: partial } }, push = vi.fn(async () => row);
+    const sync = new Sync(localStorage, { userId: 'player', pull: async () => row, push }, play.fromAccount, play.savedGames);
+    await sync.pull();
+    expect(play.game().history.map(h => h.lan)).toEqual(original.moves);
+    expect(shown().saveNotice).toContain('Loaded 2 of 3 actions.');
+    expect(readSave().save?.moves).toEqual(partial.moves);
+    expect(row.saved_game?.v).toEqual(partial);
+    expect(push).not.toHaveBeenCalled();
+    sync.stop();
+  });
+
+  it.each([false, true])('keeps a newer cloud game when recovery is accepted (seen during offer: %s)', async seen => {
+    const { play, changed } = boot(original);
+    let row: Row = { saved_game: { at: 500, v: partial } };
+    const push = vi.fn(async (sent: Row) => {
+      if (sent.saved_game && sent.saved_game.at > row.saved_game!.at) row = sent;
+      return row;
+    });
+    const sync = new Sync(localStorage, { userId: 'player', pull: async () => row, push }, play.fromAccount, play.savedGames);
+    changed.mockImplementation((...args) => Reflect.apply(sync.changed, sync, args));
+    await sync.pull();
+    const newer = { ...original, moves: ['d2-d4'] };
+    row = { saved_game: { at: 600, v: newer } };
+    if (seen) await sync.pull();
+    accept(); await sync.flush();
+    expect(row.saved_game).toEqual({ at: 600, v: newer });
+    expect(readSave().save?.moves).toEqual(newer.moves);
+    expect(play.game().history.map(h => h.lan)).toEqual(newer.moves);
+    expect(push.mock.calls.every(([sent]) => !sent.saved_game)).toBe(true);
+    sync.stop();
+  });
+
+  it.each([501, 600])('keeps a cloud change during recovery upload (%s)', async at => {
+    const { play, changed } = boot(original);
+    let row: Row = { settings: { at: 500, v: { coords: true } }, saved_game: { at: 500, v: partial } };
+    const newer = { ...original, moves: ['d2-d4'] };
+    const sync = new Sync(localStorage, {
+      userId: 'player', pull: async () => row,
+      push: async sent => {
+        row.saved_game = { at, v: newer };
+        if (sent.saved_game && sent.saved_game.at > at) row.saved_game = sent.saved_game;
+        return row;
+      },
+    }, play.fromAccount, play.savedGames);
+    changed.mockImplementation((...args) => Reflect.apply(sync.changed, sync, args));
+    await sync.pull();
+    accept(); await sync.flush();
+    expect(row.saved_game).toEqual({ at, v: newer });
+    expect(readSave().save?.moves).toEqual(newer.moves);
+    expect(play.game().history.map(h => h.lan)).toEqual(newer.moves);
+    sync.stop();
+  });
+
+
+  it('keeps a newer local game that arrives during the recovery cloud read', async () => {
+    const { play, changed } = boot(original);
+    let finish!: (row: Row) => void;
+    let reads = 0;
+    const source: Row = { saved_game: { at: 500, v: partial } };
+    const sync = new Sync(localStorage, {
+      userId: 'player', pull: async () => ++reads === 1 ? source : new Promise<Row>(resolve => { finish = resolve; }),
+      push: async sent => sent,
+    }, play.fromAccount, play.savedGames);
+    changed.mockImplementation((...args) => Reflect.apply(sync.changed, sync, args));
+    await sync.pull(); accept();
+    const sent = sync.flush();
+    await vi.advanceTimersByTimeAsync(0);
+    const newer = { ...original, moves: ['d2-d4'] };
+    stored.set(SAVE_KEY, JSON.stringify(newer));
+    stamp(localStorage);
+    finish({ saved_game: { at: 600, v: { ...original, moves: ['c2-c4'] } } });
+    await sent;
+    expect(readSave().save?.moves).toEqual(newer.moves);
+    sync.stop();
+  });
+
+  it('keeps a newer cloud copy with the same time after a reload', async () => {
+    const { play, changed } = boot(original);
+    let row: Row = { saved_game: { at: 500, v: partial } };
+    const remote = { userId: 'player', pull: async () => row, push: async (sent: Row) => sent };
+    const first = new Sync(localStorage, remote, play.fromAccount, play.savedGames);
+    changed.mockImplementation((...args) => Reflect.apply(first.changed, first, args));
+    await first.pull(); accept(); first.stop();
+    const newer = { ...original, moves: ['d2-d4'] };
+    row = { saved_game: { at: 501, v: newer } };
+    const next = new Sync(localStorage, remote, play.fromAccount, play.savedGames);
+    await next.pull();
+    expect(readSave().save?.moves).toEqual(newer.moves);
+    expect(play.game().history.map(h => h.lan)).toEqual(newer.moves);
+    next.stop();
+  });
+
 });

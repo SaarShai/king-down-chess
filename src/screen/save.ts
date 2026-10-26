@@ -24,7 +24,7 @@ export const SETTINGS = ['skill', 'coords', 'sound', 'queen', 'pace', 'threats',
 export const SAVE_KEY = 'kingdown.save';
 
 /** Unreadable data includes the raw text for a later replacement check. */
-export interface SaveRead { save: Save | null; unreadable: boolean; raw?: string; failed?: true }
+export interface SaveRead { save: Save | null; unreadable: boolean; raw?: string; partial?: true; failed?: true }
 
 /** Compare only game fields; settings and JSON key order can change without changing the game. */
 export function gameJSON(s: Save | null): string {
@@ -46,8 +46,8 @@ export function readSave(): SaveRead {
   if (raw === null) return { save: null, unreadable: false };
   try {
     const s = JSON.parse(raw);
-    savedGame(s);
-    return { save: s, unreadable: false };
+    const game = savedGame(s);
+    return { save: s, unreadable: false, ...(game.history.length < s.moves.length && { partial: true as const, raw }) };
   } catch { return { save: null, unreadable: true, raw }; }
 }
 
@@ -63,7 +63,7 @@ export function storedSettings(): Partial<Pick<Save, (typeof SETTINGS)[number]>>
   } catch { return null; }
 }
 
-/** Build a separate game; partial replay never replaces the live game. */
+/** Build the legal part in a separate game. Its history length is the replay count. */
 export function savedGame(value: unknown): Game {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Unreadable saved game');
   const s = value as Save;
@@ -71,7 +71,7 @@ export function savedGame(value: unknown): Game {
   if (s.rules !== undefined && (!s.rules || typeof s.rules !== 'object' || Array.isArray(s.rules))) throw new Error('Unreadable saved rules');
   const game = new Game(s.back || undefined, s.rules);
   if (!s.back) game.load(game.context.fromFen(s.fen));
-  if (game.playLan(s.moves) !== s.moves.length) throw new Error('Incomplete saved game');
+  game.playLan(s.moves);
   return game;
 }
 
