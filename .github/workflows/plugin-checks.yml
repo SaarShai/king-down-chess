@@ -97,8 +97,9 @@ jobs:
   # The browser checks run beside npm test, so each job keeps its own 15 minutes.
   browser:
     runs-on: ubuntu-latest
-    # The Chromium checks run with the step limits times 2 on CI (tools/lib/checks.mjs STEP).
-    timeout-minutes: 30
+    # The Chromium checks run with the step limits times 2 on CI (tools/lib/checks.mjs STEP), one at a time:
+    # (240 + 480 + 480) s x 2 = 40 min, plus 10 min of setup. Passing runs take 26 min; run 40262605705 lost 7 min in the browser install.
+    timeout-minutes: 55
     services:
       postgres:
         image: postgres:17
