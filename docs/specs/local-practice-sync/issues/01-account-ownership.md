@@ -137,3 +137,11 @@ The lesson records progress before it shows success. A failed record leaves the 
 `npm run test:docs` passes all 178 tests in 15 files. `npm run check:browser new-game` passes its one check. The browser reports no page or console error. Its report stays in `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/web-sync-y5fHgb/`.
 
 All new timed cases use fake timers. No real-time sleep runs in a test. The checks use local substitutes. No full suite, live account request or database check runs. The two commits use the unchanged hooks. No push, merge, rebase or deploy runs.
+
+## Joined lane final review, round 2, finding 1
+
+Fault: `connectPlay` read the tab owner with an unguarded `localStorage` access at start-up. When the browser denies the storage accessor (`SecurityError`), page setup stops and local practice does not start. The base code passes this case.
+
+Fix: remove the early call. `readSave()` already reads the tab owner inside its `try` block during page setup, and `canWriteLocal` reads it before each write, so the owner is still read once when the page opens.
+
+Checks: the new test `starts local practice when the browser denies the storage accessor` fails before the fix (`SecurityError: Denied`) and passes after it. The eight requested source test files pass (175 tests, both type checks, 67 art checks). `npm run test:docs` passes 178 tests.

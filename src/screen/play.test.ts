@@ -542,6 +542,13 @@ describe('local save recovery on the game page', () => {
     expect(engine.think).toHaveBeenCalledOnce();
   });
 
+  it('starts local practice when the browser denies the storage accessor', () => {
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { throw new DOMException('Denied', 'SecurityError'); } });
+    const { play } = page();
+    play.save();
+    expect(play.savedGames.blocked()).toBe(false);
+  });
+
   it('checks another tab\'s raw data before a settings-only cloud pull overwrites the shared save key', async () => {
     const { play } = page();
     stored.set(SAVE_KEY, JSON.stringify(original));
