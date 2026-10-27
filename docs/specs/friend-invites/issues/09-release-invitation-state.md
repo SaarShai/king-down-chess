@@ -127,3 +127,55 @@ The diff review compares this change with `832470d7`. The tests cover each
 failed code wait and keep the explicit code action. The hook files and
 their inputs stay unchanged. The checks use the quiet and shared browser
 locks. No deploy, sign-in or remote database access occurs.
+
+## PR 164 HTTP browser check
+
+Status: resolved
+
+1. Download the CI log for run 40537321470 and find the failed locator.
+2. Run `npm run check:browser plugin-ui-http` on the current head.
+3. Fix an old automatic-code assumption in the check, or fix a confirmed
+   product fault. Keep explicit code creation. If two local runs pass and
+   the failure is unrelated, report the intermittent failure with no change.
+4. After a change, run both `plugin-ui-http` and `plugin-ui`. Review the
+   diff, commit with the normal hook inputs and push this branch.
+
+Pass criteria: the failed wait matches the current friend-code flow. Both
+required browser checks pass after a change. Check the quiet lock before
+each command and use the shared browser locks. Use only the local test
+database. No deploy or sign-in occurs.
+
+### Result and checks
+
+The downloaded `check-logs` artifact from run 40537321470 shows the failed
+wait at `tools/plugin-ui-check.mjs:1506`: `#friend-new` stays hidden after
+a remount. The local check on `38b971ff` fails at the same line in 145.9
+seconds. The CI check fails in 292.9 seconds with its longer wait limit.
+
+The HTTP host keeps Create's original reply through a remount. That reply
+has a valid raw code. The page restores that code and hides Make a new code,
+as required. The fixture's Create reply has no raw code. The old check
+assumes that neither host can restore a code.
+
+The check now uses a real `kingdown_get` reply as the saved-game remount
+input. It checks that this reply has no raw invitation. The existing checks
+still require zero invitation calls on remount, no code tiles, and a click
+on Make a new code before the expiry and replacement cases. Product code
+and wait limits stay unchanged.
+
+- `npm run check:browser plugin-ui-http plugin-ui` passes both checks in
+  Chromium: HTTP in 327.0 seconds and fixture UI in 307.1 seconds.
+- `npm run test:docs` passes 180 tests in 15 files. Its log is
+  `/private/tmp/kd-rel3-invite-http-docs.log`.
+- The command uses `caffeinate`, the shared test lock and the browser
+  scheduler. The quiet lock is absent at the start. Only the documented
+  local database on port 55432 receives test requests.
+- CI evidence: `/private/tmp/rel3-invite-ci-http-40537321470/king-down-chess-Fi1U22/plugin-ui-http.log`.
+- Local evidence: `/private/tmp/kd-rel3-invite-http-before.log` and
+  `/private/tmp/kd-rel3-invite-browsers-after.log`. Browser detail is in
+  the system `kingdown-check-runs/rel3-invite-DgvOsH` folder.
+
+The diff review confirms that four check lines supply the correct input
+for the existing saved-game case. No product fix, new helper, dependency
+or longer wait is needed. The full unit suite does not run for this check
+change. No deploy, sign-in or remote database access occurs.

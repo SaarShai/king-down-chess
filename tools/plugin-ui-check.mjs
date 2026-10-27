@@ -1503,6 +1503,10 @@ try {
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites, 'Share keeps the same code');
     await inviteRow.locator('button[data-game-id]').click();
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    // A saved-game read has no raw code; replaying Create on the HTTP host restores its code.
+    const savedFriend = await tool('kingdown_get', { game_id: friend.game_id, board_id: await binding() });
+    assert(!savedFriend.isError && !savedFriend._meta.invite, 'The saved-game reply has no raw invitation');
+    await page.evaluate(result => { window.harnessWidgets.at(-1).initialResult = result; }, savedFriend);
     await remount('friend'); await frame.locator('#friend-new').waitFor();
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites, 'Remount makes no new code');
     assert.equal(await frame.locator('.game-code span').count(), 0, 'The saved game shows Make a new code');
