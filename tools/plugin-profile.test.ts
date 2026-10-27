@@ -557,7 +557,7 @@ it.each(['de-DE', 'ja-JP', 'en-US'])('uses one English date style in Menu, Profi
     await frame.locator('#profile-history li').first().waitFor();
     expect(await frame.locator('#profile-history .when').first().textContent()).toBe('Oct 10');
     await frame.locator('html').evaluate(async (_, options) => { const app = (window as any).harnessApp; app.navigate('play'); await app.start('friend', { options, colour: 'white' }); }, DEFAULT_OPTIONS);
-    await frame.locator('.game-code span').first().waitFor();
+    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
     expect(await frame.locator('#friend-expiry').textContent()).toMatch(/^Ends [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2}\u00a0[AP]M\.$/);
   } finally { await close(); }
 });

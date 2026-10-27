@@ -47,16 +47,20 @@ async function chooseKind(frame: FrameLocator, name: string) {
   const options = frame.locator('#setup-options');
   if (!await options.evaluate(e => (e as HTMLDetailsElement).open)) await options.locator('summary').click();
 }
-it('makes a friend code after create and offers a new code after remount', async () => {
+it('makes a friend code on request after create and remount', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await start(page, 'friend'); await frame.locator('.game-code span').first().waitFor();
+    await start(page, 'friend'); await frame.getByRole('button', { name: 'Make a new code', exact: true }).waitFor();
+    expect(await frame.locator('.game-code span').count()).toBe(0);
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_invite').length)).toBe(0);
+    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
     expect(await frame.locator('.game-code span').count()).toBe(6);
     expect(await frame.locator('#friend-expiry').textContent()).toContain('Ends ');
     expect(await frame.locator('#friend-actions button').allTextContents()).toEqual(['Share', 'Copy']);
     expect(await frame.locator('#friend-share').getAttribute('class')).toContain('primary');
     expect(await frame.locator('#friend-copy').getAttribute('class')).not.toContain('primary');
     const invites = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_invite').length);
+    expect(invites).toBe(1);
     const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
     await page.locator('#remount').click();
     await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
@@ -65,6 +69,7 @@ it('makes a friend code after create and offers a new code after remount', async
     expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_invite').length)).toBe(invites);
     expect(JSON.stringify(await page.evaluate(() => (window as any).harnessWidgetState))).not.toContain('expires_at');
     await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    expect(await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_invite').length)).toBe(2);
     const code = (await frame.locator('.game-code span').allTextContents()).join('');
     await frame.locator('#page-back').click();
     const row = frame.locator('.friend-invite-row').filter({ hasText: code }); await row.waitFor();
@@ -74,7 +79,7 @@ it('makes a friend code after create and offers a new code after remount', async
 it('copies the full invite without Share and selects it when both copy paths refuse', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await start(page, 'friend'); await frame.locator('#friend-copy').waitFor();
+    await start(page, 'friend'); await frame.locator('#friend-new').click(); await frame.locator('#friend-copy').waitFor();
     const code = (await frame.locator('.game-code span').allTextContents()).join('');
     const text = `Join King Down game ${code}. Rules: Fairy pieces.`;
     await frame.locator('html').evaluate(() => {
@@ -101,7 +106,7 @@ async function buddy(page: Page, name: string, args: Record<string, unknown> = {
 it('shares the known code from Your games without a new code or a resume', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    const view = await start(page, 'friend'); await frame.locator('.game-code span').first().waitFor();
+    const view = await start(page, 'friend'); await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
     const code = (await frame.locator('.game-code span').allTextContents()).join('');
     await frame.locator('html').evaluate(() => {
       Object.defineProperty(navigator, 'share', { configurable: true, value: async (data: ShareData) => { (window as any).sharedInvite = data.text; } });
@@ -138,7 +143,7 @@ it('names Black on a preview from a code in chat', async () => {
 it('updates Your games after Back and keeps rows locked during Resume', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    const view = await start(page, 'friend'); await frame.locator('.game-code span').first().waitFor();
+    const view = await start(page, 'friend'); await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
     const reads = await page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length);
     await page.locator('#remount').click();
     await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get').length > n, reads);
@@ -390,7 +395,7 @@ it('sends a new Find from Open games when your own open game has other switches'
 it('opens the human game when the friend joins before a saved wait remounts', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    await start(page, 'friend'); await frame.locator('.game-code span').first().waitFor();
+    await start(page, 'friend'); await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
     const code = (await frame.locator('.game-code span').allTextContents()).join('');
     await buddy(page, 'kingdown_join', { code }); await page.locator('#remount').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();

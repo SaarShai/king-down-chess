@@ -1156,7 +1156,7 @@ it.each([false,true])('shows a draw offer and handles a decline before Resign (i
   try {
     await expand(page);
     await frame.locator('html').evaluate(async () => { const app=(window as any).harnessApp; await app.start('friend',{colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
-    await frame.locator('#friend-code span').first().waitFor();
+    await frame.locator('#friend-new').click(); await frame.locator('#friend-code span').first().waitFor();
     const code = (await frame.locator('#friend-code span').allTextContents()).join('');
     const joined = await buddy('kingdown_join',{code});
     await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_get',{},false,false,true); });
