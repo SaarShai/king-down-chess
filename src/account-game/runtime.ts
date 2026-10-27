@@ -1,6 +1,6 @@
 import { acceptedView, createHall, createHallMemory } from '../account-game/hall';
 import type { PageHost, ReadRoute } from '../account-game/client';
-import { decorateFriendRows, syncFriendInvites } from '../plugin/invite';
+import { decorateFriendRows, friendInvites, syncFriendInvites } from '../plugin/invite';
 import { runtimeHost, type RuntimeContext } from './host';
 import type { PlayerSettings } from '../plugin/settings';
 
@@ -373,6 +373,8 @@ function remember(result: ToolResult, job?: Job) {
     if (me.handle !== before?.handle || me.icon !== before?.icon) renderIdentity();
   }
   if (job && !queue.current(job)) return;
+  const current = result._meta?.view as View | undefined, invite = result._meta?.invite as View['invite'];
+  if (current && invite) friendInvites.set(current.game_id, invite);
   if (Array.isArray(result._meta?.games)) hall.acceptGames(result._meta.games as typeof memory.games);
   const value = result.structuredContent as Record<string, unknown> | undefined;
   if (value && typeof value.your_turn_count === 'number') turnLine(value.your_turn_count);

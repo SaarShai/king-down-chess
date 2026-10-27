@@ -177,6 +177,7 @@ it('F-115 names the main menu in the heading, back controls and invite help', as
     await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
     await frame.locator('#setup-start').click();
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    await frame.locator('#friend-new').click(); await frame.locator('#friend-code span').first().waitFor();
     expect.soft(await frame.locator('#friend-help').textContent()).toContain('types the code in Menu.');
   } finally { await page.close(); }
 });

@@ -52,7 +52,7 @@ async function join() {
   joining = true; $<HTMLButtonElement>('join-confirm').disabled = true;
   try {
     // A join is a selection: it goes on the queue, so a newer chat result detaches it (design §1.2).
-    const outcome = await send('kingdown_join', { code: memory.preview.code });
+    const outcome = await send('kingdown_join', memory.preview.code ? { code: memory.preview.code } : { invite_id: memory.preview.invite_id });
     if (!active()) return;
     if (outcome.status === 'superseded') return;
     if (outcome.status !== 'done') {

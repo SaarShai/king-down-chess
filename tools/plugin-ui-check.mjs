@@ -1395,8 +1395,10 @@ try {
     }
     await openPlay(); await lookAt('play', 'play');
     const friend = await showCreated('friend'); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
-    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    if (!friend.invite) await frame.locator('#friend-new').click();
+    await frame.locator('.game-code span').first().waitFor();
     const code = (await frame.locator('.game-code span').allTextContents()).join(''); assert(code.length === 6, 'Create gives six code tiles');
+    if (friend.invite) assert.equal(code, friend.invite.code, 'Create shows its returned code');
     const fullInvite = `Join King Down game ${code}. Rules: Fairy pieces.`;
     assert.deepEqual(await frame.locator('#friend-actions button').allTextContents(), ['Share', 'Copy']);
     assert(await frame.locator('#friend-share').evaluate(button => button.classList.contains('primary')), 'Share is the main action');
@@ -1408,8 +1410,12 @@ try {
       try {
         await host.frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
         await host.frame.locator('input[name="setup-mode"][value="friend"]:checked').waitFor({ state: 'attached' });
+        const creating = host.page.waitForResponse(response => new URL(response.url()).pathname === '/fixture-tool' && response.request().postDataJSON()?.name === 'kingdown_create');
         await host.frame.locator('#setup-start').click();
+        const created = await (await creating).json(); assert(!created.isError, JSON.stringify(created.content));
+        if (!created._meta.invite) await host.frame.locator('#friend-new').click();
         await host.frame.locator('.game-code span').first().waitFor();
+        if (created._meta.invite) assert.equal((await host.frame.locator('.game-code span').allTextContents()).join(''), created._meta.invite.code, 'Create shows its returned code on a mobile host');
         await host.frame.locator('html').evaluate(() => document.fonts.ready);
         const labels = await host.frame.locator('#friend-actions').evaluate(row => [...row.querySelectorAll('button')].map(button => {
           const label = button.querySelector('.label') ?? button, range = document.createRange();
@@ -1497,6 +1503,10 @@ try {
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites, 'Share keeps the same code');
     await inviteRow.locator('button[data-game-id]').click();
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    // A saved-game read has no raw code; replaying Create on the HTTP host restores its code.
+    const savedFriend = await tool('kingdown_get', { game_id: friend.game_id, board_id: await binding() });
+    assert(!savedFriend.isError && !savedFriend._meta.invite, 'The saved-game reply has no raw invitation');
+    await page.evaluate(result => { window.harnessWidgets.at(-1).initialResult = result; }, savedFriend);
     await remount('friend'); await frame.locator('#friend-new').waitFor();
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites, 'Remount makes no new code');
     assert.equal(await frame.locator('.game-code span').count(), 0, 'The saved game shows Make a new code');
@@ -2957,8 +2967,8 @@ try {
   }
   if (capabilities.friend) {
     await openPlay();
-    await openPlay(); await legacyStart('friend', 'friend'); await idleBoard();
-    await frame.locator('#friend-new').waitFor();
+    await openPlay(); const waitingFriend = await legacyStart('friend', 'friend'); await idleBoard();
+    await frame.locator(waitingFriend._meta.invite ? '#friend-code span' : '#friend-new').first().waitFor();
     await page.evaluate(() => { window.holdNextGet = true; });
     await page.clock.fastForward(5000);
     await page.waitForFunction(() => typeof window.releaseHeldGet === 'function');
@@ -2970,8 +2980,9 @@ try {
     await page.waitForFunction(() => window.heldGetReturned);
     await frame.locator('#status').evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     assert.match(await frame.locator('#status').innerText(), /Your move/, 'An old friend read must not replace the newly selected solo game');
-    await openPlay(); await legacyStart('friend', 'friend'); await idleBoard();
-    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    await openPlay(); const joiningFriend = await legacyStart('friend', 'friend'); await idleBoard();
+    if (!joiningFriend._meta.invite) await frame.locator('#friend-new').click();
+    await frame.locator('.game-code span').first().waitFor();
     const code = (await frame.locator('.game-code span').allTextContents()).join(''); assert.match(code, /^[A-HJKMNP-Z2-9]{6}$/);
     const joined = await friendTool('kingdown_join',{code});
     assert(!joined.isError, JSON.stringify(joined.content));
