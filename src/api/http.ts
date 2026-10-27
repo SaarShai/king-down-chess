@@ -1,3 +1,4 @@
+import { inviteSchema, friendsSchema, invitationsSchema } from '../match/protocol';
 /** The website's JSON API (/api/*) and the job endpoints (/internal/*) of the one function (report part 03, sections
  * 4.3, 4.4 and 8). Thin adapters: the game, account and safety services decide; the actor is the verified `sub` of
  * a website session, never input. Errors carry the protocol codes: `{ code, message }`, and a command's refusal is
@@ -90,7 +91,7 @@ function queryInput(query: URLSearchParams): Record<string, string> {
  for (const [key, value] of query) { if (Object.hasOwn(input, key)) throw failure('INVALID_INPUT', 400, 'Repeated query parameter'); input[key] = value; }
  return input;
 }
-const redeemSchema = z.union([z.strictObject({ token: z.string().max(100) }), z.strictObject({ code: z.string().max(20) })]);
+const redeemSchema = z.union([z.strictObject({ invite_id: z.string().regex(/^[a-f0-9]{64}$/) }), z.strictObject({ token: z.string().max(100) }), z.strictObject({ code: z.string().max(20) })]);
 
 export function createApiHandler({ games, accounts, safety, players, publicOrigin, verify, operations, webAccountAccess, admit, currentUser }: ApiOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
  const origin = pluginOrigin(publicOrigin);
@@ -117,7 +118,7 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
   const blocked = await service.block(actor, target, change);
   return { blocked, ...(change !== undefined && target.game_id && { view: await games.view(actor, target.game_id) }) };
  };
- const link = async (actor: string, id: string): Promise<InviteLink> => { const invite = await games.invite(actor, id); return { ...invite, url: `${origin}/j#${invite.token}` }; };
+ const link = async (actor: string, id: string, input: unknown): Promise<InviteLink> => { const invite = await games.invite(actor, id, input); return { ...invite, url: `${origin}/j#${invite.token}` }; };
  const routes: Record<string, Route> = {
   'GET /api/status': async (): Promise<WebAccountStatus> => {
    if (table.some(route => route.method === 'GET' && route.key !== 'GET /api/status' && operations?.has(route.key))) {
@@ -131,10 +132,8 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
   // A friend game comes with its invitation (part 03, section 4.4); a lost link gets a new one from /invite.
   'POST /api/games': async (actor, _, body) => {
    const { command_id, ...options } = parse(startSchema, body); await playerService().toolTry(actor, 'kingdown_create');
-   const view = await games.create(actor, options, command_id);
-   if (view.kind !== 'friend' || view.status !== 'waiting') return { view };
-   const invite = await link(actor, view.game_id);
-   return { view: { ...view, invite_id: invite.invite_id }, invite };
+   const { invite, ...view } = await games.create(actor, options.kind === 'friend' && !options.recipient_id && !options.recipient_handle ? { ...options, open_link: true } : options, command_id);
+   return { view, ...(invite && { invite: { ...invite, url: `${origin}/j#${invite.token}` } }) };
   },
   'POST /api/games/find': async (actor, _, body) => { const input = parse(findSchema, body); await playerService().toolTry(actor, 'kingdown_create'); return games.find(actor, input.options, input.colour, input.command_id, input.any_rules, input.mode); },
   'POST /api/games/:id/accept': (actor, id, body) => games.accept(actor, id, parse(acceptSchema, body)?.rating_policy),
@@ -148,10 +147,16 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
   'POST /api/games/:id/preview': (actor, id, body) => games.previewDraft(actor, id, parse(draftSchema, body)),
   'POST /api/games/:id/seen': (actor, id, body) => { parse(z.strictObject({}).optional(), body); return games.seen(actor, id); },
   'POST /api/games/:id/commands': async (actor, id, body) => { const limit = commandLimit((body as { action?: { type?: unknown; choice?: unknown } } | null)?.action); if (limit) await playerService().toolTry(actor, limit); const view = await games.command(actor, id, body, 'web'); return { type: 'ack', command_id: (body as { command_id: string }).command_id, revision: view.revision, view }; },
-  'POST /api/games/:id/invite': (actor, id) => link(actor, id),
-  'POST /api/invites/preview': (actor, _, body) => { const key = parse(redeemSchema, body); return games.preview(actor, 'token' in key ? key.token : key.code); },
-  'POST /api/invites/redeem': (actor, _, body) => { const key = parse(redeemSchema, body); return games.join(actor, 'token' in key ? key.token : key.code); },
-  'GET /api/me/games': actor => games.inbox(actor),
+  'POST /api/games/:id/invite': (actor, id, body) => link(actor, id, parse(inviteSchema, body ?? {})),
+  'POST /api/invites/preview': (actor, _, body) => { const key = parse(redeemSchema, body); return games.preview(actor, 'invite_id' in key ? key : 'token' in key ? key.token : key.code); },
+  'POST /api/invites/redeem': (actor, _, body) => { const key = parse(redeemSchema, body); return games.join(actor, 'invite_id' in key ? key : 'token' in key ? key.token : key.code); },
+  'GET /api/friends': (actor, _, __, query) => games.friends(actor, parse(friendsSchema, queryInput(query))),
+  'POST /api/invites/:id/decline': (actor, id, body) => { parse(emptySchema, body); return games.declineInvite(actor, id); },
+  'GET /api/me/games': async (actor, _, __, query) => {
+   if (!query.has('invitations')) return games.inbox(actor);
+   const input = queryInput(query); delete input.invitations;
+   return { games: await games.inbox(actor), ...await games.invitations(actor, parse(invitationsSchema, input)) };
+  },
   'GET /api/me/profile': actor => accounts.profile(actor),
   'PATCH /api/me/profile': (actor, _, body) => accounts.updateSettings(actor, body),
   'GET /api/me/settings': actor => settings(actor),
@@ -248,7 +253,7 @@ export function createApiHandler({ games, accounts, safety, players, publicOrigi
    if (known.status === 413) { res.setHeader('Connection', 'close'); req.resume(); }
    if (known.status >= 500 && known.status !== 503) console.error('King Down API failed', { route: route.key, requestId: randomUUID(), ...diagnostic(error) });
    const commandId = (body as { command_id?: unknown } | undefined)?.command_id;
-   respond(res, known.status, { ...(route.key === 'POST /api/games/:id/commands' && { type: 'reject', command_id: typeof commandId === 'string' ? commandId : '' }), code: known.code, message: known.message });
+   respond(res, known.status, { ...(route.key === 'POST /api/games/:id/commands' && { type: 'reject', command_id: typeof commandId === 'string' ? commandId : '' }), code: known.code, message: known.message, ...known.details });
    if (import.meta.env?.KINGDOWN_ERROR_RECORDER !== false) {
     release?.(); release = undefined;
     if (!(error instanceof MatchServiceError || error instanceof AuthenticationError || error instanceof AuthenticationUnavailable)) waitUntil(recordServerError(recorder?.recordError, error, route.key.split(' ')[1], recorder?.build ?? ''));

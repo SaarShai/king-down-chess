@@ -25,6 +25,8 @@ const operations = new Set([
  'POST /api/games/:id/invite',
  'POST /api/invites/redeem',
  'GET /api/me/games',
+ 'GET /api/friends',
+ 'POST /api/invites/:id/decline',
  'GET /api/me/profile',
  'PATCH /api/me/profile',
  'POST /api/me/handle',
@@ -64,7 +66,7 @@ async function serve(options: Partial<ApiOptions> = {}, internal: { secret?: str
  // A Supabase session's claims; a test changes one of them.
  sign = (claims = {}, key = pair.privateKey) => { const now = Math.floor(Date.now() / 1000);
   return new SignJWT({ iss: issuer, aud: 'authenticated', sub: alice, role: 'authenticated', is_anonymous: false, session_id: 's', iat: now, exp: now + 300, ...claims }).setProtectedHeader({ alg: 'ES256', kid: 'test' }).sign(key); };
- games = { create: vi.fn(async () => view), view: vi.fn(async () => view), command: vi.fn(async () => view), inbox: vi.fn(async () => []), invite: vi.fn(), join: vi.fn(async () => view), preview: vi.fn(async () => ({ code: 'ABC234', options: DEFAULT_OPTIONS, kind: 'friend', colour: 'black', creator: { handle: 'host', icon: null }, expires_at: 'soon' })), find: vi.fn(async () => view), accept: vi.fn(async () => view), cancel: vi.fn(async () => view), lobby: vi.fn(async () => ({ games: [] })), record: vi.fn(async () => ({ total: 3 })), history: vi.fn(async () => ({ games: [], next_before: null })), seen: vi.fn(), sweep: vi.fn(async () => 0) };
+ games = { friends: vi.fn(async () => ({ friends: [], next_after: null })), invitations: vi.fn(async () => ({ invitations: [], next_before: null })), declineInvite: vi.fn(async () => ({ state: 'declined' })), create: vi.fn(async () => view), view: vi.fn(async () => view), command: vi.fn(async () => view), inbox: vi.fn(async () => []), invite: vi.fn(), join: vi.fn(async () => view), preview: vi.fn(async () => ({ code: 'ABC234', options: DEFAULT_OPTIONS, kind: 'friend', colour: 'black', creator: { handle: 'host', icon: null }, expires_at: 'soon' })), find: vi.fn(async () => view), accept: vi.fn(async () => view), cancel: vi.fn(async () => view), lobby: vi.fn(async () => ({ games: [] })), record: vi.fn(async () => ({ total: 3 })), history: vi.fn(async () => ({ games: [], next_before: null })), seen: vi.fn(), sweep: vi.fn(async () => 0) };
  accounts = { notices: vi.fn(async () => ({ notices: [], next_notices_before: null })), profile: vi.fn(async () => ({ user_id: alice })), relate: vi.fn(async () => undefined), ...Object.fromEntries(['updateSettings', 'setHandle', 'requestDeletion', 'cancelDeletion', 'notificationPrefs', 'setNotificationPrefs', 'relations', 'unrelate'].map(name => [name, vi.fn()])) };
  safety = { report: vi.fn() };
  players = { profile: vi.fn(async () => ({ user_id: alice, handle: 'alice', icon: null })), settings: vi.fn(async () => ({ symbols_only: false, show_threats: true, online_visible_to: 'mutual', last_setup: null })), handle: vi.fn(async () => ({ user_id: alice, handle: 'alice', icon: null })), block: vi.fn(async () => true), blocks: vi.fn(async () => []), toolTry: vi.fn() };
@@ -295,15 +297,37 @@ describe('website API boundary', () => {
   expect([mismatch.status, (await mismatch.json()).code]).toEqual([409, 'COMMAND_CONFLICT']);
  });
  it('returns the newly issued invitation identity in the created friend view', async () => {
-  const waiting = { ...view, kind: 'friend', status: 'waiting', invite_id: null };
-  games.create.mockResolvedValueOnce(waiting);
-  games.invite.mockResolvedValueOnce({ token: 'private-link', code: 'ABC234', expires_at: 'soon', invite_id: 'fresh-id' });
+  const waiting = { ...view, kind: 'friend', status: 'waiting', invite_id: 'fresh-id' };
+  games.create.mockResolvedValueOnce({ ...waiting, invite: { token: 'private-link', code: 'ABC234', expires_at: 'soon', invite_id: 'fresh-id' } });
   const response = await call('/api/games', { token: await sign(), method: 'POST', body: { kind: 'friend', options: DEFAULT_OPTIONS, command_id: commandId } });
   expect(response.status).toBe(201);
   const body = await response.json();
   expect(body.view).toEqual({ ...waiting, invite_id: 'fresh-id' });
   expect(body.invite.invite_id).toBe(body.view.invite_id);
-  expect(games.invite).toHaveBeenCalledOnce(); expect(games.view).not.toHaveBeenCalled();
+  expect(games.invite).not.toHaveBeenCalled(); expect(games.view).not.toHaveBeenCalled();
+ });
+ it('validates named sends, ID acceptance, decline and independent invitation paging', async () => {
+  const token = await sign(), invite_id = 'a'.repeat(64), recipient_id = gameId;
+  expect((await call('/api/games', { token, method: 'POST', body: { kind: 'friend', options: DEFAULT_OPTIONS, recipient_id, command_id: commandId } })).status).toBe(201);
+  expect(games.create).toHaveBeenLastCalledWith(alice, { kind: 'friend', options: DEFAULT_OPTIONS, recipient_id }, commandId);
+  expect((await call('/api/invites/redeem', { token, method: 'POST', body: { invite_id } })).status).toBe(200);
+  expect(games.join).toHaveBeenLastCalledWith(alice, { invite_id });
+  expect((await call(`/api/invites/${invite_id}/decline`, { token, method: 'POST', body: {} })).status).toBe(200);
+  expect(games.declineInvite).toHaveBeenLastCalledWith(alice, invite_id);
+  expect((await call('/api/me/games?invitations=1&limit=2', { token })).status).toBe(200);
+  expect(games.invitations).toHaveBeenCalledWith(alice, { limit: 2 });
+  expect((await call('/api/friends?handle=rowan&limit=1', { token })).status).toBe(200);
+  expect(games.friends).toHaveBeenCalledWith(alice, { handle: 'rowan', limit: 1 });
+  for (const body of [{ kind: 'friend', recipient_id: 'bad' }, { kind: 'friend', recipient_id, open_link: true }, { kind: 'solo', recipient_id }])
+   expect((await call('/api/games', { token, method: 'POST', body: { ...body, options: DEFAULT_OPTIONS, command_id: commandId } })).status).toBe(400);
+  for (const body of [{ invite_id, token: 'token' }, { invite_id, actor: recipient_id }])
+   expect((await call('/api/invites/redeem', { token, method: 'POST', body })).status).toBe(400);
+  expect((await call('/api/friends?limit=51', { token })).status).toBe(400);
+ });
+ it.each(['FRIEND_GAME_LIMIT', 'FRIEND_INVITE_LIMIT', 'OPEN_INVITE_LIMIT'] as const)('returns safe count fields with HTTP 409 for %s', async code => {
+  games.create.mockRejectedValueOnce(new MatchServiceError(code, 409, 'Limit notice.', { count: 5, handle: 'rowan' }));
+  const response = await call('/api/games', { token: await sign(), method: 'POST', body: { kind: 'friend', recipient_id: gameId, options: DEFAULT_OPTIONS, command_id: commandId } });
+  expect(response.status).toBe(409); expect(await response.json()).toEqual({ code, message: 'Limit notice.', count: 5, handle: 'rowan' });
  });
  it('returns only the service invite preview and never joins or reads a game', async () => {
   const token = await sign();

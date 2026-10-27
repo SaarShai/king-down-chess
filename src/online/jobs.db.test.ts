@@ -87,6 +87,8 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
   await sweepDeadlines(games[0], new Date(start + DAY - 1000));
   expect([(await game(late)).status, (await game(open.game_id)).status]).toEqual(['playing', 'waiting']);
   const after = at(DAY + 1000);
+  // Invitation expiry uses database time, apart from the fake Daily deadline clock.
+  await admin.query("update public.game_invites set expires_at=statement_timestamp()-interval '1 second' where game_id=$1", [open.game_id]);
   await Promise.all([sweepDeadlines(games[0], after), sweepDeadlines(games[1], after)]);
   expect(await game(late)).toEqual({ status: 'finished', result: 'black', end_reason: 'timeout' });
   expect(await game(open.game_id)).toEqual({ status: 'aborted', result: null, end_reason: 'no_start' });

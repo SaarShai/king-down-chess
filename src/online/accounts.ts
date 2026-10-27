@@ -69,6 +69,7 @@ export class AccountService {
     actor = id(actor); const handle = parse(z.strictObject({ handle: z.string().max(40) }), input).handle.trim().toLowerCase();
     const problem = handleProblem(handle); if (problem) fail('INVALID_INPUT', 400, problem);
     return this.store.transaction(async client => {
+      await this.store.lockAccounts(client, [actor]);
       const row = (await client.query('select handle,handle_changed_at from public.profiles where id=$1 for update', [actor])).rows[0] ?? fail('NOT_FOUND', 404, 'Profile not found');
       if (row.handle === handle) return this.profile(actor, client);
       if (row.handle && row.handle_changed_at > new Date(Date.now() - RENAME_DAYS * DAY)) fail('NOT_ALLOWED', 409, `You can change your handle once in ${RENAME_DAYS} days`);
@@ -81,7 +82,10 @@ export class AccountService {
   async updateSettings(actor: string, input: unknown): Promise<MyProfile> {
     actor = id(actor); const changes = parse(settingsSchema, input), keys = Object.keys(changes) as (keyof typeof changes)[];
     // The keys are the schema's own field names, so they are safe as column names.
-    await this.store.pool.query(`update public.profiles set ${keys.map((key, index) => `${key}=$${index + 2}`).join(',')} where id=$1`, [actor, ...keys.map(key => changes[key])]);
+    await this.store.transaction(async client => {
+      await this.store.lockAccounts(client, [actor]);
+      await client.query(`update public.profiles set ${keys.map((key, index) => `${key}=$${index + 2}`).join(',')} where id=$1`, [actor, ...keys.map(key => changes[key])]);
+    });
     return this.profile(actor);
   }
   /** Follow or block. A block also ends the follows both ways; a follow across a block is refused. A block is not secret
@@ -90,6 +94,7 @@ export class AccountService {
     actor = id(actor); const { kind, ...target } = parse(relationSchema, input);
     await this.store.transaction(async client => {
       const other = await who(client, actor, target), pair = 'user_id=$1 and other_id=$2 or user_id=$2 and other_id=$1';
+      await this.store.lockAccounts(client, [actor, other]);
       if (kind === 'block') await client.query(`delete from public.relations where kind='follow' and (${pair})`, [actor, other]);
       else if ((await client.query(`select from public.relations where kind='block' and (${pair})`, [actor, other])).rowCount) fail('NOT_ALLOWED', 409, 'You cannot follow this player');
       await client.query('insert into public.relations(user_id,other_id,kind) values($1,$2,$3) on conflict do nothing', [actor, other, kind]);
@@ -97,7 +102,11 @@ export class AccountService {
   }
   async unrelate(actor: string, input: unknown): Promise<void> {
     actor = id(actor); const { kind, ...target } = parse(relationSchema, input);
-    await this.store.pool.query('delete from public.relations where user_id=$1 and other_id=$2 and kind=$3', [actor, await who(this.store.pool, actor, target), kind]);
+    await this.store.transaction(async client => {
+      const other = await who(client, actor, target);
+      await this.store.lockAccounts(client, [actor, other]);
+      await client.query('delete from public.relations where user_id=$1 and other_id=$2 and kind=$3', [actor, other, kind]);
+    });
   }
   /** The actor's own follows and blocks. Nobody sees another player's lists (record of measures, M05). */
   async relations(actor: string): Promise<{ kind: 'follow' | 'block'; user_id: string; handle: string | null; created_at: string }[]> {

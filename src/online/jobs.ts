@@ -2,7 +2,7 @@
  * The scheduled jobs of online play (report part 03, sections 5.3 and 5.8). pg_cron and pg_net call `/internal/*`
  * (supabase/ops/cron.sql), and each endpoint calls one job here. pg_net does not retry, so the next run repeats a lost
  * one: each job is idempotent and safe to run twice at once. Game rows change only through the game service.
- * `now` is a parameter for tests; the account deletions use the database clock instead (see runDeletions).
+ * `now` is a parameter for tests; invitation expiry and account deletions use the database clock instead.
  */
 import { randomUUID } from 'node:crypto';
 import type { GameService } from '../match/service';
