@@ -682,6 +682,30 @@ describe('one-time game time upgrade', () => {
     expect(c.row?.saved_game).toMatchObject({ at: 900, v: { moves: ['e2-e4'] } });
   });
 
+  it('upgrades an archived account save before the page reads or stamps it', async () => {
+    const legacy = save(['e2-e4', 'e7-e5']);
+    const record = { saved_game: { at: 900, json: stamp(store({ 'kingdown.save': legacy })).saved_game!.json } };
+    const st = store({
+      'kingdown.sync-owner': { userId: 'A', accounts: ['A', 'B'] },
+      'kingdown.save': { ...save([]), gameAt: 1000 },
+      'kingdown.local.B': [JSON.stringify(legacy), null, JSON.stringify(record)],
+    });
+    localAccess(st); // The page first loads account A in this tab.
+    const c = cloud({ saved_game: { at: 600, v: save(['d2-d4']) } }, 'B');
+    const pageTimes: unknown[] = [];
+    const sync = new Sync(st, c.remote, (_down, switched) => {
+      if (switched) {
+        pageTimes.push(time(st));
+        stamp(st); // A page write must not erase the old record time before the upgrade.
+      }
+    }, { blocked: () => false, accepts: () => true });
+    try { await sync.pull(); } finally { sync.stop(); }
+    expect(readLocal(st).saved_game).toMatchObject({ moves: legacy.moves });
+    expect(time(st)).toBe(900);
+    expect(pageTimes).toEqual([900]);
+    expect(c.row?.saved_game).toMatchObject({ at: 900, v: { moves: legacy.moves } });
+  });
+
   it.each<[string, Record<string, unknown>]>([
     ['another game', old(900, '{"moves":["d2-d4"]}')],
     ['no record', { 'kingdown.save': save(['e2-e4']) }],

@@ -79,7 +79,7 @@ export function canWriteLocal(store: LocalStore): boolean {
   } catch { return false; }
 }
 
-/** Select local data before a cloud read. A failed selection keeps this tab's writers closed. */
+/** Select and upgrade local data before a page read or sync stamp. A failed selection keeps writers closed. */
 export function selectLocal(store: LocalStore, userId: string, beforeArchive: () => void): boolean {
   const access = localAccess(store), shown = access.userId, blocked = access.blocked;
   access.blocked = true;
@@ -110,5 +110,7 @@ export function selectLocal(store: LocalStore, userId: string, beforeArchive: ()
   }
   access.userId = userId;
   access.blocked = false;
+  try { if (canWriteLocal(store)) upgradeGameTime(store); }
+  catch { /* Unreadable data keeps the time unknown. */ }
   return pending || blocked || !!owner && shown !== userId;
 }
