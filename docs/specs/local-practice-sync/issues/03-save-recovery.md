@@ -157,7 +157,7 @@ The fresh-tab browser probe finds that Home can cover the pending offer after re
 
 The fourth review of `31b72b0e` found four faults. Each fix keeps the one time store, `gameAt` in `kingdown.save`.
 
-- P1, a computer reply replaces a newer cloud game. Accepting a recovery, or a reply after start-up, gave the game the current time and removed the recovery protection with no player action. Fix: `save()` in `screen/play.ts` takes a `computer` flag from `commit()`. A computer write keeps the loaded time and the recovery value until a player change on this page sets the time (`playerTime`). After that change, normal timing applies. `account/sync.ts` needs no change, because it reads the time from the save.
+- P1, a computer reply replaces a newer cloud game. Accepting a recovery, or a reply after start-up, gave the game the current time and removed the recovery protection with no player action. Fix: `commit()` in `screen/play.ts` keeps the computer's changed state and its game before the animation starts. `save()` reads this source, also after a lesson interrupts the animation. A computer write keeps the loaded time and the recovery value until a player change on this page sets the time (`playerTime`). After that change, normal timing applies. `account/sync.ts` needs no change, because it reads the time from the save.
 - P2, a chosen game link gets the replaced game's time. Fix: `restore()` compares an opened link with the saved game, so the first write of a different link gets a new time in the same game write.
 - P2, New game and the Guide keep the `?rules=` preset after recovery. Fix: the page owns the preset and gives it through `play.preset()`. `main.ts` gives this getter to `connectGuide` and `newGameDialog`, so `endUrlGame()` clears the preset for all of them.
 - P2, Share loses a recovered game's rules. Fix: `rulesName()` in `screen/links.ts` finds the preset of the live game's rules. Share puts that name in the link. The `?rules=` URL field is not used. `main.ts` reads its presets from the same `RULE_PRESETS` list.
@@ -167,3 +167,19 @@ Red: on the old source, the focused `play.test.ts` run has 36 failures. These ar
 Tests: `play.test.ts` has the 3 R4 probes, 2 lesson-return controls, and the matrix with a computer White (11 paths × 3 URLs × 2 seats = 66 cells). `links.test.ts` checks the rule name of 2017, 2021 and current games. `verify-new-game.mjs` has the 3 browser probes.
 
 Commit: `efd3a728`. Checks, one at a time: the five-file command (`web-online-check`, `play`, `save`, `sync`, `links`) passes 338 tests, both type checks and 67 art checks. `npm run test:docs` passes 180 tests in 15 files. `npm run check:browser new-game web-game web-online visual-design` passes all 4 checks. They use a new localhost test database, which is dropped after the run. The quiet lock is absent before each run. No game rule, server, migration or dependency change. No UI text or control count changes. No push.
+
+### PR #160: lesson return during a computer move
+
+Status: resolved
+
+Plan: Add the four review cases beside the play/save tests. Keep the change source with the game before the move animation starts. Check startup and recovery with source time 0 and 500. Check that a newer cloud game stays intact. Run the five-file test command, doc tests, and the `new-game` and `web-game` browser checks. Let the hooks run unchanged, then commit and push this branch.
+
+Pass criteria: All four cases keep the source time. Recovery keeps its marker. The newer cloud game stays intact. All required checks pass.
+
+Result: The change source belongs to the game and its changed state. It does not depend on the save caller. A lesson keeps this source. A changed player state gets a new time. A loaded game clears the old source. The fix changes only the play module, its tests, and this ticket.
+
+Red: All four new cases fail on `6a8c353b`. They set time 1000000 and replace the cloud game at 600. Both recovery cases also lose the marker.
+
+Green: `KINGDOWN_TEST_FILE='{tools/web-online-check.test.ts,src/screen/{play,save,links}.test.ts,src/account/sync.test.ts}' npm test` passes 342 tests, both type checks, and 67 art checks. The four new cases keep time 0 or 500, keep recovery when present, and load the newer cloud game. `npm run test:docs` passes 180 tests in 15 files. `npm run check:browser new-game web-game` passes both checks (52.0 s and 74.5 s). The quiet lock is absent, and the check runner holds the shared browser locks. The disposable local database is dropped; a query confirms its absence.
+
+Evidence: `fix160-red.log`, `fix160-focused.log`, `fix160-docs.log`, and `fix160-browser.log` in the session scratch folder. Browser output: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/save-followup-wbWBfO`. The checks use no remote database, provider sign-in, or deploy. The five-file pass is not a full-suite pass.

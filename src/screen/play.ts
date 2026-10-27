@@ -312,7 +312,10 @@ export function connectPlay(view: BoardView, c: {
     if (viewing != null) { viewing = null; sync(pre); } // a review ends when a move is played
     const computer = lesson == null && sides[pre.turn] === 'ai';
     game.play(m);
-    if (computer) { turnStart = handOver(game); handoffAt = performance.now(); }
+    if (computer) {
+      turnStart = handOver(game); handoffAt = performance.now();
+      computerChange = { game, json: gameJSON(snapshot()) };
+    }
     notice = '';
     $('announce').textContent = describeMove(game.context, pre, m, true) + (game.inCheck && !finished() ? ' Check.' : '');
     moments.played(pre, m);
@@ -346,7 +349,7 @@ export function connectPlay(view: BoardView, c: {
       const spentNotches = coin?.querySelectorAll('.notch.is-spent');
       uiMotion.play(spentNotches?.[spentNotches.length - 1] ?? null, [{ scale: '1' }, { scale: '.9' }], 500);
     }
-    save(false, false, false, computer);
+    save();
     if (currentTurn().waits && !computer) announceTurn();
     if (ended()) { gameEnd.arm(); moments.showOver(); } else void maybeAi();
   }
@@ -818,14 +821,17 @@ export function connectPlay(view: BoardView, c: {
 
   /** `playerTime`: a player change on this page set `gameAt`. Until then a computer reply keeps the loaded time. */
   let gameAt = 0, seenAt = 0, playerTime = false;
+  /** Keep the computer's change through a cancelled animation and a lesson's separate game. */
+  let computerChange: { game: Game; json: string } | null = null;
   let liveJSON = gameJSON(snapshot());
   function loadedTime(source: Save | null): void {
     gameAt = gameTime(source);
     playerTime = false;
+    computerChange = null;
     liveJSON = gameJSON(snapshot());
   }
 
-  function save(replaceUnreadable = false, settingsOnly = lesson != null, recovered = false, computer = false): boolean {
+  function save(replaceUnreadable = false, settingsOnly = lesson != null, recovered = false): boolean {
     if (saveBlocked) return false;
     const stored = readSave();
     if (stored.unreadable && !canWrite()) { keepUnreadableSave(accountNotice); refresh(); return false; }
@@ -846,6 +852,7 @@ export function connectPlay(view: BoardView, c: {
     const next: Save = { ...(kept ?? snapshot()), ...settings.settingsNow() };
     const json = gameJSON(next);
     if (savesGame) {
+      const computer = computerChange?.game === (lessonReturn?.game ?? game) && computerChange.json === json;
       if (!recovered && (replaceUnreadable || json !== liveJSON) && (playerTime || !computer)) {
         gameAt = Math.max(Date.now(), gameAt + 1, gameTime(stored.save) + 1, seenAt + 1);
         playerTime = true;

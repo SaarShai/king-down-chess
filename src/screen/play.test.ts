@@ -1778,6 +1778,34 @@ it('R4: a computer reply at startup keeps the newer cloud game; a player move th
   await vi.advanceTimersByTimeAsync(0);
   expect(readSave().save).toMatchObject({ moves: [expect.any(String)], gameAt: 1_000_002 });
 });
+it.each([0, 500].flatMap(gameAt => [false, true].map(recovery => ({ gameAt, recovery }))))('keeps computer time $gameAt through a lesson during animation (recovery $recovery)', async ({ gameAt, recovery }) => {
+  vi.setSystemTime(1_000_000);
+  const source: Save = { ...original, moves: recovery ? ['e2-e4', 'bad'] : ['e2-e4'], black: 'ai', gameAt };
+  stored.set(SAVE_KEY, JSON.stringify(source));
+  const p = page({}, null, false, false);
+  p.play.seat(source.white, source.black); p.play.restore(source, request); p.play.refresh();
+  let release!: () => void;
+  vi.mocked(p.view.animateMove).mockReturnValueOnce(new Promise<void>(resolve => { release = resolve; }));
+  p.engine.think.mockResolvedValueOnce({ move: p.play.game().legal.find(m => m.from === 52 && m.to === 36)! });
+  if (recovery) clickAccept();
+  else { p.play.save(); void p.play.maybeAi(); }
+  await vi.advanceTimersByTimeAsync(0);
+  expect(p.play.game().history.map(h => h.lan)).toEqual(['e2-e4', 'e7-e5']);
+  expect(readSave().save?.moves).toEqual(['e2-e4']);
+  p.play.startLesson(4);
+  const button = document.getElementById('return-game')!;
+  button.onclick!.call(button, { detail: 0 } as PointerEvent);
+  release(); await vi.advanceTimersByTimeAsync(0);
+  const kept = readSave().save!;
+  expect.soft(kept.gameAt).toBe(gameAt);
+  expect.soft(kept.recovery).toBe(recovery ? gameAt : undefined);
+  expect(kept.moves).toEqual(['e2-e4', 'e7-e5']);
+  const c = cloud(), sync = new Sync(localStorage, c.remote, p.play.fromAccount, p.play.savedGames);
+  await sync.pull(); sync.stop();
+  expect((c.row.saved_game!.v as Save).moves).toEqual(newer.moves);
+  expect(readSave().save?.moves).toEqual(newer.moves);
+});
+
 it.each([undefined, 500])('R4 control: lesson return keeps game time %s', gameAt => {
   vi.setSystemTime(1_000_000);
   const source = { ...original, gameAt }; stored.set(SAVE_KEY, JSON.stringify(source));
