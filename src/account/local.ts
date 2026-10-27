@@ -1,3 +1,5 @@
+import type { Save } from '../screen/save';
+
 /** The local keys move together. Each tab keeps the owner of the data that it loads. */
 type LocalStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'length' | 'key'>;
 const LOCAL_KEYS = ['kingdown.save', 'kingdown.lessons', 'kingdown.sync'];
@@ -5,6 +7,29 @@ const OWNER = 'kingdown.sync-owner', COPIES = 'kingdown.local.';
 type LocalCopy = (string | null)[];
 type Owner = { userId: string; restore?: LocalCopy; accounts?: string[] };
 type Access = { userId: string | null; blocked: boolean };
+/** Read only the time stored with this game, never a separate sync record. */
+export function gameTime(save: { gameAt?: unknown } | null | undefined): number {
+  const at = save?.gameAt;
+  return typeof at === 'number' && Number.isFinite(at) && at >= 0 ? at : 0;
+}
+/** screen/save.ts `Save` fields of the saved game; account/sync.ts sends them as one section. */
+export const GAME = ['back', 'fen', 'moves', 'white', 'black', 'link', 'daily', 'resigned', 'rules', 'staged'] satisfies (keyof Save)[];
+export const pick = (o: Record<string, unknown>, keys: string[]) => Object.fromEntries(keys.filter(k => k in o).map(k => [k, o[k]]));
+/** JSON with sorted keys: the database reorders the keys of what it keeps. */
+export const canon = (v: unknown): string => JSON.stringify(v, (_k, x) =>
+  x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : 1))) : x);
+
+/**
+ * Before the game time moved into the save, only the sync record kept it. Take that time once, when
+ * the record holds this exact game, no recovery step and a time above 0. Else the time stays unknown.
+ */
+function upgradeGameTime(store: LocalStore): void {
+  const save = JSON.parse(store.getItem(LOCAL_KEYS[0]) ?? 'null'), record = JSON.parse(store.getItem(LOCAL_KEYS[2]) ?? 'null');
+  if (!save || typeof save !== 'object' || !Array.isArray(save.moves) || 'gameAt' in save || 'recovery' in save) return;
+  const old = record?.saved_game, at = gameTime({ gameAt: old?.at });
+  if (!at || record.recovery !== undefined || canon(pick(save, GAME)) !== old.json) return;
+  store.setItem(LOCAL_KEYS[0], JSON.stringify({ ...save, gameAt: at }));
+}
 const tabs = new WeakMap<LocalStore, Access>();
 const ownerOf = (store: LocalStore): Owner | null => JSON.parse(store.getItem(OWNER) ?? 'null');
 
@@ -39,6 +64,8 @@ export function localAccess(store: LocalStore): Access {
     tabs.set(store, access);
     try { access.userId = recover(store)?.userId ?? null; access.blocked = false; }
     catch { /* Account selection retries the restore. */ }
+    try { if (canWriteLocal(store)) upgradeGameTime(store); }
+    catch { /* Unreadable data keeps the time unknown. */ }
   }
   return access;
 }

@@ -52,6 +52,8 @@
           <div id="context-line">
             <div id="context-text" role="status" aria-live="polite" aria-atomic="true"></div>
             <div id="context-actions">
+              <button id="recover-save" type="button" aria-describedby="context-text" hidden>Use recovered game</button>
+              <button id="recovery-new-game" type="button" hidden>New game</button>
               <button id="first-lesson" hidden>Learn</button>
               <button id="all-rules" aria-label="All rules" hidden>All rules</button>
               <button id="power-use" hidden>Use</button>
@@ -273,13 +275,13 @@
         <img class="over-king over-b" src="/ui/kings/shadow-b.webp" alt="" />
       </div>
       <p id="over-words" class="over-words" hidden>King Down</p>
-      <h2 id="over-title" tabindex="-1"></h2>
+      <h2 id="over-title" tabindex="-1" autofocus></h2>
       <p id="over-detail"></p>
       <div id="over-tiles"></div>
       <button id="over-review" type="button" class="quiet">Review</button>
       <button id="share-result" type="button" hidden></button>
       <form method="dialog">
-        <button value="rematch" class="primary" autofocus>Rematch</button>
+        <button value="rematch" class="primary">Rematch</button>
         <button value="new">New game</button>
         <button value="close" class="quiet">Close</button>
       </form>

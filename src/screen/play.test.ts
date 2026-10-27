@@ -2,11 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { connectPlay } from './play';
 import { connectSettings } from './settings';
 import { defaultSetup, type Setup } from '../new-game';
-import type { Engine } from '../game';
+import { Game, type Engine } from '../game';
 import type { BoardView } from '../render/PaintedView';
 import { connectTurnPress } from '../turn-controls';
 import { gameJSON, readSave, writeSave, SAVE_KEY, type Save } from './save';
 import { stamp, Sync, type Row } from '../account/sync';
+import { changed as accountChanged } from '../account/account';
 import { toFen } from '../rules/setup';
 import { POWERS_BALANCED, RULES_2017, parseKings, type Rules } from '../rules/engine';
 import { refreshTable, renderTable } from '../ui/table';
@@ -35,13 +36,15 @@ beforeEach(() => {
   const nodes = new Map<string, object>(), node = () => ({ setAttribute: vi.fn(), appendChild: vi.fn(), close: vi.fn(), focus: vi.fn(), querySelector: () => null, style: {} });
   vi.stubGlobal('document', { hidden: false, documentElement: { dataset: { pace: 'off' } }, addEventListener: vi.fn(), removeEventListener: vi.fn(), querySelector: () => null, querySelectorAll: () => [], createElement: node, getElementById: (id: string) => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); } });
   vi.stubGlobal('window', { addEventListener: vi.fn() });
+  vi.stubGlobal('location', { href: 'http://localhost/' });
+  vi.stubGlobal('history', { replaceState: vi.fn() });
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   vi.stubGlobal('MutationObserver', class { observe() {} disconnect() {} });
   vi.stubGlobal('ResizeObserver', class { observe() {} });
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-function page(rules: Partial<Rules> = {}, fen: string | null = null, realSettings = false) {
+function page(rules: Partial<Rules> = {}, fen: string | null = null, realSettings = false, accountReady = true) {
   const view = { setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), highlight: vi.fn(), setPreview: vi.fn(), setCoords: vi.fn(), setLabels: vi.fn(), setPace: vi.fn(), animateMove: vi.fn().mockResolvedValue(undefined), skip: vi.fn() } as unknown as BoardView;
   const engine = { cancel: vi.fn(), think: vi.fn().mockResolvedValue({ move: null }) }, changed = vi.fn();
   const settings = { pace: () => 'off', threats: () => false, queen: () => true, settingsNow: () => ({ coords: true }), applySettings: vi.fn(), resetSettings: vi.fn(),
@@ -49,10 +52,11 @@ function page(rules: Partial<Rules> = {}, fen: string | null = null, realSetting
   // main.ts connects settings before it creates play. Keep the same start order here.
   const controls: ReturnType<typeof connectSettings> = realSettings ? connectSettings(view, { skill: () => play.skill(), setSkill: level => play.setSkill(level), save: () => play.saveSettings(), refresh: () => play.refresh() }) : settings;
   const openNewGame = vi.fn(), setup: Setup = { ...defaultSetup(), mode: 'two' };
-  const play = connectPlay(view, { params: new URLSearchParams(), preset: undefined, rules, withPowers: () => ({}), fen,
+  if (fen) { const url = new URL(location.href); url.searchParams.set('fen', fen); location.href = url.href; }
+  const play = connectPlay(view, { params: new URL(location.href).searchParams, preset: new URL(location.href).searchParams.has('rules') ? RULES_2017 : undefined, rules, withPowers: () => ({}), fen,
     engine: engine as unknown as Engine, guide: { fill: vi.fn() }, settings: controls,
     home: { visible: false, close: vi.fn(), refresh: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['home'],
-    keys: () => ({ cursor: () => null, say: vi.fn(), focus: vi.fn() }), account: () => ({ changed }),
+    keys: () => ({ cursor: () => null, say: vi.fn(), focus: vi.fn() }), account: () => accountReady ? ({ changed }) : null,
     setup: () => setup, openNewGame,
   });
   return { play, view, engine, changed, settings: controls, openNewGame, setup };
@@ -487,7 +491,6 @@ describe('local save recovery on the game page', () => {
   });
 
   it.each([
-    { ...original, moves: ['e2-e4', 'e7-e5', 'Qd1-d8'] },
     { ...original, back: '', fen: 'bad', moves: [] },
     { ...original, rules: { kings: null } } as unknown as Save,
   ])('keeps the current game and raw save when candidate replay fails', async save => {
@@ -1145,4 +1148,791 @@ it('keeps a remembered Strong level when a new game replaces two human seats', (
   play.newGame('RNBQKBNR');
   expect(play.sides()).toEqual(['human', 'ai']);
   expect(play.skill()).toBe('strong');
+});
+
+describe('partial save recovery', () => {
+  const partial: Save = { ...original, moves: [...original.moves, 'Qd1-d8'], resigned: 0, staged: 1 };
+  const shown = () => vi.mocked(refreshTable).mock.lastCall![0];
+  const accept = () => {
+    const button = document.getElementById('recover-save') as HTMLButtonElement;
+    expect(button.hidden).toBe(false);
+    expect(button.disabled).not.toBe(true);
+    button.onclick!.call(button, { detail: 0 } as PointerEvent);
+  };
+  const boot = (save = partial) => {
+    const raw = JSON.stringify(save);
+    stored.set(SAVE_KEY, raw);
+    const p = page(), read = readSave();
+    p.play.seat(save.white, save.black);
+    p.play.restore(read.save, { ...request, unreadable: read.unreadable });
+    p.play.refresh();
+    return { ...p, raw };
+  };
+
+  it('offers two legal actions, blocks play, and keeps the full source until acceptance', async () => {
+    const { play, view, engine, changed, raw } = boot();
+    const line = 'Rules changed. Loaded 2 of 3 actions. The next action is not legal.';
+    expect(play.game().history.map(h => h.lan)).toEqual(original.moves);
+    expect(shown().saveNotice).toBe(line);
+    expect(document.getElementById('announce')!.textContent).toBe(line);
+    expect(play.savedGames.blocked()).toBe(true);
+    expect(play.save()).toBe(false); expect(play.saveSettings()).toBe(false);
+    play.seat('ai', 'human'); await play.maybeAi();
+    view.onSquareClick(6, false); view.onSquareClick(21, false);
+    expect(engine.think).not.toHaveBeenCalled(); expect(changed).not.toHaveBeenCalled();
+    expect(stored.get(SAVE_KEY)).toBe(raw);
+    play.seat('human', 'human');
+    accept();
+    expect(play.savedGames.blocked()).toBe(false);
+    expect(play.ended()).toBe(false);
+    expect(readSave().save).toMatchObject({ moves: original.moves, resigned: null });
+    expect(readSave().save?.staged).toBeUndefined();
+    expect(document.getElementById('recover-save')!.hidden).toBe(true);
+    expect(changed).toHaveBeenCalledWith();
+    expect(document.getElementById('board')!.focus).toHaveBeenCalledWith({ preventScroll: true });
+    view.onSquareClick(6, false); view.onSquareClick(21, false);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(readSave().save?.moves).toEqual([...original.moves, 'Ng1-f3']);
+  });
+
+  it('offers the start when the first action is illegal and permits New game', () => {
+    const { play } = boot({ ...partial, moves: ['Qd1-d8'] });
+    expect(shown().saveNotice).toContain('Loaded 0 of 1 actions.');
+    expect(play.game().history).toEqual([]);
+    play.newGame('RNBQKBNR');
+    expect(play.savedGames.blocked()).toBe(false);
+    expect(document.getElementById('recover-save')!.hidden).toBe(true);
+    expect(readSave().save?.moves).toEqual([]);
+  });
+
+  it('keeps a legal pass after a partial Haste turn and drops the stale staged count', () => {
+    const rules = { ...new Game('RNBQKBNR', { ...POWERS_BALANCED, kings: parseKings('flame:haste,none') }).rules };
+    const { play } = boot({ ...partial, back: '', fen: '7k/p7/8/8/8/8/8/R5K1 w - - 0 1', rules, moves: ['Ra1-a4!H', 'bad'] });
+    expect(shown().saveNotice).toContain('Loaded 1 of 2 actions.');
+    accept();
+    expect(play.game().history.map(h => h.lan)).toEqual(['Ra1-a4!H', '--']);
+    expect(readSave().save?.staged).toBeUndefined();
+    expect(play.game().pos.turn).toBe(1);
+  });
+
+  it('keeps the offer and full source when acceptance cannot save, then retries', () => {
+    const { play, raw, changed } = boot();
+    const write = vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => { throw new Error('quota'); });
+    accept();
+    expect(stored.get(SAVE_KEY)).toBe(raw);
+    expect(play.savedGames.blocked()).toBe(true);
+    expect(changed).not.toHaveBeenCalled();
+    expect(shown().saveNotice).toContain('Changes not saved.');
+    write.mockRestore();
+    accept();
+    expect(play.savedGames.blocked()).toBe(false);
+    expect(readSave().save?.moves).toEqual(original.moves);
+  });
+
+  it('keeps a newer local game when the player accepts an old offer', () => {
+    const { play, changed } = boot();
+    const newer = JSON.stringify({ ...original, moves: ['d2-d4'] });
+    stored.set(SAVE_KEY, newer);
+    accept();
+    expect(stored.get(SAVE_KEY)).toBe(newer);
+    expect(changed).not.toHaveBeenCalled();
+    expect(play.savedGames.blocked()).toBe(true);
+    expect(document.getElementById('recover-save')!.hidden).toBe(true);
+    expect(shown().saveNotice).toContain('another tab');
+  });
+
+  it('offers a newer partial cloud copy and leaves both full sources intact', async () => {
+    const { play } = boot(original);
+    const row: Row = { saved_game: { at: 500, v: partial } }, push = vi.fn(async () => row);
+    const sync = new Sync(localStorage, { userId: 'player', pull: async () => row, push }, play.fromAccount, play.savedGames);
+    await sync.pull();
+    expect(play.game().history.map(h => h.lan)).toEqual(original.moves);
+    expect(shown().saveNotice).toContain('Loaded 2 of 3 actions.');
+    expect(readSave().save?.moves).toEqual(partial.moves);
+    expect(row.saved_game?.v).toEqual(partial);
+    expect(push).not.toHaveBeenCalled();
+    sync.stop();
+  });
+
+  it.each([false, true])('keeps a newer cloud game when recovery is accepted (seen during offer: %s)', async seen => {
+    const { play, changed } = boot(original);
+    let row: Row = { saved_game: { at: 500, v: partial } };
+    const push = vi.fn(async (sent: Row) => {
+      if (sent.saved_game && sent.saved_game.at > row.saved_game!.at) row = sent;
+      return row;
+    });
+    const sync = new Sync(localStorage, { userId: 'player', pull: async () => row, push }, play.fromAccount, play.savedGames);
+    changed.mockImplementation((...args) => Reflect.apply(sync.changed, sync, args));
+    await sync.pull();
+    const newer = { ...original, moves: ['d2-d4'] };
+    row = { saved_game: { at: 600, v: newer } };
+    if (seen) await sync.pull();
+    accept(); await sync.flush();
+    expect(row.saved_game).toEqual({ at: 600, v: newer });
+    expect(readSave().save?.moves).toEqual(newer.moves);
+    expect(play.game().history.map(h => h.lan)).toEqual(newer.moves);
+    expect(push.mock.calls.every(([sent]) => !sent.saved_game)).toBe(true);
+    sync.stop();
+  });
+
+  it.each([501, 600])('keeps a cloud change during recovery upload (%s)', async at => {
+    const { play, changed } = boot(original);
+    let row: Row = { settings: { at: 500, v: { coords: true } }, saved_game: { at: 500, v: partial } };
+    const newer = { ...original, moves: ['d2-d4'] };
+    const sync = new Sync(localStorage, {
+      userId: 'player', pull: async () => row,
+      push: async sent => {
+        row.saved_game = { at, v: newer };
+        if (sent.saved_game && sent.saved_game.at > at) row.saved_game = sent.saved_game;
+        return row;
+      },
+    }, play.fromAccount, play.savedGames);
+    changed.mockImplementation((...args) => Reflect.apply(sync.changed, sync, args));
+    await sync.pull();
+    accept(); await sync.flush();
+    expect(row.saved_game).toEqual({ at, v: newer });
+    expect(readSave().save?.moves).toEqual(newer.moves);
+    expect(play.game().history.map(h => h.lan)).toEqual(newer.moves);
+    sync.stop();
+  });
+
+
+  it('keeps a newer local game that arrives during the recovery cloud read', async () => {
+    const { play, changed } = boot(original);
+    let finish!: (row: Row) => void;
+    let reads = 0;
+    const source: Row = { saved_game: { at: 500, v: partial } };
+    const sync = new Sync(localStorage, {
+      userId: 'player', pull: async () => ++reads === 1 ? source : new Promise<Row>(resolve => { finish = resolve; }),
+      push: async sent => sent,
+    }, play.fromAccount, play.savedGames);
+    changed.mockImplementation((...args) => Reflect.apply(sync.changed, sync, args));
+    await sync.pull(); accept();
+    const sent = sync.flush();
+    await vi.advanceTimersByTimeAsync(0);
+    const newer = { ...original, moves: ['d2-d4'], gameAt: 1_000_000 };
+    stored.set(SAVE_KEY, JSON.stringify(newer));
+    stamp(localStorage);
+    finish({ saved_game: { at: 600, v: { ...original, moves: ['c2-c4'] } } });
+    await sent;
+    expect(readSave().save?.moves).toEqual(newer.moves);
+    sync.stop();
+  });
+
+  it('keeps a newer cloud copy with the same time after a reload', async () => {
+    const { play, changed } = boot(original);
+    let row: Row = { saved_game: { at: 500, v: partial } };
+    const remote = { userId: 'player', pull: async () => row, push: async (sent: Row) => sent };
+    const first = new Sync(localStorage, remote, play.fromAccount, play.savedGames);
+    changed.mockImplementation((...args) => Reflect.apply(first.changed, first, args));
+    await first.pull(); accept(); first.stop();
+    const newer = { ...original, moves: ['d2-d4'] };
+    row = { saved_game: { at: 501, v: newer } };
+    const next = new Sync(localStorage, remote, play.fromAccount, play.savedGames);
+    await next.pull();
+    expect(readSave().save?.moves).toEqual(newer.moves);
+    expect(play.game().history.map(h => h.lan)).toEqual(newer.moves);
+    next.stop();
+  });
+
+});
+
+
+describe('review recovery faults', () => {
+  const partial: Save = { ...original, moves: [...original.moves, 'Qd1-d8'], resigned: 0, staged: 1 };
+  const newer: Save = { ...original, moves: ['d2-d4'] };
+  const clickAccept = () => {
+    const button = document.getElementById('recover-save') as HTMLButtonElement;
+    expect(button.hidden).toBe(false);
+    button.onclick!.call(button, { detail: 0 } as PointerEvent);
+  };
+  function bootRecovery(accountReady = true) {
+    stored.set(SAVE_KEY, JSON.stringify({ ...partial, gameAt: 500 }));
+    const p = page({}, null, false, accountReady), read = readSave();
+    p.play.seat(partial.white, partial.black);
+    p.play.restore(read.save, { ...request, unreadable: read.unreadable });
+    p.play.refresh();
+    const stamps = stamp(localStorage, 500);
+    stamps.saved_game!.at = 500;
+    localStorage.setItem('kingdown.sync', JSON.stringify(stamps));
+    return p;
+  }
+  function cloud() {
+    let row: Row = { saved_game: { at: 600, v: newer } };
+    return {
+      get row() { return row; },
+      remote: {
+        userId: 'player', pull: async () => row,
+        push: async (sent: Row) => {
+          for (const section of ['settings', 'lessons', 'saved_game'] as const) {
+            if (sent[section] && (!row[section] || sent[section]!.at > row[section]!.at)) row[section] = sent[section];
+          }
+          return row;
+        },
+      },
+    };
+  }
+
+  it('P1: a failed recovery stamp must not replace a newer cloud game after reload', async () => {
+    vi.setSystemTime(1_000_000);
+    const { play, changed } = bootRecovery();
+    changed.mockImplementation(accountChanged);
+    const set = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = (key, value) => {
+      if (key === 'kingdown.sync') throw new Error('quota');
+      set(key, value);
+    };
+    clickAccept();
+    expect(readSave().save?.moves).toEqual(original.moves);
+    expect(JSON.parse(stored.get('kingdown.sync')!).saved_game.at).toBe(500);
+    localStorage.setItem = set;
+    // main.ts calls account.changed() once on load, with no recovery argument.
+    accountChanged();
+    const c = cloud();
+    const sync = new Sync(localStorage, c.remote, play.fromAccount, play.savedGames);
+    await sync.pull(); sync.stop();
+    expect((c.row.saved_game?.v as Save).moves).toEqual(newer.moves);
+  });
+
+  it('P1: acceptance before the account module loads must not replace a newer cloud game', async () => {
+    vi.setSystemTime(1_000_000);
+    const { play, changed } = bootRecovery(false);
+    // The actual page account getter is null until the dynamic import completes.
+    clickAccept();
+    expect(changed).not.toHaveBeenCalled();
+    accountChanged();
+    const c = cloud();
+    const sync = new Sync(localStorage, c.remote, play.fromAccount, play.savedGames);
+    await sync.pull(); sync.stop();
+    expect((c.row.saved_game?.v as Save).moves).toEqual(newer.moves);
+  });
+
+  it('control: a failed second save read keeps the full source', () => {
+    const { play } = bootRecovery();
+    const get = localStorage.getItem.bind(localStorage);
+    let reads = 0;
+    localStorage.getItem = key => {
+      if (key === SAVE_KEY && ++reads === 2) throw new Error('read blocked');
+      return get(key);
+    };
+    clickAccept();
+    localStorage.getItem = get;
+    expect(readSave().save?.moves).toEqual(partial.moves);
+    expect(play.savedGames.blocked()).toBe(true);
+  });
+
+
+  it('P2: an identical upload reply must not cancel a move in progress', async () => {
+    const { play, view, changed } = bootRecovery();
+    let row: Row = { saved_game: { at: 500, v: partial } };
+    let reply!: () => void;
+    const remote = {
+      userId: 'player', pull: async () => row,
+      push: async (sent: Row) => {
+        row = { ...row, ...sent };
+        return new Promise<Row>(resolve => { reply = () => resolve(row); });
+      },
+    };
+    const sync = new Sync(localStorage, remote, play.fromAccount, play.savedGames);
+    changed.mockImplementation((...args) => Reflect.apply(sync.changed, sync, args));
+    await sync.pull(); clickAccept();
+    const upload = sync.flush();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(reply).toBeTypeOf('function');
+    let finish!: () => void;
+    vi.mocked(view.animateMove).mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+    view.onSquareClick(6, false); view.onSquareClick(21, false);
+    expect(play.game().history.map(h => h.lan)).toEqual([...original.moves, 'Ng1-f3']);
+    reply(); await upload;
+    finish(); await vi.advanceTimersByTimeAsync(0);
+    sync.stop();
+    expect(play.game().history.map(h => h.lan)).toEqual([...original.moves, 'Ng1-f3']);
+  });
+
+  it('P2: a partial cloud save must give a recovery path on a FEN page', async () => {
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const { play } = page({}, '7k/8/8/8/8/8/8/K6R w - - 0 1');
+    play.restore(original, request); play.refresh();
+    const row: Row = { saved_game: { at: 500, v: partial } };
+    const sync = new Sync(localStorage, { userId: 'player', pull: async () => row, push: async () => row }, play.fromAccount, play.savedGames);
+    await sync.pull(); sync.stop();
+    expect(play.savedGames.blocked() && document.getElementById('recover-save')!.hidden).toBe(false);
+  });
+
+
+  it('control: a stored recovery stamp keeps the newer cloud game', async () => {
+    vi.setSystemTime(1_000_000);
+    const { play, changed } = bootRecovery();
+    changed.mockImplementation(accountChanged);
+    clickAccept();
+    accountChanged();
+    const c = cloud();
+    const sync = new Sync(localStorage, c.remote, play.fromAccount, play.savedGames);
+    await sync.pull(); sync.stop();
+    expect((c.row.saved_game?.v as Save).moves).toEqual(newer.moves);
+  });
+
+
+  it('control: partial cloud recovery leaves a lesson and saves the recovered match', async () => {
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const { play, changed } = page();
+    play.restore(original, request);
+    play.startLesson(4);
+    expect(vi.mocked(refreshTable).mock.lastCall![0].lesson).toBe(4);
+    const row: Row = { saved_game: { at: 500, v: partial } };
+    const sync = new Sync(localStorage, { userId: 'player', pull: async () => row, push: async sent => sent }, play.fromAccount, play.savedGames);
+    changed.mockImplementation((...args) => Reflect.apply(sync.changed, sync, args));
+    await sync.pull();
+    expect(vi.mocked(refreshTable).mock.lastCall![0].lesson).toBe(null);
+    expect(readSave().save?.moves).toEqual(partial.moves);
+    clickAccept(); sync.stop();
+    expect(readSave().save?.moves).toEqual(original.moves);
+    expect(play.game().history.map(h=>h.lan)).toEqual(original.moves);
+  });
+  it.each(['late account', 'failed stamp'])('round 2: startup save keeps recovery time after %s', async failure => {
+    vi.setSystemTime(1_000_000);
+    const { changed } = bootRecovery(failure === 'failed stamp');
+    const set = localStorage.setItem.bind(localStorage);
+    if (failure === 'failed stamp') {
+      changed.mockImplementation(accountChanged);
+      localStorage.setItem = (key, value) => {
+        if (key === 'kingdown.sync') throw new Error('quota');
+        set(key, value);
+      };
+    }
+    clickAccept();
+    localStorage.setItem = set;
+    expect(readSave().save?.recovery).toBe(500);
+    const loaded = readSave();
+    const { play } = page({}, null, false, false);
+    play.seat(loaded.save!.white, loaded.save!.black);
+    play.restore(loaded.save, { ...request, unreadable: loaded.unreadable });
+    play.refresh();
+    // Startup saves the restored game before its account import completes.
+    play.save();
+    accountChanged();
+    const c = cloud();
+    const sync = new Sync(localStorage, c.remote, play.fromAccount, play.savedGames);
+    await sync.pull(); sync.stop();
+    expect((c.row.saved_game?.v as Save).moves).toEqual(newer.moves);
+  });
+
+  it('round 2: unchanged saves keep recovery time and a new move clears it', async () => {
+    bootRecovery(false); clickAccept();
+    const loaded = readSave().save!;
+    const { play, view } = page({}, null, false, false);
+    play.seat(loaded.white, loaded.black); play.restore(loaded, request); play.refresh();
+    play.save(); play.saveSettings(); play.save();
+    expect(readSave().save?.recovery).toBe(500);
+    view.onSquareClick(6, false); view.onSquareClick(21, false);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(readSave().save?.moves).toEqual([...original.moves, 'Ng1-f3']);
+    expect(readSave().save?.recovery).toBeUndefined();
+  });
+
+  it('round 2: a FEN reload keeps both recovery choices', async () => {
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const fen = '7k/8/8/8/8/8/8/K6R w - - 0 1';
+    const first = page({}, fen);
+    first.play.restore(original, request); first.play.refresh();
+    const row: Row = { saved_game: { at: 500, v: partial } };
+    const sync = new Sync(localStorage, { userId: 'player', pull: async () => row, push: async () => row }, first.play.fromAccount, first.play.savedGames);
+    await sync.pull(); sync.stop();
+    expect(document.getElementById('recover-save')!.hidden).toBe(false);
+    // Restore must also find a partial save when the caller omits it on a FEN page.
+    const next = page({}, fen);
+    next.play.restore(null, request); next.play.refresh();
+    expect(stored.get(SAVE_KEY)).toContain('Qd1-d8');
+    expect(next.play.savedGames.blocked()).toBe(true);
+    expect(document.getElementById('recover-save')!.hidden).toBe(false);
+    expect(document.getElementById('recovery-new-game')!.hidden).toBe(false);
+    expect(next.play.game().history.map(h => h.lan)).toEqual(original.moves);
+  });
+
+  it('round 2: an account switch keeps the source and restores the offer', async () => {
+    const { play } = bootRecovery();
+    const a = new Sync(localStorage, { userId: 'A', pull: async () => null, push: async sent => sent }, play.fromAccount, play.savedGames);
+    await a.pull(); a.stop();
+    const b = new Sync(localStorage, { userId: 'B', pull: async () => ({ saved_game: { at: 600, v: newer } }), push: async sent => sent }, play.fromAccount, play.savedGames);
+    await b.pull(); b.stop();
+    expect(readSave().save?.moves).toEqual(newer.moves);
+    const again = new Sync(localStorage, { userId: 'A', pull: async () => ({ saved_game: { at: 500, v: partial } }), push: async sent => sent }, play.fromAccount, play.savedGames);
+    await again.pull(); again.stop();
+    expect(readSave().save?.moves).toEqual(partial.moves);
+    expect(document.getElementById('recover-save')!.hidden).toBe(false);
+  });
+
+
+  it('round 2: FEN recovery loads the winning cloud board before the next move', async () => {
+    vi.setSystemTime(1_000_000);
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const { play, view, changed } = page({}, '7k/8/8/8/8/8/8/K6R w - - 0 1');
+    play.restore(null, request); play.refresh();
+    const row: Row = { saved_game: { at: 500, v: partial } };
+    const sync = new Sync(localStorage, { userId: 'player', pull: async () => row, push: async sent => {
+      for (const section of ['settings', 'lessons', 'saved_game'] as const) {
+        if (sent[section] && (!row[section] || sent[section]!.at > row[section]!.at)) row[section] = sent[section];
+      }
+      return row;
+    } }, play.fromAccount, play.savedGames);
+    changed.mockImplementation(() => sync.changed());
+    await sync.pull();
+    row.saved_game = { at: 600, v: newer };
+    clickAccept(); await sync.flush();
+    expect(readSave().save?.moves).toEqual(newer.moves);
+    expect(play.game().history.map(h => h.lan)).toEqual(newer.moves);
+    expect(vi.mocked(history.replaceState).mock.lastCall?.[2]?.toString()).toBe('http://localhost/');
+    // The board must now be the same game. A White knight move on the old line must not overwrite it.
+    view.onSquareClick(6, false); view.onSquareClick(21, false);
+    await vi.advanceTimersByTimeAsync(0); await sync.flush(); sync.stop();
+    expect((row.saved_game.v as Save).moves).toEqual(newer.moves);
+  });
+
+
+});
+
+
+it.each([1, 2])('keeps focus and the source after recovery read failure %s', readNumber => {
+  const partial = { ...original, moves: [...original.moves, 'bad'] };
+  stored.set(SAVE_KEY, JSON.stringify(partial));
+  const { play } = page();
+  play.restore(partial, request); play.refresh();
+  const get = localStorage.getItem.bind(localStorage);
+  let reads = 0;
+  localStorage.getItem = key => {
+    if (key === SAVE_KEY && ++reads === readNumber) throw new Error('read blocked');
+    return get(key);
+  };
+  const button = document.getElementById('recover-save') as HTMLButtonElement;
+  button.onclick!.call(button, { detail: 0 } as PointerEvent);
+  localStorage.getItem = get;
+  expect(readSave().save?.moves).toEqual(partial.moves);
+  const target = document.getElementById(button.hidden ? 'menu-btn' : 'recover-save')!;
+  expect(target.focus).toHaveBeenCalled();
+  expect(play.savedGames.blocked()).toBe(true);
+});
+
+
+describe('round 3 review probes', () => {
+const partial: Save = { ...original, moves: [...original.moves, 'Qd1-d8'], resigned: 0, staged: 1 };
+const newer: Save = { ...original, moves: ['d2-d4'] };
+const clickAccept = () => {
+  const button = document.getElementById('recover-save') as HTMLButtonElement;
+  expect(button.hidden).toBe(false);
+  button.onclick!.call(button, { detail: 0 } as PointerEvent);
+};
+function bootRecovery(accountReady = true) {
+  stored.set(SAVE_KEY, JSON.stringify({ ...partial, gameAt: 500 }));
+  const p = page({}, null, false, accountReady), read = readSave();
+  p.play.seat(partial.white, partial.black);
+  p.play.restore(read.save, { ...request, unreadable: read.unreadable });
+  p.play.refresh();
+  const stamps = stamp(localStorage, 500);
+  stamps.saved_game!.at = 500;
+  localStorage.setItem('kingdown.sync', JSON.stringify(stamps));
+  return p;
+}
+function cloud() {
+  let row: Row = { saved_game: { at: 600, v: newer } };
+  return {
+    get row() { return row; },
+    remote: {
+      userId: 'player', pull: async () => row,
+      push: async (sent: Row) => {
+        for (const section of ['settings', 'lessons', 'saved_game'] as const) {
+          if (sent[section] && (!row[section] || sent[section]!.at > row[section]!.at)) row[section] = sent[section];
+        }
+        return row;
+      },
+    },
+  };
+}
+
+it.each(['late account', 'failed stamp'])('R3: unchanged reload keeps time after %s', async failure => {
+  vi.setSystemTime(1_000_000);
+  const { changed } = bootRecovery(failure === 'failed stamp');
+  const set = localStorage.setItem.bind(localStorage);
+  if (failure === 'failed stamp') {
+    changed.mockImplementation(accountChanged);
+    localStorage.setItem = (key, value) => { if (key === 'kingdown.sync') throw new Error('quota'); set(key,value); };
+  }
+  clickAccept(); localStorage.setItem = set;
+  const loaded = readSave();
+  const { play } = page({},null,false,false);
+  play.seat(loaded.save!.white, loaded.save!.black); play.restore(loaded.save,request); play.refresh();
+  play.save(); accountChanged();
+  expect(readSave().save?.recovery).toBe(500);
+  const c = cloud(); const sync = new Sync(localStorage,c.remote,play.fromAccount,play.savedGames);
+  await sync.pull(); sync.stop();
+  expect((c.row.saved_game!.v as Save).moves).toEqual(newer.moves);
+});
+
+it('R3: a FEN recovery with other URL rules keeps its offer', () => {
+  stored.set(SAVE_KEY, JSON.stringify(partial));
+  const { play } = page({ ...RULES_2017 }, '7k/8/8/8/8/8/8/K6R w - - 0 1');
+  play.restore(partial,{ ...request,urlRules:true }); play.refresh();
+  expect.soft(document.getElementById('recover-save')!.hidden).toBe(false);
+  expect.soft(play.game().history.map(h=>h.lan)).toEqual(original.moves);
+  play.save();
+  expect(readSave().save?.moves).toEqual(partial.moves);
+});
+
+it('R3: an account recovery reload with other URL rules keeps its offer', async () => {
+  stored.set(SAVE_KEY, JSON.stringify(original));
+  const first = page({ ...RULES_2017 }, '7k/8/8/8/8/8/8/K6R w - - 0 1');
+  first.play.restore(null,{...request,urlRules:true}); first.play.refresh();
+  const row:Row={ saved_game:{ at:500,v:partial }};
+  const sync=new Sync(localStorage,{userId:'player',pull:async()=>row,push:async()=>row},first.play.fromAccount,first.play.savedGames);
+  await sync.pull(); sync.stop();
+  expect(document.getElementById('recover-save')!.hidden).toBe(false);
+  const next=page({ ...RULES_2017 });
+  next.play.restore(readSave().save,{...request,urlRules:true}); next.play.refresh(); next.play.save();
+  expect.soft(document.getElementById('recover-save')!.hidden).toBe(false);
+  expect(readSave().save?.moves).toEqual(partial.moves);
+});
+
+it('R3: accepted account recovery reload with other URL rules keeps a newer cloud game', async () => {
+  vi.setSystemTime(1_000_000);
+  stored.set(SAVE_KEY,JSON.stringify(original));
+  const first=page({ ...RULES_2017 },'7k/8/8/8/8/8/8/K6R w - - 0 1');
+  first.play.restore(null,{...request,urlRules:true});first.play.refresh();
+  const row:Row={saved_game:{at:500,v:partial}};
+  const sync=new Sync(localStorage,{userId:'player',pull:async()=>row,push:async()=>row},first.play.fromAccount,first.play.savedGames);
+  await sync.pull();sync.stop();clickAccept();
+  expect(readSave().save?.recovery).toBe(500);
+  const next=page({ ...RULES_2017 });
+  next.play.restore(readSave().save,{...request,urlRules:true});next.play.refresh();next.play.save();accountChanged();
+  const c=cloud(); const fresh=new Sync(localStorage,c.remote,next.play.fromAccount,next.play.savedGames);
+  await fresh.pull();fresh.stop();
+  expect.soft(readSave().save?.moves).toEqual(newer.moves);
+  expect((c.row.saved_game!.v as Save).moves).toEqual(newer.moves);
+});
+
+it.each([false, true])('R3: partial cloud download keeps source time (stamp fails: %s)', async failStamp => {
+  vi.setSystemTime(1_000_000);
+  stored.set(SAVE_KEY,JSON.stringify(original));
+  stamp(localStorage,100);
+  const first=page(); first.play.restore(original,request);first.play.refresh();
+  const row:Row={saved_game:{at:500,v:partial}};
+  const set=localStorage.setItem.bind(localStorage);
+  localStorage.setItem=(key,value)=>{
+    if(failStamp && key==='kingdown.sync' && JSON.parse(localStorage.getItem(SAVE_KEY)!).moves.includes('Qd1-d8')) throw new Error('quota');
+    set(key,value);
+  };
+  const initial=new Sync(localStorage,{userId:'player',pull:async()=>row,push:async()=>row},first.play.fromAccount,first.play.savedGames);
+  await initial.pull();initial.stop();localStorage.setItem=set;
+  expect(readSave().save?.moves).toEqual(partial.moves);
+  expect(readSave().save?.gameAt).toBe(500);
+  const loaded=readSave(); const next=page();next.play.restore(loaded.save,request);next.play.refresh();next.play.save();accountChanged();
+  const c=cloud(); const sync=new Sync(localStorage,c.remote,next.play.fromAccount,next.play.savedGames);
+  next.changed.mockImplementation(()=>sync.changed());
+  await sync.pull();clickAccept();await sync.flush();sync.stop();
+  expect((c.row.saved_game!.v as Save).moves).toEqual(newer.moves);
+});
+
+it('R3 control: a second tab settings save keeps recovery time', async () => {
+  bootRecovery(false);clickAccept();
+  const loaded=readSave().save!;
+  const one=page(),two=page();
+  one.play.seat(loaded.white,loaded.black);two.play.seat(loaded.white,loaded.black);
+  one.play.restore(loaded,request);two.play.restore(loaded,request);
+  one.play.saveSettings();two.play.save();accountChanged();
+  expect(readSave().save?.recovery).toBe(500);
+  const c=cloud(); const sync=new Sync(localStorage,c.remote,one.play.fromAccount,one.play.savedGames);
+  await sync.pull();sync.stop();
+  expect(readSave().save?.moves).toEqual(newer.moves);
+  two.play.saveSettings();
+  expect(readSave().save?.moves).toEqual(newer.moves);
+  expect(two.play.save()).toBe(false);
+  expect(readSave().save?.moves).toEqual(newer.moves);
+});
+
+it.each([false, true])('R3: recovery cloud replacement keeps its time (stamp fails: %s)', async failStamp => {
+  vi.setSystemTime(1_000_000);
+  bootRecovery(false);clickAccept();
+  const accepted=readSave().save!;
+  const first=page();first.play.seat(accepted.white,accepted.black);first.play.restore(accepted,request);first.play.refresh();
+  const set=localStorage.setItem.bind(localStorage);
+  localStorage.setItem=(key,value)=>{
+    if(failStamp && key==='kingdown.sync' && JSON.parse(localStorage.getItem(SAVE_KEY)!).moves[0]==='d2-d4') throw new Error('quota');
+    set(key,value);
+  };
+  const c=cloud();
+  const normalized={...accepted,moves:['d2-d4'],recovery:undefined};
+  c.row.saved_game={at:600,v:normalized};
+  const sync=new Sync(localStorage,c.remote,first.play.fromAccount,first.play.savedGames);
+  await sync.pull();sync.stop();localStorage.setItem=set;
+  expect(readSave().save?.moves).toEqual(newer.moves);
+  expect(readSave().save?.gameAt).toBe(600);
+  const next=page();const loaded=readSave().save!;next.play.seat(loaded.white,loaded.black);next.play.restore(loaded,request);next.play.refresh();next.play.save();accountChanged();
+  c.row.saved_game={at:700,v:{...normalized,moves:['c2-c4']}};
+  const fresh=new Sync(localStorage,c.remote,next.play.fromAccount,next.play.savedGames);
+  await fresh.pull();fresh.stop();
+  expect((c.row.saved_game!.v as Save).moves).toEqual(['c2-c4']);
+});
+
+});
+
+describe('game time and recovery matrix', () => {
+  const paths = ['startup', 'reload', 'settings save', 'acceptance', 'failed game write', 'failed sync-record write', 'late account load', 'upload reply', 'sign-out', 'account change', 'second tab'] as const;
+  const urls = ['', '?fen=7k/8/8/8/8/8/8/K6R%20w%20-%20-%200%201', '?fen=7k/8/8/8/8/8/8/K6R%20w%20-%20-%200%201&rules=2017'];
+  const accept = () => {
+    const button = document.getElementById('recover-save')!;
+    button.onclick!.call(button, { detail: 0 } as PointerEvent);
+  };
+  const choices = () => {
+    expect(document.getElementById('recover-save')!.hidden).toBe(false);
+    expect(document.getElementById('recovery-new-game')!.hidden).toBe(false);
+  };
+  function boot() {
+    const url = new URL(location.href), read = readSave();
+    const p = page(url.searchParams.has('rules') ? { ...RULES_2017 } : {}, url.searchParams.get('fen'), false, false);
+    p.play.seat(read.save?.white, read.save?.black);
+    p.play.restore(read.save, { ...request, urlRules: url.searchParams.has('rules'), unreadable: read.unreadable });
+    p.play.refresh();
+    return p;
+  }
+  it.each(paths.flatMap(path => urls.map(url => ({ path, url }))))('$path on "$url" keeps cloud order and the choice', async ({ path, url }) => {
+    vi.setSystemTime(1_000_000);
+    location.href = 'http://localhost/' + url;
+    vi.mocked(history.replaceState).mockImplementation((_data, _unused, next) => { location.href = String(next); });
+    const source = { ...original, moves: [...original.moves, 'Qd1-d8'], gameAt: 500 };
+    stored.set(SAVE_KEY, JSON.stringify(source));
+    let p = boot(); choices();
+    let row: Row = { saved_game: { at: 500, v: source } };
+    const pushed: Row[] = [];
+    const remote = {
+      userId: 'A', pull: async () => row,
+      push: async (sent: Row) => {
+        pushed.push(sent);
+        for (const key of ['saved_game', 'settings', 'lessons'] as const) {
+          if (sent[key] && (!row[key] || sent[key]!.at > row[key]!.at)) row[key] = sent[key];
+        }
+        return row;
+      },
+    };
+    let sync = new Sync(localStorage, remote, p.play.fromAccount, p.play.savedGames);
+    if (path !== 'late account load') await sync.pull();
+    if (path === 'startup') p.play.save();
+    if (path === 'reload') { p = boot(); p.play.save(); }
+    if (path === 'settings save') p.play.saveSettings();
+    if (path === 'failed game write' || path === 'failed sync-record write') {
+      if (path === 'failed sync-record write') stored.set('kingdown.sync', '{}');
+      let failures = 0;
+      const set = localStorage.setItem.bind(localStorage);
+      localStorage.setItem = (key, value) => {
+        if (key === (path === 'failed game write' ? SAVE_KEY : 'kingdown.sync')) { failures++; throw new Error('quota'); }
+        set(key, value);
+      };
+      accept(); accountChanged();
+      localStorage.setItem = set;
+      expect(failures).toBeGreaterThan(0);
+      if (path === 'failed game write') choices();
+    }
+    if (path === 'sign-out') { sync.stop(); p.play.saveSettings(); }
+    if (path === 'account change') {
+      sync.stop();
+      const b = new Sync(localStorage, { userId: 'B', pull: async () => ({ saved_game: { at: 600, v: { ...original, moves: ['c2-c4'] } } }), push: async sent => sent }, p.play.fromAccount, p.play.savedGames);
+      await b.pull(); b.stop();
+      sync = new Sync(localStorage, remote, p.play.fromAccount, p.play.savedGames);
+      await sync.pull(); choices();
+    }
+    if (path === 'second tab') { const other = boot(); other.play.saveSettings(); other.play.save(); }
+    if (!readSave().save?.recovery) {
+      p = boot(); choices();
+      expect(readSave().save?.moves).toEqual(source.moves);
+      accept();
+    }
+    expect((readSave().save as Save & { gameAt?: number }).gameAt).toBe(500);
+    expect(readSave().save?.moves).toEqual(original.moves);
+    sync.stop();
+    if (path === 'upload reply') {
+      sync = new Sync(localStorage, remote, p.play.fromAccount, p.play.savedGames);
+      await sync.pull(); sync.stop();
+      expect(row.saved_game?.v).toMatchObject({ moves: original.moves });
+    }
+    row.saved_game = { at: 700, v: { ...original, moves: ['d2-d4'] } };
+    p = boot(); p.play.save(); p.play.saveSettings(); accountChanged();
+    sync = new Sync(localStorage, remote, p.play.fromAccount, p.play.savedGames);
+    await sync.pull(); await sync.flush(); sync.stop();
+    expect(row.saved_game).toMatchObject({ at: 700, v: { moves: ['d2-d4'] } });
+    expect(readSave().save?.moves).toEqual(['d2-d4']);
+    expect(p.play.game().history.map(h => h.lan)).toEqual(['d2-d4']);
+    expect(pushed.filter(r => r.saved_game && r.saved_game.at >= 700)).toEqual([]);
+    p.play.save(); expect((readSave().save as Save & { gameAt?: number }).gameAt).toBe(700);
+  });
+});
+
+describe('game time at the player write', () => {
+  it.each([false, true])('keeps the time of a failed player write on a later retry (new game: %s)', newGame => {
+    vi.setSystemTime(1000);
+    stored.set(SAVE_KEY, JSON.stringify({ ...original, gameAt: 500 }));
+    const { play } = page();
+    play.seat('human', 'human'); play.restore(readSave().save, request);
+    const set = vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => { throw new Error('quota'); });
+    if (newGame) play.newGame('RNBQKBNR');
+    else { play.game().playLan(['Ng1-f3']); play.save(); }
+    expect(readSave().save?.gameAt).toBe(500);
+    expect(readSave().save?.moves).toEqual(original.moves);
+    set.mockRestore(); vi.setSystemTime(2000);
+    play.saveSettings(); play.save();
+    expect(readSave().save?.gameAt).toBe(1000);
+    expect(readSave().save?.moves).toEqual(newGame ? [] : [...original.moves, 'Ng1-f3']);
+  });
+
+  it('keeps unknown time through startup normalization and ignores a future stamp of another game', async () => {
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    stored.set('kingdown.sync', JSON.stringify({ saved_game: { at: 9_000_000, json: gameJSON({ ...original, moves: ['e2-e4'] }) } }));
+    const { play } = page(); play.restore(original, request); play.save(); play.saveSettings();
+    expect(readSave().save?.gameAt).toBe(0);
+    const row: Row = { saved_game: { at: 600, v: { ...original, moves: ['d2-d4'] } } };
+    const push = vi.fn(async (_sent: Row) => row);
+    const sync = new Sync(localStorage, { userId: 'A', pull: async () => row, push }, play.fromAccount, play.savedGames);
+    await sync.pull(); sync.stop();
+    expect(readSave().save?.moves).toEqual(['d2-d4']);
+    expect(push.mock.calls.every(([sent]) => !sent.saved_game)).toBe(true);
+  });
+
+  it('writes a new move after an unreadable future cloud game in one game write', async () => {
+    vi.setSystemTime(1000);
+    stored.set(SAVE_KEY, JSON.stringify({ ...original, gameAt: 500 }));
+    const { play } = page(); play.restore(readSave().save, request);
+    const row: Row = { saved_game: { at: 9_000_000, v: { moves: 'future' } } };
+    const sync = new Sync(localStorage, { userId: 'A', pull: async () => row, push: async sent => sent }, play.fromAccount, play.savedGames);
+    await sync.pull(); sync.stop();
+    const writes = vi.spyOn(localStorage, 'setItem');
+    play.game().playLan(['Ng1-f3']); play.save();
+    const games = writes.mock.calls.filter(([key]) => key === SAVE_KEY);
+    expect(games).toHaveLength(1);
+    expect(JSON.parse(games[0][1])).toMatchObject({ gameAt: 9_000_001, moves: [...original.moves, 'Ng1-f3'] });
+    writes.mockRestore();
+  });
+
+  it('reconciles every URL game field and keeps the display fields and hash', () => {
+    location.href = 'http://localhost/?fen=old&army=old&moves=old&rules=2017&kings=frost&design=old&players=ai,ai&title=0&labels=1&think=20#kept';
+    vi.mocked(history.replaceState).mockImplementation((_data, _unused, next) => { location.href = String(next); });
+    const partial = { ...original, moves: [...original.moves, 'bad'], gameAt: 500 };
+    stored.set(SAVE_KEY, JSON.stringify(partial));
+    const { play } = page(RULES_2017, '7k/8/8/8/8/8/8/K6R w - - 0 1');
+    play.seat('ai', 'ai'); play.restore(partial, { ...request, urlRules: true }); play.refresh();
+    expect(location.href).toBe('http://localhost/?title=0&labels=1&think=20#kept');
+    expect(play.sides()).toEqual(['human', 'human']);
+    expect(document.getElementById('recover-save')!.hidden).toBe(false);
+    play.newGame('RNBQKBNR');
+    expect(play.game().rules).toEqual(new Game('RNBQKBNR').rules);
+  });
+});
+
+describe('a save from before the game time moved into the save', () => {
+  it('keeps unsent moves against an older cloud game when the old record matches', async () => {
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const record = stamp(localStorage, 900); record.saved_game!.at = 900; stored.set('kingdown.sync', JSON.stringify(record));
+    const p = page(); p.play.restore(readSave().save, request); p.play.refresh(); p.play.save();
+    let row: Row = { saved_game: { at: 600, v: { ...original, moves: ['d2-d4'] } } };
+    const sync = new Sync(localStorage, { userId: 'player', pull: async () => row, push: async sent => { row = { ...row, ...sent }; return row; } }, p.play.fromAccount, p.play.savedGames);
+    await sync.pull(); sync.stop();
+    expect(readSave().save).toMatchObject({ moves: original.moves, gameAt: 900 });
+    expect(row.saved_game).toMatchObject({ at: 900, v: { moves: original.moves } });
+    expect(p.play.game().history.map(h => h.lan)).toEqual(original.moves);
+  });
 });

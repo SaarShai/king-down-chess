@@ -39,6 +39,8 @@ export const ENABLED_WEB_OPERATIONS = new Set([
   'POST /api/games/:id/invite',
   'POST /api/invites/redeem',
   'GET /api/me/games',
+  'GET /api/friends',
+  'POST /api/invites/:id/decline',
   'GET /api/me/profile',
   'PATCH /api/me/profile',
   'POST /api/me/handle',

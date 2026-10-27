@@ -79,7 +79,7 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
   sheet.addEventListener('click', e => {
     if ((e.target as HTMLElement).closest('[data-act="delete"]')) close();
   }, true);
-  for (const id of ['rules', 'new-game', 'delete-account']) {
+  for (const id of ['rules', 'delete-account']) {
     document.getElementById(id)!.addEventListener('close', () => button.focus({ preventScroll: true }));
   }
   // Workshop loads on demand; its dialog does not exist at start-up.

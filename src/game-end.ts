@@ -62,7 +62,8 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
     document.getElementById('over-words')!.hidden = !played;
     allowRematch = true;
     dialog.showModal();
-    dialog.querySelector<HTMLButtonElement>('[value="rematch"]')!.focus({ preventScroll: true });
+    dialog.querySelector<HTMLElement>('#over-title')!.focus({ preventScroll: true });
+    dialog.scrollTop = 0;
     if (animate) {
       const game = c.game(), loser = c.resigned() ?? (game.status === 'checkmate' ? game.pos.turn : null);
       const winner = loser === null ? null : (1 - loser) as Color;

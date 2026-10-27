@@ -72,8 +72,8 @@ suite('legacy finished game results in PostgreSQL', () => {
    await admin.query("update public.profiles set handle=$2,icon='bishop' where id=$1", [b, handles[1]]);
    const open = await games[0].create(a, { kind: 'random', colour: 'black', options: { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true } });
    const token = randomBytes(32).toString('base64url');
-   await admin.query("insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,0,$4,$5::timestamptz+interval '1 day')",
-    [createHash('sha256').update(token).digest('hex'), createHash('sha256').update(randomUUID()).digest('hex'), open.game_id, a, at]);
+   await admin.query("insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,0,$4,statement_timestamp()+interval '1 day')",
+    [createHash('sha256').update(token).digest('hex'), createHash('sha256').update(randomUUID()).digest('hex'), open.game_id, a]);
    const game = await games[1].join(b, token), resign = command(game.revision, { type: 'resign' });
    await games[0].command(b, game.game_id, resign);
    const records = await Promise.all([a,b].map(actor => games[0].record(actor)));
