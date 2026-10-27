@@ -17,8 +17,8 @@ export function syncFriendInvites(entries: { game_id: string; invite_id?: string
 export const inviteText = (code: string, options: Options | null | undefined) => `Join King Down game ${code}. Rules: ${ruleNames(options)}.`;
 
 export async function sendInvite(invite: PageInvite, options: Options | null | undefined, status: HTMLElement, share = true) {
+  if (!(Date.parse(invite.expires_at) > Date.now())) { status.textContent = 'This code has expired. Start a new game to invite your friend.'; return; }
   if (invite.replaced) { status.textContent = 'This code was replaced. Open the game to make a new code.'; return; }
-  if (!(Date.parse(invite.expires_at) > Date.now())) { status.textContent = 'This code has expired. Open the game to make a new code.'; return; }
   const text = inviteText(invite.code, options);
   status.textContent = '';
   if (share && navigator.share) {

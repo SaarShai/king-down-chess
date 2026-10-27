@@ -51,7 +51,7 @@ it.each([true, false])('does not share or copy an expired code (Share: %s)', asy
   const share = vi.fn(), result = status(); vi.stubGlobal('navigator', { share });
   await sendInvite({ code: 'OLD234', expires_at: new Date(Date.now() - 1).toISOString() }, null, result, sharing);
   expect(share).not.toHaveBeenCalled(); expect(copyText).not.toHaveBeenCalled();
-  expect(result.textContent).toContain('expired');
+  expect(result.textContent).toBe('This code has expired. Start a new game to invite your friend.');
 });
 
 it.each([true, false])('blocks a retained invite action after a server read reports replacement (Share: %s)', async sharing => {
