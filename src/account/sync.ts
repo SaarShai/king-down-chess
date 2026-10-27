@@ -1,5 +1,5 @@
 import type { Save } from '../screen/save';
-import { canWriteLocal, gameTime, localAccess, selectLocal } from './local';
+import { canWriteLocal, canon, GAME, gameTime, localAccess, pick, selectLocal } from './local';
 
 /**
  * Cloud save. The game keeps its data in localStorage as before; this splits it into sections that
@@ -36,16 +36,11 @@ const SAVE = 'kingdown.save', LESSONS = 'kingdown.lessons', STAMPS = 'kingdown.s
  * would put a shared chunk in the build.
  */
 export const SETTINGS = ['skill', 'coords', 'sound', 'queen', 'pace', 'threats', 'labels'] satisfies (keyof Save)[];
-const GAME = ['back', 'fen', 'moves', 'white', 'black', 'link', 'daily', 'resigned', 'rules', 'staged'] satisfies (keyof Save)[];
 
 const parse = (raw: string | null): any => { try { return raw ? JSON.parse(raw) : null; } catch { return null; } };
-const pick = (o: Record<string, unknown>, keys: string[]) => Object.fromEntries(keys.filter(k => k in o).map(k => [k, o[k]]));
 /** A section's copy cut to the fields this version keeps, so a field it dropped (the old `think`) is no change. */
 const own = (s: Section, v: unknown): unknown =>
   s === 'lessons' || !v || typeof v !== 'object' ? v : pick(v as Record<string, unknown>, s === 'settings' ? SETTINGS : GAME);
-/** JSON with sorted keys: the database reorders the keys of what it keeps. */
-const canon = (v: unknown): string => JSON.stringify(v, (_k, x) =>
-  x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : 1))) : x);
 
 /** A cloud copy this version can use: an object, and the saved game and lessons need their lists. */
 function usable(s: Section, v: unknown): v is Record<string, unknown> {

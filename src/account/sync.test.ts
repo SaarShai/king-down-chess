@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { merge, readLocal, stamp, Sync, type Remote, type Row, type SavedGameAccess, type Section } from './sync';
 import { savedGame } from '../screen/save';
-import { gameTime } from './local';
+import { gameTime, localAccess } from './local';
 
 /** localStorage stand-in. */
 const store = (init: Record<string, unknown> = {}) => {
@@ -664,5 +664,52 @@ describe('one game record', () => {
     };
     await d.sync.flush(); d.sync.stop();
     expect(c.row?.saved_game).not.toMatchObject({ at: 700, v: { moves: ['e2-e4'] } });
+  });
+});
+
+describe('one-time game time upgrade', () => {
+  /** A save and record as the build before the game time moved into the save wrote them. */
+  const old = (at: unknown, json = stamp(store({ 'kingdown.save': save(['e2-e4']) })).saved_game!.json, extra = {}) =>
+    ({ 'kingdown.save': save(['e2-e4']), 'kingdown.sync': { saved_game: { at, json }, ...extra } });
+  const time = (st: ReturnType<typeof store>) => JSON.parse(st.getItem('kingdown.save')!).gameAt;
+
+  it('takes the old record time when it holds this game, and keeps the game against an older cloud game', async () => {
+    const c = cloud({ saved_game: { at: 600, v: save(['d2-d4']) } });
+    const d = device(old(900), c);
+    await d.sync.pull(); d.sync.stop();
+    expect(time(d.st)).toBe(900);
+    expect(readLocal(d.st).saved_game).toMatchObject({ moves: ['e2-e4'] });
+    expect(c.row?.saved_game).toMatchObject({ at: 900, v: { moves: ['e2-e4'] } });
+  });
+
+  it.each<[string, Record<string, unknown>]>([
+    ['another game', old(900, '{"moves":["d2-d4"]}')],
+    ['no record', { 'kingdown.save': save(['e2-e4']) }],
+    ['a recovery step', old(900, undefined, { recovery: 500 })],
+    ...[0, -1, '900', null, undefined].map((at): [string, Record<string, unknown>] => [`time ${at}`, old(at)]),
+  ])('keeps the time unknown with %s', (_name, data) => {
+    const st = store(data), before = st.getItem('kingdown.save');
+    localAccess(st);
+    expect(st.getItem('kingdown.save')).toBe(before);
+    expect(gameTime(JSON.parse(before!))).toBe(0);
+  });
+
+  it('writes nothing in a tab that may not write', () => {
+    const st = store(old(900));
+    st.setItem('kingdown.sync-owner', '{');
+    const before = st.getItem('kingdown.save');
+    expect(localAccess(st).blocked).toBe(true);
+    expect(st.getItem('kingdown.save')).toBe(before);
+  });
+
+  it('changes nothing on a second load', () => {
+    const st = store(old(900));
+    localAccess(st);
+    const after = st.getItem('kingdown.save');
+    expect(time(st)).toBe(900);
+    st.setItem('kingdown.sync', JSON.stringify({ saved_game: { at: 2_000, json: stamp(store({ 'kingdown.save': save(['e2-e4']) })).saved_game!.json } }));
+    const again = store(Object.fromEntries([...st.m].map(([k, v]) => [k, JSON.parse(v)])));
+    localAccess(again);
+    expect(again.getItem('kingdown.save')).toBe(after);
   });
 });
