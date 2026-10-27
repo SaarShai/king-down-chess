@@ -60,6 +60,52 @@ const mate = async () => {
   await page.locator('#over').waitFor({ state: 'visible' });
 };
 try {
+  // These input checks run before a test clock is installed.
+  for (const start of [false, true]) {
+    await stageMate('normal');
+    // Window capture records the press before the board's document capture handler.
+    await page.evaluate(() => {
+      window.menuPress = null;
+      window.addEventListener('pointerdown', e => {
+        if (!e.target.closest('#menu-btn')) return;
+        window.menuPress = { animating: window.view.scene.animating, falling: window.view.scene.falling };
+      }, { capture: true });
+    });
+    await endTurn(page);
+    await page.waitForFunction(() => window.view.scene.animating);
+    await page.locator('#menu-btn').click();
+    assert.equal(await page.evaluate(() => window.menuPress?.animating), true, 'Menu receives a press during the active final blow');
+    assert.equal(await page.locator('#menu-sheet').evaluate(d => d.open), false, 'A8: the skip press keeps Menu closed');
+    assert.equal(await page.evaluate(() => window.view.scene.animating || window.view.scene.falling), false, 'A8: the Menu press ends board motion');
+    await page.locator('#over').waitFor({ state: 'visible' });
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'over-title', 'A9: the skip opens the result with heading focus');
+    console.log('ok real-clock A8/A9 Menu press during the active final blow', await page.evaluate(() => window.menuPress));
+    await page.locator('#over [value=close]').click();
+    await page.locator('#menu-btn').click();
+    assert.equal(await page.locator('#menu-sheet').evaluate(d => d.open), true, 'Menu opens after board motion ends');
+    await page.locator('[data-go="new"]').click();
+    await page.locator('#new-game-btn').click();
+    await page.locator('#new-game').waitFor({ state: 'visible' });
+    await page.locator('#start-game').focus();
+    if (start) {
+      await page.keyboard.press('Enter');
+      await waitForUi(page, ui => ui.lan.length === 0);
+      assert.equal(await page.locator('dialog[open]').count(), 0, 'Enter starts the new game');
+    } else {
+      await page.waitForTimeout(2500); // No result may cover the sheet after the Ceremony ends.
+      assert.equal(await page.locator('dialog[open]').count(), 1, 'only New game stays open');
+      assert.equal(await page.evaluate(() => document.activeElement.id), 'start-game', 'the sheet keeps focus');
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('#new-game').evaluate(d => d.open), false, 'Escape belongs to New game');
+      await page.locator('#new-game').waitFor({state:'hidden'});
+    }
+    assert.equal(await page.locator('#over').isVisible(), false, 'the old result does not open');
+    assert.equal(await page.locator('.kd-words').count(), 0, 'the old Ceremony is cancelled');
+  }
+  console.log('ok New game keeps its keys and focus after the skip');
+
+  await page.clock.install();
+
   await mate();
   assert.equal(await page.locator('#over .ceremony-tile').count(), 3, 'three review tiles');
   assert.equal(await ceremonyWords(page).textContent(), 'King Down');
@@ -111,40 +157,18 @@ try {
   await page.locator('#over').waitFor({ state: 'visible' });
   assert.equal(await page.locator('.kd-words').count(), 0, 'the result hides the board words');
   await page.locator('#over [value=rematch]').click();
-  await page.waitForTimeout(100);
+  await page.clock.runFor(100);
   assert.deepEqual(await lanMoves(page), [], 'dialog Rematch starts the next game');
   assert.equal(await page.locator('.kd-words').count(), 0, 'Rematch clears the old end');
   assert.equal(await page.locator('#over').isVisible(), false, 'no old result opens on the new game');
   console.log('ok disabled turn button and dialog Rematch');
-
-  for (const start of [false, true]) {
-    await stageMate('normal'); await endTurn(page);
-    await page.locator('.kd-words').waitFor({ state: 'attached' });
-    await pressMenu(page, 'New game');
-    await page.locator('#start-game').focus();
-    if (start) {
-      await page.keyboard.press('Enter');
-      await waitForUi(page, ui => ui.lan.length === 0);
-      assert.equal(await page.locator('dialog[open]').count(), 0, 'Enter starts the new game');
-    } else {
-      await page.waitForTimeout(2500); // Longer than this Ceremony; no result may cover the sheet.
-      assert.equal(await page.locator('dialog[open]').count(), 1, 'only New game stays open');
-      assert.equal(await page.evaluate(() => document.activeElement.id), 'start-game', 'the sheet keeps focus');
-      await page.keyboard.press('Escape');
-      assert.equal(await page.locator('#new-game').evaluate(d => d.open), false, 'Escape belongs to New game');
-      await page.locator('#new-game').waitFor({state:'hidden'});
-    }
-    assert.equal(await page.locator('#over').isVisible(), false, 'the old result does not open');
-    assert.equal(await page.locator('.kd-words').count(), 0, 'the old Ceremony is cancelled');
-  }
-  console.log('ok New game keeps its keys and focus during the Ceremony');
 
   await stageMate('normal'); await endTurn(page);
   await page.locator('.kd-words').waitFor({ state: 'attached' });
   await pressMenu(page, 'Settings');
   await page.locator('#menu-back').focus(); await page.keyboard.press('Space');
   assert.equal(await page.locator('#menu-title').textContent(), 'Menu', 'Space works on the sheet button');
-  await page.waitForTimeout(2500); // The result waits for the sheet to close.
+  await page.clock.runFor(2500); // The result waits for the sheet to close.
   assert.equal(await page.locator('#over').isVisible(), false, 'the result waits behind Menu');
   await page.keyboard.press('Escape');
   await page.locator('#over').waitFor({ state: 'visible' });
@@ -164,7 +188,8 @@ try {
   check(await page.evaluate(() => document.querySelector('.ceremony-tiles').getAnimations({ subtree: true }).filter(a => a.playState === 'running').length), 0, 'skip shows tiles at rest');
   assert.equal((await lanMoves(page)).length, 5, 'Enter skips and does not Rematch');
   assert.equal(await page.locator('#over .ceremony-tile').count(), 3, 'skip shows the tiles');
-  assert.equal(await page.evaluate(() => document.activeElement.value), 'rematch', 'Rematch has the end focus');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'over-title', 'The result heading has the end focus');
+  assert.equal(await page.locator('#over').evaluate(dialog => dialog.scrollTop), 0, 'The result opens at the top');
   assert.equal(await page.evaluate(() => [...document.querySelectorAll('.over-king')].flatMap(k => k.getAnimations()).some(a => a.effect.getKeyframes().some(f => /rotate/.test(f.transform ?? '')))), false, 'the dialog has no second king fall');
   await minTarget(page, '#over button'); await noSidewaysScroll(page);
   await shot(page, 'ceremony-phone');
