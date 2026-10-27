@@ -52,7 +52,7 @@ export function onlineClient({ token, origin = '', fetch: send = (input, init) =
   return {
     /** A friend game comes with its invitation. */
     create: (options: CreateOptions, command_id: string = crypto.randomUUID(), signal?: AbortSignal) => call<{ view: View; invite?: InviteLink }>('POST', '/api/games', { ...options, ...(command_id && { command_id }) }, signal),
-    preview: (key: { token: string } | { code: string }, signal?: AbortSignal) => call<JoinPreview>('POST', '/api/invites/preview', key, signal),
+    preview: (key: { token: string } | { code: string } | { invite_id: string }, signal?: AbortSignal) => call<JoinPreview>('POST', '/api/invites/preview', key, signal),
     settings: (changes?: Partial<PlayerSettings>, signal?: AbortSignal) => call<{ settings: PlayerSettings; me: { handle: string | null; icon: Icon | null } }>(changes && Object.keys(changes).length ? 'PATCH' : 'GET', '/api/me/settings', changes && Object.keys(changes).length ? changes : undefined, signal),
     handle: (input: { handle: string; icon?: Icon; check?: boolean }, signal?: AbortSignal) => call<{ me: { handle: string | null; icon: Icon | null }; available?: boolean }>('POST', '/api/me/handle', input, signal),
     record: (cursor: { before?: string; blocks_after?: string; notices_before?: string } = {}, signal?: AbortSignal) => call<{ handle: string | null; icon: Icon | null; record: PlayerRecord; blocks: { user_id: string; handle: string | null }[]; history: HistoryEntry[]; next_before: string | null; next_blocks_after: string | null } & AccountNotices>('GET', '/api/me/record' + (Object.keys(cursor).length ? '?' + new URLSearchParams(cursor) : ''), undefined, signal),
@@ -75,7 +75,7 @@ export function onlineClient({ token, origin = '', fetch: send = (input, init) =
     },
     /** A new invitation; the old one ends. */
     invite: (gameId: string, signal?: AbortSignal) => call<InviteLink>('POST', `/api/games/${encodeURIComponent(gameId)}/invite`, undefined, signal),
-    redeem: (key: { token: string } | { code: string }, signal?: AbortSignal) => call<View>('POST', '/api/invites/redeem', key, signal),
+    redeem: (key: { token: string } | { code: string } | { invite_id: string }, signal?: AbortSignal) => call<View>('POST', '/api/invites/redeem', key, signal),
     /** Your active games: your turn first, then the nearest deadline. */
     games: (signal?: AbortSignal) => call<InboxEntry[]>('GET', '/api/me/games', undefined, signal),
     profile: () => call<MyProfile>('GET', '/api/me/profile'),

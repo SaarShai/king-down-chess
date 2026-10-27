@@ -13,6 +13,14 @@ function storage() {
 const args = { game_id: '11111111-1111-4111-8111-111111111111', command_id: 'fixed', expected_revision: 5, actions: ['Ra1-a4!H', 'Ra4-e4'] };
 const view = { game_id: args.game_id, revision: 6 } as View;
 
+it.each([false, true])('passes invitation IDs through web Join (preview: %s)', async preview => {
+  const invite_id = 'a'.repeat(64), read = vi.fn(async () => ({ code: '', invite_id })), redeem = vi.fn(async () => view);
+  const transport = createWebTransport({ preview: read, redeem } as unknown as OnlineClient, 'account-a', storage());
+  const result = await transport.call('kingdown_join', { invite_id, preview }, {});
+  expect(preview ? read : redeem).toHaveBeenCalledExactlyOnceWith({ invite_id }, undefined);
+  expect(result._meta).toEqual(preview ? { preview: { code: '', invite_id } } : { view, board_id: view.game_id });
+});
+
 it('persists the full command before sending, then retries the exact input after a lost reply and reload', async () => {
   const saved = storage();
   const command = vi.fn(async () => {

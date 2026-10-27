@@ -78,6 +78,27 @@ async function mounted() {
   return app;
 }
 
+it.each(['board', 'chat'])('keeps the invitation from %s Create before friend screen entry', async source => {
+  const app = await mounted(), { friendInvites } = await import('./invite');
+  const invite = { token: 'private-token', code: 'ABC234', invite_id: 'a'.repeat(64), expires_at: new Date(Date.now() + 60_000).toISOString() };
+  const waiting = { ...await waitingGame(), kind: 'friend', invite_id: invite.invite_id, invite } as View;
+  const created = { content: [], structuredContent: { screen: 'board', game_id: waiting.game_id }, _meta: { view: waiting, invite, board_id: 'board-a' } };
+  const tiles = vi.spyOn(document.getElementById('friend-code')!, 'replaceChildren');
+  transport.call.mockClear();
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_create' ? created : name === 'kingdown_get'
+    ? { content: [], _meta: { view: { ...waiting, invite: undefined } } } : name === 'kingdown_invite'
+      ? { isError: true, content: [{ type: 'text', text: 'Too many invitation requests.' }], _meta: { code: 'RATE_LIMITED' } }
+      : { content: [], _meta: { games: [] } });
+  if (source === 'board') await app.send('kingdown_create', { kind: 'friend', command_id: 'create-once' }, { retain: true });
+  else transport.instance.ontoolresult(created);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(friendInvites.get(waiting.game_id)).toEqual(invite);
+  expect(app.client.state.screen).toBe('friend');
+  expect(tiles.mock.calls.at(-1)).toEqual([...invite.code].map(textContent => expect.objectContaining({ textContent })));
+  expect(document.getElementById('friend-actions')!.hidden).toBe(false);
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_invite')).toHaveLength(0);
+});
+
 it.each(['FRIEND_GAME_LIMIT', 'FRIEND_INVITE_LIMIT', 'OPEN_INVITE_LIMIT', 'NOT_ALLOWED'])('clears the pending start after a definitive %s', async code => {
   const app = await mounted();
   (window as any).openai.pendingScope = 'account';

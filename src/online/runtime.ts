@@ -54,7 +54,10 @@ export function createWebTransport(api: OnlineClient, userId: string, storage: P
         case 'kingdown_settings': reply = result(await api.settings(args as Partial<PlayerSettings>, options.signal)); break;
         case 'kingdown_handle': { const value = await api.handle(args as { handle: string; icon?: Icon; check?: boolean }, options.signal); reply = result({ me: value.me }, args.check ? { available: value.available } : undefined); break; }
         case 'kingdown_profile': reply = result(await api.record(args as { before?: string; blocks_after?: string; notices_before?: string }, options.signal)); break;
-        case 'kingdown_join': reply = args.preview ? result({ preview: await api.preview(inviteKey(String(args.code)), options.signal) }, { screen: 'join' }) : gameResult(await api.redeem(inviteKey(String(args.code)), options.signal)); break;
+        case 'kingdown_join': {
+          const key = typeof args.invite_id === 'string' ? { invite_id: args.invite_id } : inviteKey(String(args.code));
+          reply = args.preview ? result({ preview: await api.preview(key, options.signal) }, { screen: 'join' }) : gameResult(await api.redeem(key, options.signal)); break;
+        }
         case 'kingdown_invite': reply = result({}, await api.invite(game, options.signal)); break;
         case 'kingdown_seen': await api.seen(game, options.signal); reply = result(); break;
         case 'kingdown_lobby': reply = result({ lobby: await api.lobby(options.signal) }); break;

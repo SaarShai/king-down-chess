@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from '../../match/setup';
-import type { View } from '../../match/protocol';
+import type { JoinPreview, View } from '../../match/protocol';
 
 const runtime = vi.hoisted(() => ({
   motionResult: vi.fn(), closed: false, call: vi.fn(), send: vi.fn(), clientCall: vi.fn(), navigate: vi.fn(), renderRows: vi.fn(), routeView: vi.fn(),
   client: { state: { screen: 'wait', sheet: undefined as string | undefined, pending: undefined }, save: vi.fn() },
-  memory: { view: undefined as View | undefined, games: [] as any[], settings: undefined as any, me: undefined },
+  memory: { view: undefined as View | undefined, games: [] as any[], settings: undefined as any, me: undefined,
+    code: '', preview: undefined as JoinPreview | undefined, joinError: undefined },
   board: { ready: vi.fn(), setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), setPreview: vi.fn(), screenOf: () => ({ x: 0, y: 0 }), onSquareClick: () => {}, onDragSelect: () => {}, onSquareHover: () => {} },
 }));
 vi.mock('../../account-game/runtime', () => ({
@@ -28,7 +29,7 @@ let removed = false;
 function node(): any {
   return { dataset: {}, style: {}, innerHTML: '', textContent: '', disabled: false, hidden: false, open: false,
     classList: { add() {}, remove() {}, contains: () => false, toggle() {} }, getAttribute: () => null,
-    setAttribute() {}, removeAttribute() {}, append() {}, prepend() {}, replaceChildren() {}, replaceWith() {}, remove() {}, insertBefore() {},
+    setAttribute() {}, removeAttribute() {}, addEventListener() {}, removeEventListener() {}, append() {}, prepend() {}, replaceChildren() {}, replaceWith() {}, remove() {}, insertBefore() {},
     show() { this.open = true; }, close() { this.open = false; }, focus: vi.fn(),
     querySelector: () => node(), querySelectorAll: () => [], getBoundingClientRect: () => ({ left: 0, top: 0, width: 960 }),
     firstElementChild: { style: {} }, childElementCount: 1,
@@ -44,6 +45,7 @@ beforeEach(() => {
   runtime.send.mockReset().mockImplementation(async (name: string, args: Record<string, unknown>) => ({ status: 'done', result: await runtime.clientCall(name, args) }));
   runtime.closed = false; runtime.client.state.screen = 'wait'; runtime.client.state.sheet = undefined;
   runtime.memory.view = undefined; runtime.memory.games = []; runtime.memory.settings = undefined;
+  runtime.memory.code = ''; runtime.memory.preview = undefined; runtime.memory.joinError = undefined;
   runtime.board.ready.mockReturnValue(new Promise(() => {}));
   listeners.clear(); observers.length = 0; nodes.clear(); removed = false;
   const add = (name: string, fn: EventListener, options?: AddEventListenerOptions) => {
@@ -67,6 +69,19 @@ it('stops registered screen work once and removes the shared page listeners', as
   onStop(stop); expect(listeners.get('pagehide')?.size).toBe(1); expect(listeners.get('message')?.size).toBe(1);
   stopAll(); stopAll();
   expect(stop).toHaveBeenCalledOnce(); expect(listeners.get('pagehide')?.size).toBe(0); expect(listeners.get('message')?.size).toBe(0);
+});
+
+it.each(['', 'ABC234'])('joins a preview with code "%s" through its available key', async code => {
+  const { joinScreen } = await import('./join'), invite_id = 'a'.repeat(64);
+  runtime.client.state.screen = 'join'; runtime.memory.code = code;
+  runtime.memory.preview = { code, invite_id, options: null, colour: 'black', kind: 'friend', creator: { handle: 'rowan', icon: null }, expires_at: 'soon' };
+  runtime.send.mockResolvedValueOnce({ status: 'done', result: { content: [] }, view: { game_id: 'joined' } });
+  joinScreen();
+  expect(lookup('join-confirm').hidden).toBe(false);
+  lookup('join-confirm').onclick(); await vi.advanceTimersByTimeAsync(0);
+  expect(runtime.send).toHaveBeenCalledExactlyOnceWith('kingdown_join', code ? { code } : { invite_id });
+  expect(runtime.routeView).toHaveBeenCalledWith({ game_id: 'joined' });
+  expect(runtime.memory.preview).toBeUndefined();
 });
 
 it('stops the wait clock and observer before the account DOM is removed', async () => {
