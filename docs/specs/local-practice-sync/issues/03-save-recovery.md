@@ -24,7 +24,7 @@ The save reader returns the legal part and keeps the full source. The page notic
 - P2: A newer partial cloud save on a plain `?fen=` page now opens the legal part and both recovery choices.
 - P3: Native dialog close restores the opener. The late close handler moves focus only when BODY has focus. Acceptance and a new game focus the board. Cancel restores the recovery New game button. A failed read focuses Menu or the visible recovery button.
 
-Every local game carries `gameAt` in the same `kingdown.save` write as its data. Sync reads the game and its time together. It never infers game time from a changed JSON string or from `kingdown.sync`. A missing or invalid time is unknown (0), never newer than an existing cloud game. Only a player change advances local time. Startup, settings, recovery acceptance, and retries keep it. A downloaded or confirmed cloud game carries the server time. Recovery keeps its source time; its existing one-step upload proposal stays bounded by that source and rechecks the cloud. Recovery owns `fen`, `army`, `moves`, `rules`, `kings`, `design`, and `players` through one function. It clears both the live parameters and browser URL, and clears the live FEN and rule preset. Display fields, unrelated fields, and the hash stay. A pending recovery offer takes priority over Home and the title, including a fresh tab. Tests enforce both invariants. No game rule, server, migration, or dependency change is made.
+Every local game carries `gameAt` in the same `kingdown.save` write as its data. Sync reads the game and its time together. It never infers game time from a changed JSON string or from `kingdown.sync`, except the one-time upgrade of an old save. A missing or invalid time is unknown (0), never newer than an existing cloud game. Only a player change advances local time. Startup, settings, recovery acceptance, and retries keep it. A downloaded or confirmed cloud game carries the server time. Recovery keeps its source time; its existing one-step upload proposal stays bounded by that source and rechecks the cloud. Recovery owns `fen`, `army`, `moves`, `rules`, `kings`, `design`, and `players` through one function. It clears both the live parameters and browser URL, and clears the live FEN and rule preset. Display fields, unrelated fields, and the hash stay. A pending recovery offer takes priority over Home and the title, including a fresh tab. Tests enforce both invariants. No game rule, server, migration, or dependency change is made.
 
 ## Red evidence
 
@@ -93,7 +93,7 @@ Round 2 logs: `recovery3-*.log` in the task output folder. Browser evidence: `/v
 
 ## Root repair plan
 
-The owner requests two invariants. I1: the game and its time share one stored record and one write. Only a player change gets a new local time. A missing time is unknown and cannot beat a cloud game. I2: recovery owns all URL game fields. Reload keeps both choices until the player selects one.
+The owner requests two invariants. I1: the game and its time share one stored record and one write. Only a player change gets a new local time. A missing time is unknown and cannot beat a cloud game, except the one-time upgrade of an old save. I2: recovery owns all URL game fields. Reload keeps both choices until the player selects one.
 
 1. Move all round 3 probes into the page tests. Keep the round 2 probes and controls. Run them before the fix.
 2. Store the time in every game write. Remove time inference from sync. Keep the time through startup, normalization, settings, recovery, and failed writes. Keep the equal-reply and focus behavior.
@@ -152,3 +152,34 @@ The fresh-tab browser probe finds that Home can cover the pending offer after re
 - Fix: `upgradeGameTime()` in `account/local.ts` runs once per tab, in the first `localAccess()` call. This is before the page or the account sync reads the game time. It runs only when `canWriteLocal()` is true. When the save has no `gameAt` and no `recovery`, and the record's `saved_game.json` equals the save's game (the same `canon` and `pick` as `stamp()`), it writes the record's `at` into the save as `gameAt` in one write. The record must have no `recovery` value, and `at` must be a finite number above 0. Otherwise the time stays unknown. A record time of 0 already means unknown, so it causes no write. `canon`, `pick` and `GAME` move from `account/sync.ts` to `account/local.ts`, so both use one copy.
 - Red: the ported review probe A4 (`play.test.ts`, "keeps unsent moves against an older cloud game when the old record matches") fails before the fix: the local game becomes `d2-d4` at 600. Green: it passes after the fix; the save keeps `e2-e4 e7-e5` at 900 and the cloud gets it. `sync.test.ts` adds cases for another game, no record, a recovery value, time 0, four invalid times, a tab that may not write, and a second load. The page test with a future record of the same game now uses a record of another game, because the same game now takes the record time. With the write gate removed, the gate case fails.
 - Checks, one at a time: the four-file command (`web-online-check`, `play`, `save`, `sync` tests) passes 282 tests, both type checks and 67 art checks. `npm run test:docs` passes 180 tests in 15 files. `npm run check:browser web-online new-game` passes both checks (98.6 s and 38.5 s) with a new localhost database from `make-test-db.mjs` and `plugin:db:init-test`; the database is dropped after the check. The quiet lock is absent before each run. No game rule, server, migration or dependency changes. No push.
+
+## Round 4 review faults
+
+The fourth review of `31b72b0e` found four faults. Each fix keeps the one time store, `gameAt` in `kingdown.save`.
+
+- P1, a computer reply replaces a newer cloud game. Accepting a recovery, or a reply after start-up, gave the game the current time and removed the recovery protection with no player action. Fix: `commit()` in `screen/play.ts` keeps the computer's changed state and its game before the animation starts. `save()` reads this source, also after a lesson interrupts the animation. A computer write keeps the loaded time and the recovery value until a player change on this page sets the time (`playerTime`). After that change, normal timing applies. `account/sync.ts` needs no change, because it reads the time from the save.
+- P2, a chosen game link gets the replaced game's time. Fix: `restore()` compares an opened link with the saved game, so the first write of a different link gets a new time in the same game write.
+- P2, New game and the Guide keep the `?rules=` preset after recovery. Fix: the page owns the preset and gives it through `play.preset()`. `main.ts` gives this getter to `connectGuide` and `newGameDialog`, so `endUrlGame()` clears the preset for all of them.
+- P2, Share loses a recovered game's rules. Fix: `rulesName()` in `screen/links.ts` finds the preset of the live game's rules. Share puts that name in the link. The `?rules=` URL field is not used. `main.ts` reads its presets from the same `RULE_PRESETS` list.
+
+Red: on the old source, the focused `play.test.ts` run has 36 failures. These are the 3 ported R4 unit probes and the 33 new computer-seat matrix cells (`gameAt` 1000000, expected 500). The 33 human-seat cells and the 2 lesson-return controls pass. On the old source, `check:browser new-game` fails three times, one fix at a time. First, a chosen link keeps time 500. With the link fix, New game shows `Freeze (2 per game)` for a game with 1 use. With the preset fix, the shared link has no `rules`. Green: all of them pass with the full fix.
+
+Tests: `play.test.ts` has the 3 R4 probes, 2 lesson-return controls, and the matrix with a computer White (11 paths × 3 URLs × 2 seats = 66 cells). `links.test.ts` checks the rule name of 2017, 2021 and current games. `verify-new-game.mjs` has the 3 browser probes.
+
+Commit: `efd3a728`. Checks, one at a time: the five-file command (`web-online-check`, `play`, `save`, `sync`, `links`) passes 338 tests, both type checks and 67 art checks. `npm run test:docs` passes 180 tests in 15 files. `npm run check:browser new-game web-game web-online visual-design` passes all 4 checks. They use a new localhost test database, which is dropped after the run. The quiet lock is absent before each run. No game rule, server, migration or dependency change. No UI text or control count changes. No push.
+
+### PR #160: lesson return during a computer move
+
+Status: resolved
+
+Plan: Add the four review cases beside the play/save tests. Keep the change source with the game before the move animation starts. Check startup and recovery with source time 0 and 500. Check that a newer cloud game stays intact. Run the five-file test command, doc tests, and the `new-game` and `web-game` browser checks. Let the hooks run unchanged, then commit and push this branch.
+
+Pass criteria: All four cases keep the source time. Recovery keeps its marker. The newer cloud game stays intact. All required checks pass.
+
+Result: The change source belongs to the game and its changed state. It does not depend on the save caller. A lesson keeps this source. A changed player state gets a new time. A loaded game clears the old source. The fix changes only the play module, its tests, and this ticket.
+
+Red: All four new cases fail on `6a8c353b`. They set time 1000000 and replace the cloud game at 600. Both recovery cases also lose the marker.
+
+Green: `KINGDOWN_TEST_FILE='{tools/web-online-check.test.ts,src/screen/{play,save,links}.test.ts,src/account/sync.test.ts}' npm test` passes 342 tests, both type checks, and 67 art checks. The four new cases keep time 0 or 500, keep recovery when present, and load the newer cloud game. `npm run test:docs` passes 180 tests in 15 files. `npm run check:browser new-game web-game` passes both checks (52.0 s and 74.5 s). The quiet lock is absent, and the check runner holds the shared browser locks. The disposable local database is dropped; a query confirms its absence.
+
+Evidence: `fix160-red.log`, `fix160-focused.log`, `fix160-docs.log`, and `fix160-browser.log` in the session scratch folder. Browser output: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/save-followup-wbWBfO`. The checks use no remote database, provider sign-in, or deploy. The five-file pass is not a full-suite pass.

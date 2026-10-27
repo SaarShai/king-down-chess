@@ -79,8 +79,8 @@ export const pieceText = (t: PieceType, context: GameRules = new GameRules()): s
 };
 
 /** The Guide button; `fill` writes the Guide for the position on the board (after a rules change). */
-export function connectGuide(c: { shownPos(): Position; context(): GameRules; preset?: Partial<Rules> }) {
-  const fill = (): void => fillPieceGuide(c.shownPos(), c.context(), c.preset);
+export function connectGuide(c: { shownPos(): Position; context(): GameRules; preset?(): Partial<Rules> | undefined }) {
+  const fill = (): void => fillPieceGuide(c.shownPos(), c.context(), c.preset?.());
   $('rules-btn').onclick = () => {
     refreshLessonShelf();
     fill();
