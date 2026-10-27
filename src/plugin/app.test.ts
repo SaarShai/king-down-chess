@@ -78,6 +78,15 @@ async function mounted() {
   return app;
 }
 
+it.each(['FRIEND_GAME_LIMIT', 'FRIEND_INVITE_LIMIT', 'OPEN_INVITE_LIMIT', 'NOT_ALLOWED'])('clears the pending start after a definitive %s', async code => {
+  const app = await mounted();
+  (window as any).openai.pendingScope = 'account';
+  transport.call.mockResolvedValue({ isError: true, content: [{ type: 'text', text: 'Limit reached.' }], _meta: { code, message: 'Finish a game or cancel an invitation.' } });
+  await app.start('friend');
+  expect.soft(app.client.state.pending).toBeUndefined();
+  expect(app.gameActionsBlocked()).toBe(false);
+});
+
 it.each(['normal', 'fast', 'off'])('A8: ignores the removed device animation choice %s', async pace => {
   vi.stubGlobal('localStorage', { getItem: () => pace });
   await mounted();

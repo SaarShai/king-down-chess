@@ -60,11 +60,13 @@ export type Job = {
 /** A selection or a start: a newer chat result detaches it at once (design §2). */
 export const DETACHABLE = ['kingdown_open', 'kingdown_resume', 'kingdown_join', 'kingdown_accept', 'kingdown_find', 'kingdown_create'];
 
+const INVITE_LIMITS = ['FRIEND_GAME_LIMIT', 'FRIEND_INVITE_LIMIT', 'OPEN_INVITE_LIMIT'];
 /** The definitive refusals; every other error is `failed` (design §2 outcome map). */
-export const REFUSALS = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'NOT_ALLOWED', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE', 'RATE_LIMITED', 'RANKED_UNAVAILABLE'];
+export const REFUSALS = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'NOT_ALLOWED', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE', 'RATE_LIMITED', 'RANKED_UNAVAILABLE', ...INVITE_LIMITS];
 
 export const EMPTY: ToolResult = { content: [] };
-export const resultText = (result: ToolResult) => result.isError && typeof result._meta?.message === 'string' ? result._meta.message : result.content.filter(part => part.type === 'text').map(part => part.text ?? '').join(' ');
+// Only invitation limits need private text. Other refusals keep the board's own words.
+export const resultText = (result: ToolResult) => result.isError && INVITE_LIMITS.includes(resultCode(result)) && typeof result._meta?.message === 'string' ? result._meta.message : result.content.filter(part => part.type === 'text').map(part => part.text ?? '').join(' ');
 /** The code of a refusal or a failure (HANDLE_NEEDED is a failure with a code, design §2). */
 export const resultCode = (result: ToolResult) => String(result._meta?.code ?? '');
 

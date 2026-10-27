@@ -248,10 +248,16 @@ describe('the command queue', () => {
 describe('board result text', () => {
   it('reads the full private error notice', () => {
     const message = 'You have 5 games with rowan. Finish one to accept this invitation.';
-    expect(resultText({ isError: true, content: [{ type: 'text', text: 'The game limit is reached. See the board for details.' }], _meta: { message } })).toBe(message);
+    expect(resultText({ isError: true, content: [{ type: 'text', text: 'The game limit is reached. See the board for details.' }], _meta: { code: 'FRIEND_GAME_LIMIT', message } })).toBe(message);
   });
   it.each([undefined, null, 5, {}])('reads public text when the private notice is not a string: %s', message => {
-    expect(resultText({ isError: true, content: [{ type: 'text', text: 'Retry.' }, { type: 'image' }, { type: 'text', text: 'Reload.' }], _meta: { message } })).toBe('Retry. Reload.');
+    expect(resultText({ isError: true, content: [{ type: 'text', text: 'Retry.' }, { type: 'image' }, { type: 'text', text: 'Reload.' }], _meta: { code: 'FRIEND_GAME_LIMIT', message } })).toBe('Retry. Reload.');
+  });
+  it.each([
+    ['INVALID_MOVE', 'This move is not available. Choose another move.', 'This move is no longer available. Reload and choose a move.'],
+    ['STALE_REVISION', 'Your opponent moved. Check the board.', 'Reload the game and retry.'],
+  ])('keeps the board text for %s', (code, text, message) => {
+    expect(resultText({ isError: true, content: [{ type: 'text', text }], _meta: { code, message } })).toBe(text);
   });
   it('keeps the public text of a successful result', () => {
     expect(resultText({ content: [{ type: 'text', text: 'Game ready.' }], _meta: { message: 'Private data.' } })).toBe('Game ready.');

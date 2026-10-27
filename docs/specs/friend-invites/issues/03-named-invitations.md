@@ -217,3 +217,26 @@ Commits: `cc8be0cd` fixes and regression cases; `9ef1ee955` source merge; the fi
 Logs: `/tmp/friend3-red.log`, `/tmp/friend3-end-red.log`, `/tmp/friend3-schema-red.log`, `/tmp/friend3-schema-green.log`, `/tmp/friend3-init-final.log`, `/tmp/friend3-friends-final1.log`, `/tmp/friend3-friends-final2.log`, `/tmp/friend3-api-tools-jobs-final.log`, `/tmp/friend3-phases-final.log`, `/tmp/friend3-old-delete-race.log`, `/tmp/friend3-board-notice.log`, `/tmp/friend3-docs-final.log`, `/tmp/friend3-browsers.log`.
 Browser proof: `friend-invites-JbWYvA` under the system `kingdown-check-runs` folder.
 No full suite, remote database write, push or deploy runs. Large-table production timing is not measured.
+
+## Round 3 repair plan
+
+1. Add red tests for named invitation joins and rotation by old writers, pending limit refusals, and board error text.
+2. Keep named recipients and expiry safe in the database. Keep each migration phase repeatable and old open invitations usable.
+3. Run the required local database, phase, tool, document and browser checks one at a time. Run the board-input file three times. Compare the source branch if its fault repeats.
+4. Fetch and merge `origin/staging/first-game` before the last commit. Record counts and commits. Do not push.
+
+Pass criteria: new regression tests fail before the fix and pass after it. Old joins and rotation cannot open named invitations to another account. Limit refusals clear the pending command. Board move and conflict text stay correct. The quiet lock blocks all browser runs.
+
+## Round 3 repair results
+
+- Named rollback: the old server joins without a recipient check. Its rotation deletes the named row and inserts an open link. The database now refuses a wrong `used_by`, a recipient change and an expiry extension. A deferred delete check requires a replacement with the same recipient and no later expiry. This keeps both server paths intact. It also permits account cleanup and game deletion. Five repo cases are red before the guard. All 59 invitation cases pass after it.
+- Pending limits: all three friend-limit codes are definitive refusals. The runtime probe is now in `src/plugin/app.test.ts`. Its three limit cases are red before the list change. They pass after it and leave account actions available. The `NOT_ALLOWED` control also passes.
+- Board text: the round 2 reader uses `_meta.message` for every error. This overrides the board text for a stale or invalid move. Only the three invitation limits now use private text. Two queue cases are red before the fix. The full limit notice and both board sentences pass after it.
+- The rotation fixture shortens expiry by one millisecond before it adds one microsecond. It still checks exact database precision without extending a named invitation.
+- The old service and store match `38f8aefa` apart from import and export paths. The phase probe starts from a fresh local 0021 database. All 14 phases run twice, with old join, retry, abort, expiry, rotation and deletion writes between phases. Two whole repeats pass. All 11 invitation constraints validate; no index is invalid.
+- The six rollback probe cases pass. A refused stranger join leaves the game waiting and the seat empty. A named recipient can join and retry. Old rotation fails at commit and keeps the old token, recipient and expiry. Game-end writes and deletion still pass.
+
+Release: pause daily jobs and drain daily requests; apply the invitation schema and both invitation triggers; apply the game-end trigger; backfill; build indexes; attach and validate constraints; install deletion cleanup and grants; deploy; drain old requests; resume daily jobs.
+Rollback: pause and drain daily requests; keep migration 0022 and all three triggers; route to the old server. Keep daily jobs off until the new server is restored and all old requests finish. The [release guide](../../../../supabase/README.md#friend-invitations-0022) gives the commands.
+
+Local databases: `kingdown_friend156r4_test` and `kingdown_friend156r4phase_test` on `127.0.0.1:55432`. The repo helper creates both.

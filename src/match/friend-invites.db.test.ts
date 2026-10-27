@@ -35,6 +35,41 @@ suite('friend invitation transactions', () => {
   await admin.query('update public.game_invites set used_by=$2,used_at=$3 where token_hash=$1', [sent.invite_id, users[1], new Date()]);
   expect(await rows('select state,closed_at=used_at as closed from public.game_invites')).toEqual([{ state: 'accepted', closed: true }]);
  });
+ it('refuses the exact old join statement for a named invitation and a stranger', async () => {
+  const sent = await send();
+  await expect(admin.query('update public.game_invites set used_by=$2,used_at=$3 where token_hash=$1', [sent.invite_id, users[2], new Date()])).rejects.toMatchObject({ code: '23514' });
+  expect(await rows('select state,used_by from public.game_invites where game_id=$1', [sent.game_id])).toEqual([{ state: 'open', used_by: null }]);
+  await admin.query('update public.game_invites set used_by=$2,used_at=$3 where token_hash=$1', [sent.invite_id, users[1], new Date()]);
+  expect(await rows('select state,used_by,closed_at=used_at as closed from public.game_invites where game_id=$1', [sent.game_id])).toEqual([{ state: 'accepted', used_by: users[1], closed: true }]);
+ });
+ it.each(['clear recipient', 'change recipient', 'extend expiry', 'old rotation'])('refuses a named invitation change: %s', async action => {
+  const sent = await send();
+  const before = await rows('select * from public.game_invites where game_id=$1', [sent.game_id]);
+  const sql = action === 'clear recipient' ? 'update public.game_invites set recipient_id=null where game_id=$1'
+   : action === 'change recipient' ? 'update public.game_invites set recipient_id=$2 where game_id=$1'
+   : action === 'extend expiry' ? "update public.game_invites set expires_at=expires_at+interval '1 day' where game_id=$1"
+   // Old rotation deletes the named row before it inserts an open link.
+   : 'delete from public.game_invites where game_id=$1';
+  const write = async () => {
+   if (action !== 'old rotation') return admin.query(sql, action === 'change recipient' ? [sent.game_id, users[2]] : [sent.game_id]);
+   const client = await pools[0].connect();
+   try {
+    await client.query('begin');
+    await client.query('select id from public.games where id=$1 for update', [sent.game_id]);
+    await client.query(sql, [sent.game_id]);
+    await client.query('insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,$4,$5,$6)',
+     [before[0].token_hash, before[0].code_hash, sent.game_id, 1, users[0], before[0].expires_at]);
+    await client.query('commit');
+   } finally { await client.query('rollback'); client.release(); }
+  };
+  await expect(write()).rejects.toMatchObject({ code: '23514' });
+  expect(await rows('select * from public.game_invites where game_id=$1', [sent.game_id])).toEqual(before);
+ });
+ it.each([0, 1])('permits account deletion to remove a named invitation: account %s', async account => {
+  const sent = await send();
+  await admin.query('delete from auth.users where id=$1', [users[account]]);
+  expect(await rows('select * from public.game_invites where game_id=$1', [sent.game_id])).toEqual([]);
+ });
  it('keeps the creator account when an old join holds the game before deletion', async () => {
   const sent = await open();
   await admin.query("insert into public.account_deletions(user_id,requested_at,run_after) values($1,now()-interval '8 days',now()-interval '1 day')", [users[0]]);
@@ -217,8 +252,8 @@ suite('friend invitation transactions', () => {
   expect((await rows('select user_id from public.game_players where game_id=$1 and seat=1', [sent.game_id]))[0].user_id).toBeNull();
  });
  it('keeps the recipient and expiry on rotation; reads keep the identity', async () => {
-  const sent = await send(), expires = sent.invite!.expires_at;
-  await admin.query("update public.game_invites set expires_at=date_trunc('milliseconds',expires_at)+interval '1 microsecond' where game_id=$1", [sent.game_id]);
+  const sent = await send(), expires = new Date(Date.parse(sent.invite!.expires_at) - 1).toISOString();
+  await admin.query("update public.game_invites set expires_at=date_trunc('milliseconds',expires_at)-interval '1 millisecond'+interval '1 microsecond' where game_id=$1", [sent.game_id]);
   const exactExpiry = (await rows('select expires_at::text as at from public.game_invites where game_id=$1', [sent.game_id]))[0].at;
   expect((await services[0].view(users[0], sent.game_id)).invite_id).toBe(sent.invite_id);
   expect((await services[0].invitations(users[1])).invitations[0]).toMatchObject({ invite_id: sent.invite_id, direction: 'incoming', player: { handle: 'mira' } });
@@ -381,7 +416,7 @@ suite('friend invitation transactions', () => {
   await services[0].invite(users[0], terminal.game_id); await abort(terminal);
   const sql = await readFile(new URL('../../supabase/migrations/0022_friend_invites.sql', import.meta.url), 'utf8');
   await admin.query('delete from auth.users where id=$1', [users[1]]);
-  await admin.query('drop trigger if exists game_invites_old_join on public.game_invites; drop trigger if exists game_invites_game_end on public.games');
+  await admin.query('drop trigger if exists game_invites_named_delete on public.game_invites; drop trigger if exists game_invites_old_join on public.game_invites; drop trigger if exists game_invites_game_end on public.games');
   await admin.query('alter table public.game_invites drop column recipient_id cascade, drop column state cascade, drop column closed_at cascade; alter table public.game_invites drop constraint game_invites_one_game');
   // Deletion removes a named row. Recreate an old accepted row whose used_by is already null.
   await admin.query("insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at,used_at) values($1,$2,$3,1,$4,now()+interval '1 day',now())", ['a'.repeat(64), 'b'.repeat(64), sent.game_id, users[0]]);
@@ -429,7 +464,7 @@ suite('friend invitation transactions', () => {
   const phases = sql.split(/^-- migrate:next\s*$/m);
   const seed = await services[0].create(users[0], { kind: 'friend', options: DEFAULT_OPTIONS });
   const template = await services[0].store.load(seed.game_id);
-  await admin.query('drop trigger if exists game_invites_game_end on public.games; drop trigger if exists game_invites_old_join on public.game_invites');
+  await admin.query('drop trigger if exists game_invites_game_end on public.games; drop trigger if exists game_invites_named_delete on public.game_invites; drop trigger if exists game_invites_old_join on public.game_invites');
   await admin.query('alter table public.game_invites drop column recipient_id cascade, drop column state cascade, drop column closed_at cascade; alter table public.game_invites drop constraint game_invites_one_game');
   await admin.query(await readFile(new URL('../../supabase/migrations/0020_deletion_utc.sql', import.meta.url), 'utf8'));
   const writes = async (hasState: boolean, closesEnds: boolean) => {

@@ -6,10 +6,31 @@ alter table public.game_invites add column if not exists recipient_id uuid;
 alter table public.game_invites add column if not exists state text not null default 'open';
 alter table public.game_invites add column if not exists closed_at timestamptz;
 
--- The old server writes only used_by and used_at until the new release is active.
+-- Keep named invitations safe if the old server serves a rollback.
 create or replace function public.game_invites_old_join() returns trigger
-language plpgsql set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $$
 begin
+  if tg_op='DELETE' then
+    -- Check replacement at commit: both servers rotate with delete and insert.
+    if old.recipient_id is not null
+      and exists(select from public.games where id=old.game_id and status='waiting')
+      and exists(select from auth.users where id=old.created_by)
+      and exists(select from auth.users where id=old.recipient_id)
+      and not exists(select from public.game_invites where game_id=old.game_id
+        and recipient_id=old.recipient_id and expires_at<=old.expires_at) then
+      raise exception 'Cannot replace a named invitation.' using errcode='23514';
+    end if;
+    return old;
+  end if;
+  if tg_op='UPDATE' and old.recipient_id is not null then
+    if new.recipient_id is distinct from old.recipient_id or new.expires_at>old.expires_at then
+      raise exception 'Cannot change the recipient or extend a named invitation.' using errcode='23514';
+    end if;
+  end if;
+  if new.recipient_id is not null and new.used_by is not null and new.used_by<>new.recipient_id then
+    raise exception 'Only the named recipient can join this invitation.' using errcode='23514';
+  end if;
+  -- The old join writes only used_by and used_at.
   if new.used_at is not null and new.state='open' then
     new.state := 'accepted';
     new.closed_at := new.used_at;
@@ -20,6 +41,9 @@ revoke all on function public.game_invites_old_join() from public;
 drop trigger if exists game_invites_old_join on public.game_invites;
 create trigger game_invites_old_join before insert or update on public.game_invites
   for each row execute function public.game_invites_old_join();
+drop trigger if exists game_invites_named_delete on public.game_invites;
+create constraint trigger game_invites_named_delete after delete on public.game_invites
+  deferrable initially deferred for each row execute function public.game_invites_old_join();
 commit;
 
 -- migrate:next
