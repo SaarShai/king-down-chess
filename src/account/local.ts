@@ -24,7 +24,11 @@ export const canon = (v: unknown): string => JSON.stringify(v, (_k, x) =>
  * the record holds this exact game, no recovery step and a time above 0. Else the time stays unknown.
  */
 function upgradeGameTime(store: LocalStore): void {
-  const save = JSON.parse(store.getItem(LOCAL_KEYS[0]) ?? 'null'), record = JSON.parse(store.getItem(LOCAL_KEYS[2]) ?? 'null');
+  let save, record;
+  try {
+    save = JSON.parse(store.getItem(LOCAL_KEYS[0]) ?? 'null');
+    record = JSON.parse(store.getItem(LOCAL_KEYS[2]) ?? 'null');
+  } catch { return; } // Unreadable data keeps the time unknown; a failed write must close writers.
   if (!save || typeof save !== 'object' || !Array.isArray(save.moves) || 'gameAt' in save || 'recovery' in save) return;
   const old = record?.saved_game, at = gameTime({ gameAt: old?.at });
   if (!at || record.recovery !== undefined || canon(pick(save, GAME)) !== old.json) return;
@@ -56,16 +60,17 @@ function recover(store: LocalStore): Owner | null {
   return owner;
 }
 
-/** Capture once per tab, before its game or lesson list loads. A failed restore keeps writes closed. */
+/** Capture once per tab, before its game or lesson list loads. A failed restore or time write keeps writes closed. */
 export function localAccess(store: LocalStore): Access {
   let access = tabs.get(store);
   if (!access) {
     access = { userId: null, blocked: true };
     tabs.set(store, access);
-    try { access.userId = recover(store)?.userId ?? null; access.blocked = false; }
-    catch { /* Account selection retries the restore. */ }
-    try { if (canWriteLocal(store)) upgradeGameTime(store); }
-    catch { /* Unreadable data keeps the time unknown. */ }
+    try {
+      access.userId = recover(store)?.userId ?? null;
+      upgradeGameTime(store);
+      access.blocked = false;
+    } catch { /* Account selection retries the restore or time write. */ }
   }
   return access;
 }
@@ -86,6 +91,7 @@ export function selectLocal(store: LocalStore, userId: string, beforeArchive: ()
   const pending = !!ownerOf(store)?.restore;
   const owner = recover(store);
   if (owner && owner.userId !== userId) {
+    upgradeGameTime(store); // Retry a failed startup time write before the archive stamp.
     beforeArchive();
     store.setItem(COPIES + owner.userId, JSON.stringify(LOCAL_KEYS.map(key => store.getItem(key))));
     // Unknown or changed copies stay. Only confirmed copies count toward the limit.
@@ -108,9 +114,8 @@ export function selectLocal(store: LocalStore, userId: string, beforeArchive: ()
   } else if (!owner) {
     store.setItem(OWNER, JSON.stringify({ userId })); // Only the first account imports anonymous play.
   }
+  upgradeGameTime(store);
   access.userId = userId;
   access.blocked = false;
-  try { if (canWriteLocal(store)) upgradeGameTime(store); }
-  catch { /* Unreadable data keeps the time unknown. */ }
   return pending || blocked || !!owner && shown !== userId;
 }
