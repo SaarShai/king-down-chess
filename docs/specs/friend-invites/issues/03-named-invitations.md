@@ -240,3 +240,27 @@ Release: pause daily jobs and drain daily requests; apply the invitation schema 
 Rollback: pause and drain daily requests; keep migration 0022 and all three triggers; route to the old server. Keep daily jobs off until the new server is restored and all old requests finish. The [release guide](../../../../supabase/README.md#friend-invitations-0022) gives the commands.
 
 Local databases: `kingdown_friend156r4_test` and `kingdown_friend156r4phase_test` on `127.0.0.1:55432`. The repo helper creates both.
+
+## Round 3 final checks
+
+All requested fixes pass. The source merge is `1e11d434`, from `origin/staging/first-game` at `686dfd23`. The final fetch succeeds and the final merge check reports already up to date. No conflict occurs.
+
+Use `PLUGIN_TEST_DATABASE_URL=postgresql://kingdown_test@127.0.0.1:55432/kingdown_friend156r4_test` for database checks.
+
+- `npm run plugin:db:init-test`: all 22 migrations pass twice. The phase database starts from 0021 through the same helper code.
+- `KINGDOWN_TEST_FILE=src/match/friend-invites.db.test.ts npm test`: 59 passes. The five new refusal cases first fail. Both account-deletion controls pass before and after the guard.
+- `KINGDOWN_TEST_FILE='{src/plugin/server.db.test.ts,src/plugin/server.test.ts,src/plugin/queue.test.ts,src/api/http.test.ts,src/api/http.db.test.ts,src/online/jobs.db.test.ts}' npm test`: 186 passes in six files after the source merge.
+- The same selection plus `src/plugin/app.test.ts` passes 318 cases. This includes all four pending-start cases. The three new limit cases first fail.
+- `PLAYABLE_BROWSER=chrome KINGDOWN_TEST_FILE='{tools/plugin-races.test.ts,tools/plugin-journeys.test.ts}' npm test`: 49 passes. Both CI failures pass. Two new queue text cases first fail, then pass.
+- `KINGDOWN_TEST_FILE=tools/plugin-board-input.test.ts npm test`, three runs: 45 passes each, with no name filter. File times are 64.83 s, 68.74 s and 64.11 s. F-008 passes each time. It does not repeat, so no base run or board change is needed.
+- Each green `npm test` above also passes both type checks and 67 artwork cases.
+- Phase probe: all 14 phases pass twice with old-service writes between phases. Two whole repeats pass. All 11 invitation constraints validate; no index is invalid. All six old-server rollback cases pass after the last phase.
+- `npm run test:docs`: 180 passes in 15 files after the final ticket edit.
+- `PLAYABLE_BROWSER=chrome npm run check:browser plugin-privacy web-online account plugin-ui-http`: privacy, online play and account pass in 9.1 s, 98.0 s and 55.7 s. The HTTP check times out on a profile click. An unchanged repeat with the test lock reaches the whole-check limit. The power log shows 550 s and 902 s of sleep during those two failed runs.
+- `PLAYABLE_BROWSER=chrome caffeinate -disu bash tools/test-lock.sh npm run check:browser plugin-ui-http`: passes in 308.0 s. The same assertions and 480 s limit run. All four required browser checks now have a pass. The local check guide records the temporary wake assertion and the sleep-log check. No product or test-limit change is made for these timeouts.
+
+Commands run one at a time. The quiet lock is absent at each browser start. The shared browser scheduler delays the first HTTP check. Browser proof folders are `friend-invites-a51oB3`, `friend-invites-vcRsss` and `friend-invites-VlW7PH` under the system `kingdown-check-runs` folder.
+Logs use `/tmp/friend4-*.log`. The output folder also holds these logs and the phase and rollback probes. The original review probes stay unchanged.
+
+Commits: `ccaf4cb6` fixes and tests; `1e11d434` source merge; this final evidence commit records the checks and local wake rule. Hooks run unchanged. No hook input changes.
+No full suite, production-size timing check, remote database write, push or deploy runs. The local test cluster stays up.
