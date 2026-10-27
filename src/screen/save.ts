@@ -13,6 +13,8 @@ export interface Save {
   daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; skill?: SkillName; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean; labels?: true;
   /** The last plies of `moves` that are staged, not handed over (web-redesign spec §4.8); written only when more than 0. */
   staged?: number;
+  /** The game's time travels with its data. Missing means unknown, older than the cloud. */
+  gameAt?: number;
   /** Local recovery source time. Store it with the accepted game; never send it to the account. */
   recovery?: number;
 }
@@ -31,7 +33,7 @@ export interface SaveRead { save: Save | null; unreadable: boolean; raw?: string
 /** Compare only game fields; settings and JSON key order can change without changing the game. */
 export function gameJSON(s: Save | null): string {
   const game: Partial<Save> | null = s ? { ...s } : null;
-  if (game) { for (const k of SETTINGS) delete game[k]; delete game.recovery; }
+  if (game) { for (const k of SETTINGS) delete game[k]; delete game.recovery; delete game.gameAt; }
   return JSON.stringify(game, (_k, v) => v && typeof v === 'object' && !Array.isArray(v)
     ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a < b ? -1 : 1)) : v);
 }
@@ -78,13 +80,9 @@ export function savedGame(value: unknown): Game {
 }
 
 /** Writes the autosave; false means the caller must keep its unsaved-data notice. */
-export function writeSave(s: Save, recovered = false): boolean {
+export function writeSave(s: Save): boolean {
   try {
     if (!canWriteLocal(localStorage)) return false;
-    if (recovered) {
-      const at = JSON.parse(localStorage.getItem('kingdown.sync') ?? 'null')?.saved_game?.at;
-      s = { ...s, recovery: typeof at === 'number' && Number.isFinite(at) && at >= 0 ? at : 0 };
-    }
     localStorage.setItem(SAVE_KEY, JSON.stringify(s));
     return true;
   } catch { return false; }

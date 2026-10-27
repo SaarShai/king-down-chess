@@ -163,8 +163,8 @@ if (urlPlayers?.length === 2 && urlPlayers.every(isSide)) play.seat(urlPlayers[0
  */
 const TITLE_SEEN = 'kingdown.title-seen';
 const titleSeen = (): boolean => { try { return sessionStorage.getItem(TITLE_SEEN) === '1'; } catch { return false; } };
-const showHome = !link && shouldShowHome(params, { hasSave: !!saved, titleSeen: titleSeen(), firstVisit: firstVisit(saved?.moves.length ?? 0) });
-const showTitle = !showHome && !link && !params.has('fen') && !params.has('army') && !params.has('design') && params.get('title') !== '0' && !titleSeen();
+const showHome = !localSave.partial && !link && shouldShowHome(params, { hasSave: !!saved, titleSeen: titleSeen(), firstVisit: firstVisit(saved?.moves.length ?? 0) });
+const showTitle = !localSave.partial && !showHome && !link && !params.has('fen') && !params.has('army') && !params.has('design') && params.get('title') !== '0' && !titleSeen();
 const titleClosed = showTitle ? openTitle(firstVisit(saved?.moves.length ?? 0), !!saved?.moves.length, () => settings.pace()) : Promise.resolve('continue' as const);
 
 if (params.get('labels') === '1') settings.showLabels(); // `?labels=1` turns the letters on over the saved choice

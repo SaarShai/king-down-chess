@@ -24,7 +24,7 @@ The save reader returns the legal part and keeps the full source. The page notic
 - P2: A newer partial cloud save on a plain `?fen=` page now opens the legal part and both recovery choices.
 - P3: Native dialog close restores the opener. The late close handler moves focus only when BODY has focus. Acceptance and a new game focus the board. Cancel restores the recovery New game button. A failed read focuses Menu or the visible recovery button.
 
-The recovery source time must share the accepted game's write. It must not depend on an account callback or a second write. An unchanged startup save must keep that time until the game changes or the cloud confirms it. A recovery offer takes priority over a plain FEN position. An opened account game ends that FEN override in both the page state and URL. The save and sync tests enforce this rule. No game rule, server, migration, dependency, or save-version change is made.
+Every local game carries `gameAt` in the same `kingdown.save` write as its data. Sync reads the game and its time together. It never infers game time from a changed JSON string or from `kingdown.sync`. A missing or invalid time is unknown (0), never newer than an existing cloud game. Only a player change advances local time. Startup, settings, recovery acceptance, and retries keep it. A downloaded or confirmed cloud game carries the server time. Recovery keeps its source time; its existing one-step upload proposal stays bounded by that source and rechecks the cloud. Recovery owns `fen`, `army`, `moves`, `rules`, `kings`, `design`, and `players` through one function. It clears both the live parameters and browser URL, and clears the live FEN and rule preset. Display fields, unrelated fields, and the hash stay. A pending recovery offer takes priority over Home and the title, including a fresh tab. Tests enforce both invariants. No game rule, server, migration, or dependency change is made.
 
 ## Red evidence
 
@@ -89,3 +89,57 @@ No live account or screen reader test runs. Browser checks test live-region attr
 The round 2 repair changes only the page, startup selection, tests, browser check, and this ticket. The equal-upload reply and focus code stay unchanged. No game rule, server, migration, or dependency changes. No full suite or live-account test runs for this repair. No push or deploy runs.
 
 Round 2 logs: `recovery3-*.log` in the task output folder. Browser evidence: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/save-recovery-9ivxwk/`.
+
+
+## Root repair plan
+
+The owner requests two invariants. I1: the game and its time share one stored record and one write. Only a player change gets a new local time. A missing time is unknown and cannot beat a cloud game. I2: recovery owns all URL game fields. Reload keeps both choices until the player selects one.
+
+1. Move all round 3 probes into the page tests. Keep the round 2 probes and controls. Run them before the fix.
+2. Store the time in every game write. Remove time inference from sync. Keep the time through startup, normalization, settings, recovery, and failed writes. Keep the equal-reply and focus behavior.
+3. Use one function to end URL game overrides on recovery and account load. Check both choices on reload.
+4. Test 11 write paths on 3 page forms: 33 cells. Check cloud order and the recovery choice in each cell. Add the browser probes to the New game check.
+5. Fetch and merge the requested base. Run the three-file tests, docs, and three browser checks in order. Check the quiet lock before browsers. Commit without a push.
+
+### Write-path inventory
+
+- `screen/play.ts`: move and turn completion, undo, resign, New game/rematch, startup, settings, lesson return and retry, and recovery acceptance all call `save()` then `writeSave()`.
+- `screen/save.ts`: `writeSave()` writes `kingdown.save` once. It writes the game and `gameAt` together. It does not read the sync record. Missing time in an old save stays unknown.
+- `account/sync.ts`: `writeLocal()` writes cloud settings and games, including partial downloads and equal upload replies. A game write includes the cloud time; a settings write keeps the game time. `stamp()` reads game time from that record. `changed()` no longer sets it. `take()` gives the cloud time to `writeLocal()`. Pull, flush, late account load, and upload replies reach these paths.
+- `account/local.ts`: account selection archives and restores the whole raw save; interrupted selection replays the stored copy. Sign-out keeps the copy. A second tab uses the same keys and owner gate.
+- `account/account.ts`: startup, page hide, network return, focus, storage events, and sign-in select, stamp, pull, or flush. They do not write game data directly.
+
+### URL-field inventory
+
+- Game fields: `fen`, `army`, `moves`, `rules`, `kings`, `design`, `players`. They set the position, moves, rules, custom piece, or seats. Recovery must clear them in the live parameters and browser URL.
+- `think` sets the search limit; `labels` sets a display choice. Neither overrides saved game data. `title`, `look`, account fields, unrelated fields, and the hash do not set game data and stay.
+
+Verification requires each review failure to turn green, all 33 matrix cells to pass, and the requested commands to pass one at a time. No rule, server, migration, dependency, focus, or equal-reply behavior change is planned.
+
+
+### Root repair evidence
+
+- Round 3 red: 5 failures, 5 passes, 105 skips in the page tests. Both source-time faults and all 3 URL faults fail before the fix.
+- Matrix red: all 33 cells fail before the fix. Matrix green: all 33 pass. Each cell checks both choices before acceptance, source retention, unchanged acceptance time, and the newer cloud game after reload and sync. The failure cells check that the injected write error occurs.
+- Additional red: 6 failures for unknown or invalid times and a second-tab write between the upload's time and data reads. The upload now uses one captured record. Unknown time cannot win against cloud time 0.
+- The 13 round 2 unit probes remain in `play.test.ts` and `sync.test.ts`. All 10 round 3 unit probes are now in `play.test.ts`. Both rounds' browser probes are in `verify-new-game.mjs`, including Back/Forward, hash retention, rules after acceptance, and a shared-link control.
+- The first complete green run passes 227 tests in the required 3 files, both type checks, and 67 art checks. This includes the 33 matrix cells and all review probes. Added storage checks cover the one game-and-time write and a failed write.
+- The repair also stops account selection from giving an empty placeholder a player time. A failed player write retains its first time on retry. An unreadable future cloud copy supplies a bound to the next player write; sync no longer makes a second game-time write.
+- `git fetch origin` confirms the requested base at `686dfd23`. The merge has no conflicts. Final checks follow the merge.
+
+
+### Root repair final checks
+
+- Merge commit: `4d6bc3ca`, with `origin/staging/first-game` at `686dfd23`.
+- Required focused command after the merge: 230 passes in 3 files. Both type checks and all 67 art checks pass. All 10 round 3 probes, all retained round 2 probes, and all 33 matrix cells pass.
+- `npm run test:docs`: 180 passes in 15 files. The final ticket check also passes.
+- `npm run check:browser new-game visual-design web-game`: build and all 3 checks pass. Times: 38.7, 22.9, and 69.5 seconds. New game reports 29 case groups; visual design reports 14.
+- Recovery checks cover 3 screen sizes and the round 2 and round 3 browser probes. Focus and equal-upload reply tests still pass.
+- The quiet lock is absent before the browser command. All commands run one at a time. The repo locks remain in use. Web game uses a separate localhost database, which is removed after the check.
+- `git diff --check` passes. The fix changes the page, startup recovery gate, local storage time reader, sync, tests, browser checks, and this ticket. No game rule, server, migration, or dependency changes.
+- No full suite, live account, physical second device, or screen reader test runs for this repair. No push, deploy, or sign-in runs. The commit hook runs without changes or input overrides.
+
+Logs: `recovery4-*.log` in the task output folder. Browser evidence: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/save-recovery-2PkPof/`.
+
+
+The fresh-tab browser probe finds that Home can cover the pending offer after reload. Red: the New game browser check fails with `Home cannot cover a pending recovery`. Startup now gives a partial save priority over Home and the title. The offer closes either screen if a partial cloud game arrives later. The browser probe checks both zero and two legal actions without the title-seen flag. Green: both fresh-tab cases pass. The final 230 tests, 180 doc tests, and all 3 browser checks pass after this change.

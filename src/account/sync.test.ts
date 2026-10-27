@@ -1,12 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { merge, readLocal, stamp, Sync, type Remote, type Row, type SavedGameAccess, type Section } from './sync';
 import { savedGame } from '../screen/save';
+import { gameTime } from './local';
 
 /** localStorage stand-in. */
 const store = (init: Record<string, unknown> = {}) => {
   const m = new Map(Object.entries(init).map(([k, v]) => [k, JSON.stringify(v)]));
   return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k), key: (i: number) => [...m.keys()][i] ?? null, get length() { return m.size; }, m };
 };
+/** Simulate a player change with the same game-and-time write as the page. */
+function change(st: ReturnType<typeof store>, value: object, seenAt = 0): void {
+  let prior = null;
+  try { prior = JSON.parse(st.getItem('kingdown.save') ?? 'null'); } catch { /* New game replaces unreadable data. */ }
+  const gameAt = Math.max(Date.now(), gameTime(prior) + 1, seenAt + 1);
+  st.setItem('kingdown.save', JSON.stringify({ ...value, gameAt }));
+}
 /** The database keeps jsonb with its keys in its own order: reverse them to be sure order never matters. */
 const reorder = (v: unknown): unknown => Array.isArray(v) ? v.map(reorder)
   : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).reverse().map(([k, x]) => [k, reorder(x)])) : v;
@@ -52,7 +60,7 @@ describe('F1 account ownership', () => {
     d.st.getItem = key => {
       const raw = get(key);
       // The second save read checks the cloud copy. The other tab writes after that read.
-      if (key === 'kingdown.save' && ++reads === 2) tab2.setItem(key, JSON.stringify(save(['e2-e4', 'e7-e5'])));
+      if (key === 'kingdown.save' && ++reads === 2) change(tab2, save(['e2-e4', 'e7-e5']));
       return raw;
     };
     const push = vi.fn(async (_row: Row): Promise<Row> => { throw new Error('offline'); });
@@ -64,7 +72,7 @@ describe('F1 account ownership', () => {
     for (const userId of ['B', 'C', 'D', 'E']) {
       const next = new Sync(d.st, cloud(null, userId).remote, () => {}, { blocked: () => false, accepts: () => true });
       await next.pull();
-      d.st.setItem('kingdown.save', JSON.stringify(save(['d2-d4'])));
+      change(d.st, save(['d2-d4']));
       next.changed(); await next.flush(); next.stop();
     }
     const returned = new Sync(d.st, a.remote, () => {}, { blocked: () => false, accepts: () => true });
@@ -78,7 +86,7 @@ describe('F1 account ownership', () => {
     for (const userId of ['A', 'B', 'C', 'D', 'E']) {
       const c = cloud(null, userId), sync = new Sync(st, c.remote, () => {}, { blocked: () => false, accepts: () => true });
       await sync.pull();
-      st.setItem('kingdown.save', JSON.stringify(save([userId === 'D' ? 'd2-d4' : 'e2-e4'])));
+      change(st, save([userId === 'D' ? 'd2-d4' : 'e2-e4']));
       sync.changed(); await sync.flush(); sync.stop();
     }
     expect([...st.m.keys()].filter(key => key.startsWith('kingdown.local.')).length).toBeLessThanOrEqual(8);
@@ -99,7 +107,7 @@ describe('F1 account ownership', () => {
     if (state === 'no receipt') a.remote.push = async () => null;
     await d.sync.pull();
     if (state === 'signed out') d.sync.stop();
-    d.st.setItem('kingdown.save', JSON.stringify(save(['e2-e4', 'e7-e5'])));
+    change(d.st, save(['e2-e4', 'e7-e5']));
     d.st.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer', 'Guard'] }));
     if (state === 'failed sync') {
       a.fail = 1; d.sync.changed(); await d.sync.flush();
@@ -138,7 +146,7 @@ describe('F1 account ownership', () => {
     await d.sync.pull();
     d.sync.stop();
     // Sign-out keeps the game; play while signed out still belongs to A.
-    d.st.setItem('kingdown.save', JSON.stringify(save(['e2-e4', 'e7-e5'])));
+    change(d.st, save(['e2-e4', 'e7-e5']));
     stamp(d.st);
     const kept = ['kingdown.save', 'kingdown.lessons'].map(k => d.st.getItem(k));
     const times = stamp(d.st);
@@ -216,7 +224,7 @@ describe('saved-game validation before cloud writes', () => {
     expect(d.applied).toEqual([]);
     expect(c.row?.saved_game).toEqual({ at: 9_000_000, v: bad });
     // The valid game remains playable; its next saved move supersedes the rejected future timestamp.
-    d.st.setItem('kingdown.save', JSON.stringify(supported(['e2-e4', 'e7-e5'])));
+    change(d.st, supported(['e2-e4', 'e7-e5']), 9_000_000);
     d.sync.changed();
     await vi.advanceTimersByTimeAsync(2000);
     expect(c.row?.saved_game).toMatchObject({ at: 9_000_001, v: { moves: ['e2-e4', 'e7-e5'] } });
@@ -233,7 +241,7 @@ describe('saved-game validation before cloud writes', () => {
     expect(d.applied).toEqual([]);
     expect(c.pushes).toBe(0);
     blocked = false;
-    d.st.setItem('kingdown.save', JSON.stringify(supported([])));
+    change(d.st, supported([]), 9_000_000);
     d.sync.changed(); await d.sync.flush();
     expect(c.row?.saved_game).toMatchObject({ at: 9_000_001, v: { moves: [] } });
   });
@@ -241,7 +249,7 @@ describe('saved-game validation before cloud writes', () => {
   it.each([100, 600])('takes a partial cloud copy only when it is newer than the local game (%s)', async at => {
     const partial = supported(['e2-e4', 'e7-e5', 'Qd1-d8']);
     const c = cloud({ saved_game: { at, v: partial } });
-    const d = device({ 'kingdown.save': supported(['d2-d4']) }, c, { blocked: (): boolean => !accepts(readLocal(d.st).saved_game), accepts });
+    const d = device({ 'kingdown.save': { ...supported(['d2-d4']), gameAt: 500 } }, c, { blocked: (): boolean => !accepts(readLocal(d.st).saved_game), accepts });
     const stamps = stamp(d.st);
     stamps.saved_game!.at = 500;
     d.st.setItem('kingdown.sync', JSON.stringify(stamps));
@@ -275,7 +283,7 @@ describe('stamp', () => {
     expect(stamp(st).saved_game?.at).toBe(0);
     vi.setSystemTime(2_000_000);
     expect(stamp(st).saved_game?.at).toBe(0); // unchanged
-    st.setItem('kingdown.save', JSON.stringify(save(['e2-e4'])));
+    change(st, save(['e2-e4']));
     const s = stamp(st);
     expect([s.saved_game?.at, s.settings?.at]).toEqual([2_000_000, 0]); // only the game changed
     st.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer'] }));
@@ -284,7 +292,7 @@ describe('stamp', () => {
   it('a change to a copy from a device whose clock runs ahead is still newer than that copy', async () => {
     const c = cloud({ saved_game: { at: 9_000_000, v: save(['e2-e4']) } }), d = device({ 'kingdown.save': save([]) }, c);
     await d.sync.pull();
-    d.st.setItem('kingdown.save', JSON.stringify(save(['e2-e4', 'e7-e5'])));
+    change(d.st, save(['e2-e4', 'e7-e5']));
     d.sync.changed();
     await vi.advanceTimersByTimeAsync(2000);
     expect(c.row?.saved_game).toMatchObject({ at: 9_000_001, v: { moves: ['e2-e4', 'e7-e5'] } });
@@ -299,7 +307,7 @@ describe('stamp', () => {
     const st = store({ 'kingdown.save': save([]), 'kingdown.sync': { settings: { at: 5, json: oldSettings() } } });
     vi.setSystemTime(2_000_000);
     expect(stamp(st).settings?.at).toBe(5);
-    st.setItem('kingdown.save', JSON.stringify(save([], false)));
+    change(st, save([], false));
     expect(stamp(st).settings?.at).toBe(2_000_000); // a real change
   });
 });
@@ -425,7 +433,7 @@ describe('Sync with a fake server', () => {
     expect(c.pushes).toBe(1);
     // B plays on: its game is newer now and goes up after the quiet moment; A takes it on its next pull.
     vi.setSystemTime(2_000_000);
-    b.st.setItem('kingdown.save', JSON.stringify(save(['e2-e4', 'e7-e5'])));
+    change(b.st, save(['e2-e4', 'e7-e5']));
     b.sync.changed();
     await vi.advanceTimersByTimeAsync(2000);
     expect(c.row?.saved_game).toMatchObject({ at: 2_000_000, v: { moves: ['e2-e4', 'e7-e5'] } });
@@ -436,9 +444,9 @@ describe('Sync with a fake server', () => {
 
   it('takes the newer copy per section, and keeps the rest of the save as it was', async () => {
     const c = cloud({ settings: { at: 5_000_000, v: { ...readLocal(store({ 'kingdown.save': save([], false) })).settings as object } }, saved_game: { at: 500, v: save(['a2-a3']) } });
-    const d = device({ 'kingdown.save': save(['e2-e4']), 'kingdown.sync': {} }, c);
+    const d = device({ 'kingdown.save': { ...save(['e2-e4']), gameAt: 3_000_000 }, 'kingdown.sync': {} }, c);
     vi.setSystemTime(3_000_000);
-    stamp(d.st); // both sections first seen after syncing began: stamped 3,000,000
+    stamp(d.st); // Settings are first seen now; the game already has its time.
     await d.sync.pull();
     expect(d.applied).toEqual([['settings']]);
     const local = readLocal(d.st) as { settings: { sound: boolean }; saved_game: { moves: string[] } };
@@ -479,7 +487,7 @@ describe('Sync with a fake server', () => {
     const pushes = c.pushes;
     for (let i = 1; i <= 5; i++) {
       vi.setSystemTime(1_000_000 + i * 300);
-      d.st.setItem('kingdown.save', JSON.stringify(save(Array(i).fill('e2-e4'))));
+      change(d.st, save(Array(i).fill('e2-e4')));
       d.sync.changed();
       await vi.advanceTimersByTimeAsync(300);
     }
@@ -508,12 +516,12 @@ describe('Sync with a fake server', () => {
     await a.sync.pull();
     await b.sync.pull();
     vi.setSystemTime(1_500_000);
-    a.st.setItem('kingdown.save', JSON.stringify(save(['e2-e4', 'a7-a6'])));
+    change(a.st, save(['e2-e4', 'a7-a6']));
     c.fail = 1;
     a.sync.changed();
     await vi.advanceTimersByTimeAsync(2000); // A is offline: its write fails and waits 5 s
     vi.setSystemTime(2_000_000);
-    b.st.setItem('kingdown.save', JSON.stringify(save(['e2-e4', 'e7-e5'])));
+    change(b.st, save(['e2-e4', 'e7-e5']));
     b.sync.changed();
     await vi.advanceTimersByTimeAsync(2000); // B, online, sends its later game
     expect(c.row?.saved_game).toMatchObject({ at: 2_000_000, v: { moves: ['e2-e4', 'e7-e5'] } });
@@ -545,7 +553,7 @@ describe('Sync with a fake server', () => {
     const c = cloud(), d = device({ 'kingdown.save': save([]) }, c);
     await d.sync.pull();
     d.sync.stop();
-    d.st.setItem('kingdown.save', JSON.stringify(save(['e2-e4'])));
+    change(d.st, save(['e2-e4']));
     d.sync.changed();
     await vi.advanceTimersByTimeAsync(10_000);
     expect((c.row?.saved_game?.v as { moves: string[] }).moves).toEqual([]);
@@ -562,12 +570,13 @@ describe('recovery confirmation', () => {
     const before = stamp(st);
     before.saved_game!.at = 500;
     st.setItem('kingdown.sync', JSON.stringify(before));
-    st.setItem('kingdown.save', JSON.stringify({ ...save(['e2-e4']), recovery: 500 }));
+    st.setItem('kingdown.save', JSON.stringify({ ...save(['e2-e4']), gameAt: 500, recovery: 500 }));
     expect(stamp(st).saved_game?.at).toBe(501);
-    st.setItem('kingdown.save', JSON.stringify({ ...save(['e2-e4'], false), recovery: 500 }));
+    st.setItem('kingdown.save', JSON.stringify({ ...save(['e2-e4'], false), gameAt: 500, recovery: 500 }));
     expect(stamp(st).saved_game?.at).toBe(501);
     expect(readLocal(st).saved_game).not.toHaveProperty('recovery');
-    st.setItem('kingdown.save', JSON.stringify(save(['e2-e4', 'e7-e5'])));
+    expect(readLocal(st).saved_game).not.toHaveProperty('gameAt');
+    change(st, save(['e2-e4', 'e7-e5']));
     expect(stamp(st).saved_game?.at).toBe(1_000_000);
     expect(stamp(st).recovery).toBeUndefined();
   });
@@ -577,7 +586,7 @@ describe('recovery confirmation', () => {
     const d = device({}, c);
     await d.sync.pull();
     d.applied.length = 0;
-    d.st.setItem('kingdown.save', JSON.stringify({ ...save(['e2-e4']), recovery: 500 }));
+    d.st.setItem('kingdown.save', JSON.stringify({ ...save(['e2-e4']), gameAt: 500, recovery: 500 }));
     d.sync.changed();
     await d.sync.flush();
     expect(stamp(d.st).saved_game?.at).toBe(501);
@@ -593,7 +602,7 @@ describe('round 2 recovery retry', () => {
     const c = cloud({ saved_game: { at: 500, v: save(['e2-e4', 'bad']) } });
     const d = device({}, c);
     await d.sync.pull();
-    d.st.setItem('kingdown.save', JSON.stringify({ ...save(['e2-e4']), recovery: 500 }));
+    d.st.setItem('kingdown.save', JSON.stringify({ ...save(['e2-e4']), gameAt: 500, recovery: 500 }));
     const push = c.remote.push;
     c.remote.push = async () => { throw new Error('offline'); };
     d.sync.changed(); await d.sync.flush(); d.sync.stop();
@@ -610,7 +619,7 @@ describe('round 2 recovery retry', () => {
     const c = cloud({ saved_game: { at: 500, v: save(['e2-e4', 'bad']) } });
     const d = device({}, c);
     await d.sync.pull();
-    d.st.setItem('kingdown.save', JSON.stringify({ ...save(['e2-e4']), recovery: 500 }));
+    d.st.setItem('kingdown.save', JSON.stringify({ ...save(['e2-e4']), gameAt: 500, recovery: 500 }));
     const push = c.remote.push;
     let reply!: () => void;
     c.remote.push = async sent => {
@@ -621,11 +630,39 @@ describe('round 2 recovery retry', () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(reply).toBeTypeOf('function');
     d.sync.stop(); reply(); await sending;
-    expect(JSON.parse(d.st.getItem('kingdown.save')!)).toMatchObject({ moves: ['e2-e4'], recovery: 500 });
+    expect(JSON.parse(d.st.getItem('kingdown.save')!)).toMatchObject({ moves: ['e2-e4'], gameAt: 500, recovery: 500 });
     c.remote.push = push;
     const next = new Sync(d.st, c.remote, () => {}, { blocked: () => false, accepts: () => true });
     await next.pull(); next.stop();
     expect(readLocal(d.st).saved_game).toMatchObject({ moves: ['e2-e4'] });
     expect(JSON.parse(d.st.getItem('kingdown.save')!)).not.toHaveProperty('recovery');
+  });
+});
+
+describe('one game record', () => {
+  it.each([undefined, null, -1, '500', Infinity])('treats an absent or invalid game time as unknown (%s)', async gameAt => {
+    const c = cloud({ saved_game: { at: 0, v: save(['d2-d4']) } });
+    const d = device({ 'kingdown.save': { ...save(['e2-e4']), gameAt, recovery: 500 }, 'kingdown.sync': { saved_game: { at: 9_000_000, json: '{}' } } }, c);
+    await d.sync.pull(); d.sync.stop();
+    expect(c.row?.saved_game).toMatchObject({ at: 0, v: { moves: ['d2-d4'] } });
+    expect(readLocal(d.st).saved_game).toMatchObject({ moves: ['d2-d4'] });
+  });
+
+  it('sends the time and game from the same read if another tab writes between reads', async () => {
+    const c = cloud({ saved_game: { at: 600, v: save(['c2-c4']) } });
+    const d = device({ 'kingdown.save': { ...save(['c2-c4']), gameAt: 600 } }, c);
+    await d.sync.pull();
+    const get = d.st.getItem;
+    d.st.setItem('kingdown.save', JSON.stringify({ ...save(['d2-d4']), gameAt: 700 }));
+    let reads = 0;
+    d.st.getItem = key => {
+      const raw = get(key);
+      if (key === 'kingdown.save' && ++reads === 3) {
+        d.st.setItem(key, JSON.stringify({ ...save(['e2-e4']), gameAt: 500 }));
+      }
+      return raw;
+    };
+    await d.sync.flush(); d.sync.stop();
+    expect(c.row?.saved_game).not.toMatchObject({ at: 700, v: { moves: ['e2-e4'] } });
   });
 });

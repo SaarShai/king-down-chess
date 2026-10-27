@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SETTINGS as SYNCED } from '../account/sync';
-import { readSave, savedGame, SAVE_KEY, SETTINGS, storedSettings, writeSave, type Save } from './save';
+import { gameJSON, readSave, savedGame, SAVE_KEY, SETTINGS, storedSettings, writeSave, type Save } from './save';
 import { settingsOf } from './settings';
 import { toFen } from '../rules/setup';
 import { RULES_2017 } from '../rules/rules';
@@ -143,5 +143,34 @@ describe('saved game candidates', () => {
     const reloaded = savedGame({ ...save, moves: [lan] });
     expect(toFen(reloaded.pos)).toBe(toFen(game.pos));
     expect(reloaded.pos.used).toEqual([1, 0]);
+  });
+});
+
+
+describe('atomic game time', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const game: Save = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'human', coords: true, resigned: null, gameAt: 500 };
+
+  it('writes the game and time once without reading the sync record', () => {
+    const s = storage(), set = vi.fn(s.setItem), get = s.getItem;
+    vi.stubGlobal('localStorage', { ...s, setItem: set, getItem: (key: string) => {
+      if (key === 'kingdown.sync') throw new Error('sync read denied');
+      return get(key);
+    } });
+    expect(writeSave(game)).toBe(true);
+    expect(set.mock.calls).toEqual([[SAVE_KEY, JSON.stringify(game)]]);
+    expect(readSave().save).toEqual(game);
+  });
+
+  it('keeps both the old game and its time if the one write fails', () => {
+    const s = storage(true);
+    s.m.set(SAVE_KEY, JSON.stringify(game));
+    vi.stubGlobal('localStorage', s);
+    expect(writeSave({ ...game, moves: ['d2-d4'], gameAt: 600 })).toBe(false);
+    expect(readSave().save).toEqual(game);
+  });
+
+  it('does not count game time or recovery status as a player change', () => {
+    expect(gameJSON(game)).toBe(gameJSON({ ...game, gameAt: 600, recovery: 500 }));
   });
 });
