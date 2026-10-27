@@ -46,13 +46,16 @@ export const actionSchema = z.discriminatedUnion('type', [
 export const commandSchema = z.strictObject({ command_id: text(200), expected_revision: z.number().int().min(0).max(MAX_REVISION), action: actionSchema });
 export const createSchema = z.strictObject({
   kind: z.enum(['solo', 'friend', 'random']),
+  recipient_id: z.uuid().optional(), recipient_handle: z.string().min(1).max(40).optional(), open_link: z.literal(true).optional(),
   mode: z.enum(['casual', 'ranked']).optional(),
   options: optionsSchema.optional(),
   level: z.enum(['beginner', 'casual', 'club', 'strong']).optional(),
   colour: z.enum(['white', 'black', 'random']).optional(), // default White
   // The engine worker validates the content; this only bounds the shape.
   setup: z.strictObject({ backRank: z.string().max(8).optional(), fen: z.string().max(4096).optional(), preset: z.enum(['current', '2017', '2021']).optional(), kings: z.string().max(100).optional() }).optional(),
-}).refine(input => !(input.options && input.setup))
+}).refine(input => [input.recipient_id, input.recipient_handle, input.open_link].filter(v => v !== undefined).length <= 1)
+  .refine(input => input.kind === 'friend' || !input.recipient_id && !input.recipient_handle && !input.open_link)
+  .refine(input => !(input.options && input.setup))
   .refine(input => input.kind === 'solo' || (!!input.options || input.mode === 'ranked') && !input.setup)
   .refine(input => input.mode !== 'ranked' || input.kind === 'random' && !input.setup && !input.level && (input.colour === undefined || input.colour === 'random')
     && (!input.options || switches(input.options) === switches(RANKED_OPTIONS) && input.options.pool.length === RANKED_OPTIONS.pool.length && input.options.pool.every(kind => RANKED_OPTIONS.pool.includes(kind))
@@ -63,7 +66,7 @@ export type CreateOptions = Omit<z.infer<typeof createSchema>, 'options'> & { op
 
 export type ErrorCode = 'INVALID_INPUT' | 'NOT_FOUND' | 'FORBIDDEN' | 'WAITING' | 'NOT_ALLOWED' | 'STALE_REVISION' | 'INVALID_MOVE' | 'WRONG_TURN'
   | 'MATCH_TERMINAL' | 'MATCH_LIMIT' | 'MATCH_INCOMPATIBLE' | 'MATCH_REMOVED' | 'COMMAND_CONFLICT' | 'INVITE_UNAVAILABLE' | 'UNAVAILABLE' | 'HANDLE_TAKEN'
-  | 'RATE_LIMITED' | 'UNAUTHENTICATED' | 'HANDLE_NEEDED' | 'RANKED_UNAVAILABLE' | 'BOARD_EXPIRED';
+  | 'FRIEND_GAME_LIMIT' | 'FRIEND_INVITE_LIMIT' | 'OPEN_INVITE_LIMIT' | 'RATE_LIMITED' | 'UNAUTHENTICATED' | 'HANDLE_NEEDED' | 'RANKED_UNAVAILABLE' | 'BOARD_EXPIRED';
 export type Reply = { type: 'ack'; command_id: string; revision: number; view: View } | { type: 'reject'; command_id: string; code: ErrorCode; message: string };
 
 export type GameStatus = 'waiting' | 'setup' | 'playing' | 'finished' | 'aborted';
@@ -73,7 +76,7 @@ export type SeatAction = 'waiting' | 'ready' | 'done';
 /** What one revision did. `actions` are the moves (LAN) that a turn or the computer played. A join and an
  * expired deadline are events with no command. `hidden` is the opponent's preset when a block or the
  * viewer's quiet mode hides it; it keeps its revision, so the list has no gap. */
-export type LoggedAction = Action | { type: 'computer'; actions: string[] } | { type: 'join' } | { type: 'expire' } | { type: 'hidden' };
+export type LoggedAction = Action | { type: 'computer'; actions: string[] } | { type: 'join' } | { type: 'expire' } | { type: 'decline' } | { type: 'hidden' };
 export interface LoggedCommand { seq: number; seat: Seat | null; action: LoggedAction; at: string }
 /** `deleted`: the account was deleted; show "Deleted player". `last_seen_ms`: time since the seat's last command,
  * null unless the opponent's "who sees that I am online" setting lets you see it (and no block). The setting does not
@@ -82,6 +85,9 @@ export interface Opponent { handle: string | null; icon: Icon | null; rating?: {
 
 /** One seat's public view, never the full save. Full reads include rules and move history. */
 export interface View {
+  /** Only a successful first send carries the raw share code. Reads and retries carry metadata. */
+  invite?: Invite;
+  invitation?: InvitationRow;
   game_id: string;
   rating_policy: RatingPolicy;
   revision: number;
@@ -135,8 +141,17 @@ export interface View {
 export interface GameOutcome { rating_before: number | null; rating: number | null; provisional: boolean; badges: PlayerRecord['badges'] }
 export interface InboxEntry { invite_id?: string | null; rating_policy: RatingPolicy; options: Options | null; move: number | null; created_at: string; open_until: string | null; level: SkillName; game_id: string; kind: 'solo' | 'friend' | 'random'; speed: 'daily' | 'live'; status: 'waiting' | 'setup' | 'playing'; seat: Seat; action: SeatAction; turn: Seat; revision: number; deadline_at: string | null; opponent: Opponent | null; updated_at: string }
 /** The link token (43 characters) and the short code (6 characters) open the same seat. */
-export interface Invite { token: string; code: string; expires_at: string; invite_id: string }
-export interface JoinPreview { code: string; options: Options | null; colour: 'white' | 'black'; kind: 'friend' | 'random' | 'solo'; creator: { handle: string | null; icon: Icon | null }; expires_at: string }
+export type InvitationState = 'open' | 'accepted' | 'declined' | 'cancelled' | 'expired';
+export interface InvitationRow { revision: number; invite_id: string; game_id: string; direction: 'incoming' | 'outgoing'; recipient_id: string | null; player: { user_id: string; handle: string | null; icon: Icon | null } | null; options: Options | null; expires_at: string; state: InvitationState }
+export interface InvitationPage { invitations: InvitationRow[]; next_before: string | null }
+export interface Friend { user_id: string; handle: string; icon: Icon | null; source: 'recent' | 'follow' | 'lookup' }
+export interface FriendsPage { friends: Friend[]; next_after: string | null }
+export interface LimitDetails { count: number; handle?: string | null }
+export interface Invite { token: string; code: string; expires_at: string; invite_id: string; recipient_id?: string | null }
+export const inviteSchema = z.strictObject({ recipient_id: z.uuid().optional(), recipient_handle: z.string().min(1).max(40).optional(), open_link: z.literal(true).optional(), rotate: z.boolean().optional() }).refine(v => [v.recipient_id, v.recipient_handle, v.open_link].filter(x => x !== undefined).length <= 1);
+export const friendsSchema = z.strictObject({ handle: z.string().min(1).max(40).optional(), after: z.uuid().optional(), limit: z.coerce.number().int().min(1).max(50).default(20) });
+export const invitationsSchema = z.strictObject({ before: z.string().max(120).optional(), limit: z.coerce.number().int().min(1).max(50).default(20) });
+export interface JoinPreview { code: string; options: Options | null; colour: 'white' | 'black'; kind: 'friend' | 'random' | 'solo'; creator: { handle: string | null; icon: Icon | null }; expires_at: string; recipient_id?: string | null; recipient_handle?: string | null; invite_id?: string }
 export interface LobbyEntry { rating_policy: RatingPolicy; game_id: string; options: Options | null; colour: 'white' | 'black'; creator: { handle: string; icon: Icon | null }; created_at: string }
 export interface Lobby { games: LobbyEntry[]; active_count?: number }
 

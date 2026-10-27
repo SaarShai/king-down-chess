@@ -1370,7 +1370,7 @@ try {
     const tool = async (name, args = {}, friend = false) => (await page.request.post(new URL(friend ? '/fixture-friend-tool' : '/fixture-tool', base).href, { data: { name, arguments: args } })).json();
     const binding = () => page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
     async function showCreated(kind, choices = options) {
-      const result = await tool('kingdown_create', { kind, options: choices, colour: 'white', board_id: await binding() }); assert(!result.isError);
+      const result = await tool('kingdown_create', { kind, options: choices, colour: 'white', board_id: await binding() }); assert(!result.isError, JSON.stringify(result.content));
       await page.evaluate(result => window.harnessShow({ ...result, structuredContent: { ...result.structuredContent, screen: undefined } }, true), result); return result._meta.view;
     }
     async function lookAt(state, screen) {
@@ -1387,10 +1387,18 @@ try {
       }
       await page.setViewportSize({ width: 390, height: 844 });
     }
+    // Earlier cases must release their waiting links before this section uses the two slots.
+    const earlier = await tool('kingdown_games');
+    for (const game of earlier._meta.games ?? []) if (game.kind === 'friend' && game.status === 'waiting') {
+      const closed = await tool('kingdown_abort', { game_id: game.game_id, expected_revision: game.revision });
+      assert(!closed.isError, JSON.stringify(closed.content));
+    }
     await openPlay(); await lookAt('play', 'play');
     const friend = await showCreated('friend'); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
-    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    if (!friend.invite) await frame.locator('#friend-new').click();
+    await frame.locator('.game-code span').first().waitFor();
     const code = (await frame.locator('.game-code span').allTextContents()).join(''); assert(code.length === 6, 'Create gives six code tiles');
+    if (friend.invite) assert.equal(code, friend.invite.code, 'Create shows its returned code');
     const fullInvite = `Join King Down game ${code}. Rules: Fairy pieces.`;
     assert.deepEqual(await frame.locator('#friend-actions button').allTextContents(), ['Share', 'Copy']);
     assert(await frame.locator('#friend-share').evaluate(button => button.classList.contains('primary')), 'Share is the main action');
@@ -1402,8 +1410,12 @@ try {
       try {
         await host.frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
         await host.frame.locator('input[name="setup-mode"][value="friend"]:checked').waitFor({ state: 'attached' });
+        const creating = host.page.waitForResponse(response => new URL(response.url()).pathname === '/fixture-tool' && response.request().postDataJSON()?.name === 'kingdown_create');
         await host.frame.locator('#setup-start').click();
+        const created = await (await creating).json(); assert(!created.isError, JSON.stringify(created.content));
+        if (!created._meta.invite) await host.frame.locator('#friend-new').click();
         await host.frame.locator('.game-code span').first().waitFor();
+        if (created._meta.invite) assert.equal((await host.frame.locator('.game-code span').allTextContents()).join(''), created._meta.invite.code, 'Create shows its returned code on a mobile host');
         await host.frame.locator('html').evaluate(() => document.fonts.ready);
         const labels = await host.frame.locator('#friend-actions').evaluate(row => [...row.querySelectorAll('button')].map(button => {
           const label = button.querySelector('.label') ?? button, range = document.createRange();
@@ -1422,7 +1434,14 @@ try {
         else assert(Math.abs((labels[0].top + labels[0].bottom) / 2 - (labels[1].top + labels[1].bottom) / 2) < 1 && labels[0].right <= labels[1].left, `Share and Copy keep one centre line: ${all}`);
         await host.frame.locator('#friend-copy').scrollIntoViewIfNeeded();
         await shot(host.page, `friend-actions-${width}-${mode}`);
-      } finally { await host.page.close(); }
+      } finally {
+        const created = await host.page.evaluate(() => window.harnessView).catch(() => null);
+        if (created?.kind === 'friend' && created.status === 'waiting') {
+          const closed = await tool('kingdown_abort', { game_id: created.game_id, expected_revision: created.revision });
+          assert(!closed.isError, JSON.stringify(closed.content));
+        }
+        await host.page.close();
+      }
     }
 
     await frame.locator('html').evaluate(() => {
@@ -1484,10 +1503,14 @@ try {
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites, 'Share keeps the same code');
     await inviteRow.locator('button[data-game-id]').click();
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    // A saved-game read has no raw code; replaying Create on the HTTP host restores its code.
+    const savedFriend = await tool('kingdown_get', { game_id: friend.game_id, board_id: await binding() });
+    assert(!savedFriend.isError && !savedFriend._meta.invite, 'The saved-game reply has no raw invitation');
+    await page.evaluate(result => { window.harnessWidgets.at(-1).initialResult = result; }, savedFriend);
     await remount('friend'); await frame.locator('#friend-new').waitFor();
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites, 'Remount makes no new code');
     assert.equal(await frame.locator('.game-code span').count(), 0, 'The saved game shows Make a new code');
-    // Keep the real code; shorten its UI deadline only, then renew through the actual tool.
+    // Keep the real code; shorten only its UI deadline to check expiry and New game.
     const shortInvite = async route => {
       if (route.request().postDataJSON().name !== 'kingdown_invite') return route.continue();
       const response = await route.fetch(), result = await response.json(); assert(!result.isError);
@@ -1499,12 +1522,19 @@ try {
     const expiringCode = (await frame.locator('.game-code span').allTextContents()).join('');
     await page.unroute('**/fixture-tool', shortInvite);
     await page.clock.fastForward(60_001);
-    await frame.locator('#friend-new').waitFor();
+    await frame.getByRole('button', { name: 'New game', exact: true }).waitFor();
     assert.match(await frame.locator('#friend-help').innerText(), /expired/);
     assert.equal(await frame.locator('#friend-actions').isVisible(), false);
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites + 1, 'Expiry does not renew the invite');
     await shot(page, 'embedded-expired-friend-code');
+    await frame.getByRole('button', { name: 'New game', exact: true }).click();
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites + 1, 'New game does not renew the expired code');
+    // The server invitation is still unexpired. A fresh page can rotate that code.
     await page.clock.setSystemTime(new Date());
+    const unexpiredFriend = await tool('kingdown_get', { game_id: friend.game_id, board_id: await binding() });
+    await page.evaluate(result => window.harnessShow(result), unexpiredFriend);
+    await remount('friend'); await frame.locator('#friend-new').waitFor();
     await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
     const renewedCode = (await frame.locator('.game-code span').allTextContents()).join(''); assert.notEqual(renewedCode, expiringCode);
     assert((await tool('kingdown_join', { code: expiringCode }, true)).isError, 'The old code cannot join');
@@ -2264,9 +2294,17 @@ try {
   assert.match(spentFocus.gold, /rgb\(233, 192, 113\).*4px/);
   await spentCoin.blur();
   async function arrivalTool(name,args,friend=false) {return (await page.request.post(new URL(friend?'/fixture-friend-tool':'/fixture-tool',base).href,{data:{name,arguments:args}})).json();}
+  // Finish earlier human-game cases before this case needs one of the five pair seats.
+  const earlierHuman = await arrivalTool('kingdown_games');
+  for (const game of earlierHuman._meta.games ?? []) if (game.kind !== 'solo' && game.status !== 'waiting') {
+    const current = await arrivalTool('kingdown_get', { game_id: game.game_id });
+    const name = current._meta.view.abort_open ? 'kingdown_abort' : 'kingdown_resign';
+    const ended = await arrivalTool(name, { game_id: game.game_id, expected_revision: current._meta.view.revision });
+    assert(!ended.isError, JSON.stringify(ended.content));
+  }
   const arrival=await arrivalTool('kingdown_create',{kind:'friend',colour:'white',board_id:cardBoard,options:{...DEFAULT_OPTIONS,fairy:false,arrangement:false,kingPowers:false,cards:true,cardPool:['Salvation','Freeze','IceWall','Vault']}}); assert(!arrival.isError);
   const arrivalInvite=await arrivalTool('kingdown_invite',{game_id:arrival._meta.view.game_id}); assert(!arrivalInvite.isError);
-  const arrivalJoin=await arrivalTool('kingdown_join',{code:arrivalInvite.structuredContent.code},true); assert(!arrivalJoin.isError);
+  const arrivalJoin=await arrivalTool('kingdown_join',{code:arrivalInvite.structuredContent.code},true); assert(!arrivalJoin.isError, JSON.stringify(arrivalJoin.content));
   async function arrivalRead() {const result=await arrivalTool('kingdown_get',{board_id:cardBoard}); await page.evaluate(r=>window.harnessShow(r),result); await page.waitForFunction(id=>window.harnessView.game_id===id,arrival._meta.view.game_id); await idleBoard(); await boardBox(); return result._meta.view;}
   let arrivalView=await arrivalRead();
   const arrivalRules=arrivalView.rules; setRules(arrivalRules);
@@ -2641,6 +2679,25 @@ try {
   async function zoomHallFits() {
     // The Menu read that the hall starts draws the game rows again.
     await settled(page, frame);
+    // One compact waiting row makes this spacing check independent of prior game cleanup and the run date.
+    const compactRow = result => {
+      const game = result._meta?.games?.[0];
+      if (game) Object.assign(game, { kind: 'friend', status: 'waiting', created_at: `${new Date().getUTCFullYear() + 1}-01-01T09:00:00.000Z` });
+    };
+    const dateGames = async route => {
+      if (route.request().postDataJSON()?.name !== 'kingdown_games') return route.continue();
+      const response = await route.fetch(), result = await response.json();
+      compactRow(result);
+      await route.fulfill({ response, json: result });
+    };
+    await page.route('**/fixture-tool', dateGames);
+    const datedGames = await tool('kingdown_games');
+    assert(!datedGames.isError, JSON.stringify(datedGames.content));
+    compactRow(datedGames);
+    datedGames.structuredContent = { ...datedGames.structuredContent, screen: 'play' };
+    await page.evaluate(result => window.harnessShow(result), datedGames);
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await settled(page, frame);
     const viewport = page.viewportSize();
     await zoomViewport(402,874,0,0);
     await frame.locator('#new-game .new-game-body').evaluate(el => { el.scrollTop = 0; });
@@ -2671,6 +2728,7 @@ try {
     await shot(page, `zoom-fit-hall-${mode}`);
     await body.evaluate(el => { el.scrollTop = 0; });
     await zoomViewport(viewport.width, viewport.height, 0, 0);
+    await page.unroute('**/fixture-tool', dateGames);
   }
   async function tapEndAtZoom(name) {
     const viewport = page.viewportSize();
@@ -2916,8 +2974,8 @@ try {
   }
   if (capabilities.friend) {
     await openPlay();
-    await openPlay(); await legacyStart('friend', 'friend'); await idleBoard();
-    await frame.locator('#friend-new').waitFor();
+    await openPlay(); const waitingFriend = await legacyStart('friend', 'friend'); await idleBoard();
+    await frame.locator(waitingFriend._meta.invite ? '#friend-code span' : '#friend-new').first().waitFor();
     await page.evaluate(() => { window.holdNextGet = true; });
     await page.clock.fastForward(5000);
     await page.waitForFunction(() => typeof window.releaseHeldGet === 'function');
@@ -2929,8 +2987,9 @@ try {
     await page.waitForFunction(() => window.heldGetReturned);
     await frame.locator('#status').evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     assert.match(await frame.locator('#status').innerText(), /Your move/, 'An old friend read must not replace the newly selected solo game');
-    await openPlay(); await legacyStart('friend', 'friend'); await idleBoard();
-    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    await openPlay(); const joiningFriend = await legacyStart('friend', 'friend'); await idleBoard();
+    if (!joiningFriend._meta.invite) await frame.locator('#friend-new').click();
+    await frame.locator('.game-code span').first().waitFor();
     const code = (await frame.locator('.game-code span').allTextContents()).join(''); assert.match(code, /^[A-HJKMNP-Z2-9]{6}$/);
     const joined = await friendTool('kingdown_join',{code});
     assert(!joined.isError, JSON.stringify(joined.content));
@@ -3474,6 +3533,13 @@ try {
   await page.setViewportSize({width:1000,height:1000});
   console.log('PASS: G1 targets first; G3 tap, drag, cancel and one draft step at 320, 393, 852 and 1280 px');
   console.log(`Ticket 15 look comparisons: ${look}`);
+  // This recovery case needs a fresh open-link slot after the earlier friend cases.
+  const priorLinks = await tool('kingdown_games');
+  assert(!priorLinks.isError, JSON.stringify(priorLinks.content));
+  for (const game of priorLinks._meta.games ?? []) if (game.kind === 'friend' && game.status === 'waiting') {
+    const closed = await tool('kingdown_abort', { game_id: game.game_id, expected_revision: game.revision });
+    assert(!closed.isError, JSON.stringify(closed.content));
+  }
   await openScreen('settings'); await boardSetting('symbols-only',false); await boardSetting('show-threats',false); await openPlay(); await legacyStart('solo');
   for (const [kind,features,status] of [['friend',options,'waiting'],['solo',{...options,arrangement:true},'setup']]) {
     const start = await legacyStart('solo');
@@ -3481,6 +3547,7 @@ try {
     await clickSquare(4,1); await page.evaluate(()=>{window.dropNextMoveReply=true;});
     await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await sendTurn(); await frame.locator('#retry').waitFor();
     const switched = await tool('kingdown_create',{kind,options:features,colour:'white'});
+    assert(!switched.isError, JSON.stringify(switched.content));
     assert.equal(switched._meta.view.status,status); assert.equal(switched._meta.view.fen,'');
     await page.evaluate(result=>window.harnessShow(result),switched);
     await frame.locator('#retry').waitFor({state:'hidden'});

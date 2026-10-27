@@ -81,6 +81,9 @@ export function fixtureService(engine: FixtureEngine = { createMatch: (...args) 
  async function invitation(code:unknown,actor?:string) { const key = String(code).trim(), normalized = key.toUpperCase().replace(/[\s-]/g,''); if (!/^[A-Za-z0-9_-]{43}$/.test(key) && !/^[A-HJKMNP-Z2-9]{6}$/.test(normalized)) fail('INVALID_INPUT',400,'Invalid invitation'); const game = [...games.values()].find(g=>g.invite && (g.invite.token === key || g.invite.code === normalized)) ?? fail('INVITE_UNAVAILABLE',404,'Invitation unavailable'); if (actor && game.invite!.used_by === actor && game.players.includes(actor)) return game; if (game.status !== 'waiting' || game.invite!.expires_at <= new Date().toISOString()) fail('INVITE_UNAVAILABLE',409,'Invitation expired or used'); return game; }
  return {
   async toolTry() {},
+  async friends() { return { friends: [], next_after: null }; },
+  async invitations() { return { invitations: [], next_before: null }; },
+  async declineInvite() { return fail('INVITE_UNAVAILABLE', 404, 'This invitation is not available now. Return to Your games.'); },
   async seedPosition(setup,black) {
    const created = await create('alice',{kind:'solo',colour:black?'black':'white',setup});
    if (black) { const game = load(created.game_id); game.input.kind = 'friend'; game.players[0] = 'bob'; }

@@ -125,14 +125,18 @@ export function newGameWarning(game: Game, turnStart: number, ended: boolean): s
 
 /**
  * Builds the king pickers (in the KINGS order of src/rules/rules.ts) and wires every control once.
- * `preset`: the page's `?rules=` preset, which the games it starts play over the official readings.
+ * `preset`: the page's live `?rules=` preset, which the games it starts play over the official readings.
  */
-export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>): { open(s: Setup, warning?: string): void } {
+export function newGameDialog(start: (s: Setup) => void, preset: () => Partial<Rules> | undefined = () => undefined): { open(s: Setup, warning?: string): void } {
   const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
   const dlg = $<HTMLDialogElement>('new-game');
+  dlg.addEventListener('close', () => {
+    // Native close restores the opener. A late event must keep any new focus.
+    if (!dlg.open && document.activeElement === document.body) $('menu-btn').focus({ preventScroll: true });
+  });
   const radios = (name: string) => [...dlg.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)];
   let draft = defaultSetup();
-  let options = new Map(powerOptions(preset).map(g => [g.king, g.options]));
+  let options = new Map(powerOptions(preset()).map(g => [g.king, g.options]));
 
   for (const c of [0, 1] as const) {
     $(`pick-${c}`).innerHTML = `<h3 id="pick-${c}-title">${SIDE[c]}'s king <span class="who"></span></h3>`
@@ -211,7 +215,7 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
     $('side-army-label').textContent = 'Army';
     $('side-army-value').textContent = name;
     $('army-line').textContent = { random: 'A new army for each game.', daily: 'The same army for everyone today.', classic: 'The chess starting army.' }[draft.army] ?? 'Try this army.';
-    const context = new GameRules({ ...(powersOn(draft) ? POWERS_BALANCED : {}), ...preset, kings: kingsOf(draft) });
+    const context = new GameRules({ ...(powersOn(draft) ? POWERS_BALANCED : {}), ...preset(), kings: kingsOf(draft) });
     const code = draft.army === 'daily' ? context.randomBackRank(mulberry32(+new Date().toLocaleDateString('en-CA').replace(/-/g, '')))
       : draft.army === 'classic' ? CLASSIC_CHESS
       : /^[A-Z]{8}$/.test(draft.army) ? draft.army : [...new Set(POOL)].join('');
@@ -233,7 +237,7 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
         o.disabled = !!why;
         return o;
       }));
-      options = new Map(powerOptions(preset).map(g => [g.king, g.options])); // the use counts of the rules in force
+      options = new Map(powerOptions(preset()).map(g => [g.king, g.options])); // the use counts of the rules in force
       render();
       $<HTMLDetailsElement>('more-options').open = false;
       $<HTMLDetailsElement>('other-armies').open = !['random', 'daily', 'classic'].includes(draft.army);

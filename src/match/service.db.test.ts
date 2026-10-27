@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from './setup';
 import { GameService, TURN_DAYS, UNFINISHED } from './service';
 import { LocalMatch, loadMatch } from './index';
@@ -53,6 +53,11 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   const server = await admin.query('select version() as version'); expect(server.rows[0].version).toMatch(/^PostgreSQL /);
   [a,b,c] = [await user('ann'),await user('bob'),await user('cy')];
  },120000);
+ beforeEach(async () => {
+  await admin.query('delete from public.games');
+  await admin.query('delete from public.invite_code_tries');
+  await admin.query('delete from public.plugin_tool_tries');
+ });
  afterAll(async () => {
   if (!admin) return;
   await admin.query('delete from public.games g where created_by=any($1) or exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1))',[users]);
@@ -137,7 +142,7 @@ suite('PostgreSQL online games (real connections and processes)', () => {
  it('refuses self-play in the service and in the database',async () => {
   const created = await games[0].create(a,{kind:'friend',options:CLASSIC_OPTIONS,colour:'black'});
   const invite = await games[0].invite(a,created.game_id);
-  await expect(games[0].join(a,invite.token)).rejects.toMatchObject({code:'FORBIDDEN'});
+  await expect(games[0].join(a,invite.token)).rejects.toMatchObject({code:'INVITE_UNAVAILABLE'});
   await expect(admin.query('update public.game_players set user_id=$2 where game_id=$1 and seat=0',[created.game_id,a])).rejects.toMatchObject({code:'23505'});
  });
 
@@ -186,16 +191,16 @@ suite('PostgreSQL online games (real connections and processes)', () => {
  },30000);
 
  it('refuses a join across a block or against the host’s challenge setting',async () => {
-  const tryJoin = async () => { const created = await games[0].create(a,{kind:'friend',options:CLASSIC_OPTIONS}); return games[0].join(b,(await games[0].invite(a,created.game_id)).token); };
+  const tryJoin = async () => { await admin.query('delete from public.games'); const created = await games[0].create(a,{kind:'friend',options:CLASSIC_OPTIONS}); return games[0].join(b,(await games[0].invite(a,created.game_id)).token); };
   await admin.query("insert into public.relations(user_id,other_id,kind) values($1,$2,'block')",[b,a]);
-  await expect(tryJoin()).rejects.toMatchObject({code:'FORBIDDEN'});
+  await expect(tryJoin()).rejects.toMatchObject({code:'INVITE_UNAVAILABLE'});
   await admin.query('delete from public.relations where user_id=$1',[b]);
   await admin.query("update public.profiles set challenge_from='follows' where id=$1",[a]);
-  await expect(tryJoin()).rejects.toMatchObject({code:'FORBIDDEN'});
+  await expect(tryJoin()).rejects.toMatchObject({code:'INVITE_UNAVAILABLE'});
   await admin.query("insert into public.relations(user_id,other_id,kind) values($1,$2,'follow')",[a,b]);
   expect((await tryJoin()).status).toBe('playing');
   await admin.query("update public.profiles set challenge_from='nobody' where id=$1",[a]);
-  await expect(tryJoin()).rejects.toMatchObject({code:'FORBIDDEN'});
+  await expect(tryJoin()).rejects.toMatchObject({code:'INVITE_UNAVAILABLE'});
   await admin.query("update public.profiles set challenge_from='signed-in' where id=$1",[a]);
   await admin.query('delete from public.relations where user_id=$1',[a]);
  },30000);

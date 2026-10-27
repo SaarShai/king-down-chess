@@ -38,7 +38,7 @@ import { connectPreviously } from '../ui/previously';
 import { pieceArt } from '../ui/guide';
 import { connectLinks } from './links';
 import { gameJSON, readSave, savedGame, writeSave, type Save } from './save';
-import { canWriteLocal } from '../account/local';
+import { canWriteLocal, gameTime } from '../account/local';
 import type { connectSettings } from './settings';
 import { connectMoments, soundsFor } from './moments';
 
@@ -53,7 +53,7 @@ export const isSide = (v: unknown): v is Side => v === 'human' || v === 'ai';
  */
 export function connectPlay(view: BoardView, c: {
   params: URLSearchParams;
-  /** The `?rules=` preset, if any. */
+  /** The `?rules=` preset, if any. A saved game that owns the URL clears it; `preset()` reads the live one. */
   preset: Partial<Rules> | undefined;
   rules: Partial<Rules>;
   /** The balanced readings when a king has a power (main.ts, the URL rules). */
@@ -72,7 +72,9 @@ export function connectPlay(view: BoardView, c: {
   setup(): Setup;
   openNewGame(): void;
 }) {
-  const { params, preset, withPowers, fen, engine, guide, settings, home } = c;
+  const { params, withPowers, engine, guide, settings, home } = c;
+  let preset = c.preset;
+  let fen = c.fen;
   const uiMotion = new UiMotion();
   window.addEventListener('pagehide', () => uiMotion.cancel());
   let handoffAt = -Infinity;
@@ -132,6 +134,7 @@ export function connectPlay(view: BoardView, c: {
   /** A denied storage accessor throws before canWriteLocal runs: treat it as a blocked write. */
   const canWrite = (): boolean => { try { return canWriteLocal(localStorage); } catch { return false; } };
   let recoveryNotice = unreadableNotice;
+  let recoverySource: string | undefined;
   /** The board is seen from Black's side (orient()). */
   let flipped = false;
 
@@ -273,6 +276,7 @@ export function connectPlay(view: BoardView, c: {
     const coins = refreshCoins({ pos: shownPos(), history: game.history, rules: game.rules, legal: viewing == null ? game.legal : undefined, activeSide: currentTurn().activeSide, armed, canPlay: !finished() && viewing == null && lesson == null && myTurn(), busy, flipped, lesson, mode: turnMode(), viewer: linkSide ?? (sides[0] === 'ai' ? 1 : 0), waiting: currentTurn().waits, selection: selected != null || inspected != null || !!notice });
     armed = coins.armed;
     drawMarks();
+    $('recover-save').hidden = $('recovery-new-game').hidden = recoverySource === undefined;
     refreshTable({ game, sides, skill, rules: game.rules, flipped, thinking, viewing, lesson, lessonDone, notice: saveBlocked ? '' : notice, saveNotice: saveWarning(), armed, selected, pending, linkSide, reviewNote: moments.reviewNote(), turn: currentTurn(), mode: turnMode(), power: coins.context, previously: previously.state() });
     home?.refresh();
     const current = document.querySelector<HTMLElement>('.player-strip.is-turn .portrait');
@@ -308,7 +312,10 @@ export function connectPlay(view: BoardView, c: {
     if (viewing != null) { viewing = null; sync(pre); } // a review ends when a move is played
     const computer = lesson == null && sides[pre.turn] === 'ai';
     game.play(m);
-    if (computer) { turnStart = handOver(game); handoffAt = performance.now(); }
+    if (computer) {
+      turnStart = handOver(game); handoffAt = performance.now();
+      computerChange = { game, json: gameJSON(snapshot()) };
+    }
     notice = '';
     $('announce').textContent = describeMove(game.context, pre, m, true) + (game.inCheck && !finished() ? ' Check.' : '');
     moments.played(pre, m);
@@ -708,7 +715,7 @@ export function connectPlay(view: BoardView, c: {
    * A game from `setup` (New game's last Start), or a rematch of this one with the sides swapped.
    * `players` overrides who plays (Ogre practice is for two people).
    */
-  function newGame(backRank?: string, fen?: string | null, rematch = false, dailyDate: string | null = null, players?: [Side, Side]): void {
+  function newGame(backRank?: string, fen?: string | null, rematch = false, dailyDate: string | null = null, players?: [Side, Side], initial = false): void {
     const setup = c.setup();
     let candidate: Game;
     if (rematch) candidate = new Game(undefined, game.rules);
@@ -736,11 +743,14 @@ export function connectPlay(view: BoardView, c: {
     moments.start('');
     [sides[0], sides[1]] = players ?? (rematch ? [sides[1], sides[0]] : playersOf(setup));
     saveBlocked = false;
+    recoverySource = undefined;
     turnStart = 0;
     sync(game.pos);
     orient();
     refresh();
-    save(true);
+    if (initial) { savedJSON = gameJSON(null); loadedTime(null); }
+    save(!initial);
+    $('board').focus({ preventScroll: true });
     for (const portrait of document.querySelectorAll('.player-strip .portrait')) uiMotion.reveal(portrait, 600, 20, 250);
     uiMotion.reveal($('board').querySelector('canvas'), 450, 0, 850);
     uiMotion.reveal($('context-text'), 420, 8, 2200);
@@ -775,7 +785,7 @@ export function connectPlay(view: BoardView, c: {
     moments.showOver();
   };
   const links = connectLinks({
-    game: () => game, turnStart: () => turnStart, rules: params.get('rules'),
+    game: () => game, turnStart: () => turnStart,
     blocked: () => !!(saveBlocked || busy || currentTurn().staged || lesson != null || linkSide != null),
   });
 
@@ -790,7 +800,38 @@ export function connectPlay(view: BoardView, c: {
     return saveBlocked ? recoveryNotice : unsaved.size ? unsavedNotice : '';
   }
 
-  function save(replaceUnreadable = false, settingsOnly = lesson != null): boolean {
+  function snapshot(): Save {
+    const live = lessonReturn ?? { game, sides, resigned, linkSide, turnStart };
+    return {
+      back: live.game.backRank,
+      fen: toFen(live.game.history[0]?.pos ?? live.game.pos), // the position the game starts from
+      moves: live.game.history.map(h => h.lan),
+      white: live.sides[0], black: live.sides[1],
+      coords: true,
+      link: live.linkSide,
+      daily,
+      resigned: live.resigned,
+      // A reload keeps the staged turn for End turn (web-redesign spec §4.8).
+      ...(live.game.history.length > live.turnStart && { staged: live.game.history.length - live.turnStart }),
+      // The rules the game is playing, so opening the save without its URL replays the same game
+      // (`?rules=2017`, `?kings=…`; docs/TAKEOVER-PLAN.md §2).
+      rules: { ...live.game.rules },
+    };
+  }
+
+  /** `playerTime`: a player change on this page set `gameAt`. Until then a computer reply keeps the loaded time. */
+  let gameAt = 0, seenAt = 0, playerTime = false;
+  /** Keep the computer's change through a cancelled animation and a lesson's separate game. */
+  let computerChange: { game: Game; json: string } | null = null;
+  let liveJSON = gameJSON(snapshot());
+  function loadedTime(source: Save | null): void {
+    gameAt = gameTime(source);
+    playerTime = false;
+    computerChange = null;
+    liveJSON = gameJSON(snapshot());
+  }
+
+  function save(replaceUnreadable = false, settingsOnly = lesson != null, recovered = false): boolean {
     if (saveBlocked) return false;
     const stored = readSave();
     if (stored.unreadable && !canWrite()) { keepUnreadableSave(accountNotice); refresh(); return false; }
@@ -808,22 +849,19 @@ export function connectPlay(view: BoardView, c: {
       $('announce').textContent = recoveryNotice;
       refresh(); return false;
     }
-    const live = lessonReturn ?? { game, sides, resigned, linkSide, turnStart };
-    const next: Save = kept ? { ...kept, ...settings.settingsNow() } : {
-      back: live.game.backRank,
-      fen: toFen(live.game.history[0]?.pos ?? live.game.pos), // the position the game starts from
-      moves: live.game.history.map(h => h.lan),
-      white: live.sides[0], black: live.sides[1],
-      ...settings.settingsNow(),
-      link: live.linkSide,
-      daily,
-      resigned: live.resigned,
-      // A reload keeps the staged turn for End turn (web-redesign spec §4.8).
-      ...(live.game.history.length > live.turnStart && { staged: live.game.history.length - live.turnStart }),
-      // The rules the game is playing, so opening the save without its URL replays the same game
-      // (`?rules=2017`, `?kings=…`; docs/TAKEOVER-PLAN.md §2).
-      rules: { ...live.game.rules },
-    };
+    const next: Save = { ...(kept ?? snapshot()), ...settings.settingsNow() };
+    const json = gameJSON(next);
+    if (savesGame) {
+      const computer = computerChange?.game === (lessonReturn?.game ?? game) && computerChange.json === json;
+      if (!recovered && (replaceUnreadable || json !== liveJSON) && (playerTime || !computer)) {
+        gameAt = Math.max(Date.now(), gameAt + 1, gameTime(stored.save) + 1, seenAt + 1);
+        playerTime = true;
+      } else gameAt = Math.max(gameAt, gameTime(stored.save));
+      liveJSON = json;
+      next.gameAt = gameAt;
+      if (recovered) next.recovery = gameTime(stored.save);
+      else if (!replaceUnreadable && stored.save?.recovery !== undefined && gameAt === gameTime(stored.save)) next.recovery = stored.save.recovery;
+    }
     // A new game must retry its replacement if the first write fails.
     if (replaceUnreadable) savedJSON = gameJSON(stored.save);
     const before = saveWarning(), saved = writeSave(next);
@@ -848,29 +886,68 @@ export function connectPlay(view: BoardView, c: {
   function keepUnreadableSave(line = canWrite() ? unreadableNotice : accountNotice): void {
     reset();
     saveBlocked = true;
+    recoverySource = undefined;
     recoveryNotice = line;
     notice = recoveryNotice;
   }
 
+  function offerRecovery(source: Save, played: number): void {
+    home?.close();
+    if ($<HTMLDialogElement>('title-screen').open) $<HTMLDialogElement>('title-screen').close('continue');
+    keepUnreadableSave(`Rules changed. Loaded ${played} of ${source.moves.length} actions. The next action is not legal.`);
+    recoverySource = gameJSON(source);
+    $('announce').textContent = recoveryNotice;
+  }
+
+  $('recovery-new-game').onclick = () => c.openNewGame();
+  $('recover-save').onclick = event => {
+    if (recoverySource === undefined) return;
+    const stored = readSave();
+    if (stored.failed || !canWrite()) { keepUnreadableSave(accountNotice); refresh(); $('menu-btn').focus({ preventScroll: true }); return; }
+    if (gameJSON(stored.save) !== recoverySource) {
+      keepUnreadableSave('Your saved game changed in another tab. Reload to load it, or start a New game.');
+      $('announce').textContent = recoveryNotice;
+      refresh(); $('menu-btn').focus({ preventScroll: true }); return;
+    }
+    saveBlocked = false;
+    replacementRaw = stored.raw;
+    if (!save(false, false, true)) {
+      saveBlocked = true;
+      if (!recoveryNotice.includes(unsavedNotice)) recoveryNotice += ` ${unsavedNotice}`;
+      $('announce').textContent = recoveryNotice;
+      refresh();
+      $(recoverySource === undefined ? 'menu-btn' : 'recover-save').focus({ preventScroll: true });
+      return;
+    }
+    recoverySource = undefined;
+    notice = '';
+    $('announce').textContent = 'Recovered game saved. Play continues under the current rules.';
+    refresh();
+    $('board').focus({ preventScroll: true });
+    c.keys().focus(event.detail === 0);
+    void maybeAi();
+  };
+
   /** Another tab can change the shared key after boot; recheck it before any ordinary write. */
   function savedDataBlocked(stored = readSave()): boolean {
-    if (!saveBlocked && (stored.unreadable && !canWrite() || (stored.unreadable || replacementRaw !== undefined) && stored.raw !== replacementRaw)) { keepUnreadableSave(); refresh(); }
+    if (!saveBlocked && (stored.unreadable && !canWrite() || (stored.unreadable || stored.partial || replacementRaw !== undefined) && stored.raw !== replacementRaw)) { keepUnreadableSave(); refresh(); }
     return saveBlocked;
   }
 
   /** Validate before changing the live game or its UI state. The staged count is read before an old link's pass. */
-  function replay(s: Save): { game: Game; staged: number } | undefined {
+  function replay(s: Save): { game: Game; staged: number; played: number } | undefined {
     try {
-      const candidate = savedGame(s), staged = stagedPlies(candidate, s.staged);
+      const candidate = savedGame(s), played = candidate.history.length;
+      const staged = played < s.moves.length ? 0 : stagedPlies(candidate, s.staged);
       // A staged turn stays open for End turn; only a handed-over turn that stops mid-way (an old link) is finished.
       if (!staged) finishLinkedTurn(candidate);
-      return { game: candidate, staged };
+      return { game: candidate, staged, played };
     } catch { keepUnreadableSave(); }
   }
 
   /** Sections the account had newer than this device; account/sync.ts already wrote them to the save. */
   function fromAccount(down: string[], switched = false): void {
-    if (switched) { saveBlocked = false; unsaved.clear(); settings.resetSettings(); }
+    if (switched) { seenAt = 0; saveBlocked = false; recoverySource = undefined; unsaved.clear(); settings.resetSettings(); }
     const stored = readSave();
     if (stored.unreadable) { keepUnreadableSave(); refresh(); return; }
     const s = stored.save;
@@ -879,11 +956,11 @@ export function connectPlay(view: BoardView, c: {
       setSound(settings.sound()); settings.applyPace(); view.setCoords(settings.coords()); view.setLabels(settings.labels());
       refresh();
     }
-    if (!s) { if (switched) newGame(); return; }
+    if (!s) { if (switched) newGame(undefined, undefined, false, null, undefined, true); return; }
     if (down.includes('saved_game')) {
       replacementRaw = undefined;
       savedJSON = gameJSON(s);
-      if (switched) openSaved(s);
+      if (switched || stored.partial) openSaved(s);
       else if (lesson != null) cloudGame = true;
       else if (!fen) openSaved(s);
     }
@@ -894,12 +971,26 @@ export function connectPlay(view: BoardView, c: {
     $('title-continue').querySelector('.label')!.textContent = `Continue · move ${nextMoveNumber(game.history.map(h => h.pos.turn), game.pos.turn)}`;
   }
 
-  /** The account's saved game replaces the one on the board (but not a position opened by `?fen=`). */
+  /** A saved game owns all game URL fields; keep display fields, history, and the hash. */
+  function endUrlGame(): void {
+    fen = null;
+    preset = undefined;
+    const url = new URL(location.href);
+    for (const key of ['fen', 'army', 'moves', 'rules', 'kings', 'design', 'players']) {
+      params.delete(key);
+      url.searchParams.delete(key);
+    }
+    if (url.href !== location.href) history.replaceState(null, '', url);
+  }
+
+  /** Load an account game, including the legal part offered for recovery. */
   function openSaved(s: Save): void {
     const replayed = replay(s);
     if (!replayed) { refresh(); return; }
+    endUrlGame();
     reset();
     saveBlocked = false;
+    recoverySource = undefined;
     savedJSON = gameJSON(readSave().save);
     replacementRaw = undefined;
     game = replayed.game;
@@ -910,11 +1001,12 @@ export function connectPlay(view: BoardView, c: {
     if (isSide(s.black)) sides[1] = s.black;
     linkSide = s.link === 0 || s.link === 1 ? s.link : null;
     daily = typeof s.daily === 'string' ? s.daily : null;
-    resigned = s.resigned ?? null;
+    resigned = replayed.played < s.moves.length ? null : s.resigned ?? null;
     turnStart = handOver(game) - replayed.staged;
+    loadedTime(s);
     moments.restore();
-    notice = 'Loaded your newer saved game from your account.';
-    moments.say(notice);
+    if (replayed.played < s.moves.length) offerRecovery(s, replayed.played);
+    else { notice = 'Loaded your newer saved game from your account.'; moments.say(notice); }
     sync(game.pos);
     orient();
     guide.fill();
@@ -936,7 +1028,11 @@ export function connectPlay(view: BoardView, c: {
    * It runs before any async work starts, so it is the one game switch that does not call `reset()`.
    */
   function restore(saved: Save | null, r: { link: boolean; continues: boolean; urlRules: boolean; title: boolean; unreadable: boolean; notice: string }): void {
-    savedJSON = gameJSON(readSave().save);
+    const stored = readSave();
+    savedJSON = gameJSON(stored.save);
+    if (!r.link && (stored.partial || stored.save?.recovery !== undefined)) {
+      saved = stored.save; endUrlGame(); seat(saved?.white, saved?.black); r = { ...r, urlRules: false };
+    }
     let staged = 0;
     if (r.unreadable) keepUnreadableSave();
     else if (r.link) {
@@ -956,13 +1052,18 @@ export function connectPlay(view: BoardView, c: {
       } else {
         const replayed = replay(saved);
         if (replayed) {
-          ({ game, staged } = replayed); resigned = saved.resigned ?? null;
+          ({ game, staged } = replayed);
+          resigned = replayed.played < saved.moves.length ? null : saved.resigned ?? null;
+          if (replayed.played < saved.moves.length) offerRecovery(saved, replayed.played);
           if (saved.link === 0 || saved.link === 1) linkSide = saved.link;
           if (typeof saved.daily === 'string') daily = saved.daily;
         }
       }
     }
     turnStart = handOver(game) - staged;
+    loadedTime(saved);
+    // An opened link is the player's choice: when it differs from the saved game, its first write gets a new time.
+    if (r.link) liveJSON = gameJSON(saved);
     // The title's Continue names the move the restored game is on (set before the first paint; a
     // Haste turn is two plies by one side, so the number comes from the replayed game, not the save).
     if (r.title) labelContinue();
@@ -980,13 +1081,14 @@ export function connectPlay(view: BoardView, c: {
   };
 
   return {
-    game: () => game, sides: (): readonly [Side, Side] => sides, skill: () => skill, setSkill: (level: SkillName): void => { skill = level; },
+    game: () => game, sides: (): readonly [Side, Side] => sides, preset: () => preset, skill: () => skill, setSkill: (level: SkillName): void => { skill = level; },
     shownPos, selected: () => selected, pending: () => pending, inspected: () => inspected, candidates, flipped: () => flipped,
     refresh, drawMarks, save, saveSettings: () => save(false, true), reset, maybeAi, ended, resigner, showPly, newGame, startLesson, openSaved, fromAccount, seat, restore,
     savedGames: {
+      seen: (at: number): void => { seenAt = Math.max(seenAt, at); },
       blocked: savedDataBlocked,
-      accepts: (value: unknown): boolean => {
-        try { savedGame(value); return true; }
+      accepts: (value: unknown, partial = false): boolean => {
+        try { const candidate = savedGame(value); return partial || candidate.history.length === (value as Save).moves.length; }
         catch { notice = 'The account save could not be loaded. Your current game stays.'; refresh(); return false; }
       },
     },

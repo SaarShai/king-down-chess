@@ -2,7 +2,7 @@ import './style.css';
 import { Engine } from './game';
 import { PaintedView, type BoardView } from './render/PaintedView';
 import { setSound } from './render/sfx';
-import { HISTORY_WHENS, POWERS_BALANCED, RULES_2017, RULES_2021, parseKings, parseRule, type Rules } from './rules/engine';
+import { HISTORY_WHENS, POWERS_BALANCED, parseKings, parseRule, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, POOL } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { initLessonShelf } from './lesson-shelf-ui';
@@ -17,7 +17,7 @@ import { connectPlay, isSide } from './screen/play';
 import { shouldShowHome } from './ui/home';
 import { initHome } from './ui/home-view';
 import { connectGuide } from './ui/guide';
-import { gameLinkless } from './screen/links';
+import { gameLinkless, RULE_PRESETS } from './screen/links';
 import { connectSettings } from './screen/settings';
 import { readSave, storedSettings } from './screen/save';
 import { connectKeys } from './screen/keys';
@@ -40,7 +40,7 @@ const link = gameLink && linkDesign !== undefined;
 /** A game link that does not open (`gameLink && !link`) also leaves its `?rules=` and `?kings=` out: the saved game stays. */
 const unread = gameLink && !link;
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
-const preset = unread ? undefined : { 2017: RULES_2017, 2021: RULES_2021 }[params.get('rules') ?? ''];
+const preset = unread ? undefined : RULE_PRESETS[params.get('rules') ?? ''];
 /**
  * `?kings=spirit:mercy,mud:march` — White first; one value gives both sides the same king
  * (docs/RULES.md §4). The default is **no powers**; the New game dialog picks each side's power.
@@ -68,7 +68,7 @@ let setup: Setup = defaultSetup();
 let account: typeof import('./account/account') | null = null;
 
 // The parts that the turn core calls. Their closures read `play` only after it exists.
-const guide = connectGuide({ shownPos: () => play.shownPos(), context: () => play.game().context, preset });
+const guide = connectGuide({ shownPos: () => play.shownPos(), context: () => play.game().context, preset: () => play.preset() });
 const settings = connectSettings(view, { skill: () => play.skill(), setSkill: level => play.setSkill(level), save: () => play.saveSettings(), refresh: () => play.refresh() });
 const home = initHome({
   read: () => play.homeInput(),
@@ -131,7 +131,7 @@ const dialog = newGameDialog(s => {
     const example = TRY_THESE.find(row => row.code === s.army);
     if (example) play.say(example.watch);
   } else play.newGame();
-}, preset);
+}, () => play.preset());
 const openGameSetup = (choices: Setup): void => dialog.open(choices, play.warning());
 
 const openNewGame = (): void => openGameSetup(setup);
@@ -142,8 +142,9 @@ initTable(() => { void play.showPly(null, false); });
 // Nothing between connectPlay and this line may call refresh(), drawMarks() or showPly(): they read `keys`.
 const keys = connectKeys($('board'), play, play.commands);
 
-/** A plain `?fen=` wins over the autosave; restore player settings before loading the game. */
-const stored = params.has('fen') && !link ? { save: null, unreadable: false } : readSave(), saved = stored.save;
+/** A partial save needs a recovery choice, also on a plain `?fen=` page. */
+const localSave = readSave();
+const stored = params.has('fen') && !link && !localSave.partial ? { save: null, unreadable: false } : localSave, saved = stored.save;
 if (saved) {
   play.seat(saved.white, saved.black);
   settings.applySettings(saved);
@@ -162,8 +163,8 @@ if (urlPlayers?.length === 2 && urlPlayers.every(isSide)) play.seat(urlPlayers[0
  */
 const TITLE_SEEN = 'kingdown.title-seen';
 const titleSeen = (): boolean => { try { return sessionStorage.getItem(TITLE_SEEN) === '1'; } catch { return false; } };
-const showHome = !link && shouldShowHome(params, { hasSave: !!saved, titleSeen: titleSeen(), firstVisit: firstVisit(saved?.moves.length ?? 0) });
-const showTitle = !showHome && !link && !params.has('fen') && !params.has('army') && !params.has('design') && params.get('title') !== '0' && !titleSeen();
+const showHome = !localSave.partial && !link && shouldShowHome(params, { hasSave: !!saved, titleSeen: titleSeen(), firstVisit: firstVisit(saved?.moves.length ?? 0) });
+const showTitle = !localSave.partial && !showHome && !link && !params.has('fen') && !params.has('army') && !params.has('design') && params.get('title') !== '0' && !titleSeen();
 const titleClosed = showTitle ? openTitle(firstVisit(saved?.moves.length ?? 0), !!saved?.moves.length, () => settings.pace()) : Promise.resolve('continue' as const);
 
 if (params.get('labels') === '1') settings.showLabels(); // `?labels=1` turns the letters on over the saved choice

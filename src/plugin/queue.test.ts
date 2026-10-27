@@ -1,7 +1,7 @@
 // The one command lane and the one epoch gate (design §1.2 and §2, ticket 19 S3). The bodies stand in for a
 // transport call: each one is a promise the test holds and releases, so the order and the detach are facts.
 import { describe, expect, it } from 'vitest';
-import { createQueue, type Job } from './queue';
+import { createQueue, resultText, type Job } from './queue';
 
 const tick = () => new Promise<void>(resolve => setTimeout(resolve, 0));
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
@@ -241,5 +241,25 @@ describe('the command queue', () => {
     expect(ran).toEqual([job]);
     expect(outcome).toEqual({ status: 'refused', code: 'STALE_REVISION', text: 'The board changed.', result: { content: [] } });
     expect(job.done).toBe(true);
+  });
+});
+
+
+describe('board result text', () => {
+  it('reads the full private error notice', () => {
+    const message = 'You have 5 games with rowan. Finish one to accept this invitation.';
+    expect(resultText({ isError: true, content: [{ type: 'text', text: 'The game limit is reached. See the board for details.' }], _meta: { code: 'FRIEND_GAME_LIMIT', message } })).toBe(message);
+  });
+  it.each([undefined, null, 5, {}])('reads public text when the private notice is not a string: %s', message => {
+    expect(resultText({ isError: true, content: [{ type: 'text', text: 'Retry.' }, { type: 'image' }, { type: 'text', text: 'Reload.' }], _meta: { code: 'FRIEND_GAME_LIMIT', message } })).toBe('Retry. Reload.');
+  });
+  it.each([
+    ['INVALID_MOVE', 'This move is not available. Choose another move.', 'This move is no longer available. Reload and choose a move.'],
+    ['STALE_REVISION', 'Your opponent moved. Check the board.', 'Reload the game and retry.'],
+  ])('keeps the board text for %s', (code, text, message) => {
+    expect(resultText({ isError: true, content: [{ type: 'text', text }], _meta: { code, message } })).toBe(text);
+  });
+  it('keeps the public text of a successful result', () => {
+    expect(resultText({ content: [{ type: 'text', text: 'Game ready.' }], _meta: { message: 'Private data.' } })).toBe('Game ready.');
   });
 });

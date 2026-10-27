@@ -731,7 +731,7 @@ it('reads a friend code again after the join preview remounts', async () => {
     expect(await frame.locator('#join-help').textContent()).toBe('Review this game before you join.');
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
-// Join shows its own sentence for a refused code; the raw server text is not the page notice on any screen.
+// Join keeps the service notice for an unavailable invitation.
 it('keeps a refused Join on the join screen', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   const tool = async (name: string, args = {}) => (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name, arguments: args } })).json();
@@ -745,7 +745,7 @@ it('keeps a refused Join on the join screen', async () => {
     // The creator makes a new code, so the shown code stops working before the tap.
     await tool('kingdown_invite', { game_id: friend._meta.view.game_id });
     await frame.locator('#join-confirm').click();
-    await expect.poll(() => frame.locator('#join-message').textContent()).toBe('No game has this code. Check the code with your friend.');
+    await expect.poll(() => frame.locator('#join-message').textContent()).toBe('Invitation unavailable');
     expect(await frame.locator('#error').textContent()).toBe('');
     await frame.locator('#join-decline').click();
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
@@ -1156,7 +1156,7 @@ it.each([false,true])('shows a draw offer and handles a decline before Resign (i
   try {
     await expand(page);
     await frame.locator('html').evaluate(async () => { const app=(window as any).harnessApp; await app.start('friend',{colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
-    await frame.locator('#friend-code span').first().waitFor();
+    await frame.locator('#friend-new').click(); await frame.locator('#friend-code span').first().waitFor();
     const code = (await frame.locator('#friend-code span').allTextContents()).join('');
     const joined = await buddy('kingdown_join',{code});
     await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_get',{},false,false,true); });

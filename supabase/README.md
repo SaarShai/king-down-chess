@@ -61,7 +61,7 @@ Install the audience hook and runtime-role blocks 1–2 once, through the privat
 ## Online games: 0005 to 0014
 
 Apply only missing files in order, after 0001–0004, through the approved privileged SQL Editor path.
-`npm run plugin:db:migrate` applies 0002–0021. Use it only for a disposable test database. Do not run its
+`npm run plugin:db:migrate` applies 0002–0022. Use it only for a disposable test database. Do not run its
 `tsx` entry against a live database. For the 0014 MVP, apply the third to the eleventh blocks of
 `plugin-deploy/runtime-role.sql` to the existing runtime role. The web section below adds block 12.
 The migrations are safe to run again.
@@ -129,7 +129,7 @@ in one short window:
 
 - `0014_plugin_tool_tries.sql`: one counter for each user and tool. Role block 11 grants the server access. Browser roles have no access.
 
-`npm run plugin:db:init-test` applies 0001–0021 twice to a disposable loopback database, and
+`npm run plugin:db:init-test` applies 0001–0022 twice to a disposable loopback database, and
 `src/match/service.db.test.ts`, `src/match/setup.db.test.ts`, `src/match/matchmaking.db.test.ts`,
 `src/match/results.db.test.ts`, `src/online/jobs.db.test.ts`, `src/online/accounts.db.test.ts` and
 `src/api/http.db.test.ts` check them.
@@ -142,7 +142,7 @@ in one short window:
 
 ## Web account access: 0016
 
-For a new database after 0001–0004, apply 0005–0021, then blocks 3–13 of `plugin-deploy/runtime-role.sql`.
+For a new database after 0001–0004, apply 0005–0022, then blocks 3–13 of `plugin-deploy/runtime-role.sql`.
 An existing database needs only the missing files and blocks, under the authority below.
 
 Apply only missing migrations in order through `0016_web_account_access.sql`, then block 12 of
@@ -204,3 +204,28 @@ Confirm the two internal routes work before you paste the MVP file.
   Existing rows and grants stay the same.
   Apply 0021 on staging before a deploy that depends on it.
   Apply 0021 on production before the release that carries it.
+
+## Friend invitations: 0022
+
+- `0022_friend_invites.sql`: adds a named recipient, terminal state, close time and count indexes.
+  It keeps row security and runtime grants. It checks duplicates before the unique game constraint.
+  Account deletion ends affected waiting games and removes sent and received invitations in one transaction.
+  It also removes raw recipient fields from old command receipts.
+  Apply 0022 on staging before a deploy that depends on it.
+  Apply 0022 on production before the release that carries it.
+  The owner session runs each remote migration. This build tests only the local disposable cluster.
+
+Run each `-- migrate:next` phase as a separate query, in file order. Do not put the file in one transaction.
+The migration and test bootstrap tools use `applyMigration` for these phases.
+
+1. Pause `kingdown-daily` before the first phase. In the SQL Editor, run `select cron.alter_job(jobid, active := false) from cron.job where jobname='kingdown-daily';`. Confirm that its `active` value is false. Do not call `/internal/daily` by hand. Check the daily handler logs and let any daily request already sent by pg_net finish before the first phase. The daily route runs deletion and cleanup. The minute tick can continue.
+2. Add columns, the old-join trigger and the named-delete constraint trigger in one short transaction. Add the game-end trigger in the next short transaction. Keep the game and invitation schema locks separate: an old join reads an invitation before it locks the game. The old join still writes only `used_by` and `used_at`; its trigger sets `state` and `closed_at`. It refuses a named join by a different account. It also refuses a recipient change or an expiry extension. Both servers rotate codes with delete and insert. The deferred delete check runs at commit and requires the same recipient and no later expiry on the replacement row. Thus old rotation fails and new rotation passes. Account cleanup and game deletion still pass. The game-end trigger closes open invitations when an old writer aborts, finishes or expires a game, including a deletion job's game-end write. Accepted and declined rows keep their state. Game deletion removes its invitations through the existing foreign key.
+3. Backfill old rows and check for duplicates after the schema locks end. Repair duplicate rows before the next phase.
+4. Build the unique and count indexes with `CONCURRENTLY`. Attach the unique index and add `NOT VALID` checks in a short transaction. Validate them in the next phase. Data scans do not hold the schema locks.
+5. Apply the deletion function and runtime grants. The function locks all affected games in ID order before it checks active seats. An old join that wins the game lock keeps the account; a deletion that wins ends the waiting game before a join can read it. Validate the tool check. Confirm that all indexes are valid and all constraints pass before the new server deploys.
+6. After the last phase: Stop incoming game requests. Let all old-server requests finish. Enable the new server. Check old and new invitation joins on staging. Keep all three triggers while any old server can write. Do not resume deletion on a mixed release: old create and rematch paths do not take the new account locks.
+7. After all writers use the new account locks, resume with `select cron.alter_job(jobid, active := true) from cron.job where jobname='kingdown-daily';`. Confirm that `active` is true and the next daily job completes. Due deletion rows remain due during the pause. If the release stops or rolls back to the old server, keep daily jobs paused. Before rollback, pause daily jobs and let active daily requests finish; keep migration 0022 and all three triggers. The old server does not know named invitations: it shows a named preview to any account with the link, checks the wrong account's invitation setting, skips the friend game limit and can accept just after expiry. Stop new requests to the new server. Let all new-server requests finish. End every open named invitation: `update public.game_invites set expires_at=least(expires_at,statement_timestamp()-interval '1 minute'),state='cancelled',closed_at=statement_timestamp() where state='open' and recipient_id is not null;`. The minute covers an app clock that runs behind the database clock. The old server refuses an expired invitation in preview and join. The new server's sweep does not end a waiting game whose named invitation is cancelled; the old minute sweep ends it as `no_start`. Run this query. If it returns a nonzero count, identify and abort the affected waiting games. Repeat the query until it returns 0: `select count(*) from public.games g where g.status='waiting' and exists(select from public.game_invites i where i.game_id=g.id and i.recipient_id is not null and i.state='cancelled');`. Enable old-server traffic. Open links keep the old behavior: the friend game limit and the sent invitation limit do not apply until the new server returns. To restore the new server: Stop incoming game requests. Let all old-server requests finish. Enable the new server. Resume daily jobs only after the new server is enabled. Use the same order for the approved production release.
+
+Schema steps have a five-second lock timeout. If a step fails, stop before the deploy and repeat after the cause is fixed.
+A failed concurrent build can leave an invalid index. Drop only that failed index with `DROP INDEX CONCURRENTLY`, then repeat 0022.
+The file checks for invalid indexes before it attaches constraints. Do not skip that check.

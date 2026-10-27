@@ -4,6 +4,7 @@ import { CAST_PREPARE_MS } from '../render/effects/card';
 /** Short interface motion. The DOM always holds the readable result. */
 export class UiMotion {
   private running = new Map<Animation, Element>();
+  private onsets = new Map<number, { time: number; end: number }>();
   private stopped = false;
   private cutoff = -Infinity;
   private reduced = matchMedia('(prefers-reduced-motion: reduce)');
@@ -30,10 +31,15 @@ export class UiMotion {
     if (!this.enabled()) { this.cutoff = Math.max(this.cutoff, at); return; }
     if (document.activeElement && element?.contains(document.activeElement)) return;
     if (!element || !element.isConnected || typeof element.animate !== 'function' || at <= this.cutoff || age >= (delay + duration) / speed) return;
-    // A rebuilt control resumes its current beat. It never starts the beat again.
+    // Convert once per event: the timeline can lag wall time during setup or use another clock.
+    for (const [event, onset] of this.onsets) if (onset.end <= performance.now()) this.onsets.delete(event);
+    const end = at + (delay + duration) / speed;
+    const onset = this.onsets.get(at) ?? { time: Number(document.timeline.currentTime) - age, end };
+    onset.end = Math.max(onset.end, end);
+    this.onsets.set(at, onset);
     for (const [animation, target] of this.running) if (target === element || !target.isConnected) { animation.cancel(); this.running.delete(animation); }
     const animation = element.animate(frames, { duration: duration / speed, delay: delay / speed, easing, fill: 'both' });
-    animation.currentTime = Math.max(0, age);
+    animation.startTime = onset.time;
     this.running.set(animation, element);
     const clear = () => { this.running.delete(animation); animation.cancel(); };
     void animation.finished.then(clear, () => { this.running.delete(animation); });
@@ -48,6 +54,7 @@ export class UiMotion {
     this.cutoff = performance.now();
     for (const animation of this.running.keys()) animation.cancel();
     this.running.clear();
+    this.onsets.clear();
   }
 
   dispose(): void {

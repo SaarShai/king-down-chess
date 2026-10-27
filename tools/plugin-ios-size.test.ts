@@ -455,7 +455,9 @@ it('gives each Android control a 48 px tap area at 360 × 800', async () => {
     await frame.getByRole('radio', { name: 'Artificial', exact: true }).locator('..').click();
     await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).check(); await frame.getByRole('checkbox', { name: 'Cards', exact: true }).check();
     await check();
-    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#setup-start').click(); await frame.locator('#friend-copy:not([hidden])').waitFor();
+    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#setup-start').click();
+    await frame.locator('#friend-new').waitFor(); await check();
+    await frame.locator('#friend-new').click(); await frame.locator('#friend-copy:not([hidden])').waitFor();
     await check();
     await frame.locator('#page-back').click(); await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
     await check();
@@ -492,7 +494,7 @@ it('reflows New game and a waiting friend invite at 200% zoom (197 CSS px)', asy
     await frame.locator('#fairy-heading').click({ timeout: 3000 * STEP });
     expect(await frame.locator('#fairy-body .pick-list').isVisible()).toBe(true);
     await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
-    await frame.locator('#setup-start').click(); await frame.locator('.game-code span').first().waitFor();
+    await frame.locator('#setup-start').click(); await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
     const code = (await frame.locator('.game-code span').allTextContents()).join('');
     await frame.locator('#page-back').click();
     const invite = frame.locator('.friend-invite-row').filter({ hasText: code }); await invite.waitFor();

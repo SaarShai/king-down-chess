@@ -1,18 +1,20 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from '../../match/setup';
-import type { View } from '../../match/protocol';
+import { INVITE_NOTICES } from '../../match/invite-notices';
+import type { JoinPreview, View } from '../../match/protocol';
 
 const runtime = vi.hoisted(() => ({
-  motionResult: vi.fn(), closed: false, call: vi.fn(), send: vi.fn(), clientCall: vi.fn(), navigate: vi.fn(), renderRows: vi.fn(), routeView: vi.fn(),
+  motionResult: vi.fn(), closed: false, call: vi.fn(), send: vi.fn(), clientCall: vi.fn(), showNewGame: vi.fn(), navigate: vi.fn(), renderRows: vi.fn(), routeView: vi.fn(),
   client: { state: { screen: 'wait', sheet: undefined as string | undefined, pending: undefined }, save: vi.fn() },
-  memory: { view: undefined as View | undefined, games: [] as any[], settings: undefined as any, me: undefined },
+  memory: { view: undefined as View | undefined, games: [] as any[], settings: undefined as any, me: undefined,
+    code: '', preview: undefined as JoinPreview | undefined, joinError: undefined },
   board: { ready: vi.fn(), setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), setPreview: vi.fn(), screenOf: () => ({ x: 0, y: 0 }), onSquareClick: () => {}, onDragSelect: () => {}, onSquareHover: () => {} },
 }));
 vi.mock('../../account-game/runtime', () => ({
   call: runtime.call, send: runtime.send, client: { ...runtime.client, call: runtime.clientCall }, memory: runtime.memory,
   queue: { closed: () => runtime.closed, current: () => !runtime.closed },
   navigate: runtime.navigate, renderGameRows: runtime.renderRows, routeView: runtime.routeView,
-  gameActionsBlocked: () => false, pollUpdate() {}, start: vi.fn(), showNewGame() {}, actions() {},
+  gameActionsBlocked: () => false, pollUpdate() {}, start: vi.fn(), showNewGame: runtime.showNewGame, actions() {},
   store: { page: () => ({ screen: runtime.client.state.screen, connected: true, mounting: false, writing: false }) },
 }));
 vi.mock('../../ui/motion', () => ({ UiMotion: class { cancel() {} dispose() {} }, revealResult: runtime.motionResult }));
@@ -28,7 +30,7 @@ let removed = false;
 function node(): any {
   return { dataset: {}, style: {}, innerHTML: '', textContent: '', disabled: false, hidden: false, open: false,
     classList: { add() {}, remove() {}, contains: () => false, toggle() {} }, getAttribute: () => null,
-    setAttribute() {}, removeAttribute() {}, append() {}, prepend() {}, replaceChildren() {}, replaceWith() {}, remove() {}, insertBefore() {},
+    setAttribute() {}, removeAttribute() {}, addEventListener() {}, removeEventListener() {}, append() {}, prepend() {}, replaceChildren() {}, replaceWith() {}, remove() {}, insertBefore() {},
     show() { this.open = true; }, close() { this.open = false; }, focus: vi.fn(),
     querySelector: () => node(), querySelectorAll: () => [], getBoundingClientRect: () => ({ left: 0, top: 0, width: 960 }),
     firstElementChild: { style: {} }, childElementCount: 1,
@@ -44,8 +46,10 @@ beforeEach(() => {
   runtime.send.mockReset().mockImplementation(async (name: string, args: Record<string, unknown>) => ({ status: 'done', result: await runtime.clientCall(name, args) }));
   runtime.closed = false; runtime.client.state.screen = 'wait'; runtime.client.state.sheet = undefined;
   runtime.memory.view = undefined; runtime.memory.games = []; runtime.memory.settings = undefined;
+  runtime.memory.code = ''; runtime.memory.preview = undefined; runtime.memory.joinError = undefined;
   runtime.board.ready.mockReturnValue(new Promise(() => {}));
   listeners.clear(); observers.length = 0; nodes.clear(); removed = false;
+  lookup('friend-new').textContent = 'Make a new code';
   const add = (name: string, fn: EventListener, options?: AddEventListenerOptions) => {
     const bucket = listeners.get(name) ?? new Set(); bucket.add(fn); listeners.set(name, bucket);
     options?.signal?.addEventListener('abort', () => bucket.delete(fn), { once: true });
@@ -67,6 +71,33 @@ it('stops registered screen work once and removes the shared page listeners', as
   onStop(stop); expect(listeners.get('pagehide')?.size).toBe(1); expect(listeners.get('message')?.size).toBe(1);
   stopAll(); stopAll();
   expect(stop).toHaveBeenCalledOnce(); expect(listeners.get('pagehide')?.size).toBe(0); expect(listeners.get('message')?.size).toBe(0);
+});
+
+it.each(['', 'ABC234'])('joins a preview with code "%s" through its available key', async code => {
+  const { joinScreen } = await import('./join'), invite_id = 'a'.repeat(64);
+  runtime.client.state.screen = 'join'; runtime.memory.code = code;
+  runtime.memory.preview = { code, invite_id, options: null, colour: 'black', kind: 'friend', creator: { handle: 'rowan', icon: null }, expires_at: 'soon' };
+  runtime.send.mockResolvedValueOnce({ status: 'done', result: { content: [] }, view: { game_id: 'joined' } });
+  joinScreen();
+  expect(lookup('join-confirm').hidden).toBe(false);
+  lookup('join-confirm').onclick(); await vi.advanceTimersByTimeAsync(0);
+  expect(runtime.send).toHaveBeenCalledExactlyOnceWith('kingdown_join', code ? { code } : { invite_id });
+  expect(runtime.routeView).toHaveBeenCalledWith({ game_id: 'joined' });
+  expect(runtime.memory.preview).toBeUndefined();
+});
+
+it.each(['expired', 'closed', 'unavailable'] as const)('keeps the %s service notice on Join replies', async state => {
+  const { joinScreen } = await import('./join'), text = INVITE_NOTICES[state];
+  runtime.client.state.screen = 'join'; runtime.memory.code = 'ABC234';
+  runtime.clientCall.mockResolvedValueOnce({ isError: true, content: [{ type: 'text', text }], _meta: { code: 'INVITE_UNAVAILABLE' } });
+  joinScreen(); await vi.advanceTimersByTimeAsync(0);
+  expect(lookup('join-message').textContent).toBe(text);
+
+  runtime.memory.joinError = undefined;
+  runtime.memory.preview = { code: 'ABC234', invite_id: 'a'.repeat(64), options: null, colour: 'black', kind: 'friend', creator: { handle: 'rowan', icon: null }, expires_at: 'soon' };
+  runtime.send.mockResolvedValueOnce({ status: 'refused', code: 'INVITE_UNAVAILABLE', text });
+  joinScreen(); lookup('join-confirm').onclick(); await vi.advanceTimersByTimeAsync(0);
+  expect(lookup('join-message').textContent).toBe(text);
 });
 
 it('stops the wait clock and observer before the account DOM is removed', async () => {
@@ -149,14 +180,14 @@ it.each([false, true])('ignores a pending friend invite after stop (failure: %s)
   runtime.memory.view = { game_id: 'friend', kind: 'friend', status: 'waiting' } as View;
   let resolve!: (value: unknown) => void, reject!: (error: Error) => void;
   runtime.clientCall.mockReturnValueOnce(new Promise((yes, no) => { resolve = yes; reject = no; }));
-  friend.friendScreen(); expect(runtime.clientCall).toHaveBeenCalledOnce();
+  friend.friendScreen(); lookup('friend-new').onclick(); expect(runtime.clientCall).toHaveBeenCalledOnce();
   runtime.closed = true; friend.stopAll(); removed = true;
   if (failed) reject(new Error('Invite failed')); else resolve({ content: [], structuredContent: { code: 'ABC123' } });
   await vi.advanceTimersByTimeAsync(0);
   expect(runtime.renderRows).not.toHaveBeenCalled();
 });
 
-it('offers explicit renewal for an expired friend code without creating one on entry', async () => {
+it('offers New game for an expired friend code without renewal', async () => {
   const friend = await import('./friend'), { friendInvites } = await import('../invite');
   runtime.client.state.screen = 'friend';
   runtime.memory.view = { game_id: 'friend', kind: 'friend', status: 'waiting' } as View;
@@ -165,31 +196,47 @@ it('offers explicit renewal for an expired friend code without creating one on e
   expect(lookup('friend-code').hidden).toBe(true);
   expect(lookup('friend-actions').hidden).toBe(true);
   expect(lookup('friend-new').hidden).toBe(false);
+  expect(lookup('friend-new').textContent).toBe('New game');
+  lookup('friend-new').onclick();
+  expect(runtime.showNewGame).toHaveBeenCalledOnce();
   expect(lookup('friend-help').textContent).toContain('expired');
   expect(runtime.clientCall).not.toHaveBeenCalled();
-  runtime.clientCall.mockResolvedValueOnce({ content: [], structuredContent: { code: 'NEW234', expires_at: new Date(Date.now() + 7000).toISOString() } });
-  lookup('friend-new').onclick(); await vi.advanceTimersByTimeAsync(0);
-  expect(runtime.clientCall).toHaveBeenCalledExactlyOnceWith('kingdown_invite', { game_id: 'friend' });
-  expect(lookup('friend-code').hidden).toBe(false);
-  expect(lookup('friend-actions').hidden).toBe(false);
-  expect(lookup('friend-new').hidden).toBe(true);
+  expect(runtime.send).not.toHaveBeenCalled();
   friend.stopAll();
 });
 
-it.each([false, true])('expires a visible friend code without navigation (left: %s)', async left => {
+it.each([{ left: false, replaced: false }, { left: true, replaced: false }, { left: false, replaced: true }])('expires a friend code without navigation (left: $left, replaced: $replaced)', async ({ left, replaced }) => {
   const friend = await import('./friend'), { friendInvites } = await import('../invite');
   runtime.client.state.screen = 'friend';
   runtime.memory.view = { game_id: 'friend', kind: 'friend', status: 'waiting' } as View;
-  friendInvites.set('friend', { code: 'ABC234', expires_at: new Date(Date.now() + 1000).toISOString() });
+  friendInvites.set('friend', { code: 'ABC234', replaced, expires_at: new Date(Date.now() + 1000).toISOString() });
   friend.friendScreen(); friend.friendScreen();
-  expect(lookup('friend-actions').hidden).toBe(false);
+  expect(lookup('friend-actions').hidden).toBe(replaced);
   if (left) { runtime.client.state.screen = 'play'; lookup('friend-help').textContent = 'Untouched'; }
   await vi.advanceTimersByTimeAsync(1000);
   expect(runtime.clientCall).not.toHaveBeenCalled();
   expect(runtime.renderRows).toHaveBeenCalledOnce();
   if (left) expect(lookup('friend-help').textContent).toBe('Untouched');
-  else { expect(lookup('friend-actions').hidden).toBe(true); expect(lookup('friend-new').hidden).toBe(false); }
+  else { expect(lookup('friend-actions').hidden).toBe(true); expect(lookup('friend-new').hidden).toBe(false); expect(lookup('friend-new').textContent).toBe('New game'); }
   expect(vi.getTimerCount()).toBe(0);
+});
+
+it.each([false, true])('offers New game when code renewal is unavailable (cached: %s)', async cached => {
+  const friend = await import('./friend'), { friendInvites } = await import('../invite');
+  runtime.client.state.screen = 'friend';
+  runtime.memory.view = { game_id: 'friend', kind: 'friend', status: 'waiting' } as View;
+  if (cached) friendInvites.set('friend', { code: 'ABC234', replaced: true, expires_at: new Date(Date.now() + 7000).toISOString() });
+  runtime.send.mockResolvedValue({ status: 'refused', code: 'INVITE_UNAVAILABLE', text: 'This invitation is not available.' });
+  friend.friendScreen();
+  expect(lookup('friend-new').textContent).toBe('Make a new code');
+  lookup('friend-new').onclick(); await vi.advanceTimersByTimeAsync(0);
+  expect(lookup('friend-new').textContent).toBe('New game');
+  expect(lookup('friend-help').textContent).toContain('expired');
+  expect(lookup('friend-code').hidden).toBe(true); expect(lookup('friend-actions').hidden).toBe(true);
+  lookup('friend-new').onclick();
+  expect(runtime.showNewGame).toHaveBeenCalledOnce(); expect(runtime.send).toHaveBeenCalledOnce();
+  friend.friendScreen();
+  expect(lookup('friend-new').textContent).toBe('New game');
 });
 
 it('clears the invite expiry timer before the account DOM is removed', async () => {

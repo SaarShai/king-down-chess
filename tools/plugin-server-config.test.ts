@@ -69,7 +69,7 @@ it.each([undefined, ''])('starts the production profile with KINGDOWN_STAGE=%s a
     expect(await call('GET /api/status')).toEqual({ status: 200, body: { account_access: 'closed', valid_for_ms: 0 } });
     expect(query).toHaveBeenCalledWith(expect.stringContaining('web_account_access'));
     const operations = [...ENABLED_WEB_OPERATIONS].filter(key => key !== 'GET /api/status');
-    expect(operations).toHaveLength(29);
+    expect(operations).toHaveLength(31);
     for (const key of operations) expect([key, await call(key)]).toEqual([key, { status: 503, body: expect.objectContaining({ code: 'UNAVAILABLE' }) }]);
   } finally { await close(); delete production.KINGDOWN_STAGE; }
 });

@@ -191,24 +191,25 @@ it('replaces the old Freeze image with the shared volume and draws its front aft
 });
 
 
-it.each(['move', 'fall'])('A8: ends a %s and consumes the whole pointer gesture', async kind => {
+it.each([['move', 'mouse'], ['move', 'touch'], ['fall', 'mouse'], ['fall', 'touch']])('A8: ends a %s from a board %s press and consumes the whole gesture', async (kind, pointerType) => {
   const container = stubDom(), { PaintedView } = await import('./PaintedView');
   const view = new PaintedView(container as unknown as HTMLElement);
-  const scene = (view as unknown as { scene: PaintedScene }).scene;
+  const { canvas, scene } = view as unknown as { canvas: HTMLCanvasElement; scene: PaintedScene };
   const cancel = vi.fn(), fallen = vi.fn();
   Object.assign(scene, { animating: kind === 'move', falling: kind === 'fall', cancel, setFallen: fallen });
-  view.onSquareClick = vi.fn();
+  view.onSquareClick = vi.fn(); view.onSkipAnimation = vi.fn();
   for (const type of ['pointerdown', 'pointerup', 'click']) {
-    const event = { button: 0, pointerId: 7, detail: 1, preventDefault: vi.fn(), stopImmediatePropagation: vi.fn() };
+    const event = { target: type === 'pointerdown' ? canvas : container, pointerType, button: 0, pointerId: 7, detail: 1, preventDefault: vi.fn(), stopImmediatePropagation: vi.fn() };
     documentListeners.get(type)!(event as unknown as Event);
     expect(event.preventDefault).toHaveBeenCalledOnce();
     expect(event.stopImmediatePropagation).toHaveBeenCalledOnce();
   }
+  expect(view.onSkipAnimation).toHaveBeenCalledOnce();
   expect(cancel).toHaveBeenCalledTimes(kind === 'move' ? 1 : 0);
   expect(fallen).toHaveBeenCalledTimes(kind === 'fall' ? 1 : 0);
   expect(view.onSquareClick).not.toHaveBeenCalled();
   Object.assign(scene, { animating: false, falling: false });
-  const next = { button: 0, pointerId: 8, detail: 1, preventDefault: vi.fn(), stopImmediatePropagation: vi.fn() };
+  const next = { target: canvas, pointerType, button: 0, pointerId: 8, detail: 1, preventDefault: vi.fn(), stopImmediatePropagation: vi.fn() };
   for (const type of ['pointerdown', 'pointerup', 'click']) documentListeners.get(type)!(next as unknown as Event);
   expect(next.preventDefault).not.toHaveBeenCalled();
 });

@@ -1,6 +1,6 @@
 /** Named plugin checks own their temporary build, loopback servers and test identities. */
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { register } from 'tsx/esm/api';
 import { testDatabase } from './plugin-db-config.mjs';
@@ -17,7 +17,11 @@ import { buildPluginServer } from './plugin-server-build.mjs';
 const mode = process.argv[2];
 assert(['oauth', 'fixture', 'http', 'privacy', 'preview', 'skylift'].includes(mode), 'Choose oauth, fixture, http, privacy, preview or skylift');
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
-if (mode === 'oauth' || mode === 'http' || mode === 'privacy' || mode === 'skylift') testDatabase(connectionString);
+if (mode === 'oauth' || mode === 'http' || mode === 'privacy' || mode === 'skylift') {
+  testDatabase(connectionString);
+  // Load this branch's schema only after the runner gives this check the shared slot.
+  execFileSync(process.execPath, [fileURLToPath(new URL('./plugin-db/bootstrap-test.mjs', import.meta.url))], { timeout: 60_000 });
+}
 const work = await mkdtemp(join(tmpdir(), 'kingdown-plugin-check-'));
 const build = join(work, 'server');
 const actors = [randomUUID(), randomUUID(), randomUUID()];
