@@ -81,6 +81,8 @@ export function stamp(store: Store, now = Date.now()): Stamps {
   const raw = store.getItem(STAMPS), stamps: Stamps = parse(raw) ?? {}, rawSave = store.getItem(SAVE);
   const save = parse(rawSave), local = readSections(rawSave, store.getItem(LESSONS));
   const recovery = save?.recovery !== undefined ? gameTime(save) : undefined;
+  // The stored record follows the save, so it never keeps an older game.
+  const before = JSON.stringify([stamps.saved_game, stamps.recovery]);
   let changed = false;
   delete stamps.saved_game;
   delete stamps.recovery;
@@ -96,6 +98,7 @@ export function stamp(store: Store, now = Date.now()): Stamps {
       changed = true;
     }
   }
+  changed ||= JSON.stringify([stamps.saved_game, stamps.recovery]) !== before;
   if (changed) store.setItem(STAMPS, JSON.stringify(stamps));
   return stamps;
 }
