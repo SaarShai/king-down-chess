@@ -13,13 +13,13 @@ const browser = await launch();
 const jpeg = { type: 'jpeg', quality: 86 };
 const ok = msg => console.log(`ok ${msg}`);
 
-async function open({ viewport = { width: 1280, height: 900 }, touch = false, save = null, query = '', reducedMotion = 'no-preference', shelf = null } = {}) {
+async function open({ viewport = { width: 1280, height: 900 }, touch = false, save = null, query = '', reducedMotion = 'no-preference', shelf = null, titleSeen = true } = {}) {
   const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch, reducedMotion });
-  await ctx.addInitScript(([s, shelf]) => {
-    sessionStorage.setItem('kingdown.title-seen', '1'); // skip the title screen (main.ts)
+  await ctx.addInitScript(([s, shelf, titleSeen]) => {
+    if (titleSeen) sessionStorage.setItem('kingdown.title-seen', '1'); // skip the title screen (main.ts)
     if (s && !sessionStorage.getItem('seeded')) { localStorage.setItem('kingdown.save', JSON.stringify(s)); sessionStorage.setItem('seeded', '1'); }
     if (shelf) localStorage.setItem('kingdown.workshop', shelf); // the Workshop's designs on this device
-  }, [save, shelf]);
+  }, [save, shelf, titleSeen]);
   const page = await ctx.newPage();
   trapErrors(page);
   await page.goto(base + query);
@@ -51,6 +51,170 @@ const kingsDrawn = (page, kings) => page.waitForFunction(k => {
 }, kings, { timeout: 10000 });
 
 try {
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    const source = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5', 'Qd1-d8'], white: 'human', black: 'human', coords: true, resigned: 0, staged: 1, pace: 'off', sound: false };
+    const page = await open({ viewport, save: source });
+    const offer = page.getByRole('button', { name: 'Use recovered game', exact: true });
+    await offer.waitFor({ state: 'visible' });
+    const raw = await page.evaluate(() => localStorage.getItem('kingdown.save'));
+    assert.equal(raw, JSON.stringify(source), 'the full source stays before acceptance');
+    assert.deepEqual(await lanMoves(page), source.moves.slice(0, 2), 'the board shows the legal part');
+    assert.match(await page.textContent('#context-text'), /Rules changed\. Loaded 2 of 3 actions\. The next action is not legal\./);
+    assert.equal(await page.getAttribute('#context-text', 'role'), 'status');
+    assert.equal(await page.getAttribute('#context-text', 'aria-live'), 'polite');
+    assert.equal(await offer.getAttribute('aria-describedby'), 'context-text');
+    await insideViewport(page, '#recover-save');
+    await insideViewport(page, '#recovery-new-game');
+    await insideViewport(page, '#context-text');
+    await insideViewport(page, '#table-bar');
+    await shot(page, `save-recovery-${viewport.width}.jpg`, jpeg);
+    await offer.focus();
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'recovery-new-game', 'Tab reaches New game');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.getElementById('new-game').open);
+    assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.save')), raw, 'opening New game keeps the source');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.getElementById('new-game').open && document.activeElement?.id === 'recovery-new-game');
+    await offer.focus();
+    await page.keyboard.press('Enter');
+    await offer.waitFor({ state: 'hidden' });
+    const kept = await saved(page);
+    assert.deepEqual(kept.moves, source.moves.slice(0, 2));
+    assert.equal(kept.resigned, null);
+    assert.equal(kept.staged, undefined);
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'board', 'acceptance returns focus to the board');
+    assert.equal(typeof kept.recovery, 'number', 'acceptance stores the source time');
+    assert.equal(kept.gameAt, 0, 'a legacy save has unknown time');
+    await page.reload();
+    await page.waitForFunction(() => window.view?.ready);
+    await page.evaluate(() => window.view.ready());
+    assert.equal(await offer.isVisible(), false, 'the accepted game reloads without an offer');
+    assert.deepEqual((await saved(page)).moves, source.moves.slice(0, 2));
+    assert.equal((await saved(page)).recovery, kept.recovery, 'reload keeps the source time until a move or cloud confirmation');
+    assertNoErrors(page);
+    await page.context().close();
+  }
+  ok('save recovery: the full source stays until acceptance; keyboard choices, live notice, reload and three screen sizes pass');
+
+  for (const moves of [['bad'], ['e2-e4', 'e7-e5', 'bad']]) {
+    const source = { back: 'RNBQKBNR', fen: '', moves, white: 'human', black: 'human', coords: true, resigned: null, pace: 'off', sound: false };
+    const page = await open({ save: source, titleSeen: false, query: '?fen=' + encodeURIComponent('7k/8/8/8/8/8/8/K6R w - - 0 1') + '&rules=2017' });
+    await page.reload();
+    await page.waitForFunction(() => window.view?.ready);
+    await page.evaluate(() => window.view.ready());
+    assert.equal(await page.evaluate(() => document.getElementById('game-table').dataset.home), undefined, 'Home cannot cover a pending recovery');
+    assert.equal(await page.evaluate(() => document.getElementById('title-screen').open), false, 'the title cannot cover a pending recovery');
+    assert.equal(await page.locator('#recover-save').isVisible(), true);
+    assert.equal(await page.locator('#recovery-new-game').isVisible(), true);
+    await page.locator('#recover-save').click();
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'board');
+    assertNoErrors(page);
+    await page.context().close();
+  }
+  ok('a fresh tab keeps recovery choices above Home and the title after reload');
+
+  for (const fields of ['', '&rules=2017', '&rules=2017&kings=flame:haste&players=ai,ai&design=bad']) {
+    const source = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5', 'Qd1-d8'], white: 'human', black: 'human', coords: true, resigned: null, pace: 'off', sound: false, gameAt: 500 };
+    const query = '?fen=' + encodeURIComponent('7k/8/8/8/8/8/8/K6R w - - 0 1') + fields + '&title=0#recovery';
+    const page = await open({ save: source, query });
+    for (let load = 0; load < 2; load++) {
+      await page.locator('#recover-save').waitFor({ state: 'visible' });
+      assert.equal(await page.locator('#recovery-new-game').isVisible(), true, 'FEN recovery keeps both choices');
+      assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.save')), JSON.stringify(source), 'FEN recovery keeps the full source');
+      assert.deepEqual(await lanMoves(page), source.moves.slice(0, 2), 'FEN recovery shows the legal part');
+      if (load === 0) {
+        await page.reload();
+        await page.waitForFunction(() => window.view?.ready);
+        await page.evaluate(() => window.view.ready());
+      }
+    }
+    const url = new URL(page.url());
+    for (const key of ['fen', 'rules', 'kings', 'players', 'design']) assert.equal(url.searchParams.has(key), false, `recovery ends ${key}`);
+    assert.equal(url.searchParams.get('title'), '0');
+    assert.equal(url.hash, '#recovery');
+    await page.goto(new URL('/privacy.html', base).href);
+    const historyLength = await page.evaluate(() => history.length);
+    await page.goto(base + query);
+    await page.waitForFunction(() => window.view?.ready);
+    await page.evaluate(() => window.view.ready());
+    assert.equal(await page.evaluate(() => history.length), historyLength + 1, 'recovery adds no history entry');
+    await page.goBack();
+    assert.equal(new URL(page.url()).pathname, '/privacy.html');
+    await page.goForward();
+    await page.waitForFunction(() => window.view?.ready);
+    await page.evaluate(() => window.view.ready());
+    assert.equal(await page.locator('#recover-save').isVisible(), true);
+    assert.equal(await page.locator('#recovery-new-game').isVisible(), true);
+    assert.deepEqual((await saved(page)).moves, source.moves);
+    await page.locator('#recover-save').click();
+    await page.locator('#recover-save').waitFor({ state: 'hidden' });
+    assert.equal((await saved(page)).gameAt, 500, 'acceptance keeps game time');
+    // A page from an older build can still have this URL after acceptance.
+    await page.evaluate(() => history.replaceState(null, '', '?rules=2017#recovery'));
+    await page.reload();
+    await page.waitForFunction(() => window.view?.ready);
+    await page.evaluate(() => window.view.ready());
+    assert.deepEqual((await saved(page)).moves, source.moves.slice(0, 2));
+    assert.equal((await saved(page)).gameAt, 500);
+    assert.equal(new URL(page.url()).searchParams.has('rules'), false);
+    assertNoErrors(page);
+    await page.context().close();
+  }
+  ok('save recovery: FEN, rules, kings, players, and design keep both choices, source, time, hash, and history');
+
+  {
+    const page = await open({ query: '?army=RNBQKBNR&moves=e2-e4_e7-e5&title=0' });
+    assert.deepEqual((await saved(page)).moves, ['e2-e4', 'e7-e5']);
+    assert.equal(new URL(page.url()).searchParams.has('moves'), false);
+    await page.reload();
+    await page.waitForFunction(() => window.view?.ready);
+    await page.evaluate(() => window.view.ready());
+    assert.deepEqual((await saved(page)).moves, ['e2-e4', 'e7-e5']);
+    assertNoErrors(page);
+    await page.context().close();
+  }
+  ok('a shared game link still opens and reloads its moves');
+
+  for (const choice of ['cancel', 'start', 'failed read', 'late close']) {
+    const source = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5', 'Qd1-d8'], white: 'human', black: 'human', coords: true, resigned: null, pace: 'off', sound: false };
+    const page = await open({ save: source });
+    const offer = page.locator('#recover-save');
+    await offer.waitFor({ state: 'visible' });
+    if (choice === 'failed read') {
+      await page.evaluate(() => {
+        const get = Storage.prototype.getItem;
+        Storage.prototype.getItem = function (key) {
+          if (key === 'kingdown.save') throw new Error('read blocked');
+          return get.call(this, key);
+        };
+      });
+      await offer.click();
+      assert.equal(await page.evaluate(() => document.activeElement?.id), 'menu-btn', 'a failed read keeps a visible focus target');
+    } else {
+      await page.click('#recovery-new-game');
+      if (choice === 'cancel') {
+        await page.click('#new-game button[value="cancel"]');
+        await page.waitForFunction(() => !document.getElementById('new-game').open && document.activeElement?.id === 'recovery-new-game');
+      } else if (choice === 'start') {
+        await page.click('#start-game');
+        await page.waitForFunction(() => !document.getElementById('new-game').open && document.activeElement?.id === 'board');
+      } else {
+        await page.evaluate(() => new Promise(resolve => {
+          const sheet = document.getElementById('new-game');
+          sheet.addEventListener('close', resolve, { once: true });
+          sheet.close();
+          document.getElementById('recover-save').focus();
+        }));
+        assert.equal(await page.evaluate(() => document.activeElement?.id), 'recover-save', 'a late close keeps the current focus');
+      }
+    }
+    assertNoErrors(page);
+    await page.context().close();
+  }
+  ok('save recovery focus: Cancel, New game, failed read, and late close pass');
+
+
   const labels = [];
   for (const [level, name] of [['beginner', 'Casual'], ['casual', 'Clever']]) {
     const page = await open();

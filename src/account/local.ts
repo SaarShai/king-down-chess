@@ -5,6 +5,11 @@ const OWNER = 'kingdown.sync-owner', COPIES = 'kingdown.local.';
 type LocalCopy = (string | null)[];
 type Owner = { userId: string; restore?: LocalCopy; accounts?: string[] };
 type Access = { userId: string | null; blocked: boolean };
+/** Read only the time stored with this game, never a separate sync record. */
+export function gameTime(save: { gameAt?: unknown } | null | undefined): number {
+  const at = save?.gameAt;
+  return typeof at === 'number' && Number.isFinite(at) && at >= 0 ? at : 0;
+}
 const tabs = new WeakMap<LocalStore, Access>();
 const ownerOf = (store: LocalStore): Owner | null => JSON.parse(store.getItem(OWNER) ?? 'null');
 

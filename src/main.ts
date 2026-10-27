@@ -142,8 +142,9 @@ initTable(() => { void play.showPly(null, false); });
 // Nothing between connectPlay and this line may call refresh(), drawMarks() or showPly(): they read `keys`.
 const keys = connectKeys($('board'), play, play.commands);
 
-/** A plain `?fen=` wins over the autosave; restore player settings before loading the game. */
-const stored = params.has('fen') && !link ? { save: null, unreadable: false } : readSave(), saved = stored.save;
+/** A partial save needs a recovery choice, also on a plain `?fen=` page. */
+const localSave = readSave();
+const stored = params.has('fen') && !link && !localSave.partial ? { save: null, unreadable: false } : localSave, saved = stored.save;
 if (saved) {
   play.seat(saved.white, saved.black);
   settings.applySettings(saved);
@@ -162,8 +163,8 @@ if (urlPlayers?.length === 2 && urlPlayers.every(isSide)) play.seat(urlPlayers[0
  */
 const TITLE_SEEN = 'kingdown.title-seen';
 const titleSeen = (): boolean => { try { return sessionStorage.getItem(TITLE_SEEN) === '1'; } catch { return false; } };
-const showHome = !link && shouldShowHome(params, { hasSave: !!saved, titleSeen: titleSeen(), firstVisit: firstVisit(saved?.moves.length ?? 0) });
-const showTitle = !showHome && !link && !params.has('fen') && !params.has('army') && !params.has('design') && params.get('title') !== '0' && !titleSeen();
+const showHome = !localSave.partial && !link && shouldShowHome(params, { hasSave: !!saved, titleSeen: titleSeen(), firstVisit: firstVisit(saved?.moves.length ?? 0) });
+const showTitle = !localSave.partial && !showHome && !link && !params.has('fen') && !params.has('army') && !params.has('design') && params.get('title') !== '0' && !titleSeen();
 const titleClosed = showTitle ? openTitle(firstVisit(saved?.moves.length ?? 0), !!saved?.moves.length, () => settings.pace()) : Promise.resolve('continue' as const);
 
 if (params.get('labels') === '1') settings.showLabels(); // `?labels=1` turns the letters on over the saved choice

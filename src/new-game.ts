@@ -130,6 +130,10 @@ export function newGameWarning(game: Game, turnStart: number, ended: boolean): s
 export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>): { open(s: Setup, warning?: string): void } {
   const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
   const dlg = $<HTMLDialogElement>('new-game');
+  dlg.addEventListener('close', () => {
+    // Native close restores the opener. A late event must keep any new focus.
+    if (!dlg.open && document.activeElement === document.body) $('menu-btn').focus({ preventScroll: true });
+  });
   const radios = (name: string) => [...dlg.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)];
   let draft = defaultSetup();
   let options = new Map(powerOptions(preset).map(g => [g.king, g.options]));
