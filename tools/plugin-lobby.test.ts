@@ -404,7 +404,7 @@ it('opens the human game when the friend joins before a saved wait remounts', as
 it('shows code errors on a chat mount and permits a new code from Menu', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
-    for (const [code, words] of [['INVITE_UNAVAILABLE','No game has this code. Check the code with your friend.'],['FORBIDDEN','You cannot join this game.'],['INVALID_INPUT','Check the code: 6 letters and digits.'],['RATE_LIMITED','Too many code tries. Wait one hour.']]) {
+    for (const [code, words] of [['INVITE_UNAVAILABLE','Server code error with an invitation link.'],['FORBIDDEN','You cannot join this game.'],['INVALID_INPUT','Check the code: 6 letters and digits.'],['RATE_LIMITED','Too many code tries. Wait one hour.']]) {
       await page.evaluate(({ code }) => (window as any).harnessShow({ isError: true, content: [{ type: 'text', text: 'Server code error with an invitation link.' }], _meta: { code } }, true), { code });
       await frame.locator('#join-message').filter({ hasText: words }).waitFor();
       expect(await frame.locator('#join-message').textContent()).toBe(words);
@@ -649,7 +649,7 @@ it('keeps a bad code, hides the review and gives words for each code error', asy
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await hall(page); await chooseKind(frame, 'A friend'); await frame.locator('#token').fill('ZZZZZZ'); await frame.locator('#join').click();
-    await frame.locator('#join-message').filter({hasText:'No game has this code.'}).waitFor();
+    await frame.locator('#join-message').filter({hasText:'Invitation unavailable'}).waitFor();
     expect(await frame.locator('#join-code').inputValue()).toBe('ZZZZZZ');
     for (const id of ['join-game-head','join-preview','join-decline','join-confirm']) expect(await frame.locator(`#${id}`).isVisible()).toBe(false);
     expect(await frame.locator('#join-help').textContent()).toBe('Enter the game code.');
@@ -657,7 +657,7 @@ it('keeps a bad code, hides the review and gives words for each code error', asy
     await frame.locator('#join-code').fill('X'); expect(await frame.locator('#join-message').textContent()).toBe('');
     await frame.locator('#join-entry button').click(); await frame.locator('#join-message').filter({hasText:'6 letters and digits.'}).waitFor();
     expect(await frame.locator('#join-code').inputValue()).toBe('X');
-    for (const [code,message,words] of [['INVITE_UNAVAILABLE','Invitation expired or used','This code has expired or was used. Ask your friend for a new code.'],['FORBIDDEN','You already have a seat','You cannot join this game.']]) {
+    for (const [code,message,words] of [['INVITE_UNAVAILABLE','Invitation expired or used','Invitation expired or used'],['FORBIDDEN','You already have a seat','You cannot join this game.']]) {
       await page.evaluate(({code,message})=>(window as any).harnessShow({isError:true,content:[{type:'text',text:message}],_meta:{code}},true),{code,message});
       await frame.locator('#join-message').filter({hasText:words}).waitFor();
     }
