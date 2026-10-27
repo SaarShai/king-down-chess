@@ -1370,7 +1370,7 @@ try {
     const tool = async (name, args = {}, friend = false) => (await page.request.post(new URL(friend ? '/fixture-friend-tool' : '/fixture-tool', base).href, { data: { name, arguments: args } })).json();
     const binding = () => page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
     async function showCreated(kind, choices = options) {
-      const result = await tool('kingdown_create', { kind, options: choices, colour: 'white', board_id: await binding() }); assert(!result.isError);
+      const result = await tool('kingdown_create', { kind, options: choices, colour: 'white', board_id: await binding() }); assert(!result.isError, JSON.stringify(result.content));
       await page.evaluate(result => window.harnessShow({ ...result, structuredContent: { ...result.structuredContent, screen: undefined } }, true), result); return result._meta.view;
     }
     async function lookAt(state, screen) {
@@ -1386,6 +1386,12 @@ try {
         }
       }
       await page.setViewportSize({ width: 390, height: 844 });
+    }
+    // Earlier cases must release their waiting links before this section uses the two slots.
+    const earlier = await tool('kingdown_games');
+    for (const game of earlier._meta.games ?? []) if (game.kind === 'friend' && game.status === 'waiting') {
+      const closed = await tool('kingdown_abort', { game_id: game.game_id, expected_revision: game.revision });
+      assert(!closed.isError, JSON.stringify(closed.content));
     }
     await openPlay(); await lookAt('play', 'play');
     const friend = await showCreated('friend'); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
@@ -1422,7 +1428,14 @@ try {
         else assert(Math.abs((labels[0].top + labels[0].bottom) / 2 - (labels[1].top + labels[1].bottom) / 2) < 1 && labels[0].right <= labels[1].left, `Share and Copy keep one centre line: ${all}`);
         await host.frame.locator('#friend-copy').scrollIntoViewIfNeeded();
         await shot(host.page, `friend-actions-${width}-${mode}`);
-      } finally { await host.page.close(); }
+      } finally {
+        const created = await host.page.evaluate(() => window.harnessView).catch(() => null);
+        if (created?.kind === 'friend' && created.status === 'waiting') {
+          const closed = await tool('kingdown_abort', { game_id: created.game_id, expected_revision: created.revision });
+          assert(!closed.isError, JSON.stringify(closed.content));
+        }
+        await host.page.close();
+      }
     }
 
     await frame.locator('html').evaluate(() => {
@@ -2264,9 +2277,17 @@ try {
   assert.match(spentFocus.gold, /rgb\(233, 192, 113\).*4px/);
   await spentCoin.blur();
   async function arrivalTool(name,args,friend=false) {return (await page.request.post(new URL(friend?'/fixture-friend-tool':'/fixture-tool',base).href,{data:{name,arguments:args}})).json();}
+  // Finish earlier human-game cases before this case needs one of the five pair seats.
+  const earlierHuman = await arrivalTool('kingdown_games');
+  for (const game of earlierHuman._meta.games ?? []) if (game.kind !== 'solo' && game.status !== 'waiting') {
+    const current = await arrivalTool('kingdown_get', { game_id: game.game_id });
+    const name = current._meta.view.abort_open ? 'kingdown_abort' : 'kingdown_resign';
+    const ended = await arrivalTool(name, { game_id: game.game_id, expected_revision: current._meta.view.revision });
+    assert(!ended.isError, JSON.stringify(ended.content));
+  }
   const arrival=await arrivalTool('kingdown_create',{kind:'friend',colour:'white',board_id:cardBoard,options:{...DEFAULT_OPTIONS,fairy:false,arrangement:false,kingPowers:false,cards:true,cardPool:['Salvation','Freeze','IceWall','Vault']}}); assert(!arrival.isError);
   const arrivalInvite=await arrivalTool('kingdown_invite',{game_id:arrival._meta.view.game_id}); assert(!arrivalInvite.isError);
-  const arrivalJoin=await arrivalTool('kingdown_join',{code:arrivalInvite.structuredContent.code},true); assert(!arrivalJoin.isError);
+  const arrivalJoin=await arrivalTool('kingdown_join',{code:arrivalInvite.structuredContent.code},true); assert(!arrivalJoin.isError, JSON.stringify(arrivalJoin.content));
   async function arrivalRead() {const result=await arrivalTool('kingdown_get',{board_id:cardBoard}); await page.evaluate(r=>window.harnessShow(r),result); await page.waitForFunction(id=>window.harnessView.game_id===id,arrival._meta.view.game_id); await idleBoard(); await boardBox(); return result._meta.view;}
   let arrivalView=await arrivalRead();
   const arrivalRules=arrivalView.rules; setRules(arrivalRules);
@@ -2641,6 +2662,25 @@ try {
   async function zoomHallFits() {
     // The Menu read that the hall starts draws the game rows again.
     await settled(page, frame);
+    // One compact waiting row makes this spacing check independent of prior game cleanup and the run date.
+    const compactRow = result => {
+      const game = result._meta?.games?.[0];
+      if (game) Object.assign(game, { kind: 'friend', status: 'waiting', created_at: `${new Date().getUTCFullYear() + 1}-01-01T09:00:00.000Z` });
+    };
+    const dateGames = async route => {
+      if (route.request().postDataJSON()?.name !== 'kingdown_games') return route.continue();
+      const response = await route.fetch(), result = await response.json();
+      compactRow(result);
+      await route.fulfill({ response, json: result });
+    };
+    await page.route('**/fixture-tool', dateGames);
+    const datedGames = await tool('kingdown_games');
+    assert(!datedGames.isError, JSON.stringify(datedGames.content));
+    compactRow(datedGames);
+    datedGames.structuredContent = { ...datedGames.structuredContent, screen: 'play' };
+    await page.evaluate(result => window.harnessShow(result), datedGames);
+    await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
+    await settled(page, frame);
     const viewport = page.viewportSize();
     await zoomViewport(402,874,0,0);
     await frame.locator('#new-game .new-game-body').evaluate(el => { el.scrollTop = 0; });
@@ -2671,6 +2711,7 @@ try {
     await shot(page, `zoom-fit-hall-${mode}`);
     await body.evaluate(el => { el.scrollTop = 0; });
     await zoomViewport(viewport.width, viewport.height, 0, 0);
+    await page.unroute('**/fixture-tool', dateGames);
   }
   async function tapEndAtZoom(name) {
     const viewport = page.viewportSize();
@@ -3474,6 +3515,13 @@ try {
   await page.setViewportSize({width:1000,height:1000});
   console.log('PASS: G1 targets first; G3 tap, drag, cancel and one draft step at 320, 393, 852 and 1280 px');
   console.log(`Ticket 15 look comparisons: ${look}`);
+  // This recovery case needs a fresh open-link slot after the earlier friend cases.
+  const priorLinks = await tool('kingdown_games');
+  assert(!priorLinks.isError, JSON.stringify(priorLinks.content));
+  for (const game of priorLinks._meta.games ?? []) if (game.kind === 'friend' && game.status === 'waiting') {
+    const closed = await tool('kingdown_abort', { game_id: game.game_id, expected_revision: game.revision });
+    assert(!closed.isError, JSON.stringify(closed.content));
+  }
   await openScreen('settings'); await boardSetting('symbols-only',false); await boardSetting('show-threats',false); await openPlay(); await legacyStart('solo');
   for (const [kind,features,status] of [['friend',options,'waiting'],['solo',{...options,arrangement:true},'setup']]) {
     const start = await legacyStart('solo');
@@ -3481,6 +3529,7 @@ try {
     await clickSquare(4,1); await page.evaluate(()=>{window.dropNextMoveReply=true;});
     await openMoveChoices(); await frame.locator('#choices button[title="e2-e4"]').click(); await sendTurn(); await frame.locator('#retry').waitFor();
     const switched = await tool('kingdown_create',{kind,options:features,colour:'white'});
+    assert(!switched.isError, JSON.stringify(switched.content));
     assert.equal(switched._meta.view.status,status); assert.equal(switched._meta.view.fen,'');
     await page.evaluate(result=>window.harnessShow(result),switched);
     await frame.locator('#retry').waitFor({state:'hidden'});

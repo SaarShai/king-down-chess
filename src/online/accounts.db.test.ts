@@ -148,7 +148,7 @@ async function friend(host: string, guest: string) {
   await expect(accounts.relate(a, { kind: 'follow', user_id: b })).rejects.toMatchObject({ code: 'NOT_ALLOWED' });
   for (const [host, guest] of [[a, b], [b, a]]) {
    const created = await games.create(host, { kind: 'friend', options: READY });
-   await expect(games.join(guest, (await games.invite(host, created.game_id)).code)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+   await expect(games.join(guest, (await games.invite(host, created.game_id)).code)).rejects.toMatchObject({ code: 'INVITE_UNAVAILABLE' });
   }
   await accounts.unrelate(b, { kind: 'block', user_id: a });
   expect((await games.view(b, await friend(a, b))).status).toBe('playing');

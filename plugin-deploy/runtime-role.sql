@@ -47,6 +47,11 @@ grant update (user_id, handle_at_start, action, turns_played, draw_offers, said,
   active, ended_at) on public.game_players to kingdown_plugin_runtime;
 grant select, insert, delete on public.game_invites to kingdown_plugin_runtime;
 grant update (used_by, used_at) on public.game_invites to kingdown_plugin_runtime;
+do $$ begin
+  if exists(select from information_schema.columns where table_schema='public' and table_name='game_invites' and column_name='state') then
+    grant update (state,closed_at) on public.game_invites to kingdown_plugin_runtime;
+  end if;
+end $$;
 grant select on public.relations to kingdown_plugin_runtime;
 grant select (id, handle, challenge_from) on public.profiles to kingdown_plugin_runtime;
 grant usage on sequence public.notifications_id_seq, public.outbox_id_seq to kingdown_plugin_runtime;
