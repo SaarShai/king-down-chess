@@ -1976,6 +1976,40 @@ describe('game time at the player write', () => {
 });
 
 describe('a save from before the game time moved into the save', () => {
+  it('retries a refused account time write before the page loads or saves the game', async () => {
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const record = stamp(localStorage, 900); record.saved_game!.at = 900;
+    stored.set('kingdown.local.B', JSON.stringify([JSON.stringify(original), null, JSON.stringify(record)]));
+    stored.set('kingdown.sync-owner', JSON.stringify({ userId: 'A', accounts: ['A', 'B'] }));
+    stored.set(SAVE_KEY, JSON.stringify({ ...original, moves: ['c2-c4'], gameAt: 1000 }));
+    stored.set('kingdown.sync', '{}');
+    const p = page(); p.play.restore(readSave().save, request);
+    const set = localStorage.setItem.bind(localStorage);
+    let failed = false;
+    const writes = vi.spyOn(localStorage, 'setItem').mockImplementation((key, value) => {
+      if (!failed && key === SAVE_KEY && JSON.parse(value).gameAt === 900) {
+        failed = true;
+        throw new DOMException('Quota full', 'QuotaExceededError');
+      }
+      set(key, value);
+    });
+    const apply = vi.fn(p.play.fromAccount);
+    let row: Row = { saved_game: { at: 600, v: { ...original, moves: ['d2-d4'] } } };
+    const sync = new Sync(localStorage, { userId: 'B', pull: async () => row, push: async sent => { row = { ...row, ...sent }; return row; } }, apply, p.play.savedGames);
+    try {
+      await sync.pull();
+      expect(failed).toBe(true);
+      expect(apply).not.toHaveBeenCalled();
+      const before = [...stored];
+      p.play.save();
+      expect([...stored]).toEqual(before);
+      await sync.pull();
+      expect(readSave().save).toMatchObject({ moves: original.moves, gameAt: 900 });
+      expect(p.play.game().history.map(h => h.lan)).toEqual(original.moves);
+      expect(row.saved_game).toMatchObject({ at: 900, v: { moves: original.moves } });
+    } finally { sync.stop(); writes.mockRestore(); }
+  });
+
   it('keeps unsent moves against an older cloud game when the old record matches', async () => {
     stored.set(SAVE_KEY, JSON.stringify(original));
     const record = stamp(localStorage, 900); record.saved_game!.at = 900; stored.set('kingdown.sync', JSON.stringify(record));

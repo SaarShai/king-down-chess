@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { merge, readLocal, stamp, Sync, type Remote, type Row, type SavedGameAccess, type Section } from './sync';
 import { savedGame } from '../screen/save';
-import { gameTime, localAccess } from './local';
+import { canWriteLocal, gameTime, localAccess } from './local';
 
 /** localStorage stand-in. */
 const store = (init: Record<string, unknown> = {}) => {
@@ -680,6 +680,77 @@ describe('one-time game time upgrade', () => {
     expect(time(d.st)).toBe(900);
     expect(readLocal(d.st).saved_game).toMatchObject({ moves: ['e2-e4'] });
     expect(c.row?.saved_game).toMatchObject({ at: 900, v: { moves: ['e2-e4'] } });
+  });
+
+  it.each([false, true])('upgrades an archived account save before the page reads or stamps it (failed write: %s)', async failUpgrade => {
+    const legacy = save(['e2-e4', 'e7-e5']);
+    const record = { saved_game: { at: 900, json: stamp(store({ 'kingdown.save': legacy })).saved_game!.json } };
+    const st = store({
+      'kingdown.sync-owner': { userId: 'A', accounts: ['A', 'B'] },
+      'kingdown.save': { ...save([]), gameAt: 1000 },
+      'kingdown.local.B': [JSON.stringify(legacy), null, JSON.stringify(record)],
+    });
+    localAccess(st); // The page first loads account A in this tab.
+    const set = st.setItem;
+    let failed = false;
+    st.setItem = (key, value) => {
+      if (failUpgrade && !failed && key === 'kingdown.save' && JSON.parse(value).gameAt === 900) {
+        failed = true;
+        throw new DOMException('Quota full', 'QuotaExceededError');
+      }
+      set(key, value);
+    };
+    const c = cloud({ saved_game: { at: 600, v: save(['d2-d4']) } }, 'B');
+    const pageTimes: unknown[] = [];
+    const sync = new Sync(st, c.remote, (_down, switched) => {
+      if (switched) {
+        pageTimes.push(time(st));
+        stamp(st); // A page write must not erase the old record time before the upgrade.
+      }
+    }, { blocked: () => false, accepts: () => true });
+    try {
+      await sync.pull();
+      if (failUpgrade) {
+        expect(failed).toBe(true);
+        expect(canWriteLocal(st)).toBe(false);
+        expect(pageTimes).toEqual([]);
+        expect(c.pulls).toBe(0);
+        expect(c.pushes).toBe(0);
+        sync.changed();
+        expect(JSON.parse(st.getItem('kingdown.sync')!).saved_game.at).toBe(900);
+        expect(readLocal(st).saved_game).toMatchObject({ moves: legacy.moves });
+        await sync.pull();
+      }
+    } finally { sync.stop(); }
+    expect(readLocal(st).saved_game).toMatchObject({ moves: legacy.moves });
+    expect(time(st)).toBe(900);
+    expect(pageTimes).toEqual([900]);
+    expect(c.row?.saved_game).toMatchObject({ at: 900, v: { moves: legacy.moves } });
+  });
+
+  it('keeps writers closed after a failed startup time write and retries before an archive stamp', async () => {
+    const st = store({ ...old(900), 'kingdown.sync-owner': { userId: 'A' } });
+    const set = st.setItem;
+    let failed = false;
+    st.setItem = (key, value) => {
+      if (!failed && key === 'kingdown.save') { failed = true; throw new Error('write refused'); }
+      set(key, value);
+    };
+    expect(localAccess(st).blocked).toBe(true);
+    expect(canWriteLocal(st)).toBe(false);
+    const b = cloud(null, 'B'), sync = new Sync(st, b.remote, () => {}, { blocked: () => false, accepts: () => true });
+    try { await sync.pull(); } finally { sync.stop(); }
+    const archived = JSON.parse(st.getItem('kingdown.local.A')!);
+    expect(JSON.parse(archived[0])).toMatchObject({ moves: ['e2-e4'], gameAt: 900 });
+    expect(JSON.parse(archived[2]).saved_game.at).toBe(900);
+  });
+
+  it('keeps an unreadable record time unknown without closing writers', () => {
+    const st = store(old(900));
+    st.setItem('kingdown.sync', '{');
+    expect(localAccess(st).blocked).toBe(false);
+    expect(canWriteLocal(st)).toBe(true);
+    expect(time(st)).toBeUndefined();
   });
 
   it.each<[string, Record<string, unknown>]>([
