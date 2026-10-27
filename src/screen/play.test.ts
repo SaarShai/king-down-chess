@@ -18,7 +18,7 @@ import { setSound } from '../render/sfx';
 vi.mock('../render/sfx', () => ({ setSound: vi.fn(), snd: {} }));
 vi.mock('../ui/table', () => ({ readPiece: vi.fn(), refreshTable: vi.fn(), renderTable: vi.fn() }));
 vi.mock('../ui/powers', () => ({ clearCoinRead: vi.fn(), initCoins: vi.fn(), refreshCoins: () => ({ armed: false }) }));
-vi.mock('../move-moments', () => ({ connectMoveMoments: () => ({ cancel: vi.fn(), undo: vi.fn() }) }));
+vi.mock('../move-moments', () => ({ connectMoveMoments: () => ({ cancel: vi.fn(), undo: vi.fn(), tell: vi.fn().mockResolvedValue(true) }) }));
 vi.mock('../game-end', () => ({ connectEndReview: vi.fn(), connectGameEnd: () => ({ reset: vi.fn(), refresh: vi.fn() }) }));
 vi.mock('../turn-controls', () => ({ connectTurnPress: vi.fn(), renderTurnButton: vi.fn(), announceWaiting: vi.fn(), waitingRead: vi.fn() }));
 vi.mock('../ui/previously', () => ({ connectPreviously: (_button: unknown, c: { game(): { pos: unknown } }) => ({ clear: vi.fn(), position: () => c.game().pos, state: vi.fn() }) }));
@@ -1747,14 +1747,56 @@ it.each([false, true])('R3: recovery cloud replacement keeps its time (stamp fai
   expect((c.row.saved_game!.v as Save).moves).toEqual(['c2-c4']);
 });
 
+it.each([undefined, 500])('R4: a computer reply after recovery keeps the newer cloud game (source time %s)', async gameAt => {
+  vi.setSystemTime(1_000_000);
+  const source: Save = { ...original, moves: ['e2-e4', 'bad'], black: 'ai', gameAt };
+  stored.set(SAVE_KEY, JSON.stringify(source));
+  const p = page({}, null, false, false); p.play.seat(source.white, source.black); p.play.restore(source, request); p.play.refresh();
+  p.engine.think.mockResolvedValueOnce({ move: p.play.game().legal.find(m => m.from === 52 && m.to === 36)! } as never);
+  clickAccept();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(p.play.game().history.map(h => h.lan)).toEqual(['e2-e4', 'e7-e5']);
+  expect(readSave().save).toMatchObject({ gameAt: gameAt ?? 0, recovery: gameAt ?? 0 });
+  const c = cloud(), sync = new Sync(localStorage, c.remote, p.play.fromAccount, p.play.savedGames);
+  await sync.pull(); sync.stop();
+  expect((c.row.saved_game!.v as Save).moves).toEqual(newer.moves);
+  expect(readSave().save?.moves).toEqual(newer.moves);
+});
+it('R4: a computer reply at startup keeps the newer cloud game; a player move then gets a new time', async () => {
+  vi.setSystemTime(1_000_000);
+  const source: Save = { ...original, moves: ['e2-e4'], black: 'ai', gameAt: 500 };
+  stored.set(SAVE_KEY, JSON.stringify(source));
+  const p = page({}, null, false, false); p.play.seat(source.white, source.black); p.play.restore(source, request); p.play.save();
+  p.engine.think.mockResolvedValueOnce({ move: p.play.game().legal.find(m => m.from === 52 && m.to === 36)! } as never);
+  await p.play.maybeAi();
+  expect(readSave().save).toMatchObject({ moves: ['e2-e4', 'e7-e5'], gameAt: 500 });
+  p.play.game().playLan(['Ng1-f3']); p.play.save();
+  expect(readSave().save?.gameAt).toBe(1_000_000);
+  // After a player change (New game), the computer reply follows normal timing.
+  p.engine.think.mockImplementationOnce(async (g: Game) => ({ move: g.legal[0] }));
+  p.play.newGame('RNBQKBNR', null, false, null, ['ai', 'human']);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(readSave().save).toMatchObject({ moves: [expect.any(String)], gameAt: 1_000_002 });
+});
+it.each([undefined, 500])('R4 control: lesson return keeps game time %s', gameAt => {
+  vi.setSystemTime(1_000_000);
+  const source = { ...original, gameAt }; stored.set(SAVE_KEY, JSON.stringify(source));
+  const p = page({}, null, false, false); p.play.seat(source.white, source.black); p.play.restore(source, request); p.play.save();
+  p.play.startLesson(4); p.play.saveSettings();
+  const b = document.getElementById('return-game')!; b.onclick!.call(b, { detail: 0 } as PointerEvent);
+  expect(readSave().save?.gameAt).toBe(gameAt ?? 0); expect(readSave().save?.moves).toEqual(original.moves);
+});
+
 });
 
 describe('game time and recovery matrix', () => {
   const paths = ['startup', 'reload', 'settings save', 'acceptance', 'failed game write', 'failed sync-record write', 'late account load', 'upload reply', 'sign-out', 'account change', 'second tab'] as const;
   const urls = ['', '?fen=7k/8/8/8/8/8/8/K6R%20w%20-%20-%200%201', '?fen=7k/8/8/8/8/8/8/K6R%20w%20-%20-%200%201&rules=2017'];
-  const accept = () => {
+  // With a computer seat, the computer replies after each acceptance; let that reply land.
+  const accept = async () => {
     const button = document.getElementById('recover-save')!;
     button.onclick!.call(button, { detail: 0 } as PointerEvent);
+    await vi.advanceTimersByTimeAsync(0);
   };
   const choices = () => {
     expect(document.getElementById('recover-save')!.hidden).toBe(false);
@@ -1763,16 +1805,20 @@ describe('game time and recovery matrix', () => {
   function boot() {
     const url = new URL(location.href), read = readSave();
     const p = page(url.searchParams.has('rules') ? { ...RULES_2017 } : {}, url.searchParams.get('fen'), false, false);
+    p.engine.think.mockImplementation(async (g: Game) => ({ move: g.legal[0] }));
     p.play.seat(read.save?.white, read.save?.black);
     p.play.restore(read.save, { ...request, urlRules: url.searchParams.has('rules'), unreadable: read.unreadable });
     p.play.refresh();
     return p;
   }
-  it.each(paths.flatMap(path => urls.map(url => ({ path, url }))))('$path on "$url" keeps cloud order and the choice', async ({ path, url }) => {
+  const seats = ['human', 'ai'] as const;
+  it.each(paths.flatMap(path => urls.flatMap(url => seats.map(white => ({ path, url, white })))))('$path on "$url" with $white White keeps cloud order and the choice', async ({ path, url, white }) => {
     vi.setSystemTime(1_000_000);
     location.href = 'http://localhost/' + url;
     vi.mocked(history.replaceState).mockImplementation((_data, _unused, next) => { location.href = String(next); });
-    const source = { ...original, moves: [...original.moves, 'Qd1-d8'], gameAt: 500 };
+    // The recovered game has White to move: a computer White replies at once.
+    const source = { ...original, white, moves: [...original.moves, 'Qd1-d8'], gameAt: 500 };
+    const recovered = white === 'ai' ? 3 : 2;
     stored.set(SAVE_KEY, JSON.stringify(source));
     let p = boot(); choices();
     let row: Row = { saved_game: { at: 500, v: source } };
@@ -1800,7 +1846,7 @@ describe('game time and recovery matrix', () => {
         if (key === (path === 'failed game write' ? SAVE_KEY : 'kingdown.sync')) { failures++; throw new Error('quota'); }
         set(key, value);
       };
-      accept(); accountChanged();
+      await accept(); accountChanged();
       localStorage.setItem = set;
       expect(failures).toBeGreaterThan(0);
       if (path === 'failed game write') choices();
@@ -1817,15 +1863,16 @@ describe('game time and recovery matrix', () => {
     if (!readSave().save?.recovery) {
       p = boot(); choices();
       expect(readSave().save?.moves).toEqual(source.moves);
-      accept();
+      await accept();
     }
     expect((readSave().save as Save & { gameAt?: number }).gameAt).toBe(500);
-    expect(readSave().save?.moves).toEqual(original.moves);
+    expect(readSave().save?.moves.slice(0, 2)).toEqual(original.moves);
+    expect(readSave().save?.moves).toHaveLength(recovered);
     sync.stop();
     if (path === 'upload reply') {
       sync = new Sync(localStorage, remote, p.play.fromAccount, p.play.savedGames);
       await sync.pull(); sync.stop();
-      expect(row.saved_game?.v).toMatchObject({ moves: original.moves });
+      expect((row.saved_game?.v as Save).moves).toEqual(readSave().save?.moves);
     }
     row.saved_game = { at: 700, v: { ...original, moves: ['d2-d4'] } };
     p = boot(); p.play.save(); p.play.saveSettings(); accountChanged();
@@ -1837,6 +1884,7 @@ describe('game time and recovery matrix', () => {
     expect(pushed.filter(r => r.saved_game && r.saved_game.at >= 700)).toEqual([]);
     p.play.save(); expect((readSave().save as Save & { gameAt?: number }).gameAt).toBe(700);
   });
+
 });
 
 describe('game time at the player write', () => {

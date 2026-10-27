@@ -53,7 +53,7 @@ export const isSide = (v: unknown): v is Side => v === 'human' || v === 'ai';
  */
 export function connectPlay(view: BoardView, c: {
   params: URLSearchParams;
-  /** The `?rules=` preset, if any. */
+  /** The `?rules=` preset, if any. A saved game that owns the URL clears it; `preset()` reads the live one. */
   preset: Partial<Rules> | undefined;
   rules: Partial<Rules>;
   /** The balanced readings when a king has a power (main.ts, the URL rules). */
@@ -346,7 +346,7 @@ export function connectPlay(view: BoardView, c: {
       const spentNotches = coin?.querySelectorAll('.notch.is-spent');
       uiMotion.play(spentNotches?.[spentNotches.length - 1] ?? null, [{ scale: '1' }, { scale: '.9' }], 500);
     }
-    save();
+    save(false, false, false, computer);
     if (currentTurn().waits && !computer) announceTurn();
     if (ended()) { gameEnd.arm(); moments.showOver(); } else void maybeAi();
   }
@@ -782,7 +782,7 @@ export function connectPlay(view: BoardView, c: {
     moments.showOver();
   };
   const links = connectLinks({
-    game: () => game, turnStart: () => turnStart, get rules() { return params.get('rules'); },
+    game: () => game, turnStart: () => turnStart,
     blocked: () => !!(saveBlocked || busy || currentTurn().staged || lesson != null || linkSide != null),
   });
 
@@ -816,14 +816,16 @@ export function connectPlay(view: BoardView, c: {
     };
   }
 
-  let gameAt = 0, seenAt = 0;
+  /** `playerTime`: a player change on this page set `gameAt`. Until then a computer reply keeps the loaded time. */
+  let gameAt = 0, seenAt = 0, playerTime = false;
   let liveJSON = gameJSON(snapshot());
   function loadedTime(source: Save | null): void {
     gameAt = gameTime(source);
+    playerTime = false;
     liveJSON = gameJSON(snapshot());
   }
 
-  function save(replaceUnreadable = false, settingsOnly = lesson != null, recovered = false): boolean {
+  function save(replaceUnreadable = false, settingsOnly = lesson != null, recovered = false, computer = false): boolean {
     if (saveBlocked) return false;
     const stored = readSave();
     if (stored.unreadable && !canWrite()) { keepUnreadableSave(accountNotice); refresh(); return false; }
@@ -844,8 +846,9 @@ export function connectPlay(view: BoardView, c: {
     const next: Save = { ...(kept ?? snapshot()), ...settings.settingsNow() };
     const json = gameJSON(next);
     if (savesGame) {
-      if (!recovered && (replaceUnreadable || json !== liveJSON)) {
+      if (!recovered && (replaceUnreadable || json !== liveJSON) && (playerTime || !computer)) {
         gameAt = Math.max(Date.now(), gameAt + 1, gameTime(stored.save) + 1, seenAt + 1);
+        playerTime = true;
       } else gameAt = Math.max(gameAt, gameTime(stored.save));
       liveJSON = json;
       next.gameAt = gameAt;
@@ -1052,6 +1055,8 @@ export function connectPlay(view: BoardView, c: {
     }
     turnStart = handOver(game) - staged;
     loadedTime(saved);
+    // An opened link is the player's choice: when it differs from the saved game, its first write gets a new time.
+    if (r.link) liveJSON = gameJSON(saved);
     // The title's Continue names the move the restored game is on (set before the first paint; a
     // Haste turn is two plies by one side, so the number comes from the replayed game, not the save).
     if (r.title) labelContinue();
@@ -1069,7 +1074,7 @@ export function connectPlay(view: BoardView, c: {
   };
 
   return {
-    game: () => game, sides: (): readonly [Side, Side] => sides, skill: () => skill, setSkill: (level: SkillName): void => { skill = level; },
+    game: () => game, sides: (): readonly [Side, Side] => sides, preset: () => preset, skill: () => skill, setSkill: (level: SkillName): void => { skill = level; },
     shownPos, selected: () => selected, pending: () => pending, inspected: () => inspected, candidates, flipped: () => flipped,
     refresh, drawMarks, save, saveSettings: () => save(false, true), reset, maybeAi, ended, resigner, showPly, newGame, startLesson, openSaved, fromAccount, seat, restore,
     savedGames: {

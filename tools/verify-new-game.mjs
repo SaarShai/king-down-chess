@@ -13,7 +13,7 @@ const browser = await launch();
 const jpeg = { type: 'jpeg', quality: 86 };
 const ok = msg => console.log(`ok ${msg}`);
 
-async function open({ viewport = { width: 1280, height: 900 }, touch = false, save = null, query = '', reducedMotion = 'no-preference', shelf = null, titleSeen = true } = {}) {
+async function open({ viewport = { width: 1280, height: 900 }, touch = false, save = null, query = '', reducedMotion = 'no-preference', shelf = null, titleSeen = true, confirm = false } = {}) {
   const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch, reducedMotion });
   await ctx.addInitScript(([s, shelf, titleSeen]) => {
     if (titleSeen) sessionStorage.setItem('kingdown.title-seen', '1'); // skip the title screen (main.ts)
@@ -22,6 +22,7 @@ async function open({ viewport = { width: 1280, height: 900 }, touch = false, sa
   }, [save, shelf, titleSeen]);
   const page = await ctx.newPage();
   trapErrors(page);
+  if (confirm) page.on('dialog', dialog => dialog.accept()); // a game link's "replaces your current game"
   await page.goto(base + query);
   await page.waitForFunction(() => window.view?.ready);
   await page.evaluate(() => window.view.ready());
@@ -175,6 +176,55 @@ try {
     await page.context().close();
   }
   ok('a shared game link still opens and reloads its moves');
+
+  {
+    // A chosen link that replaces a different game is a player change: it gets its own time.
+    const page = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'human', coords: true, resigned: null, pace: 'off', sound: false, gameAt: 500 },
+      query: '?army=RNBQKBNR&moves=d2-d4&title=0', confirm: true });
+    const kept = await saved(page);
+    assert.deepEqual(kept.moves, ['d2-d4']);
+    assert.ok(kept.gameAt > 500, `a chosen link gets a new time, not the replaced game's ${kept.gameAt}`);
+    assertNoErrors(page);
+    await page.context().close();
+  }
+  ok('a chosen game link gets its own change time');
+
+  {
+    // Recovery from a `?rules=2017` page ends the preset for New game and the Guide too.
+    const source = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5', 'bad'], white: 'human', black: 'human', coords: true, resigned: null, pace: 'off', sound: false, gameAt: 500 };
+    const page = await open({ save: source, query: '?rules=2017' });
+    await page.locator('#recovery-new-game').click();
+    await page.locator('#mode-two').check(); await page.locator('#two-powers').check();
+    await page.locator('#pick-0 [data-king="Frost"]').click(); await page.locator('#pick-0 [data-power="Freeze"]').click();
+    const line = await powerLine(page, 0), guide = await page.locator('#powers-list [data-power="Freeze"]').textContent();
+    await page.locator('#start-game').click();
+    const uses = (await saved(page)).rules.freezeUses;
+    assert.equal(Number(line.match(/Freeze \((\d+) per game\)/)?.[1]), uses, `New game shows the uses of the game it starts: ${line}`);
+    assert.ok(guide.includes({ 1: 'once a game', 2: 'twice a game' }[uses]), `the Guide shows the current rules: ${guide}`);
+    assertNoErrors(page);
+    await page.context().close();
+  }
+  ok('recovery from a ?rules= page ends the preset for New game and the Guide');
+
+  {
+    // Share builds the link from the recovered game's own rules, not the ended `?rules=` field.
+    const maker = await open({ query: '?rules=2017&kings=frost:freeze&title=0' });
+    const rules = (await saved(maker)).rules;
+    await maker.context().close();
+    const source = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5', 'bad'], white: 'human', black: 'human', coords: true, resigned: null, pace: 'off', sound: false, gameAt: 500, rules };
+    const page = await open({ save: source, query: '?rules=2017' });
+    await page.locator('#recover-save').click();
+    await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { value: { writeText: async text => { window.copiedLink = text; } } }));
+    await page.locator('#menu-btn').click(); await page.locator('#share').click();
+    await page.waitForFunction(() => window.copiedLink);
+    const link = new URL(await page.evaluate(() => window.copiedLink));
+    assert.equal(link.searchParams.get('rules'), '2017', `the link names the game's rules: ${link}`);
+    const receiver = await open({ query: link.search });
+    assert.deepEqual((await saved(receiver)).rules, rules, 'the friend plays the same rules');
+    assertNoErrors(page); assertNoErrors(receiver);
+    await page.context().close(); await receiver.context().close();
+  }
+  ok('a recovered old-rule game shares a link with its rules');
 
   for (const choice of ['cancel', 'start', 'failed read', 'late close']) {
     const source = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5', 'Qd1-d8'], white: 'human', black: 'human', coords: true, resigned: null, pace: 'off', sound: false };

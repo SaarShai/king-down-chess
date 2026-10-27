@@ -2,10 +2,20 @@ import { copyText } from '../clipboard';
 import type { Game } from '../game';
 import { moveNumbers } from '../move-text';
 import { kingsParam } from '../powers-ui';
-import { type Rules } from '../rules/engine';
+import { RULES_2017, RULES_2021, type Rules } from '../rules/engine';
 import { toFen } from '../rules/setup';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+
+/** The `?rules=` presets: each sets every rule but the game's kings and design. */
+export const RULE_PRESETS: Readonly<Record<string, Readonly<Rules>>> = { 2017: RULES_2017, 2021: RULES_2021 };
+
+/** The `?rules=` name of the preset that these rules play, or null for the current rules. */
+export function rulesName(rules: Rules): string | null {
+  const same = (preset: Rules): boolean => (Object.keys(preset) as (keyof Rules)[])
+    .every(k => k === 'kings' || k === 'design' || JSON.stringify(preset[k]) === JSON.stringify(rules[k]));
+  return Object.keys(RULE_PRESETS).find(name => same(RULE_PRESETS[name])) ?? null;
+}
 
 /**
  * A link that holds a whole game, for a friend to open and answer on their device (no server): this
@@ -40,9 +50,9 @@ export async function copyAndSay(button: HTMLElement, text: string, done: string
 
 /**
  * Copy (the moves) and Share (a link to the game). `gameLink` makes the link of the game on the board.
- * `rules`: the page's `?rules=` preset. `blocked`: Share does nothing now.
+ * The link names the preset of the live game's rules. `blocked`: Share does nothing now.
  */
-export function connectLinks(c: { game(): Game; turnStart(): number; rules: string | null; blocked(): boolean }) {
+export function connectLinks(c: { game(): Game; turnStart(): number; blocked(): boolean }) {
   $('copy').onclick = () => {
     const history = c.game().history, numbers = moveNumbers(history.map(h => h.pos.turn));
     const text = history.map((h, i) => (i === 0 || numbers[i] !== numbers[i - 1] ? `${numbers[i]}${h.pos.turn ? '…' : '.'} ${h.lan}` : h.lan)).join(' ');
@@ -52,7 +62,7 @@ export function connectLinks(c: { game(): Game; turnStart(): number; rules: stri
   /** A link that holds this whole game, for a friend to open and answer on their device (no server). */
   function gameLink(lans = c.game().history.slice(0, c.turnStart()).map(h => h.lan)): string {
     const game = c.game();
-    return gameUrl(location, c.rules, game.rules.kings,
+    return gameUrl(location, rulesName(game.rules), game.rules.kings,
       game.backRank ? { army: game.backRank } : { fen: toFen(game.history[0]?.pos ?? game.pos) }, lans, game.rules.design?.code);
   }
 
