@@ -1856,9 +1856,9 @@ describe('game time at the player write', () => {
     expect(readSave().save?.moves).toEqual(newGame ? [] : [...original.moves, 'Ng1-f3']);
   });
 
-  it('keeps unknown time through startup normalization and ignores a separate future stamp', async () => {
+  it('keeps unknown time through startup normalization and ignores a future stamp of another game', async () => {
     stored.set(SAVE_KEY, JSON.stringify(original));
-    stored.set('kingdown.sync', JSON.stringify({ saved_game: { at: 9_000_000, json: gameJSON(original) } }));
+    stored.set('kingdown.sync', JSON.stringify({ saved_game: { at: 9_000_000, json: gameJSON({ ...original, moves: ['e2-e4'] }) } }));
     const { play } = page(); play.restore(original, request); play.save(); play.saveSettings();
     expect(readSave().save?.gameAt).toBe(0);
     const row: Row = { saved_game: { at: 600, v: { ...original, moves: ['d2-d4'] } } };
@@ -1896,5 +1896,19 @@ describe('game time at the player write', () => {
     expect(document.getElementById('recover-save')!.hidden).toBe(false);
     play.newGame('RNBQKBNR');
     expect(play.game().rules).toEqual(new Game('RNBQKBNR').rules);
+  });
+});
+
+describe('a save from before the game time moved into the save', () => {
+  it('keeps unsent moves against an older cloud game when the old record matches', async () => {
+    stored.set(SAVE_KEY, JSON.stringify(original));
+    const record = stamp(localStorage, 900); record.saved_game!.at = 900; stored.set('kingdown.sync', JSON.stringify(record));
+    const p = page(); p.play.restore(readSave().save, request); p.play.refresh(); p.play.save();
+    let row: Row = { saved_game: { at: 600, v: { ...original, moves: ['d2-d4'] } } };
+    const sync = new Sync(localStorage, { userId: 'player', pull: async () => row, push: async sent => { row = { ...row, ...sent }; return row; } }, p.play.fromAccount, p.play.savedGames);
+    await sync.pull(); sync.stop();
+    expect(readSave().save).toMatchObject({ moves: original.moves, gameAt: 900 });
+    expect(row.saved_game).toMatchObject({ at: 900, v: { moves: original.moves } });
+    expect(p.play.game().history.map(h => h.lan)).toEqual(original.moves);
   });
 });
