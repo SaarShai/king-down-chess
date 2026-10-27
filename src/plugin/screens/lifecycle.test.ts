@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { DEFAULT_OPTIONS } from '../../match/setup';
+import { INVITE_NOTICES } from '../../match/invite-notices';
 import type { JoinPreview, View } from '../../match/protocol';
 
 const runtime = vi.hoisted(() => ({
@@ -83,6 +84,20 @@ it.each(['', 'ABC234'])('joins a preview with code "%s" through its available ke
   expect(runtime.send).toHaveBeenCalledExactlyOnceWith('kingdown_join', code ? { code } : { invite_id });
   expect(runtime.routeView).toHaveBeenCalledWith({ game_id: 'joined' });
   expect(runtime.memory.preview).toBeUndefined();
+});
+
+it.each(['expired', 'closed', 'unavailable'] as const)('keeps the %s service notice on Join replies', async state => {
+  const { joinScreen } = await import('./join'), text = INVITE_NOTICES[state];
+  runtime.client.state.screen = 'join'; runtime.memory.code = 'ABC234';
+  runtime.clientCall.mockResolvedValueOnce({ isError: true, content: [{ type: 'text', text }], _meta: { code: 'INVITE_UNAVAILABLE' } });
+  joinScreen(); await vi.advanceTimersByTimeAsync(0);
+  expect(lookup('join-message').textContent).toBe(text);
+
+  runtime.memory.joinError = undefined;
+  runtime.memory.preview = { code: 'ABC234', invite_id: 'a'.repeat(64), options: null, colour: 'black', kind: 'friend', creator: { handle: 'rowan', icon: null }, expires_at: 'soon' };
+  runtime.send.mockResolvedValueOnce({ status: 'refused', code: 'INVITE_UNAVAILABLE', text });
+  joinScreen(); lookup('join-confirm').onclick(); await vi.advanceTimersByTimeAsync(0);
+  expect(lookup('join-message').textContent).toBe(text);
 });
 
 it('stops the wait clock and observer before the account DOM is removed', async () => {
