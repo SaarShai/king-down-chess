@@ -164,7 +164,7 @@ it.each([false, true])('ignores a pending friend invite after stop (failure: %s)
   runtime.memory.view = { game_id: 'friend', kind: 'friend', status: 'waiting' } as View;
   let resolve!: (value: unknown) => void, reject!: (error: Error) => void;
   runtime.clientCall.mockReturnValueOnce(new Promise((yes, no) => { resolve = yes; reject = no; }));
-  friend.friendScreen(); expect(runtime.clientCall).toHaveBeenCalledOnce();
+  friend.friendScreen(); lookup('friend-new').onclick(); expect(runtime.clientCall).toHaveBeenCalledOnce();
   runtime.closed = true; friend.stopAll(); removed = true;
   if (failed) reject(new Error('Invite failed')); else resolve({ content: [], structuredContent: { code: 'ABC123' } });
   await vi.advanceTimersByTimeAsync(0);

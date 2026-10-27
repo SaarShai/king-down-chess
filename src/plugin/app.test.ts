@@ -99,6 +99,29 @@ it.each(['board', 'chat'])('keeps the invitation from %s Create before friend sc
   expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_invite')).toHaveLength(0);
 });
 
+it('does not renew an invitation when a Create retry returns no code', async () => {
+  const app = await mounted(), { friendInvites } = await import('./invite');
+  const waiting = { ...await waitingGame(), kind: 'friend', invite_id: 'a'.repeat(64) } as View;
+  let creates = 0;
+  transport.call.mockClear();
+  transport.call.mockImplementation(async ({ name }) => {
+    if (name === 'kingdown_create') {
+      if (++creates === 1) throw new Error('Lost Create reply');
+      return { content: [], structuredContent: { screen: 'board', game_id: waiting.game_id }, _meta: { view: waiting, board_id: 'board-a' } };
+    }
+    if (name === 'kingdown_get') return { content: [], _meta: { view: waiting } };
+    return { content: [], _meta: { games: [] } };
+  });
+  await app.send('kingdown_create', { kind: 'friend', command_id: 'lost-create' }, { retain: true });
+  expect(app.client.state.pending?.error).toContain('Lost Create reply');
+  document.getElementById('retry')!.onclick!({} as any); await vi.advanceTimersByTimeAsync(0);
+  expect(creates).toBe(2);
+  expect(app.client.state.screen).toBe('friend');
+  expect(friendInvites.has(waiting.game_id)).toBe(false);
+  expect(document.getElementById('friend-new')!.hidden).toBe(false);
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_invite')).toHaveLength(0);
+});
+
 it.each(['FRIEND_GAME_LIMIT', 'FRIEND_INVITE_LIMIT', 'OPEN_INVITE_LIMIT', 'NOT_ALLOWED'])('clears the pending start after a definitive %s', async code => {
   const app = await mounted();
   (window as any).openai.pendingScope = 'account';

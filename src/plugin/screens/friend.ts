@@ -27,7 +27,6 @@ export function toolError(code: string, fallback: string) {
   return ({ INVITE_UNAVAILABLE: /expired|used/i.test(fallback) ? 'This code has expired or was used. Ask your friend for a new code.' : 'No game has this code. Check the code with your friend.', NOT_FOUND: 'No game has this code. Check the code with your friend.', FORBIDDEN: 'You cannot join this game.', INVALID_INPUT: 'Check the code: 6 letters and digits.', RATE_LIMITED: /code/i.test(fallback) ? 'Too many code tries. Wait one hour.' : fallback } as Record<string, string>)[code] ?? fallback;
 }
 export function showError(error: unknown, target = $('error')) { target.textContent = errorText(error); }
-const attempted = new Set<string>();
 let making = false;
 let expiryTimer: ReturnType<typeof setTimeout> | undefined;
 export function friendScreen() {
@@ -53,8 +52,6 @@ export function friendScreen() {
   $('friend-copy').onclick = () => { if (invite) void sendInvite(invite, view.options, $('friend-copy-status'), false); };
   $('friend-new').onclick = () => void makeCode(view);
   $('friend-cancel').onclick = async () => { const next = await call('kingdown_abort', { game_id: view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision }, true, false, false); if (next) finishCancel(next); };
-  // Create routes before the inbox read. A remount reads the inbox first and never renews the invite.
-  if (!saved && !attempted.has(view.game_id) && !memory.games.some(game => game.game_id === view.game_id)) void makeCode(view);
   if (invite) expiryTimer = setTimeout(() => {
     if (stopped || queue.closed()) return;
     renderGameRows();
@@ -62,7 +59,7 @@ export function friendScreen() {
   }, Date.parse(invite.expires_at) - Date.now());
 }
 async function makeCode(view: View) {
-  if (stopped || queue.closed() || making) return; making = true; attempted.add(view.game_id); $('friend-new').setAttribute('disabled', '');
+  if (stopped || queue.closed() || making) return; making = true; $('friend-new').setAttribute('disabled', '');
   try {
     const outcome = await send('kingdown_invite', { game_id: view.game_id }, { route: false });
     if (stopped || queue.closed()) return;

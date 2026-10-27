@@ -65,3 +65,17 @@ No new tool field, database change or dependency is needed.
 
 This is a selected test pass. The full test suite and browser checks do
 not run for this patch. No deploy, sign-in or remote database access occurs.
+
+## PR 164 review correction
+
+The review found that a Create retry can return a game without its raw code.
+Screen entry then made a new invitation and could exceed the request limit.
+The screen now offers Make a new code without sending a request. The button
+still makes a new invitation.
+
+The Create retry test fails before the fix: screen entry sends one invitation
+request. After the fix, the plugin source selection passes 424 tests; 51
+database tests skip. Both type checks and 67 art checks pass. The selection is
+`KINGDOWN_TEST_FILE=src/plugin/**/*.test.ts`, with no test-name filter. The
+protocol check passes for 29 tools and the doc checks pass 180 tests. The logs
+are in `/private/tmp/kd-rel3-invite-evidence/retry-*.log`.
