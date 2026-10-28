@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "receipts": [
+    {
+      "source": "../army-effects-review/ready-effects.fragment.json",
+      "sha256": "46d5f191cabacc50482a77fcb7ddd17c9befe0c24e7a2da53add72ec4c6d242c"
+    },
+    {
+      "source": "../alpha-recovery-review/effects-alpha-audit.json",
+      "sha256": "1abdf03c7a42eaa09fc1d7f012cb9ff47f5936e95db8a87c6eff622bc0b38380"
+    },
+    {
+      "source": "../army-effects-review/catalog.fragment.json",
+      "sha256": "355c3e7d30b70a6f814c4723706532563038b3ef8e5edd794c5d1a9c14273918"
+    },
+    {
+      "source": "../army-effects-review/provenance/source-hashes.original.json",
+      "sha256": "ba38fe145ec2f3c02e5e8516d41be53838480c43d3dd62c9f1a0b4b0e5639d78"
+    }
+  ],
+  "entries": [
+    {
+      "character": "maester",
+      "status": "ready",
+      "module": "effect.mjs",
+      "contactMs": 30,
+      "files": [
+        {
+          "path": "assets/2720eee9c355219e3cbf04e05652d3a12104ab4d43202c6a9cb44749c52918e6.png",
+          "source": "../directional-attacks/effects/maester-beam-2b4bf67f5fd54eff/assets/2720eee9c355219e3cbf04e05652d3a12104ab4d43202c6a9cb44749c52918e6.png",
+          "sha256": "2720eee9c355219e3cbf04e05652d3a12104ab4d43202c6a9cb44749c52918e6"
+        },
+        {
+          "path": "assets/6c30d2f7f69e8eac2f49a58058ceca2aa95fecc8fa43a6710f1ad184a3720dc9.png",
+          "source": "../directional-attacks/effects/maester-beam-2b4bf67f5fd54eff/assets/6c30d2f7f69e8eac2f49a58058ceca2aa95fecc8fa43a6710f1ad184a3720dc9.png",
+          "sha256": "6c30d2f7f69e8eac2f49a58058ceca2aa95fecc8fa43a6710f1ad184a3720dc9"
+        },
+        {
+          "path": "effect.json",
+          "source": "../directional-attacks/effects/maester-beam-2b4bf67f5fd54eff/effect.json",
+          "sha256": "8fa7849c754feff014e22c1d4a055a797c62a591843c13c51e98049f79689681"
+        },
+        {
+          "path": "effect.mjs",
+          "source": "../directional-attacks/effects/maester-beam-2b4bf67f5fd54eff/effect.mjs",
+          "sha256": "bace2a3b4eb987908c95028f6de4ced21f06656637d3847d84b46225db936c7d"
+        }
+      ]
+    },
+    {
+      "character": "queen",
+      "status": "ready",
+      "module": "effect.mjs",
+      "contactMs": 600,
+      "files": [
+        {
+          "path": "assets/thorn-shard-native-v1.png",
+          "source": "../directional-attacks/effects/queen-thorns-2c7a631202cf0170/assets/thorn-shard-native-v1.png",
+          "sha256": "05b63532f7a78d1dcc2c86bed6b6cc8d9f69f86a14ab91ae2c87dd98315378d0"
+        },
+        {
+          "path": "effect.json",
+          "source": "../directional-attacks/effects/queen-thorns-2c7a631202cf0170/effect.json",
+          "sha256": "8a9b623c70b1cd08e060fb4c67eca0220cbe4d21c22aa0b06bc368de28c563d4"
+        },
+        {
+          "path": "effect.mjs",
+          "source": "../directional-attacks/effects/queen-thorns-2c7a631202cf0170/effect.mjs",
+          "sha256": "f024b2f86293825da2503628d19fb8553509c026d3fe1f551f0e6e8ffcf6742e"
+        }
+      ]
+    },
+    {
+      "character": "archer",
+      "status": "ready",
+      "module": "effect.mjs",
+      "contactMs": 220,
+      "files": [
+        {
+          "path": "assets/contact-flash.png",
+          "source": "../army-effects-review/effects/arrow-flight/assets/contact-flash.png",
+          "sha256": "06bb69e349305a542f9db8eb16fb42ae5e495b13431df2e2b717759b409ad1af"
+        },
+        {
+          "path": "assets/golden-arrow.png",
+          "source": "../army-effects-review/effects/arrow-flight/assets/golden-arrow.png",
+          "sha256": "28a2abc970fbfe07148b73532c7f3313917393b5675a0210d15ffb3df90ef9bc"
+        },
+        {
+          "path": "assets/golden-wisp.png",
+          "source": "../army-effects-review/effects/arrow-flight/assets/golden-wisp.png",
+          "sha256": "2e5449b3c9ced1ec5680a25360a173611e21097b0f0e8204bfadb41be763a2b2"
+        },
+        {
+          "path": "effect.json",
+          "source": "../army-effects-review/effects/arrow-flight/effect.json",
+          "sha256": "a3a09575254c74590e10d1b9888ff4d8126b501692fb91816eb30c0402512924"
+        },
+        {
+          "path": "effect.mjs",
+          "source": "../army-effects-review/effects/arrow-flight/effect.mjs",
+          "sha256": "82bb03c68eaf122e3f6968e8b74f3257acf7475efa4c5e92088ffe5f42c849d0"
+        },
+        {
+          "path": "smoke.mjs",
+          "source": "../army-effects-review/effects/smoke.mjs",
+          "sha256": "932988432a19d16a95412997060f01c9912ddb463a19d78f36f04b816b4fe42b",
+          "rewriteSmokeTextureURL": true
+        }
+      ]
+    }
+  ]
+}

@@ -11,6 +11,8 @@ import { drawMarks, type Highlights } from './marks';
 import { boardInk, coordInk } from './board-ink';
 import { pastTap } from './tap';
 
+declare const __KINGDOWN_CHARACTER_RUNTIME__: boolean;
+
 /** Animation setting: Fast plays moves at double speed, Off shows only the result. */
 export type Pace = 'normal' | 'fast' | 'off';
 
@@ -100,7 +102,7 @@ export class PaintedView implements BoardView {
     container.classList.add('painted');
     this.canvas.width = 960; this.canvas.height = 960 + HEADROOM; // resolution 1 until the first resize
     container.appendChild(this.canvas);
-    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(this.context, 0), kingDesign(this.context, 1)], floor: options.floor });
+    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(this.context, 0), kingDesign(this.context, 1)], floor: options.floor, characterRuntime: typeof __KINGDOWN_CHARACTER_RUNTIME__ !== 'undefined' && __KINGDOWN_CHARACTER_RUNTIME__ });
     this.scene.setDecorate((ctx, scene, layer, row) => this.drawMarks(ctx, scene, layer, row));
     // The game opts in to quiet-move gaits, the selected figure's idle and the framed, warm board
     // (the trial and the trailer keep the plain scene).
