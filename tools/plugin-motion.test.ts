@@ -54,7 +54,9 @@ it.each([false, true])('adopts confirmed copy, Ready and draw events without reo
     };
     const made = await tool('kingdown_create', { kind: 'friend', colour: 'black', options: { ...DEFAULT_OPTIONS, arrangement: true, kingPowers: false, cards: false } });
     await show(made); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
-    const invite = made._meta.invite ?? (await tool('kingdown_invite', { game_id: made._meta.view.game_id })).structuredContent;
+    if (!made._meta.invite) await frame.locator('#friend-new').click();
+    await frame.locator('#friend-code > span').first().waitFor();
+    const code = await frame.locator('#friend-code').textContent();
     // A fast clipboard reply can finish in the same clock tick as cancellation.
     await frame.locator('html').evaluate(() => {
       const now = performance.now, stamp = now.call(performance);
@@ -64,7 +66,6 @@ it.each([false, true])('adopts confirmed copy, Ready and draw events without reo
     await frame.locator('#friend-copy').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Copied' }).waitFor();
     expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 6);
     await frame.locator('html').evaluate(() => (window as any).restoreCopyClock());
-    const code = await frame.locator('#friend-code').textContent();
     await frame.locator('html').evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
     await expect.poll(() => frame.locator('.ui-object-copy-light').count()).toBe(0);
     await frame.locator('html').evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: false }); document.dispatchEvent(new Event('visibilitychange')); });
@@ -84,7 +85,7 @@ it.each([false, true])('adopts confirmed copy, Ready and draw events without reo
     });
     await frame.locator('#friend-copy').click();
     await expect.poll(() => frame.locator('html').evaluate(() => typeof (window as any).finishCopy)).toBe('function');
-    await buddy('kingdown_join', { code: invite.code });
+    await buddy('kingdown_join', { code });
     await show(await tool('kingdown_get', { game_id: made._meta.view.game_id }));
     await frame.locator('[data-screen="seat"]:not([hidden]) #seat-ready:not(:disabled)').waitFor();
     await frame.locator('html').evaluate(() => (window as any).finishCopy());

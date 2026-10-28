@@ -23,14 +23,14 @@ Adopt the approved Freeze ending and banked interface object motion. Keep curren
 
 ## Verification
 
-Implementation is present. The registered Freeze check passes. The complete WebKit check and CI unit verification remain open.
+Implementation is present. The registered Freeze check and complete WebKit CI check pass. The two confirmed-event test fixtures need a rerun before full CI verification can pass.
 
 - `npm run typecheck` passes.
 - `git diff --check` passes. Both changed browser scripts pass `node --check`.
-- The first focused `npm test` run has 91 passes and two failures at the Ice Wall floating-point expiry boundary. The repair keeps the stated 1344 ms duration. The next local attempt passes typecheck, then fails to load the test configuration because the disk has no space; no Vitest case runs. Full CI verification includes the affected unit and confirmed-event cases and remains pending.
+- The first focused `npm test` run has 91 passes and two failures at the Ice Wall floating-point expiry boundary. The repair keeps the stated 1344 ms duration. The next local attempt passes typecheck, then fails to load the test configuration because the disk has no space; no Vitest case runs. CI on `5e3dc5e9` passes 5494 tests, including the duration cases, but the two new confirmed-event cases cannot reach Copy because their fallback invite is never shown in the widget. Use the real Make a new code button, then rerun those cases and full CI.
 - `npm run check:browser effects-states` passes in 17.3 s. All ten approved material frames match byte for byte, including both transparent end frames. Live Freeze expiry is exactly 620 ms; the bound unit code remains 18 and the turn badge is removed. The check produces 58 captures, with no page errors. The finished-board capture shows no Freeze residue. Evidence: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/approved-motion-adoption-CoijY1/`.
 - The first Chromium `plugin-ui` run passes in 339.7 s. Evidence: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/approved-motion-adoption-57Hn2N/plugin-ui.log`.
-- The WebKit rerun passes the repaired successful-copy, failed-copy and Share checks. It later fails while writing a reduced-motion Sky Lift screenshot because the disk has no space. It is not a full pass. Its log is in `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/approved-motion-adoption-KQRmgx/plugin-ui.log`. Rerun the registered WebKit check after temporary-output cleanup.
+- The complete WebKit CI `browser-webkit-ui` check passes in 16 min 24 s on the copy fix `5e3dc5e9`, run `40648096849`. The local rerun also passes the repaired successful-copy, failed-copy and Share checks. It later fails while writing a reduced-motion Sky Lift screenshot because the disk has no space; that local attempt is not a full pass. Its log is in `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/approved-motion-adoption-KQRmgx/plugin-ui.log`.
 - Approval source `preview/comparisons/release/release.js` matches the read-only source byte for byte. Production imports use no worktree path. Artwork, scene, board view, runtime selection, exporter and shared catalogs stay unchanged.
 
 ## Implemented hooks
@@ -64,3 +64,5 @@ The first executed checks found two check-boundary faults. Ice Wall's `.28 * 480
 The WebKit CI copy check finds no source-tile sweeps. A copy action cancels its controller just before a fast clipboard reply can start in the same clock tick. The controller correctly rejects events at its cancellation cutoff. Give each copy attempt a fresh controller after disposing its predecessor. Keep the generic cutoff and stale reply guards. The existing confirmed-event test pins this clock tick and checks failed copy, Share and a reply after the Friend screen closes.
 
 The next Freeze run passes the live loss and exact 620 ms duration assertions. Its final wait needs the public `remaining(now)` call that removes expired frame metadata. The approved renderer already paints no release at progress 1. Keep lazy pruning in production, all ten pixel comparisons and the finished-board capture in the check.
+
+When Create returns no invite, the confirmed-event test must use Make a new code so the widget caches and shows the invite before Copy. A direct harness request alone does not update the widget. This follows the existing registered interface check and changes no runtime behavior.
