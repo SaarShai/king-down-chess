@@ -125,6 +125,29 @@ describe('saved game candidates', () => {
   });
 
   it.each([
+    ['drawRepetition', { back: base.back, fen: '', moves: ['Ng1-f3', 'Ng8-f6', 'Nf3-g1', 'Nf6-g8', 'Ng1-f3', 'Ng8-f6', 'Nf3-g1', 'Nf6-g8'] }, 'e2-e4'],
+    ['draw50', { back: '', fen: '7k/p7/8/8/8/8/8/KR6 w - - 99 1', moves: ['Rb1-b2'] }, 'a7-a6'],
+  ])('keeps the valid part and full source after %s', (status, prefix, extra) => {
+    const valid = { ...base, ...prefix, rules: { classicChess: true } };
+    const ended = savedGame(valid);
+    expect(ended.status).toBe(status);
+    expect(ended.history.map(h => h.lan)).toEqual(prefix.moves);
+    const save = { ...valid, moves: [...prefix.moves, extra] };
+    const raw = JSON.stringify(save), s = storage();
+    vi.stubGlobal('localStorage', s);
+    s.m.set(SAVE_KEY, raw);
+    try {
+      const recovered = savedGame(save);
+      expect(recovered.status).toBe(status);
+      expect(recovered.history.map(h => h.lan)).toEqual(prefix.moves);
+      expect(toFen(recovered.pos)).toBe(toFen(ended.pos));
+      expect(readSave()).toEqual({ save, unreadable: false, partial: true, raw });
+      expect(s.m.get(SAVE_KEY)).toBe(raw);
+      expect(JSON.stringify(save)).toBe(raw);
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it.each([
     ['Freeze', '4k3/8/8/3n4/3O4/8/8/4K3 w - - 0 1', ['!F:d5', 'Od4>d5-d6', 'Nd6-f7']],
     ['IceWall', '2r1k3/8/8/8/3N4/8/8/4K3 w - - 0 1', ['!W:d4', 'Nd4-c6', 'Rc8xc6']],
   ] as const)('keeps two actions when a moved piece keeps its %s mark', (power, fen, moves) => {
