@@ -318,6 +318,77 @@ async function friend(host: string, guest: string) {
   expect((await owner.show(first)).actions).toHaveLength(3);
  }, 30000);
 
+ it('keeps the latest end when a shorter suspension overlaps it', async () => {
+  const [a, b] = [await user(), await user()];
+  const suspend = async (days: number) => {
+   const report = await safety.report(a, { target: 'player', user_id: b, category: 'harassment' });
+   return (await owner.act(report.id, { action: 'suspension', days, facts: 'Repeated harassment.', rule: 'Terms: no harassment.' })).action_id!;
+  };
+  const long = await suspend(30);
+  const end = (await rows('select ends_at from public.mod_actions where id=$1', [long]))[0].ends_at;
+  await suspend(1);
+  expect((await rows('select banned_until from auth.users where id=$1', [b]))[0].banned_until).toEqual(end);
+ });
+
+ it.each([[1, 30, 1], [30, 1, 1], [30, 1, 0]])('keeps other active suspensions after appeal (%i, %i, reverse %i)', async (firstDays, secondDays, reversed) => {
+  const [a, b] = [await user(), await user()];
+  const actions: number[] = [];
+  for (const days of [firstDays, secondDays]) {
+   const report = await safety.report(a, { target: 'player', user_id: b, category: 'harassment' });
+   actions.push((await owner.act(report.id, { action: 'suspension', days, facts: 'Repeated harassment.', rule: 'Terms: no harassment.' })).action_id!);
+  }
+  const kept = actions[1 - reversed];
+  const end = (await rows('select ends_at from public.mod_actions where id=$1', [kept]))[0].ends_at;
+  await owner.appeal(actions[reversed], { status: 'reversed', note: 'Wrong player.' });
+  expect((await rows('select banned_until from auth.users where id=$1', [b]))[0].banned_until).toEqual(end);
+  await owner.appeal(kept, { status: 'open', note: 'Please review.' });
+  await owner.appeal(kept, { status: 'upheld', note: 'The action stands.' });
+  expect((await rows('select banned_until from auth.users where id=$1', [b]))[0].banned_until).toEqual(end);
+  await owner.appeal(kept, { status: 'reversed', note: 'New evidence.' });
+  expect((await rows('select banned_until from auth.users where id=$1', [b]))[0].banned_until).toBeNull();
+ });
+
+ it('clears the ban after appeal when the other suspension has expired', async () => {
+  const [a, b] = [await user(), await user()];
+  const actions: number[] = [];
+  for (const days of [30, 1]) {
+   const report = await safety.report(a, { target: 'player', user_id: b, category: 'harassment' });
+   actions.push((await owner.act(report.id, { action: 'suspension', days, facts: 'Repeated harassment.', rule: 'Terms: no harassment.' })).action_id!);
+  }
+  await admin.query("update public.mod_actions set ends_at=now()-interval '1 day' where id=$1", [actions[0]]);
+  await owner.appeal(actions[1], { status: 'reversed', note: 'Wrong player.' });
+  expect((await rows('select banned_until from auth.users where id=$1', [b]))[0].banned_until).toBeNull();
+ });
+
+ it.each(['suspension', 'appeal'])('holds the account lock for a %s', async action => {
+  const [a, b] = [await user(), await user()];
+  const report = async () => safety.report(a, { target: 'player', user_id: b, category: 'harassment' });
+  const input = { action: 'suspension', days: 30, facts: 'Repeated harassment.', rule: 'Terms: no harassment.' };
+  const first = await owner.act((await report()).id, input), next = await report();
+  const blocker = await admin.connect(), observer = new pg.Client({ connectionString: own.href });
+  await observer.connect();
+  let pending: Promise<unknown> | undefined;
+  try {
+   await blocker.query('begin');
+   await owner.store.lockAccounts(blocker, [b]);
+   pending = Promise.allSettled([action === 'suspension' ? owner.act(next.id, { ...input, days: 1 })
+    : owner.appeal(first.action_id!, { status: 'reversed', note: 'Wrong player.' })]);
+   let blocked = false;
+   for (let i = 0; i < 100 && !blocked; i++) {
+    blocked = (await observer.query("select from pg_stat_activity where datname=current_database() and wait_event='advisory'")).rowCount! > 0;
+    if (!blocked) await new Promise(resolve => setTimeout(resolve, 10));
+   }
+   expect(blocked).toBe(true);
+  } finally {
+   await blocker.query('rollback'); blocker.release();
+   const result = await pending;
+   await observer.end();
+   expect(result).toEqual([{ status: 'fulfilled', value: action === 'suspension' ? { action_id: expect.any(Number) } : undefined }]);
+  }
+  const end = (await rows('select ends_at from public.mod_actions where id=$1', [first.action_id]))[0].ends_at;
+  expect((await rows('select banned_until from auth.users where id=$1', [b]))[0].banned_until).toEqual(action === 'suspension' ? end : null);
+ });
+
  it.each([['2026-03-01T12:00:00Z', 167], ['2026-10-25T12:00:00Z', 169]])('uses UTC for a 7-day grace from %s', async (at, localHours) => {
   const local = new pg.Client({ connectionString: own.href, options: '-c timezone=America/Los_Angeles' });
   await local.connect();

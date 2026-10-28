@@ -84,6 +84,8 @@ export class SafetyService {
     if (action !== 'none' && (!facts || !rule)) fail('INVALID_INPUT', 400, 'An action needs the facts and the rule');
     if ((action === 'suspension') !== (days !== undefined) || (action === 'rename') !== (handle !== undefined)) fail('INVALID_INPUT', 400, 'A suspension needs its days and a rename its new handle');
     return this.store.transaction(async client => {
+      const target = (await client.query('select reported_id from public.reports where id=$1', [serial(reportId)])).rows[0] ?? fail('NOT_FOUND', 404, 'Report not found');
+      await this.store.lockAccounts(client, [target.reported_id]);
       const report = (await client.query('select id,reported_id from public.reports where id=$1 for update', [serial(reportId)])).rows[0] ?? fail('NOT_FOUND', 404, 'Report not found');
       const actionId = action === 'none' ? null : await this.apply(client, report.reported_id ?? fail('NOT_FOUND', 404, 'The reported account no longer exists'),
         { action, statement: `What happened: ${facts}\nThe rule: ${rule}\n${this.appealInstructions}`, days, handle }, by, report.id);
@@ -104,30 +106,35 @@ export class SafetyService {
       await client.query('update public.game_players set handle_at_start=$3 where user_id=$1 and handle_at_start=$2', [user, old, next]);
     } else if (action === 'suspension') {
       ends = new Date(Date.now() + days! * DAY);
-      // Supabase Auth refuses a banned account's sign-ins and token refreshes.
-      // ponytail: a token issued before the ban works until it expires (1 hour at most); the game server does not check bans itself.
-      await client.query('update auth.users set banned_until=$2 where id=$1', [user, ends]);
     }
     const row = (await client.query('insert into public.mod_actions(user_id,action,statement,by,ends_at,report_id,handle) values($1,$2,$3,$4,$5,$6,$7) returning id',
       [user, action, statement, by, ends, reportId, old])).rows[0];
+    if (action === 'suspension') await this.updateBan(client, user);
     await client.query(`insert into public.notifications(user_id,kind,payload) values($1,'moderation',$2)`, [user, { action_id: Number(row.id), action, statement, ends_at: ends?.toISOString() ?? null }]);
     return Number(row.id);
+  }
+  /** The caller holds the account lock until the action and ban commit. */
+  private async updateBan(client: PoolClient, user: string): Promise<void> {
+    // Supabase Auth refuses a banned account's sign-ins and token refreshes.
+    // ponytail: a token issued before the ban works until it expires (1 hour at most); the game server does not check bans itself.
+    await client.query(`update auth.users set banned_until=(select max(ends_at) from public.mod_actions
+      where user_id=$1 and action='suspension' and appeal_status is distinct from 'reversed' and ends_at>statement_timestamp()) where id=$1`, [user]);
   }
   /** Records an appeal (it comes to the owner by email) and the decision. A reversal undoes the action:
    * a suspension ends, and a renamed or hidden handle comes back. */
   async appeal(actionId: number, input: unknown): Promise<void> {
     const { status, note } = parse(appealSchema, input);
     await this.store.transaction(async client => {
+      const target = (await client.query('select user_id from public.mod_actions where id=$1', [serial(actionId)])).rows[0] ?? fail('NOT_FOUND', 404, 'Action not found');
+      await this.store.lockAccounts(client, [target.user_id]);
       const done = (await client.query('select id,user_id,action,handle,appeal_status from public.mod_actions where id=$1 for update', [serial(actionId)])).rows[0] ?? fail('NOT_FOUND', 404, 'Action not found');
       if (done.appeal_status === 'reversed') fail('NOT_ALLOWED', 409, 'This action is already reversed');
-      if (status === 'reversed' && done.user_id) {
-        await client.query('update auth.users u set banned_until=null from public.mod_actions m where m.id=$1 and u.id=m.user_id and m.action=\'suspension\' and u.banned_until=m.ends_at', [done.id]);
-        if (done.handle) {
-          await client.query(`delete from public.reserved_handles where handle=$1 and reason='blocked'`, [done.handle]);
-          await client.query('update public.profiles set handle=$2 where id=$1', [done.user_id, done.handle]);
-        }
+      if (status === 'reversed' && done.user_id && done.handle) {
+        await client.query(`delete from public.reserved_handles where handle=$1 and reason='blocked'`, [done.handle]);
+        await client.query('update public.profiles set handle=$2 where id=$1', [done.user_id, done.handle]);
       }
       await client.query(`update public.mod_actions set appeal_status=$2,appeal_note=$3,ends_at=case when $2='reversed' then now() else ends_at end where id=$1`, [done.id, status, note]);
+      if (done.action === 'suspension' && done.user_id) await this.updateBan(client, done.user_id);
       if (status !== 'open' && done.user_id) await client.query(`insert into public.notifications(user_id,kind,payload) values($1,'appeal',$2)`, [done.user_id, { action_id: Number(done.id), status, note }]);
     });
   }
