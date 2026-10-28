@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "ready",
-  "catalogSha256": "e9f83cb19760917dda923d5e1b9064a521b923dc859d9fa1bea9be693770872f",
+  "catalogSha256": "a353248327dd25504ca695aa878a4cb58a128782b1d326af72b877606af27a67",
   "entries": [
     {
       "character": "pawn",
@@ -2263,6 +2263,14 @@
       "character": "beast",
       "army": "black",
       "kind": "attack",
+      "id": "black-attack-SW",
+      "manifest": "banks/6b0b34a033302621b203ffdac3beeb4e2b6c1332656964475ef972496662eb20.json",
+      "sha256": "6b0b34a033302621b203ffdac3beeb4e2b6c1332656964475ef972496662eb20"
+    },
+    {
+      "character": "beast",
+      "army": "black",
+      "kind": "attack",
       "id": "black-attack-W",
       "manifest": "banks/88e5236555726bac0b30ff7157dd386da687a4dde37e2f802162f1212b2d3ce2.json",
       "sha256": "88e5236555726bac0b30ff7157dd386da687a4dde37e2f802162f1212b2d3ce2"
@@ -2367,6 +2375,14 @@
       "character": "beast",
       "army": "white",
       "kind": "attack",
+      "id": "white-attack-SW",
+      "manifest": "banks/cd852c955e1b21682afb19dd5f6253f8ccd907e84ef7fc6bab64ed66d71cc5fc.json",
+      "sha256": "cd852c955e1b21682afb19dd5f6253f8ccd907e84ef7fc6bab64ed66d71cc5fc"
+    },
+    {
+      "character": "beast",
+      "army": "white",
+      "kind": "attack",
       "id": "white-attack-W",
       "manifest": "banks/d7ff2817a1317e14f3764bfff28f487522c100b968ca0d956c39b3a9fb53f7fd.json",
       "sha256": "d7ff2817a1317e14f3764bfff28f487522c100b968ca0d956c39b3a9fb53f7fd"
@@ -2439,6 +2455,14 @@
       "character": "rook",
       "army": "white",
       "kind": "turn",
+      "id": "white-turn-SW-W",
+      "manifest": "banks/844a87411f3e1e33a60f7d3e0b8938b8cb185b5ff78744fe9a5db4b0c4a8dbde.json",
+      "sha256": "844a87411f3e1e33a60f7d3e0b8938b8cb185b5ff78744fe9a5db4b0c4a8dbde"
+    },
+    {
+      "character": "rook",
+      "army": "white",
+      "kind": "turn",
       "id": "white-turn-NW-N",
       "manifest": "banks/7b20e468be302826e077a81f65af2746e2ba37f1c098f28f4539da43475cc14b.json",
       "sha256": "7b20e468be302826e077a81f65af2746e2ba37f1c098f28f4539da43475cc14b"
@@ -2450,6 +2474,14 @@
       "id": "white-turn-N-NE",
       "manifest": "banks/0604b52c1ae8c1812419bb5694526b40be008ee0ad1ce1482b91525e0321eeeb.json",
       "sha256": "0604b52c1ae8c1812419bb5694526b40be008ee0ad1ce1482b91525e0321eeeb"
+    },
+    {
+      "character": "rook",
+      "army": "white",
+      "kind": "turn",
+      "id": "white-turn-SE-E",
+      "manifest": "banks/a139c2c995e6d069b3d54e476311cde536c7c8a1878a350585252b6a04f9f7a1.json",
+      "sha256": "a139c2c995e6d069b3d54e476311cde536c7c8a1878a350585252b6a04f9f7a1"
     },
     {
       "character": "rook",
@@ -2517,6 +2549,30 @@
     },
     {
       "character": "rook",
+      "army": "black",
+      "kind": "turn",
+      "id": "black-turn-W-NW",
+      "manifest": "banks/74f10c9968776bdb8e053f28809a171568a6f13ca661f0e1d9971d67a73557de.json",
+      "sha256": "74f10c9968776bdb8e053f28809a171568a6f13ca661f0e1d9971d67a73557de"
+    },
+    {
+      "character": "rook",
+      "army": "black",
+      "kind": "turn",
+      "id": "black-turn-NE-E",
+      "manifest": "banks/ce7ef7d7f116f5a8095cefc30d7f40520e4b06381b83e07cc5b98bfa69af0a88.json",
+      "sha256": "ce7ef7d7f116f5a8095cefc30d7f40520e4b06381b83e07cc5b98bfa69af0a88"
+    },
+    {
+      "character": "rook",
+      "army": "black",
+      "kind": "turn",
+      "id": "black-turn-SE-E",
+      "manifest": "banks/b629b6ac53a17151267b1ec0821d359c36c23fbe1c45f6633df872d7b1c66133.json",
+      "sha256": "b629b6ac53a17151267b1ec0821d359c36c23fbe1c45f6633df872d7b1c66133"
+    },
+    {
+      "character": "rook",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-NW",
@@ -2543,9 +2599,41 @@
       "character": "rook",
       "army": "white",
       "kind": "attack",
+      "id": "white-attack-E",
+      "manifest": "banks/9fb6023ee250de1659dfa2d0a44434bf7b2ad3144187093e4bd525a9353b0f74.json",
+      "sha256": "9fb6023ee250de1659dfa2d0a44434bf7b2ad3144187093e4bd525a9353b0f74"
+    },
+    {
+      "character": "rook",
+      "army": "white",
+      "kind": "attack",
+      "id": "white-attack-SE",
+      "manifest": "banks/9dd6462788a86bd64e0e445c9339e84dab886c0016ebfe97a0a971fb27169df0.json",
+      "sha256": "9dd6462788a86bd64e0e445c9339e84dab886c0016ebfe97a0a971fb27169df0"
+    },
+    {
+      "character": "rook",
+      "army": "white",
+      "kind": "attack",
+      "id": "white-attack-S",
+      "manifest": "banks/55f96efb0db4e66b495d6bdc44843c89d80d37fd010c3e03263608f9d8afe029.json",
+      "sha256": "55f96efb0db4e66b495d6bdc44843c89d80d37fd010c3e03263608f9d8afe029"
+    },
+    {
+      "character": "rook",
+      "army": "white",
+      "kind": "attack",
       "id": "white-attack-SW",
       "manifest": "banks/09c4864452a2a0447a1c1af379ed394ef513dd564a86ca5130b8e957d41c5f56.json",
       "sha256": "09c4864452a2a0447a1c1af379ed394ef513dd564a86ca5130b8e957d41c5f56"
+    },
+    {
+      "character": "rook",
+      "army": "white",
+      "kind": "attack",
+      "id": "white-attack-W",
+      "manifest": "banks/87a92f23770f699d769bfb16602cc65ff07ae6259cad64986cb376a04ffbf711.json",
+      "sha256": "87a92f23770f699d769bfb16602cc65ff07ae6259cad64986cb376a04ffbf711"
     },
     {
       "character": "rook",
@@ -2583,9 +2671,33 @@
       "character": "rook",
       "army": "black",
       "kind": "attack",
+      "id": "black-attack-SE",
+      "manifest": "banks/b797690c11e65c43d33ddb98fba128dc4d4f2aaca876ac9b03e13646dab60b43.json",
+      "sha256": "b797690c11e65c43d33ddb98fba128dc4d4f2aaca876ac9b03e13646dab60b43"
+    },
+    {
+      "character": "rook",
+      "army": "black",
+      "kind": "attack",
+      "id": "black-attack-S",
+      "manifest": "banks/5afd7e6779420fc6c225c6cfa0eed9e30548a5f65c5f11578163e8e7b54d0ac5.json",
+      "sha256": "5afd7e6779420fc6c225c6cfa0eed9e30548a5f65c5f11578163e8e7b54d0ac5"
+    },
+    {
+      "character": "rook",
+      "army": "black",
+      "kind": "attack",
       "id": "black-attack-SW",
       "manifest": "banks/290e8b038d1a4c6a327e65a3ad783e69c4d022db150e67941bb7eadd0612760e.json",
       "sha256": "290e8b038d1a4c6a327e65a3ad783e69c4d022db150e67941bb7eadd0612760e"
+    },
+    {
+      "character": "rook",
+      "army": "black",
+      "kind": "attack",
+      "id": "black-attack-W",
+      "manifest": "banks/2f1c9418eb544906493ca7251364ccc43d2438bf5e897938d9b06f2f8b85324c.json",
+      "sha256": "2f1c9418eb544906493ca7251364ccc43d2438bf5e897938d9b06f2f8b85324c"
     },
     {
       "character": "guard",
