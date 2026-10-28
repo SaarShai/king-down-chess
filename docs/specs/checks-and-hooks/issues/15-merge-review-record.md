@@ -32,6 +32,22 @@ review state. It can merge while a requested review runs.
   of 11 checks, the 60-second interval, and the four-hour limit.
 - Tests use local stand-ins. They make no GitHub calls.
 
+## PR 173 repair plan
+
+The independent Standards and Spec review finds three faults at `f5227b3e`.
+
+1. Add refusal tests for a failed commit status, a base change during the CI
+   request, and slow requests that use the four-hour budget. Show each failure
+   before the code change.
+2. Check commit statuses as well as check-runs. Read the current PR and review
+   record before merge. Use elapsed time for requests, pauses, and merge.
+3. Run the affected tests and doc checks with the shared locks. Inspect the
+   diff. Commit with the existing hooks and push to the same PR branch.
+
+Pass criteria: each new case refuses merge. Pending statuses wait. Complete
+reviews and passing CI still permit merge within four hours. Each request and
+pause fits the remaining time. No hook or gate input changes.
+
 ## Evidence
 
 - Before: `KINGDOWN_TEST_FILE=tools/merge-on-green.test.ts npm test` exits 1.
@@ -62,8 +78,44 @@ review state. It can merge while a requested review runs.
 
 ## Review
 
-The guard checks the record again after the CI request. The tests also check
-that a second running review blocks merge. The helper keeps the original CI
-floor and merge mode. It adds no reviewer count or command-line override.
-An independent review is required before merge. Direct merge commands do not
-use this guard.
+The independent Standards and Spec review at `f5227b3e` finds three faults.
+The repair addresses each fault:
+
+1. Spec: check-runs alone miss failed commit statuses. The helper now checks
+   the combined status on the full head SHA. A failure blocks merge. A pending
+   status waits. A head with no commit statuses can pass the check-run guard.
+2. Standards and Spec: the old PR response can have an old base. The helper now
+   reads the PR after CI, then reads the review record. It compares the record
+   with the current base. A changed head, state, or PR number also blocks merge.
+3. Standards: 240 attempts can take more than four hours. One elapsed-time
+   deadline now covers every request, pause, and the final merge. Each request
+   uses the smaller of 60 seconds and the remaining time. The last pause also
+   fits the remaining time.
+
+The helper keeps the original CI floor and merge mode. It adds no reviewer
+count or command-line override. An independent review is required before merge.
+Direct merge commands do not use this guard.
+
+## PR 173 repair evidence
+
+- Before: `KINGDOWN_TEST_FILE=tools/merge-on-green.test.ts` and
+  `KINGDOWN_TEST_NAME='refuses commit status|reads the current PR .* again after CI|counts slow requests'`
+  with `npm test` exits 1. All six selected cases return `merged` instead of
+  refusing merge. The cases cover a failed commit status, four PR changes
+  during CI, and slow requests. Both type checks pass. The run skips 65 cases.
+  Log: `/private/tmp/kd-pr173b-evidence/red.log`.
+- After: `KINGDOWN_TEST_FILE=tools/merge-on-green.test.ts npm test` exits 0.
+  All 71 helper tests and 67 drawing tests pass. Both type checks pass.
+  Log: `/private/tmp/kd-pr173b-evidence/affected.log`.
+- The added cases also check pending and absent statuses, invalid status
+  responses, a review that starts during the final PR request, each read at
+  the deadline, a 25 ms last pause, and a 25 ms final merge request limit.
+- `npm run test:docs` exits 0: 183 tests in 16 files pass.
+  Log: `/private/tmp/kd-pr173b-evidence/docs.log`.
+- Each test run holds the shared Git test lock. The affected tests and doc
+  checks run in that order under one lock. All commands end before commit.
+- The diff changes four files. The hooks, gate inputs, packages, game, and
+  browser files stay unchanged. This repair uses local stand-ins for GitHub.
+  It does not repeat the full suite or run a browser check. No deploy occurs.
+- The final change uses one request path and the existing injected test
+  functions. It adds no package, timer service, or second merge path.

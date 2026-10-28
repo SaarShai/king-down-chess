@@ -9,7 +9,7 @@ const repo = 'SaarShai/king-down-chess';
 const fullSha = value => typeof value === 'string' && /^[0-9a-f]{40}$/.test(value);
 const text = value => typeof value === 'string' && value.trim().length > 0;
 const require = (condition, reason) => { if (!condition) throw new Error(reason); };
-const github = args => execFileSync('gh', args, { encoding: 'utf8', timeout: 60_000 });
+const github = (args, { timeout }) => execFileSync('gh', args, { encoding: 'utf8', timeout });
 
 function reviewRecord(file, pr, head) {
   let record;
@@ -33,17 +33,33 @@ function reviewRecord(file, pr, head) {
   return record;
 }
 
-/** Check all requested reviews and all CI check-runs before a merge of this exact head. */
-export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTimeout } = {}) {
+/** Check all requested reviews and both CI inputs before a merge of this exact head. */
+export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTimeout, now = () => performance.now() } = {}) {
   require(Number.isSafeInteger(pr) && pr > 0 && fullSha(head) && text(file),
     'usage: node tools/merge-on-green.mjs <pr> <full head sha> <review.json>');
-  for (let attempt = 0; attempt < 240; attempt++) {
-    const record = reviewRecord(file, pr, head);
-    const current = JSON.parse(gh(['pr', 'view', String(pr), '--repo', repo,
+  const deadline = now() + 4 * 60 * 60 * 1000;
+  const remaining = () => {
+    const left = deadline - now();
+    require(left > 0, 'CI does not pass within four hours');
+    return Math.ceil(left);
+  };
+  const request = args => {
+    const output = gh(args, { timeout: Math.min(60_000, remaining()) });
+    remaining();
+    return output;
+  };
+  const readPr = () => {
+    const current = JSON.parse(request(['pr', 'view', String(pr), '--repo', repo,
       '--json', 'number,state,headRefOid,baseRefOid']));
-    require(current.number === pr && current.state === 'OPEN' && current.headRefOid === head && current.baseRefOid === record.base,
+    require(current.number === pr && current.state === 'OPEN' && current.headRefOid === head && fullSha(current.baseRefOid),
       'PR is not open at the recorded head and base');
-    const pages = JSON.parse(gh(['api', '--paginate', '--slurp',
+    return current;
+  };
+  for (;;) {
+    const record = reviewRecord(file, pr, head);
+    const current = readPr();
+    require(current.baseRefOid === record.base, 'PR is not open at the recorded head and base');
+    const pages = JSON.parse(request(['api', '--paginate', '--slurp',
       `repos/${repo}/commits/${head}/check-runs?per_page=100`]));
     require(Array.isArray(pages) && pages.length > 0 && pages.every(page => Array.isArray(page.check_runs)), 'invalid CI check-runs');
     const checks = pages.flatMap(page => page.check_runs);
@@ -51,15 +67,21 @@ export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTim
     require(checks.every(check => check.head_sha === head), 'CI check head differs');
     require(checks.every(check => ['queued', 'in_progress', 'completed', 'waiting', 'requested', 'pending'].includes(check.status)), 'invalid CI check status');
     require(checks.every(check => check.status !== 'completed' || check.conclusion === 'success'), 'CI check does not pass');
-    if (checks.length >= 11 && checks.every(check => check.status === 'completed')) {
-      // A review can start or report a finding while the CI request runs.
+    // The combined state covers the latest status for every context, across all pages.
+    const status = JSON.parse(request(['api', `repos/${repo}/commits/${head}/status`]));
+    require(status?.sha === head && Number.isSafeInteger(status.total_count) && status.total_count >= 0 &&
+      ['success', 'pending', 'failure'].includes(status.state), 'invalid CI commit status');
+    require(status.state !== 'failure', 'CI commit status does not pass');
+    if (checks.length >= 11 && checks.every(check => check.status === 'completed') &&
+        (status.total_count === 0 || status.state === 'success')) {
+      const latestPr = readPr();
+      // A review can start or report a finding while any GitHub request runs.
       const latest = reviewRecord(file, pr, head);
-      require(latest.base === current.baseRefOid, 'review record base changes before merge');
-      return gh(['pr', 'merge', String(pr), '--repo', repo, '--merge', '--match-head-commit', head]);
+      require(latest.base === latestPr.baseRefOid, 'review record base differs before merge');
+      return request(['pr', 'merge', String(pr), '--repo', repo, '--merge', '--match-head-commit', head]);
     }
-    if (attempt < 239) await pause(60_000);
+    await pause(Math.min(60_000, remaining()));
   }
-  throw new Error('CI does not pass within four hours');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

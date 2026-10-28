@@ -23,28 +23,34 @@ function fixture(value: unknown = record()) {
   const file = join(dir, 'review.json');
   writeFileSync(file, JSON.stringify(value));
   const checks = Array.from({ length: 11 }, (_, id) => ({ id, head_sha: head, status: 'completed', conclusion: 'success' }));
+  const status = { sha: head, total_count: 1, state: 'success' };
   const current = { number: 158, state: 'OPEN', headRefOid: head, baseRefOid: base };
-  const gh = vi.fn((args: string[]) => {
+  const gh = vi.fn((args: string[], _options?: { timeout: number }) => {
+    if (args[0] === 'api' && args[1].endsWith('/status')) return JSON.stringify(status);
     if (args[0] === 'api') return JSON.stringify([{ total_count: checks.length, check_runs: checks }]);
     if (args[1] === 'view') return JSON.stringify(current);
     if (args[1] === 'merge') return 'merged';
     throw new Error(`unexpected call: ${args}`);
   });
-  const pause = vi.fn(async (_ms: number) => {});
-  const run = () => mergeOnGreen(158, head, file, { gh, pause });
+  let clock = 0;
+  const advance = (ms: number) => { clock += ms; };
+  const pause = vi.fn(async (ms: number) => { advance(ms); });
+  const options = { gh, pause, now: () => clock };
+  const run = () => mergeOnGreen(158, head, file, options);
   const merges = () => gh.mock.calls.filter(([args]) => args[1] === 'merge');
-  return { dir, file, checks, current, gh, pause, run, merges };
+  return { dir, file, checks, status, current, gh, pause, advance, run, merges };
 }
 
 function runCli(value: ReturnType<typeof record>) {
-  const { dir, file, current, checks } = fixture(value);
+  const { dir, file, current, checks, status } = fixture(value);
   const calls = join(dir, 'calls.jsonl');
   writeFileSync(join(dir, 'gh'), `#!/usr/bin/env node
 const fs = require('node:fs');
 const args = process.argv.slice(2);
 fs.appendFileSync(${JSON.stringify(calls)}, JSON.stringify(args) + '\\n');
 if (args[0] === 'pr' && args[1] === 'view') console.log(${JSON.stringify(JSON.stringify(current))});
-if (args[0] === 'api') console.log(${JSON.stringify(JSON.stringify([{ total_count: 11, check_runs: checks }]))});
+if (args[0] === 'api' && args[1].endsWith('/status')) console.log(${JSON.stringify(JSON.stringify(status))});
+else if (args[0] === 'api') console.log(${JSON.stringify(JSON.stringify([{ total_count: 11, check_runs: checks }]))});
 `, { mode: 0o755 });
   const result = spawnSync(process.execPath, [
     fileURLToPath(new URL('./merge-on-green.mjs', import.meta.url)),
@@ -64,8 +70,10 @@ it('refuses a merge with passing CI while a requested review runs', () => {
 it('runs the CLI with local GitHub stand-ins and permits a complete record', () => {
   const { result, commands } = runCli(record());
   expect(result.status, result.stderr).toBe(0);
-  expect(commands.map(args => args.slice(0, 2))).toEqual([['pr', 'view'], ['api', '--paginate'], ['pr', 'merge']]);
-  expect(commands[2].slice(-2)).toEqual(['--match-head-commit', head]);
+  expect(commands.map(args => args.slice(0, 2))).toEqual([
+    ['pr', 'view'], ['api', '--paginate'], ['api', `repos/SaarShai/king-down-chess/commits/${head}/status`], ['pr', 'view'], ['pr', 'merge'],
+  ]);
+  expect(commands[4].slice(-2)).toEqual(['--match-head-commit', head]);
 });
 
 it.each(['pending', 'running', 'failed', 'cancelled', ''])('refuses review result %s', async result => {
@@ -121,7 +129,7 @@ it.each([false, true])('permits complete reviews with no open findings (reconcil
   }
   const f = fixture(value);
   await expect(f.run()).resolves.toBe('merged');
-  expect(f.merges()).toEqual([[['pr', 'merge', '158', '--repo', 'SaarShai/king-down-chess', '--merge', '--match-head-commit', head]]]);
+  expect(f.merges()).toEqual([[['pr', 'merge', '158', '--repo', 'SaarShai/king-down-chess', '--merge', '--match-head-commit', head], { timeout: 60_000 }]]);
   expect(f.gh.mock.calls[1][0]).toEqual(['api', '--paginate', '--slurp', `repos/SaarShai/king-down-chess/commits/${head}/check-runs?per_page=100`]);
 });
 
@@ -155,6 +163,114 @@ it('waits for every check to complete', async () => {
   f.pause.mockImplementationOnce(async () => { f.checks[0].status = 'completed'; });
   await expect(f.run()).resolves.toBe('merged');
   expect(f.pause).toHaveBeenCalledExactlyOnceWith(60_000);
+});
+
+it('refuses commit status failure beside eleven successful check-runs', async () => {
+  const f = fixture();
+  f.status.state = 'failure';
+  f.status.total_count = 101;
+  await expect(f.run()).rejects.toThrow();
+  expect(f.merges()).toEqual([]);
+});
+
+it.each(['state', 'headRefOid', 'baseRefOid', 'number'])('reads the current PR %s again after CI', async key => {
+  const f = fixture(), gh = f.gh.getMockImplementation()!;
+  f.gh.mockImplementation(args => {
+    const output = gh(args);
+    if (args[0] === 'api') Object.assign(f.current, { [key]: key === 'number' ? 159 : 'c'.repeat(40) });
+    return output;
+  });
+  await expect(f.run()).rejects.toThrow();
+  expect(f.merges()).toEqual([]);
+});
+
+it('counts slow requests in the four-hour deadline', async () => {
+  const f = fixture(), gh = f.gh.getMockImplementation()!;
+  let polls = 0;
+  f.gh.mockImplementation(args => {
+    f.advance(30_000);
+    if (args[0] === 'api' && args.at(-1)!.includes('/check-runs?')) f.checks[0].status = ++polls === 240 ? 'completed' : 'queued';
+    return gh(args);
+  });
+  await expect(f.run()).rejects.toThrow('four hours');
+  expect(f.merges()).toEqual([]);
+});
+
+it('waits for a pending commit status', async () => {
+  const f = fixture();
+  f.status.state = 'pending';
+  f.pause.mockImplementationOnce(async ms => { f.advance(ms); f.status.state = 'success'; });
+  await expect(f.run()).resolves.toBe('merged');
+  expect(f.pause).toHaveBeenCalledExactlyOnceWith(60_000);
+});
+
+it('permits passing checks when there are no commit statuses', async () => {
+  const f = fixture();
+  Object.assign(f.status, { state: 'pending', total_count: 0 });
+  await expect(f.run()).resolves.toBe('merged');
+});
+
+it.each(['head', 'count', 'state', 'api'])('refuses invalid or unreadable commit status: %s', async fault => {
+  const f = fixture(), gh = f.gh.getMockImplementation()!;
+  f.gh.mockImplementation(args => {
+    if (args[0] === 'api' && args[1].endsWith('/status')) {
+      if (fault === 'api') throw new Error('status request fails');
+      if (fault === 'head') f.status.sha = 'c'.repeat(40);
+      if (fault === 'count') f.status.total_count = -1;
+      if (fault === 'state') f.status.state = 'unknown';
+    }
+    return gh(args);
+  });
+  await expect(f.run()).rejects.toThrow();
+  expect(f.merges()).toEqual([]);
+});
+
+it('reads the review record after the final PR request', async () => {
+  const f = fixture(), gh = f.gh.getMockImplementation()!;
+  let views = 0;
+  f.gh.mockImplementation(args => {
+    const output = gh(args);
+    if (args[1] === 'view' && ++views === 2) writeFileSync(f.file, JSON.stringify(record('running')));
+    return output;
+  });
+  await expect(f.run()).rejects.toThrow('result is not complete');
+  expect(f.merges()).toEqual([]);
+});
+
+it.each([1, 2, 3, 4])('refuses merge when read request %s reaches the deadline', async request => {
+  const f = fixture(), gh = f.gh.getMockImplementation()!;
+  let reads = 0;
+  f.gh.mockImplementation(args => {
+    if (++reads === request) f.advance(4 * 60 * 60 * 1000);
+    return gh(args);
+  });
+  await expect(f.run()).rejects.toThrow('four hours');
+  expect(f.gh).toHaveBeenCalledTimes(request);
+  expect(f.merges()).toEqual([]);
+});
+
+it('limits the final pause to the remaining time', async () => {
+  const f = fixture(), gh = f.gh.getMockImplementation()!;
+  f.checks[0].status = 'queued';
+  f.gh.mockImplementation(args => {
+    if (args[0] === 'api' && args[1].endsWith('/status')) f.advance(4 * 60 * 60 * 1000 - 25);
+    return gh(args);
+  });
+  await expect(f.run()).rejects.toThrow('four hours');
+  expect(f.pause).toHaveBeenCalledExactlyOnceWith(25);
+  expect(f.gh).toHaveBeenCalledTimes(3);
+  expect(f.merges()).toEqual([]);
+});
+
+it('limits every request, including merge, to the remaining time', async () => {
+  const f = fixture(), gh = f.gh.getMockImplementation()!;
+  f.gh.mockImplementation(args => {
+    const output = gh(args);
+    if (args[1] === 'view') f.advance(f.gh.mock.calls.length === 1 ? 4 * 60 * 60 * 1000 - 50 : 25);
+    return output;
+  });
+  await expect(f.run()).resolves.toBe('merged');
+  expect(f.gh.mock.calls.map(([, options]) => options?.timeout)).toEqual([60_000, 50, 50, 50, 25]);
 });
 
 it.each(['running', 'finding', 'base'])('reads the record again before merge: %s', async change => {
@@ -196,7 +312,7 @@ it.each([0, 10])('times out without a merge with only %s checks', async count =>
   const f = fixture();
   f.checks.splice(count);
   await expect(f.run()).rejects.toThrow('four hours');
-  expect(f.pause).toHaveBeenCalledTimes(239);
+  expect(f.pause).toHaveBeenCalledTimes(240);
   expect(f.merges()).toEqual([]);
 });
 
