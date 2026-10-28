@@ -63,6 +63,81 @@ it('does not send when durable storage fails and clears only a definitive refusa
   expect(saved.records.size).toBe(0);
 });
 
+it.each([
+  ['success', 'success'], ['success', 'refusal'],
+  ['refusal', 'success'], ['refusal', 'refusal'],
+] as const)('keeps a newer command after two tabs retry: first %s, late %s', async (firstReply, lateReply) => {
+  const saved = storage(), first = held<{ view: View }>(), late = held<{ view: View }>(), next = held<{ view: View }>();
+  const command = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(late.promise).mockReturnValueOnce(next.promise);
+  const api = { command } as unknown as OnlineClient;
+  const tabA = createWebTransport(api, 'account-a', saved), tabB = createWebTransport(api, 'account-a', saved);
+  const original = tabA.call('kingdown_move', args, {}), retry = tabB.call('kingdown_move', args, {});
+  const complete = (reply: typeof first, outcome: typeof firstReply) => {
+    if (outcome === 'success') reply.resolve({ view });
+    else reply.reject(new OnlineError('STALE_REVISION', 409, 'The game changed'));
+  };
+  await vi.waitFor(() => expect(command).toHaveBeenCalledTimes(2));
+  complete(first, firstReply);
+  expect((await original).isError ?? false).toBe(firstReply === 'refusal');
+  expect(tabA.pending()).toBeUndefined();
+  const newerArgs = { ...args, command_id: 'newer', expected_revision: 6, actions: ['Ra4-a5'] };
+  const newer = tabA.call('kingdown_move', newerArgs, {});
+  const lost = expect(newer).rejects.toThrow('Lost newer reply');
+  try {
+    await vi.waitFor(() => expect(command).toHaveBeenCalledTimes(3));
+    complete(late, lateReply);
+    expect((await retry).isError ?? false).toBe(lateReply === 'refusal');
+    expect(tabB.pending()).toEqual({ name: 'kingdown_move', args: newerArgs });
+  } finally {
+    next.reject(new TypeError('Lost newer reply'));
+    await lost;
+  }
+  expect(createWebTransport(api, 'account-a', saved).pending()).toEqual({ name: 'kingdown_move', args: newerArgs });
+});
+
+it.each(['success', 'refusal'] as const)('locks receipt writes and rechecks ownership on %s', async outcome => {
+  const saved = storage(), response = held<{ view: View }>(), command = vi.fn(() => response.promise);
+  const transport = createWebTransport({ command } as unknown as OnlineClient, 'account-a', saved);
+  const newer = { name: 'kingdown_move', args: { ...args, command_id: 'newer', expected_revision: 6 } };
+  const requestLock = vi.spyOn(navigator.locks, 'request');
+  let call!: ReturnType<typeof transport.call>;
+  try {
+    await navigator.locks.request('kingdown.account-command.account-a', async () => {
+      call = transport.call('kingdown_move', args, {});
+      expect(saved.records.size).toBe(0);
+      expect(command).not.toHaveBeenCalled();
+    });
+    await vi.waitFor(() => expect(command).toHaveBeenCalledOnce());
+    await navigator.locks.request('kingdown.account-command.account-a', async () => {
+      if (outcome === 'success') response.resolve({ view });
+      else response.reject(new OnlineError('STALE_REVISION', 409, 'The game changed'));
+      await vi.waitFor(() => expect(requestLock).toHaveBeenCalledTimes(4));
+      expect(transport.pending()).toEqual({ name: 'kingdown_move', args });
+      // Another tab completes X and saves Y before this clear gets the lock.
+      saved.removeItem('kingdown.account-command.account-a');
+      saved.setItem('kingdown.account-command.account-a', JSON.stringify(newer));
+    });
+    expect((await call).isError ?? false).toBe(outcome === 'refusal');
+    expect(transport.pending()).toEqual(newer);
+  } finally {
+    response.resolve({ view });
+    await call;
+    requestLock.mockRestore();
+  }
+});
+
+it('cancels a command that waits for another tab to release the receipt lock', async () => {
+  const saved = storage(), command = vi.fn(), controller = new AbortController();
+  const transport = createWebTransport({ command } as unknown as OnlineClient, 'account-a', saved);
+  await navigator.locks.request('kingdown.account-command.account-a', async () => {
+    const call = transport.call('kingdown_move', args, { signal: controller.signal });
+    controller.abort(new Error('Page closed'));
+    await expect(call).rejects.toThrow('Page closed');
+  });
+  expect(saved.records.size).toBe(0);
+  expect(command).not.toHaveBeenCalled();
+});
+
 it('uses one stable creation ID and keeps the HTTP game selection local to this page', async () => {
   const saved = storage(), create = vi.fn(async () => ({ view }));
   const client = createWebTransport({ create } as unknown as OnlineClient, 'a', saved);
