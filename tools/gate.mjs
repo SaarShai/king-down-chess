@@ -36,8 +36,8 @@
 //         with a reason.
 //   secret: a file, or in push mode a commit message, that holds the exact value of a current secret
 //           fails. The fault line names the secret file ("message" in place of the path), never
-//           the value. GATE_SECRETS_DIR and GATE_TYPESAFE_KEY replace the two sources (for tests);
-//           tools/gate/secret.mjs states the sources.
+//           the value. GATE_SECRETS_DIR and GATE_TYPESAFE_KEY are refused at entry;
+//           tools/gate/secret.mjs states the fixed sources.
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -152,7 +152,7 @@ const mainCheckout = () => dirname(git(['rev-parse', '--path-format=absolute', '
  */
 const secretCheck = (/** @type {File[]} */ files, /** @type {string[]} */ commits) => {
   if (!files.length && !commits.length) return [];
-  const secrets = readSecrets(process.env.GATE_SECRETS_DIR ? '' : mainCheckout());
+  const secrets = readSecrets(mainCheckout());
   if (!secrets.length) return [];
   const found = contents([...new Set([...files.map(file => file.oid), ...commits])]);
   const order = new Map(commits.map((commit, i) => [commit.slice(0, 12), i]));
@@ -205,7 +205,7 @@ const CHUNK = 64 << 20;
 
 /** Writes "found" or "not found" for each secret file; gives 1 when a value is found, else 0. */
 const history = () => {
-  const sources = readSources(process.env.GATE_SECRETS_DIR ? '' : mainCheckout());
+  const sources = readSources(mainCheckout());
   if (!git(['for-each-ref', '--count=1', 'refs/remotes/origin/']).trim()) throw new GateFault('history: no origin ref; do git fetch origin, then try again');
   const oids = git(['rev-list', '--objects', '--no-object-names', '--remotes=origin']).split('\n').filter(Boolean);
   const answers = git(['cat-file', '--batch-check=%(objectname) %(objecttype) %(objectsize)'], oids.join('\n') + '\n').split('\n');
@@ -242,6 +242,9 @@ const history = () => {
 const modes = { staged, push };
 
 const main = () => {
+  for (const name of ['GATE_SECRETS_DIR', 'GATE_TYPESAFE_KEY']) {
+    if (Object.hasOwn(process.env, name)) throw new GateFault(`${name} is not allowed; secret sources are fixed`);
+  }
   const mode = process.argv[2];
   if (mode === 'history') return history();
   if (!Object.hasOwn(modes, mode)) throw new GateFault(`unknown mode "${mode ?? ''}"; the modes are staged, push and history`);

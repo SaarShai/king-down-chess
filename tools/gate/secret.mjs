@@ -4,10 +4,9 @@
 //
 // Sources:
 //   - The secrets folder of the main checkout (the parent of git's common folder, so a linked
-//     worktree finds it too). GATE_SECRETS_DIR replaces it. The gate reads each file in the folder
+//     worktree finds it too). The gate reads each file in the folder
 //     and its sub-folders; it skips names that start with ".".
-//   - The Typesafe key file that AGENTS.md names (~/.config/typesafe/key). GATE_TYPESAFE_KEY
-//     replaces it.
+//   - The Typesafe key file that AGENTS.md names (~/.config/typesafe/key).
 // A ".json" file gives each string whose own key holds "secret", "token", "password" or "apikey"
 // (case ignored); a string in an array takes the key of the array. Another file gives its trimmed
 // content. An empty value counts as no value. A missing source gives no values; a source that does
@@ -70,9 +69,9 @@ const filesIn = (/** @type {string} */ folder) => {
  * @returns {{ name: string, values: Buffer[] }[]}
  */
 export const readSources = mainCheckout => {
-  const folder = process.env.GATE_SECRETS_DIR || join(mainCheckout, '.secrets');
+  const folder = join(mainCheckout, '.secrets');
   const files = filesIn(folder).sort().map(path => ({ path: join(folder, path), name: `.secrets/${path}` }));
-  files.push({ path: process.env.GATE_TYPESAFE_KEY || TYPESAFE_KEY, name: 'typesafe key' });
+  files.push({ path: TYPESAFE_KEY, name: 'typesafe key' });
   return files.flatMap(({ path, name }) => {
     const text = readSource(path, name);
     return text === undefined ? [] : [{ name, values: valuesOf(text, name).filter(Boolean).map(value => Buffer.from(value)) }];
