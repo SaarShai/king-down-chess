@@ -28,17 +28,45 @@ try {
   const still=await page.evaluate(from=>window.view.scene.characterFrames.find(f=>f.square===from),from);
   assert(still,`${character}: ready body on game board`);const initialNetwork=await network();assert(initialNetwork.requests<=40&&initialNetwork.bytes<=8*1024*1024,'initial runtime download stays bounded');await shot(page,`${character}-game-still`);
   await page.evaluate(()=>{window.bodyTrace=[];const capture=()=>{bodyTrace.push({at:performance.now(),frames:view.scene.characterFrames,animating:view.scene.animating});if(bodyTrace.length<600)requestAnimationFrame(capture);};capture();});
-  for(const sq of [from,to]){const p=await page.evaluate(sq=>window.view.screenOf(sq),sq);await page.mouse.click(p.x,p.y);}
+  let rookIdle=null,actionTraceStart=0;
+  if(character==='rook-black-repaired-W'){
+   const banks=await page.evaluate(async()=>(await(await fetch('/character-runtime/manifest.json')).json()).banks.filter(b=>b.character==='rook'&&b.army==='black'));
+   const idle=banks.find(b=>b.id==='black-idle-slam'),turns=banks.filter(b=>b.kind==='turn');
+   assert(idle,'reviewed black Rook idle is selected');assert.equal(idle.facing,'S');assert.equal(still.bank,idle.id);
+   assert.equal(idle.frames.length,120);assert.equal(idle.frames[0].sourceSha256,idle.frames.at(-1).sourceSha256,'idle closes on exact S rest pixels');
+   assert.equal(still.sourceSha256,idle.frames[0].sourceSha256);assert.equal(idle.registrationHeightPx,280);assert.deepEqual(idle.pivot,[192,350]);
+   const component=turns.filter(b=>b.registrationSourceSha256===idle.sourceSha256);assert.equal(component.length,8);
+   for(const bank of component)assert.deepEqual([bank.pivot,bank.registrationHeightPx,bank.boardScale],[idle.pivot,idle.registrationHeightPx,idle.boardScale],'connected turns and idle share one world transform');
+   const sEnds=turns.flatMap(bank=>[[bank.from,bank.frames[0]],[bank.to,bank.frames.at(-1)]]).filter(([facing])=>facing==='S');assert.equal(sEnds.length,2);
+   for(const [,frame]of sEnds)assert.equal(frame.sourceSha256,idle.frames[0].sourceSha256,'both S turns join exact idle rest pixels');
+   assert(Math.abs(still.scale/(132/275)-55/56)<1e-12,'board scale applies the uniform 55/56 component change');
+   const p=await page.evaluate(from=>view.screenOf(from),from);await page.mouse.click(p.x,p.y);
+   await page.waitForFunction(([from,id])=>bodyTrace.some((sample,index)=>{const frame=sample.frames.find(f=>f.square===from&&f.bank===id),previous=bodyTrace[index-1]?.frames.find(f=>f.square===from&&f.bank===id);return frame&&previous&&previous.time>1800&&frame.time<100;}),[from,idle.id],{timeout:15000});
+   const samples=(await page.evaluate(()=>bodyTrace)).flatMap(sample=>sample.frames).filter(frame=>frame.square===from&&frame.bank===idle.id);
+   assert(new Set(samples.map(frame=>frame.sourceSha256)).size>=12,'selected idle plays distinct poses across a full live cycle');
+   const foot=await page.evaluate(from=>view.scene.foot(from),from);
+   for(const frame of samples){assert.deepEqual(frame.foot,foot,'idle remains at its world foot');assert.deepEqual(frame.pivot,idle.pivot);assert.equal(frame.scale,still.scale);assert(idle.frames.some(f=>f.sourceSha256===frame.sourceSha256));}
+   await shot(page,'rook-black-selected-idle-cycle');
+   rookIdle={id:idle.id,sourceSha256:idle.sourceSha256,cycleSamples:samples.length,uniquePoses:new Set(samples.map(frame=>frame.sourceSha256)).size,restSha256:idle.frames[0].sourceSha256,sharedSEndpoints:sEnds.length,componentTurns:component.length,registrationHeightPx:idle.registrationHeightPx,scaleRatio:55/56,worldFoot:foot};
+   actionTraceStart=await page.evaluate(()=>bodyTrace.length);
+  }
+  for(const sq of rookIdle?[to]:[from,to]){const p=await page.evaluate(sq=>window.view.screenOf(sq),sq);await page.mouse.click(p.x,p.y);}
   await page.waitForFunction(from=>window.view.scene.characterFrames.some(f=>f.square===from&&f.bank.includes('attack')&&f.time>100),from,{timeout:20000});
   await shot(page,`${character}-game-attack`);
   await page.waitForFunction(([from,to])=>!window.view.scene.animating&&!window.view.pos.board[from]&&window.view.pos.board[to]>0,[from,to],{timeout:15000});
   const trace=await page.evaluate(()=>bodyTrace),attack=trace.flatMap(t=>t.frames).filter(f=>f.square===from&&f.bank.includes('attack'));
   assert(attack.length>1,`${character}: timed body frames played`);
   const after=await page.evaluate(to=>window.view.scene.characterFrames.find(f=>f.square===to),to);assert(after,`${character}: accepted rest at destination`);
+  if(rookIdle){
+   const actor=trace.slice(actionTraceStart).flatMap(t=>t.frames).filter(frame=>frame.square===from),attackStart=actor.findIndex(frame=>frame.bank==='black-attack-W'),attackEnd=actor.findLastIndex(frame=>frame.bank==='black-attack-W');
+   assert(attackStart>0&&attackEnd<actor.length-1,'S turns precede the action and return after it');
+   for(const id of ['black-turn-S-SW','black-turn-SW-W']){assert(actor.slice(0,attackStart).some(frame=>frame.bank===id),`${id}: outward route plays`);assert(actor.slice(attackEnd+1).some(frame=>frame.bank===id),`${id}: actual route returns in reverse`);}
+   assert.equal(after.bank,rookIdle.id);assert.equal(after.sourceSha256,rookIdle.restSha256);assert.equal(after.scale,still.scale);assert.deepEqual(after.pivot,still.pivot);assert.deepEqual(after.foot,await page.evaluate(to=>view.scene.foot(to),to));
+  }
   const memory=await page.evaluate(()=>view.scene.characterMemory);assert(memory.peakBytes<=64*1024*1024,'decoded body cache stays within 64 MiB');
   const totalNetwork=await network(),moveNetwork={requests:totalNetwork.requests-initialNetwork.requests,bytes:totalNetwork.bytes-initialNetwork.bytes};assert(moveNetwork.requests<=180&&moveNetwork.bytes<=16*1024*1024,'one move loads a clip window, not the cast');
-  checks.push({character,flipped,initialNetwork,moveNetwork,memory,still,after,attackSamples:attack.length,banks:[...new Set(trace.flatMap(t=>t.frames).map(f=>f.bank))]});
-  if(character==='pawn'){await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,sq)=>v===board[sq]),originalBoard,{timeout:10000});checks.at(-1).undoRestored=true;await shot(page,'pawn-game-undo');}
+  checks.push({character,flipped,initialNetwork,moveNetwork,memory,still,after,attackSamples:attack.length,banks:[...new Set(trace.flatMap(t=>t.frames).map(f=>f.bank))],...(rookIdle?{selectedIdle:rookIdle}:{})});
+  if(character==='pawn'||rookIdle){await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,sq)=>v===board[sq]),originalBoard,{timeout:10000});checks.at(-1).undoRestored=true;if(rookIdle){const restored=await page.evaluate(from=>view.scene.characterFrames.find(f=>f.square===from),from);assert.equal(restored.bank,rookIdle.id);assert.equal(restored.sourceSha256,rookIdle.restSha256);assert.deepEqual([restored.foot,restored.pivot,restored.scale],[still.foot,still.pivot,still.scale]);checks.at(-1).undoFrame=restored;}await shot(page,`${character}-game-undo`);}
   assertNoErrors(errors);await page.close();
  }
  // The ready cast and all six king designs draw in the real game with their separate cues.
