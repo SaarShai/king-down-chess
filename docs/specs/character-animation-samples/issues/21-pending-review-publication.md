@@ -20,6 +20,8 @@ The gallery links to each current review. Saved links identify character, army a
 
 ## Checks and review
 
-The focused publication test passes, including concurrent decisions, replay checks, corrupt asset/provenance rejection and draft gates. Type checks and 67 existing node checks pass in that run. Consolidation browser regressions are queued behind the shared test lock. This is not a full-suite pass.
+The focused publication test passes, including concurrent decisions, replay checks, corrupt asset/provenance rejection and draft gates. All three consolidation checks pass, including saved links, recorded timing, reverse scrubbing and exact-input review preservation. Both focused runs pass type checks and 67 existing node checks. This is not a full-suite pass.
+
+CI exposed a missing image-decoder dependency: the runner had no Pillow. The verification job now installs the same pinned Pillow version used for the local checks. The image-validation tests remain mandatory; they are not skipped when the dependency is missing. Full CI must pass before merge.
 
 Independent review found and resolved the publication race, hashed-bank status gate, replay verification, provenance validation, saved-link identity and recorded-cycle issues. A second review found a reverse-scrub direction error. The handler and regression test now preserve return direction. Final checks remain required before merge.
