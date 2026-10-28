@@ -13,6 +13,9 @@ try {
   ['pawn-black','7k/8/8/3p4/4P3/8/8/K7 b - - 0 1',35,28,false],
   ['knight-black','7k/8/2n5/8/3P4/8/8/K7 b - - 0 1',42,27,true],
   ['pawn-flipped','7k/8/8/3p4/4P3/8/8/K7 w - - 0 1',28,35,true],
+  ['rook-white-repaired-E','7k/8/8/8/3Rp3/8/8/K7 w - - 0 1',27,28,false],
+  ['rook-black-repaired-W','7k/8/8/2Pr4/8/8/8/K7 b - - 0 1',35,34,false],
+  ['beast-black-repaired-SW','7k/8/8/3s4/2P5/8/8/K7 b - - 0 1',35,26,false],
  ]) {
   const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
   const network=runtimeNetwork(page);
