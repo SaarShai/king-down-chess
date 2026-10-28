@@ -85,6 +85,7 @@ try {
  // Repaired Queen, Guard and king turns retain adjacent endpoint pixels and transforms in the shipped package.
  for(const [character,army,fen,from,to,kings]of [
   ['queen','white','6k1/p7/8/8/3Q4/8/P7/K7 w - - 0 1',27,36,null],
+  ['queen','black','7k/p7/8/8/3q4/8/P7/1K6 b - - 0 1',27,36,null],
   ['guard','white','7k/p7/8/8/8/2G5/P7/K7 w - - 0 1',18,26,null],
   ['guard','black','7k/p7/8/2g5/8/8/P7/K7 b - - 0 1',34,42,null],
   ['king-frost','white','7k/p7/8/8/3K4/8/P7/8 w - - 0 1',27,34,'frost:freeze,flame:haste'],
@@ -106,6 +107,7 @@ try {
    for(const [,otherFrame,other]of peers){assert.equal(frame.sourceSha256,otherFrame.sourceSha256,`${label}: exact shared endpoint pixels`);assert.deepEqual([bank.pivot,bank.registrationHeightPx,bank.boardScale],[other.pivot,other.registrationHeightPx,other.boardScale],`${label}: shared endpoint transform`);joins++;}
   }
   const original=await page.evaluate(()=>[...view.pos.board]);
+  const queenRest=character==='queen'?await page.evaluate(from=>view.scene.characterFrames.find(frame=>frame.square===from),from):null;
   await page.evaluate(()=>{window.turnTrace=[];window.turnTraceActive=true;const capture=()=>{if(!turnTraceActive)return;turnTrace.push(...view.scene.characterFrames);requestAnimationFrame(capture);};capture();});
   for(const square of [from,to]){const p=await page.evaluate(square=>view.screenOf(square),square);await page.mouse.click(p.x,p.y);}
   try {await page.waitForFunction(([from,to])=>!view.scene.animating&&!view.pos.board[from]&&view.pos.board[to]>0,[from,to],{timeout:15000});} catch(error) { await writeFile(join(env('PLAYABLE_OUT'),label+'-failure.json'),JSON.stringify(await page.evaluate(([from,to,label])=>({label,from,to,board:[...view.pos.board],animating:view.scene.animating,text:document.body.innerText}),[from,to,label]),null,2));await shot(page,label+'-failure');throw error;}
@@ -113,9 +115,9 @@ try {
   assert(samples.length>1,`${label}: ready turn frames played in the game`);
   for(const frame of samples){const bank=turns.find(bank=>bank.id===frame.bank);assert.equal(frame.sourceBankSha256,bank.sourceSha256);assert(bank.frames.some(f=>f.sourceSha256===frame.sourceSha256));}
   if(character==='queen'){
-   const frames=trace.filter(frame=>(frame.square===from||frame.square===to)&&frame.bank==='white-turn-NE-E');
+   const frames=trace.filter(frame=>(frame.square===from||frame.square===to)&&frame.bank===`${army}-turn-NE-E`);
    const firstRest=frames.findIndex(frame=>frame.time===0),lastRest=frames.findLastIndex(frame=>frame.time===0);
-   await writeFile(join(env('PLAYABLE_OUT'),'queen-turn-route.json'),JSON.stringify({firstRest,lastRest,frames},null,2));
+   await writeFile(join(env('PLAYABLE_OUT'),`${label}-turn-route.json`),JSON.stringify({firstRest,lastRest,frames},null,2));
    assert(firstRest>0&&Math.max(...frames.slice(0,firstRest).map(frame=>frame.time))>=64,'outward Queen turn runs E to NE');
    assert(lastRest<frames.length-1&&Math.max(...frames.slice(lastRest+1).map(frame=>frame.time))>=64,'return Queen turn runs NE to E');
    const outward=frames.slice(0,firstRest+1),back=frames.slice(lastRest);
@@ -123,6 +125,11 @@ try {
    assert(back.every((frame,i)=>!i||frame.time>=back[i-1].time),'return turn never jumps backwards while images load');
   }
   await shot(page,`${label}-turn-settled`);await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((value,square)=>value===board[square]),original);
+  if(queenRest){
+   await page.waitForFunction(([square,sha])=>view.scene.characterFrames.some(frame=>frame.square===square&&frame.sourceSha256===sha),[from,queenRest.sourceSha256]);
+   const restored=await page.evaluate(from=>view.scene.characterFrames.find(frame=>frame.square===from),from);
+   assert.deepEqual([restored.bank,restored.sourceSha256,restored.pivot,restored.scale,restored.foot],[queenRest.bank,queenRest.sourceSha256,queenRest.pivot,queenRest.scale,queenRest.foot],'Undo restores the Queen drawing and world placement');
+  }
   checks.push({label,joins,turnSamples:samples.length,banks:[...new Set(samples.map(frame=>frame.bank))],undoRestored:true});assertNoErrors(errors);await page.close();
  }
  checks.push({nativeEffectCases:await checkCharacterEffects(browser)});
