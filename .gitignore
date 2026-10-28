@@ -45,3 +45,6 @@ docs/trailer/assets/
 /docs/visual-design/workshop/figure-final-run/
 /docs/visual-design/workshop/figure-swarms/
 /docs/visual-design/workshop/figures-*/
+
+# Ready character package: reproduce from the pinned selection and frozen RGBA banks.
+/public/character-runtime/

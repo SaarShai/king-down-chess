@@ -69,6 +69,9 @@ export interface PaintedScene {
   readonly pawns: { resting: number; acting: number };
   /** Frames drawn since the scene was made. */
   readonly frames: number;
+  readonly characterEffects: { kind: string; at: number; speed: number; bodyDurationMs: number; bodyTime: number; releaseMs: number; durationMs: number; elapsedMs: number; origin: { x: number; y: number }; target: { x: number; y: number }; foot: { x: number; y: number }; pivot: number[]; scale: number }[];
+  readonly characterMemory: { bytes: number; peakBytes: number; active: number; queued: number };
+  readonly characterFrames: { square: number; opacity: number; bank: string; time: number; foot: { x: number; y: number }; pivot: number[]; scale: number }[];
   /**
    * 'under': once, below every figure. 'over': once per screen row (0 = top) after that row's figures,
    * so a figure in a lower row stands in front of the markers behind it.
@@ -96,4 +99,6 @@ export function createScene(options: {
   kings?: readonly [KingDesign, KingDesign];
   /** The colour round the board; default FLOOR. null leaves the canvas clear there, so the page shows (the game). */
   floor?: string | null;
+  /** Use the ready-only character body package in the game. */
+  characterRuntime?: boolean;
 }): PaintedScene;
