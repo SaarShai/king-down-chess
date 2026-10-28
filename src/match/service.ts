@@ -3,7 +3,7 @@ import { createHash, createHmac, randomBytes, randomInt, randomUUID } from 'node
 import { z } from 'zod';
 import { createMatch, createPinnedMatch, loadMatch, MatchError, type MatchSnapshot } from './index';
 import { commandSchema, createSchema, draftSchema, MAX_REVISION, TURN_ACTIONS, type Command, type CreationMode, type RatingPolicy, type CreateOptions, type DraftPosition, type DraftPreview, type EndReason, type InboxEntry, type Invite, type JoinPreview, type Lobby, type Seat, type SeatAction, type Surface, type View } from './protocol';
-import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Outgoing, type Player } from './store';
+import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Player } from './store';
 import { INVITE_NOTICES } from './invite-notices';
 import { inviteSchema, friendsSchema, invitationsSchema, type InvitationRow, type InvitationPage, type FriendsPage } from './protocol';
 import { diagnostic } from '../plugin/diagnostics';
@@ -88,23 +88,19 @@ function check(game: Game, seat: Seat, { expected_revision, action }: Command, a
  if (action.type === 'say' && (game.kind === 'solo' || me.said.includes(action.preset))) fail('NOT_ALLOWED', 409, 'Each preset message goes once in each game');
  return false;
 }
-function end(game: Game, out: Outgoing, result: Game['result'], reason: EndReason, at: Date): void {
+function end(game: Game, result: Game['result'], reason: EndReason, at: Date): void {
  Object.assign(game, { status: reason === 'abort' || reason === 'no_start' ? 'aborted' : 'finished', result, end_reason: reason, finished_at: at, moves: game.snapshot?.history ?? [], draw_offer: null, deadline_at: null, deadline_kind: null, setup_deadline_at: null });
- out.outbox.push({ kind: 'game_finished', payload: { game_id: game.id, result, reason } });
 }
 /** A missed Daily deadline: no first turn cancels the game; a later turn loses on time. */
-function expire(game: Game, out: Outgoing, at: Date): void {
- if (game.status === 'setup' || game.deadline_kind === 'first_turn') end(game, out, null, 'no_start', at); else end(game, out, colour(other(game.turn)), 'timeout', at);
+function expire(game: Game, at: Date): void {
+ if (game.status === 'setup' || game.deadline_kind === 'first_turn') end(game, null, 'no_start', at); else end(game, colour(other(game.turn)), 'timeout', at);
 }
-/** The turn is now `game.turn`'s: a Daily friend game sets its deadline and alerts that player. */
-function turnTo(game: Game, out: Outgoing, at: Date, actor: string): void {
+/** The turn is now `game.turn`'s: a Daily game sets its deadline. */
+function turnTo(game: Game, at: Date): void {
  if (game.kind === 'solo' || game.speed !== 'daily' || game.status !== 'playing') return;
  const next = game.players[game.turn], first = next.turns_played === 0;
  game.deadline_kind = first ? 'first_turn' : 'move';
  game.deadline_at = new Date(at.getTime() + (first ? FIRST_TURN_DAYS : game.days_per_move!) * DAY);
- if (!next.user_id || next.user_id === actor) return;
- const payload = { game_id: game.id, revision: game.revision, deadline_at: game.deadline_at.toISOString() };
- out.notify.push({ user_id: next.user_id, kind: 'turn', payload }); out.outbox.push({ kind: 'turn', payload: { user_id: next.user_id, ...payload } });
 }
 /** Every seat's action state follows the engine turn; an ended game frees both seats. */
 function settle(game: Game, at: Date): void {
@@ -183,7 +179,7 @@ export class GameService {
  private async receipt(client: Parameters<PostgresMatchStore['save']>[0], game: Game, actor: string, commandId: string, key: StartKey): Promise<View> {
   if (game.revision >= START_RECEIPTS) fail('RATE_LIMITED', 429, 'Too many starts on this open game. Wait for an opponent, or cancel the game.');
   const next = step(game), seat = seatOf(game, actor);
-  await this.write(client, game, next, { seat, actor_id: actor, command_id: commandId, kind: 'start', payload: key, actions: null, surface: null, received_at: new Date() }, { notify: [], outbox: [] });
+  await this.write(client, game, next, { seat, actor_id: actor, command_id: commandId, kind: 'start', payload: key, actions: null, surface: null, received_at: new Date() });
   return this.render(next, seat, { client, rules: true });
  }
  private async newGame(actor: string, input: CreateOptions, gameId: string = randomUUID()): Promise<Game> {
@@ -373,9 +369,9 @@ export class GameService {
    const seat = seatOf(game, actor);
    if (game.status === 'aborted' && game.end_reason === 'abort') return this.render(game, seat, { client });
    if (game.status !== 'waiting') fail('NOT_ALLOWED', 409, 'This game is no longer waiting for an opponent');
-   const at = new Date(), next = step(game), out: Outgoing = { notify: [], outbox: [] };
-   end(next, out, null, 'abort', at);
-   await this.write(client, game, next, { seat, actor_id: actor, command_id: null, kind: 'abort', payload: { action: { type: 'abort' } }, actions: null, surface: null, received_at: at }, out);
+   const at = new Date(), next = step(game);
+   end(next, null, 'abort', at);
+   await this.write(client, game, next, { seat, actor_id: actor, command_id: null, kind: 'abort', payload: { action: { type: 'abort' } }, actions: null, surface: null, received_at: at });
    return this.render(next, seat, { client });
   });
  }
@@ -389,10 +385,10 @@ export class GameService {
   if (game.status !== 'waiting' || seat === undefined || game.created_at.getTime() + DAY <= at.getTime()) return fail('NOT_ALLOWED', 409, 'This open game is no longer available');
   if (!game.created_by || !await this.store.unblocked(client, game.created_by, actor)) fail('FORBIDDEN', 403, 'This open game cannot be accepted');
   await this.checkPair(client, actor, game.created_by!, true);
-  const next = step(game), out: Outgoing = { notify: [], outbox: [] };
+  const next = step(game);
   Object.assign(next.players[seat], { user_id: actor, last_seen_at: at });
-  this.enterPrepared(next, prepared!, at); turnTo(next, out, at, actor);
-  await this.write(client, game, next, { seat, actor_id: actor, command_id: commandId ?? null, kind: 'join', payload: commandId === undefined ? {} : key!, actions: null, surface: null, received_at: at }, out);
+  this.enterPrepared(next, prepared!, at); turnTo(next, at);
+  await this.write(client, game, next, { seat, actor_id: actor, command_id: commandId ?? null, kind: 'join', payload: commandId === undefined ? {} : key!, actions: null, surface: null, received_at: at });
   return this.render(next, seat, { client, rules: true });
  }
  async record(actor: string): Promise<PlayerRecord> { return playerRecord(this.store.pool, id(actor)); }
@@ -402,7 +398,7 @@ export class GameService {
   const cursor = page.before === undefined ? undefined : parse(z.tuple([z.iso.datetime(), z.string().uuid()]), page.before.split('|'));
   return gameHistory(this.store.pool, actor, cursor, page.limit);
  }
- /** One transaction per command: lock, dedupe, seat, turn, revision, status, lazy Daily deadline, write, alerts. */
+ /** One transaction per command: lock, dedupe, seat, turn, revision, status, lazy Daily deadline and write. */
  async command(actor: string, gameId: string, input: unknown, surface: Surface = 'web'): Promise<View> {
   actor = id(actor); gameId = id(gameId); const command = parse(commandSchema, input), at = new Date(), { action } = command;
   const payload = { expected_revision: command.expected_revision, action };
@@ -434,12 +430,12 @@ export class GameService {
    if (action.type === 'rematch' && action.choice !== 'decline' && game.kind !== 'solo') await this.checkPair(client, actor, game.players[other(seat)].user_id!);
    const switchOpen = action.type === 'abort' && game.kind === 'solo' && await this.store.canSwitch(actor, game.created_at, client);
    // Only unseen commands check time again after engine work, permission reads and the row-lock wait.
-   const at = new Date(), next = step(game), out: Outgoing = { notify: [], outbox: [] };
+   const at = new Date(), next = step(game);
    const log: Log = { seat, actor_id: actor, command_id: command.command_id, kind: action.type, payload, actions: null, surface, received_at: at };
    if (check(game, seat, command, at, switchOpen)) {
-    expire(next, out, at);
+    expire(next, at);
     // Any other command learns that the game ended on time; the claim is the command that ends it.
-    if (action.type !== 'claim') { await this.write(client, game, next, { ...log, seat: null, actor_id: null, command_id: null, kind: 'expire', payload: {}, surface: null }, out); return 'expired' as const; }
+    if (action.type !== 'claim') { await this.write(client, game, next, { ...log, seat: null, actor_id: null, command_id: null, kind: 'expire', payload: {}, surface: null }); return 'expired' as const; }
    } else if (action.type === 'turn' || action.type === 'computer') {
     if (!played) return fail('STALE_REVISION', 409, 'The game changed; reload before you act');
     const mover = game.turn;
@@ -448,11 +444,11 @@ export class GameService {
     log.actions = played.actions;
     const status = played.snapshot.status;
     if (status !== 'playing' || next.turn !== mover) next.players[mover].turns_played++;
-    if (status !== 'playing') end(next, out, status === 'checkmate' ? colour(other(next.turn)) : 'draw', status, at);
+    if (status !== 'playing') end(next, status === 'checkmate' ? colour(other(next.turn)) : 'draw', status, at);
     // After the whole turn: the computer plays one action for each call and finishes its turn in the space that full keeps.
     // An older save can start a turn past that space; when the engine takes no more actions, the turn cannot finish.
-    else if (full(next) && (next.turn !== mover || played.snapshot.revision >= ENGINE_ACTIONS)) end(next, out, 'draw', 'history', at); // migration 0021 adds the reason
-    else if (next.turn !== mover) turnTo(next, out, at, actor);
+    else if (full(next) && (next.turn !== mover || played.snapshot.revision >= ENGINE_ACTIONS)) end(next, 'draw', 'history', at); // migration 0021 adds the reason
+    else if (next.turn !== mover) turnTo(next, at);
    } else if (action.type === 'rematch') {
     if (action.choice === 'decline') next.rematch_offer = null;
     else if (action.choice === 'offer' && game.kind !== 'solo') next.rematch_offer = seat;
@@ -460,7 +456,7 @@ export class GameService {
      if (!rematch) fail('STALE_REVISION', 409, 'The game changed; reload before you act');
      if (rematch!.status === 'playing') rematch!.started_at = at;
      if (rematch!.status === 'setup') rematch!.setup_deadline_at = new Date(at.getTime() + FIRST_TURN_DAYS * DAY);
-     turnTo(rematch!, out, at, actor); settle(rematch!, at);
+     turnTo(rematch!, at); settle(rematch!, at);
      await this.store.insert(rematch!, client);
      next.rematch_offer = null; next.rematch_game_id = rematch!.id;
     }
@@ -469,19 +465,19 @@ export class GameService {
    const error = validateChoice(game.options!, { army: game.draw!, hand: game.deal! }, action.choice, game.setup_admission!);
     if (error) fail('INVALID_INPUT', 400, error);
     Object.assign(next.players[seat], { choice: action.choice, ready: action.ready });
-    if (next.players.every(p => p.ready)) { await this.start(next, at); turnTo(next, out, at, actor); }
-   } else if (action.type === 'resign') end(next, out, colour(other(seat)), 'resignation', at);
+    if (next.players.every(p => p.ready)) { await this.start(next, at); turnTo(next, at); }
+   } else if (action.type === 'resign') end(next, colour(other(seat)), 'resignation', at);
    else if (action.type === 'abort') {
-    end(next, out, null, 'abort', at);
+    end(next, null, 'abort', at);
     await client.query("update public.game_invites set state='cancelled',closed_at=statement_timestamp() where game_id=$1 and state='open'", [gameId]);
    }
    else if (action.type === 'draw') {
     if (action.choice === 'offer') { next.draw_offer = seat; next.players[seat].draw_offers++; }
     else if (action.choice === 'decline') next.draw_offer = null;
-    else end(next, out, 'draw', 'agreement', at);
+    else end(next, 'draw', 'agreement', at);
    } else if (action.type === 'say') next.players[seat].said = [...next.players[seat].said, action.preset];
    next.players[seat].last_seen_at = at; next.players[seat].last_surface = surface;
-   await this.write(client, game, next, log, out);
+   await this.write(client, game, next, log);
    return this.render(next, seat, { client });
   });
   return outcome === 'expired' ? fail('MATCH_TERMINAL', 409, 'The game ended: the time for a move ran out') : outcome;
@@ -605,10 +601,10 @@ export class GameService {
    if (!await this.store.mayJoin(client, invite.recipient_id ?? host!, invite.recipient_id ? host! : actor)) this.unavailable();
    await this.requireHandle(actor, client);
    await this.checkPair(client, actor, host!, true);
-   const next = step(game), out: Outgoing = { notify: [], outbox: [] };
+   const next = step(game);
    Object.assign(next.players[seat], { user_id: actor, last_seen_at: at });
-   this.enterPrepared(next, prepared!, at); turnTo(next, out, at, actor);
-   await this.write(client, game, next, { seat, actor_id: actor, command_id: null, kind: 'join', payload: {}, actions: null, surface: null, received_at: at }, out);
+   this.enterPrepared(next, prepared!, at); turnTo(next, at);
+   await this.write(client, game, next, { seat, actor_id: actor, command_id: null, kind: 'join', payload: {}, actions: null, surface: null, received_at: at });
    await client.query("update public.game_invites set state='accepted',used_by=$2,used_at=$3,closed_at=$3 where token_hash=$1", [invite.token_hash, actor, at]);
    return this.render(next, seat, { client, rules: true });
   });
@@ -637,9 +633,9 @@ export class GameService {
    this.visible(invite, actor, true);
    const at = await this.store.now(client);
    if (invite.state === 'open' && !await this.store.inviteExpired(client, invite.token_hash) && game.status === 'waiting') {
-    const next = step(game), out: Outgoing = { notify: [], outbox: [] };
-    end(next, out, null, 'abort', at);
-    await this.write(client, game, next, { seat: null, actor_id: actor, command_id: null, kind: 'decline', payload: {}, actions: null, surface: null, received_at: at }, out);
+    const next = step(game);
+    end(next, null, 'abort', at);
+    await this.write(client, game, next, { seat: null, actor_id: actor, command_id: null, kind: 'decline', payload: {}, actions: null, surface: null, received_at: at });
     await client.query("update public.game_invites set state='declined',closed_at=$2 where token_hash=$1", [inviteId, at]);
    }
    return await this.invitationRow(client, actor, inviteId) ?? this.unavailable();
@@ -667,10 +663,10 @@ export class GameService {
       : !!(await client.query("select from public.game_invites where game_id=$1 and state='open' and expires_at<=statement_timestamp()", [gameId])).rowCount || game.created_at.getTime() + FRIEND_CODE_DAYS * DAY <= now.getTime() && !(await client.query('select from public.game_invites where game_id=$1', [gameId])).rowCount);
     if (!late) return 0;
     if (game.status === 'waiting') await client.query("update public.game_invites set state='cancelled',closed_at=statement_timestamp() where game_id=$1 and state='open'", [gameId]);
-    const next = step(game), out: Outgoing = { notify: [], outbox: [] };
+    const next = step(game);
     const at = game.status === 'waiting' && game.kind === 'friend' ? await this.store.now(client) : now;
-    if (game.status === 'waiting') end(next, out, null, 'no_start', at); else expire(next, out, at);
-    await this.write(client, game, next, { seat: null, actor_id: null, command_id: null, kind: 'expire', payload: {}, actions: null, surface: null, received_at: at }, out);
+    if (game.status === 'waiting') end(next, null, 'no_start', at); else expire(next, at);
+    await this.write(client, game, next, { seat: null, actor_id: null, command_id: null, kind: 'expire', payload: {}, actions: null, surface: null, received_at: at });
     return 1;
    });
   } catch (error) {
@@ -680,10 +676,10 @@ export class GameService {
   }
   return ended;
  }
- private async write(client: Parameters<PostgresMatchStore['save']>[0], before: Game, next: Game, log: Log, out: Outgoing): Promise<void> {
+ private async write(client: Parameters<PostgresMatchStore['save']>[0], before: Game, next: Game, log: Log): Promise<void> {
   settle(next, log.received_at);
   if (before.status !== 'finished' && next.status === 'finished') await recordResult(client, next);
-  await this.store.save(client, before, next, log, out);
+  await this.store.save(client, before, next, log);
  }
  private async render(game: Game, seat: Seat, { since, client, rules = false }: { since?: number; client?: Parameters<PostgresMatchStore['save']>[0]; rules?: boolean } = {}): Promise<View> {
   const now = new Date(), opponent = game.players[other(seat)], playing = game.status === 'playing';
