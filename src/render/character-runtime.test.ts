@@ -40,6 +40,28 @@ describe('ready character playback', () => {
   expect(sources).toEqual(['https://example.invalid/character-runtime/frame-0']);
   runtime.dispose();pending[0]();await loading;expect(runtime.rest('pawn','white')).toBeNull();
  });
+ it('holds a previously passed frame while a reverse turn image loads', async () => {
+  const turn=bank('S','SE');let finishMiddle=()=>{};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[turn]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:768,naturalHeight:768,onload:()=>{},decode:async()=>{},set src(s:string){if(s.endsWith('frame-60'))finishMiddle=()=>img.onload();else queueMicrotask(()=>img.onload());}};return img as unknown as HTMLImageElement;}});
+  const prepared=await runtime.prepare('pawn','white','S',false);expect(prepared).not.toBeNull();
+  const sample=()=>runtime.action(prepared,-60,1000,0) as {time:number}|null;
+  expect(sample()?.time).toBe(120);
+  finishMiddle();await vi.waitFor(()=>expect(sample()?.time).toBe(60));runtime.dispose();
+ });
+ it('keeps the displayed turn frame under cache pressure in either direction', async () => {
+  for(const reverse of [false,true]){
+   const turn=reverse?bank('S','SE'):bank('SE','S');let finishMiddle=()=>{};
+   const pressure=Array.from({length:24},(_,i)=>({...bank(),id:`pressure-${i}`,character:`pressure-${i}`,kind:'idle',frames:Array.from({length:6},(_,j)=>({url:`pressure-${i}-${j}`,timeMs:j*20}))}));
+   const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[turn,...pressure]})})) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:()=>{},decode:async()=>{},set src(s:string){if(s.endsWith('/frame-60'))finishMiddle=()=>img.onload();else queueMicrotask(()=>img.onload());}};return img as unknown as HTMLImageElement;}});
+   await runtime.warm('pawn','white');const prepared=await runtime.prepare('pawn','white','S',false);
+   const sample=(time:number)=>runtime.action(prepared,time,1000,0) as {time:number}|null;
+   expect(sample(-60)?.time).toBe(reverse?120:0);finishMiddle();await vi.waitFor(()=>expect(sample(-60)?.time).toBe(60));
+   for(let i=0;i<pressure.length;i++)await runtime.warm(`pressure-${i}`,'white',true);
+   expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);expect(sample(-40)?.time).toBe(60);runtime.dispose();
+  }
+ });
  it('projects authored effect anchors through the body pivot and scale without another facing flip', () => {
   const b={...bank(),effectAnchors:[{id:'ocular',timeMs:100,point:[200,100] as [number,number]},{id:'ocular',timeMs:200,point:[220,120] as [number,number]}]};
   expect(anchorAt(b,'ocular',150)).toEqual([210,110]);expect(anchorAt(b,'ocular',0)).toEqual([200,100]);expect(anchorAt(b,'missing',150)).toBeNull();

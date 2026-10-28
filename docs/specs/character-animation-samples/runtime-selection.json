@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "ready",
-  "catalogSha256": "96297356bdd398831f705c457f18e7d32375236c3c1eaa00cec13b946f3e4f96",
+  "catalogSha256": "7cb9f51895efef2fb1e7cf424bf4884347f75aa085f538d1a9896ea405ed5d1e",
   "entries": [
     {
       "character": "pawn",
@@ -3730,6 +3730,14 @@
       "id": "white-turn-W-NW",
       "manifest": "banks/2ebdf3e678edbd2e32b43e4e7686ee81fa52acf26426fe0c675cb53419acff79.json",
       "sha256": "2ebdf3e678edbd2e32b43e4e7686ee81fa52acf26426fe0c675cb53419acff79"
+    },
+    {
+      "character": "queen",
+      "army": "white",
+      "kind": "turn",
+      "id": "white-turn-NE-E",
+      "manifest": "banks/26b52f17f0dcecd991ca42fbdc4ffd6db3e3aa4d61d7c639ca14fbde2e32454a.json",
+      "sha256": "26b52f17f0dcecd991ca42fbdc4ffd6db3e3aa4d61d7c639ca14fbde2e32454a"
     }
   ]
 }
