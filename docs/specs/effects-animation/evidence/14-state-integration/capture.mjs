@@ -68,7 +68,7 @@ try {
     return { duration: effects.remaining(state.clear), code: state.code, actual: window.view.pos.board[state.sq], turns: state.turns };
   });
   assert.equal(expiry.duration, 620); assert.equal(expiry.code, expiry.actual); assert.equal(expiry.turns, 0);
-  await page.waitForFunction(() => !window.view.stateEffects.frames.some(s => s.kind === 'freeze'));
+  await page.waitForFunction(() => window.view.stateEffects.remaining(performance.now()) === 0 && !window.view.stateEffects.frames.some(s => s.kind === 'freeze'));
   await capture('freeze-release-finished');
   writeFileSync(`${out}/freeze-release-proof.json`, JSON.stringify({ releaseProof, expiry }, null, 2));
   for (const id of ['ward', 'firewall', 'firewall-moved', 'guard', 'holyLight', 'mercy', 'archer', 'swap', 'shove', 'check', 'rook']) {

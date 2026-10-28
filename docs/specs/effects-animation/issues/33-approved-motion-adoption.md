@@ -23,13 +23,14 @@ Adopt the approved Freeze ending and banked interface object motion. Keep curren
 
 ## Verification
 
-Implementation is present. Runtime verification is blocked by shared locks. Do not mark this ticket done until the checks below pass.
+Implementation is present. The registered Freeze check passes. The complete WebKit check and CI unit verification remain open.
 
 - `npm run typecheck` passes.
 - `git diff --check` passes. Both changed browser scripts pass `node --check`.
-- The focused `npm test` command waits on the shared test lock. After the bounded wait, the queued process is stopped. A second attempt with `KINGDOWN_TEST_LOCK_WAIT=1` exits 75. No unit case runs.
-- The focused interface browser test attempt also exits 75 at the shared test lock. No case runs.
-- `npm run check:browser effects-states plugin-ui` waits for the browser slots. The slot record names a live exclusive check in another worktree. The queued runner is stopped with SIGINT before build or checks start. No browser pass or visual result is claimed.
+- The first focused `npm test` run has 91 passes and two failures at the Ice Wall floating-point expiry boundary. The repair keeps the stated 1344 ms duration. The next local attempt passes typecheck, then fails to load the test configuration because the disk has no space; no Vitest case runs. Full CI verification includes the affected unit and confirmed-event cases and remains pending.
+- `npm run check:browser effects-states` passes in 17.3 s. All ten approved material frames match byte for byte, including both transparent end frames. Live Freeze expiry is exactly 620 ms; the bound unit code remains 18 and the turn badge is removed. The check produces 58 captures, with no page errors. The finished-board capture shows no Freeze residue. Evidence: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/approved-motion-adoption-CoijY1/`.
+- The first Chromium `plugin-ui` run passes in 339.7 s. Evidence: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/approved-motion-adoption-57Hn2N/plugin-ui.log`.
+- The WebKit rerun passes the repaired successful-copy, failed-copy and Share checks. It later fails while writing a reduced-motion Sky Lift screenshot because the disk has no space. It is not a full pass. Its log is in `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/approved-motion-adoption-KQRmgx/plugin-ui.log`. Rerun the registered WebKit check after temporary-output cleanup.
 - Approval source `preview/comparisons/release/release.js` matches the read-only source byte for byte. Production imports use no worktree path. Artwork, scene, board view, runtime selection, exporter and shared catalogs stay unchanged.
 
 ## Implemented hooks
@@ -41,26 +42,25 @@ Implementation is present. Runtime verification is blocked by shared locks. Do n
 - Invite copy: only clipboard success starts tile sweeps and the copy receipt. Failure, Share, expiry, replacement and old screen callbacks do not start copy motion.
 - Freeze release: use the approved patch retreat and grains for 620 ms, with the current Fast rate. A board guard rejects absent or replaced units. Ice Wall, Holy Light and other magic keep their current endings.
 
-## Rerun after the locks clear
+## Check commands
 
 ```sh
 KINGDOWN_TEST_FILE='src/{ui/motion,plugin/invite,plugin/screens/lifecycle,render/effects/states,render/effects/board-effects}.test.ts' npm test
 KINGDOWN_TEST_FILE='tools/plugin-motion.test.ts' KINGDOWN_TEST_NAME='adopts confirmed' npm test
 npm run check:browser effects-states plugin-ui
+PLAYABLE_BROWSER=webkit npm run check:browser plugin-ui
 ```
 
-The added checks cover Freeze duration, row order, unit guards, unchanged Ice Wall timing, ten exact approved material frames, a real king move that expires Freeze, confirmed copy/Ready/draw events, hidden cancellation, reduced motion, no replay, phone bounds and both board directions. These checks are added but not executed.
+The checks cover Freeze duration, row order, unit guards, unchanged Ice Wall timing, ten exact approved material frames, a real king move that expires Freeze, confirmed copy/Ready/draw events, hidden cancellation, reduced motion, no replay, phone bounds and both board directions.
 
 Evidence and the complete handoff are outside the repo at `/Users/za/Documents/king down chess (new)/app/.codex-runs/review-85/adoption/`. No shared boundary change is needed. The parent now owns verification and pull-request integration. No deployment.
 
-Independent read-only review found no confirmed should-fix issue in the event guards, screen lifecycle, reduced-motion cutoff or approved Freeze rendering. The parent requeued the required tests and browser checks after the worker handoff.
+Independent read-only review finds no confirmed should-fix issue in the event guards, screen lifecycle, reduced-motion cutoff or approved Freeze rendering. The parent also reviews the fresh copy controller and its fixed-clock, failed-copy, Share and late-reply tests, with no confirmed should-fix issue.
 
 ## Check repair
 
 The first executed checks found two check-boundary faults. Ice Wall's `.28 * 4800` has a binary rounding residue at 1344 ms. Compute the same 28 percent with integer multiplication before division, so the frame ends at its stated time. The real Freeze check tried Black's move before White completed the ordinary move and turn press after a free Freeze. Use the shared `endTurn` action before Black's move. A state probe confirmed the board stayed at ply 2 with the mark active because Black's input occurred before White pressed End turn.
 
-Rerun the focused shared-lock tests, the confirmed-event browser tests and the registered `effects-states` check. Accept only exact 620 ms Freeze expiry, unchanged 1344 ms Ice Wall expiry, the ten approved release frames and no page errors. The first `plugin-ui` run passes in 339.7 s; its log is in `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/approved-motion-adoption-57Hn2N/plugin-ui.log`.
+The WebKit CI copy check finds no source-tile sweeps. A copy action cancels its controller just before a fast clipboard reply can start in the same clock tick. The controller correctly rejects events at its cancellation cutoff. Give each copy attempt a fresh controller after disposing its predecessor. Keep the generic cutoff and stale reply guards. The existing confirmed-event test pins this clock tick and checks failed copy, Share and a reply after the Friend screen closes.
 
-The focused `npm test` repair run is queued on the shared test lock, with its log at `/tmp/animation-adoption-repair-unit.log`. The registered Freeze check is rerun after the turn-press correction. No pass is claimed for either pending result.
-
-The WebKit CI copy check finds no source-tile sweeps. A copy action cancelled its controller just before a fast clipboard reply could start in the same clock tick. The controller correctly rejects events at its cancellation cutoff. Give each copy attempt a fresh controller after disposing its predecessor. Keep the generic cutoff and stale reply guards. The existing confirmed-event test now pins this clock tick and checks failed copy, Share and a reply after the Friend screen closes. Rerun the affected tests and registered WebKit `plugin-ui` check.
+The next Freeze run passes the live loss and exact 620 ms duration assertions. Its final wait needs the public `remaining(now)` call that removes expired frame metadata. The approved renderer already paints no release at progress 1. Keep lazy pruning in production, all ten pixel comparisons and the finished-board capture in the check.
