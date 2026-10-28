@@ -154,7 +154,7 @@ export class StateEffects {
 
   remaining(now: number): number {
     const duration = SIGNAL_DURATION_MS / this.rate;
-    const release = (s: StateFrame) => s.kind === 'freeze' ? FREEZE_RELEASE_MS / this.rate : .28 * duration;
+    const release = (s: StateFrame) => s.kind === 'freeze' ? FREEZE_RELEASE_MS / this.rate : duration * 28 / 100;
     this.frames = this.frames.filter(s => s.clear == null || now - s.clear < release(s));
     const ends = this.frames.map(s => s.clear == null ? s.since + (['freeze', 'ward', 'firewall'].includes(s.kind) ? .42 : .7) * duration : s.clear + release(s));
     for (const s of this.signals.values()) ends.push(s.since + .75 * duration);

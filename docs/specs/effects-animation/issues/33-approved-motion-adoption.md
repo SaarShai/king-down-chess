@@ -54,3 +54,11 @@ The added checks cover Freeze duration, row order, unit guards, unchanged Ice Wa
 Evidence and the complete handoff are outside the repo at `/Users/za/Documents/king down chess (new)/app/.codex-runs/review-85/adoption/`. No shared boundary change is needed. The parent now owns verification and pull-request integration. No deployment.
 
 Independent read-only review found no confirmed should-fix issue in the event guards, screen lifecycle, reduced-motion cutoff or approved Freeze rendering. The parent requeued the required tests and browser checks after the worker handoff.
+
+## Check repair
+
+The first executed checks found two check-boundary faults. Ice Wall's `.28 * 4800` has a binary rounding residue at 1344 ms. Compute the same 28 percent with integer multiplication before division, so the frame ends at its stated time. The real Freeze check tried Black's move before White completed the ordinary move and turn press after a free Freeze. Use the shared `endTurn` action before Black's move. A state probe confirmed the board stayed at ply 2 with the mark active because Black's input occurred before White pressed End turn.
+
+Rerun the focused shared-lock tests, the confirmed-event browser tests and the registered `effects-states` check. Accept only exact 620 ms Freeze expiry, unchanged 1344 ms Ice Wall expiry, the ten approved release frames and no page errors. The first `plugin-ui` run passes in 339.7 s; its log is in `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/approved-motion-adoption-57Hn2N/plugin-ui.log`.
+
+The focused `npm test` repair run is queued on the shared test lock, with its log at `/tmp/animation-adoption-repair-unit.log`. The registered Freeze check is rerun after the turn-press correction. No pass is claimed for either pending result.

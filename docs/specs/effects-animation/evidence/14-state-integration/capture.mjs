@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { createServer } from 'vite';
 import assert from 'node:assert/strict';
 import { launch } from '../../../../../tools/lib/checks.mjs';
-import { readPower, usePower, readyBoard, startLesson } from '../../../../../tools/app-ui.mjs';
+import { endTurn, readPower, usePower, readyBoard, startLesson } from '../../../../../tools/app-ui.mjs';
 const out = resolve(process.env.PLAYABLE_OUT || '/tmp/effects-state-game');
 mkdirSync(out, { recursive: true });
 const server = await createServer({ root: process.cwd(), server: { host: '127.0.0.1', port: 0, strictPort: true }, logLevel: 'error' });
@@ -52,6 +52,12 @@ try {
     await capture(`freeze-${width}-${black ? 'black' : 'white'}`);
   }
   await page.evaluate(() => { window.view.setPace('normal'); window.view.flip(false); });
+  // Free Freeze leaves White's ordinary move and turn press before Black can end the mark.
+  for (const sq of [4, 5]) {
+    const point = await page.evaluate(sq => window.view.screenOf(sq), sq);
+    await page.touchscreen.tap(point.x, point.y);
+  }
+  await endTurn(page);
   for (const sq of [60, 61]) {
     const point = await page.evaluate(sq => window.view.screenOf(sq), sq);
     await page.touchscreen.tap(point.x, point.y);
