@@ -1,7 +1,8 @@
 const $ = id => document.getElementById(id);
 const canvas = $('canvas'), ctx = canvas.getContext('2d');
-const labels = { ready: 'Ready', 'awaiting-human-playback-review': 'Awaiting human playback review', 'needs-repair': 'Needs repair' };
-let entries = [], bank, bankKind, tracks = [], current = 0, playing = false, anchor = 0, anchorTime = 0, request = 0;
+const labels = { ready: 'Ready', 'awaiting-human-playback-review': 'Pending visual review', 'needs-repair': 'Needs repair' };
+const initial = new URLSearchParams(location.search);
+let entries = [], bank, bankKind, tracks = [], current = 0, elapsed = 0, playing = false, anchor = 0, anchorTime = 0, request = 0;
 
 async function json(url) {
   const response = await fetch(url);
@@ -9,7 +10,21 @@ async function json(url) {
   return response.json();
 }
 function pause() { playing = false; $('play').textContent = 'Play'; }
-function start() { playing = true; anchor = performance.now(); anchorTime = current; $('play').textContent = 'Pause'; }
+function start() { playing = true; anchor = performance.now(); anchorTime = elapsed; $('play').textContent = 'Pause'; }
+function turnTime(time) {
+  const cycle = bank.selectedSchedule?.previewCycle || bank.schedule?.previewCycle || {};
+  const start = cycle.startHoldMs ?? 0, forward = cycle.forwardMs ?? bank.durationMs;
+  const end = cycle.endHoldMs ?? 200, reverse = cycle.reverseMs ?? bank.durationMs, final = cycle.finalHoldMs ?? 200;
+  let phase = time % (start + forward + end + reverse + final);
+  if (phase < start) return 0;
+  phase -= start;
+  if (phase < forward) return phase / forward * bank.durationMs;
+  phase -= forward;
+  if (phase < end) return bank.durationMs;
+  phase -= end;
+  if (phase < reverse) return (1 - phase / reverse) * bank.durationMs;
+  return 0;
+}
 function at(frames, time, useSchedule = false) {
   if (frames.some(item => Array.isArray(item.visibleIntervalMs))) {
     return frames.findLast(item => item.visibleIntervalMs?.[0] <= time && time <= item.visibleIntervalMs[1]);
@@ -42,16 +57,22 @@ function resize() {
 }
 async function select() {
   const token = ++request;
-  pause(); bank = undefined; tracks = []; draw(0);
+  pause(); bank = undefined; tracks = []; elapsed = 0; draw(0);
   $('play').disabled = $('seek').disabled = true;
   const entry = $('action').value === '' ? null : entries[Number($('action').value)];
   $('details').hidden = !entry;
   if (!entry) { $('message').textContent = 'No actions match these filters. Choose another status, character or army.'; return; }
+  const params = new URLSearchParams();
+  if ($('status').value) params.set('status', $('status').value);
+  params.set('character', entry.character); params.set('army', entry.army);
+  params.set('id', entry.id); history.replaceState(null, '', '?' + params);
   $('bank-status').textContent = labels[entry.status] || entry.status;
   $('defects').replaceChildren(...(entry.defects.length ? entry.defects : [entry.statusReason || 'No defects are recorded in this selection.']).map(text => {
     const li = document.createElement('li'); li.textContent = text; return li;
   }));
   for (const [id, url] of [['bank-link', entry.manifest], ['source-link', entry.sourceManifest], ['audit-link', entry.auditReport]]) $(id).href = url;
+  $('review-link').hidden = !entry.visualReview;
+  if (entry.visualReview) $('review-link').href = entry.visualReview.url;
   $('message').textContent = 'Loading frozen RGBA frames…';
   try {
     const url = new URL(entry.manifest, document.baseURI), selected = await json(url);
@@ -87,31 +108,56 @@ async function select() {
     if (token === request) $('message').textContent = `Cannot load this bank: ${error.message}. Select another action or check the frozen bank link.`;
   }
 }
-function filter() {
+function filter(first = false) {
   const old = $('action').value;
   const matches = entries.map((entry, index) => ({ entry, index })).filter(({ entry }) => ['status', 'character', 'army'].every(key => !$(key).value || entry[key] === $(key).value));
   $('action').replaceChildren(...matches.map(({ entry, index }) => new Option(`${entry.character} · ${entry.army} · ${entry.kind || entry.action || ''} · ${entry.direction || entry.from && `${entry.from}→${entry.to}` || entry.id}`, String(index))));
   $('action').disabled = !matches.length;
   if (matches.some(item => String(item.index) === old)) $('action').value = old;
+  if (first) {
+    const selected = matches.find(({ entry }) => entry.id === initial.get('id'));
+    if (selected) $('action').value = String(selected.index);
+  }
   void select();
 }
 $('play').onclick = () => playing ? pause() : start();
-$('seek').oninput = () => { pause(); draw(Number($('seek').value)); };
+$('seek').oninput = () => {
+  pause();
+  const time = Number($('seek').value), cycle = bank.selectedSchedule?.previewCycle || bank.schedule?.previewCycle || {};
+  if (bankKind === 'turn') {
+    const start = cycle.startHoldMs ?? 0, forward = cycle.forwardMs ?? bank.durationMs;
+    const end = cycle.endHoldMs ?? 200, reverse = cycle.reverseMs ?? bank.durationMs, final = cycle.finalHoldMs ?? 200;
+    const phase = elapsed % (start + forward + end + reverse + final);
+    const returning = phase >= start + forward && phase < start + forward + end + reverse;
+    elapsed = returning ? start + forward + end + (1 - time / bank.durationMs) * reverse : start + time / bank.durationMs * forward;
+  } else elapsed = time;
+  draw(time);
+};
 $('speed').onchange = () => { if (playing) start(); };
 $('background').onchange = () => { $('stage').dataset.background = $('background').value; };
 $('scale').onchange = resize;
 $('action').onchange = select;
-for (const key of ['status', 'character', 'army']) $(key).onchange = filter;
+for (const key of ['status', 'character', 'army']) $(key).onchange = () => filter();
 function tick(now) {
-  if (playing && bank) draw((anchorTime + (now - anchor) * Number($('speed').value)) % bank.durationMs);
+  if (playing && bank) {
+    elapsed = anchorTime + (now - anchor) * Number($('speed').value);
+    // A turn returns through its outward frames instead of snapping from last to first.
+    draw(bankKind === 'turn' ? turnTime(elapsed) : elapsed % bank.durationMs);
+  }
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
 try {
   entries = (await json('./manifest.json')).entries;
+  // Resolve the unique action before filters: its status can change after a review.
+  if (initial.has('id') && initial.has('character') && initial.has('army')) {
+    const selected = entries.find(e => e.id === initial.get('id') && e.character === initial.get('character') && e.army === initial.get('army'));
+    if (selected && initial.has('status')) initial.set('status', selected.status);
+  }
   for (const key of ['status', 'character', 'army']) {
     for (const value of [...new Set(entries.map(entry => entry[key]))].sort()) $(key).add(new Option(labels[value] || value, value));
+    if ([...$(key).options].some(option => option.value === initial.get(key))) $(key).value = initial.get(key);
   }
   $('summary').textContent = `${entries.length} selected actions · ` + [...new Set(entries.map(entry => entry.status))].map(status => `${entries.filter(entry => entry.status === status).length} ${labels[status] || status}`).join(' · ');
-  filter();
+  filter(true);
 } catch (error) { $('summary').textContent = 'Catalog unavailable.'; $('message').textContent = `Cannot load the catalog: ${error.message}. Run the consolidation importer, then reload this page.`; }

@@ -37,7 +37,7 @@ def entry(name,status='ready',p=first):
  if name=='draft': bank['entryFrames']=[frame(p,0)];bank['settleFrames']=[frame(second,0)]
  if name=='missing': bank['frames']=[];bank['reverseFrames']=[];bank['effects']=[]
  if name=='repair': bank['army']='black'
- if name=='nearest': bank['frames'][1]['timeMs']=1000;bank['selectedSchedule']={'sampling':'index = Math.round(progress * (frameCount - 1)); linear progress per adjacent edge'}
+ if name=='nearest': bank['frames'][1]['timeMs']=1000;bank['selectedSchedule']={'sampling':'index = Math.round(progress * (frameCount - 1)); linear progress per adjacent edge','previewCycle':{'startHoldMs':300,'forwardMs':1000,'endHoldMs':350,'reverseMs':1000,'finalHoldMs':300}}
  if name=='source-draft': bank['status']='draft'
  if name=='legacy-ready': bank['status']='accepted-transparent-recovery'
  path=worker/(name+'.json');path.write_bytes(m.encoded(bank))
@@ -70,6 +70,11 @@ for group in ['frames','reverseFrames','effects']:
 source=out/catalog['entries'][0]['sourceManifest'];assert source.read_bytes()==Path(rows[0]['manifestPath']).read_bytes()
 original=(out/'manifest.json').read_bytes();assert m.consolidate([report],out)['catalog']==summary['catalog']
 assert (out/'manifest.json').read_bytes()==original
+from publish_animation_reviews import publish
+review=root/'review.json';review.write_bytes(m.encoded({'reviewType':'agent-visual','reviewer':'Fixture review','entries':[{'bankSha256':catalog['entries'][1]['sha256'],'status':'ready','observations':['Reviewed fixture contour'],'evidencePaths':[str(report)]}]}))
+publish(out/'manifest.json',review);reviewed=(out/'manifest.json').read_bytes();m.consolidate([report],out)
+assert (out/'manifest.json').read_bytes()==reviewed,'reimport erased reviewed status'
+(out/'manifest.json').write_bytes(original)
 def rejected(needle):
  try: m.consolidate([report],out);raise AssertionError('bad selection accepted')
  except ValueError as error: assert needle in str(error),str(error)
@@ -139,5 +144,41 @@ it('loads frozen URLs, clears previous pixels, and filters review status', async
     expect(await page.locator('#stage').getAttribute('data-background')).toBe('dark');
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  } finally { await page.close(); }
+}, 30_000);
+
+
+it('restores reviewed deep links and preserves the recorded turn cycle after scrubbing', async () => {
+  const page = await browser.newPage();
+  try {
+    await page.addInitScript(() => {
+      let now = 0, callback: FrameRequestCallback;
+      performance.now = () => now;
+      window.requestAnimationFrame = cb => { callback = cb; return 1; };
+      Object.assign(window, { advanceAnimation: (time: number) => { now = time; callback(time); } });
+    });
+    await page.goto(origin + '/index.html?character=guard&army=white&id=nearest&status=awaiting-human-playback-review');
+    await expect.poll(() => page.locator('#play').isEnabled()).toBe(true);
+    expect(await page.locator('canvas').getAttribute('aria-label')).toBe('guard, white, nearest');
+    expect(await page.locator('#status').inputValue()).toBe('ready');
+    expect(new URL(page.url()).searchParams.get('character')).toBe('guard');
+    expect(new URL(page.url()).searchParams.get('army')).toBe('white');
+    const advance = async (time: number) => {
+      await page.evaluate(value => (window as unknown as { advanceAnimation(time: number): void }).advanceAnimation(value), time);
+      return Number(await page.locator('#seek').inputValue());
+    };
+    await page.locator('#play').evaluate(element => (element as HTMLButtonElement).click());
+    expect(await advance(200)).toBe(0);
+    expect(await advance(900)).toBe(600);
+    expect(await advance(1600)).toBe(1000);
+    expect(await advance(2400)).toBe(250);
+    await page.locator('#seek').evaluate(element => { (element as HTMLInputElement).value = '500'; element.dispatchEvent(new Event('input')); });
+    await page.locator('#play').evaluate(element => (element as HTMLButtonElement).click());
+    expect(await advance(2500)).toBe(400);
+    expect(await advance(3000)).toBe(0);
+    await page.locator('#seek').evaluate(element => { (element as HTMLInputElement).value = '500'; element.dispatchEvent(new Event('input')); });
+    await page.locator('#play').evaluate(element => (element as HTMLButtonElement).click());
+    expect(await advance(3000)).toBe(500);
+    expect(await advance(3100)).toBe(600);
   } finally { await page.close(); }
 }, 30_000);
