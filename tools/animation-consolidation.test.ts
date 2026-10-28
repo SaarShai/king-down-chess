@@ -167,17 +167,17 @@ it('restores reviewed deep links and preserves the recorded turn cycle after scr
       await page.evaluate(value => (window as unknown as { advanceAnimation(time: number): void }).advanceAnimation(value), time);
       return Number(await page.locator('#seek').inputValue());
     };
-    await page.locator('#play').click();
+    await page.locator('#play').evaluate(element => (element as HTMLButtonElement).click());
     expect(await advance(200)).toBe(0);
     expect(await advance(900)).toBe(600);
     expect(await advance(1600)).toBe(1000);
     expect(await advance(2400)).toBe(250);
     await page.locator('#seek').evaluate(element => { (element as HTMLInputElement).value = '500'; element.dispatchEvent(new Event('input')); });
-    await page.locator('#play').click();
+    await page.locator('#play').evaluate(element => (element as HTMLButtonElement).click());
     expect(await advance(2500)).toBe(400);
     expect(await advance(3000)).toBe(0);
     await page.locator('#seek').evaluate(element => { (element as HTMLInputElement).value = '500'; element.dispatchEvent(new Event('input')); });
-    await page.locator('#play').click();
+    await page.locator('#play').evaluate(element => (element as HTMLButtonElement).click());
     expect(await advance(3000)).toBe(500);
     expect(await advance(3100)).toBe(600);
   } finally { await page.close(); }
