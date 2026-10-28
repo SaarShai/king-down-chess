@@ -42,3 +42,24 @@ Scope: audit finding 6; plugin token checks and HTTP tests.
 The source check confirms that the HTTP handler already has the required 503 reply. The fix stays in the verifier. The new tests check the error type, reply, retry header and recovery with the same token.
 
 An independent review must pass before merge.
+
+## Review fix plan
+
+The PR review finds one fault: a signed token with an array subject returns 503. The UUID check converts the array to text. The next string call throws an error that looks like a key-service failure.
+
+1. Add verifier and HTTP tests for `sub: [actor]`. Run both before the fix.
+2. Require a string subject before the UUID check.
+3. Run the four affected plugin/API test files and `npm run test:docs` with the shared test lock.
+4. Commit with the unchanged hooks and push to the same branch.
+
+Accept the fix when both new tests fail before the change and pass after it. The HTTP reply must be 401, with an OAuth challenge and no retry header. The provider and game service must receive no call. The signing-key outage tests must still pass.
+
+## Review fix evidence
+
+- The verifier now checks that `sub` is a string before the UUID check. An array cannot reach the string call.
+- Before: `KINGDOWN_TEST_FILE='src/plugin/{auth,http}.test.ts' KINGDOWN_TEST_NAME='array subject' npm test` fails in both new cases. The verifier returns the temporary error. HTTP returns 503 instead of 401. Type checks pass. Log: `fix2-181-before.log`, beside the review file.
+- After: `KINGDOWN_TEST_FILE='{src/plugin/auth.test.ts,src/plugin/http.test.ts,src/api/http.test.ts,src/api/current-user.test.ts}' npm test` passes: 145 cases in 4 files, both type checks and 67 art checks. The HTTP test checks 401, the OAuth challenge, no retry header, and no provider or game-service call. Log: `fix2-181-affected.log`, beside the review file.
+- Both runs use Node 24 and the shared test lock. The first test start stops at a fixture type error. The fixture then accepts raw claims; no production code changes before the two expected test failures.
+- `bash tools/test-lock.sh npm run test:docs` passes: 183 cases in 16 files. Log: `fix2-181-docs.log`, beside the review file.
+- The source check finds one production line to change. No caller change is needed. Existing assertions and hooks stay in place.
+- This review fix does not repeat the full suite, browser checks or database checks. The earlier evidence above applies to the prior head.

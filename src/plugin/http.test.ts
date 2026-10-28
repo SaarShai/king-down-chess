@@ -41,6 +41,18 @@ async function post(body: unknown, bearer?: string, headers: Record<string, stri
 const list = { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} };
 const get = { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'kingdown_get', arguments: { game_id: matchId } } };
 describe('stateless authenticated MCP HTTP', () => {
+  it('returns 401 with an OAuth challenge for a signed token with an array subject', async () => {
+    const claims: Record<string, unknown> = { role: 'authenticated', client_id: 'oauth-client', scope: 'openid', sub: [alice] };
+    const bearer = await new SignJWT(claims)
+      .setProtectedHeader({ alg: 'ES256', kid: 'test' }).setIssuer(auth.issuer).setAudience(auth.resource).setExpirationTime('5m').sign(privateKey);
+    const result = await post(get, bearer);
+    expect(result.status).toBe(401);
+    expect(result.headers.get('WWW-Authenticate')).toBe(`Bearer resource_metadata="${address}/.well-known/oauth-protected-resource/mcp", scope="openid"`);
+    expect(result.headers.has('Retry-After')).toBe(false);
+    expect(await result.json()).toEqual({ error: 'Authentication required' });
+    expect(provider).not.toHaveBeenCalled();
+    expect(service.view).not.toHaveBeenCalled();
+  });
   it('returns 503 with retry guidance for a signing-key fetch timeout and recovers with the same token', async () => {
     keys.mockRejectedValueOnce(new errors.JWKSTimeout());
     const bearer = await token(), result = await post(get, bearer);

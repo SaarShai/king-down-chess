@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createLocalJWKSet, errors, exportJWK, generateKeyPair, SignJWT, type JWTPayload } from 'jose';
+import { createLocalJWKSet, errors, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { createTokenVerifier, pluginOrigin, AuthenticationUnavailable, type PluginAuth } from './auth';
 const actor = '11111111-1111-4111-8111-111111111111', publicOrigin = 'https://plugin.kingdown.example', supabaseUrl = 'https://project.supabase.co';
 const provider = vi.fn<typeof fetch>();
@@ -11,7 +11,7 @@ beforeAll(async () => {
   keys = createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'test', alg: 'ES256' }] });
   auth = createTokenVerifier({ supabaseUrl, publicOrigin, publishableKey }, keys, provider);
 });
-async function signed(overrides: JWTPayload = {}) {
+async function signed(overrides: Record<string, unknown> = {}) {
   const now = Math.floor(Date.now() / 1000);
   return new SignJWT({ iss: auth.issuer, aud: auth.resource, sub: actor, exp: now + 300, iat: now, role: 'authenticated', client_id: 'oauth-client', scope: 'openid email', ...overrides }).setProtectedHeader({ alg: 'ES256', kid: 'test' }).sign(privateKey);
 }
@@ -54,6 +54,7 @@ describe('resource-bound Supabase OAuth', () => {
     ['missing expiry', { exp: undefined }],
     ['wrong issuer', { iss: 'https://evil.example/auth/v1' }],
     ['bad subject', { sub: 'not-a-user' }],
+    ['array subject', { sub: [actor] }],
     ['missing subject', { sub: undefined }],
     ['service role', { role: 'service' + '_role' }],
     ['missing OAuth client', { client_id: undefined }],

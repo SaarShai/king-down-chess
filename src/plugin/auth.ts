@@ -34,7 +34,7 @@ export function createTokenVerifier({ supabaseUrl, publicOrigin, clientIds, publ
         const { payload } = await jwtVerify(token, jwks, { issuer, audience: resource, algorithms: ['ES256', 'RS256'], requiredClaims: ['iss', 'aud', 'sub', 'exp', 'role', 'client_id'] });
         // Supabase defaults to aud=authenticated. Its OAuth access-token hook must set this
         // exact resource audience; never accept a broad or mixed audience as a fallback.
-        if (payload.aud !== resource || !payload.sub || !ACTOR_UUID.test(payload.sub) || payload.role !== 'authenticated' || typeof payload.client_id !== 'string' || !payload.client_id.length || payload.client_id.length > 200) throw new AuthenticationError();
+        if (payload.aud !== resource || typeof payload.sub !== 'string' || !ACTOR_UUID.test(payload.sub) || payload.role !== 'authenticated' || typeof payload.client_id !== 'string' || !payload.client_id.length || payload.client_id.length > 200) throw new AuthenticationError();
         if (clientIds && !clientIds.includes(payload.client_id)) throw new AuthenticationError();
         // Supabase supports standard scopes only; older token examples omit the scope claim.
         if (payload.scope !== undefined && (typeof payload.scope !== 'string' || !payload.scope.split(/\s+/).includes('openid'))) throw new AuthenticationError();
