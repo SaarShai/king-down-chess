@@ -1,0 +1,12 @@
+.portrait:has(> .ui-object-seal), .portrait:has(> .ui-object-warmth), #friend-copy-status, #context-note, #friend-code > span { position: relative; }
+.ui-object-seal { position: absolute; right: 12%; bottom: 12%; display: grid; place-items: center; width: 18px; height: 18px; border: 1px solid var(--gold-ink); border-radius: 50%; color: var(--gold-ink); background: var(--vellum); font-size: 12px; line-height: 1; pointer-events: none; }
+.ui-object-warmth { position: absolute; inset: 0 -10px -3px; border-radius: 50%; background: radial-gradient(ellipse at 50% 80%, #e3c485b3, transparent 67%); filter: blur(3px); pointer-events: none; }
+.ui-object-dust { position: absolute; left: 50%; top: 65%; pointer-events: none; }
+.ui-object-grain { position: absolute; width: 3px; height: 4px; border-radius: 1px; background: #c39b50; }
+.ui-object-grain:nth-child(3n) { width: 2px; height: 2px; }
+.ui-object-paper-light { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0, #e9c0718c, transparent 72%); pointer-events: none; }
+.ui-object-reply { position: absolute; right: 0; top: 0; color: var(--stone-500); pointer-events: none; }
+#friend-code > span { overflow: hidden; }
+.game-code .ui-object-copy-light { position: absolute; inset: 0; aspect-ratio: auto; border: 0; border-radius: 0; box-shadow: none; background: linear-gradient(100deg, transparent, #e4c4809c, transparent); pointer-events: none; }
+.ui-object-copy-check { display: inline-block; margin-left: 6px; color: var(--gold-ink); pointer-events: none; }
+.ui-object-copy-check::before { content: '✓'; }

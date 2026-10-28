@@ -4,7 +4,7 @@ import { INVITE_NOTICES } from '../../match/invite-notices';
 import type { JoinPreview, View } from '../../match/protocol';
 
 const runtime = vi.hoisted(() => ({
-  motionResult: vi.fn(), closed: false, call: vi.fn(), send: vi.fn(), clientCall: vi.fn(), showNewGame: vi.fn(), navigate: vi.fn(), renderRows: vi.fn(), routeView: vi.fn(),
+  readySeal: vi.fn(), motionResult: vi.fn(), closed: false, call: vi.fn(), send: vi.fn(), clientCall: vi.fn(), showNewGame: vi.fn(), navigate: vi.fn(), renderRows: vi.fn(), routeView: vi.fn(),
   client: { state: { screen: 'wait', sheet: undefined as string | undefined, pending: undefined }, save: vi.fn() },
   memory: { view: undefined as View | undefined, games: [] as any[], settings: undefined as any, me: undefined,
     code: '', preview: undefined as JoinPreview | undefined, joinError: undefined },
@@ -18,6 +18,7 @@ vi.mock('../../account-game/runtime', () => ({
   store: { page: () => ({ screen: runtime.client.state.screen, connected: true, mounting: false, writing: false }) },
 }));
 vi.mock('../../ui/motion', () => ({ UiMotion: class { cancel() {} dispose() {} }, revealResult: runtime.motionResult }));
+vi.mock('../../ui/object-motion', () => ({ readySeal: runtime.readySeal }));
 vi.mock('../../account-game/art', () => ({ art: (path: string) => path }));
 vi.mock('../board-view', () => ({ board: runtime.board, highlight() {} }));
 vi.mock('./board', () => ({ boardGame: () => runtime.memory.view, closeBoardSheet() {}, sendBoardCommand() {}, skipBoardCeremony() {} }));
@@ -159,6 +160,21 @@ it('releases the seat observer and pending artwork callback before DOM removal',
   await vi.advanceTimersByTimeAsync(20);
   expect(observers[0].disconnect).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
   expect(() => seat.seatScreen()).not.toThrow();
+});
+
+it('stamps only confirmed Ready transitions and keeps reload and reopen quiet', async () => {
+  const seat = await import('./seat');
+  runtime.client.state.screen = 'seat';
+  const view = { game_id: 'seat', status: 'setup', seat: 0, draw: 'RNBQKBNR', options: { ...DEFAULT_OPTIONS, arrangement: false }, ready: [false, false], choices: [{ order: 'RNBQKBNR', king: null }, null] } as View;
+  runtime.memory.view = view; lookup('board').parentElement = lookup('game-table');
+  seat.seatScreen();
+  expect(runtime.readySeal.mock.calls.map(call => call[3])).toEqual([undefined, undefined]);
+  runtime.readySeal.mockClear(); view.ready = [true, false]; seat.seatScreen();
+  const onset = runtime.readySeal.mock.calls[0][3]; expect(Number.isFinite(onset)).toBe(true);
+  runtime.readySeal.mockClear(); seat.seatScreen(); expect(runtime.readySeal.mock.calls[0][3]).toBe(onset);
+  runtime.client.state.screen = 'settings'; seat.seatSync({ screen: 'settings' } as any);
+  runtime.client.state.screen = 'seat'; runtime.readySeal.mockClear(); seat.seatScreen();
+  expect(runtime.readySeal.mock.calls.map(call => call[3])).toEqual([undefined, undefined]);
 });
 
 it('closes the setup king sheet and releases its document listener on stop', async () => {

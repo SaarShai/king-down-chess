@@ -21,6 +21,7 @@ export class UiMotion {
     document.addEventListener('focusin', this.focus);
     this.observer = new MutationObserver(this.settings);
     this.observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-pace'] });
+    if (document.body) this.observer.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-page', 'data-ui-motion'] });
   }
 
   private enabled() { return !this.stopped && !document.hidden && !this.reduced.matches && this.pace() !== 'off' && this.allowed(); }

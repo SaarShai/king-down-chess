@@ -8,6 +8,7 @@ import { launch } from './lib/checks.mjs';
 import { startHarness } from './plugin-ui-harness';
 import { watchMotion, watchMotionEnd } from './plugin-motion-observer';
 import { settled } from './lib/plugin-settled.mjs';
+import { DEFAULT_OPTIONS } from '../src/match/setup';
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 120_000 });
 // Each motion moment exists, ends, and under reduced motion shows its final state at once.
 let folder: string, harness: Awaited<ReturnType<typeof startHarness>>, browser: Browser;
@@ -40,6 +41,84 @@ async function newGame(frame: FrameLocator, toggles: [string, boolean][], start 
   if (start) await frame.locator('#setup-start').click();
 }
 const only = (on: string[]) => ['Fairy pieces', 'First rank sorting', 'Classic chess', 'King powers', 'Cards'].map(name => [name, on.includes(name)] as [string, boolean]);
+it.each([false, true])('adopts confirmed copy, Ready and draw events without reopen motion (reduced %s)', async reduced => {
+  const { page, frame } = await open(reduced);
+  try {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    const events = await recordMotion(page, frame, ['.ui-object-copy-light', '.ui-object-seal', '.ui-object-paper-light', '.ui-object-reply']);
+    const tool = (name: string, args: object = {}) => page.evaluate(async ({ name, args }) => (window as any).harnessTool({ name, arguments: args }), { name, args });
+    const show = async (result: any) => { expect(result.isError).not.toBe(true); await page.evaluate(r => (window as any).harnessShow(r), result); await settled(page, frame); };
+    const buddy = async (name: string, args: object) => {
+      const result = await (await page.request.post(new URL('/fixture-friend-tool', harness.url).href, { data: { name, arguments: args } })).json();
+      expect(result.isError).not.toBe(true); return result;
+    };
+    const made = await tool('kingdown_create', { kind: 'friend', colour: 'black', options: { ...DEFAULT_OPTIONS, arrangement: true, kingPowers: false, cards: false } });
+    await show(made); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
+    if (!made._meta.invite) await frame.locator('#friend-new').click();
+    await frame.locator('#friend-code > span').first().waitFor();
+    const code = await frame.locator('#friend-code').textContent();
+    // A fast clipboard reply can finish in the same clock tick as cancellation.
+    await frame.locator('html').evaluate(() => {
+      const now = performance.now, stamp = now.call(performance);
+      performance.now = () => stamp;
+      (window as any).restoreCopyClock = () => { performance.now = now; };
+    });
+    await frame.locator('#friend-copy').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Copied' }).waitFor();
+    expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 6);
+    await frame.locator('html').evaluate(() => (window as any).restoreCopyClock());
+    await frame.locator('html').evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
+    await expect.poll(() => frame.locator('.ui-object-copy-light').count()).toBe(0);
+    await frame.locator('html').evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: false }); document.dispatchEvent(new Event('visibilitychange')); });
+    expect(await frame.locator('#friend-code').textContent()).toBe(code);
+    expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 6);
+    await frame.locator('html').evaluate(() => {
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Denied'); } } });
+      document.execCommand = () => false;
+      Object.defineProperty(navigator, 'share', { configurable: true, value: async () => {} });
+    });
+    await frame.locator('#friend-copy').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Select the invite and copy it' }).waitFor();
+    expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 6);
+    await frame.locator('#friend-share').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Shared' }).waitFor();
+    expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 6);
+    await frame.locator('html').evaluate(() => {
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => new Promise<void>(resolve => { (window as any).finishCopy = resolve; }) } });
+    });
+    await frame.locator('#friend-copy').click();
+    await expect.poll(() => frame.locator('html').evaluate(() => typeof (window as any).finishCopy)).toBe('function');
+    await buddy('kingdown_join', { code });
+    await show(await tool('kingdown_get', { game_id: made._meta.view.game_id }));
+    await frame.locator('[data-screen="seat"]:not([hidden]) #seat-ready:not(:disabled)').waitFor();
+    await frame.locator('html').evaluate(() => (window as any).finishCopy());
+    await expect.poll(() => frame.locator('#friend-copy-status').textContent()).toBe('Copied');
+    expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 6);
+    await frame.locator('#seat-ready').click(); await frame.locator('#seat-context').filter({ hasText: 'Waiting' }).waitFor();
+    await expect.poll(() => events('.ui-object-seal').then(e => e.length)).toBe(reduced ? 0 : 1);
+    await show(await tool('kingdown_get', { game_id: made._meta.view.game_id }));
+    expect(await events('.ui-object-seal')).toHaveLength(reduced ? 0 : 1);
+    const other = (await buddy('kingdown_get', { game_id: made._meta.view.game_id }))._meta.view;
+    await buddy('kingdown_choose', { game_id: other.game_id, command_id: crypto.randomUUID(), expected_revision: other.revision, ...other.choices[other.seat], ready: true });
+    await show(await tool('kingdown_get', { game_id: other.game_id }));
+    await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
+    const offered = await buddy('kingdown_draw', { game_id: other.game_id, choice: 'offer' });
+    await show(await tool('kingdown_get', { game_id: other.game_id }));
+    const offerMotion = await events('.ui-object-paper-light');
+    expect(offerMotion.length > 0).toBe(!reduced);
+    if (offerMotion.length) expect(Math.max(...offerMotion.map(e => e.onset)) - Math.min(...offerMotion.map(e => e.onset))).toBeLessThan(15);
+    const reply = offered._meta.view;
+    await show(await tool('kingdown_draw', { game_id: other.game_id, expected_revision: reply.revision, command_id: crypto.randomUUID(), choice: 'decline' }));
+    await frame.locator('#context-note').filter({ hasText: 'Draw offer declined' }).waitFor();
+    const replyMotion = await events('.ui-object-reply');
+    expect(replyMotion.length > 0).toBe(!reduced);
+    if (replyMotion.length) expect(Math.max(...replyMotion.map(e => e.onset)) - Math.min(...replyMotion.map(e => e.onset))).toBeLessThan(15);
+    await expect.poll(() => frame.locator('.ui-object-reply').count()).toBe(0);
+    const replies = (await events('.ui-object-reply')).length;
+    await show(await tool('kingdown_get', { game_id: other.game_id }));
+    expect(await events('.ui-object-reply')).toHaveLength(replies);
+    await expect.poll(() => frame.locator('.ui-object-dust, .ui-object-reply, .ui-object-warmth').count()).toBe(0);
+    const fits = await frame.locator('#context-line').evaluate(e => { const r = e.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && document.documentElement.scrollWidth <= innerWidth; });
+    expect(fits).toBe(true);
+  } finally { await page.close(); }
+});
 it('keeps source symbols intact beside protection badges', async () => {
   const { page, frame } = await open(false);
   try {

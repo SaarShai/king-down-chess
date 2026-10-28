@@ -4,12 +4,14 @@ import { A } from '../../rules/engine';
 import { drawBoardEffects } from './board-effects';
 import { StateEffects } from './states';
 import { drawFreeze } from './materials';
+import { drawFreezeRelease } from './freeze-release';
 import { drawArcherFocus } from './archer-flare';
 import { drawSwap } from './state-flare';
 import { checkImpact, link, pips } from './indications';
 import { drawCheck, drawWithdrawal } from './check';
 import { fixtures } from '../../../docs/specs/effects-animation/preview/signals/fixtures';
 vi.mock('./materials', () => ({ drawFreeze: vi.fn(), drawIceWall: vi.fn(), drawFirewall: vi.fn() }));
+vi.mock('./freeze-release', () => ({ FREEZE_RELEASE_MS: 620, drawFreezeRelease: vi.fn() }));
 vi.mock('./archer-flare', () => ({ drawArcherFocus: vi.fn() }));
 vi.mock('./state-flare', () => ({ drawShelter: vi.fn(), drawSwap: vi.fn() }));
 vi.mock('./indications', () => ({ SIGNAL_DURATION_MS: 4800, ring: vi.fn(), link: vi.fn(), pips: vi.fn(), checkImpact: vi.fn() }));
@@ -112,4 +114,21 @@ it('keeps material faces and badge edges behind symbolic piece identity', () => 
   drawBoardEffects(ctx, scene, 'over', scene.cell(35).row, effects, {}, 390, 1, false, true, null, 0);
   expect(drawFreeze).not.toHaveBeenCalled();
   expect(pips).not.toHaveBeenCalled();
+});
+
+it.each([false, true])('draws approved Freeze residue in its row without a live badge (%s)', flipped => {
+  const f = fixtures.freeze, effects = new StateEffects(), scene = sceneAt(flipped);
+  effects.sync(f.rules, f.after, 0, true); effects.sync(f.rules, f.expired!, 100, true);
+  drawBoardEffects(ctx, scene, 'under', undefined, effects, {}, 390, 410, true, false, null, 0, undefined, f.expired!.board);
+  drawBoardEffects(ctx, scene, 'over', scene.cell(35).row, effects, {}, 390, 410, true, false, null, 0, undefined, f.expired!.board);
+  expect(vi.mocked(drawFreezeRelease).mock.calls).toEqual([
+    [ctx, scene.foot(35), false, .5, 35], [ctx, scene.foot(35), true, .5, 35],
+  ]);
+  expect(drawFreeze).not.toHaveBeenCalled(); expect(pips).not.toHaveBeenCalled();
+  vi.mocked(drawFreezeRelease).mockClear();
+  for (const replacement of [0, 1]) {
+    const board = [...f.expired!.board]; board[35] = replacement;
+    drawBoardEffects(ctx, scene, 'under', undefined, effects, {}, 390, 410, true, false, null, 0, undefined, board);
+  }
+  expect(drawFreezeRelease).not.toHaveBeenCalled();
 });

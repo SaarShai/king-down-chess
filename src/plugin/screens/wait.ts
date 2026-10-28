@@ -7,11 +7,15 @@ import { DEFAULT_OPTIONS, defaultChoice } from '../../match/setup';
 import type { View } from '../../match/protocol';
 import { $, onStop, portrait, showError } from './friend';
 import { features } from '../../account-game/features';
+import { UiMotion } from '../../ui/motion';
+import { opponentFound } from '../../ui/object-motion';
 let open: View | undefined, began = 0, timer: ReturnType<typeof setInterval> | undefined;
 let stopped = false;
 let watched: string | undefined, offering = false, switching = false, background = false;
 const dismissed = new Set<string>();
 let abortReceipt: View | undefined, recoverJoined: boolean | undefined;
+let foundMotion: UiMotion | undefined;
+const shown = new Set<string>();
 export function waitScreen() {
   if (stopped || queue.closed()) return;
   const view = memory.view;
@@ -78,13 +82,14 @@ async function readOpen(game: string) {
     const next = result._meta?.view as View | undefined;
     if (!next || next.game_id !== game || !['wait','board'].includes(client.state.screen)) return;
     if (open?.game_id !== next.game_id) began = Date.now() - Math.max(0, Date.parse(next.server_now) - Date.parse(next.created_at));
+    const joinedNow = open?.game_id === next.game_id && open.status === 'waiting';
     open = next;
     if (next.status === 'waiting') { if (client.state.screen === 'wait' && memory.view?.kind !== 'random') waitScreen(); return; }
     stopWatch();
     if (next.status === 'aborted' || next.status === 'finished') { if (client.state.screen === 'wait') navigate('lobby'); return; }
     recoverJoined = false;
     if (client.state.screen === 'wait') await call('kingdown_resume', { game_id: next.game_id }, { route: true, origin: job });
-    else if (memory.view?.kind === 'solo' && memory.view.status === 'playing' && !dismissed.has(next.game_id)) found(next);
+    else if (memory.view?.kind === 'solo' && memory.view.status === 'playing' && !dismissed.has(next.game_id)) found(next, joinedNow);
   });
 }
 function syncWatch() {
@@ -118,7 +123,7 @@ export function waitPoll(): PollTarget | undefined {
     if (memory.view?.kind === 'solo' && memory.view.status === 'playing' && ['board','wait'].includes(client.state.screen)) await readOpen(id);
   } } : undefined;
 }
-function found(human: View) {
+function found(human: View, live: boolean) {
   if (stopped || queue.closed()) return;
   const over = $<HTMLDialogElement>('over');
   // An open dialog stays: a later watch read does not rebuild Switch now (or its error) while the player answers.
@@ -149,14 +154,19 @@ function found(human: View) {
     finally { switching = false; if (!stopped && !queue.closed()) { const button = $<HTMLButtonElement>('found-switch'); if (button) button.disabled = false; } }
   };
   if (!over.open) over.showModal();
+  foundMotion ??= new UiMotion(() => !stopped && client.state.screen === 'board' && over.open && over.classList.contains('found') && !memory.settings?.symbols_only, () => 'fast');
+  over.addEventListener('close', () => foundMotion?.cancel(), { once: true });
+  const at = live && !shown.has(human.game_id) ? performance.now() : -Infinity;
+  shown.add(human.game_id); opponentFound(foundMotion, over, at);
 }
 function stopWatch() { watched = undefined; background = false; }
 export function waitSync() {
   if (stopped || queue.closed()) return;
   if (client.state.screen !== 'wait') { clearInterval(timer); timer = undefined; }
+  if (client.state.screen !== 'board' || memory.settings?.symbols_only) foundMotion?.cancel();
   syncWatch();
 }
 // The games list changes outside the store: its rows can name a new waiting game.
 const observer = new MutationObserver(waitSync);
 observer.observe($('games-list'), { childList: true });
-onStop(() => { stopped = true; clearInterval(timer); timer = undefined; stopWatch(); observer.disconnect(); open = undefined; abortReceipt = undefined; dismissed.clear(); });
+onStop(() => { stopped = true; clearInterval(timer); timer = undefined; stopWatch(); observer.disconnect(); foundMotion?.dispose(); open = undefined; abortReceipt = undefined; dismissed.clear(); shown.clear(); });
