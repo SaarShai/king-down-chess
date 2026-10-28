@@ -51,6 +51,38 @@ try {
   await page.goto(url.href);await page.waitForFunction(count=>window.view?.scene?.characterFrames?.length===count,count);await page.evaluate(()=>view.ready());await page.waitForTimeout(1000);
   await shot(page,label);const memory=await page.evaluate(()=>view.scene.characterMemory);assert(memory.peakBytes<=64*1024*1024,'ready cast decoded cache stays within 64 MiB');const initialNetwork=await network();assert(initialNetwork.requests<=40&&initialNetwork.bytes<=8*1024*1024,'full board only loads its runtime stills and ambient texture');checks.push({label,initialNetwork,memory,frames:await page.evaluate(()=>view.scene.characterFrames)});assertNoErrors(errors);await page.close();
  }
+ // Repaired Guard and king turns retain adjacent endpoint pixels and transforms in the shipped package.
+ for(const [character,army,fen,from,to,kings]of [
+  ['guard','white','7k/p7/8/8/8/2G5/P7/K7 w - - 0 1',18,26,null],
+  ['guard','black','7k/p7/8/2g5/8/8/P7/K7 b - - 0 1',34,42,null],
+  ['king-frost','white','7k/p7/8/8/3K4/8/P7/8 w - - 0 1',27,34,'frost:freeze,flame:haste'],
+  ['king-frost','black','8/7p/8/3k4/8/8/P7/K7 b - - 0 1',35,44,'flame:haste,frost:freeze'],
+  ['king-flame','white','7k/p7/8/8/3K4/8/P7/8 w - - 0 1',27,34,'flame:haste,frost:freeze'],
+  ['king-flame','white','7k/p7/8/8/3K4/8/P7/8 w - - 0 1',27,35,'flame:haste,frost:freeze'],
+  ['king-flame','black','8/7p/8/3k4/8/8/P7/K7 b - - 0 1',35,34,'frost:freeze,flame:haste'],
+  ['king-flame','black','8/7p/8/3k4/8/8/P7/K7 b - - 0 1',35,44,'frost:freeze,flame:haste'],
+ ]){
+  const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page),label=`${character}-${army}-${to}`;
+  await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
+  const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');if(kings)url.searchParams.set('kings',kings);
+  await page.goto(url.href);await page.waitForFunction(from=>window.view?.scene?.characterFrames?.some(f=>f.square===from),from);await page.evaluate(()=>view.ready());
+  const turns=await page.evaluate(async([character,army])=>(await(await fetch('/character-runtime/manifest.json')).json()).banks.filter(b=>b.character===character&&b.army===army&&b.kind==='turn'),[character,army]);
+  let joins=0;
+  for(const bank of turns)for(const [facing,frame]of [[bank.from,bank.frames[0]],[bank.to,bank.frames.at(-1)]]){
+   const peers=turns.filter(other=>other!==bank).flatMap(other=>[[other.from,other.frames[0],other],[other.to,other.frames.at(-1),other]]).filter(([otherFacing])=>otherFacing===facing);
+   assert(peers.length,`${label}: adjacent ready edge at ${facing}`);
+   for(const [,otherFrame,other]of peers){assert.equal(frame.sourceSha256,otherFrame.sourceSha256,`${label}: exact shared endpoint pixels`);assert.deepEqual([bank.pivot,bank.registrationHeightPx,bank.boardScale],[other.pivot,other.registrationHeightPx,other.boardScale],`${label}: shared endpoint transform`);joins++;}
+  }
+  const original=await page.evaluate(()=>[...view.pos.board]);
+  await page.evaluate(()=>{window.turnTrace=[];const capture=()=>{turnTrace.push(...view.scene.characterFrames);if(turnTrace.length<1600)requestAnimationFrame(capture);};capture();});
+  for(const square of [from,to]){const p=await page.evaluate(square=>view.screenOf(square),square);await page.mouse.click(p.x,p.y);}
+  try {await page.waitForFunction(([from,to])=>!view.scene.animating&&!view.pos.board[from]&&view.pos.board[to]>0,[from,to],{timeout:15000});} catch(error) { await writeFile(join(env('PLAYABLE_OUT'),label+'-failure.json'),JSON.stringify(await page.evaluate(([from,to,label])=>({label,from,to,board:[...view.pos.board],animating:view.scene.animating,text:document.body.innerText}),[from,to,label]),null,2));await shot(page,label+'-failure');throw error;}
+  const samples=(await page.evaluate(()=>turnTrace)).filter(frame=>turns.some(bank=>bank.id===frame.bank));
+  assert(samples.length>1,`${label}: ready turn frames played in the game`);
+  for(const frame of samples){const bank=turns.find(bank=>bank.id===frame.bank);assert.equal(frame.sourceBankSha256,bank.sourceSha256);assert(bank.frames.some(f=>f.sourceSha256===frame.sourceSha256));}
+  await shot(page,`${label}-turn-settled`);await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((value,square)=>value===board[square]),original);
+  checks.push({label,joins,turnSamples:samples.length,banks:[...new Set(samples.map(frame=>frame.bank))],undoRestored:true});assertNoErrors(errors);await page.close();
+ }
  checks.push({nativeEffectCases:await checkCharacterEffects(browser)});
  // A new position cancels a load or action; a late decoded frame must not replace the new position.
  const page=await browser.newPage({viewport:{width:390,height:844},reducedMotion:'reduce'}),errors=trapErrors(page);
