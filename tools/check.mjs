@@ -9,7 +9,7 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CHECK_SITE_ENV, env, isInside, outRoot, STEP } from './lib/checks.mjs';
 import { firstFault as faultLine } from './lib/first-fault.mjs';
-import { SLOTS, releaseAll, runLockPath, takeAllSlots, takeLock, takeSlot } from './lib/lock.mjs';
+import { SLOTS, enterMachineLease, releaseAll, runLockPath, takeAllSlots, takeLock, takeSlot } from './lib/lock.mjs';
 import { checks } from './lib/registry.mjs';
 import { changedPaths, treeStatus } from './lib/tree-status.mjs';
 
@@ -38,7 +38,9 @@ PLAYABLE_CPU_CANVAS=1 makes the widget pages ask for CPU 2D canvases; the WebKit
 Output: one new folder for each run under ${outRoot}, printed at the start, with run.json and one
 log per check (<run folder>/<name>.log). The system removes old folders after three days.
 One run at a time in a worktree: a second run there waits for the run lock in the worktree's git directory.
-${SLOTS} checks at a time on this machine (SLOTS in tools/lib/lock.mjs): a run takes a slot in git's common
+Local tests, browser runs, and deploys share one per-user machine lease, across repository copies.
+Child commands reuse it. CI keeps its current locks, with no machine lease.
+${SLOTS} check slots per clone (SLOTS in tools/lib/lock.mjs): a run takes a slot in git's common
 directory for its build and for each check, and prints one line when it waits. An exclusive check takes
 every slot, and a run that waits for it goes before new normal checks.
 Do not edit or commit in the worktree during a run: a check that finds the checkout changed fails.`;
@@ -61,6 +63,7 @@ if (isInside(root, outRoot)) {
 }
 
 // 3. The locks, and a clean stop on every exit: the child, the record of a check in progress, every lease.
+await enterMachineLease();
 let current = null; // the running child process
 let active = null; // the record entry of the check in progress
 const killGroup = (child, signal) => { try { process.kill(-child.pid, signal); } catch {} };

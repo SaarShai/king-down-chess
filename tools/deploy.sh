@@ -27,6 +27,11 @@
 # Every exit removes the temporary worktree and artifact copy.
 set -eu
 
+script_dir=$(cd "$(dirname "$0")" && pwd -P)
+if [ -z "${CI:-}" ] && [ -z "${KINGDOWN_MACHINE_LEASED:-}" ]; then
+  exec bash "$script_dir/test-lock.sh" --machine bash "$script_dir/deploy.sh" "$@"
+fi
+
 # The pinned Vercel CLI: the last version that deployed the site (2026-10-03). npx gets its own --yes,
 # because the dev-environment spec sets yes=false in .npmrc, and then npx asks before an install.
 vercel=vercel@62.2.0
@@ -102,7 +107,6 @@ NODE
 fi
 
 top=$(git rev-parse --show-toplevel 2>/dev/null) || die "not in a git repository"
-script_dir=$(cd "$(dirname "$0")" && pwd -P)
 
 base='' dir=''
 cleanup() {
