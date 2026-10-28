@@ -5,8 +5,10 @@ Source manifests and reports are retained verbatim. Only runtime frame URLs chan
 """
 import argparse
 import copy
+import fcntl
 import hashlib
 import json
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -19,6 +21,15 @@ def digest(raw):
 
 def encoded(value):
     return (json.dumps(value, indent=2, ensure_ascii=False) + '\n').encode()
+
+
+@contextmanager
+def catalog_lock(output):
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
+    with (output / '.catalog.lock').open('a') as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        yield
 
 
 def freeze(output, folder, raw, suffix):
@@ -71,7 +82,14 @@ def frame_path(frame, entry, report, manifest):
 
 
 def consolidate(inputs, output):
+    with catalog_lock(output):
+        return _consolidate(inputs, output)
+
+
+def _consolidate(inputs, output):
     output = Path(output)
+    previous = json.loads((output / 'manifest.json').read_bytes()) if (output / 'manifest.json').exists() else {}
+    reviewed = {e['visualReview']['sourceBankSha256']: e for e in previous.get('entries', []) if e.get('visualReview')}
     entries, checked = [], {}
     reports = []
     for report_path in inputs:
@@ -169,6 +187,22 @@ def consolidate(inputs, output):
                             'statusReason': entry.get('statusReason'), 'manifest': bank_url, 'sha256': bank_sha,
                             'sourceManifest': original_url, 'sourceManifestSha256': source_sha,
                             'auditReport': report_url, 'auditPointer': f'/entries/{index}'})
+            # A repeat import of identical inputs must not erase a recorded visual decision.
+            if bank_sha in reviewed:
+                selected = reviewed[bank_sha]
+                review = selected['visualReview']
+                selected_raw = (output / selected['manifest']).read_bytes()
+                decision_raw = (output / review['url']).read_bytes()
+                if digest(selected_raw) != selected['sha256'] or digest(decision_raw) != review['sha256']:
+                    raise ValueError('Previously reviewed bank or decision hash differs')
+                expected = {**bank, 'status': selected['status'], 'currentVisualReview': {**review, 'url': '../' + review['url']}}
+                decision = json.loads(decision_raw)
+                if json.loads(selected_raw) != expected or decision['sourceBankSha256'] != bank_sha or decision['status'] != selected['status']:
+                    raise ValueError('Previously reviewed bank or decision differs from imported selection')
+                for evidence in decision['evidence']:
+                    if digest((output / 'reviews' / evidence['url']).read_bytes()) != evidence['sha256']:
+                        raise ValueError('Previously reviewed evidence hash differs')
+                entries[-1] = copy.deepcopy(selected)
     catalog = {'schemaVersion': 1, 'purpose': 'Frozen animation review; statuses are retained or demoted, never promoted.',
                'reports': reports, 'entries': entries}
     catalog_raw = encoded(catalog)
