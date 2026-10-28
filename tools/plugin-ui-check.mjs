@@ -77,6 +77,12 @@ try {
   // Ticket 13: install the clock before the page sets any timer.
   await page.clock.install();
   await page.addInitScript(() => {
+    window.objectMotionCalls = [];
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (frames, options) {
+      if (this.className?.startsWith?.('ui-object-')) window.objectMotionCalls.push({ kind: this.className, options, reduced: matchMedia('(prefers-reduced-motion: reduce)').matches });
+      return animate.call(this, frames, options);
+    };
     // The terminal mount below has no Home check to release this hold.
     if (!new URLSearchParams(location.search).has('terminal')) window.holdBeforeNext = 'kingdown_settings';
     window.harnessTableIdConflicts = [];
@@ -1033,6 +1039,7 @@ try {
     await frame.locator('#retry').waitFor({ state: 'hidden' });
     assert.equal(await page.evaluate(() => window.harnessCalls.findLast(c => c.name === 'kingdown_choose').arguments.command_id), pending.args.command_id, 'Lost Ready retries the same ID');
     assert.equal(await frame.locator('#seat-context').innerText(), 'Waiting for the other player.');
+    assert.equal(await frame.locator('#seat-me-picture').locator('..').locator('.ui-object-seal').count(), 1, 'Confirmed Ready keeps one seal');
     for (const id of ['seat-ready','seat-shuffle','seat-king']) assert(await frame.locator(`#${id}`).isDisabled(), `${id} locks after Ready`);
     await seatFits('seat-waiting'); await seatRemount();
     assert.equal(await frame.locator('#seat-context').innerText(), 'Waiting for the other player.');
@@ -1457,12 +1464,14 @@ try {
     }, webkit);
     await frame.locator('#friend-copy').click();
     await frame.locator('#friend-copy-status').filter({ hasText: /^Copied$/ }).waitFor();
+    assert.equal(await frame.locator('html').evaluate(() => window.objectMotionCalls.filter(c => c.kind === 'ui-object-copy-light').length), 6, 'A successful copy sweeps the six source tiles once');
     if (webkit) assert.equal(await frame.locator('html').evaluate(() => window.ticket13CopiedText), fullInvite, 'Copy sends the full invite to the clipboard');
     else assert.equal(await page.evaluate(() => navigator.clipboard.readText()), fullInvite, 'The granted clipboard contains the full invite');
     await frame.locator('html').evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Denied'); } } }); document.execCommand = () => false;
     });
     await frame.locator('#friend-copy').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Select the invite and copy it' }).waitFor();
+    assert.equal(await frame.locator('html').evaluate(() => window.objectMotionCalls.filter(c => c.kind === 'ui-object-copy-light').length), 6, 'A failed copy has no new success motion');
     assert.equal(await frame.locator('html').evaluate(() => getSelection().toString()), fullInvite, 'The refused clipboard leaves the full invite selected');
     assert.equal(await frame.locator('html').evaluate(() => window.inviteShareCalls), 0, 'A refused Copy does not open the share sheet');
     await frame.locator('html').evaluate(() => { if (window.ticket13Clipboard) Object.defineProperty(navigator, 'clipboard', window.ticket13Clipboard); else delete navigator.clipboard; document.execCommand = window.ticket13Copy; getSelection().removeAllRanges(); });
@@ -1833,6 +1842,7 @@ try {
     await frame.locator('html').evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: false }); document.dispatchEvent(new Event('visibilitychange')); }); await visibleRead;
     assert(!(await tool('kingdown_accept', { game_id: waiting.game_id, rating_policy: waiting.rating_policy }, true)).isError);
     await advance(15000); await frame.locator('#over.found[open]').waitFor();
+    assert.equal(await frame.locator('#over.found .ui-object-seal').count(), 1, 'A real opponent arrival stamps one portrait');
     await page.clock.resume(); await boardBox(); await lookAt('opponent-found', 'board');
     await frame.locator('#found-switch').click(); await frame.locator('#over.found[open]').waitFor({ state: 'hidden' });
     assert.equal(await page.evaluate(() => window.harnessView.game_id), waiting.game_id, 'Switch selects the human game');

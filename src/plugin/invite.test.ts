@@ -27,7 +27,7 @@ it('copies when Share is absent or refuses', async () => {
   vi.mocked(copyText).mockResolvedValue(true);
   for (const navigator of [{}, { share: vi.fn().mockRejectedValue(new Error('Denied')) }]) {
     vi.stubGlobal('navigator', navigator);
-    const result = status(); await sendInvite(invite(), null, result);
+    const result = status(); expect(await sendInvite(invite(), null, result)).toBe('copied');
     expect(copyText).toHaveBeenLastCalledWith(text);
     expect(result.textContent).toBe('Copied');
   }

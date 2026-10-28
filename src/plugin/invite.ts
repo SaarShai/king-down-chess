@@ -25,7 +25,7 @@ export async function sendInvite(invite: PageInvite, options: Options | null | u
     try { await navigator.share({ text }); status.textContent = 'Shared'; return; }
     catch (error) { if (error instanceof Error && error.name === 'AbortError') return; }
   }
-  if (await copyText(text)) { status.textContent = 'Copied'; return; }
+  if (await copyText(text)) { status.textContent = 'Copied'; return 'copied' as const; }
   const message = document.createElement('span'); message.textContent = text;
   status.append('Select the invite and copy it: ', message);
   const range = document.createRange(); range.selectNodeContents(message);

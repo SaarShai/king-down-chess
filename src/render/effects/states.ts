@@ -3,6 +3,7 @@ import { stable } from '../../balance/measurements';
 import { G, K, colorOf, findKing, typeOf, type Color, type Position } from '../../rules/engine';
 import { SIGNAL_DURATION_MS } from './indications';
 import { CHECK_WITHDRAW_MS } from './check';
+import { FREEZE_RELEASE_MS } from './freeze-release';
 
 export type StateKind = 'freeze' | 'ward' | 'firewall' | 'holy-light' | 'mercy';
 export interface BoardState {
@@ -147,10 +148,15 @@ export class StateEffects {
     return motion ? Math.min(.42, this.elapsed(state.since, now, motion)) : .42;
   }
 
+  freezeRelease(state: StateFrame, now: number, motion: boolean): number {
+    return motion && state.clear != null ? Math.max(0, Math.min(1, (now - state.clear) * this.rate / FREEZE_RELEASE_MS)) : 1;
+  }
+
   remaining(now: number): number {
     const duration = SIGNAL_DURATION_MS / this.rate;
-    this.frames = this.frames.filter(s => s.clear == null || now - s.clear < .28 * duration);
-    const ends = this.frames.map(s => s.clear == null ? s.since + (['freeze', 'ward', 'firewall'].includes(s.kind) ? .42 : .7) * duration : s.clear + .28 * duration);
+    const release = (s: StateFrame) => s.kind === 'freeze' ? FREEZE_RELEASE_MS / this.rate : .28 * duration;
+    this.frames = this.frames.filter(s => s.clear == null || now - s.clear < release(s));
+    const ends = this.frames.map(s => s.clear == null ? s.since + (['freeze', 'ward', 'firewall'].includes(s.kind) ? .42 : .7) * duration : s.clear + release(s));
     for (const s of this.signals.values()) ends.push(s.since + .75 * duration);
     if (this.withdrawn) ends.push(this.withdrawn.since + CHECK_WITHDRAW_MS / this.rate);
     return Math.max(0, ...ends.map(end => end - now));

@@ -7,6 +7,8 @@ import { ICONS, type Icon } from '../../account/profile';
 import type { View } from '../../match/protocol';
 import './lobby.css';
 import { errorText } from '../../account-game/types';
+import { UiMotion } from '../../ui/motion';
+import { inviteCopied } from '../../ui/object-motion';
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 /** After Cancel: drop the game's code and go to Play. A retried Cancel runs it as its continuation. */
 export function finishCancel(next: View) { codes.delete(next.game_id); navigate('play'); return Promise.resolve(); }
@@ -29,8 +31,11 @@ export function toolError(code: string, fallback: string) {
 export function showError(error: unknown, target = $('error')) { target.textContent = errorText(error); }
 let making = false;
 let expiryTimer: ReturnType<typeof setTimeout> | undefined;
+let copyMotion: UiMotion | undefined;
+let copyEvent = 0;
 export function friendScreen() {
   if (stopped || queue.closed()) return;
+  copyEvent++; copyMotion?.cancel();
   clearTimeout(expiryTimer);
   const view = memory.view;
   $('page-title').textContent = 'Your game code';
@@ -50,8 +55,16 @@ export function friendScreen() {
   $('friend-game').replaceChildren(row(expired ? 'Invitation expired' : 'Waiting for your friend', 'clock', [invite ? `Ends ${formatDate(invite.expires_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.` : expired ? 'Start a new game to invite your friend.' : 'Make a new code to share this game.']));
   $('friend-game').querySelector('.line')!.id = 'friend-expiry';
   if (view.options) $('friend-game').append(row('Features', 'fairy', [features(view.options), `You play ${view.seat === 0 ? 'White' : 'Black'}.`]));
-  $('friend-share').onclick = () => { if (invite) void sendInvite(invite, view.options, $('friend-copy-status')); };
-  $('friend-copy').onclick = () => { if (invite) void sendInvite(invite, view.options, $('friend-copy-status'), false); };
+  const copy = async (share: boolean) => {
+    if (!invite) return;
+    copyMotion ??= new UiMotion(() => !stopped && client.state.screen === 'friend' && !memory.settings?.symbols_only, () => 'fast');
+    copyMotion.cancel();
+    const event = ++copyEvent;
+    const result = await sendInvite(invite, view.options, $('friend-copy-status'), share);
+    if (result === 'copied' && event === copyEvent && !stopped && !queue.closed() && client.state.screen === 'friend' && memory.view?.game_id === view.game_id && codes.get(view.game_id) === invite && !invite.replaced && Date.parse(invite.expires_at) > Date.now()) inviteCopied(copyMotion, tiles, $('friend-copy-status'), performance.now());
+  };
+  $('friend-share').onclick = () => void copy(true);
+  $('friend-copy').onclick = () => void copy(false);
   $('friend-new').onclick = () => expired ? showNewGame() : void makeCode(view);
   $('friend-cancel').onclick = async () => { const next = await call('kingdown_abort', { game_id: view.game_id, command_id: crypto.randomUUID().replaceAll('-', ''), expected_revision: view.revision }, true, false, false); if (next) finishCancel(next); };
   if (saved && !expired) expiryTimer = setTimeout(() => {
@@ -83,4 +96,4 @@ export function onStop(stop: () => void) { stops.add(stop); return () => stops.d
 export function stopAll() { stopped = true; events.abort(); for (const stop of stops) stop(); stops.clear(); }
 addEventListener('pagehide', event => { if (!event.persisted) stopAll(); }, { signal: events.signal });
 addEventListener('message', event => { if (event.source === parent && event.data?.method === 'ui/resource-teardown') stopAll(); }, { signal: events.signal });
-onStop(() => clearTimeout(expiryTimer));
+onStop(() => { clearTimeout(expiryTimer); copyMotion?.dispose(); });
