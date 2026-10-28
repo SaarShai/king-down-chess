@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "ready",
-  "catalogSha256": "a353248327dd25504ca695aa878a4cb58a128782b1d326af72b877606af27a67",
+  "catalogSha256": "96297356bdd398831f705c457f18e7d32375236c3c1eaa00cec13b946f3e4f96",
   "entries": [
     {
       "character": "pawn",
@@ -2698,6 +2698,14 @@
       "id": "black-attack-W",
       "manifest": "banks/2f1c9418eb544906493ca7251364ccc43d2438bf5e897938d9b06f2f8b85324c.json",
       "sha256": "2f1c9418eb544906493ca7251364ccc43d2438bf5e897938d9b06f2f8b85324c"
+    },
+    {
+      "character": "rook",
+      "army": "black",
+      "kind": "idle",
+      "id": "black-idle-slam",
+      "manifest": "banks/fb1e9370bcba7816c0e647dc593d2eda0cd416ceeb37bb767c9e22a0692ed150.json",
+      "sha256": "fb1e9370bcba7816c0e647dc593d2eda0cd416ceeb37bb767c9e22a0692ed150"
     },
     {
       "character": "guard",
