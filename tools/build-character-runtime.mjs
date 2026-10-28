@@ -22,6 +22,12 @@ export function registerBanks(banks) {
     }
     const components=new Map();for(const [i,bank]of group.entries()){const key=find(i);if(!components.has(key))components.set(key,[]);components.get(key).push(bank);}
     for(const component of components.values()){
+      const authoredPivot=component.find(bank=>bank.pivot)?.pivot;
+      for(const bank of component){
+        bank.pivot??=authoredPivot??[bank.canvasSize[0]/2,350+(bank.canvasSize[1]-384)/2];
+        bank.bodyHeightPx??=Math.max(.5,bank.pivot[1]-bank.bodyTopPx);
+        delete bank.bodyTopPx;
+      }
       const rest=component.filter(b=>b.kind==='idle').sort((a,b)=>Number(b.facing==='SE')-Number(a.facing==='SE'))[0]??component.find(b=>b.kind==='turn'&&(b.from==='SE'||b.to==='SE'))??component[0];
       const endpoints=new Map();
       for(const bank of component){
@@ -89,26 +95,31 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
     if (digest(bytes) !== entry.sha256) throw Error(`Bank hash mismatch: ${entry.id}`);
     const raw = JSON.parse(bytes), bank = { ...(raw.metadata ?? {}), ...raw };
     if (bank.status !== 'ready' || !bank.frames?.length || !(bank.durationMs > 0)) throw Error(`Invalid ready bank: ${entry.id}`);
-    const canvas = bank.canvasSize;
+    let canvas = bank.canvasSize;
+    if (canvas == null) {
+      const info = await sharp(await readFile(inside(source, resolve(dirname(path), bank.frames[0].url)))).metadata();
+      canvas = [info.width, info.height];
+    }
     if (!Array.isArray(canvas) || canvas.length !== 2 || canvas.some(n => !(n > 0))) throw Error(`Invalid canvas: ${entry.id}`);
     const idDirections = entry.id.match(/(?:^|-)(N|NE|E|SE|S|SW|W|NW)(?=-|$)/g)?.map(s => s.replace(/^-/, '')) ?? [];
     const edge = (bank.direction ?? entry.direction ?? '').split('-');
     const from = direction(bank.from ?? entry.from ?? edge[0] ?? idDirections.at(-2));
     const to = direction(bank.to ?? entry.to ?? edge[1] ?? idDirections.at(-1));
     const facing = direction(bank.facing ?? bank.direction ?? entry.direction) ?? direction(idDirections.at(-1));
-    const pivot = bank.footPivot ?? bank.pivot ?? [canvas[0] / 2, 700 + (canvas[1] - 768) / 2];
-    if (pivot.length !== 2 || pivot.some(n => !Number.isFinite(n))) throw Error(`Invalid foot pivot: ${entry.id}`);
+    const pivot = bank.footPivot ?? bank.pivot;
+    if (pivot != null && (pivot.length !== 2 || pivot.some(n => !Number.isFinite(n)))) throw Error(`Invalid foot pivot: ${entry.id}`);
     const frames = [];
     for (let index = 0; index < bank.frames.length; index++) {
       const frame = bank.frames[index], timeMs = frame.timeMs ?? bank.times?.[index] ?? index * bank.durationMs / (bank.frames.length - 1);
       if (!Number.isFinite(timeMs) || timeMs < 0 || timeMs > bank.durationMs || index && timeMs < frames[index - 1].timeMs) throw Error(`Invalid frame time: ${entry.id}`);
       const image = await asset({ ...frame, timeMs }, dirname(path));
+      if (image.size.some((size, axis) => size * 2 !== canvas[axis])) throw Error(`Frame canvas mismatch: ${entry.id}`);
       frames.push({ url: image.url, sourceSha256: image.sourceSha256, timeMs, ...(Array.isArray(frame.effectAnchor) ? { effectAnchor: frame.effectAnchor.map(n => n / 2) } : {}), ...(frame.visibleIntervalMs ? { visibleIntervalMs: frame.visibleIntervalMs } : {}), ...(frame.endMs == null ? {} : { endMs: frame.endMs }) });
     }
     const sampling = [bank.sampling, bank.schedule?.sampling, bank.selectedSchedule?.sampling, bank.approvedPlayerSchedule?.sampling];
     const floor = sampling.some(s => typeof s === 'string' && /\bfloor\b/.test(s));
-    banks.push({ character: entry.character, army: entry.army, id: entry.id, kind: entry.kind, sourceSha256: entry.sha256, canvasSize: canvas.map(n => n / 2), pivot: pivot.map(n => n / 2), durationMs: bank.durationMs, from: from ?? (entry.kind === 'turn' ? direction(idDirections.at(-2)) : null), to, facing,
-      bodyHeightPx: (bank.bodyHeightPx ?? Math.max(1, pivot[1] - assets.get(bank.frames[0].sha256).top)) / 2, boardScale: bank.boardScale == null ? null : bank.boardScale * 2, targetPoint: Array.isArray(bank.targetPoint) ? bank.targetPoint.map(n => n / 2) : null,
+    banks.push({ character: entry.character, army: entry.army, id: entry.id, kind: entry.kind, sourceSha256: entry.sha256, canvasSize: canvas.map(n => n / 2), pivot: pivot?.map(n => n / 2) ?? null, durationMs: bank.durationMs, from: from ?? (entry.kind === 'turn' ? direction(idDirections.at(-2)) : null), to, facing,
+      bodyHeightPx: bank.bodyHeightPx == null ? null : bank.bodyHeightPx / 2, bodyTopPx: assets.get(bank.frames[0].sha256).top / 2, boardScale: bank.boardScale == null ? null : bank.boardScale * 2, targetPoint: Array.isArray(bank.targetPoint) ? bank.targetPoint.map(n => n / 2) : null,
       beatTimes: bank.beatTimes ?? {}, effectAnchors: (Array.isArray(bank.effectAnchors) ? bank.effectAnchors : (bank.effectAnchors?.timedframes?.[entry.army] ?? []).map(frame => ({ id: 'contact-bloom', timeMs: frame.timeMs, point: frame.contactBloomAnchor }))).filter(anchor => Array.isArray(anchor.point) && anchor.point.length === 2 && anchor.point.every(Number.isFinite) && Number.isFinite(anchor.timeMs)).map(anchor => ({ id: anchor.id, timeMs: anchor.timeMs, point: anchor.point.map(n => n / 2), ...(anchor.visibility ? { visibility: anchor.visibility } : {}) })),
       contactMs: bank.beatTimes?.contact ?? bank.beatTimes?.contactMs ?? bank.beatTimes?.release ?? bank.frames.find(f => f.phase === 'release' || f.phase === 'contact')?.timeMs ?? null,
       nearest: !floor && (entry.kind === 'turn' || sampling.some(s => s === 'nearest')), frames });
