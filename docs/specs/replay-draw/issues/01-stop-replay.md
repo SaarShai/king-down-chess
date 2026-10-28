@@ -25,6 +25,46 @@ The owner asks for this fix, tests, a commit, a push, and a PR into main.
 - Repetition and move-count cases fail before the fix and pass after it.
 - Required checks pass. The PR gives the before and after evidence.
 
+## PR review repair
+
+The review finds one fault: `finishLinkedTurn()` adds a pass after a draw.
+Save recovery and game-link loading both call this helper after replay stops.
+An accepted recovery then holds an extra pass and reads as partial again.
+
+1. Add tests through both callers. Check the loaded position, full source,
+   accepted history, and reload. Show the failures before the fix.
+2. Make the shared helper stop when the game has ended. Keep the old-link pass
+   for a game that is still in play.
+3. Run the affected tests and doc checks with the shared test lock. Record the
+   results, commit with the normal hooks, and push to the same branch.
+
+The repair passes when both callers keep the draw position and its one-move
+history, and the accepted save reads in full after reload.
+
+### Review evidence
+
+- The independent review of PR #177 finds one P2 fault at `7e6eb345`.
+  With FEN `7k/p7/8/8/8/8/8/R5K1 w - - 99 1`, Flame/Haste, and
+  `Ra1-a4!H`, `Ra4-a5`, both callers add `--` after the draw.
+- Before the fix, all 4 new cases fail. Both load paths add the pass. Recovery
+  acceptance writes that pass, so `readSave()` reports a partial save again.
+  Command: `KINGDOWN_TEST_FILE='src/{screen/play,ui/previously}.test.ts' KINGDOWN_TEST_NAME='keeps the draw position and source|accepts Haste draw recovery|keeps a Haste draw without a pass' npm test`.
+  Log: `/private/tmp/kingdown-fix2-177/before.log`.
+- `finishLinkedTurn()` now returns if the game has ended. The tests call save
+  recovery and the game-link loader. They check the full position, the one-move
+  history, `draw50`, White to move, and a halfmove count of 100. They also check
+  source retention, recovery acceptance, reload, and both full and partial links.
+- After the fix, all 342 selected tests pass in 6 files. Both type checks and
+  all 67 art checks pass. The existing old Haste link test still adds its pass
+  while the game is in play.
+  Command: `KINGDOWN_TEST_FILE='src/{game,previously,turn,turn-controls,screen/{save,play},ui/previously}.test.ts' npm test`.
+  Log: `/private/tmp/kingdown-fix2-177/affected.log`.
+- `bash tools/test-lock.sh npm run test:docs`: all 183 tests pass in 16 files.
+  Log: `/private/tmp/kingdown-fix2-177/docs.log`. All checks use the shared test
+  lock and run in the foreground. The first run waits for the shared lock.
+- The repair changes no hook, gate input, dependency, or engine archive.
+  The full suite, browser checks, and database tests do not run in this repair.
+
 ## Evidence
 
 - Before the fix: `KINGDOWN_TEST_FILE='src/{game,screen/save}.test.ts' KINGDOWN_TEST_NAME='stops replay at|keeps the valid part and full source after' npm test` fails all 4 new cases. Both type checks pass. The other 57 cases do not run.
