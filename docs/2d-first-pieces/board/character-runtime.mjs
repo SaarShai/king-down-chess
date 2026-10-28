@@ -42,7 +42,7 @@ export function idleBankAt(clips,turns,restFacing,time) {
 const HEIGHT={pawn:96,knight:112,bishop:114,rook:132,queen:120,archer:120,paladin:124,maester:112,ogre:136,guard:114};
 export const DECODED_BUDGET=64*1024*1024;
 export function createCharacterRuntime({url=new URL('/character-runtime/manifest.json',import.meta.url).href,wake=()=>{},fetcher=fetch,image=()=>Object.assign(new Image(),{crossOrigin:'anonymous'})}={}) {
- let banks=[],disposed=false,bytes=0,peakBytes=0,active=0;
+ let banks=[],disposed=false,bytes=0,peakBytes=0,active=0,activeFrame=null;
  let effectEntries={},currentEffect=null,effectBytes=0,smokeBytes=0,smokeClass=null,smokeImage=null,smokeLoading=null;
  const images=new Map(),loading=new Map(),failed=new Set(),stills=new Set(),queue=[];
  const load=fetcher(url).then(r=>{if(!r.ok)throw Error('Character package unavailable');return r.json();}).then(m=>{if(m.schemaVersion!==1||!Array.isArray(m.banks))throw Error('Invalid character package');if(!disposed){banks=m.banks;effectEntries=m.effects??{};restChoices.clear();wake();}}).catch(()=>{});
@@ -56,7 +56,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  };
  function trim(){
   const limit=Math.max(0,DECODED_BUDGET-effectBytes-smokeBytes);
-  while(bytes>limit&&images.size){const key=[...images.keys()].find(key=>!stills.has(key))??images.keys().next().value;bytes-=images.get(key).size;images.delete(key);}
+  while(bytes>limit&&images.size){const keys=[...images.keys()],key=keys.find(key=>key!==activeFrame&&!stills.has(key))??keys.find(key=>key!==activeFrame)??keys[0];bytes-=images.get(key).size;images.delete(key);}
   peakBytes=Math.max(peakBytes,bytes+effectBytes+smokeBytes);
  }
  function pump(){
@@ -97,22 +97,22 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   if(character==='archer')void loadSmoke();
   stills.add(bank.frames[0].url);const starts=full?forPiece(character,army).filter(b=>b.kind==='idle').flatMap(b=>b.frames.slice(0,6)):bank.frames.slice(0,1);await Promise.all(starts.map(loadFrame));if(!disposed)wake();
  }
- function sample(bank,time,prefetch=true,reverse=false){
+ function sample(bank,time,prefetch=true,reverse=false,pin=false){
   if(!bank)return null;const wanted=frameAt(bank,time),index=bank.frames.indexOf(wanted);
   const nearby=prefetch?bank.frames.slice(Math.max(0,index-(reverse?4:1)),index+(reverse?2:5)):[wanted];
   for(const frame of nearby)if(!images.has(frame.url)&&!failed.has(frame.url))void loadFrame(frame).then(()=>{if(!disposed)wake();});
-  const frame=images.has(wanted.url)?wanted:bank.frames.slice(0,index+1).findLast(frame=>images.has(frame.url));
-  const entry=frame&&images.get(frame.url);if(!entry)return null;images.delete(frame.url);images.set(frame.url,entry);
+  const frame=images.has(wanted.url)?wanted:reverse?bank.frames.slice(index).find(frame=>images.has(frame.url)):bank.frames.slice(0,index+1).findLast(frame=>images.has(frame.url));
+  const entry=frame&&images.get(frame.url);if(!entry)return null;if(pin)activeFrame=frame.url;images.delete(frame.url);images.set(frame.url,entry);
   return {image:entry.art,pivot:bank.pivot,scale:bank.boardScale??(HEIGHT[bank.character]??130)/bank.registrationHeightPx,bank:bank.id,sourceSha256:frame.sourceSha256,sourceBankSha256:bank.sourceSha256,time:frame.timeMs,canvasSize:bank.canvasSize,unitHeight:bank.registrationHeightPx,effectAnchor:frame.effectAnchor??anchorAt(bank,'arrowhead-smoke',frame.timeMs)??anchorAt(bank,'arrow',frame.timeMs)};
  }
- function routeSample(route,time){for(const part of route){if(time<=part.bank.durationMs)return sample(part.bank,part.reverse?part.bank.durationMs-time:time,true,part.reverse);time-=part.bank.durationMs;}const last=route.at(-1);return last?sample(last.bank,last.reverse?0:last.bank.durationMs):null;}
+ function routeSample(route,time){for(const part of route){if(time<=part.bank.durationMs)return sample(part.bank,part.reverse?part.bank.durationMs-time:time,true,part.reverse,true);time-=part.bank.durationMs;}const last=route.at(-1);return last?sample(last.bank,last.reverse?0:last.bank.durationMs,true,last.reverse,true):null;}
  return {
   ready:()=>load,
   has:(character,army)=>!!idle(character,army),
   get stats(){return {bytes:bytes+effectBytes+smokeBytes,peakBytes,active,queued:queue.length};},
   smoke(){return smokeClass&&smokeImage?new smokeClass(smokeImage):null;},
   warm,
-  rest(character,army,time=0,active=false){const bank=idle(character,army);if(!bank)return null;if(active){const all=forPiece(character,army),choice=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time);if(choice){const next=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time+160);if(next&&next.bank!==choice.bank)for(const frame of next.bank.frames.slice(0,6))void loadFrame(frame);return sample(choice.bank,choice.time,true,choice.reverse)??sample(bank,0,false);}}return sample(bank,0,false);},
+  rest(character,army,time=0,active=false){const bank=idle(character,army);if(!bank)return null;if(active){const all=forPiece(character,army),choice=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time);if(choice){const next=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time+160);if(next&&next.bank!==choice.bank)for(const frame of next.bank.frames.slice(0,6))void loadFrame(frame);return sample(choice.bank,choice.time,true,choice.reverse,true)??sample(bank,0,false);}}return sample(bank,0,false);},
   async prepare(character,army,direction,capture){
    await load;if(disposed)return null;
    const all=forPiece(character,army),rest=idle(character,army);if(!rest)return null;
@@ -131,9 +131,9 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    if(time<0)return routeSample(prepared.before,time+prepared.beforeMs)??sample(prepared.rest,0,false);
    if(time>duration)return routeSample(prepared.after,time-duration)??sample(prepared.rest,0,false);
    const attack=prepared.attack;
-   if(attack){return sample(attack,Math.min(time,attack.durationMs))??sample(prepared.rest,0,false);}
+   if(attack){return sample(attack,Math.min(time,attack.durationMs),true,false,true)??sample(prepared.rest,0,false);}
    return routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);
   },
-  dispose(){disposed=true;banks=[];restChoices.clear();images.clear();bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;smokeClass=null;smokeImage=null;for(const job of queue)job.resolve();queue.length=0;loading.clear();},
+  dispose(){disposed=true;banks=[];restChoices.clear();images.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;smokeClass=null;smokeImage=null;for(const job of queue)job.resolve();queue.length=0;loading.clear();},
  };
 }
