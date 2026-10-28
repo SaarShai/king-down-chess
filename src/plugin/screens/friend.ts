@@ -57,8 +57,8 @@ export function friendScreen() {
   if (view.options) $('friend-game').append(row('Features', 'fairy', [features(view.options), `You play ${view.seat === 0 ? 'White' : 'Black'}.`]));
   const copy = async (share: boolean) => {
     if (!invite) return;
-    copyMotion ??= new UiMotion(() => !stopped && client.state.screen === 'friend' && !memory.settings?.symbols_only, () => 'fast');
-    copyMotion.cancel();
+    copyMotion?.dispose();
+    copyMotion = new UiMotion(() => !stopped && client.state.screen === 'friend' && !memory.settings?.symbols_only, () => 'fast');
     const event = ++copyEvent;
     const result = await sendInvite(invite, view.options, $('friend-copy-status'), share);
     if (result === 'copied' && event === copyEvent && !stopped && !queue.closed() && client.state.screen === 'friend' && memory.view?.game_id === view.game_id && codes.get(view.game_id) === invite && !invite.replaced && Date.parse(invite.expires_at) > Date.now()) inviteCopied(copyMotion, tiles, $('friend-copy-status'), performance.now());
