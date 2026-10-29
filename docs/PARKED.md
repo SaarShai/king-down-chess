@@ -1,6 +1,6 @@
 # Parked features
 
-The web build is lean: it holds the game against the computer, online play and their features. The features below are parked in rounds 1 (2026-10-28) and 3 (2026-10-29). The player cannot open them, and the production bundle does not ship their code. Their source files stay in the tree, so that we can return to them later.
+The web build is lean: it holds the game against the computer, online play and their features. The features below are parked in rounds 1 (2026-10-28) and 3 (2026-10-29). The player cannot open them. The production bundle does not ship the code of round 1; round 3 removes only the entry points, so some of its code stays in the bundle. Their source files stay in the tree, so that we can return to them later.
 
 The ticket, [specs/park-lean/spec.md](specs/park-lean/spec.md), holds the owner's request, the plan, the verification and the reviews.
 
