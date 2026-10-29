@@ -6,6 +6,7 @@ import { configurePlugin, ENABLED_WEB_OPERATIONS } from './plugin-server.mjs';
 import { createServer, request } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { STAGING_ORIGIN, STAGING_SUPABASE_URL } from './staging-config.mjs';
+import { CHATGPT_PLUGIN, PARKED_PATHS } from './chatgpt-plugin.mjs';
 vi.mock('pg', () => ({ Pool: vi.fn() }));
 vi.mock('@vercel/functions', () => ({ attachDatabasePool: vi.fn() }));
 vi.mock('./plugin-db-check.mjs', () => ({ checkPluginDatabase: vi.fn() }));
@@ -46,11 +47,11 @@ it.each([false, true])('configures the real runtime pool for serverless=%s', asy
 const production: Record<string, string | undefined> = { SUPABASE_URL: 'https://utqzovjmclfyojedmwok.supabase.co', KINGDOWN_PLUGIN_ORIGIN: 'https://kingdown.dev', KINGDOWN_PLUGIN_OAUTH_READY: '1', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: '00000000-0000-4000-8000-000000000001',
   KINGDOWN_PLUGIN_DATABASE_URL: 'postgresql://kingdown_plugin_runtime.utqzovjmclfyojedmwok:fake@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require' };
 /** Configure the production profile with the switch row `enabled`, and serve its handler on loopback. */
-async function productionServer(enabled: boolean) {
+async function productionServer(enabled: boolean, chatgpt?: boolean) {
   const query = vi.fn(async () => ({ rows: [{ singleton: true, enabled }] }));
   vi.mocked(Pool).mockImplementation(function () { return { on: vi.fn(), end: vi.fn(), query } as unknown as Pool; });
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({ issuer: `${production.SUPABASE_URL}/auth/v1`, scopes_supported: ['openid'] })));
-  const app = await configurePlugin(production, { serverless: true });
+  const app = await configurePlugin(production, { serverless: true, ...(chatgpt !== undefined && { chatgpt }) });
   const server = createServer(app.handler);
   await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
   const call = (key: string) => new Promise<{ status: number; body: { code?: string; account_access?: string } }>((done, fail) => {
@@ -84,4 +85,21 @@ it('production refuses staging targets before provider or database access', asyn
   const request = vi.fn(); vi.stubGlobal('fetch', request);
   for (const changes of [{ SUPABASE_URL: STAGING_SUPABASE_URL }, { KINGDOWN_PLUGIN_ORIGIN: STAGING_ORIGIN }, { KINGDOWN_PLUGIN_DATABASE_URL: settings.KINGDOWN_PLUGIN_DATABASE_URL }]) await expect(configurePlugin({ ...production, ...changes })).rejects.toThrow('Production refuses the staging project');
   expect(request).not.toHaveBeenCalled(); expect(Pool).not.toHaveBeenCalled();
+});
+
+it('parks the ChatGPT plugin by default: each plugin path answers 404 and the website API stays', async () => {
+  expect(CHATGPT_PLUGIN).toBe(false);
+  const { call, close } = await productionServer(true);
+  try {
+    for (const path of [...PARKED_PATHS, '/plugin-art/scroll-0123abcd.webp', '/unknown']) for (const method of ['GET', 'POST']) {
+      expect([method, path, await call(`${method} ${path}`)]).toEqual([method, path, { status: 404, body: { code: 'NOT_FOUND', message: 'Not found' } }]);
+    }
+    expect(await call('GET /api/status')).toEqual({ status: 200, body: { account_access: 'open', valid_for_ms: expect.any(Number) } });
+  } finally { await close(); }
+});
+it('serves the plugin metadata again with chatgpt: true', async () => {
+  const { call, close } = await productionServer(true, true);
+  try {
+    expect(await call('GET /.well-known/oauth-protected-resource/mcp')).toEqual({ status: 200, body: expect.objectContaining({ resource: 'https://kingdown.dev/mcp' }) });
+  } finally { await close(); }
 });

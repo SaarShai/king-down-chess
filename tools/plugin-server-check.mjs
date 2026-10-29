@@ -12,6 +12,7 @@ import pg from 'pg';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { checkRuntime, summarizeEngines } from './engines-check.mjs';
 import { serveSite } from './web-online-check.mjs';
+import { PARKED_PATHS } from './chatgpt-plugin.mjs';
 
 /** A Vercel function's art lives in the enclosing output's static layer. */
 async function staticLayer(directory) {
@@ -87,6 +88,44 @@ try {
     }
     assert.equal(queries, 0); assert.equal(connections, 0);
   } finally { app.pool.query = query; app.pool.connect = connect; }
+  if (!app.chatgpt) {
+    // tools/chatgpt-plugin.mjs parks the ChatGPT plugin: the build has no widget, art or consent page, and each plugin
+    // path answers 404. The website API keeps its sign-in, games and computer turns.
+    for (const file of ['board.html', 'plugin-art', 'consent.html', 'consent.mjs']) assert(!existsSync(join(artifact, file)), `The parked build has no ${file}`);
+    let parkedCases = 0;
+    for (const path of [...PARKED_PATHS, '/plugin-art/scroll-0123abcd.webp', '/apix']) for (const method of ['GET', 'POST']) {
+      const response = await fetch(origin + path, { method, headers: { 'X-Kingdown-Dev-Actor': actors[0], 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, ...(method === 'POST' && { body: '{}' }) });
+      assert.equal(response.status, 404, `${method} ${path}`); assert.equal(response.headers.get('cache-control'), 'no-store');
+      assert.deepEqual(await response.json(), { code: 'NOT_FOUND', message: 'Not found' }, `${method} ${path}`);
+      parkedCases++;
+    }
+    await app.pool.end(); app = undefined;
+    savedAccountAccess = (await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0]?.enabled;
+    assert.equal(typeof savedAccountAccess, 'boolean');
+    await pool.query('update public.web_account_access set enabled=true where singleton=true');
+    app = await configurePlugin(webEnv, { localDev: true, websiteKeys, websiteCurrentUser: async (bearer, user) => { assert.equal(bearer, token); assert.equal(user, actors[0]); } });
+    const web = async (path, body, status = 200) => {
+      const response = await fetch(origin + path, { method: body === undefined ? 'GET' : 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, ...(body !== undefined && { body: JSON.stringify(body) }) });
+      const value = await response.json(); assert.equal(response.status, status, `${path}: ${JSON.stringify(value)}`); assert.equal(response.headers.get('cache-control'), 'no-store'); return value;
+    };
+    const lease = await web('/api/status');
+    assert.equal(lease.account_access, 'open'); assert(Number.isInteger(lease.valid_for_ms) && lease.valid_for_ms > 0 && lease.valid_for_ms <= 5000);
+    assert.equal((await web('/api/me/profile')).user_id, actors[0]);
+    const options = { fairy: true, pool: ['R','A','G','Q','M','S','O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false };
+    const initial = (await web('/api/games', { kind: 'solo', options, colour: 'white', command_id: randomUUID() }, 201)).view;
+    assert(initial.legal.length);
+    const start = initial.revision;
+    const moved = await web(`/api/games/${initial.game_id}/commands`, { command_id: 'http-first', expected_revision: start, action: { type: 'turn', actions: [initial.legal.find(lan => !lan.includes('!'))] } });
+    assert.equal(moved.revision, start + 1);
+    const ai = await web(`/api/games/${initial.game_id}/commands`, { command_id: 'http-ai', expected_revision: start + 1, action: { type: 'computer' } });
+    assert.equal(ai.revision, start + 2);
+    const since = await web(`/api/games/${initial.game_id}?since=${start}`);
+    assert.equal(since.game_id, initial.game_id); assert.equal(since.rules, undefined); assert.equal(since.last_commands.length, 2);
+    const persisted = await pool.query('select state as save,revision,(select count(*)::int from public.game_commands where game_id=$1) as commands from public.games where id=$1', [initial.game_id]);
+    assert(persisted.rows[0].commands >= 2); assert.equal(persisted.rows[0].revision, start + 2); assert.match(JSON.parse(persisted.rows[0].save).engine, /^sha256:/);
+    await assert.rejects(configurePlugin(productionEnv), /Enable Supabase OAuth/);
+    console.log(`Compiled HTTP + real PostgreSQL (ChatGPT plugin parked): ${closedCases} default API closures with zero pool calls, ${unsafeCases} unsafe website-key refusals, ${parkedCases} parked plugin paths answer 404, website status, profile, solo game, move, computer turn and since read, and production auth gate passed`);
+  } else {
   async function rpc(actor, method, params) {
     const response = await fetch(`${origin}/mcp`, { method: 'POST', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method, params }) });
     assert.equal(response.status, 200); assert(!response.headers.has('mcp-session-id'));
@@ -298,6 +337,7 @@ try {
     console.log('Recovery artifact continuation passed', JSON.stringify({ release: { directory: resolve(process.argv[2] || 'plugin-server-dist'), ...releaseIdentity }, recovery: { directory: resolve(process.argv[3]), ...recoveryIdentity }, engines: archives[0].bundles.map(({ engine, sha256 }) => ({ engine, sha256 })), acceptedRetry: true, changedPayloadConflict: true, recoveryComputerRevision: continued.revision, archiveComputerChecks, continuedRevision: continued.revision, completedSetupRevision: completed.revision }));
   }
   console.log(`Compiled HTTP + real PostgreSQL: ${closedCases} default API closures with zero pool calls, ${unsafeCases} unsafe website-key refusals, off-switch closure, isolated website identity and full/since reads, open, move, AI, retry, foreign seat rejection, service restart/resume, friend code/join, board recovery, resource (${resource.bytes} JSON bytes), ${art.length} art files (${JSON.stringify(counts)}), and production auth gate passed`);
+  }
 } finally {
   try {
     if (savedAccountAccess !== undefined) {

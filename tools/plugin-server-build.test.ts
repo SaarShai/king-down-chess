@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
@@ -18,6 +18,9 @@ it('routes only the site API boundary to the one MCP function for every method',
     expect(routes).toContainEqual({ src: '^/internal/.+$', dest: '/internal' });
     expect(routes.filter(route => route.src.startsWith('^/plugin-art/'))).toEqual(vercelRoutes());
     expect(vercelRoutes().some(route => new RegExp(route.src).test('/api'))).toBe(false);
+    // The parked ChatGPT plugin (tools/chatgpt-plugin.mjs) has no art routes; with the plugin in, one per art format.
+    expect(vercelRoutes()).toEqual([]);
+    expect(vercelRoutes(undefined, { chatgpt: true }).map(route => route.src)).toEqual(['webp', 'png', 'svg', 'woff2'].map(type => `^/plugin-art/[\\w-]+\\.${type}$`));
   } finally { rmSync(site, { recursive: true, force: true }); }
 });
 
@@ -39,12 +42,16 @@ it('keeps every isolated operation set equal to the handler route keys', () => {
   }
 });
 
-it('omits the website recorder from the emitted plugin-only server', async () => {
+it('omits the website recorder and the parked ChatGPT plugin surface from the emitted server', async () => {
  const out = mkdtempSync(join(tmpdir(), 'plugin-without-recorder-'));
  try {
   const output = await buildPluginServer(out, { vercel: true });
   const server = readFileSync(join(output, 'functions/mcp.func/server.mjs'), 'utf8');
   for (const text of ['/api/client-errors', 'client_errors', 'Unlisted message', 'Error message exceeds limit', 'Cannot read properties of [value]', '500ms']) expect(server.includes(text), text).toBe(false);
   expect(server).toContain('King Down API failed');
+  // Parked: no widget, art, consent page or OAuth function path; only the one function and its internal link.
+  for (const path of ['functions/mcp.func/board.html', 'functions/mcp.func/consent.html', 'functions/mcp.func/consent.mjs', 'static/plugin-art', 'functions/authorize.func', 'functions/consent.mjs.func', 'functions/.well-known']) expect(existsSync(join(output, path)), path).toBe(false);
+  expect(readdirSync(join(output, 'functions')).sort()).toEqual(['mcp.func']);
+  expect(JSON.parse(readFileSync(join(output, 'config.json'), 'utf8')).routes).toEqual([]);
  } finally { rmSync(out, { recursive: true, force: true }); }
 }, 60_000);
