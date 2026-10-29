@@ -41,6 +41,52 @@ describe('ready character playback', () => {
    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(s:string){if(s.endsWith('/late')){const callback=img.onload;finish=()=>callback?.();}else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
   const pending=runtime.reserveIdle('king-stratus','white');await vi.waitFor(()=>expect(finish).toBeDefined());runtime.dispose();finish?.();expect(await pending).toBe(false);expect(runtime.stats.bytes).toBe(0);
  });
+ it('plays explicit movement for each army and direction over the scene travel time', async () => {
+  const banks = ['white','black'].flatMap(army => {
+   const idle={...bank(),id:`${army}-idle`,army,kind:'idle',frames:[{url:`${army}-rest`,timeMs:0}]};
+   const turn={...bank(),id:`${army}-turn`,army,frames:[{url:`${army}-rest`,timeMs:0},{url:`${army}-turn`,timeMs:120}]};
+   const movement={...bank(),id:`${army}-move`,army,kind:'movement',facing:'S',nearest:false,durationMs:200,pivot:[100,200] as [number,number],registrationHeightPx:400,frames:[0,100,200].map(timeMs=>({url:`${army}-move-${timeMs}`,timeMs}))};
+   return [idle,turn,movement];
+  });
+  const sources:string[]=[];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},set src(s:string){sources.push(s);queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  for(const army of ['white','black']){
+   const long=await runtime.prepare('pawn',army,'S',false,false);
+   expect((runtime.action(long,500,1000,0) as {bank:string}).bank).toBe(`${army}-turn`);
+   expect(sources.filter(s=>s.includes(`${army}-move-`))).toHaveLength(0);
+   const prepared=await runtime.prepare('pawn',army,'S',false,true);
+   const sample=(t:number)=>runtime.action(prepared,t,1000,0) as {bank:string;time:number;pivot:number[];scale:number};
+   expect(sources.filter(s=>s.includes(`${army}-move-`))).toHaveLength(3);
+   expect([0,499,500,999,1000].map(t=>sample(t).time)).toEqual([0,0,100,100,200]);
+   expect(sample(0)).toMatchObject({bank:`${army}-move`,pivot:[100,200],scale:96/400});
+   expect(sample(-1).bank).toBe(`${army}-turn`);expect(sample(1001).bank).toBe(`${army}-turn`);
+   const opposite=await runtime.prepare('pawn',army,'SE',false,true);
+   expect((runtime.action(opposite,500,1000,0) as {bank:string}).bank).toBe(`${army}-idle`);
+   const capture=await runtime.prepare('pawn',army,'S',true,true);
+   expect((runtime.action(capture,500,1000,0) as {bank:string}).bank).toBe(`${army}-turn`);
+  }
+  runtime.dispose();
+ });
+ it.each(['missing','decode'])('falls back when a movement frame has a %s failure', async failure => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const movement={...bank(),id:'move',kind:'movement',facing:'SE',frames:[{url:'move-0',timeMs:0},{url:'bad',timeMs:120}]};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,movement]})})) as unknown as typeof fetch,
+   image:()=>{let bad=false;const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),onerror:null as null|(()=>void),decode:async()=>{if(bad&&failure==='decode')throw Error('decode');},set src(s:string){bad=s.endsWith('/bad');queueMicrotask(()=>bad&&failure==='missing'?img.onerror?.():img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const prepared=await runtime.prepare('pawn','white','SE',false,true);
+  expect((runtime.action(prepared,60,120,0) as {bank:string}).bank).toBe('idle');runtime.dispose();
+ });
+ it('keeps the turn fallback after a movement load exceeds the move deadline', async () => {
+  vi.useFakeTimers();
+  try {
+   const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+   const movement={...bank(),id:'move',kind:'movement',facing:'SE',frames:[{url:'slow',timeMs:0}]};
+   const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,movement]})})) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},set src(s:string){if(!s.endsWith('/slow'))queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   const preparing=runtime.prepare('pawn','white','SE',false,true);await vi.advanceTimersByTimeAsync(1001);
+   const prepared=await preparing;expect(prepared).not.toBeNull();expect((runtime.action(prepared,50,100,0) as {bank:string}).bank).toBe('idle');runtime.dispose();
+  } finally {vi.useRealTimers();}
+ });
  it('uses screen direction for both board orientations', () => {
   expect(facingOf(112,-112)).toBe('NE'); expect(facingOf(-112,112)).toBe('SW');
   expect(facingOf(0,-112)).toBe('N'); expect(facingOf(112,0)).toBe('E');

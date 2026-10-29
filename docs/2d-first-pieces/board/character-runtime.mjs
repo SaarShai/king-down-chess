@@ -169,11 +169,13 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    return t=>sample(bank,0,false,false,false,bank.frames[Math.round(path[0]+(path[1]-path[0])*Math.min(1,Math.max(0,t)))]);
   },
   rest(character,army,time=0,active=false){const bank=idle(character,army);if(!bank)return null;if(active){const all=forPiece(character,army),choice=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time);if(choice){const next=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time+160);if(next&&next.bank!==choice.bank)for(const frame of next.bank.frames.slice(0,6))void loadFrame(frame);return sample(choice.bank,choice.time,true,choice.reverse,true)??sample(bank,0,false);}}return sample(bank,0,false);},
-  async prepare(character,army,direction,capture){
+  async prepare(character,army,direction,capture,oneSquare=false){
    const deadline=performance.now()+LOAD_TIMEOUT,remaining=()=>Math.max(0,deadline-performance.now());
    await bounded(loadManifest(),remaining());if(disposed||!remaining())return null;
    const all=forPiece(character,army),rest=idle(character,army);if(!rest)return null;
    const attack=capture?all.find(b=>b.kind==='attack'&&b.facing===direction):null;
+   let movement=!capture&&oneSquare?all.find(b=>b.kind==='movement'&&b.facing===direction&&b.durationMs>0&&b.frames?.length):null;
+   const movementRequested=!!movement;
    const turns=all.filter(b=>b.kind==='turn'),before=turnRoute(turns,rest.facing,direction),after=before&&reverseRoute(before);
    // A missing edge keeps the rest body coherent instead of jumping to an unsupported facing.
    if(before===null)return null;
@@ -181,8 +183,13 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    await bounded(Promise.all(start.map(loadFrame)),remaining());
    if(disposed||!remaining()||start.some(frame=>!images.has(frame.url)))return null;
    const sizes=new Map(start.map(frame=>[frame.url,images.get(frame.url).size]));
+   if(movement){
+    await bounded(Promise.all(movement.frames.map(loadFrame)),remaining());
+    if(disposed)return null;
+    if(!remaining()||movement.frames.some(frame=>!images.has(frame.url)))movement=null;
+   }
    const effect=attack?await bounded(loadSeparate(character),remaining()):null;
-   if(disposed||!remaining()||attack&&effectEntries[character]&&!effect)return null;
+   if(disposed||!remaining()&&!movementRequested||attack&&effectEntries[character]&&!effect)return null;
    if(start.some(frame=>!images.has(frame.url))){
     const missing=[...sizes].reduce((sum,[key,size])=>sum+(images.has(key)?0:size),0);
     for(const cached of effectLoads.values()){
@@ -192,13 +199,15 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
     await bounded(Promise.all(start.map(loadFrame)),remaining());
     if(disposed||!remaining()||start.some(frame=>!images.has(frame.url)))return null;
    }
-   return {rest,attack,effect,before,after,beforeMs:before.reduce((n,p)=>n+p.bank.durationMs,0),afterMs:after.reduce((n,p)=>n+p.bank.durationMs,0)};
+   if(movement&&movement.frames.some(frame=>!images.has(frame.url)))movement=null;
+   return {rest,attack,movement,effect,before,after,beforeMs:before.reduce((n,p)=>n+p.bank.durationMs,0),afterMs:after.reduce((n,p)=>n+p.bank.durationMs,0)};
   },
   action(prepared,time,duration,contact){
    if(time<0)return routeSample(prepared.before,time+prepared.beforeMs)??sample(prepared.rest,0,false);
    if(time>duration)return routeSample(prepared.after,time-duration)??sample(prepared.rest,0,false);
    const attack=prepared.attack;
    if(attack){return sample(attack,Math.min(time,attack.durationMs),true,false,true)??sample(prepared.rest,0,false);}
+   if(prepared.movement){const body=sample(prepared.movement,duration>0?time/duration*prepared.movement.durationMs:0,true,false,true);if(body)return body;}
    return routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);
   },
   dispose(){disposed=true;banks=[];restChoices.clear();images.clear();idlePins.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;effectLoads.clear();smokeClass=null;smokeImage=null;for(const job of activeJobs)job.cancel();for(const job of queue)job.resolve();queue.length=0;loading.clear();},

@@ -1139,7 +1139,7 @@ function drawEncounter(a,t) {
     if(available&&!effect&&!reducedMotion&&base.type!=='swap'&&!(typeOf(base.value)===K&&move.captures.length)){
      a.preparing=true;
      const target=move.shove?.from??move.captures[0]??move.to,from=foot(move.from),to=foot(target);
-     void bodyRuntime.prepare(characterOf(base.value),armyOf(base.value),facingOf(to.x-from.x,to.y-from.y),!!move.captures.length||!!move.shove).then(prepared=>{
+     void bodyRuntime.prepare(characterOf(base.value),armyOf(base.value),facingOf(to.x-from.x,to.y-from.y),!!move.captures.length||!!move.shove,Math.max(Math.abs(to.x-from.x),Math.abs(to.y-from.y))===TILE).then(prepared=>{
       if(disposed||animation!==a)return;
       const first=prepared?.before[0],join=first?(first.reverse?first.bank.frames.at(-1):first.bank.frames[0]):prepared?.rest.frames[0];
       if(prepared&&a.exitBody&&join?.url===a.exit(1)?.url)a.exitReady=prepared;
