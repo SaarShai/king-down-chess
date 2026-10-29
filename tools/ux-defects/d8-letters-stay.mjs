@@ -1,9 +1,9 @@
 // D-8: Piece letters stay on after a reload and an old `?look=` link (the clay look is parked), also when they are
-// ticked in a lesson, where the saved game stays as it was. An old save with no letters field still
+// ticked on a first visit. (Lessons are parked: docs/PARKED.md.) An old save with no letters field still
 // loads, and ?labels=1 still turns the letters on. With the letters off, an old save keeps its
 // settings as they were, so the account sync sees no change at start-up.
 import assert from 'node:assert/strict';
-import { startLesson, boardHelp, learnFromTitle, lanMoves } from '../app-ui.mjs';
+import { boardHelp, lanMoves, titleStart } from '../app-ui.mjs';
 
 /** Records each view.setLabels() value in window.letters (main.ts sets window.view before its first setLabels). */
 const recordLetters = () => {
@@ -30,8 +30,7 @@ const probe = async ({ page, ready }) => {
     const url = new URL(page.url()); url.searchParams.set('look', look);
     await page.goto(url.href); await ready();
   };
-  const learn = async () => { await startLesson(page); await page.waitForFunction(() => /^Lesson 1 /.test(document.getElementById('turn').textContent)); };
-  return { state, letters, saved, settings, reload, changeLook, learn };
+  return { state, letters, saved, settings, reload, changeLook };
 };
 
 export default async function ({ open }) {
@@ -51,37 +50,15 @@ export default async function ({ open }) {
   assert.deepEqual(await p.letters(), [false, false], 'the letters stay off after a reload');
   await plain.close();
 
-  // A lesson (Guide > Learn) never replaces the saved game, but a setting changed in it stays.
-  const lesson = await open({ save: OLD_SAVE });
-  const l = await probe(lesson);
-  const game = ({ moves, back, white, black }) => ({ moves, back, white, black });
-  const before = game(await l.saved());
-  await l.learn();
-  await l.settings(() => lesson.page.check('#labels'));
-  assert.deepEqual(game(await l.saved()), before, 'letters ticked in a lesson: the saved game does not change');
-  await l.reload();
-  assert.deepEqual(await l.letters(), [true, true], 'letters ticked in a lesson stay on after a reload');
-  assert.match((await l.state()).moves, /e4/, 'after a reload from a lesson, the saved game opens');
-  await l.learn();
-  await l.settings(() => lesson.page.uncheck('#labels'));
-  await l.changeLook('clay');
-  assert.deepEqual(await l.letters(), [false, false], 'letters unticked in a lesson stay off after a look change to clay');
-  await l.learn();
-  await l.settings(() => lesson.page.check('#labels'));
-  await l.changeLook('painted');
-  assert.deepEqual(await l.letters(), [true, true], 'letters ticked in a lesson stay on after a look change to painted');
-  assert.deepEqual(game(await l.saved()), before, 'after the lessons, the saved game is as it was');
-  await lesson.close();
-
-  // A first visit on a phone: Start, then Guide leads to Learn; letters ticked in the lesson stay on.
+  // A first visit on a phone: Start, then letters ticked in the first game stay on.
   const first = await open({ size: 'phone', title: true });
   const f = await probe(first);
-  await learnFromTitle(first.page, { tap: true });
+  await titleStart(first.page).tap();
   await first.ready();
-  await first.page.waitForFunction(() => /^Lesson 1 /.test(document.getElementById('turn').textContent));
+  await first.page.waitForFunction(() => !document.getElementById('title-screen').open);
   await boardHelp(first.page, () => first.page.locator('#labels').tap(), { tap: true });
   await f.reload();
-  assert.deepEqual(await f.letters(), [true, true], 'first visit, phone: letters ticked in the first lesson stay on after a reload');
+  assert.deepEqual(await f.letters(), [true, true], 'first visit, phone: letters ticked in the first game stay on after a reload');
   await first.close();
 
   // An old save, stamped by the account sync before the letters existed: with the letters off, the

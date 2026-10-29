@@ -143,11 +143,7 @@ export function endScreen(schedule = true) {
       if (!outcome.provisional && outcome.rating_before !== null) { const delta=Math.round(outcome.rating-outcome.rating_before), change=document.createElement('small'); change.textContent=' '+(delta>=0?'+':'')+delta; line.append(change); }
       facts.append(line);
     }
-    const badge = outcome.badges[0]?.badge;
-    if (badge) {
-      const item=document.createElement('span'); item.className='new-badge'; const img=document.createElement('img'); img.src=art(`assets/badge-${badge.replaceAll('_','-')}.webp`); img.alt='';
-      const label=document.createElement('span'); label.innerHTML='<b>New badge</b><small></small>'; label.querySelector('small')!.textContent=badge.split('_').map(w=>w[0].toUpperCase()+w.slice(1)).join(' '); item.append(img,label); facts.append(item);
-    }
+    // A new badge is not shown: the Badges display is parked (docs/PARKED.md).
   }
   const form = over.querySelector('form')!; form.onsubmit=event=>event.preventDefault();
   if (view.rematch_game_id) {

@@ -8,7 +8,7 @@ import { createServer } from 'node:http';
 import { release as osRelease, tmpdir } from 'node:os';
 import { extname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { endTurn, lanMoves, pressMenu, readyBoard, startLesson, waitForUi } from './app-ui.mjs';
+import { endTurn, lanMoves, pressMenu, readyBoard, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, launchPersistent, shot, STEP, trapErrors } from './lib/checks.mjs';
 import { tapSquare } from './lib/tap-board.mjs';
 import { ART_TYPES } from './plugin-art-headers.mjs';
@@ -627,11 +627,10 @@ export async function main() {
       await active.goto(origin); await readyBoard(active); assert.deepEqual(await lanMoves(active), ['e2-e4']);
       const saved = await active.evaluate(() => localStorage.getItem('kingdown.save'));
       const beforeOffline = await localData(active);
-      await startLesson(active, 'Beast'); await active.locator('#show-me').click();
-      await active.waitForFunction(() => window.view.marks.hint.length > 0); await active.locator('#return-game').click();
-      await pressMenu(active, 'Workshop'); await active.locator('#workshop').waitFor({ state: 'visible' });
-      await active.locator('#workshop').evaluate(dialog => dialog.close());
-      assert.equal(await active.evaluate(() => localStorage.getItem('kingdown.save')), saved, 'Offline lesson and lazy Workshop keep the save');
+      // Lessons and the Workshop are parked (docs/PARKED.md): offline, the Guide and New game open and keep the save.
+      await pressMenu(active, 'Guide'); await active.locator('#rules').waitFor({ state: 'visible' }); await active.keyboard.press('Escape');
+      await pressMenu(active, 'New game'); await active.locator('#new-game').waitFor({ state: 'visible' }); await active.keyboard.press('Escape');
+      assert.equal(await active.evaluate(() => localStorage.getItem('kingdown.save')), saved, 'Offline Guide and New game keep the save');
       assertLocalData(beforeOffline, await localData(active));
       await tapSquare(active, 52); await tapSquare(active, 36);
       await waitForUi(active, ui => ui.lan.length === 2 && !window.view.scene.animating);
@@ -666,9 +665,7 @@ export async function main() {
       await active.goto(`${origin}/?title=0`); await readyBoard(active);
       await active.waitForFunction(savedGameSynced);
       const beforeLocal = await localData(active);
-      await startLesson(active, 'Beast'); await active.locator('#return-game').click();
-      await pressMenu(active, 'Workshop'); await active.locator('#workshop').waitFor({ state: 'visible' });
-      await active.locator('#workshop').evaluate(dialog => dialog.close());
+      await pressMenu(active, 'Guide'); await active.locator('#rules').waitFor({ state: 'visible' }); await active.keyboard.press('Escape');
       assertLocalData(beforeLocal, await localData(active));
       await active.goto(`${origin}/?fixture=page`); await active.waitForFunction(() => window.privateProbe);
     }

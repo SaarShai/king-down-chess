@@ -121,13 +121,13 @@ describe('the readouts', () => {
 });
 
 describe('the controls', () => {
-  it('menuItem names today\'s four buttons and refuses another name', () => {
+  it('menuItem names today\'s three buttons and refuses another name, also the parked Workshop', () => {
     const p = page({});
     expect(menuItem(p, 'New game')).toMatchObject({ sel: '#new-game-btn' });
     expect(menuItem(p, 'Guide')).toMatchObject({ sel: '#rules-btn' });
-    expect(menuItem(p, 'Workshop')).toMatchObject({ sel: '#workshop-btn' });
     expect(menuItem(p, 'Settings')).toMatchObject({ sel: '[data-go="help"]' });
-    expect(() => menuItem(p, 'Menu')).toThrow('no menu item "Menu"; the items are New game, Guide, Workshop, Settings');
+    expect(() => menuItem(p, 'Menu')).toThrow('no menu item "Menu"; the items are New game, Guide, Settings');
+    expect(() => menuItem(p, 'Workshop')).toThrow('no menu item "Workshop"');
   });
   it('pressMenu gives its press options to the item, and taps when asked', async () => {
     const p = page({});

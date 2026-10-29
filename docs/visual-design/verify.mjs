@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { usePower, startLesson, boardHelp, contextText, titleStart, arriveContinue, endTurn, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
+import { usePower, boardHelp, contextText, titleStart, arriveContinue, endTurn, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from '../../tools/lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -49,12 +49,9 @@ try {
   assert.deepEqual([firstDeal.back, firstDeal.white, firstDeal.black, firstDeal.skill, firstDeal.rules.kings], ['QRNAKBBS', 'human', 'ai', 'beginner', [null, null]], 'Start deals seed 83 against Beginner as White, without powers');
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.new-game')).level), 'beginner', 'the next New game keeps Beginner');
   assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.first-deal')), '1', 'Start stores the first-deal key');
-  await startLesson(page);
-  await page.waitForFunction(() => /Lesson 1 of 6/.test(document.getElementById('turn').textContent));
-  assert.equal(await page.locator('#lesson-progress span').count(), 6);
   await page.reload(); await ready(page);
   assert.equal(await titleOpen(page), false, 'once per tab: a reload goes straight to the game');
-  ok('title: one Start deals QRNAKBBS, then Guide opens lessons; a reload skips the title');
+  ok('title: one Start deals QRNAKBBS; a reload skips the title');
   await page.context().close();
 
   // Returning player: Home keeps the saved board; New game opens the sheet.
@@ -291,7 +288,7 @@ try {
   ok('markers: Archer targets are shot targets; an armed Flight marks its squares as power moves');
 
   // 9. The Quiet Table (web redesign ticket 01): the page is light only. With the device in dark mode, the
-  // page, the first-visit title and the Workshop surround show the same parchment floor as in light mode, and
+  // page and the first-visit title show the same parchment floor as in light mode (the Workshop is parked), and
   // the painted board's canvas is clear round its frame, so the floor shows there.
   const background = (p, selector, pseudo = null) => p.evaluate(([s, ps]) => {
     const c = getComputedStyle(document.querySelector(s), ps);
@@ -325,15 +322,12 @@ try {
     await layers(false);
     assert.ok(shown.equals(await pixel()), `${scheme}: outside the frame the screen shows the floor under the canvas`);
     await layers(true);
-    await pressMenu(page, 'Workshop');
-    await page.locator('#workshop').waitFor();
-    look.workshopBackdrop = await background(page, '#workshop', '::backdrop');
     looks[scheme] = look;
     await page.context().close();
   }
   for (const [part, value] of Object.entries(looks.light)) assert.match(value, /^rgb\(242, 233, 214\) radial-gradient\(/, `${part}: the parchment floor`);
-  assert.deepEqual(looks.dark, looks.light, 'dark mode: the same floor under the page, the title and the Workshop');
-  ok('Quiet Table: color-scheme "light only"; in light and dark mode the page, the title, its backdrop and the Workshop backdrop show the parchment floor; the canvas is clear outside the board frame');
+  assert.deepEqual(looks.dark, looks.light, 'dark mode: the same floor under the page and the title');
+  ok('Quiet Table: color-scheme "light only"; in light and dark mode the page, the title, and its backdrop show the parchment floor; the canvas is clear outside the board frame');
 
   assertNoErrors();
   const out = env('PLAYABLE_OUT');

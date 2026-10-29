@@ -1,27 +1,23 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Game } from '../game';
-import { copyText } from '../clipboard';
 import { LESSONS } from '../lessons';
 import { parseKings, POWERS_BALANCED, RULES_2017, RULES_2021 } from '../rules/engine';
 import { toFen } from '../rules/setup';
-import { connectLinks, gameUrl, rulesName } from './links';
+import { connectLinks, gameUrl, movesText, rulesName } from './links';
 
 vi.mock('../clipboard', () => ({ copyText: vi.fn(async () => true) }));
 
 const page = { origin: 'https://kingdown.dev', pathname: '/' };
 
-describe('Copy moves', () => {
+describe('the move list text', () => {
   afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
   async function copy(game: Game, expected: string) {
     vi.useFakeTimers();
-    const button = { onclick: () => {}, textContent: 'Copy moves', dataset: {}, querySelector: () => null };
-    vi.stubGlobal('document', { getElementById: (id: string) => id === 'copy' ? button : {} });
+    vi.stubGlobal('document', { getElementById: () => ({}) });
     vi.stubGlobal('location', page);
     const share = connectLinks({ game: () => game, turnStart: () => game.history.length, blocked: () => false });
-    button.onclick();
-    await Promise.resolve();
-    expect(copyText).toHaveBeenCalledWith(expected);
+    expect(movesText(game.history)).toBe(expected);
     expect(expected.split(/\s+/).filter(s => !/^\d+[.…]$/.test(s))).toEqual(game.history.map(h => h.lan));
     const params = new URL(share.gameLink()).searchParams, replay = new Game('RNBQKBNR', game.rules);
     if (params.has('fen')) replay.load(replay.context.fromFen(params.get('fen')!));

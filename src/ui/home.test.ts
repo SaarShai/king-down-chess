@@ -71,9 +71,10 @@ it('opens Home once for a save and keeps position links clear', () => {
   expect(shouldShowHome(new URLSearchParams(), { ...gate, hasSave: false })).toBe(false);
   expect(shouldShowHome(new URLSearchParams(), { ...gate, titleSeen: true })).toBe(false);
   expect(shouldShowHome(new URLSearchParams(), { ...gate, firstVisit: true })).toBe(false);
-  for (const query of ['title=0', 'army=QRNAKBBS', 'army=QRNAKBBS&moves=e2-e4', 'fen=position', 'design=piece']) {
+  for (const query of ['title=0', 'army=QRNAKBBS', 'army=QRNAKBBS&moves=e2-e4', 'fen=position', 'army=QRNAKBBS&moves=e2-e4&design=piece']) {
     expect(shouldShowHome(new URLSearchParams(query), gate), query).toBe(false);
   }
+  expect(shouldShowHome(new URLSearchParams('design=piece'), gate), 'an old Workshop link (parked)').toBe(true);
 });
 
 it('shows the local day and the real Today army', () => {

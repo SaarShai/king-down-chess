@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { createServer } from 'vite';
 import assert from 'node:assert/strict';
 import { launch } from '../../../../../tools/lib/checks.mjs';
-import { endTurn, readPower, usePower, readyBoard, startLesson } from '../../../../../tools/app-ui.mjs';
+import { endTurn, readPower, usePower, readyBoard } from '../../../../../tools/app-ui.mjs';
 const out = resolve(process.env.PLAYABLE_OUT || '/tmp/effects-state-game');
 mkdirSync(out, { recursive: true });
 const server = await createServer({ root: process.cwd(), server: { host: '127.0.0.1', port: 0, strictPort: true }, logLevel: 'error' });
@@ -112,15 +112,7 @@ try {
       }
     }
   }
-  await startLesson(page, 'Beast');
-  await page.locator('#show-me').click();
-  await page.waitForFunction(() => window.view.marks.hint?.length > 1 && !document.getElementById('show-me').disabled);
-  for (const width of [430, 390]) for (const black of [false, true]) {
-    await page.setViewportSize({ width, height: 932 });
-    await page.evaluate(black => window.view.flip(black), black);
-    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
-    await capture(`hint-${width}-${black ? 'black' : 'white'}`);
-  }
+  // The lesson hint capture is parked with the lessons (docs/PARKED.md).
   for (const group of ['signals', 'cards']) {
     await page.goto(`${url}docs/specs/effects-animation/preview/${group}/index.html`);
     await page.waitForFunction(() => window.effectsStudy?.ready);

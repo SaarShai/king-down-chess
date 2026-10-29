@@ -13,19 +13,21 @@ export type PageState = { screen: Screen; handle_back?: Screen; name_for_caller?
 const SLOTS = 3;
 export type WidgetHost = { pendingScope?: 'account'; savePage?: (state: PageState) => void; accountId?: string; widgetState?: { privateContent?: Partial<PageState> }; setWidgetState?: (state: unknown) => void };
 
+// The Collection is parked (docs/PARKED.md): a saved Collection page opens Profile, which has no Collection row.
+const pageScreen = (name: unknown) => name === 'collection' ? 'profile' : knownScreen(name);
 // A saved command from PR 57's 'setup' screen is a New game step, which this build runs on Play.
-const commandScreen = (name: unknown) => name === 'setup' ? 'play' : knownScreen(name);
+const commandScreen = (name: unknown) => name === 'setup' ? 'play' : pageScreen(name);
 
 export function createClient(app: Pick<App, 'callServerTool'>, host?: WidgetHost) {
   return createPageClient((name, args, options) => app.callServerTool({ name, arguments: args }, options), host);
 }
 
 export function createPageClient(transport: GameTransport, host?: WidgetHost) {
-  const saved = host?.widgetState?.privateContent, handle_back = knownScreen(saved?.handle_back), settings_back = knownScreen(saved?.settings_back), queued = knownScreen(saved?.queued);
+  const saved = host?.widgetState?.privateContent, handle_back = pageScreen(saved?.handle_back), settings_back = pageScreen(saved?.settings_back), queued = pageScreen(saved?.queued);
   const pending = saved?.pending && { ...saved.pending, screen: commandScreen(saved.pending.screen), error_screen: commandScreen(saved.pending.error_screen) };
   // Only drafts bound to an engine can replay; discard older state before it can be saved again.
   const savedDraft = typeof saved?.draft?.scope?.engine === 'string' && saved.draft.scope.engine ? saved.draft : undefined, draft = savedDraft && { ...savedDraft, game_tag: String(savedDraft.game_tag ?? ''), fen: String(savedDraft.fen ?? ''), lans: (savedDraft.lans ?? []).map(String) };
-  const state: PageState = { screen: knownScreen(saved?.screen) ?? 'home', ...(handle_back && { handle_back }), ...(saved?.name_for_caller === true && { name_for_caller: true }), ...(settings_back && {settings_back}), ...(queued && {queued}), sheet: saved?.sheet, board_id: saved?.board_id, pending, ...(draft && { draft }) };
+  const state: PageState = { screen: pageScreen(saved?.screen) ?? 'home', ...(handle_back && { handle_back }), ...(saved?.name_for_caller === true && { name_for_caller: true }), ...(settings_back && {settings_back}), ...(queued && {queued}), sheet: saved?.sheet, board_id: saved?.board_id, pending, ...(draft && { draft }) };
   // The server allows three calls at once for each account (MAX_ACTIVE_MCP_PER_USER, http.ts). A fourth call waits
   // here for a free slot, so no screen, poll or repeat tap gets a 429; a free slot goes to the oldest waiting call.
   let inflight = 0, sending = 0;

@@ -1,8 +1,8 @@
-// D-9: each copy action says "copied" only after the copy succeeds, says so when the copy fails, and
-// Copy moves gives feedback too. The page's Clipboard API is a stub, so each outcome is certain. The
-// fallback copy keeps the keyboard focus on the button.
+// D-9: each copy action says "copied" only after the copy succeeds, and says so when the copy fails. The page's
+// Clipboard API is a stub, so each outcome is certain. The fallback copy keeps the keyboard focus on the button.
+// Copy moves and Copy today's result are parked (docs/PARKED.md), so Send the game link is the copy action here.
 import assert from 'node:assert/strict';
-import { openMenu, openThisGame } from '../app-ui.mjs';
+import { openMenu } from '../app-ui.mjs';
 
 const GAME = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'off' };
 
@@ -55,16 +55,12 @@ export default async function ({ open }) {
   const game = await open({ save: GAME, pace: null });
   await game.page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await outcomes(game.page, '#share', /^Link copied/, /moves=e2-e4/, () => openMenu(game.page));
-  await outcomes(game.page, '#copy', /^Moves copied$/, /^1\. e2-e4$/, () => openThisGame(game.page));
   await keepsFocus(game.page, '#share', /^Link copied/, () => openMenu(game.page));
-  await keepsFocus(game.page, '#copy', /^Moves copied$/, () => openThisGame(game.page));
   await game.close();
 
+  // A saved game from Today's army still loads, and its result dialog has no copy action.
   const daily = await open({ save: { ...GAME, black: 'ai', daily: '2026-10-08', resigned: 0 }, pace: null });
-  await daily.page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
-  await daily.page.waitForSelector('#over[open] #share-result:not([hidden])');
-  const reopen = () => daily.page.evaluate(() => { const over = document.getElementById('over'); if (!over.open) over.showModal(); });
-  await outcomes(daily.page, '#share-result', /^Result copied$/, /^King Down daily 2026-10-08 /, reopen);
-  await keepsFocus(daily.page, '#share-result', /^Result copied$/, reopen);
+  await daily.page.waitForSelector('#over[open]');
+  assert.equal(await daily.page.locator('#share-result').count(), 0, "no Copy today's result");
   await daily.close();
 }

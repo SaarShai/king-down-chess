@@ -178,7 +178,7 @@ describe('recovery output', () => {
     await expect(recoveryOutput(root)).resolves.toHaveProperty('root', root);
     const driver = await readFile(new URL('./web-online-check.mjs', import.meta.url), 'utf8');
     const journey = driver.slice(driver.indexOf("// Use unmodified emitted workers"));
-    expect(journey.indexOf("offline = true")).toBeLessThan(journey.indexOf("pressMenu(active, 'Workshop')"));
+    expect(journey.indexOf("offline = true")).toBeLessThan(journey.indexOf("pressMenu(active, 'Guide')"));
   });
   it('keeps the frozen predecessor byte for byte', async () => {
     const old = await readFile(new URL('./fixtures/web-worker/old-sw.js', import.meta.url));

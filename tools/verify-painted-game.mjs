@@ -1,9 +1,10 @@
 // Plays real games in the painted 2D look and checks the view keeps up with the game.
 // Run: npm run check:browser painted-game (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
-import { lessonPath, startLesson, confirmResign, endTurn, contextText, lanMoves, moveRow, openEndReview, openMenu, openMoves, pressMenu, resultText, waitForLinkSave, waitForUi } from './app-ui.mjs';
+import { confirmResign, endTurn, contextText, lanMoves, moveRow, openEndReview, openMenu, openMoves, pressMenu, resultText, waitForLinkReplay, waitForLinkSave, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
+import { WARD_LINK } from './lib/design-link.mjs';
 const url = new URL(env('PLAYABLE_URL'));
 url.searchParams.set('look', 'painted'); // also the default; the phone check below uses the bare URL
 const browser = await launch();
@@ -249,61 +250,33 @@ try {
     assert.ok((await at(56)).y < (await at(0)).y, 'White, to move, plays from the bottom');
     console.log(`ok game link: ${sent.search}`);
   }
-  // 2g. Lessons: each of the six pieces' signature moves from the New game dialog; a wrong move is
-  // taken back; the saved game stays as it was.
+  // 2g. A resigned game against the computer: the resigning White king topples. (Lessons and Today's army are parked: docs/PARKED.md.)
   {
-    const before = await page.evaluate(() => localStorage.getItem('kingdown.save'));
-    await startLesson(page);
-    /** The lesson's verdict line in the words beside the board, or ''. */
-    const verdict = text => text.split('\n').find(t => /(?:learned\.$|^Not quite)/.test(t)) ?? '';
-    const play = async squares => {
-      const prev = verdict(await contextText(page));
-      for (const sq of squares) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
-      if (await page.evaluate(() => document.getElementById('move-choice').open)) await page.click('#choose-push');
-      await waitForUi(page, (ui, prev) => { const t = ui.context.split('\n').find(t => /(?:learned\.$|^Not quite)/.test(t)) ?? ''; return t && t !== prev && !window.view.scene.animating; }, prev);
-    };
-    await play([27, 35]); // the Archer steps instead of shooting
-    assert.match(await contextText(page), /^Not quite/m);
-    assert.equal(await page.evaluate(() => window.view.pos.board[27] > 0 && !window.view.pos.board[35]), true, 'the wrong move is taken back');
-    const steps = lessonPath();
-    for (const [i, squares] of steps) {
-      assert.match(await page.textContent('#turn'), new RegExp(`Lesson ${i + 1} of 6`));
-      await play(squares);
-      assert.equal(await contextText(page), `${['Archer', 'Beast', 'Maester', 'Ogre', 'Guard', 'Paladin'][i]} learned.`, `lesson ${i + 1}`);
-      assert.equal(await page.isVisible('#next-lesson'), true);
-      if (i < 5) await page.click('#next-lesson');
-    }
-    assert.equal(await page.textContent('#next-lesson'), 'Start a game');
-    assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.save')), before, 'lessons leave the saved game alone');
-    console.log('ok lessons: six signature moves, a wrong move taken back, save untouched');
-  }
-  // 2h. Today's army: the same army twice on one day; after the game the result can be copied.
-  {
-    const army = async () => { await startGame(page, { mode: 'computer', side: 'white', army: 'daily' }); return page.textContent('#setup'); };
-    const first = await army(), second = await army();
-    assert.ok(/^[A-Z]{8}$/.test(first) && first === second, `${first} / ${second}`);
+    await startGame(page, { mode: 'computer', side: 'white', army: 'classic' });
     await confirmResign(page);
     await page.waitForFunction(() => document.getElementById('over').open);
     assert.equal(await page.evaluate(() => window.view.fallen?.sq), await page.evaluate(() => window.view.pos.board.findIndex(v => v === 6)), 'the resigning White king topples');
-    await page.click('#share-result');
-    const shared = await page.evaluate(() => navigator.clipboard.readText());
-    assert.match(shared, new RegExp(`^King Down daily \\d{4}-\\d{2}-\\d{2} \\(${first}\\): lost in 0 moves against the \\w+ computer\\. http`), shared);
+    assert.equal(await page.locator('#share-result').count(), 0, "no Copy today's result");
     await page.keyboard.press('Escape');
-    console.log(`ok today's army: ${shared}`);
+    console.log('ok resign: the White king topples');
   }
   console.log(`ok animations: normal ${normal.ms} ms, fast ${fast.ms} ms, tap-skip ${tapped.ms} ms, off ${off.ms} ms`);
 
-  // 2i. A game with a Workshop design (ticket 17): the design stands as its figure, the read names it, and it moves.
+  // 2i. A game link that holds a Workshop design (ticket 17; the Workshop is parked, docs/PARKED.md, but the link still
+  // loads its game): the design stands as its figure, the read names it, and it moves.
   {
-    const ward = { v: 1, kind: 'piece', id: 'ward', name: 'Old Ward', named: true, look: { body: 'token', auto: true, glow: null, army: 0, figure: 'ram-bastion' }, letter: 'U',
-      squares: [{ x: 0, y: 1, mark: 'move' }, { x: 1, y: 1, mark: 'both' }, { x: -1, y: 1, mark: 'both' }], lines: ['ne', 'nw'], rules: [], from: [], updated: 1760000000000 };
     const p = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    await p.addInitScript(v => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.workshop', v); }, JSON.stringify({ v: 1, designs: [ward] }));
+    await p.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1'));
     trapErrors(p);
-    await p.goto(url.href);
-    await p.waitForFunction(() => document.querySelector('#board canvas'));
-    await startGame(p, { mode: 'two', army: 'classic', design: 'Old Ward' });
-    assert.deepEqual(await p.evaluate(() => [window.view.pos.board[1], window.view.pos.board[57]]), [15, 31], 'the design stands on b1 and b8');
+    const link = new URL(url);
+    for (const [k, v] of new URLSearchParams(WARD_LINK)) link.searchParams.set(k, v);
+    link.searchParams.set('moves', 'c2-c4_d7-d6'); // a game link seats this page as White only, so the link plays both moves before the design's
+    await p.goto(link.href);
+    await p.waitForFunction(() => document.querySelector('#board canvas') && window.view?.ready);
+    await waitForLinkSave(p, 'RTBQKBNR', ['c2-c4', 'd7-d6'], 0);
+    await waitForLinkReplay(p); // the board takes input after it shows Black's last move
+    await p.waitForFunction(() => !window.view.scene.animating);
+    assert.deepEqual(await p.evaluate(() => [window.view.pos.board[1], window.view.pos.board[57], window.view.pos.board[26] > 0]), [15, 31, true], 'the design stands on b1 and b8; the link played c2-c4');
     await p.waitForFunction(() => ['w', 'b'].every(c => performance.getEntriesByType('resource').some(e => e.name.includes(`ui/workshop/ram-bastion-${c}.webp`))));
     // The scene draws the figure, not the lettered token: b1 shows (almost) no pixel of the white token's disc, #efe9d8.
     const disc = () => p.evaluate(() => {
@@ -319,15 +292,11 @@ try {
     const at = sq => p.evaluate(sq => window.view.screenOf(sq), sq), click = async sq => { const q = await at(sq); await p.mouse.click(q.x, q.y); };
     await click(57);
     assert.match(await contextText(p), /Black Old Ward/, 'the read names the design');
-    await click(10); await click(26); // c2-c4
-    await endTurn(p);
-    await click(51); await click(43); // d7-d6
-    await endTurn(p);
     await click(1); await click(10); // the design steps diagonally to c2
     await p.waitForFunction(() => window.view.pos.board[10] === 15 && !window.view.pos.board[1]);
     await shot(p, 'design-game');
     await p.close();
-    console.log('ok a design game: the figure loads, the read names it, it moves');
+    console.log('ok a design game by a game link: the figure loads, the read names it, it moves');
   }
 
   // 3. Phone width: the board fits without horizontal scrolling.

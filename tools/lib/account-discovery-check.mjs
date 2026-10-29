@@ -26,10 +26,8 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
       await page.setViewportSize(viewport);
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       await insideViewport(page, '#home-account [data-account-play]'); await minTarget(page, '#home-account [data-account-play]');
-      await noSidewaysScroll(page); await noOverlap(page, '#home-account, #home-today, #home-review, #moves-line');
+      await noSidewaysScroll(page); await noOverlap(page, '#home-account, #home-review, #moves-line');
       await shot(page, `discovery-${label}-${viewport.width}-${viewport.height}`);
-      await page.locator('#home-today').scrollIntoViewIfNeeded();
-      await insideViewport(page, '#home-today');
     }
     await page.setViewportSize({ width: 390, height: 844 });
   }
