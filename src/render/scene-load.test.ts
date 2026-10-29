@@ -115,6 +115,41 @@ it('reduced motion cancels a ready-body action while its frame load is pending',
  expect(scene.animating).toBe(false);expect(scene.playing).toBeNull();expect(contact).not.toHaveBeenCalled();expect(scene.characterFrames.find(frame=>frame.square===1)?.time).toBe(0);
 });
 
+it('draws the movement endpoint across a straddled refresh on a move and its reverse', async () => {
+ const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600};
+ const idle={...base,id:'idle',kind:'idle',facing:'N',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const turn={...base,id:'turn',kind:'turn',from:'N',to:'S',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-turn.png',timeMs:120}]};
+ const movements=['N','S'].map(facing=>({...base,id:`move-${facing}`,kind:'movement',facing,durationMs:200,frames:[0,100,200].map(timeMs=>({url:`runtime-${facing}-${timeMs}.png`,timeMs}))}));
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,...movements]})})));
+ const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const forward=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(0);
+ await vi.advanceTimersByTimeAsync(432);expect(scene.characterFrames.find(f=>f.square===8)).toMatchObject({bank:'move-N',time:100});expect(scene.animating).toBe(true);
+ await vi.advanceTimersByTimeAsync(16);expect(scene.characterFrames.find(f=>f.square===8)).toMatchObject({bank:'move-N',time:200});expect(scene.animating).toBe(true);
+ await vi.advanceTimersByTimeAsync(16);await expect(forward).resolves.toBe(true);
+ scene.setPosition(fromFen('4k3/8/8/8/8/P7/8/4K3 b - - 0 1'));
+ const reverse=scene.play({from:16,to:8,captures:[]});await vi.advanceTimersByTimeAsync(0);
+ await vi.advanceTimersByTimeAsync(528);expect(scene.characterFrames.find(f=>f.square===16)).toMatchObject({bank:'move-S',time:100});
+ await vi.advanceTimersByTimeAsync(16);expect(scene.characterFrames.find(f=>f.square===16)).toMatchObject({bank:'move-S',time:200});
+ await vi.advanceTimersByTimeAsync(16);expect(scene.characterFrames.find(f=>f.square===16)).toMatchObject({bank:'turn'});
+ await vi.advanceTimersByTimeAsync(200);await expect(reverse).resolves.toBe(true);
+});
+
+it.each(['cancel','replace'] as const)('ignores a held movement load after %s', async change => {
+ const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600};
+ const idle={...base,id:'idle',kind:'idle',facing:'N',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const movement={...base,id:'move',kind:'movement',facing:'N',durationMs:200,frames:[{url:'runtime-deferred.png',timeMs:0}]};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,movement]})})));
+ const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const first=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(0);
+ const held=b.images.find(image=>image.src.includes('runtime-deferred'));expect(held).toBeDefined();
+ let replacement: Promise<boolean> | undefined;
+ if(change==='cancel')scene.cancel();else replacement=scene.play({from:8,to:24,captures:[]});
+ await expect(first).resolves.toBe(false);held!.finish();await vi.advanceTimersByTimeAsync(32);
+ expect(scene.characterFrames.find(f=>f.square===8)?.bank).not.toBe('move');
+ if(replacement){expect(scene.animating).toBe(true);await vi.advanceTimersByTimeAsync(1000);await expect(replacement).resolves.toBe(true);}else expect(scene.animating).toBe(false);
+ expect(scene.characterMemory.peakBytes).toBeLessThanOrEqual(64*1024*1024);
+});
+
 it.each(['position', 'kings', 'cancel'] as const)('restores a selected Stratus idle after a %s refresh and exits from its drawn frame', async refresh => {
  const base={character:'king-stratus',army:'white',canvasSize:[384,384],pivot:[192,345],bodyHeightPx:267,registrationHeightPx:267,boardScale:null};
  const idle={...base,id:'stratus-idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-raised.png',timeMs:100},{url:'runtime-rest.png',timeMs:400}]};

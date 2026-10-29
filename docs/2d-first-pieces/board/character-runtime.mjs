@@ -43,13 +43,14 @@ const HEIGHT={pawn:96,knight:112,bishop:114,rook:132,queen:120,archer:120,paladi
 export const DECODED_BUDGET=64*1024*1024;
 // Bound the wait for optional art so a stalled request cannot hold up a move indefinitely.
 const LOAD_TIMEOUT=1000,IMAGE_TIMEOUT=5000,RETRY_DELAY=5000;
-function bounded(promise,ms=LOAD_TIMEOUT){
- return new Promise(resolve=>{const timer=setTimeout(()=>resolve(null),Math.max(0,ms));Promise.resolve(promise).then(value=>{clearTimeout(timer);resolve(value);},()=>{clearTimeout(timer);resolve(null);});});
+function bounded(promise,ms=LOAD_TIMEOUT,signal){
+ return new Promise(resolve=>{let done=false;const finish=value=>{if(done)return;done=true;clearTimeout(timer);signal?.removeEventListener('abort',abort);resolve(value);},abort=()=>finish(null),timer=setTimeout(abort,Math.max(0,ms));signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();Promise.resolve(promise).then(finish,()=>finish(null));});
 }
 export function createCharacterRuntime({url=new URL('/character-runtime/manifest.json',import.meta.url).href,wake=()=>{},fetcher=fetch,image=()=>Object.assign(new Image(),{crossOrigin:'anonymous'})}={}) {
  let banks=[],disposed=false,bytes=0,peakBytes=0,active=0,activeFrame=null, idlePins=new Set(),idleGeneration=0;
  let effectEntries={},currentEffect=null,effectBytes=0,smokeBytes=0,smokeClass=null,smokeImage=null,smokeLoading=null,smokeBlocked=false;
- const images=new Map(),loading=new Map(),failed=new Map(),stills=new Set(),queue=[],activeJobs=new Set(),effectRetryAt=new Map(),effectLoads=new Map();
+ const images=new Map(),loading=new Map(),failed=new Map(),stills=new Set(),pins=new Map(),queue=[],activeJobs=new Set(),effectRetryAt=new Map(),effectLoads=new Map();
+ function reserve(frames){const keys=[...new Set(frames.map(f=>f.url))];for(const key of keys)pins.set(key,(pins.get(key)??0)+1);let held=true;return ()=>{if(!held)return;held=false;for(const key of keys){const n=pins.get(key);if(n>1)pins.set(key,n-1);else pins.delete(key);}trim();};}
  let manifestReady=false,manifestLoading=null,manifestRetryAt=0;
  function loadManifest(){
   if(disposed||manifestReady||performance.now()<manifestRetryAt)return Promise.resolve();
@@ -74,7 +75,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   }
   if(effectBytes+smokeBytes+reserve>DECODED_BUDGET)return;
   const limit=Math.max(0,DECODED_BUDGET-effectBytes-smokeBytes-reserve);
-  while(bytes>limit&&images.size){const keys=[...images.keys()].filter(key=>!idlePins.has(key)),key=keys.find(key=>key!==activeFrame&&!stills.has(key))??keys.find(key=>key!==activeFrame)??keys[0];if(!key)break;bytes-=images.get(key).size;images.delete(key);}
+  while(bytes>limit&&images.size){const keys=[...images.keys()].filter(key=>!idlePins.has(key)&&!pins.has(key)),key=keys.find(key=>key!==activeFrame&&!stills.has(key))??keys.find(key=>key!==activeFrame)??keys[0];if(!key)break;bytes-=images.get(key).size;images.delete(key);}
   peakBytes=Math.max(peakBytes,bytes+effectBytes+smokeBytes);
  }
  function pump(){
@@ -169,7 +170,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    return t=>sample(bank,0,false,false,false,bank.frames[Math.round(path[0]+(path[1]-path[0])*Math.min(1,Math.max(0,t)))]);
   },
   rest(character,army,time=0,active=false){const bank=idle(character,army);if(!bank)return null;if(active){const all=forPiece(character,army),choice=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time);if(choice){const next=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time+160);if(next&&next.bank!==choice.bank)for(const frame of next.bank.frames.slice(0,6))void loadFrame(frame);return sample(choice.bank,choice.time,true,choice.reverse,true)??sample(bank,0,false);}}return sample(bank,0,false);},
-  async prepare(character,army,direction,capture,oneSquare=false){
+  async prepare(character,army,direction,capture,oneSquare=false,signal){
    const deadline=performance.now()+LOAD_TIMEOUT,remaining=()=>Math.max(0,deadline-performance.now());
    await bounded(loadManifest(),remaining());if(disposed||!remaining())return null;
    const all=forPiece(character,army),rest=idle(character,army);if(!rest)return null;
@@ -183,13 +184,16 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    await bounded(Promise.all(start.map(loadFrame)),remaining());
    if(disposed||!remaining()||start.some(frame=>!images.has(frame.url)))return null;
    const sizes=new Map(start.map(frame=>[frame.url,images.get(frame.url).size]));
+   let releaseMovement=null,releaseFallback=null;
    if(movement){
-    await bounded(Promise.all(movement.frames.map(loadFrame)),remaining());
-    if(disposed)return null;
+    releaseFallback=reserve(start);
+    await bounded(Promise.all(movement.frames.map(loadFrame)),remaining(),signal);
+    if(disposed||signal?.aborted){releaseFallback();return null;}
     if(!remaining()||movement.frames.some(frame=>!images.has(frame.url)))movement=null;
+    else releaseMovement=reserve([movement.frames.at(-1)]);
    }
    const effect=attack?await bounded(loadSeparate(character),remaining()):null;
-   if(disposed||!remaining()&&!movementRequested||attack&&effectEntries[character]&&!effect)return null;
+   if(disposed||!remaining()&&!movementRequested||attack&&effectEntries[character]&&!effect){releaseMovement?.();releaseFallback?.();return null;}
    if(start.some(frame=>!images.has(frame.url))){
     const missing=[...sizes].reduce((sum,[key,size])=>sum+(images.has(key)?0:size),0);
     for(const cached of effectLoads.values()){
@@ -197,10 +201,10 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
      if(!cached.pending&&cached!==currentEffect){effectLoads.delete(cached.character);effectBytes-=cached.size;}
     }
     await bounded(Promise.all(start.map(loadFrame)),remaining());
-    if(disposed||!remaining()||start.some(frame=>!images.has(frame.url)))return null;
+    if(disposed||!remaining()||start.some(frame=>!images.has(frame.url))){releaseMovement?.();releaseFallback?.();return null;}
    }
-   if(movement&&movement.frames.some(frame=>!images.has(frame.url)))movement=null;
-   return {rest,attack,movement,effect,before,after,beforeMs:before.reduce((n,p)=>n+p.bank.durationMs,0),afterMs:after.reduce((n,p)=>n+p.bank.durationMs,0)};
+   if(movement&&movement.frames.some(frame=>!images.has(frame.url))){movement=null;releaseMovement?.();releaseMovement=null;}
+   return {rest,attack,movement,effect,before,after,releaseMovement,releaseFallback,beforeMs:before.reduce((n,p)=>n+p.bank.durationMs,0),afterMs:after.reduce((n,p)=>n+p.bank.durationMs,0)};
   },
   action(prepared,time,duration,contact){
    if(time<0)return routeSample(prepared.before,time+prepared.beforeMs)??sample(prepared.rest,0,false);
@@ -210,6 +214,6 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    if(prepared.movement){const body=sample(prepared.movement,duration>0?time/duration*prepared.movement.durationMs:0,true,false,true);if(body)return body;}
    return routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);
   },
-  dispose(){disposed=true;banks=[];restChoices.clear();images.clear();idlePins.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;effectLoads.clear();smokeClass=null;smokeImage=null;for(const job of activeJobs)job.cancel();for(const job of queue)job.resolve();queue.length=0;loading.clear();},
+  dispose(){disposed=true;banks=[];restChoices.clear();images.clear();idlePins.clear();pins.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;effectLoads.clear();smokeClass=null;smokeImage=null;for(const job of activeJobs)job.cancel();for(const job of queue)job.resolve();queue.length=0;loading.clear();},
  };
 }

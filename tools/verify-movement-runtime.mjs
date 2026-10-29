@@ -45,6 +45,7 @@ try{
   for(const [samples,direction] of [[trace.slice(0,index),forward],[trace.slice(index),back]]){
    const frames=samples.filter(s=>s.animating).flatMap(s=>s.frames).filter(f=>f.bank===`synthetic-${army}-${direction}`);
    assert(frames.length>1,`${army} ${flip} ${direction} bank`);assert(frames.some(f=>f.time===0));assert(frames.some(f=>f.time===100));
+   assert(frames.some(f=>f.time===200),`${army} ${flip} ${direction} final frame`);
    const bank=manifest.banks.find(b=>b.id===`synthetic-${army}-${direction}`);
    for(const f of frames){assert.deepEqual(f.pivot,bank.pivot);assert.equal(f.scale,bank.boardScale??124/bank.registrationHeightPx);}
    assert(frames.some(f=>f.foot.x!==frames[0].foot.x||f.foot.y!==frames[0].foot.y),'travel');
@@ -62,6 +63,17 @@ try{
    assert(frames.some(f=>f.foot.x!==frames[0].foot.x||f.foot.y!==frames[0].foot.y),'long move fallback travels');
   }
   console.log(`ok ${army} ${flip?'flipped':'normal'} three-square move and Undo use fallback`);
+  const captureURL=new URL(url);captureURL.searchParams.set('fen',`7k/p7/8/8/3${army==='white'?'L':'l'}4/2${army==='white'?'p':'P'}5/P7/K7 ${army==='white'?'w':'b'} - - 0 1`);
+  await page.goto(captureURL.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.some(f=>f.square===27),null,{timeout:15000});await page.evaluate(()=>view.ready());
+  if(flip){await page.evaluate(()=>view.flip(true));await page.waitForFunction(()=>view.scene.foot(27).x===536);}
+  const victim=await page.evaluate(()=>view.pos.board[18]);
+  await page.evaluate(()=>{window.captureTrace=[];window.captureTraceOn=true;function record(){if(!captureTraceOn)return;captureTrace.push(...view.scene.characterFrames.filter(f=>f.square===27));requestAnimationFrame(record);}record();});
+  for(const sq of [27,18]){const p=await page.evaluate(s=>view.screenOf(s),sq);await page.mouse.click(p.x,p.y);}
+  await page.waitForFunction(victim=>!view.scene.animating&&!view.pos.board[27]&&view.pos.board[18]!==victim,victim,{timeout:12000});
+  const captureFrames=await page.evaluate(()=>{window.captureTraceOn=false;return captureTrace;});
+  assert(captureFrames.some(f=>f.bank===`${army}-attack-${forward}`),`${army} ${flip} capture uses attack`);
+  assert(captureFrames.every(f=>!f.bank.startsWith('synthetic-')),`${army} ${flip} capture must not use movement`);
+  console.log(`ok ${army} ${flip?'flipped':'normal'} real capture uses attack`);
   assertNoErrors(errors);console.log(`ok ${army} ${flip?'flipped':'normal'} move ${forward}, Undo ${back}`);await page.close();
  }
 }finally{await browser?.close();await server.close();}
