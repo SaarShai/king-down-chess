@@ -16,14 +16,12 @@ type Repo = ReturnType<typeof tempRepo>;
 const repos: Repo[] = [];
 afterEach(() => { while (repos.length) repos.pop()!.cleanup(); });
 /**
- * A temporary repository whose pre-commit hook starts the real gate. The two secret sources point
- * at missing files, so that no case reads the real secrets.
+ * A temporary repository whose pre-commit hook starts the real gate. Its own checkout and HOME
+ * hold the fake sources, so no case reads the real secrets.
  */
 const make = () => {
   const repo = tempRepo();
   repos.push(repo);
-  repo.env.GATE_SECRETS_DIR = join(repo.root, 'no-secrets');
-  repo.env.GATE_TYPESAFE_KEY = join(repo.root, 'no-key');
   const pkg = JSON.parse(repo.read('package.json'));
   pkg.scripts.gate = `node "${gatePath}"`;
   repo.write('package.json', JSON.stringify(pkg));
@@ -340,16 +338,18 @@ describe('secret rule', () => {
   /** A fake secret value; each case makes new ones. */
   const fake = () => `fake-${randomUUID()}`;
   /**
-   * Writes fake secret sources and points the gate at them: `files` go into the secrets folder,
+   * Writes fake secret sources: `files` go into the temporary checkout's secrets folder,
    * `key` into the Typesafe key file.
    */
   const sources = (repo: Repo, files: Record<string, string>, key?: string) => {
-    const folder = join(repo.root, 'secrets');
+    const folder = join(repo.dir, '.secrets');
     mkdirSync(folder, { recursive: true });
     for (const [name, text] of Object.entries(files)) writeFileSync(join(folder, name), text);
-    repo.env.GATE_SECRETS_DIR = folder;
-    if (key !== undefined) writeFileSync(join(repo.root, 'typesafe-key'), key);
-    repo.env.GATE_TYPESAFE_KEY = join(repo.root, 'typesafe-key');
+    if (key !== undefined) {
+      const config = join(repo.env.HOME, '.config', 'typesafe');
+      mkdirSync(config, { recursive: true });
+      writeFileSync(join(config, 'key'), key);
+    }
     return folder;
   };
   /** Asserts that no output holds a value. */
@@ -365,6 +365,52 @@ describe('secret rule', () => {
     expect(remoteHead(repo, 'feature')).toBe('');
     silent(result, ...values);
   };
+
+  describe('source overrides', () => {
+    const names = ['GATE_SECRETS_DIR', 'GATE_TYPESAFE_KEY'];
+    const fault = (name: string) => `gate: fault: ${name} is not allowed; secret sources are fixed`;
+
+    for (const hook of ['commit', 'push']) {
+      it.each([names.slice(0, 1), names.slice(1), names].map(overrides => ({ overrides })))(`${hook}: refuses source overrides $overrides`, ({ overrides }) => {
+        const repo = seeded();
+        const value = fake();
+        sources(repo, overrides.includes(names[0]) ? { token: value } : {}, overrides.includes(names[1]) ? value : undefined);
+        const empty = join(repo.root, 'empty-sources');
+        mkdirSync(empty);
+        const env = Object.fromEntries(overrides.map(name => [name, name === names[0] ? empty : join(empty, 'missing-key')]));
+        repo.write('leak.txt', value);
+        let result;
+        const before = repo.git('rev-parse', 'HEAD').stdout;
+        if (hook === 'commit') {
+          expect(repo.git('add', 'leak.txt').status).toBe(0);
+          result = repo.run('git', ['commit', '-q', '-m', 'synthetic secret'], { env });
+        } else {
+          commitPast(repo, 'synthetic secret', 'leak.txt');
+          result = repo.run('git', ['push', 'origin', 'HEAD:refs/heads/feature'], { env });
+        }
+        expect(result.status).not.toBe(0);
+        if (hook === 'commit') expect(repo.git('rev-parse', 'HEAD').stdout).toBe(before);
+        else expect(remoteHead(repo, 'feature')).toBe('');
+        expect(lines(result.stderr, 'gate: ')).toEqual([fault(overrides[0])]);
+        silent(result, value, ...Object.values(env));
+      });
+    }
+
+    for (const name of names) {
+      it.each(['', 'missing-source'])(`refuses ${name}=%j before it reads a source`, value => {
+        const repo = make();
+        const token = fake();
+        sources(repo, { 'invalid.json': `{"token":"${token}"` });
+        repo.write('notes.txt', 'notes\n');
+        expect(repo.git('add', 'notes.txt').status).toBe(0);
+        const result = repo.run('node', [gatePath, 'staged'], { env: { [name]: value } });
+        expect(result.status).toBe(2);
+        expect(result.stdout).toBe('');
+        expect(result.stderr.trim()).toBe(fault(name));
+        silent(result, token);
+      });
+    }
+  });
 
   it('push: a value in a text file, in a binary file and in a commit message each refuse the push', () => {
     const repo = seeded();
@@ -440,7 +486,6 @@ describe('secret rule', () => {
   it('takes the secrets folder of the main checkout, also in a linked worktree', () => {
     const repo = seeded();
     const token = fake();
-    delete repo.env.GATE_SECRETS_DIR;
     mkdirSync(join(repo.dir, '.secrets'));
     writeFileSync(join(repo.dir, '.secrets/kaggle_api_token'), token);
     const linked = join(repo.root, 'linked');
@@ -473,11 +518,12 @@ describe('secret rule', () => {
       expect(result.stderr).toMatch(/^gate: fault: secrets: .*cannot read/);
       expect(result.stderr.trim().split('\n')).toHaveLength(1);
     } finally { chmodSync(folder, 0o700); }
-    chmodSync(join(repo.root, 'typesafe-key'), 0);
+    const keyFile = join(repo.env.HOME, '.config', 'typesafe', 'key');
+    chmodSync(keyFile, 0);
     const result = gate();
     expect(result.status).toBe(2);
     expect(result.stderr).toMatch(/^gate: fault: secrets: typesafe key: cannot read/);
-    chmodSync(join(repo.root, 'typesafe-key'), 0o600);
+    chmodSync(keyFile, 0o600);
   });
 
   it('a JSON file that does not parse gives exit 2, and the fault line does not quote it', () => {

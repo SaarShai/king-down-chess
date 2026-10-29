@@ -22,80 +22,11 @@ import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { resolve as resolvePath } from 'node:path';
 import type { GameRecord } from '../src/sim/game';
-import type { Rules } from '../src/rules/rules';
-import { CP_CLAMP, CP_SCALE, DEAD_BAND, DECISION_CP, INTEREST, UNSURE } from '../src/sim/weights';
-// The one exception to the port below: who moved at a ply is a *rule*, so it is imported, never
-// copied. `moverAt` is one line with no state; a second copy is how the parity bug survived.
+import { leadMetrics, trajectory } from '../src/sim/metrics';
+import { INTEREST } from '../src/sim/weights';
 import { WHITE, moverAt } from '../src/rules/engine';
 
-/**
- * `trajectory` and `leadMetrics` below are a **line-for-line port of `src/sim/analyze.ts`**, not a
- * second definition: the constants still come from `src/sim/weights.ts`, so the two cannot drift on
- * a weight, and `moverAt` is imported outright. They are copied rather than imported because `src/` is owned by other agents and was
- * mid-edit (a broken template literal) while this ran; importing it makes the mine break whenever
- * the analyser is being rewritten. If analyse and mine ever disagree, analyse is right — re-copy.
- */
-function trajectory(rec: GameRecord): { leadChanges: number; volatility: number; branchingFactor: number } {
-  const clamp = (c: number): number => Math.max(-CP_CLAMP, Math.min(CP_CLAMP, c));
-  let changes = 0, side = 0, s = 0, deltas = 0;
-  let prev: number | null = null;
-  rec.moves.forEach((m, i) => {
-    if (m.cp === undefined) return;
-    const cp = clamp(m.cp);
-    if (prev !== null) { s += Math.abs(cp - prev); deltas++; }
-    prev = cp;
-    if (i < 10) return;
-    const sg = cp > DEAD_BAND ? 1 : cp < -DEAD_BAND ? -1 : 0;
-    if (sg !== 0) { if (side !== 0 && sg !== side) changes++; side = sg; }
-  });
-  return {
-    leadChanges: changes,
-    volatility: deltas ? s / deltas : 0,
-    branchingFactor: mean(rec.moves.map(m => m.legal ?? 0)),
-  };
-}
-
-interface Lead {
-  killerMove: number; leadChange: number; uncertaintyLate: number; permanence: number; drama: number;
-  decisionCost: [number, number]; decisionAsymmetry: number;
-}
-
-export function leadMetrics(rec: GameRecord, rules: Partial<Rules> = rec.rules ?? {}): Lead {
-  const idx: number[] = [], lead: number[] = [];
-  const cost: [number, number] = [0, 0];
-  rec.moves.forEach((m, i) => {
-    if (m.gap !== undefined) cost[moverAt(i, rules)] += Math.log2(1 + Math.exp(-m.gap / DECISION_CP));
-    if (m.cp === undefined) return;
-    idx.push(i);
-    lead.push(2 / (1 + Math.exp(-Math.max(-CP_CLAMP, Math.min(CP_CLAMP, m.cp)) / CP_SCALE)) - 1);
-  });
-  const T = lead.length;
-  const z = rec.result === 1 ? 1 : rec.result === 0 ? -1 : 0;
-  if (T < 2) return { killerMove: 0, leadChange: 0, uncertaintyLate: 0.5, permanence: 1, drama: 0, decisionCost: cost, decisionAsymmetry: cost[1] - cost[0] };
-  let killer = 0, changes = 0, jerk = 0, dramaSum = 0, dramaN = 0;
-  for (let i = 1; i < T; i++) {
-    const d = lead[i] - lead[i - 1];
-    killer = Math.max(killer, (moverAt(idx[i], rules) === WHITE ? 1 : -1) * d);
-    if (Math.sign(lead[i]) !== 0 && Math.sign(lead[i]) !== Math.sign(lead[i - 1]) && Math.sign(lead[i - 1]) !== 0) changes++;
-    if (i >= 2) jerk += Math.abs(d - (lead[i - 1] - lead[i - 2]));
-  }
-  for (const l of lead) if (z !== 0 && z * l < 0) { dramaSum += Math.sqrt(-z * l); dramaN++; }
-  let u = 0;
-  for (let k = 0; k < 100; k++) {
-    const tau = k / 100;
-    u += tau - Math.abs(lead[Math.min(T - 1, Math.floor(tau * T))]);
-  }
-  return {
-    killerMove: Math.max(0, Math.min(1, killer)),
-    leadChange: changes / (T - 1),
-    uncertaintyLate: (u / 100 + 1) / 2,
-    permanence: T >= 3 ? Math.max(0, 1 - jerk / (T - 2)) : 1,
-    drama: dramaN ? dramaSum / dramaN : 0,
-    decisionCost: cost,
-    decisionAsymmetry: cost[1] - cost[0],
-  };
-}
-void UNSURE;
+export { leadMetrics };
 
 /** `--games 200` -> { games: '200' }; a bare `--flag` is `true`. Same shape as `spec.ts`. */
 function parseFlags(argv: readonly string[]): Record<string, string | true> {
@@ -456,7 +387,7 @@ function scan(rec: GameRecord, a: Acc, g: Global): void {
   const capturedBy = new Set<string>();
   rec.moves.forEach((m, ply) => {
     const lan = m.lan;
-    const white = moverAt(ply, rec.rules ?? {}) === WHITE;
+    const white = (m.by ?? moverAt(ply, rec.rules ?? {})) === WHITE;
     const p = lanPiece(lan);
     const body = lan.replace(/^[A-Z]/, '');
     const from = body.slice(0, 2);

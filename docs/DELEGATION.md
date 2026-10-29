@@ -84,6 +84,45 @@ Use the same narrow implementation template, plus exact read paths and compact t
 
 ## Review before accepting
 
+For an approved merge, use `node tools/merge-on-green.mjs <pr> <full-head-sha> <review.json>`.
+The helper requires this record for `SaarShai/king-down-chess`. Use full commit SHAs:
+
+```json
+{
+  "pr": 158,
+  "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "base": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "reviews": [
+    {
+      "id": "review-1",
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "base": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "result": "complete",
+      "openFindings": []
+    }
+  ]
+}
+```
+
+Add each requested review before it starts, with `result: "running"`. Keep its
+unique ID, reviewed head and base. Record its terminal result as `complete`,
+`failed`, or `cancelled`. Put each open finding ID in `openFindings`. Clear an ID
+only after you check its fix or record its rejection in the ticket. Keep every
+requested review in the record. Save record changes through an atomic rename.
+
+If a review uses an older head or base, check all its findings against the current
+diff. Add `reconcile` to that review with the current `head` and `base`,
+`result: "pass"`, and a `note` that names the check and evidence. Update the top
+record to the current PR head and base. A running, failed, or cancelled review,
+an open finding, or an absent reconcile blocks merge. The helper reads the PR
+and then the record again before merge. The record must match the current head
+and base. It requires at least 11 CI check-runs, all complete with `success`, on
+the full head SHA. It also checks the combined commit status on that head. A
+failed status refuses merge; a pending status waits. A head can have no commit statuses.
+The helper checks every 60 seconds for at most four elapsed hours. Each request,
+pause, and the final merge uses the remaining time. It uses `--match-head-commit`.
+This adds no extra reviewer. The merge approval rule in AGENTS.md still applies.
+
 Inspect the actual diff and invoke independent checks derived from the requirement. Verify fixture coherence, empty/sparse inputs, invalid identity, old-version failure and output labels. For a study, separately verify full starts, colour/seed mapping, frozen source/rules/spec/evaluator, actual search cost, physical counts, cap/missing-case treatment and the statistical unit. Distinguish a completed command, passing self-written tests, supervisor acceptance and actual study evidence.
 
 The direct follow-up found that the proposed linear/residual comparison used different material-value snapshots despite passing 171 setup/model checks. Prompt for a field-by-field comparison of every evaluator parameter except the intended treatment, and verify it independently. A model label, valid network blob and source hash are insufficient. Substitution studies also need every comparator army checked against the current pool limits; track the designated replacement piece separately from other pieces of its type.

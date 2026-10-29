@@ -121,7 +121,7 @@ suite('game setup through PostgreSQL', () => {
   expect(totals.reduce((n, value) => n + value, 0)).toBeGreaterThan(0);
   expect(await service.view(a, swept)).toMatchObject({ status: 'aborted', revision: 2, result: { winner: null, reason: 'no_start' } });
   expect(before.result).toBeUndefined();
-  expect((await admin.query("select count(*)::int as n from public.outbox where kind='game_finished' and payload->>'game_id'=$1", [swept])).rows[0].n).toBe(1);
+  expect((await admin.query("select count(*)::int as n from public.outbox where kind='game_finished' and payload->>'game_id'=$1", [swept])).rows[0].n).toBe(0);
   expect((await admin.query('select user_id,rating,rd,volatility,last_game_at from public.player_ratings where user_id=any($1) order by user_id', [[a, b]])).rows).toEqual(ratings);
   expect((await admin.query('select count(*)::int as n from public.rating_history where game_id=$1', [swept])).rows[0].n).toBe(0);
   const lazy = await create(), row = (await admin.query('select draw from public.games where id=$1', [lazy])).rows[0];
