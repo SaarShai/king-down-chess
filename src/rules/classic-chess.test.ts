@@ -227,6 +227,58 @@ describe('classic chess: en passant', () => {
     classic();
     expect(positionKey(fromFen('4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1'))).not.toBe(positionKey(fromFen('4k3/8/8/3pP3/8/8/8/4K3 w - - 0 1')));
   });
+
+  it('counts the audit position three times when en passant exposes the king', () => {
+    classic();
+    const game = new Game(CLASSIC_CHESS, RULES);
+    game.load(fromFen('kn2r3/8/8/3pP3/8/8/8/4K1N1 w - d6 0 2'));
+    expect(lans(game.pos)).not.toContain('e5xd6');
+    const loop = ['Ng1-f3', 'Nb8-c6', 'Nf3-g1', 'Nc6-b8'];
+    expect(game.playLan(loop)).toBe(4);
+    expect(game.status).toBe('playing');
+    expect(game.playLan(loop)).toBe(4);
+    expect(game.status).toBe('drawRepetition');
+  });
+
+  it('omits an illegal en passant capture from full and incremental keys', () => {
+    classic();
+    const pos = fromFen('kn2r3/8/8/3pP3/8/8/8/4K1N1 w - d6 0 2');
+    const key = positionKey({ ...pos, ep: undefined });
+    expect(positionKey(pos)).toBe(key);
+    const move = find(pos, 'Ng1-f3');
+    expect(probeApply(pos, move)).toEqual({ after: positionKey(makeMove(pos, move)), back: key });
+    const before = fromFen('kn2r3/3p4/8/4P3/8/8/8/4K1N1 b - - 0 1');
+    const step = find(before, 'd7-d5'), after = makeMove(before, step);
+    expect(positionKey(after)).toBe(positionKey({ ...after, ep: undefined }));
+    expect(probeApply(before, step)).toEqual({ after: positionKey(after), back: positionKey(before) });
+  });
+
+  it.each([
+    ['k7/8/8/r4pPK/8/8/8/8 w - f6 0 2', false],
+    ['4k1n1/8/8/8/3Pp3/8/8/KN2R3 b - d3 0 2', false],
+    ['k3r3/8/8/2Pp4/8/8/8/4K1N1 w - d6 0 2', false],
+    ['k3r3/8/8/2PpP3/8/8/8/4K1N1 w - d6 0 2', true],
+    ['5r1k/8/2p5/3pP3/4K3/r7/8/3r4 w - d6 0 2', true],
+  ])('counts en passant only with a legal capture: %s', (fen, available) => {
+    classic();
+    const pos = fromFen(fen), without = { ...pos, ep: undefined };
+    expect(pos.ep).toBeDefined();
+    expect(positionKey(pos) !== positionKey(without)).toBe(available);
+    for (const move of legalMoves(pos)) {
+      expect(probeApply(pos, move)).toEqual({ after: positionKey(makeMove(pos, move)), back: positionKey(pos) });
+    }
+  });
+
+  it('omits en passant while the capturing pawn is frozen', () => {
+    classic({ ...POWERS_BALANCED, kings: [null, { king: 'Frost', power: 'Freeze' }] });
+    const pos: Position = { ...fromFen('4k3/8/8/3pP3/8/8/8/4K1N1 w - d6 0 2'),
+      marks: [undefined, { sq: parseSq('e5') }] };
+    expect(lans(pos)).not.toContain('e5xd6');
+    expect(positionKey(pos)).toBe(positionKey({ ...pos, ep: undefined }));
+    for (const move of legalMoves(pos)) {
+      expect(probeApply(pos, move)).toEqual({ after: positionKey(makeMove(pos, move)), back: positionKey(pos) });
+    }
+  });
 });
 
 describe('classic chess: the search', () => {
