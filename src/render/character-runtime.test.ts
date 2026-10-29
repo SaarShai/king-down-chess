@@ -3,6 +3,44 @@ import { createCharacterRuntime, anchorAt, bankPointToWorld, idleBankAt, facingO
 const bank = (from = 'SE', to = 'S'): RuntimeBank => ({ id: `${from}-${to}`, character: 'pawn', army: 'white', kind: 'turn', from, to, facing: 'SE', durationMs: 120, nearest: true, pivot: [384,700], canvasSize: [768,768], bodyHeightPx: 600, registrationHeightPx: 600, frames: [0,60,120].map(timeMs => ({ url: `frame-${timeMs}`, timeMs })) });
 
 describe('ready character playback', () => {
+ it('reserves the actual idle images through cache pressure and releases stale reservations', async () => {
+  const frames=['rest','a','b','c','b','a','rest'].map((url,i)=>({url,timeMs:i*100}));
+  const idle={...bank(),id:'idle',character:'king-stratus',kind:'idle',durationMs:600,frames};
+  const later={...idle,id:'later',durationMs:1200,frames:[...frames,{url:'rest',timeMs:1200}]};
+  const pressure=Array.from({length:120},(_,i)=>({...idle,id:`p${i}`,character:`p${i}`,frames:[{url:`p${i}`,timeMs:0}]}));
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,later,...pressure]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  expect(await runtime.reserveIdle('king-stratus','white')).toBe(true);
+  const painted=runtime.rest('king-stratus','white',300,true) as {bank:string;url:string};expect(painted.url).toBe('c');
+  const exit=runtime.idleExit('king-stratus','white',painted);expect(exit?.(0)?.url).toBe('c');expect(exit?.(1)?.url).toBe('rest');
+  for(let i=0;i<pressure.length;i++)await runtime.warm(`p${i}`,'white');
+  expect([0,.25,.5,.75,1].map(t=>exit?.(t)?.url)).toEqual(['c','b','b','a','rest']);
+  expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);
+  runtime.releaseIdle();expect(runtime.idleExit('king-stratus','white',painted)).toBeNull();runtime.dispose();
+ });
+ it('does not pin an idle bank after selection is cancelled while images load', async () => {
+  const idle={...bank(),id:'idle',character:'king-stratus',kind:'idle',frames:[{url:'rest',timeMs:0},{url:'late',timeMs:60},{url:'rest',timeMs:120}]};let finish=()=>{};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(s:string){if(s.endsWith('/late'))finish=()=>img.onload?.();else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const pending=runtime.reserveIdle('king-stratus','white');await vi.waitFor(()=>expect(finish.toString()).not.toBe('()=>{}'));runtime.releaseIdle();finish();expect(await pending).toBe(false);
+  expect(runtime.idleExit('king-stratus','white',{bank:'idle',url:'rest'})).toBeNull();runtime.dispose();
+ });
+ it('retries smoke once idle pins release its budget', async () => {
+  const idle={...bank(),id:'idle',character:'king-stratus',kind:'idle',frames:[{url:'rest',timeMs:0},{url:'raise',timeMs:60},{url:'rest',timeMs:120}]};
+  const archer={...idle,id:'archer',character:'archer',frames:[{url:'archer',timeMs:0}]};
+  const smoke='data:text/javascript,export class ArrowSmoke{constructor(){globalThis.__smokeAttempts=(globalThis.__smokeAttempts||0)+1;this.image={decode:async()=>{}}}}';
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,archer],effects:{archer:{smoke,smokeDecodedBytes:48*1024*1024}}})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:2048,naturalHeight:2048,onload:null as null|(()=>void),decode:async()=>{},set src(s:string){if(s.endsWith('/archer')){img.naturalWidth=384;img.naturalHeight=384;}queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  expect(await runtime.reserveIdle('king-stratus','white')).toBe(true);await runtime.warm('archer','white');
+  await vi.waitFor(()=>expect((globalThis as {__smokeAttempts?:number}).__smokeAttempts).toBe(1));expect(runtime.smoke()).toBeNull();
+  runtime.releaseIdle();await vi.waitFor(()=>expect(runtime.smoke()).not.toBeNull());expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);runtime.dispose();delete (globalThis as {__smokeAttempts?:number}).__smokeAttempts;
+ });
+ it('discards a late reserved-idle image after disposal', async () => {
+  const idle={...bank(),id:'idle',character:'king-stratus',kind:'idle',frames:[{url:'rest',timeMs:0},{url:'late',timeMs:60},{url:'rest',timeMs:120}]};let finish:(()=>void)|undefined;
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(s:string){if(s.endsWith('/late')){const callback=img.onload;finish=()=>callback?.();}else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const pending=runtime.reserveIdle('king-stratus','white');await vi.waitFor(()=>expect(finish).toBeDefined());runtime.dispose();finish?.();expect(await pending).toBe(false);expect(runtime.stats.bytes).toBe(0);
+ });
  it('uses screen direction for both board orientations', () => {
   expect(facingOf(112,-112)).toBe('NE'); expect(facingOf(-112,112)).toBe('SW');
   expect(facingOf(0,-112)).toBe('N'); expect(facingOf(112,0)).toBe('E');

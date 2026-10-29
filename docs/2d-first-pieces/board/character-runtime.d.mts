@@ -11,6 +11,9 @@ export function createCharacterRuntime(options?: { url?: string; wake?: () => vo
  has(character: string, army: string): boolean;
  smoke(): { tick(dt: number, anchor: number[], scale?: number): void; draw(ctx: CanvasRenderingContext2D): void } | null;
  warm(character: string, army: string, full?: boolean): Promise<void>;
+ reserveIdle(character: string, army: string): Promise<boolean>;
+ releaseIdle(): void;
+ idleExit(character: string, army: string, body: { bank: string; url: string }): ((fraction: number) => { url: string } | null) | null;
  rest(character: string, army: string, time?: number, active?: boolean): unknown;
  prepare(character: string, army: string, direction: string, capture: boolean): Promise<unknown>;
  action(prepared: unknown, time: number, duration: number, contact: number): unknown;

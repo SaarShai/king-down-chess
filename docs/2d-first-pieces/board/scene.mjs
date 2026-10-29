@@ -102,7 +102,7 @@ for(const [type,name] of Object.entries(courtNames)){
  const idle=new Map(), work=new Map();
  let position={board:new Uint8Array(64)}, selected=null, lifted=null, liftTell=true, aimSquare=null, animation=null, aimAngle=0, aimFacing=1;
  let fallen=null, res=1, frame=0, previousTime=0, ready=false, disposed=false, flipped=false, coords=true, coordSize=13, coordInset=14, labels=false, reducedMotion=false, decorate=null;
- let effectTime=0,bodyFrames=[],effectFrames=[];
+ let effectTime=0,bodyFrames=[],effectFrames=[],idleReady=false,lastSelectedBody=null,pendingIdle=null,selectionGeneration=0;
  const smokeStreams=new Map();let smokeTime=0;
  // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, the board's frame and light,
  // and each king's own idle effect (king-effects.mjs). All off by default, so the trial and the trailer draw exactly as before.
@@ -862,7 +862,7 @@ function vortex(out,foot,phase,strength) {
    const actor=animation&&!animation.effect&&animation.move.from===sq,a=actor?animation:null;
    const elapsed=a?(time-a.start)/a.speed:0,local=elapsed-(a?.runtime?.beforeMs??0);
    const legacyKing=a&&typeOf(u.value)===K&&a.move.captures.length;
-   let body=legacyKing||a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,local,a.actionDuration,a.contactTime):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion);
+   let body=a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):legacyKing||a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,local,a.actionDuration,a.contactTime):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
    if(body){
     if(a?.runtime){
      if(local<0)u.pose={...a.from};else if(local>a.actionDuration)u.pose={...a.to};
@@ -899,7 +899,7 @@ function vortex(out,foot,phase,strength) {
    const up=typeof above==='function'?above({...death,size:SIZE,headroom}):death.t>=above,d2={...death,above:up};
    drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...d2,part:'back'}});
    late.push(()=>drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...d2,part:'front'}}));
-  }else drawPiece(ctx,unit.value,fx?.pose??unit.pose,unit.opacity,unit.extension,unit.fx,false);
+  }else {const drawn=fx?.pose??unit.pose;drawPiece(ctx,unit.value,drawn,unit.opacity,unit.extension,unit.fx,false);if(sq===selected&&!animation&&idleReady&&drawn.bank)lastSelectedBody={square:sq,value:unit.value,body:drawn.bank,pose:{...unit.pose,foot:{...unit.pose.foot}}};}
   if(fx)kingFx.front(ctx,fx);
  }
  const smokeDt=Math.max(0,Math.min(.05,(time-smokeTime)/1000));smokeTime=time;
@@ -934,13 +934,18 @@ function drawEncounter(a,t) {
   const wanted=animation?null:desiredPose();
   if(wanted){aimFacing=wanted.facing;aimAngle+=(wanted.angle-aimAngle)*(reducedMotion?1:1-Math.exp(-14*dt));if(Math.abs(wanted.angle-aimAngle)<.0001)aimAngle=wanted.angle;}
   const a=animation;
+  if(!a&&pendingIdle){pendingIdle=null;bodyRuntime?.releaseIdle();}
+  if(a?.exitReady){
+   a.exitStart??=time;
+   if(time-a.exitStart>=200){const prepared=a.exitReady;a.exitReady=null;a.exitBody=null;startPrepared(a,prepared,time);bodyRuntime.releaseIdle();}
+  }
   if(a?.effect&&!a.done&&!a.contacted&&(time-a.start)>=a.duration*a.speed*.62){a.contacted=true;if(a.move.captures.length)a.onContact?.();}
   if(animation!==a){wake();return;}
   if(a&&!a.done&&!a.preparing&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
   render(time);
   if(labels)drawLabels();
   if(frames===1&&!reducedMotion)requestAnimationFrame(()=>loadClips());
-  if((a&&!a.done&&!a.preparing)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading||clipShown)wake(false);
+  if((a&&!a.done&&(!a.preparing||a.exitReady))||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading||clipShown)wake(false);
   else{previousTime=0;if((idling()&&bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected])))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }
  function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
@@ -955,8 +960,23 @@ function drawEncounter(a,t) {
  // A move is over: a king's effect on the square he moved from starts again from nothing if he is there next
  // (he stayed, as with Death Touch, or came back); its fade-out during the move stays seamless.
  function endMove(){
+  selectionGeneration++;pendingIdle=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();
   if(animation){if(!animation.done)animation.resolve(false);kingSince.delete(animation.move.from);if(animation.move.swap)kingSince.delete(animation.move.to);}
   animation=null;
+ }
+ function reserveSelected(sq){
+  if(sq==null||reducedMotion||!bodyRuntime||!position.board[sq]||characterOf(position.board[sq])!=='king-stratus')return;
+  const value=position.board[sq],generation=++selectionGeneration;void bodyRuntime.reserveIdle(characterOf(value),armyOf(value)).then(ok=>{if(ok&&generation===selectionGeneration&&selected===sq&&position.board[sq]===value&&!disposed&&!reducedMotion){idleReady=true;wake();}});
+ }
+ function startPrepared(a,prepared,now){
+  if(!prepared)a.bodyUnavailable=true;
+  if(prepared&&!reducedMotion){
+   a.runtime=prepared;a.legacyDuration=a.duration;a.actionDuration=prepared.attack?.durationMs??a.duration;
+   a.contactTime=prepared.attack?(prepared.attack.contactMs??prepared.attack.durationMs*.45):contactTime(a);
+   if(prepared.effect){prepared.release=prepared.attack.beatTimes.release??a.contactTime;a.contactTime=prepared.release+prepared.effect.contactMs;a.actionDuration=Math.max(prepared.attack.durationMs,prepared.release+prepared.effect.player.durationMs)+(a.move.from===a.move.to?0:420);}
+   a.duration=a.actionDuration+prepared.beforeMs+prepared.afterMs;
+  }
+  a.preparing=false;a.start=now;
  }
  // Body banks keep their recorded timing; the separate effect meets the body's contact drawing.
  function effectTimeAt(a,t){
@@ -1040,8 +1060,15 @@ function drawEncounter(a,t) {
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
   load(){const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;warmBodies();wake();});},
   /** New position: ends any finished or running animation. */
-  setPosition(next){const m=animation?.move;if(m&&!animation.effect&&smokeStreams.has(m.from)&&next.board[m.to]===position.board[m.from]){const smoke=smokeStreams.get(m.from);smokeStreams.delete(m.from);smokeStreams.set(m.to,smoke);}else if([...position.board].some((v,sq)=>v!==next.board[sq]))smokeStreams.clear();endMove();lifted=null;position=next;aimAngle=0;warmBodies();wake();},
-  setSelected(sq){if(sq!=null&&bodyRuntime&&position.board[sq])void bodyRuntime.warm(characterOf(position.board[sq]),armyOf(position.board[sq]),true);if(sq!==selected){selected=sq;selectedAt=null;const name=sq===null?null:CLIP_OF[typeOf(position.board[sq])];if(name&&lively.idle)loadClips(name);selectedClip=clipReady(name)?name:null;aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
+  setPosition(next){const m=animation?.move,selectedValue=selected===null?null:position.board[selected],keepIdle=!animation&&idleReady&&selectedValue&&selectedValue===next.board[selected]&&characterOf(selectedValue)==='king-stratus';if(m&&!animation.effect&&smokeStreams.has(m.from)&&next.board[m.to]===position.board[m.from]){const smoke=smokeStreams.get(m.from);smokeStreams.delete(m.from);smokeStreams.set(m.to,smoke);}else if([...position.board].some((v,sq)=>v!==next.board[sq]))smokeStreams.clear();if(!keepIdle)endMove();lifted=null;position=next;if(selected!==null&&selectedValue!==position.board[selected])selectedAt=null;aimAngle=0;warmBodies();if(!keepIdle)reserveSelected(selected);wake();},
+  setSelected(sq){if(sq!=null&&bodyRuntime&&position.board[sq])void bodyRuntime.warm(characterOf(position.board[sq]),armyOf(position.board[sq]),true);if(sq!==selected){
+   if(animation?.exitBody)endMove();
+   selectionGeneration++;
+   if(sq===null&&idleReady&&lastSelectedBody?.square===selected)pendingIdle=lastSelectedBody;
+   else {pendingIdle=null;bodyRuntime?.releaseIdle();}
+   idleReady=false;lastSelectedBody=null;selected=sq;selectedAt=null;
+   reserveSelected(sq);
+   const name=sq===null?null:CLIP_OF[typeOf(position.board[sq])];if(name&&lively.idle)loadClips(name);selectedClip=clipReady(name)?name:null;aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
   /** Opt-in tell; lift=false shows only the glow. A new position or move clears it. */
   setLifted(sq,lift=true){lifted=sq;liftTell=lift;wake();},
   get lifted(){return lifted;},
@@ -1049,7 +1076,7 @@ function drawEncounter(a,t) {
   // (The contact shadows are kept: no sprite depends on the side shown.)
   setFlipped(on){flipped=on;idle.clear();wake();},
   /** [white, black] king designs ('frost' … 'shadow'): each side's king figure. */
-  setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;kings=[...next];for(const design of kings){kingImage(design).loaded.catch(()=>{});if(lively.kings)kingFx.has(design);}wake();},
+  setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;if(animation?.exitBody)endMove();const value=selected!==null?position.board[selected]:null,selectedDesign=value?characterOf(value):null,keepIdle=!animation&&idleReady&&selectedDesign==='king-stratus'&&next[colorOf(value)]===kings[colorOf(value)];if(!keepIdle){selectionGeneration++;pendingIdle=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}kings=[...next];if(selectedDesign&&selectedDesign!==characterOf(value))selectedAt=null;for(const design of kings){kingImage(design).loaded.catch(()=>{});if(lively.kings)kingFx.has(design);}if(!keepIdle)reserveSelected(selected);wake();},
   get kings(){return [...kings];},
   /** Restart the visible ground loops together for the effects workshop. */
   restartKingGround(){const since=performance.now();for(const entry of kingSince.values()){entry.since=since;entry.offset=0;}wake();},
@@ -1064,7 +1091,7 @@ function drawEncounter(a,t) {
   /** size: letter height in board units (default 13); a small board on a phone needs more. */
   setCoords(on,size=13,inset=14){coords=on;coordSize=size;coordInset=inset;wake();},
   setLabels(on){labels=on;wake();},
-  setReducedMotion(on){const was=reducedMotion;reducedMotion=on;if(on&&(animation?.runtime||animation?.preparing))endMove();if(on)awakeUntil=0;else if(was)loadClips();wake();},
+  setReducedMotion(on){const was=reducedMotion;reducedMotion=on;if(on){selectionGeneration++;pendingIdle=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}if(on&&(animation?.runtime||animation?.preparing))endMove();if(on)awakeUntil=0;else if(was){loadClips();reserveSelected(selected);}wake();},
   /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. */
   setFallen(sq,animate=true,rotation=-1.5){fallen=sq==null?null:{sq,rotation,start:animate?performance.now():-Infinity};wake();},
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
@@ -1085,6 +1112,7 @@ function drawEncounter(a,t) {
   get frames(){return frames;},
   /** The ready body frames the last draw used, for registration checks. */
   get characterFrames(){return bodyFrames;},
+  get characterExit(){return animation?.exitStart??null;},
   get characterMemory(){return bodyRuntime?.stats??{bytes:0,peakBytes:0,active:0,queued:0};},
   get characterEffects(){return effectFrames;},
   setDecorate(fn){decorate=fn;wake();},
@@ -1103,25 +1131,26 @@ function drawEncounter(a,t) {
     if(bodyRuntime&&!effect&&move.promo)void bodyRuntime.warm(ART[move.promo],armyOf(base.value));
     const available=!effect&&bodyRuntime?.has(characterOf(base.value),armyOf(base.value));
     const a=animation={...base,resolve,onContact,bodyUnavailable:!!bodyRuntime&&!available};onStatus(verb);
+    const lastPose=pendingIdle?.pose;
+    if(pendingIdle&&pendingIdle.square===move.from&&pendingIdle.value===base.value&&!move.captures.length&&!move.shove&&!move.swap&&!effect&&!reducedMotion&&fallen?.sq!==move.from&&lastPose.foot.x===base.from.foot.x&&lastPose.foot.y===base.from.foot.y&&lastPose.scale===base.from.scale&&!(lastPose.rotation??0)&&(lastPose.sx??1)===1&&(lastPose.sy??1)===1){
+     a.exit=bodyRuntime.idleExit(characterOf(base.value),armyOf(base.value),pendingIdle.body);if(a.exit&&a.exit(1)?.url!==pendingIdle.body.url)a.exitBody=pendingIdle.body;
+    }
+    pendingIdle=null;if(!a.exitBody)bodyRuntime?.releaseIdle();
     if(available&&!effect&&!reducedMotion&&base.type!=='swap'&&!(typeOf(base.value)===K&&move.captures.length)){
      a.preparing=true;
      const target=move.shove?.from??move.captures[0]??move.to,from=foot(move.from),to=foot(target);
      void bodyRuntime.prepare(characterOf(base.value),armyOf(base.value),facingOf(to.x-from.x,to.y-from.y),!!move.captures.length||!!move.shove).then(prepared=>{
       if(disposed||animation!==a)return;
-      if(!prepared)a.bodyUnavailable=true;
-      if(prepared&&!reducedMotion){
-       a.runtime=prepared;a.legacyDuration=a.duration;a.actionDuration=prepared.attack?.durationMs??a.duration;
-       a.contactTime=prepared.attack?(prepared.attack.contactMs??prepared.attack.durationMs*.45):contactTime(a);
-       if(prepared.effect){prepared.release=prepared.attack.beatTimes.release??a.contactTime;a.contactTime=prepared.release+prepared.effect.contactMs;a.actionDuration=Math.max(prepared.attack.durationMs,prepared.release+prepared.effect.player.durationMs)+(move.from===move.to?0:420);}
-       a.duration=a.actionDuration+prepared.beforeMs+prepared.afterMs;
-      }
-      a.preparing=false;a.start=performance.now();wake();
+      const first=prepared?.before[0],join=first?(first.reverse?first.bank.frames.at(-1):first.bank.frames[0]):prepared?.rest.frames[0];
+      if(prepared&&a.exitBody&&join?.url===a.exit(1)?.url)a.exitReady=prepared;
+      else {a.exitBody=null;bodyRuntime.releaseIdle();startPrepared(a,prepared,performance.now());}
+      wake();
      });
     }
     wake();
    });
   },
-  cancel(){endMove();if(closeup)closeup.panel.hidden=true;aimAngle=0;wake();},
+  cancel(){if(animation||!idleReady||selected===null){endMove();reserveSelected(selected);}if(closeup)closeup.panel.hidden=true;aimAngle=0;wake();},
   dispose(){if(disposed)return;disposed=true;endMove();bodyRuntime?.dispose();smokeStreams.clear();cancelAnimationFrame(frame);frame=0;decorate=null;},
  };
  return api;
