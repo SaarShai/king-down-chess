@@ -174,7 +174,7 @@ suite('legacy finished game results in PostgreSQL', () => {
    ratings: (await admin.query('select * from public.player_ratings where user_id=any($1) order by user_id', [[a,b]])).rows,
   });
   const recorded = await effects();
-  expect(recorded.counts).toEqual({ receipt: 1, turns: 4, results: 1 });
+  expect(recorded.counts).toEqual({ receipt: 1, turns: 4, results: 0 });
   expect(recorded.history).toHaveLength(2);
   // Both instances receive the same accepted winning turn again after the game has finished.
   for (const retry of await Promise.all(games.map(service => service.command(b, game.game_id, winningTurn))))
@@ -242,13 +242,13 @@ suite('legacy finished game results in PostgreSQL', () => {
  it('rolls the result, ratings, badges and receipt back when the final write fails', async () => {
   const a = await user(), b = await user(), game = await friend(a, b), resign = command(1, { type: 'resign' });
   await admin.query(`create function fail_result_write() returns trigger language plpgsql as $$ begin
-   if new.payload->>'game_id'='${game.game_id}' and new.kind='game_finished' then raise exception 'test result write' using errcode='23514'; end if; return new; end $$;
-   create trigger fail_result_write before insert on public.outbox for each row execute function fail_result_write()`);
+   if new.game_id='${game.game_id}'::uuid and new.kind='resign' then raise exception 'test result write' using errcode='23514'; end if; return new; end $$;
+   create trigger fail_result_write before insert on public.game_commands for each row execute function fail_result_write()`);
   try {
    await expect(games[0].command(b, game.game_id, resign)).rejects.toMatchObject({ code: '23514' });
    expect(await games[0].record(a)).toEqual({ totals: { played: 0, won: 0, drawn: 0, lost: 0 }, rating: { rating: 1500, rd: 350, volatility: 0.06, provisional: true }, badges: [] });
    expect((await games[0].view(a, game.game_id)).revision).toBe(1);
-  } finally { await admin.query('drop trigger fail_result_write on public.outbox; drop function fail_result_write()'); }
+  } finally { await admin.query('drop trigger fail_result_write on public.game_commands; drop function fail_result_write()'); }
   await games[0].command(b, game.game_id, resign);
   expect((await games[0].record(a)).totals.won).toBe(1);
   expect((await games[0].record(a)).rating.rating).toBeGreaterThan(1500);

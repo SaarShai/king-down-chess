@@ -20,6 +20,7 @@ describe('tempRepo()', () => {
     expect(repo.git('config', 'core.hooksPath').stdout.trim()).toBe('.githooks');
     expect(repo.exists('.githooks/pre-commit')).toBe(true);
     expect(repo.git('status', '--porcelain').stdout).toBe('');
+    expect(repo.run('node', ['--input-type=module', '-e', "import { homedir } from 'node:os'; process.stdout.write(homedir());"]).stdout).toBe(join(repo.root, 'home'));
   });
 
   it('keeps the caller GIT_ variables from git, and the global and system configs are empty', () => {

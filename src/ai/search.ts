@@ -25,7 +25,7 @@ import {
   Z_ALL_HI, Z_ALL_LO, Z_CASTLE_HI, Z_CASTLE_LO, Z_DRAWN_HI, Z_DRAWN_LO, Z_FREE_HI, Z_FREE_LO, Z_HASTE_HI, Z_HASTE_LO, Z_HI, Z_LAST_HI, Z_LAST_LO, Z_LEFTB_HI, Z_LEFTB_LO, Z_LEFT_HI, Z_LEFT_LO,
   Z_EP_HI, Z_EP_LO, Z_LO, Z_LOST_HI, Z_LOST_LO, Z_MARK_HI, Z_MARK_LO, Z_RAGE_HI, Z_RAGE_LO,
   Z_TURN_HI, Z_TURN_LO, Z_USED_HI, Z_USED_LO, Z_WAIT_HI, Z_WAIT_LO, Z_WARD_HI, Z_WARD_LO,
-  combine, drawnIndex, lastIndex, lostIndex, positionKey, usedIndex, waitIndex, zIndex,
+  combine, drawnIndex, epForKey, lastIndex, lostIndex, positionKey, usedIndex, waitIndex, zIndex,
 } from '../rules/position-key';
 
 export { VALUES, evaluate, evaluatorName, setEvaluator } from './eval';
@@ -111,10 +111,12 @@ const fMark = new Int32Array(FRAMES), fHaste = new Int32Array(FRAMES), fLostTop 
 const fMark1 = new Int32Array(FRAMES), fMarkLeft = new Uint8Array(FRAMES), fMarkLeft1 = new Uint8Array(FRAMES), fFree = new Uint8Array(FRAMES), fWard = new Uint8Array(FRAMES);
 const fWait0 = new Uint8Array(FRAMES), fWait1 = new Uint8Array(FRAMES);
 const fMoveNo = new Int32Array(FRAMES), fRage = new Uint8Array(FRAMES), fDrawn0 = new Uint8Array(FRAMES), fDrawn1 = new Uint8Array(FRAMES), fLast0 = new Int8Array(FRAMES), fLast1 = new Int8Array(FRAMES);
-const fCastle = new Uint8Array(FRAMES), fEp = new Int8Array(FRAMES);
+const fCastle = new Uint8Array(FRAMES), fEp = new Int8Array(FRAMES), fEpKey = new Int8Array(FRAMES);
 let fsp = 0;
 /** Classic chess (`Position.castle`, `Position.ep`): the castling rights and the en-passant square (-1 = none). */
 let castleR = 0, epSq = -1, classic = false;
+/** The en-passant square in the key may differ from the stored move right. */
+let epKeySq = -1, rootPly = 0;
 /**
  * Power moves are offered only at plies 0…`powerPlyMax` (root, reply, own next move by default);
  * below that the search plays the pieces' own moves. A search heuristic, not a rule: Flight alone
@@ -220,10 +222,11 @@ function setCastle(v: number): void {
   for (let d = castleR ^ v, i = 0; d; d >>= 1, i++) if (d & 1) { hLo ^= Z_CASTLE_LO[i]; hHi ^= Z_CASTLE_HI[i]; }
   castleR = v;
 }
-function setEp(v: number): void {
-  if (epSq >= 0) { hLo ^= Z_EP_LO[epSq & 7]; hHi ^= Z_EP_HI[epSq & 7]; }
-  if (v >= 0) { hLo ^= Z_EP_LO[v & 7]; hHi ^= Z_EP_HI[v & 7]; }
+function setEp(v: number, key: number): void {
+  if (epKeySq >= 0) { hLo ^= Z_EP_LO[epKeySq & 7]; hHi ^= Z_EP_HI[epKeySq & 7]; }
+  if (key >= 0) { hLo ^= Z_EP_LO[key & 7]; hHi ^= Z_EP_HI[key & 7]; }
   epSq = v;
+  epKeySq = key;
 }
 function setHaste(v: number): void {
   if (hasteSq >= 0) { hLo ^= Z_HASTE_LO[hasteSq]; hHi ^= Z_HASTE_HI[hasteSq]; }
@@ -343,7 +346,7 @@ function apply(m: Move, c: Color): number {
   fWait0[fsp] = waitN[0]; fWait1[fsp] = waitN[1];
   fMoveNo[fsp] = moveNo; fRage[fsp] = rageKind; fDrawn0[fsp] = drawnN[0]; fDrawn1[fsp] = drawnN[1];
   fLast0[fsp] = lastName[0] ? ALL_CARDS.indexOf(lastName[0]) : -1; fLast1[fsp] = lastName[1] ? ALL_CARDS.indexOf(lastName[1]) : -1;
-  fCastle[fsp] = castleR; fEp[fsp] = epSq;
+  fCastle[fsp] = castleR; fEp[fsp] = epSq; fEpKey[fsp] = epKeySq;
   const still = isStill(m);
   if (!still) {
     const mover = moverOf(board, m, c), other = board[m.to];
@@ -365,7 +368,6 @@ function apply(m: Move, c: Color): number {
     }
   }
   if (castleR) setCastle(rightsAfter(castleR, m));
-  if (classic) setEp(!still ? epAfter(board, m, c) : holdsTurn(m) ? epSq : -1);
   if (m.power) setUsed(c, spend(c, usedPair[c], m.power, drawnN[c], m.via));
   if (m.power === 'growth' || m.power === 'growthb') setDrawn(c, drawnN[c] + 1);
   if (m.power && trackLast && handAt[c].length) setLast(c, TAG_POWER[m.power]);
@@ -390,6 +392,18 @@ function apply(m: Move, c: Color): number {
   setRage(m.power === 'rage' ? 1 : m.power === 'rageb' ? 2 : m.power === 'rally' ? 3 : 0);
   fFlip[fsp] = holdTurn ? 0 : 1;
   if (!holdTurn) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; if (c === BLACK) moveNo++; }
+  if (classic) {
+    const ep = !still ? epAfter(board, m, c) : holdTurn ? epSq : -1;
+    const key = ep < 0 ? -1 : epForKey({
+      board, turn: (holdTurn ? c : c ^ 1) as Color, halfmove: 0, ply: rootPly + fsp + 1,
+      ep, free, haste: hasteSq < 0 ? undefined : hasteSq,
+      marks: [
+        markSq[0] < 0 ? undefined : { sq: markSq[0], left: markLeft[0], ward: !!markWard[0], all: !!markAll[0] },
+        markSq[1] < 0 ? undefined : { sq: markSq[1], left: markLeft[1], ward: !!markWard[1], all: !!markAll[1] },
+      ],
+    });
+    setEp(ep, key);
+  }
   fsp++;
   return base;
 }
@@ -399,7 +413,7 @@ function undo(base: number): void {
   if (fFlip[fsp]) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; }
   moveNo = fMoveNo[fsp];
   setCastle(fCastle[fsp]);
-  setEp(fEp[fsp]);
+  setEp(fEp[fsp], fEpKey[fsp]);
   setHaste(fHaste[fsp]);
   setRage(fRage[fsp]);
   setFree(fFree[fsp] === 1);
@@ -849,6 +863,8 @@ function initPosition(pos: Position): void {
   rageKind = pos.rage ?? 0;
   castleR = pos.castle ?? 0;
   epSq = pos.ep ?? -1;
+  epKeySq = epForKey(pos);
+  rootPly = pos.ply;
   classic = RULES.classicChess;
   moveNo = moveNumber(pos);
   trackLast = tracksLast();
@@ -1022,4 +1038,3 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
   result.nodes = nodes;
   return result;
 }
-
