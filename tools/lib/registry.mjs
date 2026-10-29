@@ -30,7 +30,8 @@ export const checks = [
   { name: 'verb-marks', script: 'tools/verify-verb-marks.mjs', limit: 180 },
   { name: 'lessons', script: 'tools/verify-lessons.mjs', limit: 180 },
   { name: 'turn', script: 'tools/verify-turn.mjs', limit: 180 },
-  { name: 'link-game', script: 'tools/verify-link-game.mjs', args: ['link'], limit: 180 },
+  // The serverless game link is parked (docs/PARKED.md): its check runs only by name, and it can fail until the link returns.
+  { name: 'link-game', script: 'tools/verify-link-game.mjs', args: ['link'], limit: 180, byName: true },
   { name: 'end', script: 'tools/verify-end.mjs', limit: 180 },
   { name: 'their-turn', script: 'tools/verify-their-turn.mjs', limit: 180 },
   { name: 'game-screen', script: 'tools/verify-game-screen.mjs', limit: 240 },

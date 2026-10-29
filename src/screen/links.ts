@@ -49,8 +49,9 @@ export async function copyAndSay(button: HTMLElement, text: string, done: string
 }
 
 /**
- * Copy (the moves) and Share (a link to the game). `gameLink` makes the link of the game on the board.
- * The link names the preset of the live game's rules. `blocked`: Share does nothing now.
+ * Copy (the moves), and `gameLink`: the link of the game on the board, which names the preset of the live
+ * game's rules. The Share button (Send the game link) is parked (docs/PARKED.md); an old save of a link game
+ * still sends its turn with `gameLink`. `blocked` stays for Share's return.
  */
 export function connectLinks(c: { game(): Game; turnStart(): number; blocked(): boolean }) {
   $('copy').onclick = () => {
@@ -66,15 +67,5 @@ export function connectLinks(c: { game(): Game; turnStart(): number; blocked(): 
       game.backRank ? { army: game.backRank } : { fen: toFen(game.history[0]?.pos ?? game.pos) }, lans, game.rules.design?.code);
   }
 
-  $('share').onclick = async () => {
-    if (c.blocked()) return;
-    const url = gameLink(), button = $('share');
-    // A phone opens its share sheet (chat apps); elsewhere the link goes to the clipboard.
-    if (navigator.share && matchMedia('(pointer: coarse)').matches) {
-      try { await navigator.share({ title: 'King Down Chess', text: `King Down Chess: ${c.game().pos.turn ? 'Black' : 'White'} to move`, url }); return; }
-      catch (e) { if ((e as Error).name === 'AbortError') return; }
-    }
-    await copyAndSay(button, url, 'Link copied. Paste it to your friend.');
-  };
   return { gameLink };
 }

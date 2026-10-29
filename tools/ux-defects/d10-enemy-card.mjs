@@ -97,8 +97,8 @@ export default async function ({ open }) {
     assert.match(await contextText(page), /wins|Checkmate/i);
     await close();
 
-    // A game link: this device plays Black and waits for the friend's move.
-    ({ page, tap, close } = await open({ size, query: '?army=RNBQKBNR&moves=e2-e4' }));
+    // An old save of a game link (the link is parked, docs/PARKED.md): this device plays Black and waits for the friend's move.
+    ({ page, tap, close } = await open({ size, save: { back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'human', link: 1, sound: false } }));
     await tap(E7); await tap(E5);
     await waitForUi(page, ui => /e7-e5/.test(ui.lan.join(' ')));
     await tap(E4);

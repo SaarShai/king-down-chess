@@ -53,7 +53,15 @@ describe('New game setup', () => {
     const powered = setupOfGame(['human', 'ai'], [{ king: 'Frost', power: 'IceWall' }, null], 'club');
     expect(powered.mode).toBe('powers');
     expect(powered.picks).toEqual([{ king: 'Frost', power: 'IceWall' }, { king: 'Shadow', power: null }]);
-    expect(setupOfGame(['human', 'human'], [null, { king: 'Mud', power: 'Leap' }], 'club')).toMatchObject({ mode: 'two', twoPowers: true });
+    // Pass-and-play is parked (docs/PARKED.md): an old two-person save gives a setup against the computer.
+    expect(setupOfGame(['human', 'human'], [null, { king: 'Mud', power: 'Leap' }], 'club')).toMatchObject({ mode: 'powers', twoPowers: false });
+    expect(setupOfGame(['human', 'human'], [null, null], 'club')).toMatchObject({ mode: 'computer', twoPowers: false });
+  });
+
+  it('reads a remembered pass-and-play setup as a game against the computer (parked)', () => {
+    const two = withMode(defaultSetup(), 'two', true);
+    expect(parseSetup(JSON.parse(JSON.stringify(two)))).toMatchObject({ mode: 'powers', twoPowers: false });
+    expect(parseSetup(JSON.parse(JSON.stringify(withMode(defaultSetup(), 'two'))))).toMatchObject({ mode: 'computer', twoPowers: false });
   });
 
   it('accepts only a whole, valid remembered setup', () => {

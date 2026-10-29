@@ -57,7 +57,6 @@ function build() {
     ${segment('setup-rating', 'Game mode', ['casual','ranked'])}<p id="setup-rating-line" class="quiet-line">${rankedOffered() ? 'Casual does not change ratings. Ranked uses your existing rating.' : 'A game with a random player is Casual. Casual does not change ratings.'}</p><p id="setup-ranked-rules" class="quiet-line" hidden>${RANKED_RULES} ${RANKED_HELP}</p>
     ${toggle('anyRules', 'globe', 'Any rules', ANY_RULES)}
     <button id="play-open" class="menu-row has-lead"><span class="row-art fan">${['frost','flame','stratus'].map(k => image(`ui/emblems/${k}.webp`)).join('')}</span><span class="row-title">Open games</span><span class="line">Join a game that another player opened.</span><i aria-hidden="true">›</i></button>
-    <div id="play-join"><h3 class="group-head">Join with a code</h3><form id="join-form" class="code-row"><input id="token" class="field" aria-label="Game code" placeholder="K7QX2M" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go" required maxlength="300"><button id="join" type="submit">Join</button></form></div>
     ${levelSlider('setup-level')}<p id="level-line" class="seg-line"></p>
     <h3 id="setup-game-heading" class="group-head">The game</h3><fieldset id="setup-colour" class="seg colour-switch"><legend class="sr-only">Colour</legend><div class="seg-row">${['white','black'].map(value => `<label><input type="radio" name="setup-colour" value="${value}" aria-label="${name(value)}"><span>${name(value)}</span></label>`).join('')}</div></fieldset>
     ${section('fairy', 'Fairy pieces', segment('setup-sorting', 'First rank sorting', ['Random', 'Player']) + pieceList())}
@@ -90,7 +89,6 @@ function build() {
   $('setup-king').onclick = () => void pickKing();
   $('setup-start').onclick = () => void launch();
   $('play-open').onclick = () => { if (!blocked(draft!)) navigate('lobby'); };
-  $('join-form').onsubmit = event => { event.preventDefault(); memory.code = $<HTMLInputElement>('token').value.trim(); navigate('join'); };
 }
 function render() {
   if (stopped || queue.closed()) return;
@@ -99,7 +97,7 @@ function render() {
   for (const key of ['mode','colour'] as const) $('setup-body').querySelectorAll<HTMLInputElement>(`input[name="setup-${key}"]`).forEach(input => { input.checked = input.value === (key === 'mode' ? setup.kind : setup[key]); });
   $<HTMLInputElement>('setup-level').value = String(levelPosition(setup.level));
   $('setup-level').setAttribute('aria-valuetext', LEVEL_NAMES[setup.level]);
-  $('setup-level-control').hidden = $('level-line').hidden = setup.kind !== 'solo'; $('play-open').hidden = setup.kind !== 'random'; $('play-join').hidden = setup.kind !== 'friend'; $('level-line').textContent = LEVEL_LINES[setup.level];
+  $('setup-level-control').hidden = $('level-line').hidden = setup.kind !== 'solo'; $('play-open').hidden = setup.kind !== 'random'; $('level-line').textContent = LEVEL_LINES[setup.level];
   const ranked = setup.mode === 'ranked';
   $('setup-rating').hidden = setup.kind !== 'random' || !rankedOffered(); $('setup-rating-line').hidden = setup.kind !== 'random';
   $('setup-body').querySelectorAll<HTMLInputElement>('input[name="setup-rating"]').forEach(input => { input.checked = input.value === setup.mode; });

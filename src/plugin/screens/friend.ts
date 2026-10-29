@@ -2,7 +2,7 @@ import { features, icon } from '../../account-game/features';
 import { call, client, memory, navigate, renderGameRows, routeView, queue, send, showNewGame } from '../../account-game/runtime';
 import { art } from '../../account-game/art';
 import { formatDate } from '../../account-game/games-list';
-import { friendInvites as codes, sendInvite } from '../invite';
+import { friendInvites as codes, inviteLink, sendInvite } from '../invite';
 import { ICONS, type Icon } from '../../account/profile';
 import type { View } from '../../match/protocol';
 import './lobby.css';
@@ -10,7 +10,7 @@ import { errorText } from '../../account-game/types';
 import { UiMotion } from '../../ui/motion';
 import { inviteCopied } from '../../ui/object-motion';
 export const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
-/** After Cancel: drop the game's code and go to Play. A retried Cancel runs it as its continuation. */
+/** After Cancel: drop the game's invite and go to Play. A retried Cancel runs it as its continuation. */
 export function finishCancel(next: View) { codes.delete(next.game_id); navigate('play'); return Promise.resolve(); }
 export function portrait(key: Icon | null | undefined, big = false) {
   const span = document.createElement('span'); span.className = `portrait${big ? ' big' : ''}`;
@@ -26,7 +26,7 @@ export function row(title: string, lead: HTMLElement | string, line: (string | N
   el.append(head, sub); return el;
 }
 export function toolError(code: string, fallback: string) {
-  return ({ NOT_FOUND: 'No game has this code. Check the code with your friend.', FORBIDDEN: 'You cannot join this game.', INVALID_INPUT: 'Check the code: 6 letters and digits.', RATE_LIMITED: /code/i.test(fallback) ? 'Too many code tries. Wait one hour.' : fallback } as Record<string, string>)[code] ?? fallback;
+  return ({ NOT_FOUND: 'This invite link opens no game. Ask your friend for a new link.', FORBIDDEN: 'You cannot join this game.', INVALID_INPUT: 'This invite link is not complete. Ask your friend to send it again.', RATE_LIMITED: /code/i.test(fallback) ? 'Too many invite tries. Wait one hour.' : fallback } as Record<string, string>)[code] ?? fallback;
 }
 export function showError(error: unknown, target = $('error')) { target.textContent = errorText(error); }
 let making = false;
@@ -38,21 +38,22 @@ export function friendScreen() {
   copyEvent++; copyMotion?.cancel();
   clearTimeout(expiryTimer);
   const view = memory.view;
-  $('page-title').textContent = 'Your game code';
+  $('page-title').textContent = 'Invite a friend';
   if (view?.kind === 'friend' && view.status !== 'waiting') { routeView(view); return; }
   if (!view || view.kind !== 'friend' || view.status !== 'waiting') {
     $('friend-status').textContent = 'Open your friend game from Your games.'; return;
   }
   $('friend-status').textContent = '';
   const saved = codes.get(view.game_id), expired = !!saved && !(Date.parse(saved.expires_at) > Date.now());
-  const invite = saved && !saved.replaced && !expired ? saved : undefined, tiles = $('friend-code');
-  tiles.replaceChildren(...[...invite?.code ?? ''].map(c => { const span = document.createElement('span'); span.textContent = c; return span; }));
-  tiles.setAttribute('aria-label', invite ? [...invite.code].join(' ') : ''); tiles.hidden = !invite;
+  // Code tiles are parked (docs/PARKED.md): the page shows and sends the invite link, which holds the code.
+  const invite = saved && !saved.replaced && !expired ? saved : undefined, link = $('friend-link');
+  const words = document.createElement('span'); words.textContent = invite ? inviteLink(invite) : '';
+  link.replaceChildren(words); link.hidden = !invite;
   $('friend-actions').hidden = !invite; $('friend-new').hidden = !!invite;
-  $('friend-new').textContent = expired ? 'New game' : 'Make a new code';
+  $('friend-new').textContent = expired ? 'New game' : 'Make a new link';
   $('friend-copy-status').textContent = '';
-  $('friend-help').textContent = invite ? `Your friend says “Join King Down game ${invite.code}” in ChatGPT, or types the code in Menu. They need the King Down connection.` : expired ? 'This code has expired. Start a new game to invite your friend.' : saved?.replaced ? 'This code was replaced on another page. Make a new code to invite your friend.' : 'The saved game has no code on this page. A new code ends the old code.';
-  $('friend-game').replaceChildren(row(expired ? 'Invitation expired' : 'Waiting for your friend', 'clock', [invite ? `Ends ${formatDate(invite.expires_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.` : expired ? 'Start a new game to invite your friend.' : 'Make a new code to share this game.']));
+  $('friend-help').textContent = invite ? 'Your friend opens the link and signs in to join.' : expired ? 'This invite link has expired. Start a new game to invite your friend.' : saved?.replaced ? 'This invite link was replaced on another page. Make a new link to invite your friend.' : 'The saved game has no invite link on this page. A new link ends the old link.';
+  $('friend-game').replaceChildren(row(expired ? 'Invitation expired' : 'Waiting for your friend', 'clock', [invite ? `Ends ${formatDate(invite.expires_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.` : expired ? 'Start a new game to invite your friend.' : 'Make a new link to share this game.']));
   $('friend-game').querySelector('.line')!.id = 'friend-expiry';
   if (view.options) $('friend-game').append(row('Features', 'fairy', [features(view.options), `You play ${view.seat === 0 ? 'White' : 'Black'}.`]));
   const copy = async (share: boolean) => {
@@ -61,7 +62,7 @@ export function friendScreen() {
     copyMotion = new UiMotion(() => !stopped && client.state.screen === 'friend' && !memory.settings?.symbols_only, () => 'fast');
     const event = ++copyEvent;
     const result = await sendInvite(invite, view.options, $('friend-copy-status'), share);
-    if (result === 'copied' && event === copyEvent && !stopped && !queue.closed() && client.state.screen === 'friend' && memory.view?.game_id === view.game_id && codes.get(view.game_id) === invite && !invite.replaced && Date.parse(invite.expires_at) > Date.now()) inviteCopied(copyMotion, tiles, $('friend-copy-status'), performance.now());
+    if (result === 'copied' && event === copyEvent && !stopped && !queue.closed() && client.state.screen === 'friend' && memory.view?.game_id === view.game_id && codes.get(view.game_id) === invite && !invite.replaced && Date.parse(invite.expires_at) > Date.now()) inviteCopied(copyMotion, link, $('friend-copy-status'), performance.now());
   };
   $('friend-share').onclick = () => void copy(true);
   $('friend-copy').onclick = () => void copy(false);

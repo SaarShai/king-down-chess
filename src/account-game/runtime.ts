@@ -1,6 +1,6 @@
 import { acceptedView, createHall, createHallMemory } from '../account-game/hall';
 import type { PageHost, ReadRoute } from '../account-game/client';
-import { decorateFriendRows, friendInvites, syncFriendInvites } from '../plugin/invite';
+import { decorateFriendRows, friendInvites, inviteLink, syncFriendInvites } from '../plugin/invite';
 import { runtimeHost, type RuntimeContext } from './host';
 import type { PlayerSettings } from '../plugin/settings';
 
@@ -113,7 +113,6 @@ export function actions() {
   for (const id of ['setup-start', 'hall-play', 'games-start', 'wait-computer', 'find-opponent']) $<HTMLButtonElement>(id).disabled = lock.start || setupStarting();
   // The handoff's Choose and Get are steps of its start: their Retry or Try again on wait also locks its start.
   if (lock.game) $<HTMLButtonElement>('wait-computer').disabled = true;
-  $<HTMLInputElement>('join-code').disabled = lock.blocked;
   $<HTMLInputElement>('handle').disabled = lock.blocked;
   homeActions();
   for (const [id] of TOGGLES) $<HTMLInputElement>(id).disabled = lock.blocked || !memory.settings;
@@ -324,7 +323,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       if (name === 'kingdown_handle' && queue.current(job)) { followup = nameForCaller ? undefined : state.pending; if (followup) followup.error = followup.error_screen = undefined; if (queue.current(job)) navigate(followup?.screen ?? handleBack); }
       // An older job never routes. A poll reply routes only between the game screens of the shown game (design §1.2).
       if (shown && received && queue.current(job) && (route ?? SELECTION_TOOLS.includes(name)) && (!quiet || POLL_SCREENS.includes(state.screen))) routeView(received);
-      if (name === 'kingdown_invite' && queue.current(job)) { const { code } = result.structuredContent as { code: string }; $('invitation').textContent = `Share this code: ${code}`; }
+      if (name === 'kingdown_invite' && queue.current(job)) $('invitation').textContent = `Share this invite link: ${inviteLink(result.structuredContent as { code: string; url?: string })}`;
       // A reload preserves the command receipt; retry still uses its original ID.
       if (retain) state.pending = undefined;
       client.save();

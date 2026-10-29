@@ -98,7 +98,7 @@ export interface TableSnapshot {
  */
 export function renderTable(s: TableSnapshot): void {
   const context = s.context ?? new GameRules();
-  const { selected, selectedType, pending, canFinish, busy, thinking, notice, viewing, lesson, lessonDone, taken, sides, linkSide } = s;
+  const { selected, selectedType, pending, canFinish, busy, thinking, notice, viewing, lesson, lessonDone, taken } = s;
   $('selection-actions').hidden = selected == null || busy;
   $('stop-chain').hidden = !canFinish;
   $('stop-chain').textContent = selectedType === S ? `Stop here (${pending.length} bite${pending.length === 1 ? '' : 's'})` : 'Stop here';
@@ -158,7 +158,6 @@ export function renderTable(s: TableSnapshot): void {
   $('undo').setAttribute('aria-disabled', String(!s.undoOn));
   $<HTMLButtonElement>('resign').disabled = s.resigner == null;
   $<HTMLButtonElement>('copy').disabled = s.history.length === 0;
-  $('share').hidden = sides[0] !== 'human' || sides[1] !== 'human' || s.history.length === 0 || lesson != null || linkSide != null || s.staged > 0;
   $('next-lesson').hidden = lesson == null || !lessonDone;
   $('return-game').hidden = lesson == null;
   $('next-lesson').querySelector('.label')!.textContent = s.nextLesson != null ? `Next: ${s.nextLesson}` : 'Start a game';

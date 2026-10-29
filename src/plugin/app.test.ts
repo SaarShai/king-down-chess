@@ -83,7 +83,7 @@ it.each(['board', 'chat'])('keeps the invitation from %s Create before friend sc
   const invite = { token: 'private-token', code: 'ABC234', invite_id: 'a'.repeat(64), expires_at: new Date(Date.now() + 60_000).toISOString() };
   const waiting = { ...await waitingGame(), kind: 'friend', invite_id: invite.invite_id, invite } as View;
   const created = { content: [], structuredContent: { screen: 'board', game_id: waiting.game_id }, _meta: { view: waiting, invite, board_id: 'board-a' } };
-  const tiles = vi.spyOn(document.getElementById('friend-code')!, 'replaceChildren');
+  const link = vi.spyOn(document.getElementById('friend-link')!, 'replaceChildren');
   transport.call.mockClear();
   transport.call.mockImplementation(async ({ name }) => name === 'kingdown_create' ? created : name === 'kingdown_get'
     ? { content: [], _meta: { view: { ...waiting, invite: undefined } } } : name === 'kingdown_invite'
@@ -94,7 +94,8 @@ it.each(['board', 'chat'])('keeps the invitation from %s Create before friend sc
   await vi.advanceTimersByTimeAsync(0);
   expect(friendInvites.get(waiting.game_id)).toEqual(invite);
   expect(app.client.state.screen).toBe('friend');
-  expect(tiles.mock.calls.at(-1)).toEqual([...invite.code].map(textContent => expect.objectContaining({ textContent })));
+  // Code tiles are parked (docs/PARKED.md): the screen shows the invite link, which holds the code.
+  expect(link.mock.calls.at(-1)).toEqual([expect.objectContaining({ textContent: `/j#${invite.code}` })]);
   expect(document.getElementById('friend-actions')!.hidden).toBe(false);
   expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_invite')).toHaveLength(0);
 });
@@ -1329,10 +1330,10 @@ it.each(['valid', 'expired', 'absent'] as const)('keeps the friend row decoratio
   app.memory.games = [{ ...game, status: 'waiting', kind: 'friend' } as any]; app.renderGameRows();
   expect(button.replaceWith).toHaveBeenCalledTimes(kind === 'valid' ? 1 : 0);
   if (kind === 'valid') {
-    expect(line.prepend).toHaveBeenCalledWith('K7QX2M · ');
-    const share = made.find(el => el.textContent === 'Share'); expect(share.setAttribute).toHaveBeenCalledWith('aria-label', 'Share game K7QX2M');
+    expect(line.prepend).not.toHaveBeenCalled(); // the row shows no code (code tiles are parked)
+    const share = made.find(el => el.textContent === 'Share'); expect(share.setAttribute).toHaveBeenCalledWith('aria-label', 'Share the invite link');
     const send = vi.fn(async () => {}); vi.stubGlobal('navigator', { share: send }); share.onclick(); await vi.advanceTimersByTimeAsync(0);
-    expect(send).toHaveBeenCalledExactlyOnceWith({ text: 'Join King Down game K7QX2M. Rules: Standard pieces.' });
+    expect(send).toHaveBeenCalledExactlyOnceWith({ text: 'Join my King Down game: /j#K7QX2M Rules: Standard pieces.' });
   }
   vi.restoreAllMocks(); friendInvites.clear();
 });

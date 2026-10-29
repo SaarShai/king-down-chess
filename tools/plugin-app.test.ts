@@ -705,7 +705,8 @@ it('keeps chat preview and code errors in page memory on notification and mount'
 });
 // A static field takes text before the mount read ends. The mount then draws its screen from the new page's memory and
 // would clear what the player typed, so the code field stays blocked until the Join handlers are ready.
-it('reads a friend code again after the join preview remounts', async () => {
+// Parked (docs/PARKED.md): code typing has no code field; the invite link fills the join screen.
+it.skip('reads a friend code again after the join preview remounts', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   const tool = async (path: string, name: string, args = {}) => (await page.request.post(new URL(path, harness.url).href, { data: { name, arguments: args } })).json();
   try {
@@ -739,8 +740,9 @@ it('keeps a refused Join on the join screen', async () => {
     const friend = await tool('kingdown_create', { kind: 'friend', colour: 'white' });
     const invite = await tool('kingdown_invite', { game_id: friend._meta.view.game_id });
     await hall(page);
-    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
-    await frame.locator('#token').fill(invite.structuredContent.code); await frame.locator('#join').click();
+    // Code typing is parked (docs/PARKED.md): the invite link reaches the app as a chat open with the code.
+    const opened = await page.evaluate(code => (window as any).harnessTool({ name: 'kingdown_open', arguments: { code } }), invite.structuredContent.code);
+    await page.evaluate(result => (window as any).harnessShow(result), opened);
     await frame.locator('#join-confirm').waitFor();
     // The creator makes a new code, so the shown code stops working before the tap.
     await tool('kingdown_invite', { game_id: friend._meta.view.game_id });
@@ -1156,8 +1158,8 @@ it.each([false,true])('shows a draw offer and handles a decline before Resign (i
   try {
     await expand(page);
     await frame.locator('html').evaluate(async () => { const app=(window as any).harnessApp; await app.start('friend',{colour:'white',options:{fairy:false,pool:[],arrangement:false,classic:true,cards:false,cardPool:[],kingPowers:false}}); });
-    await frame.locator('#friend-new').click(); await frame.locator('#friend-code span').first().waitFor();
-    const code = (await frame.locator('#friend-code span').allTextContents()).join('');
+    await frame.locator('#friend-new').click(); await frame.locator('#friend-link span').waitFor();
+    const code = (await frame.locator('#friend-link').textContent())!.split('#')[1];
     const joined = await buddy('kingdown_join',{code});
     await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_get',{},false,false,true); });
     await frame.locator('#board-menu:not(:disabled)').click(); await frame.locator('#menu-draw').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Offer draw',exact:true}).click();
@@ -1389,9 +1391,9 @@ it('gives one offline sentence on Start and Join', async () => {
     await page.context().setOffline(true); await frame.locator('#setup-start').click();
     await expect.poll(() => frame.locator('#error').textContent()).toBe('Cannot connect. Check your connection, then try again.');
     await page.context().setOffline(false);
-    await frame.locator('html').evaluate(() => { (window as any).harnessApp.navigate('join'); });
-    await frame.locator('#join-code').fill('ABC123');
-    await page.context().setOffline(true); await frame.locator('#join-entry button').click();
+    // Code typing is parked (docs/PARKED.md): an invite link fills the code, and the join screen reads it.
+    await page.context().setOffline(true);
+    await frame.locator('html').evaluate(() => { const app = (window as any).harnessApp; app.memory.code = 'ABC234'; app.navigate('join'); });
     await expect.poll(() => frame.locator('#join-message').textContent()).toBe('Cannot connect. Check your connection, then try again.');
   } finally { await page.close(); }
 });
@@ -1403,7 +1405,7 @@ it('starts a friend game from the Menu hall in three taps, with each list under 
     await frame.locator('#setup-body .modes').getByRole('radio', {name:'Random',exact:true}).locator('..').click();
     expect([await frame.locator('#play-open').isVisible(), await frame.locator('#join-form').isVisible()]).toEqual([true, false]);
     await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
-    expect([await frame.locator('#play-open').isVisible(), await frame.locator('#join-form').isVisible()]).toEqual([false, true]);
+    expect([await frame.locator('#play-open').isVisible(), await frame.locator('#join-form').count()]).toEqual([false, 0]); // code typing is parked
     await frame.locator('#setup-start').click(); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     await frame.locator('#page-back').click(); await frame.locator('#games-list .menu-row').first().waitFor();
     expect(await frame.locator('#games-head').isVisible()).toBe(true);

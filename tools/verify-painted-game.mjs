@@ -1,7 +1,7 @@
 // Plays real games in the painted 2D look and checks the view keeps up with the game.
 // Run: npm run check:browser painted-game (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
-import { lessonPath, startLesson, confirmResign, endTurn, contextText, lanMoves, moveRow, openEndReview, openMenu, openMoves, pressMenu, resultText, waitForLinkSave, waitForUi } from './app-ui.mjs';
+import { lessonPath, startLesson, confirmResign, endTurn, contextText, lanMoves, moveRow, openEndReview, openMenu, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 const url = new URL(env('PLAYABLE_URL'));
@@ -194,8 +194,8 @@ try {
     console.log('ok review: list, arrows, replay, return');
   }
 
-  // 2e. Key moments: White's rook leaves the back rank, Black mates on e1. The result dialog names
-  // the blunder, and its button opens the review before it with the better move marked.
+  // 2e. Key moments are parked (docs/PARKED.md): Black mates on e1, the king topples, and Review opens the
+  // move list with no key-moment search.
   {
     const u = new URL(url); u.searchParams.set('fen', '4r1k1/8/8/8/8/8/5PPP/R5K1 w - - 0 1'); u.searchParams.set('players', 'human,human');
     await page.goto(u.href);
@@ -203,52 +203,16 @@ try {
     await page.evaluate(() => window.view.ready());
     for (const sq of [0, 48, 60, 4]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); if (sq === 48 || sq === 4) await endTurn(page); }
     await openEndReview(page);
-    await page.waitForFunction(() => document.querySelector('#over-moments button'), null, { timeout: 15000 });
     assert.equal(await page.evaluate(() => window.view.fallen?.sq), 6, 'the mated king on g1 topples');
-    await waitForUi(page, ui => ui.lan[0] === 'Ra1-a7' && ui.marks[0] === '??');
-    assert.match(await moveRow(page, 1).getAttribute('title'), /allowed a forced mate/, 'the move list marks the blunder');
-    const text = await page.textContent('#over-moments button');
-    assert.match(text, /^1\. Ra1-a7: White allowed a forced mate\. Better: /, text);
-    await page.click('#over-moments button');
-    assert.equal(await page.textContent('#turn'), 'Reviewing the start');
-    assert.equal(await page.evaluate(() => window.view.marks.hint.length), 2, 'the better move is marked');
-    assert.equal(await page.evaluate(() => window.view.pos.board[0] > 0), true, 'the rook is back on a1');
-    console.log(`ok key moments: "${text}"`);
+    await page.waitForTimeout(1000);
+    assert.equal(await page.locator('#over-moments button').count(), 0, 'Review starts no key-moment search');
+    console.log('ok key moments are parked');
+    await page.evaluate(() => localStorage.removeItem('kingdown.save')); // leave the finished game for a fresh table
+    await page.goto(url.href);
+    await page.waitForFunction(() => window.view?.ready);
+    await page.evaluate(() => window.view.ready());
   }
-  // 2f. Game link: open a friend's link (it replaces a different saved game only after a question),
-  // answer as Black, send the link back; the friend's device continues its saved game without asking.
-  {
-    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: url.origin });
-    const u = new URL(url); u.searchParams.set('army', 'RNBQKBNR'); u.searchParams.set('moves', 'e2-e4');
-    let asked = null; page.once('dialog', d => { asked = d.message(); d.accept(); });
-    await page.goto(u.href);
-    await page.waitForFunction(() => window.view?.pos?.board[28] > 0 && !window.view.pos.board[12]);
-    await waitForLinkSave(page, 'RNBQKBNR', ['e2-e4'], 1);
-    assert.match(asked ?? '', /replaces your current game/, 'a different saved game asks first');
-    assert.equal(new URL(page.url()).searchParams.has('moves'), false, 'the link parameters are dropped');
-    assert.deepEqual(await players(page), ['human', 'human']);
-    assert.ok((await at(56)).y > (await at(0)).y, 'Black, to move, plays from the bottom');
-    for (const sq of [52, 36]) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
-    await waitForUi(page, ui => /e7-e5/.test(ui.lan.join(' ')) && !window.view.scene.animating);
-    assert.match(await contextText(page), /Send your turn/);
-    const d2 = await at(11); await page.mouse.click(d2.x, d2.y);
-    assert.equal(await page.evaluate(() => window.view.marks.selected), null, "the friend's pieces do not move here");
-    await endTurn(page);
-    const sent = new URL(await page.evaluate(() => navigator.clipboard.readText()));
-    assert.deepEqual([sent.searchParams.get('army'), sent.searchParams.get('moves')], ['RNBQKBNR', 'e2-e4_e7-e5']);
-    await page.reload(); await page.waitForFunction(() => window.view?.pos?.board[36] > 0);
-    await waitForLinkSave(page, 'RNBQKBNR', ['e2-e4', 'e7-e5'], 1);
-    assert.ok((await at(56)).y > (await at(0)).y, 'a reload keeps the side and the game');
-    // The friend's device: its saved game is the start of the link, so it opens without a question.
-    await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('kingdown.save')); s.moves = ['e2-e4']; s.link = 0; localStorage.setItem('kingdown.save', JSON.stringify(s)); });
-    asked = null; const ask = d => { asked = d.message(); d.dismiss(); }; page.on('dialog', ask);
-    await page.goto(sent.href); await page.waitForFunction(() => window.view?.pos?.board[36] > 0);
-    await waitForLinkSave(page, 'RNBQKBNR', ['e2-e4', 'e7-e5'], 0);
-    page.off('dialog', ask);
-    assert.equal(asked, null, 'a continuation opens without a question');
-    assert.ok((await at(56)).y < (await at(0)).y, 'White, to move, plays from the bottom');
-    console.log(`ok game link: ${sent.search}`);
-  }
+  // 2f. The game link (parked, docs/PARKED.md) has its own check by name: link-game.
   // 2g. Lessons: each of the six pieces' signature moves from the New game dialog; a wrong move is
   // taken back; the saved game stays as it was.
   {
@@ -285,6 +249,7 @@ try {
     await confirmResign(page);
     await page.waitForFunction(() => document.getElementById('over').open);
     assert.equal(await page.evaluate(() => window.view.fallen?.sq), await page.evaluate(() => window.view.pos.board.findIndex(v => v === 6)), 'the resigning White king topples');
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: url.origin });
     await page.click('#share-result');
     const shared = await page.evaluate(() => navigator.clipboard.readText());
     assert.match(shared, new RegExp(`^King Down daily \\d{4}-\\d{2}-\\d{2} \\(${first}\\): lost in 0 moves against the \\w+ computer\\. http`), shared);

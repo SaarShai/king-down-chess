@@ -24,6 +24,17 @@ import { connectKeys } from './screen/keys';
 
 const params = new URLSearchParams(location.search);
 /**
+ * The game link (a whole game in `?moves=`, no server) is parked (docs/PARKED.md): such a link opens as a
+ * plain visit, and its parameters leave the address. The link code below stays for its return.
+ */
+const parkedLink = params.has('moves');
+if (parkedLink) {
+  for (const k of ['army', 'fen', 'moves', 'design', 'rules', 'kings']) params.delete(k);
+  const url = new URL(location.href);
+  url.search = params.toString();
+  history.replaceState(null, '', url);
+}
+/**
  * `?army=` or `?fen=`, with `&moves=`: a game sent by a friend (`gameLink`). It keeps this device's
  * settings, and replaces the autosave after a confirm, unless it continues the saved game.
  */
@@ -182,7 +193,8 @@ if (gameLink) { // a reload then resumes the autosave
 }
 play.restore(saved, { link: openLink, continues, urlRules: !!(preset || kings || (openLink && linkDesign)), title: showTitle,
   unreadable: stored.unreadable,
-  notice: unread ? `The game link holds a piece that this version cannot read.${saved ? ' Your saved game stays.' : ''}` : '' });
+  notice: parkedLink ? `This version cannot open game links.${saved ? ' Your saved game stays.' : ''}`
+    : unread ? `The game link holds a piece that this version cannot read.${saved ? ' Your saved game stays.' : ''}` : '' });
 await view.ready();
 if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
 guide.fill(); // after every setRules path (URL preset / save restore)

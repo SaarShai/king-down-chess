@@ -168,7 +168,8 @@ export function connectPlay(view: BoardView, c: {
     announce: ceremony => { $('announce').textContent = `${ceremony ? 'King Down. ' : ''}${moments.result()}`; },
     showPly, rematch: () => newGame(game.backRank || undefined, game.backRank ? null : toFen(game.history[0]?.pos ?? game.pos), true),
   });
-  connectEndReview($('over-review'), $<HTMLDialogElement>('over'), $('moves-line'), () => moments.listMoments());
+  // Key moments (`moments.listMoments`) are parked (docs/PARKED.md): Review opens the move list only.
+  connectEndReview($('over-review'), $<HTMLDialogElement>('over'), $('moves-line'));
 
   const refreshTurnButton = () => renderTurnButton($<HTMLButtonElement>('end-turn'), game, currentTurn(), turnMode(), linkSide, ended(), saveBlocked || busy || viewing != null, lesson != null);
   const announceTurn = () => announceWaiting(game, currentTurn(), turnMode(), $('end-turn'), $('announce'));

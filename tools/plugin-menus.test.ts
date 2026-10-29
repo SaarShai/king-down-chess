@@ -70,11 +70,8 @@ it('says 1 game, shows Your turn once, and gives the name page, code fields and 
     await go(page, 'play');
     expect((await frame.locator('[data-game-id="menus-1"]').textContent())!.match(/Your turn/g)).toHaveLength(1);
     expect(await frame.locator('[data-game-id="menus-1"] .turn-mark').textContent()).toBe('Your turn');
-    // F17: both code fields turn autocorrect off and show the placeholder in the secondary ink (#5b5045).
-    for (const id of ['token', 'join-code']) {
-      expect(await frame.locator(`#${id}`).getAttribute('autocorrect')).toBe('off');
-      expect(await frame.locator(`#${id}`).evaluate(el => getComputedStyle(el, '::placeholder').color)).toBe('rgb(91, 80, 69)');
-    }
+    // F17's code fields are parked (docs/PARKED.md): a friend joins by the invite link only.
+    for (const id of ['token', 'join-code']) expect(await frame.locator(`#${id}`).count()).toBe(0);
     // F20: lining figures in the page text.
     expect(await frame.locator('#home-line').evaluate(el => getComputedStyle(el).fontVariantNumeric)).toBe('lining-nums');
     // F6: the name page keeps "Each name is unique." only, with no name filled in for a player with none.

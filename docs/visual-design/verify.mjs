@@ -79,12 +79,12 @@ try {
   await page.context().close();
   ok('Home: Continue resumes the saved game; New game opens the sheet; the computer waits for Continue');
 
-  for (const q of ['?fen=' + encodeURIComponent(START), '?army=RNBQKBNR&moves=e2-e4', '?title=0']) {
+  for (const q of ['?fen=' + encodeURIComponent(START), '?title=0']) { // the game link is parked (docs/PARKED.md)
     page = await open(q, { skipTitle: false });
     assert.equal(await titleOpen(page), false, `no title for ${q}`);
     await page.context().close();
   }
-  ok('title: never over ?fen=, a game link, or ?title=0');
+  ok('title: never over ?fen= or ?title=0');
 
   // 2. Keyboard play and announcements: Tab to the board, arrows and Enter play e2-e4; both sides are announced.
   page = await open('?fen=' + encodeURIComponent(START));
@@ -211,17 +211,16 @@ try {
     await page.locator(dlg).evaluate(async sheet => { await Promise.all(sheet.getAnimations().map(a => a.finished.catch(() => {}))); });
     assert.deepEqual(await small(dlg), [], dlg); await page.keyboard.press('Escape');
   }
-  // New game in each of its three modes, with More options open: the king picker's emblems and powers too.
+  // New game in each of its two modes (pass-and-play is parked, docs/PARKED.md), with More options open: the king picker's emblems and powers too.
   await pressMenu(page, 'New game'); await page.click('#more-options summary');
-  for (const mode of ['computer', 'powers', 'two']) {
+  for (const mode of ['computer', 'powers']) {
     await page.click(`label:has(#mode-${mode})`);
-    if (mode === 'two') await page.check('#two-powers');
     assert.deepEqual(await small('#new-game'), [], `New game: ${mode}`);
   }
   assert.equal(await page.locator('#new-game .emblem:visible').count(), 12, 'six emblems a side');
   await page.keyboard.press('Escape');
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  ok('phone: every visible control in the panel, New game (all three modes, More options open), Settings and Guide is at least 44 px');
+  ok('phone: every visible control in the panel, New game (both modes, More options open), Settings and Guide is at least 44 px');
   await page.context().close();
 
   // 7. Round 2: the title's lineup shows all twelve pieces and leaves the buttons on screen.
