@@ -10,8 +10,7 @@ import { Pool } from 'pg';
 import { attachDatabasePool } from '@vercel/functions';
 import { pluginDatabaseConfig, testDatabase } from './plugin-db-config.mjs';
 import { createTokenVerifier, isLoopback, pluginOrigin } from '../src/plugin/auth.ts';
-import { consentConfig, renderConsent } from '../src/plugin/consent-config.ts';
-import { createPluginHandler } from '../src/plugin/http.ts';
+import { consentConfig, renderConsent, websiteConfig } from '../src/plugin/consent-config.ts';
 import { GameService } from '../src/match/service.ts';
 import { PluginService } from '../src/plugin/service.ts';
 import { PostgresMatchStore } from '../src/match/store.ts';
@@ -24,6 +23,11 @@ import { stagingConfig } from './staging-config.mjs';
 import { createAdmission } from '../src/api/admission.ts';
 import { createErrorWriter } from '../src/diagnostics/server.ts';
 import { createCurrentUserCheck } from '../src/api/current-user.ts';
+import { CHATGPT_PLUGIN } from './chatgpt-plugin.mjs';
+
+// A build sets KINGDOWN_CHATGPT (tools/plugin-server-build.mjs); the source follows the switch in tools/chatgpt-plugin.mjs.
+const BUILT_CHATGPT = import.meta.env?.KINGDOWN_CHATGPT;
+const CHATGPT_DEFAULT = typeof BUILT_CHATGPT === 'boolean' ? BUILT_CHATGPT : CHATGPT_PLUGIN;
 
 // A deployed server (staging or production) serves the website account API. The 0016 web_account_access
 // switch (enabled=false by default) keeps every operation closed until the owner opens it. A local run
@@ -64,7 +68,12 @@ export const ENABLED_WEB_OPERATIONS = new Set([
   'POST /api/blocks',
 ]);
 
-export async function configurePlugin(env = process.env, { localDev = false, serverless = false, websiteKeys, websiteCurrentUser } = {}) {
+/** `chatgpt: false` (the parked default) serves no MCP, OAuth metadata, consent page or board art: each answers 404.
+ *  It also needs no Supabase OAuth server, OAuth client or KINGDOWN_PLUGIN_OAUTH_READY: the website API needs only
+ *  SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY. */
+export async function configurePlugin(env = process.env, { localDev = false, serverless = false, websiteKeys, websiteCurrentUser, chatgpt = CHATGPT_DEFAULT } = {}) {
+  // A parked build has no MCP handler code (see the import below), so it cannot serve the plugin.
+  if (chatgpt && import.meta.env?.KINGDOWN_CHATGPT === false) throw new Error('This build parks the ChatGPT plugin; build it with chatgpt: true to serve the plugin');
   const publicOrigin = pluginOrigin(env.KINGDOWN_PLUGIN_ORIGIN || (localDev ? 'http://127.0.0.1:3100' : ''));
   const connectionString = env.KINGDOWN_PLUGIN_DATABASE_URL;
   if (!connectionString) throw new Error('KINGDOWN_PLUGIN_DATABASE_URL is required');
@@ -78,26 +87,31 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
     if (localDev !== true || env.NODE_ENV !== 'test' || !isLoopback(new URL(publicOrigin).hostname) || !env.SUPABASE_URL || typeof websiteKeys !== 'function') throw new Error('Website test keys require local development, NODE_ENV=test, a loopback origin and SUPABASE_URL');
     testDatabase(connectionString);
   }
-  let auth, config, consent;
+  let auth, config, consent, page;
 
   if (localDev) {
     if (env.NODE_ENV === 'production' || !isLoopback(new URL(publicOrigin).hostname) || !isLoopback(db.hostname)) throw new Error('Local personas require loopback HTTP and a disposable loopback database');
   } else {
     if (new URL(publicOrigin).protocol !== 'https:') throw new Error('Production OAuth requires an HTTPS origin');
-    if (env.KINGDOWN_PLUGIN_OAUTH_READY !== '1' || !env.SUPABASE_URL) throw new Error('Enable Supabase OAuth, consent/client registration and its resource audience hook before setting KINGDOWN_PLUGIN_OAUTH_READY=1');
-    config = consentConfig(env);
-    auth = createTokenVerifier({ supabaseUrl: env.SUPABASE_URL, publicOrigin, clientIds: config.clientIds, publishableKey: config.publishableKey });
-    // RFC 8414 path insertion for an issuer containing /auth/v1; published by Supabase MCP docs.
-    const discovery = new URL(`/.well-known/oauth-authorization-server/auth/v1`, auth.issuer);
-    const response = await fetch(discovery, { signal: AbortSignal.timeout(5000), redirect: 'error' });
-    if (!response.ok) throw new Error('Supabase OAuth discovery is unavailable; enable and verify the OAuth server before production');
-    const metadata = await response.json();
-    if (metadata.issuer !== auth.issuer || !Array.isArray(metadata.scopes_supported) || !metadata.scopes_supported.includes('openid')) throw new Error('Supabase OAuth discovery has an incompatible issuer or scopes');
+    if (!chatgpt) {
+      if (!env.SUPABASE_URL) throw new Error('SUPABASE_URL is required for the website API');
+      page = websiteConfig(env);
+    } else {
+      if (env.KINGDOWN_PLUGIN_OAUTH_READY !== '1' || !env.SUPABASE_URL) throw new Error('Enable Supabase OAuth, consent/client registration and its resource audience hook before setting KINGDOWN_PLUGIN_OAUTH_READY=1');
+      config = consentConfig(env);
+      auth = createTokenVerifier({ supabaseUrl: env.SUPABASE_URL, publicOrigin, clientIds: config.clientIds, publishableKey: config.publishableKey });
+      // RFC 8414 path insertion for an issuer containing /auth/v1; published by Supabase MCP docs.
+      const discovery = new URL(`/.well-known/oauth-authorization-server/auth/v1`, auth.issuer);
+      const response = await fetch(discovery, { signal: AbortSignal.timeout(5000), redirect: 'error' });
+      if (!response.ok) throw new Error('Supabase OAuth discovery is unavailable; enable and verify the OAuth server before production');
+      const metadata = await response.json();
+      if (metadata.issuer !== auth.issuer || !Array.isArray(metadata.scopes_supported) || !metadata.scopes_supported.includes('openid')) throw new Error('Supabase OAuth discovery has an incompatible issuer or scopes');
+    }
   }
   // A local run serves the consent page too when it has the public Supabase settings.
-  const page = config ?? (localDev && env.SUPABASE_URL ? consentConfig(env) : undefined);
-  if (page) consent = { html: renderConsent(await readFile(new URL('./consent.html', import.meta.url), 'utf8'), page), script: await readFile(new URL('./consent.mjs', import.meta.url), 'utf8'), supabaseOrigin: page.supabaseUrl };
-  const resourceHtml = await readFile(new URL('./board.html', import.meta.url), 'utf8');
+  page ??= config ?? (localDev && env.SUPABASE_URL ? (chatgpt ? consentConfig : websiteConfig)(env) : undefined);
+  if (page && chatgpt) consent = { html: renderConsent(await readFile(new URL('./consent.html', import.meta.url), 'utf8'), page), script: await readFile(new URL('./consent.mjs', import.meta.url), 'utf8'), supabaseOrigin: page.supabaseUrl };
+  const resourceHtml = chatgpt ? await readFile(new URL('./board.html', import.meta.url), 'utf8') : undefined;
   const pool = new Pool({ ...pluginDatabaseConfig(db, { localDev, serverless }), max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000 });
   if (serverless) attachDatabasePool(pool);
   pool.on('error', error => { console.error('King Down database connection failed', diagnostic(error)); });
@@ -105,7 +119,9 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
   catch (error) { await pool.end(); throw error; }
   const store = new PostgresMatchStore(pool), secret = env.KINGDOWN_INTERNAL_SECRET ?? '', games = new GameService(store, secret);
   const service = new PluginService(store, secret);
-  const mcp = createPluginHandler({ consent, service, publicOrigin, resourceHtml, auth, localDev });
+  // A dynamic import, so that a parked build (KINGDOWN_CHATGPT=false) leaves the MCP handler out of server.mjs.
+  const mcp = import.meta.env?.KINGDOWN_CHATGPT !== false && chatgpt
+    ? (await import('../src/plugin/http.ts')).createPluginHandler({ consent, service, publicOrigin, resourceHtml, auth, localDev }) : undefined;
   const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET });
   const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), players: service, publicOrigin,
     ...(import.meta.env?.KINGDOWN_ERROR_RECORDER !== false && { recordError: createErrorWriter(pool, typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : ''), build: typeof __KINGDOWN_BUILD__ === 'string' ? __KINGDOWN_BUILD__ : '' }),
@@ -116,11 +132,16 @@ export async function configurePlugin(env = process.env, { localDev = false, ser
   const handler = async (req, res) => {
     const path = req.url?.startsWith('/') && URL.canParse(req.url, publicOrigin) ? new URL(req.url, publicOrigin).pathname : '';
     if (/^\/internal(\/|$)/.test(path)) return internal(req, res);
-    if (path.startsWith('/plugin-art/')) return art(path.slice(12), res);
     if (/^\/api(?:\/|$)/.test(path)) return api(req, res);
+    if (!mcp) return parked(res);
+    if (path.startsWith('/plugin-art/')) return art(path.slice(12), res);
     await mcp(req, res);
   };
-  return { handler, pool, publicOrigin };
+  return { handler, pool, publicOrigin, chatgpt };
+}
+/** The parked ChatGPT surface (tools/chatgpt-plugin.mjs): every path outside /api and /internal. */
+function parked(res) {
+  res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }).end(JSON.stringify({ code: 'NOT_FOUND', message: 'Not found' }));
 }
 const ART = new URL('./plugin-art/', import.meta.url);
 /** The standalone server's board art; on Vercel the static layer answers first (tools/plugin-server-build.mjs). */
@@ -141,7 +162,7 @@ export async function startPluginServer({ localDev = false } = {}) {
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid server port');
   if (localDev && port !== Number(url.port || (url.protocol === 'https:' ? 443 : 80))) throw new Error('Local port must match KINGDOWN_PLUGIN_ORIGIN');
   const server = createServer({ requestTimeout: 20000, headersTimeout: 10000 }, (req, res) => { void app.handler(req, res).catch(() => { if (!res.headersSent) { res.statusCode = 500; res.end('Request failed'); } else res.destroy(); }); });
-  server.listen(port, localDev ? '127.0.0.1' : '0.0.0.0', () => console.log(`King Down MCP listening at ${app.publicOrigin}/mcp${localDev ? ' (loopback personas only)' : ''}`));
+  server.listen(port, localDev ? '127.0.0.1' : '0.0.0.0', () => console.log(`King Down server listening at ${app.publicOrigin}${app.chatgpt ? '/mcp' : ' (ChatGPT plugin parked)'}${localDev ? ' (loopback personas only)' : ''}`));
   const stop = () => { server.close(() => { void app.pool.end(); }); };
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
   return server;

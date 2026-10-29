@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { EventEmitter, once } from 'node:events';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { release as osRelease, tmpdir } from 'node:os';
@@ -15,6 +16,7 @@ import { testDatabase } from './plugin-db-config.mjs';
 import { build } from 'vite';
 import { createLocalJWKSet, exportJWK, generateKeyPair } from 'jose';
 import { buildPluginServer } from './plugin-server-build.mjs';
+import { CHATGPT_PLUGIN, PARKED_PATHS } from './chatgpt-plugin.mjs';
 
 export const WORKSHOP_SHELF = JSON.stringify({ v: 1, designs: [{
   v: 1, kind: 'piece', id: 'local-knight', name: 'My Knight', named: true,
@@ -88,9 +90,12 @@ export const PERSISTENT_OPTIONS = { headless: true, viewport: { width: 1440, hei
 /** An external recovery input must be a complete combined output. */
 export async function recoveryOutput(path) {
   const root = resolve(path);
-  const files = ['config.json', 'static/index.html', 'static/sw.js', 'functions/mcp.func/server.mjs', 'functions/mcp.func/.vc-config.json', 'functions/mcp.func/board.html', 'functions/mcp.func/runtime/index.mjs', 'functions/mcp.func/runtime/worker.mjs'];
+  const files = ['config.json', 'static/index.html', 'static/sw.js', 'functions/mcp.func/server.mjs', 'functions/mcp.func/.vc-config.json', 'functions/mcp.func/runtime/index.mjs', 'functions/mcp.func/runtime/worker.mjs'];
   const hashes = {};
   for (const file of files) hashes[file] = createHash('sha256').update(await readFile(join(root, file))).digest('hex');
+  // Only an output with the ChatGPT plugin (tools/chatgpt-plugin.mjs) has the board widget.
+  const board = 'functions/mcp.func/board.html';
+  if (existsSync(join(root, board))) hashes[board] = createHash('sha256').update(await readFile(join(root, board))).digest('hex');
   const worker = await readFile(join(root, 'static/sw.js'), 'utf8');
   assert.match(worker, /const POLICY = 'public-build-v1';/, 'Recovery keeps the safe policy');
   assert.doesNotMatch(worker, /const VERSION = 'dev';|const ALLOWLIST = \[\];|const PRECACHE = \[\];/, 'Recovery has built worker lists');
@@ -329,9 +334,11 @@ export async function main() {
     assert.equal(await page.locator('#turn').textContent(), 'Black to move', 'Reload keeps the next side');
     await shot(page, 'local-turn-after-reload');
 
+    // The release tree parks the ChatGPT plugin (tools/chatgpt-plugin.mjs): /mcp reaches the compiled server, which answers 404.
     const mcp = await page.request.get(`${origin}/mcp`, { maxRedirects: 0 });
-    assert.equal(mcp.status(), 405, 'MCP reaches the compiled server');
+    assert.equal(mcp.status(), CHATGPT_PLUGIN ? 405 : 404, 'MCP follows the plugin switch');
     assert.match(mcp.headers()['content-type'], /^application\/json/, 'The compiled server answers with JSON');
+    if (!CHATGPT_PLUGIN) for (const path of PARKED_PATHS) assert.equal((await page.request.get(origin + path, { maxRedirects: 0 })).status(), 404, `${path} is parked`);
     for (const path of ['/play/', `/g/${randomUUID()}`, '/j']) {
       const response = await page.request.get(origin + path, { maxRedirects: 0 });
       assert.equal(response.status(), 200, `${path} serves the public account entry`);

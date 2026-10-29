@@ -51,7 +51,7 @@ export function friendScreen() {
   $('friend-actions').hidden = !invite; $('friend-new').hidden = !!invite;
   $('friend-new').textContent = expired ? 'New game' : 'Make a new code';
   $('friend-copy-status').textContent = '';
-  $('friend-help').textContent = invite ? `Your friend says “Join King Down game ${invite.code}” in ChatGPT, or types the code in Menu. They need the King Down connection.` : expired ? 'This code has expired. Start a new game to invite your friend.' : saved?.replaced ? 'This code was replaced on another page. Make a new code to invite your friend.' : 'The saved game has no code on this page. A new code ends the old code.';
+  $('friend-help').textContent = invite ? 'Your friend signs in to King Down and types the code in Menu.' : expired ? 'This code has expired. Start a new game to invite your friend.' : saved?.replaced ? 'This code was replaced on another page. Make a new code to invite your friend.' : 'The saved game has no code on this page. A new code ends the old code.';
   $('friend-game').replaceChildren(row(expired ? 'Invitation expired' : 'Waiting for your friend', 'clock', [invite ? `Ends ${formatDate(invite.expires_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.` : expired ? 'Start a new game to invite your friend.' : 'Make a new code to share this game.']));
   $('friend-game').querySelector('.line')!.id = 'friend-expiry';
   if (view.options) $('friend-game').append(row('Features', 'fairy', [features(view.options), `You play ${view.seat === 0 ? 'White' : 'Black'}.`]));

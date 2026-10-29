@@ -11,6 +11,7 @@ import { pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { ENGINES } from './plugin-runtime-build.mjs';
+import { CHATGPT_PLUGIN, PARKED_PATHS } from './chatgpt-plugin.mjs';
 
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
 if (!connectionString) throw new Error('Set PLUGIN_TEST_DATABASE_URL to a disposable loopback PostgreSQL database');
@@ -28,7 +29,14 @@ try {
   assert.equal(config.version, 3);
   const fn = join(tree, 'functions/mcp.func');
   assert.equal(JSON.parse(await readFile(join(fn, '.vc-config.json'), 'utf8')).handler, 'server.mjs');
-  for (const path of ['authorize', 'consent.mjs', 'internal', '.well-known/oauth-protected-resource', '.well-known/oauth-protected-resource/mcp']) assert.equal(await realpath(join(tree, `functions/${path}.func`)), await realpath(fn), `${path} is the one function`);
+  // The parked ChatGPT plugin (tools/chatgpt-plugin.mjs) has no OAuth function paths, board, art or consent files.
+  const pluginLinks = ['authorize', 'consent.mjs', '.well-known/oauth-protected-resource', '.well-known/oauth-protected-resource/mcp'];
+  for (const path of ['internal', ...(CHATGPT_PLUGIN ? pluginLinks : [])]) assert.equal(await realpath(join(tree, `functions/${path}.func`)), await realpath(fn), `${path} is the one function`);
+  if (!CHATGPT_PLUGIN) {
+    for (const path of pluginLinks) assert.equal(await exists(join(tree, `functions/${path}.func`)), undefined, `The parked tree has no ${path} function`);
+    for (const file of [join(fn, 'board.html'), join(fn, 'consent.html'), join(fn, 'consent.mjs'), join(tree, 'static/plugin-art'), join(tree, 'static/.well-known')]) assert.equal(await exists(file), undefined, `The parked tree has no ${file.slice(tree.length + 1)}`);
+    assert(!config.routes.some(route => /plugin-art|well-known/.test(route.src)), 'The parked tree has no plugin art or challenge route');
+  }
   assert.equal(await exists(join(tree, 'functions/api.func')), undefined, 'No website API function');
   const apiRule = { src: '^/api(?:/.*)?$', dest: '/mcp' };
   assert.deepEqual(config.routes.filter(route => new RegExp(route.src).test('/api/games')), [apiRule]);
@@ -138,37 +146,53 @@ try {
     assert.match(response.headers.get('content-type') ?? '', /^text\/plain(?:\s*;|$)/i, challenge);
     assert.deepEqual(Buffer.from(await response.arrayBuffer()), await readFile(challengeFile), challenge);
   }
-  let requestId = 0;
-  const tool = async (name, args) => {
-    const response = await fetch(`${origin}/mcp`, { method: 'POST', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method: 'tools/call', params: { name, arguments: args } }) });
-    assert.equal(response.status, 200); return JSON.parse(await response.text()).result;
-  };
-  // The board names each art file of the static tree, and Vercel serves it with long cache and CORS headers.
-  const art = (await readdir(join(tree, 'static/plugin-art'))).sort();
-  for (const type of ['webp', 'png', 'svg', 'woff2']) assert(art.some(file => file.endsWith(`.${type}`)), `The tree has ${type} art`);
-  assert.deepEqual([...new Set((await readFile(join(fn, 'board.html'), 'utf8')).match(/(?<=https:\/\/kingdown-art\.invalid\/plugin-art\/)[\w-]+\.(?:webp|png|svg|woff2)/g))].sort(), art);
-  for (const file of art) {
-    const response = await fetch(`${origin}/plugin-art/${file}`);
-    assert.equal(response.status, 200, file); assert.equal(response.headers.get('content-type'), { webp: 'image/webp', png: 'image/png', svg: 'image/svg+xml', woff2: 'font/woff2' }[file.split('.').at(-1)]); assert.equal(response.headers.get('access-control-allow-origin'), '*'); assert.match(response.headers.get('cache-control'), /max-age=31536000.*immutable/);
+  // The game that the API reads below: made through MCP with the plugin, else through the website API (enabled section).
+  let game_id, lastCommand, art = [];
+  if (CHATGPT_PLUGIN) {
+    let requestId = 0;
+    const tool = async (name, args) => {
+      const response = await fetch(`${origin}/mcp`, { method: 'POST', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method: 'tools/call', params: { name, arguments: args } }) });
+      assert.equal(response.status, 200); return JSON.parse(await response.text()).result;
+    };
+    // The board names each art file of the static tree, and Vercel serves it with long cache and CORS headers.
+    art = (await readdir(join(tree, 'static/plugin-art'))).sort();
+    for (const type of ['webp', 'png', 'svg', 'woff2']) assert(art.some(file => file.endsWith(`.${type}`)), `The tree has ${type} art`);
+    assert.deepEqual([...new Set((await readFile(join(fn, 'board.html'), 'utf8')).match(/(?<=https:\/\/kingdown-art\.invalid\/plugin-art\/)[\w-]+\.(?:webp|png|svg|woff2)/g))].sort(), art);
+    for (const file of art) {
+      const response = await fetch(`${origin}/plugin-art/${file}`);
+      assert.equal(response.status, 200, file); assert.equal(response.headers.get('content-type'), { webp: 'image/webp', png: 'image/png', svg: 'image/svg+xml', woff2: 'font/woff2' }[file.split('.').at(-1)]); assert.equal(response.headers.get('access-control-allow-origin'), '*'); assert.match(response.headers.get('cache-control'), /max-age=31536000.*immutable/);
+    }
+    const open = await tool('kingdown_open', {}); assert(!open.isError);
+    assert.equal(open.structuredContent.screen, 'home'); assert.equal(open._meta.view, undefined);
+    let created = await tool('kingdown_create', { kind: 'solo' }); assert(!created.isError);
+    if (created._meta.view.status === 'setup') {
+      const v = created._meta.view;
+      created = await tool('kingdown_choose', { game_id: v.game_id, command_id: 'vercel-ready', expected_revision: v.revision, ...v.choices[v.seat], ready: true });
+      assert(!created.isError);
+    }
+    ({ game_id } = created._meta.view);
+    const { legal, revision } = created._meta.view;
+    const moved = await tool('kingdown_move', { game_id, command_id: 'vercel-first', expected_revision: revision, lan: legal.find(lan => !lan.includes('!')) });
+    assert(!moved.isError); assert.equal(moved._meta.view.revision, revision + 1);
+    lastCommand = moved._meta.view.last_commands.at(-1);
+    const authorize = await fetch(`${origin}/authorize?authorization_id=${randomUUID()}`);
+    assert.equal(authorize.status, 200); assert.match(authorize.headers.get('content-type'), /^text\/html/);
+    assert((await authorize.text()).includes(clientId)); assert.match(authorize.headers.get('content-security-policy'), /frame-ancestors 'none'/);
+    const script = await fetch(`${origin}/consent.mjs`); assert.equal(script.status, 200); assert.match(script.headers.get('content-type'), /^text\/javascript/);
+    for (const [path, status] of [['/.well-known/oauth-protected-resource', 404], ['/.well-known/oauth-protected-resource/mcp', 404]]) {
+      const response = await fetch(origin + path);
+      assert.equal(response.status, status, path); assert.match(response.headers.get('content-type'), /^application\/json/, `${path} reaches the function`);
+    }
+  } else {
+    // Parked: no plugin path reaches a page or the MCP handler. /mcp reaches the function, which answers 404.
+    for (const path of [...PARKED_PATHS, '/plugin-art/scroll-0123abcd.webp']) for (const method of ['GET', 'POST']) {
+      const response = await fetch(origin + path, { method, redirect: 'manual', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream' }, ...(method === 'POST' && { body: '{}' }) });
+      assert.equal(response.status, 404, `${method} ${path}`); assert.equal(response.headers.get('location'), null, path);
+    }
   }
-  const open = await tool('kingdown_open', {}); assert(!open.isError);
-  assert.equal(open.structuredContent.screen, 'home'); assert.equal(open._meta.view, undefined);
-  let created = await tool('kingdown_create', { kind: 'solo' }); assert(!created.isError);
-  if (created._meta.view.status === 'setup') {
-    const v = created._meta.view;
-    created = await tool('kingdown_choose', { game_id: v.game_id, command_id: 'vercel-ready', expected_revision: v.revision, ...v.choices[v.seat], ready: true });
-    assert(!created.isError);
-  }
-  const { game_id, legal, revision } = created._meta.view;
-  const moved = await tool('kingdown_move', { game_id, command_id: 'vercel-first', expected_revision: revision, lan: legal.find(lan => !lan.includes('!')) });
-  assert(!moved.isError); assert.equal(moved._meta.view.revision, revision + 1);
-  const authorize = await fetch(`${origin}/authorize?authorization_id=${randomUUID()}`);
-  assert.equal(authorize.status, 200); assert.match(authorize.headers.get('content-type'), /^text\/html/);
-  assert((await authorize.text()).includes(clientId)); assert.match(authorize.headers.get('content-security-policy'), /frame-ancestors 'none'/);
-  const script = await fetch(`${origin}/consent.mjs`); assert.equal(script.status, 200); assert.match(script.headers.get('content-type'), /^text\/javascript/);
-  for (const [path, status] of [['/internal/sweep', 403], ['/.well-known/oauth-protected-resource', 404], ['/.well-known/oauth-protected-resource/mcp', 404]]) {
-    const response = await fetch(origin + path);
-    assert.equal(response.status, status, path); assert.match(response.headers.get('content-type'), /^application\/json/, `${path} reaches the function`);
+  {
+    const response = await fetch(origin + '/internal/sweep');
+    assert.equal(response.status, 403, '/internal/sweep'); assert.match(response.headers.get('content-type'), /^application\/json/, '/internal/sweep reaches the function');
   }
 
   for (const path of ['/api', '/api/games', '/api/me/games']) {
@@ -200,7 +224,8 @@ try {
   const outbox = await job('/internal/outbox', secret); assert.equal(outbox.status, 404);
   assert.deepEqual(await outbox.json(), { code: 'NOT_FOUND', message: 'Not found' });
   const unknownJob = await job('/internal/unknown', secret); assert.equal(unknownJob.status, 404);
-  assert.deepEqual([...served].sort(), [...new Set(['function /.well-known/oauth-protected-resource', 'function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /internal/unknown', 'function /mcp', 'function /api/games', ...closedApi.map(([, path]) => `function ${new URL(path, origin).pathname}`), 'static /', 'static /plugin-art/*', 'static /privacy.html', 'static /sw.js', ...accountPaths.map(path => `static ${path}`), ...publicPaths.map(path => `static ${path}`), ...(hasChallenge ? [`static ${challenge}`] : [])])].sort(), 'Closed/default served paths');
+  const pluginServed = CHATGPT_PLUGIN ? ['function /.well-known/oauth-protected-resource', 'function /.well-known/oauth-protected-resource/mcp', 'function /authorize', 'function /consent.mjs', 'static /plugin-art/*'] : [];
+  assert.deepEqual([...served].sort(), [...new Set([...pluginServed, 'function /internal/outbox', 'function /internal/sweep', 'function /internal/tick', 'function /internal/unknown', 'function /mcp', 'function /api/games', ...closedApi.map(([, path]) => `function ${new URL(path, origin).pathname}`), 'static /', 'static /privacy.html', 'static /sw.js', ...accountPaths.map(path => `static ${path}`), ...publicPaths.map(path => `static ${path}`), ...(hasChallenge ? [`static ${challenge}`] : [])])].sort(), 'Closed/default served paths');
 
   await app.pool.end(); app = undefined;
   savedAccountAccess = (await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0]?.enabled;
@@ -216,6 +241,21 @@ try {
   assert.deepEqual(await offStatus.json(), { account_access: 'closed', valid_for_ms: 0 });
   await app.pool.end(); app = undefined;
   await pool.query('update public.web_account_access set enabled=true where singleton=true');
+  if (!CHATGPT_PLUGIN) {
+    // The parked tree makes the game through the website API, with a local session that the provider accepts.
+    app = await configurePlugin(webEnv, { localDev: true, websiteKeys, websiteCurrentUser: async (bearer, user) => { assert.equal(bearer, token); assert.equal(user, actor); } });
+    const web = async (path, body, status) => {
+      const response = await fetch(origin + path, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const value = await response.json(); assert.equal(response.status, status, `${path}: ${JSON.stringify(value)}`); return value;
+    };
+    const options = { fairy: true, pool: ['R', 'A', 'G', 'Q', 'M', 'S', 'O'], arrangement: false, classic: false, cards: false, cardPool: [], kingPowers: false };
+    const created = (await web('/api/games', { kind: 'solo', options, colour: 'white', command_id: randomUUID() }, 201)).view;
+    game_id = created.game_id;
+    const moved = await web(`/api/games/${game_id}/commands`, { command_id: 'vercel-first', expected_revision: created.revision, action: { type: 'turn', actions: [created.legal.find(lan => !lan.includes('!'))] } }, 200);
+    assert.equal(moved.revision, created.revision + 1);
+    lastCommand = moved.view.last_commands.at(-1);
+    await app.pool.end(); app = undefined;
+  }
   const currentUserRequests = [];
   app = await configurePlugin(webEnv, { localDev: true, websiteKeys, websiteCurrentUser: async (bearer, user) => {
     currentUserRequests.push([bearer, user]);
@@ -295,7 +335,7 @@ try {
   for (const path of ['/api', '/api/', '/api/unknown?probe=1']) await assertClosure(await api(path));
   const fullResponse = await api(`/api/games/${game_id}`, { headers: signed }); assert.equal(fullResponse.status, 200); const full = await fullResponse.json();
   const sinceResponse = await api(`/api/games/${game_id}?since=0`, { headers: signed }); assert.equal(sinceResponse.status, 200); const since = await sinceResponse.json();
-  assert.equal(full.game_id, game_id); assert(full.rules); assert.equal(since.game_id, game_id); assert.equal(since.rules, undefined); assert.equal(since.revision, full.revision); assert.deepEqual(since.last_commands.at(-1), moved._meta.view.last_commands.at(-1));
+  assert.equal(full.game_id, game_id); assert(full.rules); assert.equal(since.game_id, game_id); assert.equal(since.rules, undefined); assert.equal(since.revision, full.revision); assert.deepEqual(since.last_commands.at(-1), lastCommand);
   const invalidSince = await api(`/api/games/${game_id}?since=-1`, { headers: signed });
   assert.equal(invalidSince.status, 400); assert.equal((await invalidSince.json()).code, 'INVALID_INPUT');
   const gameRows = () => pool.query('select to_jsonb(g) as game from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=$1) order by g.id', [actor]);
@@ -315,7 +355,7 @@ try {
   assert.deepEqual((await gameRows()).rows, before, 'Provider-refused writes have no game effect');
   assert.deepEqual([...served].sort(), ['/api', '/api/', '/api/games', `/api/games/${game_id}`, '/api/me/games', '/api/me/profile', '/api/status', '/api/unknown'].map(path => `function ${path}`).sort(), 'Enabled/test served paths');
   console.log(`Same-switch compiled status/direct effects: ${JSON.stringify(effects)}`);
-  console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${accountPaths.length} browser entry routes, ${closedPaths.length} closed legacy/unknown paths, ${art.length} board art files, MCP open and move, OAuth, ${closedCases} closed/default API probes with zero pool calls, off-switch closure, ${enabledCases} enabled/test API probes with 3 current-provider refusals, internal jobs and ${archive.length} archived engine(s) passed`);
+  console.log(`Site tree: worker ${version} / public-build-v1, ${precache.length} offline URLs, ${accountPaths.length} browser entry routes, ${closedPaths.length} closed legacy/unknown paths, ${CHATGPT_PLUGIN ? `${art.length} board art files, MCP open and move, OAuth` : 'ChatGPT plugin parked (plugin paths 404), website API game and move'}, ${closedCases} closed/default API probes with zero pool calls, off-switch closure, ${enabledCases} enabled/test API probes with 3 current-provider refusals, internal jobs and ${archive.length} archived engine(s) passed`);
 } finally {
   try {
     if (savedAccountAccess !== undefined) {

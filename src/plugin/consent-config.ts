@@ -1,7 +1,9 @@
 /** Only public Supabase configuration may cross into the authorization page. */
 import { ACTOR_UUID } from './auth';
-export interface ConsentConfig { supabaseUrl: string; publishableKey: string; clientIds: string[] }
-export function consentConfig(env: Record<string, string | undefined>): ConsentConfig {
+export interface WebsiteConfig { supabaseUrl: string; publishableKey: string }
+export interface ConsentConfig extends WebsiteConfig { clientIds: string[] }
+/** The public Supabase settings that the website API needs; the parked ChatGPT plugin needs no OAuth client. */
+export function websiteConfig(env: Record<string, string | undefined>): WebsiteConfig {
   const supabaseUrl = new URL(env.SUPABASE_URL ?? '');
   if (supabaseUrl.protocol !== 'https:' || supabaseUrl.username || supabaseUrl.password || supabaseUrl.pathname !== '/' || supabaseUrl.search || supabaseUrl.hash) throw new Error('A fixed HTTPS Supabase origin is required');
   const publishableKey = env.SUPABASE_PUBLISHABLE_KEY ?? '';
@@ -10,9 +12,13 @@ export function consentConfig(env: Record<string, string | undefined>): ConsentC
     try { publicKey = JSON.parse(Buffer.from(publishableKey.split('.')[1], 'base64url').toString()).role === 'anon'; } catch { /* Not a public legacy key. */ }
   }
   if (!publicKey) throw new Error('SUPABASE_PUBLISHABLE_KEY must be a publishable or legacy anon key; secret/service-role keys are forbidden');
+  return { supabaseUrl: supabaseUrl.origin, publishableKey };
+}
+export function consentConfig(env: Record<string, string | undefined>): ConsentConfig {
+  const website = websiteConfig(env);
   const clientIds = [...new Set((env.KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS ?? '').split(',').map(id => id.trim().toLowerCase()).filter(Boolean))];
   if (!clientIds.length || clientIds.some(id => !ACTOR_UUID.test(id))) throw new Error('KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS must list approved Supabase OAuth client UUIDs');
-  return { supabaseUrl: supabaseUrl.origin, publishableKey, clientIds };
+  return { ...website, clientIds };
 }
 export function renderConsent(html: string, config: ConsentConfig): string {
   if (!html.includes('__KINGDOWN_CONSENT_CONFIG__')) throw new Error('Consent page is missing its configuration marker');

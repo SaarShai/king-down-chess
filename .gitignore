@@ -6,6 +6,7 @@ dist/
 plugin-dist/
 dist-plugin-ui/
 plugin-server-dist/
+plugin-server-chatgpt/
 /moderation-dist/
 .vercel/
 .DS_Store
