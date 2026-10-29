@@ -73,3 +73,15 @@ it('keeps CI on the parked plugin source over compiled HTTP and PostgreSQL', () 
   expect(workflow).toContain('- run: npm run plugin:build:chatgpt\n      - run: npm run plugin:server:check -- plugin-server-chatgpt\n');
   expect(JSON.parse(readFileSync('package.json', 'utf8')).scripts['plugin:build:chatgpt']).toBe('node tools/plugin-server-build.mjs plugin-server-chatgpt --chatgpt');
 });
+it('builds the legacy plugin target with the plugin surface that its release gates test', () => {
+  // tools/deploy.sh --target plugin publishes this tree to kingdown-plugin after the plugin protocol and browser gates,
+  // which test a `chatgpt: true` tree. A parked tree here would retire the old plugin behind gates that never saw it.
+  const out = mkdtempSync(join(tmpdir(), 'legacy-plugin-target-'));
+  try {
+    const [command, ...args] = JSON.parse(readFileSync('package.json', 'utf8')).scripts['plugin:build:vercel'].split(' ');
+    expect(command).toBe('node');
+    const run = spawnSync(process.execPath, [...args, out], { encoding: 'utf8', env: { PATH: process.env.PATH } });
+    expect(run.status, run.stderr).toBe(0);
+    for (const path of ['functions/mcp.func/consent.mjs', 'functions/mcp.func/board.html', 'functions/authorize.func', 'functions/.well-known']) expect(existsSync(join(out, '.vercel/output', path)), path).toBe(true);
+  } finally { rmSync(out, { recursive: true, force: true }); }
+}, 120_000);

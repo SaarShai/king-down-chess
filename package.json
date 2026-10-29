@@ -37,7 +37,7 @@
     "mod:build:staging": "node tools/mod-build.mjs",
     "plugin:server:check": "node tools/plugin-server-check.mjs",
     "plugin:serve": "node plugin-server-dist/server.mjs",
-    "plugin:build:vercel": "node tools/plugin-server-build.mjs --vercel",
+    "plugin:build:vercel": "node tools/plugin-server-build.mjs --vercel --chatgpt",
     "build:vercel": "npm run build && node tools/plugin-server-build.mjs --site",
     "check:vercel": "node tools/vercel-check.mjs"
   },
