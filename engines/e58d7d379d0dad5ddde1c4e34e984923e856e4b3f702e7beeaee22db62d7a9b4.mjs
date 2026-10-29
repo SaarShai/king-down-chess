@@ -655,7 +655,7 @@ var b = " PNBRQKALGMSOCVT", x = [
 	28,
 	35,
 	36
-], ue = k.slice(0, 4), de = k.slice(4), fe = [
+], j = k.slice(0, 4), ue = k.slice(4), de = [
 	[1, 2],
 	[2, 1],
 	[-1, 2],
@@ -664,7 +664,7 @@ var b = " PNBRQKALGMSOCVT", x = [
 	[2, -1],
 	[-1, -2],
 	[-2, -1]
-], pe = [
+], fe = [
 	[1, 1],
 	[1, -1],
 	[-1, 1],
@@ -673,7 +673,7 @@ var b = " PNBRQKALGMSOCVT", x = [
 	[-2, 0],
 	[0, 2],
 	[0, -2]
-], me = [
+], pe = [
 	-2,
 	-1,
 	0,
@@ -685,38 +685,38 @@ var b = " PNBRQKALGMSOCVT", x = [
 	0,
 	1,
 	2
-].filter((t) => Math.max(Math.abs(e), Math.abs(t)) === 2).map((t) => [e, t])), j = {
-	classic: pe,
+].filter((t) => Math.max(Math.abs(e), Math.abs(t)) === 2).map((t) => [e, t])), M = {
+	classic: fe,
 	plusDiag2: [
-		...pe,
+		...fe,
 		[2, 2],
 		[2, -2],
 		[-2, 2],
 		[-2, -2]
 	],
-	ring2: [...de, ...me],
+	ring2: [...ue, ...pe],
 	forward3: [
 		[1, 1],
 		[-1, 1],
 		[0, 2]
 	],
 	plusDiagFwd2: [
-		...pe,
+		...fe,
 		[2, 2],
 		[-2, 2]
 	],
 	plusDiagFwd2Clear: [
-		...pe,
+		...fe,
 		[2, 2],
 		[-2, 2]
 	],
 	fwd2NoBack: [
-		...pe.filter(([e, t]) => e !== 0 || t !== -2),
+		...fe.filter(([e, t]) => e !== 0 || t !== -2),
 		[2, 2],
 		[-2, 2]
 	],
 	fwd2NoSide: [
-		...pe.filter(([e, t]) => t !== 0 || Math.abs(e) !== 2),
+		...fe.filter(([e, t]) => t !== 0 || Math.abs(e) !== 2),
 		[2, 2],
 		[-2, 2]
 	],
@@ -758,30 +758,30 @@ var b = " PNBRQKALGMSOCVT", x = [
 		[2, 2],
 		[-2, 2]
 	]
-}, he = {
-	forward3: j.forward3,
-	plusDiagFwd2: j.plusDiagFwd2,
-	plusDiagFwd2Clear: j.plusDiagFwd2Clear,
-	fwd2NoBack: j.fwd2NoBack,
-	fwd2NoSide: j.fwd2NoSide,
-	far2: j.far2,
-	over2: j.over2,
-	nearOver2: j.nearOver2,
-	fwdNearOver2: j.fwdNearOver2
-}, ge = () => q.archerShots === "over2" || q.archerShots === "nearOver2" || q.archerShots === "fwdNearOver2", _e = () => q.archerShots === "plusDiagFwd2Clear" ? 1 : ge() ? 2 : 0, ve = (e, t, n, r) => e === 1 ? t * n !== 0 && Math.abs(n) === 2 && r !== 0 : e === 2 && Math.max(Math.abs(t), Math.abs(n)) === 2 && r === 0, ye = (e) => e.map(([e, t]) => [e, -t]), be = Object.fromEntries(Object.entries(he).map(([e, t]) => [e, ye(t)])), xe = (e) => {
-	let t = he[q.archerShots];
-	return t ? e === 1 ? be[q.archerShots] : t : j[q.archerShots];
-}, Se = [[0, 1], [0, -1]], Ce = [[[1, 1], [-1, 1]], [[1, -1], [-1, -1]]];
-function M(e, t, n) {
+}, me = {
+	forward3: M.forward3,
+	plusDiagFwd2: M.plusDiagFwd2,
+	plusDiagFwd2Clear: M.plusDiagFwd2Clear,
+	fwd2NoBack: M.fwd2NoBack,
+	fwd2NoSide: M.fwd2NoSide,
+	far2: M.far2,
+	over2: M.over2,
+	nearOver2: M.nearOver2,
+	fwdNearOver2: M.fwdNearOver2
+}, he = () => q.archerShots === "over2" || q.archerShots === "nearOver2" || q.archerShots === "fwdNearOver2", ge = () => q.archerShots === "plusDiagFwd2Clear" ? 1 : he() ? 2 : 0, _e = (e, t, n, r) => e === 1 ? t * n !== 0 && Math.abs(n) === 2 && r !== 0 : e === 2 && Math.max(Math.abs(t), Math.abs(n)) === 2 && r === 0, ve = (e) => e.map(([e, t]) => [e, -t]), ye = Object.fromEntries(Object.entries(me).map(([e, t]) => [e, ve(t)])), be = (e) => {
+	let t = me[q.archerShots];
+	return t ? e === 1 ? ye[q.archerShots] : t : M[q.archerShots];
+}, xe = [[0, 1], [0, -1]], Se = [[[1, 1], [-1, 1]], [[1, -1], [-1, -1]]];
+function N(e, t, n) {
 	let r = T(e) + t, i = E(e) + n;
 	return r < 0 || r > 7 || i < 0 || i > 7 ? -1 : D(r, i);
 }
-var N = (e) => e === 0 ? 1 : -1, P = (e, t) => C(e) === 9 ? q.guardNoSecondRank && E(t) === (w(e) === 0 ? 1 : 6) ? !1 : !q.guardNoCapital || !A.includes(t) : !0, we = (e, t) => Math.max(Math.abs(T(e) - T(t)), Math.abs(E(e) - E(t))), F = (e) => q.kings[e]?.power ?? "", Te = (e) => e.move ?? (e.ply >> 1) + 1, Ee = (e, t) => !(t < (q.fromMove[e] ?? 0));
-function De(e) {
-	let t = F(e), n = t ? Cn[t] : void 0;
+var P = (e) => e === 0 ? 1 : -1, F = (e, t) => C(e) === 9 ? q.guardNoSecondRank && E(t) === (w(e) === 0 ? 1 : 6) ? !1 : !q.guardNoCapital || !A.includes(t) : !0, Ce = (e, t) => Math.max(Math.abs(T(e) - T(t)), Math.abs(E(e) - E(t))), I = (e) => q.kings[e]?.power ?? "", we = (e) => e.move ?? (e.ply >> 1) + 1, Te = (e, t) => !(t < (q.fromMove[e] ?? 0));
+function Ee(e) {
+	let t = I(e), n = t ? Cn[t] : void 0;
 	return n ? q[n] : -1;
 }
-var I = (e) => q.hands[e], Oe = (e, t = 0) => q.hands[e].length + t, L = (e, t) => t < q.hands[e].length ? q.hands[e][t] : q.piles[e][t - q.hands[e].length], ke = (e, t) => q.hands[e].includes(t) || q.piles[e].includes(t), Ae = (e) => ke(0, e) || ke(1, e), je = {
+var L = (e) => q.hands[e], De = (e, t = 0) => q.hands[e].length + t, Oe = (e, t) => t < q.hands[e].length ? q.hands[e][t] : q.piles[e][t - q.hands[e].length], ke = (e, t) => q.hands[e].includes(t) || q.piles[e].includes(t), Ae = (e) => ke(0, e) || ke(1, e), je = {
 	freeze: "Freeze",
 	ward: "IceWall",
 	strike: "Strike",
@@ -817,41 +817,41 @@ var I = (e) => q.hands[e], Oe = (e, t = 0) => q.hands[e].length + t, L = (e, t) 
 	morphp: "MorphP",
 	morphs: "MorphS"
 }, Me = (e, t, n, r = 0) => {
-	for (let i = 0, a = Oe(e, r); i < a; i++) if (L(e, i) === n && !(t >> i & 1)) return !0;
+	for (let i = 0, a = De(e, r); i < a; i++) if (Oe(e, i) === n && !(t >> i & 1)) return !0;
 	return !1;
 };
 function Ne(e, t, n, r = 0, i) {
-	if (!I(e).length) return t + 1;
+	if (!L(e).length) return t + 1;
 	let a = i === "mirror" ? "Mirror" : i === "mirrorb" ? "MirrorB" : je[n];
-	for (let n = 0, i = Oe(e, r); n < i; n++) if (L(e, n) === a && !(t >> n & 1)) return t | 1 << n;
+	for (let n = 0, i = De(e, r); n < i; n++) if (Oe(e, n) === a && !(t >> n & 1)) return t | 1 << n;
 	return t;
 }
 function Pe(e, t, n = 0) {
-	if (I(e).length) return !!(~t & (1 << Oe(e, n)) - 1);
-	let r = De(e);
-	return r < 0 ? !1 : r === 0 ? F(e) !== "March" && F(e) !== "Leap" : t < r;
+	if (L(e).length) return !!(~t & (1 << De(e, n)) - 1);
+	let r = Ee(e);
+	return r < 0 ? !1 : r === 0 ? I(e) !== "March" && I(e) !== "Leap" : t < r;
 }
-var Fe = (e) => F(e) === "March" && q.marchUses === 0, Ie = (e) => F(e) === "Leap" && q.leapUses === 0;
+var Fe = (e) => I(e) === "March" && q.marchUses === 0, Ie = (e) => I(e) === "Leap" && q.leapUses === 0;
 function Le(e, t, n = !1) {
 	if (t === void 0 || t === e) return "";
-	if (I(t).length) return n ? "warded" : "frozen";
-	let r = F(t);
+	if (L(t).length) return n ? "warded" : "frozen";
+	let r = I(t);
 	return r === "Freeze" ? "frozen" : r === "IceWall" ? "warded" : "";
 }
-var Re = (e) => F(e) === "Sacrifice" || ke(e, "Sacrifice") || ke(e, "Salvation") || ke(e, "Mirror") && (Ae("Sacrifice") || Ae("Salvation")), ze = () => Ae("Mirror"), Be = () => q.markTurns === 1 && Ae("Rescue"), Ve = (e) => e === "freeze" || e === "ward" || e === "firewall" || e === "rescue", He = (e) => e.pass === !0 || Ve(e.power) || e.power === "growth" || e.power === "growthb", Ue = (e) => e.power === "haste" || e.power === "rage" || e.power === "rageb" || e.power === "rally" || e.power === "growthb" || q.markFree && Ve(e.power), We = () => Re(0) || Re(1), Ge = (e) => e !== 1 && e !== 6 && e !== 9, Ke = (e, t, n) => t.drop ? S(t.drop, n) : e[t.from];
+var Re = (e) => I(e) === "Sacrifice" || ke(e, "Sacrifice") || ke(e, "Salvation") || ke(e, "Mirror") && (Ae("Sacrifice") || Ae("Salvation")), ze = () => Ae("Mirror"), Be = () => q.markTurns === 1 && Ae("Rescue"), Ve = (e) => e === "freeze" || e === "ward" || e === "firewall" || e === "rescue", He = (e) => e.pass === !0 || Ve(e.power) || e.power === "growth" || e.power === "growthb", Ue = (e) => e.power === "haste" || e.power === "rage" || e.power === "rageb" || e.power === "rally" || e.power === "growthb" || q.markFree && Ve(e.power), We = () => Re(0) || Re(1), Ge = (e) => e !== 1 && e !== 6 && e !== 9, Ke = (e, t, n) => t.drop ? S(t.drop, n) : e[t.from];
 function R(e, t) {
 	let n = C(e);
 	if (n === 12 && q.ogreNoCapture) return !1;
 	if (q.design && (n === 15 || t === 15)) {
 		for (let { when: e, does: r } of q.design.rules) if (e.on === "always" && (n === 15 && r.a === "cannotTake" && (r.what === "any" || r.what === "king" && t === 6 || r.what === "pawns" && t === 1) || t === 15 && r.a === "cannotBeTaken" && (r.by === "pawns" ? n === 1 : n !== 6))) return !1;
 	}
-	return n === 9 && (q.guardCaptures === "none" || q.guardCaptures === "pawns" && t !== 1) || n === 9 && q.guardCaptureLimit && e & 32 ? !1 : t === 9 && q.guardImmune ? n === 6 : n === 6 && t !== 9 && F(w(e)) === "Mercy" && !q.mercyCaptures && !(t === 1 && q.mercyTakesPawns) || n === 1 && t === 6 && F(w(e) ^ 1) === "HolyLight" || n === 2 && t === 6 && q.holyLightKnights && F(w(e) ^ 1) === "HolyLight" || n === 6 && t === 1 && F(w(e)) === "HolyLight" && !q.holyLightTakesPawns || n === 1 && t === 1 && q.darknessPawnArmor && F(w(e) ^ 1) === "Darkness" ? !1 : t !== 6 || (n !== 8 || q.paladinChecks) && (q.archerChecks || n !== 7);
+	return n === 9 && (q.guardCaptures === "none" || q.guardCaptures === "pawns" && t !== 1) || n === 9 && q.guardCaptureLimit && e & 32 ? !1 : t === 9 && q.guardImmune ? n === 6 : n === 6 && t !== 9 && I(w(e)) === "Mercy" && !q.mercyCaptures && !(t === 1 && q.mercyTakesPawns) || n === 1 && t === 6 && I(w(e) ^ 1) === "HolyLight" || n === 2 && t === 6 && q.holyLightKnights && I(w(e) ^ 1) === "HolyLight" || n === 6 && t === 1 && I(w(e)) === "HolyLight" && !q.holyLightTakesPawns || n === 1 && t === 1 && q.darknessPawnArmor && I(w(e) ^ 1) === "Darkness" ? !1 : t !== 6 || (n !== 8 || q.paladinChecks) && (q.archerChecks || n !== 7);
 }
 function z(e, t) {
 	return e.indexOf(S(6, t));
 }
 function B(e, t, n) {
-	if (!q.holyLightAura || F(n) !== "HolyLight") return !1;
+	if (!q.holyLightAura || I(n) !== "HolyLight") return !1;
 	let r = S(6, n);
 	for (let n = 0; n < 8; n++) {
 		let i = U[t * 8 + n];
@@ -863,7 +863,7 @@ var qe = () => q.mercyAura || q.holyLightShelter || q.darknessShelter || q.darkn
 function Je(e, t) {
 	let n = e[t];
 	if (!n || C(n) === 6) return 0;
-	let r = q.design && C(n) === 15 ? $t(q.design, e, t) : 0, i = F(w(n)), a = 0, o, s;
+	let r = q.design && C(n) === 15 ? $t(q.design, e, t) : 0, i = I(w(n)), a = 0, o, s;
 	if (i === "Mercy" && q.mercyAura) o = q.mercyAuraOrtho ? 4 : 8, s = q.mercyAuraPawns ? 1 : q.mercyAuraPawnsTake ? 3 : 2;
 	else if (i === "HolyLight" && q.holyLightShelter) o = q.holyLightShelterOrtho ? 4 : 8, s = 2;
 	else if (i === "Darkness" && q.darknessShelter) a = 4, o = 8, s = q.darknessShelterPawnsTake ? 3 : 2;
@@ -904,7 +904,7 @@ function V(e, t, n, r, i) {
 function Xe(e, t, n, r, i, a, o, s, c, l) {
 	for (let [u, d] of o) {
 		if (q.beastCapture === "adjacent" && u === 0 && d === s && !q.beastCaptureForward) continue;
-		let f = M(r, u, d);
+		let f = N(r, u, d);
 		if (f < 0) continue;
 		let p = (t ?? e)[f];
 		if (!p || w(p) === a) continue;
@@ -922,7 +922,7 @@ function Xe(e, t, n, r, i, a, o, s, c, l) {
 }
 function Ze(e, t, n, r, i, a, o) {
 	for (let [s, c] of i) {
-		let i = M(t, s, c);
+		let i = N(t, s, c);
 		if (i < 0) continue;
 		let l = e[i];
 		l ? w(l) !== n && R(r, C(l)) && o.push({
@@ -938,7 +938,7 @@ function Ze(e, t, n, r, i, a, o) {
 }
 function Qe(e, t, n, r, i, a, o) {
 	let s = Ie(n);
-	for (let [c, l] of i) for (let i = M(t, c, l); i >= 0; i = M(i, c, l)) {
+	for (let [c, l] of i) for (let i = N(t, c, l); i >= 0; i = N(i, c, l)) {
 		let c = e[i];
 		if (!c) {
 			a === "all" && o.push({
@@ -962,58 +962,58 @@ function $e(e, t, n, r, i = e[t]) {
 	let a = w(i);
 	switch (C(i)) {
 		case 1: {
-			let o = N(a), s = a === 0 ? 1 : 6, c = a === 0 ? 7 : 0, l = F(a) === "Darkness";
+			let o = P(a), s = a === 0 ? 1 : 6, c = a === 0 ? 7 : 0, l = I(a) === "Darkness";
 			if (l && (q.darknessTakeAhead || q.darknessStepDiag)) {
 				if (q.darknessStepDiag) {
 					if (n === "all") for (let n of [-1, 1]) {
-						let i = M(t, n, o);
+						let i = N(t, n, o);
 						i >= 0 && !e[i] && V(r, t, i, [], c);
 					}
 				} else {
-					let n = M(t, 0, o);
+					let n = N(t, 0, o);
 					n >= 0 && e[n] && w(e[n]) !== a && R(i, C(e[n])) && !B(e, n, a ^ 1) && V(r, t, n, [n], c);
 				}
 			} else if (l) {
 				if (n === "all") for (let n of [-1, 1]) {
-					let i = M(t, n, o);
+					let i = N(t, n, o);
 					i >= 0 && !e[i] && V(r, t, i, [], c);
 				}
-				let l = M(t, 0, o);
+				let l = N(t, 0, o);
 				if (l >= 0 && e[l] && w(e[l]) !== a && R(i, C(e[l])) && !B(e, l, a ^ 1) && V(r, t, l, [l], c), q.darknessMoves && !q.darknessKeep && n === "all") {
-					let n = M(t, 0, o);
+					let n = N(t, 0, o);
 					if (n >= 0 && !e[n]) {
 						V(r, t, n, [], c);
-						let i = M(t, 0, 2 * o);
+						let i = N(t, 0, 2 * o);
 						(Fe(a) || E(t) === s) && i >= 0 && !e[i] && V(r, t, i, [], c);
 					}
 				}
 				if (!q.darknessKeep) return;
 			}
 			if (n === "all") {
-				let n = M(t, 0, o);
+				let n = N(t, 0, o);
 				if (n >= 0 && !e[n]) {
 					V(r, t, n, [], c);
-					let i = M(t, 0, 2 * o);
+					let i = N(t, 0, 2 * o);
 					(Fe(a) || E(t) === s) && i >= 0 && !e[i] && V(r, t, i, [], c);
 				}
 			}
 			if (q.pawnCapitalCapture && n !== "attacks" && !l && A.includes(t)) {
-				let n = M(t, 0, o);
+				let n = N(t, 0, o);
 				n >= 0 && e[n] && w(e[n]) !== a && R(i, C(e[n])) && !B(e, n, a ^ 1) && V(r, t, n, [n], c);
 			}
 			for (let n of [-1, 1]) {
-				let s = M(t, n, o);
+				let s = N(t, n, o);
 				s >= 0 && e[s] && w(e[s]) !== a && R(i, C(e[s])) && !B(e, s, a ^ 1) && V(r, t, s, [s], c);
 			}
 			return;
 		}
-		case 2: return Ze(e, t, a, i, fe, n, r);
+		case 2: return Ze(e, t, a, i, de, n, r);
 		case 6: {
-			let o = F(a) === "Mercy";
-			if (o || q.darknessKingStep2 && F(a) === "Darkness") {
+			let o = I(a) === "Mercy";
+			if (o || q.darknessKingStep2 && I(a) === "Darkness") {
 				let s = !o && q.darknessKingStepTakes, c = !o && !s && q.darknessKingStepSafe;
 				for (let [l, u] of k) {
-					let d = M(t, l, u);
+					let d = N(t, l, u);
 					if (d < 0) continue;
 					let f = e[d];
 					if (f) {
@@ -1031,7 +1031,7 @@ function $e(e, t, n, r, i = e[t]) {
 						to: d,
 						captures: []
 					});
-					let p = M(d, l, u);
+					let p = N(d, l, u);
 					if (p < 0) continue;
 					let m = e[p];
 					m ? s && w(m) !== a && R(i, C(m)) && r.push({
@@ -1046,9 +1046,9 @@ function $e(e, t, n, r, i = e[t]) {
 				}
 				return;
 			}
-			if (F(a) === "DeathTouch") {
+			if (I(a) === "DeathTouch") {
 				for (let o = 0; o < 8; o++) {
-					let [s, c] = k[o], l = M(t, s, c);
+					let [s, c] = k[o], l = N(t, s, c);
 					if (l < 0) continue;
 					let u = e[l];
 					if (u ? w(u) !== a && R(i, C(u)) && (r.push({
@@ -1064,7 +1064,7 @@ function $e(e, t, n, r, i = e[t]) {
 						to: l,
 						captures: []
 					}), q.deathTouchReach && !u && ot(s, c, a)) {
-						let n = M(l, s, c), o = n >= 0 ? e[n] : 0;
+						let n = N(l, s, c), o = n >= 0 ? e[n] : 0;
 						o && w(o) !== a && R(i, C(o)) && !(q.deathTouchReachPieces && C(o) === 1) && r.push({
 							from: t,
 							to: t,
@@ -1081,35 +1081,35 @@ function $e(e, t, n, r, i = e[t]) {
 			Ze(e, t, a, i, k, n, r);
 			let s = q.guardDoubleFirst !== "off" && E(t) === (a === 0 ? 0 : 7), c = q.guardCapitalStep && A.includes(t);
 			if ((q.guardStep === 2 || s || c) && n === "all") for (let [n, i] of k) {
-				let a = M(t, n, i);
+				let a = N(t, n, i);
 				if (a < 0 || e[a] && !(s && q.guardDoubleFirst === "leap")) continue;
-				let o = M(a, n, i);
+				let o = N(a, n, i);
 				o >= 0 && !e[o] && r.push({
 					from: t,
 					to: o,
 					captures: []
 				});
 			}
-			if (q.guardNoSecondRank || q.guardNoCapital) for (let e = r.length - 1; e >= o; e--) P(i, r[e].to) || r.splice(e, 1);
+			if (q.guardNoSecondRank || q.guardNoCapital) for (let e = r.length - 1; e >= o; e--) F(i, r[e].to) || r.splice(e, 1);
 			return;
 		}
-		case 3: return Qe(e, t, a, i, de, n, r);
-		case 4: return Qe(e, t, a, i, ue, n, r);
+		case 3: return Qe(e, t, a, i, ue, n, r);
+		case 4: return Qe(e, t, a, i, j, n, r);
 		case 5: return Qe(e, t, a, i, k, n, r);
 		case 7: {
-			let i = q.archerMove === "any" ? k : q.archerMove === "fwdBack" ? Se : ue;
+			let i = q.archerMove === "any" ? k : q.archerMove === "fwdBack" ? xe : j;
 			if (n === "all") for (let [n, a] of i) {
-				let i = M(t, n, a);
+				let i = N(t, n, a);
 				i >= 0 && !e[i] && r.push({
 					from: t,
 					to: i,
 					captures: []
 				});
 			}
-			let o = _e();
-			for (let [n, i] of xe(a)) {
-				let s = M(t, n, i);
-				s >= 0 && e[s] && w(e[s]) !== a && R(7, C(e[s])) && !(o && ve(o, n, i, e[M(t, n >> 1, i >> 1)])) && r.push({
+			let o = ge();
+			for (let [n, i] of be(a)) {
+				let s = N(t, n, i);
+				s >= 0 && e[s] && w(e[s]) !== a && R(7, C(e[s])) && !(o && _e(o, n, i, e[N(t, n >> 1, i >> 1)])) && r.push({
 					from: t,
 					to: t,
 					captures: [s]
@@ -1118,7 +1118,7 @@ function $e(e, t, n, r, i = e[t]) {
 			return;
 		}
 		case 8:
-			for (let [i, o] of k) for (let s = M(t, i, o); s >= 0; s = M(s, i, o)) {
+			for (let [i, o] of k) for (let s = N(t, i, o); s >= 0; s = N(s, i, o)) {
 				let i = e[s];
 				if (!i) {
 					n === "all" && r.push({
@@ -1152,10 +1152,10 @@ function $e(e, t, n, r, i = e[t]) {
 			return;
 		case 10: {
 			for (let [i, o] of k) {
-				let s = M(t, i, o);
+				let s = N(t, i, o);
 				if (s < 0) continue;
 				let c = e[s];
-				c ? w(c) === a ? n === "all" && P(c, t) && r.push({
+				c ? w(c) === a ? n === "all" && F(c, t) && r.push({
 					from: t,
 					to: s,
 					captures: [],
@@ -1176,9 +1176,9 @@ function $e(e, t, n, r, i = e[t]) {
 				});
 			}
 			if (q.maesterStep === 2 && n === "all") for (let [n, i] of k) {
-				let a = M(t, n, i);
+				let a = N(t, n, i);
 				if (a < 0 || e[a]) continue;
-				let o = M(a, n, i);
+				let o = N(a, n, i);
 				o >= 0 && !e[o] && r.push({
 					from: t,
 					to: o,
@@ -1187,7 +1187,7 @@ function $e(e, t, n, r, i = e[t]) {
 			}
 			if (n === "all" && q.maesterSwapAny) for (let n = 0; n < 64; n++) {
 				let i = e[n];
-				i && w(i) === a && C(i) !== 6 && we(t, n) > 1 && P(i, t) && r.push({
+				i && w(i) === a && C(i) !== 6 && Ce(t, n) > 1 && F(i, t) && r.push({
 					from: t,
 					to: n,
 					captures: [],
@@ -1197,7 +1197,7 @@ function $e(e, t, n, r, i = e[t]) {
 			let i = a === 0 ? 0 : 7, o = (e) => q.maesterKingSwapAnywhere || E(e) === i;
 			if (n === "all" && q.maesterLongSwap && o(t)) {
 				let n = z(e, a);
-				n >= 0 && o(n) && we(n, t) > 1 && r.push({
+				n >= 0 && o(n) && Ce(n, t) > 1 && r.push({
 					from: t,
 					to: n,
 					captures: [],
@@ -1207,27 +1207,27 @@ function $e(e, t, n, r, i = e[t]) {
 			return;
 		}
 		case 11: {
-			let i = N(a), o = q.beastMove === "any" ? k : q.beastMove === "diagFwdBack" ? de : [[0, i]];
+			let i = P(a), o = q.beastMove === "any" ? k : q.beastMove === "diagFwdBack" ? ue : [[0, i]];
 			if (n === "all") for (let [n, i] of o) {
-				let a = M(t, n, i);
+				let a = N(t, n, i);
 				a >= 0 && !e[a] && r.push({
 					from: t,
 					to: a,
 					captures: []
 				});
 			}
-			Xe(e, null, t, t, [], a, q.beastCapture === "diagForward" ? Ce[a] : q.beastCapture === "diagonal" ? de : k, i, n, r);
+			Xe(e, null, t, t, [], a, q.beastCapture === "diagForward" ? Se[a] : q.beastCapture === "diagonal" ? ue : k, i, n, r);
 			return;
 		}
 		case 14:
-			if (Ze(e, t, a, i, fe, n, r), n === "all") {
-				let n = q.reaverStep === "ortho" ? ue : k;
-				for (let [o, s] of fe) {
-					let c = M(t, o, s);
+			if (Ze(e, t, a, i, de, n, r), n === "all") {
+				let n = q.reaverStep === "ortho" ? j : k;
+				for (let [o, s] of de) {
+					let c = N(t, o, s);
 					if (c < 0) continue;
 					let l = e[c];
 					if (l && w(l) !== a && R(i, C(l))) for (let [i, a] of n) {
-						let n = M(c, i, a);
+						let n = N(c, i, a);
 						n >= 0 && !e[n] && r.push({
 							from: t,
 							to: n,
@@ -1240,9 +1240,9 @@ function $e(e, t, n, r, i = e[t]) {
 		case 15: return q.design ? en(e, t, n, r, q.design) : A.includes(t) ? Qe(e, t, a, i, k, n, r) : Ze(e, t, a, i, k, n, r);
 		case 12:
 			if (Ze(e, t, a, i, k, n, r), q.ogreStep2 && n === "all") for (let [n, i] of k) {
-				let a = M(t, n, i);
+				let a = N(t, n, i);
 				if (a < 0 || e[a]) continue;
-				let o = M(a, n, i);
+				let o = N(a, n, i);
 				o >= 0 && !e[o] && r.push({
 					from: t,
 					to: o,
@@ -1251,9 +1251,9 @@ function $e(e, t, n, r, i = e[t]) {
 			}
 			if (n !== "all") return;
 			if (q.ogreHop) for (let [n, i] of k) {
-				let a = M(t, n, i);
+				let a = N(t, n, i);
 				if (a < 0 || !e[a]) continue;
-				let o = M(a, n, i);
+				let o = N(a, n, i);
 				o >= 0 && !e[o] && r.push({
 					from: t,
 					to: o,
@@ -1261,11 +1261,11 @@ function $e(e, t, n, r, i = e[t]) {
 				});
 			}
 			for (let [n, i] of k) {
-				let a = M(t, n, i);
+				let a = N(t, n, i);
 				if (a < 0) continue;
 				let o = e[a];
 				if (!o || C(o) === 6) continue;
-				let s = M(a, n, i);
+				let s = N(a, n, i);
 				s < 0 || e[s] || r.push({
 					from: t,
 					to: q.ogreMode === "push" ? a : t,
@@ -1278,17 +1278,17 @@ function $e(e, t, n, r, i = e[t]) {
 			}
 			return;
 		case 13:
-			if (n === "all") for (let [n, i] of ue) for (let a = M(t, n, i); a >= 0 && !e[a]; a = M(a, n, i)) r.push({
+			if (n === "all") for (let [n, i] of j) for (let a = N(t, n, i); a >= 0 && !e[a]; a = N(a, n, i)) r.push({
 				from: t,
 				to: a,
 				captures: []
 			});
-			for (let [n, o] of ue) {
-				let s = M(t, n, o);
-				for (; s >= 0 && !e[s];) s = M(s, n, o);
+			for (let [n, o] of j) {
+				let s = N(t, n, o);
+				for (; s >= 0 && !e[s];) s = N(s, n, o);
 				if (s < 0 || w(e[s]) === a) continue;
-				let c = M(s, n, o);
-				for (; c >= 0 && !e[c];) c = M(c, n, o);
+				let c = N(s, n, o);
+				for (; c >= 0 && !e[c];) c = N(c, n, o);
 				if (c < 0) continue;
 				let l = e[c];
 				w(l) !== a && R(i, C(l)) && r.push({
@@ -1347,7 +1347,7 @@ function it(e, t) {
 		turn: u ? n : n ^ 1,
 		halfmove: c ? 0 : e.halfmove + 1,
 		ply: e.ply + 1,
-		move: Te(e) + +(!u && n === 1)
+		move: we(e) + +(!u && n === 1)
 	}, f = e.used, p = e.drawn?.[n] ?? 0;
 	if (t.power) {
 		let e = [f?.[0] ?? 0, f?.[1] ?? 0];
@@ -1383,7 +1383,7 @@ function it(e, t) {
 				left: r
 			} : t;
 		} else {
-			let e = (t.power === "ward" || t.power === "firewall") && I(n).length > 0;
+			let e = (t.power === "ward" || t.power === "firewall") && L(n).length > 0;
 			m[n] = {
 				sq: t.to,
 				...q.markTurns > 1 ? { left: q.markTurns } : {},
@@ -1398,7 +1398,7 @@ function it(e, t) {
 		t[n]++, d.drawn = t;
 	} else e.drawn && (d.drawn = e.drawn);
 	let _ = e.last;
-	if (t.power && I(n).length && ze()) {
+	if (t.power && L(n).length && ze()) {
 		let e = [_?.[0], _?.[1]];
 		e[n] = je[t.power], _ = e;
 	}
@@ -1419,28 +1419,28 @@ function it(e, t) {
 	return d;
 }
 function at(e, t, n) {
-	return q.beastCapture === "diagForward" ? e !== 0 && t === -N(n) : q.beastCapture === "diagonal" ? e !== 0 && t !== 0 : q.beastCaptureForward || e !== 0 || t !== -N(n);
+	return q.beastCapture === "diagForward" ? e !== 0 && t === -P(n) : q.beastCapture === "diagonal" ? e !== 0 && t !== 0 : q.beastCaptureForward || e !== 0 || t !== -P(n);
 }
 function ot(e, t, n) {
-	return q.deathTouchReachOrtho && e !== 0 && t !== 0 || q.deathTouchReachNoBack && t === -N(n) ? !1 : !q.deathTouchReachForwardBack || e === 0;
+	return q.deathTouchReachOrtho && e !== 0 && t !== 0 || q.deathTouchReachNoBack && t === -P(n) ? !1 : !q.deathTouchReachForwardBack || e === 0;
 }
 function H(e, t, n, r, i) {
 	let a = e[t];
 	return a !== 0 && w(a) === r && C(a) === n && (i === 0 || R(a, i));
 }
-var st = Array.from({ length: 64 }, (e, t) => Int8Array.from(fe.map(([e, n]) => M(t, e, n)).filter((e) => e >= 0))), U = Int8Array.from({ length: 512 }, (e, t) => M(t >> 3, k[t & 7][0], k[t & 7][1])), ct = Array.from({ length: 512 }, (e, t) => {
+var st = Array.from({ length: 64 }, (e, t) => Int8Array.from(de.map(([e, n]) => N(t, e, n)).filter((e) => e >= 0))), U = Int8Array.from({ length: 512 }, (e, t) => N(t >> 3, k[t & 7][0], k[t & 7][1])), ct = Array.from({ length: 512 }, (e, t) => {
 	let [n, r] = k[t & 7], i = [];
-	for (let e = M(t >> 3, n, r); e >= 0; e = M(e, n, r)) i.push(e);
+	for (let e = N(t >> 3, n, r); e >= 0; e = N(e, n, r)) i.push(e);
 	return Int8Array.from(i);
 });
 function lt(e, t, n, r) {
-	let i = -N(n), a = F(n) === "Darkness";
+	let i = -P(n), a = I(n) === "Darkness";
 	if (a && !q.darknessStepDiag) {
-		let a = M(t, 0, i);
+		let a = N(t, 0, i);
 		if (a >= 0 && H(e, a, 1, n, r)) return !0;
 	}
 	if (!a || q.darknessKeep || q.darknessTakeAhead || q.darknessStepDiag) {
-		let a = M(t, -1, i), o = M(t, 1, i);
+		let a = N(t, -1, i), o = N(t, 1, i);
 		if (a >= 0 && H(e, a, 1, n, r) || o >= 0 && H(e, o, 1, n, r)) return !0;
 	}
 	return !1;
@@ -1460,9 +1460,9 @@ function ut(e, t, n) {
 		let a = U[t * 8 + r];
 		if (a < 0) continue;
 		let o = e[a];
-		if (o && w(o) === n && (H(e, a, 6, n, i) || H(e, a, 10, n, i) || !q.ogreNoCapture && H(e, a, 12, n, i) || !q.design && H(e, a, 15, n, i) || q.guardCaptures !== "none" && H(e, a, 9, n, i) && P(o, t) || H(e, a, 11, n, i) && at(k[r][0], k[r][1], n))) return !0;
+		if (o && w(o) === n && (H(e, a, 6, n, i) || H(e, a, 10, n, i) || !q.ogreNoCapture && H(e, a, 12, n, i) || !q.design && H(e, a, 15, n, i) || q.guardCaptures !== "none" && H(e, a, 9, n, i) && F(o, t) || H(e, a, 11, n, i) && at(k[r][0], k[r][1], n))) return !0;
 	}
-	let s = q.deathTouchReach && F(n) === "DeathTouch" && !(q.deathTouchReachPieces && i === 1), c = q.darknessKingStepTakes && q.darknessKingStep2 && F(n) === "Darkness";
+	let s = q.deathTouchReach && I(n) === "DeathTouch" && !(q.deathTouchReachPieces && i === 1), c = q.darknessKingStepTakes && q.darknessKingStep2 && I(n) === "Darkness";
 	if (s || c) for (let r = 0; r < (s && q.deathTouchReachOrtho ? 4 : 8); r++) {
 		let a = U[t * 8 + r];
 		if (a < 0 || e[a]) continue;
@@ -1470,10 +1470,10 @@ function ut(e, t, n) {
 		if (o >= 0 && H(e, o, 6, n, i) && (c || ot(-k[r][0], -k[r][1], n))) return !0;
 	}
 	if (r === 0 && !B(e, t, n ^ 1) && lt(e, t, n, i)) return !0;
-	let l = xe(n), u = _e();
+	let l = be(n), u = ge();
 	for (let r = 0; r < l.length; r++) {
-		let a = l[r][0], o = l[r][1], s = M(t, -a, -o);
-		if (s >= 0 && H(e, s, 7, n, i) && !(u && ve(u, a, o, e[M(t, -a >> 1, -o >> 1)]))) return !0;
+		let a = l[r][0], o = l[r][1], s = N(t, -a, -o);
+		if (s >= 0 && H(e, s, 7, n, i) && !(u && _e(u, a, o, e[N(t, -a >> 1, -o >> 1)]))) return !0;
 	}
 	for (let r = 0; r < 8; r++) {
 		let o = ct[t * 8 + r], s = r < 4 ? 4 : 3, c = !1, l = !1, u = !0;
@@ -1513,7 +1513,7 @@ var pt = (e, t) => ({
 	drawn: e.drawn?.[t] ?? 0,
 	last: e.last?.[t ^ 1],
 	rescue: e.marks?.[t]?.sq ?? -1,
-	move: Te(e)
+	move: we(e)
 }), mt = {
 	drawn: 0,
 	last: void 0,
@@ -1523,22 +1523,22 @@ var pt = (e, t) => ({
 function ht(e, t, n, r, i, a, o, s = mt) {
 	if (!Pe(t, n, s.drawn)) return;
 	let c = i.length;
-	if (I(t).length) {
-		let c = Oe(t, s.drawn);
+	if (L(t).length) {
+		let c = De(t, s.drawn);
 		for (let l = 0; l < c; l++) {
-			let u = L(t, l);
-			if (!(n >> l & 1 || !vt(t, n, l) || !Ee(u, s.move))) {
+			let u = Oe(t, l);
+			if (!(n >> l & 1 || !vt(t, n, l) || !Te(u, s.move))) {
 				if (u === "Mirror") s.last && yt(s.last, "mirror", e, t, r, i, a, o, s);
 				else if (u === "MirrorB") for (let l = 0; l < c; l++) {
-					let c = L(t, l);
+					let c = Oe(t, l);
 					!(n >> l & 1) && c !== "Mirror" && c !== "MirrorB" && vt(t, n, l) && yt(c, "mirrorb", e, t, r, i, a, o, s);
 				}
 				else Ct(u, e, t, r, i, a, o, s);
 			}
 		}
 	} else {
-		let n = F(t);
-		n && Ee(n, s.move) && Ct(n, e, t, r, i, a, o, s);
+		let n = I(t);
+		n && Te(n, s.move) && Ct(n, e, t, r, i, a, o, s);
 	}
 	if (qe() && Ye(e, i, c), q.capitalSanctuary || q.capitalNoCapture) {
 		let e = c;
@@ -1558,12 +1558,12 @@ function _t(e, t, n, r) {
 	}
 }
 function vt(e, t, n) {
-	let r = L(e, n);
-	for (let i = 0; i < n; i++) if (L(e, i) === r && !(t >> i & 1)) return !1;
+	let r = Oe(e, n);
+	for (let i = 0; i < n; i++) if (Oe(e, i) === r && !(t >> i & 1)) return !1;
 	return !0;
 }
 function yt(e, t, n, r, i, a, o, s, c) {
-	if (!Ee(e, c.move)) return;
+	if (!Te(e, c.move)) return;
 	let l = a.length;
 	Ct(e, n, r, i, a, o, s, c);
 	for (let e = l; e < a.length; e++) a[e].via = t;
@@ -1625,7 +1625,7 @@ function Ct(e, t, n, r, i, a, o, s = mt) {
 			let e = q.strikeMode === "capture";
 			for (let r = 0; r < 64; r++) {
 				let a = t[r];
-				if (a && w(a) === n && C(a) !== 6 && (C(a) !== 1 || q.strikePawns)) for (let [o, s] of k) for (let c = M(r, o, s); c >= 0; c = M(c, o, s)) {
+				if (a && w(a) === n && C(a) !== 6 && (C(a) !== 1 || q.strikePawns)) for (let [o, s] of k) for (let c = N(r, o, s); c >= 0; c = N(c, o, s)) {
 					let o = t[c], s = C(a) === 1 && (E(c) === 0 || E(c) === 7);
 					if (!o) {
 						!e && !s && i.push({
@@ -1667,7 +1667,7 @@ function Ct(e, t, n, r, i, a, o, s = mt) {
 				let o = t[a];
 				if (!o || w(o) !== n || C(o) === 6) continue;
 				let s = C(o) === 1;
-				for (let n = e; n < e + 32; n++) t[n] || s && E(n) === r || !P(o, n) || i.push({
+				for (let n = e; n < e + 32; n++) t[n] || s && E(n) === r || !F(o, n) || i.push({
 					from: a,
 					to: n,
 					captures: [],
@@ -1712,10 +1712,10 @@ function Ct(e, t, n, r, i, a, o, s = mt) {
 			return;
 		}
 		case "March": {
-			let e = N(n), r = n === 0 ? 1 : 6, a = n === 0 ? 7 : 0, o = S(1, n);
+			let e = P(n), r = n === 0 ? 1 : 6, a = n === 0 ? 7 : 0, o = S(1, n);
 			for (let n = 0; n < 64; n++) {
 				if (t[n] !== o || E(n) === r) continue;
-				let s = M(n, 0, e), c = s < 0 ? -1 : M(s, 0, e);
+				let s = N(n, 0, e), c = s < 0 ? -1 : N(s, 0, e);
 				if (!(c < 0 || t[s] || t[c])) {
 					if (E(c) === a) for (let e of ce[q.promotionSet]) i.push({
 						from: n,
@@ -1740,12 +1740,12 @@ function Ct(e, t, n, r, i, a, o, s = mt) {
 			for (let e = 0; e < 64; e++) {
 				let c = t[e];
 				if (!c || w(c) !== n) continue;
-				let l = C(c), u = l === 4 ? ue : l === 3 ? de : l === 5 ? k : null;
+				let l = C(c), u = l === 4 ? j : l === 3 ? ue : l === 5 ? k : null;
 				if (u) {
 					r && _t(i, a, o, e);
 					for (let [a, o] of u) {
 						let l = !1;
-						for (let u = M(e, a, o); u >= 0; u = M(u, a, o)) {
+						for (let u = N(e, a, o); u >= 0; u = N(u, a, o)) {
 							let a = t[u];
 							if (!a) {
 								l && !(r && W[u]) && i.push({
@@ -1788,7 +1788,7 @@ function Ct(e, t, n, r, i, a, o, s = mt) {
 					_t(i, a, o, r);
 					for (let e = 1; e < 16; e++) if (c >> e & 1) {
 						gt.length = 0, $e(t, r, "all", gt, S(e, n));
-						for (let e of gt) e.captures.length || e.swap || e.shove || e.selfRemove || W[e.to] || !P(s, e.to) || (W[e.to] = 1, i.push({
+						for (let e of gt) e.captures.length || e.swap || e.shove || e.selfRemove || W[e.to] || !F(s, e.to) || (W[e.to] = 1, i.push({
 							from: r,
 							to: e.to,
 							captures: [],
@@ -1806,7 +1806,7 @@ function Ct(e, t, n, r, i, a, o, s = mt) {
 				let a = C(r) === 1;
 				for (let n = 0; n < 8; n++) {
 					let o = U[e * 8 + n];
-					o < 0 || t[o] || a && (E(o) === 0 || E(o) === 7) || !P(r, o) || i.push({
+					o < 0 || t[o] || a && (E(o) === 0 || E(o) === 7) || !F(r, o) || i.push({
 						from: e,
 						to: o,
 						captures: [],
@@ -1833,7 +1833,7 @@ function Ct(e, t, n, r, i, a, o, s = mt) {
 		case "Firewall":
 		case "Growth":
 		case "GrowthB": {
-			if (e !== "Firewall" && (s.drawn >= q.piles[n].length || Oe(n, s.drawn) >= 8)) return;
+			if (e !== "Firewall" && (s.drawn >= q.piles[n].length || De(n, s.drawn) >= 8)) return;
 			let r = z(t, n);
 			r >= 0 && i.push({
 				from: r,
@@ -1856,7 +1856,7 @@ function Ct(e, t, n, r, i, a, o, s = mt) {
 				let r = t[e];
 				if (r && w(r) === n && C(r) !== 6) for (let a = 0; a < 8; a++) {
 					let o = U[e * 8 + a], s = o < 0 ? 0 : t[o];
-					s && w(s) !== n && C(s) !== 6 && (C(r) !== 1 || E(o) !== 0 && E(o) !== 7) && (C(s) !== 1 || E(e) !== 0 && E(e) !== 7) && P(r, o) && P(s, e) && i.push({
+					s && w(s) !== n && C(s) !== 6 && (C(r) !== 1 || E(o) !== 0 && E(o) !== 7) && (C(s) !== 1 || E(e) !== 0 && E(e) !== 7) && F(r, o) && F(s, e) && i.push({
 						from: e,
 						to: o,
 						captures: [],
@@ -1876,7 +1876,7 @@ function Ct(e, t, n, r, i, a, o, s = mt) {
 					let n = U[a * 8 + e], r = n < 0 ? 0 : t[n];
 					if (!r || C(r) === 6) continue;
 					let i = U[n * 8 + e];
-					i < 0 || t[i] || C(r) === 1 && (E(i) === 0 || E(i) === 7) || !P(r, i) || (o ??= []).push({
+					i < 0 || t[i] || C(r) === 1 && (E(i) === 0 || E(i) === 7) || !F(r, i) || (o ??= []).push({
 						from: n,
 						to: i
 					});
@@ -1898,7 +1898,7 @@ function Ct(e, t, n, r, i, a, o, s = mt) {
 				let c = t[e];
 				if (!c || w(c) !== n || C(c) === 6 || C(c) === 1) continue;
 				let l = !1;
-				for (let [u, d] of k) for (let f = M(e, u, d); f >= 0; f = M(f, u, d)) {
+				for (let [u, d] of k) for (let f = N(e, u, d); f >= 0; f = N(f, u, d)) {
 					let u = t[f];
 					if (u) {
 						w(u) !== n && C(u) !== 6 && r.includes(f) && R(c, C(u)) && (l ||= (_t(i, a, o, e), !0), W[f] || i.push({
@@ -1928,7 +1928,7 @@ function Ct(e, t, n, r, i, a, o, s = mt) {
 				for (let a = 1; a < 16; a++) if (s >> a & 1) {
 					gt.length = 0, $e(t, e, "all", gt, S(a, n));
 					for (let n of gt) {
-						if (n.swap || n.shove || n.to !== e && !P(r, n.to) || n.captures.some((e) => C(t[e]) === 6 || !R(r, C(t[e]))) || n.to !== e && (!n.captures.length || n.captures.length === 1 && n.captures[0] === n.to) && W[n.to]) continue;
+						if (n.swap || n.shove || n.to !== e && !F(r, n.to) || n.captures.some((e) => C(t[e]) === 6 || !R(r, C(t[e]))) || n.to !== e && (!n.captures.length || n.captures.length === 1 && n.captures[0] === n.to) && W[n.to]) continue;
 						let a = `${n.to}:${n.captures.join(",")}`;
 						if (c.has(a)) continue;
 						c.add(a);
@@ -1948,7 +1948,7 @@ function Ct(e, t, n, r, i, a, o, s = mt) {
 			for (let e = 0; e < 64; e++) t[e] && w(t[e]) === n && C(t[e]) === 9 && (o = !0);
 			for (let s = 0; s < 64; s++) {
 				let c = t[s];
-				if (c && w(c) === n && C(c) !== 6 && C(c) !== 1) for (let t of xt) t === C(c) || t === 11 && a || t === 9 && o || t === 5 && e === "MorphB" || !P(S(t, n), s) || i.push({
+				if (c && w(c) === n && C(c) !== 6 && C(c) !== 1) for (let t of xt) t === C(c) || t === 11 && a || t === 9 && o || t === 5 && e === "MorphB" || !F(S(t, n), s) || i.push({
 					from: s,
 					to: s,
 					captures: [],
@@ -1967,7 +1967,7 @@ function Ct(e, t, n, r, i, a, o, s = mt) {
 				let e = z(t, n);
 				if (e < 0) return;
 				for (let n = -1; n <= 1; n++) for (let r = -1; r <= 1; r++) {
-					let i = r || n ? M(e, r, n) : -1;
+					let i = r || n ? N(e, r, n) : -1;
 					i >= 0 && !t[i] && E(i) !== 0 && E(i) !== 7 && s.push(i);
 				}
 			} else {
@@ -2016,7 +2016,7 @@ function Ct(e, t, n, r, i, a, o, s = mt) {
 				let a = t[e];
 				if (a && w(a) === n && C(a) !== 6 && C(a) !== 1) for (let o = e + 1; o < 64; o++) {
 					let s = t[o];
-					s && w(s) === n && C(s) !== 6 && C(s) !== 1 && C(s) !== C(a) && P(a, o) && P(s, e) && i.push({
+					s && w(s) === n && C(s) !== 6 && C(s) !== 1 && C(s) !== C(a) && F(a, o) && F(s, e) && i.push({
 						from: e,
 						to: o,
 						captures: [],
@@ -2049,7 +2049,7 @@ function Tt(e, t, n, r, i = 0, a = !1, o = !1, s) {
 	r.length = u;
 }
 function Et(e, t, n, r, i) {
-	if (t === void 0 || t < 0 || !I(e).length || Le(e ^ 1, e, n) !== "frozen") return;
+	if (t === void 0 || t < 0 || !L(e).length || Le(e ^ 1, e, n) !== "frozen") return;
 	let a = !i || i[t] !== 0 && w(i[t]) !== e, o = 0;
 	for (let e = 0; e < r.length; e++) {
 		let n = r[e];
@@ -2099,7 +2099,7 @@ function kt(e, t) {
 	return n >= 0 && ut(e, n, t);
 }
 function At(e, t, n) {
-	if (q.hasteNoForward && (E(t.to) - E(t.from)) * N(n) > 0) return !1;
+	if (q.hasteNoForward && (E(t.to) - E(t.from)) * P(n) > 0) return !1;
 	let r = Ot(e, t, n);
 	if (q.hasteApart) for (let e = 0; e < 8; e++) {
 		let i = U[t.to * 8 + e];
@@ -2112,7 +2112,7 @@ function At(e, t, n) {
 	return !q.hasteNoCheck || !kt(r, n);
 }
 function jt(e, t, n) {
-	if (!t || !q.freezeQuiet || F(e) !== "Freeze") return;
+	if (!t || !q.freezeQuiet || I(e) !== "Freeze") return;
 	let r = 0;
 	for (let e = 0; e < n.length; e++) n[e].captures.length || (n[r++] = n[e]);
 	n.length = r;
@@ -2121,7 +2121,7 @@ function Mt(e, t, n) {
 	if (q.guardReserve === "off") return;
 	let r = S(9, t);
 	if (q.guardReserve === "any") {
-		for (let t = 0; t < 64; t++) !e[t] && P(r, t) && n.push({
+		for (let t = 0; t < 64; t++) !e[t] && F(r, t) && n.push({
 			from: t,
 			to: t,
 			captures: [],
@@ -2132,7 +2132,7 @@ function Mt(e, t, n) {
 	let i = q.guardReserve === "rank12" ? 2 : 1;
 	for (let a = 0; a < i; a++) {
 		let i = (t === 0 ? a : 7 - a) * 8;
-		for (let t = i; t < i + 8; t++) !e[t] && P(r, t) && n.push({
+		for (let t = i; t < i + 8; t++) !e[t] && F(r, t) && n.push({
 			from: t,
 			to: t,
 			captures: [],
@@ -2198,15 +2198,15 @@ function Ft(e, t) {
 	return t.drop2 !== void 0 && (n |= G[t.drop2]), e & ~n;
 }
 function It(e, t, n) {
-	if (t.power || t.drop || Math.abs(t.to - t.from) !== 16 || e[t.to] !== S(1, n) || E(t.from) !== (n === 0 ? 1 : 6) || F(n) === "Darkness" || F(n ^ 1) === "Darkness") return -1;
+	if (t.power || t.drop || Math.abs(t.to - t.from) !== 16 || e[t.to] !== S(1, n) || E(t.from) !== (n === 0 ? 1 : 6) || I(n) === "Darkness" || I(n ^ 1) === "Darkness") return -1;
 	let r = S(1, n ^ 1), i = T(t.to);
 	return i > 0 && e[t.to - 1] === r || i < 7 && e[t.to + 1] === r ? t.from + t.to >> 1 : -1;
 }
 function Lt(e, t, n, r, i, a) {
 	if (i === "attacks") return;
 	let o = a.length;
-	if (r >= 0 && F(t) !== "Darkness") {
-		let n = r - 8 * N(t), i = S(1, t), s = T(n);
+	if (r >= 0 && I(t) !== "Darkness") {
+		let n = r - 8 * P(t), i = S(1, t), s = T(n);
 		!e[r] && e[n] === S(1, t ^ 1) && !B(e, n, t ^ 1) && (s > 0 && e[n - 1] === i && R(i, 1) && a.push({
 			from: n - 1,
 			to: r,
@@ -2273,7 +2273,7 @@ function Ht(e, t, n, r, i, a) {
 	return !q.insufficientMaterial || !Vt(e) || q.guardCaptures === "any" && r && (r[0] > 0 || r[1] > 0) ? !1 : !Ut(e, 0, t?.[0] ?? 0, i?.[0] ?? 0, n, a?.[1]) && !Ut(e, 1, t?.[1] ?? 0, i?.[1] ?? 0, n, a?.[0]);
 }
 function Ut(e, t, n, r, i, a) {
-	if (!I(t).length) return F(t) === "Strike" && Pe(t, n);
+	if (!L(t).length) return I(t) === "Strike" && Pe(t, n);
 	if (Gt(t, n, r, a, "Strike")) return !0;
 	if (i && Gt(t, n, r, a, "Salvation")) {
 		for (let e = 1; e < 16; e++) if (Ge(e) && i[t * 16 + e] > 0) return !0;
@@ -2501,7 +2501,7 @@ function en(e, t, n, r, i, a, o = Jt(e, t)) {
 			sq: o,
 			why: "swap",
 			caps: []
-		}) : P(l, t) && r.push({
+		}) : F(l, t) && r.push({
 			from: t,
 			to: o,
 			captures: [],
@@ -2918,7 +2918,7 @@ function Bn(e) {
 		i && (r += i), t.push(r);
 	}
 	let n = Vn(e), r = "KQkq".split("").filter((t, n) => (e.castle ?? 0) & 1 << n).join("") || "-";
-	return `${t.join("/")} ${e.turn === 0 ? "w" : "b"} ${r} ${e.ep === void 0 ? "-" : O(e.ep)} ${e.halfmove} ${Te(e)}${n ? " " + n : ""}`;
+	return `${t.join("/")} ${e.turn === 0 ? "w" : "b"} ${r} ${e.ep === void 0 ? "-" : O(e.ep)} ${e.halfmove} ${we(e)}${n ? " " + n : ""}`;
 }
 function Vn(e) {
 	let t = [];
@@ -3085,13 +3085,17 @@ var Y = (e) => {
 	for (let r = 0; r < e; r++) t[r] = Jn() | 0, n[r] = Xn();
 	return [t, n];
 }, [or, sr] = Y(128), [cr, lr] = Y(64), [ur, dr] = Y(16), [fr, pr] = Y(128), [mr, hr] = Y(4), [gr, _r] = Y(1), [vr, yr] = Y(2), [br, xr] = Y(4), [Sr, Cr] = Y(8), wr = (e, t) => e * 4 + Math.min(t, 3), Tr = (e, t) => e * 8 + Math.min(t, 7), Er = (e, t) => e * 4 + Math.min(t, 3), [Dr, Or] = Y(2), [kr, Ar] = Y(2), [jr, Mr] = Y(64), [Nr, Pr] = Y(16), Fr = (e, t) => e * 8 + Math.min(t, 7), [Ir, Lr] = Y(1), Rr = Int32Array.of(...kr, ...Ir), zr = Int32Array.of(...Ar, ...Lr), [Br, Vr] = Y(64), Hr = Int32Array.of(...jr, ...Br), Ur = Int32Array.of(...Mr, ...Vr), Wr = (e, t) => t < 32 ? e * 32 + t : 64 + e * 32 + (t - 32), [Gr, Kr] = Y(4), [qr, Jr] = Y(8), Yr = /* @__PURE__ */ new Int32Array(2);
-function Xr(e, t = Yr) {
+function Xr(e) {
+	let t = e.ep;
+	return t === void 0 || e.haste !== void 0 ? -1 : Bt(e, "captures").some((n) => n.to === t && C(e.board[n.from]) === 1 && n.captures.length === 1 && n.captures[0] !== t) ? t : -1;
+}
+function Zr(e, t = Yr) {
 	ar(e.board, e.turn, t);
 	let n = t[0], r = t[1];
 	for (let t = 0; t < 2; t++) {
 		let i = e.used?.[t] ?? 0;
-		if (I(t).length) for (let e = 0; e < 8; e++) i >> e & 1 && (n ^= ur[t * 8 + e], r ^= dr[t * 8 + e]);
-		else if (i > 0 && De(t) > 0) {
+		if (L(t).length) for (let e = 0; e < 8; e++) i >> e & 1 && (n ^= ur[t * 8 + e], r ^= dr[t * 8 + e]);
+		else if (i > 0 && Ee(t) > 0) {
 			let e = Tr(t, i);
 			n ^= ur[e], r ^= dr[e];
 		}
@@ -3126,23 +3130,24 @@ function Xr(e, t = Yr) {
 	}
 	e.free && (n ^= gr[0], r ^= _r[0]), e.haste !== void 0 && (n ^= cr[e.haste], r ^= lr[e.haste]), e.rage && (n ^= Rr[e.rage - 1], r ^= zr[e.rage - 1]);
 	for (let t = 0; t < 4; t++) (e.castle ?? 0) & 1 << t && (n ^= Gr[t], r ^= Kr[t]);
-	return e.ep !== void 0 && (n ^= qr[e.ep & 7], r ^= Jr[e.ep & 7]), t[0] = n, t[1] = r, ir(n, r);
+	let i = Xr(e);
+	return i >= 0 && (n ^= qr[i & 7], r ^= Jr[i & 7]), t[0] = n, t[1] = r, ir(n, r);
 }
 //#endregion
 //#region src/game-rules.ts
-function Zr(e) {
+function Qr(e) {
 	if (e && typeof e == "object") {
-		for (let t of Object.values(e)) Zr(t);
+		for (let t of Object.values(e)) Qr(t);
 		Object.freeze(e);
 	}
 	return e;
 }
-var Qr = class {
+var $r = class {
 	rules;
 	constructor(e = Dn) {
 		let t = { ...q };
 		try {
-			this.rules = Zr(structuredClone(Pn(structuredClone(e))));
+			this.rules = Qr(structuredClone(Pn(structuredClone(e))));
 		} finally {
 			Object.assign(q, t);
 		}
@@ -3167,7 +3172,7 @@ var Qr = class {
 		return Ln(e, t, this.rules);
 	}
 	positionKey(e) {
-		return this.#e(() => Xr(e));
+		return this.#e(() => Zr(e));
 	}
 	legalMoves(e) {
 		return this.#e(() => Bt(e));
@@ -3208,13 +3213,13 @@ var Qr = class {
 	playedDesign() {
 		return this.#e(() => {
 			let e = Nn();
-			return e ? Zr(structuredClone(e)) : null;
+			return e ? Qr(structuredClone(e)) : null;
 		});
 	}
 	markKind(...e) {
 		return this.#e(() => Le(...e));
 	}
-}, $r = class {
+}, ei = class {
 	owned;
 	lifetime = {};
 	get context() {
@@ -3233,10 +3238,10 @@ var Qr = class {
 	cache = null;
 	seen = /* @__PURE__ */ new Map();
 	constructor(e, t = Dn) {
-		this.owned = new Qr(t), this.newGame(e);
+		this.owned = new $r(t), this.newGame(e);
 	}
 	newGame(e, t) {
-		let n = t ? new Qr(t) : this.owned, r = e ?? n.randomBackRank(), i = n.startPosition(r);
+		let n = t ? new $r(t) : this.owned, r = e ?? n.randomBackRank(), i = n.startPosition(r);
 		this.owned = n, this.lifetime = {}, this.backRank = r, this.pos = i, this.history = [], this.seen.clear(), this.cache = null, this.update();
 	}
 	load(e) {
@@ -3288,20 +3293,20 @@ var Qr = class {
 //#endregion
 //#region src/match/worker.ts
 t("sha256");
-var ei = "sha256:631420c297bb1015d0a736ce94c94a0741ecb7a35f171680e6f680e5ce9da56d", ti = 1e3, ni = 8e6, ri = [
+var ti = "sha256:e58d7d379d0dad5ddde1c4e34e984923e856e4b3f702e7beeaee22db62d7a9b4", ni = 1e3, ri = 8e6, ii = [
 	"beginner",
 	"casual",
 	"club",
 	"strong"
-], X, Z, ii = !1, Q = !1;
-function ai(e, t) {
+], X, Z, ai = !1, Q = !1;
+function oi(e, t) {
 	if (!e || typeof e != "object" || Array.isArray(e) || Object.keys(e).some((e) => !t.includes(e))) throw Error("Malformed input");
 	return e;
 }
 function $(e) {
 	return Number.isSafeInteger(e) && e >= 0;
 }
-function oi(e) {
+function si(e) {
 	if (typeof e != "string" || e.length > 4096) throw Error("Malformed FEN");
 	let t = e.split(" "), n = t[0].split("/");
 	if (t.length < 6 || t.length > 7 || !["w", "b"].includes(t[1]) || !(q.classicChess ? /^(-|K?Q?k?q?)$/.test(t[2]) && /^(-|[a-h][36])$/.test(t[3]) : t[2] === "-" && t[3] === "-") || !/^\d+$/.test(t[4]) || !/^[1-9]\d*$/.test(t[5]) || n.length !== 8 || n.some((e) => !/^[1-8PNBRQKALGMSOCVTHpnbrqkalgmsocvth]+$/.test(e) || [...e].reduce((e, t) => e + (/\d/.test(t) ? +t : 1), 0) !== 8) || (t[0].match(/K/g) ?? []).length !== 1 || (t[0].match(/k/g) ?? []).length !== 1) throw Error("Malformed FEN");
@@ -3313,11 +3318,11 @@ function oi(e) {
 		...r.lost ?? [],
 		...r.drawn ?? []
 	].some((e) => !$(e) || e > 1e4) || r.marks?.some((e) => e && (!$(e.sq) || e.sq > 63 || e.left !== void 0 && (!$(e.left) || e.left > 2))) || r.haste !== void 0 && (!$(r.haste) || r.haste > 63)) throw Error("Malformed power state");
-	if (!$(r.halfmove) || !$(r.ply) || !$(Te(r)) || Bn(r) !== e) throw Error("Noncanonical FEN");
+	if (!$(r.halfmove) || !$(r.ply) || !$(we(r)) || Bn(r) !== e) throw Error("Noncanonical FEN");
 	return r;
 }
-function si(e) {
-	let t = ai(e, [
+function ci(e) {
+	let t = oi(e, [
 		"backRank",
 		"fen",
 		"preset",
@@ -3345,9 +3350,9 @@ function si(e) {
 		throw Error(`Malformed setup: ${e.message}`);
 	}
 	if (q.piles.some((e) => e.length)) throw Error("Private card data unsupported");
-	X = new $r(t.backRank ?? "RNBQKBNR", q), t.fen !== void 0 && X.load(oi(t.fen)), Z = {
+	X = new ei(t.backRank ?? "RNBQKBNR", q), t.fen !== void 0 && X.load(si(t.fen)), Z = {
 		schema: "kingdown-local-match/1",
-		engine: ei,
+		engine: ti,
 		setup: structuredClone(t),
 		initialFen: Bn(X.pos),
 		rules: structuredClone(q),
@@ -3355,7 +3360,7 @@ function si(e) {
 		commands: []
 	};
 }
-function ci() {
+function li() {
 	if (!X || !Q) throw Error("Match not initialized");
 	let { piles: e, ...t } = q, n = X.status === "playing" ? X.legal.map((e) => ({
 		lan: Gn(X.pos, e),
@@ -3368,38 +3373,38 @@ function ci() {
 		fen: Bn(X.pos),
 		ply: X.pos.ply,
 		turn: X.pos.turn,
-		moveNumber: Te(X.pos),
+		moveNumber: we(X.pos),
 		status: X.status,
 		inCheck: X.inCheck,
 		legal: n.map((e) => e.lan),
 		history: X.history.map((e) => e.lan)
 	};
 }
-function li(e) {
+function ui(e) {
 	if (!X || !Q) throw Error("Match not initialized");
 	if (X.status !== "playing") throw Error("Match terminal");
-	let t = ai(e, [
+	let t = oi(e, [
 		"level",
 		"maxTimeMs",
 		"maxDepth"
 	]), n = t.level;
-	if (n !== void 0 && !ri.includes(n)) throw Error("Malformed level");
+	if (n !== void 0 && !ii.includes(n)) throw Error("Malformed level");
 	let r = t.maxTimeMs === void 0 ? 250 : t.maxTimeMs, i = t.maxDepth === void 0 ? n ? void 0 : 4 : t.maxDepth;
 	if (!$(r) || r < 1 || r > 5e3 || i !== void 0 && (!$(i) || i < 1 || i > 8)) throw Error("Malformed search bounds");
 	return {
 		kind: "runtime-search",
-		engine: ei,
+		engine: ti,
 		revision: Z.revision,
 		rules: structuredClone(q),
 		pos: structuredClone(X.pos),
-		history: X.history.map((e) => Xr(e.pos)),
+		history: X.history.map((e) => Zr(e.pos)),
 		ply: X.history.length,
 		legal: X.legal.map((e) => Gn(X.pos, e)),
 		options: structuredClone(t)
 	};
 }
-function ui(e) {
-	let t = ai(e, [
+function di(e) {
+	let t = oi(e, [
 		"id",
 		"expectedRevision",
 		"lan"
@@ -3407,16 +3412,16 @@ function ui(e) {
 	if (typeof t.id != "string" || !t.id.length || t.id.length > 200 || typeof t.lan != "string" || !t.lan.length || t.lan.length > 1024 || !$(t.expectedRevision)) throw Error("Malformed command");
 	return t;
 }
-function di(e) {
+function fi(e) {
 	if (!X || !Q) throw Error("Match not initialized");
-	let t = ui(e), n = Z.commands.find((e) => e.id === t.id);
+	let t = di(e), n = Z.commands.find((e) => e.id === t.id);
 	if (n) {
 		if (n.lan !== t.lan || n.expectedRevision !== t.expectedRevision) throw Error("Command ID conflict");
-		return ci();
+		return li();
 	}
 	if (t.expectedRevision !== Z.revision) throw Error("Stale revision");
 	if (X.status !== "playing") throw Error("Match terminal");
-	if (Z.commands.length >= ti) throw Error("Match history limit reached");
+	if (Z.commands.length >= ni) throw Error("Match history limit reached");
 	let r = X.legal.filter((e) => Gn(X.pos, e) === t.lan);
 	if (r.length !== 1) throw Error("Illegal or ambiguous move");
 	return X.play(r[0]), Z.revision++, Z.commands.push({
@@ -3424,11 +3429,11 @@ function di(e) {
 		fen: Bn(X.pos),
 		ply: X.pos.ply,
 		status: X.status
-	}), ci();
+	}), li();
 }
-function fi(e) {
-	if (typeof e != "string" || e.length > ni) throw Error("Malformed save");
-	let t = ai(JSON.parse(e), [
+function pi(e) {
+	if (typeof e != "string" || e.length > ri) throw Error("Malformed save");
+	let t = oi(JSON.parse(e), [
 		"schema",
 		"engine",
 		"setup",
@@ -3437,12 +3442,12 @@ function fi(e) {
 		"revision",
 		"commands"
 	]);
-	if (t.schema !== "kingdown-local-match/1" || t.engine !== ei) throw Object.assign(/* @__PURE__ */ Error("Incompatible save"), { code: "MATCH_INCOMPATIBLE" });
-	if (!$(t.revision) || !Array.isArray(t.commands) || t.commands.length > ti || t.commands.length !== t.revision) throw Error("Malformed history");
-	if (si(t.setup), t.initialFen !== Z.initialFen || JSON.stringify(t.rules) !== JSON.stringify(Z.rules)) throw Error("Incompatible setup or rules");
+	if (t.schema !== "kingdown-local-match/1" || t.engine !== ti) throw Object.assign(/* @__PURE__ */ Error("Incompatible save"), { code: "MATCH_INCOMPATIBLE" });
+	if (!$(t.revision) || !Array.isArray(t.commands) || t.commands.length > ni || t.commands.length !== t.revision) throw Error("Malformed history");
+	if (ci(t.setup), t.initialFen !== Z.initialFen || JSON.stringify(t.rules) !== JSON.stringify(Z.rules)) throw Error("Incompatible setup or rules");
 	Q = !0;
 	for (let e of t.commands) {
-		let t = ai(e, [
+		let t = oi(e, [
 			"id",
 			"expectedRevision",
 			"lan",
@@ -3451,7 +3456,7 @@ function fi(e) {
 			"status"
 		]);
 		if (t.expectedRevision !== Z.revision) throw Error("Invalid replay revision");
-		let n = Z.revision, r = di({
+		let n = Z.revision, r = fi({
 			id: t.id,
 			expectedRevision: t.expectedRevision,
 			lan: t.lan
@@ -3462,27 +3467,27 @@ function fi(e) {
 e.on("message", ({ id: t, op: n, input: r }) => {
 	let i = Q;
 	try {
-		if (ii) throw Error("Match initialization failed");
+		if (ai) throw Error("Match initialization failed");
 		if ((n === "create" || n === "load") && X) throw Error("Already initialized");
 		let i;
 		switch (n) {
 			case "create":
-				si(r);
+				ci(r);
 				break;
 			case "load":
-				fi(r);
+				pi(r);
 				break;
 			case "snapshot":
-				i = ci();
+				i = li();
 				break;
 			case "chooseMove":
-				i = li(r);
+				i = ui(r);
 				break;
 			case "apply":
-				i = di(r);
+				i = fi(r);
 				break;
 			case "save":
-				ci(), i = JSON.stringify(Z);
+				li(), i = JSON.stringify(Z);
 				break;
 			default: throw Error("Unknown operation");
 		}
@@ -3491,7 +3496,7 @@ e.on("message", ({ id: t, op: n, input: r }) => {
 			value: i
 		});
 	} catch (r) {
-		(n === "create" || n === "load") && !i && (ii = !0, Q = !1, X = void 0), e.postMessage({
+		(n === "create" || n === "load") && !i && (ai = !0, Q = !1, X = void 0), e.postMessage({
 			id: t,
 			error: r.message,
 			code: r.code

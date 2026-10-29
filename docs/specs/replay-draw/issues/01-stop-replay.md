@@ -87,6 +87,16 @@ history, and the accepted save reads in full after reload.
 - Logs: `/private/tmp/kingdown-fix-replay-draw/affected-repaired.log`, `full-final.log`, `docs.log`, and `browser.log` in the same folder. Browser record: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/fix-replay-draw-OfpYIH/`.
 - Remove all 21 disposable databases from this run after the checks. `git diff --check` passes. A final fetch keeps `origin/main` at `f8fcec0a`.
 
+## Merge with main
+
+- Review finding (P1): after a merge with current `origin/main`, the compiled worker changes again. `tools/plugin-runtime-build.mjs` then stops with "needs its archive pair".
+- Merge `origin/main` into this branch. The merge has no conflicts.
+- `npm run plugin:archive:runtime` writes the pair for `e58d7d379d0dad5ddde1c4e34e984923e856e4b3f702e7beeaee22db62d7a9b4`. After that, `node tools/plugin-runtime-build.mjs` passes.
+- Remove the pair for `631420c297bb1015d0a736ce94c94a0741ecb7a35f171680e6f680e5ce9da56d`. Only this branch had it. It was never on `origin/main` and no build makes it now. All archived pairs from `origin/main` stay in place.
+- `npm run test:docs`: 183 passes in 16 files.
+- Full `npm test`: 5,300 passes, 47 failures and 502 skips in 290 files. All 47 failures are in 23 browser-driven `tools/` test files. Playwright cannot start Chromium because `~/Library/Caches/ms-playwright/` is not on this Mac. The other failures in these files are browser crashes and one browser timeout. No game, engine, save or replay test fails. `tools/engines.test.ts` reloads each archived fixture and passes. The pre-merge full run passed all browser tests, so the browser cache is the cause, not this merge.
+- Logs: `merge-full.log` and `merge-docs.log` in `/private/tmp/kingdown-fix-replay-draw/`.
+
 ## Review and limits
 
 The shared loop checks status once before each move. Both callers keep their existing recovery path. No new save format or game rule is required. The archive pair is required by the worker build; existing archives stay in place. Independent PR review remains a merge requirement.
