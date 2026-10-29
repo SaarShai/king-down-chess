@@ -117,6 +117,24 @@ describe('ready character playback', () => {
   for(let i=0;i<4;i++)expect(runtime.rest(`other-${i}`,'white')).toMatchObject({url:`other-${i}`});
   expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);runtime.dispose();expect(runtime.stats.bytes).toBe(0);
  });
+ it('reserves both movement endpoints under pressure and releases them on interruption', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const movement={...bank(),id:'move',kind:'movement',facing:'SE',frames:[{url:'first',timeMs:0},{url:'last',timeMs:120}]};
+  const others=Array.from({length:4},(_,i)=>({...idle,id:`other-${i}`,character:`other-${i}`,frames:[{url:`other-${i}`,timeMs:0}]}));
+  const otherMove={...movement,character:'other-0',frames:[{url:'other-0',timeMs:0}]};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,movement,...others,otherMove]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:2048,naturalHeight:2048,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const prepared=await runtime.prepare('pawn','white','SE',false,true) as {releaseMovementStart:()=>void;releaseMovement:()=>void;releaseFallback:()=>void};
+  for(let i=0;i<4;i++)await runtime.warm(`other-${i}`,'white');
+  expect(runtime.action(prepared,0,100,0)).toMatchObject({bank:'move',url:'first'});
+  expect(runtime.action(prepared,100,100,0)).toMatchObject({bank:'move',url:'last'});
+  prepared.releaseMovementStart();prepared.releaseMovement();prepared.releaseFallback();
+  const next=await runtime.prepare('other-0','white','SE',false,true) as typeof prepared;
+  expect(runtime.action(next,0,100,0)).toMatchObject({url:'other-0'});next.releaseMovementStart();next.releaseMovement();next.releaseFallback();
+  for(let i=0;i<4;i++)await runtime.warm(`other-${i}`,'white');
+  for(let i=0;i<4;i++)expect(runtime.rest(`other-${i}`,'white')).toMatchObject({url:`other-${i}`});
+  expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);runtime.dispose();
+ });
  it('uses screen direction for both board orientations', () => {
   expect(facingOf(112,-112)).toBe('NE'); expect(facingOf(-112,112)).toBe('SW');
   expect(facingOf(0,-112)).toBe('N'); expect(facingOf(112,0)).toBe('E');

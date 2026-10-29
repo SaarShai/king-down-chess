@@ -5,6 +5,8 @@ Status: claimed
 
 ## Plan
 
+First-frame review fix: reserve both movement endpoints; draw the first at the movement boundary, including after an incoming turn; release reservations on draw or interruption. Check delayed refreshes, cache pressure, existing endpoint and fallback cases, and the pinned browser flow.
+
 Review fixes: protect ready fallback frames during optional loading; hold the movement endpoint until the scene draws it or cancels; test boundary timing, cache pressure, capture and interruption; run the focused tests and pinned browser check.
 
 1. Inspect the runtime, scene move and Undo paths, and the pinned asset manifest.
@@ -24,7 +26,7 @@ Review fixes: protect ready fallback frames during optional loading; hold the mo
 
 A bank opts in with `kind: "movement"`, a `character`, an `army`, and the screen `facing`. It uses the existing frame, duration, pivot and registration fields. The scene measures the start and target foot coordinates in board tiles. Only a quiet move whose largest horizontal or vertical distance is exactly one tile can use a movement bank. The runtime picks an exact match and loads every frame within the existing move preparation deadline. A failed or late load uses the existing turn pose. Longer moves use that same turn-pose fallback and do not load movement frames. The bank plays once across the scene's action duration, including the first and last frame. The scene still controls the root path and its duration. Undo is a new move in the opposite screen direction and uses the same one-square limit.
 
-Movement banks do not run on captures, shoves, swaps, or with reduced motion. Undo of a capture uses the quiet reverse path when the existing Undo code can move the figure, subject to the same distance limit. A cancellation keeps the scene guard against late preparation. A bank is not a foot-contact model: the clip is stretched over the one-square action duration, and the scene retains its existing travel and lift curve. Endpoint art, pivots and registration must be checked against the turn banks before any art is selected. The runtime does not validate visual joins. During playback, cache pressure can evict intermediate frames; the sampler holds an available earlier frame or falls back to the turn pose. The final movement frame and the prepared turn and rest endpoints remain reserved until the scene draws or cancels them. Large banks can fail preparation under the existing decoded-pixel budget and use the ready fallback.
+Movement banks do not run on captures, shoves, swaps, or with reduced motion. Undo of a capture uses the quiet reverse path when the existing Undo code can move the figure, subject to the same distance limit. A cancellation keeps the scene guard against late preparation. A bank is not a foot-contact model: the clip is stretched over the one-square action duration, and the scene retains its existing travel and lift curve. Endpoint art, pivots and registration must be checked against the turn banks before any art is selected. The runtime does not validate visual joins. During playback, cache pressure can evict intermediate frames; the sampler holds an available earlier frame or falls back to the turn pose. The first and final movement frames remain reserved until the scene draws or cancels them. The prepared turn and rest endpoints stay reserved through completion or cancellation. Large banks can fail preparation under the existing decoded-pixel budget and use the ready fallback.
 
 ## Verification
 
@@ -41,3 +43,14 @@ Movement banks do not run on captures, shoves, swaps, or with reduced motion. Un
 - `npm run test:docs`: 17 files and 186 tests pass.
 
 The checks do not prove art quality or visual joins, and no full test suite or art review ran. The browser check samples real refreshes; the deliberately straddled boundary and interruption use the real scene with a controlled test clock. The cache budget covers retained decoded-image accounting, not a measurement of transient browser decoder memory.
+
+### First-frame review fix
+
+- Both independent reviews found that a refresh could cross the start of movement and sample a later frame. Cache pressure could also evict the first frame after preparation. The scene now holds the start boundary for one draw, before travel begins, and releases the first-frame reservation after that draw. The final frame stays reserved until its own draw. Cancellation, replacement and stale preparation release both reservations.
+- `KINGDOWN_TEST_FILE=src/render/character-runtime.test.ts npm test`: 37 runtime tests and 67 board tests pass; both type checks pass. A pressure test uses 16 MiB in-memory images to check both reserved endpoints and their release; peak retained decoded-image accounting stays at or below 64 MiB.
+- `KINGDOWN_TEST_FILE=src/render/scene-load.test.ts npm test`: 26 scene tests and 67 board tests pass; both type checks pass. Controlled clocks check a frame change before the first refresh, with and without an incoming turn. A 600 ms refresh skips the full nominal action and still draws the first and final frames in order. Cancellation and replacement before the first draw release reservations under pressure. The existing late-load, final-frame, capture and Undo coverage remains in the focused and browser checks.
+- `MOVEMENT_BASELINE_DIR='/Users/za/Documents/king down chess (new)/app/public/character-runtime' npm run check:browser movement-runtime`: pass for both armies and orientations, including quiet moves and Undo, long-move fallback and captures. The browser uses existing image bytes and synthetic metadata. Log: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/movement-bank-quiet-20261029-0AXguu/movement-runtime.log`. Vite reports dynamic-import, Node externalization and public-asset warnings.
+- `npm run test:docs`: 17 files and 186 tests pass. `git diff --check` passes.
+- The first pressure-test run failed because the last sampled image kept the cache's active-frame preference after its reservation was released. The corrected test moves that preference to another image before it checks release. The first scene-test run failed on two expected timestamps because the new start hold extends the move; the corrected checks pass.
+
+No full test suite, art review, or capture-Undo browser check ran. No image or sequence files were made. A delayed refresh can extend the move by the delay to its first draw; this preserves the start frame and the full action interval.

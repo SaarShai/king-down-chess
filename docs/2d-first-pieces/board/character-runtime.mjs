@@ -184,16 +184,16 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    await bounded(Promise.all(start.map(loadFrame)),remaining());
    if(disposed||!remaining()||start.some(frame=>!images.has(frame.url)))return null;
    const sizes=new Map(start.map(frame=>[frame.url,images.get(frame.url).size]));
-   let releaseMovement=null,releaseFallback=null;
+   let releaseMovementStart=null,releaseMovement=null,releaseFallback=null;
    if(movement){
     releaseFallback=reserve(start);
     await bounded(Promise.all(movement.frames.map(loadFrame)),remaining(),signal);
     if(disposed||signal?.aborted){releaseFallback();return null;}
     if(!remaining()||movement.frames.some(frame=>!images.has(frame.url)))movement=null;
-    else releaseMovement=reserve([movement.frames.at(-1)]);
+    else {releaseMovementStart=reserve([movement.frames[0]]);releaseMovement=reserve([movement.frames.at(-1)]);}
    }
    const effect=attack?await bounded(loadSeparate(character),remaining()):null;
-   if(disposed||!remaining()&&!movementRequested||attack&&effectEntries[character]&&!effect){releaseMovement?.();releaseFallback?.();return null;}
+   if(disposed||!remaining()&&!movementRequested||attack&&effectEntries[character]&&!effect){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
    if(start.some(frame=>!images.has(frame.url))){
     const missing=[...sizes].reduce((sum,[key,size])=>sum+(images.has(key)?0:size),0);
     for(const cached of effectLoads.values()){
@@ -201,10 +201,10 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
      if(!cached.pending&&cached!==currentEffect){effectLoads.delete(cached.character);effectBytes-=cached.size;}
     }
     await bounded(Promise.all(start.map(loadFrame)),remaining());
-    if(disposed||!remaining()||start.some(frame=>!images.has(frame.url))){releaseMovement?.();releaseFallback?.();return null;}
+    if(disposed||!remaining()||start.some(frame=>!images.has(frame.url))){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
    }
-   if(movement&&movement.frames.some(frame=>!images.has(frame.url))){movement=null;releaseMovement?.();releaseMovement=null;}
-   return {rest,attack,movement,effect,before,after,releaseMovement,releaseFallback,beforeMs:before.reduce((n,p)=>n+p.bank.durationMs,0),afterMs:after.reduce((n,p)=>n+p.bank.durationMs,0)};
+   if(movement&&movement.frames.some(frame=>!images.has(frame.url))){movement=null;releaseMovementStart?.();releaseMovement?.();releaseMovementStart=null;releaseMovement=null;}
+   return {rest,attack,movement,effect,before,after,releaseMovementStart,releaseMovement,releaseFallback,beforeMs:before.reduce((n,p)=>n+p.bank.durationMs,0),afterMs:after.reduce((n,p)=>n+p.bank.durationMs,0)};
   },
   action(prepared,time,duration,contact){
    if(time<0)return routeSample(prepared.before,time+prepared.beforeMs)??sample(prepared.rest,0,false);
