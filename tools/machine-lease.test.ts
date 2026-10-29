@@ -211,6 +211,44 @@ it('the npm test child keeps the machine lease after every process above it is k
   }
 });
 
+it('the deploy test step keeps the machine lease after every process above it is killed', async () => {
+  const { copies, run, until } = setup();
+  const repo = copies[0], release = join(repo.root, 'release');
+  // The deploy tests a fresh origin/main in its own worktree. Its stub wt makes stub tsc and vitest there.
+  const vitest = `#!/bin/sh\\nexec '${process.execPath}' tools/web-game-check.mjs\\n`;
+  repo.write('tools/wt.sh', `#!/bin/sh\nmkdir -p node_modules/.bin\nprintf '#!/bin/sh\\nexit 0\\n' > node_modules/.bin/tsc\nprintf "${vitest}" > node_modules/.bin/vitest\nchmod +x node_modules/.bin/*\n`);
+  chmodSync(join(repo.dir, 'tools/wt.sh'), 0o755);
+  repo.write('docs/2d-first-pieces/pass.test.mjs', '');
+  const pkg = JSON.parse(repo.read('package.json'));
+  pkg.scripts['plugin:db:init-test'] = 'true';
+  repo.write('package.json', JSON.stringify(pkg));
+  for (const args of [['add', '-A'], ['commit', '-q', '-m', 'deploy'], ['remote', 'add', 'origin', 'https://github.com/SaarShai/king-down-chess.git'],
+    ['remote', 'set-url', '--push', 'origin', repo.remote], ['push', '-q', 'origin', 'main']]) {
+    const result = repo.git(...args);
+    expect(result.status, result.stderr).toBe(0);
+  }
+  // Only a fetch goes to the bare remote, through a command-line insteadOf rule.
+  const realGit = repo.run('sh', ['-c', 'command -v git']).stdout.trim();
+  repo.write('bin/git', `#!/bin/sh
+    if [ "$1" = fetch ]; then exec '${realGit}' -c 'url.${repo.remote}.insteadOf=https://github.com/SaarShai/king-down-chess.git' "$@"; fi
+    exec '${realGit}' "$@"
+  `);
+  chmodSync(join(repo.dir, 'bin/git'), 0o755);
+  const publish = run(0, deploy, { PATH: `${join(repo.dir, 'bin')}:${repo.env.PATH}`, LEASE_RELEASE: release });
+  await until(() => existsSync(publish.started), publish);
+  const check = JSON.parse(readFileSync(publish.started, 'utf8'));
+  try {
+    for (const pid of ancestors(check.parent, publish.child.pid!)) process.kill(pid, 'SIGKILL');
+    await publish.done;
+    process.kill(check.pid, 0);
+    expect(await run(1, tests, { KINGDOWN_TEST_LOCK_WAIT: '0' }).done).toBe(75);
+    writeFileSync(release, 'release');
+    expect(await run(1, tests).done).toBe(0);
+  } finally {
+    try { process.kill(check.pid, 'SIGKILL'); } catch { /* ended */ }
+  }
+});
+
 it('passes the machine lease descriptor at its own number only while it is the lease file', async () => {
   const { machineLeaseStdio } = await import('./lib/lock.mjs');
   const { copies } = setup();
@@ -236,4 +274,12 @@ it('passes the machine lease descriptor at its own number only while it is the l
     closeSync(lease);
     closeSync(other);
   }
+});
+
+it('tools/test-unlocked.sh runs the package.json typecheck commands', () => {
+  const { typecheck } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).scripts;
+  const lines = readFileSync(new URL('test-unlocked.sh', import.meta.url), 'utf8').split('\n');
+  const commands = typecheck.split(' && ');
+  expect(commands.length).toBeGreaterThan(0);
+  for (const command of commands) expect(lines, command).toContain(command);
 });

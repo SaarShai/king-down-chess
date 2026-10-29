@@ -10,7 +10,7 @@
 #
 # The release shell must hold no KINGDOWN_STAGE or VITE_KINGDOWN_STAGE. A website run needs the production
 # VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY, because the build reads both from this shell.
-# No ref is accepted. A detached origin/main worktree runs npm test and the default browser checks,
+# No ref is accepted. A detached origin/main worktree runs the npm test steps and the default browser checks,
 # then build:vercel (with its own node_modules), the engine guards and byte record, check:vercel,
 # the MCP protocol and the plugin UI checks.
 # PLUGIN_TEST_DATABASE_URL must name a disposable loopback database ending in _test.
@@ -261,9 +261,11 @@ if [ -L node_modules ]; then
   step 'own node_modules' npm ci
 fi
 step 'plugin test database' npm run plugin:db:init-test
-step 'npm test' npm test
+# The tests and the browser checks start with no npm layer: npm (Node) closes the machine lease
+# descriptor in its children, so a kill of this shell would free the lease while they run.
+step 'npm test' bash tools/test-lock.sh bash tools/test-unlocked.sh
 if [ "$target" = website ]; then
-  step 'browser checks' npm run check:browser
+  step 'browser checks' node tools/check.mjs
   # shellcheck disable=SC2086 # site_env holds two checked words without spaces.
   step 'site artifact' env $site_env npm run build:vercel
 else
@@ -288,9 +290,9 @@ else
 fi
 step 'plugin protocol check' npm run plugin:check:protocol
 if [ "$target" = website ]; then
-  step 'plugin browser checks' npm run check:browser plugin-ui plugin-ui-http
+  step 'plugin browser checks' node tools/check.mjs plugin-ui plugin-ui-http
 else
-  step 'plugin browser checks' npm run check:browser plugin-oauth plugin-ui plugin-ui-http
+  step 'plugin browser checks' node tools/check.mjs plugin-oauth plugin-ui plugin-ui-http
 fi
 if [ $publish = no ]; then
   echo "deploy: checks passed at $commit; published nothing (no --publish flag)"

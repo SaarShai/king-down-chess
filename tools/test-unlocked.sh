@@ -6,6 +6,7 @@ set -eu
 root=$(cd "$(dirname "$0")/.." && pwd -P)
 cd "$root"
 PATH="$root/node_modules/.bin:$PATH"
+# The package.json "typecheck" commands, one per line; tools/machine-lease.test.ts checks that they match.
 tsc --noEmit
 tsc --noEmit -p tsconfig.tools.json
 vitest run

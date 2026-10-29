@@ -1,8 +1,9 @@
 // Deploy script test (secrets-and-public-gates/09). Each case runs the real tools/deploy.sh in a
-// temporary repository with a bare remote. Stub `npm` and `npx` on PATH write each call to a log,
-// with the commit and the folder of the call. The browser-check runner is `npm run check:browser`,
-// so the `npm` stub also logs the runner. Origin/main holds a stub `tools/wt.sh`, because the deploy
-// script calls the `wt` of the commit that it tests; the stub logs `wt add <path>`.
+// temporary repository with a bare remote. Stub `npm`, `npx` and `node` on PATH write each call to a
+// log, with the commit and the folder of the call. The browser-check runner is `node tools/check.mjs`,
+// so the `node` stub also logs the runner. Origin/main holds a stub `tools/wt.sh` and a stub
+// `tools/test-lock.sh`, because the deploy script calls the tools of the commit that it tests; the
+// stubs log `wt add <path>` and `test-lock.sh bash tools/test-unlocked.sh`.
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -42,8 +43,16 @@ function setup() {
   const log = join(repo.root, 'calls.log');
   const started = join(repo.root, 'started');
   const record = `echo "$(basename "$0") $* @ $(git rev-parse HEAD 2>/dev/null) in $(pwd -P) with $(ls | tr '\\n' ' ')" >> "${log}"`;
+  // STUB_FAIL=<word> makes a call that holds that argument fail; STUB_HANG=<word> makes it wait.
+  const holds = (name: string) => `[ -n "$${name}" ] && case " $* " in *" $${name} "*) true;; *) false;; esac`;
+  const behave = [
+    record,
+    `if ${holds('STUB_HANG')}; then touch "${started}"; sleep 30; fi`,
+    `if ${holds('STUB_FAIL')}; then exit 1; fi`,
+  ];
   mkdirSync(join(repo.dir, 'tools'));
   stub(join(repo.dir, 'tools', 'wt.sh'), [record, '[ -z "$STUB_LINK_MODULES" ] || ln -s "$STUB_LINK_MODULES" node_modules']);
+  stub(join(repo.dir, 'tools', 'test-lock.sh'), behave);
   cpSync(liveCheck, join(repo.dir, 'tools', 'deploy-live-check.mjs'));
   cpSync(keepAssets, join(repo.dir, 'tools', 'deploy-keep-assets.mjs'));
   cpSync(pluginLiveCheck, join(repo.dir, 'tools', 'deploy-plugin-live-check.mjs'));
@@ -66,15 +75,7 @@ function setup() {
     `case "$(pwd -P)" in "${repo.root}"/*) if [ "$1" = fetch ]; then url=$("${realGit}" config --get remote.origin.url) && exec "${realGit}" -c "url.${repo.remote}.insteadOf=$url" "$@"; fi ;; esac`,
     `exec "${realGit}" "$@"`,
   ]);
-  // STUB_FAIL=<word> makes a call that holds that argument fail; STUB_HANG=<word> makes it wait.
-  const holds = (name: string) => `[ -n "$${name}" ] && case " $* " in *" $${name} "*) true;; *) false;; esac`;
-  const behave = [
-    record,
-    `if ${holds('STUB_HANG')}; then touch "${started}"; sleep 30; fi`,
-    `if ${holds('STUB_FAIL')}; then exit 1; fi`,
-  ];
   stub(join(bin, 'npm'), [...behave,
-    'if [ "$1 $2" = "run check:browser" ] && [ $# -eq 2 ] && [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST" dist; fi',
     'if [ "$1 $2" = "run plugin:build:vercel" ]; then mkdir -p plugin-deploy/.vercel/output/functions/mcp.func; printf "consent-v1" > plugin-deploy/.vercel/output/functions/mcp.func/consent.mjs; fi',
     `if [ "$1 $2" = "run build:vercel" ]; then mkdir -p kingdown-deploy/.vercel/output/functions/mcp.func kingdown-deploy/.vercel/output/static; printf "consent-v1" > kingdown-deploy/.vercel/output/functions/mcp.func/consent.mjs; printf '{"version":3}\n' > kingdown-deploy/.vercel/output/config.json; if [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST/." kingdown-deploy/.vercel/output/static; else printf page > kingdown-deploy/.vercel/output/static/index.html; printf worker > kingdown-deploy/.vercel/output/static/sw.js; fi; fi`,
     // The build copies the committed engine archives; STUB_TAMPER_ENGINE changes them, STUB_STAGING_MANIFEST adds the staging manifest.
@@ -86,6 +87,7 @@ function setup() {
   stub(join(bin, 'node'), [
     `case "$1" in */deploy-plugin-live-check.mjs) ${record}; exec "${process.execPath}" "$1" "$2" "\${STUB_PLUGIN_ORIGIN:-$DEPLOY_LIVE_URL}" ;; esac`,
     `case "$1" in tools/engines-check.mjs) ${behave.join('; ')}; exit 0 ;; esac`,
+    `case "$1" in tools/check.mjs) ${behave.join('; ')}; if [ $# -eq 1 ] && [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST" dist; fi; exit 0 ;; esac`,
     `exec "${process.execPath}" "$@"`,
   ]);
   stub(join(bin, 'npx'), [...behave,
@@ -309,8 +311,8 @@ describe('deploy.sh', () => {
     repo.git('config', 'remote.origin.fetch', '+refs/heads/other:refs/remotes/origin/main');
     const result = deploy();
     expect(result.status, result.stderr).toBe(0);
-    const npmTest = calls().find(line => line.startsWith('npm test '))?.replace(/ with .*/, '');
-    expect(npmTest).toBe(`npm test @ ${main} in ${worktreeOf(result.stdout)}`);
+    const npmTest = calls().find(line => line.startsWith('test-lock.sh '))?.replace(/ with .*/, '');
+    expect(npmTest).toBe(`test-lock.sh bash tools/test-unlocked.sh @ ${main} in ${worktreeOf(result.stdout)}`);
   });
 
   it('sets only the seven plugin values through stdin and prints none of their values', () => {
@@ -391,11 +393,11 @@ describe('deploy.sh', () => {
     expect(result.status, result.stderr).toBe(0);
     const path = worktreeOf(result.stdout);
     expect(calls().map(line => line.replace(/ @ .*/, ''))).toEqual([
-      `wt.sh add ${path}`, 'npm run plugin:db:init-test', 'npm test',
+      `wt.sh add ${path}`, 'npm run plugin:db:init-test', 'test-lock.sh bash tools/test-unlocked.sh',
       'npm run plugin:build:vercel',
       'npm run plugin:server:check -- plugin-deploy/.vercel/output/functions/mcp.func',
       'npm run plugin:smoke', 'npm run plugin:check:protocol',
-      'npm run check:browser plugin-oauth plugin-ui plugin-ui-http',
+      'node tools/check.mjs plugin-oauth plugin-ui plugin-ui-http',
     ]);
     expect(result.stdout).toContain('published nothing');
     expect(result.stdout).toContain('KINGDOWN_ENGINES_DATABASE_URL is not set; skipped the check of engines in use');
@@ -434,7 +436,7 @@ describe('deploy.sh', () => {
     expectGone(repo, worktreeOf(result.stdout));
   });
 
-  it.each(['plugin:db:init-test', 'test', 'plugin:build:vercel', 'plugin:server:check', 'plugin:smoke', 'plugin:check:protocol', 'plugin-ui'])('stops the failed plugin gate %s before publication', fail => {
+  it.each(['plugin:db:init-test', 'tools/test-unlocked.sh', 'plugin:build:vercel', 'plugin:server:check', 'plugin:smoke', 'plugin:check:protocol', 'plugin-ui'])('stops the failed plugin gate %s before publication', fail => {
     const { repo, deploy, calls } = setup();
     const result = deploy(['--target', 'plugin', '--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_FAIL: fail });
     expect(result.status, fail).not.toBe(0);
@@ -442,7 +444,7 @@ describe('deploy.sh', () => {
     expectGone(repo, worktreeOf(result.stdout));
   });
 
-  it.each(['plugin:db:init-test', 'test', 'check:browser', 'build:vercel', 'check:vercel', 'plugin:check:protocol', 'plugin-ui'])('stops the failed site gate %s before publication', fail => {
+  it.each(['plugin:db:init-test', 'tools/test-unlocked.sh', 'tools/check.mjs', 'build:vercel', 'check:vercel', 'plugin:check:protocol', 'plugin-ui'])('stops the failed site gate %s before publication', fail => {
     const { repo, deploy, calls } = setup();
     const result = deploy(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_FAIL: fail });
     expect(result.status, fail).not.toBe(0);
@@ -465,8 +467,8 @@ describe('deploy.sh', () => {
     const result = deploy();
     expect(result.status, result.stderr).toBe(0);
     const path = worktreeOf(result.stdout);
-    const npmTest = calls().find(line => line.startsWith('npm test '))?.replace(/ with .*/, '');
-    expect(npmTest).toBe(`npm test @ ${fresh} in ${path}`);
+    const npmTest = calls().find(line => line.startsWith('test-lock.sh '))?.replace(/ with .*/, '');
+    expect(npmTest).toBe(`test-lock.sh bash tools/test-unlocked.sh @ ${fresh} in ${path}`);
   });
 
   it('checks the combined tree and every release gate on fresh origin/main before publication', () => {
@@ -477,12 +479,12 @@ describe('deploy.sh', () => {
     expect(calls().map(line => line.replace(/ @ .*/, ''))).toEqual([
       `wt.sh add ${path}`,
       'npm run plugin:db:init-test',
-      'npm test',
-      'npm run check:browser',
+      'test-lock.sh bash tools/test-unlocked.sh',
+      'node tools/check.mjs',
       'npm run build:vercel',
       'npm run check:vercel',
       'npm run plugin:check:protocol',
-      'npm run check:browser plugin-ui plugin-ui-http',
+      'node tools/check.mjs plugin-ui plugin-ui-http',
     ]);
   });
 
@@ -509,15 +511,15 @@ describe('deploy.sh', () => {
 
   it('stops at a failed npm test with a non-zero exit, names the step, and does not call the runner', () => {
     const { deploy, calls } = setup();
-    const result = deploy([], { STUB_FAIL: 'test' });
+    const result = deploy([], { STUB_FAIL: 'tools/test-unlocked.sh' });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('FAIL at npm test');
-    expect(calls().map(line => line.replace(/ @ .*/, ''))).not.toContain('npm run check:browser');
+    expect(calls().map(line => line.replace(/ @ .*/, ''))).not.toContain('node tools/check.mjs');
   });
 
   it('stops at a failed browser check with a non-zero exit and names the step', () => {
     const { deploy } = setup();
-    const result = deploy([], { STUB_FAIL: 'check:browser' });
+    const result = deploy([], { STUB_FAIL: 'tools/check.mjs' });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('FAIL at browser checks');
     expect(result.stdout).not.toMatch(/checks passed/);
@@ -528,14 +530,14 @@ describe('deploy.sh', () => {
     const pass = deploy();
     expect(pass.status, pass.stderr).toBe(0);
     expectGone(repo, worktreeOf(pass.stdout));
-    const fail = deploy([], { STUB_FAIL: 'test' });
+    const fail = deploy([], { STUB_FAIL: 'tools/test-unlocked.sh' });
     expect(fail.status).not.toBe(0);
     expectGone(repo, worktreeOf(fail.stdout));
   });
 
   it('removes its worktree and folder after a SIGINT during npm test', async () => {
     const { repo, env, started } = setup();
-    const child = spawn(script, [], { cwd: repo.dir, env: { ...repo.env, ...env, STUB_HANG: 'test' }, detached: true });
+    const child = spawn(script, [], { cwd: repo.dir, env: { ...repo.env, ...env, STUB_HANG: 'tools/test-unlocked.sh' }, detached: true });
     let stdout = '';
     child.stdout.on('data', chunk => { stdout += chunk; });
     child.stderr.on('data', () => {});
@@ -1128,7 +1130,7 @@ describe('deploy.sh --publish', () => {
     const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), STUB_PUBLISH_DIR: published, DEPLOY_LIVE_URL: live.url, DEPLOY_LIVE_TIMEOUT_MS: '900000' });
     expect(result.status, result.stderr).toBe(0);
     const log = calls().map(words);
-    const runner = log.indexOf('npm run check:browser');
+    const runner = log.indexOf('node tools/check.mjs');
     const engines = log.indexOf('node tools/engines-check.mjs --production kingdown-deploy/.vercel/output/functions/mcp.func/runtime/engines');
     expect(engines).toBeGreaterThan(log.indexOf('npm run build:vercel'));
     expect(result.stdout).not.toContain('skipped the check of engines in use');
@@ -1172,7 +1174,7 @@ describe('deploy.sh --publish', () => {
 
   it('a failed check stops the script before the npx call', async () => {
     const { repo, deployAsync, calls } = setup();
-    for (const fail of ['test', 'run']) {
+    for (const fail of ['tools/test-unlocked.sh', 'run']) {
       const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_FAIL: fail, STUB_DIST: buildFolder(pages()) });
       expect(result.status).not.toBe(0);
       expect(npxCalls(calls())).toEqual([]);

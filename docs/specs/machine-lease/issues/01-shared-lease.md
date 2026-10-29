@@ -95,10 +95,42 @@ lease descriptor in its children, and it can use the same number again.
   stops every process above the stub (the second copy exited 0, not 75);
   and a unit test for the dev:ino match. All failed before the fix and
   pass after it.
-- `tools/deploy.sh` keeps its npm steps, because `tools/deploy.test.ts`
-  checks them. If SIGKILL stops the deploy shell, its npm children lose
-  the lease. That is a known limit of this change.
+- `tools/deploy.sh` kept its npm steps after this round. The third review
+  removes that limit (see below).
 - Affected tests pass: machine lease, browser runner, test lock, test lock
   guard and deploy (5 files, 180 cases). Full `npm test` through the new
   script passes: 271 files, 5,379 cases (17 files and 342 cases skipped).
   `npm run test:docs` passes: 16 files, 183 cases.
+
+### PR 187 third review fix
+
+The third review finds the same fault in the deploy path, plus stale docs.
+
+- `tools/deploy.sh` ran `npm test` and `npm run check:browser` under the
+  lease. npm closed the lease descriptor, so only the deploy shell held it.
+  After SIGKILL to that shell, vitest or the browser checks ran with no
+  lease. Fix: the deploy runs `bash tools/test-lock.sh bash
+  tools/test-unlocked.sh` and `node tools/check.mjs [name ...]`, with no
+  npm layer. Each runner inherits the real lease descriptor.
+- The other deploy steps (build, plugin checks, the pinned Vercel CLI
+  through npx) keep npm and npx. They start no test or browser run, and
+  the build and plugin steps are short. The Vercel CLI does not come from
+  the local packages.
+- `tools/deploy.test.ts` stubs the tested commit's `tools/test-lock.sh` and
+  logs `node tools/check.mjs` through its `node` stub.
+- New test in `tools/machine-lease.test.ts`: a real deploy runs its test
+  step on a fresh origin/main. SIGKILL stops every process above the stub
+  vitest. The second copy must exit 75 while the stub lives and 0 after it
+  ends.
+- `docs/COMPUTE.md` now describes the machine lease (one heavy command at
+  a time on the machine; the slots apply per clone) and a direct
+  `node_modules/.bin/vitest` call under the lock.
+- A test checks that `tools/test-unlocked.sh` holds each package.json
+  `typecheck` command, so the two cannot drift.
+- Red check: with the old `tools/deploy.sh`, the new deploy test fails
+  (the second copy exits 0, not 75). With a changed tsc line in
+  `tools/test-unlocked.sh`, the typecheck test fails.
+- Affected tests pass under the shared locks: machine lease, browser
+  runner, test lock, test lock guard and deploy (5 files, 182 cases).
+  The tools type check passes. `npm run test:docs` passes: 16 files,
+  183 cases. This is not a full-suite pass.
