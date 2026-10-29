@@ -175,7 +175,9 @@ function ancestors(pid: number, top: number) {
   while (pid > 1) {
     chain.push(pid);
     if (pid === top) return chain;
-    pid = Number(spawnSync('ps', ['-o', 'ppid=', '-p', String(pid)], { encoding: 'utf8' }).stdout.trim());
+    const ps = spawnSync('ps', ['-o', 'ppid=', '-p', String(pid)], { encoding: 'utf8', timeout: 5_000 });
+    if (ps.error) throw ps.error;
+    pid = Number(ps.stdout.trim());
   }
   throw new Error(`${top} is not an ancestor`);
 }
@@ -281,4 +283,12 @@ it('tools/test-unlocked.sh runs the package.json typecheck commands', () => {
   const commands = typecheck.split(' && ');
   expect(commands.length).toBeGreaterThan(0);
   for (const command of commands) expect(lines, command).toContain(command);
+});
+
+it('the plugin browser wrapper passes the lease to each child check', () => {
+  // A Node layer closes the lease descriptor in its children unless stdio names it (ticket 01, review of c650384d).
+  const source = readFileSync(new URL('plugin-browser-check.mjs', import.meta.url), 'utf8');
+  const spawns = [...source.matchAll(/\bspawn\((?:[^()]|\([^()]*\))*?stdio: ([^,]+)/g)].map((m) => m[1]);
+  expect(spawns.length).toBe(2);
+  for (const stdio of spawns) expect(stdio).toMatch(/^machineLeaseStdio\(/);
 });
