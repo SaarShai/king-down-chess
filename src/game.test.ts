@@ -92,10 +92,11 @@ describe('Game.playLan (autosave restore)', () => {
     ['Beast chain', 'k7/8/8/4r3/3p4/4S3/8/4K3 w - - 0 1', ['Se3xd4xe5']],
     ['Catapult lob', '8/8/4p3/8/4k3/8/4C3/7K w - - 0 1', ['Ce2*e6']],
     ['Paladin pawn survival', '8/8/3k4/4p3/4L3/8/8/4K3 w - - 0 1', ['Le4xe5']],
-    ['Paladin self-removal', 'k7/8/8/8/8/8/3L2n1/K7 w - - 0 1', ['Ld2xg2']],
+    ['Paladin self-removal', 'k7/7p/8/8/8/8/3L2n1/K7 w - - 0 1', ['Ld2xg2']],
   ])('restores and undoes %s', (_name, fen, line) => {
     setRules();
     const original = new Game(); original.load(fromFen(fen));
+    expect(original.status).toBe('playing');
     expect(original.playLan(line)).toBe(line.length);
     const restored = new Game(); restored.load(fromFen(fen));
     expect(restored.playLan(original.history.map(h => h.lan))).toBe(line.length);
@@ -123,6 +124,28 @@ describe('Game.playLan (autosave restore)', () => {
     expect(g.playLan(['e2-e4', 'e7-e5', 'Qd1-d8', 'Ng1-f3'])).toBe(2);
     expect(g.history).toHaveLength(2);
     expect(g.status).toBe('playing');
+  });
+
+  it.each([
+    ['drawRepetition', 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      ['Ng1-f3', 'Ng8-f6', 'Nf3-g1', 'Nf6-g8', 'Ng1-f3', 'Ng8-f6', 'Nf3-g1', 'Nf6-g8'], 'e2-e4'],
+    ['draw50', '7k/p7/8/8/8/8/8/KR6 w - - 99 1', ['Rb1-b2'], 'a7-a6'],
+  ])('stops replay at %s and keeps the valid part', (status, fen, line, extra) => {
+    const ended = new Game(CLASSIC_CHESS, { classicChess: true });
+    ended.load(ended.context.fromFen(fen));
+    play(ended, ...line);
+    expect(ended.status).toBe(status);
+    expect(ended.legal.map(m => ended.context.toLan(ended.pos, m))).toContain(extra);
+
+    const restored = new Game(CLASSIC_CHESS, { classicChess: true });
+    restored.load(restored.context.fromFen(fen));
+    expect(restored.playLan([...line, extra])).toBe(line.length);
+    expect(restored.history.map(h => h.lan)).toEqual(line);
+    expect(toFen(restored.pos)).toBe(toFen(ended.pos));
+    expect(restored.status).toBe(status);
+    expect(restored.playLan([extra])).toBe(0);
+    expect(restored.pos).toEqual(ended.pos);
+    expect(restored.status).toBe(status);
   });
 
   it('replays fairy moves: an archer shot, a paladin that removes itself and a beast chain', () => {

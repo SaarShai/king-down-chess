@@ -99,10 +99,11 @@ export class Game {
     return true;
   }
 
-  /** Replay long-algebraic moves (autosave restore). Stops at the first move that is not legal now. */
+  /** Replay long-algebraic moves (autosave restore). Stops when the game ends or a move is not legal. */
   playLan(lans: readonly string[]): number {
     let n = 0;
     for (const lan of lans) {
+      if (this.status !== 'playing') break;
       const m = this.legal.find(x => this.context.toLan(this.pos, x) === lan);
       if (!m) break;
       this.play(m);

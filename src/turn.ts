@@ -131,8 +131,9 @@ export function stagedPlies(game: TurnGame, staged: unknown): number {
     ? staged as number : 0;
 }
 
-/** An old link can stop after a free mark or first move. Finish it for its sender. */
+/** An old link can stop after a free mark or first move. Finish it only while the game is in play. */
 export function finishLinkedTurn(game: Game): void {
+  if (game.status !== 'playing') return;
   if (game.pos.haste !== undefined || game.pos.free) {
     const pass = game.legal.find(m => m.pass);
     if (pass) game.play(pass);
