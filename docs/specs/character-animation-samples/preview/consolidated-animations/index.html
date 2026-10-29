@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Consolidated animations — King Down</title>
+<style>
+  :root{font-family:system-ui,sans-serif;color:#202a25;background:#f3f1e9;color-scheme:light;accent-color:#315c45}
+  *{box-sizing:border-box}body{margin:0}main{max-width:1200px;margin:auto;padding:24px}h1{font-size:1.8rem;line-height:1.2;margin:0 0 8px}p{line-height:1.5;max-width:75ch}a{color:#23573b;text-underline-offset:3px}::selection{background:#c4dec9}
+  label{display:flex;flex-direction:column;gap:5px;font-size:.85rem;font-weight:600}select,button,input{font:inherit}select,button{min-height:44px;padding:8px 10px;border:1px solid #78867b;border-radius:4px;background:#fff;color:inherit}button{cursor:pointer}button:hover{background:#e3eadf}button:disabled{opacity:.55;cursor:default}:focus-visible{outline:3px solid #407951;outline-offset:3px}
+  .filters,.playback{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin:20px 0}.filters label{flex:1;min-width:140px}.filters label:last-child{flex:2;min-width:240px}.playback label{min-width:100px}.seek{flex:1;min-width:180px}input[type=range]{width:100%;min-height:32px;margin:0}
+  #stage{overflow:auto;min-height:210px;padding:24px;border:1px solid #a8afa3;scrollbar-color:#78867b #e3e7df}canvas{display:block;margin:auto;background-color:#ddd;background-image:conic-gradient(#aaa 25%,transparent 0 50%,#aaa 0 75%,transparent 0);background-size:24px 24px;max-width:none;height:auto}
+  #stage[data-background=light] canvas{background:#fff}#stage[data-background=dark] canvas{background:#202a25}#stage[data-background=board] canvas{background:#d9c8a6 url('../../../../../public/ui/stone-board.webp') center/cover}
+  #details{padding-top:16px}#bank-status{font-weight:700}#metadata{font-variant-numeric:tabular-nums}#defects{padding-left:22px;max-width:85ch;line-height:1.5}#message{min-height:1.5em}#time{font-variant-numeric:tabular-nums;font-size:.85rem}details{margin-top:12px}details p{overflow-wrap:anywhere;font-size:.85rem}
+  @media(max-width:600px){main{padding:16px}.filters{gap:10px}.filters label{min-width:calc(50% - 10px)}.filters label:last-child{min-width:100%}.playback{gap:10px}#stage{padding:12px}.seek{min-width:100%;order:5}}
+</style>
+<main>
+  <h1>Consolidated animations</h1>
+  <p>Selected PNG banks, frozen for review. Each action keeps its source timing and review status. Repair banks remain available for diagnosis.</p>
+  <p id="summary">Loading catalog…</p>
+  <div class="filters" aria-label="Animation filters">
+    <label>Status<select id="status"><option value="">All statuses</option></select></label>
+    <label>Character<select id="character"><option value="">All characters</option></select></label>
+    <label>Army<select id="army"><option value="">Both armies</option></select></label>
+    <label>Action<select id="action" disabled></select></label>
+  </div>
+  <div class="playback" aria-label="Playback controls">
+    <button id="play" disabled>Play</button>
+    <label>Speed<select id="speed"><option value="1">Normal</option><option value=".5">Half</option><option value=".25">Quarter</option><option value="2">Double</option></select></label>
+    <label>Background<select id="background"><option value="checkerboard">Checkerboard</option><option value="light">Light</option><option value="dark">Dark</option><option value="board">Board</option></select></label>
+    <label>Scale<select id="scale"><option value="board">Board size</option><option value="native">Native pixels</option></select></label>
+    <label class="seek">Time <span id="time">0 ms</span><input id="seek" type="range" min="0" max="1" value="0" step="1" disabled></label>
+  </div>
+  <p id="message" role="status" aria-live="polite">Loading frozen RGBA frames…</p>
+  <div id="stage" data-background="checkerboard"><canvas id="canvas" width="1" height="1" aria-label="Selected animation"></canvas></div>
+  <div id="details" hidden>
+    <p id="bank-status"></p><p id="metadata"></p><ul id="defects"></ul>
+    <p><a id="bank-link">Frozen playback bank</a> · <a id="source-link">Original source manifest</a> · <a id="audit-link">Selection audit</a> <a id="review-link" hidden>Current visual review</a></p>
+    <details><summary>Source and import record</summary><p id="provenance"></p></details>
+  </div>
+</main>
+<script type="module" src="./viewer.js"></script>
+</html>

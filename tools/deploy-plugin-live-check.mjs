@@ -1,7 +1,10 @@
 // Unsigned release check. No player token, session cookie or match operation is used.
+// It checks the surface that the build has. A build without the consent script parks the ChatGPT plugin
+// (tools/chatgpt-plugin.mjs): then each plugin path must answer 404.
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { PARKED_PATHS } from './chatgpt-plugin.mjs';
 
 const [folder, origin, ...extra] = process.argv.slice(2);
 const limit = Number(process.env.DEPLOY_LIVE_TIMEOUT_MS || 120_000);
@@ -14,7 +17,10 @@ if (base.origin !== origin || (base.protocol !== 'https:' && !['127.0.0.1', 'loc
   console.error('plugin-live-check: expected an HTTPS origin (HTTP only on loopback)');
   process.exit(2);
 }
-const script = readFileSync(join(folder, 'consent.mjs'));
+const plugin = existsSync(join(folder, 'consent.mjs'));
+const script = plugin ? readFileSync(join(folder, 'consent.mjs')) : undefined;
+// One made-up art name per parked check: the parked tree has no board art.
+const parkedPaths = [...PARKED_PATHS, '/plugin-art/deploy-check-0000.webp'];
 const artDir = join(folder, '../../static/plugin-art'), configFile = join(folder, '../../config.json');
 const routes = existsSync(configFile) ? JSON.parse(readFileSync(configFile, 'utf8')).routes ?? [] : [];
 // One file per art format checks the static routes without a player token.
@@ -33,12 +39,19 @@ const resource = `${origin}/mcp`;
 const metadataUrl = `${origin}/.well-known/oauth-protected-resource/mcp`;
 const deadline = Date.now() + limit;
 
+const get = (path, options = {}) => fetch(origin + path, {
+  ...options, credentials: 'omit', redirect: 'error',
+  headers: { 'cache-control': 'no-cache', ...options.headers },
+  signal: AbortSignal.timeout(Math.max(1, Math.min(15_000, deadline - Date.now()))),
+});
+
+/** The parked plugin: no metadata, MCP, consent page, consent script or board art. */
+async function parkedCheck() {
+  const responses = await Promise.all(parkedPaths.flatMap(path => [get(path), get(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })]));
+  for (const [i, response] of responses.entries()) assert.equal(response.status, 404, `${i % 2 ? 'POST' : 'GET'} ${parkedPaths[i >> 1]} status (parked)`);
+}
+
 async function check() {
-  const get = (path, options = {}) => fetch(origin + path, {
-    ...options, credentials: 'omit', redirect: 'error',
-    headers: { 'cache-control': 'no-cache', ...options.headers },
-    signal: AbortSignal.timeout(Math.max(1, Math.min(15_000, deadline - Date.now()))),
-  });
   const [discovery, rootDiscovery, challenge, consent, liveScript, ...liveArt] = await Promise.all([
     get('/.well-known/oauth-protected-resource/mcp'), get('/.well-known/oauth-protected-resource'),
     get('/mcp', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }),
@@ -72,8 +85,13 @@ async function check() {
 
 for (;;) {
   try {
-    await check();
-    console.log(`plugin-live-check: pass: ${origin}; both metadata paths, unsigned challenge, consent query/script and ${art.length} art files with built headers`);
+    if (plugin) {
+      await check();
+      console.log(`plugin-live-check: pass: ${origin}; both metadata paths, unsigned challenge, consent query/script and ${art.length} art files with built headers`);
+    } else {
+      await parkedCheck();
+      console.log(`plugin-live-check: pass: ${origin}; ChatGPT plugin parked: ${parkedPaths.length} plugin paths answer 404 to GET and POST`);
+    }
     break;
   } catch (error) {
     if (Date.now() >= deadline) {

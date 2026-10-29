@@ -11,7 +11,7 @@ import { changed as accountChanged } from '../account/account';
 import { toFen } from '../rules/setup';
 import { POWERS_BALANCED, RULES_2017, parseKings, type Rules } from '../rules/engine';
 import { refreshTable, renderTable } from '../ui/table';
-import { progress, recordLesson } from '../lesson-shelf-ui';
+import { progress, recordLesson } from '../lesson-store';
 import { LESSONS } from '../lessons';
 import { setSound } from '../render/sfx';
 
@@ -24,7 +24,6 @@ vi.mock('../turn-controls', () => ({ connectTurnPress: vi.fn(), renderTurnButton
 vi.mock('../ui/previously', () => ({ connectPreviously: (_button: unknown, c: { game(): { pos: unknown } }) => ({ clear: vi.fn(), position: () => c.game().pos, state: vi.fn() }) }));
 vi.mock('./moments', () => ({ soundsFor: () => ({ now: null, hit: null }), connectMoments: () => ({ clear: vi.fn(), start: vi.fn(), restore: vi.fn(), played: vi.fn(), say: vi.fn(), result: () => '', reviewNote: () => '', marked: () => [] }) }));
 vi.mock('./links', () => ({ connectLinks: () => ({}) }));
-vi.mock('../lesson-shelf', () => ({ lessonShelf: () => ({ next: null }) }));
 
 const stored = new Map<string, string>();
 const original: Save = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'human', coords: true, resigned: null };

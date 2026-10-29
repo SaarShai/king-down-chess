@@ -6,28 +6,24 @@ import { features } from '../../account-game/features';
 let reading = false, joining = false, afterHandle = false, stopped = false;
 const active = () => !stopped && !queue.closed();
 let checked = '';
+/** Code typing is parked (docs/PARKED.md): a friend joins by the invite link only (`/j#<key>`), which fills `memory.code`. */
+const LINK_HELP = 'Open the invite link that your friend sent.';
 export function joinScreen() {
   if (!active()) return;
-  $('join-help').textContent = 'Enter the game code.';
+  $('join-help').textContent = LINK_HELP;
   $('join-game-head').hidden = $('join-preview').hidden = $('join-foot').hidden = true;
-  $<HTMLInputElement>('join-code').value = memory.code;
   $('join-message').textContent = '';
   $('join-preview').replaceChildren();
   $('join-confirm').hidden = true;
-  $('join-entry').hidden = !!memory.code || !!memory.preview;
   $('join-decline').onclick = () => { afterHandle = false; memory.code = ''; memory.preview = undefined; memory.joinError = undefined; checked = ''; navigate('play'); };
-  $('join-entry').onsubmit = event => { event.preventDefault(); memory.code = $<HTMLInputElement>('join-code').value.trim(); memory.joinError = undefined; void preview(); };
-  $<HTMLInputElement>('join-code').oninput = () => { memory.code = $<HTMLInputElement>('join-code').value; memory.joinError = undefined; $('join-message').textContent = ''; };
   $('join-confirm').onclick = () => void join();
   if (afterHandle && memory.me?.handle) { afterHandle = false; void join(); return; }
-  if (memory.joinError) { $('join-message').textContent = toolError(memory.joinError.code, memory.joinError.message); $('join-entry').hidden = false; return; }
+  if (memory.joinError) { $('join-message').textContent = toolError(memory.joinError.code, memory.joinError.message); return; }
   const normalize = (code: string) => code.toUpperCase().replace(/[\s-]/g, '');
   if (memory.preview && normalize(memory.preview.code) === normalize(memory.code)) render(memory.preview);
   else if (memory.code && checked !== memory.code) void preview();
-  else $('join-entry').hidden = false;
 }
 function render(value: JoinPreview) {
-  $('join-entry').hidden = true;
   $('join-help').textContent = 'Review this game before you join.';
   $('join-game-head').hidden = $('join-preview').hidden = $('join-foot').hidden = false;
   $('join-preview').replaceChildren(row('Your opponent', portrait(value.creator.icon), [value.creator.handle ?? 'Your friend']));
@@ -44,7 +40,7 @@ async function preview() {
     if (!active() || client.state.screen !== 'join' || memory.code !== code) return;
     if (result.isError) { memory.joinError = { code: String(result._meta?.code ?? ''), message: result.content.filter(c => c.type === 'text').map(c => c.text).join(' ') }; joinScreen(); return; }
     memory.preview = result._meta?.preview as JoinPreview; $('join-message').textContent = ''; render(memory.preview);
-  } catch (error) { if (active() && client.state.screen === 'join' && memory.code === code) { showError(error, $('join-message')); $('join-entry').hidden = false; checked = ''; } }
+  } catch (error) { if (active() && client.state.screen === 'join' && memory.code === code) { showError(error, $('join-message')); checked = ''; } }
   finally { reading = false; if (active() && client.state.screen === 'join' && memory.code && memory.code !== code) void preview(); }
 }
 async function join() {

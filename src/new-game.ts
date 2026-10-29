@@ -3,22 +3,17 @@ import { MENU_LEVELS, LEVEL_NAMES, LEVEL_LINES, menuLevel, levelPosition, levelS
 import { POWERS_BALANCED } from './rules/rules';
 /**
  * The New game dialog (index.html #new-game): three suggested games, the computer's level, a king
- * picker per side, "Bring a design" (ticket 17) and a folded "Army". The dialog edits a copy of the next game's setup;
- * Start game hands it to main.ts. Close drops it.
+ * picker per side and a folded "Army" (Random or Chess). The dialog edits a copy of the next game's setup;
+ * Start game hands it to main.ts. Close drops it. Parked (docs/PARKED.md): Today's army, the example and lab
+ * armies, Ogre practice, Custom army and "Bring a design"; a remembered setup that names one opens as Random.
  */
 import type { SkillName } from './ai/skill';
 import type { Game, Side } from './game';
-import { HISTORY_WHENS, KINGS, LETTERS, PLAIN_KINGS, T, moveNumber, type PieceType, type Color, type KingChoice, type KingName, type PowerName, type Rules } from './rules/engine';
+import { KINGS, LETTERS, PLAIN_KINGS, moveNumber, type PieceType, type Color, type KingChoice, type KingName, type PowerName, type Rules } from './rules/engine';
 import { emblemArt, powerArt } from './power-motion';
 import { POWER_NAME, powerOptions } from './powers-ui';
 import { pieceIcon } from './piece-icons';
 import { CLASSIC_CHESS, POOL } from './rules/setup';
-import { mulberry32 } from './sim/rng';
-import { SHIPPED_VALUES } from './ai/piece-values';
-import { figureUrl, selectedFigure } from './workshop/figures';
-import { worthOf } from './workshop/judge';
-import { designCode, empty, limit, parseDesign, type PieceDesign } from './workshop/model';
-import { loadShelf } from './workshop/store';
 
 /** Power words in the New game sheet. */
 export function newGamePowerLine(label: string, title: string): string {
@@ -38,11 +33,11 @@ export interface Setup {
   /** Two players: the "Kings' powers" box. */
   twoPowers: boolean;
   picks: [Pick, Pick];
-  /** 'random', 'daily', 'classic', 'custom', an example army's code, or 'ogre'. */
-  army: string;
-  /** "Bring a design": the share code of a Workshop design that plays in place of one back-rank piece, or null. */
-  design: string | null;
+  /** The army: a new random one each game, or the chess starting army. */
+  army: Army;
 }
+export type Army = 'random' | 'classic';
+const ARMIES: readonly string[] = ['random', 'classic'];
 
 export const LEVELS: readonly SkillName[] = ['beginner', 'casual', 'club', 'strong'];
 export const isLevel = (v: unknown): v is SkillName => typeof v === 'string' && (LEVELS as readonly string[]).includes(v);
@@ -52,7 +47,7 @@ const SIDE = ['White', 'Black'] as const;
 export const defaultSetup = (): Setup => ({
   mode: 'computer', level: 'club', side: 0, twoPowers: false,
   picks: [{ king: PLAIN_KINGS[0], power: null }, { king: PLAIN_KINGS[1], power: null }],
-  army: 'random', design: null,
+  army: 'random',
 });
 
 export const powersOn = (s: Setup): boolean => s.mode === 'powers' || (s.mode === 'two' && s.twoPowers);
@@ -80,31 +75,37 @@ export function withKing(s: Setup, c: Color, king: KingName): Setup {
   return next;
 }
 
+/**
+ * Pass-and-play is parked (docs/PARKED.md). A rematch of a game with two people on one device is
+ * against the computer, and the person plays Black. Any other rematch swaps the sides.
+ */
+export const rematchPlayers = (sides: readonly [Side, Side]): [Side, Side] =>
+  sides[0] === 'human' && sides[1] === 'human' ? ['ai', 'human'] : [sides[1], sides[0]];
+
+/**
+ * The game link is parked (docs/PARKED.md). A saved link game, where this device plays side `link`,
+ * loads as a game against the computer: the computer plays the friend's side.
+ */
+export const parkedLinkPlayers = (link: Color): [Side, Side] => (link === 0 ? ['human', 'ai'] : ['ai', 'human']);
+
+/** The notice when a saved link game loads against the computer. */
+export const PARKED_LINK_NOTICE = "This version cannot send game links. The computer plays your friend's side.";
+
 /** The setup of a game in progress, for a saved game from before the dialog remembered its own. */
 export function setupOfGame(sides: readonly [Side, Side], kings: readonly [KingChoice | null, KingChoice | null], level: SkillName): Setup {
   const s = defaultSetup(), humans = sides.filter(x => x === 'human').length, powered = !!(kings[0] || kings[1]);
-  s.mode = humans === 2 ? 'two' : powered ? 'powers' : 'computer';
-  s.twoPowers = humans === 2 && powered;
+  // Pass-and-play (Mode `two`) is parked (docs/PARKED.md): a saved two-person game finishes, and its next game is against the computer.
+  s.mode = powered ? 'powers' : 'computer';
   s.side = humans === 1 && sides[1] === 'human' ? 1 : 0;
   s.level = level;
   kings.forEach((k, c) => { if (k) s.picks[c] = { ...k }; });
   return s;
 }
 
-/** Why a game cannot play design `d` yet, or '' (version 1: no When that counts moves or cards; `setRules`). */
-export const refusal = (d: PieceDesign): string =>
-  empty(d) ? 'it has no move' : limit(d) ? 'it breaks a Workshop limit' : d.rules.some(r => HISTORY_WHENS.includes(r.when.on)) ? 'a rule counts moves or cards' : '';
-const playable = (code: unknown): code is string => typeof code === 'string' && !!parseDesign(code) && !refusal(parseDesign(code)!);
-
-/** Back rank `back` with a design worth `worth` pawns in place of one piece: not the king, the one nearest that worth (the left one on a tie). */
-export function withDesign(back: string, worth: number): string {
-  if (back.includes('T')) return back; // a custom back rank from a design game already holds it
-  const gap = (i: number): number => (back[i] === 'K' ? Infinity : Math.abs(SHIPPED_VALUES[LETTERS.indexOf(back[i])] / 100 - worth));
-  const i = [...Array(back.length).keys()].reduce((a, b) => (gap(b) < gap(a) ? b : a));
-  return back.slice(0, i) + 'T' + back.slice(i + 1);
-}
-
-/** A remembered setup, checked field by field; null when it is not one. A setup from before "Bring a design" has none. */
+/**
+ * A remembered setup, checked field by field; null when it is not one. A parked army (Today's, Custom, Ogre
+ * practice, an example army) opens as Random, and a parked "Bring a design" choice is dropped.
+ */
 export function parseSetup(v: unknown): Setup | null {
   const s = v as Partial<Setup> | null;
   const pick = (p: Partial<Pick> | undefined): Pick | null =>
@@ -113,7 +114,9 @@ export function parseSetup(v: unknown): Setup | null {
   if (!s || !['computer', 'powers', 'two'].includes(s.mode as string) || !isLevel(s.level) || (s.side !== 0 && s.side !== 1)
     || typeof s.twoPowers !== 'boolean' || typeof s.army !== 'string' || !Array.isArray(s.picks)) return null;
   const [w, b] = [pick(s.picks[0]), pick(s.picks[1])];
-  return w && b ? { mode: s.mode as Mode, level: s.level, side: s.side, twoPowers: s.twoPowers, picks: [w, b], army: s.army, design: playable(s.design) ? s.design : null } : null;
+  // Pass-and-play is parked (docs/PARKED.md): a remembered Mode `two` opens as a game against the computer.
+  const mode: Mode = s.mode === 'two' ? (s.twoPowers ? 'powers' : 'computer') : s.mode as Mode;
+  return w && b ? { mode, level: s.level, side: s.side, twoPowers: mode === s.mode && s.twoPowers, picks: [w, b], army: ARMIES.includes(s.army) ? s.army as Army : 'random' } : null;
 }
 
 /** The sheet warns before Start ends a game with moves. */
@@ -164,16 +167,7 @@ export function newGameDialog(start: (s: Setup) => void, preset: () => Partial<R
   $<HTMLInputElement>('level-slider').oninput = event => { draft.level = MENU_LEVELS[+(event.target as HTMLInputElement).value]; render(); };
   for (const r of radios('side')) r.onchange = () => { draft.side = +r.value as Color; render(); };
   $<HTMLInputElement>('two-powers').onchange = e => { draft = withMode(draft, draft.mode, (e.target as HTMLInputElement).checked); render(); };
-  const army = $<HTMLSelectElement>('army');
-  let example = 0;
-  for (const option of $('army-examples').querySelectorAll('option')) {
-    if (/^[A-Z]{8}$/.test(option.value)) option.textContent = `Example army ${++example}${option.value.includes('C') ? ' · Catapult' : ''}`;
-  }
-  army.onchange = () => { draft.army = army.value; render(); };
-  const design = $<HTMLSelectElement>('design');
-  let shelf: PieceDesign[] = [];
-  design.onchange = () => { draft.design = design.value || null; render(); };
-  for (const r of radios('army')) r.onchange = () => { draft.army = r.value; render(); };
+  for (const r of radios('army')) r.onchange = () => { draft.army = r.value as Army; render(); };
   $('start-game').onclick = () => start(copy(draft));
 
   function render(): void {
@@ -203,26 +197,14 @@ export function newGameDialog(start: (s: Setup) => void, preset: () => Partial<R
       const text = chosen ? newGamePowerLine(chosen.label, chosen.title) : 'No power: a plain chess king.';
       if (line.textContent !== text) line.textContent = text; // a live region: say only a change
     }
-    design.value = draft.design ?? '';
-    if (design.value !== (draft.design ?? '')) design.value = '', draft.design = null; // a design that is gone or changed
-    const brought = draft.design ? parseDesign(draft.design) : null;
-    $('design-line').textContent = brought && draft.army === 'ogre' ? 'Ogre practice takes no design.' : brought ? `Each side gets one ${brought.name}, in place of the piece nearest its worth.`
-      : shelf.length ? 'Play one of your Workshop pieces.' : 'No designs yet. Make one in the Workshop.';
-    army.value = draft.army;
-    if (army.value !== draft.army) army.value = draft.army = 'random'; // an example army that is gone
     for (const r of radios('army')) r.checked = r.value === draft.army;
-    const name = { random: 'Random army', daily: "Today's army", classic: 'Chess' }[draft.army] ?? army.selectedOptions[0].textContent;
     $('side-army-label').textContent = 'Army';
-    $('side-army-value').textContent = name;
-    $('army-line').textContent = { random: 'A new army for each game.', daily: 'The same army for everyone today.', classic: 'The chess starting army.' }[draft.army] ?? 'Try this army.';
+    $('side-army-value').textContent = { random: 'Random army', classic: 'Chess' }[draft.army];
+    $('army-line').textContent = { random: 'A new army for each game.', classic: 'The chess starting army.' }[draft.army];
     const context = new GameRules({ ...(powersOn(draft) ? POWERS_BALANCED : {}), ...preset(), kings: kingsOf(draft) });
-    const code = draft.army === 'daily' ? context.randomBackRank(mulberry32(+new Date().toLocaleDateString('en-CA').replace(/-/g, '')))
-      : draft.army === 'classic' ? CLASSIC_CHESS
-      : /^[A-Z]{8}$/.test(draft.army) ? draft.army : [...new Set(POOL)].join('');
-    const strip = brought && code.includes('K') ? withDesign(code, worthOf(brought)) : code; // the pool strip has no design place
-    $('army-strip').innerHTML = [...strip].map(p => {
+    const code = draft.army === 'classic' ? CLASSIC_CHESS : [...new Set(POOL)].join('');
+    $('army-strip').innerHTML = [...code].map(p => {
       const type = LETTERS.indexOf(p) as PieceType;
-      if (type === T && brought) return `<img class="army-design" src="${figureUrl(selectedFigure(brought).id, draft.side)}" alt="" title="${brought.name}">`;
       return pieceIcon(type, draft.side) || `<span class="army-letter" title="${context.nameOf(type)}">${p}</span>`;
     }).join('');
   }
@@ -230,17 +212,9 @@ export function newGameDialog(start: (s: Setup) => void, preset: () => Partial<R
   return {
     open(s: Setup, warning = ''): void {
       draft = { ...copy(s), level: menuLevel(s.level) };
-      // The designs on this device; one with a When that counts moves or cards is listed, not chosen, with the reason.
-      shelf = loadShelf().designs;
-      design.replaceChildren(new Option('No design', ''), ...shelf.map(d => {
-        const why = refusal(d), o = new Option(why ? `${d.name} (not yet: ${why})` : d.name, designCode(d));
-        o.disabled = !!why;
-        return o;
-      }));
       options = new Map(powerOptions(preset()).map(g => [g.king, g.options])); // the use counts of the rules in force
       render();
       $<HTMLDetailsElement>('more-options').open = false;
-      $<HTMLDetailsElement>('other-armies').open = !['random', 'daily', 'classic'].includes(draft.army);
       $('new-game-warn').textContent = warning;
       $('new-game-warn').hidden = !warning;
       $('start-game').textContent = warning ? 'Start new game' : 'Start game';

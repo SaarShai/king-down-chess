@@ -1,6 +1,5 @@
 import { lessonShelf, type LessonStore } from './lesson-shelf';
-import { completeLesson, readLessonStore, type LessonProgress } from './lesson-store';
-import { canWriteLocal } from './account/local';
+import { progress } from './lesson-store';
 import './lesson-shelf.css';
 
 /** The Guide binds data-lesson to the kept lesson flow when it mounts this shelf. */
@@ -23,19 +22,7 @@ export function renderLessonShelf(container: HTMLElement, store: LessonStore): v
   </section>`;
 }
 
-export function progress(): LessonProgress {
-  try { return canWriteLocal(localStorage) ? readLessonStore(localStorage.getItem('kingdown.lessons')) : {}; }
-  catch { return {}; }
-}
-
-export function recordLesson(name: string): boolean {
-  try {
-    if (!canWriteLocal(localStorage)) return false;
-    const store = progress(), next = completeLesson(store, name);
-    if (next !== store) localStorage.setItem('kingdown.lessons', JSON.stringify(next));
-    return true;
-  } catch { return false; }
-}
+export { progress, recordLesson } from './lesson-store';
 
 export function refreshLessonShelf(): void {
   renderLessonShelf(document.getElementById('lesson-shelf')!, progress());

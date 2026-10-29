@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSetup, newGamePowerLine, newGameWarning, kingsOf, parseSetup, playersOf, powersOn, refusal, setupOfGame, withDesign, withKing, withMode } from './new-game';
+import { defaultSetup, newGamePowerLine, newGameWarning, kingsOf, parkedLinkPlayers, parseSetup, playersOf, powersOn, rematchPlayers, setupOfGame, withKing, withMode } from './new-game';
 import { PRESETS, designCode, fromPreset } from './workshop/model';
 import { powerOptions } from './powers-ui';
 import { Game } from './game';
@@ -53,7 +53,15 @@ describe('New game setup', () => {
     const powered = setupOfGame(['human', 'ai'], [{ king: 'Frost', power: 'IceWall' }, null], 'club');
     expect(powered.mode).toBe('powers');
     expect(powered.picks).toEqual([{ king: 'Frost', power: 'IceWall' }, { king: 'Shadow', power: null }]);
-    expect(setupOfGame(['human', 'human'], [null, { king: 'Mud', power: 'Leap' }], 'club')).toMatchObject({ mode: 'two', twoPowers: true });
+    // Pass-and-play is parked (docs/PARKED.md): an old two-person save gives a setup against the computer.
+    expect(setupOfGame(['human', 'human'], [null, { king: 'Mud', power: 'Leap' }], 'club')).toMatchObject({ mode: 'powers', twoPowers: false });
+    expect(setupOfGame(['human', 'human'], [null, null], 'club')).toMatchObject({ mode: 'computer', twoPowers: false });
+  });
+
+  it('reads a remembered pass-and-play setup as a game against the computer (parked)', () => {
+    const two = withMode(defaultSetup(), 'two', true);
+    expect(parseSetup(JSON.parse(JSON.stringify(two)))).toMatchObject({ mode: 'powers', twoPowers: false });
+    expect(parseSetup(JSON.parse(JSON.stringify(withMode(defaultSetup(), 'two'))))).toMatchObject({ mode: 'computer', twoPowers: false });
   });
 
   it('accepts only a whole, valid remembered setup', () => {
@@ -101,10 +109,6 @@ describe('New game warn line', () => {
   });
 });
 
-it('keeps a remembered example army for More', () => {
-  expect(parseSetup({ ...defaultSetup(), army: 'MMSSNBNK' })?.army).toBe('MMSSNBNK');
-});
-
 it('the sheet splits power rules into sentences without changing their conditions', () => {
   expect(newGamePowerLine('Holy Light (always on)', 'enemy pawns cannot take your king; your pieces beside, in front of or behind it cannot be taken'))
     .toBe('Holy Light (always on). Enemy pawns cannot take your king. Your pieces beside, in front of or behind it cannot be taken.');
@@ -112,30 +116,19 @@ it('the sheet splits power rules into sentences without changing their condition
     .toBe('Freeze (1 use). Freeze an enemy piece (not the king). Then make your move. The frozen piece cannot move on its next turn.');
 });
 
-describe('Bring a design (ticket 17)', () => {
+describe('a remembered setup from a parked feature (docs/PARKED.md)', () => {
   const rook = { ...fromPreset(PRESETS.find(p => p.key === 'rook')!), name: 'My Rook', letter: 'Y' };
-  const late = { ...rook, name: 'Late Rook', rules: [{ when: { on: 'fromMove' as const, n: 10 as const }, does: { a: 'movesLike' as const, as: 'knight' as const } }] };
 
-  it('a setup from before "Bring a design" has none; a playable design code is kept; any other is dropped', () => {
-    const { design: _, ...old } = defaultSetup();
-    expect(parseSetup(old)?.design).toBeNull();
-    expect(parseSetup({ ...defaultSetup(), design: designCode(rook) })?.design).toBe(designCode(rook));
-    expect(parseSetup({ ...defaultSetup(), design: designCode(late) })?.design).toBeNull();
-    expect(parseSetup({ ...defaultSetup(), design: 'nope' })?.design).toBeNull();
+  it('opens a parked army as Random and keeps Random and Chess', () => {
+    for (const army of ['daily', 'custom', 'ogre', 'MMSSNBNK', 'COAQNRBK', 'nope']) expect(parseSetup({ ...defaultSetup(), army })?.army).toBe('random');
+    expect(parseSetup({ ...defaultSetup(), army: 'classic' })?.army).toBe('classic');
+    expect(parseSetup({ ...defaultSetup(), army: 'random' })?.army).toBe('random');
   });
 
-  it('says why a design cannot play yet: a When that counts moves or cards', () => {
-    expect(refusal(rook)).toBe('');
-    expect(refusal(late)).toBe('a rule counts moves or cards');
-    expect(refusal({ ...rook, lines: [], squares: [] })).toBe('it has no move'); // review 17, item 1: its code does not parse
-  });
-
-  it('puts the design in place of the piece nearest its worth, never the king, the left one on a tie', () => {
-    expect(withDesign(CLASSIC_CHESS, 3.2)).toBe('RNTQKBNR');
-    expect(withDesign(CLASSIC_CHESS, 9)).toBe('RNBTKBNR');
-    expect(withDesign(CLASSIC_CHESS, 4.5)).toBe('TNBQKBNR');
-    expect(withDesign('KQQQQQQQ', 0)).toBe('KTQQQQQQ');
-    expect(withDesign('RTBQKBNR', 3)).toBe('RTBQKBNR'); // one design: a custom back rank that holds it already
+  it('drops a "Bring a design" choice and keeps the rest of the setup', () => {
+    const old = { ...defaultSetup(), mode: 'two', twoPowers: true, design: designCode(rook) };
+    // Pass-and-play is parked too: Mode `two` with Kings' powers opens as a game against the computer with powers.
+    expect(parseSetup(old)).toEqual({ ...defaultSetup(), mode: 'powers', twoPowers: false });
   });
 });
 
@@ -145,4 +138,18 @@ it('keeps old level values and maps the three menu stops', async () => {
   expect(MENU_LEVELS).toEqual(['beginner','casual','club']);
   for (const level of [...MENU_LEVELS, 'strong'] as const) expect(parseSetup({ ...defaultSetup(), level })?.level).toBe(level);
   expect(menuLevel('strong')).toBe('club'); expect(LEVEL_NAMES.strong).toBe('Strong'); expect(levelPosition('strong')).toBe(2);
+});
+
+describe('parked pass-and-play and game link (docs/PARKED.md)', () => {
+  it('a rematch of a two-person game is against the computer; other rematches swap the sides', () => {
+    expect(rematchPlayers(['human', 'human'])).toEqual(['ai', 'human']);
+    expect(rematchPlayers(rematchPlayers(['human', 'human']))).toEqual(['human', 'ai']);
+    expect(rematchPlayers(['human', 'ai'])).toEqual(['ai', 'human']);
+    expect(rematchPlayers(['ai', 'human'])).toEqual(['human', 'ai']);
+  });
+
+  it("a saved link game seats the computer on the friend's side", () => {
+    expect(parkedLinkPlayers(0)).toEqual(['human', 'ai']);
+    expect(parkedLinkPlayers(1)).toEqual(['ai', 'human']);
+  });
 });

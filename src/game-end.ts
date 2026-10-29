@@ -104,7 +104,7 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
   return { show, clear, reset, refresh, arm: () => { animateNext = true; } };
 }
 
-/** Key-moment search starts from Review, outside the result flow. */
-export function connectEndReview(button: HTMLElement, result: HTMLDialogElement, moves: HTMLElement, search: () => Promise<void>): void {
-  button.onclick = () => { result.close(); moves.click(); void search(); };
+/** Review opens the move list. The key-moment search (`search`) is parked (docs/PARKED.md): no caller passes it now. */
+export function connectEndReview(button: HTMLElement, result: HTMLDialogElement, moves: HTMLElement, search?: () => Promise<void>): void {
+  button.onclick = () => { result.close(); moves.click(); if (search) void search(); };
 }

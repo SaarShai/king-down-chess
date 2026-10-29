@@ -3,7 +3,6 @@ import { Game } from '../game';
 import { LESSONS } from '../lessons';
 import { POWERS_BALANCED, parseKings } from '../rules/engine';
 import { turnOf } from '../turn';
-import { toFen } from '../rules/setup';
 import { refreshTable, renderTable, type TableState, type TableSnapshot } from './table';
 
 const node = () => ({
@@ -72,9 +71,9 @@ describe('review move headings', () => {
     vi.stubGlobal('matchMedia', () => ({ matches: false }));
     const snapshot: TableSnapshot = {
       selected: null, selectedType: 0, pending: [], canFinish: false, busy: false, thinking: false, notice: '',
-      viewing: 0, reviewNote: '', lesson: null, lessonDone: false, nextLesson: null, turnLine: '',
+      viewing: 0, reviewNote: '', lesson: null, turnLine: '',
       activeSide: game.pos.turn, staged: 0, check: false, ended: false, finished: false, myTurn: true,
-      result: '', backRank: game.backRank, fen: toFen(game.pos),
+      result: '',
       history: game.history.map(h => ({ lan: h.lan, turn: h.pos.turn })), marked: [], taken: [[], []],
       sides: ['human', 'human'], linkSide: null, undoOn: true, resigner: null,
     };

@@ -30,8 +30,8 @@ export async function rulesAt(browser, url) {
 }
 
 /** The menu items and the button of each one today. */
-/** Guide is the sheet name; All rules is the read action. */
-const MENU = { 'New game': '#new-game-btn', Guide: '#rules-btn', Workshop: '#workshop-btn', Settings: '[data-go="help"]' };
+/** Guide is the sheet name; All rules is the read action. Workshop is parked (docs/PARKED.md): it has no row, so menuItem refuses it. */
+const MENU = { 'New game': '#new-game-btn', Guide: '#rules-btn', Settings: '[data-go="help"]' };
 
 export function menuItem(page, name) {
   if (!Object.hasOwn(MENU, name)) throw new Error(`menuItem: no menu item "${name}"; the items are ${Object.keys(MENU).join(', ')}`);
@@ -48,6 +48,7 @@ export function arriveContinue(page) {
   return page.locator('#home-main:visible, #title-continue:visible').first();
 }
 
+/** @deprecated Parked (docs/PARKED.md): the title has no Learn and the Guide has no lesson shelf; only the parked lesson checks call it. */
 export async function learnFromTitle(page, { tap = false } = {}) {
   const learn = page.locator('#title-learn');
   if (await learn.isVisible()) { await (tap ? learn.tap() : learn.click()); return; }
@@ -74,25 +75,28 @@ export async function pressMenu(page, name, { tap = false, ...press } = {}) {
   await (tap ? item.tap(press) : item.click(press));
 }
 
-/** A named figure starts the same lesson even when another figure is Next. */
+/** @deprecated Parked with the lesson shelf (docs/PARKED.md); only the parked checks call it. A named figure starts the same lesson even when another figure is Next. */
 export async function startLesson(page, name = 'Archer', { tap = false } = {}) {
   await pressMenu(page, 'Guide', { tap });
   const figure = page.locator(`#lesson-shelf .shelf-piece[data-piece="${name.toLowerCase()}"]`);
   await (tap ? figure.tap() : figure.click());
 }
 
+/** @deprecated Parked (docs/PARKED.md): Menu has no Extra page; only the parked checks and samples call it. */
 export async function openExtra(page) {
   await openMenu(page);
   await page.locator('[data-go="extra"]').click();
 }
+/** @deprecated Parked (docs/PARKED.md): Menu has no Tricks page. */
 export async function openTricks(page) {
   await openExtra(page);
   await page.locator('[data-go="tricks"]').click();
 }
 export async function openAccount(page) {
-  await openExtra(page);
+  await openMenu(page);
   await page.locator('[data-go="account"]').click();
 }
+/** @deprecated Parked (docs/PARKED.md): Menu has no This game page. */
 export async function openThisGame(page) {
   await openExtra(page);
   await page.locator('[data-go="game"]').click();
@@ -265,7 +269,7 @@ export const openPieceRules = page => page.locator('#all-rules').click();
 /** A coin read opens the same rules action at its power. */
 export const openPowerRules = openPieceRules;
 
-/** Lesson board IDs and taps follow the shelf's order. */
+/** @deprecated Parked with the lesson shelf (docs/PARKED.md). Lesson board IDs and taps follow the shelf's order. */
 export const lessonPath = () => [
   [0, [27, 45]], [1, [27, 35, 43]], [2, [27, 28]],
   [3, [27, 35]], [4, [11, 12]], [5, [3, 43]],
