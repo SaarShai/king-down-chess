@@ -69,3 +69,36 @@ can continue after the lease becomes free.
   full-suite pass.
 - `npm run test:docs` passes: 16 files, 183 cases. All runs use the shared
   machine lease and clone test lock.
+
+### PR 187 second review fix
+
+The second review finds two faults. Both come from a Node layer between
+`tools/test-lock.sh` and the real command. Node (npm, npx too) closes the
+lease descriptor in its children, and it can use the same number again.
+
+- `tools/deploy.sh` runs `npm run check:browser` under the lease. The
+  environment still gives fd 3, but in `check.mjs` fd 3 is a Node descriptor
+  or no descriptor. Spawn then fails with EBADF, or the child gets a wrong
+  descriptor. Fix: `tools/test-lock.sh` also exports
+  `KINGDOWN_MACHINE_LEASE_ID` (dev:ino of the lease file).
+  `machineLeaseStdio()` passes the descriptor only when `fstat` gives the
+  same dev:ino. Otherwise it does not change stdio, and the ancestor that
+  holds the lease keeps it. The runner cannot take the lease again, because
+  the ancestor holds it and the runner would wait on itself.
+- `npm test` ran `npm run test:unlocked` under the lease. Only that npm
+  process held the lease. After SIGKILL to it, vitest still ran with no
+  lease. Fix: the steps move to `tools/test-unlocked.sh`. Perl becomes this
+  shell, and each step inherits the lease. `npm run test:unlocked` runs the
+  same script.
+- New tests: a browser check through `npm run` under a held lease (it
+  failed with exit 1, EBADF); `npm test` with a stub vitest, where SIGKILL
+  stops every process above the stub (the second copy exited 0, not 75);
+  and a unit test for the dev:ino match. All failed before the fix and
+  pass after it.
+- `tools/deploy.sh` keeps its npm steps, because `tools/deploy.test.ts`
+  checks them. If SIGKILL stops the deploy shell, its npm children lose
+  the lease. That is a known limit of this change.
+- Affected tests pass: machine lease, browser runner, test lock, test lock
+  guard and deploy (5 files, 180 cases). Full `npm test` through the new
+  script passes: 271 files, 5,379 cases (17 files and 342 cases skipped).
+  `npm run test:docs` passes: 16 files, 183 cases.

@@ -3,15 +3,17 @@
 # Separate repository copies share the machine lease. CI keeps only the clone test lock.
 # Bash 3.2 and BSD tools.
 #
-#   tools/test-lock.sh <command> [args]     (package.json "test" wraps "test:unlocked" with it)
+#   tools/test-lock.sh <command> [args]     (package.json "test" wraps tools/test-unlocked.sh with it)
 #   tools/test-lock.sh --machine <command> [args]   (browser checks and deploy)
 #
 # The lock is a file in the git common dir, so every worktree of the clone shares it: a session's
 # worktree and the deploy worktree. Local commands first take $HOME/.cache/kingdown/machine.lock.
 # Perl takes flock(2) on each file and then becomes
 # the command, with the file still open: the command and each process it starts hold the lock until
-# the last of them ends, so a run that loses its parent cannot overlap the next run. Node runners
-# pass KINGDOWN_MACHINE_LEASE_FD in child stdio; Node closes extra descriptors by default. The clone
+# the last of them ends, so a run that loses its parent cannot overlap the next run. Node (npm, npx
+# too) closes extra descriptors in its children, so start the real command without a Node layer in
+# between. A Node runner passes KINGDOWN_MACHINE_LEASE_FD in child stdio while the descriptor is still
+# the lease file (KINGDOWN_MACHINE_LEASE_ID, its dev:ino; tools/lib/lock.mjs). The clone
 # lock keeps its fallback outside git or without Perl. A run prints one line for each lock it waits
 # for. KINGDOWN_TEST_LOCK_WAIT is the limit in seconds for each wait (default 7200); timeout exits 75.
 # Child commands reuse KINGDOWN_MACHINE_LEASED and KINGDOWN_TEST_LOCKED, so they cannot wait on
@@ -46,7 +48,11 @@ exec perl -MFcntl=:flock -MTime::HiRes=time,sleep -e '
       my $end = time + $wait;
       until (flock($f, LOCK_EX | LOCK_NB)) { exit 75 if time >= $end; sleep 1; }
     }
-    $ENV{KINGDOWN_MACHINE_LEASE_FD} = fileno($f) if $lock eq $machine;
+    if ($lock eq $machine) {
+      my @id = stat($f);
+      $ENV{KINGDOWN_MACHINE_LEASE_FD} = fileno($f);
+      $ENV{KINGDOWN_MACHINE_LEASE_ID} = "$id[0]:$id[1]";
+    }
     push @files, $f;
   }
   $ENV{KINGDOWN_MACHINE_LEASED} = 1 if length $machine;

@@ -1,6 +1,6 @@
 // Real runners use two independent repositories and one test user's home.
-import { spawn, type ChildProcess } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { chmodSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
 import { tempRepo } from './lib/temp-repo.mjs';
@@ -32,6 +32,10 @@ function setup() {
     repo.git('remote', 'remove', 'origin');
     repo.write('node_modules/.gitignore', '*\n');
     symlinkSync(new URL('../node_modules/playwright', import.meta.url), join(repo.dir, 'node_modules/playwright'), 'dir');
+    const scripts = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).scripts;
+    const pick = Object.fromEntries(['test', 'test:unlocked', 'typecheck', 'check:browser'].map(name => [name, scripts[name]]));
+    repo.write('package.json', JSON.stringify({ name: 'lease-test', private: true, type: 'module', scripts: pick }));
+    if (existsSync(new URL('test-unlocked.sh', import.meta.url))) repo.write('tools/test-unlocked.sh', readFileSync(new URL('test-unlocked.sh', import.meta.url), 'utf8'));
     for (const file of ['test-lock.sh', 'deploy.sh', 'check.mjs', 'lib/lock.mjs', 'lib/checks.mjs', 'lib/first-fault.mjs', 'lib/tree-status.mjs', 'lib/temp-repo.mjs']) {
       repo.write(`tools/${file}`, readFileSync(new URL(file, import.meta.url), 'utf8'));
     }
@@ -44,7 +48,7 @@ function setup() {
     const repo = copies[copy], started = join(repo.root, 'started');
     const child = spawn(args[0], args.slice(1), { cwd: repo.dir, detached: true, env: {
       ...repo.env, HOME: home, CI: '', KINGDOWN_MACHINE_LEASED: '', KINGDOWN_TEST_LOCKED: '',
-      KINGDOWN_TEST_LOCK_WAIT: '5', PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/lease_test',
+      KINGDOWN_TEST_LOCK_WAIT: '5', npm_config_update_notifier: 'false', PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/lease_test',
       TMPDIR: repo.root, LEASE_STARTED: started, ...extra,
     } });
     children.push(child);
@@ -166,16 +170,70 @@ it('a real browser runner child keeps the machine lease after the inner runner i
   }
 });
 
-it('passes the machine lease descriptor at its own number, with no gap for Node to close', async () => {
+/** The processes from pid up to (and with) top: the chain that a SIGKILL removes, so that only the leaf lives. */
+function ancestors(pid: number, top: number) {
+  const chain: number[] = [];
+  while (pid > 1) {
+    chain.push(pid);
+    if (pid === top) return chain;
+    pid = Number(spawnSync('ps', ['-o', 'ppid=', '-p', String(pid)], { encoding: 'utf8' }).stdout.trim());
+  }
+  throw new Error(`${top} is not an ancestor`);
+}
+
+it('a browser check started through npm run under a held lease runs its children', async () => {
+  const { run } = setup();
+  // npm is a Node process: it closes the lease descriptor, and Node reuses its number.
+  const nested = run(0, ['bash', 'tools/test-lock.sh', '--machine', 'npm', 'run', '-s', 'check:browser', 'lease']);
+  expect(await nested.done, nested.output()).toBe(0);
+  expect(existsSync(nested.started)).toBe(true);
+});
+
+it('the npm test child keeps the machine lease after every process above it is killed', async () => {
+  const { copies, run, until } = setup();
+  const repo = copies[0], release = join(repo.root, 'release');
+  repo.write('node_modules/.bin/tsc', '#!/bin/sh\nexit 0\n');
+  repo.write('node_modules/.bin/vitest', `#!/bin/sh\nexec '${process.execPath}' tools/web-game-check.mjs\n`);
+  repo.write('docs/2d-first-pieces/pass.test.mjs', '');
+  for (const bin of ['tsc', 'vitest']) chmodSync(join(repo.dir, 'node_modules/.bin', bin), 0o755);
+  const heavy = run(0, ['npm', 'test'], { LEASE_RELEASE: release });
+  await until(() => existsSync(heavy.started), heavy);
+  const check = JSON.parse(readFileSync(heavy.started, 'utf8'));
+  try {
+    for (const pid of ancestors(check.parent, heavy.child.pid!)) process.kill(pid, 'SIGKILL');
+    await heavy.done;
+    process.kill(check.pid, 0);
+    expect(await run(1, tests, { KINGDOWN_TEST_LOCK_WAIT: '0' }).done).toBe(75);
+    writeFileSync(release, 'release');
+    expect(await run(1, tests).done).toBe(0);
+  } finally {
+    try { process.kill(check.pid, 'SIGKILL'); } catch { /* ended */ }
+  }
+});
+
+it('passes the machine lease descriptor at its own number only while it is the lease file', async () => {
   const { machineLeaseStdio } = await import('./lib/lock.mjs');
+  const { copies } = setup();
+  const lease = openSync(join(copies[0].root, 'machine.lock'), 'a'), other = openSync(join(copies[0].root, 'other'), 'a');
+  const { dev, ino } = fstatSync(lease, { bigint: true });
   vi.stubEnv('CI', '');
   vi.stubEnv('KINGDOWN_MACHINE_LEASED', '1');
-  vi.stubEnv('KINGDOWN_MACHINE_LEASE_FD', '5');
+  vi.stubEnv('KINGDOWN_MACHINE_LEASE_ID', `${dev}:${ino}`);
+  vi.stubEnv('KINGDOWN_MACHINE_LEASE_FD', String(lease));
   try {
-    expect(machineLeaseStdio(['ignore', 1, 1])).toEqual(['ignore', 1, 1, 'ignore', 'ignore', 5]);
+    const gaps = Array(lease - 3).fill('ignore');
+    expect(machineLeaseStdio(['ignore', 1, 1])).toEqual(['ignore', 1, 1, ...gaps, lease]);
+    // A Node or npm layer closed the lease, and the number now names another descriptor.
+    vi.stubEnv('KINGDOWN_MACHINE_LEASE_FD', String(other));
+    expect(machineLeaseStdio(['ignore', 1, 1])).toEqual(['ignore', 1, 1]);
+    vi.stubEnv('KINGDOWN_MACHINE_LEASE_FD', '1000');
+    expect(machineLeaseStdio(['ignore', 1, 1])).toEqual(['ignore', 1, 1]);
+    vi.stubEnv('KINGDOWN_MACHINE_LEASE_FD', String(lease));
     vi.stubEnv('KINGDOWN_MACHINE_LEASED', '');
     expect(machineLeaseStdio(['ignore', 1, 1])).toEqual(['ignore', 1, 1]);
   } finally {
     vi.unstubAllEnvs();
+    closeSync(lease);
+    closeSync(other);
   }
 });

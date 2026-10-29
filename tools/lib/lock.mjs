@@ -27,7 +27,7 @@
 //   releaseAll()              Releases every lease that this process still holds, for an exit handler.
 import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { linkSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { fstatSync, linkSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -36,10 +36,16 @@ export const SLOTS = 3;
 /**
  * Node closes extra descriptors in a child. Pass the machine lease descriptor at its own number, so that a child
  * that outlives a killed runner keeps the lease. The gaps are 'ignore': Node skips holes and would move the fd.
+ * A Node layer (npm, npx) between tools/test-lock.sh and this process closes the lease, and Node can reuse its
+ * number. So the descriptor goes on only while it is the lease file (KINGDOWN_MACHINE_LEASE_ID is its dev:ino);
+ * otherwise the ancestor that holds the lease keeps it, and stdio does not change.
  */
 export function machineLeaseStdio(stdio) {
   const fd = Number(process.env.KINGDOWN_MACHINE_LEASE_FD);
   if (process.env.CI || !process.env.KINGDOWN_MACHINE_LEASED || !Number.isInteger(fd) || fd < 3) return stdio;
+  let id;
+  try { const { dev, ino } = fstatSync(fd, { bigint: true }); id = `${dev}:${ino}`; } catch { return stdio; }
+  if (id !== process.env.KINGDOWN_MACHINE_LEASE_ID) return stdio;
   const out = [...stdio];
   while (out.length < fd) out.push('ignore');
   out[fd] = fd;
