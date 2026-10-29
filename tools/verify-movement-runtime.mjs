@@ -67,16 +67,22 @@ try{
   await page.goto(captureURL.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.some(f=>f.square===27),null,{timeout:15000});await page.evaluate(()=>view.ready());
   if(flip){await page.evaluate(()=>view.flip(true));await page.waitForFunction(()=>view.scene.foot(27).x===536);}
   const captureBoard=await page.evaluate(()=>[...view.pos.board]);
-  const victim=await page.evaluate(()=>view.pos.board[18]);
-  await page.evaluate(()=>{window.captureTrace=[];window.captureTraceOn=true;function record(){if(!captureTraceOn)return;captureTrace.push(...view.scene.characterFrames.filter(f=>f.square===27));requestAnimationFrame(record);}record();});
+  const victim=await page.evaluate(()=>view.pos.board[18]),mover=captureBoard[27];
+  await page.evaluate(()=>{window.captureTrace=[];window.captureTraceOn=true;function record(){if(!captureTraceOn)return;captureTrace.push({animating:view.scene.animating,frames:view.scene.characterFrames});requestAnimationFrame(record);}record();});
   for(const sq of [27,18]){const p=await page.evaluate(s=>view.screenOf(s),sq);await page.mouse.click(p.x,p.y);}
-  await page.waitForFunction(victim=>!view.scene.animating&&!view.pos.board[27]&&view.pos.board[18]!==victim,victim,{timeout:12000});
-  const captureFrames=await page.evaluate(()=>{window.captureTraceOn=false;return captureTrace;});
+  await page.waitForFunction(mover=>!view.scene.animating&&!view.pos.board[27]&&view.pos.board[18]===mover,mover,{timeout:12000});
+  assert.notEqual(victim,mover);
+  const captureIndex=await page.evaluate(()=>captureTrace.length);
+  const captureFrames=await page.evaluate(()=>captureTrace.flatMap(s=>s.frames).filter(f=>f.square===27));
   assert(captureFrames.some(f=>f.bank===`${army}-attack-${forward}`),`${army} ${flip} capture uses attack`);
   assert(captureFrames.every(f=>!f.bank.startsWith('synthetic-')),`${army} ${flip} capture must not use movement`);
   await page.click('#undo');
   await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,i)=>v===board[i]),captureBoard,{timeout:12000});
-  console.log(`ok ${army} ${flip?'flipped':'normal'} real capture uses attack and Undo restores position`);
+  const undoFrames=await page.evaluate(index=>{window.captureTraceOn=false;return captureTrace.slice(index).filter(s=>s.animating).flatMap(s=>s.frames);},captureIndex);
+  const reverse=undoFrames.filter(f=>f.bank===`synthetic-${army}-${back}`);
+  for(const time of [0,100,200])assert(reverse.some(f=>f.time===time),`${army} ${flip} capture Undo ${back} frame ${time}`);
+  assert(reverse.some(f=>f.foot.x!==reverse[0].foot.x||f.foot.y!==reverse[0].foot.y),`${army} ${flip} capture Undo travels`);
+  console.log(`ok ${army} ${flip?'flipped':'normal'} real capture uses attack and Undo uses ${back} movement`);
   assertNoErrors(errors);console.log(`ok ${army} ${flip?'flipped':'normal'} move ${forward}, Undo ${back}`);await page.close();
  }
 }finally{await browser?.close();await server.close();}

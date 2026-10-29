@@ -166,6 +166,49 @@ describe('ready character playback', () => {
    expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);runtime.dispose();expect(runtime.stats).toMatchObject({bytes:0,active:0,queued:0});
   } finally {vi.useRealTimers();}
  });
+ it.each(['abort','timeout'] as const)('retires initial turn loads on %s and starts an uncached replacement', async reason => {
+  vi.useFakeTimers();
+  try {
+   const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+   const directions=['SE','S','SW','W','NW'];
+   const turns=directions.slice(0,-1).map((from,i)=>({...bank(from,directions[i+1]),frames:[{url:`held-${i*2}`,timeMs:0},{url:`held-${i*2+1}`,timeMs:120}]}));
+   const other={...idle,id:'other',character:'queen',frames:[{url:'other-rest',timeMs:0}]};
+   const turn={...bank(),id:'other-turn',character:'queen',frames:[{url:'other-rest',timeMs:0},{url:'held-0',timeMs:120}]};
+   const late:(()=>void)[]=[],sources:string[]=[],removed:string[]=[];let replacementImage:unknown;
+   const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,...turns,other,turn]})})) as unknown as typeof fetch,
+    image:()=>{let source='';const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:()=>removed.push(source),set src(s:string){source=s;sources.push(s);if(s.includes('/held-')&&sources.filter(x=>x===s).length===1){const callback=img.onload;late.push(()=>callback?.());}else{if(s.endsWith('/held-0'))replacementImage=img;queueMicrotask(()=>img.onload?.());}}};return img as unknown as HTMLImageElement;}});
+   const controller=new AbortController(),pending=runtime.prepare('pawn','white','NW',false,false,controller.signal);
+   await vi.advanceTimersByTimeAsync(0);expect(runtime.stats).toMatchObject({active:6,queued:2});
+   if(reason==='abort')controller.abort();else await vi.advanceTimersByTimeAsync(1000);
+   expect(await pending).toBeNull();expect(runtime.stats).toMatchObject({active:0,queued:0});expect(removed).toHaveLength(6);
+   const nextPromise=runtime.prepare('queen','white','S',false);await vi.advanceTimersByTimeAsync(0);
+   const next=await nextPromise;expect(next).not.toBeNull();expect(runtime.action(next,50,100,0)).toMatchObject({url:'held-0',image:replacementImage});
+   const bytes=runtime.stats.bytes;late.forEach(release=>release());await vi.advanceTimersByTimeAsync(0);
+   expect(runtime.action(next,50,100,0)).toMatchObject({url:'held-0',image:replacementImage});expect(runtime.stats).toMatchObject({bytes,active:0,queued:0});
+   expect(sources.filter(s=>s.endsWith('/held-0'))).toHaveLength(2);expect(sources.some(s=>s.endsWith('/held-6'))).toBe(false);
+   runtime.dispose();expect(runtime.stats).toMatchObject({bytes:0,active:0,queued:0});
+  } finally {vi.useRealTimers();}
+ });
+ it('keeps initial active and queued frames shared with preparations and warm consumers', async () => {
+  vi.useFakeTimers();
+  try {
+   const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+   const directions=['SE','S','SW','W','NW'];
+   const turns=directions.slice(0,-1).map((from,i)=>({...bank(from,directions[i+1]),frames:[{url:`held-${i*2}`,timeMs:0},{url:`held-${i*2+1}`,timeMs:120}]}));
+   const other={...idle,id:'other',character:'queen',frames:[{url:'held-7',timeMs:0}]};
+   const releases:(()=>void)[]=[],removed:string[]=[];
+   const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,...turns,other]})})) as unknown as typeof fetch,
+    image:()=>{let source='';const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:()=>removed.push(source),set src(s:string){source=s;if(s.includes('/held-'))releases.push(()=>img.onload?.());else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   const controller=new AbortController(),otherController=new AbortController(),first=runtime.prepare('pawn','white','NW',false,false,controller.signal),second=runtime.prepare('pawn','white','NW',false,false,otherController.signal);
+   await vi.advanceTimersByTimeAsync(0);const warming=runtime.warm('queen','white');await vi.advanceTimersByTimeAsync(0);
+   expect(runtime.stats).toMatchObject({active:6,queued:2});controller.abort();expect(await first).toBeNull();
+   expect(runtime.stats).toMatchObject({active:6,queued:2});expect(removed).toHaveLength(0);
+   otherController.abort();expect(await second).toBeNull();await vi.advanceTimersByTimeAsync(0);
+   expect(runtime.stats).toMatchObject({active:1,queued:0});expect(removed).toHaveLength(6);expect(releases).toHaveLength(7);
+   releases.at(-1)?.();await vi.advanceTimersByTimeAsync(0);await warming;expect(runtime.rest('queen','white')).toMatchObject({url:'held-7'});
+   expect(runtime.stats).toMatchObject({active:0,queued:0});runtime.dispose();expect(runtime.stats.bytes).toBe(0);
+  } finally {vi.useRealTimers();}
+ });
  it('keeps shared active and queued movement loads for another preparation', async () => {
   vi.useFakeTimers();
   try {
@@ -288,16 +331,16 @@ describe('ready character playback', () => {
   expect(sources).toHaveLength(3);expect(runtime.stats.bytes).toBeLessThanOrEqual(64*1024*1024);expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);expect(runtime.stats.active).toBe(0);
   expect(runtime.rest('pawn','white')).not.toBeNull();runtime.dispose();
  });
- it('falls back for a slow turn frame, then uses the late successful image', async () => {
+ it('retries a timed-out turn frame and ignores its late callback', async () => {
   vi.useFakeTimers();
   try {
-   const idle={...bank(),kind:'idle',frames:[{url:'frame-0',timeMs:0}]},turn=bank();let finish=()=>{};
+   const idle={...bank(),kind:'idle',frames:[{url:'frame-0',timeMs:0}]},turn=bank();let finish=()=>{},attempts=0;
    const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})) as unknown as typeof fetch,
-    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),onerror:null as null|(()=>void),decode:async()=>{},set src(s:string){if(s.endsWith('/frame-120'))finish=()=>img.onload?.();else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),onerror:null as null|(()=>void),decode:async()=>{},set src(s:string){if(s.endsWith('/frame-120')&&++attempts===1){const callback=img.onload;finish=()=>callback?.();}else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
    await runtime.warm('pawn','white');const preparing=runtime.prepare('pawn','white','S',false);
-   await vi.advanceTimersByTimeAsync(1001);expect(await preparing).toBeNull();expect(runtime.stats.active).toBe(1);
-   finish();await vi.advanceTimersByTimeAsync(0);const next=await runtime.prepare('pawn','white','S',false);
-   expect(next).not.toBeNull();expect(runtime.action(next,-120,100,0)).not.toBeNull();runtime.dispose();
+   await vi.advanceTimersByTimeAsync(1001);expect(await preparing).toBeNull();expect(runtime.stats.active).toBe(0);
+   finish();await vi.advanceTimersByTimeAsync(0);const pending=runtime.prepare('pawn','white','S',false);await vi.advanceTimersByTimeAsync(0);const next=await pending;
+   expect(attempts).toBe(2);expect(next).not.toBeNull();expect(runtime.action(next,-120,100,0)).not.toBeNull();runtime.dispose();
   } finally {vi.useRealTimers();}
  });
  it('cancels timed-out image requests before releasing queue slots', async () => {

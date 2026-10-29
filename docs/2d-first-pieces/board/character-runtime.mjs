@@ -104,7 +104,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   return job.promise;
  }
  const loadFrame=frame=>requestFrame(frame);
- function loadMovement(frames){
+ function loadPreparation(frames){
   const jobs=[];
   const promises=[...new Map(frames.map(frame=>[frame.url,frame])).values()].map(frame=>{const promise=requestFrame(frame,true),job=loading.get(frame.url);if(job)jobs.push(job);return promise;});
   return {promise:Promise.all(promises),release(){
@@ -112,6 +112,10 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    for(const job of jobs)if(!job.owners&&!job.shared&&!job.cancel){const index=queue.indexOf(job);if(index!==-1){queue.splice(index,1);loading.delete(job.frame.url);job.resolve();}}
    for(const job of jobs)if(!job.owners&&!job.shared)job.cancel?.();
   }};
+ }
+ async function prepareFrames(frames,ms,signal){
+  const loads=loadPreparation(frames);
+  await bounded(loads.promise,ms,signal);loads.release();
  }
  const endpoints=bank=>[bank.frames[0],bank.frames.at(-1)];
  async function loadSeparate(character){
@@ -184,7 +188,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   rest(character,army,time=0,active=false){const bank=idle(character,army);if(!bank)return null;if(active){const all=forPiece(character,army),choice=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time);if(choice){const next=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time+160);if(next&&next.bank!==choice.bank)for(const frame of next.bank.frames.slice(0,6))void loadFrame(frame);return sample(choice.bank,choice.time,true,choice.reverse,true)??sample(bank,0,false);}}return sample(bank,0,false);},
   async prepare(character,army,direction,capture,oneSquare=false,signal){
    const deadline=performance.now()+LOAD_TIMEOUT,remaining=()=>Math.max(0,deadline-performance.now());
-   await bounded(loadManifest(),remaining());if(disposed||!remaining())return null;
+   await bounded(loadManifest(),remaining(),signal);if(disposed||signal?.aborted||!remaining())return null;
    const all=forPiece(character,army),rest=idle(character,army);if(!rest)return null;
    const attack=capture?all.find(b=>b.kind==='attack'&&b.facing===direction):null;
    let movement=!capture&&oneSquare?all.find(b=>b.kind==='movement'&&b.facing===direction&&b.durationMs>0&&b.frames?.length):null;
@@ -193,28 +197,27 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    // A missing edge keeps the rest body coherent instead of jumping to an unsupported facing.
    if(before===null)return null;
    const start=[rest.frames[0],...before.flatMap(p=>endpoints(p.bank)),...after.flatMap(p=>endpoints(p.bank)),...(attack?attack.frames.slice(0,6):[])];
-   await bounded(Promise.all(start.map(loadFrame)),remaining());
-   if(disposed||!remaining()||start.some(frame=>!images.has(frame.url)))return null;
+   await prepareFrames(start,remaining(),signal);
+   if(disposed||signal?.aborted||!remaining()||start.some(frame=>!images.has(frame.url)))return null;
    const sizes=new Map(start.map(frame=>[frame.url,images.get(frame.url).size]));
    let releaseMovementStart=null,releaseMovement=null,releaseFallback=null;
    if(movement){
     releaseFallback=reserve(start);
-    const loads=loadMovement(movement.frames);
-    await bounded(loads.promise,remaining(),signal);loads.release();
+    await prepareFrames(movement.frames,remaining(),signal);
     if(disposed||signal?.aborted){releaseFallback();return null;}
     if(!remaining()||movement.frames.some(frame=>!images.has(frame.url)))movement=null;
     else {releaseMovementStart=reserve([movement.frames[0]]);releaseMovement=reserve([movement.frames.at(-1)]);}
    }
-   const effect=attack?await bounded(loadSeparate(character),remaining()):null;
-   if(disposed||!remaining()&&!movementRequested||attack&&effectEntries[character]&&!effect){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
+   const effect=attack?await bounded(loadSeparate(character),remaining(),signal):null;
+   if(disposed||signal?.aborted||!remaining()&&!movementRequested||attack&&effectEntries[character]&&!effect){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
    if(start.some(frame=>!images.has(frame.url))){
     const missing=[...sizes].reduce((sum,[key,size])=>sum+(images.has(key)?0:size),0);
     for(const cached of effectLoads.values()){
      if(bytes+effectBytes+smokeBytes+missing<=DECODED_BUDGET)break;
      if(!cached.pending&&cached!==currentEffect){effectLoads.delete(cached.character);effectBytes-=cached.size;}
     }
-    await bounded(Promise.all(start.map(loadFrame)),remaining());
-    if(disposed||!remaining()||start.some(frame=>!images.has(frame.url))){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
+    await prepareFrames(start,remaining(),signal);
+    if(disposed||signal?.aborted||!remaining()||start.some(frame=>!images.has(frame.url))){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
    }
    if(movement&&movement.frames.some(frame=>!images.has(frame.url))){movement=null;releaseMovementStart?.();releaseMovement?.();releaseMovementStart=null;releaseMovement=null;}
    return {rest,attack,movement,effect,before,after,releaseMovementStart,releaseMovement,releaseFallback,beforeMs:before.reduce((n,p)=>n+p.bank.durationMs,0),afterMs:after.reduce((n,p)=>n+p.bank.durationMs,0)};
