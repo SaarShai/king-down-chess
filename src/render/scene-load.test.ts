@@ -162,6 +162,21 @@ it.each(['no turn','incoming turn'] as const)('keeps both movement endpoints whe
  await vi.advanceTimersByTimeAsync(1200);await expect(playing).resolves.toBe(true);
 });
 
+it.each(['equal start times','overlapping end intervals'] as const)('draws the exact movement endpoints with %s', async condition => {
+ const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600};
+ const idle={...base,id:'idle',kind:'idle',facing:'N',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const frames=condition==='equal start times'
+  ? [{url:'runtime-first.png',timeMs:0},{url:'runtime-middle.png',timeMs:0},{url:'runtime-last.png',timeMs:200}]
+  : [{url:'runtime-first.png',timeMs:0,visibleIntervalMs:[0,50]},{url:'runtime-middle.png',timeMs:50,visibleIntervalMs:[50,200]},{url:'runtime-last.png',timeMs:150,visibleIntervalMs:[150,199]}];
+ const movement={...base,id:'move',kind:'movement',facing:'N',nearest:false,durationMs:200,frames};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,movement]})})));
+ const b=board(true,true,false,600);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(600);
+ const playing=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(0);
+ let drawn=b.draws.length;await vi.advanceTimersByTimeAsync(600);expect(b.draws.slice(drawn).some(src=>src.endsWith('/runtime-first.png'))).toBe(true);expect(scene.animating).toBe(true);
+ drawn=b.draws.length;await vi.advanceTimersByTimeAsync(600);expect(b.draws.slice(drawn).some(src=>src.endsWith('/runtime-last.png'))).toBe(true);expect(scene.animating).toBe(true);
+ await vi.advanceTimersByTimeAsync(600);await expect(playing).resolves.toBe(true);
+});
+
 it.each(['cancel','replace'] as const)('releases prepared movement endpoints after %s before the first draw', async change => {
  const base={army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600};
  const idle={...base,character:'pawn',id:'idle',kind:'idle',facing:'N',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};

@@ -219,12 +219,12 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    if(movement&&movement.frames.some(frame=>!images.has(frame.url))){movement=null;releaseMovementStart?.();releaseMovement?.();releaseMovementStart=null;releaseMovement=null;}
    return {rest,attack,movement,effect,before,after,releaseMovementStart,releaseMovement,releaseFallback,beforeMs:before.reduce((n,p)=>n+p.bank.durationMs,0),afterMs:after.reduce((n,p)=>n+p.bank.durationMs,0)};
   },
-  action(prepared,time,duration,contact){
+  action(prepared,time,duration,contact,boundary){
    if(time<0)return routeSample(prepared.before,time+prepared.beforeMs)??sample(prepared.rest,0,false);
    if(time>duration)return routeSample(prepared.after,time-duration)??sample(prepared.rest,0,false);
    const attack=prepared.attack;
    if(attack){return sample(attack,Math.min(time,attack.durationMs),true,false,true)??sample(prepared.rest,0,false);}
-   if(prepared.movement){const body=sample(prepared.movement,duration>0?time/duration*prepared.movement.durationMs:0,true,false,true);if(body)return body;}
+   if(prepared.movement){const frames=prepared.movement.frames,frame=boundary==='start'?frames[0]:boundary==='end'?frames.at(-1):null;const body=sample(prepared.movement,duration>0?time/duration*prepared.movement.durationMs:0,true,false,true,frame);if(body)return body;}
    return routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);
   },
   dispose(){disposed=true;banks=[];restChoices.clear();images.clear();idlePins.clear();pins.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;effectLoads.clear();smokeClass=null;smokeImage=null;for(const job of activeJobs)job.cancel();for(const job of queue)job.resolve();queue.length=0;loading.clear();},

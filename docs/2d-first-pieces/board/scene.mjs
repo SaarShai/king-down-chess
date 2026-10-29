@@ -862,7 +862,7 @@ function vortex(out,foot,phase,strength) {
    const actor=animation&&!animation.effect&&animation.move.from===sq,a=actor?animation:null;
    const elapsed=a?(time-a.start)/a.speed:0,local=a?.drawingMovementStart?0:a?.drawingMovementEndpoint?a.actionDuration:elapsed-(a?.runtime?.beforeMs??0);
    const legacyKing=a&&typeOf(u.value)===K&&a.move.captures.length;
-   let body=a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):legacyKing||a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,local,a.actionDuration,a.contactTime):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
+   let body=a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):legacyKing||a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,local,a.actionDuration,a.contactTime,a.drawingMovementStart?'start':a.drawingMovementEndpoint?'end':undefined):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
    if(body){
     if(a?.runtime){
      if(local<0)u.pose={...a.from};else if(local>a.actionDuration)u.pose={...a.to};

@@ -66,6 +66,7 @@ try{
   const captureURL=new URL(url);captureURL.searchParams.set('fen',`7k/p7/8/8/3${army==='white'?'L':'l'}4/2${army==='white'?'p':'P'}5/P7/K7 ${army==='white'?'w':'b'} - - 0 1`);
   await page.goto(captureURL.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.some(f=>f.square===27),null,{timeout:15000});await page.evaluate(()=>view.ready());
   if(flip){await page.evaluate(()=>view.flip(true));await page.waitForFunction(()=>view.scene.foot(27).x===536);}
+  const captureBoard=await page.evaluate(()=>[...view.pos.board]);
   const victim=await page.evaluate(()=>view.pos.board[18]);
   await page.evaluate(()=>{window.captureTrace=[];window.captureTraceOn=true;function record(){if(!captureTraceOn)return;captureTrace.push(...view.scene.characterFrames.filter(f=>f.square===27));requestAnimationFrame(record);}record();});
   for(const sq of [27,18]){const p=await page.evaluate(s=>view.screenOf(s),sq);await page.mouse.click(p.x,p.y);}
@@ -73,7 +74,9 @@ try{
   const captureFrames=await page.evaluate(()=>{window.captureTraceOn=false;return captureTrace;});
   assert(captureFrames.some(f=>f.bank===`${army}-attack-${forward}`),`${army} ${flip} capture uses attack`);
   assert(captureFrames.every(f=>!f.bank.startsWith('synthetic-')),`${army} ${flip} capture must not use movement`);
-  console.log(`ok ${army} ${flip?'flipped':'normal'} real capture uses attack`);
+  await page.click('#undo');
+  await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,i)=>v===board[i]),captureBoard,{timeout:12000});
+  console.log(`ok ${army} ${flip?'flipped':'normal'} real capture uses attack and Undo restores position`);
   assertNoErrors(errors);console.log(`ok ${army} ${flip?'flipped':'normal'} move ${forward}, Undo ${back}`);await page.close();
  }
 }finally{await browser?.close();await server.close();}

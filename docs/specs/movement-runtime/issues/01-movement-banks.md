@@ -3,67 +3,26 @@
 Type: task
 Status: claimed
 
-## Plan
+## Scope and checks
 
-Cancellation review fix: retire unshared active and queued movement loads on abort or deadline; retain shared requests and reject late callbacks. Check replacement, shared frames, queue cleanup, timeout, cache accounting and the existing scene and browser flows.
-
-First-frame review fix: reserve both movement endpoints; draw the first at the movement boundary, including after an incoming turn; release reservations on draw or interruption. Check delayed refreshes, cache pressure, existing endpoint and fallback cases, and the pinned browser flow.
-
-Review fixes: protect ready fallback frames during optional loading; hold the movement endpoint until the scene draws it or cancels; test boundary timing, cache pressure, capture and interruption; run the focused tests and pinned browser check.
-
-1. Inspect the runtime, scene move and Undo paths, and the pinned asset manifest.
-2. Add an opt-in authored movement bank path with the existing fallback.
-3. Test timing, registration, load failures, both armies and real game Undo with synthetic assets.
-4. Check the baseline asset hashes and record the result and any limits.
-5. Limit movement banks to one-square quiet moves using scene coordinates. Test a longer move and its fallback in the runtime and browser.
-
-## Verification
-
-- Focused repository tests cover selection, frame edges, pivots and failures.
-- A browser check drives both armies through a move and Undo with intercepted synthetic banks.
-- The pinned manifest and runtime assets retain their original hashes.
-- No trial art is selected, and no dependency or baseline asset changes.
+- Play an opt-in movement bank for a one-square quiet move. Keep the pinned runtime behavior for moves without a bank, captures and longer moves.
+- Select by character, army and screen direction. Draw the first and last frames before the adjoining turn. Undo uses its own reverse-facing bank.
+- Keep ready fallback frames during an optional bank load. A failed or late bank uses that fallback. Cancellation must free unshared queued and active loads without cancelling shared loads or accepting late results.
+- Test frame boundaries, cache pressure, cancellation, replacement, capture and Undo for both armies. Keep approved art and the pinned runtime package unchanged.
 
 ## Contract and limits
 
-A bank opts in with `kind: "movement"`, a `character`, an `army`, and the screen `facing`. It uses the existing frame, duration, pivot and registration fields. The scene measures the start and target foot coordinates in board tiles. Only a quiet move whose largest horizontal or vertical distance is exactly one tile can use a movement bank. The runtime picks an exact match and loads every frame within the existing move preparation deadline. A failed or late load uses the existing turn pose. Longer moves use that same turn-pose fallback and do not load movement frames. The bank plays once across the scene's action duration, including the first and last frame. The scene still controls the root path and its duration. Undo is a new move in the opposite screen direction and uses the same one-square limit.
+A bank opts in with `kind: "movement"`, `character`, `army` and screen `facing`, using the existing frame, duration, pivot and registration fields. The scene uses it only when the move is quiet and its largest board-coordinate displacement is one tile. The runtime preloads the bank within the existing deadline and samples it once over the scene's action duration. The scene controls root travel and draws the exact first and last bank frames at the boundaries, including when a refresh skips a boundary. A late refresh can extend the move until the boundary is drawn.
 
-Movement banks do not run on captures, shoves, swaps, or with reduced motion. Undo of a capture uses the quiet reverse path when the existing Undo code can move the figure, subject to the same distance limit. A cancellation keeps the scene guard against late preparation. A bank is not a foot-contact model: the clip is stretched over the one-square action duration, and the scene retains its existing travel and lift curve. Endpoint art, pivots and registration must be checked against the turn banks before any art is selected. The runtime does not validate visual joins. During playback, cache pressure can evict intermediate frames; the sampler holds an available earlier frame or falls back to the turn pose. The first and final movement frames remain reserved until the scene draws or cancels them. The prepared turn and rest endpoints stay reserved through completion or cancellation. Large banks can fail preparation under the existing decoded-pixel budget and use the ready fallback.
+For a requested movement bank, the runtime reserves the prepared rest and turn endpoints through completion or cancellation, including when the bank fails or is late. It reserves the first and last movement frames until they are drawn or the move is cancelled. A missing bank keeps the base runtime's existing unreserved fallback behavior. A cancelled or expired movement load retires unshared requests; shared requests continue for their other consumers.
 
-When movement preparation is cancelled or reaches its deadline, it releases its image requests. Unshared active and queued requests stop; shared requests continue for their other users. A cancelled request can be retried without a failure cooldown, and its late callbacks cannot change the cache.
+Movement banks do not run on captures, shoves, swaps, reduced motion or longer moves. A one-square Undo can use a separately authored bank for its reverse screen direction. The runtime does not solve foot contact: art, pivots, root travel, visual joins and genuine RGBA visibility must pass separate review before a bank is selected. The 64 MiB limit covers retained decoded-image accounting, not transient browser decoder memory. Intermediate frames can be evicted under pressure.
 
 ## Verification
 
-- `KINGDOWN_TEST_FILE=src/render/character-runtime.test.ts npm test`: 34 focused runtime tests and 67 board tests pass; type checks pass. The focused test checks the one-square bank and the long-move turn fallback, including no movement frame loads for the long move.
-- `MOVEMENT_BASELINE_DIR='/Users/za/Documents/king down chess (new)/app/public/character-runtime' npm run check:browser movement-runtime`: both armies pass one-square and three-square Paladin moves and Undo in normal and flipped views. The one-square moves use synthetic banks; the three-square moves use the baseline fallback. The check intercepts the manifest and uses existing pixels, not candidate art. Log: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/animation-movement-integration-20261029-G39cdB/movement-runtime.log`.
-- The baseline manifest has 468 banks and no movement banks. Its SHA-256 is `05ff4c215cd601486863cc00efbf6c080e6fa8fcb29c410380da6d8e98807f9e`.
-- In the prior implementation check, the runtime package tree had 5,256 files. A sorted path-and-bytes SHA-256 was `06f26c6424f3966932764f201455cab1ecff9409a471256d20d9d70bbfcc0eea` before and after that check.
+- `KINGDOWN_TEST_FILE=src/render/character-runtime.test.ts npm test`: 45 runtime tests and 67 board tests pass; both type checks pass. The runtime tests cover boundary selection, fallback, cache pressure, cancellation, shared loads and timeouts.
+- `KINGDOWN_TEST_FILE=src/render/scene-load.test.ts npm test`: 28 scene tests and 67 board tests pass; both type checks pass. The scene tests cover boundary draws, delayed refreshes, cancellation and replacement.
+- `MOVEMENT_BASELINE_DIR='<pinned package>' npm run check:browser movement-runtime`: both armies and orientations pass one-square moves, Undo, longer-move fallback, captures and capture Undo. The check uses synthetic metadata and existing static image bytes.
+- `npm run test:docs`: 17 files and 186 tests pass. The pinned manifest remains `05ff4c215cd601486863cc00efbf6c080e6fa8fcb29c410380da6d8e98807f9e` and contains no movement banks.
 
-### Independent review fixes
-
-- `KINGDOWN_TEST_FILE=src/render/character-runtime.test.ts npm test`: 36 runtime tests and 67 board tests pass, with both type checks. The new test loads 16 MiB frames until the 64 MiB cache is under pressure, holds a seventh movement frame past the deadline, checks the ready turn and rest fallback, releases the late frame, and checks the fallback again. A separate cancellation test proves four new 16 MiB frames fit after the pending movement reservation is released. Both checks keep reported peak cache use at or below 64 MiB.
-- `KINGDOWN_TEST_FILE=src/render/scene-load.test.ts npm test`: 20 scene tests and 67 board tests pass, with both type checks. The movement scene test straddles the action boundary with 16 ms refreshes: it sees the last frame before completion when no return turn exists, then sees the last frame and return turn on the reverse move. The interruption cases cancel or replace a move while its movement image is held, release the image, and check that the old action does not take over.
-- `MOVEMENT_BASELINE_DIR='/Users/za/Documents/king down chess (new)/app/public/character-runtime' npm run check:browser movement-runtime`: both armies and orientations pass real one-square moves and Undo, including first, middle and final synthetic movement frames; three-square moves and Undo use the baseline fallback; real captures use the attack bank and never use a movement bank. The browser uses the pinned manifest and existing image bytes. Log: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/movement-bank-quiet-20261029-IYLFhj/movement-runtime.log`. The initial capture check assumed the Paladin always leaves the board and timed out; the corrected check accepts either legal result.
-- `npm run test:docs`: 17 files and 186 tests pass.
-
-The checks do not prove art quality or visual joins, and no full test suite or art review ran. The browser check samples real refreshes; the deliberately straddled boundary and interruption use the real scene with a controlled test clock. The cache budget covers retained decoded-image accounting, not a measurement of transient browser decoder memory.
-
-### First-frame review fix
-
-- Both independent reviews found that a refresh could cross the start of movement and sample a later frame. Cache pressure could also evict the first frame after preparation. The scene now holds the start boundary for one draw, before travel begins, and releases the first-frame reservation after that draw. The final frame stays reserved until its own draw. Cancellation, replacement and stale preparation release both reservations.
-- `KINGDOWN_TEST_FILE=src/render/character-runtime.test.ts npm test`: 37 runtime tests and 67 board tests pass; both type checks pass. A pressure test uses 16 MiB in-memory images to check both reserved endpoints and their release; peak retained decoded-image accounting stays at or below 64 MiB.
-- `KINGDOWN_TEST_FILE=src/render/scene-load.test.ts npm test`: 26 scene tests and 67 board tests pass; both type checks pass. Controlled clocks check a frame change before the first refresh, with and without an incoming turn. A 600 ms refresh skips the full nominal action and still draws the first and final frames in order. Cancellation and replacement before the first draw release reservations under pressure. The existing late-load, final-frame, capture and Undo coverage remains in the focused and browser checks.
-- `MOVEMENT_BASELINE_DIR='/Users/za/Documents/king down chess (new)/app/public/character-runtime' npm run check:browser movement-runtime`: pass for both armies and orientations, including quiet moves and Undo, long-move fallback and captures. The browser uses existing image bytes and synthetic metadata. Log: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/movement-bank-quiet-20261029-0AXguu/movement-runtime.log`. Vite reports dynamic-import, Node externalization and public-asset warnings.
-- `npm run test:docs`: 17 files and 186 tests pass. `git diff --check` passes.
-- The first pressure-test run failed because the last sampled image kept the cache's active-frame preference after its reservation was released. The corrected test moves that preference to another image before it checks release. The first scene-test run failed on two expected timestamps because the new start hold extends the move; the corrected checks pass.
-
-No full test suite, art review, or capture-Undo browser check ran. No image or sequence files were made. A delayed refresh can extend the move by the delay to its first draw; this preserves the start frame and the full action interval.
-
-### Cancellation review fix
-
-- `KINGDOWN_TEST_FILE=src/render/character-runtime.test.ts npm test`: 41 runtime tests and 67 board tests pass; both type checks pass. Controlled tests hold six active images and two queued images, then abort or reach the deadline. Each leaves zero active and queued jobs. A replacement loads an uncached endpoint at the same URL without advancing the clock; late callbacks cannot replace that image or change the byte count. Shared active and queued frames survive another preparation's cancellation. A normal warm request also keeps its shared frame. Disposal clears the retained bytes. Peak retained decoded-image accounting stays within 64 MiB.
-- `KINGDOWN_TEST_FILE=src/render/scene-load.test.ts npm test`: 26 scene tests and 67 board tests pass; both type checks pass. These include first and last boundaries, interruption and replacement.
-- `MOVEMENT_BASELINE_DIR='/Users/za/Documents/king down chess (new)/app/public/character-runtime' npm run check:browser movement-runtime`: pass in 43.3 seconds. Both armies and orientations pass movement and Undo, long-move fallback, and capture. Log: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/movement-bank-cancel-20261029-cFQvpi/movement-runtime.log`. The check uses synthetic metadata and existing image bytes. Vite reports dynamic-import, Node externalization and public-asset warnings.
-- `npm run test:docs`: 17 files and 186 tests pass. `git diff --check` passes.
-
-The retained-byte count does not measure transient browser decoder memory. This work does not run a full suite, capture-Undo browser check, art review or visual-join review. No animation art, frames, interpolation or production sequences were generated.
+The full suite and visual art review are separate checks. No movement art or synthetic bank is selected for production.

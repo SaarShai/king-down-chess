@@ -76,6 +76,32 @@ describe('ready character playback', () => {
   const prepared=await runtime.prepare('pawn','white','SE',false,true);
   expect((runtime.action(prepared,60,120,0) as {bank:string}).bank).toBe('idle');runtime.dispose();
  });
+ it.each(['equal start times','overlapping end intervals'] as const)('selects the exact movement boundary with %s', async condition => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const frames=condition==='equal start times'
+   ? [{url:'first',timeMs:0},{url:'middle',timeMs:0},{url:'last',timeMs:120}]
+   : [{url:'first',timeMs:0,visibleIntervalMs:[0,40] as [number,number]},{url:'middle',timeMs:40,visibleIntervalMs:[40,120] as [number,number]},{url:'last',timeMs:100,visibleIntervalMs:[100,119] as [number,number]}];
+  const movement={...bank(),id:'move',kind:'movement',facing:'SE',nearest:false,frames};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,movement]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const prepared=await runtime.prepare('pawn','white','SE',false,true);
+  expect(runtime.action(prepared,0,120,0,'start')).toMatchObject({url:'first'});
+  expect(runtime.action(prepared,120,120,0,'end')).toMatchObject({url:'last'});
+  expect(runtime.action(prepared,condition==='equal start times'?0:120,120,0)).toMatchObject({url:'middle'});
+  const held=prepared as {releaseMovementStart:()=>void;releaseMovement:()=>void;releaseFallback:()=>void};held.releaseMovementStart();held.releaseMovement();held.releaseFallback();runtime.dispose();
+ });
+ it.each([true,false])('keeps baseline unreserved fallback under pressure with no bank (one square %s)', async oneSquare => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const turn={...bank(),id:'turn',frames:[{url:'rest',timeMs:0},{url:'turn-end',timeMs:120}]};
+  const others=Array.from({length:3},(_,i)=>({...idle,id:`other-${i}`,character:`other-${i}`,frames:[{url:`other-${i}`,timeMs:0}]}));
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,...others]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:2048,naturalHeight:2048,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  await runtime.warm('pawn','white');
+  const prepared=await runtime.prepare('pawn','white','S',false,oneSquare) as {releaseFallback:null};expect(prepared.releaseFallback).toBeNull();
+  for(let i=0;i<others.length;i++)await runtime.warm(`other-${i}`,'white');
+  expect(runtime.action(prepared,50,100,0)).toMatchObject({bank:'turn',url:'rest'});
+  expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);runtime.dispose();
+ });
  it('keeps the turn fallback after a movement load exceeds the move deadline', async () => {
   vi.useFakeTimers();
   try {
