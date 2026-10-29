@@ -3068,9 +3068,12 @@ try {
     await frame.locator('[data-screen="join"]:not([hidden])').waitFor();
     const own = await tool('kingdown_create', { kind: 'friend', options, colour: 'white' });
     const ownInvite = await tool('kingdown_invite', { game_id: own._meta.view.game_id });
+    // Use a replaced link: HTTP allows the host's preview; the parked typing steps hid this behind the code limit.
+    assert(!(await tool('kingdown_invite', { game_id: own._meta.view.game_id })).isError);
     for (const code of ['bad?', ownInvite.structuredContent.code]) {
       const error = await tool('kingdown_open', { code });
       assert(error.isError && !error._meta?.board_id && !error._meta?.preview);
+      assert.equal(error._meta?.code, code === 'bad?' ? 'INVALID_INPUT' : 'INVITE_UNAVAILABLE');
       for (const remount of [false, true]) {
         const opens = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_open').length);
         const oldBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);
