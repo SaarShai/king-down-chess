@@ -47,8 +47,8 @@ function bounded(promise,ms=LOAD_TIMEOUT){
  return new Promise(resolve=>{const timer=setTimeout(()=>resolve(null),Math.max(0,ms));Promise.resolve(promise).then(value=>{clearTimeout(timer);resolve(value);},()=>{clearTimeout(timer);resolve(null);});});
 }
 export function createCharacterRuntime({url=new URL('/character-runtime/manifest.json',import.meta.url).href,wake=()=>{},fetcher=fetch,image=()=>Object.assign(new Image(),{crossOrigin:'anonymous'})}={}) {
- let banks=[],disposed=false,bytes=0,peakBytes=0,active=0,activeFrame=null;
- let effectEntries={},currentEffect=null,effectBytes=0,smokeBytes=0,smokeClass=null,smokeImage=null,smokeLoading=null;
+ let banks=[],disposed=false,bytes=0,peakBytes=0,active=0,activeFrame=null, idlePins=new Set(),idleGeneration=0;
+ let effectEntries={},currentEffect=null,effectBytes=0,smokeBytes=0,smokeClass=null,smokeImage=null,smokeLoading=null,smokeBlocked=false;
  const images=new Map(),loading=new Map(),failed=new Map(),stills=new Set(),queue=[],activeJobs=new Set(),effectRetryAt=new Map(),effectLoads=new Map();
  let manifestReady=false,manifestLoading=null,manifestRetryAt=0;
  function loadManifest(){
@@ -74,7 +74,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   }
   if(effectBytes+smokeBytes+reserve>DECODED_BUDGET)return;
   const limit=Math.max(0,DECODED_BUDGET-effectBytes-smokeBytes-reserve);
-  while(bytes>limit&&images.size){const keys=[...images.keys()],key=keys.find(key=>key!==activeFrame&&!stills.has(key))??keys.find(key=>key!==activeFrame)??keys[0];bytes-=images.get(key).size;images.delete(key);}
+  while(bytes>limit&&images.size){const keys=[...images.keys()].filter(key=>!idlePins.has(key)),key=keys.find(key=>key!==activeFrame&&!stills.has(key))??keys.find(key=>key!==activeFrame)??keys[0];if(!key)break;bytes-=images.get(key).size;images.delete(key);}
   peakBytes=Math.max(peakBytes,bytes+effectBytes+smokeBytes);
  }
  function pump(){
@@ -108,7 +108,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    if(selected){effectLoads.delete(character);effectLoads.set(character,selected);currentEffect=selected;}
    else{
     selected={character,size:entry.decodedBytes,pending:true,promise:null};currentEffect=selected;trim(selected.size);
-    if(effectBytes+smokeBytes+selected.size>DECODED_BUDGET){currentEffect=null;return null;}
+    if(bytes+effectBytes+smokeBytes+selected.size>DECODED_BUDGET){currentEffect=null;return null;}
     effectLoads.set(character,selected);effectBytes+=selected.size;trim();
     selected.promise=(async()=>{try{const moduleURL=new URL(entry.module,url).href,mod=await import(/* @vite-ignore */ moduleURL);return {player:await mod.loadEffect(moduleURL),contactMs:entry.contactMs};}catch{return null;}})().then(effect=>{
      if(disposed)return null;
@@ -123,7 +123,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  }
  async function loadSmoke(){
   const entry=effectEntries.archer;if(!entry?.smoke)return;
-  if(!smokeLoading)smokeLoading=(async()=>{try{const mod=await import(/* @vite-ignore */ new URL(entry.smoke,url).href);const stream=new mod.ArrowSmoke();await stream.image.decode();if(!disposed){smokeClass=mod.ArrowSmoke;smokeImage=stream.image;smokeBytes=entry.smokeDecodedBytes;trim();wake();}}catch{}})();
+  if(!smokeLoading)smokeLoading=(async()=>{try{const mod=await import(/* @vite-ignore */ new URL(entry.smoke,url).href);const stream=new mod.ArrowSmoke();await stream.image.decode();if(!disposed){trim(entry.smokeDecodedBytes);if(bytes+effectBytes+smokeBytes+entry.smokeDecodedBytes<=DECODED_BUDGET){smokeClass=mod.ArrowSmoke;smokeImage=stream.image;smokeBytes=entry.smokeDecodedBytes;trim();wake();}else smokeBlocked=true;}}catch{}})();
   await smokeLoading;
  }
  async function warm(character,army,full=false){
@@ -131,13 +131,13 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   if(character==='archer')void loadSmoke();
   stills.add(bank.frames[0].url);const starts=full?forPiece(character,army).filter(b=>b.kind==='idle').flatMap(b=>b.frames.slice(0,6)):bank.frames.slice(0,1);await Promise.all(starts.map(loadFrame));if(!disposed)wake();
  }
- function sample(bank,time,prefetch=true,reverse=false,pin=false){
-  if(!bank)return null;const wanted=frameAt(bank,time),index=bank.frames.indexOf(wanted);
+ function sample(bank,time,prefetch=true,reverse=false,pin=false,directFrame=null){
+  if(!bank)return null;const wanted=directFrame??frameAt(bank,time),index=bank.frames.indexOf(wanted);
   const nearby=prefetch?bank.frames.slice(Math.max(0,index-(reverse?4:1)),index+(reverse?2:5)):[wanted];
   for(const frame of nearby)if(!images.has(frame.url)&&!loading.has(frame.url)&&performance.now()>=(failed.get(frame.url)??0))void loadFrame(frame).then(()=>{if(!disposed)wake();});
   const frame=images.has(wanted.url)?wanted:reverse?bank.frames.slice(index).find(frame=>images.has(frame.url)):bank.frames.slice(0,index+1).findLast(frame=>images.has(frame.url));
   const entry=frame&&images.get(frame.url);if(!entry)return null;if(pin)activeFrame=frame.url;images.delete(frame.url);images.set(frame.url,entry);
-  return {image:entry.art,pivot:bank.pivot,scale:bank.boardScale??(HEIGHT[bank.character]??130)/bank.registrationHeightPx,bank:bank.id,sourceSha256:frame.sourceSha256,sourceBankSha256:bank.sourceSha256,time:frame.timeMs,canvasSize:bank.canvasSize,unitHeight:bank.registrationHeightPx,effectAnchor:frame.effectAnchor??anchorAt(bank,'arrowhead-smoke',frame.timeMs)??anchorAt(bank,'arrow',frame.timeMs)};
+  return {url:frame.url,image:entry.art,pivot:bank.pivot,scale:bank.boardScale??(HEIGHT[bank.character]??130)/bank.registrationHeightPx,bank:bank.id,sourceSha256:frame.sourceSha256,sourceBankSha256:bank.sourceSha256,time:frame.timeMs,canvasSize:bank.canvasSize,unitHeight:bank.registrationHeightPx,effectAnchor:frame.effectAnchor??anchorAt(bank,'arrowhead-smoke',frame.timeMs)??anchorAt(bank,'arrow',frame.timeMs)};
  }
  function routeSample(route,time){for(const part of route){if(time<=part.bank.durationMs)return sample(part.bank,part.reverse?part.bank.durationMs-time:time,true,part.reverse,true);time-=part.bank.durationMs;}const last=route.at(-1);return last?sample(last.bank,last.reverse?0:last.bank.durationMs,true,last.reverse,true):null;}
  return {
@@ -146,6 +146,28 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   get stats(){return {bytes:bytes+effectBytes+smokeBytes,peakBytes,active,queued:queue.length};},
   smoke(){return smokeClass&&smokeImage?new smokeClass(smokeImage):null;},
   warm,
+  async reserveIdle(character,army){
+   const generation=++idleGeneration;await bounded(loadManifest());if(disposed||generation!==idleGeneration)return false;
+   const rest=idle(character,army),all=forPiece(character,army).filter(b=>b.kind==='idle');
+   if(!rest||!all.length||all.some(b=>b.facing!==rest.facing||b.frames[0].url!==rest.frames[0].url||b.frames.at(-1).url!==rest.frames[0].url))return false;
+   if(forPiece(character,army).some(b=>b.kind==='turn'&&((b.from===rest.facing&&b.frames[0].url!==rest.frames[0].url)||(b.to===rest.facing&&b.frames.at(-1).url!==rest.frames[0].url))))return false;
+   const frames=[...new Map(all.flatMap(b=>b.frames).map(f=>[f.url,f])).values()];
+   await bounded(Promise.all(frames.map(loadFrame)));
+   if(disposed||generation!==idleGeneration||frames.some(f=>!images.has(f.url)))return false;
+   const size=frames.reduce((n,f)=>n+images.get(f.url).size,0);
+   if(size+effectBytes+smokeBytes>DECODED_BUDGET)return false;
+   idlePins=new Set(frames.map(f=>f.url));trim();return true;
+  },
+  releaseIdle(){idleGeneration++;idlePins.clear();trim();if(smokeBlocked&&!disposed){smokeBlocked=false;smokeLoading=null;void loadSmoke();}},
+  idleExit(character,army,body){
+   const bank=forPiece(character,army).find(b=>b.id===body.bank&&b.kind==='idle'),rest=idle(character,army);
+   if(!bank||!rest||!idlePins.has(body.url)||!idlePins.has(rest.frames[0].url))return null;
+   let path=null;
+   for(let i=0;i<bank.frames.length;i++)if(bank.frames[i].url===body.url)
+    for(let j=0;j<bank.frames.length;j++)if(bank.frames[j].url===rest.frames[0].url&&(!path||Math.abs(i-j)<Math.abs(path[0]-path[1])))path=[i,j];
+   if(!path)return null;
+   return t=>sample(bank,0,false,false,false,bank.frames[Math.round(path[0]+(path[1]-path[0])*Math.min(1,Math.max(0,t)))]);
+  },
   rest(character,army,time=0,active=false){const bank=idle(character,army);if(!bank)return null;if(active){const all=forPiece(character,army),choice=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time);if(choice){const next=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time+160);if(next&&next.bank!==choice.bank)for(const frame of next.bank.frames.slice(0,6))void loadFrame(frame);return sample(choice.bank,choice.time,true,choice.reverse,true)??sample(bank,0,false);}}return sample(bank,0,false);},
   async prepare(character,army,direction,capture){
    const deadline=performance.now()+LOAD_TIMEOUT,remaining=()=>Math.max(0,deadline-performance.now());
@@ -179,6 +201,6 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    if(attack){return sample(attack,Math.min(time,attack.durationMs),true,false,true)??sample(prepared.rest,0,false);}
    return routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);
   },
-  dispose(){disposed=true;banks=[];restChoices.clear();images.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;effectLoads.clear();smokeClass=null;smokeImage=null;for(const job of activeJobs)job.cancel();for(const job of queue)job.resolve();queue.length=0;loading.clear();},
+  dispose(){disposed=true;banks=[];restChoices.clear();images.clear();idlePins.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;effectLoads.clear();smokeClass=null;smokeImage=null;for(const job of activeJobs)job.cancel();for(const job of queue)job.resolve();queue.length=0;loading.clear();},
  };
 }

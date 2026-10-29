@@ -70,6 +70,7 @@ export interface PaintedScene {
   /** Frames drawn since the scene was made. */
   readonly frames: number;
   readonly characterEffects: { kind: string; at: number; speed: number; bodyDurationMs: number; bodyTime: number; releaseMs: number; durationMs: number; elapsedMs: number; origin: { x: number; y: number }; target: { x: number; y: number }; foot: { x: number; y: number }; pivot: number[]; scale: number }[];
+  readonly characterExit: number | null;
   readonly characterMemory: { bytes: number; peakBytes: number; active: number; queued: number };
   readonly characterFrames: { square: number; opacity: number; bank: string; time: number; foot: { x: number; y: number }; pivot: number[]; scale: number }[];
   /**
