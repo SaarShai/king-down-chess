@@ -6,7 +6,8 @@
 //                                           stop all of them at the time limit. The child's process id is in
 //                                           hang.pid in PLAYABLE_OUT.
 //   npm run check:browser selftest-hold    prints the time, sleeps 15 s and prints the time again; start it in two
-//                                           worktrees at once to see two runs share the machine (after-redesign/01).
+//                                           worktrees at once: locally, the second run waits for the machine lease.
+//                                           Only CI runs share clone slots, because CI takes no machine lease.
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

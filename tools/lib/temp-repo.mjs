@@ -4,6 +4,7 @@
 //   - `work/`: the work tree (`dir`), branch main, a local identity, remote `origin`;
 //   - `remote.git`: a bare repository (`remote`), branch main;
 //   - `gitconfig`: an empty file that git uses as the global and system config.
+//   - `home/`: an empty HOME, so hooks read no key from the caller's home folder.
 // With hooks on (the default), it copies the tracked `.githooks/` folder, the modules that the hooks
 // import (`hookModules`: for commit-msg the model-name module, the assertion counter, the runner's
 // registry and the shared check module that the counter reads; for pre-push the changed-files module)
@@ -39,6 +40,8 @@ export function tempRepo({ hooks = true } = {}) {
   const remote = join(root, 'remote.git');
   const globalConfig = join(root, 'gitconfig');
   writeFileSync(globalConfig, '');
+  const home = join(root, 'home');
+  mkdirSync(home);
 
   /** @type {Record<string, string>} */
   const env = {};
@@ -46,6 +49,7 @@ export function tempRepo({ hooks = true } = {}) {
   env.GIT_CONFIG_GLOBAL = globalConfig;
   env.GIT_CONFIG_SYSTEM = globalConfig;
   env.GIT_CONFIG_NOSYSTEM = '1';
+  env.HOME = home;
 
   /**
    * Runs a command with the harness environment; it never throws on a non-zero exit.

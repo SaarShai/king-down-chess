@@ -70,11 +70,8 @@ it('says 1 game, shows Your turn once, and gives the name page, code fields and 
     await go(page, 'play');
     expect((await frame.locator('[data-game-id="menus-1"]').textContent())!.match(/Your turn/g)).toHaveLength(1);
     expect(await frame.locator('[data-game-id="menus-1"] .turn-mark').textContent()).toBe('Your turn');
-    // F17: both code fields turn autocorrect off and show the placeholder in the secondary ink (#5b5045).
-    for (const id of ['token', 'join-code']) {
-      expect(await frame.locator(`#${id}`).getAttribute('autocorrect')).toBe('off');
-      expect(await frame.locator(`#${id}`).evaluate(el => getComputedStyle(el, '::placeholder').color)).toBe('rgb(91, 80, 69)');
-    }
+    // F17's code fields are parked (docs/PARKED.md): a friend joins by the invite link only.
+    for (const id of ['token', 'join-code']) expect(await frame.locator(`#${id}`).count()).toBe(0);
     // F20: lining figures in the page text.
     expect(await frame.locator('#home-line').evaluate(el => getComputedStyle(el).fontVariantNumeric)).toBe('lining-nums');
     // F6: the name page keeps "Each name is unique." only, with no name filled in for a player with none.
@@ -166,14 +163,15 @@ it('scrolls the Profile parchment with the page and keeps its roller and trailin
     expect(end.roller, geometry).toBeLessThanOrEqual(end.view + 1);
     expect(end.roller - 64, geometry).toBeGreaterThanOrEqual(end.top);
     await frame.locator('#profile-sheet .new-game-body').evaluate(body => { body.scrollTop = body.scrollHeight; });
-    for (const screen of ['collection', 'settings']) {
+    for (const screen of ['settings']) { // the Collection row is parked (docs/PARKED.md)
       const bounds = await frame.locator(`#profile-sheet [data-nav="${screen}"]`).evaluate(controlBounds);
       expect(bounds.accessible, JSON.stringify(bounds)).toBe(true);
     }
   } finally { await page.close(); }
 });
 
-it('shows each card and power with the same rules and words on each card sheet, the king sheet and the Collection', async () => {
+// The Collection screen is parked (docs/PARKED.md): the card sheets and the king sheet keep their words.
+it('shows each card and power with whole words on each card sheet and the king sheet', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await go(page, 'play');
@@ -186,36 +184,13 @@ it('shows each card and power with the same rules and words on each card sheet, 
       sheet[card]=await frame.locator('#menu-sheet small').textContent();
       await frame.locator('#menu-close').click();
     }
+    expect(Object.keys(sheet).length).toBeGreaterThan(0);
+    for (const line of Object.values(sheet)) { expect(line).toMatch(/^[A-Z].*\.$/); expect(line).not.toMatch(/captur/); }
     await frame.locator('#kingPowers-row').click();
     await frame.locator('#setup-king').click();
     const power = await frame.locator('#menu-sheet .power-text').first().textContent();
+    expect(power).toMatch(/: \S/);
     await frame.locator('#menu-close').click();
-    await go(page, 'collection');
-    await frame.locator('#collection-tabs label').filter({ hasText: 'Cards' }).click();
-    const collection = Object.fromEntries(await frame.locator('#collection-items .card-face').evaluateAll(faces => faces.map(f => [(f as HTMLElement).dataset.card, f.querySelector('small')!.textContent])));
-    expect(collection).toEqual(sheet);
-    for (const line of Object.values(collection)) { expect(line).toMatch(/^[A-Z].*\.$/); expect(line).not.toMatch(/captur/); }
-    await frame.locator('#collection-tabs label').filter({ hasText: 'Kings' }).click();
-    expect((await frame.locator('#collection-items [data-king] dd').allInnerTexts()).join('\n')).toContain(power!.slice(power!.indexOf(': ') + 2).replace(' Always on.', ''));
-  } finally { await page.close(); }
-});
-
-// Q6 b: on a 197 px (200% zoom) screen the four Collection names stay whole and inside their labels, at a smaller size.
-it('keeps the Collection tab names whole and inside their labels at 197 px', async () => {
-  const page = await open({ width: 197, height: 426, top: 0, bottom: 0 }), frame = page.frameLocator('iframe');
-  try {
-    await go(page, 'collection'); await frame.locator('#collection-tabs').waitFor();
-    const tabs = await frame.locator('#collection-tabs label').evaluateAll(labels => labels.map(label => {
-      const box = label.getBoundingClientRect(), span = label.querySelector('span')!, words = span.getBoundingClientRect();
-      const range = document.createRange(); range.selectNodeContents(span);
-      return { name: span.textContent, left: Math.round(words.left - box.left), right: Math.round(box.right - words.right), lines: range.getClientRects().length, size: getComputedStyle(span).fontSize };
-    }));
-    for (const tab of tabs) {
-      expect(tab.left, `${tab.name} left`).toBeGreaterThanOrEqual(2);
-      expect(tab.right, `${tab.name} right`).toBeGreaterThanOrEqual(2);
-      expect(tab.lines, `${tab.name} lines`).toBe(1);
-    }
-    expect(tabs.map(tab => tab.size)).toEqual(['12.5px', '12.5px', '12.5px', '12.5px']);
   } finally { await page.close(); }
 });
 

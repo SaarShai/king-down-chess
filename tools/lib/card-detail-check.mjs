@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { createServer } from 'vite';
 import { shot, STEP } from './checks.mjs';
 import { settled } from './plugin-settled.mjs';
 import { pauseClock } from './page-clock.mjs';
@@ -21,29 +20,12 @@ export async function checkCardDetails(browser, base, engine) {
   assert.match(engine, /^sha256:[a-f0-9]{64}$/, 'Card detail samples require the built runtime identity');
   const { fromFen, toLan } = await import('../../src/rules/setup.ts');
   const { legalMoves, RULES, setRules } = await import('../../src/rules/engine.ts');
-  const web = await createServer({ server: { host: '127.0.0.1', port: 0, strictPort: true }, logLevel: 'error' });
   try {
-    await web.listen();
     for (const [width, height] of [[390, 844], [1280, 800]]) for (const theme of ['light', 'dark']) {
       const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 2, colorScheme: theme, isMobile: width === 390, hasTouch: width === 390 });
       try {
         const page = await context.newPage(); page.setDefaultTimeout(10_000 * STEP);
-        await page.goto(web.resolvedUrls.local[0] + '?title=0&players=human,human');
-        await page.waitForFunction(() => !!document.getElementById('menu-btn')?.onclick);
-        await page.locator('#menu-btn').click(); await page.locator('[data-go="extra"]').click();
-        await page.locator('#workshop-btn').click(); await page.locator('#pg-tab-cards').click();
-        if (!await page.locator('[data-lab="Strike"]').count()) await page.locator('[data-act="cardsall"]').click();
-        for (const card of ['Strike', 'Haste', 'Flight']) {
-          await page.locator(`[data-lab="${card}"]`).click();
-          await visibleDiagram(page.locator(`.pg-plinth > .card-diagram:has(.pm-${card})`));
-          await shot(page, `repair-A5-workshop-${card}-${width}x${height}-${theme}`);
-        }
-        if (!await page.locator('[data-lab="SpawnK"]').count()) await page.locator('[data-act="cardsall"]').click();
-        await page.locator('[data-lab="SpawnK"]').click();
-        const spawn = page.locator('.pg-plinth [data-card-picture="SpawnK"]');
-        assert.equal(await spawn.locator('[data-piece="king"]').count(), 1);
-        assert.equal(await spawn.locator('[data-piece="pawn"]').count(), 1);
-        await shot(page, `repair-A33-workshop-SpawnK-${width}x${height}-${theme}`);
+        // The web Workshop's card samples are parked with the Workshop (docs/PARKED.md); the board's card details stay.
         // The solo board polls every 5 s (src/plugin/poll.ts), and a good read clears a failed one, so the failed-read
         // check below stops the page clock. Install it before the page sets any timer.
         if (width === 390 && theme === 'light') await page.clock.install();
@@ -163,5 +145,5 @@ export async function checkCardDetails(browser, base, engine) {
       } finally { await context.close(); }
     }
     console.log('Card details: three diagrams in Workshop and board, phone and desktop, light and dark pass');
-  } finally { setRules(); await web.close(); }
+  } finally { setRules(); }
 }

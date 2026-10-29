@@ -11,7 +11,7 @@ import { changed as accountChanged } from '../account/account';
 import { toFen } from '../rules/setup';
 import { POWERS_BALANCED, RULES_2017, parseKings, type Rules } from '../rules/engine';
 import { refreshTable, renderTable } from '../ui/table';
-import { progress, recordLesson } from '../lesson-shelf-ui';
+import { progress, recordLesson } from '../lesson-store';
 import { LESSONS } from '../lessons';
 import { setSound } from '../render/sfx';
 
@@ -24,7 +24,6 @@ vi.mock('../turn-controls', () => ({ connectTurnPress: vi.fn(), renderTurnButton
 vi.mock('../ui/previously', () => ({ connectPreviously: (_button: unknown, c: { game(): { pos: unknown } }) => ({ clear: vi.fn(), position: () => c.game().pos, state: vi.fn() }) }));
 vi.mock('./moments', () => ({ soundsFor: () => ({ now: null, hit: null }), connectMoments: () => ({ clear: vi.fn(), start: vi.fn(), restore: vi.fn(), played: vi.fn(), say: vi.fn(), result: () => '', reviewNote: () => '', marked: () => [] }) }));
 vi.mock('./links', () => ({ connectLinks: () => ({}) }));
-vi.mock('../lesson-shelf', () => ({ lessonShelf: () => ({ next: null }) }));
 
 const stored = new Map<string, string>();
 const original: Save = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'human', coords: true, resigned: null };
@@ -1144,6 +1143,43 @@ describe('partial save recovery', () => {
     p.play.refresh();
     return { ...p, raw };
   };
+
+  const hasteDraw: Save = {
+    ...original, back: '', fen: '7k/p7/8/8/8/8/8/R5K1 w - - 99 1', moves: ['Ra1-a4!H', 'Ra4-a5'],
+    rules: { ...new Game(undefined, { kings: [{ king: 'Flame', power: 'Haste' }, null] }).rules },
+  };
+
+  it('keeps the draw position and source during Haste save recovery', () => {
+    const { play, raw } = boot(hasteDraw);
+    const ended = new Game(undefined, hasteDraw.rules);
+    ended.load(ended.context.fromFen(hasteDraw.fen));
+    expect(ended.playLan(hasteDraw.moves.slice(0, 1))).toBe(1);
+    expect(play.game().history.map(h => h.lan)).toEqual(['Ra1-a4!H']);
+    expect(play.game().pos).toEqual(ended.pos);
+    expect(play.game().pos).toMatchObject({ turn: 0, halfmove: 100 });
+    expect(play.game().status).toBe('draw50');
+    expect(shown().saveNotice).toContain('Loaded 1 of 2 actions.');
+    expect(play.savedGames.blocked()).toBe(true);
+    expect(stored.get(SAVE_KEY)).toBe(raw);
+    expect(readSave()).toMatchObject({ save: hasteDraw, partial: true, raw });
+  });
+
+  it('accepts Haste draw recovery without a pass and reloads a complete save', () => {
+    const { play } = boot(hasteDraw);
+    accept();
+    const loaded = readSave();
+    expect(loaded.partial).toBeUndefined();
+    expect(loaded.save?.moves).toEqual(['Ra1-a4!H']);
+    expect(play.savedGames.blocked()).toBe(false);
+    const restored = page().play;
+    restored.restore(loaded.save, request);
+    expect(restored.game().history.map(h => h.lan)).toEqual(['Ra1-a4!H']);
+    expect(restored.game().pos).toEqual(play.game().pos);
+    expect(restored.game().pos).toMatchObject({ turn: 0, halfmove: 100 });
+    expect(restored.game().status).toBe('draw50');
+    expect(restored.savedGames.blocked()).toBe(false);
+    expect(document.getElementById('recover-save')!.hidden).toBe(true);
+  });
 
   it('offers two legal actions, blocks play, and keeps the full source until acceptance', async () => {
     const { play, view, engine, changed, raw } = boot();

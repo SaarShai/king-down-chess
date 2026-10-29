@@ -23,8 +23,9 @@ describe('web check site routes', () => {
     expect(siteRoute(config, path)).toEqual({ dest: path, headers: {} });
   });
 
-  it('uses the build headers for board art', () => {
-    expect(siteRoute(config, '/plugin-art/pawn.svg')).toEqual({
+  it('uses the build headers for board art when the tree has the ChatGPT plugin', () => {
+    expect(siteRoute(config, '/plugin-art/pawn.svg')).toEqual({ dest: '/plugin-art/pawn.svg', headers: {} });
+    expect(siteRoute({ routes: vercelRoutes(undefined, { chatgpt: true }) }, '/plugin-art/pawn.svg')).toEqual({
       dest: '/plugin-art/pawn.svg', headers: { ...ART_HEADERS, 'Content-Type': 'image/svg+xml' },
     });
   });
@@ -104,7 +105,8 @@ describe('profile requests', () => {
   it('sends each profile request to another host through the proxy and keeps the local server direct', () => {
     const options = proxiedOptions(PERSISTENT_OPTIONS, 5555, 'firefox');
     expect(options).toMatchObject({ ...PERSISTENT_OPTIONS, channel: 'firefox', proxy: { server: 'http://127.0.0.1:5555', bypass: '127.0.0.1' } });
-    expect(options.firefoxUserPrefs).toEqual({ 'media.gmp-manager.updateEnabled': false, 'media.gmp-manager.url': '' });
+    expect(options.firefoxUserPrefs).toEqual({ 'media.gmp-manager.updateEnabled': false, 'media.gmp-manager.url': '',
+      'extensions.systemAddon.update.enabled': false, 'extensions.systemAddon.update.url': '' });
     for (const channel of ['chrome', 'msedge', 'chromium']) expect(proxiedOptions(PERSISTENT_OPTIONS, 5555, channel).channel).toBe('chromium-headless-shell');
     expect(proxiedOptions(PERSISTENT_OPTIONS, 5555, 'webkit').channel).toBe('webkit');
   });
@@ -177,7 +179,7 @@ describe('recovery output', () => {
     await expect(recoveryOutput(root)).resolves.toHaveProperty('root', root);
     const driver = await readFile(new URL('./web-online-check.mjs', import.meta.url), 'utf8');
     const journey = driver.slice(driver.indexOf("// Use unmodified emitted workers"));
-    expect(journey.indexOf("offline = true")).toBeLessThan(journey.indexOf("pressMenu(active, 'Workshop')"));
+    expect(journey.indexOf("offline = true")).toBeLessThan(journey.indexOf("pressMenu(active, 'Guide')"));
   });
   it('keeps the frozen predecessor byte for byte', async () => {
     const old = await readFile(new URL('./fixtures/web-worker/old-sw.js', import.meta.url));

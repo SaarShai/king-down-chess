@@ -1,12 +1,14 @@
 # King Down private plugin setup
 
+> **Parked (2026-10-28).** The build leaves out the ChatGPT plugin: see [Parked: the ChatGPT plugin](HOSTING.md#parked-the-chatgpt-plugin). The source and its checks stay. `npm run plugin:build` makes a parked server; the named plugin checks build their own tree with the plugin in.
+
 The private plugin shares the website's engine and painted board, with a Node worker per operation and PostgreSQL as match authority. Players can play the computer, create a friend invitation, join as Black, and resume their latest game. Moves go directly through MCP Apps without a model turn. The private service is live. Test accounts pass a full computer game, two-player moves, seat isolation, automatic updates, host disconnect/reconnect and normal selected-game reopening in ChatGPT. Consent denial and controlled live lost-result retry also pass. The provider revocation fix is released; the second connection recovers and opens its saved game. A fresh-token live revoke cycle and immediate full-page reload also pass. The owner confirms layout, selected-game reopening, repaired destination taps and Computer move in the iPhone ChatGPT app. [The live acceptance ticket](specs/match-foundation/issues/06-live-acceptance.md) records the completed private test scope.
 
 ## Local checks
 
 Use Node 24 and a disposable local PostgreSQL 17 database. No live Supabase credentials are needed for these checks.
 Keep the test database data folder out of `/tmp`, because macOS removes old files there and the server then fails with `could not open file "global/pg_filenode.map"`.
-For a long local browser check on macOS, keep the Mac awake for the command: `caffeinate -disu bash tools/test-lock.sh npm run check:browser <name>`. This assertion ends with the command. If elapsed time exceeds the check limit, compare the run timestamps with the power log before you change code or limits.
+For a long local browser check on macOS, keep the Mac awake for the command: `caffeinate -disu npm run check:browser <name>`. This assertion ends with the command. If elapsed time exceeds the check limit, compare the run timestamps with the power log before you change code or limits.
 
 ```sh
 npm ci

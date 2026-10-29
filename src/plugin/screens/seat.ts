@@ -18,6 +18,8 @@ import { kingSheet } from './setup';
 import { legalSwaps, seatChoice, seatFen, seatIndex, seatSquare, shuffleOrder, submitReady, swapOrder } from './seat-model';
 import { onStop } from './friend';
 import './seat.css';
+import { UiMotion } from '../../ui/motion';
+import { readySeal } from '../../ui/object-motion';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => (document.querySelector(`#seat-screen [data-seat-id="${id}"]`) ?? document.getElementById(id))! as T;
 const strips = Object.fromEntries(['strip-me','strip-them'].map(id => [id, document.querySelector(`[data-seat-id="${id}"]`)!.innerHTML]));
@@ -26,6 +28,9 @@ let pickTimer: ReturnType<typeof setTimeout> | undefined;
 let game = '', choice: Choice | null = null, selected: number | null = null, sending = false, picking = false;
 let home: { parent: HTMLElement; next: ChildNode | null; click: typeof board.onSquareClick; drag: typeof board.onDragSelect; hover: typeof board.onSquareHover; key: HTMLElement['onkeydown']; label: string | null } | undefined;
 let closeMenu: (() => void) | undefined, cursor = 0;
+let motion: UiMotion | undefined;
+let observedReady: { game: string; flags: boolean[] } | undefined;
+const readyAt = new Map<number, number>();
 const current = () => !stopped && !queue.closed() && client.state.screen === 'seat' && memory.view?.game_id === game ? memory.view : undefined;
 const locked = () => stopped || queue.closed() || sending || picking || $<HTMLButtonElement>('seat-menu').disabled || gameActionsBlocked() || !!current()?.ready?.[current()!.seat];
 const uuid = () => crypto.randomUUID().replaceAll('-', '');
@@ -84,6 +89,10 @@ function locks() {
 function render() {
   const view = current(); if (!choice || !view?.options || view.status !== 'setup') return;
   const needs = seatChoicesNeeded(view.options), ready = !!view.ready?.[view.seat], other = view.seat === 0 ? 1 : 0;
+  motion ??= new UiMotion(() => !!current() && !memory.settings?.symbols_only, () => 'fast');
+  if (observedReady?.game !== view.game_id) { motion.cancel(); readyAt.clear(); }
+  for (const side of [0, 1]) if (view.ready?.[side] && observedReady?.game === view.game_id && !observedReady.flags[side]) readyAt.set(side, performance.now());
+  observedReady = { game: view.game_id, flags: [!!view.ready?.[0], !!view.ready?.[1]] };
   for (const [id, marker] of [['strip-me','seat-me-name'],['strip-them','seat-them-name']]) if (!$(marker)) $(id).innerHTML = strips[id];
   $('seat-king').onclick = () => void pickKing();
   $('game-table').dataset.empty = 'false'; $('seat-ready').classList.toggle('primary', !ready);
@@ -95,6 +104,8 @@ function render() {
   $<HTMLImageElement>('seat-me-picture').src = art(ICONS[memory.me?.icon ?? (view.seat === 0 ? 'spirit' : 'shadow')]);
   text('seat-me-line', choice.king ? `${choice.king.king} · ${POWER_NAME[choice.king.power]}` : view.seat === 0 ? 'White · Spirit King' : 'Black · Shadow King');
   $('strip-me').classList.toggle('is-turn', !ready); $('seat-king').hidden = !needs.king; $('seat-shuffle').hidden = !needs.order;
+  readySeal(motion, $('seat-me-picture').parentElement!, ready, readyAt.get(view.seat));
+  readySeal(motion, $('seat-them-picture').parentElement!, !!view.ready?.[other], readyAt.get(other));
   if (choice.king) $<HTMLImageElement>('seat-king').querySelector('img')!.src = art(`ui/emblems/${choice.king.king.toLowerCase()}.webp`);
   const error = validateChoice(view.options, { army: view.draw!, hand: view.deal ?? [] }, choice, view.setup_admission);
   const piece = selected === null ? '' : NAMES[LETTERS.indexOf(choice.order[selected % 8])];
@@ -155,13 +166,14 @@ export async function finishSeat(next: View, origin: Job) {
 // The store's subscriber replaces the data-page, #status and #seat-ready observers. The ResizeObserver stays: it measures layout.
 export function seatSync(page: Page) {
   if (stopped || queue.closed()) return;
-  if (page.screen !== 'seat') { release(); return; }
+  if (page.screen !== 'seat') { motion?.cancel(); readyAt.clear(); observedReady = undefined; release(); return; }
+  if (memory.settings?.symbols_only) motion?.cancel();
   if (current()?.status === 'setup' && !sending) seatScreen();
   else locks();
 }
 function scheduleVeil() { if (!current()) return; cancelAnimationFrame(veilFrame); veilFrame = requestAnimationFrame(placeVeil); }
 const observer = new ResizeObserver(scheduleVeil); observer.observe($('board'));
-onStop(() => { stopped = true; observer.disconnect(); cancelAnimationFrame(veilFrame); clearTimeout(pickTimer); release(); choice = null; selected = null; });
+onStop(() => { stopped = true; observer.disconnect(); cancelAnimationFrame(veilFrame); clearTimeout(pickTimer); motion?.dispose(); release(); choice = null; selected = null; });
 $('seat-ready').onclick = () => void ready(); $('seat-menu').onclick = () => menu(); $('seat-king').onclick = () => void pickKing();
 $('seat-shuffle').onclick = () => { const view = current(); if (view?.options?.arrangement && choice && !locked()) { choice.order = shuffleOrder(view); selected = null; render(); } };
 export function seatScreen() {

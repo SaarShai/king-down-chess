@@ -57,6 +57,9 @@ Baseline/workspace: <commit and absolute path>.
 Read first: <exact files/sections; concise context and settled decisions>.
 Own only: <source, test and brief report paths>.
 Other agents may own other work: preserve their changes and your boundaries.
+For an existing file outside the worktree, resolve its absolute path and check
+that the file and the prior entry exist. Give the writer that path and entry.
+If either is missing, stop; do not create a replacement file.
 
 Required behavior: <enumerated observable conditions and edge cases>.
 Use existing interfaces: <specific functions/types>.
@@ -83,6 +86,47 @@ The matched Qwen/Gemma trial used a fresh round, identical prompt/baseline, 32k 
 Use the same narrow implementation template, plus exact read paths and compact task-specific startup documents in the isolated copy. Preserve original documents with hashes; leave the owner's checkout intact. Require one source/test deliverable and exact fixtures. Stop on repeated read/compaction loops, memory pressure or a failed bounded round. A broader prompt, more context or another model is not automatic recovery. No keys were copied to M1 and no Jev calls were authorized.
 
 ## Review before accepting
+
+For an input, timing, or layout finding, cite the approved requirement and compare the observed behavior with it. Start with the affected ticket and the owner picks in docs/research/web-adaptation-2026-10-18/baseline-post-merge.md. Behavior that meets the owner pick is not a product fault. Mark a proposed rule change as a design decision. Include the requirement citation in the repair brief.
+
+For an approved merge, use `node tools/merge-on-green.mjs <pr> <full-head-sha> <review.json>`.
+The helper requires this record for `SaarShai/king-down-chess`. Use full commit SHAs:
+
+```json
+{
+  "pr": 158,
+  "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "base": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "reviews": [
+    {
+      "id": "review-1",
+      "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "base": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "result": "complete",
+      "openFindings": []
+    }
+  ]
+}
+```
+
+Add each requested review before it starts, with `result: "running"`. Keep its
+unique ID, reviewed head and base. Record its terminal result as `complete`,
+`failed`, or `cancelled`. Put each open finding ID in `openFindings`. Clear an ID
+only after you check its fix or record its rejection in the ticket. Keep every
+requested review in the record. Save record changes through an atomic rename.
+
+If a review uses an older head or base, check all its findings against the current
+diff. Add `reconcile` to that review with the current `head` and `base`,
+`result: "pass"`, and a `note` that names the check and evidence. Update the top
+record to the current PR head and base. A running, failed, or cancelled review,
+an open finding, or an absent reconcile blocks merge. The helper reads the PR
+and then the record again before merge. The record must match the current head
+and base. It requires at least 11 CI check-runs, all complete with `success`, on
+the full head SHA. It also checks the combined commit status on that head. A
+failed status refuses merge; a pending status waits. A head can have no commit statuses.
+The helper checks every 60 seconds for at most four elapsed hours. Each request,
+pause, and the final merge uses the remaining time. It uses `--match-head-commit`.
+This adds no extra reviewer. The merge approval rule in AGENTS.md still applies.
 
 Inspect the actual diff and invoke independent checks derived from the requirement. Verify fixture coherence, empty/sparse inputs, invalid identity, old-version failure and output labels. For a study, separately verify full starts, colour/seed mapping, frozen source/rules/spec/evaluator, actual search cost, physical counts, cap/missing-case treatment and the statistical unit. Distinguish a completed command, passing self-written tests, supervisor acceptance and actual study evidence.
 

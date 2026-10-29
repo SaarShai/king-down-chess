@@ -99,8 +99,8 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   expect(await notices()).toBe(0);
   const passed = await games[0].command(a,id,turn(1,'Ra1-a2!H','Ra2-a3'));
   expect(await seats(id)).toEqual({turn:1,status:'playing',actions:['waiting','ready']});
-  expect(await notices()).toBe(1);
-  expect((await rows(`select count(*)::int as n from public.outbox where kind='turn' and payload->>'game_id'=$1 and payload->>'user_id'=$2`,[id,b]))[0].n).toBe(1);
+  expect(await notices()).toBe(0);
+  expect((await rows(`select count(*)::int as n from public.outbox where kind='turn' and payload->>'game_id'=$1 and payload->>'user_id'=$2`,[id,b]))[0].n).toBe(0);
   const reply = await games[1].view(b,id);
   expect(reply.deadline_at).toBe(passed.deadline_at);
   await games[1].command(b,id,turn(2,reply.legal[0]));
@@ -223,7 +223,7 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   await expect(games[0].command(a,late,turn(3,(await games[0].view(a,late)).legal[0]))).rejects.toMatchObject({code:'MATCH_TERMINAL'});
   const ended = await games[1].view(b,late);
   expect([ended.status,ended.result,ended.last_commands.at(-1)?.action]).toEqual(['finished',{winner:1,reason:'timeout'},{type:'expire'}]);
-  expect((await rows(`select count(*)::int as n from public.outbox where kind='game_finished' and payload->>'game_id'=$1`,[late]))[0].n).toBe(1);
+  expect((await rows(`select count(*)::int as n from public.outbox where kind='game_finished' and payload->>'game_id'=$1`,[late]))[0].n).toBe(0);
   expect((await rows('select moves from public.games where id=$1',[late]))[0].moves).toHaveLength(2);
   // A claim by the side not to move ends the game as its own command.
   const claimed = await friend(a,b);
@@ -291,12 +291,12 @@ suite('PostgreSQL online games (real connections and processes)', () => {
    expect(await rows('select kind,actor_id,received_at from public.game_commands where game_id=$1 and seq=$2', [id, ended.revision])).toEqual([{ kind: action === 'turn' ? 'expire' : 'claim', actor_id: action === 'turn' ? null : guest, received_at: checkedAt }]);
    expect((await rows('select count(*)::int as n from public.game_commands where game_id=$1 and command_id=$2', [id, sent.command_id]))[0].n).toBe(action === 'turn' ? 0 : 1);
    const finishedEvents = async () => (await rows("select count(*)::int as n from public.outbox where kind='game_finished' and payload->>'game_id'=$1", [id]))[0].n;
-   expect(await finishedEvents()).toBe(1);
+   expect(await finishedEvents()).toBe(0);
    vi.setSystemTime(new Date(checkedAt.getTime() + 86_400_000));
    expect(await games[0].command(host, id, accepted)).toMatchObject({ revision: ended.revision, status: ended.status });
    if (action === 'claim') expect(await games[0].command(guest, id, sent)).toMatchObject({ revision: ended.revision, status: ended.status });
    await expect(games[0].command(host, id, { ...accepted, action: { type: 'say', preset: 'thanks' } })).rejects.toMatchObject({ code: 'COMMAND_CONFLICT' });
-   expect(await finishedEvents()).toBe(1);
+   expect(await finishedEvents()).toBe(0);
    expect((await games[0].view(host, id)).revision).toBe(ended.revision);
   } finally {
    await blocker.query('rollback'); await blocker.end();
@@ -448,7 +448,7 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   } finally { clients.forEach(child => child.kill()); }
  },30000);
 
- it('rolls back the command, the state and the alerts if the game update fails',async () => {
+ it('rolls back the command and the state if the game update fails',async () => {
   const id = await friend(a,b); const sent = turn(1,(await games[0].view(a,id)).legal[0]);
   const trigger = `reject_${id.replaceAll('-','')}`, counts = async () => (await rows('select (select count(*)::int from public.game_commands where game_id=$1) as commands,(select count(*)::int from public.outbox where payload->>\'game_id\'=$2) as events',[id,id]))[0];
   const before = await counts();

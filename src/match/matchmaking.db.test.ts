@@ -308,9 +308,7 @@ suite('matchmaking through PostgreSQL', () => {
   expect((await runtime.query('select status,result,end_reason from public.games where id=any($1) order by end_reason', [games])).rows).toEqual([
    { status: 'aborted', result: null, end_reason: 'abort' }, { status: 'aborted', result: null, end_reason: 'no_start' },
   ]);
-  expect((await runtime.query("select payload from public.outbox where kind='game_finished' and payload->>'game_id'=any($1) order by payload->>'reason'", [games])).rows.map(row => row.payload)).toEqual([
-   { game_id: cancelled.game_id, result: null, reason: 'abort' }, { game_id: expired.game_id, result: null, reason: 'no_start' },
-  ]);
+  expect((await runtime.query("select payload from public.outbox where payload->>'game_id'=any($1)", [games])).rows).toEqual([]);
  });
  it.each(['accept', 'find'] as const)('%s starts play with no seat choice and saves the first move and deadline', async method => {
   const options = { ...DEFAULT_OPTIONS, arrangement: false };

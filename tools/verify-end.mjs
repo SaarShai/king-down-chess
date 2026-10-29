@@ -197,11 +197,13 @@ try {
   await shot(page, 'ceremony-desktop');
   console.log('ok staged end; Enter skips; one king fall; result focus');
 
+  // Key moments are parked (docs/PARKED.md): Review opens the move list and starts no search.
   await openEndReview(page);
-  assert.ok(await page.locator('#over-moments').textContent(), 'Review starts the key-moment search');
+  await page.waitForTimeout(500);
+  check(await page.locator('#over-moments').textContent(), '', 'Review starts no key-moment search');
   await page.locator('#sheet-moves header button').click();
   await startNewGame(page); await openMoves(page);
-  check(await page.locator('#over-moments').textContent(), '', 'a new game clears the old review data');
+  check(await page.locator('#over-moments').textContent(), '', 'a new game has no review data');
   await page.locator('#sheet-moves header button').click();
 
   await open('4r1k1/8/8/8/8/8/5PPP/R5K1 w - - 0 1', ['Ra1-a7'], 'off', ['human', 'ai']);

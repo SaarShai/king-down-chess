@@ -47,7 +47,8 @@ for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]
   process.once(signal, () => { void cleanup().finally(() => process.exit(code)); });
 }
 try {
-  await buildPluginServer(build);
+  // These checks test the parked ChatGPT plugin source (tools/chatgpt-plugin.mjs), so they build it in.
+  await buildPluginServer(build, { chatgpt: true });
   // Vite sets NODE_ENV during the build; the servers below are local test processes.
   process.env.NODE_ENV = 'test';
   if (mode !== 'oauth') {

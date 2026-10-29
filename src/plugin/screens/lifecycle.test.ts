@@ -4,7 +4,7 @@ import { INVITE_NOTICES } from '../../match/invite-notices';
 import type { JoinPreview, View } from '../../match/protocol';
 
 const runtime = vi.hoisted(() => ({
-  motionResult: vi.fn(), closed: false, call: vi.fn(), send: vi.fn(), clientCall: vi.fn(), showNewGame: vi.fn(), navigate: vi.fn(), renderRows: vi.fn(), routeView: vi.fn(),
+  readySeal: vi.fn(), motionResult: vi.fn(), closed: false, call: vi.fn(), send: vi.fn(), clientCall: vi.fn(), showNewGame: vi.fn(), navigate: vi.fn(), renderRows: vi.fn(), routeView: vi.fn(),
   client: { state: { screen: 'wait', sheet: undefined as string | undefined, pending: undefined }, save: vi.fn() },
   memory: { view: undefined as View | undefined, games: [] as any[], settings: undefined as any, me: undefined,
     code: '', preview: undefined as JoinPreview | undefined, joinError: undefined },
@@ -18,6 +18,7 @@ vi.mock('../../account-game/runtime', () => ({
   store: { page: () => ({ screen: runtime.client.state.screen, connected: true, mounting: false, writing: false }) },
 }));
 vi.mock('../../ui/motion', () => ({ UiMotion: class { cancel() {} dispose() {} }, revealResult: runtime.motionResult }));
+vi.mock('../../ui/object-motion', () => ({ readySeal: runtime.readySeal }));
 vi.mock('../../account-game/art', () => ({ art: (path: string) => path }));
 vi.mock('../board-view', () => ({ board: runtime.board, highlight() {} }));
 vi.mock('./board', () => ({ boardGame: () => runtime.memory.view, closeBoardSheet() {}, sendBoardCommand() {}, skipBoardCeremony() {} }));
@@ -49,7 +50,7 @@ beforeEach(() => {
   runtime.memory.code = ''; runtime.memory.preview = undefined; runtime.memory.joinError = undefined;
   runtime.board.ready.mockReturnValue(new Promise(() => {}));
   listeners.clear(); observers.length = 0; nodes.clear(); removed = false;
-  lookup('friend-new').textContent = 'Make a new code';
+  lookup('friend-new').textContent = 'Make a new link';
   const add = (name: string, fn: EventListener, options?: AddEventListenerOptions) => {
     const bucket = listeners.get(name) ?? new Set(); bucket.add(fn); listeners.set(name, bucket);
     options?.signal?.addEventListener('abort', () => bucket.delete(fn), { once: true });
@@ -161,6 +162,21 @@ it('releases the seat observer and pending artwork callback before DOM removal',
   expect(() => seat.seatScreen()).not.toThrow();
 });
 
+it('stamps only confirmed Ready transitions and keeps reload and reopen quiet', async () => {
+  const seat = await import('./seat');
+  runtime.client.state.screen = 'seat';
+  const view = { game_id: 'seat', status: 'setup', seat: 0, draw: 'RNBQKBNR', options: { ...DEFAULT_OPTIONS, arrangement: false }, ready: [false, false], choices: [{ order: 'RNBQKBNR', king: null }, null] } as View;
+  runtime.memory.view = view; lookup('board').parentElement = lookup('game-table');
+  seat.seatScreen();
+  expect(runtime.readySeal.mock.calls.map(call => call[3])).toEqual([undefined, undefined]);
+  runtime.readySeal.mockClear(); view.ready = [true, false]; seat.seatScreen();
+  const onset = runtime.readySeal.mock.calls[0][3]; expect(Number.isFinite(onset)).toBe(true);
+  runtime.readySeal.mockClear(); seat.seatScreen(); expect(runtime.readySeal.mock.calls[0][3]).toBe(onset);
+  runtime.client.state.screen = 'settings'; seat.seatSync({ screen: 'settings' } as any);
+  runtime.client.state.screen = 'seat'; runtime.readySeal.mockClear(); seat.seatScreen();
+  expect(runtime.readySeal.mock.calls.map(call => call[3])).toEqual([undefined, undefined]);
+});
+
 it('closes the setup king sheet and releases its document listener on stop', async () => {
   const setup = await import('./setup'), { stopAll } = await import('./friend');
   const picking = setup.kingSheet({ ...DEFAULT_OPTIONS, kingPowers: true }, { king: 'Spirit', power: 'Mercy' });
@@ -193,7 +209,7 @@ it('offers New game for an expired friend code without renewal', async () => {
   runtime.memory.view = { game_id: 'friend', kind: 'friend', status: 'waiting' } as View;
   friendInvites.set('friend', { code: 'ABC234', expires_at: new Date(Date.now() - 1).toISOString() });
   friend.friendScreen();
-  expect(lookup('friend-code').hidden).toBe(true);
+  expect(lookup('friend-link').hidden).toBe(true);
   expect(lookup('friend-actions').hidden).toBe(true);
   expect(lookup('friend-new').hidden).toBe(false);
   expect(lookup('friend-new').textContent).toBe('New game');
@@ -228,11 +244,11 @@ it.each([false, true])('offers New game when code renewal is unavailable (cached
   if (cached) friendInvites.set('friend', { code: 'ABC234', replaced: true, expires_at: new Date(Date.now() + 7000).toISOString() });
   runtime.send.mockResolvedValue({ status: 'refused', code: 'INVITE_UNAVAILABLE', text: 'This invitation is not available.' });
   friend.friendScreen();
-  expect(lookup('friend-new').textContent).toBe('Make a new code');
+  expect(lookup('friend-new').textContent).toBe('Make a new link');
   lookup('friend-new').onclick(); await vi.advanceTimersByTimeAsync(0);
   expect(lookup('friend-new').textContent).toBe('New game');
   expect(lookup('friend-help').textContent).toContain('expired');
-  expect(lookup('friend-code').hidden).toBe(true); expect(lookup('friend-actions').hidden).toBe(true);
+  expect(lookup('friend-link').hidden).toBe(true); expect(lookup('friend-actions').hidden).toBe(true);
   lookup('friend-new').onclick();
   expect(runtime.showNewGame).toHaveBeenCalledOnce(); expect(runtime.send).toHaveBeenCalledOnce();
   friend.friendScreen();
@@ -259,7 +275,7 @@ it('explains a replaced code and keeps renewal explicit', async () => {
   friendInvites.set('friend', { code: 'ABC234', invite_id: 'old', expires_at: new Date(Date.now() + 7000).toISOString() });
   syncFriendInvites([{ game_id: 'friend', invite_id: 'new' }]);
   friend.friendScreen();
-  expect(lookup('friend-code').hidden).toBe(true); expect(lookup('friend-actions').hidden).toBe(true);
+  expect(lookup('friend-link').hidden).toBe(true); expect(lookup('friend-actions').hidden).toBe(true);
   expect(lookup('friend-new').hidden).toBe(false); expect(lookup('friend-help').textContent).toContain('replaced');
   expect(runtime.clientCall).not.toHaveBeenCalled();
   friend.stopAll();

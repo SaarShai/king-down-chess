@@ -39,6 +39,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python3 -m pip install Pillow==12.3.0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -56,6 +60,9 @@ jobs:
           KINGDOWN_TEST_SKIP: 'tools/plugin-board{,-input,-drafts}.test.ts'
       - run: npm run plugin:build
       - run: npm run plugin:server:check
+      # The parked ChatGPT plugin source (tools/chatgpt-plugin.mjs): MCP flows over compiled HTTP and real PostgreSQL.
+      - run: npm run plugin:build:chatgpt
+      - run: npm run plugin:server:check -- plugin-server-chatgpt
       - run: npm run plugin:smoke
       - run: npm run plugin:check:protocol
       - run: npm run build:vercel
@@ -178,7 +185,7 @@ jobs:
           echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
           npx playwright install --with-deps chromium
         timeout-minutes: 10
-      - run: npm run check:browser home account link-game lessons lesson-return workshop workshop-cast
+      - run: npm run check:browser home account new-game menu-extra
         env:
           PLAYABLE_BROWSER: chromium
       - run: npm run check:browser web-online

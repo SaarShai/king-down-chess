@@ -161,10 +161,11 @@ it('F-114 has the same game type symbols in both source sprites', async () => {
   }
   const local = sprites[1].match(/<fieldset class="modes"[\s\S]*?<\/fieldset>/)![0];
   expect(local).not.toContain('<img');
-  expect(local).toContain('href="#i-brain"'); expect(local).toContain('href="#i-smiling-pawn"'); expect(local).toContain('href="#i-crown"');
+  // Pass-and-play (A friend, `#i-smiling-pawn`) is parked in the local New game (docs/PARKED.md).
+  expect(local).toContain('href="#i-brain"'); expect(local).not.toContain('href="#i-smiling-pawn"'); expect(local).toContain('href="#i-crown"');
 });
 
-it('F-115 names the main menu in the heading, back controls and invite help', async () => {
+it('F-115 names the main menu in the heading and back controls, and the invite help names the link', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await frame.locator('#home-games:not(:disabled)').click();
@@ -177,8 +178,9 @@ it('F-115 names the main menu in the heading, back controls and invite help', as
     await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
     await frame.locator('#setup-start').click();
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
-    await frame.locator('#friend-new').click(); await frame.locator('#friend-code span').first().waitFor();
-    expect.soft(await frame.locator('#friend-help').textContent()).toContain('types the code in Menu.');
+    await frame.locator('#friend-new').click(); await frame.locator('#friend-link span').waitFor();
+    // Code typing is parked (docs/PARKED.md): the help names the invite link, not a code in Menu.
+    expect.soft(await frame.locator('#friend-help').textContent()).toBe('Your friend opens the link and signs in to join.');
   } finally { await page.close(); }
 });
 

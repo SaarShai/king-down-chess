@@ -162,6 +162,23 @@ describe('real state lifecycle', () => {
     expect(s.frames).toEqual([]);
   });
 
+  it.each([1, 2])('ends Freeze residue in 620 ms at rate %s and keeps Ice Wall timing', rate => {
+    for (const [id, duration] of [['freeze', 620], ['ward', 1344]] as const) {
+      const f = fixtures[id], s = new StateEffects(); s.rate = rate;
+      s.sync(f.rules, f.after, 0, true); s.sync(f.rules, f.expired!, 100, true);
+      const release = s.frames[0];
+      expect(release).toMatchObject({ clear: 100, turns: 0 });
+      expect(s.remaining(100)).toBeCloseTo(duration / rate);
+      if (id === 'freeze') {
+        expect(s.freezeRelease(release, 100, true)).toBe(0);
+        expect(s.freezeRelease(release, 100 + 310 / rate, true)).toBe(.5);
+        expect(s.freezeRelease(release, 100, false)).toBe(1);
+      }
+      expect(s.remaining(100 + duration / rate)).toBe(0);
+      expect(s.frames).toEqual([]);
+    }
+  });
+
   it.each([false, true])('Off/reduced state advances have no onset or expiry work (%s)', initial => {
     const f = fixtures.freeze, s = new StateEffects();
     s.sync(f.rules, initial ? f.after : f.before, 0, false);

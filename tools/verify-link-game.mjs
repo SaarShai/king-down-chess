@@ -1,8 +1,9 @@
 // Previously: three cases, then the existing guarded link-send checks.
 import assert from 'node:assert/strict';
 import { assertHiddenDetail } from './previously-layout-check.mjs';
-import { lanMoves, openMenu, closeMenu, seeAgain } from './app-ui.mjs';
-import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
+import { contextText, lanMoves, openMenu, closeMenu, seeAgain, waitForLinkReplay, waitForLinkSave } from './app-ui.mjs';
+import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
+import { WARD_LINK } from './lib/design-link.mjs';
 
 const browser = await launch();
 const base = env('PLAYABLE_URL');
@@ -130,6 +131,42 @@ try {
   assert.deepEqual(await lanMoves(undo.page), ['e2-e4', 'e7-e5']);
   await undo.context.close();
   console.log('ok Undo takes only your staged ply');
+
+  // A game link that holds a Workshop design (ticket 17; moved from painted-game when the game link was parked): the design stands as its figure, the read names it, and it moves.
+  {
+    const p = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await p.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1'));
+    trapErrors(p);
+    const link = new URL('?look=painted', base);
+    for (const [k, v] of new URLSearchParams(WARD_LINK)) link.searchParams.set(k, v);
+    link.searchParams.set('moves', 'c2-c4_d7-d6'); // a game link seats this page as White only, so the link plays both moves before the design's
+    await p.goto(link.href);
+    await p.waitForFunction(() => document.querySelector('#board canvas') && window.view?.ready);
+    await waitForLinkSave(p, 'RTBQKBNR', ['c2-c4', 'd7-d6'], 0);
+    await waitForLinkReplay(p); // the board takes input after it shows Black's last move
+    await p.waitForFunction(() => !window.view.scene.animating);
+    assert.deepEqual(await p.evaluate(() => [window.view.pos.board[1], window.view.pos.board[57], window.view.pos.board[26] > 0]), [15, 31, true], 'the design stands on b1 and b8; the link played c2-c4');
+    await p.waitForFunction(() => ['w', 'b'].every(c => performance.getEntriesByType('resource').some(e => e.name.includes(`ui/workshop/ram-bastion-${c}.webp`))));
+    // The scene draws the figure, not the lettered token: b1 shows (almost) no pixel of the white token's disc, #efe9d8.
+    const disc = () => p.evaluate(() => {
+      const c = document.querySelector('#board canvas'), r = c.getBoundingClientRect(), q = window.view.screenOf(1), k = c.width / r.width;
+      const d = c.getContext('2d').getImageData((q.x - r.left) * k - 8, (q.y - r.top) * k - 8, 16, 16).data;
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) n += Math.abs(d[i] - 239) + Math.abs(d[i + 1] - 233) + Math.abs(d[i + 2] - 216) < 9 ? 1 : 0;
+      return n;
+    });
+    await p.waitForFunction(() => new Promise(requestAnimationFrame).then(() => true));
+    const n = await disc();
+    assert.ok(n < 26, `b1 draws the design's figure, not the lettered token (${n} of 256 pixels are the token's disc)`);
+    const at = sq => p.evaluate(sq => window.view.screenOf(sq), sq), click = async sq => { const q = await at(sq); await p.mouse.click(q.x, q.y); };
+    await click(57);
+    assert.match(await contextText(p), /Black Old Ward/, 'the read names the design');
+    await click(1); await click(10); // the design steps diagonally to c2
+    await p.waitForFunction(() => window.view.pos.board[10] === 15 && !window.view.pos.board[1]);
+    await shot(p, 'design-game');
+    await p.close();
+    console.log('ok a design game by a game link: the figure loads, the read names it, it moves');
+  }
   assertNoErrors();
 } finally { await browser.close(); }
 

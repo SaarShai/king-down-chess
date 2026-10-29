@@ -86,8 +86,9 @@ it('reads the game again after a conflict and says that the opponent moved, and 
     // Poll reads fail, so Alice's board keeps its old view until she acts.
     await page.route('**/fixture-tool', route => route.request().postDataJSON()?.arguments?.since_revision !== undefined ? route.abort() : route.continue());
     await html(page).evaluate(async (_, options) => { await (window as any).harnessApp.start('friend', { colour: 'white', options }); }, CLASSIC);
-    await frame.locator('#friend-new').click(); await frame.locator('#friend-code span').first().waitFor();
-    await bob('kingdown_join', { code: (await frame.locator('#friend-code span').allTextContents()).join('') });
+    // Code tiles are parked (docs/PARKED.md): the invite link holds the code.
+    await frame.locator('#friend-new').click(); await frame.locator('#friend-link span').waitFor();
+    await bob('kingdown_join', { code: (await frame.locator('#friend-link').textContent())!.split('#')[1] });
     await html(page).evaluate(async () => { await (window as any).harnessApp.call('kingdown_get', {}, false, false, true); });
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     const game_id = await html(page).evaluate(async () => {

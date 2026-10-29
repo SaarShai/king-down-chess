@@ -133,19 +133,7 @@ it.each([false, true])('does not restart a changed Join preview after SDK teardo
     await stopHeld(page, '[data-screen="join"]');
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()).catch(() => {}); await page.close(); }
 });
-it.each(['profile', 'play'])('clears a badge on normal Close while the screen is %s', async screen => {
-  const page = await open(), frame = page.frameLocator('iframe');
-  try {
-    await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('profile'));
-    await frame.locator('[data-badge="first_win"] button').click();
-    await expect.poll(async () => (await state(page)).sheet).toBe('badge:first_win');
-    if (screen === 'play') await frame.locator('html').evaluate(() => (window as any).harnessApp.navigate('play'));
-    await frame.locator('#badge-close').click();
-    await expect.poll(async () => (await state(page)).sheet).toBeUndefined();
-    expect(await frame.locator('.badge-sheet[open]').count()).toBe(0);
-  } finally { await page.close(); }
-});
-
+// The badge sheet is parked with the Badges display (docs/PARKED.md).
 it.each(['pieces', 'cards'])('clears the old %s sheet on a remount', async sheet => {
   const page = await open(), frame = page.frameLocator('iframe'), errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));

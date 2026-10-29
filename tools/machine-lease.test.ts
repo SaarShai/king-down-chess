@@ -1,6 +1,6 @@
 // Real runners use two independent repositories and one test user's home.
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { chmodSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, existsSync, fstatSync, openSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
 import { tempRepo } from './lib/temp-repo.mjs';
@@ -27,7 +27,6 @@ function setup() {
   const copies = [tempRepo({ hooks: false }), tempRepo({ hooks: false })];
   repos.push(...copies);
   const home = join(copies[0].root, 'home');
-  mkdirSync(home);
   for (const repo of copies) {
     repo.git('remote', 'remove', 'origin');
     repo.write('node_modules/.gitignore', '*\n');

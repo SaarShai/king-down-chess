@@ -31,8 +31,8 @@ try {
   await choices.goto(`${origin}/authorize?authorization_id=${authorizationId}`);
   await choices.getByRole('button', { name: 'Try again', exact: true }).waitFor();
   assert.equal(await choices.locator('[data-provider]:visible').count(), 0, 'A failed provider response offers no social provider');
-  await choices.locator('#password-signin summary').click();
-  assert(await choices.locator('#password-form button').isEnabled(), 'The review password path remains available after a settings failure');
+  // The review password path is off while the ChatGPT plugin is parked (src/plugin/consent.ts REVIEW_PASSWORD_SIGNIN).
+  assert.equal(await choices.locator('#password-signin').isVisible(), false, 'A settings failure offers no password sign-in');
   providerSettings = { external: { github: true, google: false, facebook: true } };
   await choices.getByRole('button', { name: 'Try again', exact: true }).click();
   await choices.getByRole('button', { name: 'Continue with GitHub', exact: true }).waitFor();
@@ -66,27 +66,24 @@ try {
   assert.equal(createHash('sha256').update(exchange.code_verifier).digest('base64url'), signInUrl.searchParams.get('code_challenge'));
   assert.equal(new URL(signin.url()).searchParams.get('authorization_id'), authorizationId);
   await signin.close();
-  // Approval D8 a: the one review account signs in with a password under the closed form, then sees the same account choice.
-  const review = await browser.newPage(); trapErrors(review, [{ pattern: /^Failed to load resource: the server responded with a status of 400 \(Bad Request\)$/, reason: 'The wrong-password case returns 400 on purpose.' }]);
+  // Approval D8 a gave the one review account a password sign-in. It is off while the ChatGPT plugin is parked: the page
+  // shows no password form and asks for no password grant. A signed-in session still sees the same account choice.
+  const review = await browser.newPage(); trapErrors(review);
   const grants = [];
   await review.route('https://project.supabase.co/**', async route => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith('/settings')) { await route.fulfill({ json: { external: { google: true, github: true } } }); return; }
-    if (!url.pathname.endsWith('/token')) { await route.fulfill({ json: { authorization_id: authorizationId, redirect_uri: 'https://client.example/callback', client: { id: clientId, name: 'King Down browser check', uri: 'https://client.example', logo_uri: '' }, user: { id: actor, email: 'review@example.test' }, scope: 'openid email' } }); return; }
-    const body = route.request().postDataJSON(); grants.push([url.searchParams.get('grant_type'), body.email]);
-    if (body.password !== 'test-only-value') { await route.fulfill({ status: 400, json: { code: 'invalid_credentials', message: 'Invalid login credentials' } }); return; }
-    const now = Math.floor(Date.now() / 1000);
-    await route.fulfill({ json: { access_token: `header.${Buffer.from(JSON.stringify({ exp: now + 3600, sub: actor })).toString('base64url')}.signature`, refresh_token: 'mock-refresh', expires_in: 3600, expires_at: now + 3600, token_type: 'bearer', user: { id: actor, email: 'review@example.test', is_anonymous: false, app_metadata: {}, user_metadata: {} } } });
+    if (url.pathname.endsWith('/token')) { grants.push([url.searchParams.get('grant_type')]); await route.fulfill({ status: 400, json: { code: 'invalid_credentials', message: 'Invalid login credentials' } }); return; }
+    await route.fulfill({ json: { authorization_id: authorizationId, redirect_uri: 'https://client.example/callback', client: { id: clientId, name: 'King Down browser check', uri: 'https://client.example', logo_uri: '' }, user: { id: actor, email: 'review@example.test' }, scope: 'openid email' } });
   });
   await review.goto(`${origin}/authorize?authorization_id=${authorizationId}`);
   await review.getByRole('button', { name: 'Continue with Google' }).waitFor();
-  assert(await review.getByLabel('Password').isHidden(), 'The password form starts closed under Google and GitHub');
-  await review.getByText('Sign in with email and password', { exact: true }).click();
-  await review.getByLabel('Email').fill(' review@example.test '); await review.getByLabel('Password').fill('wrong');
-  await review.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await review.getByText('The email or the password is not correct. Try again.', { exact: true }).waitFor();
-  assert.equal(await review.getByLabel('Password').inputValue(), ''); assert(await review.getByRole('button', { name: 'Sign in', exact: true }).isEnabled());
-  await review.getByLabel('Password').fill('test-only-value'); await review.getByRole('button', { name: 'Sign in', exact: true }).click();
+  assert.equal(await review.locator('#password-signin').isVisible(), false, 'No password sign-in under Google and GitHub');
+  assert.equal(await review.getByLabel('Password').isVisible(), false, 'No password field');
+  const reviewNow = Math.floor(Date.now() / 1000);
+  const reviewSession = { access_token: `header.${Buffer.from(JSON.stringify({ exp: reviewNow + 3600, sub: actor })).toString('base64url')}.signature`, refresh_token: 'mock-refresh', expires_at: reviewNow + 3600, expires_in: 3600, token_type: 'bearer', user: { id: actor, email: 'review@example.test', is_anonymous: false, app_metadata: {}, user_metadata: {} } };
+  await review.evaluate(session => localStorage.setItem('kingdown-plugin-consent', JSON.stringify(session)), reviewSession);
+  await review.reload();
   await review.getByText('review@example.test', { exact: true }).waitFor();
   await review.getByRole('button', { name: 'Continue', exact: true }).click();
   await review.getByRole('button', { name: 'Allow connection' }).waitFor();
@@ -110,7 +107,7 @@ try {
   assert.equal(await review.locator('#client-name').innerText(), 'King Down browser check');
   assert.equal(await review.locator('#account').innerText(), 'review@example.test');
   assert.equal(await review.locator('#redirect').innerText(), 'https://client.example/callback');
-  assert.deepEqual(grants, [['password', 'review@example.test'], ['password', 'review@example.test']]);
+  assert.deepEqual(grants, [], 'No password grant');
   assert.equal(new URL(review.url()).searchParams.get('authorization_id'), authorizationId);
   await review.close();
   for (const action of ['approve', 'deny', 'unlisted']) {
@@ -164,7 +161,7 @@ try {
   }
   const missing = await browser.newPage(); trapErrors(missing); await missing.goto(`${origin}/authorize`); await missing.getByText('This authorization request is unavailable or expired.', { exact: false }).waitFor(); assert(await missing.getByRole('button', { name: 'Allow connection' }).isHidden()); await missing.close();
   assertNoErrors();
-  console.log('Consent browser: PKCE social return, review password sign-in (closed form, wrong password, account choice), account choice before existing-grant redirect, local account switch, SDK approve/deny, sign-out failure preserves blocked client, escaped client name, and missing request passed');
+  console.log('Consent browser: PKCE social return, no review password sign-in (parked), account choice, account choice before existing-grant redirect, local account switch, SDK approve/deny, sign-out failure preserves blocked client, escaped client name, and missing request passed');
 } finally { await browser?.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 
 // Retry a failed OAuth-discovery configuration without contacting a real Auth server.

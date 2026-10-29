@@ -8,7 +8,7 @@
  *
  * The generator is a fixed-seed xorshift, so keys are identical in every worker and every test run.
  */
-import { Color, SPENT, colorOf, drawsOnLost, handOf, powerUses, tracksLast, typeOf, type Position } from './engine';
+import { Color, P, SPENT, colorOf, drawsOnLost, handOf, legalMoves, powerUses, tracksLast, typeOf, type Position } from './engine';
 import { ALL_CARDS } from './rules';
 
 let seed = 0x9e3779b9;
@@ -143,6 +143,14 @@ export const [Z_EP_LO, Z_EP_HI] = draw(8);
 
 const hashOut = new Int32Array(2);
 
+/** Keep the stored right for free actions; count it in the key only when a legal capture exists. */
+export function epForKey(pos: Position): number {
+  const ep = pos.ep;
+  if (ep === undefined || pos.haste !== undefined) return -1;
+  return legalMoves(pos, 'captures').some(m => m.to === ep && typeOf(pos.board[m.from]) === P
+    && m.captures.length === 1 && m.captures[0] !== ep) ? ep : -1;
+}
+
 /**
  * Key of a position, for `SearchOptions.history` and `Game`'s repetition count: the board, the side
  * to move and the king-power state that changes the legal moves — uses spent of a counted power,
@@ -185,9 +193,9 @@ export function positionKey(pos: Position, out = hashOut): number {
   if (pos.haste !== undefined) { lo ^= Z_HASTE_LO[pos.haste]; hi ^= Z_HASTE_HI[pos.haste]; }
   if (pos.rage) { lo ^= Z_RAGE_LO[pos.rage - 1]; hi ^= Z_RAGE_HI[pos.rage - 1]; }
   for (let i = 0; i < 4; i++) if ((pos.castle ?? 0) & (1 << i)) { lo ^= Z_CASTLE_LO[i]; hi ^= Z_CASTLE_HI[i]; }
-  if (pos.ep !== undefined) { lo ^= Z_EP_LO[pos.ep & 7]; hi ^= Z_EP_HI[pos.ep & 7]; }
+  const ep = epForKey(pos);
+  if (ep >= 0) { lo ^= Z_EP_LO[ep & 7]; hi ^= Z_EP_HI[ep & 7]; }
   out[0] = lo;
   out[1] = hi;
   return combine(lo, hi);
 }
-

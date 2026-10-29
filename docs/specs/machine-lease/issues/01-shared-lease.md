@@ -134,3 +134,51 @@ The third review finds the same fault in the deploy path, plus stale docs.
   runner, test lock, test lock guard and deploy (5 files, 182 cases).
   The tools type check passes. `npm run test:docs` passes: 16 files,
   183 cases. This is not a full-suite pass.
+
+### PR 187 final merge plan
+
+1. Merge `origin/main`. Keep the parked plugin, lean build, Firefox prefs fix,
+   and all other main changes. Run deploy tests and browser checks without
+   an npm process under the lease. Update the deploy test call list.
+2. Fix the local browser-check comments and current test recipes. Search
+   `docs/` and `tools/` for other affected recipes. Keep old result records.
+3. Run full `npm test`, `npm run test:docs`, `npm run build`, and
+   `KINGDOWN_TEST_FILE='tools/{machine-lease,test-lock,test-lock-guard,check,deploy}.test.ts' npm test`.
+   Each command must exit 0. Record the file and case counts.
+4. Commit with unchanged hooks and the required tool trailers. Push
+   `fin187-work` to `staging/fix-machine-lease`. Run no deploy or publish.
+
+The merge test finds one setup fault: main now makes `tempRepo()` create
+its empty home folder. The lease test also creates that folder and fails
+with `EEXIST`. Remove the second creation; reuse the helper's home. The
+first affected run has 171 passes and 12 failures in 5 files. All 12
+failures have this same cause.
+
+### PR 187 final merge evidence
+
+The merge keeps main at `d5b4bad1`, including the lean build, parked plugin
+404 checks, and Firefox prefs fix. The deploy header describes those gates.
+The website runs `node tools/check.mjs web-online`. The legacy plugin
+target keeps its protocol check and runs its browser check through Node.
+The failed-gate cases and ordered call list use the direct runner names.
+
+The self-test comment now says the second local run waits for the machine
+lease. Only CI shares clone slots without that lease. The plugin guide
+uses `caffeinate -disu npm run check:browser <name>`. The compute guide
+uses `KINGDOWN_TEST_FILE=<file> npm test` and keeps the warning about npm
+and npx under the lock. The special-move test recipe also uses `npm test`.
+The search covers `docs/` and `tools/`; old result records stay as recorded.
+
+- Affected command: `KINGDOWN_TEST_FILE='tools/{machine-lease,test-lock,test-lock-guard,check,deploy}.test.ts' npm test`.
+  Exit 0: 5 files and 183 cases pass; all 67 motion checks pass.
+- Full `npm test`: exit 0. 286 files and 5,571 cases pass. It skips
+  17 files and 364 cases. All 67 motion checks pass.
+- `npm run test:docs`: exit 0. 17 files and 187 cases pass.
+- `npm run build`: exit 0. It transforms 315 modules. The build reports
+  that `/character-runtime/manifest.json` stays as a runtime URL.
+- `git diff --check`: pass. The Firefox check files match `origin/main`.
+
+Logs: `/private/tmp/fin187-focused-fixed.log`, `/private/tmp/fin187-full.log`,
+`/private/tmp/fin187-docs.log`, and `/private/tmp/fin187-build.log`.
+No deploy, publish, or production command runs. Hooks and hook inputs stay
+unchanged. This branch goes to PR 187; this task does not merge the PR.

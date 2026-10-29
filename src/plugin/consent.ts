@@ -7,6 +7,10 @@ const authorizationId = new URL(location.href).searchParams.get('authorization_i
 const status = document.getElementById('status')!, signin = document.getElementById('signin')!, consent = document.getElementById('consent')!;
 const accountChoice = document.getElementById('choose-account')!;
 const buttons = [...document.querySelectorAll<HTMLButtonElement>('button')];
+/** The OpenAI review account (approval D8 a) signed in here with a password. It is off while the ChatGPT plugin is
+ *  parked (tools/chatgpt-plugin.mjs, 2026-10-28): the form stays hidden and sends nothing. The Supabase hook and
+ *  kingdown_auth.password_accounts are outside the app (docs/HOSTING.md, "Parked: the ChatGPT plugin"). */
+const REVIEW_PASSWORD_SIGNIN = false;
 function busy(on: boolean): void { buttons.forEach(button => { button.disabled = on; }); }
 function say(message: string): void { status.textContent = message; }
 function redirect(value: string): void {
@@ -30,12 +34,16 @@ async function main(): Promise<void> {
     };
     // The one review account (approval D8 a). The before-user-created hook refuses every other password sign-up.
     const email = document.getElementById('password-email') as HTMLInputElement, password = document.getElementById('password-value') as HTMLInputElement;
+    document.getElementById('password-signin')!.hidden = !REVIEW_PASSWORD_SIGNIN;
     document.getElementById('password-form')!.onsubmit = async event => {
-      event.preventDefault(); busy(true); say('Signing in…');
+      event.preventDefault();
+      if (!REVIEW_PASSWORD_SIGNIN) return;
+      busy(true); say('Signing in…');
       const { error } = await sb.auth.signInWithPassword({ email: email.value.trim(), password: password.value });
       if (error) { busy(false); password.value = ''; say(error.status === 400 ? 'The email or the password is not correct. Try again.' : 'Sign-in could not start. Try again.'); return; }
       location.reload();
     };
+    const orEmail = REVIEW_PASSWORD_SIGNIN ? ' or use email' : '';
     const retry = document.getElementById('signin-retry') as HTMLButtonElement;
     async function loadProviders(): Promise<void> {
       busy(true); retry.hidden = true; say('Checking sign-in options…');
@@ -46,8 +54,8 @@ async function main(): Promise<void> {
         social.forEach(button => { button.hidden = !providers.includes(button.dataset.provider as 'google' | 'github'); });
         const available = social.some(button => !button.hidden);
         retry.hidden = available;
-        say(available ? 'Sign in to continue.' : 'Social sign-in is unavailable. Try again or use email.');
-      } catch { retry.hidden = false; say('Sign-in options could not load. Check your connection and try again, or use email.'); }
+        say(available ? 'Sign in to continue.' : `Social sign-in is unavailable. Try again${orEmail}.`);
+      } catch { retry.hidden = false; say(`Sign-in options could not load. Check your connection and try again${orEmail ? `,${orEmail}` : ''}.`); }
       finally { busy(false); }
     }
     retry.onclick = () => { void loadProviders(); };

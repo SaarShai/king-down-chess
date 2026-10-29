@@ -471,8 +471,8 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
   expect((await ann.api.command(id, beforeRevision, { type: 'turn', actions: [first] }, 'ann-1')).revision).toBe(ack.revision);
   expect((await rows("select count(*)::int as n from public.game_commands where game_id=$1 and command_id='ann-1'", [id]))[0].n).toBe(1);
   await expect(ann.api.command(id, beforeRevision, { type: 'resign' }, 'ann-1')).rejects.toMatchObject({ code: 'COMMAND_CONFLICT', status: 409 });
-  // The turn event to Black carries the committed revision.
-  expect(await rows("select payload->>'revision' as revision from public.outbox where kind='turn' and payload->>'user_id'=$1 and payload->>'game_id'=$2", [bob.id, id])).toEqual([{ revision: String(ack.revision) }]);
+  // The turn is saved without an unused delivery event.
+  expect(await rows("select payload->>'revision' as revision from public.outbox where kind='turn' and payload->>'user_id'=$1 and payload->>'game_id'=$2", [bob.id, id])).toEqual([]);
 
   const since = await bob.api.game(id, beforeRevision);
   expect([since.rules, since.last_commands.map(c => [c.seq, c.seat, c.action.type])]).toEqual([undefined, [[ack.revision, 0, 'turn']]]);

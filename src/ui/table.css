@@ -36,9 +36,7 @@
 #game-table .table-space { grid-area: space; }
 #table-bar { grid-area: bar; display: grid; grid-template-columns: minmax(48px, 1fr) minmax(0, 2fr) minmax(48px, 1fr); gap: 4px; padding: 0 8px max(8px, env(safe-area-inset-bottom)); }
 #table-bar > button { align-self: center; min-height: 48px; display: flex; flex-direction: column; gap: 0; align-items: center; justify-content: center; border: 0; box-shadow: none; background: transparent; color: var(--ink); font-size: var(--fs-lg); font-weight: 700; line-height: 1.2; padding: 2px 4px; }
-.in-lesson #table-bar { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) max-content; }
 #table-bar > button[aria-disabled='true'] { color: var(--disabled-ink, var(--stone-700)); opacity: 1; cursor: default; }
-#game-table #lesson-progress { position: relative; flex: none; width: 180px; pointer-events: none; }
 #sheet-moves, #menu-sheet { width: min(560px, calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: 0; overflow: hidden; }
 :is(#menu-sheet, #sheet-moves)[open] { display: flex; flex-direction: column; }
 .sheet-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 16px; }
@@ -53,10 +51,8 @@
 #menu-sheet .menu-row span { display: block; font-size: 14px; font-weight: 400; color: var(--ink-soft); }
 #menu-sheet .menu-row i { position: absolute; right: 4px; top: 12px; font-style: normal; }
 #menu-sheet .resign-row { margin-top: 24px; }
-#menu-sheet .menu-fox { width: 44px; height: 52px; object-fit: contain; float: left; margin-right: 8px; }
 #menu-sheet label { min-height: 48px; }
 #menu-sheet h3 { margin: 14px 0 4px; }
-#menu-sheet .coming-row { color: var(--ink-soft); margin: 4px 0; }
 #menu-sheet [aria-disabled='true'] { opacity: .65; cursor: default; }
 
 @media (min-width: 900px), (min-width: 600px) and (orientation: landscape) and (max-height: 500px) {
@@ -84,8 +80,6 @@
 #context-line { flex-wrap: wrap; }
 #context-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 #table-bar #end-turn.quiet { border: 2px solid var(--ink-soft); color: var(--ink); }
-#lesson-progress .done::after { content: '✓'; position: absolute; right: -2px; bottom: -4px; font-size: 14px; font-weight: 700; color: var(--ink); background: var(--vellum); border-radius: 50%; }
-#lesson-progress .now::after { content: ''; position: absolute; left: 10px; bottom: -7px; border-inline: 5px solid transparent; border-bottom: 5px solid var(--ink); }
 :root[data-pace='off'] #pace-note { display: none; }
 @media (min-width: 900px), (min-width: 600px) and (orientation: landscape) and (max-height: 500px) {
   #context-text { -webkit-line-clamp: 2; }
@@ -109,7 +103,7 @@
 #context-text #previously-before { font-size: 14px; color: var(--ink-soft); }
 
 #table-bar > :is(#undo, #return-game) { grid-column: 1; grid-row: 1; }
-#table-bar > :is(#end-turn, #show-me, #next-lesson) { grid-column: 2; grid-row: 1; }
+#table-bar > #end-turn { grid-column: 2; grid-row: 1; }
 #table-bar > #menu-btn { grid-column: 3; grid-row: 1; }
 
 /* Short phones give the board the height that the fixed rows leave. */

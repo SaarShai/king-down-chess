@@ -28,16 +28,16 @@
 <nav><a href="./">← King Down</a><a href="./privacy.html">Privacy</a><a href="./terms.html">Terms</a><a href="./delete-data.html">Delete your data</a></nav>
 <main>
 <h1>Privacy policy</h1>
-<p class="meta">Last updated: 24 October 2026</p>
+<p class="meta">Last updated: 28 October 2026</p>
 <p>King Down is a chess game at <a href="https://kingdown.dev">kingdown.dev</a>, made by Saar Shai. This page says what data the game uses, why, and how you control it. Questions: <a href="mailto:hello@kingdown.dev">hello@kingdown.dev</a>.</p>
 
-<p>The website has sign-in and cloud saves. The King Down app in ChatGPT also has games against people, ratings and badges. Every piece, king, power and card is unlocked in the app.</p>
+<p>The website has sign-in, cloud saves, games against people, ratings and badges.</p>
 
 <h2>Playing without an account</h2>
 <p>You can play without signing in. Then the game keeps your settings, lessons and saved games only in your own browser (local storage). Fault reports can go to us as described below.</p>
 
 <h2>When you sign in</h2>
-<p>You can sign in with Google or GitHub on the website and in the ChatGPT app. Facebook sign-in is not available in ChatGPT. On the website, it is hidden unless the address includes <code>?facebook=1</code>. The sign-in service sends:</p>
+<p>You can sign in with Google or GitHub. Facebook sign-in is hidden unless the address includes <code>?facebook=1</code>. The sign-in service sends:</p>
 <ul>
   <li>your name and profile picture,</li>
   <li>your email address,</li>
@@ -48,25 +48,23 @@
 <h2>What the game stores for your account</h2>
 <ul>
   <li>your settings, lesson progress and saved games, so they follow you to other devices;</li>
-  <li>your settings in the ChatGPT app, including <strong>Who sees when you are online</strong>, and the game options you chose last;</li>
-  <li>games you play in the ChatGPT app against the computer, and games you play online against other people, including the moves;</li>
-  <li>for each online game, the time you last opened or played it, and whether your last game action came from the website or from ChatGPT;</li>
-  <li>for each King Down board in a ChatGPT chat, the game that it shows, so that the board finds its game when it opens again;</li>
+  <li>your account settings, including <strong>Who sees when you are online</strong>, and the game options you chose last;</li>
+  <li>games you play with your account against the computer or against other people, including the moves;</li>
+  <li>for each online game, the time you last opened or played it, and where your last game action came from;</li>
   <li>how many invitation codes you tried in the last hour, so that nobody can guess a code;</li>
-  <li>how many new games, new boards, computer turns and reports you asked for in the ChatGPT app in the last minute or hour, so that one account cannot overload the game;</li>
+  <li>how many new games, computer turns and reports you asked for in the last minute or hour, so that one account cannot overload the game;</li>
   <li>your handle, preset picture choice, ratings, rating history and earned badges;</li>
   <li>the players you follow and block;</li>
   <li>the pieces you have unlocked on the website;</li>
   <li>reports, the reported handle or picture choice, and records of action on a report;</li>
   <li>alerts about your games against other players (that it is your move), and notices about an action on a report or about an appeal;</li>
-  <li>a request to delete your account, with its dates;</li>
-  <li>the account and OAuth link that lets your ChatGPT connection use your King Down account.</li>
+  <li>a request to delete your account, with its dates.</li>
 </ul>
-<p>Other players see your handle, preset picture, rating and the games you play with them. They never see your email address. The ChatGPT app gives the chat short game summaries. In games against people, it keeps the board position and opponent details inside the app. We do not store your ChatGPT conversation.</p>
+<p>Other players see your handle, preset picture, rating and the games you play with them. They never see your email address.</p>
 
 <p>The game uses the time you last opened or played a game to update the board faster while both players are there, and to count how many players are online. The count shows no names. In Settings, <strong>Who sees when you are online</strong> has three choices: Everyone, Friends only and Nobody. Friends only is the default: only a player who follows you and whom you follow gets your time. King Down has no way to follow a player yet, so Friends only shows your time to nobody for now. Everyone lets any opponent get it. Nobody hides it from all opponents. The game records these times with every setting: the default applies, and no setting stops it. We do not use these times for anything else.</p>
 
-<p>Your website account menu can show your sign-in name and picture. The picture loads from your sign-in service's servers, so that service can see when it is shown. The ChatGPT app uses your chosen handle and preset picture.</p>
+<p>Your website account menu can show your sign-in name and picture. The picture loads from your sign-in service's servers, so that service can see when it is shown.</p>
 
 <h2>Why we use it</h2>
 <p>Only to run the game: to sign you in, keep your progress, match you with other players, show ratings, and fix problems. We show no ads, we do not sell or rent your data, and we use no third-party tracking or advertising tools.</p>
@@ -75,16 +73,16 @@
 <p>Accounts and game data are stored with Supabase (servers in the United States). The website itself is served by Vercel. Both process data for us only to provide their service. Sign-in goes through Google or GitHub under their own privacy policies. The hidden website Facebook option uses Meta's privacy policy.</p>
 <p>Like most websites, our servers keep short technical logs. Vercel records each request to kingdown.dev, with its time, address (URL), result and your IP address. Supabase records each sign-in, with its time and your IP address. When a game action fails, our server logs the time, the tool name and an error code, but not your moves or your messages. We use these logs only to keep the game running, find faults and stop abuse. Vercel keeps them for 1 day. Supabase keeps them for the log period of our Supabase plan, at most 90 days.</p>
 <p id="fault-reports">To find and fix faults, the website sends fault reports to our server. A report holds the fault type and name, and an approved code message with private values removed (at most 300 characters). Variable values use a fixed mark. Other messages use one fixed text. No code location is sent or stored. The report holds the route path with IDs removed. Other paths use one fixed text. It includes the current build commit (other builds use one fixed text), browser family and major version, phone or desktop size class, and fault group code. Server faults hold the fault name, approved message and route, without code file locations or browser details. We store these reports, their counts and their first and last times in Supabase for 30 days. Reports are not linked to your account. They hold no account number, IP address, full browser string, moves, player messages or game IDs. They hold no URL query or fragment. We use no third-party tracking tool.</p>
-<p>When you play King Down in ChatGPT, OpenAI receives what the app sends to ChatGPT. That is a short summary for the chat (for example, whose move it is, or your rating), and the board data that ChatGPT shows in the King Down board (the position, the moves, and your and your opponent's handles and pictures). OpenAI handles this data under its own privacy policy. We do not receive your ChatGPT conversation.</p>
+<p id="chatgpt-app">A test version of King Down ran as an app in ChatGPT. That app is closed, and King Down sends no data to OpenAI now. If you used it, OpenAI received what the app sent to ChatGPT: a short summary for the chat and the board data that ChatGPT showed (the position, the moves, and the handles and pictures of the players). OpenAI handles that data under its own privacy policy. We never received your ChatGPT conversation. We keep the records of that app under the rules on this page. The daily job deletes the record of which game a ChatGPT board showed after 7 days. To end the link between a ChatGPT connection and your King Down account, delete your account or write to us.</p>
 
 <h2>How long we keep it</h2>
-<p>A confirmed deletion request starts a seven-day grace period. A new sign-in on the website or through ChatGPT cancels it. A token refresh does not. After the period, the daily job deletes your account, email address, profile, settings, cloud saves, ratings, rating history, badges, alerts and games against the computer. It ends your open games first. A report hold can delay deletion.</p>
+<p>A confirmed deletion request starts a seven-day grace period. A new sign-in cancels it. A token refresh does not. After the period, the daily job deletes your account, email address, profile, settings, cloud saves, ratings, rating history, badges, alerts and games against the computer. It ends your open games first. A report hold can delay deletion.</p>
 <p>We keep your account data while your account is open. After the deletion, games against other people stay in the other player's history. The stored game keeps the handle that you had in that game, but not your account number or your email address. Other players see "Deleted player" in place of your name. Your handle stays reserved, so that nobody can use it to look like you. We keep a record of the deletion request (your account number and its dates) to show that we deleted the account.</p>
-<p>Some records have a shorter life. The daily job deletes the record of which game a ChatGPT board shows after 7 days, and internal game event records after 30 days. We delete a report and its evidence 12 months after the report, unless a report hold covers it because the law tells us to keep it longer. A record of an action we took on a report (for example, a warning or a removed handle) stays after the report. After a deletion, it keeps the removed handle, if there is one, but not your account number. Server and sign-in logs follow the times in "Where it is kept". See <a href="./delete-data.html">how to delete your data</a> for the steps.</p>
+<p>Some records have a shorter life. The daily job deletes internal game event records after 30 days. We delete a report and its evidence 12 months after the report, unless a report hold covers it because the law tells us to keep it longer. A record of an action we took on a report (for example, a warning or a removed handle) stays after the report. After a deletion, it keeps the removed handle, if there is one, but not your account number. Server and sign-in logs follow the times in "Where it is kept". See <a href="./delete-data.html">how to delete your data</a> for the steps.</p>
 
 <h2>Your rights</h2>
 <p>In a game against a person, open Menu and select Block player. Confirm to end follows both ways, stop matches through Find and joins to open games, and hide their messages. Your current game continues. A block also stops new rematch offers and accepts. The end card has Block player after a game ends. The same Menu has Unblock player. Unblock does not restore follows. Profile also lists blocked players, with Unblock for each player. You can use it after the game ends.</p>
-<p>In the ChatGPT app, you can change <strong>Who sees when you are online</strong> at any time in Settings. You can ask us to show, correct, export or delete your data at any time. See <a href="./delete-data.html">how to delete your data</a>, or write to <a href="mailto:hello@kingdown.dev">hello@kingdown.dev</a>. If you live in the European Union or the United Kingdom, you can also complain to your data protection authority.</p>
+<p>You can change <strong>Who sees when you are online</strong> at any time in Settings. You can ask us to show, correct, export or delete your data at any time. See <a href="./delete-data.html">how to delete your data</a>, or write to <a href="mailto:hello@kingdown.dev">hello@kingdown.dev</a>. If you live in the European Union or the United Kingdom, you can also complain to your data protection authority.</p>
 
 <h2>Children</h2>
 <p>King Down is for everyone, but children under 13 should sign in only with a parent's permission. If you think a child signed in without it, write to <a href="mailto:hello@kingdown.dev">hello@kingdown.dev</a> and we will delete the account.</p>

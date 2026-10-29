@@ -21,7 +21,7 @@ describe('key moments in the game review', () => {
       return nodes.get(id);
     } });
     return connectMoments({ game: () => game, sides: () => ['human', 'human'], resigned: () => null,
-      daily: () => null, skill: () => 'club', generation: () => 0, engine: { think } as Engine,
+      skill: () => 'club', generation: () => 0, engine: { think } as Engine,
       end: { show: async () => {} }, showPly: async () => {}, hint: vi.fn(), refresh: vi.fn() });
   }
 

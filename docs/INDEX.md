@@ -14,6 +14,7 @@ When you add, move or remove an entry at the top of `docs/`, change its line her
 - [KINGS-POWERS-PLAN.md](KINGS-POWERS-PLAN.md): How did we plan each king power in the engine (plan of 2026-09-14)? For the power rules, RULES.md §4 wins.
 - [PROGRESSION.md](PROGRESSION.md): How can a player unlock the pieces one at a time (proposal of 2026-09-27)?
 - [WORKSHOP.md](WORKSHOP.md): What does the Workshop do now, screen by screen? **Source of truth for its behaviour.** The reasons for each choice are in [the Proving Ground spec](specs/workshop-proving-ground/spec.md).
+- [PARKED.md](PARKED.md): Which features are parked out of the web build, and how does old data load? **Source of truth for the parked features.**
 
 ## Look, motion and sound
 

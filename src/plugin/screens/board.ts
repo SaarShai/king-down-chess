@@ -32,6 +32,7 @@ import { applyLan, boardActions, cardCoins, cardUseReason, choicesFrom, choiceSo
 import { policyLabel, policyDetail } from '../../account-game/rating-policy';
 import './board.css';
 import { UiMotion, castRelease, checkFrame, handoff } from '../../ui/motion';
+import { drawReply as drawOfferReply, readySeal } from '../../ui/object-motion';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 type Choice = { lan: string; move: Move };
 let view: View | undefined, pos: Position | undefined;
@@ -153,6 +154,8 @@ export function boardScreen(store: Store) {
     check?.getAnimations().forEach(animation => animation.cancel()); check?.remove();
   };
   let liveOnsets = false, openingAt = -Infinity, turnAt = -Infinity, selectedAt = -Infinity;
+  let drawAt = -Infinity, declinedDraw = false;
+  const readySides = new Set<number>();
   const powerSpent = new Map<Color, number>(), powerAt = new Map<Color, number>();
   let deadlineKey = '', deadlinePhase = '';
   let shownNextGame: string | undefined;
@@ -524,6 +527,7 @@ export function boardScreen(store: Store) {
         else if (mine && armedCard === index) motion.play(paint, [{ transform: 'translateY(0)' }, { transform: 'translateY(-4px)' }], 300, 0, selectedAt);
       }
       const portrait = strip.querySelector<HTMLElement>('.portrait')!;
+      if (readySides.has(side)) readySeal(motion, portrait, true, openingAt, true);
       if (checked !== null && pos.turn === side) {
         portrait.classList.add('is-checked');
         checkFrame(motion, portrait, checkAt);
@@ -604,6 +608,7 @@ export function boardScreen(store: Store) {
     // Keep the armed row size while the preview asks for a second tap and names the result.
     if (hold && !['result','refusal','link'].includes(context.rank)) Object.assign(context, {rank:context.rank === 'armed' ? 'armed' : 'held', line:`Select again to ${hold.move.shove ? 'shove' : 'swap'}.`, note:describeMove(gameRules, pos, hold.move)});
     if (view.draw_offer != null && (t6 || !['result','refusal','link'].includes(context.rank))) context.note = [context.note, view.draw_offer === view.seat ? 'Draw offered. Waiting for your opponent.' : 'Your opponent offers a draw.'].filter(Boolean).join(' ');
+    else if (declinedDraw && Number.isFinite(drawAt) && !['result','refusal','link'].includes(context.rank)) context.note = [context.note, 'Draw offer declined. The game continues.'].filter(Boolean).join(' ');
     if (stale()) Object.assign(context, {rank:'link', line:'Not current', note:''});
     $('status').textContent = context.rank === 'refusal' ? t6 : context.line;
     $('context-note').textContent = ['armed','held'].includes(context.rank) ? [context.note, memory.blockNotice].filter(Boolean).join(' ') : memory.blockNotice || context.note;
@@ -612,6 +617,7 @@ export function boardScreen(store: Store) {
     if (checked !== null) motion.reveal($('status'), 430, 10, 250, checkAt);
     motion.reveal($('context-text'), 420, 8, 2200, openingAt);
     $('context-text').tabIndex = context.rank === 'armed' ? 0 : -1;
+    if (!['result','refusal','link'].includes(context.rank) && Number.isFinite(drawAt)) drawOfferReply(motion, $('context-note'), declinedDraw, drawAt);
     const actions: HTMLButtonElement[] = [];
     const drawReply = !view.result && view.draw_offer != null && view.draw_offer !== view.seat && view.kind !== 'solo';
     const unarmed = !armed && armedCard === undefined;
@@ -722,8 +728,11 @@ export function boardScreen(store: Store) {
     if (view?.game_id === next.game_id && next.revision < view.revision) return;
     const before = view, same = view?.game_id === next.game_id, previousDraft = serverDraft;
     liveOnsets = same && !restoring && before?.revision !== next.revision;
+    if (liveOnsets) { drawAt = -Infinity; declinedDraw = false; }
+    if (liveOnsets && before?.draw_offer !== next.draw_offer && next.kind !== 'solo' && next.status === 'playing') { drawAt = performance.now(); declinedDraw = next.draw_offer == null; }
     if (liveOnsets && before?.turn !== next.turn) turnAt = performance.now();
     if (restoring || same && before?.status === 'playing' && next.status !== 'playing') motion.cancel();
+    if (!same || restoring) { drawAt = -Infinity; readySides.clear(); }
     if (!same) { motion.cancel(); dealtAt = openingAt = turnAt = checkAt = -Infinity; cardSpent.clear(); spentAt.clear(); powerSpent.clear(); powerAt.clear(); checked = null; }
     if (!same || next.status !== 'finished') skipBoardCeremony();
     if (same && !restoring && ['playing', 'waiting', 'setup'].includes(before?.status ?? '') && ['finished', 'aborted'].includes(next.status)) { toppling = true; guardEndTaps(next.game_id, next.status === 'finished' && before?.status === 'playing'); }
@@ -732,6 +741,7 @@ export function boardScreen(store: Store) {
     const started = !restoring && next.status === 'playing' && next.history?.actions.length === 0 && (createdHere || same && ['setup', 'waiting'].includes(before?.status ?? '')) && board.motion();
     if (started && next.options?.cards) dealing = true;
     if (started) opening = true;
+    if (started && same && before?.status === 'setup') for (const side of [0, 1]) if (!before.ready?.[side]) readySides.add(side);
     const unchanged = same && before?.revision === next.revision && before.fen === next.fen && before.status === next.status && before.engine_fingerprint === next.engine_fingerprint;
     view = {...next, rules:next.rules ?? (same ? view?.rules : undefined), outcome:next.outcome ?? (same ? view?.outcome : undefined), opponent:next.opponent && {...next.opponent, rating:next.rules ? next.opponent.rating : next.opponent.rating ?? (same ? view?.opponent?.rating : undefined)}};
     if (['finished','aborted'].includes(next.status)) setTimeout(()=>{
