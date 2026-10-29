@@ -36,6 +36,10 @@ describe('parked entry points', () => {
     expect(read('src/plugin/screens/setup.ts')).not.toMatch(/Join with a code|id="token"|join-form/);
   });
 
+  it('the QA steps do not ask for code typing', () => {
+    expect(read('docs/qa/plugin-qa-protocol.md')).not.toMatch(/join with a code|type (the|a) code/i);
+  });
+
   it('no screen reaches named invitations or the invitation inbox', () => {
     const files = ['src/online/client.ts', 'src/online/runtime.ts', ...sources('src/account-game'), ...sources('src/plugin/screens')];
     for (const file of files) expect(read(file), file).not.toMatch(/\/api\/friends|\/decline'|kingdown_friends|kingdown_decline_invite|recipient_(id|handle)|invitations/);

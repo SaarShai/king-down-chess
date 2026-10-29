@@ -594,7 +594,9 @@ it.each(['kingdown_create', 'kingdown_choose'])('finishes the computer handoff w
   } finally { await page.close(); }
 });
 
-// Parked (docs/PARKED.md): this race needs typed codes; the invite link opens one preview at a time.
+// Parked (docs/PARKED.md): this race needs typed codes (#token and #join run on the app queue, so holdNext can hold
+// the join). The invite link opens one preview at a time through harnessTool, outside that queue. The body is the
+// typed-code test as it was; un-skip it only when code typing comes back.
 it.skip('previews the current code after Back while the old preview loads', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
@@ -603,9 +605,9 @@ it.skip('previews the current code after Back while the old preview loads', asyn
     const a = await buddy(page, 'kingdown_invite', { game_id: first._meta.view.game_id });
     const b = await buddy(page, 'kingdown_invite', { game_id: second._meta.view.game_id });
     await hall(page); await page.evaluate(() => { (window as any).holdNext = 'kingdown_join'; });
-    await joinLink(page, a.structuredContent.code);
+    await chooseKind(frame, 'A friend'); await frame.locator('#token').fill(a.structuredContent.code); await frame.locator('#join').click();
     await page.waitForFunction(() => !!(window as any).releaseHeld);
-    await frame.locator('#page-back').click(); await joinLink(page, b.structuredContent.code);
+    await frame.locator('#page-back').click(); await chooseKind(frame, 'A friend'); await frame.locator('#token').fill(b.structuredContent.code); await frame.locator('#join').click();
     await page.evaluate(() => (window as any).releaseHeld());
     await frame.locator('#join-confirm').waitFor();
     expect(await frame.locator('#join-preview .line').last().textContent()).toContain('You play White.');
