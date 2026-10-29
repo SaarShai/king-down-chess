@@ -75,11 +75,27 @@ export function withKing(s: Setup, c: Color, king: KingName): Setup {
   return next;
 }
 
+/**
+ * Pass-and-play is parked (docs/PARKED.md). A rematch of a game with two people on one device is
+ * against the computer, and the person plays Black. Any other rematch swaps the sides.
+ */
+export const rematchPlayers = (sides: readonly [Side, Side]): [Side, Side] =>
+  sides[0] === 'human' && sides[1] === 'human' ? ['ai', 'human'] : [sides[1], sides[0]];
+
+/**
+ * The game link is parked (docs/PARKED.md). A saved link game, where this device plays side `link`,
+ * loads as a game against the computer: the computer plays the friend's side.
+ */
+export const parkedLinkPlayers = (link: Color): [Side, Side] => (link === 0 ? ['human', 'ai'] : ['ai', 'human']);
+
+/** The notice when a saved link game loads against the computer. */
+export const PARKED_LINK_NOTICE = "This version cannot send game links. The computer plays your friend's side.";
+
 /** The setup of a game in progress, for a saved game from before the dialog remembered its own. */
 export function setupOfGame(sides: readonly [Side, Side], kings: readonly [KingChoice | null, KingChoice | null], level: SkillName): Setup {
   const s = defaultSetup(), humans = sides.filter(x => x === 'human').length, powered = !!(kings[0] || kings[1]);
-  s.mode = humans === 2 ? 'two' : powered ? 'powers' : 'computer';
-  s.twoPowers = humans === 2 && powered;
+  // Pass-and-play (Mode `two`) is parked (docs/PARKED.md): a saved two-person game finishes, and its next game is against the computer.
+  s.mode = powered ? 'powers' : 'computer';
   s.side = humans === 1 && sides[1] === 'human' ? 1 : 0;
   s.level = level;
   kings.forEach((k, c) => { if (k) s.picks[c] = { ...k }; });
@@ -98,7 +114,9 @@ export function parseSetup(v: unknown): Setup | null {
   if (!s || !['computer', 'powers', 'two'].includes(s.mode as string) || !isLevel(s.level) || (s.side !== 0 && s.side !== 1)
     || typeof s.twoPowers !== 'boolean' || typeof s.army !== 'string' || !Array.isArray(s.picks)) return null;
   const [w, b] = [pick(s.picks[0]), pick(s.picks[1])];
-  return w && b ? { mode: s.mode as Mode, level: s.level, side: s.side, twoPowers: s.twoPowers, picks: [w, b], army: ARMIES.includes(s.army) ? s.army as Army : 'random' } : null;
+  // Pass-and-play is parked (docs/PARKED.md): a remembered Mode `two` opens as a game against the computer.
+  const mode: Mode = s.mode === 'two' ? (s.twoPowers ? 'powers' : 'computer') : s.mode as Mode;
+  return w && b ? { mode, level: s.level, side: s.side, twoPowers: mode === s.mode && s.twoPowers, picks: [w, b], army: ARMIES.includes(s.army) ? s.army as Army : 'random' } : null;
 }
 
 /** The sheet warns before Start ends a game with moves. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSetup, newGamePowerLine, newGameWarning, kingsOf, parseSetup, playersOf, powersOn, setupOfGame, withKing, withMode } from './new-game';
+import { defaultSetup, newGamePowerLine, newGameWarning, kingsOf, parkedLinkPlayers, parseSetup, playersOf, powersOn, rematchPlayers, setupOfGame, withKing, withMode } from './new-game';
 import { PRESETS, designCode, fromPreset } from './workshop/model';
 import { powerOptions } from './powers-ui';
 import { Game } from './game';
@@ -53,7 +53,15 @@ describe('New game setup', () => {
     const powered = setupOfGame(['human', 'ai'], [{ king: 'Frost', power: 'IceWall' }, null], 'club');
     expect(powered.mode).toBe('powers');
     expect(powered.picks).toEqual([{ king: 'Frost', power: 'IceWall' }, { king: 'Shadow', power: null }]);
-    expect(setupOfGame(['human', 'human'], [null, { king: 'Mud', power: 'Leap' }], 'club')).toMatchObject({ mode: 'two', twoPowers: true });
+    // Pass-and-play is parked (docs/PARKED.md): an old two-person save gives a setup against the computer.
+    expect(setupOfGame(['human', 'human'], [null, { king: 'Mud', power: 'Leap' }], 'club')).toMatchObject({ mode: 'powers', twoPowers: false });
+    expect(setupOfGame(['human', 'human'], [null, null], 'club')).toMatchObject({ mode: 'computer', twoPowers: false });
+  });
+
+  it('reads a remembered pass-and-play setup as a game against the computer (parked)', () => {
+    const two = withMode(defaultSetup(), 'two', true);
+    expect(parseSetup(JSON.parse(JSON.stringify(two)))).toMatchObject({ mode: 'powers', twoPowers: false });
+    expect(parseSetup(JSON.parse(JSON.stringify(withMode(defaultSetup(), 'two'))))).toMatchObject({ mode: 'computer', twoPowers: false });
   });
 
   it('accepts only a whole, valid remembered setup', () => {
@@ -119,7 +127,8 @@ describe('a remembered setup from a parked feature (docs/PARKED.md)', () => {
 
   it('drops a "Bring a design" choice and keeps the rest of the setup', () => {
     const old = { ...defaultSetup(), mode: 'two', twoPowers: true, design: designCode(rook) };
-    expect(parseSetup(old)).toEqual({ ...defaultSetup(), mode: 'two', twoPowers: true });
+    // Pass-and-play is parked too: Mode `two` with Kings' powers opens as a game against the computer with powers.
+    expect(parseSetup(old)).toEqual({ ...defaultSetup(), mode: 'powers', twoPowers: false });
   });
 });
 
@@ -129,4 +138,18 @@ it('keeps old level values and maps the three menu stops', async () => {
   expect(MENU_LEVELS).toEqual(['beginner','casual','club']);
   for (const level of [...MENU_LEVELS, 'strong'] as const) expect(parseSetup({ ...defaultSetup(), level })?.level).toBe(level);
   expect(menuLevel('strong')).toBe('club'); expect(LEVEL_NAMES.strong).toBe('Strong'); expect(levelPosition('strong')).toBe(2);
+});
+
+describe('parked pass-and-play and game link (docs/PARKED.md)', () => {
+  it('a rematch of a two-person game is against the computer; other rematches swap the sides', () => {
+    expect(rematchPlayers(['human', 'human'])).toEqual(['ai', 'human']);
+    expect(rematchPlayers(rematchPlayers(['human', 'human']))).toEqual(['human', 'ai']);
+    expect(rematchPlayers(['human', 'ai'])).toEqual(['ai', 'human']);
+    expect(rematchPlayers(['ai', 'human'])).toEqual(['human', 'ai']);
+  });
+
+  it("a saved link game seats the computer on the friend's side", () => {
+    expect(parkedLinkPlayers(0)).toEqual(['human', 'ai']);
+    expect(parkedLinkPlayers(1)).toEqual(['ai', 'human']);
+  });
 });

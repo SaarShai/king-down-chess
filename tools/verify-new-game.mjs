@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { powersHidden, endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
-import { WARD_CODE, WARD_LINK } from './lib/design-link.mjs';
+import { WARD_LINK } from './lib/design-link.mjs';
 
 const base = env('PLAYABLE_URL');
 const browser = await launch();
@@ -161,36 +161,36 @@ try {
   ok('save recovery: FEN, rules, kings, players, and design keep both choices, source, time, hash, and history');
 
   {
+    // The game link is parked (docs/PARKED.md): a link opens as a plain visit and says so.
     const page = await open({ query: '?army=RNBQKBNR&moves=e2-e4_e7-e5&title=0' });
-    assert.deepEqual((await saved(page)).moves, ['e2-e4', 'e7-e5']);
-    assert.equal(new URL(page.url()).searchParams.has('moves'), false);
-    await page.reload();
-    await page.waitForFunction(() => window.view?.ready);
-    await page.evaluate(() => window.view.ready());
-    assert.deepEqual((await saved(page)).moves, ['e2-e4', 'e7-e5']);
+    assert.deepEqual((await saved(page)).moves, []);
+    assert.deepEqual([...new URL(page.url()).searchParams.keys()], ['title'], 'the link parameters leave the address');
+    assert.equal(await page.textContent('#context-text'), 'This version cannot open game links.');
     assertNoErrors(page);
     await page.context().close();
   }
-  ok('a shared game link still opens and reloads its moves');
+  ok('a game link (parked) opens as a plain visit');
 
   {
-    // A chosen link that replaces a different game is a player change: it gets its own time.
+    // A parked link asks nothing and keeps the saved game and its time.
+    let asked = false;
     const page = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'human', coords: true, resigned: null, pace: 'off', sound: false, gameAt: 500 },
-      query: '?army=RNBQKBNR&moves=d2-d4&title=0', confirm: true });
+      query: '?army=RNBQKBNR&moves=d2-d4&title=0' });
+    page.on('dialog', dialog => { asked = true; void dialog.dismiss(); });
     const kept = await saved(page);
-    assert.deepEqual(kept.moves, ['d2-d4']);
-    assert.ok(kept.gameAt > 500, `a chosen link gets a new time, not the replaced game's ${kept.gameAt}`);
+    assert.deepEqual([kept.moves, kept.gameAt, asked], [['e2-e4'], 500, false]);
+    assert.equal(await page.textContent('#context-text'), 'This version cannot open game links. Your saved game stays.');
     assertNoErrors(page);
     await page.context().close();
   }
-  ok('a chosen game link gets its own change time');
+  ok('a game link (parked) keeps the saved game');
 
   {
     // Recovery from a `?rules=2017` page ends the preset for New game and the Guide too.
     const source = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5', 'bad'], white: 'human', black: 'human', coords: true, resigned: null, pace: 'off', sound: false, gameAt: 500 };
     const page = await open({ save: source, query: '?rules=2017' });
     await page.locator('#recovery-new-game').click();
-    await page.locator('#mode-two').check(); await page.locator('#two-powers').check();
+    await page.click('#new-game label:has(#mode-powers)'); // pass-and-play (#mode-two) is parked
     await page.locator('#pick-0 [data-king="Frost"]').click(); await page.locator('#pick-0 [data-power="Freeze"]').click();
     const line = await powerLine(page, 0), guide = await page.locator('#powers-list [data-power="Freeze"]').textContent();
     await page.locator('#start-game').click();
@@ -202,25 +202,9 @@ try {
   }
   ok('recovery from a ?rules= page ends the preset for New game and the Guide');
 
-  {
-    // Share builds the link from the recovered game's own rules, not the ended `?rules=` field.
-    const maker = await open({ query: '?rules=2017&kings=frost:freeze&title=0' });
-    const rules = (await saved(maker)).rules;
-    await maker.context().close();
-    const source = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5', 'bad'], white: 'human', black: 'human', coords: true, resigned: null, pace: 'off', sound: false, gameAt: 500, rules };
-    const page = await open({ save: source, query: '?rules=2017' });
-    await page.locator('#recover-save').click();
-    await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { value: { writeText: async text => { window.copiedLink = text; } } }));
-    await page.locator('#menu-btn').click(); await page.locator('#share').click();
-    await page.waitForFunction(() => window.copiedLink);
-    const link = new URL(await page.evaluate(() => window.copiedLink));
-    assert.equal(link.searchParams.get('rules'), '2017', `the link names the game's rules: ${link}`);
-    const receiver = await open({ query: link.search });
-    assert.deepEqual((await saved(receiver)).rules, rules, 'the friend plays the same rules');
-    assertNoErrors(page); assertNoErrors(receiver);
-    await page.context().close(); await receiver.context().close();
-  }
-  ok('a recovered old-rule game shares a link with its rules');
+  // Share (Send the game link) is parked (docs/PARKED.md): its check stays in git history.
+  assert.equal(await (async () => { const page = await open(); const n = await page.locator('#share').count(); await page.context().close(); return n; })(), 0, 'no Send the game link');
+  ok('Send the game link is parked');
 
   for (const choice of ['cancel', 'start', 'failed read', 'late close']) {
     const source = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5', 'Qd1-d8'], white: 'human', black: 'human', coords: true, resigned: null, pace: 'off', sound: false };
@@ -300,7 +284,7 @@ try {
   for (const { shadow } of selected) assert.match(shadow, /rgb\(233, 192, 113\).*2px.*inset/, 'each selected choice has an inset gold ring');
   assert.equal(await page.evaluate(() => document.getElementById('more-options').open), false, 'More options starts folded');
   assert.equal(await shown(page, 'king-picker'), false, 'no king picker without powers');
-  assert.equal(await page.locator('#modes input[type="radio"]').count(), 3);
+  assert.equal(await page.locator('#modes input[type="radio"]').count(), 2, "two modes: pass-and-play is parked");
   assert.equal(await page.getByRole('radio', { name: /Artificial/ }).isChecked(), true);
   await shot(page, 'desktop-computer.jpg', jpeg);
   ok('defaults: Artificial, Club, you play White, Random King Down army, no picker');
@@ -408,29 +392,15 @@ try {
   await kingsDrawn(page, ['mud', 'shadow']); // a king with no power is drawn as the plain king
   ok("Kings' powers: Spirit Holy Light and Shadow Death Touch by default; Mud March against a king with no power");
 
-  // 4. A friend: both sides on this device; the Kings' powers box adds the picker.
-  await startGame(page, { mode: 'two' });
-  s = await saved(page);
-  assert.deepEqual([s.white, s.black, s.rules.kings], ['human', 'human', [null, null]]);
-  await setUpGame(page, { mode: 'two', powers: true });
-  assert.equal(await shown(page, 'king-picker'), true);
-  assert.equal(await shown(page, 'level'), false, 'no computer level for two people');
-  assert.equal(await shown(page, 'side-choice'), false);
-  assert.deepEqual(await pressed(page, 0), ['Mud', 'March'], 'the picker keeps the last kings');
-  assert.deepEqual(await pressed(page, 1), ['Frost', 'Freeze'], 'turning powers on gives a king with no power its first power');
-  await startGame(page, { kings: ['Flame:Haste', 'Stratus:Flight'], army: 'classic' });
-  s = await saved(page);
-  assert.deepEqual([s.white, s.black], ['human', 'human']);
-  assert.deepEqual(s.rules.kings, [{ king: 'Flame', power: 'Haste' }, { king: 'Stratus', power: 'Flight' }]);
-  await kingsDrawn(page, ['flame', 'stratus']); // the chosen kings, each in its army's colour
-  ok("A friend: two people; with the Kings' powers box, Flame Haste against Stratus Flight, drawn as Flame and Stratus");
+  // 4. A friend (pass-and-play) is parked (docs/PARKED.md): New game has no two-person choice.
+  assert.equal(await page.locator('#mode-two').count(), 0);
+  ok('A friend (pass-and-play) is parked');
 
   // 5. The dialog remembers the last game's setup across a reload.
   await page.reload(); await page.waitForFunction(() => window.view?.ready);
   await pressMenu(page, 'New game');
-  assert.equal(await checked(page, 'mode'), 'two');
-  assert.equal(await page.isChecked('#two-powers'), true);
-  assert.deepEqual(await pressed(page, 0), ['Flame', 'Haste']);
+  assert.equal(await checked(page, 'mode'), 'powers');
+  assert.deepEqual(await pressed(page, 0), ['Mud', 'March']);
   await page.keyboard.press('Escape');
   ok('memory: a reload opens New game on the last setup');
 
@@ -441,12 +411,13 @@ try {
       picks: [{ king: 'Spirit', power: null }, { king: 'Shadow', power: null }] };
     const parked = await open({ setup: JSON.stringify(remembered) });
     await pressMenu(parked, 'New game');
-    assert.equal(await checked(parked, 'mode'), 'two', `${army}: the rest of the setup stays`);
+    // Pass-and-play is parked too: the remembered Mode `two` opens as a game against the computer.
+    assert.equal(await checked(parked, 'mode'), 'computer', `${army}: a parked Mode two opens against the computer`);
     assert.equal(await checked(parked, 'army'), 'random', `${army}: a parked army opens as Random`);
     assert.deepEqual(await parked.$$eval('#new-game input[name="army"]', inputs => inputs.map(i => i.value)), ['random', 'classic'], 'Army offers Random and Chess only');
     assert.equal(await parked.locator('#design, #other-armies, #army').count(), 0, 'no Bring a design and no More armies');
     await startGame(parked);
-    assert.deepEqual([(await saved(parked)).moves, (await saved(parked)).white, (await saved(parked)).black], [[], 'human', 'human'], `${army}: Start plays a new game`);
+    assert.deepEqual([(await saved(parked)).moves, (await saved(parked)).white, (await saved(parked)).black], [[], 'human', 'ai'], `${army}: Start plays a new game against the computer`);
     assertNoErrors(parked);
     await parked.context().close();
   }
@@ -454,30 +425,32 @@ try {
 
   // 7. Keyboard: the modes are one radio group; arrows move through it.
   await pressMenu(page, 'New game');
-  await page.focus('#mode-two');
-  await page.keyboard.press('ArrowUp');
-  assert.equal(await checked(page, 'mode'), 'powers');
-  assert.equal(await shown(page, 'level'), true);
+  // Pass-and-play (A friend) is parked (docs/PARKED.md): two modes stay.
+  assert.equal(await page.locator('#modes input[name="mode"]').count(), 2);
+  await page.focus('#mode-powers');
   await page.keyboard.press('ArrowUp');
   assert.equal(await checked(page, 'mode'), 'computer');
   assert.equal(await shown(page, 'king-picker'), false);
+  await page.keyboard.press('ArrowDown');
+  assert.equal(await checked(page, 'mode'), 'powers');
+  assert.equal(await shown(page, 'level'), true);
   await page.keyboard.press('Escape');
   await page.context().close();
-  ok('keyboard: the arrow keys step through the three modes');
+  ok('keyboard: the arrow keys step through the two modes');
 
-  // 7b. The Workshop is parked: an old `?design=` link opens the game, not the Workshop, and the URL loses it; a game
-  // link that holds a design still plays it on a device without it; a game link with a design that this version cannot
-  // read still says why and keeps the saved game.
+  // 7b. The Workshop is parked: an old `?design=` link opens the game, not the Workshop, and the URL loses it. The game
+  // link is parked too: a game link with a design opens as a plain visit, says why, and keeps the saved game.
   page = await open({ query: '?design=old-design-code' });
   assert.deepEqual(await page.evaluate(() => [document.getElementById('workshop')?.open ?? false, location.search]), [false, ''], 'an old design link opens no Workshop');
   await page.context().close();
+  // The game link is parked (docs/PARKED.md): a game link that holds a design opens as a plain visit.
   page = await open({ query: WARD_LINK });
   s = await saved(page);
-  assert.deepEqual([s.back, s.rules.design.code, await page.evaluate(() => window.view.pos.board[1])], ['RTBQKBNR', WARD_CODE, 15], 'a game link plays the design it holds, on a device without it');
+  assert.equal(s.rules?.design ?? null, null, 'a parked game link plays no design');
   assert.equal(await page.evaluate(() => document.getElementById('workshop')?.open ?? false), false, 'a game link does not open the Workshop');
   await page.context().close();
   page = await open({ query: '?kings=spirit:mercy&design=unreadable&army=RTBQKBNR&moves=e2-e4', save: { back: 'RNBQKBNR', fen: '', moves: ['d2-d4'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'off' } });
-  assert.equal(await page.textContent('#context-text'), 'The game link holds a piece that this version cannot read. Your saved game stays.', 'a link with a design this version cannot read says why');
+  assert.equal(await page.textContent('#context-text'), 'This version cannot open game links. Your saved game stays.', 'a parked link says why');
   assert.deepEqual([await lanMoves(page), (await saved(page)).back, (await saved(page)).rules.kings], [['d2-d4'], 'RNBQKBNR', [null, null]], 'the saved game stays, without the link\'s kings');
   assert.deepEqual(await page.evaluate(() => [document.getElementById('workshop')?.open ?? false, location.search]), [false, ''], 'no Workshop, and the URL loses the link');
   await page.context().close();
@@ -544,8 +517,8 @@ try {
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
     page = await open({ viewport, touch: true });
-    for (const mode of ['computer', 'powers', 'two']) {
-      await setUpGame(page, { mode, powers: mode === 'two' ? true : undefined, army: 'classic' });
+    for (const mode of ['computer', 'powers']) { // pass-and-play is parked
+      await setUpGame(page, { mode, army: 'classic' });
       await insideViewport(page, '#start-game');
       assert.equal(await checked(page, 'army'), 'classic');
     }
@@ -558,9 +531,8 @@ try {
   await pressMenu(page, 'New game');
   await shot(page, 'phone-computer.jpg', jpeg);
   await page.click('#more-options summary');
-  for (const mode of ['computer', 'powers', 'two']) {
+  for (const mode of ['computer', 'powers']) { // pass-and-play is parked
     await page.click(`label:has(#mode-${mode})`);
-    if (mode === 'two') await page.check('#two-powers');
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.getElementById('new-game').scrollWidth <= document.getElementById('new-game').clientWidth), mode);
     if (mode === 'powers') await shot(page, 'phone-powers.jpg', jpeg);
   }
@@ -571,7 +543,7 @@ try {
     return { w: r.width, h: r.height, fs: parseFloat(getComputedStyle(l).fontSize), whole: l.scrollWidth <= l.clientWidth + 1 };
   }))) assert.ok(b.w >= 44 && b.h >= 44 && b.fs >= 14 && b.whole, JSON.stringify(b));
   await page.context().close();
-  ok('phone: no sideways scroll in the three modes with More options open; power buttons 44 px or more with whole 14 px labels');
+  ok('phone: no sideways scroll in the two modes with More options open; power buttons 44 px or more with whole 14 px labels');
 
   // 11. Reduced motion: nothing in the picker moves; each picture keeps its still frame.
   page = await open({ reducedMotion: 'reduce' });

@@ -55,8 +55,9 @@ it.each([false, true])('adopts confirmed copy, Ready and draw events without reo
     const made = await tool('kingdown_create', { kind: 'friend', colour: 'black', options: { ...DEFAULT_OPTIONS, arrangement: true, kingPowers: false, cards: false } });
     await show(made); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     if (!made._meta.invite) await frame.locator('#friend-new').click();
-    await frame.locator('#friend-code > span').first().waitFor();
-    const code = await frame.locator('#friend-code').textContent();
+    // Code tiles are parked (docs/PARKED.md): the copy light crosses the one invite link, which holds the code.
+    await frame.locator('#friend-link > span').waitFor();
+    const link = await frame.locator('#friend-link').textContent(), code = link!.split('#')[1];
     // A fast clipboard reply can finish in the same clock tick as cancellation.
     await frame.locator('html').evaluate(() => {
       const now = performance.now, stamp = now.call(performance);
@@ -64,22 +65,22 @@ it.each([false, true])('adopts confirmed copy, Ready and draw events without reo
       (window as any).restoreCopyClock = () => { performance.now = now; };
     });
     await frame.locator('#friend-copy').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Copied' }).waitFor();
-    expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 6);
+    expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 1);
     await frame.locator('html').evaluate(() => (window as any).restoreCopyClock());
     await frame.locator('html').evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
     await expect.poll(() => frame.locator('.ui-object-copy-light').count()).toBe(0);
     await frame.locator('html').evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: false }); document.dispatchEvent(new Event('visibilitychange')); });
-    expect(await frame.locator('#friend-code').textContent()).toBe(code);
-    expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 6);
+    expect(await frame.locator('#friend-link').textContent()).toBe(link);
+    expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 1);
     await frame.locator('html').evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Denied'); } } });
       document.execCommand = () => false;
       Object.defineProperty(navigator, 'share', { configurable: true, value: async () => {} });
     });
-    await frame.locator('#friend-copy').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Select the invite and copy it' }).waitFor();
-    expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 6);
+    await frame.locator('#friend-copy').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Select the invite link and copy it' }).waitFor();
+    expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 1);
     await frame.locator('#friend-share').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Shared' }).waitFor();
-    expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 6);
+    expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 1);
     await frame.locator('html').evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => new Promise<void>(resolve => { (window as any).finishCopy = resolve; }) } });
     });
@@ -90,7 +91,7 @@ it.each([false, true])('adopts confirmed copy, Ready and draw events without reo
     await frame.locator('[data-screen="seat"]:not([hidden]) #seat-ready:not(:disabled)').waitFor();
     await frame.locator('html').evaluate(() => (window as any).finishCopy());
     await expect.poll(() => frame.locator('#friend-copy-status').textContent()).toBe('Copied');
-    expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 6);
+    expect(await events('.ui-object-copy-light')).toHaveLength(reduced ? 0 : 1);
     await frame.locator('#seat-ready').click(); await frame.locator('#seat-context').filter({ hasText: 'Waiting' }).waitFor();
     await expect.poll(() => events('.ui-object-seal').then(e => e.length)).toBe(reduced ? 0 : 1);
     await show(await tool('kingdown_get', { game_id: made._meta.view.game_id }));

@@ -34,6 +34,8 @@ const iconNames = { P:'pawn', N:'knight', B:'bishop', R:'rook', Q:'queen', K:'ki
 const iconSources = Object.fromEntries(await Promise.all(Object.values(iconNames).map(async name => [name, await readFile(`public/ui/icons/${name}.svg`, 'utf8')])));
 import { assertNoErrors, env, launch, shot, STEP, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL');
+// Code typing and code tiles are parked (docs/PARKED.md): the friend screen shows the invite link, which holds the code.
+const linkCode = async scope => (await scope.locator('#friend-link').textContent()).split('#')[1];
 const testHandle = `mvp_${randomUUID().replaceAll('-', '').slice(0,12)}`;
 const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: true });
@@ -490,7 +492,6 @@ try {
   }
   const navCalls = await page.evaluate(() => window.harnessCalls.length);
   await chooseKind('Random'); await frame.locator('#play-open').click(); await frame.locator('[data-screen="lobby"]:not([hidden])').waitFor(); await openPlay();
-  await chooseKind('A friend'); await frame.locator('#token').fill('K7QX2M'); await frame.locator('#join').click(); await frame.locator('[data-screen="join"]:not([hidden])').waitFor(); await openPlay();
   // Opening a screen may read (the lobby list, a join preview, the games rows) but never writes: no game, seat or setting changes.
   const navWrites = await page.evaluate(n => window.harnessCalls.slice(n).filter(({ name, arguments: a = {} }) =>
     !['kingdown_get', 'kingdown_games', 'kingdown_lobby', 'kingdown_profile'].includes(name)
@@ -1363,10 +1364,10 @@ try {
     await openPlay(); await lookAt('play', 'play');
     const friend = await showCreated('friend'); await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     if (!friend.invite) await frame.locator('#friend-new').click();
-    await frame.locator('.game-code span').first().waitFor();
-    const code = (await frame.locator('.game-code span').allTextContents()).join(''); assert(code.length === 6, 'Create gives six code tiles');
+    await frame.locator('#friend-link span').waitFor();
+    const code = await linkCode(frame); assert(code.length === 6, 'The invite link holds the six-character code');
     if (friend.invite) assert.equal(code, friend.invite.code, 'Create shows its returned code');
-    const fullInvite = `Join King Down game ${code}. Rules: Fairy pieces.`;
+    const fullInvite = `Join my King Down game: ${await frame.locator('#friend-link').textContent()} Rules: Fairy pieces.`;
     assert.deepEqual(await frame.locator('#friend-actions button').allTextContents(), ['Share', 'Copy']);
     assert(await frame.locator('#friend-share').evaluate(button => button.classList.contains('primary')), 'Share is the main action');
     assert((await frame.locator('#friend-expiry').innerText()).startsWith('Ends '), 'The Ends line stays');
@@ -1381,8 +1382,8 @@ try {
         await host.frame.locator('#setup-start').click();
         const created = await (await creating).json(); assert(!created.isError, JSON.stringify(created.content));
         if (!created._meta.invite) await host.frame.locator('#friend-new').click();
-        await host.frame.locator('.game-code span').first().waitFor();
-        if (created._meta.invite) assert.equal((await host.frame.locator('.game-code span').allTextContents()).join(''), created._meta.invite.code, 'Create shows its returned code on a mobile host');
+        await host.frame.locator('#friend-link span').waitFor();
+        if (created._meta.invite) assert.equal(await linkCode(host.frame), created._meta.invite.code, 'Create shows its returned code on a mobile host');
         await host.frame.locator('html').evaluate(() => document.fonts.ready);
         const labels = await host.frame.locator('#friend-actions').evaluate(row => [...row.querySelectorAll('button')].map(button => {
           const label = button.querySelector('.label') ?? button, range = document.createRange();
@@ -1424,14 +1425,14 @@ try {
     }, webkit);
     await frame.locator('#friend-copy').click();
     await frame.locator('#friend-copy-status').filter({ hasText: /^Copied$/ }).waitFor();
-    assert.equal(await frame.locator('html').evaluate(() => window.objectMotionCalls.filter(c => c.kind === 'ui-object-copy-light').length), 6, 'A successful copy sweeps the six source tiles once');
+    assert.equal(await frame.locator('html').evaluate(() => window.objectMotionCalls.filter(c => c.kind === 'ui-object-copy-light').length), 1, 'A successful copy sweeps the invite link once');
     if (webkit) assert.equal(await frame.locator('html').evaluate(() => window.ticket13CopiedText), fullInvite, 'Copy sends the full invite to the clipboard');
     else assert.equal(await page.evaluate(() => navigator.clipboard.readText()), fullInvite, 'The granted clipboard contains the full invite');
     await frame.locator('html').evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Denied'); } } }); document.execCommand = () => false;
     });
-    await frame.locator('#friend-copy').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Select the invite and copy it' }).waitFor();
-    assert.equal(await frame.locator('html').evaluate(() => window.objectMotionCalls.filter(c => c.kind === 'ui-object-copy-light').length), 6, 'A failed copy has no new success motion');
+    await frame.locator('#friend-copy').click(); await frame.locator('#friend-copy-status').filter({ hasText: 'Select the invite link and copy it' }).waitFor();
+    assert.equal(await frame.locator('html').evaluate(() => window.objectMotionCalls.filter(c => c.kind === 'ui-object-copy-light').length), 1, 'A failed copy has no new success motion');
     assert.equal(await frame.locator('html').evaluate(() => getSelection().toString()), fullInvite, 'The refused clipboard leaves the full invite selected');
     assert.equal(await frame.locator('html').evaluate(() => window.inviteShareCalls), 0, 'A refused Copy does not open the share sheet');
     await frame.locator('html').evaluate(() => { if (window.ticket13Clipboard) Object.defineProperty(navigator, 'clipboard', window.ticket13Clipboard); else delete navigator.clipboard; document.execCommand = window.ticket13Copy; getSelection().removeAllRanges(); });
@@ -1443,7 +1444,7 @@ try {
     assert.equal(await frame.locator('html').evaluate(() => window.sharedInvite), fullInvite, 'Share sends the same full invite');
     const invites = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length);
     await openPlay(); await settled(page, frame);
-    const inviteRow = frame.locator('.friend-invite-row').filter({ hasText: code });
+    const inviteRow = frame.locator('.friend-invite-row').first(); // the row no longer shows the code
     await inviteRow.waitFor();
     for (const [width, height] of [[197,426], [320,568], [390,844]]) {
       await page.setViewportSize({ width, height });
@@ -1465,11 +1466,11 @@ try {
       await inviteRow.screenshot({ path: join(look, `friend-row-${width}-${mode}.png`) });
     }
     const resumes = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_resume').length);
-    await inviteRow.getByRole('button', { name: `Share game ${code}`, exact: true }).click();
+    await inviteRow.getByRole('button', { name: 'Share the invite link', exact: true }).click();
     await inviteRow.getByRole('status').filter({ hasText: /^Shared$/ }).waitFor();
-    assert.equal(await frame.locator('html').evaluate(() => window.sharedInvite), fullInvite, 'Your games shares the code and rule names');
+    assert.equal(await frame.locator('html').evaluate(() => window.sharedInvite), fullInvite, 'Your games shares the invite link and rule names');
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_resume').length), resumes, 'Share does not open the game');
-    assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites, 'Share keeps the same code');
+    assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites, 'Share keeps the same invite');
     await inviteRow.locator('button[data-game-id]').click();
     await frame.locator('[data-screen="friend"]:not([hidden])').waitFor();
     // A saved-game read has no raw code; replaying Create on the HTTP host restores its code.
@@ -1478,7 +1479,7 @@ try {
     await page.evaluate(result => { window.harnessWidgets.at(-1).initialResult = result; }, savedFriend);
     await remount('friend'); await frame.locator('#friend-new').waitFor();
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), invites, 'Remount makes no new code');
-    assert.equal(await frame.locator('.game-code span').count(), 0, 'The saved game shows Make a new code');
+    assert.equal(await frame.locator('#friend-link').isVisible(), false, 'The saved game shows Make a new link');
     // Keep the real code; shorten only its UI deadline to check expiry and New game.
     const shortInvite = async route => {
       if (route.request().postDataJSON().name !== 'kingdown_invite') return route.continue();
@@ -1487,8 +1488,8 @@ try {
       await route.fulfill({ response, json: result });
     };
     await page.route('**/fixture-tool', shortInvite);
-    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
-    const expiringCode = (await frame.locator('.game-code span').allTextContents()).join('');
+    await frame.locator('#friend-new').click(); await frame.locator('#friend-link span').waitFor();
+    const expiringCode = await linkCode(frame);
     await page.unroute('**/fixture-tool', shortInvite);
     await page.clock.fastForward(60_001);
     await frame.getByRole('button', { name: 'New game', exact: true }).waitFor();
@@ -1504,20 +1505,20 @@ try {
     const unexpiredFriend = await tool('kingdown_get', { game_id: friend.game_id, board_id: await binding() });
     await page.evaluate(result => window.harnessShow(result), unexpiredFriend);
     await remount('friend'); await frame.locator('#friend-new').waitFor();
-    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
-    const renewedCode = (await frame.locator('.game-code span').allTextContents()).join(''); assert.notEqual(renewedCode, expiringCode);
+    await frame.locator('#friend-new').click(); await frame.locator('#friend-link span').waitFor();
+    const renewedCode = await linkCode(frame); assert.notEqual(renewedCode, expiringCode);
     assert((await tool('kingdown_join', { code: expiringCode }, true)).isError, 'The old code cannot join');
     const remoteInvite = await tool('kingdown_invite', { game_id: friend.game_id }); assert(!remoteInvite.isError);
     const beforeRemoteRead = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length);
     await frame.locator('body').evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await frame.locator('#friend-help').filter({ hasText: 'replaced on another page' }).waitFor();
     assert.equal(await frame.locator('#friend-actions').isVisible(), false);
-    assert.equal(await frame.locator('#friend-code').isVisible(), false);
+    assert.equal(await frame.locator('#friend-link').isVisible(), false);
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_invite').length), beforeRemoteRead, 'Reading the replacement does not renew it');
     assert((await tool('kingdown_join', { code: renewedCode }, true)).isError, 'The replaced page code cannot join');
     await shot(page, 'embedded-replaced-friend-code');
-    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
-    const currentCode = (await frame.locator('.game-code span').allTextContents()).join('');
+    await frame.locator('#friend-new').click(); await frame.locator('#friend-link span').waitFor();
+    const currentCode = await linkCode(frame);
     assert(!(await tool('kingdown_join', { code: currentCode }, true)).isError, 'The buddy joins the renewed page code');
     await frame.locator('body').evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
@@ -1652,19 +1653,17 @@ try {
       return { game: game._meta.view, code: invite.structuredContent.code };
     }
     const offered = await buddyCode(); await openPlay();
-    const lower = offered.code.toLowerCase(); await chooseKind('A friend'); await frame.locator('#token').fill(`${lower.slice(0,3)}-${lower.slice(3)}`); await frame.locator('#join').click();
+    // The invite link reaches the app as a chat open with the code (code typing is parked, docs/PARKED.md).
+    const joinLink = async code => { const opened = await tool('kingdown_open', { code }); assert(!opened.isError); await page.evaluate(result => window.harnessShow(result, true), opened); };
+    const lower = offered.code.toLowerCase(); await joinLink(`${lower.slice(0,3)}-${lower.slice(3)}`);
     await frame.locator('#join-confirm').waitFor();
     assert.equal(await frame.locator('#join-confirm').innerText(), 'Join and take Black');
     await lookAt('join', 'join');
-    // The mount ends with joinScreen(), which writes the saved code into the field. Type after it: an enabled Preview
-    // button shows that the mount has ended (the real server of plugin-ui-http reads slower than the fixture).
-    await remount('join'); await frame.locator('#join-entry button:not(:disabled)').waitFor();
-    await frame.locator('#join-code').fill(lower); await frame.locator('#join-entry button').click(); await frame.locator('#join-confirm').waitFor();
     const joins = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_join' && !c.arguments.preview).length);
     await frame.locator('#join-decline').click();
     assert.equal(await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_join' && !c.arguments.preview).length), joins, 'Decline sends no Join');
     assert.equal((await tool('kingdown_get', { game_id: offered.game.game_id }, true))._meta.view.status, 'waiting', 'Decline keeps the buddy game waiting');
-    await chooseKind('A friend'); await frame.locator('#token').fill(lower); await frame.locator('#join').click(); await frame.locator('#join-confirm').waitFor(); await frame.locator('#join-confirm').click();
+    await joinLink(lower); await frame.locator('#join-confirm').waitFor(); await frame.locator('#join-confirm').click();
     await frame.locator('[data-screen="board"]:not([hidden])').waitFor();
     assert(!(await page.evaluate(code => JSON.stringify(window.harnessWidgetState).includes(code), offered.code)), 'The code stays out of widget state');
     const seatCode = await buddyCode({ ...options, arrangement: true });
@@ -2945,7 +2944,7 @@ try {
   if (capabilities.friend) {
     await openPlay();
     await openPlay(); const waitingFriend = await legacyStart('friend', 'friend'); await idleBoard();
-    await frame.locator(waitingFriend._meta.invite ? '#friend-code span' : '#friend-new').first().waitFor();
+    await frame.locator(waitingFriend._meta.invite ? '#friend-link span' : '#friend-new').first().waitFor();
     await page.evaluate(() => { window.holdNextGet = true; });
     await page.clock.fastForward(5000);
     await page.waitForFunction(() => typeof window.releaseHeldGet === 'function');
@@ -2959,8 +2958,8 @@ try {
     assert.match(await frame.locator('#status').innerText(), /Your move/, 'An old friend read must not replace the newly selected solo game');
     await openPlay(); const joiningFriend = await legacyStart('friend', 'friend'); await idleBoard();
     if (!joiningFriend._meta.invite) await frame.locator('#friend-new').click();
-    await frame.locator('.game-code span').first().waitFor();
-    const code = (await frame.locator('.game-code span').allTextContents()).join(''); assert.match(code, /^[A-HJKMNP-Z2-9]{6}$/);
+    await frame.locator('#friend-link span').waitFor();
+    const code = await linkCode(frame); assert.match(code, /^[A-HJKMNP-Z2-9]{6}$/);
     const joined = await friendTool('kingdown_join',{code});
     assert(!joined.isError, JSON.stringify(joined.content));
     await page.clock.fastForward(5000);
@@ -3069,9 +3068,12 @@ try {
     await frame.locator('[data-screen="join"]:not([hidden])').waitFor();
     const own = await tool('kingdown_create', { kind: 'friend', options, colour: 'white' });
     const ownInvite = await tool('kingdown_invite', { game_id: own._meta.view.game_id });
+    // Use a replaced link: HTTP allows the host's preview; the parked typing steps hid this behind the code limit.
+    assert(!(await tool('kingdown_invite', { game_id: own._meta.view.game_id })).isError);
     for (const code of ['bad?', ownInvite.structuredContent.code]) {
       const error = await tool('kingdown_open', { code });
       assert(error.isError && !error._meta?.board_id && !error._meta?.preview);
+      assert.equal(error._meta?.code, code === 'bad?' ? 'INVALID_INPUT' : 'INVITE_UNAVAILABLE');
       for (const remount of [false, true]) {
         const opens = await page.evaluate(() => window.harnessCalls.filter(c => c.name === 'kingdown_open').length);
         const oldBoard = await page.evaluate(() => window.harnessWidgetState.privateContent.board_id);

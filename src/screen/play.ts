@@ -21,7 +21,7 @@ import { toFen } from '../rules/setup';
 import { LESSONS } from '../lessons';
 import { recordLesson } from '../lesson-store';
 import { POWER_TAG, autoQueen, offered } from '../powers-ui';
-import { kingsOf, newGameWarning, playersOf, type Setup } from '../new-game';
+import { PARKED_LINK_NOTICE, kingsOf, newGameWarning, parkedLinkPlayers, playersOf, rematchPlayers, type Setup } from '../new-game';
 import { pieceIcon } from '../piece-icons';
 import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, stagedPlies, turnEnded, turnLine, turnOf } from '../turn';
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from '../turn-controls';
@@ -165,7 +165,8 @@ export function connectPlay(view: BoardView, c: {
     announce: ceremony => { $('announce').textContent = `${ceremony ? 'King Down. ' : ''}${moments.result()}`; },
     showPly, rematch: () => newGame(game.backRank || undefined, game.backRank ? null : toFen(game.history[0]?.pos ?? game.pos), true),
   });
-  connectEndReview($('over-review'), $<HTMLDialogElement>('over'), $('moves-line'), () => moments.listMoments());
+  // Key moments (`moments.listMoments`) are parked (docs/PARKED.md): Review opens the move list only.
+  connectEndReview($('over-review'), $<HTMLDialogElement>('over'), $('moves-line'));
 
   const refreshTurnButton = () => renderTurnButton($<HTMLButtonElement>('end-turn'), game, currentTurn(), turnMode(), linkSide, ended(), saveBlocked || busy || viewing != null, lesson != null);
   const announceTurn = () => announceWaiting(game, currentTurn(), turnMode(), $('end-turn'), $('announce'));
@@ -704,7 +705,7 @@ export function connectPlay(view: BoardView, c: {
     cloudGame = false;
     daily = dailyDate;
     moments.start('');
-    [sides[0], sides[1]] = players ?? (rematch ? [sides[1], sides[0]] : playersOf(setup));
+    [sides[0], sides[1]] = players ?? (rematch ? rematchPlayers(sides) : playersOf(setup));
     saveBlocked = false;
     recoverySource = undefined;
     turnStart = 0;
@@ -962,14 +963,15 @@ export function connectPlay(view: BoardView, c: {
     lesson = null; lessonDone = false; lessonReturn = null;
     if (isSide(s.white)) sides[0] = s.white;
     if (isSide(s.black)) sides[1] = s.black;
-    linkSide = s.link === 0 || s.link === 1 ? s.link : null;
+    linkSide = null; // the game link is parked: a link game plays against the computer
+    if (s.link === 0 || s.link === 1) [sides[0], sides[1]] = parkedLinkPlayers(s.link);
     daily = typeof s.daily === 'string' ? s.daily : null;
     resigned = replayed.played < s.moves.length ? null : s.resigned ?? null;
     turnStart = handOver(game) - replayed.staged;
     loadedTime(s);
     moments.restore();
     if (replayed.played < s.moves.length) offerRecovery(s, replayed.played);
-    else { notice = 'Loaded your newer saved game from your account.'; moments.say(notice); }
+    else { notice = s.link === 0 || s.link === 1 ? PARKED_LINK_NOTICE : 'Loaded your newer saved game from your account.'; moments.say(notice); }
     sync(game.pos);
     orient();
     guide.fill();
@@ -996,7 +998,7 @@ export function connectPlay(view: BoardView, c: {
     if (!r.link && (stored.partial || stored.save?.recovery !== undefined)) {
       saved = stored.save; endUrlGame(); seat(saved?.white, saved?.black); r = { ...r, urlRules: false };
     }
-    let staged = 0;
+    let staged = 0, parkedLink = false;
     if (r.unreadable) keepUnreadableSave();
     else if (r.link) {
       previously.load(params, r.continues ? saved!.moves.length : 0);
@@ -1018,7 +1020,7 @@ export function connectPlay(view: BoardView, c: {
           ({ game, staged } = replayed);
           resigned = replayed.played < saved.moves.length ? null : saved.resigned ?? null;
           if (replayed.played < saved.moves.length) offerRecovery(saved, replayed.played);
-          if (saved.link === 0 || saved.link === 1) linkSide = saved.link;
+          if (saved.link === 0 || saved.link === 1) { [sides[0], sides[1]] = parkedLinkPlayers(saved.link); parkedLink = true; }
           if (typeof saved.daily === 'string') daily = saved.daily;
         }
       }
@@ -1030,7 +1032,7 @@ export function connectPlay(view: BoardView, c: {
     // The title's Continue names the move the restored game is on (set before the first paint; a
     // Haste turn is two plies by one side, so the number comes from the replayed game, not the save).
     if (r.title) labelContinue();
-    notice = saveBlocked ? recoveryNotice : r.notice;
+    notice = saveBlocked ? recoveryNotice : r.notice || (parkedLink ? PARKED_LINK_NOTICE : '');
     orient();
     sync(previously.position());
   }

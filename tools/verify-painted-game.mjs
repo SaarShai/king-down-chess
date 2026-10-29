@@ -1,10 +1,9 @@
 // Plays real games in the painted 2D look and checks the view keeps up with the game.
 // Run: npm run check:browser painted-game (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
-import { confirmResign, endTurn, contextText, lanMoves, moveRow, openEndReview, openMenu, openMoves, pressMenu, resultText, waitForLinkReplay, waitForLinkSave, waitForUi } from './app-ui.mjs';
+import { confirmResign, endTurn, contextText, lanMoves, moveRow, openEndReview, openMenu, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
-import { WARD_LINK } from './lib/design-link.mjs';
 const url = new URL(env('PLAYABLE_URL'));
 url.searchParams.set('look', 'painted'); // also the default; the phone check below uses the bare URL
 const browser = await launch();
@@ -195,8 +194,8 @@ try {
     console.log('ok review: list, arrows, replay, return');
   }
 
-  // 2e. Key moments: White's rook leaves the back rank, Black mates on e1. The result dialog names
-  // the blunder, and its button opens the review before it with the better move marked.
+  // 2e. Key moments are parked (docs/PARKED.md): Black mates on e1, the king topples, and Review opens the
+  // move list with no key-moment search.
   {
     const u = new URL(url); u.searchParams.set('fen', '4r1k1/8/8/8/8/8/5PPP/R5K1 w - - 0 1'); u.searchParams.set('players', 'human,human');
     await page.goto(u.href);
@@ -204,52 +203,16 @@ try {
     await page.evaluate(() => window.view.ready());
     for (const sq of [0, 48, 60, 4]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); if (sq === 48 || sq === 4) await endTurn(page); }
     await openEndReview(page);
-    await page.waitForFunction(() => document.querySelector('#over-moments button'), null, { timeout: 15000 });
     assert.equal(await page.evaluate(() => window.view.fallen?.sq), 6, 'the mated king on g1 topples');
-    await waitForUi(page, ui => ui.lan[0] === 'Ra1-a7' && ui.marks[0] === '??');
-    assert.match(await moveRow(page, 1).getAttribute('title'), /allowed a forced mate/, 'the move list marks the blunder');
-    const text = await page.textContent('#over-moments button');
-    assert.match(text, /^1\. Ra1-a7: White allowed a forced mate\. Better: /, text);
-    await page.click('#over-moments button');
-    assert.equal(await page.textContent('#turn'), 'Reviewing the start');
-    assert.equal(await page.evaluate(() => window.view.marks.hint.length), 2, 'the better move is marked');
-    assert.equal(await page.evaluate(() => window.view.pos.board[0] > 0), true, 'the rook is back on a1');
-    console.log(`ok key moments: "${text}"`);
+    await page.waitForTimeout(1000);
+    assert.equal(await page.locator('#over-moments button').count(), 0, 'Review starts no key-moment search');
+    console.log('ok key moments are parked');
+    await page.evaluate(() => localStorage.removeItem('kingdown.save')); // leave the finished game for a fresh table
+    await page.goto(url.href);
+    await page.waitForFunction(() => window.view?.ready);
+    await page.evaluate(() => window.view.ready());
   }
-  // 2f. Game link: open a friend's link (it replaces a different saved game only after a question),
-  // answer as Black, send the link back; the friend's device continues its saved game without asking.
-  {
-    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: url.origin });
-    const u = new URL(url); u.searchParams.set('army', 'RNBQKBNR'); u.searchParams.set('moves', 'e2-e4');
-    let asked = null; page.once('dialog', d => { asked = d.message(); d.accept(); });
-    await page.goto(u.href);
-    await page.waitForFunction(() => window.view?.pos?.board[28] > 0 && !window.view.pos.board[12]);
-    await waitForLinkSave(page, 'RNBQKBNR', ['e2-e4'], 1);
-    assert.match(asked ?? '', /replaces your current game/, 'a different saved game asks first');
-    assert.equal(new URL(page.url()).searchParams.has('moves'), false, 'the link parameters are dropped');
-    assert.deepEqual(await players(page), ['human', 'human']);
-    assert.ok((await at(56)).y > (await at(0)).y, 'Black, to move, plays from the bottom');
-    for (const sq of [52, 36]) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
-    await waitForUi(page, ui => /e7-e5/.test(ui.lan.join(' ')) && !window.view.scene.animating);
-    assert.match(await contextText(page), /Send your turn/);
-    const d2 = await at(11); await page.mouse.click(d2.x, d2.y);
-    assert.equal(await page.evaluate(() => window.view.marks.selected), null, "the friend's pieces do not move here");
-    await endTurn(page);
-    const sent = new URL(await page.evaluate(() => navigator.clipboard.readText()));
-    assert.deepEqual([sent.searchParams.get('army'), sent.searchParams.get('moves')], ['RNBQKBNR', 'e2-e4_e7-e5']);
-    await page.reload(); await page.waitForFunction(() => window.view?.pos?.board[36] > 0);
-    await waitForLinkSave(page, 'RNBQKBNR', ['e2-e4', 'e7-e5'], 1);
-    assert.ok((await at(56)).y > (await at(0)).y, 'a reload keeps the side and the game');
-    // The friend's device: its saved game is the start of the link, so it opens without a question.
-    await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('kingdown.save')); s.moves = ['e2-e4']; s.link = 0; localStorage.setItem('kingdown.save', JSON.stringify(s)); });
-    asked = null; const ask = d => { asked = d.message(); d.dismiss(); }; page.on('dialog', ask);
-    await page.goto(sent.href); await page.waitForFunction(() => window.view?.pos?.board[36] > 0);
-    await waitForLinkSave(page, 'RNBQKBNR', ['e2-e4', 'e7-e5'], 0);
-    page.off('dialog', ask);
-    assert.equal(asked, null, 'a continuation opens without a question');
-    assert.ok((await at(56)).y < (await at(0)).y, 'White, to move, plays from the bottom');
-    console.log(`ok game link: ${sent.search}`);
-  }
+  // 2f. The game link (parked, docs/PARKED.md) has its own check by name: link-game.
   // 2g. A resigned game against the computer: the resigning White king topples. (Lessons and Today's army are parked: docs/PARKED.md.)
   {
     await startGame(page, { mode: 'computer', side: 'white', army: 'classic' });
@@ -262,42 +225,8 @@ try {
   }
   console.log(`ok animations: normal ${normal.ms} ms, fast ${fast.ms} ms, tap-skip ${tapped.ms} ms, off ${off.ms} ms`);
 
-  // 2i. A game link that holds a Workshop design (ticket 17; the Workshop is parked, docs/PARKED.md, but the link still
-  // loads its game): the design stands as its figure, the read names it, and it moves.
-  {
-    const p = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    await p.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1'));
-    trapErrors(p);
-    const link = new URL(url);
-    for (const [k, v] of new URLSearchParams(WARD_LINK)) link.searchParams.set(k, v);
-    link.searchParams.set('moves', 'c2-c4_d7-d6'); // a game link seats this page as White only, so the link plays both moves before the design's
-    await p.goto(link.href);
-    await p.waitForFunction(() => document.querySelector('#board canvas') && window.view?.ready);
-    await waitForLinkSave(p, 'RTBQKBNR', ['c2-c4', 'd7-d6'], 0);
-    await waitForLinkReplay(p); // the board takes input after it shows Black's last move
-    await p.waitForFunction(() => !window.view.scene.animating);
-    assert.deepEqual(await p.evaluate(() => [window.view.pos.board[1], window.view.pos.board[57], window.view.pos.board[26] > 0]), [15, 31, true], 'the design stands on b1 and b8; the link played c2-c4');
-    await p.waitForFunction(() => ['w', 'b'].every(c => performance.getEntriesByType('resource').some(e => e.name.includes(`ui/workshop/ram-bastion-${c}.webp`))));
-    // The scene draws the figure, not the lettered token: b1 shows (almost) no pixel of the white token's disc, #efe9d8.
-    const disc = () => p.evaluate(() => {
-      const c = document.querySelector('#board canvas'), r = c.getBoundingClientRect(), q = window.view.screenOf(1), k = c.width / r.width;
-      const d = c.getContext('2d').getImageData((q.x - r.left) * k - 8, (q.y - r.top) * k - 8, 16, 16).data;
-      let n = 0;
-      for (let i = 0; i < d.length; i += 4) n += Math.abs(d[i] - 239) + Math.abs(d[i + 1] - 233) + Math.abs(d[i + 2] - 216) < 9 ? 1 : 0;
-      return n;
-    });
-    await p.waitForFunction(() => new Promise(requestAnimationFrame).then(() => true));
-    const n = await disc();
-    assert.ok(n < 26, `b1 draws the design's figure, not the lettered token (${n} of 256 pixels are the token's disc)`);
-    const at = sq => p.evaluate(sq => window.view.screenOf(sq), sq), click = async sq => { const q = await at(sq); await p.mouse.click(q.x, q.y); };
-    await click(57);
-    assert.match(await contextText(p), /Black Old Ward/, 'the read names the design');
-    await click(1); await click(10); // the design steps diagonally to c2
-    await p.waitForFunction(() => window.view.pos.board[10] === 15 && !window.view.pos.board[1]);
-    await shot(p, 'design-game');
-    await p.close();
-    console.log('ok a design game by a game link: the figure loads, the read names it, it moves');
-  }
+  // 2i. A game with a Workshop design: the Workshop and the game link are parked (docs/PARKED.md), so the design game
+  // check lives in the parked check link-game (tools/verify-link-game.mjs).
 
   // 3. Phone width: the board fits without horizontal scrolling.
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });

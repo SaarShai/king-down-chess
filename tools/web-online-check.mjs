@@ -652,9 +652,12 @@ export async function main() {
 
       await restoreLocalSave(active, saved);
       await active.goto(`${origin}/?army=RNBQKBNR&moves=e2-e4&players=human,ai`); await readyBoard(active);
-      assert.deepEqual(await lanMoves(active), ['e2-e4'], 'The offline game link keeps the local move');
+      // The game link is parked (docs/PARKED.md): offline, a ?moves= link opens as a plain visit and keeps the save.
+      assert.equal(await active.textContent('#context-text'), 'This version cannot open game links. Your saved game stays.', 'An offline game link says that it is parked');
+      assert.equal(new URL(active.url()).search, '?players=human%2Cai', 'An offline game link loses its link parameters');
+      assert.deepEqual(await lanMoves(active), ['e2-e4'], 'An offline game link keeps the saved game');
       await active.evaluate(() => {
-        const saved = JSON.parse(localStorage.getItem('kingdown.save')); saved.black = 'ai'; saved.link = null;
+        const saved = JSON.parse(localStorage.getItem('kingdown.save')); saved.black = 'ai';
         localStorage.setItem('kingdown.save', JSON.stringify(saved));
       });
       await active.goto(origin); await readyBoard(active);

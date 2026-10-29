@@ -105,7 +105,13 @@ try {
     console.log('ok home: a staged turn and staged mate show Your turn is ready; Continue keeps plies and Undo');
   }
   {
-    for (const query of ['?army=RNBQKBNR&moves=e2-e4&side=1', '?army=RNBQKBNR', '?fen=4k3/8/8/8/8/8/P7/4K3%20w%20-%20-%200%201']) {
+    // The game link is parked (docs/PARKED.md): it opens as a plain visit, so Home shows over the saved game.
+    {
+      const { page, context } = await open(SAVE, '?army=RNBQKBNR&moves=e2-e4&side=1');
+      assert.equal(await page.locator('#home-head').isVisible(), true, 'a parked game link opens Home');
+      await context.close();
+    }
+    for (const query of ['?army=RNBQKBNR', '?fen=4k3/8/8/8/8/8/P7/4K3%20w%20-%20-%200%201']) {
       const { page, context } = await open(SAVE, query);
       assert.equal(await page.locator('#home-head').isVisible(), false, 'a link or position URL skips Home');
       assert.equal(await page.locator('#title-screen').isVisible(), false, 'a link skips the first deal');
@@ -116,7 +122,7 @@ try {
     assert.equal(await page.locator('#home-head').isVisible(), true, 'an old design link opens Home for a save');
     assert.equal(new URL(page.url()).searchParams.has('design'), false, 'an old design link leaves the address');
     await context.close();
-    console.log('ok home: links, army and position URLs skip Home; an old design link opens Home');
+    console.log('ok home: army and position URLs skip Home; a parked game link and an old design link open Home');
   }
   assertNoErrors();
 } finally { await browser.close(); }

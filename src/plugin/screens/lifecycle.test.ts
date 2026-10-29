@@ -50,7 +50,7 @@ beforeEach(() => {
   runtime.memory.code = ''; runtime.memory.preview = undefined; runtime.memory.joinError = undefined;
   runtime.board.ready.mockReturnValue(new Promise(() => {}));
   listeners.clear(); observers.length = 0; nodes.clear(); removed = false;
-  lookup('friend-new').textContent = 'Make a new code';
+  lookup('friend-new').textContent = 'Make a new link';
   const add = (name: string, fn: EventListener, options?: AddEventListenerOptions) => {
     const bucket = listeners.get(name) ?? new Set(); bucket.add(fn); listeners.set(name, bucket);
     options?.signal?.addEventListener('abort', () => bucket.delete(fn), { once: true });
@@ -209,7 +209,7 @@ it('offers New game for an expired friend code without renewal', async () => {
   runtime.memory.view = { game_id: 'friend', kind: 'friend', status: 'waiting' } as View;
   friendInvites.set('friend', { code: 'ABC234', expires_at: new Date(Date.now() - 1).toISOString() });
   friend.friendScreen();
-  expect(lookup('friend-code').hidden).toBe(true);
+  expect(lookup('friend-link').hidden).toBe(true);
   expect(lookup('friend-actions').hidden).toBe(true);
   expect(lookup('friend-new').hidden).toBe(false);
   expect(lookup('friend-new').textContent).toBe('New game');
@@ -244,11 +244,11 @@ it.each([false, true])('offers New game when code renewal is unavailable (cached
   if (cached) friendInvites.set('friend', { code: 'ABC234', replaced: true, expires_at: new Date(Date.now() + 7000).toISOString() });
   runtime.send.mockResolvedValue({ status: 'refused', code: 'INVITE_UNAVAILABLE', text: 'This invitation is not available.' });
   friend.friendScreen();
-  expect(lookup('friend-new').textContent).toBe('Make a new code');
+  expect(lookup('friend-new').textContent).toBe('Make a new link');
   lookup('friend-new').onclick(); await vi.advanceTimersByTimeAsync(0);
   expect(lookup('friend-new').textContent).toBe('New game');
   expect(lookup('friend-help').textContent).toContain('expired');
-  expect(lookup('friend-code').hidden).toBe(true); expect(lookup('friend-actions').hidden).toBe(true);
+  expect(lookup('friend-link').hidden).toBe(true); expect(lookup('friend-actions').hidden).toBe(true);
   lookup('friend-new').onclick();
   expect(runtime.showNewGame).toHaveBeenCalledOnce(); expect(runtime.send).toHaveBeenCalledOnce();
   friend.friendScreen();
@@ -275,7 +275,7 @@ it('explains a replaced code and keeps renewal explicit', async () => {
   friendInvites.set('friend', { code: 'ABC234', invite_id: 'old', expires_at: new Date(Date.now() + 7000).toISOString() });
   syncFriendInvites([{ game_id: 'friend', invite_id: 'new' }]);
   friend.friendScreen();
-  expect(lookup('friend-code').hidden).toBe(true); expect(lookup('friend-actions').hidden).toBe(true);
+  expect(lookup('friend-link').hidden).toBe(true); expect(lookup('friend-actions').hidden).toBe(true);
   expect(lookup('friend-new').hidden).toBe(false); expect(lookup('friend-help').textContent).toContain('replaced');
   expect(runtime.clientCall).not.toHaveBeenCalled();
   friend.stopAll();

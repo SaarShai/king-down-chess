@@ -273,12 +273,12 @@ it('keeps the wait clock running after the page comes back from the back-forward
   } finally { if (game) await tool('/fixture-tool', 'kingdown_cancel', { game_id: game }); await page.close(); }
 });
 
-it('clears the entered join code on leaving Join after the page comes back from the back-forward cache', async () => {
+it('clears the link join code on leaving Join after the page comes back from the back-forward cache', async () => {
   const page = await open();
   try {
     const frame = await frameAt(page);
-    await frame.evaluate(() => (window as any).harnessApp.navigate('join'));
-    await page.frameLocator('iframe').locator('#join-code').fill('ABC123');
+    // Code typing is parked (docs/PARKED.md): the invite link puts the code in page memory.
+    await frame.evaluate(() => { const app = (window as any).harnessApp; app.memory.code = 'ABC123'; app.navigate('join'); });
     expect(await frame.evaluate(() => (window as any).harnessApp.memory.code)).toBe('ABC123');
     await sleepAndWake(frame);
     await frame.evaluate(() => (window as any).harnessApp.navigate('play'));

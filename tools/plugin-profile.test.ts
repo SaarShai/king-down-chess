@@ -462,7 +462,7 @@ it.each([[768, 1024], [820, 600], [899, 900]])('keeps each W mark and date of 12
     marks.forEach((mark, k) => expect(Math.min(...ratios[k]), mark).toBeGreaterThanOrEqual(4.5));
   } finally { await close(); }
 });
-it.each(['de-DE', 'ja-JP', 'en-US'])('uses one English date style in Menu, Profile and friend codes under %s', async locale => {
+it.each(['de-DE', 'ja-JP', 'en-US'])('uses one English date style in Menu, Profile and friend invites under %s', async locale => {
   const { frame, close } = await openAt(393, 852, locale);
   try {
     await frame.locator('html').evaluate(async () => { const app = (window as any).harnessApp; await app.call('kingdown_games', {}); app.navigate('play'); });
@@ -473,7 +473,7 @@ it.each(['de-DE', 'ja-JP', 'en-US'])('uses one English date style in Menu, Profi
     await frame.locator('#profile-history li').first().waitFor();
     expect(await frame.locator('#profile-history .when').first().textContent()).toBe('Oct 10');
     await frame.locator('html').evaluate(async (_, options) => { const app = (window as any).harnessApp; app.navigate('play'); await app.start('friend', { options, colour: 'white' }); }, DEFAULT_OPTIONS);
-    await frame.locator('#friend-new').click(); await frame.locator('.game-code span').first().waitFor();
+    await frame.locator('#friend-new').click(); await frame.locator('#friend-link span').waitFor();
     expect(await frame.locator('#friend-expiry').textContent()).toMatch(/^Ends [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2}\u00a0[AP]M\.$/);
   } finally { await close(); }
 });

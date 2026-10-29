@@ -95,7 +95,7 @@ export interface TableSnapshot {
  */
 export function renderTable(s: TableSnapshot): void {
   const context = s.context ?? new GameRules();
-  const { selected, selectedType, pending, canFinish, busy, thinking, notice, viewing, lesson, taken, sides, linkSide } = s;
+  const { selected, selectedType, pending, canFinish, busy, thinking, notice, viewing, lesson, taken } = s;
   $('selection-actions').hidden = selected == null || busy;
   $('stop-chain').hidden = !canFinish;
   $('stop-chain').textContent = selectedType === S ? `Stop here (${pending.length} bite${pending.length === 1 ? '' : 's'})` : 'Stop here';
@@ -152,7 +152,6 @@ export function renderTable(s: TableSnapshot): void {
   $('undo').hidden = lesson != null;
   $('undo').setAttribute('aria-disabled', String(!s.undoOn));
   $<HTMLButtonElement>('resign').disabled = s.resigner == null;
-  $('share').hidden = sides[0] !== 'human' || sides[1] !== 'human' || s.history.length === 0 || lesson != null || linkSide != null || s.staged > 0;
   $('return-game').hidden = lesson == null;
 }
 

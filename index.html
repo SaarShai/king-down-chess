@@ -133,9 +133,6 @@
           <label class="mode"><input type="radio" name="mode" value="powers" id="mode-powers" />
             <svg class="icon" aria-hidden="true"><use href="#i-crown"/></svg>
             <span class="mode-text"><b>Kings' powers</b></span></label>
-          <label class="mode"><input type="radio" name="mode" value="two" id="mode-two" aria-label="A friend" />
-            <svg class="icon" aria-hidden="true"><use href="#i-smiling-pawn"/></svg>
-            <span class="mode-text"><b>A friend</b></span></label>
         </fieldset>
         <h3 class="group-head">The game</h3>
         <fieldset class="seg colour-switch" id="side-choice">
@@ -180,7 +177,6 @@
         <button class="menu-row" data-go="help">Board help<i>›</i></button>
         <fieldset class="fields group"><legend>Feel</legend><label>Sound <input id="sound" type="checkbox" checked /></label><label>Motion <select id="pace"><option value="normal">Normal</option><option value="fast">Fast</option><option value="off">Off</option></select></label><small id="pace-note">Tap the board to skip an animation.</small></fieldset>
         <button class="menu-row" data-go="account">Account<i>›</i></button>
-        <button id="share" hidden>Send the game link</button>
         <button id="resign" class="menu-row resign-row" data-go="resign" aria-disabled="false">Resign <span>Lay your king down.</span><i>›</i></button>
       </section>
       <section data-menu-page="new" hidden><p>A new game ends this game.</p><button id="play-again" class="menu-row">Play again<span>The same setup. A new army.</span></button><button id="new-game-btn" class="menu-row">Change setup<i>›</i></button></section>
