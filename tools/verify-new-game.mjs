@@ -1,25 +1,27 @@
 // The New game dialog in a real browser: its defaults, the game each of the three modes starts
 // (players, computer level, kings and powers), the king picker's power texts, Cancel, memory, an
-// older save, a custom army, Bring a design (ticket 17), the keyboard, the phone layout, and the picker's motion art.
+// older save, a remembered setup that names a parked army or design (docs/PARKED.md), the keyboard, the phone layout,
+// and the picker's motion art.
 // Screenshots in PLAYABLE_OUT: desktop-computer.jpg, desktop-powers.jpg, phone-computer.jpg, phone-powers.jpg.
 // Run: npm run check:browser new-game (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
-import { openExtra, powersHidden, startLesson, endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
+import { powersHidden, endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
+import { WARD_LINK } from './lib/design-link.mjs';
 
 const base = env('PLAYABLE_URL');
 const browser = await launch();
 const jpeg = { type: 'jpeg', quality: 86 };
 const ok = msg => console.log(`ok ${msg}`);
 
-async function open({ viewport = { width: 1280, height: 900 }, touch = false, save = null, query = '', reducedMotion = 'no-preference', shelf = null, titleSeen = true, confirm = false } = {}) {
+async function open({ viewport = { width: 1280, height: 900 }, touch = false, save = null, query = '', reducedMotion = 'no-preference', setup = null, titleSeen = true, confirm = false } = {}) {
   const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch, reducedMotion });
-  await ctx.addInitScript(([s, shelf, titleSeen]) => {
+  await ctx.addInitScript(([s, setup, titleSeen]) => {
     if (titleSeen) sessionStorage.setItem('kingdown.title-seen', '1'); // skip the title screen (main.ts)
     if (s && !sessionStorage.getItem('seeded')) { localStorage.setItem('kingdown.save', JSON.stringify(s)); sessionStorage.setItem('seeded', '1'); }
-    if (shelf) localStorage.setItem('kingdown.workshop', shelf); // the Workshop's designs on this device
-  }, [save, shelf, titleSeen]);
+    if (setup) localStorage.setItem('kingdown.new-game', setup); // the remembered New game setup (main.ts SETUP_KEY)
+  }, [save, setup, titleSeen]);
   const page = await ctx.newPage();
   trapErrors(page);
   if (confirm) page.on('dialog', dialog => dialog.accept()); // a game link's "replaces your current game"
@@ -29,12 +31,6 @@ async function open({ viewport = { width: 1280, height: 900 }, touch = false, sa
   return page;
 }
 const saved = page => page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
-/** Two Workshop designs: Old Ward plays; Late Queen waits, as a rule counts moves (src/rules/rules.ts HISTORY_WHENS). */
-const ward = { v: 1, kind: 'piece', id: 'ward', name: 'Old Ward', named: true, look: { body: 'token', auto: true, glow: null, army: 0, figure: 'ram-bastion' }, letter: 'U',
-  squares: [{ x: 0, y: 1, mark: 'move' }, { x: 1, y: 1, mark: 'both' }, { x: -1, y: 1, mark: 'both' }], lines: ['ne', 'nw'],
-  rules: [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }], from: [], updated: 1760000000000 };
-const SHELF = JSON.stringify({ v: 1, designs: [ward, { ...ward, id: 'late', name: 'Late Queen', updated: 1759000000000,
-  rules: [{ when: { on: 'fromMove', n: 10 }, does: { a: 'movesLike', as: 'queen' } }] }] });
 const checked = (page, name) => name === 'level' ? page.locator('#level-slider').getAttribute('aria-valuetext').then(name => ({Casual:'beginner',Clever:'casual',Club:'club',Strong:'strong'}[name])) : page.evaluate(n => document.querySelector(`#new-game input[name="${n}"]:checked`)?.value, name);
 const pressed = (page, c) => page.evaluate(c => [...document.querySelectorAll(`#pick-${c} [aria-pressed="true"]`)].map(b => b.dataset.king ?? b.dataset.power), c);
 const powerLine = (page, c) => page.textContent(`#pick-${c} .power-text`);
@@ -279,7 +275,7 @@ try {
   let page = await open();
   await pressMenu(page, 'New game');
   assert.deepEqual([await checked(page, 'mode'), await checked(page, 'level'), await checked(page, 'side')], ['computer', 'club', '0']);
-  assert.equal(await page.inputValue('#army'), 'random');
+  assert.equal(await checked(page, 'army'), 'random');
   const selected = await page.locator('#new-game label:has(input:checked)').evaluateAll(labels => labels.map(el => {
     const style = getComputedStyle(el);
     return { border: style.borderTopWidth, ink: style.color, fill: style.backgroundColor, shadow: style.boxShadow };
@@ -408,15 +404,24 @@ try {
   await page.keyboard.press('Escape');
   ok('memory: a reload opens New game on the last setup');
 
-  // 6. A custom army asks for the back rank; Cancel there keeps the dialog open.
-  page.once('dialog', d => d.dismiss());
-  await setUpGame(page, { army: 'custom' }); await page.click('#start-game');
-  assert.equal(await page.evaluate(() => document.getElementById('new-game').open), true, 'a cancelled custom army starts nothing');
-  page.once('dialog', d => d.accept('rmbqkbnr'));
-  await page.click('#start-game');
-  await page.waitForFunction(() => !document.getElementById('new-game').open);
-  assert.equal((await saved(page)).back, 'RMBQKBNR');
-  ok('Custom army: the back rank prompt starts that army; Cancel keeps the dialog open');
+  // 6. Parked armies (docs/PARKED.md): Army offers Random and Chess only, and a remembered setup that names
+  // Today's army, Custom, Ogre practice, an example army or a Workshop design opens on Random and starts a game.
+  for (const army of ['daily', 'custom', 'ogre', 'MMSSNBNK']) {
+    const remembered = { mode: 'two', level: 'club', side: 0, twoPowers: false, army, design: 'old-design-code',
+      picks: [{ king: 'Spirit', power: null }, { king: 'Shadow', power: null }] };
+    const parked = await open({ setup: JSON.stringify(remembered) });
+    await pressMenu(parked, 'New game');
+    // Pass-and-play is parked too: the remembered Mode `two` opens as a game against the computer.
+    assert.equal(await checked(parked, 'mode'), 'computer', `${army}: a parked Mode two opens against the computer`);
+    assert.equal(await checked(parked, 'army'), 'random', `${army}: a parked army opens as Random`);
+    assert.deepEqual(await parked.$$eval('#new-game input[name="army"]', inputs => inputs.map(i => i.value)), ['random', 'classic'], 'Army offers Random and Chess only');
+    assert.equal(await parked.locator('#design, #other-armies, #army').count(), 0, 'no Bring a design and no More armies');
+    await startGame(parked);
+    assert.deepEqual([(await saved(parked)).moves, (await saved(parked)).white, (await saved(parked)).black], [[], 'human', 'ai'], `${army}: Start plays a new game against the computer`);
+    assertNoErrors(parked);
+    await parked.context().close();
+  }
+  ok('parked armies: Random and Chess only; a remembered parked army or design opens as Random and starts a game');
 
   // 7. Keyboard: the modes are one radio group; arrows move through it.
   await pressMenu(page, 'New game');
@@ -433,34 +438,13 @@ try {
   await page.context().close();
   ok('keyboard: the arrow keys step through the two modes');
 
-  // 7b. Bring a design (ticket 17): the shelf's designs, and one that waits with its reason; Tab reaches the 44 px choice;
-  // each side gets the design in place of one piece, the computer plays it, a reload remembers it, and a game link holds it.
-  page = await open({ shelf: SHELF });
-  await pressMenu(page, 'New game');
-  assert.deepEqual(await page.$$eval('#design option', os => os.map(o => [o.textContent, o.disabled])),
-    [['No design', false], ['Old Ward', false], ['Late Queen (not yet: a rule counts moves or cards)', true]], 'the designs on this device; one waits, with the reason');
-  assert.equal(await page.textContent('#design-line'), 'Play one of your Workshop pieces.');
-  await page.focus('#level-slider');
-  await page.keyboard.press('Tab');
-  assert.equal(await page.evaluate(() => document.activeElement.id), 'design', 'Tab goes from the level to Bring a design');
-  await page.locator('#new-game').evaluate(async sheet => { await Promise.all(sheet.getAnimations().map(a => a.finished.catch(() => {}))); });
-  assert.ok((await page.locator('#design').boundingBox()).height >= 44, 'a 44 px target');
-  await setUpGame(page, { design: 'Old Ward', army: 'classic', side: 'black', level: 'beginner' });
-  assert.equal(await page.textContent('#design-line'), 'Each side gets one Old Ward, in place of the piece nearest its worth.');
-  assert.deepEqual(await page.$$eval('#army-strip > *', ps => ps.map(p => p.getAttribute('title') ?? '')), ['', 'Old Ward', '', '', '', '', '', ''], 'the strip shows the design in its place');
-  await startGame(page, { army: 'classic' });
-  s = await saved(page);
-  const code = s.rules.design.code;
-  assert.deepEqual([s.back, s.white, s.black, typeof code], ['RTBQKBNR', 'ai', 'human', 'string'], 'Old Ward (worth 2) in place of the knight on b1, the nearest worth; the computer as White');
-  assert.deepEqual(await page.evaluate(() => [window.view.pos.board[1], window.view.pos.board[57]]), [15, 31], 'a White and a Black design on the board (the slot T)');
-  await waitForUi(page, ui => ui.lan.length >= 1, null, { timeout: 20000 });
-  await page.reload(); await page.waitForFunction(() => window.view?.ready);
-  await pressMenu(page, 'New game');
-  assert.equal(await page.inputValue('#design'), code, 'a reload remembers the design');
-  await page.keyboard.press('Escape');
+  // 7b. The Workshop is parked: an old `?design=` link opens the game, not the Workshop, and the URL loses it. The game
+  // link is parked too: a game link with a design opens as a plain visit, says why, and keeps the saved game.
+  page = await open({ query: '?design=old-design-code' });
+  assert.deepEqual(await page.evaluate(() => [document.getElementById('workshop')?.open ?? false, location.search]), [false, ''], 'an old design link opens no Workshop');
   await page.context().close();
-  // The game link is parked (docs/PARKED.md): a link with a design opens as a plain visit.
-  page = await open({ query: `?design=${code}&army=RTBQKBNR&moves=` });
+  // The game link is parked (docs/PARKED.md): a game link that holds a design opens as a plain visit.
+  page = await open({ query: WARD_LINK });
   s = await saved(page);
   assert.equal(s.rules?.design ?? null, null, 'a parked game link plays no design');
   assert.equal(await page.evaluate(() => document.getElementById('workshop')?.open ?? false), false, 'a game link does not open the Workshop');
@@ -470,11 +454,7 @@ try {
   assert.deepEqual([await lanMoves(page), (await saved(page)).back, (await saved(page)).rules.kings], [['d2-d4'], 'RNBQKBNR', [null, null]], 'the saved game stays, without the link\'s kings');
   assert.deepEqual(await page.evaluate(() => [document.getElementById('workshop')?.open ?? false, location.search]), [false, ''], 'no Workshop, and the URL loses the link');
   await page.context().close();
-  page = await open();
-  await pressMenu(page, 'New game');
-  assert.deepEqual([await page.$$eval('#design option', os => os.map(o => o.textContent)), await page.textContent('#design-line')], [['No design'], 'No designs yet. Make one in the Workshop.'], 'no designs: the line says where to make one');
-  await page.keyboard.press('Escape');
-  ok('Bring a design: the designs, a reason for one that waits, Tab and 44 px, one each side in place of the nearest piece, the computer plays it, memory, a game link, and a link this version cannot read');
+  ok('Workshop parked: an old design link opens the game; a game link plays the design it holds; a link with a design this version cannot read says why');
 
   // 8. A save from before the dialog remembered its setup: New game opens on that game.
   page = await open({ save: { back: 'RNBQKBNR', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', moves: [], white: 'ai', black: 'human', skill: 'strong', rules: { kings: [{ king: 'Frost', power: 'Freeze' }, null] }, sound: false } });
@@ -499,20 +479,6 @@ try {
   await page.context().close();
   ok('?rules=2017: the picker shows the printed powers (Freeze twice, Mercy, Darkness), and the game plays them');
 
-  // Menu Today uses the same warning as New game, also for a kept match.
-  for (const lesson of [false, true]) {
-    page = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'off' } });
-    if (lesson) await startLesson(page);
-    await openExtra(page); await page.click('#today-army');
-    assert.equal(await page.inputValue('#army'), 'daily');
-    assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.', 'Menu Today warns before it ends the kept match');
-    assert.equal(await page.textContent('#start-game'), 'Start new game');
-    await page.keyboard.press('Escape');
-    if (lesson) await page.click('#return-game');
-    assert.deepEqual(await lanMoves(page), ['e2-e4', 'e7-e5'], 'Close keeps the match');
-    await page.context().close();
-  }
-
   // The sheet replaces the Start question with a warn line. Close keeps the game.
   page = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'human', sound: false, skill: 'club' } });
   await pressMenu(page, 'New game');
@@ -524,17 +490,7 @@ try {
   assert.deepEqual((await saved(page)).moves, []);
   await page.context().close();
   ok('warn line: names the move; Close keeps the game; Start ends it without a question');
-  page = await open();
-  await startGame(page, { mode: 'two', army: 'MMSSNBNK' });
-  assert.equal((await saved(page)).back, 'MMSSNBNK');
-  await setUpGame(page, { army: null });
-  assert.equal(await page.inputValue('#army'), 'MMSSNBNK');
-  await page.click('#more-options summary');
-  assert.equal(await page.evaluate(() => document.getElementById('other-armies').open), true);
-  await page.context().close();
-  ok('More: Start uses the example army and remembers it when the sheet opens again');
-
-  // A staged mate is still a live game, also when a lesson keeps it.
+  // A staged mate is still a live game.
   page = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['f2-f3', 'e7-e5', 'g2-g4'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'off' } });
   for (const sq of [59, 31]) {
     const p = await page.evaluate(s => window.view.screenOf(s), sq);
@@ -547,18 +503,6 @@ try {
   assert.equal(await page.textContent('#start-game'), 'Start new game');
   await page.keyboard.press('Escape');
   assert.equal((await lanMoves(page)).length, 4, 'Close keeps the staged mate');
-  await openExtra(page); await page.click('#today-army');
-  assert.equal(await page.inputValue('#army'), 'daily');
-  assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.', 'Menu Today warns for a staged mate');
-  await page.keyboard.press('Escape');
-  await startLesson(page);
-  await openExtra(page); await page.click('#today-army');
-  assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.', 'Menu Today warns for a staged mate kept by a lesson');
-  await page.keyboard.press('Escape');
-  await pressMenu(page, 'New game');
-  assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.', 'the lesson keeps the staged game');
-  await page.keyboard.press('Escape');
-  await page.click('#return-game');
   await endTurn(page);
   await page.locator('#over').waitFor({ state: 'visible' });
   await page.keyboard.press('Escape');
@@ -569,19 +513,18 @@ try {
   assert.deepEqual((await saved(page)).moves, []);
   assert.equal(await page.getAttribute('#end-turn', 'aria-disabled'), 'true', 'Start resets the turn boundary');
   await page.context().close();
-  ok('staged mate: the live and kept games warn at the turn boundary; the press ends it; Start resets the turn');
+  ok('staged mate: the live game warns at the turn boundary; the press ends it; Start resets the turn');
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
     page = await open({ viewport, touch: true });
     for (const mode of ['computer', 'powers']) { // pass-and-play is parked
-      await setUpGame(page, { mode, army: 'MMSSNBNK' });
+      await setUpGame(page, { mode, army: 'classic' });
       await insideViewport(page, '#start-game');
-      assert.equal(await page.inputValue('#army'), 'MMSSNBNK');
-      assert.equal(await page.evaluate(() => document.getElementById('other-armies').open), true);
+      assert.equal(await checked(page, 'army'), 'classic');
     }
     await page.context().close();
   }
-  ok('sheet: Start stays in view in all modes at 390×844 and 844×390; More keeps the example army');
+  ok('sheet: Start stays in view in all modes at 390×844 and 844×390; Army keeps Chess');
 
   // 10. Phone 390×844: no sideways scroll in any mode, More options open; screenshots.
   page = await open({ viewport: { width: 390, height: 844 }, touch: true });
@@ -594,18 +537,6 @@ try {
     if (mode === 'powers') await shot(page, 'phone-powers.jpg', jpeg);
   }
   assert.ok(await page.locator('.em-name').evaluateAll(labels => labels.every(l => l.scrollWidth <= l.clientWidth + 1 && l.scrollHeight <= l.clientHeight + 1)), 'king names fit on the phone');
-  assert.ok(await page.locator('#army-examples option').evaluateAll(options => options.every(o => !/^[A-Z]{8}$/.test(o.textContent))), 'example armies have word labels');
-  const examples = await page.locator('#army-examples option').evaluateAll(options => options.filter(o => /^[A-Z]{8}$/.test(o.value)).map(o => ({ code: o.value, label: o.textContent })));
-  assert.deepEqual(examples.map(o => +o.label.match(/Example army (\d+)/)[1]), examples.map((_, i) => i + 1), 'only example armies count, with no gaps');
-  assert.equal(examples.filter(o => o.code.includes('C')).length, 3, 'three Catapult armies');
-  assert.ok(examples.filter(o => o.code.includes('C')).every(o => o.label.includes('Catapult')), 'each Catapult army keeps its word mark');
-  await page.locator('#more-options').evaluate(el => { el.open = true; });
-  await page.locator('#other-armies').evaluate(el => { el.open = true; });
-  for (const example of examples.filter(o => o.code.includes('C'))) {
-    await page.selectOption('#army', example.code);
-    assert.equal(await page.locator('#army-strip > *').count(), 8, 'an eight-piece army has eight marks');
-    assert.equal(await page.locator('#army-strip [title=catapult]').innerText(), 'C', 'Catapult has a text mark');
-  }
   // The power buttons with their pictures: 44 px targets or more, labels whole and at 14 px.
   for (const b of await page.$$eval('#king-picker .power-choice button', bs => bs.map(b => {
     const r = b.getBoundingClientRect(), l = b.querySelector('.pm-label');

@@ -35,12 +35,12 @@ export default async function ({ open }) {
     assert.deepEqual(await resign(page), { asked: 'White wins this game.', result: 'Black resigns — White wins.' }, 'two players');
     await close();
   }
-  // An old save of a game link (the link is parked, docs/PARKED.md): this device resigns its own side, also on the friend's turn.
+  // An old save of a game link (the link is parked, docs/PARKED.md): it loads against the computer, and this device resigns its own side.
   {
     const { page, tap, close } = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'human', link: 1, sound: false } });
     await tap(52); await tap(36); // e7-e5: this device plays Black
     await waitForUi(page, ui => ui.lan.length === 2);
-    assert.deepEqual(await resign(page), { asked: 'White wins this game.', result: 'Black resigns — White wins.' }, 'a game link, on the friend\'s turn');
+    assert.deepEqual(await resign(page), { asked: 'White wins this game.', result: 'Black resigns — White wins.' }, 'an old link game, after its staged move');
     await close();
   }
 }

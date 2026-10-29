@@ -7,7 +7,6 @@ import { keyMoments, momentText, type KeyMoment, type momentKind } from '../mome
 import { findKing, type Color, type Move, type Position, type Status } from '../rules/engine';
 import { toLan } from '../rules/setup';
 import { kingArt } from '../ui/guide';
-import { copyAndSay } from './links';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -77,7 +76,6 @@ export function connectMoments(c: {
   game(): Game;
   sides(): readonly Side[];
   resigned(): Color | null;
-  daily(): string | null;
   skill(): SkillName;
   generation(): number;
   engine: Engine;
@@ -123,8 +121,6 @@ export function connectMoments(c: {
     dlg.returnValue = ''; // Esc leaves the last button's value behind, which would re-fire it
     dlg.querySelector<HTMLImageElement>('.over-w')!.src = kingArt(0, game.context); // the kings that played, as on the board
     dlg.querySelector<HTMLImageElement>('.over-b')!.src = kingArt(1, game.context);
-    $('share-result').hidden = c.daily() == null;
-    $('share-result').textContent = "Copy today's result";
     void c.end.show();
   }
 
@@ -173,14 +169,6 @@ export function connectMoments(c: {
     }
     c.refresh(); // marks the moments in the move list
   }
-
-  $('share-result').onclick = () => {
-    const text = shareResultText({
-      sides: c.sides(), resigned: c.resigned(), status: c.game().status, turn: c.game().pos.turn, result: result(), skill: c.skill(), daily: c.daily(),
-      army: c.game().backRank, moves: movesPlayed(), page: `${location.origin}${location.pathname}`,
-    });
-    void copyAndSay($('share-result'), text, 'Result copied');
-  };
 
   return {
     say,

@@ -1,11 +1,9 @@
 import { copyText } from '../clipboard';
-import type { Game } from '../game';
 import { moveNumbers } from '../move-text';
+import type { Game } from '../game';
 import { kingsParam } from '../powers-ui';
 import { RULES_2017, RULES_2021, type Rules } from '../rules/engine';
 import { toFen } from '../rules/setup';
-
-const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
 /** The `?rules=` presets: each sets every rule but the game's kings and design. */
 export const RULE_PRESETS: Readonly<Record<string, Readonly<Rules>>> = { 2017: RULES_2017, 2021: RULES_2021 };
@@ -49,17 +47,19 @@ export async function copyAndSay(button: HTMLElement, text: string, done: string
 }
 
 /**
- * Copy (the moves), and `gameLink`: the link of the game on the board, which names the preset of the live
- * game's rules. The Share button (Send the game link) is parked (docs/PARKED.md); an old save of a link game
- * still sends its turn with `gameLink`. `blocked` stays for Share's return.
+ * The move list as numbered LAN ("1. e2-e4 e7-e5 2. d2-d4"). Its Copy moves button (Menu, This game) is parked
+ * (docs/PARKED.md); the text stays for later.
+ */
+export function movesText(history: Game['history']): string {
+  const numbers = moveNumbers(history.map(h => h.pos.turn));
+  return history.map((h, i) => (i === 0 || numbers[i] !== numbers[i - 1] ? `${numbers[i]}${h.pos.turn ? '…' : '.'} ${h.lan}` : h.lan)).join(' ');
+}
+
+/**
+ * `gameLink`: the link of the game on the board, which names the preset of the live game's rules. The Share
+ * button (Send the game link) and the link turn are parked (docs/PARKED.md). `blocked` stays for Share's return.
  */
 export function connectLinks(c: { game(): Game; turnStart(): number; blocked(): boolean }) {
-  $('copy').onclick = () => {
-    const history = c.game().history, numbers = moveNumbers(history.map(h => h.pos.turn));
-    const text = history.map((h, i) => (i === 0 || numbers[i] !== numbers[i - 1] ? `${numbers[i]}${h.pos.turn ? '…' : '.'} ${h.lan}` : h.lan)).join(' ');
-    void copyAndSay($('copy'), text, 'Moves copied');
-  };
-
   /** A link that holds this whole game, for a friend to open and answer on their device (no server). */
   function gameLink(lans = c.game().history.slice(0, c.turnStart()).map(h => h.lan)): string {
     const game = c.game();

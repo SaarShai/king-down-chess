@@ -154,15 +154,17 @@ try {
   assert.match(await lastMoveText(page), /archer.*takes.*without moving/);
   checks.push('Moves shows the shot and clears after staged Undo');
 
-  await startGame(page, { army: 'COAQNRBK' }); await ready();
-  assert.equal(await page.locator('#setup').innerText(), 'COAQNRBK');
+  // The Catapult lab armies are parked in New game (docs/PARKED.md); a saved Catapult army still plays.
+  await page.evaluate(() => localStorage.setItem('kingdown.save', JSON.stringify({ back: 'COAQNRBK', fen: '', moves: [], white: 'human', black: 'human', sound: false })));
+  await page.goto(url); await ready();
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).back), 'COAQNRBK');
   await pressMenu(page, 'Guide');
   assert.equal(await page.locator('#rules-rows .piece-card[data-piece="catapult"]').count(), 1);
   await page.locator('#rules form button').click();
   await seed('7k/8/8/8/8/8/7r/7K w - - 0 1');
   assert.ok(await page.evaluate(() => document.querySelector('#board').classList.contains('king-in-check')
     && window.view.marks.check === 7));
-  checks.push('lab examples are in the New game army list; current pieces enter the guide; check marks the king');
+  checks.push('a saved Catapult army plays; current pieces enter the guide; check marks the king');
 
   await seed('7k/8/4p3/8/4p3/8/4C3/K7 w - - 0 1');
   await click(12); await click(44); await played(1);

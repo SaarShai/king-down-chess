@@ -5,7 +5,6 @@ import { A, B, G, K, KINGS, L, LETTERS, M, N, NAMES, O, P, PLAIN_KINGS, Q, R, S,
 import { POOL } from '../rules/setup';
 import { POWER_NAME, powerText, powersRules, usesAllowed } from '../powers-ui';
 import { pieceIcon } from '../piece-icons';
-import { refreshLessonShelf } from '../lesson-shelf-ui';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -82,7 +81,6 @@ export const pieceText = (t: PieceType, context: GameRules = new GameRules()): s
 export function connectGuide(c: { shownPos(): Position; context(): GameRules; preset?(): Partial<Rules> | undefined }) {
   const fill = (): void => fillPieceGuide(c.shownPos(), c.context(), c.preset?.());
   $('rules-btn').onclick = () => {
-    refreshLessonShelf();
     fill();
     $('rules').classList.add('ui-dialog-motion');
     $<HTMLDialogElement>('rules').showModal();

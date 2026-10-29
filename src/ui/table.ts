@@ -4,7 +4,6 @@ import { readText } from '../read';
 import { GameRules } from '../game-rules';
 import { contextLine, type ContextState } from '../context-line';
 import { LESSONS } from '../lessons';
-import { progress as lessonProgress } from '../lesson-shelf-ui';
 import { type Game, type Side } from '../game';
 import type { KeyMoment } from '../moment';
 import { pieceIcon } from '../piece-icons';
@@ -67,8 +66,8 @@ export interface TableSnapshot {
   notice: string;
   /** Plies shown in review, or null for the live game; the review note of the moment shown. */
   viewing: number | null; reviewNote: string;
-  /** The lesson on the board, whether its goal move was played, and the next lesson's name. */
-  lesson: number | null; lessonDone: boolean; nextLesson: string | null;
+  /** The lesson on the board (lessons are parked: no control starts one). */
+  lesson: number | null;
   /** turn.ts `turnLine` for the turn in progress. */
   turnLine: string;
   /** The turn in progress: its side and its staged plies. */
@@ -78,8 +77,6 @@ export interface TableSnapshot {
   ended: boolean; finished: boolean; myTurn: boolean;
   /** The result line (empty while the game plays). */
   result: string;
-  /** The army's back rank ('' for a custom start) and the FEN of the live position. */
-  backRank: string; fen: string;
   /** The moves played: each one's text and the side that played it. */
   history: readonly { lan: string; turn: Color }[];
   /** The key moments marked in the move list. */
@@ -98,7 +95,7 @@ export interface TableSnapshot {
  */
 export function renderTable(s: TableSnapshot): void {
   const context = s.context ?? new GameRules();
-  const { selected, selectedType, pending, canFinish, busy, thinking, notice, viewing, lesson, lessonDone, taken } = s;
+  const { selected, selectedType, pending, canFinish, busy, thinking, notice, viewing, lesson, taken } = s;
   $('selection-actions').hidden = selected == null || busy;
   $('stop-chain').hidden = !canFinish;
   $('stop-chain').textContent = selectedType === S ? `Stop here (${pending.length} bite${pending.length === 1 ? '' : 's'})` : 'Stop here';
@@ -126,8 +123,6 @@ export function renderTable(s: TableSnapshot): void {
     : lesson != null ? `Lesson ${lesson + 1} of ${LESSONS.length}: ${LESSONS[lesson].name}`
     : s.ended ? '' : `${turn} to move${s.check ? ' — CHECK' : ''}`;
   $('status').textContent = viewing != null ? '' : s.ended ? s.result : thinking ? 'thinking…' : '';
-  $('setup').textContent = s.backRank || 'custom';
-  $('setup').title = s.fen;
   const moves = $('moves');
   // Each move is a button to the board after it (data-ply = plies played by then). A line is White's
   // turn and Black's; a Haste turn is two plies by one side, so turns follow the side that moved.
@@ -157,14 +152,7 @@ export function renderTable(s: TableSnapshot): void {
   $('undo').hidden = lesson != null;
   $('undo').setAttribute('aria-disabled', String(!s.undoOn));
   $<HTMLButtonElement>('resign').disabled = s.resigner == null;
-  $<HTMLButtonElement>('copy').disabled = s.history.length === 0;
-  $('next-lesson').hidden = lesson == null || !lessonDone;
   $('return-game').hidden = lesson == null;
-  $('next-lesson').querySelector('.label')!.textContent = s.nextLesson != null ? `Next: ${s.nextLesson}` : 'Start a game';
-  if (s.nextLesson != null) $('next-lesson').setAttribute('aria-label', `Next lesson: ${s.nextLesson}`);
-  else $('next-lesson').removeAttribute('aria-label');
-  $('show-me').hidden = lesson == null || lessonDone;
-  $('show-me').setAttribute('aria-disabled', String(s.finished || busy || viewing != null || !s.myTurn));
 }
 
 export interface TableState {
@@ -178,14 +166,6 @@ export interface TableState {
 }
 
 export function refreshTable(s: TableState): void {
-  const progress = $('lesson-progress');
-  progress.hidden = s.lesson == null;
-  document.body.classList.toggle('in-lesson', s.lesson != null);
-  if (s.lesson != null) progress.innerHTML = LESSONS.map((lesson, i) => {
-    const state = i === s.lesson && !s.lessonDone ? 'current' : lessonProgress().done?.includes(lesson.name) || (i === s.lesson && s.lessonDone) ? 'done' : 'next';
-    const piece = NAMES.indexOf(lesson.name.toLowerCase() as typeof NAMES[number]) as PieceType;
-    return `<span class="${state === 'current' ? 'now' : state}" role="img" aria-label="Lesson ${i + 1} of ${LESSONS.length} ${state}" title="${lesson.name}">${pieceIcon(piece)}</span>`;
-  }).join('');
   const me = (s.flipped ? 1 : 0) as Color;
   const liveSide = s.turn.activeSide;
   const now = s.thinking ? performance.now() : 0;

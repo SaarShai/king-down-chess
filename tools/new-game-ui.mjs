@@ -8,16 +8,14 @@ import { pressMenu, startNewGame } from './app-ui.mjs';
  *   await startGame(page, { mode: 'powers', kings: ['Mud:March', 'Frost:none'] });
  *
  * mode: 'computer' | 'powers' (and 'two' in startGame only) · level: 'beginner' | 'casual' | 'club' ·
- * side: 'white' | 'black' (against the computer) · powers: the Two players box ·
- * kings: [White, Black] as 'King:Power' or 'King:none' · army: 'random' (the default), 'daily',
- * 'classic', 'custom', an example army's code or 'ogre' · design: a Workshop design's name, or 'No design'.
- * Options left out keep the dialog's choice.
+ * side: 'white' | 'black' (against the computer) · powers: Kings' powers for startGame's `mode: 'two'` ·
+ * kings: [White, Black] as 'King:Power' or 'King:none' · army: 'random' (the default) or 'classic'
+ * (the other armies and "Bring a design" are parked: docs/PARKED.md). Options left out keep the dialog's choice.
  */
-export async function setUpGame(page, { mode, level, side, powers, kings, design, army = 'random' } = {}) {
+export async function setUpGame(page, { mode, level, side, kings, army = 'random' } = {}) {
   if (!await page.evaluate(() => document.getElementById('new-game').open)) await pressMenu(page, 'New game');
   if (mode) await page.click(`#new-game label:has(#mode-${mode})`);
   if (level) await page.locator('#level-slider').fill(String(['beginner','casual','club'].indexOf(level)));
-  if (design) await page.selectOption('#design', { label: design });
   for (const [c, choice] of (kings ?? []).entries()) {
     if (!choice) continue;
     const [king, power] = choice.split(':');
@@ -27,11 +25,7 @@ export async function setUpGame(page, { mode, level, side, powers, kings, design
   if (side || army) {
     if (!await page.evaluate(() => document.getElementById('more-options').open)) await page.click('#more-options summary');
     if (side) await page.click(`#new-game label:has(#side-${side})`);
-    if (['random', 'daily', 'classic'].includes(army)) await page.click(`#new-game label:has(input[name="army"][value="${army}"])`);
-    else if (army) {
-      if (!await page.evaluate(() => document.getElementById('other-armies').open)) await page.click('#other-armies summary');
-      await page.selectOption('#army', army);
-    }
+    if (army) await page.click(`#new-game label:has(input[name="army"][value="${army}"])`);
   }
 }
 

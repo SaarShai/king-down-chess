@@ -6,6 +6,8 @@ The Workshop is the Proving Ground, view A of [the spec](specs/workshop-proving-
 
 ## Screens
 
+**Parked (2026-10-28).** The web build has no door to the Workshop now; [PARKED.md](PARKED.md) tells what is parked. The text below tells how the Workshop works when its doors come back.
+
 The Workshop is one full-screen modal dialog (`#workshop`). It opens over the screen that opened it, and that screen stays open below it. ‹ Game and Esc close it.
 
 - **Doors.** The Workshop button on the title screen (`#title-workshop`) and the Workshop row of the game menu (`#workshop-btn`). The first open shows the Pawn; a later open shows the last open piece. A link with `?design=<code>` opens the card face of the design first, in a sheet "A shared piece", with Keep a copy and Open on the board. Keep a copy saves the design and opens it. Open on the board, × and Esc show it on the board, read only until the first edit. A bad code gives the toast "This design link could not be read." and opens the Pawn. When the shelf holds an entry that is not a whole design, a door gives the toast "1 saved entry could not be read. It stays on this device; the other designs work." The game removes `design` from the address, so a reload shows the game.

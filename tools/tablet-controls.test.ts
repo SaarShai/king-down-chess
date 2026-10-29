@@ -119,13 +119,13 @@ it.each([false, true])('keeps the frame and lower shadow when an action is disab
   finally { await page.close(); }
 });
 
-it.each(['#see-again', '#copy'])('keeps the disabled frame of %s in the web markup', async id => {
+// Copy moves (Menu, This game) is parked (docs/PARKED.md).
+it.each(['#see-again'])('keeps the disabled frame of %s in the web markup', async id => {
   const page = await fixture(false, '');
   try {
-    await webParts(page, [id === '#copy' ? '#menu-sheet' : '#game-table']);
+    await webParts(page, ['#game-table']);
     await page.evaluate(() => {
       document.getElementById('see-again')?.removeAttribute('hidden');
-      for (const section of document.querySelectorAll<HTMLElement>('[data-menu-page]')) section.hidden = section.dataset.menuPage !== 'game';
     });
     await checkDisabledActions(page, [id]);
   } finally { await page.close(); }
@@ -172,37 +172,7 @@ it.each([false, true])('keeps both focus rings around enabled and off banners (p
   } finally { await page.close(); }
 });
 
-it('keeps lesson text and icons inside their faces and the bar at phone width', async () => {
-  const page = await fixture(false, '');
-  try {
-    await webParts(page, ['#game-table']);
-    await page.evaluate(() => {
-      document.body.classList.add('in-lesson');
-      for (const button of document.querySelectorAll<HTMLButtonElement>('#table-bar > button')) button.hidden = !['return-game', 'show-me', 'menu-btn'].includes(button.id);
-    });
-    // Maester is the widest lesson name; at 320 px its label must stay on one line, so the bar keeps one height.
-    for (const [width, height] of [[390, 844], [320, 568]]) {
-      await page.setViewportSize({ width, height });
-      let restHeight = 0;
-      for (const done of [false, true]) {
-        await page.evaluate(done => {
-          document.getElementById('show-me')!.hidden = done;
-          document.getElementById('next-lesson')!.hidden = !done;
-          document.querySelector('#next-lesson .label')!.textContent = 'Next: Maester';
-        }, done);
-        await checkButtonContent(page, '#table-bar > button');
-        const box = (await page.locator('#table-bar').boundingBox())!;
-        expect(box.y).toBeGreaterThanOrEqual(0); expect(box.y + box.height).toBeLessThanOrEqual(height);
-        if (done) expect(box.height, `${width} px: the bar keeps one height with Next: Maester`).toBe(restHeight); else restHeight = box.height;
-        for (const face of await page.locator('#table-bar > button:visible').all()) {
-          const bounds = (await face.boundingBox())!;
-          expect(bounds.y).toBeGreaterThanOrEqual(box.y); expect(bounds.y + bounds.height).toBeLessThanOrEqual(box.y + box.height);
-        }
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-      }
-    }
-  } finally { await page.close(); }
-});
+// The lesson controls in the table bar (Show me, Next lesson) are parked (docs/PARKED.md).
 
 it('gives both setup section buttons a clear 48 pixel target', async () => {
   const page = await fixture(true, '<div id="app-root"><dialog open id="new-game" class="page-sheet"><div class="section-head"><button id="fairy-heading">Fairy pieces <small>10 kinds</small></button><label class="section-switch"><input type="checkbox" aria-label="Fairy pieces"></label></div><div class="section-head"><button id="cards-heading">Cards <small>21 cards</small></button><label class="section-switch"><input type="checkbox" aria-label="Cards"></label></div></dialog></div>');

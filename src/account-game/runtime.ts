@@ -27,7 +27,6 @@ import { lobbyPoll, lobbyScreen, lobbySync } from '../plugin/screens/lobby';
 import { finishSeat, seatScreen, seatSync } from '../plugin/screens/seat';
 import { endPoll, endSync, endScreen } from '../plugin/screens/end';
 import { profileScreen } from '../plugin/screens/profile';
-import { collectionScreen } from '../plugin/screens/collection';
 import '../plugin/app.css';
 import '../account-game/content.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
@@ -72,7 +71,7 @@ const router = createRouter(call, navigate, next => {
   return true;
 });
 export const { routeView, start } = router;
-const screens = { play: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen, collection: collectionScreen };
+const screens = { play: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen };
 export const memory = { ...createHallMemory(), dirty: false, kind: 'solo' as 'solo' | 'friend' | 'random', code: '', blockNotice: '', settings: undefined as PlayerSettings | undefined, me: undefined as { handle: string | null; icon: Icon | null } | undefined, preview: undefined as JoinPreview | undefined, joinError: undefined as { code: string; message: string } | undefined, get view() { return view; } };
 let enterRead: ((route: ReadRoute) => void) | undefined;
 const pageHost: PageHost = {
@@ -550,6 +549,7 @@ function scrollNewGame() {
 }
 /** `queued` is the screen that waits behind the home card; it is set before the page syncs, so its memory stays. */
 export function navigate(screen: Screen, queued?: Screen) {
+  if (screen === 'collection') screen = 'profile'; // the Collection is parked (docs/PARKED.md): a saved page opens Profile
   const enteringPlay = screen === 'play' && state.screen !== 'play';
   const keepBack = keepHandleBack; keepHandleBack = queued === 'handle';
   if (screen === 'handle' && state.screen !== 'handle' && !keepBack) { handleBack = state.handle_back = state.screen === 'settings' ? 'settings' : state.pending?.screen ?? state.screen; nameForCaller = state.name_for_caller = false; }

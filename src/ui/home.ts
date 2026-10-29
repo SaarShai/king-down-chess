@@ -46,7 +46,7 @@ export function homeState({ game, sides, level, linkSide, staged, result }: Home
 /** The empty start-up save belongs to the first visit. A URL position always opens the game. */
 export function shouldShowHome(params: URLSearchParams, gate: { hasSave: boolean; titleSeen: boolean; firstVisit: boolean }): boolean {
   return gate.hasSave && !gate.titleSeen && !gate.firstVisit && params.get('title') !== '0'
-    && !['army', 'fen', 'design'].some(key => params.has(key));
+    && !['army', 'fen'].some(key => params.has(key)); // an old `?design=` link is a plain visit: the Workshop is parked
 }
 
 /** Today uses the local date and the same draw as New game. */
