@@ -208,7 +208,7 @@ try {
   // The page names each art file on this origin; a cross-origin page may read it into a canvas, and a new build gets new names.
   const art = [...new Set(resource.result.contents[0].text.match(new RegExp(`${origin}/plugin-art/[\\w-]+\\.(?:webp|png|svg|woff2)`, 'g')))];
   const counts = Object.fromEntries(['webp', 'png', 'svg', 'woff2'].map(type => [type, art.filter(file => file.endsWith(`.${type}`)).length]));
-  for (const name of ['badge-architect.webp', 'badge-card-sharp.webp', 'badge-crowned.webp', 'badge-fairy-tale.webp', 'badge-first-win.webp', 'badge-friend-match.webp', 'badge-giant-slayer.webp', 'badge-purist.webp', 'badge-royal-collection.webp', 'badge-stranger-match.webp', 'scroll.webp']) assert(art.some(file => file.includes(`/${name.slice(0,-5)}-`)), `The page names ${name}`);
+  for (const name of ['scroll.webp']) assert(art.some(file => file.includes(`/${name.slice(0,-5)}-`)), `The page names ${name}`);
   // Two PNGs: the app icon and the Stratus cloud bank (PR #92's king floor).
   assert(counts.webp >= 20); assert.equal(counts.png, 2); assert(art.some(file => file.includes('/cloud-bank-')), 'The page names cloud-bank.png'); assert.equal(counts.svg, 24); assert.equal(counts.woff2, 4);
   // Ticket 12: each setup art file stays on the plugin origin.

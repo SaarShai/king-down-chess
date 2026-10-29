@@ -15,13 +15,13 @@ The ticket, [specs/park-lean/spec.md](specs/park-lean/spec.md), holds the owner'
 | Lab armies | The example armies (`src/try-these.ts`), the Catapult lab, Ogre practice and the Custom army prompt under "More…" in New game | The Catapult piece stays in the engine |
 | Card mode | The "Coming: Card mode" row | — |
 | The Extra page | Extra, and its This game section (army code and Copy moves). Account moves to the main menu. | `src/clipboard.ts`, `movesText` in `src/screen/links.ts` |
-| Online Badges and Collection | The Badges part of the profile, the Collection row and the Collection screen in `/play/` | The server still writes badges to its table. `src/plugin/screens/collection.ts` stays. The badge display code is in git at commit `a55859ac` (`src/plugin/screens/profile.ts`). |
+| Online Badges and Collection | The Badges part of the profile, the Collection row and the Collection screen in `/play/` | The server still writes badges to its table. `src/plugin/screens/collection.ts` stays. The badge art stays in `src/plugin/assets/`, but `src/account-game/art.ts` leaves it out of the build. The badge display code is in git at commit `a55859ac` (`src/plugin/screens/profile.ts`). |
 
 ## How old data loads
 
 - A saved New game setup that names `daily`, `custom`, `ogre`, an example army code or a Workshop design falls back to a Random army (`parseSetup` in `src/new-game.ts`).
 - A saved game keeps loading. Its `daily` field stays in the save format.
-- A game link that holds a design still loads its game. A bare `?design=` link opens the title, and the game removes `design` from the address.
+- A game link that holds a design still loads its game. A bare `?design=` link opens the page as a plain visit does (title or Home), and the game removes `design` from the address.
 - The online router sends `collection` to the profile.
 
 ## Parked checks

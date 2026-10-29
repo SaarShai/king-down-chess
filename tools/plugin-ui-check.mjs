@@ -1251,16 +1251,7 @@ try {
   });
   assert(art.length >= 20, 'The page names the board art and menu art');
   assert(art.some(file => file.src.includes('/scroll-')), 'scroll.webp loads from the plugin origin');
-  assert(art.some(file => file.src.includes('/badge-stranger-match-')), 'badge-stranger-match.webp loads from the plugin origin');
-  assert(art.some(file => file.src.includes('/badge-royal-collection-')), 'badge-royal-collection.webp loads from the plugin origin');
-  assert(art.some(file => file.src.includes('/badge-purist-')), 'badge-purist.webp loads from the plugin origin');
-  assert(art.some(file => file.src.includes('/badge-giant-slayer-')), 'badge-giant-slayer.webp loads from the plugin origin');
-  assert(art.some(file => file.src.includes('/badge-friend-match-')), 'badge-friend-match.webp loads from the plugin origin');
-  assert(art.some(file => file.src.includes('/badge-first-win-')), 'badge-first-win.webp loads from the plugin origin');
-  assert(art.some(file => file.src.includes('/badge-fairy-tale-')), 'badge-fairy-tale.webp loads from the plugin origin');
-  assert(art.some(file => file.src.includes('/badge-crowned-')), 'badge-crowned.webp loads from the plugin origin');
-  assert(art.some(file => file.src.includes('/badge-card-sharp-')), 'badge-card-sharp.webp loads from the plugin origin');
-  assert(art.some(file => file.src.includes('/badge-architect-')), 'badge-architect.webp loads from the plugin origin'); assert(art.every(file => file.width > 0), 'Every art file decodes');
+  assert(art.every(file => file.width > 0), 'Every art file decodes');
   // The host page's origin: the widget page has its own origin, as in ChatGPT.
   assert.equal(art.every(file => new URL(file.src).origin === new URL(base).origin), mode === 'fixture', 'The HTTP board loads its art from the plugin origin, not the page origin');
   assert.equal(await page.content().then(html => html.includes('data:image/webp')), false);
