@@ -14,7 +14,7 @@ Production build and 25 targeted game/play tests passed. All 36 browser scenario
 
 ```sh
 npm run build
-npx vitest run src/play.test.ts src/game.test.ts
+KINGDOWN_TEST_FILE='src/{play,game}.test.ts' npm test
 node tools/verify-special-moves.mjs
 PLAYABLE_BROWSER=chrome PLAYABLE_OUT=docs/special-moves/adoption node tools/verify-cursor-adoption.mjs
 PLAYABLE_BROWSER=chrome PLAYABLE_URL=http://127.0.0.1:5189/ PLAYABLE_OUT=docs/special-moves/clay node tools/verify-playable-clay.mjs

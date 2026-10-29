@@ -8,7 +8,7 @@ The private plugin shares the website's engine and painted board, with a Node wo
 
 Use Node 24 and a disposable local PostgreSQL 17 database. No live Supabase credentials are needed for these checks.
 Keep the test database data folder out of `/tmp`, because macOS removes old files there and the server then fails with `could not open file "global/pg_filenode.map"`.
-For a long local browser check on macOS, keep the Mac awake for the command: `caffeinate -disu bash tools/test-lock.sh npm run check:browser <name>`. This assertion ends with the command. If elapsed time exceeds the check limit, compare the run timestamps with the power log before you change code or limits.
+For a long local browser check on macOS, keep the Mac awake for the command: `caffeinate -disu npm run check:browser <name>`. This assertion ends with the command. If elapsed time exceeds the check limit, compare the run timestamps with the power log before you change code or limits.
 
 ```sh
 npm ci

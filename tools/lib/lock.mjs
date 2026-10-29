@@ -1,6 +1,6 @@
 // Locks for the browser-check runner (checks-and-hooks/06; after-redesign/01).
 // Every lock is one file, made with exclusive create (`wx`), that holds { pid, cwd, since, token }.
-//   SLOTS                     The machine slots: how many checks (or builds) run at once on this machine, in every
+//   SLOTS                     The clone slots: how many checks (or builds) run at once in one clone, in every
 //                             run. One shared constant, so that an exclusive check takes the same slots that the
 //                             normal checks take. It went from 2 to 3 after the measurement of spec §3.4 (ticket 05).
 //   runLockPath(dir)          <git directory of the worktree>/check-run.lock: one run at a time in a worktree,
@@ -25,12 +25,50 @@
 //   release()                 Removes the file only while it still holds this lease's token. Synchronous, so
 //                             that a process 'exit' handler can call it.
 //   releaseAll()              Releases every lease that this process still holds, for an exit handler.
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { linkSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { fstatSync, linkSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const SLOTS = 3;
+
+/**
+ * Node closes extra descriptors in a child. Pass the machine lease descriptor at its own number, so that a child
+ * that outlives a killed runner keeps the lease. The gaps are 'ignore': Node skips holes and would move the fd.
+ * A Node layer (npm, npx) between tools/test-lock.sh and this process closes the lease, and Node can reuse its
+ * number. So the descriptor goes on only while it is the lease file (KINGDOWN_MACHINE_LEASE_ID is its dev:ino);
+ * otherwise the ancestor that holds the lease keeps it, and stdio does not change.
+ */
+export function machineLeaseStdio(stdio) {
+  const fd = Number(process.env.KINGDOWN_MACHINE_LEASE_FD);
+  if (process.env.CI || !process.env.KINGDOWN_MACHINE_LEASED || !Number.isInteger(fd) || fd < 3) return stdio;
+  let id;
+  try { const { dev, ino } = fstatSync(fd, { bigint: true }); id = `${dev}:${ino}`; } catch { return stdio; }
+  if (id !== process.env.KINGDOWN_MACHINE_LEASE_ID) return stdio;
+  const out = [...stdio];
+  while (out.length < fd) out.push('ignore');
+  out[fd] = fd;
+  return out;
+}
+
+/** Re-run this command under the local machine lease. Child commands reuse it; CI runs as before. */
+export async function enterMachineLease() {
+  if (process.env.CI || process.env.KINGDOWN_MACHINE_LEASED) return;
+  const child = spawn('bash', [fileURLToPath(new URL('../test-lock.sh', import.meta.url)), '--machine', process.execPath, ...process.argv.slice(1)], { stdio: 'inherit' });
+  const signals = [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]];
+  const forwards = signals.map(([signal]) => {
+    const forward = () => child.kill(signal);
+    process.on(signal, forward);
+    return [signal, forward];
+  });
+  const code = await new Promise((done, fail) => {
+    child.once('error', fail);
+    child.once('exit', (code, signal) => done(code ?? signals.find(([name]) => name === signal)?.[1] ?? 1));
+  });
+  for (const [signal, forward] of forwards) process.removeListener(signal, forward);
+  process.exit(code);
+}
 
 function gitDir(dir, flag) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
