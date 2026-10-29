@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "ready",
-  "catalogSha256": "0577d7c629adc27e2eeac9f1f3228d3e66a7438ed125331fdf4c69d5ad95cb2e",
+  "catalogSha256": "54abc4ff79287f536d2678ec110f86cdad8213a671d4bbaa7f0196869bb0c4fd",
   "entries": [
     {
       "character": "pawn",
@@ -3600,8 +3600,8 @@
       "army": "black",
       "kind": "turn",
       "id": "black-turn-N-NE",
-      "manifest": "banks/b66a5b7a623a0eb4d196c764221f0f62a6c40075c2eff10381a3c7414f8f03ca.json",
-      "sha256": "b66a5b7a623a0eb4d196c764221f0f62a6c40075c2eff10381a3c7414f8f03ca"
+      "manifest": "banks/39133c5b5f9945896ef1e015149d0ae20a4c4d32273310c072dda8f799c186f0.json",
+      "sha256": "39133c5b5f9945896ef1e015149d0ae20a4c4d32273310c072dda8f799c186f0"
     },
     {
       "character": "king-stratus",
@@ -3640,8 +3640,8 @@
       "army": "black",
       "kind": "turn",
       "id": "black-turn-SW-W",
-      "manifest": "banks/ba939e13f2ddb09bc0dd0a6fb51fe3e9642bd4f4fd6b1bccd2891d94550f98c5.json",
-      "sha256": "ba939e13f2ddb09bc0dd0a6fb51fe3e9642bd4f4fd6b1bccd2891d94550f98c5"
+      "manifest": "banks/2c7581c436306e47305b9e31cfbca8c73e2ecdbb7ee4eb5d80fc0d785f18add2.json",
+      "sha256": "2c7581c436306e47305b9e31cfbca8c73e2ecdbb7ee4eb5d80fc0d785f18add2"
     },
     {
       "character": "king-stratus",
