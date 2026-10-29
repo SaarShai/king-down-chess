@@ -8,7 +8,7 @@ The owner: "park all of these outside the build. we'll return to them later."
 
 | Feature | What the player no longer sees | Source that stays |
 | --- | --- | --- |
-| Pass-and-play (two people on one device) | "A friend" in New game (`#mode-two`) | Mode `two` in `src/new-game.ts`, the `device` turn mode in `src/turn.ts`. The `?players=human,human` check fixture stays, with no visible link. |
+| Pass-and-play (two people on one device) | "A friend" in New game (`#mode-two`). Rematch of a two-person game, and the army "Ogre practice", now play against the computer. | Mode `two` in `src/new-game.ts`, the `device` turn mode in `src/turn.ts`. The `?players=human,human` check fixture stays, with no visible link. |
 | The serverless game link | "Send the game link" (`#share`) in the menu. A link with `?moves=` opens as a plain visit, says "This version cannot open game links.", and loses its parameters. | `gameUrl` and `gameLink` in `src/screen/links.ts`, the link restore in `src/main.ts` and `src/screen/play.ts`, `src/ui/previously.ts` |
 | Key moments | The key-moment search that Review started, and its list in Moves (`#over-moments` stays empty) | `listMoments` in `src/screen/moments.ts`, `keyMoments` in `src/moment.ts` |
 | Code typing and code tiles in `/play/` | "Join with a code" in New game, the code field on the Join screen, the six code tiles on the friend screen and the code in the Your games row | `src/plugin/screens/join.ts` keeps the preview and join; the server still makes and checks codes |
@@ -19,8 +19,8 @@ A friend joins an online game by the invite link only. The friend screen shows a
 ## How old data loads
 
 - A remembered New game setup with Mode `two` opens as a game against the computer (with Kings' powers when its box was on).
-- A saved two-person game loads and finishes. Its next game from New game is against the computer.
-- A saved game from a game link loads and finishes. Its turn still makes a link, which this version does not open.
+- A saved two-person game loads and finishes. Its next game is against the computer: Rematch (`rematchPlayers` in `src/new-game.ts`) and New game both seat the computer, and Rematch gives the person Black.
+- A saved game from a game link loads as a game against the computer (`parkedLinkPlayers`): the computer plays the friend's side, and the game says "This version cannot send game links. The computer plays your friend's side." It shows no "Send your turn".
 
 ## Parked checks
 

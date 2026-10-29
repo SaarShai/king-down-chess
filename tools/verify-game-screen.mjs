@@ -108,7 +108,9 @@ try {
   };
   {
     const { page, context } = await opened({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], link: 0 });
-    await visibleWords(page, "Wait for your friend's link.");
+    // The game link is parked (docs/PARKED.md): a saved link game plays against the computer and says so.
+    await visibleWords(page, "This version cannot send game links. The computer plays your friend's side.");
+    assert.equal(await page.locator('#end-turn').innerText().then(t => /Send/.test(t)), false, 'a saved link game has no Send your turn');
     await context.close();
   }
   {

@@ -13,6 +13,16 @@ describe('parked entry points', () => {
     expect(page).not.toMatch(/id="mode-two"|value="two"/);
   });
 
+  it('no New game army or rematch seats two people on one device', () => {
+    expect(read('src/main.ts')).not.toMatch(/\['human', 'human'\]/);
+    expect(read('src/screen/play.ts')).toMatch(/rematch \? rematchPlayers\(sides\)/);
+    expect(read('src/ui/home.ts')).not.toMatch(/Two players on this device/);
+  });
+
+  it('a saved link game does not restore the Send your turn mode', () => {
+    expect(read('src/screen/play.ts')).not.toMatch(/linkSide = (saved|s)\.link|linkSide = s\.link ===/);
+  });
+
   it('the menu has no Send the game link button', () => {
     expect(page).not.toMatch(/id="share"|Send the game link/);
   });

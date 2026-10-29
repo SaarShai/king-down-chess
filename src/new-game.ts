@@ -80,6 +80,22 @@ export function withKing(s: Setup, c: Color, king: KingName): Setup {
   return next;
 }
 
+/**
+ * Pass-and-play is parked (docs/PARKED.md). A rematch of a game with two people on one device is
+ * against the computer, and the person plays Black. Any other rematch swaps the sides.
+ */
+export const rematchPlayers = (sides: readonly [Side, Side]): [Side, Side] =>
+  sides[0] === 'human' && sides[1] === 'human' ? ['ai', 'human'] : [sides[1], sides[0]];
+
+/**
+ * The game link is parked (docs/PARKED.md). A saved link game, where this device plays side `link`,
+ * loads as a game against the computer: the computer plays the friend's side.
+ */
+export const parkedLinkPlayers = (link: Color): [Side, Side] => (link === 0 ? ['human', 'ai'] : ['ai', 'human']);
+
+/** The notice when a saved link game loads against the computer. */
+export const PARKED_LINK_NOTICE = "This version cannot send game links. The computer plays your friend's side.";
+
 /** The setup of a game in progress, for a saved game from before the dialog remembered its own. */
 export function setupOfGame(sides: readonly [Side, Side], kings: readonly [KingChoice | null, KingChoice | null], level: SkillName): Setup {
   const s = defaultSetup(), humans = sides.filter(x => x === 'human').length, powered = !!(kings[0] || kings[1]);

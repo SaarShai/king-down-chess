@@ -54,7 +54,8 @@ try {
     console.log(`ok their-turn ${width}×${height}: Undo clears the check`);
     await context.close();
   }
-  for (const mode of ['computer', 'link']) for (const viewer of [0, 1]) for (const turn of [0, 1]) {
+  // The game link is parked (docs/PARKED.md): a saved link game loads as a computer game (verify-game-screen.mjs checks it).
+  for (const mode of ['computer']) for (const viewer of [0, 1]) for (const turn of [0, 1]) {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
     const save = { back: '', fen: turn === 0 ? '7k/8/p7/8/8/8/8/4K2r w - - 0 1' : '4k2R/8/8/8/8/P7/8/7K b - - 0 1', moves: [],
       white: mode === 'computer' && viewer === 1 ? 'ai' : 'human', black: mode === 'computer' && viewer === 0 ? 'ai' : 'human',

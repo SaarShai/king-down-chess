@@ -23,7 +23,8 @@ export function homeState({ game, sides, level, linkSide, staged, result }: Home
   const mine = linkSide != null ? game.pos.turn === linkSide : sides[game.pos.turn] === 'human';
   const finished = !staged && (game.status !== 'playing' || result !== '');
   const you = linkSide ?? (sides[0] === 'human' ? 0 : 1);
-  const rematch = linkSide == null && sides.every(s => s === 'human') ? 'Same army. Two players on this device.' : `Same army. You play ${you === 0 ? 'Black' : 'White'}.`;
+  // A rematch of a two-person game is against the computer, and the person plays Black (`rematchPlayers`).
+  const rematch = `Same army. You play ${you === 0 ? 'Black' : 'White'}.`;
   const oneDevice = linkSide == null && sides.every(s => s === 'human');
   const side = (staged ? last?.pos.turn ?? game.pos.turn : game.pos.turn) === 0 ? 'White' : 'Black';
   let detail: string;

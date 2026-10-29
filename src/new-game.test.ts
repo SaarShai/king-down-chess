@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSetup, newGamePowerLine, newGameWarning, kingsOf, parseSetup, playersOf, powersOn, refusal, setupOfGame, withDesign, withKing, withMode } from './new-game';
+import { defaultSetup, newGamePowerLine, newGameWarning, kingsOf, parkedLinkPlayers, parseSetup, playersOf, powersOn, rematchPlayers, refusal, setupOfGame, withDesign, withKing, withMode } from './new-game';
 import { PRESETS, designCode, fromPreset } from './workshop/model';
 import { powerOptions } from './powers-ui';
 import { Game } from './game';
@@ -153,4 +153,18 @@ it('keeps old level values and maps the three menu stops', async () => {
   expect(MENU_LEVELS).toEqual(['beginner','casual','club']);
   for (const level of [...MENU_LEVELS, 'strong'] as const) expect(parseSetup({ ...defaultSetup(), level })?.level).toBe(level);
   expect(menuLevel('strong')).toBe('club'); expect(LEVEL_NAMES.strong).toBe('Strong'); expect(levelPosition('strong')).toBe(2);
+});
+
+describe('parked pass-and-play and game link (docs/PARKED.md)', () => {
+  it('a rematch of a two-person game is against the computer; other rematches swap the sides', () => {
+    expect(rematchPlayers(['human', 'human'])).toEqual(['ai', 'human']);
+    expect(rematchPlayers(rematchPlayers(['human', 'human']))).toEqual(['human', 'ai']);
+    expect(rematchPlayers(['human', 'ai'])).toEqual(['ai', 'human']);
+    expect(rematchPlayers(['ai', 'human'])).toEqual(['human', 'ai']);
+  });
+
+  it("a saved link game seats the computer on the friend's side", () => {
+    expect(parkedLinkPlayers(0)).toEqual(['human', 'ai']);
+    expect(parkedLinkPlayers(1)).toEqual(['ai', 'human']);
+  });
 });

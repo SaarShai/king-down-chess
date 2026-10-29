@@ -135,7 +135,7 @@ const dialog = newGameDialog(s => {
   try { localStorage.setItem(SETUP_KEY, JSON.stringify(s)); } catch { /* private mode: the choices last this visit */ }
   if (s.army === 'daily') { const d = today(); play.newGame(undefined, null, false, d); }
   else if (s.army === 'classic') play.newGame(CLASSIC_CHESS);
-  else if (s.army === 'ogre') play.newGame(undefined, OGRE_PRACTICE, false, null, ['human', 'human']);
+  else if (s.army === 'ogre') play.newGame(undefined, OGRE_PRACTICE); // against the computer: pass-and-play is parked (docs/PARKED.md)
   else if (back) { try { play.newGame(back); } catch (e) { alert((e as Error).message); } }
   else if (s.army !== 'random') {
     play.newGame(s.army);
