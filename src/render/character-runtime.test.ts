@@ -35,15 +35,15 @@ describe('ready character playback', () => {
  it('loads the requested piece only and discards late decodes after disposal', async () => {
   const a = {...bank(),kind:'idle'}, other={...a,character:'knight'}, sources:string[]=[], pending:(()=>void)[]=[];
   const runtime=createCharacterRuntime({url:'https://example.invalid/character-runtime/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[a,other]})})) as unknown as typeof fetch,
-   image:()=>{const img={onload:()=>{},decode:async()=>{},set src(s:string){sources.push(s);pending.push(()=>img.onload());}};return img as unknown as HTMLImageElement;}});
-  await runtime.ready();const loading=runtime.warm('pawn','white');await Promise.resolve();
+   image:()=>{const img={onload:()=>{},decode:async()=>{},set src(s:string){sources.push(s);const callback=img.onload;pending.push(()=>callback());}};return img as unknown as HTMLImageElement;}});
+  await runtime.ready();const loading=runtime.warm('pawn','white');await vi.waitFor(()=>expect(sources).toHaveLength(1));
   expect(sources).toEqual(['https://example.invalid/character-runtime/frame-0']);
   runtime.dispose();pending[0]();await loading;expect(runtime.rest('pawn','white')).toBeNull();
  });
  it('holds a previously passed frame while a reverse turn image loads', async () => {
   const turn=bank('S','SE');let finishMiddle=()=>{};
   const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[turn]})})) as unknown as typeof fetch,
-   image:()=>{const img={naturalWidth:768,naturalHeight:768,onload:()=>{},decode:async()=>{},set src(s:string){if(s.endsWith('frame-60'))finishMiddle=()=>img.onload();else queueMicrotask(()=>img.onload());}};return img as unknown as HTMLImageElement;}});
+   image:()=>{const img={naturalWidth:768,naturalHeight:768,onload:()=>{},decode:async()=>{},set src(s:string){if(s.endsWith('frame-60'))finishMiddle=()=>img.onload();else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
   const prepared=await runtime.prepare('pawn','white','S',false);expect(prepared).not.toBeNull();
   const sample=()=>runtime.action(prepared,-60,1000,0) as {time:number}|null;
   expect(sample()?.time).toBe(120);
@@ -54,7 +54,7 @@ describe('ready character playback', () => {
    const turn=reverse?bank('S','SE'):bank('SE','S');let finishMiddle=()=>{};
    const pressure=Array.from({length:24},(_,i)=>({...bank(),id:`pressure-${i}`,character:`pressure-${i}`,kind:'idle',frames:Array.from({length:6},(_,j)=>({url:`pressure-${i}-${j}`,timeMs:j*20}))}));
    const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[turn,...pressure]})})) as unknown as typeof fetch,
-    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:()=>{},decode:async()=>{},set src(s:string){if(s.endsWith('/frame-60'))finishMiddle=()=>img.onload();else queueMicrotask(()=>img.onload());}};return img as unknown as HTMLImageElement;}});
+    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:()=>{},decode:async()=>{},set src(s:string){if(s.endsWith('/frame-60'))finishMiddle=()=>img.onload();else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
    await runtime.warm('pawn','white');const prepared=await runtime.prepare('pawn','white','S',false);
    const sample=(time:number)=>runtime.action(prepared,time,1000,0) as {time:number}|null;
    expect(sample(-60)?.time).toBe(reverse?120:0);finishMiddle();await vi.waitFor(()=>expect(sample(-60)?.time).toBe(60));
@@ -70,10 +70,184 @@ describe('ready character playback', () => {
  it('bounds decoded pixels while the six-slot loader fills a clip', async () => {
   const b={...bank(),kind:'idle'},sources:string[]=[];
   const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[b]})})) as unknown as typeof fetch,
-   image:()=>{const img={naturalWidth:4096,naturalHeight:4096,onload:()=>{},decode:async()=>{},set src(s:string){sources.push(s);queueMicrotask(()=>img.onload());}};return img as unknown as HTMLImageElement;}});
+   image:()=>{const img={naturalWidth:4096,naturalHeight:4096,onload:()=>{},decode:async()=>{},set src(s:string){sources.push(s);queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
   await runtime.warm('pawn','white',true);
   expect(sources).toHaveLength(3);expect(runtime.stats.bytes).toBeLessThanOrEqual(64*1024*1024);expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);expect(runtime.stats.active).toBe(0);
   expect(runtime.rest('pawn','white')).not.toBeNull();runtime.dispose();
+ });
+ it('falls back for a slow turn frame, then uses the late successful image', async () => {
+  vi.useFakeTimers();
+  try {
+   const idle={...bank(),kind:'idle',frames:[{url:'frame-0',timeMs:0}]},turn=bank();let finish=()=>{};
+   const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),onerror:null as null|(()=>void),decode:async()=>{},set src(s:string){if(s.endsWith('/frame-120'))finish=()=>img.onload?.();else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   await runtime.warm('pawn','white');const preparing=runtime.prepare('pawn','white','S',false);
+   await vi.advanceTimersByTimeAsync(1001);expect(await preparing).toBeNull();expect(runtime.stats.active).toBe(1);
+   finish();await vi.advanceTimersByTimeAsync(0);const next=await runtime.prepare('pawn','white','S',false);
+   expect(next).not.toBeNull();expect(runtime.action(next,-120,100,0)).not.toBeNull();runtime.dispose();
+  } finally {vi.useRealTimers();}
+ });
+ it('cancels timed-out image requests before releasing queue slots', async () => {
+  vi.useFakeTimers();
+  try {
+   const banks=Array.from({length:7},(_,i)=>({...bank(),character:`p${i}`,kind:'idle',frames:[{url:`image-${i}`,timeMs:0}]}));
+   const sources:string[]=[],cancelled:string[]=[],late:(()=>void)[]=[];
+   const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks})})) as unknown as typeof fetch,
+    image:()=>{let source='';const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),onerror:null as null|(()=>void),decode:async()=>{},removeAttribute:()=>cancelled.push(source),set src(s:string){source=s;sources.push(s);const callback=img.onload;late.push(()=>callback?.());if(s.endsWith('image-6'))queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   await runtime.ready();const warming=banks.map(b=>runtime.warm(b.character,'white'));await vi.advanceTimersByTimeAsync(0);
+   expect(sources).toHaveLength(6);expect(runtime.stats.queued).toBe(1);
+   await vi.advanceTimersByTimeAsync(5001);await Promise.all(warming);expect(cancelled).toHaveLength(6);expect(sources).toHaveLength(7);expect(runtime.stats.active).toBe(0);
+   expect(runtime.rest('p6','white')).not.toBeNull();runtime.dispose();late.forEach(f=>f());await Promise.resolve();expect(runtime.stats.bytes).toBe(0);
+  } finally {vi.useRealTimers();}
+ });
+ it('times out a stalled decode and ignores its late result', async () => {
+  vi.useFakeTimers();
+  try {
+   const idle={...bank(),kind:'idle',frames:[{url:'frame-0',timeMs:0}]};let finishDecode=()=>{},cancelled=0;
+   const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),onerror:null as null|(()=>void),removeAttribute:()=>cancelled++,decode:()=>new Promise<void>(resolve=>{finishDecode=resolve;}),set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   const warming=runtime.warm('pawn','white');await vi.advanceTimersByTimeAsync(5001);await warming;expect(cancelled).toBe(1);expect(runtime.stats.active).toBe(0);
+   finishDecode();await Promise.resolve();expect(runtime.rest('pawn','white')).toBeNull();runtime.dispose();
+  } finally {vi.useRealTimers();}
+ });
+ it('backs off a failed image, then retries it successfully', async () => {
+  vi.useFakeTimers();
+  try {
+   const idle={...bank(),kind:'idle',frames:[{url:'frame-0',timeMs:0}]};let attempts=0;
+   const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),onerror:null as null|(()=>void),decode:async()=>{},set src(_s:string){attempts++;queueMicrotask(()=>attempts===1?img.onerror?.():img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   await runtime.warm('pawn','white');for(let i=0;i<50;i++)runtime.rest('pawn','white');await vi.advanceTimersByTimeAsync(4999);expect(attempts).toBe(1);
+   await vi.advanceTimersByTimeAsync(1);runtime.rest('pawn','white');await vi.advanceTimersByTimeAsync(0);expect(attempts).toBe(2);expect(runtime.rest('pawn','white')).not.toBeNull();runtime.dispose();
+  } finally {vi.useRealTimers();}
+ });
+ it('uses a manifest that succeeds after the move deadline', async () => {
+  vi.useFakeTimers();
+  try {
+   let resolve!:(r:Response)=>void;const response=new Promise<Response>(r=>{resolve=r;});
+   const runtime=createCharacterRuntime({fetcher:()=>response});const ready=runtime.ready();
+   await vi.advanceTimersByTimeAsync(1001);await ready;expect(runtime.has('pawn','white')).toBe(false);
+   resolve({ok:true,json:async()=>({schemaVersion:1,banks:[{...bank(),kind:'idle'}]})} as Response);await vi.advanceTimersByTimeAsync(0);
+   expect(runtime.has('pawn','white')).toBe(true);runtime.dispose();
+  } finally {vi.useRealTimers();}
+ });
+ it('backs off a failed manifest and accepts a later retry', async () => {
+  vi.useFakeTimers();
+  try {
+   let attempts=0;const runtime=createCharacterRuntime({fetcher:vi.fn(async()=>{attempts++;if(attempts===1)throw Error('offline');return {ok:true,json:async()=>({schemaVersion:1,banks:[{...bank(),kind:'idle'}]})} as Response;}) as unknown as typeof fetch});
+   await runtime.ready();for(let i=0;i<50;i++)runtime.has('pawn','white');await vi.advanceTimersByTimeAsync(4999);expect(attempts).toBe(1);
+   await vi.advanceTimersByTimeAsync(1);runtime.has('pawn','white');await vi.advanceTimersByTimeAsync(0);expect(attempts).toBe(2);expect(runtime.has('pawn','white')).toBe(true);runtime.dispose();
+  } finally {vi.useRealTimers();}
+ });
+ it('backs off a failed effect before trying it again', async () => {
+  vi.useFakeTimers();
+  try {
+   const idle={...bank(),kind:'idle',frames:[{url:'frame-0',timeMs:0}]},attack={...bank(),kind:'attack',facing:'SE'},module='data:text/javascript,export const loadEffect=()=>{globalThis.__effectCalls++;throw Error("offline")}';
+   (globalThis as {__effectCalls?:number}).__effectCalls=0;
+   const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack],effects:{pawn:{module,decodedBytes:100,contactMs:50}}})})) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   await runtime.warm('pawn','white');for(let i=0;i<20;i++)expect(await runtime.prepare('pawn','white','SE',true)).toBeNull();expect((globalThis as {__effectCalls?:number}).__effectCalls).toBe(1);
+   await vi.advanceTimersByTimeAsync(5000);expect(await runtime.prepare('pawn','white','SE',true)).toBeNull();expect((globalThis as {__effectCalls?:number}).__effectCalls).toBe(2);
+   delete (globalThis as {__effectCalls?:number}).__effectCalls;runtime.dispose();
+  } finally {vi.useRealTimers();}
+ });
+ it('shares pending effects across overlapping A B A preparations and accounts for both', async () => {
+  vi.useFakeTimers();
+  type Job = {name:string;resolve:(value:object)=>void;reject:(error:Error)=>void};
+  try {
+   const jobs:Job[]=[];(globalThis as {__overlapJobs?:Job[]}).__overlapJobs=jobs;
+   const idle={...bank(),kind:'idle',frames:[{url:'frame-0',timeMs:0}]},attack={...bank(),kind:'attack',facing:'SE',frames:[{url:'frame-0',timeMs:0}]};
+   const makeModule=(name:string)=>'data:text/javascript,'+encodeURIComponent(`export const loadEffect=()=>new Promise((resolve,reject)=>globalThis.__overlapJobs.push({name:"${name}",resolve,reject}))`);
+   const banks=[idle,attack,{...idle,character:'queen'},{...attack,character:'queen'}];
+   const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks,effects:{pawn:{module:makeModule('pawn'),decodedBytes:1000,contactMs:50},queen:{module:makeModule('queen'),decodedBytes:2000,contactMs:50}}})})) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   await runtime.warm('pawn','white');await runtime.warm('queen','white');const base=runtime.stats.bytes;
+   const first=runtime.prepare('pawn','white','SE',true);await vi.advanceTimersByTimeAsync(1001);expect(await first).toBeNull();
+   const other=runtime.prepare('queen','white','SE',true);await vi.advanceTimersByTimeAsync(1001);expect(await other).toBeNull();
+   expect(jobs.map(j=>j.name)).toEqual(['pawn','queen']);expect(runtime.stats.bytes).toBe(base+3000);
+   jobs[0].resolve({token:'pawn'});await vi.advanceTimersByTimeAsync(0);expect(runtime.stats.bytes).toBe(base+3000);
+   const again=runtime.prepare('pawn','white','SE',true);await vi.advanceTimersByTimeAsync(0);expect(jobs).toHaveLength(2);expect(await again).not.toBeNull();
+   jobs[1].reject(Error('offline'));await vi.advanceTimersByTimeAsync(0);expect(runtime.stats.bytes).toBe(base+1000);
+   expect(await runtime.prepare('pawn','white','SE',true)).not.toBeNull();expect(jobs).toHaveLength(2);
+   runtime.dispose();expect(runtime.stats.bytes).toBe(0);delete (globalThis as {__overlapJobs?:Job[]}).__overlapJobs;
+  } finally {vi.useRealTimers();}
+ });
+ it('evicts the least recently used completed effect to keep the decoded budget', async () => {
+  const calls:Record<string,number>={};(globalThis as {__effectCacheCalls?:Record<string,number>}).__effectCacheCalls=calls;
+  const names=['pawn','queen','rook'],idle={...bank(),kind:'idle',frames:[{url:'frame-0',timeMs:0}]},attack={...bank(),kind:'attack',facing:'SE',frames:[{url:'frame-0',timeMs:0}]};
+  const banks=names.flatMap(character=>[{...idle,character},{...attack,character}]);
+  const effects=Object.fromEntries(names.map(name=>[name,{module:'data:text/javascript,'+encodeURIComponent(`export const loadEffect=()=>{globalThis.__effectCacheCalls["${name}"]=(globalThis.__effectCacheCalls["${name}"]??0)+1;return {name:"${name}"}}`),decodedBytes:30*1024*1024,contactMs:50}]));
+  const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks,effects})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  for(const name of names)await runtime.warm(name,'white');const base=runtime.stats.bytes;
+  for(const name of names)expect(await runtime.prepare(name,'white','SE',true)).not.toBeNull();
+  expect(calls).toEqual({pawn:1,queen:1,rook:1});expect(runtime.stats.bytes).toBe(base+60*1024*1024);expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);
+  expect(await runtime.prepare('queen','white','SE',true)).not.toBeNull();expect(calls.queen).toBe(1);
+  expect(await runtime.prepare('pawn','white','SE',true)).not.toBeNull();expect(calls.pawn).toBe(2);expect(runtime.stats.bytes).toBe(base+60*1024*1024);
+  runtime.dispose();expect(runtime.stats.bytes).toBe(0);delete (globalThis as {__effectCacheCalls?:Record<string,number>}).__effectCacheCalls;
+ });
+ it('keeps a pending effect when another cannot fit the decoded budget', async () => {
+  vi.useFakeTimers();
+  try {
+   const idle={...bank(),kind:'idle',frames:[{url:'frame-0',timeMs:0}]},attack={...bank(),kind:'attack',facing:'SE',frames:[{url:'frame-0',timeMs:0}]};
+   const banks=[idle,attack,{...idle,character:'queen'},{...attack,character:'queen'}];
+   const a='data:text/javascript,'+encodeURIComponent('export const loadEffect=()=>new Promise(resolve=>{globalThis.__budgetEffect=resolve})');
+   const b='data:text/javascript,'+encodeURIComponent('export const loadEffect=()=>{globalThis.__budgetOther=true;return {}}');
+   const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks,effects:{pawn:{module:a,decodedBytes:40*1024*1024,contactMs:50},queen:{module:b,decodedBytes:30*1024*1024,contactMs:50}}})})) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   await runtime.warm('pawn','white');const base=runtime.stats.bytes,first=runtime.prepare('pawn','white','SE',true);await vi.advanceTimersByTimeAsync(1001);expect(await first).toBeNull();
+   expect(await runtime.prepare('queen','white','SE',true)).toBeNull();expect((globalThis as {__budgetOther?:boolean}).__budgetOther).toBeUndefined();expect(runtime.stats.bytes).toBe(base+40*1024*1024);
+   (globalThis as {__budgetEffect?:(value:object)=>void}).__budgetEffect?.({});await vi.advanceTimersByTimeAsync(0);expect(await runtime.prepare('pawn','white','SE',true)).not.toBeNull();
+   expect(await runtime.prepare('queen','white','SE',true)).not.toBeNull();expect((globalThis as {__budgetOther?:boolean}).__budgetOther).toBe(true);expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);
+   runtime.dispose();delete (globalThis as {__budgetEffect?:unknown}).__budgetEffect;delete (globalThis as {__budgetOther?:boolean}).__budgetOther;
+  } finally {vi.useRealTimers();}
+ });
+ it('preserves turn endpoints under realistic effect and image pressure', async () => {
+  const counts={archer:18878368,maester:12584376,queen:6294152},names=['archer','maester','queen',...Array.from({length:16},(_,i)=>`p${i}`)],frame=(url:string)=>({url,timeMs:0});
+  const idle=(character:string)=>({...bank(),id:character+'-idle',character,kind:'idle',frames:[frame(character+'-idle')]});
+  const attack=(character:string)=>({...bank(),id:character+'-attack',character,kind:'attack',facing:character==='queen'?'NW':'SE',frames:Array.from({length:6},(_,i)=>({url:character+'-attack-'+i,timeMs:i*20}))});
+  const edges=[['SE','S'],['S','SW'],['SW','W'],['W','NW']].map(([from,to],i)=>({...bank(from,to),id:'turn-'+i,character:'queen',frames:[frame('turn-'+i),{url:'turn-'+(i+1),timeMs:120}]}));
+  const banks=[...names.map(idle),...Object.keys(counts).map(attack),...edges];
+  const module='data:text/javascript,export function loadEffect(){return {}}',smoke='data:text/javascript,export class ArrowSmoke{constructor(){this.image={decode:async()=>{}}}}';
+  const effects=Object.fromEntries(Object.entries(counts).map(([c,decodedBytes])=>[c,{module,decodedBytes,contactMs:0,...c==='archer'?{smoke,smokeDecodedBytes:6290064}:{}}]));
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks,effects})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(s:string){if(s.includes('queen-attack')){this.naturalWidth=768;this.naturalHeight=512;}queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  await runtime.ready();await Promise.all(names.map(name=>runtime.warm(name,'white')));await vi.waitFor(()=>expect(runtime.smoke()).not.toBeNull());
+  expect(await runtime.prepare('maester','white','SE',true)).not.toBeNull();expect(await runtime.prepare('archer','white','SE',true)).not.toBeNull();
+  const prepared=await runtime.prepare('queen','white','NW',true) as {beforeMs:number}|null;expect(prepared).not.toBeNull();
+  expect(runtime.action(prepared,-prepared!.beforeMs,100,0)).toMatchObject({bank:'turn-0',time:0});
+  expect(runtime.action(prepared,-prepared!.beforeMs+60,100,0)).toMatchObject({bank:'turn-0'});
+  expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);runtime.dispose();
+ });
+ it('falls back when the required frames cannot fit beside the active effect', async () => {
+  const idle={...bank(),kind:'idle',frames:[{url:'rest',timeMs:0}]},attack={...bank(),kind:'attack',facing:'SE',frames:Array.from({length:6},(_,i)=>({url:`attack-${i}`,timeMs:i*20}))};
+  let loads=0;const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack],effects:{pawn:{module:'data:text/javascript,export function loadEffect(){return {}}',decodedBytes:63*1024*1024,contactMs:0}}})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){loads++;queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  await runtime.warm('pawn','white');expect(await runtime.prepare('pawn','white','SE',true)).toBeNull();expect(loads).toBeLessThanOrEqual(14);expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);runtime.dispose();
+ });
+ it('releases a pending effect on disposal and ignores its late completion', async () => {
+  vi.useFakeTimers();
+  try {
+   const idle={...bank(),kind:'idle',frames:[{url:'frame-0',timeMs:0}]},attack={...bank(),kind:'attack',facing:'SE',frames:[{url:'frame-0',timeMs:0}]};
+   const module='data:text/javascript,'+encodeURIComponent('export const loadEffect=()=>new Promise(resolve=>{globalThis.__disposeEffect=resolve})');
+   const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack],effects:{pawn:{module,decodedBytes:1000,contactMs:50}}})})) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   await runtime.warm('pawn','white');const base=runtime.stats.bytes,preparing=runtime.prepare('pawn','white','SE',true);await vi.advanceTimersByTimeAsync(1001);
+   expect(await preparing).toBeNull();expect(runtime.stats.bytes).toBe(base+1000);runtime.dispose();
+   (globalThis as {__disposeEffect?:(value:object)=>void}).__disposeEffect?.({});await vi.advanceTimersByTimeAsync(0);expect(runtime.stats.bytes).toBe(0);
+   delete (globalThis as {__disposeEffect?:unknown}).__disposeEffect;
+  } finally {vi.useRealTimers();}
+ });
+ it('bounds a stalled effect and keeps the body fallback available', async () => {
+  vi.useFakeTimers();
+  try {
+   const idle={...bank(),kind:'idle',frames:[{url:'frame-0',timeMs:0}]},attack={...bank(),kind:'attack',facing:'SE'},module='data:text/javascript,globalThis.__effectProbe=true;export const loadEffect=()=>new Promise(resolve=>{globalThis.__effectResolve=resolve})';
+   const runtime=createCharacterRuntime({url:'https://example.invalid/package/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack],effects:{pawn:{module,decodedBytes:100,contactMs:50}}})})) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   await runtime.warm('pawn','white');const preparing=runtime.prepare('pawn','white','SE',true);
+   await vi.advanceTimersByTimeAsync(1001);expect((globalThis as {__effectProbe?:boolean}).__effectProbe).toBe(true);expect(await preparing).toBeNull();
+   (globalThis as {__effectResolve?:(value:object)=>void}).__effectResolve?.({});await vi.advanceTimersByTimeAsync(0);expect(await runtime.prepare('pawn','white','SE',true)).not.toBeNull();
+   delete (globalThis as {__effectProbe?:boolean}).__effectProbe;delete (globalThis as {__effectResolve?:unknown}).__effectResolve;runtime.dispose();
+  } finally {vi.useRealTimers();}
  });
  it('keeps the previous art available when the optional package fails', async () => {
   const runtime=createCharacterRuntime({fetcher:vi.fn(async()=>{throw Error('offline');}) as unknown as typeof fetch});
