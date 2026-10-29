@@ -122,6 +122,25 @@ try {
     await page.locator('#account-body').evaluate(body => { body.innerHTML = '<p>Account</p>' + '<label>Saved game</label>'.repeat(30); });
     await page.waitForFunction(() => document.getElementById('menu-sheet').classList.contains('has-overflow'));
     assert.equal(await page.locator('#menu-sheet').evaluate(sheet => getComputedStyle(sheet, '::after').display), 'block', 'Account content changes update the shade');
+    // The sheet body ends between rows (menu.ts fitBody), also after a scrolled resize; Tricks held these checks before it was parked.
+    if (width < 900) await assertPhoneSheet(page, height);
+    const endsBetweenRows = slack => page.locator('#menu-sheet .sheet-body').evaluate((body, slack) => {
+      const edge = body.getBoundingClientRect().bottom - parseFloat(getComputedStyle(body).paddingBottom);
+      return [...body.querySelectorAll('#account-body label')].every(row => { const r = row.getBoundingClientRect(); return r.top >= edge - slack || r.bottom <= edge + slack; });
+    }, slack);
+    assert.ok(await endsBetweenRows(0), 'long Account ends between rows');
+    await page.locator('#menu-sheet .sheet-body').evaluate(body => { body.scrollTop = 53; });
+    assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => body.scrollTop > 0), 'long Account scrolls before resize');
+    await page.setViewportSize({ width, height: height - 37 });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+    await page.locator('#menu-sheet .sheet-body').evaluate(body => { body.scrollTop = 0; });
+    assert.ok(await endsBetweenRows(1), 'after a scrolled resize, long Account still ends between rows at scroll zero');
+    await page.setViewportSize({ width, height });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+    if (width >= 900) {
+      assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => body.scrollHeight > body.clientHeight + 1), 'desktop long Account overflows');
+      assert.equal(await page.locator('#menu-sheet').evaluate(sheet => getComputedStyle(sheet, '::after').display), 'block', 'desktop long Account paints a scroll shade');
+    }
     await page.locator('#menu-sheet .sheet-body').evaluate(body => { body.scrollTop = body.scrollHeight; });
     await page.waitForFunction(() => {
       const body = document.querySelector('#menu-sheet .sheet-body');

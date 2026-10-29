@@ -3,7 +3,7 @@ import { Engine } from './game';
 import { PaintedView, type BoardView } from './render/PaintedView';
 import { setSound } from './render/sfx';
 import { HISTORY_WHENS, POWERS_BALANCED, parseKings, parseRule, type Rules } from './rules/engine';
-import { CLASSIC_CHESS } from './rules/setup';
+import { CLASSIC_CHESS, toFen } from './rules/setup';
 import { defaultSetup, newGameDialog, parseSetup, setupOfGame, type Setup } from './new-game';
 import './dialog-dismiss';
 import { firstVisit, openTitle, startFirstDeal } from './ui/title';
@@ -143,6 +143,8 @@ if (gameLink) { // a reload then resumes the autosave
 play.restore(saved, { link: openLink, continues, urlRules: !!(preset || kings || (openLink && linkDesign)), title: showTitle,
   unreadable: stored.unreadable,
   notice: unread ? `The game link holds a piece that this version cannot read.${saved ? ' Your saved game stays.' : ''}` : '' });
+// The browser checks (tools/qa.mjs) read the live position; set after restore, so a check that waits for it sees the restored game.
+(window as unknown as Record<string, unknown>).fen = () => toFen(play.game().pos);
 await view.ready();
 if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
 guide.fill(); // after every setRules path (URL preset / save restore)

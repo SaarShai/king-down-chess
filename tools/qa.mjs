@@ -46,7 +46,7 @@ async function newPage() {
 /** `players`: who plays White and Black (`?players=`, main.ts); two people unless a case says otherwise. */
 async function boot(page, query, { players = 'human,human' } = {}) {
   await page.goto(BASE + query + (query ? '&' : '?') + `players=${players}`);
-  await page.waitForFunction(() => window.view && document.getElementById('setup').title.length > 5, null, { timeout: 40000 });
+  await page.waitForFunction(() => window.view && window.fen?.().length > 5, null, { timeout: 40000 });
 }
 
 /** Hover first and read `#hover`; a tall mesh covers the tile centre behind it at this camera. */
@@ -67,7 +67,7 @@ async function clickSq(page, name, shift = false) {
 
 const snap = async page => ({
   ...await page.evaluate(() => ({
-    fen: document.getElementById('setup').title,
+    fen: window.fen(),
     info: document.getElementById('context-text').textContent,
     scene: Object.fromEntries([...window.view.pos.board].flatMap((code, sq) => code ? [[sq, code]] : [])),
   })),
@@ -139,7 +139,7 @@ await caseFn('save/restore keeps the active rules', `?rules=2017&fen=${encodeURI
   await clickSq(page, 'd5');
   await waitPly(page, 1);
   await page.goto(BASE); // no ?rules, no ?fen: the autosave is the only source
-  await page.waitForFunction(() => window.view && document.getElementById('setup').title.length > 5, null, { timeout: 40000 });
+  await page.waitForFunction(() => window.view && window.fen?.().length > 5, null, { timeout: 40000 });
   await waitPly(page, 1); // the restored move list is the signal that replay finished
   await page.waitForTimeout(400);
   const s = await snap(page);
@@ -230,7 +230,7 @@ await caseFn('AI answers in an ogre position', `?fen=${encodeURIComponent(OGRE_E
 
 await caseFn('kings choice survives save/restore', '?kings=mud:march', async (page, errors) => {
   await page.goto(BASE); // no query
-  await page.waitForFunction(() => window.view && document.getElementById('setup').title.length > 5, null, { timeout: 40000 });
+  await page.waitForFunction(() => window.view && window.fen?.().length > 5, null, { timeout: 40000 });
   await page.waitForFunction(() => document.querySelector('#strip-me img').src.includes('/mud.webp') && document.querySelector('#strip-them img').src.includes('/mud-b.webp'));
   const kings = await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).rules.kings);
   const ok = kings.length === 2 && kings.every(k => k.king === 'Mud' && k.power === 'March') && errors.length === 0;
@@ -254,7 +254,7 @@ await caseFn('Darkness pawn capture survives save/restore', `?kings=shadow:darkn
   await waitPly(page, 1);
   await page.waitForTimeout(400);
   await page.goto(BASE); // no query
-  await page.waitForFunction(() => window.view && document.getElementById('setup').title.length > 5, null, { timeout: 40000 });
+  await page.waitForFunction(() => window.view && window.fen?.().length > 5, null, { timeout: 40000 });
   await waitPly(page, 1);
   await page.waitForTimeout(400);
   const s = await snap(page);

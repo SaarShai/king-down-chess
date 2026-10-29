@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { powersHidden, endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
+import { WARD_CODE, WARD_LINK } from './lib/design-link.mjs';
 
 const base = env('PLAYABLE_URL');
 const browser = await launch();
@@ -465,16 +466,22 @@ try {
   ok('keyboard: the arrow keys step through the three modes');
 
   // 7b. The Workshop is parked: an old `?design=` link opens the game, not the Workshop, and the URL loses it; a game
-  // link with a design that this version cannot read still says why and keeps the saved game.
+  // link that holds a design still plays it on a device without it; a game link with a design that this version cannot
+  // read still says why and keeps the saved game.
   page = await open({ query: '?design=old-design-code' });
   assert.deepEqual(await page.evaluate(() => [document.getElementById('workshop')?.open ?? false, location.search]), [false, ''], 'an old design link opens no Workshop');
+  await page.context().close();
+  page = await open({ query: WARD_LINK });
+  s = await saved(page);
+  assert.deepEqual([s.back, s.rules.design.code, await page.evaluate(() => window.view.pos.board[1])], ['RTBQKBNR', WARD_CODE, 15], 'a game link plays the design it holds, on a device without it');
+  assert.equal(await page.evaluate(() => document.getElementById('workshop')?.open ?? false), false, 'a game link does not open the Workshop');
   await page.context().close();
   page = await open({ query: '?kings=spirit:mercy&design=unreadable&army=RTBQKBNR&moves=e2-e4', save: { back: 'RNBQKBNR', fen: '', moves: ['d2-d4'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'off' } });
   assert.equal(await page.textContent('#context-text'), 'The game link holds a piece that this version cannot read. Your saved game stays.', 'a link with a design this version cannot read says why');
   assert.deepEqual([await lanMoves(page), (await saved(page)).back, (await saved(page)).rules.kings], [['d2-d4'], 'RNBQKBNR', [null, null]], 'the saved game stays, without the link\'s kings');
   assert.deepEqual(await page.evaluate(() => [document.getElementById('workshop')?.open ?? false, location.search]), [false, ''], 'no Workshop, and the URL loses the link');
   await page.context().close();
-  ok('Workshop parked: an old design link opens the game; a link with a design this version cannot read says why');
+  ok('Workshop parked: an old design link opens the game; a game link plays the design it holds; a link with a design this version cannot read says why');
 
   // 8. A save from before the dialog remembered its setup: New game opens on that game.
   page = await open({ save: { back: 'RNBQKBNR', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', moves: [], white: 'ai', black: 'human', skill: 'strong', rules: { kings: [{ king: 'Frost', power: 'Freeze' }, null] }, sound: false } });

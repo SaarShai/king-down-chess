@@ -94,6 +94,12 @@ describe('app client', () => {
     expect(client.state).toStrictEqual({ screen: 'home', sheet: undefined, board_id: 'b1', pending: { ...pending, screen: 'play', error_screen: 'play' } });
     expect(createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState: { privateContent: { screen: 'seat', settings_back: 'board', queued: 'end' } } }).state).toMatchObject({ screen: 'seat', settings_back: 'board', queued: 'end' });
   });
+  it('reads a saved Collection page as Profile, because the Collection is parked', () => {
+    const pending = { name: 'kingdown_get', args: {}, screen: 'collection', error_screen: 'collection' };
+    const saved = { privateContent: { screen: 'collection', handle_back: 'collection', settings_back: 'collection', queued: 'collection', pending } } as unknown as NonNullable<WidgetHost['widgetState']>;
+    const client = createClient({ callServerTool: async () => ({ content: [] }) }, { widgetState: saved });
+    expect(client.state).toMatchObject({ screen: 'profile', handle_back: 'profile', settings_back: 'profile', queued: 'profile', pending: { screen: 'profile', error_screen: 'profile' } });
+  });
   it('reads and writes settings through the account tool without saving them in widget state', async () => {
     const requests: unknown[] = [];
     const settings = { symbols_only: true, show_threats: true, last_setup: null };
