@@ -82,11 +82,11 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   while(active<6&&queue.length&&!disposed){
    const job=queue.shift(),{frame}=job,art=image();active++;
    let done=false;const timer=setTimeout(()=>finish(false),IMAGE_TIMEOUT);
-   function finish(ok){
+   function finish(ok,cancelled=false){
     if(done)return;done=true;clearTimeout(timer);art.onload=art.onerror=null;active--;activeJobs.delete(job);loading.delete(frame.url);
-    if(!ok){art.removeAttribute?.('src');if(!disposed)failed.set(frame.url,performance.now()+RETRY_DELAY);}else failed.delete(frame.url);job.resolve();pump();
+    if(!ok){art.removeAttribute?.('src');if(!disposed&&!cancelled)failed.set(frame.url,performance.now()+RETRY_DELAY);}else failed.delete(frame.url);job.resolve();pump();
    }
-   job.cancel=()=>finish(false);activeJobs.add(job);
+   job.cancel=()=>finish(false,true);activeJobs.add(job);
    art.onload=async()=>{
     try{await art.decode?.();if(done||disposed)return finish(false);
      const size=(art.naturalWidth||art.width)*(art.naturalHeight||art.height)*4;
@@ -96,10 +96,22 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    art.onerror=()=>finish(false);art.src=new URL(frame.url,url).href;
   }
  }
- function loadFrame(frame){
+ function requestFrame(frame,optional=false){
   if(disposed||images.has(frame.url)||performance.now()<(failed.get(frame.url)??0))return Promise.resolve();
-  if(!loading.has(frame.url)){loading.set(frame.url,new Promise(resolve=>queue.push({frame,resolve})));pump();}
-  return loading.get(frame.url)??Promise.resolve();
+  let job=loading.get(frame.url);
+  if(!job){job={frame,shared:!optional,owners:0};job.promise=new Promise(resolve=>{job.resolve=resolve;});loading.set(frame.url,job);queue.push(job);pump();}
+  if(optional)job.owners++;else job.shared=true;
+  return job.promise;
+ }
+ const loadFrame=frame=>requestFrame(frame);
+ function loadMovement(frames){
+  const jobs=[];
+  const promises=[...new Map(frames.map(frame=>[frame.url,frame])).values()].map(frame=>{const promise=requestFrame(frame,true),job=loading.get(frame.url);if(job)jobs.push(job);return promise;});
+  return {promise:Promise.all(promises),release(){
+   for(const job of jobs)job.owners--;
+   for(const job of jobs)if(!job.owners&&!job.shared&&!job.cancel){const index=queue.indexOf(job);if(index!==-1){queue.splice(index,1);loading.delete(job.frame.url);job.resolve();}}
+   for(const job of jobs)if(!job.owners&&!job.shared)job.cancel?.();
+  }};
  }
  const endpoints=bank=>[bank.frames[0],bank.frames.at(-1)];
  async function loadSeparate(character){
@@ -135,7 +147,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  function sample(bank,time,prefetch=true,reverse=false,pin=false,directFrame=null){
   if(!bank)return null;const wanted=directFrame??frameAt(bank,time),index=bank.frames.indexOf(wanted);
   const nearby=prefetch?bank.frames.slice(Math.max(0,index-(reverse?4:1)),index+(reverse?2:5)):[wanted];
-  for(const frame of nearby)if(!images.has(frame.url)&&!loading.has(frame.url)&&performance.now()>=(failed.get(frame.url)??0))void loadFrame(frame).then(()=>{if(!disposed)wake();});
+  for(const frame of nearby)if(!images.has(frame.url)&&!loading.get(frame.url)?.shared&&performance.now()>=(failed.get(frame.url)??0))void loadFrame(frame).then(()=>{if(!disposed)wake();});
   const frame=images.has(wanted.url)?wanted:reverse?bank.frames.slice(index).find(frame=>images.has(frame.url)):bank.frames.slice(0,index+1).findLast(frame=>images.has(frame.url));
   const entry=frame&&images.get(frame.url);if(!entry)return null;if(pin)activeFrame=frame.url;images.delete(frame.url);images.set(frame.url,entry);
   return {url:frame.url,image:entry.art,pivot:bank.pivot,scale:bank.boardScale??(HEIGHT[bank.character]??130)/bank.registrationHeightPx,bank:bank.id,sourceSha256:frame.sourceSha256,sourceBankSha256:bank.sourceSha256,time:frame.timeMs,canvasSize:bank.canvasSize,unitHeight:bank.registrationHeightPx,effectAnchor:frame.effectAnchor??anchorAt(bank,'arrowhead-smoke',frame.timeMs)??anchorAt(bank,'arrow',frame.timeMs)};
@@ -187,7 +199,8 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    let releaseMovementStart=null,releaseMovement=null,releaseFallback=null;
    if(movement){
     releaseFallback=reserve(start);
-    await bounded(Promise.all(movement.frames.map(loadFrame)),remaining(),signal);
+    const loads=loadMovement(movement.frames);
+    await bounded(loads.promise,remaining(),signal);loads.release();
     if(disposed||signal?.aborted){releaseFallback();return null;}
     if(!remaining()||movement.frames.some(frame=>!images.has(frame.url)))movement=null;
     else {releaseMovementStart=reserve([movement.frames[0]]);releaseMovement=reserve([movement.frames.at(-1)]);}

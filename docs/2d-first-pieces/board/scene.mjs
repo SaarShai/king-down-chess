@@ -964,11 +964,13 @@ function drawEncounter(a,t) {
   ctx.restore();
  }
  function wake(changed=true){if(disposed)return;if(changed)passiveUntil=performance.now()+5000;if(ready&&!frame)frame=requestAnimationFrame(tick);}
+ function releasePrepared(prepared){prepared?.releaseMovementStart?.();prepared?.releaseMovement?.();prepared?.releaseFallback?.();}
+ function cancelAnimation(a){a.prepareController?.abort();releasePrepared(a.runtime);releasePrepared(a.exitReady);if(!a.done)a.resolve(false);}
  // A move is over: a king's effect on the square he moved from starts again from nothing if he is there next
  // (he stayed, as with Death Touch, or came back); its fade-out during the move stays seamless.
  function endMove(){
   selectionGeneration++;pendingIdle=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();
-  if(animation){animation.prepareController?.abort();animation.runtime?.releaseMovementStart?.();animation.runtime?.releaseMovement?.();animation.runtime?.releaseFallback?.();animation.exitReady?.releaseMovementStart?.();animation.exitReady?.releaseMovement?.();animation.exitReady?.releaseFallback?.();if(!animation.done)animation.resolve(false);kingSince.delete(animation.move.from);if(animation.move.swap)kingSince.delete(animation.move.to);}
+  if(animation){cancelAnimation(animation);kingSince.delete(animation.move.from);if(animation.move.swap)kingSince.delete(animation.move.to);}
   animation=null;
  }
  function reserveSelected(sq){
@@ -1132,7 +1134,7 @@ function drawEncounter(a,t) {
   play(move,{speed=1,onContact=null,gait=null,effect=null}={}){
    if(disposed)return Promise.resolve(false);
    lifted=null;
-   if(animation){animation.prepareController?.abort();animation.runtime?.releaseMovementStart?.();animation.runtime?.releaseMovement?.();animation.runtime?.releaseFallback?.();animation.exitReady?.releaseMovementStart?.();animation.exitReady?.releaseMovement?.();animation.exitReady?.releaseFallback?.();if(!animation.done)animation.resolve(false);}
+   if(animation)cancelAnimation(animation);
    const {base,verb}=effect?{base:{type:'effect',move,start:performance.now(),speed,duration:effect.duration,effect},verb:'Playing card…'}:plan(move,speed,gait);
    return new Promise(resolve=>{
     if(bodyRuntime&&!effect&&move.promo)void bodyRuntime.warm(ART[move.promo],armyOf(base.value));
@@ -1148,7 +1150,7 @@ function drawEncounter(a,t) {
      a.prepareController=new AbortController();
      const target=move.shove?.from??move.captures[0]??move.to,from=foot(move.from),to=foot(target);
      void bodyRuntime.prepare(characterOf(base.value),armyOf(base.value),facingOf(to.x-from.x,to.y-from.y),!!move.captures.length||!!move.shove,Math.max(Math.abs(to.x-from.x),Math.abs(to.y-from.y))===TILE,a.prepareController.signal).then(prepared=>{
-      if(disposed||animation!==a){prepared?.releaseMovementStart?.();prepared?.releaseMovement?.();prepared?.releaseFallback?.();return;}
+      if(disposed||animation!==a){releasePrepared(prepared);return;}
       const first=prepared?.before[0],join=first?(first.reverse?first.bank.frames.at(-1):first.bank.frames[0]):prepared?.rest.frames[0];
       if(prepared&&a.exitBody&&join?.url===a.exit(1)?.url)a.exitReady=prepared;
       else {a.exitBody=null;bodyRuntime.releaseIdle();startPrepared(a,prepared,performance.now());}
