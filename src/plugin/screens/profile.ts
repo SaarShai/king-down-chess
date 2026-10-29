@@ -3,7 +3,6 @@ import { formatDate, gameDetail, waitingLine } from '../../account-game/games-li
 import { call, client, navigate, queue } from '../../account-game/runtime';
 import { art, symbols } from '../../account-game/art';
 import { WHY } from '../ending';
-import { BADGES, type Badge } from '../../match/badges';
 import { ICONS, type Icon, type AccountNotice, type AccountNotices } from '../../account/profile';
 import type { HistoryEntry, InboxEntry, PlayerRecord } from '../../match/protocol';
 import { DEFAULT_OPTIONS } from '../../match/setup';
@@ -25,8 +24,6 @@ onStop(() => { stopped = true; ++request; });
 let before: string | null = null, blocksAfter: string | null = null, noticesBefore: string | null = null;
 const date = (at: string) => formatDate(at, { day: 'numeric', month: 'short' });
 const fullDate = (at: string) => formatDate(at, { day: 'numeric', month: 'short', year: 'numeric' });
-const GOALS: Record<Badge, string> = { first_win: 'Win a game.', friend_match: 'Finish a game with a friend.', stranger_match: 'Finish a game with a random player.', purist: 'Win a Classic game.', fairy_tale: 'Win with fairy pieces.', architect: 'Win with your own arrangement.', card_sharp: 'Win a game with cards.', crowned: 'Win with a king power.', royal_collection: 'Win with all six kings.', giant_slayer: 'Beat the Strong computer.' };
-const badgeArt = (badge: Badge) => art(`assets/badge-${badge.replaceAll('_', '-')}.webp`);
 export function profileScreen() { if (!active()) return; $('profile-blocks-more').onclick = () => void readMoreBlocks(); $('profile-notices-more').onclick = () => void readMoreNotices(); $('profile-name').onclick = () => navigate('handle'); $('profile-more').onclick = () => { if (before) void readProfile(before); }; void readProfile(); }
 async function readProfile(cursor?: string) {
   if (!active()) return;
@@ -58,7 +55,6 @@ async function readProfile(cursor?: string) {
     if (!cursor) $('profile-history').replaceChildren();
     $('profile-history').append(...profile.history.map(historyRow));
     before = profile.next_before; $('profile-more').hidden = before === null;
-    renderBadges(record);
     if (!cursor) { renderBlocks(profile); renderNotices(profile); }
     $('profile-status').textContent = '';
   } catch (error) { if (reading === request && active()) $('profile-status').textContent = errorText(error); }
@@ -130,32 +126,6 @@ async function readMoreBlocks() {
     $('profile-status').textContent = '';
   } catch (error) { if (reading === request && active()) $('profile-status').textContent = errorText(error); }
   finally { if (reading === request && active()) { $('profile-more').removeAttribute('disabled'); $('profile-blocks-more').removeAttribute('disabled'); $('profile-notices-more').removeAttribute('disabled'); } }
-}
-function renderBadges(record: PlayerRecord) {
-  $('profile-badge-count').textContent = `${record.badges.length} of 10`;
-  $('profile-badges').replaceChildren(...(Object.keys(BADGES) as Badge[]).map(badge => {
-    const earned = record.badges.find(item => item.badge === badge), detail = earned ? `Earned ${fullDate(earned.earned_at)}` : GOALS[badge];
-    const figure = document.createElement('figure'); figure.className = `badge${earned ? '' : ' no'}`; figure.dataset.badge = badge;
-    const button = document.createElement('button'); button.type = 'button'; button.setAttribute('aria-label', `${BADGES[badge]}. ${detail}`);
-    const image = document.createElement('img'); image.src = badgeArt(badge); image.alt = ''; button.append(image); button.onclick = () => showBadge(badge, detail);
-    const caption = document.createElement('figcaption'); caption.textContent = BADGES[badge];
-    if (earned) { const when = document.createElement('time'); when.dateTime = earned.earned_at; when.textContent = fullDate(earned.earned_at); caption.append(when); }
-    figure.append(button, caption); return figure;
-  }));
-  const selected = client.state.sheet?.startsWith('badge:') ? client.state.sheet.slice(6) : '';
-  if (selected in BADGES) $('profile-badges').querySelector<HTMLButtonElement>(`[data-badge="${selected}"] button`)!.click();
-}
-function showBadge(badge: Badge, detail: string) {
-  if (!active()) return;
-  const dialog = $<HTMLDialogElement>('over');
-  if (dialog.open && client.state.sheet === `badge:${badge}`) { $('badge-detail').textContent = detail; return; }
-  if (dialog.open) dialog.close();
-  const scrim = document.createElement('div'); scrim.className = 'scrim'; $('app-frame').append(scrim);
-  dialog.className = 'over-sheet badge-sheet'; dialog.setAttribute('aria-labelledby', 'badge-title');
-  dialog.innerHTML = '<header class="new-game-head"><h2 id="badge-title"></h2></header><div class="new-game-body"><img id="badge-art" alt=""><p id="badge-detail"></p></div><footer class="new-game-foot"><button id="badge-close">Close</button></footer>';
-  $('badge-title').textContent = BADGES[badge]; $<HTMLImageElement>('badge-art').src = badgeArt(badge); $('badge-detail').textContent = detail;
-  $('badge-close').onclick = () => dialog.close(); dialog.onclose = () => { scrim.remove(); if (stopped || queue.closed()) return; client.state.sheet = undefined; client.save(); $('profile-badges').querySelector<HTMLButtonElement>(`[data-badge="${badge}"] button`)?.focus(); };
-  client.state.sheet = `badge:${badge}`; client.save(); dialog.showModal();
 }
 function openRow(entry: InboxEntry) {
   const waiting = entry.status === 'waiting', yours = !waiting && entry.action === 'ready';

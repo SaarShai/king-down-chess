@@ -1,11 +1,11 @@
 // Settings → Account and the cloud save in a real browser, against a fake Supabase (every request to
 // the project is answered here; nothing reaches the real server). Signed out, the sign-in redirect,
 // the return from it, the cloud save (newer copy comes down, a move goes up after 2 s), sign-out,
-// account deletion, a newer game arriving during a lesson or on Home, a newer game another
+// account deletion, a newer game arriving on Home, a newer game another
 // device sent while this one was behind, a server that cannot be reached, and signing out offline.
 // Run: npm run check:browser account (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
-import { startLesson, arriveContinue, closeMenu, contextText, lanMoves, openAccount, pressMenu, waitForUi } from './app-ui.mjs';
+import { arriveContinue, closeMenu, contextText, lanMoves, openAccount, pressMenu, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, CHECK_SITE_ENV, env, launch, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -250,19 +250,7 @@ try {
   }
   ok('Delete my account: the confirm names what goes, Keep deletes nothing, delete_my_account then sign-out; the game plays on, saved here only; Sign out works');
 
-  // 6. The newer game arrives during a lesson: the lesson goes on; Return to game opens the newer game.
-  //    Home refreshes with the new game; the computer waits for Continue.
-  {
-    const p = await open({ stored: session(), row: structuredClone(row), delay: 1500 }), { page, server, close } = p;
-    await startLesson(page);
-    await seen(server, r => r.method === 'GET' && r.path === '/rest/v1/user_data');
-    await new Promise(r => setTimeout(r, 2000));
-    assert.match(await page.textContent('#turn'), /Lesson 1 of 6/, 'the lesson goes on');
-    await page.click('#return-game');
-    assert.deepEqual(await moves(page), ['e2-e4', 'e7-e5']);
-    assert.match(await contextText(page), /^Loaded your newer saved game from your account\.$/m);
-    await close();
-  }
+  // 6. Home refreshes with a newer game from the account; the computer waits for Continue. (Lessons are parked: docs/PARKED.md.)
   {
     const aiToMove = structuredClone(row);
     aiToMove.saved_game.v = { ...aiToMove.saved_game.v, moves: ['e2-e4'], black: 'ai' };
@@ -275,7 +263,7 @@ try {
     await waitForUi(page, ui => ui.lan.length === 2, null, { timeout: 15_000 });
     await close();
   }
-  ok('the newer game during a lesson waits for Return to game; Home refreshes and the computer waits for Continue');
+  ok('Home refreshes with the newer game and the computer waits for Continue');
 
   // 7. The server cannot be reached: the game loads and plays, nothing on screen, quiet retries.
   {

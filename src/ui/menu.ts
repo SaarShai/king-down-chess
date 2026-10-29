@@ -1,14 +1,11 @@
 /** One native sheet with stable pages, so settings and Account keep their nodes. */
-import { openTricksMenu, refreshTricks } from './tricks';
 const PAGES: Record<string, { title: string; parent?: string }> = {
   menu: { title: 'Menu' }, new: { title: 'New game', parent: 'menu' },
-  help: { title: 'Board help', parent: 'menu' }, extra: { title: 'Extra', parent: 'menu' },
-  game: { title: 'This game', parent: 'extra' }, account: { title: 'Account', parent: 'extra' },
-  tricks: { title: 'Tricks', parent: 'extra' },
+  help: { title: 'Board help', parent: 'menu' }, account: { title: 'Account', parent: 'menu' },
   resign: { title: 'Resign', parent: 'menu' },
 };
 
-export function initMenu(actions: { playAgain: () => void; today: () => void; resignSide: () => number | null }): void {
+export function initMenu(actions: { playAgain: () => void; resignSide: () => number | null }): void {
   const sheet = document.getElementById('menu-sheet') as HTMLDialogElement;
   const button = document.getElementById('menu-btn')!;
   const back = document.getElementById('menu-back')!;
@@ -25,7 +22,7 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
     if (body.scrollHeight > body.clientHeight + 1) {
       const padding = parseFloat(getComputedStyle(body).paddingBottom);
       const bodyTop = body.getBoundingClientRect().top;
-      const rows = [...body.querySelectorAll<HTMLElement>('.menu-row, label, #tricks-list > li')].filter(row => row.getClientRects().length > 0);
+      const rows = [...body.querySelectorAll<HTMLElement>('.menu-row, label')].filter(row => row.getClientRects().length > 0);
       const offsets = rows.map(row => row.getBoundingClientRect().bottom - bodyTop + body.scrollTop);
       const last = offsets.filter(off => off <= body.clientHeight - padding).at(-1);
       if (last !== undefined) body.style.maxHeight = `${last + padding}px`;
@@ -34,9 +31,7 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
   }
   window.addEventListener('resize', fitBody);
   new MutationObserver(fitBody).observe(document.getElementById('account')!, { childList: true, subtree: true, characterData: true, attributes: true });
-  refreshTricks();
   function go(next: string): void {
-    if (next === 'tricks') openTricksMenu();
     const previous = page;
     page = next;
     sheet.querySelectorAll<HTMLElement>('[data-menu-page]').forEach(p => { p.hidden = p.dataset.menuPage !== page; });
@@ -55,7 +50,7 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
   }
   const close = (): void => sheet.close();
   button.onclick = () => {
-    refreshTricks(); sheet.classList.remove('is-placed'); go('menu'); sheet.showModal();
+    sheet.classList.remove('is-placed'); go('menu'); sheet.showModal();
     sheet.style.setProperty('--menu-top', `${sheet.getBoundingClientRect().top}px`);
     sheet.classList.add('is-placed'); fitBody(); title.focus();
   };
@@ -71,9 +66,8 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
     if (!target) return;
     if (target.getAttribute('aria-disabled') === 'true') { e.stopImmediatePropagation(); return; }
     if (target.dataset.go) { go(target.dataset.go); return; }
-    if (['new-game-btn', 'rules-btn', 'workshop-btn', 'resign-confirm'].includes(target.id)) close();
+    if (['new-game-btn', 'rules-btn', 'resign-confirm'].includes(target.id)) close();
     if (target.id === 'play-again') { close(); actions.playAgain(); }
-    if (target.id === 'today-army') { close(); actions.today(); }
   }, true);
   // Delete is owned by Account. Close this sheet before its question opens.
   sheet.addEventListener('click', e => {
@@ -82,8 +76,4 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
   for (const id of ['rules', 'delete-account']) {
     document.getElementById(id)!.addEventListener('close', () => button.focus({ preventScroll: true }));
   }
-  // Workshop loads on demand; its dialog does not exist at start-up.
-  document.addEventListener('close', e => {
-    if ((e.target as HTMLElement).id === 'workshop') button.focus({ preventScroll: true });
-  }, true);
 }

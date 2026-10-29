@@ -355,14 +355,12 @@ try {
     if (screen) await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
     await callsDone();
   }
-  // Ticket 16: profile and collection.
+  // Ticket 16: profile. The Badges display and the Collection are parked (docs/PARKED.md).
   {
-    const { BADGES } = await import('../src/match/badges.ts');
     const { WHY } = await import('../src/plugin/ending.ts');
     const { tmpdir } = await import('node:os'), { join } = await import('node:path'), { mkdir } = await import('node:fs/promises');
     const { default: sharp } = await import('sharp');
     const look = join(tmpdir(), 'kingdown-look', '16b'); await mkdir(look, { recursive: true });
-    const goals = { first_win: 'Win a game.', friend_match: 'Finish a game with a friend.', stranger_match: 'Finish a game with a random player.', purist: 'Win a Classic game.', fairy_tale: 'Win with fairy pieces.', architect: 'Win with your own arrangement.', card_sharp: 'Win a game with cards.', crowned: 'Win with a king power.', royal_collection: 'Win with all six kings.', giant_slayer: 'Beat the Strong computer.' };
     const profileTool = async (name, args = {}, friend = false) => {
       const reply = await (await page.request.post(new URL(friend ? '/fixture-friend-tool' : '/fixture-tool', base).href, { data: { name, arguments: args } })).json();
       assert(!reply.isError, `${name}: ${JSON.stringify(reply.content)}`); return reply;
@@ -472,37 +470,7 @@ try {
       assert.equal(await frame.locator('#profile-more').isVisible(),false);
       await rollers();
       await frame.locator('html').evaluate(()=>document.fonts.ready); await capture('profile',size,width,height);
-      assert.equal(await frame.locator('#profile-badges .badge').count(),10);
-      assert(await frame.locator('#profile-badges .badge button').evaluateAll(buttons => buttons.every(button => {
-        const style = getComputedStyle(button);
-        return style.backgroundImage === 'none' && style.backgroundColor === 'rgba(0, 0, 0, 0)' && style.boxShadow === 'none';
-      })), 'Profile badges keep their transparent face');
-      for(const [badge,name] of Object.entries(BADGES)) {
-        const cell=frame.locator(`[data-badge="${badge}"]`), earned=data.record.badges.find(item=>item.badge===badge);
-        assert.equal(await cell.evaluate(el=>el.classList.contains('no')),!earned);
-        assert.equal(await cell.locator('time').count(),earned?1:0);
-        if(earned) assert.equal(await cell.locator('time').getAttribute('datetime'),earned.earned_at);
-        await cell.locator('button').click(); await frame.getByRole('dialog',{name,exact:true}).waitFor(); await images('#over');
-        const detail=await frame.locator('#badge-detail').textContent(); if(earned) assert(detail.startsWith('Earned ')); else assert.equal(detail,goals[badge]);
-        assert.equal(await cell.locator('button').getAttribute('aria-label'),`${name}. ${detail}`);
-        assert((await frame.locator('#badge-close').evaluate(controlBounds)).accessible,'The badge close control clears the composer'); await frame.locator('#badge-close').click();
-      }
-      await frame.locator('#profile-sheet .new-game-body').evaluate(el=>{el.scrollTop=el.scrollHeight;}); await layout('profile'); await capture('profile-badges',size,width,height);
-      await frame.locator('[data-screen="profile"] [data-nav="collection"]').click();
-      for(const [tab,count] of [['Pieces',11],['Kings',6],['Powers',12],['Cards',21]]) {
-        await frame.locator('#collection-tabs label').filter({hasText:tab}).click(); assert.equal(await frame.locator('#collection-items > *').count(),count); assert.equal(await frame.locator('#collection-items .unlocked').count(),count);
-        assert((await frame.locator('#collection-items > *').allTextContents()).every(text=>text.includes('Unlocked')&&text.trim().length>30),'Each collection entry has its rule');
-        assert(!(await frame.locator('#collection-items').innerText()).includes('Unlocked'), 'The all-unlocked Collection hides repeated status');
-        await images('#collection-sheet'); await layout('collection');
-        await frame.locator('#collection-items > *').last().scrollIntoViewIfNeeded(); assert((await frame.locator('#collection-items > *').last().evaluate(controlBounds)).accessible,'The last collection entry clears the composer');
-        await frame.locator('#collection-sheet .new-game-body').evaluate(el=>{el.scrollTop=0;});
-        if(tab==='Pieces') await capture('collection',size,width,height);
-      }
-      const settingsReads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').length); await remountFrame();
-      await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_settings').length>n,settingsReads);
-      await frame.locator('#collection-items [data-card="SkyLift"]').waitFor({state:'attached'});
-      assert.equal(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen),'collection'); assert.equal(await frame.getByRole('radio',{name:'Cards',exact:true}).isChecked(),true);
-      await frame.locator('#page-back').click(); await frame.locator('#profile-open button').first().waitFor();
+      assert.equal(await frame.locator('#profile-badges, .badge, [data-nav="collection"]').count(),0,'Profile shows no badges and no Collection row');
       await frame.locator('#profile-open button').first().click(); await frame.locator('[data-screen="board"]:not([hidden])').waitFor(); assert.equal(await page.evaluate(()=>window.harnessView.game_id),openIds[0]);
       assert.deepEqual(await page.evaluate(()=>Object.keys(window.harnessWidgetState.privateContent).sort()),['board_id','pending','screen','sheet']); assert.deepEqual(await page.evaluate(()=>window.harnessWidgetState.modelContent),{});
       const saved=await page.evaluate(()=>JSON.stringify(window.harnessWidgetState)); for(const row of data.history) { assert(!saved.includes(row.game_id)); if(row.opponent.handle) assert(!saved.includes(row.opponent.handle)); }
@@ -514,10 +482,11 @@ try {
     const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_profile').length); await remountFrame();
     await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_profile').length>n,reads); await frame.locator('#profile-open button').first().waitFor();
     assert.equal(await page.evaluate(()=>window.harnessWidgetState.privateContent.screen),'profile');
-    for(const basename of ['pawn-w','archer-w','paladin-w','guard-w','maester-w','beast-w','ogre-w','rook-w','bishop-w','knight-w','queen-w','flame','frost','stratus','mud','spirit','shadow','freeze','icewall','leap','march','mimic','sacrifice','salvation','skylift','vault']) assert([...seenImages].some(src=>src.includes('/'+basename+'-')&&src.endsWith('.webp')),`${basename}.webp loads on the page`);
+    // The Collection showed every piece, king and card; it is parked (docs/PARKED.md), so only the profile's own art loads here.
+    for(const basename of ['spirit']) assert([...seenImages].some(src=>src.includes('/'+basename+'-')&&src.endsWith('.webp')),`${basename}.webp loads on the page`);
     assert.deepEqual(faults,[],'No page response is 4xx'); page.off('response',responseFault);
     for(const game_id of openIds) await profileTool('kingdown_abort',{game_id});
-    await openPlay(); console.log(`Profile and collection: two open games, ${mode==='fixture'?'23 rows in two pages, six badges, provisional change':'three real PostgreSQL results and private handles'}, all four collection tabs, images, remounts and three viewport sizes. Look: ${look}`);
+    await openPlay(); console.log(`Profile: two open games, ${mode==='fixture'?'23 rows in two pages, no badges shown, provisional change':'three real PostgreSQL results and private handles'}, no Collection row, remounts and three viewport sizes. Look: ${look}`);
   }
   const navCalls = await page.evaluate(() => window.harnessCalls.length);
   await chooseKind('Random'); await frame.locator('#play-open').click(); await frame.locator('[data-screen="lobby"]:not([hidden])').waitFor(); await openPlay();
@@ -2899,7 +2868,7 @@ try {
     assert.equal(await frame.locator('#over').getByRole('button',{name:'Rematch',exact:true}).isEnabled(),true,'A fresh game read clears the rematch lock');
     // F-006: a friend result never sends the player to Ranked, also in the staging build that offers Ranked.
     assert.equal(await frame.locator('#over .quiet-line').innerText(),'A rematch is Casual. It keeps the features and swaps the colours.','A friend result does not name Ranked');
-    if (mode==='fixture') { await frame.locator('.end-facts').filter({hasText:'New player'}).waitFor(); assert(!/1561|\+61|\?/.test(await frame.locator('.end-facts').innerText()), 'A new player sees no provisional number'); assert.match(await frame.locator('.new-badge img').getAttribute('src'),/badge-fairy-tale-/); }
+    if (mode==='fixture') { await frame.locator('.end-facts').filter({hasText:'New player'}).waitFor(); assert(!/1561|\+61|\?/.test(await frame.locator('.end-facts').innerText()), 'A new player sees no provisional number'); assert.equal(await frame.locator('.new-badge').count(),0,'A new badge is not shown: the Badges display is parked'); }
     await page.setViewportSize({width:197,height:426});
     await page.locator('iframe').evaluate(e=>e.style.setProperty('height','100dvh','important'));
     await page.evaluate(()=>window.harnessSetContext({displayMode:'fullscreen',safeAreaInsets:{top:51,bottom:59,left:0,right:0},deviceCapabilities:{touch:true}}));
@@ -3058,7 +3027,7 @@ try {
     await frame.locator(`[data-screen="${screen}"]:not([hidden])`).waitFor();
     await widget().waitForFunction(() => document.querySelector('#reload').disabled === false);
   }
-  const routes = ['home','play','friend','join','wait','lobby','seat','board','end','profile','collection','settings','handle'];
+  const routes = ['home','play','friend','join','wait','lobby','seat','board','end','profile','settings','handle'];
   assert.deepEqual(await frame.locator('[data-screen]').evaluateAll(els => els.map(el => el.dataset.screen).sort()), [...routes].sort());
   for (const [width,height] of [[390,844],[400,900],[1440,900]]) {
     await freshHost();

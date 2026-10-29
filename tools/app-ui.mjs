@@ -30,7 +30,7 @@ export async function rulesAt(browser, url) {
 }
 
 /** The menu items and the button of each one today. */
-/** Guide is the sheet name; All rules is the read action. */
+/** Guide is the sheet name; All rules is the read action. Workshop is parked (docs/PARKED.md): its row is gone, so only the parked checks use it. */
 const MENU = { 'New game': '#new-game-btn', Guide: '#rules-btn', Workshop: '#workshop-btn', Settings: '[data-go="help"]' };
 
 export function menuItem(page, name) {
@@ -48,6 +48,7 @@ export function arriveContinue(page) {
   return page.locator('#home-main:visible, #title-continue:visible').first();
 }
 
+/** Parked (docs/PARKED.md): the title has no Learn and the Guide has no lesson shelf; for the parked lesson checks. */
 export async function learnFromTitle(page, { tap = false } = {}) {
   const learn = page.locator('#title-learn');
   if (await learn.isVisible()) { await (tap ? learn.tap() : learn.click()); return; }
@@ -74,13 +75,14 @@ export async function pressMenu(page, name, { tap = false, ...press } = {}) {
   await (tap ? item.tap(press) : item.click(press));
 }
 
-/** A named figure starts the same lesson even when another figure is Next. */
+/** A named figure starts the same lesson even when another figure is Next. Parked with the lesson shelf (docs/PARKED.md). */
 export async function startLesson(page, name = 'Archer', { tap = false } = {}) {
   await pressMenu(page, 'Guide', { tap });
   const figure = page.locator(`#lesson-shelf .shelf-piece[data-piece="${name.toLowerCase()}"]`);
   await (tap ? figure.tap() : figure.click());
 }
 
+/** Parked (docs/PARKED.md): Menu has no Extra, Tricks or This game page; the parked checks and samples keep these. */
 export async function openExtra(page) {
   await openMenu(page);
   await page.locator('[data-go="extra"]').click();
@@ -90,7 +92,7 @@ export async function openTricks(page) {
   await page.locator('[data-go="tricks"]').click();
 }
 export async function openAccount(page) {
-  await openExtra(page);
+  await openMenu(page);
   await page.locator('[data-go="account"]').click();
 }
 export async function openThisGame(page) {

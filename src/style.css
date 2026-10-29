@@ -236,13 +236,6 @@ input[type='checkbox']:checked { background: var(--accent) var(--tick) no-repeat
 /* ---- help, lesson and moment lines ---- */
 /* The six lessons as the icons of the pieces they teach, on one track: done in burgundy, the
    current one ringed in gold, the rest in stone. */
-#lesson-progress { position: relative; display: flex; justify-content: space-between; align-items: center; }
-#lesson-progress::before { content: ''; position: absolute; left: 15px; right: 15px; top: calc(50% - 1px); height: 2px; background: var(--stone-300); }
-#lesson-progress span { position: relative; display: grid; border-radius: 50%; }
-#lesson-progress .pi { width: 30px; height: 30px; color: var(--stone-500); --pi-disc: var(--stone-100); --pi-glyph: var(--stone-500); }
-#lesson-progress .done .pi { color: var(--accent); --pi-disc: var(--vellum); --pi-glyph: var(--accent); }
-#lesson-progress .now .pi { color: var(--ink); --pi-disc: #bccac8; --pi-glyph: var(--ink); }
-#lesson-progress .now { box-shadow: 0 0 0 2px var(--parchment), 0 0 0 4px var(--gold); }
 /* ---- move sheet ---- */
 /* The move sheet takes whatever the rail has left; long games scroll inside the list, so the
    latest move and the captured pieces stay in view. */
@@ -300,7 +293,7 @@ dialog form { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10
 dialog form button { width: auto; min-width: 96px; justify-content: center; padding: 8px 18px; }
 .fields { display: flex; flex-direction: column; gap: 10px; }
 dialog small { color: var(--ink-soft); }
-#asset-status, #army-note, #pace-note, #threats-note { font-size: var(--fs-xs); color: var(--ink-soft); line-height: 1.4; }
+#asset-status, #pace-note, #threats-note { font-size: var(--fs-xs); color: var(--ink-soft); line-height: 1.4; }
 #move-choice { position: fixed; inset: auto; margin: 0; width: min(460px, calc(100vw - 32px)); }
 #game-table #board.choosing-move { align-self: start; margin-block: 0; }
 #move-choice::backdrop { background: rgba(29, 25, 21, 0.16); backdrop-filter: none; }
@@ -319,7 +312,7 @@ dialog small { color: var(--ink-soft); }
 .new-game-foot { flex: none; padding: 12px 16px max(16px, env(safe-area-inset-bottom)); border-top: 1px solid var(--stone-300); background: var(--parchment); }
 .new-game-foot button { width: 100%; justify-content: center; min-height: 52px; }
 #new-game-warn { margin: 0 0 8px; color: var(--ink-soft); text-align: center; }
-#level-line, #army-line, #design-line { margin: 8px 0 0; color: var(--ink-soft); }
+#level-line, #army-line { margin: 8px 0 0; color: var(--ink-soft); }
 #design { min-height: var(--tap); }
 #army-strip { display: flex; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
 #army-strip .pi { width: 28px; height: 28px; }
@@ -400,14 +393,12 @@ button.emblem[aria-pressed='true'] img { opacity: 1; filter: drop-shadow(0 2px 3
 }
 #more-options[open] summary::before { transform: rotate(45deg); }
 #side-army-value { margin-left: auto; text-align: right; }
-#other-armies { margin-top: 12px; }
 #new-game button.emblem { min-height: 44px; }
 #new-game :is(label.mode, .seg-row label, button.emblem) { border: 2px solid transparent; box-shadow: none; }
 #new-game :is(label.mode:has(input:checked), .seg-row label:has(input:checked), button.emblem[aria-pressed='true']) { color: var(--ink); background: var(--parchment-deep); border-color: var(--stone-700); }
 #more-options .seg { margin-top: var(--space-2); }
 label.army { flex-direction: column; align-items: stretch; gap: 6px; margin-top: var(--space-4); font-weight: 700; }
 label.army select { width: 100%; font-weight: 400; }
-#army-note { display: block; margin-top: 6px; }
 
 /* Settings → Account (src/account/account.ts) */
 #account-body p { margin: 0; }
@@ -438,7 +429,6 @@ label.army select { width: 100%; font-weight: 400; }
 #over-moments { text-align: left; }
 #over-moments h3 { margin-top: 4px; }
 #over-moments button { font-size: var(--fs-sm); font-weight: 400; line-height: 1.4; }
-#share-result { margin-top: var(--space-3); justify-content: center; }
 .over-art {
   display: flex; justify-content: center; align-items: flex-end; gap: 18px; height: 112px; margin: -4px 0 var(--space-2);
   background: radial-gradient(50% 18% at 50% 92%, rgba(43, 38, 33, 0.28), transparent);
@@ -448,6 +438,15 @@ label.army select { width: 100%; font-weight: 400; }
 
 /* ---- Guide: painted piece cards ---- */
 #rules { width: min(940px, calc(100vw - 32px)); max-width: none; }
+/* The Guide frame: a fixed head and a scrolling body (the lesson shelf is parked; docs/PARKED.md). */
+#rules { padding: 0; overflow: hidden; }
+#rules[open] { display: flex; flex-direction: column; }
+.lesson-guide-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 16px; }
+#rules :is(.piece-card, [data-power]):focus { outline: 2px solid var(--ink-soft); outline-offset: 2px; scroll-margin: 4px; }
+.lesson-guide-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: none; padding: 12px 16px; }
+.lesson-guide-head h2, .lesson-guide-head form { margin: 0; }
+.lesson-guide-head button { width: 44px; min-width: 44px; min-height: 44px; padding: 0; justify-content: center; height: 44px; font-size: 24px; line-height: 1; }
+#powers-list [data-power] { display: block; margin: 4px 0 8px; padding: 4px; }
 .piece-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: var(--space-3); margin: 0 0 var(--space-4); }
 .piece-card {
   display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: var(--space-3); padding: var(--space-3);

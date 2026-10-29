@@ -1,6 +1,7 @@
-// W2 Menu pages use one native dialog and the saved board switches.
+// W2 Menu pages use one native dialog and the saved board switches. Parked (docs/PARKED.md): the Extra page, This game,
+// Tricks and seals, Today's army, the Workshop row and the Card mode row; Account is a main Menu row.
 import assert from 'node:assert/strict';
-import { endTurn, lanMoves, openAccount, openExtra, openMenu, openTricks, pressMenu } from './app-ui.mjs';
+import { endTurn, lanMoves, openAccount, openMenu, pressMenu } from './app-ui.mjs';
 import { assertNoErrors, env, launch, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 async function assertPhoneSheet(page, height) {
   const bounds = await page.locator('#menu-sheet').evaluate(sheet => {
@@ -19,70 +20,38 @@ async function assertPhoneSheet(page, height) {
   assert.equal(bounds.sizing, 'fit-content', 'phone sheets use content height, not auto or a fixed height');
   assert.ok(Math.abs(bounds.bottom - height) <= 1, 'each phone page meets the screen bottom');
   assert.ok(bounds.height <= bounds.head + bounds.content + bounds.padding + 24, 'each phone sheet fits its page content');
-  if (bounds.page === 'tricks' && height <= 568) assert.ok(bounds.overflow, 'short Tricks scrolls inside the sheet');
   // The shade marks rows below the fold; scrolled to the end, none shows (menu.ts updateShade).
   if (bounds.below) assert.equal(bounds.shade, 'block', 'the overflowing body has a bottom shade');
   if (bounds.below) assert.equal(bounds.shadeContent, '""', 'the bottom shade has generated content and paints');
 }
 const browser = await launch();
 try {
-  for (const undoFirst of [false, true]) {
+  {
+    // Tricks and seals are parked: a found trick gives no seal and no dot, and old seal data loads with no error.
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion: 'reduce' });
     await context.addInitScript(() => {
       sessionStorage.setItem('kingdown.title-seen', '1');
       if (sessionStorage.getItem('w10.seeded')) return;
       sessionStorage.setItem('w10.seeded', '1');
+      localStorage.setItem('kingdown.tricks', JSON.stringify({ found: ['wall'], unseen: true }));
       localStorage.setItem('kingdown.save', JSON.stringify({ back: '', fen: '7k/8/8/3p4/3Sp3/8/8/K7 w - - 0 1', moves: [], white: 'human', black: 'human', pace: 'off', sound: false }));
     });
     const page = await context.newPage(); trapErrors(page);
     await page.goto(env('PLAYABLE_URL')); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
-    await openExtra(page);
-    assert.equal(await page.locator('[data-go="tricks"]').isVisible(), false, 'Tricks waits for the first find');
-    await page.locator('#menu-close').click();
+    assert.equal(await page.locator('#menu-seal-dot, .seal-dot').count(), 0, 'no seal dot, also with old unseen seal data');
     for (const sq of [27, 35, 28]) {
       const point = await page.evaluate(s => window.view.screenOf(s), sq);
       await page.touchscreen.tap(point.x, point.y);
     }
     await page.waitForFunction(() => document.getElementById('end-turn').getAttribute('aria-disabled') === 'false');
     assert.deepEqual(await lanMoves(page), ['Sd4xd5xe4']);
-    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.tricks'))?.found ?? []), [], 'staged moves give no seal');
-    if (undoFirst) {
-      await page.click('#undo');
-      assert.deepEqual(await lanMoves(page), []);
-      assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.tricks'))?.found ?? []), [], 'Undo before the press gives no seal');
-      await openExtra(page);
-      assert.equal(await page.locator('[data-go="tricks"]').isVisible(), false);
-      console.log('ok menu-extra: Undo before the press gives no seal');
-    } else {
-      await endTurn(page);
-      assert.match(await page.locator('#announce').textContent(), /New seal: Bite chain/, 'the new seal is spoken');
-      assert.match(await page.locator('#context-text').textContent(), /New seal: Bite chain/, 'the new seal has words');
-      assert.equal(await page.locator('#menu-seal-dot').isVisible(), true, 'the press gives the gold dot');
-      assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.tricks'))), { found: ['chain'], unseen: true });
-      await page.reload(); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
-      assert.equal(await page.locator('#menu-seal-dot').isVisible(), true, 'a reload keeps the unseen mark');
-      await openMenu(page);
-      assert.equal(await page.locator('#extra-seal-dot').isVisible(), true, 'Menu keeps the new seal path');
-      assert.equal(await page.locator('#extra-row').getAttribute('aria-label'), 'Extra, new seal');
-      await openExtra(page);
-      assert.equal(await page.locator('#tricks-seal-dot').isVisible(), true, 'Extra points to Tricks');
-      assert.equal(await page.locator('#tricks-row').getAttribute('aria-label'), 'Tricks, new seal');
-      await openTricks(page);
-      assert.equal(await page.locator('#menu-seal-dot').isVisible(), false, 'Menu takes the dot');
-      assert.equal(await page.locator('[data-menu-page="tricks"]').isVisible(), true);
-      assert.equal(await page.locator('#tricks-intro').textContent(), '1 of 6 found. Each trick you find gets a seal.');
-      assert.equal(await page.locator('#tricks-list .found-row').count(), 1);
-      assert.equal(await page.locator('#tricks-list .riddle').count(), 5);
-      assert.match(await page.locator('#tricks-list .found-row').innerText(), /Bite chain/);
-      await page.locator('#menu-back').click();
-      assert.equal(await page.locator('[data-menu-page="extra"]').isVisible(), true);
-      await page.locator('#menu-close').click(); await page.reload(); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
-      assert.equal(await page.locator('#menu-seal-dot').isVisible(), false, 'a reload keeps the seen mark');
-      await openTricks(page);
-      assert.equal(await page.locator('#tricks-list .found-row').count(), 1, 'a reload keeps the seal');
-      await shot(page, 'tricks-390'); await noSidewaysScroll(page);
-      console.log('ok menu-extra: press, seal, gold dot, Tricks, Back and reload');
-    }
+    await endTurn(page);
+    assert.doesNotMatch(await page.locator('#announce').textContent(), /seal/i, 'the press speaks no seal');
+    assert.doesNotMatch(await page.locator('#context-text').textContent(), /seal/i, 'the press shows no seal');
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.tricks'))), { found: ['wall'], unseen: true }, 'the press writes no seal; old data stays');
+    await openMenu(page);
+    assert.equal(await page.locator('[data-go="tricks"], #tricks-row, [data-menu-page="tricks"]').count(), 0, 'no Tricks row or page');
+    console.log('ok menu-extra: Tricks parked: a found trick gives no seal and no dot; old seal data stays');
     await context.close();
   }
   for (const [width, height] of [[320, 568], [390, 844], [844, 390], [1440, 900]]) {
@@ -109,7 +78,7 @@ try {
       assert.ok(close.y >= 0 && close.y + close.height <= height, 'Close stays in view after the body scrolls');
       assert.equal(await page.locator('#menu-sheet .sheet-body').evaluate(el => el.scrollTop > 0), true, 'the Menu body scrolls to Resign');
     }
-    for (const words of ['New game', 'Guide', 'Board help', 'Feel', 'Extra', 'Resign']) assert.ok((await page.locator('[data-menu-page="menu"]').textContent()).includes(words), words);
+    for (const words of ['New game', 'Guide', 'Board help', 'Feel', 'Account', 'Resign']) assert.ok((await page.locator('[data-menu-page="menu"]').textContent()).includes(words), words);
     const menuBox = await page.locator('#menu-sheet').boundingBox();
     if (width < 900) await assertPhoneSheet(page, height);
     else assert.ok(Math.abs(menuBox.y - (height - menuBox.height) / 2) <= 1, 'the desktop Menu opens in the centre');
@@ -120,7 +89,7 @@ try {
       });
     }), 'every short-phone Menu row fits inside the sheet body');
     const menuClose = await page.locator('#menu-close').boundingBox();
-    for (const route of ['new', 'help', 'extra', 'resign']) {
+    for (const route of ['new', 'help', 'account', 'resign']) {
       await page.locator(`[data-menu-page="menu"] [data-go="${route}"]`).click();
       assert.equal(await page.locator(`[data-menu-page="${route}"]`).isVisible(), true);
       if (width >= 900) assert.equal((await page.locator('#menu-close').boundingBox()).y, menuClose.y, 'desktop Close keeps its opening position');
@@ -129,39 +98,6 @@ try {
       await page.locator(`[data-menu-page="menu"] [data-go="${route}"]`).click();
       await page.keyboard.press('Escape'); assert.equal(await page.locator('[data-menu-page="menu"]').isVisible(), true);
     }
-    await page.evaluate(() => { window.savedCheckVisibility = Element.prototype.checkVisibility; Element.prototype.checkVisibility = undefined; });
-    await openTricks(page);
-    await page.evaluate(() => { Element.prototype.checkVisibility = window.savedCheckVisibility; delete window.savedCheckVisibility; });
-    if (width < 900) await assertPhoneSheet(page, height);
-    assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => {
-      const edge = body.getBoundingClientRect().bottom - parseFloat(getComputedStyle(body).paddingBottom);
-      return [...body.querySelectorAll('#tricks-list > li')].every(row => { const r = row.getBoundingClientRect(); return r.top >= edge || r.bottom <= edge; });
-    }), 'Tricks ends between rows');
-    if (await page.locator('#menu-sheet .sheet-body').evaluate(body => body.scrollHeight > body.clientHeight + 1)) {
-      await page.locator('#menu-sheet .sheet-body').evaluate(body => { body.scrollTop = 53; });
-      assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => body.scrollTop > 0), 'Tricks scrolls before resize');
-      await page.setViewportSize({ width, height: height - 37 });
-      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
-      await page.locator('#menu-sheet .sheet-body').evaluate(body => { body.scrollTop = 0; });
-      assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => {
-        const edge = body.getBoundingClientRect().bottom - parseFloat(getComputedStyle(body).paddingBottom);
-        return [...body.querySelectorAll('#tricks-list > li')].every(row => { const r = row.getBoundingClientRect(); return r.top >= edge - 1 || r.bottom <= edge + 1; });
-      }), 'after a scrolled resize, Tricks still ends between rows at scroll zero');
-      await page.setViewportSize({ width, height });
-      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
-    }
-    if (width >= 900) {
-      assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => body.scrollHeight > body.clientHeight + 1), 'desktop Tricks overflows');
-      assert.equal(await page.locator('#menu-sheet').evaluate(sheet => getComputedStyle(sheet, '::after').display), 'block', 'desktop Tricks paints a scroll shade');
-    }
-    await page.locator('#menu-sheet .sheet-body').evaluate(body => { body.scrollTop = body.scrollHeight; });
-    await page.waitForFunction(() => {
-      const body = document.querySelector('#menu-sheet .sheet-body');
-      return body.scrollHeight - body.clientHeight - body.scrollTop <= 1;
-    });
-    await page.waitForFunction(() => !document.getElementById('menu-sheet').classList.contains('has-overflow'));
-    assert.equal(await page.locator('#menu-sheet').evaluate(sheet => getComputedStyle(sheet, '::after').display), 'none', 'the shade hides at the scroll end');
-    await page.locator('#menu-back').click(); await page.locator('#menu-back').click();
     await page.locator('[data-go="help"]').click(); await page.uncheck('#coords');
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).coords), false);
     assert.equal(await page.evaluate(() => window.view.coords), false);
@@ -176,9 +112,9 @@ try {
     await page.selectOption('#pace', 'off');
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).pace), 'off');
     assert.equal(await page.evaluate(() => window.view.pace), 'off');
-    await openExtra(page); assert.equal(await page.locator('#look, #reset-view').count(), 0, 'Extra has no Look and no Reset view: the clay look is parked');
-    assert.match(await page.locator('.coming-row').innerText(), /Card mode/);
-    await shot(page, `extra-${width}`);
+    await openMenu(page); assert.equal(await page.locator('#look, #reset-view').count(), 0, 'Menu has no Look and no Reset view: the clay look is parked');
+    assert.equal(await page.locator('[data-go="extra"], [data-go="game"], #copy, #today-army, #workshop-btn, .coming-row').count(), 0, 'no Extra, This game, Copy moves, Today, Workshop or Card mode row');
+    await shot(page, `menu-${width}`);
     await openAccount(page); assert.equal(await page.locator('#account').isVisible(), true);
     // Let Account finish its asynchronous render before replacing its test content.
     await page.locator('#account-body [data-provider="github"]').waitFor({ state: 'visible' });
@@ -186,14 +122,21 @@ try {
     await page.locator('#account-body').evaluate(body => { body.innerHTML = '<p>Account</p>' + '<label>Saved game</label>'.repeat(30); });
     await page.waitForFunction(() => document.getElementById('menu-sheet').classList.contains('has-overflow'));
     assert.equal(await page.locator('#menu-sheet').evaluate(sheet => getComputedStyle(sheet, '::after').display), 'block', 'Account content changes update the shade');
+    await page.locator('#menu-sheet .sheet-body').evaluate(body => { body.scrollTop = body.scrollHeight; });
+    await page.waitForFunction(() => {
+      const body = document.querySelector('#menu-sheet .sheet-body');
+      return body.scrollHeight - body.clientHeight - body.scrollTop <= 1;
+    });
+    await page.waitForFunction(() => !document.getElementById('menu-sheet').classList.contains('has-overflow'));
+    assert.equal(await page.locator('#menu-sheet').evaluate(sheet => getComputedStyle(sheet, '::after').display), 'none', 'the shade hides at the scroll end');
     await page.locator('#account-body').evaluate((body, html) => { body.innerHTML = html; }, accountContent);
     await page.waitForFunction(() => !document.getElementById('menu-sheet').classList.contains('has-overflow'));
     assert.equal(await page.locator('#menu-sheet').evaluate(sheet => getComputedStyle(sheet, '::after').display), 'none', 'short Account content clears the shade');
 
-    for (const item of ['Guide', 'New game', 'Workshop']) {
+    for (const item of ['Guide', 'New game']) {
       await pressMenu(page, item);
       assert.equal(await page.locator('#menu-sheet').isVisible(), false, `${item}: Menu closes first`);
-      await page.locator({ Guide: '#rules', 'New game': '#new-game', Workshop: '#workshop' }[item]).waitFor({ state: 'visible' });
+      await page.locator({ Guide: '#rules', 'New game': '#new-game' }[item]).waitFor({ state: 'visible' });
       await page.keyboard.press('Escape');
     }
     await openMenu(page); await page.locator('[data-go="resign"]').click();
@@ -202,7 +145,7 @@ try {
     await shot(page, `resign-${width}`); await noSidewaysScroll(page);
     await page.locator('#resign-confirm').click(); assert.equal(await page.locator('#menu-sheet').isVisible(), false);
     assert.equal(await page.locator('#over').isVisible(), true);
-    console.log(`ok menu-extra ${width}×${height}: rows, Back, Esc, Close, focus, settings, Extra, dialogs, Resign`);
+    console.log(`ok menu-extra ${width}×${height}: rows, Back, Esc, Close, focus, settings, Account, dialogs, Resign`);
     await context.close();
   }
   // Old data (park-clay spec §3): a saved clay look and a `?look=clay` link open the painted board, with no error and no notice.
