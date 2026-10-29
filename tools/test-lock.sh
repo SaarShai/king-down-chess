@@ -10,8 +10,8 @@
 # worktree and the deploy worktree. Local commands first take $HOME/.cache/kingdown/machine.lock.
 # Perl takes flock(2) on each file and then becomes
 # the command, with the file still open: the command and each process it starts hold the lock until
-# the last of them ends, so a run that loses its parent cannot overlap the next run. A process that a
-# run leaves behind (a stray server) holds it too. A local machine lease requires Perl. The clone
+# the last of them ends, so a run that loses its parent cannot overlap the next run. Node runners
+# pass KINGDOWN_MACHINE_LEASE_FD in child stdio; Node closes extra descriptors by default. The clone
 # lock keeps its fallback outside git or without Perl. A run prints one line for each lock it waits
 # for. KINGDOWN_TEST_LOCK_WAIT is the limit in seconds for each wait (default 7200); timeout exits 75.
 # Child commands reuse KINGDOWN_MACHINE_LEASED and KINGDOWN_TEST_LOCKED, so they cannot wait on
@@ -46,6 +46,7 @@ exec perl -MFcntl=:flock -MTime::HiRes=time,sleep -e '
       my $end = time + $wait;
       until (flock($f, LOCK_EX | LOCK_NB)) { exit 75 if time >= $end; sleep 1; }
     }
+    $ENV{KINGDOWN_MACHINE_LEASE_FD} = fileno($f) if $lock eq $machine;
     push @files, $f;
   }
   $ENV{KINGDOWN_MACHINE_LEASED} = 1 if length $machine;

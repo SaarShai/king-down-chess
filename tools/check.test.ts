@@ -36,6 +36,7 @@ function run(names: string[], failBuild = false, shell: Record<string, string> =
   repo.write('tools/lib/lock.mjs', `
     export const SLOTS = 3;
     export const enterMachineLease = async () => {};
+    export const machineLeaseStdio = stdio => stdio;
     export const runLockPath = () => '';
     export const releaseAll = () => {};
     export const takeLock = async () => () => {};

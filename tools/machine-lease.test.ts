@@ -37,7 +37,7 @@ function setup() {
     }
     repo.write('tools/lib/registry.mjs', `export const checks = [{ name: 'lease', script: 'tools/web-game-check.mjs', limit: 10 }];`);
     repo.write('tools/web-game-check.mjs', `import { existsSync, writeFileSync } from 'node:fs';
-      writeFileSync(process.env.LEASE_STARTED, 'started');
+      writeFileSync(process.env.LEASE_STARTED, JSON.stringify({ pid: process.pid, parent: process.ppid }));
       while (process.env.LEASE_RELEASE && !existsSync(process.env.LEASE_RELEASE)) await new Promise(r => setTimeout(r, 20));`);
   }
   function run(copy: number, args: string[], extra: Record<string, string> = {}) {
@@ -146,4 +146,36 @@ it('a surviving child holds the machine lease after its parent dies, then releas
   process.kill(sleeper, 'SIGTERM');
   // The successor waits for the kernel to close the child's descriptor.
   expect(await run(1, tests).done).toBe(0);
+});
+
+it('a real browser runner child keeps the machine lease after the inner runner is killed', async () => {
+  const { copies, run, until } = setup();
+  const release = join(copies[0].root, 'release');
+  const heavy = run(0, browser, { LEASE_RELEASE: release });
+  await until(() => existsSync(heavy.started), heavy);
+  const check = JSON.parse(readFileSync(heavy.started, 'utf8'));
+  try {
+    process.kill(check.parent, 'SIGKILL');
+    expect(await heavy.done).not.toBe(0);
+    process.kill(check.pid, 0);
+    expect(await run(1, tests, { KINGDOWN_TEST_LOCK_WAIT: '0' }).done).toBe(75);
+    writeFileSync(release, 'release');
+    expect(await run(1, tests).done).toBe(0);
+  } finally {
+    try { process.kill(-check.pid, 'SIGKILL'); } catch { /* ended */ }
+  }
+});
+
+it('passes the machine lease descriptor at its own number, with no gap for Node to close', async () => {
+  const { machineLeaseStdio } = await import('./lib/lock.mjs');
+  vi.stubEnv('CI', '');
+  vi.stubEnv('KINGDOWN_MACHINE_LEASED', '1');
+  vi.stubEnv('KINGDOWN_MACHINE_LEASE_FD', '5');
+  try {
+    expect(machineLeaseStdio(['ignore', 1, 1])).toEqual(['ignore', 1, 1, 'ignore', 'ignore', 5]);
+    vi.stubEnv('KINGDOWN_MACHINE_LEASED', '');
+    expect(machineLeaseStdio(['ignore', 1, 1])).toEqual(['ignore', 1, 1]);
+  } finally {
+    vi.unstubAllEnvs();
+  }
 });

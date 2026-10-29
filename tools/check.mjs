@@ -9,7 +9,7 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CHECK_SITE_ENV, env, isInside, outRoot, STEP } from './lib/checks.mjs';
 import { firstFault as faultLine } from './lib/first-fault.mjs';
-import { SLOTS, enterMachineLease, releaseAll, runLockPath, takeAllSlots, takeLock, takeSlot } from './lib/lock.mjs';
+import { SLOTS, enterMachineLease, machineLeaseStdio, releaseAll, runLockPath, takeAllSlots, takeLock, takeSlot } from './lib/lock.mjs';
 import { checks } from './lib/registry.mjs';
 import { changedPaths, treeStatus } from './lib/tree-status.mjs';
 
@@ -113,7 +113,7 @@ function run(command, commandArgs, { log, limit, extraEnv = {} }) {
   return new Promise(resolve => {
     const fd = openSync(log, 'w');
     const start = Date.now();
-    const child = spawn(command, commandArgs, { cwd: root, env: { ...process.env, ...extraEnv }, stdio: ['ignore', fd, fd], detached: true });
+    const child = spawn(command, commandArgs, { cwd: root, env: { ...process.env, ...extraEnv }, stdio: machineLeaseStdio(['ignore', fd, fd]), detached: true });
     current = child;
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; stop(child); }, limit * 1000);

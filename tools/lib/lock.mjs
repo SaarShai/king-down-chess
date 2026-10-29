@@ -33,6 +33,19 @@ import { fileURLToPath } from 'node:url';
 
 export const SLOTS = 3;
 
+/**
+ * Node closes extra descriptors in a child. Pass the machine lease descriptor at its own number, so that a child
+ * that outlives a killed runner keeps the lease. The gaps are 'ignore': Node skips holes and would move the fd.
+ */
+export function machineLeaseStdio(stdio) {
+  const fd = Number(process.env.KINGDOWN_MACHINE_LEASE_FD);
+  if (process.env.CI || !process.env.KINGDOWN_MACHINE_LEASED || !Number.isInteger(fd) || fd < 3) return stdio;
+  const out = [...stdio];
+  while (out.length < fd) out.push('ignore');
+  out[fd] = fd;
+  return out;
+}
+
 /** Re-run this command under the local machine lease. Child commands reuse it; CI runs as before. */
 export async function enterMachineLease() {
   if (process.env.CI || process.env.KINGDOWN_MACHINE_LEASED) return;
