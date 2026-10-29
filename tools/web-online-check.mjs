@@ -153,13 +153,16 @@ export function outsideRequests(log) {
   return log.filter(entry => entry !== OUTSIDE_CONTROLS.fetch && !socketControl(entry));
 }
 
-/** Profile options: each request to another host goes through the proxy. Firefox's media plug-in update check is
- * off. Full Chromium and the branded channels (chromium, chrome, msedge) send their own service requests to google.com
- * and other hosts with every switch tried, so a Chromium profile opens the bundled headless shell, which sends none. */
+/** Profile options: each request to another host goes through the proxy. Firefox's media plug-in and system add-on
+ * update checks are off. Full Chromium and the branded channels (chromium, chrome, msedge) send their own service
+ * requests to google.com and other hosts with every switch tried, so a Chromium profile opens the bundled headless
+ * shell, which sends none. */
 export function proxiedOptions(options, proxyPort, channel = env('PLAYABLE_BROWSER')) {
   return { ...options, channel: channel === 'webkit' || channel === 'firefox' ? channel : 'chromium-headless-shell',
     proxy: { server: `http://127.0.0.1:${proxyPort}`, bypass: '127.0.0.1' },
-    firefoxUserPrefs: { 'media.gmp-manager.updateEnabled': false, 'media.gmp-manager.url': '' } };
+    firefoxUserPrefs: { 'media.gmp-manager.updateEnabled': false, 'media.gmp-manager.url': '',
+      // The add-on update timer otherwise asks aus5.mozilla.org for system add-ons after about 30 s.
+      'extensions.systemAddon.update.enabled': false, 'extensions.systemAddon.update.url': '' } };
 }
 
 /** Compile the real private client for the fixture page. */

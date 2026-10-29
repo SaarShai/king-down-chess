@@ -105,7 +105,8 @@ describe('profile requests', () => {
   it('sends each profile request to another host through the proxy and keeps the local server direct', () => {
     const options = proxiedOptions(PERSISTENT_OPTIONS, 5555, 'firefox');
     expect(options).toMatchObject({ ...PERSISTENT_OPTIONS, channel: 'firefox', proxy: { server: 'http://127.0.0.1:5555', bypass: '127.0.0.1' } });
-    expect(options.firefoxUserPrefs).toEqual({ 'media.gmp-manager.updateEnabled': false, 'media.gmp-manager.url': '' });
+    expect(options.firefoxUserPrefs).toEqual({ 'media.gmp-manager.updateEnabled': false, 'media.gmp-manager.url': '',
+      'extensions.systemAddon.update.enabled': false, 'extensions.systemAddon.update.url': '' });
     for (const channel of ['chrome', 'msedge', 'chromium']) expect(proxiedOptions(PERSISTENT_OPTIONS, 5555, channel).channel).toBe('chromium-headless-shell');
     expect(proxiedOptions(PERSISTENT_OPTIONS, 5555, 'webkit').channel).toBe('webkit');
   });
