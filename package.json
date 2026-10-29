@@ -26,6 +26,7 @@
     "plugin:archive:runtime": "node tools/plugin-runtime-build.mjs --publish",
     "plugin:build:ui": "node tools/plugin-ui-build.mjs",
     "plugin:build": "node tools/plugin-server-build.mjs",
+    "plugin:build:chatgpt": "node tools/plugin-server-build.mjs plugin-server-chatgpt --chatgpt",
     "plugin:smoke": "node tools/plugin-runtime-smoke.mjs",
     "plugin:check:protocol": "tsx tools/plugin-protocol-check.ts",
     "plugin:db:init-test": "node tools/plugin-db/bootstrap-test.mjs",
@@ -36,7 +37,7 @@
     "mod:build:staging": "node tools/mod-build.mjs",
     "plugin:server:check": "node tools/plugin-server-check.mjs",
     "plugin:serve": "node plugin-server-dist/server.mjs",
-    "plugin:build:vercel": "node tools/plugin-server-build.mjs --vercel",
+    "plugin:build:vercel": "node tools/plugin-server-build.mjs --vercel --chatgpt",
     "build:vercel": "npm run build && node tools/plugin-server-build.mjs --site",
     "check:vercel": "node tools/vercel-check.mjs"
   },
