@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createServer, request, type Server } from 'node:http';
 import { once } from 'node:events';
-import { createLocalJWKSet, decodeJwt, exportJWK, generateKeyPair, SignJWT } from 'jose';
+import { createLocalJWKSet, decodeJwt, errors, exportJWK, generateKeyPair, SignJWT, type JWTVerifyGetKey } from 'jose';
 import { createTokenVerifier, type PluginAuth } from './auth';
 import { MatchServiceError } from '../match/service';
 import type { View } from '../match/protocol';
@@ -12,6 +12,7 @@ const view: View = { rating_policy: 'legacy', game_id: matchId, revision: 0, cre
   in_check: false, legal: [], last_commands: [], opponent: null, draw_offer: null, deadline_at: null, server_now: '2030-01-01T00:00:00.000Z' };
 const servers: Server[] = [];
 const provider = vi.fn<typeof fetch>();
+const keys = vi.fn<JWTVerifyGetKey>();
 let service: PluginHttpOptions['service'], auth: PluginAuth, address: string, privateKey: CryptoKey;
 beforeEach(async () => {
   provider.mockReset();
@@ -22,7 +23,9 @@ beforeEach(async () => {
   const pair = await generateKeyPair('ES256'); privateKey = pair.privateKey;
   const server = createServer(); servers.push(server); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   address = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
-  auth = createTokenVerifier({ supabaseUrl: 'https://project.supabase.co', publicOrigin: address, publishableKey: 'sb_publishable_test' }, createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'test', alg: 'ES256' }] }), provider);
+  keys.mockReset();
+  keys.mockImplementation(createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'test', alg: 'ES256' }] }));
+  auth = createTokenVerifier({ supabaseUrl: 'https://project.supabase.co', publicOrigin: address, publishableKey: 'sb_publishable_test' }, keys, provider);
   const handler = createPluginHandler({ service, auth, resourceHtml: '<html>board</html>', publicOrigin: address, consent: { html: '<html>consent</html>', script: 'console.log(1)', supabaseOrigin: 'https://project.supabase.co' } });
   server.on('request', (req, res) => { void handler(req, res).catch(() => { res.statusCode = 500; res.end(); }); });
 });
@@ -38,6 +41,31 @@ async function post(body: unknown, bearer?: string, headers: Record<string, stri
 const list = { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} };
 const get = { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'kingdown_get', arguments: { game_id: matchId } } };
 describe('stateless authenticated MCP HTTP', () => {
+  it('returns 401 with an OAuth challenge for a signed token with an array subject', async () => {
+    const claims: Record<string, unknown> = { role: 'authenticated', client_id: 'oauth-client', scope: 'openid', sub: [alice] };
+    const bearer = await new SignJWT(claims)
+      .setProtectedHeader({ alg: 'ES256', kid: 'test' }).setIssuer(auth.issuer).setAudience(auth.resource).setExpirationTime('5m').sign(privateKey);
+    const result = await post(get, bearer);
+    expect(result.status).toBe(401);
+    expect(result.headers.get('WWW-Authenticate')).toBe(`Bearer resource_metadata="${address}/.well-known/oauth-protected-resource/mcp", scope="openid"`);
+    expect(result.headers.has('Retry-After')).toBe(false);
+    expect(await result.json()).toEqual({ error: 'Authentication required' });
+    expect(provider).not.toHaveBeenCalled();
+    expect(service.view).not.toHaveBeenCalled();
+  });
+  it('returns 503 with retry guidance for a signing-key fetch timeout and recovers with the same token', async () => {
+    keys.mockRejectedValueOnce(new errors.JWKSTimeout());
+    const bearer = await token(), result = await post(get, bearer);
+    expect(result.status).toBe(503);
+    expect(result.headers.get('Retry-After')).toBe('5');
+    expect(result.headers.has('WWW-Authenticate')).toBe(false);
+    expect(await result.json()).toEqual({ error: 'Sign-in verification is temporarily unavailable. Retry.' });
+    expect(provider).not.toHaveBeenCalled();
+    expect(service.view).not.toHaveBeenCalled();
+    const retry = await post(get, bearer);
+    expect(retry.status).toBe(200); await retry.json();
+    expect(service.view).toHaveBeenCalledTimes(1);
+  });
   it('rejects the same signed token after provider revocation before service access', async () => {
     const bearer = await token();
     const first = await post(get, bearer); expect(first.status).toBe(200); await first.json();
