@@ -2,6 +2,8 @@
 
 The web build is lean: it holds the game against the computer, online play and their features. The features below are parked on 2026-10-28. The player cannot open them, and the production bundle does not ship their code. Their source files stay in the tree, so that we can return to them later.
 
+The ticket, [specs/park-lean/spec.md](specs/park-lean/spec.md), holds the owner's request, the plan, the verification and the reviews.
+
 ## What is parked
 
 | Feature | What the player no longer sees | Source that stays |

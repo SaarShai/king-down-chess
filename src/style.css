@@ -313,10 +313,8 @@ dialog small { color: var(--ink-soft); }
 .new-game-foot button { width: 100%; justify-content: center; min-height: 52px; }
 #new-game-warn { margin: 0 0 8px; color: var(--ink-soft); text-align: center; }
 #level-line, #army-line { margin: 8px 0 0; color: var(--ink-soft); }
-#design { min-height: var(--tap); }
 #army-strip { display: flex; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
 #army-strip .pi { width: 28px; height: 28px; }
-#army-strip .army-design { height: 28px; width: auto; }
 #army-strip .army-letter { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--ink); border-radius: 50%; font-weight: 700; }
 .modes, .seg { margin: 0; padding: 0; border: 0; min-width: 0; }
 .modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; padding: 3px; border-radius: var(--radius); background: var(--parchment-deep); }
@@ -701,7 +699,7 @@ button[aria-disabled="true"], button[aria-disabled="true"]:hover {
 }
 
 /* Tablet actions: clip the face only. Text, hit areas, and focus stay whole. */
-:is(.title-actions button, .new-game-foot button, .new-game-head button, .wide-btn, .code-row button, dialog > form button, .power-choice button, :where(#menu-sheet) [data-go='menu'], #over-review, #table-bar > button, #context-actions button, .sheet-head button, .game-action, .table-back, .sheet-body > button, #copy, #choices button, #move-choice button, #games-start, #profile-more, #profile-blocks-more, #retry, button.primary) {
+:is(.title-actions button, .new-game-foot button, .new-game-head button, .wide-btn, .code-row button, dialog > form button, .power-choice button, :where(#menu-sheet) [data-go='menu'], #over-review, #table-bar > button, #context-actions button, .sheet-head button, .game-action, .table-back, .sheet-body > button, #choices button, #move-choice button, #games-start, #profile-more, #profile-blocks-more, #retry, button.primary) {
   --tablet-face: var(--stone-100);
   --tablet-image: url('./plugin/assets/stone-control.webp');
   --tablet-blend: normal;
