@@ -1,7 +1,8 @@
 /** Resource-bound Supabase OAuth access tokens; regular website sessions are not MCP tokens. */
-import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
+import { createRemoteJWKSet, errors, jwtVerify, type JWTVerifyGetKey } from 'jose';
 
 export const ACTOR_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const AUTH_DOWN = new Set(['ERR_JOSE_GENERIC', 'ERR_JWKS_TIMEOUT', 'ERR_JWKS_INVALID']); // the key set did not load
 export function isLoopback(host: string): boolean { return ['localhost', '127.0.0.1', '[::1]', '::1', '::ffff:127.0.0.1'].includes(host); }
 export function pluginOrigin(value: string): string {
   const url = new URL(value);
@@ -33,12 +34,15 @@ export function createTokenVerifier({ supabaseUrl, publicOrigin, clientIds, publ
         const { payload } = await jwtVerify(token, jwks, { issuer, audience: resource, algorithms: ['ES256', 'RS256'], requiredClaims: ['iss', 'aud', 'sub', 'exp', 'role', 'client_id'] });
         // Supabase defaults to aud=authenticated. Its OAuth access-token hook must set this
         // exact resource audience; never accept a broad or mixed audience as a fallback.
-        if (payload.aud !== resource || !payload.sub || !ACTOR_UUID.test(payload.sub) || payload.role !== 'authenticated' || typeof payload.client_id !== 'string' || !payload.client_id.length || payload.client_id.length > 200) throw new AuthenticationError();
+        if (payload.aud !== resource || typeof payload.sub !== 'string' || !ACTOR_UUID.test(payload.sub) || payload.role !== 'authenticated' || typeof payload.client_id !== 'string' || !payload.client_id.length || payload.client_id.length > 200) throw new AuthenticationError();
         if (clientIds && !clientIds.includes(payload.client_id)) throw new AuthenticationError();
         // Supabase supports standard scopes only; older token examples omit the scope claim.
         if (payload.scope !== undefined && (typeof payload.scope !== 'string' || !payload.scope.split(/\s+/).includes('openid'))) throw new AuthenticationError();
         actorId = payload.sub.toLowerCase();
-      } catch { throw new AuthenticationError(); }
+      } catch (error) {
+        if (error instanceof AuthenticationError) throw error;
+        throw error instanceof errors.JOSEError && !AUTH_DOWN.has(error.code) ? new AuthenticationError() : new AuthenticationUnavailable();
+      }
       admit?.(actorId);
       // A valid signature does not prove that the provider session still exists.
       let response: Response;

@@ -714,8 +714,11 @@ it('F-008: the keyboard scrolls a long Moves sheet', async () => {
     expect(await body.evaluate(el => el === document.activeElement && el.matches(':focus-visible'))).toBe(true);
     expect(await body.getAttribute('role')).toBe('region');
     expect(await body.getAttribute('aria-label')).toBe('Moves');
+    // End can be lost in PageDown's final scroll frame. Register before the key, then wait for scrollend.
+    await body.evaluate(el => el.addEventListener('scrollend', () => el.setAttribute('data-scroll-ended', 'true'), { once: true }));
     await page.keyboard.press('PageDown');
     await expect.poll(() => body.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+    await expect.poll(() => body.getAttribute('data-scroll-ended')).toBe('true');
     await page.keyboard.press('End');
     // A failure shows the scroll box, the rows and the focus: CI runs 40183623337 and 40225675633 stopped short of the end.
     await expect.poll(() => body.evaluate(el => ({ end: Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight, top: el.scrollTop, client: el.clientHeight,

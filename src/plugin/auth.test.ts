@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWTPayload } from 'jose';
+import { createLocalJWKSet, errors, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { createTokenVerifier, pluginOrigin, AuthenticationUnavailable, type PluginAuth } from './auth';
 const actor = '11111111-1111-4111-8111-111111111111', publicOrigin = 'https://plugin.kingdown.example', supabaseUrl = 'https://project.supabase.co';
 const provider = vi.fn<typeof fetch>();
@@ -11,11 +11,16 @@ beforeAll(async () => {
   keys = createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'test', alg: 'ES256' }] });
   auth = createTokenVerifier({ supabaseUrl, publicOrigin, publishableKey }, keys, provider);
 });
-async function signed(overrides: JWTPayload = {}) {
+async function signed(overrides: Record<string, unknown> = {}) {
   const now = Math.floor(Date.now() / 1000);
   return new SignJWT({ iss: auth.issuer, aud: auth.resource, sub: actor, exp: now + 300, iat: now, role: 'authenticated', client_id: 'oauth-client', scope: 'openid email', ...overrides }).setProtectedHeader({ alg: 'ES256', kid: 'test' }).sign(privateKey);
 }
 describe('resource-bound Supabase OAuth', () => {
+  it.each([new errors.JWKSTimeout(), new errors.JOSEError(), new errors.JWKSInvalid(), new TypeError('fetch failed')])('treats signing-key fetch failure as temporary: %s', async error => {
+    const unavailable = createTokenVerifier({ supabaseUrl, publicOrigin, publishableKey }, async () => { throw error; }, provider);
+    await expect(unavailable.verify(await signed())).rejects.toBeInstanceOf(AuthenticationUnavailable);
+    expect(provider).not.toHaveBeenCalled();
+  });
   it('rejects an unexpired signed token after its provider session is revoked', async () => {
     provider.mockResolvedValue(new Response('{}', { status: 401 }));
     await expect(auth.verify(await signed())).rejects.toThrow('OAuth access token');
@@ -49,6 +54,7 @@ describe('resource-bound Supabase OAuth', () => {
     ['missing expiry', { exp: undefined }],
     ['wrong issuer', { iss: 'https://evil.example/auth/v1' }],
     ['bad subject', { sub: 'not-a-user' }],
+    ['array subject', { sub: [actor] }],
     ['missing subject', { sub: undefined }],
     ['service role', { role: 'service' + '_role' }],
     ['missing OAuth client', { client_id: undefined }],

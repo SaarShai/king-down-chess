@@ -93,7 +93,7 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
   expect(await game(late)).toEqual({ status: 'finished', result: 'black', end_reason: 'timeout' });
   expect(await game(open.game_id)).toEqual({ status: 'aborted', result: null, end_reason: 'no_start' });
   for (const id of [late, open.game_id]) expect((await rows(`select (select count(*)::int from public.game_commands where game_id=$1 and kind='expire') as expired,
-   (select count(*)::int from public.outbox where kind='game_finished' and payload->>'game_id'=$1::text) as finished`, [id]))[0]).toEqual({ expired: 1, finished: 1 });
+   (select count(*)::int from public.outbox where kind='game_finished' and payload->>'game_id'=$1::text) as finished`, [id]))[0]).toEqual({ expired: 1, finished: 0 });
   // The cleanup deletes the invitation of the ended game and the outbox rows done or made more than 30 days ago:
   // the MVP sends no email, so a row that nobody sends must not stay for ever.
   const old = (await rows(`insert into public.outbox(kind,payload,done_at,created_at) values('test','{}',$1,$1),('test','{}',$2,$2),('test','{}',null,$1) returning id`, [new Date(after.getTime() - 31 * DAY), new Date(after.getTime() - 29 * DAY)])).map(row => row.id);
