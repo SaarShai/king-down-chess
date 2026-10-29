@@ -60,6 +60,9 @@ jobs:
           KINGDOWN_TEST_SKIP: 'tools/plugin-board{,-input,-drafts}.test.ts'
       - run: npm run plugin:build
       - run: npm run plugin:server:check
+      # The parked ChatGPT plugin source (tools/chatgpt-plugin.mjs): MCP flows over compiled HTTP and real PostgreSQL.
+      - run: npm run plugin:build:chatgpt
+      - run: npm run plugin:server:check -- plugin-server-chatgpt
       - run: npm run plugin:smoke
       - run: npm run plugin:check:protocol
       - run: npm run build:vercel

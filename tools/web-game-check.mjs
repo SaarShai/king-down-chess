@@ -54,7 +54,8 @@ try {
     'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(accountOrigin),
     'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify('sb_publishable_local_test'),
   }, build: { outDir: join(work, 'site'), emptyOutDir: true } });
-  const root = await buildPluginServer(join(work, 'combined'), { site: join(work, 'site') });
+  // The check drives seats through the MCP tools as well as the web page, so its tree keeps the parked plugin.
+  const root = await buildPluginServer(join(work, 'combined'), { site: join(work, 'site'), chatgpt: true });
   process.env.NODE_ENV = 'test';
   const config = JSON.parse(await readFile(join(root, 'config.json'), 'utf8'));
   let siteRoot = root, siteConfig = config;
