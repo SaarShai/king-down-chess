@@ -22,6 +22,9 @@ async function staticLayer(directory) {
 }
 
 if (process.argv.length > 4) throw new Error('Usage: node tools/plugin-server-check.mjs [release function directory] [recovery function directory]');
+// The recovery continuation (release-save-continuity issues 06 and 14) runs over MCP. A parked release has no board.html and
+// no MCP, so it cannot run that check: stop here and do not report a pass.
+if (process.argv[3] && !existsSync(join(resolve(process.argv[2] || 'plugin-server-dist'), 'board.html'))) throw new Error('The parked build (CHATGPT_PLUGIN=false) has no recovery continuation check; it runs over MCP. Build both artifacts with chatgpt: true to check recovery');
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
 if (!connectionString) throw new Error('Set PLUGIN_TEST_DATABASE_URL to a disposable loopback PostgreSQL database');
 const url = new URL(connectionString);
@@ -123,8 +126,10 @@ try {
     assert.equal(since.game_id, initial.game_id); assert.equal(since.rules, undefined); assert.equal(since.last_commands.length, 2);
     const persisted = await pool.query('select state as save,revision,(select count(*)::int from public.game_commands where game_id=$1) as commands from public.games where id=$1', [initial.game_id]);
     assert(persisted.rows[0].commands >= 2); assert.equal(persisted.rows[0].revision, start + 2); assert.match(JSON.parse(persisted.rows[0].save).engine, /^sha256:/);
-    await assert.rejects(configurePlugin(productionEnv), /Enable Supabase OAuth/);
-    console.log(`Compiled HTTP + real PostgreSQL (ChatGPT plugin parked): ${closedCases} default API closures with zero pool calls, ${unsafeCases} unsafe website-key refusals, ${parkedCases} parked plugin paths answer 404, website status, profile, solo game, move, computer turn and since read, and production auth gate passed`);
+    // Parked production needs no OAuth setup, only the website's public Supabase settings; the parked build has no MCP code.
+    await assert.rejects(configurePlugin(productionEnv), /SUPABASE_PUBLISHABLE_KEY must be/);
+    await assert.rejects(configurePlugin(productionEnv, { chatgpt: true }), /This build parks the ChatGPT plugin/);
+    console.log(`Compiled HTTP + real PostgreSQL (ChatGPT plugin parked): ${closedCases} default API closures with zero pool calls, ${unsafeCases} unsafe website-key refusals, ${parkedCases} parked plugin paths answer 404, website status, profile, solo game, move, computer turn and since read, production website settings gate and no MCP code passed`);
   } else {
   async function rpc(actor, method, params) {
     const response = await fetch(`${origin}/mcp`, { method: 'POST', headers: { 'X-Kingdown-Dev-Actor': actor, 'Content-Type': 'application/json', Accept: 'application/json,text/event-stream', 'MCP-Protocol-Version': '2025-11-25' }, body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method, params }) });

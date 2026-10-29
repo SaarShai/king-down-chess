@@ -39,7 +39,8 @@ it.each([false, true])('configures the real runtime pool for serverless=%s', asy
     port: serverless ? 6543 : 5432, max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000,
     ssl: expect.objectContaining({ rejectUnauthorized: true, servername: 'aws-0-eu-west-1.pooler.supabase.com' }),
   }));
-  expect(checkPluginDatabase).toHaveBeenCalledWith(pool, expect.any(Object), `${STAGING_ORIGIN}/mcp`);
+  // Parked: no OAuth client allowlist and no /mcp resource to check.
+  expect(checkPluginDatabase).toHaveBeenCalledWith(pool, undefined, undefined);
   if (serverless) expect(attachDatabasePool).toHaveBeenCalledExactlyOnceWith(pool);
   else expect(attachDatabasePool).not.toHaveBeenCalled();
 });
@@ -96,6 +97,22 @@ it('parks the ChatGPT plugin by default: each plugin path answers 404 and the we
     }
     expect(await call('GET /api/status')).toEqual({ status: 200, body: { account_access: 'open', valid_for_ms: expect.any(Number) } });
   } finally { await close(); }
+});
+it('starts the parked production server without the ChatGPT OAuth setup', async () => {
+  // The owner can turn off the Supabase OAuth server, delete the OAuth client and unset KINGDOWN_PLUGIN_OAUTH_READY: the
+  // website API still starts, and it makes no provider call at start.
+  const { KINGDOWN_PLUGIN_OAUTH_READY: _ready, KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: _clients, ...parked } = production;
+  const query = vi.fn(async () => ({ rows: [{ singleton: true, enabled: false }] })), pool = { on: vi.fn(), end: vi.fn(), query };
+  vi.mocked(Pool).mockImplementation(function () { return pool as unknown as Pool; });
+  const provider = vi.fn(async () => new Response('OAuth server is off', { status: 404 })); vi.stubGlobal('fetch', provider);
+  const app = await configurePlugin(parked, { serverless: true });
+  expect(app.chatgpt).toBe(false);
+  expect(provider).not.toHaveBeenCalled();
+  expect(checkPluginDatabase).toHaveBeenCalledExactlyOnceWith(pool, undefined, undefined);
+  // The website API still needs its public Supabase settings.
+  for (const name of ['SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY']) await expect(configurePlugin({ ...parked, [name]: undefined })).rejects.toThrow(/supabase/i);
+  // The plugin path keeps its OAuth gate.
+  await expect(configurePlugin(parked, { chatgpt: true })).rejects.toThrow('Enable Supabase OAuth');
 });
 it('serves the plugin metadata again with chatgpt: true', async () => {
   const { call, close } = await productionServer(true, true);
