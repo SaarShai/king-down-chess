@@ -57,6 +57,9 @@ Baseline/workspace: <commit and absolute path>.
 Read first: <exact files/sections; concise context and settled decisions>.
 Own only: <source, test and brief report paths>.
 Other agents may own other work: preserve their changes and your boundaries.
+For an existing file outside the worktree, resolve its absolute path and check
+that the file and the prior entry exist. Give the writer that path and entry.
+If either is missing, stop; do not create a replacement file.
 
 Required behavior: <enumerated observable conditions and edge cases>.
 Use existing interfaces: <specific functions/types>.
@@ -83,6 +86,8 @@ The matched Qwen/Gemma trial used a fresh round, identical prompt/baseline, 32k 
 Use the same narrow implementation template, plus exact read paths and compact task-specific startup documents in the isolated copy. Preserve original documents with hashes; leave the owner's checkout intact. Require one source/test deliverable and exact fixtures. Stop on repeated read/compaction loops, memory pressure or a failed bounded round. A broader prompt, more context or another model is not automatic recovery. No keys were copied to M1 and no Jev calls were authorized.
 
 ## Review before accepting
+
+For an input, timing, or layout finding, cite the approved requirement and compare the observed behavior with it. Start with the affected ticket and the owner picks in docs/research/web-adaptation-2026-10-18/baseline-post-merge.md. Behavior that meets the owner pick is not a product fault. Mark a proposed rule change as a design decision. Include the requirement citation in the repair brief.
 
 For an approved merge, use `node tools/merge-on-green.mjs <pr> <full-head-sha> <review.json>`.
 The helper requires this record for `SaarShai/king-down-chess`. Use full commit SHAs:

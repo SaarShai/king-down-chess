@@ -851,6 +851,13 @@ describe('COMPUTE.md, HOSTING.md and the AGENTS.md pointers', () => {
     expect(secrets(`[record](sk1_${'a'.repeat(10)}.md)`)).toHaveLength(1);
   });
 
+  it('names the external release log without a secret-like path', () => {
+    const record = read('docs/HOSTING.md').split('\n').find(line => line.startsWith('- Keep the release record:'));
+    expect(record).toContain('LOG.md');
+    expect(record).toContain('../evidence/production-release/');
+    expect(factFaults('docs/HOSTING.md', record).filter(fault => fault.what.includes('looks like a secret value')).map(show)).toEqual([]);
+  });
+
   it('COMPUTE.md and HOSTING.md hold their facts, no deploy command, no model name and no secret value', () => {
     const faults = FACT_FILES.flatMap(({ file }) => factFaults(file, existsSync(join(root, file)) ? read(file) : undefined));
     expect(faults.map(show)).toEqual([]);
