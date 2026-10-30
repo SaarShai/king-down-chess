@@ -30,6 +30,7 @@ node tools/anim/promote.mjs <candidate> --catalog <dir> # publish a green candid
   Each key gap must hold a power-of-two number of steps, because the midpoint recursion halves one gap at a time.
 - `--kind` is `idle`, `turn`, `attack` or `movement`. A turn takes two facings (`SE-S`); other kinds take one.
 - `--output` defaults to `<repo parent>/anim-out/<character>/<army>/<id>`, outside git.
+- `--ghost-repair hold` replaces each in-between over the ghost limit with the nearest clean frame. Ties use the earlier frame.
 - `--geometry <json>` takes a fixed geometry record. Normal runs read the locked geometry instead.
 
 ### Locked geometry
@@ -67,11 +68,13 @@ forces one machine.
 2. `exterior`: every border pixel is transparent, alpha 0 exists, and a fully opaque pixel exists.
 3. `matte-halo`: at most 30 percent of the low-coverage exterior edge may be near the interpolation matte and
    clearly closer to it than to the nearest opaque interior colour. This is a screen; look at the preview.
-4. `geometry`: the bank pivot equals the locked pivot, and the first and last frames stand within 2 px of the baseline.
-5. `endpoints`: turns and other banks use shipped endpoint hashes. Movement compares each padded end pixel to the
+4. `ghost`: each in-between stays within 0.035 of the highest authored ghost score. The score counts semi-transparent
+   pixels more than 3 px from the opaque body, divided by opaque pixels. This is a screen; look at the preview.
+5. `geometry`: the bank pivot equals the locked pivot, and the first and last frames stand within 2 px of the baseline.
+6. `endpoints`: turns and other banks use shipped endpoint hashes. Movement compares each padded end pixel to the
    shipped facing rest at the same pivot, with only transparent pixels outside it.
-6. `timing`: frame count, frame step, start time and end time match the plan.
-7. `provenance`: every frame has a known method and a SHA-256.
+7. `timing`: frame count, frame step, start time and end time match the plan.
+8. `provenance`: every frame has a known method and a SHA-256.
 
 ### Output
 
