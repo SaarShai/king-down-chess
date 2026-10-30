@@ -30,3 +30,7 @@ Status: claimed
 - The committed selection builds 473 banks and 5,313 assets. The manifest is byte-identical before and after the fix.
 - A Pawn study with entry and settle frames builds ten frames in order. Its full duration is 1,000 ms. Its registration height is 240 px, the idle height.
 - The E and W Pawn movement banks both use the 240 px idle registration. Their former heights were 228 px and 238 px.
+- The independent builder review found wrong movement scale, lost entry and settle frames, and duplicate movement facings. The fix uses the idle height, joins the authored sections, and rejects duplicates.
+- `KINGDOWN_TEST_FILE=tools/character-runtime-package.test.ts npm test` passes five builder cases. The cases cover each review fault.
+- `KINGDOWN_TEST_FILE=src/render/scene-load.test.ts KINGDOWN_TEST_NAME='padded movement canvas' npm test` passes. It checks pivot, scale and draw position.
+- `MOVEMENT_BASELINE_DIR=<package> MOVEMENT_MEDIA_DIR=<media> npm run check:browser movement-runtime` passes. The game-size Pawn joins show no scale change. The draft poses still change at the joins.
