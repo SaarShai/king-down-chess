@@ -114,7 +114,7 @@ def fit(paths, baseline, rest_indexes):
             ty += correction
             placed, specks = despeckle(transform(f, factor, tx, ty, rest.shape))
         for _ in range(4):
-            rows = np.nonzero((placed[:, :, 3] > 8 / 255).any(1))[0]
+            rows = np.nonzero((np.floor(placed[:, :, 3] * 255 + 0.5) > 8).any(1))[0]
             correction = baseline - int(rows[-1])
             if abs(correction) <= 2:
                 break
