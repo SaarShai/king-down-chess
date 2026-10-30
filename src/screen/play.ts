@@ -76,7 +76,8 @@ export function connectPlay(view: BoardView, c: {
   window.addEventListener('pagehide', () => uiMotion.cancel());
   let handoffAt = -Infinity;
   let game = new Game(undefined, c.rules);
-  const sync = (pos: Position): void => { view.setRules?.(game.context); view.sync(pos); };
+  let shownGame = game;
+  const sync = (pos: Position): void => { if (shownGame !== game) { view.resetEffects?.(); shownGame = game; } view.setRules?.(game.context); view.sync(pos); };
   /** The keyboard cursor, drawn over the board (pointer events pass through). */
   const marksLayer = document.createElement('div');
   marksLayer.id = 'board-marks';
