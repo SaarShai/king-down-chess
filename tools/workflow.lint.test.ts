@@ -20,7 +20,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(verify).toContain('PLUGIN_TEST_DATABASE_URL:');
     expect(verify).toContain('- run: npm run plugin:db:init-test');
     expect(verify).toContain("- run: npm test\n        env:\n          KINGDOWN_TEST_SKIP: 'tools/plugin-board{,-input,-drafts}.test.ts'\n");
-    expect([...workflow.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):$/gm)].map(m => m[1])).toEqual(['verify', 'browser-board', 'browser', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui', 'browser-firefox']);
+    expect([...workflow.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):$/gm)].map(m => m[1])).toEqual(['verify', 'browser-board', 'browser', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui']);
   });
 
   it('keeps the release and sample instructions in line with the CI and push gates', () => {
@@ -34,7 +34,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(read('tools/lib/checks.mjs')).not.toContain('pre-push');
   });
 
-  it('removes the slow Azure mirror and limits downloads in all eight browser install steps', () => {
+  it('removes the slow Azure mirror and limits downloads in all seven browser install steps', () => {
     const directory = join(import.meta.dirname, '..', '.github', 'workflows');
     const removeMirror = "sudo sed -i '/azure\\.archive\\.ubuntu\\.com/d' /etc/apt/apt-mirrors.txt";
     let installs = 0;
@@ -49,7 +49,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
         expect(step.indexOf('sudo tee')).toBeLessThan(step.indexOf('npx playwright install'));
       }
     }
-    expect(installs).toBe(8);
+    expect(installs).toBe(7);
   });
 
   it.each(webkitJobs)('runs WebKit in the separate job %s with its own install and the time limit for its scaled steps', name => {
@@ -62,7 +62,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(webkit).not.toContain('needs:');
     expect(job('browser')).toContain('npx playwright install --with-deps chromium');
     expect(job('browser')).not.toContain('webkit');
-    for (const other of ['verify', 'browser-board', 'browser', 'browser-web', 'browser-firefox']) expect(job(other)).not.toContain('PLAYABLE_CPU_CANVAS');
+    for (const other of ['verify', 'browser-board', 'browser', 'browser-web']) expect(job(other)).not.toContain('PLAYABLE_CPU_CANVAS');
   });
 
   it('runs the Chromium board files that verify leaves out, one file to a runner', () => {
