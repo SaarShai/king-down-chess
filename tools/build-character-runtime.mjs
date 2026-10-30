@@ -127,6 +127,7 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
         if (section.some(f => !Number.isFinite(f.timeMs) || f.timeMs < 0 || !Number.isFinite(f.durationMs) || f.durationMs <= 0)) throw Error(`Invalid movement section time: ${entry.id}`);
         return section.length ? section.at(-1).timeMs + section.at(-1).durationMs : 0;
       };
+      // Each authored section starts its clock at zero.
       const before=sectionDuration(entryFrames), after=sectionDuration(settleFrames);
       const shift=(frames,offset)=>frames.map((f,i)=>({...f,timeMs:(f.timeMs ?? (frames === bank.frames ? bank.times?.[i] ?? i*bank.durationMs/(bank.frames.length-1) : NaN))+offset,
         ...(f.endMs == null ? {} : {endMs:f.endMs+offset}),
