@@ -2,6 +2,26 @@
 
 The lessons on artwork, sculpts, painted pieces, animation and the trailer. [LESSONS.md](../../LESSONS.md) holds the Always rules and the index of all topic files.
 
+## Animation recipe and gates — 2026-10-30
+
+1. Lock the source art of each character: the approved figure, its pivot and its native RGBA master. Keep them immutable.
+2. Make the key poses with image_gen on a transparent background.
+3. Make the in-betweens with alpha RIFE: transport the colour and the alpha with the same flow.
+4. Register each view to the locked boot contact or foot pivot, with one uniform frame scale and translation.
+5. Run the automatic gates: alpha channel present, transparent exterior, no matte halo, no missing or doubled contour, exact shared endpoints.
+6. Look at the complete action in a board-size preview at normal speed, on light, dark, checkerboard and the real board, for both armies.
+7. Promote only after step 6 passes. Freeze the reviewed bank with a saved manifest and a content hash.
+8. Animate one army, then derive the other army by colour adaptation of the finished frames (`tools/anim/recolor.mjs`): same motion, same alpha, no image call. Redraw the other army only for a deliberately different motion, for variety. A repair fixes each army’s own frames and keeps its exact endpoint images; colour adaptation is for new art.
+
+Gates for every step:
+- Genuine transparency, always. Never publish an opaque or matte output; a flattened preview is a diagnostic only.
+- 384×384 square canvas at the current renderer; keep the same pixel density on a longer canvas.
+- Judge "good enough" at game size and normal speed. Use a native close-up to find a fault, not to refuse a subtle difference.
+- Record the interpolation method and the provenance of each frame, so a failed export needs no redesign.
+- One owner go covers a whole batch: one `docs/QUEUE.md` row per batch, never one per step. No syntax-only runs, no per-frame launchers, no repeated reviews.
+- Write art outputs to a folder outside the git worktrees.
+- RIFE may run on the M1 or this Mac, whichever is free.
+
 ## 2026-10-04 — check a vector from a PDF against the PDF's own render
 - The rook icon lost its two white bands in the SVG: the rulebook path holds them as two rectangles that open only under the even-odd rule (as MuPDF draws the page), while PyMuPDF reported nonzero; side-by-side thumbnails at 120 px looked right. → Check a vector taken from a PDF against the PDF's own render, pixel by pixel, with the overlapping images removed (`tools/extract-piece-icons.py` does it and stops at 0.5%), not by eye. (2026-10-04)
 
