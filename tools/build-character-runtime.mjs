@@ -15,7 +15,8 @@ const inside = (base, path) => { const rel = relative(base, path); if (rel.start
 export function registerBanks(banks) {
   const groups = new Map();
   for (const bank of banks) { const key = `${bank.character}:${bank.army}`; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(bank); }
-  for (const group of groups.values()) {
+  for (const all of groups.values()) {
+    const group=all.filter(bank=>bank.kind!=='movement');
     const parent=group.map((_,i)=>i),find=i=>parent[i]===i?i:(parent[i]=find(parent[i])),owners=new Map();
     for(const [i,bank]of group.entries())for(const frame of [bank.frames[0],bank.frames.at(-1)]){
       const previous=owners.get(frame.sourceSha256);if(previous!=null)parent[find(i)]=find(previous);else owners.set(frame.sourceSha256,i);
@@ -38,6 +39,16 @@ export function registerBanks(banks) {
           if(previous&&previous!==transform)throw Error(`Inconsistent shared endpoint transform: ${bank.character}/${bank.army}/${frame.sourceSha256}`);
           endpoints.set(frame.sourceSha256,transform);
         }
+      }
+    }
+    const movements=all.filter(bank=>bank.kind==='movement');
+    if(movements.length){
+      const rest=group.filter(bank=>bank.kind==='idle').sort((a,b)=>Number(b.facing==='SE')-Number(a.facing==='SE'))[0];
+      if(!rest)throw Error(`Movement bank needs an idle registration: ${movements[0].character}/${movements[0].army}`);
+      for(const bank of movements){
+        bank.bodyHeightPx??=Math.max(.5,bank.pivot[1]-bank.bodyTopPx);delete bank.bodyTopPx;
+        bank.sourceBoardScale=bank.boardScale==null?null:bank.boardScale/2;
+        bank.registrationHeightPx=rest.registrationHeightPx;bank.registrationSourceSha256=rest.registrationSourceSha256;bank.boardScale=null;
       }
     }
   }
@@ -107,13 +118,29 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
     const to = direction(bank.to ?? entry.to ?? edge[1] ?? idDirections.at(-1));
     const facing = direction(bank.facing ?? bank.direction ?? entry.direction) ?? direction(idDirections.at(-1));
     if (entry.kind === 'movement-study' && (!direction(current.direction) || bank.direction !== current.direction || bank.army !== entry.army || bank.character != null && bank.character !== entry.character || bank.facing != null && bank.facing !== current.direction || entry.direction != null && entry.direction !== current.direction)) throw Error(`Invalid movement facing: ${entry.id}`);
+    if (entry.kind === 'movement-study' && banks.some(b => b.kind === 'movement' && b.character === entry.character && b.army === entry.army && b.facing === facing)) throw Error(`Duplicate movement facing: ${entry.character}/${entry.army}/${facing}`);
+    let sourceFrames=bank.frames, durationMs=bank.durationMs;
+    if (entry.kind === 'movement-study' && (bank.entryFrames != null || bank.settleFrames != null)) {
+      const entryFrames=bank.entryFrames ?? [], settleFrames=bank.settleFrames ?? [];
+      if (!Array.isArray(entryFrames) || !Array.isArray(settleFrames)) throw Error(`Invalid movement sections: ${entry.id}`);
+      const sectionDuration = section => {
+        if (section.some(f => !Number.isFinite(f.timeMs) || f.timeMs < 0 || !Number.isFinite(f.durationMs) || f.durationMs <= 0)) throw Error(`Invalid movement section time: ${entry.id}`);
+        return section.length ? section.at(-1).timeMs + section.at(-1).durationMs : 0;
+      };
+      const before=sectionDuration(entryFrames), after=sectionDuration(settleFrames);
+      const shift=(frames,offset)=>frames.map((f,i)=>({...f,timeMs:(f.timeMs ?? (frames === bank.frames ? bank.times?.[i] ?? i*bank.durationMs/(bank.frames.length-1) : NaN))+offset,
+        ...(f.endMs == null ? {} : {endMs:f.endMs+offset}),
+        ...(f.visibleIntervalMs ? {visibleIntervalMs:f.visibleIntervalMs.map(t=>t+offset)} : {})}));
+      sourceFrames=[...entryFrames, ...shift(bank.frames,before), ...shift(settleFrames,before+bank.durationMs)];
+      durationMs=before+bank.durationMs+after;
+    }
     const pivot = bank.footPivot ?? bank.pivot ?? (entry.kind === 'movement-study' ? bank.frames[0].pivot : null);
-    if (entry.kind === 'movement-study' && (!Array.isArray(pivot) || bank.frames.some(frame => frame.pivot != null && (!Array.isArray(frame.pivot) || frame.pivot.length !== 2 || frame.pivot.some((n, i) => n !== pivot[i]))))) throw Error(`Invalid movement pivot: ${entry.id}`);
+    if (entry.kind === 'movement-study' && (!Array.isArray(pivot) || sourceFrames.some(frame => frame.pivot != null && (!Array.isArray(frame.pivot) || frame.pivot.length !== 2 || frame.pivot.some((n, i) => n !== pivot[i]))))) throw Error(`Invalid movement pivot: ${entry.id}`);
     if (pivot != null && (pivot.length !== 2 || pivot.some(n => !Number.isFinite(n)))) throw Error(`Invalid foot pivot: ${entry.id}`);
     const frames = [];
-    for (let index = 0; index < bank.frames.length; index++) {
-      const frame = bank.frames[index], timeMs = frame.timeMs ?? bank.times?.[index] ?? index * bank.durationMs / (bank.frames.length - 1);
-      if (!Number.isFinite(timeMs) || timeMs < 0 || timeMs > bank.durationMs || index && timeMs < frames[index - 1].timeMs) throw Error(`Invalid frame time: ${entry.id}`);
+    for (let index = 0; index < sourceFrames.length; index++) {
+      const frame = sourceFrames[index], timeMs = frame.timeMs ?? bank.times?.[index] ?? index * durationMs / (sourceFrames.length - 1);
+      if (!Number.isFinite(timeMs) || timeMs < 0 || timeMs > durationMs || index && timeMs < frames[index - 1].timeMs) throw Error(`Invalid frame time: ${entry.id}`);
       if (entry.kind === 'movement-study') {
         const bytes = await readFile(inside(source, resolve(dirname(path), frame.url)));
         const metadata = await sharp(bytes).metadata(), { data, info } = await sharp(bytes).raw().toBuffer({ resolveWithObject: true });
@@ -127,11 +154,11 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
     }
     const sampling = [bank.sampling, bank.schedule?.sampling, bank.selectedSchedule?.sampling, bank.approvedPlayerSchedule?.sampling];
     const floor = sampling.some(s => typeof s === 'string' && /\bfloor\b/.test(s));
-    banks.push({ character: entry.character, army: entry.army, id: entry.id, kind: entry.kind === 'movement-study' ? 'movement' : entry.kind, sourceSha256: entry.sha256, canvasSize: canvas.map(n => n / 2), pivot: pivot?.map(n => n / 2) ?? null, durationMs: bank.durationMs, from: from ?? (entry.kind === 'turn' ? direction(idDirections.at(-2)) : null), to, facing,
+    banks.push({ character: entry.character, army: entry.army, id: entry.id, kind: entry.kind === 'movement-study' ? 'movement' : entry.kind, sourceSha256: entry.sha256, canvasSize: canvas.map(n => n / 2), pivot: pivot?.map(n => n / 2) ?? null, durationMs, from: from ?? (entry.kind === 'turn' ? direction(idDirections.at(-2)) : null), to, facing,
       bodyHeightPx: bank.bodyHeightPx == null ? null : bank.bodyHeightPx / 2, bodyTopPx: assets.get(bank.frames[0].sha256).top / 2, boardScale: bank.boardScale == null ? null : bank.boardScale * 2, targetPoint: Array.isArray(bank.targetPoint) ? bank.targetPoint.map(n => n / 2) : null,
       beatTimes: bank.beatTimes ?? {}, effectAnchors: (Array.isArray(bank.effectAnchors) ? bank.effectAnchors : (bank.effectAnchors?.timedframes?.[entry.army] ?? []).map(frame => ({ id: 'contact-bloom', timeMs: frame.timeMs, point: frame.contactBloomAnchor }))).filter(anchor => Array.isArray(anchor.point) && anchor.point.length === 2 && anchor.point.every(Number.isFinite) && Number.isFinite(anchor.timeMs)).map(anchor => ({ id: anchor.id, timeMs: anchor.timeMs, point: anchor.point.map(n => n / 2), ...(anchor.visibility ? { visibility: anchor.visibility } : {}) })),
       contactMs: bank.beatTimes?.contact ?? bank.beatTimes?.contactMs ?? bank.beatTimes?.release ?? bank.frames.find(f => f.phase === 'release' || f.phase === 'contact')?.timeMs ?? null,
-      nearest: !floor && (entry.kind === 'turn' || sampling.some(s => s === 'nearest')), frames });
+      nearest: sourceFrames === bank.frames && !floor && (entry.kind === 'turn' || sampling.some(s => s === 'nearest')), frames });
   }
   for (const bank of banks.filter(b => b.kind === 'idle')) {
     const hash = bank.frames[0].sourceSha256;

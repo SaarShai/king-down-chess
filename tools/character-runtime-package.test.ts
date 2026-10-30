@@ -26,20 +26,32 @@ it('derives only pinned ready frames with uniform geometry and rejects a changed
  const mismatch=makeBank('white-turn-S-SW','turn',16,imageHash,16);writeFileSync(join(source,'manifest.json'),JSON.stringify({entries:[mismatch]}));writeFileSync(selection,JSON.stringify({schemaVersion:1,status:'ready',catalogSha256:hash(readFileSync(join(source,'manifest.json'))),entries:[mismatch]}));expect(run).toThrow(/Frame canvas mismatch/);
 }, 30_000);
 
-it('builds selected movement studies and rejects bad direction or missing frames', async () => {
+it.each(['registration','joins','duplicate','validation'] as const)('checks movement %s', async check => {
  scratch=mkdtempSync(join(tmpdir(),'kingdown-movement-package-'));const source=join(scratch,'source'),out=join(scratch,'out');mkdirSync(join(source,'banks'),{recursive:true});mkdirSync(join(source,'assets'));
  const image=await sharp({create:{width:32,height:32,channels:4,background:{r:0,g:0,b:0,alpha:0}}}).composite([{input:await sharp({create:{width:8,height:8,channels:4,background:{r:10,g:20,b:30,alpha:1}}}).png().toBuffer(),left:12,top:12}]).png().toBuffer();
  const hash=(b:Buffer)=>createHash('sha256').update(b).digest('hex'),imageHash=hash(image);writeFileSync(join(source,'assets',`${imageHash}.png`),image);
  const selection=join(scratch,'selection.json');
- const select=(facing:string,frames:unknown[])=>{
-  const bytes=Buffer.from(JSON.stringify({status:'draft',army:'white',direction:facing,canvasSize:[32,32],durationMs:100,frames})),bankHash=hash(bytes);writeFileSync(join(source,'banks',`${bankHash}.json`),bytes);
+ const idleImage=await sharp(image).modulate({brightness:0.5}).png().toBuffer(),idleHash=hash(idleImage);writeFileSync(join(source,'assets',`${idleHash}.png`),idleImage);
+ const idleBytes=Buffer.from(JSON.stringify({status:'ready',canvasSize:[32,32],footPivot:[16,28],bodyHeightPx:20,durationMs:100,frames:[{url:`../assets/${idleHash}.png`,sha256:idleHash,timeMs:0}]})),idleBankHash=hash(idleBytes);writeFileSync(join(source,'banks',`${idleBankHash}.json`),idleBytes);
+ const idle={character:'pawn',army:'white',kind:'idle',id:'white-idle-SE',status:'ready',manifest:`banks/${idleBankHash}.json`,sha256:idleBankHash};
+ const select=(facing:string,frames:unknown[],sections:object={},duplicate=false)=>{
+  const bytes=Buffer.from(JSON.stringify({status:'draft',army:'white',direction:facing,canvasSize:[32,32],durationMs:100,frames,...sections})),bankHash=hash(bytes);writeFileSync(join(source,'banks',`${bankHash}.json`),bytes);
   const entry={character:'pawn',army:'white',kind:'movement-study',direction:facing,id:'white-move-E',status:'draft',manifest:`banks/${bankHash}.json`,sha256:bankHash};
-  writeFileSync(join(source,'manifest.json'),JSON.stringify({entries:[entry]}));writeFileSync(selection,JSON.stringify({schemaVersion:1,status:'ready',catalogSha256:hash(readFileSync(join(source,'manifest.json'))),entries:[entry]}));
+  const entries=[idle,entry,...(duplicate?[{...entry,id:'white-move-E-2'}]:[])];
+  writeFileSync(join(source,'manifest.json'),JSON.stringify({entries}));writeFileSync(selection,JSON.stringify({schemaVersion:1,status:'ready',catalogSha256:hash(readFileSync(join(source,'manifest.json'))),entries}));
  };
  const run=()=>execFileSync(process.execPath,[resolve('tools/build-character-runtime.mjs'),'--source',source,'--output',out,'--selection',selection],{encoding:'utf8',stdio:'pipe',timeout:10_000});
  const frames=[0,100].map(timeMs=>({url:`../assets/${imageHash}.png`,sha256:imageHash,timeMs,pivot:[16,28]}));
- select('E',frames);expect(JSON.parse(run())).toEqual({banks:1,assets:1});
- const bank=JSON.parse(readFileSync(join(out,'manifest.json'),'utf8')).banks[0];expect(bank).toMatchObject({character:'pawn',army:'white',kind:'movement',facing:'E',durationMs:100,pivot:[8,14],registrationHeightPx:8,frames:[{timeMs:0},{timeMs:100}]});
+ if(check==='registration'){
+  select('E',frames);expect(JSON.parse(run())).toEqual({banks:2,assets:2});
+  const [rest,bank]=JSON.parse(readFileSync(join(out,'manifest.json'),'utf8')).banks;expect(bank).toMatchObject({character:'pawn',army:'white',kind:'movement',facing:'E',durationMs:100,pivot:[8,14],registrationHeightPx:10,registrationSourceSha256:rest.sourceSha256,frames:[{timeMs:0},{timeMs:100}]});return;
+ }
+ if(check==='joins'){
+  const outer={url:`../assets/${idleHash}.png`,sha256:idleHash,timeMs:0,durationMs:20,pivot:[16,28]};
+  select('E',frames,{entryFrames:[outer],settleFrames:[outer]});run();
+  const joined=JSON.parse(readFileSync(join(out,'manifest.json'),'utf8')).banks[1];expect(joined.durationMs).toBe(140);expect(joined.frames.map((f:{timeMs:number;sourceSha256:string})=>[f.timeMs,f.sourceSha256])).toEqual([[0,idleHash],[20,imageHash],[120,imageHash],[120,idleHash]]);return;
+ }
+ if(check==='duplicate'){select('E',frames,{},true);expect(run).toThrow(/Duplicate movement facing/);return;}
  select('bad',frames);expect(run).toThrow(/Invalid movement facing/);
  select('E',[]);expect(run).toThrow(/Invalid ready bank/);
  select('E',[frames[0],{...frames[1],url:'../assets/missing.png'}]);expect(run).toThrow(/ENOENT/);
