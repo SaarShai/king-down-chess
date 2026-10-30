@@ -46,7 +46,7 @@ async function cleanOutput(output) {
   if (!info) return;
   if (!info.isDirectory()) throw Error(`Output is not a folder: ${output}`);
   const names = await readdir(output);
-  const allowed = new Set(['frames', 'previews', 'rife', 'bank.json', 'gates.json', 'provenance.json', 'comparison.json']);
+  const allowed = new Set(['frames', 'previews', 'rife', 'bank.json', 'gates.json', 'provenance.json', 'comparison.json', 'head-template.png']);
   const foreign = names.filter(name => !allowed.has(name));
   if (foreign.length) throw Error(`Output folder holds other files (${foreign.slice(0, 3).join(', ')}); choose a new --output`);
   for (const name of names) await rm(join(output, name), { recursive: true, force: true });

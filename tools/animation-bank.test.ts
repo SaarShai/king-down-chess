@@ -216,6 +216,7 @@ it('keeps the shipped movement rest at its pivot and scale on a padded canvas', 
   const options = { character: 'pawn', army: 'white', kind: 'movement', facing: 'SE', keys, geometryRecord: { ...geometry, bodyHeightPx: 85, authority }, output, preview: false };
   const result = await makeBank(options);
   expect(result.gates).toBe('pass');
+  await expect(makeBank(options)).resolves.toMatchObject({ gates: 'pass' });
   const bank = JSON.parse(await readFile(result.candidate, 'utf8'));
   const rest = await readFrame(join(keys, '000.png'));
   const first = await readFrame(join(output, bank.frames[0].url));
