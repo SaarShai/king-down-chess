@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import sharp from 'sharp';
 import { afterEach, expect, it } from 'vitest';
-import { measureFrame, readFrame, registerFrame } from './anim/frames.mjs';
+import { matteFringe, measureFrame, readFrame, registerFrame } from './anim/frames.mjs';
 import { geometryFromManifest, edgeFor } from './anim/geometry.mjs';
 import { midpointPlan, planTiming } from './anim/plan.mjs';
 import { makeBank } from './anim/bank.mjs';
@@ -17,6 +17,28 @@ import { runGates } from './anim/gates.mjs';
 let dir = '';
 afterEach(async () => { if (dir) await rm(dir, { recursive: true, force: true }); });
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+
+it('fails a matte rim but passes a clean dark edge near the matte', () => {
+  const makeFrame = (interior: number[], edge: number[]) => {
+    const width = 48, height = 48, data = Buffer.alloc(width * height * 4);
+    for (let y = 8; y < 40; y++) for (let x = 8; x < 40; x++) {
+      const rim = x === 8 || x === 39 || y === 8 || y === 39;
+      const p = (y * width + x) * 4;
+      data.set([...(rim ? edge : interior), rim ? 128 : 255], p);
+    }
+    const image = { data, width, height }, measure = measureFrame(image);
+    return { file: 'fixture', method: 'authored', sources: [], metadata: { channels: 4 }, measure,
+      fringe: matteFringe(image, measure), sha256: 'a'.repeat(64), timeMs: 0 };
+  };
+  const halo = makeFrame([180, 160, 140], [44, 52, 46]);
+  const dark = makeFrame([50, 60, 55], [50, 60, 55]);
+  const haloCheck = (frame: typeof halo) => runGates({ bank: { pivot: [24, 39] }, frames: [frame, { ...frame, timeMs: 15 }],
+    geometry: { pivot: [24, 39] }, plan: { frameCount: 2, durationMs: 15, frameMs: 15 } }).checks.find(check => check.name === 'matte-halo');
+  expect(haloCheck(halo)?.ok).toBe(false);
+  expect(halo.fringe.ratio).toBeGreaterThan(0.3);
+  expect(haloCheck(dark)?.ok).toBe(true);
+  expect(dark.fringe.ratio).toBe(0);
+});
 
 /** A 96x96 key with a 60 px tall blob whose lowest row is one pixel above the pivot. */
 async function key(path: string, shift: number, colour: [number, number, number]) {
