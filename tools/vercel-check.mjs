@@ -12,7 +12,6 @@ import pg from 'pg';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { ENGINES } from './plugin-runtime-build.mjs';
 import { CHATGPT_PLUGIN, PARKED_PATHS } from './chatgpt-plugin.mjs';
-import { isCharacterRuntimePublic } from './lib/character-runtime-public.mjs';
 
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
 if (!connectionString) throw new Error('Set PLUGIN_TEST_DATABASE_URL to a disposable loopback PostgreSQL database');
@@ -46,6 +45,15 @@ try {
   for (const path of (await readdir(join(tree, 'functions'), { recursive: true })).filter(path => path.endsWith('.func'))) {
     assert.equal(await realpath(join(tree, 'functions', path)), await realpath(fn), `${path} is the one function`);
   }
+  const runtimeDir = join(tree, 'static/character-runtime');
+  if (await exists(runtimeDir)) for (const file of await readdir(runtimeDir, { recursive: true })) {
+    const path = join(runtimeDir, file);
+    if (!(await stat(path)).isFile()) continue;
+    const contents = await readFile(path);
+    assert(!contents.includes('/Users/'), `No local path in published runtime: ${file}`);
+    assert(!/"prompt"\s*:/.test(contents.toString('utf8')), `No prompt in published runtime: ${file}`);
+    assert(!/(?:^|\/)provenance\/|(?:^|\/)sources\.json$/.test(file), `No provenance in published runtime: ${file}`);
+  }
   const worker = await readFile(join(tree, 'static/sw.js'), 'utf8');
   const version = /^const VERSION = '([a-f0-9]{12})';$/m.exec(worker)?.[1];
   assert(version, 'The worker has a built content version');
@@ -61,8 +69,9 @@ try {
   const allowlist = workerList('ALLOWLIST'), precache = workerList('PRECACHE');
   assert.deepEqual(allowlist.slice(0, 2), ['./', 'index.html']);
   assert.deepEqual(precache, allowlist.filter(file => file !== 'index.html'));
+  assert(!allowlist.some(file => file.startsWith('character-runtime/')), 'Optional runtime art stays out of the worker');
   for (const file of allowlist) {
-    assert(typeof file === 'string' && (['./', 'index.html'].includes(file) || isCharacterRuntimePublic(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
+    assert(typeof file === 'string' && (['./', 'index.html'].includes(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
     assert((await exists(join(tree, 'static', file === './' ? 'index.html' : file)))?.isFile(), `Offline file exists: ${file}`);
   }
   const index = await readFile(join(tree, 'static/index.html'), 'utf8');

@@ -240,7 +240,8 @@ it.each(['position', 'kings', 'cancel'] as const)('restores a selected Stratus i
  const turn={...base,id:'stratus-turn',kind:'turn',from:'SE',to:'N',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-turn.png',timeMs:120}]};
  vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})));
  const b=board(true,true);scene.setKings(['stratus','flame']);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
- scene.setSelected(4);{let raised=false;for(let i=0;i<12&&!raised;i++){await vi.advanceTimersByTimeAsync(16);raised=scene.characterFrames.find(frame=>frame.square===4)?.time===100;}expect(raised).toBe(true);}
+ // The lazy runtime starts after the first board frame, one 16 ms tick later.
+ scene.setSelected(4);await vi.advanceTimersByTimeAsync(176);expect(scene.characterFrames.find(frame=>frame.square===4)?.time).toBe(100);
  if(refresh==='position')scene.setPosition(fromFen('4k3/8/8/8/8/8/8/1N2K2R w - - 0 1'));else if(refresh==='kings')scene.setKings(['stratus','frost']);else scene.cancel();
  scene.setSelected(4);
  let raised=false;for(let i=0;i<40&&!raised;i++){await vi.advanceTimersByTimeAsync(16);raised=scene.characterFrames.find(frame=>frame.square===4)?.time===100;}
@@ -269,7 +270,7 @@ it.each(['selection', 'kings'] as const)('cancels an active Stratus exit when %s
  const idle={...base,id:'stratus-idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-raised.png',timeMs:100},{url:'runtime-rest.png',timeMs:400}]};
  const turn={...base,id:'stratus-turn',kind:'turn',from:'SE',to:'N',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-turn.png',timeMs:120}]};
  vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})));
- const b=board(true,true);scene.setKings(['stratus','flame']);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);scene.setSelected(4);{let raised=false;for(let i=0;i<12&&!raised;i++){await vi.advanceTimersByTimeAsync(16);raised=scene.characterFrames.find(frame=>frame.square===4)?.time===100;}expect(raised).toBe(true);}scene.setSelected(null);const playing=scene.play({from:4,to:12,captures:[]});await vi.advanceTimersByTimeAsync(32);expect(scene.characterExit).not.toBeNull();
+ const b=board(true,true);scene.setKings(['stratus','flame']);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);scene.setSelected(4);await vi.advanceTimersByTimeAsync(176);expect(scene.characterFrames.find(frame=>frame.square===4)?.time).toBe(100);scene.setSelected(null);const playing=scene.play({from:4,to:12,captures:[]});await vi.advanceTimersByTimeAsync(32);expect(scene.characterExit).not.toBeNull();
  if(change==='selection')scene.setSelected(1);else scene.setKings(['frost','flame']);
  await expect(playing).resolves.toBe(false);await vi.advanceTimersByTimeAsync(1000);expect(scene.animating).toBe(false);expect(scene.playing).toBeNull();expect(scene.characterExit).toBeNull();
 });
@@ -279,7 +280,7 @@ it.each(['position', 'kings', 'cancel'] as const)('keeps the last painted Stratu
  const idle={...base,id:'stratus-idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-raised.png',timeMs:100},{url:'runtime-rest.png',timeMs:400}]};
  const turn={...base,id:'stratus-turn',kind:'turn',from:'SE',to:'N',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-turn.png',timeMs:120}]};
  vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})));
- const b=board(true,true);scene.setKings(['stratus','flame']);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);scene.setSelected(4);{let raised=false;for(let i=0;i<12&&!raised;i++){await vi.advanceTimersByTimeAsync(16);raised=scene.characterFrames.find(frame=>frame.square===4)?.time===100;}expect(raised).toBe(true);}
+ const b=board(true,true);scene.setKings(['stratus','flame']);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);scene.setSelected(4);await vi.advanceTimersByTimeAsync(176);expect(scene.characterFrames.find(frame=>frame.square===4)?.time).toBe(100);
  if(refresh==='position')scene.setPosition(fromFen('4k3/8/8/8/8/8/8/1N2K2R w - - 0 1'));else if(refresh==='kings')scene.setKings(['stratus','frost']);else scene.cancel();
  scene.setSelected(4);scene.setSelected(null);const playing=scene.play({from:4,to:12,captures:[]});await vi.advanceTimersByTimeAsync(32);
  expect(scene.characterExit).not.toBeNull();expect(scene.characterFrames.find(frame=>frame.square===4)?.time).toBe(100);await vi.advanceTimersByTimeAsync(2000);await expect(playing).resolves.toBe(true);
@@ -334,7 +335,7 @@ it('exits the raised Stratus idle before a capture even if the turn cannot load'
  const turn={...base,id:'turn',kind:'turn',from:'SE',to:'NW',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-deferred.png',timeMs:120}]};
  vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})));
  const b=board(true,true);scene.setKings(['stratus','flame']);scene.setPosition(fromFen('7k/8/8/3p4/4K3/8/8/7R w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
- scene.setSelected(28);{let raised=false;for(let i=0;i<12&&!raised;i++){await vi.advanceTimersByTimeAsync(16);raised=scene.characterFrames.find(f=>f.square===28)?.time===100;}expect(raised).toBe(true);}
+ scene.setSelected(28);await vi.advanceTimersByTimeAsync(176);expect(scene.characterFrames.find(f=>f.square===28)?.time).toBe(100);
  scene.setSelected(null);const playing=scene.play({from:28,to:35,captures:[35]});await vi.advanceTimersByTimeAsync(1050);
  expect(scene.characterExit).not.toBeNull();await vi.advanceTimersByTimeAsync(250);
  expect(scene.characterFrames.find(f=>f.square===28)).toBeUndefined();

@@ -6,6 +6,7 @@ import type { OutputAsset, OutputBundle, OutputChunk } from 'rolldown';
 import { build } from 'vite';
 import { expect, it } from 'vitest';
 import { offlineCacheFiles } from '../vite.config';
+import { isCharacterRuntimePublic } from './lib/character-runtime-public.mjs';
 
 const root = resolve('/local-site');
 const chunk = (name: string, facade: string | null, imports: string[] = [], dynamicImports: string[] = [], css: string[] = [], assets: string[] = []) => ({
@@ -82,16 +83,17 @@ it('F7: the offline install does not fetch optional clip sheets', () => {
   expect(precache).toContain('assets/knight-Abcd1234.webp');
 });
 
-it('includes the character runtime and excludes unrelated files', () => {
+it('keeps optional runtime files and provenance out of the worker', () => {
   const { bundle, files } = fixture();
   const runtime = ['character-runtime/manifest.json', `character-runtime/assets/${'a'.repeat(64)}.webp`,
     `character-runtime/effects/${'b'.repeat(64)}/effect.mjs`, `character-runtime/effects/${'b'.repeat(64)}/effect.json`,
     `character-runtime/effects/${'b'.repeat(64)}/assets/image.png`];
-  const excluded = ['character-runtime/assets.json', 'character-runtime/assets/private.json', 'character-runtime/effects/x/provenance/source.json'];
+  const effect = `character-runtime/effects/${'b'.repeat(64)}`;
+  const excluded = ['character-runtime/assets.json', 'character-runtime/assets/private.json', `${effect}/provenance/source.json`, `${effect}/provenance/source.mjs`, `${effect}/sources.json`];
   files.push(...runtime, ...excluded);
   const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
-  for (const file of runtime) { expect(allowlist).toContain(file); expect(precache).toContain(file); }
-  for (const file of excluded) { expect(allowlist).not.toContain(file); expect(precache).not.toContain(file); }
+  for (const file of runtime) { expect(isCharacterRuntimePublic(file)).toBe(true); expect(allowlist).not.toContain(file); expect(precache).not.toContain(file); }
+  for (const file of excluded) { expect(isCharacterRuntimePublic(file)).toBe(false); expect(allowlist).not.toContain(file); expect(precache).not.toContain(file); }
 });
 
 it('does not select an account entry just because it has the same chunk name', () => {
@@ -147,6 +149,29 @@ const lists = (worker: string) => ({
   precache: JSON.parse(/const PRECACHE = (\[.*\]);/.exec(worker)![1]) as string[],
 });
 
+
+it('publishes only runtime effect metadata and omits provenance', async () => {
+  const { dir, write } = site();
+  const effect = `character-runtime/effects/${'b'.repeat(64)}`;
+  write(`public/${effect}/effect.json`, JSON.stringify({sprite:'assets/beam.png', shaftSourceRect:[1,2,3,4], sourcePath:'/Users/private', flare:{sprite:'assets/flare.png', anchor:[2,3], prompt:'private', provider:'private'}}));
+  write(`public/${effect}/provenance/source.json`, '{"prompt":"private"}');
+  write(`public/${effect}/provenance/source.mjs`, 'private');
+  write(`public/${effect}/sources.json`, 'private');
+  try {
+    await compile(dir);
+    const output = join(dir, 'dist', effect);
+    expect(JSON.parse(readFileSync(join(output, 'effect.json'), 'utf8'))).toEqual({sprite:'assets/beam.png', shaftSourceRect:[1,2,3,4], flare:{sprite:'assets/flare.png', anchor:[2,3]}});
+    expect(readdirSync(output)).toEqual(['effect.json']);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+it.each(['/Users/private', '{"prompt":"private"}'])('fails a build if published runtime data contains %s', async privateData => {
+  const { dir, write } = site();
+  write('public/character-runtime/unsafe.json', privateData);
+  try { await expect(compile(dir)).rejects.toThrow('Private character runtime data'); }
+  finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 it('uses real build metadata for the worker, loader, lazy code, CSS and emitted assets', async () => {
   const { dir } = site();
   try {
@@ -189,6 +214,18 @@ it('uses real build metadata for the worker, loader, lazy code, CSS and emitted 
     expect(readFileSync(join(output, named('main')), 'utf8')).toContain('/ui/pawn.webp');
     expect(readFileSync(join(output, named('main', 'css')), 'utf8')).toMatch(/url\(["']?\/assets\//);
 
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+it('does not change the offline cache version when only optional runtime art changes', async () => {
+  const { dir, write } = site();
+  try {
+    write('public/character-runtime/manifest.json', '{"version":1}');
+    await compile(dir);
+    const worker = join(dir, 'dist/sw.js'), before = readFileSync(worker, 'utf8');
+    write('public/character-runtime/manifest.json', '{"version":2}');
+    await compile(dir);
+    expect(readFileSync(worker, 'utf8')).toBe(before);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

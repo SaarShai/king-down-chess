@@ -542,6 +542,19 @@ describe('ready character playback', () => {
   const runtime=createCharacterRuntime({fetcher:vi.fn(async()=>{throw Error('offline');}) as unknown as typeof fetch});
   await runtime.ready();expect(runtime.has('pawn','white')).toBe(false);expect(runtime.rest('queen','white',100,true)).toBeNull();expect(await runtime.prepare('pawn','white','E',true)).toBeNull();runtime.dispose();
  });
+ it('drops queued frame jobs when the browser goes offline', async () => {
+  let online=true;vi.stubGlobal('navigator',{get onLine(){return online;}});
+  const banks=Array.from({length:7},(_,i)=>({...bank(),id:`idle-${i}`,character:`piece-${i}`,kind:'idle',frames:[{url:`frame-${i}`,timeMs:0}]}));
+  const sources:string[]=[], images:Array<{onerror:null|(()=>void)}> = [];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks})})) as unknown as typeof fetch,
+   image:()=>{const img={onerror:null as null|(()=>void),onload:null,removeAttribute:()=>{},set src(s:string){sources.push(s);}};images.push(img);return img as unknown as HTMLImageElement;}});
+  try {
+   await runtime.ready();const pending=banks.map(b=>runtime.warm(b.character,'white'));
+   await vi.waitFor(()=>expect(runtime.stats.queued).toBe(1));expect(sources).toHaveLength(6);
+   online=false;images[0].onerror?.();await vi.waitFor(()=>expect(runtime.stats.queued).toBe(0));expect(sources).toHaveLength(6);
+   runtime.dispose();await Promise.all(pending);
+  } finally {runtime.dispose();vi.unstubAllGlobals();}
+ });
  it('asks the network for no art while the browser reports offline and resumes when it returns', async () => {
   const fetcher=vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})})),listeners=new Map<string,()=>void>();let online=false;
   vi.stubGlobal('addEventListener',(name:string,fn:()=>void)=>listeners.set(name,fn));vi.stubGlobal('removeEventListener',(name:string)=>listeners.delete(name));

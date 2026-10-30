@@ -102,6 +102,7 @@ export async function recoveryOutput(path) {
   const allowlist = JSON.parse(worker.match(/const ALLOWLIST = (.+);/)[1]);
   const precache = JSON.parse(worker.match(/const PRECACHE = (.+);/)[1]);
   assert.ok(allowlist.every(file => file === 'index.html' || precache.includes(file)), 'Recovery precaches every public asset before the first offline visit');
+  assert.ok(!allowlist.some(file => file.startsWith('character-runtime/')), 'Optional runtime art stays out of the worker');
   for (const file of allowlist) {
     assert.ok(file === './' || /^[\w./-]+$/.test(file) && !file.includes('..'), 'Recovery public paths stay in the static tree');
     const path = `static/${file === './' ? 'index.html' : file}`;
@@ -670,11 +671,10 @@ export async function main() {
       });
       await active.goto(`${origin}/?title=0`); await readyBoard(active);
       await active.waitForFunction(savedGameSynced);
-      offline = true; await persistent.setOffline(true);
-      // Optional character art prefetches frames while a piece rests. A request already on the wire at the switch
-      // belongs to the online page, so let it fail before the offline journey starts.
-      await active.waitForTimeout(750);
+      // Finish online requests before switching; count every server refusal after the switch starts.
+      await active.waitForLoadState('networkidle');
       const offlineAfter = events.length;
+      await persistent.setOffline(true); offline = true;
       await active.goto(origin); await readyBoard(active); assert.deepEqual(await lanMoves(active), ['e2-e4']);
       const saved = await active.evaluate(() => localStorage.getItem('kingdown.save'));
       const beforeOffline = await localData(active);

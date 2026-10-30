@@ -10,6 +10,12 @@ Type: task
 - Check every frame against its PNG source.
 - Run the runtime tests and the browser checks. Do not deploy or merge.
 
+## Review repair plan
+
+- Restore the small offline cache and stop queued art requests offline.
+- Keep source records and private metadata out of the published tree.
+- Check the runtime, build, timing, both browser engines and CI.
+
 ## Inputs and delivery
 
 The frozen catalog is in the main checkout at `docs/specs/character-animation-samples/preview/consolidated-animations/`. Its `manifest.json` has SHA-256 `6279af2ef76ba46d75ba10ad5ddc822c67c5d5d78897457a1d13cc6893aed241`. `docs/specs/character-animation-samples/runtime-selection.json` pins that catalog with 478 ready entries. The main checkout was not changed.
@@ -36,8 +42,8 @@ This change replaces pull request 212. That pull request used lossless WebP: 5,2
 
 Pull request 212 failed the `web-online` check in job `browser-web`. The offline journey counted a frame request from the online page that reached the server after the network switched off; the resting piece prefetches frames in the last moment before the switch.
 
-Two changes fix this. The runtime asks for no art while `navigator.onLine` is false, and it retries on the `online` event. The check now lets a request that is already on the wire fail before it starts the offline journey, so only an offline request counts.
+The runtime asks for no new art while `navigator.onLine` is false. It drops queued frame jobs when the connection goes down and retries after the `online` event. The browser gate counts requests from the moment of the offline switch. The worker keeps optional runtime art out of both lists, as it does for the other optional clips. The offline board uses plain figures.
 
 ## Review
 
-The pull request needs an independent review before a merge. No deploy or merge is part of this task.
+The first review found the browser and test faults. The second review used code and product/size lenses. It found the oversized offline install, the queue fault, published source records, and weak tests. This branch repairs those findings. No deploy or merge is part of this task.

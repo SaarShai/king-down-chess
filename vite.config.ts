@@ -39,7 +39,7 @@ export function offlineCacheFiles(bundle: OutputBundle, root: string, files: str
   }
   // Optional clips load only with motion; the offline board can use the plain figures.
   const publicFiles = files.filter(file => !/^assets\/(?:tap|slam)-[\w-]+\.webp$/.test(file)
-    && (graph.has(file) || isCharacterRuntimePublic(file) || /^(?:ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file))).sort();
+    && (graph.has(file) || /^(?:ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file))).sort();
   return { allowlist: ['./', 'index.html', ...publicFiles], precache: ['./', ...publicFiles] };
 }
 
@@ -59,11 +59,26 @@ function offlineBuild(): Plugin {
 });` }];
     } },
     writeBundle(_options, bundle) {
-      cpSync(publicDir, outDir, { recursive: true });
+      cpSync(publicDir, outDir, { recursive: true, filter: path => {
+        const file = relative(publicDir, path).split(sep).join('/');
+        if (file.startsWith('character-runtime/effects/') && /(?:^|\/)provenance(?:\/|$)/.test(file)) return false;
+        return !file.startsWith('character-runtime/effects/') || statSync(path).isDirectory() || isCharacterRuntimePublic(file);
+      } });
+      // The beam is the only effect that reads metadata at runtime.
+      const effects = join(outDir, 'character-runtime/effects');
+      if (existsSync(effects)) for (const path of walk(effects).filter(path => path.endsWith('/effect.json'))) {
+        const meta = JSON.parse(readFileSync(path, 'utf8'));
+        if (meta.sprite && meta.flare) writeFileSync(path, JSON.stringify({ sprite: meta.sprite, shaftSourceRect: meta.shaftSourceRect, flare: { sprite: meta.flare.sprite, anchor: meta.flare.anchor } }) + '\n');
+        else writeFileSync(path, '{}\n');
+      }
       const files = walk(outDir).map(path => relative(outDir, path).split(sep).join('/')).filter(f => f !== 'sw.js' && !f.startsWith('.well-known/')).sort();
+      for (const file of files.filter(file => file.startsWith('character-runtime/'))) {
+        const contents = readFileSync(join(outDir, file));
+        if (contents.includes('/Users/') || /\"prompt\"\s*:/.test(contents.toString('utf8'))) throw new Error(`Private character runtime data: ${file}`);
+      }
       const template = readFileSync(join(publicDir, 'sw.js'), 'utf8');
       const hash = createHash('sha256').update(template); // a change to the worker itself is a new version too
-      for (const f of files) hash.update(f).update(readFileSync(join(outDir, f)));
+      for (const f of files.filter(file => !file.startsWith('character-runtime/'))) hash.update(f).update(readFileSync(join(outDir, f)));
       const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
       if (!precache.every(file => allowlist.includes(file))) throw new Error('Offline file is not public');
       let sw = template;

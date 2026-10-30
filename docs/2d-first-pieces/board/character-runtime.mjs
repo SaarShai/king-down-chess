@@ -84,7 +84,8 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   peakBytes=Math.max(peakBytes,bytes+effectBytes+smokeBytes);
  }
  function pump(){
-  while(active<6&&queue.length&&!disposed){
+  if(!connected())while(queue.length){const job=queue.shift();loading.delete(job.frame.url);job.resolve();}
+  while(active<6&&queue.length&&!disposed&&connected()){
    const job=queue.shift(),{frame}=job,art=image();active++;
    let done=false;const timer=setTimeout(()=>finish(false),IMAGE_TIMEOUT);
    function finish(ok,cancelled=false){
