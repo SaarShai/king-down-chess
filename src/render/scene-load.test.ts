@@ -6,7 +6,7 @@ import { fromFen } from '../rules/setup';
 const isClip = (src: string) => /\/(tap|slam)(?:-[\w-]+)?\.webp/.test(src);
 let scene: PaintedScene;
 
-function board(motion: boolean, characterRuntime = false) {
+function board(motion: boolean, characterRuntime = false, largeRuntime = false, refreshMs = 16) {
   vi.useFakeTimers();
   const images: Art[] = [], draws: string[] = [];
   let decodeBoard = () => {};
@@ -21,7 +21,7 @@ function board(motion: boolean, characterRuntime = false) {
       if (!isClip(src) && !src.includes('runtime-deferred')) void Promise.resolve().then(() => this.finish());
     }
     get src() { return this.url; }
-    finish(fail = false) { this.complete = true; this.naturalWidth = fail ? 0 : 1152; (fail ? this.onerror : this.onload)?.(); }
+    finish(fail = false) { this.complete = true; this.naturalWidth = fail ? 0 : largeRuntime && this.src.includes('runtime-') ? 2048 : 1152; if(largeRuntime && this.src.includes('runtime-'))this.height=2048; (fail ? this.onerror : this.onload)?.(); }
     decode() { return this.src.includes('stone-board') ? decoded : Promise.resolve(); }
   }
   const context: object = new Proxy({}, { get: (target, key) => key === 'drawImage'
@@ -32,7 +32,7 @@ function board(motion: boolean, characterRuntime = false) {
   vi.stubGlobal('Image', Art);
   vi.stubGlobal('DOMMatrix', class { scale() { return this; } });
   vi.stubGlobal('document', { createElement: canvas });
-  vi.stubGlobal('requestAnimationFrame', (fn: FrameRequestCallback) => setTimeout(() => fn(performance.now()), 16));
+  vi.stubGlobal('requestAnimationFrame', (fn: FrameRequestCallback) => setTimeout(() => fn(performance.now()), refreshMs));
   vi.stubGlobal('cancelAnimationFrame', clearTimeout);
   scene = createScene({ canvas: canvas() as unknown as HTMLCanvasElement, pieces, characterRuntime, kings: ['frost', 'flame'] });
   scene.setPosition(fromFen('4k3/8/8/8/8/8/8/1N2K2R w - - 0 1'));
@@ -113,6 +113,100 @@ it('reduced motion cancels a ready-body action while its frame load is pending',
  const deferred=b.images.find(image=>image.src.includes('runtime-deferred'));expect(deferred).toBeDefined();expect(scene.animating).toBe(true);
  scene.setReducedMotion(true);await expect(playing).resolves.toBe(false);deferred!.finish();await vi.advanceTimersByTimeAsync(3000);
  expect(scene.animating).toBe(false);expect(scene.playing).toBeNull();expect(contact).not.toHaveBeenCalled();expect(scene.characterFrames.find(frame=>frame.square===1)?.time).toBe(0);
+});
+
+it('draws the movement endpoint across a straddled refresh on a move and its reverse', async () => {
+ const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600};
+ const idle={...base,id:'idle',kind:'idle',facing:'N',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const turn={...base,id:'turn',kind:'turn',from:'N',to:'S',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-turn.png',timeMs:120}]};
+ const movements=['N','S'].map(facing=>({...base,id:`move-${facing}`,kind:'movement',facing,durationMs:200,frames:[0,100,200].map(timeMs=>({url:`runtime-${facing}-${timeMs}.png`,timeMs}))}));
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,...movements]})})));
+ const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const forward=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(0);
+ await vi.advanceTimersByTimeAsync(432);expect(scene.characterFrames.find(f=>f.square===8)).toMatchObject({bank:'move-N',time:100});expect(scene.animating).toBe(true);
+ await vi.advanceTimersByTimeAsync(16);expect(scene.characterFrames.find(f=>f.square===8)).toMatchObject({bank:'move-N',time:200});expect(scene.animating).toBe(true);
+ await vi.advanceTimersByTimeAsync(16);await expect(forward).resolves.toBe(true);
+ scene.setPosition(fromFen('4k3/8/8/8/8/P7/8/4K3 b - - 0 1'));
+ const reverse=scene.play({from:16,to:8,captures:[]});await vi.advanceTimersByTimeAsync(0);
+ await vi.advanceTimersByTimeAsync(528);expect(scene.characterFrames.find(f=>f.square===16)).toMatchObject({bank:'move-S',time:100});
+ await vi.advanceTimersByTimeAsync(32);expect(scene.characterFrames.find(f=>f.square===16)).toMatchObject({bank:'move-S',time:200});
+ await vi.advanceTimersByTimeAsync(16);expect(scene.characterFrames.find(f=>f.square===16)).toMatchObject({bank:'turn'});
+ await vi.advanceTimersByTimeAsync(200);await expect(reverse).resolves.toBe(true);
+});
+
+it.each(['no turn','incoming turn'] as const)('draws the first movement frame at the boundary with %s', async route => {
+ const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600};
+ const idle={...base,id:'idle',kind:'idle',facing:route==='no turn'?'N':'S',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const turn={...base,id:'turn',kind:'turn',from:'S',to:'N',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-turn.png',timeMs:120}]};
+ const movement={...base,id:'move',kind:'movement',facing:'N',durationMs:200,frames:[0,1,200].map(timeMs=>({url:`runtime-move-${timeMs}.png`,timeMs}))};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,movement]})})));
+ const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const origin=scene.characterFrames.find(f=>f.square===8)!.foot;
+ const playing=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(0);
+ if(route==='incoming turn'){await vi.advanceTimersByTimeAsync(128);expect(scene.characterFrames.find(f=>f.square===8)).toMatchObject({bank:'turn'});}
+ await vi.advanceTimersByTimeAsync(16);expect(scene.characterFrames.find(f=>f.square===8)).toMatchObject({bank:'move',time:0,foot:origin});expect(b.draws.some(src=>src.endsWith('/runtime-move-0.png'))).toBe(true);
+ await vi.advanceTimersByTimeAsync(16);expect(scene.characterFrames.find(f=>f.square===8)).toMatchObject({bank:'move',time:1});
+ await vi.advanceTimersByTimeAsync(1000);await expect(playing).resolves.toBe(true);
+});
+
+it.each(['no turn','incoming turn'] as const)('keeps both movement endpoints when a refresh skips the full action with %s', async route => {
+ const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600};
+ const idle={...base,id:'idle',kind:'idle',facing:route==='no turn'?'N':'S',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const turn={...base,id:'turn',kind:'turn',from:'S',to:'N',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-turn.png',timeMs:120}]};
+ const movement={...base,id:'move',kind:'movement',facing:'N',durationMs:200,frames:[0,1,200].map(timeMs=>({url:`runtime-move-${timeMs}.png`,timeMs}))};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,movement]})})));
+ const b=board(true,true,false,600);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(600);
+ const playing=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(0);
+ await vi.advanceTimersByTimeAsync(600);expect(scene.characterFrames.find(f=>f.square===8)).toMatchObject({bank:'move',time:0});expect(b.draws.some(src=>src.endsWith('/runtime-move-0.png'))).toBe(true);expect(scene.animating).toBe(true);
+ await vi.advanceTimersByTimeAsync(600);expect(scene.characterFrames.find(f=>f.square===8)).toMatchObject({bank:'move',time:200});expect(b.draws.some(src=>src.endsWith('/runtime-move-200.png'))).toBe(true);expect(scene.animating).toBe(true);
+ await vi.advanceTimersByTimeAsync(1200);await expect(playing).resolves.toBe(true);
+});
+
+it.each(['equal start times','overlapping end intervals'] as const)('draws the exact movement endpoints with %s', async condition => {
+ const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600};
+ const idle={...base,id:'idle',kind:'idle',facing:'N',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const frames=condition==='equal start times'
+  ? [{url:'runtime-first.png',timeMs:0},{url:'runtime-middle.png',timeMs:0},{url:'runtime-last.png',timeMs:200}]
+  : [{url:'runtime-first.png',timeMs:0,visibleIntervalMs:[0,50]},{url:'runtime-middle.png',timeMs:50,visibleIntervalMs:[50,200]},{url:'runtime-last.png',timeMs:150,visibleIntervalMs:[150,199]}];
+ const movement={...base,id:'move',kind:'movement',facing:'N',nearest:false,durationMs:200,frames};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,movement]})})));
+ const b=board(true,true,false,600);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(600);
+ const playing=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(0);
+ let drawn=b.draws.length;await vi.advanceTimersByTimeAsync(600);expect(b.draws.slice(drawn).some(src=>src.endsWith('/runtime-first.png'))).toBe(true);expect(scene.animating).toBe(true);
+ drawn=b.draws.length;await vi.advanceTimersByTimeAsync(600);expect(b.draws.slice(drawn).some(src=>src.endsWith('/runtime-last.png'))).toBe(true);expect(scene.animating).toBe(true);
+ await vi.advanceTimersByTimeAsync(600);await expect(playing).resolves.toBe(true);
+});
+
+it.each(['cancel','replace'] as const)('releases prepared movement endpoints after %s before the first draw', async change => {
+ const base={army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600};
+ const idle={...base,character:'pawn',id:'idle',kind:'idle',facing:'N',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const movement={...idle,id:'move',kind:'movement',frames:[{url:'runtime-first.png',timeMs:0},{url:'runtime-last.png',timeMs:200}]};
+ const others=['knight','bishop','rook','queen'].map(character=>({...idle,character,id:character,frames:[{url:`runtime-${character}.png`,timeMs:0}]}));
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,movement,...others]})})));
+ const b=board(true,true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const playing=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(0);
+ expect(b.images.some(image=>image.src.includes('runtime-last.png'))).toBe(true);
+ if(change==='cancel')scene.cancel();else void scene.play({from:8,to:24,captures:[]});
+ await expect(playing).resolves.toBe(false);
+ scene.setPosition(fromFen('4k3/8/8/8/8/8/8/1NBRQ2K w - - 0 1'));await vi.advanceTimersByTimeAsync(32);
+ for(const bank of ['knight','bishop','rook','queen'])expect(scene.characterFrames.some(frame=>frame.bank===bank)).toBe(true);
+ expect(scene.characterMemory.peakBytes).toBeLessThanOrEqual(64*1024*1024);
+});
+
+it.each(['cancel','replace'] as const)('ignores a held movement load after %s', async change => {
+ const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600};
+ const idle={...base,id:'idle',kind:'idle',facing:'N',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const movement={...base,id:'move',kind:'movement',facing:'N',durationMs:200,frames:[{url:'runtime-deferred.png',timeMs:0}]};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,movement]})})));
+ const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const first=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(0);
+ const held=b.images.find(image=>image.src.includes('runtime-deferred'));expect(held).toBeDefined();
+ let replacement: Promise<boolean> | undefined;
+ if(change==='cancel')scene.cancel();else replacement=scene.play({from:8,to:24,captures:[]});
+ await expect(first).resolves.toBe(false);held!.finish();await vi.advanceTimersByTimeAsync(32);
+ expect(scene.characterFrames.find(f=>f.square===8)?.bank).not.toBe('move');
+ if(replacement){expect(scene.animating).toBe(true);await vi.advanceTimersByTimeAsync(1000);await expect(replacement).resolves.toBe(true);}else expect(scene.animating).toBe(false);
+ expect(scene.characterMemory.peakBytes).toBeLessThanOrEqual(64*1024*1024);
 });
 
 it.each(['position', 'kings', 'cancel'] as const)('restores a selected Stratus idle after a %s refresh and exits from its drawn frame', async refresh => {

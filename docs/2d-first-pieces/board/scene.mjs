@@ -861,9 +861,9 @@ function vortex(out,foot,phase,strength) {
   if(selected!==null)selectedAt??=time;
   for(const [sq,u] of poses){
    const actor=animation&&!animation.effect&&animation.move.from===sq,a=actor?animation:null;
-   const elapsed=a?(time-a.start)/a.speed:0,local=elapsed-(a?.runtime?.beforeMs??0);
+   const elapsed=a?(time-a.start)/a.speed:0,local=a?.drawingMovementStart?0:a?.drawingMovementEndpoint?a.actionDuration:elapsed-(a?.runtime?.beforeMs??0);
    const legacyKing=a&&typeOf(u.value)===K&&a.move.captures.length;
-   let body=a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):legacyKing||a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,local,a.actionDuration,a.contactTime):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
+   let body=a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):legacyKing||a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,local,a.actionDuration,a.contactTime,a.drawingMovementStart?'start':a.drawingMovementEndpoint?'end':undefined):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
    if(body){
     if(a?.runtime){
      if(local<0)u.pose={...a.from};else if(local>a.actionDuration)u.pose={...a.to};
@@ -942,8 +942,15 @@ function drawEncounter(a,t) {
   }
   if(a?.effect&&!a.done&&!a.contacted&&(time-a.start)>=a.duration*a.speed*.62){a.contacted=true;if(a.move.captures.length)a.onContact?.();}
   if(animation!==a){wake();return;}
-  if(a&&!a.done&&!a.preparing&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
+  const startpoint=a?.runtime?.movement&&!a.movementStarted&&(time-a.start)/a.speed>=a.runtime.beforeMs;
+  if(startpoint){a.start=time-a.runtime.beforeMs*a.speed;a.movementStarted=true;a.drawingMovementStart=true;}
+  const endpoint=a?.runtime?.movement&&!startpoint&&!a.movementEndpoint&&(time-a.start)/a.speed>=a.runtime.beforeMs+a.actionDuration;
+  if(endpoint){a.start=time-(a.runtime.beforeMs+a.actionDuration)*a.speed;a.movementEndpoint=true;a.drawingMovementEndpoint=true;}
+  if(a&&!a.done&&!a.preparing&&!endpoint&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
   render(time);
+  if(startpoint){a.drawingMovementStart=false;a.runtime.releaseMovementStart?.();}
+  if(endpoint){a.drawingMovementEndpoint=false;a.runtime.releaseMovement?.();}
+  if(a?.done)a.runtime?.releaseFallback?.();
   if(labels)drawLabels();
   if(frames===1&&!reducedMotion)requestAnimationFrame(()=>loadClips());
   if((a&&!a.done&&(!a.preparing||a.exitReady))||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading||clipShown)wake(false);
@@ -958,11 +965,13 @@ function drawEncounter(a,t) {
   ctx.restore();
  }
  function wake(changed=true){if(disposed)return;if(changed)passiveUntil=performance.now()+5000;if(ready&&!frame)frame=requestAnimationFrame(tick);}
+ function releasePrepared(prepared){prepared?.releaseMovementStart?.();prepared?.releaseMovement?.();prepared?.releaseFallback?.();}
+ function cancelAnimation(a){a.prepareController?.abort();releasePrepared(a.runtime);releasePrepared(a.exitReady);if(!a.done)a.resolve(false);}
  // A move is over: a king's effect on the square he moved from starts again from nothing if he is there next
  // (he stayed, as with Death Touch, or came back); its fade-out during the move stays seamless.
  function endMove(){
   selectionGeneration++;pendingIdle=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();
-  if(animation){if(!animation.done)animation.resolve(false);kingSince.delete(animation.move.from);if(animation.move.swap)kingSince.delete(animation.move.to);}
+  if(animation){cancelAnimation(animation);kingSince.delete(animation.move.from);if(animation.move.swap)kingSince.delete(animation.move.to);}
   animation=null;
  }
  function reserveSelected(sq){
@@ -1126,7 +1135,7 @@ function drawEncounter(a,t) {
   play(move,{speed=1,onContact=null,gait=null,effect=null}={}){
    if(disposed)return Promise.resolve(false);
    lifted=null;
-   if(animation&&!animation.done)animation.resolve(false);
+   if(animation)cancelAnimation(animation);
    const {base,verb}=effect?{base:{type:'effect',move,start:performance.now(),speed,duration:effect.duration,effect},verb:'Playing card…'}:plan(move,speed,gait);
    return new Promise(resolve=>{
     if(bodyRuntime&&!effect&&move.promo)void bodyRuntime.warm(ART[move.promo],armyOf(base.value));
@@ -1139,9 +1148,10 @@ function drawEncounter(a,t) {
     pendingIdle=null;if(!a.exitBody)bodyRuntime?.releaseIdle();
     if(available&&!effect&&!reducedMotion&&base.type!=='swap'&&!(typeOf(base.value)===K&&move.captures.length)){
      a.preparing=true;
+     a.prepareController=new AbortController();
      const target=move.shove?.from??move.captures[0]??move.to,from=foot(move.from),to=foot(target);
-     void bodyRuntime.prepare(characterOf(base.value),armyOf(base.value),facingOf(to.x-from.x,to.y-from.y),!!move.captures.length||!!move.shove).then(prepared=>{
-      if(disposed||animation!==a)return;
+     void bodyRuntime.prepare(characterOf(base.value),armyOf(base.value),facingOf(to.x-from.x,to.y-from.y),!!move.captures.length||!!move.shove,Math.max(Math.abs(to.x-from.x),Math.abs(to.y-from.y))===TILE,a.prepareController.signal).then(prepared=>{
+      if(disposed||animation!==a){releasePrepared(prepared);return;}
       const first=prepared?.before[0],join=first?(first.reverse?first.bank.frames.at(-1):first.bank.frames[0]):prepared?.rest.frames[0];
       if(prepared&&a.exitBody&&join?.url===a.exit(1)?.url)a.exitReady=prepared;
       else {a.exitBody=null;bodyRuntime.releaseIdle();startPrepared(a,prepared,performance.now());}
