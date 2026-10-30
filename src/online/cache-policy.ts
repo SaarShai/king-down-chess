@@ -67,16 +67,18 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
     void (async () => {
       if (workers) {
         try {
-          let existing: ServiceWorkerRegistration | undefined;
+          let existing: ServiceWorkerRegistration | undefined, lookedUp = false;
           // Lookup does not wait behind a per-scope script-fetch job, unlike register().
-          try { existing = await workers.getRegistration('/'); } catch { /* Native registration can repair a failed lookup. */ }
+          try { existing = await workers.getRegistration('/'); lookedUp = true; } catch { /* Native registration can repair a failed lookup. */ }
           if (ended) return;
           const newest = existing?.installing ?? existing?.waiting ?? existing?.active;
-          registration = existing && existing.scope === new URL('/', location.href).href
+          // Account play needs cache safety, not a new download of the offline game.
+          if (lookedUp && !existing && !workers.controller) registration = undefined;
+          else registration = existing && existing.scope === new URL('/', location.href).href
             && newest?.scriptURL === new URL('/sw.js', location.href).href && existing.updateViaCache === 'none'
             ? existing : await workers.register('/sw.js', { scope: '/', updateViaCache: 'none' });
           if (ended) return;
-          void registration.update().catch(() => { updateFailed = true; });
+          if (registration) void registration.update().catch(() => { updateFailed = true; });
         }
         catch { if (registration) updateFailed = true; else registerFailed = true; /* With no controller, the page can prove an empty cache. */ }
       }
@@ -140,6 +142,11 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
           phase = 'empty-cache';
           for (const key of await caches.keys()) if (key.startsWith('kingdown-')) await caches.delete(key);
           if ((await caches.keys()).some(key => key.startsWith('kingdown-'))) { rejection = 'cache-remains'; throw new CachePolicyUnavailable(); }
+          // Another tab can register while this page clears old caches.
+          if (workers) {
+            try { registration = await workers.getRegistration('/'); } catch { /* The controller check still applies. */ }
+            if (registration) continue;
+          }
           if (start(null)) return;
         }
       }

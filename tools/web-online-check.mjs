@@ -583,7 +583,12 @@ export async function main() {
     active = await openProfile(join(work, 'offline-profile')); await seed(active);
     for (const output of [tree, recovery.root]) {
       if (await active.evaluate(() => !!navigator.serviceWorker.controller)) await takeover(active, output);
-      else served = output;
+      else {
+        served = output;
+        // This phase tests offline play; account reads no longer install the local game.
+        await active.evaluate(() => navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }));
+        await controlled(active);
+      }
       await probe(active, 'plain-worker', false);
       const beforeStatus = await localData(active);
       statusFixture = output === tree;

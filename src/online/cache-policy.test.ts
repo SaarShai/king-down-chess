@@ -28,7 +28,7 @@ const rootRegistration = () => Object.assign(new EventTarget(), { scope: new URL
 beforeEach(() => {
   vi.useFakeTimers(); channels.length = 0;
   warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  workers = Object.assign(new EventTarget(), { controller: worker(), getRegistration: vi.fn().mockResolvedValue(undefined), register: vi.fn().mockResolvedValue(Object.assign(new EventTarget(), { update: vi.fn().mockResolvedValue(undefined) })) });
+  workers = Object.assign(new EventTarget(), { controller: worker(), getRegistration: vi.fn().mockRejectedValue(new Error('Lookup unavailable')), register: vi.fn().mockResolvedValue(Object.assign(new EventTarget(), { update: vi.fn().mockResolvedValue(undefined) })) });
   names = new Set(['kingdown-old', 'other-app']);
   storage = { keys: vi.fn(async () => [...names]), delete: vi.fn(async (name: string) => names.delete(name)) };
   vi.stubGlobal('window', {}); vi.stubGlobal('location', new URL('https://kingdown.test/')); vi.stubGlobal('navigator', { serviceWorker: workers }); vi.stubGlobal('caches', storage);
@@ -37,6 +37,20 @@ beforeEach(() => {
 afterEach(() => { warn.mockRestore(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe('private cache policy', () => {
+  it('proves empty caches without installing the offline game on a fresh account visit', async () => {
+    change(null); workers.getRegistration.mockResolvedValue(undefined);
+    expect(await withPrivateCachePolicy(() => 'sent')).toBe('sent');
+    expect(workers.register).not.toHaveBeenCalled(); expect([...names]).toEqual(['other-app']);
+    expect(storage.keys).toHaveBeenCalledTimes(2);
+  });
+  it('proves a registration that another tab starts during empty-cache cleanup', async () => {
+    change(null); const active = worker();
+    const registration = Object.assign(new EventTarget(), { active, update: vi.fn().mockResolvedValue(undefined) });
+    workers.getRegistration.mockResolvedValueOnce(undefined).mockResolvedValue(registration);
+    const send = vi.fn(), result = withPrivateCachePolicy(send); await flush();
+    expect(send).not.toHaveBeenCalled(); reply(active); await result;
+    expect(send).toHaveBeenCalledOnce(); expect(workers.register).not.toHaveBeenCalled();
+  });
   it('uses an existing root registration without queuing register behind its pending native update', async () => {
     const registration = rootRegistration(); registration.update.mockImplementation(() => new Promise(() => {}));
     workers.getRegistration.mockResolvedValue(registration); workers.register.mockImplementation(() => new Promise(() => {}));
@@ -48,6 +62,7 @@ describe('private cache policy', () => {
     expect(registration.update).toHaveBeenCalledOnce(); expect(send).toHaveBeenCalledOnce();
   });
   it('registers when the root registration lookup is absent', async () => {
+    workers.getRegistration.mockResolvedValue(undefined);
     const result = withPrivateCachePolicy(() => 'sent'); await flush(); reply(workers.controller); expect(await result).toBe('sent');
     expect(workers.getRegistration).toHaveBeenCalledWith('/'); expect(workers.register).toHaveBeenCalledOnce();
   });
