@@ -11,7 +11,7 @@ const { reducedMotion, lively, aim, decorate, disposeScene, disconnectResize } =
 let resolveLoad: () => void = () => {};
 let pickedSquare: number | null = null;
 vi.mock('../../docs/2d-first-pieces/board/scene.mjs', () => ({
-  createScene: () => new Proxy({ load: () => new Promise<void>(r => { resolveLoad = r; }), dispose: disposeScene, squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim, setDecorate: decorate, animating: false, falling: false, PAD: 32, TILE: 112, cell: (sq: number) => ({col:sq % 8,row:7 - (sq >> 3)}) } as Record<string, unknown>,
+  createScene: () => new Proxy({ prepareUndo: () => false, rewindUndo: async () => true, play: async () => true, load: () => new Promise<void>(r => { resolveLoad = r; }), dispose: disposeScene, squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim, setDecorate: decorate, animating: false, falling: false, PAD: 32, TILE: 112, cell: (sq: number) => ({col:sq % 8,row:7 - (sq >> 3)}) } as Record<string, unknown>,
     { get: (t, k: string) => k in t ? t[k] : () => {} }),
 }));
 
@@ -27,6 +27,7 @@ function stubDom() {
     addEventListener: listen(listeners), appendChild() {}, getContext: () => new Proxy({}, { get: () => () => {} }), width: 0, height: 0,
     getClientRects: () => [1], getBoundingClientRect: () => ({ left: 0, top: 0, width: 960 }), setPointerCapture() {}, hasPointerCapture: () => true, releasePointerCapture() {} });
   vi.stubGlobal('document', { createElement: el, addEventListener: listen(documentListeners), hidden: false });
+  vi.stubGlobal('Element', class {});
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: listen(documentListeners) }));
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect = disconnectResize; });
   vi.stubGlobal('requestAnimationFrame', (f: FrameRequestCallback) => frames.push(f));

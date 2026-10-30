@@ -415,3 +415,9 @@ it('rejects a non-Stratus king and a different shown position', async () => {
  scene.setPosition(fromFen('4k3/8/8/8/8/8/8/1N2K2R w - - 0 1'));
  expect(scene.prepareUndo(move,pre)).toBe(false);
 });
+
+it('does not prepare a Stratus rewind when reduced motion is already on', async () => {
+ const b=board(false);scene.setKings(['stratus','flame']);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const move={from:4,to:12,captures:[]},playing=scene.play(move);await vi.advanceTimersByTimeAsync(80);
+ expect(scene.prepareUndo(move)).toBe(false);scene.cancel();await expect(playing).resolves.toBe(false);
+});
