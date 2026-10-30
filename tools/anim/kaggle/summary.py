@@ -25,7 +25,11 @@ for record in records:
         for method, value in values.items():
             groups[group][method].append(value)
         gaps.append((min(values.values()), values, record['folder'], gap['gap']))
-lines = ['# Movement in-betweens', '', 'The score is the fraction of visible output pixels that are partly transparent and outside both key-frame soft edges. Lower is better. Motion can raise the score without a ghost. Use the sheets to confirm redraws.', '', f"Entries: {len(records)}. Gaps: {len(gaps)}. In-betweens: {len(gaps) * 6}. GPU wall time: {sum(s['seconds'] for s in statuses) / 3600:.2f} hours.", '', '| Character | Army | Direction | Lower score | RIFE mean | FILM mean | Difference |', '| --- | --- | --- | --- | ---: | ---: | ---: |']
+rife_wins = sum(v['rife'] < v['film'] for _, v, _, _ in gaps)
+film_wins = sum(v['film'] < v['rife'] for _, v, _, _ in gaps)
+rife_mean = sum(v['rife'] for _, v, _, _ in gaps) / len(gaps)
+film_mean = sum(v['film'] for _, v, _, _ in gaps) / len(gaps)
+lines = ['# Movement in-betweens', '', 'The score is the fraction of visible output pixels that are partly transparent and outside both key-frame soft edges. Lower is better. Motion can raise the score without a ghost. Use the sheets to confirm redraws.', '', f"Entries: {len(records)}. Gaps: {len(gaps)}. In-betweens: {len(gaps) * 6}. Completed script time: {sum(s['seconds'] for s in statuses) / 3600:.2f} hours.", f'RIFE scores lower on {rife_wins} gaps; FILM scores lower on {film_wins}; {len(gaps) - rife_wins - film_wins} tie. The gap means are {rife_mean:.4f} for RIFE and {film_mean:.4f} for FILM.', '', '| Character | Army | Direction | Lower score | RIFE mean | FILM mean | Difference |', '| --- | --- | --- | --- | ---: | ---: | ---: |']
 for (character, army, direction), methods in sorted(groups.items()):
     r = sum(methods['rife']) / len(methods['rife'])
     f = sum(methods['film']) / len(methods['film'])
