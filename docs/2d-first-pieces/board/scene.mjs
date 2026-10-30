@@ -16,7 +16,7 @@ import {BLOW,KING_BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
 import {GAITS,GAIT_OF,idleAt} from './gait.mjs';
 import {createKingEffects,phaseOffset} from './king-effects.mjs';
 import {KING_FILES} from './king-sheets.mjs';
-import {DEATHS,THEMED,drawDeath} from './king-captures.mjs';
+import {DEATHS,THEMED,drawDeath,kingBodyBounds} from './king-captures.mjs';
 import * as pawnIdle from '../lance/idle.mjs';
 import {CLIPS,frameAt,drawFrame as drawClipFrame,inCell} from '../clips/clips.mjs';
 import {SHADE,shadowField,shadowWeights,fxFade} from './contact-shadow.mjs';
@@ -602,6 +602,21 @@ function vortex(out,foot,phase,strength) {
   const value=position.board[selected],pose=poseFor(value,selected),target=selectionTarget();
   return target?aimed(value,pose,target):pose;
  }
+ // Read the outline of the exact frame, then use the same pivot and scale as drawPiece.
+ const bankShapes=new WeakMap();
+ function bankShape(pose){
+  const b=pose.bank;if(!b)return null;
+  let shape=bankShapes.get(b.image);
+  if(!shape){
+   const n=144,c=document.createElement('canvas');c.width=c.height=n;
+   const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(b.image,0,0,n,n);
+   const pixels=g.getImageData(0,0,n,n).data;let l=n,r=-1,top=n;
+   for(let y=0;y<n;y++)for(let x=0;x<n;x++)if(pixels[(y*n+x)*4+3]>24){l=Math.min(l,x);r=Math.max(r,x);top=Math.min(top,y);}
+   shape={l,r,top,n};bankShapes.set(b.image,shape);
+  }
+  if(shape.r<0)return null;
+  return kingBodyBounds(shape,b,pose.foot,pose.scale/specs[K].scale);
+ }
  // A king's effect this frame, or null. k fades the whole effect as he falls; g fades what stands on his
  // square while he moves (it grows back on the new square).
  function kingEffect(sq,unit,time){
@@ -627,6 +642,7 @@ function vortex(out,foot,phase,strength) {
   const s={design,side,pose:unit.pose,t:time-since+entry.offset,now:time+side*1777,k,opacity:unit.opacity,g,facing:unit.pose.facing,
    board:{x:PAD,y:PAD,tile:TILE,frame:lively.atmosphere&&boardArt.naturalWidth?26:0}};
   s.pose=kingFx.pose(s);s.ground=s.pose.ground??s.pose.foot;
+  if(s.pose.bank&&a?.runtime&&a.move.from===sq&&a.move.captures.length){s.bodyScale=s.pose.scale/specs[K].scale;s.bodyBounds=bankShape(s.pose);}
   return s;
  }
  function render(time=performance.now()) {
@@ -862,8 +878,7 @@ function vortex(out,foot,phase,strength) {
   for(const [sq,u] of poses){
    const actor=animation&&!animation.effect&&animation.move.from===sq,a=actor?animation:null;
    const elapsed=a?(time-a.start)/a.speed:0,local=a?.drawingMovementStart?0:a?.drawingMovementEndpoint?a.actionDuration:elapsed-(a?.runtime?.beforeMs??0);
-   const legacyKing=a&&typeOf(u.value)===K&&a.move.captures.length;
-   let body=a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):legacyKing||a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,local,a.actionDuration,a.contactTime,a.drawingMovementStart?'start':a.drawingMovementEndpoint?'end':undefined):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
+   let body=a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,local,a.actionDuration,a.contactTime,a.drawingMovementStart?'start':a.drawingMovementEndpoint?'end':undefined):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
    if(body){
     if(a?.runtime){
      if(local<0)u.pose={...a.from};else if(local>a.actionDuration)u.pose={...a.to};
@@ -888,6 +903,7 @@ function vortex(out,foot,phase,strength) {
  // a figure would darken it. A figure with its own effect (unit.fx) has its shadow fade as the effect takes it.
  const kingFxOf=new Map();
  for(const [sq,unit] of ordered)if(typeOf(unit.value)===K){const fx=kingEffect(sq,unit,time);if(fx)kingFxOf.set(sq,fx);}
+ if(animation?.theme==='stratus'){const actor=poses.get(animation.move.from),victim=poses.get(animation.move.captures[0]),pose=kingFxOf.get(animation.move.from)?.pose??actor?.pose;const shape=pose&&bankShape(pose);if(shape&&victim?.fx?.death)victim.fx.death.king=shape;}
  if(lively.atmosphere)for(const [sq,unit] of ordered){const fade=fxFade(unit.fx);if(fade>0)contactShadow(ctx,unit.value,kingFxOf.get(sq)?.pose??unit.pose,unit.opacity*fade);}
  for(const [sq,unit] of ordered){
   if(!animation||animation.effect)over(Math.floor((unit.pose.foot.y-40-PAD)/TILE)-1);
@@ -938,7 +954,7 @@ function drawEncounter(a,t) {
   if(!a&&pendingIdle){pendingIdle=null;bodyRuntime?.releaseIdle();}
   if(a?.exitReady){
    a.exitStart??=time;
-   if(time-a.exitStart>=200){const prepared=a.exitReady;a.exitReady=null;a.exitBody=null;startPrepared(a,prepared,time);bodyRuntime.releaseIdle();}
+   if(time-a.exitStart>=200){const prepared=a.exitReady.prepared;a.exitReady=null;a.exitBody=null;startPrepared(a,prepared,time);bodyRuntime.releaseIdle();}
   }
   if(a?.effect&&!a.done&&!a.contacted&&(time-a.start)>=a.duration*a.speed*.62){a.contacted=true;if(a.move.captures.length)a.onContact?.();}
   if(animation!==a){wake();return;}
@@ -966,7 +982,7 @@ function drawEncounter(a,t) {
  }
  function wake(changed=true){if(disposed)return;if(changed)passiveUntil=performance.now()+5000;if(ready&&!frame)frame=requestAnimationFrame(tick);}
  function releasePrepared(prepared){prepared?.releaseMovementStart?.();prepared?.releaseMovement?.();prepared?.releaseFallback?.();}
- function cancelAnimation(a){a.prepareController?.abort();releasePrepared(a.runtime);releasePrepared(a.exitReady);if(!a.done)a.resolve(false);}
+ function cancelAnimation(a){a.prepareController?.abort();releasePrepared(a.runtime);releasePrepared(a.exitReady?.prepared);if(!a.done)a.resolve(false);}
  // A move is over: a king's effect on the square he moved from starts again from nothing if he is there next
  // (he stayed, as with Death Touch, or came back); its fade-out during the move stays seamless.
  function endMove(){
@@ -1101,7 +1117,7 @@ function drawEncounter(a,t) {
   /** size: letter height in board units (default 13); a small board on a phone needs more. */
   setCoords(on,size=13,inset=14){coords=on;coordSize=size;coordInset=inset;wake();},
   setLabels(on){labels=on;wake();},
-  setReducedMotion(on){const was=reducedMotion;reducedMotion=on;if(on){selectionGeneration++;pendingIdle=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}if(on&&(animation?.runtime||animation?.preparing))endMove();if(on)awakeUntil=0;else if(was){loadClips();reserveSelected(selected);}wake();},
+  setReducedMotion(on){const was=reducedMotion;reducedMotion=on;if(on){selectionGeneration++;pendingIdle=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}if(on&&(animation?.runtime||animation?.preparing||animation?.value&&typeOf(animation.value)===K&&animation.move.captures.length))endMove();if(on)awakeUntil=0;else if(was){loadClips();reserveSelected(selected);}wake();},
   /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. */
   setFallen(sq,animate=true,rotation=-1.5){fallen=sq==null?null:{sq,rotation,start:animate?performance.now():-Infinity};wake();},
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
@@ -1142,18 +1158,21 @@ function drawEncounter(a,t) {
     const available=!effect&&bodyRuntime?.has(characterOf(base.value),armyOf(base.value));
     const a=animation={...base,resolve,onContact,bodyUnavailable:!!bodyRuntime&&!available};onStatus(verb);
     const lastPose=pendingIdle?.pose;
-    if(pendingIdle&&pendingIdle.square===move.from&&pendingIdle.value===base.value&&!move.captures.length&&!move.shove&&!move.swap&&!effect&&!reducedMotion&&fallen?.sq!==move.from&&lastPose.foot.x===base.from.foot.x&&lastPose.foot.y===base.from.foot.y&&lastPose.scale===base.from.scale&&!(lastPose.rotation??0)&&(lastPose.sx??1)===1&&(lastPose.sy??1)===1){
+    if(pendingIdle&&pendingIdle.square===move.from&&pendingIdle.value===base.value&&!move.shove&&!move.swap&&!effect&&!reducedMotion&&fallen?.sq!==move.from&&lastPose.foot.x===base.from.foot.x&&lastPose.foot.y===base.from.foot.y&&lastPose.scale===base.from.scale&&!(lastPose.rotation??0)&&(lastPose.sx??1)===1&&(lastPose.sy??1)===1){
      a.exit=bodyRuntime.idleExit(characterOf(base.value),armyOf(base.value),pendingIdle.body);if(a.exit&&a.exit(1)?.url!==pendingIdle.body.url)a.exitBody=pendingIdle.body;
     }
     pendingIdle=null;if(!a.exitBody)bodyRuntime?.releaseIdle();
-    if(available&&!effect&&!reducedMotion&&base.type!=='swap'&&!(typeOf(base.value)===K&&move.captures.length)){
+    // The Flame crack mask is registered to its rest-facing armour.
+    const legacyFlame=typeOf(base.value)===K&&move.captures.length&&characterOf(base.value)==='king-flame';
+    if(legacyFlame)a.bodyUnavailable=true;
+    if(available&&!effect&&!reducedMotion&&base.type!=='swap'&&!legacyFlame){
      a.preparing=true;
      a.prepareController=new AbortController();
      const target=move.shove?.from??move.captures[0]??move.to,from=foot(move.from),to=foot(target);
      void bodyRuntime.prepare(characterOf(base.value),armyOf(base.value),facingOf(to.x-from.x,to.y-from.y),!!move.captures.length||!!move.shove,Math.max(Math.abs(to.x-from.x),Math.abs(to.y-from.y))===TILE,a.prepareController.signal).then(prepared=>{
       if(disposed||animation!==a){releasePrepared(prepared);return;}
       const first=prepared?.before[0],join=first?(first.reverse?first.bank.frames.at(-1):first.bank.frames[0]):prepared?.rest.frames[0];
-      if(prepared&&a.exitBody&&join?.url===a.exit(1)?.url)a.exitReady=prepared;
+      if(a.exitBody&&(!prepared||join?.url===a.exit(1)?.url))a.exitReady={prepared};
       else {a.exitBody=null;bodyRuntime.releaseIdle();startPrepared(a,prepared,performance.now());}
       wake();
      });

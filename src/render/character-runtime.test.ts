@@ -18,6 +18,39 @@ describe('ready character playback', () => {
   expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);
   runtime.releaseIdle();expect(runtime.idleExit('king-stratus','white',painted)).toBeNull();runtime.dispose();
  });
+ it.each(['white','black'])('holds a king turn endpoint and returns along the same route for %s', async army => {
+  const idle={...bank(),id:'idle',character:'king-frost',army,kind:'idle',frames:[{url:army+'-rest',timeMs:0}]};
+  const turn={...bank(),id:'turn',character:'king-frost',army,frames:[{url:army+'-rest',timeMs:0},{url:army+'-middle',timeMs:60},{url:army+'-target',timeMs:120}]};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const prepared=await runtime.prepare('king-frost',army,'S',true,true);expect(prepared).not.toBeNull();
+  expect(runtime.action(prepared,-120,1000,0)).toMatchObject({url:army+'-rest'});
+  expect(runtime.action(prepared,0,1000,0)).toMatchObject({url:army+'-target'});
+  expect(runtime.action(prepared,700,1000,0)).toMatchObject({url:army+'-target'});
+  expect(runtime.action(prepared,1120,1000,0)).toMatchObject({url:army+'-rest'});
+  runtime.dispose();
+ });
+ it('keeps every king turn frame under cache pressure until the capture ends', async () => {
+  const idle={...bank(),id:'idle',character:'king-frost',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const turn={...bank(),id:'turn',character:'king-frost',frames:[{url:'rest',timeMs:0},{url:'middle',timeMs:60},{url:'target',timeMs:120}]};
+  const pressure=Array.from({length:5},(_,i)=>({...idle,id:`other-${i}`,character:`other-${i}`,frames:[{url:`other-${i}`,timeMs:0}]}));
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,...pressure]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(s:string){if(s.includes('/other-')){img.naturalWidth=2048;img.naturalHeight=2048;}queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const prepared=await runtime.prepare('king-frost','white','S',true,true) as {releaseFallback:()=>void};
+  expect(prepared).not.toBeNull();
+  for(const b of pressure)await runtime.warm(b.character,'white');
+  expect(runtime.action(prepared,-60,1000,0)).toMatchObject({url:'middle'});
+  expect(runtime.action(prepared,500,1000,0)).toMatchObject({url:'target'});
+  expect(runtime.action(prepared,1120,1000,0)).toMatchObject({url:'rest'});
+  expect(runtime.stats.peakBytes).toBeLessThanOrEqual(64*1024*1024);prepared.releaseFallback();runtime.dispose();
+ });
+ it.each(['endpoint','middle'])('rejects a king turn when its %s frame fails to load', async missing => {
+  const idle={...bank(),id:'idle',character:'king-frost',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const turn={...bank(),id:'turn',character:'king-frost',frames:[{url:'rest',timeMs:0},{url:missing==='middle'?'bad':'middle',timeMs:60},{url:missing==='endpoint'?'bad':'target',timeMs:120}]};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),onerror:null as null|(()=>void),decode:async()=>{},set src(s:string){queueMicrotask(()=>s.endsWith('/bad')?img.onerror?.():img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  expect(await runtime.prepare('king-frost','white','S',true,true)).toBeNull();runtime.dispose();
+ });
  it('does not pin an idle bank after selection is cancelled while images load', async () => {
   const idle={...bank(),id:'idle',character:'king-stratus',kind:'idle',frames:[{url:'rest',timeMs:0},{url:'late',timeMs:60},{url:'rest',timeMs:120}]};let finish=()=>{};
   const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})) as unknown as typeof fetch,

@@ -150,6 +150,17 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
    return {gold:tinted(big,2,'#2b2621'),rim:blurAlpha(tinted(big,2,'#120f0c',4),5),halo:blurAlpha(tinted(big,4,'#120f0c',5),9),inner:blurAlpha(tinted(big,2,'#0c0a08',8),4)};
   });
  }
+ // Turn frames have their own pivot and silhouette; derive their glow from that frame.
+ const turnSpirit=new WeakMap();
+ function spiritFor(s){
+  if(!s.bodyBounds)return spiritLayers(s.side);
+  const image=s.pose.bank.image;let sides=turnSpirit.get(image);if(!sides){sides=[];turnSpirit.set(image,sides);}
+  if(!sides[s.side]){
+   const dark=!!s.side;
+   sides[s.side]={gold:tinted(image,8,dark?'#2b2621':'#ffe7a6'),rim:blurAlpha(tinted(image,8,dark?'#120f0c':'#fff2cf',dark?1:0),2),halo:blurAlpha(tinted(image,8,dark?'#120f0c':'#ffe2a0',dark?1:0),4),...(dark?{inner:blurAlpha(tinted(image,8,'#0c0a08',2),2)}:{})};
+  }
+  return sides[s.side];
+ }
  // Soft rays fanning up from his crown, drawn once and blurred (no hard edges): board units ×4,
  // 80 × 44 units round the point they fan from (40, 42).
  let rayLayer=null,darkRays=null;
@@ -189,7 +200,11 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   ctx.clip('evenodd');
  }
  // A Spirit layer over the figure (padded layer → sprite px).
- function inSpirit(ctx,s,image){inFigure(ctx,s.pose,()=>ctx.drawImage(image,-PADL,-PADL,SPAN,SPAN));}
+ function inSpirit(ctx,s,image){
+  if(!s.bodyBounds){inFigure(ctx,s.pose,()=>ctx.drawImage(image,-PADL,-PADL,SPAN,SPAN));return;}
+  const b=s.pose.bank,k=b.scale*s.bodyScale,w=b.image.naturalWidth||b.image.width,h=b.image.naturalHeight||b.image.height;
+  ctx.save();ctx.translate(s.pose.foot.x,s.pose.foot.y);ctx.scale(k,k);ctx.translate(-b.pivot[0],-b.pivot[1]);ctx.drawImage(image,-PADL*w/1152,-PADL*h/1152,SPAN*w/1152,SPAN*h/1152);ctx.restore();
+ }
  // Draws `image` (a layer) over the figure, with the scene's own figure transform (drawPiece).
  function inFigure(ctx,pose,draw){
   ctx.save();ctx.translate(pose.foot.x,pose.foot.y);ctx.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));ctx.rotate(pose.rotation??0);
@@ -485,8 +500,8 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   // anchor stays on the drawn crown through the capture, both armies; tools: drawImage transforms).
   // His glow goes with his figure: it breathes on the clock that never restarts and stays on him through a
   // move. Only the light (or shadow) pooled on his square fades as he leaves it and grows back where he arrives.
-  const tt=figureClock(s),b=breath(tt),sp=spiritLayers(s.side),r=s.pose.rotation??0,lean=r*s.pose.facing;
-  const head={x:s.pose.foot.x+118*(s.pose.sx??1)*Math.sin(lean),y:s.pose.foot.y-118*(s.pose.sy??1)*Math.cos(r)},turn=.05*Math.sin(TAU*tt/PERIOD.spirit)+lean; // (one sway a breath, so a recorded breath loops)
+  const tt=figureClock(s),b=breath(tt),sp=spiritFor(s),r=s.pose.rotation??0,lean=r*s.pose.facing;
+  const head=s.bodyBounds?{x:(s.bodyBounds.l+s.bodyBounds.r)/2,y:s.bodyBounds.top}:{x:s.pose.foot.x+118*(s.pose.sx??1)*Math.sin(lean),y:s.pose.foot.y-118*(s.pose.sy??1)*Math.cos(r)},turn=.05*Math.sin(TAU*tt/PERIOD.spirit)+lean; // (one sway a breath, so a recorded breath loops)
   ctx.save();
   if(s.side===1){
    // The charcoal king: black only, drawn over the board (no added light). Never fully gone at the dim point.
@@ -517,7 +532,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   ctx.restore();
  }
  function holyFront(ctx,s){
-  const sp=spiritLayers(s.side);if(!sp)return;
+  const sp=spiritFor(s);if(!sp)return;
   // A sheen on the figure: gold for the ivory king; for the charcoal king a light shade (multiplied), so he
   // looks wrapped in darkness but keeps his own modelling.
   ctx.save();ctx.globalCompositeOperation=s.side?'multiply':'lighter';ctx.globalAlpha=s.k*(s.side?.03+.07*breath(figureClock(s)):.05+.25*breath(figureClock(s)));inSpirit(ctx,s,sp.gold);ctx.restore();
@@ -608,7 +623,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
    else if(s.design==='stratus')clouds(ctx,s);
    else if(s.design==='mud')mud(ctx,s,false);
    else if(s.design==='spirit')holyBack(ctx,s);
-   else if(s.design==='shadow'){abyss(ctx,s);cracks(ctx,s);hands(ctx,s,false);smoke(ctx,s);}
+   else if(s.design==='shadow'){abyss(ctx,s);cracks(ctx,s);hands(ctx,s,false);if(!s.bodyBounds)smoke(ctx,s);}
   },
   front(ctx,s){
    if(s.design==='flame')lava(ctx,s);
