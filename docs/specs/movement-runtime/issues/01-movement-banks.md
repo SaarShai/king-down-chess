@@ -26,4 +26,10 @@ Movement banks do not run on captures, shoves, swaps, reduced motion or longer m
 - `MOVEMENT_BASELINE_DIR='<pinned package>' npm run check:browser movement-runtime`: both armies and orientations pass one-square moves, Undo, longer-move fallback, captures and capture Undo. The capture check confirms the Paladin survives the pawn capture and records the first, middle and last reverse-facing movement frames during Undo. The check uses synthetic metadata and existing static image bytes.
 - `npm run test:docs`: 17 files and 187 tests pass. The pinned manifest remains `05ff4c215cd601486863cc00efbf6c080e6fa8fcb29c410380da6d8e98807f9e` and contains no movement banks.
 
-The full suite and visual art review are separate checks. No movement art or synthetic bank is selected for production.
+- `npm test`: 5,598 tests pass and 367 are skipped; all 67 board tests pass. This run covers the code at commit `4889878b`.
+
+## Independent review
+
+Separate standards and spec reviews found no remaining actionable issues. Earlier review findings on skipped boundary frames, fallback eviction, stale preparation loads and capture Undo were fixed and covered by the checks above.
+
+Visual art review and transparent interpolation remain separate checks. No movement art or synthetic bank is selected for production.
