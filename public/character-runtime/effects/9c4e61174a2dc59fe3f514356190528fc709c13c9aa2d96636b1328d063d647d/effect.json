@@ -1,0 +1,101 @@
+{
+  "id": "queen-thorns-directional-v1",
+  "durationMs": 760,
+  "contactMs": 600,
+  "sourceAssets": [
+    {
+      "provider": "built-in image_gen on ChatGPT plan",
+      "prompt": "../prompts/single-thorn-v1.txt",
+      "originalPath": "/Users/za/.codex/generated_images/01a17411-69bc-7de0-9971-c9bd90480a23/exec-a2a5d891-5d18-467f-a284-1f2fae98945b.png",
+      "localPath": "assets/thorn-shard-native-v1.png",
+      "sha256": "05b63532f7a78d1dcc2c86bed6b6cc8d9f69f86a14ab91ae2c87dd98315378d0",
+      "nativeSize": [
+        1774,
+        887
+      ],
+      "alphaBounds": [
+        104,
+        9,
+        1746,
+        869
+      ],
+      "alphaCounts": {
+        "transparent": 1372182,
+        "partial": 201013,
+        "opaque": 343
+      },
+      "processing": "Byte copy only. No crop, repaint, repair, extraction or alpha change."
+    }
+  ],
+  "nativeDimensions": [
+    1774,
+    887
+  ],
+  "measurements": {
+    "coordinateSystem": "native sprite pixels; +x right, +y down",
+    "base": [
+      214,
+      472
+    ],
+    "tip": [
+      1608,
+      472
+    ],
+    "axis": [
+      1,
+      0
+    ],
+    "visibleBoundsAlphaAtLeast8": [
+      212,
+      196,
+      1610,
+      649
+    ],
+    "nativeAlphaBounds": [
+      104,
+      9,
+      1746,
+      869
+    ],
+    "anchorMeaning": "The crimson tip follows each particle curve and reaches the exact target at contact."
+  },
+  "scaleConvention": {
+    "scale1": "Each full native image is drawn at 54 to 76 canvas pixels wide. The visible shard is about 42 to 60 pixels long. Native raster bytes remain unchanged.",
+    "root": "Supply projected palm and target canvas coordinates. Multiply scale by the same uniform body-to-canvas projection used for the character. Do not scale by 1774 again.",
+    "boardPreview": "scale = 160 / action.displayMeasurements.bodyHeightPx. Character frames keep their original aspect ratio."
+  },
+  "releaseRelativeTiming": {
+    "caller": "elapsedMs = action time minus action.beatTimes.release. No character beat is hard-coded into the effect.",
+    "emission": "12 shards per supplied palm. Default window 240 ms. Seeded launch = min(240, index * 20 + palmIndex * 11 + jitter [0,12), except index zero has no jitter) * (window / 240). All launches lie in [0, window].",
+    "buildupMs": 65,
+    "contactMs": 600,
+    "fadeAfterContactMs": [
+      98,
+      160
+    ],
+    "exclusiveEndMs": 760,
+    "emissionMs": {
+      "default": 240,
+      "positiveFiniteInput": "Required when supplied. Non-finite, zero, negative and non-number values draw nothing. Values above 240 are capped at 240.",
+      "caller": "Use min(240, recoveryStart - release). Use the end of the held-palm pose when that cue exists. A zero window draws nothing.",
+      "preview": "The copied EAST action has release 380 ms and releaseHoldEnd 440 ms. The preview uses 60 ms. No cue changes contact or fade."
+    },
+    "completion": "Continue the host timeline through max(characterEnd, release + durationMs). Never stop the effect when the character returns."
+  },
+  "anchors": {
+    "origin": "far-palm projected to canvas",
+    "secondaryOrigin": "near-palm projected to canvas, optional",
+    "target": "required canvas point; omitted or invalid target draws nothing",
+    "originAt": "Optional pure callback originAt(elapsedMs, palmIndex). Time is the fixed particle launch time relative to release, never the current draw time. Palm 0 is origin/far-palm; palm 1 is secondaryOrigin/near-palm. Return a finite [x,y] in canvas pixels. An invalid return or thrown callback skips only that particle. With no callback, origin and secondaryOrigin retain their existing meaning and validation.",
+    "trajectory": "The host supplies measured action anchors through its body-to-canvas projection. Interpolate measured samples only. With release anchors alone, use the fixed release point. The preview reads action-relative anchor timeMs using release + callback time and clamps outside the measured range."
+  },
+  "method": "Static native alpha raster, drawn separately for each of 24 particles. Deterministic seeded samples set launch, curve bow, progress exponent, rotation and size. Each particle queries its origin at its fixed launch time on every sample. No origins or particles are cached. A curved fan converges at contact. Each tip stays at target for its original fade. No state clock or timer; every draw uses save/restore. No source-character transforms or pixel edits.",
+  "limits": [
+    "No thorn sprite flip is needed. Each separate effect particle rotates in canvas space.",
+    "The supplied attack uses RGB matte review frames. The effect has real alpha.",
+    "Attack facings are shown only after local complete frames and both palm anchors are copied. Approved rest facings do not imply attack readiness.",
+    "The host must keep originAt pure and stable for the action. Current-frame-only palm coordinates cannot define a past launch point.",
+    "Particle contact is 600 ms after release. The host must schedule target reaction at release + effect contactMs; this preview does not change game timing."
+  ],
+  "emissionMs": 240
+}

@@ -1,0 +1,43 @@
+{
+  "id": "maester-beam",
+  "sprite": "assets/6c30d2f7f69e8eac2f49a58058ceca2aa95fecc8fa43a6710f1ad184a3720dc9.png",
+  "sourcePath": "/Users/za/Documents/king down chess (new)/app/.claude/worktrees/maester-animation-lane/docs/specs/character-animation-samples/preview/maester-attack/effects/beam-native-v1.png",
+  "sha256": "6c30d2f7f69e8eac2f49a58058ceca2aa95fecc8fa43a6710f1ad184a3720dc9",
+  "nativeSize": [
+    1536,
+    1024
+  ],
+  "nativeOrigin": [
+    207,
+    512
+  ],
+  "shaftSourceRect": [
+    240,
+    400,
+    1104,
+    224
+  ],
+  "durationMs": 100,
+  "method": "Existing generated beam shaft and new generated isolated radial flare. Original native alpha bytes unchanged. Runtime independent emitter/impact sprites and target-length energy shaft, deterministic release-relative pulse and reach.",
+  "scaleConvention": "1 is approximately40px shaft glow height in native action canvas. Target distance only stretches the energy shaft; emitter and impact retain fixed proportions.",
+  "reviewNotes": [
+    "No character edits. The beam shaft uses a runtime sprite window; emitter and target use the complete new native flare image.",
+    "100 ms pulse with 12 ms buildup, 18 ms reach, stable contact, then 30 ms fade.",
+    "Eight arbitrary directions and positive distances are effect inputs. Character aiming is supplied by separate directional actions."
+  ],
+  "flare": {
+    "sprite": "assets/2720eee9c355219e3cbf04e05652d3a12104ab4d43202c6a9cb44749c52918e6.png",
+    "sourcePath": "/Users/za/.codex/generated_images/01a168cc-7138-7163-afe5-2987521957b4/exec-191591cf-627d-4f64-93ec-70783985e502.png",
+    "sha256": "2720eee9c355219e3cbf04e05652d3a12104ab4d43202c6a9cb44749c52918e6",
+    "nativeSize": [
+      1374,
+      1145
+    ],
+    "anchor": [
+      682.8,
+      584.66
+    ],
+    "provider": "built-in image_gen",
+    "prompt": "Single isolated cyan-white magical energy contact flare on transparent background; compact circular luminous core, concentric rings, radial sparks, generous alpha gutters, no beam or shaft."
+  }
+}
