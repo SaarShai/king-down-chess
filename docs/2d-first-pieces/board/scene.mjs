@@ -646,7 +646,7 @@ function vortex(out,foot,phase,strength) {
   const s={design,side,pose:unit.pose,t:time-since+entry.offset,now:time+side*1777,k,opacity:unit.opacity,g,facing:unit.pose.facing,
    board:{x:PAD,y:PAD,tile:TILE,frame:lively.atmosphere&&boardArt.naturalWidth?26:0}};
   s.pose=kingFx.pose(s);s.ground=s.pose.ground??s.pose.foot;
-  if(s.pose.bank&&a?.runtime&&a.move.from===sq&&a.move.captures.length){s.bodyScale=s.pose.scale/specs[K].scale;s.bodyBounds=bankShape(s.pose);}
+  if(s.pose.bank&&(design==='flame'||a?.runtime&&a.move.from===sq&&a.move.captures.length)){s.bodyScale=s.pose.scale/specs[K].scale;s.bodyBounds=bankShape(s.pose);}
   if(a?.rewind?.kind==='move'&&a.done&&moving&&design==='stratus'){if(a.rewind.landedG!=null)entry.resume={g,start:time};else {const shift=time-a.start;entry.since+=shift;entry.offset+=shift;if(entry.resume)entry.resume.start+=shift;}}
   return s;
  }

@@ -11,13 +11,13 @@ Status: ready-for-review
 
 ## Result
 
-The turn frames carry orange cracks. The effect makes a mask from each frame's colour and alpha. It uses the frame pivot and clips the glow to its silhouette. The capture uses the same turn, hold and return path as the other kings. No art changes.
+The frames carry orange cracks. The effect makes a mask from each frame's colour and alpha. It uses the frame pivot and clips the glow to its silhouette. It also uses the current frame during Undo and quiet moves. The capture uses the same turn, hold and return path as the other kings. No art changes.
 
 ## Evidence
 
-- `KINGDOWN_TEST_FILE=src/render/scene-load.test.ts npm test`: 35 cases and 68 board tests pass.
+- `KINGDOWN_TEST_FILE=src/render/scene-load.test.ts npm test`: 53 cases and 68 board tests pass.
 - `KINGDOWN_TEST_FILE=src/render/character-runtime.test.ts npm test`: 53 cases and 68 board tests pass.
 - `npm run check:browser king-capture-facing king-effects character-runtime`: all three pass.
 - The capture check covers six Flame captures: three directions per army, rest and Undo. The scene tests cover cancel and reduced motion.
 - A 25 fps recording and game-size contact sheets cover those six captures. The sheets show the cracks on the body and no visible pop at the sampled joins.
-- PR 214 remains open. Its commit is `5dd04a041f60225170601c6e7d38c31fea236ccf`.
+- PR 214 merged. The branch is rebased on `staging/first-game`.
