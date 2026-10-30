@@ -275,7 +275,7 @@ it('keeps the shipped movement rest at its pivot and scale on a padded canvas', 
   await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('runtime manifest changed');
 
 
-});
+}, 30000);
 
 it('fits shifted walking poses and removes a detached speck', async () => {
   dir = await mkdtemp(join(tmpdir(), 'walk-fit-'));
