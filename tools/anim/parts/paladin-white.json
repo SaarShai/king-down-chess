@@ -1,0 +1,54 @@
+{
+  "mode": "parts",
+  "sourceSha256": "7d193a8197189238c4e37a0a7b4ce8698befd66b4ea893c27b5ee7df4498bcf2",
+  "parts": [
+    {
+      "name": "steel armour and gauntlets",
+      "source": [
+        44,
+        3,
+        -20
+      ],
+      "tolerance": [
+        40,
+        14,
+        17
+      ],
+      "target": [
+        96,
+        2,
+        10
+      ],
+      "zone": [
+        -0.7,
+        -0.83,
+        0.8,
+        -0.14
+      ]
+    },
+    {
+      "name": "hammer",
+      "source": [
+        52,
+        5,
+        -5
+      ],
+      "tolerance": [
+        35,
+        10,
+        12
+      ],
+      "target": [
+        85,
+        3,
+        12
+      ],
+      "zone": [
+        0.29,
+        -1.05,
+        0.95,
+        -0.12
+      ]
+    }
+  ]
+}

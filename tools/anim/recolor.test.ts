@@ -68,3 +68,28 @@ out=L(m.apply(frame,test))[16];assert np.max(np.abs(np.diff(out)))<4
 `], { encoding: 'utf8' });
   expect(result.status, result.stderr).toBe(0);
 });
+
+it.skipIf(!available)('changes only a source colour inside its body zone', () => {
+  const result = spawnSync(python, ['-B', '-c', `
+import importlib.util,numpy as np
+from skimage.color import rgb2lab
+s=importlib.util.spec_from_file_location('recolor','tools/anim/recolor.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+a=np.zeros((64,64,4),dtype=np.uint8);a[8:56,8:56]=[120,120,120,255]
+a[12:20,12:20,:3]=[180,80,40]
+center=rgb2lab(np.array([[[120,120,120]]])/255.)[0,0].tolist()
+spec={'mode':'parts','parts':[{'source':center,'tolerance':[5,5,5],'target':[80,0,0],'zone':[-1,-1,0,1]}]}
+r=m.apply(a,spec,[32,56]); assert np.array_equal(r,m.apply(a,spec,[32,56]))
+assert np.array_equal(r[:,:,3],a[:,:,3]); assert np.array_equal(r[:,33:],a[:,33:])
+assert np.array_equal(r[12:20,12:20],a[12:20,12:20])
+assert r[25,20,0]>a[25,20,0]; assert r[25,8,0]<r[25,10,0]
+spec['parts'].append(spec['parts'][0])
+assert np.array_equal(r,m.apply(a,spec,[32,56]))
+# Source edges may already differ from the nearest interior pixel.
+a[7,10]=[2,3,4,15]; r=m.apply(a,spec,[32,56]);m.gate(a,r,parts=True)
+r[7,10,0]=10
+try: m.gate(a,r,parts=True)
+except ValueError: pass
+else: raise AssertionError('changed unlabelled edge accepted')
+`], { encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+});

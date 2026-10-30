@@ -73,7 +73,44 @@ def edge_reference(alpha):
     return (alpha > 0) & (alpha < 32) & (distance <= 2), indices
 
 
-def apply(frame, mapping):
+def apply_parts(frame, mapping, pivot):
+    alpha = frame[:, :, 3]
+    visible = alpha >= 128
+    if not np.any(visible):
+        raise ValueError('frame has no opaque pixels')
+    ys, _ = np.nonzero(visible)
+    height = ys.max() - ys.min() + 1
+    y, x = np.indices(alpha.shape)
+    x = (x - pivot[0]) / height
+    y = (y - pivot[1]) / height
+    lab = rgb2lab(frame[:, :, :3] / 255.0)
+    result = frame.copy()
+    used = np.zeros(alpha.shape, dtype=bool)
+    for part in mapping['parts']:
+        center = np.asarray(part['source'], dtype=float)
+        tolerance = np.asarray(part['tolerance'], dtype=float)
+        target = np.asarray(part['target'], dtype=float)
+        zone = part['zone']
+        mask = ((np.abs(lab - center) <= tolerance).all(axis=2) & visible &
+                (x >= zone[0]) & (y >= zone[1]) & (x <= zone[2]) & (y <= zone[3]))
+        # Earlier parts take priority when their colour ranges overlap.
+        mask &= ~used
+        used |= mask
+        weight = np.minimum(distance_transform_edt(mask) / 2, 1)
+        mapped = lab + weight[:, :, None] * (target - center)
+        mapped[:, :, 0] = np.clip(mapped[:, :, 0], 0, 100)
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', message='Conversion from CIE-LAB')
+            rgb = np.rint(np.clip(lab2rgb(mapped), 0, 1) * 255).astype(np.uint8)
+        result[mask, :3] = rgb[mask]
+    return result
+
+
+def apply(frame, mapping, pivot=None):
+    if mapping.get('mode') == 'parts':
+        if pivot is None:
+            raise ValueError('part mapping needs a frame pivot')
+        return apply_parts(frame, mapping, pivot)
     lab = rgb2lab(frame[:, :, :3] / 255.0)
     flat = lab.reshape(-1, 3)
     centers = np.array(mapping['centers'])
@@ -107,7 +144,7 @@ def apply(frame, mapping):
     return np.dstack((rgb, frame[:, :, 3]))
 
 
-def gate(source, result):
+def gate(source, result, parts=False):
     if source.shape != result.shape or not np.array_equal(source[:, :, 3], result[:, :, 3]):
         raise ValueError('alpha differs from source')
     alpha = result[:, :, 3]
@@ -116,6 +153,10 @@ def gate(source, result):
     if np.count_nonzero(alpha >= 16) < 16:
         raise ValueError('empty character')
     edge, idx = edge_reference(alpha)
+    if parts:
+        if not np.array_equal(result[:, :, :3][edge], source[:, :, :3][edge]):
+            raise ValueError('unlabelled low-alpha edge changed')
+        return
     if not np.array_equal(result[:, :, :3][edge], result[:, :, :3][idx[0][edge], idx[1][edge]]):
         raise ValueError('low-alpha edge differs from nearby interior: possible new halo')
 
@@ -134,19 +175,19 @@ def main():
     parser.add_argument('--bank', required=True)
     parser.add_argument('--out', required=True, type=Path)
     parser.add_argument('--catalog-root', type=Path)
-    parser.add_argument('--mode', choices=['tone', 'groups'], default='tone')
+    parser.add_argument('--mode', choices=['tone', 'groups', 'parts'], default='tone')
     parser.add_argument('--target-master', type=Path)
+    parser.add_argument('--part-spec', type=Path)
+    parser.add_argument('--pivot', nargs=2, type=float, metavar=('X', 'Y'))
     args = parser.parse_args()
-    if args.source_army == args.to and not args.target_master:
+    if args.source_army == args.to and not args.target_master and args.mode != 'parts':
         raise ValueError('armies must differ')
     if not args.character.replace('-', '').isalnum() or '/' in args.character:
         raise ValueError('invalid character')
     catalog_root = (args.catalog_root or default_catalog()).resolve()
     selection = json.loads((ROOT / 'docs/specs/character-animation-samples/runtime-selection.json').read_text())
     record = json.loads((ROOT / 'tools/anim/sources' / (args.character + '.json')).read_text())
-    if record['catalogSha256'] != selection['catalogSha256']:
-        raise ValueError('source record does not match the selected catalog')
-    catalog_path = checked(catalog_root / 'catalogs' / (record['catalogSha256'] + '.json'), record['catalogSha256'])
+    catalog_path = checked(catalog_root / 'catalogs' / (selection['catalogSha256'] + '.json'), selection['catalogSha256'])
     catalog = json.loads(catalog_path.read_text())
     for army, master in record['masters'].items():
         selected = [e for e in selection['entries'] if e['character'] == args.character and e['army'] == army and e['id'] == master['id']]
@@ -180,8 +221,23 @@ def main():
         raise ValueError('every frame must have a timeMs')
     if args.out.exists():
         raise ValueError('output already exists; select a new directory')
-    target = args.target_master or catalog_root / record['masters'][args.to]['path']
-    mapping = fit(read_rgba(catalog_root / record['masters'][args.source_army]['path']), read_rgba(target), args.mode)
+    if args.mode == 'parts':
+        if not args.part_spec or args.target_master:
+            raise ValueError('parts mode needs a part spec and no target master')
+        mapping = json.loads(args.part_spec.read_text())
+        if mapping.get('mode') != 'parts' or mapping.get('sourceSha256') != record['masters'][args.source_army]['sha256']:
+            raise ValueError('part spec does not match the source master')
+        pivot = args.pivot or bank.get('footPivot') or bank.get('pivot')
+        if not pivot and bank.get('sources'):
+            pivot = bank['sources'][0].get('registration', {}).get('destinationPivot')
+        if not pivot:
+            raise ValueError('bank has no recorded pivot')
+    else:
+        if args.part_spec or args.pivot:
+            raise ValueError('part spec and pivot require parts mode')
+        target = args.target_master or catalog_root / record['masters'][args.to]['path']
+        mapping = fit(read_rgba(catalog_root / record['masters'][args.source_army]['path']), read_rgba(target), args.mode)
+        pivot = None
     mapping_bytes = (json.dumps(mapping, sort_keys=True, separators=(',', ':')) + '\n').encode()
     mapping_hash = hashlib.sha256(mapping_bytes).hexdigest()
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -200,12 +256,12 @@ def main():
         for i, frame in enumerate(bank['frames']):
             path = checked((candidate.parent / frame['url']).resolve(), frame['sha256'])
             source = read_rgba(path)
-            result = apply(source, mapping)
-            gate(source, result)
+            result = apply(source, mapping, pivot)
+            gate(source, result, parts=args.mode == 'parts')
             name = f'frame-{i:04d}.png'
             Image.fromarray(result).save(work / name)
             decoded = read_rgba(work / name)
-            gate(source, decoded)
+            gate(source, decoded, parts=args.mode == 'parts')
             new_frame = {'url': name, 'imagePath': name, 'timeMs': frame['timeMs'], 'sha256': digest(work / name), 'provenance': {'method': 'recolor', 'sourceSha256': frame['sha256'], 'mappingSha256': mapping_hash}}
             if 'visibleIntervalMs' in frame:
                 new_frame['visibleIntervalMs'] = frame['visibleIntervalMs']
