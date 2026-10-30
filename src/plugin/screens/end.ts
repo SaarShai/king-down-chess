@@ -76,7 +76,7 @@ export function updateEnd() {
   if (stopped || queue.closed()) return;
   if (client.state.screen !== 'end') { closeEnd(); return; }
   endScreen(false);
-  if (client.state.screen !== 'end' || updating || $<HTMLButtonElement>('reload').disabled) return;
+  if (client.state.screen !== 'end' || updating || readFailed() || $<HTMLButtonElement>('reload').disabled) return;
   const view = boardGame(); if (!view) return;
   // A rematch tap waits only for a pending command of this game: a start or another game's command keeps its error elsewhere.
   if (queuedRematch && !pendingHere(store.page())) {
@@ -95,7 +95,8 @@ export function updateEnd() {
   } else if (!read.has(view.game_id)) {
     if (memory.view?.rules) { read.add(view.game_id); return; }
     updating = true;
-    void call('kingdown_get', {}, true).then(next => { if (next) read.add(view.game_id); }).finally(() => { updating = false; endScreen(); });
+    // Result details are a read; a reload must never keep them as an account command.
+    void call('kingdown_get', {}, { user: false }).then(next => { if (next) read.add(view.game_id); }).finally(() => { updating = false; endScreen(); });
   }
 }
 export function endScreen(schedule = true) {
