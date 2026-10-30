@@ -95,7 +95,7 @@
   body { height: auto; min-height: 100dvh; overflow: visible; }
   #game-table {
     height: auto; min-height: 100dvh;
-    grid-template-rows: var(--strip-height) max-content var(--strip-height) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) minmax(calc(60px + max(8px, env(safe-area-inset-bottom))), max-content);
+    grid-template-rows: var(--strip-height) max-content var(--strip-height) minmax(var(--context-height), max-content) max-content minmax(0, 1fr) minmax(calc(60px + max(8px, env(safe-area-inset-bottom))), max-content);
   }
   #game-table #board { height: auto; }
 }
