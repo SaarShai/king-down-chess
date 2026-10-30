@@ -40,8 +40,11 @@ runtime bank is the authority, as the orchestrator decided. For the white Pawn t
 ### Checks
 
 `KINGDOWN_TEST_FILE=tools/animation-bank.test.ts npm test` passes 6 tests. `KINGDOWN_TEST_FILE=tools/animation-queue.test.ts`
-passes 2 tests. The tests use a stub in-betweener, a fixture geometry record and a fixture catalog. No browser check
-runs: the change adds tools only and publishes no runtime bank.
+passes 2 tests. `npm run test:docs` passes 187 tests. The tests use a stub in-betweener, a fixture geometry record and
+a fixture catalog. No browser check runs locally: the change adds tools only and publishes no runtime bank.
+
+Pull request 215 into `staging/first-game` holds the work. Its ten CI checks pass, including the full `verify` suite
+and the browser checks. The pull request is not merged.
 
 ### Limits
 
