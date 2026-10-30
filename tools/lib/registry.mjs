@@ -11,6 +11,7 @@
 export const checks = [
   { name: 'movement-runtime', script: 'tools/verify-movement-runtime.mjs', limit: 120, channel: 'chromium', byName: true, exclusive: true },
   { name: 'ui-review-samples', script: 'docs/specs/ui-review-samples/verify.mjs', limit: 90, channel: 'chromium', byName: true },
+  { name: 'king-capture-facing', script: 'tools/verify-king-capture-facing.mjs', limit: 300, channel: 'chromium', byName: true, exclusive: true },
   { name: 'character-prepare', script: 'tools/verify-character-prepare.mjs', limit: 90, channel: 'chromium', byName: true, exclusive: true },
   { name: 'stratus-idle-exit', script: 'tools/verify-stratus-idle-exit.mjs', limit: 240, channel: 'chromium', byName: true },
   { name: 'stratus-registration', script: 'tools/verify-stratus-registration.mjs', limit: 300, channel: 'chromium', byName: true },

@@ -8,7 +8,7 @@ let scene: PaintedScene;
 
 function board(motion: boolean, characterRuntime = false, largeRuntime = false, refreshMs = 16) {
   vi.useFakeTimers();
-  const images: Art[] = [], draws: string[] = [], clouds: number[] = [];
+  const images: Art[] = [], draws: string[] = [], clouds: number[] = [], rotations: number[] = [];
   let decodeBoard = () => {};
   const decoded = new Promise<void>(resolve => { decodeBoard = resolve; });
   class Art {
@@ -26,6 +26,7 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
   }
   const context: object = new Proxy({}, { get: (target, key) => key === 'drawImage'
     ? (image: Art, ...args: number[]) => { if (image.src) draws.push(image.src); if (image.src?.includes('cloud-bank.png') && args.length === 4) clouds.push(Reflect.get(target, 'globalAlpha')); }
+    : key === 'rotate' ? (angle: number) => { rotations.push(angle); }
     : key === 'getImageData' || key === 'createImageData' ? () => ({ data: new Uint8ClampedArray(4) })
     : key in target ? Reflect.get(target, key) : () => context });
   const canvas = () => ({ width: 960, height: 1024, getContext: () => context });
@@ -38,7 +39,7 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
   scene.setPosition(fromFen('4k3/8/8/8/8/8/8/1N2K2R w - - 0 1'));
   scene.setLively({ idle: true, atmosphere: true });
   scene.setReducedMotion(!motion);
-  return { images, draws, clouds, decodeBoard, clips: () => images.filter(image => isClip(image.src)) };
+  return { images, draws, clouds, rotations, decodeBoard, clips: () => images.filter(image => isClip(image.src)) };
 }
 
 afterEach(() => { scene?.dispose(); vi.useRealTimers(); vi.unstubAllGlobals(); });
@@ -269,6 +270,64 @@ it('starts a Stratus idle when a position refresh puts that king on the selected
  const b=board(true,true);scene.setKings(['stratus','flame']);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);scene.setSelected(1);
  scene.setPosition(fromFen('4k3/8/8/8/8/8/8/1K5R w - - 0 1'));scene.setSelected(1);
  let raised=false;for(let i=0;i<40&&!raised;i++){await vi.advanceTimersByTimeAsync(16);raised=scene.characterFrames.find(frame=>frame.square===1)?.time===100;}expect(raised).toBe(true);
+});
+
+it.each([
+ ['white', '7k/8/8/3p4/4K3/8/8/7R w - - 0 1', 28, 35, 'NW'],
+ ['black', '7r/8/8/4k3/3P4/8/8/K7 b - - 0 1', 36, 27, 'SW'],
+] as const)('a %s king turns, holds the target, and returns after the capture', async (army, fen, from, to, direction) => {
+ const base={character:'king-frost',army,canvasSize:[384,384],pivot:[192,345],bodyHeightPx:267,registrationHeightPx:267};
+ const idle={...base,id:'idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const turn={...base,id:'turn',kind:'turn',from:'SE',to:direction,durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-target.png',timeMs:120}]};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})));
+ const b=board(true,true);scene.setKings(['frost','frost']);scene.setPosition(fromFen(fen));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const rest=scene.characterFrames.find(f=>f.square===from)!;
+ const contact=vi.fn(),playing=scene.play({from,to,captures:[to]},{onContact:contact});await vi.advanceTimersByTimeAsync(80);
+ expect(scene.characterFrames.find(f=>f.square===from)).toMatchObject({bank:'turn',time:0});
+ await vi.advanceTimersByTimeAsync(300);expect(scene.characterFrames.find(f=>f.square===from)).toMatchObject({bank:'turn',time:120});
+ b.rotations.length=0;await vi.advanceTimersByTimeAsync(800);expect(scene.characterFrames.find(f=>f.square===from)).toMatchObject({bank:'turn',time:120});expect(contact).toHaveBeenCalledOnce();
+ expect(b.rotations.some(angle=>Math.abs(angle)>.01)).toBe(true);
+ await vi.advanceTimersByTimeAsync(220);expect(scene.characterFrames.find(f=>f.square===from)).toMatchObject({bank:'turn',time:0});
+ await vi.advanceTimersByTimeAsync(200);await expect(playing).resolves.toBe(true);
+ scene.cancel();await vi.advanceTimersByTimeAsync(32);
+ expect(scene.characterFrames.find(f=>f.square===from)).toMatchObject({bank:rest.bank,time:rest.time,foot:rest.foot,pivot:rest.pivot,scale:rest.scale});
+});
+
+it.each(['cancel','reduced'] as const)('restores the king rest frame when a capture is stopped by %s', async stop => {
+ const base={character:'king-frost',army:'white',canvasSize:[384,384],pivot:[192,345],bodyHeightPx:267,registrationHeightPx:267};
+ const idle={...base,id:'idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const turn={...base,id:'turn',kind:'turn',from:'SE',to:'NW',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-target.png',timeMs:120}]};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})));
+ const b=board(true,true);scene.setPosition(fromFen('7k/8/8/3p4/4K3/8/8/7R w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const rest=scene.characterFrames.find(f=>f.square===28)!;
+ const playing=scene.play({from:28,to:35,captures:[35]});await vi.advanceTimersByTimeAsync(300);
+ if(stop==='cancel')scene.cancel();else scene.setReducedMotion(true);
+ await expect(playing).resolves.toBe(false);await vi.advanceTimersByTimeAsync(32);
+ expect(scene.characterFrames.find(f=>f.square===28)).toMatchObject({bank:rest.bank,time:rest.time,foot:rest.foot,pivot:rest.pivot,scale:rest.scale});
+});
+
+it('exits the raised Stratus idle before a capture even if the turn cannot load', async () => {
+ const base={character:'king-stratus',army:'white',canvasSize:[384,384],pivot:[192,345],bodyHeightPx:267,registrationHeightPx:267};
+ const idle={...base,id:'idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-raised.png',timeMs:100},{url:'runtime-rest.png',timeMs:400}]};
+ const turn={...base,id:'turn',kind:'turn',from:'SE',to:'NW',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-deferred.png',timeMs:120}]};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})));
+ const b=board(true,true);scene.setKings(['stratus','flame']);scene.setPosition(fromFen('7k/8/8/3p4/4K3/8/8/7R w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ scene.setSelected(28);await vi.advanceTimersByTimeAsync(160);expect(scene.characterFrames.find(f=>f.square===28)?.time).toBe(100);
+ scene.setSelected(null);const playing=scene.play({from:28,to:35,captures:[35]});await vi.advanceTimersByTimeAsync(1050);
+ expect(scene.characterExit).not.toBeNull();await vi.advanceTimersByTimeAsync(250);
+ expect(scene.characterFrames.find(f=>f.square===28)).toBeUndefined();
+ await vi.advanceTimersByTimeAsync(1500);await expect(playing).resolves.toBe(true);
+});
+
+it('reduced motion cancels a legacy Flame capture and restores its rest frame', async () => {
+ const idle={character:'king-flame',army:'white',canvasSize:[384,384],pivot:[192,345],bodyHeightPx:267,registrationHeightPx:267,id:'idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})));
+ const b=board(true,true);scene.setKings(['flame','frost']);scene.setPosition(fromFen('7k/8/8/3p4/4K3/8/8/7R w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const rest=scene.characterFrames.find(f=>f.square===28)!;
+ const playing=scene.play({from:28,to:35,captures:[35]});await vi.advanceTimersByTimeAsync(300);
+ expect(scene.characterFrames.find(f=>f.square===28)).toBeUndefined();
+ scene.setReducedMotion(true);await expect(playing).resolves.toBe(false);await vi.advanceTimersByTimeAsync(32);
+ expect(scene.characterFrames.find(f=>f.square===28)).toMatchObject({bank:rest.bank,time:rest.time,foot:rest.foot,pivot:rest.pivot,scale:rest.scale});
 });
 
 it.each([
