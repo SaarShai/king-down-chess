@@ -9,6 +9,8 @@ const current = `kingdown-${version}`;
 const files = ['./', 'index.html', 'assets/main.js', 'assets/main.css', 'assets/workshop.js', 'assets/worker.js', 'ui/pawn.webp'];
 const url = (path: string) => new URL(path, `${origin}/`).href;
 const template = readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8');
+// Keep the deployed worker unchanged so upgrade tests cannot inherit new protocol support.
+const liveTemplate = readFileSync(new URL('./fixtures/web-worker/live-70e569bc-sw.js', import.meta.url), 'utf8');
 
 function deferred<T = void>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -55,8 +57,8 @@ type WorkerState = { scriptURL: string; state: ServiceWorkerState };
 function worker(caches = storage(), build = version, buildFiles = files, registration = {
   scope: `${origin}/`, installing: null as WorkerState | null, waiting: null as WorkerState | null,
   active: { scriptURL: url('/sw.js'), state: 'activated' } as WorkerState | null,
-}) {
-  const script = template.replace("const VERSION = 'dev';", `const VERSION = '${build}';`)
+}, source = template) {
+  const script = source.replace("const VERSION = 'dev';", `const VERSION = '${build}';`)
     .replace('const ALLOWLIST = [];', `const ALLOWLIST = ${JSON.stringify(buildFiles)};`)
     .replace('const PRECACHE = [];', `const PRECACHE = ${JSON.stringify(buildFiles.filter(file => file !== 'index.html'))};`);
   const listeners = new Map<string, (event: any) => void>();
@@ -95,13 +97,17 @@ function worker(caches = storage(), build = version, buildFiles = files, registr
   return { caches, registration, fetch, claim, skipWaiting, fire, request, message, timers, timerStarted, saved, storageAccess };
 }
 
-it.each([{ controlled: false, installMs: 1000 }, { controlled: false, installMs: 12000 }, { controlled: true, installMs: 12000 }])('proves private safety before a replacement finishes (controlled: $controlled, install: $installMs ms)', async ({ controlled, installMs }) => {
+it.each([
+  { controlled: false, installMs: 1000, legacy: false }, { controlled: false, installMs: 12000, legacy: false },
+  { controlled: true, installMs: 12000, legacy: false },
+  { controlled: true, installMs: 12000, legacy: true }, { controlled: false, installMs: 59000, legacy: true },
+])('proves private safety across replacement (controlled: $controlled, install: $installMs ms, live 70e569bc: $legacy)', async ({ controlled, installMs, legacy }) => {
   vi.useFakeTimers();
   const old = Object.assign(new EventTarget(), { scriptURL: url('/sw.js'), state: 'activated' as ServiceWorkerState, postMessage: vi.fn() });
   const next = Object.assign(new EventTarget(), { scriptURL: url('/sw.js'), state: 'installing' as ServiceWorkerState, postMessage: vi.fn() });
   const registration = Object.assign(new EventTarget(), { scope: `${origin}/`, active: old as WorkerState | null, installing: null as WorkerState | null, waiting: null as WorkerState | null, update: vi.fn(async () => {}) });
   const workers = Object.assign(new EventTarget(), { controller: controlled ? old : null, register: vi.fn(async () => registration) });
-  const a = worker(storage(), version, files, registration);
+  const a = worker(storage(), version, files, registration, legacy ? liveTemplate : template);
   await a.fire('install').done(); await a.fire('activate').done();
   const deliveries: Promise<unknown>[] = [];
   const connect = (target: typeof old, runtime: ReturnType<typeof worker>) => target.postMessage.mockImplementation((data, ports) => {
@@ -129,10 +135,18 @@ it.each([{ controlled: false, installMs: 1000 }, { controlled: false, installMs:
     const b = worker(a.caches, 'next-build', files, registration); connect(next, b);
     await expect(a.message().done()).rejects.toThrow('Worker update in progress');
     const send = vi.fn(() => 'game read sent');
-    const result = withPrivateCachePolicy(send).catch(error => error.message);
-    await flush(); expect(await result).toBe('game read sent');
-    expect(next.state).toBe('installing'); expect(send).toHaveBeenCalledOnce();
-    await vi.advanceTimersByTimeAsync(installMs); expect(send).toHaveBeenCalledOnce();
+    let outcome: unknown;
+    const result = withPrivateCachePolicy(send).catch(error => error.message).then(value => { outcome = value; return value; });
+    await flush();
+    if (legacy) {
+      expect(send).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(installMs);
+      expect(outcome).toBeUndefined(); expect(send).not.toHaveBeenCalled();
+    } else {
+      expect(await result).toBe('game read sent');
+      expect(next.state).toBe('installing'); expect(send).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(installMs); expect(send).toHaveBeenCalledOnce();
+    }
     await b.fire('install').done();
     registration.installing = null; registration.active = next;
     old.state = 'redundant'; old.dispatchEvent(new Event('statechange'));
@@ -140,10 +154,12 @@ it.each([{ controlled: false, installMs: 1000 }, { controlled: false, installMs:
     if (controlled) { workers.controller = next; workers.dispatchEvent(new Event('controllerchange')); }
     await b.fire('activate').done();
     next.state = 'activated'; next.dispatchEvent(new Event('statechange'));
+    await flush(); expect(await result).toBe('game read sent'); expect(send).toHaveBeenCalledOnce();
+    if (legacy) expect(next.postMessage.mock.calls.at(-1)![0].installing).toBeUndefined();
     const available = b.message(); await available.done(); expect(available.postMessage).toHaveBeenCalledOnce();
     await flush(); await vi.advanceTimersByTimeAsync(7000);
     expect(await result).toBe('game read sent');
-    expect(workers.controller).toBe(controlled ? next : null); expect(next.postMessage).toHaveBeenCalledOnce(); expect(send).toHaveBeenCalledOnce();
+    expect(workers.controller).toBe(controlled ? next : null); expect(next.postMessage).toHaveBeenCalledTimes(legacy ? 2 : 1); expect(send).toHaveBeenCalledOnce();
     expect(a.caches.entries.has(current)).toBe(false);
   } finally { vi.useRealTimers(); vi.unstubAllGlobals(); }
 });

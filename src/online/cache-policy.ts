@@ -16,6 +16,7 @@ export class CachePolicyUnavailable extends Error {
 const TYPE = 'kingdown-cache-policy';
 const POLICY = 'public-build-v1';
 const DEADLINE_MS = 8000;
+const INSTALL_MS = 60000;
 const INSTALL_POLICY = 'public-install-v1';
 
 export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promise<T> {
@@ -24,9 +25,10 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
     const workers = navigator.serviceWorker;
     const began = performance.now();
     let phase: CachePhase = 'register', rejection: CacheReason = 'exception', registerFailed = false, updateFailed = false;
-    let registration: ServiceWorkerRegistration | undefined;
+    let registration: ServiceWorkerRegistration | undefined, installDeadline: number | undefined;
+    let observedInstall: ServiceWorker | null | undefined, afterInstall = false;
     const pendingInstall = () => registration?.installing ?? registration?.waiting;
-    // Prove the incoming worker first; a silent old worker must not hold its successor.
+    // Prove the incoming worker first; old workers can wait for takeover within the install budget.
     const workerSet = () => [registration?.installing ?? null, registration?.waiting ?? null, registration?.active ?? null, workers?.controller ?? null];
     const unchanged = (snapshot: (ServiceWorker | null)[]) => workerSet().every((worker, i) => worker === snapshot[i])
       && snapshot.every(worker => !worker || worker.state !== 'redundant');
@@ -53,7 +55,7 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
       return true;
     };
     const proof = (controller: ServiceWorker, installing = false) => new Promise<string | false>((done, bad) => {
-      phase = 'proof';
+      phase = installing ? 'install' : 'proof';
       const channel = new MessageChannel(), requestId = crypto.randomUUID();
       const observed = new Set([controller, ...workerSet()].filter((worker): worker is ServiceWorker => worker !== null));
       const cleanup = () => { channel.port1.onmessage = null; channel.port1.close(); channel.port2.close(); workers.removeEventListener('controllerchange', changed); for (const worker of observed) worker.removeEventListener('statechange', changed); registration?.removeEventListener('updatefound', changed); };
@@ -63,11 +65,13 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
       for (const worker of observed) worker.addEventListener('statechange', changed);
       registration?.addEventListener('updatefound', changed);
       channel.port1.onmessage = ({ data }) => {
-        cleanup();
-        if (data?.type !== TYPE || data.requestId !== requestId || data.policy !== (installing ? INSTALL_POLICY : POLICY) || typeof data.version !== 'string' || !data.version) { rejection = 'bad-proof'; bad(new CachePolicyUnavailable()); }
-        else done(data.version);
+        if (data?.type !== TYPE || data.requestId !== requestId || data.policy !== (installing ? INSTALL_POLICY : POLICY) || typeof data.version !== 'string' || !data.version) {
+          // An older protocol must wait for installation, then give fresh full proof.
+          if (installing) { channel.port1.onmessage = null; return; }
+          rejection = 'bad-proof'; cleanup(); bad(new CachePolicyUnavailable());
+        } else { cleanup(); done(data.version); }
       };
-      try { controller.postMessage({ type: TYPE, requestId, ...(installing && { installing: true }) }, [channel.port2]); } catch (error) { rejection = 'post-message'; cleanup(); bad(error); }
+      try { controller.postMessage({ type: TYPE, requestId, ...(installing && { installing: true }) }, [channel.port2]); } catch (error) { if (!installing) { rejection = 'post-message'; cleanup(); bad(error); } }
     });
     void (async () => {
       if (workers) {
@@ -89,8 +93,14 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
       }
       while (!ended) {
         const installing = pendingInstall();
+        if (observedInstall?.state === 'redundant' && (!installing || installing === observedInstall)) { phase = 'install'; rejection = 'redundant'; throw new CachePolicyUnavailable(); }
         if (installing) {
-          phase = 'install';
+          phase = 'install'; observedInstall = installing;
+          // Keep the base install budget across replacements, including silent old workers.
+          installDeadline ??= performance.now() + INSTALL_MS;
+          const installRemaining = installDeadline - performance.now();
+          if (installRemaining <= 0) { fail(); return; }
+          clearTimeout(timer); timer = setTimeout(fail, installRemaining); afterInstall = true;
           if (installing.state === 'redundant') { rejection = 'redundant'; throw new CachePolicyUnavailable(); }
           // Every possible controller must prove public-only writes, even before its install ends.
           const snapshot = workerSet(), versions = new Set<string>();
@@ -120,6 +130,7 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
           if (start(workers?.controller ?? null, snapshot)) return;
           continue;
         }
+        if (afterInstall && observedInstall?.state === 'activated') { clearTimeout(timer); timer = setTimeout(fail, DEADLINE_MS); afterInstall = false; }
         const controller = workers?.controller ?? null;
         if (controller) {
           // A controller change can precede the end of activation.
@@ -154,7 +165,17 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
           });
         } else {
           phase = 'empty-cache';
-          for (const key of await caches.keys()) if (key.startsWith('kingdown-')) await caches.delete(key);
+          for (const key of await caches.keys()) if (key.startsWith('kingdown-')) {
+            // A registration exists before its worker opens an install cache in another tab.
+            if (workers) {
+              registration = await workers.getRegistration('/');
+              if (ended) return;
+              if (registration || workers.controller) break;
+            }
+            await caches.delete(key);
+            if (ended) return;
+          }
+          if (registration || workers?.controller) continue;
           if ((await caches.keys()).some(key => key.startsWith('kingdown-'))) { rejection = 'cache-remains'; throw new CachePolicyUnavailable(); }
           // Another tab can register while this page clears old caches.
           if (workers) {

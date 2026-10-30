@@ -56,14 +56,19 @@ The gate separates a complete offline build from safe private traffic:
   the network. The private API client still sends with `cache: 'no-store'`.
 - Before each private send during install, the page proves the controller and
   every active, installing and waiting worker. Each reply has a fresh request ID
-  and port. The incoming worker is first, so a silent old controller cannot hold
-  its successor. A missing, old or invalid proof blocks the send.
+  and port. The incoming worker is first. If a worker cannot give early proof,
+  the send waits for takeover within the base 60 s install budget. It then needs
+  fresh full proof from the new controller.
 - Only the cache names of those proved versions can remain. The page removes all
   other app caches, then lists names again. It checks the worker set after each
-  asynchronous step. It makes the last check and the send in the same task.
-- A replacement or state change during proof starts fresh proof within the same
-  8 s deadline. No proof is saved between private requests. A redundant install,
-  failed deletion, late reply or silent worker cannot open the send.
+  asynchronous step. With no registration, it checks again before each delete
+  and stops cleanup when another tab starts a worker. It makes the last check
+  and the send in the same task.
+- The install has one 60 s budget across replacements. After install, full proof
+  has a fresh 8 s budget. Other requests keep their 8 s budget. No proof is saved
+  between private requests. The gate retains the incoming worker reference and
+  refuses a failed install even when the browser clears its installing slot.
+  A failed deletion, late reply or silent worker cannot open the send.
 - Each worker reads only its own version cache. The active and incoming caches
   can coexist during install, but their files do not mix. Install still checks
   the complete offline graph before `skipWaiting()`. Activation still checks the
@@ -72,8 +77,8 @@ The gate separates a complete offline build from safe private traffic:
 
 A client can message an installing worker: see the
 [Service Worker specification](https://www.w3.org/TR/service-workers/).
-An old worker that cannot prove the new write policy still blocks private sends.
-This preserves the safety boundary; it is not treated as a safe worker by URL.
+An old worker that cannot prove the new write policy blocks private sends until
+the new worker takes over and gives full proof. The worker URL is not proof.
 
 The root registration code stays in place. The `web-online` browser check now
 loads the real root, waits for an activated controller, and checks its script,
@@ -177,3 +182,97 @@ The auth flow stays in place. No proof is saved and no private request bypasses
 an unproved controller. The three prior reviews identify the first-round gap;
 this repair still needs independent review before merge. No deploy, publish,
 production write, real-account sign-in, Firefox run or merge occurs.
+
+## Round 3 plan and pass criteria
+
+1. Check the live worker at `70e569bc`. Keep its source as a test fixture.
+   Show that a 12 s upgrade fails at head `23f3dded`, then passes with the repair.
+2. Keep early proof for workers that support it. Give older workers the base
+   60 s install budget. Require fresh full proof after takeover. Refuse a failed
+   install even when the browser clears `registration.installing` first.
+3. Keep page cleanup from deleting the cache of an install in another tab.
+   Add a race test that opens the new cache after the first registration lookup.
+4. Run the requested focused tests, Chromium and WebKit checks, full tests,
+   build and doc checks. Keep hooks unchanged. Commit and push to the same branch.
+
+Pass: no private send uses an unproved worker. The 12 s live-worker upgrade
+succeeds after fresh proof. A failed install sends nothing. Cleanup keeps the
+new install cache. All requested checks pass. No production action occurs.
+
+## Round 3 findings and repair
+
+All three findings are confirmed at `23f3dded`. The worker at live main
+`70e569bc` has no early-proof branch. It refuses full proof while a replacement
+installs. The gate fails at 8 s, before the base 60 s install budget. The prior
+upgrade test uses the new worker source and cannot detect this protocol gap.
+The checked-in live fixture has Git blob `9cac671dca573d8f6812e6789ba89d2b26009b8b`,
+which equals `70e569bc:public/sw.js`.
+
+The new regression cases fail on unchanged product code: a controlled 12 s
+upgrade and an uncontrolled 59 s upgrade both fail at 8,000 ms with
+`CACHE_PROOF_DEADLINE`. The failed-install test confirms that the old controller
+gets a message after the browser clears the installing slot. The race test
+confirms that cleanup deletes the new install cache.
+
+The repair restores the base install budget. Silence, an unsupported early
+reply or a failed early message waits for a state change within that budget.
+Each completed install needs fresh full proof. The failed worker reference
+survives slot removal. Page cleanup checks for a registration before each
+delete and passes a new registration back through the normal proof path.
+
+The browser check installs the live worker, starts the current worker and holds
+one public card for 12 s. It requires a private read to wait more than 8 s,
+succeed after takeover and pass the existing proof-order and storage checks.
+
+## Round 3 final checks
+
+The four new regression cases fail on the unchanged product at `23f3dded`.
+The focused selection uses `KINGDOWN_TEST_FILE='**/{cache-policy,service-worker}.test.ts'`
+and `KINGDOWN_TEST_NAME='live 70e569bc: true|clears installing|between lookup'`.
+Both upgrade cases fail at 8,000 ms. The other cases detect the surviving-old
+controller message and deletion of the new install cache. Log:
+`/tmp/signin-round3-red.log`.
+
+After the repair, both the 12 s controlled upgrade and the 59 s uncontrolled
+upgrade pass. Neither sends before takeover. Each then uses fresh full proof.
+The fallback cases also cover an old policy, a wrong request ID, a failed
+message, 9 s of activation and 7 s before the full reply. A replacement keeps
+the same 60 s install budget. A late reply cannot reopen a refused send.
+
+The live upgrade browser case passes in Chromium at 13,106 ms and in WebKit
+at 12,162 ms. Both runs hold one public file for 12 s. The existing proof-order,
+private-canary and saved-data checks pass after takeover. The new-worker fast
+path also stays fast: home entry takes 291–401 ms in Chromium and 471–539 ms
+in WebKit, with an install still in progress in all home cases.
+
+Final commands and results:
+
+- `KINGDOWN_TEST_FILE='**/{cache-policy,service-worker}.test.ts' npm test`:
+  exit 0; 2 files and 215 tests pass; 393 ms. Both type checks and all 67 artwork
+  checks pass. Log: `/tmp/signin-round3-focused-final.log`.
+- `PLAYABLE_BROWSER=chromium npm run check:browser signin-speed web-online web-game account-discovery staging-login desktop-performance`:
+  exit 0; all 6 pass. Times: 18.8 s, 110.1 s, 71.3 s, 8.0 s, 3.9 s and 45.7 s.
+  Log: `/tmp/signin-round3-chromium.log`.
+- `PLAYABLE_BROWSER=webkit npm run check:browser signin-speed web-online`:
+  exit 0; both pass. Times: 20.2 s and 100.2 s.
+  Log: `/tmp/signin-round3-webkit.log`.
+- `npm test`: exit 0; both type checks pass; all 303 files pass; 5,976 tests pass
+  and 11 skip. Duration: 420.73 s. All 67 artwork checks pass.
+  Log: `/tmp/signin-round3-npm-test.log`.
+- `npm run build`: exit 0; type check and Vite build pass. Vite takes 270 ms.
+  The existing optional character-manifest warning remains.
+  Log: `/tmp/signin-round3-build.log`.
+- `npm run test:docs`: exit 0; all 17 files and 187 tests pass.
+  Logs: `/tmp/signin-round3-docs.log` and `/tmp/signin-round3-docs-final.log`.
+  The final run includes this evidence update.
+
+Browser logs, JSON and screenshots:
+
+- Chromium: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/signin-speed-5GOGXX/`.
+- WebKit: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/signin-speed-XloUNf/`.
+
+The final review keeps the repair in the shared gate. No auth flow, API caller
+or dependency changes. No private send bypasses proof. The browser checks use
+local users and a disposable loopback database. No Firefox run, real-account
+sign-in, production write, deploy, publish or merge occurs. Independent review
+remains before merge. Commit and push use the unchanged hooks and no hook inputs.

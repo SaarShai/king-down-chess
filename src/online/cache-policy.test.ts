@@ -123,6 +123,26 @@ describe('private cache policy', () => {
     expect(await result).toMatchObject({ supportCode: 'CACHE_INSTALL_REDUNDANT', failure: { phase: 'install', reason: 'redundant', installing: 'redundant' } });
     expect(warn).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
   });
+  it('refuses a failed installation after the browser clears installing without trusting the old controller', async () => {
+    const old = workers.controller, next = worker(); next.state = 'installing';
+    const registration = Object.assign(new EventTarget(), { active: old, installing: next as ReturnType<typeof worker> | null, update: vi.fn().mockResolvedValue(undefined) });
+    workers.register.mockResolvedValue(registration);
+    const send = vi.fn(), result = withPrivateCachePolicy(send).catch(error => error); await flush();
+    registration.installing = null; next.state = 'redundant'; next.dispatchEvent(new Event('statechange')); await flush();
+    expect(old.postMessage).not.toHaveBeenCalled();
+    expect(await result).toMatchObject({ supportCode: 'CACHE_INSTALL_REDUNDANT' });
+    expect(send).not.toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0);
+  });
+  it('keeps the install cache when another tab registers between lookup and cleanup', async () => {
+    change(null); const next = worker(); next.state = 'installing';
+    const registration = Object.assign(new EventTarget(), { installing: next, update: vi.fn().mockResolvedValue(undefined) });
+    workers.getRegistration.mockResolvedValueOnce(undefined).mockResolvedValue(registration);
+    storage.keys.mockImplementationOnce(async () => { names.add('kingdown-next'); return [...names]; });
+    const send = vi.fn(), result = withPrivateCachePolicy(send); await flush();
+    expect(storage.delete).not.toHaveBeenCalledWith('kingdown-next'); expect(names.has('kingdown-next')).toBe(true);
+    expect(send).not.toHaveBeenCalled(); reply(next, { version: 'next' }); await result;
+    expect(names.has('kingdown-next')).toBe(true); expect(send).toHaveBeenCalledOnce();
+  });
   it('classifies page cleanup failure without logging the registration or storage error', async () => {
     change(null); workers.register.mockRejectedValue(new Error('private-register-secret')); storage.keys.mockRejectedValue(new Error('private-storage-secret'));
     const result = withPrivateCachePolicy(vi.fn()).catch(error => error);
@@ -212,16 +232,35 @@ describe('private cache policy', () => {
     const send = vi.fn(), result = withPrivateCachePolicy(send).catch(error => error); await flush();
     if (mode === 'old-policy') reply(next, { policy: 'public-build-v1' });
     if (mode === 'bad-id') reply(next, { requestId: 'stale' });
-    await vi.advanceTimersByTimeAsync(8000);
+    await vi.advanceTimersByTimeAsync(60000);
     expect(await result).toBeInstanceOf(CachePolicyUnavailable); expect(send).not.toHaveBeenCalled();
     reply(next); await flush(); expect(send).not.toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0);
+  });
+  it.each(['silent', 'old-policy', 'bad-id', 'post-message'])('waits for takeover when early proof is unavailable, then requires fresh full proof: %s', async mode => {
+    const old = workers.controller, next = worker(); next.state = 'installing';
+    const registration = Object.assign(new EventTarget(), { active: old, installing: next as ReturnType<typeof worker> | null, update: vi.fn().mockResolvedValue(undefined) });
+    workers.register.mockResolvedValue(registration);
+    if (mode === 'post-message') next.postMessage.mockImplementation(() => { throw new Error('old protocol'); });
+    const send = vi.fn(), result = withPrivateCachePolicy(send); await flush();
+    if (mode === 'old-policy') reply(next, { policy: 'public-build-v1' });
+    if (mode === 'bad-id') reply(next, { requestId: 'stale' });
+    await vi.advanceTimersByTimeAsync(12000);
+    expect(send).not.toHaveBeenCalled(); expect(warn).not.toHaveBeenCalled(); expect(old.postMessage).not.toHaveBeenCalled();
+    next.postMessage.mockImplementation(() => {});
+    registration.installing = null; registration.active = next; next.state = 'activating'; old.state = 'redundant';
+    next.dispatchEvent(new Event('statechange')); change(next); await flush();
+    await vi.advanceTimersByTimeAsync(9000); expect(send).not.toHaveBeenCalled(); expect(warn).not.toHaveBeenCalled();
+    next.state = 'activated'; next.dispatchEvent(new Event('statechange')); await flush();
+    expect(next.postMessage.mock.calls.at(-1)![0].installing).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(7000); expect(send).not.toHaveBeenCalled();
+    reply(next); await result; expect(send).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
   });
   it('proves both the unsafe controller and the pending worker before it sends', async () => {
     const old = workers.controller, next = worker(); next.state = 'installing';
     workers.register.mockResolvedValue(Object.assign(new EventTarget(), { active: old, installing: next, update: vi.fn().mockResolvedValue(undefined) }));
     const send = vi.fn(), result = withPrivateCachePolicy(send).catch(error => error); await flush();
     reply(next); await flush(); expect(old.postMessage).toHaveBeenCalledOnce();
-    await vi.advanceTimersByTimeAsync(8000); expect(await result).toBeInstanceOf(CachePolicyUnavailable);
+    await vi.advanceTimersByTimeAsync(60000); expect(await result).toBeInstanceOf(CachePolicyUnavailable);
     expect(send).not.toHaveBeenCalled(); expect(storage.delete).not.toHaveBeenCalled();
   });
   it('invalidates active proof when an installation appears, then proves both workers afresh', async () => {
@@ -244,13 +283,13 @@ describe('private cache policy', () => {
     expect(send).not.toHaveBeenCalled(); expect(next.postMessage).toHaveBeenCalledTimes(2);
     reply(old); expect(send).not.toHaveBeenCalled(); reply(next); await result; expect(send).toHaveBeenCalledOnce();
   });
-  it('keeps one eight-second deadline across pending replacements and ignores late proof', async () => {
+  it('keeps one sixty-second deadline across pending replacements and ignores late proof', async () => {
     change(null); const first = worker(), second = worker(); first.state = second.state = 'installing';
     const registration = Object.assign(new EventTarget(), { installing: first, update: vi.fn().mockResolvedValue(undefined) });
     workers.register.mockResolvedValue(registration);
     const send = vi.fn(), result = withPrivateCachePolicy(send).catch(error => error); await flush();
-    await vi.advanceTimersByTimeAsync(7000);
-    registration.installing = second; registration.dispatchEvent(new Event('updatefound')); await flush();
+    await vi.advanceTimersByTimeAsync(59000);
+    registration.installing = second; first.state = 'redundant'; registration.dispatchEvent(new Event('updatefound')); await flush();
     reply(first); expect(send).not.toHaveBeenCalled(); await vi.advanceTimersByTimeAsync(1000);
     expect(await result).toBeInstanceOf(CachePolicyUnavailable); reply(second); await flush(); expect(send).not.toHaveBeenCalled();
   });
@@ -378,7 +417,7 @@ describe('private cache policy', () => {
     await vi.advanceTimersByTimeAsync(8000); await refusal; expect(send).not.toHaveBeenCalled(); expect(storage.delete).not.toHaveBeenCalled();
   });
   it.each(['blocked', 'unsupported'])('purges every application cache with no controller (%s)', async mode => {
-    change(null); if (mode === 'blocked') workers.register.mockRejectedValue(new Error('blocked')); else vi.stubGlobal('navigator', {});
+    change(null); workers.getRegistration.mockRejectedValueOnce(new Error('lookup blocked')).mockResolvedValue(undefined); if (mode === 'blocked') workers.register.mockRejectedValue(new Error('blocked')); else vi.stubGlobal('navigator', {});
     const send = vi.fn(() => 'sent'); expect(await withPrivateCachePolicy(send)).toBe('sent');
     expect([...names]).toEqual(['other-app']); expect(storage.keys).toHaveBeenCalledTimes(2);
   });
@@ -391,12 +430,12 @@ describe('private cache policy', () => {
     const send = vi.fn(); await expect(withPrivateCachePolicy(send)).rejects.toBeInstanceOf(CachePolicyUnavailable); expect(send).not.toHaveBeenCalled();
   });
   it('allows a concurrent deletion only when the final list proves absence', async () => {
-    change(null); workers.register.mockRejectedValue(new Error('blocked'));
+    change(null); workers.getRegistration.mockRejectedValueOnce(new Error('lookup blocked')).mockResolvedValue(undefined); workers.register.mockRejectedValue(new Error('blocked'));
     storage.delete.mockImplementation(async (name: string) => { names.delete(name); return false; });
     expect(await withPrivateCachePolicy(() => 'sent')).toBe('sent');
   });
   it('proves a controller that takes over during page cleanup', async () => {
-    change(null); workers.register.mockRejectedValue(new Error('blocked')); const controller = worker();
+    change(null); workers.getRegistration.mockRejectedValueOnce(new Error('lookup blocked')).mockResolvedValue(undefined); workers.register.mockRejectedValue(new Error('blocked')); const controller = worker();
     storage.delete.mockImplementation(async (name: string) => { names.delete(name); change(controller); return true; });
     const send = vi.fn(), result = withPrivateCachePolicy(send); await flush(); expect(send).not.toHaveBeenCalled();
     reply(controller); await result; expect(send).toHaveBeenCalledOnce();
