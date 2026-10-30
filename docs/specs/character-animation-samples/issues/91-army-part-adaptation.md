@@ -28,7 +28,8 @@ banks. The rest samples include these misses:
 - Paladin shoulder L* 59.6 against 88; the hammer has speckles and the
   tabard shifts.
 - Rook stone arm moves Delta E 11.0. Ogre tooth moves Delta E 30.0.
-- Frost skin moves Delta E 26.5. The sword reaches L* 20.2.
+- Frost skin stays fixed in its rest sample. The sword reaches L* 20.2.
+  The ice reaches L* 28.9 against 23.2.
 - Mud mask reaches L* 28.3. Shoulder bone is L* 36.9 against 30.
 - White Stratus cape is L* 56.8 against 80. Gold moves Delta E 1.2.
 
