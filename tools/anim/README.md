@@ -65,9 +65,8 @@ forces one machine.
 
 1. `rgba`: the PNG has an alpha channel.
 2. `exterior`: every border pixel is transparent, alpha 0 exists, and a fully opaque pixel exists.
-3. `matte-halo`: the share of low-coverage edge pixels that sit on the interpolation matte stays under 30 percent.
-   The shipped Pawn turns measure up to 12.8 percent (white) and 22.4 percent (black) with this screen. The screen
-   catches extreme smearing only; look at the preview.
+3. `matte-halo`: at most 30 percent of the low-coverage exterior edge may be near the interpolation matte and
+   clearly closer to it than to the nearest opaque interior colour. This is a screen; look at the preview.
 4. `geometry`: the bank pivot equals the locked pivot, and the first and last frames stand within 2 px of the baseline.
 5. `endpoints`: turns and other banks use shipped endpoint hashes. Movement compares each padded end pixel to the
    shipped facing rest at the same pivot, with only transparent pixels outside it.
