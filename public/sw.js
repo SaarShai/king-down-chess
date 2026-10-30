@@ -6,6 +6,7 @@ const VERSION = 'dev';
 const ALLOWLIST = [];
 const PRECACHE = [];
 const POLICY = 'public-build-v1';
+const INSTALL_POLICY = 'public-install-v1';
 const CACHE = `kingdown-${VERSION}`;
 const PAGE_TIMEOUT_MS = 4000;
 const PRECACHE_CONCURRENCY = 8;
@@ -36,14 +37,14 @@ function cacheable(request, response) {
     && response.url === url.href && !noStore(response.headers);
 }
 
-async function checkOwnCache() {
+async function checkOwnCache(complete = true) {
   const cache = await caches.open(CACHE);
   const keys = new Set();
   for (const request of await cache.keys()) {
     if (publicKey(request) !== request.url) throw new Error('Forbidden application cache key');
     keys.add(request.url);
   }
-  for (const file of PRECACHE) {
+  for (const file of complete ? PRECACHE : []) {
     if (!keys.has(publicKey(new Request(new URL(file, START))))) throw new Error('Incomplete offline cache');
   }
 }
@@ -52,7 +53,7 @@ self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
     let next = 0;
-    // A first account visit waits for installation; serial requests exceed its proof deadline.
+    // Limit parallel downloads without a serial wait for each asset.
     await Promise.all(Array.from({ length: Math.min(PRECACHE_CONCURRENCY, PRECACHE.length) }, async () => {
       while (next < PRECACHE.length) {
         const file = PRECACHE[next++];
@@ -113,6 +114,12 @@ self.addEventListener('message', event => {
     || source?.type !== 'window' || !URL.canParse(source.url) || new URL(source.url).origin !== self.location.origin
     || ports.length !== 1 || typeof ports[0]?.postMessage !== 'function') return;
   event.waitUntil((async () => {
+    if (data.installing === true) {
+      // All writes use cacheable(); missing public files do not make private traffic unsafe.
+      await checkOwnCache(false);
+      ports[0].postMessage({ type: 'kingdown-cache-policy', requestId: data.requestId, policy: INSTALL_POLICY, version: VERSION });
+      return;
+    }
     await purgeOldCaches();
     checkActiveWorker();
     ports[0].postMessage({ type: 'kingdown-cache-policy', requestId: data.requestId, policy: POLICY, version: VERSION });

@@ -40,7 +40,9 @@ def read_rgba(path):
         return np.array(image)
 
 
-def fit(source, target):
+def fit(source, target, mode='tone'):
+    if mode not in ('tone', 'groups'):
+        raise ValueError('unknown mapping mode')
     if source.shape != target.shape:
         raise ValueError('rest masters have different canvas sizes')
     x, y = (rgb2lab(image[:, :, :3] / 255.0) for image in (source, target))
@@ -53,6 +55,10 @@ def fit(source, target):
     xs, ys = xs[indices], ys[indices]
     centers, labels = kmeans2(xs, 16, minit='++', seed=18, iter=30)
     targets = np.array([np.median(ys[labels == i], axis=0) if np.any(labels == i) else centers[i] for i in range(16)])
+    if mode == 'groups':
+        offsets = np.array([np.median(ys[labels == i] - xs[labels == i], axis=0)
+                            if np.any(labels == i) else np.zeros(3) for i in range(16)])
+        return {'mode': mode, 'centers': centers.tolist(), 'offsets': offsets.tolist()}
     # Match broad luminance distribution; retain local texture in apply().
     q = np.linspace(0, 100, 101)
     return {'centers': centers.tolist(), 'targets': targets.tolist(),
@@ -70,14 +76,28 @@ def edge_reference(alpha):
 def apply(frame, mapping):
     lab = rgb2lab(frame[:, :, :3] / 255.0)
     flat = lab.reshape(-1, 3)
-    centers, targets = np.array(mapping['centers']), np.array(mapping['targets'])
-    labels = cKDTree(centers).query(flat, workers=1)[1]
-    ab = (flat[:, 1:] + targets[labels, 1:] - centers[labels, 1:]).reshape(*lab.shape[:2], 2)
-    # A monotonic global tone curve preserves target contrast. Add source fine detail.
-    weight = frame[:, :, 3] / 255.0
-    smooth = gaussian_filter(lab[:, :, 0] * weight, 2) / np.maximum(gaussian_filter(weight, 2), 1e-8)
-    luminance = np.interp(smooth, mapping['sourceL'], mapping['targetL']) + (lab[:, :, 0] - smooth)
-    mapped = np.dstack((np.clip(luminance, 0, 100), ab))
+    centers = np.array(mapping['centers'])
+    if mapping.get('mode') == 'groups':
+        alpha = frame[:, :, 3] / 255.0
+        smooth = gaussian_filter(lab[:, :, 0] * alpha, 2) / np.maximum(gaussian_filter(alpha, 2), 1e-8)
+        reference = lab.copy()
+        reference[:, :, 0] = smooth
+        distance, labels = cKDTree(centers).query(reference.reshape(-1, 3), k=min(4, len(centers)), workers=1)
+        weights = np.exp(-(distance ** 2 - distance[:, :1] ** 2) / (2 * 8 ** 2))
+        weights /= weights.sum(axis=1, keepdims=True)
+        delta = (np.array(mapping['offsets'])[labels] * weights[:, :, None]).sum(axis=1)
+        mapped = reference + delta.reshape(lab.shape)
+        mapped[:, :, 0] += lab[:, :, 0] - smooth
+        mapped[:, :, 0] = np.clip(mapped[:, :, 0], 0, 100)
+    else:
+        targets = np.array(mapping['targets'])
+        labels = cKDTree(centers).query(flat, workers=1)[1]
+        ab = (flat[:, 1:] + targets[labels, 1:] - centers[labels, 1:]).reshape(*lab.shape[:2], 2)
+        # A monotonic global tone curve preserves target contrast. Add source fine detail.
+        weight = frame[:, :, 3] / 255.0
+        smooth = gaussian_filter(lab[:, :, 0] * weight, 2) / np.maximum(gaussian_filter(weight, 2), 1e-8)
+        luminance = np.interp(smooth, mapping['sourceL'], mapping['targetL']) + (lab[:, :, 0] - smooth)
+        mapped = np.dstack((np.clip(luminance, 0, 100), ab))
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', message='Conversion from CIE-LAB')
         rgb = np.rint(np.clip(lab2rgb(mapped), 0, 1) * 255).astype(np.uint8)
@@ -114,8 +134,10 @@ def main():
     parser.add_argument('--bank', required=True)
     parser.add_argument('--out', required=True, type=Path)
     parser.add_argument('--catalog-root', type=Path)
+    parser.add_argument('--mode', choices=['tone', 'groups'], default='tone')
+    parser.add_argument('--target-master', type=Path)
     args = parser.parse_args()
-    if args.source_army == args.to:
+    if args.source_army == args.to and not args.target_master:
         raise ValueError('armies must differ')
     if not args.character.replace('-', '').isalnum() or '/' in args.character:
         raise ValueError('invalid character')
@@ -158,7 +180,8 @@ def main():
         raise ValueError('every frame must have a timeMs')
     if args.out.exists():
         raise ValueError('output already exists; select a new directory')
-    mapping = fit(read_rgba(catalog_root / record['masters'][args.source_army]['path']), read_rgba(catalog_root / record['masters'][args.to]['path']))
+    target = args.target_master or catalog_root / record['masters'][args.to]['path']
+    mapping = fit(read_rgba(catalog_root / record['masters'][args.source_army]['path']), read_rgba(target), args.mode)
     mapping_bytes = (json.dumps(mapping, sort_keys=True, separators=(',', ':')) + '\n').encode()
     mapping_hash = hashlib.sha256(mapping_bytes).hexdigest()
     args.out.parent.mkdir(parents=True, exist_ok=True)

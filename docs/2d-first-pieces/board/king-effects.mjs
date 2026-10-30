@@ -95,6 +95,21 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
    return {mask,figure,work:layer(),glow};
   });
  }
+ // Turn frames already contain orange cracks. Use their colour and alpha as the mask.
+ const turnFlame=new WeakMap();
+ function flameFor(s){
+  if(!s.bodyBounds)return flameLayers(s.side);
+  const image=s.pose.bank.image;let f=turnFlame.get(image);if(f)return f;
+  const figure=layer(),g=figure.getContext('2d');g.drawImage(image,0,0,L,L);
+  const mask=layer(),m=mask.getContext('2d'),pixels=g.getImageData(0,0,L,L);
+  for(let i=0;i<pixels.data.length;i+=4){
+   const r=pixels.data[i],g=pixels.data[i+1],b=pixels.data[i+2],a=pixels.data[i+3];
+   pixels.data[i+3]=a*clamp((r-g-35)/45,0,1)*clamp((g-b-25)/35,0,1);
+  }
+  m.putImageData(pixels,0,0);
+  const glow=document.createElement('canvas');glow.width=glow.height=L/6;
+  f={mask,figure,work:layer(),glow};turnFlame.set(image,f);return f;
+ }
  const noise=[];
  function lavaNoise(){
   if(noise.length)return noise;
@@ -150,6 +165,17 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
    return {gold:tinted(big,2,'#2b2621'),rim:blurAlpha(tinted(big,2,'#120f0c',4),5),halo:blurAlpha(tinted(big,4,'#120f0c',5),9),inner:blurAlpha(tinted(big,2,'#0c0a08',8),4)};
   });
  }
+ // Turn frames have their own pivot and silhouette; derive their glow from that frame.
+ const turnSpirit=new WeakMap();
+ function spiritFor(s){
+  if(!s.bodyBounds)return spiritLayers(s.side);
+  const image=s.pose.bank.image;let sides=turnSpirit.get(image);if(!sides){sides=[];turnSpirit.set(image,sides);}
+  if(!sides[s.side]){
+   const dark=!!s.side;
+   sides[s.side]={gold:tinted(image,8,dark?'#2b2621':'#ffe7a6'),rim:blurAlpha(tinted(image,8,dark?'#120f0c':'#fff2cf',dark?1:0),2),halo:blurAlpha(tinted(image,8,dark?'#120f0c':'#ffe2a0',dark?1:0),4),...(dark?{inner:blurAlpha(tinted(image,8,'#0c0a08',2),2)}:{})};
+  }
+  return sides[s.side];
+ }
  // Soft rays fanning up from his crown, drawn once and blurred (no hard edges): board units ×4,
  // 80 × 44 units round the point they fan from (40, 42).
  let rayLayer=null,darkRays=null;
@@ -189,7 +215,11 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   ctx.clip('evenodd');
  }
  // A Spirit layer over the figure (padded layer → sprite px).
- function inSpirit(ctx,s,image){inFigure(ctx,s.pose,()=>ctx.drawImage(image,-PADL,-PADL,SPAN,SPAN));}
+ function inSpirit(ctx,s,image){
+  if(!s.bodyBounds){inFigure(ctx,s.pose,()=>ctx.drawImage(image,-PADL,-PADL,SPAN,SPAN));return;}
+  const b=s.pose.bank,k=b.scale*s.bodyScale,w=b.image.naturalWidth||b.image.width,h=b.image.naturalHeight||b.image.height;
+  ctx.save();ctx.translate(s.pose.foot.x,s.pose.foot.y);ctx.scale(k*(s.pose.sx??1),k*(s.pose.sy??1));ctx.rotate((s.pose.rotation??0)*s.pose.facing);ctx.translate(-b.pivot[0],-b.pivot[1]);ctx.drawImage(image,-PADL*w/1152,-PADL*h/1152,SPAN*w/1152,SPAN*h/1152);ctx.restore();
+ }
  // Draws `image` (a layer) over the figure, with the scene's own figure transform (drawPiece).
  function inFigure(ctx,pose,draw){
   ctx.save();ctx.translate(pose.foot.x,pose.foot.y);ctx.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));ctx.rotate(pose.rotation??0);
@@ -198,7 +228,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
 
  // —— Flame ——
  function lava(ctx,s){
-  const f=flameLayers(s.side);if(!f)return;
+  const f=flameFor(s);if(!f)return;
   const [a,b]=lavaNoise(),u=frac(figureClock(s)/PERIOD.flame),g=f.work.getContext('2d');
   g.globalCompositeOperation='source-over';g.globalAlpha=1;g.clearRect(0,0,L,L);
   // A dim ember glow, then two fields of brighter lava flowing down and across through the cracks.
@@ -210,12 +240,15 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   const glow=f.glow.getContext('2d'),n=f.glow.width;glow.globalCompositeOperation='source-over';glow.clearRect(0,0,n,n);glow.drawImage(f.work,0,0,n,n);
   glow.globalCompositeOperation='destination-in';glow.drawImage(f.figure,0,0,n,n);
   const pulse=.8+.2*Math.sin(TAU*u*2);
-  inFigure(ctx,s.pose,()=>{
-   ctx.globalAlpha=s.k*.9;ctx.drawImage(f.work,0,0,1152,1152);
+  const draw=()=>{
+   const w=s.bodyBounds?(s.pose.bank.image.naturalWidth||s.pose.bank.image.width):1152,h=s.bodyBounds?(s.pose.bank.image.naturalHeight||s.pose.bank.image.height):1152;
+   ctx.globalAlpha=s.k*.9;ctx.drawImage(f.work,0,0,w,h);
    // Added light reads on the charcoal army; on the ivory it would turn the cream lime, so less there.
-   ctx.globalCompositeOperation='lighter';ctx.globalAlpha=s.k*pulse*(s.side?.5:.18);ctx.drawImage(f.work,0,0,1152,1152);
-   ctx.globalAlpha=s.k*pulse*(s.side?.55:.35);ctx.drawImage(f.glow,0,0,1152,1152);
-  });
+   ctx.globalCompositeOperation='lighter';ctx.globalAlpha=s.k*pulse*(s.side?.5:.18);ctx.drawImage(f.work,0,0,w,h);
+   ctx.globalAlpha=s.k*pulse*(s.side?.55:.35);ctx.drawImage(f.glow,0,0,w,h);
+  };
+  if(s.bodyBounds){const b=s.pose.bank;ctx.save();ctx.translate(s.pose.foot.x,s.pose.foot.y);ctx.scale(b.scale*s.bodyScale,b.scale*s.bodyScale);ctx.translate(-b.pivot[0],-b.pivot[1]);draw();ctx.restore();}
+  else inFigure(ctx,s.pose,draw);
  }
 
  // —— Frost ——
@@ -485,7 +518,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   // anchor stays on the drawn crown through the capture, both armies; tools: drawImage transforms).
   // His glow goes with his figure: it breathes on the clock that never restarts and stays on him through a
   // move. Only the light (or shadow) pooled on his square fades as he leaves it and grows back where he arrives.
-  const tt=figureClock(s),b=breath(tt),sp=spiritLayers(s.side),r=s.pose.rotation??0,lean=r*s.pose.facing;
+  const tt=figureClock(s),b=breath(tt),sp=spiritFor(s),r=s.pose.rotation??0,lean=r*s.pose.facing;
   const head={x:s.pose.foot.x+118*(s.pose.sx??1)*Math.sin(lean),y:s.pose.foot.y-118*(s.pose.sy??1)*Math.cos(r)},turn=.05*Math.sin(TAU*tt/PERIOD.spirit)+lean; // (one sway a breath, so a recorded breath loops)
   ctx.save();
   if(s.side===1){
@@ -517,7 +550,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   ctx.restore();
  }
  function holyFront(ctx,s){
-  const sp=spiritLayers(s.side);if(!sp)return;
+  const sp=spiritFor(s);if(!sp)return;
   // A sheen on the figure: gold for the ivory king; for the charcoal king a light shade (multiplied), so he
   // looks wrapped in darkness but keeps his own modelling.
   ctx.save();ctx.globalCompositeOperation=s.side?'multiply':'lighter';ctx.globalAlpha=s.k*(s.side?.03+.07*breath(figureClock(s)):.05+.25*breath(figureClock(s)));inSpirit(ctx,s,sp.gold);ctx.restore();
@@ -608,7 +641,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
    else if(s.design==='stratus')clouds(ctx,s);
    else if(s.design==='mud')mud(ctx,s,false);
    else if(s.design==='spirit')holyBack(ctx,s);
-   else if(s.design==='shadow'){abyss(ctx,s);cracks(ctx,s);hands(ctx,s,false);smoke(ctx,s);}
+   else if(s.design==='shadow'){abyss(ctx,s);cracks(ctx,s);hands(ctx,s,false);if(!s.bodyBounds)smoke(ctx,s);}
   },
   front(ctx,s){
    if(s.design==='flame')lava(ctx,s);

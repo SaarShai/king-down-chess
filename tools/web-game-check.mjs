@@ -26,14 +26,15 @@ const recovery = process.argv[2] === 'recovery';
 const desktop = process.argv[2] === 'desktop';
 const discovery = process.argv[2] === 'discovery';
 const stagingLogin = process.argv[2] === 'staging-login';
+const signinSpeed = process.argv[2] === 'signin-speed';
 // VITE_KINGDOWN_STAGE=staging runs the website Ranked flow; without it the build is the production build (ticket 67).
 const rankedStage = !stagingLogin && process.env.VITE_KINGDOWN_STAGE === 'staging';
-const accountOrigin = stagingLogin || rankedStage ? 'https://puhspsyjyzaghmgtkzqd.supabase.co' : 'https://web-proof.supabase.co';
+let accountOrigin = stagingLogin || rankedStage ? 'https://puhspsyjyzaghmgtkzqd.supabase.co' : 'https://web-proof.supabase.co';
 // The local server starts as a localDev server without a stage, and production refuses the staging project
 // there (ticket 66). So the server and the signed test sessions use a local test issuer; only the site build
 // names the account project of its stage.
 const issuerOrigin = 'https://web-proof.supabase.co';
-assert(process.argv.length === (mechanics || recovery || desktop || discovery || stagingLogin ? 3 : 2), 'Use web-game-check.mjs [mechanics|recovery|desktop|discovery|staging-login]');
+assert(process.argv.length === (mechanics || recovery || desktop || discovery || stagingLogin || signinSpeed ? 3 : 2), 'Use web-game-check.mjs [mechanics|recovery|desktop|discovery|staging-login|signin-speed]');
 if (recovery) assert(process.env.KINGDOWN_WEB_RECOVERY_OUTPUT, 'Recovery consumers require an exact external KINGDOWN_WEB_RECOVERY_OUTPUT');
 const { fromFen } = await import('../src/rules/setup.ts');
 const { M, N, P, parseSq, typeOf } = await import('../src/rules/engine.ts');
@@ -44,14 +45,26 @@ execFileSync(process.execPath, [fileURLToPath(new URL('./plugin-db/bootstrap-tes
 const work = await mkdtemp(join(tmpdir(), 'kingdown-web-game-'));
 const actors = Array.from({ length: recovery ? 4 : 2 }, () => randomUUID());
 const pool = new pg.Pool({ connectionString, max: 1 });
-let app, server, browser, savedAccess;
+let app, server, browser, savedAccess, accountServer, accountRequest;
 const failures = [], commands = [], deliberateFailures = new WeakSet();
 let lostReplies = 0;
 try {
+  if (signinSpeed) {
+    // A controlled WebKit page cannot use Playwright routes as its auth server.
+    accountServer = createServer((req, res) => { void accountRequest(req, res).catch(() => res.destroy()); });
+    accountServer.listen(0, '127.0.0.1'); await once(accountServer, 'listening');
+    accountOrigin = `http://127.0.0.1:${accountServer.address().port}`;
+  }
   // Use public fake settings only. The browser gets a real signed local session; no OAuth provider is contacted.
-  await build({ logLevel: 'warn', define: {
+  await build({ logLevel: 'warn', plugins: signinSpeed ? [{ name: 'signin-loopback-auth', enforce: 'pre', transform(code, id) {
+    if (id !== resolve('src/account/public-config.ts')) return;
+    // Keep config validation; connect the real SDK to the local HTTP fixture after it passes.
+    const result = 'return { url: url.origin, publishableKey };';
+    assert(code.includes(result));
+    return code.replace(result, `return { url: ${JSON.stringify(accountOrigin)}, publishableKey };`);
+  } }] : [], define: {
     'import.meta.env.VITE_KINGDOWN_STAGE': JSON.stringify(stagingLogin || rankedStage ? 'staging' : ''),
-    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(accountOrigin),
+    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(signinSpeed ? issuerOrigin : accountOrigin),
     'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify('sb_publishable_local_test'),
   }, build: { outDir: join(work, 'site'), emptyOutDir: true } });
   // The check drives seats through the MCP tools as well as the web page, so its tree keeps the parked plugin.
@@ -63,7 +76,10 @@ try {
   await pool.query('insert into auth.users(id) select unnest($1::uuid[])', [actors]);
   savedAccess = (await pool.query('select enabled from public.web_account_access where singleton=true')).rows[0].enabled;
   await pool.query('update public.web_account_access set enabled=true where singleton=true');
-  server = createServer((req, res) => { void serveSite({ root: siteRoot, config: siteConfig, handler: app.handler }, req, res).catch(() => res.destroy()); });
+  server = createServer((req, res) => { void (async () => {
+    if (signinSpeed && new URL(req.url, 'http://fixture').pathname === '/ui/cards/rescue.webp') await new Promise(done => setTimeout(done, 12_000));
+    await serveSite({ root: siteRoot, config: siteConfig, handler: app.handler }, req, res);
+  })().catch(() => res.destroy()); });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const origin = `http://127.0.0.1:${server.address().port}`;
   const pair = await generateKeyPair('ES256');
@@ -85,7 +101,7 @@ try {
   }
   if (!mechanics && !recovery) for (const seat of [0, 1]) await tool(seat, 'kingdown_handle', { handle: `web${seat}-${actors[seat].slice(0, 8)}` });
   browser = await launch({ headless: true });
-  if (!mechanics && !recovery && !desktop && !discovery && !stagingLogin) await checkErrorRecorder({ browser, origin, pool, root });
+  if (!mechanics && !recovery && !desktop && !discovery && !stagingLogin && !signinSpeed) await checkErrorRecorder({ browser, origin, pool, root });
   const context = await browser.newContext({ viewport: { width: 1100, height: 1000 } });
   await context.addInitScript(({ origin, actor, token }) => { if (location.origin === origin && !localStorage.getItem('kingdown.auth')) localStorage.setItem('kingdown.auth', JSON.stringify({
     access_token: token, refresh_token: 'local-test-refresh', token_type: 'bearer', expires_in: 600, expires_at: Math.floor(Date.now() / 1000) + 600, user: { id: actor, aud: 'authenticated', role: 'authenticated', email: 'browser@example.invalid', app_metadata: { provider: 'google' }, user_metadata: {}, created_at: new Date().toISOString() },
@@ -95,7 +111,10 @@ try {
     if (new URL(route.request().url()).origin !== origin) { failures.push('External request blocked'); return route.abort(); }
     return route.continue();
   });
-  if (stagingLogin) {
+  if (signinSpeed) {
+    const { checkSigninSpeed } = await import('./lib/signin-speed-check.mjs');
+    await checkSigninSpeed({ browser, origin, accountOrigin, actors, tokens, tool, setAccountRequest: handler => { accountRequest = handler; } });
+  } else if (stagingLogin) {
     const { checkStagingLogin } = await import('./lib/staging-login-check.mjs');
     await checkStagingLogin({ browser, origin, accountOrigin, actors, tokens, tool });
   } else if (discovery) {
@@ -682,6 +701,7 @@ try {
 } finally {
   await browser?.close();
   if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
+  if (accountServer) { accountServer.closeAllConnections(); await new Promise(resolve => accountServer.close(resolve)); }
   await app?.pool.end();
   if (savedAccess !== undefined) await pool.query('update public.web_account_access set enabled=$1 where singleton=true', [savedAccess]);
   await pool.query("delete from public.outbox where payload->>'game_id' in (select g.id::text from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[])))", [actors]);

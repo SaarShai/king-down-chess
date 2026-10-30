@@ -11,6 +11,7 @@
 export const checks = [
   { name: 'movement-runtime', script: 'tools/verify-movement-runtime.mjs', limit: 120, channel: 'chromium', byName: true, exclusive: true },
   { name: 'ui-review-samples', script: 'docs/specs/ui-review-samples/verify.mjs', limit: 90, channel: 'chromium', byName: true },
+  { name: 'king-capture-facing', script: 'tools/verify-king-capture-facing.mjs', limit: 300, channel: 'chromium', byName: true, exclusive: true },
   { name: 'character-prepare', script: 'tools/verify-character-prepare.mjs', limit: 90, channel: 'chromium', byName: true, exclusive: true },
   { name: 'stratus-idle-exit', script: 'tools/verify-stratus-idle-exit.mjs', limit: 240, channel: 'chromium', byName: true },
   { name: 'stratus-registration', script: 'tools/verify-stratus-registration.mjs', limit: 300, channel: 'chromium', byName: true },
@@ -79,6 +80,7 @@ export const checks = [
   { name: 'web-game-staging', script: 'tools/web-game-check.mjs', env: { VITE_KINGDOWN_STAGE: 'staging' }, limit: 480, channel: 'chromium', byName: true, exclusive: true },
   { name: 'account-discovery', script: 'tools/web-game-check.mjs', args: ['discovery'], limit: 240, channel: 'chromium', byName: true, exclusive: true },
   { name: 'staging-login', script: 'tools/web-game-check.mjs', args: ['staging-login'], limit: 240, channel: 'chromium', byName: true, exclusive: true },
+  { name: 'signin-speed', script: 'tools/web-game-check.mjs', args: ['signin-speed'], limit: 180, channel: 'chromium', byName: true, exclusive: true },
   { name: 'desktop-performance', script: 'tools/web-game-check.mjs', args: ['desktop'], limit: 600, channel: 'chromium', byName: true, exclusive: true },
   { name: 'production-comparison', script: 'tools/production-comparison.mjs', limit: 360, channel: 'chromium', byName: true, exclusive: true },
   { name: 'shared-mechanics', script: 'tools/web-game-check.mjs', args: ['mechanics'], limit: 480, channel: 'chromium', byName: true, exclusive: true },

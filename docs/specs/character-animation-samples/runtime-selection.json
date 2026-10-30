@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "ready",
-  "catalogSha256": "8c3919af2217a8a9413a9271d136a5e8be2cdff299069dc8386354e39ec8af3f",
+  "catalogSha256": "6279af2ef76ba46d75ba10ad5ddc822c67c5d5d78897457a1d13cc6893aed241",
   "entries": [
     {
       "character": "pawn",
@@ -3786,6 +3786,46 @@
       "id": "black-turn-NE-E",
       "manifest": "banks/8aff26028028a786d22ad35c7000fc4a255c5359982c26d7c1f86c2063e82adf.json",
       "sha256": "8aff26028028a786d22ad35c7000fc4a255c5359982c26d7c1f86c2063e82adf"
+    },
+    {
+      "character": "beast",
+      "army": "black",
+      "kind": "idle",
+      "id": "black-idle-chain-pull",
+      "manifest": "banks/ae64e5dd0c9b204f11d2187b980ff8ea8a4872fe8cfd39b657bc9259cf4c0bfa.json",
+      "sha256": "ae64e5dd0c9b204f11d2187b980ff8ea8a4872fe8cfd39b657bc9259cf4c0bfa"
+    },
+    {
+      "character": "beast",
+      "army": "black",
+      "kind": "turn",
+      "id": "black-turn-NE-E",
+      "manifest": "banks/9badf1ea5985004f67dea51533a2f170c560fec1a4da150101da352f11e825e5.json",
+      "sha256": "9badf1ea5985004f67dea51533a2f170c560fec1a4da150101da352f11e825e5"
+    },
+    {
+      "character": "beast",
+      "army": "white",
+      "kind": "idle",
+      "id": "white-idle-chain-pull",
+      "manifest": "banks/85e72fb886afa420d207b95e04639e1fa31525b95a25f53f8b0cc4e755daaf95.json",
+      "sha256": "85e72fb886afa420d207b95e04639e1fa31525b95a25f53f8b0cc4e755daaf95"
+    },
+    {
+      "character": "beast",
+      "army": "white",
+      "kind": "turn",
+      "id": "white-turn-NE-E",
+      "manifest": "banks/e41834968c4cc440acd1708a334a5fd765e5739e82ed431ccaa790b849e6b021.json",
+      "sha256": "e41834968c4cc440acd1708a334a5fd765e5739e82ed431ccaa790b849e6b021"
+    },
+    {
+      "character": "rook",
+      "army": "white",
+      "kind": "idle",
+      "id": "white-idle-slam",
+      "manifest": "banks/4701e7806d551a7e697d2ed8ece87d4d1aa2fb80b096cd3a6236f8b641121ec0.json",
+      "sha256": "4701e7806d551a7e697d2ed8ece87d4d1aa2fb80b096cd3a6236f8b641121ec0"
     }
   ]
 }
