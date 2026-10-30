@@ -1,5 +1,6 @@
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { runInNewContext } from 'node:vm';
 import { join, resolve } from 'node:path';
 import type { OutputAsset, OutputBundle, OutputChunk } from 'rolldown';
 import { build } from 'vite';
@@ -166,7 +167,13 @@ it('uses real build metadata for the worker, loader, lazy code, CSS and emitted 
     }
     expect(html).toContain('href="#piece"');
     expect(html).not.toContain('<base');
-    expect(html).toContain("register('/sw.js')");
+    expect(html).toContain("register('/sw.js', { scope: '/', updateViaCache: 'none' })");
+    const startup = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]).find(source => source.includes('serviceWorker'))!;
+    for (const pathname of ['/', '/play/', '/g/game-id', '/j']) {
+      const events: string[] = [];
+      runInNewContext(startup, { location: { pathname }, navigator: { serviceWorker: {} }, addEventListener: (name: string) => events.push(name) });
+      expect(events).toEqual(pathname === '/' ? ['load'] : []);
+    }
     expect(readFileSync(join(output, named('main')), 'utf8')).toContain('/ui/pawn.webp');
     expect(readFileSync(join(output, named('main', 'css')), 'utf8')).toMatch(/url\(["']?\/assets\//);
 

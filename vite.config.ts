@@ -51,10 +51,10 @@ function offlineBuild(): Plugin {
     configResolved(config) { publicDir = config.publicDir; root = config.root; outDir = resolve(root, config.build.outDir); },
     transformIndexHtml: { order: 'post', handler() {
       // Start the offline cache after the board is ready.
-      return [{ tag: 'script', injectTo: 'head', children: `if ('serviceWorker' in navigator) addEventListener('load', async () => {
+      return [{ tag: 'script', injectTo: 'head', children: `if (location.pathname === '/' && 'serviceWorker' in navigator) addEventListener('load', async () => {
   for (let t = 0; !window.view && t < 300; t++) await new Promise(r => setTimeout(r, 200));
   await Promise.race([window.view?.ready(), new Promise(r => setTimeout(r, 60000))]);
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch(() => {});
 });` }];
     } },
     writeBundle(_options, bundle) {

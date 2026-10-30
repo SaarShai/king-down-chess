@@ -35,7 +35,7 @@ export async function measureDesktop({ browser, root, origin, actors, pool, tool
       entryMs: 'Navigation start to selected-game legal read plus board screen, artwork, status and controls ready, then two animation frames. Includes observer scheduling and a cloned legal-read parse; excludes sign-in and fixture creation. Current engine uses local preview.',
       inputFeedbackFrameMs: 'Trusted Menu click event timestamp to visible Menu DOM, then two animation frames. Render-opportunity proxy, not physical input latency.',
       commandHttpMs: 'Matched accepted non-AI turn request timing.responseEnd - timing.requestStart. Loopback HTTP only; no auth/DB/engine split.',
-      cache: 'Cold = fresh context, empty HTTP/SW cache, auth seeded only. Warm = same-context reload after active SW. No request routing; HTTP cache remains enabled.',
+      cache: 'Cold = fresh context, empty HTTP/SW cache, auth seeded only. Warm = same-context reload with a warm HTTP cache; neither visit installs a SW. No request routing; HTTP cache remains enabled.',
     },
     rows: [], summary: {}, complete: false,
   };
@@ -116,9 +116,9 @@ export async function measureDesktop({ browser, root, origin, actors, pool, tool
           row[visit] = await page.evaluate(() => ({ entryMs: window.__desktopTimes.entryMs, controlled: !!navigator.serviceWorker.controller,
             navigationTransferBytes: performance.getEntriesByType('navigation')[0]?.transferSize,
             publicResources: performance.getEntriesByType('resource').filter(resource => !new URL(resource.name).pathname.startsWith('/api/')).slice(0, 80).map(resource => ({ path: new URL(resource.name).pathname, transferBytes: resource.transferSize })) }));
-          assert.equal(row[visit].controlled, true, 'Private board entry has an active cache-policy controller');
+          assert.equal(row[visit].controlled, false, 'A direct private board visit stays uncontrolled');
+          assert.equal(await page.evaluate(() => navigator.serviceWorker.getRegistration('/').then(Boolean)), false, 'Cold and warm private visits do not install the offline game');
           assert.deepEqual(networkErrors, []); assertNoErrors(errors);
-          await page.evaluate(async () => { const registration = await navigator.serviceWorker.ready; if (registration.active?.state !== 'activated') throw new Error('SW is not active'); });
         }
         row.phase = 'input';
         await page.locator('#board-menu').click();

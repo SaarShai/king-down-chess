@@ -98,6 +98,18 @@ try {
   await page.waitForFunction(()=>!view.scene.animating&&view.pos.board[35]&&!view.pos.board[43]);assert.equal(await page.evaluate(()=>pointerRewinds),1,'pointer Undo starts the retained rewind');
   assertNoErrors(errors);results.push({case:'pointer-undo-during-exit'});await page.close();
  }
+ // Undo while the king glides and immediately after it lands.
+ for(const when of ['glide','landed']){
+  const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
+  const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen','6k1/p7/8/3K4/8/8/P7/8 w - - 0 1');url.searchParams.set('players','human,human');url.searchParams.set('kings','stratus:flight,stratus:flight');
+  await page.goto(url.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.some(f=>f.square===35));await page.evaluate(()=>view.ready());
+  await page.evaluate(()=>{window.glideRewinds=0;const rewind=view.scene.rewindUndo.bind(view.scene);view.scene.rewindUndo=()=>{glideRewinds++;return rewind();};});
+  const click=async sq=>{const p=await page.evaluate(s=>view.screenOf(s),sq);await page.mouse.click(p.x,p.y);};await click(35);await click(43);
+  if(when==='glide')await page.waitForFunction(()=>{const f=view.scene.characterFrames.find(f=>f.square===35),start=view.scene.foot(35);return view.scene.animating&&f&&Math.hypot(f.foot.x-start.x,f.foot.y-start.y)>20;},null,{timeout:10000});
+  else await page.waitForFunction(()=>!view.scene.animating&&!view.pos.board[35]&&view.pos.board[43],null,{timeout:10000});
+  await page.keyboard.press('z');await page.waitForFunction(()=>!view.scene.animating&&view.pos.board[35]&&!view.pos.board[43],null,{timeout:10000});
+  assert.equal(await page.evaluate(()=>glideRewinds),1,`${when}: Undo uses retained rewind`);assertNoErrors(errors);results.push({case:`undo-${when}`});await page.close();
+ }
  // Hold a turn endpoint, cancel during preparation, then deliver it after Undo.
  {
   const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
