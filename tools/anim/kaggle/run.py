@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw
 import torch
 import torch.nn.functional as F
 
+DEVICE = torch.device('cuda:0')
 ROOT = Path('/kaggle/working')
 PART = int(os.environ.get('KD_PART', '0'))
 PARTS = int(os.environ.get('KD_PARTS', '1'))
@@ -31,7 +32,7 @@ def pack(path):
     alpha = rgba[..., 3:]
     premult = rgba[..., :3] * alpha
     data = np.concatenate([premult + MATTE * (1 - alpha), premult, alpha], -1)
-    return torch.from_numpy(data.transpose(2, 0, 1).copy()).unsqueeze(0).cuda()
+    return torch.from_numpy(data.transpose(2, 0, 1).copy()).unsqueeze(0).to(DEVICE)
 
 def pixels(value):
     data = value[0].permute(1, 2, 0).cpu().numpy()
@@ -47,9 +48,9 @@ def pad(a):
     height, width = a.shape[-2:]
     b = F.pad(a, (0, -width % 64, 0, -height % 64))
     if b.shape[-1] != width:
-        b[:, :3, :, width:] = torch.tensor(MATTE, device='cuda').view(1, 3, 1, 1)
+        b[:, :3, :, width:] = torch.tensor(MATTE, device=DEVICE).view(1, 3, 1, 1)
     if b.shape[-2] != height:
-        b[:, :3, height:, :] = torch.tensor(MATTE, device='cuda').view(1, 3, 1, 1)
+        b[:, :3, height:, :] = torch.tensor(MATTE, device=DEVICE).view(1, 3, 1, 1)
     return b
 
 def rife_mid(a, b):
@@ -59,8 +60,8 @@ def rife_mid(a, b):
 
 def warp(value, flow):
     h, w = value.shape[-2:]
-    x = torch.linspace(-1, 1, w, device='cuda').view(1, 1, w).expand(1, h, w)
-    y = torch.linspace(-1, 1, h, device='cuda').view(1, h, 1).expand(1, h, w)
+    x = torch.linspace(-1, 1, w, device=DEVICE).view(1, 1, w).expand(1, h, w)
+    y = torch.linspace(-1, 1, h, device=DEVICE).view(1, h, 1).expand(1, h, w)
     grid = torch.stack([x + flow[..., 0] / (w - 1), y + flow[..., 1] / (h - 1)], -1)
     return F.grid_sample(value, grid, mode='bilinear', padding_mode='border', align_corners=True)
 
@@ -73,8 +74,8 @@ def film_mid(a, b):
     x1 = b[:, :3].permute(0, 2, 3, 1).cpu().numpy()
     with tf.device('/GPU:0'):
         result = film({'x0': tf.convert_to_tensor(x0), 'x1': tf.convert_to_tensor(x1), 'time': tf.constant([[0.5]])})
-    backward = torch.from_numpy(result['backward_flow_pyramid'][0].numpy()).cuda()
-    forward = torch.from_numpy(result['forward_flow_pyramid'][0].numpy()).cuda()
+    backward = torch.from_numpy(result['backward_flow_pyramid'][0].numpy()).to(DEVICE)
+    forward = torch.from_numpy(result['forward_flow_pyramid'][0].numpy()).to(DEVICE)
     return ((warp(a, backward) + warp(b, forward)) * 0.5)[:, :, :h, :w].clone()
 
 def score(rgba, left, right):
@@ -120,15 +121,17 @@ try:
             raise ValueError('RIFE runtime hash mismatch: ' + f['file'])
     sys.path.insert(0, str(runtime))
     from train_log.IFNet_HDv3 import IFNet
-    net = IFNet().cuda().eval()
+    net = IFNet().to(DEVICE).eval()
     weights = torch.load(runtime / 'train_log/flownet.pkl', map_location='cpu', weights_only=True)
     net.load_state_dict({k.replace('module.', ''): v for k, v in weights.items() if 'module.' in k}, strict=False)
     import tensorflow as tf
     gpus = tf.config.list_physical_devices('GPU')
-    if not gpus:
-        raise RuntimeError('TensorFlow cannot see the Kaggle GPU')
-    for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu, True)
+    if len(gpus) < 2:
+        raise RuntimeError('The job needs two Kaggle GPUs: one for each framework')
+    # Keep the framework allocators apart; TensorFlow retains its peak GPU memory.
+    tf.config.set_visible_devices(gpus[1], 'GPU')
+    tf.config.experimental.set_memory_growth(gpus[1], True)
+    status['filmGpu'] = torch.cuda.get_device_name(1)
     paths = list(Path('/kaggle/input').glob('**/saved_model.pb'))
     if len(paths) != 1:
         raise RuntimeError(f'expected one FILM saved model, found {len(paths)}')

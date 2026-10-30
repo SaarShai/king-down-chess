@@ -132,14 +132,14 @@ packages are absent.
 ### Private Kaggle movement run
 
 `tools/anim/kaggle/stage.py` copies the frozen movement keys and checks the frame, bank and RIFE hashes. It writes one
-private dataset archive. `kaggle.mjs` makes private GPU scripts with the dataset and the FILM model attached. It takes
+private dataset archive. `kaggle.mjs` makes private two-GPU scripts with the dataset and the FILM model attached. It takes
 `push`, `status` or `pull`, the Kaggle user, a zero-based part, the number of parts and a scratch directory. Use one or
 two parts. Check the dataset is private before a push.
 
 `run.py` makes the midpoint first, then the two quarter points for each key gap, including the wrap. RIFE moves
 premultiplied color and alpha with its shared flow. FILM exposes motion fields but not its fusion weights; the script
 warps both premultiplied inputs with those fields and blends them equally. Its output is a flow-based FILM variant,
-not the RGB model's learned fusion. Both outputs keep alpha. The ghost score counts partly transparent pixels outside
+not the RGB model's learned fusion. The script puts each framework on its own T4 GPU to keep their memory pools apart. Both outputs keep alpha. The ghost score counts partly transparent pixels outside
 the keys' soft edges as a share of visible pixels. Motion can also raise the score, so inspect the light and dark sheets.
 Results are packed in groups of 32 entries so the Kaggle client can pull every file. The pull command extracts them.
 `summary.py <pull directory>` ranks the scores. The results stay outside Git.
