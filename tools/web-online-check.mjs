@@ -182,7 +182,7 @@ export async function main() {
   const started = performance.now(), events = [], signal = new EventEmitter(), requests = [], outside = [];
   let browserFacts;
   const record = event => { events.push(event); signal.emit('record'); };
-  let served, old = false, instrument = false, deleteMode = 'ok', holdReply = false, failPrecache = false, offline = false, statusFixture = false, statusFailure = false;
+  let served, old = false, live = false, slowInstall = false, instrument = false, deleteMode = 'ok', holdReply = false, failPrecache = false, offline = false, statusFixture = false, statusFailure = false;
   const held = new Set();
   function cleanup() {
     return cleaning ??= (async () => {
@@ -227,6 +227,11 @@ export async function main() {
     assert.notEqual(workerVersions.get(tree), workerVersions.get(recovery.root), 'Release and recovery have distinct worker bytes');
     const pair = process.env.KINGDOWN_WEB_RECOVERY_OUTPUT ? 'external recovery input' : 'fixture pair; no exact recovery approval';
     const oldWorker = await readFile(new URL('./fixtures/web-worker/old-sw.js', import.meta.url), 'utf8');
+    const liveTemplate = await readFile(new URL('./fixtures/web-worker/live-70e569bc-sw.js', import.meta.url), 'utf8');
+    const releaseWorker = await readFile(join(tree, 'static/sw.js'), 'utf8');
+    const liveWorker = liveTemplate.replace("const VERSION = 'dev';", "const VERSION = 'live-70e569bc';")
+      .replace('const ALLOWLIST = [];', releaseWorker.match(/const ALLOWLIST = .+;/)[0])
+      .replace('const PRECACHE = [];', releaseWorker.match(/const PRECACHE = .+;/)[0]);
     const faults = await readFile(new URL('./fixtures/web-worker/faults.js', import.meta.url), 'utf8');
     const probeCode = await buildWorkerProbe();
     await mkdir(env('PLAYABLE_OUT'), { recursive: true });
@@ -265,12 +270,16 @@ export async function main() {
           res.removeHeader('Cache-Control'); res.setHeader('Content-Type', 'text/javascript'); res.end('// query variant'); return;
         }
         if (path.startsWith('/api/')) record({ event: 'probe', marker: req.headers.authorization?.replace(/^Bearer /, ''), client: req.headers['x-fixture-tab'], version: old ? 'dev' : workerVersions.get(served), url: req.url });
+        if (slowInstall && path === '/ui/cards/rescue.webp') {
+          record({ event: 'upgrade-install-held' });
+          await new Promise(done => setTimeout(done, 12_000));
+        }
         if (failPrecache && path.startsWith('/assets/')) {
           record({ event: 'install-failed', url: req.url }); res.writeHead(503).end(); return;
         }
         if (path === '/sw.js') {
           res.setHeader('Content-Type', 'text/javascript');
-          res.end(old ? oldWorker + "\nself.addEventListener('message', event => { if (event.data?.type === 'fixture-version') event.ports[0].postMessage({ version: VERSION }); });" : (instrument ? faults : '') + await readFile(join(served, 'static/sw.js'), 'utf8')); return;
+          res.end(live ? liveWorker : old ? oldWorker + "\nself.addEventListener('message', event => { if (event.data?.type === 'fixture-version') event.ports[0].postMessage({ version: VERSION }); });" : (instrument ? faults : '') + await readFile(join(served, 'static/sw.js'), 'utf8')); return;
         }
         res.setHeader('Cache-Control', 'no-cache, must-revalidate');
         const output = outputs.get(served);
@@ -386,6 +395,10 @@ export async function main() {
       const recordSockets = page => page.on('websocket', socket => requests.push(socket.url()));
       persistent.pages().forEach(recordSockets); persistent.on('page', recordSockets);
       const page = persistent.pages()[0] ?? await persistent.newPage();
+      page.on('console', message => {
+        const prefix = '[King Down cache safety] ';
+        if (message.type() === 'warning' && message.text().startsWith(prefix)) record({ event: 'cache-failure', ...JSON.parse(message.text().slice(prefix.length)) });
+      });
       page.setDefaultTimeout(30_000 * STEP);
       page.setDefaultNavigationTimeout(30_000 * STEP);
       // The worker serves this start-page URL. Playwright's Firefox clears the controller of a page that the worker passes to the network (Playwright issue 37012).
@@ -501,6 +514,24 @@ export async function main() {
     };
     const releaseHolds = () => { for (const response of held) response.end('ok'); held.clear(); };
     let active;
+    live = true;
+    active = await openProfile(join(work, 'live-upgrade-profile'));
+    await active.evaluate(() => navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }));
+    await controlled(active);
+    await active.waitForFunction(() => navigator.serviceWorker.controller?.state === 'activated');
+    await seed(active);
+    live = false; slowInstall = true;
+    const upgradeAfter = events.length;
+    await active.evaluate(() => { void navigator.serviceWorker.getRegistration('/').then(registration => registration.update()); });
+    await waitEvent(event => event.event === 'upgrade-install-held', upgradeAfter);
+    assert.equal(await active.evaluate(async () => !!(await navigator.serviceWorker.getRegistration('/'))?.installing), true, 'The live worker controls the page while the new install runs');
+    const upgradeStart = performance.now();
+    await probe(active, 'live-upgrade');
+    const upgradeMs = Math.round(performance.now() - upgradeStart);
+    assert(upgradeMs > 8000 && upgradeMs < 20_000, `The live upgrade waits for its 12 s install and fresh proof: ${upgradeMs} ms`);
+    assert.equal(await active.evaluate(() => navigator.serviceWorker.controller?.state), 'activated');
+    await inspect(active); await closeProfile(); slowInstall = false;
+    console.log(`PASS: live 70e569bc upgrade with 12 s install; private read in ${upgradeMs} ms`);
     old = true;
     active = await openProfile(join(work, 'retry-profile'));
     await assert.rejects(() => retained(active, 'dev'), /keeps its registration and controller/, 'A fresh profile cannot pass the retained-worker check');
@@ -583,7 +614,20 @@ export async function main() {
     active = await openProfile(join(work, 'offline-profile')); await seed(active);
     for (const output of [tree, recovery.root]) {
       if (await active.evaluate(() => !!navigator.serviceWorker.controller)) await takeover(active, output);
-      else served = output;
+      else {
+        served = output;
+        // The real root page must install and activate its offline worker without test registration.
+        assert.equal(await active.evaluate(() => navigator.serviceWorker.getRegistration('/').then(Boolean)), false);
+        await active.goto(origin); await readyBoard(active);
+        await active.waitForFunction(() => navigator.serviceWorker.controller?.state === 'activated', null, { timeout: 30_000 * STEP });
+        const installed = await active.evaluate(async () => {
+          const registration = await navigator.serviceWorker.getRegistration('/');
+          return { active: registration?.active?.state, controlled: navigator.serviceWorker.controller === registration?.active,
+            scope: registration?.scope, updateViaCache: registration?.updateViaCache, script: registration?.active?.scriptURL };
+        });
+        assert.deepEqual(installed, { active: 'activated', controlled: true, scope: origin + '/', updateViaCache: 'none', script: origin + '/sw.js' }, 'The product root page installs and activates the offline worker');
+        await active.goto(`${origin}/?fixture=page`); await active.waitForFunction(() => window.privateProbe);
+      }
       await probe(active, 'plain-worker', false);
       const beforeStatus = await localData(active);
       statusFixture = output === tree;

@@ -8,7 +8,7 @@ let scene: PaintedScene;
 
 function board(motion: boolean, characterRuntime = false, largeRuntime = false, refreshMs = 16) {
   vi.useFakeTimers();
-  const images: Art[] = [], draws: string[] = [], clouds: number[] = [], rotations: number[] = [];
+  const images: Art[] = [], draws: string[] = [], drawArgs: {src:string; args:number[]}[] = [], clouds: number[] = [], rotations: number[] = [];
   let decodeBoard = () => {};
   const decoded = new Promise<void>(resolve => { decodeBoard = resolve; });
   class Art {
@@ -25,7 +25,7 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
     decode() { return this.src.includes('stone-board') ? decoded : Promise.resolve(); }
   }
   const context: object = new Proxy({}, { get: (target, key) => key === 'drawImage'
-    ? (image: Art, ...args: number[]) => { if (image.src) draws.push(image.src); if (image.src?.includes('cloud-bank.png') && args.length === 4) clouds.push(Reflect.get(target, 'globalAlpha')); }
+    ? (image: Art, ...args: number[]) => { if (image.src) { draws.push(image.src); drawArgs.push({src:image.src,args}); } if (image.src?.includes('cloud-bank.png') && args.length === 4) clouds.push(Reflect.get(target, 'globalAlpha')); }
     : key === 'rotate' ? (angle: number) => { rotations.push(angle); }
     : key === 'getImageData' || key === 'createImageData' ? () => ({ data: new Uint8ClampedArray(4) })
     : key in target ? Reflect.get(target, key) : () => context });
@@ -39,7 +39,7 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
   scene.setPosition(fromFen('4k3/8/8/8/8/8/8/1N2K2R w - - 0 1'));
   scene.setLively({ idle: true, atmosphere: true });
   scene.setReducedMotion(!motion);
-  return { images, draws, clouds, rotations, decodeBoard, clips: () => images.filter(image => isClip(image.src)) };
+  return { images, draws, drawArgs, clouds, rotations, decodeBoard, clips: () => images.filter(image => isClip(image.src)) };
 }
 
 afterEach(() => { scene?.dispose(); vi.useRealTimers(); vi.unstubAllGlobals(); });
@@ -143,6 +143,20 @@ it('draws the movement endpoint across a straddled refresh on a move and its rev
  await vi.advanceTimersByTimeAsync(32);expect(scene.characterFrames.find(f=>f.square===16)).toMatchObject({bank:'move-S',time:200});
  await vi.advanceTimersByTimeAsync(16);expect(scene.characterFrames.find(f=>f.square===16)).toMatchObject({bank:'turn'});
  await vi.advanceTimersByTimeAsync(200);await expect(reverse).resolves.toBe(true);
+});
+
+it('draws a padded movement canvas at the rest pivot and scale', async () => {
+ const idle={character:'pawn',army:'white',id:'idle',kind:'idle',facing:'N',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const movement={...idle,id:'move',kind:'movement',canvasSize:[968,968],pivot:[484,800],durationMs:200,frames:[0,200].map(timeMs=>({url:`runtime-padded-${timeMs}.png`,timeMs}))};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,movement]})})));
+ const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const rest=scene.characterFrames.find(f=>f.square===8)!;
+ const playing=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(16);
+ const move=scene.characterFrames.find(f=>f.square===8)!;
+ expect(move).toMatchObject({bank:'move',time:0,foot:rest.foot,scale:rest.scale,pivot:[484,800]});
+ expect(b.drawArgs.slice().reverse().find(d=>d.src.endsWith('/runtime-padded-0.png'))?.args).toEqual([-484,-800]);
+ expect(b.drawArgs.slice().reverse().find(d=>d.src.endsWith('/runtime-rest.png'))?.args).toEqual([-384,-700]);
+ await vi.advanceTimersByTimeAsync(1000);await expect(playing).resolves.toBe(true);
 });
 
 it.each(['no turn','incoming turn'] as const)('draws the first movement frame at the boundary with %s', async route => {
@@ -327,14 +341,15 @@ it('exits the raised Stratus idle before a capture even if the turn cannot load'
  await vi.advanceTimersByTimeAsync(1500);await expect(playing).resolves.toBe(true);
 });
 
-it('reduced motion cancels a legacy Flame capture and restores its rest frame', async () => {
+it.each(['cancel','reduced'] as const)('a Flame capture restores rest on %s', async stop => {
  const idle={character:'king-flame',army:'white',canvasSize:[384,384],pivot:[192,345],bodyHeightPx:267,registrationHeightPx:267,id:'idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0}]};
- vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})));
+ const turn={...idle,id:'turn',kind:'turn',from:'SE',to:'NW',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-target.png',timeMs:120}]};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})));
  const b=board(true,true);scene.setKings(['flame','frost']);scene.setPosition(fromFen('7k/8/8/3p4/4K3/8/8/7R w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
  const rest=scene.characterFrames.find(f=>f.square===28)!;
  const playing=scene.play({from:28,to:35,captures:[35]});await vi.advanceTimersByTimeAsync(300);
- expect(scene.characterFrames.find(f=>f.square===28)).toBeUndefined();
- scene.setReducedMotion(true);await expect(playing).resolves.toBe(false);await vi.advanceTimersByTimeAsync(32);
+ expect(scene.characterFrames.find(f=>f.square===28)).toMatchObject({bank:'turn',time:120});
+ if(stop==='cancel')scene.cancel();else scene.setReducedMotion(true);await expect(playing).resolves.toBe(false);await vi.advanceTimersByTimeAsync(32);
  expect(scene.characterFrames.find(f=>f.square===28)).toMatchObject({bank:rest.bank,time:rest.time,foot:rest.foot,pivot:rest.pivot,scale:rest.scale});
 });
 

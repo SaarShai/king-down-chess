@@ -645,7 +645,7 @@ function vortex(out,foot,phase,strength) {
   const s={design,side,pose:unit.pose,t:time-since+entry.offset,now:time+side*1777,k,opacity:unit.opacity,g,facing:unit.pose.facing,
    board:{x:PAD,y:PAD,tile:TILE,frame:lively.atmosphere&&boardArt.naturalWidth?26:0}};
   s.pose=kingFx.pose(s);s.ground=s.pose.ground??s.pose.foot;
-  if(s.pose.bank&&a?.runtime&&a.move.from===sq&&a.move.captures.length){s.bodyScale=s.pose.scale/specs[K].scale;s.bodyBounds=bankShape(s.pose);}
+  if(s.pose.bank&&(design==='flame'||a?.runtime&&a.move.from===sq&&a.move.captures.length)){s.bodyScale=s.pose.scale/specs[K].scale;s.bodyBounds=bankShape(s.pose);}
   if(a?.rewind?.kind==='move'&&a.done&&moving&&design==='stratus'){if(a.rewind.landedG!=null)entry.resume={g,start:time};else {const shift=time-a.start;entry.since+=shift;entry.offset+=shift;if(entry.resume)entry.resume.start+=shift;}}
   return s;
  }
@@ -1175,10 +1175,7 @@ function drawEncounter(a,t) {
      a.exit=bodyRuntime.idleExit(characterOf(base.value),armyOf(base.value),pendingIdle.body);if(a.exit&&a.exit(1)?.url!==pendingIdle.body.url)a.exitBody=pendingIdle.body;
     }
     pendingIdle=null;if(!a.exitBody)bodyRuntime?.releaseIdle();
-    // The Flame crack mask is registered to its rest-facing armour.
-    const legacyFlame=typeOf(base.value)===K&&move.captures.length&&characterOf(base.value)==='king-flame';
-    if(legacyFlame)a.bodyUnavailable=true;
-    if(available&&!effect&&!reducedMotion&&base.type!=='swap'&&!legacyFlame){
+    if(available&&!effect&&!reducedMotion&&base.type!=='swap'){
      a.preparing=true;
      a.prepareController=new AbortController();
      const target=move.shove?.from??move.captures[0]??move.to,from=foot(move.from),to=foot(target);
