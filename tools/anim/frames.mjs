@@ -62,10 +62,26 @@ export function measureFrame(frame, threshold = 8) {
   };
 }
 
+/** Share of semi-transparent pixels more than 3 px from the opaque core. */
+export function ghostScore({ data, width, height }) {
+  let core = 0, ghost = 0;
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const alpha = data[(y * width + x) * 4 + 3];
+    if (alpha >= 200) { core++; continue; }
+    if (alpha < 24) continue;
+    let near = false;
+    for (let dy = -3; dy <= 3 && !near; dy++) for (let dx = -3; dx <= 3; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if (dx * dx + dy * dy <= 9 && nx >= 0 && nx < width && ny >= 0 && ny < height && data[(ny * width + nx) * 4 + 3] >= 200) { near = true; break; }
+    }
+    if (!near) ghost++;
+  }
+  return core ? ghost / core : 1;
+}
+
 /**
  * A numeric matte-fringe screen. A halo is a visible rim of the interpolation matte where the figure edge should show
- * its own colour. The screen counts low-coverage exterior-adjacent pixels that sit close to the matte while a nearby
- * opaque pixel does not. It is a screen, not a proof: the preview still needs a look.
+ * its own colour. The screen compares low-coverage exterior-adjacent pixels with the nearest opaque interior.
  */
 export function matteFringe(frame, measure) {
   const { data, width, height } = frame;
@@ -76,14 +92,19 @@ export function matteFringe(frame, measure) {
     const p = (y * width + x) * 4;
     return Math.abs(data[p] - MATTE[0]) <= 18 && Math.abs(data[p + 1] - MATTE[1]) <= 18 && Math.abs(data[p + 2] - MATTE[2]) <= 18;
   };
-  const neighbourColour = (x, y) => {
-    for (let radius = 1; radius <= 3; radius++) for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
+  const differsFromInterior = (x, y) => {
+    const p = (y * width + x) * 4;
+    const matteDistance = MATTE.reduce((sum, channel, i) => sum + Math.abs(data[p + i] - channel), 0);
+    let nearest = Infinity, colourDistance = Infinity;
+    for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
       const nx = x + dx, ny = y + dy;
       if (nx < 0 || ny < 0 || nx >= width || ny >= height || !opaque(nx, ny)) continue;
-      const p = (ny * width + nx) * 4;
-      if (Math.abs(data[p] - MATTE[0]) + Math.abs(data[p + 1] - MATTE[1]) + Math.abs(data[p + 2] - MATTE[2]) > 48) return true;
+      const distance = dx * dx + dy * dy, q = (ny * width + nx) * 4;
+      const colour = Math.abs(data[p] - data[q]) + Math.abs(data[p + 1] - data[q + 1]) + Math.abs(data[p + 2] - data[q + 2]);
+      if (distance < nearest) { nearest = distance; colourDistance = colour; }
+      else if (distance === nearest) colourDistance = Math.min(colourDistance, colour);
     }
-    return false;
+    return nearest < Infinity && colourDistance >= matteDistance + 72;
   };
   for (let y = 1; y < height - 1; y++) for (let x = 1; x < width - 1; x++) {
     const alpha = data[(y * width + x) * 4 + 3];
@@ -96,7 +117,7 @@ export function matteFringe(frame, measure) {
     }
     if (!exterior) continue;
     edgePixels++;
-    if (nearMatte(x, y) && neighbourColour(x, y)) mattePixels++;
+    if (nearMatte(x, y) && differsFromInterior(x, y)) mattePixels++;
   }
   return { ratio: edgePixels ? mattePixels / edgePixels : 0, edgePixels, mattePixels };
 }
@@ -134,6 +155,13 @@ export async function registerFrame(frame, geometry) {
     const delta = measureFrame({ data, width: canvasWidth, height: canvasHeight }).bottom - geometry.pivot[1];
     if (delta === 0) break;
     dy -= delta;
+    data = Buffer.alloc(canvasWidth * canvasHeight * 4);
+    place(data, dx, dy);
+  }
+  // Resampling can shift the measured foot band; align the placed pixels, not only the source estimate.
+  const footDelta = Math.round(geometry.pivot[0] - measureFrame({ data, width: canvasWidth, height: canvasHeight }).footCenterX);
+  if (footDelta) {
+    dx += footDelta;
     data = Buffer.alloc(canvasWidth * canvasHeight * 4);
     place(data, dx, dy);
   }

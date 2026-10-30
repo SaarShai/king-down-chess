@@ -1,0 +1,31 @@
+{
+  "mode": "parts",
+  "sourceSha256": "0914b13cd2ee736d65ed6f40c984d3954f8552418306fd257642ff4e014bb4ff",
+  "parts": [
+    {
+      "name": "skin",
+      "source": [
+        50,
+        20,
+        32
+      ],
+      "tolerance": [
+        50,
+        18,
+        24
+      ],
+      "target": [
+        32,
+        3,
+        5
+      ],
+      "zone": [
+        -0.7,
+        -0.8,
+        0.7,
+        -0.05
+      ],
+      "lightnessScale": 0.5
+    }
+  ]
+}

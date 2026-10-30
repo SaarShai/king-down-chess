@@ -29,7 +29,7 @@ export async function promote(candidate, { catalog = process.env.KINGDOWN_CATALO
   if (!existsSync(gatesPath)) throw Error(`No gates.json next to ${bankPath}; rebuild with bank.mjs make`);
   const gates = JSON.parse(await readFile(gatesPath));
   if (gates.status !== 'pass') throw Error(`Gates did not pass; promote needs a green candidate (${gates.failing?.join('; ') ?? 'no detail'})`);
-  for (const check of ['rgba', 'exterior', 'matte-halo', 'geometry', 'endpoints', 'timing', 'provenance']) {
+  for (const check of ['rgba', 'exterior', 'matte-halo', 'ghost', 'geometry', 'endpoints', 'timing', 'provenance']) {
     if (!gates.checks?.some(entry => entry.name === check && entry.ok)) throw Error(`Gate ${check} did not pass; rebuild the candidate`);
   }
   const current = await resolveGeometry({ character: bank.character, army: bank.army, catalog, manifest });

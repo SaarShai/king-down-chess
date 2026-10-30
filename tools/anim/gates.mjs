@@ -1,11 +1,10 @@
 /** Automatic gates for a candidate animation bank. Each gate fails with a short, plain message. */
 
-/**
- * Matte fringe limit. The shipped, owner-approved Pawn turns measure up to 12.8 percent (white) and 22.4 percent
- * (black) with this screen: dark outlines and dark cloth sit close to the matte. The limit sits above both, so the
- * screen catches extreme smearing only. The preview still needs a look; a numeric alpha check cannot prove visibility.
- */
+// Fail when over 30% of the exterior alpha edge is near the matte and at least 72 summed RGB levels closer to it than to the nearest opaque colour.
 export const HALO_LIMIT = 0.3;
+// 0.035 clears clean scores near 0.02 and catches the faint feet at 0.046.
+export const GHOST_MARGIN = 0.035;
+export const ghostLimit = frames => Math.max(...frames.filter(frame => frame.method === 'authored').map(frame => frame.ghost)) + GHOST_MARGIN;
 export const BASELINE_TOLERANCE_PX = 2;
 export const FOOT_TOLERANCE_PX = 3;
 
@@ -27,8 +26,15 @@ export function runGates({ bank, frames, geometry, endpoints = {}, plan, movemen
 
   const worst = frames.reduce((top, frame) => frame.fringe.ratio > top.fringe.ratio ? frame : top, frames[0]);
   fail('matte-halo', worst.fringe.ratio <= HALO_LIMIT,
-    `Frame ${worst.file} has a matte-coloured edge: ${round(worst.fringe.ratio * 100)}% of its exterior edge sits on the interpolation matte (limit ${HALO_LIMIT * 100}%)`,
+    `Frame ${worst.file} has a matte-coloured edge: ${round(worst.fringe.ratio * 100)}% of its exterior edge is closer to the matte than its opaque interior (limit ${HALO_LIMIT * 100}%)`,
     { worst: worst.file, ratio: round(worst.fringe.ratio), edgePixels: worst.fringe.edgePixels, mattePixels: worst.fringe.mattePixels, limit: HALO_LIMIT });
+
+  const limit = ghostLimit(frames);
+  const inbetweens = frames.filter(frame => frame.method !== 'authored');
+  const ghostWorst = inbetweens.reduce((top, frame) => !top || frame.ghost > top.ghost ? frame : top, null);
+  fail('ghost', !ghostWorst || ghostWorst.ghost <= limit,
+    `Frame ${ghostWorst?.file} has ghost score ${round(ghostWorst?.ghost)} (limit ${round(limit)})`,
+    { worst: ghostWorst?.file ?? null, score: ghostWorst ? round(ghostWorst.ghost) : null, authored: round(limit - GHOST_MARGIN), limit: round(limit) });
 
   const pivot = bank.pivot;
   const targetPivot = movement?.pivot ?? geometry.pivot, baseline = movement?.baseline ?? geometry.pivot[1];

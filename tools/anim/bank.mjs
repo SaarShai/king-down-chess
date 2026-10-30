@@ -12,8 +12,8 @@ import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { edgeFor, loadGeometryFile, resolveGeometry, root, sourcesDir, defaultManifest, defaultCatalog } from './geometry.mjs';
-import { encodeFrame, matteFringe, measureFrame, readFrame, registerFrame } from './frames.mjs';
-import { runGates } from './gates.mjs';
+import { encodeFrame, ghostScore, matteFringe, measureFrame, readFrame, registerFrame } from './frames.mjs';
+import { ghostLimit, runGates } from './gates.mjs';
 import { chooseMachine, interpolate } from './infer.mjs';
 import { describePlan, midpointPlan, planTiming, timeOf } from './plan.mjs';
 import { matchesRest, movementGeometry, padRest } from './movement.mjs';
@@ -59,6 +59,7 @@ export function defaultOutput(character, army, id) {
 /** Make a candidate bank. Returns its path and the gate report. */
 export async function makeBank(options) {
   const { character, army, kind } = options;
+  if (options.ghostRepair !== undefined && options.ghostRepair !== 'hold') throw Error('--ghost-repair must be hold');
   if (!character || !army) throw Error('make needs --character and --army');
   if (!KINDS.includes(kind)) throw Error(`--kind must be one of ${KINDS.join(', ')}`);
   const edge = edgeFor(kind, options.facing);
@@ -134,11 +135,22 @@ export async function makeBank(options) {
     const decoded = await readFrame(join(output, frame.file));
     const measure = measureFrame(decoded);
     const restMatch = movement && frame.method === 'authored' && frame.sources[0] === movement.rest.sha256 ? matchesRest(decoded, movement.rest, movement.offset) : undefined;
-    frames.push({ ...frame, sha256: decoded.sha256, metadata: decoded.metadata, measure, fringe: matteFringe(decoded, measure), restMatch, timeMs: timeOf(index, plan) });
+    frames.push({ ...frame, sha256: decoded.sha256, metadata: decoded.metadata, measure, fringe: matteFringe(decoded, measure), ghost: ghostScore(decoded), restMatch, timeMs: timeOf(index, plan) });
   }
   const hashByIndex = new Map(frames.map(frame => [frame.index, frame.sha256]));
+  if (options.ghostRepair === 'hold') {
+    const limit = ghostLimit(frames);
+    const clean = frames.filter(frame => frame.method === 'authored' || frame.ghost <= limit);
+    for (let index = 0; index < frames.length; index++) {
+      const frame = frames[index];
+      if (frame.method !== 'rife' || frame.ghost <= limit) continue;
+      const source = clean.reduce((best, candidate) => Math.abs(candidate.index - frame.index) < Math.abs(best.index - frame.index) ? candidate : best);
+      await copyFile(join(output, source.file), join(output, frame.file));
+      frames[index] = { ...source, index: frame.index, file: frame.file, timeMs: frame.timeMs, method: 'hold', sources: [source.index] };
+    }
+  }
   for (const frame of frames) {
-    frame.sources = frame.method === 'hold' ? [hashByIndex.get(0)] : frame.method === 'authored' ? frame.sources : frame.sources.map(index => hashByIndex.get(index));
+    frame.sources = frame.method === 'hold' ? frame.sources.map(index => hashByIndex.get(index)) : frame.method === 'authored' ? frame.sources : frame.sources.map(index => hashByIndex.get(index));
     if (frame.sources.some(source => !source)) throw Error(`Frame ${frame.index} has a missing source frame`);
   }
 
@@ -184,7 +196,7 @@ export async function makeBank(options) {
   return { candidate: bankPath, gates: gates.status, frames: frames.length, durationMs: plan.durationMs, machine: machine?.machine ?? null, previews, output };
 }
 
-const values = ['character', 'army', 'kind', 'facing', 'keys', 'timing', 'output', 'id', 'geometry', 'manifest', 'catalog', 'sources', 'machine', 'infer', 'frame-ms', 'duration-ms'];
+const values = ['character', 'army', 'kind', 'facing', 'keys', 'timing', 'output', 'id', 'geometry', 'manifest', 'catalog', 'sources', 'machine', 'infer', 'frame-ms', 'duration-ms', 'ghost-repair'];
 const camel = name => name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
 
 export async function main(argv = process.argv.slice(2)) {
