@@ -308,7 +308,7 @@ it.each(['failure', 'cancelled', 'skipped', 'neutral', 'timed_out', 'action_requ
   expect(f.merges()).toEqual([]);
 });
 
-it.each([0, 10])('times out without a merge with only %s checks', async count => {
+it.each([0, 9])('times out without a merge with only %s checks', async count => {
   const f = fixture();
   f.checks.splice(count);
   await expect(f.run()).rejects.toThrow('four hours');

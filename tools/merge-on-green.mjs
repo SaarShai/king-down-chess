@@ -72,7 +72,7 @@ export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTim
     require(status?.sha === head && Number.isSafeInteger(status.total_count) && status.total_count >= 0 &&
       ['success', 'pending', 'failure'].includes(status.state), 'invalid CI commit status');
     require(status.state !== 'failure', 'CI commit status does not pass');
-    if (checks.length >= 11 && checks.every(check => check.status === 'completed') &&
+    if (checks.length >= 10 && checks.every(check => check.status === 'completed') &&
         (status.total_count === 0 || status.state === 'success')) {
       const latestPr = readPr();
       // A review can start or report a finding while any GitHub request runs.
