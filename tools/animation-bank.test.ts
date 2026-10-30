@@ -11,6 +11,7 @@ import { geometryFromManifest, edgeFor } from './anim/geometry.mjs';
 import { midpointPlan, planTiming } from './anim/plan.mjs';
 import { makeBank } from './anim/bank.mjs';
 import { promote } from './anim/promote.mjs';
+import { matchesRest } from './anim/movement.mjs';
 
 let dir = '';
 afterEach(async () => { if (dir) await rm(dir, { recursive: true, force: true }); });
@@ -126,6 +127,47 @@ writeFileSync(resolve(base, 'report.json'), JSON.stringify({ frames: plan.frames
   const broken = await makeBank({ character: 'pawn', army: 'white', kind: 'turn', facing: 'SE-S', keys, geometryRecord: { ...geometry, endpoints: {} }, output: join(dir, 'broken'), infer: `node ${stub}`, timing: { durationMs: 60, frameMs: 15 }, preview: false }).catch(error => error);
   expect(broken.message).toContain('Gates failed');
   expect(broken.gates.failing.join(' ')).toContain('endpoints');
+});
+
+it('keeps the shipped movement rest at its pivot and scale on a padded canvas', async () => {
+  const { keys, geometry, hashes } = await fixture();
+  await writeFile(join(keys, '002.png'), await readFile(join(keys, '000.png')));
+  const pose = await readFrame(join(keys, '001.png'));
+  pose.data[(40 * pose.width) * 4] = 200;
+  pose.data[(40 * pose.width) * 4 + 3] = 255;
+  await sharp(pose.data, { raw: { width: pose.width, height: pose.height, channels: 4 } }).png().toFile(join(keys, '001.png'));
+  const manifest = join(dir, 'runtime.json');
+  const runtime = { sourceToRuntimeScale: 0.5, banks: [{ id: 'turn', character: 'pawn', army: 'white', kind: 'turn', from: 'SE', to: 'S', pivot: [24, 40], registrationHeightPx: 35, boardScale: null, frames: [{ sourceSha256: hashes[0] }, { sourceSha256: hashes[2] }] }] };
+  await writeFile(manifest, JSON.stringify(runtime));
+  const authority = { kind: 'runtime-manifest', path: manifest, sha256: digest(await readFile(manifest)) };
+  const stub = join(dir, 'stub.mjs');
+  await writeFile(stub, `import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+const plan = JSON.parse(readFileSync(process.argv[2], 'utf8')), base = dirname(process.argv[2]);
+for (const frame of plan.frames) { const out = resolve(base, frame.output); mkdirSync(dirname(out), { recursive: true }); writeFileSync(out, readFileSync(resolve(base, frame.left))); }
+writeFileSync(resolve(base, 'report.json'), '{}');`);
+  const output = join(dir, 'movement');
+  const options = { character: 'pawn', army: 'white', kind: 'movement', facing: 'SE', keys, geometryRecord: { ...geometry, bodyHeightPx: 85, authority }, output, infer: `node ${stub}`, timing: { durationMs: 60, frameMs: 15 }, preview: false };
+  const result = await makeBank(options);
+  expect(result.gates).toBe('pass');
+  const bank = JSON.parse(await readFile(result.candidate, 'utf8'));
+  const rest = await readFrame(join(keys, '000.png'));
+  const first = await readFrame(join(output, bank.frames[0].url));
+  const last = await readFrame(join(output, bank.frames.at(-1).url));
+  const placed = measureFrame(await readFrame(join(output, bank.frames[2].url)));
+  const offset = [bank.pivot[0] - 48, bank.pivot[1] - 80];
+  expect(bank.bodyHeightPx).toBe(70);
+  expect(bank.canvasSize[0]).toBeGreaterThan(96);
+  expect(offset.every((n: number) => n % 2 === 0)).toBe(true);
+  expect(placed.borderOpaque).toBe(0);
+  expect(placed.contentWidth).toBeGreaterThan(65);
+  expect(placed.contentHeight).toBe(60);
+  expect(bank.direction).toBe('SE');
+  expect(matchesRest(first, rest, offset)).toBe(true);
+  expect(matchesRest(last, rest, offset)).toBe(true);
+  first.data[((offset[1] + 20) * first.width + offset[0] + 30) * 4] ^= 1;
+  expect(matchesRest(first, rest, offset)).toBe(false);
+  await expect(makeBank({ ...options, facing: 'N', output: join(dir, 'wrong-facing') })).rejects.toThrow('not a shipped N endpoint');
 });
 
 it('promotes a green candidate into the frozen catalog under its lock', async () => {

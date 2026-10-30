@@ -44,7 +44,7 @@ export async function promote(candidate, { catalog = process.env.KINGDOWN_CATALO
     const decoded = await readFrame(path);
     if (decoded.sha256 !== frame.sha256) throw Error(`Frame hash mismatch: ${frame.url}`);
   }
-  const entry = { id: bank.id, character: bank.character, army: bank.army, kind: bank.kind, action: null, direction: bank.facing, from: bank.from, to: bank.to };
+  const entry = { id: bank.id, character: bank.character, army: bank.army, kind: bank.kind === 'movement' ? 'movement-study' : bank.kind, action: null, direction: bank.facing, from: bank.from, to: bank.to };
   if (dryRun) return { dryRun: true, catalog: resolve(catalog), entry, frames: bank.frames.length };
 
   const staging = await mkdtemp(join(folder, '.promote-'));
