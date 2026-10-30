@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import shutil
 import sys
 import tarfile
 import time
@@ -14,7 +15,6 @@ import torch
 import torch.nn.functional as F
 
 ROOT = Path('/kaggle/working')
-SOURCE = Path('/kaggle/input/kd-anim-movement-keys-20261030/movement.tar')
 PART = int(os.environ.get('KD_PART', '0'))
 PARTS = int(os.environ.get('KD_PARTS', '1'))
 MATTE = np.array([32, 42, 37], np.float32) / 255
@@ -108,9 +108,11 @@ try:
     if not torch.cuda.is_available():
         raise RuntimeError('Kaggle GPU is unavailable')
     status['gpu'] = torch.cuda.get_device_name(0)
-    with tarfile.open(SOURCE) as tar:
-        tar.extractall('/tmp', filter='data')
-    data = Path('/tmp/movement')
+    candidates = {p.parent.resolve() for p in Path('/kaggle/input').glob('**/movement/entries.json')}
+    if len(candidates) != 1:
+        raise RuntimeError(f'expected one movement dataset, found {len(candidates)}; input roots: {list(Path("/kaggle/input").iterdir())}')
+    data = candidates.pop()
+    print(f'Movement dataset: {data}', flush=True)
     runtime = data / 'rife'
     status['runtimeManifestSha256'] = sha(runtime / 'manifest.json')
     for f in json.loads((runtime / 'manifest.json').read_text())['files']:
@@ -135,16 +137,20 @@ try:
     status['totalEntries'] = len(entries)
     selected = [(i, e) for i, e in enumerate(entries) if i % PARTS == PART]
     results = []
+    total_gaps = sum(len(entry['frames']) for _, entry in selected)
+    gaps_done = 0
+    inference_started = time.time()
     for index, entry in selected:
         name = f"{index:03d}-{entry['character']}-{entry['army']}-{entry['direction']}-{entry['id']}"
         name = ''.join(c if c.isalnum() or c in '-_' else '-' for c in name)
         dest = Path('/tmp/anim-results') / name
         dest.mkdir(parents=True, exist_ok=True)
         keys = []
-        for f in entry['frames']:
+        for key_index, f in enumerate(entry['frames']):
             path = data / f['file']
             if sha(path) != f['sha256']:
                 raise ValueError(f'key hash mismatch: {path}')
+            shutil.copyfile(path, dest / f'key-{key_index:02d}.png')
             keys.append(pack(path))
         gaps = []
         canvas = Image.new('RGB', (190 * 8, 200 * 2 * len(keys)), 'white')
@@ -171,7 +177,13 @@ try:
                 sheet_tiles(canvas, rows, g, bg_index, bg)
                 draw.text((3, (g * 2 + bg_index) * 200), f'gap {g}: key | RIFE 25 50 75 | FILM 25 50 75 | key', fill='black')
             gaps.append({'gap': g, 'left': g, 'right': (g + 1) % len(keys), 'scores': scores})
+            gaps_done += 1
             print(json.dumps({'entry': index, 'gap': g, 'elapsed': round(time.time() - started)}), flush=True)
+            if PARTS == 1 and gaps_done >= 20:
+                estimate = (time.time() - inference_started) * total_gaps / gaps_done
+                if estimate > 8 * 3600:
+                    status['needsSplit'] = True
+                    raise RuntimeError(f'Estimated {estimate / 3600:.1f} hours; run two parts')
         canvas.save(dest / 'sheet.jpg', quality=90)
         record = {'entry': entry, 'folder': name, 'gaps': gaps}
         (dest / 'scores.json').write_text(json.dumps(record, indent=2) + '\n')
