@@ -34,7 +34,7 @@ try {
    await page.waitForFunction(()=>!view.scene.animating&&!view.pos.board[12]&&view.pos.board[20],null,{timeout:4000});
    assert(Date.now()-start<3500,'move settles with a stalled image');
    const trace=await page.evaluate(()=>prepareTrace);assert(trace.some(s=>s.animating&&!s.body),'legacy body is used after the deadline');
-   const delivered=page.waitForResponse(blockedUrl);release();await delivered;await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,i)=>v===board[i]),original,{timeout:5000});
+   release();await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,i)=>v===board[i]),original,{timeout:5000});
    const previous=await page.evaluate(()=>prepareTrace.length);
    for(const square of [12,20]){const p=await page.evaluate(s=>view.screenOf(s),square);await page.mouse.click(p.x,p.y);}
    await page.waitForFunction(()=>!view.scene.animating&&!view.pos.board[12]&&view.pos.board[20],null,{timeout:5000});
