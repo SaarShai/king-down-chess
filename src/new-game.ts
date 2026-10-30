@@ -2,7 +2,7 @@ import { GameRules } from './game-rules';
 import { MENU_LEVELS, LEVEL_NAMES, LEVEL_LINES, menuLevel, levelPosition, levelSlider } from './level-ui';
 import { POWERS_BALANCED } from './rules/rules';
 /**
- * The New game dialog (index.html #new-game): three suggested games, the computer's level, a king
+ * The New game dialog (index.html #new-game): computer games and an online friend link, the computer's level, a king
  * picker per side and a folded "Army" (Random or Chess). The dialog edits a copy of the next game's setup;
  * Start game hands it to main.ts. Close drops it. Parked (docs/PARKED.md): Today's army, the example and lab
  * armies, Ogre practice, Custom army and "Bring a design"; a remembered setup that names one opens as Random.
@@ -166,7 +166,6 @@ export function newGameDialog(start: (s: Setup) => void, preset: () => Partial<R
   $('level').innerHTML = levelSlider('level-slider');
   $<HTMLInputElement>('level-slider').oninput = event => { draft.level = MENU_LEVELS[+(event.target as HTMLInputElement).value]; render(); };
   for (const r of radios('side')) r.onchange = () => { draft.side = +r.value as Color; render(); };
-  $<HTMLInputElement>('two-powers').onchange = e => { draft = withMode(draft, draft.mode, (e.target as HTMLInputElement).checked); render(); };
   for (const r of radios('army')) r.onchange = () => { draft.army = r.value as Army; render(); };
   $('start-game').onclick = () => start(copy(draft));
 
@@ -175,11 +174,9 @@ export function newGameDialog(start: (s: Setup) => void, preset: () => Partial<R
     $<HTMLInputElement>('level-slider').value = String(levelPosition(draft.level));
     $('level-slider').setAttribute('aria-valuetext', LEVEL_NAMES[draft.level]);
     for (const r of radios('side')) r.checked = +r.value === draft.side;
-    $<HTMLInputElement>('two-powers').checked = draft.twoPowers;
     const two = draft.mode === 'two';
     $('level').hidden = $('level-line').hidden = $('side-choice').hidden = two;
     $('level-line').textContent = LEVEL_LINES[draft.level];
-    $('two-powers-row').hidden = !two;
     $('king-picker').hidden = !powersOn(draft);
     for (const c of [0, 1] as const) {
       const box = $(`pick-${c}`), { king, power } = draft.picks[c];
@@ -199,7 +196,9 @@ export function newGameDialog(start: (s: Setup) => void, preset: () => Partial<R
     }
     for (const r of radios('army')) r.checked = r.value === draft.army;
     $('side-army-label').textContent = 'Army';
-    $('side-army-value').textContent = { random: 'Random army', classic: 'Chess' }[draft.army];
+    const name = { random: 'Random army', classic: 'Chess' }[draft.army];
+    $('side-army-value').textContent = name;
+    $('new-game-summary').replaceChildren(...[name, ...draft.picks.map((p, c) => `${SIDE[c]}: ${powersOn(draft) && p.power ? POWER_NAME[p.power] : 'No power'}.`)].map(text => { const row = document.createElement('span'); row.textContent = text; return row; }));
     $('army-line').textContent = { random: 'A new army for each game.', classic: 'The chess starting army.' }[draft.army];
     const context = new GameRules({ ...(powersOn(draft) ? POWERS_BALANCED : {}), ...preset(), kings: kingsOf(draft) });
     const code = draft.army === 'classic' ? CLASSIC_CHESS : [...new Set(POOL)].join('');

@@ -1,6 +1,6 @@
 import type { ReadRoute } from '../account-game/client';
 
-export type AccountEntryRoute = ReadRoute | { screen: 'join'; key: string | null };
+export type AccountEntryRoute = ReadRoute | { screen: 'new-friend' } | { screen: 'join'; key: string | null };
 
 const GAME = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -14,6 +14,7 @@ function inviteKey(value: string): string | null {
 export function parseAccountRoute(url: URL): AccountEntryRoute | undefined {
   if (!/^https?:$/.test(url.protocol) || url.username || url.password || /[%\\]/.test(url.pathname)) return;
   const path = url.pathname;
+  if (/^\/play\/friend\/?$/.test(path)) return { screen: 'new-friend' };
   if (path === '/play' || path === '/play/') return { screen: 'play' };
   const screen = /^\/play\/(profile|settings)\/?$/.exec(path)?.[1] as 'profile' | 'settings' | undefined;
   if (screen) return { screen };
@@ -29,6 +30,7 @@ export function parseAccountRoute(url: URL): AccountEntryRoute | undefined {
 /** Rebuild a route. No query or unchecked fragment reaches the destination. */
 export function accountPath(route: AccountEntryRoute): string {
   switch (route.screen) {
+    case 'new-friend': return '/play/friend';
     case 'play': return '/play/';
     case 'profile': return '/play/profile';
     case 'settings': return '/play/settings';
