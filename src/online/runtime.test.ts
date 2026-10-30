@@ -13,6 +13,14 @@ function storage() {
 const args = { game_id: '11111111-1111-4111-8111-111111111111', command_id: 'fixed', expected_revision: 5, actions: ['Ra1-a4!H', 'Ra4-e4'] };
 const view = { game_id: args.game_id, revision: 6 } as View;
 
+it.each([false, true])('passes invitation IDs through web Join (preview: %s)', async preview => {
+  const invite_id = 'a'.repeat(64), read = vi.fn(async () => ({ code: '', invite_id })), redeem = vi.fn(async () => view);
+  const transport = createWebTransport({ preview: read, redeem } as unknown as OnlineClient, 'account-a', storage());
+  const result = await transport.call('kingdown_join', { invite_id, preview }, {});
+  expect(preview ? read : redeem).toHaveBeenCalledExactlyOnceWith({ invite_id }, undefined);
+  expect(result._meta).toEqual(preview ? { preview: { code: '', invite_id } } : { view, board_id: view.game_id });
+});
+
 it('persists the full command before sending, then retries the exact input after a lost reply and reload', async () => {
   const saved = storage();
   const command = vi.fn(async () => {
@@ -53,6 +61,81 @@ it('does not send when durable storage fails and clears only a definitive refusa
   const reply = await createWebTransport(api, 'a', saved).call('kingdown_move', args, {});
   expect(reply).toMatchObject({ isError: true, _meta: { code: 'STALE_REVISION' } });
   expect(saved.records.size).toBe(0);
+});
+
+it.each([
+  ['success', 'success'], ['success', 'refusal'],
+  ['refusal', 'success'], ['refusal', 'refusal'],
+] as const)('keeps a newer command after two tabs retry: first %s, late %s', async (firstReply, lateReply) => {
+  const saved = storage(), first = held<{ view: View }>(), late = held<{ view: View }>(), next = held<{ view: View }>();
+  const command = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(late.promise).mockReturnValueOnce(next.promise);
+  const api = { command } as unknown as OnlineClient;
+  const tabA = createWebTransport(api, 'account-a', saved), tabB = createWebTransport(api, 'account-a', saved);
+  const original = tabA.call('kingdown_move', args, {}), retry = tabB.call('kingdown_move', args, {});
+  const complete = (reply: typeof first, outcome: typeof firstReply) => {
+    if (outcome === 'success') reply.resolve({ view });
+    else reply.reject(new OnlineError('STALE_REVISION', 409, 'The game changed'));
+  };
+  await vi.waitFor(() => expect(command).toHaveBeenCalledTimes(2));
+  complete(first, firstReply);
+  expect((await original).isError ?? false).toBe(firstReply === 'refusal');
+  expect(tabA.pending()).toBeUndefined();
+  const newerArgs = { ...args, command_id: 'newer', expected_revision: 6, actions: ['Ra4-a5'] };
+  const newer = tabA.call('kingdown_move', newerArgs, {});
+  const lost = expect(newer).rejects.toThrow('Lost newer reply');
+  try {
+    await vi.waitFor(() => expect(command).toHaveBeenCalledTimes(3));
+    complete(late, lateReply);
+    expect((await retry).isError ?? false).toBe(lateReply === 'refusal');
+    expect(tabB.pending()).toEqual({ name: 'kingdown_move', args: newerArgs });
+  } finally {
+    next.reject(new TypeError('Lost newer reply'));
+    await lost;
+  }
+  expect(createWebTransport(api, 'account-a', saved).pending()).toEqual({ name: 'kingdown_move', args: newerArgs });
+});
+
+it.each(['success', 'refusal'] as const)('locks receipt writes and rechecks ownership on %s', async outcome => {
+  const saved = storage(), response = held<{ view: View }>(), command = vi.fn(() => response.promise);
+  const transport = createWebTransport({ command } as unknown as OnlineClient, 'account-a', saved);
+  const newer = { name: 'kingdown_move', args: { ...args, command_id: 'newer', expected_revision: 6 } };
+  const requestLock = vi.spyOn(navigator.locks, 'request');
+  let call!: ReturnType<typeof transport.call>;
+  try {
+    await navigator.locks.request('kingdown.account-command.account-a', async () => {
+      call = transport.call('kingdown_move', args, {});
+      expect(saved.records.size).toBe(0);
+      expect(command).not.toHaveBeenCalled();
+    });
+    await vi.waitFor(() => expect(command).toHaveBeenCalledOnce());
+    await navigator.locks.request('kingdown.account-command.account-a', async () => {
+      if (outcome === 'success') response.resolve({ view });
+      else response.reject(new OnlineError('STALE_REVISION', 409, 'The game changed'));
+      await vi.waitFor(() => expect(requestLock).toHaveBeenCalledTimes(4));
+      expect(transport.pending()).toEqual({ name: 'kingdown_move', args });
+      // Another tab completes X and saves Y before this clear gets the lock.
+      saved.removeItem('kingdown.account-command.account-a');
+      saved.setItem('kingdown.account-command.account-a', JSON.stringify(newer));
+    });
+    expect((await call).isError ?? false).toBe(outcome === 'refusal');
+    expect(transport.pending()).toEqual(newer);
+  } finally {
+    response.resolve({ view });
+    await call;
+    requestLock.mockRestore();
+  }
+});
+
+it('cancels a command that waits for another tab to release the receipt lock', async () => {
+  const saved = storage(), command = vi.fn(), controller = new AbortController();
+  const transport = createWebTransport({ command } as unknown as OnlineClient, 'account-a', saved);
+  await navigator.locks.request('kingdown.account-command.account-a', async () => {
+    const call = transport.call('kingdown_move', args, { signal: controller.signal });
+    controller.abort(new Error('Page closed'));
+    await expect(call).rejects.toThrow('Page closed');
+  });
+  expect(saved.records.size).toBe(0);
+  expect(command).not.toHaveBeenCalled();
 });
 
 it('uses one stable creation ID and keeps the HTTP game selection local to this page', async () => {

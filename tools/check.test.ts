@@ -35,6 +35,8 @@ function run(names: string[], failBuild = false, shell: Record<string, string> =
   // The default case takes 8.8 s on the M1 with real Git calls. Lock and snapshot tests cover those modules.
   repo.write('tools/lib/lock.mjs', `
     export const SLOTS = 3;
+    export const enterMachineLease = async () => {};
+    export const machineLeaseStdio = stdio => stdio;
     export const runLockPath = () => '';
     export const releaseAll = () => {};
     export const takeLock = async () => () => {};

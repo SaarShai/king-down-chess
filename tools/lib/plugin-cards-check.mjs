@@ -91,11 +91,8 @@ export async function checkCardChoices(page, frame, mount, setup, cards) {
   assert.equal(await grid.locator('img[src*="back.webp"]').count(),0);
   await noLoops(grid);
   await frame.locator('[data-screen="play"] [data-nav="profile"]').click();
-  await frame.locator('[data-screen="profile"] [data-nav="collection"]').click();
-  await frame.locator('#collection-tabs label').filter({hasText:'Cards'}).click();
-  const collection=await frame.locator('#collection-items .card-face').evaluateAll(faces=>faces.map(f=>({card:f.dataset.card,image:!!f.querySelector('.cf-art img'),scene:!!f.querySelector('.cf-art .pm'),picture:!!f.querySelector('.cf-art .card-picture'),name:f.querySelector('b').textContent})));
-  assert.deepEqual(collection,art,'The pool and Collection share art and names');
-  await noLoops(frame.locator('#collection-items'));
+  // The Collection is parked (docs/PARKED.md): the pool is the one place that shows every card face.
+  await frame.locator('[data-screen="profile"]:not([hidden])').waitFor();
   console.log('Cards: inline grid, full card, focus, art, both modes, locks and refresh pass');
 }
 

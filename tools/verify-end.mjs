@@ -157,14 +157,8 @@ try {
   await page.locator('#over').waitFor({ state: 'visible' });
   assert.equal(await page.locator('.kd-words').count(), 0, 'the result hides the board words');
   await page.locator('#over [value=rematch]').click();
-  await page.locator('#new-game').waitFor({ state: 'visible' });
-  assert.equal(await page.locator('#over [value=rematch]').innerText(), 'New game');
-  assert.equal((await lanMoves(page)).length, 5, 'New game keeps the finished local match until Start');
-  await page.locator('#start-game').click();
   await page.clock.runFor(100);
-  assert.deepEqual(await lanMoves(page), [], 'Start begins the next game');
-  const nextPlayers = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('kingdown.save')); return [s.white, s.black]; });
-  assert.deepEqual(nextPlayers, ['human', 'ai'], 'the next game has a computer opponent');
+  assert.deepEqual(await lanMoves(page), [], 'dialog Rematch starts the next game');
   assert.equal(await page.locator('.kd-words').count(), 0, 'Rematch clears the old end');
   assert.equal(await page.locator('#over').isVisible(), false, 'no old result opens on the new game');
   console.log('ok disabled turn button and dialog Rematch');
@@ -203,11 +197,13 @@ try {
   await shot(page, 'ceremony-desktop');
   console.log('ok staged end; Enter skips; one king fall; result focus');
 
+  // Key moments are parked (docs/PARKED.md): Review opens the move list and starts no search.
   await openEndReview(page);
-  assert.ok(await page.locator('#over-moments').textContent(), 'Review starts the key-moment search');
+  await page.waitForTimeout(500);
+  check(await page.locator('#over-moments').textContent(), '', 'Review starts no key-moment search');
   await page.locator('#sheet-moves header button').click();
   await startNewGame(page); await openMoves(page);
-  check(await page.locator('#over-moments').textContent(), '', 'a new game clears the old review data');
+  check(await page.locator('#over-moments').textContent(), '', 'a new game has no review data');
   await page.locator('#sheet-moves header button').click();
 
   await open('4r1k1/8/8/8/8/8/5PPP/R5K1 w - - 0 1', ['Ra1-a7'], 'off', ['human', 'ai']);

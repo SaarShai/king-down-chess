@@ -23,8 +23,8 @@ export function homeState({ game, sides, level, linkSide, staged, result }: Home
   const mine = linkSide != null ? game.pos.turn === linkSide : sides[game.pos.turn] === 'human';
   const finished = !staged && (game.status !== 'playing' || result !== '');
   const you = linkSide ?? (sides[0] === 'human' ? 0 : 1);
-  const twoHumans = sides.every(s => s === 'human');
-  const rematch = twoHumans ? 'Choose your next game.' : `Same army. You play ${you === 0 ? 'Black' : 'White'}.`;
+  // A rematch of a two-person game is against the computer, and the person plays Black (`rematchPlayers`).
+  const rematch = `Same army. You play ${you === 0 ? 'Black' : 'White'}.`;
   const oneDevice = linkSide == null && sides.every(s => s === 'human');
   const side = (staged ? last?.pos.turn ?? game.pos.turn : game.pos.turn) === 0 ? 'White' : 'Black';
   let detail: string;
@@ -35,7 +35,7 @@ export function homeState({ game, sides, level, linkSide, staged, result }: Home
   return {
     opponent: linkSide != null ? 'vs your friend' : sides.every(s => s === 'human') ? 'White vs Black' : `vs Computer · ${LEVEL_NAMES[level]}`,
     progress: finished ? 'Finished' : `Move ${nextMoveNumber(game.history.map(h => h.pos.turn), game.pos.turn)}`,
-    action: finished ? twoHumans ? 'New game' : 'Rematch' : 'Continue',
+    action: finished ? 'Rematch' : 'Continue',
     detail,
     review: finished,
     lastMove: last ? describeMove(game.context, last.pos, last.move, true) : '',
@@ -46,7 +46,7 @@ export function homeState({ game, sides, level, linkSide, staged, result }: Home
 /** The empty start-up save belongs to the first visit. A URL position always opens the game. */
 export function shouldShowHome(params: URLSearchParams, gate: { hasSave: boolean; titleSeen: boolean; firstVisit: boolean }): boolean {
   return gate.hasSave && !gate.titleSeen && !gate.firstVisit && params.get('title') !== '0'
-    && !['army', 'fen', 'design'].some(key => params.has(key));
+    && !['army', 'fen'].some(key => params.has(key)); // an old `?design=` link is a plain visit: the Workshop is parked
 }
 
 /** Today uses the local date and the same draw as New game. */

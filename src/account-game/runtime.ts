@@ -1,6 +1,6 @@
 import { acceptedView, createHall, createHallMemory } from '../account-game/hall';
 import type { PageHost, ReadRoute } from '../account-game/client';
-import { decorateFriendRows, syncFriendInvites } from '../plugin/invite';
+import { decorateFriendRows, friendInvites, inviteLink, syncFriendInvites } from '../plugin/invite';
 import { runtimeHost, type RuntimeContext } from './host';
 import type { PlayerSettings } from '../plugin/settings';
 
@@ -27,7 +27,6 @@ import { lobbyPoll, lobbyScreen, lobbySync } from '../plugin/screens/lobby';
 import { finishSeat, seatScreen, seatSync } from '../plugin/screens/seat';
 import { endPoll, endSync, endScreen } from '../plugin/screens/end';
 import { profileScreen } from '../plugin/screens/profile';
-import { collectionScreen } from '../plugin/screens/collection';
 import '../plugin/app.css';
 import '../account-game/content.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
@@ -72,7 +71,7 @@ const router = createRouter(call, navigate, next => {
   return true;
 });
 export const { routeView, start } = router;
-const screens = { play: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen, collection: collectionScreen };
+const screens = { play: setupScreen, friend: friendScreen, join: joinScreen, wait: waitScreen, lobby: lobbyScreen, seat: seatScreen, end: endScreen, profile: profileScreen };
 export const memory = { ...createHallMemory(), dirty: false, kind: 'solo' as 'solo' | 'friend' | 'random', code: '', blockNotice: '', settings: undefined as PlayerSettings | undefined, me: undefined as { handle: string | null; icon: Icon | null } | undefined, preview: undefined as JoinPreview | undefined, joinError: undefined as { code: string; message: string } | undefined, get view() { return view; } };
 let enterRead: ((route: ReadRoute) => void) | undefined;
 const pageHost: PageHost = {
@@ -113,7 +112,6 @@ export function actions() {
   for (const id of ['setup-start', 'hall-play', 'games-start', 'wait-computer', 'find-opponent']) $<HTMLButtonElement>(id).disabled = lock.start || setupStarting();
   // The handoff's Choose and Get are steps of its start: their Retry or Try again on wait also locks its start.
   if (lock.game) $<HTMLButtonElement>('wait-computer').disabled = true;
-  $<HTMLInputElement>('join-code').disabled = lock.blocked;
   $<HTMLInputElement>('handle').disabled = lock.blocked;
   homeActions();
   for (const [id] of TOGGLES) $<HTMLInputElement>(id).disabled = lock.blocked || !memory.settings;
@@ -324,7 +322,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       if (name === 'kingdown_handle' && queue.current(job)) { followup = nameForCaller ? undefined : state.pending; if (followup) followup.error = followup.error_screen = undefined; if (queue.current(job)) navigate(followup?.screen ?? handleBack); }
       // An older job never routes. A poll reply routes only between the game screens of the shown game (design §1.2).
       if (shown && received && queue.current(job) && (route ?? SELECTION_TOOLS.includes(name)) && (!quiet || POLL_SCREENS.includes(state.screen))) routeView(received);
-      if (name === 'kingdown_invite' && queue.current(job)) { const { code } = result.structuredContent as { code: string }; $('invitation').textContent = `Share this code: ${code}`; }
+      if (name === 'kingdown_invite' && queue.current(job)) $('invitation').textContent = `Share this invite link: ${inviteLink(result.structuredContent as { code: string; url?: string })}`;
       // A reload preserves the command receipt; retry still uses its original ID.
       if (retain) state.pending = undefined;
       client.save();
@@ -373,6 +371,8 @@ function remember(result: ToolResult, job?: Job) {
     if (me.handle !== before?.handle || me.icon !== before?.icon) renderIdentity();
   }
   if (job && !queue.current(job)) return;
+  const current = result._meta?.view as View | undefined, invite = result._meta?.invite as View['invite'];
+  if (current && invite) friendInvites.set(current.game_id, invite);
   if (Array.isArray(result._meta?.games)) hall.acceptGames(result._meta.games as typeof memory.games);
   const value = result.structuredContent as Record<string, unknown> | undefined;
   if (value && typeof value.your_turn_count === 'number') turnLine(value.your_turn_count);
@@ -550,6 +550,7 @@ function scrollNewGame() {
 }
 /** `queued` is the screen that waits behind the home card; it is set before the page syncs, so its memory stays. */
 export function navigate(screen: Screen, queued?: Screen) {
+  if (screen === 'collection') screen = 'profile'; // the Collection is parked (docs/PARKED.md): a saved page opens Profile
   const enteringPlay = screen === 'play' && state.screen !== 'play';
   const keepBack = keepHandleBack; keepHandleBack = queued === 'handle';
   if (screen === 'handle' && state.screen !== 'handle' && !keepBack) { handleBack = state.handle_back = state.screen === 'settings' ? 'settings' : state.pending?.screen ?? state.screen; nameForCaller = state.name_for_caller = false; }

@@ -51,7 +51,7 @@ has a result; each failure has a parent comparison; the merge commit exists.
 - The quiet lock is absent before the browser run. Commands run one at a time.
 - The local `ui_approved_merge_1026_test` database uses port 55432 and the
   `kingdown_test` user. All 22 migrations run twice. The database is dropped.
-- The task output folder is `sol-1026` in the session scratch folder.
+- The task output is in the session scratch folder.
   It holds `play-merge.log`, `docs-merge.log` and `browser-merge.log`.
   Browser detail logs are in `kingdown-check-runs/ui-approved-merge-WKejtz`.
 - Scope limits: no full suite or `plugin-ui` run. The known PR #154 layout

@@ -51,7 +51,8 @@ it('offers Rematch and review after the game ends', () => {
   expect(state(game, { result: 'Black wins by checkmate' })).toMatchObject({
     action: 'Rematch', detail: 'Same army. You play Black.', progress: 'Finished', review: true, result: 'Black wins by checkmate',
   });
-  expect(state(game, { sides: ['human', 'human'], result: 'Black wins by checkmate' })).toMatchObject({ action: 'New game', detail: 'Choose your next game.', review: true });
+  // Pass-and-play is parked: the rematch of a two-person game is against the computer, with the person as Black.
+  expect(state(game, { sides: ['human', 'human'], result: 'Black wins by checkmate' }).detail).toBe('Same army. You play Black.');
   const live = new Game('RNBQKBNR');
   live.playLan(['e2-e4']);
   expect(state(live, { sides: ['ai', 'human'], result: 'Black resigns — White wins' })).toMatchObject({
@@ -71,9 +72,10 @@ it('opens Home once for a save and keeps position links clear', () => {
   expect(shouldShowHome(new URLSearchParams(), { ...gate, hasSave: false })).toBe(false);
   expect(shouldShowHome(new URLSearchParams(), { ...gate, titleSeen: true })).toBe(false);
   expect(shouldShowHome(new URLSearchParams(), { ...gate, firstVisit: true })).toBe(false);
-  for (const query of ['title=0', 'army=QRNAKBBS', 'army=QRNAKBBS&moves=e2-e4', 'fen=position', 'design=piece']) {
+  for (const query of ['title=0', 'army=QRNAKBBS', 'army=QRNAKBBS&moves=e2-e4', 'fen=position', 'army=QRNAKBBS&moves=e2-e4&design=piece']) {
     expect(shouldShowHome(new URLSearchParams(query), gate), query).toBe(false);
   }
+  expect(shouldShowHome(new URLSearchParams('design=piece'), gate), 'an old Workshop link (parked)').toBe(true);
 });
 
 it('shows the local day and the real Today army', () => {

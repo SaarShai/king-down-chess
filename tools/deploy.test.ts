@@ -1,8 +1,9 @@
 // Deploy script test (secrets-and-public-gates/09). Each case runs the real tools/deploy.sh in a
-// temporary repository with a bare remote. Stub `npm` and `npx` on PATH write each call to a log,
-// with the commit and the folder of the call. The browser-check runner is `npm run check:browser`,
-// so the `npm` stub also logs the runner. Origin/main holds a stub `tools/wt.sh`, because the deploy
-// script calls the `wt` of the commit that it tests; the stub logs `wt add <path>`.
+// temporary repository with a bare remote. Stub `npm`, `npx` and `node` on PATH write each call to a
+// log, with the commit and the folder of the call. The browser-check runner is `node tools/check.mjs`,
+// so the `node` stub also logs the runner. Origin/main holds a stub `tools/wt.sh` and a stub
+// `tools/test-lock.sh`, because the deploy script calls the tools of the commit that it tests; the
+// stubs log `wt add <path>` and `test-lock.sh bash tools/test-unlocked.sh`.
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -14,11 +15,13 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.setConfig({ testTimeout: 60_000 }); // each case runs a real script or hook in a child process; under load one takes more than vitest's 5 s
 import { tempRepo } from './lib/temp-repo.mjs';
+import { PARKED_PATHS } from './chatgpt-plugin.mjs';
 
 const script = fileURLToPath(new URL('./deploy.sh', import.meta.url));
 const liveCheck = fileURLToPath(new URL('./deploy-live-check.mjs', import.meta.url));
 const keepAssets = fileURLToPath(new URL('./deploy-keep-assets.mjs', import.meta.url));
 const pluginLiveCheck = fileURLToPath(new URL('./deploy-plugin-live-check.mjs', import.meta.url));
+const pluginSwitch = fileURLToPath(new URL('./chatgpt-plugin.mjs', import.meta.url));
 const siteProject = { projectId: 'prj_SiteTest', orgId: 'team_mIlANWWDRbX1NT4jgJn9jAna', projectName: 'kingdown' };
 const enginesDatabase = 'postgresql://kingdown_plugin_runtime.utqzovjmclfyojedmwok:fake-engines-password@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require';
 const productionSupabase = 'https://utqzovjmclfyojedmwok.supabase.co', stagingSupabase = 'https://puhspsyjyzaghmgtkzqd.supabase.co';
@@ -42,11 +45,20 @@ function setup() {
   const log = join(repo.root, 'calls.log');
   const started = join(repo.root, 'started');
   const record = `echo "$(basename "$0") $* @ $(git rev-parse HEAD 2>/dev/null) in $(pwd -P) with $(ls | tr '\\n' ' ')" >> "${log}"`;
+  // STUB_FAIL=<word> makes a call that holds that argument fail; STUB_HANG=<word> makes it wait.
+  const holds = (name: string) => `[ -n "$${name}" ] && case " $* " in *" $${name} "*) true;; *) false;; esac`;
+  const behave = [
+    record,
+    `if ${holds('STUB_HANG')}; then touch "${started}"; sleep 30; fi`,
+    `if ${holds('STUB_FAIL')}; then exit 1; fi`,
+  ];
   mkdirSync(join(repo.dir, 'tools'));
   stub(join(repo.dir, 'tools', 'wt.sh'), [record, '[ -z "$STUB_LINK_MODULES" ] || ln -s "$STUB_LINK_MODULES" node_modules']);
+  stub(join(repo.dir, 'tools', 'test-lock.sh'), behave);
   cpSync(liveCheck, join(repo.dir, 'tools', 'deploy-live-check.mjs'));
   cpSync(keepAssets, join(repo.dir, 'tools', 'deploy-keep-assets.mjs'));
   cpSync(pluginLiveCheck, join(repo.dir, 'tools', 'deploy-plugin-live-check.mjs'));
+  cpSync(pluginSwitch, join(repo.dir, 'tools', 'chatgpt-plugin.mjs'));
   repo.write('vercel.json', readFileSync(fileURLToPath(new URL('../vercel.json', import.meta.url)), 'utf8'));
   repo.write('app.txt', 'one\n');
   repo.git('add', '.');
@@ -66,17 +78,10 @@ function setup() {
     `case "$(pwd -P)" in "${repo.root}"/*) if [ "$1" = fetch ]; then url=$("${realGit}" config --get remote.origin.url) && exec "${realGit}" -c "url.${repo.remote}.insteadOf=$url" "$@"; fi ;; esac`,
     `exec "${realGit}" "$@"`,
   ]);
-  // STUB_FAIL=<word> makes a call that holds that argument fail; STUB_HANG=<word> makes it wait.
-  const holds = (name: string) => `[ -n "$${name}" ] && case " $* " in *" $${name} "*) true;; *) false;; esac`;
-  const behave = [
-    record,
-    `if ${holds('STUB_HANG')}; then touch "${started}"; sleep 30; fi`,
-    `if ${holds('STUB_FAIL')}; then exit 1; fi`,
-  ];
   stub(join(bin, 'npm'), [...behave,
-    'if [ "$1 $2" = "run check:browser" ] && [ $# -eq 2 ] && [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST" dist; fi',
     'if [ "$1 $2" = "run plugin:build:vercel" ]; then mkdir -p plugin-deploy/.vercel/output/functions/mcp.func; printf "consent-v1" > plugin-deploy/.vercel/output/functions/mcp.func/consent.mjs; fi',
-    `if [ "$1 $2" = "run build:vercel" ]; then mkdir -p kingdown-deploy/.vercel/output/functions/mcp.func kingdown-deploy/.vercel/output/static; printf "consent-v1" > kingdown-deploy/.vercel/output/functions/mcp.func/consent.mjs; printf '{"version":3}\n' > kingdown-deploy/.vercel/output/config.json; if [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST/." kingdown-deploy/.vercel/output/static; else printf page > kingdown-deploy/.vercel/output/static/index.html; printf worker > kingdown-deploy/.vercel/output/static/sw.js; fi; fi`,
+    // The site build parks the ChatGPT plugin (tools/chatgpt-plugin.mjs): its function has no consent script.
+    `if [ "$1 $2" = "run build:vercel" ]; then mkdir -p kingdown-deploy/.vercel/output/functions/mcp.func kingdown-deploy/.vercel/output/static; printf '{"version":3}\n' > kingdown-deploy/.vercel/output/config.json; if [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST/." kingdown-deploy/.vercel/output/static; else printf page > kingdown-deploy/.vercel/output/static/index.html; printf worker > kingdown-deploy/.vercel/output/static/sw.js; fi; fi`,
     // The build copies the committed engine archives; STUB_TAMPER_ENGINE changes them, STUB_STAGING_MANIFEST adds the staging manifest.
     'if [ "$1 $2" = "run build:vercel" ] && [ -d engines ]; then mkdir -p kingdown-deploy/.vercel/output/functions/mcp.func/runtime/engines; cp engines/*.mjs kingdown-deploy/.vercel/output/functions/mcp.func/runtime/engines/; if [ -n "$STUB_TAMPER_ENGINE" ]; then for f in kingdown-deploy/.vercel/output/functions/mcp.func/runtime/engines/*.mjs; do printf x >> "$f"; done; fi; fi',
     'if [ "$1 $2" = "run build:vercel" ] && [ -n "$STUB_STAGING_MANIFEST" ]; then printf "{}" > kingdown-deploy/.vercel/output/staging.json; fi',
@@ -86,11 +91,12 @@ function setup() {
   stub(join(bin, 'node'), [
     `case "$1" in */deploy-plugin-live-check.mjs) ${record}; exec "${process.execPath}" "$1" "$2" "\${STUB_PLUGIN_ORIGIN:-$DEPLOY_LIVE_URL}" ;; esac`,
     `case "$1" in tools/engines-check.mjs) ${behave.join('; ')}; exit 0 ;; esac`,
+    `case "$1" in tools/check.mjs) ${behave.join('; ')}; if [ $# -eq 1 ] && [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST" dist; fi; exit 0 ;; esac`,
     `exec "${process.execPath}" "$@"`,
   ]);
   stub(join(bin, 'npx'), [...behave,
     `case " $* " in *" link --project kingdown-plugin "*) project='${JSON.stringify(pluginProject)}' ;; *" link --project kingdown "*) project='${JSON.stringify(siteProject)}' ;; esac; if [ -n "$project" ]; then mkdir -p .vercel; [ -z "$STUB_PROJECT" ] || project="$STUB_PROJECT"; printf "%s\\n" "$project" > .vercel/project.json; fi`,
-    'case " $* " in *" deploy --prebuilt --prod "*) if [ "$(basename "$PWD")" = kingdown ]; then test -f .vercel/output/config.json && test -f .vercel/output/functions/mcp.func/consent.mjs && cmp -s "$STUB_DIST/index.html" .vercel/output/static/index.html || exit 1; fi ;; esac',
+    'case " $* " in *" deploy --prebuilt --prod "*) if [ "$(basename "$PWD")" = kingdown ]; then test -f .vercel/output/config.json && test -d .vercel/output/functions/mcp.func && cmp -s "$STUB_DIST/index.html" .vercel/output/static/index.html || exit 1; fi ;; esac',
     // STUB_PUBLISH_DIR: the fake CLI puts the published static tree there, as the live site after the switch.
     'case " $* " in *" deploy --prebuilt --prod "*) if [ -n "$STUB_PUBLISH_DIR" ]; then rm -rf "$STUB_PUBLISH_DIR" && cp -R .vercel/output/static "$STUB_PUBLISH_DIR"; fi ;; esac',
     'case " $* " in *" env add "*) cat > "$STUB_ENV_DIR/$5" ;; esac',
@@ -309,8 +315,8 @@ describe('deploy.sh', () => {
     repo.git('config', 'remote.origin.fetch', '+refs/heads/other:refs/remotes/origin/main');
     const result = deploy();
     expect(result.status, result.stderr).toBe(0);
-    const npmTest = calls().find(line => line.startsWith('npm test '))?.replace(/ with .*/, '');
-    expect(npmTest).toBe(`npm test @ ${main} in ${worktreeOf(result.stdout)}`);
+    const npmTest = calls().find(line => line.startsWith('test-lock.sh '))?.replace(/ with .*/, '');
+    expect(npmTest).toBe(`test-lock.sh bash tools/test-unlocked.sh @ ${main} in ${worktreeOf(result.stdout)}`);
   });
 
   it('sets only the seven plugin values through stdin and prints none of their values', () => {
@@ -391,11 +397,11 @@ describe('deploy.sh', () => {
     expect(result.status, result.stderr).toBe(0);
     const path = worktreeOf(result.stdout);
     expect(calls().map(line => line.replace(/ @ .*/, ''))).toEqual([
-      `wt.sh add ${path}`, 'npm run plugin:db:init-test', 'npm test',
+      `wt.sh add ${path}`, 'npm run plugin:db:init-test', 'test-lock.sh bash tools/test-unlocked.sh',
       'npm run plugin:build:vercel',
       'npm run plugin:server:check -- plugin-deploy/.vercel/output/functions/mcp.func',
       'npm run plugin:smoke', 'npm run plugin:check:protocol',
-      'npm run check:browser plugin-oauth plugin-ui plugin-ui-http',
+      'node tools/check.mjs plugin-oauth plugin-ui plugin-ui-http',
     ]);
     expect(result.stdout).toContain('published nothing');
     expect(result.stdout).toContain('KINGDOWN_ENGINES_DATABASE_URL is not set; skipped the check of engines in use');
@@ -434,7 +440,7 @@ describe('deploy.sh', () => {
     expectGone(repo, worktreeOf(result.stdout));
   });
 
-  it.each(['plugin:db:init-test', 'test', 'plugin:build:vercel', 'plugin:server:check', 'plugin:smoke', 'plugin:check:protocol', 'plugin-ui'])('stops the failed plugin gate %s before publication', fail => {
+  it.each(['plugin:db:init-test', 'tools/test-unlocked.sh', 'plugin:build:vercel', 'plugin:server:check', 'plugin:smoke', 'plugin:check:protocol', 'plugin-ui'])('stops the failed plugin gate %s before publication', fail => {
     const { repo, deploy, calls } = setup();
     const result = deploy(['--target', 'plugin', '--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_FAIL: fail });
     expect(result.status, fail).not.toBe(0);
@@ -442,7 +448,7 @@ describe('deploy.sh', () => {
     expectGone(repo, worktreeOf(result.stdout));
   });
 
-  it.each(['plugin:db:init-test', 'test', 'check:browser', 'build:vercel', 'check:vercel', 'plugin:check:protocol', 'plugin-ui'])('stops the failed site gate %s before publication', fail => {
+  it.each(['plugin:db:init-test', 'tools/test-unlocked.sh', 'tools/check.mjs', 'build:vercel', 'check:vercel', 'web-online'])('stops the failed site gate %s before publication', fail => {
     const { repo, deploy, calls } = setup();
     const result = deploy(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_FAIL: fail });
     expect(result.status, fail).not.toBe(0);
@@ -465,8 +471,8 @@ describe('deploy.sh', () => {
     const result = deploy();
     expect(result.status, result.stderr).toBe(0);
     const path = worktreeOf(result.stdout);
-    const npmTest = calls().find(line => line.startsWith('npm test '))?.replace(/ with .*/, '');
-    expect(npmTest).toBe(`npm test @ ${fresh} in ${path}`);
+    const npmTest = calls().find(line => line.startsWith('test-lock.sh '))?.replace(/ with .*/, '');
+    expect(npmTest).toBe(`test-lock.sh bash tools/test-unlocked.sh @ ${fresh} in ${path}`);
   });
 
   it('checks the combined tree and every release gate on fresh origin/main before publication', () => {
@@ -477,12 +483,11 @@ describe('deploy.sh', () => {
     expect(calls().map(line => line.replace(/ @ .*/, ''))).toEqual([
       `wt.sh add ${path}`,
       'npm run plugin:db:init-test',
-      'npm test',
-      'npm run check:browser',
+      'test-lock.sh bash tools/test-unlocked.sh',
+      'node tools/check.mjs',
       'npm run build:vercel',
       'npm run check:vercel',
-      'npm run plugin:check:protocol',
-      'npm run check:browser plugin-ui plugin-ui-http',
+      'node tools/check.mjs web-online',
     ]);
   });
 
@@ -509,15 +514,15 @@ describe('deploy.sh', () => {
 
   it('stops at a failed npm test with a non-zero exit, names the step, and does not call the runner', () => {
     const { deploy, calls } = setup();
-    const result = deploy([], { STUB_FAIL: 'test' });
+    const result = deploy([], { STUB_FAIL: 'tools/test-unlocked.sh' });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('FAIL at npm test');
-    expect(calls().map(line => line.replace(/ @ .*/, ''))).not.toContain('npm run check:browser');
+    expect(calls().map(line => line.replace(/ @ .*/, ''))).not.toContain('node tools/check.mjs');
   });
 
   it('stops at a failed browser check with a non-zero exit and names the step', () => {
     const { deploy } = setup();
-    const result = deploy([], { STUB_FAIL: 'check:browser' });
+    const result = deploy([], { STUB_FAIL: 'tools/check.mjs' });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('FAIL at browser checks');
     expect(result.stdout).not.toMatch(/checks passed/);
@@ -528,14 +533,14 @@ describe('deploy.sh', () => {
     const pass = deploy();
     expect(pass.status, pass.stderr).toBe(0);
     expectGone(repo, worktreeOf(pass.stdout));
-    const fail = deploy([], { STUB_FAIL: 'test' });
+    const fail = deploy([], { STUB_FAIL: 'tools/test-unlocked.sh' });
     expect(fail.status).not.toBe(0);
     expectGone(repo, worktreeOf(fail.stdout));
   });
 
   it('removes its worktree and folder after a SIGINT during npm test', async () => {
     const { repo, env, started } = setup();
-    const child = spawn(script, [], { cwd: repo.dir, env: { ...repo.env, ...env, STUB_HANG: 'test' }, detached: true });
+    const child = spawn(script, [], { cwd: repo.dir, env: { ...repo.env, ...env, STUB_HANG: 'tools/test-unlocked.sh' }, detached: true });
     let stdout = '';
     child.stdout.on('data', chunk => { stdout += chunk; });
     child.stderr.on('data', () => {});
@@ -1018,15 +1023,17 @@ describe('deploy-keep-assets.mjs', () => {
 });
 
 async function pluginSite(fault = '', files?: Record<string, string> | (() => Record<string, string>)) {
-  const requests: { path: string; cookie?: string; authorization?: string }[] = [];
+  const requests: { path: string; method?: string; cookie?: string; authorization?: string }[] = [];
   let url = '';
   const server = createServer((req, res) => {
     const path = req.url ?? '/';
-    requests.push({ path, cookie: req.headers.cookie, authorization: req.headers.authorization });
+    requests.push({ path, method: req.method, cookie: req.headers.cookie, authorization: req.headers.authorization });
     res.setHeader('set-cookie', 'visit=1; Path=/');
     const served = typeof files === 'function' ? files() : files;
     const file = served?.[path === '/' ? 'index.html' : path.slice(1)];
     if (file !== undefined) { res.setHeader('content-type', contentType(path)); res.end(file); }
+    // parked: the live site without the ChatGPT plugin (tools/chatgpt-plugin.mjs) answers 404 for each plugin path.
+    else if (fault === 'parked') { if (!(served && siteRoute(req, res, path, served, 'closed'))) res.writeHead(404).end(); }
     else if (path === '/.well-known/oauth-protected-resource/mcp' || path === '/.well-known/oauth-protected-resource') {
       if (fault === 'metadata-root' && path === '/.well-known/oauth-protected-resource') { res.writeHead(404).end(); return; }
       res.setHeader('content-type', 'application/json');
@@ -1062,6 +1069,26 @@ function pluginFolder() {
 }
 
 describe('deploy-plugin-live-check.mjs', () => {
+  const parkedFolder = () => { const folder = join(buildFolder({}), 'functions/mcp.func'); mkdirSync(folder, { recursive: true }); return folder; };
+  const parkedRequests = [...PARKED_PATHS, '/plugin-art/deploy-check-0000.webp'].flatMap(path => [`GET ${path}`, `POST ${path}`]).sort();
+
+  it('checks that each parked plugin path answers 404 when the build has no consent script', async () => {
+    const live = await pluginSite('parked');
+    const result = await runAsync(process.execPath, [pluginLiveCheck, parkedFolder(), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('ChatGPT plugin parked');
+    expect(live.requests.map(request => `${request.method} ${request.path}`).sort()).toEqual(parkedRequests);
+    expect(live.requests.every(request => !request.cookie && !request.authorization)).toBe(true);
+  });
+
+  it('rejects a parked build while the live site still serves the plugin', async () => {
+    const live = await pluginSite();
+    const result = await runAsync(process.execPath, [pluginLiveCheck, parkedFolder(), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('plugin-live-check: FAIL');
+    expect(live.requests.some(request => request.method === 'POST' && request.path === '/mcp')).toBe(true);
+  });
+
   it('checks discovery, an unsigned challenge and the built consent script without account credentials', async () => {
     const live = await pluginSite();
     const result = await runAsync(process.execPath, [pluginLiveCheck, buildFolder({ 'consent.mjs': 'consent-v1' }), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
@@ -1124,11 +1151,11 @@ describe('deploy.sh --publish', () => {
   it('after the checks, publishes the tested build with the pinned Vercel CLI and confirms the live site', async () => {
     const { repo, deployAsync, calls } = setup();
     const files = pages(), published = liveFolder(files);
-    const live = await pluginSite('', () => tree(published));
+    const live = await pluginSite('parked', () => tree(published));
     const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), STUB_PUBLISH_DIR: published, DEPLOY_LIVE_URL: live.url, DEPLOY_LIVE_TIMEOUT_MS: '900000' });
     expect(result.status, result.stderr).toBe(0);
     const log = calls().map(words);
-    const runner = log.indexOf('npm run check:browser');
+    const runner = log.indexOf('node tools/check.mjs');
     const engines = log.indexOf('node tools/engines-check.mjs --production kingdown-deploy/.vercel/output/functions/mcp.func/runtime/engines');
     expect(engines).toBeGreaterThan(log.indexOf('npm run build:vercel'));
     expect(result.stdout).not.toContain('skipped the check of engines in use');
@@ -1172,7 +1199,7 @@ describe('deploy.sh --publish', () => {
 
   it('a failed check stops the script before the npx call', async () => {
     const { repo, deployAsync, calls } = setup();
-    for (const fail of ['test', 'run']) {
+    for (const fail of ['tools/test-unlocked.sh', 'run']) {
       const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_FAIL: fail, STUB_DIST: buildFolder(pages()) });
       expect(result.status).not.toBe(0);
       expect(npxCalls(calls())).toEqual([]);
@@ -1206,7 +1233,7 @@ describe('deploy.sh --publish', () => {
     const files = pages(), old = oldBuild(), oldFiles = Object.keys(old).filter(name => name.includes('-Old'));
     // The live site serves the old build until the fake CLI puts the publish copy in its place.
     const published = liveFolder(old);
-    const live = await pluginSite('', () => tree(published));
+    const live = await pluginSite('parked', () => tree(published));
     const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), STUB_PUBLISH_DIR: published, DEPLOY_LIVE_URL: live.url });
     expect(result.status, result.stderr).toBe(0);
     const steps = [...result.stdout.matchAll(/^deploy: step (.+)$/gm)].map(match => match[1]);

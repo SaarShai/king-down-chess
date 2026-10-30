@@ -78,6 +78,51 @@ async function mounted() {
   return app;
 }
 
+it.each(['board', 'chat'])('keeps the invitation from %s Create before friend screen entry', async source => {
+  const app = await mounted(), { friendInvites } = await import('./invite');
+  const invite = { token: 'private-token', code: 'ABC234', invite_id: 'a'.repeat(64), expires_at: new Date(Date.now() + 60_000).toISOString() };
+  const waiting = { ...await waitingGame(), kind: 'friend', invite_id: invite.invite_id, invite } as View;
+  const created = { content: [], structuredContent: { screen: 'board', game_id: waiting.game_id }, _meta: { view: waiting, invite, board_id: 'board-a' } };
+  const link = vi.spyOn(document.getElementById('friend-link')!, 'replaceChildren');
+  transport.call.mockClear();
+  transport.call.mockImplementation(async ({ name }) => name === 'kingdown_create' ? created : name === 'kingdown_get'
+    ? { content: [], _meta: { view: { ...waiting, invite: undefined } } } : name === 'kingdown_invite'
+      ? { isError: true, content: [{ type: 'text', text: 'Too many invitation requests.' }], _meta: { code: 'RATE_LIMITED' } }
+      : { content: [], _meta: { games: [] } });
+  if (source === 'board') await app.send('kingdown_create', { kind: 'friend', command_id: 'create-once' }, { retain: true });
+  else transport.instance.ontoolresult(created);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(friendInvites.get(waiting.game_id)).toEqual(invite);
+  expect(app.client.state.screen).toBe('friend');
+  // Code tiles are parked (docs/PARKED.md): the screen shows the invite link, which holds the code.
+  expect(link.mock.calls.at(-1)).toEqual([expect.objectContaining({ textContent: `/j#${invite.code}` })]);
+  expect(document.getElementById('friend-actions')!.hidden).toBe(false);
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_invite')).toHaveLength(0);
+});
+
+it('does not renew an invitation when a Create retry returns no code', async () => {
+  const app = await mounted(), { friendInvites } = await import('./invite');
+  const waiting = { ...await waitingGame(), kind: 'friend', invite_id: 'a'.repeat(64) } as View;
+  let creates = 0;
+  transport.call.mockClear();
+  transport.call.mockImplementation(async ({ name }) => {
+    if (name === 'kingdown_create') {
+      if (++creates === 1) throw new Error('Lost Create reply');
+      return { content: [], structuredContent: { screen: 'board', game_id: waiting.game_id }, _meta: { view: waiting, board_id: 'board-a' } };
+    }
+    if (name === 'kingdown_get') return { content: [], _meta: { view: waiting } };
+    return { content: [], _meta: { games: [] } };
+  });
+  await app.send('kingdown_create', { kind: 'friend', command_id: 'lost-create' }, { retain: true });
+  expect(app.client.state.pending?.error).toContain('Lost Create reply');
+  document.getElementById('retry')!.onclick!({} as any); await vi.advanceTimersByTimeAsync(0);
+  expect(creates).toBe(2);
+  expect(app.client.state.screen).toBe('friend');
+  expect(friendInvites.has(waiting.game_id)).toBe(false);
+  expect(document.getElementById('friend-new')!.hidden).toBe(false);
+  expect(transport.call.mock.calls.filter(([input]) => input.name === 'kingdown_invite')).toHaveLength(0);
+});
+
 it.each(['FRIEND_GAME_LIMIT', 'FRIEND_INVITE_LIMIT', 'OPEN_INVITE_LIMIT', 'NOT_ALLOWED'])('clears the pending start after a definitive %s', async code => {
   const app = await mounted();
   (window as any).openai.pendingScope = 'account';
@@ -1285,10 +1330,10 @@ it.each(['valid', 'expired', 'absent'] as const)('keeps the friend row decoratio
   app.memory.games = [{ ...game, status: 'waiting', kind: 'friend' } as any]; app.renderGameRows();
   expect(button.replaceWith).toHaveBeenCalledTimes(kind === 'valid' ? 1 : 0);
   if (kind === 'valid') {
-    expect(line.prepend).toHaveBeenCalledWith('K7QX2M · ');
-    const share = made.find(el => el.textContent === 'Share'); expect(share.setAttribute).toHaveBeenCalledWith('aria-label', 'Share game K7QX2M');
+    expect(line.prepend).not.toHaveBeenCalled(); // the row shows no code (code tiles are parked)
+    const share = made.find(el => el.textContent === 'Share'); expect(share.setAttribute).toHaveBeenCalledWith('aria-label', 'Share the invite link');
     const send = vi.fn(async () => {}); vi.stubGlobal('navigator', { share: send }); share.onclick(); await vi.advanceTimersByTimeAsync(0);
-    expect(send).toHaveBeenCalledExactlyOnceWith({ text: 'Join King Down game K7QX2M. Rules: Standard pieces.' });
+    expect(send).toHaveBeenCalledExactlyOnceWith({ text: 'Join my King Down game: /j#K7QX2M Rules: Standard pieces.' });
   }
   vi.restoreAllMocks(); friendInvites.clear();
 });

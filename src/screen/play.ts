@@ -16,18 +16,15 @@ import { GameRules } from '../game-rules';
 import type { BoardView } from '../render/PaintedView';
 import { momentKind } from '../moment';
 import { setSound, snd } from '../render/sfx';
-import { Color, Move, NAMES, PieceType, Position, S, colorOf, file as fileOf, findKing, parseRule, sqName, typeOf, type Rules } from '../rules/engine';
+import { Color, Move, NAMES, PieceType, Position, S, colorOf, file as fileOf, findKing, sqName, typeOf, type Rules } from '../rules/engine';
 import { toFen } from '../rules/setup';
 import { LESSONS } from '../lessons';
-import { progress, recordLesson } from '../lesson-shelf-ui';
-import { lessonShelf } from '../lesson-shelf';
-import { POWER_TAG, autoQueen, hintMoves, offered } from '../powers-ui';
-import { dialogSetup, kingsOf, newGameWarning, playersOf, withDesign, type Setup } from '../new-game';
-import { worthOf } from '../workshop/judge';
+import { recordLesson } from '../lesson-store';
+import { POWER_TAG, autoQueen, offered } from '../powers-ui';
+import { PARKED_LINK_NOTICE, kingsOf, newGameWarning, parkedLinkPlayers, playersOf, rematchPlayers, type Setup } from '../new-game';
 import { pieceIcon } from '../piece-icons';
 import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, stagedPlies, turnEnded, turnLine, turnOf } from '../turn';
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from '../turn-controls';
-import { awardTurnSeals } from '../ui/tricks';
 import { readPiece, refreshTable, renderTable } from '../ui/table';
 import { clearCoinRead, initCoins, refreshCoins } from '../ui/powers';
 import { reviewStep } from '../review';
@@ -53,7 +50,7 @@ export const isSide = (v: unknown): v is Side => v === 'human' || v === 'ai';
  */
 export function connectPlay(view: BoardView, c: {
   params: URLSearchParams;
-  /** The `?rules=` preset, if any. */
+  /** The `?rules=` preset, if any. A saved game that owns the URL clears it; `preset()` reads the live one. */
   preset: Partial<Rules> | undefined;
   rules: Partial<Rules>;
   /** The balanced readings when a king has a power (main.ts, the URL rules). */
@@ -168,7 +165,8 @@ export function connectPlay(view: BoardView, c: {
     announce: ceremony => { $('announce').textContent = `${ceremony ? 'King Down. ' : ''}${moments.result()}`; },
     showPly, rematch: () => newGame(game.backRank || undefined, game.backRank ? null : toFen(game.history[0]?.pos ?? game.pos), true),
   });
-  connectEndReview($('over-review'), $<HTMLDialogElement>('over'), $('moves-line'), () => moments.listMoments());
+  // Key moments (`moments.listMoments`) are parked (docs/PARKED.md): Review opens the move list only.
+  connectEndReview($('over-review'), $<HTMLDialogElement>('over'), $('moves-line'));
 
   const refreshTurnButton = () => renderTurnButton($<HTMLButtonElement>('end-turn'), game, currentTurn(), turnMode(), linkSide, ended(), saveBlocked || busy || viewing != null, lesson != null);
   const announceTurn = () => announceWaiting(game, currentTurn(), turnMode(), $('end-turn'), $('announce'));
@@ -183,11 +181,8 @@ export function connectPlay(view: BoardView, c: {
     ended, blocked: () => saveBlocked || busy || viewing != null || lesson != null, generation: () => gen,
     lock: value => { busy = sending = value; }, commit,
     handOver: () => {
-      const seals = awardTurnSeals(game, turnStart, sides, linkSide);
-      const line = !seals.length ? '' : seals.length === 1 ? `New seal: ${seals[0]}.` : 'New seals.';
-      if (line) $('announce').textContent = `${line} See Menu, Extra, Tricks.`;
       turnStart = handOver(game); handoffAt = performance.now(); selected = null; pending = [];
-      return line;
+      return '';
     },
     refresh, save, next: () => { if (ended()) { gameEnd.arm(); moments.showOver(); } else void maybeAi(); },
     link: lans => links.gameLink(lans), notice: line => { notice = line; },
@@ -200,7 +195,7 @@ export function connectPlay(view: BoardView, c: {
     refresh,
   });
   const moments = connectMoments({
-    game: () => game, sides: () => sides, resigned: () => resigned, daily: () => daily, skill: () => skill,
+    game: () => game, sides: () => sides, resigned: () => resigned, skill: () => skill,
     generation: () => gen, engine, end: gameEnd, showPly, hint: squares => { hintSquares = squares; }, refresh,
   });
 
@@ -263,10 +258,10 @@ export function connectPlay(view: BoardView, c: {
     }
     renderTable({ context: game.context,
       selected, selectedType: selected == null ? 0 : typeOf(game.pos.board[selected]), pending, canFinish, busy, thinking, notice,
-      viewing, reviewNote: moments.reviewNote(), lesson, lessonDone, nextLesson: lessonShelf(progress()).next?.name ?? null,
+      viewing, reviewNote: moments.reviewNote(), lesson,
       turnLine: turnLine(game, currentTurn(), turnMode()), activeSide: currentTurn().activeSide, staged: currentTurn().staged,
       check: game.inCheck, ended: ended(), finished: finished(), myTurn: myTurn(), result: moments.result(),
-      backRank: game.backRank, fen: toFen(game.pos), history: game.history.map(h => ({ lan: h.lan, turn: h.pos.turn })),
+      history: game.history.map(h => ({ lan: h.lan, turn: h.pos.turn })),
       marked: moments.marked(), taken, sides, linkSide, undoOn: undoOn(), resigner: resigner(),
     });
     // The info card and End turn read the turn core and game-end.ts, so they stay here, after the table.
@@ -312,7 +307,10 @@ export function connectPlay(view: BoardView, c: {
     if (viewing != null) { viewing = null; sync(pre); } // a review ends when a move is played
     const computer = lesson == null && sides[pre.turn] === 'ai';
     game.play(m);
-    if (computer) { turnStart = handOver(game); handoffAt = performance.now(); }
+    if (computer) {
+      turnStart = handOver(game); handoffAt = performance.now();
+      computerChange = { game, json: gameJSON(snapshot()) };
+    }
     notice = '';
     $('announce').textContent = describeMove(game.context, pre, m, true) + (game.inCheck && !finished() ? ' Check.' : '');
     moments.played(pre, m);
@@ -359,11 +357,7 @@ export function connectPlay(view: BoardView, c: {
     }
     else { game.undo(); sync(game.pos); moments.say(`Not quite. ${l.task}`); }
     refresh();
-    if (lessonDone) {
-      uiMotion.play($('lesson-progress').querySelector(`[title='${l.name}']`), [{ opacity: 0, scale: '.85', rotate: '-8deg' }, { opacity: 1, scale: '1', rotate: '0deg' }], 450, 350);
-      uiMotion.reveal($('context-text'), 450, 8, 600);
-      uiMotion.reveal($('next-lesson'), 400, 10, 2250);
-    }
+    if (lessonDone) uiMotion.reveal($('context-text'), 450, 8, 600);
   }
 
   /** Lessons done, by name, in localStorage `kingdown.lessons` (the shelf and account read this store). */
@@ -398,7 +392,6 @@ export function connectPlay(view: BoardView, c: {
     sync(game.pos);
     orient();
     refresh();
-    $('board').focus({ preventScroll: true });
   }
 
   $('return-game').onclick = () => {
@@ -418,11 +411,6 @@ export function connectPlay(view: BoardView, c: {
     refresh();
     save();
     if (ended()) moments.showOver(); else void maybeAi();
-  };
-  $('next-lesson').onclick = () => {
-    const next = lessonShelf(progress()).next;
-    if (lesson != null && next) startLesson(next.lesson);
-    else c.openNewGame();
   };
 
   /** `?think=<ms>`: a shorter thinking time for the browser checks, under each level's cap (ai/skill.ts). */
@@ -579,7 +567,7 @@ export function connectPlay(view: BoardView, c: {
     if (ended()) return refuse(lesson != null ? '' : 'The game is over. Start a new game.', sq);
     if (lesson == null && currentTurn().waits) return readWaiting(sq);
     if (!myTurn()) {
-      return refuse(lessonDone ? 'Lesson done. Choose the next lesson below.'
+      return refuse(lessonDone ? 'Lesson done. Select Return to game.'
         : sides[game.pos.turn] === 'ai' ? "It is the computer's move." : '', sq);
     }
     hintSquares = [];
@@ -622,25 +610,6 @@ export function connectPlay(view: BoardView, c: {
 
 
   $('stop-chain').onclick = () => { const m = candidates().find(m => clickPath(m).length === pending.length); if (m) void commit(m); };
-
-  $('show-me').onclick = async () => {
-    if (lesson == null || busy || viewing != null || finished() || !myTurn()) return;
-    const tag = armedTag(), l = lesson == null ? null : LESSONS[lesson], pos = game.pos;
-    const rootMoves = hintMoves(game.legal, tag, l ? m => l.goal(pos, m) : undefined, settings.queen());
-    if (!rootMoves.length) { notice = 'No goal move is available.'; return refresh(); }
-    busy = true;
-    refresh();
-    const g = gen;
-    const res = await engine.think(game, { timeMs: 400, maxDepth: 3, history: game.history.map(h => game.context.positionKey(h.pos)), rootMoves }, pos);
-    if (g !== gen) return;
-    busy = false;
-    // Esc during the search disarms the power, and the board then refuses the move found for it.
-    if (res.move && armedTag() === tag) {
-      if (res.move.pass) notice = 'End the turn.';
-      else { selected = null; pending = []; hintSquares = [res.move.from, ...clickPath(res.move)]; } // the first hinted tap selects the piece
-    }
-    refresh();
-  };
 
   /**
    * Review: show the board after `n` plies. One step forward replays that move's animation unless
@@ -711,20 +680,16 @@ export function connectPlay(view: BoardView, c: {
 
   /**
    * A game from `setup` (New game's last Start), or a rematch of this one with the sides swapped.
-   * `players` sets the players for a test fixture.
+   * `players` overrides who plays (Ogre practice is for two people).
    */
   function newGame(backRank?: string, fen?: string | null, rematch = false, dailyDate: string | null = null, players?: [Side, Side], initial = false): void {
-    if (rematch && sides.every(side => side === 'human')) { c.openNewGame(); return; }
     const setup = c.setup();
     let candidate: Game;
     if (rematch) candidate = new Game(undefined, game.rules);
     else {
       const k = kingsOf(setup);
-      // "Bring a design" (ticket 17): the design plays as `T`, in place of one back-rank piece; a position (`fen`) has no place for it.
-      const design = setup.design && !fen ? parseRule(`design=${setup.design}`).design! : null;
-      candidate = new Game(undefined, { ...withPowers(k), ...preset, kings: k, design });
+      candidate = new Game(undefined, { ...withPowers(k), ...preset, kings: k });
       if (dailyDate) backRank = candidate.context.randomBackRank(mulberry32(+dailyDate.replace(/-/g, '')));
-      if (design) backRank = withDesign(backRank ?? candidate.context.randomBackRank(), worthOf(design));
     }
     // A refused army or position keeps the live game, its turn and the dialog.
     if (fen) candidate.load(candidate.context.fromFen(fen)); else candidate.newGame(backRank);
@@ -740,7 +705,7 @@ export function connectPlay(view: BoardView, c: {
     cloudGame = false;
     daily = dailyDate;
     moments.start('');
-    [sides[0], sides[1]] = players ?? (rematch ? [sides[1], sides[0]] : playersOf(dialogSetup(setup)));
+    [sides[0], sides[1]] = players ?? (rematch ? rematchPlayers(sides) : playersOf(setup));
     saveBlocked = false;
     recoverySource = undefined;
     turnStart = 0;
@@ -784,7 +749,7 @@ export function connectPlay(view: BoardView, c: {
     moments.showOver();
   };
   const links = connectLinks({
-    game: () => game, turnStart: () => turnStart, get rules() { return params.get('rules'); },
+    game: () => game, turnStart: () => turnStart,
     blocked: () => !!(saveBlocked || busy || currentTurn().staged || lesson != null || linkSide != null),
   });
 
@@ -818,10 +783,15 @@ export function connectPlay(view: BoardView, c: {
     };
   }
 
-  let gameAt = 0, seenAt = 0;
+  /** `playerTime`: a player change on this page set `gameAt`. Until then a computer reply keeps the loaded time. */
+  let gameAt = 0, seenAt = 0, playerTime = false;
+  /** Keep the computer's change through a cancelled animation and a lesson's separate game. */
+  let computerChange: { game: Game; json: string } | null = null;
   let liveJSON = gameJSON(snapshot());
   function loadedTime(source: Save | null): void {
     gameAt = gameTime(source);
+    playerTime = false;
+    computerChange = null;
     liveJSON = gameJSON(snapshot());
   }
 
@@ -846,8 +816,10 @@ export function connectPlay(view: BoardView, c: {
     const next: Save = { ...(kept ?? snapshot()), ...settings.settingsNow() };
     const json = gameJSON(next);
     if (savesGame) {
-      if (!recovered && (replaceUnreadable || json !== liveJSON)) {
+      const computer = computerChange?.game === (lessonReturn?.game ?? game) && computerChange.json === json;
+      if (!recovered && (replaceUnreadable || json !== liveJSON) && (playerTime || !computer)) {
         gameAt = Math.max(Date.now(), gameAt + 1, gameTime(stored.save) + 1, seenAt + 1);
+        playerTime = true;
       } else gameAt = Math.max(gameAt, gameTime(stored.save));
       liveJSON = json;
       next.gameAt = gameAt;
@@ -991,14 +963,15 @@ export function connectPlay(view: BoardView, c: {
     lesson = null; lessonDone = false; lessonReturn = null;
     if (isSide(s.white)) sides[0] = s.white;
     if (isSide(s.black)) sides[1] = s.black;
-    linkSide = s.link === 0 || s.link === 1 ? s.link : null;
+    linkSide = null; // the game link is parked: a link game plays against the computer
+    if (s.link === 0 || s.link === 1) [sides[0], sides[1]] = parkedLinkPlayers(s.link);
     daily = typeof s.daily === 'string' ? s.daily : null;
     resigned = replayed.played < s.moves.length ? null : s.resigned ?? null;
     turnStart = handOver(game) - replayed.staged;
     loadedTime(s);
     moments.restore();
     if (replayed.played < s.moves.length) offerRecovery(s, replayed.played);
-    else { notice = 'Loaded your newer saved game from your account.'; moments.say(notice); }
+    else { notice = s.link === 0 || s.link === 1 ? PARKED_LINK_NOTICE : 'Loaded your newer saved game from your account.'; moments.say(notice); }
     sync(game.pos);
     orient();
     guide.fill();
@@ -1025,7 +998,7 @@ export function connectPlay(view: BoardView, c: {
     if (!r.link && (stored.partial || stored.save?.recovery !== undefined)) {
       saved = stored.save; endUrlGame(); seat(saved?.white, saved?.black); r = { ...r, urlRules: false };
     }
-    let staged = 0;
+    let staged = 0, parkedLink = false;
     if (r.unreadable) keepUnreadableSave();
     else if (r.link) {
       previously.load(params, r.continues ? saved!.moves.length : 0);
@@ -1047,17 +1020,19 @@ export function connectPlay(view: BoardView, c: {
           ({ game, staged } = replayed);
           resigned = replayed.played < saved.moves.length ? null : saved.resigned ?? null;
           if (replayed.played < saved.moves.length) offerRecovery(saved, replayed.played);
-          if (saved.link === 0 || saved.link === 1) linkSide = saved.link;
+          if (saved.link === 0 || saved.link === 1) { [sides[0], sides[1]] = parkedLinkPlayers(saved.link); parkedLink = true; }
           if (typeof saved.daily === 'string') daily = saved.daily;
         }
       }
     }
     turnStart = handOver(game) - staged;
     loadedTime(saved);
+    // An opened link is the player's choice: when it differs from the saved game, its first write gets a new time.
+    if (r.link) liveJSON = gameJSON(saved);
     // The title's Continue names the move the restored game is on (set before the first paint; a
     // Haste turn is two plies by one side, so the number comes from the replayed game, not the save).
     if (r.title) labelContinue();
-    notice = saveBlocked ? recoveryNotice : r.notice;
+    notice = saveBlocked ? recoveryNotice : r.notice || (parkedLink ? PARKED_LINK_NOTICE : '');
     orient();
     sync(previously.position());
   }
@@ -1071,7 +1046,7 @@ export function connectPlay(view: BoardView, c: {
   };
 
   return {
-    game: () => game, sides: (): readonly [Side, Side] => sides, skill: () => skill, setSkill: (level: SkillName): void => { skill = level; },
+    game: () => game, sides: (): readonly [Side, Side] => sides, preset: () => preset, skill: () => skill, setSkill: (level: SkillName): void => { skill = level; },
     shownPos, selected: () => selected, pending: () => pending, inspected: () => inspected, candidates, flipped: () => flipped,
     refresh, drawMarks, save, saveSettings: () => save(false, true), reset, maybeAi, ended, resigner, showPly, newGame, startLesson, openSaved, fromAccount, seat, restore,
     savedGames: {

@@ -2,6 +2,7 @@ import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs
 import { A, typeOf } from '../../rules/engine';
 import type { Highlights } from '../marks';
 import { drawFreeze, drawIceWall, drawFirewall } from './materials';
+import { drawFreezeRelease } from './freeze-release';
 import { drawShelter, drawSwap } from './state-flare';
 import { drawArcherFocus } from './archer-flare';
 import { checkImpact, link, pips, ring } from './indications';
@@ -14,12 +15,14 @@ export function drawBoardEffects(ctx: CanvasRenderingContext2D, scene: PaintedSc
   const front = layer === 'over', inRow = (sq: number) => !front || row == null || row === scene.cell(sq).row;
   const last = front && (row == null || row === 7), reduced = !motion;
   for (const state of effects.frames) {
-    if (!inRow(state.sq) || moving?.has(state.sq) || (state.source != null && moving?.has(state.source))) continue;
+    if (!inRow(state.sq) || moving?.has(state.sq) || (state.source != null && moving?.has(state.source)) || state.clear != null && board && board[state.sq] !== state.code) continue;
     const foot = scene.foot(state.sq), material = state.kind === 'freeze' || state.kind === 'ward' || state.kind === 'firewall';
     const progress = material ? effects.materialProgress(state, now, motion) : effects.elapsed(state.since, now, motion);
     const draw = (front: boolean) => {
       ctx.save();
-      if (material) {
+      if (state.kind === 'freeze' && state.clear != null) {
+        drawFreezeRelease(ctx, foot, front, effects.freezeRelease(state, now, motion), state.sq);
+      } else if (material) {
         (state.kind === 'freeze' ? drawFreeze : state.kind === 'ward' ? drawIceWall : drawFirewall)(ctx, { ...foot, progress, front, seed: state.sq });
       } else {
         if (!front) ring(ctx, scene, state.sq, '#a57d2f');

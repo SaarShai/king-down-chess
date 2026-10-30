@@ -26,16 +26,25 @@ export function createWebTransport(api: OnlineClient, userId: string, storage: P
     if (!receipt || typeof receipt.name !== 'string' || !receipt.args || typeof receipt.args.command_id !== 'string') throw new Error('The saved command cannot be read.');
     return receipt;
   }
+  const clear = (receipt: string, signal?: AbortSignal) => navigator.locks.request(key, { signal }, async () => {
+    if (storage.getItem(key) === receipt) storage.removeItem(key);
+  });
   const send: GameTransport = async (name, args, options) => {
     options.signal?.throwIfAborted();
     const game = String(args.game_id ?? args.board_id ?? '');
     const action = commandAction(name, args);
     const durable = !!action || name === 'kingdown_create' || name === 'kingdown_find';
+    const receipt = durable ? JSON.stringify({ name, args }) : '';
     if (durable) {
       if (typeof args.command_id !== 'string') throw new Error('The game command has no request ID.');
-      const previous = pending();
-      if (previous && JSON.stringify(previous) !== JSON.stringify({ name, args })) throw new Error('Retry the saved command before you start another command.');
-      storage.setItem(key, JSON.stringify({ name, args }));
+      // Record writes and clears share one account lock across tabs; requests run outside it.
+      await navigator.locks.request(key, { signal: options.signal }, async () => {
+        options.signal?.throwIfAborted();
+        const previous = pending();
+        if (previous && JSON.stringify(previous) !== receipt) throw new Error('Retry the saved command before you start another command.');
+        storage.setItem(key, receipt);
+      });
+      options.signal?.throwIfAborted();
     }
     try {
       let reply: ToolResult;
@@ -54,7 +63,10 @@ export function createWebTransport(api: OnlineClient, userId: string, storage: P
         case 'kingdown_settings': reply = result(await api.settings(args as Partial<PlayerSettings>, options.signal)); break;
         case 'kingdown_handle': { const value = await api.handle(args as { handle: string; icon?: Icon; check?: boolean }, options.signal); reply = result({ me: value.me }, args.check ? { available: value.available } : undefined); break; }
         case 'kingdown_profile': reply = result(await api.record(args as { before?: string; blocks_after?: string; notices_before?: string }, options.signal)); break;
-        case 'kingdown_join': reply = args.preview ? result({ preview: await api.preview(inviteKey(String(args.code)), options.signal) }, { screen: 'join' }) : gameResult(await api.redeem(inviteKey(String(args.code)), options.signal)); break;
+        case 'kingdown_join': {
+          const key = typeof args.invite_id === 'string' ? { invite_id: args.invite_id } : inviteKey(String(args.code));
+          reply = args.preview ? result({ preview: await api.preview(key, options.signal) }, { screen: 'join' }) : gameResult(await api.redeem(key, options.signal)); break;
+        }
         case 'kingdown_invite': reply = result({}, await api.invite(game, options.signal)); break;
         case 'kingdown_seen': await api.seen(game, options.signal); reply = result(); break;
         case 'kingdown_lobby': reply = result({ lobby: await api.lobby(options.signal) }); break;
@@ -66,12 +78,12 @@ export function createWebTransport(api: OnlineClient, userId: string, storage: P
         default: throw new Error(`The game request is not supported: ${name}`);
       }
       options.signal?.throwIfAborted();
-      if (durable) storage.removeItem(key);
+      if (durable) await clear(receipt, options.signal);
       return reply;
     } catch (error) {
       options.signal?.throwIfAborted();
       if (!(error instanceof OnlineError) || error.status >= 500) throw error;
-      if (durable) storage.removeItem(key);
+      if (durable) await clear(receipt, options.signal);
       return { isError: true, content: text(error.message), _meta: { code: error.code } };
     }
   };

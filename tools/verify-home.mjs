@@ -31,12 +31,10 @@ try {
     assert.equal(await page.locator('#new-game-warn').isVisible(), true, 'New game keeps the existing warning');
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('#home-head').isVisible(), true, 'Cancel returns to Home');
-    await page.click('#home-today');
-    assert.equal(await page.locator('#army').inputValue(), 'daily', 'Today chooses the daily army in the same sheet');
-    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#home-today').count(), 0, "Today's army is parked (docs/PARKED.md)");
     await context.close();
     const ended = await open(MATE);
-    assert.equal(await ended.page.locator('#home-main .label').innerText(), 'New game');
+    assert.equal(await ended.page.locator('#home-main .label').innerText(), 'Rematch');
     assert.equal(await ended.page.locator('#home-progress').innerText(), 'Finished');
     assert.equal(await ended.page.locator('#home-result').innerText(), 'Black wins by checkmate.');
     assert.equal(await ended.page.locator('#over').isVisible(), false, 'a finished save opens no result dialog');
@@ -47,10 +45,6 @@ try {
     assert.notEqual(await ended.page.locator('#home-review').evaluate(b => getComputedStyle(b).borderStyle), 'none', 'Review has a button edge');
     assert.equal(await ended.page.locator('#home-review').evaluate(b => b.classList.contains('quiet')), true, 'Home Review uses the same quiet class as result Review');
     assert.equal(await ended.page.locator('#home-review').evaluate(b => getComputedStyle(b).backgroundColor), 'rgba(0, 0, 0, 0)', 'Home Review has a quiet background');
-    await ended.page.click('#home-main');
-    assert.equal(await ended.page.locator('#new-game').isVisible(), true, 'an old local game opens New game');
-    assert.deepEqual(await lanMoves(ended.page), MATE.moves, 'New game keeps the old match until Start');
-    await ended.page.keyboard.press('Escape');
     await ended.page.click('#home-review');
     assert.equal(await ended.page.locator('#back-to-game').isVisible(), true, 'Review opens the saved game');
     await ended.context.close();
@@ -62,7 +56,7 @@ try {
     assert.equal(next.back, MATE.back, 'Rematch keeps the army');
     assert.deepEqual([next.white, next.black], ['ai', 'human'], 'Rematch swaps your side');
     await rematch.context.close();
-    console.log('ok home: the saved board, move number and last move; New game, Today, finished game and Rematch');
+    console.log('ok home: the saved board, move number and last move; New game, no Today, finished game and Rematch');
   }
   {
     const { page, context } = await open({ ...SAVE, moves: ['e2-e4'], skill: 'beginner' }, '?think=50');
@@ -111,13 +105,24 @@ try {
     console.log('ok home: a staged turn and staged mate show Your turn is ready; Continue keeps plies and Undo');
   }
   {
-    for (const query of ['?army=RNBQKBNR&moves=e2-e4&side=1', '?army=RNBQKBNR', '?fen=4k3/8/8/8/8/8/P7/4K3%20w%20-%20-%200%201', '?design=invalid']) {
+    // The game link is parked (docs/PARKED.md): it opens as a plain visit, so Home shows over the saved game.
+    {
+      const { page, context } = await open(SAVE, '?army=RNBQKBNR&moves=e2-e4&side=1');
+      assert.equal(await page.locator('#home-head').isVisible(), true, 'a parked game link opens Home');
+      await context.close();
+    }
+    for (const query of ['?army=RNBQKBNR', '?fen=4k3/8/8/8/8/8/P7/4K3%20w%20-%20-%200%201']) {
       const { page, context } = await open(SAVE, query);
       assert.equal(await page.locator('#home-head').isVisible(), false, 'a link or position URL skips Home');
       assert.equal(await page.locator('#title-screen').isVisible(), false, 'a link skips the first deal');
       await context.close();
     }
-    console.log('ok home: links, army, position and design URLs skip Home');
+    // The Workshop is parked (docs/PARKED.md): an old ?design= link opens Home as a plain visit does, and leaves the address.
+    const { page, context } = await open(SAVE, '?design=invalid');
+    assert.equal(await page.locator('#home-head').isVisible(), true, 'an old design link opens Home for a save');
+    assert.equal(new URL(page.url()).searchParams.has('design'), false, 'an old design link leaves the address');
+    await context.close();
+    console.log('ok home: army and position URLs skip Home; a parked game link and an old design link open Home');
   }
   assertNoErrors();
 } finally { await browser.close(); }

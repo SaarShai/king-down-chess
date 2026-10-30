@@ -48,5 +48,5 @@ export function contextLine(s: ContextState): ContextLine {
     return line('lesson', end < 0 ? task : task.slice(0, end + 1), end < 0 ? '' : task.slice(end + 2));
   }
   if (s.asset) return line('asset', s.asset);
-  return line('your-move', s.voice === 'you' ? 'Your move.' : `${s.voice} to move.`, s.teach, s.teach ? ['first-lesson'] : []);
+  return line('your-move', s.voice === 'you' ? 'Your move.' : `${s.voice} to move.`, s.teach);
 }

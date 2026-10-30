@@ -3,6 +3,8 @@
 Status: ready-for-agent. The owner approves this spec, the rendered samples and all picks on 2026-10-26.
 Source: `de2a724b`, branch `staging/friend-invites`.
 
+Parked on 2026-10-29: the owner parks named invitations, the invitation inbox and code typing for a lean build ([PARKED.md](../../PARKED.md)). The server work of tickets 03 and 04 stays; tickets 02 and 05 to 07 wait. The same-device entry is gone (ticket 01's goal): pass-and-play is parked too.
+
 ## Goal
 
 A player sets up an online game and sends an invitation to one friend.

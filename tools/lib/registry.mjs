@@ -10,6 +10,10 @@
 // fails, selftest-hang never ends, selftest-hold sleeps 15 s so that two runs can be seen together.
 export const checks = [
   { name: 'ui-review-samples', script: 'docs/specs/ui-review-samples/verify.mjs', limit: 90, channel: 'chromium', byName: true },
+  { name: 'character-prepare', script: 'tools/verify-character-prepare.mjs', limit: 90, channel: 'chromium', byName: true, exclusive: true },
+  { name: 'stratus-idle-exit', script: 'tools/verify-stratus-idle-exit.mjs', limit: 240, channel: 'chromium', byName: true },
+  { name: 'stratus-registration', script: 'tools/verify-stratus-registration.mjs', limit: 300, channel: 'chromium', byName: true },
+  { name: 'character-runtime', script: 'tools/verify-character-runtime.mjs', limit: 300, channel: 'chromium', byName: true },
   { name: 'layout-title', script: 'tools/verify-layout.mjs', args: ['title'], limit: 120, channel: 'chromium', byName: true },
   { name: 'layout-zoom', script: 'tools/verify-layout.mjs', args: ['zoom'], limit: 120, channel: 'chromium', byName: true },
   { name: 'layout-result', script: 'tools/verify-layout.mjs', args: ['result'], limit: 120, channel: 'chromium', byName: true },
@@ -25,9 +29,11 @@ export const checks = [
   { name: 'effects-states', script: 'docs/specs/effects-animation/evidence/14-state-integration/capture.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'read-piece', script: 'tools/verify-read-piece.mjs', limit: 180 },
   { name: 'verb-marks', script: 'tools/verify-verb-marks.mjs', limit: 180 },
-  { name: 'lessons', script: 'tools/verify-lessons.mjs', limit: 180 },
+  // Parked with their features (docs/PARKED.md): lessons, lesson-return, workshop and workshop-cast run only by name.
+  { name: 'lessons', script: 'tools/verify-lessons.mjs', limit: 180, byName: true },
   { name: 'turn', script: 'tools/verify-turn.mjs', limit: 180 },
-  { name: 'link-game', script: 'tools/verify-link-game.mjs', args: ['link'], limit: 180 },
+  // The serverless game link is parked (docs/PARKED.md): its check runs only by name, and it can fail until the link returns.
+  { name: 'link-game', script: 'tools/verify-link-game.mjs', args: ['link'], limit: 180, byName: true },
   { name: 'end', script: 'tools/verify-end.mjs', limit: 180 },
   { name: 'their-turn', script: 'tools/verify-their-turn.mjs', limit: 180 },
   { name: 'game-screen', script: 'tools/verify-game-screen.mjs', limit: 240 },
@@ -37,15 +43,15 @@ export const checks = [
   { name: 'cursor-adoption', script: 'tools/verify-cursor-adoption.mjs', limit: 240, channel: 'chromium' },
   { name: 'king-effects', script: 'tools/verify-king-effects.mjs', limit: 240, exclusive: true },
   { name: 'character-clips', script: 'tools/verify-character-clips.mjs', limit: 180 },
-  { name: 'lesson-return', script: 'tools/verify-lesson-return.mjs', limit: 180 },
+  { name: 'lesson-return', script: 'tools/verify-lesson-return.mjs', limit: 180, byName: true },
   { name: 'new-game', script: 'tools/verify-new-game.mjs', limit: 240 },
   { name: 'painted-game', script: 'tools/verify-painted-game.mjs', limit: 240, exclusive: true },
   { name: 'powers', script: 'tools/verify-powers.mjs', limit: 180 },
   { name: 'special-moves', script: 'tools/verify-special-moves.mjs', limit: 240 },
   { name: 'ux-defects', script: 'tools/verify-ux-defects.mjs', limit: 300 },
   { name: 'visual-design', script: 'docs/visual-design/verify.mjs', limit: 240 },
-  { name: 'workshop', script: 'tools/verify-workshop.mjs', limit: 240 },
-  { name: 'workshop-cast', script: 'tools/verify-workshop-cast.mjs', limit: 180 },
+  { name: 'workshop', script: 'tools/verify-workshop.mjs', limit: 240, byName: true },
+  { name: 'workshop-cast', script: 'tools/verify-workshop-cast.mjs', limit: 180, byName: true },
   { name: 'qa', script: 'tools/qa.mjs', limit: 900, channel: 'chromium', exclusive: true },
   { name: 'selftest', script: 'tools/check-selftest.mjs', limit: 120 },
   // Plugin checks build their own artifact; OAuth and HTTP checks need local PostgreSQL.

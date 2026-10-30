@@ -89,7 +89,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
     const web = job('browser-web');
     expect(web).toContain('timeout-minutes: 30');
     expect(web).toContain('npx playwright install --with-deps chromium');
-    expect(web).toContain('- run: npm run check:browser home account link-game lessons lesson-return workshop workshop-cast');
+    expect(web).toContain('- run: npm run check:browser home account new-game menu-extra');
     expect(web).toContain('- run: npm run check:browser web-online');
     expect(web).toContain('name: web-check-logs');
     expect(job('browser')).not.toContain('web-online');

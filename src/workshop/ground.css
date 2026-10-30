@@ -22,21 +22,21 @@
 #workshop.pg section { gap: 0; }
 
 /* ---- the top bar (:38-49) ---- */
-.pg-top { position: relative; flex: none; min-height: 56px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 24px; border-bottom: 1px solid var(--line); }
+.pg-top { position: relative; flex: none; height: 56px; display: flex; align-items: center; padding: 0 24px; border-bottom: 1px solid var(--line); }
 /* the quiet buttons: one selector each, so that each keeps its own weight against the narrow rules */
 #workshop.pg .pg-menu, #workshop.pg .pg-acts button, #workshop.pg .pg-weigh, #workshop.pg .pg-alert button, #workshop.pg .pg-room-del, #workshop.pg .pg-remove, #workshop.pg .pg-carddetails {
   min-height: 44px; padding: 6px 16px; gap: 4px; border: 1px solid var(--stone-500); border-radius: var(--radius); }
 @media (hover: hover) { #workshop.pg button:is(.pg-menu, .pg-undo, .pg-share, .pg-weigh, .pg-room-del, .pg-carddetails):hover:not(:disabled), #workshop.pg .pg-alert button:hover { background: rgba(255, 255, 255, 0.35); } }
 #workshop.pg button:disabled:not(:where(.primary)) { opacity: 0.45; cursor: default; }
 /* Undo and Share once the piece is the player's (:952-969); ⋯ opens the design menu (ticket 07), on the phone with Share and Weigh */
-.pg-acts { grid-column: 3; grid-row: 1; justify-self: end; display: flex; gap: 8px; }
+.pg-acts { margin-left: auto; display: flex; gap: 8px; }
 .pg-morepop { position: absolute; z-index: 70; right: 8px; top: calc(100% - 2px); width: 200px; padding: 6px; display: grid; border-radius: var(--radius); background: var(--vellum); box-shadow: var(--shadow-float); }
 #workshop.pg .pg-morepop button { min-height: 44px; gap: 10px; padding: 0 12px; border-radius: 6px; }
 @media (hover: hover) { #workshop.pg .pg-morepop button:hover { background: rgba(233, 192, 113, 0.2); } }
 .pg-noic { flex: none; width: 18px; }
 #workshop.pg .pg-title {
-  grid-column: 2; grid-row: 1; justify-self: start; align-self: start; position: relative; left: 50%; top: 50%; transform: translate(-50%, -50%); width: max-content; max-width: 100%; margin: 0; padding: 0; background: none;
-  display: flex; align-items: center; gap: 14px; font: 600 18px/1.2 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; min-width: 0; overflow-wrap: anywhere; text-align: center;
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; padding: 0; background: none;
+  display: flex; align-items: center; gap: 14px; font: 600 18px/1.2 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap;
 }
 .pg-title i { position: relative; display: block; width: 46px; height: 7px; background: linear-gradient(90deg, transparent, var(--gold) 70%) center / 100% 1px no-repeat; }
 .pg-title i::after { content: ''; position: absolute; right: -3px; top: 50%; width: 6px; height: 6px; background: var(--gold); transform: translateY(-50%) rotate(45deg); }
@@ -357,7 +357,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 #workshop.pg .trow2 > .tb { width: auto; margin-left: auto; padding: 4px 14px; }
 .ltab .lab { display: inline-block; padding: 0 4px; border-radius: 2px; background: linear-gradient(var(--accent-bright), var(--accent)); color: var(--vellum); font: 700 8.5px/13px var(--font-display); letter-spacing: 0.12em; }
 .cfan { display: flex; align-items: flex-start; padding-top: 8px; }
-#workshop.pg .cface { flex: none; width: 72px; min-height: 100px; height: auto; margin-right: -3px; padding: 0; display: block; border-radius: 6px; background: var(--vellum); font-weight: 400;
+#workshop.pg .cface { flex: none; width: 72px; height: 100px; margin-right: -3px; padding: 0; display: block; border-radius: 6px; background: var(--vellum); font-weight: 400;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 4px 8px -2px rgba(43, 38, 33, 0.4), 0 0 0 1px var(--stone-300); transition: transform var(--dur-2) var(--ease-out); }
 .cface:nth-child(odd) { transform: rotate(-2deg); }
 .cface:nth-child(even) { transform: rotate(1.5deg) translateY(2px); }
@@ -365,7 +365,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 @media (hover: hover) { #workshop.pg .cface:hover { z-index: 5; transform: translateY(-6px) rotate(0); } }
 #workshop.pg .cface.open { box-shadow: 0 0 0 2px var(--gold-bright), 0 0 0 3px var(--ink), 0 8px 14px -4px rgba(43, 38, 33, 0.5); }
 .cface .art { display: block; width: 100%; height: 64px; object-fit: cover; border-bottom: 1px solid var(--gold); }
-.cface .t { display: block; overflow-wrap: anywhere; padding: 6px 3px 0; font: 600 9.5px/1.1 var(--font-display); letter-spacing: 0.04em; text-align: center; text-transform: uppercase; color: var(--ink); }
+.cface .t { display: block; padding: 6px 3px 0; font: 600 9.5px/1.1 var(--font-display); letter-spacing: 0.04em; text-align: center; text-transform: uppercase; color: var(--ink); }
 .cface .badge { position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: var(--vellum); box-shadow: 0 0 0 1px #2f5ea8; }
 .cface .badge img { width: 14px; height: 14px; }
 #workshop.pg .cstack { position: relative; flex: none; width: 92px; height: 108px; margin-left: 22px; padding: 0; background: none; box-shadow: none; }
@@ -587,7 +587,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 /* ---- narrow: the phone form, one column (:443-540); short landscape (below) keeps the phone form on its own grid ---- */
 @media (max-width: 999px), (orientation: landscape) and (max-height: 500px) {
   #workshop.pg { overflow-y: auto; }
-  .pg-top { min-height: 48px; padding: 0 4px; grid-template-columns: 44px minmax(0, 1fr) 44px; }
+  .pg-top { height: 48px; padding: 0 4px; }
   #workshop.pg .pg-menu { width: 44px; height: 44px; padding: 0; justify-content: center; border: 0; font-size: 22px; }
   .pg-word, #workshop.pg :is(.pg-share, .pg-weigh) { display: none; }
   #workshop.pg .pg-acts button { width: 44px; padding: 0; justify-content: center; border: 0; font-size: 22px; }
@@ -595,7 +595,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .pg-title i { width: 18px; }
   .pg-main { display: flex; flex-direction: column; flex: none; gap: 0; width: 100%; max-width: 592px; margin: 0 auto; padding: 4px 16px; }
   /* the plinth: the figure in a 56 px window, the name, and the rule seals */
-  #workshop.pg .pg-plinth { flex: none; flex-direction: row; align-items: center; gap: 8px; min-height: 68px; height: auto; }
+  #workshop.pg .pg-plinth { flex: none; flex-direction: row; align-items: center; gap: 8px; height: 68px; }
   .pg-figure { flex: none; order: -1; width: 56px; height: 56px; min-height: 0; margin: 0; border-radius: 10px; overflow: hidden; align-items: start;
     background: radial-gradient(circle at 50% 30%, #fffaf0, var(--parchment-deep)); box-shadow: inset 0 0 0 1px var(--stone-300); }
   .pg-figure img { height: 96px; max-height: none; max-width: none; margin-top: 2px; }
@@ -631,10 +631,10 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .pg-rim::after, .pg-files, .pg-ranks, .pg-chev, .pg-notch, .pg-plaque { display: none; }
   .pg-field { inset: 0; border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 10px 20px -10px rgba(20, 14, 8, 0.5); }
   .pg-coords { display: block; }
-  .pg-coords span { position: absolute; font: 700 9px/1 var(--font-body); color: var(--ink); background: var(--parchment); padding: 1px 2px; pointer-events: none; }
+  .pg-coords span { position: absolute; font: 700 9px/1 var(--font-body); color: rgba(251, 247, 238, 0.85); text-shadow: 0 0 2px rgba(0, 0, 0, 0.8); pointer-events: none; }
   /* the brushes in one row under the board */
-  .pg-right { flex: none; min-height: 62px; height: auto; margin-top: 4px; }
-  .pg-brushes { min-height: 62px; height: auto; padding: 0; justify-content: flex-start; align-items: center; gap: 10px; }
+  .pg-right { flex: none; height: 62px; margin-top: 4px; }
+  .pg-brushes { height: 62px; padding: 0; justify-content: flex-start; align-items: center; gap: 10px; }
   #workshop.pg .brush { width: 48px; gap: 1px; }
   .phint { flex: 1; padding-left: 4px; font: italic 14px/1.2 var(--font-body); color: var(--ink-soft); }
   /* an open card: the brush row says what to do, and Details opens the card's words (F-104) */
@@ -669,7 +669,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .slot .nm { top: 108px; font-size: 11.5px; }
   .slot.open::before { top: 82px; }
   .cfan { padding-top: 16px; }
-  #workshop.pg .cface { width: 88px; min-height: 124px; }
+  #workshop.pg .cface { width: 88px; height: 124px; }
   .cface .art { height: 80px; }
   .cface .t { font-size: 10.5px; }
   .lhead { margin-top: 110px; }
@@ -722,7 +722,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
    ledge as a bottom sheet; the Why tag, the Rules shelf and the rule card are side sheets over the column ---- */
 @media (orientation: landscape) and (max-height: 500px) {
   #workshop.pg { --board: min(100dvh - 56px, 100vw - 300px); overflow: hidden; }
-  #workshop.pg .pg-pieces { grid-column: 1; grid-row: 1; justify-self: start; transform: translateX(44px); display: inline-flex; min-height: 44px; margin-left: 4px; padding: 0 12px; font: 600 12.5px/1 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase;
+  #workshop.pg .pg-pieces { display: inline-flex; min-height: 44px; margin-left: 4px; padding: 0 12px; font: 600 12.5px/1 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase;
     border: 1px solid var(--stone-500); border-radius: var(--radius); }
   #workshop.pg .pg-pieces[aria-expanded='true'] { background: rgba(233, 192, 113, 0.3); }
   .pg-main { flex: 1 1 auto; min-height: 0; max-width: none; display: grid; grid-template: auto minmax(0, 1fr) / var(--board) minmax(0, 1fr); gap: 0 12px; padding: 4px 12px; }
@@ -733,7 +733,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .pg-name, .pg-pseals { grid-column: 2; }
   /* the brush row and the tray as on the phone, a little tighter, so that a design's plinth (Yours · from Pawn) fits at 568 × 320 */
   .pg-right { grid-area: 2 / 2; height: auto; min-height: 0; overflow-y: auto; margin: 0; }
-  .pg-brushes { min-height: 54px; height: auto; }
+  .pg-brushes { height: 54px; }
   .pg-tools { top: 54px; bottom: auto; }
   /* on a square under 45 px the nubs keep the ring of the 390 px phone, so that each keeps most of its 24 px hit area
      and the centres of the 8 squares round d4 stay free for paint */
@@ -780,35 +780,4 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .sentence .pg-act { top: 4px; }
   .sentence > .kd-seal { display: none; }
   .sentence .say { grid-column: 1 / -1; }
-}
-
-#workshop.pg .pg-name .lab-note { margin: 0; color: var(--ink-soft); font-size: var(--fs-sm); font-family: var(--font-body); }
-#workshop.pg [data-act='cardexample'] { position: relative; flex: none; font-size: var(--fs-sm); padding-inline: 8px; }
-@media (max-width: 700px) {
-  .pg-main { container: workshop-main / inline-size; }
-  .pg-right:has([data-act='cardexample']) { height: 62px; }
-  .pg-brushes.pg-powers:has([data-act='cardexample']) { height: auto; min-height: 62px; flex-wrap: wrap; gap: 4px 8px; padding-block: 4px; }
-  .pg-brushes.pg-powers:has([data-act='cardexample']) .info-p { flex-basis: 100%; margin: 0; }
-}
-@container workshop-main (width < 16em) {
-  .pg-right:has([data-act='cardexample']) { height: auto; }
-}
-
-/* The target grows inside the clear space; the label keeps its approved size. */
-#workshop.pg [data-act='cardexample']::after { content: ''; position: absolute; inset: -4px 0; min-height: 24px; }
-
-/* Shelf rows grow only when their names need more room. */
-.pg-top > .pg-menu { grid-column: 1; grid-row: 1; justify-self: start; }
-.pg-ledge:has(.cfan) { display: flex; flex-direction: column; flex-basis: auto; min-height: 156px; height: auto; }
-.pg-ledge:has(.cfan) .ltabs { position: static; flex: none; min-height: 44px; height: auto; margin-inline: 24px; flex-wrap: wrap; }
-.pg-ledge:has(.cfan) .lrow { position: relative; inset: auto; flex: 1 0 auto; min-height: 120px; height: auto; margin-top: -8px; }
-.pg-ledge:has(.cfan) .inner { min-height: 120px; height: auto; padding-bottom: 12px; }
-@media (max-width: 999px), (orientation: landscape) and (max-height: 500px) {
-  .pg-ledge:has(.cfan) { min-height: 200px; }
-  .pg-ledge:has(.cfan) .ltabs { min-height: 44px; margin: 0 8px 4px; border-bottom: 0; background: linear-gradient(var(--line), var(--line)) bottom / 100% 1px no-repeat; }
-  .pg-ledge:has(.cfan) .lrow { min-height: 150px; margin-top: 0; }
-  .pg-ledge:has(.cfan) .inner { min-height: 150px; padding-bottom: 10px; }
-}
-@media (orientation: landscape) and (max-height: 500px) {
-  .pg-ledge:has(.cfan) { min-height: 198px; }
 }

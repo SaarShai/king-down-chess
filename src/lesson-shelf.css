@@ -1,19 +1,12 @@
 /* The chosen demo's stone shelf, scoped to the Guide. */
-#rules { padding: 0; overflow: hidden; }
-#rules[open] { display: flex; flex-direction: column; }
-.lesson-guide-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 16px; }
-#rules :is(.piece-card, [data-power]):focus { outline: 2px solid var(--ink-soft); outline-offset: 2px; scroll-margin: 4px; }
-.lesson-guide-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: none; padding: 12px 16px; }
-.lesson-guide-head h2, .lesson-guide-head form { margin: 0; }
-.lesson-guide-head button { width: 44px; min-width: 44px; min-height: 44px; padding: 0; justify-content: center; height: 44px; font-size: 24px; line-height: 1; }
 .lesson-shelf { width: 100%; margin-bottom: var(--space-3); }
 .lesson-shelf h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-lg); text-transform: none; letter-spacing: normal; color: var(--ink); }
 .lesson-shelf .shelf-intro { margin: var(--space-1) 0 0; color: var(--ink-soft); }
 .lesson-shelf .shelf-list {
   --sq: 74px; --fig-h: 104px;
-  /* Keep an 8 px gap after the shelf. The lesson action comes before it. */
+  /* 8 px below, not 16: the 52 px Learn button then keeps the first rule line in view on a phone. */
   list-style: none; margin: var(--space-4) 0 var(--space-2); padding: 0;
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(max(calc(100% / 3), 5em), 1fr)); row-gap: var(--space-3);
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--space-3);
 }
 .lesson-shelf .shelf-list li { position: relative; display: flex; min-width: 0; }
 .lesson-shelf .shelf-list li::after {
@@ -46,7 +39,7 @@
 .lesson-shelf [data-piece='ogre'] { --figure-height: 1.354; }
 .lesson-shelf [data-piece='guard'], .lesson-shelf [data-piece='paladin'] { --figure-height: 1.165; }
 .lesson-shelf [data-piece='maester'] img { transform: scaleX(-1); }
-.lesson-shelf .shelf-name { max-width: 100%; overflow-wrap: anywhere; margin-top: 14px; font-family: var(--font-display); font-size: var(--fs-md); }
+.lesson-shelf .shelf-name { margin-top: 14px; font-family: var(--font-display); font-size: var(--fs-md); }
 .lesson-shelf .shelf-line { min-height: 2.5em; color: var(--ink-soft); font-size: var(--fs-sm); font-weight: 400; line-height: 1.25; }
 .lesson-shelf .shelf-status { min-height: 22px; margin-top: 6px; color: var(--gold-ink); font-size: var(--fs-xs); }
 .lesson-shelf [data-status='Next'] .shelf-figure::before {
@@ -55,16 +48,11 @@
   background: radial-gradient(closest-side, rgb(233 192 113 / 75%), rgb(233 192 113 / 0%));
 }
 .lesson-shelf .shelf-next { width: 100%; min-height: 44px; justify-content: center; }
-.lesson-shelf .shelf-safe { max-width: none; margin: var(--space-2) 0 0; color: var(--ink-soft); font-size: var(--fs-sm); text-align: center; }
+.lesson-shelf .shelf-safe { max-width: none; margin: var(--space-3) 0 0; color: var(--ink-soft); font-size: var(--fs-sm); text-align: center; }
 @media (min-width: 900px) {
-  .lesson-shelf .shelf-list { --sq: 108px; --fig-h: 154px; grid-template-columns: repeat(auto-fit, minmax(max(calc(100% / 6), 5em), 1fr)); }
+  .lesson-shelf .shelf-list { --sq: 108px; --fig-h: 154px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .lesson-shelf .shelf-list li:nth-child(n)::after { border-radius: 0; }
   .lesson-shelf .shelf-list li:first-child::after { border-radius: 5px 0 0 5px; }
   .lesson-shelf .shelf-list li:last-child::after { border-radius: 0 5px 5px 0; }
   .lesson-shelf .shelf-next { display: flex; max-width: 360px; margin-inline: auto; }
 }
-
-#powers-list [data-power] { display: block; margin: 4px 0 8px; padding: 4px; }
-
-.lesson-shelf .shelf-next { margin-top: var(--space-3); }
-#rules-notation { max-width: 55ch; }

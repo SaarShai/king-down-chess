@@ -1,6 +1,6 @@
 # UI review samples
 
-Status: needs-triage
+Status: resolved
 Type: task
 
 ## Scope
@@ -228,3 +228,124 @@ The repair does not change `src/new-game.ts`, dependencies, or game rules.
 
 The repair needs review on PR 154. No push, deploy, or sign-in runs.
 The output folder holds the check logs, views, contact sheets, and final report.
+
+
+## Lean build plan for PR 154
+
+The owner asks to finish PR 154 on `ui154-work`. The lean base is
+`origin/staging/first-game` at `42336dbb`. The parked list takes precedence
+over the old sample paths. The owner approves all V picks on 2026-10-26.
+
+1. Merge the lean base. Keep its parked entry points closed.
+2. Keep each V fix with a visible screen. Remove the lesson and Lab parts
+   that have no visible screen. Record each choice below.
+3. Update the sample check and each affected test or check. Capture the kept
+   views at the five approved sizes. Check normal and doubled text.
+4. Run `npm test`, `npm run test:docs`, `npm run build`,
+   `npm run check:browser ui-review-samples`, and each changed browser check.
+5. Review the final diff. Commit with the unchanged hooks. Push to
+   `staging/ui-approved`, mark PR 154 ready, and update its body.
+
+Pass: the merge has no conflict marker; parked features have no visible
+entry point; each kept V item passes its check; all requested commands pass.
+No deploy or production command runs.
+
+
+## Lean build choices
+
+The current request permits the push and PR update. It replaces the old
+no-push limit in this ticket. The parked list at `42336dbb` stays in force.
+
+| Item | Choice | Result and reason |
+| --- | --- | --- |
+| V1 | Keep | All 16 board coordinates use plain parchment and dark ink. Contrast is 12.53:1. |
+| V2 | Change in part | Keep Computer and A friend Online, No powers and Kings' powers, and the army and power summary by Start. Army offers Random or Chess. Remove the design field because Workshop is parked. No same-device or code-entry choice returns. |
+| V3 | Change in part | Keep Tap a piece to read on the first board. Remove Learn because lessons are parked. Later games have no hint. |
+| V4 | Change in part | Keep the full-size figures on visible Guide piece cards. Drop lesson order and its save note because the lesson shelf is parked. |
+| V5 | Keep | Title names have an 11 px floor. Names wrap and the page scrolls with large text. |
+| V6 | Keep | Guide notation uses 55ch. Its style lives in the active sheet, not the parked lesson sheet. |
+| V7 | Keep | Piece descriptions use line height 1.4. They fit the status area. |
+| V8 | Keep | At 320 px, Back shows its arrow. Its name stays Back to Menu. Board help stays clear of Close. |
+| V9 | Drop | The Lab card and Workshop have no entry point. Remove Load example and its related changes from this PR. |
+| V10 | Change in part | Keep the growing Moves row and large-text layout. Drop lesson text changes because lessons are parked. |
+
+The sample check now covers these kept states at 320 by 568, 375 by 812,
+852 by 393, 768 by 1024 and 1280 by 800. It writes normal and large-text
+captures. It checks that parked controls stay absent. Its Guide expectations
+use the visible piece cards; its lesson and Lab expectations are removed.
+
+## Lean merge resolutions
+
+The merge has 15 conflicting files.
+
+- `index.html`: keep the lean cuts, the opponent group, both rule choices,
+  the Start summary, the context scroll area and the Back label. Remove Learn.
+- `src/main.ts`: keep lean game starts and imports. Keep the first-board hint.
+- `src/new-game.ts` and its tests: keep lean saved-setup parsing, parked-army
+  handling and live preset access. Add only the visible summary. Remove
+  handlers for the removed two-person and design controls.
+- `src/screen/play.ts`, `src/ui/home.ts` and its tests: keep the lean rematch
+  and game-link behavior. Old two-person saves finish; rematches seat the
+  computer. Restore the base game-end, moments and play tests for this path.
+- `src/ui/table.test.ts`: keep the read-hint test with the save notice. Remove
+  the lesson action from its expectation.
+- `src/lesson-shelf.css`: keep the parked source from the lean base. Move the
+  notation width into `src/style.css`.
+- `tools/lib/registry.mjs`: keep all lean checks and the UI sample check.
+- `tools/new-game-ui.mjs`: keep the lean hidden two-person URL fixture.
+- `tools/plugin-setup-owner.test.ts`: keep the Computer and online friend
+  symbols. The friend link opens online setup; it cannot start pass-and-play.
+- `tools/verify-game-screen.mjs`: keep growing status rows and remove lesson
+  steps. `docs/visual-design/verify.mjs` keeps the 11 px title check.
+- `tools/verify-new-game.mjs`: keep parked-link and saved-setup cases. Check
+  No powers, the online friend link, the summary and absent parked fields.
+
+The parked Workshop and lesson source changes are removed from the PR diff.
+No parked entry point, page or option returns.
+
+
+## Lean build check findings
+
+- The first sample run finds Guide headings outside the cards at doubled
+  text on 320 px. Let those headings wrap inside the text column. The
+  full-size figures stay unchanged. All five browser checks then pass.
+- The first full test run has two failures. The worktree has no local
+  package link, so the simulation smoke test cannot start its local runner.
+  `tools/wt.sh add "$PWD"` restores the normal link. No dependency changes.
+  The other failure is an old output-folder label in ticket 02. Remove that
+  label to meet the existing model-name rule. The run has 5,575 passes and
+  364 skips. It is not a full-suite pass.
+- The design scan reports five existing items: three runtime image slots,
+  one source type-size report and one motion note. The browser image,
+  text-size and reduced-motion checks pass.
+
+
+## Lean build result
+
+The work is complete for PR review. All requested checks pass.
+
+| Command | Result |
+| --- | --- |
+| `npm test` | Exit 0. Both type checks pass. 286 files pass; 17 files skip. 5,577 tests pass; 364 skip. The 67 painted-board tests pass. Source test time: 354.99 s. |
+| `npm run test:docs` | Exit 0. 187 tests pass in 17 files. |
+| `npm run build` | Exit 0. Type check and build pass. |
+| `npm run check:browser ui-review-samples new-game game-screen visual-design plugin-ui` | Exit 0. All five pass. Times: 18.2 s, 46.8 s, 8.2 s, 22.4 s and 276.7 s. |
+
+The sample check writes 47 captures. The rendered review covers the narrow
+title, Guide, New game, Back, piece text and enlarged Moves. No page error
+or external request occurs. The five approved sizes pass.
+
+Final diff review: each kept fix uses the existing UI code and styles.
+The parked lesson and Workshop files, local rematch behavior and hidden
+two-person fixture match the lean base. No dependency or hook input changes.
+The diff has no whitespace fault or conflict marker.
+
+Logs are in `/private/tmp/ui154-checks/`: `test.log` is the first failed run;
+`test-final.log`, `docs.log`, `build.log` and `browser.log` hold the final
+results. The browser run folder is `ui154-15sjKv` in the local
+`kingdown-check-runs` folder. It holds `run.json`, each check log and the
+47 sample captures. The scan and contact sheet are in the task log folder.
+
+The source suite uses its normal skip rules. CI runs the full browser matrix.
+Physical phones, screen-reader speech and a live account sign-in do not run.
+No deploy, publish or production command runs.

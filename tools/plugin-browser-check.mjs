@@ -13,6 +13,7 @@ import pg from 'pg';
 import { register } from 'tsx/esm/api';
 import { testDatabase } from './plugin-db-config.mjs';
 import { buildPluginServer } from './plugin-server-build.mjs';
+import { machineLeaseStdio } from './lib/lock.mjs';
 
 const mode = process.argv[2];
 assert(['oauth', 'fixture', 'http', 'privacy', 'preview', 'skylift'].includes(mode), 'Choose oauth, fixture, http, privacy, preview or skylift');
@@ -47,7 +48,8 @@ for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]
   process.once(signal, () => { void cleanup().finally(() => process.exit(code)); });
 }
 try {
-  await buildPluginServer(build);
+  // These checks test the parked ChatGPT plugin source (tools/chatgpt-plugin.mjs), so they build it in.
+  await buildPluginServer(build, { chatgpt: true });
   // Vite sets NODE_ENV during the build; the servers below are local test processes.
   process.env.NODE_ENV = 'test';
   if (mode !== 'oauth') {
@@ -90,14 +92,14 @@ try {
     const items = process.argv[3] ? [process.argv[3]] : JSON.parse(readFileSync('docs/specs/gui-previews-2026-10-19/capture.json', 'utf8')).items;
     for (const entry of items) {
       const [item, phase = 'after'] = entry.split('-');
-      child = spawn('bash', ['tools/test-lock.sh', process.execPath, 'docs/specs/gui-previews-2026-10-19/capture.mjs', build, item, phase], { stdio: 'inherit', env: process.env });
+      child = spawn('bash', ['tools/test-lock.sh', process.execPath, 'docs/specs/gui-previews-2026-10-19/capture.mjs', build, item, phase], { stdio: machineLeaseStdio(['inherit', 'inherit', 'inherit']), env: process.env });
       const [previewCode] = await once(child, 'exit');
       assert.equal(previewCode, 0, 'Board preview checks pass');
     }
   }
   if (mode !== 'preview') {
   child = spawn(process.execPath, [mode === 'oauth' ? 'tools/plugin-oauth-check.mjs' : mode === 'privacy' ? 'tools/plugin-privacy-check.mjs' : mode === 'skylift' ? 'tools/plugin-skylift-check.mjs' : 'tools/plugin-ui-check.mjs', build], {
-    stdio: 'inherit', env: { ...process.env, ...(harness ? { PLAYABLE_URL: harness.url, PLUGIN_EXPECT_MODE: mode } : {}) },
+    stdio: machineLeaseStdio(['inherit', 'inherit', 'inherit']), env: { ...process.env, ...(harness ? { PLAYABLE_URL: harness.url, PLUGIN_EXPECT_MODE: mode } : {}) },
   });
   const [code, signal] = await once(child, 'exit');
   assert.equal(code, 0, `Plugin ${mode} check failed${signal ? ` (${signal})` : ''}`);

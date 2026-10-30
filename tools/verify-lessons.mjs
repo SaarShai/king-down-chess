@@ -38,20 +38,14 @@ try {
     }), true, 'the saved-game line stays in view');
     assert.equal(await page.evaluate(() => {
       const close = document.querySelector('.lesson-guide-head button'), box = close.getBoundingClientRect();
-      const shelf = document.querySelector('.shelf-list').getBoundingClientRect();
+      const lead = document.getElementById('rules-lead').getBoundingClientRect();
       const body = document.querySelector('.lesson-guide-body').getBoundingClientRect();
       const safe = document.querySelector('.shelf-safe').getBoundingClientRect();
       const learn = document.getElementById('learn').getBoundingClientRect();
       return box.width === 44 && box.height === 44 && parseFloat(getComputedStyle(close).fontSize) === 24
-        && learn.top >= body.top && learn.bottom <= safe.top && safe.bottom <= shelf.top
-        && Math.abs((safe.left + safe.right - learn.left - learn.right) / 2) < 1;
-    }), true, 'Guide shows Close, the lesson action and the save note before the shelf');
+        && lead.top + 20 < body.bottom && Math.abs((safe.left + safe.right - learn.left - learn.right) / 2) < 1;
+    }), true, 'Guide shows Close, the first rule line and the centred save note');
     const guideHead = await page.locator('.lesson-guide-head').boundingBox();
-    await page.locator('#rules-lead').scrollIntoViewIfNeeded();
-    assert.ok(await page.locator('#rules-lead').evaluate(e => {
-      const lead = e.getBoundingClientRect(), body = e.closest('.lesson-guide-body').getBoundingClientRect();
-      return lead.top >= body.top - 1 && lead.top + 20 <= body.bottom;
-    }), 'the first rule line stays available by scroll');
     await page.locator('.lesson-guide-body').evaluate(el => { el.scrollTop = el.scrollHeight; });
     assert.deepEqual(await page.locator('.lesson-guide-head').boundingBox(), guideHead, 'Guide head stays in place when rules scroll');
     await page.locator('.lesson-guide-body').evaluate(el => { el.scrollTop = 0; });

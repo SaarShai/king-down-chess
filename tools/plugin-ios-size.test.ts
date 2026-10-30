@@ -455,7 +455,9 @@ it('gives each Android control a 48 px tap area at 360 × 800', async () => {
     await frame.getByRole('radio', { name: 'Computer', exact: true }).locator('..').click();
     await frame.getByRole('checkbox', { name: 'Fairy pieces', exact: true }).check(); await frame.getByRole('checkbox', { name: 'Cards', exact: true }).check();
     await check();
-    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#setup-start').click(); await frame.locator('#friend-copy:not([hidden])').waitFor();
+    await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click(); await frame.locator('#setup-start').click();
+    await frame.locator('#friend-new').waitFor(); await check();
+    await frame.locator('#friend-new').click(); await frame.locator('#friend-copy:not([hidden])').waitFor();
     await check();
     await frame.locator('#page-back').click(); await frame.locator('[data-nav="settings"]').first().click(); await frame.locator('[data-screen="settings"]:not([hidden])').waitFor();
     await check();
@@ -492,10 +494,10 @@ it('reflows New game and a waiting friend invite at 200% zoom (197 CSS px)', asy
     await frame.locator('#fairy-heading').click({ timeout: 3000 * STEP });
     expect(await frame.locator('#fairy-body .pick-list').isVisible()).toBe(true);
     await frame.getByRole('radio', { name: 'A friend', exact: true }).locator('..').click();
-    await frame.locator('#setup-start').click(); await frame.locator('.game-code span').first().waitFor();
-    const code = (await frame.locator('.game-code span').allTextContents()).join('');
+    await frame.locator('#setup-start').click(); await frame.locator('#friend-new').click(); await frame.locator('#friend-link span').waitFor();
     await frame.locator('#page-back').click();
-    const invite = frame.locator('.friend-invite-row').filter({ hasText: code }); await invite.waitFor();
+    // Invite rows come from this page's memory, so the one invite made here gives the one row.
+    const invite = frame.locator('.friend-invite-row'); await invite.waitFor();
     expect(await invite.evaluate(async row => {
       await document.fonts.ready;
       const button = row.querySelector('button[data-game-id]')!, bounds = button.getBoundingClientRect();
@@ -512,7 +514,7 @@ it('reflows New game and a waiting friend invite at 200% zoom (197 CSS px)', asy
       if (row.scrollWidth > row.clientWidth + 1) faults.push('Sideways scroll');
       return faults;
     })).toEqual([]);
-    const share = invite.getByRole('button', { name: `Share game ${code}`, exact: true });
+    const share = invite.getByRole('button', { name: 'Share the invite link', exact: true });
     await share.scrollIntoViewIfNeeded();
     expect((await share.evaluate(controlBounds)).accessible).toBe(true);
   } finally { await page.close(); }

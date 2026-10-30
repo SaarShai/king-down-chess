@@ -10,9 +10,10 @@
 #
 # The release shell must hold no KINGDOWN_STAGE or VITE_KINGDOWN_STAGE. A website run needs the production
 # VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY, because the build reads both from this shell.
-# No ref is accepted. A detached origin/main worktree runs npm test and the default browser checks,
-# then build:vercel (with its own node_modules), the engine guards and byte record, check:vercel,
-# the MCP protocol and the plugin UI checks.
+# No ref is accepted. A detached origin/main worktree runs the npm test steps and the default browser checks,
+# then build:vercel (with its own node_modules), the engine guards and byte record, check:vercel and
+# the web journey (web-online). The ChatGPT plugin is parked (tools/chatgpt-plugin.mjs): the website
+# release runs no MCP protocol or plugin UI check, and the checks expect each plugin path to answer 404.
 # PLUGIN_TEST_DATABASE_URL must name a disposable loopback database ending in _test.
 # A build that adds an uncommitted engine stops. KINGDOWN_ENGINES_DATABASE_URL enables the read-only
 # check of engines in use; publish stops without it. Check-only mode can skip it.
@@ -23,9 +24,14 @@
 # Both unsigned live checks use DEPLOY_LIVE_TIMEOUT_MS (site default 180000, plugin default 120000;
 # migration window 900000). The site check compares the public bytes, every file under assets/ (kept files
 # too), the app routes and /api/status.
-# The plugin check uses https://kingdown.dev.
+# The plugin check uses https://kingdown.dev. For a parked build it checks that each plugin path answers 404.
 # Every exit removes the temporary worktree and artifact copy.
 set -eu
+
+script_dir=$(cd "$(dirname "$0")" && pwd -P)
+if [ -z "${CI:-}" ] && [ -z "${KINGDOWN_MACHINE_LEASED:-}" ]; then
+  exec bash "$script_dir/test-lock.sh" --machine bash "$script_dir/deploy.sh" "$@"
+fi
 
 # The pinned Vercel CLI: the last version that deployed the site (2026-10-03). npx gets its own --yes,
 # because the dev-environment spec sets yes=false in .npmrc, and then npx asks before an install.
@@ -102,7 +108,6 @@ NODE
 fi
 
 top=$(git rev-parse --show-toplevel 2>/dev/null) || die "not in a git repository"
-script_dir=$(cd "$(dirname "$0")" && pwd -P)
 
 base='' dir=''
 cleanup() {
@@ -257,9 +262,11 @@ if [ -L node_modules ]; then
   step 'own node_modules' npm ci
 fi
 step 'plugin test database' npm run plugin:db:init-test
-step 'npm test' npm test
+# The tests and the browser checks start with no npm layer: npm (Node) closes the machine lease
+# descriptor in its children, so a kill of this shell would free the lease while they run.
+step 'npm test' bash tools/test-lock.sh bash tools/test-unlocked.sh
 if [ "$target" = website ]; then
-  step 'browser checks' npm run check:browser
+  step 'browser checks' node tools/check.mjs
   # shellcheck disable=SC2086 # site_env holds two checked words without spaces.
   step 'site artifact' env $site_env npm run build:vercel
 else
@@ -282,11 +289,14 @@ else
   step 'plugin HTTP check' npm run plugin:server:check -- "$artifact/functions/mcp.func"
   step 'plugin worker check' npm run plugin:smoke
 fi
-step 'plugin protocol check' npm run plugin:check:protocol
 if [ "$target" = website ]; then
-  step 'plugin browser checks' npm run check:browser plugin-ui plugin-ui-http
+  # The site build parks the ChatGPT plugin, so the website release has no plugin gate; CI still checks its source.
+  # To bring it back, put the plugin protocol check and `check:browser plugin-ui plugin-ui-http` here again. The
+  # legacy plugin target builds with `--chatgpt` (npm run plugin:build:vercel), so its gates test the tree it publishes.
+  step 'web journey' node tools/check.mjs web-online
 else
-  step 'plugin browser checks' npm run check:browser plugin-oauth plugin-ui plugin-ui-http
+  step 'plugin protocol check' npm run plugin:check:protocol
+  step 'plugin browser checks' node tools/check.mjs plugin-oauth plugin-ui plugin-ui-http
 fi
 if [ $publish = no ]; then
   echo "deploy: checks passed at $commit; published nothing (no --publish flag)"

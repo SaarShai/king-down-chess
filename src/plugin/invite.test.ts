@@ -1,19 +1,25 @@
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { copyText } from '../clipboard';
 import { DEFAULT_OPTIONS } from '../match/setup';
-import { inviteText, sendInvite } from './invite';
+import { inviteLink, inviteText, sendInvite } from './invite';
 import * as invites from './invite';
 
 vi.mock('../clipboard', () => ({ copyText: vi.fn() }));
+beforeEach(() => { vi.stubGlobal('location', { origin: 'https://kingdown.dev' }); });
 afterEach(() => { vi.unstubAllGlobals(); vi.resetAllMocks(); invites.friendInvites.clear(); });
 const invite = () => ({ code: 'ABC234', expires_at: new Date(Date.now() + 1000).toISOString() });
-const text = 'Join King Down game ABC234. Rules: Standard pieces.';
+const text = 'Join my King Down game: https://kingdown.dev/j#ABC234 Rules: Standard pieces.';
 const status = () => ({ textContent: '' }) as HTMLElement;
 
 it('names each enabled rule in the full invite', () => {
-  expect(inviteText('K7QX2M', { ...DEFAULT_OPTIONS, fairy: true, arrangement: true, classic: true, cards: true, kingPowers: true })).toBe('Join King Down game K7QX2M. Rules: Fairy pieces, First rank sorting: Player, Classic chess, Cards, King powers.');
-  expect(inviteText('K7QX2M', { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true, cards: false, kingPowers: false })).toBe('Join King Down game K7QX2M. Rules: Classic chess.');
-  expect(inviteText('K7QX2M', null)).toBe('Join King Down game K7QX2M. Rules: Standard pieces.');
+  const link = 'https://kingdown.dev/j#K7QX2M';
+  expect(inviteText(link, { ...DEFAULT_OPTIONS, fairy: true, arrangement: true, classic: true, cards: true, kingPowers: true })).toBe(`Join my King Down game: ${link} Rules: Fairy pieces, First rank sorting: Player, Classic chess, Cards, King powers.`);
+  expect(inviteText(link, { ...DEFAULT_OPTIONS, fairy: false, arrangement: false, classic: true, cards: false, kingPowers: false })).toBe(`Join my King Down game: ${link} Rules: Classic chess.`);
+  expect(inviteText(link, null)).toBe(`Join my King Down game: ${link} Rules: Standard pieces.`);
+});
+it('sends the code only inside the invite link (code tiles are parked)', () => {
+  expect(inviteLink({ code: 'K7QX2M' })).toBe('https://kingdown.dev/j#K7QX2M');
+  expect(inviteLink({ code: 'K7QX2M', url: 'https://kingdown.dev/j#token' })).toBe('https://kingdown.dev/j#token');
 });
 it('shares the full text through the device share sheet', async () => {
   const share = vi.fn().mockResolvedValue(undefined), result = status();
@@ -27,7 +33,7 @@ it('copies when Share is absent or refuses', async () => {
   vi.mocked(copyText).mockResolvedValue(true);
   for (const navigator of [{}, { share: vi.fn().mockRejectedValue(new Error('Denied')) }]) {
     vi.stubGlobal('navigator', navigator);
-    const result = status(); await sendInvite(invite(), null, result);
+    const result = status(); expect(await sendInvite(invite(), null, result)).toBe('copied');
     expect(copyText).toHaveBeenLastCalledWith(text);
     expect(result.textContent).toBe('Copied');
   }
@@ -47,11 +53,11 @@ it('Copy copies the full text even when Share is present', async () => {
   expect(result.textContent).toBe('Copied');
 });
 
-it.each([true, false])('does not share or copy an expired code (Share: %s)', async sharing => {
+it.each([true, false])('does not share or copy an expired invite link (Share: %s)', async sharing => {
   const share = vi.fn(), result = status(); vi.stubGlobal('navigator', { share });
   await sendInvite({ code: 'OLD234', expires_at: new Date(Date.now() - 1).toISOString() }, null, result, sharing);
   expect(share).not.toHaveBeenCalled(); expect(copyText).not.toHaveBeenCalled();
-  expect(result.textContent).toContain('expired');
+  expect(result.textContent).toBe('This invite link has expired. Start a new game to invite your friend.');
 });
 
 it.each([true, false])('blocks a retained invite action after a server read reports replacement (Share: %s)', async sharing => {

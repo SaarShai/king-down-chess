@@ -1,27 +1,23 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Game } from '../game';
-import { copyText } from '../clipboard';
 import { LESSONS } from '../lessons';
-import { parseKings, POWERS_BALANCED } from '../rules/engine';
+import { parseKings, POWERS_BALANCED, RULES_2017, RULES_2021 } from '../rules/engine';
 import { toFen } from '../rules/setup';
-import { connectLinks, gameUrl } from './links';
+import { connectLinks, gameUrl, movesText, rulesName } from './links';
 
 vi.mock('../clipboard', () => ({ copyText: vi.fn(async () => true) }));
 
 const page = { origin: 'https://kingdown.dev', pathname: '/' };
 
-describe('Copy moves', () => {
+describe('the move list text', () => {
   afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
   async function copy(game: Game, expected: string) {
     vi.useFakeTimers();
-    const button = { onclick: () => {}, textContent: 'Copy moves', dataset: {}, querySelector: () => null };
-    vi.stubGlobal('document', { getElementById: (id: string) => id === 'copy' ? button : {} });
+    vi.stubGlobal('document', { getElementById: () => ({}) });
     vi.stubGlobal('location', page);
-    const share = connectLinks({ game: () => game, turnStart: () => game.history.length, rules: null, blocked: () => false });
-    button.onclick();
-    await Promise.resolve();
-    expect(copyText).toHaveBeenCalledWith(expected);
+    const share = connectLinks({ game: () => game, turnStart: () => game.history.length, blocked: () => false });
+    expect(movesText(game.history)).toBe(expected);
     expect(expected.split(/\s+/).filter(s => !/^\d+[.…]$/.test(s))).toEqual(game.history.map(h => h.lan));
     const params = new URL(share.gameLink()).searchParams, replay = new Game('RNBQKBNR', game.rules);
     if (params.has('fen')) replay.load(replay.context.fromFen(params.get('fen')!));
@@ -60,6 +56,21 @@ describe('gameLink', () => {
   it('names the rules preset and the kings before the start; no moves is an empty list', () => {
     const url = new URL(gameUrl(page, '2017', parseKings('mud:march,none'), { army: 'RNBQKBNR' }, []));
     expect([...url.searchParams]).toEqual([['rules', '2017'], ['kings', 'mud:march,none'], ['army', 'RNBQKBNR'], ['moves', '']]);
+  });
+
+  it.each([
+    { name: '2017', rules: { ...POWERS_BALANCED, ...RULES_2017, kings: parseKings('frost:freeze') } },
+    { name: '2021', rules: { ...RULES_2021 } },
+    { name: null, rules: { ...POWERS_BALANCED, kings: parseKings('frost:freeze') } },
+    { name: null, rules: {} },
+  ])('names the preset of the live game rules: $name', ({ name, rules }) => {
+    const game = new Game('RNBQKBNR', rules);
+    expect(rulesName(game.rules)).toBe(name);
+    vi.stubGlobal('document', { getElementById: () => ({}) });
+    vi.stubGlobal('location', page);
+    const link = connectLinks({ game: () => game, turnStart: () => 0, blocked: () => false }).gameLink();
+    expect(new URL(link).searchParams.get('rules')).toBe(name);
+    vi.unstubAllGlobals();
   });
 
   it('a custom start sends its position; the page keeps its path and drops its own query', () => {

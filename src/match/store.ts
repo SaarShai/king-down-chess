@@ -20,7 +20,6 @@ export interface Game {
 }
 /** One game_commands row: a seat's command, or an event (no command_id). */
 export interface Log { seat: Seat | null; actor_id: string | null; command_id: string | null; kind: string; payload: object; actions: string[] | null; surface: Surface | null; received_at: Date }
-export interface Outgoing { notify: { user_id: string; kind: string; payload: object }[]; outbox: { kind: string; payload: object }[] }
 type Client = Pool | PoolClient;
 const GAME = 'rating_policy,id,kind,speed,days_per_move,category,readings,colour_rule,engine_fingerprint,setup,rules,status,result,end_reason,turn,revision,draw_offer,snapshot,deadline_at,deadline_kind,moves,created_by,created_at,started_at,finished_at,updated_at,options,draw,deal,level,setup_deadline_at,rematch_offer,rematch_game_id,setup_admission';
 const PLAYER = 'p.seat,p.user_id,p.computer,p.handle_at_start,pr.handle,pr.icon,p.power,p.choice,p.ready,p.action,p.turns_played,p.draw_offers,p.said,p.last_seen_at,(extract(epoch from statement_timestamp()-p.last_seen_at)*1000)::double precision as last_seen_ms,p.last_surface,p.active,p.ended_at';
@@ -122,8 +121,8 @@ export class PostgresMatchStore {
  async seen(game: string, user: string): Promise<void> {
   await this.pool.query("update public.game_players set last_seen_at=statement_timestamp() where game_id=$1 and user_id=$2 and (last_seen_at is null or last_seen_at<=statement_timestamp()-interval '30 seconds')", [game, user]);
  }
- /** Writes `next` (revision = before + 1), its log row and its alerts. State and snapshot are written only when they changed. */
- async save(client: PoolClient, before: Game, next: Game, log: Log, out: Outgoing): Promise<void> {
+ /** Writes `next` (revision = before + 1) and its log row. State and snapshot are written only when they changed. */
+ async save(client: PoolClient, before: Game, next: Game, log: Log): Promise<void> {
   await client.query(`update public.games set status=$2,result=$3,end_reason=$4,turn=$5,revision=$6,draw_offer=$7,state=coalesce($8,state),snapshot=coalesce($9,snapshot),
    deadline_at=$10,deadline_kind=$11,moves=$12,started_at=$13,finished_at=$14,updated_at=now(),setup=$15,rules=$16,engine_fingerprint=$17,setup_deadline_at=$18,rematch_offer=$19,rematch_game_id=$20 where id=$1`,
    [next.id, next.status, next.result, next.end_reason, next.turn, next.revision, next.draw_offer, next.state !== before.state ? next.state : null, next.snapshot !== before.snapshot ? next.snapshot : null,
@@ -135,8 +134,6 @@ export class PostgresMatchStore {
   await client.query(`insert into public.game_commands(game_id,seq,seat,actor_id,command_id,kind,payload,actions,turn_after,status_after,surface,received_at)
    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
    [next.id, next.revision, log.seat, log.actor_id, log.command_id, log.kind, log.payload, log.actions, next.turn, next.status, log.surface, log.received_at]);
-  for (const n of out.notify) await client.query('insert into public.notifications(user_id,kind,payload) values($1,$2,$3)', [n.user_id, n.kind, n.payload]);
-  for (const e of out.outbox) await client.query('insert into public.outbox(kind,payload) values($1,$2)', [e.kind, e.payload]);
  }
  /** True when this seat already sent this command with the same input; COMMAND_CONFLICT for other input. */
  async receipt(client: Client, game: string, seat: Seat, commandId: string, payload: object): Promise<boolean> {

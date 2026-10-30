@@ -1,6 +1,6 @@
 // W1: the real turn press, its Undo floor and the guarded link send.
 import assert from 'node:assert/strict';
-import { powerCoin, rulesAt, usePower, startLesson, confirmResign, endTurn, lanMoves, setPace, waitForUi } from './app-ui.mjs';
+import { powerCoin, rulesAt, usePower, confirmResign, endTurn, lanMoves, setPace, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL'), browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -180,15 +180,7 @@ try {
     assert.deepEqual([save.moves, save.resigned], [[], 0]);
     console.log('ok staged Resign drops the turn and gives up White');
     await page.keyboard.press('Escape');
-
-    await open(); await startLesson(page);
-    assert.equal(await page.isHidden('#end-turn'), true);
-    assert.equal(await page.isHidden('#undo'), true);
-    await page.click('#show-me');
-    await page.waitForFunction(() => window.view.marks.hint.length > 0 && !document.getElementById('show-me').disabled);
-    assert.deepEqual(await page.evaluate(() => window.view.marks.hint), [27, 45]);
-    await move('d4', 'f6'); await waitForUi(page, ui => !!ui.lessonLearned);
-    console.log('ok Show me marks the lesson goal');
+    // Lessons and Show me are parked (docs/PARKED.md).
   } else {
     // An opened link plays Black. Stub only the browser share/copy boundary.
     await open(undefined, '?army=RNBQKBNR&moves=e2-e4');

@@ -1,11 +1,19 @@
 import { copyText } from '../clipboard';
-import type { Game } from '../game';
 import { moveNumbers } from '../move-text';
+import type { Game } from '../game';
 import { kingsParam } from '../powers-ui';
-import { type Rules } from '../rules/engine';
+import { RULES_2017, RULES_2021, type Rules } from '../rules/engine';
 import { toFen } from '../rules/setup';
 
-const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+/** The `?rules=` presets: each sets every rule but the game's kings and design. */
+export const RULE_PRESETS: Readonly<Record<string, Readonly<Rules>>> = { 2017: RULES_2017, 2021: RULES_2021 };
+
+/** The `?rules=` name of the preset that these rules play, or null for the current rules. */
+export function rulesName(rules: Rules): string | null {
+  const same = (preset: Rules): boolean => (Object.keys(preset) as (keyof Rules)[])
+    .every(k => k === 'kings' || k === 'design' || JSON.stringify(preset[k]) === JSON.stringify(rules[k]));
+  return Object.keys(RULE_PRESETS).find(name => same(RULE_PRESETS[name])) ?? null;
+}
 
 /**
  * A link that holds a whole game, for a friend to open and answer on their device (no server): this
@@ -39,32 +47,25 @@ export async function copyAndSay(button: HTMLElement, text: string, done: string
 }
 
 /**
- * Copy (the moves) and Share (a link to the game). `gameLink` makes the link of the game on the board.
- * `rules`: the page's `?rules=` preset. `blocked`: Share does nothing now.
+ * The move list as numbered LAN ("1. e2-e4 e7-e5 2. d2-d4"). Its Copy moves button (Menu, This game) is parked
+ * (docs/PARKED.md); the text stays for later.
  */
-export function connectLinks(c: { game(): Game; turnStart(): number; rules: string | null; blocked(): boolean }) {
-  $('copy').onclick = () => {
-    const history = c.game().history, numbers = moveNumbers(history.map(h => h.pos.turn));
-    const text = history.map((h, i) => (i === 0 || numbers[i] !== numbers[i - 1] ? `${numbers[i]}${h.pos.turn ? '…' : '.'} ${h.lan}` : h.lan)).join(' ');
-    void copyAndSay($('copy'), text, 'Moves copied');
-  };
+export function movesText(history: Game['history']): string {
+  const numbers = moveNumbers(history.map(h => h.pos.turn));
+  return history.map((h, i) => (i === 0 || numbers[i] !== numbers[i - 1] ? `${numbers[i]}${h.pos.turn ? '…' : '.'} ${h.lan}` : h.lan)).join(' ');
+}
 
+/**
+ * `gameLink`: the link of the game on the board, which names the preset of the live game's rules. The Share
+ * button (Send the game link) and the link turn are parked (docs/PARKED.md). `blocked` stays for Share's return.
+ */
+export function connectLinks(c: { game(): Game; turnStart(): number; blocked(): boolean }) {
   /** A link that holds this whole game, for a friend to open and answer on their device (no server). */
   function gameLink(lans = c.game().history.slice(0, c.turnStart()).map(h => h.lan)): string {
     const game = c.game();
-    return gameUrl(location, c.rules, game.rules.kings,
+    return gameUrl(location, rulesName(game.rules), game.rules.kings,
       game.backRank ? { army: game.backRank } : { fen: toFen(game.history[0]?.pos ?? game.pos) }, lans, game.rules.design?.code);
   }
 
-  $('share').onclick = async () => {
-    if (c.blocked()) return;
-    const url = gameLink(), button = $('share');
-    // A phone opens its share sheet (chat apps); elsewhere the link goes to the clipboard.
-    if (navigator.share && matchMedia('(pointer: coarse)').matches) {
-      try { await navigator.share({ title: 'King Down Chess', text: `King Down Chess: ${c.game().pos.turn ? 'Black' : 'White'} to move`, url }); return; }
-      catch (e) { if ((e as Error).name === 'AbortError') return; }
-    }
-    await copyAndSay(button, url, 'Link copied. Paste it to your friend.');
-  };
   return { gameLink };
 }

@@ -3,7 +3,6 @@ import { Game } from '../game';
 import { LESSONS } from '../lessons';
 import { POWERS_BALANCED, parseKings } from '../rules/engine';
 import { turnOf } from '../turn';
-import { toFen } from '../rules/setup';
 import { teachFirstGame, refreshTable, renderTable, type TableState, type TableSnapshot } from './table';
 
 const node = () => ({
@@ -72,9 +71,9 @@ describe('review move headings', () => {
     vi.stubGlobal('matchMedia', () => ({ matches: false }));
     const snapshot: TableSnapshot = {
       selected: null, selectedType: 0, pending: [], canFinish: false, busy: false, thinking: false, notice: '',
-      viewing: 0, reviewNote: '', lesson: null, lessonDone: false, nextLesson: null, turnLine: '',
+      viewing: 0, reviewNote: '', lesson: null, turnLine: '',
       activeSide: game.pos.turn, staged: 0, check: false, ended: false, finished: false, myTurn: true,
-      result: '', backRank: game.backRank, fen: toFen(game.pos),
+      result: '',
       history: game.history.map(h => ({ lan: h.lan, turn: h.pos.turn })), marked: [], taken: [[], []],
       sides: ['human', 'human'], linkSide: null, undoOn: true, resigner: null,
     };
@@ -88,7 +87,7 @@ describe('review move headings', () => {
 });
 
 
-it('keeps the first lesson action with a save notice', () => {
+it('keeps the first-board read hint with a save notice', () => {
   const game = new Game('RNBQKBNR');
   teachFirstGame(game);
   const state: TableState = {
@@ -98,7 +97,6 @@ it('keeps the first lesson action with a save notice', () => {
     saveNotice: 'Changes not saved. Keep this tab open.',
   };
   refreshTable(state);
-  expect(element('first-lesson').hidden).toBe(false);
   expect(element('context-text').replaceChildren.mock.lastCall!.map((row: { textContent: string }) => row.textContent))
     .toEqual([state.saveNotice, 'Your move. Tap a piece to read.']);
 });

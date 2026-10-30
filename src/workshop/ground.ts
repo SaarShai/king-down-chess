@@ -687,7 +687,7 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
     // An open card (renderPlinth, proving-ground.html:1067-1070): its name, and on the plinth its art, title and sentence with the LAB ribbon.
     if (labOpen) {
       const n = cardName(labOpen), diagram = cardDiagram(labOpen);
-      plinthEl.innerHTML = `<div class="pg-name"><div class="row"><h3${n.length > 9 ? ' class="long"' : ''}>${n}</h3></div>${narrow.matches ? '<p class="lab-note">Test deck. Not in the game.</p>' : ''}</div>`
+      plinthEl.innerHTML = `<div class="pg-name"><div class="row"><h3${n.length > 9 ? ' class="long"' : ''}>${n}</h3></div></div>`
         + `<div class="pg-bigcard lab-host">${cardFace(labOpen)}<b class="ttl">${n}</b><span class="rule"></span><p>${esc(cardWords(labOpen))}.</p></div>`
         + (diagram ? `<div class="card-diagram">${diagram}</div>` : '');
       return;
@@ -1333,8 +1333,7 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
     if (labOpen && !brush) {
       const c = labOpen, now = `<p class="info-p">${!LAY.includes(c) ? 'No test board for this card yet.' : !powersWork() ? WAIT_CARDS : laid !== c ? 'Lay it from the card slot.'
         : labNow().length ? 'Tap a blue ring on the board.' : pos.game.played ? `${cardName(c)} is played.` : `${cardName(c)} has no target on this board.`}</p>`;
-      const example = c === 'Freeze' && powersWork() && laid === c && !pos.game.played && !labNow().length ? '<button type="button" data-act="cardexample">Load example</button>' : '';
-      brushesEl.innerHTML = phone ? `${now}${example}<button type="button" class="pg-carddetails" data-act="carddetails" aria-haspopup="dialog">Details</button>` : cardInfo(c) + now + example;
+      brushesEl.innerHTML = phone ? `${now}<button type="button" class="pg-carddetails" data-act="carddetails" aria-haspopup="dialog">Details</button>` : cardInfo(c) + now;
     } else if (kingOpen && !brush) brushesEl.innerHTML = phone ? '' : KINGS[kingOpen].map(p => `<button type="button" class="pline" data-power="${p}" aria-pressed="${powersWork() && king === kingOpen && armed === p}"${powersWork() ? '' : ' aria-disabled="true"'}>`
       + `${coinHtml(p)}<span><b>${POWER_NAME[p]}</b><span class="pt">${esc(cap(powerText(p, kingRules(kingOpen!, p), true)))}.</span></span></button>`).join('');
     else brushesEl.innerHTML = BRUSHES.map(([k, w], i) => `<button type="button" class="brush${brush === k ? ' armed' : ''}" data-brush="${k}" aria-pressed="${brush === k}" title="${NAMES[k]}. Tap to paint (${i + 1})">`
@@ -1630,17 +1629,6 @@ export function groundDialog(current: () => GameRules = () => new GameRules()): 
     if (act === 'closecard') return closeCard();
     if (act === 'closewhy') return closeWhy();
     if (act === 'carddetails') return cardDetails();
-    if (act === 'cardexample' && labOpen === 'Freeze') {
-      const b = restored(), target = parseSq('d7') === pos.from ? parseSq('e7') : parseSq('d7');
-      b[target] = piece(P, BLACK);
-      kbd = sqName(target);
-      setUp(b);
-      pos = { ...pos, game: { uses: pos.game.uses } };
-      why = null;
-      render();
-      q<HTMLElement>(`.pg-hits .sq[data-sq="${kbd}"]`).focus({ preventScroll: true });
-      return ripple();
-    }
     if (act === 'stamp') return stamp();
     if (act === 'threats') { threats = !threats; return render(); }
     if (act === 'seat') { seating = !seating; laying = false; return render(); }

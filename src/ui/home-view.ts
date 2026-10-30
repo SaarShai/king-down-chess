@@ -1,6 +1,4 @@
-import { LETTERS, type PieceType } from '../rules/engine';
-import { pieceIcon } from '../piece-icons';
-import { homeState, todayDeal, type HomeInput } from './home';
+import { homeState, type HomeInput } from './home';
 import './home.css';
 
 /** Home uses the table's board and Menu. Its rows have the same size as play. */
@@ -10,7 +8,6 @@ export function initHome(actions: {
   rematch: () => void;
   review: () => void;
   newGame: () => void;
-  today: () => void;
 }) {
   const $ = (id: string): HTMLElement => document.getElementById(id)!;
   const table = $('game-table'), menu = $('menu-btn');
@@ -37,9 +34,6 @@ export function initHome(actions: {
     $('home-review').hidden = !state.review;
     $('last-move').innerHTML = '<span></span>';
     $('last-move').querySelector('span')!.textContent = state.lastMove || 'No moves yet.';
-    const today = todayDeal(new Date(), actions.read().game.context);
-    $('home-date').textContent = today.label;
-    $('home-army').innerHTML = [...today.army].map(p => pieceIcon(LETTERS.indexOf(p) as PieceType)).join('');
   }
   function close(): void {
     if (visible) {
@@ -65,7 +59,6 @@ export function initHome(actions: {
   }
   $('home-main').onclick = () => homeState(actions.read()).review ? actions.rematch() : resume();
   $('home-new').onclick = actions.newGame;
-  $('home-today').onclick = actions.today;
   $('home-review').onclick = () => { close(); actions.review(); };
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
   return { get visible() { return visible; }, open, close, refresh, resume };

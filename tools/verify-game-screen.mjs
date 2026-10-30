@@ -1,7 +1,7 @@
 // The table at the four W2 sizes: fixed actions and status rows that grow with text.
 import assert from 'node:assert/strict';
 import { recordBoardText, boardText } from './board-ink-check.mjs';
-import { rulesAt, usePower, startLesson, contextWordsInView, endTurn, openMoves } from './app-ui.mjs';
+import { rulesAt, usePower, contextWordsInView, endTurn, openMoves } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 const browser = await launch();
 const visibleWords = async (page, words) => assert.ok(await contextWordsInView(page, words), `the drawn context shows ${words}`);
@@ -81,26 +81,13 @@ try {
     assert.ok(red <= 1, 'one crimson control at most');
     assert.equal(await page.locator('#undo').getAttribute('aria-disabled') !== null, true);
     await shot(page, `table-${width}x${height}`);
-    console.log(`ok game-screen ${width}×${height}: fixed actions, growing status rows, targets, Moves, check, no sideways scroll`);
-    await startLesson(page);
-    await visibleWords(page, 'marked enemy pawn');
-    assert.ok((await page.locator('#context-text > span').first().innerText()).split(/\s+/).length <= 8, 'the first lesson sentence has at most eight words');
-    assert.equal(await page.locator('#lesson-progress .now').first().getAttribute('aria-label'), 'Lesson 1 of 6 current', 'lesson progress names its current state');
-    assert.ok(await page.evaluate(() => [...document.querySelectorAll('#context-text > span')].every(row => row.scrollHeight <= row.clientHeight + 1)), 'the whole lesson task fits');
-    await tap(27); await tap(45);
-    await page.waitForFunction(() => document.getElementById('context-text').textContent.includes('Archer learned.'));
-    await visibleWords(page, 'Archer learned.');
-    await stripsClear('lesson done');
-    assert.deepEqual((await fixedRows()).find(row => row.id === 'table-bar'), restRows.find(row => row.id === 'table-bar'), `${width}×${height}: the bar stays fixed with the lesson words`);
-    await insideViewport(page, '#context-line, #moves-line, #table-bar');
-    assert.equal(await page.locator('#lesson-progress .done').first().getAttribute('aria-label'), 'Lesson 1 of 6 done', 'lesson progress names its done state');
-    assert.ok(await page.evaluate(() => document.getElementById('context-text').getBoundingClientRect().bottom <= document.getElementById('moves-line').getBoundingClientRect().top), 'the lesson words do not cover Moves');
+    console.log(`ok game-screen ${width}×${height}: fixed board and bar, targets, Moves, check, no sideways scroll`);
+    // Lessons are parked (docs/PARKED.md): the lesson words and progress are not checked here.
     if (width === 844) {
       const tile = await page.evaluate(() => window.view.screenOf(1).x - window.view.screenOf(0).x);
       assert.ok(tile >= 40, `landscape squares: ${tile.toFixed(2)} px`);
       console.log(`ok landscape square ${tile.toFixed(2)} px`);
     }
-    await minTarget(page, '#next-lesson, #return-game');
     await context.close();
   }
   const opened = async (save, query = '', width = 390, height = 844) => {
@@ -115,7 +102,9 @@ try {
   };
   {
     const { page, context } = await opened({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], link: 0 });
-    await visibleWords(page, "Wait for your friend's link.");
+    // The game link is parked (docs/PARKED.md): a saved link game plays against the computer and says so.
+    await visibleWords(page, "This version cannot send game links. The computer plays your friend's side.");
+    assert.equal(await page.locator('#end-turn').innerText().then(t => /Send/.test(t)), false, 'a saved link game has no Send your turn');
     await context.close();
   }
   {

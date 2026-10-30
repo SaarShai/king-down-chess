@@ -25,13 +25,11 @@
       <symbol id="i-resign" viewBox="0 0 24 24"><path d="M5 21V4M5 4h12l-2.5 4.5L17 13H5"/></symbol>
       <symbol id="i-share" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
       <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5l12 7.5-12 7.5z"/></symbol>
-      <symbol id="i-learn" viewBox="0 0 24 24"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2.5 9 2.5 12 0v-5M22 9v6"/></symbol>
       <symbol id="i-continue" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></symbol>
       <symbol id="i-crown" viewBox="0 0 24 24"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></symbol>
       <symbol id="i-brain" viewBox="0 0 24 24"><path d="M12 6c0-4-6-4-6-.5-3-.5-4.5 3-3 5C1 13.5 3 17 6 17c0 4 6 4 6 .5 0 3.5 6 3.5 6-.5 3 0 5-3.5 3-6.5 1.5-2 0-5.5-3-5C18 2 12 2 12 6v11.5M7 8v3h2v4H6M17 8v3h-2v4h3"/></symbol>
       <symbol id="i-smiling-pawn" viewBox="0 0 24 24"><circle cx="12" cy="7" r="5"/><path d="M10 6h.01M14 6h.01M10 8q2 2 4 0M8.5 13h7M10 13l-1 4-2.5 3v1h11v-1L15 17l-1-4"/></symbol>
       <symbol id="i-die" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M8 8h.01M16 8h.01M12 12h.01M8 16h.01M16 16h.01"/></symbol>
-      <symbol id="i-workshop" viewBox="0 0 24 24"><path d="M2 7h14c2 0 4.5-.6 6-1.6V7c0 2.4-2.6 4-6 4h-1v3l3 4v2H6v-2l3-4v-3H7.5C4.3 11 2 9.4 2 7z"/></symbol>
     </svg>
     <main id="game-table" aria-label="Game">
       <div id="board" tabindex="0" role="application" aria-roledescription="chess board" aria-label="Board. Arrow keys move the square cursor; Enter or Space selects and moves." aria-describedby="cursor-say"></div>
@@ -41,10 +39,9 @@
         <div id="home-actions" data-home-part hidden><button id="home-main" class="primary"><span class="label">Continue</span><span id="home-detail"></span></button><button id="home-new">New game</button></div>
         <div id="home-space" data-home-part hidden><button id="home-review" class="quiet" hidden>Review last game</button></div>
         <div id="home-bottom" data-home-part hidden>
-          <div id="home-account"><a class="account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Same games on web and in ChatGPT. Online only.</small></a><small class="local-play-note">Local play remains available offline.</small></div>
-          <button id="home-today"><span id="home-date"></span><span id="home-army" aria-hidden="true"></span><span class="chevron" aria-hidden="true">›</span></button>
+          <div id="home-account"><a class="account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Your games on any device. Online only.</small></a><small class="local-play-note">Local play remains available offline.</small></div>
         </div>
-        <div id="strip-them" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span><div id="lesson-progress" hidden role="group" aria-label="Lesson progress"></div></div>
+        <div id="strip-them" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span></div>
         <div class="table-space"></div>
         <div id="strip-me" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span>
         </div>
@@ -54,7 +51,6 @@
             <div id="context-actions">
               <button id="recover-save" type="button" aria-describedby="context-text" hidden>Use recovered game</button>
               <button id="recovery-new-game" type="button" hidden>New game</button>
-              <button id="first-lesson" hidden>Learn</button>
               <button id="all-rules" aria-label="All rules" hidden>All rules</button>
               <button id="power-use" hidden>Use</button>
               <button id="power-cancel" hidden>Cancel</button>
@@ -69,9 +65,7 @@
           <button id="undo" title="Undo a move in this turn (Z)"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Undo</span></button>
           <button id="end-turn" type="button" aria-disabled="true">End turn</button>
           <button id="return-game" hidden><svg class="icon" aria-hidden="true"><use href="#i-return"/></svg><span class="label">Return to game</span></button>
-          <button id="show-me" hidden><svg class="icon" aria-hidden="true"><use href="#i-guide"/></svg><span class="label">Show me</span></button>
-          <button id="next-lesson" hidden><svg class="icon" aria-hidden="true"><use href="#i-continue"/></svg><span class="label"></span></button>
-          <button id="menu-btn" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span id="menu-seal-dot" aria-hidden="true" hidden></span><span class="label">Menu</span></button>
+          <button id="menu-btn" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="label">Menu</span></button>
         </nav>
       </div>
       <div id="table-sources" hidden><div id="turn"></div><div id="status"></div><div id="asset-status">Loading pieces…</div><div id="move-help"></div><div id="moment"></div><div id="hover"></div></div>
@@ -121,12 +115,10 @@
         <div class="title-actions">
           <button id="title-start" class="primary" hidden>Start</button>
           <button id="title-continue" class="primary" hidden><svg class="icon" aria-hidden="true"><use href="#i-continue"/></svg><span class="label">Continue</span></button>
-          <button id="title-learn"><svg class="icon" aria-hidden="true"><use href="#i-learn"/></svg><span class="label">Learn the pieces</span></button>
           <button id="title-play"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span class="label">Play</span></button>
-          <button id="title-workshop"><svg class="icon" aria-hidden="true"><use href="#i-workshop"/></svg><span class="label">Workshop</span></button>
         </div>
         <p class="local-play-note">Play on this device without signing in.</p>
-        <a class="account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Same games on web and in ChatGPT. Online only.</small></a>
+        <a class="account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Your games on any device. Online only.</small></a>
       </div>
     </dialog>
     <dialog id="new-game" aria-labelledby="new-game-title">
@@ -158,35 +150,17 @@
           <div class="king-pick" id="pick-0"></div>
           <div class="king-pick" id="pick-1"></div>
         </div>
-        <label class="army" id="design-row">Bring a design <select id="design" aria-describedby="design-line"></select></label>
-        <p id="design-line"></p>
         <details id="more-options">
           <summary><span id="side-army-label">Army</span><small id="side-army-value"></small></summary>
           <fieldset class="seg" id="army-choice">
             <legend>Army</legend>
             <div class="seg-row">
               <label><input type="radio" name="army" value="random" /><span>Random</span></label>
-              <label><input type="radio" name="army" value="daily" /><span>Today's</span></label>
               <label><input type="radio" name="army" value="classic" /><span>Chess</span></label>
             </div>
           </fieldset>
           <div id="army-strip" aria-hidden="true"></div>
           <p id="army-line"></p>
-          <details id="other-armies">
-            <summary>More…</summary>
-            <label class="army">Army <select id="army" aria-describedby="army-note">
-              <option value="random">Random King Down army</option>
-              <option value="daily" title="Every player gets the same army today">Today's army, the same for everyone</option>
-              <option value="classic">Chess starting army</option>
-              <option value="custom">Custom army…</option>
-              <optgroup label="Example armies" id="army-examples">
-                <option value="MMSSNBNK">MMSSNBNK</option><option value="KGBMSSMB">KGBMSSMB</option>
-                <option value="NKBBMGQS">NKBBMGQS</option><option value="QNKMNRSG">QNKMNRSG</option>
-                <option value="SQBKRSML">SQBKRSML</option><option value="ogre">Ogre practice</option>
-              </optgroup>
-            </select></label>
-            <small id="army-note">Try an example army. Catapult is experimental.</small>
-          </details>
         </details>
       </div>
       <footer class="new-game-foot">
@@ -199,13 +173,12 @@
       <header class="sheet-head"><button id="menu-back" aria-label="Back to Menu" hidden><span class="back-mark" aria-hidden="true">‹</span><span class="back-label">Menu</span></button><h2 id="menu-title" tabindex="-1">Menu</h2><button id="menu-close" aria-label="Close">×</button></header>
       <div class="sheet-body">
       <section data-menu-page="menu">
-        <a class="menu-row account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Same games on web and in ChatGPT. Online only.</small></a>
+        <a class="menu-row account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Your games on any device. Online only.</small></a>
         <button class="menu-row" data-go="new">New game <span>Play again, or change setup.</span><i>›</i></button>
-        <button id="rules-btn" class="menu-row">Guide <span>Pieces, powers and lessons.</span><i>›</i></button>
+        <button id="rules-btn" class="menu-row">Guide <span>Pieces and powers.</span><i>›</i></button>
         <button class="menu-row" data-go="help">Board help<i>›</i></button>
         <fieldset class="fields group"><legend>Feel</legend><label>Sound <input id="sound" type="checkbox" checked /></label><label>Motion <select id="pace"><option value="normal">Normal</option><option value="fast">Fast</option><option value="off">Off</option></select></label><small id="pace-note">Tap the board to skip an animation.</small></fieldset>
-        <button class="menu-row" id="extra-row" data-go="extra">Extra <b id="extra-seal-dot" class="seal-dot" aria-hidden="true" hidden></b><span>Play and make. Board and game.</span><i>›</i></button>
-        <button id="share" hidden>Send the game link</button>
+        <button class="menu-row" data-go="account">Account<i>›</i></button>
         <button id="resign" class="menu-row resign-row" data-go="resign" aria-disabled="false">Resign <span>Lay your king down.</span><i>›</i></button>
       </section>
       <section data-menu-page="new" hidden><p>A new game ends this game.</p><button id="play-again" class="menu-row">Play again<span>The same setup. A new army.</span></button><button id="new-game-btn" class="menu-row">Change setup<i>›</i></button></section>
@@ -215,18 +188,6 @@
         <label>Piece letters <input id="labels" type="checkbox" /></label>
         <label>Always promote to a queen <input id="queen" type="checkbox" /></label>
       </section>
-      <section data-menu-page="extra" hidden>
-        <h3>Play and make</h3>
-        <button id="tricks-row" class="menu-row" data-go="tricks" hidden>Tricks<b id="tricks-seal-dot" class="seal-dot" aria-hidden="true" hidden></b><span id="tricks-count">The tricks you find get seals.</span><i>›</i></button>
-        <button id="today-army" class="menu-row">Today's army<i>›</i></button>
-        <button id="workshop-btn" class="menu-row"><img class="menu-fox" src="/ui/workshop/fox-pathfinder-w.webp" alt="" />Workshop<span>Make your own piece.</span><i>›</i></button>
-        <h3>Board and game</h3>
-        <button class="menu-row" data-go="game">This game<i>›</i></button>
-        <button class="menu-row" data-go="account">Account<i>›</i></button>
-        <h3>Coming</h3><p class="coming-row">Card mode: power coins by the king.</p>
-      </section>
-      <section data-menu-page="tricks" hidden><p id="tricks-intro">Each trick you find gets a seal.</p><ul id="tricks-list"></ul></section>
-      <section data-menu-page="game" hidden><div class="row">Army <code id="setup"></code></div><button id="copy" title="Copy the move list as LAN">Copy moves</button></section>
       <section data-menu-page="account" hidden><section id="account" aria-labelledby="account-title" hidden><h3 id="account-title">Account</h3><div id="account-body" class="fields"></div><p id="account-note" role="status" aria-live="polite"></p></section></section>
       <section data-menu-page="resign" hidden><h3>Lay your king down?</h3><p id="resign-detail"></p><button id="resign-confirm" class="primary">Resign</button><button data-go="menu">Keep playing</button></section>
       </div>
@@ -258,7 +219,6 @@
     <dialog id="rules" aria-labelledby="rules-title">
       <header class="lesson-guide-head"><h2 id="rules-title" tabindex="-1" autofocus>Guide</h2><form method="dialog"><button aria-label="Close Guide">×</button></form></header>
       <div class="lesson-guide-body">
-      <div id="lesson-shelf"></div>
       <p id="rules-lead"></p>
       <div id="rules-rows" class="piece-cards"></div>
       <p id="rules-letters"></p>
@@ -279,7 +239,6 @@
       <p id="over-detail"></p>
       <div id="over-tiles"></div>
       <button id="over-review" type="button" class="quiet">Review</button>
-      <button id="share-result" type="button" hidden></button>
       <form method="dialog">
         <button value="rematch" class="primary">Rematch</button>
         <button value="new">New game</button>
