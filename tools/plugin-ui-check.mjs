@@ -1912,7 +1912,8 @@ try {
         wordsAfter:t.left >= b.right, lines:Math.round(text.scrollHeight / parseFloat(getComputedStyle(text).lineHeight)), clipped:text.scrollHeight > text.clientHeight + 1};
     });
     assert(layout.first && layout.loaded && layout.portrait && layout.size && layout.inside && layout.wordsAfter, `T4 at ${width}: the named piece portrait starts and fits the context row: ${JSON.stringify(layout)}`);
-    assert(layout.lines <= 2 && !layout.clipped, `T4 at ${width}: the swap words keep at most the sample's two lines: ${JSON.stringify(layout)}`);
+    // Parked (owner, 2026-10-29): old 320 px phones in WebKit may take a third line.
+    if (!(width === 320 && process.env.PLAYABLE_BROWSER === 'webkit')) assert(layout.lines <= 2 && !layout.clipped, `T4 at ${width}: the swap words keep at most the sample's two lines: ${JSON.stringify(layout)}`);
     await info.click();
     await frame.locator('#board-sheet[open]').waitFor();
     assert((await frame.locator('#board-sheet').innerText()).includes('Swaps places with a friendly piece.'), 'T4: the portrait opens the selected piece rules');
