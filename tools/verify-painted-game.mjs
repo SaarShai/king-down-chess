@@ -76,7 +76,7 @@ try {
   console.log('ok human drag and click-click moves');
 
   // 2. Human as Black: the board turns round, and Undo during the computer's animation is clean.
-  // Move words precede landing; Menu would consume its click by skipping that animation.
+  // Move words precede landing; wait for the board to settle before the next check.
   await page.locator('#resign[aria-disabled="false"]').waitFor({ state: 'attached' });
   await startGame(page, { mode: 'computer', side: 'black', level: 'beginner' });
   assert.deepEqual(await players(page), ['ai', 'human']);

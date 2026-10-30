@@ -259,7 +259,7 @@ no-push limit in this ticket. The parked list at `42336dbb` stays in force.
 | Item | Choice | Result and reason |
 | --- | --- | --- |
 | V1 | Keep | All 16 board coordinates use plain parchment and dark ink. Contrast is 12.53:1. |
-| V2 | Change in part | Keep Computer and A friend Online, No powers and Kings' powers, and the army and power summary by Start. Army offers Random or Chess. Remove the design field because Workshop is parked. No same-device or code-entry choice returns. |
+| V2 | Change in part | Keep Computer and A friend, No powers and Kings' powers, and the army and power summary by Start. Army offers Random or Chess. Remove the design field because Workshop is parked. No same-device or code-entry choice returns. The later local entry removes the Online sub-line. |
 | V3 | Change in part | Keep Tap a piece to read on the first board. Remove Learn because lessons are parked. Later games have no hint. |
 | V4 | Change in part | Keep the full-size figures on visible Guide piece cards. Drop lesson order and its save note because the lesson shelf is parked. |
 | V5 | Keep | Title names have an 11 px floor. Names wrap and the page scrolls with large text. |

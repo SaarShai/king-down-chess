@@ -13,13 +13,13 @@ export function initHome(actions: {
   const table = $('game-table'), menu = $('menu-btn');
   const parts = [...table.querySelectorAll<HTMLElement>('[data-home-part]')];
   for (const link of document.querySelectorAll<HTMLAnchorElement>('[data-account-play]')) {
-    const note = link.querySelector('small')!, onlineNote = note.textContent;
+    const note = link.nextElementSibling!;
     link.addEventListener('click', event => {
       if (navigator.onLine) return;
       event.preventDefault();
       note.textContent = 'You are offline. Keep playing on this device.';
     });
-    window.addEventListener('online', () => { note.textContent = onlineNote; });
+    window.addEventListener('online', () => { note.textContent = ''; });
   }
   let visible = false;
   function refresh(): void {

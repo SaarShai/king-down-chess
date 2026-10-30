@@ -79,7 +79,7 @@ try {
     assert.equal(await page.locator('#design-row, #design-line').count(), 0, 'Bring a design stays parked');
     assert.deepEqual(await page.locator('input[name=army]').evaluateAll(inputs => inputs.map(e => e.value)), ['random', 'classic']);
     assert.equal(await page.getByRole('group', { name: 'Who you play', exact: true }).count(), 1);
-    assert.equal(await page.getByRole('link', { name: 'A friend Online', exact: true }).count(), 1);
+    assert.equal(await page.getByRole('link', { name: 'A friend', exact: true }).count(), 1);
     if ([1024, 1366].includes(width)) {
       assert.ok((await rect(page, '#new-game .new-game-body')).width >= 300, 'New game choices have room');
       await textFits(page, '#new-game .mode-text, #new-game .level-stops > span, #level-line');
@@ -162,7 +162,7 @@ try {
       const friend = await context.newPage();
       await friend.goto(`${env('PLAYABLE_URL')}?${fixture}`); await ready(friend);
       await pressMenu(friend, 'New game');
-      await friend.getByRole('link', { name: 'A friend Online', exact: true }).focus();
+      await friend.getByRole('link', { name: 'A friend', exact: true }).focus();
       await friend.keyboard.press('Enter');
       await friend.waitForURL('**/play/friend');
       await friend.locator('.account-entry').waitFor({ state: 'visible' });

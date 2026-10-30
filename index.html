@@ -6,6 +6,7 @@
     <!-- Light only, also in device dark mode (the Quiet Table); the browser bar takes the parchment colour. -->
     <meta name="color-scheme" content="only light" />
     <meta name="theme-color" content="#f3ead7" />
+    <style>html { background: #f2e9d6; } #game-table[data-local-entry] { visibility: hidden; } html.local-ready #game-table[data-local-entry] { visibility: visible; }</style>
     <title>King Down Chess</title>
     <meta name="description" content="A chess variant with archers, guards, maesters, beasts, ogres and paladins." />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232b2621'/%3E%3Cpath d='M6 12l5 5 5-8 5 8 5-5-2 13H8z' fill='%23d9a441' stroke='%23f3ead7' stroke-width='1.5' stroke-linejoin='round' transform='rotate(-14 16 16)'/%3E%3C/svg%3E" />
@@ -31,7 +32,7 @@
       <symbol id="i-smiling-pawn" viewBox="0 0 24 24"><circle cx="12" cy="7" r="5"/><path d="M10 6h.01M14 6h.01M10 8q2 2 4 0M8.5 13h7M10 13l-1 4-2.5 3v1h11v-1L15 17l-1-4"/></symbol>
       <symbol id="i-die" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M8 8h.01M16 8h.01M12 12h.01M8 16h.01M16 16h.01"/></symbol>
     </svg>
-    <main id="game-table" aria-label="Game">
+    <main id="game-table" data-local-entry aria-label="Game">
       <div id="board" tabindex="0" role="application" aria-roledescription="chess board" aria-label="Board. Arrow keys move the square cursor; Enter or Space selects and moves." aria-describedby="cursor-say"></div>
       <div class="table-side">
         <header id="home-head" data-home-part hidden><h1 class="wordmark"><span class="wm-king">King</span> <span class="wm-down">Down</span></h1></header>
@@ -39,7 +40,7 @@
         <div id="home-actions" data-home-part hidden><button id="home-main" class="primary"><span class="label">Continue</span><span id="home-detail"></span></button><button id="home-new">New game</button></div>
         <div id="home-space" data-home-part hidden><button id="home-review" class="quiet" hidden>Review last game</button></div>
         <div id="home-bottom" data-home-part hidden>
-          <div id="home-account"><a class="account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Your games on any device. Online only.</small></a><small class="local-play-note">Local play remains available offline.</small></div>
+          <div id="home-account"><a class="account-play-link" data-account-play href="/play/">Log in</a><small class="account-play-status" aria-live="polite"></small><small class="offline-note">Local play remains available offline.</small></div>
         </div>
         <div id="strip-them" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span></div>
         <div class="table-space"></div>
@@ -117,8 +118,7 @@
           <button id="title-continue" class="primary" hidden><svg class="icon" aria-hidden="true"><use href="#i-continue"/></svg><span class="label">Continue</span></button>
           <button id="title-play"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span class="label">Play</span></button>
         </div>
-        <p class="local-play-note">Play on this device without signing in.</p>
-        <a class="account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Your games on any device. Online only.</small></a>
+        <a class="account-play-link" data-account-play href="/play/">Log in</a><small class="account-play-status" aria-live="polite"></small>
       </div>
     </dialog>
     <dialog id="new-game" aria-labelledby="new-game-title">
@@ -129,7 +129,7 @@
       <div class="new-game-body">
         <div class="modes opponents" role="group" aria-label="Who you play">
           <div class="mode computer-choice"><svg class="icon" aria-hidden="true"><use href="#i-brain"/></svg><span class="mode-text"><b>Computer</b></span></div>
-          <a class="mode" id="new-game-friend" href="/play/friend"><svg class="icon" aria-hidden="true"><use href="#i-smiling-pawn"/></svg><span class="mode-text"><b>A friend</b><small>Online</small></span></a>
+          <a class="mode" id="new-game-friend" href="/play/friend"><svg class="icon" aria-hidden="true"><use href="#i-smiling-pawn"/></svg><span class="mode-text"><b>A friend</b></span></a>
         </div>
         <h3 class="group-head">The game</h3>
         <fieldset class="modes" id="modes">
@@ -173,13 +173,13 @@
       <header class="sheet-head"><button id="menu-back" aria-label="Back to Menu" hidden><span class="back-mark" aria-hidden="true">‹</span><span class="back-label">Menu</span></button><h2 id="menu-title" tabindex="-1">Menu</h2><button id="menu-close" aria-label="Close">×</button></header>
       <div class="sheet-body">
       <section data-menu-page="menu">
-        <a class="menu-row account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Your games on any device. Online only.</small></a>
-        <button class="menu-row" data-go="new">New game <span>Play again, or change setup.</span><i>›</i></button>
-        <button id="rules-btn" class="menu-row">Guide <span>Pieces and powers.</span><i>›</i></button>
+        <a class="menu-row account-play-link" data-account-play href="/play/">Log in</a><small class="account-play-status" aria-live="polite"></small>
+        <button class="menu-row" data-go="new">New game <i>›</i></button>
+        <button id="rules-btn" class="menu-row">Guide <i>›</i></button>
         <button class="menu-row" data-go="help">Board help<i>›</i></button>
         <fieldset class="fields group"><legend>Feel</legend><label>Sound <input id="sound" type="checkbox" checked /></label><label>Motion <select id="pace"><option value="normal">Normal</option><option value="fast">Fast</option><option value="off">Off</option></select></label><small id="pace-note">Tap the board to skip an animation.</small></fieldset>
         <button class="menu-row" data-go="account">Account<i>›</i></button>
-        <button id="resign" class="menu-row resign-row" data-go="resign" aria-disabled="false">Resign <span>Lay your king down.</span><i>›</i></button>
+        <button id="resign" class="menu-row resign-row" data-go="resign" aria-disabled="false">Resign <i>›</i></button>
       </section>
       <section data-menu-page="new" hidden><p>A new game ends this game.</p><button id="play-again" class="menu-row">Play again<span>The same setup. A new army.</span></button><button id="new-game-btn" class="menu-row">Change setup<i>›</i></button></section>
       <section data-menu-page="help" class="fields" hidden>

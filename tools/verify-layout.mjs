@@ -7,21 +7,21 @@ import { env, launch, noSidewaysScroll, shot } from './lib/checks.mjs';
 
 const mode = process.argv[2];
 const sizes = [[375, 812], [320, 568], [852, 393], [768, 1024], [1280, 800], [320, 200]];
-// Measured on de2a724b. A scroll fix must keep the normal title layout.
+// Title measurements after removal of the local-play note.
 const phonePieces = [[37.58, 47.36], [36.33, 50.55], [33.05, 55.67], [50.48, 61.44], [33.95, 50.55], [35.78, 51.83], [35.27, 46.08], [40.92, 55.03], [38.52, 49.91], [33.91, 42.23], [44.53, 55.67], [50.39, 64]];
 const titleLayout = {
-  '375x812': { hero: [301.94, 159.25, 360, 160.79, 157.8, 418.16, 120], text: [46, 343, 59.69], pieces: phonePieces },
-  '320x568': { hero: [8.59, -95.07, 307.19, 104.18, 3.44, 15.52, 4.47], text: [46, 288, 103.38], pieces: phonePieces },
+  '375x812': { hero: [344.28, 197.87, 360, 167.06, 196.75, 418.16, 120], text: [46, 343, 59.69], pieces: phonePieces },
+  '320x568': { hero: [71.23, -36.91, 307.19, 112.41, 28.52, 128.98, 37.03], text: [46, 288, 103.38], pieces: phonePieces },
   '852x393': {
     hero: [0, -108.83, 330.11, 108.83, 0, 0, 0], text: [71.57, 673.19, 92.88],
     pieces: [[54.03, 68.08], [52.23, 72.69], [47.52, 80.05], [72.59, 88.33], [48.83, 72.69], [51.47, 74.53], [50.72, 66.25], [58.84, 79.12], [55.39, 71.77], [48.75, 60.72], [64.03, 80.05], [72.45, 92.02]],
   },
   '768x1024': {
-    hero: [561.72, 275.89, 737.27, 319.53, 330.41, 669.08, 192], text: [64.51, 606.88, 83.72],
+    hero: [606.97, 313.10, 737.27, 330.28, 372.48, 669.08, 192], text: [64.51, 606.88, 83.72],
     pieces: [[48.7, 61.38], [47.08, 65.52], [42.83, 72.16], [65.44, 79.62], [44.02, 65.52], [46.38, 67.17], [45.72, 59.72], [53.05, 71.33], [49.92, 64.69], [43.95, 54.73], [57.72, 72.16], [65.31, 82.94]],
   },
   '1280x800': {
-    hero: [294.78, 69.88, 672, 242.57, 91.41, 636.83, 182.75], text: [96, 903.11, 124.59],
+    hero: [341.47, 108.88, 672, 253.07, 105.88, 737.73, 211.70], text: [96, 903.11, 124.59],
     pieces: [[65.78, 82.88], [63.58, 88.47], [57.84, 97.44], [88.36, 107.52], [59.44, 88.47], [62.64, 90.72], [61.72, 80.62], [71.62, 96.31], [67.42, 87.36], [59.34, 73.91], [77.94, 97.44], [88.19, 112]],
   },
 };
@@ -138,7 +138,7 @@ try {
             return [box.width, box.height];
           }),
         },
-        note: dialog.querySelector('[data-account-play] small').getBoundingClientRect().toJSON() };
+        note: dialog.querySelector('[data-account-play]').getBoundingClientRect().toJSON() };
     });
     const initial = await measure();
     await shot(page, `${mode}-${width}x${height}`);
@@ -147,7 +147,7 @@ try {
     if (expected) for (const part of ['hero', 'text', 'pieces']) {
       const actual = initial.layout[part].flat(), baseline = expected[part].flat();
       check(actual.length === baseline.length && actual.every((value, index) => Math.abs(value - baseline[index]) <= 0.02),
-        `${width}×${height}: title ${part} matches de2a724b; measured ${actual.join(', ')}`);
+        `${width}×${height}: title ${part} matches the login layout; measured ${actual.join(', ')}`);
     }
     check(initial.note.top >= 0, `${width}×${height}: the title starts above its note`);
     if (initial.scrollHeight > initial.height) {
