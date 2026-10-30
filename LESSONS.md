@@ -52,6 +52,7 @@ Read the section Always. Then read the Index, and open a topic file only when a 
 
 ### Art and motion
 
+- [Animation recipe and gates — 2026-10-30](docs/lessons/art-and-motion.md)
 - [2026-10-04 — check a vector from a PDF against the PDF's own render](docs/lessons/art-and-motion.md)
 - [2026-10-04 — measure an effect anchor through the figure's transform](docs/lessons/art-and-motion.md)
 - [2026-10-04 — record the painted scene with a fake frame clock](docs/lessons/art-and-motion.md)
