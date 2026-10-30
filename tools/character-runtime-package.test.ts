@@ -1,3 +1,4 @@
+import { registerBanks } from './build-character-runtime.mjs';
 import { afterEach, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -59,3 +60,14 @@ it.each(['registration','joins','duplicate','validation'] as const)('checks move
  select('E',frames.map(frame=>({...frame,url:`../assets/${opaqueHash}.png`,sha256:opaqueHash})));expect(run).toThrow(/transparent exterior/);
  select('E',[frames[0],{...frames[1],pivot:[17,28]}]);expect(run).toThrow(/Invalid movement pivot/);
 }, 30_000);
+
+it('uses each movement bank facing-rest height even without an idle', () => {
+ const frame = { sourceSha256: 'rest' };
+ const idle: any = { character: 'knight', army: 'white', kind: 'idle', facing: 'SE', canvasSize: [100, 100], pivot: [50, 90], bodyHeightPx: 80, sourceSha256: 'idle', frames: [frame] };
+ const movement: any = { character: 'knight', army: 'white', kind: 'movement', pivot: [50, 90], bodyHeightPx: 70, sourceSha256: 'move', frames: [frame, frame] };
+ const noIdle = { ...movement, character: 'rook', sourceSha256: 'rook' };
+ registerBanks([idle, movement, noIdle]);
+ expect(idle.registrationHeightPx).toBe(80);
+ expect(movement.registrationHeightPx).toBe(70);
+ expect(noIdle.registrationHeightPx).toBe(70);
+});

@@ -44,11 +44,12 @@ export function registerBanks(banks) {
     const movements=all.filter(bank=>bank.kind==='movement');
     if(movements.length){
       const rest=group.filter(bank=>bank.kind==='idle').sort((a,b)=>Number(b.facing==='SE')-Number(a.facing==='SE'))[0];
-      if(!rest)throw Error(`Movement bank needs an idle registration: ${movements[0].character}/${movements[0].army}`);
       for(const bank of movements){
-        bank.bodyHeightPx??=Math.max(.5,bank.pivot[1]-bank.bodyTopPx);delete bank.bodyTopPx;
+        if(bank.bodyHeightPx == null && !rest)throw Error(`Movement bank needs a registration height: ${bank.character}/${bank.army}`);
         bank.sourceBoardScale=bank.boardScale==null?null:bank.boardScale/2;
-        bank.registrationHeightPx=rest.registrationHeightPx;bank.registrationSourceSha256=rest.registrationSourceSha256;bank.boardScale=null;
+        bank.registrationHeightPx=bank.bodyHeightPx ?? rest.registrationHeightPx;
+        bank.registrationSourceSha256=bank.bodyHeightPx == null ? rest.registrationSourceSha256 : bank.sourceSha256;
+        bank.bodyHeightPx??=Math.max(.5,bank.pivot[1]-bank.bodyTopPx);delete bank.bodyTopPx;bank.boardScale=null;
       }
     }
   }

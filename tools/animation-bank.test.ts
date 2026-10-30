@@ -12,6 +12,7 @@ import { midpointPlan, planTiming } from './anim/plan.mjs';
 import { makeBank } from './anim/bank.mjs';
 import { promote } from './anim/promote.mjs';
 import { matchesRest } from './anim/movement.mjs';
+import { runGates } from './anim/gates.mjs';
 
 let dir = '';
 afterEach(async () => { if (dir) await rm(dir, { recursive: true, force: true }); });
@@ -137,7 +138,7 @@ it('keeps the shipped movement rest at its pivot and scale on a padded canvas', 
   pose.data[(40 * pose.width) * 4 + 3] = 255;
   await sharp(pose.data, { raw: { width: pose.width, height: pose.height, channels: 4 } }).png().toFile(join(keys, '001.png'));
   const manifest = join(dir, 'runtime.json');
-  const runtime = { sourceToRuntimeScale: 0.5, banks: [{ id: 'turn', character: 'pawn', army: 'white', kind: 'turn', from: 'SE', to: 'S', pivot: [24, 40], registrationHeightPx: 35, boardScale: null, frames: [{ sourceSha256: hashes[0] }, { sourceSha256: hashes[2] }] }] };
+  const runtime = { sourceToRuntimeScale: 0.5, banks: [{ id: 'turn', character: 'pawn', army: 'white', kind: 'turn', from: 'SE', to: 'S', canvasSize: [48, 48], pivot: [24, 40], registrationHeightPx: 35, boardScale: null, frames: [{ sourceSha256: hashes[0] }, { sourceSha256: hashes[2] }] }] };
   await writeFile(manifest, JSON.stringify(runtime));
   const authority = { kind: 'runtime-manifest', path: manifest, sha256: digest(await readFile(manifest)) };
   const stub = join(dir, 'stub.mjs');
@@ -168,6 +169,28 @@ writeFileSync(resolve(base, 'report.json'), '{}');`);
   first.data[((offset[1] + 20) * first.width + offset[0] + 30) * 4] ^= 1;
   expect(matchesRest(first, rest, offset)).toBe(false);
   await expect(makeBank({ ...options, facing: 'N', output: join(dir, 'wrong-facing') })).rejects.toThrow('not a shipped N endpoint');
+  await writeFile(join(keys, '001.png'), await readFile(join(keys, '000.png')));
+  runtime.banks[0].pivot = [30, 40];
+  await writeFile(manifest, JSON.stringify(runtime));
+  const changedAuthority = { ...authority, sha256: digest(await readFile(manifest)) };
+  const identical = await makeBank({ ...options, geometryRecord: { ...geometry, pivot: [60, 80], bodyHeightPx: 70, authority: changedAuthority }, output: join(dir, 'identical') });
+  const identicalBank = JSON.parse(await readFile(identical.candidate, 'utf8'));
+  const middle = await readFrame(join(dir, 'identical', identicalBank.frames[2].url));
+  const firstIdentical = await readFrame(join(dir, 'identical', identicalBank.frames[0].url));
+  expect(middle.data.equals(firstIdentical.data)).toBe(true);
+  expect(measureFrame(middle).footCenterX).toBe(measureFrame(firstIdentical).footCenterX);
+
+  const gateFrame = { file: 'key', method: 'authored', sources: [hashes[0]], restMatch: false, metadata: { channels: 4 }, measure: { borderOpaque: 0, alphaMin: 0, alphaMax: 255, bottom: 100, footCenterX: 110 }, fringe: { ratio: 0 }, sha256: hashes[0], timeMs: 0 };
+  const gateReport = runGates({ bank: { pivot: [50, 100] }, frames: [gateFrame, { ...gateFrame, timeMs: 15 }], geometry, movement: { pivot: [50, 100], baseline: 100, footCenterX: 100, rest: { sha256: hashes[0] }, endpoint: {} }, plan: { frameCount: 2, durationMs: 15, frameMs: 15 } });
+  expect(gateReport.checks.find((check: any) => check.name === 'geometry').ok).toBe(false);
+  await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).resolves.toMatchObject({ dryRun: true });
+  identicalBank.pivot[0] += 2;
+  await writeFile(identical.candidate, JSON.stringify(identicalBank));
+  await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('facing-rest transform changed');
+  await writeFile(manifest, JSON.stringify({ ...runtime, extra: true }));
+  await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('runtime manifest changed');
+
+
 });
 
 it('promotes a green candidate into the frozen catalog under its lock', async () => {

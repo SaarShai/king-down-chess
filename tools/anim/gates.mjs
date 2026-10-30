@@ -7,6 +7,7 @@
  */
 export const HALO_LIMIT = 0.3;
 export const BASELINE_TOLERANCE_PX = 2;
+export const FOOT_TOLERANCE_PX = 3;
 
 const check = (name, ok, message, metrics = {}) => ({ name, ok, message: ok ? 'ok' : message, metrics });
 const round = n => Math.round(n * 1000) / 1000;
@@ -35,9 +36,12 @@ export function runGates({ bank, frames, geometry, endpoints = {}, plan, movemen
   const baselineBad = [frames[0], frames.at(-1)].filter(frame => Math.abs(frame.measure.bottom - baseline) > BASELINE_TOLERANCE_PX);
   const keyBaselines = frames.filter(frame => frame.method === 'authored').map(frame => Math.abs(frame.measure.bottom - baseline));
   const drift = frames.reduce((max, frame) => Math.max(max, Math.abs(frame.measure.bottom - baseline)), 0);
-  fail('geometry', pivotOk && baselineBad.length === 0 && keyBaselines.every(delta => delta <= BASELINE_TOLERANCE_PX),
-    !pivotOk ? `Bank pivot ${JSON.stringify(pivot)} does not equal the locked pivot ${JSON.stringify(geometry.pivot)}`
-      : `Baseline is more than ${BASELINE_TOLERANCE_PX} px from the locked pivots (end frames: ${baselineBad.map(frame => `${frame.file} ${round(frame.measure.bottom - geometry.pivot[1])}`).join(', ')})`,
+  const footBad = movement ? frames.filter(frame => frame.method === 'authored' && Math.abs(frame.measure.footCenterX - movement.footCenterX) > FOOT_TOLERANCE_PX) : [];
+  const restBad = movement ? frames.filter(frame => frame.method === 'authored' && frame.sources[0] === movement.rest.sha256 && !frame.restMatch) : [];
+  fail('geometry', pivotOk && baselineBad.length === 0 && keyBaselines.every(delta => delta <= BASELINE_TOLERANCE_PX) && !footBad.length && !restBad.length,
+    !pivotOk ? `Bank pivot ${JSON.stringify(pivot)} does not equal the locked pivot ${JSON.stringify(targetPivot)}`
+      : footBad.length || restBad.length ? `Movement key registration differs from the rest: foot ${footBad.map(frame => `${frame.file} ${round(frame.measure.footCenterX - movement.footCenterX)}`).join(', ')}; rest pixels ${restBad.map(frame => frame.file).join(', ')}`
+      : `Baseline is more than ${BASELINE_TOLERANCE_PX} px from the locked baseline (end frames: ${baselineBad.map(frame => `${frame.file} ${round(frame.measure.bottom - baseline)}`).join(', ')})`,
     { pivot, lockedPivot: targetPivot, endBaselinePx: [round(frames[0].measure.bottom - baseline), round(frames.at(-1).measure.bottom - baseline)], maxDriftPx: round(drift) });
 
   const first = movement ? (frames[0].restMatch && movement.endpoint) : endpoints[frames[0].sha256], last = movement ? (frames.at(-1).restMatch && movement.endpoint) : endpoints[frames.at(-1).sha256];

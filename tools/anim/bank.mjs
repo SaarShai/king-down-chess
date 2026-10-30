@@ -80,7 +80,7 @@ export async function makeBank(options) {
   if (plan.hold && kind !== 'idle') throw Error('A one-key bank is a hold; use at least two keys for a turn, attack or movement');
   const sources = kind === 'movement' ? await Promise.all(keys.map(readFrame)) : null;
   const movement = sources ? await movementGeometry(geometry, sources, edge.facing) : null;
-  const placement = movement ? { ...geometry, ...movement, pivot: [movement.pivot[0], movement.baseline] } : geometry;
+  const placement = movement ? { ...geometry, ...movement, pivot: [movement.footCenterX, movement.baseline] } : geometry;
 
   await cleanOutput(output);
   await mkdir(framesDir, { recursive: true });
@@ -89,7 +89,7 @@ export async function makeBank(options) {
   for (let position = 0; position < keys.length; position++) {
     const source = sources?.[position] ?? await readFrame(keys[position]);
     const index = plan.keyIndexes[position];
-    const placed = movement && (position === 0 || position === keys.length - 1)
+    const placed = movement && source.sha256 === movement.rest.sha256
       ? { frame: padRest(movement), transform: { scale: 1, dx: movement.offset[0], dy: movement.offset[1], identity: false } }
       : await registerFrame(source, placement);
     const bytes = placed.transform.identity ? source.bytes : await encodeFrame(placed.frame);
@@ -133,7 +133,7 @@ export async function makeBank(options) {
     if (!frame) throw Error(`Frame ${index} was not produced`);
     const decoded = await readFrame(join(output, frame.file));
     const measure = measureFrame(decoded);
-    const restMatch = movement && (index === 0 || index === plan.frameCount - 1) ? matchesRest(decoded, movement.rest, movement.offset) : undefined;
+    const restMatch = movement && frame.method === 'authored' && frame.sources[0] === movement.rest.sha256 ? matchesRest(decoded, movement.rest, movement.offset) : undefined;
     frames.push({ ...frame, sha256: decoded.sha256, metadata: decoded.metadata, measure, fringe: matteFringe(decoded, measure), restMatch, timeMs: timeOf(index, plan) });
   }
   const hashByIndex = new Map(frames.map(frame => [frame.index, frame.sha256]));

@@ -28,7 +28,7 @@ export async function movementGeometry(geometry, sources, facing) {
     const m = measureFrame(source);
     if (m.empty) throw Error(`Key has no visible pixels: ${source.path}`);
     const factor = restMeasure.contentHeight / m.contentHeight;
-    const dx = Math.round(pivot[0] - m.footCenterX * factor);
+    const dx = Math.round(restMeasure.footCenterX - m.footCenterX * factor);
     const dy = restMeasure.bottom - Math.round(m.bottom * factor);
     left = Math.min(left, dx); top = Math.min(top, dy);
     right = Math.max(right, dx + Math.round(source.width * factor));
@@ -38,7 +38,7 @@ export async function movementGeometry(geometry, sources, facing) {
   const offset = [even(64 - left), even(64 - top)];
   const canvas = [even(right + offset[0] + 64), even(bottom + offset[1] + 64)];
   return { canvas, pivot: pivot.map((n, i) => n + offset[i]), bodyHeightPx: restMeasure.contentHeight,
-    baseline: restMeasure.bottom + offset[1], registrationHeightPx: height, rest, offset, endpoint: { bank: bank.id, facing } };
+    footCenterX: restMeasure.footCenterX + offset[0], baseline: restMeasure.bottom + offset[1], registrationHeightPx: height, rest, offset, endpoint: { bank: bank.id, facing } };
 }
 
 export function padRest({ rest, canvas, offset }) {
