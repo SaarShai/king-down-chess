@@ -229,6 +229,11 @@ await caseFn('AI answers in an ogre position', `?fen=${encodeURIComponent(OGRE_E
 }, { players: 'human,ai' });
 
 await caseFn('kings choice survives save/restore', '?kings=mud:march', async (page, errors) => {
+  // window.fen is set before view.ready() and the first autosave. Do not reload before that save.
+  await page.waitForFunction(() => {
+    const kings = JSON.parse(localStorage.getItem('kingdown.save') || '{}').rules?.kings;
+    return kings?.length === 2 && kings.every(k => k.king === 'Mud' && k.power === 'March');
+  }, null, { timeout: 40000 });
   await page.goto(BASE); // no query
   await page.waitForFunction(() => window.view && window.fen?.().length > 5, null, { timeout: 40000 });
   await page.waitForFunction(() => document.querySelector('#strip-me img').src.includes('/mud.webp') && document.querySelector('#strip-them img').src.includes('/mud-b.webp'));
