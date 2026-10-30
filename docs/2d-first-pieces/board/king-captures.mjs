@@ -540,6 +540,11 @@ function throwPath(d){
 }
 // The piece goes over the other figures once it is clear of the king: beside him with a gap, or above his head.
 // (Its turning reach is counted: half its width or height, whichever is more.)
+// Bounds use the same unmirrored frame, pivot and scale as the painted king.
+export function kingBodyBounds(shape,body,foot,scale=1){
+ const k=body.scale*scale,w=body.image.naturalWidth||body.image.width,h=body.image.naturalHeight||body.image.height;
+ return {x:foot.x,foot:foot.y,top:foot.y+(shape.top*h/shape.n-body.pivot[1])*k,l:foot.x+(shape.l*w/shape.n-body.pivot[0])*k,r:foot.x+((shape.r+1)*w/shape.n-body.pivot[0])*k};
+}
 export function throwAbove(d){
  const P=throwPath(d),k=P.king,reach=Math.max(P.half,P.height*.5)*P.q+4;
  if(P.fly<=0&&P.lift<.05)return false;
