@@ -57,6 +57,14 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     for (const link of await page.locator('[data-account-play]').all()) assert.equal(await link.getAttribute('href'), '/play/');
     assert.equal(await titleLink.getAttribute('aria-label'), null);
     assert.equal(await titleLink.innerText(), 'Log in');
+    assert.equal(await page.locator('#title-screen .title-copy > p').count(), 0);
+    for (const viewport of [{ width: 393, height: 852 }, { width: 1366, height: 768 }]) {
+      await page.setViewportSize(viewport);
+      await insideViewport(page, '#title-start, #title-screen [data-account-play]');
+      await noSidewaysScroll(page);
+      await shot(page, `copy-title-${viewport.width}`);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(settingsReads, 0, 'Local board startup does not read provider settings');
     await insideViewport(page, '#title-screen [data-account-play]'); await minTarget(page, '#title-screen [data-account-play]');
     await shot(page, 'discovery-first-390');
@@ -91,6 +99,15 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     assert.equal(await readSave(page), saved, 'The Home round trip preserves the local game');
     await page.locator('#menu-btn').click();
     assert.equal(await page.locator('#menu-sheet').getByRole('link', { name: 'Log in', exact: true }).count(), 1);
+    for (const viewport of [{ width: 393, height: 852 }, { width: 1366, height: 768 }]) {
+      await page.setViewportSize(viewport);
+      for (const selector of ['[data-go="new"]', '#rules-btn', '#resign']) {
+        assert.equal(await page.locator(`#menu-sheet ${selector} span`).count(), 0);
+      }
+      await insideViewport(page, '#menu-sheet'); await noSidewaysScroll(page);
+      await shot(page, `copy-menu-${viewport.width}`);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
     await insideViewport(page, '#menu-sheet [data-account-play]'); await minTarget(page, '#menu-sheet [data-account-play]');
     await shot(page, 'discovery-menu-390');
     await page.locator('#menu-sheet [data-account-play]').click();
@@ -101,6 +118,16 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     await page.locator('#menu-sheet [data-account-play]').press('Enter');
     await page.getByRole('button', { name: 'Continue with GitHub', exact: true }).waitFor();
     await page.getByRole('link', { name: 'Play on this device', exact: true }).click(); await ready(page);
+    await page.locator('#home-new').click();
+    assert.equal(await page.getByRole('link', { name: 'A friend', exact: true }).count(), 1);
+    assert.equal(await page.locator('#new-game-warn').isVisible(), true);
+    for (const viewport of [{ width: 393, height: 852 }, { width: 1366, height: 768 }]) {
+      await page.setViewportSize(viewport);
+      await insideViewport(page, '#new-game-friend, #new-game-warn, #start-game'); await noSidewaysScroll(page);
+      await shot(page, `copy-new-game-${viewport.width}`);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.keyboard.press('Escape');
     await page.locator('#home-main').click();
     await page.locator('#menu-btn').click();
     // Hold the animation state to prove a Menu click is not consumed as a board skip.
