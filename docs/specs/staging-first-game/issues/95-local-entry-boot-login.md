@@ -29,3 +29,11 @@ The board animation handler listens on the document. During a move or fall, it c
 - `npm run test:docs`: 17 files, 187 tests pass.
 - `npm run build`: passes.
 - Review: the author inspected the changed paths and phone screenshots. Independent review remains open for the PR.
+
+## PR 207 post-merge browser failure
+
+Plan: compare the merge and its prior head with the same disposable database; inspect the failing setup state; correct the cause; repeat the requested Chromium checks, including a loaded run, and the full test suite. Record the results before push.
+
+The CI log stops at the lobby setup wait after 113.8 seconds. It does not record the screen or button state at that point. The CI run reports synthetic merge `0cb1809`; the local tests use the PR head. On the same Mac and disposable database, `web-game` passes at `e4b97163` (69.2 s) and `5cb8be81` (68.5 s). The merge does not change the setup screen code or styles. These results do not establish a cause.
+
+At the PR head with failure-only diagnostics, Chromium `web-online web-game` passes three times: 94.6 / 68.0 s with four CPU load processes, 93.7 / 70.0 s, and 94.0 / 68.8 s. `end account-discovery game-screen` pass in 28.8 / 9.4 / 7.4 s. `npm test` passes 305 files and 5,995 tests; one file and 13 tests skip. All 67 artwork checks pass. The diagnostic records only the visible screen names, Start state, and error counts if this wait fails. It changes no wait or app behavior. The cause and fix remain open; inspect that state on a repeat before choosing a change.

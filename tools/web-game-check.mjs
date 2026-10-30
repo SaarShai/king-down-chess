@@ -554,7 +554,16 @@ try {
   }
   // Hold an actual old HTTP list while the player leaves and returns after the offer is cancelled.
   const staleOffer = (await tool(1, 'kingdown_create', { kind: 'random', mode: 'casual', command_id: randomUUID() }))._meta.view;
-  await page.goto(origin + '/play/'); await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor();
+  await page.goto(origin + '/play/');
+  try { await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor(); }
+  catch (error) {
+    console.error('Lobby setup state:', await page.evaluate(() => {
+      const start = document.querySelector('#setup-start');
+      return { screen: document.body.dataset.page, screens: [...document.querySelectorAll('[data-screen]:not([hidden])')].map(el => el.getAttribute('data-screen')),
+        start: start ? { disabled: start.disabled, visible: !!start.getClientRects().length } : null };
+    }), { requestFailures: failures.length, pageErrors: errors.length });
+    throw error;
+  }
   await page.locator('#setup-options summary').click();
   await page.locator('#setup-body .modes').getByRole('radio', {name:'Random',exact:true}).locator('..').click();
   if (rankedStage) await page.locator('#setup-rating input[value="casual"]').locator('..').click();
