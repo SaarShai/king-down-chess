@@ -43,6 +43,12 @@ A key that is already on the locked canvas, within 2 px of the pivot baseline an
 keeps every pixel. This keeps shared endpoints byte-identical. A key that is not in place is scaled by body height and
 its measured foot contact moves to the locked pivot.
 
+Movement uses the shipped rest of the requested facing instead of the common idle geometry. Both ends must use that
+same source frame. The runtime manifest supplies its pivot and display scale; the visible rest supplies the pose height
+and baseline. The tool adds transparent padding around the rest and keys. Padding offsets and canvas dimensions are
+even, so the runtime's half-size conversion keeps the same pixel grid. The runtime manifest must be available and match
+its recorded hash. The current builder supports rests with no explicit board scale.
+
 ### In-between frames
 
 `rife.py` loads the retained RIFE network once and runs a plan of midpoints. Colour and alpha travel through the same
@@ -63,7 +69,8 @@ forces one machine.
    The shipped Pawn turns measure up to 12.8 percent (white) and 22.4 percent (black) with this screen. The screen
    catches extreme smearing only; look at the preview.
 4. `geometry`: the bank pivot equals the locked pivot, and the first and last frames stand within 2 px of the baseline.
-5. `endpoints`: the first and last frame hashes are shipped endpoints of the same character, army and turn edges.
+5. `endpoints`: turns and other banks use shipped endpoint hashes. Movement compares each padded end pixel to the
+   shipped facing rest at the same pivot, with only transparent pixels outside it.
 6. `timing`: frame count, frame step, start time and end time match the plan.
 7. `provenance`: every frame has a known method and a SHA-256.
 

@@ -16,6 +16,7 @@ import { encodeFrame, matteFringe, measureFrame, readFrame, registerFrame } from
 import { runGates } from './gates.mjs';
 import { chooseMachine, interpolate } from './infer.mjs';
 import { describePlan, midpointPlan, planTiming, timeOf } from './plan.mjs';
+import { matchesRest, movementGeometry, padRest } from './movement.mjs';
 
 const exec = promisify(execFile);
 export const KINDS = ['idle', 'turn', 'attack', 'movement'];
@@ -77,15 +78,20 @@ export async function makeBank(options) {
   const keys = await listKeys(options.keys);
   const plan = planTiming(await readTiming(options.timing), keys.length, { frameMs: options.frameMs, durationMs: options.durationMs });
   if (plan.hold && kind !== 'idle') throw Error('A one-key bank is a hold; use at least two keys for a turn, attack or movement');
+  const sources = kind === 'movement' ? await Promise.all(keys.map(readFrame)) : null;
+  const movement = sources ? await movementGeometry(geometry, sources, edge.facing) : null;
+  const placement = movement ? { ...geometry, ...movement, pivot: [movement.footCenterX, movement.baseline] } : geometry;
 
   await cleanOutput(output);
   await mkdir(framesDir, { recursive: true });
 
   const registered = [];
   for (let position = 0; position < keys.length; position++) {
-    const source = await readFrame(keys[position]);
+    const source = sources?.[position] ?? await readFrame(keys[position]);
     const index = plan.keyIndexes[position];
-    const placed = await registerFrame(source, geometry);
+    const placed = movement && source.sha256 === movement.rest.sha256
+      ? { frame: padRest(movement), transform: { scale: 1, dx: movement.offset[0], dy: movement.offset[1], identity: false } }
+      : await registerFrame(source, placement);
     const bytes = placed.transform.identity ? source.bytes : await encodeFrame(placed.frame);
     const file = `frames/${pad(index)}.png`;
     await writeFile(join(output, file), bytes);
@@ -127,7 +133,8 @@ export async function makeBank(options) {
     if (!frame) throw Error(`Frame ${index} was not produced`);
     const decoded = await readFrame(join(output, frame.file));
     const measure = measureFrame(decoded);
-    frames.push({ ...frame, sha256: decoded.sha256, metadata: decoded.metadata, measure, fringe: matteFringe(decoded, measure), timeMs: timeOf(index, plan) });
+    const restMatch = movement && frame.method === 'authored' && frame.sources[0] === movement.rest.sha256 ? matchesRest(decoded, movement.rest, movement.offset) : undefined;
+    frames.push({ ...frame, sha256: decoded.sha256, metadata: decoded.metadata, measure, fringe: matteFringe(decoded, measure), restMatch, timeMs: timeOf(index, plan) });
   }
   const hashByIndex = new Map(frames.map(frame => [frame.index, frame.sha256]));
   for (const frame of frames) {
@@ -136,11 +143,11 @@ export async function makeBank(options) {
   }
 
   const bank = {
-    schemaVersion: 1, id, character, army, kind, ...edge, status: 'candidate',
-    durationMs: plan.durationMs, frameMs: plan.frameMs, canvasSize: geometry.canvas, times: frames.map(frame => frame.timeMs),
-    pivot: geometry.pivot, bodyHeightPx: geometry.bodyHeightPx, boardScale: geometry.boardScale ?? null,
+    schemaVersion: 1, id, character, army, kind, ...edge, ...(movement ? { direction: edge.facing } : {}), status: 'candidate',
+    durationMs: plan.durationMs, frameMs: plan.frameMs, canvasSize: movement?.canvas ?? geometry.canvas, times: frames.map(frame => frame.timeMs),
+    pivot: movement?.pivot ?? geometry.pivot, bodyHeightPx: movement?.registrationHeightPx ?? geometry.bodyHeightPx, boardScale: geometry.boardScale ?? null,
     frames: frames.map(frame => ({ url: frame.file, timeMs: frame.timeMs, sha256: frame.sha256, method: frame.method, sources: frame.sources })),
-    previewGeometry: { pivot: geometry.pivot, bodyHeightPx: geometry.bodyHeightPx },
+    previewGeometry: { pivot: movement?.pivot ?? geometry.pivot, bodyHeightPx: movement?.registrationHeightPx ?? geometry.bodyHeightPx },
     geometry: { authority: geometry.authority, canvas: geometry.canvas, pivot: geometry.pivot, bodyHeightPx: geometry.bodyHeightPx },
     provenance: {
       generator: 'tools/anim/bank.mjs', timing: describePlan(plan),
@@ -150,7 +157,7 @@ export async function makeBank(options) {
   };
 
   const endpoints = options.geometryRecord?.endpoints ?? geometry.endpoints ?? {};
-  const gates = runGates({ bank, frames, geometry, endpoints, plan });
+  const gates = runGates({ bank, frames, geometry, endpoints, plan, movement });
   await writeFile(join(output, 'gates.json'), `${JSON.stringify(gates, null, 2)}\n`);
   await writeFile(join(output, 'provenance.json'), `${JSON.stringify({ id, character, army, kind, frames: frames.map(frame => ({ index: frame.index, timeMs: frame.timeMs, sha256: frame.sha256, method: frame.method, sources: frame.sources, transform: frame.transform ?? null })), geometry: bank.geometry, rife: bank.provenance.rife }, null, 2)}\n`);
 
