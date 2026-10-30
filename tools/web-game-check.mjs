@@ -280,6 +280,7 @@ try {
   await page.goto(origin + '/g/' + gameId);
   const resumedView = await (await resumed).json(); assert.equal(resumedView.fen, moved); assert.equal(resumedView.revision, b.revision);
   await page.locator('[data-screen="board"]:not([hidden])').waitFor();
+  assert.equal(await page.locator('#game-table').isVisible(), true, 'Account game table is visible');
   assert.equal((await view(0)).fen, moved);
   await shot(page, 'web-shared-board');
   // Keep the return route in this document; a page reload would clear the result screen's attempt state.
@@ -289,6 +290,7 @@ try {
   const rematchDocument = await page.evaluate(() => performance.timeOrigin);
   await tool(1, 'kingdown_resign', { game_id: gameId, command_id: randomUUID(), expected_revision: b.revision });
   await page.locator('[data-screen="end"]:not([hidden])').waitFor();
+  assert.equal(await page.locator('#game-table').isVisible(), true, 'Account result table is visible');
   a = await view(0); b = await view(1); assert.deepEqual(a.result, b.result); assert.equal(a.result.winner, 0); assert.equal(a.result.reason, 'resignation');
   assert.equal(await page.locator('#over-title').innerText(), 'You win');
   await shot(page, 'web-shared-result');

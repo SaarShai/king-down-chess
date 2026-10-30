@@ -188,7 +188,7 @@ jobs:
       - run: npm run check:browser home account new-game menu-extra
         env:
           PLAYABLE_BROWSER: chromium
-      - run: npm run check:browser web-online
+      - run: npm run check:browser web-online web-game
         env:
           PLAYABLE_BROWSER: chromium
       - if: always()

@@ -52,6 +52,7 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor), 'rgb(242, 233, 214)');
     assert.equal(await page.locator('#title-screen').evaluate(el => el.open), false);
     releaseMain(); await ready(page);
+    assert.equal(await page.locator('#home-account .account-play-status').evaluate(el => getComputedStyle(el).display), 'block', 'Empty live region remains rendered');
     const titleLink = page.locator('#title-screen [data-account-play]');
     await titleLink.waitFor();
     for (const link of await page.locator('[data-account-play]').all()) assert.equal(await link.getAttribute('href'), '/play/');
@@ -132,6 +133,11 @@ export async function checkAccountDiscovery({ browser, context, origin, actors, 
     await page.locator('#menu-btn').click();
     // Hold the animation state to prove a Menu click is not consumed as a board skip.
     await page.evaluate(() => Object.defineProperty(window.view.scene, 'animating', { configurable: true, get: () => true }));
+    await page.locator('#menu-sheet [data-go="new"]').click();
+    await page.locator('#new-game-btn').click();
+    await page.locator('#new-game').waitFor({ state: 'visible' });
+    await page.keyboard.press('Escape');
+    await page.locator('#menu-btn').focus(); await page.keyboard.press('Enter');
     await page.locator('#menu-sheet [data-account-play]').click();
     await page.getByRole('button', { name: 'Continue with GitHub', exact: true }).waitFor();
     assert.equal(new URL(page.url()).pathname, '/play/');

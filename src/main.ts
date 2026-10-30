@@ -71,7 +71,7 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 const engine = new Engine();
 // The painted board is the game's only look: an old `?look=` link or saved look opens it too (the clay look is parked).
 // It stands on the page's parchment floor: the scene draws no floor of its own.
-const view: BoardView = new PaintedView($('board'), { floor: null, webInk: true, boardOnlySkip: true });
+const view: BoardView = new PaintedView($('board'), { floor: null, webInk: true, allowModalAndNavigation: true });
 view.onLoadError = () => { $('asset-status').textContent = 'A piece cannot load. Reload to try again.'; play.refresh(); };
 (window as unknown as Record<string, unknown>).view = view; // the browser checks aim with view.screenOf()
 /** The next game's setup: the last one started from New game (remembered across visits). */
