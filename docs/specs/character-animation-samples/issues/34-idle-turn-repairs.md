@@ -34,3 +34,5 @@ The replacement evidence includes the white Beast registered source manifest and
 `npm run check:browser character-runtime` passes against the final local package in 73.8 seconds. Its log is in the run folder. An earlier run completed the game cases but failed the checkout-stability guard because the ticket and selection changed during the run. The final run keeps the checkout unchanged.
 
 The browser check covers the registered character-runtime cases. The five new banks have separate sheet, clip, alpha, timing and endpoint evidence; the browser check does not by itself prove every new motion.
+
+The first PR verification found an unindexed lesson heading and a process-exit race in `tools/machine-lease.test.ts`. The recipe now sits under the existing indexed art section. The lease test accepts an ancestor that has already exited, but still checks the live child and the held lease. All nine browser CI jobs passed on the first commit.

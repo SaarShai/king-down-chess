@@ -182,6 +182,13 @@ function ancestors(pid: number, top: number) {
   throw new Error(`${top} is not an ancestor`);
 }
 
+function killAncestors(pid: number, top: number) {
+  for (const ancestor of ancestors(pid, top)) {
+    try { process.kill(ancestor, 'SIGKILL'); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error; }
+  }
+}
+
 it('a browser check started through npm run under a held lease runs its children', async () => {
   const { run } = setup();
   // npm is a Node process: it closes the lease descriptor, and Node reuses its number.
@@ -201,7 +208,7 @@ it('the npm test child keeps the machine lease after every process above it is k
   await until(() => existsSync(heavy.started), heavy);
   const check = JSON.parse(readFileSync(heavy.started, 'utf8'));
   try {
-    for (const pid of ancestors(check.parent, heavy.child.pid!)) process.kill(pid, 'SIGKILL');
+    killAncestors(check.parent, heavy.child.pid!);
     await heavy.done;
     process.kill(check.pid, 0);
     expect(await run(1, tests, { KINGDOWN_TEST_LOCK_WAIT: '0' }).done).toBe(75);
@@ -239,7 +246,7 @@ it('the deploy test step keeps the machine lease after every process above it is
   await until(() => existsSync(publish.started), publish);
   const check = JSON.parse(readFileSync(publish.started, 'utf8'));
   try {
-    for (const pid of ancestors(check.parent, publish.child.pid!)) process.kill(pid, 'SIGKILL');
+    killAncestors(check.parent, publish.child.pid!);
     await publish.done;
     process.kill(check.pid, 0);
     expect(await run(1, tests, { KINGDOWN_TEST_LOCK_WAIT: '0' }).done).toBe(75);
