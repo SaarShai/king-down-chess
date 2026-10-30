@@ -319,14 +319,15 @@ it('exits the raised Stratus idle before a capture even if the turn cannot load'
  await vi.advanceTimersByTimeAsync(1500);await expect(playing).resolves.toBe(true);
 });
 
-it('reduced motion cancels a legacy Flame capture and restores its rest frame', async () => {
+it.each(['cancel','reduced'] as const)('a Flame capture restores rest on %s', async stop => {
  const idle={character:'king-flame',army:'white',canvasSize:[384,384],pivot:[192,345],bodyHeightPx:267,registrationHeightPx:267,id:'idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0}]};
- vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})));
+ const turn={...idle,id:'turn',kind:'turn',from:'SE',to:'NW',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-target.png',timeMs:120}]};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})));
  const b=board(true,true);scene.setKings(['flame','frost']);scene.setPosition(fromFen('7k/8/8/3p4/4K3/8/8/7R w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
  const rest=scene.characterFrames.find(f=>f.square===28)!;
  const playing=scene.play({from:28,to:35,captures:[35]});await vi.advanceTimersByTimeAsync(300);
- expect(scene.characterFrames.find(f=>f.square===28)).toBeUndefined();
- scene.setReducedMotion(true);await expect(playing).resolves.toBe(false);await vi.advanceTimersByTimeAsync(32);
+ expect(scene.characterFrames.find(f=>f.square===28)).toMatchObject({bank:'turn',time:120});
+ if(stop==='cancel')scene.cancel();else scene.setReducedMotion(true);await expect(playing).resolves.toBe(false);await vi.advanceTimersByTimeAsync(32);
  expect(scene.characterFrames.find(f=>f.square===28)).toMatchObject({bank:rest.bank,time:rest.time,foot:rest.foot,pivot:rest.pivot,scale:rest.scale});
 });
 

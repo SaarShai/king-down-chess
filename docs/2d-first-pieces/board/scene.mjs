@@ -1172,10 +1172,7 @@ function drawEncounter(a,t) {
      a.exit=bodyRuntime.idleExit(characterOf(base.value),armyOf(base.value),pendingIdle.body);if(a.exit&&a.exit(1)?.url!==pendingIdle.body.url)a.exitBody=pendingIdle.body;
     }
     pendingIdle=null;if(!a.exitBody)bodyRuntime?.releaseIdle();
-    // The Flame crack mask is registered to its rest-facing armour.
-    const legacyFlame=typeOf(base.value)===K&&move.captures.length&&characterOf(base.value)==='king-flame';
-    if(legacyFlame)a.bodyUnavailable=true;
-    if(available&&!effect&&!reducedMotion&&base.type!=='swap'&&!legacyFlame){
+    if(available&&!effect&&!reducedMotion&&base.type!=='swap'){
      a.preparing=true;
      a.prepareController=new AbortController();
      const target=move.shove?.from??move.captures[0]??move.to,from=foot(move.from),to=foot(target);
