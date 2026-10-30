@@ -214,6 +214,20 @@ it.each([['move', 'mouse'], ['move', 'touch'], ['fall', 'mouse'], ['fall', 'touc
   expect(next.preventDefault).not.toHaveBeenCalled();
 });
 
+it('leaves a control click alone while the local board is animating', async () => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const view = new PaintedView(container as unknown as HTMLElement, { boardOnlySkip: true });
+  const { scene } = view as unknown as { scene: PaintedScene };
+  Object.assign(scene, { animating: true });
+  view.onSkipAnimation = vi.fn();
+  const event = { target: container, button: 0, pointerId: 7, detail: 1, preventDefault: vi.fn(), stopImmediatePropagation: vi.fn() };
+  for (const type of ['pointerdown', 'pointerup', 'click']) documentListeners.get(type)!(event as unknown as Event);
+  expect(event.preventDefault).not.toHaveBeenCalled();
+  expect(event.stopImmediatePropagation).not.toHaveBeenCalled();
+  expect(view.onSkipAnimation).not.toHaveBeenCalled();
+  view.dispose();
+});
+
 it.each([false, true])('A15: keeps check and threat marks above the selected tile (web %s)', async webInk => {
   const container = stubDom(), { PaintedView } = await import('./PaintedView');
   const view = new PaintedView(container as unknown as HTMLElement, { webInk });

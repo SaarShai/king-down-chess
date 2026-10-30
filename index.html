@@ -6,6 +6,7 @@
     <!-- Light only, also in device dark mode (the Quiet Table); the browser bar takes the parchment colour. -->
     <meta name="color-scheme" content="only light" />
     <meta name="theme-color" content="#f3ead7" />
+    <style>html { background: #f2e9d6; } #game-table { visibility: hidden; } html.local-ready #game-table { visibility: visible; }</style>
     <title>King Down Chess</title>
     <meta name="description" content="A chess variant with archers, guards, maesters, beasts, ogres and paladins." />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232b2621'/%3E%3Cpath d='M6 12l5 5 5-8 5 8 5-5-2 13H8z' fill='%23d9a441' stroke='%23f3ead7' stroke-width='1.5' stroke-linejoin='round' transform='rotate(-14 16 16)'/%3E%3C/svg%3E" />
@@ -39,7 +40,7 @@
         <div id="home-actions" data-home-part hidden><button id="home-main" class="primary"><span class="label">Continue</span><span id="home-detail"></span></button><button id="home-new">New game</button></div>
         <div id="home-space" data-home-part hidden><button id="home-review" class="quiet" hidden>Review last game</button></div>
         <div id="home-bottom" data-home-part hidden>
-          <div id="home-account"><a class="account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Your games on any device. Online only.</small></a><small class="local-play-note">Local play remains available offline.</small></div>
+          <div id="home-account"><a class="account-play-link" data-account-play href="/play/">Log in</a><small class="account-play-status" aria-live="polite"></small><small class="local-play-note">Local play remains available offline.</small></div>
         </div>
         <div id="strip-them" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span></div>
         <div class="table-space"></div>
@@ -118,7 +119,7 @@
           <button id="title-play"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span class="label">Play</span></button>
         </div>
         <p class="local-play-note">Play on this device without signing in.</p>
-        <a class="account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Your games on any device. Online only.</small></a>
+        <a class="account-play-link" data-account-play href="/play/">Log in</a><small class="account-play-status" aria-live="polite"></small>
       </div>
     </dialog>
     <dialog id="new-game" aria-labelledby="new-game-title">
@@ -173,7 +174,7 @@
       <header class="sheet-head"><button id="menu-back" aria-label="Back to Menu" hidden><span class="back-mark" aria-hidden="true">‹</span><span class="back-label">Menu</span></button><h2 id="menu-title" tabindex="-1">Menu</h2><button id="menu-close" aria-label="Close">×</button></header>
       <div class="sheet-body">
       <section data-menu-page="menu">
-        <a class="menu-row account-play-link" data-account-play href="/play/">Play with your account<small aria-live="polite">Your games on any device. Online only.</small></a>
+        <a class="menu-row account-play-link" data-account-play href="/play/">Log in</a><small class="account-play-status" aria-live="polite"></small>
         <button class="menu-row" data-go="new">New game <span>Play again, or change setup.</span><i>›</i></button>
         <button id="rules-btn" class="menu-row">Guide <span>Pieces and powers.</span><i>›</i></button>
         <button class="menu-row" data-go="help">Board help<i>›</i></button>

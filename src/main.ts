@@ -71,7 +71,7 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 const engine = new Engine();
 // The painted board is the game's only look: an old `?look=` link or saved look opens it too (the clay look is parked).
 // It stands on the page's parchment floor: the scene draws no floor of its own.
-const view: BoardView = new PaintedView($('board'), { floor: null, webInk: true });
+const view: BoardView = new PaintedView($('board'), { floor: null, webInk: true, boardOnlySkip: true });
 view.onLoadError = () => { $('asset-status').textContent = 'A piece cannot load. Reload to try again.'; play.refresh(); };
 (window as unknown as Record<string, unknown>).view = view; // the browser checks aim with view.screenOf()
 /** The next game's setup: the last one started from New game (remembered across visits). */
@@ -158,6 +158,7 @@ play.restore(saved, { link: openLink, continues, urlRules: !!(preset || kings ||
 // The browser checks (tools/qa.mjs) read the live position; set after restore, so a check that waits for it sees the restored game.
 (window as unknown as Record<string, unknown>).fen = () => toFen(play.game().pos);
 await view.ready();
+document.documentElement.classList.add('local-ready');
 if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
 guide.fill(); // after every setRules path (URL preset / save restore)
 setSound(settings.sound());

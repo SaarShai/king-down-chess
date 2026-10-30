@@ -16,7 +16,8 @@
 #home-bottom { grid-area: bar; align-self: start; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
 #home-account { margin: 0 12px 8px; }
 .account-play-link { display: flex; flex-direction: column; justify-content: center; min-height: 48px; padding: 8px 12px; color: var(--ink); font-size: 18px; font-weight: 700; text-underline-offset: 3px; }
-.account-play-link small { display: block; font-size: 14px; font-weight: 400; color: var(--ink-soft); }
+.account-play-status { display: block; padding: 0 12px; font-size: 14px; color: var(--ink-soft); }
+.account-play-status:empty { display: none; }
 .account-play-link:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
 #home-account .account-play-link { padding-inline: 0; }
 .local-play-note { margin: 0; font-size: 14px; color: var(--ink-soft); }

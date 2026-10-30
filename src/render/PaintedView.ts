@@ -98,7 +98,7 @@ export class PaintedView implements BoardView {
    * options.floor: the colour round the board (default: the scene's own floor, as the plugin page draws it);
    * null leaves the canvas clear there, so the page's floor shows (the game).
    */
-  constructor(private container: HTMLElement, private options: { floor?: string | null; webInk?: boolean } = {}) {
+  constructor(private container: HTMLElement, private options: { floor?: string | null; webInk?: boolean; boardOnlySkip?: boolean } = {}) {
     container.classList.add('painted');
     this.canvas.width = 960; this.canvas.height = 960 + HEADROOM; // resolution 1 until the first resize
     container.appendChild(this.canvas);
@@ -136,7 +136,7 @@ export class PaintedView implements BoardView {
     const consume = (e: Event) => { e.preventDefault(); e.stopImmediatePropagation(); };
     document.addEventListener('pointerdown', e => {
       skippedPointer = null;
-      if (e.button !== 0 || !this.canvas.getClientRects().length || !(this.scene.animating || this.scene.falling)) return;
+      if (e.button !== 0 || !this.canvas.getClientRects().length || (this.options.boardOnlySkip && e.target !== this.canvas) || !(this.scene.animating || this.scene.falling)) return;
       skippedPointer = e.pointerId;
       this.clearPointer(); this.onSkipAnimation?.(); this.skip(); consume(e);
     }, { capture: true, signal });
