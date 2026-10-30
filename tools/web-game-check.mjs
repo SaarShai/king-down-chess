@@ -29,7 +29,7 @@ const stagingLogin = process.argv[2] === 'staging-login';
 const signinSpeed = process.argv[2] === 'signin-speed';
 // VITE_KINGDOWN_STAGE=staging runs the website Ranked flow; without it the build is the production build (ticket 67).
 const rankedStage = !stagingLogin && process.env.VITE_KINGDOWN_STAGE === 'staging';
-const accountOrigin = stagingLogin || rankedStage ? 'https://puhspsyjyzaghmgtkzqd.supabase.co' : 'https://web-proof.supabase.co';
+let accountOrigin = stagingLogin || rankedStage ? 'https://puhspsyjyzaghmgtkzqd.supabase.co' : 'https://web-proof.supabase.co';
 // The local server starts as a localDev server without a stage, and production refuses the staging project
 // there (ticket 66). So the server and the signed test sessions use a local test issuer; only the site build
 // names the account project of its stage.
@@ -45,14 +45,26 @@ execFileSync(process.execPath, [fileURLToPath(new URL('./plugin-db/bootstrap-tes
 const work = await mkdtemp(join(tmpdir(), 'kingdown-web-game-'));
 const actors = Array.from({ length: recovery ? 4 : 2 }, () => randomUUID());
 const pool = new pg.Pool({ connectionString, max: 1 });
-let app, server, browser, savedAccess;
+let app, server, browser, savedAccess, accountServer, accountRequest;
 const failures = [], commands = [];
 let lostReplies = 0;
 try {
+  if (signinSpeed) {
+    // A controlled WebKit page cannot use Playwright routes as its auth server.
+    accountServer = createServer((req, res) => { void accountRequest(req, res).catch(() => res.destroy()); });
+    accountServer.listen(0, '127.0.0.1'); await once(accountServer, 'listening');
+    accountOrigin = `http://127.0.0.1:${accountServer.address().port}`;
+  }
   // Use public fake settings only. The browser gets a real signed local session; no OAuth provider is contacted.
-  await build({ logLevel: 'warn', define: {
+  await build({ logLevel: 'warn', plugins: signinSpeed ? [{ name: 'signin-loopback-auth', enforce: 'pre', transform(code, id) {
+    if (id !== resolve('src/account/public-config.ts')) return;
+    // Keep config validation; connect the real SDK to the local HTTP fixture after it passes.
+    const result = 'return { url: url.origin, publishableKey };';
+    assert(code.includes(result));
+    return code.replace(result, `return { url: ${JSON.stringify(accountOrigin)}, publishableKey };`);
+  } }] : [], define: {
     'import.meta.env.VITE_KINGDOWN_STAGE': JSON.stringify(stagingLogin || rankedStage ? 'staging' : ''),
-    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(accountOrigin),
+    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(signinSpeed ? issuerOrigin : accountOrigin),
     'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify('sb_publishable_local_test'),
   }, build: { outDir: join(work, 'site'), emptyOutDir: true } });
   // The check drives seats through the MCP tools as well as the web page, so its tree keeps the parked plugin.
@@ -101,7 +113,7 @@ try {
   });
   if (signinSpeed) {
     const { checkSigninSpeed } = await import('./lib/signin-speed-check.mjs');
-    await checkSigninSpeed({ browser, origin, accountOrigin, actors, tokens, tool });
+    await checkSigninSpeed({ browser, origin, accountOrigin, actors, tokens, tool, setAccountRequest: handler => { accountRequest = handler; } });
   } else if (stagingLogin) {
     const { checkStagingLogin } = await import('./lib/staging-login-check.mjs');
     await checkStagingLogin({ browser, origin, accountOrigin, actors, tokens, tool });
@@ -669,6 +681,7 @@ try {
 } finally {
   await browser?.close();
   if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
+  if (accountServer) { accountServer.closeAllConnections(); await new Promise(resolve => accountServer.close(resolve)); }
   await app?.pool.end();
   if (savedAccess !== undefined) await pool.query('update public.web_account_access set enabled=$1 where singleton=true', [savedAccess]);
   await pool.query("delete from public.outbox where payload->>'game_id' in (select g.id::text from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[])))", [actors]);

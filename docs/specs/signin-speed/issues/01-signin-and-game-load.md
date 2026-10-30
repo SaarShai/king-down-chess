@@ -5,103 +5,175 @@ Type: task
 
 ## Scope
 
-The owner asks for a fix for slow sign-in and game load on `/play/`.
-Live base: `70e569bc`. Branch base: `origin/staging/first-game`.
-Use local test accounts. Check the live site without an account. Do not deploy.
+The owner asks for a repair of the home page → account link path in PR 209.
+Base head: `8c1c971835a3eb9be6ac6f3327dabf62436d3eb4`.
+Use local test users only. Do not deploy, publish, or write to production.
 
-## Plan
+## Plan and pass criteria
 
-1. Trace auth, API reads, runtime load and cache control. Measure the local path in Chromium and WebKit. Read the live path with a fresh browser context.
-2. Fix the cause in shared code. Add a browser check with a short limit and a controlled slow path.
-3. Run the affected browser checks in both engines, `npm test`, and `npm run build`. Review the diff. Commit, push, and open a PR into `staging/first-game`.
+1. Add the real home page → account link path. Hold one offline card for 12 s.
+   Record a failing run on the base product code in both engines.
+2. Prove private-cache safety before the full offline install ends. Check first
+   install, active and waiting workers, replacements, bad replies and failed cleanup.
+3. Correct the desktop cache checks. Use a real browser to prove that product code
+   installs and activates the root worker. Keep the full offline game checks.
+4. Run the browser matrix, full tests, build and doc checks. Record the results.
+   Commit with the hooks unchanged. Push to the same branch and update PR 209.
 
-## Pass criteria
+Each account entry must show a real game row and enabled game controls in 5 s.
+Cover saved session, token refresh and PKCE sign-in with direct and home entry.
+The home cases must start with an installing worker and finish while it installs.
+Private replies must stay outside the public cache. Offline activation must still
+require one complete build. A changed or unproved worker must block private sends.
 
-- The game list resolves in a few seconds with a valid local session.
-- A slow optional load does not hold the first account screen.
-- The browser check fails on the old stall and passes with the fix.
-- The required checks pass. The ticket records exact results and timing limits.
+## Cause and review
 
-## Evidence
+Three independent reviewers report the same gap in the first repair. A direct
+`/play/` visit skips a new offline install. But `/` starts the install after the
+board is ready. The account link then opens `/play/` with an installing worker.
+The old gate waits for that worker before it reads `/api/status`. It can wait
+60 s before `CACHE_INSTALL_DEADLINE`. The same gate holds a PKCE return.
 
-The checks below pass. The owner authorizes this repair in the task request.
+The new browser case confirms this on base head `8c1c9718`. The root page starts
+its worker through product code. The server holds `/ui/cards/rescue.webp` for
+12 s. The check clicks a visible `[data-account-play]` link. Status, auth and
+private game reads use the compiled app and a disposable loopback database.
 
-### Cause
+The first check covers only direct entry. It cannot detect the home-page fault.
+The old desktop check also assumes that a private visit installs a worker. The
+old offline check registers the worker itself, so it does not prove root setup.
 
-`entry.ts` waits for `readWebAccountAccess()` before it reads a session.
-That read calls `withPrivateCachePolicy()`. On a fresh profile, the policy
-registers `/sw.js` and waits for its complete offline cache. The live worker
-lists 188 files. Thus an unused local-game image can hold sign-in, settings,
-and the game list. These account modules match live base `70e569bc`.
+## Safety argument
 
-A fresh read-only live check sends GET requests only. It uses a new profile
-for each engine. It never signs in:
+The gate separates a complete offline build from safe private traffic:
 
-| Engine | Sign-in options ready | Status request starts | Status HTTP time | Provider HTTP time |
-| --- | ---: | ---: | ---: | ---: |
-| Chromium | 19,140 ms | 17,698 ms | 516 ms | 854 ms |
-| WebKit | 10,537 ms | 9,707 ms | 291 ms | 469 ms |
+- The new `public-install-v1` reply checks all existing keys in the worker's own
+  cache. Each key must be public. It does not require files that are still loading.
+  All later writes still use `cacheable()`, including every install write.
+- The exact build allowlist excludes private routes and unknown paths. Requests
+  with Authorization or no-store, cross-origin requests, redirects, auth query
+  replies and no-store replies cannot enter that cache. Private requests pass to
+  the network. The private API client still sends with `cache: 'no-store'`.
+- Before each private send during install, the page proves the controller and
+  every active, installing and waiting worker. Each reply has a fresh request ID
+  and port. The incoming worker is first, so a silent old controller cannot hold
+  its successor. A missing, old or invalid proof blocks the send.
+- Only the cache names of those proved versions can remain. The page removes all
+  other app caches, then lists names again. It checks the worker set after each
+  asynchronous step. It makes the last check and the send in the same task.
+- A replacement or state change during proof starts fresh proof within the same
+  8 s deadline. No proof is saved between private requests. A redundant install,
+  failed deletion, late reply or silent worker cannot open the send.
+- Each worker reads only its own version cache. The active and incoming caches
+  can coexist during install, but their files do not mix. Install still checks
+  the complete offline graph before `skipWaiting()`. Activation still checks the
+  complete cache, removes old versions, and then claims clients. The existing
+  full-build proof remains in use when no install runs.
 
-The local compiled stack uses PostgreSQL, signed test users, the real SDK,
-and the real game API. The server holds `/ui/cards/rescue.webp` for 12 s.
-Before the fix, Chromium takes 12,444 ms to show the list. WebKit takes
-12,835 ms. The new check fails on the old product code with a 5,000 ms limit.
-The WebKit baseline restores both product files to HEAD before it runs; its
-exit is 1 at the timing assertion. It then restores the fix.
+A client can message an installing worker: see the
+[Service Worker specification](https://www.w3.org/TR/service-workers/).
+An old worker that cannot prove the new write policy still blocks private sends.
+This preserves the safety boundary; it is not treated as a safe worker by URL.
 
-This shows a cache-install wait before auth. It does not reproduce the exact
-reported two-minute wait. The code has a 60 s install budget and a fresh 8 s
-proof budget. The measured path has no fixed 120 s wait. No evidence points
-to blocked third-party cookies or lost auth storage. The local SDK checks
-cover a saved session, an expired session with token refresh, and a new PKCE
-sign-in return. No real provider or account receives these fixture requests.
+The root registration code stays in place. The `web-online` browser check now
+loads the real root, waits for an activated controller, and checks its script,
+scope and update mode. It does not register that first offline worker by hand.
+CI runs this check in Chromium and WebKit. The full offline game checks remain.
 
-### Change
+The desktop check keeps all 30 cold/warm pairs, legal-state reads and accepted
+turns. Cold means a fresh context. Warm means a same-context reload with a warm
+HTTP cache. Both private visits must have no registration and no controller.
 
-- A successful lookup with no worker uses the existing empty-cache proof.
-  It removes old app caches and verifies their absence before the send.
-- A second lookup catches a worker that another tab starts during cleanup.
-  Existing, unsafe, installing and replaced workers still need fresh proof.
-- The HTML starts offline caching on the local root page only. It uses the
-  same registration settings as the private-cache check. An account page
-  no longer starts a delayed offline install after its 60 s board poll.
-- `signin-speed` checks a real game row and enabled controls within 5 s.
-  Chromium and WebKit CI run it with the existing `web-online` check.
-- The offline check starts its own worker before it tests the offline graph.
-  No safety or offline assertion is removed.
+## Browser fixture
 
-The fix does not bypass an existing worker update. A slow or unsafe existing
-worker must still pass the cache proof before a private request can send.
+The auth SDK, PKCE flow, session restore and token refresh stay in use. A local
+HTTP provider returns test auth and cloud-save replies. WebKit does not route
+controlled-page auth fetches through the Playwright route mock. Thus the fixture
+uses a loopback server. The test build keeps account-config validation and changes
+only the returned provider address to that server. The product config is unchanged.
 
-### Final results
+The root save receipt resolves before the measured click. The refresh case then
+expires the saved session before that click, so refresh occurs on `/play/` while
+install runs. All external requests are blocked. No real provider or account is
+used. The test uses a synchronous state poll: this Playwright version accepts an
+async predicate's Promise as ready before its boolean result is true.
 
-| Engine | Saved session | Token refresh | New PKCE sign-in |
-| --- | ---: | ---: | ---: |
-| Chromium | 318 ms | 348 ms | 459 ms |
-| WebKit | 690 ms | 414 ms | 839 ms |
+## Before the repair
 
-The WebKit baseline starts status at 12,588 ms and shows the list at
-12,835 ms. The fix starts status at 503 ms and shows the list at 690 ms.
-The main delay is before status, not in the game API or runtime boot.
+The product cache files and Vite config match base head in these runs. Only the
+browser fixture and check change. All six paths complete in each engine; the
+check then fails at the 5 s limit. Times start at direct navigation or the real
+home account-link click. The root board setup is outside the home measurement.
 
-All browser checks use the disposable loopback test database. Auth provider
-replies use signed local fixture users. No test signs in to a real account.
+| Entry | Auth path | Chromium | WebKit |
+| --- | --- | ---: | ---: |
+| Direct | Saved session | 336 ms | 660 ms |
+| Direct | Token refresh | 276 ms | 396 ms |
+| Direct | PKCE sign-in | 442 ms | 464 ms |
+| Home link | Saved session | 12,470 ms | 12,635 ms |
+| Home link | Token refresh | 12,477 ms | 12,640 ms |
+| Home link | PKCE sign-in | 12,815 ms | 12,343 ms |
 
-- `PLAYABLE_BROWSER=chromium npm run check:browser signin-speed web-online web-game account-discovery staging-login`: all 5 pass. Times: 3.9 s, 95.0 s, 67.9 s, 7.8 s and 3.7 s.
-- `PLAYABLE_BROWSER=webkit npm run check:browser signin-speed web-online`: both pass. Times: 4.8 s and 85.0 s.
-- `npm test`: exit 0. Type checks pass. 303 test files pass; 5,961 tests pass and 11 skip. All 67 artwork checks pass. Test duration: 389.99 s.
-- `npm run build`: exit 0. Type check and Vite build pass. The existing optional character-manifest warning remains.
-- `npm run test:docs`: 17 files and 187 tests pass after the evidence update.
+Home status starts at 11,978–12,046 ms in Chromium and 12,044–12,053 ms in
+WebKit. This proves an install wait before auth. It does not reproduce the exact
+reported two-minute Safari wait.
+
+Base failure logs and JSON:
+
+- Chromium: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/signin-speed-QAjpAt/`.
+- WebKit: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/signin-speed-sb8ngm/`.
+- Command logs: `/tmp/signin-round2-red-chromium.log`, `/tmp/signin-round2-red-webkit-ready.log`.
+
+## After the repair
+
+The list and enabled controls pass the 5 s limit on all six paths. All three
+home cases in each engine still have an installing worker when they finish.
+The slow offline card remains held. Each private read gets fresh proof.
+
+| Entry | Auth path | Chromium before | Chromium after | WebKit before | WebKit after |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Direct | Saved session | 336 ms | 405 ms | 660 ms | 732 ms |
+| Direct | Token refresh | 276 ms | 274 ms | 396 ms | 409 ms |
+| Direct | PKCE sign-in | 442 ms | 437 ms | 464 ms | 492 ms |
+| Home link | Saved session | 12,470 ms | 200 ms | 12,635 ms | 378 ms |
+| Home link | Token refresh | 12,477 ms | 213 ms | 12,640 ms | 427 ms |
+| Home link | PKCE sign-in | 12,815 ms | 408 ms | 12,343 ms | 516 ms |
+
+Home sign-in options fall from 12,571 to 154 ms in Chromium and from 12,116
+to 267 ms in WebKit. Home status starts at 95–121 ms and 219–239 ms. The PKCE
+return gets its own status reply while the same offline install still runs.
+
+## Final checks and review
+
+All commands use the disposable loopback database. The browser checks use local
+test users and the local provider. The full suite runs without a file filter.
+
+- `PLAYABLE_BROWSER=chromium npm run check:browser signin-speed web-online web-game account-discovery staging-login desktop-performance`: all 6 pass. Times: 17.9 s, 101.7 s, 69.0 s, 7.4 s, 3.6 s and 43.8 s.
+- `PLAYABLE_BROWSER=webkit npm run check:browser signin-speed web-online`: both pass. Times: 19.1 s and 93.4 s.
+- `npm test`: exit 0. Both type checks pass. All 303 files pass; 5,968 tests pass and 11 skip. Duration: 489.29 s. All 67 artwork checks also pass.
+- `npm run build`: exit 0. Type check and Vite build pass. Vite takes 609 ms. The existing optional character-manifest warning remains.
+- `npm run test:docs`: all 17 files and 187 tests pass, also after the evidence update.
+- Focused safety checks: `KINGDOWN_TEST_FILE='**/{cache-policy,service-worker}.test.ts' npm test`: both files and 207 tests pass. This is separate from the full-suite result.
 - `git diff --check`: pass.
 
-Browser logs and screenshots:
+The desktop check completes all 30 cold/warm pairs and accepted turns. Each
+private visit has no worker. The legal reads, board readiness, accepted HTTP
+reply and stored command checks remain. The offline check proves product root
+installation and activation in both engines, then checks the full offline game.
 
-- Chromium: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/signin-speed-bTS46E/`.
-- WebKit: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/signin-speed-twpERB/`.
-- Red WebKit: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/signin-speed-TzwJzF/`.
-- Live read-only waterfall and command logs: `/tmp/signin-speed-evidence/`.
+The first full Chromium run finds an old-worker upgrade fault in the early
+proof order. A silent old controller holds the successor while it waits for
+proof. The incoming-first order fixes this without a delay or a weaker refusal.
+A unit test and the real old-worker browser checks cover this order.
 
-The WebKit screenshot shows the game row and enabled game controls. The
-repair keeps one shared safety gate. It adds no saved proof and no auth
-bypass. Independent PR review remains before a merge. No deploy, publish,
-production write or Firefox run occurs.
+Final browser logs, JSON and screenshots:
+
+- Chromium: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/signin-speed-yMqAtv/`.
+- WebKit: `/var/folders/0j/0fv2szdj15xg_wbgl96cbf_r0000gn/T/kingdown-check-runs/signin-speed-S8E37W/`.
+- Command logs: `/tmp/signin-round2-chromium-final.log`, `/tmp/signin-round2-webkit-final.log`, `/tmp/signin-round2-npm-test.log`, `/tmp/signin-round2-build.log`, `/tmp/signin-round2-docs.log`.
+
+The final diff keeps the repair in the shared private-send gate and worker.
+The auth flow stays in place. No proof is saved and no private request bypasses
+an unproved controller. The three prior reviews identify the first-round gap;
+this repair still needs independent review before merge. No deploy, publish,
+production write, real-account sign-in, Firefox run or merge occurs.

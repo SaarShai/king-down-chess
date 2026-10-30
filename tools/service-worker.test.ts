@@ -95,7 +95,7 @@ function worker(caches = storage(), build = version, buildFiles = files, registr
   return { caches, registration, fetch, claim, skipWaiting, fire, request, message, timers, timerStarted, saved, storageAccess };
 }
 
-it.each([{ controlled: false, installMs: 1000 }, { controlled: false, installMs: 12000 }, { controlled: true, installMs: 12000 }])('proves a replacement after entry (controlled: $controlled, install: $installMs ms)', async ({ controlled, installMs }) => {
+it.each([{ controlled: false, installMs: 1000 }, { controlled: false, installMs: 12000 }, { controlled: true, installMs: 12000 }])('proves private safety before a replacement finishes (controlled: $controlled, install: $installMs ms)', async ({ controlled, installMs }) => {
   vi.useFakeTimers();
   const old = Object.assign(new EventTarget(), { scriptURL: url('/sw.js'), state: 'activated' as ServiceWorkerState, postMessage: vi.fn() });
   const next = Object.assign(new EventTarget(), { scriptURL: url('/sw.js'), state: 'installing' as ServiceWorkerState, postMessage: vi.fn() });
@@ -119,7 +119,7 @@ it.each([{ controlled: false, installMs: 1000 }, { controlled: false, installMs:
     constructor() { this.port1.peer = this.port2; this.port2.peer = this.port1; }
   }
   const flush = async () => { for (let i = 0; i < 40; i++) await Promise.resolve(); await Promise.all(deliveries); };
-  vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: workers }); vi.stubGlobal('MessageChannel', Channel);
+  vi.stubGlobal('window', {}); vi.stubGlobal('navigator', { serviceWorker: workers }); vi.stubGlobal('MessageChannel', Channel); vi.stubGlobal('caches', a.caches);
   connect(old, a);
   try {
     const entry = vi.fn(() => 'account entry allowed');
@@ -130,8 +130,9 @@ it.each([{ controlled: false, installMs: 1000 }, { controlled: false, installMs:
     await expect(a.message().done()).rejects.toThrow('Worker update in progress');
     const send = vi.fn(() => 'game read sent');
     const result = withPrivateCachePolicy(send).catch(error => error.message);
-    await flush(); expect(send).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(installMs); expect(send).not.toHaveBeenCalled();
+    await flush(); expect(await result).toBe('game read sent');
+    expect(next.state).toBe('installing'); expect(send).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(installMs); expect(send).toHaveBeenCalledOnce();
     await b.fire('install').done();
     registration.installing = null; registration.active = next;
     old.state = 'redundant'; old.dispatchEvent(new Event('statechange'));
@@ -148,6 +149,24 @@ it.each([{ controlled: false, installMs: 1000 }, { controlled: false, installMs:
 });
 
 const privatePaths = ['/api', '/mcp', '/authorize', '/auth', '/oauth', '/consent', '/login', '/logout', '/signin', '/signout', '/callback', '/.well-known', '/internal', '/play', '/g', '/j'];
+
+describe('private safety during installation', () => {
+  it('replies while an offline fetch is held, but keeps activation closed until the complete graph is present', async () => {
+    const w = worker(), started = deferred(), resume = deferred();
+    w.fetch.mockImplementationOnce(async request => { started.resolve(); await resume.promise; return response(request.url); });
+    const install = w.fire('install'); await started.promise;
+    const proof = w.message({ data: { type: 'kingdown-cache-policy', requestId: 'early', installing: true } }); await proof.done();
+    expect(proof.postMessage).toHaveBeenCalledExactlyOnceWith({ type: 'kingdown-cache-policy', requestId: 'early', policy: 'public-install-v1', version });
+    expect(w.skipWaiting).not.toHaveBeenCalled(); expect(w.claim).not.toHaveBeenCalled();
+    await expect(w.fire('activate').done()).rejects.toThrow('Incomplete offline cache');
+    resume.resolve(); await install.done(); await w.fire('activate').done(); expect(w.claim).toHaveBeenCalledOnce();
+  });
+  it.each(['/api/private', '/play/', '/assets/main.js?code=private'])('refuses early proof with a forbidden cache key: %s', async path => {
+    const w = worker(), cache = await w.caches.open(current); cache.entries.set(url(path), response(path));
+    const proof = w.message({ data: { type: 'kingdown-cache-policy', requestId: 'early', installing: true } });
+    await expect(proof.done()).rejects.toThrow('Forbidden application cache key'); expect(proof.postMessage).not.toHaveBeenCalled();
+  });
+});
 
 describe('public request boundary', () => {
   it.each([...privatePaths.flatMap(path => [path, `${path}/child`]), '/play.html', '/consent.mjs', '/privacy.html', '/terms.html', '/delete-data.html', '/support.html', '/assets/unknown.js', '/sw.js'])('bypasses %s with queries and navigation', async path => {

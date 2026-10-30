@@ -386,6 +386,10 @@ export async function main() {
       const recordSockets = page => page.on('websocket', socket => requests.push(socket.url()));
       persistent.pages().forEach(recordSockets); persistent.on('page', recordSockets);
       const page = persistent.pages()[0] ?? await persistent.newPage();
+      page.on('console', message => {
+        const prefix = '[King Down cache safety] ';
+        if (message.type() === 'warning' && message.text().startsWith(prefix)) record({ event: 'cache-failure', ...JSON.parse(message.text().slice(prefix.length)) });
+      });
       page.setDefaultTimeout(30_000 * STEP);
       page.setDefaultNavigationTimeout(30_000 * STEP);
       // The worker serves this start-page URL. Playwright's Firefox clears the controller of a page that the worker passes to the network (Playwright issue 37012).
@@ -585,9 +589,17 @@ export async function main() {
       if (await active.evaluate(() => !!navigator.serviceWorker.controller)) await takeover(active, output);
       else {
         served = output;
-        // This phase tests offline play; account reads no longer install the local game.
-        await active.evaluate(() => navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }));
-        await controlled(active);
+        // The real root page must install and activate its offline worker without test registration.
+        assert.equal(await active.evaluate(() => navigator.serviceWorker.getRegistration('/').then(Boolean)), false);
+        await active.goto(origin); await readyBoard(active);
+        await active.waitForFunction(() => navigator.serviceWorker.controller?.state === 'activated', null, { timeout: 30_000 * STEP });
+        const installed = await active.evaluate(async () => {
+          const registration = await navigator.serviceWorker.getRegistration('/');
+          return { active: registration?.active?.state, controlled: navigator.serviceWorker.controller === registration?.active,
+            scope: registration?.scope, updateViaCache: registration?.updateViaCache, script: registration?.active?.scriptURL };
+        });
+        assert.deepEqual(installed, { active: 'activated', controlled: true, scope: origin + '/', updateViaCache: 'none', script: origin + '/sw.js' }, 'The product root page installs and activates the offline worker');
+        await active.goto(`${origin}/?fixture=page`); await active.waitForFunction(() => window.privateProbe);
       }
       await probe(active, 'plain-worker', false);
       const beforeStatus = await localData(active);

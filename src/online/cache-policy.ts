@@ -16,7 +16,7 @@ export class CachePolicyUnavailable extends Error {
 const TYPE = 'kingdown-cache-policy';
 const POLICY = 'public-build-v1';
 const DEADLINE_MS = 8000;
-const INSTALL_MS = 60000;
+const INSTALL_POLICY = 'public-install-v1';
 
 export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promise<T> {
   if (typeof window === 'undefined') return Promise.resolve().then(send);
@@ -24,8 +24,12 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
     const workers = navigator.serviceWorker;
     const began = performance.now();
     let phase: CachePhase = 'register', rejection: CacheReason = 'exception', registerFailed = false, updateFailed = false;
-    let registration: ServiceWorkerRegistration | undefined, installDeadline: number | undefined;
+    let registration: ServiceWorkerRegistration | undefined;
     const pendingInstall = () => registration?.installing ?? registration?.waiting;
+    // Prove the incoming worker first; a silent old worker must not hold its successor.
+    const workerSet = () => [registration?.installing ?? null, registration?.waiting ?? null, registration?.active ?? null, workers?.controller ?? null];
+    const unchanged = (snapshot: (ServiceWorker | null)[]) => workerSet().every((worker, i) => worker === snapshot[i])
+      && snapshot.every(worker => !worker || worker.state !== 'redundant');
     let ended = false;
     let close = () => {};
     const fail = (error?: unknown) => { if (!ended) {
@@ -38,31 +42,32 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
       reject(new CachePolicyUnavailable(failure));
     } };
     let timer = setTimeout(fail, DEADLINE_MS);
-    const start = (controller: ServiceWorker | null) => {
+    const start = (controller: ServiceWorker | null, snapshot?: (ServiceWorker | null)[]) => {
       if (ended) return;
       if ((workers?.controller ?? null) !== controller) return false;
       if (controller && controller.state !== 'activated') return false;
-      if (pendingInstall()) return false;
+      if (snapshot ? !unchanged(snapshot) : pendingInstall()) return false;
       ended = true; close(); clearTimeout(timer);
       // No await can separate the last controller check from the send.
       try { resolve(send()); } catch (error) { reject(error); }
       return true;
     };
-    const proof = (controller: ServiceWorker) => new Promise<boolean>((done, bad) => {
+    const proof = (controller: ServiceWorker, installing = false) => new Promise<string | false>((done, bad) => {
       phase = 'proof';
       const channel = new MessageChannel(), requestId = crypto.randomUUID();
-      const cleanup = () => { channel.port1.onmessage = null; channel.port1.close(); channel.port2.close(); workers.removeEventListener('controllerchange', changed); controller.removeEventListener('statechange', changed); registration?.removeEventListener('updatefound', changed); };
+      const observed = new Set([controller, ...workerSet()].filter((worker): worker is ServiceWorker => worker !== null));
+      const cleanup = () => { channel.port1.onmessage = null; channel.port1.close(); channel.port2.close(); workers.removeEventListener('controllerchange', changed); for (const worker of observed) worker.removeEventListener('statechange', changed); registration?.removeEventListener('updatefound', changed); };
       close = cleanup;
       const changed = () => { cleanup(); done(false); };
       workers.addEventListener('controllerchange', changed);
-      controller.addEventListener('statechange', changed);
+      for (const worker of observed) worker.addEventListener('statechange', changed);
       registration?.addEventListener('updatefound', changed);
       channel.port1.onmessage = ({ data }) => {
         cleanup();
-        if (data?.type !== TYPE || data.requestId !== requestId || data.policy !== POLICY || typeof data.version !== 'string' || !data.version) { rejection = 'bad-proof'; bad(new CachePolicyUnavailable()); }
-        else done(true);
+        if (data?.type !== TYPE || data.requestId !== requestId || data.policy !== (installing ? INSTALL_POLICY : POLICY) || typeof data.version !== 'string' || !data.version) { rejection = 'bad-proof'; bad(new CachePolicyUnavailable()); }
+        else done(data.version);
       };
-      try { controller.postMessage({ type: TYPE, requestId }, [channel.port2]); } catch (error) { rejection = 'post-message'; cleanup(); bad(error); }
+      try { controller.postMessage({ type: TYPE, requestId, ...(installing && { installing: true }) }, [channel.port2]); } catch (error) { rejection = 'post-message'; cleanup(); bad(error); }
     });
     void (async () => {
       if (workers) {
@@ -86,24 +91,33 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
         const installing = pendingInstall();
         if (installing) {
           phase = 'install';
-          // Public installation has one budget across replacements; every completed wait still needs fresh proof.
-          installDeadline ??= performance.now() + INSTALL_MS;
-          const remaining = installDeadline - performance.now();
-          if (remaining <= 0) { fail(); return; }
-          clearTimeout(timer); timer = setTimeout(fail, remaining);
-          await new Promise<void>((done, bad) => {
-            const cleanup = () => { installing.removeEventListener('statechange', changed); workers.removeEventListener('controllerchange', changed); registration!.removeEventListener('updatefound', changed); };
-            const changed = () => {
-              const replacement = pendingInstall();
-              if ((replacement && replacement !== installing) || installing.state === 'activated') { cleanup(); done(); }
-              else if (installing.state === 'redundant') { rejection = 'redundant'; cleanup(); bad(new CachePolicyUnavailable()); }
-            };
-            close = cleanup;
-            installing.addEventListener('statechange', changed); workers.addEventListener('controllerchange', changed); registration!.addEventListener('updatefound', changed);
-            changed();
-          });
+          if (installing.state === 'redundant') { rejection = 'redundant'; throw new CachePolicyUnavailable(); }
+          // Every possible controller must prove public-only writes, even before its install ends.
+          const snapshot = workerSet(), versions = new Set<string>();
+          let proved = true;
+          for (const worker of new Set(snapshot.filter((worker): worker is ServiceWorker => worker !== null))) {
+            const version = await proof(worker, true);
+            if (ended) return;
+            if (!version || !unchanged(snapshot)) { proved = false; break; }
+            versions.add(`kingdown-${version}`);
+          }
+          if (!proved) continue;
+          phase = 'empty-cache';
+          const obsolete = (key: string) => key.startsWith('kingdown-') && !versions.has(key);
+          const names = await caches.keys();
           if (ended) return;
-          clearTimeout(timer); timer = setTimeout(fail, DEADLINE_MS);
+          if (!unchanged(snapshot)) continue;
+          for (const key of names.filter(obsolete)) {
+            if (!unchanged(snapshot)) { proved = false; break; }
+            await caches.delete(key);
+            if (ended) return;
+          }
+          if (!proved || !unchanged(snapshot)) continue;
+          const remaining = await caches.keys();
+          if (ended) return;
+          if (!unchanged(snapshot)) continue;
+          if (remaining.some(obsolete)) { rejection = 'cache-remains'; throw new CachePolicyUnavailable(); }
+          if (start(workers?.controller ?? null, snapshot)) return;
           continue;
         }
         const controller = workers?.controller ?? null;
