@@ -43,6 +43,7 @@ export interface PaintedScene {
   setKings(kings: readonly [KingDesign, KingDesign]): void;
   setFigure(type: number, urls: readonly [string, string] | null): void;
   readonly kings: KingDesign[];
+  resetKingEffects(): void;
   /** The design each side's King was last drawn with (null: not drawn yet). */
   readonly drawnKings: (KingDesign | null)[];
   setCoords(on: boolean, size?: number, inset?: number): void;
@@ -87,6 +88,8 @@ export interface PaintedScene {
   /** speed scales duration: 2 is half playback speed; 0.5 is double. */
   /** gait: play a quiet move with this gait (a GAITS name) even when `moves` is off. */
   play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null; effect?: SceneEffect }): Promise<boolean>;
+  prepareUndo(move: SceneMove): boolean;
+  rewindUndo(): Promise<boolean>;
   cancel(): void;
   dispose(): void;
 }

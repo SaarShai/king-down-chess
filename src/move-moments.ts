@@ -19,6 +19,7 @@ export function connectMoveMoments(view: BoardView, c: {
   const undo = (): void => {
     if (!c.allowed()) return;
     const game = c.game(), post = game.pos, last = game.history.at(-1), chain = c.chain();
+    if (!chain && last) view.prepareUndo?.(last.pos, last.move);
     c.reset();
     if (!chain) game.undo();
     const generation = c.generation();

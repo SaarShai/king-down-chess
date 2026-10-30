@@ -25,11 +25,13 @@ export interface BoardView {
   /** Finish the active reply or ceremony before a skip gesture ends the scene. */
   onSkipAnimation?: () => void;
   setRules?(context: GameRules): void;
+  resetEffects?(): void;
   sync(pos: Position): void;
   /** `onContact` can fire more than once, or not at all. Optional playback speed: 0.5 is half speed. */
   animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void>;
   /** Rewind one ply; other looks may sync at once. */
   animateBack?(pre: Position, m: Move, post: Position): Promise<void>;
+  prepareUndo?(pre: Position, m: Move): void;
   setLifted?(sq: number | null): void;
   setPace(pace: Pace): void;
   /** End the running move animation now; its animateMove() resolves. No-op when nothing plays. */
@@ -73,6 +75,7 @@ export class PaintedView implements BoardView {
   private cardStates = new StateEffects();
   private skippedMark?: { after: Position; owner: Color };
   private moveSquares?: ReadonlySet<number>;
+  private undoPending = false;
   private events = new AbortController();
   private resize: ResizeObserver;
   private pos: Position | null = null;
@@ -247,6 +250,12 @@ export class PaintedView implements BoardView {
   }
 
   async animateBack(pre: Position, m: Move, post: Position): Promise<void> {
+    if (this.undoPending) {
+      this.undoPending = false;
+      await this.scene.rewindUndo();
+      if (this.pos === pre) this.sync(pre);
+      return;
+    }
     this.sync(post);
     // A shot has no travel. A removed or changed figure has no reverse scene move.
     if (this.motion() && !m.pass && !m.promo && !m.selfRemove && m.from !== m.to
@@ -262,15 +271,16 @@ export class PaintedView implements BoardView {
   setLifted(sq: number | null): void { this.scene.setLifted(this.pace !== 'off' ? sq : null, !this.motionQuery.matches); }
 
   setPace(pace: Pace): void { this.pace = pace; this.stateEffects.rate = pace === 'fast' ? 2 : 1; if (pace === 'off') this.skip(); this.applyLively(); }
+  prepareUndo(pre: Position, m: Move): void { this.undoPending = this.pos === pre && this.scene.prepareUndo(m); }
   /** After skipping playback, discard history before another game's first position. */
-  resetEffects(): void { this.stateEffects.dispose(); this.cardStates.dispose(); this.skippedMark = undefined; }
+  resetEffects(): void { this.stateEffects.dispose(); this.cardStates.dispose(); this.skippedMark = undefined; this.scene.resetKingEffects(); }
   skip(): void {
     if (this.card && ['freeze', 'ward', 'firewall'].includes(this.card.move.power ?? '')) this.skippedMark = { after: this.card.after, owner: this.card.before.turn };
     this.card = null;
     this.reveal = null;
     this.moveSquares = undefined;
     this.stopStateEffects();
-    if (this.scene.animating) this.scene.cancel();
+    if (this.scene.animating && !this.undoPending) this.scene.cancel();
     if (this.scene.falling) this.scene.setFallen(this.fallen?.sq ?? null, false, this.fallRotation(this.fallen?.sq ?? null));
   }
 
