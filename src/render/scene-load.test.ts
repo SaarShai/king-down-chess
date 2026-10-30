@@ -381,3 +381,37 @@ it('keeps a stationary king clock across an ordinary move after a skipped rewind
  const other=scene.play({from:1,to:18,captures:[]}).then(done=>{scene.setPosition(fromFen('4k3/8/8/8/8/2N5/8/4K2R w - - 0 1'));return done;});
  await vi.advanceTimersByTimeAsync(2000);await expect(other).resolves.toBe(true);expect(b.clouds.at(-1)).toBeGreaterThanOrEqual(before);
 });
+
+it('rewinds the last landed Stratus move from the drawn cloud and position', async () => {
+ const base={character:'king-stratus',army:'white',canvasSize:[384,384],pivot:[192,345],bodyHeightPx:267,registrationHeightPx:267,boardScale:null};
+ const idle={...base,id:'stratus-idle',kind:'idle',facing:'SE',durationMs:400,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-rest.png',timeMs:400}]};
+ const turn={...base,id:'stratus-turn',kind:'turn',from:'SE',to:'N',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-turn.png',timeMs:120}]};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})));
+ const b=board(true,true);scene.setKings(['stratus','flame']);scene.setLively({kings:true});void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(1200);
+ const pre=scene.position,move={from:4,to:12,captures:[]},playing=scene.play(move);await vi.advanceTimersByTimeAsync(1600);await expect(playing).resolves.toBe(true);
+ const post=fromFen('4k3/8/8/8/8/8/4K3/1N5R b - - 0 1');scene.setPosition(post);await vi.advanceTimersByTimeAsync(500);
+ const before=b.clouds.at(-1)!,end=scene.foot(12),source=scene.foot(4);expect(before).toBeGreaterThan(0);
+ expect(scene.prepareUndo(move,pre)).toBe(true);const rewind=scene.rewindUndo();await vi.advanceTimersByTimeAsync(16);
+ const first=scene.characterFrames.find(frame=>frame.square===4)!.foot;expect(Math.hypot(first.x-end.x,first.y-end.y)).toBeLessThan(1);
+ expect(Math.abs(b.clouds.at(-1)!-before)).toBeLessThan(.08);
+ await vi.advanceTimersByTimeAsync(240);const middle=scene.characterFrames.find(frame=>frame.square===4)!.foot;
+ expect(Math.hypot(middle.x-source.x,middle.y-source.y)).toBeLessThan(Math.hypot(end.x-source.x,end.y-source.y));
+ await vi.advanceTimersByTimeAsync(1200);await expect(rewind).resolves.toBe(true);expect(scene.position).toBe(pre);
+});
+
+it('does not retain a landed move after a different position or with reduced motion', async () => {
+ const b=board(true);scene.setKings(['stratus','flame']);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const pre=scene.position,move={from:4,to:12,captures:[]},playing=scene.play(move);await vi.advanceTimersByTimeAsync(1000);await playing;
+ const post=fromFen('4k3/8/8/8/8/8/4K3/1N5R b - - 0 1');scene.setPosition(post);scene.setReducedMotion(true);
+ expect(scene.prepareUndo(move,pre)).toBe(false);scene.setReducedMotion(false);expect(scene.prepareUndo(move,pre)).toBe(false);
+});
+
+it('rejects a non-Stratus king and a different shown position', async () => {
+ const b=board(true);scene.setKings(['frost','flame']);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const pre=scene.position,move={from:4,to:12,captures:[]},first=scene.play(move);await vi.advanceTimersByTimeAsync(160);
+ expect(scene.prepareUndo(move,pre)).toBe(false);scene.cancel();await first;
+ scene.setKings(['stratus','flame']);const playing=scene.play(move);await vi.advanceTimersByTimeAsync(1000);await playing;
+ const post=fromFen('4k3/8/8/8/8/8/4K3/1N5R b - - 0 1');scene.setPosition(post);
+ scene.setPosition(fromFen('4k3/8/8/8/8/8/8/1N2K2R w - - 0 1'));
+ expect(scene.prepareUndo(move,pre)).toBe(false);
+});

@@ -139,7 +139,8 @@ export class PaintedView implements BoardView {
     const consume = (e: Event) => { e.preventDefault(); e.stopImmediatePropagation(); };
     document.addEventListener('pointerdown', e => {
       skippedPointer = null;
-      if (e.button !== 0 || !this.canvas.getClientRects().length || !(this.scene.animating || this.scene.falling)) return;
+      if (e.button !== 0 || !this.canvas.getClientRects().length || !(this.scene.animating || this.scene.falling)
+        || (e.target instanceof Element && e.target.closest('#undo'))) return;
       skippedPointer = e.pointerId;
       this.clearPointer(); this.onSkipAnimation?.(); this.skip(); consume(e);
     }, { capture: true, signal });
@@ -271,7 +272,10 @@ export class PaintedView implements BoardView {
   setLifted(sq: number | null): void { this.scene.setLifted(this.pace !== 'off' ? sq : null, !this.motionQuery.matches); }
 
   setPace(pace: Pace): void { this.pace = pace; this.stateEffects.rate = pace === 'fast' ? 2 : 1; if (pace === 'off') this.skip(); this.applyLively(); }
-  prepareUndo(pre: Position, m: Move): void { this.undoPending = this.pos === pre && this.scene.prepareUndo(m); }
+  prepareUndo(pre: Position, m: Move): void {
+    this.undoPending = this.motion() && !document.hidden && this.scene.prepareUndo(m, pre);
+    if (this.undoPending) this.pos = pre;
+  }
   /** After skipping playback, discard history before another game's first position. */
   resetEffects(): void { this.stateEffects.dispose(); this.cardStates.dispose(); this.skippedMark = undefined; this.scene.resetKingEffects(); }
   skip(): void {

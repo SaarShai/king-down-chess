@@ -1,6 +1,12 @@
 # Keep the Stratus king's state through Undo
 
-Status: done. Branch `anim/stratus-undo-1030`.
+Status: in progress. Branch `anim/stratus-undo-1030`.
+
+## Review fixes: plan and checks
+
+- Keep the landed Stratus move state until the shown position changes. Rewind it from the shown frame.
+- Let an Undo pointer press reach the control. Keep skip for other presses. Keep Undo instant when motion is off.
+- Test the view and scene paths, then run the Undo and Stratus browser checks. Inspect a game-size rewind frame sequence. Push to PR 211 and check CI.
 
 ## Task
 
