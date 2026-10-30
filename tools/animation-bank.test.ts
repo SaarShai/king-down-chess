@@ -174,20 +174,40 @@ writeFileSync(resolve(base, 'report.json'), '{}');`);
   expect(bank.frames[1]).toMatchObject({ method: 'hold', sha256: bank.frames[0].sha256, sources: [bank.frames[0].sha256] });
   const report = JSON.parse(await readFile(join(dir, 'hold', 'gates.json'), 'utf8'));
   expect(report.checks.find((check: any) => check.name === 'ghost').ok).toBe(true);
+  const provenance = JSON.parse(await readFile(join(dir, 'hold', 'provenance.json'), 'utf8'));
+  expect(provenance.frames[1]).toMatchObject({ method: 'hold', transform: null });
 });
 
 it('allows soft art present in authored frames and measures the exact radius', () => {
-  const width = 32, height = 32, data = Buffer.alloc(width * height * 4);
-  for (let y = 10; y < 20; y++) for (let x = 10; x < 20; x++) data[(y * width + x) * 4 + 3] = 255;
-  data[(10 * width + 7) * 4 + 3] = 128; // exactly 3 px from the core
-  data[(10 * width + 6) * 4 + 3] = 128;
-  const image = { data, width, height }, score = ghostScore(image);
-  expect(score).toBe(0.01);
-  const measure = measureFrame(image), frame = { file: 'soft', method: 'authored', sources: [], metadata: { channels: 4 }, measure,
-    fringe: matteFringe(image, measure), ghost: score, sha256: 'a'.repeat(64), timeMs: 0 };
-  const result = runGates({ bank: { pivot: [16, 19] }, frames: [frame, { ...frame, method: 'rife', timeMs: 15 }, { ...frame, timeMs: 30 }],
-    geometry: { pivot: [16, 19] }, plan: { frameCount: 3, durationMs: 30, frameMs: 15 } });
-  expect(result.checks.find(check => check.name === 'ghost').ok).toBe(true);
+  const width = 32, height = 32;
+  // A 10x10 opaque core (100 px). Ghost score counts far semi-transparent pixels per core pixel.
+  const soft = (ghostPixels: number) => {
+    const data = Buffer.alloc(width * height * 4);
+    for (let y = 10; y < 20; y++) for (let x = 10; x < 20; x++) data[(y * width + x) * 4 + 3] = 255;
+    data[(10 * width + 7) * 4 + 3] = 128; // exactly 3 px from the core: near, so it does not count
+    data[(10 * width + 6) * 4 + 3] = 128; // exactly 4 px from the core: the first ghost
+    for (let i = 1; i < ghostPixels; i++) data[((10 + i) * width + 2) * 4 + 3] = 128; // 8 px clear of the core
+    return { data, width, height };
+  };
+  const frame = (ghostPixels: number, method: string, timeMs = 0) => {
+    const image = soft(ghostPixels), measure = measureFrame(image);
+    return { file: `${method}-${ghostPixels}`, method, sources: [], metadata: { channels: 4 }, measure,
+      fringe: matteFringe(image, measure), ghost: ghostScore(image), sha256: 'a'.repeat(64), timeMs };
+  };
+  expect(ghostScore(soft(1))).toBe(0.01); // only the 4 px pixel counts
+  const authored = frame(10, 'authored');
+  expect(authored.ghost).toBe(0.1);
+  const softInbetween = frame(12, 'rife', 15);
+  expect(softInbetween.ghost).toBe(0.12);
+  const plan = { frameCount: 3, durationMs: 30, frameMs: 15 };
+  const passes = runGates({ bank: { pivot: [16, 19] }, frames: [authored, softInbetween, { ...authored, timeMs: 30 }],
+    geometry: { pivot: [16, 19] }, plan });
+  expect(passes.checks.find(check => check.name === 'ghost').ok).toBe(true);
+  const ghostedInbetween = frame(14, 'rife', 15);
+  expect(ghostedInbetween.ghost).toBeGreaterThan(authored.ghost + 0.035);
+  const fails = runGates({ bank: { pivot: [16, 19] }, frames: [authored, ghostedInbetween, { ...authored, timeMs: 30 }],
+    geometry: { pivot: [16, 19] }, plan });
+  expect(fails.checks.find(check => check.name === 'ghost').ok).toBe(false);
 });
 
 it('keeps the shipped movement rest at its pivot and scale on a padded canvas', async () => {

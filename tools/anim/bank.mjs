@@ -146,7 +146,10 @@ export async function makeBank(options) {
       if (frame.method !== 'rife' || frame.ghost <= limit) continue;
       const source = clean.reduce((best, candidate) => Math.abs(candidate.index - frame.index) < Math.abs(best.index - frame.index) ? candidate : best);
       await copyFile(join(output, source.file), join(output, frame.file));
-      frames[index] = { ...source, index: frame.index, file: frame.file, timeMs: frame.timeMs, method: 'hold', sources: [source.index] };
+      frames[index] = {
+        index: frame.index, file: frame.file, timeMs: frame.timeMs, method: 'hold', sources: [source.index], transform: null,
+        sha256: source.sha256, metadata: source.metadata, measure: source.measure, fringe: source.fringe, ghost: source.ghost,
+      };
     }
   }
   for (const frame of frames) {
