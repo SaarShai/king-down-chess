@@ -5,14 +5,14 @@
     {
       "name": "wing tips",
       "source": [
-        28,
+        25,
         -7,
-        13
+        12
       ],
       "tolerance": [
         25,
-        8,
-        11
+        10,
+        14
       ],
       "target": [
         80,
@@ -24,7 +24,35 @@
         -1.1,
         0.6,
         -0.62
-      ]
+      ],
+      "lightnessScale": 0.65,
+      "lightnessOffset": 60
+    },
+    {
+      "name": "cape",
+      "source": [
+        25,
+        -3,
+        -12
+      ],
+      "tolerance": [
+        25,
+        15,
+        16
+      ],
+      "target": [
+        80,
+        1,
+        8
+      ],
+      "zone": [
+        -0.7,
+        -0.9,
+        0.7,
+        0.1
+      ],
+      "lightnessScale": 0.65,
+      "lightnessOffset": 60
     },
     {
       "name": "chest and calves",
@@ -48,30 +76,6 @@
         -0.68,
         0.4,
         -0.08
-      ]
-    },
-    {
-      "name": "cape",
-      "source": [
-        14,
-        -5,
-        -8
-      ],
-      "tolerance": [
-        14,
-        8,
-        10
-      ],
-      "target": [
-        80,
-        1,
-        8
-      ],
-      "zone": [
-        -0.7,
-        -0.9,
-        0.7,
-        0.1
       ]
     }
   ]

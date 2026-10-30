@@ -93,3 +93,21 @@ else: raise AssertionError('changed unlabelled edge accepted')
 `], { encoding: 'utf8' });
   expect(result.status, result.stderr).toBe(0);
 });
+
+
+it.skipIf(!available)('keeps shading and recolours the edge of a selected part', () => {
+  const result = spawnSync(python, ['-B', '-c', `
+import importlib.util,numpy as np
+from skimage.color import rgb2lab
+s=importlib.util.spec_from_file_location('recolor','tools/anim/recolor.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+a=np.zeros((48,48,4),dtype=np.uint8); a[8:40,8:40]=[180,120,90,255]
+a[16:24,16:24,:3]=[140,80,50]; a[7,20]=[180,120,90,15]
+center=rgb2lab(np.array([[[160,100,70]]])/255.)[0,0].tolist()
+spec={'mode':'parts','parts':[{'source':center,'tolerance':[30,20,20],'target':[30,2,3],'zone':[-1,-1,1,1],'lightnessScale':0.5}]}
+r=m.apply(a,spec,[24,40]); m.gate(a,r,parts=True)
+assert np.array_equal(r[:,:,3],a[:,:,3]); assert np.array_equal(r,m.apply(a,spec,[24,40]))
+L=rgb2lab(r[:,:,:3]/255.)[:,:,0]; assert 5 < L[12,12]-L[20,20] < 15
+assert np.array_equal(r[7,20,:3],r[8,20,:3]); assert np.array_equal(r[0],a[0])
+`], { encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+});

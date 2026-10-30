@@ -96,13 +96,22 @@ def apply_parts(frame, mapping, pivot):
         # Earlier parts take priority when their colour ranges overlap.
         mask &= ~used
         used |= mask
-        weight = np.minimum(distance_transform_edt(mask) / 2, 1)
-        mapped = lab + weight[:, :, None] * (target - center)
+        if 'lightnessScale' in part:
+            mapped = lab.copy()
+            mapped[:, :, 0] = lab[:, :, 0] * part['lightnessScale'] + part.get('lightnessOffset', 0)
+            mapped[:, :, 1:] = target[1:]
+        else:
+            weight = np.minimum(distance_transform_edt(mask) / 2, 1)
+            mapped = lab + weight[:, :, None] * (target - center)
         mapped[:, :, 0] = np.clip(mapped[:, :, 0], 0, 100)
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', message='Conversion from CIE-LAB')
             rgb = np.rint(np.clip(lab2rgb(mapped), 0, 1) * 255).astype(np.uint8)
         result[mask, :3] = rgb[mask]
+    if any('lightnessScale' in part for part in mapping['parts']):
+        distance, indices = distance_transform_edt(~visible, return_indices=True)
+        edge = (alpha > 0) & ~visible & (distance <= 2) & used[indices[0], indices[1]]
+        result[edge, :3] = result[indices[0][edge], indices[1][edge], :3]
     return result
 
 
@@ -154,8 +163,9 @@ def gate(source, result, parts=False):
         raise ValueError('empty character')
     edge, idx = edge_reference(alpha)
     if parts:
-        if not np.array_equal(result[:, :, :3][edge], source[:, :, :3][edge]):
-            raise ValueError('unlabelled low-alpha edge changed')
+        changed = edge & np.any(result[:, :, :3] != source[:, :, :3], axis=2)
+        if not np.array_equal(result[:, :, :3][changed], result[:, :, :3][idx[0][changed], idx[1][changed]]):
+            raise ValueError('changed low-alpha edge differs from nearby interior')
         return
     if not np.array_equal(result[:, :, :3][edge], result[:, :, :3][idx[0][edge], idx[1][edge]]):
         raise ValueError('low-alpha edge differs from nearby interior: possible new halo')

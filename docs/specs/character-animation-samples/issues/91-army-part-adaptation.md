@@ -10,6 +10,12 @@ Status: review samples. The owner must approve the look before bank changes.
 - Mark numeric misses on the sheet. Check the look at game size and 2x.
 - Run focused tests and open a PR. Do not change the catalog or selection.
 
+## Round 5 plan and checks
+
+- Remove red edges from Rook skin and colour the full Stratus cape and skin.
+- Rebuild the three review banks and sheet. Check alpha and sampled colours.
+- Inspect the rest and motion samples. Run focused tests and PR checks.
+
 ## Method and limits
 
 Part ranges use the source master, not target-image differences. The first
