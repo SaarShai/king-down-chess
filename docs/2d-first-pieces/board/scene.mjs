@@ -887,7 +887,7 @@ function vortex(out,foot,phase,strength) {
    if(body){
     if(a?.runtime){
      if(local<0)u.pose={...a.from};else if(local>a.actionDuration)u.pose={...a.to};
-     u.pose.rotation=0;u.pose.sx=1;u.pose.sy=1;
+     if(typeOf(u.value)!==K||!a.move.captures.length)u.pose.rotation=0;u.pose.sx=1;u.pose.sy=1;
     }
     u.pose.bank=body;
    }
@@ -1210,7 +1210,7 @@ function drawEncounter(a,t) {
    a.undoPending=false;const now=performance.now();
    if(a.preparing){
     const elapsed=a.exitStart==null?0:Math.max(0,Math.min(200,frameTime-a.exitStart));
-    a.exitReady=null;
+    releasePrepared(a.exitReady?.prepared);a.exitReady=null;
     if(a.exitBody){a.exitStart=now-elapsed;a.rewind={kind:'exit',start:now,end:now+200-elapsed,doneAtSource:true};}
     else a.rewind={kind:'exit',start:now,end:now,doneAtSource:true};
    }else{

@@ -8,7 +8,7 @@ let scene: PaintedScene;
 
 function board(motion: boolean, characterRuntime = false, largeRuntime = false, refreshMs = 16) {
   vi.useFakeTimers();
-  const images: Art[] = [], draws: string[] = [], clouds: number[] = [];
+  const images: Art[] = [], draws: string[] = [], clouds: number[] = [], rotations: number[] = [];
   let decodeBoard = () => {};
   const decoded = new Promise<void>(resolve => { decodeBoard = resolve; });
   class Art {
@@ -26,6 +26,7 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
   }
   const context: object = new Proxy({}, { get: (target, key) => key === 'drawImage'
     ? (image: Art, ...args: number[]) => { if (image.src) draws.push(image.src); if (image.src?.includes('cloud-bank.png') && args.length === 4) clouds.push(Reflect.get(target, 'globalAlpha')); }
+    : key === 'rotate' ? (angle: number) => { rotations.push(angle); }
     : key === 'getImageData' || key === 'createImageData' ? () => ({ data: new Uint8ClampedArray(4) })
     : key in target ? Reflect.get(target, key) : () => context });
   const canvas = () => ({ width: 960, height: 1024, getContext: () => context });
@@ -38,7 +39,7 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
   scene.setPosition(fromFen('4k3/8/8/8/8/8/8/1N2K2R w - - 0 1'));
   scene.setLively({ idle: true, atmosphere: true });
   scene.setReducedMotion(!motion);
-  return { images, draws, clouds, decodeBoard, clips: () => images.filter(image => isClip(image.src)) };
+  return { images, draws, clouds, rotations, decodeBoard, clips: () => images.filter(image => isClip(image.src)) };
 }
 
 afterEach(() => { scene?.dispose(); vi.useRealTimers(); vi.unstubAllGlobals(); });
@@ -284,7 +285,8 @@ it.each([
  const contact=vi.fn(),playing=scene.play({from,to,captures:[to]},{onContact:contact});await vi.advanceTimersByTimeAsync(80);
  expect(scene.characterFrames.find(f=>f.square===from)).toMatchObject({bank:'turn',time:0});
  await vi.advanceTimersByTimeAsync(300);expect(scene.characterFrames.find(f=>f.square===from)).toMatchObject({bank:'turn',time:120});
- await vi.advanceTimersByTimeAsync(800);expect(scene.characterFrames.find(f=>f.square===from)).toMatchObject({bank:'turn',time:120});expect(contact).toHaveBeenCalledOnce();
+ b.rotations.length=0;await vi.advanceTimersByTimeAsync(800);expect(scene.characterFrames.find(f=>f.square===from)).toMatchObject({bank:'turn',time:120});expect(contact).toHaveBeenCalledOnce();
+ expect(b.rotations.some(angle=>Math.abs(angle)>.01)).toBe(true);
  await vi.advanceTimersByTimeAsync(220);expect(scene.characterFrames.find(f=>f.square===from)).toMatchObject({bank:'turn',time:0});
  await vi.advanceTimersByTimeAsync(200);await expect(playing).resolves.toBe(true);
  scene.cancel();await vi.advanceTimersByTimeAsync(32);

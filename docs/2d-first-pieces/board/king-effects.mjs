@@ -203,7 +203,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  function inSpirit(ctx,s,image){
   if(!s.bodyBounds){inFigure(ctx,s.pose,()=>ctx.drawImage(image,-PADL,-PADL,SPAN,SPAN));return;}
   const b=s.pose.bank,k=b.scale*s.bodyScale,w=b.image.naturalWidth||b.image.width,h=b.image.naturalHeight||b.image.height;
-  ctx.save();ctx.translate(s.pose.foot.x,s.pose.foot.y);ctx.scale(k,k);ctx.translate(-b.pivot[0],-b.pivot[1]);ctx.drawImage(image,-PADL*w/1152,-PADL*h/1152,SPAN*w/1152,SPAN*h/1152);ctx.restore();
+  ctx.save();ctx.translate(s.pose.foot.x,s.pose.foot.y);ctx.scale(k*(s.pose.sx??1),k*(s.pose.sy??1));ctx.rotate((s.pose.rotation??0)*s.pose.facing);ctx.translate(-b.pivot[0],-b.pivot[1]);ctx.drawImage(image,-PADL*w/1152,-PADL*h/1152,SPAN*w/1152,SPAN*h/1152);ctx.restore();
  }
  // Draws `image` (a layer) over the figure, with the scene's own figure transform (drawPiece).
  function inFigure(ctx,pose,draw){
@@ -501,7 +501,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   // His glow goes with his figure: it breathes on the clock that never restarts and stays on him through a
   // move. Only the light (or shadow) pooled on his square fades as he leaves it and grows back where he arrives.
   const tt=figureClock(s),b=breath(tt),sp=spiritFor(s),r=s.pose.rotation??0,lean=r*s.pose.facing;
-  const head=s.bodyBounds?{x:(s.bodyBounds.l+s.bodyBounds.r)/2,y:s.bodyBounds.top}:{x:s.pose.foot.x+118*(s.pose.sx??1)*Math.sin(lean),y:s.pose.foot.y-118*(s.pose.sy??1)*Math.cos(r)},turn=.05*Math.sin(TAU*tt/PERIOD.spirit)+lean; // (one sway a breath, so a recorded breath loops)
+  const head={x:s.pose.foot.x+118*(s.pose.sx??1)*Math.sin(lean),y:s.pose.foot.y-118*(s.pose.sy??1)*Math.cos(r)},turn=.05*Math.sin(TAU*tt/PERIOD.spirit)+lean; // (one sway a breath, so a recorded breath loops)
   ctx.save();
   if(s.side===1){
    // The charcoal king: black only, drawn over the board (no added light). Never fully gone at the dim point.

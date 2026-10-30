@@ -15,9 +15,9 @@ try {
   const banks=manifest.banks.filter(b=>b.character==='pawn'&&b.army==='white'),rest=banks.find(b=>b.kind==='idle'&&b.facing==='SE');
   const route=turnRoute(banks.filter(b=>b.kind==='turn'),rest.facing,'N');assert(route?.length);
   const blocked=route.flatMap(p=>[p.bank.frames[0],p.bank.frames.at(-1)]).find(f=>f.url!==rest.frames[0].url);assert(blocked);
-  let release,hit;const gate=new Promise(resolve=>{release=resolve;}),intercepted=new Promise(resolve=>{hit=resolve;});
+  let release,hit,firstRequest;const gate=new Promise(resolve=>{release=resolve;}),intercepted=new Promise(resolve=>{hit=resolve;});
   const blockedUrl=new URL(blocked.url,new URL('/character-runtime/manifest.json',url)).href;
-  await page.route(blockedUrl,async request=>{hit();await gate;await request.continue().catch(()=>{});});
+  await page.route(blockedUrl,async request=>{firstRequest??=request.request();hit();await gate;await request.continue().catch(()=>{});});
   await page.goto(url.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.some(f=>f.square===12));await page.evaluate(()=>view.ready());
   const original=await page.evaluate(()=>[...view.pos.board]);
   await page.evaluate(()=>{window.prepareTrace=[];const capture=()=>{prepareTrace.push({at:performance.now(),animating:view.scene.animating,body:view.scene.characterFrames.some(f=>f.square===12),sha:view.scene.characterFrames.find(f=>f.square===12)?.sourceSha256});if(prepareTrace.length<600)requestAnimationFrame(capture);};capture();});
@@ -34,8 +34,8 @@ try {
    await page.waitForFunction(()=>!view.scene.animating&&!view.pos.board[12]&&view.pos.board[20],null,{timeout:4000});
    assert(Date.now()-start<3500,'move settles with a stalled image');
    const trace=await page.evaluate(()=>prepareTrace);assert(trace.some(s=>s.animating&&!s.body),'legacy body is used after the deadline');
-   release();await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,i)=>v===board[i]),original,{timeout:5000});
-   const previous=await page.evaluate(()=>prepareTrace.length),delivered=page.waitForResponse(blockedUrl);
+   const delivered=page.waitForResponse(response=>response.url()===blockedUrl&&response.request()!==firstRequest);release();await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,i)=>v===board[i]),original,{timeout:5000});
+   const previous=await page.evaluate(()=>prepareTrace.length);
    for(const square of [12,20]){const p=await page.evaluate(s=>view.screenOf(s),square);await page.mouse.click(p.x,p.y);}
    await delivered;await page.waitForFunction(()=>!view.scene.animating&&!view.pos.board[12]&&view.pos.board[20],null,{timeout:5000});
    const recovered=await page.evaluate(index=>prepareTrace.slice(index),previous);assert(recovered.some(s=>s.sha===undefined?false:s.sha===blocked.sourceSha256),'a later move uses the recovered turn image');

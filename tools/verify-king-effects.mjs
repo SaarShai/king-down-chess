@@ -163,8 +163,9 @@ try {
     return timing;
   }
   const normal = await capture('normal'), fast = await capture('fast'), none = await capture('off');
-  assert.equal(normal.kind, 'blow'); assert.ok(normal.ms > 1450 && normal.ms < 3500, `normal ${normal.ms}`);
-  assert.ok(fast.ms > 650 && fast.ms < 1800, `fast ${fast.ms}`); assert.equal(none.kind, null);
+  // A 135° turn adds 2 × 600 ms to the 1660 ms capture.
+  assert.equal(normal.kind, 'blow'); assert.ok(normal.ms > 1450 && normal.ms < 3000, `normal ${normal.ms}`);
+  assert.ok(fast.ms > 650 && fast.ms < 1500, `fast ${fast.ms}`); assert.equal(none.kind, null);
   await pace(page, 'normal');
   console.log(`ok king captures: normal ${Math.round(normal.ms)} ms, fast ${Math.round(fast.ms)} ms, off none`);
 

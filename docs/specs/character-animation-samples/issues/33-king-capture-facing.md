@@ -28,3 +28,9 @@ The candidate uses the drawn frame for the Stratus bounds and Spirit glow. Shado
 - Six normal-speed WebM recordings cover both armies. Game-size frames have been inspected.
 
 Flame keeps its legacy capture. A full visual review of every recording at normal speed and an independent code review remain open. The PR must not merge until the required reviews pass.
+
+## Merge and review fixes
+
+Plan: keep the Stratus rewind and the capture turn in the merge. Restore the strike lean and the Spirit fan anchor. Fix the response wait and capture clock bounds. Check the scene, runtime, effects and Stratus Undo, then run the browser checks and CI.
+
+Shadow turn frames include painted smoke. Moving it needs a mask for each frame, so this change keeps the painted smoke through the capture.
