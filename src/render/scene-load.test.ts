@@ -149,7 +149,7 @@ it('draws a padded movement canvas at the rest pivot and scale', async () => {
  const idle={character:'pawn',army:'white',id:'idle',kind:'idle',facing:'N',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
  const movement={...idle,id:'move',kind:'movement',canvasSize:[968,968],pivot:[484,800],durationMs:200,frames:[0,200].map(timeMs=>({url:`runtime-padded-${timeMs}.png`,timeMs}))};
  vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,movement]})})));
- const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
  const rest=scene.characterFrames.find(f=>f.square===8)!;
  const playing=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(16);
  const move=scene.characterFrames.find(f=>f.square===8)!;
