@@ -11,6 +11,7 @@ The lessons on artwork, sculpts, painted pieces, animation and the trailer. [LES
 5. Run the automatic gates: alpha channel present, transparent exterior, no matte halo, no missing or doubled contour, exact shared endpoints.
 6. Look at the complete action in a board-size preview at normal speed, on light, dark, checkerboard and the real board, for both armies.
 7. Promote only after step 6 passes. Freeze the reviewed bank with a saved manifest and a content hash.
+8. Animate one army, then derive the other army by colour adaptation of the finished frames (`tools/anim/recolor.mjs`): same motion, same alpha, no image call. Redraw the other army only for a deliberately different motion, for variety.
 
 Gates for every step:
 - Genuine transparency, always. Never publish an opaque or matte output; a flattened preview is a diagnostic only.
@@ -20,7 +21,6 @@ Gates for every step:
 - One owner go covers a whole batch: one `docs/QUEUE.md` row per batch, never one per step. No syntax-only runs, no per-frame launchers, no repeated reviews.
 - Write art outputs to a folder outside the git worktrees.
 - RIFE may run on the M1 or this Mac, whichever is free.
-- Find a process by its command line: `ps -o pid=,command= -p <pid>`, never `ps aux`.
 
 ## 2026-10-04 — check a vector from a PDF against the PDF's own render
 - The rook icon lost its two white bands in the SVG: the rulebook path holds them as two rectangles that open only under the even-odd rule (as MuPDF draws the page), while PyMuPDF reported nonzero; side-by-side thumbnails at 120 px looked right. → Check a vector taken from a PDF against the PDF's own render, pixel by pixel, with the overlapping images removed (`tools/extract-piece-icons.py` does it and stops at 0.5%), not by eye. (2026-10-04)

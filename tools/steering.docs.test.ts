@@ -908,7 +908,6 @@ const AGENTS_PHRASES: { section: string; phrase: string }[] = [
   { section: 'Runs and compute', phrase: 'the M1 or Kaggle' },
   { section: 'Runs and compute', phrase: 'without asking when the machine is idle' },
   { section: 'Runs and compute', phrase: "Deploys and store submission need the owner's word." },
-  { section: 'Runs and compute', phrase: 'Animation interpolation and frame rendering may run on the M1 or this Mac, whichever is free.' },
   { section: 'Helpers and machines', phrase: '~/.agents/skills/agent-roster/roles.conf' },
   { section: 'Helpers and machines', phrase: 'The work role uses `bulk`, `high` or `hard`; its comments state the review role.' },
   { section: 'Helpers and machines', phrase: 'Commit and push finished work to its branch; work left only in the cloud is lost.' },
@@ -924,6 +923,7 @@ const AGENTS_PHRASES: { section: string; phrase: string }[] = [
   { section: 'Character animation', phrase: 'genuine transparency' },
   { section: 'Character animation', phrase: 'docs/lessons/art-and-motion.md' },
   { section: 'Character animation', phrase: 'One owner go covers a whole animation batch.' },
+  { section: 'Character animation', phrase: 'Animation interpolation and frame rendering may run on the M1 or this Mac, whichever is free.' },
 ];
 
 /** Texts a section must not hold: the Jev version pin. */

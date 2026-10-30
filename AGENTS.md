@@ -27,11 +27,11 @@
 - Stop a process by its PID, never by a name pattern. Open no file:// page; serve it.
 
 ## Runs and compute
-- Start experiment runs on the M1 or Kaggle without asking when the machine is idle. Record the standing order, date and command in `docs/QUEUE.md`; report the run. Start queued runs by name.
-- This Mac runs tests, browser checks and a smoke run of at most 20 games, 2 workers; no long run.
-- Deploys and store submission need the owner's word. A question is not a go. Use no cloud agent session as a run worker.
-- Results use `tools/lib/results-root.mjs` (card required); M1/Kaggle use spools. Back up with `tools/backup-sim-out.sh`; keep sources until verified. [COMPUTE.md](docs/COMPUTE.md) holds machine facts and the shell limit.
-- Animation interpolation and frame rendering may run on the M1 or this Mac, whichever is free.
+- Start experiment runs on the M1 or Kaggle without asking when the machine is idle. Record the standing order, date and command in `docs/QUEUE.md`; report the run. Start queued runs by name. This replaces older gates.
+- This Mac runs unit tests, browser checks and a smoke run of at most 20 games with 2 workers; no long run.
+- Feature merges follow Commits and branches. Deploys and store submission need the owner's word. A question is not a go. Use no cloud agent session as a run worker.
+- Results use `tools/lib/results-root.mjs` (card required); M1/Kaggle use spools. Use `tools/backup-sim-out.sh`; keep sources until verified.
+- [COMPUTE.md](docs/COMPUTE.md) holds machine facts, run recipes and the shell limit.
 
 ## Secrets
 - Never print or commit a secret or a file of `.secrets/`: the Kaggle token, the OAuth and Porkbun keys, the TypeSafe key.
@@ -59,6 +59,7 @@
 - Every character frame and animation export keeps genuine transparency, including all interpolated frames. A dark-background preview is an incomplete diagnostic, not a usable sprite animation.
 - Read the [animation recipe and gates](docs/lessons/art-and-motion.md) before any animation work.
 - One owner go covers a whole animation batch.
+- Animation interpolation and frame rendering may run on the M1 or this Mac, whichever is free.
 
 ## Jev
 - Client: `tools/jev.ts`. Key: `TYPESAFE_API_KEY` or `~/.config/typesafe/key`; never print or commit it.
