@@ -63,8 +63,7 @@ it.each([[393, 852, 102, 118, 118], [320, 568, 63, 84, 96], [393, 852, 0, 0, 96]
   } finally { await page.close(); }
 });
 // Rule and state text stay whole. Keep the board floors from main.
-// Parked (owner, 2026-10-29): the ChatGPT host frame at 393 × 852 in WebKit; the plugin is parked.
-it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568, 63, 180, 135, 95]].filter(([width]) => !(width === 393 && process.env.PLAYABLE_BROWSER === 'webkit')))('keeps the seat and board large at %i × %i with host insets %i/%i', async (width, height, top, bottom, min, boardMin) => {
+it.each([[393, 852, 102, 118, 380, 380], [320, 568, 63, 84, 215, 175], [320, 568, 63, 180, 135, 95]])('keeps the seat and board large at %i × %i with host insets %i/%i', async (width, height, top, bottom, min, boardMin) => {
   const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true }), frame = page.frameLocator('iframe');
   page.setDefaultTimeout(10_000 * STEP);
   try {
