@@ -1,0 +1,20 @@
+{
+  "catalogSha256": "54abc4ff79287f536d2678ec110f86cdad8213a671d4bbaa7f0196869bb0c4fd",
+  "facing": "SE",
+  "masters": {
+    "white": {
+      "bank": "banks/3317f80cc70d3af80a0a215ca5689bf6d6e9aeafef7aec35da7758e1b5186c3c.json",
+      "bankSha256": "3317f80cc70d3af80a0a215ca5689bf6d6e9aeafef7aec35da7758e1b5186c3c",
+      "path": "assets/b6c998f5d0a210f8b7e2f568068494608d865e2052a7841ccb0039cad121c69b.png",
+      "sha256": "b6c998f5d0a210f8b7e2f568068494608d865e2052a7841ccb0039cad121c69b",
+      "id": "white-turn-SE-S"
+    },
+    "black": {
+      "bank": "banks/7591108dea36da7d0fadaf969aa6c4bc3a2d3db2f412246cebbba2cca068d994.json",
+      "bankSha256": "7591108dea36da7d0fadaf969aa6c4bc3a2d3db2f412246cebbba2cca068d994",
+      "path": "assets/49b07fddd557a6c4794083f07735c885c0b4c6376dcc5f9bc2634ad8fcd1b7c4.png",
+      "sha256": "49b07fddd557a6c4794083f07735c885c0b4c6376dcc5f9bc2634ad8fcd1b7c4",
+      "id": "black-turn-SE-S"
+    }
+  }
+}
