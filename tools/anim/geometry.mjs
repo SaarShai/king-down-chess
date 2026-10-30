@@ -119,10 +119,18 @@ export async function resolveGeometry({ character, army, manifest = defaultManif
   if (!character || !army) throw Error('resolveGeometry needs a character and an army');
   const source = await readSourceRecord(character, sources);
   if (source?.complete) {
+    let endpoints = {}, directions = [];
+    if (existsSync(manifest)) {
+      try {
+        const shipped = await geometryFromManifest(manifest, character, army);
+        endpoints = shipped.endpoints;
+        directions = shipped.directions;
+      } catch { /* the source record still supplies the geometry */ }
+    }
     return {
       character, army, canvas: source.canvas, pivot: source.pivot, bodyHeightPx: source.bodyHeightPx, boardScale: source.boardScale,
       authority: { kind: 'source-record', path: source.path, sha256: sha256(await readFile(source.path)) },
-      endpoints: {}, directions: [], sourceRecord: true,
+      endpoints, directions, sourceRecord: true,
     };
   }
   if (existsSync(manifest)) {

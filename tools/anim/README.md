@@ -1,9 +1,11 @@
-# Animation bank pipeline
+# Animation tools
+
+## Animation bank pipeline
 
 One command makes an animation bank. It registers the key frames, makes the in-between frames, checks the result and
 writes a preview. The tools are plain Node ESM, plus the retained alpha RIFE and Python Pillow.
 
-## Quick start
+### Quick start
 
 ```
 node tools/anim/bank.mjs make --character pawn --army white --kind turn --facing SE-S --keys <key folder>
@@ -21,7 +23,7 @@ node tools/anim/compare.mjs <candidate> --catalog <dir> # compare a rebuild with
 node tools/anim/promote.mjs <candidate> --catalog <dir> # publish a green candidate into the frozen catalog
 ```
 
-## Inputs
+### Inputs
 
 - `--keys <folder>` reads every `*.png` in name order. A comma list of files also works.
 - `--timing <json>` takes `{"durationMs":120,"frameMs":15}`. The default is 15 ms and 4 steps for each key gap.
@@ -30,7 +32,7 @@ node tools/anim/promote.mjs <candidate> --catalog <dir> # publish a green candid
 - `--output` defaults to `<repo parent>/anim-out/<character>/<army>/<id>`, outside git.
 - `--geometry <json>` takes a fixed geometry record. Normal runs read the locked geometry instead.
 
-## Locked geometry
+### Locked geometry
 
 `tools/anim/geometry.mjs` reads the pivot, canvas, body height and board scale of one character and army. It prefers
 `tools/anim/sources/<character>.json` when that file holds geometry. Otherwise it reads the shipped runtime manifest
@@ -41,7 +43,7 @@ A key that is already on the locked canvas, within 2 px of the pivot baseline an
 keeps every pixel. This keeps shared endpoints byte-identical. A key that is not in place is scaled by body height and
 its measured foot contact moves to the locked pivot.
 
-## In-between frames
+### In-between frames
 
 `rife.py` loads the retained RIFE network once and runs a plan of midpoints. Colour and alpha travel through the same
 motion field as premultiplied channels. The tool checks the runtime manifest hash first.
@@ -51,7 +53,7 @@ only when the M1 has 15 GiB free. Set `KINGDOWN_RIFE_PYTHON`, `KINGDOWN_RIFE_RUN
 `KINGDOWN_M1_RIFE_PYTHON` or `KINGDOWN_M1_RIFE_RUNTIME` to change the paths. `--machine local` or `--machine m1`
 forces one machine.
 
-## Gates
+### Gates
 
 `bank.mjs make` runs these gates after the frames exist:
 
@@ -65,7 +67,7 @@ forces one machine.
 6. `timing`: frame count, frame step, start time and end time match the plan.
 7. `provenance`: every frame has a known method and a SHA-256.
 
-## Output
+### Output
 
 ```
 <output>/bank.json          candidate bank in the catalog schema, status "candidate"
@@ -76,14 +78,14 @@ forces one machine.
 <output>/rife/              the interpolation plan, inputs, outputs and report
 ```
 
-## Queue and dispatch
+### Queue and dispatch
 
 The queue is one JSON file (`/Users/za/Documents/king down chess (new)/anim-out/queue.json` by default). It uses one
 lock file, so parallel workers claim each job once. A job holds `character`, `army`, `kind`, `facing`, `keys` and
 optional `timing` and `output`. The dispatcher refuses to start below 30 GiB free on this Mac; set
 `KINGDOWN_ANIM_MIN_FREE_GIB` to change that floor.
 
-## Promotion
+### Promotion
 
 `promote.mjs` takes a candidate whose gates pass. It checks every frame hash and the locked geometry. It then calls
 `publish_bank.py`, which holds the catalog's own `.catalog.lock`, copies the frames to content-hashed files, writes
@@ -92,7 +94,7 @@ the bank and updates the catalog manifest. A repeated promotion of the same cand
 Promotion does not change `runtime-selection.json`. The owner re-pins the selection after review, and the next
 `tools/build-character-runtime.mjs` run makes the bank public. Do not deploy from this tool.
 
-## Tests
+### Tests
 
 ```
 KINGDOWN_TEST_FILE=tools/animation-bank.test.ts npm test
@@ -101,3 +103,28 @@ KINGDOWN_TEST_FILE=tools/animation-queue.test.ts npm test
 
 The tests cover the geometry source, the timing plan, registration, all gates, queue claims, dispatch, failure
 records and promotion. They use a stub in-betweener and do not need RIFE, the M1 or the frozen catalog.
+
+## Army color adaptation
+
+Adapt a finished bank with the approved rest masters for the same character:
+
+```sh
+node tools/anim/recolor.mjs --character pawn --from white --to black --bank white-turn-SE-S --out /tmp/pawn-black
+```
+
+`--bank` is a selected bank ID, a manifest path, or a directory with
+`manifest.json`. The default catalog root is the consolidated preview in this checkout. In a
+worktree, the command also checks the main checkout for the frozen media. The
+media is not in Git. Use `--catalog-root` for a different catalog location. The command checks the pinned catalog, selected rest
+banks, master hashes, and each source frame hash. The source records are in
+`sources/`.
+
+The Python environment needs Pillow, NumPy, SciPy, and scikit-image. Set
+`KINGDOWN_ANIM_PYTHON` to its Python executable when `/usr/bin/python3` does not
+have those packages. The command creates a new output directory. It writes a
+mapping, RGBA frames, a manifest, and frame hashes. It keeps frame times and
+alpha. The gate checks the exterior and the low-alpha edge next to the solid
+body. Inspect all frames on light and dark squares for halos and color errors.
+The output needs visual review. Effects and multiple tracks need separate work.
+The focused mapping tests need the same Python packages. They skip when the
+packages are absent.
