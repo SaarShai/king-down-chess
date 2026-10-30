@@ -10,6 +10,13 @@ Status: claimed
 - Rebuild all 274 banks in a new folder. Report gates and head metrics. Make the comparison sheet.
 - Run focused tests. Open the requested PR and check CI.
 
+## Review fixes and checks
+
+- Match the walking head band on the standing pose. Measure both ends with the same method.
+- Gate the start, end and loop seams at 20 px. Reject missing and invalid values.
+- Clear colour in transparent pixels. Test fitting, seams and promotion.
+- Rebuild all banks, report each failed gate and check CI.
+
 ## Evidence
 
 - `KINGDOWN_TEST_FILE=tools/animation-bank.test.ts npm test` passes 13 tests and 68 bundled checks.

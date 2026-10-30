@@ -54,12 +54,16 @@ export function runGates({ bank, frames, geometry, endpoints = {}, plan, movemen
     const walk = frames.slice(1, -1).filter(frame => frame.sources[0] !== movement.rest.sha256);
     const positions = walk.map(frame => frame.transform?.measuredHeadX);
     const scales = walk.map(frame => frame.transform?.measuredHeadScale);
-    const valid = [...positions, ...scales].every(Number.isFinite);
+    const restPositions = [frames[0], frames.at(-1)].map(frame => frame.transform?.measuredHeadX);
+    const valid = [...positions, ...scales, ...restPositions].every(Number.isFinite) && scales.every(scale => scale > 0);
     const maxJump = valid ? Math.max(0, ...positions.slice(1).map((x, i) => Math.abs(x - positions[i]))) : Infinity;
+    const startJump = valid && positions.length ? Math.abs(restPositions[0] - positions[0]) : valid ? 0 : Infinity;
+    const endJump = valid && positions.length ? Math.abs(positions.at(-1) - restPositions[1]) : valid ? 0 : Infinity;
+    const loopJump = valid && positions.length ? Math.abs(positions.at(-1) - positions[0]) : valid ? 0 : Infinity;
     const scaleSpread = !valid ? Infinity : scales.length ? Math.max(...scales) / Math.min(...scales) - 1 : 0;
-    fail('steadiness', valid && maxJump <= HEAD_JUMP_LIMIT_PX && scaleSpread <= HEAD_SCALE_SPREAD_LIMIT,
-      `Walking head jump ${round(maxJump)} px (limit ${HEAD_JUMP_LIMIT_PX}); scale spread ${round(scaleSpread)} (limit ${HEAD_SCALE_SPREAD_LIMIT})`,
-      { maxHeadJumpPx: round(maxJump), headScaleSpread: round(scaleSpread), headJumpLimitPx: HEAD_JUMP_LIMIT_PX, headScaleSpreadLimit: HEAD_SCALE_SPREAD_LIMIT });
+    fail('steadiness', valid && Math.max(maxJump, startJump, endJump, loopJump) <= HEAD_JUMP_LIMIT_PX && scaleSpread <= HEAD_SCALE_SPREAD_LIMIT,
+      `Head jumps within ${round(maxJump)}, start ${round(startJump)}, end ${round(endJump)}, loop ${round(loopJump)} px (limit ${HEAD_JUMP_LIMIT_PX}); scale spread ${round(scaleSpread)} (limit ${HEAD_SCALE_SPREAD_LIMIT})`,
+      { maxHeadJumpPx: round(maxJump), startHeadJumpPx: round(startJump), endHeadJumpPx: round(endJump), loopHeadJumpPx: round(loopJump), headScaleSpread: round(scaleSpread), headJumpLimitPx: HEAD_JUMP_LIMIT_PX, headScaleSpreadLimit: HEAD_SCALE_SPREAD_LIMIT });
   }
 
   const first = movement ? (frames[0].restMatch && movement.endpoint) : endpoints[frames[0].sha256], last = movement ? (frames.at(-1).restMatch && movement.endpoint) : endpoints[frames.at(-1).sha256];

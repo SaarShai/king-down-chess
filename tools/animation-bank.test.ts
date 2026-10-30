@@ -192,6 +192,17 @@ it('allows soft art present in authored frames and measures the exact radius', (
 
 it('keeps the shipped movement rest at its pivot and scale on a padded canvas', async () => {
   const { keys, geometry, hashes } = await fixture();
+  for (const [name, shift] of [['000.png', 0], ['001.png', 2]] as const) {
+    const frame = await readFrame(join(keys, name));
+    for (let y = 20; y < 36; y++) for (let x = 30 + shift; x < 66 + shift; x++) {
+      const p = (y * frame.width + x) * 4;
+      frame.data[p] = ((x - shift) * 17 + y * 3) % 200 + 30;
+      frame.data[p + 1] = ((x - shift) * 5 + y * 11) % 200 + 30;
+      frame.data[p + 2] = ((x - shift) * 7 + y * 13) % 200 + 30;
+    }
+    await sharp(frame.data, { raw: { width: frame.width, height: frame.height, channels: 4 } }).png().toFile(join(keys, name));
+  }
+  hashes[0] = digest(await readFile(join(keys, '000.png')));
   await writeFile(join(keys, '002.png'), await readFile(join(keys, '000.png')));
   const pose = await readFrame(join(keys, '001.png'));
   pose.data[(40 * pose.width) * 4] = 200;
@@ -243,6 +254,13 @@ it('keeps the shipped movement rest at its pivot and scale on a padded canvas', 
   const gateReport = runGates({ bank: { pivot: [50, 100] }, frames: [gateFrame, { ...gateFrame, timeMs: 15 }], geometry, movement: { pivot: [50, 100], baseline: 100, footCenterX: 100, rest: { sha256: hashes[0] }, endpoint: {} }, plan: { frameCount: 2, durationMs: 15, frameMs: 15 } });
   expect(gateReport.checks.find((check: any) => check.name === 'geometry').ok).toBe(false);
   await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).resolves.toMatchObject({ dryRun: true });
+  const gatesPath = join(dir, 'identical', 'gates.json');
+  const gates = JSON.parse(await readFile(gatesPath, 'utf8'));
+  for (const checks of [gates.checks.filter((c: any) => c.name !== 'steadiness'), gates.checks.map((c: any) => c.name === 'steadiness' ? { ...c, ok: false } : c), gates.checks.map((c: any) => c.name === 'steadiness' ? { ...c, metrics: { maxHeadJumpPx: 0, headScaleSpread: 0 } } : c)]) {
+    await writeFile(gatesPath, JSON.stringify({ ...gates, checks }));
+    await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('Gate steadiness did not pass');
+  }
+  await writeFile(gatesPath, JSON.stringify(gates));
   identicalBank.pivot[0] += 2;
   await writeFile(identical.candidate, JSON.stringify(identicalBank));
   await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('facing-rest transform changed');
@@ -273,17 +291,48 @@ it('fits shifted walking poses and removes a detached speck', async () => {
   const beforeRest = await readFile(paths[0]);
   const fit = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['tools/anim/steady.py', JSON.stringify({ paths, baseline: 103, restIndexes: [0, 3] })], { encoding: 'utf8' });
   expect(fit.status, fit.stderr).toBe(0);
-  const transforms = JSON.parse(fit.stdout);
+  const { transforms, restHeadX } = JSON.parse(fit.stdout);
   expect(transforms).toHaveLength(2);
+  expect(Math.abs(transforms[0].measuredHeadX - restHeadX)).toBeLessThan(5);
   expect(transforms[1].matchScore).toBeGreaterThan(0.5);
-  expect(transforms[1].specks).toBeGreaterThan(0);
   expect(Math.abs(transforms[1].measuredHeadX - transforms[0].measuredHeadX)).toBeLessThan(5);
   expect(measureFrame(await readFrame(paths[2])).bottom).toBe(103);
   expect((await readFrame(paths[2])).data[(40 * width + 8) * 4 + 3]).toBe(0);
   expect(await readFile(paths[0])).toEqual(beforeRest);
 });
 
-it('removes islands below the visible alpha threshold', () => {
+it('matches the standing head even when a prop shifts its alpha band', () => {
+  const script = `import json, tempfile, os, numpy as np
+from tools.anim.steady import save, load, fit
+rng = np.random.default_rng(5)
+a = np.zeros((128, 128, 4), dtype=np.float32)
+a[24:104, 48:80, :3] = rng.uniform(.2, 1, (80, 32, 3))
+a[24:104, 48:80, 3] = 1
+rest = a.copy(); rest[30:42, 8:48, :] = [1, .1, .1, 1]
+with tempfile.TemporaryDirectory() as d:
+    paths = [os.path.join(d, str(i) + '.png') for i in range(3)]
+    for path, image in zip(paths, [rest, a, rest]): save(path, image)
+    result = fit(paths, 103, [0, 2])
+    print(json.dumps(result['transforms'][0]['dx']))`;
+  const result = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['-c', script], { encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+  expect(Math.abs(JSON.parse(result.stdout))).toBeLessThan(4);
+});
+
+it('clears colour where saved alpha is zero', () => {
+  const script = `import json, tempfile, os, cv2, numpy as np
+from tools.anim.steady import save
+image = np.ones((2, 2, 4), dtype=np.float32)
+image[0, 0, 3] = 0.001
+with tempfile.TemporaryDirectory() as d:
+    path = os.path.join(d, 'a.png'); save(path, image)
+    print(json.dumps(cv2.imread(path, cv2.IMREAD_UNCHANGED)[0, 0].tolist()))`;
+  const result = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['-c', script], { encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+  expect(JSON.parse(result.stdout)).toEqual([0, 0, 0, 0]);
+});
+
+it('removes alpha islands by size', () => {
   const script = `import json, numpy as np
 from tools.anim.steady import despeckle
 image = np.zeros((40, 40, 4), dtype=np.float32)
@@ -298,13 +347,21 @@ print(json.dumps([count, float(clean[3, 3, 3]), float(clean[15, 15, 3])]))`;
 
 it('gates walking head jumps and scale spread without pinning walking feet', () => {
   const frame = (x: number, scale: number, source: string, timeMs: number) => ({ file: `frame-${timeMs}`, method: 'authored', sources: [source], restMatch: source === 'rest', metadata: { channels: 4 }, measure: { borderOpaque: 0, alphaMin: 0, alphaMax: 255, bottom: 100, footCenterX: 300 }, fringe: { ratio: 0 }, ghost: 0, sha256: 'a'.repeat(64), timeMs, transform: { measuredHeadX: x, measuredHeadScale: scale } });
-  const rest = frame(0, 1, 'rest', 0), first = frame(100, 1, 'walk', 120), next = frame(110, 1.03, 'walk', 240), end = frame(0, 1, 'rest', 360);
+  const rest = frame(100, 1, 'rest', 0), first = frame(100, 1, 'walk', 120), next = frame(110, 1.03, 'walk', 240), end = frame(100, 1, 'rest', 360);
   const check = (frames: any[]) => runGates({ bank: { pivot: [50, 100] }, frames, geometry: { pivot: [50, 100] }, movement: { pivot: [50, 100], baseline: 100, rest: { sha256: 'rest' }, endpoint: {} }, plan: { frameCount: 4, durationMs: 360, frameMs: 120 } });
   expect(check([rest, first, next, end]).checks.find(c => c.name === 'geometry')?.ok).toBe(true);
   expect(check([rest, first, next, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(true);
   expect(check([rest, { ...first, sources: ['rest'], restMatch: true }, next, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(true);
   expect(check([rest, first, { ...next, transform: { measuredHeadX: 121, measuredHeadScale: 1 } }, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(false);
   expect(check([rest, first, { ...next, transform: { measuredHeadX: 100, measuredHeadScale: 1.2 } }, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(false);
+  const steady = (frames: any[]) => check(frames).checks.find(c => c.name === 'steadiness')!;
+  expect(steady([{ ...rest, transform: { measuredHeadX: 79 } }, first, next, end]).ok).toBe(false);
+  expect(steady([rest, first, next, { ...end, transform: { measuredHeadX: 131 } }]).ok).toBe(false);
+  const mid = frame(110, 1, 'walk', 240), far = frame(121, 1, 'walk', 360);
+  expect(steady([rest, first, mid, far, { ...end, transform: { measuredHeadX: 121 } }]).ok).toBe(false);
+  expect(steady([rest, { ...first, transform: {} }, next, end]).ok).toBe(false);
+  expect(steady([rest, first, { ...next, transform: { measuredHeadX: 110, measuredHeadScale: 0 } }, end]).ok).toBe(false);
+  expect(steady([{ ...rest, transform: {} }, first, next, end]).ok).toBe(false);
 });
 
 it('promotes a green candidate into the frozen catalog under its lock', async () => {

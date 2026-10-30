@@ -110,12 +110,12 @@ export async function makeBank(options) {
       const { stdout } = await exec(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', [script, JSON.stringify({ paths: registered.map(frame => join(output, frame.file)), baseline: movement.baseline, restIndexes: registered.map((frame, i) => frame.sources[0] === movement.rest.sha256 ? i : -1).filter(i => i >= 0) })], { cwd: root, maxBuffer: 1024 * 1024 });
       fit = JSON.parse(stdout);
     } catch (error) { throw Error(`Movement fit failed (Python with NumPy and OpenCV is required): ${error.stderr?.trim() || error.message}`); }
+    for (const frame of registered.filter(frame => frame.sources[0] === movement.rest.sha256)) frame.transform.measuredHeadX = fit.restHeadX;
     for (let i = 1; i < registered.length - 1; i++) {
       const frame = registered[i];
-      if (frame.sources[0] !== movement.rest.sha256) frame.transform = { registration: frame.transform, ...fit[i - 1] };
+      if (frame.sources[0] !== movement.rest.sha256) frame.transform = { registration: frame.transform, ...fit.transforms[i - 1] };
       else {
-        await writeFile(join(output, frame.file), await encodeFrame(padRest(movement)));
-        frame.transform = { ...frame.transform, ...fit[i - 1] };
+        frame.transform = { ...frame.transform, ...fit.transforms[i - 1] };
       }
     }
   }

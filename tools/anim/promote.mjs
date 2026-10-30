@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { defaultCatalog, defaultManifest, resolveGeometry } from './geometry.mjs';
 import { readFrame, sha256 } from './frames.mjs';
+import { HEAD_JUMP_LIMIT_PX, HEAD_SCALE_SPREAD_LIMIT } from './gates.mjs';
 
 const exec = promisify(execFile);
 const script = fileURLToPath(new URL('./publish_bank.py', import.meta.url));
@@ -32,7 +33,13 @@ export async function promote(candidate, { catalog = process.env.KINGDOWN_CATALO
   for (const check of ['rgba', 'exterior', 'matte-halo', 'ghost', 'geometry', 'endpoints', 'timing', 'provenance']) {
     if (!gates.checks?.some(entry => entry.name === check && entry.ok)) throw Error(`Gate ${check} did not pass; rebuild the candidate`);
   }
-  if (bank.kind === 'movement' && !gates.checks?.some(entry => entry.name === 'steadiness' && entry.ok)) throw Error('Gate steadiness did not pass; rebuild the candidate');
+  if (bank.kind === 'movement') {
+    const gate = gates.checks?.find(entry => entry.name === 'steadiness' && entry.ok);
+    const metrics = gate?.metrics;
+    const jumps = ['maxHeadJumpPx', 'startHeadJumpPx', 'endHeadJumpPx', 'loopHeadJumpPx'].map(key => metrics?.[key]);
+    if (!jumps.every(value => Number.isFinite(value) && value >= 0 && value <= HEAD_JUMP_LIMIT_PX)
+      || !Number.isFinite(metrics?.headScaleSpread) || metrics.headScaleSpread < 0 || metrics.headScaleSpread > HEAD_SCALE_SPREAD_LIMIT) throw Error('Gate steadiness did not pass; rebuild the candidate');
+  }
   const current = await resolveGeometry({ character: bank.character, army: bank.army, catalog, manifest });
   if (bank.geometry) {
     const locked = bank.geometry;

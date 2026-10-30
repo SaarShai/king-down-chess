@@ -13,6 +13,7 @@ def load(path):
 
 def save(path, rgba):
     out = (np.clip(rgba, 0, 1) * 255 + 0.5).astype(np.uint8)
+    out[out[:, :, 3] == 0, :3] = 0
     cv2.imwrite(path, cv2.cvtColor(out, cv2.COLOR_RGBA2BGRA))
 
 
@@ -91,16 +92,15 @@ def fit(paths, baseline, rest_indexes):
     indices = [i for i in range(1, len(frames) - 1) if i not in rest_indexes]
     result = [{} for _ in frames[1:-1]]
     if not indices:
-        return result
+        return {"transforms": result, "restHeadX": head_x(rest)}
     walk = [frames[i] for i in indices]
     tmpl, (hx, hy) = head_template(walk[0], 0.5)
     fits = [(1.0, 1.0, (hx, hy))] + [best_scale(f, tmpl, 0.5) for f in walk[1:]]
     rt, rb, _, _ = box(rest[:, :, 3])
     heights = [(box(f[:, :, 3])[1] - box(f[:, :, 3])[0]) * s for f, (_, s, _) in zip(walk, fits)]
     group = (rb - rt) / max(heights)
-    rest_band = rest[rt:rt + int((rb - rt) * BAND) + 1, :, 3]
-    weights = rest_band.sum(0)
-    rest_hx = float((weights * np.arange(len(weights))).sum() / weights.sum())
+    rest_score, rest_scale, rest_loc = best_scale(rest, tmpl, 0.5)
+    rest_hx = (rest_loc[0] + tmpl.shape[1]) / rest_scale
     for index, f, (score, scale, loc) in zip(indices, walk, fits):
         factor = scale * group
         tx = rest_hx - (loc[0] + tmpl.shape[1]) * group
@@ -121,13 +121,13 @@ def fit(paths, baseline, rest_indexes):
             ty += correction
             placed, specks = despeckle(transform(f, factor, tx, ty, rest.shape))
         save(paths[index], placed)
-        result[index - 1] = {'scale': factor, 'dx': tx, 'dy': ty, 'matchScore': float(score), 'headScale': float(scale), 'groupScale': float(group), 'specks': specks}
+        result[index - 1] = {'scale': factor, 'dx': tx, 'dy': ty, 'matchScore': float(score), 'headScale': float(scale), 'groupScale': float(group), 'specks': specks, 'restMatchScore': float(rest_score), 'restMatchScale': float(rest_scale)}
     fitted = [load(paths[i]) for i in indices]
     reference, _ = head_template(fitted[0], 0.5)
     for position, (index, image) in enumerate(zip(indices, fitted)):
         result[index - 1]['measuredHeadX'] = head_x(image)
         result[index - 1]['measuredHeadScale'] = 1.0 if position == 0 else float(best_scale(image, reference, 0.5)[1])
-    return result
+    return {"transforms": result, "restHeadX": head_x(rest)}
 
 
 if __name__ == '__main__':
