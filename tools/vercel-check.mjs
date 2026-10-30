@@ -12,6 +12,7 @@ import pg from 'pg';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { ENGINES } from './plugin-runtime-build.mjs';
 import { CHATGPT_PLUGIN, PARKED_PATHS } from './chatgpt-plugin.mjs';
+import { isCharacterRuntimePublic } from './lib/character-runtime-public.mjs';
 
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
 if (!connectionString) throw new Error('Set PLUGIN_TEST_DATABASE_URL to a disposable loopback PostgreSQL database');
@@ -61,7 +62,7 @@ try {
   assert.deepEqual(allowlist.slice(0, 2), ['./', 'index.html']);
   assert.deepEqual(precache, allowlist.filter(file => file !== 'index.html'));
   for (const file of allowlist) {
-    assert(typeof file === 'string' && (['./', 'index.html'].includes(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
+    assert(typeof file === 'string' && (['./', 'index.html'].includes(file) || isCharacterRuntimePublic(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
     assert((await exists(join(tree, 'static', file === './' ? 'index.html' : file)))?.isFile(), `Offline file exists: ${file}`);
   }
   const index = await readFile(join(tree, 'static/index.html'), 'utf8');

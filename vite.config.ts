@@ -1,4 +1,5 @@
 import { sourceErrorForms } from './tools/lib/error-forms.mjs';
+import { isCharacterRuntimePublic } from './tools/lib/character-runtime-public.mjs';
 import { pluginSymbols } from './tools/lib/plugin-symbols.mjs';
 import { buildWorker } from './tools/plugin-runtime-build.mjs';
 import { configDefaults, defineConfig, type Plugin } from 'vitest/config';
@@ -38,7 +39,7 @@ export function offlineCacheFiles(bundle: OutputBundle, root: string, files: str
   }
   // Optional clips load only with motion; the offline board can use the plain figures.
   const publicFiles = files.filter(file => !/^assets\/(?:tap|slam)-[\w-]+\.webp$/.test(file)
-    && (graph.has(file) || /^(?:ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest|character-runtime\/(?:manifest\.json|assets\/[a-f0-9]{64}\.webp|effects\/[a-f0-9]{64}\/(?:effect\.(?:mjs|json)|smoke\.mjs|assets\/[\w.-]+\.(?:png|webp))))$/.test(file))).sort();
+    && (graph.has(file) || isCharacterRuntimePublic(file) || /^(?:ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file))).sort();
   return { allowlist: ['./', 'index.html', ...publicFiles], precache: ['./', ...publicFiles] };
 }
 
