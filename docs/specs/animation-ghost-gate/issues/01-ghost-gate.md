@@ -1,6 +1,6 @@
 # Ghost limb gate and hold repair
 
-Status: claimed
+Status: done
 
 ## Plan
 
