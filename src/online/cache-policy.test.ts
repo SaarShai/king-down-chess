@@ -417,7 +417,7 @@ describe('private cache policy', () => {
     await vi.advanceTimersByTimeAsync(8000); await refusal; expect(send).not.toHaveBeenCalled(); expect(storage.delete).not.toHaveBeenCalled();
   });
   it.each(['blocked', 'unsupported'])('purges every application cache with no controller (%s)', async mode => {
-    change(null); workers.getRegistration.mockRejectedValueOnce(new Error('lookup blocked')).mockResolvedValue(undefined); if (mode === 'blocked') workers.register.mockRejectedValue(new Error('blocked')); else vi.stubGlobal('navigator', {});
+    change(null); if (mode === 'blocked') workers.register.mockRejectedValue(new Error('blocked')); else vi.stubGlobal('navigator', {});
     const send = vi.fn(() => 'sent'); expect(await withPrivateCachePolicy(send)).toBe('sent');
     expect([...names]).toEqual(['other-app']); expect(storage.keys).toHaveBeenCalledTimes(2);
   });
@@ -430,12 +430,12 @@ describe('private cache policy', () => {
     const send = vi.fn(); await expect(withPrivateCachePolicy(send)).rejects.toBeInstanceOf(CachePolicyUnavailable); expect(send).not.toHaveBeenCalled();
   });
   it('allows a concurrent deletion only when the final list proves absence', async () => {
-    change(null); workers.getRegistration.mockRejectedValueOnce(new Error('lookup blocked')).mockResolvedValue(undefined); workers.register.mockRejectedValue(new Error('blocked'));
+    change(null); workers.register.mockRejectedValue(new Error('blocked'));
     storage.delete.mockImplementation(async (name: string) => { names.delete(name); return false; });
     expect(await withPrivateCachePolicy(() => 'sent')).toBe('sent');
   });
   it('proves a controller that takes over during page cleanup', async () => {
-    change(null); workers.getRegistration.mockRejectedValueOnce(new Error('lookup blocked')).mockResolvedValue(undefined); workers.register.mockRejectedValue(new Error('blocked')); const controller = worker();
+    change(null); workers.register.mockRejectedValue(new Error('blocked')); const controller = worker();
     storage.delete.mockImplementation(async (name: string) => { names.delete(name); change(controller); return true; });
     const send = vi.fn(), result = withPrivateCachePolicy(send); await flush(); expect(send).not.toHaveBeenCalled();
     reply(controller); await result; expect(send).toHaveBeenCalledOnce();

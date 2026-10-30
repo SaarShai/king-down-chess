@@ -168,7 +168,7 @@ export function withPrivateCachePolicy<T>(send: () => T | PromiseLike<T>): Promi
           for (const key of await caches.keys()) if (key.startsWith('kingdown-')) {
             // A registration exists before its worker opens an install cache in another tab.
             if (workers) {
-              registration = await workers.getRegistration('/');
+              try { registration = await workers.getRegistration('/'); } catch { /* The controller and final checks still apply. */ }
               if (ended) return;
               if (registration || workers.controller) break;
             }
