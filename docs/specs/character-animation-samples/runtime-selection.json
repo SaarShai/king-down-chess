@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "ready",
-  "catalogSha256": "54abc4ff79287f536d2678ec110f86cdad8213a671d4bbaa7f0196869bb0c4fd",
+  "catalogSha256": "6279af2ef76ba46d75ba10ad5ddc822c67c5d5d78897457a1d13cc6893aed241",
   "entries": [
     {
       "character": "pawn",
@@ -2220,6 +2220,30 @@
       "sha256": "51f8a312d2158891d3495558067cd976f00e85c793027aa322fe693e4e7ca5a1"
     },
     {
+      "character": "queen",
+      "army": "white",
+      "kind": "attack",
+      "id": "white-attack-E",
+      "manifest": "banks/8c3a817ac1ea11d8f758439f10a985c2ea193ca7eb5d12aab1926bed78eeac22.json",
+      "sha256": "8c3a817ac1ea11d8f758439f10a985c2ea193ca7eb5d12aab1926bed78eeac22"
+    },
+    {
+      "character": "queen",
+      "army": "white",
+      "kind": "attack",
+      "id": "white-attack-N",
+      "manifest": "banks/f5bf9f25ffc0764aa3487756245696d0878a4fb28b4a3accc8e69f2461790c52.json",
+      "sha256": "f5bf9f25ffc0764aa3487756245696d0878a4fb28b4a3accc8e69f2461790c52"
+    },
+    {
+      "character": "queen",
+      "army": "white",
+      "kind": "attack",
+      "id": "white-attack-SW",
+      "manifest": "banks/06931788bb1fea9511d8367f7d3f1993d10699ebdccaabce0811c9980205e374.json",
+      "sha256": "06931788bb1fea9511d8367f7d3f1993d10699ebdccaabce0811c9980205e374"
+    },
+    {
       "character": "beast",
       "army": "black",
       "kind": "attack",
@@ -2274,6 +2298,14 @@
       "id": "black-attack-W",
       "manifest": "banks/88e5236555726bac0b30ff7157dd386da687a4dde37e2f802162f1212b2d3ce2.json",
       "sha256": "88e5236555726bac0b30ff7157dd386da687a4dde37e2f802162f1212b2d3ce2"
+    },
+    {
+      "character": "beast",
+      "army": "black",
+      "kind": "attack",
+      "id": "black-attack-NW",
+      "manifest": "banks/a1058a6745a15c30a0b56f0db79b2d338ed0d80e39f76f01e751299fef98acb4.json",
+      "sha256": "a1058a6745a15c30a0b56f0db79b2d338ed0d80e39f76f01e751299fef98acb4"
     },
     {
       "character": "beast",
@@ -2386,6 +2418,14 @@
       "id": "white-attack-W",
       "manifest": "banks/d7ff2817a1317e14f3764bfff28f487522c100b968ca0d956c39b3a9fb53f7fd.json",
       "sha256": "d7ff2817a1317e14f3764bfff28f487522c100b968ca0d956c39b3a9fb53f7fd"
+    },
+    {
+      "character": "beast",
+      "army": "white",
+      "kind": "attack",
+      "id": "white-attack-NW",
+      "manifest": "banks/4226489f2f36523e5454054395f08c25441e8a0c2e9cab444de8a59fdceaa301.json",
+      "sha256": "4226489f2f36523e5454054395f08c25441e8a0c2e9cab444de8a59fdceaa301"
     },
     {
       "character": "beast",
@@ -3746,6 +3786,46 @@
       "id": "black-turn-NE-E",
       "manifest": "banks/8aff26028028a786d22ad35c7000fc4a255c5359982c26d7c1f86c2063e82adf.json",
       "sha256": "8aff26028028a786d22ad35c7000fc4a255c5359982c26d7c1f86c2063e82adf"
+    },
+    {
+      "character": "beast",
+      "army": "black",
+      "kind": "idle",
+      "id": "black-idle-chain-pull",
+      "manifest": "banks/ae64e5dd0c9b204f11d2187b980ff8ea8a4872fe8cfd39b657bc9259cf4c0bfa.json",
+      "sha256": "ae64e5dd0c9b204f11d2187b980ff8ea8a4872fe8cfd39b657bc9259cf4c0bfa"
+    },
+    {
+      "character": "beast",
+      "army": "black",
+      "kind": "turn",
+      "id": "black-turn-NE-E",
+      "manifest": "banks/9badf1ea5985004f67dea51533a2f170c560fec1a4da150101da352f11e825e5.json",
+      "sha256": "9badf1ea5985004f67dea51533a2f170c560fec1a4da150101da352f11e825e5"
+    },
+    {
+      "character": "beast",
+      "army": "white",
+      "kind": "idle",
+      "id": "white-idle-chain-pull",
+      "manifest": "banks/85e72fb886afa420d207b95e04639e1fa31525b95a25f53f8b0cc4e755daaf95.json",
+      "sha256": "85e72fb886afa420d207b95e04639e1fa31525b95a25f53f8b0cc4e755daaf95"
+    },
+    {
+      "character": "beast",
+      "army": "white",
+      "kind": "turn",
+      "id": "white-turn-NE-E",
+      "manifest": "banks/e41834968c4cc440acd1708a334a5fd765e5739e82ed431ccaa790b849e6b021.json",
+      "sha256": "e41834968c4cc440acd1708a334a5fd765e5739e82ed431ccaa790b849e6b021"
+    },
+    {
+      "character": "rook",
+      "army": "white",
+      "kind": "idle",
+      "id": "white-idle-slam",
+      "manifest": "banks/4701e7806d551a7e697d2ed8ece87d4d1aa2fb80b096cd3a6236f8b641121ec0.json",
+      "sha256": "4701e7806d551a7e697d2ed8ece87d4d1aa2fb80b096cd3a6236f8b641121ec0"
     }
   ]
 }

@@ -507,10 +507,11 @@ it('deals a new card game after the empty hall remounts', async () => {
     await page.waitForFunction(n => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_settings').length > n, reads);
     await frame.locator('#setup-start:not(:disabled)').waitFor();
     const motion = await recordMotion(page, frame, ['#game-table .card-coin']);
+    const dealEnd = await watchMotionEnd(page, '#card-w-3', '#game-table', 1500);
     await newGame(frame, only(['Cards']));
     await frame.locator('#card-w-3').waitFor();
     expectDeal(await motion('#game-table .card-coin'));
-    await expect.poll(() => animations(frame, '#game-table'), { timeout: 1500 }).toBe(0);
+    expect(await dealEnd()).toMatchObject({ found: 1, running: 0 });
   } finally { await page.close(); }
 });
 it.each([false, true])('pulses the checked side once (reduced motion %s)', async reduced => {

@@ -188,7 +188,7 @@ jobs:
       - run: npm run check:browser home account new-game menu-extra
         env:
           PLAYABLE_BROWSER: chromium
-      - run: npm run check:browser web-online
+      - run: npm run check:browser web-online signin-speed
         env:
           PLAYABLE_BROWSER: chromium
       - if: always()
@@ -384,7 +384,7 @@ jobs:
           # (chatgpt-mvp ticket 53: run 39230893586 crashed with no reason; WebKit kills its page at 8192 MB).
           DEBUG: pw:browser
         timeout-minutes: 26
-      - run: npm run check:browser web-online
+      - run: npm run check:browser web-online signin-speed
         timeout-minutes: 4
       - name: Save kernel log
         if: failure() || cancelled()
