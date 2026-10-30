@@ -32,6 +32,7 @@ export interface PaintedScene {
   cell(square: number): { col: number; row: number };
   squareAt(x: number, y: number): number | null;
   load(): Promise<void>;
+  readonly position: { board: ArrayLike<number> };
   setPosition(position: { board: ArrayLike<number> }): void;
   setSelected(square: number | null): void;
   /** Opt-in tell: glow and lift 3 screen pixels; lift=false keeps a still glow. Null clears it. */
@@ -43,6 +44,7 @@ export interface PaintedScene {
   setKings(kings: readonly [KingDesign, KingDesign]): void;
   setFigure(type: number, urls: readonly [string, string] | null): void;
   readonly kings: KingDesign[];
+  resetKingEffects(): void;
   /** The design each side's King was last drawn with (null: not drawn yet). */
   readonly drawnKings: (KingDesign | null)[];
   setCoords(on: boolean, size?: number, inset?: number): void;
@@ -87,6 +89,8 @@ export interface PaintedScene {
   /** speed scales duration: 2 is half playback speed; 0.5 is double. */
   /** gait: play a quiet move with this gait (a GAITS name) even when `moves` is off. */
   play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null; effect?: SceneEffect }): Promise<boolean>;
+  prepareUndo(move: SceneMove, source?: { board: ArrayLike<number> }): boolean;
+  rewindUndo(): Promise<boolean>;
   cancel(): void;
   dispose(): void;
 }

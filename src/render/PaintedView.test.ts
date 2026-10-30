@@ -11,7 +11,7 @@ const { reducedMotion, lively, aim, decorate, disposeScene, disconnectResize } =
 let resolveLoad: () => void = () => {};
 let pickedSquare: number | null = null;
 vi.mock('../../docs/2d-first-pieces/board/scene.mjs', () => ({
-  createScene: () => new Proxy({ load: () => new Promise<void>(r => { resolveLoad = r; }), dispose: disposeScene, squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim, setDecorate: decorate, animating: false, falling: false, PAD: 32, TILE: 112, cell: (sq: number) => ({col:sq % 8,row:7 - (sq >> 3)}) } as Record<string, unknown>,
+  createScene: () => new Proxy({ prepareUndo: () => false, rewindUndo: async () => true, play: async () => true, load: () => new Promise<void>(r => { resolveLoad = r; }), dispose: disposeScene, squareAt: () => pickedSquare, kings: [], drawnKings: [], setReducedMotion: reducedMotion, setLively: lively, setAim: aim, setDecorate: decorate, animating: false, falling: false, PAD: 32, TILE: 112, cell: (sq: number) => ({col:sq % 8,row:7 - (sq >> 3)}) } as Record<string, unknown>,
     { get: (t, k: string) => k in t ? t[k] : () => {} }),
 }));
 
@@ -27,6 +27,7 @@ function stubDom() {
     addEventListener: listen(listeners), appendChild() {}, getContext: () => new Proxy({}, { get: () => () => {} }), width: 0, height: 0,
     getClientRects: () => [1], getBoundingClientRect: () => ({ left: 0, top: 0, width: 960 }), setPointerCapture() {}, hasPointerCapture: () => true, releasePointerCapture() {} });
   vi.stubGlobal('document', { createElement: el, addEventListener: listen(documentListeners), hidden: false });
+  vi.stubGlobal('Element', class {});
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: listen(documentListeners) }));
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect = disconnectResize; });
   vi.stubGlobal('requestAnimationFrame', (f: FrameRequestCallback) => frames.push(f));
@@ -283,4 +284,46 @@ it('keeps the last-move wash static at different wall-clock times', async () => 
   expect(record(1)).toEqual([['#e6b84a6e', 32, 592, 112, 112]]);
   expect(record(1)).toEqual(record(9000));
   view.dispose();
+});
+
+describe('Undo through the painted view', () => {
+  it.each(['during', 'landed'] as const)('uses the scene rewind %s a Stratus move', async when => {
+    const container = stubDom(), { PaintedView } = await import('./PaintedView');
+    const view = new PaintedView(container as unknown as HTMLElement);
+    const pre = fromFen('4k3/8/8/8/8/8/8/4K3 w - - 0 1'), post = fromFen('4k3/8/8/8/8/8/4K3/8 b - - 0 1');
+    const move = { from: 4, to: 12, captures: [] };
+    view.sync(when === 'during' ? pre : post);
+    const scene = (view as unknown as { scene: PaintedScene }).scene;
+    const prepare = vi.spyOn(scene, 'prepareUndo').mockReturnValue(true), rewind = vi.spyOn(scene, 'rewindUndo').mockResolvedValue(true);
+    view.prepareUndo(pre, move); await view.animateBack(pre, move, post);
+    expect(prepare).toHaveBeenCalledWith(move, pre); expect(rewind).toHaveBeenCalledOnce();
+  });
+  it.each(['reduced', 'off'] as const)('keeps Undo instant with motion %s', async setting => {
+    const container = stubDom();
+    vi.stubGlobal('matchMedia', () => ({ matches: setting === 'reduced', addEventListener() {} }));
+    const { PaintedView } = await import('./PaintedView'), view = new PaintedView(container as unknown as HTMLElement);
+    if (setting === 'off') view.setPace('off');
+    const pre = fromFen('4k3/8/8/8/8/8/8/4K3 w - - 0 1'), post = fromFen('4k3/8/8/8/8/8/4K3/8 b - - 0 1'), move = {from:4,to:12,captures:[]};
+    view.sync(pre); const scene = (view as unknown as {scene: PaintedScene}).scene;
+    const prepare = vi.spyOn(scene, 'prepareUndo'), play = vi.spyOn(scene, 'play'), rewind = vi.spyOn(scene, 'rewindUndo');
+    view.prepareUndo(pre, move); await view.animateBack(pre, move, post);
+    expect(prepare).not.toHaveBeenCalled(); expect(play).not.toHaveBeenCalled(); expect(rewind).not.toHaveBeenCalled();
+  });
+  it('uses the old reverse path when the scene rejects a non-Stratus king', async () => {
+    const container = stubDom(), { PaintedView } = await import('./PaintedView'), view = new PaintedView(container as unknown as HTMLElement);
+    const pre = fromFen('4k3/8/8/8/8/8/8/4K3 w - - 0 1'), post = fromFen('4k3/8/8/8/8/8/4K3/8 b - - 0 1'), move = {from:4,to:12,captures:[]};
+    view.sync(pre); const scene = (view as unknown as {scene: PaintedScene}).scene;
+    vi.spyOn(scene, 'prepareUndo').mockReturnValue(false); const play = vi.spyOn(scene, 'play').mockResolvedValue(true), rewind = vi.spyOn(scene, 'rewindUndo');
+    view.prepareUndo(pre, move); await view.animateBack(pre, move, post);
+    expect(play).toHaveBeenCalledWith(expect.objectContaining({from:12,to:4}), expect.anything()); expect(rewind).not.toHaveBeenCalled();
+  });
+  it('lets a pointer on Undo pass, and skips on another control', async () => {
+    const container = stubDom(), { PaintedView } = await import('./PaintedView'), view = new PaintedView(container as unknown as HTMLElement);
+    const scene = (view as unknown as {scene: PaintedScene}).scene; Object.assign(scene, {animating:true});
+    class Target { constructor(private undo: boolean) {} closest() { return this.undo ? this : null; } }
+    vi.stubGlobal('Element', Target); const skip = vi.spyOn(view, 'skip'), consume = vi.fn();
+    const press = (undo: boolean) => documentListeners.get('pointerdown')!({button:0,pointerId:1,target:new Target(undo),preventDefault:consume,stopImmediatePropagation:consume} as unknown as Event);
+    press(true); expect(skip).not.toHaveBeenCalled(); expect(consume).not.toHaveBeenCalled();
+    press(false); expect(skip).toHaveBeenCalledOnce(); expect(consume).toHaveBeenCalledTimes(2);
+  });
 });

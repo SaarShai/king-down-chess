@@ -1,11 +1,47 @@
 // Real game moves and Undo with synthetic banks; source assets remain read-only.
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { createServer } from 'vite';
 import { launch, trapErrors, assertNoErrors, env } from './lib/checks.mjs';
 
+if (process.env.MOVEMENT_RECORD) {
+ const characters=process.env.MOVEMENT_RECORD.split(',');
+ const chars={pawn:'P',knight:'N',bishop:'B',rook:'R',queen:'Q',archer:'A',guard:'G',maester:'M',ogre:'O',paladin:'L',beast:'S',
+  'king-frost':'K','king-flame':'K','king-shadow':'K','king-mud':'K','king-spirit':'K','king-stratus':'K'};
+ for(const character of characters)assert(chars[character],`unknown character ${character}`);
+ const out=process.env.MOVEMENT_RECORD_OUT;assert(out);await mkdir(out,{recursive:true});
+ const server=await createServer({root:process.cwd(),configLoader:'runner',cacheDir:join(env('PLAYABLE_OUT'),'vite-cache'),define:{__KINGDOWN_CHARACTER_RUNTIME__:'true'},server:{host:'127.0.0.1',port:0,strictPort:false}});
+ let browser;
+ try {
+  await server.listen();browser=await launch();
+  for(const character of characters)for(const army of ['white','black']){
+   const context=await browser.newContext({viewport:{width:1100,height:950},recordVideo:{dir:out,size:{width:1100,height:950}},serviceWorkers:'block',reducedMotion:'no-preference'});
+   const page=await context.newPage(),errors=trapErrors(page);await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
+   const piece=army==='white'?chars[character]:chars[character].toLowerCase();
+   const whiteKing=character.startsWith('king-')&&army==='white'?'8':'K7';
+   const blackKing=character.startsWith('king-')&&army==='black'?'8':'7k';
+   const fen=`${blackKing}/p7/8/8/3${piece}4/8/P7/${whiteKing} ${army==='white'?'w':'b'} - - 0 1`;
+   const url=new URL(`http://127.0.0.1:${server.httpServer.address().port}/`);url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');
+   if(character.startsWith('king-')){const design=character.slice(5),power={frost:'freeze',flame:'haste',shadow:'darkness',mud:'march',spirit:'holylight',stratus:'sacrifice'}[design];url.searchParams.set('kings',army==='white'?`${design}:${power},flame:haste`:`frost:freeze,${design}:${power}`);}
+   await page.goto(url.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.some(f=>f.square===27),null,{timeout:20000});await page.evaluate(()=>view.ready());
+   assert(!/draw by insufficient/i.test(await page.locator('body').innerText()),'the result dialog must not cover the board');
+   await page.evaluate(()=>{window.trace=[];window.traceActive=true;function tick(){if(!traceActive)return;trace.push({at:performance.now(),playing:view.scene.playing,animating:view.scene.animating,frames:view.scene.characterFrames.filter(f=>f.square===27)});requestAnimationFrame(tick);}tick();});
+   const start=await page.evaluate(()=>performance.now()),cases=[];
+   for(const [name,to] of [['forward',army==='white'?35:19],['diagonal',army==='white'?36:20],['backward',army==='white'?19:35]]){
+    const at=await page.evaluate(()=>performance.now());
+    const ok=await page.evaluate(async to=>view.scene.play({from:27,to,captures:[]}),to);assert(ok,`${character} ${army} ${name} animation completes`);
+    const end=await page.evaluate(()=>performance.now());cases.push({name,to,start:at-start,end:end-start});
+    await page.waitForTimeout(500);
+   }
+   const trace=await page.evaluate(()=>{traceActive=false;return trace;});
+   await writeFile(join(out,`${character}-${army}.json`),JSON.stringify({character,army,fen,start,cases,trace},null,2));
+   assertNoErrors(errors);const video=page.video();await context.close();await rename(await video.path(),join(out,`${character}-${army}.webm`));
+   console.log(`ok recorded ${character} ${army}: ${cases.map(c=>c.name).join(', ')}`);
+  }
+ } finally {await browser?.close();await server.close();}
+} else {
 const assets=process.env.MOVEMENT_BASELINE_DIR;
 assert(assets,'Set MOVEMENT_BASELINE_DIR to the read-only pinned character package');
 const bytes=await readFile(join(assets,'manifest.json'));
@@ -86,3 +122,5 @@ try{
   assertNoErrors(errors);console.log(`ok ${army} ${flip?'flipped':'normal'} move ${forward}, Undo ${back}`);await page.close();
  }
 }finally{await browser?.close();await server.close();}
+
+}

@@ -100,7 +100,7 @@ for(const [type,name] of Object.entries(courtNames)){
  // Lab pieces without painted art: a token that slides in, no body motion.
  for(let type=1;type<16;type++){if(!specs[type])specs[type]=FALLBACK;newMotions[type]??={DURATION:900,actionAt:()=>0};}
  const idle=new Map(), work=new Map();
- let position={board:new Uint8Array(64)}, selected=null, lifted=null, liftTell=true, aimSquare=null, animation=null, aimAngle=0, aimFacing=1;
+ let position={board:new Uint8Array(64)}, selected=null, lifted=null, liftTell=true, aimSquare=null, animation=null, landed=null, aimAngle=0, aimFacing=1;
  let fallen=null, res=1, frame=0, previousTime=0, ready=false, disposed=false, flipped=false, coords=true, coordSize=13, coordInset=14, labels=false, reducedMotion=false, decorate=null;
  let effectTime=0,bodyFrames=[],effectFrames=[],idleReady=false,lastSelectedBody=null,pendingIdle=null,selectionGeneration=0;
  const smokeStreams=new Map();let smokeTime=0;
@@ -630,10 +630,14 @@ function vortex(out,foot,phase,strength) {
   // When his effect started on this square (and its loop's offset); kept while he moves off it, so nothing
   // jumps. A different piece on the square starts afresh. The two armies' loops are set apart only when no
   // king's effect was drawn the frame before (a new game or position): after a move only the mover restarts.
-  const old=kingSince.get(sq),entry=old?.value===unit.value?old:{since:time,value:unit.value,offset:phaseOffset(design,side,drawnBefore===0)};
+  const old=kingSince.get(sq),entry=old?.value===unit.value&&old.design===design?old:{since:time,value:unit.value,design,offset:phaseOffset(design,side,drawnBefore===0)};
   nextSince.set(sq,entry);const since=entry.since;
   // While he moves, what stands on his square fades from where it was (it may still have been growing in).
-  const grown=t=>ease((t-since)/900),g=moving?grown(a.start)*(1-ease((time-a.start)/(200*a.speed))):grown(time);
+  const at=a?.rewind?.kind==='move'?Math.max(a.start,Math.min(a.rewind.at,a.rewind.at-(time-a.rewind.start))):time;
+  const grown=t=>entry.resume?entry.resume.g+(1-entry.resume.g)*ease((t-entry.resume.start)/900):ease((t-since)/900);
+  let g=moving?(design==='stratus'&&a.preparing?grown(time):grown(a.start)*(1-ease((at-a.start)/(200*a.speed)))):grown(time);
+  if(moving&&a.rewind?.landedG!=null)g=a.rewind.landedG+(a.rewind.sourceG-a.rewind.landedG)*ease((a.rewind.at-at)/(a.rewind.at-a.start));
+  if(moving&&design==='stratus')entry.lastG=g;
   // Each effect's loop starts again when he arrives on a square (so Mud's grass comes before his vines).
   // now: a clock that never restarts (Stratus's hover keeps its phase across a move). board: where the
   // squares are on the canvas (on screen a square is dark when its column + row is odd, a1 at either side's
@@ -643,6 +647,7 @@ function vortex(out,foot,phase,strength) {
    board:{x:PAD,y:PAD,tile:TILE,frame:lively.atmosphere&&boardArt.naturalWidth?26:0}};
   s.pose=kingFx.pose(s);s.ground=s.pose.ground??s.pose.foot;
   if(s.pose.bank&&a?.runtime&&a.move.from===sq&&a.move.captures.length){s.bodyScale=s.pose.scale/specs[K].scale;s.bodyBounds=bankShape(s.pose);}
+  if(a?.rewind?.kind==='move'&&a.done&&moving&&design==='stratus'){if(a.rewind.landedG!=null)entry.resume={g,start:time};else {const shift=time-a.start;entry.since+=shift;entry.offset+=shift;if(entry.resume)entry.resume.start+=shift;}}
   return s;
  }
  function render(time=performance.now()) {
@@ -679,7 +684,7 @@ function vortex(out,foot,phase,strength) {
  if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq);u.pose={...u.pose,rotation:fallen.rotation*ease((time-fallen.start)/FALL)};}
  let shot=null,hit=null;const effects=[];
  if(animation&&!animation.effect&&!animation.preparing){
-  const a=animation,duration=a.legacyDuration??a.duration,elapsed=clamp((time-a.start)/a.speed-(a.runtime?.beforeMs??0),0,a.actionDuration??duration),t=effectTimeAt(a,elapsed),actor=poses.get(a.move.from),victim=poses.get(a.move.swap?a.move.to:a.move.shove?.from??a.move.captures[0]);
+  const a=animation,duration=a.legacyDuration??a.duration,at=a.rewind?.kind==='move'?Math.max(a.start,Math.min(a.rewind.at,a.rewind.at-(time-a.rewind.start))):time,elapsed=clamp((at-a.start)/a.speed-(a.runtime?.beforeMs??0),0,a.actionDuration??duration),t=effectTimeAt(a,elapsed),actor=poses.get(a.move.from),victim=poses.get(a.move.swap?a.move.to:a.move.shove?.from??a.move.captures[0]);
   const bankBody=a.runtime?bodyRuntime.action(a.runtime,elapsed,a.actionDuration,a.contactTime):null;
   const bankAnchor=(ids,fallback)=>{for(const id of ids){const p=anchorAt(a.runtime?.attack,id,bankBody?.time??elapsed);if(p&&bankBody)return bankPointToWorld(bankBody,actor.pose.foot,p,actor.pose.scale/specs[typeOf(a.value)].scale);}return fallback;};
   if(a.runtime?.effect){
@@ -877,7 +882,7 @@ function vortex(out,foot,phase,strength) {
   if(selected!==null)selectedAt??=time;
   for(const [sq,u] of poses){
    const actor=animation&&!animation.effect&&animation.move.from===sq,a=actor?animation:null;
-   const elapsed=a?(time-a.start)/a.speed:0,local=a?.drawingMovementStart?0:a?.drawingMovementEndpoint?a.actionDuration:elapsed-(a?.runtime?.beforeMs??0);
+   const at=a?.rewind?.kind==='move'?Math.max(a.start,Math.min(a.rewind.at,a.rewind.at-(time-a.rewind.start))):time,elapsed=a?(at-a.start)/a.speed:0,local=a?.drawingMovementStart?0:a?.drawingMovementEndpoint?a.actionDuration:elapsed-(a?.runtime?.beforeMs??0);
    let body=a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,local,a.actionDuration,a.contactTime,a.drawingMovementStart?'start':a.drawingMovementEndpoint?'end':undefined):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
    if(body){
     if(a?.runtime){
@@ -952,24 +957,25 @@ function drawEncounter(a,t) {
   if(wanted){aimFacing=wanted.facing;aimAngle+=(wanted.angle-aimAngle)*(reducedMotion?1:1-Math.exp(-14*dt));if(Math.abs(wanted.angle-aimAngle)<.0001)aimAngle=wanted.angle;}
   const a=animation;
   if(!a&&pendingIdle){pendingIdle=null;bodyRuntime?.releaseIdle();}
-  if(a?.exitReady){
+  if(a?.exitReady&&!a.rewind){
    a.exitStart??=time;
    if(time-a.exitStart>=200){const prepared=a.exitReady.prepared;a.exitReady=null;a.exitBody=null;startPrepared(a,prepared,time);bodyRuntime.releaseIdle();}
   }
   if(a?.effect&&!a.done&&!a.contacted&&(time-a.start)>=a.duration*a.speed*.62){a.contacted=true;if(a.move.captures.length)a.onContact?.();}
   if(animation!==a){wake();return;}
-  const startpoint=a?.runtime?.movement&&!a.movementStarted&&(time-a.start)/a.speed>=a.runtime.beforeMs;
+  const startpoint=!a?.rewind&&a?.runtime?.movement&&!a.movementStarted&&(time-a.start)/a.speed>=a.runtime.beforeMs;
   if(startpoint){a.start=time-a.runtime.beforeMs*a.speed;a.movementStarted=true;a.drawingMovementStart=true;}
-  const endpoint=a?.runtime?.movement&&!startpoint&&!a.movementEndpoint&&(time-a.start)/a.speed>=a.runtime.beforeMs+a.actionDuration;
+  const endpoint=!a?.rewind&&a?.runtime?.movement&&!startpoint&&!a.movementEndpoint&&(time-a.start)/a.speed>=a.runtime.beforeMs+a.actionDuration;
   if(endpoint){a.start=time-(a.runtime.beforeMs+a.actionDuration)*a.speed;a.movementEndpoint=true;a.drawingMovementEndpoint=true;}
-  if(a&&!a.done&&!a.preparing&&!endpoint&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
+  if(a&&!a.done&&a.rewind&&time>=a.rewind.end){a.done=true;a.resolve(true);}
+  else if(a&&!a.done&&!a.preparing&&!endpoint&&!a.rewind&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
   render(time);
   if(startpoint){a.drawingMovementStart=false;a.runtime.releaseMovementStart?.();}
   if(endpoint){a.drawingMovementEndpoint=false;a.runtime.releaseMovement?.();}
   if(a?.done)a.runtime?.releaseFallback?.();
   if(labels)drawLabels();
   if(frames===1&&!reducedMotion)requestAnimationFrame(()=>loadClips());
-  if((a&&!a.done&&(!a.preparing||a.exitReady))||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading||clipShown)wake(false);
+  if((a&&!a.done&&(!a.preparing||a.exitReady||a.rewind))||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading||clipShown)wake(false);
   else{previousTime=0;if((idling()&&bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected])))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }
  function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
@@ -985,9 +991,9 @@ function drawEncounter(a,t) {
  function cancelAnimation(a){a.prepareController?.abort();releasePrepared(a.runtime);releasePrepared(a.exitReady?.prepared);if(!a.done)a.resolve(false);}
  // A move is over: a king's effect on the square he moved from starts again from nothing if he is there next
  // (he stayed, as with Death Touch, or came back); its fade-out during the move stays seamless.
- function endMove(){
+ function endMove(keepSource=false){
   selectionGeneration++;pendingIdle=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();
-  if(animation){cancelAnimation(animation);kingSince.delete(animation.move.from);if(animation.move.swap)kingSince.delete(animation.move.to);}
+  if(animation){cancelAnimation(animation);if(!keepSource)kingSince.delete(animation.move.from);if(animation.move.swap)kingSince.delete(animation.move.to);}
   animation=null;
  }
  function reserveSelected(sq){
@@ -1086,7 +1092,10 @@ function drawEncounter(a,t) {
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
   load(){const board=new Promise(resolve=>{boardArt.onload=()=>Promise.resolve(boardArt.decode?.()).catch(()=>{}).then(resolve);boardArt.onerror=resolve;boardArt.src=BOARD_ART;}); /* decoded, so the first frame has the stone */return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;warmBodies();wake();});},
   /** New position: ends any finished or running animation. */
-  setPosition(next){const m=animation?.move,selectedValue=selected===null?null:position.board[selected],keepIdle=!animation&&idleReady&&selectedValue&&selectedValue===next.board[selected]&&characterOf(selectedValue)==='king-stratus';if(m&&!animation.effect&&smokeStreams.has(m.from)&&next.board[m.to]===position.board[m.from]){const smoke=smokeStreams.get(m.from);smokeStreams.delete(m.from);smokeStreams.set(m.to,smoke);}else if([...position.board].some((v,sq)=>v!==next.board[sq]))smokeStreams.clear();if(!keepIdle)endMove();lifted=null;position=next;if(selected!==null&&selectedValue!==position.board[selected])selectedAt=null;aimAngle=0;warmBodies();if(!keepIdle)reserveSelected(selected);wake();},
+  setPosition(next){const a=animation,m=a?.move;
+   if(a?.done&&!a.rewind&&!a.effect&&!reducedMotion&&m.from!==m.to&&!m.captures.length&&!m.swap&&!m.shove&&!m.promo&&!m.selfRemove&&!m.power&&typeOf(a.value)===K&&kings[colorOf(a.value)]==='stratus'&&next.board[m.from]===0&&next.board[m.to]===a.value)landed={animation:a,source:position,post:next,sourceEntry:kingSince.get(m.from)};
+   else if(landed&&next!==landed.post)landed=null;
+   const selectedValue=selected===null?null:position.board[selected],keepIdle=!animation&&idleReady&&selectedValue&&selectedValue===next.board[selected]&&characterOf(selectedValue)==='king-stratus',keepSource=!!animation?.rewind?.doneAtSource&&animation.done&&next===position&&position.board[m.from]===animation.value;if(m&&!animation.effect&&smokeStreams.has(m.from)&&next.board[m.to]===position.board[m.from]){const smoke=smokeStreams.get(m.from);smokeStreams.delete(m.from);smokeStreams.set(m.to,smoke);}else if([...position.board].some((v,sq)=>v!==next.board[sq]))smokeStreams.clear();if(!keepIdle)endMove(keepSource);lifted=null;position=next;if(selected!==null&&selectedValue!==position.board[selected])selectedAt=null;aimAngle=0;warmBodies();if(!keepIdle)reserveSelected(selected);wake();},
   setSelected(sq){if(sq!=null&&bodyRuntime&&position.board[sq])void bodyRuntime.warm(characterOf(position.board[sq]),armyOf(position.board[sq]),true);if(sq!==selected){
    if(animation?.exitBody)endMove();
    selectionGeneration++;
@@ -1100,12 +1109,13 @@ function drawEncounter(a,t) {
   get lifted(){return lifted;},
   setAim(sq){aimSquare=sq;wake();},
   // (The contact shadows are kept: no sprite depends on the side shown.)
-  setFlipped(on){flipped=on;idle.clear();wake();},
+  setFlipped(on){if(on!==flipped)landed=null;flipped=on;idle.clear();wake();},
   /** [white, black] king designs ('frost' … 'shadow'): each side's king figure. */
-  setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;if(animation?.exitBody)endMove();const value=selected!==null?position.board[selected]:null,selectedDesign=value?characterOf(value):null,keepIdle=!animation&&idleReady&&selectedDesign==='king-stratus'&&next[colorOf(value)]===kings[colorOf(value)];if(!keepIdle){selectionGeneration++;pendingIdle=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}kings=[...next];if(selectedDesign&&selectedDesign!==characterOf(value))selectedAt=null;for(const design of kings){kingImage(design).loaded.catch(()=>{});if(lively.kings)kingFx.has(design);}if(!keepIdle)reserveSelected(selected);wake();},
+  setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;if(landed&&next[colorOf(landed.animation.value)]!==kings[colorOf(landed.animation.value)])landed=null;if(animation?.exitBody||animation?.rewind&&next[colorOf(animation.value)]!==kings[colorOf(animation.value)])endMove();const value=selected!==null?position.board[selected]:null,selectedDesign=value?characterOf(value):null,keepIdle=!animation&&idleReady&&selectedDesign==='king-stratus'&&next[colorOf(value)]===kings[colorOf(value)];if(!keepIdle){selectionGeneration++;pendingIdle=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}kings=[...next];if(selectedDesign&&selectedDesign!==characterOf(value))selectedAt=null;for(const design of kings){kingImage(design).loaded.catch(()=>{});if(lively.kings)kingFx.has(design);}if(!keepIdle)reserveSelected(selected);wake();},
   get kings(){return [...kings];},
   /** Restart the visible ground loops together for the effects workshop. */
-  restartKingGround(){const since=performance.now();for(const entry of kingSince.values()){entry.since=since;entry.offset=0;}wake();},
+  restartKingGround(){landed=null;const since=performance.now();for(const entry of kingSince.values()){entry.since=since;entry.offset=0;delete entry.resume;delete entry.lastG;}wake();},
+  resetKingEffects(){landed=null;kingSince.clear();wake();},
   /** [white, black] figure URLs for a lab `type` with no painted art (a Workshop design), or null for its lettered token. */
   setFigure(type,urls){
    if(String(urls)===String(figures[type]?.urls??null))return;
@@ -1117,7 +1127,7 @@ function drawEncounter(a,t) {
   /** size: letter height in board units (default 13); a small board on a phone needs more. */
   setCoords(on,size=13,inset=14){coords=on;coordSize=size;coordInset=inset;wake();},
   setLabels(on){labels=on;wake();},
-  setReducedMotion(on){const was=reducedMotion;reducedMotion=on;if(on){selectionGeneration++;pendingIdle=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}if(on&&(animation?.runtime||animation?.preparing||animation?.value&&typeOf(animation.value)===K&&animation.move.captures.length))endMove();if(on)awakeUntil=0;else if(was){loadClips();reserveSelected(selected);}wake();},
+  setReducedMotion(on){const was=reducedMotion;reducedMotion=on;if(on){landed=null;selectionGeneration++;pendingIdle=null;lastSelectedBody=null;idleReady=false;bodyRuntime?.releaseIdle();}if(on&&(animation?.runtime||animation?.preparing||animation?.rewind||animation?.value&&typeOf(animation.value)===K&&animation.move.captures.length))endMove();if(on)awakeUntil=0;else if(was){loadClips();reserveSelected(selected);}wake();},
   /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. */
   setFallen(sq,animate=true,rotation=-1.5){fallen=sq==null?null:{sq,rotation,start:animate?performance.now():-Infinity};wake();},
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
@@ -1150,7 +1160,7 @@ function drawEncounter(a,t) {
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */
   play(move,{speed=1,onContact=null,gait=null,effect=null}={}){
    if(disposed)return Promise.resolve(false);
-   lifted=null;
+   landed=null;lifted=null;
    if(animation)cancelAnimation(animation);
    const {base,verb}=effect?{base:{type:'effect',move,start:performance.now(),speed,duration:effect.duration,effect},verb:'Playing card…'}:plan(move,speed,gait);
    return new Promise(resolve=>{
@@ -1170,7 +1180,7 @@ function drawEncounter(a,t) {
      a.prepareController=new AbortController();
      const target=move.shove?.from??move.captures[0]??move.to,from=foot(move.from),to=foot(target);
      void bodyRuntime.prepare(characterOf(base.value),armyOf(base.value),facingOf(to.x-from.x,to.y-from.y),!!move.captures.length||!!move.shove,Math.max(Math.abs(to.x-from.x),Math.abs(to.y-from.y))===TILE,a.prepareController.signal).then(prepared=>{
-      if(disposed||animation!==a){releasePrepared(prepared);return;}
+      if(disposed||animation!==a||a.undoPending||a.rewind){releasePrepared(prepared);return;}
       const first=prepared?.before[0],join=first?(first.reverse?first.bank.frames.at(-1):first.bank.frames[0]):prepared?.rest.frames[0];
       if(a.exitBody&&(!prepared||join?.url===a.exit(1)?.url))a.exitReady={prepared};
       else {a.exitBody=null;bodyRuntime.releaseIdle();startPrepared(a,prepared,performance.now());}
@@ -1180,7 +1190,40 @@ function drawEncounter(a,t) {
     wake();
    });
   },
-  cancel(){if(animation||!idleReady||selected===null){endMove();reserveSelected(selected);}if(closeup)closeup.panel.hidden=true;aimAngle=0;wake();},
+  prepareUndo(move,source=position){
+   if(reducedMotion)return false;
+   let a=animation;
+   if(landed&&position===landed.post&&source===landed.source&&!a){
+    a=landed.animation;
+    if(a.move.from!==move.from||a.move.to!==move.to||kings[colorOf(a.value)]!=='stratus')return false;
+    const entry=kingSince.get(move.to),old=landed.sourceEntry,now=frameTime;
+    const growth=e=>!e?0:e.resume?e.resume.g+(1-e.resume.g)*ease((now-e.resume.start)/900):ease((now-e.since)/900);
+    a.landedGrowth={landedG:growth(entry),sourceG:!old?0:old.resume?old.resume.g+(1-old.resume.g)*ease((a.start-old.resume.start)/900):ease((a.start-old.since)/900)};
+    if(entry)kingSince.set(move.from,entry);else if(old)kingSince.set(move.from,old);
+    position=source;animation=a;a.done=false;landed=null;
+   }
+   if(!a||a.done||source!==position||a.effect||a.move.from!==move.from||a.move.to!==move.to||a.move.captures.length||a.move.swap||a.move.shove||a.move.promo||a.move.selfRemove||a.move.power||a.move.from===a.move.to||typeOf(a.value)!==K||kings[colorOf(a.value)]!=='stratus')return false;
+   a.undoPending=true;a.resolve(false);return true;
+  },
+  rewindUndo(){
+   const a=animation;if(!a?.undoPending)return Promise.resolve(false);
+   a.undoPending=false;const now=performance.now();
+   if(a.preparing){
+    const elapsed=a.exitStart==null?0:Math.max(0,Math.min(200,frameTime-a.exitStart));
+    a.exitReady=null;
+    if(a.exitBody){a.exitStart=now-elapsed;a.rewind={kind:'exit',start:now,end:now+200-elapsed,doneAtSource:true};}
+    else a.rewind={kind:'exit',start:now,end:now,doneAtSource:true};
+   }else{
+    const at=a.landedGrowth?a.start+a.duration*a.speed:Math.max(a.start,Math.min(frameTime,a.start+a.duration*a.speed));
+    a.rewind={...a.landedGrowth,kind:'move',at,start:now,end:now+at-a.start,doneAtSource:true};
+   }
+   return new Promise(resolve=>{a.resolve=resolve;wake();});
+  },
+  cancel(){
+   const a=animation,keep=!!a?.rewind&&position.board[a.move.from]===a.value&&kings[colorOf(a.value)]==='stratus',entry=keep?kingSince.get(a.move.from):null;
+   if(Number.isFinite(entry?.lastG))entry.resume={g:entry.lastG,start:performance.now()};
+   if(animation||!idleReady||selected===null){endMove(keep);reserveSelected(selected);}if(closeup)closeup.panel.hidden=true;aimAngle=0;wake();
+  },
   dispose(){if(disposed)return;disposed=true;endMove();bodyRuntime?.dispose();smokeStreams.clear();cancelAnimationFrame(frame);frame=0;decorate=null;},
  };
  return api;
