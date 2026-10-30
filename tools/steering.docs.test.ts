@@ -35,8 +35,8 @@
 //   - HOSTING.md holds no `vercel deploy` command; COMPUTE.md and HOSTING.md hold no model name and no
 //     text that looks like a secret value;
 //   - AGENTS.md, COMPUTE.md and HOSTING.md hold no 2-hour claim for the shell limit.
-// Rules of steering-cut/06 (AGENTS.md holds every standing rule in eleven short sections):
-//   - AGENTS.md holds the eleven `##` headings in their order, and no other `##` heading;
+// Rules of steering-cut/06 (AGENTS.md holds every standing rule in twelve short sections):
+//   - AGENTS.md holds the twelve `##` headings in their order, and no other `##` heading;
 //   - no AGENTS.md section, the text above the first heading included, holds more than 120 words,
 //     heading excluded;
 //   - each section holds its fixed phrases from a table (one per new rule), with the two trailer lines
@@ -868,10 +868,10 @@ describe('COMPUTE.md, HOSTING.md and the AGENTS.md pointers', () => {
   });
 });
 
-/** The eleven `##` sections of AGENTS.md, in their order (steering-cut/06). */
+/** The twelve `##` sections of AGENTS.md, in their order (steering-cut/06). */
 const AGENTS_SECTIONS = [
   'Start here', 'Commits and branches', 'Tests and checks', 'Worktrees and servers', 'Runs and compute', 'Secrets',
-  'Hosting', 'Working with the owner', 'Game design', 'Jev', 'Helpers and machines',
+  'Hosting', 'Working with the owner', 'Game design', 'Character animation', 'Jev', 'Helpers and machines',
 ];
 
 /** The two tool trailer lines that the prepare-commit-msg hook can add. */
@@ -908,6 +908,7 @@ const AGENTS_PHRASES: { section: string; phrase: string }[] = [
   { section: 'Runs and compute', phrase: 'the M1 or Kaggle' },
   { section: 'Runs and compute', phrase: 'without asking when the machine is idle' },
   { section: 'Runs and compute', phrase: "Deploys and store submission need the owner's word." },
+  { section: 'Runs and compute', phrase: 'Animation interpolation and frame rendering may run on the M1 or this Mac, whichever is free.' },
   { section: 'Helpers and machines', phrase: '~/.agents/skills/agent-roster/roles.conf' },
   { section: 'Helpers and machines', phrase: 'The work role uses `bulk`, `high` or `hard`; its comments state the review role.' },
   { section: 'Helpers and machines', phrase: 'Commit and push finished work to its branch; work left only in the cloud is lost.' },
@@ -920,6 +921,9 @@ const AGENTS_PHRASES: { section: string; phrase: string }[] = [
   },
   { section: 'Working with the owner', phrase: 'rendered sample' },
   { section: 'Game design', phrase: 'docs/MATRIX.md' },
+  { section: 'Character animation', phrase: 'genuine transparency' },
+  { section: 'Character animation', phrase: 'docs/lessons/art-and-motion.md' },
+  { section: 'Character animation', phrase: 'One owner go covers a whole animation batch.' },
 ];
 
 /** Texts a section must not hold: the Jev version pin. */
@@ -929,7 +933,7 @@ const AGENTS_FORBIDDEN = [{ section: 'Jev', name: 'a version pin', pattern: /\bj
 const DATE = /(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)/g;
 
 /**
- * Faults of AGENTS.md (steering-cut/06): the `##` headings (each of the eleven, in order, no other), the
+ * Faults of AGENTS.md (steering-cut/06): the `##` headings (each of the twelve, in order, no other), the
  * size of each section and of the text above the first heading, the fixed phrases and forbidden texts of
  * each section, a model name and a date outside a link target.
  */
@@ -998,19 +1002,19 @@ describe('AGENTS.md standing rules', () => {
     expect(TRAILERS).toEqual(['Co-Authored-By: Codex <noreply@openai.com>', 'Co-Authored-By: Claude Code <noreply@anthropic.com>']);
   });
 
-  it('passes a file that holds the eleven sections and their phrases', () => {
+  it('passes a file that holds the twelve sections and their phrases', () => {
     expect(agentsFaults(good().join('\n'), 'fixture.md').map(show)).toEqual([]);
   });
 
   it('names a missing heading, another heading and a wrong order', () => {
     const lines = good().filter(line => line !== '## Secrets');
     const at = (heading: string) => lines.indexOf(`## ${heading}`);
-    [lines[at('Jev')], lines[at('Game design')]] = ['## Game design', '## Jev'];
+    [lines[at('Jev')], lines[at('Character animation')]] = ['## Character animation', '## Jev'];
     lines.push('## Delegation', 'text');
     expect(agentsFaults(lines.join('\n'), 'fixture.md').filter(f => !f.what.includes('must hold "')).map(show)).toEqual([
       'fixture.md § Secrets (count 0): the `##` heading is missing',
-      `fixture.md § Delegation (line ${lines.length - 1}): AGENTS.md must hold no \`##\` heading but the 11 rule sections`,
-      expect.stringMatching(/^fixture\.md § \(file\) \(lines [\d, ]+\): the sections must be in this order: .*Working with the owner, Game design, Jev, .*; found .*Working with the owner, Jev, Game design, /),
+      `fixture.md § Delegation (line ${lines.length - 1}): AGENTS.md must hold no \`##\` heading but the 12 rule sections`,
+      expect.stringMatching(/^fixture\.md § \(file\) \(lines [\d, ]+\): the sections must be in this order: .*Game design, Character animation, Jev, .*; found .*Game design, Jev, Character animation, /),
     ]);
   });
 
@@ -1051,7 +1055,7 @@ describe('AGENTS.md standing rules', () => {
     ]);
   });
 
-  it('AGENTS.md holds the eleven sections, each short, with its fixed phrases, no model name and no date', () => {
+  it('AGENTS.md holds the twelve sections, each short, with its fixed phrases, no model name and no date', () => {
     expect(agentsFaults(read('AGENTS.md')).map(show)).toEqual([]);
   });
 
