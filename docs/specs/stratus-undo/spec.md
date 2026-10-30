@@ -32,4 +32,4 @@ The scene keeps the move's clock while the rewind runs, and it draws from that c
 
 ## Status
 
-The code is in branch `anim/stratus-undo-1030` for review. Visual smoothness at game speed and size waits for the owner. The full animation set, both board orientations and non-Stratus regression are open. See [the ticket](issues/01-keep-king-state-through-undo.md) for the checked evidence.
+The code is in branch `anim/stratus-undo-1030` for review. A game-size frame sequence shows the landed rewind without a cloud or ground pop. The full animation set and both board orientations still need visual review. See [the ticket](issues/01-keep-king-state-through-undo.md) for the checked evidence.

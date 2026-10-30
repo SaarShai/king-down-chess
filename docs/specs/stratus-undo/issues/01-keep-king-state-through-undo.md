@@ -1,12 +1,24 @@
 # Keep the Stratus king's state through Undo
 
-Status: in progress. Branch `anim/stratus-undo-1030`.
+Status: done. Branch `anim/stratus-undo-1030`.
 
 ## Review fixes: plan and checks
 
 - Keep the landed Stratus move state until the shown position changes. Rewind it from the shown frame.
 - Let an Undo pointer press reach the control. Keep skip for other presses. Keep Undo instant when motion is off.
 - Test the view and scene paths, then run the Undo and Stratus browser checks. Inspect a game-size rewind frame sequence. Push to PR 211 and check CI.
+
+## Review fixes and evidence
+
+The independent review found three faults: a landed move lost its clock, a pointer press on Undo skipped the move, and Undo animated with reduced motion. The fix retains the landed move only while its result is shown. It lets an Undo press reach the control and keeps reduced-motion and pace-off Undo instant. A different position, move, king design, board flip or new game clears the retained state.
+
+- `KINGDOWN_TEST_FILE=src/render/PaintedView.test.ts npm test`: 28 cases pass.
+- `KINGDOWN_TEST_FILE=src/render/scene-load.test.ts npm test`: 46 cases pass.
+- `KINGDOWN_TEST_FILE=src/screen/play.test.ts npm test`: 200 cases pass. Each command also passes the 67 board checks.
+- `npm run check:browser turn stratus-idle-exit stratus-registration movement-runtime character-prepare`: the first three pass. The movement check needs its pinned package, and the preparation check waits for a cancelled request.
+- `MOVEMENT_BASELINE_DIR="$PWD/public/character-runtime" npm run check:browser movement-runtime character-prepare`: both pass. The package has the required hash. The preparation check now lets the expired request cancel and still checks that a later move uses the recovered image.
+- A 71-frame game-size capture shows the landed king, cloud and ground return together. The capture uses a 668-pixel board. It shows no pop in the sampled frames.
+- Type checks pass in the commit hook. CI runs the full suite on the pull request.
 
 ## Task
 
@@ -44,6 +56,5 @@ All commands ran in the worktree, one at a time, on AC power.
 
 ## Open
 
-- No check proves a smooth picture at game speed and size. The owner judges that.
-- A completed-move Undo, a later settle, repeated Undo, both board orientations, reduced motion in a real game and non-Stratus regression have no browser check here.
-- The patch adds no telemetry and no fixture. The alpha export and the animation promotion are out of this scope.
+- The full animation set and both board orientations still need visual review.
+- The patch adds no telemetry or fixture. The alpha export and animation promotion are out of scope.
