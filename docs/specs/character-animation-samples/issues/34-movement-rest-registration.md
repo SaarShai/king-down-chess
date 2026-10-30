@@ -16,3 +16,6 @@ Status: claimed
 - The rebuilt white and black Pawn SE to S turns keep their three key files byte-identical to the prior proofs.
 - PR 217's builder places a padded Knight rest at the same pivot and scale as its turn. The runtime pixels match.
 - The game-size sheet and local rerun script are in the movement geometry run folder. The full rerun is not started.
+- `KINGDOWN_TEST_FILE=tools/animation-bank.test.ts npm test` passes 7 selected tests. Its bundled checks pass 67 tests.
+- All 264 padded rests match the shipped runtime pixels after the half-size conversion. Their pivots and scales match.
+- `promote.mjs --dry-run` gives a `movement-study` entry with the facing direction. It writes no catalog.
