@@ -467,7 +467,7 @@ label.army select { width: 100%; font-weight: 400; }
 }
 .piece-card h3 {
   margin: 0 0 6px; padding: 0; font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 700;
-  letter-spacing: 0.03em; text-transform: none; color: var(--ink);
+  letter-spacing: 0.03em; text-transform: none; color: var(--ink); overflow-wrap: anywhere;
 }
 .pc-letter {
   display: inline-grid; place-items: center; min-width: 24px; height: 24px; margin-right: 4px; padding: 0 4px;
@@ -507,7 +507,7 @@ label.army select { width: 100%; font-weight: 400; }
 /* ---- title screen ---- */
 #title-screen {
   width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0;
-  border: 0; border-radius: 0; box-shadow: none; overflow: hidden;
+  border: 0; border-radius: 0; box-shadow: none; overflow-x: hidden; overflow-y: auto;
   color: var(--ink);
   background-color: var(--floor-base); background-image: var(--floor); /* the Quiet Table floor, as under the game */
   /* A thin ink edge round each figure: pale art (Spirit, Stratus, the Ogre) keeps its outline on the pale floor. */
@@ -567,7 +567,8 @@ label.army select { width: 100%; font-weight: 400; }
 /* The lineup: every piece on a stone ledge, alternating armies, sized as they stand on the board. */
 .title-lineup {
   --fig: 112px; /* the tallest figure (the Ogre); the others scale by --h */
-  position: relative; display: flex; justify-content: center; align-items: flex-end; gap: 0 2px;
+  container: title-lineup / inline-size;
+  position: relative; display: flex; justify-content: center; align-items: flex-end; flex-wrap: wrap; gap: 0 2px;
   width: min(100%, 1040px); margin: 0 auto; padding: 0 var(--space-4) 0; list-style: none;
 }
 /* The ledge: a soft shadow on the floor with a hairline edge, under the figures' feet. */
@@ -581,7 +582,7 @@ label.army select { width: 100%; font-weight: 400; }
 }
 .title-lineup li {
   position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-  flex: 1 1 0; min-width: 0; max-width: 84px;
+  flex: 1 1 0; font-size: 11px; min-width: 6.5em; max-width: 84px;
 }
 .title-lineup img {
   height: calc(var(--fig) * var(--h)); width: auto; max-width: 118%; object-fit: contain; object-position: bottom;
@@ -591,7 +592,7 @@ label.army select { width: 100%; font-weight: 400; }
 .title-lineup span {
   display: inline-flex; align-items: center; gap: 4px;
   margin-top: 6px; font-family: var(--font-display); font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
-  text-transform: uppercase; color: var(--ink-soft); white-space: nowrap; transition: color 220ms;
+  text-transform: uppercase; color: var(--ink-soft); max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: center; transition: color 220ms;
 }
 /* On the floor: the ring and glyph in the name's colour on a pale disc, gold under the pointer like the name. */
 .title-lineup .pi { width: 15px; height: 15px; color: inherit; --pi-disc: var(--vellum); }
@@ -609,7 +610,8 @@ label.army select { width: 100%; font-weight: 400; }
    as on a phone, and the figures scale with the screen, so the row fits from 721 px and stays centred. */
 @media (min-width: 721px) and (max-width: 1023px) {
   .title-lineup { --fig: min(112px, 10.8vw); }
-  .title-lineup span { flex-direction: column; gap: 2px; margin-top: 4px; font-size: 10px; letter-spacing: 0.06em; }
+  .title-lineup li { min-width: 4.6em; }
+  .title-lineup span { flex-direction: column; gap: 2px; margin-top: 4px; font-size: 11px; letter-spacing: 0; }
   .title-lineup::before { bottom: 31px; } /* the ledge under the feet, above the taller names */
   .title-lineup::after { bottom: 34px; }
 }
@@ -643,16 +645,20 @@ label.army select { width: 100%; font-weight: 400; }
   .title-kings img { margin: 0 -2.4%; }
   /* Two rows of six on a phone, each on its own ledge line. */
   .title-lineup { --fig: 64px; flex-wrap: wrap; gap: 4px 0; width: min(100%, 380px); padding: 0 var(--space-3); }
-  .title-lineup li { flex: 0 0 calc(100% / 6); max-width: none; padding-bottom: 2px; }
+  .title-lineup li { flex: 0 0 calc(100% / 6); min-width: 4.6em; max-width: none; padding-bottom: 2px; }
   .title-lineup::before, .title-lineup::after { display: none; }
   .title-lineup li::before {
     content: ''; position: absolute; z-index: -1; left: 4%; right: 4%; bottom: 32px; height: 10px; border-radius: 50%; /* under the feet, above icon and name */
     background: radial-gradient(closest-side, rgba(43, 38, 33, 0.3), rgba(43, 38, 33, 0));
   }
-  .title-lineup span { flex-direction: column; gap: 2px; margin-top: 3px; font-size: 9.5px; letter-spacing: 0.04em; }
+  .title-lineup span { flex-direction: column; gap: 2px; margin-top: 3px; font-size: 11px; letter-spacing: 0; }
   .title-lineup .pi { width: 16px; height: 16px; }
   .title-actions { flex-direction: column; align-items: stretch; width: min(100%, 340px); }
   .title-actions button { min-width: 0; }
+}
+/* Narrow phones keep the 11 px names clear of the next cell. */
+@media (max-width: 350px) {
+  .title-lineup { padding-inline: var(--space-1); }
 }
 /* Short landscape titles scroll without changes to their layout. */
 @media (max-width: 899px) and (orientation: landscape) {
@@ -661,13 +667,24 @@ label.army select { width: 100%; font-weight: 400; }
 /* Phones in landscape: one row of figures, a smaller title and buttons side by side. */
 @media (max-width: 720px) and (orientation: landscape) {
   .title-lineup { --fig: min(64px, 15vh); flex-wrap: nowrap; width: 100%; padding: 0 var(--space-2); }
-  .title-lineup li { flex: 1 1 0; }
-  .title-lineup span { font-size: 8.5px; letter-spacing: 0; }
+  .title-lineup li { flex: 1 1 auto; min-width: 0; }
+  .title-lineup span { font-size: 11px; letter-spacing: 0; }
   .title-lineup .pi { width: 14px; height: 14px; }
   .title-copy { gap: var(--space-2); padding: var(--space-2) var(--space-4) var(--space-3); }
   .wordmark { font-size: clamp(30px, 11vh, 46px); }
   .title-actions { flex-direction: row; align-items: center; width: auto; margin-top: 0; }
   .title-actions button { min-height: var(--tap); font-size: var(--fs-md); padding: 6px 16px; }
+}
+/* Use fewer columns when enlarged names need more room. */
+@media (orientation: portrait) {
+  @container title-lineup (width < 12em) {
+    .title-lineup li { flex-basis: 50%; }
+  }
+}
+@media (min-width: 721px) and (max-width: 1023px) {
+  @container title-lineup (width < 26em) {
+    .title-lineup li { flex: 1 0 calc(100% / 6 - 2px); min-width: 0; max-width: none; }
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
@@ -828,3 +845,14 @@ dialog.ui-dialog-motion:not([open]) { pointer-events: none; }
 #new-game .colour-switch { width: 184px; max-width: 100%; margin-top: var(--space-2); }
 #new-game .colour-switch .seg-row { flex-wrap: nowrap; }
 #new-game .colour-switch .seg-row label { min-height: 48px; }
+
+/* The start summary stays beside the fixed action on small phones. */
+#new-game-summary { margin: 0 0 8px; font-size: var(--fs-sm); line-height: 1.35; }
+#new-game-summary span { display: block; }
+#new-game-friend { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; color: var(--ink); text-decoration: none; border-inline-start: 1px solid var(--line); }
+#new-game .mode-text small { display: block; font-size: var(--fs-xs); line-height: 1.2; }
+#new-game .opponents { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#new-game .computer-choice { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--vellum); background: var(--stone-700); box-shadow: inset 0 0 0 2px var(--gold-bright); }
+#new-game #modes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+#rules-notation { max-width: 55ch; }

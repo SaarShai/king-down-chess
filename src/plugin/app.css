@@ -167,6 +167,8 @@ body[data-touch='true'] :is(button, label) { min-height: var(--tap); }
 #end-table { position: absolute; inset: 0; }
 #game-table .player-name :is(b, small), #seat-screen .player-name :is(b, small) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #game-table #context-text { display: block; max-height: none; overflow: visible; }
+/* The online context row keeps tight lines, so the status fits a 393 × 852 phone in the host frame (V7 is for the local game). */
+#game-table #context-text > span + span { line-height: 1.25; }
 /* A separate grid row lets the table measure the full draw reply height. */
 #game-table #context-line:has(#accept-draw) { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
 #game-table #context-line:has(#accept-draw):has(#all-rules) { grid-template-columns: 44px minmax(0, 1fr); }

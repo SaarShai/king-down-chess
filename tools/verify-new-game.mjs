@@ -271,7 +271,7 @@ try {
     ok('an old Strong game keeps its board name, Home name and engine level');
   }
 
-  // 1. Defaults on a first visit: Artificial, Club, White, a random army; Spirit and Shadow.
+  // 1. Defaults on a first visit: Computer, Club, White, a random army; Spirit and Shadow.
   let page = await open();
   await pressMenu(page, 'New game');
   assert.deepEqual([await checked(page, 'mode'), await checked(page, 'level'), await checked(page, 'side')], ['computer', 'club', '0']);
@@ -285,9 +285,9 @@ try {
   assert.equal(await page.evaluate(() => document.getElementById('more-options').open), false, 'More options starts folded');
   assert.equal(await shown(page, 'king-picker'), false, 'no king picker without powers');
   assert.equal(await page.locator('#modes input[type="radio"]').count(), 2, "two modes: pass-and-play is parked");
-  assert.equal(await page.getByRole('radio', { name: /Artificial/ }).isChecked(), true);
+  assert.equal(await page.getByRole('radio', { name: 'No powers', exact: true }).isChecked(), true);
   await shot(page, 'desktop-computer.jpg', jpeg);
-  ok('defaults: Artificial, Club, you play White, Random King Down army, no picker');
+  ok('defaults: Computer, Club, you play White, Random King Down army, no picker');
 
   // Kings' powers: each side's six emblems in the KINGS order, Spirit and Shadow chosen, first powers.
   await page.click('label:has(#mode-powers)');
@@ -360,14 +360,14 @@ try {
   await page.keyboard.press('Escape');
   ok('Cancel: the changes are dropped');
 
-  // 2. Artificial (the default) starts White against the Club computer with no powers.
+  // 2. Computer (the default) starts White against the Club computer with no powers.
   await startGame(page);
   let s = await saved(page);
   assert.deepEqual([s.white, s.black, s.skill, s.rules.kings], ['human', 'ai', 'club', [null, null]]);
   assert.match(s.back, /^[A-Z]{8}$/);
   assert.equal(await powersHidden(page), true, 'no power bar');
   await kingsDrawn(page, ['spirit', 'shadow']);
-  ok('Artificial: White against the Club computer, kings without powers, drawn as Spirit and Shadow');
+  ok('Computer: White against the Club computer, kings without powers, drawn as Spirit and Shadow');
 
   // As Black against the beginner: the computer opens and the board turns round.
   await startGame(page, { mode: 'computer', level: 'beginner', side: 'black', army: 'classic' });
@@ -378,7 +378,7 @@ try {
   await page.locator('#resign[aria-disabled="false"]').waitFor({ state: 'attached' });
   const [a1, a8] = await page.evaluate(() => [window.view.screenOf(0), window.view.screenOf(56)]);
   assert.ok(a8.y > a1.y, 'Black at the bottom');
-  ok('Artificial as Black: the beginner computer moves first, the board turns round');
+  ok('Computer as Black: the beginner computer moves first, the board turns round');
 
   // 3. Kings' powers: the default kings play their first powers against the computer.
   await startGame(page, { mode: 'powers', side: 'white', level: 'club', army: 'classic' });
@@ -392,9 +392,14 @@ try {
   await kingsDrawn(page, ['mud', 'shadow']); // a king with no power is drawn as the plain king
   ok("Kings' powers: Spirit Holy Light and Shadow Death Touch by default; Mud March against a king with no power");
 
-  // 4. A friend (pass-and-play) is parked (docs/PARKED.md): New game has no two-person choice.
-  assert.equal(await page.locator('#mode-two').count(), 0);
-  ok('A friend (pass-and-play) is parked');
+  // 4. A friend opens the online setup. Pass-and-play stays parked.
+  await pressMenu(page, 'New game');
+  assert.equal(await page.locator('#new-game-friend').getAttribute('href'), '/play/friend');
+  assert.equal(await page.locator('#mode-two, #two-powers, #design-row, #design-line').count(), 0);
+  assert.equal(await page.getByRole('group', { name: 'Who you play', exact: true }).count(), 1);
+  assert.match(await page.locator('#new-game-summary').innerText(), /Chess\nWhite: March.\nBlack: No power./);
+  await page.keyboard.press('Escape');
+  ok('A friend opens online setup. The summary names the army and powers. Parked choices stay absent.');
 
   // 5. The dialog remembers the last game's setup across a reload.
   await page.reload(); await page.waitForFunction(() => window.view?.ready);
@@ -454,7 +459,7 @@ try {
   assert.deepEqual([await lanMoves(page), (await saved(page)).back, (await saved(page)).rules.kings], [['d2-d4'], 'RNBQKBNR', [null, null]], 'the saved game stays, without the link\'s kings');
   assert.deepEqual(await page.evaluate(() => [document.getElementById('workshop')?.open ?? false, location.search]), [false, ''], 'no Workshop, and the URL loses the link');
   await page.context().close();
-  ok('Workshop parked: an old design link opens the game; a game link plays the design it holds; a link with a design this version cannot read says why');
+  ok('Workshop and game link parked: old links open no Workshop and keep the saved game');
 
   // 8. A save from before the dialog remembered its setup: New game opens on that game.
   page = await open({ save: { back: 'RNBQKBNR', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', moves: [], white: 'ai', black: 'human', skill: 'strong', rules: { kings: [{ king: 'Frost', power: 'Freeze' }, null] }, sound: false } });

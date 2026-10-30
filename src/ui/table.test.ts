@@ -3,7 +3,7 @@ import { Game } from '../game';
 import { LESSONS } from '../lessons';
 import { POWERS_BALANCED, parseKings } from '../rules/engine';
 import { turnOf } from '../turn';
-import { refreshTable, renderTable, type TableState, type TableSnapshot } from './table';
+import { teachFirstGame, refreshTable, renderTable, type TableState, type TableSnapshot } from './table';
 
 const node = () => ({
   textContent: '', hidden: false, disabled: false, dataset: {} as Record<string, string>,
@@ -84,4 +84,19 @@ describe('review move headings', () => {
       expect(nodes.get('turn')!.textContent).toBe(`Reviewing after ${label}`);
     });
   });
+});
+
+
+it('keeps the first-board read hint with a save notice', () => {
+  const game = new Game('RNBQKBNR');
+  teachFirstGame(game);
+  const state: TableState = {
+    game, sides: ['human', 'ai'], skill: 'club', rules: game.rules, flipped: false, thinking: false,
+    viewing: null, lesson: null, lessonDone: false, notice: '', armed: false, selected: null, pending: [],
+    linkSide: null, reviewNote: '', turn: turnOf(game, 0), mode: 'computer',
+    saveNotice: 'Changes not saved. Keep this tab open.',
+  };
+  refreshTable(state);
+  expect(element('context-text').replaceChildren.mock.lastCall!.map((row: { textContent: string }) => row.textContent))
+    .toEqual([state.saveNotice, 'Your move. Tap a piece to read.']);
 });

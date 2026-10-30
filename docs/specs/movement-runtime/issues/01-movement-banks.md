@@ -5,6 +5,8 @@ Status: claimed
 
 ## Scope and checks
 
+- Staging refresh: retain both registered browser checks, verify the merged scene and registry, run the movement browser check and test suite, and obtain an independent review before updating the draft PR.
+
 - Play an opt-in movement bank for a one-square quiet move. Keep the pinned runtime behavior for moves without a bank, captures and longer moves.
 - Select by character, army and screen direction. Draw the first and last frames before the adjoining turn. Undo uses its own reverse-facing bank.
 - Keep ready fallback frames during an optional bank load. A failed or late bank uses that fallback. Cancellation must free unshared queued and active loads without cancelling shared loads or accepting late results.

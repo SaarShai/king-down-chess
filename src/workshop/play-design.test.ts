@@ -21,4 +21,3 @@ describe('Bring a design (ticket 17)', () => {
     expect(withDesign('RTBQKBNR', 3)).toBe('RTBQKBNR'); // one design: a custom back rank that holds it already
   });
 });
-

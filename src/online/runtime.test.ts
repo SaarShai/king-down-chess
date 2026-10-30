@@ -474,3 +474,14 @@ it('reads a private draft prefix with cancellation and never creates a command r
  controller.abort();await expect(transport.call('kingdown_preview',{game_id:args.game_id,...input},{signal:controller.signal})).rejects.toMatchObject({name:'AbortError'});
  expect(previewDraft).toHaveBeenCalledOnce();
 });
+
+it('opens the friend setup from its URL without sending a game command', async () => {
+  browserAt('/play/friend');
+  const host = createBrowserRuntime({} as OnlineClient, 'a'), receive = vi.fn();
+  host.onResult = receive;
+  try {
+    expect(host.stateHost?.widgetState?.privateContent).toMatchObject({ screen: 'play' });
+    await host.connect(); await Promise.resolve();
+    expect(receive).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ structuredContent: { screen: 'play', new_friend: true } }));
+  } finally { host.dispose?.(); vi.unstubAllGlobals(); }
+});
