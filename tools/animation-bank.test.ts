@@ -262,7 +262,10 @@ it('fits shifted walking poses and removes a detached speck', async () => {
       data.set([((x - shift) * 17 + y * 3) % 220 + 20, ((x - shift) * 5 + y * 11) % 220 + 20, ((x - shift) * 7 + y * 13) % 220 + 20, 255], p);
     }
     for (let y = 92; y < 104; y++) for (let x = 48 + shift + foot; x < 56 + shift + foot; x++) data.set([90, 80, 70, 255], (y * width + x) * 4);
-    if (speck) data.set([100, 100, 100, 255], (40 * width + 8) * 4);
+    if (speck) {
+      data.set([100, 100, 100, 255], (40 * width + 8) * 4);
+      data.set([100, 100, 100, 4], (50 * width + 8) * 4);
+    }
     await sharp(data, { raw: { width, height, channels: 4 } }).png().toFile(path);
   };
   const paths = [0, 1, 2, 3].map(i => join(dir, `${i}.png`));
@@ -278,6 +281,19 @@ it('fits shifted walking poses and removes a detached speck', async () => {
   expect(measureFrame(await readFrame(paths[2])).bottom).toBe(103);
   expect((await readFrame(paths[2])).data[(40 * width + 8) * 4 + 3]).toBe(0);
   expect(await readFile(paths[0])).toEqual(beforeRest);
+});
+
+it('removes islands below the visible alpha threshold', () => {
+  const script = `import json, numpy as np
+from tools.anim.steady import despeckle
+image = np.zeros((40, 40, 4), dtype=np.float32)
+image[10:30, 10:30, 3] = 1
+image[3, 3, 3] = 4 / 255
+clean, count = despeckle(image)
+print(json.dumps([count, float(clean[3, 3, 3]), float(clean[15, 15, 3])]))`;
+  const result = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['-c', script], { encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+  expect(JSON.parse(result.stdout)).toEqual([1, 0, 1]);
 });
 
 it('gates walking head jumps and scale spread without pinning walking feet', () => {

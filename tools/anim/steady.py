@@ -41,7 +41,7 @@ def transform(rgba, s, tx, ty, shape):
 
 def despeckle(rgba, keep=0.005):
     """Drop loose matte specks: alpha islands smaller than `keep` of the largest island."""
-    mask = (rgba[:, :, 3] > 0.02).astype(np.uint8)
+    mask = (rgba[:, :, 3] > 0).astype(np.uint8)
     n, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
     if n <= 2:
         return rgba, 0
