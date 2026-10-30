@@ -19,10 +19,10 @@ vi.mock('../render/sfx', () => ({ setSound: vi.fn(), snd: {} }));
 vi.mock('../ui/table', () => ({ readPiece: vi.fn(), refreshTable: vi.fn(), renderTable: vi.fn() }));
 vi.mock('../ui/powers', () => ({ clearCoinRead: vi.fn(), initCoins: vi.fn(), refreshCoins: () => ({ armed: false }) }));
 vi.mock('../move-moments', () => ({ connectMoveMoments: () => ({ cancel: vi.fn(), undo: vi.fn(), tell: vi.fn().mockResolvedValue(true) }) }));
-vi.mock('../game-end', () => ({ connectEndReview: vi.fn(), connectGameEnd: () => ({ reset: vi.fn(), refresh: vi.fn() }) }));
+vi.mock('../game-end', () => ({ connectEndReview: vi.fn(), connectGameEnd: () => ({ clear: vi.fn(), reset: vi.fn(), refresh: vi.fn() }) }));
 vi.mock('../turn-controls', () => ({ connectTurnPress: vi.fn(), renderTurnButton: vi.fn(), announceWaiting: vi.fn(), waitingRead: vi.fn() }));
-vi.mock('../ui/previously', () => ({ connectPreviously: (_button: unknown, c: { game(): { pos: unknown } }) => ({ clear: vi.fn(), position: () => c.game().pos, state: vi.fn() }) }));
-vi.mock('./moments', () => ({ soundsFor: () => ({ now: null, hit: null }), connectMoments: () => ({ clear: vi.fn(), start: vi.fn(), restore: vi.fn(), played: vi.fn(), say: vi.fn(), result: () => '', reviewNote: () => '', marked: () => [] }) }));
+vi.mock('../ui/previously', () => ({ connectPreviously: (_button: unknown, c: { game(): { pos: unknown } }) => ({ cancel: vi.fn(), clear: vi.fn(), position: () => c.game().pos, state: vi.fn() }) }));
+vi.mock('./moments', () => ({ soundsFor: () => ({ now: null, hit: null }), connectMoments: () => ({ clear: vi.fn(), clearNote: vi.fn(), start: vi.fn(), restore: vi.fn(), played: vi.fn(), say: vi.fn(), result: () => '', reviewNote: () => '', marked: () => [] }) }));
 vi.mock('./links', () => ({ connectLinks: () => ({}) }));
 
 const stored = new Map<string, string>();
@@ -44,7 +44,7 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 function page(rules: Partial<Rules> = {}, fen: string | null = null, realSettings = false, accountReady = true) {
-  const view = { setRules: vi.fn(), sync: vi.fn(), flip: vi.fn(), highlight: vi.fn(), setPreview: vi.fn(), setCoords: vi.fn(), setLabels: vi.fn(), setPace: vi.fn(), animateMove: vi.fn().mockResolvedValue(undefined), skip: vi.fn() } as unknown as BoardView;
+  const view = { setRules: vi.fn(), resetEffects: vi.fn(), sync: vi.fn(), flip: vi.fn(), highlight: vi.fn(), setPreview: vi.fn(), setCoords: vi.fn(), setLabels: vi.fn(), setPace: vi.fn(), animateMove: vi.fn().mockResolvedValue(undefined), skip: vi.fn() } as unknown as BoardView;
   const engine = { cancel: vi.fn(), think: vi.fn().mockResolvedValue({ move: null }) }, changed = vi.fn();
   const settings = { pace: () => 'off', threats: () => false, queen: () => true, settingsNow: () => ({ coords: true }), applySettings: vi.fn(), resetSettings: vi.fn(),
     sound: () => true, coords: () => true, labels: () => false, applyPace: vi.fn() } as unknown as Parameters<typeof connectPlay>[1]['settings'];
@@ -421,6 +421,16 @@ describe('review account boundaries', () => {
 });
 
 describe('new local game validation', () => {
+  it('resets effect history for a replacement game, not a position review in that game', async () => {
+    const { play, view } = page();
+    play.restore(null, request);
+    vi.mocked(view.resetEffects!).mockClear();
+    play.newGame('RNBQKBNR');
+    expect(view.resetEffects).toHaveBeenCalledOnce();
+    play.game().play(play.game().legal[0]);
+    await play.showPly(0);
+    expect(view.resetEffects).toHaveBeenCalledOnce();
+  });
   it.each(['army', 'position', 'rematch'])('keeps the live game, turn and dialog after an invalid %s', kind => {
     const { play, view, engine, changed } = page();
     play.restore({ ...original, moves: [...original.moves, 'Ng1-f3'], staged: 1 }, request);

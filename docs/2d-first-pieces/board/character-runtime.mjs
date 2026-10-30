@@ -196,11 +196,12 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    const turns=all.filter(b=>b.kind==='turn'),before=turnRoute(turns,rest.facing,direction),after=before&&reverseRoute(before);
    // A missing edge keeps the rest body coherent instead of jumping to an unsupported facing.
    if(before===null)return null;
-   const start=[rest.frames[0],...before.flatMap(p=>endpoints(p.bank)),...after.flatMap(p=>endpoints(p.bank)),...(attack?attack.frames.slice(0,6):[])];
+   const routeFrames=character.startsWith('king-')&&capture?p=>p.bank.frames:p=>endpoints(p.bank);
+   const start=[rest.frames[0],...before.flatMap(routeFrames),...after.flatMap(routeFrames),...(attack?attack.frames.slice(0,6):[])];
    await prepareFrames(start,remaining(),signal);
    if(disposed||signal?.aborted||!remaining()||start.some(frame=>!images.has(frame.url)))return null;
    const sizes=new Map(start.map(frame=>[frame.url,images.get(frame.url).size]));
-   let releaseMovementStart=null,releaseMovement=null,releaseFallback=null;
+   let releaseMovementStart=null,releaseMovement=null,releaseFallback=character.startsWith('king-')&&capture?reserve(start):null;
    if(movement){
     releaseFallback=reserve(start);
     await prepareFrames(movement.frames,remaining(),signal);
