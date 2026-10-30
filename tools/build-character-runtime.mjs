@@ -89,12 +89,12 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
   for (const entry of selected.entries) {
     if (characters && !characters.includes(entry.character)) continue;
     const current = accepted.get(`${entry.character}:${entry.army}:${entry.id}`);
-    if (!current || current.status !== 'ready' || current.sha256 !== entry.sha256 || current.manifest !== entry.manifest) throw Error(`Ready selection changed: ${entry.character}/${entry.id}`);
-    if (!['idle', 'turn', 'attack'].includes(entry.kind)) throw Error(`Unsupported runtime kind: ${entry.kind}`);
+    if (!current || current.kind !== entry.kind || !(current.status === 'ready' || entry.kind === 'movement-study' && current.status === 'draft') || current.sha256 !== entry.sha256 || current.manifest !== entry.manifest) throw Error(`Ready selection changed: ${entry.character}/${entry.id}`);
+    if (!['idle', 'turn', 'attack', 'movement-study'].includes(entry.kind)) throw Error(`Unsupported runtime kind: ${entry.kind}`);
     const path = inside(source, resolve(source, entry.manifest)), bytes = await readFile(path);
     if (digest(bytes) !== entry.sha256) throw Error(`Bank hash mismatch: ${entry.id}`);
     const raw = JSON.parse(bytes), bank = { ...(raw.metadata ?? {}), ...raw };
-    if (bank.status !== 'ready' || !bank.frames?.length || !(bank.durationMs > 0)) throw Error(`Invalid ready bank: ${entry.id}`);
+    if (!(bank.status === 'ready' || entry.kind === 'movement-study' && bank.status === 'draft' && current.status === 'draft') || !Array.isArray(bank.frames) || bank.frames.length < (entry.kind === 'movement-study' ? 2 : 1) || !Number.isFinite(bank.durationMs) || !(bank.durationMs > 0)) throw Error(`Invalid ready bank: ${entry.id}`);
     let canvas = bank.canvasSize;
     if (canvas == null) {
       const info = await sharp(await readFile(inside(source, resolve(dirname(path), bank.frames[0].url)))).metadata();
@@ -106,19 +106,28 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
     const from = direction(bank.from ?? entry.from ?? edge[0] ?? idDirections.at(-2));
     const to = direction(bank.to ?? entry.to ?? edge[1] ?? idDirections.at(-1));
     const facing = direction(bank.facing ?? bank.direction ?? entry.direction) ?? direction(idDirections.at(-1));
-    const pivot = bank.footPivot ?? bank.pivot;
+    if (entry.kind === 'movement-study' && (!direction(current.direction) || bank.direction !== current.direction || bank.army !== entry.army || bank.character != null && bank.character !== entry.character || bank.facing != null && bank.facing !== current.direction || entry.direction != null && entry.direction !== current.direction)) throw Error(`Invalid movement facing: ${entry.id}`);
+    const pivot = bank.footPivot ?? bank.pivot ?? (entry.kind === 'movement-study' ? bank.frames[0].pivot : null);
+    if (entry.kind === 'movement-study' && (!Array.isArray(pivot) || bank.frames.some(frame => frame.pivot != null && (!Array.isArray(frame.pivot) || frame.pivot.length !== 2 || frame.pivot.some((n, i) => n !== pivot[i]))))) throw Error(`Invalid movement pivot: ${entry.id}`);
     if (pivot != null && (pivot.length !== 2 || pivot.some(n => !Number.isFinite(n)))) throw Error(`Invalid foot pivot: ${entry.id}`);
     const frames = [];
     for (let index = 0; index < bank.frames.length; index++) {
       const frame = bank.frames[index], timeMs = frame.timeMs ?? bank.times?.[index] ?? index * bank.durationMs / (bank.frames.length - 1);
       if (!Number.isFinite(timeMs) || timeMs < 0 || timeMs > bank.durationMs || index && timeMs < frames[index - 1].timeMs) throw Error(`Invalid frame time: ${entry.id}`);
+      if (entry.kind === 'movement-study') {
+        const bytes = await readFile(inside(source, resolve(dirname(path), frame.url)));
+        const metadata = await sharp(bytes).metadata(), { data, info } = await sharp(bytes).raw().toBuffer({ resolveWithObject: true });
+        if (metadata.channels !== 4 || !metadata.hasAlpha || !data.some((n, i) => i % 4 === 3 && n > 0)) throw Error(`Invalid movement RGBA: ${entry.id}`);
+        for (let x = 0; x < info.width; x++) if (data[x * 4 + 3] || data[((info.height - 1) * info.width + x) * 4 + 3]) throw Error(`Movement frame has no transparent exterior: ${entry.id}`);
+        for (let y = 0; y < info.height; y++) if (data[y * info.width * 4 + 3] || data[(y * info.width + info.width - 1) * 4 + 3]) throw Error(`Movement frame has no transparent exterior: ${entry.id}`);
+      }
       const image = await asset({ ...frame, timeMs }, dirname(path));
       if (image.size.some((size, axis) => size * 2 !== canvas[axis])) throw Error(`Frame canvas mismatch: ${entry.id}`);
       frames.push({ url: image.url, sourceSha256: image.sourceSha256, timeMs, ...(Array.isArray(frame.effectAnchor) ? { effectAnchor: frame.effectAnchor.map(n => n / 2) } : {}), ...(frame.visibleIntervalMs ? { visibleIntervalMs: frame.visibleIntervalMs } : {}), ...(frame.endMs == null ? {} : { endMs: frame.endMs }) });
     }
     const sampling = [bank.sampling, bank.schedule?.sampling, bank.selectedSchedule?.sampling, bank.approvedPlayerSchedule?.sampling];
     const floor = sampling.some(s => typeof s === 'string' && /\bfloor\b/.test(s));
-    banks.push({ character: entry.character, army: entry.army, id: entry.id, kind: entry.kind, sourceSha256: entry.sha256, canvasSize: canvas.map(n => n / 2), pivot: pivot?.map(n => n / 2) ?? null, durationMs: bank.durationMs, from: from ?? (entry.kind === 'turn' ? direction(idDirections.at(-2)) : null), to, facing,
+    banks.push({ character: entry.character, army: entry.army, id: entry.id, kind: entry.kind === 'movement-study' ? 'movement' : entry.kind, sourceSha256: entry.sha256, canvasSize: canvas.map(n => n / 2), pivot: pivot?.map(n => n / 2) ?? null, durationMs: bank.durationMs, from: from ?? (entry.kind === 'turn' ? direction(idDirections.at(-2)) : null), to, facing,
       bodyHeightPx: bank.bodyHeightPx == null ? null : bank.bodyHeightPx / 2, bodyTopPx: assets.get(bank.frames[0].sha256).top / 2, boardScale: bank.boardScale == null ? null : bank.boardScale * 2, targetPoint: Array.isArray(bank.targetPoint) ? bank.targetPoint.map(n => n / 2) : null,
       beatTimes: bank.beatTimes ?? {}, effectAnchors: (Array.isArray(bank.effectAnchors) ? bank.effectAnchors : (bank.effectAnchors?.timedframes?.[entry.army] ?? []).map(frame => ({ id: 'contact-bloom', timeMs: frame.timeMs, point: frame.contactBloomAnchor }))).filter(anchor => Array.isArray(anchor.point) && anchor.point.length === 2 && anchor.point.every(Number.isFinite) && Number.isFinite(anchor.timeMs)).map(anchor => ({ id: anchor.id, timeMs: anchor.timeMs, point: anchor.point.map(n => n / 2), ...(anchor.visibility ? { visibility: anchor.visibility } : {}) })),
       contactMs: bank.beatTimes?.contact ?? bank.beatTimes?.contactMs ?? bank.beatTimes?.release ?? bank.frames.find(f => f.phase === 'release' || f.phase === 'contact')?.timeMs ?? null,
