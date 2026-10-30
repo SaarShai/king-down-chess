@@ -128,3 +128,26 @@ body. Inspect all frames on light and dark squares for halos and color errors.
 The output needs visual review. Effects and multiple tracks need separate work.
 The focused mapping tests need the same Python packages. They skip when the
 packages are absent.
+
+### Private Kaggle movement run
+
+`tools/anim/kaggle/stage.py` copies the frozen movement keys and checks the frame, bank and RIFE hashes. It writes one
+private dataset archive. `kaggle.mjs` makes private GPU scripts with the dataset and the FILM model attached. It takes
+`push`, `status` or `pull`, the Kaggle user, a zero-based part, the number of parts and a scratch directory. Use one or
+two parts. Check the dataset is private before a push.
+
+`run.py` makes the midpoint first, then the two quarter points for each key gap, including the wrap. RIFE moves
+premultiplied color and alpha with its shared flow. FILM exposes motion fields but not its fusion weights; the script
+warps both premultiplied inputs with those fields and blends them equally. Its output is a flow-based FILM variant,
+not the RGB model's learned fusion. Both outputs keep alpha. The ghost score counts partly transparent pixels outside
+the keys' soft edges as a share of visible pixels. Motion can also raise the score, so inspect the light and dark sheets.
+`summary.py <pull directory>` ranks the scores. The results stay outside Git.
+
+```
+python3 tools/anim/kaggle/stage.py <catalog> <rife-runtime> <dataset-dir>
+kaggle datasets create -p <dataset-dir>
+node tools/anim/kaggle/kaggle.mjs push <user> 0 1 <scratch-dir>
+node tools/anim/kaggle/kaggle.mjs status <user> 0 1 <scratch-dir>
+node tools/anim/kaggle/kaggle.mjs pull <user> 0 1 <pull-dir>/part-0
+python3 tools/anim/kaggle/summary.py <pull-dir>
+```
