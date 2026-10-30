@@ -45,8 +45,8 @@ The new package adds exactly the five banks to the current 468-bank package. A m
 
 ## Open problems
 
+- All PR checks pass on the shipped commit: `verify` 19m19s, `browser` 24m6s, and eight `browser-*` jobs. No merge.
 - The owner or the parent must replay the same replacement on the main checkout catalog, or copy the run folder catalog there. The pinned hash matches only that catalog. Until then, a build from the main catalog fails its pinned hash check.
 - The generated package is local only. It is not committed and this task does not deploy.
-- PR CI remains to run. No merge.
 
 Run evidence is in the `five-attacks` scratch folder: `checks.json`, `acceptance.md`, the contact sheets and videos in `media/`, `catalog-manifest.before.json`, the replaced catalog, `build.log`, `test.log` and `browser.log`.
