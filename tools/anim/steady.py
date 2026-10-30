@@ -113,6 +113,13 @@ def fit(paths, baseline, rest_indexes):
         if correction:
             ty += correction
             placed, specks = despeckle(transform(f, factor, tx, ty, rest.shape))
+        for _ in range(4):
+            rows = np.nonzero((placed[:, :, 3] > 8 / 255).any(1))[0]
+            correction = baseline - int(rows[-1])
+            if abs(correction) <= 2:
+                break
+            ty += correction
+            placed, specks = despeckle(transform(f, factor, tx, ty, rest.shape))
         save(paths[index], placed)
         result[index - 1] = {'scale': factor, 'dx': tx, 'dy': ty, 'matchScore': float(score), 'headScale': float(scale), 'groupScale': float(group), 'specks': specks}
     fitted = [load(paths[i]) for i in indices]
