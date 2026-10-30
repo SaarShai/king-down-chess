@@ -625,8 +625,11 @@ export async function main() {
       });
       await active.goto(`${origin}/?title=0`); await readyBoard(active);
       await active.waitForFunction(savedGameSynced);
-      const offlineAfter = events.length;
       offline = true; await persistent.setOffline(true);
+      // Optional character art prefetches frames while a piece rests. A request already on the wire at the switch
+      // belongs to the online page, so let it fail before the offline journey starts.
+      await active.waitForTimeout(750);
+      const offlineAfter = events.length;
       await active.goto(origin); await readyBoard(active); assert.deepEqual(await lanMoves(active), ['e2-e4']);
       const saved = await active.evaluate(() => localStorage.getItem('kingdown.save'));
       const beforeOffline = await localData(active);
