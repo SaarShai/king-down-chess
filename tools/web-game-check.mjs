@@ -56,13 +56,16 @@ try {
     accountOrigin = `http://127.0.0.1:${accountServer.address().port}`;
   }
   // Use public fake settings only. The browser gets a real signed local session; no OAuth provider is contacted.
-  await build({ logLevel: 'warn', plugins: signinSpeed ? [{ name: 'signin-loopback-auth', enforce: 'pre', transform(code, id) {
+  await build({ logLevel: 'warn', plugins: [{ name: 'lobby-check-state', transform(code, id) {
+    if (id !== resolve('src/account-game/runtime.ts')) return;
+    return code + `\nwindow.lobbyCheckState = () => ({ page: store.page(), locks: locks(store.page()), starting: setupStarting(), inflight: queue.inflight(), state: client.state, games: memory.games.map(({ game_id, status, kind, revision, action, open_until }) => ({ game_id, status, kind, revision, action, open_until })), mount: queue.mountJob() && { name: queue.mountJob().name, done: queue.mountJob().done, started: queue.mountJob().started, epoch: queue.mountJob().epoch } });`;
+  } }, ...signinSpeed ? [{ name: 'signin-loopback-auth', enforce: 'pre', transform(code, id) {
     if (id !== resolve('src/account/public-config.ts')) return;
     // Keep config validation; connect the real SDK to the local HTTP fixture after it passes.
     const result = 'return { url: url.origin, publishableKey };';
     assert(code.includes(result));
     return code.replace(result, `return { url: ${JSON.stringify(accountOrigin)}, publishableKey };`);
-  } }] : [], define: {
+  } }] : []], define: {
     'import.meta.env.VITE_KINGDOWN_STAGE': JSON.stringify(stagingLogin || rankedStage ? 'staging' : ''),
     'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(signinSpeed ? issuerOrigin : accountOrigin),
     'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify('sb_publishable_local_test'),
@@ -142,7 +145,26 @@ try {
   } else {
   const page = await context.newPage(); page.setDefaultTimeout(15_000);
   await page.clock.install();
-  const errors = trapErrors(page);
+  const errors = trapErrors(page), inflight = new Map();
+  page.on('request', request => inflight.set(request, { method: request.method(), path: new URL(request.url()).pathname }));
+  const requestEnded = request => inflight.delete(request);
+  page.on('requestfinished', requestEnded); page.on('requestfailed', requestEnded);
+  async function waitForSetup() {
+    try { await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor(); }
+    catch (error) {
+      const state = await page.evaluate(() => {
+        const start = document.querySelector('#setup-start');
+        return { screen: document.body.dataset.page, runtime: window.lobbyCheckState?.(),
+          start: start ? { disabled: start.disabled, visible: !!start.getClientRects().length, busy: start.getAttribute('aria-busy') } : null,
+          receipts: Object.fromEntries(Object.entries(localStorage).filter(([key]) => key.startsWith('kingdown.account-command.') || key.startsWith('kingdown.account-game.'))),
+          message: document.querySelector('#error')?.textContent };
+      });
+      const offers = (await pool.query("select id,status,kind,revision from public.games where created_by=any($1::uuid[]) and status='waiting'", [actors])).rows;
+      console.error('Lobby setup state:', JSON.stringify({ ...state, offers, inflight: [...inflight.values()], requestFailures: failures, pageErrors: errors }, null, 2));
+      await shot(page, 'web-lobby-setup-failure');
+      throw error;
+    }
+  }
   page.on('requestfailed', request => {
     const fault = request.failure()?.errorText, path = new URL(request.url()).pathname;
     if (fault === 'net::ERR_FAILED' && deliberateFailures.has(request)) lostReplies++;
@@ -496,8 +518,26 @@ try {
   const surfaces = (await pool.query("select seat, surface, actions from public.game_commands where game_id=$1 and kind='turn' order by seq", [combinedId])).rows;
   assert.deepEqual(surfaces.map(row => row.surface), combinedTurns.map(turn => turn.surface));
   assert.deepEqual(surfaces.map(row => row.actions), actions.map(lan => [lan]));
-  await tool(1, 'kingdown_resign', { game_id: combinedId, command_id: randomUUID(), expected_revision: finalCombined.revision });
-  await page.locator('[data-screen="end"]:not([hidden])').waitFor();
+  // A result can show before its full details arrive. Reload Play while that read waits.
+  let releaseEndRead, endReadStarted;
+  const endReadHeld = new Promise(resolve => { endReadStarted = resolve; });
+  const endReadRelease = new Promise(resolve => { releaseEndRead = resolve; });
+  const holdEndRead = async route => {
+    if (new URL(route.request().url()).searchParams.has('since')) return route.continue();
+    const response = await route.fetch();
+    endReadStarted(); await endReadRelease;
+    await route.fulfill({ response }).catch(() => {});
+  };
+  await page.route(`**/api/games/${combinedId}*`, holdEndRead);
+  try {
+    await tool(1, 'kingdown_resign', { game_id: combinedId, command_id: randomUUID(), expected_revision: finalCombined.revision });
+    await page.locator('[data-screen="end"]:not([hidden])').waitFor();
+    await endReadHeld;
+    await page.goto(origin + '/play/');
+    releaseEndRead();
+    await waitForSetup();
+    console.log('web: reload during a held result read leaves Start enabled without a pending command');
+  } finally { releaseEndRead(); await page.unroute(`**/api/games/${combinedId}*`, holdEndRead); }
   const finishedCombined = await readCombined(0);
   assert.equal(finishedCombined.status, 'finished');
   assert.deepEqual(finishedCombined.result, { winner: 0, reason: 'resignation' });
@@ -574,15 +614,7 @@ try {
   // Hold an actual old HTTP list while the player leaves and returns after the offer is cancelled.
   const staleOffer = (await tool(1, 'kingdown_create', { kind: 'random', mode: 'casual', command_id: randomUUID() }))._meta.view;
   await page.goto(origin + '/play/');
-  try { await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor(); }
-  catch (error) {
-    console.error('Lobby setup state:', await page.evaluate(() => {
-      const start = document.querySelector('#setup-start');
-      return { screen: document.body.dataset.page, screens: [...document.querySelectorAll('[data-screen]:not([hidden])')].map(el => el.getAttribute('data-screen')),
-        start: start ? { disabled: start.disabled, visible: !!start.getClientRects().length } : null };
-    }), { requestFailures: failures.length, pageErrors: errors.length });
-    throw error;
-  }
+  await waitForSetup();
   await page.locator('#setup-options summary').click();
   await page.locator('#setup-body .modes').getByRole('radio', {name:'Random',exact:true}).locator('..').click();
   if (rankedStage) await page.locator('#setup-rating input[value="casual"]').locator('..').click();

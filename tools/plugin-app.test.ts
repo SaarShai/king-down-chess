@@ -1186,6 +1186,7 @@ it.each([false, true])('keeps one rematch during a held end read and cancels it 
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_get'; });
     await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button', { name:'Resign', exact:true }).click();
     await page.waitForFunction(() => !!(window as any).releaseHeld);
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending)).toBeUndefined();
     await frame.locator('#over[open]').waitFor(); await page.waitForTimeout(1100);
     await frame.locator('#over').getByRole('button', { name:'Play again', exact:true }).evaluate((b: HTMLButtonElement) => { b.click(); b.click(); });
     expect(await sent(page, 'kingdown_rematch')).toBe(0);
@@ -1221,7 +1222,7 @@ it.each([false, true])('opens a rematch resume only while its end screen stays a
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
-it('keeps a failed end read and Retry visible on the board and on Game result', async () => {
+it('keeps a failed end read and Try again visible on the board and on Game result', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await expand(page);
@@ -1233,6 +1234,11 @@ it('keeps a failed end read and Retry visible on the board and on Game result', 
     await frame.locator('#over').getByRole('button', { name:'See the board', exact:true }).click();
     await page.evaluate(() => (window as any).releaseHeld());
     await frame.locator('.page-sheet > .page-error #retry').waitFor();
+    expect(await frame.locator('#retry').textContent()).toBe('Try again');
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending)).toBeUndefined();
+    const reads = await sent(page, 'kingdown_get');
+    await frame.locator('html').evaluate(() => (window as any).harnessApp.store.sync());
+    expect(await sent(page, 'kingdown_get')).toBe(reads);
     expect(await frame.locator('#error').isVisible()).toBe(true);
     expect(await frame.locator('#error').textContent()).not.toBe('');
     await frame.locator('#end-result').click();
