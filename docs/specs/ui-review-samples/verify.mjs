@@ -52,8 +52,8 @@ const target24 = async (page, selector) => {
 };
 const fixture = 'fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20-%20-%200%201&players=human,human&title=0';
 try {
-  for (const [width, height] of [[320,568],[375,812],[852,393],[768,1024],[1280,800]]) {
-    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce', colorScheme: 'light', serviceWorkers: 'block' });
+  for (const [width, height] of [[320,568],[375,812],[852,393],[768,1024],[1024,768],[1280,800],[1366,768]]) {
+    const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: width === 1024 || width === 1366 ? 2 : 1, reducedMotion: 'reduce', colorScheme: 'light', serviceWorkers: 'block' });
     await context.route('**/*', route => {
       const u = new URL(route.request().url());
       if (['data:', 'blob:'].includes(u.protocol) || ['localhost','127.0.0.1'].includes(u.hostname)) return route.continue();
@@ -80,6 +80,15 @@ try {
     assert.deepEqual(await page.locator('input[name=army]').evaluateAll(inputs => inputs.map(e => e.value)), ['random', 'classic']);
     assert.equal(await page.getByRole('group', { name: 'Who you play', exact: true }).count(), 1);
     assert.equal(await page.getByRole('link', { name: 'A friend Online', exact: true }).count(), 1);
+    if ([1024, 1366].includes(width)) {
+      assert.ok((await rect(page, '#new-game .new-game-body')).width >= 300, 'New game choices have room');
+      await textFits(page, '#new-game .mode-text, #new-game .level-stops > span, #level-line');
+      const lines = await page.locator('#level-line').evaluate(e => {
+        const range = new Range(); range.selectNodeContents(e);
+        return range.getClientRects().length;
+      });
+      assert.ok(lines <= 2, 'The level description does not wrap word by word');
+    }
     await page.getByRole('radio', { name: 'No powers', exact: true }).focus();
     await page.keyboard.press('ArrowRight');
     assert.equal(await page.getByRole('radio', { name: "Kings' powers", exact: true }).isChecked(), true);
@@ -186,6 +195,28 @@ try {
     await page.waitForFunction(() => !document.querySelector('.account-entry')?.textContent.includes('Loading'));
     await settled(page);
     await target24(page, '.account-entry a');
+    if ([1024, 1366].includes(width)) {
+      const returning = await context.newPage();
+      await returning.emulateMedia({ reducedMotion: 'no-preference' });
+      await returning.addInitScript(() => {
+        localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'normal' }));
+        sessionStorage.removeItem('kingdown.title-seen');
+      });
+      returning.on('pageerror', error => errors.push(error.message));
+      await returning.goto(env('PLAYABLE_URL')); await ready(returning);
+      await returning.locator('#home-new').click(); await settled(returning);
+      assert.match(await returning.locator('#new-game-warn').innerText(), /This ends your game/);
+      await textFits(returning, '#new-game .mode-text, #new-game .level-stops > span, #level-line');
+      await capture(returning, 'new-game-saved');
+      const closing = await returning.locator('#new-game').evaluate(dialog => {
+        dialog.close();
+        return { display: getComputedStyle(dialog).display, direction: getComputedStyle(dialog).flexDirection, width: dialog.querySelector('.new-game-body').getBoundingClientRect().width };
+      });
+      assert.equal(closing.display, 'flex', 'The exit motion keeps the dialog visible');
+      assert.equal(closing.direction, 'column', 'New game stays in one column during exit');
+      assert.ok(closing.width >= 300, 'New game choices have room during exit');
+      await returning.close();
+    }
     await context.close();
   }
   assert.deepEqual(errors, []); assert.deepEqual(external, []);
