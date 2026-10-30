@@ -62,6 +62,23 @@ export function measureFrame(frame, threshold = 8) {
   };
 }
 
+/** Share of semi-transparent pixels more than 3 px from the opaque core. */
+export function ghostScore({ data, width, height }) {
+  let core = 0, ghost = 0;
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const alpha = data[(y * width + x) * 4 + 3];
+    if (alpha >= 200) { core++; continue; }
+    if (alpha < 24) continue;
+    let near = false;
+    for (let dy = -3; dy <= 3 && !near; dy++) for (let dx = -3; dx <= 3; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if (dx * dx + dy * dy <= 9 && nx >= 0 && nx < width && ny >= 0 && ny < height && data[(ny * width + nx) * 4 + 3] >= 200) { near = true; break; }
+    }
+    if (!near) ghost++;
+  }
+  return core ? ghost / core : 1;
+}
+
 /**
  * A numeric matte-fringe screen. A halo is a visible rim of the interpolation matte where the figure edge should show
  * its own colour. The screen compares low-coverage exterior-adjacent pixels with the nearest opaque interior.
@@ -138,6 +155,13 @@ export async function registerFrame(frame, geometry) {
     const delta = measureFrame({ data, width: canvasWidth, height: canvasHeight }).bottom - geometry.pivot[1];
     if (delta === 0) break;
     dy -= delta;
+    data = Buffer.alloc(canvasWidth * canvasHeight * 4);
+    place(data, dx, dy);
+  }
+  // Resampling can shift the measured foot band; align the placed pixels, not only the source estimate.
+  const footDelta = Math.round(geometry.pivot[0] - measureFrame({ data, width: canvasWidth, height: canvasHeight }).footCenterX);
+  if (footDelta) {
+    dx += footDelta;
     data = Buffer.alloc(canvasWidth * canvasHeight * 4);
     place(data, dx, dy);
   }
