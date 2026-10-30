@@ -6,7 +6,8 @@ export const HALO_LIMIT = 0.3;
 export const GHOST_MARGIN = 0.035;
 export const ghostLimit = frames => Math.max(...frames.filter(frame => frame.method === 'authored').map(frame => frame.ghost)) + GHOST_MARGIN;
 export const BASELINE_TOLERANCE_PX = 2;
-export const FOOT_TOLERANCE_PX = 3;
+export const HEAD_JUMP_LIMIT_PX = 20;
+export const HEAD_SCALE_SPREAD_LIMIT = 0.10;
 
 const check = (name, ok, message, metrics = {}) => ({ name, ok, message: ok ? 'ok' : message, metrics });
 const round = n => Math.round(n * 1000) / 1000;
@@ -42,13 +43,24 @@ export function runGates({ bank, frames, geometry, endpoints = {}, plan, movemen
   const baselineBad = [frames[0], frames.at(-1)].filter(frame => Math.abs(frame.measure.bottom - baseline) > BASELINE_TOLERANCE_PX);
   const keyBaselines = frames.filter(frame => frame.method === 'authored').map(frame => Math.abs(frame.measure.bottom - baseline));
   const drift = frames.reduce((max, frame) => Math.max(max, Math.abs(frame.measure.bottom - baseline)), 0);
-  const footBad = movement ? frames.filter(frame => frame.method === 'authored' && Math.abs(frame.measure.footCenterX - movement.footCenterX) > FOOT_TOLERANCE_PX) : [];
   const restBad = movement ? frames.filter(frame => frame.method === 'authored' && frame.sources[0] === movement.rest.sha256 && !frame.restMatch) : [];
-  fail('geometry', pivotOk && baselineBad.length === 0 && keyBaselines.every(delta => delta <= BASELINE_TOLERANCE_PX) && !footBad.length && !restBad.length,
+  fail('geometry', pivotOk && baselineBad.length === 0 && keyBaselines.every(delta => delta <= BASELINE_TOLERANCE_PX) && !restBad.length,
     !pivotOk ? `Bank pivot ${JSON.stringify(pivot)} does not equal the locked pivot ${JSON.stringify(targetPivot)}`
-      : footBad.length || restBad.length ? `Movement key registration differs from the rest: foot ${footBad.map(frame => `${frame.file} ${round(frame.measure.footCenterX - movement.footCenterX)}`).join(', ')}; rest pixels ${restBad.map(frame => frame.file).join(', ')}`
+      : restBad.length ? `Movement rest pixels differ: ${restBad.map(frame => frame.file).join(', ')}`
       : `Baseline is more than ${BASELINE_TOLERANCE_PX} px from the locked baseline (end frames: ${baselineBad.map(frame => `${frame.file} ${round(frame.measure.bottom - baseline)}`).join(', ')})`,
     { pivot, lockedPivot: targetPivot, endBaselinePx: [round(frames[0].measure.bottom - baseline), round(frames.at(-1).measure.bottom - baseline)], maxDriftPx: round(drift) });
+
+  if (movement) {
+    const walk = frames.slice(1, -1).filter(frame => frame.sources[0] !== movement.rest.sha256);
+    const positions = walk.map(frame => frame.transform?.measuredHeadX);
+    const scales = walk.map(frame => frame.transform?.measuredHeadScale);
+    const valid = [...positions, ...scales].every(Number.isFinite);
+    const maxJump = valid ? Math.max(0, ...positions.slice(1).map((x, i) => Math.abs(x - positions[i]))) : Infinity;
+    const scaleSpread = !valid ? Infinity : scales.length ? Math.max(...scales) / Math.min(...scales) - 1 : 0;
+    fail('steadiness', valid && maxJump <= HEAD_JUMP_LIMIT_PX && scaleSpread <= HEAD_SCALE_SPREAD_LIMIT,
+      `Walking head jump ${round(maxJump)} px (limit ${HEAD_JUMP_LIMIT_PX}); scale spread ${round(scaleSpread)} (limit ${HEAD_SCALE_SPREAD_LIMIT})`,
+      { maxHeadJumpPx: round(maxJump), headScaleSpread: round(scaleSpread), headJumpLimitPx: HEAD_JUMP_LIMIT_PX, headScaleSpreadLimit: HEAD_SCALE_SPREAD_LIMIT });
+  }
 
   const first = movement ? (frames[0].restMatch && movement.endpoint) : endpoints[frames[0].sha256], last = movement ? (frames.at(-1).restMatch && movement.endpoint) : endpoints[frames.at(-1).sha256];
   const allowed = new Set([bank.from, bank.to, bank.facing].filter(Boolean));

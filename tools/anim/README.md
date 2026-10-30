@@ -2,8 +2,8 @@
 
 ## Animation bank pipeline
 
-One command makes an animation bank. It registers the key frames, makes the in-between frames, checks the result and
-writes a preview. The tools are plain Node ESM, plus the retained alpha RIFE and Python Pillow.
+One command makes an animation bank. It registers the key frames, checks the result and writes a preview. For other
+kinds, it also makes in-between frames. The tools use Node ESM, Python and the retained alpha RIFE.
 
 ### Quick start
 
@@ -26,7 +26,7 @@ node tools/anim/promote.mjs <candidate> --catalog <dir> # publish a green candid
 ### Inputs
 
 - `--keys <folder>` reads every `*.png` in name order. A comma list of files also works.
-- `--timing <json>` takes `{"durationMs":120,"frameMs":15}`. The default is 15 ms and 4 steps for each key gap.
+- `--timing <json>` takes `{"durationMs":120,"frameMs":15}`. For non-movement banks the default is 15 ms and 4 steps for each key gap.
   Each key gap must hold a power-of-two number of steps, because the midpoint recursion halves one gap at a time.
 - `--kind` is `idle`, `turn`, `attack` or `movement`. A turn takes two facings (`SE-S`); other kinds take one.
 - `--output` defaults to `<repo parent>/anim-out/<character>/<army>/<id>`, outside git.
@@ -50,6 +50,17 @@ and baseline. The tool adds transparent padding around the rest and keys. Paddin
 even, so the runtime's half-size conversion keeps the same pixel grid. The runtime manifest must be available and match
 its recorded hash. The current builder supports rests with no explicit board scale.
 
+Movement uses authored keys only, at 120 ms per pose by default. The duration is `(keys - 1) * 120` ms.
+Do not make blended in-betweens for movement (owner, 2026-10-30). The fit matches the head and shoulders,
+sets one group scale, puts the walking heads on the rest head, keeps each lowest row on the rest baseline,
+and removes small alpha islands. The rest keys keep their pixels. The runtime should loop walking frames
+1 through n-2 and show the standing pose only at the start and end. If a source repeats the rest inside
+the sequence, the builder keeps it unchanged; remove that rest from the loop before use.
+
+The movement fitter needs Python with NumPy and OpenCV (`opencv-python-headless`). Set `KINGDOWN_ANIM_PYTHON`
+to that Python executable when `python3` does not have both packages. OpenCV provides the multi-scale template
+match and connected-component cleanup used by the proven fit. The fit records each transform and match score.
+
 ### In-between frames
 
 `rife.py` loads the retained RIFE network once and runs a plan of midpoints. Colour and alpha travel through the same
@@ -71,10 +82,11 @@ forces one machine.
 4. `ghost`: each in-between stays within 0.035 of the highest authored ghost score. The score counts semi-transparent
    pixels more than 3 px from the opaque body, divided by opaque pixels. This is a screen; look at the preview.
 5. `geometry`: the bank pivot equals the locked pivot, and the first and last frames stand within 2 px of the baseline.
-6. `endpoints`: turns and other banks use shipped endpoint hashes. Movement compares each padded end pixel to the
+6. `steadiness` (movement): consecutive walking head centres stay within 20 px and matched head-scale spread stays within 10%.
+7. `endpoints`: turns and other banks use shipped endpoint hashes. Movement compares each padded end pixel to the
    shipped facing rest at the same pivot, with only transparent pixels outside it.
-7. `timing`: frame count, frame step, start time and end time match the plan.
-8. `provenance`: every frame has a known method and a SHA-256.
+8. `timing`: frame count, frame step, start time and end time match the plan.
+9. `provenance`: every frame has a known method and a SHA-256.
 
 ### Output
 

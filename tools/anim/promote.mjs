@@ -32,6 +32,7 @@ export async function promote(candidate, { catalog = process.env.KINGDOWN_CATALO
   for (const check of ['rgba', 'exterior', 'matte-halo', 'ghost', 'geometry', 'endpoints', 'timing', 'provenance']) {
     if (!gates.checks?.some(entry => entry.name === check && entry.ok)) throw Error(`Gate ${check} did not pass; rebuild the candidate`);
   }
+  if (bank.kind === 'movement' && !gates.checks?.some(entry => entry.name === 'steadiness' && entry.ok)) throw Error('Gate steadiness did not pass; rebuild the candidate');
   const current = await resolveGeometry({ character: bank.character, army: bank.army, catalog, manifest });
   if (bank.geometry) {
     const locked = bank.geometry;

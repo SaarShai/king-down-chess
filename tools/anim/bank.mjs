@@ -77,7 +77,11 @@ export async function makeBank(options) {
   if (geometry.character !== character || geometry.army !== army) throw Error(`Geometry is for ${geometry.character}/${geometry.army}, not ${character}/${army}`);
 
   const keys = await listKeys(options.keys);
-  const plan = planTiming(await readTiming(options.timing), keys.length, { frameMs: options.frameMs, durationMs: options.durationMs });
+  const timing = await readTiming(options.timing);
+  const frameMs = timing?.frameMs ?? options.frameMs ?? (kind === 'movement' ? 120 : undefined);
+  const durationMs = timing?.durationMs ?? options.durationMs ?? (kind === 'movement' ? (keys.length - 1) * frameMs : undefined);
+  const plan = planTiming(timing, keys.length, { frameMs, durationMs });
+  if (kind === 'movement' && (keys.length < 3 || plan.steps !== 1)) throw Error('Movement needs a walking pose and authored keys only');
   if (plan.hold && kind !== 'idle') throw Error('A one-key bank is a hold; use at least two keys for a turn, attack or movement');
   const sources = kind === 'movement' ? await Promise.all(keys.map(readFrame)) : null;
   const movement = sources ? await movementGeometry(geometry, sources, edge.facing) : null;
@@ -91,12 +95,29 @@ export async function makeBank(options) {
     const source = sources?.[position] ?? await readFrame(keys[position]);
     const index = plan.keyIndexes[position];
     const placed = movement && source.sha256 === movement.rest.sha256
-      ? { frame: padRest(movement), transform: { scale: 1, dx: movement.offset[0], dy: movement.offset[1], identity: false } }
+      ? { frame: padRest(movement), transform: { scale: 1, dx: movement.offset[0], dy: movement.offset[1], identity: false, matchScore: null } }
       : await registerFrame(source, placement);
     const bytes = placed.transform.identity ? source.bytes : await encodeFrame(placed.frame);
     const file = `frames/${pad(index)}.png`;
     await writeFile(join(output, file), bytes);
     registered.push({ index, timeMs: timeOf(index, plan), method: 'authored', sources: [source.sha256], file, sourcePath: keys[position], transform: placed.transform });
+  }
+
+  if (movement) {
+    const script = fileURLToPath(new URL('./steady.py', import.meta.url));
+    let fit;
+    try {
+      const { stdout } = await exec(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', [script, JSON.stringify({ paths: registered.map(frame => join(output, frame.file)), baseline: movement.baseline, restIndexes: registered.map((frame, i) => frame.sources[0] === movement.rest.sha256 ? i : -1).filter(i => i >= 0) })], { cwd: root, maxBuffer: 1024 * 1024 });
+      fit = JSON.parse(stdout);
+    } catch (error) { throw Error(`Movement fit failed (Python with NumPy and OpenCV is required): ${error.stderr?.trim() || error.message}`); }
+    for (let i = 1; i < registered.length - 1; i++) {
+      const frame = registered[i];
+      if (frame.sources[0] !== movement.rest.sha256) frame.transform = { registration: frame.transform, ...fit[i - 1] };
+      else {
+        await writeFile(join(output, frame.file), await encodeFrame(padRest(movement)));
+        frame.transform = { ...frame.transform, ...fit[i - 1] };
+      }
+    }
   }
 
   const midpoints = plan.hold ? [] : midpointPlan(plan.keyIndexes);

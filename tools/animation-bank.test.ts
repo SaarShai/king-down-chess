@@ -201,27 +201,26 @@ it('keeps the shipped movement rest at its pivot and scale on a padded canvas', 
   const runtime = { sourceToRuntimeScale: 0.5, banks: [{ id: 'turn', character: 'pawn', army: 'white', kind: 'turn', from: 'SE', to: 'S', canvasSize: [48, 48], pivot: [24, 40], registrationHeightPx: 35, boardScale: null, frames: [{ sourceSha256: hashes[0] }, { sourceSha256: hashes[2] }] }] };
   await writeFile(manifest, JSON.stringify(runtime));
   const authority = { kind: 'runtime-manifest', path: manifest, sha256: digest(await readFile(manifest)) };
-  const stub = join(dir, 'stub.mjs');
-  await writeFile(stub, `import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-const plan = JSON.parse(readFileSync(process.argv[2], 'utf8')), base = dirname(process.argv[2]);
-for (const frame of plan.frames) { const out = resolve(base, frame.output); mkdirSync(dirname(out), { recursive: true }); writeFileSync(out, readFileSync(resolve(base, frame.left))); }
-writeFileSync(resolve(base, 'report.json'), '{}');`);
   const output = join(dir, 'movement');
-  const options = { character: 'pawn', army: 'white', kind: 'movement', facing: 'SE', keys, geometryRecord: { ...geometry, bodyHeightPx: 85, authority }, output, infer: `node ${stub}`, timing: { durationMs: 60, frameMs: 15 }, preview: false };
+  const options = { character: 'pawn', army: 'white', kind: 'movement', facing: 'SE', keys, geometryRecord: { ...geometry, bodyHeightPx: 85, authority }, output, preview: false };
   const result = await makeBank(options);
   expect(result.gates).toBe('pass');
   const bank = JSON.parse(await readFile(result.candidate, 'utf8'));
   const rest = await readFrame(join(keys, '000.png'));
   const first = await readFrame(join(output, bank.frames[0].url));
   const last = await readFrame(join(output, bank.frames.at(-1).url));
-  const placed = measureFrame(await readFrame(join(output, bank.frames[2].url)));
+  const placed = measureFrame(await readFrame(join(output, bank.frames[1].url)));
+  expect(bank.frameMs).toBe(120);
+  expect(bank.durationMs).toBe(240);
+  expect(bank.frames.every((frame: any) => frame.method === 'authored')).toBe(true);
+  expect(bank.provenance.keys[1].transform.matchScore).toBe(1);
+  await expect(makeBank({ ...options, timing: { durationMs: 60, frameMs: 15 }, output: join(dir, 'interpolated') })).rejects.toThrow('authored keys only');
   const offset = [bank.pivot[0] - 48, bank.pivot[1] - 80];
   expect(bank.bodyHeightPx).toBe(70);
   expect(bank.canvasSize[0]).toBeGreaterThan(96);
   expect(offset.every((n: number) => n % 2 === 0)).toBe(true);
   expect(placed.borderOpaque).toBe(0);
-  expect(placed.contentWidth).toBeGreaterThan(65);
+  expect(placed.contentWidth).toBeLessThan(65);
   expect(placed.contentHeight).toBe(60);
   expect(bank.direction).toBe('SE');
   expect(matchesRest(first, rest, offset)).toBe(true);
@@ -235,7 +234,7 @@ writeFileSync(resolve(base, 'report.json'), '{}');`);
   const changedAuthority = { ...authority, sha256: digest(await readFile(manifest)) };
   const identical = await makeBank({ ...options, geometryRecord: { ...geometry, pivot: [60, 80], bodyHeightPx: 70, authority: changedAuthority }, output: join(dir, 'identical') });
   const identicalBank = JSON.parse(await readFile(identical.candidate, 'utf8'));
-  const middle = await readFrame(join(dir, 'identical', identicalBank.frames[2].url));
+  const middle = await readFrame(join(dir, 'identical', identicalBank.frames[1].url));
   const firstIdentical = await readFrame(join(dir, 'identical', identicalBank.frames[0].url));
   expect(middle.data.equals(firstIdentical.data)).toBe(true);
   expect(measureFrame(middle).footCenterX).toBe(measureFrame(firstIdentical).footCenterX);
@@ -251,6 +250,45 @@ writeFileSync(resolve(base, 'report.json'), '{}');`);
   await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('runtime manifest changed');
 
 
+});
+
+it('fits shifted walking poses and removes a detached speck', async () => {
+  dir = await mkdtemp(join(tmpdir(), 'walk-fit-'));
+  const width = 128, height = 128;
+  const make = async (path: string, shift: number, foot: number, speck = false) => {
+    const data = Buffer.alloc(width * height * 4);
+    for (let y = 24; y < 104; y++) for (let x = 48 + shift; x < 80 + shift; x++) {
+      const p = (y * width + x) * 4;
+      data.set([((x - shift) * 17 + y * 3) % 220 + 20, ((x - shift) * 5 + y * 11) % 220 + 20, ((x - shift) * 7 + y * 13) % 220 + 20, 255], p);
+    }
+    for (let y = 92; y < 104; y++) for (let x = 48 + shift + foot; x < 56 + shift + foot; x++) data.set([90, 80, 70, 255], (y * width + x) * 4);
+    if (speck) data.set([100, 100, 100, 255], (40 * width + 8) * 4);
+    await sharp(data, { raw: { width, height, channels: 4 } }).png().toFile(path);
+  };
+  const paths = [0, 1, 2, 3].map(i => join(dir, `${i}.png`));
+  await make(paths[0], 0, 0); await make(paths[1], 0, -10); await make(paths[2], 10, 12, true); await make(paths[3], 0, 0);
+  const beforeRest = await readFile(paths[0]);
+  const fit = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['tools/anim/steady.py', JSON.stringify({ paths, baseline: 103, restIndexes: [0, 3] })], { encoding: 'utf8' });
+  expect(fit.status, fit.stderr).toBe(0);
+  const transforms = JSON.parse(fit.stdout);
+  expect(transforms).toHaveLength(2);
+  expect(transforms[1].matchScore).toBeGreaterThan(0.5);
+  expect(transforms[1].specks).toBeGreaterThan(0);
+  expect(Math.abs(transforms[1].measuredHeadX - transforms[0].measuredHeadX)).toBeLessThan(5);
+  expect(measureFrame(await readFrame(paths[2])).bottom).toBe(103);
+  expect((await readFrame(paths[2])).data[(40 * width + 8) * 4 + 3]).toBe(0);
+  expect(await readFile(paths[0])).toEqual(beforeRest);
+});
+
+it('gates walking head jumps and scale spread without pinning walking feet', () => {
+  const frame = (x: number, scale: number, source: string, timeMs: number) => ({ file: `frame-${timeMs}`, method: 'authored', sources: [source], restMatch: source === 'rest', metadata: { channels: 4 }, measure: { borderOpaque: 0, alphaMin: 0, alphaMax: 255, bottom: 100, footCenterX: 300 }, fringe: { ratio: 0 }, ghost: 0, sha256: 'a'.repeat(64), timeMs, transform: { measuredHeadX: x, measuredHeadScale: scale } });
+  const rest = frame(0, 1, 'rest', 0), first = frame(100, 1, 'walk', 120), next = frame(110, 1.03, 'walk', 240), end = frame(0, 1, 'rest', 360);
+  const check = (frames: any[]) => runGates({ bank: { pivot: [50, 100] }, frames, geometry: { pivot: [50, 100] }, movement: { pivot: [50, 100], baseline: 100, rest: { sha256: 'rest' }, endpoint: {} }, plan: { frameCount: 4, durationMs: 360, frameMs: 120 } });
+  expect(check([rest, first, next, end]).checks.find(c => c.name === 'geometry')?.ok).toBe(true);
+  expect(check([rest, first, next, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(true);
+  expect(check([rest, { ...first, sources: ['rest'], restMatch: true }, next, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(true);
+  expect(check([rest, first, { ...next, transform: { measuredHeadX: 121, measuredHeadScale: 1 } }, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(false);
+  expect(check([rest, first, { ...next, transform: { measuredHeadX: 100, measuredHeadScale: 1.2 } }, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(false);
 });
 
 it('promotes a green candidate into the frozen catalog under its lock', async () => {
