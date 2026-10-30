@@ -1,0 +1,126 @@
+{
+  "id": "archer-golden-arrow-flight-v1",
+  "durationMs": 320,
+  "assets": [
+    {
+      "path": "assets/golden-arrow.png",
+      "sha256": "28a2abc970fbfe07148b73532c7f3313917393b5675a0210d15ffb3df90ef9bc",
+      "nativeDimensions": [
+        1774,
+        887
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "alphaPixels": {
+        "clear": 1414447,
+        "partial": 159085,
+        "opaque": 6
+      },
+      "anchor": [
+        1540,
+        440
+      ],
+      "axis": [
+        1,
+        0
+      ],
+      "nativeToPreviewScale": 0.055
+    },
+    {
+      "path": "assets/contact-flash.png",
+      "sha256": "06bb69e349305a542f9db8eb16fb42ae5e495b13431df2e2b717759b409ad1af",
+      "nativeDimensions": [
+        1774,
+        887
+      ],
+      "alphaRange": [
+        0,
+        254
+      ],
+      "alphaPixels": {
+        "clear": 1460897,
+        "partial": 112641,
+        "opaque": 0
+      },
+      "anchor": [
+        885,
+        440
+      ],
+      "axis": [
+        1,
+        0
+      ],
+      "nativeToPreviewScale": 0.052
+    },
+    {
+      "path": "assets/golden-wisp.png",
+      "sha256": "2e5449b3c9ced1ec5680a25360a173611e21097b0f0e8204bfadb41be763a2b2",
+      "nativeDimensions": [
+        1254,
+        1254
+      ],
+      "alphaRange": [
+        0,
+        253
+      ],
+      "alphaPixels": {
+        "clear": 1300681,
+        "partial": 271835,
+        "opaque": 0
+      },
+      "anchor": [
+        630,
+        1105
+      ],
+      "axis": [
+        0,
+        -1
+      ],
+      "nativeToPreviewScale": 0.025
+    }
+  ],
+  "timing": {
+    "clock": "elapsedMs is relative to action beatTimes.release; caller owns action time",
+    "releaseMs": 0,
+    "flightEndMs": 220,
+    "contactStartMs": 220,
+    "contactEndMs": 320,
+    "afterEnd": "draw nothing; no residual particles",
+    "speed": "fixed 220 ms flight; distance sets speed; near/far arrivals share contact cue"
+  },
+  "scaleConvention": "scale=1 uses this preview canvas (1280x896): arrow source multiplied by 0.055, crisp length about 71 px; flash 0.052..0.068; trailing wisp 0.025. Root projects the body anchor to canvas and passes its body-to-preview scale. Positions are canvas pixels and never multiplied by scale.",
+  "anchors": {
+    "origin": "arrowhead at release, exact action effectAnchors id arrow",
+    "target": "projectile arrowhead reaches target at 220 ms; flash center is target",
+    "arrowTipNative": [
+      1540,
+      440
+    ],
+    "arrowTailNative": [
+      245,
+      440
+    ],
+    "arrowAxis": "+X",
+    "contactCenterNative": [
+      885,
+      440
+    ],
+    "wispRootNative": [
+      630,
+      1105
+    ],
+    "wispAxis": "-Y"
+  },
+  "method": "Native alpha raster arrow and contact flash from built-in Imagegen; existing native golden wisp reused. Each draw independently positions and turns separate sprites. No character transforms or pixel edits. No geometric substitute for art.",
+  "limits": [
+    "Character motion remains the character worker\u2019s input, including a nocked arrow and RGB matte. Flight does not remove the nocked arrow.",
+    "Fixed flight duration is 220 ms for all distances; it is not constant physical speed.",
+    "secondaryOrigin is ignored for this single arrow effect.",
+    "Native generated alpha includes very faint peripheral pixels; no raster cleanup or extraction is applied.",
+    "Continuous smoke is a separate preview layer and is outside this module."
+  ],
+  "runtimePaths": "All local assets resolve against effect.mjs with URL and Image.decode; no external paths.",
+  "sourceProof": "sources/source-proof.json"
+}

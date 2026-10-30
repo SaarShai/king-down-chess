@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import {checkCharacterEffects} from './lib/character-effects-game-check.mjs';
 import { env, launch, shot, trapErrors, assertNoErrors } from './lib/checks.mjs';
 const browser=await launch(),checks=[];
-function runtimeNetwork(page){const records=[],pending=[];page.on('response',response=>{if(response.url().includes('/character-runtime/'))pending.push(response.body().then(bytes=>records.push({url:response.url(),bytes:bytes.length})).catch(()=>{}));});return async()=>{await Promise.all(pending);return {requests:records.length,bytes:records.reduce((n,r)=>n+r.bytes,0)};};}
+function runtimeNetwork(page){const records=[],pending=[];page.on('response',response=>{if(response.url().includes('/character-runtime/'))pending.push(response.body().then(bytes=>records.push({url:response.url(),bytes:bytes.length})).catch(()=>{}));});return async()=>{await Promise.all(pending);return {requests:records.length,bytes:records.reduce((n,r)=>n+r.bytes,0),frameBytes:records.filter(r=>/\/character-runtime\/assets\//.test(r.url)).reduce((n,r)=>n+r.bytes,0),manifestBytes:records.filter(r=>/\/character-runtime\/manifest\.json/.test(r.url)).reduce((n,r)=>n+r.bytes,0)};};}
 try {
  for(const [character,fen,from,to,flipped] of [
   ['pawn','7k/8/8/3p4/4P3/8/8/K7 w - - 0 1',28,35],
@@ -71,6 +71,7 @@ try {
  }
  // The ready cast and all six king designs draw in the real game with their separate cues.
  for(const [label,kings,fen,count] of [
+  ['standard-position',null,'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',32],
   ['ready-cast',null,'onbalmgk/pppppppp/8/8/8/8/PPPPPPPP/ONBALMGK w - - 0 1',32],
   ['kings-frost-flame','frost:freeze,flame:haste','7k/8/8/3p4/4P3/8/8/K7 w - - 0 1',4],
   ['kings-mud-stratus','mud:march,stratus:flight','7k/8/8/3p4/4P3/8/8/K7 w - - 0 1',4],
