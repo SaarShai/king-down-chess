@@ -8,6 +8,8 @@ export const ghostLimit = frames => Math.max(...frames.filter(frame => frame.met
 export const BASELINE_TOLERANCE_PX = 2;
 export const HEAD_JUMP_LIMIT_PX = 20;
 export const HEAD_SCALE_SPREAD_LIMIT = 0.10;
+export const HEAD_BOB_HEIGHT_LIMIT = 0.04;
+export const BODY_HEIGHT_DIFFERENCE_LIMIT = 0.08;
 
 const check = (name, ok, message, metrics = {}) => ({ name, ok, message: ok ? 'ok' : message, metrics });
 const round = n => Math.round(n * 1000) / 1000;
@@ -52,18 +54,22 @@ export function runGates({ bank, frames, geometry, endpoints = {}, plan, movemen
 
   if (movement) {
     const walk = frames.slice(1, -1).filter(frame => frame.sources[0] !== movement.rest.sha256);
-    const positions = walk.map(frame => frame.transform?.measuredHeadX);
-    const scales = walk.map(frame => frame.transform?.measuredHeadScale);
-    const restPositions = [frames[0], frames.at(-1)].map(frame => frame.transform?.measuredHeadX);
-    const valid = [...positions, ...scales, ...restPositions].every(Number.isFinite) && scales.every(scale => scale > 0);
-    const maxJump = valid ? Math.max(0, ...positions.slice(1).map((x, i) => Math.abs(x - positions[i]))) : Infinity;
-    const startJump = valid && positions.length ? Math.abs(restPositions[0] - positions[0]) : valid ? 0 : Infinity;
-    const endJump = valid && positions.length ? Math.abs(positions.at(-1) - restPositions[1]) : valid ? 0 : Infinity;
-    const loopJump = valid && positions.length ? Math.abs(positions.at(-1) - positions[0]) : valid ? 0 : Infinity;
-    const scaleSpread = !valid ? Infinity : scales.length ? Math.max(...scales) / Math.min(...scales) - 1 : 0;
-    fail('steadiness', valid && Math.max(maxJump, startJump, endJump, loopJump) <= HEAD_JUMP_LIMIT_PX && scaleSpread <= HEAD_SCALE_SPREAD_LIMIT,
-      `Head jumps within ${round(maxJump)}, start ${round(startJump)}, end ${round(endJump)}, loop ${round(loopJump)} px (limit ${HEAD_JUMP_LIMIT_PX}); scale spread ${round(scaleSpread)} (limit ${HEAD_SCALE_SPREAD_LIMIT})`,
-      { maxHeadJumpPx: round(maxJump), startHeadJumpPx: round(startJump), endHeadJumpPx: round(endJump), loopHeadJumpPx: round(loopJump), headScaleSpread: round(scaleSpread), headJumpLimitPx: HEAD_JUMP_LIMIT_PX, headScaleSpreadLimit: HEAD_SCALE_SPREAD_LIMIT });
+    const matches = walk.map(frame => frame.headMatch), rests = [frames[0].headMatch, frames.at(-1).headMatch];
+    const valid = !walk.length || [...matches, ...rests].every(m => m && [m.x, m.y, m.scale, m.score].every(Number.isFinite) && m.scale > 0);
+    const pairs = valid && walk.length ? { within: matches.slice(1).map((m, i) => [matches[i], m]), start: [[rests[0], matches[0]]], end: [[matches.at(-1), rests[1]]], loop: [[matches.at(-1), matches[0]]] } : { within: [], start: [], end: [], loop: [] };
+    const delta = (key, axis) => valid ? Math.max(0, ...pairs[key].map(([a, b]) => Math.abs(a[axis] - b[axis]))) : Infinity;
+    const scale = key => valid ? Math.max(0, ...pairs[key].map(([a, b]) => Math.max(a.scale, b.scale) / Math.min(a.scale, b.scale) - 1)) : Infinity;
+    const x = Object.fromEntries(Object.keys(pairs).map(key => [key, delta(key, 'x')]));
+    const y = Object.fromEntries(Object.keys(pairs).map(key => [key, delta(key, 'y')]));
+    const sizes = Object.fromEntries(Object.keys(pairs).map(key => [key, scale(key)]));
+    const scaleSpread = valid && matches.length ? Math.max(...matches.map(m => m.scale)) / Math.min(...matches.map(m => m.scale)) - 1 : valid ? 0 : Infinity;
+    const bobLimit = movement.bodyHeightPx * HEAD_BOB_HEIGHT_LIMIT;
+    const bodyDifference = movement.bodyHeightDifference;
+    fail('steadiness', valid && Number.isFinite(bobLimit) && Number.isFinite(bodyDifference) && bodyDifference <= BODY_HEIGHT_DIFFERENCE_LIMIT
+      && Object.values(x).every(n => n <= HEAD_JUMP_LIMIT_PX) && ['start', 'end', 'loop'].every(key => y[key] <= bobLimit)
+      && scaleSpread <= HEAD_SCALE_SPREAD_LIMIT && Object.values(sizes).every(n => n <= HEAD_SCALE_SPREAD_LIMIT),
+      `Head jumps x ${JSON.stringify(x)}, y ${JSON.stringify(y)} (limits ${HEAD_JUMP_LIMIT_PX} px and ${round(bobLimit)} px); scale ${JSON.stringify(sizes)} and spread ${round(scaleSpread)} (limit ${HEAD_SCALE_SPREAD_LIMIT}); body height difference ${round(bodyDifference)} (limit ${BODY_HEIGHT_DIFFERENCE_LIMIT})`,
+      { maxHeadJumpPx: round(x.within), startHeadJumpPx: round(x.start), endHeadJumpPx: round(x.end), loopHeadJumpPx: round(x.loop), headScaleSpread: round(scaleSpread), x, y, scale: sizes, bobLimitPx: bobLimit, bodyHeightDifference: bodyDifference, headJumpLimitPx: HEAD_JUMP_LIMIT_PX, headScaleSpreadLimit: HEAD_SCALE_SPREAD_LIMIT });
   }
 
   const first = movement ? (frames[0].restMatch && movement.endpoint) : endpoints[frames[0].sha256], last = movement ? (frames.at(-1).restMatch && movement.endpoint) : endpoints[frames.at(-1).sha256];

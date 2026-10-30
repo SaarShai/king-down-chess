@@ -239,6 +239,7 @@ it('keeps the shipped movement rest at its pivot and scale on a padded canvas', 
   first.data[((offset[1] + 20) * first.width + offset[0] + 30) * 4] ^= 1;
   expect(matchesRest(first, rest, offset)).toBe(false);
   await expect(makeBank({ ...options, facing: 'N', output: join(dir, 'wrong-facing') })).rejects.toThrow('not a shipped N endpoint');
+  const walkingKey = await readFile(join(keys, '001.png'));
   await writeFile(join(keys, '001.png'), await readFile(join(keys, '000.png')));
   runtime.banks[0].pivot = [30, 40];
   await writeFile(manifest, JSON.stringify(runtime));
@@ -253,19 +254,24 @@ it('keeps the shipped movement rest at its pivot and scale on a padded canvas', 
   const gateFrame = { file: 'key', method: 'authored', sources: [hashes[0]], restMatch: false, metadata: { channels: 4 }, measure: { borderOpaque: 0, alphaMin: 0, alphaMax: 255, bottom: 100, footCenterX: 110 }, fringe: { ratio: 0 }, ghost: 0, sha256: hashes[0], timeMs: 0 };
   const gateReport = runGates({ bank: { pivot: [50, 100] }, frames: [gateFrame, { ...gateFrame, timeMs: 15 }], geometry, movement: { pivot: [50, 100], baseline: 100, footCenterX: 100, rest: { sha256: hashes[0] }, endpoint: {} }, plan: { frameCount: 2, durationMs: 15, frameMs: 15 } });
   expect(gateReport.checks.find((check: any) => check.name === 'geometry').ok).toBe(false);
-  await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).resolves.toMatchObject({ dryRun: true });
-  const gatesPath = join(dir, 'identical', 'gates.json');
+  await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('Gate steadiness did not pass');
+  await writeFile(join(keys, '001.png'), walkingKey);
+  const candidate = await makeBank({ ...options, geometryRecord: { ...geometry, pivot: [60, 80], bodyHeightPx: 70, authority: changedAuthority }, output: join(dir, 'movement-promote') });
+  await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).resolves.toMatchObject({ dryRun: true });
+  const gatesPath = join(dir, 'movement-promote', 'gates.json');
   const gates = JSON.parse(await readFile(gatesPath, 'utf8'));
-  for (const checks of [gates.checks.filter((c: any) => c.name !== 'steadiness'), gates.checks.map((c: any) => c.name === 'steadiness' ? { ...c, ok: false } : c), gates.checks.map((c: any) => c.name === 'steadiness' ? { ...c, metrics: { maxHeadJumpPx: 0, headScaleSpread: 0 } } : c)]) {
+  const metricVariants = ['maxHeadJumpPx', 'startHeadJumpPx', 'endHeadJumpPx', 'loopHeadJumpPx', 'headScaleSpread'].flatMap(key => [undefined, 21].map(value => ({ ...gates.checks.find((c: any) => c.name === 'steadiness').metrics, [key]: value })));
+  for (const checks of [gates.checks.filter((c: any) => c.name !== 'steadiness'), gates.checks.map((c: any) => c.name === 'steadiness' ? { ...c, ok: false } : c), ...metricVariants.map(metrics => gates.checks.map((c: any) => c.name === 'steadiness' ? { ...c, metrics } : c))]) {
     await writeFile(gatesPath, JSON.stringify({ ...gates, checks }));
-    await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('Gate steadiness did not pass');
+    await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('Gate steadiness did not pass');
   }
   await writeFile(gatesPath, JSON.stringify(gates));
-  identicalBank.pivot[0] += 2;
-  await writeFile(identical.candidate, JSON.stringify(identicalBank));
-  await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('facing-rest transform changed');
+  const candidateBank = JSON.parse(await readFile(candidate.candidate, 'utf8'));
+  candidateBank.pivot[0] += 2;
+  await writeFile(candidate.candidate, JSON.stringify(candidateBank));
+  await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('facing-rest transform changed');
   await writeFile(manifest, JSON.stringify({ ...runtime, extra: true }));
-  await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('runtime manifest changed');
+  await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('runtime manifest changed');
 
 
 });
@@ -281,8 +287,8 @@ it('fits shifted walking poses and removes a detached speck', async () => {
     }
     for (let y = 92; y < 104; y++) for (let x = 48 + shift + foot; x < 56 + shift + foot; x++) data.set([90, 80, 70, 255], (y * width + x) * 4);
     if (speck) {
-      data.set([100, 100, 100, 255], (40 * width + 8) * 4);
-      data.set([100, 100, 100, 4], (50 * width + 8) * 4);
+      data.set([100, 100, 100, 255], (40 * width + 40) * 4);
+      data.set([100, 100, 100, 4], (50 * width + 40) * 4);
     }
     await sharp(data, { raw: { width, height, channels: 4 } }).png().toFile(path);
   };
@@ -291,13 +297,21 @@ it('fits shifted walking poses and removes a detached speck', async () => {
   const beforeRest = await readFile(paths[0]);
   const fit = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['tools/anim/steady.py', JSON.stringify({ paths, baseline: 103, restIndexes: [0, 3] })], { encoding: 'utf8' });
   expect(fit.status, fit.stderr).toBe(0);
-  const { transforms, restHeadX } = JSON.parse(fit.stdout);
+  const { transforms, headTemplate } = JSON.parse(fit.stdout);
+  const measured = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['tools/anim/steady.py', JSON.stringify({ paths, template: join(dirname(dir), headTemplate) })], { encoding: 'utf8' });
+  expect(measured.status, measured.stderr).toBe(0);
+  const headMeasurements = JSON.parse(measured.stdout);
   expect(transforms).toHaveLength(2);
-  expect(Math.abs(transforms[0].measuredHeadX - restHeadX)).toBeLessThan(5);
+  expect(Math.abs(headMeasurements[1].x - headMeasurements[0].x)).toBeLessThan(5);
   expect(transforms[1].matchScore).toBeGreaterThan(0.5);
-  expect(Math.abs(transforms[1].measuredHeadX - transforms[0].measuredHeadX)).toBeLessThan(5);
+  expect(Math.abs(headMeasurements[2].x - headMeasurements[1].x)).toBeLessThan(5);
   expect(measureFrame(await readFrame(paths[2])).bottom).toBe(103);
-  expect((await readFrame(paths[2])).data[(40 * width + 8) * 4 + 3]).toBe(0);
+  expect(transforms[1].specks).toBeGreaterThan(0);
+  const sx = Math.round(40 * transforms[1].scale + transforms[1].dx);
+  const sy = Math.round(40 * transforms[1].scale + transforms[1].dy);
+  expect(sx).toBeGreaterThan(1); expect(sx).toBeLessThan(width - 1);
+  expect(sy).toBeGreaterThan(1); expect(sy).toBeLessThan(height - 1);
+  expect((await readFrame(paths[2])).data[(sy * width + sx) * 4 + 3]).toBe(0);
   expect(await readFile(paths[0])).toEqual(beforeRest);
 });
 
@@ -317,6 +331,31 @@ with tempfile.TemporaryDirectory() as d:
   const result = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['-c', script], { encoding: 'utf8' });
   expect(result.status, result.stderr).toBe(0);
   expect(Math.abs(JSON.parse(result.stdout))).toBeLessThan(4);
+});
+
+it('matches a standing head at a different scale and position', () => {
+  const script = `import json, tempfile, os, cv2, numpy as np
+from tools.anim.steady import save, fit, measure_saved
+rng = np.random.default_rng(23)
+patch = rng.uniform(.2, 1, (80, 32, 3)).astype(np.float32)
+a = np.zeros((192, 192, 4), dtype=np.float32)
+a[40:120, 65:97, :3] = patch; a[40:120, 65:97, 3] = 1
+rest = np.zeros_like(a)
+rest[24:120, 92:130, :3] = cv2.resize(patch, (38, 96)); rest[24:120, 92:130, 3] = 1
+with tempfile.TemporaryDirectory() as d:
+    frames = os.path.join(d, 'frames'); os.mkdir(frames)
+    paths = [os.path.join(frames, str(i) + '.png') for i in range(3)]
+    for path, image in zip(paths, [rest, a, rest]): save(path, image)
+    result = fit(paths, 119, [0, 2])
+    matches = measure_saved(paths, os.path.join(d, result['headTemplate']))
+    print(json.dumps([result['transforms'][0]['restMatchScale'], result['transforms'][0]['groupScale'], matches]))`;
+  const result = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['-c', script], { encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+  const [restScale, groupScale, matches] = JSON.parse(result.stdout);
+  expect(restScale).toBeLessThan(0.95);
+  expect(groupScale).toBeGreaterThan(1.05);
+  expect(Math.abs(matches[0].x - matches[1].x)).toBeLessThan(5);
+  expect(Math.abs(matches[0].scale / matches[1].scale - 1)).toBeLessThan(0.1);
 });
 
 it('clears colour where saved alpha is zero', () => {
@@ -346,22 +385,28 @@ print(json.dumps([count, float(clean[3, 3, 3]), float(clean[15, 15, 3])]))`;
 });
 
 it('gates walking head jumps and scale spread without pinning walking feet', () => {
-  const frame = (x: number, scale: number, source: string, timeMs: number) => ({ file: `frame-${timeMs}`, method: 'authored', sources: [source], restMatch: source === 'rest', metadata: { channels: 4 }, measure: { borderOpaque: 0, alphaMin: 0, alphaMax: 255, bottom: 100, footCenterX: 300 }, fringe: { ratio: 0 }, ghost: 0, sha256: 'a'.repeat(64), timeMs, transform: { measuredHeadX: x, measuredHeadScale: scale } });
+  const frame = (x: number, scale: number, source: string, timeMs: number) => ({ file: `frame-${timeMs}`, method: 'authored', sources: [source], restMatch: source === 'rest', metadata: { channels: 4 }, measure: { borderOpaque: 0, alphaMin: 0, alphaMax: 255, bottom: 100, footCenterX: 300 }, fringe: { ratio: 0 }, ghost: 0, sha256: 'a'.repeat(64), timeMs, headMatch: { x, y: 40, scale, score: 1 } });
   const rest = frame(100, 1, 'rest', 0), first = frame(100, 1, 'walk', 120), next = frame(110, 1.03, 'walk', 240), end = frame(100, 1, 'rest', 360);
-  const check = (frames: any[]) => runGates({ bank: { pivot: [50, 100] }, frames, geometry: { pivot: [50, 100] }, movement: { pivot: [50, 100], baseline: 100, rest: { sha256: 'rest' }, endpoint: {} }, plan: { frameCount: 4, durationMs: 360, frameMs: 120 } });
+  const check = (frames: any[], bodyHeightDifference = 0) => runGates({ bank: { pivot: [50, 100] }, frames, geometry: { pivot: [50, 100] }, movement: { pivot: [50, 100], baseline: 100, bodyHeightPx: 100, bodyHeightDifference, rest: { sha256: 'rest' }, endpoint: {} }, plan: { frameCount: 4, durationMs: 360, frameMs: 120 } });
   expect(check([rest, first, next, end]).checks.find(c => c.name === 'geometry')?.ok).toBe(true);
   expect(check([rest, first, next, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(true);
   expect(check([rest, { ...first, sources: ['rest'], restMatch: true }, next, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(true);
-  expect(check([rest, first, { ...next, transform: { measuredHeadX: 121, measuredHeadScale: 1 } }, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(false);
-  expect(check([rest, first, { ...next, transform: { measuredHeadX: 100, measuredHeadScale: 1.2 } }, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(false);
+  expect(check([rest, first, { ...next, headMatch: { ...next.headMatch, x: 121 } }, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(false);
+  expect(check([rest, first, { ...next, headMatch: { ...next.headMatch, x: 100, scale: 1.2 } }, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(false);
   const steady = (frames: any[]) => check(frames).checks.find(c => c.name === 'steadiness')!;
-  expect(steady([{ ...rest, transform: { measuredHeadX: 79 } }, first, next, end]).ok).toBe(false);
-  expect(steady([rest, first, next, { ...end, transform: { measuredHeadX: 131 } }]).ok).toBe(false);
+  expect(steady([{ ...rest, headMatch: { ...rest.headMatch, x: 79 } }, first, next, end]).ok).toBe(false);
+  expect(steady([rest, first, next, { ...end, headMatch: { ...end.headMatch, x: 131 } }]).ok).toBe(false);
   const mid = frame(110, 1, 'walk', 240), far = frame(121, 1, 'walk', 360);
-  expect(steady([rest, first, mid, far, { ...end, transform: { measuredHeadX: 121 } }]).ok).toBe(false);
-  expect(steady([rest, { ...first, transform: {} }, next, end]).ok).toBe(false);
-  expect(steady([rest, first, { ...next, transform: { measuredHeadX: 110, measuredHeadScale: 0 } }, end]).ok).toBe(false);
-  expect(steady([{ ...rest, transform: {} }, first, next, end]).ok).toBe(false);
+  expect(steady([rest, first, mid, far, { ...end, headMatch: { ...end.headMatch, x: 121 } }]).ok).toBe(false);
+  expect(steady([rest, { ...first, headMatch: {} }, next, end]).ok).toBe(false);
+  expect(steady([rest, first, { ...next, headMatch: { ...next.headMatch, scale: 0 } }, end]).ok).toBe(false);
+  expect(steady([{ ...rest, headMatch: {} }, first, next, end]).ok).toBe(false);
+  expect(steady([{ ...rest, headMatch: { ...rest.headMatch, y: 35 } }, first, next, end]).ok).toBe(false);
+  expect(steady([rest, first, next, { ...end, headMatch: { ...end.headMatch, y: 35 } }]).ok).toBe(false);
+  expect(steady([rest, first, { ...next, headMatch: { ...next.headMatch, y: 45 } }, { ...end, headMatch: { ...end.headMatch, y: 45 } }]).ok).toBe(false);
+  expect(steady([{ ...rest, headMatch: { ...rest.headMatch, scale: 1.2 } }, first, next, end]).ok).toBe(false);
+  expect(steady([rest, first, next, { ...end, headMatch: { ...end.headMatch, scale: 1.2 } }]).ok).toBe(false);
+  expect(check([rest, first, next, end], 0.081).checks.find(c => c.name === 'steadiness')?.ok).toBe(false);
 });
 
 it('promotes a green candidate into the frozen catalog under its lock', async () => {

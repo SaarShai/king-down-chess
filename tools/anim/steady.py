@@ -1,9 +1,9 @@
-import json, sys
+import json, os, sys
 import cv2
 import numpy as np
 
 BAND = 0.28          # head and shoulders: top 28% of the reference figure
-SCALES = np.arange(0.80, 1.2001, 0.01)
+SCALES = np.arange(0.60, 1.6001, 0.01)
 
 
 def load(path):
@@ -98,8 +98,9 @@ def fit(paths, baseline, rest_indexes):
     fits = [(1.0, 1.0, (hx, hy))] + [best_scale(f, tmpl, 0.5) for f in walk[1:]]
     rt, rb, _, _ = box(rest[:, :, 3])
     heights = [(box(f[:, :, 3])[1] - box(f[:, :, 3])[0]) * s for f, (_, s, _) in zip(walk, fits)]
-    group = (rb - rt) / max(heights)
     rest_score, rest_scale, rest_loc = best_scale(rest, tmpl, 0.5)
+    group = 1 / rest_scale
+    height_difference = abs(max(heights) * group / (rb - rt) - 1)
     rest_hx = (rest_loc[0] + tmpl.shape[1]) / rest_scale
     for index, f, (score, scale, loc) in zip(indices, walk, fits):
         factor = scale * group
@@ -121,15 +122,29 @@ def fit(paths, baseline, rest_indexes):
             ty += correction
             placed, specks = despeckle(transform(f, factor, tx, ty, rest.shape))
         save(paths[index], placed)
-        result[index - 1] = {'scale': factor, 'dx': tx, 'dy': ty, 'matchScore': float(score), 'headScale': float(scale), 'groupScale': float(group), 'specks': specks, 'restMatchScore': float(rest_score), 'restMatchScale': float(rest_scale)}
+        result[index - 1] = {'scale': factor, 'dx': tx, 'dy': ty, 'matchScore': float(score), 'headScale': float(scale), 'groupScale': float(group), 'specks': specks, 'restMatchScore': float(rest_score), 'restMatchScale': float(rest_scale), 'bodyHeightDifference': float(height_difference)}
     fitted = [load(paths[i]) for i in indices]
     reference, _ = head_template(fitted[0], 0.5)
-    for position, (index, image) in enumerate(zip(indices, fitted)):
-        result[index - 1]['measuredHeadX'] = head_x(image)
-        result[index - 1]['measuredHeadScale'] = 1.0 if position == 0 else float(best_scale(image, reference, 0.5)[1])
-    return {"transforms": result, "restHeadX": head_x(rest)}
+    template_path = os.path.join(os.path.dirname(os.path.dirname(paths[0])), 'head-template.png')
+    cv2.imwrite(template_path, cv2.cvtColor((reference * 255 + 0.5).astype(np.uint8), cv2.COLOR_RGB2BGR))
+    return {'transforms': result, 'headTemplate': 'head-template.png', 'bodyHeightDifference': float(height_difference)}
+
+
+def measure_saved(paths, template_path):
+    """Re-match the recorded template on the saved frames for the gate."""
+    reference = cv2.cvtColor(cv2.imread(template_path), cv2.COLOR_BGR2RGB).astype(np.float32) / 255
+    measurements = []
+    for path in paths:
+        score, scale, loc = best_scale(load(path), reference, 0.5)
+        measurements.append({'x': (loc[0] + reference.shape[1]) / scale,
+                             'y': (loc[1] + reference.shape[0]) / scale,
+                             'scale': 1 / scale, 'score': float(score)})
+    return measurements
 
 
 if __name__ == '__main__':
     args = json.loads(sys.argv[1])
-    print(json.dumps(fit(args['paths'], args['baseline'], args['restIndexes'])))
+    if args.get('template'):
+        print(json.dumps(measure_saved(args['paths'], args['template'])))
+    else:
+        print(json.dumps(fit(args['paths'], args['baseline'], args['restIndexes'])))

@@ -110,7 +110,13 @@ export async function makeBank(options) {
       const { stdout } = await exec(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', [script, JSON.stringify({ paths: registered.map(frame => join(output, frame.file)), baseline: movement.baseline, restIndexes: registered.map((frame, i) => frame.sources[0] === movement.rest.sha256 ? i : -1).filter(i => i >= 0) })], { cwd: root, maxBuffer: 1024 * 1024 });
       fit = JSON.parse(stdout);
     } catch (error) { throw Error(`Movement fit failed (Python with NumPy and OpenCV is required): ${error.stderr?.trim() || error.message}`); }
-    for (const frame of registered.filter(frame => frame.sources[0] === movement.rest.sha256)) frame.transform.measuredHeadX = fit.restHeadX;
+    movement.headTemplate = fit.headTemplate ?? null;
+    movement.bodyHeightDifference = fit.bodyHeightDifference ?? 0;
+    if (movement.headTemplate) {
+      const { stdout } = await exec(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', [script, JSON.stringify({ paths: registered.map(frame => join(output, frame.file)), template: join(output, movement.headTemplate) })], { cwd: root, maxBuffer: 1024 * 1024 });
+      const matches = JSON.parse(stdout);
+      for (let i = 0; i < registered.length; i++) registered[i].headMatch = matches[i];
+    }
     for (let i = 1; i < registered.length - 1; i++) {
       const frame = registered[i];
       if (frame.sources[0] !== movement.rest.sha256) frame.transform = { registration: frame.transform, ...fit.transforms[i - 1] };
@@ -179,12 +185,15 @@ export async function makeBank(options) {
     schemaVersion: 1, id, character, army, kind, ...edge, ...(movement ? { direction: edge.facing } : {}), status: 'candidate',
     durationMs: plan.durationMs, frameMs: plan.frameMs, canvasSize: movement?.canvas ?? geometry.canvas, times: frames.map(frame => frame.timeMs),
     pivot: movement?.pivot ?? geometry.pivot, bodyHeightPx: movement?.registrationHeightPx ?? geometry.bodyHeightPx, boardScale: geometry.boardScale ?? null,
+    ...(movement ? { standingHeightPx: movement.bodyHeightPx } : {}),
     frames: frames.map(frame => ({ url: frame.file, timeMs: frame.timeMs, sha256: frame.sha256, method: frame.method, sources: frame.sources })),
     previewGeometry: { pivot: movement?.pivot ?? geometry.pivot, bodyHeightPx: movement?.registrationHeightPx ?? geometry.bodyHeightPx },
     geometry: { authority: geometry.authority, canvas: geometry.canvas, pivot: geometry.pivot, bodyHeightPx: geometry.bodyHeightPx },
     provenance: {
       generator: 'tools/anim/bank.mjs', timing: describePlan(plan),
       keys: registered.map(frame => ({ index: frame.index, file: basename(frame.sourcePath), sha256: frame.sources[0], transform: frame.transform })),
+      headTemplate: movement?.headTemplate ?? null,
+      headMatches: movement ? registered.map(frame => frame.headMatch) : null,
       rife: machine ? { machine: machine.machine, runtimeManifestSha256: rifeReport?.runtimeManifestSha256 ?? null, inferred: midpoints.length } : null,
     },
   };

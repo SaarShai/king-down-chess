@@ -56,6 +56,8 @@ sets one group scale, puts the walking heads on the rest head, keeps each lowest
 and removes small alpha islands. The rest keys keep their pixels. The runtime should loop walking frames
 1 through n-2 and show the standing pose only at the start and end. If a source repeats the rest inside
 the sequence, the builder keeps it unchanged; remove that rest from the loop before use.
+The head fit replaces the old 3 px foot-centre pin: the walking foot centre moves by a median 62 px by design.
+The lowest row of every key still stays within 2 px of the standing ground line.
 
 The movement fitter needs Python with NumPy and OpenCV (`opencv-python-headless`). Set `KINGDOWN_ANIM_PYTHON`
 to that Python executable when `python3` does not have both packages. OpenCV provides the multi-scale template
@@ -82,7 +84,9 @@ forces one machine.
 4. `ghost`: each in-between stays within 0.035 of the highest authored ghost score. The score counts semi-transparent
    pixels more than 3 px from the opaque body, divided by opaque pixels. This is a screen; look at the preview.
 5. `geometry`: the bank pivot equals the locked pivot, and the first and last frames stand within 2 px of the baseline.
-6. `steadiness` (movement): consecutive walking head centres stay within 20 px and matched head-scale spread stays within 10%.
+6. `steadiness` (movement): a recorded head template is matched again on the saved frames. Head x stays within 20 px
+   inside the walk and at the start, end and loop seams. Head y stays within 4% of standing height at each seam.
+   Head scale stays within 10%, including both standing seams and the loop. A body height difference over 8% fails.
 7. `endpoints`: turns and other banks use shipped endpoint hashes. Movement compares each padded end pixel to the
    shipped facing rest at the same pivot, with only transparent pixels outside it.
 8. `timing`: frame count, frame step, start time and end time match the plan.

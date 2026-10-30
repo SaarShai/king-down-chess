@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { defaultCatalog, defaultManifest, resolveGeometry } from './geometry.mjs';
 import { readFrame, sha256 } from './frames.mjs';
-import { HEAD_JUMP_LIMIT_PX, HEAD_SCALE_SPREAD_LIMIT } from './gates.mjs';
+import { HEAD_JUMP_LIMIT_PX, HEAD_SCALE_SPREAD_LIMIT, HEAD_BOB_HEIGHT_LIMIT, BODY_HEIGHT_DIFFERENCE_LIMIT } from './gates.mjs';
 
 const exec = promisify(execFile);
 const script = fileURLToPath(new URL('./publish_bank.py', import.meta.url));
@@ -36,9 +36,16 @@ export async function promote(candidate, { catalog = process.env.KINGDOWN_CATALO
   if (bank.kind === 'movement') {
     const gate = gates.checks?.find(entry => entry.name === 'steadiness' && entry.ok);
     const metrics = gate?.metrics;
+    const matches = bank.provenance?.headMatches;
     const jumps = ['maxHeadJumpPx', 'startHeadJumpPx', 'endHeadJumpPx', 'loopHeadJumpPx'].map(key => metrics?.[key]);
-    if (!jumps.every(value => Number.isFinite(value) && value >= 0 && value <= HEAD_JUMP_LIMIT_PX)
-      || !Number.isFinite(metrics?.headScaleSpread) || metrics.headScaleSpread < 0 || metrics.headScaleSpread > HEAD_SCALE_SPREAD_LIMIT) throw Error('Gate steadiness did not pass; rebuild the candidate');
+    const within = (value, limit) => Number.isFinite(value) && value >= 0 && value <= limit;
+    const bobLimit = bank.standingHeightPx * HEAD_BOB_HEIGHT_LIMIT;
+    if (!bank.provenance?.headTemplate || !Array.isArray(matches) || matches.length !== bank.frames.length || !matches.every(match => match && [match.x, match.y, match.scale, match.score].every(Number.isFinite) && match.scale > 0)
+      || !jumps.every(value => Number.isFinite(value) && value >= 0 && value <= HEAD_JUMP_LIMIT_PX)
+      || !within(metrics?.headScaleSpread, HEAD_SCALE_SPREAD_LIMIT)
+      || !within(metrics?.bodyHeightDifference, BODY_HEIGHT_DIFFERENCE_LIMIT)
+      || !['within', 'start', 'end', 'loop'].every(key => within(metrics?.x?.[key], HEAD_JUMP_LIMIT_PX) && within(metrics?.scale?.[key], HEAD_SCALE_SPREAD_LIMIT))
+      || !['start', 'end', 'loop'].every(key => within(metrics?.y?.[key], bobLimit))) throw Error('Gate steadiness did not pass; rebuild the candidate');
   }
   const current = await resolveGeometry({ character: bank.character, army: bank.army, catalog, manifest });
   if (bank.geometry) {
