@@ -22,8 +22,8 @@ Part ranges use the source master, not target-image differences. The first
 part has priority where ranges overlap. A mask cannot tell apart two parts
 with the same colour in the same zone. The owner permits shared-colour
 parts to change together. The listed specs are review samples, not approval
-for a game bank. Fixed sample boxes can miss a moving part. Low-alpha edges
-stay as they were in the source; inspect them for seams.
+for a game bank. Fixed sample boxes can miss a moving part. For the scaled colour map, low-alpha edges use the nearby changed colour.
+Other low-alpha edges stay as they were in the source. Inspect for seams.
 
 ## Review result
 
@@ -33,11 +33,13 @@ banks. The rest samples include these misses:
 
 - Paladin shoulder L* 59.6 against 88; the hammer has speckles and the
   tabard shifts.
-- Rook stone arm moves Delta E 11.0. Ogre tooth moves Delta E 30.0.
+- Rook skin is L* 37.6. The stone arm moves Delta E 0.1 and the tower 0.3.
+  Ogre tooth moves Delta E 30.0.
 - Frost skin stays fixed in its rest sample. The sword reaches L* 20.2.
   The ice reaches L* 28.9 against 23.2.
 - Mud mask reaches L* 28.3. Shoulder bone is L* 36.9 against 30.
-- White Stratus cape is L* 56.8 against 80. Gold moves Delta E 1.2.
+- White Stratus cape is L* 78.2 against 80. Gold moves Delta E 2.6.
+  Black Stratus arm is L* 35.3 and leg 29.4. Gold and cape stay fixed.
 
 The sheet marks sampled numeric misses. Its motion boxes use the rest pose,
 so they can sample another part after motion. The Beast turn bank has no
