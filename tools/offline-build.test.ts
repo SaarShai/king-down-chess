@@ -82,6 +82,18 @@ it('F7: the offline install does not fetch optional clip sheets', () => {
   expect(precache).toContain('assets/knight-Abcd1234.webp');
 });
 
+it('includes the character runtime and excludes unrelated files', () => {
+  const { bundle, files } = fixture();
+  const runtime = ['character-runtime/manifest.json', `character-runtime/assets/${'a'.repeat(64)}.webp`,
+    `character-runtime/effects/${'b'.repeat(64)}/effect.mjs`, `character-runtime/effects/${'b'.repeat(64)}/effect.json`,
+    `character-runtime/effects/${'b'.repeat(64)}/assets/image.png`];
+  const excluded = ['character-runtime/assets.json', 'character-runtime/assets/private.json', 'character-runtime/effects/x/provenance/source.json'];
+  files.push(...runtime, ...excluded);
+  const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
+  for (const file of runtime) { expect(allowlist).toContain(file); expect(precache).toContain(file); }
+  for (const file of excluded) { expect(allowlist).not.toContain(file); expect(precache).not.toContain(file); }
+});
+
 it('does not select an account entry just because it has the same chunk name', () => {
   const { bundle, files } = fixture();
   (bundle['assets/main.js'] as OutputChunk).facadeModuleId = '/other/src/main.ts';

@@ -211,8 +211,15 @@ writeFileSync(resolve(base, 'report.json'), JSON.stringify({ frames: plan.frames
   const idleBytes = Buffer.from(`${JSON.stringify(idle)}\n`);
   await writeFile(join(catalog, 'banks', 'idle.json'), idleBytes);
   await writeFile(join(catalog, 'manifest.json'), JSON.stringify({ schemaVersion: 1, purpose: 'fixture', reports: [], entries: [{ character: 'pawn', army: 'white', kind: 'idle', id: 'white-idle', status: 'ready', manifest: 'banks/idle.json', sha256: digest(idleBytes) }] }));
+  const runtimePath = join(dir, 'runtime.json');
+  const runtime = { sourceToRuntimeScale: 1, banks: [{ ...idle, character: 'pawn' }] };
+  await writeFile(runtimePath, JSON.stringify(runtime));
+  const options = { catalog, manifest: runtimePath };
 
-  const promoted = await promote(candidate, { catalog });
+  await writeFile(runtimePath, JSON.stringify({ ...runtime, banks: [{ ...runtime.banks[0], pivot: [49, 80] }] }));
+  await expect(promote(candidate, options)).rejects.toThrow('Locked geometry changed');
+  await writeFile(runtimePath, JSON.stringify(runtime));
+  const promoted = await promote(candidate, options);
   expect(promoted.entry).toMatchObject({ id: 'white-turn-SE-S', status: 'ready', manifest: expect.stringMatching(/^banks\/[a-f0-9]{64}\.json$/) });
   const manifest = JSON.parse(await readFile(join(catalog, 'manifest.json'), 'utf8'));
   expect(manifest.entries).toHaveLength(2);
@@ -220,12 +227,12 @@ writeFileSync(resolve(base, 'report.json'), JSON.stringify({ frames: plan.frames
   expect(published.status).toBe('ready');
   expect(published.frames[0].url).toBe(`../assets/${published.frames[0].sha256}.png`);
   expect(existsSync(join(catalog, 'assets', `${published.frames[0].sha256}.png`))).toBe(true);
-  const again = await promote(candidate, { catalog });
+  const again = await promote(candidate, options);
   expect(again.bankSha256).toBe(promoted.bankSha256);
   expect(JSON.parse(await readFile(join(catalog, 'manifest.json'), 'utf8')).entries).toHaveLength(2);
 
   const failing = await makeBank({ character: 'pawn', army: 'white', kind: 'turn', facing: 'SE-S', keys, geometryRecord: { ...geometry, bodyHeightPx: 80 }, output: join(dir, 'bad'), infer: `node ${stub}`, timing: { durationMs: 60, frameMs: 15 }, preview: false }).catch(error => error);
-  await expect(promote(join(dir, 'bad'), { catalog })).rejects.toThrow('Gates did not pass');
+  await expect(promote(join(dir, 'bad'), options)).rejects.toThrow('Gates did not pass');
   expect(failing.gates.status).toBe('fail');
 });
 
