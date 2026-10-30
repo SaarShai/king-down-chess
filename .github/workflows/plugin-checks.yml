@@ -338,7 +338,7 @@ jobs:
   browser-webkit-ui:
     runs-on: ubuntu-latest
     # The full plugin-ui check and the web journey in WebKit, with the step limits times 3 (tools/lib/checks.mjs STEP).
-    timeout-minutes: 45
+    timeout-minutes: 60
     services:
       postgres:
         image: postgres:17

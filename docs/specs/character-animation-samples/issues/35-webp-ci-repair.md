@@ -17,3 +17,5 @@ The two focused test files pass 19 cases and the 68 board checks. The first clea
 CI run 41127386175 passes the web job and the full test suite. The later output check rejects the new public paths. The build and output check now share the runtime file rule. Run the focused tests and the local output check, then repeat CI.
 
 CI run 41130026962 passes nine jobs. The WebKit web step hits its four-minute limit after the cache grows. The local WebKit web check passes in 277.6 seconds. The CI step now has 15 minutes. The check keeps its assertions.
+
+The workflow also needs room after a hung step to save diagnostics. The WebKit UI job limit is 60 minutes. Its focused workflow lint passes 23 cases and keeps the diagnostics time check.

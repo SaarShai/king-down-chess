@@ -54,8 +54,8 @@ describe('.github/workflows/plugin-checks.yml', () => {
 
   it.each(webkitJobs)('runs WebKit in the separate job %s with its own install and the time limit for its scaled steps', name => {
     const webkit = job(name);
-    // The WebKit steps run with limits times 3 (tools/lib/checks.mjs STEP), so the job has 45 minutes.
-    expect(webkit).toContain('timeout-minutes: 45');
+    // The UI job also installs the character runtime for offline play.
+    expect(webkit).toContain(`timeout-minutes: ${name === 'browser-webkit-ui' ? 60 : 45}`);
     expect(webkit).toContain('PLAYABLE_BROWSER: webkit');
     expect(webkit).toContain("PLAYABLE_CPU_CANVAS: '1'");
     expect(webkit).toContain('npx playwright install --with-deps webkit');
