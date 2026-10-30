@@ -499,4 +499,3 @@ it('reflows Profile at 200% zoom (197 CSS px) with no sideways scroll', async ()
     expect(outside).toBe(0);
   } finally { await close(); }
 });
-

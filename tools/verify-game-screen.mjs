@@ -1,4 +1,4 @@
-// The fixed table at the four W2 sizes, through real board input.
+// The table at the four W2 sizes: fixed actions and status rows that grow with text.
 import assert from 'node:assert/strict';
 import { recordBoardText, boardText } from './board-ink-check.mjs';
 import { rulesAt, usePower, contextWordsInView, endTurn, openMoves } from './app-ui.mjs';
@@ -41,7 +41,13 @@ try {
       assert.ok(file.size >= 11.99 && rank.size >= 11.99, 'board labels draw at 12 CSS px');
       assert.ok(file.bottom <= file.height - 1, 'file letters clear the canvas edge');
     }
-    const same = async state => assert.deepEqual(await boxes(), rest, `${width}×${height}: the table stays fixed at ${state}`);
+    const same = async state => {
+      const current = await boxes();
+      assert.deepEqual(current.filter(b => b.id !== 'board'), rest.filter(b => b.id !== 'board'), `${width}×${height}: the actions stay fixed at ${state}`);
+      await insideViewport(page, '#board, #context-line, #moves-line');
+      await stripsClear(state);
+      assert.ok(await page.locator('#context-text').evaluate(e => e.getBoundingClientRect().bottom <= document.getElementById('moves-line').getBoundingClientRect().top + 1), `${state}: status words stay above Moves`);
+    };
     const tap = async square => { const p = await page.evaluate(s => window.view.screenOf(s), square); await (touch ? page.touchscreen.tap(p.x, p.y) : page.mouse.click(p.x, p.y)); };
     if (width === 390) {
       const tile = await page.evaluate(() => window.view.screenOf(1).x - window.view.screenOf(0).x);

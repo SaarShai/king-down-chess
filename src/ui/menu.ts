@@ -37,7 +37,7 @@ export function initMenu(actions: { playAgain: () => void; resignSide: () => num
     sheet.querySelectorAll<HTMLElement>('[data-menu-page]').forEach(p => { p.hidden = p.dataset.menuPage !== page; });
     title.textContent = PAGES[page].title;
     back.hidden = !PAGES[page].parent;
-    back.innerHTML = `<span class="back-mark" aria-hidden="true">‹</span> ${PAGES[PAGES[page].parent ?? 'menu'].title}`;
+    back.innerHTML = `<span class="back-mark" aria-hidden="true">‹</span><span class="back-label">${PAGES[PAGES[page].parent ?? 'menu'].title}</span>`;
     back.setAttribute('aria-label', `Back to ${PAGES[PAGES[page].parent ?? 'menu'].title}`);
     if (page === 'resign') {
       const side = actions.resignSide();

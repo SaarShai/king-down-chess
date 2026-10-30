@@ -115,12 +115,12 @@ it('F-113 closes the options by default and starts with the defaults', async () 
   try {
     await frame.locator('#home-games:not(:disabled)').click(); await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     expect(await frame.locator('#setup-options').evaluate(e => (e as HTMLDetailsElement).open)).toBe(false);
-    for (const name of ['Artificial','A friend','Random']) expect(await frame.getByRole('radio', {name,exact:true}).isVisible()).toBe(true);
+    for (const name of ['Computer','A friend','Random']) expect(await frame.getByRole('radio', {name,exact:true}).isVisible()).toBe(true);
     expect(await frame.locator('.new-game-panel #new-game-head').textContent()).toBe('New game');
     await frame.locator('#setup-options summary').click();
     await frame.getByRole('radio', {name:'A friend',exact:true}).locator('..').click();
     expect(await frame.locator('#setup-options').evaluate(e => (e as HTMLDetailsElement).open)).toBe(true);
-    await frame.getByRole('radio', {name:'Artificial',exact:true}).locator('..').click();
+    await frame.getByRole('radio', {name:'Computer',exact:true}).locator('..').click();
     await frame.locator('#setup-options summary').click();
     const calls = await sent(page, 'kingdown_create');
     await frame.locator('#setup-start').click();
@@ -137,7 +137,7 @@ it.each([[1280, 'light'], [390, 'light'], [1280, 'dark'], [390, 'dark']] as cons
     await frame.locator('[data-screen="play"]:not([hidden])').waitFor();
     const modes = frame.locator('#setup-body .modes');
     expect(await modes.locator('img').count()).toBe(0);
-    for (const [value, name, symbol] of [['solo', 'Artificial', 'brain'], ['friend', 'A friend', 'smiling-pawn'], ['random', 'Random', 'die']]) {
+    for (const [value, name, symbol] of [['solo', 'Computer', 'brain'], ['friend', 'A friend', 'smiling-pawn'], ['random', 'Random', 'die']]) {
       const radio = modes.getByRole('radio', { name, exact: true }), label = radio.locator('..');
       expect(await radio.inputValue()).toBe(value);
       expect(await label.locator('b').textContent()).toBe(name);
@@ -147,7 +147,7 @@ it.each([[1280, 'light'], [390, 'light'], [1280, 'dark'], [390, 'dark']] as cons
       expect(box.width).toBeGreaterThanOrEqual(48); expect(box.height).toBeGreaterThanOrEqual(48);
       await label.click(); expect(await radio.isChecked()).toBe(true);
     }
-    await modes.getByRole('radio', { name: 'Artificial', exact: true }).focus();
+    await modes.getByRole('radio', { name: 'Computer', exact: true }).focus();
     await page.keyboard.press('ArrowRight');
     expect(await modes.getByRole('radio', { name: 'A friend', exact: true }).isChecked()).toBe(true);
     expect(await modes.locator('label:has(input:focus-visible)').evaluate(e => getComputedStyle(e).outlineStyle)).toBe('solid');
@@ -159,10 +159,9 @@ it('F-114 has the same game type symbols in both source sprites', async () => {
     const symbols = sprites.map(html => html.match(new RegExp(`<symbol id="i-${name}"[^>]*>[\\s\\S]*?</symbol>`))?.[0]);
     expect(symbols[0]).toContain('viewBox="0 0 24 24"'); expect(symbols[1]).toBe(symbols[0]);
   }
-  const local = sprites[1].match(/<fieldset class="modes"[\s\S]*?<\/fieldset>/)![0];
+  const local = sprites[1].match(/<div class="modes opponents"[\s\S]*?<\/a>/)![0];
   expect(local).not.toContain('<img');
-  // Pass-and-play (A friend, `#i-smiling-pawn`) is parked in the local New game (docs/PARKED.md).
-  expect(local).toContain('href="#i-brain"'); expect(local).not.toContain('href="#i-smiling-pawn"'); expect(local).toContain('href="#i-crown"');
+  expect(local).toContain('href="#i-brain"'); expect(local).toContain('href="#i-smiling-pawn"');
 });
 
 it('F-115 names the main menu in the heading and back controls, and the invite help names the link', async () => {

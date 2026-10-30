@@ -8,6 +8,7 @@ const parse = (path: string) => parseAccountRoute(new URL(path, origin));
 describe('account routes', () => {
   it.each<[string, AccountEntryRoute, string]>([
     ['/play/', { screen: 'play' }, '/play/'], ['/play/profile', { screen: 'profile' }, '/play/profile'],
+    ['/play/friend', { screen: 'new-friend' }, '/play/friend'],
     ['/play/settings', { screen: 'settings' }, '/play/settings'], [`/g/${gameId}`, { screen: 'game', gameId }, `/g/${gameId}`],
     ['/j#ABC234', { screen: 'join', key: 'ABC234' }, '/j#ABC234'], [`/j#${token}`, { screen: 'join', key: token }, `/j#${token}`],
     ['/j#abc-234', { screen: 'join', key: 'ABC234' }, '/j#ABC234'], ['/j#%41BC234', { screen: 'join', key: 'ABC234' }, '/j#ABC234'],
@@ -43,6 +44,7 @@ describe('account routes', () => {
 
   it.each([
     ['/play', '/play/'], ['/play/unknown', '/play/'], ['/play/unknown/child', '/play/'],
+    ['/play/friend/', '/play/friend'],
     ['/play/profile/', '/play/profile'], ['/play/settings/', '/play/settings'], [`/g/${gameId.toUpperCase()}/`, `/g/${gameId}`], ['/j/', '/j'],
   ])('R03 gives the canonical replacement for %s', (path, canonical) => {
     expect(accountPath(parse(path)!)).toBe(canonical);

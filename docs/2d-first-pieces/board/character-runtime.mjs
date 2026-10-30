@@ -43,13 +43,14 @@ const HEIGHT={pawn:96,knight:112,bishop:114,rook:132,queen:120,archer:120,paladi
 export const DECODED_BUDGET=64*1024*1024;
 // Bound the wait for optional art so a stalled request cannot hold up a move indefinitely.
 const LOAD_TIMEOUT=1000,IMAGE_TIMEOUT=5000,RETRY_DELAY=5000;
-function bounded(promise,ms=LOAD_TIMEOUT){
- return new Promise(resolve=>{const timer=setTimeout(()=>resolve(null),Math.max(0,ms));Promise.resolve(promise).then(value=>{clearTimeout(timer);resolve(value);},()=>{clearTimeout(timer);resolve(null);});});
+function bounded(promise,ms=LOAD_TIMEOUT,signal){
+ return new Promise(resolve=>{let done=false;const finish=value=>{if(done)return;done=true;clearTimeout(timer);signal?.removeEventListener('abort',abort);resolve(value);},abort=()=>finish(null),timer=setTimeout(abort,Math.max(0,ms));signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();Promise.resolve(promise).then(finish,()=>finish(null));});
 }
 export function createCharacterRuntime({url=new URL('/character-runtime/manifest.json',import.meta.url).href,wake=()=>{},fetcher=fetch,image=()=>Object.assign(new Image(),{crossOrigin:'anonymous'})}={}) {
  let banks=[],disposed=false,bytes=0,peakBytes=0,active=0,activeFrame=null, idlePins=new Set(),idleGeneration=0;
  let effectEntries={},currentEffect=null,effectBytes=0,smokeBytes=0,smokeClass=null,smokeImage=null,smokeLoading=null,smokeBlocked=false;
- const images=new Map(),loading=new Map(),failed=new Map(),stills=new Set(),queue=[],activeJobs=new Set(),effectRetryAt=new Map(),effectLoads=new Map();
+ const images=new Map(),loading=new Map(),failed=new Map(),stills=new Set(),pins=new Map(),queue=[],activeJobs=new Set(),effectRetryAt=new Map(),effectLoads=new Map();
+ function reserve(frames){const keys=[...new Set(frames.map(f=>f.url))];for(const key of keys)pins.set(key,(pins.get(key)??0)+1);let held=true;return ()=>{if(!held)return;held=false;for(const key of keys){const n=pins.get(key);if(n>1)pins.set(key,n-1);else pins.delete(key);}trim();};}
  let manifestReady=false,manifestLoading=null,manifestRetryAt=0;
  function loadManifest(){
   if(disposed||manifestReady||performance.now()<manifestRetryAt)return Promise.resolve();
@@ -74,18 +75,18 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   }
   if(effectBytes+smokeBytes+reserve>DECODED_BUDGET)return;
   const limit=Math.max(0,DECODED_BUDGET-effectBytes-smokeBytes-reserve);
-  while(bytes>limit&&images.size){const keys=[...images.keys()].filter(key=>!idlePins.has(key)),key=keys.find(key=>key!==activeFrame&&!stills.has(key))??keys.find(key=>key!==activeFrame)??keys[0];if(!key)break;bytes-=images.get(key).size;images.delete(key);}
+  while(bytes>limit&&images.size){const keys=[...images.keys()].filter(key=>!idlePins.has(key)&&!pins.has(key)),key=keys.find(key=>key!==activeFrame&&!stills.has(key))??keys.find(key=>key!==activeFrame)??keys[0];if(!key)break;bytes-=images.get(key).size;images.delete(key);}
   peakBytes=Math.max(peakBytes,bytes+effectBytes+smokeBytes);
  }
  function pump(){
   while(active<6&&queue.length&&!disposed){
    const job=queue.shift(),{frame}=job,art=image();active++;
    let done=false;const timer=setTimeout(()=>finish(false),IMAGE_TIMEOUT);
-   function finish(ok){
+   function finish(ok,cancelled=false){
     if(done)return;done=true;clearTimeout(timer);art.onload=art.onerror=null;active--;activeJobs.delete(job);loading.delete(frame.url);
-    if(!ok){art.removeAttribute?.('src');if(!disposed)failed.set(frame.url,performance.now()+RETRY_DELAY);}else failed.delete(frame.url);job.resolve();pump();
+    if(!ok){art.removeAttribute?.('src');if(!disposed&&!cancelled)failed.set(frame.url,performance.now()+RETRY_DELAY);}else failed.delete(frame.url);job.resolve();pump();
    }
-   job.cancel=()=>finish(false);activeJobs.add(job);
+   job.cancel=()=>finish(false,true);activeJobs.add(job);
    art.onload=async()=>{
     try{await art.decode?.();if(done||disposed)return finish(false);
      const size=(art.naturalWidth||art.width)*(art.naturalHeight||art.height)*4;
@@ -95,10 +96,26 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    art.onerror=()=>finish(false);art.src=new URL(frame.url,url).href;
   }
  }
- function loadFrame(frame){
+ function requestFrame(frame,optional=false){
   if(disposed||images.has(frame.url)||performance.now()<(failed.get(frame.url)??0))return Promise.resolve();
-  if(!loading.has(frame.url)){loading.set(frame.url,new Promise(resolve=>queue.push({frame,resolve})));pump();}
-  return loading.get(frame.url)??Promise.resolve();
+  let job=loading.get(frame.url);
+  if(!job){job={frame,shared:!optional,owners:0};job.promise=new Promise(resolve=>{job.resolve=resolve;});loading.set(frame.url,job);queue.push(job);pump();}
+  if(optional)job.owners++;else job.shared=true;
+  return job.promise;
+ }
+ const loadFrame=frame=>requestFrame(frame);
+ function loadPreparation(frames){
+  const jobs=[];
+  const promises=[...new Map(frames.map(frame=>[frame.url,frame])).values()].map(frame=>{const promise=requestFrame(frame,true),job=loading.get(frame.url);if(job)jobs.push(job);return promise;});
+  return {promise:Promise.all(promises),release(){
+   for(const job of jobs)job.owners--;
+   for(const job of jobs)if(!job.owners&&!job.shared&&!job.cancel){const index=queue.indexOf(job);if(index!==-1){queue.splice(index,1);loading.delete(job.frame.url);job.resolve();}}
+   for(const job of jobs)if(!job.owners&&!job.shared)job.cancel?.();
+  }};
+ }
+ async function prepareFrames(frames,ms,signal){
+  const loads=loadPreparation(frames);
+  await bounded(loads.promise,ms,signal);loads.release();
  }
  const endpoints=bank=>[bank.frames[0],bank.frames.at(-1)];
  async function loadSeparate(character){
@@ -134,7 +151,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  function sample(bank,time,prefetch=true,reverse=false,pin=false,directFrame=null){
   if(!bank)return null;const wanted=directFrame??frameAt(bank,time),index=bank.frames.indexOf(wanted);
   const nearby=prefetch?bank.frames.slice(Math.max(0,index-(reverse?4:1)),index+(reverse?2:5)):[wanted];
-  for(const frame of nearby)if(!images.has(frame.url)&&!loading.has(frame.url)&&performance.now()>=(failed.get(frame.url)??0))void loadFrame(frame).then(()=>{if(!disposed)wake();});
+  for(const frame of nearby)if(!images.has(frame.url)&&!loading.get(frame.url)?.shared&&performance.now()>=(failed.get(frame.url)??0))void loadFrame(frame).then(()=>{if(!disposed)wake();});
   const frame=images.has(wanted.url)?wanted:reverse?bank.frames.slice(index).find(frame=>images.has(frame.url)):bank.frames.slice(0,index+1).findLast(frame=>images.has(frame.url));
   const entry=frame&&images.get(frame.url);if(!entry)return null;if(pin)activeFrame=frame.url;images.delete(frame.url);images.set(frame.url,entry);
   return {url:frame.url,image:entry.art,pivot:bank.pivot,scale:bank.boardScale??(HEIGHT[bank.character]??130)/bank.registrationHeightPx,bank:bank.id,sourceSha256:frame.sourceSha256,sourceBankSha256:bank.sourceSha256,time:frame.timeMs,canvasSize:bank.canvasSize,unitHeight:bank.registrationHeightPx,effectAnchor:frame.effectAnchor??anchorAt(bank,'arrowhead-smoke',frame.timeMs)??anchorAt(bank,'arrow',frame.timeMs)};
@@ -169,38 +186,50 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    return t=>sample(bank,0,false,false,false,bank.frames[Math.round(path[0]+(path[1]-path[0])*Math.min(1,Math.max(0,t)))]);
   },
   rest(character,army,time=0,active=false){const bank=idle(character,army);if(!bank)return null;if(active){const all=forPiece(character,army),choice=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time);if(choice){const next=idleBankAt(all.filter(b=>b.kind==='idle').sort((a,b)=>Number(b===bank)-Number(a===bank)),all.filter(b=>b.kind==='turn'),bank.facing,time+160);if(next&&next.bank!==choice.bank)for(const frame of next.bank.frames.slice(0,6))void loadFrame(frame);return sample(choice.bank,choice.time,true,choice.reverse,true)??sample(bank,0,false);}}return sample(bank,0,false);},
-  async prepare(character,army,direction,capture){
+  async prepare(character,army,direction,capture,oneSquare=false,signal){
    const deadline=performance.now()+LOAD_TIMEOUT,remaining=()=>Math.max(0,deadline-performance.now());
-   await bounded(loadManifest(),remaining());if(disposed||!remaining())return null;
+   await bounded(loadManifest(),remaining(),signal);if(disposed||signal?.aborted||!remaining())return null;
    const all=forPiece(character,army),rest=idle(character,army);if(!rest)return null;
    const attack=capture?all.find(b=>b.kind==='attack'&&b.facing===direction):null;
+   let movement=!capture&&oneSquare?all.find(b=>b.kind==='movement'&&b.facing===direction&&b.durationMs>0&&b.frames?.length):null;
+   const movementRequested=!!movement;
    const turns=all.filter(b=>b.kind==='turn'),before=turnRoute(turns,rest.facing,direction),after=before&&reverseRoute(before);
    // A missing edge keeps the rest body coherent instead of jumping to an unsupported facing.
    if(before===null)return null;
    const start=[rest.frames[0],...before.flatMap(p=>endpoints(p.bank)),...after.flatMap(p=>endpoints(p.bank)),...(attack?attack.frames.slice(0,6):[])];
-   await bounded(Promise.all(start.map(loadFrame)),remaining());
-   if(disposed||!remaining()||start.some(frame=>!images.has(frame.url)))return null;
+   await prepareFrames(start,remaining(),signal);
+   if(disposed||signal?.aborted||!remaining()||start.some(frame=>!images.has(frame.url)))return null;
    const sizes=new Map(start.map(frame=>[frame.url,images.get(frame.url).size]));
-   const effect=attack?await bounded(loadSeparate(character),remaining()):null;
-   if(disposed||!remaining()||attack&&effectEntries[character]&&!effect)return null;
+   let releaseMovementStart=null,releaseMovement=null,releaseFallback=null;
+   if(movement){
+    releaseFallback=reserve(start);
+    await prepareFrames(movement.frames,remaining(),signal);
+    if(disposed||signal?.aborted){releaseFallback();return null;}
+    if(!remaining()||movement.frames.some(frame=>!images.has(frame.url)))movement=null;
+    else {releaseMovementStart=reserve([movement.frames[0]]);releaseMovement=reserve([movement.frames.at(-1)]);}
+   }
+   const effect=attack?await bounded(loadSeparate(character),remaining(),signal):null;
+   if(disposed||signal?.aborted||!remaining()&&!movementRequested||attack&&effectEntries[character]&&!effect){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
    if(start.some(frame=>!images.has(frame.url))){
     const missing=[...sizes].reduce((sum,[key,size])=>sum+(images.has(key)?0:size),0);
     for(const cached of effectLoads.values()){
      if(bytes+effectBytes+smokeBytes+missing<=DECODED_BUDGET)break;
      if(!cached.pending&&cached!==currentEffect){effectLoads.delete(cached.character);effectBytes-=cached.size;}
     }
-    await bounded(Promise.all(start.map(loadFrame)),remaining());
-    if(disposed||!remaining()||start.some(frame=>!images.has(frame.url)))return null;
+    await prepareFrames(start,remaining(),signal);
+    if(disposed||signal?.aborted||!remaining()||start.some(frame=>!images.has(frame.url))){releaseMovementStart?.();releaseMovement?.();releaseFallback?.();return null;}
    }
-   return {rest,attack,effect,before,after,beforeMs:before.reduce((n,p)=>n+p.bank.durationMs,0),afterMs:after.reduce((n,p)=>n+p.bank.durationMs,0)};
+   if(movement&&movement.frames.some(frame=>!images.has(frame.url))){movement=null;releaseMovementStart?.();releaseMovement?.();releaseMovementStart=null;releaseMovement=null;}
+   return {rest,attack,movement,effect,before,after,releaseMovementStart,releaseMovement,releaseFallback,beforeMs:before.reduce((n,p)=>n+p.bank.durationMs,0),afterMs:after.reduce((n,p)=>n+p.bank.durationMs,0)};
   },
-  action(prepared,time,duration,contact){
+  action(prepared,time,duration,contact,boundary){
    if(time<0)return routeSample(prepared.before,time+prepared.beforeMs)??sample(prepared.rest,0,false);
    if(time>duration)return routeSample(prepared.after,time-duration)??sample(prepared.rest,0,false);
    const attack=prepared.attack;
    if(attack){return sample(attack,Math.min(time,attack.durationMs),true,false,true)??sample(prepared.rest,0,false);}
+   if(prepared.movement){const frames=prepared.movement.frames,frame=boundary==='start'?frames[0]:boundary==='end'?frames.at(-1):null;const body=sample(prepared.movement,duration>0?time/duration*prepared.movement.durationMs:0,true,false,true,frame);if(body)return body;}
    return routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);
   },
-  dispose(){disposed=true;banks=[];restChoices.clear();images.clear();idlePins.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;effectLoads.clear();smokeClass=null;smokeImage=null;for(const job of activeJobs)job.cancel();for(const job of queue)job.resolve();queue.length=0;loading.clear();},
+  dispose(){disposed=true;banks=[];restChoices.clear();images.clear();idlePins.clear();pins.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;effectLoads.clear();smokeClass=null;smokeImage=null;for(const job of activeJobs)job.cancel();for(const job of queue)job.resolve();queue.length=0;loading.clear();},
  };
 }

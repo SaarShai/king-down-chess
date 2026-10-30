@@ -9,7 +9,7 @@ import './dialog-dismiss';
 import { firstVisit, openTitle, startFirstDeal } from './ui/title';
 import './ui/table.css';
 import { initMenu } from './ui/menu';
-import { initTable } from './ui/table';
+import { initTable, teachFirstGame } from './ui/table';
 // Before ui/home-view: the CSS keeps its order (game-end.ts brings ceremony.css, then home.css).
 import { connectPlay, isSide } from './screen/play';
 import { shouldShowHome } from './ui/home';
@@ -174,7 +174,7 @@ if (!gameLink && params.has('design')) { // an old Workshop `?design=` link: the
 }
 const titleChoice = await titleClosed; // the computer waits for the player, and no dialog opens over the title
 await play.previously.start();
-if (titleChoice === 'start') startFirstDeal(SETUP_KEY, (s, army) => { setup = s; play.newGame(army); });
+if (titleChoice === 'start') startFirstDeal(SETUP_KEY, (s, army) => { setup = s; play.newGame(army); teachFirstGame(play.game()); play.refresh(); });
 else {
   if (titleChoice === 'play') {
     // The saved game's computer waits behind the dialog: it may move only once New game is closed
