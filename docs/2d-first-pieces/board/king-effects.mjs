@@ -95,6 +95,21 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
    return {mask,figure,work:layer(),glow};
   });
  }
+ // Turn frames already contain orange cracks. Use their colour and alpha as the mask.
+ const turnFlame=new WeakMap();
+ function flameFor(s){
+  if(!s.bodyBounds)return flameLayers(s.side);
+  const image=s.pose.bank.image;let f=turnFlame.get(image);if(f)return f;
+  const figure=layer(),g=figure.getContext('2d');g.drawImage(image,0,0,L,L);
+  const mask=layer(),m=mask.getContext('2d'),pixels=g.getImageData(0,0,L,L);
+  for(let i=0;i<pixels.data.length;i+=4){
+   const r=pixels.data[i],g=pixels.data[i+1],b=pixels.data[i+2],a=pixels.data[i+3];
+   pixels.data[i+3]=a*clamp((r-g-35)/45,0,1)*clamp((g-b-25)/35,0,1);
+  }
+  m.putImageData(pixels,0,0);
+  const glow=document.createElement('canvas');glow.width=glow.height=L/6;
+  f={mask,figure,work:layer(),glow};turnFlame.set(image,f);return f;
+ }
  const noise=[];
  function lavaNoise(){
   if(noise.length)return noise;
@@ -213,7 +228,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
 
  // —— Flame ——
  function lava(ctx,s){
-  const f=flameLayers(s.side);if(!f)return;
+  const f=flameFor(s);if(!f)return;
   const [a,b]=lavaNoise(),u=frac(figureClock(s)/PERIOD.flame),g=f.work.getContext('2d');
   g.globalCompositeOperation='source-over';g.globalAlpha=1;g.clearRect(0,0,L,L);
   // A dim ember glow, then two fields of brighter lava flowing down and across through the cracks.
@@ -225,12 +240,15 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   const glow=f.glow.getContext('2d'),n=f.glow.width;glow.globalCompositeOperation='source-over';glow.clearRect(0,0,n,n);glow.drawImage(f.work,0,0,n,n);
   glow.globalCompositeOperation='destination-in';glow.drawImage(f.figure,0,0,n,n);
   const pulse=.8+.2*Math.sin(TAU*u*2);
-  inFigure(ctx,s.pose,()=>{
-   ctx.globalAlpha=s.k*.9;ctx.drawImage(f.work,0,0,1152,1152);
+  const draw=()=>{
+   const w=s.bodyBounds?(s.pose.bank.image.naturalWidth||s.pose.bank.image.width):1152,h=s.bodyBounds?(s.pose.bank.image.naturalHeight||s.pose.bank.image.height):1152;
+   ctx.globalAlpha=s.k*.9;ctx.drawImage(f.work,0,0,w,h);
    // Added light reads on the charcoal army; on the ivory it would turn the cream lime, so less there.
-   ctx.globalCompositeOperation='lighter';ctx.globalAlpha=s.k*pulse*(s.side?.5:.18);ctx.drawImage(f.work,0,0,1152,1152);
-   ctx.globalAlpha=s.k*pulse*(s.side?.55:.35);ctx.drawImage(f.glow,0,0,1152,1152);
-  });
+   ctx.globalCompositeOperation='lighter';ctx.globalAlpha=s.k*pulse*(s.side?.5:.18);ctx.drawImage(f.work,0,0,w,h);
+   ctx.globalAlpha=s.k*pulse*(s.side?.55:.35);ctx.drawImage(f.glow,0,0,w,h);
+  };
+  if(s.bodyBounds){const b=s.pose.bank;ctx.save();ctx.translate(s.pose.foot.x,s.pose.foot.y);ctx.scale(b.scale*s.bodyScale,b.scale*s.bodyScale);ctx.translate(-b.pivot[0],-b.pivot[1]);draw();ctx.restore();}
+  else inFigure(ctx,s.pose,draw);
  }
 
  // —— Frost ——
