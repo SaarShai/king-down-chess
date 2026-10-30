@@ -11,6 +11,10 @@ for part in sorted(root.glob('part-*')):
     records.extend(json.loads((part / 'scores.json').read_text()))
 if not records or any(s['exit'] for s in statuses):
     raise ValueError('Missing or failed results')
+if len(statuses) != statuses[0]['parts'] or {s['part'] for s in statuses} != set(range(statuses[0]['parts'])):
+    raise ValueError('Missing or duplicate parts')
+if any(s['totalEntries'] != statuses[0]['totalEntries'] for s in statuses) or len(records) != statuses[0]['totalEntries']:
+    raise ValueError('Entry count does not match the source')
 groups = collections.defaultdict(lambda: {'rife': [], 'film': []})
 gaps = []
 for record in records:

@@ -71,7 +71,8 @@ def film_mid(a, b):
     a, b = pad(a), pad(b)
     x0 = a[:, :3].permute(0, 2, 3, 1).cpu().numpy()
     x1 = b[:, :3].permute(0, 2, 3, 1).cpu().numpy()
-    result = film({'x0': tf.convert_to_tensor(x0), 'x1': tf.convert_to_tensor(x1), 'time': tf.constant([[0.5]])})
+    with tf.device('/GPU:0'):
+        result = film({'x0': tf.convert_to_tensor(x0), 'x1': tf.convert_to_tensor(x1), 'time': tf.constant([[0.5]])})
     backward = torch.from_numpy(result['backward_flow_pyramid'][0].numpy()).cuda()
     forward = torch.from_numpy(result['forward_flow_pyramid'][0].numpy()).cuda()
     return ((warp(a, backward) + warp(b, forward)) * 0.5)[:, :, :h, :w].clone()
@@ -102,13 +103,16 @@ def sheet_tiles(canvas, images, gap, bg_index, bg):
         canvas.paste(tile.convert('RGB'), (x * 190, (gap * 2 + bg_index) * 200 + 10))
 
 status = {'part': PART, 'parts': PARTS, 'started': started, 'exit': None}
+archive = None
 try:
     if not torch.cuda.is_available():
         raise RuntimeError('Kaggle GPU is unavailable')
+    status['gpu'] = torch.cuda.get_device_name(0)
     with tarfile.open(SOURCE) as tar:
         tar.extractall('/tmp', filter='data')
     data = Path('/tmp/movement')
     runtime = data / 'rife'
+    status['runtimeManifestSha256'] = sha(runtime / 'manifest.json')
     for f in json.loads((runtime / 'manifest.json').read_text())['files']:
         if sha(runtime / f['file']) != f['sha256']:
             raise ValueError('RIFE runtime hash mismatch: ' + f['file'])
@@ -128,12 +132,13 @@ try:
         raise RuntimeError(f'expected one FILM saved model, found {len(paths)}')
     film = tf.saved_model.load(str(paths[0].parent))
     entries = json.loads((data / 'entries.json').read_text())
+    status['totalEntries'] = len(entries)
     selected = [(i, e) for i, e in enumerate(entries) if i % PARTS == PART]
     results = []
     for index, entry in selected:
         name = f"{index:03d}-{entry['character']}-{entry['army']}-{entry['direction']}-{entry['id']}"
         name = ''.join(c if c.isalnum() or c in '-_' else '-' for c in name)
-        dest = ROOT / 'results' / name
+        dest = Path('/tmp/anim-results') / name
         dest.mkdir(parents=True, exist_ok=True)
         keys = []
         for f in entry['frames']:
@@ -170,7 +175,13 @@ try:
         canvas.save(dest / 'sheet.jpg', quality=90)
         record = {'entry': entry, 'folder': name, 'gaps': gaps}
         (dest / 'scores.json').write_text(json.dumps(record, indent=2) + '\n')
+        if len(results) % 32 == 0:
+            archive = tarfile.open(ROOT / f'results-{len(results) // 32:02d}.tar', 'w')
+        archive.add(dest, arcname='results/' + name)
         results.append(record)
+        if len(results) % 32 == 0:
+            archive.close()
+            archive = None
         (ROOT / 'scores.json').write_text(json.dumps(results, indent=2) + '\n')
     status['exit'] = 0
     status['entries'] = len(results)
@@ -179,6 +190,8 @@ except Exception:
     status['error'] = traceback.format_exc()
     print(status['error'], flush=True)
 finally:
+    if archive is not None:
+        archive.close()
     status['seconds'] = round(time.time() - started)
     (ROOT / 'status.json').write_text(json.dumps(status, indent=2) + '\n')
 if status['exit']:

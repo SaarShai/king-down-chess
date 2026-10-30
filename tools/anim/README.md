@@ -141,6 +141,7 @@ premultiplied color and alpha with its shared flow. FILM exposes motion fields b
 warps both premultiplied inputs with those fields and blends them equally. Its output is a flow-based FILM variant,
 not the RGB model's learned fusion. Both outputs keep alpha. The ghost score counts partly transparent pixels outside
 the keys' soft edges as a share of visible pixels. Motion can also raise the score, so inspect the light and dark sheets.
+Results are packed in groups of 32 entries so the Kaggle client can pull every file. The pull command extracts them.
 `summary.py <pull directory>` ranks the scores. The results stay outside Git.
 
 ```

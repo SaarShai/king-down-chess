@@ -41,5 +41,5 @@ for entry in json.loads((catalog / 'manifest.json').read_text())['entries']:
 (stage / 'entries.json').write_text(json.dumps(entries, indent=2) + '\n')
 with tarfile.open(out / 'movement.tar', 'w') as tar:
     tar.add(stage, arcname='movement')
-(out / 'dataset-metadata.json').write_text(json.dumps({'title': 'kd-anim-movement-keys-20261030', 'id': 'saarshai/kd-anim-movement-keys-20261030', 'licenses': [{'name': 'other'}], 'is_private': True}, indent=2) + '\n')
+(out / 'dataset-metadata.json').write_text(json.dumps({'title': 'kd-anim-movement-keys-20261030', 'id': 'saarshai/kd-anim-movement-keys-20261030', 'description': 'Private project artwork and runtime; rights remain with their owners.', 'licenses': [{'name': 'other'}], 'is_private': True}, indent=2) + '\n')
 print(f"{len(entries)} entries, {sum(len(e['frames']) for e in entries)} keys, {len(list((stage / 'keys').glob('*.png')))} unique files")
