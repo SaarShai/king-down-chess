@@ -63,7 +63,7 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
       const bytes = await readFile(inside(source, resolve(base, frame.url)));
       if (digest(bytes) !== frame.sha256) throw Error(`Frame hash mismatch: ${frame.sha256}`);
       const cached=previous.get(frame.sha256);
-      if(cached&&Number.isFinite(cached.top)&&Array.isArray(cached.size)){
+      if(cached&&cached.encoding==='webp-lossless-exact'&&cached.url.endsWith('.webp')&&Number.isFinite(cached.top)&&Array.isArray(cached.size)){
         const derived=await readFile(inside(output,resolve(output,cached.url)));
         if(digest(derived)!==cached.sha256)throw Error(`Cached runtime frame hash mismatch: ${cached.sha256}`);
         const sourceInfo=await sharp(bytes).metadata(),decoded=await sharp(derived).ensureAlpha().extractChannel('alpha').raw().toBuffer({resolveWithObject:true});
@@ -75,14 +75,14 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
       for (let i = 3; i < data.length; i += 4) { low = Math.min(low, data[i]); high = Math.max(high, data[i]); }
       if (low !== 0 || high === 0) throw Error(`Character frame has no transparent edge: ${frame.sha256}`);
       if (info.width % 2 || info.height % 2) throw Error(`Cannot halve odd canvas: ${frame.sha256}`);
-      const derived = await sharp(bytes).resize(info.width / 2, info.height / 2).png().toBuffer();
+      const derived = await sharp(bytes).resize(info.width / 2, info.height / 2).webp({ lossless: true, exact: true, alphaQuality: 100 }).toBuffer();
       const alpha = await sharp(derived).ensureAlpha().extractChannel('alpha').raw().toBuffer();
       if (!alpha.includes(0) || !alpha.some(value => value > 0)) throw Error(`Derived frame has no transparent edge: ${frame.sha256}`);
-      const hash = digest(derived), url = `assets/${hash}.png`;
+      const hash = digest(derived), url = `assets/${hash}.webp`;
       await writeFile(resolve(output, url), derived);
       let top = info.height;
       for (let y = 0; y < info.height && top === info.height; y++) for (let x = 0; x < info.width; x++) if (data[(y * info.width + x) * 4 + 3] > 128) { top = y; break; }
-      assets.set(frame.sha256, { url, sha256: hash, sourceSha256: frame.sha256, size: [info.width / 2, info.height / 2], top });
+      assets.set(frame.sha256, { url, sha256: hash, encoding: 'webp-lossless-exact', sourceSha256: frame.sha256, size: [info.width / 2, info.height / 2], top });
     }
     return { ...assets.get(frame.sha256), timeMs: frame.timeMs };
   }

@@ -53,8 +53,7 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
  const FALL=650, CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
- const bodyRuntime=characterRuntime?createCharacterRuntime({wake:()=>wake()}):null;
- if(bodyRuntime)void bodyRuntime.ready().then(()=>{if(!disposed)warmBodies();});
+ let bodyRuntime=null;
  const characterOf=value=>typeOf(value)===K?`king-${kings[colorOf(value)]}`:ART[typeOf(value)];
  const armyOf=value=>colorOf(value)?'black':'white';
  function warmBodies(){if(!bodyRuntime)return;for(const value of new Set(position.board))if(value)void bodyRuntime.warm(characterOf(value),armyOf(value));}
@@ -952,7 +951,11 @@ function drawEncounter(a,t) {
   if(endpoint){a.drawingMovementEndpoint=false;a.runtime.releaseMovement?.();}
   if(a?.done)a.runtime?.releaseFallback?.();
   if(labels)drawLabels();
-  if(frames===1&&!reducedMotion)requestAnimationFrame(()=>loadClips());
+  if(frames===1)requestAnimationFrame(()=>{
+   if(disposed)return;
+   if(!reducedMotion)loadClips();
+   if(characterRuntime){bodyRuntime=createCharacterRuntime({wake:()=>wake()});void bodyRuntime.ready().then(()=>{if(!disposed)warmBodies();});}
+  });
   if((a&&!a.done&&(!a.preparing||a.exitReady))||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading||clipShown)wake(false);
   else{previousTime=0;if((idling()&&bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected])))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }

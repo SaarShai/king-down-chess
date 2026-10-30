@@ -63,6 +63,16 @@ it.each([false, true])('F7: the board is ready with stalled clips (motion %s), a
   expect(b.clips()).toHaveLength(motion ? 2 : 0);
 });
 
+it('starts character downloads after the first board frame', async () => {
+ const fetcher=vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));
+ vi.stubGlobal('fetch',fetcher);
+ const b=board(true,true);void scene.load();
+ await vi.advanceTimersByTimeAsync(0);expect(fetcher).not.toHaveBeenCalled();
+ b.decodeBoard();await vi.advanceTimersByTimeAsync(16);
+ expect(scene.frames).toBe(1);expect(b.draws.some(src=>src.includes('stone-board'))).toBe(true);expect(fetcher).not.toHaveBeenCalled();
+ await vi.advanceTimersByTimeAsync(16);expect(fetcher).toHaveBeenCalledOnce();
+});
+
 it.each(['late', 'failed'] as const)('F7: a %s clip keeps the plain figure and a move works', async result => {
   const b = board(false);
   void scene.load(); b.decodeBoard();
@@ -107,7 +117,7 @@ it('reduced motion cancels a ready-body action while its frame load is pending',
  const idle={...base,id:'white-idle',kind:'idle',facing:'SE',durationMs:2000,frames:[{url:'runtime-rest.png',timeMs:0}]};
  const turn={...base,id:'white-turn-SE-NE',kind:'turn',from:'SE',to:'NE',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-deferred.png',timeMs:120}]};
  vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn]})})));
- const b=board(true,true);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const b=board(true,true);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
  expect(scene.characterFrames.some(frame=>frame.square===1)).toBe(true);
  const contact=vi.fn(),playing=scene.play({from:1,to:18,captures:[]},{onContact:contact});await vi.advanceTimersByTimeAsync(0);
  const deferred=b.images.find(image=>image.src.includes('runtime-deferred'));expect(deferred).toBeDefined();expect(scene.animating).toBe(true);
@@ -140,10 +150,10 @@ it.each(['no turn','incoming turn'] as const)('draws the first movement frame at
  const turn={...base,id:'turn',kind:'turn',from:'S',to:'N',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-turn.png',timeMs:120}]};
  const movement={...base,id:'move',kind:'movement',facing:'N',durationMs:200,frames:[0,1,200].map(timeMs=>({url:`runtime-move-${timeMs}.png`,timeMs}))};
  vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,movement]})})));
- const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
  const origin=scene.characterFrames.find(f=>f.square===8)!.foot;
  const playing=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(0);
- if(route==='incoming turn'){await vi.advanceTimersByTimeAsync(128);expect(scene.characterFrames.find(f=>f.square===8)).toMatchObject({bank:'turn'});}
+ if(route==='incoming turn'){await vi.advanceTimersByTimeAsync(112);expect(scene.characterFrames.find(f=>f.square===8)).toMatchObject({bank:'turn'});}
  await vi.advanceTimersByTimeAsync(16);expect(scene.characterFrames.find(f=>f.square===8)).toMatchObject({bank:'move',time:0,foot:origin});expect(b.draws.some(src=>src.endsWith('/runtime-move-0.png'))).toBe(true);
  await vi.advanceTimersByTimeAsync(16);expect(scene.characterFrames.find(f=>f.square===8)).toMatchObject({bank:'move',time:1});
  await vi.advanceTimersByTimeAsync(1000);await expect(playing).resolves.toBe(true);
@@ -155,7 +165,7 @@ it.each(['no turn','incoming turn'] as const)('keeps both movement endpoints whe
  const turn={...base,id:'turn',kind:'turn',from:'S',to:'N',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-turn.png',timeMs:120}]};
  const movement={...base,id:'move',kind:'movement',facing:'N',durationMs:200,frames:[0,1,200].map(timeMs=>({url:`runtime-move-${timeMs}.png`,timeMs}))};
  vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,movement]})})));
- const b=board(true,true,false,600);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(600);
+ const b=board(true,true,false,600);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(1800);
  const playing=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(0);
  await vi.advanceTimersByTimeAsync(600);expect(scene.characterFrames.find(f=>f.square===8)).toMatchObject({bank:'move',time:0});expect(b.draws.some(src=>src.endsWith('/runtime-move-0.png'))).toBe(true);expect(scene.animating).toBe(true);
  await vi.advanceTimersByTimeAsync(600);expect(scene.characterFrames.find(f=>f.square===8)).toMatchObject({bank:'move',time:200});expect(b.draws.some(src=>src.endsWith('/runtime-move-200.png'))).toBe(true);expect(scene.animating).toBe(true);
@@ -170,7 +180,7 @@ it.each(['equal start times','overlapping end intervals'] as const)('draws the e
   : [{url:'runtime-first.png',timeMs:0,visibleIntervalMs:[0,50]},{url:'runtime-middle.png',timeMs:50,visibleIntervalMs:[50,200]},{url:'runtime-last.png',timeMs:150,visibleIntervalMs:[150,199]}];
  const movement={...base,id:'move',kind:'movement',facing:'N',nearest:false,durationMs:200,frames};
  vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,movement]})})));
- const b=board(true,true,false,600);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(600);
+ const b=board(true,true,false,600);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(1800);
  const playing=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(0);
  let drawn=b.draws.length;await vi.advanceTimersByTimeAsync(600);expect(b.draws.slice(drawn).some(src=>src.endsWith('/runtime-first.png'))).toBe(true);expect(scene.animating).toBe(true);
  drawn=b.draws.length;await vi.advanceTimersByTimeAsync(600);expect(b.draws.slice(drawn).some(src=>src.endsWith('/runtime-last.png'))).toBe(true);expect(scene.animating).toBe(true);
