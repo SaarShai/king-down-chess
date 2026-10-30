@@ -1,0 +1,82 @@
+{
+  "mode": "parts",
+  "sourceSha256": "ff00245e6c856d87d048310da7a65d4bd31ac03f5bc9cc5c617a169219dff78e",
+  "parts": [
+    {
+      "name": "wing tips",
+      "source": [
+        25,
+        -7,
+        12
+      ],
+      "tolerance": [
+        25,
+        10,
+        14
+      ],
+      "target": [
+        80,
+        1,
+        8
+      ],
+      "zone": [
+        -0.6,
+        -1.1,
+        0.6,
+        -0.62
+      ],
+      "lightnessScale": 0.65,
+      "lightnessOffset": 69
+    },
+    {
+      "name": "cape",
+      "source": [
+        25,
+        -3,
+        -14
+      ],
+      "tolerance": [
+        25,
+        15,
+        24
+      ],
+      "target": [
+        80,
+        1,
+        8
+      ],
+      "zone": [
+        -0.7,
+        -0.9,
+        0.7,
+        0.25
+      ],
+      "lightnessScale": 0.65,
+      "lightnessOffset": 69
+    },
+    {
+      "name": "chest and calves",
+      "source": [
+        22,
+        0,
+        1
+      ],
+      "tolerance": [
+        18,
+        7,
+        8
+      ],
+      "target": [
+        80,
+        1,
+        8
+      ],
+      "zone": [
+        -0.4,
+        -0.68,
+        0.4,
+        -0.08
+      ]
+    }
+  ]
+}

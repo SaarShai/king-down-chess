@@ -1,0 +1,54 @@
+{
+  "mode": "parts",
+  "sourceSha256": "68a757cc05a2afaa77e0afc7db472b4dd6415599a6e63f8b5eb55942bd050766",
+  "parts": [
+    {
+      "name": "body",
+      "source": [
+        83,
+        6,
+        19
+      ],
+      "tolerance": [
+        45,
+        10,
+        12
+      ],
+      "target": [
+        36,
+        1,
+        3
+      ],
+      "zone": [
+        -1,
+        -1.1,
+        0.9,
+        0.05
+      ]
+    },
+    {
+      "name": "mask",
+      "source": [
+        30,
+        1,
+        1
+      ],
+      "tolerance": [
+        22,
+        8,
+        9
+      ],
+      "target": [
+        23,
+        0,
+        0
+      ],
+      "zone": [
+        -1,
+        -1.1,
+        1,
+        0.05
+      ]
+    }
+  ]
+}
