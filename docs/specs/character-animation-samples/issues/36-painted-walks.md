@@ -1,6 +1,6 @@
 # Painted walks
 
-Status: ready-for-agent
+Status: ready-for-review
 
 ## Plan and checks
 
@@ -14,6 +14,7 @@ Status: ready-for-agent
 
 ## Findings
 
+- Two independent reviews of `b16c9844` requested fixes before merge. This round applies the pace, placement, source, gate and handoff rulings. The final head needs review.
 - Round 5 work in progress: travel uses catalog stride and caps cadence at 2×. The catalog marks some stride values as draft. The Knight and Paladin keep their leap and charge; their 32 unused walk banks leave the package. A missing turn route uses the old motion. The walk starts after the outward turn endpoint.
 - A selected painted walk uses flat, linear travel. Its time follows the catalog stride, up to 1,600 ms. The pose rate rises to at most 2× when the cap applies. Stratus hover stops during travel.
 - Captures keep their attack. A two-square pawn move uses its stride and the time cap. Promotion follows the pawn's arrival. Castling moves the king; the rook changes square with the position update. Knight and Paladin keep their own moves.
