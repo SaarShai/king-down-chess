@@ -68,6 +68,7 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
   if(digest(catalogBytes)!==selected.catalogSha256)throw Error('Pinned character catalog changed');
   const catalog=JSON.parse(catalogBytes);
   const accepted = new Map(catalog.entries.map(entry => [`${entry.character}:${entry.army}:${entry.id}`, entry]));
+  const paintedSources=new Set(catalog.entries.filter(entry=>entry.kind==='movement-study').map(entry=>`${entry.character}:${entry.army}:${entry.sha256}`));
   const restHashes=new Map();
   for(const entry of selected.entries.filter(e=>e.kind==='idle'||e.kind==='turn')){
     const bytes=await readFile(inside(source,resolve(source,entry.manifest)));if(digest(bytes)!==entry.sha256)throw Error(`Bank hash mismatch: ${entry.id}`);
@@ -171,6 +172,7 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
     }
     if(entry.kind==='move'){
       if(!/^[a-f0-9]{64}$/.test(bank.walkSourceBankSha256??''))throw Error(`Missing painted move source: ${entry.id}`);
+      if(!paintedSources.has(`${entry.character}:${entry.army}:${bank.walkSourceBankSha256}`))throw Error(`Painted move source is not in the catalog: ${entry.id}`);
       const originalBytes=await readFile(resolve(source,'banks',`${bank.walkSourceBankSha256}.json`));
       if(digest(originalBytes)!==bank.walkSourceBankSha256)throw Error(`Painted move source hash mismatch: ${entry.id}`);
       const original=JSON.parse(originalBytes),sourceFrames=original.frames.map((f,i)=>({sha256:f.sha256,durationMs:f.durationMs,pivot:f.pivot,scale:f.uniformScale??f.scale??f.registration?.scale??f.registration?.uniformScale??bank.frames[i]?.walkSourceScale,translation:(f.translation??f.registrationTranslation??f.registration?.translation??f.registration?.paste??bank.frames[i]?.walkSourceTranslation)?.slice(0,2)}));
