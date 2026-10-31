@@ -25,4 +25,5 @@ Status: ready-for-agent
 - A candidate catalog holds 196 move banks and 800 frames. The move checks pass for source hashes, order, times, stand exclusion, placement and source motion ranges. The catalog is in the run folder.
 - The eight reference banks retain their hashes and times. A direct comparison with the reference renders, after one scale and offset, has at most 0.801 px head or ground error. An independent comparison to source bounds reaches 1.008 px on one Pawn frame because the two raster edge measurements differ.
 - The package builder accepts move banks and checks their timing, direction, pivot and alpha. Painted walks take priority over older movement banks. Focused package, playback and move-gate tests pass.
-- The public package, game captures, final preview and required browser and Vercel checks remain open.
+- The WebP package has 674 banks and 6,221 assets. It adds 196 move banks and 800 frames. The package grows from 124,537,245 to 145,737,672 bytes. All 478 earlier banks and the effects stay exact.
+- A package check passes for the source hashes, frame times and transparent borders of all 800 move frames. The aligned gallery has 196 rows and lists 76 cells without a walk. The game captures and required browser and Vercel checks remain open.

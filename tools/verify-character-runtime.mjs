@@ -33,6 +33,25 @@ async function throttleProxy(upstream){
 }
 
 try {
+ // A quiet move uses its painted loop on the real board and returns to rest.
+ for(const [army,fen,from,to] of [
+  ['white','7k/p7/8/8/3P4/8/P7/K7 w - - 0 1',27,35],
+  ['black','7k/p7/8/3p4/8/8/P7/K7 b - - 0 1',35,27],
+ ]){
+  const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
+  await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
+  const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');
+  await page.goto(url.href);await page.waitForFunction(sq=>window.view?.scene?.characterFrames?.some(f=>f.square===sq),from);await page.evaluate(()=>view.ready());
+  await page.evaluate(()=>{window.walkTrace=[];window.walkTraceOn=true;const take=()=>{if(walkTraceOn){walkTrace.push(...view.scene.characterFrames);requestAnimationFrame(take);}};take();});
+  for(const square of [from,to]){const p=await page.evaluate(sq=>view.screenOf(sq),square);await page.mouse.click(p.x,p.y);}
+  await page.waitForFunction(([a,b])=>!view.scene.animating&&!view.pos.board[a]&&view.pos.board[b]>0,[from,to],{timeout:20000});
+  const result=await page.evaluate(sq=>{walkTraceOn=false;return {frames:walkTrace,after:view.scene.characterFrames.find(f=>f.square===sq)};},to);
+  const walking=result.frames.filter(frame=>frame.bank===`${army}-walk-${army==='white'?'N':'S'}`);
+  assert(walking.length>1,`${army}: painted frames play during travel`);
+  assert(new Set(walking.map(frame=>JSON.stringify(frame.foot))).size>1,`${army}: the painted body moves across the board`);
+  assert(result.after&&!result.after.bank.includes('-walk-'),`${army}: the piece settles on its rest`);
+  checks.push({label:`pawn-${army}-walk`,samples:walking.length,banks:[...new Set(walking.map(frame=>frame.bank))]});assertNoErrors(errors);await page.close();
+ }
  for(const [character,fen,from,to,flipped] of [
   ['pawn','7k/8/8/3p4/4P3/8/8/K7 w - - 0 1',28,35],
   ['knight','7k/8/8/3p4/8/2N5/8/K7 w - - 0 1',18,35,false],
