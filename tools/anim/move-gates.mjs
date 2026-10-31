@@ -20,6 +20,6 @@ export function runMoveGates({ bank, source, catalogHashes, restHashes, transfor
   });
   const maxPlacementErrorPx = Math.max(...placement);
   fail('placement', placement.length === source.length && Number.isFinite(maxPlacementErrorPx) && maxPlacementErrorPx <= 0.5);
-  fail('range', Number.isFinite(ranges.topRangeAt160) && ranges.topRangeAt160 <= 9.9 && Number.isFinite(ranges.groundRangeAt160) && ranges.groundRangeAt160 <= 20.6);
+  fail('range', Number.isFinite(ranges.topRangeAt160) && ranges.topRangeAt160 >= 0 && ranges.topRangeAt160 <= 9.9 && Number.isFinite(ranges.groundRangeAt160) && ranges.groundRangeAt160 >= 0 && ranges.groundRangeAt160 <= 20.6);
   return { status: failures.length ? 'fail' : 'pass', checks, failures, maxPlacementErrorPx };
 }

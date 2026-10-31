@@ -116,8 +116,8 @@ it('builds painted moves with their own timing and rejects a gap', async () => {
  }
  const selection=join(scratch,'selection.json');
  const select=(bankFrames:typeof frames)=>{
-  const bytes=Buffer.from(JSON.stringify({status:'ready',character:'pawn',army:'white',facing:'N',canvasSize:[32,32],pivot:[16,28],bodyHeightPx:20,sampling:'nearest',durationMs:timeMs,frames:bankFrames})),sha256=hash(bytes);
-  writeFileSync(join(source,'banks',`${sha256}.json`),bytes);const entry={character:'pawn',army:'white',kind:'move',id:'white-walk-N',status:'ready',manifest:`banks/${sha256}.json`,sha256};
+  const bytes=Buffer.from(JSON.stringify({status:'ready',character:'pawn',army:'white',direction:'N',facing:'N',canvasSize:[32,32],pivot:[16,28],bodyHeightPx:20,sampling:'nearest',durationMs:timeMs,frames:bankFrames})),sha256=hash(bytes);
+  writeFileSync(join(source,'banks',`${sha256}.json`),bytes);const entry={character:'pawn',army:'white',kind:'move',direction:'N',id:'white-walk-N',status:'ready',manifest:`banks/${sha256}.json`,sha256};
   const manifest=Buffer.from(JSON.stringify({entries:[entry]}));writeFileSync(join(source,'manifest.json'),manifest);writeFileSync(selection,JSON.stringify({schemaVersion:1,status:'ready',catalogSha256:hash(manifest),entries:[entry]}));
  };
  const run=()=>execFileSync(process.execPath,[resolve('tools/build-character-runtime.mjs'),'--source',source,'--output',out,'--selection',selection],{encoding:'utf8',stdio:'pipe',timeout:10_000});

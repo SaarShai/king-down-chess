@@ -20,7 +20,7 @@ Status: ready-for-agent
 - The source frame hashes and times match all eight reference rows. This does not check final game placement.
 - The 800 ready frames use 80, 120, 140, 160, 180, 200 and 240 ms holds. None has the hash of a shipped idle or turn endpoint.
 - The catalog supplies numeric placement for 712 frames. The Paladin provenance file supplies it for 64 more. The 24 Ogre transforms are recovered from the retained source crops. Each recovered transform reproduces its registered frame pixel for pixel.
-- The runtime has a move-loop sampling path. It holds each frame to its recorded time and repeats during travel. The Knight keeps its existing jump. The builder does not yet publish move banks, so this path is not active in the game.
+- The runtime holds each move frame for its recorded time and repeats the loop during travel. The Knight keeps its existing jump.
 - Measured stand frames and shipped rests for all 30 character and army pairs with ready walks. The shared transforms match the rest height and ground in the measurements.
 - A candidate catalog holds 196 move banks and 800 frames. The move checks pass for source hashes, order, times, stand exclusion, placement and source motion ranges. The catalog is in the run folder.
 - The eight reference banks retain their hashes and times. A direct comparison with the reference renders, after one scale and offset, has at most 0.801 px head or ground error. An independent comparison to source bounds reaches 1.008 px on one Pawn frame because the two raster edge measurements differ.
