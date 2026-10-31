@@ -53,16 +53,11 @@ function offlineBuild(): Plugin {
     configResolved(config) { publicDir = config.publicDir; root = config.root; outDir = resolve(root, config.build.outDir); },
     transformIndexHtml: { order: 'post', handler() {
       // Start the offline cache after the board is ready.
-      return [{ tag: 'script', injectTo: 'head', children: `window.kingdownWorkerReady = 'serviceWorker' in navigator ? new Promise(resolve => addEventListener('load', async () => {
-  try {
-    if (location.pathname === '/') {
-      for (let t = 0; !window.view && t < 300; t++) await new Promise(r => setTimeout(r, 200));
-      await Promise.race([window.view?.ready(), new Promise(r => setTimeout(r, 60000))]);
-      await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' });
-    } else if (!await navigator.serviceWorker.getRegistration()) return;
-    await navigator.serviceWorker.ready;
-  } catch {} finally { resolve(); }
-}, { once: true })) : Promise.resolve();` }];
+      return [{ tag: 'script', injectTo: 'head', children: `if (location.pathname === '/' && 'serviceWorker' in navigator) addEventListener('load', async () => {
+  for (let t = 0; !window.view && t < 300; t++) await new Promise(r => setTimeout(r, 200));
+  await Promise.race([window.view?.ready(), new Promise(r => setTimeout(r, 60000))]);
+  navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch(() => {});
+});` }];
     } },
     writeBundle(_options, bundle) {
       cpSync(publicDir, outDir, { recursive: true, filter: path => {
@@ -82,7 +77,7 @@ function offlineBuild(): Plugin {
       const files = walk(outDir).map(path => relative(outDir, path).split(sep).join('/')).filter(f => f !== 'sw.js' && !f.startsWith('.well-known/')).sort();
       for (const file of files.filter(file => file.startsWith('character-runtime/'))) {
         const contents = readFileSync(join(outDir, file));
-        if (/\.(?:json|mjs)$/.test(file) && privateRuntimeData(contents)) throw new Error(`Private character runtime data: ${file}`);
+        if (privateRuntimeData(contents, file.endsWith('.json'))) throw new Error(`Private character runtime data: ${file}`);
         if (file === 'character-runtime/manifest.json') writeFileSync(join(outDir, file), JSON.stringify(validateManifest(JSON.parse(contents.toString('utf8')))) + '\n');
         validateRuntimeImage(contents, file);
       }

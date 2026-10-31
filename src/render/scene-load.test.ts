@@ -30,6 +30,8 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
     : key === 'getImageData' || key === 'createImageData' ? () => ({ data: new Uint8ClampedArray(4) })
     : key in target ? Reflect.get(target, key) : () => context });
   const canvas = () => ({ width: 960, height: 1024, getContext: () => context });
+  vi.stubGlobal('addEventListener', () => {});
+  vi.stubGlobal('removeEventListener', () => {});
   vi.stubGlobal('Image', Art);
   vi.stubGlobal('DOMMatrix', class { scale() { return this; } });
   vi.stubGlobal('document', { createElement: canvas });
@@ -85,12 +87,32 @@ it('waits for page load before starting character downloads', async () => {
  onLoad();await vi.advanceTimersByTimeAsync(0);expect(fetcher).toHaveBeenCalledOnce();
 });
 
-it('waits for worker activation after page load', async () => {
+it('starts after load even if a worker install never becomes ready', async () => {
  const fetcher=vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));
  vi.stubGlobal('fetch',fetcher);
- let activate!:()=>void;vi.stubGlobal('kingdownWorkerReady',new Promise<void>(resolve=>{activate=resolve;}));
- const b=board(true,true);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
- expect(fetcher).not.toHaveBeenCalled();activate();await vi.advanceTimersByTimeAsync(0);expect(fetcher).toHaveBeenCalledOnce();
+ const b=board(true,true), listeners=new Map<string,(event?: any)=>void>();
+ Object.assign(document,{readyState:'interactive'});
+ vi.stubGlobal('navigator',{serviceWorker:{ready:new Promise(()=>{})}});
+ vi.stubGlobal('addEventListener',(name:string,fn:(event?: any)=>void)=>listeners.set(name,fn));
+ void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ expect(fetcher).not.toHaveBeenCalled();expect(listeners.has('load')).toBe(true);
+ listeners.get('load')!();await vi.advanceTimersByTimeAsync(0);expect(fetcher).toHaveBeenCalledOnce();
+ listeners.get('pageshow')!({persisted:true});await vi.advanceTimersByTimeAsync(0);expect(fetcher).toHaveBeenCalledOnce();
+});
+
+it('starts at once on an already loaded page and on a restored page', async () => {
+ const fetcher=vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));vi.stubGlobal('fetch',fetcher);
+ const b=board(true,true);Object.assign(document,{readyState:'complete'});
+ void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);expect(fetcher).toHaveBeenCalledOnce();
+});
+
+it('starts on a restored page when load did not run', async () => {
+ const fetcher=vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));vi.stubGlobal('fetch',fetcher);
+ const b=board(true,true),listeners=new Map<string,(event?: any)=>void>();Object.assign(document,{readyState:'interactive'});
+ vi.stubGlobal('addEventListener',(name:string,fn:(event?: any)=>void)=>listeners.set(name,fn));
+ void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);expect(fetcher).not.toHaveBeenCalled();
+ listeners.get('pageshow')!({persisted:true});await vi.advanceTimersByTimeAsync(0);expect(fetcher).toHaveBeenCalledOnce();
+ listeners.get('load')!();await vi.advanceTimersByTimeAsync(0);expect(fetcher).toHaveBeenCalledOnce();
 });
 
 it.each(['late', 'failed'] as const)('F7: a %s clip keeps the plain figure and a move works', async result => {

@@ -12,7 +12,7 @@ import pg from 'pg';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { ENGINES } from './plugin-runtime-build.mjs';
 import { isCharacterRuntimePublic } from './lib/character-runtime-public.mjs';
-import { privateRuntimeData, validateRuntimeImage } from './lib/character-runtime-guard.mjs';
+import { privateRuntimeData, validateManifest, validateRuntimeImage } from './lib/character-runtime-guard.mjs';
 import { CHATGPT_PLUGIN, PARKED_PATHS } from './chatgpt-plugin.mjs';
 
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
@@ -22,7 +22,7 @@ if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || !url.pathname
 const tree = await mkdtemp(join(tmpdir(), 'kingdown-vercel-'));
 const pool = new pg.Pool({ connectionString });
 const actor = randomUUID(), clientId = randomUUID(), secret = randomUUID() + randomUUID();
-const server = createServer(); let app, savedAccountAccess;
+const server = createServer(); let app, savedAccountAccess, actorCreated = false;
 const exists = path => stat(path).then(s => s, () => undefined);
 try {
   // Keep the relative function links: they must resolve inside the copy.
@@ -53,7 +53,8 @@ try {
     if (!(await stat(path)).isFile()) continue;
     const contents = await readFile(path);
     assert(isCharacterRuntimePublic(`character-runtime/${file}`), `Only public runtime files: ${file}`);
-    assert(!/\.(?:json|mjs)$/.test(file) || !privateRuntimeData(contents), `No private metadata in published runtime: ${file}`);
+    assert(!privateRuntimeData(contents, file.endsWith('.json')), `No private metadata in published runtime: ${file}`);
+    if (file === 'manifest.json') validateManifest(JSON.parse(contents.toString('utf8')));
     validateRuntimeImage(contents, file);
     assert(!/(?:^|\/)provenance\/|(?:^|\/)sources\.json$/.test(file), `No provenance in published runtime: ${file}`);
   }
@@ -94,7 +95,7 @@ try {
   }
 
   for (const id of [actor]) {
-    await pool.query('insert into auth.users(id) values($1)', [id]);
+    await pool.query('insert into auth.users(id) values($1)', [id]); actorCreated = true;
     await pool.query('update public.profiles set handle=$2 where id=$1', [id, `vercel-${id.slice(0,8)}`]);
   }
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
@@ -380,8 +381,11 @@ try {
   } finally {
     server.closeAllConnections(); await new Promise(done => server.close(done));
     await app?.pool.end();
-    await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [[actor]]);
-    await pool.query('delete from auth.users where id=any($1::uuid[])', [[actor]]); await pool.end();
+    if (actorCreated) {
+      await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [[actor]]);
+      await pool.query('delete from auth.users where id=any($1::uuid[])', [[actor]]);
+    }
+    await pool.end();
     await rm(tree, { recursive: true, force: true });
   }
 }

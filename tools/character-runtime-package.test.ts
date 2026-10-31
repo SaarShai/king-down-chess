@@ -1,3 +1,4 @@
+import { stripPng } from './character-runtime-effects.mjs';
 import { registerBanks } from './build-character-runtime.mjs';
 import { afterEach, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
@@ -86,4 +87,13 @@ it('uses each movement bank facing-rest height even without an idle', () => {
  expect(idle.registrationHeightPx).toBe(80);
  expect(movement.registrationHeightPx).toBe(70);
  expect(noIdle.registrationHeightPx).toBe(70);
+});
+
+it('strips non-rendering PNG chunks without changing the pixels', async () => {
+ const png=await sharp({create:{width:4,height:4,channels:4,background:{r:20,g:30,b:40,alpha:0.5}}}).png().toBuffer();
+ const metadata=Buffer.concat([Buffer.from('0000000463614258','hex'),Buffer.from('test'),Buffer.alloc(4)]);
+ const withMetadata=Buffer.concat([png.subarray(0,33),metadata,png.subarray(33)]);
+ const stripped=stripPng(withMetadata);
+ expect(stripped.equals(stripPng(png))).toBe(true);
+ expect((await sharp(stripped).ensureAlpha().raw().toBuffer()).equals(await sharp(png).ensureAlpha().raw().toBuffer())).toBe(true);
 });

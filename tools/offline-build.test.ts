@@ -1,4 +1,5 @@
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { symlinkSync, cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { runInNewContext } from 'node:vm';
 import { join, resolve } from 'node:path';
@@ -173,7 +174,7 @@ it('publishes only runtime effect metadata and omits provenance', async () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-it.each(['/home/private', '/private/tmp/a', '/var/folders/a', 'file:///tmp/a', 'C:\\private\\file', '{"localPath":"x"}', '{"sourceImagePath":"x"}', '{"sourceFramePath":"x"}', '{"reviewNotes":"x"}', '{"reviewer":"x"}', '/Users/private', '{"prompt":"private"}', '{"provider":"private"}', '.codex', 'generated_images', '{"sourcePath":"private"}', '{"originalPath":"private"}'])('fails a build if published runtime data contains %s', async privateData => {
+it.each(['/home/private', '/private/tmp/a', '/var/folders/a', 'file:///tmp/a', '{"localPath":"x"}', '{"sourceImagePath":"x"}', '{"sourceFramePath":"x"}', '{"reviewNotes":"x"}', '{"reviewer":"x"}', '/Users/private', '{"prompt":"private"}', '{"provider":"private"}', '.codex', 'generated_images', '{"sourcePath":"private"}', '{"originalPath":"private"}'])('fails a build if published runtime data contains %s', async privateData => {
   const { dir, write } = site();
   write(`public/character-runtime/effects/${'b'.repeat(64)}/effect.mjs`, privateData);
   try { await expect(compile(dir)).rejects.toThrow('Private character runtime data'); }
@@ -190,10 +191,26 @@ it('rejects unknown manifest fields, metadata chunks and invalid beam field type
   const webp = Buffer.concat([Buffer.from('524946460c00000057454250','hex'), Buffer.from('4558494600000000','hex')]);
   expect(() => validateRuntimeImage(webp, 'bad.webp')).toThrow('WebP chunk');
   expect(privateRuntimeData(Buffer.from('/home/private'))).toBe(true);
+  expect(privateRuntimeData(Buffer.from('{\"path\":\"C:\\\\private\\\\file\"}'), true)).toBe(true);
+  expect(privateRuntimeData(Buffer.from('export const f=(x,a)=>x?a:/re/.test(x);'))).toBe(false);
+  const iccp = Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'), Buffer.from('0000000969434350','hex'), Buffer.from('/Users/za'), Buffer.alloc(4)]);
+  expect(privateRuntimeData(iccp)).toBe(true);
+  expect(() => validateRuntimeImage(iccp, 'bad.png')).toThrow('PNG chunk');
   const { dir, write } = site();
   write(`public/character-runtime/effects/${'b'.repeat(64)}/effect.json`, JSON.stringify({id:'maester-beam', sprite:'a', shaftSourceRect:'x', flare:{sprite:'b',anchor:[1,2]}}));
   try { await expect(compile(dir)).rejects.toThrow('Unknown character effect metadata'); }
   finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+it('rejects a binary path in an iCCP chunk and accepts a JavaScript regex', async () => {
+ const {dir,write}=site(), effect=`public/character-runtime/effects/${'b'.repeat(64)}`;
+ try {
+  write(`${effect}/effect.mjs`, 'export const f=(x,a)=>x?a:/re/.test(x);');
+  await expect(compile(dir)).resolves.toBeDefined();
+  const iccp=Buffer.concat([Buffer.from('89504e470d0a1a0a0000000969434350','hex'),Buffer.from('/Users/za'),Buffer.alloc(4)]);
+  write(`${effect}/assets/a.png`, '');writeFileSync(join(dir,`${effect}/assets/a.png`),iccp);
+  await expect(compile(dir)).rejects.toThrow('Private character runtime data');
+ } finally {rmSync(dir,{recursive:true,force:true});}
 });
 
 it('rejects unknown nested manifest fields in a build', async () => {
@@ -270,35 +287,11 @@ it('uses real build metadata for the worker, loader, lazy code, CSS and emitted 
     for (const pathname of ['/', '/play/', '/g/game-id', '/j']) {
       const events: string[] = [];
       runInNewContext(startup, { window: {}, location: { pathname }, navigator: { serviceWorker: {} }, addEventListener: (name: string) => events.push(name) });
-      expect(events).toEqual(['load']);
+      expect(events).toEqual(pathname === '/' ? ['load'] : []);
     }
     expect(readFileSync(join(output, named('main')), 'utf8')).toContain('/ui/pawn.webp');
     expect(readFileSync(join(output, named('main', 'css')), 'utf8')).toMatch(/url\(["']?\/assets\//);
 
-  } finally { rmSync(dir, { recursive: true, force: true }); }
-});
-
-it('starts after load when worker support is absent or registration fails', async () => {
-  const { dir } = site();
-  try {
-    await compile(dir);
-    const html = readFileSync(join(dir, 'dist/index.html'), 'utf8');
-    const startup = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]).find(source => source.includes('serviceWorker'))!;
-    const unsupported: {kingdownWorkerReady?: Promise<unknown>} = {};
-    runInNewContext(startup, { window: unsupported, location: { pathname:'/' }, navigator: {}, addEventListener: () => {} });
-    await expect(unsupported.kingdownWorkerReady).resolves.toBeUndefined();
-    let load!:()=>Promise<void>;
-    const failed: {view: {ready:()=>Promise<void>}, kingdownWorkerReady?: Promise<unknown>} = {view:{ready:async()=>{}}};
-    runInNewContext(startup, { window: failed, location: { pathname:'/' }, navigator: {serviceWorker:{register:async()=>{throw Error('failed');}}}, addEventListener: (_name:string, fn:()=>Promise<void>) => {load=fn;} });
-    await load(); await expect(failed.kingdownWorkerReady).resolves.toBeUndefined();
-    let activate!:()=>void; const workerReady = new Promise<void>(resolve=>{activate=resolve;});
-    const app: {kingdownWorkerReady?: Promise<unknown>} = {};
-    runInNewContext(startup, { window: app, location: { pathname:'/play' }, navigator: {serviceWorker:{getRegistration:async()=>({}),ready:workerReady}}, addEventListener: (_name:string, fn:()=>Promise<void>) => {load=fn;} });
-    const pending=load(); let started=false; void app.kingdownWorkerReady!.then(()=>{started=true;});
-    await Promise.resolve(); expect(started).toBe(false); activate(); await pending; expect(started).toBe(true);
-    const empty: {kingdownWorkerReady?: Promise<unknown>} = {};
-    runInNewContext(startup, { window: empty, location: { pathname:'/play' }, navigator: {serviceWorker:{getRegistration:async()=>undefined}}, addEventListener: (_name:string, fn:()=>Promise<void>) => {load=fn;} });
-    await load(); await expect(empty.kingdownWorkerReady).resolves.toBeUndefined();
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -336,4 +329,17 @@ it.each(["const VERSION = 'dev';", 'const ALLOWLIST = [];', 'const PRECACHE = []
       await expect(compile(dir)).rejects.toThrow('sw.js template marker missing or repeated');
     }
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+it('vercel check rejects an unknown runtime manifest key', () => {
+ const dir=mkdtempSync(join(tmpdir(),'kingdown-vercel-manifest-'));
+ try {
+  mkdirSync(join(dir,'functions/mcp.func'),{recursive:true});mkdirSync(join(dir,'static/character-runtime'),{recursive:true});
+  symlinkSync('mcp.func',join(dir,'functions/internal.func'));
+  writeFileSync(join(dir,'functions/mcp.func/.vc-config.json'),JSON.stringify({handler:'server.mjs'}));
+  writeFileSync(join(dir,'config.json'),JSON.stringify({version:3,routes:[{src:'^/api(?:/.*)?$',dest:'/mcp'}]}));
+  writeFileSync(join(dir,'static/character-runtime/manifest.json'),JSON.stringify({schemaVersion:1,effects:{},banks:[],unexpected:'x'}));
+  const result=spawnSync(process.execPath,[resolve('tools/vercel-check.mjs'),dir],{encoding:'utf8',env:{...process.env,PLUGIN_TEST_DATABASE_URL:'postgresql://127.0.0.1:55432/fixture_test'}});
+  expect(result.status).toBe(1);expect(result.stderr).toContain('Unknown character manifest metadata');
+ } finally {rmSync(dir,{recursive:true,force:true});}
 });

@@ -19,16 +19,20 @@ export function validateManifest(m) {
  });
  return m;
 }
-export function privateRuntimeData(data) {
- let text=data.toString('utf8');
- try { text=JSON.stringify(JSON.parse(text)); } catch {}
- return /\/Users\/|\/home\/|\/private\/|\/var\/folders\/|file:\/\/|(?:^|[^A-Za-z0-9])[A-Za-z]:[\\\\/]|\.codex|generated_images|"(?:prompt|provider|sourcePath|originalPath|localPath|sourceImagePath|sourceFramePath|reviewNotes|reviewer)"\s*:/.test(text);
+export function privateRuntimeData(data, json = false) {
+ let text=data.toString('utf8'), value;
+ if(json) { try { value=JSON.parse(text); text=JSON.stringify(value); } catch {} }
+ const drivePath=v=>typeof v==='string' ? /(?:^|[^A-Za-z0-9])[A-Za-z]:[\\/]/.test(v)
+  : Array.isArray(v) ? v.some(drivePath) : v && typeof v==='object' ? Object.values(v).some(drivePath) : false;
+ return /\/Users\/|\/home\/|\/private\/|\/var\/folders\/|file:\/\//.test(text)
+  || (json && drivePath(value))
+  || /\.codex|generated_images|"(?:prompt|provider|sourcePath|originalPath|localPath|sourceImagePath|sourceFramePath|reviewNotes|reviewer)"\s*:/.test(text);
 }
 /** Only image chunks needed to render are public. */
 export function validateRuntimeImage(data, file) {
  if(file.endsWith('.png')) {
   if(!data.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex'))) throw Error(`Invalid runtime PNG: ${file}`);
-  let i=8; while(i<data.length){if(i+12>data.length) throw Error(`Invalid runtime PNG: ${file}`); const n=data.readUInt32BE(i),name=data.toString('ascii',i+4,i+8); if(i+12+n>data.length||!['IHDR','PLTE','tRNS','IDAT','IEND','gAMA','sRGB','iCCP'].includes(name)) throw Error(`Invalid runtime PNG chunk: ${file}`); i+=12+n;}
+  let i=8; while(i<data.length){if(i+12>data.length) throw Error(`Invalid runtime PNG: ${file}`); const n=data.readUInt32BE(i),name=data.toString('ascii',i+4,i+8); if(i+12+n>data.length||!['IHDR','PLTE','tRNS','IDAT','IEND','gAMA','sRGB'].includes(name)) throw Error(`Invalid runtime PNG chunk: ${file}`); i+=12+n;}
  } else if(file.endsWith('.webp')) {
   if(data.toString('ascii',0,4)!=='RIFF'||data.toString('ascii',8,12)!=='WEBP'||data.readUInt32LE(4)+8!==data.length) throw Error(`Invalid runtime WebP: ${file}`);
   let i=12;while(i<data.length){if(i+8>data.length) throw Error(`Invalid runtime WebP: ${file}`);const name=data.toString('ascii',i,i+4),n=data.readUInt32LE(i+4);if(i+8+n+(n%2)>data.length||!['VP8X','VP8 ','VP8L','ALPH'].includes(name)) throw Error(`Invalid runtime WebP chunk: ${file}`);i+=8+n+(n%2);}

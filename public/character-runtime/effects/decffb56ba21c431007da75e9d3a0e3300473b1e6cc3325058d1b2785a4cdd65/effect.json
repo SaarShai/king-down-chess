@@ -1,8 +1,8 @@
 {
   "id": "maester-beam",
-  "sprite": "assets/6c30d2f7f69e8eac2f49a58058ceca2aa95fecc8fa43a6710f1ad184a3720dc9.png",
+  "sprite": "assets/51fd9a43e032d710ba7c46103195bad6bc08aaf41def81c79da395c9deb17f16.png",
   "sourcePath": "/Users/za/Documents/king down chess (new)/app/.claude/worktrees/maester-animation-lane/docs/specs/character-animation-samples/preview/maester-attack/effects/beam-native-v1.png",
-  "sha256": "6c30d2f7f69e8eac2f49a58058ceca2aa95fecc8fa43a6710f1ad184a3720dc9",
+  "sha256": "51fd9a43e032d710ba7c46103195bad6bc08aaf41def81c79da395c9deb17f16",
   "nativeSize": [
     1536,
     1024
@@ -26,9 +26,9 @@
     "Eight arbitrary directions and positive distances are effect inputs. Character aiming is supplied by separate directional actions."
   ],
   "flare": {
-    "sprite": "assets/2720eee9c355219e3cbf04e05652d3a12104ab4d43202c6a9cb44749c52918e6.png",
+    "sprite": "assets/1a10306a1f624125a3cbffaf34200782c9ac8928ed220af37883ce3c2144f10a.png",
     "sourcePath": "/Users/za/.codex/generated_images/01a168cc-7138-7163-afe5-2987521957b4/exec-191591cf-627d-4f64-93ec-70783985e502.png",
-    "sha256": "2720eee9c355219e3cbf04e05652d3a12104ab4d43202c6a9cb44749c52918e6",
+    "sha256": "1a10306a1f624125a3cbffaf34200782c9ac8928ed220af37883ce3c2144f10a",
     "nativeSize": [
       1374,
       1145

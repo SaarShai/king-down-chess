@@ -718,6 +718,9 @@ describe('deploy-live-check.mjs', () => {
     const badAsset = await site(() => files, {path:`/${asset}`,type:'image/webp',cache:'public, max-age=0'});
     const assetResult = await check(buildFolder(files), badAsset.url, 0);
     expect(assetResult.status).toBe(1); expect(assetResult.stderr).toContain('wrong immutable cache policy');
+    const shortAsset = await site(() => files, {path:`/${asset}`,type:'image/webp',cache:'public, max-age=60, immutable'});
+    const shortResult = await check(buildFolder(files), shortAsset.url, 0);
+    expect(shortResult.status).toBe(1); expect(shortResult.stderr).toContain('wrong immutable cache policy');
     const badManifest = await site(() => files, {path:'/character-runtime/manifest.json',type:'application/json',cache:'public, immutable'});
     const manifestResult = await check(buildFolder(files), badManifest.url, 0);
     expect(manifestResult.status).toBe(1); expect(manifestResult.stderr).toContain('wrong immutable cache policy');

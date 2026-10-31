@@ -53,7 +53,8 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
  const FALL=650, CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
- let bodyRuntime=null, bodyWarm=!characterRuntime;
+ let bodyRuntime=null, bodyWarm=!characterRuntime, startBodyRuntime=null;
+ const onPageShow=event=>{if(event.persisted)startBodyRuntime?.();};
  const characterOf=value=>typeOf(value)===K?`king-${kings[colorOf(value)]}`:ART[typeOf(value)];
  const armyOf=value=>colorOf(value)?'black':'white';
  function warmBodies(){if(!bodyRuntime)return Promise.resolve();return Promise.all([...new Set(position.board)].filter(Boolean).map(value=>bodyRuntime.warm(characterOf(value),armyOf(value))));}
@@ -977,9 +978,9 @@ function drawEncounter(a,t) {
    if(disposed)return;
    if(!reducedMotion)loadClips();
    if(characterRuntime){
-    const start=()=>{if(disposed)return;bodyRuntime=createCharacterRuntime({wake:()=>wake()});void bodyRuntime.ready().then(()=>{if(!disposed)return warmBodies();}).then(()=>{bodyWarm=true;});};
-    const afterLoad=()=>Promise.resolve(globalThis.kingdownWorkerReady).then(start);
-    if(document.readyState&&document.readyState!=='complete')globalThis.addEventListener('load',afterLoad,{once:true});else afterLoad();
+    const start=()=>{if(disposed||bodyRuntime)return;bodyRuntime=createCharacterRuntime({wake:()=>wake()});void bodyRuntime.ready().then(()=>{if(!disposed)return warmBodies();}).then(()=>{bodyWarm=true;});};
+    startBodyRuntime=start;globalThis.addEventListener('pageshow',onPageShow);
+    if(document.readyState&&document.readyState!=='complete')globalThis.addEventListener('load',start,{once:true});else start();
    }
   });
   if((a&&!a.done&&(!a.preparing||a.exitReady||a.rewind))||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading||clipShown)wake(false);
@@ -1229,7 +1230,7 @@ function drawEncounter(a,t) {
    if(Number.isFinite(entry?.lastG))entry.resume={g:entry.lastG,start:performance.now()};
    if(animation||!idleReady||selected===null){endMove(keep);reserveSelected(selected);}if(closeup)closeup.panel.hidden=true;aimAngle=0;wake();
   },
-  dispose(){if(disposed)return;disposed=true;endMove();bodyRuntime?.dispose();smokeStreams.clear();cancelAnimationFrame(frame);frame=0;decorate=null;},
+  dispose(){if(disposed)return;disposed=true;if(startBodyRuntime){globalThis.removeEventListener('pageshow',onPageShow);globalThis.removeEventListener('load',startBodyRuntime);}endMove();bodyRuntime?.dispose();smokeStreams.clear();cancelAnimationFrame(frame);frame=0;decorate=null;},
  };
  return api;
 }

@@ -29,6 +29,13 @@ Type: task
 - Prove the online retry, offline gate, public-data guards and deploy checks.
 - Strip image metadata, compare pixels, measure both phone profiles and run CI.
 
+## Fourth review repair plan
+
+- Start art after load and restore it on a back-forward cache return.
+- Rebuild effects without metadata and keep source and output hashes distinct.
+- Test public-data guards, failed worker install, browser journeys, builds and CI.
+- Measure three phone profiles and record the trade-off.
+
 ## Inputs and delivery
 
 The frozen catalog is in the main checkout at `docs/specs/character-animation-samples/preview/consolidated-animations/`. Its `manifest.json` has SHA-256 `6279af2ef76ba46d75ba10ad5ddc822c67c5d5d78897457a1d13cc6893aed241`. `docs/specs/character-animation-samples/runtime-selection.json` pins that catalog with 478 ready entries. The main checkout was not changed.
@@ -37,7 +44,7 @@ The frozen catalog is in the main checkout at `docs/specs/character-animation-sa
 
 The alpha channel stays lossless. The colour channel is lossy at quality 90. `exact: true` keeps the colour of fully transparent pixels. The transparent exterior stays empty, because the encoder keeps the source alpha bytes.
 
-The package has 5,452 files and 124,535,614 bytes. The `manifest.json` SHA-256 is `8e825bee5d52d3a647b56edc8b524ffdbb5c9012f27f019fba320fc18a01063b`. The largest file is `manifest.json` at 2,039,064 bytes, far below the 100 MiB GitHub limit.
+The package has 5,452 files and 124,535,614 bytes. The `manifest.json` SHA-256 is `aefb4f952ece4b7149fdda48221ffe94600140d0c8ec8ceb36a95bc8dce7a1f6`. The largest file is `manifest.json` at 2,039,064 bytes, far below the 100 MiB GitHub limit.
 
 This change replaces pull request 212. That pull request used lossless WebP: 5,256 files and 304 MB in Git. Those files never enter staging history.
 
@@ -86,3 +93,23 @@ Players see plain figures until the art starts. The worker keeps its base timing
 - With a 1 MB/s server, the offline gate waits for 12 frame requests. No runtime request starts in the next three seconds.
 - The WebKit offline journey passes in 136.2 s. The Chromium journey passes in 124.0 s.
 - Six effect PNGs lose 136,677 bytes of non-rendering chunks. Their decoded RGBA pixels match before and after.
+
+## Fourth review
+
+Two independent reviewers checked round 6. Both said merge after fixes. They found that a failed worker install stops the art, the effect build restores metadata, and the public-file and cache checks have gaps. The other round 6 repairs pass their checks.
+
+The owner chose to start art after page load. The player sees plain figures until the art starts. The art does not wait for worker activation. A return from the back-forward cache starts the art if it did not start before.
+
+The effect build strips non-rendering PNG chunks. The source hashes stay in the source receipts. The runtime files and their records use the stripped hashes. A full PNG package rebuild produces the same effect files. All six decoded images match their sources.
+
+Follow-up: split the 2,039,064-byte manifest by character. It is 89% of first-visit runtime bytes.
+
+The cold phone check measures one visit for this repair. Times are seconds. Base has no character art.
+
+| Network | Worker registration | Worker active | First art |
+| --- | --- | --- | --- |
+| 200,000 B/s, 150 ms, no compression | 31.4 (base 26.6) | 94.9 (base 83.2) | 75.7 |
+| 200,000 B/s, 150 ms, compressed | 53.7 (base 53.7) | 84.3 (base 82.3) | 57.9 |
+| 10 Mbps, 50 ms, compressed | 8.9 (base 8.8) | 15.1 (base 14.4) | 9.5 |
+
+With a failed worker install, Chromium and WebKit each request 13 runtime files and draw 32 frames.

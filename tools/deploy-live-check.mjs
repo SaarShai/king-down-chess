@@ -109,7 +109,7 @@ async function differences() {
       const live = bundleOf(bytes.toString('utf8'));
       if (live !== bundle) found.push(`bundle: the live site loads ${live ?? 'no module script'}, the build ${bundle}`);
     }
-    if (runtimePaths.includes(path) && (/\bimmutable\b/i.test(cache ?? '') !== (path !== runtimeManifest))) found.push(`${path}: wrong immutable cache policy`);
+    if (runtimePaths.includes(path) && (path === runtimeManifest ? /\bimmutable\b/i.test(cache ?? '') : !/\bimmutable\b/i.test(cache ?? '') || !/(?:^|,)\s*max-age=31536000\s*(?:,|$)/i.test(cache ?? ''))) found.push(`${path}: wrong immutable cache policy`);
     if (!expected.types.includes(type)) found.push(`${path}: expected ${expected.types.join(' or ')}, got ${type || 'no content type'}`);
     if (!bytes.equals(expected.bytes)) found.push(`${path === '/' ? 'index.html' : path.slice(1)}${appPages.includes(path) ? ' (app page)' : ''}: the live page differs from the build (live ${bytes.length} bytes, build ${expected.bytes.length} bytes)`);
   };
