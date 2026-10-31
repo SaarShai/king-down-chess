@@ -42,9 +42,11 @@ try {
   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
   const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');
   await page.goto(url.href);await page.waitForFunction(sq=>window.view?.scene?.characterFrames?.some(f=>f.square===sq),from);await page.evaluate(()=>view.ready());
+  const rest=await page.evaluate(sq=>view.scene.characterFrames.find(f=>f.square===sq),from);
   await page.evaluate(()=>{window.walkTrace=[];window.walkTraceOn=true;const take=()=>{if(walkTraceOn){walkTrace.push(...view.scene.characterFrames);requestAnimationFrame(take);}};take();});
   for(const square of [from,to]){const p=await page.evaluate(sq=>view.screenOf(sq),square);await page.mouse.click(p.x,p.y);}
   await page.waitForFunction(([a,b])=>!view.scene.animating&&!view.pos.board[a]&&view.pos.board[b]>0,[from,to],{timeout:20000});
+  await page.waitForFunction(([sq,sha])=>view.scene.characterFrames.some(frame=>frame.square===sq&&frame.sourceSha256===sha),[to,rest.sourceSha256]);
   const result=await page.evaluate(sq=>{walkTraceOn=false;return {frames:walkTrace,after:view.scene.characterFrames.find(f=>f.square===sq)};},to);
   const walking=result.frames.filter(frame=>frame.bank===`${army}-walk-${army==='white'?'N':'S'}`);
   assert(walking.length>1,`${army}: painted frames play during travel`);
