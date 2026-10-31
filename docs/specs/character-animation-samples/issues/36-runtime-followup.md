@@ -23,3 +23,5 @@ The PNG guard and packer accept only IHDR, IDAT and IEND. The packer rejects ima
 The four focused test files pass 182 cases. The board checks pass 68 cases. These are not full-suite results. `npm run check:browser character-runtime` and `npm run check:browser web-online` pass in Chromium and WebKit. `npm run build:vercel` and `npm run check:vercel` pass. The undo check waits for the restored body frame after the board state changes.
 
 The Rook capture gate selects the piece, holds for two seconds, then captures. Its shared-link throttle gives 5/5 attacks in each browser at 4 Mbps / 100 ms and 1.6 Mbps / 150 ms. The new gate gives 0/5 at 4 Mbps with the base loader. The review measured 0/5 on base at both profiles. The original Chromium throttle probe gives 5/5 at both profiles on the final code.
+
+CI exposed a test fault: a fingerprint began with the probe text `e2e4`. The privacy test now checks text fields without treating hash characters as leaked text. A fixed collision case checks both a hash match and a real message leak.
