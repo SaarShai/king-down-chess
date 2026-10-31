@@ -16,7 +16,7 @@ export function registerBanks(banks, assets = new Map()) {
   const groups = new Map();
   for (const bank of banks) { const key = `${bank.character}:${bank.army}`; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(bank); }
   for (const all of groups.values()) {
-    const group=all.filter(bank=>bank.kind!=='movement');
+    const group=all.filter(bank=>bank.kind!=='movement'&&bank.kind!=='move');
     const parent=group.map((_,i)=>i),find=i=>parent[i]===i?i:(parent[i]=find(parent[i])),owners=new Map();
     for(const [i,bank]of group.entries())for(const frame of [bank.frames[0],bank.frames.at(-1)]){
       const previous=owners.get(frame.sourceSha256);if(previous!=null)parent[find(i)]=find(previous);else owners.set(frame.sourceSha256,i);
@@ -43,7 +43,7 @@ export function registerBanks(banks, assets = new Map()) {
         }
       }
     }
-    const movements=all.filter(bank=>bank.kind==='movement');
+    const movements=all.filter(bank=>bank.kind==='movement'||bank.kind==='move');
     if(movements.length){
       const rest=group.filter(bank=>bank.kind==='idle').sort((a,b)=>Number(b.facing==='SE')-Number(a.facing==='SE'))[0];
       for(const bank of movements){
@@ -104,7 +104,7 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
     if (characters && !characters.includes(entry.character)) continue;
     const current = accepted.get(`${entry.character}:${entry.army}:${entry.id}`);
     if (!current || current.kind !== entry.kind || !(current.status === 'ready' || entry.kind === 'movement-study' && current.status === 'draft') || current.sha256 !== entry.sha256 || current.manifest !== entry.manifest) throw Error(`Ready selection changed: ${entry.character}/${entry.id}`);
-    if (!['idle', 'turn', 'attack', 'movement-study'].includes(entry.kind)) throw Error(`Unsupported runtime kind: ${entry.kind}`);
+    if (!['idle', 'turn', 'attack', 'movement-study', 'move'].includes(entry.kind)) throw Error(`Unsupported runtime kind: ${entry.kind}`);
     const path = inside(source, resolve(source, entry.manifest)), bytes = await readFile(path);
     if (digest(bytes) !== entry.sha256) throw Error(`Bank hash mismatch: ${entry.id}`);
     const raw = JSON.parse(bytes), bank = { ...(raw.metadata ?? {}), ...raw };
@@ -120,6 +120,8 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
     const from = direction(bank.from ?? entry.from ?? edge[0] ?? idDirections.at(-2));
     const to = direction(bank.to ?? entry.to ?? edge[1] ?? idDirections.at(-1));
     const facing = direction(bank.facing ?? bank.direction ?? entry.direction) ?? direction(idDirections.at(-1));
+    if (entry.kind === 'move' && (!facing || bank.facing !== facing || bank.character !== entry.character || bank.army !== entry.army || bank.sampling !== 'nearest' || new Set(bank.frames.map(f => f.sha256)).size < 4 || !Number.isFinite(bank.bodyHeightPx) || bank.bodyHeightPx <= 0)) throw Error(`Invalid painted move: ${entry.id}`);
+    if (entry.kind === 'move' && banks.some(b => b.kind === 'move' && b.character === entry.character && b.army === entry.army && b.facing === facing)) throw Error(`Duplicate painted move: ${entry.id}`);
     if (entry.kind === 'movement-study' && (!direction(current.direction) || bank.direction !== current.direction || bank.army !== entry.army || bank.character != null && bank.character !== entry.character || bank.facing != null && bank.facing !== current.direction || entry.direction != null && entry.direction !== current.direction)) throw Error(`Invalid movement facing: ${entry.id}`);
     if (entry.kind === 'movement-study' && banks.some(b => b.kind === 'movement' && b.character === entry.character && b.army === entry.army && b.facing === facing)) throw Error(`Duplicate movement facing: ${entry.character}/${entry.army}/${facing}`);
     let sourceFrames=bank.frames, durationMs=bank.durationMs;
@@ -139,13 +141,15 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
       durationMs=before+bank.durationMs+after;
     }
     const pivot = bank.footPivot ?? bank.pivot ?? (entry.kind === 'movement-study' ? bank.frames[0].pivot : null);
+    if (entry.kind === 'move' && (!Array.isArray(pivot) || pivot.length !== 2 || pivot.some(n => !Number.isFinite(n)))) throw Error(`Invalid painted move pivot: ${entry.id}`);
     if (entry.kind === 'movement-study' && (!Array.isArray(pivot) || sourceFrames.some(frame => frame.pivot != null && (!Array.isArray(frame.pivot) || frame.pivot.length !== 2 || frame.pivot.some((n, i) => n !== pivot[i]))))) throw Error(`Invalid movement pivot: ${entry.id}`);
     if (pivot != null && (pivot.length !== 2 || pivot.some(n => !Number.isFinite(n)))) throw Error(`Invalid foot pivot: ${entry.id}`);
     const frames = [];
     for (let index = 0; index < sourceFrames.length; index++) {
       const frame = sourceFrames[index], timeMs = frame.timeMs ?? bank.times?.[index] ?? index * durationMs / (sourceFrames.length - 1);
       if (!Number.isFinite(timeMs) || timeMs < 0 || timeMs > durationMs || index && timeMs < frames[index - 1].timeMs) throw Error(`Invalid frame time: ${entry.id}`);
-      if (entry.kind === 'movement-study') {
+      if (entry.kind === 'move' && (!Number.isFinite(frame.durationMs) || frame.durationMs <= 0 || timeMs !== (index ? sourceFrames[index - 1].timeMs + sourceFrames[index - 1].durationMs : 0) || index === sourceFrames.length - 1 && timeMs + frame.durationMs !== durationMs)) throw Error(`Invalid painted move timing: ${entry.id}`);
+      if (entry.kind === 'movement-study' || entry.kind === 'move') {
         const bytes = await readFile(inside(source, resolve(dirname(path), frame.url)));
         const metadata = await sharp(bytes).metadata(), { data, info } = await sharp(bytes).raw().toBuffer({ resolveWithObject: true });
         if (metadata.channels !== 4 || !metadata.hasAlpha || !data.some((n, i) => i % 4 === 3 && n > 0)) throw Error(`Invalid movement RGBA: ${entry.id}`);

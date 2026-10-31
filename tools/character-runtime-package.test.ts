@@ -106,6 +106,25 @@ it('registers shared endpoints at the same effective pivot when one frame is pad
  expect(()=>registerBanks([idle,attack],new Map([['rest',{size:[384,384]}]]))).not.toThrow();
  expect(attack.registrationHeightPx).toBe(idle.registrationHeightPx);
 });
+it('builds painted moves with their own timing and rejects a gap', async () => {
+ scratch=mkdtempSync(join(tmpdir(),'kingdown-painted-move-'));const source=join(scratch,'source'),out=join(scratch,'out');mkdirSync(join(source,'banks'),{recursive:true});mkdirSync(join(source,'assets'));
+ const hash=(b:Buffer)=>createHash('sha256').update(b).digest('hex');
+ const frames:{url:string;sha256:string;timeMs:number;durationMs:number}[]=[];let timeMs=0;
+ for(const [i,durationMs] of [120,160,240,160].entries()){
+  const image=await sharp({create:{width:32,height:32,channels:4,background:{r:0,g:0,b:0,alpha:0}}}).composite([{input:await sharp({create:{width:8,height:8,channels:4,background:{r:20+i*30,g:20,b:30,alpha:1}}}).png().toBuffer(),left:12,top:12}]).png().toBuffer();
+  const sha256=hash(image);writeFileSync(join(source,'assets',`${sha256}.png`),image);frames.push({url:`../assets/${sha256}.png`,sha256,timeMs,durationMs});timeMs+=durationMs;
+ }
+ const selection=join(scratch,'selection.json');
+ const select=(bankFrames:typeof frames)=>{
+  const bytes=Buffer.from(JSON.stringify({status:'ready',character:'pawn',army:'white',facing:'N',canvasSize:[32,32],pivot:[16,28],bodyHeightPx:20,sampling:'nearest',durationMs:timeMs,frames:bankFrames})),sha256=hash(bytes);
+  writeFileSync(join(source,'banks',`${sha256}.json`),bytes);const entry={character:'pawn',army:'white',kind:'move',id:'white-walk-N',status:'ready',manifest:`banks/${sha256}.json`,sha256};
+  const manifest=Buffer.from(JSON.stringify({entries:[entry]}));writeFileSync(join(source,'manifest.json'),manifest);writeFileSync(selection,JSON.stringify({schemaVersion:1,status:'ready',catalogSha256:hash(manifest),entries:[entry]}));
+ };
+ const run=()=>execFileSync(process.execPath,[resolve('tools/build-character-runtime.mjs'),'--source',source,'--output',out,'--selection',selection],{encoding:'utf8',stdio:'pipe',timeout:10_000});
+ select(frames);expect(JSON.parse(run())).toEqual({banks:1,assets:4});const bank=JSON.parse(readFileSync(join(out,'manifest.json'),'utf8')).banks[0];
+ expect(bank).toMatchObject({kind:'move',facing:'N',pivot:[8,14],registrationHeightPx:10,durationMs:680,nearest:true});expect(bank.frames.map((f:{timeMs:number})=>f.timeMs)).toEqual([0,120,280,520]);
+ select(frames.map((f,i)=>i===2?{...f,timeMs:f.timeMs+1}:f));expect(run).toThrow(/Invalid painted move timing/);
+},30_000);
 
 it('strips non-rendering PNG chunks without changing the pixels', async () => {
  const png=await sharp({create:{width:4,height:4,channels:4,background:{r:20,g:30,b:40,alpha:0.5}}}).png().toBuffer();

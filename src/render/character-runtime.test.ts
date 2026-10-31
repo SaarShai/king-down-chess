@@ -169,9 +169,11 @@ describe('ready character playback', () => {
  it('holds the painted move keys at their own times and repeats during long travel', async () => {
   const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
   const move={...bank(),id:'painted',kind:'move',facing:'N',nearest:true,durationMs:600,frames:[0,120,360].map(timeMs=>({url:`walk-${timeMs}`,timeMs}))};
-  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,move]})})) as unknown as typeof fetch,
+  const older={...move,id:'older',kind:'movement'};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,older,move]})})) as unknown as typeof fetch,
    image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
-  const prepared=await runtime.prepare('pawn','white','N',false,false);
+  const prepared=await runtime.prepare('pawn','white','N',false,true);
+  expect((prepared as {movement:{id:string}} | null)?.movement?.id).toBe('painted');
   expect([0,119,120,359,360,599,600,720].map(t=>(runtime.action(prepared,t,1000,0) as {time:number}).time)).toEqual([0,0,120,120,360,360,0,120]);
   expect((runtime.action(prepared,1001,1000,0) as {bank:string}).bank).toBe('idle');
   runtime.dispose();
