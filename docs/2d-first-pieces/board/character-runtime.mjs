@@ -4,7 +4,7 @@ export function facingOf(dx,dy) { return FACINGS[(Math.round(Math.atan2(dx,-dy)/
 export function frameAt(bank,time) {
  const frames=bank.frames,t=Math.max(0,Math.min(time,bank.durationMs));
  if(frames.some(f=>f.visibleIntervalMs))return frames.findLast(f=>f.visibleIntervalMs?.[0]<=t&&t<=f.visibleIntervalMs[1])??frames.at(-1);
- if(bank.nearest&&bank.kind!=='attack')return frames[Math.round(t/bank.durationMs*(frames.length-1))];
+ if(bank.nearest&&bank.kind!=='attack'&&bank.kind!=='move')return frames[Math.round(t/bank.durationMs*(frames.length-1))];
  return frames.findLast(f=>f.timeMs<=t)??frames[0];
 }
 export function turnRoute(banks,from,to) {
@@ -208,9 +208,9 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    await bounded(loadManifest(),remaining(),signal);if(disposed||signal?.aborted||!remaining())return null;
    const all=forPiece(character,army),rest=idle(character,army);if(!rest)return null;
    const attack=capture?all.find(b=>b.kind==='attack'&&b.facing===direction):null;
-   let movement=!capture&&oneSquare?all.find(b=>b.kind==='movement'&&b.facing===direction&&b.durationMs>0&&b.frames?.length):null;
+   let movement=!capture?all.find(b=>(b.kind==='move'&&character!=='knight'||b.kind==='movement'&&oneSquare)&&b.facing===direction&&b.durationMs>0&&b.frames?.length):null;
    const movementRequested=!!movement;
-   const turns=all.filter(b=>b.kind==='turn'),before=turnRoute(turns,rest.facing,direction),after=before&&reverseRoute(before);
+   const turns=all.filter(b=>b.kind==='turn'),before=turnRoute(turns,rest.facing,direction)??(movement?.kind==='move'?[]:null),after=before&&reverseRoute(before);
    // A missing edge keeps the rest body coherent instead of jumping to an unsupported facing.
    if(before===null)return null;
    const routeFrames=character.startsWith('king-')&&capture?p=>p.bank.frames:p=>endpoints(p.bank);
@@ -245,7 +245,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    if(time>duration)return routeSample(prepared.after,time-duration)??sample(prepared.rest,0,false);
    const attack=prepared.attack;
    if(attack){return sample(attack,Math.min(time,attack.durationMs),true,false,true)??sample(prepared.rest,0,false);}
-   if(prepared.movement){const frames=prepared.movement.frames,frame=boundary==='start'?frames[0]:boundary==='end'?frames.at(-1):null;const body=sample(prepared.movement,duration>0?time/duration*prepared.movement.durationMs:0,true,false,true,frame);if(body)return body;}
+   if(prepared.movement){const move=prepared.movement,frames=move.frames,frame=boundary==='start'?frames[0]:boundary==='end'&&move.kind!=='move'?frames.at(-1):null;const clock=move.kind==='move'?time%move.durationMs:duration>0?time/duration*move.durationMs:0;const body=sample(move,clock,true,false,true,frame);if(body)return body;}
    return routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);
   },
   dispose(){disposed=true;if(listening)globalThis.removeEventListener('online',reconnect);banks=[];restChoices.clear();images.clear();idlePins.clear();pins.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;effectLoads.clear();smokeClass=null;smokeImage=null;for(const job of activeJobs)job.cancel();for(const job of queue)job.resolve();queue.length=0;loading.clear();},
