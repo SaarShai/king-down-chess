@@ -46,7 +46,7 @@ async function cleanOutput(output) {
   if (!info) return;
   if (!info.isDirectory()) throw Error(`Output is not a folder: ${output}`);
   const names = await readdir(output);
-  const allowed = new Set(['frames', 'previews', 'rife', 'bank.json', 'gates.json', 'provenance.json', 'comparison.json']);
+  const allowed = new Set(['frames', 'previews', 'rife', 'bank.json', 'gates.json', 'provenance.json', 'comparison.json', 'head-template.png']);
   const foreign = names.filter(name => !allowed.has(name));
   if (foreign.length) throw Error(`Output folder holds other files (${foreign.slice(0, 3).join(', ')}); choose a new --output`);
   for (const name of names) await rm(join(output, name), { recursive: true, force: true });
@@ -77,7 +77,11 @@ export async function makeBank(options) {
   if (geometry.character !== character || geometry.army !== army) throw Error(`Geometry is for ${geometry.character}/${geometry.army}, not ${character}/${army}`);
 
   const keys = await listKeys(options.keys);
-  const plan = planTiming(await readTiming(options.timing), keys.length, { frameMs: options.frameMs, durationMs: options.durationMs });
+  const timing = await readTiming(options.timing);
+  const frameMs = timing?.frameMs ?? options.frameMs ?? (kind === 'movement' ? 120 : undefined);
+  const durationMs = timing?.durationMs ?? options.durationMs ?? (kind === 'movement' ? (keys.length - 1) * frameMs : undefined);
+  const plan = planTiming(timing, keys.length, { frameMs, durationMs });
+  if (kind === 'movement' && (keys.length < 3 || plan.steps !== 1)) throw Error('Movement needs a walking pose and authored keys only');
   if (plan.hold && kind !== 'idle') throw Error('A one-key bank is a hold; use at least two keys for a turn, attack or movement');
   const sources = kind === 'movement' ? await Promise.all(keys.map(readFrame)) : null;
   const movement = sources ? await movementGeometry(geometry, sources, edge.facing) : null;
@@ -91,12 +95,37 @@ export async function makeBank(options) {
     const source = sources?.[position] ?? await readFrame(keys[position]);
     const index = plan.keyIndexes[position];
     const placed = movement && source.sha256 === movement.rest.sha256
-      ? { frame: padRest(movement), transform: { scale: 1, dx: movement.offset[0], dy: movement.offset[1], identity: false } }
+      ? { frame: padRest(movement), transform: { scale: 1, dx: movement.offset[0], dy: movement.offset[1], identity: false, matchScore: null } }
       : await registerFrame(source, placement);
     const bytes = placed.transform.identity ? source.bytes : await encodeFrame(placed.frame);
     const file = `frames/${pad(index)}.png`;
     await writeFile(join(output, file), bytes);
     registered.push({ index, timeMs: timeOf(index, plan), method: 'authored', sources: [source.sha256], file, sourcePath: keys[position], transform: placed.transform });
+  }
+
+  if (movement) {
+    const script = fileURLToPath(new URL('./steady.py', import.meta.url));
+    let fit;
+    try {
+      const { stdout } = await exec(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', [script, JSON.stringify({ paths: registered.map(frame => join(output, frame.file)), baseline: movement.baseline, templatePath: join(output, 'head-template.png'), restIndexes: registered.map((frame, i) => frame.sources[0] === movement.rest.sha256 ? i : -1).filter(i => i >= 0) })], { cwd: root, maxBuffer: 1024 * 1024 });
+      fit = JSON.parse(stdout);
+    } catch (error) { throw Error(`Movement fit failed (Python with NumPy and OpenCV is required): ${error.stderr?.trim() || error.message}`); }
+    movement.headTemplate = fit.headTemplate ?? null;
+    movement.bodyHeightDifference = fit.bodyHeightDifference ?? 0;
+    if (movement.headTemplate) {
+      try {
+        const { stdout } = await exec(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', [script, JSON.stringify({ paths: registered.map(frame => join(output, frame.file)), template: join(output, movement.headTemplate) })], { cwd: root, maxBuffer: 1024 * 1024 });
+        const matches = JSON.parse(stdout);
+        for (let i = 0; i < registered.length; i++) registered[i].headMatch = matches[i];
+      } catch (error) { throw Error(`Movement measurement failed (Python with NumPy and OpenCV is required): ${error.stderr?.trim() || error.message}`); }
+    }
+    for (let i = 1; i < registered.length - 1; i++) {
+      const frame = registered[i];
+      if (frame.sources[0] !== movement.rest.sha256) frame.transform = { registration: frame.transform, ...fit.transforms[i - 1] };
+      else {
+        frame.transform = { ...frame.transform, ...fit.transforms[i - 1] };
+      }
+    }
   }
 
   const midpoints = plan.hold ? [] : midpointPlan(plan.keyIndexes);
@@ -161,12 +190,15 @@ export async function makeBank(options) {
     schemaVersion: 1, id, character, army, kind, ...edge, ...(movement ? { direction: edge.facing } : {}), status: 'candidate',
     durationMs: plan.durationMs, frameMs: plan.frameMs, canvasSize: movement?.canvas ?? geometry.canvas, times: frames.map(frame => frame.timeMs),
     pivot: movement?.pivot ?? geometry.pivot, bodyHeightPx: movement?.registrationHeightPx ?? geometry.bodyHeightPx, boardScale: geometry.boardScale ?? null,
+    ...(movement ? { standingHeightPx: movement.bodyHeightPx } : {}),
     frames: frames.map(frame => ({ url: frame.file, timeMs: frame.timeMs, sha256: frame.sha256, method: frame.method, sources: frame.sources })),
     previewGeometry: { pivot: movement?.pivot ?? geometry.pivot, bodyHeightPx: movement?.registrationHeightPx ?? geometry.bodyHeightPx },
     geometry: { authority: geometry.authority, canvas: geometry.canvas, pivot: geometry.pivot, bodyHeightPx: geometry.bodyHeightPx },
     provenance: {
       generator: 'tools/anim/bank.mjs', timing: describePlan(plan),
       keys: registered.map(frame => ({ index: frame.index, file: basename(frame.sourcePath), sha256: frame.sources[0], transform: frame.transform })),
+      headTemplate: movement?.headTemplate ?? null,
+      headMatches: movement ? registered.map(frame => frame.headMatch) : null,
       rife: machine ? { machine: machine.machine, runtimeManifestSha256: rifeReport?.runtimeManifestSha256 ?? null, inferred: midpoints.length } : null,
     },
   };

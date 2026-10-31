@@ -212,6 +212,17 @@ it('allows soft art present in authored frames and measures the exact radius', (
 
 it('keeps the shipped movement rest at its pivot and scale on a padded canvas', async () => {
   const { keys, geometry, hashes } = await fixture();
+  for (const [name, shift] of [['000.png', 0], ['001.png', 2]] as const) {
+    const frame = await readFrame(join(keys, name));
+    for (let y = 20; y < 36; y++) for (let x = 30 + shift; x < 66 + shift; x++) {
+      const p = (y * frame.width + x) * 4;
+      frame.data[p] = ((x - shift) * 17 + y * 3) % 200 + 30;
+      frame.data[p + 1] = ((x - shift) * 5 + y * 11) % 200 + 30;
+      frame.data[p + 2] = ((x - shift) * 7 + y * 13) % 200 + 30;
+    }
+    await sharp(frame.data, { raw: { width: frame.width, height: frame.height, channels: 4 } }).png().toFile(join(keys, name));
+  }
+  hashes[0] = digest(await readFile(join(keys, '000.png')));
   await writeFile(join(keys, '002.png'), await readFile(join(keys, '000.png')));
   const pose = await readFrame(join(keys, '001.png'));
   pose.data[(40 * pose.width) * 4] = 200;
@@ -221,27 +232,27 @@ it('keeps the shipped movement rest at its pivot and scale on a padded canvas', 
   const runtime = { sourceToRuntimeScale: 0.5, banks: [{ id: 'turn', character: 'pawn', army: 'white', kind: 'turn', from: 'SE', to: 'S', canvasSize: [48, 48], pivot: [24, 40], registrationHeightPx: 35, boardScale: null, frames: [{ sourceSha256: hashes[0] }, { sourceSha256: hashes[2] }] }] };
   await writeFile(manifest, JSON.stringify(runtime));
   const authority = { kind: 'runtime-manifest', path: manifest, sha256: digest(await readFile(manifest)) };
-  const stub = join(dir, 'stub.mjs');
-  await writeFile(stub, `import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-const plan = JSON.parse(readFileSync(process.argv[2], 'utf8')), base = dirname(process.argv[2]);
-for (const frame of plan.frames) { const out = resolve(base, frame.output); mkdirSync(dirname(out), { recursive: true }); writeFileSync(out, readFileSync(resolve(base, frame.left))); }
-writeFileSync(resolve(base, 'report.json'), '{}');`);
   const output = join(dir, 'movement');
-  const options = { character: 'pawn', army: 'white', kind: 'movement', facing: 'SE', keys, geometryRecord: { ...geometry, bodyHeightPx: 85, authority }, output, infer: `node ${stub}`, timing: { durationMs: 60, frameMs: 15 }, preview: false };
+  const options = { character: 'pawn', army: 'white', kind: 'movement', facing: 'SE', keys, geometryRecord: { ...geometry, bodyHeightPx: 85, authority }, output, preview: false };
   const result = await makeBank(options);
   expect(result.gates).toBe('pass');
+  await expect(makeBank(options)).resolves.toMatchObject({ gates: 'pass' });
   const bank = JSON.parse(await readFile(result.candidate, 'utf8'));
   const rest = await readFrame(join(keys, '000.png'));
   const first = await readFrame(join(output, bank.frames[0].url));
   const last = await readFrame(join(output, bank.frames.at(-1).url));
-  const placed = measureFrame(await readFrame(join(output, bank.frames[2].url)));
+  const placed = measureFrame(await readFrame(join(output, bank.frames[1].url)));
+  expect(bank.frameMs).toBe(120);
+  expect(bank.durationMs).toBe(240);
+  expect(bank.frames.every((frame: any) => frame.method === 'authored')).toBe(true);
+  expect(bank.provenance.keys[1].transform.matchScore).toBe(1);
+  await expect(makeBank({ ...options, timing: { durationMs: 60, frameMs: 15 }, output: join(dir, 'interpolated') })).rejects.toThrow('authored keys only');
   const offset = [bank.pivot[0] - 48, bank.pivot[1] - 80];
   expect(bank.bodyHeightPx).toBe(70);
   expect(bank.canvasSize[0]).toBeGreaterThan(96);
   expect(offset.every((n: number) => n % 2 === 0)).toBe(true);
   expect(placed.borderOpaque).toBe(0);
-  expect(placed.contentWidth).toBeGreaterThan(65);
+  expect(placed.contentWidth).toBeLessThan(65);
   expect(placed.contentHeight).toBe(60);
   expect(bank.direction).toBe('SE');
   expect(matchesRest(first, rest, offset)).toBe(true);
@@ -249,13 +260,14 @@ writeFileSync(resolve(base, 'report.json'), '{}');`);
   first.data[((offset[1] + 20) * first.width + offset[0] + 30) * 4] ^= 1;
   expect(matchesRest(first, rest, offset)).toBe(false);
   await expect(makeBank({ ...options, facing: 'N', output: join(dir, 'wrong-facing') })).rejects.toThrow('not a shipped N endpoint');
+  const walkingKey = await readFile(join(keys, '001.png'));
   await writeFile(join(keys, '001.png'), await readFile(join(keys, '000.png')));
   runtime.banks[0].pivot = [30, 40];
   await writeFile(manifest, JSON.stringify(runtime));
   const changedAuthority = { ...authority, sha256: digest(await readFile(manifest)) };
   const identical = await makeBank({ ...options, geometryRecord: { ...geometry, pivot: [60, 80], bodyHeightPx: 70, authority: changedAuthority }, output: join(dir, 'identical') });
   const identicalBank = JSON.parse(await readFile(identical.candidate, 'utf8'));
-  const middle = await readFrame(join(dir, 'identical', identicalBank.frames[2].url));
+  const middle = await readFrame(join(dir, 'identical', identicalBank.frames[1].url));
   const firstIdentical = await readFrame(join(dir, 'identical', identicalBank.frames[0].url));
   expect(middle.data.equals(firstIdentical.data)).toBe(true);
   expect(measureFrame(middle).footCenterX).toBe(measureFrame(firstIdentical).footCenterX);
@@ -263,14 +275,252 @@ writeFileSync(resolve(base, 'report.json'), '{}');`);
   const gateFrame = { file: 'key', method: 'authored', sources: [hashes[0]], restMatch: false, metadata: { channels: 4 }, measure: { borderOpaque: 0, alphaMin: 0, alphaMax: 255, bottom: 100, footCenterX: 110 }, fringe: { ratio: 0 }, ghost: 0, sha256: hashes[0], timeMs: 0 };
   const gateReport = runGates({ bank: { pivot: [50, 100] }, frames: [gateFrame, { ...gateFrame, timeMs: 15 }], geometry, movement: { pivot: [50, 100], baseline: 100, footCenterX: 100, rest: { sha256: hashes[0] }, endpoint: {} }, plan: { frameCount: 2, durationMs: 15, frameMs: 15 } });
   expect(gateReport.checks.find((check: any) => check.name === 'geometry').ok).toBe(false);
-  await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).resolves.toMatchObject({ dryRun: true });
-  identicalBank.pivot[0] += 2;
-  await writeFile(identical.candidate, JSON.stringify(identicalBank));
-  await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('facing-rest transform changed');
+  await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('Gate steadiness did not pass');
+  await writeFile(join(keys, '001.png'), walkingKey);
+  const candidate = await makeBank({ ...options, geometryRecord: { ...geometry, pivot: [60, 80], bodyHeightPx: 70, authority: changedAuthority }, output: join(dir, 'movement-promote') });
+  await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).resolves.toMatchObject({ dryRun: true });
+  const gatesPath = join(dir, 'movement-promote', 'gates.json');
+  const gates = JSON.parse(await readFile(gatesPath, 'utf8'));
+  const goodMetrics = gates.checks.find((c: any) => c.name === 'steadiness').metrics;
+  const metricVariants = ['maxHeadJumpPx', 'startHeadJumpPx', 'endHeadJumpPx', 'loopHeadJumpPx', 'headScaleSpread', 'bodyHeightDifference'].flatMap(key => [undefined, 21].map(value => ({ ...goodMetrics, [key]: value })));
+  for (const axis of ['x', 'y', 'scale']) for (const seam of ['within', 'start', 'end', 'loop']) metricVariants.push({ ...goodMetrics, [axis]: { ...goodMetrics[axis], [seam]: 100 } });
+  metricVariants.push({ ...goodMetrics, matchScoreOk: false });
+  for (const checks of [gates.checks.filter((c: any) => c.name !== 'steadiness'), gates.checks.map((c: any) => c.name === 'steadiness' ? { ...c, ok: false } : c), ...metricVariants.map(metrics => gates.checks.map((c: any) => c.name === 'steadiness' ? { ...c, metrics } : c))]) {
+    await writeFile(gatesPath, JSON.stringify({ ...gates, checks }));
+    await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('Gate steadiness did not pass');
+  }
+  await writeFile(gatesPath, JSON.stringify(gates));
+  const candidateBank = JSON.parse(await readFile(candidate.candidate, 'utf8'));
+  for (const bad of [null, '', undefined]) {
+    await writeFile(candidate.candidate, JSON.stringify({ ...candidateBank, provenance: { ...candidateBank.provenance, headTemplate: bad } }));
+    await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('Gate steadiness did not pass');
+  }
+  const badMatches = candidateBank.provenance.headMatches.map((m: any, i: number) => i === 1 ? { ...m, score: 0.59 } : m);
+  await writeFile(candidate.candidate, JSON.stringify({ ...candidateBank, provenance: { ...candidateBank.provenance, headMatches: badMatches } }));
+  await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('Gate steadiness did not pass');
+  for (const score of [0.59, '1', null]) {
+    const badKeys = candidateBank.provenance.keys.map((key: any, i: number) => i === 1 ? { ...key, transform: { ...key.transform, matchScore: score } } : key);
+    await writeFile(candidate.candidate, JSON.stringify({ ...candidateBank, provenance: { ...candidateBank.provenance, keys: badKeys } }));
+    await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('Gate steadiness did not pass');
+  }
+  candidateBank.pivot[0] += 2;
+  await writeFile(candidate.candidate, JSON.stringify(candidateBank));
+  await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('facing-rest transform changed');
   await writeFile(manifest, JSON.stringify({ ...runtime, extra: true }));
-  await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('runtime manifest changed');
+  await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('runtime manifest changed');
 
 
+}, 30000);
+
+it('fits shifted walking poses and removes a detached speck', async () => {
+  dir = await mkdtemp(join(tmpdir(), 'walk-fit-'));
+  const width = 128, height = 128;
+  const make = async (path: string, shift: number, foot: number, speck = false) => {
+    const data = Buffer.alloc(width * height * 4);
+    for (let y = 24; y < 104; y++) for (let x = 48 + shift; x < 80 + shift; x++) {
+      const p = (y * width + x) * 4;
+      data.set([((x - shift) * 17 + y * 3) % 220 + 20, ((x - shift) * 5 + y * 11) % 220 + 20, ((x - shift) * 7 + y * 13) % 220 + 20, 255], p);
+    }
+    for (let y = 92; y < 104; y++) for (let x = 48 + shift + foot; x < 56 + shift + foot; x++) data.set([90, 80, 70, 255], (y * width + x) * 4);
+    if (speck) {
+      data.set([100, 100, 100, 255], (40 * width + 40) * 4);
+      data.set([100, 100, 100, 4], (50 * width + 40) * 4);
+    }
+    await sharp(data, { raw: { width, height, channels: 4 } }).png().toFile(path);
+  };
+  const paths = [0, 1, 2, 3].map(i => join(dir, `${i}.png`));
+  await make(paths[0], 0, 0); await make(paths[1], 0, -10); await make(paths[2], 10, 12, true); await make(paths[3], 0, 0);
+  const beforeRest = await readFile(paths[0]);
+  const fit = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['tools/anim/steady.py', JSON.stringify({ paths, baseline: 103, restIndexes: [0, 3], templatePath: join(dir, 'head-template.png') })], { encoding: 'utf8' });
+  expect(fit.status, fit.stderr).toBe(0);
+  const { transforms, headTemplate } = JSON.parse(fit.stdout);
+  const measured = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['tools/anim/steady.py', JSON.stringify({ paths, template: join(dir, headTemplate) })], { encoding: 'utf8' });
+  expect(measured.status, measured.stderr).toBe(0);
+  const headMeasurements = JSON.parse(measured.stdout);
+  expect(transforms).toHaveLength(2);
+  expect(Math.abs(headMeasurements[1].x - headMeasurements[0].x)).toBeLessThan(5);
+  expect(transforms[1].matchScore).toBeGreaterThan(0.5);
+  expect(Math.abs(headMeasurements[2].x - headMeasurements[1].x)).toBeLessThan(5);
+  expect(measureFrame(await readFrame(paths[2])).bottom).toBe(103);
+  expect(transforms[1].specks).toBeGreaterThan(0);
+  const sx = Math.round(40 * transforms[1].scale + transforms[1].dx);
+  const sy = Math.round(40 * transforms[1].scale + transforms[1].dy);
+  expect(sx).toBeGreaterThan(1); expect(sx).toBeLessThan(width - 1);
+  expect(sy).toBeGreaterThan(1); expect(sy).toBeLessThan(height - 1);
+  expect((await readFrame(paths[2])).data[(sy * width + sx) * 4 + 3]).toBe(0);
+  expect(await readFile(paths[0])).toEqual(beforeRest);
+});
+
+it('matches the standing head even when a prop shifts its alpha band', () => {
+  const script = `import json, tempfile, os, numpy as np
+from tools.anim.steady import save, load, fit
+rng = np.random.default_rng(5)
+a = np.zeros((128, 128, 4), dtype=np.float32)
+a[24:104, 48:80, :3] = rng.uniform(.2, 1, (80, 32, 3))
+a[24:104, 48:80, 3] = 1
+rest = a.copy(); rest[30:42, 8:48, :] = [1, .1, .1, 1]
+with tempfile.TemporaryDirectory() as d:
+    paths = [os.path.join(d, str(i) + '.png') for i in range(3)]
+    for path, image in zip(paths, [rest, a, rest]): save(path, image)
+    result = fit(paths, 103, [0, 2], os.path.join(d, 'head-template.png'))
+    print(json.dumps(result['transforms'][0]['dx']))`;
+  const result = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['-c', script], { encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+  expect(Math.abs(JSON.parse(result.stdout))).toBeLessThan(4);
+});
+
+it('matches a standing head at a different scale and position', () => {
+  const script = `import json, tempfile, os, cv2, numpy as np
+from tools.anim.steady import save, fit, measure_saved
+rng = np.random.default_rng(23)
+patch = rng.uniform(.2, 1, (80, 32, 3)).astype(np.float32)
+a = np.zeros((192, 192, 4), dtype=np.float32)
+a[40:120, 65:97, :3] = patch; a[40:120, 65:97, 3] = 1
+rest = np.zeros_like(a)
+rest[24:120, 92:130, :3] = cv2.resize(patch, (38, 96)); rest[24:120, 92:130, 3] = 1
+with tempfile.TemporaryDirectory() as d:
+    frames = os.path.join(d, 'frames'); os.mkdir(frames)
+    paths = [os.path.join(frames, str(i) + '.png') for i in range(3)]
+    for path, image in zip(paths, [rest, a, rest]): save(path, image)
+    result = fit(paths, 119, [0, 2], os.path.join(d, 'head-template.png'))
+    matches = measure_saved(paths, os.path.join(d, result['headTemplate']))
+    print(json.dumps([result['transforms'][0]['restMatchScale'], result['transforms'][0]['groupScale'], matches]))`;
+  const result = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['-c', script], { encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+  const [restScale, groupScale, matches] = JSON.parse(result.stdout);
+  expect(restScale).toBeLessThan(0.95);
+  expect(groupScale).toBeGreaterThan(1.05);
+  expect(Math.abs(matches[0].x - matches[1].x)).toBeLessThan(5);
+  expect(Math.abs(matches[0].scale / matches[1].scale - 1)).toBeLessThan(0.1);
+});
+
+it('balances head size and seam height when the body has a different scale', () => {
+  const script = `import json, tempfile, os, cv2, numpy as np
+from tools.anim.steady import save, fit, measure_saved
+rng = np.random.default_rng(99)
+head = rng.uniform(.1, 1, (50, 40, 3)).astype(np.float32)
+walk = np.zeros((300, 300, 4), np.float32)
+walk[50:230, 130:170] = [.3, .4, .5, 1]
+walk[50:100, 130:170, :3] = head
+rest = np.zeros_like(walk)
+rest[50:230, 130:170] = [.3, .4, .5, 1]
+rest[50:108, 127:173, :3] = cv2.resize(head, (46, 58)); rest[50:108, 127:173, 3] = 1
+with tempfile.TemporaryDirectory() as d:
+    paths = [os.path.join(d, str(i) + '.png') for i in range(3)]
+    for path, image in zip(paths, [rest, walk, rest]): save(path, image)
+    template = os.path.join(d, 'template.png')
+    result = fit(paths, 229, [0, 2], template)
+    m = measure_saved(paths, template)
+    short = walk.copy(); short[215:230] = 0
+    paths2 = [os.path.join(d, 'b' + str(i) + '.png') for i in range(4)]
+    for path, image in zip(paths2, [rest, walk, short, rest]): save(path, image)
+    seams = fit(paths2, 229, [0, 3], os.path.join(d, 'seams.png'))
+    print(json.dumps([result, m, seams]))`;
+  const result = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['-c', script], { encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+  const [fit, matches, seams] = JSON.parse(result.stdout);
+  const t = fit.transforms[0];
+  expect(t.restMatchScore).toBeGreaterThan(0.6);
+  expect(t.groupScale).toBeGreaterThan(1.01);
+  expect(t.groupScale).toBeLessThan(1 / t.restMatchScale - 0.01);
+  expect(fit.bodyHeightDifference).toBeGreaterThan(0.01);
+  expect(matches[0].y).toBeCloseTo(79.12, 0);
+  expect(matches[1].y).toBeCloseTo(70.59, 0);
+  expect(matches[0].scale).toBeCloseTo(1.099, 2);
+  expect(matches[1].scale).toBeCloseTo(0.980, 2);
+  expect(matches[0].x).toBeCloseTo(149.45, 0);
+  expect(matches[1].x).toBeCloseTo(149.02, 0);
+  const firstBody = Math.abs(seams.transforms[0].scale - 1);
+  const lastBody = Math.abs(164 * seams.transforms[1].scale / 179 - 1);
+  expect(seams.transforms[0].groupScale).toBeCloseTo(0.971, 2);
+  expect(lastBody).toBeGreaterThan(firstBody);
+  expect(seams.bodyHeightDifference).toBeCloseTo(Math.max(firstBody, lastBody), 6);
+}, 30000);
+
+it('rejects a weak fit and searches beyond the old scale range', () => {
+  const script = `import json, tempfile, os, cv2, numpy as np
+import tools.anim.steady as s
+rng = np.random.default_rng(7)
+a = np.zeros((256, 256, 4), np.float32)
+a[50:170, 90:150, :3] = rng.uniform(.1, 1, (120, 60, 3)); a[50:170, 90:150, 3] = 1
+big = s.transform(a, 1.4, -30, -30, a.shape)
+tmpl, _ = s.head_template(a, .5)
+score, scale, _ = s.best_scale(big, tmpl, .5)
+with tempfile.TemporaryDirectory() as d:
+    paths = [os.path.join(d, str(i) + '.png') for i in range(4)]
+    for path, image in zip(paths, [a, a, big, a]): s.save(path, image)
+    original = s.best_scale
+    def weak(image, template, half):
+        return (0.43, 1.5, (1, 1)) if s.box(image[:,:,3])[1] > 180 else original(image, template, half)
+    s.best_scale = weak
+    fit = s.fit(paths, 169, [0, 3], os.path.join(d, 'template.png'))
+    print(json.dumps([score, scale, fit['transforms'][1]]))`;
+  const result = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['-c', script], { encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+  const [score, scale, transform] = JSON.parse(result.stdout);
+  expect(score).toBeGreaterThan(0.6);
+  expect(scale).toBeLessThan(0.8);
+  expect(transform.matchScore).toBe(0.43);
+  expect(transform.headScale).toBeLessThan(0.8);
+}, 30000);
+
+it('clears colour where saved alpha is zero', () => {
+  const script = `import json, tempfile, os, cv2, numpy as np
+from tools.anim.steady import save
+image = np.ones((2, 2, 4), dtype=np.float32)
+image[0, 0, 3] = 0.001
+with tempfile.TemporaryDirectory() as d:
+    path = os.path.join(d, 'a.png'); save(path, image)
+    print(json.dumps(cv2.imread(path, cv2.IMREAD_UNCHANGED)[0, 0].tolist()))`;
+  const result = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['-c', script], { encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+  expect(JSON.parse(result.stdout)).toEqual([0, 0, 0, 0]);
+});
+
+it('removes alpha islands by size', () => {
+  const script = `import json, numpy as np
+from tools.anim.steady import despeckle
+image = np.zeros((40, 40, 4), dtype=np.float32)
+image[10:30, 10:30, 3] = 1
+image[3, 3, 3] = 4 / 255
+clean, count = despeckle(image)
+print(json.dumps([count, float(clean[3, 3, 3]), float(clean[15, 15, 3])]))`;
+  const result = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['-c', script], { encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+  expect(JSON.parse(result.stdout)).toEqual([1, 0, 1]);
+});
+
+it('gates walking head jumps and scale spread without pinning walking feet', () => {
+  const frame = (x: number, scale: number, source: string, timeMs: number) => ({ file: `frame-${timeMs}`, method: 'authored', sources: [source], restMatch: source === 'rest', transform: { matchScore: 1, restMatchScore: 1 }, metadata: { channels: 4 }, measure: { borderOpaque: 0, alphaMin: 0, alphaMax: 255, bottom: 100, footCenterX: 300 }, fringe: { ratio: 0 }, ghost: 0, sha256: 'a'.repeat(64), timeMs, headMatch: { x, y: 40, scale, score: 1 } });
+  const rest = frame(100, 1, 'rest', 0), first = frame(100, 1, 'walk', 120), next = frame(110, 1.03, 'walk', 240), end = frame(100, 1, 'rest', 360);
+  const check = (frames: any[], bodyHeightDifference = 0) => runGates({ bank: { pivot: [50, 100] }, frames, geometry: { pivot: [50, 100] }, movement: { pivot: [50, 100], baseline: 100, bodyHeightPx: 100, bodyHeightDifference, rest: { sha256: 'rest' }, endpoint: {} }, plan: { frameCount: 4, durationMs: 360, frameMs: 120 } });
+  expect(check([rest, first, next, end]).checks.find(c => c.name === 'geometry')?.ok).toBe(true);
+  expect(check([rest, first, next, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(true);
+  expect(check([rest, { ...first, sources: ['rest'], restMatch: true }, next, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(true);
+  expect(check([rest, first, { ...next, headMatch: { ...next.headMatch, x: 121 } }, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(false);
+  expect(check([rest, first, { ...next, headMatch: { ...next.headMatch, x: 100, scale: 1.2 } }, end]).checks.find(c => c.name === 'steadiness')?.ok).toBe(false);
+  const steady = (frames: any[]) => check(frames).checks.find(c => c.name === 'steadiness')!;
+  expect(steady([{ ...rest, headMatch: { ...rest.headMatch, x: 79 } }, first, next, end]).ok).toBe(false);
+  expect(steady([rest, first, next, { ...end, headMatch: { ...end.headMatch, x: 131 } }]).ok).toBe(false);
+  const mid = frame(110, 1, 'walk', 240), far = frame(121, 1, 'walk', 360);
+  expect(steady([rest, first, mid, far, { ...end, headMatch: { ...end.headMatch, x: 121 } }]).ok).toBe(false);
+  expect(steady([rest, { ...first, headMatch: {} }, next, end]).ok).toBe(false);
+  expect(steady([rest, first, { ...next, headMatch: { ...next.headMatch, scale: 0 } }, end]).ok).toBe(false);
+  expect(steady([{ ...rest, headMatch: {} }, first, next, end]).ok).toBe(false);
+  expect(steady([{ ...rest, headMatch: { ...rest.headMatch, y: 35 } }, first, next, end]).ok).toBe(false);
+  expect(steady([rest, first, next, { ...end, headMatch: { ...end.headMatch, y: 35 } }]).ok).toBe(false);
+  expect(steady([rest, first, { ...next, headMatch: { ...next.headMatch, y: 45 } }, { ...end, headMatch: { ...end.headMatch, y: 45 } }]).ok).toBe(false);
+  const middleY = { ...mid, headMatch: { ...mid.headMatch, y: 43 } }, lastY = { ...mid, headMatch: { ...mid.headMatch, y: 46 } };
+  expect(steady([rest, first, middleY, lastY, { ...end, headMatch: { ...end.headMatch, y: 46 } }]).ok).toBe(false);
+  expect(steady([{ ...rest, headMatch: { ...rest.headMatch, scale: 1.2 } }, first, next, end]).ok).toBe(false);
+  expect(steady([rest, first, next, { ...end, headMatch: { ...end.headMatch, scale: 1.2 } }]).ok).toBe(false);
+  expect(check([rest, first, next, end], 0.081).checks.find(c => c.name === 'steadiness')?.ok).toBe(false);
+  expect(steady([rest, { ...first, transform: { matchScore: 0.59, restMatchScore: 1 } }, next, end]).ok).toBe(false);
+  expect(steady([rest, first, { ...next, headMatch: { ...next.headMatch, score: 0.59 } }, end]).ok).toBe(false);
+  const up = { ...mid, headMatch: { ...mid.headMatch, y: 44 } }, down = { ...mid, headMatch: { ...mid.headMatch, y: 36 } };
+  expect(steady([rest, first, up, down, next, end]).ok).toBe(false);
+  const small = frame(100, 0.94, 'walk', 240), large = frame(100, 1.06, 'walk', 480);
+  expect(steady([rest, first, small, frame(100, 1, 'walk', 360), large, first, end]).ok).toBe(false);
 });
 
 it('promotes a green candidate into the frozen catalog under its lock', async () => {
