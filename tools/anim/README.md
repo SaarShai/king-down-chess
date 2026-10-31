@@ -76,6 +76,11 @@ forces one machine.
 7. `timing`: frame count, frame step, start time and end time match the plan.
 8. `provenance`: every frame has a known method and a SHA-256.
 
+Painted `move` banks use `move-gates.mjs` instead of the endpoint and foot-pin gates. Each key must match the source
+catalog in order and time, and must not be a rest frame. The composed placement must be within 0.5 px of the one
+character and army rest transform. At 160 px height, the top range may not exceed 9.9 px and the ground range may not
+exceed 20.6 px. Promotion also requires the RGBA and transparent exterior checks. The loop seam is a measurement.
+
 ### Output
 
 ```

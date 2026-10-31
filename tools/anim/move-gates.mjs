@@ -1,7 +1,7 @@
 /** Check painted walk keys against their source and the one rest transform. */
 export function runMoveGates({ bank, source, catalogHashes, restHashes, transform, height, ranges }) {
-  const failures = [];
-  const fail = (name, ok) => { if (!ok) failures.push(name); };
+  const failures = [], checks = [];
+  const fail = (name, ok) => { checks.push({ name, ok }); if (!ok) failures.push(name); };
   const frames = bank.frames ?? [];
   fail('painted-keys', frames.length === source.length && new Set(frames.map(f => f.sha256)).size >= 4 && frames.every((f, i) => f.sha256 === source[i]?.sha256 && catalogHashes.has(f.sha256) && !restHashes.has(f.sha256) && (!f.method || f.method === 'authored')));
   let time = 0;
@@ -21,5 +21,5 @@ export function runMoveGates({ bank, source, catalogHashes, restHashes, transfor
   const maxPlacementErrorPx = Math.max(...placement);
   fail('placement', placement.length === source.length && Number.isFinite(maxPlacementErrorPx) && maxPlacementErrorPx <= 0.5);
   fail('range', Number.isFinite(ranges.topRangeAt160) && ranges.topRangeAt160 <= 9.9 && Number.isFinite(ranges.groundRangeAt160) && ranges.groundRangeAt160 <= 20.6);
-  return { status: failures.length ? 'fail' : 'pass', failures, maxPlacementErrorPx };
+  return { status: failures.length ? 'fail' : 'pass', checks, failures, maxPlacementErrorPx };
 }
