@@ -121,6 +121,13 @@ it('rejects an indexed PNG that needs its palette', async () => {
  expect(()=>stripPng(indexed)).toThrow('needs conversion to RGBA');
 });
 
+it.each([0,2,3])('rejects a PNG colour key for colour type %i', async colour => {
+ const png=await sharp({create:{width:4,height:4,channels:4,background:{r:20,g:30,b:40,alpha:1}}}).png().toBuffer();
+ png[25]=colour;
+ const key=Buffer.concat([Buffer.from('00000004','hex'),Buffer.from('tRNS'),Buffer.alloc(8)]);
+ expect(()=>stripPng(Buffer.concat([png.subarray(0,33),key,png.subarray(33)]))).toThrow('needs conversion to RGBA');
+});
+
 it('records the source and output hashes of every effect image', () => {
  const root=resolve('public/character-runtime'),manifest=JSON.parse(readFileSync(join(root,'manifest.json'),'utf8'));
  const selection=JSON.parse(readFileSync(resolve('docs/specs/character-animation-samples/runtime-effects.json'),'utf8'));

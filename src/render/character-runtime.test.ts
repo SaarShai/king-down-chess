@@ -10,9 +10,51 @@ describe('ready character playback', () => {
   const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})})) as unknown as typeof fetch,
    image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){started.push(s);if(!s.includes('/idle-'))queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
   const reservation=runtime.reserveIdle('pawn','white');await vi.waitFor(()=>expect(started.filter(s=>s.includes('/idle-')).length).toBe(6));
-  runtime.releaseIdle();const prepared=await runtime.prepare('pawn','white','SE',true);
+  runtime.releaseIdle();expect(runtime.stats.active).toBe(0);const prepared=await runtime.prepare('pawn','white','SE',true);
   expect(await reservation).toBe(false);expect(prepared).not.toBeNull();expect(runtime.action(prepared,120,120,0)).toMatchObject({bank:'attack'});
   expect(started.filter(s=>s.includes('/idle-'))).toHaveLength(6);runtime.dispose();
+ });
+ it('prioritizes capture over shared idle prefetch and bounds the idle queue', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',durationMs:1000,frames:Array.from({length:100},(_,i)=>({url:`idle-${i}`,timeMs:i*10}))};
+  const attack={...bank(),id:'attack',kind:'attack',facing:'SE',frames:[{url:'attack-0',timeMs:0},{url:'attack-1',timeMs:120}]};
+  const started:string[]=[],finish:(()=>void)[]=[];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){started.push(s);if(!s.includes('/idle-')||s.endsWith('/idle-0'))queueMicrotask(()=>img.onload?.());else finish.push(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  await runtime.ready();void runtime.warm('pawn','white',true);await vi.waitFor(()=>expect(runtime.stats.active).toBe(5));
+  for(let t=0;t<900;t+=10)runtime.rest('pawn','white',t,true);
+  expect(runtime.stats.queued).toBeLessThanOrEqual(6);
+  finish.slice(0,5).forEach(done=>done());await vi.waitFor(()=>expect(started.some(s=>s.endsWith('/idle-89'))).toBe(true));expect(started.some(s=>s.endsWith('/idle-20'))).toBe(false);
+  const prepared=await runtime.prepare('pawn','white','SE',true);expect(prepared).not.toBeNull();expect(runtime.action(prepared,120,120,0)).toMatchObject({bank:'attack'});runtime.dispose();
+ });
+ it('keeps slow idle downloads alive until deselection', async () => {
+  vi.useFakeTimers();
+  try{
+   const idle={...bank(),id:'idle',character:'king-stratus',kind:'idle',frames:[{url:'rest',timeMs:0},...Array.from({length:6},(_,i)=>({url:`idle-${i}`,timeMs:(i+1)*10})),{url:'rest',timeMs:140}]};
+   const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){setTimeout(()=>img.onload?.(),s.includes('/idle-')?1200:0);}};return img as unknown as HTMLImageElement;}});
+   const results=[];for(let i=0;i<3;i++){const pending=runtime.reserveIdle('king-stratus','white');await vi.advanceTimersByTimeAsync(1000);results.push(await pending);await vi.advanceTimersByTimeAsync(300);runtime.releaseIdle();}
+   expect(results).toEqual([false,true,true]);runtime.dispose();
+  }finally{vi.useRealTimers();}
+ });
+ it('does not release another preparation when offline skips ownership', async () => {
+  const idle={...bank(),id:'idle',character:'king-stratus',kind:'idle',frames:[{url:'rest',timeMs:0},{url:'held',timeMs:60},{url:'rest',timeMs:120}]};let finish=()=>{};
+  const attack={...idle,id:'attack',kind:'attack',frames:[{url:'held',timeMs:0}]};
+  vi.stubGlobal('navigator',{onLine:true});
+  try{
+   const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})})) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){if(s.endsWith('/held'))finish=()=>img.onload?.();else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   const first=runtime.reserveIdle('king-stratus','white');await vi.waitFor(()=>expect(runtime.stats.active).toBe(1));
+   vi.stubGlobal('navigator',{onLine:false});const preparing=runtime.prepare('king-stratus','white','SE',true);await preparing;
+   expect(runtime.stats.active).toBe(1);vi.stubGlobal('navigator',{onLine:true});finish();expect(await first).toBe(true);runtime.dispose();
+  }finally{vi.unstubAllGlobals();}
+ });
+ it('keeps a preparation load that a visible rest frame also needs', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'held',timeMs:0}]};let finish=()=>{};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(_s:string){finish=()=>img.onload?.();}};return img as unknown as HTMLImageElement;}});
+  const controller=new AbortController(),pending=runtime.prepare('pawn','white','SE',false,false,controller.signal);
+  await vi.waitFor(()=>expect(runtime.stats.active).toBe(1));runtime.rest('pawn','white');controller.abort();expect(await pending).toBeNull();
+  expect(runtime.stats.active).toBe(1);finish();await vi.waitFor(()=>expect(runtime.rest('pawn','white')).toMatchObject({url:'held'}));runtime.dispose();
  });
  it('reserves the actual idle images through cache pressure and releases stale reservations', async () => {
   const frames=['rest','a','b','c','b','a','rest'].map((url,i)=>({url,timeMs:i*100}));
@@ -263,16 +305,16 @@ describe('ready character playback', () => {
    const directions=['SE','S','SW','W','NW'];
    const turns=directions.slice(0,-1).map((from,i)=>({...bank(from,directions[i+1]),frames:[{url:`held-${i*2}`,timeMs:0},{url:`held-${i*2+1}`,timeMs:120}]}));
    const other={...idle,id:'other',character:'queen',frames:[{url:'held-7',timeMs:0}]};
-   const releases:(()=>void)[]=[],removed:string[]=[];
+   const releases=new Map<string,()=>void>(),removed:string[]=[];
    const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,...turns,other]})})) as unknown as typeof fetch,
-    image:()=>{let source='';const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:()=>removed.push(source),set src(s:string){source=s;if(s.includes('/held-'))releases.push(()=>img.onload?.());else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+    image:()=>{let source='';const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:()=>removed.push(source),set src(s:string){source=s;if(s.includes('/held-'))releases.set(s,()=>img.onload?.());else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
    const controller=new AbortController(),otherController=new AbortController(),first=runtime.prepare('pawn','white','NW',false,false,controller.signal),second=runtime.prepare('pawn','white','NW',false,false,otherController.signal);
    await vi.advanceTimersByTimeAsync(0);const warming=runtime.warm('queen','white');await vi.advanceTimersByTimeAsync(0);
    expect(runtime.stats).toMatchObject({active:6,queued:2});controller.abort();expect(await first).toBeNull();
    expect(runtime.stats).toMatchObject({active:6,queued:2});expect(removed).toHaveLength(0);
    otherController.abort();expect(await second).toBeNull();await vi.advanceTimersByTimeAsync(0);
-   expect(runtime.stats).toMatchObject({active:1,queued:0});expect(removed).toHaveLength(6);expect(releases).toHaveLength(7);
-   releases.at(-1)?.();await vi.advanceTimersByTimeAsync(0);await warming;expect(runtime.rest('queen','white')).toMatchObject({url:'held-7'});
+   expect(runtime.stats).toMatchObject({active:1,queued:0});expect(removed).toHaveLength(5);expect(releases.size).toBe(6);
+   [...releases].find(([url])=>url.endsWith('/held-7'))?.[1]();await vi.advanceTimersByTimeAsync(0);await warming;expect(runtime.rest('queen','white')).toMatchObject({url:'held-7'});
    expect(runtime.stats).toMatchObject({active:0,queued:0});runtime.dispose();expect(runtime.stats.bytes).toBe(0);
   } finally {vi.useRealTimers();}
  });

@@ -76,6 +76,12 @@ it('starts character downloads after the first board frame', async () => {
  await vi.advanceTimersByTimeAsync(16);expect(fetcher).toHaveBeenCalledOnce();
 });
 
+it('does not load legacy clips when runtime bodies are enabled', async () => {
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})})));
+ const b=board(true,true);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ scene.setSelected(1);await vi.advanceTimersByTimeAsync(16);expect(b.clips()).toHaveLength(0);
+});
+
 it('does not request optional clips offline', async () => {
  const b=board(true);vi.stubGlobal('navigator',{onLine:false});
  void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);

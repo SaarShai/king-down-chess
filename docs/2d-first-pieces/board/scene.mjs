@@ -80,7 +80,7 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const CLIP_OF={[N]:'knight',[R]:'rook'},clipArt=Object.fromEntries(Object.keys(CLIPS).map(name=>[name,corsImage()]));
  const clipReady=name=>!!clipArt[name]?.complete&&clipArt[name].naturalWidth>0;
  function loadClips(name=null){
-  if(disposed||reducedMotion||!frames||globalThis.navigator?.onLine===false)return;
+  if(characterRuntime||disposed||reducedMotion||!frames||globalThis.navigator?.onLine===false)return;
   for(const key of name?[name]:Object.keys(clipArt))if(!clipArt[key].src)clipArt[key].src=CLIPS[key].file;
  }
  const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.1166,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
