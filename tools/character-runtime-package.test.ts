@@ -97,3 +97,15 @@ it('strips non-rendering PNG chunks without changing the pixels', async () => {
  expect(stripped.equals(stripPng(png))).toBe(true);
  expect((await sharp(stripped).ensureAlpha().raw().toBuffer()).equals(await sharp(png).ensureAlpha().raw().toBuffer())).toBe(true);
 });
+
+it('records the source and output hashes of every effect image', () => {
+ const root=resolve('public/character-runtime'),manifest=JSON.parse(readFileSync(join(root,'manifest.json'),'utf8'));
+ const selection=JSON.parse(readFileSync(resolve('docs/specs/character-animation-samples/runtime-effects.json'),'utf8'));
+ for(const entry of selection.entries){
+  const dir=resolve(root,manifest.effects[entry.character].module,'..');
+  const records=JSON.parse(readFileSync(join(dir,'provenance/runtime-assets.json'),'utf8'));
+  const expected=entry.files.filter((file:any)=>file.outputSha256).map((file:any)=>({path:file.path,sourceSha256:file.sha256,sha256:file.outputSha256}));
+  expect(records).toEqual(expected);
+  for(const record of records)expect(createHash('sha256').update(readFileSync(join(dir,record.path))).digest('hex')).toBe(record.sha256);
+ }
+});

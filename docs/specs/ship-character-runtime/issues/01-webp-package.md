@@ -44,7 +44,7 @@ The frozen catalog is in the main checkout at `docs/specs/character-animation-sa
 
 The alpha channel stays lossless. The colour channel is lossy at quality 90. `exact: true` keeps the colour of fully transparent pixels. The transparent exterior stays empty, because the encoder keeps the source alpha bytes.
 
-The package has 5,452 files and 124,535,614 bytes. The `manifest.json` SHA-256 is `aefb4f952ece4b7149fdda48221ffe94600140d0c8ec8ceb36a95bc8dce7a1f6`. The largest file is `manifest.json` at 2,039,064 bytes, far below the 100 MiB GitHub limit.
+The package has 5,455 files and 124,537,245 bytes. The `manifest.json` SHA-256 is `31b2077b58c5c8009ed11b63b6832aeaaa773868875564c8044184df78246dbc`. The largest file is `manifest.json` at 2,039,064 bytes, far below the 100 MiB GitHub limit.
 
 This change replaces pull request 212. That pull request used lossless WebP: 5,256 files and 304 MB in Git. Those files never enter staging history.
 
@@ -100,7 +100,7 @@ Two independent reviewers checked round 6. Both said merge after fixes. They fou
 
 The owner chose to start art after page load. The player sees plain figures until the art starts. The art does not wait for worker activation. A return from the back-forward cache starts the art if it did not start before.
 
-The effect build strips non-rendering PNG chunks. The source hashes stay in the source receipts. The runtime files and their records use the stripped hashes. A full PNG package rebuild produces the same effect files. All six decoded images match their sources.
+The effect build strips non-rendering PNG chunks. The source hashes stay in the source receipts. The runtime files and their records use the stripped hashes. A derived receipt links each output hash to its source hash. A full PNG package rebuild produces the same effect files. All six decoded images match their sources.
 
 Follow-up: split the 2,039,064-byte manifest by character. It is 89% of first-visit runtime bytes.
 

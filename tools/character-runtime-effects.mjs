@@ -51,6 +51,8 @@ export async function buildRuntimeEffects(source,output,banks,selectionPath){
    files.push({path:record.path,bytes,sourceSha256:record.sha256});
   }
   for(const receipt of receipts)files.push({path:`provenance/${receipt.record.sha256}.json`,bytes:receipt.bytes,sourceSha256:receipt.record.sha256});
+  const derived=files.filter(f=>f.path.endsWith('.png')).map(f=>({path:f.path,sourceSha256:f.sourceSha256,sha256:hash(f.bytes)}));
+  files.push({path:'provenance/runtime-assets.json',bytes:Buffer.from(JSON.stringify(derived)+'\n')});
   const inventory=files.map(f=>({path:f.path,sha256:hash(f.bytes),sourceSha256:f.sourceSha256}));
   const id=hash(Buffer.from(JSON.stringify(inventory))),dir=resolve(output,'effects',id);
   for(const file of files){const path=safe(dir,resolve(dir,file.path));await mkdir(dirname(path),{recursive:true});await writeFile(path,file.bytes);}
