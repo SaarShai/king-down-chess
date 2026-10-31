@@ -20,6 +20,8 @@ export function dom(reduced = false) {
   const doc = { createElement: element, hidden: false, addEventListener: (name: string, fn: () => void) => docEvents.set(name, fn) };
   const media = { matches: reduced, addEventListener: (_: string, fn: () => void) => docEvents.set('reduced', fn) };
   vi.stubGlobal('document', doc);
+  vi.stubGlobal('addEventListener', () => {});
+  vi.stubGlobal('removeEventListener', () => {});
   vi.stubGlobal('Path2D', class {});
   vi.stubGlobal('DOMMatrix', class { scale() { return this; } translate() { return this; } });
   vi.stubGlobal('setTimeout', () => 0);
