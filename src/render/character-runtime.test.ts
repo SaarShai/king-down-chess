@@ -175,6 +175,7 @@ describe('ready character playback', () => {
   const prepared=await runtime.prepare('pawn','white','N',false,true);
   expect((prepared as {movement:{id:string}} | null)?.movement?.id).toBe('painted');
   expect([0,119,120,359,360,599,600,720].map(t=>(runtime.action(prepared,t,1000,0) as {time:number}).time)).toEqual([0,0,120,120,360,360,0,120]);
+  expect((runtime.action(prepared,1000,1000,0,'end') as {bank:string}).bank).toBe('idle');
   expect((runtime.action(prepared,1001,1000,0) as {bank:string}).bank).toBe('idle');
   runtime.dispose();
  });

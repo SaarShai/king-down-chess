@@ -246,7 +246,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    if(time>duration)return routeSample(prepared.after,time-duration)??sample(prepared.rest,0,false);
    const attack=prepared.attack;
    if(attack){return sample(attack,Math.min(time,attack.durationMs),true,false,true)??sample(prepared.rest,0,false);}
-   if(prepared.movement){const move=prepared.movement,frames=move.frames,frame=boundary==='start'?frames[0]:boundary==='end'&&move.kind!=='move'?frames.at(-1):null;const clock=move.kind==='move'?time%move.durationMs:duration>0?time/duration*move.durationMs:0;const body=sample(move,clock,true,false,true,frame);if(body)return body;}
+   if(prepared.movement){const move=prepared.movement,frames=move.frames;if(boundary==='end'&&move.kind==='move')return routeSample(prepared.after,0)??sample(prepared.rest,0,false);const frame=boundary==='start'?frames[0]:boundary==='end'?frames.at(-1):null;const clock=move.kind==='move'?time%move.durationMs:duration>0?time/duration*move.durationMs:0;const body=sample(move,clock,true,false,true,frame);if(body)return body;}
    return routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);
   },
   dispose(){disposed=true;if(listening)globalThis.removeEventListener('online',reconnect);banks=[];restChoices.clear();images.clear();idlePins.clear();pins.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;effectLoads.clear();smokeClass=null;smokeImage=null;for(const job of activeJobs)job.cancel();for(const job of queue)job.resolve();queue.length=0;loading.clear();},
