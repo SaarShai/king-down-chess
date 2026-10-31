@@ -22,4 +22,4 @@ The workflow also needs room after a hung step to save diagnostics. The WebKit U
 
 ## Review correction
 
-The runtime precache stopped the worker install on the phone network profile. The browser gate also hid the first 750 ms after the offline switch. PR 223 removes that precache, checks the queue before each frame request, and restores the gate. The source records stay out of the published tree. The WebKit limits return to their prior values.
+The runtime precache stopped the worker install on the phone network profile. The browser gate also hid the first 750 ms after the offline switch. PR 223 removes that precache, checks the queue before each frame request, and counts refusals from the start of the offline switch after the art queue drains. The source records stay out of the published tree. The WebKit limits return to their prior values.

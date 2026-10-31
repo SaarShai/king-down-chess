@@ -51,7 +51,7 @@ try {
     if (!(await stat(path)).isFile()) continue;
     const contents = await readFile(path);
     assert(!contents.includes('/Users/'), `No local path in published runtime: ${file}`);
-    assert(!/"prompt"\s*:/.test(contents.toString('utf8')), `No prompt in published runtime: ${file}`);
+    assert(!/\.codex|generated_images|"(?:prompt|provider|sourcePath|originalPath)"\s*:/.test(contents.toString('utf8')), `No private metadata in published runtime: ${file}`);
     assert(!/(?:^|\/)provenance\/|(?:^|\/)sources\.json$/.test(file), `No provenance in published runtime: ${file}`);
   }
   const worker = await readFile(join(tree, 'static/sw.js'), 'utf8');

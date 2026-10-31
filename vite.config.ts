@@ -62,19 +62,20 @@ function offlineBuild(): Plugin {
       cpSync(publicDir, outDir, { recursive: true, filter: path => {
         const file = relative(publicDir, path).split(sep).join('/');
         if (file.startsWith('character-runtime/effects/') && /(?:^|\/)provenance(?:\/|$)/.test(file)) return false;
-        return !file.startsWith('character-runtime/effects/') || statSync(path).isDirectory() || isCharacterRuntimePublic(file);
+        return !file.startsWith('character-runtime/') || statSync(path).isDirectory() || isCharacterRuntimePublic(file);
       } });
       // The beam is the only effect that reads metadata at runtime.
       const effects = join(outDir, 'character-runtime/effects');
       if (existsSync(effects)) for (const path of walk(effects).filter(path => path.endsWith('/effect.json'))) {
         const meta = JSON.parse(readFileSync(path, 'utf8'));
-        if (meta.sprite && meta.flare) writeFileSync(path, JSON.stringify({ sprite: meta.sprite, shaftSourceRect: meta.shaftSourceRect, flare: { sprite: meta.flare.sprite, anchor: meta.flare.anchor } }) + '\n');
-        else writeFileSync(path, '{}\n');
+        if (meta.id === 'maester-beam' && meta.sprite && meta.shaftSourceRect && meta.flare?.sprite && meta.flare?.anchor) writeFileSync(path, JSON.stringify({ sprite: meta.sprite, shaftSourceRect: meta.shaftSourceRect, flare: { sprite: meta.flare.sprite, anchor: meta.flare.anchor } }) + '\n');
+        else if (Object.keys(meta).length === 0 || ['archer-golden-arrow-flight-v1', 'queen-thorns-directional-v1'].includes(meta.id)) writeFileSync(path, '{}\n');
+        else throw new Error(`Unknown character effect metadata: ${path}`);
       }
       const files = walk(outDir).map(path => relative(outDir, path).split(sep).join('/')).filter(f => f !== 'sw.js' && !f.startsWith('.well-known/')).sort();
       for (const file of files.filter(file => file.startsWith('character-runtime/'))) {
         const contents = readFileSync(join(outDir, file));
-        if (contents.includes('/Users/') || /\"prompt\"\s*:/.test(contents.toString('utf8'))) throw new Error(`Private character runtime data: ${file}`);
+        if (contents.includes('/Users/') || /\.codex|generated_images|"(?:prompt|provider|sourcePath|originalPath)"\s*:/.test(contents.toString('utf8'))) throw new Error(`Private character runtime data: ${file}`);
       }
       const template = readFileSync(join(publicDir, 'sw.js'), 'utf8');
       const hash = createHash('sha256').update(template); // a change to the worker itself is a new version too

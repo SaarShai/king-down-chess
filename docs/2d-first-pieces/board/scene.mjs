@@ -53,10 +53,10 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
  const FALL=650, CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
- let bodyRuntime=null;
+ let bodyRuntime=null, bodyWarm=!characterRuntime;
  const characterOf=value=>typeOf(value)===K?`king-${kings[colorOf(value)]}`:ART[typeOf(value)];
  const armyOf=value=>colorOf(value)?'black':'white';
- function warmBodies(){if(!bodyRuntime)return;for(const value of new Set(position.board))if(value)void bodyRuntime.warm(characterOf(value),armyOf(value));}
+ function warmBodies(){if(!bodyRuntime)return Promise.resolve();return Promise.all([...new Set(position.board)].filter(Boolean).map(value=>bodyRuntime.warm(characterOf(value),armyOf(value))));}
  const ART={[K]:'king',[S]:'beast',[Q]:'queen',[L]:'paladin',[M]:'maester',[P]:'pawn',[A]:'archer',[O]:'ogre',[N]:'knight',[B]:'bishop',[R]:'rook',[G]:'guard'};
  // CORS images (crossOrigin 'anonymous'): a canvas may read them when the art comes from another origin (the plugin page).
  const corsImage=()=>Object.assign(new Image(),{crossOrigin:'anonymous'});
@@ -976,7 +976,10 @@ function drawEncounter(a,t) {
   if(frames===1)requestAnimationFrame(()=>{
    if(disposed)return;
    if(!reducedMotion)loadClips();
-   if(characterRuntime){bodyRuntime=createCharacterRuntime({wake:()=>wake()});void bodyRuntime.ready().then(()=>{if(!disposed)warmBodies();});}
+   if(characterRuntime){
+    const start=()=>{if(disposed)return;bodyRuntime=createCharacterRuntime({wake:()=>wake()});void bodyRuntime.ready().then(()=>{if(!disposed)return warmBodies();}).then(()=>{bodyWarm=true;});};
+    if(document.readyState&&document.readyState!=='complete')globalThis.addEventListener('load',start,{once:true});else start();
+   }
   });
   if((a&&!a.done&&(!a.preparing||a.exitReady||a.rewind))||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading||clipShown)wake(false);
   else{previousTime=0;if((idling()&&bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected])))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
@@ -1152,7 +1155,8 @@ function drawEncounter(a,t) {
   /** The ready body frames the last draw used, for registration checks. */
   get characterFrames(){return bodyFrames;},
   get characterExit(){return animation?.exitStart??null;},
-  get characterMemory(){return bodyRuntime?.stats??{bytes:0,peakBytes:0,active:0,queued:0};},
+  get characterRuntimeReady(){return bodyWarm;},
+  get characterMemory(){return bodyRuntime?.stats??{bytes:0,peakBytes:0,active:0,queued:0,manifestLoading:false};},
   get characterEffects(){return effectFrames;},
   setDecorate(fn){decorate=fn;wake();},
   redraw(){wake();},

@@ -153,22 +153,36 @@ const lists = (worker: string) => ({
 it('publishes only runtime effect metadata and omits provenance', async () => {
   const { dir, write } = site();
   const effect = `character-runtime/effects/${'b'.repeat(64)}`;
-  write(`public/${effect}/effect.json`, JSON.stringify({sprite:'assets/beam.png', shaftSourceRect:[1,2,3,4], sourcePath:'/Users/private', flare:{sprite:'assets/flare.png', anchor:[2,3], prompt:'private', provider:'private'}}));
+  write(`public/${effect}/effect.json`, JSON.stringify({id:'maester-beam',sprite:'assets/beam.png', shaftSourceRect:[1,2,3,4], sourcePath:'/Users/private', flare:{sprite:'assets/flare.png', anchor:[2,3], prompt:'private', provider:'private'}}));
   write(`public/${effect}/provenance/source.json`, '{"prompt":"private"}');
   write(`public/${effect}/provenance/source.mjs`, 'private');
   write(`public/${effect}/sources.json`, 'private');
+  write('public/character-runtime/assets.json', 'private');
+  write('public/character-runtime/assets/private.json', 'private');
   try {
     await compile(dir);
     const output = join(dir, 'dist', effect);
     expect(JSON.parse(readFileSync(join(output, 'effect.json'), 'utf8'))).toEqual({sprite:'assets/beam.png', shaftSourceRect:[1,2,3,4], flare:{sprite:'assets/flare.png', anchor:[2,3]}});
     expect(readdirSync(output)).toEqual(['effect.json']);
+    const runtime = join(dir, 'dist/character-runtime');
+    for (const file of readdirSync(runtime, { recursive: true, withFileTypes: true }).filter(entry => entry.isFile())) {
+      const path = join(file.parentPath, file.name).slice(join(dir, 'dist').length + 1).replaceAll('\\', '/');
+      expect(isCharacterRuntimePublic(path), path).toBe(true);
+    }
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-it.each(['/Users/private', '{"prompt":"private"}'])('fails a build if published runtime data contains %s', async privateData => {
+it.each(['/Users/private', '{"prompt":"private"}', '{"provider":"private"}', '.codex', 'generated_images', '{"sourcePath":"private"}', '{"originalPath":"private"}'])('fails a build if published runtime data contains %s', async privateData => {
   const { dir, write } = site();
-  write('public/character-runtime/unsafe.json', privateData);
+  write(`public/character-runtime/effects/${'b'.repeat(64)}/effect.mjs`, privateData);
   try { await expect(compile(dir)).rejects.toThrow('Private character runtime data'); }
+  finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+it('rejects unknown non-empty effect metadata', async () => {
+  const { dir, write } = site();
+  write(`public/character-runtime/effects/${'b'.repeat(64)}/effect.json`, JSON.stringify({ id: 'new-effect', sprite: 'image.png' }));
+  try { await expect(compile(dir)).rejects.toThrow('Unknown character effect metadata'); }
   finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

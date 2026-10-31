@@ -543,7 +543,8 @@ describe('ready character playback', () => {
   await runtime.ready();expect(runtime.has('pawn','white')).toBe(false);expect(runtime.rest('queen','white',100,true)).toBeNull();expect(await runtime.prepare('pawn','white','E',true)).toBeNull();runtime.dispose();
  });
  it('drops queued frame jobs when the browser goes offline', async () => {
-  let online=true;vi.stubGlobal('navigator',{get onLine(){return online;}});
+  let online=true;const listeners=new Map<string,()=>void>();vi.stubGlobal('navigator',{get onLine(){return online;}});
+  vi.stubGlobal('addEventListener',(name:string,fn:()=>void)=>listeners.set(name,fn));vi.stubGlobal('removeEventListener',(name:string)=>listeners.delete(name));
   const banks=Array.from({length:7},(_,i)=>({...bank(),id:`idle-${i}`,character:`piece-${i}`,kind:'idle',frames:[{url:`frame-${i}`,timeMs:0}]}));
   const sources:string[]=[], images:Array<{onerror:null|(()=>void)}> = [];
   const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks})})) as unknown as typeof fetch,
@@ -552,6 +553,8 @@ describe('ready character playback', () => {
    await runtime.ready();const pending=banks.map(b=>runtime.warm(b.character,'white'));
    await vi.waitFor(()=>expect(runtime.stats.queued).toBe(1));expect(sources).toHaveLength(6);
    online=false;images[0].onerror?.();await vi.waitFor(()=>expect(runtime.stats.queued).toBe(0));expect(sources).toHaveLength(6);
+   online=true;listeners.get('online')?.();void runtime.warm('piece-6','white');
+   await vi.waitFor(()=>expect(sources).toContain('https://example.invalid/frame-6'));
    runtime.dispose();await Promise.all(pending);
   } finally {runtime.dispose();vi.unstubAllGlobals();}
  });

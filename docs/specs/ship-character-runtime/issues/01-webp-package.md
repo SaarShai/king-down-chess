@@ -16,6 +16,13 @@ Type: task
 - Keep source records and private metadata out of the published tree.
 - Check the runtime, build, timing, both browser engines and CI.
 
+## Second review repair plan
+
+- Start art after page load. Keep the first board frame unchanged.
+- Wait for the art queue before the offline switch. Count every refusal.
+- Publish only runtime files. Reject unknown effect data and private fields.
+- Run focused tests, both browser engines, the Vercel checks, load measurements and CI.
+
 ## Inputs and delivery
 
 The frozen catalog is in the main checkout at `docs/specs/character-animation-samples/preview/consolidated-animations/`. Its `manifest.json` has SHA-256 `6279af2ef76ba46d75ba10ad5ddc822c67c5d5d78897457a1d13cc6893aed241`. `docs/specs/character-animation-samples/runtime-selection.json` pins that catalog with 478 ready entries. The main checkout was not changed.
@@ -42,8 +49,17 @@ This change replaces pull request 212. That pull request used lossless WebP: 5,2
 
 Pull request 212 failed the `web-online` check in job `browser-web`. The offline journey counted a frame request from the online page that reached the server after the network switched off; the resting piece prefetches frames in the last moment before the switch.
 
-The runtime asks for no new art while `navigator.onLine` is false. It drops queued frame jobs when the connection goes down and retries after the `online` event. The browser gate counts requests from the moment of the offline switch. The worker keeps optional runtime art out of both lists, as it does for the other optional clips. The offline board uses plain figures.
+The runtime asks for no new art while `navigator.onLine` is false. It drops queued frame jobs when the connection goes down and retries after the `online` event. The browser gate waits for the first art warm-up and the frame queue to drain. It counts refusals from the start of the offline switch. The worker keeps optional runtime art out of both lists, as it does for the other optional clips. The offline board uses plain figures.
 
 ## Review
 
 The first review found the browser and test faults. The second review used code and product/size lenses. It found the oversized offline install, the queue fault, published source records, and weak tests. This branch repairs those findings. No deploy or merge is part of this task.
+
+## Second review repair evidence
+
+Two independent checks of the prior head say merge after fixes. They confirm the small offline cache and find the late worker, the offline gate order, the extra public file, and gaps in the resume and metadata tests.
+
+- The runtime starts after page load. On slow 4G, the worker registers at 37.4 s; the prior head took 41.3–42.1 s. The board is ready at 18.5–18.8 s in two load checks. Both offline reloads pass.
+- The browser gate waits for the art warm-up and frame queue. It counts refusals before it switches the network off. Chromium passes in 143.1 s and WebKit in 136.6 s.
+- The build publishes 5,435 runtime files, 119,723,497 bytes. Every file passes the public-file rule. The build rejects unknown effect data and private metadata. Content-named frame files have immutable cache headers.
+- The focused runtime, scene, offline build, route and web tests pass 180 cases and 68 board checks. The Vercel build and output check pass with a disposable local database. CI is the full-suite gate.
