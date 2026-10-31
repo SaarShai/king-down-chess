@@ -97,7 +97,7 @@ try {
    assertNoErrors(errors);checks.push({kbps,latency,captureRun:run,attackSamples:attack.length});console.log(`capture ${kbps} kbps ${latency} ms ${run}/5: ${attack.length} attack samples`);
   }finally{stopThrottle();await page.close();}
  }
- assert(passed>=4,`${kbps} kbps ${latency} ms: ${passed}/5 captures showed attack frames`);
+ assert.equal(passed,5,`${kbps} kbps ${latency} ms: all five captures show attack frames`);
  }
  // The ready cast and all six king designs draw in the real game with their separate cues.
  for(const [label,kings,fen,count] of [

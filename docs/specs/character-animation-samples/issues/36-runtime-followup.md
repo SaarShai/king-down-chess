@@ -4,6 +4,7 @@ Status: ready-for-review
 
 ## Plan and checks
 
+- Rebase on the painted attack banks. Keep both attack facing and loader fixes. Check the catalog pin, both browsers, offline requests, the throttle gates, the build and CI.
 - Give move preparation priority over idle loads and bound idle prefetch. Check both throttle profiles in both browsers.
 - Keep slow idle loads until deselection. Test release timing, ownership and PNG colour keys.
 - Skip unused legacy clips, update the cloud hash and inspect the undo check.
