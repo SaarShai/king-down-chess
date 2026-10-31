@@ -109,8 +109,10 @@ def fit(paths, baseline, rest_indexes, template_path):
     def loss(group):
         head = max(group * rest_scale, 1 / (group * rest_scale)) - 1
         seam = max(abs(baseline - offsets[i] * group - rest_y) / (rb - rt) for i in (0, -1))
+        steps = [abs(a - b) * group / (rb - rt) for a, b in zip(offsets, offsets[1:])]
+        steps.append(abs(offsets[-1] - offsets[0]) * group / (rb - rt))
         body = max(abs(heights[i] * group / (rb - rt) - 1) for i in (0, -1))
-        return max(head / 0.1, seam / 0.04, body / 0.08)
+        return max(head / 0.1, seam / 0.04, max(steps) / 0.04, body / 0.08)
     lo, hi = 0.4, 2.5
     for _ in range(80):
         a, b = (2 * lo + hi) / 3, (lo + 2 * hi) / 3

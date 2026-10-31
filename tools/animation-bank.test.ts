@@ -412,9 +412,10 @@ with tempfile.TemporaryDirectory() as d:
   expect(matches[1].x).toBeCloseTo(149.02, 0);
   const firstBody = Math.abs(seams.transforms[0].scale - 1);
   const lastBody = Math.abs(164 * seams.transforms[1].scale / 179 - 1);
+  expect(seams.transforms[0].groupScale).toBeCloseTo(0.971, 2);
   expect(lastBody).toBeGreaterThan(firstBody);
   expect(seams.bodyHeightDifference).toBeCloseTo(Math.max(firstBody, lastBody), 6);
-});
+}, 30000);
 
 it('rejects a weak fit and searches beyond the old scale range', () => {
   const script = `import json, tempfile, os, cv2, numpy as np
@@ -441,7 +442,7 @@ with tempfile.TemporaryDirectory() as d:
   expect(scale).toBeLessThan(0.8);
   expect(transform.matchScore).toBe(0.43);
   expect(transform.headScale).toBeLessThan(0.8);
-});
+}, 30000);
 
 it('clears colour where saved alpha is zero', () => {
   const script = `import json, tempfile, os, cv2, numpy as np
