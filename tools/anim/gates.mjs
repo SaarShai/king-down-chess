@@ -10,6 +10,7 @@ export const HEAD_JUMP_LIMIT_PX = 20;
 export const HEAD_SCALE_SPREAD_LIMIT = 0.10;
 export const HEAD_BOB_HEIGHT_LIMIT = 0.04;
 export const BODY_HEIGHT_DIFFERENCE_LIMIT = 0.08;
+export const HEAD_MATCH_SCORE_FLOOR = 0.6;
 
 const check = (name, ok, message, metrics = {}) => ({ name, ok, message: ok ? 'ok' : message, metrics });
 const round = n => Math.round(n * 1000) / 1000;
@@ -56,6 +57,8 @@ export function runGates({ bank, frames, geometry, endpoints = {}, plan, movemen
     const walk = frames.slice(1, -1).filter(frame => frame.sources[0] !== movement.rest.sha256);
     const matches = walk.map(frame => frame.headMatch), rests = [frames[0].headMatch, frames.at(-1).headMatch];
     const valid = !walk.length || [...matches, ...rests].every(m => m && [m.x, m.y, m.scale, m.score].every(Number.isFinite) && m.scale > 0);
+    const scoreOk = !walk.length || (valid && [...matches, ...rests].every(m => m.score >= HEAD_MATCH_SCORE_FLOOR)
+      && walk.every(frame => frame.transform?.matchScore >= HEAD_MATCH_SCORE_FLOOR && frame.transform?.restMatchScore >= HEAD_MATCH_SCORE_FLOOR));
     const pairs = valid && walk.length ? { within: matches.slice(1).map((m, i) => [matches[i], m]), start: [[rests[0], matches[0]]], end: [[matches.at(-1), rests[1]]], loop: [[matches.at(-1), matches[0]]] } : { within: [], start: [], end: [], loop: [] };
     const delta = (key, axis) => valid ? Math.max(0, ...pairs[key].map(([a, b]) => Math.abs(a[axis] - b[axis]))) : Infinity;
     const scale = key => valid ? Math.max(0, ...pairs[key].map(([a, b]) => Math.max(a.scale, b.scale) / Math.min(a.scale, b.scale) - 1)) : Infinity;
@@ -65,11 +68,11 @@ export function runGates({ bank, frames, geometry, endpoints = {}, plan, movemen
     const scaleSpread = valid && matches.length ? Math.max(...matches.map(m => m.scale)) / Math.min(...matches.map(m => m.scale)) - 1 : valid ? 0 : Infinity;
     const bobLimit = movement.bodyHeightPx * HEAD_BOB_HEIGHT_LIMIT;
     const bodyDifference = movement.bodyHeightDifference;
-    fail('steadiness', valid && Number.isFinite(bobLimit) && Number.isFinite(bodyDifference) && bodyDifference <= BODY_HEIGHT_DIFFERENCE_LIMIT
-      && Object.values(x).every(n => n <= HEAD_JUMP_LIMIT_PX) && ['start', 'end', 'loop'].every(key => y[key] <= bobLimit)
+    fail('steadiness', valid && scoreOk && Number.isFinite(bobLimit) && Number.isFinite(bodyDifference) && bodyDifference <= BODY_HEIGHT_DIFFERENCE_LIMIT
+      && Object.values(x).every(n => n <= HEAD_JUMP_LIMIT_PX) && Object.values(y).every(n => n <= bobLimit)
       && scaleSpread <= HEAD_SCALE_SPREAD_LIMIT && Object.values(sizes).every(n => n <= HEAD_SCALE_SPREAD_LIMIT),
-      `Head jumps x ${JSON.stringify(x)}, y ${JSON.stringify(y)} (limits ${HEAD_JUMP_LIMIT_PX} px and ${round(bobLimit)} px); scale ${JSON.stringify(sizes)} and spread ${round(scaleSpread)} (limit ${HEAD_SCALE_SPREAD_LIMIT}); body height difference ${round(bodyDifference)} (limit ${BODY_HEIGHT_DIFFERENCE_LIMIT})`,
-      { maxHeadJumpPx: round(x.within), startHeadJumpPx: round(x.start), endHeadJumpPx: round(x.end), loopHeadJumpPx: round(x.loop), headScaleSpread: round(scaleSpread), x, y, scale: sizes, bobLimitPx: bobLimit, bodyHeightDifference: bodyDifference, headJumpLimitPx: HEAD_JUMP_LIMIT_PX, headScaleSpreadLimit: HEAD_SCALE_SPREAD_LIMIT });
+      `Head match score ${scoreOk ? 'ok' : `below ${HEAD_MATCH_SCORE_FLOOR} or missing`}; head jumps x ${JSON.stringify(x)}, y ${JSON.stringify(y)} (limits ${HEAD_JUMP_LIMIT_PX} px and ${round(bobLimit)} px); scale ${JSON.stringify(sizes)} and spread ${round(scaleSpread)} (limit ${HEAD_SCALE_SPREAD_LIMIT}); body height difference ${round(bodyDifference)} (limit ${BODY_HEIGHT_DIFFERENCE_LIMIT})`,
+      { matchScoreOk: scoreOk, maxHeadJumpPx: round(x.within), startHeadJumpPx: round(x.start), endHeadJumpPx: round(x.end), loopHeadJumpPx: round(x.loop), headScaleSpread: round(scaleSpread), x, y, scale: sizes, bobLimitPx: bobLimit, bodyHeightDifference: bodyDifference, headJumpLimitPx: HEAD_JUMP_LIMIT_PX, headScaleSpreadLimit: HEAD_SCALE_SPREAD_LIMIT });
   }
 
   const first = movement ? (frames[0].restMatch && movement.endpoint) : endpoints[frames[0].sha256], last = movement ? (frames.at(-1).restMatch && movement.endpoint) : endpoints[frames.at(-1).sha256];

@@ -28,7 +28,7 @@ Status: claimed
 
 ## Review fix evidence
 
-- The rest foot sets each key's horizontal target. The gate checks authored feet and identical rest pixels.
+- The first fit used the rest foot as each key's horizontal target. Issue 36 replaces that rule with the head fit. The gate still checks identical rest pixels and the baseline.
 - The runtime builder keeps the movement bank's own facing-rest height. The 264-job check has no height mismatch and no throw.
 - Five local banks pass all seven gates. Their authored feet are within 1.5 source px of the rest foot.
 - The frame foot screen records maximum steps of 18.77, 45.85, 38.44, 19.81 and 77.88 source px for Pawn, Knight, Rook, Stratus and Shadow. It does not pass a small-step limit. The lowest visible shape changes in the interpolated frames. Do not use this screen alone to claim a smooth join.

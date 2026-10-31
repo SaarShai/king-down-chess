@@ -4,6 +4,7 @@ import numpy as np
 
 BAND = 0.28          # head and shoulders: top 28% of the reference figure
 SCALES = np.arange(0.60, 1.6001, 0.01)
+MATCH_FLOOR = 0.6
 
 
 def load(path):
@@ -78,29 +79,45 @@ def best_scale(rgba, tmpl, half):
     return best
 
 
-def head_x(rgba):
-    top, bot, _, _ = box(rgba[:, :, 3])
-    height = bot - top
-    band = rgba[top + int(height * 0.05):top + max(int(height * 0.2), 1), :, 3] >= 0.5
-    weights = band.sum(0)
-    return float((weights * np.arange(len(weights))).sum() / weights.sum())
-
-
-def fit(paths, baseline, rest_indexes):
+def fit(paths, baseline, rest_indexes, template_path):
     frames = [load(path) for path in paths]
     rest = frames[0]
     indices = [i for i in range(1, len(frames) - 1) if i not in rest_indexes]
     result = [{} for _ in frames[1:-1]]
     if not indices:
-        return {"transforms": result, "restHeadX": head_x(rest)}
+        return {"transforms": result}
     walk = [frames[i] for i in indices]
     tmpl, (hx, hy) = head_template(walk[0], 0.5)
     fits = [(1.0, 1.0, (hx, hy))] + [best_scale(f, tmpl, 0.5) for f in walk[1:]]
     rt, rb, _, _ = box(rest[:, :, 3])
+    reference_height = box(walk[0][:, :, 3])[1] - box(walk[0][:, :, 3])[0]
+    # A weak match must not set the scale or anchor from an unrelated prop.
+    for i, (f, (score, scale, loc)) in enumerate(zip(walk, fits)):
+        if score < MATCH_FLOOR:
+            top, bottom, left, right = box(f[:, :, 3])
+            scale = reference_height / (bottom - top)
+            loc = ((left + right) * scale / 2 - tmpl.shape[1], top * scale)
+            fits[i] = (score, scale, loc)
     heights = [(box(f[:, :, 3])[1] - box(f[:, :, 3])[0]) * s for f, (_, s, _) in zip(walk, fits)]
     rest_score, rest_scale, rest_loc = best_scale(rest, tmpl, 0.5)
-    group = 1 / rest_scale
-    height_difference = abs(max(heights) * group / (rb - rt) - 1)
+    if rest_score < MATCH_FLOOR:
+        _, _, left, right = box(rest[:, :, 3])
+        rest_scale = reference_height / (rb - rt)
+        rest_loc = ((left + right) * rest_scale / 2 - tmpl.shape[1], rt * rest_scale)
+    rest_y = (rest_loc[1] + tmpl.shape[0]) / rest_scale
+    offsets = [box(f[:, :, 3])[1] * scale - (loc[1] + tmpl.shape[0]) for f, (_, scale, loc) in zip(walk, fits)]
+    def loss(group):
+        head = max(group * rest_scale, 1 / (group * rest_scale)) - 1
+        seam = max(abs(baseline - offsets[i] * group - rest_y) / (rb - rt) for i in (0, -1))
+        body = max(abs(heights[i] * group / (rb - rt) - 1) for i in (0, -1))
+        return max(head / 0.1, seam / 0.04, body / 0.08)
+    lo, hi = 0.4, 2.5
+    for _ in range(80):
+        a, b = (2 * lo + hi) / 3, (lo + 2 * hi) / 3
+        if loss(a) < loss(b): hi = b
+        else: lo = a
+    group = (lo + hi) / 2
+    height_difference = max(abs(heights[i] * group / (rb - rt) - 1) for i in (0, -1))
     rest_hx = (rest_loc[0] + tmpl.shape[1]) / rest_scale
     for index, f, (score, scale, loc) in zip(indices, walk, fits):
         factor = scale * group
@@ -125,9 +142,8 @@ def fit(paths, baseline, rest_indexes):
         result[index - 1] = {'scale': factor, 'dx': tx, 'dy': ty, 'matchScore': float(score), 'headScale': float(scale), 'groupScale': float(group), 'specks': specks, 'restMatchScore': float(rest_score), 'restMatchScale': float(rest_scale), 'bodyHeightDifference': float(height_difference)}
     fitted = [load(paths[i]) for i in indices]
     reference, _ = head_template(fitted[0], 0.5)
-    template_path = os.path.join(os.path.dirname(os.path.dirname(paths[0])), 'head-template.png')
     cv2.imwrite(template_path, cv2.cvtColor((reference * 255 + 0.5).astype(np.uint8), cv2.COLOR_RGB2BGR))
-    return {'transforms': result, 'headTemplate': 'head-template.png', 'bodyHeightDifference': float(height_difference)}
+    return {'transforms': result, 'headTemplate': os.path.basename(template_path), 'bodyHeightDifference': float(height_difference)}
 
 
 def measure_saved(paths, template_path):
@@ -147,4 +163,4 @@ if __name__ == '__main__':
     if args.get('template'):
         print(json.dumps(measure_saved(args['paths'], args['template'])))
     else:
-        print(json.dumps(fit(args['paths'], args['baseline'], args['restIndexes'])))
+        print(json.dumps(fit(args['paths'], args['baseline'], args['restIndexes'], args['templatePath'])))

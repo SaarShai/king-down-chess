@@ -2,6 +2,13 @@
 
 Status: in review
 
+## Third review plan
+
+- Balance head size, seam height and both seam body heights with one group scale.
+- Reject low-score matches in the fit, gate and promotion. Check vertical motion inside the walk.
+- Test the joint fit, saved measurements and promotion limits. Run the review mutations.
+- Rebuild all 274 banks, report each failure and compare the four rounds. Update the PR and check CI.
+
 ## Second review plan
 
 - Fit head size to the standing head. Flag a body height difference over 8%.
@@ -26,7 +33,13 @@ Status: in review
 
 ## Evidence
 
-- `KINGDOWN_TEST_FILE=tools/animation-bank.test.ts npm test` passes 16 tests and 68 bundled checks.
+- Round 1: 269 pass, 5 fail. Round 2: 253 pass, 21 fail. Round 3: 73 pass, 201 fail.
+  The gates changed between rounds. The independent head-top screen found 73 banks over 4% in round 2 and 210 in round 3.
+- Round 4: 126 pass, 148 fail. A 5% or 6% y limit would pass 145 or 151 banks. The limit stays at 4%.
+- The 274-bank rebuild has no missing output. Thirty banks fail the match-score floor. Fifty have a loop y step over 4%.
+- The alpha head x step has median 1.89 px and p90 7.26 px. Eight banks exceed 20 px.
+- All 24 review mutations fail on test assertions. The focused suite passes 18 tests and 68 bundled checks.
+- The earlier focused run passed 16 tests and 68 bundled checks.
 - `npm run test:docs` passes 187 tests.
 - The local rebuild writes candidates and gate reports to `anim-out/offline-1030/out-steady/`.
 - The report records the full rebuild, head measurements and the comparison sheet.

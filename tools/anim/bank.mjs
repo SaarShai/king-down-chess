@@ -107,15 +107,17 @@ export async function makeBank(options) {
     const script = fileURLToPath(new URL('./steady.py', import.meta.url));
     let fit;
     try {
-      const { stdout } = await exec(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', [script, JSON.stringify({ paths: registered.map(frame => join(output, frame.file)), baseline: movement.baseline, restIndexes: registered.map((frame, i) => frame.sources[0] === movement.rest.sha256 ? i : -1).filter(i => i >= 0) })], { cwd: root, maxBuffer: 1024 * 1024 });
+      const { stdout } = await exec(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', [script, JSON.stringify({ paths: registered.map(frame => join(output, frame.file)), baseline: movement.baseline, templatePath: join(output, 'head-template.png'), restIndexes: registered.map((frame, i) => frame.sources[0] === movement.rest.sha256 ? i : -1).filter(i => i >= 0) })], { cwd: root, maxBuffer: 1024 * 1024 });
       fit = JSON.parse(stdout);
     } catch (error) { throw Error(`Movement fit failed (Python with NumPy and OpenCV is required): ${error.stderr?.trim() || error.message}`); }
     movement.headTemplate = fit.headTemplate ?? null;
     movement.bodyHeightDifference = fit.bodyHeightDifference ?? 0;
     if (movement.headTemplate) {
-      const { stdout } = await exec(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', [script, JSON.stringify({ paths: registered.map(frame => join(output, frame.file)), template: join(output, movement.headTemplate) })], { cwd: root, maxBuffer: 1024 * 1024 });
-      const matches = JSON.parse(stdout);
-      for (let i = 0; i < registered.length; i++) registered[i].headMatch = matches[i];
+      try {
+        const { stdout } = await exec(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', [script, JSON.stringify({ paths: registered.map(frame => join(output, frame.file)), template: join(output, movement.headTemplate) })], { cwd: root, maxBuffer: 1024 * 1024 });
+        const matches = JSON.parse(stdout);
+        for (let i = 0; i < registered.length; i++) registered[i].headMatch = matches[i];
+      } catch (error) { throw Error(`Movement measurement failed (Python with NumPy and OpenCV is required): ${error.stderr?.trim() || error.message}`); }
     }
     for (let i = 1; i < registered.length - 1; i++) {
       const frame = registered[i];

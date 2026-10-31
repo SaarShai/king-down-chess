@@ -261,13 +261,28 @@ it('keeps the shipped movement rest at its pivot and scale on a padded canvas', 
   await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).resolves.toMatchObject({ dryRun: true });
   const gatesPath = join(dir, 'movement-promote', 'gates.json');
   const gates = JSON.parse(await readFile(gatesPath, 'utf8'));
-  const metricVariants = ['maxHeadJumpPx', 'startHeadJumpPx', 'endHeadJumpPx', 'loopHeadJumpPx', 'headScaleSpread'].flatMap(key => [undefined, 21].map(value => ({ ...gates.checks.find((c: any) => c.name === 'steadiness').metrics, [key]: value })));
+  const goodMetrics = gates.checks.find((c: any) => c.name === 'steadiness').metrics;
+  const metricVariants = ['maxHeadJumpPx', 'startHeadJumpPx', 'endHeadJumpPx', 'loopHeadJumpPx', 'headScaleSpread', 'bodyHeightDifference'].flatMap(key => [undefined, 21].map(value => ({ ...goodMetrics, [key]: value })));
+  for (const axis of ['x', 'y', 'scale']) for (const seam of ['within', 'start', 'end', 'loop']) metricVariants.push({ ...goodMetrics, [axis]: { ...goodMetrics[axis], [seam]: 100 } });
+  metricVariants.push({ ...goodMetrics, matchScoreOk: false });
   for (const checks of [gates.checks.filter((c: any) => c.name !== 'steadiness'), gates.checks.map((c: any) => c.name === 'steadiness' ? { ...c, ok: false } : c), ...metricVariants.map(metrics => gates.checks.map((c: any) => c.name === 'steadiness' ? { ...c, metrics } : c))]) {
     await writeFile(gatesPath, JSON.stringify({ ...gates, checks }));
     await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('Gate steadiness did not pass');
   }
   await writeFile(gatesPath, JSON.stringify(gates));
   const candidateBank = JSON.parse(await readFile(candidate.candidate, 'utf8'));
+  for (const bad of [null, '', undefined]) {
+    await writeFile(candidate.candidate, JSON.stringify({ ...candidateBank, provenance: { ...candidateBank.provenance, headTemplate: bad } }));
+    await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('Gate steadiness did not pass');
+  }
+  const badMatches = candidateBank.provenance.headMatches.map((m: any, i: number) => i === 1 ? { ...m, score: 0.59 } : m);
+  await writeFile(candidate.candidate, JSON.stringify({ ...candidateBank, provenance: { ...candidateBank.provenance, headMatches: badMatches } }));
+  await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('Gate steadiness did not pass');
+  for (const score of [0.59, '1', null]) {
+    const badKeys = candidateBank.provenance.keys.map((key: any, i: number) => i === 1 ? { ...key, transform: { ...key.transform, matchScore: score } } : key);
+    await writeFile(candidate.candidate, JSON.stringify({ ...candidateBank, provenance: { ...candidateBank.provenance, keys: badKeys } }));
+    await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('Gate steadiness did not pass');
+  }
   candidateBank.pivot[0] += 2;
   await writeFile(candidate.candidate, JSON.stringify(candidateBank));
   await expect(promote(candidate.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('facing-rest transform changed');
@@ -296,10 +311,10 @@ it('fits shifted walking poses and removes a detached speck', async () => {
   const paths = [0, 1, 2, 3].map(i => join(dir, `${i}.png`));
   await make(paths[0], 0, 0); await make(paths[1], 0, -10); await make(paths[2], 10, 12, true); await make(paths[3], 0, 0);
   const beforeRest = await readFile(paths[0]);
-  const fit = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['tools/anim/steady.py', JSON.stringify({ paths, baseline: 103, restIndexes: [0, 3] })], { encoding: 'utf8' });
+  const fit = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['tools/anim/steady.py', JSON.stringify({ paths, baseline: 103, restIndexes: [0, 3], templatePath: join(dir, 'head-template.png') })], { encoding: 'utf8' });
   expect(fit.status, fit.stderr).toBe(0);
   const { transforms, headTemplate } = JSON.parse(fit.stdout);
-  const measured = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['tools/anim/steady.py', JSON.stringify({ paths, template: join(dirname(dir), headTemplate) })], { encoding: 'utf8' });
+  const measured = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['tools/anim/steady.py', JSON.stringify({ paths, template: join(dir, headTemplate) })], { encoding: 'utf8' });
   expect(measured.status, measured.stderr).toBe(0);
   const headMeasurements = JSON.parse(measured.stdout);
   expect(transforms).toHaveLength(2);
@@ -327,7 +342,7 @@ rest = a.copy(); rest[30:42, 8:48, :] = [1, .1, .1, 1]
 with tempfile.TemporaryDirectory() as d:
     paths = [os.path.join(d, str(i) + '.png') for i in range(3)]
     for path, image in zip(paths, [rest, a, rest]): save(path, image)
-    result = fit(paths, 103, [0, 2])
+    result = fit(paths, 103, [0, 2], os.path.join(d, 'head-template.png'))
     print(json.dumps(result['transforms'][0]['dx']))`;
   const result = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['-c', script], { encoding: 'utf8' });
   expect(result.status, result.stderr).toBe(0);
@@ -347,7 +362,7 @@ with tempfile.TemporaryDirectory() as d:
     frames = os.path.join(d, 'frames'); os.mkdir(frames)
     paths = [os.path.join(frames, str(i) + '.png') for i in range(3)]
     for path, image in zip(paths, [rest, a, rest]): save(path, image)
-    result = fit(paths, 119, [0, 2])
+    result = fit(paths, 119, [0, 2], os.path.join(d, 'head-template.png'))
     matches = measure_saved(paths, os.path.join(d, result['headTemplate']))
     print(json.dumps([result['transforms'][0]['restMatchScale'], result['transforms'][0]['groupScale'], matches]))`;
   const result = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['-c', script], { encoding: 'utf8' });
@@ -357,6 +372,75 @@ with tempfile.TemporaryDirectory() as d:
   expect(groupScale).toBeGreaterThan(1.05);
   expect(Math.abs(matches[0].x - matches[1].x)).toBeLessThan(5);
   expect(Math.abs(matches[0].scale / matches[1].scale - 1)).toBeLessThan(0.1);
+});
+
+it('balances head size and seam height when the body has a different scale', () => {
+  const script = `import json, tempfile, os, cv2, numpy as np
+from tools.anim.steady import save, fit, measure_saved
+rng = np.random.default_rng(99)
+head = rng.uniform(.1, 1, (50, 40, 3)).astype(np.float32)
+walk = np.zeros((300, 300, 4), np.float32)
+walk[50:230, 130:170] = [.3, .4, .5, 1]
+walk[50:100, 130:170, :3] = head
+rest = np.zeros_like(walk)
+rest[50:230, 130:170] = [.3, .4, .5, 1]
+rest[50:108, 127:173, :3] = cv2.resize(head, (46, 58)); rest[50:108, 127:173, 3] = 1
+with tempfile.TemporaryDirectory() as d:
+    paths = [os.path.join(d, str(i) + '.png') for i in range(3)]
+    for path, image in zip(paths, [rest, walk, rest]): save(path, image)
+    template = os.path.join(d, 'template.png')
+    result = fit(paths, 229, [0, 2], template)
+    m = measure_saved(paths, template)
+    short = walk.copy(); short[215:230] = 0
+    paths2 = [os.path.join(d, 'b' + str(i) + '.png') for i in range(4)]
+    for path, image in zip(paths2, [rest, walk, short, rest]): save(path, image)
+    seams = fit(paths2, 229, [0, 3], os.path.join(d, 'seams.png'))
+    print(json.dumps([result, m, seams]))`;
+  const result = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['-c', script], { encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+  const [fit, matches, seams] = JSON.parse(result.stdout);
+  const t = fit.transforms[0];
+  expect(t.restMatchScore).toBeGreaterThan(0.6);
+  expect(t.groupScale).toBeGreaterThan(1.01);
+  expect(t.groupScale).toBeLessThan(1 / t.restMatchScale - 0.01);
+  expect(fit.bodyHeightDifference).toBeGreaterThan(0.01);
+  expect(matches[0].y).toBeCloseTo(79.12, 0);
+  expect(matches[1].y).toBeCloseTo(70.59, 0);
+  expect(matches[0].scale).toBeCloseTo(1.099, 2);
+  expect(matches[1].scale).toBeCloseTo(0.980, 2);
+  expect(matches[0].x).toBeCloseTo(149.45, 0);
+  expect(matches[1].x).toBeCloseTo(149.02, 0);
+  const firstBody = Math.abs(seams.transforms[0].scale - 1);
+  const lastBody = Math.abs(164 * seams.transforms[1].scale / 179 - 1);
+  expect(lastBody).toBeGreaterThan(firstBody);
+  expect(seams.bodyHeightDifference).toBeCloseTo(Math.max(firstBody, lastBody), 6);
+});
+
+it('rejects a weak fit and searches beyond the old scale range', () => {
+  const script = `import json, tempfile, os, cv2, numpy as np
+import tools.anim.steady as s
+rng = np.random.default_rng(7)
+a = np.zeros((256, 256, 4), np.float32)
+a[50:170, 90:150, :3] = rng.uniform(.1, 1, (120, 60, 3)); a[50:170, 90:150, 3] = 1
+big = s.transform(a, 1.4, -30, -30, a.shape)
+tmpl, _ = s.head_template(a, .5)
+score, scale, _ = s.best_scale(big, tmpl, .5)
+with tempfile.TemporaryDirectory() as d:
+    paths = [os.path.join(d, str(i) + '.png') for i in range(4)]
+    for path, image in zip(paths, [a, a, big, a]): s.save(path, image)
+    original = s.best_scale
+    def weak(image, template, half):
+        return (0.43, 1.5, (1, 1)) if s.box(image[:,:,3])[1] > 180 else original(image, template, half)
+    s.best_scale = weak
+    fit = s.fit(paths, 169, [0, 3], os.path.join(d, 'template.png'))
+    print(json.dumps([score, scale, fit['transforms'][1]]))`;
+  const result = spawnSync(process.env.KINGDOWN_ANIM_PYTHON ?? 'python3', ['-c', script], { encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+  const [score, scale, transform] = JSON.parse(result.stdout);
+  expect(score).toBeGreaterThan(0.6);
+  expect(scale).toBeLessThan(0.8);
+  expect(transform.matchScore).toBe(0.43);
+  expect(transform.headScale).toBeLessThan(0.8);
 });
 
 it('clears colour where saved alpha is zero', () => {
@@ -386,7 +470,7 @@ print(json.dumps([count, float(clean[3, 3, 3]), float(clean[15, 15, 3])]))`;
 });
 
 it('gates walking head jumps and scale spread without pinning walking feet', () => {
-  const frame = (x: number, scale: number, source: string, timeMs: number) => ({ file: `frame-${timeMs}`, method: 'authored', sources: [source], restMatch: source === 'rest', metadata: { channels: 4 }, measure: { borderOpaque: 0, alphaMin: 0, alphaMax: 255, bottom: 100, footCenterX: 300 }, fringe: { ratio: 0 }, ghost: 0, sha256: 'a'.repeat(64), timeMs, headMatch: { x, y: 40, scale, score: 1 } });
+  const frame = (x: number, scale: number, source: string, timeMs: number) => ({ file: `frame-${timeMs}`, method: 'authored', sources: [source], restMatch: source === 'rest', transform: { matchScore: 1, restMatchScore: 1 }, metadata: { channels: 4 }, measure: { borderOpaque: 0, alphaMin: 0, alphaMax: 255, bottom: 100, footCenterX: 300 }, fringe: { ratio: 0 }, ghost: 0, sha256: 'a'.repeat(64), timeMs, headMatch: { x, y: 40, scale, score: 1 } });
   const rest = frame(100, 1, 'rest', 0), first = frame(100, 1, 'walk', 120), next = frame(110, 1.03, 'walk', 240), end = frame(100, 1, 'rest', 360);
   const check = (frames: any[], bodyHeightDifference = 0) => runGates({ bank: { pivot: [50, 100] }, frames, geometry: { pivot: [50, 100] }, movement: { pivot: [50, 100], baseline: 100, bodyHeightPx: 100, bodyHeightDifference, rest: { sha256: 'rest' }, endpoint: {} }, plan: { frameCount: 4, durationMs: 360, frameMs: 120 } });
   expect(check([rest, first, next, end]).checks.find(c => c.name === 'geometry')?.ok).toBe(true);
@@ -405,9 +489,17 @@ it('gates walking head jumps and scale spread without pinning walking feet', () 
   expect(steady([{ ...rest, headMatch: { ...rest.headMatch, y: 35 } }, first, next, end]).ok).toBe(false);
   expect(steady([rest, first, next, { ...end, headMatch: { ...end.headMatch, y: 35 } }]).ok).toBe(false);
   expect(steady([rest, first, { ...next, headMatch: { ...next.headMatch, y: 45 } }, { ...end, headMatch: { ...end.headMatch, y: 45 } }]).ok).toBe(false);
+  const middleY = { ...mid, headMatch: { ...mid.headMatch, y: 43 } }, lastY = { ...mid, headMatch: { ...mid.headMatch, y: 46 } };
+  expect(steady([rest, first, middleY, lastY, { ...end, headMatch: { ...end.headMatch, y: 46 } }]).ok).toBe(false);
   expect(steady([{ ...rest, headMatch: { ...rest.headMatch, scale: 1.2 } }, first, next, end]).ok).toBe(false);
   expect(steady([rest, first, next, { ...end, headMatch: { ...end.headMatch, scale: 1.2 } }]).ok).toBe(false);
   expect(check([rest, first, next, end], 0.081).checks.find(c => c.name === 'steadiness')?.ok).toBe(false);
+  expect(steady([rest, { ...first, transform: { matchScore: 0.59, restMatchScore: 1 } }, next, end]).ok).toBe(false);
+  expect(steady([rest, first, { ...next, headMatch: { ...next.headMatch, score: 0.59 } }, end]).ok).toBe(false);
+  const up = { ...mid, headMatch: { ...mid.headMatch, y: 44 } }, down = { ...mid, headMatch: { ...mid.headMatch, y: 36 } };
+  expect(steady([rest, first, up, down, next, end]).ok).toBe(false);
+  const small = frame(100, 0.94, 'walk', 240), large = frame(100, 1.06, 'walk', 480);
+  expect(steady([rest, first, small, frame(100, 1, 'walk', 360), large, first, end]).ok).toBe(false);
 });
 
 it('promotes a green candidate into the frozen catalog under its lock', async () => {
