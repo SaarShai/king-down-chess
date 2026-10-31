@@ -887,7 +887,7 @@ function vortex(out,foot,phase,strength) {
    if(body){
     if(a?.runtime){
      if(local<0)u.pose={...a.from};else if(local>a.actionDuration)u.pose={...a.to};
-     if(typeOf(u.value)!==K||!a.move.captures.length)u.pose.rotation=0;u.pose.sx=1;u.pose.sy=1;
+     if(typeOf(u.value)!==K||!a.move.captures.length||a.runtime.attack)u.pose.rotation=0;u.pose.sx=1;u.pose.sy=1;
     }
     u.pose.bank=body;
    }

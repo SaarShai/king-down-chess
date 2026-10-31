@@ -30,6 +30,29 @@ describe('ready character playback', () => {
   expect(runtime.action(prepared,1120,1000,0)).toMatchObject({url:army+'-rest'});
   runtime.dispose();
  });
+ it.each(['white','black'])('plays the target-facing king attack for %s', async army => {
+  const idle={...bank(),id:'idle',character:'king-frost',army,kind:'idle',frames:[{url:army+'-rest',timeMs:0}]};
+  const turn={...bank(),id:'turn',character:'king-frost',army,frames:[{url:army+'-rest',timeMs:0},{url:army+'-target',timeMs:120}]};
+  const attack={...bank(),id:'attack',character:'king-frost',army,kind:'attack',facing:'S',frames:[{url:army+'-target',timeMs:0},{url:army+'-strike',timeMs:40},{url:army+'-target',timeMs:100}]};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,attack]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const prepared=await runtime.prepare('king-frost',army,'S',true,true);expect(prepared).not.toBeNull();
+  expect(runtime.action(prepared,0,120,40)).toMatchObject({url:army+'-target'});
+  expect(runtime.action(prepared,40,120,40)).toMatchObject({url:army+'-strike'});
+  expect(runtime.action(prepared,100,120,40)).toMatchObject({url:army+'-target'});
+  expect(runtime.action(prepared,240,120,40)).toMatchObject({url:army+'-rest'});
+  runtime.dispose();
+ });
+ it('places a smaller key at its authored offset', async () => {
+  const idle={...bank(),id:'idle',character:'king-frost',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const attack={...bank(),id:'attack',character:'king-frost',kind:'attack',facing:'SE',canvasSize:[640,640] as [number,number],pivot:[512,478] as [number,number],frames:[{url:'rest',timeMs:0},{url:'strike',timeMs:60}]};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(s:string){if(s.endsWith('/strike'))img.naturalWidth=img.naturalHeight=640;queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const prepared=await runtime.prepare('king-frost','white','SE',true,true);
+  expect(runtime.action(prepared,0,120,60)).toMatchObject({pivot:[384,350],canvasSize:[384,384]});
+  expect(runtime.action(prepared,60,120,60)).toMatchObject({pivot:[512,478],canvasSize:[640,640]});
+  runtime.dispose();
+ });
  it('keeps every king turn frame under cache pressure until the capture ends', async () => {
   const idle={...bank(),id:'idle',character:'king-frost',kind:'idle',frames:[{url:'rest',timeMs:0}]};
   const turn={...bank(),id:'turn',character:'king-frost',frames:[{url:'rest',timeMs:0},{url:'middle',timeMs:60},{url:'target',timeMs:120}]};
@@ -83,7 +106,7 @@ describe('ready character playback', () => {
   });
   const sources:string[]=[];
   const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks})})) as unknown as typeof fetch,
-   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},set src(s:string){sources.push(s);queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   image:()=>{const img={naturalWidth:768,naturalHeight:768,onload:null as null|(()=>void),decode:async()=>{},set src(s:string){sources.push(s);queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
   for(const army of ['white','black']){
    const long=await runtime.prepare('pawn',army,'S',false,false);
    expect((runtime.action(long,500,1000,0) as {bank:string}).bank).toBe(`${army}-turn`);
@@ -320,6 +343,10 @@ describe('ready character playback', () => {
   b.nearest=false; expect(frameAt(b,59).timeMs).toBe(0);
   b.frames[0].visibleIntervalMs=[0,90];b.frames[1].visibleIntervalMs=[90,110];b.frames[2].visibleIntervalMs=[110,120];
   expect(frameAt(b,80).timeMs).toBe(0); expect(frameAt(b,90).timeMs).toBe(60);
+ });
+ it('holds nearest attack keys until their recorded times', () => {
+  const attack={...bank(),kind:'attack',durationMs:200,frames:[0,40,150].map(timeMs=>({url:`frame-${timeMs}`,timeMs}))};
+  expect([0,39,40,149,150,200].map(time=>frameAt(attack,time).timeMs)).toEqual([0,0,40,40,150,150]);
  });
  it('loads the requested piece only and discards late decodes after disposal', async () => {
   const a = {...bank(),kind:'idle'}, other={...a,character:'knight'}, sources:string[]=[], pending:(()=>void)[]=[];

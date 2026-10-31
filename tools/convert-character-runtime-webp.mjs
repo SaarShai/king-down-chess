@@ -11,6 +11,7 @@ const source = resolve(sourceArg), output = resolve(outputArg), rel = relative(s
 if (!rel || !rel.startsWith('..')) throw Error('Output must be outside source');
 const manifest = JSON.parse(await readFile(resolve(source, 'manifest.json')));
 const assets = JSON.parse(await readFile(resolve(source, 'assets.json')));
+const attackAssets = new Set(manifest.banks.filter(bank => bank.kind === 'attack').flatMap(bank => bank.frames.map(frame => frame.url)));
 await mkdir(output); // Refuse an existing output, including partial prior builds.
 await mkdir(resolve(output, 'assets'));
 await cp(resolve(source, 'effects'), resolve(output, 'effects'), { recursive: true });
@@ -24,7 +25,16 @@ await Promise.all(Array.from({ length: 8 }, async () => {
     if (hash(bytes) !== asset.sha256) throw Error(`PNG hash mismatch: ${asset.url}`);
     const image = sharp(bytes), metadata = await image.metadata();
     if (!metadata.hasAlpha || metadata.width !== asset.size[0] || metadata.height !== asset.size[1]) throw Error(`PNG geometry or alpha mismatch: ${asset.url}`);
-    const webp = await image.webp({ quality: 90, alphaQuality: 100, exact: true, effort: 6 }).toBuffer(), sha256 = hash(webp), url = `assets/${sha256}.webp`;
+    let input=image;
+    if (attackAssets.has(asset.url)) {
+      const {data,info}=await image.ensureAlpha().raw().toBuffer({resolveWithObject:true});
+      let changed=false;
+      const clear=(x,y)=>{const i=(y*info.width+x)*4+3;if(data[i]>1)throw Error(`Attack frame has an opaque border: ${asset.url}`);if(data[i]){data[i]=0;changed=true;}};
+      for(let x=0;x<info.width;x++){clear(x,0);clear(x,info.height-1);}
+      for(let y=1;y<info.height-1;y++){clear(0,y);clear(info.width-1,y);}
+      if(changed)input=sharp(data,{raw:{width:info.width,height:info.height,channels:4}});
+    }
+    const webp = await input.webp({ quality: 90, alphaQuality: 100, exact: true, effort: 6 }).toBuffer(), sha256 = hash(webp), url = `assets/${sha256}.webp`;
     await writeFile(resolve(output, url), webp);
     converted.set(asset.url, { ...asset, url, sha256, encoding: 'webp-q90-alpha-lossless' });
   }

@@ -12,7 +12,7 @@ const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 const direction = value => directions.includes(value) ? value : null;
 const inside = (base, path) => { const rel = relative(base, path); if (rel.startsWith('..') || rel.startsWith('/')) throw Error(`Asset outside frozen package: ${rel}`); return path; };
 
-export function registerBanks(banks) {
+export function registerBanks(banks, assets = new Map()) {
   const groups = new Map();
   for (const bank of banks) { const key = `${bank.character}:${bank.army}`; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(bank); }
   for (const all of groups.values()) {
@@ -35,7 +35,9 @@ export function registerBanks(banks) {
         bank.sourceBoardScale=bank.boardScale==null?null:bank.boardScale/2;
         bank.registrationHeightPx=rest.bodyHeightPx;bank.registrationSourceSha256=rest.sourceSha256;bank.boardScale=null;
         for(const frame of [bank.frames[0],bank.frames.at(-1)]){
-          const transform=JSON.stringify([bank.pivot,bank.registrationHeightPx,bank.boardScale]),previous=endpoints.get(frame.sourceSha256);
+          const size=assets.get(frame.sourceSha256)?.size??bank.canvasSize;
+          const pivot=bank.pivot.map((n,i)=>n-(bank.canvasSize[i]-size[i])/2);
+          const transform=JSON.stringify([pivot,bank.registrationHeightPx,bank.boardScale]),previous=endpoints.get(frame.sourceSha256);
           if(previous&&previous!==transform)throw Error(`Inconsistent shared endpoint transform: ${bank.character}/${bank.army}/${frame.sourceSha256}`);
           endpoints.set(frame.sourceSha256,transform);
         }
@@ -151,7 +153,8 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
         for (let y = 0; y < info.height; y++) if (data[y * info.width * 4 + 3] || data[(y * info.width + info.width - 1) * 4 + 3]) throw Error(`Movement frame has no transparent exterior: ${entry.id}`);
       }
       const image = await asset({ ...frame, timeMs }, dirname(path));
-      if (image.size.some((size, axis) => size * 2 !== canvas[axis])) throw Error(`Frame canvas mismatch: ${entry.id}`);
+      const offset=frame.offset??[0,0];
+      if (!Array.isArray(offset) || offset.length!==2 || offset.some((n,i)=>!Number.isInteger(n)||n<0||n%2||image.size[i]*2+2*n!==canvas[i])) throw Error(`Frame canvas mismatch: ${entry.id}`);
       frames.push({ url: image.url, sourceSha256: image.sourceSha256, timeMs, ...(Array.isArray(frame.effectAnchor) ? { effectAnchor: frame.effectAnchor.map(n => n / 2) } : {}), ...(frame.visibleIntervalMs ? { visibleIntervalMs: frame.visibleIntervalMs } : {}), ...(frame.endMs == null ? {} : { endMs: frame.endMs }) });
     }
     const sampling = [bank.sampling, bank.schedule?.sampling, bank.selectedSchedule?.sampling, bank.approvedPlayerSchedule?.sampling];
@@ -168,7 +171,7 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
     bank.facing ??= match ? (match.frames[0].sourceSha256 === hash ? match.from : match.to) : null;
     bank.facing ??= bank.army === 'white' ? 'SE' : 'SW';
   }
-  registerBanks(banks);
+  registerBanks(banks,assets);
   const separate=await buildRuntimeEffects(source,output,banks,resolve(root,'docs/specs/character-animation-samples/runtime-effects.json'));
   for(const bank of banks){const action=separate.cues.find(a=>a.character===bank.character&&a.kind===bank.kind&&a.facing===bank.facing);const cue=action?.[bank.army];if(cue&&(!bank.beatTimes||!Object.keys(bank.beatTimes).length))bank.beatTimes=cue.beatTimes??{};}
   const manifest = { schemaVersion: 1, sourceToRuntimeScale: 0.5, effects: separate.effects, selectionSha256: digest(await readFile(selection)), banks };
