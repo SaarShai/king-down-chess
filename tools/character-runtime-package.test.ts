@@ -44,6 +44,17 @@ it('converts a retained package to quality-90 WebP with exact alpha and keeps th
  expect(()=>run(out)).toThrow();writeFileSync(join(source,url),'changed');expect(()=>run(join(scratch,'bad'))).toThrow(/PNG hash mismatch/);
 },30_000);
 
+it('clears only alpha-1 attack pixels on the derived border', async () => {
+ scratch=mkdtempSync(join(tmpdir(),'kingdown-attack-border-'));const source=join(scratch,'source'),out=join(scratch,'out');mkdirSync(join(source,'assets'),{recursive:true});mkdirSync(join(source,'effects'));
+ const pixels=Buffer.alloc(8*8*4);pixels[(2*8)*4+3]=1;pixels[(3*8+3)*4+3]=1;pixels[(4*8+4)*4+3]=255;
+ const image=await sharp(pixels,{raw:{width:8,height:8,channels:4}}).png().toBuffer(),sha=createHash('sha256').update(image).digest('hex'),url=`assets/${sha}.png`;
+ writeFileSync(join(source,url),image);writeFileSync(join(source,'assets.json'),JSON.stringify([{url,sha256:sha,sourceSha256:'a'.repeat(64),size:[8,8],top:2}]));
+ writeFileSync(join(source,'manifest.json'),JSON.stringify({banks:[{kind:'attack',frames:[{url,sourceSha256:'a'.repeat(64),timeMs:0}]}]}));
+ execFileSync(process.execPath,[resolve('tools/convert-character-runtime-webp.mjs'),source,out],{stdio:'pipe'});
+ const converted=JSON.parse(readFileSync(join(out,'assets.json'),'utf8'))[0],alpha=await sharp(join(out,converted.url)).ensureAlpha().extractChannel('alpha').raw().toBuffer();
+ for(let i=0;i<alpha.length;i++)expect(alpha[i]).toBe(i===16?0:pixels[i*4+3]);
+});
+
 it.each(['registration','joins','duplicate','validation'] as const)('checks movement %s', async check => {
  scratch=mkdtempSync(join(tmpdir(),'kingdown-movement-package-'));const source=join(scratch,'source'),out=join(scratch,'out');mkdirSync(join(source,'banks'),{recursive:true});mkdirSync(join(source,'assets'));
  const image=await sharp({create:{width:32,height:32,channels:4,background:{r:0,g:0,b:0,alpha:0}}}).composite([{input:await sharp({create:{width:8,height:8,channels:4,background:{r:10,g:20,b:30,alpha:1}}}).png().toBuffer(),left:12,top:12}]).png().toBuffer();
@@ -87,6 +98,13 @@ it('uses each movement bank facing-rest height even without an idle', () => {
  expect(idle.registrationHeightPx).toBe(80);
  expect(movement.registrationHeightPx).toBe(70);
  expect(noIdle.registrationHeightPx).toBe(70);
+});
+
+it('registers shared endpoints at the same effective pivot when one frame is padded', () => {
+ const idle:any={character:'king-frost',army:'white',kind:'idle',facing:'SE',canvasSize:[384,384],pivot:[192,350],bodyHeightPx:300,sourceSha256:'idle',frames:[{sourceSha256:'rest'}]};
+ const attack:any={character:'king-frost',army:'white',kind:'attack',canvasSize:[640,640],pivot:[320,478],bodyHeightPx:300,sourceSha256:'attack',frames:[{sourceSha256:'rest'},{sourceSha256:'rest'}]};
+ expect(()=>registerBanks([idle,attack],new Map([['rest',{size:[384,384]}]]))).not.toThrow();
+ expect(attack.registrationHeightPx).toBe(idle.registrationHeightPx);
 });
 
 it('strips non-rendering PNG chunks without changing the pixels', async () => {

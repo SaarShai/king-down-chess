@@ -39,9 +39,11 @@ try {
    const action=data.trace.filter(t=>t.playing==='blow');
    assert(action.length,`${design} ${army}: capture played`);
    {
-    const frames=action.map(t=>t.frame).filter(Boolean),at=frames.findIndex(f=>f.sourceSha256===target),end=frames.findLastIndex(f=>f.sourceSha256===target);
-    assert(at>=0&&end>at,`${design} ${army}: target frame is held`);
-    assert(frames.slice(end+1).some(f=>f.sourceSha256!==target),`${design} ${army}: reverse turn plays`);
+    const frames=action.map(t=>t.frame).filter(Boolean),attack=frames.filter(f=>f.bank===`${army}-attack-${direction}`);
+    assert(attack.length>1,`${design} ${army}: target-facing attack plays`);
+    assert(new Set(attack.map(f=>f.sourceSha256)).size>1,`${design} ${army}: painted poses play`);
+    const end=frames.findLastIndex(f=>f.bank===`${army}-attack-${direction}`);
+    assert(frames.slice(end+1).some(f=>f.bank.includes('-turn-')),`${design} ${army}: reverse turn plays`);
    }
    assert.equal(data.after?.sourceSha256,before.sourceSha256,`${design} ${army}: destination rest`);
    await page.click('#undo');await page.waitForFunction(([from,to])=>!view.scene.animating&&view.pos.board[from]&&view.pos.board[to],[from,to],{timeout:10000});
