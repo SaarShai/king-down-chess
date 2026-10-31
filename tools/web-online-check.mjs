@@ -102,6 +102,7 @@ export async function recoveryOutput(path) {
   const allowlist = JSON.parse(worker.match(/const ALLOWLIST = (.+);/)[1]);
   const precache = JSON.parse(worker.match(/const PRECACHE = (.+);/)[1]);
   assert.ok(allowlist.every(file => file === 'index.html' || precache.includes(file)), 'Recovery precaches every public asset before the first offline visit');
+  assert.ok(!allowlist.some(file => file.startsWith('character-runtime/')), 'Optional runtime art stays out of the worker');
   for (const file of allowlist) {
     assert.ok(file === './' || /^[\w./-]+$/.test(file) && !file.includes('..'), 'Recovery public paths stay in the static tree');
     const path = `static/${file === './' ? 'index.html' : file}`;
@@ -662,13 +663,16 @@ export async function main() {
       assert.equal(await active.evaluate(async asset => (await caches.match('/' + asset)).text(), asset), cached, 'Asset queries keep the canonical public bytes');
       await inspect(active);
       const keys = await active.evaluate(async () => { const entries = []; for (const name of await caches.keys()) if (name.startsWith('kingdown-')) for (const request of await (await caches.open(name)).keys()) entries.push(new URL(request.url).pathname + new URL(request.url).search); return entries; });
-      assert.ok(keys.every(key => !key.includes('?') && allowlist.some(file => new URL(file, origin + '/').pathname === key)), 'Every cache key is exactly public');
+      const publicPaths = new Set(allowlist.map(file => new URL(file, origin + '/').pathname));
+      assert.ok(keys.every(key => !key.includes('?') && publicPaths.has(key)), 'Every cache key is exactly public');
       await active.evaluate(() => {
         localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'human', sound: false, pace: 'off' }));
         sessionStorage.setItem('kingdown.title-seen', '1');
       });
       await active.goto(`${origin}/?title=0`); await readyBoard(active);
       await active.waitForFunction(savedGameSynced);
+      // Wait for the manifest and requested art to settle; count refusals from the start of the switch.
+      await active.waitForFunction(() => { return window.view.scene.characterWarmupSettled; });
       const offlineAfter = events.length;
       offline = true; await persistent.setOffline(true);
       await active.goto(origin); await readyBoard(active); assert.deepEqual(await lanMoves(active), ['e2-e4']);

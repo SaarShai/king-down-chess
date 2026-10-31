@@ -43,6 +43,7 @@ const HEIGHT={pawn:96,knight:112,bishop:114,rook:132,queen:120,archer:120,paladi
 export const DECODED_BUDGET=64*1024*1024;
 // Bound the wait for optional art so a stalled request cannot hold up a move indefinitely.
 const LOAD_TIMEOUT=1000,IMAGE_TIMEOUT=5000,RETRY_DELAY=5000;
+const connected=()=>globalThis.navigator?.onLine!==false;
 function bounded(promise,ms=LOAD_TIMEOUT,signal){
  return new Promise(resolve=>{let done=false;const finish=value=>{if(done)return;done=true;clearTimeout(timer);signal?.removeEventListener('abort',abort);resolve(value);},abort=()=>finish(null),timer=setTimeout(abort,Math.max(0,ms));signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();Promise.resolve(promise).then(finish,()=>finish(null));});
 }
@@ -52,8 +53,12 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  const images=new Map(),loading=new Map(),failed=new Map(),stills=new Set(),pins=new Map(),queue=[],activeJobs=new Set(),effectRetryAt=new Map(),effectLoads=new Map();
  function reserve(frames){const keys=[...new Set(frames.map(f=>f.url))];for(const key of keys)pins.set(key,(pins.get(key)??0)+1);let held=true;return ()=>{if(!held)return;held=false;for(const key of keys){const n=pins.get(key);if(n>1)pins.set(key,n-1);else pins.delete(key);}trim();};}
  let manifestReady=false,manifestLoading=null,manifestRetryAt=0;
+ // Optional art never asks the network while the browser reports no connection: offline play keeps the plain figure.
+ const reconnect=()=>{if(disposed)return;failed.clear();manifestRetryAt=0;effectRetryAt.clear();void loadManifest().then(()=>{if(!disposed)wake();});};
+ const listening=typeof globalThis.addEventListener==='function';
+ if(listening)globalThis.addEventListener('online',reconnect);
  function loadManifest(){
-  if(disposed||manifestReady||performance.now()<manifestRetryAt)return Promise.resolve();
+  if(disposed||manifestReady||!connected()||performance.now()<manifestRetryAt)return Promise.resolve();
   if(!manifestLoading)manifestLoading=Promise.resolve().then(()=>fetcher(url)).then(r=>{if(!r.ok)throw Error('Character package unavailable');return r.json();}).then(m=>{
    if(m?.schemaVersion!==1||!Array.isArray(m.banks))throw Error('Invalid character package');
    if(!disposed){banks=m.banks;effectEntries=m.effects??{};restChoices.clear();manifestReady=true;wake();}
@@ -79,7 +84,8 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   peakBytes=Math.max(peakBytes,bytes+effectBytes+smokeBytes);
  }
  function pump(){
-  while(active<6&&queue.length&&!disposed){
+  if(!connected())while(queue.length){const job=queue.shift();loading.delete(job.frame.url);job.resolve();}
+  while(active<6&&queue.length&&!disposed&&connected()){
    const job=queue.shift(),{frame}=job,art=image();active++;
    let done=false;const timer=setTimeout(()=>finish(false),IMAGE_TIMEOUT);
    function finish(ok,cancelled=false){
@@ -97,7 +103,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   }
  }
  function requestFrame(frame,optional=false){
-  if(disposed||images.has(frame.url)||performance.now()<(failed.get(frame.url)??0))return Promise.resolve();
+  if(disposed||!connected()||images.has(frame.url)||performance.now()<(failed.get(frame.url)??0))return Promise.resolve();
   let job=loading.get(frame.url);
   if(!job){job={frame,shared:!optional,owners:0};job.promise=new Promise(resolve=>{job.resolve=resolve;});loading.set(frame.url,job);queue.push(job);pump();}
   if(optional)job.owners++;else job.shared=true;
@@ -119,7 +125,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  }
  const endpoints=bank=>[bank.frames[0],bank.frames.at(-1)];
  async function loadSeparate(character){
-  const entry=effectEntries[character];if(!entry||performance.now()<(effectRetryAt.get(character)??0))return null;
+  const entry=effectEntries[character];if(!connected()||!entry||performance.now()<(effectRetryAt.get(character)??0))return null;
   if(currentEffect?.character!==character){
    let selected=effectLoads.get(character);
    if(selected){effectLoads.delete(character);effectLoads.set(character,selected);currentEffect=selected;}
@@ -140,6 +146,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  }
  async function loadSmoke(){
   const entry=effectEntries.archer;if(!entry?.smoke)return;
+  if(!connected())return;
   if(!smokeLoading)smokeLoading=(async()=>{try{const mod=await import(/* @vite-ignore */ new URL(entry.smoke,url).href);const stream=new mod.ArrowSmoke();await stream.image.decode();if(!disposed){trim(entry.smokeDecodedBytes);if(bytes+effectBytes+smokeBytes+entry.smokeDecodedBytes<=DECODED_BUDGET){smokeClass=mod.ArrowSmoke;smokeImage=stream.image;smokeBytes=entry.smokeDecodedBytes;trim();wake();}else smokeBlocked=true;}}catch{}})();
   await smokeLoading;
  }
@@ -160,7 +167,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  return {
   ready:()=>bounded(loadManifest()).then(()=>{}),
   has:(character,army)=>{if(!manifestReady)void loadManifest();return !!idle(character,army);},
-  get stats(){return {bytes:bytes+effectBytes+smokeBytes,peakBytes,active,queued:queue.length};},
+  get stats(){return {bytes:bytes+effectBytes+smokeBytes,peakBytes,framesLoaded:images.size,active,queued:queue.length,manifestReady,manifestLoading:!!manifestLoading};},
   smoke(){return smokeClass&&smokeImage?new smokeClass(smokeImage):null;},
   warm,
   async reserveIdle(character,army){
@@ -231,6 +238,6 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    if(prepared.movement){const frames=prepared.movement.frames,frame=boundary==='start'?frames[0]:boundary==='end'?frames.at(-1):null;const body=sample(prepared.movement,duration>0?time/duration*prepared.movement.durationMs:0,true,false,true,frame);if(body)return body;}
    return routeSample(prepared.before,prepared.beforeMs)??sample(prepared.rest,0,false);
   },
-  dispose(){disposed=true;banks=[];restChoices.clear();images.clear();idlePins.clear();pins.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;effectLoads.clear();smokeClass=null;smokeImage=null;for(const job of activeJobs)job.cancel();for(const job of queue)job.resolve();queue.length=0;loading.clear();},
+  dispose(){disposed=true;if(listening)globalThis.removeEventListener('online',reconnect);banks=[];restChoices.clear();images.clear();idlePins.clear();pins.clear();activeFrame=null;bytes=0;effectBytes=0;smokeBytes=0;currentEffect=null;effectLoads.clear();smokeClass=null;smokeImage=null;for(const job of activeJobs)job.cancel();for(const job of queue)job.resolve();queue.length=0;loading.clear();},
  };
 }

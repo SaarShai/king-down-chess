@@ -542,4 +542,30 @@ describe('ready character playback', () => {
   const runtime=createCharacterRuntime({fetcher:vi.fn(async()=>{throw Error('offline');}) as unknown as typeof fetch});
   await runtime.ready();expect(runtime.has('pawn','white')).toBe(false);expect(runtime.rest('queen','white',100,true)).toBeNull();expect(await runtime.prepare('pawn','white','E',true)).toBeNull();runtime.dispose();
  });
+ it('drops queued frame jobs when the browser goes offline', async () => {
+  let online=true;const listeners=new Map<string,()=>void>();vi.stubGlobal('navigator',{get onLine(){return online;}});
+  vi.stubGlobal('addEventListener',(name:string,fn:()=>void)=>listeners.set(name,fn));vi.stubGlobal('removeEventListener',(name:string)=>listeners.delete(name));
+  const banks=Array.from({length:7},(_,i)=>({...bank(),id:`idle-${i}`,character:`piece-${i}`,kind:'idle',frames:[{url:`frame-${i}`,timeMs:0}]}));
+  const sources:string[]=[], images:Array<{onerror:null|(()=>void)}> = [];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks})})) as unknown as typeof fetch,
+   image:()=>{const img={onerror:null as null|(()=>void),onload:null,removeAttribute:()=>{},set src(s:string){sources.push(s);}};images.push(img);return img as unknown as HTMLImageElement;}});
+  try {
+   await runtime.ready();const pending=banks.map(b=>runtime.warm(b.character,'white'));
+   await vi.waitFor(()=>expect(runtime.stats.queued).toBe(1));expect(sources).toHaveLength(6);
+   online=false;images[0].onerror?.();await vi.waitFor(()=>expect(runtime.stats.queued).toBe(0));expect(sources).toHaveLength(6);
+   online=true;const reconnect=listeners.get('online');expect(reconnect).toBeDefined();reconnect!();void runtime.warm('piece-0','white');
+   await vi.waitFor(()=>expect(sources.filter(source=>source==='https://example.invalid/frame-0')).toHaveLength(2));
+   runtime.dispose();await Promise.all(pending);
+  } finally {runtime.dispose();vi.unstubAllGlobals();}
+ });
+ it('asks the network for no art while the browser reports offline and resumes when it returns', async () => {
+  const fetcher=vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})})),listeners=new Map<string,()=>void>();let online=false;
+  vi.stubGlobal('addEventListener',(name:string,fn:()=>void)=>listeners.set(name,fn));vi.stubGlobal('removeEventListener',(name:string)=>listeners.delete(name));
+  vi.stubGlobal('navigator',{get onLine(){return online;}});
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:fetcher as unknown as typeof fetch});
+  try{
+   await runtime.ready();expect(runtime.has('pawn','white')).toBe(false);expect(runtime.rest('pawn','white',0,true)).toBeNull();expect(fetcher).not.toHaveBeenCalled();
+   online=true;listeners.get('online')?.();await vi.waitFor(()=>expect(fetcher).toHaveBeenCalledTimes(1));
+  }finally{runtime.dispose();expect(listeners.has('online')).toBe(false);vi.unstubAllGlobals();}
+ });
 });

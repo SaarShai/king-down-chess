@@ -1,3 +1,4 @@
+import { stripPng } from './character-runtime-effects.mjs';
 import { registerBanks } from './build-character-runtime.mjs';
 import { afterEach, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
@@ -26,6 +27,22 @@ it('derives only pinned ready frames with uniform geometry and rejects a changed
  writeFileSync(join(source,'assets',`${imageHash}.png`),'changed');expect(run).toThrow(/Frame hash mismatch/);writeFileSync(join(source,'assets',`${imageHash}.png`),image);
  const mismatch=makeBank('white-turn-S-SW','turn',16,imageHash,16);writeFileSync(join(source,'manifest.json'),JSON.stringify({entries:[mismatch]}));writeFileSync(selection,JSON.stringify({schemaVersion:1,status:'ready',catalogSha256:hash(readFileSync(join(source,'manifest.json'))),entries:[mismatch]}));expect(run).toThrow(/Frame canvas mismatch/);
 }, 30_000);
+
+it('converts a retained package to quality-90 WebP with exact alpha and keeps the frame source', async () => {
+ scratch=mkdtempSync(join(tmpdir(),'kingdown-webp-package-'));const source=join(scratch,'source'),out=join(scratch,'out');mkdirSync(join(source,'assets'),{recursive:true});mkdirSync(join(source,'effects'));
+ const pixels=Buffer.alloc(8*8*4);for(let i=0;i<pixels.length;i+=4){pixels[i]=120;pixels[i+1]=30;pixels[i+2]=40;pixels[i+3]=(i/4)%8>=2&&(i/4)%8<6&&Math.floor(i/32)>=2&&Math.floor(i/32)<6?255:0;}
+ const image=await sharp(pixels,{raw:{width:8,height:8,channels:4}}).png().toBuffer();
+ const hash=(b:Buffer)=>createHash('sha256').update(b).digest('hex'),sha=hash(image),url=`assets/${sha}.png`,sourceSha256='a'.repeat(64);
+ writeFileSync(join(source,url),image);writeFileSync(join(source,'assets.json'),JSON.stringify([{url,sha256:sha,sourceSha256,size:[8,8],top:2}]));
+ writeFileSync(join(source,'manifest.json'),JSON.stringify({schemaVersion:1,banks:[{frames:[{url,sourceSha256,timeMs:0}]}]}));
+ const run=(dest:string)=>execFileSync(process.execPath,[resolve('tools/convert-character-runtime-webp.mjs'),source,dest],{encoding:'utf8',stdio:'pipe'});
+ expect(JSON.parse(run(out))).toEqual({banks:1,assets:1});const manifest=JSON.parse(readFileSync(join(out,'manifest.json'),'utf8')),asset=JSON.parse(readFileSync(join(out,'assets.json'),'utf8'))[0],bytes=readFileSync(join(out,asset.url));
+ expect(asset.url).toBe(`assets/${hash(bytes)}.webp`);expect(asset.encoding).toBe('webp-q90-alpha-lossless');expect(manifest.banks[0].frames[0]).toEqual({url:asset.url,sourceSha256,timeMs:0});expect((await sharp(bytes).metadata()).format).toBe('webp');
+ const sourceRGB=await sharp(image).ensureAlpha().raw().toBuffer(),derivedRGB=await sharp(bytes).ensureAlpha().raw().toBuffer();expect(derivedRGB.length).toBe(sourceRGB.length);
+ let worst=0;for(let i=0;i<sourceRGB.length;i+=4){expect(derivedRGB[i+3]).toBe(sourceRGB[i+3]);if(!sourceRGB[i+3])continue;const weight=sourceRGB[i+3]/255;for(let c=0;c<3;c++)worst=Math.max(worst,Math.abs(sourceRGB[i+c]-derivedRGB[i+c])*weight);}
+ expect(worst).toBeLessThanOrEqual(20);
+ expect(()=>run(out)).toThrow();writeFileSync(join(source,url),'changed');expect(()=>run(join(scratch,'bad'))).toThrow(/PNG hash mismatch/);
+},30_000);
 
 it.each(['registration','joins','duplicate','validation'] as const)('checks movement %s', async check => {
  scratch=mkdtempSync(join(tmpdir(),'kingdown-movement-package-'));const source=join(scratch,'source'),out=join(scratch,'out');mkdirSync(join(source,'banks'),{recursive:true});mkdirSync(join(source,'assets'));
@@ -70,4 +87,25 @@ it('uses each movement bank facing-rest height even without an idle', () => {
  expect(idle.registrationHeightPx).toBe(80);
  expect(movement.registrationHeightPx).toBe(70);
  expect(noIdle.registrationHeightPx).toBe(70);
+});
+
+it('strips non-rendering PNG chunks without changing the pixels', async () => {
+ const png=await sharp({create:{width:4,height:4,channels:4,background:{r:20,g:30,b:40,alpha:0.5}}}).png().toBuffer();
+ const metadata=Buffer.concat([Buffer.from('0000000463614258','hex'),Buffer.from('test'),Buffer.alloc(4)]);
+ const withMetadata=Buffer.concat([png.subarray(0,33),metadata,png.subarray(33)]);
+ const stripped=stripPng(withMetadata);
+ expect(stripped.equals(stripPng(png))).toBe(true);
+ expect((await sharp(stripped).ensureAlpha().raw().toBuffer()).equals(await sharp(png).ensureAlpha().raw().toBuffer())).toBe(true);
+});
+
+it('records the source and output hashes of every effect image', () => {
+ const root=resolve('public/character-runtime'),manifest=JSON.parse(readFileSync(join(root,'manifest.json'),'utf8'));
+ const selection=JSON.parse(readFileSync(resolve('docs/specs/character-animation-samples/runtime-effects.json'),'utf8'));
+ for(const entry of selection.entries){
+  const dir=resolve(root,manifest.effects[entry.character].module,'..');
+  const records=JSON.parse(readFileSync(join(dir,'provenance/runtime-assets.json'),'utf8'));
+  const expected=entry.files.filter((file:any)=>file.outputSha256).map((file:any)=>({path:file.path,sourceSha256:file.sha256,sha256:file.outputSha256}));
+  expect(records).toEqual(expected);
+  for(const record of records)expect(createHash('sha256').update(readFileSync(join(dir,record.path))).digest('hex')).toBe(record.sha256);
+ }
 });
