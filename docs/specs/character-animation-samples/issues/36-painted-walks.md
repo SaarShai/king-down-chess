@@ -27,4 +27,5 @@ Status: ready-for-agent
 - The package builder accepts move banks and checks their timing, direction, pivot and alpha. Painted walks take priority over older movement banks. Focused package, playback and move-gate tests pass.
 - The WebP package has 674 banks and 6,221 assets. It adds 196 move banks and 800 frames. The package grows from 124,537,245 to 145,737,672 bytes. All 478 earlier banks and the effects stay exact.
 - A package check passes for the source hashes, frame times and transparent borders of all 800 move frames. The aligned gallery has 196 rows, lists 76 cells without a walk, and has 34 game moves in 17 recordings.
-- `npm run build:vercel`, `npm run check:vercel` and the Chromium `web-online` check pass. The character runtime check first read the destination before its next draw; it now waits for the rest frame. That check and the WebKit online check remain open.
+- `npm run build:vercel` and `npm run check:vercel` pass with a local test database. Chromium `character-runtime` and Chromium and WebKit `web-online` pass. The character check waits for the rest frame and checks the turn handoff to the walk.
+- [Pull request 236](https://github.com/SaarShai/king-down-chess/pull/236) carries the change. Its checks record CI status.
