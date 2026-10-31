@@ -69,6 +69,23 @@ try {
   if(character==='pawn'||rookIdle){await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,sq)=>v===board[sq]),originalBoard,{timeout:10000});checks.at(-1).undoRestored=true;if(rookIdle){const restored=await page.evaluate(from=>view.scene.characterFrames.find(f=>f.square===from),from);assert.equal(restored.bank,rookIdle.id);assert.equal(restored.sourceSha256,rookIdle.restSha256);assert.deepEqual([restored.foot,restored.pivot,restored.scale],[still.foot,still.pivot,still.scale]);checks.at(-1).undoFrame=restored;}await shot(page,`${character}-game-undo`);}
   assertNoErrors(errors);await page.close();
  }
+ // Repeat the staging capture in fresh pages, including idle selection before the move.
+ for(let run=1;run<=10;run++){
+  const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
+  try{
+   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
+   const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen','7k/8/8/2Pr4/8/8/8/K7 b - - 0 1');url.searchParams.set('players','human,human');
+   await page.goto(url.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.some(f=>f.square===35));await page.evaluate(()=>view.ready());
+   await page.evaluate(()=>{window.captureTrace=[];window.captureTracing=true;const tick=()=>{if(!captureTracing)return;captureTrace.push(...view.scene.characterFrames.filter(f=>f.square===35).map(f=>({bank:f.bank,sha:f.sourceSha256,time:f.time})));requestAnimationFrame(tick);};tick();});
+   const from=await page.evaluate(()=>view.screenOf(35));await page.mouse.click(from.x,from.y);
+   await page.waitForFunction(()=>new Set(captureTrace.filter(f=>f.bank==='black-idle-slam').map(f=>f.sha)).size>=3,null,{timeout:20000});
+   const to=await page.evaluate(()=>view.screenOf(34));await page.mouse.click(to.x,to.y);
+   await page.waitForFunction(()=>!view.scene.animating&&!view.pos.board[35]&&view.pos.board[34]>0,null,{timeout:20000});
+   const trace=await page.evaluate(()=>{window.captureTracing=false;return captureTrace;}),attack=trace.filter(f=>f.bank==='black-attack-W');
+   assert(attack.length>1&&attack.some(f=>f.time>100),`capture ${run}: attack frames played; banks ${[...new Set(trace.map(f=>f.bank))]}`);
+   assertNoErrors(errors);checks.push({captureRun:run,attackSamples:attack.length});console.log(`ok capture ${run}/10: ${attack.length} attack samples`);
+  }finally{await page.close();}
+ }
  // The ready cast and all six king designs draw in the real game with their separate cues.
  for(const [label,kings,fen,count] of [
   ['standard-position',null,'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',32],

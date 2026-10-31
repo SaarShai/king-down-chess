@@ -109,11 +109,16 @@ it('registers shared endpoints at the same effective pivot when one frame is pad
 
 it('strips non-rendering PNG chunks without changing the pixels', async () => {
  const png=await sharp({create:{width:4,height:4,channels:4,background:{r:20,g:30,b:40,alpha:0.5}}}).png().toBuffer();
- const metadata=Buffer.concat([Buffer.from('0000000463614258','hex'),Buffer.from('test'),Buffer.alloc(4)]);
+ const metadata=Buffer.concat(['caBX','gAMA','sRGB','PLTE','tRNS'].map(name=>Buffer.concat([Buffer.from('00000004','hex'),Buffer.from(name),Buffer.from('test'),Buffer.alloc(4)])));
  const withMetadata=Buffer.concat([png.subarray(0,33),metadata,png.subarray(33)]);
  const stripped=stripPng(withMetadata);
  expect(stripped.equals(stripPng(png))).toBe(true);
  expect((await sharp(stripped).ensureAlpha().raw().toBuffer()).equals(await sharp(png).ensureAlpha().raw().toBuffer())).toBe(true);
+});
+
+it('rejects an indexed PNG that needs its palette', async () => {
+ const indexed=await sharp({create:{width:4,height:4,channels:4,background:{r:20,g:30,b:40,alpha:0.5}}}).png({palette:true}).toBuffer();
+ expect(()=>stripPng(indexed)).toThrow('needs conversion to RGBA');
 });
 
 it('records the source and output hashes of every effect image', () => {

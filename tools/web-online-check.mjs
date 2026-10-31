@@ -673,7 +673,9 @@ export async function main() {
       await active.waitForFunction(savedGameSynced);
       // Wait for the manifest and requested art to settle; count refusals from the start of the switch.
       await active.waitForFunction(() => { return window.view.scene.characterWarmupSettled; });
-      const offlineAfter = events.length;
+      const offlineAfter = events.length, offlineErrors=[];
+      const recordOfflineError=message=>{if(message.type()==='error')offlineErrors.push(message.text());};
+      active.on('console',recordOfflineError);
       offline = true; await persistent.setOffline(true);
       await active.goto(origin); await readyBoard(active); assert.deepEqual(await lanMoves(active), ['e2-e4']);
       const saved = await active.evaluate(() => localStorage.getItem('kingdown.save'));
@@ -714,6 +716,7 @@ export async function main() {
       await inspect(active);
       const refused = events.slice(offlineAfter).filter(event => event.event === 'offline-refused').map(event => event.url);
       assert.ok(refused.every(url => url === '/sw.js' || new URL(url, origin).pathname === '/'), `Offline play requests no asset from the server, only the network-first page and worker checks: ${JSON.stringify(refused)}`);
+      active.off('console',recordOfflineError);assert.deepEqual(offlineErrors,[], 'Offline play logs no errors');
       await persistent.setOffline(false); offline = false;
       await restoreLocalSave(active, saved);
       await active.goto(`${origin}/?title=0`); await readyBoard(active);

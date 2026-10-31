@@ -48,7 +48,7 @@ function bounded(promise,ms=LOAD_TIMEOUT,signal){
  return new Promise(resolve=>{let done=false;const finish=value=>{if(done)return;done=true;clearTimeout(timer);signal?.removeEventListener('abort',abort);resolve(value);},abort=()=>finish(null),timer=setTimeout(abort,Math.max(0,ms));signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();Promise.resolve(promise).then(finish,()=>finish(null));});
 }
 export function createCharacterRuntime({url=new URL('/character-runtime/manifest.json',import.meta.url).href,wake=()=>{},fetcher=fetch,image=()=>Object.assign(new Image(),{crossOrigin:'anonymous'})}={}) {
- let banks=[],disposed=false,bytes=0,peakBytes=0,active=0,activeFrame=null, idlePins=new Set(),idleGeneration=0;
+ let banks=[],disposed=false,bytes=0,peakBytes=0,active=0,activeFrame=null, idlePins=new Set(),idleGeneration=0,idleLoads=null;
  let effectEntries={},currentEffect=null,effectBytes=0,smokeBytes=0,smokeClass=null,smokeImage=null,smokeLoading=null,smokeBlocked=false;
  const images=new Map(),loading=new Map(),failed=new Map(),stills=new Set(),pins=new Map(),queue=[],activeJobs=new Set(),effectRetryAt=new Map(),effectLoads=new Map();
  function reserve(frames){const keys=[...new Set(frames.map(f=>f.url))];for(const key of keys)pins.set(key,(pins.get(key)??0)+1);let held=true;return ()=>{if(!held)return;held=false;for(const key of keys){const n=pins.get(key);if(n>1)pins.set(key,n-1);else pins.delete(key);}trim();};}
@@ -111,9 +111,10 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  }
  const loadFrame=frame=>requestFrame(frame);
  function loadPreparation(frames){
-  const jobs=[];
+  const jobs=[];let released=false;
   const promises=[...new Map(frames.map(frame=>[frame.url,frame])).values()].map(frame=>{const promise=requestFrame(frame,true),job=loading.get(frame.url);if(job)jobs.push(job);return promise;});
   return {promise:Promise.all(promises),release(){
+   if(released)return;released=true;
    for(const job of jobs)job.owners--;
    for(const job of jobs)if(!job.owners&&!job.shared&&!job.cancel){const index=queue.indexOf(job);if(index!==-1){queue.splice(index,1);loading.delete(job.frame.url);job.resolve();}}
    for(const job of jobs)if(!job.owners&&!job.shared)job.cancel?.();
@@ -172,18 +173,19 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
   smoke(){return smokeClass&&smokeImage?new smokeClass(smokeImage):null;},
   warm,
   async reserveIdle(character,army){
-   const generation=++idleGeneration;await bounded(loadManifest());if(disposed||generation!==idleGeneration)return false;
+   idleLoads?.release();idleLoads=null;const generation=++idleGeneration;await bounded(loadManifest());if(disposed||generation!==idleGeneration)return false;
    const rest=idle(character,army),all=forPiece(character,army).filter(b=>b.kind==='idle');
    if(!rest||!all.length||all.some(b=>b.facing!==rest.facing||b.frames[0].url!==rest.frames[0].url||b.frames.at(-1).url!==rest.frames[0].url))return false;
    if(forPiece(character,army).some(b=>b.kind==='turn'&&((b.from===rest.facing&&b.frames[0].url!==rest.frames[0].url)||(b.to===rest.facing&&b.frames.at(-1).url!==rest.frames[0].url))))return false;
    const frames=[...new Map(all.flatMap(b=>b.frames).map(f=>[f.url,f])).values()];
-   await bounded(Promise.all(frames.map(loadFrame)));
+   const loads=loadPreparation(frames);idleLoads=loads;
+   await bounded(loads.promise);loads.release();if(idleLoads===loads)idleLoads=null;
    if(disposed||generation!==idleGeneration||frames.some(f=>!images.has(f.url)))return false;
    const size=frames.reduce((n,f)=>n+images.get(f.url).size,0);
    if(size+effectBytes+smokeBytes>DECODED_BUDGET)return false;
    idlePins=new Set(frames.map(f=>f.url));trim();return true;
   },
-  releaseIdle(){idleGeneration++;idlePins.clear();trim();if(smokeBlocked&&!disposed){smokeBlocked=false;smokeLoading=null;void loadSmoke();}},
+  releaseIdle(){idleGeneration++;idleLoads?.release();idleLoads=null;idlePins.clear();trim();if(smokeBlocked&&!disposed){smokeBlocked=false;smokeLoading=null;void loadSmoke();}},
   idleExit(character,army,body){
    const bank=forPiece(character,army).find(b=>b.id===body.bank&&b.kind==='idle'),rest=idle(character,army);
    if(!bank||!rest||!idlePins.has(body.url)||!idlePins.has(rest.frames[0].url))return null;

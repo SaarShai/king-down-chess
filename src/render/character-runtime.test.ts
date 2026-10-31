@@ -3,6 +3,17 @@ import { createCharacterRuntime, anchorAt, bankPointToWorld, idleBankAt, facingO
 const bank = (from = 'SE', to = 'S'): RuntimeBank => ({ id: `${from}-${to}`, character: 'pawn', army: 'white', kind: 'turn', from, to, facing: 'SE', durationMs: 120, nearest: true, pivot: [384,700], canvasSize: [768,768], bodyHeightPx: 600, registrationHeightPx: 600, frames: [0,60,120].map(timeMs => ({ url: `frame-${timeMs}`, timeMs })) });
 
 describe('ready character playback', () => {
+ it('releases idle downloads before a capture needs the loader', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0},...Array.from({length:12},(_,i)=>({url:`idle-${i}`,timeMs:(i+1)*10})),{url:'rest',timeMs:140}]};
+  const attack={...bank(),id:'attack',kind:'attack',facing:'SE',frames:[{url:'attack-0',timeMs:0},{url:'attack-1',timeMs:120}]};
+  const started:string[]=[];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){started.push(s);if(!s.includes('/idle-'))queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const reservation=runtime.reserveIdle('pawn','white');await vi.waitFor(()=>expect(started.filter(s=>s.includes('/idle-')).length).toBe(6));
+  runtime.releaseIdle();const prepared=await runtime.prepare('pawn','white','SE',true);
+  expect(await reservation).toBe(false);expect(prepared).not.toBeNull();expect(runtime.action(prepared,120,120,0)).toMatchObject({bank:'attack'});
+  expect(started.filter(s=>s.includes('/idle-'))).toHaveLength(6);runtime.dispose();
+ });
  it('reserves the actual idle images through cache pressure and releases stale reservations', async () => {
   const frames=['rest','a','b','c','b','a','rest'].map((url,i)=>({url,timeMs:i*100}));
   const idle={...bank(),id:'idle',character:'king-stratus',kind:'idle',durationMs:600,frames};
