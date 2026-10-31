@@ -6,15 +6,39 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import sharp from 'sharp';
 import { afterEach, expect, it } from 'vitest';
-import { measureFrame, readFrame, registerFrame } from './anim/frames.mjs';
+import { ghostScore, matteFringe, measureFrame, readFrame, registerFrame } from './anim/frames.mjs';
 import { geometryFromManifest, edgeFor } from './anim/geometry.mjs';
 import { midpointPlan, planTiming } from './anim/plan.mjs';
 import { makeBank } from './anim/bank.mjs';
 import { promote } from './anim/promote.mjs';
+import { matchesRest } from './anim/movement.mjs';
+import { runGates } from './anim/gates.mjs';
 
 let dir = '';
 afterEach(async () => { if (dir) await rm(dir, { recursive: true, force: true }); });
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+
+it('fails a matte rim but passes a clean dark edge near the matte', () => {
+  const makeFrame = (interior: number[], edge: number[]) => {
+    const width = 48, height = 48, data = Buffer.alloc(width * height * 4);
+    for (let y = 8; y < 40; y++) for (let x = 8; x < 40; x++) {
+      const rim = x === 8 || x === 39 || y === 8 || y === 39;
+      const p = (y * width + x) * 4;
+      data.set([...(rim ? edge : interior), rim ? 128 : 255], p);
+    }
+    const image = { data, width, height }, measure = measureFrame(image);
+    return { file: 'fixture', method: 'authored', sources: [], metadata: { channels: 4 }, measure,
+      fringe: matteFringe(image, measure), ghost: ghostScore(image), sha256: 'a'.repeat(64), timeMs: 0 };
+  };
+  const halo = makeFrame([180, 160, 140], [44, 52, 46]);
+  const dark = makeFrame([50, 60, 55], [50, 60, 55]);
+  const haloCheck = (frame: typeof halo) => runGates({ bank: { pivot: [24, 39] }, frames: [frame, { ...frame, timeMs: 15 }],
+    geometry: { pivot: [24, 39] }, plan: { frameCount: 2, durationMs: 15, frameMs: 15 } }).checks.find(check => check.name === 'matte-halo');
+  expect(haloCheck(halo)?.ok).toBe(false);
+  expect(halo.fringe.ratio).toBeGreaterThan(0.3);
+  expect(haloCheck(dark)?.ok).toBe(true);
+  expect(dark.fringe.ratio).toBe(0);
+});
 
 /** A 96x96 key with a 60 px tall blob whose lowest row is one pixel above the pivot. */
 async function key(path: string, shift: number, colour: [number, number, number]) {
@@ -98,6 +122,7 @@ it('keeps a locked key on every pixel and registers a smaller key to the pivot',
   const after = measureFrame({ ...scaled.frame, width: 96, height: 96 });
   expect(Math.abs(after.bottom - geometry.pivot[1])).toBeLessThanOrEqual(1);
   expect(Math.abs(after.contentHeight - geometry.bodyHeightPx)).toBeLessThanOrEqual(2);
+  expect(Math.abs(after.footCenterX - geometry.pivot[0])).toBeLessThanOrEqual(1);
 });
 
 it('makes a candidate bank through the gates with a stub in-betweener', async () => {
@@ -119,13 +144,133 @@ writeFileSync(resolve(base, 'report.json'), JSON.stringify({ frames: plan.frames
   expect(bank.frames.map((frame: any) => frame.method)).toEqual(['authored', 'rife', 'authored', 'rife', 'authored']);
   const gates = JSON.parse(await readFile(join(output, 'gates.json'), 'utf8'));
   expect(gates.status).toBe('pass');
-  expect(gates.checks.map((check: any) => check.name)).toEqual(['rgba', 'exterior', 'matte-halo', 'geometry', 'endpoints', 'timing', 'provenance']);
+  expect(gates.checks.map((check: any) => check.name)).toEqual(['rgba', 'exterior', 'matte-halo', 'ghost', 'geometry', 'endpoints', 'timing', 'provenance']);
   const provenance = JSON.parse(await readFile(join(output, 'provenance.json'), 'utf8'));
   expect(provenance.frames[1].sources).toEqual([bank.frames[0].sha256, bank.frames[2].sha256]);
 
   const broken = await makeBank({ character: 'pawn', army: 'white', kind: 'turn', facing: 'SE-S', keys, geometryRecord: { ...geometry, endpoints: {} }, output: join(dir, 'broken'), infer: `node ${stub}`, timing: { durationMs: 60, frameMs: 15 }, preview: false }).catch(error => error);
   expect(broken.message).toContain('Gates failed');
   expect(broken.gates.failing.join(' ')).toContain('endpoints');
+});
+
+it('screens ghost limbs and holds the nearest clean frame with its hash', async () => {
+  const { keys, geometryPath } = await fixture();
+  const source = await readFrame(join(keys, '000.png'));
+  for (let y = 30; y < 50; y++) for (let x = 5; x < 15; x++) source.data[(y * 96 + x) * 4 + 3] = 128;
+  const blob = join(dir, 'blob.png');
+  await sharp(source.data, { raw: { width: 96, height: 96, channels: 4 } }).png().toFile(blob);
+  const stub = join(dir, 'ghost-stub.mjs');
+  await writeFile(stub, `import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+const plan = JSON.parse(readFileSync(process.argv[2], 'utf8')), base = dirname(process.argv[2]);
+for (const frame of plan.frames) { const out = resolve(base, frame.output); mkdirSync(dirname(out), { recursive: true }); writeFileSync(out, readFileSync(frame.output.endsWith('001.png') ? ${JSON.stringify(blob)} : resolve(base, frame.left))); }
+writeFileSync(resolve(base, 'report.json'), '{}');`);
+  const options = { character: 'pawn', army: 'white', kind: 'turn', facing: 'SE-S', keys, geometry: geometryPath, infer: `node ${stub}`, timing: { durationMs: 60, frameMs: 15 }, preview: false };
+  const plain = await makeBank({ ...options, output: join(dir, 'plain') }).catch(error => error);
+  expect(plain.gates.checks.find((check: any) => check.name === 'ghost')).toMatchObject({ ok: false, metrics: { worst: 'frames/001.png' } });
+  const result = await makeBank({ ...options, output: join(dir, 'hold'), ghostRepair: 'hold' });
+  expect(result.gates).toBe('pass');
+  const bank = JSON.parse(await readFile(result.candidate, 'utf8'));
+  expect(bank.frames[1]).toMatchObject({ method: 'hold', sha256: bank.frames[0].sha256, sources: [bank.frames[0].sha256] });
+  const report = JSON.parse(await readFile(join(dir, 'hold', 'gates.json'), 'utf8'));
+  expect(report.checks.find((check: any) => check.name === 'ghost').ok).toBe(true);
+  const provenance = JSON.parse(await readFile(join(dir, 'hold', 'provenance.json'), 'utf8'));
+  expect(provenance.frames[1]).toMatchObject({ method: 'hold', transform: null });
+});
+
+it('allows soft art present in authored frames and measures the exact radius', () => {
+  const width = 32, height = 32;
+  // A 10x10 opaque core (100 px). Ghost score counts far semi-transparent pixels per core pixel.
+  const soft = (ghostPixels: number) => {
+    const data = Buffer.alloc(width * height * 4);
+    for (let y = 10; y < 20; y++) for (let x = 10; x < 20; x++) data[(y * width + x) * 4 + 3] = 255;
+    data[(10 * width + 7) * 4 + 3] = 128; // exactly 3 px from the core: near, so it does not count
+    data[(10 * width + 6) * 4 + 3] = 128; // exactly 4 px from the core: the first ghost
+    for (let i = 1; i < ghostPixels; i++) data[((10 + i) * width + 2) * 4 + 3] = 128; // 8 px clear of the core
+    return { data, width, height };
+  };
+  const frame = (ghostPixels: number, method: string, timeMs = 0) => {
+    const image = soft(ghostPixels), measure = measureFrame(image);
+    return { file: `${method}-${ghostPixels}`, method, sources: [], metadata: { channels: 4 }, measure,
+      fringe: matteFringe(image, measure), ghost: ghostScore(image), sha256: 'a'.repeat(64), timeMs };
+  };
+  expect(ghostScore(soft(1))).toBe(0.01); // only the 4 px pixel counts
+  const authored = frame(10, 'authored');
+  expect(authored.ghost).toBe(0.1);
+  const softInbetween = frame(12, 'rife', 15);
+  expect(softInbetween.ghost).toBe(0.12);
+  const plan = { frameCount: 3, durationMs: 30, frameMs: 15 };
+  const passes = runGates({ bank: { pivot: [16, 19] }, frames: [authored, softInbetween, { ...authored, timeMs: 30 }],
+    geometry: { pivot: [16, 19] }, plan });
+  expect(passes.checks.find(check => check.name === 'ghost').ok).toBe(true);
+  const ghostedInbetween = frame(14, 'rife', 15);
+  expect(ghostedInbetween.ghost).toBeGreaterThan(authored.ghost + 0.035);
+  const fails = runGates({ bank: { pivot: [16, 19] }, frames: [authored, ghostedInbetween, { ...authored, timeMs: 30 }],
+    geometry: { pivot: [16, 19] }, plan });
+  expect(fails.checks.find(check => check.name === 'ghost').ok).toBe(false);
+});
+
+it('keeps the shipped movement rest at its pivot and scale on a padded canvas', async () => {
+  const { keys, geometry, hashes } = await fixture();
+  await writeFile(join(keys, '002.png'), await readFile(join(keys, '000.png')));
+  const pose = await readFrame(join(keys, '001.png'));
+  pose.data[(40 * pose.width) * 4] = 200;
+  pose.data[(40 * pose.width) * 4 + 3] = 255;
+  await sharp(pose.data, { raw: { width: pose.width, height: pose.height, channels: 4 } }).png().toFile(join(keys, '001.png'));
+  const manifest = join(dir, 'runtime.json');
+  const runtime = { sourceToRuntimeScale: 0.5, banks: [{ id: 'turn', character: 'pawn', army: 'white', kind: 'turn', from: 'SE', to: 'S', canvasSize: [48, 48], pivot: [24, 40], registrationHeightPx: 35, boardScale: null, frames: [{ sourceSha256: hashes[0] }, { sourceSha256: hashes[2] }] }] };
+  await writeFile(manifest, JSON.stringify(runtime));
+  const authority = { kind: 'runtime-manifest', path: manifest, sha256: digest(await readFile(manifest)) };
+  const stub = join(dir, 'stub.mjs');
+  await writeFile(stub, `import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+const plan = JSON.parse(readFileSync(process.argv[2], 'utf8')), base = dirname(process.argv[2]);
+for (const frame of plan.frames) { const out = resolve(base, frame.output); mkdirSync(dirname(out), { recursive: true }); writeFileSync(out, readFileSync(resolve(base, frame.left))); }
+writeFileSync(resolve(base, 'report.json'), '{}');`);
+  const output = join(dir, 'movement');
+  const options = { character: 'pawn', army: 'white', kind: 'movement', facing: 'SE', keys, geometryRecord: { ...geometry, bodyHeightPx: 85, authority }, output, infer: `node ${stub}`, timing: { durationMs: 60, frameMs: 15 }, preview: false };
+  const result = await makeBank(options);
+  expect(result.gates).toBe('pass');
+  const bank = JSON.parse(await readFile(result.candidate, 'utf8'));
+  const rest = await readFrame(join(keys, '000.png'));
+  const first = await readFrame(join(output, bank.frames[0].url));
+  const last = await readFrame(join(output, bank.frames.at(-1).url));
+  const placed = measureFrame(await readFrame(join(output, bank.frames[2].url)));
+  const offset = [bank.pivot[0] - 48, bank.pivot[1] - 80];
+  expect(bank.bodyHeightPx).toBe(70);
+  expect(bank.canvasSize[0]).toBeGreaterThan(96);
+  expect(offset.every((n: number) => n % 2 === 0)).toBe(true);
+  expect(placed.borderOpaque).toBe(0);
+  expect(placed.contentWidth).toBeGreaterThan(65);
+  expect(placed.contentHeight).toBe(60);
+  expect(bank.direction).toBe('SE');
+  expect(matchesRest(first, rest, offset)).toBe(true);
+  expect(matchesRest(last, rest, offset)).toBe(true);
+  first.data[((offset[1] + 20) * first.width + offset[0] + 30) * 4] ^= 1;
+  expect(matchesRest(first, rest, offset)).toBe(false);
+  await expect(makeBank({ ...options, facing: 'N', output: join(dir, 'wrong-facing') })).rejects.toThrow('not a shipped N endpoint');
+  await writeFile(join(keys, '001.png'), await readFile(join(keys, '000.png')));
+  runtime.banks[0].pivot = [30, 40];
+  await writeFile(manifest, JSON.stringify(runtime));
+  const changedAuthority = { ...authority, sha256: digest(await readFile(manifest)) };
+  const identical = await makeBank({ ...options, geometryRecord: { ...geometry, pivot: [60, 80], bodyHeightPx: 70, authority: changedAuthority }, output: join(dir, 'identical') });
+  const identicalBank = JSON.parse(await readFile(identical.candidate, 'utf8'));
+  const middle = await readFrame(join(dir, 'identical', identicalBank.frames[2].url));
+  const firstIdentical = await readFrame(join(dir, 'identical', identicalBank.frames[0].url));
+  expect(middle.data.equals(firstIdentical.data)).toBe(true);
+  expect(measureFrame(middle).footCenterX).toBe(measureFrame(firstIdentical).footCenterX);
+
+  const gateFrame = { file: 'key', method: 'authored', sources: [hashes[0]], restMatch: false, metadata: { channels: 4 }, measure: { borderOpaque: 0, alphaMin: 0, alphaMax: 255, bottom: 100, footCenterX: 110 }, fringe: { ratio: 0 }, ghost: 0, sha256: hashes[0], timeMs: 0 };
+  const gateReport = runGates({ bank: { pivot: [50, 100] }, frames: [gateFrame, { ...gateFrame, timeMs: 15 }], geometry, movement: { pivot: [50, 100], baseline: 100, footCenterX: 100, rest: { sha256: hashes[0] }, endpoint: {} }, plan: { frameCount: 2, durationMs: 15, frameMs: 15 } });
+  expect(gateReport.checks.find((check: any) => check.name === 'geometry').ok).toBe(false);
+  await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).resolves.toMatchObject({ dryRun: true });
+  identicalBank.pivot[0] += 2;
+  await writeFile(identical.candidate, JSON.stringify(identicalBank));
+  await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('facing-rest transform changed');
+  await writeFile(manifest, JSON.stringify({ ...runtime, extra: true }));
+  await expect(promote(identical.candidate, { manifest, catalog: join(dir, 'unused'), dryRun: true })).rejects.toThrow('runtime manifest changed');
+
+
 });
 
 it('promotes a green candidate into the frozen catalog under its lock', async () => {
@@ -146,6 +291,12 @@ writeFileSync(resolve(base, 'report.json'), JSON.stringify({ frames: plan.frames
   const idleBytes = Buffer.from(`${JSON.stringify(idle)}\n`);
   await writeFile(join(catalog, 'banks', 'idle.json'), idleBytes);
   await writeFile(join(catalog, 'manifest.json'), JSON.stringify({ schemaVersion: 1, purpose: 'fixture', reports: [], entries: [{ character: 'pawn', army: 'white', kind: 'idle', id: 'white-idle', status: 'ready', manifest: 'banks/idle.json', sha256: digest(idleBytes) }] }));
+
+  const gatesPath = join(dirname(candidate), 'gates.json');
+  const gates = JSON.parse(await readFile(gatesPath, 'utf8'));
+  await writeFile(gatesPath, JSON.stringify({ ...gates, checks: gates.checks.filter((check: any) => check.name !== 'ghost') }));
+  await expect(promote(candidate, { catalog })).rejects.toThrow('Gate ghost did not pass');
+  await writeFile(gatesPath, JSON.stringify(gates));
 
   const promoted = await promote(candidate, { catalog });
   expect(promoted.entry).toMatchObject({ id: 'white-turn-SE-S', status: 'ready', manifest: expect.stringMatching(/^banks\/[a-f0-9]{64}\.json$/) });

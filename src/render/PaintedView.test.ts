@@ -215,6 +215,34 @@ it.each([['move', 'mouse'], ['move', 'touch'], ['fall', 'mouse'], ['fall', 'touc
   expect(next.preventDefault).not.toHaveBeenCalled();
 });
 
+it('consumes a board control click while the local board is animating', async () => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const view = new PaintedView(container as unknown as HTMLElement, { allowModalAndNavigation: true });
+  const { scene } = view as unknown as { scene: PaintedScene };
+  Object.assign(scene, { animating: true });
+  view.onSkipAnimation = vi.fn();
+  const event = { target: container, button: 0, pointerId: 7, detail: 1, preventDefault: vi.fn(), stopImmediatePropagation: vi.fn() };
+  for (const type of ['pointerdown', 'pointerup', 'click']) documentListeners.get(type)!(event as unknown as Event);
+  expect(event.preventDefault).toHaveBeenCalledTimes(3);
+  expect(event.stopImmediatePropagation).toHaveBeenCalledTimes(3);
+  expect(view.onSkipAnimation).toHaveBeenCalledOnce();
+  view.dispose();
+});
+
+it.each(['modal', 'link'])('leaves a %s press alone while the local board is animating', async kind => {
+  const container = stubDom(), { PaintedView } = await import('./PaintedView');
+  const view = new PaintedView(container as unknown as HTMLElement, { allowModalAndNavigation: true });
+  const { scene } = view as unknown as { scene: PaintedScene };
+  Object.assign(scene, { animating: true });
+  vi.stubGlobal('location', { origin: 'https://example.test', pathname: '/', search: '' });
+  const target = { closest: (selector: string) => selector === 'dialog:modal' && kind === 'modal' ? {} : selector === 'a[href]' && kind === 'link' ? { protocol: 'https:', origin: 'https://example.test', pathname: '/play/', search: '' } : null };
+  const event = { target, button: 0, pointerId: 7, detail: 1, preventDefault: vi.fn(), stopImmediatePropagation: vi.fn() };
+  for (const type of ['pointerdown', 'pointerup', 'click']) documentListeners.get(type)!(event as unknown as Event);
+  expect(event.preventDefault).not.toHaveBeenCalled();
+  expect(event.stopImmediatePropagation).not.toHaveBeenCalled();
+  view.dispose();
+});
+
 it.each([false, true])('A15: keeps check and threat marks above the selected tile (web %s)', async webInk => {
   const container = stubDom(), { PaintedView } = await import('./PaintedView');
   const view = new PaintedView(container as unknown as HTMLElement, { webInk });

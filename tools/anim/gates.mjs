@@ -1,17 +1,17 @@
 /** Automatic gates for a candidate animation bank. Each gate fails with a short, plain message. */
 
-/**
- * Matte fringe limit. The shipped, owner-approved Pawn turns measure up to 12.8 percent (white) and 22.4 percent
- * (black) with this screen: dark outlines and dark cloth sit close to the matte. The limit sits above both, so the
- * screen catches extreme smearing only. The preview still needs a look; a numeric alpha check cannot prove visibility.
- */
+// Fail when over 30% of the exterior alpha edge is near the matte and at least 72 summed RGB levels closer to it than to the nearest opaque colour.
 export const HALO_LIMIT = 0.3;
+// 0.035 clears clean scores near 0.02 and catches the faint feet at 0.046.
+export const GHOST_MARGIN = 0.035;
+export const ghostLimit = frames => Math.max(...frames.filter(frame => frame.method === 'authored').map(frame => frame.ghost)) + GHOST_MARGIN;
 export const BASELINE_TOLERANCE_PX = 2;
+export const FOOT_TOLERANCE_PX = 3;
 
 const check = (name, ok, message, metrics = {}) => ({ name, ok, message: ok ? 'ok' : message, metrics });
 const round = n => Math.round(n * 1000) / 1000;
 
-export function runGates({ bank, frames, geometry, endpoints = {}, plan }) {
+export function runGates({ bank, frames, geometry, endpoints = {}, plan, movement = null }) {
   const checks = [];
   const failing = [];
   const fail = (name, ok, message, metrics) => { const result = check(name, ok, message, metrics); checks.push(result); if (!ok) failing.push(`${name}: ${result.message}`); };
@@ -26,20 +26,31 @@ export function runGates({ bank, frames, geometry, endpoints = {}, plan }) {
 
   const worst = frames.reduce((top, frame) => frame.fringe.ratio > top.fringe.ratio ? frame : top, frames[0]);
   fail('matte-halo', worst.fringe.ratio <= HALO_LIMIT,
-    `Frame ${worst.file} has a matte-coloured edge: ${round(worst.fringe.ratio * 100)}% of its exterior edge sits on the interpolation matte (limit ${HALO_LIMIT * 100}%)`,
+    `Frame ${worst.file} has a matte-coloured edge: ${round(worst.fringe.ratio * 100)}% of its exterior edge is closer to the matte than its opaque interior (limit ${HALO_LIMIT * 100}%)`,
     { worst: worst.file, ratio: round(worst.fringe.ratio), edgePixels: worst.fringe.edgePixels, mattePixels: worst.fringe.mattePixels, limit: HALO_LIMIT });
 
-  const pivot = bank.pivot;
-  const pivotOk = Array.isArray(pivot) && pivot.length === 2 && pivot.every((value, axis) => Math.abs(value - geometry.pivot[axis]) < 1e-9);
-  const baselineBad = [frames[0], frames.at(-1)].filter(frame => Math.abs(frame.measure.bottom - geometry.pivot[1]) > BASELINE_TOLERANCE_PX);
-  const keyBaselines = frames.filter(frame => frame.method === 'authored').map(frame => Math.abs(frame.measure.bottom - geometry.pivot[1]));
-  const drift = frames.reduce((max, frame) => Math.max(max, Math.abs(frame.measure.bottom - geometry.pivot[1])), 0);
-  fail('geometry', pivotOk && baselineBad.length === 0 && keyBaselines.every(delta => delta <= BASELINE_TOLERANCE_PX),
-    !pivotOk ? `Bank pivot ${JSON.stringify(pivot)} does not equal the locked pivot ${JSON.stringify(geometry.pivot)}`
-      : `Baseline is more than ${BASELINE_TOLERANCE_PX} px from the locked pivots (end frames: ${baselineBad.map(frame => `${frame.file} ${round(frame.measure.bottom - geometry.pivot[1])}`).join(', ')})`,
-    { pivot, lockedPivot: geometry.pivot, endBaselinePx: [round(frames[0].measure.bottom - geometry.pivot[1]), round(frames.at(-1).measure.bottom - geometry.pivot[1])], maxDriftPx: round(drift) });
+  const limit = ghostLimit(frames);
+  const inbetweens = frames.filter(frame => frame.method !== 'authored');
+  const ghostWorst = inbetweens.reduce((top, frame) => !top || frame.ghost > top.ghost ? frame : top, null);
+  fail('ghost', !ghostWorst || ghostWorst.ghost <= limit,
+    `Frame ${ghostWorst?.file} has ghost score ${round(ghostWorst?.ghost)} (limit ${round(limit)})`,
+    { worst: ghostWorst?.file ?? null, score: ghostWorst ? round(ghostWorst.ghost) : null, authored: round(limit - GHOST_MARGIN), limit: round(limit) });
 
-  const first = endpoints[frames[0].sha256], last = endpoints[frames.at(-1).sha256];
+  const pivot = bank.pivot;
+  const targetPivot = movement?.pivot ?? geometry.pivot, baseline = movement?.baseline ?? geometry.pivot[1];
+  const pivotOk = Array.isArray(pivot) && pivot.length === 2 && pivot.every((value, axis) => Math.abs(value - targetPivot[axis]) < 1e-9);
+  const baselineBad = [frames[0], frames.at(-1)].filter(frame => Math.abs(frame.measure.bottom - baseline) > BASELINE_TOLERANCE_PX);
+  const keyBaselines = frames.filter(frame => frame.method === 'authored').map(frame => Math.abs(frame.measure.bottom - baseline));
+  const drift = frames.reduce((max, frame) => Math.max(max, Math.abs(frame.measure.bottom - baseline)), 0);
+  const footBad = movement ? frames.filter(frame => frame.method === 'authored' && Math.abs(frame.measure.footCenterX - movement.footCenterX) > FOOT_TOLERANCE_PX) : [];
+  const restBad = movement ? frames.filter(frame => frame.method === 'authored' && frame.sources[0] === movement.rest.sha256 && !frame.restMatch) : [];
+  fail('geometry', pivotOk && baselineBad.length === 0 && keyBaselines.every(delta => delta <= BASELINE_TOLERANCE_PX) && !footBad.length && !restBad.length,
+    !pivotOk ? `Bank pivot ${JSON.stringify(pivot)} does not equal the locked pivot ${JSON.stringify(targetPivot)}`
+      : footBad.length || restBad.length ? `Movement key registration differs from the rest: foot ${footBad.map(frame => `${frame.file} ${round(frame.measure.footCenterX - movement.footCenterX)}`).join(', ')}; rest pixels ${restBad.map(frame => frame.file).join(', ')}`
+      : `Baseline is more than ${BASELINE_TOLERANCE_PX} px from the locked baseline (end frames: ${baselineBad.map(frame => `${frame.file} ${round(frame.measure.bottom - baseline)}`).join(', ')})`,
+    { pivot, lockedPivot: targetPivot, endBaselinePx: [round(frames[0].measure.bottom - baseline), round(frames.at(-1).measure.bottom - baseline)], maxDriftPx: round(drift) });
+
+  const first = movement ? (frames[0].restMatch && movement.endpoint) : endpoints[frames[0].sha256], last = movement ? (frames.at(-1).restMatch && movement.endpoint) : endpoints[frames.at(-1).sha256];
   const allowed = new Set([bank.from, bank.to, bank.facing].filter(Boolean));
   const facingOk = entry => entry && (bank.kind !== 'turn' || entry.facing == null || allowed.has(entry.facing));
   fail('endpoints', Boolean(first) && Boolean(last) && facingOk(first) && facingOk(last),

@@ -13,7 +13,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { defaultCatalog, defaultManifest, resolveGeometry } from './geometry.mjs';
-import { readFrame } from './frames.mjs';
+import { readFrame, sha256 } from './frames.mjs';
 
 const exec = promisify(execFile);
 const script = fileURLToPath(new URL('./publish_bank.py', import.meta.url));
@@ -29,7 +29,7 @@ export async function promote(candidate, { catalog = process.env.KINGDOWN_CATALO
   if (!existsSync(gatesPath)) throw Error(`No gates.json next to ${bankPath}; rebuild with bank.mjs make`);
   const gates = JSON.parse(await readFile(gatesPath));
   if (gates.status !== 'pass') throw Error(`Gates did not pass; promote needs a green candidate (${gates.failing?.join('; ') ?? 'no detail'})`);
-  for (const check of ['rgba', 'exterior', 'matte-halo', 'geometry', 'endpoints', 'timing', 'provenance']) {
+  for (const check of ['rgba', 'exterior', 'matte-halo', 'ghost', 'geometry', 'endpoints', 'timing', 'provenance']) {
     if (!gates.checks?.some(entry => entry.name === check && entry.ok)) throw Error(`Gate ${check} did not pass; rebuild the candidate`);
   }
   const current = await resolveGeometry({ character: bank.character, army: bank.army, catalog, manifest });
@@ -39,12 +39,21 @@ export async function promote(candidate, { catalog = process.env.KINGDOWN_CATALO
       throw Error(`Locked geometry changed for ${bank.character}/${bank.army}; rebuild the candidate against the current authority`);
     }
   }
+  if (bank.kind === 'movement') {
+    const authority = bank.geometry?.authority;
+    const bytes = await readFile(manifest);
+    if (authority?.kind !== 'runtime-manifest' || sha256(bytes) !== authority.sha256) throw Error('Movement runtime manifest changed; rebuild the candidate');
+    const runtime = JSON.parse(bytes), scale = runtime.sourceToRuntimeScale;
+    const source = bank.provenance?.keys?.[0], offset = [source?.transform?.dx, source?.transform?.dy];
+    const rests = runtime.banks.filter(rest => rest.character === bank.character && rest.army === bank.army && [[rest.frames?.[0], rest.kind === 'turn' ? rest.from : rest.facing], [rest.frames?.at(-1), rest.kind === 'turn' ? rest.to : rest.facing]].some(([frame, facing]) => facing === bank.facing && frame?.sourceSha256 === source?.sha256));
+    if (!rests.length || !Number.isFinite(scale) || scale <= 0 || offset.some(n => !Number.isFinite(n)) || rests.some(rest => rest.boardScale != null || rest.registrationHeightPx / scale !== bank.bodyHeightPx || rest.pivot.some((n, i) => n / scale + offset[i] !== bank.pivot[i]))) throw Error('Movement facing-rest transform changed; rebuild the candidate');
+  }
   for (const frame of bank.frames) {
     const path = join(folder, frame.url);
     const decoded = await readFrame(path);
     if (decoded.sha256 !== frame.sha256) throw Error(`Frame hash mismatch: ${frame.url}`);
   }
-  const entry = { id: bank.id, character: bank.character, army: bank.army, kind: bank.kind, action: null, direction: bank.facing, from: bank.from, to: bank.to };
+  const entry = { id: bank.id, character: bank.character, army: bank.army, kind: bank.kind === 'movement' ? 'movement-study' : bank.kind, action: null, direction: bank.facing, from: bank.from, to: bank.to };
   if (dryRun) return { dryRun: true, catalog: resolve(catalog), entry, frames: bank.frames.length };
 
   const staging = await mkdtemp(join(folder, '.promote-'));

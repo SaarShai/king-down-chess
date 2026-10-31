@@ -1,0 +1,56 @@
+{
+  "mode": "parts",
+  "sourceSha256": "460cc00d8f43916b294d29475067aff26b3ceaf99903c2d1c9f86d072446ac81",
+  "parts": [
+    {
+      "name": "skin",
+      "source": [
+        50,
+        15,
+        15
+      ],
+      "tolerance": [
+        50,
+        13,
+        13
+      ],
+      "target": [
+        38,
+        2,
+        3
+      ],
+      "zone": [
+        -0.7,
+        -1.1,
+        0.8,
+        0.1
+      ],
+      "lightnessScale": 0.5
+    },
+    {
+      "name": "skin highlights",
+      "source": [
+        88,
+        4,
+        7
+      ],
+      "tolerance": [
+        13,
+        5,
+        7
+      ],
+      "target": [
+        38,
+        2,
+        3
+      ],
+      "zone": [
+        -0.7,
+        -1.1,
+        0.8,
+        0.1
+      ],
+      "lightnessScale": 0.5
+    }
+  ]
+}

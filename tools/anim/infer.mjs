@@ -48,7 +48,7 @@ export function m1Settings() {
   return {
     alias: process.env.KINGDOWN_M1_SSH ?? 'M1',
     python: process.env.KINGDOWN_M1_RIFE_PYTHON ?? '~/projects/seedvr2/.venv/bin/python',
-    runtime: process.env.KINGDOWN_M1_RIFE_RUNTIME ?? '/private/tmp/good-enough-rife-20261029/runtime',
+    runtime: process.env.KINGDOWN_M1_RIFE_RUNTIME ?? '~/projects/successful-workflow-queen-rife-pair-20261029/runtime',
   };
 }
 

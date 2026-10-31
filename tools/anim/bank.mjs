@@ -12,10 +12,11 @@ import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { edgeFor, loadGeometryFile, resolveGeometry, root, sourcesDir, defaultManifest, defaultCatalog } from './geometry.mjs';
-import { encodeFrame, matteFringe, measureFrame, readFrame, registerFrame } from './frames.mjs';
-import { runGates } from './gates.mjs';
+import { encodeFrame, ghostScore, matteFringe, measureFrame, readFrame, registerFrame } from './frames.mjs';
+import { ghostLimit, runGates } from './gates.mjs';
 import { chooseMachine, interpolate } from './infer.mjs';
 import { describePlan, midpointPlan, planTiming, timeOf } from './plan.mjs';
+import { matchesRest, movementGeometry, padRest } from './movement.mjs';
 
 const exec = promisify(execFile);
 export const KINDS = ['idle', 'turn', 'attack', 'movement'];
@@ -58,6 +59,7 @@ export function defaultOutput(character, army, id) {
 /** Make a candidate bank. Returns its path and the gate report. */
 export async function makeBank(options) {
   const { character, army, kind } = options;
+  if (options.ghostRepair !== undefined && options.ghostRepair !== 'hold') throw Error('--ghost-repair must be hold');
   if (!character || !army) throw Error('make needs --character and --army');
   if (!KINDS.includes(kind)) throw Error(`--kind must be one of ${KINDS.join(', ')}`);
   const edge = edgeFor(kind, options.facing);
@@ -77,15 +79,20 @@ export async function makeBank(options) {
   const keys = await listKeys(options.keys);
   const plan = planTiming(await readTiming(options.timing), keys.length, { frameMs: options.frameMs, durationMs: options.durationMs });
   if (plan.hold && kind !== 'idle') throw Error('A one-key bank is a hold; use at least two keys for a turn, attack or movement');
+  const sources = kind === 'movement' ? await Promise.all(keys.map(readFrame)) : null;
+  const movement = sources ? await movementGeometry(geometry, sources, edge.facing) : null;
+  const placement = movement ? { ...geometry, ...movement, pivot: [movement.footCenterX, movement.baseline] } : geometry;
 
   await cleanOutput(output);
   await mkdir(framesDir, { recursive: true });
 
   const registered = [];
   for (let position = 0; position < keys.length; position++) {
-    const source = await readFrame(keys[position]);
+    const source = sources?.[position] ?? await readFrame(keys[position]);
     const index = plan.keyIndexes[position];
-    const placed = await registerFrame(source, geometry);
+    const placed = movement && source.sha256 === movement.rest.sha256
+      ? { frame: padRest(movement), transform: { scale: 1, dx: movement.offset[0], dy: movement.offset[1], identity: false } }
+      : await registerFrame(source, placement);
     const bytes = placed.transform.identity ? source.bytes : await encodeFrame(placed.frame);
     const file = `frames/${pad(index)}.png`;
     await writeFile(join(output, file), bytes);
@@ -127,20 +134,35 @@ export async function makeBank(options) {
     if (!frame) throw Error(`Frame ${index} was not produced`);
     const decoded = await readFrame(join(output, frame.file));
     const measure = measureFrame(decoded);
-    frames.push({ ...frame, sha256: decoded.sha256, metadata: decoded.metadata, measure, fringe: matteFringe(decoded, measure), timeMs: timeOf(index, plan) });
+    const restMatch = movement && frame.method === 'authored' && frame.sources[0] === movement.rest.sha256 ? matchesRest(decoded, movement.rest, movement.offset) : undefined;
+    frames.push({ ...frame, sha256: decoded.sha256, metadata: decoded.metadata, measure, fringe: matteFringe(decoded, measure), ghost: ghostScore(decoded), restMatch, timeMs: timeOf(index, plan) });
   }
   const hashByIndex = new Map(frames.map(frame => [frame.index, frame.sha256]));
+  if (options.ghostRepair === 'hold') {
+    const limit = ghostLimit(frames);
+    const clean = frames.filter(frame => frame.method === 'authored' || frame.ghost <= limit);
+    for (let index = 0; index < frames.length; index++) {
+      const frame = frames[index];
+      if (frame.method !== 'rife' || frame.ghost <= limit) continue;
+      const source = clean.reduce((best, candidate) => Math.abs(candidate.index - frame.index) < Math.abs(best.index - frame.index) ? candidate : best);
+      await copyFile(join(output, source.file), join(output, frame.file));
+      frames[index] = {
+        index: frame.index, file: frame.file, timeMs: frame.timeMs, method: 'hold', sources: [source.index], transform: null,
+        sha256: source.sha256, metadata: source.metadata, measure: source.measure, fringe: source.fringe, ghost: source.ghost,
+      };
+    }
+  }
   for (const frame of frames) {
-    frame.sources = frame.method === 'hold' ? [hashByIndex.get(0)] : frame.method === 'authored' ? frame.sources : frame.sources.map(index => hashByIndex.get(index));
+    frame.sources = frame.method === 'hold' ? frame.sources.map(index => hashByIndex.get(index)) : frame.method === 'authored' ? frame.sources : frame.sources.map(index => hashByIndex.get(index));
     if (frame.sources.some(source => !source)) throw Error(`Frame ${frame.index} has a missing source frame`);
   }
 
   const bank = {
-    schemaVersion: 1, id, character, army, kind, ...edge, status: 'candidate',
-    durationMs: plan.durationMs, frameMs: plan.frameMs, canvasSize: geometry.canvas, times: frames.map(frame => frame.timeMs),
-    pivot: geometry.pivot, bodyHeightPx: geometry.bodyHeightPx, boardScale: geometry.boardScale ?? null,
+    schemaVersion: 1, id, character, army, kind, ...edge, ...(movement ? { direction: edge.facing } : {}), status: 'candidate',
+    durationMs: plan.durationMs, frameMs: plan.frameMs, canvasSize: movement?.canvas ?? geometry.canvas, times: frames.map(frame => frame.timeMs),
+    pivot: movement?.pivot ?? geometry.pivot, bodyHeightPx: movement?.registrationHeightPx ?? geometry.bodyHeightPx, boardScale: geometry.boardScale ?? null,
     frames: frames.map(frame => ({ url: frame.file, timeMs: frame.timeMs, sha256: frame.sha256, method: frame.method, sources: frame.sources })),
-    previewGeometry: { pivot: geometry.pivot, bodyHeightPx: geometry.bodyHeightPx },
+    previewGeometry: { pivot: movement?.pivot ?? geometry.pivot, bodyHeightPx: movement?.registrationHeightPx ?? geometry.bodyHeightPx },
     geometry: { authority: geometry.authority, canvas: geometry.canvas, pivot: geometry.pivot, bodyHeightPx: geometry.bodyHeightPx },
     provenance: {
       generator: 'tools/anim/bank.mjs', timing: describePlan(plan),
@@ -150,7 +172,7 @@ export async function makeBank(options) {
   };
 
   const endpoints = options.geometryRecord?.endpoints ?? geometry.endpoints ?? {};
-  const gates = runGates({ bank, frames, geometry, endpoints, plan });
+  const gates = runGates({ bank, frames, geometry, endpoints, plan, movement });
   await writeFile(join(output, 'gates.json'), `${JSON.stringify(gates, null, 2)}\n`);
   await writeFile(join(output, 'provenance.json'), `${JSON.stringify({ id, character, army, kind, frames: frames.map(frame => ({ index: frame.index, timeMs: frame.timeMs, sha256: frame.sha256, method: frame.method, sources: frame.sources, transform: frame.transform ?? null })), geometry: bank.geometry, rife: bank.provenance.rife }, null, 2)}\n`);
 
@@ -177,7 +199,7 @@ export async function makeBank(options) {
   return { candidate: bankPath, gates: gates.status, frames: frames.length, durationMs: plan.durationMs, machine: machine?.machine ?? null, previews, output };
 }
 
-const values = ['character', 'army', 'kind', 'facing', 'keys', 'timing', 'output', 'id', 'geometry', 'manifest', 'catalog', 'sources', 'machine', 'infer', 'frame-ms', 'duration-ms'];
+const values = ['character', 'army', 'kind', 'facing', 'keys', 'timing', 'output', 'id', 'geometry', 'manifest', 'catalog', 'sources', 'machine', 'infer', 'frame-ms', 'duration-ms', 'ghost-repair'];
 const camel = name => name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
 
 export async function main(argv = process.argv.slice(2)) {

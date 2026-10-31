@@ -30,6 +30,7 @@ node tools/anim/promote.mjs <candidate> --catalog <dir> # publish a green candid
   Each key gap must hold a power-of-two number of steps, because the midpoint recursion halves one gap at a time.
 - `--kind` is `idle`, `turn`, `attack` or `movement`. A turn takes two facings (`SE-S`); other kinds take one.
 - `--output` defaults to `<repo parent>/anim-out/<character>/<army>/<id>`, outside git.
+- `--ghost-repair hold` replaces each in-between over the ghost limit with the nearest clean frame. Ties use the earlier frame.
 - `--geometry <json>` takes a fixed geometry record. Normal runs read the locked geometry instead.
 
 ### Locked geometry
@@ -42,6 +43,12 @@ the frozen catalog banks. Runtime values are half size; the tool converts them t
 A key that is already on the locked canvas, within 2 px of the pivot baseline and within 4 px of the body height,
 keeps every pixel. This keeps shared endpoints byte-identical. A key that is not in place is scaled by body height and
 its measured foot contact moves to the locked pivot.
+
+Movement uses the shipped rest of the requested facing instead of the common idle geometry. Both ends must use that
+same source frame. The runtime manifest supplies its pivot and display scale; the visible rest supplies the pose height
+and baseline. The tool adds transparent padding around the rest and keys. Padding offsets and canvas dimensions are
+even, so the runtime's half-size conversion keeps the same pixel grid. The runtime manifest must be available and match
+its recorded hash. The current builder supports rests with no explicit board scale.
 
 ### In-between frames
 
@@ -59,13 +66,15 @@ forces one machine.
 
 1. `rgba`: the PNG has an alpha channel.
 2. `exterior`: every border pixel is transparent, alpha 0 exists, and a fully opaque pixel exists.
-3. `matte-halo`: the share of low-coverage edge pixels that sit on the interpolation matte stays under 30 percent.
-   The shipped Pawn turns measure up to 12.8 percent (white) and 22.4 percent (black) with this screen. The screen
-   catches extreme smearing only; look at the preview.
-4. `geometry`: the bank pivot equals the locked pivot, and the first and last frames stand within 2 px of the baseline.
-5. `endpoints`: the first and last frame hashes are shipped endpoints of the same character, army and turn edges.
-6. `timing`: frame count, frame step, start time and end time match the plan.
-7. `provenance`: every frame has a known method and a SHA-256.
+3. `matte-halo`: at most 30 percent of the low-coverage exterior edge may be near the interpolation matte and
+   clearly closer to it than to the nearest opaque interior colour. This is a screen; look at the preview.
+4. `ghost`: each in-between stays within 0.035 of the highest authored ghost score. The score counts semi-transparent
+   pixels more than 3 px from the opaque body, divided by opaque pixels. This is a screen; look at the preview.
+5. `geometry`: the bank pivot equals the locked pivot, and the first and last frames stand within 2 px of the baseline.
+6. `endpoints`: turns and other banks use shipped endpoint hashes. Movement compares each padded end pixel to the
+   shipped facing rest at the same pivot, with only transparent pixels outside it.
+7. `timing`: frame count, frame step, start time and end time match the plan.
+8. `provenance`: every frame has a known method and a SHA-256.
 
 ### Output
 

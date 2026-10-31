@@ -46,7 +46,7 @@ const work = await mkdtemp(join(tmpdir(), 'kingdown-web-game-'));
 const actors = Array.from({ length: recovery ? 4 : 2 }, () => randomUUID());
 const pool = new pg.Pool({ connectionString, max: 1 });
 let app, server, browser, savedAccess, accountServer, accountRequest;
-const failures = [], commands = [];
+const failures = [], commands = [], deliberateFailures = new WeakSet();
 let lostReplies = 0;
 try {
   if (signinSpeed) {
@@ -145,8 +145,8 @@ try {
   const errors = trapErrors(page);
   page.on('requestfailed', request => {
     const fault = request.failure()?.errorText, path = new URL(request.url()).pathname;
-    if (fault === 'net::ERR_ABORTED') return;
-    if (fault === 'net::ERR_FAILED' && request.method() === 'POST' && path.endsWith('/commands')) lostReplies++;
+    if (fault === 'net::ERR_FAILED' && deliberateFailures.has(request)) lostReplies++;
+    else if (fault === 'net::ERR_ABORTED' && !(request.method() === 'POST' && path.endsWith('/commands'))) return;
     else failures.push(`${fault} ${path}`);
   });
   page.on('response', response => {
@@ -262,14 +262,22 @@ try {
   const lost = new Promise(resolve => { applied = resolve; });
   await page.route('**/api/games/*/commands', async route => {
     const body = route.request().postDataJSON(); commands.push(body);
-    if (commands.length > 1 && failRecovery) { recoveryStarted(); await recoveryHeld; await route.abort('failed'); return; }
+    if (commands.length > 1 && failRecovery) { recoveryStarted(); await recoveryHeld; deliberateFailures.add(route.request()); await route.abort('failed'); return; }
     const response = await route.fetch(); assert.equal(response.status(), 200);
-    if (commands.length === 1) { await route.abort('failed'); applied(); }
+    if (commands.length === 1) {
+      // Stop the old page's retry timer until navigation replaces it.
+      const now = new Date();
+      await page.clock.setFixedTime(now);
+      await page.clock.pauseAt(now);
+      deliberateFailures.add(route.request()); await route.abort('failed'); applied();
+    }
     else await route.fulfill({ response });
   });
   await page.locator('#end-turn[aria-disabled="false"]').click(); await lost;
   // A full navigation keeps the URL's game while it recovers another game's durable command.
   await page.goto(origin + '/g/' + destination.game_id);
+  await page.clock.setSystemTime(new Date());
+  await page.clock.resume();
   // The destination's setup appears even while the source command's recovery is held.
   await page.locator('[data-screen="seat"]:not([hidden])').waitFor();
   await page.locator('#seat-ready:disabled').waitFor();
@@ -291,7 +299,8 @@ try {
   await shot(page, 'web-pending-command-keeps-url-game');
   b = await view(1); assert.equal(b.revision, a.revision + 1); assert.equal(b.last_commands.at(-1).action.type, 'turn');
   assert.deepEqual(commands[0].action, { type: 'turn', actions: ['e2-e3!H', 'e3-e4'] });
-  assert(commands.length >= 2); for (const command of commands) assert.deepEqual(command, commands[0]);
+  assert.equal(commands.length, 6, 'One lost reply, four failed recovery attempts and one manual retry');
+  for (const command of commands) assert.deepEqual(command, commands[0]);
   const moved = b.fen;
   assert.notEqual(moved, a.fen);
   // Same account and full game URL resume through the actual emitted index and the same service.
@@ -299,6 +308,7 @@ try {
   await page.goto(origin + '/g/' + gameId);
   const resumedView = await (await resumed).json(); assert.equal(resumedView.fen, moved); assert.equal(resumedView.revision, b.revision);
   await page.locator('[data-screen="board"]:not([hidden])').waitFor();
+  assert.equal(await page.locator('#game-table').isVisible(), true, 'Account game table is visible');
   assert.equal((await view(0)).fen, moved);
   await shot(page, 'web-shared-board');
   // Keep the return route in this document; a page reload would clear the result screen's attempt state.
@@ -308,6 +318,7 @@ try {
   const rematchDocument = await page.evaluate(() => performance.timeOrigin);
   await tool(1, 'kingdown_resign', { game_id: gameId, command_id: randomUUID(), expected_revision: b.revision });
   await page.locator('[data-screen="end"]:not([hidden])').waitFor();
+  assert.equal(await page.locator('#game-table').isVisible(), true, 'Account result table is visible');
   a = await view(0); b = await view(1); assert.deepEqual(a.result, b.result); assert.equal(a.result.winner, 0); assert.equal(a.result.reason, 'resignation');
   assert.equal(await page.locator('#over-title').innerText(), 'You win');
   await shot(page, 'web-shared-result');
@@ -562,7 +573,16 @@ try {
   }
   // Hold an actual old HTTP list while the player leaves and returns after the offer is cancelled.
   const staleOffer = (await tool(1, 'kingdown_create', { kind: 'random', mode: 'casual', command_id: randomUUID() }))._meta.view;
-  await page.goto(origin + '/play/'); await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor();
+  await page.goto(origin + '/play/');
+  try { await page.locator('[data-screen="play"]:not([hidden]) #setup-start:not(:disabled)').waitFor(); }
+  catch (error) {
+    console.error('Lobby setup state:', await page.evaluate(() => {
+      const start = document.querySelector('#setup-start');
+      return { screen: document.body.dataset.page, screens: [...document.querySelectorAll('[data-screen]:not([hidden])')].map(el => el.getAttribute('data-screen')),
+        start: start ? { disabled: start.disabled, visible: !!start.getClientRects().length } : null };
+    }), { requestFailures: failures.length, pageErrors: errors.length });
+    throw error;
+  }
   await page.locator('#setup-options summary').click();
   await page.locator('#setup-body .modes').getByRole('radio', {name:'Random',exact:true}).locator('..').click();
   if (rankedStage) await page.locator('#setup-rating input[value="casual"]').locator('..').click();
