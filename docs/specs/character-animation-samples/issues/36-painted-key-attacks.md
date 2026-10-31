@@ -40,3 +40,7 @@ The WebP converter removes alpha 1 only on attack-frame borders after resizing. 
 - `npm run check:browser web-online` passes in Chromium and WebKit. The checks take 112.8 and 104.3 seconds.
 - `npm run build:vercel` and `npm run check:vercel` pass with a disposable local database. The published manifest, private-data and image guards pass.
 - The owner preview has 32 before and 32 after game recordings. Each after capture shows at least two keys from the attack bank that faces its target.
+
+## CI repair
+
+The smaller manifest no longer needs a size exception. The size gate now checks it without an exception. The canvas offset applies only to attack banks. Movement keeps its own pivot. The focused size, movement and attack tests check both changes.
