@@ -198,10 +198,11 @@ try {
   for(const frame of samples){const bank=turns.find(bank=>bank.id===frame.bank);assert.equal(frame.sourceBankSha256,bank.sourceSha256);assert(bank.frames.some(f=>f.sourceSha256===frame.sourceSha256));}
   if(character==='queen'){
    const frames=trace.filter(frame=>(frame.square===from||frame.square===to)&&frame.bank===`${army}-turn-NE-E`);
-   const firstRest=frames.findIndex(frame=>frame.time===0),lastRest=frames.findLastIndex(frame=>frame.time===0);
+   const nearest=Math.min(...frames.map(frame=>frame.time)),firstRest=frames.findIndex(frame=>frame.time===nearest),lastRest=frames.findLastIndex(frame=>frame.time===nearest);
    await writeFile(join(env('PLAYABLE_OUT'),`${label}-turn-route.json`),JSON.stringify({firstRest,lastRest,frames},null,2));
-   assert(firstRest>0&&Math.max(...frames.slice(0,firstRest).map(frame=>frame.time))>=64,'outward Queen turn runs E to NE');
+   assert(nearest<=16&&firstRest>0&&Math.max(...frames.slice(0,firstRest).map(frame=>frame.time))>=64,'outward Queen turn runs E to NE');
    assert(lastRest<frames.length-1&&Math.max(...frames.slice(lastRest+1).map(frame=>frame.time))>=64,'return Queen turn runs NE to E');
+   assert(trace.some(frame=>frame.bank===`${army}-walk-NE`),'painted walk plays between the turns');
    const outward=frames.slice(0,firstRest+1),back=frames.slice(lastRest);
    assert(outward.every((frame,i)=>!i||frame.time<=outward[i-1].time),'outward turn never jumps backwards while images load');
    assert(back.every((frame,i)=>!i||frame.time>=back[i-1].time),'return turn never jumps backwards while images load');
