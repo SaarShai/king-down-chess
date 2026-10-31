@@ -4,7 +4,7 @@ import { GAITS, GAIT_OF, IDLE, idleAt } from './gait.mjs';
 
 const REST = { travel: 0, lift: 0, sx: 1, sy: 1, tilt: 0, shadow: 1 };
 const near = (actual, expected) => { for (const k of Object.keys(expected)) assert.ok(Math.abs(actual[k] - expected[k]) < 1e-9, `${k}: ${actual[k]} vs ${expected[k]}`); };
-for (const [name, gait] of Object.entries(GAITS)) {
+for (const [name, gait] of Object.entries(GAITS).filter(([name]) => name !== 'paintedWalk')) {
   test(`${name}: starts and ends at rest, under 500 ms, no jumps`, () => {
     for (const squares of [1, 2, 7]) {
       assert.ok(gait.duration(squares) <= 500, `${squares} squares: ${gait.duration(squares)} ms`);
@@ -21,6 +21,18 @@ for (const [name, gait] of Object.entries(GAITS)) {
     }
   });
 }
+test('painted walk keeps the figure still and travels at one cycle per square, capped', () => {
+ const gait=GAITS.paintedWalk;
+ for(const [squares,duration] of [[1,640],[2,1280],[7,1600]]){
+  assert.equal(gait.duration(squares,640),duration);
+  let previous=0;
+  for(let i=0;i<=1000;i++){
+   const v=gait.at(i/1000,squares,duration);
+   near(v,{...REST,travel:v.travel});assert.ok(v.travel>=previous);previous=v.travel;
+  }
+  near(gait.at(0,squares,duration),REST);near(gait.at(1,squares,duration),{...REST,travel:1});
+ }
+});
 test('every gait named by a figure exists', () => {
   for (const g of Object.values(GAIT_OF)) assert.ok(GAITS[g], g);
 });

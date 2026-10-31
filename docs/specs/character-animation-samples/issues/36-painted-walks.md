@@ -4,6 +4,7 @@ Status: ready-for-agent
 
 ## Plan and checks
 
+- Round 4: use a flat gait for selected painted walks, with one cycle per square and a 1,600 ms cap. Test special moves and the old gaits. Record game-size and enlarged views. Run the requested checks and update the pull request.
 - List every army, character and direction. Count distinct painted frames.
 - Keep the catalog placement and timing. Match each figure to its shipped rest with one transform.
 - Add move-only gates and runtime playback. Keep the other bank rules and assets intact.
@@ -12,6 +13,8 @@ Status: ready-for-agent
 
 ## Findings
 
+- A selected painted walk uses flat, eased travel at one cycle per square, up to 1,600 ms. Its poses keep their holds. Stratus hover stops during that travel.
+- Captures keep their attack. A two-square pawn move takes two cycles. Promotion follows the pawn's arrival. Castling moves the king; the rook changes square with the position update. Knight and Paladin keep their own moves.
 - Ten Ogre cells have four frame slots but only three distinct frame hashes. The four-pose rule excludes them.
 - The catalog includes timings other than 160 and 80 ms. Preserve the recorded timing for each frame.
 - The source inventory has 196 ready, 66 thin, six empty and four missing cells.

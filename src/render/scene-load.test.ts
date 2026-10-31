@@ -46,6 +46,54 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
 
 afterEach(() => { scene?.dispose(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
+it.each([
+ {name:'one square',fen:'4k3/8/8/8/8/8/P7/4K3 w - - 0 1',from:8,to:16,ms:640},
+ {name:'two squares',fen:'4k3/8/8/8/8/8/P7/4K3 w - - 0 1',from:8,to:24,ms:1280},
+ {name:'promotion',fen:'4k3/P7/8/8/8/8/8/4K3 w - - 0 1',from:48,to:56,ms:640,promo:pieces.Q},
+])('plays a painted walk for $name at its own pace', async ({fen,from,to,ms,promo}) => {
+ const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,facing:'N'};
+ const idle={...base,id:'idle',kind:'idle',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const move={...base,id:'painted',kind:'move',durationMs:640,nearest:true,frames:[0,160,320,480].map(timeMs=>({url:`runtime-walk-${timeMs}.png`,timeMs}))};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,move]})})));
+ const b=board(true,true);scene.setPosition(fromFen(fen));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ const playing=scene.play({from,to,captures:[],...(promo?{promo}:{})});await vi.advanceTimersByTimeAsync(32);
+ expect(scene.playing).toBe('paintedWalk');const seen=new Set<number>();
+ for(let t=0;t<ms;t+=16){const frame=scene.characterFrames.find(f=>f.square===from);if(frame?.bank==='painted')seen.add(frame.time);await vi.advanceTimersByTimeAsync(16);}
+ expect([...seen].sort((a,b)=>a-b)).toEqual([0,160,320,480]);await vi.advanceTimersByTimeAsync(48);await expect(playing).resolves.toBe(true);
+});
+
+it('uses the attack for a capture even when a painted walk exists', async () => {
+ const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,facing:'NE'};
+ const idle={...base,id:'idle',kind:'idle',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const move={...base,id:'painted',kind:'move',durationMs:640,frames:[0,160,320,480].map(timeMs=>({url:`runtime-walk-${timeMs}.png`,timeMs}))};
+ const attack={...base,id:'attack',kind:'attack',durationMs:600,frames:[{url:'runtime-attack.png',timeMs:0}]};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,move,attack]})})));
+ const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/1p6/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ const playing=scene.play({from:8,to:17,captures:[17]});await vi.advanceTimersByTimeAsync(160);
+ expect(scene.playing).not.toBe('paintedWalk');expect(scene.characterFrames.find(f=>f.square===8)?.bank).toBe('attack');
+ await vi.advanceTimersByTimeAsync(2000);await expect(playing).resolves.toBe(true);
+});
+
+it('keeps the old pawn hop when there is no painted walk', async () => {
+ const idle={character:'pawn',army:'white',id:'idle',kind:'idle',facing:'N',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})));
+ const b=board(true,true);scene.setLively({moves:true});scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ const playing=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(80);expect(scene.playing).toBe('hop');
+ await vi.advanceTimersByTimeAsync(500);await expect(playing).resolves.toBe(true);
+});
+
+it('walks the king on castling and leaves the rook for the position update', async () => {
+ const base={character:'king-frost',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,facing:'E'};
+ const idle={...base,id:'idle',kind:'idle',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const move={...base,id:'painted',kind:'move',durationMs:640,frames:[0,160,320,480].map(timeMs=>({url:`runtime-walk-${timeMs}.png`,timeMs}))};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,move]})})));
+ const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/8/4K2R w K - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ const castle={from:4,to:6,captures:[],castle:{from:7,to:5}},playing=scene.play(castle);await vi.advanceTimersByTimeAsync(160);
+ expect(scene.playing).toBe('paintedWalk');expect(scene.position.board[7]).toBeTruthy();expect(scene.position.board[5]).toBeFalsy();
+ await vi.advanceTimersByTimeAsync(1500);await expect(playing).resolves.toBe(true);
+ scene.setPosition(fromFen('4k3/8/8/8/8/8/8/5RK1 b - - 0 1'));expect(scene.position.board[5]).toBeTruthy();
+});
+
 it.each([false, true])('F7: the board is ready with stalled clips (motion %s), after stone decode', async motion => {
   const b = board(motion), ready = vi.fn();
   void scene.load().then(ready);

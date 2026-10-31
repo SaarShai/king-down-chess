@@ -646,7 +646,8 @@ function vortex(out,foot,phase,strength) {
   // the colour of what is drawn under it.
   const s={design,side,pose:unit.pose,t:time-since+entry.offset,now:time+side*1777,k,opacity:unit.opacity,g,facing:unit.pose.facing,
    board:{x:PAD,y:PAD,tile:TILE,frame:lively.atmosphere&&boardArt.naturalWidth?26:0}};
-  s.pose=kingFx.pose(s);s.ground=s.pose.ground??s.pose.foot;
+  const walking=a?.gait==='paintedWalk'&&a.move.from===sq&&(at-a.start)/a.speed>=a.runtime.beforeMs&&(at-a.start)/a.speed<=a.runtime.beforeMs+a.actionDuration;
+  if(!(walking&&design==='stratus'))s.pose=kingFx.pose(s);s.ground=s.pose.ground??s.pose.foot;
   if(s.pose.bank&&(design==='flame'||a?.runtime&&a.move.from===sq&&a.move.captures.length)){s.bodyScale=s.pose.scale/specs[K].scale;s.bodyBounds=bankShape(s.pose);}
   if(a?.rewind?.kind==='move'&&a.done&&moving&&design==='stratus'){if(a.rewind.landedG!=null)entry.resume={g,start:time};else {const shift=time-a.start;entry.since+=shift;entry.offset+=shift;if(entry.resume)entry.resume.start+=shift;}}
   return s;
@@ -809,7 +810,7 @@ function vortex(out,foot,phase,strength) {
   }
   else if(a.type==='gait'){
    // Quiet move with character (gait.mjs): feet travel along the ground line; lift, squash and lean on top.
-   const m=GAITS[a.gait].at(t/duration,a.squares),ground=mix(a.from.foot,a.to.foot,m.travel);
+   const m=GAITS[a.gait].at(t/duration,a.squares,duration),ground=mix(a.from.foot,a.to.foot,m.travel);
    actor.pose={...a.from,ground,lift:m.lift,foot:{x:ground.x,y:ground.y-m.lift},sx:m.sx,sy:m.sy,rotation:m.tilt*a.lean,shadow:m.shadow};
   }
   else if(a.type==='swap'){
@@ -1013,6 +1014,11 @@ function drawEncounter(a,t) {
   if(!prepared)a.bodyUnavailable=true;
   if(prepared&&!reducedMotion){
    a.runtime=prepared;a.legacyDuration=a.duration;a.actionDuration=prepared.attack?.durationMs??a.duration;
+   if(prepared.movement?.kind==='move'&&(a.type==='move'||a.type==='gait')&&a.move.from!==a.move.to){
+    a.squares=Math.max(Math.abs((a.move.to&7)-(a.move.from&7)),Math.abs((a.move.to>>3)-(a.move.from>>3)));
+    a.type='gait';a.gait='paintedWalk';a.lean=0;
+    a.actionDuration=GAITS.paintedWalk.duration(a.squares,prepared.movement.durationMs);a.legacyDuration=a.actionDuration;
+   }
    a.contactTime=prepared.attack?(prepared.attack.contactMs??prepared.attack.durationMs*.45):contactTime(a);
    if(prepared.effect){prepared.release=prepared.attack.beatTimes.release??a.contactTime;a.contactTime=prepared.release+prepared.effect.contactMs;a.actionDuration=Math.max(prepared.attack.durationMs,prepared.release+prepared.effect.player.durationMs)+(a.move.from===a.move.to?0:420);}
    a.duration=a.actionDuration+prepared.beforeMs+prepared.afterMs;
