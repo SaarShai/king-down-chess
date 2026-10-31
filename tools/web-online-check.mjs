@@ -671,8 +671,8 @@ export async function main() {
       });
       await active.goto(`${origin}/?title=0`); await readyBoard(active);
       await active.waitForFunction(savedGameSynced);
-      // Wait for the first art warm-up and its frame queue; count refusals from the start of the switch.
-      await active.waitForFunction(() => { const scene = window.view.scene, stats = scene.characterMemory; return scene.characterRuntimeReady && !stats.manifestLoading && stats.active === 0 && stats.queued === 0; });
+      // Wait for the manifest and requested art to settle; count refusals from the start of the switch.
+      await active.waitForFunction(() => { return window.view.scene.characterWarmupSettled; });
       const offlineAfter = events.length;
       offline = true; await persistent.setOffline(true);
       await active.goto(origin); await readyBoard(active); assert.deepEqual(await lanMoves(active), ['e2-e4']);

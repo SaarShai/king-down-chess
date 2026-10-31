@@ -7,6 +7,7 @@ import { build } from 'vite';
 import { expect, it } from 'vitest';
 import { offlineCacheFiles } from '../vite.config';
 import { isCharacterRuntimePublic } from './lib/character-runtime-public.mjs';
+import { privateRuntimeData, validateManifest, validateRuntimeImage } from './lib/character-runtime-guard.mjs';
 
 const root = resolve('/local-site');
 const chunk = (name: string, facade: string | null, imports: string[] = [], dynamicImports: string[] = [], css: string[] = [], assets: string[] = []) => ({
@@ -172,10 +173,56 @@ it('publishes only runtime effect metadata and omits provenance', async () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-it.each(['/Users/private', '{"prompt":"private"}', '{"provider":"private"}', '.codex', 'generated_images', '{"sourcePath":"private"}', '{"originalPath":"private"}'])('fails a build if published runtime data contains %s', async privateData => {
+it.each(['/home/private', '/private/tmp/a', '/var/folders/a', 'file:///tmp/a', 'C:\\private\\file', '{"localPath":"x"}', '{"sourceImagePath":"x"}', '{"sourceFramePath":"x"}', '{"reviewNotes":"x"}', '{"reviewer":"x"}', '/Users/private', '{"prompt":"private"}', '{"provider":"private"}', '.codex', 'generated_images', '{"sourcePath":"private"}', '{"originalPath":"private"}'])('fails a build if published runtime data contains %s', async privateData => {
   const { dir, write } = site();
   write(`public/character-runtime/effects/${'b'.repeat(64)}/effect.mjs`, privateData);
   try { await expect(compile(dir)).rejects.toThrow('Private character runtime data'); }
+  finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+it('rejects unknown manifest fields, metadata chunks and invalid beam field types', async () => {
+  const manifest = JSON.parse(readFileSync(resolve('public/character-runtime/manifest.json'), 'utf8'));
+  validateManifest(manifest);
+  manifest.banks[0].frames[0].generator = { model: 'private' };
+  expect(() => validateManifest(manifest)).toThrow('Unknown character manifest metadata');
+  const png = Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'), Buffer.from('000000006361425800000000','hex')]);
+  expect(() => validateRuntimeImage(png, 'bad.png')).toThrow('PNG chunk');
+  const webp = Buffer.concat([Buffer.from('524946460c00000057454250','hex'), Buffer.from('4558494600000000','hex')]);
+  expect(() => validateRuntimeImage(webp, 'bad.webp')).toThrow('WebP chunk');
+  expect(privateRuntimeData(Buffer.from('/home/private'))).toBe(true);
+  const { dir, write } = site();
+  write(`public/character-runtime/effects/${'b'.repeat(64)}/effect.json`, JSON.stringify({id:'maester-beam', sprite:'a', shaftSourceRect:'x', flare:{sprite:'b',anchor:[1,2]}}));
+  try { await expect(compile(dir)).rejects.toThrow('Unknown character effect metadata'); }
+  finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+it('rejects unknown nested manifest fields in a build', async () => {
+  const { dir, write } = site();
+  write('public/character-runtime/manifest.json', JSON.stringify({schemaVersion:1,effects:{},banks:[{beatTimes:{},effectAnchors:[],frames:[{url:'x',generator:{model:'private'}}]}]}));
+  try { await expect(compile(dir)).rejects.toThrow('Unknown character manifest metadata'); }
+  finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+it.each([
+  {id:'maester-beam',sprite:7,shaftSourceRect:[1,2,3,4],flare:{sprite:'b',anchor:[1,2]}},
+  {id:'maester-beam',sprite:'a',shaftSourceRect:[1,2,3,'4'],flare:{sprite:'b',anchor:[1,2]}},
+  {id:'maester-beam',sprite:'a',shaftSourceRect:[1,2,3,4],flare:{sprite:9,anchor:[1,2]}},
+  {id:'maester-beam',sprite:'a',shaftSourceRect:[1,2,3,4],flare:{sprite:'b',anchor:[1,'2']}},
+  [],
+])('rejects an invalid beam field in a build', async meta => {
+  const { dir, write } = site();
+  write(`public/character-runtime/effects/${'b'.repeat(64)}/effect.json`, JSON.stringify(meta));
+  try { await expect(compile(dir)).rejects.toThrow('Unknown character effect metadata'); }
+  finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+it.each([
+  ['bad.png', '89504e470d0a1a0a000000006361425800000000'],
+  ['bad.webp', '524946460c000000574542504558494600000000'],
+])('rejects metadata in a published %s', async (file, hex) => {
+  const { dir, write } = site(); const path=`public/character-runtime/effects/${'b'.repeat(64)}/assets/${file}`;
+  write(path, ''); writeFileSync(join(dir,path), Buffer.from(hex,'hex'));
+  try { await expect(compile(dir)).rejects.toThrow(/Invalid runtime .* chunk/); }
   finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -222,8 +269,8 @@ it('uses real build metadata for the worker, loader, lazy code, CSS and emitted 
     const startup = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]).find(source => source.includes('serviceWorker'))!;
     for (const pathname of ['/', '/play/', '/g/game-id', '/j']) {
       const events: string[] = [];
-      runInNewContext(startup, { location: { pathname }, navigator: { serviceWorker: {} }, addEventListener: (name: string) => events.push(name) });
-      expect(events).toEqual(pathname === '/' ? ['load'] : []);
+      runInNewContext(startup, { window: {}, location: { pathname }, navigator: { serviceWorker: {} }, addEventListener: (name: string) => events.push(name) });
+      expect(events).toEqual(['load']);
     }
     expect(readFileSync(join(output, named('main')), 'utf8')).toContain('/ui/pawn.webp');
     expect(readFileSync(join(output, named('main', 'css')), 'utf8')).toMatch(/url\(["']?\/assets\//);
@@ -231,13 +278,37 @@ it('uses real build metadata for the worker, loader, lazy code, CSS and emitted 
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+it('starts after load when worker support is absent or registration fails', async () => {
+  const { dir } = site();
+  try {
+    await compile(dir);
+    const html = readFileSync(join(dir, 'dist/index.html'), 'utf8');
+    const startup = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => match[1]).find(source => source.includes('serviceWorker'))!;
+    const unsupported: {kingdownWorkerReady?: Promise<unknown>} = {};
+    runInNewContext(startup, { window: unsupported, location: { pathname:'/' }, navigator: {}, addEventListener: () => {} });
+    await expect(unsupported.kingdownWorkerReady).resolves.toBeUndefined();
+    let load!:()=>Promise<void>;
+    const failed: {view: {ready:()=>Promise<void>}, kingdownWorkerReady?: Promise<unknown>} = {view:{ready:async()=>{}}};
+    runInNewContext(startup, { window: failed, location: { pathname:'/' }, navigator: {serviceWorker:{register:async()=>{throw Error('failed');}}}, addEventListener: (_name:string, fn:()=>Promise<void>) => {load=fn;} });
+    await load(); await expect(failed.kingdownWorkerReady).resolves.toBeUndefined();
+    let activate!:()=>void; const workerReady = new Promise<void>(resolve=>{activate=resolve;});
+    const app: {kingdownWorkerReady?: Promise<unknown>} = {};
+    runInNewContext(startup, { window: app, location: { pathname:'/play' }, navigator: {serviceWorker:{getRegistration:async()=>({}),ready:workerReady}}, addEventListener: (_name:string, fn:()=>Promise<void>) => {load=fn;} });
+    const pending=load(); let started=false; void app.kingdownWorkerReady!.then(()=>{started=true;});
+    await Promise.resolve(); expect(started).toBe(false); activate(); await pending; expect(started).toBe(true);
+    const empty: {kingdownWorkerReady?: Promise<unknown>} = {};
+    runInNewContext(startup, { window: empty, location: { pathname:'/play' }, navigator: {serviceWorker:{getRegistration:async()=>undefined}}, addEventListener: (_name:string, fn:()=>Promise<void>) => {load=fn;} });
+    await load(); await expect(empty.kingdownWorkerReady).resolves.toBeUndefined();
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 it('does not change the offline cache version when only optional runtime art changes', async () => {
   const { dir, write } = site();
   try {
-    write('public/character-runtime/manifest.json', '{"version":1}');
+    write('public/character-runtime/manifest.json', '{"schemaVersion":1,"effects":{},"banks":[]}');
     await compile(dir);
     const worker = join(dir, 'dist/sw.js'), before = readFileSync(worker, 'utf8');
-    write('public/character-runtime/manifest.json', '{"version":2}');
+    write('public/character-runtime/manifest.json', '{"schemaVersion":2,"effects":{},"banks":[]}');
     await compile(dir);
     expect(readFileSync(worker, 'utf8')).toBe(before);
   } finally { rmSync(dir, { recursive: true, force: true }); }

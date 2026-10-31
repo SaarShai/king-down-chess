@@ -553,8 +553,8 @@ describe('ready character playback', () => {
    await runtime.ready();const pending=banks.map(b=>runtime.warm(b.character,'white'));
    await vi.waitFor(()=>expect(runtime.stats.queued).toBe(1));expect(sources).toHaveLength(6);
    online=false;images[0].onerror?.();await vi.waitFor(()=>expect(runtime.stats.queued).toBe(0));expect(sources).toHaveLength(6);
-   online=true;listeners.get('online')?.();void runtime.warm('piece-6','white');
-   await vi.waitFor(()=>expect(sources).toContain('https://example.invalid/frame-6'));
+   online=true;const reconnect=listeners.get('online');expect(reconnect).toBeDefined();reconnect!();void runtime.warm('piece-0','white');
+   await vi.waitFor(()=>expect(sources.filter(source=>source==='https://example.invalid/frame-0')).toHaveLength(2));
    runtime.dispose();await Promise.all(pending);
   } finally {runtime.dispose();vi.unstubAllGlobals();}
  });

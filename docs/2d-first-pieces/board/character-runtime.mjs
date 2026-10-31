@@ -167,7 +167,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
  return {
   ready:()=>bounded(loadManifest()).then(()=>{}),
   has:(character,army)=>{if(!manifestReady)void loadManifest();return !!idle(character,army);},
-  get stats(){return {bytes:bytes+effectBytes+smokeBytes,peakBytes,active,queued:queue.length,manifestLoading:!!manifestLoading};},
+  get stats(){return {bytes:bytes+effectBytes+smokeBytes,peakBytes,framesLoaded:images.size,active,queued:queue.length,manifestReady,manifestLoading:!!manifestLoading};},
   smoke(){return smokeClass&&smokeImage?new smokeClass(smokeImage):null;},
   warm,
   async reserveIdle(character,army){

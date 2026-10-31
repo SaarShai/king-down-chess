@@ -85,6 +85,14 @@ it('waits for page load before starting character downloads', async () => {
  onLoad();await vi.advanceTimersByTimeAsync(0);expect(fetcher).toHaveBeenCalledOnce();
 });
 
+it('waits for worker activation after page load', async () => {
+ const fetcher=vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));
+ vi.stubGlobal('fetch',fetcher);
+ let activate!:()=>void;vi.stubGlobal('kingdownWorkerReady',new Promise<void>(resolve=>{activate=resolve;}));
+ const b=board(true,true);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ expect(fetcher).not.toHaveBeenCalled();activate();await vi.advanceTimersByTimeAsync(0);expect(fetcher).toHaveBeenCalledOnce();
+});
+
 it.each(['late', 'failed'] as const)('F7: a %s clip keeps the plain figure and a move works', async result => {
   const b = board(false);
   void scene.load(); b.decodeBoard();

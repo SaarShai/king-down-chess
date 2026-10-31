@@ -978,7 +978,8 @@ function drawEncounter(a,t) {
    if(!reducedMotion)loadClips();
    if(characterRuntime){
     const start=()=>{if(disposed)return;bodyRuntime=createCharacterRuntime({wake:()=>wake()});void bodyRuntime.ready().then(()=>{if(!disposed)return warmBodies();}).then(()=>{bodyWarm=true;});};
-    if(document.readyState&&document.readyState!=='complete')globalThis.addEventListener('load',start,{once:true});else start();
+    const afterLoad=()=>Promise.resolve(globalThis.kingdownWorkerReady).then(start);
+    if(document.readyState&&document.readyState!=='complete')globalThis.addEventListener('load',afterLoad,{once:true});else afterLoad();
    }
   });
   if((a&&!a.done&&(!a.preparing||a.exitReady||a.rewind))||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading||clipShown)wake(false);
@@ -1155,8 +1156,8 @@ function drawEncounter(a,t) {
   /** The ready body frames the last draw used, for registration checks. */
   get characterFrames(){return bodyFrames;},
   get characterExit(){return animation?.exitStart??null;},
-  get characterRuntimeReady(){return bodyWarm;},
-  get characterMemory(){return bodyRuntime?.stats??{bytes:0,peakBytes:0,active:0,queued:0,manifestLoading:false};},
+  get characterWarmupSettled(){return bodyWarm&&bodyRuntime?.stats.manifestReady&&bodyRuntime.stats.framesLoaded>0&&bodyRuntime.stats.active===0&&bodyRuntime.stats.queued===0;},
+  get characterMemory(){return bodyRuntime?.stats??{bytes:0,peakBytes:0,framesLoaded:0,active:0,queued:0,manifestReady:false,manifestLoading:false};},
   get characterEffects(){return effectFrames;},
   setDecorate(fn){decorate=fn;wake();},
   redraw(){wake();},

@@ -11,6 +11,8 @@ import { pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { ENGINES } from './plugin-runtime-build.mjs';
+import { isCharacterRuntimePublic } from './lib/character-runtime-public.mjs';
+import { privateRuntimeData, validateRuntimeImage } from './lib/character-runtime-guard.mjs';
 import { CHATGPT_PLUGIN, PARKED_PATHS } from './chatgpt-plugin.mjs';
 
 const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
@@ -50,10 +52,13 @@ try {
     const path = join(runtimeDir, file);
     if (!(await stat(path)).isFile()) continue;
     const contents = await readFile(path);
-    assert(!contents.includes('/Users/'), `No local path in published runtime: ${file}`);
-    assert(!/\.codex|generated_images|"(?:prompt|provider|sourcePath|originalPath)"\s*:/.test(contents.toString('utf8')), `No private metadata in published runtime: ${file}`);
+    assert(isCharacterRuntimePublic(`character-runtime/${file}`), `Only public runtime files: ${file}`);
+    assert(!/\.(?:json|mjs)$/.test(file) || !privateRuntimeData(contents), `No private metadata in published runtime: ${file}`);
+    validateRuntimeImage(contents, file);
     assert(!/(?:^|\/)provenance\/|(?:^|\/)sources\.json$/.test(file), `No provenance in published runtime: ${file}`);
   }
+  const immutable = config.routes.find(route => route.src === '^/character-runtime/assets/[a-f0-9]{64}\\.webp$');
+  assert.match(immutable?.headers?.['Cache-Control'] ?? '', /max-age=31536000.*immutable/);
   const worker = await readFile(join(tree, 'static/sw.js'), 'utf8');
   const version = /^const VERSION = '([a-f0-9]{12})';$/m.exec(worker)?.[1];
   assert(version, 'The worker has a built content version');

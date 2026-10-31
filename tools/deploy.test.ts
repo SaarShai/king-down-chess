@@ -658,7 +658,7 @@ async function site(files: () => Record<string, string>, challengeReply: { statu
     }
     if (body === undefined && siteRoute(req, res, path, files(), access)) return;
     if (body === undefined) { res.writeHead(404).end('not found'); return; }
-    res.writeHead(200, { 'content-type': contentType(path), 'set-cookie': 'visit=1; Path=/' }).end(body);
+    res.writeHead(200, { 'content-type': contentType(path), 'set-cookie': 'visit=1; Path=/', ...(/^\/character-runtime\/assets\/[a-f0-9]{64}\.webp$/.test(path) ? {'cache-control':'public, max-age=31536000, immutable'} : {}) }).end(body);
   });
   await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
   servers.push(server);
@@ -706,6 +706,21 @@ describe('deploy-live-check.mjs', () => {
     expect(result.stderr).toMatch(/bundle: .*index-Old999\.js.*index-Abc123_x\.js/);
     expect(result.stderr).not.toMatch(/terms\.html|privacy\.html|delete-data\.html|support\.html/);
     expect(live.requests.filter(r => r.cookie !== undefined)).toEqual([]);
+  });
+
+  it('checks runtime bytes and immutable cache headers', async () => {
+    const asset = `character-runtime/assets/${'a'.repeat(64)}.webp`;
+    const files = {...pages(), 'character-runtime/manifest.json':'{}', [asset]:'frame bytes'};
+    const good = await site(() => files);
+    const pass = await check(buildFolder(files), good.url, 0);
+    expect(pass.status, pass.stderr).toBe(0);
+    expect(good.requests.map(request=>request.path)).toEqual(expect.arrayContaining(['/character-runtime/manifest.json', `/${asset}`]));
+    const badAsset = await site(() => files, {path:`/${asset}`,type:'image/webp',cache:'public, max-age=0'});
+    const assetResult = await check(buildFolder(files), badAsset.url, 0);
+    expect(assetResult.status).toBe(1); expect(assetResult.stderr).toContain('wrong immutable cache policy');
+    const badManifest = await site(() => files, {path:'/character-runtime/manifest.json',type:'application/json',cache:'public, immutable'});
+    const manifestResult = await check(buildFolder(files), badManifest.url, 0);
+    expect(manifestResult.status).toBe(1); expect(manifestResult.stderr).toContain('wrong immutable cache policy');
   });
 
   it('fails within the time limit when the live terms page differs, and names only that page', async () => {

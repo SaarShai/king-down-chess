@@ -1,5 +1,6 @@
 import { sourceErrorForms } from './tools/lib/error-forms.mjs';
 import { isCharacterRuntimePublic } from './tools/lib/character-runtime-public.mjs';
+import { privateRuntimeData, validateManifest, validateRuntimeImage } from './tools/lib/character-runtime-guard.mjs';
 import { pluginSymbols } from './tools/lib/plugin-symbols.mjs';
 import { buildWorker } from './tools/plugin-runtime-build.mjs';
 import { configDefaults, defineConfig, type Plugin } from 'vitest/config';
@@ -52,11 +53,16 @@ function offlineBuild(): Plugin {
     configResolved(config) { publicDir = config.publicDir; root = config.root; outDir = resolve(root, config.build.outDir); },
     transformIndexHtml: { order: 'post', handler() {
       // Start the offline cache after the board is ready.
-      return [{ tag: 'script', injectTo: 'head', children: `if (location.pathname === '/' && 'serviceWorker' in navigator) addEventListener('load', async () => {
-  for (let t = 0; !window.view && t < 300; t++) await new Promise(r => setTimeout(r, 200));
-  await Promise.race([window.view?.ready(), new Promise(r => setTimeout(r, 60000))]);
-  navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch(() => {});
-});` }];
+      return [{ tag: 'script', injectTo: 'head', children: `window.kingdownWorkerReady = 'serviceWorker' in navigator ? new Promise(resolve => addEventListener('load', async () => {
+  try {
+    if (location.pathname === '/') {
+      for (let t = 0; !window.view && t < 300; t++) await new Promise(r => setTimeout(r, 200));
+      await Promise.race([window.view?.ready(), new Promise(r => setTimeout(r, 60000))]);
+      await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' });
+    } else if (!await navigator.serviceWorker.getRegistration()) return;
+    await navigator.serviceWorker.ready;
+  } catch {} finally { resolve(); }
+}, { once: true })) : Promise.resolve();` }];
     } },
     writeBundle(_options, bundle) {
       cpSync(publicDir, outDir, { recursive: true, filter: path => {
@@ -68,14 +74,17 @@ function offlineBuild(): Plugin {
       const effects = join(outDir, 'character-runtime/effects');
       if (existsSync(effects)) for (const path of walk(effects).filter(path => path.endsWith('/effect.json'))) {
         const meta = JSON.parse(readFileSync(path, 'utf8'));
-        if (meta.id === 'maester-beam' && meta.sprite && meta.shaftSourceRect && meta.flare?.sprite && meta.flare?.anchor) writeFileSync(path, JSON.stringify({ sprite: meta.sprite, shaftSourceRect: meta.shaftSourceRect, flare: { sprite: meta.flare.sprite, anchor: meta.flare.anchor } }) + '\n');
+        if (!meta || typeof meta !== 'object' || Array.isArray(meta)) throw new Error(`Unknown character effect metadata: ${path}`);
+        if (meta.id === 'maester-beam' && typeof meta.sprite === 'string' && Array.isArray(meta.shaftSourceRect) && meta.shaftSourceRect.length === 4 && meta.shaftSourceRect.every(Number.isFinite) && typeof meta.flare?.sprite === 'string' && Array.isArray(meta.flare.anchor) && meta.flare.anchor.length === 2 && meta.flare.anchor.every(Number.isFinite)) writeFileSync(path, JSON.stringify({ sprite: meta.sprite, shaftSourceRect: meta.shaftSourceRect, flare: { sprite: meta.flare.sprite, anchor: meta.flare.anchor } }) + '\n');
         else if (Object.keys(meta).length === 0 || ['archer-golden-arrow-flight-v1', 'queen-thorns-directional-v1'].includes(meta.id)) writeFileSync(path, '{}\n');
         else throw new Error(`Unknown character effect metadata: ${path}`);
       }
       const files = walk(outDir).map(path => relative(outDir, path).split(sep).join('/')).filter(f => f !== 'sw.js' && !f.startsWith('.well-known/')).sort();
       for (const file of files.filter(file => file.startsWith('character-runtime/'))) {
         const contents = readFileSync(join(outDir, file));
-        if (contents.includes('/Users/') || /\.codex|generated_images|"(?:prompt|provider|sourcePath|originalPath)"\s*:/.test(contents.toString('utf8'))) throw new Error(`Private character runtime data: ${file}`);
+        if (/\.(?:json|mjs)$/.test(file) && privateRuntimeData(contents)) throw new Error(`Private character runtime data: ${file}`);
+        if (file === 'character-runtime/manifest.json') writeFileSync(join(outDir, file), JSON.stringify(validateManifest(JSON.parse(contents.toString('utf8')))) + '\n');
+        validateRuntimeImage(contents, file);
       }
       const template = readFileSync(join(publicDir, 'sw.js'), 'utf8');
       const hash = createHash('sha256').update(template); // a change to the worker itself is a new version too
