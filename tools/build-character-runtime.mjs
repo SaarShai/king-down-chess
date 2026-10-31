@@ -5,6 +5,7 @@ import { dirname, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import {buildRuntimeEffects} from './character-runtime-effects.mjs';
+import {runMoveGates} from './anim/move-gates.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -67,6 +68,13 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
   if(digest(catalogBytes)!==selected.catalogSha256)throw Error('Pinned character catalog changed');
   const catalog=JSON.parse(catalogBytes);
   const accepted = new Map(catalog.entries.map(entry => [`${entry.character}:${entry.army}:${entry.id}`, entry]));
+  const restHashes=new Map();
+  for(const entry of selected.entries.filter(e=>e.kind==='idle'||e.kind==='turn')){
+    const bytes=await readFile(inside(source,resolve(source,entry.manifest)));if(digest(bytes)!==entry.sha256)throw Error(`Bank hash mismatch: ${entry.id}`);
+    const frames=JSON.parse(bytes).frames??[],key=`${entry.character}:${entry.army}`;
+    if(!restHashes.has(key))restHashes.set(key,new Set());
+    for(const frame of [frames[0],frames.at(-1)])if(frame?.sha256)restHashes.get(key).add(frame.sha256);
+  }
   const assets = new Map(), banks = [];
   let previous=new Map();
   try { if(JSON.parse(await readFile(resolve(output,'manifest.json'))).sourceToRuntimeScale===0.5)previous=new Map(JSON.parse(await readFile(resolve(output,'assets.json'))).map(asset=>[asset.sourceSha256,asset])); } catch {}
@@ -120,7 +128,7 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
     const from = direction(bank.from ?? entry.from ?? edge[0] ?? idDirections.at(-2));
     const to = direction(bank.to ?? entry.to ?? edge[1] ?? idDirections.at(-1));
     const facing = direction(bank.facing ?? bank.direction ?? entry.direction) ?? direction(idDirections.at(-1));
-    if (entry.kind === 'move' && (!facing || bank.facing !== facing || bank.direction !== facing || current.direction !== facing || entry.direction !== facing || bank.character !== entry.character || bank.army !== entry.army || bank.sampling !== 'nearest' || new Set(bank.frames.map(f => f.sha256)).size < 4 || !Number.isFinite(bank.bodyHeightPx) || bank.bodyHeightPx <= 0)) throw Error(`Invalid painted move: ${entry.id}`);
+    if (entry.kind === 'move' && (!facing || bank.facing !== facing || bank.direction !== facing || current.direction !== facing || entry.direction !== facing || bank.character !== entry.character || bank.army !== entry.army || bank.sampling !== 'nearest' || new Set(bank.frames.map(f => f.sha256)).size < 4 || !Number.isFinite(bank.bodyHeightPx) || bank.bodyHeightPx <= 0 || !Number.isFinite(bank.strideSquares) || bank.strideSquares <= 0)) throw Error(`Invalid painted move: ${entry.id}`);
     if (entry.kind === 'move' && banks.some(b => b.kind === 'move' && b.character === entry.character && b.army === entry.army && b.facing === facing)) throw Error(`Duplicate painted move: ${entry.id}`);
     if (entry.kind === 'movement-study' && (!direction(current.direction) || bank.direction !== current.direction || bank.army !== entry.army || bank.character != null && bank.character !== entry.character || bank.facing != null && bank.facing !== current.direction || entry.direction != null && entry.direction !== current.direction)) throw Error(`Invalid movement facing: ${entry.id}`);
     if (entry.kind === 'movement-study' && banks.some(b => b.kind === 'movement' && b.character === entry.character && b.army === entry.army && b.facing === facing)) throw Error(`Duplicate movement facing: ${entry.character}/${entry.army}/${facing}`);
@@ -161,13 +169,23 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
       if (!Array.isArray(offset) || offset.length!==2 || offset.some((n,i)=>!Number.isInteger(n)||n<0||n%2||image.size[i]*2+2*n!==canvas[i])) throw Error(`Frame canvas mismatch: ${entry.id}`);
       frames.push({ url: image.url, sourceSha256: image.sourceSha256, timeMs, ...(Array.isArray(frame.effectAnchor) ? { effectAnchor: frame.effectAnchor.map(n => n / 2) } : {}), ...(frame.visibleIntervalMs ? { visibleIntervalMs: frame.visibleIntervalMs } : {}), ...(frame.endMs == null ? {} : { endMs: frame.endMs }) });
     }
+    if(entry.kind==='move'){
+      if(!/^[a-f0-9]{64}$/.test(bank.walkSourceBankSha256??''))throw Error(`Missing painted move source: ${entry.id}`);
+      const originalBytes=await readFile(resolve(source,'banks',`${bank.walkSourceBankSha256}.json`));
+      if(digest(originalBytes)!==bank.walkSourceBankSha256)throw Error(`Painted move source hash mismatch: ${entry.id}`);
+      const original=JSON.parse(originalBytes),sourceFrames=original.frames.map((f,i)=>({sha256:f.sha256,durationMs:f.durationMs,pivot:f.pivot,scale:f.uniformScale??f.scale??f.registration?.scale??f.registration?.uniformScale??bank.frames[i]?.walkSourceScale,translation:(f.translation??f.registrationTranslation??f.registration?.translation??f.registration?.paste??bank.frames[i]?.walkSourceTranslation)?.slice(0,2)}));
+      const rests=new Set(restHashes.get(`${entry.character}:${entry.army}`)??[]);rests.add(bank.walkRestTransform?.standSha256);
+      const heights={pawn:96,knight:112,bishop:114,rook:132,queen:120,archer:120,paladin:124,maester:112,ogre:136,guard:114};
+      const result=runMoveGates({bank,source:sourceFrames,catalogHashes:new Set(sourceFrames.map(f=>f.sha256)),restHashes:rests,transform:bank.walkRestTransform,height:heights[entry.character]??130,ranges:bank.walkRanges});
+      if(result.status!=='pass')throw Error(`Painted move gates failed: ${entry.id}: ${result.failures.join(', ')}`);
+    }
     const sampling = [bank.sampling, bank.schedule?.sampling, bank.selectedSchedule?.sampling, bank.approvedPlayerSchedule?.sampling];
     const floor = sampling.some(s => typeof s === 'string' && /\bfloor\b/.test(s));
     banks.push({ character: entry.character, army: entry.army, id: entry.id, kind: entry.kind === 'movement-study' ? 'movement' : entry.kind, sourceSha256: entry.sha256, canvasSize: canvas.map(n => n / 2), pivot: pivot?.map(n => n / 2) ?? null, durationMs, from: from ?? (entry.kind === 'turn' ? direction(idDirections.at(-2)) : null), to, facing,
       bodyHeightPx: bank.bodyHeightPx == null ? null : bank.bodyHeightPx / 2, bodyTopPx: assets.get(bank.frames[0].sha256).top / 2, boardScale: bank.boardScale == null ? null : bank.boardScale * 2, targetPoint: Array.isArray(bank.targetPoint) ? bank.targetPoint.map(n => n / 2) : null,
       beatTimes: bank.beatTimes ?? {}, effectAnchors: (Array.isArray(bank.effectAnchors) ? bank.effectAnchors : (bank.effectAnchors?.timedframes?.[entry.army] ?? []).map(frame => ({ id: 'contact-bloom', timeMs: frame.timeMs, point: frame.contactBloomAnchor }))).filter(anchor => Array.isArray(anchor.point) && anchor.point.length === 2 && anchor.point.every(Number.isFinite) && Number.isFinite(anchor.timeMs)).map(anchor => ({ id: anchor.id, timeMs: anchor.timeMs, point: anchor.point.map(n => n / 2), ...(anchor.visibility ? { visibility: anchor.visibility } : {}) })),
       contactMs: bank.beatTimes?.contact ?? bank.beatTimes?.contactMs ?? bank.beatTimes?.release ?? bank.frames.find(f => f.phase === 'release' || f.phase === 'contact')?.timeMs ?? null,
-      nearest: sourceFrames === bank.frames && !floor && (entry.kind === 'turn' || sampling.some(s => s === 'nearest')), frames });
+      nearest: sourceFrames === bank.frames && !floor && (entry.kind === 'turn' || sampling.some(s => s === 'nearest')), ...(entry.kind === 'move' ? {strideSquares:bank.strideSquares} : {}), frames });
   }
   for (const bank of banks.filter(b => b.kind === 'idle')) {
     const hash = bank.frames[0].sourceSha256;

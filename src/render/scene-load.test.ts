@@ -47,13 +47,13 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
 afterEach(() => { scene?.dispose(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 it.each([
- {name:'one square',fen:'4k3/8/8/8/8/8/P7/4K3 w - - 0 1',from:8,to:16,ms:640},
- {name:'two squares',fen:'4k3/8/8/8/8/8/P7/4K3 w - - 0 1',from:8,to:24,ms:1280},
- {name:'promotion',fen:'4k3/P7/8/8/8/8/8/4K3 w - - 0 1',from:48,to:56,ms:640,promo:pieces.Q},
+ {name:'one square',fen:'4k3/8/8/8/8/8/P7/4K3 w - - 0 1',from:8,to:16,ms:800},
+ {name:'two squares',fen:'4k3/8/8/8/8/8/P7/4K3 w - - 0 1',from:8,to:24,ms:1600},
+ {name:'promotion',fen:'4k3/P7/8/8/8/8/8/4K3 w - - 0 1',from:48,to:56,ms:800,promo:pieces.Q},
 ])('plays a painted walk for $name at its own pace', async ({fen,from,to,ms,promo}) => {
  const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,facing:'N'};
  const idle={...base,id:'idle',kind:'idle',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
- const move={...base,id:'painted',kind:'move',durationMs:640,nearest:true,frames:[0,160,320,480].map(timeMs=>({url:`runtime-walk-${timeMs}.png`,timeMs}))};
+ const move={...base,id:'painted',kind:'move',strideSquares:.8,durationMs:640,nearest:true,frames:[0,160,320,480].map(timeMs=>({url:`runtime-walk-${timeMs}.png`,timeMs}))};
  vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,move]})})));
  const b=board(true,true);scene.setPosition(fromFen(fen));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
  const playing=scene.play({from,to,captures:[],...(promo?{promo}:{})});await vi.advanceTimersByTimeAsync(32);
@@ -65,13 +65,25 @@ it.each([
 it('uses the attack for a capture even when a painted walk exists', async () => {
  const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,facing:'NE'};
  const idle={...base,id:'idle',kind:'idle',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
- const move={...base,id:'painted',kind:'move',durationMs:640,frames:[0,160,320,480].map(timeMs=>({url:`runtime-walk-${timeMs}.png`,timeMs}))};
+ const move={...base,id:'painted',kind:'move',strideSquares:1,durationMs:640,frames:[0,160,320,480].map(timeMs=>({url:`runtime-walk-${timeMs}.png`,timeMs}))};
  const attack={...base,id:'attack',kind:'attack',durationMs:600,frames:[{url:'runtime-attack.png',timeMs:0}]};
  vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,move,attack]})})));
  const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/1p6/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
  const playing=scene.play({from:8,to:17,captures:[17]});await vi.advanceTimersByTimeAsync(160);
  expect(scene.playing).not.toBe('paintedWalk');expect(scene.characterFrames.find(f=>f.square===8)?.bank).toBe('attack');
  await vi.advanceTimersByTimeAsync(2000);await expect(playing).resolves.toBe(true);
+});
+
+it('raises the painted cadence to the cap for a long move', async () => {
+ const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,facing:'N'};
+ const idle={...base,id:'idle',kind:'idle',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const move={...base,id:'painted',kind:'move',strideSquares:.4,durationMs:640,frames:[0,160,320,480].map(timeMs=>({url:`runtime-walk-${timeMs}.png`,timeMs}))};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,move]})})));
+ const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ const playing=scene.play({from:8,to:24,captures:[]});await vi.advanceTimersByTimeAsync(32);
+ const seen:number[]=[];for(let t=0;t<500;t+=16){const frame=scene.characterFrames.find(f=>f.square===8&&f.bank==='painted');if(frame)seen.push(frame.time);await vi.advanceTimersByTimeAsync(16);}
+ const last=seen.indexOf(480);expect(last).toBeGreaterThan(0);expect(seen.slice(last+1)).toContain(0);
+ await vi.advanceTimersByTimeAsync(1200);await expect(playing).resolves.toBe(true);
 });
 
 it('keeps the old pawn hop when there is no painted walk', async () => {
@@ -85,7 +97,7 @@ it('keeps the old pawn hop when there is no painted walk', async () => {
 it('walks the king on castling and leaves the rook for the position update', async () => {
  const base={character:'king-frost',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,facing:'E'};
  const idle={...base,id:'idle',kind:'idle',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
- const move={...base,id:'painted',kind:'move',durationMs:640,frames:[0,160,320,480].map(timeMs=>({url:`runtime-walk-${timeMs}.png`,timeMs}))};
+ const move={...base,id:'painted',kind:'move',strideSquares:1,durationMs:640,frames:[0,160,320,480].map(timeMs=>({url:`runtime-walk-${timeMs}.png`,timeMs}))};
  vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,move]})})));
  const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/8/4K2R w K - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
  const castle={from:4,to:6,captures:[],castle:{from:7,to:5}},playing=scene.play(castle);await vi.advanceTimersByTimeAsync(160);

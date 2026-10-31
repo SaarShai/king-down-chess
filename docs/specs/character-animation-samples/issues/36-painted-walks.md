@@ -4,6 +4,7 @@ Status: ready-for-agent
 
 ## Plan and checks
 
+- Round 5: measure stride and fit each walk bank to its facing. Add build gates and a reproducible catalog promotion. Remove unused banks. Fix the missing-turn fallback and turn handoff. Refresh the game preview, run the requested checks, and update PR 236.
 - Round 4: use a flat gait for selected painted walks, with one cycle per square and a 1,600 ms cap. Test special moves and the old gaits. Record game-size and enlarged views. Run the requested checks and update the pull request.
 - List every army, character and direction. Count distinct painted frames.
 - Keep the catalog placement and timing. Match each figure to its shipped rest with one transform.
@@ -13,8 +14,11 @@ Status: ready-for-agent
 
 ## Findings
 
-- A selected painted walk uses flat, eased travel at one cycle per square, up to 1,600 ms. Its poses keep their holds. Stratus hover stops during that travel.
-- Captures keep their attack. A two-square pawn move takes two cycles. Promotion follows the pawn's arrival. Castling moves the king; the rook changes square with the position update. Knight and Paladin keep their own moves.
+- Round 5 work in progress: travel uses catalog stride and caps cadence at 2×. The catalog marks some stride values as draft. The Knight and Paladin keep their leap and charge; their 32 unused walk banks leave the package. A missing turn route uses the old motion. The walk starts after the outward turn endpoint.
+- A selected painted walk uses flat, linear travel. Its time follows the catalog stride, up to 1,600 ms. The pose rate rises to at most 2× when the cap applies. Stratus hover stops during travel.
+- Captures keep their attack. A two-square pawn move uses its stride and the time cap. Promotion follows the pawn's arrival. Castling moves the king; the rook changes square with the position update. Knight and Paladin keep their own moves.
+- Each of the 164 shipped walk banks has one direction transform. The median silhouette height, ground and centre match its facing endpoint in the offline measurement. The before and after table is `r5-fit-report.json` in the run folder.
+- From the catalog stride values, the white pawn N, queen SE, rook E six-square and queen NE five-diagonal skate ratios change from 1.25, 3.14, 3.75 and 6.29 to 1.00, 1.00, 1.88 and 3.14. The last two reach the rate cap. These are estimates, not contact measurements.
 - Ten Ogre cells have four frame slots but only three distinct frame hashes. The four-pose rule excludes them.
 - The catalog includes timings other than 160 and 80 ms. Preserve the recorded timing for each frame.
 - The source inventory has 196 ready, 66 thin, six empty and four missing cells.

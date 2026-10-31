@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "ready",
-  "catalogSha256": "9c299c059f6cbef5a250ff98bae6f7421b50ba32059addf6b3406b92b24a0a25",
+  "catalogSha256": "221dce17b3d70655888e4a606eeffa92f885f4b22ea7b37d8aeaa905f2284100",
   "entries": [
     {
       "character": "pawn",
@@ -3833,8 +3833,8 @@
       "kind": "move",
       "direction": "N",
       "id": "white-walk-N",
-      "manifest": "banks/499ca25a096940488ce81f94a15286b431e9ff0e3f498b7770c868d8bb125d05.json",
-      "sha256": "499ca25a096940488ce81f94a15286b431e9ff0e3f498b7770c868d8bb125d05"
+      "manifest": "banks/7623e5a8b54ae86d14bbe360ddde2a6ace790adc82016d80566554ce50e77588.json",
+      "sha256": "7623e5a8b54ae86d14bbe360ddde2a6ace790adc82016d80566554ce50e77588"
     },
     {
       "character": "archer",
@@ -3842,8 +3842,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "white-walk-NE",
-      "manifest": "banks/cfe4f55333c4760fadccd13d8260ca6d349792427c01344b48b1792d10bea35f.json",
-      "sha256": "cfe4f55333c4760fadccd13d8260ca6d349792427c01344b48b1792d10bea35f"
+      "manifest": "banks/37ef73e50a8925ebdc97a68b40bd61911c15a6c04fb95f919a4ee80c08b58d87.json",
+      "sha256": "37ef73e50a8925ebdc97a68b40bd61911c15a6c04fb95f919a4ee80c08b58d87"
     },
     {
       "character": "archer",
@@ -3851,8 +3851,8 @@
       "kind": "move",
       "direction": "E",
       "id": "white-walk-E",
-      "manifest": "banks/52bd8709805d4d60c9f67341409ba4b9af8d34b7a22f45e25dce0a5433d5e7d7.json",
-      "sha256": "52bd8709805d4d60c9f67341409ba4b9af8d34b7a22f45e25dce0a5433d5e7d7"
+      "manifest": "banks/9f9b1c1673b5a98199816dfec5eeadebfb4cf9f56af5c20d56f94c9ebd5c0268.json",
+      "sha256": "9f9b1c1673b5a98199816dfec5eeadebfb4cf9f56af5c20d56f94c9ebd5c0268"
     },
     {
       "character": "archer",
@@ -3860,8 +3860,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "white-walk-SE",
-      "manifest": "banks/d9e3af802ba06473f30251cbc426283fc5b68f8a9ea0da1e24d9faf601f3ea7b.json",
-      "sha256": "d9e3af802ba06473f30251cbc426283fc5b68f8a9ea0da1e24d9faf601f3ea7b"
+      "manifest": "banks/af963c2444998bc662ff2f817610e8649aa9088924358fd117221a3db934f4df.json",
+      "sha256": "af963c2444998bc662ff2f817610e8649aa9088924358fd117221a3db934f4df"
     },
     {
       "character": "archer",
@@ -3869,8 +3869,8 @@
       "kind": "move",
       "direction": "S",
       "id": "white-walk-S",
-      "manifest": "banks/ccad8efbf8d6e1fc1df46ea8707ed3ca6c9dcf54dc70aa5e6e7b6a9cfad62c60.json",
-      "sha256": "ccad8efbf8d6e1fc1df46ea8707ed3ca6c9dcf54dc70aa5e6e7b6a9cfad62c60"
+      "manifest": "banks/0cf300d515dc8a6d58a2b504f50b50edc859bfc35532e2bd7d915345acee27a9.json",
+      "sha256": "0cf300d515dc8a6d58a2b504f50b50edc859bfc35532e2bd7d915345acee27a9"
     },
     {
       "character": "archer",
@@ -3878,8 +3878,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "white-walk-SW",
-      "manifest": "banks/f3fe09f4805c9c80b83e1494d3059555d156df3559ee1c9af1ad7d6bd99364c7.json",
-      "sha256": "f3fe09f4805c9c80b83e1494d3059555d156df3559ee1c9af1ad7d6bd99364c7"
+      "manifest": "banks/a97571b2eee83aa17526cb8ac7682087f4ad65a940cec67947655fe65791a8c9.json",
+      "sha256": "a97571b2eee83aa17526cb8ac7682087f4ad65a940cec67947655fe65791a8c9"
     },
     {
       "character": "archer",
@@ -3887,8 +3887,8 @@
       "kind": "move",
       "direction": "W",
       "id": "white-walk-W",
-      "manifest": "banks/640d997a20fb3aeeb5377697e50b08f4f7aeb2585b0423b67b9b05c00733a6d9.json",
-      "sha256": "640d997a20fb3aeeb5377697e50b08f4f7aeb2585b0423b67b9b05c00733a6d9"
+      "manifest": "banks/b2a5529f296ccc24d7bb43292e88f1ba82443108760d806117447607600cd490.json",
+      "sha256": "b2a5529f296ccc24d7bb43292e88f1ba82443108760d806117447607600cd490"
     },
     {
       "character": "archer",
@@ -3896,8 +3896,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "white-walk-NW",
-      "manifest": "banks/c37bacf359084f6acc724709e454dc277f78af88391558eeafec444efe23b92f.json",
-      "sha256": "c37bacf359084f6acc724709e454dc277f78af88391558eeafec444efe23b92f"
+      "manifest": "banks/392d421143df70b0ec6023050c71d4803ec86d27ae74c73873fb7c0f20c1cb09.json",
+      "sha256": "392d421143df70b0ec6023050c71d4803ec86d27ae74c73873fb7c0f20c1cb09"
     },
     {
       "character": "archer",
@@ -3905,8 +3905,8 @@
       "kind": "move",
       "direction": "N",
       "id": "black-walk-N",
-      "manifest": "banks/3d5d54e3e286f387a85f035a5635d6de8f8e85787e9e17ce804d7d5602e39e54.json",
-      "sha256": "3d5d54e3e286f387a85f035a5635d6de8f8e85787e9e17ce804d7d5602e39e54"
+      "manifest": "banks/027e35337fb343d60f7c8cac872a1bb4609dc62ac82faf62bf455963159c2868.json",
+      "sha256": "027e35337fb343d60f7c8cac872a1bb4609dc62ac82faf62bf455963159c2868"
     },
     {
       "character": "archer",
@@ -3914,8 +3914,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "black-walk-NE",
-      "manifest": "banks/8917600129965b3f9c7b33d79d8efde208b41843878c60962846c1fdd641e0e3.json",
-      "sha256": "8917600129965b3f9c7b33d79d8efde208b41843878c60962846c1fdd641e0e3"
+      "manifest": "banks/2da96cadc0614c56392c7e92b92457703e3e989de37c6046e7cb7e456ebd684f.json",
+      "sha256": "2da96cadc0614c56392c7e92b92457703e3e989de37c6046e7cb7e456ebd684f"
     },
     {
       "character": "archer",
@@ -3923,8 +3923,8 @@
       "kind": "move",
       "direction": "E",
       "id": "black-walk-E",
-      "manifest": "banks/20a4d4c7490f60b79bc7d76a7bc450528d97921cb7885ca1dfcee40e7e272dbf.json",
-      "sha256": "20a4d4c7490f60b79bc7d76a7bc450528d97921cb7885ca1dfcee40e7e272dbf"
+      "manifest": "banks/cd91016edca4cb3055816ccec788644be76396e0419484108d97462645977c23.json",
+      "sha256": "cd91016edca4cb3055816ccec788644be76396e0419484108d97462645977c23"
     },
     {
       "character": "archer",
@@ -3932,8 +3932,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/63cb17af45421c72feef0760eba57a05ad542482f5459324774f0d6d4438f613.json",
-      "sha256": "63cb17af45421c72feef0760eba57a05ad542482f5459324774f0d6d4438f613"
+      "manifest": "banks/5b3990161b9509e0199db2ebbbd393ac3a7b4cb52ad72fad9f1cdba3216455b5.json",
+      "sha256": "5b3990161b9509e0199db2ebbbd393ac3a7b4cb52ad72fad9f1cdba3216455b5"
     },
     {
       "character": "archer",
@@ -3941,8 +3941,8 @@
       "kind": "move",
       "direction": "S",
       "id": "black-walk-S",
-      "manifest": "banks/54f8df1bd87dea6ced1c03d9ab37d9bc4de3058ee9a827597bee6f0265170968.json",
-      "sha256": "54f8df1bd87dea6ced1c03d9ab37d9bc4de3058ee9a827597bee6f0265170968"
+      "manifest": "banks/e770ed1255eedd4e5ea2627eb1826be0a8b0ae5132fd40dada0d76c9f6bb6331.json",
+      "sha256": "e770ed1255eedd4e5ea2627eb1826be0a8b0ae5132fd40dada0d76c9f6bb6331"
     },
     {
       "character": "archer",
@@ -3950,8 +3950,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "black-walk-SW",
-      "manifest": "banks/72b99cf4c0c4e3cc8b79e59989a4fbdd83e3b26b50ef59575c257ba33fda25e3.json",
-      "sha256": "72b99cf4c0c4e3cc8b79e59989a4fbdd83e3b26b50ef59575c257ba33fda25e3"
+      "manifest": "banks/fba19600469646ec9667c9d70b1969d2c73500f4b8574516a4a06f74ad964390.json",
+      "sha256": "fba19600469646ec9667c9d70b1969d2c73500f4b8574516a4a06f74ad964390"
     },
     {
       "character": "archer",
@@ -3959,8 +3959,8 @@
       "kind": "move",
       "direction": "W",
       "id": "black-walk-W",
-      "manifest": "banks/f53d855ea1438e7f78d1c58d71f77127f6630b7350a793a3d99e283d3505ca1f.json",
-      "sha256": "f53d855ea1438e7f78d1c58d71f77127f6630b7350a793a3d99e283d3505ca1f"
+      "manifest": "banks/fdf388329088c5433becf1d7231a33210fa3f5906f0dc0bc789c1cfe46a3c153.json",
+      "sha256": "fdf388329088c5433becf1d7231a33210fa3f5906f0dc0bc789c1cfe46a3c153"
     },
     {
       "character": "archer",
@@ -3968,8 +3968,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "black-walk-NW",
-      "manifest": "banks/351ac550fcf0afdaf39f7e0dbcc8733013f7433fb1d0d0bf5fd156b3beb679a1.json",
-      "sha256": "351ac550fcf0afdaf39f7e0dbcc8733013f7433fb1d0d0bf5fd156b3beb679a1"
+      "manifest": "banks/e18f0497d2a3753fa474c1b2cc3a04f0262a338b3c327c9ae871db8aaa5eca5c.json",
+      "sha256": "e18f0497d2a3753fa474c1b2cc3a04f0262a338b3c327c9ae871db8aaa5eca5c"
     },
     {
       "character": "beast",
@@ -3977,8 +3977,8 @@
       "kind": "move",
       "direction": "N",
       "id": "white-walk-N",
-      "manifest": "banks/0b9b4a1c1579b18a41949258e71a8ebf7e531c0191bf03e3b527c68c84ee07f5.json",
-      "sha256": "0b9b4a1c1579b18a41949258e71a8ebf7e531c0191bf03e3b527c68c84ee07f5"
+      "manifest": "banks/50be1cdac60de581d7f415c8487ccf337140049a42b54804e5dc2cdb45ac20dc.json",
+      "sha256": "50be1cdac60de581d7f415c8487ccf337140049a42b54804e5dc2cdb45ac20dc"
     },
     {
       "character": "beast",
@@ -3986,8 +3986,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "white-walk-NE",
-      "manifest": "banks/9acd7da55c3f52229d0d4282691386fa5adeb55ed6cc72dc4f0e1f992ade470b.json",
-      "sha256": "9acd7da55c3f52229d0d4282691386fa5adeb55ed6cc72dc4f0e1f992ade470b"
+      "manifest": "banks/9f8d8d38ded309cb2d10945362d2ac0668c3bbc0a1703113a533a3c9cc4f6308.json",
+      "sha256": "9f8d8d38ded309cb2d10945362d2ac0668c3bbc0a1703113a533a3c9cc4f6308"
     },
     {
       "character": "beast",
@@ -3995,8 +3995,8 @@
       "kind": "move",
       "direction": "E",
       "id": "white-walk-E",
-      "manifest": "banks/5f9301caa8d4e9fa2b6b5556f7f2718436055278e52bfd6aacf1a35f6895b0a1.json",
-      "sha256": "5f9301caa8d4e9fa2b6b5556f7f2718436055278e52bfd6aacf1a35f6895b0a1"
+      "manifest": "banks/dd7e6bb9de5b08338de4aad47d173dc2806ce33574c4853fa27045500d6e0eb7.json",
+      "sha256": "dd7e6bb9de5b08338de4aad47d173dc2806ce33574c4853fa27045500d6e0eb7"
     },
     {
       "character": "beast",
@@ -4004,8 +4004,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "white-walk-SE",
-      "manifest": "banks/35a7ba5a01c3ab709d3e6013881880dfb3469b6925ce58ae42e7a0dbdfbc665b.json",
-      "sha256": "35a7ba5a01c3ab709d3e6013881880dfb3469b6925ce58ae42e7a0dbdfbc665b"
+      "manifest": "banks/63bd73f54197caa3ed6278391a5ba63aa53ef7de9c1d17ca6c129446856a9c91.json",
+      "sha256": "63bd73f54197caa3ed6278391a5ba63aa53ef7de9c1d17ca6c129446856a9c91"
     },
     {
       "character": "beast",
@@ -4013,8 +4013,8 @@
       "kind": "move",
       "direction": "S",
       "id": "white-walk-S",
-      "manifest": "banks/66ec972ebf3349a2e0ada28e76e4e16799a8d6019b64c24256bcffae2d8ae64c.json",
-      "sha256": "66ec972ebf3349a2e0ada28e76e4e16799a8d6019b64c24256bcffae2d8ae64c"
+      "manifest": "banks/a4ba36dc67949b9fda21e8590199e68bc5415371af55979c98782ddb9b03f24b.json",
+      "sha256": "a4ba36dc67949b9fda21e8590199e68bc5415371af55979c98782ddb9b03f24b"
     },
     {
       "character": "beast",
@@ -4022,8 +4022,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "white-walk-SW",
-      "manifest": "banks/5b85bc0af81b1da9a6b460d78fe0fa4b59ee8bed8a61c714301f718114c5154a.json",
-      "sha256": "5b85bc0af81b1da9a6b460d78fe0fa4b59ee8bed8a61c714301f718114c5154a"
+      "manifest": "banks/2c390b426086c7cc33c211c0d5b24ebecd5f9a28024a498e03fd1b4cc2e18261.json",
+      "sha256": "2c390b426086c7cc33c211c0d5b24ebecd5f9a28024a498e03fd1b4cc2e18261"
     },
     {
       "character": "beast",
@@ -4031,8 +4031,8 @@
       "kind": "move",
       "direction": "W",
       "id": "white-walk-W",
-      "manifest": "banks/e22aaf649f9f1b58bf2d400942958e6070052a6db143a22018794d5bd8d8f6c1.json",
-      "sha256": "e22aaf649f9f1b58bf2d400942958e6070052a6db143a22018794d5bd8d8f6c1"
+      "manifest": "banks/1df5d458d3083096c492d7e74ad1fa955d0d225f26611ce011753801a806c27b.json",
+      "sha256": "1df5d458d3083096c492d7e74ad1fa955d0d225f26611ce011753801a806c27b"
     },
     {
       "character": "beast",
@@ -4040,8 +4040,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "white-walk-NW",
-      "manifest": "banks/7a6abc62776955700aaf0a72dc51b7f7686698adfb9dfa172a345b68ab0cd5f2.json",
-      "sha256": "7a6abc62776955700aaf0a72dc51b7f7686698adfb9dfa172a345b68ab0cd5f2"
+      "manifest": "banks/81b8b1019cf9a910cd89a3c13b20742e94a0cf3d2478a17690b8bbb1ac49383f.json",
+      "sha256": "81b8b1019cf9a910cd89a3c13b20742e94a0cf3d2478a17690b8bbb1ac49383f"
     },
     {
       "character": "beast",
@@ -4049,8 +4049,8 @@
       "kind": "move",
       "direction": "N",
       "id": "black-walk-N",
-      "manifest": "banks/024f3ece7e67b1dd0ee89e00d927ef03c512f0eb4dd35bfbaad0ab36492fdb0e.json",
-      "sha256": "024f3ece7e67b1dd0ee89e00d927ef03c512f0eb4dd35bfbaad0ab36492fdb0e"
+      "manifest": "banks/bc4b6db77314d4ac8abd929cdfdd3d97b947e69509d9f00be2c8711dc4a1c944.json",
+      "sha256": "bc4b6db77314d4ac8abd929cdfdd3d97b947e69509d9f00be2c8711dc4a1c944"
     },
     {
       "character": "beast",
@@ -4058,8 +4058,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "black-walk-NE",
-      "manifest": "banks/e8cbca6f957efafdbe0b76fe354c7d5e61c42829c4f429765b958777942fc0df.json",
-      "sha256": "e8cbca6f957efafdbe0b76fe354c7d5e61c42829c4f429765b958777942fc0df"
+      "manifest": "banks/803cb8e4e1841df37e9a235675e14b626268ea0df713e90330aa6bd85df1cddf.json",
+      "sha256": "803cb8e4e1841df37e9a235675e14b626268ea0df713e90330aa6bd85df1cddf"
     },
     {
       "character": "beast",
@@ -4067,8 +4067,8 @@
       "kind": "move",
       "direction": "E",
       "id": "black-walk-E",
-      "manifest": "banks/18cc4aa615bbb69b8f0fa4c3d07ba5c97216a9c401a77a41a2878dd8ff8d75b5.json",
-      "sha256": "18cc4aa615bbb69b8f0fa4c3d07ba5c97216a9c401a77a41a2878dd8ff8d75b5"
+      "manifest": "banks/9e705fe8bc8d08f9551ecd0890c3f80d529b4aeceacf4294a163edf1d42150cc.json",
+      "sha256": "9e705fe8bc8d08f9551ecd0890c3f80d529b4aeceacf4294a163edf1d42150cc"
     },
     {
       "character": "beast",
@@ -4076,8 +4076,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/da890c61ed0dc2ed51ea836897fc60b32f42efdd46fe25eb7b3667f3097886fd.json",
-      "sha256": "da890c61ed0dc2ed51ea836897fc60b32f42efdd46fe25eb7b3667f3097886fd"
+      "manifest": "banks/39d60bc42adef5d785f0f41b970920bea04dfa1a749192aaa3011c42d66987b8.json",
+      "sha256": "39d60bc42adef5d785f0f41b970920bea04dfa1a749192aaa3011c42d66987b8"
     },
     {
       "character": "beast",
@@ -4085,8 +4085,8 @@
       "kind": "move",
       "direction": "S",
       "id": "black-walk-S",
-      "manifest": "banks/0e24d8efe9732fd77525bc6ae9c3998cd8bf8fb6c90f0d430c027b13474008ed.json",
-      "sha256": "0e24d8efe9732fd77525bc6ae9c3998cd8bf8fb6c90f0d430c027b13474008ed"
+      "manifest": "banks/5249f51098e65799fdd0f2617d1ce498b6607aa54252749be462317f3bc6a84e.json",
+      "sha256": "5249f51098e65799fdd0f2617d1ce498b6607aa54252749be462317f3bc6a84e"
     },
     {
       "character": "beast",
@@ -4094,8 +4094,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "black-walk-SW",
-      "manifest": "banks/e67bcd9299c6e959ee0a8452db6162962ade4129ed4e2cf5b7442a71ec21e2a6.json",
-      "sha256": "e67bcd9299c6e959ee0a8452db6162962ade4129ed4e2cf5b7442a71ec21e2a6"
+      "manifest": "banks/8a50bb08d36e9e58bb8472f4f2bddf1f59824ba1ceab31fd17522aa64ec8aad3.json",
+      "sha256": "8a50bb08d36e9e58bb8472f4f2bddf1f59824ba1ceab31fd17522aa64ec8aad3"
     },
     {
       "character": "beast",
@@ -4103,8 +4103,8 @@
       "kind": "move",
       "direction": "W",
       "id": "black-walk-W",
-      "manifest": "banks/635b724a1987b904ad959243e1da0b260e37b1aff6d39f34ecfa0ae2a094ecc2.json",
-      "sha256": "635b724a1987b904ad959243e1da0b260e37b1aff6d39f34ecfa0ae2a094ecc2"
+      "manifest": "banks/813c7a4fd96b988f53e58b8fc493fb2de07c80ddf209bd1cb8e5dd7c3dc0471e.json",
+      "sha256": "813c7a4fd96b988f53e58b8fc493fb2de07c80ddf209bd1cb8e5dd7c3dc0471e"
     },
     {
       "character": "beast",
@@ -4112,8 +4112,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "black-walk-NW",
-      "manifest": "banks/c4cedc7bd1d42a0887a23bac014e4b0c9f3703ccdc4768bca57daf6e2445063a.json",
-      "sha256": "c4cedc7bd1d42a0887a23bac014e4b0c9f3703ccdc4768bca57daf6e2445063a"
+      "manifest": "banks/4b01037c2b565a8e3b4c045185e2a15e426b18971729afb56a1451270692b477.json",
+      "sha256": "4b01037c2b565a8e3b4c045185e2a15e426b18971729afb56a1451270692b477"
     },
     {
       "character": "bishop",
@@ -4121,8 +4121,8 @@
       "kind": "move",
       "direction": "N",
       "id": "white-walk-N",
-      "manifest": "banks/9f31ef2368dce70b42d6ca95c20e3b02b39ebe21b3f8589af3970166d9904e07.json",
-      "sha256": "9f31ef2368dce70b42d6ca95c20e3b02b39ebe21b3f8589af3970166d9904e07"
+      "manifest": "banks/cb3b670b2aa75313f75f8ac19f8aca703ad393de6e1620075df20165383ae56d.json",
+      "sha256": "cb3b670b2aa75313f75f8ac19f8aca703ad393de6e1620075df20165383ae56d"
     },
     {
       "character": "bishop",
@@ -4130,8 +4130,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "white-walk-NE",
-      "manifest": "banks/ce9c94f7ec9d5b615153232587284749664c1e7ed86a742cc32750d88cb05de5.json",
-      "sha256": "ce9c94f7ec9d5b615153232587284749664c1e7ed86a742cc32750d88cb05de5"
+      "manifest": "banks/2fa69d58c1cce968e0fa4f2eeadec0a5f14c4460a1ac7b27dd0a061944b615c4.json",
+      "sha256": "2fa69d58c1cce968e0fa4f2eeadec0a5f14c4460a1ac7b27dd0a061944b615c4"
     },
     {
       "character": "bishop",
@@ -4139,8 +4139,8 @@
       "kind": "move",
       "direction": "E",
       "id": "white-walk-E",
-      "manifest": "banks/7f984e6154777e02b41a33624064429fd0b02bf62e4c1d23ab5a76afd52bad0d.json",
-      "sha256": "7f984e6154777e02b41a33624064429fd0b02bf62e4c1d23ab5a76afd52bad0d"
+      "manifest": "banks/896e4664803d645469424d5d160a1a376182493e5b6de524fec02b6a46e49155.json",
+      "sha256": "896e4664803d645469424d5d160a1a376182493e5b6de524fec02b6a46e49155"
     },
     {
       "character": "bishop",
@@ -4148,8 +4148,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "white-walk-SE",
-      "manifest": "banks/707b29f76bac6a9dfb01d2563d561f4257cb15ddc500aa1479476578645d2d95.json",
-      "sha256": "707b29f76bac6a9dfb01d2563d561f4257cb15ddc500aa1479476578645d2d95"
+      "manifest": "banks/de3332e46e0b2c2c689fbba8441ca9addcd4f8bb68b41b0cad0515bb18d777d3.json",
+      "sha256": "de3332e46e0b2c2c689fbba8441ca9addcd4f8bb68b41b0cad0515bb18d777d3"
     },
     {
       "character": "bishop",
@@ -4157,8 +4157,8 @@
       "kind": "move",
       "direction": "S",
       "id": "white-walk-S",
-      "manifest": "banks/a2ff05c98f9c0e3f2a616087858b8328d0141404af79a4d030cb6aadaa56272b.json",
-      "sha256": "a2ff05c98f9c0e3f2a616087858b8328d0141404af79a4d030cb6aadaa56272b"
+      "manifest": "banks/31514878ba6579f17c6065bef6657c8a85d1b080cb674ea5ca008be6d4d52489.json",
+      "sha256": "31514878ba6579f17c6065bef6657c8a85d1b080cb674ea5ca008be6d4d52489"
     },
     {
       "character": "bishop",
@@ -4166,8 +4166,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "white-walk-SW",
-      "manifest": "banks/ddd60f9a5406bfe82dc61b5a36bcee1b5a6107f568727a9dfbfb4b2e64546091.json",
-      "sha256": "ddd60f9a5406bfe82dc61b5a36bcee1b5a6107f568727a9dfbfb4b2e64546091"
+      "manifest": "banks/116ed817eda5b1184f10f4ff6824c44bb51e2aa24dd986507d509efe7a03c10b.json",
+      "sha256": "116ed817eda5b1184f10f4ff6824c44bb51e2aa24dd986507d509efe7a03c10b"
     },
     {
       "character": "bishop",
@@ -4175,8 +4175,8 @@
       "kind": "move",
       "direction": "W",
       "id": "white-walk-W",
-      "manifest": "banks/1c7477d67001186e33a4008d95f92390ae17900e59e822a9f211a7a77507155c.json",
-      "sha256": "1c7477d67001186e33a4008d95f92390ae17900e59e822a9f211a7a77507155c"
+      "manifest": "banks/26ac5a7bacd6ac1cfe88e9b5f19003c7e66e29e96116c9b2f0fc760a9e14467f.json",
+      "sha256": "26ac5a7bacd6ac1cfe88e9b5f19003c7e66e29e96116c9b2f0fc760a9e14467f"
     },
     {
       "character": "bishop",
@@ -4184,8 +4184,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "white-walk-NW",
-      "manifest": "banks/65e2f80912107c3d6971fa86d2dc697cabc5115ea91b750934aa2b2285145e7f.json",
-      "sha256": "65e2f80912107c3d6971fa86d2dc697cabc5115ea91b750934aa2b2285145e7f"
+      "manifest": "banks/760a90f7ec370e863754c8c6bef8f258e0e4f12e7146d110b80919957501128b.json",
+      "sha256": "760a90f7ec370e863754c8c6bef8f258e0e4f12e7146d110b80919957501128b"
     },
     {
       "character": "bishop",
@@ -4193,8 +4193,8 @@
       "kind": "move",
       "direction": "N",
       "id": "black-walk-N",
-      "manifest": "banks/d88eda094363edeba5b675d4f619e69da1615276f46a85c390fb429151742dd1.json",
-      "sha256": "d88eda094363edeba5b675d4f619e69da1615276f46a85c390fb429151742dd1"
+      "manifest": "banks/e0451b52e06d3ab4c8d9ce794d4d8783e1fe978f5dc7f90fb7dd28a9f3a5dd8d.json",
+      "sha256": "e0451b52e06d3ab4c8d9ce794d4d8783e1fe978f5dc7f90fb7dd28a9f3a5dd8d"
     },
     {
       "character": "bishop",
@@ -4202,8 +4202,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "black-walk-NE",
-      "manifest": "banks/9ce92e29c3474c2addeb72447d35022715ab146c7a5169ddf2ed531e1035b113.json",
-      "sha256": "9ce92e29c3474c2addeb72447d35022715ab146c7a5169ddf2ed531e1035b113"
+      "manifest": "banks/8cba06bdef81f88ffef997bfd2b7a7ad84d739a44dd9fc85b131d26f457f23c6.json",
+      "sha256": "8cba06bdef81f88ffef997bfd2b7a7ad84d739a44dd9fc85b131d26f457f23c6"
     },
     {
       "character": "bishop",
@@ -4211,8 +4211,8 @@
       "kind": "move",
       "direction": "E",
       "id": "black-walk-E",
-      "manifest": "banks/bc5abb43b837a6e5b2490b8fb50d91fd071a3f614aae82761848001aaabbdabe.json",
-      "sha256": "bc5abb43b837a6e5b2490b8fb50d91fd071a3f614aae82761848001aaabbdabe"
+      "manifest": "banks/f8e392db7de98034524ec5e70d984f734568520fc02e10aceb277db0fe6feab9.json",
+      "sha256": "f8e392db7de98034524ec5e70d984f734568520fc02e10aceb277db0fe6feab9"
     },
     {
       "character": "bishop",
@@ -4220,8 +4220,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/6f064ae689bb61c00624fe844f1e2d37d1b33ead42d2fc5c4f79d804bb5c8292.json",
-      "sha256": "6f064ae689bb61c00624fe844f1e2d37d1b33ead42d2fc5c4f79d804bb5c8292"
+      "manifest": "banks/8e3b3f3f4d2102204ce3c90fef3c622f086c53774b9946ad047f371411a8173d.json",
+      "sha256": "8e3b3f3f4d2102204ce3c90fef3c622f086c53774b9946ad047f371411a8173d"
     },
     {
       "character": "bishop",
@@ -4229,8 +4229,8 @@
       "kind": "move",
       "direction": "S",
       "id": "black-walk-S",
-      "manifest": "banks/08fda16e6a188711d92cf3fcfdd93a36ee8ba1e8d6f335f48683a35e43e67fc1.json",
-      "sha256": "08fda16e6a188711d92cf3fcfdd93a36ee8ba1e8d6f335f48683a35e43e67fc1"
+      "manifest": "banks/64f9f1ac54c2a565ff8862ffd045ce51935dd5fb85f57085316088476440b48d.json",
+      "sha256": "64f9f1ac54c2a565ff8862ffd045ce51935dd5fb85f57085316088476440b48d"
     },
     {
       "character": "bishop",
@@ -4238,8 +4238,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "black-walk-SW",
-      "manifest": "banks/ff2e2ec69d4a4d2ae1a619bca7c047298cab5d4c8decfd18cdeddb643c9a44e8.json",
-      "sha256": "ff2e2ec69d4a4d2ae1a619bca7c047298cab5d4c8decfd18cdeddb643c9a44e8"
+      "manifest": "banks/0d937a463583cb5c5c3a43f3ab14b1dd67bf2412eb566582284624b01921c4e3.json",
+      "sha256": "0d937a463583cb5c5c3a43f3ab14b1dd67bf2412eb566582284624b01921c4e3"
     },
     {
       "character": "bishop",
@@ -4247,8 +4247,8 @@
       "kind": "move",
       "direction": "W",
       "id": "black-walk-W",
-      "manifest": "banks/e6460e17f1a99cb59ff784860d3a7564a156e9f6d5c7b49dbfdc81ebe58826b0.json",
-      "sha256": "e6460e17f1a99cb59ff784860d3a7564a156e9f6d5c7b49dbfdc81ebe58826b0"
+      "manifest": "banks/7fdb101a4e2f79c33acee5f3fe40f12326d21f1207952ceaa22f897d80085e81.json",
+      "sha256": "7fdb101a4e2f79c33acee5f3fe40f12326d21f1207952ceaa22f897d80085e81"
     },
     {
       "character": "bishop",
@@ -4256,8 +4256,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "black-walk-NW",
-      "manifest": "banks/dd2daae9e95bea6ba6e6f9a025bd0a1b87a54237676e4a5a8f8584441dd03549.json",
-      "sha256": "dd2daae9e95bea6ba6e6f9a025bd0a1b87a54237676e4a5a8f8584441dd03549"
+      "manifest": "banks/8e0322f907a1625c9d576863e17326bf8f7490ff2e7b9060014c9ede46b01c80.json",
+      "sha256": "8e0322f907a1625c9d576863e17326bf8f7490ff2e7b9060014c9ede46b01c80"
     },
     {
       "character": "guard",
@@ -4265,8 +4265,8 @@
       "kind": "move",
       "direction": "E",
       "id": "white-walk-E",
-      "manifest": "banks/de390f8cac8e1f0f36d08c797088262869842273a14f8cca1ecb8c33fdaf209c.json",
-      "sha256": "de390f8cac8e1f0f36d08c797088262869842273a14f8cca1ecb8c33fdaf209c"
+      "manifest": "banks/c08d555be580c471d4b90712f61a978169e2d32479deb6d7e64877f38396696c.json",
+      "sha256": "c08d555be580c471d4b90712f61a978169e2d32479deb6d7e64877f38396696c"
     },
     {
       "character": "guard",
@@ -4274,8 +4274,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "white-walk-SE",
-      "manifest": "banks/b0cbfaf80d50157490d062d44df33089c8859d3b355bd7c392bdd5ee7a4d4f01.json",
-      "sha256": "b0cbfaf80d50157490d062d44df33089c8859d3b355bd7c392bdd5ee7a4d4f01"
+      "manifest": "banks/a108ef03eeb6b461354d638699c182be5fc0d7eb5082ebeb7d310c6ed94c85d1.json",
+      "sha256": "a108ef03eeb6b461354d638699c182be5fc0d7eb5082ebeb7d310c6ed94c85d1"
     },
     {
       "character": "guard",
@@ -4283,8 +4283,8 @@
       "kind": "move",
       "direction": "S",
       "id": "white-walk-S",
-      "manifest": "banks/f53f941d1be40986a2df44ca85caf889a1a9a8172588a446272b767e5bd28e4e.json",
-      "sha256": "f53f941d1be40986a2df44ca85caf889a1a9a8172588a446272b767e5bd28e4e"
+      "manifest": "banks/1a13db535958ee4cb59900efb3af5ef223e9ba6905e8f6ec3c18d6d3f6eb3732.json",
+      "sha256": "1a13db535958ee4cb59900efb3af5ef223e9ba6905e8f6ec3c18d6d3f6eb3732"
     },
     {
       "character": "guard",
@@ -4292,8 +4292,8 @@
       "kind": "move",
       "direction": "E",
       "id": "black-walk-E",
-      "manifest": "banks/1789175cc86aabdb1371293492853c526d0a92409e41148c7f17333b015eddce.json",
-      "sha256": "1789175cc86aabdb1371293492853c526d0a92409e41148c7f17333b015eddce"
+      "manifest": "banks/0156498b99816559882598466caf865f6fa9c26bc9419d044ab887bdde173433.json",
+      "sha256": "0156498b99816559882598466caf865f6fa9c26bc9419d044ab887bdde173433"
     },
     {
       "character": "guard",
@@ -4301,8 +4301,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/d26af6893bc4861c028dc59773dc20ee1fd7df8c214c60da77560a3e3badb5e7.json",
-      "sha256": "d26af6893bc4861c028dc59773dc20ee1fd7df8c214c60da77560a3e3badb5e7"
+      "manifest": "banks/3f49d857009ebd3977c01a02e6c8568b7a8a5aa2663d4c668c6a469dff2e3219.json",
+      "sha256": "3f49d857009ebd3977c01a02e6c8568b7a8a5aa2663d4c668c6a469dff2e3219"
     },
     {
       "character": "guard",
@@ -4310,8 +4310,8 @@
       "kind": "move",
       "direction": "S",
       "id": "black-walk-S",
-      "manifest": "banks/3d937b701a5144263adde6827893a0561c73581f7c9eff8ce84731bb0b0ddc44.json",
-      "sha256": "3d937b701a5144263adde6827893a0561c73581f7c9eff8ce84731bb0b0ddc44"
+      "manifest": "banks/4b59da9800d32bb4bed681f62165ddd886f5e457d4760cd2e47fa21ba83ca901.json",
+      "sha256": "4b59da9800d32bb4bed681f62165ddd886f5e457d4760cd2e47fa21ba83ca901"
     },
     {
       "character": "king-flame",
@@ -4319,8 +4319,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "white-walk-SE",
-      "manifest": "banks/d22a61da6e85ce8c935294559305c5f4491e360987453a5f866d71d794eed048.json",
-      "sha256": "d22a61da6e85ce8c935294559305c5f4491e360987453a5f866d71d794eed048"
+      "manifest": "banks/3b758163b42e3767c5ee7cb82fb6b85b226ed63946abb39ca12f977a2eefc6be.json",
+      "sha256": "3b758163b42e3767c5ee7cb82fb6b85b226ed63946abb39ca12f977a2eefc6be"
     },
     {
       "character": "king-flame",
@@ -4328,8 +4328,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/95130bff145ad3f96a6dd3a6a077443acdd47c0b0b31b6249ad974e48f0008d4.json",
-      "sha256": "95130bff145ad3f96a6dd3a6a077443acdd47c0b0b31b6249ad974e48f0008d4"
+      "manifest": "banks/934a8f28b7d4bee2b6c1d7ada630b280ebf0aecbbf810d922d32e60a8cbd7915.json",
+      "sha256": "934a8f28b7d4bee2b6c1d7ada630b280ebf0aecbbf810d922d32e60a8cbd7915"
     },
     {
       "character": "king-frost",
@@ -4337,8 +4337,8 @@
       "kind": "move",
       "direction": "N",
       "id": "white-walk-N",
-      "manifest": "banks/1291cdc9b9057ea584be0d17e23b0d73360016db96fb902cf553b557553df6c9.json",
-      "sha256": "1291cdc9b9057ea584be0d17e23b0d73360016db96fb902cf553b557553df6c9"
+      "manifest": "banks/8b5647591b5573edbf30f46b2691ee7f7e79e4387345d3515eaceed8dd9ece5a.json",
+      "sha256": "8b5647591b5573edbf30f46b2691ee7f7e79e4387345d3515eaceed8dd9ece5a"
     },
     {
       "character": "king-frost",
@@ -4346,8 +4346,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "white-walk-NE",
-      "manifest": "banks/c24b98ee69756ccad2e6487e50a436d6d1ecb78476cd01260bf58871bedaa123.json",
-      "sha256": "c24b98ee69756ccad2e6487e50a436d6d1ecb78476cd01260bf58871bedaa123"
+      "manifest": "banks/b4b769aa6053e87088b86cd351142c7b780350590ebe9ef1389513add1019ea6.json",
+      "sha256": "b4b769aa6053e87088b86cd351142c7b780350590ebe9ef1389513add1019ea6"
     },
     {
       "character": "king-frost",
@@ -4355,8 +4355,8 @@
       "kind": "move",
       "direction": "E",
       "id": "white-walk-E",
-      "manifest": "banks/1c25623850dafaac50008c234f9b735834957006ba96a0f8f52dd84fe5f3fd7f.json",
-      "sha256": "1c25623850dafaac50008c234f9b735834957006ba96a0f8f52dd84fe5f3fd7f"
+      "manifest": "banks/253e21f8128a3ced5ac7fe1ad06fc0e83bc8eec0ee95fd9d21540e78cfc5654c.json",
+      "sha256": "253e21f8128a3ced5ac7fe1ad06fc0e83bc8eec0ee95fd9d21540e78cfc5654c"
     },
     {
       "character": "king-frost",
@@ -4364,8 +4364,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "white-walk-SE",
-      "manifest": "banks/174d55323e8295a5c5f050680b578f794bc3981b04c87239264ac0a89a1122fc.json",
-      "sha256": "174d55323e8295a5c5f050680b578f794bc3981b04c87239264ac0a89a1122fc"
+      "manifest": "banks/d4e3b45e9d54ddd07eaafb9e4ab551809378229484e8d2e4904e778ee902709f.json",
+      "sha256": "d4e3b45e9d54ddd07eaafb9e4ab551809378229484e8d2e4904e778ee902709f"
     },
     {
       "character": "king-frost",
@@ -4373,8 +4373,8 @@
       "kind": "move",
       "direction": "S",
       "id": "white-walk-S",
-      "manifest": "banks/8e175602f0612b778777181cf0783ef30cf7b121dcaa9da65c15810e102c1c36.json",
-      "sha256": "8e175602f0612b778777181cf0783ef30cf7b121dcaa9da65c15810e102c1c36"
+      "manifest": "banks/3ad2a8889c2cbd657b8b305d84ffb598bfa9f7e9f36a132974361806d9561900.json",
+      "sha256": "3ad2a8889c2cbd657b8b305d84ffb598bfa9f7e9f36a132974361806d9561900"
     },
     {
       "character": "king-frost",
@@ -4382,8 +4382,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "white-walk-SW",
-      "manifest": "banks/518fc96b08fb5441ec5218fd17b4887434925f939c359d869055356f30becf64.json",
-      "sha256": "518fc96b08fb5441ec5218fd17b4887434925f939c359d869055356f30becf64"
+      "manifest": "banks/efdadd419346a4424c6eed987d53ee018e730497110b7d73040242a42d19bd54.json",
+      "sha256": "efdadd419346a4424c6eed987d53ee018e730497110b7d73040242a42d19bd54"
     },
     {
       "character": "king-frost",
@@ -4391,8 +4391,8 @@
       "kind": "move",
       "direction": "W",
       "id": "white-walk-W",
-      "manifest": "banks/ea9083c4d8df8277c8572a120f262aa0db50cd8f9981946539fbdddfa5a0d013.json",
-      "sha256": "ea9083c4d8df8277c8572a120f262aa0db50cd8f9981946539fbdddfa5a0d013"
+      "manifest": "banks/4780b942b0fb9ad8d40e657f0fe89d01d80db8ece1ba36c4bda36f0b6cf64cdd.json",
+      "sha256": "4780b942b0fb9ad8d40e657f0fe89d01d80db8ece1ba36c4bda36f0b6cf64cdd"
     },
     {
       "character": "king-frost",
@@ -4400,8 +4400,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "white-walk-NW",
-      "manifest": "banks/b52531be38acc03345250fb9d54f960a1b3970d9aa8e88b755f3c4ad6ee2771f.json",
-      "sha256": "b52531be38acc03345250fb9d54f960a1b3970d9aa8e88b755f3c4ad6ee2771f"
+      "manifest": "banks/ad9a8641b15c75bba816223867c4078483063af9a15fb6eb25b67404fe674c2b.json",
+      "sha256": "ad9a8641b15c75bba816223867c4078483063af9a15fb6eb25b67404fe674c2b"
     },
     {
       "character": "king-frost",
@@ -4409,8 +4409,8 @@
       "kind": "move",
       "direction": "N",
       "id": "black-walk-N",
-      "manifest": "banks/e7a4bbc302300e008252463a2ce1925b4bdd06d00eba3fb0ac90b0fe6521aca4.json",
-      "sha256": "e7a4bbc302300e008252463a2ce1925b4bdd06d00eba3fb0ac90b0fe6521aca4"
+      "manifest": "banks/df03e4d893cdced60ba423de9ed80a223302285e7f4465f248933e73748a0540.json",
+      "sha256": "df03e4d893cdced60ba423de9ed80a223302285e7f4465f248933e73748a0540"
     },
     {
       "character": "king-frost",
@@ -4418,8 +4418,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "black-walk-NE",
-      "manifest": "banks/405980ef252e51d0c38162ff3ca4bf327fee7bb8130a94a480cf60c6ec020fae.json",
-      "sha256": "405980ef252e51d0c38162ff3ca4bf327fee7bb8130a94a480cf60c6ec020fae"
+      "manifest": "banks/bee05e1aede700e4b1ca62176eb7b4ee90c26c1a5b06f07822261d0229b21708.json",
+      "sha256": "bee05e1aede700e4b1ca62176eb7b4ee90c26c1a5b06f07822261d0229b21708"
     },
     {
       "character": "king-frost",
@@ -4427,8 +4427,8 @@
       "kind": "move",
       "direction": "E",
       "id": "black-walk-E",
-      "manifest": "banks/b9d3827ac9be6e12d7498e31095a1ad10687c4402a63b0f29ff184f53053e3e3.json",
-      "sha256": "b9d3827ac9be6e12d7498e31095a1ad10687c4402a63b0f29ff184f53053e3e3"
+      "manifest": "banks/19a37326d468a169ccf45b2f23e164204ec4b09cbc033e86b3f68f2a30bb55b9.json",
+      "sha256": "19a37326d468a169ccf45b2f23e164204ec4b09cbc033e86b3f68f2a30bb55b9"
     },
     {
       "character": "king-frost",
@@ -4436,8 +4436,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/92c79cecfd892647e7e8a8da5e1650b746a577c6b988833bd86e36bf1e9415f9.json",
-      "sha256": "92c79cecfd892647e7e8a8da5e1650b746a577c6b988833bd86e36bf1e9415f9"
+      "manifest": "banks/e3ec20c04f22ebb4c3518c11f4a360ee8a09ceef504b3cd8a4bb6603f9bf6c17.json",
+      "sha256": "e3ec20c04f22ebb4c3518c11f4a360ee8a09ceef504b3cd8a4bb6603f9bf6c17"
     },
     {
       "character": "king-frost",
@@ -4445,8 +4445,8 @@
       "kind": "move",
       "direction": "S",
       "id": "black-walk-S",
-      "manifest": "banks/6c1c1c17ec0fd4e2bfb94bf96dc5c8d33ce33c9938dec79a6796d20583542b55.json",
-      "sha256": "6c1c1c17ec0fd4e2bfb94bf96dc5c8d33ce33c9938dec79a6796d20583542b55"
+      "manifest": "banks/acd45be819edf29b8fc4ceb679672542b440bb6fabc16ba20676b844d5e43f85.json",
+      "sha256": "acd45be819edf29b8fc4ceb679672542b440bb6fabc16ba20676b844d5e43f85"
     },
     {
       "character": "king-frost",
@@ -4454,8 +4454,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "black-walk-SW",
-      "manifest": "banks/3013c9a549e463c3c1d4b25a4458cad33e53672714791fe373391019a5871d80.json",
-      "sha256": "3013c9a549e463c3c1d4b25a4458cad33e53672714791fe373391019a5871d80"
+      "manifest": "banks/2eda37e2498eea13f69478b76c3ce5e4161e54d9dd0daa32629d210288ecaab2.json",
+      "sha256": "2eda37e2498eea13f69478b76c3ce5e4161e54d9dd0daa32629d210288ecaab2"
     },
     {
       "character": "king-frost",
@@ -4463,8 +4463,8 @@
       "kind": "move",
       "direction": "W",
       "id": "black-walk-W",
-      "manifest": "banks/6de32d04e905996ae9b28bc4d68fac3abc9034717f4ddc1c2c38f50f420b634e.json",
-      "sha256": "6de32d04e905996ae9b28bc4d68fac3abc9034717f4ddc1c2c38f50f420b634e"
+      "manifest": "banks/0cfcbeca43ed3f57148f19dfd811e8e6d8f63dc48a07975464622699be377454.json",
+      "sha256": "0cfcbeca43ed3f57148f19dfd811e8e6d8f63dc48a07975464622699be377454"
     },
     {
       "character": "king-frost",
@@ -4472,8 +4472,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "black-walk-NW",
-      "manifest": "banks/e9e75ee2e223a98d166c59da8fb90959b53b06a5cd5f66ff5f2f26d5e80e5db0.json",
-      "sha256": "e9e75ee2e223a98d166c59da8fb90959b53b06a5cd5f66ff5f2f26d5e80e5db0"
+      "manifest": "banks/874adab1d327dea3dbb7acc226cd054b74116f3014a2550c0e8200f76e52a4fe.json",
+      "sha256": "874adab1d327dea3dbb7acc226cd054b74116f3014a2550c0e8200f76e52a4fe"
     },
     {
       "character": "king-shadow",
@@ -4481,8 +4481,8 @@
       "kind": "move",
       "direction": "N",
       "id": "white-walk-N",
-      "manifest": "banks/3f7f9b17af2dec82c9c804eff6127d12f0e3238ff2e933978698398d14c1b352.json",
-      "sha256": "3f7f9b17af2dec82c9c804eff6127d12f0e3238ff2e933978698398d14c1b352"
+      "manifest": "banks/46068cddaf65621c8cf4b02d9e693ebab33c738596668cd9ad7c2fb24e0e1c45.json",
+      "sha256": "46068cddaf65621c8cf4b02d9e693ebab33c738596668cd9ad7c2fb24e0e1c45"
     },
     {
       "character": "king-shadow",
@@ -4490,8 +4490,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "white-walk-NE",
-      "manifest": "banks/56d0f0ce7e1f9ee924d72a0cb3ad86208c5888fbdc4bea070130696ab0ac6dd2.json",
-      "sha256": "56d0f0ce7e1f9ee924d72a0cb3ad86208c5888fbdc4bea070130696ab0ac6dd2"
+      "manifest": "banks/7391b9804876efe9d49b79ee629379a8de94e65aec9c98e3e34935d96d29c8de.json",
+      "sha256": "7391b9804876efe9d49b79ee629379a8de94e65aec9c98e3e34935d96d29c8de"
     },
     {
       "character": "king-shadow",
@@ -4499,8 +4499,8 @@
       "kind": "move",
       "direction": "E",
       "id": "white-walk-E",
-      "manifest": "banks/df32f14cbc995aedc1d0758d684fa90de47db3a18568897c9bce7d2b966a06f3.json",
-      "sha256": "df32f14cbc995aedc1d0758d684fa90de47db3a18568897c9bce7d2b966a06f3"
+      "manifest": "banks/e9da50a3f6a6fb9a4f1b36c1c8b19728bef9ea11b159df4634b840166a5b22b6.json",
+      "sha256": "e9da50a3f6a6fb9a4f1b36c1c8b19728bef9ea11b159df4634b840166a5b22b6"
     },
     {
       "character": "king-shadow",
@@ -4508,8 +4508,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "white-walk-SE",
-      "manifest": "banks/2f09e7b6f34e400c6071f7d818605b1071738c91f60a38581141b4c1f64cefe1.json",
-      "sha256": "2f09e7b6f34e400c6071f7d818605b1071738c91f60a38581141b4c1f64cefe1"
+      "manifest": "banks/d8643009bbc34932da6718045001eb784603463824fb426de5a20ab59fa3eb08.json",
+      "sha256": "d8643009bbc34932da6718045001eb784603463824fb426de5a20ab59fa3eb08"
     },
     {
       "character": "king-shadow",
@@ -4517,8 +4517,8 @@
       "kind": "move",
       "direction": "S",
       "id": "white-walk-S",
-      "manifest": "banks/51d5d8bbd4c15a6c17499c42e041a0693711d2ebbe849ed0219c7142e4214abc.json",
-      "sha256": "51d5d8bbd4c15a6c17499c42e041a0693711d2ebbe849ed0219c7142e4214abc"
+      "manifest": "banks/c6a83d5ccbc3b0e2d319183c582095db23a1e03a6a134ddaebaf8f63068ba227.json",
+      "sha256": "c6a83d5ccbc3b0e2d319183c582095db23a1e03a6a134ddaebaf8f63068ba227"
     },
     {
       "character": "king-shadow",
@@ -4526,8 +4526,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "white-walk-SW",
-      "manifest": "banks/adc219891ed7f8c3e34f17c8158b9301f29b89930c50324970e4ec1e8846543b.json",
-      "sha256": "adc219891ed7f8c3e34f17c8158b9301f29b89930c50324970e4ec1e8846543b"
+      "manifest": "banks/7952c70fd2f3531e056dcc04bdc28cd54ddca03af446c9bc085e70bb3e4eac90.json",
+      "sha256": "7952c70fd2f3531e056dcc04bdc28cd54ddca03af446c9bc085e70bb3e4eac90"
     },
     {
       "character": "king-shadow",
@@ -4535,8 +4535,8 @@
       "kind": "move",
       "direction": "W",
       "id": "white-walk-W",
-      "manifest": "banks/bb4ba9b96bf6828a76be144a55b7c09ae82ff82e8eeee8c57c4f79d8b822dcf2.json",
-      "sha256": "bb4ba9b96bf6828a76be144a55b7c09ae82ff82e8eeee8c57c4f79d8b822dcf2"
+      "manifest": "banks/e000ce93740c0115266e809d885a8712a9e0fa206a37ed4f5d3bdbe3a0500113.json",
+      "sha256": "e000ce93740c0115266e809d885a8712a9e0fa206a37ed4f5d3bdbe3a0500113"
     },
     {
       "character": "king-shadow",
@@ -4544,8 +4544,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "white-walk-NW",
-      "manifest": "banks/4e4ad30635082998277741fa7810d9964f1198e06030f3af42dfdbce3fa57dc5.json",
-      "sha256": "4e4ad30635082998277741fa7810d9964f1198e06030f3af42dfdbce3fa57dc5"
+      "manifest": "banks/076ba0ba8ce15ccdf24e63cd4f732fec6ec043cc434ce397c8cf4c622d711a6e.json",
+      "sha256": "076ba0ba8ce15ccdf24e63cd4f732fec6ec043cc434ce397c8cf4c622d711a6e"
     },
     {
       "character": "king-shadow",
@@ -4553,8 +4553,8 @@
       "kind": "move",
       "direction": "N",
       "id": "black-walk-N",
-      "manifest": "banks/2d2b80301b5f65bc61c98386f412c2ab7132e4a7b73f4e211e982484b7e0dfd6.json",
-      "sha256": "2d2b80301b5f65bc61c98386f412c2ab7132e4a7b73f4e211e982484b7e0dfd6"
+      "manifest": "banks/405ce1e40c8a17da3ba646abf93c236f2a85cde2adc81c22482188a115c566c8.json",
+      "sha256": "405ce1e40c8a17da3ba646abf93c236f2a85cde2adc81c22482188a115c566c8"
     },
     {
       "character": "king-shadow",
@@ -4562,8 +4562,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "black-walk-NE",
-      "manifest": "banks/4e76fb68715f4299519a6dbee8272776bf6f2d582080bb49ead4c5e4c11590c9.json",
-      "sha256": "4e76fb68715f4299519a6dbee8272776bf6f2d582080bb49ead4c5e4c11590c9"
+      "manifest": "banks/a3d9cd894d8746e2e0a82099ee22fea28d5e7c1b5f0ed9fe5be42cc6d2e20dbb.json",
+      "sha256": "a3d9cd894d8746e2e0a82099ee22fea28d5e7c1b5f0ed9fe5be42cc6d2e20dbb"
     },
     {
       "character": "king-shadow",
@@ -4571,8 +4571,8 @@
       "kind": "move",
       "direction": "E",
       "id": "black-walk-E",
-      "manifest": "banks/cf79413fa4a356e03cd186a00e1c5731bb11e1d915d0572da40486c92899bfd8.json",
-      "sha256": "cf79413fa4a356e03cd186a00e1c5731bb11e1d915d0572da40486c92899bfd8"
+      "manifest": "banks/dc4a6898bae86f0e4bf44eb7d0bdd3b36abb3de3281402663257f5bf978b2794.json",
+      "sha256": "dc4a6898bae86f0e4bf44eb7d0bdd3b36abb3de3281402663257f5bf978b2794"
     },
     {
       "character": "king-shadow",
@@ -4580,8 +4580,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/59417f7274a61a790ece57e055362b4a7e8de33b7c01e0374f014b596ae0cc4e.json",
-      "sha256": "59417f7274a61a790ece57e055362b4a7e8de33b7c01e0374f014b596ae0cc4e"
+      "manifest": "banks/d7071d9036d362f2d5fc601c057e86285387b10a5e3d9a49d3028859259c3be0.json",
+      "sha256": "d7071d9036d362f2d5fc601c057e86285387b10a5e3d9a49d3028859259c3be0"
     },
     {
       "character": "king-shadow",
@@ -4589,8 +4589,8 @@
       "kind": "move",
       "direction": "S",
       "id": "black-walk-S",
-      "manifest": "banks/640a19272ef628b7c6fc4d3a52df29dabc47b47f1848046ff85fc541984a7c84.json",
-      "sha256": "640a19272ef628b7c6fc4d3a52df29dabc47b47f1848046ff85fc541984a7c84"
+      "manifest": "banks/c42e96158d7ae12aaeaea6726b91192f5ab5e9cae792f919fdc136c4833e2f3a.json",
+      "sha256": "c42e96158d7ae12aaeaea6726b91192f5ab5e9cae792f919fdc136c4833e2f3a"
     },
     {
       "character": "king-shadow",
@@ -4598,8 +4598,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "black-walk-SW",
-      "manifest": "banks/dabd3cf22ea394ec1ff860dfccc15628107c40a0a5a9bbb3c6b7d1d25572c61f.json",
-      "sha256": "dabd3cf22ea394ec1ff860dfccc15628107c40a0a5a9bbb3c6b7d1d25572c61f"
+      "manifest": "banks/0720379a27ff79d1b534e2874d93461ef9eeaca7f1dc3c4f235f131a9fb8c6d8.json",
+      "sha256": "0720379a27ff79d1b534e2874d93461ef9eeaca7f1dc3c4f235f131a9fb8c6d8"
     },
     {
       "character": "king-shadow",
@@ -4607,8 +4607,8 @@
       "kind": "move",
       "direction": "W",
       "id": "black-walk-W",
-      "manifest": "banks/72d5bb100bf36ab6c561b2f93f55eac30a38883a5db7d2080b74c1c6877c05fe.json",
-      "sha256": "72d5bb100bf36ab6c561b2f93f55eac30a38883a5db7d2080b74c1c6877c05fe"
+      "manifest": "banks/569d3e95a96d743ce782372e37f74105e1ae3bf28dd071769c1aa2f19e1fa596.json",
+      "sha256": "569d3e95a96d743ce782372e37f74105e1ae3bf28dd071769c1aa2f19e1fa596"
     },
     {
       "character": "king-shadow",
@@ -4616,8 +4616,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "black-walk-NW",
-      "manifest": "banks/c50229aab0ddd05a140c3942e4aea737c245c0592135049001dcdce016287a0e.json",
-      "sha256": "c50229aab0ddd05a140c3942e4aea737c245c0592135049001dcdce016287a0e"
+      "manifest": "banks/15ae18d7099b62a957d1a120065dddc2705b79b51542b99119f2ff6d3a36747b.json",
+      "sha256": "15ae18d7099b62a957d1a120065dddc2705b79b51542b99119f2ff6d3a36747b"
     },
     {
       "character": "king-spirit",
@@ -4625,8 +4625,8 @@
       "kind": "move",
       "direction": "N",
       "id": "white-walk-N",
-      "manifest": "banks/f59c21a78d8692517a7ac9bae6c9bdc5503b026e798c77db4fe035c8ee2c72c8.json",
-      "sha256": "f59c21a78d8692517a7ac9bae6c9bdc5503b026e798c77db4fe035c8ee2c72c8"
+      "manifest": "banks/e4e8c945ae9a2383f06b28df3d9410dc3d56b568e407f151e3d91ce036fcdb43.json",
+      "sha256": "e4e8c945ae9a2383f06b28df3d9410dc3d56b568e407f151e3d91ce036fcdb43"
     },
     {
       "character": "king-spirit",
@@ -4634,8 +4634,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "white-walk-NE",
-      "manifest": "banks/f6dd4a92468a3f3bc2021180bdd5ecf0ffbc6a774330080345223483c6b2edcc.json",
-      "sha256": "f6dd4a92468a3f3bc2021180bdd5ecf0ffbc6a774330080345223483c6b2edcc"
+      "manifest": "banks/afaf8a824685e06c299047b013b091f49125315cb6dc41fc329df7b2b9c5ac72.json",
+      "sha256": "afaf8a824685e06c299047b013b091f49125315cb6dc41fc329df7b2b9c5ac72"
     },
     {
       "character": "king-spirit",
@@ -4643,8 +4643,8 @@
       "kind": "move",
       "direction": "E",
       "id": "white-walk-E",
-      "manifest": "banks/6a7d06651fa1c458a9d6938755c0f19059d2835f21eeb739e624f60ec5e3f35a.json",
-      "sha256": "6a7d06651fa1c458a9d6938755c0f19059d2835f21eeb739e624f60ec5e3f35a"
+      "manifest": "banks/5e3b0cfb16c2076fbf4b5783f300548202dbcfd0dfab8526f2ba8fff37089751.json",
+      "sha256": "5e3b0cfb16c2076fbf4b5783f300548202dbcfd0dfab8526f2ba8fff37089751"
     },
     {
       "character": "king-spirit",
@@ -4652,8 +4652,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "white-walk-SE",
-      "manifest": "banks/e8627fcbd82df5138cc9c7390256fed00140600b95744fbe8cec093dd027734d.json",
-      "sha256": "e8627fcbd82df5138cc9c7390256fed00140600b95744fbe8cec093dd027734d"
+      "manifest": "banks/7e6ac0b7cbada6e777a969ede97634846d07e638fc9c48aaf0a4c52a833647cb.json",
+      "sha256": "7e6ac0b7cbada6e777a969ede97634846d07e638fc9c48aaf0a4c52a833647cb"
     },
     {
       "character": "king-spirit",
@@ -4661,8 +4661,8 @@
       "kind": "move",
       "direction": "S",
       "id": "white-walk-S",
-      "manifest": "banks/d2f3982f040119a8e98bb75b562535243856b35b26465053c29d4db8fbddf581.json",
-      "sha256": "d2f3982f040119a8e98bb75b562535243856b35b26465053c29d4db8fbddf581"
+      "manifest": "banks/504fd9320dda332d725c6cbff2b13f44307a876451c10c55dfb838b232727c33.json",
+      "sha256": "504fd9320dda332d725c6cbff2b13f44307a876451c10c55dfb838b232727c33"
     },
     {
       "character": "king-spirit",
@@ -4670,8 +4670,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "white-walk-SW",
-      "manifest": "banks/3de028bd44c75015cb876d80590fa15e08fa3c4be852fdf4e25599005410d9fe.json",
-      "sha256": "3de028bd44c75015cb876d80590fa15e08fa3c4be852fdf4e25599005410d9fe"
+      "manifest": "banks/0273fc3f66a7cc747a0c9cfcd2c77a0279f337647b2510aab5b6ddf98fcdbfac.json",
+      "sha256": "0273fc3f66a7cc747a0c9cfcd2c77a0279f337647b2510aab5b6ddf98fcdbfac"
     },
     {
       "character": "king-spirit",
@@ -4679,8 +4679,8 @@
       "kind": "move",
       "direction": "W",
       "id": "white-walk-W",
-      "manifest": "banks/d64084107938194b2a5d34eb064448004c01d7a2e203ed344cf04735adbd2310.json",
-      "sha256": "d64084107938194b2a5d34eb064448004c01d7a2e203ed344cf04735adbd2310"
+      "manifest": "banks/bb58198141abb0ca924fcaefc57a4e4ac0c4a53cc2ea5dac69046612d5e9316d.json",
+      "sha256": "bb58198141abb0ca924fcaefc57a4e4ac0c4a53cc2ea5dac69046612d5e9316d"
     },
     {
       "character": "king-spirit",
@@ -4688,8 +4688,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "white-walk-NW",
-      "manifest": "banks/b62e1e15a4658027381476b4cbe7c676fe24accde562724d8454d8cc16669381.json",
-      "sha256": "b62e1e15a4658027381476b4cbe7c676fe24accde562724d8454d8cc16669381"
+      "manifest": "banks/5e58015ef5c351af5a29c03ffa332c0b1d735f18493ff5adaf596fd1e95afb36.json",
+      "sha256": "5e58015ef5c351af5a29c03ffa332c0b1d735f18493ff5adaf596fd1e95afb36"
     },
     {
       "character": "king-spirit",
@@ -4697,8 +4697,8 @@
       "kind": "move",
       "direction": "N",
       "id": "black-walk-N",
-      "manifest": "banks/4e8c165d5cf81c4549b56aecf79d2dbcdfe8ebaaf178207cbb26bcad6afbb87d.json",
-      "sha256": "4e8c165d5cf81c4549b56aecf79d2dbcdfe8ebaaf178207cbb26bcad6afbb87d"
+      "manifest": "banks/acae4115c252b6ba0fce70934c00993f207e1d758074899bc40df0df69ce90af.json",
+      "sha256": "acae4115c252b6ba0fce70934c00993f207e1d758074899bc40df0df69ce90af"
     },
     {
       "character": "king-spirit",
@@ -4706,8 +4706,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "black-walk-NE",
-      "manifest": "banks/9e1b27677a27a28b9b5fdcca030441d2573a0a0f1ff0fbc67536c7f8300cfd5b.json",
-      "sha256": "9e1b27677a27a28b9b5fdcca030441d2573a0a0f1ff0fbc67536c7f8300cfd5b"
+      "manifest": "banks/9a8ccb299ac568640c47053cc879f8389a905305632ff9c1b3ad26d6aef1b3ee.json",
+      "sha256": "9a8ccb299ac568640c47053cc879f8389a905305632ff9c1b3ad26d6aef1b3ee"
     },
     {
       "character": "king-spirit",
@@ -4715,8 +4715,8 @@
       "kind": "move",
       "direction": "E",
       "id": "black-walk-E",
-      "manifest": "banks/2cb08536b818aaa17ec57bfdee483abb12c192ad05999f68c48a6bc158a2f88a.json",
-      "sha256": "2cb08536b818aaa17ec57bfdee483abb12c192ad05999f68c48a6bc158a2f88a"
+      "manifest": "banks/4724d728abe0dbcd788fef16efca1c1c854cf3521fd23613bb4d4527f4421b14.json",
+      "sha256": "4724d728abe0dbcd788fef16efca1c1c854cf3521fd23613bb4d4527f4421b14"
     },
     {
       "character": "king-spirit",
@@ -4724,8 +4724,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/4d7fe1d14f51ac9fba65a60479568e2a5f5ee57c7cb70c1cd1b57b1c0ee0f705.json",
-      "sha256": "4d7fe1d14f51ac9fba65a60479568e2a5f5ee57c7cb70c1cd1b57b1c0ee0f705"
+      "manifest": "banks/72c38035aa99eab0d20d7dd829427ce19cba0eee850420bf325f958769cb3bbb.json",
+      "sha256": "72c38035aa99eab0d20d7dd829427ce19cba0eee850420bf325f958769cb3bbb"
     },
     {
       "character": "king-spirit",
@@ -4733,8 +4733,8 @@
       "kind": "move",
       "direction": "S",
       "id": "black-walk-S",
-      "manifest": "banks/93ff8ec6f7e7b3427be6da33e48f54726d0253ad29cd5b5f1c868d3c0ac56409.json",
-      "sha256": "93ff8ec6f7e7b3427be6da33e48f54726d0253ad29cd5b5f1c868d3c0ac56409"
+      "manifest": "banks/b756245ee203267e53e74e373f5c5e02bc1983adf9b3bef3192520beb3eec47c.json",
+      "sha256": "b756245ee203267e53e74e373f5c5e02bc1983adf9b3bef3192520beb3eec47c"
     },
     {
       "character": "king-spirit",
@@ -4742,8 +4742,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "black-walk-SW",
-      "manifest": "banks/0b6cff8615481869ddd1284232b8870b2604f8f4cb1ae56ada2d8d3e2858490a.json",
-      "sha256": "0b6cff8615481869ddd1284232b8870b2604f8f4cb1ae56ada2d8d3e2858490a"
+      "manifest": "banks/bf4bc2b1acdf1cc36385706603df6d1e78cae3aa2e4f54018dd11cb87313e7fd.json",
+      "sha256": "bf4bc2b1acdf1cc36385706603df6d1e78cae3aa2e4f54018dd11cb87313e7fd"
     },
     {
       "character": "king-spirit",
@@ -4751,8 +4751,8 @@
       "kind": "move",
       "direction": "W",
       "id": "black-walk-W",
-      "manifest": "banks/2d5dbab88f5b734f0b7c1c0a5157e28f6def2f7edee2fd0b2118c804322c019e.json",
-      "sha256": "2d5dbab88f5b734f0b7c1c0a5157e28f6def2f7edee2fd0b2118c804322c019e"
+      "manifest": "banks/b034afeff64d72bee5f9141b05ed91c37f67a1b3d22f98a08abe71f88e57170d.json",
+      "sha256": "b034afeff64d72bee5f9141b05ed91c37f67a1b3d22f98a08abe71f88e57170d"
     },
     {
       "character": "king-spirit",
@@ -4760,152 +4760,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "black-walk-NW",
-      "manifest": "banks/3bf08f57d15d3e6d6f672bae57c26ecb0be28845196e49c88c9ef1b8d964f01b.json",
-      "sha256": "3bf08f57d15d3e6d6f672bae57c26ecb0be28845196e49c88c9ef1b8d964f01b"
-    },
-    {
-      "character": "knight",
-      "army": "white",
-      "kind": "move",
-      "direction": "N",
-      "id": "white-walk-N",
-      "manifest": "banks/01eb2404d3ec03bfc5fc121976b1bbebaa6de4c41aa5e906668c970c8d15efe6.json",
-      "sha256": "01eb2404d3ec03bfc5fc121976b1bbebaa6de4c41aa5e906668c970c8d15efe6"
-    },
-    {
-      "character": "knight",
-      "army": "white",
-      "kind": "move",
-      "direction": "NE",
-      "id": "white-walk-NE",
-      "manifest": "banks/55722932c94b820b9eea1ebaee0307120a37d7e8b2c99b2adb9046415c67bb3e.json",
-      "sha256": "55722932c94b820b9eea1ebaee0307120a37d7e8b2c99b2adb9046415c67bb3e"
-    },
-    {
-      "character": "knight",
-      "army": "white",
-      "kind": "move",
-      "direction": "E",
-      "id": "white-walk-E",
-      "manifest": "banks/b01df96fc265d51afa92abd575247b775b9dc508b08cec9c6b52b40ab8a752fa.json",
-      "sha256": "b01df96fc265d51afa92abd575247b775b9dc508b08cec9c6b52b40ab8a752fa"
-    },
-    {
-      "character": "knight",
-      "army": "white",
-      "kind": "move",
-      "direction": "SE",
-      "id": "white-walk-SE",
-      "manifest": "banks/254af1dd75576851465444f394fb35ba439eabdbb10ce5b7711364a796d9cb5f.json",
-      "sha256": "254af1dd75576851465444f394fb35ba439eabdbb10ce5b7711364a796d9cb5f"
-    },
-    {
-      "character": "knight",
-      "army": "white",
-      "kind": "move",
-      "direction": "S",
-      "id": "white-walk-S",
-      "manifest": "banks/798fc538fa301b86142c5967edb5b847e1f5d5b3e4317bedf6fa542aded1b1de.json",
-      "sha256": "798fc538fa301b86142c5967edb5b847e1f5d5b3e4317bedf6fa542aded1b1de"
-    },
-    {
-      "character": "knight",
-      "army": "white",
-      "kind": "move",
-      "direction": "SW",
-      "id": "white-walk-SW",
-      "manifest": "banks/93d27f9c899c90d67293eeefc6e74c690401eaefe0f29aaa05621cb551692d7c.json",
-      "sha256": "93d27f9c899c90d67293eeefc6e74c690401eaefe0f29aaa05621cb551692d7c"
-    },
-    {
-      "character": "knight",
-      "army": "white",
-      "kind": "move",
-      "direction": "W",
-      "id": "white-walk-W",
-      "manifest": "banks/55b6a4b14793e433ed99f74c00fcda3e6d9b01f368edb7ab2b341a5f0737d69a.json",
-      "sha256": "55b6a4b14793e433ed99f74c00fcda3e6d9b01f368edb7ab2b341a5f0737d69a"
-    },
-    {
-      "character": "knight",
-      "army": "white",
-      "kind": "move",
-      "direction": "NW",
-      "id": "white-walk-NW",
-      "manifest": "banks/68be35f24a41c90973bcd8ef39c31ffb012723307eb89f4ccbfe9e18a00e7e29.json",
-      "sha256": "68be35f24a41c90973bcd8ef39c31ffb012723307eb89f4ccbfe9e18a00e7e29"
-    },
-    {
-      "character": "knight",
-      "army": "black",
-      "kind": "move",
-      "direction": "N",
-      "id": "black-walk-N",
-      "manifest": "banks/82499c3e77220119632eab87f10e9921d8717563fabc0204104256392e225bf2.json",
-      "sha256": "82499c3e77220119632eab87f10e9921d8717563fabc0204104256392e225bf2"
-    },
-    {
-      "character": "knight",
-      "army": "black",
-      "kind": "move",
-      "direction": "NE",
-      "id": "black-walk-NE",
-      "manifest": "banks/00ddef58f994358f927afc167a432a46959168bcaa723deee897f2f6376c3d24.json",
-      "sha256": "00ddef58f994358f927afc167a432a46959168bcaa723deee897f2f6376c3d24"
-    },
-    {
-      "character": "knight",
-      "army": "black",
-      "kind": "move",
-      "direction": "E",
-      "id": "black-walk-E",
-      "manifest": "banks/94a8a7e2f80a5349186d6fde6ed75abf5ddf5a3bdaa42cb5b9604b3b445ecc13.json",
-      "sha256": "94a8a7e2f80a5349186d6fde6ed75abf5ddf5a3bdaa42cb5b9604b3b445ecc13"
-    },
-    {
-      "character": "knight",
-      "army": "black",
-      "kind": "move",
-      "direction": "SE",
-      "id": "black-walk-SE",
-      "manifest": "banks/4b12a06c3208f7100fc0615dd9a198e97a686e6b2adccd515e1704abae0b50d7.json",
-      "sha256": "4b12a06c3208f7100fc0615dd9a198e97a686e6b2adccd515e1704abae0b50d7"
-    },
-    {
-      "character": "knight",
-      "army": "black",
-      "kind": "move",
-      "direction": "S",
-      "id": "black-walk-S",
-      "manifest": "banks/0baa3315e592ea85650449bfe9f9f5b3c973805af1fd6f5424f2fb10ff1afcc4.json",
-      "sha256": "0baa3315e592ea85650449bfe9f9f5b3c973805af1fd6f5424f2fb10ff1afcc4"
-    },
-    {
-      "character": "knight",
-      "army": "black",
-      "kind": "move",
-      "direction": "SW",
-      "id": "black-walk-SW",
-      "manifest": "banks/cc65ce88ce3e7a33dc572bc2d25eee518d5f0e04c41901aae5b0be16efa735ae.json",
-      "sha256": "cc65ce88ce3e7a33dc572bc2d25eee518d5f0e04c41901aae5b0be16efa735ae"
-    },
-    {
-      "character": "knight",
-      "army": "black",
-      "kind": "move",
-      "direction": "W",
-      "id": "black-walk-W",
-      "manifest": "banks/dcec7f5bddb334435c476843fb1e5cb13e6a345c27e2dc599e18ca2e2c29a2e6.json",
-      "sha256": "dcec7f5bddb334435c476843fb1e5cb13e6a345c27e2dc599e18ca2e2c29a2e6"
-    },
-    {
-      "character": "knight",
-      "army": "black",
-      "kind": "move",
-      "direction": "NW",
-      "id": "black-walk-NW",
-      "manifest": "banks/730d6d4c456ed039155464426bc84f89c0c95d31d88c9f9973a4bd5920089a17.json",
-      "sha256": "730d6d4c456ed039155464426bc84f89c0c95d31d88c9f9973a4bd5920089a17"
+      "manifest": "banks/9cba60f1d100b1d3121fd3eac1582bd8c92b34178dc6a36a92fb111b91cadf90.json",
+      "sha256": "9cba60f1d100b1d3121fd3eac1582bd8c92b34178dc6a36a92fb111b91cadf90"
     },
     {
       "character": "maester",
@@ -4913,8 +4769,8 @@
       "kind": "move",
       "direction": "N",
       "id": "white-walk-N",
-      "manifest": "banks/56e8ab923b9eaeb7903c570fbc7c7bda2028d32492a5f9362c0abc3da4124978.json",
-      "sha256": "56e8ab923b9eaeb7903c570fbc7c7bda2028d32492a5f9362c0abc3da4124978"
+      "manifest": "banks/1a037b0c981d277ef421ca3856e70717ece48dc70aed955cb2b2a0c50dbf58e5.json",
+      "sha256": "1a037b0c981d277ef421ca3856e70717ece48dc70aed955cb2b2a0c50dbf58e5"
     },
     {
       "character": "maester",
@@ -4922,8 +4778,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "white-walk-SE",
-      "manifest": "banks/c35b836d294279f560b03841ae3a75e28743260c022fcb3197d6048e1bf6d87a.json",
-      "sha256": "c35b836d294279f560b03841ae3a75e28743260c022fcb3197d6048e1bf6d87a"
+      "manifest": "banks/bc4acb04394c5b73724497b7aa71305d28827145224c1adc3977e7ca907340c2.json",
+      "sha256": "bc4acb04394c5b73724497b7aa71305d28827145224c1adc3977e7ca907340c2"
     },
     {
       "character": "maester",
@@ -4931,8 +4787,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "white-walk-SW",
-      "manifest": "banks/86993e659c146670e03eb6e36423c22de3e08385b73dbc9d5b5044b138b9c684.json",
-      "sha256": "86993e659c146670e03eb6e36423c22de3e08385b73dbc9d5b5044b138b9c684"
+      "manifest": "banks/4ee79e7d4329cf1113a187cc399f4add833336ae2dfb66d85543d3a8a988115e.json",
+      "sha256": "4ee79e7d4329cf1113a187cc399f4add833336ae2dfb66d85543d3a8a988115e"
     },
     {
       "character": "maester",
@@ -4940,8 +4796,8 @@
       "kind": "move",
       "direction": "N",
       "id": "black-walk-N",
-      "manifest": "banks/4c6f9c53001466d426b095b83575cad0ee80d79edbd0ffa0773b07237b41a5db.json",
-      "sha256": "4c6f9c53001466d426b095b83575cad0ee80d79edbd0ffa0773b07237b41a5db"
+      "manifest": "banks/bfa57f8b22186193e3a660527323f9d7cfa5dca295b69d6c32beae372754b221.json",
+      "sha256": "bfa57f8b22186193e3a660527323f9d7cfa5dca295b69d6c32beae372754b221"
     },
     {
       "character": "maester",
@@ -4949,8 +4805,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/7c892fc3de1d5fbdf22407f8911a9f1a3e783a3f9cdcf8f33b441569eab749e5.json",
-      "sha256": "7c892fc3de1d5fbdf22407f8911a9f1a3e783a3f9cdcf8f33b441569eab749e5"
+      "manifest": "banks/c5f55e4ad532f150b7760217244598153c2deb6cb49b2774af96a0de15e286d3.json",
+      "sha256": "c5f55e4ad532f150b7760217244598153c2deb6cb49b2774af96a0de15e286d3"
     },
     {
       "character": "maester",
@@ -4958,8 +4814,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "black-walk-SW",
-      "manifest": "banks/900abc794b02c667b24e792d92a7359013a95f33dfc722f6a4ab8289cd9c4db5.json",
-      "sha256": "900abc794b02c667b24e792d92a7359013a95f33dfc722f6a4ab8289cd9c4db5"
+      "manifest": "banks/dc8bf39ac2c17bf807a7957f0809d534302172f1b652217fa541812722ec2856.json",
+      "sha256": "dc8bf39ac2c17bf807a7957f0809d534302172f1b652217fa541812722ec2856"
     },
     {
       "character": "ogre",
@@ -4967,8 +4823,8 @@
       "kind": "move",
       "direction": "N",
       "id": "white-walk-N",
-      "manifest": "banks/c4e9cc99d871b771ea973e7469419833a870a697ea83140531a262f3e24d4f28.json",
-      "sha256": "c4e9cc99d871b771ea973e7469419833a870a697ea83140531a262f3e24d4f28"
+      "manifest": "banks/3ecb0b0b48f3ffda07fb3ff85c6ea3297a1e62041e764133b9a6028416e28ba6.json",
+      "sha256": "3ecb0b0b48f3ffda07fb3ff85c6ea3297a1e62041e764133b9a6028416e28ba6"
     },
     {
       "character": "ogre",
@@ -4976,8 +4832,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "white-walk-NE",
-      "manifest": "banks/f59fc4a641ec199eb684ab14e61320efa907b5ecd9009fe104a0e86e4001b40b.json",
-      "sha256": "f59fc4a641ec199eb684ab14e61320efa907b5ecd9009fe104a0e86e4001b40b"
+      "manifest": "banks/2e650e79a4153d344ec39b009425a801a7f5f08c395e46cdf8dac1c8301eea58.json",
+      "sha256": "2e650e79a4153d344ec39b009425a801a7f5f08c395e46cdf8dac1c8301eea58"
     },
     {
       "character": "ogre",
@@ -4985,8 +4841,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "white-walk-SE",
-      "manifest": "banks/33e4180c87c31ed199f49525fbf6b470b61835e1acf5f9d3c806c2742cb564f9.json",
-      "sha256": "33e4180c87c31ed199f49525fbf6b470b61835e1acf5f9d3c806c2742cb564f9"
+      "manifest": "banks/6f9436a9d3e755bf51e4f77642cd308e1911f572528cc9882b8c1fa1d1cb0b6c.json",
+      "sha256": "6f9436a9d3e755bf51e4f77642cd308e1911f572528cc9882b8c1fa1d1cb0b6c"
     },
     {
       "character": "ogre",
@@ -4994,8 +4850,8 @@
       "kind": "move",
       "direction": "N",
       "id": "black-walk-N",
-      "manifest": "banks/b0e07eb886dc9411c2ea997b2b713883d88c6f77734974718067bc7732f2f082.json",
-      "sha256": "b0e07eb886dc9411c2ea997b2b713883d88c6f77734974718067bc7732f2f082"
+      "manifest": "banks/7d1490a102dee127c36edaeeed726afd5f1d091fb986d51261466aae8c42d03b.json",
+      "sha256": "7d1490a102dee127c36edaeeed726afd5f1d091fb986d51261466aae8c42d03b"
     },
     {
       "character": "ogre",
@@ -5003,8 +4859,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "black-walk-NE",
-      "manifest": "banks/eb8687e51a60fb05a020a6588a8292bd33e33766a6c95fef12a6ab9f6d264090.json",
-      "sha256": "eb8687e51a60fb05a020a6588a8292bd33e33766a6c95fef12a6ab9f6d264090"
+      "manifest": "banks/252007ad8efca6194aa381d487788b732af80553192a3c6cf71d368c2fab8eeb.json",
+      "sha256": "252007ad8efca6194aa381d487788b732af80553192a3c6cf71d368c2fab8eeb"
     },
     {
       "character": "ogre",
@@ -5012,152 +4868,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/a61d63314630c97047b58a144186ef6a8ab8e95ba7a0b4633c01a332efd0f9cc.json",
-      "sha256": "a61d63314630c97047b58a144186ef6a8ab8e95ba7a0b4633c01a332efd0f9cc"
-    },
-    {
-      "character": "paladin",
-      "army": "white",
-      "kind": "move",
-      "direction": "N",
-      "id": "white-walk-N",
-      "manifest": "banks/00c981203dc5dedad5d22ebfc29e72f79e88b6a20ff3f6c71f94cc284a22d812.json",
-      "sha256": "00c981203dc5dedad5d22ebfc29e72f79e88b6a20ff3f6c71f94cc284a22d812"
-    },
-    {
-      "character": "paladin",
-      "army": "white",
-      "kind": "move",
-      "direction": "NE",
-      "id": "white-walk-NE",
-      "manifest": "banks/26d342622ba5a49f5d612327636809962905067c7f6a9674b04c5804ab6fc3b5.json",
-      "sha256": "26d342622ba5a49f5d612327636809962905067c7f6a9674b04c5804ab6fc3b5"
-    },
-    {
-      "character": "paladin",
-      "army": "white",
-      "kind": "move",
-      "direction": "E",
-      "id": "white-walk-E",
-      "manifest": "banks/4f4bb6d500c2b2bb8f4114db19a429b860230b910333481adbdbf10f286b2d16.json",
-      "sha256": "4f4bb6d500c2b2bb8f4114db19a429b860230b910333481adbdbf10f286b2d16"
-    },
-    {
-      "character": "paladin",
-      "army": "white",
-      "kind": "move",
-      "direction": "SE",
-      "id": "white-walk-SE",
-      "manifest": "banks/8bcaf0b411e63989660c76bf569dd3f08bc6e94cb8ff63a4c31ceb32182cb97c.json",
-      "sha256": "8bcaf0b411e63989660c76bf569dd3f08bc6e94cb8ff63a4c31ceb32182cb97c"
-    },
-    {
-      "character": "paladin",
-      "army": "white",
-      "kind": "move",
-      "direction": "S",
-      "id": "white-walk-S",
-      "manifest": "banks/ac73970ef74462dec3451bd897dae6cd50ba583b77903e350f042cd589200595.json",
-      "sha256": "ac73970ef74462dec3451bd897dae6cd50ba583b77903e350f042cd589200595"
-    },
-    {
-      "character": "paladin",
-      "army": "white",
-      "kind": "move",
-      "direction": "SW",
-      "id": "white-walk-SW",
-      "manifest": "banks/db6cf32908ba9ce0cba50e07ad2b0f03afda892a94d09ac5bdc11b28da7064d0.json",
-      "sha256": "db6cf32908ba9ce0cba50e07ad2b0f03afda892a94d09ac5bdc11b28da7064d0"
-    },
-    {
-      "character": "paladin",
-      "army": "white",
-      "kind": "move",
-      "direction": "W",
-      "id": "white-walk-W",
-      "manifest": "banks/c8b237676920b6b6f82df52012dab1533b1e535a2b34e42c1e5ec5c5d5df1630.json",
-      "sha256": "c8b237676920b6b6f82df52012dab1533b1e535a2b34e42c1e5ec5c5d5df1630"
-    },
-    {
-      "character": "paladin",
-      "army": "white",
-      "kind": "move",
-      "direction": "NW",
-      "id": "white-walk-NW",
-      "manifest": "banks/e613d7ad5a37d8c66d1cbbaf4ef13a457e922798ded403707759dc5187442302.json",
-      "sha256": "e613d7ad5a37d8c66d1cbbaf4ef13a457e922798ded403707759dc5187442302"
-    },
-    {
-      "character": "paladin",
-      "army": "black",
-      "kind": "move",
-      "direction": "N",
-      "id": "black-walk-N",
-      "manifest": "banks/b2b03b5c99441e6234dce254e7004904d58698a9623d91baf7958e40dd25d7b5.json",
-      "sha256": "b2b03b5c99441e6234dce254e7004904d58698a9623d91baf7958e40dd25d7b5"
-    },
-    {
-      "character": "paladin",
-      "army": "black",
-      "kind": "move",
-      "direction": "NE",
-      "id": "black-walk-NE",
-      "manifest": "banks/78994acae800a9dfc71dcb1b30040807fdbabfce0de4a33338dc68e59f98f8d1.json",
-      "sha256": "78994acae800a9dfc71dcb1b30040807fdbabfce0de4a33338dc68e59f98f8d1"
-    },
-    {
-      "character": "paladin",
-      "army": "black",
-      "kind": "move",
-      "direction": "E",
-      "id": "black-walk-E",
-      "manifest": "banks/564027477ed2e7bf469f4069ebaf1220a3e11e4112a2d1ec0bb29e20e39bba48.json",
-      "sha256": "564027477ed2e7bf469f4069ebaf1220a3e11e4112a2d1ec0bb29e20e39bba48"
-    },
-    {
-      "character": "paladin",
-      "army": "black",
-      "kind": "move",
-      "direction": "SE",
-      "id": "black-walk-SE",
-      "manifest": "banks/460b1822dea484ba7457b4eb8832a9c5145d30e079bca9b4aedb1cf1fc426292.json",
-      "sha256": "460b1822dea484ba7457b4eb8832a9c5145d30e079bca9b4aedb1cf1fc426292"
-    },
-    {
-      "character": "paladin",
-      "army": "black",
-      "kind": "move",
-      "direction": "S",
-      "id": "black-walk-S",
-      "manifest": "banks/f1cbada41eacdfc1fb60a41cf2f216838fd7cb63fd6f9e896bbbf0767c2632bd.json",
-      "sha256": "f1cbada41eacdfc1fb60a41cf2f216838fd7cb63fd6f9e896bbbf0767c2632bd"
-    },
-    {
-      "character": "paladin",
-      "army": "black",
-      "kind": "move",
-      "direction": "SW",
-      "id": "black-walk-SW",
-      "manifest": "banks/c8cbc82acba63a1441b94723c4249f5600e2f96e150c1b68e189d77119e0cc7d.json",
-      "sha256": "c8cbc82acba63a1441b94723c4249f5600e2f96e150c1b68e189d77119e0cc7d"
-    },
-    {
-      "character": "paladin",
-      "army": "black",
-      "kind": "move",
-      "direction": "W",
-      "id": "black-walk-W",
-      "manifest": "banks/042c3530d1611223d6047df43a7b073dd883e10a92605edb3b10dbae4c72f2ed.json",
-      "sha256": "042c3530d1611223d6047df43a7b073dd883e10a92605edb3b10dbae4c72f2ed"
-    },
-    {
-      "character": "paladin",
-      "army": "black",
-      "kind": "move",
-      "direction": "NW",
-      "id": "black-walk-NW",
-      "manifest": "banks/67241e567ea11d80eb2f8fbd3229e8c00d18fc5c848250cc138f35f51d0d2a98.json",
-      "sha256": "67241e567ea11d80eb2f8fbd3229e8c00d18fc5c848250cc138f35f51d0d2a98"
+      "manifest": "banks/40df79e4abaf2ea1fa1ee17a7bb569f1afb389f92bd6f19d403c3ac5ed0a2eda.json",
+      "sha256": "40df79e4abaf2ea1fa1ee17a7bb569f1afb389f92bd6f19d403c3ac5ed0a2eda"
     },
     {
       "character": "pawn",
@@ -5165,8 +4877,8 @@
       "kind": "move",
       "direction": "N",
       "id": "white-walk-N",
-      "manifest": "banks/830dd8c27c4b0027752ca441fa76f96cfea3fb8dadef13b40a6a28c9ff23efa3.json",
-      "sha256": "830dd8c27c4b0027752ca441fa76f96cfea3fb8dadef13b40a6a28c9ff23efa3"
+      "manifest": "banks/668f3f539e66bc487c71c47d46cf17064bcb218821c7283b47167024b086dc78.json",
+      "sha256": "668f3f539e66bc487c71c47d46cf17064bcb218821c7283b47167024b086dc78"
     },
     {
       "character": "pawn",
@@ -5174,8 +4886,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "white-walk-NE",
-      "manifest": "banks/0ba7a85a015058d743e8dffc8e8f04a0e5017d1d2830429e63d0e3779e1bcfb8.json",
-      "sha256": "0ba7a85a015058d743e8dffc8e8f04a0e5017d1d2830429e63d0e3779e1bcfb8"
+      "manifest": "banks/0f538d883a8cc67d6bd7805439c48926979a625ae13c26a26ffd8c3b5ca96153.json",
+      "sha256": "0f538d883a8cc67d6bd7805439c48926979a625ae13c26a26ffd8c3b5ca96153"
     },
     {
       "character": "pawn",
@@ -5183,8 +4895,8 @@
       "kind": "move",
       "direction": "E",
       "id": "white-walk-E",
-      "manifest": "banks/ebf4b54bbb0e6f234367b363ee15390932ef093fcd034e283b0c712555c6ed57.json",
-      "sha256": "ebf4b54bbb0e6f234367b363ee15390932ef093fcd034e283b0c712555c6ed57"
+      "manifest": "banks/ec67f5cb10fcab4191db1ebeacd6c2d1831cd8712b683a716cb91820d0ae92a9.json",
+      "sha256": "ec67f5cb10fcab4191db1ebeacd6c2d1831cd8712b683a716cb91820d0ae92a9"
     },
     {
       "character": "pawn",
@@ -5192,8 +4904,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "white-walk-SE",
-      "manifest": "banks/86545e15561de5d796970611ea8c411aec23e4f427046b33db7a9052cc1fbb84.json",
-      "sha256": "86545e15561de5d796970611ea8c411aec23e4f427046b33db7a9052cc1fbb84"
+      "manifest": "banks/86b42468e8bf8e2c3c92e0ab9cf810ceb00e19e1ad1ef2592acf498b93447793.json",
+      "sha256": "86b42468e8bf8e2c3c92e0ab9cf810ceb00e19e1ad1ef2592acf498b93447793"
     },
     {
       "character": "pawn",
@@ -5201,8 +4913,8 @@
       "kind": "move",
       "direction": "S",
       "id": "white-walk-S",
-      "manifest": "banks/17d8fae2acc0db73ea4849b14752f80a9bd811c159c7fd87193333d2c185572d.json",
-      "sha256": "17d8fae2acc0db73ea4849b14752f80a9bd811c159c7fd87193333d2c185572d"
+      "manifest": "banks/6a57a214ac18bd0a3d155be77ac239ae97cf1253bf1479b7b0184a376af5996f.json",
+      "sha256": "6a57a214ac18bd0a3d155be77ac239ae97cf1253bf1479b7b0184a376af5996f"
     },
     {
       "character": "pawn",
@@ -5210,8 +4922,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "white-walk-SW",
-      "manifest": "banks/a4777e7c1d57146f534db8d6810b1868e6ce38ec002b9e5104c3aef8ee509b8b.json",
-      "sha256": "a4777e7c1d57146f534db8d6810b1868e6ce38ec002b9e5104c3aef8ee509b8b"
+      "manifest": "banks/9cd49b7e9585c3f315553840a3e03b7444af7c8bbbfeded4ad0c5502a8a54ea6.json",
+      "sha256": "9cd49b7e9585c3f315553840a3e03b7444af7c8bbbfeded4ad0c5502a8a54ea6"
     },
     {
       "character": "pawn",
@@ -5219,8 +4931,8 @@
       "kind": "move",
       "direction": "W",
       "id": "white-walk-W",
-      "manifest": "banks/24bff5216b578573b63afc139561bbef5d9ec1a6e592c7d7a739baabfb694538.json",
-      "sha256": "24bff5216b578573b63afc139561bbef5d9ec1a6e592c7d7a739baabfb694538"
+      "manifest": "banks/a712f1948bd35d5cec03171c52610ff5f44a7cde94821294a63b7f86fe13fb40.json",
+      "sha256": "a712f1948bd35d5cec03171c52610ff5f44a7cde94821294a63b7f86fe13fb40"
     },
     {
       "character": "pawn",
@@ -5228,8 +4940,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "white-walk-NW",
-      "manifest": "banks/6391b0d37e2f53c93b9d6be4a71270ef25d007c01eb5b9c50c400478c0462e02.json",
-      "sha256": "6391b0d37e2f53c93b9d6be4a71270ef25d007c01eb5b9c50c400478c0462e02"
+      "manifest": "banks/9c01672edc9deb8478f2f851fc6e40e3a86a71380fb6cc4a5d8746b0fb66b0ef.json",
+      "sha256": "9c01672edc9deb8478f2f851fc6e40e3a86a71380fb6cc4a5d8746b0fb66b0ef"
     },
     {
       "character": "pawn",
@@ -5237,8 +4949,8 @@
       "kind": "move",
       "direction": "N",
       "id": "black-walk-N",
-      "manifest": "banks/ea8476d07453850d634f90a54f17a27d378315f9ffae61269d542606fc49df19.json",
-      "sha256": "ea8476d07453850d634f90a54f17a27d378315f9ffae61269d542606fc49df19"
+      "manifest": "banks/7a0ccc40d89476c81d18cf10b2109820c59cbe31edd8648d9ff7ea0b0f608daf.json",
+      "sha256": "7a0ccc40d89476c81d18cf10b2109820c59cbe31edd8648d9ff7ea0b0f608daf"
     },
     {
       "character": "pawn",
@@ -5246,8 +4958,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "black-walk-NE",
-      "manifest": "banks/71862cd160fb5a9155881fd34b35d3d0d2e5d5c21251389c5ee55fbfb3a5150e.json",
-      "sha256": "71862cd160fb5a9155881fd34b35d3d0d2e5d5c21251389c5ee55fbfb3a5150e"
+      "manifest": "banks/23f428a239d069c20c7f2f104106cb416f24df2ed68a67b9ddbd81b72e17eb37.json",
+      "sha256": "23f428a239d069c20c7f2f104106cb416f24df2ed68a67b9ddbd81b72e17eb37"
     },
     {
       "character": "pawn",
@@ -5255,8 +4967,8 @@
       "kind": "move",
       "direction": "E",
       "id": "black-walk-E",
-      "manifest": "banks/4375c705711147dbae5c09c53865f857bdd288f129c20be9b593291f95f3a290.json",
-      "sha256": "4375c705711147dbae5c09c53865f857bdd288f129c20be9b593291f95f3a290"
+      "manifest": "banks/b6e89e9ec4282e703b534b703306c91e58efab8c5b75b128022a7dda5386cf6c.json",
+      "sha256": "b6e89e9ec4282e703b534b703306c91e58efab8c5b75b128022a7dda5386cf6c"
     },
     {
       "character": "pawn",
@@ -5264,8 +4976,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/f3c6c289b0bea6d565959f4bf2b6c121190d48ef883ba8e9baa5d145b17bb95e.json",
-      "sha256": "f3c6c289b0bea6d565959f4bf2b6c121190d48ef883ba8e9baa5d145b17bb95e"
+      "manifest": "banks/ffc8e3f7fa4cd4d8315b9d28dbe48a6b82c668efd10ce27be49a5b83e30a3426.json",
+      "sha256": "ffc8e3f7fa4cd4d8315b9d28dbe48a6b82c668efd10ce27be49a5b83e30a3426"
     },
     {
       "character": "pawn",
@@ -5273,8 +4985,8 @@
       "kind": "move",
       "direction": "S",
       "id": "black-walk-S",
-      "manifest": "banks/5b9a7a3fe6b61f1ef8a4b722e5cb84487905be197740b0c57dde9b49046190e3.json",
-      "sha256": "5b9a7a3fe6b61f1ef8a4b722e5cb84487905be197740b0c57dde9b49046190e3"
+      "manifest": "banks/ddeeb3da01073cc90fb3ad26815625bf5cc74a9b03e740989393402bfe5b8719.json",
+      "sha256": "ddeeb3da01073cc90fb3ad26815625bf5cc74a9b03e740989393402bfe5b8719"
     },
     {
       "character": "pawn",
@@ -5282,8 +4994,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "black-walk-SW",
-      "manifest": "banks/eb0862fa5f329286191afff387e13a09740df6aeab2326b15ae16b28dbb639bb.json",
-      "sha256": "eb0862fa5f329286191afff387e13a09740df6aeab2326b15ae16b28dbb639bb"
+      "manifest": "banks/3dddd5628afbf8fbd322b2593ab45d5af3f133922c3ff92f5e9b21a87bc35074.json",
+      "sha256": "3dddd5628afbf8fbd322b2593ab45d5af3f133922c3ff92f5e9b21a87bc35074"
     },
     {
       "character": "pawn",
@@ -5291,8 +5003,8 @@
       "kind": "move",
       "direction": "W",
       "id": "black-walk-W",
-      "manifest": "banks/a6959a75b7ba6d1fef2e6fbee6ef4ffa430203405aa1defce79771d7a2aa928c.json",
-      "sha256": "a6959a75b7ba6d1fef2e6fbee6ef4ffa430203405aa1defce79771d7a2aa928c"
+      "manifest": "banks/d9c664c11460c9d705de159dfd7596a3413a764c8e09decd363aaf00bb072b79.json",
+      "sha256": "d9c664c11460c9d705de159dfd7596a3413a764c8e09decd363aaf00bb072b79"
     },
     {
       "character": "pawn",
@@ -5300,8 +5012,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "black-walk-NW",
-      "manifest": "banks/f5a3cc445afc396ceca25fb3917ca7795296ee6b22884568f7594c702a1ea4ae.json",
-      "sha256": "f5a3cc445afc396ceca25fb3917ca7795296ee6b22884568f7594c702a1ea4ae"
+      "manifest": "banks/a02bfc003dd650ea09b253788be85b28c59d37fe4b6557f4b46736727c43fdda.json",
+      "sha256": "a02bfc003dd650ea09b253788be85b28c59d37fe4b6557f4b46736727c43fdda"
     },
     {
       "character": "queen",
@@ -5309,8 +5021,8 @@
       "kind": "move",
       "direction": "N",
       "id": "white-walk-N",
-      "manifest": "banks/475e67ba17c53c52ca5460a3f549c169cdfeb1717b9763fec7db51f49acc7b87.json",
-      "sha256": "475e67ba17c53c52ca5460a3f549c169cdfeb1717b9763fec7db51f49acc7b87"
+      "manifest": "banks/ec38a4b58b793cd11f5ede7c002393d5c079e8a68da2b83de8845300a0c1c6b6.json",
+      "sha256": "ec38a4b58b793cd11f5ede7c002393d5c079e8a68da2b83de8845300a0c1c6b6"
     },
     {
       "character": "queen",
@@ -5318,8 +5030,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "white-walk-NE",
-      "manifest": "banks/87790c64e53a140274546da329bf3a4d00ab1f8b3bc375bc46eeea5c3b6f24d2.json",
-      "sha256": "87790c64e53a140274546da329bf3a4d00ab1f8b3bc375bc46eeea5c3b6f24d2"
+      "manifest": "banks/08a0e044d532b0371cef620253e7c8043c77dd66b8ba9f190b2de4a54916534e.json",
+      "sha256": "08a0e044d532b0371cef620253e7c8043c77dd66b8ba9f190b2de4a54916534e"
     },
     {
       "character": "queen",
@@ -5327,8 +5039,8 @@
       "kind": "move",
       "direction": "E",
       "id": "white-walk-E",
-      "manifest": "banks/6d85e9b87e091e7b470db819facb1bce11a503de5350e8e92872a984a8e1959b.json",
-      "sha256": "6d85e9b87e091e7b470db819facb1bce11a503de5350e8e92872a984a8e1959b"
+      "manifest": "banks/6e7a6fd048846ac51df51a0c9b37f9610d714aa49ce6f0d977f8fd051731d1ff.json",
+      "sha256": "6e7a6fd048846ac51df51a0c9b37f9610d714aa49ce6f0d977f8fd051731d1ff"
     },
     {
       "character": "queen",
@@ -5336,8 +5048,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "white-walk-SE",
-      "manifest": "banks/35cfc8419c015abe7a5b37299a994c43aa7db194a8afe0d8410ffbc32df0253d.json",
-      "sha256": "35cfc8419c015abe7a5b37299a994c43aa7db194a8afe0d8410ffbc32df0253d"
+      "manifest": "banks/905ab55806a67e75ca29b2231a2596e5656eb42345b5f9bf9d7510ec7c3fdbf1.json",
+      "sha256": "905ab55806a67e75ca29b2231a2596e5656eb42345b5f9bf9d7510ec7c3fdbf1"
     },
     {
       "character": "queen",
@@ -5345,8 +5057,8 @@
       "kind": "move",
       "direction": "S",
       "id": "white-walk-S",
-      "manifest": "banks/9409ef5aca94d9650e37b0a4f178937e437dad1b75c80443c178857d76cf3baf.json",
-      "sha256": "9409ef5aca94d9650e37b0a4f178937e437dad1b75c80443c178857d76cf3baf"
+      "manifest": "banks/f0c25aa589054b1b26ac17ece229945d0fd17451264f1c3a15189f5a303908dc.json",
+      "sha256": "f0c25aa589054b1b26ac17ece229945d0fd17451264f1c3a15189f5a303908dc"
     },
     {
       "character": "queen",
@@ -5354,8 +5066,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "white-walk-SW",
-      "manifest": "banks/4e0411b20193d69f6d53b4e18d791bd5865dcefcef4342087bdc4de9cb4b0b3d.json",
-      "sha256": "4e0411b20193d69f6d53b4e18d791bd5865dcefcef4342087bdc4de9cb4b0b3d"
+      "manifest": "banks/0a68ebfa61afa9411700090441e293c2bfce1ddfdaee31f56f439a6c05bef0b8.json",
+      "sha256": "0a68ebfa61afa9411700090441e293c2bfce1ddfdaee31f56f439a6c05bef0b8"
     },
     {
       "character": "queen",
@@ -5363,8 +5075,8 @@
       "kind": "move",
       "direction": "W",
       "id": "white-walk-W",
-      "manifest": "banks/07be3f4c7a391cdef5bdd1fdddfbc2499db78ecb1354d9baca4e9288fc21d862.json",
-      "sha256": "07be3f4c7a391cdef5bdd1fdddfbc2499db78ecb1354d9baca4e9288fc21d862"
+      "manifest": "banks/2a2edf07f8eff9b8e209c8a00e6d8dc1e74c6c03cb3a8f962c0b0fac77b3e75d.json",
+      "sha256": "2a2edf07f8eff9b8e209c8a00e6d8dc1e74c6c03cb3a8f962c0b0fac77b3e75d"
     },
     {
       "character": "queen",
@@ -5372,8 +5084,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "white-walk-NW",
-      "manifest": "banks/4fda10e16acb6b6293b40c9613022c65c44cb26f877ccad783ef782a9351b35b.json",
-      "sha256": "4fda10e16acb6b6293b40c9613022c65c44cb26f877ccad783ef782a9351b35b"
+      "manifest": "banks/f2936b4db270d5744e29d6101253e1622494a183ad706c4326abbdc99d135fba.json",
+      "sha256": "f2936b4db270d5744e29d6101253e1622494a183ad706c4326abbdc99d135fba"
     },
     {
       "character": "queen",
@@ -5381,8 +5093,8 @@
       "kind": "move",
       "direction": "N",
       "id": "black-walk-N",
-      "manifest": "banks/cee64b058b4804ef02aaa3743e11eb235eeefe936f7f27276cc7ab3a6c5118e6.json",
-      "sha256": "cee64b058b4804ef02aaa3743e11eb235eeefe936f7f27276cc7ab3a6c5118e6"
+      "manifest": "banks/0910c05b68d511aff07105dec1e2d7ab003f079b615f5b5257a28dca60bd0e79.json",
+      "sha256": "0910c05b68d511aff07105dec1e2d7ab003f079b615f5b5257a28dca60bd0e79"
     },
     {
       "character": "queen",
@@ -5390,8 +5102,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "black-walk-NE",
-      "manifest": "banks/d640adc1f59ccbff992f5ef4d72260ca85812eb824b46557d6798f4b4c6ed59d.json",
-      "sha256": "d640adc1f59ccbff992f5ef4d72260ca85812eb824b46557d6798f4b4c6ed59d"
+      "manifest": "banks/40ca98d9a305f6c825338bedf6ebdd49b0dd957110803158f73065602477bc34.json",
+      "sha256": "40ca98d9a305f6c825338bedf6ebdd49b0dd957110803158f73065602477bc34"
     },
     {
       "character": "queen",
@@ -5399,8 +5111,8 @@
       "kind": "move",
       "direction": "E",
       "id": "black-walk-E",
-      "manifest": "banks/79c0e06648cf5f0c2c64fe67aeb4befa72756225788b9e49df49204f122e28de.json",
-      "sha256": "79c0e06648cf5f0c2c64fe67aeb4befa72756225788b9e49df49204f122e28de"
+      "manifest": "banks/00a4d9e2efc43698cfbcce8e5594595950bd5f4283bc4929683be04fe0bdb537.json",
+      "sha256": "00a4d9e2efc43698cfbcce8e5594595950bd5f4283bc4929683be04fe0bdb537"
     },
     {
       "character": "queen",
@@ -5408,8 +5120,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/ae3e9bf8fe4d3c0a1676ea9cfb34ddece99191f0eb518db328bbea73a40a70c8.json",
-      "sha256": "ae3e9bf8fe4d3c0a1676ea9cfb34ddece99191f0eb518db328bbea73a40a70c8"
+      "manifest": "banks/e3f960d2290345e32a15bd2ec52b630f489aaf129052789054dc77e07076e852.json",
+      "sha256": "e3f960d2290345e32a15bd2ec52b630f489aaf129052789054dc77e07076e852"
     },
     {
       "character": "queen",
@@ -5417,8 +5129,8 @@
       "kind": "move",
       "direction": "S",
       "id": "black-walk-S",
-      "manifest": "banks/8b630347a044e387e323e14c1688fe1387f9a7ad8889a71627eac5fa28915b4c.json",
-      "sha256": "8b630347a044e387e323e14c1688fe1387f9a7ad8889a71627eac5fa28915b4c"
+      "manifest": "banks/be164b08b5bce3a2b549b47be547e7d5e676a5b0e6832b175311f25090968585.json",
+      "sha256": "be164b08b5bce3a2b549b47be547e7d5e676a5b0e6832b175311f25090968585"
     },
     {
       "character": "queen",
@@ -5426,8 +5138,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "black-walk-SW",
-      "manifest": "banks/8d333672ba480b106e2eea4916bc4336fa27d9cf9e8b19a69266b9ffb4ac15a7.json",
-      "sha256": "8d333672ba480b106e2eea4916bc4336fa27d9cf9e8b19a69266b9ffb4ac15a7"
+      "manifest": "banks/0fc15cd84fc98a7add14654db40c596bc8983dbfacec8351ba8e6410dc851815.json",
+      "sha256": "0fc15cd84fc98a7add14654db40c596bc8983dbfacec8351ba8e6410dc851815"
     },
     {
       "character": "queen",
@@ -5435,8 +5147,8 @@
       "kind": "move",
       "direction": "W",
       "id": "black-walk-W",
-      "manifest": "banks/72133be3ad551f7804368beafe80b533534719a4d39bc5d1eca917c52f8fedcc.json",
-      "sha256": "72133be3ad551f7804368beafe80b533534719a4d39bc5d1eca917c52f8fedcc"
+      "manifest": "banks/19b815639df05f5944c1485d1048ec8170e8991eb8f489990c0175b01dac541a.json",
+      "sha256": "19b815639df05f5944c1485d1048ec8170e8991eb8f489990c0175b01dac541a"
     },
     {
       "character": "queen",
@@ -5444,8 +5156,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "black-walk-NW",
-      "manifest": "banks/f7960e69bba1c86006252a5552777c561c32cb671a77819bde961a9f1e111090.json",
-      "sha256": "f7960e69bba1c86006252a5552777c561c32cb671a77819bde961a9f1e111090"
+      "manifest": "banks/8a7f8972740e1af5a3efc8d6c4a3ea15b9610f5ba9a51baaf3233e6794f8266b.json",
+      "sha256": "8a7f8972740e1af5a3efc8d6c4a3ea15b9610f5ba9a51baaf3233e6794f8266b"
     },
     {
       "character": "rook",
@@ -5453,8 +5165,8 @@
       "kind": "move",
       "direction": "N",
       "id": "white-walk-N",
-      "manifest": "banks/8231f7ad7fa4fcdf86097f01e7b64c59161711ab531a423b27915e74197f43d9.json",
-      "sha256": "8231f7ad7fa4fcdf86097f01e7b64c59161711ab531a423b27915e74197f43d9"
+      "manifest": "banks/66c6938b7c6e269501d797fe00376aec70edf94f5837327aa422730078511f46.json",
+      "sha256": "66c6938b7c6e269501d797fe00376aec70edf94f5837327aa422730078511f46"
     },
     {
       "character": "rook",
@@ -5462,8 +5174,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "white-walk-NE",
-      "manifest": "banks/8226f1ae52edeac3a13842905a3c7f2f2bcf6f80e91cbf9a469938ef0e0d3004.json",
-      "sha256": "8226f1ae52edeac3a13842905a3c7f2f2bcf6f80e91cbf9a469938ef0e0d3004"
+      "manifest": "banks/80a7ee24e9aafcbaad4c753f9f4db94990fc976b61970c081cc3e5b62dad8c77.json",
+      "sha256": "80a7ee24e9aafcbaad4c753f9f4db94990fc976b61970c081cc3e5b62dad8c77"
     },
     {
       "character": "rook",
@@ -5471,8 +5183,8 @@
       "kind": "move",
       "direction": "E",
       "id": "white-walk-E",
-      "manifest": "banks/61d277e4bfe5a19dcd696da9d34f9b527f67e2815b59060ef3ff77f6aaf63434.json",
-      "sha256": "61d277e4bfe5a19dcd696da9d34f9b527f67e2815b59060ef3ff77f6aaf63434"
+      "manifest": "banks/ab3edafc57cdf9f85d351c39cad23a549288c3f3cca763bde8cd90de2e978ac2.json",
+      "sha256": "ab3edafc57cdf9f85d351c39cad23a549288c3f3cca763bde8cd90de2e978ac2"
     },
     {
       "character": "rook",
@@ -5480,8 +5192,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "white-walk-SE",
-      "manifest": "banks/961e0879c7fea229fe6f5f77f6aa4e153668a0b66fa492fcdf24fb2125e352e4.json",
-      "sha256": "961e0879c7fea229fe6f5f77f6aa4e153668a0b66fa492fcdf24fb2125e352e4"
+      "manifest": "banks/555c5be701b9e486b057bda7a941af5a4879977b27990f0311fc956ed0c9f76e.json",
+      "sha256": "555c5be701b9e486b057bda7a941af5a4879977b27990f0311fc956ed0c9f76e"
     },
     {
       "character": "rook",
@@ -5489,8 +5201,8 @@
       "kind": "move",
       "direction": "S",
       "id": "white-walk-S",
-      "manifest": "banks/cc48d27ae98bf50e2b9e6f63b44fc81a536d23f3f74028e9fffd17403624179f.json",
-      "sha256": "cc48d27ae98bf50e2b9e6f63b44fc81a536d23f3f74028e9fffd17403624179f"
+      "manifest": "banks/6cc5193bec32d021267389526b77de0a3fbcaf09371b218a59d6e13f7cbf5bfc.json",
+      "sha256": "6cc5193bec32d021267389526b77de0a3fbcaf09371b218a59d6e13f7cbf5bfc"
     },
     {
       "character": "rook",
@@ -5498,8 +5210,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "white-walk-SW",
-      "manifest": "banks/5406f16dddcf8d9c654475457a1a0742d412e64ae1eb3442143d8a8da90661c9.json",
-      "sha256": "5406f16dddcf8d9c654475457a1a0742d412e64ae1eb3442143d8a8da90661c9"
+      "manifest": "banks/ce4a756b34803de66b98456d656b50b678c08203ae293edeea8056734b72f488.json",
+      "sha256": "ce4a756b34803de66b98456d656b50b678c08203ae293edeea8056734b72f488"
     },
     {
       "character": "rook",
@@ -5507,8 +5219,8 @@
       "kind": "move",
       "direction": "W",
       "id": "white-walk-W",
-      "manifest": "banks/bd006b5e0df9d2c7cc7147b3cc1fe289acf73d09aaf11a506d13b628aa31506a.json",
-      "sha256": "bd006b5e0df9d2c7cc7147b3cc1fe289acf73d09aaf11a506d13b628aa31506a"
+      "manifest": "banks/f7028d3246dafa9dc7808d3c17e5ab8de194986ea2813e6050f21bb6b685ad1e.json",
+      "sha256": "f7028d3246dafa9dc7808d3c17e5ab8de194986ea2813e6050f21bb6b685ad1e"
     },
     {
       "character": "rook",
@@ -5516,8 +5228,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "white-walk-NW",
-      "manifest": "banks/49497276d4a9c224e7a7556c56bcc3e571bb491e0ab0cc124dee00ebb71fc13c.json",
-      "sha256": "49497276d4a9c224e7a7556c56bcc3e571bb491e0ab0cc124dee00ebb71fc13c"
+      "manifest": "banks/c192ef0c6277bec1e2f255d99595dd112db7edb64c14ffe2741f82ba7eb52cc3.json",
+      "sha256": "c192ef0c6277bec1e2f255d99595dd112db7edb64c14ffe2741f82ba7eb52cc3"
     },
     {
       "character": "rook",
@@ -5525,8 +5237,8 @@
       "kind": "move",
       "direction": "N",
       "id": "black-walk-N",
-      "manifest": "banks/0039ddb5e68fef9051935e68611cc1341bbde639710e681aa80c19c3da9f5d73.json",
-      "sha256": "0039ddb5e68fef9051935e68611cc1341bbde639710e681aa80c19c3da9f5d73"
+      "manifest": "banks/7707f2d4c4dda0dc2c8a74e8c2e98f20ad56855c9fd35d3968a371d671a383e5.json",
+      "sha256": "7707f2d4c4dda0dc2c8a74e8c2e98f20ad56855c9fd35d3968a371d671a383e5"
     },
     {
       "character": "rook",
@@ -5534,8 +5246,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "black-walk-NE",
-      "manifest": "banks/45acf2a05522da6f2153714dd19b9956e594e08ce283238f7be31831ff26d42b.json",
-      "sha256": "45acf2a05522da6f2153714dd19b9956e594e08ce283238f7be31831ff26d42b"
+      "manifest": "banks/305044013ea6f3f51cff1d0d0607ccedf8385e66431a0da7885e537e82479f4c.json",
+      "sha256": "305044013ea6f3f51cff1d0d0607ccedf8385e66431a0da7885e537e82479f4c"
     },
     {
       "character": "rook",
@@ -5543,8 +5255,8 @@
       "kind": "move",
       "direction": "E",
       "id": "black-walk-E",
-      "manifest": "banks/d5c29609375bc0714f909e590dac01b65c1b8d79f62b1c0762c5cbcb9a4bd03d.json",
-      "sha256": "d5c29609375bc0714f909e590dac01b65c1b8d79f62b1c0762c5cbcb9a4bd03d"
+      "manifest": "banks/8c84de72f212dbfdef41a07ee0f96ed12877bef0f6bb82add07b5d38d62675dd.json",
+      "sha256": "8c84de72f212dbfdef41a07ee0f96ed12877bef0f6bb82add07b5d38d62675dd"
     },
     {
       "character": "rook",
@@ -5552,8 +5264,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/c02fb6820571c6fa9c59a86f71f13e742888044034ec212abfc7c760e2a90d0e.json",
-      "sha256": "c02fb6820571c6fa9c59a86f71f13e742888044034ec212abfc7c760e2a90d0e"
+      "manifest": "banks/f8c9066a1bfaf981b8d849be097bd75b22e01cc4fbb76cb9d98250711160b309.json",
+      "sha256": "f8c9066a1bfaf981b8d849be097bd75b22e01cc4fbb76cb9d98250711160b309"
     },
     {
       "character": "rook",
@@ -5561,8 +5273,8 @@
       "kind": "move",
       "direction": "S",
       "id": "black-walk-S",
-      "manifest": "banks/4e34e7158a1414c1d6604885cfa0ca7c89819cbae8ef33bd0fee4a166544ad6f.json",
-      "sha256": "4e34e7158a1414c1d6604885cfa0ca7c89819cbae8ef33bd0fee4a166544ad6f"
+      "manifest": "banks/057198a280a84a978934a46aa885effb98a5bb326c0fdaabeb78c01d87d2d169.json",
+      "sha256": "057198a280a84a978934a46aa885effb98a5bb326c0fdaabeb78c01d87d2d169"
     },
     {
       "character": "rook",
@@ -5570,8 +5282,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "black-walk-SW",
-      "manifest": "banks/7941e007d4d55f6eaf5b6b8438c9f4624db34df2d3f7714124881464cbcdce21.json",
-      "sha256": "7941e007d4d55f6eaf5b6b8438c9f4624db34df2d3f7714124881464cbcdce21"
+      "manifest": "banks/e2e6840a7ac3e8c388ec9a1be48c6f136494821af4aa28790a93e2fc12be253f.json",
+      "sha256": "e2e6840a7ac3e8c388ec9a1be48c6f136494821af4aa28790a93e2fc12be253f"
     },
     {
       "character": "rook",
@@ -5579,8 +5291,8 @@
       "kind": "move",
       "direction": "W",
       "id": "black-walk-W",
-      "manifest": "banks/059eb41377ce629750c764dcd53f33ca262632eb202a72274912c335269f747c.json",
-      "sha256": "059eb41377ce629750c764dcd53f33ca262632eb202a72274912c335269f747c"
+      "manifest": "banks/36f5f4829fe684900f2ae366520fbbfdff6f9256e73039e5ba569d740e8c50c3.json",
+      "sha256": "36f5f4829fe684900f2ae366520fbbfdff6f9256e73039e5ba569d740e8c50c3"
     },
     {
       "character": "rook",
@@ -5588,8 +5300,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "black-walk-NW",
-      "manifest": "banks/61d4933d56e2542daafb7263ccff23925ce2d092f1539ecc81498ce693a68926.json",
-      "sha256": "61d4933d56e2542daafb7263ccff23925ce2d092f1539ecc81498ce693a68926"
+      "manifest": "banks/55d00f399e511c652d08cf4b9f9a6888a307a1480ccd87a9b3e9546f4399040d.json",
+      "sha256": "55d00f399e511c652d08cf4b9f9a6888a307a1480ccd87a9b3e9546f4399040d"
     }
   ]
 }

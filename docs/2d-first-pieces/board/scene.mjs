@@ -885,7 +885,7 @@ function vortex(out,foot,phase,strength) {
   for(const [sq,u] of poses){
    const actor=animation&&!animation.effect&&animation.move.from===sq,a=actor?animation:null;
    const at=a?.rewind?.kind==='move'?Math.max(a.start,Math.min(a.rewind.at,a.rewind.at-(time-a.rewind.start))):time,elapsed=a?(at-a.start)/a.speed:0,local=a?.drawingMovementStart?0:a?.drawingMovementEndpoint?a.actionDuration:elapsed-(a?.runtime?.beforeMs??0);
-   let body=a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,local,a.actionDuration,a.contactTime,a.drawingMovementStart?'start':a.drawingMovementEndpoint?'end':undefined):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
+   let body=a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,local,a.actionDuration,a.contactTime,a.drawingTurnEndpoint?'turn-end':a.drawingMovementStart?'start':a.drawingMovementEndpoint?'end':undefined):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
    if(body){
     if(a?.runtime){
      if(local<0)u.pose={...a.from};else if(local>a.actionDuration)u.pose={...a.to};
@@ -965,13 +965,16 @@ function drawEncounter(a,t) {
   }
   if(a?.effect&&!a.done&&!a.contacted&&(time-a.start)>=a.duration*a.speed*.62){a.contacted=true;if(a.move.captures.length)a.onContact?.();}
   if(animation!==a){wake();return;}
-  const startpoint=!a?.rewind&&a?.runtime?.movement&&!a.movementStarted&&(time-a.start)/a.speed>=a.runtime.beforeMs;
+  const turnEndpoint=!a?.rewind&&a?.runtime?.movement?.kind==='move'&&a.runtime.beforeMs>0&&!a.turnEndpointDrawn&&(time-a.start)/a.speed>=a.runtime.beforeMs;
+  if(turnEndpoint){a.start=time-a.runtime.beforeMs*a.speed;a.turnEndpointDrawn=true;a.drawingTurnEndpoint=true;}
+  const startpoint=!turnEndpoint&&!a?.rewind&&a?.runtime?.movement&&!a.movementStarted&&(time-a.start)/a.speed>=a.runtime.beforeMs;
   if(startpoint){a.start=time-a.runtime.beforeMs*a.speed;a.movementStarted=true;a.drawingMovementStart=true;}
   const endpoint=!a?.rewind&&a?.runtime?.movement&&!startpoint&&!a.movementEndpoint&&(time-a.start)/a.speed>=a.runtime.beforeMs+a.actionDuration;
   if(endpoint){a.start=time-(a.runtime.beforeMs+a.actionDuration)*a.speed;a.movementEndpoint=true;a.drawingMovementEndpoint=true;}
   if(a&&!a.done&&a.rewind&&time>=a.rewind.end){a.done=true;a.resolve(true);}
   else if(a&&!a.done&&!a.preparing&&!endpoint&&!a.rewind&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
   render(time);
+  if(turnEndpoint)a.drawingTurnEndpoint=false;
   if(startpoint){a.drawingMovementStart=false;a.runtime.releaseMovementStart?.();}
   if(endpoint){a.drawingMovementEndpoint=false;a.runtime.releaseMovement?.();}
   if(a?.done)a.runtime?.releaseFallback?.();
@@ -1015,9 +1018,10 @@ function drawEncounter(a,t) {
   if(prepared&&!reducedMotion){
    a.runtime=prepared;a.legacyDuration=a.duration;a.actionDuration=prepared.attack?.durationMs??a.duration;
    if(prepared.movement?.kind==='move'&&(a.type==='move'||a.type==='gait')&&a.move.from!==a.move.to){
-    a.squares=Math.max(Math.abs((a.move.to&7)-(a.move.from&7)),Math.abs((a.move.to>>3)-(a.move.from>>3)));
+    a.squares=Math.hypot((a.move.to&7)-(a.move.from&7),(a.move.to>>3)-(a.move.from>>3));
     a.type='gait';a.gait='paintedWalk';a.lean=0;
-    a.actionDuration=GAITS.paintedWalk.duration(a.squares,prepared.movement.durationMs);a.legacyDuration=a.actionDuration;
+    a.actionDuration=GAITS.paintedWalk.duration(a.squares,prepared.movement.durationMs,prepared.movement.strideSquares);a.legacyDuration=a.actionDuration;
+    prepared.movementRate=Math.min(2,a.squares*prepared.movement.durationMs/(prepared.movement.strideSquares*a.actionDuration));
    }
    a.contactTime=prepared.attack?(prepared.attack.contactMs??prepared.attack.durationMs*.45):contactTime(a);
    if(prepared.effect){prepared.release=prepared.attack.beatTimes.release??a.contactTime;a.contactTime=prepared.release+prepared.effect.contactMs;a.actionDuration=Math.max(prepared.attack.durationMs,prepared.release+prepared.effect.player.durationMs)+(a.move.from===a.move.to?0:420);}

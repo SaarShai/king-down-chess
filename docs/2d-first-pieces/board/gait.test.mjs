@@ -24,14 +24,15 @@ for (const [name, gait] of Object.entries(GAITS).filter(([name]) => name !== 'pa
 test('painted walk keeps the figure still and travels at one cycle per square, capped', () => {
  const gait=GAITS.paintedWalk;
  for(const [squares,duration] of [[1,640],[2,1280],[7,1600]]){
-  assert.equal(gait.duration(squares,640),duration);
+  assert.equal(gait.duration(squares,640,1),duration);
   let previous=0;
   for(let i=0;i<=1000;i++){
    const v=gait.at(i/1000,squares,duration);
-   near(v,{...REST,travel:v.travel});assert.ok(v.travel>=previous);previous=v.travel;
+   near(v,{...REST,travel:i/1000});assert.ok(v.travel>=previous);previous=v.travel;
   }
   near(gait.at(0,squares,duration),REST);near(gait.at(1,squares,duration),{...REST,travel:1});
  }
+ assert.equal(gait.duration(1,640,.8),800);
 });
 test('every gait named by a figure exists', () => {
   for (const g of Object.values(GAIT_OF)) assert.ok(GAITS[g], g);

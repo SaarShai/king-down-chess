@@ -167,7 +167,7 @@ describe('ready character playback', () => {
   const pending=runtime.reserveIdle('king-stratus','white');await vi.waitFor(()=>expect(finish).toBeDefined());runtime.dispose();finish?.();expect(await pending).toBe(false);expect(runtime.stats.bytes).toBe(0);
  });
  it('holds the painted move keys at their own times and repeats during long travel', async () => {
-  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const idle={...bank(),id:'idle',kind:'idle',facing:'N',frames:[{url:'rest',timeMs:0}]};
   const move={...bank(),id:'painted',kind:'move',facing:'N',nearest:true,durationMs:600,frames:[0,120,360].map(timeMs=>({url:`walk-${timeMs}`,timeMs}))};
   const older={...move,id:'older',kind:'movement'};
   const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,older,move]})})) as unknown as typeof fetch,
@@ -175,9 +175,28 @@ describe('ready character playback', () => {
   const prepared=await runtime.prepare('pawn','white','N',false,true);
   expect((prepared as {movement:{id:string}} | null)?.movement?.id).toBe('painted');
   expect([0,119,120,359,360,599,600,720].map(t=>(runtime.action(prepared,t,1000,0) as {time:number}).time)).toEqual([0,0,120,120,360,360,0,120]);
+  (prepared as {movementRate:number}).movementRate=2;
+  expect((runtime.action(prepared,60,1000,0) as {time:number}).time).toBe(120);
   expect((runtime.action(prepared,1000,1000,0,'end') as {bank:string}).bank).toBe('idle');
   expect((runtime.action(prepared,1001,1000,0) as {bank:string}).bank).toBe('idle');
   runtime.dispose();
+ });
+ it('uses the old movement when a painted walk has no turn route', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const move={...bank(),id:'painted',kind:'move',facing:'N',frames:[{url:'walk',timeMs:0}]};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,move]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  expect(await runtime.prepare('pawn','white','N',false,true)).toBeNull();runtime.dispose();
+ });
+ it('shows the outward turn endpoint before the painted walk', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const turn={...bank(),id:'turn',frames:[{url:'rest',timeMs:0},{url:'facing',timeMs:120}]};
+  const move={...bank(),id:'painted',kind:'move',facing:'S',frames:[{url:'walk',timeMs:0}]};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,move]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const prepared=await runtime.prepare('pawn','white','S',false,true);
+  expect(runtime.action(prepared,0,640,0,'turn-end')).toMatchObject({bank:'turn',url:'facing'});
+  expect(runtime.action(prepared,0,640,0,'start')).toMatchObject({bank:'painted',url:'walk'});runtime.dispose();
  });
  it('plays explicit movement for each army and direction over the scene travel time', async () => {
   const banks = ['white','black'].flatMap(army => {

@@ -55,11 +55,7 @@ export const GAITS={
  walk:{duration:()=>440,at:walk},
  glide:{duration:squares=>Math.min(480,350+28*squares),at:glide},
  hop:{duration:()=>420,at:hop},
- paintedWalk:{duration:(squares,cycle)=>Math.min(1600,squares*cycle),at:(u,squares,duration)=>{
-  const t=clamp(u,0,1)*duration,e=Math.min(80,duration/2),distance=duration-e;
-  const travel=t<e?t*t/(2*e*distance):t>duration-e?1-(duration-t)**2/(2*e*distance):(t-e/2)/distance;
-  return {...rest,travel};
- }},
+ paintedWalk:{duration:(squares,cycle,stride)=>Math.min(1600,squares*cycle/stride),at:u=>({...rest,travel:clamp(u,0,1)})},
 };
 // Figures by art name. Knight (leap) and Paladin (charge) keep their own quiet moves.
 export const GAIT_OF={king:'walk',guard:'walk',maester:'walk',ogre:'walk',beast:'walk',archer:'walk',rook:'glide',bishop:'glide',queen:'glide',pawn:'hop'};
