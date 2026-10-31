@@ -45,3 +45,4 @@ docs/specs/effects-animation/preview/card-art/wide-review/previous/mirrorb-v3.pn
 docs/specs/effects-animation/preview/card-art/wide-review/previous/rally-v1.png  Superseded native rally-v1 painting; keep exact pixels and prompt provenance for the selected card-art decision (ticket 33)
 docs/specs/effects-animation/preview/card-art/wide-review/previous/rescue-v1.png  Superseded native rescue-v1 painting; keep exact pixels and prompt provenance for the selected card-art decision (ticket 33)
 docs/specs/effects-animation/preview/card-art/wide-review/previous/sacrifice-v1.png  Superseded native sacrifice-v1 painting; keep exact pixels and prompt provenance for the selected card-art decision (ticket 33)
+public/character-runtime/manifest.json  Ready character package manifest; 478 banks and every frame reference must reach the game in one file

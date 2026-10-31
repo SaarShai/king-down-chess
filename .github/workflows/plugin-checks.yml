@@ -376,7 +376,7 @@ jobs:
           nproc
           free -m
           nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &
-      # Step limits under the job limit, as in browser-webkit. Passing runs take 19-21 and 2 minutes; the plugin-ui
+      # Step limits under the job limit, as in browser-webkit. Plugin UI passing runs take 19-21 minutes; the plugin-ui
       # step limit stays above its 1440 s check limit (480 s x 3).
       - run: npm run check:browser plugin-ui
         env:

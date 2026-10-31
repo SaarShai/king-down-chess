@@ -17,6 +17,9 @@ it('routes only the site API boundary to the one MCP function for every method',
       expect(new RegExp(rule.src).test(path), path).toBe(false);
     }
     expect(routes).toContainEqual({ src: '^/internal/.+$', dest: '/internal' });
+    const art = routes.find(route => route.headers?.['Cache-Control'] === 'public, max-age=31536000, immutable')!;
+    expect(new RegExp(art.src).test(`/character-runtime/assets/${'a'.repeat(64)}.webp`)).toBe(true);
+    for (const path of ['/character-runtime/manifest.json', '/character-runtime/assets/other.webp', `/character-runtime/assets/${'a'.repeat(64)}.png`]) expect(new RegExp(art.src).test(path)).toBe(false);
     expect(routes.filter(route => route.src.startsWith('^/plugin-art/'))).toEqual(vercelRoutes());
     expect(vercelRoutes().some(route => new RegExp(route.src).test('/api'))).toBe(false);
     // The parked ChatGPT plugin (tools/chatgpt-plugin.mjs) has no art routes; with the plugin in, one per art format.

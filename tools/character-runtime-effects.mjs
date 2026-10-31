@@ -3,6 +3,12 @@ import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {resolve,dirname,relative} from 'node:path';
 import sharp from 'sharp';
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
+export const stripPng=bytes=>{
+ if(!bytes.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex')))throw Error('Invalid effect PNG');
+ const chunks=[bytes.subarray(0,8)];let i=8;
+ while(i<bytes.length){if(i+12>bytes.length)throw Error('Invalid effect PNG chunk');const n=bytes.readUInt32BE(i),end=i+n+12;if(end>bytes.length)throw Error('Invalid effect PNG chunk');if(['IHDR','PLTE','tRNS','IDAT','IEND','gAMA','sRGB'].includes(bytes.toString('ascii',i+4,i+8)))chunks.push(bytes.subarray(i,end));i=end;}
+ return Buffer.concat(chunks);
+};
 const safe=(root,path)=>{const rel=relative(root,path);if(rel.startsWith('..')||rel.startsWith('/'))throw Error('Effect path leaves its package');return path;};
 /** Exact published separate effects and their review receipts. Only the smoke texture URL needs bundling. */
 export async function buildRuntimeEffects(source,output,banks,selectionPath){
@@ -23,16 +29,19 @@ export async function buildRuntimeEffects(source,output,banks,selectionPath){
  for(const entry of chosen){
   if(entry.status!=='ready'||!ready.effects.some(e=>e.moduleUrl.includes(entry.character==='archer'?'arrow-flight':`${entry.character}-`)))throw Error('Effect is not published ready');
   const files=[];let decodedBytes=0,smokeDecodedBytes=0;
+  const outputHashes=entry.files.filter(f=>f.outputSha256).map(f=>[f.sha256,f.outputSha256]);
   for(const record of entry.files){
    const original=await readFile(safe(resolve(source,'..'),resolve(source,record.source)));
    if(!approvedHashes.has(record.sha256))throw Error(`Effect source has no publication hash: ${record.source}`);
    if(hash(original)!==record.sha256)throw Error(`Effect source hash mismatch: ${record.source}`);
    let bytes=original;
    if(record.path.endsWith('.png')){
+    bytes=stripPng(bytes);if(hash(bytes)!==record.outputSha256)throw Error(`Effect output hash mismatch: ${record.path}`);
     if(!audit.textures.some(t=>t.sha256===record.sha256&&t.pass===true))throw Error('Effect has no passing alpha receipt');
     const {data,info}=await sharp(bytes).ensureAlpha().extractChannel('alpha').raw().toBuffer({resolveWithObject:true});
     if(!data.includes(0)||!data.some(a=>a>0))throw Error('Effect alpha failed');decodedBytes+=info.width*info.height*4;if(record.path==='assets/golden-wisp.png')smokeDecodedBytes=info.width*info.height*4;
    }
+   if(record.path==='effect.json'){let text=bytes.toString('utf8');for(const [oldHash,newHash] of outputHashes)text=text.replaceAll(oldHash,newHash);bytes=Buffer.from(text);}
    if(record.rewriteSmokeTextureURL){
     const text=bytes.toString('utf8'),old="'effects/golden-wisp.png'";
     if(text.split(old).length!==2)throw Error('Smoke texture URL contract changed');
@@ -42,6 +51,8 @@ export async function buildRuntimeEffects(source,output,banks,selectionPath){
    files.push({path:record.path,bytes,sourceSha256:record.sha256});
   }
   for(const receipt of receipts)files.push({path:`provenance/${receipt.record.sha256}.json`,bytes:receipt.bytes,sourceSha256:receipt.record.sha256});
+  const derived=files.filter(f=>f.path.endsWith('.png')).map(f=>({path:f.path,sourceSha256:f.sourceSha256,sha256:hash(f.bytes)}));
+  files.push({path:'provenance/runtime-assets.json',bytes:Buffer.from(JSON.stringify(derived)+'\n')});
   const inventory=files.map(f=>({path:f.path,sha256:hash(f.bytes),sourceSha256:f.sourceSha256}));
   const id=hash(Buffer.from(JSON.stringify(inventory))),dir=resolve(output,'effects',id);
   for(const file of files){const path=safe(dir,resolve(dir,file.path));await mkdir(dirname(path),{recursive:true});await writeFile(path,file.bytes);}

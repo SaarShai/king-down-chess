@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import {checkCharacterEffects} from './lib/character-effects-game-check.mjs';
 import { env, launch, shot, trapErrors, assertNoErrors } from './lib/checks.mjs';
 const browser=await launch(),checks=[];
-function runtimeNetwork(page){const records=[],pending=[];page.on('response',response=>{if(response.url().includes('/character-runtime/'))pending.push(response.body().then(bytes=>records.push({url:response.url(),bytes:bytes.length})).catch(()=>{}));});return async()=>{await Promise.all(pending);return {requests:records.length,bytes:records.reduce((n,r)=>n+r.bytes,0)};};}
+function runtimeNetwork(page){const records=[],pending=[];page.on('response',response=>{if(response.url().includes('/character-runtime/'))pending.push(response.body().then(bytes=>records.push({url:response.url(),bytes:bytes.length})).catch(()=>{}));});return async()=>{await Promise.all(pending);return {requests:records.length,bytes:records.reduce((n,r)=>n+r.bytes,0),frameBytes:records.filter(r=>/\/character-runtime\/assets\//.test(r.url)).reduce((n,r)=>n+r.bytes,0),manifestBytes:records.filter(r=>/\/character-runtime\/manifest\.json/.test(r.url)).reduce((n,r)=>n+r.bytes,0)};};}
 try {
  for(const [character,fen,from,to,flipped] of [
   ['pawn','7k/8/8/3p4/4P3/8/8/K7 w - - 0 1',28,35],
@@ -71,6 +71,7 @@ try {
  }
  // The ready cast and all six king designs draw in the real game with their separate cues.
  for(const [label,kings,fen,count] of [
+  ['standard-position',null,'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',32],
   ['ready-cast',null,'onbalmgk/pppppppp/8/8/8/8/PPPPPPPP/ONBALMGK w - - 0 1',32],
   ['kings-frost-flame','frost:freeze,flame:haste','7k/8/8/3p4/4P3/8/8/K7 w - - 0 1',4],
   ['kings-mud-stratus','mud:march,stratus:flight','7k/8/8/3p4/4P3/8/8/K7 w - - 0 1',4],
@@ -82,6 +83,17 @@ try {
   await page.goto(url.href);await page.waitForFunction(count=>window.view?.scene?.characterFrames?.length===count,count);await page.evaluate(()=>view.ready());await page.waitForTimeout(1000);
   await shot(page,label);const memory=await page.evaluate(()=>view.scene.characterMemory);assert(memory.peakBytes<=64*1024*1024,'ready cast decoded cache stays within 64 MiB');const initialNetwork=await network();assert(initialNetwork.requests<=40&&initialNetwork.bytes<=8*1024*1024,'full board only loads its runtime stills and ambient texture');checks.push({label,initialNetwork,memory,frames:await page.evaluate(()=>view.scene.characterFrames)});assertNoErrors(errors);await page.close();
  }
+ // The shipped package carries every selected bank as content-named WebP.
+ {
+  const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
+  await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
+  const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen','rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');url.searchParams.set('players','human,human');
+  await page.goto(url.href);
+  const pack=await page.evaluate(async()=>(await(await fetch('/character-runtime/manifest.json')).json())),urls=pack.banks.flatMap(bank=>bank.frames.map(frame=>frame.url));
+  assert.equal(pack.sourceToRuntimeScale,0.5);assert(pack.banks.length>=478,'the ready package carries every selected bank');assert(urls.every(url=>/^assets\/[a-f0-9]{64}\.webp$/.test(url)),'every runtime frame is content-named WebP');
+  checks.push({packageBanks:pack.banks.length,packageFrames:urls.length});assertNoErrors(errors);await page.close();
+ }
+
  // Repaired Queen, Guard and king turns retain adjacent endpoint pixels and transforms in the shipped package.
  for(const [character,army,fen,from,to,kings]of [
   ['queen','white','6k1/p7/8/8/3Q4/8/P7/K7 w - - 0 1',27,36,null],

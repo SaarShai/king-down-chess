@@ -53,11 +53,11 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
  const FALL=650, CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
- const bodyRuntime=characterRuntime?createCharacterRuntime({wake:()=>wake()}):null;
- if(bodyRuntime)void bodyRuntime.ready().then(()=>{if(!disposed)warmBodies();});
+ let bodyRuntime=null, bodyWarm=!characterRuntime, startBodyRuntime=null;
+ const onPageShow=event=>{if(event.persisted)startBodyRuntime?.();};
  const characterOf=value=>typeOf(value)===K?`king-${kings[colorOf(value)]}`:ART[typeOf(value)];
  const armyOf=value=>colorOf(value)?'black':'white';
- function warmBodies(){if(!bodyRuntime)return;for(const value of new Set(position.board))if(value)void bodyRuntime.warm(characterOf(value),armyOf(value));}
+ function warmBodies(){if(!bodyRuntime)return Promise.resolve();return Promise.all([...new Set(position.board)].filter(Boolean).map(value=>bodyRuntime.warm(characterOf(value),armyOf(value))));}
  const ART={[K]:'king',[S]:'beast',[Q]:'queen',[L]:'paladin',[M]:'maester',[P]:'pawn',[A]:'archer',[O]:'ogre',[N]:'knight',[B]:'bishop',[R]:'rook',[G]:'guard'};
  // CORS images (crossOrigin 'anonymous'): a canvas may read them when the art comes from another origin (the plugin page).
  const corsImage=()=>Object.assign(new Image(),{crossOrigin:'anonymous'});
@@ -974,7 +974,15 @@ function drawEncounter(a,t) {
   if(endpoint){a.drawingMovementEndpoint=false;a.runtime.releaseMovement?.();}
   if(a?.done)a.runtime?.releaseFallback?.();
   if(labels)drawLabels();
-  if(frames===1&&!reducedMotion)requestAnimationFrame(()=>loadClips());
+  if(frames===1)requestAnimationFrame(()=>{
+   if(disposed)return;
+   if(!reducedMotion)loadClips();
+   if(characterRuntime){
+    const start=()=>{if(disposed||bodyRuntime)return;bodyRuntime=createCharacterRuntime({wake:()=>wake()});void bodyRuntime.ready().then(()=>{if(!disposed)return warmBodies();}).then(()=>{bodyWarm=true;});};
+    startBodyRuntime=start;globalThis.addEventListener('pageshow',onPageShow);
+    if(document.readyState&&document.readyState!=='complete')globalThis.addEventListener('load',start,{once:true});else start();
+   }
+  });
   if((a&&!a.done&&(!a.preparing||a.exitReady||a.rewind))||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading||clipShown)wake(false);
   else{previousTime=0;if((idling()&&bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected])))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }
@@ -1149,7 +1157,8 @@ function drawEncounter(a,t) {
   /** The ready body frames the last draw used, for registration checks. */
   get characterFrames(){return bodyFrames;},
   get characterExit(){return animation?.exitStart??null;},
-  get characterMemory(){return bodyRuntime?.stats??{bytes:0,peakBytes:0,active:0,queued:0};},
+  get characterWarmupSettled(){return bodyWarm&&bodyRuntime?.stats.manifestReady&&bodyRuntime.stats.framesLoaded>0&&bodyRuntime.stats.active===0&&bodyRuntime.stats.queued===0;},
+  get characterMemory(){return bodyRuntime?.stats??{bytes:0,peakBytes:0,framesLoaded:0,active:0,queued:0,manifestReady:false,manifestLoading:false};},
   get characterEffects(){return effectFrames;},
   setDecorate(fn){decorate=fn;wake();},
   redraw(){wake();},
@@ -1221,7 +1230,7 @@ function drawEncounter(a,t) {
    if(Number.isFinite(entry?.lastG))entry.resume={g:entry.lastG,start:performance.now()};
    if(animation||!idleReady||selected===null){endMove(keep);reserveSelected(selected);}if(closeup)closeup.panel.hidden=true;aimAngle=0;wake();
   },
-  dispose(){if(disposed)return;disposed=true;endMove();bodyRuntime?.dispose();smokeStreams.clear();cancelAnimationFrame(frame);frame=0;decorate=null;},
+  dispose(){if(disposed)return;disposed=true;if(startBodyRuntime){globalThis.removeEventListener('pageshow',onPageShow);globalThis.removeEventListener('load',startBodyRuntime);}endMove();bodyRuntime?.dispose();smokeStreams.clear();cancelAnimationFrame(frame);frame=0;decorate=null;},
  };
  return api;
 }
