@@ -208,7 +208,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    await bounded(loadManifest(),remaining(),signal);if(disposed||signal?.aborted||!remaining())return null;
    const all=forPiece(character,army),rest=idle(character,army);if(!rest)return null;
    const attack=capture?all.find(b=>b.kind==='attack'&&b.facing===direction):null;
-   const playable=b=>b.facing===direction&&b.durationMs>0&&b.frames?.length;
+   const playable=b=>b.facing===direction&&Number.isFinite(b.durationMs)&&b.durationMs>0&&b.frames?.length&&(b.kind!=='move'||Number.isFinite(b.strideSquares)&&b.strideSquares>0);
    let movement=!capture?(!['knight','paladin'].includes(character)&&all.find(b=>b.kind==='move'&&playable(b))||oneSquare&&all.find(b=>b.kind==='movement'&&playable(b))||null):null;
    const movementRequested=!!movement;
    const turns=all.filter(b=>b.kind==='turn'),before=turnRoute(turns,rest.facing,direction),after=before&&reverseRoute(before);

@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-BASE = '6279af2ef76ba46d75ba10ad5ddc822c67c5d5d78897457a1d13cc6893aed241'
+BASE = '77e83626a60d3ef8518d374409a9f8b9268460cfd65a545190b406782f20e363'
 SELECTION = ROOT / 'docs/specs/character-animation-samples/runtime-selection.json'
 PACKAGE = ROOT / 'public/character-runtime'
 
@@ -36,8 +36,6 @@ def promote(candidate, target):
     target = target.resolve()
     if candidate == target:
         raise ValueError('Candidate and target must differ')
-    if shutil.disk_usage('/').free < 31 * 1024**3:
-        raise ValueError('Need 31 GiB free for the rebuild and the 30 GiB floor')
     selection = json.loads(SELECTION.read_bytes())
     proposed = (candidate / 'manifest.json').read_bytes()
     proposed_sha = digest(proposed)
@@ -47,6 +45,8 @@ def promote(candidate, target):
     moves = [e for e in catalog['entries'] if e['kind'] == 'move']
     if len(moves) != 196:
         raise ValueError('Expected 196 source move banks')
+    if shutil.disk_usage('/').free < 31 * 1024**3:
+        raise ValueError('Need 31 GiB free for the rebuild and the 30 GiB floor')
     with (target / '.catalog.lock').open('a+b') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         previous = (target / 'manifest.json').read_bytes()
@@ -74,7 +74,8 @@ def promote(candidate, target):
                 if digest(destination.read_bytes()) != bank_hash:
                     raise ValueError('Target bank hash mismatch')
             else:
-                destination.write_bytes(data)
+                with destination.open('xb') as file:
+                    file.write(data)
         (target / 'catalogs').mkdir(exist_ok=True)
         snapshot = target / 'catalogs' / f'{proposed_sha}.json'
         if snapshot.exists() and snapshot.read_bytes() != proposed:
