@@ -116,16 +116,17 @@ it('builds painted moves with their own timing and rejects a gap', async () => {
  }
  const original=Buffer.from(JSON.stringify({frames:frames.map(f=>({...f,uniformScale:1,translation:[0,0]}))})),originalHash=hash(original);writeFileSync(join(source,'banks',`${originalHash}.json`),original);
  const selection=join(scratch,'selection.json');
- const select=(bankFrames:typeof frames,pivot=[16,28],includeSource=true)=>{
+ const select=(bankFrames:typeof frames,pivot=[16,28],includeSource=true,sourceDirection='N')=>{
   const bytes=Buffer.from(JSON.stringify({status:'ready',character:'pawn',army:'white',direction:'N',facing:'N',canvasSize:[32,32],pivot,bodyHeightPx:20,strideSquares:.8,sampling:'nearest',durationMs:timeMs,frames:bankFrames,walkSourceBankSha256:originalHash,walkRestTransform:{canonicalPivot:[16,28],scaleGamePxPerSourcePx:4.8,offsetGamePx:[-76.8,-134.4]},walkRanges:{topRangeAt160:0,groundRangeAt160:0}})),sha256=hash(bytes);
   writeFileSync(join(source,'banks',`${sha256}.json`),bytes);const entry={character:'pawn',army:'white',kind:'move',direction:'N',id:'white-walk-N',status:'ready',manifest:`banks/${sha256}.json`,sha256};
-  const originalEntry={character:'pawn',army:'white',kind:'movement-study',id:'source',manifest:`banks/${originalHash}.json`,sha256:originalHash};
+  const originalEntry={character:'pawn',army:'white',kind:'movement-study',direction:sourceDirection,id:'source',manifest:`banks/${originalHash}.json`,sha256:originalHash};
   const manifest=Buffer.from(JSON.stringify({entries:includeSource?[originalEntry,entry]:[entry]}));writeFileSync(join(source,'manifest.json'),manifest);writeFileSync(selection,JSON.stringify({schemaVersion:1,status:'ready',catalogSha256:hash(manifest),entries:[entry]}));
  };
  const run=()=>execFileSync(process.execPath,[resolve('tools/build-character-runtime.mjs'),'--source',source,'--output',out,'--selection',selection],{encoding:'utf8',stdio:'pipe',timeout:10_000});
  select(frames);expect(JSON.parse(run())).toEqual({banks:1,assets:4});const bank=JSON.parse(readFileSync(join(out,'manifest.json'),'utf8')).banks[0];
  expect(bank).toMatchObject({kind:'move',facing:'N',pivot:[8,14],registrationHeightPx:10,strideSquares:.8,durationMs:680,nearest:true});expect(bank.frames.map((f:{timeMs:number})=>f.timeMs)).toEqual([0,120,280,520]);
  select(frames,[16,28],false);expect(run).toThrow(/Painted move source is not in the catalog/);
+ select(frames,[16,28],true,'S');expect(run).toThrow(/Painted move source is not in the catalog for this facing/);
  select(frames,[17,28]);expect(run).toThrow(/Painted move gates failed:.*placement/);
  select(frames.map((f,i)=>i===2?{...f,timeMs:f.timeMs+1}:f));expect(run).toThrow(/Invalid painted move timing/);
 },30_000);
