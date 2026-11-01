@@ -20,7 +20,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(verify).toContain('PLUGIN_TEST_DATABASE_URL:');
     expect(verify).toContain('- run: npm run plugin:db:init-test');
     expect(verify).toContain("- run: npm test\n        env:\n          KINGDOWN_TEST_SKIP: 'tools/plugin-board{,-input,-drafts}.test.ts'\n");
-    expect([...workflow.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):$/gm)].map(m => m[1])).toEqual(['reuse', 'verify', 'browser-board', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui']);
+    expect([...workflow.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):$/gm)].map(m => m[1])).toEqual(['reuse', 'verify', 'browser-board', 'browser-ui', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui']);
   });
 
   it('runs the suite once per tree: every job skips when a green run of this workflow checked the same tree', () => {
@@ -28,16 +28,21 @@ describe('.github/workflows/plugin-checks.yml', () => {
     const reuse = job('reuse');
     expect(reuse).toContain('outputs:\n      green: ${{ steps.find.outputs.green }}\n');
     expect(reuse).toContain('fetch-depth: 0');
-    expect(reuse).toContain('actions/workflows/plugin-checks.yml/runs?status=success');
+    expect(reuse).toContain('actions/workflows/plugin-checks.yml/runs?status=success&event=push&');
     expect(reuse).toContain("tree=$(git rev-parse 'HEAD^{tree}')");
     expect(reuse).toContain('echo "green=true" >> "$GITHUB_OUTPUT"');
-    for (const name of ['verify', 'browser-board', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui']) {
+    for (const name of ['verify', 'browser-board', 'browser-ui', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui']) {
       expect(job(name)).toContain("    runs-on: ubuntu-latest\n    needs: reuse\n    if: needs.reuse.outputs.green != 'true'\n");
     }
   });
 
-  it('leaves the parked ChatGPT widget checks out of CI (docs/HOSTING.md)', () => {
-    expect(workflow).not.toMatch(/plugin:build:chatgpt|plugin-server-chatgpt|check:browser plugin-/);
+  it('leaves the ChatGPT-only checks out of CI and keeps plugin-ui on Chromium for the shared screens (docs/HOSTING.md)', () => {
+    expect(workflow.match(/- run: .*/g)!.join('\n')).not.toMatch(/plugin:build:chatgpt|plugin-server-chatgpt|plugin-oauth|plugin-ui-http/);
+    const ui = job('browser-ui');
+    expect(ui).toContain('npx playwright install --with-deps chromium');
+    expect(ui).toContain('- run: npm run check:browser plugin-ui\n');
+    // The check limit times 2 on CI, the 10-minute install and four minutes of setup fit the job limit.
+    expect(checks.find(check => check.name === 'plugin-ui')!.limit * 2 / 60 + 10 + 4).toBeLessThan(Number(ui.match(/^    timeout-minutes: (\d+)$/m)![1]));
   });
 
   it('keeps the release and sample instructions in line with the CI and push gates', () => {
@@ -51,7 +56,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(read('tools/lib/checks.mjs')).not.toContain('pre-push');
   });
 
-  it('removes the slow Azure mirror and limits downloads in all six browser install steps', () => {
+  it('removes the slow Azure mirror and limits downloads in all seven browser install steps', () => {
     const directory = join(import.meta.dirname, '..', '.github', 'workflows');
     const removeMirror = "sudo sed -i '/azure\\.archive\\.ubuntu\\.com/d' /etc/apt/apt-mirrors.txt";
     let installs = 0;
@@ -66,7 +71,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
         expect(step.indexOf('sudo tee')).toBeLessThan(step.indexOf('npx playwright install'));
       }
     }
-    expect(installs).toBe(6);
+    expect(installs).toBe(7);
   });
 
   it.each(webkitJobs)('runs WebKit in the separate job %s with its own install and the time limit for its scaled steps', name => {
@@ -77,7 +82,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(webkit).toContain("PLAYABLE_CPU_CANVAS: '1'");
     expect(webkit).toContain('npx playwright install --with-deps webkit');
     expect(webkit.match(/needs: .*/g)).toEqual(['needs: reuse']);
-    for (const other of ['verify', 'browser-board', 'browser-web']) expect(job(other)).not.toContain('PLAYABLE_CPU_CANVAS');
+    for (const other of ['verify', 'browser-board', 'browser-ui', 'browser-web']) expect(job(other)).not.toContain('PLAYABLE_CPU_CANVAS');
   });
 
   it('runs the Chromium board files that verify leaves out, one file to a runner', () => {

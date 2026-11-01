@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, expect, it, vi } from 'vitest';
-import { mergeOnGreen } from './merge-on-green.mjs';
+import { mergeOnGreen, REUSE_SHAPE } from './merge-on-green.mjs';
 
 vi.setConfig({ testTimeout: 60_000 });
 const head = 'a'.repeat(40), base = 'b'.repeat(40);
@@ -301,14 +301,29 @@ it('checks the review record again after each CI wait', async () => {
   expect(f.merges()).toEqual([]);
 });
 
-it('merges when every check but one is skipped: the reuse job found a green run of the same tree', async () => {
+/** The check runs of a reused run: reuse passed, every other job skipped (one run per job, matrix jobs included). */
+const reuseShape = () => REUSE_SHAPE.map((name, id) => ({ id, name, head_sha: head, status: 'completed', conclusion: name === 'reuse' ? 'success' : 'skipped' }));
+type Check = ReturnType<typeof reuseShape>[number];
+
+it('merges the reuse shape: reuse passed and every other job skipped, because a green run checked the same tree', async () => {
   const f = fixture();
-  for (const check of f.checks.slice(1)) check.conclusion = 'skipped';
+  f.checks.splice(0, f.checks.length, ...reuseShape());
   await f.run();
   expect(f.merges()).toHaveLength(1);
 });
 
-it.each(['failure', 'cancelled', 'neutral', 'timed_out', 'action_required', 'stale', null])('refuses CI conclusion %s', async conclusion => {
+it.each<[string, (check: Check) => Check | null]>([
+  ['a job is missing', check => check.name === 'verify' ? null : check],
+  ['reuse itself is skipped', check => check.name === 'reuse' ? { ...check, conclusion: 'skipped' } : check],
+  ['one skipped job is beside passing jobs', check => check.name === 'browser-web' ? check : { ...check, conclusion: 'success' }],
+])('refuses skipped checks when %s', async (_name, change) => {
+  const f = fixture();
+  f.checks.splice(0, f.checks.length, ...reuseShape().map(change).filter((check): check is Check => check !== null));
+  await expect(f.run()).rejects.toThrow(/CI check does not pass|reuse shape/);
+  expect(f.merges()).toEqual([]);
+});
+
+it.each(['failure', 'cancelled', 'skipped', 'neutral', 'timed_out', 'action_required', 'stale', null])('refuses CI conclusion %s', async conclusion => {
   const f = fixture();
   Object.assign(f.checks[0], { conclusion });
   await expect(f.run()).rejects.toThrow('CI check does not pass');
