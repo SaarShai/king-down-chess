@@ -4,6 +4,8 @@ Status: ready-for-review
 
 ## Plan and checks
 
+- Round 6: rebase on PR 234. Keep priority loading and fallback guards. Rebuild and compare the package. Check throttled captures and quiet moves in both browsers. Run focused tests, docs and Vercel checks, then update PR 236 and check CI.
+
 - Round 5: measure stride and fit each walk bank to its facing. Add build gates and a reproducible catalog promotion. Remove unused banks. Fix the missing-turn fallback and turn handoff. Refresh the game preview, run the requested checks, and update PR 236.
 - Round 4: use a flat gait for selected painted walks, with one cycle per square and a 1,600 ms cap. Test special moves and the old gaits. Record game-size and enlarged views. Run the requested checks and update the pull request.
 - List every army, character and direction. Count distinct painted frames.
@@ -13,6 +15,10 @@ Status: ready-for-review
 - Run focused tests, both browser checks and the Vercel checks. Record the results before a pull request.
 
 ## Findings
+
+- Round 6: rebased on PR 234 at `d0509968`. Walk preparation uses the same priority loader as captures. The idle bound, clip fallback, pump guard and PNG guard stay in place.
+- The focused run passes 160 tests and 69 board checks. The docs run passes 187 tests. The runtime, online and king capture browser checks pass in Chromium and WebKit. At 4 Mbps and 100 ms, the capture, pawn move and rook move each pass five of five in each browser. The extra 1.6 Mbps capture probe passes five of five in Chromium and four of five in WebKit. The Vercel build and output check pass.
+- The catalog content and pin do not change. The cloud image has the same decoded pixels. Normal playback stays the same, so the existing game captures remain.
 
 - Two independent reviews of `b16c9844` requested fixes before merge. This round applies the pace, placement, source, gate and handoff rulings. The final head needs review.
 - Round 5 work in progress: travel uses catalog stride and caps cadence at 2×. The catalog marks some stride values as draft. The Knight and Paladin keep their leap and charge; their 32 unused walk banks leave the package. A missing turn route uses the old motion. The walk starts after the outward turn endpoint.

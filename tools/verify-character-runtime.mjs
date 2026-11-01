@@ -138,7 +138,29 @@ try {
  }
  console.log(`capture ${kbps} kbps ${latency} ms: ${passed}/5`);
  if(kbps===4000)assert.equal(passed,5,`${kbps} kbps ${latency} ms: all five captures show attack frames`);
- }}finally{await proxy.close();}
+ }
+ for(const [piece,fen,from,to,bank] of [
+  ['pawn','7k/p7/8/8/3P4/8/P7/K7 w - - 0 1',27,35,'white-walk-N'],
+  ['rook','7k/8/8/8/3R4/8/8/K7 w - - 0 1',27,28,'white-walk-E'],
+ ]){let passed=0;for(let run=1;run<=5;run++){
+  const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
+  try{
+   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
+   const url=new URL(proxy.url);url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');
+   await page.goto(url.href);await page.waitForFunction(sq=>window.view?.scene?.characterFrames?.some(f=>f.square===sq),from);await page.evaluate(()=>view.ready());
+   proxy.set(4000,100);
+   await page.evaluate(()=>{window.moveTrace=[];window.moveTracing=true;const tick=()=>{if(!moveTracing)return;moveTrace.push(...view.scene.characterFrames.map(f=>({bank:f.bank,sha:f.sourceSha256})));requestAnimationFrame(tick);};tick();});
+   const start=await page.evaluate(sq=>view.screenOf(sq),from);await page.mouse.click(start.x,start.y);await page.waitForTimeout(2000);
+   const end=await page.evaluate(sq=>view.screenOf(sq),to);await page.mouse.click(end.x,end.y);
+   await page.waitForFunction(([a,b])=>!view.scene.animating&&!view.pos.board[a]&&view.pos.board[b]>0,[from,to],{timeout:20000});
+   const trace=await page.evaluate(()=>{window.moveTracing=false;return moveTrace;}),walk=trace.filter(f=>f.bank===bank);
+   if(new Set(walk.map(f=>f.sha)).size>1)passed++;
+   assertNoErrors(errors);checks.push({piece,moveRun:run,walkSamples:walk.length,poses:new Set(walk.map(f=>f.sha)).size});console.log(`move ${piece} 4000 kbps 100 ms ${run}/5: ${walk.length} samples, ${new Set(walk.map(f=>f.sha)).size} poses`);
+  }finally{proxy.clear();await page.close();}
+ }
+ console.log(`move ${piece} 4000 kbps 100 ms: ${passed}/5`);assert.equal(passed,5,`${piece}: all five moves show distinct walk poses`);
+ }
+ }finally{await proxy.close();}
  // The ready cast and all six king designs draw in the real game with their separate cues.
  for(const [label,kings,fen,count] of [
   ['standard-position',null,'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',32],
