@@ -100,7 +100,7 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   // --site takes the website from dist/ (npm run build:vercel builds it first). --chatgpt builds the parked plugin surface
-  // for its checks (CI: npm run plugin:build:chatgpt, then plugin:server:check on that tree); never deploy that tree.
+  // for its checks (by hand: npm run plugin:build:chatgpt, then plugin:server:check on that tree); never deploy that tree.
   const args = process.argv.slice(2), site = args.includes('--site') ? resolve('dist') : undefined, vercel = args.includes('--vercel');
   if (args.filter(arg => !arg.startsWith('--')).length > 1 || args.some(arg => arg.startsWith('--') && !['--vercel', '--site', '--chatgpt'].includes(arg))) throw new Error('Usage: node tools/plugin-server-build.mjs [output] [--vercel | --site] [--chatgpt]');
   const path = args.find(arg => !arg.startsWith('--'));

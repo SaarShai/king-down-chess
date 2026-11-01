@@ -71,9 +71,9 @@ it('refuses a recovery rehearsal on a parked build instead of reporting a pass',
     expect(run.stderr).toContain('The parked build (CHATGPT_PLUGIN=false) has no recovery continuation check');
   } finally { rmSync(release, { recursive: true, force: true }); rmSync(recovery, { recursive: true, force: true }); }
 });
-it('keeps CI on the parked plugin source over compiled HTTP and PostgreSQL', () => {
-  const workflow = readFileSync('.github/workflows/plugin-checks.yml', 'utf8');
-  expect(workflow).toContain('- run: npm run plugin:build:chatgpt\n      - run: npm run plugin:server:check -- plugin-server-chatgpt\n');
+it('keeps the by-hand check of the parked plugin source over compiled HTTP and PostgreSQL (docs/HOSTING.md); CI no longer runs it', () => {
+  expect(readFileSync('.github/workflows/plugin-checks.yml', 'utf8')).not.toContain('plugin:build:chatgpt');
+  expect(readFileSync('docs/HOSTING.md', 'utf8')).toContain('`npm run plugin:server:check -- plugin-server-chatgpt`');
   expect(JSON.parse(readFileSync('package.json', 'utf8')).scripts['plugin:build:chatgpt']).toBe('node tools/plugin-server-build.mjs plugin-server-chatgpt --chatgpt');
 });
 it('builds the legacy plugin target with the plugin surface that its release gates test', () => {
