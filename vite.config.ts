@@ -40,7 +40,7 @@ export function offlineCacheFiles(bundle: OutputBundle, root: string, files: str
   }
   // Optional clips load only with motion; the offline board can use the plain figures.
   const publicFiles = files.filter(file => !/^assets\/(?:tap|slam)-[\w-]+\.webp$/.test(file)
-    && (graph.has(file) || /^(?:ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file))).sort();
+    && (graph.has(file) || file === 'character-runtime/manifest.json' || /^(?:ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file))).sort();
   return { allowlist: ['./', 'index.html', ...publicFiles], precache: ['./', ...publicFiles] };
 }
 
@@ -83,7 +83,7 @@ function offlineBuild(): Plugin {
       }
       const template = readFileSync(join(publicDir, 'sw.js'), 'utf8');
       const hash = createHash('sha256').update(template); // a change to the worker itself is a new version too
-      for (const f of files.filter(file => !file.startsWith('character-runtime/'))) hash.update(f).update(readFileSync(join(outDir, f)));
+      for (const f of files.filter(file => !file.startsWith('character-runtime/') || file === 'character-runtime/manifest.json')) hash.update(f).update(readFileSync(join(outDir, f)));
       const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
       if (!precache.every(file => allowlist.includes(file))) throw new Error('Offline file is not public');
       let sw = template;

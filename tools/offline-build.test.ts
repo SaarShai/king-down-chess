@@ -85,7 +85,7 @@ it('F7: the offline install does not fetch optional clip sheets', () => {
   expect(precache).toContain('assets/knight-Abcd1234.webp');
 });
 
-it('keeps optional runtime files and provenance out of the worker', () => {
+it('precaches the manifest and keeps optional runtime files and provenance out of the worker', () => {
   const { bundle, files } = fixture();
   const runtime = ['character-runtime/manifest.json', `character-runtime/assets/${'a'.repeat(64)}.webp`,
     `character-runtime/effects/${'b'.repeat(64)}/effect.mjs`, `character-runtime/effects/${'b'.repeat(64)}/effect.json`,
@@ -94,7 +94,8 @@ it('keeps optional runtime files and provenance out of the worker', () => {
   const excluded = ['character-runtime/assets.json', 'character-runtime/assets/private.json', `${effect}/provenance/source.json`, `${effect}/provenance/source.mjs`, `${effect}/sources.json`];
   files.push(...runtime, ...excluded);
   const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
-  for (const file of runtime) { expect(isCharacterRuntimePublic(file)).toBe(true); expect(allowlist).not.toContain(file); expect(precache).not.toContain(file); }
+  expect(allowlist).toContain(runtime[0]); expect(precache).toContain(runtime[0]);
+  for (const file of runtime.slice(1)) { expect(isCharacterRuntimePublic(file)).toBe(true); expect(allowlist).not.toContain(file); expect(precache).not.toContain(file); }
   for (const file of excluded) { expect(isCharacterRuntimePublic(file)).toBe(false); expect(allowlist).not.toContain(file); expect(precache).not.toContain(file); }
 });
 
@@ -296,7 +297,50 @@ it('uses real build metadata for the worker, loader, lazy code, CSS and emitted 
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-it('does not change the offline cache version when only optional runtime art changes', async () => {
+it('serves the installed manifest offline without a runtime network request', async () => {
+  const { dir, write } = site();
+  const manifest = '{"schemaVersion":1,"effects":{},"banks":[]}';
+  write('public/character-runtime/manifest.json', manifest);
+  try {
+    await compile(dir);
+    const source = readFileSync(join(dir, 'dist/sw.js'), 'utf8');
+    const entries = new Map<string, Response>();
+    const listeners = new Map<string, (event: any) => void>();
+    const origin = 'https://kingdown.test/';
+    const cache = {
+      put: async (key: string, value: Response) => { entries.set(key, value); },
+      match: async (request: Request) => entries.get(request.url)?.clone(),
+      keys: async () => [...entries.keys()].map(key => new Request(key)),
+    };
+    let offline = false, refused = 0;
+    const fetch = async (request: Request) => {
+      if (offline) { refused++; throw new Error('Offline request refused'); }
+      const path = new URL(request.url).pathname;
+      const body = readFileSync(join(dir, 'dist', path === '/' ? 'index.html' : path));
+      const response = new Response(body);
+      Object.defineProperties(response, { url: { value: request.url }, type: { value: 'basic' } });
+      return response;
+    };
+    runInNewContext(source, {
+      Request, URL, fetch, caches: { open: async () => cache },
+      self: { registration: { scope: origin }, location: new URL('sw.js', origin), skipWaiting: async () => {},
+        addEventListener: (name: string, listener: (event: any) => void) => listeners.set(name, listener) },
+    });
+    const waits: Promise<unknown>[] = [];
+    listeners.get('install')!({ waitUntil: (promise: Promise<unknown>) => waits.push(promise) });
+    await Promise.all(waits);
+    offline = true;
+    let reply: Promise<Response> | undefined;
+    listeners.get('fetch')!({ request: new Request(new URL('character-runtime/manifest.json', origin)),
+      respondWith: (promise: Promise<Response>) => { reply = promise; } });
+    expect(reply).toBeDefined();
+    expect(await (await reply!).json()).toEqual(JSON.parse(manifest));
+    expect(refused).toBe(0);
+    expect([...entries.keys()].filter(key => key.includes('/character-runtime/'))).toEqual([new URL('character-runtime/manifest.json', origin).href]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+it('changes the offline cache version when the runtime manifest changes', async () => {
   const { dir, write } = site();
   try {
     write('public/character-runtime/manifest.json', '{"schemaVersion":1,"effects":{},"banks":[]}');
@@ -304,7 +348,7 @@ it('does not change the offline cache version when only optional runtime art cha
     const worker = join(dir, 'dist/sw.js'), before = readFileSync(worker, 'utf8');
     write('public/character-runtime/manifest.json', '{"schemaVersion":2,"effects":{},"banks":[]}');
     await compile(dir);
-    expect(readFileSync(worker, 'utf8')).toBe(before);
+    expect(/const VERSION = '([^']+)'/.exec(readFileSync(worker, 'utf8'))![1]).not.toBe(/const VERSION = '([^']+)'/.exec(before)![1]);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

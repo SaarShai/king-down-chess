@@ -75,9 +75,10 @@ try {
   const allowlist = workerList('ALLOWLIST'), precache = workerList('PRECACHE');
   assert.deepEqual(allowlist.slice(0, 2), ['./', 'index.html']);
   assert.deepEqual(precache, allowlist.filter(file => file !== 'index.html'));
-  assert(!allowlist.some(file => file.startsWith('character-runtime/')), 'Optional runtime art stays out of the worker');
+  assert(!allowlist.some(file => file.startsWith('character-runtime/') && file !== 'character-runtime/manifest.json'), 'Optional runtime art stays out of the worker');
+  if (await exists(join(tree, 'static/character-runtime/manifest.json'))) assert(precache.includes('character-runtime/manifest.json'), 'Character manifest is offline');
   for (const file of allowlist) {
-    assert(typeof file === 'string' && (['./', 'index.html'].includes(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
+    assert(typeof file === 'string' && (['./', 'index.html', 'character-runtime/manifest.json'].includes(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
     assert((await exists(join(tree, 'static', file === './' ? 'index.html' : file)))?.isFile(), `Offline file exists: ${file}`);
   }
   const index = await readFile(join(tree, 'static/index.html'), 'utf8');

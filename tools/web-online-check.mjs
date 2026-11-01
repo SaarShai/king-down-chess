@@ -102,7 +102,7 @@ export async function recoveryOutput(path) {
   const allowlist = JSON.parse(worker.match(/const ALLOWLIST = (.+);/)[1]);
   const precache = JSON.parse(worker.match(/const PRECACHE = (.+);/)[1]);
   assert.ok(allowlist.every(file => file === 'index.html' || precache.includes(file)), 'Recovery precaches every public asset before the first offline visit');
-  assert.ok(!allowlist.some(file => file.startsWith('character-runtime/')), 'Optional runtime art stays out of the worker');
+  assert.ok(!allowlist.some(file => file.startsWith('character-runtime/') && file !== 'character-runtime/manifest.json'), 'Optional runtime art stays out of the worker');
   for (const file of allowlist) {
     assert.ok(file === './' || /^[\w./-]+$/.test(file) && !file.includes('..'), 'Recovery public paths stay in the static tree');
     const path = `static/${file === './' ? 'index.html' : file}`;
@@ -680,6 +680,10 @@ export async function main() {
       active.on('console',recordOfflineError);
       active.on('requestfailed',recordFailedClip);
       offline = true; await persistent.setOffline(true);
+      if (output === tree && allowlist.includes('character-runtime/manifest.json')) {
+        const manifest = await active.evaluate(async () => (await fetch('/character-runtime/manifest.json', { cache: 'reload' })).json());
+        assert.ok(Array.isArray(manifest.banks), 'The installed character manifest is available offline');
+      }
       await active.goto(origin); await readyBoard(active); assert.deepEqual(await lanMoves(active), ['e2-e4']);
       const saved = await active.evaluate(() => localStorage.getItem('kingdown.save'));
       const beforeOffline = await localData(active);
