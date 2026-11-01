@@ -301,7 +301,14 @@ it('checks the review record again after each CI wait', async () => {
   expect(f.merges()).toEqual([]);
 });
 
-it.each(['failure', 'cancelled', 'skipped', 'neutral', 'timed_out', 'action_required', 'stale', null])('refuses CI conclusion %s', async conclusion => {
+it('merges when every check but one is skipped: the reuse job found a green run of the same tree', async () => {
+  const f = fixture();
+  for (const check of f.checks.slice(1)) check.conclusion = 'skipped';
+  await f.run();
+  expect(f.merges()).toHaveLength(1);
+});
+
+it.each(['failure', 'cancelled', 'neutral', 'timed_out', 'action_required', 'stale', null])('refuses CI conclusion %s', async conclusion => {
   const f = fixture();
   Object.assign(f.checks[0], { conclusion });
   await expect(f.run()).rejects.toThrow('CI check does not pass');

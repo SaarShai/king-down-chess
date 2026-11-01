@@ -66,7 +66,8 @@ export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTim
     require(pages.every(page => page.total_count === checks.length), 'CI check-runs are incomplete; run the helper again');
     require(checks.every(check => check.head_sha === head), 'CI check head differs');
     require(checks.every(check => ['queued', 'in_progress', 'completed', 'waiting', 'requested', 'pending'].includes(check.status)), 'invalid CI check status');
-    require(checks.every(check => check.status !== 'completed' || check.conclusion === 'success'), 'CI check does not pass');
+    // A skipped check passes: plugin-checks.yml skips every job but reuse when a green run already checked the same tree.
+    require(checks.every(check => check.status !== 'completed' || ['success', 'skipped'].includes(check.conclusion)), 'CI check does not pass');
     // The combined state covers the latest status for every context, across all pages.
     const status = JSON.parse(request(['api', `repos/${repo}/commits/${head}/status`]));
     require(status?.sha === head && Number.isSafeInteger(status.total_count) && status.total_count >= 0 &&
