@@ -1,8 +1,12 @@
 # Painted walks
 
-Status: ready-for-review
+Status: in progress
 
 ## Plan and checks
+
+- Round 8: measure all 164 selected banks and record each stride or fallback. Apply the pace and prefetch rules. Check the slow links, rebuild and compare the catalog, rehearse promotion, refresh the preview, run the listed checks, and update PR 236.
+
+- Round 7: measure planted feet and use the old gait when contact is not reliable. Apply the pace and selection prefetch rules. Repair the build gates and promotion rollback. Rebuild and compare the package, refresh the preview, run the requested checks, and update PR 236.
 
 - Round 6: rebase on PR 234. Keep priority loading and fallback guards. Rebuild and compare the package. Check throttled captures and quiet moves in both browsers. Run focused tests, docs and Vercel checks, then update PR 236 and check CI.
 
@@ -15,6 +19,11 @@ Status: ready-for-review
 - Run focused tests, both browser checks and the Vercel checks. Record the results before a pull request.
 
 ## Findings
+
+- Guard S uses the old gait for both armies. Its planted support points move south in both paired holds, in the same direction as travel. New Guard S poses are a follow-up.
+- Round 8 scan: all 164 banks have candidate alpha contact points. Guard E measures 0.782976 squares per cycle for white and 0.773904 for black; these values are not yet in the catalog. For white Pawn N, the planted-foot y values change from 699 to 700, then 674 to 672. The second pair moves north, with the board travel, so it does not give a reliable positive stride. The slow-link gate still asks Pawn N to walk. The other bank contacts need review. The scripts and records are `r8-contact-scan.json` and `r8-guard-e-contact.json` in the run folder.
+- Round 7: the white Guard S support points move down in both paired holds. At alpha above 128, the lowest left-foot pixel moves from y 716 to 718 between 0 and 160 ms. The lowest right-foot pixel moves from y 715 to 717 between 320 and 480 ms. Southward board travel also moves down. The source poses do not give a reliable positive planted-foot stride. The owner set the Guard S gate to the old gait. The contact script and measurements are in the run folder as `r7-guard-contact.py` and `r7-guard-contact.json`.
+- The promotion script now checks its sibling folders and removes files added by a failed rebuild. The build reads alpha bounds and catalog source frames for the walk gates. A full PNG build passes for 738 banks and 5,259 assets. The package comparison and promotion rehearsal remain.
 
 - Round 6: rebased on PR 234 at `d0509968`. Walk preparation uses the same priority loader as captures. The idle bound, clip fallback, pump guard and PNG guard stay in place.
 - The focused run passes 160 tests and 69 board checks. The docs run passes 187 tests. The runtime, online and king capture browser checks pass in Chromium and WebKit. At 4 Mbps and 100 ms, the capture, pawn move and rook move each pass five of five in each browser. The extra 1.6 Mbps capture probe passes five of five in Chromium and four of five in WebKit. The Vercel build and output check pass.
