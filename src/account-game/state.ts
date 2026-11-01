@@ -5,7 +5,8 @@ import type { View } from '../match/protocol';
 
 /** The four notice kinds (design §1.1). One slot; the first match wins in the message line. */
 export type NoticeKind = 'refusal' | 'read' | 'error' | 'connect';
-export type Notice = { kind: NoticeKind; text: string; game?: string; screen?: Screen; code?: string };
+/** `details`: a failed result-details read. It offers Try again, but the finished game view stays current, so it locks nothing. */
+export type Notice = { kind: NoticeKind; text: string; game?: string; screen?: Screen; code?: string; details?: true };
 
 /** The page parts the message line and the scoped locks read. */
 export type Page = {
@@ -32,7 +33,7 @@ export type Action =
   | { type: 'view'; game?: string }
   | { type: 'good-read'; game?: string }
   | { type: 'refusal'; text: string; code?: string; game?: string }
-  | { type: 'failed-read'; text: string; game?: string }
+  | { type: 'failed-read'; text: string; game?: string; details?: true }
   | { type: 'failed-poll'; text: string; game?: string }
   | { type: 'error'; text: string }
   | { type: 'connect'; text: string }
@@ -67,7 +68,7 @@ export function pendingHere(page: Page) {
 }
 
 /** The read notice is for the game the page shows: its game lock and "Not current". A notice with no game covers a first read. */
-export const staleRead = (page: Page) => page.notice?.kind === 'read' && (!page.notice.game || page.notice.game === page.view?.game_id);
+export const staleRead = (page: Page) => page.notice?.kind === 'read' && !page.notice.details && (!page.notice.game || page.notice.game === page.view?.game_id);
 
 /** A notice shows on a screen and, for a game, only while that game shows on a game screen. */
 export function noticeShows(page: Page, notice: Notice) {
@@ -151,7 +152,7 @@ export function applyLocks(page: Page) {
 export function reduce(slot: Slot, action: Action, page: Page): Slot {
   switch (action.type) {
     case 'refusal': return { notice: { kind: 'refusal', text: action.text, ...(action.game && { game: action.game }), ...(action.code && { code: action.code }) }, polls: 0 };
-    case 'failed-read': return { notice: { kind: 'read', text: action.text, ...(action.game && { game: action.game }) }, polls: 0 };
+    case 'failed-read': return { notice: { kind: 'read', text: action.text, ...(action.game && { game: action.game }), ...(action.details && { details: true as const }) }, polls: 0 };
     case 'failed-poll': {
       const polls = slot.polls + 1;
       return polls < 3 ? { notice: slot.notice, polls } : { notice: { kind: 'read', text: action.text, ...(action.game && { game: action.game }) }, polls };

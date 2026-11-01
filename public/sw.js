@@ -13,6 +13,8 @@ const PRECACHE_CONCURRENCY = 8;
 const START = new URL('./', self.registration.scope).href;
 const INDEX = new URL('index.html', START).href;
 const PUBLIC = new Set(ALLOWLIST.map(file => new URL(file, START).href));
+// The runtime files that load at startup change with a deploy: the manifest and its effect modules.
+const FRESH = new Set(PRECACHE.filter(file => file.startsWith('character-runtime/')).map(file => new URL(file, START).href));
 const PRIVATE = /^\/(?:api|mcp|authorize|auth|oauth|consent|login|logout|signin|signout|callback|internal|play|g|j|\.well-known)(?:\/|$)|^\/(?:play\.html|consent\.mjs)$/;
 const AUTH_QUERY = /^(?:code|state|error|error_code|error_description|sb_flow_id|access_token|refresh_token|id_token|token|token_hash)$/i;
 const noStore = headers => /(?:^|,)\s*no-store\s*(?:=|,|$)/i.test(headers.get('Cache-Control') ?? '');
@@ -141,6 +143,25 @@ async function page(request, event) {
   return (await cache?.match(START, { ignoreVary: true }).catch(() => undefined)) ?? network;
 }
 
+/** Runtime startup files change with each deploy. Use the network first, keep the fresh copy, and use the
+ *  install copy only when offline. Frames stay cache first: their names are content hashes. */
+async function fresh(request, event) {
+  const cache = await caches.open(CACHE).catch(() => null);
+  const network = fetch(request);
+  event.waitUntil(network.then(() => {}, () => {}));
+  try {
+    const response = await network;
+    if (cache && cacheable(request, response)) {
+      try { await cache.put(publicKey(request), response.clone()); } catch { /* Keep the network response. */ }
+    }
+    return response;
+  } catch (error) {
+    const hit = await cache?.match(request, { ignoreVary: true }).catch(() => undefined);
+    if (hit) return hit;
+    throw error;
+  }
+}
+
 /** Public assets use only their exact URL. */
 async function asset(request) {
   const cache = await caches.open(CACHE).catch(() => null);
@@ -157,5 +178,6 @@ async function asset(request) {
 self.addEventListener('fetch', event => {
   const key = publicKey(event.request);
   if (key === null) return;
-  event.respondWith(key === START ? page(event.request, event) : asset(event.request));
+  event.respondWith(key === START ? page(event.request, event)
+    : FRESH.has(key) ? fresh(event.request, event) : asset(event.request));
 });

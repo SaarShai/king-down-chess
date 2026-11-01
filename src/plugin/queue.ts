@@ -31,6 +31,8 @@ export type JobOptions = {
   retry?: boolean;
   user?: boolean;
   mount?: boolean;
+  /** A result-details read: its failure offers Try again but does not mark the game stale. */
+  details?: boolean;
   /** A mount read: the chat result's game and seat. No view shows yet, so an expired board opens this game (ticket 90). */
   shown?: Pick<View, 'game_id' | 'seat'>;
   initial?: boolean;
