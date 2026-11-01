@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { symlinkSync, cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { symlinkSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { runInNewContext } from 'node:vm';
 import { join, resolve } from 'node:path';
@@ -85,16 +85,16 @@ it('F7: the offline install does not fetch optional clip sheets', () => {
   expect(precache).toContain('assets/knight-Abcd1234.webp');
 });
 
-it('keeps optional runtime files and provenance out of the worker', () => {
+it('precaches the manifest and the startup effect modules but no frames or optional runtime files', () => {
   const { bundle, files } = fixture();
-  const runtime = ['character-runtime/manifest.json', `character-runtime/assets/${'a'.repeat(64)}.webp`,
-    `character-runtime/effects/${'b'.repeat(64)}/effect.mjs`, `character-runtime/effects/${'b'.repeat(64)}/effect.json`,
-    `character-runtime/effects/${'b'.repeat(64)}/assets/image.png`];
   const effect = `character-runtime/effects/${'b'.repeat(64)}`;
+  const startup = ['character-runtime/manifest.json', `${effect}/effect.mjs`, `${effect}/smoke.mjs`];
+  const onDemand = [`character-runtime/assets/${'a'.repeat(64)}.webp`, `${effect}/effect.json`, `${effect}/assets/image.png`];
   const excluded = ['character-runtime/assets.json', 'character-runtime/assets/private.json', `${effect}/provenance/source.json`, `${effect}/provenance/source.mjs`, `${effect}/sources.json`];
-  files.push(...runtime, ...excluded);
+  files.push(...startup, ...onDemand, ...excluded);
   const { allowlist, precache } = offlineCacheFiles(bundle, root, files);
-  for (const file of runtime) { expect(isCharacterRuntimePublic(file)).toBe(true); expect(allowlist).not.toContain(file); expect(precache).not.toContain(file); }
+  for (const file of startup) { expect(isCharacterRuntimePublic(file)).toBe(true); expect(allowlist).toContain(file); expect(precache).toContain(file); }
+  for (const file of onDemand) { expect(isCharacterRuntimePublic(file)).toBe(true); expect(allowlist).not.toContain(file); expect(precache).not.toContain(file); }
   for (const file of excluded) { expect(isCharacterRuntimePublic(file)).toBe(false); expect(allowlist).not.toContain(file); expect(precache).not.toContain(file); }
 });
 
@@ -120,7 +120,7 @@ it('rejects a non-public graph file rather than adding private HTML to the list'
 
 function site() {
   const dir = mkdtempSync(join(tmpdir(), 'kingdown-offline-build-'));
-  const write = (file: string, value: string) => {
+  const write = (file: string, value: string | Buffer) => {
     mkdirSync(resolve(dir, file, '..'), { recursive: true });
     writeFileSync(join(dir, file), value);
   };
@@ -296,7 +296,122 @@ it('uses real build metadata for the worker, loader, lazy code, CSS and emitted 
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-it('does not change the offline cache version when only optional runtime art changes', async () => {
+/** Run one built worker against the built tree. The worker keeps its own cache and its own network switch. */
+function worker(dir: string, source: string) {
+  const entries = new Map<string, Response>();
+  const listeners = new Map<string, (event: any) => void>();
+  const origin = 'https://kingdown.test/';
+  const cache = {
+    put: async (key: string, value: Response) => { entries.set(key, value); },
+    match: async (request: Request) => entries.get(request.url)?.clone(),
+    keys: async () => [...entries.keys()].map(key => new Request(key)),
+  };
+  const requests: string[] = [], notFound: string[] = [];
+  let online = true;
+  const fetch = async (request: Request) => {
+    requests.push(request.url);
+    if (!online) throw new Error('Offline request refused');
+    const path = new URL(request.url).pathname;
+    const file = join(dir, 'dist', path === '/' ? 'index.html' : path);
+    const found = existsSync(file);
+    if (!found) notFound.push(path);
+    const response = new Response(found ? readFileSync(file) : 'Not found', { status: found ? 200 : 404 });
+    Object.defineProperties(response, { url: { value: request.url }, type: { value: 'basic' } });
+    return response;
+  };
+  runInNewContext(source, {
+    Request, URL, fetch, caches: { open: async () => cache },
+    self: { registration: { scope: origin }, location: new URL('sw.js', origin), skipWaiting: async () => {},
+      addEventListener: (name: string, listener: (event: any) => void) => listeners.set(name, listener) },
+  });
+  const request = async (file: string) => {
+    const event = new Request(new URL(file, origin));
+    let reply: Promise<Response> | undefined;
+    listeners.get('fetch')!({ request: event, waitUntil: () => {},
+      respondWith: (promise: Promise<Response>) => { reply = promise; } });
+    // A public frame is not in the worker lists; the browser asks the network directly.
+    return reply ?? fetch(event);
+  };
+  return {
+    origin, entries, requests, notFound, request,
+    manifest: new URL('character-runtime/manifest.json', origin).href,
+    install: async () => {
+      const waits: Promise<unknown>[] = [];
+      listeners.get('install')!({ waitUntil: (promise: Promise<unknown>) => waits.push(promise) });
+      await Promise.all(waits);
+      // Record the page traffic only: the install downloads do not count.
+      requests.length = 0;
+    },
+    goOffline: () => { online = false; },
+  };
+}
+
+it('gives the first online reload after a package deploy the new manifest and 0 art 404s', async () => {
+  const { dir, write } = site();
+  const oldFrame = `character-runtime/assets/${'a'.repeat(64)}.webp`, newFrame = `character-runtime/assets/${'c'.repeat(64)}.webp`;
+  // A minimal valid WebP; the byte in its one VP8L chunk tells the two package versions apart.
+  const art = (mark: number) => Buffer.from([...Buffer.from('RIFF'), 14, 0, 0, 0, ...Buffer.from('WEBP'), ...Buffer.from('VP8L'), 1, 0, 0, 0, mark, 0]);
+  const manifest = (frame: string) => JSON.stringify({ schemaVersion: 1, effects: {},
+    banks: [{ character: 'knight', army: 'white', id: 'knight-w', kind: 'idle', frames: [{ url: frame }], beatTimes: {}, effectAnchors: [] }] });
+  write(`public/${oldFrame}`, art(1));
+  write('public/character-runtime/manifest.json', manifest(oldFrame));
+  try {
+    await compile(dir);
+    const installed = worker(dir, readFileSync(join(dir, 'dist/sw.js'), 'utf8'));
+    await installed.install();
+    // The next deploy renames the frame and drops the old file while the installed worker still controls the page.
+    write(`public/${newFrame}`, art(2));
+    rmSync(join(dir, `public/${oldFrame}`));
+    write('public/character-runtime/manifest.json', manifest(newFrame));
+    await compile(dir);
+    expect(existsSync(join(dir, 'dist', oldFrame))).toBe(false);
+    // The page asks for the manifest, then for the frame that the manifest names.
+    const page = await (await installed.request('character-runtime/manifest.json')).json();
+    const frame = await installed.request(page.banks[0].frames[0].url);
+    expect(frame.status).toBe(200);
+    expect(Buffer.from(await frame.arrayBuffer())).toEqual(art(2));
+    expect(installed.notFound).toEqual([]);
+    expect(await installed.entries.get(installed.manifest)!.json()).toEqual(page);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+it('serves the installed manifest and startup effect module from the cache when offline', async () => {
+  const { dir, write } = site();
+  const installedCopy = '{"schemaVersion":1,"effects":{},"banks":[]}', nextDeploy = '{"schemaVersion":2,"effects":{},"banks":[]}';
+  const effect = `character-runtime/effects/${'b'.repeat(64)}/smoke.mjs`, module = 'export class ArrowSmoke {}';
+  write('public/character-runtime/manifest.json', installedCopy);
+  write(`public/${effect}`, module);
+  try {
+    await compile(dir);
+    const page = worker(dir, readFileSync(join(dir, 'dist/sw.js'), 'utf8'));
+    await page.install();
+    // A later deploy must not reach the page while it is offline.
+    writeFileSync(join(dir, 'dist/character-runtime/manifest.json'), nextDeploy);
+    page.goOffline();
+    expect(await (await page.request('character-runtime/manifest.json')).json()).toEqual(JSON.parse(installedCopy));
+    expect(await (await page.request(effect)).text()).toBe(module);
+    // Only the worker's own revalidation fails, once for each file; the page gets the install copies.
+    expect(page.requests).toEqual([page.manifest, new URL(effect, page.origin).href]);
+    expect([...page.entries.keys()].filter(key => key.includes('/character-runtime/')).sort()).toEqual([page.manifest, new URL(effect, page.origin).href].sort());
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+it('does not change the offline cache version when only a frame or effect art file changes', async () => {
+  const { dir, write } = site();
+  const effect = `public/character-runtime/effects/${'b'.repeat(64)}`;
+  const art = Buffer.from([...Buffer.from('RIFF'), 14, 0, 0, 0, ...Buffer.from('WEBP'), ...Buffer.from('VP8L'), 1, 0, 0, 0, 1, 0]);
+  try {
+    await compile(dir);
+    const worker = join(dir, 'dist/sw.js'), before = readFileSync(worker, 'utf8');
+    // The manifest does not change; neither file is precached, so the cache version must stay the same.
+    write(`public/character-runtime/assets/${'a'.repeat(64)}.webp`, art);
+    write(`${effect}/effect.json`, '{}');
+    await compile(dir);
+    expect(readFileSync(worker, 'utf8')).toBe(before);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+it('changes the offline cache version when the runtime manifest changes', async () => {
   const { dir, write } = site();
   try {
     write('public/character-runtime/manifest.json', '{"schemaVersion":1,"effects":{},"banks":[]}');
@@ -304,7 +419,7 @@ it('does not change the offline cache version when only optional runtime art cha
     const worker = join(dir, 'dist/sw.js'), before = readFileSync(worker, 'utf8');
     write('public/character-runtime/manifest.json', '{"schemaVersion":2,"effects":{},"banks":[]}');
     await compile(dir);
-    expect(readFileSync(worker, 'utf8')).toBe(before);
+    expect(/const VERSION = '([^']+)'/.exec(readFileSync(worker, 'utf8'))![1]).not.toBe(/const VERSION = '([^']+)'/.exec(before)![1]);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

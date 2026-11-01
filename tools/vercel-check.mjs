@@ -11,7 +11,7 @@ import { pathToFileURL } from 'node:url';
 import pg from 'pg';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { ENGINES } from './plugin-runtime-build.mjs';
-import { isCharacterRuntimePublic } from './lib/character-runtime-public.mjs';
+import { isCharacterRuntimePublic, isCharacterRuntimeStartup } from './lib/character-runtime-public.mjs';
 import { privateRuntimeData, validateManifest, validateRuntimeImage } from './lib/character-runtime-guard.mjs';
 import { CHATGPT_PLUGIN, PARKED_PATHS } from './chatgpt-plugin.mjs';
 
@@ -75,9 +75,13 @@ try {
   const allowlist = workerList('ALLOWLIST'), precache = workerList('PRECACHE');
   assert.deepEqual(allowlist.slice(0, 2), ['./', 'index.html']);
   assert.deepEqual(precache, allowlist.filter(file => file !== 'index.html'));
-  assert(!allowlist.some(file => file.startsWith('character-runtime/')), 'Optional runtime art stays out of the worker');
+  assert(!allowlist.some(file => file.startsWith('character-runtime/') && !isCharacterRuntimeStartup(file)), 'Optional runtime art stays out of the worker');
+  for (const file of await readdir(runtimeDir, { recursive: true }).catch(() => [])) {
+    const path = `character-runtime/${file}`;
+    if (isCharacterRuntimeStartup(path)) assert(precache.includes(path), `Runtime startup file is offline: ${file}`);
+  }
   for (const file of allowlist) {
-    assert(typeof file === 'string' && (['./', 'index.html'].includes(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
+    assert(typeof file === 'string' && (['./', 'index.html'].includes(file) || isCharacterRuntimeStartup(file) || /^(?:assets\/(?:[\w-]+\/)*[\w-]+\.(?:js|css|wasm|webp|png|svg|woff2)|ui\/[\w/-]+\.(?:webp|png|svg)|fonts\/[\w-]+\.woff2|icons\/[\w-]+\.png|manifest\.webmanifest)$/.test(file)), `Public build file: ${file}`);
     assert((await exists(join(tree, 'static', file === './' ? 'index.html' : file)))?.isFile(), `Offline file exists: ${file}`);
   }
   const index = await readFile(join(tree, 'static/index.html'), 'utf8');
