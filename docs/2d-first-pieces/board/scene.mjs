@@ -13,7 +13,7 @@ import * as guard from '../guard/motion.mjs';
 import * as court from '../court-motion.mjs';
 import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
 import {BLOW,KING_BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
-import {GAITS,GAIT_OF,idleAt} from './gait.mjs';
+import {GAITS,GAIT_OF,idleAt,paintedPace,paintedTravel} from './gait.mjs';
 import {createKingEffects,phaseOffset} from './king-effects.mjs';
 import {KING_FILES} from './king-sheets.mjs';
 import {DEATHS,THEMED,drawDeath,kingBodyBounds} from './king-captures.mjs';
@@ -53,11 +53,11 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
  const FALL=650, CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
- const bodyRuntime=characterRuntime?createCharacterRuntime({wake:()=>wake()}):null;
- if(bodyRuntime)void bodyRuntime.ready().then(()=>{if(!disposed)warmBodies();});
+ let bodyRuntime=null, bodyWarm=!characterRuntime, startBodyRuntime=null;
+ const onPageShow=event=>{if(event.persisted)startBodyRuntime?.();};
  const characterOf=value=>typeOf(value)===K?`king-${kings[colorOf(value)]}`:ART[typeOf(value)];
  const armyOf=value=>colorOf(value)?'black':'white';
- function warmBodies(){if(!bodyRuntime)return;for(const value of new Set(position.board))if(value)void bodyRuntime.warm(characterOf(value),armyOf(value));}
+ function warmBodies(){if(!bodyRuntime)return Promise.resolve();return Promise.all([...new Set(position.board)].filter(Boolean).map(value=>bodyRuntime.warm(characterOf(value),armyOf(value))));}
  const ART={[K]:'king',[S]:'beast',[Q]:'queen',[L]:'paladin',[M]:'maester',[P]:'pawn',[A]:'archer',[O]:'ogre',[N]:'knight',[B]:'bishop',[R]:'rook',[G]:'guard'};
  // CORS images (crossOrigin 'anonymous'): a canvas may read them when the art comes from another origin (the plugin page).
  const corsImage=()=>Object.assign(new Image(),{crossOrigin:'anonymous'});
@@ -80,8 +80,9 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const CLIP_OF={[N]:'knight',[R]:'rook'},clipArt=Object.fromEntries(Object.keys(CLIPS).map(name=>[name,corsImage()]));
  const clipReady=name=>!!clipArt[name]?.complete&&clipArt[name].naturalWidth>0;
  function loadClips(name=null){
-  if(disposed||reducedMotion||!frames)return;
-  for(const key of name?[name]:Object.keys(clipArt))if(!clipArt[key].src)clipArt[key].src=CLIPS[key].file;
+  if(disposed||reducedMotion||!frames||globalThis.navigator?.onLine===false)return;
+  if(characterRuntime&&!bodyWarm)return;
+  for(const key of name?[name]:Object.keys(clipArt))if(!clipArt[key].src&&(!characterRuntime||[...position.board].some(value=>value&&CLIP_OF[typeOf(value)]===key&&!bodyRuntime.has(characterOf(value),armyOf(value)))))clipArt[key].src=CLIPS[key].file;
  }
  const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.1166,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
 specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.155};
@@ -100,7 +101,7 @@ for(const [type,name] of Object.entries(courtNames)){
  // Lab pieces without painted art: a token that slides in, no body motion.
  for(let type=1;type<16;type++){if(!specs[type])specs[type]=FALLBACK;newMotions[type]??={DURATION:900,actionAt:()=>0};}
  const idle=new Map(), work=new Map();
- let position={board:new Uint8Array(64)}, selected=null, lifted=null, liftTell=true, aimSquare=null, animation=null, landed=null, aimAngle=0, aimFacing=1;
+ let position={board:new Uint8Array(64)}, selected=null, movePrefetchKey='', lifted=null, liftTell=true, aimSquare=null, animation=null, landed=null, aimAngle=0, aimFacing=1;
  let fallen=null, res=1, frame=0, previousTime=0, ready=false, disposed=false, flipped=false, coords=true, coordSize=13, coordInset=14, labels=false, reducedMotion=false, decorate=null;
  let effectTime=0,bodyFrames=[],effectFrames=[],idleReady=false,lastSelectedBody=null,pendingIdle=null,selectionGeneration=0;
  const smokeStreams=new Map();let smokeTime=0;
@@ -645,7 +646,8 @@ function vortex(out,foot,phase,strength) {
   // the colour of what is drawn under it.
   const s={design,side,pose:unit.pose,t:time-since+entry.offset,now:time+side*1777,k,opacity:unit.opacity,g,facing:unit.pose.facing,
    board:{x:PAD,y:PAD,tile:TILE,frame:lively.atmosphere&&boardArt.naturalWidth?26:0}};
-  s.pose=kingFx.pose(s);s.ground=s.pose.ground??s.pose.foot;
+  const walking=a?.gait==='paintedWalk'&&a.move.from===sq&&(at-a.start)/a.speed>=a.runtime.beforeMs&&(at-a.start)/a.speed<=a.runtime.beforeMs+a.actionDuration;
+  if(!(walking&&design==='stratus'))s.pose=kingFx.pose(s);s.ground=s.pose.ground??s.pose.foot;
   if(s.pose.bank&&(design==='flame'||a?.runtime&&a.move.from===sq&&a.move.captures.length)){s.bodyScale=s.pose.scale/specs[K].scale;s.bodyBounds=bankShape(s.pose);}
   if(a?.rewind?.kind==='move'&&a.done&&moving&&design==='stratus'){if(a.rewind.landedG!=null)entry.resume={g,start:time};else {const shift=time-a.start;entry.since+=shift;entry.offset+=shift;if(entry.resume)entry.resume.start+=shift;}}
   return s;
@@ -808,7 +810,9 @@ function vortex(out,foot,phase,strength) {
   }
   else if(a.type==='gait'){
    // Quiet move with character (gait.mjs): feet travel along the ground line; lift, squash and lean on top.
-   const m=GAITS[a.gait].at(t/duration,a.squares),ground=mix(a.from.foot,a.to.foot,m.travel);
+   const m=GAITS[a.gait].at(t/duration,a.squares,duration);
+   const painted=a.gait==='paintedWalk'&&a.runtime?.movement?paintedTravel(t,duration,a.runtime.movementRate??1,a.runtime.movement.frames,a.runtime.movement.durationMs):null;
+   const ground=mix(a.from.foot,a.to.foot,painted??m.travel);
    actor.pose={...a.from,ground,lift:m.lift,foot:{x:ground.x,y:ground.y-m.lift},sx:m.sx,sy:m.sy,rotation:m.tilt*a.lean,shadow:m.shadow};
   }
   else if(a.type==='swap'){
@@ -883,11 +887,11 @@ function vortex(out,foot,phase,strength) {
   for(const [sq,u] of poses){
    const actor=animation&&!animation.effect&&animation.move.from===sq,a=actor?animation:null;
    const at=a?.rewind?.kind==='move'?Math.max(a.start,Math.min(a.rewind.at,a.rewind.at-(time-a.rewind.start))):time,elapsed=a?(at-a.start)/a.speed:0,local=a?.drawingMovementStart?0:a?.drawingMovementEndpoint?a.actionDuration:elapsed-(a?.runtime?.beforeMs??0);
-   let body=a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,local,a.actionDuration,a.contactTime,a.drawingMovementStart?'start':a.drawingMovementEndpoint?'end':undefined):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
+   let body=a?.exitBody?(a.exitStart==null?a.exitBody:a.exit((time-a.exitStart)/200)):a?.bodyUnavailable?null:a?.runtime?bodyRuntime.action(a.runtime,local,a.actionDuration,a.contactTime,a.drawingTurnEndpoint?'turn-end':a.drawingMovementStart?'start':a.drawingMovementEndpoint?'end':undefined):bodyRuntime.rest(characterOf(u.value),armyOf(u.value),time-(selectedAt??time),sq===selected&&!animation&&!reducedMotion&&(characterOf(u.value)!=='king-stratus'||idleReady));
    if(body){
     if(a?.runtime){
      if(local<0)u.pose={...a.from};else if(local>a.actionDuration)u.pose={...a.to};
-     if(typeOf(u.value)!==K||!a.move.captures.length)u.pose.rotation=0;u.pose.sx=1;u.pose.sy=1;
+     if(a.runtime.movement||a.runtime.attack||a.type!=='gait'){if(typeOf(u.value)!==K||!a.move.captures.length||a.runtime.attack)u.pose.rotation=0;u.pose.sx=1;u.pose.sy=1;}
     }
     u.pose.bank=body;
    }
@@ -963,18 +967,29 @@ function drawEncounter(a,t) {
   }
   if(a?.effect&&!a.done&&!a.contacted&&(time-a.start)>=a.duration*a.speed*.62){a.contacted=true;if(a.move.captures.length)a.onContact?.();}
   if(animation!==a){wake();return;}
-  const startpoint=!a?.rewind&&a?.runtime?.movement&&!a.movementStarted&&(time-a.start)/a.speed>=a.runtime.beforeMs;
+  const turnEndpoint=!a?.rewind&&a?.runtime?.movement?.kind==='move'&&a.runtime.beforeMs>0&&!a.turnEndpointDrawn&&(time-a.start)/a.speed>=a.runtime.beforeMs;
+  if(turnEndpoint){a.start=time-a.runtime.beforeMs*a.speed;a.turnEndpointDrawn=true;a.drawingTurnEndpoint=true;}
+  const startpoint=!turnEndpoint&&!a?.rewind&&a?.runtime?.movement&&!a.movementStarted&&(time-a.start)/a.speed>=a.runtime.beforeMs;
   if(startpoint){a.start=time-a.runtime.beforeMs*a.speed;a.movementStarted=true;a.drawingMovementStart=true;}
   const endpoint=!a?.rewind&&a?.runtime?.movement&&!startpoint&&!a.movementEndpoint&&(time-a.start)/a.speed>=a.runtime.beforeMs+a.actionDuration;
   if(endpoint){a.start=time-(a.runtime.beforeMs+a.actionDuration)*a.speed;a.movementEndpoint=true;a.drawingMovementEndpoint=true;}
   if(a&&!a.done&&a.rewind&&time>=a.rewind.end){a.done=true;a.resolve(true);}
   else if(a&&!a.done&&!a.preparing&&!endpoint&&!a.rewind&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
   render(time);
+  if(turnEndpoint)a.drawingTurnEndpoint=false;
   if(startpoint){a.drawingMovementStart=false;a.runtime.releaseMovementStart?.();}
   if(endpoint){a.drawingMovementEndpoint=false;a.runtime.releaseMovement?.();}
   if(a?.done)a.runtime?.releaseFallback?.();
   if(labels)drawLabels();
-  if(frames===1&&!reducedMotion)requestAnimationFrame(()=>loadClips());
+  if(frames===1)requestAnimationFrame(()=>{
+   if(disposed)return;
+   if(!reducedMotion)loadClips();
+   if(characterRuntime){
+    const start=()=>{if(disposed||bodyRuntime)return;bodyRuntime=createCharacterRuntime({wake:()=>wake()});void bodyRuntime.ready().then(()=>{if(!disposed)return warmBodies();}).then(()=>{bodyWarm=true;loadClips();});};
+    startBodyRuntime=start;globalThis.addEventListener('pageshow',onPageShow);
+    if(document.readyState&&document.readyState!=='complete')globalThis.addEventListener('load',start,{once:true});else start();
+   }
+  });
   if((a&&!a.done&&(!a.preparing||a.exitReady||a.rewind))||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading||clipShown)wake(false);
   else{previousTime=0;if((idling()&&bodyRuntime?.has(characterOf(position.board[selected]),armyOf(position.board[selected])))||time<passiveUntil&&(idling()||fxDrawn.length||pawnsAtRest)){clearTimeout(idleTimer);idleTimer=setTimeout(()=>wake(false),33);}} // Passive effects draw at ~30 fps for five seconds after a change.
  }
@@ -1001,9 +1016,24 @@ function drawEncounter(a,t) {
   const value=position.board[sq],generation=++selectionGeneration;void bodyRuntime.reserveIdle(characterOf(value),armyOf(value)).then(ok=>{if(ok&&generation===selectionGeneration&&selected===sq&&position.board[sq]===value&&!disposed&&!reducedMotion){idleReady=true;wake();}});
  }
  function startPrepared(a,prepared,now){
-  if(!prepared)a.bodyUnavailable=true;
+  const useBaseGait=()=>{const gait=GAIT_OF[ART[typeOf(a.value)]];if(!gait)return;const dx=a.to.foot.x-a.from.foot.x,dy=a.to.foot.y-a.from.foot.y;a.type='gait';a.gait=gait;a.lean=.35+.65*Math.abs(dx)/(Math.hypot(dx,dy)||1);a.squares=Math.max(Math.abs((a.move.to&7)-(a.move.from&7)),Math.abs((a.move.to>>3)-(a.move.from>>3)));a.actionDuration=GAITS[gait].duration(a.squares);a.legacyDuration=a.actionDuration;a.duration=a.actionDuration;};
+  if(!prepared){if(!reducedMotion&&(a.type==='move'||a.type==='gait')&&a.move.from!==a.move.to)useBaseGait();else a.bodyUnavailable=true;}
   if(prepared&&!reducedMotion){
    a.runtime=prepared;a.legacyDuration=a.duration;a.actionDuration=prepared.attack?.durationMs??a.duration;
+   const painted=prepared.movement?.kind==='move'&&(a.type==='move'||a.type==='gait')&&a.move.from!==a.move.to;
+   const distance=painted?Math.hypot((a.move.to&7)-(a.move.from&7),(a.move.to>>3)-(a.move.from>>3)):0;
+   const pace=painted?paintedPace(distance,prepared.movement.durationMs,prepared.movement.strideSquares):null;
+   if(painted&&!pace){prepared.releaseMovementStart?.();prepared.releaseMovement?.();prepared.movement=null;}
+   if(!prepared.attack&&!prepared.movement&&(a.type==='move'||a.type==='gait')&&a.move.from!==a.move.to){
+    prepared.before=[];prepared.after=[];prepared.beforeMs=0;prepared.afterMs=0;
+    useBaseGait();
+   }
+   if(pace){
+    a.squares=distance;
+    a.type='gait';a.gait='paintedWalk';a.lean=0;
+    a.actionDuration=pace.duration;a.legacyDuration=a.actionDuration;
+    prepared.movementRate=pace.rate;
+   }
    a.contactTime=prepared.attack?(prepared.attack.contactMs??prepared.attack.durationMs*.45):contactTime(a);
    if(prepared.effect){prepared.release=prepared.attack.beatTimes.release??a.contactTime;a.contactTime=prepared.release+prepared.effect.contactMs;a.actionDuration=Math.max(prepared.attack.durationMs,prepared.release+prepared.effect.player.durationMs)+(a.move.from===a.move.to?0:420);}
    a.duration=a.actionDuration+prepared.beforeMs+prepared.afterMs;
@@ -1096,7 +1126,11 @@ function drawEncounter(a,t) {
    if(a?.done&&!a.rewind&&!a.effect&&!reducedMotion&&m.from!==m.to&&!m.captures.length&&!m.swap&&!m.shove&&!m.promo&&!m.selfRemove&&!m.power&&typeOf(a.value)===K&&kings[colorOf(a.value)]==='stratus'&&next.board[m.from]===0&&next.board[m.to]===a.value)landed={animation:a,source:position,post:next,sourceEntry:kingSince.get(m.from)};
    else if(landed&&next!==landed.post)landed=null;
    const selectedValue=selected===null?null:position.board[selected],keepIdle=!animation&&idleReady&&selectedValue&&selectedValue===next.board[selected]&&characterOf(selectedValue)==='king-stratus',keepSource=!!animation?.rewind?.doneAtSource&&animation.done&&next===position&&position.board[m.from]===animation.value;if(m&&!animation.effect&&smokeStreams.has(m.from)&&next.board[m.to]===position.board[m.from]){const smoke=smokeStreams.get(m.from);smokeStreams.delete(m.from);smokeStreams.set(m.to,smoke);}else if([...position.board].some((v,sq)=>v!==next.board[sq]))smokeStreams.clear();if(!keepIdle)endMove(keepSource);lifted=null;position=next;if(selected!==null&&selectedValue!==position.board[selected])selectedAt=null;aimAngle=0;warmBodies();if(!keepIdle)reserveSelected(selected);wake();},
-  setSelected(sq){if(sq!=null&&bodyRuntime&&position.board[sq])void bodyRuntime.warm(characterOf(position.board[sq]),armyOf(position.board[sq]),true);if(sq!==selected){
+  setSelected(sq,destinations=[]){
+   const value=sq==null?null:position.board[sq],from=value?foot(sq):null,directions=from?[...new Set(destinations.filter(to=>to!==sq).map(to=>{const p=foot(to);return facingOf(p.x-from.x,p.y-from.y);} ))]:[],key=value?`${sq}:${value}:${directions.join(',')}`:'';
+   if(key!==movePrefetchKey){movePrefetchKey=key;bodyRuntime?.releaseMovePrefetch();if(value&&bodyRuntime)void bodyRuntime.prefetchMoves(characterOf(value),armyOf(value),directions);}
+   if(value&&bodyRuntime)void bodyRuntime.warm(characterOf(value),armyOf(value),true);
+   if(sq!==selected){
    if(animation?.exitBody)endMove();
    selectionGeneration++;
    if(sq===null&&idleReady&&lastSelectedBody?.square===selected)pendingIdle=lastSelectedBody;
@@ -1149,7 +1183,8 @@ function drawEncounter(a,t) {
   /** The ready body frames the last draw used, for registration checks. */
   get characterFrames(){return bodyFrames;},
   get characterExit(){return animation?.exitStart??null;},
-  get characterMemory(){return bodyRuntime?.stats??{bytes:0,peakBytes:0,active:0,queued:0};},
+  get characterWarmupSettled(){return bodyWarm&&bodyRuntime?.stats.manifestReady&&bodyRuntime.stats.framesLoaded>0&&bodyRuntime.stats.active===0&&bodyRuntime.stats.queued===0;},
+  get characterMemory(){return bodyRuntime?.stats??{bytes:0,peakBytes:0,framesLoaded:0,active:0,queued:0,manifestReady:false,manifestLoading:false};},
   get characterEffects(){return effectFrames;},
   setDecorate(fn){decorate=fn;wake();},
   redraw(){wake();},
@@ -1221,7 +1256,7 @@ function drawEncounter(a,t) {
    if(Number.isFinite(entry?.lastG))entry.resume={g:entry.lastG,start:performance.now()};
    if(animation||!idleReady||selected===null){endMove(keep);reserveSelected(selected);}if(closeup)closeup.panel.hidden=true;aimAngle=0;wake();
   },
-  dispose(){if(disposed)return;disposed=true;endMove();bodyRuntime?.dispose();smokeStreams.clear();cancelAnimationFrame(frame);frame=0;decorate=null;},
+  dispose(){if(disposed)return;disposed=true;if(startBodyRuntime){globalThis.removeEventListener('pageshow',onPageShow);globalThis.removeEventListener('load',startBodyRuntime);}endMove();bodyRuntime?.dispose();smokeStreams.clear();cancelAnimationFrame(frame);frame=0;decorate=null;},
  };
  return api;
 }

@@ -1,12 +1,59 @@
 // The ready character package through the actual game, with human move input.
 import assert from 'node:assert/strict';
+import http from 'node:http';
+import { once } from 'node:events';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {checkCharacterEffects} from './lib/character-effects-game-check.mjs';
 import { env, launch, shot, trapErrors, assertNoErrors } from './lib/checks.mjs';
 const browser=await launch(),checks=[];
-function runtimeNetwork(page){const records=[],pending=[];page.on('response',response=>{if(response.url().includes('/character-runtime/'))pending.push(response.body().then(bytes=>records.push({url:response.url(),bytes:bytes.length})).catch(()=>{}));});return async()=>{await Promise.all(pending);return {requests:records.length,bytes:records.reduce((n,r)=>n+r.bytes,0)};};}
+function runtimeNetwork(page){const records=[],pending=[];page.on('response',response=>{if(response.url().includes('/character-runtime/'))pending.push(response.body().then(bytes=>records.push({url:response.url(),bytes:bytes.length})).catch(()=>{}));});return async()=>{await Promise.all(pending);return {requests:records.length,bytes:records.reduce((n,r)=>n+r.bytes,0),frameBytes:records.filter(r=>/\/character-runtime\/assets\//.test(r.url)).reduce((n,r)=>n+r.bytes,0),manifestBytes:records.filter(r=>/\/character-runtime\/manifest\.json/.test(r.url)).reduce((n,r)=>n+r.bytes,0)};};}
+// Serve the game through a shared link. Browser routing misses image requests in WebKit.
+async function throttleProxy(upstream){
+ let config=null;const transfers=new Set();
+ const timer=setInterval(()=>{
+  let budget=(config?.kbps??1e9)*1000/8/100;const ready=[...transfers].filter(t=>t.ready<=Date.now());
+  while(budget>1&&ready.length){const share=Math.max(1,Math.floor(budget/ready.length));for(const t of [...ready]){
+   const n=Math.min(share,t.body.length-t.sent);t.res.write(t.body.subarray(t.sent,t.sent+n));t.sent+=n;budget-=n;
+   if(t.sent===t.body.length){t.res.end();transfers.delete(t);ready.splice(ready.indexOf(t),1);}
+  }}
+ },10);
+ const server=http.createServer((req,res)=>{
+  const limit=config&&req.url.includes('/character-runtime/assets/'),setting=config;
+  const proxy=http.request(new URL(req.url,upstream),{method:req.method,headers:{...req.headers,host:upstream.host}},response=>{
+   if(!limit){res.writeHead(response.statusCode,response.headers);response.pipe(res);return;}
+   const chunks=[];response.on('data',chunk=>chunks.push(chunk));response.on('end',()=>{
+    if(res.destroyed)return;const body=Buffer.concat(chunks),headers={...response.headers,'content-length':body.length};delete headers['transfer-encoding'];
+    res.writeHead(response.statusCode,headers);const transfer={res,body,sent:0,ready:Date.now()+setting.latency};transfers.add(transfer);res.on('close',()=>transfers.delete(transfer));
+   });
+  });proxy.on('error',()=>{if(!res.destroyed){res.statusCode=502;res.end();}});req.pipe(proxy);
+ });
+ server.listen(0,'127.0.0.1');await once(server,'listening');
+ return {url:new URL(`http://127.0.0.1:${server.address().port}`),set:(kbps,latency)=>{config={kbps,latency};},clear:()=>{config=null;},close:async()=>{clearInterval(timer);server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}};
+}
+
 try {
+ // A quiet move uses its painted loop on the real board and returns to rest.
+ for(const [army,fen,from,to] of [
+  ['white','7k/p7/8/8/3P4/8/P7/K7 w - - 0 1',27,35],
+  ['black','7k/p7/8/3p4/8/8/P7/K7 b - - 0 1',35,27],
+ ]){
+  const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
+  await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
+  const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');
+  await page.goto(url.href);await page.waitForFunction(sq=>window.view?.scene?.characterFrames?.some(f=>f.square===sq),from);await page.evaluate(()=>view.ready());
+  const rest=await page.evaluate(sq=>view.scene.characterFrames.find(f=>f.square===sq),from);
+  await page.evaluate(()=>{window.walkTrace=[];window.walkTraceOn=true;const take=()=>{if(walkTraceOn){walkTrace.push(...view.scene.characterFrames);requestAnimationFrame(take);}};take();});
+  for(const square of [from,to]){const p=await page.evaluate(sq=>view.screenOf(sq),square);await page.mouse.click(p.x,p.y);}
+  await page.waitForFunction(([a,b])=>!view.scene.animating&&!view.pos.board[a]&&view.pos.board[b]>0,[from,to],{timeout:20000});
+  await page.waitForFunction(([sq,sha])=>view.scene.characterFrames.some(frame=>frame.square===sq&&frame.sourceSha256===sha),[to,rest.sourceSha256]);
+  const result=await page.evaluate(sq=>{walkTraceOn=false;return {frames:walkTrace,after:view.scene.characterFrames.find(f=>f.square===sq)};},to);
+  const walking=result.frames.filter(frame=>frame.bank===`${army}-walk-${army==='white'?'N':'S'}`);
+  assert(walking.length>1,`${army}: painted frames play during travel`);
+  assert(new Set(walking.map(frame=>JSON.stringify(frame.foot))).size>1,`${army}: the painted body moves across the board`);
+  assert(result.after&&!result.after.bank.includes('-walk-'),`${army}: the piece settles on its rest`);
+  checks.push({label:`pawn-${army}-walk`,samples:walking.length,banks:[...new Set(walking.map(frame=>frame.bank))]});assertNoErrors(errors);await page.close();
+ }
  for(const [character,fen,from,to,flipped] of [
   ['pawn','7k/8/8/3p4/4P3/8/8/K7 w - - 0 1',28,35],
   ['knight','7k/8/8/3p4/8/2N5/8/K7 w - - 0 1',18,35,false],
@@ -66,11 +113,57 @@ try {
   const memory=await page.evaluate(()=>view.scene.characterMemory);assert(memory.peakBytes<=64*1024*1024,'decoded body cache stays within 64 MiB');
   const totalNetwork=await network(),moveNetwork={requests:totalNetwork.requests-initialNetwork.requests,bytes:totalNetwork.bytes-initialNetwork.bytes};assert(moveNetwork.requests<=180&&moveNetwork.bytes<=16*1024*1024,'one move loads a clip window, not the cast');
   checks.push({character,flipped,initialNetwork,moveNetwork,memory,still,after,attackSamples:attack.length,banks:[...new Set(trace.flatMap(t=>t.frames).map(f=>f.bank))],...(rookIdle?{selectedIdle:rookIdle}:{})});
-  if(character==='pawn'||rookIdle){await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,sq)=>v===board[sq]),originalBoard,{timeout:10000});checks.at(-1).undoRestored=true;if(rookIdle){const restored=await page.evaluate(from=>view.scene.characterFrames.find(f=>f.square===from),from);assert.equal(restored.bank,rookIdle.id);assert.equal(restored.sourceSha256,rookIdle.restSha256);assert.deepEqual([restored.foot,restored.pivot,restored.scale],[still.foot,still.pivot,still.scale]);checks.at(-1).undoFrame=restored;}await shot(page,`${character}-game-undo`);}
+  if(character==='pawn'||rookIdle){await page.click('#undo');await page.waitForFunction(board=>!view.scene.animating&&view.pos.board.every((v,sq)=>v===board[sq]),originalBoard,{timeout:10000});checks.at(-1).undoRestored=true;if(rookIdle){await page.waitForFunction(from=>view.scene.characterFrames.some(f=>f.square===from),from);const restored=await page.evaluate(from=>view.scene.characterFrames.find(f=>f.square===from),from);assert.equal(restored.bank,rookIdle.id);assert.equal(restored.sourceSha256,rookIdle.restSha256);assert.deepEqual([restored.foot,restored.pivot,restored.scale],[still.foot,still.pivot,still.scale]);checks.at(-1).undoFrame=restored;}await shot(page,`${character}-game-undo`);}
   assertNoErrors(errors);await page.close();
  }
+ // Repeat the staging capture in fresh pages, including idle selection before the move.
+ const proxy=await throttleProxy(new URL(env('PLAYABLE_URL')));
+ try{for(const [kbps,latency] of [[4000,100],[1600,150]]){let passed=0;
+ for(let run=1;run<=5;run++){
+  const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
+  try{
+   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
+   const url=new URL(proxy.url);url.searchParams.set('fen','7k/8/8/2Pr4/8/8/8/K7 b - - 0 1');url.searchParams.set('players','human,human');
+   await page.goto(url.href);await page.waitForFunction(()=>window.view?.scene?.characterFrames?.some(f=>f.square===35));await page.evaluate(()=>view.ready());
+   proxy.set(kbps,latency);
+   await page.evaluate(()=>{window.captureTrace=[];window.captureTracing=true;const tick=()=>{if(!captureTracing)return;captureTrace.push(...view.scene.characterFrames.filter(f=>f.square===35).map(f=>({bank:f.bank,sha:f.sourceSha256,time:f.time})));requestAnimationFrame(tick);};tick();});
+   const from=await page.evaluate(()=>view.screenOf(35));await page.mouse.click(from.x,from.y);
+   await page.waitForTimeout(2000);
+   const to=await page.evaluate(()=>view.screenOf(34));await page.mouse.click(to.x,to.y);
+   await page.waitForFunction(()=>!view.scene.animating&&!view.pos.board[35]&&view.pos.board[34]>0,null,{timeout:20000});
+   const trace=await page.evaluate(()=>{window.captureTracing=false;return captureTrace;}),attack=trace.filter(f=>f.bank==='black-attack-W');
+   const ok=attack.length>1&&attack.some(f=>f.time>100);if(ok)passed++;
+   assertNoErrors(errors);checks.push({kbps,latency,captureRun:run,attackSamples:attack.length});console.log(`capture ${kbps} kbps ${latency} ms ${run}/5: ${attack.length} attack samples`);
+  }finally{proxy.clear();await page.close();}
+ }
+ console.log(`capture ${kbps} kbps ${latency} ms: ${passed}/5`);
+ if(kbps===4000)assert.equal(passed,5,`${kbps} kbps ${latency} ms: all five captures show attack frames`);
+ }
+ for(const [piece,fen,from,to,bank] of [
+  ['pawn','7k/p7/8/8/3P4/8/P7/K7 w - - 0 1',27,35,'white-walk-N'],
+  ['rook','7k/8/8/8/3R4/8/8/K7 w - - 0 1',27,28,'white-walk-E'],
+ ]){let passed=0;for(let run=1;run<=5;run++){
+  const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
+  try{
+   await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
+   const url=new URL(proxy.url);url.searchParams.set('fen',fen);url.searchParams.set('players','human,human');
+   await page.goto(url.href);await page.waitForFunction(sq=>window.view?.scene?.characterFrames?.some(f=>f.square===sq),from);await page.evaluate(()=>view.ready());
+   proxy.set(4000,100);
+   await page.evaluate(()=>{window.moveTrace=[];window.moveTracing=true;const tick=()=>{if(!moveTracing)return;moveTrace.push(...view.scene.characterFrames.map(f=>({bank:f.bank,sha:f.sourceSha256})));requestAnimationFrame(tick);};tick();});
+   const start=await page.evaluate(sq=>view.screenOf(sq),from);await page.mouse.click(start.x,start.y);await page.waitForTimeout(2000);
+   const end=await page.evaluate(sq=>view.screenOf(sq),to);await page.mouse.click(end.x,end.y);
+   await page.waitForFunction(([a,b])=>!view.scene.animating&&!view.pos.board[a]&&view.pos.board[b]>0,[from,to],{timeout:20000});
+   const trace=await page.evaluate(()=>{window.moveTracing=false;return moveTrace;}),walk=trace.filter(f=>f.bank===bank);
+   if(new Set(walk.map(f=>f.sha)).size>1)passed++;
+   assertNoErrors(errors);checks.push({piece,moveRun:run,walkSamples:walk.length,poses:new Set(walk.map(f=>f.sha)).size});console.log(`move ${piece} 4000 kbps 100 ms ${run}/5: ${walk.length} samples, ${new Set(walk.map(f=>f.sha)).size} poses`);
+  }finally{proxy.clear();await page.close();}
+ }
+ console.log(`move ${piece} 4000 kbps 100 ms: ${passed}/5`);assert.equal(passed,5,`${piece}: all five moves show distinct walk poses`);
+ }
+ }finally{await proxy.close();}
  // The ready cast and all six king designs draw in the real game with their separate cues.
  for(const [label,kings,fen,count] of [
+  ['standard-position',null,'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',32],
   ['ready-cast',null,'onbalmgk/pppppppp/8/8/8/8/PPPPPPPP/ONBALMGK w - - 0 1',32],
   ['kings-frost-flame','frost:freeze,flame:haste','7k/8/8/3p4/4P3/8/8/K7 w - - 0 1',4],
   ['kings-mud-stratus','mud:march,stratus:flight','7k/8/8/3p4/4P3/8/8/K7 w - - 0 1',4],
@@ -82,6 +175,17 @@ try {
   await page.goto(url.href);await page.waitForFunction(count=>window.view?.scene?.characterFrames?.length===count,count);await page.evaluate(()=>view.ready());await page.waitForTimeout(1000);
   await shot(page,label);const memory=await page.evaluate(()=>view.scene.characterMemory);assert(memory.peakBytes<=64*1024*1024,'ready cast decoded cache stays within 64 MiB');const initialNetwork=await network();assert(initialNetwork.requests<=40&&initialNetwork.bytes<=8*1024*1024,'full board only loads its runtime stills and ambient texture');checks.push({label,initialNetwork,memory,frames:await page.evaluate(()=>view.scene.characterFrames)});assertNoErrors(errors);await page.close();
  }
+ // The shipped package carries every selected bank as content-named WebP.
+ {
+  const page=await browser.newPage({viewport:{width:1100,height:950}}),errors=trapErrors(page);
+  await page.addInitScript(()=>sessionStorage.setItem('kingdown.title-seen','1'));
+  const url=new URL(env('PLAYABLE_URL'));url.searchParams.set('fen','rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');url.searchParams.set('players','human,human');
+  await page.goto(url.href);
+  const pack=await page.evaluate(async()=>(await(await fetch('/character-runtime/manifest.json')).json())),urls=pack.banks.flatMap(bank=>bank.frames.map(frame=>frame.url));
+  assert.equal(pack.sourceToRuntimeScale,0.5);assert(pack.banks.length>=478,'the ready package carries every selected bank');assert(urls.every(url=>/^assets\/[a-f0-9]{64}\.webp$/.test(url)),'every runtime frame is content-named WebP');
+  checks.push({packageBanks:pack.banks.length,packageFrames:urls.length});assertNoErrors(errors);await page.close();
+ }
+
  // Repaired Queen, Guard and king turns retain adjacent endpoint pixels and transforms in the shipped package.
  for(const [character,army,fen,from,to,kings]of [
   ['queen','white','6k1/p7/8/8/3Q4/8/P7/K7 w - - 0 1',27,36,null],
@@ -107,19 +211,27 @@ try {
    for(const [,otherFrame,other]of peers){assert.equal(frame.sourceSha256,otherFrame.sourceSha256,`${label}: exact shared endpoint pixels`);assert.deepEqual([bank.pivot,bank.registrationHeightPx,bank.boardScale],[other.pivot,other.registrationHeightPx,other.boardScale],`${label}: shared endpoint transform`);joins++;}
   }
   const original=await page.evaluate(()=>[...view.pos.board]);
-  const queenRest=character==='queen'?await page.evaluate(from=>view.scene.characterFrames.find(frame=>frame.square===from),from):null;
-  await page.evaluate(()=>{window.turnTrace=[];window.turnTraceActive=true;const capture=()=>{if(!turnTraceActive)return;turnTrace.push(...view.scene.characterFrames);requestAnimationFrame(capture);};capture();});
+  const rest=await page.evaluate(from=>view.scene.characterFrames.find(frame=>frame.square===from),from),queenRest=character==='queen'?rest:null;
+  await page.evaluate(()=>{window.turnTrace=[];window.turnTraceActive=true;const capture=()=>{if(!turnTraceActive)return;turnTrace.push(...view.scene.characterFrames.map(frame=>({...frame,playing:view.scene.playing})));requestAnimationFrame(capture);};capture();});
   for(const square of [from,to]){const p=await page.evaluate(square=>view.screenOf(square),square);await page.mouse.click(p.x,p.y);}
   try {await page.waitForFunction(([from,to])=>!view.scene.animating&&!view.pos.board[from]&&view.pos.board[to]>0,[from,to],{timeout:15000});} catch(error) { await writeFile(join(env('PLAYABLE_OUT'),label+'-failure.json'),JSON.stringify(await page.evaluate(([from,to,label])=>({label,from,to,board:[...view.pos.board],animating:view.scene.animating,text:document.body.innerText}),[from,to,label]),null,2));await shot(page,label+'-failure');throw error;}
   const trace=await page.evaluate(()=>{window.turnTraceActive=false;return turnTrace;}),samples=trace.filter(frame=>turns.some(bank=>bank.id===frame.bank));
-  assert(samples.length>1,`${label}: ready turn frames played in the game`);
+  const fallback=trace.filter(frame=>frame.square===from&&['walk','glide','hop'].includes(frame.playing));
+  if(!trace.some(frame=>frame.square===from&&frame.playing==='paintedWalk')){
+   assert(fallback.length>1,`${label}: whole-figure gait plays`);
+   assert(fallback.every(frame=>frame.bank===rest.bank),`${label}: fallback uses the rest pose`);
+   const dx=Math.max(...fallback.map(frame=>frame.foot.x))-Math.min(...fallback.map(frame=>frame.foot.x)),dy=Math.max(...fallback.map(frame=>frame.foot.y))-Math.min(...fallback.map(frame=>frame.foot.y));
+   assert(Math.hypot(dx,dy)>10,`${label}: fallback moves the figure`);
+  }else assert(samples.length>1,`${label}: ready turn frames played in the game`);
   for(const frame of samples){const bank=turns.find(bank=>bank.id===frame.bank);assert.equal(frame.sourceBankSha256,bank.sourceSha256);assert(bank.frames.some(f=>f.sourceSha256===frame.sourceSha256));}
   if(character==='queen'){
    const frames=trace.filter(frame=>(frame.square===from||frame.square===to)&&frame.bank===`${army}-turn-NE-E`);
-   const firstRest=frames.findIndex(frame=>frame.time===0),lastRest=frames.findLastIndex(frame=>frame.time===0);
+   const nearest=Math.min(...frames.map(frame=>frame.time)),firstRest=frames.findIndex(frame=>frame.time===nearest),lastRest=frames.findLastIndex(frame=>frame.time===nearest);
    await writeFile(join(env('PLAYABLE_OUT'),`${label}-turn-route.json`),JSON.stringify({firstRest,lastRest,frames},null,2));
-   assert(firstRest>0&&Math.max(...frames.slice(0,firstRest).map(frame=>frame.time))>=64,'outward Queen turn runs E to NE');
+   assert(nearest===0&&firstRest>0&&Math.max(...frames.slice(0,firstRest).map(frame=>frame.time))>=64,'outward Queen turn reaches NE');
    assert(lastRest<frames.length-1&&Math.max(...frames.slice(lastRest+1).map(frame=>frame.time))>=64,'return Queen turn runs NE to E');
+   assert(trace.some(frame=>frame.bank===`${army}-walk-NE`),'painted walk plays between the turns');
+   assert(trace.findIndex(frame=>frame.bank===`${army}-turn-NE-E`&&frame.time===0)<trace.findIndex(frame=>frame.bank===`${army}-walk-NE`),'outward turn reaches its endpoint before the walk');
    const outward=frames.slice(0,firstRest+1),back=frames.slice(lastRest);
    assert(outward.every((frame,i)=>!i||frame.time<=outward[i-1].time),'outward turn never jumps backwards while images load');
    assert(back.every((frame,i)=>!i||frame.time>=back[i-1].time),'return turn never jumps backwards while images load');

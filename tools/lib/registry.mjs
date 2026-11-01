@@ -15,7 +15,7 @@ export const checks = [
   { name: 'character-prepare', script: 'tools/verify-character-prepare.mjs', limit: 90, channel: 'chromium', byName: true, exclusive: true },
   { name: 'stratus-idle-exit', script: 'tools/verify-stratus-idle-exit.mjs', limit: 240, channel: 'chromium', byName: true },
   { name: 'stratus-registration', script: 'tools/verify-stratus-registration.mjs', limit: 300, channel: 'chromium', byName: true },
-  { name: 'character-runtime', script: 'tools/verify-character-runtime.mjs', limit: 300, channel: 'chromium', byName: true },
+  { name: 'character-runtime', script: 'tools/verify-character-runtime.mjs', limit: 600, channel: 'chromium', byName: true },
   { name: 'layout-title', script: 'tools/verify-layout.mjs', args: ['title'], limit: 120, channel: 'chromium', byName: true },
   { name: 'layout-zoom', script: 'tools/verify-layout.mjs', args: ['zoom'], limit: 120, channel: 'chromium', byName: true },
   { name: 'layout-result', script: 'tools/verify-layout.mjs', args: ['result'], limit: 120, channel: 'chromium', byName: true },

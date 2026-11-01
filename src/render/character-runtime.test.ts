@@ -3,6 +3,136 @@ import { createCharacterRuntime, anchorAt, bankPointToWorld, idleBankAt, facingO
 const bank = (from = 'SE', to = 'S'): RuntimeBank => ({ id: `${from}-${to}`, character: 'pawn', army: 'white', kind: 'turn', from, to, facing: 'SE', durationMs: 120, nearest: true, pivot: [384,700], canvasSize: [768,768], bodyHeightPx: 600, registrationHeightPx: 600, frames: [0,60,120].map(timeMs => ({ url: `frame-${timeMs}`, timeMs })) });
 
 describe('ready character playback', () => {
+ it('loads the target walk while its turn endpoints load', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const turn={...bank(),id:'turn',frames:[{url:'rest',timeMs:0},{url:'held-turn',timeMs:120}]};
+  const move={...bank(),id:'walk',kind:'move',facing:'S',strideSquares:1,frames:[{url:'walk-0',timeMs:0},{url:'walk-1',timeMs:120}]};
+  const started:string[]=[];let finishTurn=()=>{};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,move]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){started.push(s);if(s.endsWith('/held-turn'))finishTurn=()=>img.onload?.();else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const pending=runtime.prepare('pawn','white','S',false,true);await vi.waitFor(()=>expect(started.some(s=>s.endsWith('/walk-1'))).toBe(true));
+  finishTurn();expect(await pending).toMatchObject({movement:{id:'walk'}});runtime.dispose();
+ });
+ it('finishes earlier selected facings before later ones', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0},{url:'idle-extra',timeMs:60}]};
+  const moves=['N','E','S'].map(facing=>({...bank(),id:`walk-${facing}`,kind:'move',facing,strideSquares:1,frames:Array.from({length:4},(_,i)=>({url:`walk-${facing}-${i}`,timeMs:i*20}))}));
+  const started:string[]=[],finish:(()=>void)[]=[];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,...moves]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){started.push(s);finish.push(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  await runtime.ready();void runtime.prefetchMoves('pawn','white',['N','E','S']);await vi.waitFor(()=>expect(started.filter(s=>s.includes('/walk-N-'))).toHaveLength(4));
+  void runtime.warm('pawn','white',true);
+  expect(started.some(s=>s.includes('/walk-E-'))).toBe(false);
+  finish.slice(0,5).forEach(done=>done());await vi.waitFor(()=>expect(started.filter(s=>s.includes('/walk-E-'))).toHaveLength(4));
+  expect(started.some(s=>s.includes('/idle-extra'))).toBe(false);
+  runtime.releaseMovePrefetch();runtime.dispose();
+ });
+ it('prefetches turn endpoints and defers idle frames behind the walk', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',facing:'N',frames:[{url:'rest',timeMs:0},...Array.from({length:4},(_,i)=>({url:`idle-${i}`,timeMs:i+1}))]};
+  const turn={...bank('N','E'),id:'turn',frames:[{url:'rest',timeMs:0},{url:'turn-E',timeMs:120}]};
+  const move={...bank(),id:'walk',kind:'move',facing:'E',strideSquares:1,frames:Array.from({length:4},(_,i)=>({url:`walk-${i}`,timeMs:i*20}))},started:string[]=[];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,move]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){started.push(s);if(s.endsWith('/rest'))queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  await runtime.warm('pawn','white');void runtime.prefetchMoves('pawn','white',['E']);await vi.waitFor(()=>expect(started.some(s=>s.endsWith('/turn-E'))).toBe(true));
+  void runtime.warm('pawn','white',true);await vi.waitFor(()=>expect(runtime.stats.queued).toBe(4));expect(started.some(s=>s.includes('/idle-'))).toBe(false);
+  runtime.releaseMovePrefetch();runtime.dispose();
+ });
+ it('gives preparation the link even when idle downloads leave free slots', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',facing:'N',frames:[{url:'rest',timeMs:0},...Array.from({length:4},(_,i)=>({url:`idle-${i}`,timeMs:i+1}))]};
+  const attack={...bank(),id:'attack',kind:'attack',facing:'N',frames:[{url:'attack',timeMs:0}]},removed:string[]=[];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})})) as unknown as typeof fetch,
+   image:()=>{let source='';const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:()=>removed.push(source),set src(s:string){source=s;if(!s.includes('/idle-'))queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  await runtime.ready();void runtime.warm('pawn','white',true);await vi.waitFor(()=>expect(runtime.stats.active).toBe(4));
+  expect(await runtime.prepare('pawn','white','N',true)).toMatchObject({attack:{id:'attack'}});expect(removed).toHaveLength(4);runtime.dispose();
+ });
+ it('prioritizes walk preparation over idle downloads', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',facing:'N',frames:[{url:'rest',timeMs:0},...Array.from({length:6},(_,i)=>({url:`idle-${i}`,timeMs:i+1}))]};
+  const move={...bank(),id:'walk',kind:'move',facing:'N',strideSquares:1,frames:Array.from({length:4},(_,i)=>({url:`walk-${i}`,timeMs:i*30}))};
+  const started:string[]=[];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,move]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){started.push(s);if(!s.includes('/idle-'))queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  await runtime.ready();void runtime.warm('pawn','white',true);await vi.waitFor(()=>expect(runtime.stats.active).toBe(5));runtime.rest('pawn','white',100,true);await vi.waitFor(()=>expect(runtime.stats.active).toBe(6));
+  const prepared=await runtime.prepare('pawn','white','N',false,true);expect(prepared).toMatchObject({movement:{id:'walk'}});
+  expect(started.filter(s=>s.includes('/walk-'))).toHaveLength(4);runtime.dispose();
+ });
+ it('prefetches only selected facings and lets captures interrupt it', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',facing:'N',frames:[{url:'rest',timeMs:0}]};
+  const moves=['N','S'].map(facing=>({...bank(),id:`walk-${facing}`,kind:'move',facing,strideSquares:1,frames:Array.from({length:6},(_,i)=>({url:`walk-${facing}-${i}`,timeMs:i*20}))}));
+  const attack={...bank(),id:'attack',kind:'attack',facing:'N',frames:[{url:'attack',timeMs:0}]},started:string[]=[];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,...moves,attack]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){started.push(s);if(!s.includes('/walk-'))queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  await runtime.warm('pawn','white');void runtime.prefetchMoves('pawn','white',['N']);await vi.waitFor(()=>expect(runtime.stats.active).toBe(6));
+  const capture=await runtime.prepare('pawn','white','N',true);expect(capture).toMatchObject({attack:{id:'attack'}});
+  expect(started.some(s=>s.includes('/walk-S-'))).toBe(false);runtime.releaseMovePrefetch();runtime.dispose();
+ });
+ it('releases idle downloads before a capture needs the loader', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0},...Array.from({length:12},(_,i)=>({url:`idle-${i}`,timeMs:(i+1)*10})),{url:'rest',timeMs:140}]};
+  const attack={...bank(),id:'attack',kind:'attack',facing:'SE',frames:[{url:'attack-0',timeMs:0},{url:'attack-1',timeMs:120}]};
+  const started:string[]=[];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){started.push(s);if(!s.includes('/idle-'))queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const reservation=runtime.reserveIdle('pawn','white');await vi.waitFor(()=>expect(started.filter(s=>s.includes('/idle-')).length).toBe(6));
+  runtime.releaseIdle();expect(runtime.stats.active).toBe(0);const prepared=await runtime.prepare('pawn','white','SE',true);
+  expect(await reservation).toBe(false);expect(prepared).not.toBeNull();expect(runtime.action(prepared,120,120,0)).toMatchObject({bank:'attack'});
+  expect(started.filter(s=>s.includes('/idle-'))).toHaveLength(6);runtime.dispose();
+ });
+ it('prioritizes capture over shared idle prefetch and bounds the idle queue', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',durationMs:1000,frames:Array.from({length:100},(_,i)=>({url:`idle-${i}`,timeMs:i*10}))};
+  const attack={...bank(),id:'attack',kind:'attack',facing:'SE',frames:[{url:'attack-0',timeMs:0},{url:'attack-1',timeMs:120}]};
+  const started:string[]=[],finish:(()=>void)[]=[];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){started.push(s);if(!s.includes('/idle-')||s.endsWith('/idle-0'))queueMicrotask(()=>img.onload?.());else finish.push(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  await runtime.ready();void runtime.warm('pawn','white',true);await vi.waitFor(()=>expect(runtime.stats.active).toBe(5));
+  for(let t=0;t<900;t+=10)runtime.rest('pawn','white',t,true);
+  expect(runtime.stats.queued).toBeLessThanOrEqual(6);
+  finish.slice(0,5).forEach(done=>done());await vi.waitFor(()=>expect(started.some(s=>s.endsWith('/idle-89'))).toBe(true));expect(started.some(s=>s.endsWith('/idle-20'))).toBe(false);
+  const prepared=await runtime.prepare('pawn','white','SE',true);expect(prepared).not.toBeNull();expect(runtime.action(prepared,120,120,0)).toMatchObject({bank:'attack'});runtime.dispose();
+ });
+ it('bounds idle prefetch across distinct bodies when the loader is full', async () => {
+  const banks=Array.from({length:4},(_,i)=>({...bank(),id:`idle-${i}`,character:`piece-${i}`,kind:'idle',durationMs:100,frames:Array.from({length:10},(_,j)=>({url:`piece-${i}-${j}`,timeMs:j*10}))}));
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks})})) as unknown as typeof fetch,
+   image:()=>({naturalWidth:10,naturalHeight:10,onload:null,onerror:null,removeAttribute:vi.fn(),set src(_s:string){}} as unknown as HTMLImageElement)});
+  await runtime.ready();void runtime.warm('piece-0','white',true);await vi.waitFor(()=>expect(runtime.stats.active).toBe(6));
+  for(let i=1;i<4;i++)runtime.rest(`piece-${i}`,'white',50,true);
+  expect(runtime.stats.queued).toBe(6);runtime.dispose();
+ });
+ it('drains synchronous image failures without re-entering the pump', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[...Array.from({length:10000},(_,i)=>({url:`frame-${i}`,timeMs:i})),{url:'frame-0',timeMs:10000}]};
+  const held:(()=>void)[]=[];let count=0;
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})) as unknown as typeof fetch,
+   image:()=>{const img={onload:null as null|(()=>void),onerror:null as null|(()=>void),removeAttribute:vi.fn(),set src(_s:string){if(count++<6)held.push(()=>img.onerror?.());else img.onerror?.();}};return img as unknown as HTMLImageElement;}});
+  const pending=runtime.reserveIdle('pawn','white');await vi.waitFor(()=>expect(runtime.stats.active).toBe(6));
+  held[0]();expect(runtime.stats.queued).toBe(0);runtime.dispose();await pending;
+ });
+ it('keeps slow idle downloads alive until deselection', async () => {
+  vi.useFakeTimers();
+  try{
+   const idle={...bank(),id:'idle',character:'king-stratus',kind:'idle',frames:[{url:'rest',timeMs:0},...Array.from({length:6},(_,i)=>({url:`idle-${i}`,timeMs:(i+1)*10})),{url:'rest',timeMs:140}]};
+   const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){setTimeout(()=>img.onload?.(),s.includes('/idle-')?1200:0);}};return img as unknown as HTMLImageElement;}});
+   const results=[];for(let i=0;i<3;i++){const pending=runtime.reserveIdle('king-stratus','white');await vi.advanceTimersByTimeAsync(1000);results.push(await pending);await vi.advanceTimersByTimeAsync(300);runtime.releaseIdle();}
+   expect(results).toEqual([false,true,true]);runtime.dispose();
+  }finally{vi.useRealTimers();}
+ });
+ it('does not release another preparation when offline skips ownership', async () => {
+  const idle={...bank(),id:'idle',character:'king-stratus',kind:'idle',frames:[{url:'rest',timeMs:0},{url:'held',timeMs:60},{url:'rest',timeMs:120}]};let finish=()=>{};
+  const attack={...idle,id:'attack',kind:'attack',frames:[{url:'held',timeMs:0}]};
+  vi.stubGlobal('navigator',{onLine:true});
+  try{
+   const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})})) as unknown as typeof fetch,
+    image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(s:string){if(s.endsWith('/held'))finish=()=>img.onload?.();else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   const first=runtime.reserveIdle('king-stratus','white');await vi.waitFor(()=>expect(runtime.stats.active).toBe(1));
+   vi.stubGlobal('navigator',{onLine:false});const preparing=runtime.prepare('king-stratus','white','SE',true);await preparing;
+   expect(runtime.stats.active).toBe(1);vi.stubGlobal('navigator',{onLine:true});finish();expect(await first).toBe(true);runtime.dispose();
+  }finally{vi.unstubAllGlobals();}
+ });
+ it('keeps a preparation load that a visible rest frame also needs', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'held',timeMs:0}]};let finish=()=>{};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:vi.fn(),set src(_s:string){finish=()=>img.onload?.();}};return img as unknown as HTMLImageElement;}});
+  const controller=new AbortController(),pending=runtime.prepare('pawn','white','SE',false,false,controller.signal);
+  await vi.waitFor(()=>expect(runtime.stats.active).toBe(1));runtime.rest('pawn','white');controller.abort();expect(await pending).toBeNull();
+  expect(runtime.stats.active).toBe(1);finish();await vi.waitFor(()=>expect(runtime.rest('pawn','white')).toMatchObject({url:'held'}));runtime.dispose();
+ });
  it('reserves the actual idle images through cache pressure and releases stale reservations', async () => {
   const frames=['rest','a','b','c','b','a','rest'].map((url,i)=>({url,timeMs:i*100}));
   const idle={...bank(),id:'idle',character:'king-stratus',kind:'idle',durationMs:600,frames};
@@ -28,6 +158,29 @@ describe('ready character playback', () => {
   expect(runtime.action(prepared,0,1000,0)).toMatchObject({url:army+'-target'});
   expect(runtime.action(prepared,700,1000,0)).toMatchObject({url:army+'-target'});
   expect(runtime.action(prepared,1120,1000,0)).toMatchObject({url:army+'-rest'});
+  runtime.dispose();
+ });
+ it.each(['white','black'])('plays the target-facing king attack for %s', async army => {
+  const idle={...bank(),id:'idle',character:'king-frost',army,kind:'idle',frames:[{url:army+'-rest',timeMs:0}]};
+  const turn={...bank(),id:'turn',character:'king-frost',army,frames:[{url:army+'-rest',timeMs:0},{url:army+'-target',timeMs:120}]};
+  const attack={...bank(),id:'attack',character:'king-frost',army,kind:'attack',facing:'S',frames:[{url:army+'-target',timeMs:0},{url:army+'-strike',timeMs:40},{url:army+'-target',timeMs:100}]};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,attack]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const prepared=await runtime.prepare('king-frost',army,'S',true,true);expect(prepared).not.toBeNull();
+  expect(runtime.action(prepared,0,120,40)).toMatchObject({url:army+'-target'});
+  expect(runtime.action(prepared,40,120,40)).toMatchObject({url:army+'-strike'});
+  expect(runtime.action(prepared,100,120,40)).toMatchObject({url:army+'-target'});
+  expect(runtime.action(prepared,240,120,40)).toMatchObject({url:army+'-rest'});
+  runtime.dispose();
+ });
+ it('places a smaller key at its authored offset', async () => {
+  const idle={...bank(),id:'idle',character:'king-frost',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const attack={...bank(),id:'attack',character:'king-frost',kind:'attack',facing:'SE',canvasSize:[640,640] as [number,number],pivot:[512,478] as [number,number],frames:[{url:'rest',timeMs:0},{url:'strike',timeMs:60}]};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,attack]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(s:string){if(s.endsWith('/strike'))img.naturalWidth=img.naturalHeight=640;queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const prepared=await runtime.prepare('king-frost','white','SE',true,true);
+  expect(runtime.action(prepared,0,120,60)).toMatchObject({pivot:[384,350],canvasSize:[384,384]});
+  expect(runtime.action(prepared,60,120,60)).toMatchObject({pivot:[512,478],canvasSize:[640,640]});
   runtime.dispose();
  });
  it('keeps every king turn frame under cache pressure until the capture ends', async () => {
@@ -74,6 +227,45 @@ describe('ready character playback', () => {
    image:()=>{const img={naturalWidth:384,naturalHeight:384,onload:null as null|(()=>void),decode:async()=>{},set src(s:string){if(s.endsWith('/late')){const callback=img.onload;finish=()=>callback?.();}else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
   const pending=runtime.reserveIdle('king-stratus','white');await vi.waitFor(()=>expect(finish).toBeDefined());runtime.dispose();finish?.();expect(await pending).toBe(false);expect(runtime.stats.bytes).toBe(0);
  });
+ it('holds the painted move keys at their own times and repeats during long travel', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',facing:'N',frames:[{url:'rest',timeMs:0}]};
+  const move={...bank(),id:'painted',kind:'move',facing:'N',strideSquares:1,nearest:true,durationMs:600,frames:[0,120,360].map(timeMs=>({url:`walk-${timeMs}`,timeMs}))};
+  const older={...move,id:'older',kind:'movement'};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,older,move]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const prepared=await runtime.prepare('pawn','white','N',false,true);
+  expect((prepared as {movement:{id:string}} | null)?.movement?.id).toBe('painted');
+  expect([0,119,120,359,360,599,600,720].map(t=>(runtime.action(prepared,t,1000,0) as {time:number}).time)).toEqual([0,0,120,120,360,360,0,120]);
+  (prepared as {movementRate:number}).movementRate=2;
+  expect((runtime.action(prepared,60,1000,0) as {time:number}).time).toBe(120);
+  expect((runtime.action(prepared,1000,1000,0,'end') as {bank:string}).bank).toBe('idle');
+  expect((runtime.action(prepared,1001,1000,0) as {bank:string}).bank).toBe('idle');
+  runtime.dispose();
+ });
+ it('returns no prepared action when a painted walk has no turn route', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const move={...bank(),id:'painted',kind:'move',facing:'N',strideSquares:1,frames:[{url:'walk',timeMs:0}]};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,move]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  expect(await runtime.prepare('pawn','white','N',false,true)).toBeNull();runtime.dispose();
+ });
+ it('shows the outward turn endpoint before the painted walk', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
+  const turn={...bank(),id:'turn',frames:[{url:'rest',timeMs:0},{url:'facing',timeMs:120}]};
+  const move={...bank(),id:'painted',kind:'move',facing:'S',strideSquares:1,frames:[{url:'walk',timeMs:0}]};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,move]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const prepared=await runtime.prepare('pawn','white','S',false,true);
+  expect(runtime.action(prepared,0,640,0,'turn-end')).toMatchObject({bank:'turn',url:'facing'});
+  expect(runtime.action(prepared,0,640,0,'start')).toMatchObject({bank:'painted',url:'walk'});runtime.dispose();
+ });
+ it('does not play a painted walk with an invalid stride', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',facing:'N',frames:[{url:'rest',timeMs:0}]};
+  const move={...bank(),id:'painted',kind:'move',facing:'N',strideSquares:0,frames:[{url:'walk',timeMs:0}]};
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,move]})})) as unknown as typeof fetch,
+   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+  const prepared=await runtime.prepare('pawn','white','N',false,true) as {movement:unknown};expect(prepared.movement).toBeNull();runtime.dispose();
+ });
  it('plays explicit movement for each army and direction over the scene travel time', async () => {
   const banks = ['white','black'].flatMap(army => {
    const idle={...bank(),id:`${army}-idle`,army,kind:'idle',frames:[{url:`${army}-rest`,timeMs:0}]};
@@ -83,7 +275,7 @@ describe('ready character playback', () => {
   });
   const sources:string[]=[];
   const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks})})) as unknown as typeof fetch,
-   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},set src(s:string){sources.push(s);queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+   image:()=>{const img={naturalWidth:768,naturalHeight:768,onload:null as null|(()=>void),decode:async()=>{},set src(s:string){sources.push(s);queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
   for(const army of ['white','black']){
    const long=await runtime.prepare('pawn',army,'S',false,false);
    expect((runtime.action(long,500,1000,0) as {bank:string}).bank).toBe(`${army}-turn`);
@@ -229,16 +421,16 @@ describe('ready character playback', () => {
    const directions=['SE','S','SW','W','NW'];
    const turns=directions.slice(0,-1).map((from,i)=>({...bank(from,directions[i+1]),frames:[{url:`held-${i*2}`,timeMs:0},{url:`held-${i*2+1}`,timeMs:120}]}));
    const other={...idle,id:'other',character:'queen',frames:[{url:'held-7',timeMs:0}]};
-   const releases:(()=>void)[]=[],removed:string[]=[];
+   const releases=new Map<string,()=>void>(),removed:string[]=[];
    const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,...turns,other]})})) as unknown as typeof fetch,
-    image:()=>{let source='';const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:()=>removed.push(source),set src(s:string){source=s;if(s.includes('/held-'))releases.push(()=>img.onload?.());else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
+    image:()=>{let source='';const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},removeAttribute:()=>removed.push(source),set src(s:string){source=s;if(s.includes('/held-'))releases.set(s,()=>img.onload?.());else queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
    const controller=new AbortController(),otherController=new AbortController(),first=runtime.prepare('pawn','white','NW',false,false,controller.signal),second=runtime.prepare('pawn','white','NW',false,false,otherController.signal);
    await vi.advanceTimersByTimeAsync(0);const warming=runtime.warm('queen','white');await vi.advanceTimersByTimeAsync(0);
    expect(runtime.stats).toMatchObject({active:6,queued:2});controller.abort();expect(await first).toBeNull();
    expect(runtime.stats).toMatchObject({active:6,queued:2});expect(removed).toHaveLength(0);
    otherController.abort();expect(await second).toBeNull();await vi.advanceTimersByTimeAsync(0);
-   expect(runtime.stats).toMatchObject({active:1,queued:0});expect(removed).toHaveLength(6);expect(releases).toHaveLength(7);
-   releases.at(-1)?.();await vi.advanceTimersByTimeAsync(0);await warming;expect(runtime.rest('queen','white')).toMatchObject({url:'held-7'});
+   expect(runtime.stats).toMatchObject({active:1,queued:0});expect(removed).toHaveLength(5);expect(releases.size).toBe(6);
+   [...releases].find(([url])=>url.endsWith('/held-7'))?.[1]();await vi.advanceTimersByTimeAsync(0);await warming;expect(runtime.rest('queen','white')).toMatchObject({url:'held-7'});
    expect(runtime.stats).toMatchObject({active:0,queued:0});runtime.dispose();expect(runtime.stats.bytes).toBe(0);
   } finally {vi.useRealTimers();}
  });
@@ -320,6 +512,10 @@ describe('ready character playback', () => {
   b.nearest=false; expect(frameAt(b,59).timeMs).toBe(0);
   b.frames[0].visibleIntervalMs=[0,90];b.frames[1].visibleIntervalMs=[90,110];b.frames[2].visibleIntervalMs=[110,120];
   expect(frameAt(b,80).timeMs).toBe(0); expect(frameAt(b,90).timeMs).toBe(60);
+ });
+ it('holds nearest attack keys until their recorded times', () => {
+  const attack={...bank(),kind:'attack',durationMs:200,frames:[0,40,150].map(timeMs=>({url:`frame-${timeMs}`,timeMs}))};
+  expect([0,39,40,149,150,200].map(time=>frameAt(attack,time).timeMs)).toEqual([0,0,40,40,150,150]);
  });
  it('loads the requested piece only and discards late decodes after disposal', async () => {
   const a = {...bank(),kind:'idle'}, other={...a,character:'knight'}, sources:string[]=[], pending:(()=>void)[]=[];
@@ -541,5 +737,31 @@ describe('ready character playback', () => {
  it('keeps the previous art available when the optional package fails', async () => {
   const runtime=createCharacterRuntime({fetcher:vi.fn(async()=>{throw Error('offline');}) as unknown as typeof fetch});
   await runtime.ready();expect(runtime.has('pawn','white')).toBe(false);expect(runtime.rest('queen','white',100,true)).toBeNull();expect(await runtime.prepare('pawn','white','E',true)).toBeNull();runtime.dispose();
+ });
+ it('drops queued frame jobs when the browser goes offline', async () => {
+  let online=true;const listeners=new Map<string,()=>void>();vi.stubGlobal('navigator',{get onLine(){return online;}});
+  vi.stubGlobal('addEventListener',(name:string,fn:()=>void)=>listeners.set(name,fn));vi.stubGlobal('removeEventListener',(name:string)=>listeners.delete(name));
+  const banks=Array.from({length:7},(_,i)=>({...bank(),id:`idle-${i}`,character:`piece-${i}`,kind:'idle',frames:[{url:`frame-${i}`,timeMs:0}]}));
+  const sources:string[]=[], images:Array<{onerror:null|(()=>void)}> = [];
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks})})) as unknown as typeof fetch,
+   image:()=>{const img={onerror:null as null|(()=>void),onload:null,removeAttribute:()=>{},set src(s:string){sources.push(s);}};images.push(img);return img as unknown as HTMLImageElement;}});
+  try {
+   await runtime.ready();const pending=banks.map(b=>runtime.warm(b.character,'white'));
+   await vi.waitFor(()=>expect(runtime.stats.queued).toBe(1));expect(sources).toHaveLength(6);
+   online=false;images[0].onerror?.();await vi.waitFor(()=>expect(runtime.stats.queued).toBe(0));expect(sources).toHaveLength(6);
+   online=true;const reconnect=listeners.get('online');expect(reconnect).toBeDefined();reconnect!();void runtime.warm('piece-0','white');
+   await vi.waitFor(()=>expect(sources.filter(source=>source==='https://example.invalid/frame-0')).toHaveLength(2));
+   runtime.dispose();await Promise.all(pending);
+  } finally {runtime.dispose();vi.unstubAllGlobals();}
+ });
+ it('asks the network for no art while the browser reports offline and resumes when it returns', async () => {
+  const fetcher=vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})})),listeners=new Map<string,()=>void>();let online=false;
+  vi.stubGlobal('addEventListener',(name:string,fn:()=>void)=>listeners.set(name,fn));vi.stubGlobal('removeEventListener',(name:string)=>listeners.delete(name));
+  vi.stubGlobal('navigator',{get onLine(){return online;}});
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:fetcher as unknown as typeof fetch});
+  try{
+   await runtime.ready();expect(runtime.has('pawn','white')).toBe(false);expect(runtime.rest('pawn','white',0,true)).toBeNull();expect(fetcher).not.toHaveBeenCalled();
+   online=true;listeners.get('online')?.();await vi.waitFor(()=>expect(fetcher).toHaveBeenCalledTimes(1));
+  }finally{runtime.dispose();expect(listeners.has('online')).toBe(false);vi.unstubAllGlobals();}
  });
 });

@@ -1,0 +1,37 @@
+[
+  {
+    "before": "c05410931e5331c1706b8c128748d9f5a1834052a2f1b274096c144a7d016a78",
+    "after": "65446c45f520d4a0503947108c181d41a429048377df165df4f1bd11c60d73d6",
+    "changedPixels": 1
+  },
+  {
+    "before": "2d8527bf783248119c1c1dd46ab385d68626de3055eb37bcfd0c2315e55409b2",
+    "after": "33ee2872d7579ace593e8f5f9585b1ae13543cc92bd3b7d6b75fa250fb8c763d",
+    "changedPixels": 6
+  },
+  {
+    "before": "830dbcf2780fc39b388a1a2cc6dfe2a6cc3223a33ce78302efe066c9cede5ce8",
+    "after": "816aeca3852eac5912139c7a57a486ef9a7fcbec829838278b91e4d042470443",
+    "changedPixels": 5
+  },
+  {
+    "before": "2101e1e3ff796307eb41d557487a32d0278986d9b997d506efb66709b2229c9d",
+    "after": "64ef844511a9c3a3d3100ac23ca5fd998a9ac4402d71c4d3675f7613a8a409a9",
+    "changedPixels": 2
+  },
+  {
+    "before": "8d25ae49f022fa3aad953cb95f045524da3bcc7d3afa201fc7e528e6f6cc780b",
+    "after": "b27b08b18d2bb4992af955963cd9c705b11bd8dcbb3b2b6ebca1f32b29c3442f",
+    "changedPixels": 2
+  },
+  {
+    "before": "0950cd108d05d14fc8c0a4b8232b0575ef54c0251c3259722d231801fad6da4c",
+    "after": "4485fa74d5f56175e3e1ee43cc66b8af5dc46ead568f3cee288bdb124c7ea936",
+    "changedPixels": 1
+  },
+  {
+    "before": "a3d550a5de10453d68980ec031b724c419a249b5df43715c1650f02d5c48d856",
+    "after": "de47062262f8227868011426a38e2726bad1f38b4f3f74fb3e135a31f4311d96",
+    "changedPixels": 6
+  }
+]

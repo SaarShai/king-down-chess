@@ -19,6 +19,7 @@ import { CHATGPT_PLUGIN } from './chatgpt-plugin.mjs';
 export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN } = {}) {
   const routes = chatgpt ? Object.entries(ART_TYPES).map(([type, contentType]) => ({ src: `^/plugin-art/[\\w-]+\\.${type}$`, headers: { ...ART_HEADERS, 'Content-Type': contentType }, continue: true })) : [];
   if (site) {
+    routes.push({ src: '^/character-runtime/assets/[a-f0-9]{64}\\.webp$', headers: { 'Cache-Control': 'public, max-age=31536000, immutable' }, continue: true });
     const challenge = resolve(site, '.well-known/openai-apps-challenge');
     if (chatgpt && existsSync(challenge)) {
       const token = readFileSync(challenge, 'utf8');

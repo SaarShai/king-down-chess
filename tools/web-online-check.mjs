@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { endTurn, lanMoves, pressMenu, readyBoard, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, launchPersistent, shot, STEP, trapErrors } from './lib/checks.mjs';
 import { tapSquare } from './lib/tap-board.mjs';
+import { isCharacterRuntimeStartup } from './lib/character-runtime-public.mjs';
 import { ART_TYPES } from './plugin-art-headers.mjs';
 import { testDatabase } from './plugin-db-config.mjs';
 import { build } from 'vite';
@@ -102,6 +103,7 @@ export async function recoveryOutput(path) {
   const allowlist = JSON.parse(worker.match(/const ALLOWLIST = (.+);/)[1]);
   const precache = JSON.parse(worker.match(/const PRECACHE = (.+);/)[1]);
   assert.ok(allowlist.every(file => file === 'index.html' || precache.includes(file)), 'Recovery precaches every public asset before the first offline visit');
+  assert.ok(!allowlist.some(file => file.startsWith('character-runtime/') && !isCharacterRuntimeStartup(file)), 'Optional runtime art stays out of the worker');
   for (const file of allowlist) {
     assert.ok(file === './' || /^[\w./-]+$/.test(file) && !file.includes('..'), 'Recovery public paths stay in the static tree');
     const path = `static/${file === './' ? 'index.html' : file}`;
@@ -662,15 +664,27 @@ export async function main() {
       assert.equal(await active.evaluate(async asset => (await caches.match('/' + asset)).text(), asset), cached, 'Asset queries keep the canonical public bytes');
       await inspect(active);
       const keys = await active.evaluate(async () => { const entries = []; for (const name of await caches.keys()) if (name.startsWith('kingdown-')) for (const request of await (await caches.open(name)).keys()) entries.push(new URL(request.url).pathname + new URL(request.url).search); return entries; });
-      assert.ok(keys.every(key => !key.includes('?') && allowlist.some(file => new URL(file, origin + '/').pathname === key)), 'Every cache key is exactly public');
+      const publicPaths = new Set(allowlist.map(file => new URL(file, origin + '/').pathname));
+      assert.ok(keys.every(key => !key.includes('?') && publicPaths.has(key)), 'Every cache key is exactly public');
       await active.evaluate(() => {
         localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'human', sound: false, pace: 'off' }));
         sessionStorage.setItem('kingdown.title-seen', '1');
       });
       await active.goto(`${origin}/?title=0`); await readyBoard(active);
       await active.waitForFunction(savedGameSynced);
-      const offlineAfter = events.length;
+      // Wait for the manifest and requested art to settle; count refusals from the start of the switch.
+      await active.waitForFunction(() => { return window.view.scene.characterWarmupSettled; });
+      await active.waitForFunction(() => window.view.scene.characterFrames.length > 0);
+      const offlineAfter = events.length, offlineErrors=[], failedClips=[];
+      const recordOfflineError=message=>{if(message.type()==='error')offlineErrors.push(message.text());};
+      const recordFailedClip=request=>{if(/\/(tap|slam)(?:-[^/]*)?\.webp$/.test(new URL(request.url()).pathname))failedClips.push(request.url());};
+      active.on('console',recordOfflineError);
+      active.on('requestfailed',recordFailedClip);
       offline = true; await persistent.setOffline(true);
+      if (output === tree && allowlist.includes('character-runtime/manifest.json')) {
+        const manifest = await active.evaluate(async () => (await fetch('/character-runtime/manifest.json', { cache: 'reload' })).json());
+        assert.ok(Array.isArray(manifest.banks), 'The installed character manifest is available offline');
+      }
       await active.goto(origin); await readyBoard(active); assert.deepEqual(await lanMoves(active), ['e2-e4']);
       const saved = await active.evaluate(() => localStorage.getItem('kingdown.save'));
       const beforeOffline = await localData(active);
@@ -710,6 +724,9 @@ export async function main() {
       await inspect(active);
       const refused = events.slice(offlineAfter).filter(event => event.event === 'offline-refused').map(event => event.url);
       assert.ok(refused.every(url => url === '/sw.js' || new URL(url, origin).pathname === '/'), `Offline play requests no asset from the server, only the network-first page and worker checks: ${JSON.stringify(refused)}`);
+      active.off('requestfailed',recordFailedClip);
+      assert.deepEqual(failedClips,[], 'Offline reload makes no failed tap or slam requests');
+      active.off('console',recordOfflineError);assert.deepEqual(offlineErrors,[], 'Offline play logs no errors');
       await persistent.setOffline(false); offline = false;
       await restoreLocalSave(active, saved);
       await active.goto(`${origin}/?title=0`); await readyBoard(active);
