@@ -1186,6 +1186,7 @@ it.each([false, true])('keeps one rematch during a held end read and cancels it 
     await page.evaluate(() => { (window as any).holdNext = 'kingdown_get'; });
     await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button', { name:'Resign', exact:true }).click();
     await page.waitForFunction(() => !!(window as any).releaseHeld);
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending)).toBeUndefined();
     await frame.locator('#over[open]').waitFor(); await page.waitForTimeout(1100);
     await frame.locator('#over').getByRole('button', { name:'Play again', exact:true }).evaluate((b: HTMLButtonElement) => { b.click(); b.click(); });
     expect(await sent(page, 'kingdown_rematch')).toBe(0);
@@ -1221,7 +1222,7 @@ it.each([false, true])('opens a rematch resume only while its end screen stays a
   } finally { await page.evaluate(() => (window as any).releaseHeld?.()); await page.close(); }
 });
 
-it('keeps a failed end read and Retry visible on the board and on Game result', async () => {
+it('keeps a failed end read and Try again visible on the board and on Game result', async () => {
   const page = await open(), frame = page.frameLocator('iframe');
   try {
     await expand(page);
@@ -1231,13 +1232,35 @@ it('keeps a failed end read and Retry visible on the board and on Game result', 
     await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button', { name:'Resign', exact:true }).click();
     await page.waitForFunction(() => !!(window as any).releaseHeld);
     await frame.locator('#over').getByRole('button', { name:'See the board', exact:true }).click();
+    // Full reads only: a computer game's result poll reads with since_revision.
+    const fullReads = () => page.evaluate(() => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get' && c.arguments?.since_revision === undefined).length);
+    const settled = () => frame.locator('html').evaluate(() => new Promise<void>(done => { const wait = () => (window as any).harnessApp.client.inflight ? setTimeout(wait, 20) : setTimeout(done, 300); wait(); }));
+    const reads = await fullReads();
     await page.evaluate(() => (window as any).releaseHeld());
     await frame.locator('.page-sheet > .page-error #retry').waitFor();
+    expect(await frame.locator('#retry').textContent()).toBe('Try again');
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.client.state.pending)).toBeUndefined();
+    // The failed read settles and the end screen updates again; no read goes out until the player taps Try again.
+    await settled();
+    expect(await fullReads()).toBe(reads);
     expect(await frame.locator('#error').isVisible()).toBe(true);
     expect(await frame.locator('#error').textContent()).not.toBe('');
     await frame.locator('#end-result').click();
     await frame.locator('#over[open] #retry').waitFor();
     expect(await frame.locator('#over #error').isVisible()).toBe(true);
+    // A failed details read keeps the result's choices: the finished game view stays current (ticket 41).
+    expect(await frame.locator('#over').getByRole('button', { name:'Play again', exact:true }).isEnabled()).toBe(true);
+    await frame.locator('#over').getByRole('button', { name:'See the board', exact:true }).click();
+    // Try again repeats the details read: a second failure keeps the details notice and the result's choices.
+    await page.evaluate(() => { (window as any).dropNextReply = 'kingdown_get'; });
+    await frame.locator('.page-sheet > .page-error #retry').click();
+    await page.waitForFunction(count => (window as any).harnessCalls.filter((c: any) => c.name === 'kingdown_get' && c.arguments?.since_revision === undefined).length === count, reads + 1);
+    await settled();
+    expect(await frame.locator('html').evaluate(() => (window as any).harnessApp.store.page().notice)).toMatchObject({ kind: 'read', details: true });
+    await frame.locator('#end-result').click();
+    await frame.locator('#over[open] #retry').waitFor();
+    expect(await frame.locator('#over').getByRole('button', { name:'Play again', exact:true }).isEnabled()).toBe(true);
+    expect(await fullReads()).toBe(reads + 1);
     await frame.locator('#over').getByRole('button', { name:'See the board', exact:true }).click();
     await frame.locator('.page-sheet > .page-error #retry').click();
     await frame.locator('#retry').waitFor({state:'hidden'});
