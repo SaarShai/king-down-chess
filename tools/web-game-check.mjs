@@ -538,6 +538,20 @@ try {
     await waitForSetup();
     console.log('web: reload during a held result read leaves Start enabled without a pending command');
   } finally { releaseEndRead(); await page.unroute(`**/api/games/${combinedId}*`, holdEndRead); }
+  // Builds before ticket 97 saved that read in the page record. Write that exact record before the next load only.
+  await page.addInitScript(({ origin, game_tag, text }) => {
+    if (location.origin !== origin || !sessionStorage.getItem('old-end-read')) return;
+    sessionStorage.removeItem('old-end-read');
+    const key = Object.keys(localStorage).find(name => name.startsWith('kingdown.account-game.'));
+    const saved = JSON.parse(localStorage.getItem(key) ?? '{}');
+    localStorage.setItem(key, JSON.stringify({ ...saved, screen: 'end', pending: { name: 'kingdown_get', args: {}, game_tag, screen: 'end', error: text, error_screen: 'end' } }));
+    window.oldEndReadSeeded = !!key;
+  }, { origin, game_tag: combinedId.slice(0, 8), text: 'Cannot connect. Check your connection, then try again.' });
+  await page.evaluate(() => sessionStorage.setItem('old-end-read', '1'));
+  await page.goto(origin + '/play/');
+  assert.equal(await page.evaluate(() => window.oldEndReadSeeded), true, 'The old saved result read is in the page record');
+  await waitForSetup();
+  console.log('web: an old saved result read leaves Start enabled after a load');
   const finishedCombined = await readCombined(0);
   assert.equal(finishedCombined.status, 'finished');
   assert.deepEqual(finishedCombined.result, { winner: 0, reason: 'resignation' });

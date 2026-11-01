@@ -54,3 +54,26 @@ CI on `de5c445e` fails `plugin-ui` in Chromium and WebKit: "A pending result-det
 The fix adds a `details` mark to the read notice. The result screen sets it on its details read. The notice still shows Try again, and the screen still sends no automatic details read. It does not mark the game stale: it sets no game lock and no "Not current". A queued rematch sends at once. Three failed background reads still set the normal stale lock. No check is removed.
 
 Checks: a state test covers the `details` notice; the failed end read product test checks that Play again stays on.
+
+## Review follow-up: players with an old saved read
+
+Independent review found three faults. Each is checked and fixed.
+
+1. Players who already have the old record stay locked. The live build saves the result-details read in `kingdown.account-game.<user>` as `{ name: 'kingdown_get', args: {}, game_tag, screen: 'end' }`, sometimes with an error. The web runtime loads it under the account scope, so Start stays off, and Retry fails the same way on `/play/`. Fix: the web runtime drops a saved read (`READ_TOOLS`) when it loads the page record. A read changes nothing on the server, so nothing is lost. A durable command keeps its receipt and its recovery. `READ_TOOLS` moves to `account-game/types.ts` so the web runtime can use it.
+2. Try again on a failed details read sent a plain read. A second failure then set the stale lock and turned Rematch off. Fix: Try again keeps the `details` mark while a details notice shows.
+3. The "no automatic resend" assertion could not fail: `store.sync()` with an unchanged key does nothing. The test now counts full reads before the held reply is released, waits until no call is in flight and the end screen updates again, and expects no new read.
+
+Proof:
+
+- `src/online/runtime.test.ts`: two cases load the exact old record (held reply, failed reply) on `/play/`. Before the fix both fail: the pending read stays. After the fix both pass, and `locks().start` is false. A third case shows that a saved resign with its receipt still recovers.
+- `tools/plugin-app.test.ts` failed end read: with the end-screen guard removed, it fails ("expected 2 to be 1"). With the Try again change reverted, it fails: the second notice has no `details` mark. With both fixes, it passes.
+- `web-game` writes the old record before one more `/play/` load and checks Start.
+- With the load-time drop removed, `web-game` fails at the new step: `locks.start: true`, and the page record keeps the old `kingdown_get`. With the fix, it passes.
+
+Checks (disposable local database, machine under load from other workers):
+
+- Chromium `plugin-ui`, `plugin-ui-http`, `web-game`: all pass (275.5, 295.1 and 80.3 s).
+- WebKit `plugin-ui`: passes (384.6 s).
+- Chromium `web-online`, `signin-speed`: both pass (168.7 and 28.9 s).
+- `TZ=UTC npm test`: 304 files pass, 4 fail, 1 skips; 6,132 tests pass, 6 fail, 16 skip. The six failures are timeouts in files this change does not touch (board drafts, board targets, tablet controls, AI search), at load average 40 to 57. Those four files alone: 206 tests pass.
+- `npm run test:docs`: passes.

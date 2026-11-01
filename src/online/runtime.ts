@@ -8,6 +8,7 @@ import { OnlineError, type OnlineClient } from './client';
 import { createWebPageHost } from './page-host';
 import { friendInvites } from '../plugin/invite';
 import { accountPath, parseAccountRoute, type AccountEntryRoute } from './routes';
+import { READ_TOOLS } from '../account-game/types';
 
 const text = (value = ''): ToolResult['content'] => [{ type: 'text', text: value }];
 const result = (_meta: Record<string, unknown> = {}, structuredContent?: unknown): ToolResult => ({ content: text(), _meta, ...(structuredContent !== undefined ? { structuredContent } : {}) });
@@ -126,6 +127,9 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
   const entry = parseAccountRoute(new URL(window.location.href));
   if (entry) saved = { ...saved, screen: entry.screen === 'game' ? 'board' : entry.screen === 'new-friend' ? 'play' : entry.screen, board_id: entry.screen === 'game' ? entry.gameId : undefined };
   const receipt = transport.pending();
+  // A saved read is not a command. Builds before ticket 97 saved the result-details read; it holds the account
+  // lock, and on /play/ its retry finds no game, so Start stays off. Durable commands keep their receipts.
+  if (saved?.pending && READ_TOOLS.includes(saved.pending.name)) saved = { ...saved, pending: undefined };
   if (receipt) {
     const previous = saved?.pending?.name === receipt.name && saved.pending.args.command_id === receipt.args.command_id ? saved.pending : undefined;
     const screen = previous?.screen ?? (receipt.name === 'kingdown_create' || receipt.name === 'kingdown_find' ? 'play' : 'board');
