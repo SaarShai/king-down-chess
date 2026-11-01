@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { endTurn, lanMoves, pressMenu, readyBoard, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, launchPersistent, shot, STEP, trapErrors } from './lib/checks.mjs';
 import { tapSquare } from './lib/tap-board.mjs';
+import { isCharacterRuntimeStartup } from './lib/character-runtime-public.mjs';
 import { ART_TYPES } from './plugin-art-headers.mjs';
 import { testDatabase } from './plugin-db-config.mjs';
 import { build } from 'vite';
@@ -102,7 +103,7 @@ export async function recoveryOutput(path) {
   const allowlist = JSON.parse(worker.match(/const ALLOWLIST = (.+);/)[1]);
   const precache = JSON.parse(worker.match(/const PRECACHE = (.+);/)[1]);
   assert.ok(allowlist.every(file => file === 'index.html' || precache.includes(file)), 'Recovery precaches every public asset before the first offline visit');
-  assert.ok(!allowlist.some(file => file.startsWith('character-runtime/') && file !== 'character-runtime/manifest.json'), 'Optional runtime art stays out of the worker');
+  assert.ok(!allowlist.some(file => file.startsWith('character-runtime/') && !isCharacterRuntimeStartup(file)), 'Optional runtime art stays out of the worker');
   for (const file of allowlist) {
     assert.ok(file === './' || /^[\w./-]+$/.test(file) && !file.includes('..'), 'Recovery public paths stay in the static tree');
     const path = `static/${file === './' ? 'index.html' : file}`;
