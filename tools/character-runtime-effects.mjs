@@ -6,7 +6,7 @@ const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 export const stripPng=bytes=>{
  if(!bytes.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex')))throw Error('Invalid effect PNG');
  const chunks=[bytes.subarray(0,8)];let i=8;
- while(i<bytes.length){if(i+12>bytes.length)throw Error('Invalid effect PNG chunk');const n=bytes.readUInt32BE(i),end=i+n+12;if(end>bytes.length)throw Error('Invalid effect PNG chunk');if(['IHDR','PLTE','tRNS','IDAT','IEND','gAMA','sRGB'].includes(bytes.toString('ascii',i+4,i+8)))chunks.push(bytes.subarray(i,end));i=end;}
+ while(i<bytes.length){if(i+12>bytes.length)throw Error('Invalid effect PNG chunk');const n=bytes.readUInt32BE(i),end=i+n+12,name=bytes.toString('ascii',i+4,i+8);if(end>bytes.length)throw Error('Invalid effect PNG chunk');if(name==='PLTE'&&bytes[25]===3||name==='tRNS'&&[0,2,3].includes(bytes[25]))throw Error('Effect PNG needs conversion to RGBA');if(['IHDR','IDAT','IEND'].includes(name))chunks.push(bytes.subarray(i,end));i=end;}
  return Buffer.concat(chunks);
 };
 const safe=(root,path)=>{const rel=relative(root,path);if(rel.startsWith('..')||rel.startsWith('/'))throw Error('Effect path leaves its package');return path;};

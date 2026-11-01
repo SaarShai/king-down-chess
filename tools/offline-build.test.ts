@@ -235,6 +235,7 @@ it.each([
 
 it.each([
   ['bad.png', '89504e470d0a1a0a000000006361425800000000'],
+  ...['PLTE','tRNS','gAMA','sRGB'].map(name => [`bad-${name}.png`, `89504e470d0a1a0a00000000${Buffer.from(name).toString('hex')}00000000`]),
   ['bad.webp', '524946460c000000574542504558494600000000'],
 ])('rejects metadata in a published %s', async (file, hex) => {
   const { dir, write } = site(); const path=`public/character-runtime/effects/${'b'.repeat(64)}/assets/${file}`;
@@ -341,5 +342,18 @@ it('vercel check rejects an unknown runtime manifest key', () => {
   writeFileSync(join(dir,'static/character-runtime/manifest.json'),JSON.stringify({schemaVersion:1,effects:{},banks:[],unexpected:'x'}));
   const result=spawnSync(process.execPath,[resolve('tools/vercel-check.mjs'),dir],{encoding:'utf8',env:{...process.env,PLUGIN_TEST_DATABASE_URL:'postgresql://127.0.0.1:55432/fixture_test'}});
   expect(result.status).toBe(1);expect(result.stderr).toContain('Unknown character manifest metadata');
+ } finally {rmSync(dir,{recursive:true,force:true});}
+});
+
+it('vercel check scans runtime image bytes for metadata', () => {
+ const dir=mkdtempSync(join(tmpdir(),'kingdown-vercel-image-'));
+ try {
+  mkdirSync(join(dir,'functions/mcp.func'),{recursive:true});const assets=join(dir,'static/character-runtime/effects', 'b'.repeat(64),'assets');mkdirSync(assets,{recursive:true});
+  symlinkSync('mcp.func',join(dir,'functions/internal.func'));
+  writeFileSync(join(dir,'functions/mcp.func/.vc-config.json'),JSON.stringify({handler:'server.mjs'}));
+  writeFileSync(join(dir,'config.json'),JSON.stringify({version:3,routes:[{src:'^/api(?:/.*)?$',dest:'/mcp'}]}));
+  writeFileSync(join(assets,'image.png'),Buffer.from('89504e470d0a1a0a000000006361425800000000','hex'));
+  const result=spawnSync(process.execPath,[resolve('tools/vercel-check.mjs'),dir],{encoding:'utf8',env:{...process.env,PLUGIN_TEST_DATABASE_URL:'postgresql://127.0.0.1:55432/fixture_test'}});
+  expect(result.status).toBe(1);expect(result.stderr).toContain('Invalid runtime PNG chunk');
  } finally {rmSync(dir,{recursive:true,force:true});}
 });

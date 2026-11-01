@@ -80,8 +80,9 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const CLIP_OF={[N]:'knight',[R]:'rook'},clipArt=Object.fromEntries(Object.keys(CLIPS).map(name=>[name,corsImage()]));
  const clipReady=name=>!!clipArt[name]?.complete&&clipArt[name].naturalWidth>0;
  function loadClips(name=null){
-  if(disposed||reducedMotion||!frames)return;
-  for(const key of name?[name]:Object.keys(clipArt))if(!clipArt[key].src)clipArt[key].src=CLIPS[key].file;
+  if(disposed||reducedMotion||!frames||globalThis.navigator?.onLine===false)return;
+  if(characterRuntime&&!bodyWarm)return;
+  for(const key of name?[name]:Object.keys(clipArt))if(!clipArt[key].src&&(!characterRuntime||[...position.board].some(value=>value&&CLIP_OF[typeOf(value)]===key&&!bodyRuntime.has(characterOf(value),armyOf(value)))))clipArt[key].src=CLIPS[key].file;
  }
  const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.1166,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
 specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.155};
@@ -978,7 +979,7 @@ function drawEncounter(a,t) {
    if(disposed)return;
    if(!reducedMotion)loadClips();
    if(characterRuntime){
-    const start=()=>{if(disposed||bodyRuntime)return;bodyRuntime=createCharacterRuntime({wake:()=>wake()});void bodyRuntime.ready().then(()=>{if(!disposed)return warmBodies();}).then(()=>{bodyWarm=true;});};
+    const start=()=>{if(disposed||bodyRuntime)return;bodyRuntime=createCharacterRuntime({wake:()=>wake()});void bodyRuntime.ready().then(()=>{if(!disposed)return warmBodies();}).then(()=>{bodyWarm=true;loadClips();});};
     startBodyRuntime=start;globalThis.addEventListener('pageshow',onPageShow);
     if(document.readyState&&document.readyState!=='complete')globalThis.addEventListener('load',start,{once:true});else start();
    }

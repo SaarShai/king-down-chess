@@ -76,6 +76,47 @@ it('starts character downloads after the first board frame', async () => {
  await vi.advanceTimersByTimeAsync(16);expect(fetcher).toHaveBeenCalledOnce();
 });
 
+it('loads legacy clips when the runtime has no bodies', async () => {
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})})));
+ const b=board(true,true);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ scene.setSelected(1);await vi.advanceTimersByTimeAsync(16);expect(b.clips()).toHaveLength(2);
+});
+
+it('loads clips when the manifest fails', async () => {
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:false})));
+ const b=board(true,true);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ expect(b.clips()).toHaveLength(2);
+ for(const clip of b.clips())clip.finish();
+ scene.setSelected(1);await vi.advanceTimersByTimeAsync(32);
+ expect(b.draws.some(isClip)).toBe(true);
+});
+
+it('does not load clips when runtime bodies exist', async () => {
+ const banks=['knight','rook'].map(character=>({id:character,character,army:'white',kind:'idle',facing:'SE',durationMs:100,pivot:[1,1],canvasSize:[10,10],registrationHeightPx:10,frames:[{url:`runtime-${character}`,timeMs:0}]}));
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks})})));
+ const b=board(true,true);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ scene.setSelected(1);await vi.advanceTimersByTimeAsync(16);expect(b.clips()).toHaveLength(0);
+});
+
+it('does not request optional clips offline', async () => {
+ const b=board(true);vi.stubGlobal('navigator',{onLine:false});
+ void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ scene.setSelected(1);await vi.advanceTimersByTimeAsync(16);
+ expect(b.clips()).toHaveLength(0);
+ vi.stubGlobal('navigator',{onLine:true});scene.setReducedMotion(true);scene.setReducedMotion(false);
+ expect(b.clips()).toHaveLength(2);
+});
+
+it('removes page listeners when the scene is disposed', async () => {
+ const b=board(true,true),listeners=new Map<string,EventListener>();
+ Object.assign(document,{readyState:'interactive'});
+ vi.stubGlobal('addEventListener',(name:string,fn:EventListener)=>listeners.set(name,fn));
+ vi.stubGlobal('removeEventListener',(name:string,fn:EventListener)=>{if(listeners.get(name)===fn)listeners.delete(name);});
+ void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(32);
+ expect([...listeners.keys()]).toEqual(expect.arrayContaining(['pageshow','load']));
+ scene.dispose();scene.dispose();expect(listeners.has('pageshow')).toBe(false);expect(listeners.has('load')).toBe(false);
+});
+
 it('waits for page load before starting character downloads', async () => {
  const fetcher=vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})}));
  vi.stubGlobal('fetch',fetcher);
