@@ -71,13 +71,14 @@ export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTim
     require(checks.every(check => ['queued', 'in_progress', 'completed', 'waiting', 'requested', 'pending'].includes(check.status)), 'invalid CI check status');
     // One commit can carry several runs (a staging push and a release PR), each its own check suite. Every suite must
     // pass on its own: all success, or the reuse shape (reuse passed, every other job skipped, no job missing).
-    let reused = false;
+    // Ready: each full suite has its ten checks, all complete (a job gets its check run only when reuse completes).
+    let ready = checks.length > 0;
     for (const suite of Map.groupBy(checks, check => check.check_suite?.id).values()) {
       if (!suite.some(check => check.conclusion === 'skipped')) {
         require(suite.every(check => check.status !== 'completed' || check.conclusion === 'success'), 'CI check does not pass');
+        ready &&= suite.length >= 10 && suite.every(check => check.status === 'completed');
         continue;
       }
-      reused = true;
       require(suite.every(check => check.status === 'completed' && check.conclusion === (check.name === 'reuse' ? 'success' : 'skipped')), 'CI check does not pass');
       require(suite.map(check => check.name).sort().join() === [...REUSE_SHAPE].sort().join(), 'skipped CI checks do not match the reuse shape');
     }
@@ -86,8 +87,7 @@ export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTim
     require(status?.sha === head && Number.isSafeInteger(status.total_count) && status.total_count >= 0 &&
       ['success', 'pending', 'failure'].includes(status.state), 'invalid CI commit status');
     require(status.state !== 'failure', 'CI commit status does not pass');
-    if ((reused || checks.length >= 10) && checks.every(check => check.status === 'completed') &&
-        (status.total_count === 0 || status.state === 'success')) {
+    if (ready && (status.total_count === 0 || status.state === 'success')) {
       const latestPr = readPr();
       // A review can start or report a finding while any GitHub request runs.
       const latest = reviewRecord(file, pr, head);

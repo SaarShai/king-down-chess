@@ -325,6 +325,14 @@ it('judges each check suite of the head alone: a full staging push run beside a 
   expect(f.merges()).toEqual([]);
 });
 
+it('waits while a PR suite holds only its reuse check beside a full push suite: the PR tests have not started', async () => {
+  const f = fixture();
+  const push = f.checks.map(check => ({ ...check, check_suite: { id: 1 } }));
+  f.checks.splice(0, f.checks.length, ...push, { ...reuseShape()[0], check_suite: { id: 2 } });
+  await expect(f.run()).rejects.toThrow('four hours');
+  expect(f.merges()).toEqual([]);
+});
+
 it.each<[string, (check: Check) => Check | null]>([
   ['a job is missing', check => check.name === 'verify' ? null : check],
   ['reuse itself is skipped', check => check.name === 'reuse' ? { ...check, conclusion: 'skipped' } : check],
