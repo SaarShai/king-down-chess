@@ -20,7 +20,24 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(verify).toContain('PLUGIN_TEST_DATABASE_URL:');
     expect(verify).toContain('- run: npm run plugin:db:init-test');
     expect(verify).toContain("- run: npm test\n        env:\n          KINGDOWN_TEST_SKIP: 'tools/plugin-board{,-input,-drafts}.test.ts'\n");
-    expect([...workflow.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):$/gm)].map(m => m[1])).toEqual(['verify', 'browser-board', 'browser', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui']);
+    expect([...workflow.split('\njobs:\n')[1].matchAll(/^  ([\w-]+):$/gm)].map(m => m[1])).toEqual(['reuse', 'verify', 'browser-board', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui']);
+  });
+
+  it('runs the suite once per tree: every job skips when a green run of this workflow checked the same tree', () => {
+    expect(workflow.split('\njobs:\n')[0]).toContain('permissions:\n  contents: read\n  # The reuse job reads this workflow\'s past runs.\n  actions: read\n');
+    const reuse = job('reuse');
+    expect(reuse).toContain('outputs:\n      green: ${{ steps.find.outputs.green }}\n');
+    expect(reuse).toContain('fetch-depth: 0');
+    expect(reuse).toContain('actions/workflows/plugin-checks.yml/runs?status=success');
+    expect(reuse).toContain("tree=$(git rev-parse 'HEAD^{tree}')");
+    expect(reuse).toContain('echo "green=true" >> "$GITHUB_OUTPUT"');
+    for (const name of ['verify', 'browser-board', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui']) {
+      expect(job(name)).toContain("    runs-on: ubuntu-latest\n    needs: reuse\n    if: needs.reuse.outputs.green != 'true'\n");
+    }
+  });
+
+  it('leaves the parked ChatGPT widget checks out of CI (docs/HOSTING.md)', () => {
+    expect(workflow).not.toMatch(/plugin:build:chatgpt|plugin-server-chatgpt|check:browser plugin-/);
   });
 
   it('keeps the release and sample instructions in line with the CI and push gates', () => {
@@ -34,7 +51,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(read('tools/lib/checks.mjs')).not.toContain('pre-push');
   });
 
-  it('removes the slow Azure mirror and limits downloads in all seven browser install steps', () => {
+  it('removes the slow Azure mirror and limits downloads in all six browser install steps', () => {
     const directory = join(import.meta.dirname, '..', '.github', 'workflows');
     const removeMirror = "sudo sed -i '/azure\\.archive\\.ubuntu\\.com/d' /etc/apt/apt-mirrors.txt";
     let installs = 0;
@@ -49,7 +66,7 @@ describe('.github/workflows/plugin-checks.yml', () => {
         expect(step.indexOf('sudo tee')).toBeLessThan(step.indexOf('npx playwright install'));
       }
     }
-    expect(installs).toBe(7);
+    expect(installs).toBe(6);
   });
 
   it.each(webkitJobs)('runs WebKit in the separate job %s with its own install and the time limit for its scaled steps', name => {
@@ -59,10 +76,8 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(webkit).toContain('PLAYABLE_BROWSER: webkit');
     expect(webkit).toContain("PLAYABLE_CPU_CANVAS: '1'");
     expect(webkit).toContain('npx playwright install --with-deps webkit');
-    expect(webkit).not.toContain('needs:');
-    expect(job('browser')).toContain('npx playwright install --with-deps chromium');
-    expect(job('browser')).not.toContain('webkit');
-    for (const other of ['verify', 'browser-board', 'browser', 'browser-web']) expect(job(other)).not.toContain('PLAYABLE_CPU_CANVAS');
+    expect(webkit.match(/needs: .*/g)).toEqual(['needs: reuse']);
+    for (const other of ['verify', 'browser-board', 'browser-web']) expect(job(other)).not.toContain('PLAYABLE_CPU_CANVAS');
   });
 
   it('runs the Chromium board files that verify leaves out, one file to a runner', () => {
@@ -75,27 +90,24 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(board).not.toContain('webkit');
   });
 
-  it('gives the full test job 30 minutes and the Chromium checks their CI step limits', () => {
-    // CI runs the steps with limits times 2 (tools/lib/checks.mjs STEP); the full npm test takes about 15 minutes there.
+  it('gives the full test job 30 minutes', () => {
+    // The full npm test takes about 15 minutes on CI.
     expect(job('verify')).toContain('timeout-minutes: 30');
-    const browser = job('browser'), names = browser.match(/- run: npm run check:browser (.+)\n/)![1].split(' ');
-    const seconds = names.reduce((sum, name) => sum + checks.find(check => check.name === name)!.limit * 2, 0);
-    // Allow the 10-minute install limit and four minutes for the other setup steps.
-    expect(seconds / 60 + 10 + 4).toBeLessThan(Number(browser.match(/^    timeout-minutes: (\d+)$/m)![1]));
   });
 
-  it('runs the web journeys on Chromium in their own job beside the plugin checks', () => {
-    // With the plugin checks (about 20 minutes on CI) in one job, they passed its 30 minutes (run 39337731602).
+  it('runs the web journeys on Chromium in their own job, each check a known name', () => {
     const web = job('browser-web');
+    for (const line of web.match(/- run: npm run check:browser (.+)\n/g)!) {
+      for (const name of line.replace(/^.*check:browser |\n$/g, '').split(' ')) expect(checks.map(check => check.name)).toContain(name);
+    }
     expect(web).toContain('timeout-minutes: 30');
     expect(web).toContain('npx playwright install --with-deps chromium');
     expect(web).toContain('- run: npm run check:browser home account new-game menu-extra');
     expect(web).toContain('- run: npm run check:browser web-online');
     expect(web).toContain('name: web-check-logs');
-    expect(job('browser')).not.toContain('web-online');
   });
 
-  it('runs the board, phone-size and widget checks, plugin-ui and the web journey on WebKit', () => {
+  it('runs the board, phone-size and widget checks and the web journey on WebKit', () => {
     const webkit = job('browser-webkit'), board = job('browser-webkit-board'), ui = job('browser-webkit-ui');
     expect(webkit).toContain('- run: npm test');
     expect(webkit).toContain("KINGDOWN_TEST_FILE: 'tools/plugin-{board,ios-size,preview-size}.test.ts'");
@@ -105,8 +117,8 @@ describe('.github/workflows/plugin-checks.yml', () => {
     expect(board).toContain('      matrix:\n        file: [input, drafts]\n');
     expect(board).toContain('KINGDOWN_TEST_FILE: tools/plugin-board-${{ matrix.file }}.test.ts');
     expect(board).toContain('name: webkit-board-check-logs-${{ matrix.file }}');
-    expect(ui).toContain('- run: npm run check:browser plugin-ui');
-    expect(ui).toContain('- run: npm run check:browser web-online');
+    expect(ui).not.toContain('plugin-ui');
+    expect(ui).toContain('- run: npm run check:browser web-online signin-speed');
     expect(ui).toContain('name: webkit-ui-check-logs');
   });
 
@@ -142,12 +154,8 @@ describe('.github/workflows/plugin-checks.yml', () => {
   it.each(webkitJobs)('keeps time under the job limit of %s for the WebKit diagnostics after a hung step', name => {
     const webkit = job(name), limit = Number(webkit.match(/^    timeout-minutes: (\d+)$/m)![1]);
     const steps = [...webkit.matchAll(/^        timeout-minutes: (\d+)$/gm)].map(m => Number(m[1]));
-    expect(steps).toHaveLength(name === 'browser-webkit-ui' ? 3 : 2);
+    expect(steps).toHaveLength(2);
     // Count the install limit too; allow four minutes for the other setup steps.
     expect(steps.reduce((sum, minutes) => sum + minutes, 0) + 4).toBeLessThan(limit);
-  });
-
-  it('writes the WebKit browser output to the plugin-ui log, so a crash names its reason', () => {
-    expect(job('browser-webkit-ui')).toMatch(/- run: npm run check:browser plugin-ui\n\s+env:\n(\s+#.*\n)*\s+DEBUG: pw:browser\n/);
   });
 });

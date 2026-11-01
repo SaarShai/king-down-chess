@@ -9,14 +9,44 @@ on:
 
 permissions:
   contents: read
+  # The reuse job reads this workflow's past runs.
+  actions: read
 
 concurrency:
   group: plugin-checks-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # One green run per tree. A release branch cut from a green staging head, and main after that release merges, carry
+  # the tree that CI already passed; every other job skips when a successful run of this workflow checked the same tree.
+  # A skipped job counts as passed for a required check.
+  reuse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      green: ${{ steps.find.outputs.green }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tree=$(git rev-parse 'HEAD^{tree}')
+          for sha in $(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/plugin-checks.yml/runs?status=success&per_page=100" --jq '.workflow_runs[].head_sha'); do
+            if [ "$(git rev-parse --verify --quiet "$sha^{tree}" || true)" = "$tree" ]; then
+              echo "tree $tree already passed at commit $sha; the other jobs skip"
+              echo "green=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "tree $tree has no green run yet"
+
   verify:
     runs-on: ubuntu-latest
+    needs: reuse
+    if: needs.reuse.outputs.green != 'true'
     # The full npm test takes about 15 minutes on the runner, twice main's (Saar, 2026-10-18: "Raise CI limits"). The board
     # files run in browser-board.
     timeout-minutes: 30
@@ -60,9 +90,6 @@ jobs:
           KINGDOWN_TEST_SKIP: 'tools/plugin-board{,-input,-drafts}.test.ts'
       - run: npm run plugin:build
       - run: npm run plugin:server:check
-      # The parked ChatGPT plugin source (tools/chatgpt-plugin.mjs): MCP flows over compiled HTTP and real PostgreSQL.
-      - run: npm run plugin:build:chatgpt
-      - run: npm run plugin:server:check -- plugin-server-chatgpt
       - run: npm run plugin:smoke
       - run: npm run plugin:check:protocol
       - run: npm run build:vercel
@@ -73,6 +100,8 @@ jobs:
   # (ticket 77, round 9).
   browser-board:
     runs-on: ubuntu-latest
+    needs: reuse
+    if: needs.reuse.outputs.green != 'true'
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -110,51 +139,12 @@ jobs:
         env:
           KINGDOWN_TEST_FILE: tools/plugin-${{ matrix.file }}.test.ts
 
-  # The browser checks run beside npm test, so each job keeps its own 15 minutes.
-  browser:
-    runs-on: ubuntu-latest
-    # The Chromium checks run with the step limits times 2 on CI (tools/lib/checks.mjs STEP), one at a time:
-    # (240 + 480 + 480) s x 2 = 40 min, plus 10 min of setup. Passing runs take 26 min; run 40262605705 lost 7 min in the browser install.
-    timeout-minutes: 55
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: kingdown_test
-          POSTGRES_PASSWORD: local_test_only
-          POSTGRES_DB: kingdown_plugin_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run plugin:db:init-test
-      - run: |
-          sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
-          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
-          npx playwright install --with-deps chromium
-        timeout-minutes: 10
-      - run: npm run check:browser plugin-oauth plugin-ui plugin-ui-http
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: check-logs
-          path: /tmp/kingdown-check-runs/
-          retention-days: 7
-
-  # The web journeys run in their own job beside the plugin checks: together they need more than one 30-minute job.
+  # The web journeys on Chromium. The ChatGPT widget checks (plugin-oauth, plugin-ui, plugin-ui-http) left CI when the
+  # plugin was parked (docs/HOSTING.md); run them by name before the plugin comes back.
   browser-web:
     runs-on: ubuntu-latest
+    needs: reuse
+    if: needs.reuse.outputs.green != 'true'
     # The Chromium checks run with the step limits times 2 on CI (tools/lib/checks.mjs STEP).
     timeout-minutes: 30
     services:
@@ -205,6 +195,8 @@ jobs:
   # a runner 2.5 times slower than usual (run 39923681818), so they are two files that run side by side.
   browser-webkit:
     runs-on: ubuntu-latest
+    needs: reuse
+    if: needs.reuse.outputs.green != 'true'
     # WebKit runs here with the step limits times 3 (tools/lib/checks.mjs STEP).
     timeout-minutes: 45
     services:
@@ -268,6 +260,8 @@ jobs:
 
   browser-webkit-board:
     runs-on: ubuntu-latest
+    needs: reuse
+    if: needs.reuse.outputs.green != 'true'
     # WebKit runs here with the step limits times 3 (tools/lib/checks.mjs STEP).
     timeout-minutes: 45
     # One board file to a runner. A CI WebKit page uses about 300% CPU; with both files side by side on one 4-CPU runner
@@ -337,7 +331,9 @@ jobs:
 
   browser-webkit-ui:
     runs-on: ubuntu-latest
-    # The full plugin-ui check and the web journey in WebKit, with the step limits times 3 (tools/lib/checks.mjs STEP).
+    needs: reuse
+    if: needs.reuse.outputs.green != 'true'
+    # The web journey in WebKit, with the step limits times 3 (tools/lib/checks.mjs STEP).
     timeout-minutes: 45
     services:
       postgres:
@@ -376,14 +372,7 @@ jobs:
           nproc
           free -m
           nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &
-      # Step limits under the job limit, as in browser-webkit. Plugin UI passing runs take 19-21 minutes; the plugin-ui
-      # step limit stays above its 1440 s check limit (480 s x 3).
-      - run: npm run check:browser plugin-ui
-        env:
-          # The browser's own output goes to the check log, so a WebKit crash or memory kill names its reason
-          # (chatgpt-mvp ticket 53: run 39230893586 crashed with no reason; WebKit kills its page at 8192 MB).
-          DEBUG: pw:browser
-        timeout-minutes: 26
+      # A step limit under the job limit, as in browser-webkit.
       - run: npm run check:browser web-online signin-speed
         timeout-minutes: 4
       - name: Save kernel log
