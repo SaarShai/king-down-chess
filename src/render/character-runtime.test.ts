@@ -249,15 +249,6 @@ describe('ready character playback', () => {
    image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
   expect(await runtime.prepare('pawn','white','N',false,true)).toBeNull();runtime.dispose();
  });
- it.each(['white','black'])('does not prepare a Guard S walk for %s', async army => {
-  const idle={...bank(),character:'guard',army,id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
-  const turn={...bank(),character:'guard',army,id:'turn',frames:[{url:'rest',timeMs:0},{url:'facing',timeMs:120}]};
-  const move={...bank(),character:'guard',army,id:'painted',kind:'move',facing:'S',strideSquares:1,frames:[{url:'walk',timeMs:0}]};
-  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,move]})})) as unknown as typeof fetch,
-   image:()=>{const img={naturalWidth:10,naturalHeight:10,onload:null as null|(()=>void),decode:async()=>{},set src(_s:string){queueMicrotask(()=>img.onload?.());}};return img as unknown as HTMLImageElement;}});
-  const prepared=await runtime.prepare('guard',army,'S',false,true);
-  expect(prepared).toMatchObject({movement:null});runtime.dispose();
- });
  it('shows the outward turn endpoint before the painted walk', async () => {
   const idle={...bank(),id:'idle',kind:'idle',frames:[{url:'rest',timeMs:0}]};
   const turn={...bank(),id:'turn',frames:[{url:'rest',timeMs:0},{url:'facing',timeMs:120}]};

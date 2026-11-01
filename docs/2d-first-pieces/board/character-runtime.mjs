@@ -189,7 +189,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    try{
     await bounded(loadManifest());if(disposed||generation!==moveGeneration)return;
     const all=forPiece(character,army),rest=idle(character,army),turns=all.filter(b=>b.kind==='turn');
-    for(const bank of all.filter(b=>b.kind==='move'&&directions.includes(b.facing)&&!(character==='guard'&&b.facing==='S'))){
+    for(const bank of all.filter(b=>b.kind==='move'&&directions.includes(b.facing))){
      if(disposed||generation!==moveGeneration)return;
      const route=rest?turnRoute(turns,rest.facing,bank.facing):null,frames=[...bank.frames,...(rest?[rest.frames[0]]:[]),...(route??[]).flatMap(part=>endpoints(part.bank))];
      const loads=loadPreparation(frames,1);moveLoads=loads;await loads.promise;
@@ -228,7 +228,7 @@ export function createCharacterRuntime({url=new URL('/character-runtime/manifest
    const all=forPiece(character,army),rest=idle(character,army);if(!rest)return null;
    const attack=capture?all.find(b=>b.kind==='attack'&&b.facing===direction):null;
    const playable=b=>b.facing===direction&&Number.isFinite(b.durationMs)&&b.durationMs>0&&b.frames?.length&&(b.kind!=='move'||Number.isFinite(b.strideSquares)&&b.strideSquares>0);
-   let movement=!capture?(!['knight','paladin'].includes(character)&&!(character==='guard'&&direction==='S')&&all.find(b=>b.kind==='move'&&playable(b))||oneSquare&&!(character==='guard'&&direction==='S')&&all.find(b=>b.kind==='movement'&&playable(b))||null):null;
+   let movement=!capture?(!['knight','paladin'].includes(character)&&all.find(b=>b.kind==='move'&&playable(b))||oneSquare&&all.find(b=>b.kind==='movement'&&playable(b))||null):null;
    const movementRequested=!!movement;
    const turns=all.filter(b=>b.kind==='turn'),before=turnRoute(turns,rest.facing,direction),after=before&&reverseRoute(before);
    // A missing edge keeps the rest body coherent instead of jumping to an unsupported facing.
