@@ -69,12 +69,18 @@ export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTim
     require(pages.every(page => page.total_count === checks.length), 'CI check-runs are incomplete; run the helper again');
     require(checks.every(check => check.head_sha === head), 'CI check head differs');
     require(checks.every(check => ['queued', 'in_progress', 'completed', 'waiting', 'requested', 'pending'].includes(check.status)), 'invalid CI check status');
-    // A skipped check passes only in the reuse shape: reuse passed, every other job skipped, no job missing.
-    const reused = checks.some(check => check.conclusion === 'skipped');
-    if (reused) {
-      require(checks.every(check => check.status === 'completed' && check.conclusion === (check.name === 'reuse' ? 'success' : 'skipped')), 'CI check does not pass');
-      require(checks.map(check => check.name).sort().join() === [...REUSE_SHAPE].sort().join(), 'skipped CI checks do not match the reuse shape');
-    } else require(checks.every(check => check.status !== 'completed' || check.conclusion === 'success'), 'CI check does not pass');
+    // One commit can carry several runs (a staging push and a release PR), each its own check suite. Every suite must
+    // pass on its own: all success, or the reuse shape (reuse passed, every other job skipped, no job missing).
+    let reused = false;
+    for (const suite of Map.groupBy(checks, check => check.check_suite?.id).values()) {
+      if (!suite.some(check => check.conclusion === 'skipped')) {
+        require(suite.every(check => check.status !== 'completed' || check.conclusion === 'success'), 'CI check does not pass');
+        continue;
+      }
+      reused = true;
+      require(suite.every(check => check.status === 'completed' && check.conclusion === (check.name === 'reuse' ? 'success' : 'skipped')), 'CI check does not pass');
+      require(suite.map(check => check.name).sort().join() === [...REUSE_SHAPE].sort().join(), 'skipped CI checks do not match the reuse shape');
+    }
     // The combined state covers the latest status for every context, across all pages.
     const status = JSON.parse(request(['api', `repos/${repo}/commits/${head}/status`]));
     require(status?.sha === head && Number.isSafeInteger(status.total_count) && status.total_count >= 0 &&

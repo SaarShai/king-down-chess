@@ -312,6 +312,19 @@ it('merges the reuse shape: reuse passed and every other job skipped, because a 
   expect(f.merges()).toHaveLength(1);
 });
 
+it('judges each check suite of the head alone: a full staging push run beside a reused release PR run', async () => {
+  const f = fixture();
+  const push = f.checks.map(check => ({ ...check, check_suite: { id: 1 } }));
+  const pr = reuseShape().map(check => ({ ...check, check_suite: { id: 2 } }));
+  f.checks.splice(0, f.checks.length, ...push, ...pr);
+  await f.run();
+  expect(f.merges()).toHaveLength(1);
+  f.gh.mockClear();
+  push[3].conclusion = 'failure';
+  await expect(f.run()).rejects.toThrow('CI check does not pass');
+  expect(f.merges()).toEqual([]);
+});
+
 it.each<[string, (check: Check) => Check | null]>([
   ['a job is missing', check => check.name === 'verify' ? null : check],
   ['reuse itself is skipped', check => check.name === 'reuse' ? { ...check, conclusion: 'skipped' } : check],
