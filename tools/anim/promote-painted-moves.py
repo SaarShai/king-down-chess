@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Copy the painted walk catalog and prove that it rebuilds the shipped package."""
+"""Copy the painted walk catalog and prove that it rebuilds the shipped package.
+
+`--cache <WebP package>` reuses converted frames whose source hash matches. Each reused frame is checked,
+and the rebuilt package is still compared with the shipped package byte for byte.
+"""
 import argparse
 import fcntl
 import hashlib
@@ -34,9 +38,11 @@ def files(path):
     return {p.relative_to(path): digest(p.read_bytes()) for p in path.rglob('*') if p.is_file()}
 
 
-def promote(candidate, target):
+def promote(candidate, target, cache=None):
     candidate = candidate.resolve()
     target = target.resolve()
+    if cache is not None and not (cache / 'assets.json').is_file():
+        raise ValueError('Conversion cache has no assets.json')
     if candidate == target:
         raise ValueError('Candidate and target must differ')
     selection = json.loads(SELECTION.read_bytes())
@@ -101,7 +107,10 @@ def promote(candidate, target):
             with tempfile.TemporaryDirectory(prefix='kingdown-walk-promotion-') as tmp:
                 png, webp = Path(tmp) / 'png', Path(tmp) / 'webp'
                 subprocess.run(['node', str(ROOT / 'tools/build-character-runtime.mjs'), '--source', str(target), '--output', str(png)], cwd=ROOT, check=True)
-                subprocess.run(['node', str(ROOT / 'tools/convert-character-runtime-webp.mjs'), str(png), str(webp)], cwd=ROOT, check=True)
+                convert = ['node', str(ROOT / 'tools/convert-character-runtime-webp.mjs'), str(png), str(webp)]
+                if cache is not None:
+                    convert += ['--cache', str(cache)]
+                subprocess.run(convert, cwd=ROOT, check=True)
                 if files(webp) != files(PACKAGE):
                     raise ValueError('Rebuilt package differs from the shipped package')
         except BaseException:
@@ -119,5 +128,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--candidate', type=Path, required=True)
     parser.add_argument('--target', type=Path, required=True)
+    parser.add_argument('--cache', type=Path, help='WebP package whose converted frames can be reused')
     args = parser.parse_args()
-    promote(args.candidate, args.target)
+    promote(args.candidate, args.target, args.cache.resolve() if args.cache else None)

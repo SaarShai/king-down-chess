@@ -44,6 +44,25 @@ it('converts a retained package to quality-90 WebP with exact alpha and keeps th
  expect(()=>run(out)).toThrow();writeFileSync(join(source,url),'changed');expect(()=>run(join(scratch,'bad'))).toThrow(/PNG hash mismatch/);
 },30_000);
 
+it('reuses converted frames from a WebP package when the source hash matches', async () => {
+ scratch=mkdtempSync(join(tmpdir(),'kingdown-webp-cache-'));const source=join(scratch,'source'),out=join(scratch,'out'),reused=join(scratch,'reused');mkdirSync(join(source,'assets'),{recursive:true});mkdirSync(join(source,'effects'));
+ const pixels=Buffer.alloc(8*8*4);for(let i=0;i<pixels.length;i+=4){pixels[i]=120;pixels[i+1]=30;pixels[i+2]=40;pixels[i+3]=(i/4)%8>=2&&(i/4)%8<6&&Math.floor(i/32)>=2&&Math.floor(i/32)<6?255:0;}
+ const image=await sharp(pixels,{raw:{width:8,height:8,channels:4}}).png().toBuffer();
+ const hash=(b:Buffer)=>createHash('sha256').update(b).digest('hex'),sha=hash(image),url=`assets/${sha}.png`,sourceSha256='a'.repeat(64);
+ writeFileSync(join(source,url),image);writeFileSync(join(source,'assets.json'),JSON.stringify([{url,sha256:sha,sourceSha256,size:[8,8],top:2}]));
+ writeFileSync(join(source,'manifest.json'),JSON.stringify({schemaVersion:1,banks:[{frames:[{url,sourceSha256,timeMs:0}]}]}));
+ const convert=(args:string[])=>execFileSync(process.execPath,[resolve('tools/convert-character-runtime-webp.mjs'),...args],{encoding:'utf8',stdio:'pipe'});
+ convert([source,out]);
+ expect(JSON.parse(convert([source,reused,'--cache',out]))).toEqual({banks:1,assets:1,reused:1,converted:0});
+ for(const name of ['manifest.json','assets.json'])expect(readFileSync(join(reused,name)).equals(readFileSync(join(out,name)))).toBe(true);
+ const cached=JSON.parse(readFileSync(join(out,'assets.json'),'utf8'))[0];
+ expect(readFileSync(join(reused,cached.url)).equals(readFileSync(join(out,cached.url)))).toBe(true);
+ const cachedBytes=readFileSync(join(out,cached.url));writeFileSync(join(out,cached.url),'changed');
+ expect(()=>convert([source,join(scratch,'bad'),'--cache',out])).toThrow(/Cached WebP hash mismatch/);writeFileSync(join(out,cached.url),cachedBytes);
+ writeFileSync(join(source,'assets.json'),JSON.stringify([{url,sha256:sha,sourceSha256,size:[9,9],top:2}]));
+ expect(()=>convert([source,join(scratch,'bad2'),'--cache',out])).toThrow(/PNG geometry or alpha mismatch/);
+},30_000);
+
 it('clears only alpha-1 attack pixels on the derived border', async () => {
  scratch=mkdtempSync(join(tmpdir(),'kingdown-attack-border-'));const source=join(scratch,'source'),out=join(scratch,'out');mkdirSync(join(source,'assets'),{recursive:true});mkdirSync(join(source,'effects'));
  const pixels=Buffer.alloc(8*8*4);pixels[(2*8)*4+3]=1;pixels[(3*8+3)*4+3]=1;pixels[(4*8+4)*4+3]=255;
@@ -116,8 +135,8 @@ it('builds painted moves with their own timing and rejects a gap', async () => {
  }
  const original=Buffer.from(JSON.stringify({frames:frames.map(f=>({...f,uniformScale:1,translation:[0,0]}))})),originalHash=hash(original);writeFileSync(join(source,'banks',`${originalHash}.json`),original);
  const selection=join(scratch,'selection.json');
- const select=(bankFrames:typeof frames,pivot=[16,28],includeSource=true,sourceDirection='N',sampling='nearest',sourceHash=originalHash)=>{
-  const bytes=Buffer.from(JSON.stringify({status:'ready',character:'pawn',army:'white',direction:'N',facing:'N',canvasSize:[32,32],pivot,bodyHeightPx:20,strideSquares:.8,sampling,durationMs:timeMs,frames:bankFrames,walkSourceBankSha256:sourceHash,walkRestTransform:{canonicalPivot:[16,28],scaleGamePxPerSourcePx:4.8,offsetGamePx:[-76.8,-134.4]},walkRanges:{topRangeAt160:0,groundRangeAt160:0}})),sha256=hash(bytes);
+ const select=(bankFrames:typeof frames,pivot=[16,28],includeSource=true,sourceDirection='N',sampling='nearest',sourceHash=originalHash,playOrder?:number[])=>{
+  const bytes=Buffer.from(JSON.stringify({status:'ready',character:'pawn',army:'white',direction:'N',facing:'N',canvasSize:[32,32],pivot,bodyHeightPx:20,strideSquares:.8,sampling,durationMs:timeMs,frames:bankFrames,...(playOrder?{playOrder}:{}),walkSourceBankSha256:sourceHash,walkRestTransform:{canonicalPivot:[16,28],scaleGamePxPerSourcePx:4.8,offsetGamePx:[-76.8,-134.4]},walkRanges:{topRangeAt160:0,groundRangeAt160:0}})),sha256=hash(bytes);
   writeFileSync(join(source,'banks',`${sha256}.json`),bytes);const entry={character:'pawn',army:'white',kind:'move',direction:'N',id:'white-walk-N',status:'ready',manifest:`banks/${sha256}.json`,sha256};
   const originalEntry={character:'pawn',army:'white',kind:'movement-study',direction:sourceDirection,id:'source',manifest:`banks/${sourceHash}.json`,sha256:sourceHash};
   const manifest=Buffer.from(JSON.stringify({entries:includeSource?[originalEntry,entry]:[entry]}));writeFileSync(join(source,'manifest.json'),manifest);writeFileSync(selection,JSON.stringify({schemaVersion:1,status:'ready',catalogSha256:hash(manifest),entries:[entry]}));
@@ -125,6 +144,10 @@ it('builds painted moves with their own timing and rejects a gap', async () => {
  const run=()=>execFileSync(process.execPath,[resolve('tools/build-character-runtime.mjs'),'--source',source,'--output',out,'--selection',selection],{encoding:'utf8',stdio:'pipe',timeout:10_000});
  select(frames);expect(JSON.parse(run())).toEqual({banks:1,assets:4});const bank=JSON.parse(readFileSync(join(out,'manifest.json'),'utf8')).banks[0];
  expect(bank).toMatchObject({kind:'move',facing:'N',pivot:[8,14],registrationHeightPx:10,strideSquares:.8,durationMs:680,nearest:true});expect(bank.frames.map((f:{timeMs:number})=>f.timeMs)).toEqual([0,120,280,520]);
+ select(frames,[16,28],true,'N','nearest',originalHash,[3,0,2,1]);expect(JSON.parse(run())).toEqual({banks:1,assets:4});const ordered=JSON.parse(readFileSync(join(out,'manifest.json'),'utf8')).banks[0];
+ expect(ordered.frames.map((f:{sourceSha256:string})=>f.sourceSha256)).toEqual([frames[3].sha256,frames[0].sha256,frames[2].sha256,frames[1].sha256]);
+ expect(ordered.frames.map((f:{timeMs:number})=>f.timeMs)).toEqual([0,160,280,520]);
+ select(frames,[16,28],true,'N','nearest',originalHash,[0,0,1,2]);expect(run).toThrow(/Invalid painted move order/);
  select(frames,[16,28],false);expect(run).toThrow(/Painted move source is not in the catalog/);
  select(frames,[16,28],true,'S');expect(run).toThrow(/Painted move source is not in the catalog for this facing/);
  select(frames,[17,28]);expect(run).toThrow(/Painted move gates failed:.*placement/);

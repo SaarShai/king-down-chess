@@ -112,7 +112,9 @@ Promotion does not change `runtime-selection.json`. The owner re-pins the select
 
 For the painted walk batch, `promote-painted-moves.py --candidate <catalog> --target <frozen-catalog>` copies the
 content-hashed banks under the catalog lock. It checks the target base, rebuilds the package, and compares every
-file. The target's parent must also contain the `alpha-recovery-review`, `army-effects-review` and
+file. Add `--cache <WebP package>` to reuse the converted frames of a package that holds the same source hashes;
+each reused frame is checked for its file hash, size and alpha before it is copied. The rebuilt package is still
+compared byte for byte. The target's parent must also contain the `alpha-recovery-review`, `army-effects-review` and
 `directional-attacks` folders. If the build or comparison fails, it restores the prior catalog and removes
 the banks and snapshot added by that attempt.
 
