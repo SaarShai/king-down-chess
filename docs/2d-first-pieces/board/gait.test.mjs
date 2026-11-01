@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GAITS, GAIT_OF, IDLE, idleAt } from './gait.mjs';
+import { GAITS, GAIT_OF, IDLE, idleAt, paintedPace } from './gait.mjs';
 
 const REST = { travel: 0, lift: 0, sx: 1, sy: 1, tilt: 0, shadow: 1 };
 const near = (actual, expected) => { for (const k of Object.keys(expected)) assert.ok(Math.abs(actual[k] - expected[k]) < 1e-9, `${k}: ${actual[k]} vs ${expected[k]}`); };
@@ -21,10 +21,10 @@ for (const [name, gait] of Object.entries(GAITS).filter(([name]) => name !== 'pa
     }
   });
 }
-test('painted walk keeps the figure still and travels at one cycle per square, capped', () => {
+test('painted walk uses the pace budget and the two-times cap', () => {
  const gait=GAITS.paintedWalk;
- for(const [squares,duration] of [[1,640],[2,1280],[7,1600]]){
-  assert.equal(gait.duration(squares,640,1),duration);
+ for(const [squares,duration] of [[1,600],[2,850],[7,2240]]){
+  assert.equal(paintedPace(squares,640,1).duration,duration);
   let previous=0;
   for(let i=0;i<=1000;i++){
    const v=gait.at(i/1000,squares,duration);
@@ -32,7 +32,9 @@ test('painted walk keeps the figure still and travels at one cycle per square, c
   }
   near(gait.at(0,squares,duration),REST);near(gait.at(1,squares,duration),{...REST,travel:1});
  }
- assert.equal(gait.duration(1,640,.8),800);
+ assert.equal(paintedPace(1,640,.8).duration,600);
+ assert.equal(paintedPace(7,640,1).rate,2);
+ assert.equal(paintedPace(7,640,.2),null);
 });
 test('every gait named by a figure exists', () => {
   for (const g of Object.values(GAIT_OF)) assert.ok(GAITS[g], g);

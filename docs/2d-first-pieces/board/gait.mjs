@@ -16,6 +16,11 @@ const span=(u,a,b)=>clamp((u-a)/(b-a),0,1);
 const settle=k=>k<=0||k>=1?0:Math.exp(-3*k)*Math.sin(2*Math.PI*k);
 const blend=(a,b,t)=>a+(b-a)*t;
 const rest={travel:0,lift:0,sx:1,sy:1,tilt:0,shadow:1};
+export function paintedPace(squares,cycle,stride){
+ const natural=squares*cycle/stride,budget=Math.min(2000,600+250*(squares-1)),rate=Math.min(2,Math.max(1,natural/budget));
+ const duration=natural/2>budget?Math.min(natural/2,2800):natural/rate,skate=natural/(rate*duration);
+ return skate<=1.2?{duration,rate,skate}:null;
+}
 
 // One-steppers (King, Guard, Maester, Ogre, Beast, Archer): a small dip, two quick footfalls
 // with a forward lean, then the weight settles with a little squash.
@@ -55,7 +60,7 @@ export const GAITS={
  walk:{duration:()=>440,at:walk},
  glide:{duration:squares=>Math.min(480,350+28*squares),at:glide},
  hop:{duration:()=>420,at:hop},
- paintedWalk:{duration:(squares,cycle,stride)=>Math.min(1600,squares*cycle/stride),at:u=>({...rest,travel:clamp(u,0,1)})},
+ paintedWalk:{at:u=>({...rest,travel:clamp(u,0,1)})},
 };
 // Figures by art name. Knight (leap) and Paladin (charge) keep their own quiet moves.
 export const GAIT_OF={king:'walk',guard:'walk',maester:'walk',ogre:'walk',beast:'walk',archer:'walk',rook:'glide',bishop:'glide',queen:'glide',pawn:'hop'};

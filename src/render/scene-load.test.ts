@@ -46,10 +46,21 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
 
 afterEach(() => { scene?.dispose(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
+it('prefetches the selected piece’s quiet move facing', async () => {
+ const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600};
+ const idle={...base,id:'idle',kind:'idle',facing:'N',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const moves=['N','S'].map(facing=>({...base,id:`walk-${facing}`,kind:'move',facing,durationMs:640,strideSquares:1,frames:[0,160,320,480].map(timeMs=>({url:`runtime-walk-${facing}-${timeMs}.png`,timeMs}))}));
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,...moves]})})));
+ const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ scene.setSelected(8,[16,24]);await vi.advanceTimersByTimeAsync(48);
+ expect(b.images.filter(image=>image.src.includes('runtime-walk-N-'))).toHaveLength(4);
+ expect(b.images.some(image=>image.src.includes('runtime-walk-S-'))).toBe(false);
+});
+
 it.each([
- {name:'one square',fen:'4k3/8/8/8/8/8/P7/4K3 w - - 0 1',from:8,to:16,ms:800},
- {name:'two squares',fen:'4k3/8/8/8/8/8/P7/4K3 w - - 0 1',from:8,to:24,ms:1600},
- {name:'promotion',fen:'4k3/P7/8/8/8/8/8/4K3 w - - 0 1',from:48,to:56,ms:800,promo:pieces.Q},
+ {name:'one square',fen:'4k3/8/8/8/8/8/P7/4K3 w - - 0 1',from:8,to:16,ms:600},
+ {name:'two squares',fen:'4k3/8/8/8/8/8/P7/4K3 w - - 0 1',from:8,to:24,ms:850},
+ {name:'promotion',fen:'4k3/P7/8/8/8/8/8/4K3 w - - 0 1',from:48,to:56,ms:600,promo:pieces.Q},
 ])('plays a painted walk for $name at its own pace', async ({fen,from,to,ms,promo}) => {
  const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600,facing:'N'};
  const idle={...base,id:'idle',kind:'idle',durationMs:200,frames:[{url:'runtime-rest.png',timeMs:0}]};
@@ -92,6 +103,17 @@ it('keeps the old pawn hop when there is no painted walk', async () => {
  const b=board(true,true);scene.setLively({moves:true});scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
  const playing=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(80);expect(scene.playing).toBe('hop');
  await vi.advanceTimersByTimeAsync(500);await expect(playing).resolves.toBe(true);
+});
+
+it.each([true,false])('uses the rest pose and whole-figure gait when a quiet walk is unavailable (turn route %s)', async hasTurn => {
+ const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600};
+ const idle={...base,id:'idle',kind:'idle',facing:'SE',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const turn={...base,id:'turn',kind:'turn',from:'SE',to:'N',facing:'N',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0},{url:'runtime-facing.png',timeMs:120}]};
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:hasTurn?[idle,turn]:[idle]})})));
+ const b=board(true,true);scene.setPosition(fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ const playing=scene.play({from:8,to:16,captures:[]});await vi.advanceTimersByTimeAsync(32);expect(scene.playing).toBe('hop');
+ const feet:number[]=[];for(let t=0;t<420;t+=16){const frame=scene.characterFrames.find(f=>f.square===8);if(frame){expect(frame.bank).toBe('idle');feet.push(frame.foot.y);}await vi.advanceTimersByTimeAsync(16);}
+ expect(Math.max(...feet)-Math.min(...feet)).toBeGreaterThan(112);await vi.advanceTimersByTimeAsync(48);await expect(playing).resolves.toBe(true);
 });
 
 it('walks the king on castling and leaves the rook for the position update', async () => {

@@ -13,7 +13,7 @@ import * as guard from '../guard/motion.mjs';
 import * as court from '../court-motion.mjs';
 import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
 import {BLOW,KING_BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
-import {GAITS,GAIT_OF,idleAt} from './gait.mjs';
+import {GAITS,GAIT_OF,idleAt,paintedPace} from './gait.mjs';
 import {createKingEffects,phaseOffset} from './king-effects.mjs';
 import {KING_FILES} from './king-sheets.mjs';
 import {DEATHS,THEMED,drawDeath,kingBodyBounds} from './king-captures.mjs';
@@ -101,7 +101,7 @@ for(const [type,name] of Object.entries(courtNames)){
  // Lab pieces without painted art: a token that slides in, no body motion.
  for(let type=1;type<16;type++){if(!specs[type])specs[type]=FALLBACK;newMotions[type]??={DURATION:900,actionAt:()=>0};}
  const idle=new Map(), work=new Map();
- let position={board:new Uint8Array(64)}, selected=null, lifted=null, liftTell=true, aimSquare=null, animation=null, landed=null, aimAngle=0, aimFacing=1;
+ let position={board:new Uint8Array(64)}, selected=null, movePrefetchKey='', lifted=null, liftTell=true, aimSquare=null, animation=null, landed=null, aimAngle=0, aimFacing=1;
  let fallen=null, res=1, frame=0, previousTime=0, ready=false, disposed=false, flipped=false, coords=true, coordSize=13, coordInset=14, labels=false, reducedMotion=false, decorate=null;
  let effectTime=0,bodyFrames=[],effectFrames=[],idleReady=false,lastSelectedBody=null,pendingIdle=null,selectionGeneration=0;
  const smokeStreams=new Map();let smokeTime=0;
@@ -889,7 +889,7 @@ function vortex(out,foot,phase,strength) {
    if(body){
     if(a?.runtime){
      if(local<0)u.pose={...a.from};else if(local>a.actionDuration)u.pose={...a.to};
-     if(typeOf(u.value)!==K||!a.move.captures.length||a.runtime.attack)u.pose.rotation=0;u.pose.sx=1;u.pose.sy=1;
+     if(a.runtime.movement||a.runtime.attack||a.type!=='gait'){if(typeOf(u.value)!==K||!a.move.captures.length||a.runtime.attack)u.pose.rotation=0;u.pose.sx=1;u.pose.sy=1;}
     }
     u.pose.bank=body;
    }
@@ -1014,14 +1014,23 @@ function drawEncounter(a,t) {
   const value=position.board[sq],generation=++selectionGeneration;void bodyRuntime.reserveIdle(characterOf(value),armyOf(value)).then(ok=>{if(ok&&generation===selectionGeneration&&selected===sq&&position.board[sq]===value&&!disposed&&!reducedMotion){idleReady=true;wake();}});
  }
  function startPrepared(a,prepared,now){
-  if(!prepared)a.bodyUnavailable=true;
+  const useBaseGait=()=>{const gait=GAIT_OF[ART[typeOf(a.value)]];if(!gait)return;const dx=a.to.foot.x-a.from.foot.x,dy=a.to.foot.y-a.from.foot.y;a.type='gait';a.gait=gait;a.lean=.35+.65*Math.abs(dx)/(Math.hypot(dx,dy)||1);a.squares=Math.max(Math.abs((a.move.to&7)-(a.move.from&7)),Math.abs((a.move.to>>3)-(a.move.from>>3)));a.actionDuration=GAITS[gait].duration(a.squares);a.legacyDuration=a.actionDuration;a.duration=a.actionDuration;};
+  if(!prepared){if(!reducedMotion&&(a.type==='move'||a.type==='gait')&&a.move.from!==a.move.to)useBaseGait();else a.bodyUnavailable=true;}
   if(prepared&&!reducedMotion){
    a.runtime=prepared;a.legacyDuration=a.duration;a.actionDuration=prepared.attack?.durationMs??a.duration;
-   if(prepared.movement?.kind==='move'&&(a.type==='move'||a.type==='gait')&&a.move.from!==a.move.to){
-    a.squares=Math.hypot((a.move.to&7)-(a.move.from&7),(a.move.to>>3)-(a.move.from>>3));
+   const painted=prepared.movement?.kind==='move'&&(a.type==='move'||a.type==='gait')&&a.move.from!==a.move.to;
+   const distance=painted?Math.hypot((a.move.to&7)-(a.move.from&7),(a.move.to>>3)-(a.move.from>>3)):0;
+   const pace=painted?paintedPace(distance,prepared.movement.durationMs,prepared.movement.strideSquares):null;
+   if(painted&&!pace){prepared.releaseMovementStart?.();prepared.releaseMovement?.();prepared.movement=null;}
+   if(!prepared.attack&&!prepared.movement&&(a.type==='move'||a.type==='gait')&&a.move.from!==a.move.to){
+    prepared.before=[];prepared.after=[];prepared.beforeMs=0;prepared.afterMs=0;
+    useBaseGait();
+   }
+   if(pace){
+    a.squares=distance;
     a.type='gait';a.gait='paintedWalk';a.lean=0;
-    a.actionDuration=GAITS.paintedWalk.duration(a.squares,prepared.movement.durationMs,prepared.movement.strideSquares);a.legacyDuration=a.actionDuration;
-    prepared.movementRate=Math.min(2,a.squares*prepared.movement.durationMs/(prepared.movement.strideSquares*a.actionDuration));
+    a.actionDuration=pace.duration;a.legacyDuration=a.actionDuration;
+    prepared.movementRate=pace.rate;
    }
    a.contactTime=prepared.attack?(prepared.attack.contactMs??prepared.attack.durationMs*.45):contactTime(a);
    if(prepared.effect){prepared.release=prepared.attack.beatTimes.release??a.contactTime;a.contactTime=prepared.release+prepared.effect.contactMs;a.actionDuration=Math.max(prepared.attack.durationMs,prepared.release+prepared.effect.player.durationMs)+(a.move.from===a.move.to?0:420);}
@@ -1115,7 +1124,11 @@ function drawEncounter(a,t) {
    if(a?.done&&!a.rewind&&!a.effect&&!reducedMotion&&m.from!==m.to&&!m.captures.length&&!m.swap&&!m.shove&&!m.promo&&!m.selfRemove&&!m.power&&typeOf(a.value)===K&&kings[colorOf(a.value)]==='stratus'&&next.board[m.from]===0&&next.board[m.to]===a.value)landed={animation:a,source:position,post:next,sourceEntry:kingSince.get(m.from)};
    else if(landed&&next!==landed.post)landed=null;
    const selectedValue=selected===null?null:position.board[selected],keepIdle=!animation&&idleReady&&selectedValue&&selectedValue===next.board[selected]&&characterOf(selectedValue)==='king-stratus',keepSource=!!animation?.rewind?.doneAtSource&&animation.done&&next===position&&position.board[m.from]===animation.value;if(m&&!animation.effect&&smokeStreams.has(m.from)&&next.board[m.to]===position.board[m.from]){const smoke=smokeStreams.get(m.from);smokeStreams.delete(m.from);smokeStreams.set(m.to,smoke);}else if([...position.board].some((v,sq)=>v!==next.board[sq]))smokeStreams.clear();if(!keepIdle)endMove(keepSource);lifted=null;position=next;if(selected!==null&&selectedValue!==position.board[selected])selectedAt=null;aimAngle=0;warmBodies();if(!keepIdle)reserveSelected(selected);wake();},
-  setSelected(sq){if(sq!=null&&bodyRuntime&&position.board[sq])void bodyRuntime.warm(characterOf(position.board[sq]),armyOf(position.board[sq]),true);if(sq!==selected){
+  setSelected(sq,destinations=[]){
+   const value=sq==null?null:position.board[sq],from=value?foot(sq):null,directions=from?[...new Set(destinations.filter(to=>to!==sq).map(to=>{const p=foot(to);return facingOf(p.x-from.x,p.y-from.y);} ))]:[],key=value?`${sq}:${value}:${directions.join(',')}`:'';
+   if(key!==movePrefetchKey){movePrefetchKey=key;bodyRuntime?.releaseMovePrefetch();if(value&&bodyRuntime)void bodyRuntime.prefetchMoves(characterOf(value),armyOf(value),directions);}
+   if(value&&bodyRuntime)void bodyRuntime.warm(characterOf(value),armyOf(value),true);
+   if(sq!==selected){
    if(animation?.exitBody)endMove();
    selectionGeneration++;
    if(sq===null&&idleReady&&lastSelectedBody?.square===selected)pendingIdle=lastSelectedBody;
