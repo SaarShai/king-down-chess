@@ -89,7 +89,7 @@ Use the same narrow implementation template, plus exact read paths and compact t
 
 For an input, timing, or layout finding, cite the approved requirement and compare the observed behavior with it. Start with the affected ticket and the owner picks in docs/research/web-adaptation-2026-10-18/baseline-post-merge.md. Behavior that meets the owner pick is not a product fault. Mark a proposed rule change as a design decision. Include the requirement citation in the repair brief.
 
-For an approved merge, use `node tools/merge-on-green.mjs <pr> <full-head-sha> <review.json>`.
+For an approved merge, use `node tools/merge-on-green.mjs <pr> <full-head-sha> <review.json>`; `tools/release/merge.sh <pr> <head> <reviewed head> [note]` writes the record for one complete independent review and runs it.
 The helper requires this record for `SaarShai/king-down-chess`. Use full commit SHAs:
 
 ```json
