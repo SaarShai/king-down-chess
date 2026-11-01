@@ -76,8 +76,24 @@ it('starts character downloads after the first board frame', async () => {
  await vi.advanceTimersByTimeAsync(16);expect(fetcher).toHaveBeenCalledOnce();
 });
 
-it('does not load legacy clips when runtime bodies are enabled', async () => {
+it('loads legacy clips when the runtime has no bodies', async () => {
  vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[]})})));
+ const b=board(true,true);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ scene.setSelected(1);await vi.advanceTimersByTimeAsync(16);expect(b.clips()).toHaveLength(2);
+});
+
+it('loads clips when the manifest fails', async () => {
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:false})));
+ const b=board(true,true);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ expect(b.clips()).toHaveLength(2);
+ for(const clip of b.clips())clip.finish();
+ scene.setSelected(1);await vi.advanceTimersByTimeAsync(32);
+ expect(b.draws.some(isClip)).toBe(true);
+});
+
+it('does not load clips when runtime bodies exist', async () => {
+ const banks=['knight','rook'].map(character=>({id:character,character,army:'white',kind:'idle',facing:'SE',durationMs:100,pivot:[1,1],canvasSize:[10,10],registrationHeightPx:10,frames:[{url:`runtime-${character}`,timeMs:0}]}));
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks})})));
  const b=board(true,true);void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
  scene.setSelected(1);await vi.advanceTimersByTimeAsync(16);expect(b.clips()).toHaveLength(0);
 });

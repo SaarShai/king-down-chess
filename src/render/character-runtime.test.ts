@@ -26,6 +26,22 @@ describe('ready character playback', () => {
   finish.slice(0,5).forEach(done=>done());await vi.waitFor(()=>expect(started.some(s=>s.endsWith('/idle-89'))).toBe(true));expect(started.some(s=>s.endsWith('/idle-20'))).toBe(false);
   const prepared=await runtime.prepare('pawn','white','SE',true);expect(prepared).not.toBeNull();expect(runtime.action(prepared,120,120,0)).toMatchObject({bank:'attack'});runtime.dispose();
  });
+ it('bounds idle prefetch across distinct bodies when the loader is full', async () => {
+  const banks=Array.from({length:4},(_,i)=>({...bank(),id:`idle-${i}`,character:`piece-${i}`,kind:'idle',durationMs:100,frames:Array.from({length:10},(_,j)=>({url:`piece-${i}-${j}`,timeMs:j*10}))}));
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks})})) as unknown as typeof fetch,
+   image:()=>({naturalWidth:10,naturalHeight:10,onload:null,onerror:null,removeAttribute:vi.fn(),set src(_s:string){}} as unknown as HTMLImageElement)});
+  await runtime.ready();void runtime.warm('piece-0','white',true);await vi.waitFor(()=>expect(runtime.stats.active).toBe(6));
+  for(let i=1;i<4;i++)runtime.rest(`piece-${i}`,'white',50,true);
+  expect(runtime.stats.queued).toBe(6);runtime.dispose();
+ });
+ it('drains synchronous image failures without re-entering the pump', async () => {
+  const idle={...bank(),id:'idle',kind:'idle',frames:[...Array.from({length:10000},(_,i)=>({url:`frame-${i}`,timeMs:i})),{url:'frame-0',timeMs:10000}]};
+  const held:(()=>void)[]=[];let count=0;
+  const runtime=createCharacterRuntime({url:'https://example.invalid/manifest.json',fetcher:vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle]})})) as unknown as typeof fetch,
+   image:()=>{const img={onload:null as null|(()=>void),onerror:null as null|(()=>void),removeAttribute:vi.fn(),set src(_s:string){if(count++<6)held.push(()=>img.onerror?.());else img.onerror?.();}};return img as unknown as HTMLImageElement;}});
+  const pending=runtime.reserveIdle('pawn','white');await vi.waitFor(()=>expect(runtime.stats.active).toBe(6));
+  held[0]();expect(runtime.stats.queued).toBe(0);runtime.dispose();await pending;
+ });
  it('keeps slow idle downloads alive until deselection', async () => {
   vi.useFakeTimers();
   try{
