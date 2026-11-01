@@ -21,7 +21,7 @@ origin = 'https://kingdown-staging.vercel.app'
 def now(): return datetime.datetime.now(datetime.timezone.utc).isoformat()
 def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
 def git(*args): return subprocess.check_output(['git', *args], cwd=root, text=True).strip()
-assert root.is_dir() and (root / '.git').exists(), f'{root} is not a worktree; make it with tools/wt.sh add release-staging'
+assert root.is_dir() and (root / '.git').exists(), f'{root} is not a worktree; make it with git worktree add --detach, then npm ci there'
 subprocess.check_call(['git', 'fetch', '-q', 'origin'], cwd=root)
 source = git('rev-parse', ref)
 ev = here / f"{datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{source[:8]}"; ev.mkdir(parents=True)
@@ -40,7 +40,8 @@ try:
     record['phase'] = 'ci'; save('progress.json', record)
     run(['bash', str(tools / 'release/ci-wait.sh'), source], 'ci.log', os.environ.copy(), cwd=tools)
     env = os.environ.copy()
-    if not (root / 'node_modules').exists() or (root / 'node_modules').is_symlink(): raise RuntimeError('The release worktree needs its own node_modules')
+    if (root / 'node_modules').is_symlink(): (root / 'node_modules').unlink()  # a tools/wt.sh link to the main checkout's packages; npm ci through it would empty them
+    if not (root / 'node_modules').exists(): record['phase'] = 'npm-ci'; save('progress.json', record); run(['npm', 'ci'], 'npm-ci.log', env)
     if subprocess.run(['npm', 'ls', '--depth=0'], cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
         record['phase'] = 'npm-ci'; save('progress.json', record); run(['npm', 'ci'], 'npm-ci.log', env)
     key = subprocess.check_output(['node', str(tools / 'release/publishable-key.mjs'), origin], text=True).strip()

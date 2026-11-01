@@ -7,7 +7,7 @@ set -u
 [ $# -ge 3 ] && [ $# -le 4 ] || { echo 'usage: tools/release/merge.sh <pr> <head> <reviewed head> [reconcile note]' >&2; exit 2; }
 pr=$1 head=$2 rhead=$3 note=${4:-}
 repo=$(cd "$(dirname "$0")/../.." && pwd -P)
-record=$(mktemp "${TMPDIR:-/tmp}/review-$pr.XXXXXX.json")
+record=$(mktemp "${TMPDIR:-/tmp}/review-$pr.XXXXXX") || exit 2
 echo "merge: review record $record"
 for try in 1 2 3; do
   git -C "$repo" fetch -q origin || { sleep 30; continue; }

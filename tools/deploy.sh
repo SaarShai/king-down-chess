@@ -12,8 +12,8 @@
 # VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY, because the build reads both from this shell.
 # No ref is accepted. A detached origin/main worktree runs the npm test steps and the default browser checks,
 # then build:vercel (with its own node_modules), the engine guards and byte record, check:vercel and
-# the web journey (web-online). When CI passed on that exact commit (tools/ci-green.mjs), the tests, the browser
-# checks and the web journey are skipped: CI ran them on the same tree. The ChatGPT plugin is parked (tools/chatgpt-plugin.mjs): the website
+# the web journey (web-online). When CI passed on that exact commit (tools/ci-green.mjs), the tests and the web
+# journey are skipped: CI ran them on the same tree. The ChatGPT plugin is parked (tools/chatgpt-plugin.mjs): the website
 # release runs no MCP protocol or plugin UI check, and the checks expect each plugin path to answer 404.
 # PLUGIN_TEST_DATABASE_URL must name a disposable loopback database ending in _test.
 # A build that adds an uncommitted engine stops. KINGDOWN_ENGINES_DATABASE_URL enables the read-only
@@ -263,20 +263,20 @@ if [ -L node_modules ]; then
   step 'own node_modules' npm ci
 fi
 step 'plugin test database' npm run plugin:db:init-test
-# CI that passed on this exact commit (every check suite complete and green, tools/ci-green.mjs) stands for npm test,
-# the browser checks and the web journey, which CI ran on the same tree. The build, artifact and live gates run here.
-# No answer from GitHub, a running or a failed CI: the full local run.
+# CI that passed on this exact commit (every check suite complete and green, tools/ci-green.mjs) stands for npm test
+# and the web journey, which CI ran on the same tree. The default browser checks stay: CI runs only four of them.
+# The build, artifact and live gates run here. No answer from GitHub, a running or a failed CI: the full local run.
 ci_green=no
 if [ "$target" = website ] && node tools/ci-green.mjs "$commit"; then
   ci_green=yes
-  echo "deploy: CI passed at $commit; skipped npm test, the browser checks and the web journey"
+  echo "deploy: CI passed at $commit; skipped npm test and the web journey"
 else
   # The tests and the browser checks start with no npm layer: npm (Node) closes the machine lease
   # descriptor in its children, so a kill of this shell would free the lease while they run.
   step 'npm test' bash tools/test-lock.sh bash tools/test-unlocked.sh
-  [ "$target" != website ] || step 'browser checks' node tools/check.mjs
 fi
 if [ "$target" = website ]; then
+  step 'browser checks' node tools/check.mjs
   # shellcheck disable=SC2086 # site_env holds two checked words without spaces.
   step 'site artifact' env $site_env npm run build:vercel
 else

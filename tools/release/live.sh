@@ -1,6 +1,6 @@
 #!/bin/bash
 # Live release of a fresh origin/main through tools/deploy.sh (the only deploy path, docs/HOSTING.md).
-#   tools/release/live.sh check     tests and builds origin/main; publishes nothing
+#   tools/release/live.sh check     checks and builds origin/main with tools/deploy.sh; publishes nothing
 #   tools/release/live.sh engines   read-only check of the engines in use against production; publishes nothing
 #   tools/release/live.sh publish   waits for green CI on origin/main (deploy.sh then skips the local test run), publishes
 # The engine check reads the live games with the runtime database login from the owner's private env file
@@ -41,6 +41,8 @@ case "$mode" in
   check)
     test_database; cd "$repo"; tools/deploy.sh 2>&1 | tee "$evidence/check-$sha.log" ;;
   engines)
+    # A node_modules link (tools/wt.sh) points at the main checkout's packages: npm ci through it would empty them.
+    [ ! -L "$repo/node_modules" ] || rm "$repo/node_modules"
     npm ls --depth=0 --prefix "$repo" >/dev/null 2>&1 || npm ci --prefix "$repo"
     engine_url; cd "$repo"; node tools/engines-check.mjs engines 2>&1 | tee "$evidence/engines-$sha.log" ;;
   publish)

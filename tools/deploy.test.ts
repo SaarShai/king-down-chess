@@ -495,7 +495,7 @@ describe('deploy.sh', () => {
     expect(result.stdout).not.toMatch(/skipped npm test/);
   });
 
-  it('with CI passed on the exact commit, skips npm test, the browser checks and the web journey, and keeps the build gates', () => {
+  it('with CI passed on the exact commit, skips npm test and the web journey, and keeps the browser checks and the build gates', () => {
     const { repo, deploy, calls } = setup();
     const result = deploy([], { STUB_CI_PASS: '1' });
     expect(result.status, result.stderr).toBe(0);
@@ -504,10 +504,22 @@ describe('deploy.sh', () => {
       `wt.sh add ${path}`,
       'npm run plugin:db:init-test',
       `node tools/ci-green.mjs ${head(repo, 'HEAD')}`,
+      'node tools/check.mjs',
       'npm run build:vercel',
       'npm run check:vercel',
     ]);
-    expect(result.stdout).toMatch(/CI passed at [0-9a-f]{40}; skipped npm test, the browser checks and the web journey/);
+    expect(result.stdout).toMatch(/CI passed at [0-9a-f]{40}; skipped npm test and the web journey/);
+  });
+
+  it('with CI passed, the publish still runs the engine, artifact, publish and live gates', () => {
+    const { repo, deploy, calls } = setup();
+    const result = deploy(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_CI_PASS: '1' });
+    expect(result.status, result.stderr).toBe(0);
+    const steps = [...result.stdout.matchAll(/^deploy: step (.+)$/gm)].map(match => match[1]);
+    expect(steps).toEqual(['fetch origin', 'make worktree', 'wt add', 'plugin test database', 'browser checks', 'site artifact', 'engine archive', 'production artifact',
+      'engines in use', 'site HTTP check', 'copy artifact', 'link site project', 'verify site project', 'keep live assets', 'publish', 'live check', 'plugin live check']);
+    expect(calls().some(line => line.startsWith('test-lock.sh '))).toBe(false);
+    expect(calls().some(line => line.includes(`ci-green.mjs ${head(repo, 'HEAD')}`))).toBe(true);
   });
 
   it('runs the plugin target without the CI check', () => {
