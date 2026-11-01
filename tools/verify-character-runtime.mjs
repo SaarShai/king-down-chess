@@ -211,12 +211,18 @@ try {
    for(const [,otherFrame,other]of peers){assert.equal(frame.sourceSha256,otherFrame.sourceSha256,`${label}: exact shared endpoint pixels`);assert.deepEqual([bank.pivot,bank.registrationHeightPx,bank.boardScale],[other.pivot,other.registrationHeightPx,other.boardScale],`${label}: shared endpoint transform`);joins++;}
   }
   const original=await page.evaluate(()=>[...view.pos.board]);
-  const queenRest=character==='queen'?await page.evaluate(from=>view.scene.characterFrames.find(frame=>frame.square===from),from):null;
-  await page.evaluate(()=>{window.turnTrace=[];window.turnTraceActive=true;const capture=()=>{if(!turnTraceActive)return;turnTrace.push(...view.scene.characterFrames);requestAnimationFrame(capture);};capture();});
+  const rest=await page.evaluate(from=>view.scene.characterFrames.find(frame=>frame.square===from),from),queenRest=character==='queen'?rest:null;
+  await page.evaluate(()=>{window.turnTrace=[];window.turnTraceActive=true;const capture=()=>{if(!turnTraceActive)return;turnTrace.push(...view.scene.characterFrames.map(frame=>({...frame,playing:view.scene.playing})));requestAnimationFrame(capture);};capture();});
   for(const square of [from,to]){const p=await page.evaluate(square=>view.screenOf(square),square);await page.mouse.click(p.x,p.y);}
   try {await page.waitForFunction(([from,to])=>!view.scene.animating&&!view.pos.board[from]&&view.pos.board[to]>0,[from,to],{timeout:15000});} catch(error) { await writeFile(join(env('PLAYABLE_OUT'),label+'-failure.json'),JSON.stringify(await page.evaluate(([from,to,label])=>({label,from,to,board:[...view.pos.board],animating:view.scene.animating,text:document.body.innerText}),[from,to,label]),null,2));await shot(page,label+'-failure');throw error;}
   const trace=await page.evaluate(()=>{window.turnTraceActive=false;return turnTrace;}),samples=trace.filter(frame=>turns.some(bank=>bank.id===frame.bank));
-  assert(samples.length>1,`${label}: ready turn frames played in the game`);
+  const fallback=trace.filter(frame=>frame.square===from&&['walk','glide','hop'].includes(frame.playing));
+  if(!trace.some(frame=>frame.square===from&&frame.playing==='paintedWalk')){
+   assert(fallback.length>1,`${label}: whole-figure gait plays`);
+   assert(fallback.every(frame=>frame.bank===rest.bank),`${label}: fallback uses the rest pose`);
+   const dx=Math.max(...fallback.map(frame=>frame.foot.x))-Math.min(...fallback.map(frame=>frame.foot.x)),dy=Math.max(...fallback.map(frame=>frame.foot.y))-Math.min(...fallback.map(frame=>frame.foot.y));
+   assert(Math.hypot(dx,dy)>10,`${label}: fallback moves the figure`);
+  }else assert(samples.length>1,`${label}: ready turn frames played in the game`);
   for(const frame of samples){const bank=turns.find(bank=>bank.id===frame.bank);assert.equal(frame.sourceBankSha256,bank.sourceSha256);assert(bank.frames.some(f=>f.sourceSha256===frame.sourceSha256));}
   if(character==='queen'){
    const frames=trace.filter(frame=>(frame.square===from||frame.square===to)&&frame.bank===`${army}-turn-NE-E`);

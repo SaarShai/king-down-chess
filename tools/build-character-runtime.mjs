@@ -69,6 +69,13 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
   const catalog=JSON.parse(catalogBytes);
   const accepted = new Map(catalog.entries.map(entry => [`${entry.character}:${entry.army}:${entry.id}`, entry]));
   const paintedSources=new Set(catalog.entries.filter(entry=>entry.kind==='movement-study').map(entry=>`${entry.character}:${entry.army}:${entry.direction}:${entry.sha256}`));
+  const catalogFrames=new Set();
+  const selectedFacings=new Set(selected.entries.filter(e=>e.kind==='move').map(e=>`${e.character}:${e.army}:${e.direction}`));
+  for(const entry of catalog.entries.filter(e=>e.kind==='movement-study'&&selectedFacings.has(`${e.character}:${e.army}:${e.direction}`))){
+    const bytes=await readFile(inside(source,resolve(source,entry.manifest)));
+    if(digest(bytes)!==entry.sha256)throw Error(`Bank hash mismatch: ${entry.id}`);
+    for(const frame of JSON.parse(bytes).frames??[])if(frame.sha256)catalogFrames.add(frame.sha256);
+  }
   const restHashes=new Map();
   for(const entry of selected.entries.filter(e=>e.kind==='idle'||e.kind==='turn')){
     const bytes=await readFile(inside(source,resolve(source,entry.manifest)));if(digest(bytes)!==entry.sha256)throw Error(`Bank hash mismatch: ${entry.id}`);
@@ -153,7 +160,7 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
     if (entry.kind === 'move' && (!Array.isArray(pivot) || pivot.length !== 2 || pivot.some(n => !Number.isFinite(n)))) throw Error(`Invalid painted move pivot: ${entry.id}`);
     if (entry.kind === 'movement-study' && (!Array.isArray(pivot) || sourceFrames.some(frame => frame.pivot != null && (!Array.isArray(frame.pivot) || frame.pivot.length !== 2 || frame.pivot.some((n, i) => n !== pivot[i]))))) throw Error(`Invalid movement pivot: ${entry.id}`);
     if (pivot != null && (pivot.length !== 2 || pivot.some(n => !Number.isFinite(n)))) throw Error(`Invalid foot pivot: ${entry.id}`);
-    const frames = [];
+    const frames = [], moveBounds = [];
     for (let index = 0; index < sourceFrames.length; index++) {
       const frame = sourceFrames[index], timeMs = frame.timeMs ?? bank.times?.[index] ?? index * durationMs / (sourceFrames.length - 1);
       if (!Number.isFinite(timeMs) || timeMs < 0 || timeMs > durationMs || index && timeMs < frames[index - 1].timeMs) throw Error(`Invalid frame time: ${entry.id}`);
@@ -162,6 +169,12 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
         const bytes = await readFile(inside(source, resolve(dirname(path), frame.url)));
         const metadata = await sharp(bytes).metadata(), { data, info } = await sharp(bytes).raw().toBuffer({ resolveWithObject: true });
         if (metadata.channels !== 4 || !metadata.hasAlpha || !data.some((n, i) => i % 4 === 3 && n > 0)) throw Error(`Invalid movement RGBA: ${entry.id}`);
+        if(entry.kind==='move'){
+          let top=info.height,bottom=-1;
+          for(let y=0;y<info.height;y++)for(let x=0;x<info.width;x++)if(data[(y*info.width+x)*4+3]>8){top=Math.min(top,y);bottom=y;}
+          if(bottom<top)throw Error(`Empty painted move frame: ${entry.id}`);
+          moveBounds.push({top,bottom:bottom+1});
+        }
         for (let x = 0; x < info.width; x++) if (data[x * 4 + 3] || data[((info.height - 1) * info.width + x) * 4 + 3]) throw Error(`Movement frame has no transparent exterior: ${entry.id}`);
         for (let y = 0; y < info.height; y++) if (data[y * info.width * 4 + 3] || data[(y * info.width + info.width - 1) * 4 + 3]) throw Error(`Movement frame has no transparent exterior: ${entry.id}`);
       }
@@ -178,7 +191,10 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
       const original=JSON.parse(originalBytes),sourceFrames=original.frames.map((f,i)=>({sha256:f.sha256,durationMs:f.durationMs,pivot:f.pivot,scale:f.uniformScale??f.scale??f.registration?.scale??f.registration?.uniformScale??bank.frames[i]?.walkSourceScale,translation:(f.translation??f.registrationTranslation??f.registration?.translation??f.registration?.paste??bank.frames[i]?.walkSourceTranslation)?.slice(0,2)}));
       const rests=new Set(restHashes.get(`${entry.character}:${entry.army}`)??[]);rests.add(bank.walkRestTransform?.standSha256);
       const heights={pawn:96,knight:112,bishop:114,rook:132,queen:120,archer:120,paladin:124,maester:112,ogre:136,guard:114};
-      const result=runMoveGates({bank,source:sourceFrames,catalogHashes:new Set(sourceFrames.map(f=>f.sha256)),restHashes:rests,transform:bank.walkRestTransform,height:heights[entry.character]??130,ranges:bank.walkRanges});
+      const sizes=moveBounds.map(b=>b.bottom-b.top).sort((a,b)=>a-b),median=sizes[Math.floor(sizes.length/2)];
+      const range=field=>Math.round((Math.max(...moveBounds.map(b=>b[field]))-Math.min(...moveBounds.map(b=>b[field])))*160/median*100)/100;
+      const ranges={topRangeAt160:range('top'),groundRangeAt160:range('bottom')};
+      const result=runMoveGates({bank,source:sourceFrames,catalogHashes:catalogFrames,restHashes:rests,transform:bank.walkRestTransform,height:heights[entry.character]??130,ranges});
       if(result.status!=='pass')throw Error(`Painted move gates failed: ${entry.id}: ${result.failures.join(', ')}`);
     }
     const sampling = [bank.sampling, bank.schedule?.sampling, bank.selectedSchedule?.sampling, bank.approvedPlayerSchedule?.sampling];

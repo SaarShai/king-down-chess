@@ -23,8 +23,11 @@ def digest(data):
 
 def atomic(path, data):
     tmp = path.with_name(path.name + '.painted-next')
-    tmp.write_bytes(data)
-    os.replace(tmp, path)
+    try:
+        tmp.write_bytes(data)
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def files(path):
@@ -47,7 +50,11 @@ def promote(candidate, target):
         raise ValueError('Expected 196 source move banks')
     if shutil.disk_usage('/').free < 31 * 1024**3:
         raise ValueError('Need 31 GiB free for the rebuild and the 30 GiB floor')
-    with (target / '.catalog.lock').open('a+b') as lock:
+    for sibling in ('alpha-recovery-review', 'army-effects-review', 'directional-attacks'):
+        if not (target.parent / sibling).is_dir():
+            raise ValueError(f'Missing sibling folder: {sibling}')
+    # Use the existing shared lock. Creating a lock here would change a failed target.
+    with (target / '.catalog.lock').open('r+b') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         previous = (target / 'manifest.json').read_bytes()
         previous_sha = digest(previous)
@@ -57,6 +64,7 @@ def promote(candidate, target):
             base = json.loads(previous)
             if [e for e in catalog['entries'] if e['kind'] != 'move'] != base['entries']:
                 raise ValueError('Candidate changes the base catalog')
+        additions = {}
         for entry in moves:
             bank_hash = entry['sha256']
             if not re.fullmatch(r'[0-9a-f]{64}', bank_hash) or entry['manifest'] != f'banks/{bank_hash}.json':
@@ -74,14 +82,21 @@ def promote(candidate, target):
                 if digest(destination.read_bytes()) != bank_hash:
                     raise ValueError('Target bank hash mismatch')
             else:
-                with destination.open('xb') as file:
-                    file.write(data)
-        (target / 'catalogs').mkdir(exist_ok=True)
+                additions[destination] = data
         snapshot = target / 'catalogs' / f'{proposed_sha}.json'
         if snapshot.exists() and snapshot.read_bytes() != proposed:
             raise ValueError('Target catalog snapshot changed')
-        atomic(snapshot, proposed)
+        created = []
+        made_catalogs = not snapshot.parent.exists()
         try:
+            for destination, data in additions.items():
+                with destination.open('xb') as file:
+                    created.append(destination)
+                    file.write(data)
+            snapshot.parent.mkdir(exist_ok=True)
+            if not snapshot.exists():
+                created.append(snapshot)
+                atomic(snapshot, proposed)
             atomic(target / 'manifest.json', proposed)
             with tempfile.TemporaryDirectory(prefix='kingdown-walk-promotion-') as tmp:
                 png, webp = Path(tmp) / 'png', Path(tmp) / 'webp'
@@ -92,6 +107,10 @@ def promote(candidate, target):
         except BaseException:
             if previous_sha != proposed_sha:
                 atomic(target / 'manifest.json', previous)
+            for path in reversed(created):
+                path.unlink(missing_ok=True)
+            if made_catalogs and snapshot.parent.exists():
+                snapshot.parent.rmdir()
             raise
     print(f'Promoted {len(moves)} move banks; the rebuilt package matches byte for byte.')
 

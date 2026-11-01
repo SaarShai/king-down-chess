@@ -11,5 +11,6 @@ it('checks the painted source order, holds, placement and motion ranges', () => 
  expect(runMoveGates({...args,bank:{...bank,frames:bank.frames.map((f,i)=>i===1?{...f,method:'rife'}:f)}}).failures).toContain('painted-keys');
  expect(runMoveGates({...args,bank:{...bank,frames:bank.frames.map((f,i)=>i===1?{...f,timeMs:121}:f)}}).failures).toContain('timing');
  expect(runMoveGates({...args,restHashes:new Set(['0'])}).failures).toContain('painted-keys');
+ expect(runMoveGates({...args,catalogHashes:new Set(['0','1','2'])}).failures).toContain('painted-keys');
  expect(runMoveGates({...args,ranges:{topRangeAt160:10,groundRangeAt160:20.6}}).failures).toContain('range');
 });

@@ -9,7 +9,7 @@ export function runMoveGates({ bank, source, catalogHashes, restHashes, transfor
     const ok = f.timeMs === time && f.durationMs === source[i]?.durationMs && Number.isFinite(f.durationMs) && f.durationMs > 0;
     time += f.durationMs; return ok;
   });
-  fail('timing', timesMatch && time === bank.durationMs && bank.sampling === 'nearest');
+  fail('timing', timesMatch && time === bank.durationMs);
   const k = height / bank.bodyHeightPx, expected = transform.scaleGamePxPerSourcePx;
   const placement = frames.map((frame, i) => {
     const origin = source[i], pad = origin?.pivot?.map((v, axis) => v - transform.canonicalPivot[axis]);

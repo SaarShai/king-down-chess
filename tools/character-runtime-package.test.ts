@@ -116,10 +116,10 @@ it('builds painted moves with their own timing and rejects a gap', async () => {
  }
  const original=Buffer.from(JSON.stringify({frames:frames.map(f=>({...f,uniformScale:1,translation:[0,0]}))})),originalHash=hash(original);writeFileSync(join(source,'banks',`${originalHash}.json`),original);
  const selection=join(scratch,'selection.json');
- const select=(bankFrames:typeof frames,pivot=[16,28],includeSource=true,sourceDirection='N')=>{
-  const bytes=Buffer.from(JSON.stringify({status:'ready',character:'pawn',army:'white',direction:'N',facing:'N',canvasSize:[32,32],pivot,bodyHeightPx:20,strideSquares:.8,sampling:'nearest',durationMs:timeMs,frames:bankFrames,walkSourceBankSha256:originalHash,walkRestTransform:{canonicalPivot:[16,28],scaleGamePxPerSourcePx:4.8,offsetGamePx:[-76.8,-134.4]},walkRanges:{topRangeAt160:0,groundRangeAt160:0}})),sha256=hash(bytes);
+ const select=(bankFrames:typeof frames,pivot=[16,28],includeSource=true,sourceDirection='N',sampling='nearest',sourceHash=originalHash)=>{
+  const bytes=Buffer.from(JSON.stringify({status:'ready',character:'pawn',army:'white',direction:'N',facing:'N',canvasSize:[32,32],pivot,bodyHeightPx:20,strideSquares:.8,sampling,durationMs:timeMs,frames:bankFrames,walkSourceBankSha256:sourceHash,walkRestTransform:{canonicalPivot:[16,28],scaleGamePxPerSourcePx:4.8,offsetGamePx:[-76.8,-134.4]},walkRanges:{topRangeAt160:0,groundRangeAt160:0}})),sha256=hash(bytes);
   writeFileSync(join(source,'banks',`${sha256}.json`),bytes);const entry={character:'pawn',army:'white',kind:'move',direction:'N',id:'white-walk-N',status:'ready',manifest:`banks/${sha256}.json`,sha256};
-  const originalEntry={character:'pawn',army:'white',kind:'movement-study',direction:sourceDirection,id:'source',manifest:`banks/${originalHash}.json`,sha256:originalHash};
+  const originalEntry={character:'pawn',army:'white',kind:'movement-study',direction:sourceDirection,id:'source',manifest:`banks/${sourceHash}.json`,sha256:sourceHash};
   const manifest=Buffer.from(JSON.stringify({entries:includeSource?[originalEntry,entry]:[entry]}));writeFileSync(join(source,'manifest.json'),manifest);writeFileSync(selection,JSON.stringify({schemaVersion:1,status:'ready',catalogSha256:hash(manifest),entries:[entry]}));
  };
  const run=()=>execFileSync(process.execPath,[resolve('tools/build-character-runtime.mjs'),'--source',source,'--output',out,'--selection',selection],{encoding:'utf8',stdio:'pipe',timeout:10_000});
@@ -129,6 +129,13 @@ it('builds painted moves with their own timing and rejects a gap', async () => {
  select(frames,[16,28],true,'S');expect(run).toThrow(/Painted move source is not in the catalog for this facing/);
  select(frames,[17,28]);expect(run).toThrow(/Painted move gates failed:.*placement/);
  select(frames.map((f,i)=>i===2?{...f,timeMs:f.timeMs+1}:f));expect(run).toThrow(/Invalid painted move timing/);
+ select(frames,[16,28],true,'N','linear');expect(run).toThrow(/Invalid painted move/);
+ const shifted=await sharp({create:{width:32,height:32,channels:4,background:{r:0,g:0,b:0,alpha:0}}}).composite([{input:await sharp({create:{width:8,height:8,channels:4,background:{r:20,g:20,b:30,alpha:1}}}).png().toBuffer(),left:12,top:10}]).png().toBuffer(),shiftedHash=hash(shifted);
+ writeFileSync(join(source,'assets',`${shiftedHash}.png`),shifted);
+ const shiftedFrames=frames.map((f,i)=>i===0?{...f,url:`../assets/${shiftedHash}.png`,sha256:shiftedHash}:f);
+ const shiftedOriginal=Buffer.from(JSON.stringify({frames:shiftedFrames.map(f=>({...f,uniformScale:1,translation:[0,0]}))})),shiftedOriginalHash=hash(shiftedOriginal);
+ writeFileSync(join(source,'banks',`${shiftedOriginalHash}.json`),shiftedOriginal);
+ select(shiftedFrames,[16,28],true,'N','nearest',shiftedOriginalHash);expect(run).toThrow(/Painted move gates failed:.*range/);
 },30_000);
 
 it('strips non-rendering PNG chunks without changing the pixels', async () => {

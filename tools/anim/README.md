@@ -80,8 +80,8 @@ Painted `move` banks use `move-gates.mjs` instead of the endpoint and foot-pin g
 catalog in order and time, and must not be a rest frame. The bank pivot and height must put the composed placement
 within 0.5 px of the rest transform. Source-hash identity preserves each frame's placement. At 160 px height, the top range may not exceed 9.9 px and the ground range may not
 exceed 20.6 px. Promotion also requires the RGBA and transparent exterior checks. The loop seam is a measurement.
-The runtime build runs these checks for every selected painted walk. The pinned bank holds the source range
-measurements; the source hashes lock them to the painted frames.
+The runtime build runs these checks for every selected painted walk. It measures each frame's alpha bounds
+at build time and checks the hashes against the source banks in the pinned catalog.
 
 ### Output
 
@@ -112,7 +112,9 @@ Promotion does not change `runtime-selection.json`. The owner re-pins the select
 
 For the painted walk batch, `promote-painted-moves.py --candidate <catalog> --target <frozen-catalog>` copies the
 content-hashed banks under the catalog lock. It checks the target base, rebuilds the package, and compares every
-file. If the build or comparison fails, it restores the prior catalog manifest.
+file. The target's parent must also contain the `alpha-recovery-review`, `army-effects-review` and
+`directional-attacks` folders. If the build or comparison fails, it restores the prior catalog and removes
+the banks and snapshot added by that attempt.
 
 ### Tests
 
