@@ -13,7 +13,7 @@ import * as guard from '../guard/motion.mjs';
 import * as court from '../court-motion.mjs';
 import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
 import {BLOW,KING_BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
-import {GAITS,GAIT_OF,idleAt,paintedPace} from './gait.mjs';
+import {GAITS,GAIT_OF,idleAt,paintedPace,paintedTravel} from './gait.mjs';
 import {createKingEffects,phaseOffset} from './king-effects.mjs';
 import {KING_FILES} from './king-sheets.mjs';
 import {DEATHS,THEMED,drawDeath,kingBodyBounds} from './king-captures.mjs';
@@ -810,7 +810,9 @@ function vortex(out,foot,phase,strength) {
   }
   else if(a.type==='gait'){
    // Quiet move with character (gait.mjs): feet travel along the ground line; lift, squash and lean on top.
-   const m=GAITS[a.gait].at(t/duration,a.squares,duration),ground=mix(a.from.foot,a.to.foot,m.travel);
+   const m=GAITS[a.gait].at(t/duration,a.squares,duration);
+   const painted=a.gait==='paintedWalk'&&a.runtime?.movement?paintedTravel(t,duration,a.runtime.movementRate??1,a.runtime.movement.frames,a.runtime.movement.durationMs):null;
+   const ground=mix(a.from.foot,a.to.foot,painted??m.travel);
    actor.pose={...a.from,ground,lift:m.lift,foot:{x:ground.x,y:ground.y-m.lift},sx:m.sx,sy:m.sy,rotation:m.tilt*a.lean,shadow:m.shadow};
   }
   else if(a.type==='swap'){

@@ -21,6 +21,23 @@ export function paintedPace(squares,cycle,stride){
  const duration=natural/2>budget?Math.min(natural/2,2800):natural/rate,skate=natural/(rate*duration);
  return skate<=1.2?{duration,rate,skate}:null;
 }
+// Painted walk body travel. A constant speed slides the body during each held pose, so the planted foot
+// slips. Mix the linear path with the path held at the start of the pose on screen. The last step always
+// lands on the target square.
+export const BODY_TRAVEL_MIX=.5;
+export function paintedTravel(t,duration,rate,frames,cycle,mix=BODY_TRAVEL_MIX){
+ const u=clamp(duration>0?t/duration:1,0,1);
+ if(u>=1)return 1;
+ const natural=rate*duration;
+ if(!(natural>0))return u;
+ // The pose clock runs from 0 to natural over the move; it repeats every cycle. The held body
+ // position is the linear position at the start of the pose on screen. It never moves back,
+ // even when the clock passes a cycle boundary.
+ const period=cycle>0?cycle:natural,clock=u*natural,pose=Math.floor(clock/period)*period,within=clock-pose;
+ let offset=0;
+ for(const frame of frames??[])if(frame.timeMs<=within&&frame.timeMs>=offset)offset=frame.timeMs;
+ return (1-mix)*u+mix*clamp((pose+offset)/natural,0,1);
+}
 
 // One-steppers (King, Guard, Maester, Ogre, Beast, Archer): a small dip, two quick footfalls
 // with a forward lean, then the weight settles with a little squash.
