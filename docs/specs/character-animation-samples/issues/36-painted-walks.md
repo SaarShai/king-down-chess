@@ -4,6 +4,8 @@ Status: in progress
 
 ## Plan and checks
 
+- Round 9: replace the measured strides with the checked values in the stride study, and record the study file hash in the selection. Play Archer NW in the order p0, p3, p2, p1 and keep its stride at 0.50. Add the stepped body-travel mix (s = 0.5). Rebuild the package without new WebP conversions, rehearse the promotion with a conversion cache, refresh the preview, run the focused tests, browser checks and Vercel checks, then update PR 236 and read CI.
+
 - Round 8: measure all 164 selected banks and record each stride or fallback. Apply the pace and prefetch rules. Check the slow links, rebuild and compare the catalog, rehearse promotion, refresh the preview, run the listed checks, and update PR 236.
 
 - Round 7: measure planted feet and use the old gait when contact is not reliable. Apply the pace and selection prefetch rules. Repair the build gates and promotion rollback. Rebuild and compare the package, refresh the preview, run the requested checks, and update PR 236.

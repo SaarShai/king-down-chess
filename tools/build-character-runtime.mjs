@@ -141,6 +141,14 @@ export async function buildCharacterRuntime({ source, output, selection = resolv
     if (entry.kind === 'movement-study' && (!direction(current.direction) || bank.direction !== current.direction || bank.army !== entry.army || bank.character != null && bank.character !== entry.character || bank.facing != null && bank.facing !== current.direction || entry.direction != null && entry.direction !== current.direction)) throw Error(`Invalid movement facing: ${entry.id}`);
     if (entry.kind === 'movement-study' && banks.some(b => b.kind === 'movement' && b.character === entry.character && b.army === entry.army && b.facing === facing)) throw Error(`Duplicate movement facing: ${entry.character}/${entry.army}/${facing}`);
     let sourceFrames=bank.frames, durationMs=bank.durationMs;
+    if(entry.kind==='move'&&bank.playOrder!=null){
+      const order=bank.playOrder;
+      if(!Array.isArray(order)||order.length!==bank.frames.length||order.some(index=>!Number.isInteger(index)||index<0||index>=bank.frames.length)||new Set(order).size!==order.length)throw Error(`Invalid painted move order: ${entry.id}`);
+      const ordered=order.map(index=>bank.frames[index]);
+      let time=0,total=0;
+      sourceFrames=ordered.map(frame=>{const next={...frame,timeMs:time};time+=frame.durationMs;total+=frame.durationMs;return next;});
+      if(total!==durationMs)throw Error(`Invalid painted move order timing: ${entry.id}`);
+    }
     if (entry.kind === 'movement-study' && (bank.entryFrames != null || bank.settleFrames != null)) {
       const entryFrames=bank.entryFrames ?? [], settleFrames=bank.settleFrames ?? [];
       if (!Array.isArray(entryFrames) || !Array.isArray(settleFrames)) throw Error(`Invalid movement sections: ${entry.id}`);
