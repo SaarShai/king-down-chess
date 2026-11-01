@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { setTimeout } from 'node:timers/promises';
 
-const repo = 'SaarShai/king-down-chess';
+export const repo = 'SaarShai/king-down-chess';
 // plugin-checks.yml skips every job but reuse when a green push run already checked the same tree. GitHub then reports
 // one check run per job, a matrix job included, so a reused run has exactly these check-run names.
 export const REUSE_SHAPE = ['reuse', 'verify', 'browser-board', 'browser-ui', 'browser-web', 'browser-webkit', 'browser-webkit-board', 'browser-webkit-ui'];
@@ -36,6 +36,30 @@ function reviewRecord(file, pr, head) {
   return record;
 }
 
+/** The check-runs pages of one commit: throws when a check fails or the pages are not whole, and returns `ready`, true
+ *  when every check suite is complete and passes. tools/ci-green.mjs and tools/deploy.sh apply the same rule. */
+export function ciPasses(pages, head) {
+  require(Array.isArray(pages) && pages.length > 0 && pages.every(page => Array.isArray(page.check_runs)), 'invalid CI check-runs');
+  const checks = pages.flatMap(page => page.check_runs);
+  require(pages.every(page => page.total_count === checks.length), 'CI check-runs are incomplete; run the helper again');
+  require(checks.every(check => check.head_sha === head), 'CI check head differs');
+  require(checks.every(check => ['queued', 'in_progress', 'completed', 'waiting', 'requested', 'pending'].includes(check.status)), 'invalid CI check status');
+  // One commit can carry several runs (a staging push and a release PR), each its own check suite. Every suite must
+  // pass on its own: all success, or the reuse shape (reuse passed, every other job skipped, no job missing).
+  // Ready: each full suite has its ten checks, all complete (a job gets its check run only when reuse completes).
+  let ready = checks.length > 0;
+  for (const suite of Map.groupBy(checks, check => check.check_suite?.id).values()) {
+    if (!suite.some(check => check.conclusion === 'skipped')) {
+      require(suite.every(check => check.status !== 'completed' || check.conclusion === 'success'), 'CI check does not pass');
+      ready &&= suite.length >= 10 && suite.every(check => check.status === 'completed');
+      continue;
+    }
+    require(suite.every(check => check.status === 'completed' && check.conclusion === (check.name === 'reuse' ? 'success' : 'skipped')), 'CI check does not pass');
+    require(suite.map(check => check.name).sort().join() === [...REUSE_SHAPE].sort().join(), 'skipped CI checks do not match the reuse shape');
+  }
+  return ready;
+}
+
 /** Check all requested reviews and both CI inputs before a merge of this exact head. */
 export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTimeout, now = () => performance.now() } = {}) {
   require(Number.isSafeInteger(pr) && pr > 0 && fullSha(head) && text(file),
@@ -64,24 +88,7 @@ export async function mergeOnGreen(pr, head, file, { gh = github, pause = setTim
     require(current.baseRefOid === record.base, 'PR is not open at the recorded head and base');
     const pages = JSON.parse(request(['api', '--paginate', '--slurp',
       `repos/${repo}/commits/${head}/check-runs?per_page=100`]));
-    require(Array.isArray(pages) && pages.length > 0 && pages.every(page => Array.isArray(page.check_runs)), 'invalid CI check-runs');
-    const checks = pages.flatMap(page => page.check_runs);
-    require(pages.every(page => page.total_count === checks.length), 'CI check-runs are incomplete; run the helper again');
-    require(checks.every(check => check.head_sha === head), 'CI check head differs');
-    require(checks.every(check => ['queued', 'in_progress', 'completed', 'waiting', 'requested', 'pending'].includes(check.status)), 'invalid CI check status');
-    // One commit can carry several runs (a staging push and a release PR), each its own check suite. Every suite must
-    // pass on its own: all success, or the reuse shape (reuse passed, every other job skipped, no job missing).
-    // Ready: each full suite has its ten checks, all complete (a job gets its check run only when reuse completes).
-    let ready = checks.length > 0;
-    for (const suite of Map.groupBy(checks, check => check.check_suite?.id).values()) {
-      if (!suite.some(check => check.conclusion === 'skipped')) {
-        require(suite.every(check => check.status !== 'completed' || check.conclusion === 'success'), 'CI check does not pass');
-        ready &&= suite.length >= 10 && suite.every(check => check.status === 'completed');
-        continue;
-      }
-      require(suite.every(check => check.status === 'completed' && check.conclusion === (check.name === 'reuse' ? 'success' : 'skipped')), 'CI check does not pass');
-      require(suite.map(check => check.name).sort().join() === [...REUSE_SHAPE].sort().join(), 'skipped CI checks do not match the reuse shape');
-    }
+    const ready = ciPasses(pages, head);
     // The combined state covers the latest status for every context, across all pages.
     const status = JSON.parse(request(['api', `repos/${repo}/commits/${head}/status`]));
     require(status?.sha === head && Number.isSafeInteger(status.total_count) && status.total_count >= 0 &&

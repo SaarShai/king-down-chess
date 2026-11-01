@@ -389,3 +389,31 @@ it.each(['head', 'pages', 'status', 'api'])('refuses invalid or unreadable CI: %
   await expect(f.run()).rejects.toThrow();
   expect(f.merges()).toEqual([]);
 });
+
+const ciGreen = fileURLToPath(new URL('./ci-green.mjs', import.meta.url));
+/** Runs tools/ci-green.mjs with a stub `gh` on PATH that answers the check-runs API with `pages` and the status API with
+ *  `status`, or fails every call with no `pages`. */
+function runCiGreen(sha: string, pages?: unknown, status: unknown = { sha: head, total_count: 0, state: 'pending' }) {
+  const dir = mkdtempSync(join(tmpdir(), 'kingdown-ci-green-'));
+  dirs.push(dir);
+  const answer = (value: unknown) => `cat <<'JSON'\n${JSON.stringify(value)}\nJSON`;
+  writeFileSync(join(dir, 'gh'), pages === undefined ? '#!/bin/sh\necho "gh: no network" >&2\nexit 1\n'
+    : `#!/bin/sh\ncase "$*" in *"/status") ${answer(status)} ;; *) ${answer(pages)} ;; esac\n`, { mode: 0o755 });
+  return spawnSync(process.execPath, [ciGreen, sha], { encoding: 'utf8', env: { ...process.env, PATH: `${dir}:${process.env.PATH}` } });
+}
+
+it('ci-green exits 0 for a passed commit, 1 while a suite or a status runs, 2 for a failure or a usage error, 3 with no GitHub answer', () => {
+  const check = (id: number, over: Record<string, unknown> = {}) => ({ id, head_sha: head, status: 'completed', conclusion: 'success', check_suite: { id: 1 }, ...over });
+  const page = (checks: unknown[]) => [{ total_count: checks.length, check_runs: checks }];
+  const green = Array.from({ length: 11 }, (_, id) => check(id));
+  expect(runCiGreen(head, page(green))).toMatchObject({ status: 0, stdout: `ci-green: pass at ${head}\n` });
+  expect(runCiGreen(head, page(green), { sha: head, total_count: 1, state: 'success' })).toMatchObject({ status: 0 });
+  expect(runCiGreen(head, page(green), { sha: head, total_count: 1, state: 'pending' })).toMatchObject({ status: 1, stdout: `ci-green: pending at ${head}\n` });
+  expect(runCiGreen(head, page(green), { sha: head, total_count: 1, state: 'failure' })).toMatchObject({ status: 2, stderr: 'ci-green: CI commit status does not pass\n' });
+  expect(runCiGreen(head, page([...green.slice(0, 10), check(10, { status: 'in_progress', conclusion: null })]))).toMatchObject({ status: 1, stdout: `ci-green: pending at ${head}\n` });
+  expect(runCiGreen(head, page([...green.slice(0, 10), check(10, { conclusion: 'failure' })]))).toMatchObject({ status: 2, stderr: 'ci-green: CI check does not pass\n' });
+  expect(runCiGreen(head, page(green.map(run => ({ ...run, head_sha: base }))))).toMatchObject({ status: 2, stderr: 'ci-green: CI check head differs\n' });
+  expect(runCiGreen(head, [{ total_count: 12, check_runs: green }])).toMatchObject({ status: 3, stderr: 'ci-green: try again: CI check-runs are incomplete; run the helper again\n' });
+  expect(runCiGreen('134e2b2f')).toMatchObject({ status: 2, stderr: 'ci-green: usage: node tools/ci-green.mjs <full sha>\n' });
+  expect(runCiGreen(head)).toMatchObject({ status: 3 });
+});
