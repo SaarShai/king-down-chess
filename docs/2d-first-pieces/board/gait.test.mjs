@@ -44,12 +44,15 @@ test('painted travel mixes the linear path with the pose step', () => {
  for(const t of [0,10,159,160,300,479,639])assert.ok(Math.abs(at(t,0)-t/640)<1e-12,`s=0 at ${t}`);
  assert.equal(at(100,1),0);
  assert.equal(at(159,1),0);
- for(const [t,start] of [[160,160],[319,160],[480,480],[639,480]])assert.ok(Math.abs(at(t,1)-start/640)<1e-12,`s=1 at ${t}`);
+ for(const [t,start] of [[160,160],[319,160],[479,320]])assert.ok(Math.abs(at(t,1)-start/640)<1e-12,`s=1 at ${t}`);
+ // The last pose (480-640) travels on the linear path at every mix.
+ for(const t of [480,560,639])assert.ok(Math.abs(at(t,1)-t/640)<1e-12,`last pose at ${t}`);
  // Two pose cycles in one move: the step carries on from the first cycle to the second.
  const two=(t,mix)=>paintedTravel(t,640,2,frames,640,mix);
  assert.ok(Math.abs(two(100,1)-160/1280)<1e-12);
  assert.ok(Math.abs(two(330,1)-640/1280)<1e-12);
- assert.ok(Math.abs(two(639,1)-1120/1280)<1e-12);
+ assert.ok(Math.abs(two(559,1)-960/1280)<1e-12);
+ assert.ok(Math.abs(two(639,1)-639/640)<1e-12);
  let previous=0;
  for(const move of [at,two]){
   let held=0;previous=0;  for(let t=0;t<=640;t+=2){
@@ -60,7 +63,17 @@ test('painted travel mixes the linear path with the pose step', () => {
    previous=u;held=step;
   }
  }
- for(const [t,start] of [[50,0],[200,160],[500,480],[630,480]])assert.ok(Math.abs(at(t,1)-start/640)<1e-12,`hold at ${t}`);
+ for(const [t,start] of [[50,0],[200,160],[400,320],[470,320]])assert.ok(Math.abs(at(t,1)-start/640)<1e-12,`hold at ${t}`);
+});
+test('painted travel reaches the target on the last walk frame', () => {
+ // White pawn walk N: 640 ms cycle, poses at 0/160/320/480, stride 0.682. The move plays 1.47 cycles.
+ const frames=[0,160,320,480].map(timeMs=>({timeMs})),{duration,rate}=paintedPace(1,640,.682);
+ // The endpoint frame shows the turn or rest bank at travel 1, one frame after the last walk frame.
+ // The gap may be one frame of linear travel, no held-pose step on top.
+ for(const dt of [0,1,8,16.7,23,33.3,50]){
+  const gap=1-paintedTravel(duration-dt,duration,rate,frames,640);
+  assert.ok(gap<=dt/duration+1e-9,`dt ${dt} ms: gap ${(gap*112).toFixed(2)} px of a 112 px tile`);
+ }
 });
 test('every gait named by a figure exists', () => {
   for (const g of Object.values(GAIT_OF)) assert.ok(GAITS[g], g);
