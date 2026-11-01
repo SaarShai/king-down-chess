@@ -128,8 +128,9 @@ export function createBrowserRuntime(api: OnlineClient, userId: string): Account
   if (entry) saved = { ...saved, screen: entry.screen === 'game' ? 'board' : entry.screen === 'new-friend' ? 'play' : entry.screen, board_id: entry.screen === 'game' ? entry.gameId : undefined };
   const receipt = transport.pending();
   // A saved read is not a command. Builds before ticket 97 saved the result-details read; it holds the account
-  // lock, and on /play/ its retry finds no game, so Start stays off. Durable commands keep their receipts.
-  if (saved?.pending && READ_TOOLS.includes(saved.pending.name)) saved = { ...saved, pending: undefined };
+  // lock, and on /play/ its retry finds no game, so Start stays off. Resume and open are reads too (the transport's
+  // read case). Durable commands keep their receipts.
+  if (saved?.pending && [...READ_TOOLS, 'kingdown_resume', 'kingdown_open'].includes(saved.pending.name)) saved = { ...saved, pending: undefined };
   if (receipt) {
     const previous = saved?.pending?.name === receipt.name && saved.pending.args.command_id === receipt.args.command_id ? saved.pending : undefined;
     const screen = previous?.screen ?? (receipt.name === 'kingdown_create' || receipt.name === 'kingdown_find' ? 'play' : 'board');

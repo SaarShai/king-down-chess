@@ -260,6 +260,13 @@ it.each([
     expect(locks({ screen: 'play', pending: client.state.pending, pendingScope: host.stateHost?.pendingScope, connected: true, mounting: false, writing: false }).start).toBe(false);
   } finally { vi.unstubAllGlobals(); }
 });
+it.each(['kingdown_resume', 'kingdown_open'])('drops a saved %s read on load, so it cannot hold Start', name => {
+  const { browser } = browserAt('/play/');
+  browser.localStorage.setItem('kingdown.account-game.a', JSON.stringify({ screen: 'end', board_id: args.game_id, pending: { name, args: { game_id: args.game_id }, game_tag: args.game_id.slice(0, 8), screen: 'end', error: CANNOT_CONNECT, error_screen: 'end' } }));
+  try {
+    expect(createBrowserRuntime({} as OnlineClient, 'a').stateHost?.widgetState?.privateContent?.pending).toBeUndefined();
+  } finally { vi.unstubAllGlobals(); }
+});
 it('keeps a durable saved command with its receipt beside the dropped-read rule', () => {
   const { browser } = browserAt('/play/'), receipt = { name: 'kingdown_resign', args: { game_id: args.game_id, command_id: 'resign-once', expected_revision: 5 } };
   browser.localStorage.setItem('kingdown.account-command.a', JSON.stringify(receipt));
