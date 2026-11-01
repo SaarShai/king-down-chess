@@ -56,7 +56,7 @@ function pollView() {
 let endKey: string | undefined;
 export function endSync(page: Page) {
   if (stopped || queue.closed()) return;
-  const key = `${page.screen}:${$<HTMLButtonElement>('reload').disabled}:${staleRead(page)}`;
+  const key = `${page.screen}:${$<HTMLButtonElement>('reload').disabled}:${staleRead(page)}:${!!page.notice?.details}`;
   if (key === endKey) return;
   endKey = key;
   // Hand the table to the end screen in the same pass as the screen switch. The board then never sits in a
@@ -94,9 +94,12 @@ export function updateEnd() {
     }).finally(() => { updating = false; });
   } else if (!read.has(view.game_id)) {
     if (memory.view?.rules) { read.add(view.game_id); return; }
+    // A failed details read waits for Try again; it never resends by itself.
+    if (store.page().notice?.kind === 'read') return;
     updating = true;
-    // Result details are a read; a reload must never keep them as an account command.
-    void call('kingdown_get', {}, { user: false }).then(next => { if (next) read.add(view.game_id); }).finally(() => { updating = false; endScreen(); });
+    // Result details are a read; a reload must never keep them as an account command. Their failure offers Try again
+    // and keeps the result's choices: the finished game view stays current, so a queued rematch still sends (ticket 41).
+    void call('kingdown_get', {}, { user: false, details: true }).then(next => { if (next) read.add(view.game_id); }).finally(() => { updating = false; endScreen(); });
   }
 }
 export function endScreen(schedule = true) {

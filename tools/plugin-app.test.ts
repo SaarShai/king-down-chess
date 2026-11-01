@@ -1244,6 +1244,8 @@ it('keeps a failed end read and Try again visible on the board and on Game resul
     await frame.locator('#end-result').click();
     await frame.locator('#over[open] #retry').waitFor();
     expect(await frame.locator('#over #error').isVisible()).toBe(true);
+    // A failed details read keeps the result's choices: the finished game view stays current (ticket 41).
+    expect(await frame.locator('#over').getByRole('button', { name:'Play again', exact:true }).isEnabled()).toBe(true);
     await frame.locator('#over').getByRole('button', { name:'See the board', exact:true }).click();
     await frame.locator('.page-sheet > .page-error #retry').click();
     await frame.locator('#retry').waitFor({state:'hidden'});

@@ -46,3 +46,11 @@ Failure details come from the app store in the local check build only. They incl
 - Full test log: the task scratch folder, `lobby-npm-test.log`.
 - Author review checks the read, lock, retry and rematch paths. The three-line product change uses the existing read notice. No new timer, timeout or retry loop is needed. Independent review remains open on the PR.
 - No Firefox, deploy, production write or owner account login. Hooks stay unchanged.
+
+## CI follow-up: rematch after a failed result read
+
+CI on `de5c445e` fails `plugin-ui` in Chromium and WebKit: "A pending result-details read still allows a queued rematch". The check is correct. Ticket 41 keeps this contract: a failed result-details read keeps Rematch on. The first fix sent the failure through the stale-game read notice. That notice locks the result's choices, so Rematch went off.
+
+The fix adds a `details` mark to the read notice. The result screen sets it on its details read. The notice still shows Try again, and the screen still sends no automatic details read. It does not mark the game stale: it sets no game lock and no "Not current". A queued rematch sends at once. Three failed background reads still set the normal stale lock. No check is removed.
+
+Checks: a state test covers the `details` notice; the failed end read product test checks that Play again stays on.

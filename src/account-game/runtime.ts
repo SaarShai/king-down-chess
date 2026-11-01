@@ -337,7 +337,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       else if (quiet && message === CANNOT_CONNECT) store.dispatch({ type: 'failed-poll', text: message, ...(view?.game_id && { game: view.game_id }) });
       else if (own && state.pending === own) { failPending(message, own, job); store.dispatch({ type: 'change' }); }
       // Three failed polls in a row (or one failed foreground read) mark the board stale: "Not current", the lock and Try again.
-      else if (name === 'kingdown_get' && state.board_id) store.dispatch({ type: 'failed-read', text: message, ...(view?.game_id && { game: view.game_id }) });
+      else if (name === 'kingdown_get' && state.board_id) store.dispatch({ type: 'failed-read', text: message, ...(view?.game_id && { game: view.game_id }), ...(job.options.details && { details: true as const }) });
       else if (queue.current(job) && state.screen === commandScreen) store.dispatch({ type: 'error', text: message });
       return refused ? { status: 'refused', code: refused.code, text: refused.text, result: EMPTY } : { status: 'failed', code, text: message };
     } finally { if (quiet) polling = false; }
