@@ -76,6 +76,13 @@ forces one machine.
 7. `timing`: frame count, frame step, start time and end time match the plan.
 8. `provenance`: every frame has a known method and a SHA-256.
 
+Painted `move` banks use `move-gates.mjs` instead of the endpoint and foot-pin gates. Each key must match the source
+catalog in order and time, and must not be a rest frame. The bank pivot and height must put the composed placement
+within 0.5 px of the rest transform. Source-hash identity preserves each frame's placement. At 160 px height, the top range may not exceed 9.9 px and the ground range may not
+exceed 20.6 px. Promotion also requires the RGBA and transparent exterior checks. The loop seam is a measurement.
+The runtime build runs these checks for every selected painted walk. It measures each frame's alpha bounds
+at build time and checks the hashes against the source banks in the pinned catalog.
+
 ### Output
 
 ```
@@ -102,6 +109,14 @@ the bank and updates the catalog manifest. A repeated promotion of the same cand
 
 Promotion does not change `runtime-selection.json`. The owner re-pins the selection after review, and the next
 `tools/build-character-runtime.mjs` run makes the bank public. Do not deploy from this tool.
+
+For the painted walk batch, `promote-painted-moves.py --candidate <catalog> --target <frozen-catalog>` copies the
+content-hashed banks under the catalog lock. It checks the target base, rebuilds the package, and compares every
+file. Add `--cache <WebP package>` to reuse the converted frames of a package that holds the same source hashes;
+each reused frame is checked for its file hash, size and alpha before it is copied. The rebuilt package is still
+compared byte for byte. The target's parent must also contain the `alpha-recovery-review`, `army-effects-review` and
+`directional-attacks` folders. If the build or comparison fails, it restores the prior catalog and removes
+the banks and snapshot added by that attempt.
 
 ### Tests
 

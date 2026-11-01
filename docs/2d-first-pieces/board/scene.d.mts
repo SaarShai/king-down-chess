@@ -34,7 +34,7 @@ export interface PaintedScene {
   load(): Promise<void>;
   readonly position: { board: ArrayLike<number> };
   setPosition(position: { board: ArrayLike<number> }): void;
-  setSelected(square: number | null): void;
+  setSelected(square: number | null, destinations?: number[]): void;
   /** Opt-in tell: glow and lift 3 screen pixels; lift=false keeps a still glow. Null clears it. */
   setLifted(square: number | null, lift?: boolean): void;
   readonly lifted: number | null;

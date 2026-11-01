@@ -1,7 +1,7 @@
 export const FACINGS: string[];
 export const DECODED_BUDGET: number;
 export interface RuntimeFrame { url: string; timeMs: number; visibleIntervalMs?: [number, number]; endMs?: number }
-export interface RuntimeBank { id: string; character: string; army: string; kind: string; from: string; to: string; facing: string; durationMs: number; nearest?: boolean; frames: RuntimeFrame[]; pivot: [number, number]; canvasSize: [number, number]; bodyHeightPx: number; registrationHeightPx: number; boardScale?: number; contactMs?: number; effectAnchors?: { id: string; timeMs: number; point: [number, number] }[] }
+export interface RuntimeBank { id: string; character: string; army: string; kind: string; from: string; to: string; facing: string; durationMs: number; strideSquares?: number; nearest?: boolean; frames: RuntimeFrame[]; pivot: [number, number]; canvasSize: [number, number]; bodyHeightPx: number; registrationHeightPx: number; boardScale?: number; contactMs?: number; effectAnchors?: { id: string; timeMs: number; point: [number, number] }[] }
 export function facingOf(dx: number, dy: number): string;
 export function frameAt(bank: RuntimeBank, time: number): RuntimeFrame;
 export function turnRoute(banks: RuntimeBank[], from: string, to: string): { bank: RuntimeBank; reverse: boolean }[] | null;
@@ -11,12 +11,14 @@ export function createCharacterRuntime(options?: { url?: string; wake?: () => vo
  has(character: string, army: string): boolean;
  smoke(): { tick(dt: number, anchor: number[], scale?: number): void; draw(ctx: CanvasRenderingContext2D): void } | null;
  warm(character: string, army: string, full?: boolean): Promise<void>;
+ prefetchMoves(character: string, army: string, directions: string[]): Promise<void>;
+ releaseMovePrefetch(): void;
  reserveIdle(character: string, army: string): Promise<boolean>;
  releaseIdle(): void;
  idleExit(character: string, army: string, body: { bank: string; url: string }): ((fraction: number) => { url: string } | null) | null;
  rest(character: string, army: string, time?: number, active?: boolean): unknown;
  prepare(character: string, army: string, direction: string, capture: boolean, oneSquare?: boolean, signal?: AbortSignal): Promise<unknown>;
- action(prepared: unknown, time: number, duration: number, contact: number, boundary?: 'start' | 'end'): unknown;
+ action(prepared: unknown, time: number, duration: number, contact: number, boundary?: 'start' | 'end' | 'turn-end'): unknown;
  dispose(): void;
 };
 

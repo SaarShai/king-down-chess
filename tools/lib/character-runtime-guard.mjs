@@ -8,7 +8,7 @@ export function validateManifest(m) {
  m.effects=keys(m.effects,['maester','queen','archer']);
  for(const [name,value] of Object.entries(m.effects)) {const effect=keys(value,['module','smoke','decodedBytes','smokeDecodedBytes','contactMs']); Object.values(effect).forEach(leaves);m.effects[name]=effect;}
  m.banks=m.banks.map(value=>{
-  const b=keys(value,['character','army','id','kind','sourceSha256','canvasSize','pivot','durationMs','from','to','facing','bodyHeightPx','bodyTopPx','boardScale','targetPoint','beatTimes','effectAnchors','contactMs','nearest','frames','sourceBoardScale','registrationHeightPx','registrationSourceSha256']);
+  const b=keys(value,['character','army','id','kind','sourceSha256','canvasSize','pivot','durationMs','from','to','facing','bodyHeightPx','bodyTopPx','boardScale','targetPoint','beatTimes','effectAnchors','contactMs','nearest','frames','sourceBoardScale','registrationHeightPx','registrationSourceSha256','strideSquares']);
   for(const [name,value] of Object.entries(b)) if(!['beatTimes','frames','effectAnchors'].includes(name)) leaves(value);
   b.beatTimes=keys(b.beatTimes,['recovery','contact','contactMs','release','exactRest','releaseHoldEnd','holdEnd','aim','windup','rest','end','lift','peakMs','anticipation','lowering','beamEnd','recoil','nearPalmRelease','recoveryBreakdown','exactRestEnd','motionStart','initialRestMs','firstCloseMs','curlMs','relaxMs','neutralMs','endMs','restHoldEndMs','returnStartMs','restMs']);
   Object.values(b.beatTimes).forEach(leaves);

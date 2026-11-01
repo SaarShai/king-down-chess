@@ -273,6 +273,20 @@ writeFileSync(resolve(base, 'report.json'), '{}');`);
 
 });
 
+it('requires the move-specific checks before promoting a painted loop', async () => {
+  const { keys, hashes } = await fixture(), folder = join(dir, 'move'), catalog = join(dir, 'catalog'), runtime = join(dir, 'runtime.json');
+  await mkdir(folder); await mkdir(catalog);
+  const bank = { id: 'white-walk-N', character: 'pawn', army: 'white', kind: 'move', facing: 'N', status: 'candidate', frames: hashes.map((sha256, i) => ({ url: `${i}.png`, sha256 })) };
+  for (let i = 0; i < hashes.length; i++) await writeFile(join(folder, `${i}.png`), await readFile(join(keys, `00${i}.png`)));
+  await writeFile(join(folder, 'bank.json'), JSON.stringify(bank));
+  await writeFile(runtime, JSON.stringify({ sourceToRuntimeScale: 1, banks: [{ character: 'pawn', army: 'white', kind: 'idle', canvasSize: [96,96], pivot: [48,80], registrationHeightPx: 60, frames: [{ sourceSha256: 'a'.repeat(64) }] }] }));
+  const checks = ['rgba','exterior','painted-keys','timing','placement','range'].map(name => ({ name, ok: true }));
+  await writeFile(join(folder, 'gates.json'), JSON.stringify({ status: 'pass', checks: checks.filter(c => c.name !== 'placement') }));
+  await expect(promote(folder, { catalog, manifest: runtime, dryRun: true })).rejects.toThrow('Gate placement did not pass');
+  await writeFile(join(folder, 'gates.json'), JSON.stringify({ status: 'pass', checks }));
+  await expect(promote(folder, { catalog, manifest: runtime, dryRun: true })).resolves.toMatchObject({ dryRun: true, entry: { kind: 'move' } });
+});
+
 it('promotes a green candidate into the frozen catalog under its lock', async () => {
   const { keys, geometryPath, geometry } = await fixture();
   const stub = join(dir, 'stub.mjs');
