@@ -91,6 +91,8 @@ function setup() {
   stub(join(bin, 'node'), [
     `case "$1" in */deploy-plugin-live-check.mjs) ${record}; exec "${process.execPath}" "$1" "$2" "\${STUB_PLUGIN_ORIGIN:-$DEPLOY_LIVE_URL}" ;; esac`,
     `case "$1" in tools/engines-check.mjs) ${behave.join('; ')}; exit 0 ;; esac`,
+    // STUB_CI_PASS: CI passed on the commit (exit 0); otherwise the check answers pending (exit 1).
+    `case "$1" in tools/ci-green.mjs) ${record}; if [ -n "$STUB_CI_PASS" ]; then exit 0; fi; exit 1 ;; esac`,
     `case "$1" in tools/check.mjs) ${behave.join('; ')}; if [ $# -eq 1 ] && [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST" dist; fi; exit 0 ;; esac`,
     `exec "${process.execPath}" "$@"`,
   ]);
@@ -476,19 +478,45 @@ describe('deploy.sh', () => {
   });
 
   it('checks the combined tree and every release gate on fresh origin/main before publication', () => {
-    const { deploy, calls } = setup();
+    const { repo, deploy, calls } = setup();
     const result = deploy();
     expect(result.status, result.stderr).toBe(0);
     const path = worktreeOf(result.stdout);
     expect(calls().map(line => line.replace(/ @ .*/, ''))).toEqual([
       `wt.sh add ${path}`,
       'npm run plugin:db:init-test',
+      `node tools/ci-green.mjs ${head(repo, 'HEAD')}`,
       'test-lock.sh bash tools/test-unlocked.sh',
       'node tools/check.mjs',
       'npm run build:vercel',
       'npm run check:vercel',
       'node tools/check.mjs web-online',
     ]);
+    expect(result.stdout).not.toMatch(/skipped npm test/);
+  });
+
+  it('with CI passed on the exact commit, skips npm test and the web journey, and keeps the browser checks and the build gates', () => {
+    const { repo, deploy, calls } = setup();
+    const result = deploy([], { STUB_CI_PASS: '1' });
+    expect(result.status, result.stderr).toBe(0);
+    const path = worktreeOf(result.stdout);
+    expect(calls().map(line => line.replace(/ @ .*/, ''))).toEqual([
+      `wt.sh add ${path}`,
+      'npm run plugin:db:init-test',
+      `node tools/ci-green.mjs ${head(repo, 'HEAD')}`,
+      'node tools/check.mjs',
+      'npm run build:vercel',
+      'npm run check:vercel',
+    ]);
+    expect(result.stdout).toMatch(/CI passed at [0-9a-f]{40}; skipped npm test and the web journey/);
+  });
+
+  it('runs the plugin target without the CI check', () => {
+    const { deploy, calls } = setup();
+    const result = deploy(['--target', 'plugin'], { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_CI_PASS: '1' });
+    expect(result.status, result.stderr).toBe(0);
+    expect(calls().some(line => line.includes('ci-green'))).toBe(false);
+    expect(calls().some(line => line.startsWith('test-lock.sh '))).toBe(true);
   });
 
   it('with no flag, never calls vercel and says that it published nothing', () => {
@@ -1165,6 +1193,20 @@ describe('deploy.sh --target plugin --publish', () => {
 describe('deploy.sh --publish', () => {
   const words = (line: string) => line.replace(/ @ .*/, '');
   const npxCalls = (calls: string[]) => calls.filter(line => line.startsWith('npx '));
+
+  it('with CI passed, the publish still runs the browser checks and the engine, artifact, publish and live gates', async () => {
+    const { repo, deployAsync, calls } = setup();
+    const files = pages(), published = liveFolder(files);
+    const live = await pluginSite('parked', () => tree(published));
+    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), STUB_PUBLISH_DIR: published, DEPLOY_LIVE_URL: live.url, DEPLOY_LIVE_TIMEOUT_MS: '900000', STUB_CI_PASS: '1' });
+    expect(result.status, result.stderr).toBe(0);
+    expect([...result.stdout.matchAll(/^deploy: step (.+)$/gm)].map(match => match[1])).toEqual(['fetch origin', 'make worktree', 'wt add', 'plugin test database',
+      'browser checks', 'site artifact', 'engine archive', 'production artifact', 'engines in use', 'site HTTP check',
+      'copy artifact', 'link site project', 'verify site project', 'keep live assets', 'publish', 'live check', 'plugin live check']);
+    expect(calls().some(line => line.startsWith('test-lock.sh '))).toBe(false);
+    expect(calls().some(line => line.startsWith(`node tools/ci-green.mjs ${head(repo, 'HEAD')} `))).toBe(true);
+    expectGone(repo, worktreeOf(result.stdout));
+  });
 
   it('after the checks, publishes the tested build with the pinned Vercel CLI and confirms the live site', async () => {
     const { repo, deployAsync, calls } = setup();

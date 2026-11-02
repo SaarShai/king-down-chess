@@ -417,9 +417,10 @@ jobs:
           nproc
           free -m
           nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &
-      # A step limit under the job limit, as in browser-webkit.
+      # A step limit under the job limit, as in browser-webkit. web-online takes about 170 s on the WebKit runner and
+      # signin-speed about 60 s; a 4-minute budget ended a passed run by one second (2026-11-01).
       - run: npm run check:browser web-online signin-speed
-        timeout-minutes: 4
+        timeout-minutes: 8
       - name: Save kernel log
         if: failure() || cancelled()
         run: sudo dmesg -T | tail -n 400 > /tmp/kingdown-check-runs/dmesg.txt || true
