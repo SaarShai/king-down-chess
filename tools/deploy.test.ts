@@ -511,17 +511,6 @@ describe('deploy.sh', () => {
     expect(result.stdout).toMatch(/CI passed at [0-9a-f]{40}; skipped npm test and the web journey/);
   });
 
-  it('with CI passed, the publish still runs the engine, artifact, publish and live gates', () => {
-    const { repo, deploy, calls } = setup();
-    const result = deploy(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_CI_PASS: '1' });
-    expect(result.status, result.stderr).toBe(0);
-    const steps = [...result.stdout.matchAll(/^deploy: step (.+)$/gm)].map(match => match[1]);
-    expect(steps).toEqual(['fetch origin', 'make worktree', 'wt add', 'plugin test database', 'browser checks', 'site artifact', 'engine archive', 'production artifact',
-      'engines in use', 'site HTTP check', 'copy artifact', 'link site project', 'verify site project', 'keep live assets', 'publish', 'live check', 'plugin live check']);
-    expect(calls().some(line => line.startsWith('test-lock.sh '))).toBe(false);
-    expect(calls().some(line => line.includes(`ci-green.mjs ${head(repo, 'HEAD')}`))).toBe(true);
-  });
-
   it('runs the plugin target without the CI check', () => {
     const { deploy, calls } = setup();
     const result = deploy(['--target', 'plugin'], { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_CI_PASS: '1' });
@@ -1204,6 +1193,20 @@ describe('deploy.sh --target plugin --publish', () => {
 describe('deploy.sh --publish', () => {
   const words = (line: string) => line.replace(/ @ .*/, '');
   const npxCalls = (calls: string[]) => calls.filter(line => line.startsWith('npx '));
+
+  it('with CI passed, the publish still runs the browser checks and the engine, artifact, publish and live gates', async () => {
+    const { repo, deployAsync, calls } = setup();
+    const files = pages(), published = liveFolder(files);
+    const live = await pluginSite('parked', () => tree(published));
+    const result = await deployAsync(['--publish'], { KINGDOWN_ENGINES_DATABASE_URL: enginesDatabase, STUB_DIST: buildFolder(files), STUB_PUBLISH_DIR: published, DEPLOY_LIVE_URL: live.url, DEPLOY_LIVE_TIMEOUT_MS: '900000', STUB_CI_PASS: '1' });
+    expect(result.status, result.stderr).toBe(0);
+    expect([...result.stdout.matchAll(/^deploy: step (.+)$/gm)].map(match => match[1])).toEqual(['fetch origin', 'make worktree', 'wt add', 'plugin test database',
+      'browser checks', 'site artifact', 'engine archive', 'production artifact', 'engines in use', 'site HTTP check',
+      'copy artifact', 'link site project', 'verify site project', 'keep live assets', 'publish', 'live check', 'plugin live check']);
+    expect(calls().some(line => line.startsWith('test-lock.sh '))).toBe(false);
+    expect(calls().some(line => line.startsWith(`node tools/ci-green.mjs ${head(repo, 'HEAD')} `))).toBe(true);
+    expectGone(repo, worktreeOf(result.stdout));
+  });
 
   it('after the checks, publishes the tested build with the pinned Vercel CLI and confirms the live site', async () => {
     const { repo, deployAsync, calls } = setup();

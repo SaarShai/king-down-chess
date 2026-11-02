@@ -396,9 +396,10 @@ const ciGreen = fileURLToPath(new URL('./ci-green.mjs', import.meta.url));
 function runCiGreen(sha: string, pages?: unknown, status: unknown = { sha: head, total_count: 0, state: 'pending' }) {
   const dir = mkdtempSync(join(tmpdir(), 'kingdown-ci-green-'));
   dirs.push(dir);
-  const answer = (value: unknown) => `cat <<'JSON'\n${JSON.stringify(value)}\nJSON`;
+  writeFileSync(join(dir, 'status.json'), JSON.stringify(status));
+  writeFileSync(join(dir, 'pages.json'), JSON.stringify(pages ?? null));
   writeFileSync(join(dir, 'gh'), pages === undefined ? '#!/bin/sh\necho "gh: no network" >&2\nexit 1\n'
-    : `#!/bin/sh\ncase "$*" in *"/status") ${answer(status)} ;; *) ${answer(pages)} ;; esac\n`, { mode: 0o755 });
+    : `#!/bin/sh\ncase "$*" in *"/status") cat "${join(dir, 'status.json')}" ;; *) cat "${join(dir, 'pages.json')}" ;; esac\n`, { mode: 0o755 });
   return spawnSync(process.execPath, [ciGreen, sha], { encoding: 'utf8', env: { ...process.env, PATH: `${dir}:${process.env.PATH}` } });
 }
 
