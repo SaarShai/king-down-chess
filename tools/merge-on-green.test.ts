@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, expect, it, vi } from 'vitest';
-import { mergeOnGreen } from './merge-on-green.mjs';
+import { mergeOnGreen, REUSE_SHAPE } from './merge-on-green.mjs';
 
 vi.setConfig({ testTimeout: 60_000 });
 const head = 'a'.repeat(40), base = 'b'.repeat(40);
@@ -298,6 +298,49 @@ it('checks the review record again after each CI wait', async () => {
   f.checks[0].status = 'queued';
   f.pause.mockImplementationOnce(async () => { writeFileSync(f.file, JSON.stringify(record('running'))); });
   await expect(f.run()).rejects.toThrow('result is not complete');
+  expect(f.merges()).toEqual([]);
+});
+
+/** The check runs of a reused run: reuse passed, every other job skipped (one run per job, matrix jobs included). */
+const reuseShape = () => REUSE_SHAPE.map((name, id) => ({ id, name, head_sha: head, status: 'completed', conclusion: name === 'reuse' ? 'success' : 'skipped' }));
+type Check = ReturnType<typeof reuseShape>[number];
+
+it('merges the reuse shape: reuse passed and every other job skipped, because a green run checked the same tree', async () => {
+  const f = fixture();
+  f.checks.splice(0, f.checks.length, ...reuseShape());
+  await f.run();
+  expect(f.merges()).toHaveLength(1);
+});
+
+it('judges each check suite of the head alone: a full staging push run beside a reused release PR run', async () => {
+  const f = fixture();
+  const push = f.checks.map(check => ({ ...check, check_suite: { id: 1 } }));
+  const pr = reuseShape().map(check => ({ ...check, check_suite: { id: 2 } }));
+  f.checks.splice(0, f.checks.length, ...push, ...pr);
+  await f.run();
+  expect(f.merges()).toHaveLength(1);
+  f.gh.mockClear();
+  push[3].conclusion = 'failure';
+  await expect(f.run()).rejects.toThrow('CI check does not pass');
+  expect(f.merges()).toEqual([]);
+});
+
+it('waits while a PR suite holds only its reuse check beside a full push suite: the PR tests have not started', async () => {
+  const f = fixture();
+  const push = f.checks.map(check => ({ ...check, check_suite: { id: 1 } }));
+  f.checks.splice(0, f.checks.length, ...push, { ...reuseShape()[0], check_suite: { id: 2 } });
+  await expect(f.run()).rejects.toThrow('four hours');
+  expect(f.merges()).toEqual([]);
+});
+
+it.each<[string, (check: Check) => Check | null]>([
+  ['a job is missing', check => check.name === 'verify' ? null : check],
+  ['reuse itself is skipped', check => check.name === 'reuse' ? { ...check, conclusion: 'skipped' } : check],
+  ['one skipped job is beside passing jobs', check => check.name === 'browser-web' ? check : { ...check, conclusion: 'success' }],
+])('refuses skipped checks when %s', async (_name, change) => {
+  const f = fixture();
+  f.checks.splice(0, f.checks.length, ...reuseShape().map(change).filter((check): check is Check => check !== null));
+  await expect(f.run()).rejects.toThrow(/CI check does not pass|reuse shape/);
   expect(f.merges()).toEqual([]);
 });
 

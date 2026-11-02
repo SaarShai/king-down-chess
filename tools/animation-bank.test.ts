@@ -273,6 +273,20 @@ writeFileSync(resolve(base, 'report.json'), '{}');`);
 
 });
 
+it('requires the move-specific checks before promoting a painted loop', async () => {
+  const { keys, hashes } = await fixture(), folder = join(dir, 'move'), catalog = join(dir, 'catalog'), runtime = join(dir, 'runtime.json');
+  await mkdir(folder); await mkdir(catalog);
+  const bank = { id: 'white-walk-N', character: 'pawn', army: 'white', kind: 'move', facing: 'N', status: 'candidate', frames: hashes.map((sha256, i) => ({ url: `${i}.png`, sha256 })) };
+  for (let i = 0; i < hashes.length; i++) await writeFile(join(folder, `${i}.png`), await readFile(join(keys, `00${i}.png`)));
+  await writeFile(join(folder, 'bank.json'), JSON.stringify(bank));
+  await writeFile(runtime, JSON.stringify({ sourceToRuntimeScale: 1, banks: [{ character: 'pawn', army: 'white', kind: 'idle', canvasSize: [96,96], pivot: [48,80], registrationHeightPx: 60, frames: [{ sourceSha256: 'a'.repeat(64) }] }] }));
+  const checks = ['rgba','exterior','painted-keys','timing','placement','range'].map(name => ({ name, ok: true }));
+  await writeFile(join(folder, 'gates.json'), JSON.stringify({ status: 'pass', checks: checks.filter(c => c.name !== 'placement') }));
+  await expect(promote(folder, { catalog, manifest: runtime, dryRun: true })).rejects.toThrow('Gate placement did not pass');
+  await writeFile(join(folder, 'gates.json'), JSON.stringify({ status: 'pass', checks }));
+  await expect(promote(folder, { catalog, manifest: runtime, dryRun: true })).resolves.toMatchObject({ dryRun: true, entry: { kind: 'move' } });
+});
+
 it('promotes a green candidate into the frozen catalog under its lock', async () => {
   const { keys, geometryPath, geometry } = await fixture();
   const stub = join(dir, 'stub.mjs');
@@ -291,14 +305,21 @@ writeFileSync(resolve(base, 'report.json'), JSON.stringify({ frames: plan.frames
   const idleBytes = Buffer.from(`${JSON.stringify(idle)}\n`);
   await writeFile(join(catalog, 'banks', 'idle.json'), idleBytes);
   await writeFile(join(catalog, 'manifest.json'), JSON.stringify({ schemaVersion: 1, purpose: 'fixture', reports: [], entries: [{ character: 'pawn', army: 'white', kind: 'idle', id: 'white-idle', status: 'ready', manifest: 'banks/idle.json', sha256: digest(idleBytes) }] }));
+  const runtimePath = join(dir, 'runtime.json');
+  const runtime = { sourceToRuntimeScale: 1, banks: [{ ...idle, character: 'pawn' }] };
+  await writeFile(runtimePath, JSON.stringify(runtime));
+  const options = { catalog, manifest: runtimePath };
 
+  await writeFile(runtimePath, JSON.stringify({ ...runtime, banks: [{ ...runtime.banks[0], pivot: [49, 80] }] }));
+  await expect(promote(candidate, options)).rejects.toThrow('Locked geometry changed');
+  await writeFile(runtimePath, JSON.stringify(runtime));
   const gatesPath = join(dirname(candidate), 'gates.json');
   const gates = JSON.parse(await readFile(gatesPath, 'utf8'));
   await writeFile(gatesPath, JSON.stringify({ ...gates, checks: gates.checks.filter((check: any) => check.name !== 'ghost') }));
-  await expect(promote(candidate, { catalog })).rejects.toThrow('Gate ghost did not pass');
+  await expect(promote(candidate, options)).rejects.toThrow('Gate ghost did not pass');
   await writeFile(gatesPath, JSON.stringify(gates));
 
-  const promoted = await promote(candidate, { catalog });
+  const promoted = await promote(candidate, options);
   expect(promoted.entry).toMatchObject({ id: 'white-turn-SE-S', status: 'ready', manifest: expect.stringMatching(/^banks\/[a-f0-9]{64}\.json$/) });
   const manifest = JSON.parse(await readFile(join(catalog, 'manifest.json'), 'utf8'));
   expect(manifest.entries).toHaveLength(2);
@@ -306,12 +327,12 @@ writeFileSync(resolve(base, 'report.json'), JSON.stringify({ frames: plan.frames
   expect(published.status).toBe('ready');
   expect(published.frames[0].url).toBe(`../assets/${published.frames[0].sha256}.png`);
   expect(existsSync(join(catalog, 'assets', `${published.frames[0].sha256}.png`))).toBe(true);
-  const again = await promote(candidate, { catalog });
+  const again = await promote(candidate, options);
   expect(again.bankSha256).toBe(promoted.bankSha256);
   expect(JSON.parse(await readFile(join(catalog, 'manifest.json'), 'utf8')).entries).toHaveLength(2);
 
   const failing = await makeBank({ character: 'pawn', army: 'white', kind: 'turn', facing: 'SE-S', keys, geometryRecord: { ...geometry, bodyHeightPx: 80 }, output: join(dir, 'bad'), infer: `node ${stub}`, timing: { durationMs: 60, frameMs: 15 }, preview: false }).catch(error => error);
-  await expect(promote(join(dir, 'bad'), { catalog })).rejects.toThrow('Gates did not pass');
+  await expect(promote(join(dir, 'bad'), options)).rejects.toThrow('Gates did not pass');
   expect(failing.gates.status).toBe('fail');
 });
 

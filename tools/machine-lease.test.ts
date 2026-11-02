@@ -39,8 +39,10 @@ function setup() {
       repo.write(`tools/${file}`, readFileSync(new URL(file, import.meta.url), 'utf8'));
     }
     repo.write('tools/lib/registry.mjs', `export const checks = [{ name: 'lease', script: 'tools/web-game-check.mjs', limit: 10 }];`);
-    repo.write('tools/web-game-check.mjs', `import { existsSync, writeFileSync } from 'node:fs';
-      writeFileSync(process.env.LEASE_STARTED, JSON.stringify({ pid: process.pid, parent: process.ppid }));
+    // The started file appears whole (write, then rename): a reader polls for it and parses it at once.
+    repo.write('tools/web-game-check.mjs', `import { existsSync, renameSync, writeFileSync } from 'node:fs';
+      writeFileSync(process.env.LEASE_STARTED + '.tmp', JSON.stringify({ pid: process.pid, parent: process.ppid }));
+      renameSync(process.env.LEASE_STARTED + '.tmp', process.env.LEASE_STARTED);
       while (process.env.LEASE_RELEASE && !existsSync(process.env.LEASE_RELEASE)) await new Promise(r => setTimeout(r, 20));`);
   }
   function run(copy: number, args: string[], extra: Record<string, string> = {}) {
@@ -140,7 +142,7 @@ it.each([['tests', tests], ['browser checks', browser]])('%s release the machine
 
 it('a surviving child holds the machine lease after its parent dies, then releases it on exit', async () => {
   const { run, until } = setup();
-  const heavy = run(0, ['bash', 'tools/test-lock.sh', 'sh', '-c', 'sleep 60 & echo $! > "$LEASE_STARTED"; wait']);
+  const heavy = run(0, ['bash', 'tools/test-lock.sh', 'sh', '-c', 'sleep 60 & echo $! > "$LEASE_STARTED.tmp"; mv "$LEASE_STARTED.tmp" "$LEASE_STARTED"; wait']);
   await until(() => existsSync(heavy.started), heavy);
   const sleeper = Number(readFileSync(heavy.started, 'utf8'));
   heavy.child.kill('SIGKILL');

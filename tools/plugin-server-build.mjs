@@ -19,6 +19,7 @@ import { CHATGPT_PLUGIN } from './chatgpt-plugin.mjs';
 export function vercelRoutes(site, { chatgpt = CHATGPT_PLUGIN } = {}) {
   const routes = chatgpt ? Object.entries(ART_TYPES).map(([type, contentType]) => ({ src: `^/plugin-art/[\\w-]+\\.${type}$`, headers: { ...ART_HEADERS, 'Content-Type': contentType }, continue: true })) : [];
   if (site) {
+    routes.push({ src: '^/character-runtime/assets/[a-f0-9]{64}\\.webp$', headers: { 'Cache-Control': 'public, max-age=31536000, immutable' }, continue: true });
     const challenge = resolve(site, '.well-known/openai-apps-challenge');
     if (chatgpt && existsSync(challenge)) {
       const token = readFileSync(challenge, 'utf8');
@@ -99,7 +100,7 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   // --site takes the website from dist/ (npm run build:vercel builds it first). --chatgpt builds the parked plugin surface
-  // for its checks (CI: npm run plugin:build:chatgpt, then plugin:server:check on that tree); never deploy that tree.
+  // for its checks (by hand: npm run plugin:build:chatgpt, then plugin:server:check on that tree); never deploy that tree.
   const args = process.argv.slice(2), site = args.includes('--site') ? resolve('dist') : undefined, vercel = args.includes('--vercel');
   if (args.filter(arg => !arg.startsWith('--')).length > 1 || args.some(arg => arg.startsWith('--') && !['--vercel', '--site', '--chatgpt'].includes(arg))) throw new Error('Usage: node tools/plugin-server-build.mjs [output] [--vercel | --site] [--chatgpt]');
   const path = args.find(arg => !arg.startsWith('--'));

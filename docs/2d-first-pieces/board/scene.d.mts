@@ -34,7 +34,7 @@ export interface PaintedScene {
   load(): Promise<void>;
   readonly position: { board: ArrayLike<number> };
   setPosition(position: { board: ArrayLike<number> }): void;
-  setSelected(square: number | null): void;
+  setSelected(square: number | null, destinations?: number[]): void;
   /** Opt-in tell: glow and lift 3 screen pixels; lift=false keeps a still glow. Null clears it. */
   setLifted(square: number | null, lift?: boolean): void;
   readonly lifted: number | null;
@@ -73,7 +73,8 @@ export interface PaintedScene {
   readonly frames: number;
   readonly characterEffects: { kind: string; at: number; speed: number; bodyDurationMs: number; bodyTime: number; releaseMs: number; durationMs: number; elapsedMs: number; origin: { x: number; y: number }; target: { x: number; y: number }; foot: { x: number; y: number }; pivot: number[]; scale: number }[];
   readonly characterExit: number | null;
-  readonly characterMemory: { bytes: number; peakBytes: number; active: number; queued: number };
+  readonly characterWarmupSettled: boolean;
+  readonly characterMemory: { bytes: number; peakBytes: number; framesLoaded: number; active: number; queued: number; manifestReady: boolean; manifestLoading: boolean };
   readonly characterFrames: { square: number; opacity: number; bank: string; time: number; foot: { x: number; y: number }; pivot: number[]; scale: number }[];
   /**
    * 'under': once, below every figure. 'over': once per screen row (0 = top) after that row's figures,

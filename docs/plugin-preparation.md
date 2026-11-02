@@ -29,7 +29,7 @@ npm run check:browser plugin-oauth plugin-ui plugin-ui-http
 
 The OAuth check needs Playwright Chromium (`npx playwright install chromium` if missing). It exercises the compiled consent page with the actual Supabase SDK against a local provider mock: social sign-in with PKCE, the return to the original authorization request, approval, denial, unapproved clients and escaped client names. It also executes the audience hook in PostgreSQL inside a rolled-back transaction, including ordinary website, anonymous, service-role, spoofed-metadata and refresh cases. This verifies our integration contract; the actual provider remains a separate check.
 
-The [validation workflow](../.github/workflows/plugin-checks.yml) supplies PostgreSQL and runs unit, HTTP, OAuth and browser checks, including a browser connected to the compiled server and database. It publishes nothing. The existing manual website publishing workflow is unchanged. A workflow file prepared locally is not evidence that hosted CI has run.
+The [validation workflow](../.github/workflows/plugin-checks.yml) supplies PostgreSQL and runs unit, HTTP and browser checks (the OAuth check runs by name only since the plugin was parked), including a browser connected to the compiled server and database. It publishes nothing. The existing manual website publishing workflow is unchanged. A workflow file prepared locally is not evidence that hosted CI has run.
 
 ## Play the local board
 

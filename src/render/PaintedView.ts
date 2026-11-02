@@ -312,7 +312,7 @@ export class PaintedView implements BoardView {
     const ended = this.marks.check != null && h.check == null ? this.marks.check : null;
     this.marks = h;
     this.container.classList.toggle('king-in-check', h.check != null);
-    this.scene.setSelected(h.selected ?? null);
+    this.scene.setSelected(h.selected ?? null, h.moves ?? []);
     const now = performance.now(), motion = this.motion() && !document.hidden;
     if (ended != null) this.stateEffects.endCheck(ended, now, motion);
     this.stateEffects.signal('archer', h.shots?.length ? `${h.selected}:${h.shots}` : '', now, motion);

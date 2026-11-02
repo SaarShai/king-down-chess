@@ -16,6 +16,28 @@ const span=(u,a,b)=>clamp((u-a)/(b-a),0,1);
 const settle=k=>k<=0||k>=1?0:Math.exp(-3*k)*Math.sin(2*Math.PI*k);
 const blend=(a,b,t)=>a+(b-a)*t;
 const rest={travel:0,lift:0,sx:1,sy:1,tilt:0,shadow:1};
+export function paintedPace(squares,cycle,stride){
+ const natural=squares*cycle/stride,budget=Math.min(2000,600+250*(squares-1)),rate=Math.min(2,Math.max(1,natural/budget));
+ const duration=natural/2>budget?Math.min(natural/2,2800):natural/rate,skate=natural/(rate*duration);
+ return skate<=1.2?{duration,rate,skate}:null;
+}
+// Painted walk body travel. A constant speed slides the body during each held pose, so the planted foot
+// slips. Mix the linear path with the path held at the start of the pose on screen. The last step always
+// lands on the target square.
+export const BODY_TRAVEL_MIX=.5;
+export function paintedTravel(t,duration,rate,frames,cycle,mix=BODY_TRAVEL_MIX){
+ const u=clamp(duration>0?t/duration:1,0,1);
+ if(u>=1)return 1;
+ const natural=rate*duration;
+ if(!(natural>0))return u;
+ // The pose clock runs from 0 to natural over the move; it repeats every cycle. The held body
+ // position is the linear position at the start of the pose on screen. It never moves back,
+ // even when the clock passes a cycle boundary.
+ const period=cycle>0?cycle:natural,clock=u*natural,pose=Math.floor(clock/period)*period,within=clock-pose;
+ let offset=0;
+ for(const frame of frames??[])if(frame.timeMs<=within&&frame.timeMs>=offset)offset=frame.timeMs;
+ return (1-mix)*u+mix*clamp((pose+offset)/natural,0,1);
+}
 
 // One-steppers (King, Guard, Maester, Ogre, Beast, Archer): a small dip, two quick footfalls
 // with a forward lean, then the weight settles with a little squash.
@@ -55,6 +77,7 @@ export const GAITS={
  walk:{duration:()=>440,at:walk},
  glide:{duration:squares=>Math.min(480,350+28*squares),at:glide},
  hop:{duration:()=>420,at:hop},
+ paintedWalk:{at:u=>({...rest,travel:clamp(u,0,1)})},
 };
 // Figures by art name. Knight (leap) and Paladin (charge) keep their own quiet moves.
 export const GAIT_OF={king:'walk',guard:'walk',maester:'walk',ogre:'walk',beast:'walk',archer:'walk',rook:'glide',bishop:'glide',queen:'glide',pawn:'hop'};

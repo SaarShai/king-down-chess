@@ -290,7 +290,7 @@ else
   step 'plugin worker check' npm run plugin:smoke
 fi
 if [ "$target" = website ]; then
-  # The site build parks the ChatGPT plugin, so the website release has no plugin gate; CI still checks its source.
+  # The site build parks the ChatGPT plugin, so the website release has no plugin gate; its source is checked by hand (docs/HOSTING.md).
   # To bring it back, put the plugin protocol check and `check:browser plugin-ui plugin-ui-http` here again. The
   # legacy plugin target builds with `--chatgpt` (npm run plugin:build:vercel), so its gates test the tree it publishes.
   step 'web journey' node tools/check.mjs web-online

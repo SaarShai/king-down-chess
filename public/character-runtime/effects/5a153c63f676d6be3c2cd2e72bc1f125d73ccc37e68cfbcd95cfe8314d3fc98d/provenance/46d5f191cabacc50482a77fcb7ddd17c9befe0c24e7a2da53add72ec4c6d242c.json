@@ -1,0 +1,98 @@
+{
+  "effects": [
+    {
+      "label": "Archer \u00b7 released arrow \u00b7 both armies",
+      "url": "/docs/specs/character-animation-samples/preview/army-effects-review/?action=archer-E",
+      "moduleUrl": "/docs/specs/character-animation-samples/preview/army-effects-review/effects/arrow-flight/effect.mjs"
+    },
+    {
+      "label": "Archer \u00b7 continuous arrowhead smoke \u00b7 both armies",
+      "url": "/docs/specs/character-animation-samples/preview/army-effects-review/?action=archer-boxer",
+      "moduleUrl": "/docs/specs/character-animation-samples/preview/army-effects-review/effects/smoke.mjs"
+    },
+    {
+      "label": "Maester \u00b7 separate beam \u00b7 both armies, all8 directions",
+      "url": "/docs/specs/character-animation-samples/preview/army-effects-review/?action=maester-SE",
+      "moduleUrl": "/docs/specs/character-animation-samples/preview/directional-attacks/effects/maester-beam-2b4bf67f5fd54eff/effect.mjs"
+    },
+    {
+      "label": "Queen \u00b7 separate thorn swarm \u00b7 white; black E, SE, S, SW, W, NW, N, NE",
+      "url": "/docs/specs/character-animation-samples/preview/army-effects-review/?action=queen-E",
+      "moduleUrl": "/docs/specs/character-animation-samples/preview/directional-attacks/effects/queen-thorns-2c7a631202cf0170/effect.mjs"
+    }
+  ],
+  "coverage": {
+    "archer": {
+      "whiteAttacks": [
+        "E",
+        "SE",
+        "S",
+        "SW",
+        "W",
+        "NW",
+        "N",
+        "NE"
+      ],
+      "blackAttacks": [
+        "E",
+        "SE",
+        "S",
+        "SW",
+        "W",
+        "NW",
+        "N",
+        "NE"
+      ],
+      "whiteAndBlackIdles": [
+        "boxer (SW)",
+        "watchful (SW)"
+      ]
+    },
+    "maester": {
+      "whiteAttacks": [
+        "E",
+        "SE",
+        "S",
+        "SW",
+        "W",
+        "NW",
+        "N",
+        "NE"
+      ],
+      "blackAttacks": [
+        "E",
+        "SE",
+        "S",
+        "SW",
+        "W",
+        "NW",
+        "N",
+        "NE"
+      ],
+      "pendingBlack": []
+    },
+    "queen": {
+      "whiteAttacks": [
+        "E",
+        "SE",
+        "S",
+        "SW",
+        "W",
+        "NW",
+        "N",
+        "NE"
+      ],
+      "blackAttacks": [
+        "E",
+        "SE",
+        "S",
+        "SW",
+        "W",
+        "NW",
+        "N",
+        "NE"
+      ],
+      "pendingBlack": []
+    }
+  }
+}

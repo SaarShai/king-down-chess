@@ -56,7 +56,7 @@ function pollView() {
 let endKey: string | undefined;
 export function endSync(page: Page) {
   if (stopped || queue.closed()) return;
-  const key = `${page.screen}:${$<HTMLButtonElement>('reload').disabled}:${staleRead(page)}`;
+  const key = `${page.screen}:${$<HTMLButtonElement>('reload').disabled}:${staleRead(page)}:${!!page.notice?.details}`;
   if (key === endKey) return;
   endKey = key;
   // Hand the table to the end screen in the same pass as the screen switch. The board then never sits in a
@@ -76,7 +76,7 @@ export function updateEnd() {
   if (stopped || queue.closed()) return;
   if (client.state.screen !== 'end') { closeEnd(); return; }
   endScreen(false);
-  if (client.state.screen !== 'end' || updating || $<HTMLButtonElement>('reload').disabled) return;
+  if (client.state.screen !== 'end' || updating || readFailed() || $<HTMLButtonElement>('reload').disabled) return;
   const view = boardGame(); if (!view) return;
   // A rematch tap waits only for a pending command of this game: a start or another game's command keeps its error elsewhere.
   if (queuedRematch && !pendingHere(store.page())) {
@@ -94,8 +94,12 @@ export function updateEnd() {
     }).finally(() => { updating = false; });
   } else if (!read.has(view.game_id)) {
     if (memory.view?.rules) { read.add(view.game_id); return; }
+    // A failed details read waits for Try again; it never resends by itself.
+    if (store.page().notice?.kind === 'read') return;
     updating = true;
-    void call('kingdown_get', {}, true).then(next => { if (next) read.add(view.game_id); }).finally(() => { updating = false; endScreen(); });
+    // Result details are a read; a reload must never keep them as an account command. Their failure offers Try again
+    // and keeps the result's choices: the finished game view stays current, so a queued rematch still sends (ticket 41).
+    void call('kingdown_get', {}, { user: false, details: true }).then(next => { if (next) read.add(view.game_id); }).finally(() => { updating = false; endScreen(); });
   }
 }
 export function endScreen(schedule = true) {

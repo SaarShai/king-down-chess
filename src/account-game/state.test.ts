@@ -111,6 +111,15 @@ describe('the read rule', () => {
     expect(staleRead(page({ notice: { kind: 'read', text: 'Nope' } }))).toBe(true);
     expect(staleRead(page({ notice: { kind: 'refusal', text: 'Nope', game: 'g1' }, view: view('g1') }))).toBe(false);
   });
+
+  it('keeps a failed result-details read current: Try again shows, nothing locks', () => {
+    const slotAfter = reduce(slot(), { type: 'failed-read', text: 'Nope', game: 'g1', details: true }, page());
+    expect(slotAfter.notice).toEqual({ kind: 'read', text: 'Nope', game: 'g1', details: true });
+    const shown = page({ notice: slotAfter.notice, view: view('g1') });
+    expect(staleRead(shown)).toBe(false);
+    expect(locks(shown).game).toBe(false);
+    expect(messageLine(shown)).toEqual({ text: 'Nope', action: 'try-again', status: false });
+  });
 });
 
 describe('the pending scope', () => {

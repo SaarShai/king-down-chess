@@ -1,0 +1,135 @@
+{
+  "scope": "selected Archer arrow/smoke, Queen thorn and Maester beam texture inputs; not character bodies or card paintings",
+  "effectFamilies": [
+    "queen",
+    "maester",
+    "archer",
+    "smoke",
+    "smokeTexture"
+  ],
+  "textures": [
+    {
+      "path": "/Users/za/Documents/king down chess (new)/app/.claude/worktrees/army-archer-v1/docs/specs/character-animation-samples/preview/army-archer/effects/golden-wisp.png",
+      "sha256": "2e5449b3c9ced1ec5680a25360a173611e21097b0f0e8204bfadb41be763a2b2",
+      "role": "effect",
+      "size": [
+        1254,
+        1254
+      ],
+      "alphaRange": [
+        0,
+        253
+      ],
+      "pass": true
+    },
+    {
+      "path": "/Users/za/Documents/king down chess (new)/app/.claude/worktrees/bishop-dagger/docs/specs/character-animation-samples/preview/arrow-flight-directional-effect/assets/contact-flash.png",
+      "sha256": "06bb69e349305a542f9db8eb16fb42ae5e495b13431df2e2b717759b409ad1af",
+      "role": "effect",
+      "size": [
+        1774,
+        887
+      ],
+      "alphaRange": [
+        0,
+        254
+      ],
+      "pass": true
+    },
+    {
+      "path": "/Users/za/Documents/king down chess (new)/app/.claude/worktrees/bishop-dagger/docs/specs/character-animation-samples/preview/arrow-flight-directional-effect/assets/golden-arrow.png",
+      "sha256": "28a2abc970fbfe07148b73532c7f3313917393b5675a0210d15ffb3df90ef9bc",
+      "role": "effect",
+      "size": [
+        1774,
+        887
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "path": "/Users/za/Documents/king down chess (new)/app/.claude/worktrees/bishop-dagger/docs/specs/character-animation-samples/preview/arrow-flight-directional-effect/assets/golden-wisp.png",
+      "sha256": "2e5449b3c9ced1ec5680a25360a173611e21097b0f0e8204bfadb41be763a2b2",
+      "role": "effect",
+      "size": [
+        1254,
+        1254
+      ],
+      "alphaRange": [
+        0,
+        253
+      ],
+      "pass": true
+    },
+    {
+      "path": "/Users/za/Documents/king down chess (new)/app/docs/specs/character-animation-samples/preview/directional-attacks/effects/maester-beam-2b4bf67f5fd54eff/assets/2720eee9c355219e3cbf04e05652d3a12104ab4d43202c6a9cb44749c52918e6.png",
+      "sha256": "2720eee9c355219e3cbf04e05652d3a12104ab4d43202c6a9cb44749c52918e6",
+      "role": "effect",
+      "size": [
+        1374,
+        1145
+      ],
+      "alphaRange": [
+        0,
+        254
+      ],
+      "pass": true
+    },
+    {
+      "path": "/Users/za/Documents/king down chess (new)/app/docs/specs/character-animation-samples/preview/directional-attacks/effects/maester-beam-2b4bf67f5fd54eff/assets/6c30d2f7f69e8eac2f49a58058ceca2aa95fecc8fa43a6710f1ad184a3720dc9.png",
+      "sha256": "6c30d2f7f69e8eac2f49a58058ceca2aa95fecc8fa43a6710f1ad184a3720dc9",
+      "role": "effect",
+      "size": [
+        1536,
+        1024
+      ],
+      "alphaRange": [
+        0,
+        253
+      ],
+      "pass": true
+    },
+    {
+      "path": "/Users/za/Documents/king down chess (new)/app/docs/specs/character-animation-samples/preview/directional-attacks/effects/queen-thorns-2c7a631202cf0170/assets/thorn-shard-native-v1.png",
+      "sha256": "05b63532f7a78d1dcc2c86bed6b6cc8d9f69f86a14ab91ae2c87dd98315378d0",
+      "role": "effect",
+      "size": [
+        1774,
+        887
+      ],
+      "alphaRange": [
+        0,
+        255
+      ],
+      "pass": true
+    }
+  ],
+  "moduleObservations": "Draw functions add sprites on the supplied canvas; no opaque full-canvas fill. Numeric texture checks do not replace temporal/composited review.",
+  "pixelPass": true,
+  "visualReview": {
+    "reviewer": "root",
+    "scope": "Representative separate-layer playback and active-frame contours; E and NE seen in motion. Not a new all-direction release-anchor audit.",
+    "checks": {
+      "light": {
+        "passed": true,
+        "evidence": "effects-light.png"
+      },
+      "dark": {
+        "passed": true,
+        "evidence": "effects-dark.png"
+      },
+      "checkerboard": {
+        "passed": true,
+        "evidence": "effects-checkerboard.png"
+      },
+      "board": {
+        "passed": true,
+        "evidence": "effects-board.png"
+      }
+    },
+    "observations": "No opaque rectangular backing or clipped edge in the inspected effect layers. Active-frame edge alpha is zero for all four effects; thin arrows and soft smoke remain separate from the board."
+  }
+}

@@ -18,6 +18,14 @@ import { reportErrors } from '../../tools/errors-report';
 import { errorFingerprint, MAX_ERROR_BODY, errorMessage, type ClientErrorReport } from './data';
 import { createErrorWriter, errorAdmission, recordServerError } from './server';
 
+// Hashes can contain a probe by chance; the tests check them separately.
+const textWithoutHashes = (item: unknown) => JSON.stringify(item, (key, part) => key === 'fingerprint' || key === 'build' ? undefined : part);
+it('checks private text without mistaking a hash for a leak', () => {
+ const row={fingerprint:'e2e42863c61cbb0b',build:'e2e4',message:'Unlisted message'};
+ expect(textWithoutHashes(row)).not.toContain('e2e4');
+ expect(textWithoutHashes({...row,message:'e2e4'})).toContain('e2e4');
+});
+
 it('limits a function instance without an address key', () => {
  vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-01Z'));
  try {
@@ -269,22 +277,22 @@ suite('first-party fault HTTP and database writes', () => {
    const body = await sent[0].text(), input = JSON.parse(body);
    const message = ['person@example.com', 'd137864c-e174-4f38-9277-6bdd0a4289dc'].includes(value) ? 'Unlisted message' : 'Cannot read properties of [value] (reading [value])';
    const fingerprint = errorFingerprint('TypeError', message, '/play', input.build);
-   expect(body).not.toContain(value);
+   expect(textWithoutHashes(input)).not.toContain(value);
    expect(input).toMatchObject({ message, fingerprint });
    expect((await post(input)).status).toBe(204);
    let stored = await rows();
    expect(stored).toMatchObject([{ message, fingerprint, count: '1' }]);
-   expect(JSON.stringify(stored)).not.toContain(value);
+   expect(textWithoutHashes(stored)).not.toContain(value);
    // The server also checks raw messages from clients that omit the browser check.
    expect((await post({ ...input, message: fault!.message })).status).toBe(204);
    stored = await rows();
    expect(stored).toMatchObject([{ message, fingerprint, count: '2' }]);
-   expect(JSON.stringify(stored)).not.toContain(value);
+   expect(textWithoutHashes(stored)).not.toContain(value);
    await admin.query('truncate public.client_errors');
    await recordServerError(options.recordError, fault!, '/api/me/profile', build);
    stored = await rows();
    expect(stored).toMatchObject([{ kind: 'server', message }]);
-   expect(JSON.stringify(stored)).not.toContain(value);
+   expect(textWithoutHashes(stored)).not.toContain(value);
   } finally { vi.unstubAllGlobals(); }
  });
  it('keeps fixed WebKit aliases and removes private values from bodies and rows', async () => {

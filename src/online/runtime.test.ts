@@ -4,6 +4,7 @@ import { onlineClient, OnlineError, type OnlineClient } from './client';
 import { createPageClient } from '../plugin/client';
 import { createQueue } from '../plugin/queue';
 import { CANNOT_CONNECT } from '../account-game/types';
+import { locks } from '../account-game/state';
 import type { JoinPreview, View } from '../match/protocol';
 
 function storage() {
@@ -243,6 +244,35 @@ it.each(['kingdown_create', 'kingdown_find'])('preserves the existing start cont
     expect(browser.localStorage.getItem('kingdown.account-command.a')).toBeNull();
     if (name === 'kingdown_create') expect(create).toHaveBeenCalledExactlyOnceWith({ kind: 'solo' }, 'start-once', expect.any(AbortSignal));
     else expect(find).toHaveBeenCalledExactlyOnceWith({ kind: 'solo', command_id: 'start-once' }, expect.any(AbortSignal));
+  } finally { vi.unstubAllGlobals(); }
+});
+// Builds before ticket 97 saved the result-details read with retention: this is the exact page record they left.
+it.each([
+  ['after a held reply', {}],
+  ['after a failed reply', { error: CANNOT_CONNECT, error_screen: 'end' }],
+] as const)('drops a saved result-details read on /play/ %s, so Start unlocks', (_case, failure) => {
+  const { browser } = browserAt('/play/'), game_tag = args.game_id.slice(0, 8);
+  browser.localStorage.setItem('kingdown.account-game.a', JSON.stringify({ screen: 'end', board_id: args.game_id, pending: { name: 'kingdown_get', args: {}, game_tag, screen: 'end', ...failure } }));
+  try {
+    const host = createBrowserRuntime({} as OnlineClient, 'a'), client = createPageClient(host.call, host.stateHost);
+    expect(client.state).toMatchObject({ screen: 'play', board_id: undefined });
+    expect(client.state.pending).toBeUndefined();
+    expect(locks({ screen: 'play', pending: client.state.pending, pendingScope: host.stateHost?.pendingScope, connected: true, mounting: false, writing: false }).start).toBe(false);
+  } finally { vi.unstubAllGlobals(); }
+});
+it.each(['kingdown_resume', 'kingdown_open'])('drops a saved %s read on load, so it cannot hold Start', name => {
+  const { browser } = browserAt('/play/');
+  browser.localStorage.setItem('kingdown.account-game.a', JSON.stringify({ screen: 'end', board_id: args.game_id, pending: { name, args: { game_id: args.game_id }, game_tag: args.game_id.slice(0, 8), screen: 'end', error: CANNOT_CONNECT, error_screen: 'end' } }));
+  try {
+    expect(createBrowserRuntime({} as OnlineClient, 'a').stateHost?.widgetState?.privateContent?.pending).toBeUndefined();
+  } finally { vi.unstubAllGlobals(); }
+});
+it('keeps a durable saved command with its receipt beside the dropped-read rule', () => {
+  const { browser } = browserAt('/play/'), receipt = { name: 'kingdown_resign', args: { game_id: args.game_id, command_id: 'resign-once', expected_revision: 5 } };
+  browser.localStorage.setItem('kingdown.account-command.a', JSON.stringify(receipt));
+  browser.localStorage.setItem('kingdown.account-game.a', JSON.stringify({ screen: 'board', board_id: args.game_id, pending: { ...receipt, game_tag: args.game_id.slice(0, 8), screen: 'board', error: CANNOT_CONNECT } }));
+  try {
+    expect(createBrowserRuntime({} as OnlineClient, 'a').stateHost?.widgetState?.privateContent?.pending).toMatchObject({ ...receipt, screen: 'board', error: undefined });
   } finally { vi.unstubAllGlobals(); }
 });
 it('keeps a same-game setup continuation while recovering its saved command', () => {

@@ -121,7 +121,7 @@ diff. Add `reconcile` to that review with the current `head` and `base`,
 record to the current PR head and base. A running, failed, or cancelled review,
 an open finding, or an absent reconcile blocks merge. The helper reads the PR
 and then the record again before merge. The record must match the current head
-and base. It requires at least 11 CI check-runs, all complete with `success`, on
+and base. Each check suite (workflow run) on the full head SHA must have at least 10 check-runs, all complete with `success`, or exactly the reuse shape (the `reuse` check-run passed and every other job skipped, see `REUSE_SHAPE`), on
 the full head SHA. It also checks the combined commit status on that head. A
 failed status refuses merge; a pending status waits. A head can have no commit statuses.
 The helper checks every 60 seconds for at most four elapsed hours. Each request,

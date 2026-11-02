@@ -8,7 +8,7 @@ import { nextGame } from '../account-game/next-game';
 import { gameTitle, waitingLine } from '../account-game/games-list';
 import type { JoinPreview, View } from '../match/protocol';
 import { createPageClient, pluginGameClient, SELECTION_TOOLS } from '../plugin/client';
-import { CANNOT_CONNECT, errorText, knownScreen, type Screen, type Pending } from '../account-game/types';
+import { CANNOT_CONNECT, errorText, knownScreen, READ_TOOLS, type Screen, type Pending } from '../account-game/types';
 import { art } from '../account-game/art';
 import { handleProblem, ICONS, type Icon } from '../account/profile';
 import { boardScreen, rollbackBoardMove } from '../plugin/screens/board';
@@ -169,8 +169,6 @@ function continuation(command: Pending): ((next: View, origin: Job) => Promise<u
   if (command.screen === 'wait' && command.name === 'kingdown_choose') return finishHandoff;
   if (command.screen === 'friend' && command.name === 'kingdown_abort') return finishCancel;
 }
-/** The tools that change no game and no account: they run as reads, beside the lane (design §2). */
-export const READ_TOOLS = ['kingdown_get', 'kingdown_games', 'kingdown_lobby', 'kingdown_profile'];
 /** The screens a poll reply may route between; a poll never leaves a screen the player opened (design §1.2, R3b). */
 const POLL_SCREENS: Screen[] = ['friend', 'wait', 'seat', 'board'];
 
@@ -337,7 +335,7 @@ async function perform(job: Job, initialName: string, initialArgs: Record<string
       else if (quiet && message === CANNOT_CONNECT) store.dispatch({ type: 'failed-poll', text: message, ...(view?.game_id && { game: view.game_id }) });
       else if (own && state.pending === own) { failPending(message, own, job); store.dispatch({ type: 'change' }); }
       // Three failed polls in a row (or one failed foreground read) mark the board stale: "Not current", the lock and Try again.
-      else if (name === 'kingdown_get' && state.board_id) store.dispatch({ type: 'failed-read', text: message, ...(view?.game_id && { game: view.game_id }) });
+      else if (name === 'kingdown_get' && state.board_id) store.dispatch({ type: 'failed-read', text: message, ...(view?.game_id && { game: view.game_id }), ...(job.options.details && { details: true as const }) });
       else if (queue.current(job) && state.screen === commandScreen) store.dispatch({ type: 'error', text: message });
       return refused ? { status: 'refused', code: refused.code, text: refused.text, result: EMPTY } : { status: 'failed', code, text: message };
     } finally { if (quiet) polling = false; }
@@ -356,7 +354,8 @@ $('reload').onclick = () => { if (state.board_id) void call('kingdown_get', {});
 $('retry').onclick = () => {
   const action = messageLine(store.page()).action;
   if (action === 'connect') location.reload();
-  else if (action === 'try-again') { if (state.board_id) void call('kingdown_get', {}, { route: true, shown: mountShown }); }
+  // Try again on a failed result-details read repeats that read: a second failure keeps the result's choices (ticket 41).
+  else if (action === 'try-again') { if (state.board_id) void call('kingdown_get', {}, { route: true, shown: mountShown, ...(store.page().notice?.details && { details: true }) }); }
   // Retry sends the state.pending command again; its continuation finishes what the command started (design §5.2 and §5.3).
   else if (state.pending) void call(state.pending.name, state.pending.args, true, false, undefined, true);
 };
