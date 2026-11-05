@@ -11,22 +11,21 @@ it('ships every attack frame as an accepted key or a listed in-between, with tra
  const attacks=manifest.banks.filter((bank:any)=>bank.kind==='attack');
  expect(attacks).toHaveLength(256);
  expect(accepted).toHaveLength(255);
- expect(smooth).toHaveLength(191);
+ expect(smooth).toHaveLength(255);
  for(const bank of attacks){
   expect(bank.frames.at(-1).sourceSha256,bank.id).toBe(bank.frames[0].sourceSha256);
   if(bank.character==='paladin'&&bank.army==='black'&&bank.id==='black-attack-N')continue;
   expect(accepted.some((r:any)=>r.character===bank.character&&r.army===bank.army&&r.direction===bank.facing),bank.id).toBe(true);
  }
- // Keys-only banks play the accepted keys at their accepted times. The four kings Flame, Frost, Mud and Shadow
- // stay keys only: their machine in-betweens failed the visual check (issue 37).
- const keysOnly=new Set(['king-flame','king-frost','king-mud','king-shadow']);
+ // Every smooth bank plays its accepted keys plus the listed in-betweens. The four kings Flame, Frost, Mud and
+ // Shadow joined in issue 38 after the owner accepted their previews and the frost blade fix.
  let retimed=0;
  for(const record of accepted){
   const name=`${record.character}/${record.army}/${record.direction}`;
   const bank=attacks.find((b:any)=>b.character===record.character&&b.army===record.army&&b.facing===record.direction);
   const listed=smooth.find((s:any)=>s.character===record.character&&s.army===record.army&&s.direction===record.direction);
   expect(bank,name).toBeDefined();
-  expect(Boolean(listed),name).toBe(!keysOnly.has(record.character));
+  expect(Boolean(listed),name).toBe(true);
   expect(bank.nearest).toBe(true);
   expect(bank.contactMs).toBe(record.contactMs);
   if(['maester','queen','archer'].includes(record.character))expect(bank.beatTimes.release).toBe(record.contactMs);
