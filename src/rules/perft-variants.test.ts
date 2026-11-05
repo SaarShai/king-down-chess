@@ -309,20 +309,24 @@ describe('King Down: frozen perft counts', () => {
 });
 
 describe('King Down: search and engine paths', () => {
-  for (const row of TABLE.filter(row => row.name !== 'double first turn')) it(row.name, () => {
+  for (const row of TABLE) it(row.name, () => {
     agree(load(row), 2);
   });
 
-  // The search changes the mover after Black's first move. The engine keeps Black's turn.
-  it.fails('double first turn: Black keeps the turn after its first move', () => {
+  for (const row of TABLE) it(`double first turn / ${row.name}`, () => {
+    const pos = load(row);
+    setRules({ ...row.rules, secondPlayerDoubleFirstTurn: true });
+    agree(pos, 2);
+  });
+
+  it('double first turn: Black keeps the turn after its first move', () => {
     setRules({ secondPlayerDoubleFirstTurn: true });
     const pos = fromFen('7k/8/8/8/8/8/8/K7 b - - 0 1');
     const m = legalMoves(pos).find(m => m.to === parseSq('g8'))!;
     expect(probeApply(pos, m)).toEqual({ after: positionKey(makeMove(pos, m)), back: positionKey(pos) });
   });
 
-  // The search permits a check on the first of Black's two opening moves.
-  it.fails('double first turn: legal moves omit the first-move check', () => {
+  it('double first turn: legal moves omit the first-move check', () => {
     const pos = load(STATES.find(row => row.name === 'double first turn')!);
     expect(list(pos, searchLegal(pos))).toEqual(list(pos, legalMoves(pos)));
   });
