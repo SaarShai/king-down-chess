@@ -209,8 +209,11 @@ describe('wt prune', () => {
     expect(verdicts(prune().stdout)).toEqual(v);
   });
 
-  it('compares with origin/main when that ref exists: a local main that is behind keeps no merged worktree', () => {
+  it('compares with origin/main when that ref exists, in both directions', () => {
     const { repo, path, prune, verdicts } = pruneSetup();
+    // Work that only the local main holds is not on the remote: it stays.
+    repo.git('update-ref', 'refs/remotes/origin/main', repo.git('rev-parse', 'main~1').stdout.trim());
+    expect(verdicts(prune().stdout)[path.safe]).toEqual(['keep', 'commits not on main']);
     const head = repo.run('git', ['rev-parse', 'HEAD'], { cwd: path.unmerged }).stdout.trim();
     repo.git('update-ref', 'refs/remotes/origin/main', head);
     const v = verdicts(prune().stdout);
