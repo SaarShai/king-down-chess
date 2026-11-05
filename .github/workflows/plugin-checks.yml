@@ -220,9 +220,6 @@ jobs:
           echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
           npx playwright install --with-deps chromium
         timeout-minutes: 10
-      - run: npm run check:browser home account new-game menu-extra
-        env:
-          PLAYABLE_BROWSER: chromium
       - run: npm run check:browser web-online signin-speed web-game
         env:
           PLAYABLE_BROWSER: chromium
@@ -230,6 +227,54 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: web-check-logs
+          path: /tmp/kingdown-check-runs/
+          retention-days: 7
+
+  # Every default browser check (tools/lib/registry.mjs, the entries not "by name only"), with no names: a new default
+  # check runs here with no change to this file. The runner has no GPU, so --no-gpu leaves out the checks that assert
+  # frame times (gpu in the registry); tools/deploy.sh always runs those. tools/deploy.sh runs the same set only when CI did not pass on the
+  # commit; it looks for the exact step line below, so keep that step without names.
+  browser-default:
+    runs-on: ubuntu-latest
+    needs: reuse
+    if: needs.reuse.outputs.green != 'true'
+    # The first run took 19 min 40 s: 17 min for all 20 checks (two of them now run only with a GPU) and the install.
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kingdown_test
+          POSTGRES_PASSWORD: local_test_only
+          POSTGRES_DB: kingdown_plugin_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run plugin:db:init-test
+      - run: |
+          sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
+          echo 'Acquire::http::Timeout "30"; Acquire::https::Timeout "30"; Acquire::Retries "2";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads
+          npx playwright install --with-deps chromium
+        timeout-minutes: 10
+      - run: npm run check:browser -- --no-gpu
+        env:
+          PLAYABLE_BROWSER: chromium
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: default-check-logs
           path: /tmp/kingdown-check-runs/
           retention-days: 7
 
@@ -417,9 +462,10 @@ jobs:
           nproc
           free -m
           nohup bash tools/ci/webkit-sampler.sh /tmp/kingdown-check-runs/webkit-sampler.log >/dev/null 2>&1 &
-      # A step limit under the job limit, as in browser-webkit.
+      # A step limit under the job limit, as in browser-webkit. web-online takes about 170 s on the WebKit runner and
+      # signin-speed about 60 s; a 4-minute budget ended a passed run by one second (2026-11-01).
       - run: npm run check:browser web-online signin-speed
-        timeout-minutes: 4
+        timeout-minutes: 8
       - name: Save kernel log
         if: failure() || cancelled()
         run: sudo dmesg -T | tail -n 400 > /tmp/kingdown-check-runs/dmesg.txt || true

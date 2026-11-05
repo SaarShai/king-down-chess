@@ -1168,9 +1168,15 @@ it.each([false,true])('shows a draw offer and handles a decline before Resign (i
     const full=await frame.locator('html').evaluate(async()=>{return (window as any).harnessApp.client.call('kingdown_get');});
     expect(full._meta.view.outcome).toBeUndefined();
     const view = (await buddy('kingdown_get',{game_id:joined._meta.view.game_id}))._meta.view;
+    // immediate: Resign while this page still shows the offer, so Resign reads first (board.ts command). The open-offer
+    // poll (3 s) would read the decline and close the open Resign sheet (a new revision closes it) at a time that depends
+    // on the runner (CI run 41329972414). So hold the next board read, the poll's or Resign's own, before the server runs it.
+    if (immediate) { await page.evaluate(() => { (window as any).holdBeforeNext = 'kingdown_get'; }); await page.waitForFunction(() => (window as any).harnessInflight === (window as any).harnessHeld); }
     await buddy('kingdown_draw',{game_id:view.game_id,command_id:'decline-offer',expected_revision:view.revision,choice:'decline'});
     if (!immediate) await frame.locator('#context-note').filter({hasText:'Draw offered.'}).waitFor({state:'hidden',timeout:7000});
+    else expect(await frame.locator('#context-note').textContent()).toContain('Draw offered. Waiting for your opponent.');
     await frame.locator('#board-menu').click(); await frame.locator('#menu-resign').click(); await frame.locator('#board-sheet').getByRole('button',{name:'Resign',exact:true}).click();
+    if (immediate) { await page.waitForFunction(() => typeof (window as any).releaseBefore === 'function'); await page.evaluate(() => (window as any).releaseBefore()); }
     await frame.locator('[data-screen="end"]:not([hidden])').waitFor();
     expect(await frame.locator('#error').textContent()).toBe('');
   } finally { await page.close(); }

@@ -89,7 +89,7 @@ Use the same narrow implementation template, plus exact read paths and compact t
 
 For an input, timing, or layout finding, cite the approved requirement and compare the observed behavior with it. Start with the affected ticket and the owner picks in docs/research/web-adaptation-2026-10-18/baseline-post-merge.md. Behavior that meets the owner pick is not a product fault. Mark a proposed rule change as a design decision. Include the requirement citation in the repair brief.
 
-For an approved merge, use `node tools/merge-on-green.mjs <pr> <full-head-sha> <review.json>`.
+For an approved merge, use `node tools/merge-on-green.mjs <pr> <full-head-sha> <review.json>`; `tools/release/merge.sh <pr> <head> <reviewed head> [note]` writes the record for one complete independent review and runs it.
 The helper requires this record for `SaarShai/king-down-chess`. Use full commit SHAs:
 
 ```json
@@ -121,7 +121,7 @@ diff. Add `reconcile` to that review with the current `head` and `base`,
 record to the current PR head and base. A running, failed, or cancelled review,
 an open finding, or an absent reconcile blocks merge. The helper reads the PR
 and then the record again before merge. The record must match the current head
-and base. Each check suite (workflow run) on the full head SHA must have at least 10 check-runs, all complete with `success`, or exactly the reuse shape (the `reuse` check-run passed and every other job skipped, see `REUSE_SHAPE`), on
+and base. Each check suite (workflow run) on the full head SHA must have at least 11 check-runs (a full run has 12; a branch without the `browser-default` job has 11), all complete with `success`, or exactly the reuse shape (the `reuse` check-run passed and every other job skipped, see `REUSE_SHAPE`), on
 the full head SHA. It also checks the combined commit status on that head. A
 failed status refuses merge; a pending status waits. A head can have no commit statuses.
 The helper checks every 60 seconds for at most four elapsed hours. Each request,

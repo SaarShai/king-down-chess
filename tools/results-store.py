@@ -17,7 +17,7 @@ def digest(path, compressed=False):
 def configured():
     cfg=json.loads(CONFIG.read_text());root=Path(cfg['root'])
     info=plistlib.loads(subprocess.check_output(['diskutil','info','-plist',cfg['volume']]))
-    if info.get('VolumeUUID')!=cfg['uuid'] or not root.is_dir():raise RuntimeError('Connect the configured card disk; no local fallback')
+    if info.get('VolumeUUID')!=cfg['uuid'] or not root.is_dir():raise RuntimeError(f'The King Down results folder {root} is absent or on the wrong volume ({CONFIG}); no fallback')
     return root
 
 def merge(root, source, label, old_drive=False):
@@ -250,6 +250,6 @@ def main():
     try:
         provenance=collect(root,args.main,args.include_old_drive,args.m1) if args.command!='backup' else None
         if args.command!='collect':backup(root,provenance,args.seed_old_drive)
-        if provenance and any('collection_error' in row for row in json.loads(provenance.read_text())):raise RuntimeError('M1 collection incomplete; card backup verified, retry when M1 is reachable')
+        if provenance and any('collection_error' in row for row in json.loads(provenance.read_text())):raise RuntimeError('M1 collection incomplete; results backup verified, retry when M1 is reachable')
     finally:lock.rmdir()
 if __name__=='__main__':main()

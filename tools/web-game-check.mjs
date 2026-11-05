@@ -291,7 +291,10 @@ try {
       const now = new Date();
       await page.clock.setFixedTime(now);
       await page.clock.pauseAt(now);
-      deliberateFailures.add(route.request()); await route.abort('failed'); applied();
+      // The renderer reports the failure after the abort returns. Navigate only after the old page reports it:
+      // a navigation that commits first discards the old document and its requestfailed event.
+      const request = route.request(), failed = page.waitForEvent('requestfailed', event => event === request);
+      deliberateFailures.add(request); await route.abort('failed'); await failed; applied();
     }
     else await route.fulfill({ response });
   });
