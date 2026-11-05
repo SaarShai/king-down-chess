@@ -17,7 +17,7 @@ def digest(path, compressed=False):
 def configured():
     cfg=json.loads(CONFIG.read_text());root=Path(cfg['root'])
     info=plistlib.loads(subprocess.check_output(['diskutil','info','-plist',cfg['volume']]))
-    if info.get('VolumeUUID')!=cfg['uuid'] or not root.is_dir():raise RuntimeError('Connect the configured card disk; no local fallback')
+    if info.get('VolumeUUID')!=cfg['uuid'] or not root.is_dir():raise RuntimeError(f'The King Down results folder {root} is absent or on the wrong volume ({CONFIG}); no fallback')
     return root
 
 def merge(root, source, label, old_drive=False):

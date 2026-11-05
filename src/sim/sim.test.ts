@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { GameRecord, startGame, playGame } from './game';
 import { analyze, elo, excessDecisiveness, fitValues, group, leadMetrics, matchStats, materialDelta, pentanomial, phi, readRecords, sprt, trajectory, utilisation, wilson } from './analyze';
 import { RunSpec, adjudication, buildJobs, loadSpec, parseFlags, parseRuleFlags, parseValues, paths, sampleBackRank, sideOptions, usePairs } from './spec';
@@ -19,6 +19,10 @@ import { A, BLACK, G, T, WHITE, legalMoves, moverAt, parseSq } from '../rules/en
 import { positionKey } from '../rules/position-key';
 import { setRules } from '../rules/rules';
 import { CLASSIC_CHESS } from '../rules/setup';
+
+// The end-to-end run writes to a temporary folder, never to the results store of this machine. vi.hoisted runs
+// before ./spec reads the folder at import; the child run gets the same folder from the environment.
+const testResults = vi.hoisted(() => process.env.KING_DOWN_RESULTS_DIR = `${process.env.TMPDIR ?? '/tmp'}/kingdown-sim-test-${process.pid}`);
 
 describe('statistics', () => {
   it('wilson matches published values', () => {
@@ -210,6 +214,7 @@ describe('analyze', () => {
 });
 
 describe('runner (end to end)', () => {
+  afterAll(() => rmSync(testResults, { recursive: true, force: true }));
   it('plays 2 games at depth 1 on 1 worker and records legal moves', () => {
     const id = 'vitest-e2e';
     const { jsonl, summary } = paths(id);

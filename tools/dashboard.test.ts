@@ -29,13 +29,13 @@ describe('results dashboard', () => {
     expect(existsSync(join(root, 'sim/out'))).toBe(state === 'empty');
   });
 
-  it('keeps the missing-card error', () => {
+  it('keeps the missing-folder error', () => {
     const config = join(root, '.config/king-down/results.json');
     mkdirSync(dirname(config), { recursive: true });
     writeFileSync(config, JSON.stringify({ root: join(root, 'absent'), volume: join(root, 'absent'), uuid: 'wrong' }));
     const result = run();
     expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain('Connect card disk for King Down results; no local fallback');
+    expect(result.stderr).toContain('is absent or on the wrong volume');
     expect(existsSync(join(root, 'docs/dashboard'))).toBe(false);
   });
 

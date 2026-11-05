@@ -36,13 +36,13 @@ with tempfile.TemporaryDirectory() as t:
  except RuntimeError:pass
 `], { cwd: process.cwd(), stdio: 'pipe', timeout: 4000 });
   });
-  it('uses a remote spool without local card configuration and fails for a missing configured card', () => {
+  it('uses a remote spool without a results configuration and fails for a missing configured folder', () => {
     const temp=mkdtempSync(join(tmpdir(),'results-root-'));const file=join(temp,'config.json');
     const previous=process.env.KING_DOWN_RESULTS_DIR;delete process.env.KING_DOWN_RESULTS_DIR;
     try {
       expect(resultsRoot(file)).toBe('sim/out');
       writeFileSync(file, JSON.stringify({ root:join(temp,'absent'),volume:join(temp,'absent'),uuid:'wrong' }));
-      expect(()=>resultsRoot(file)).toThrow('Connect card disk');
+      expect(()=>resultsRoot(file)).toThrow('is absent or on the wrong volume');
       process.env.KING_DOWN_RESULTS_DIR=temp;expect(resultsRoot(file)).toBe(temp);
     } finally { if(previous===undefined)delete process.env.KING_DOWN_RESULTS_DIR;else process.env.KING_DOWN_RESULTS_DIR=previous;rmSync(temp,{recursive:true}); }
   });
