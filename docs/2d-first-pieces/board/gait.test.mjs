@@ -36,31 +36,37 @@ test('painted walk uses the pace budget and the two-times cap', () => {
  assert.equal(paintedPace(7,640,1).rate,2);
  assert.equal(paintedPace(7,640,.2),null);
 });
-test('painted travel mixes the linear path with the pose step', () => {
- const frames=[0,160,320,480].map(timeMs=>({timeMs}));
- const at=(t,mix)=>paintedTravel(t,640,1,frames,640,mix);
- assert.equal(at(0,.5),0);
- assert.equal(at(640,.5),1);
- for(const t of [0,10,159,160,300,479,639])assert.ok(Math.abs(at(t,0)-t/640)<1e-12,`s=0 at ${t}`);
- assert.equal(at(100,1),0);
- assert.equal(at(159,1),0);
- for(const [t,start] of [[160,160],[319,160],[480,480],[639,480]])assert.ok(Math.abs(at(t,1)-start/640)<1e-12,`s=1 at ${t}`);
- // Two pose cycles in one move: the step carries on from the first cycle to the second.
- const two=(t,mix)=>paintedTravel(t,640,2,frames,640,mix);
- assert.ok(Math.abs(two(100,1)-160/1280)<1e-12);
- assert.ok(Math.abs(two(330,1)-640/1280)<1e-12);
- assert.ok(Math.abs(two(639,1)-1120/1280)<1e-12);
- let previous=0;
- for(const move of [at,two]){
-  let held=0;previous=0;  for(let t=0;t<=640;t+=2){
-   const u=move(t,.5),step=move(t,1);
-   assert.ok(u>=previous-1e-12,`monotonic at ${t}`);
-   assert.ok(step>=held-1e-12,`step monotonic at ${t}`);
-   assert.ok(u>=step-1e-12&&u<=move(t,0)+1e-12,`between at ${t}`);
-   previous=u;held=step;
+test('painted travel holds each pose and lands before the turn', () => {
+ const cases=[
+  ['pawn N',1,640,.682,160],['guard N',1,640,.92,160],
+  ['ogre E',1,640,1.41,160],['queen N',1,640,1.05,160],
+  ['pawn W',1,640,.39,160],['ogre NE',Math.SQRT2,720,1.76,180],
+ ];
+ for(const [name,squares,cycle,stride,hold] of cases)for(const distance of [squares,squares*2,squares*7]){
+  const pace=paintedPace(distance,cycle,stride);if(!pace)continue;
+  const {duration,rate}=pace,frames=[0,hold,hold*2,hold*3].map(timeMs=>({timeMs}));
+  const at=t=>paintedTravel(t,duration,rate,frames,cycle);
+  assert.equal(at(0),0,`${name}: start`);assert.equal(at(duration),1,`${name}: end`);
+  let previous=0,previousPose=-1;
+  for(let t=0;t<duration;t++){
+   const value=at(t),pose=Math.floor(t*rate/hold);
+   assert.ok(value>=previous-1e-12&&value<=1,`${name}: forward at ${t}`);
+   if(pose===previousPose)assert.ok(Math.abs(value-previous)<1e-12,`${name}: held at ${t}`);
+   previous=value;previousPose=pose;
+  }
+  // Sample the last displayed pose, including an exact pose-clock boundary at the move end.
+  for(const frameMs of [0.001,1]){
+   const lastTime=Math.floor((duration-.001)/frameMs)*frameMs;
+   assert.ok((1-at(lastTime))*distance*112<=3,`${name}: end gap at ${frameMs} ms`);
   }
  }
- for(const [t,start] of [[50,0],[200,160],[500,480],[630,480]])assert.ok(Math.abs(at(t,1)-start/640)<1e-12,`hold at ${t}`);
+ const frames=[0,160,320,480].map(timeMs=>({timeMs}));
+ for(const [t,want] of [[0,0],[159,0],[160,1/3],[319,1/3],[320,2/3],[480,1],[639,1],[640,1]]){
+  assert.equal(paintedTravel(t,640,1,frames,640),want,`pose boundary ${t}`);
+ }
+ // A second cycle continues forward, and its final pose already holds at the target.
+ assert.equal(paintedTravel(330,640,2,frames,640),4/7);
+ assert.equal(paintedTravel(639,640,2,frames,640),1);
 });
 test('every gait named by a figure exists', () => {
   for (const g of Object.values(GAIT_OF)) assert.ok(GAITS[g], g);
