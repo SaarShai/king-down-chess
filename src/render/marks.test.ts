@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import type { PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from './painted/scene.mjs';
 import { boardInk } from './board-ink';
 import { drawMarks, type MarkState } from './marks';
 

@@ -10,7 +10,7 @@ import { readFile } from 'node:fs/promises';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GAITS, GAIT_OF, IDLE } from '../docs/2d-first-pieces/board/gait.mjs';
+import { GAITS, GAIT_OF, IDLE } from '../src/render/painted/gait.mjs';
 
 const root = fileURLToPath(new URL('../docs/', import.meta.url));
 const out = join(root, 'painted-motion');

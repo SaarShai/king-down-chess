@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {PERIOD,KING_EFFECTS,hoverAt,groundLife,stratusCloudAt,createKingEffects} from './king-effects.mjs';
-import {KING_DESIGNS} from '../court-motion.mjs';
+import {KING_DESIGNS} from './court-motion.mjs';
 
 test('every king design has an effect that loops',()=>{
  assert.deepEqual([...KING_EFFECTS].sort(),[...KING_DESIGNS].sort());

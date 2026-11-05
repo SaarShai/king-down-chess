@@ -1,6 +1,6 @@
 // Capture "blows" for pieces whose art is one rigid pose: approach, wind up,
 // tilt into the victim about the feet, apply a victim effect, recover, step in.
-import {clamp} from '../painted-mesh.mjs';
+import {clamp} from './painted-mesh.mjs';
 const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
 export const BLOW={approach:400,wind:560,strike:660,hold:900,duration:1150};
 // A king's capture with his own death for the victim (king-captures.mjs): the same strike, then he waits

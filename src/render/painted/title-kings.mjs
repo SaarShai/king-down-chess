@@ -5,7 +5,7 @@
 // layout never changes and the title's first paint never waits. stop() puts the images back.
 // The images' CSS filter is kept: brightness on the canvas, and the drop shadows (the rim, then the cast shadow)
 // drawn under the figure in their CSS order.
-import * as court from '../court-motion.mjs';
+import * as court from './court-motion.mjs';
 import {createKingEffects} from './king-effects.mjs';
 import {KING_FILES} from './king-sheets.mjs';
 

@@ -1,5 +1,5 @@
 import { art } from '/src/account-game/art';
-import { createScene } from '/docs/2d-first-pieces/board/scene.mjs';
+import { createScene } from '/src/render/painted/scene.mjs';
 import { GameRules } from '/src/game-rules';
 import * as pieces from '/src/rules/engine';
 import { POWERS_BALANCED, parseKings } from '/src/rules/rules';

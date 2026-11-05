@@ -1,4 +1,4 @@
-import { createScene } from '../../../../../2d-first-pieces/board/scene.mjs';
+import { createScene } from '../../../../../../src/render/painted/scene.mjs';
 import * as engine from '../../../../../../src/rules/engine';
 import { drawMarks, type Highlights, type MarkState } from '../../../../../../src/render/marks';
 import { boardInk, coordInk } from '../../../../../../src/render/board-ink';

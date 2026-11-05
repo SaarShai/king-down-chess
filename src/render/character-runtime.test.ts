@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createCharacterRuntime, anchorAt, bankPointToWorld, idleBankAt, facingOf, frameAt, turnRoute, reverseRoute, type RuntimeBank } from '../../docs/2d-first-pieces/board/character-runtime.mjs';
+import { createCharacterRuntime, anchorAt, bankPointToWorld, idleBankAt, facingOf, frameAt, turnRoute, reverseRoute, type RuntimeBank } from './painted/character-runtime.mjs';
 const bank = (from = 'SE', to = 'S'): RuntimeBank => ({ id: `${from}-${to}`, character: 'pawn', army: 'white', kind: 'turn', from, to, facing: 'SE', durationMs: 120, nearest: true, pivot: [384,700], canvasSize: [768,768], bodyHeightPx: 600, registrationHeightPx: 600, frames: [0,60,120].map(timeMs => ({ url: `frame-${timeMs}`, timeMs })) });
 
 describe('ready character playback', () => {

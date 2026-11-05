@@ -4,7 +4,7 @@
 // each action warps one part of the pawn's still sprite on a small mesh whose edge stays put, so the
 // rest of the figure does not move. Coordinates are the scene's 1152 px pawn sprite (both armies line up
 // there: lance/aiming.mjs places each army's figure at the same point).
-import {clamp,rotate,paintTriangle} from '../painted-mesh.mjs';
+import {clamp,rotate,paintTriangle} from './painted-mesh.mjs';
 
 const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
 // An integer hash (neighbouring squares get unrelated timetables), 0..1.

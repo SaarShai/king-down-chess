@@ -1,4 +1,4 @@
-import type { PaintedScene } from '../../../../../2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from '../../../../../../src/render/painted/scene.mjs';
 import { drawMarks, type MarkState } from '../../../../../../src/render/marks';
 
 export function proposed(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', state: MarkState, row?: number) {

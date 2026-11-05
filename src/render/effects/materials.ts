@@ -1,6 +1,6 @@
 import { fireTexture } from './fire';
-import { materialState, type MaterialFrame } from '../../../docs/2d-first-pieces/board/ice-material.mjs';
-export { materialState, drawFreeze, drawIceWall, type MaterialFrame } from '../../../docs/2d-first-pieces/board/ice-material.mjs';
+import { materialState, type MaterialFrame } from '../painted/ice-material.mjs';
+export { materialState, drawFreeze, drawIceWall, type MaterialFrame } from '../painted/ice-material.mjs';
 const hash = (n: number) => { const v = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return v - Math.floor(v); };
 
 /** A living fire curtain surrounds a clear pocket. The lower front keeps the figure readable. */

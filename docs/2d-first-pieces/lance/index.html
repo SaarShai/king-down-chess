@@ -34,8 +34,8 @@
 </main>
 <style>.sample canvas{width:126px;height:126px}.motion-option+.motion-option{margin-top:8px}</style>
 <script type="module">
-import { clamp } from '../painted-mesh.mjs';
-import { MIN_ANGLE, MAX_ANGLE, THRUST, aimAt, tipAt, targetPoint, thrustAt, drawPawn } from './aiming.mjs';
+import { clamp } from '../../../src/render/painted/painted-mesh.mjs';
+import { MIN_ANGLE, MAX_ANGLE, THRUST, aimAt, tipAt, targetPoint, thrustAt, drawPawn } from '../../../src/render/painted/lance/aiming.mjs';
 const $ = id => document.getElementById(id), scene = $('scene');
 const preference = matchMedia('(prefers-reduced-motion: reduce)');
 $('reduce-motion').checked = preference.matches;

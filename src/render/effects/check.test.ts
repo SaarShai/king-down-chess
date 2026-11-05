@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from '../painted/scene.mjs';
 import { CHECK_ONSET_MS, drawCheck, drawWithdrawal } from './check';
 import { link } from './indications';
 vi.mock('./indications', () => ({ link: vi.fn() }));

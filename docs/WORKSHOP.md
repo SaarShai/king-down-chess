@@ -70,7 +70,7 @@ The layouts are in `ground.css`. The regions are a CSS grid. The same media quer
 
 `ground.ts` plays the motions of the approved mockup (ticket 10) with the Web Animations API; `ground.css` has the ripple, the preview pulse and the tag's slide.
 
-- **Open a piece:** the figure fades in on the plinth (480 ms), the piece flies from its ledge slot to its square by its gait (320 ms), and the board ripples, ring by ring from the piece (up to 480 ms). The gait curves are in `docs/2d-first-pieces/board/gait.mjs`.
+- **Open a piece:** the figure fades in on the plinth (480 ms), the piece flies from its ledge slot to its square by its gait (320 ms), and the board ripples, ring by ring from the piece (up to 480 ms). The gait curves are in `src/render/painted/gait.mjs`.
 - **The first edit:** the name stamps (320 ms), the figure flies to its slot in Yours (320 ms), and the slot flashes (520 ms in all).
 - **Stamp:** the seal stamps (320 ms) with a wax ring (420 ms), the stone shakes (160 ms), the new line unrolls (200 ms), and the board ripples.
 - **Move here:** the piece flies by its gait (320 ms); a taken piece and a piece removed too go in a puff (520 ms in all).

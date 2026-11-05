@@ -1,4 +1,4 @@
-import { createScene } from '/docs/2d-first-pieces/board/scene.mjs';
+import { createScene } from '/src/render/painted/scene.mjs';
 import * as pieces from '/src/rules/engine';
 import { GameRules } from '/src/game-rules';
 import { cardLender } from '/src/render/effects/card';

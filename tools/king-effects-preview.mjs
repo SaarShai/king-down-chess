@@ -1,4 +1,4 @@
-// Preview of the six kings' board effects (docs/2d-first-pieces/board/king-effects.mjs) for the owner:
+// Preview of the six kings' board effects (src/render/painted/king-effects.mjs) for the owner:
 //   PLAYABLE_BROWSER=chromium node tools/king-effects-preview.mjs <out-dir> [--quick]
 // Writes into <out-dir>:
 //   kfx-preview.html      docs/king-effects/preview.html as one self-contained file (art inlined; opens from disk)
@@ -18,8 +18,8 @@ import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { extname, join, normalize, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PERIOD } from '../docs/2d-first-pieces/board/king-effects.mjs';
-import { LOOP as PAWN_LOOP } from '../docs/2d-first-pieces/lance/idle.mjs';
+import { PERIOD } from '../src/render/painted/king-effects.mjs';
+import { LOOP as PAWN_LOOP } from '../src/render/painted/idle.mjs';
 
 const out = resolve(process.argv[2] ?? 'kfx-shots'), quick = process.argv.includes('--quick'), pageOnly = process.argv.includes('--page');
 const docs = fileURLToPath(new URL('../docs/', import.meta.url)), repo = fileURLToPath(new URL('../', import.meta.url));

@@ -22,8 +22,8 @@
 </aside></div><footer>Original King Down Knight used as reference · complete figures · ivory and charcoal · burgundy crest.</footer></main>
 <style>.sample canvas{width:134px;height:134px}.motion-option+.motion-option{margin-top:8px}</style>
 <script type="module">
-import {drawKnight,leapAt,DURATION,LANDING,ANCHOR} from './motion.mjs';
-import {drawPawn} from '../lance/aiming.mjs';
+import {drawKnight,leapAt,DURATION,LANDING,ANCHOR} from '../../../src/render/painted/knight/motion.mjs';
+import {drawPawn} from '../../../src/render/painted/lance/aiming.mjs';
 const $=id=>document.getElementById(id),ctx=$('character').getContext('2d'),art=new Image(),pawnArt=new Image(),preference=matchMedia('(prefers-reduced-motion: reduce)');
 const figures=[0,1].map(()=>Object.assign(document.createElement('canvas'),{width:1152,height:1152}));
 const pawn=document.createElement('canvas');pawn.width=pawn.height=1152;

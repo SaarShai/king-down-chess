@@ -1,12 +1,12 @@
 # Painted board — shared game scene and local preview
 
-The shipped game uses `scene.mjs` through `src/render/PaintedView.ts`. The page at http://127.0.0.1:5192/board/ is a local preview. The dated trials and limits below are history, not the current game state.
+The shipped game uses `src/render/painted/scene.mjs` through `src/render/PaintedView.ts`. The page at http://127.0.0.1:5192/docs/2d-first-pieces/board/ is a local preview. The dated trials and limits below are history, not the current game state.
 
-The third character is now available in **Ogre encounter**: [open his position](http://127.0.0.1:5192/board/?position=ogre). He has a planted shove, enemy/friendly pushes and an explicit capture-or-push choice. [Artwork, method and additional verification](../ogre/README.md).
+The third character is now available in **Ogre encounter**: [open his position](http://127.0.0.1:5192/docs/2d-first-pieces/board/?position=ogre). He has a planted shove, enemy/friendly pushes and an explicit capture-or-push choice. [Artwork, method and additional verification](../ogre/README.md).
 
-The fourth character is available in **Knight leap**: [open his position](http://127.0.0.1:5192/board/?position=knight). His original horse-head helmet, spear and cape accompany a leap with a grounded shadow and a landing capture. [Artwork, method and additional verification](../knight/README.md).
+The fourth character is available in **Knight leap**: [open his position](http://127.0.0.1:5192/docs/2d-first-pieces/board/?position=knight). His original horse-head helmet, spear and cape accompany a leap with a grounded shadow and a landing capture. [Artwork, method and additional verification](../knight/README.md).
 
-The parallel character batch adds **Bishop diagonals**, **Rook lanes**, **Guard defence** and **Painted cast**. [Open all seven](http://127.0.0.1:5192/board/?position=cast). Source prompts and original references live beside each piece: [Bishop](../bishop/README.md), [Rook](../rook/README.md), [Guard](../guard/README.md). Knight now bends his knees before takeoff and on landing; [Crouch](http://127.0.0.1:5192/knight/) holds that pose for inspection.
+The parallel character batch adds **Bishop diagonals**, **Rook lanes**, **Guard defence** and **Painted cast**. [Open all seven](http://127.0.0.1:5192/docs/2d-first-pieces/board/?position=cast). Source prompts and original references live beside each piece: [Bishop](../bishop/README.md), [Rook](../rook/README.md), [Guard](../guard/README.md). Knight now bends his knees before takeoff and on landing; [Crouch](http://127.0.0.1:5192/docs/2d-first-pieces/knight/) holds that pose for inspection.
 
 ## Try it
 
@@ -28,7 +28,7 @@ The static preview imports a bundled copy of the production `genPiece` and `make
 
 Move animations glide between squares. Pawn captures approach the actual victim, plant the stance for the existing lance jab, fade the victim at contact, then advance into its square. The approach is solved from the fully extended lance tip and victim's chest. Archer shots aim, launch a bolt from the wrist bow, recoil and recover while remaining on the source square. Bishop and Rook captures use a short advance and their restrained presentation/weight shift; the victim fades at contact. Guards glide to empty squares and have a separate planted-brace study. Board mutations happen only at completion, so cancellation cannot leave a late capture behind.
 
-Pawn and Archer art remains unchanged: `../lance/pawn.png`, `../wrist-bow/archer.png` and their existing `aiming.mjs` renderers. The new Ogre sheet is `../ogre/ogre.png`, with its restrained weight-shift renderer in `../ogre/motion.mjs`.
+Pawn and Archer art remains unchanged: `../lance/pawn.png`, `../wrist-bow/archer.png` and their existing `aiming.mjs` renderers. The new Ogre sheet is `../ogre/ogre.png`, with its restrained weight-shift renderer in `src/render/painted/ogre/motion.mjs`.
 
 ## Facing decision and findings
 
@@ -47,7 +47,7 @@ node docs/2d-first-pieces/board/build-rules.mjs
 Serve the existing study directory if 5192 is not already running:
 
 ```sh
-python3 -m http.server 5192 --bind 127.0.0.1 --directory docs/2d-first-pieces
+python3 -m http.server 5192 --bind 127.0.0.1 --directory .
 ```
 
 ## Verification — 2026-09-26

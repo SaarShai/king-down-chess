@@ -312,7 +312,7 @@ describe('relative links', () => {
       'docs/PLAYABLE-CLAY.md', 'docs/2d-first-pieces/README.md',
       'docs/research/archer-animation-workflow.md', 'docs/research/graphics-prototype-2026-09-21.md',
       'docs/specs/park-clay/spec.md', 'docs/specs/retro-2026-10-20/issues/04-retro-records.md',
-      'docs/specs/card-results/spec.md',
+      'docs/specs/card-results/spec.md', 'docs/INDEX.md', 'docs/2d-first-pieces/board/README.md',
     ];
     expect(files.flatMap(file => linkFaults(file, read(file))).map(show)).toEqual([]);
   });

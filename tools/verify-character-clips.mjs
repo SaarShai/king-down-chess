@@ -1,4 +1,4 @@
-// The character clips in the game's painted look (docs/2d-first-pieces/clips/clips.mjs).
+// The character clips in the game's painted look (src/render/painted/clips.mjs).
 // Run: npm run check:browser character-clips (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 // The clips are the legacy look of a Knight or a Rook with no runtime body: with the shipped character package the
 // board requests no clip sheet and shows no clip (part 0). Parts 1 to 4 answer the package manifest with no bodies,
@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import { endTurn } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
-import { CLIPS } from '../docs/2d-first-pieces/clips/clips.mjs';
+import { CLIPS } from '../src/render/painted/clips.mjs';
 
 const url = new URL(env('PLAYABLE_URL'));
 url.searchParams.set('players', 'human,human');
@@ -20,7 +20,7 @@ const browser = await launch();
 // Ends when both clip sheets finish loading.
 const sheets = page => Promise.all(['tap', 'slam'].map(name =>
   page.waitForEvent('requestfinished', { predicate: request => new URL(request.url()).pathname.includes('/' + name + '-') })));
-// No runtime bodies: the scene falls back to the clips (docs/2d-first-pieces/board/scene.mjs, loadClips). The answer is
+// No runtime bodies: the scene falls back to the clips (src/render/painted/scene.mjs, loadClips). The answer is
 // a valid manifest, not a 404: the service worker precaches the manifest, and a 404 stops its install (part 2 waits for it).
 const noBodies = context => context.route('**/character-runtime/manifest.json', route => route.fulfill({ json: { schemaVersion: 1, banks: [], effects: {} } }));
 const pace = (page, value) => page.evaluate(v => { const s = document.getElementById('pace'); s.value = v; s.dispatchEvent(new Event('change')); }, value);

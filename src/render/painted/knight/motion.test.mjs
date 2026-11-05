@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {leapAt,LANDING,TAKEOFF,crouchPoint,legAt,LEGS,COLUMNS,ROWS} from './motion.mjs';
-import {createPosition,actionsFor,destination} from '../board/model.mjs';
-import {P,N,piece,parseSq,makeMove} from '../board/rules.mjs';
+import {createPosition,actionsFor,destination} from '../../../../docs/2d-first-pieces/board/model.mjs';
+import {P,N,piece,parseSq,makeMove} from '../../../../docs/2d-first-pieces/board/rules.mjs';
 const at=parseSq;
 test('leap separates travel from altitude, lands exactly, and never reverses travel',()=>{
  let previous=0,peak=0;

@@ -1,4 +1,4 @@
-import { createScene } from '/docs/2d-first-pieces/board/scene.mjs';
+import { createScene } from '/src/render/painted/scene.mjs';
 import { frozenPieces, frost, FROST_DEFS } from '/src/render/frost';
 import { GameRules } from '/src/game-rules';
 import * as pieces from '/src/rules/engine';

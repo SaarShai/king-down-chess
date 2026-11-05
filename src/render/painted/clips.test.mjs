@@ -19,10 +19,10 @@ Object.defineProperty(globalThis,'performance',{value:{now:()=>now},configurable
 globalThis.requestAnimationFrame=fn=>{frames.push(fn);return frames.length;};
 globalThis.cancelAnimationFrame=()=>{};
 const realSetTimeout=setTimeout;
-const {createScene}=await import('../board/scene.mjs');
+const {createScene}=await import('./scene.mjs');
 const {CLIPS,frameAt}=await import('./clips.mjs');
-const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName,parseSq}=await import('../board/rules.mjs');
-const {createPosition}=await import('../board/model.mjs');
+const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName,parseSq}=await import('../../../docs/2d-first-pieces/board/rules.mjs');
+const {createPosition}=await import('../../../docs/2d-first-pieces/board/model.mjs');
 
 /** Advance the clock in 16 ms steps, running each due frame and timer; returns what each drawn frame showed. */
 function run(scene,ms){
@@ -118,9 +118,9 @@ test('a clip atlas that does not load plays no clip; the figure breathes as befo
 });
 
 test('the clip atlases are in the build graph and match their provenance',()=>{
- const provenance=JSON.parse(readFileSync(new URL('./provenance.json',import.meta.url)));
+ const provenance=JSON.parse(readFileSync(new URL('../../../docs/2d-first-pieces/clips/provenance.json',import.meta.url)));
  for(const [name,p] of Object.entries(provenance)){
-  const bytes=readFileSync(new URL(`../${p.atlas.file}`,import.meta.url));
+  const bytes=readFileSync(new URL(`../../../docs/2d-first-pieces/${p.atlas.file}`,import.meta.url));
   assert.equal(bytes.length,p.atlas.bytes,`${name}: the atlas is the one the build wrote`);
   assert.ok(bytes.length<1_500_000,`${name}: the atlas stays small (${bytes.length} bytes)`);
   assert.equal(p.ms,CLIPS[name].duration);

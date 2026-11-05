@@ -10,4 +10,13 @@ PATH="$root/node_modules/.bin:$PATH"
 tsc --noEmit
 tsc --noEmit -p tsconfig.tools.json
 vitest run
-node --test "docs/2d-first-pieces/**/*.test.mjs"
+node_tests=()
+while IFS= read -r file; do
+  node_tests+=("$file")
+done < <(node --input-type=module <<'NODE'
+import { globSync } from 'node:fs';
+const pattern = process.env.KINGDOWN_TEST_FILE || '{docs/2d-first-pieces,src/render/painted}/**/*.test.mjs';
+for (const file of globSync(pattern)) if (file.endsWith('.test.mjs')) console.log(file);
+NODE
+)
+if [ "${#node_tests[@]}" -gt 0 ]; then node --test "${node_tests[@]}"; fi

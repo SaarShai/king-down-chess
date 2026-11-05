@@ -39,7 +39,7 @@ import { traceOf, whyWords } from './why';
 import type { DesignSpec } from '../rules/design';
 import { cardMarks, cardRules, enginePos, kingRules, playCard, playPower, powerLayer, powerMarks, seated } from './powers';
 // @ts-expect-error The approved gait curves are shared browser JavaScript, without declarations.
-import { GAITS, GAIT_OF } from '../../docs/2d-first-pieces/board/gait.mjs';
+import { GAITS, GAIT_OF } from '../render/painted/gait.mjs';
 
 /** What the board and the plinth show: a pool piece, a design on the shelf (or the player's new copy), a new piece before its
  *  first change (key `new`), or a design from a link. */
@@ -109,7 +109,7 @@ const pace = (): number => (document.documentElement.dataset.pace === 'fast' ? 0
 const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)', SPRING = 'cubic-bezier(0.34, 1.4, 0.64, 1)';
 /** The end of a puff (proving-ground.html:420). */
 const PUFF: Keyframe = { opacity: 0, transform: 'translateY(-10px) scale(1.6)' };
-/** A gait of docs/2d-first-pieces/board/gait.mjs: the pose at progress u, which ends at rest. */
+/** A gait of src/render/painted/gait.mjs: the pose at progress u, which ends at rest. */
 interface Gait { at(u: number, squares: number): { travel: number; lift: number; sx: number; sy: number; tilt: number } }
 /** The gait of a design's body: its own, the pawn's for the token, else a hop. */
 const gaitOf = (d: PieceDesign): Gait => GAITS[GAIT_OF[d.look.body === 'token' ? 'pawn' : BODY[d.look.body].name] ?? 'hop'];

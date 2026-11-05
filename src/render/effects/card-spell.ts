@@ -1,4 +1,4 @@
-import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from '../painted/scene.mjs';
 import type { CardFrame, CardLayer, Point } from './card-types';
 
 // Local spell material. The caller owns the figures, board state and persistent wards.

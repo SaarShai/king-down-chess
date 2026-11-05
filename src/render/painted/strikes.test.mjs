@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { slashAngle, SLASH, CONTACT_MS } from '../bishop/motion.mjs';
-import { smashAngle, SMASH, bendPoint, BEAM, scanOffset, maesterLens } from '../court-motion.mjs';
+import { slashAngle, SLASH, CONTACT_MS } from './bishop/motion.mjs';
+import { smashAngle, SMASH, bendPoint, BEAM, scanOffset, maesterLens } from './court-motion.mjs';
 
 const continuous = (f, end, limit) => { for (let ms = 1; ms <= end; ms++) assert.ok(Math.abs(f(ms) - f(ms - 1)) < limit, `jump at ${ms} ms`); };
 

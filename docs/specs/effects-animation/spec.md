@@ -49,7 +49,7 @@ The following use still production indications: selection, extra-move availabili
 - `tools/fixtures/shared-mechanics.ts`: real FEN, setup and legal actions.
 - `src/rules/engine.ts`: marks, continuation turns and rule meaning.
 - `src/render/PaintedView.ts`, `src/render/marks.ts`, `src/render/effects/`: production rendering, shared effect art and indications.
-- `docs/2d-first-pieces/board/scene.mjs`, `king-effects.mjs`, `king-captures.mjs`: existing painted action effects.
+- `src/render/painted/scene.mjs`, `king-effects.mjs`, `king-captures.mjs`: existing painted action effects.
 - `src/ceremony.ts`, `src/ceremony.css`, `src/plugin/screens/board.css`: current interface motion.
 
 ## Acceptance

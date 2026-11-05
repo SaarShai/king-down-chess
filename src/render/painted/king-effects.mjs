@@ -11,8 +11,8 @@
 // The scene draws back() before a king's figure and front() after it, so a figure standing in front
 // (a lower row) still covers both. Every effect repeats exactly after PERIOD[design] ms, so one
 // period recorded loops without a seam. Units are board units (the board is 960 wide).
-import {clamp} from '../painted-mesh.mjs';
-import * as court from '../court-motion.mjs';
+import {clamp} from './painted-mesh.mjs';
+import * as court from './court-motion.mjs';
 import {drawCrack,crackLip} from './skeleton-hands.mjs';
 import {shadowHandsAt,drawPaintedShadowHand} from './painted-shadow-hands.mjs';
 import {GRASS_ROOT,GRASS_TIP,LEAF,VINE} from './mud-palette.mjs';
@@ -20,12 +20,12 @@ import {MUD_CYCLE,mudCycle,MUD_TUFTS,MUD_VINES,mudTuftLife,mudVineLife,mudVinePo
 
 export const PERIOD={flame:4800,frost:6000,stratus:4000,mud:MUD_CYCLE*2,spirit:4000,shadow:6400};
 export const KING_EFFECTS=Object.keys(PERIOD);
-const LAVA_MASK=new URL('../king-flame/lava-mask.webp',import.meta.url).href;
-const LAVA_GROUND=new URL('../king-flame/ground-fissures.webp',import.meta.url).href;
-const MUD_PLANTS=new URL('../king-mud/ground-plants.webp',import.meta.url).href;
-const CLOUD_BANK=new URL('../king-stratus/cloud-bank.png',import.meta.url).href;
-const HAND_BANK=new URL('../king-shadow/hands/film-poses.webp',import.meta.url).href;
-const SMOKE_MASK=new URL('../king-shadow/smoke-mask.webp',import.meta.url).href;
+const LAVA_MASK=new URL('../../../docs/2d-first-pieces/king-flame/lava-mask.webp',import.meta.url).href;
+const LAVA_GROUND=new URL('../../../docs/2d-first-pieces/king-flame/ground-fissures.webp',import.meta.url).href;
+const MUD_PLANTS=new URL('../../../docs/2d-first-pieces/king-mud/ground-plants.webp',import.meta.url).href;
+const CLOUD_BANK=new URL('../../../docs/2d-first-pieces/king-stratus/cloud-bank.png',import.meta.url).href;
+const HAND_BANK=new URL('../../../docs/2d-first-pieces/king-shadow/hands/film-poses.webp',import.meta.url).href;
+const SMOKE_MASK=new URL('../../../docs/2d-first-pieces/king-shadow/smoke-mask.webp',import.meta.url).href;
 const TAU=Math.PI*2;
 const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
 const frac=x=>x-Math.floor(x);
