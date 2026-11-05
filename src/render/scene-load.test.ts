@@ -46,6 +46,19 @@ function board(motion: boolean, characterRuntime = false, largeRuntime = false, 
 
 afterEach(() => { scene?.dispose(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
+it('prefetches only the selected capture and its full king turn route', async () => {
+ const base={character:'king-frost',army:'white',canvasSize:[32,32],pivot:[16,28],bodyHeightPx:20,registrationHeightPx:20};
+ const idle={...base,id:'idle',kind:'idle',facing:'SE',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0}]};
+ const turn={...base,id:'turn',kind:'turn',from:'SE',to:'N',durationMs:120,frames:[idle.frames[0],{url:'runtime-turn-middle.png',timeMs:60},{url:'runtime-turn-N.png',timeMs:120}]};
+ const attacks=['N','S'].map(facing=>({...base,id:`attack-${facing}`,kind:'attack',facing,durationMs:120,frames:[0,60,120].map(timeMs=>({url:`runtime-attack-${facing}-${timeMs}.png`,timeMs}))}));
+ vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,json:async()=>({schemaVersion:1,banks:[idle,turn,...attacks]})})));
+ const b=board(true,true);scene.setPosition(fromFen('7k/p7/8/4n3/4K3/8/8/K7 w - - 0 1'));void scene.load();b.decodeBoard();await vi.advanceTimersByTimeAsync(48);
+ scene.setSelected(28,[],[36]);await vi.advanceTimersByTimeAsync(48);
+ expect(b.images.some(image=>image.src.includes('runtime-turn-middle.png'))).toBe(true);
+ expect(b.images.filter(image=>image.src.includes('runtime-attack-N-'))).toHaveLength(3);
+ expect(b.images.some(image=>image.src.includes('runtime-attack-S-'))).toBe(false);
+});
+
 it('prefetches the selected piece’s quiet move facing', async () => {
  const base={character:'pawn',army:'white',canvasSize:[768,768],pivot:[384,700],bodyHeightPx:600,registrationHeightPx:600};
  const idle={...base,id:'idle',kind:'idle',facing:'N',durationMs:120,frames:[{url:'runtime-rest.png',timeMs:0}]};

@@ -1126,9 +1126,11 @@ function drawEncounter(a,t) {
    if(a?.done&&!a.rewind&&!a.effect&&!reducedMotion&&m.from!==m.to&&!m.captures.length&&!m.swap&&!m.shove&&!m.promo&&!m.selfRemove&&!m.power&&typeOf(a.value)===K&&kings[colorOf(a.value)]==='stratus'&&next.board[m.from]===0&&next.board[m.to]===a.value)landed={animation:a,source:position,post:next,sourceEntry:kingSince.get(m.from)};
    else if(landed&&next!==landed.post)landed=null;
    const selectedValue=selected===null?null:position.board[selected],keepIdle=!animation&&idleReady&&selectedValue&&selectedValue===next.board[selected]&&characterOf(selectedValue)==='king-stratus',keepSource=!!animation?.rewind?.doneAtSource&&animation.done&&next===position&&position.board[m.from]===animation.value;if(m&&!animation.effect&&smokeStreams.has(m.from)&&next.board[m.to]===position.board[m.from]){const smoke=smokeStreams.get(m.from);smokeStreams.delete(m.from);smokeStreams.set(m.to,smoke);}else if([...position.board].some((v,sq)=>v!==next.board[sq]))smokeStreams.clear();if(!keepIdle)endMove(keepSource);lifted=null;position=next;if(selected!==null&&selectedValue!==position.board[selected])selectedAt=null;aimAngle=0;warmBodies();if(!keepIdle)reserveSelected(selected);wake();},
-  setSelected(sq,destinations=[]){
-   const value=sq==null?null:position.board[sq],from=value?foot(sq):null,directions=from?[...new Set(destinations.filter(to=>to!==sq).map(to=>{const p=foot(to);return facingOf(p.x-from.x,p.y-from.y);} ))]:[],key=value?`${sq}:${value}:${directions.join(',')}`:'';
-   if(key!==movePrefetchKey){movePrefetchKey=key;bodyRuntime?.releaseMovePrefetch();if(value&&bodyRuntime)void bodyRuntime.prefetchMoves(characterOf(value),armyOf(value),directions);}
+  setSelected(sq,destinations=[],captures=[]){
+   const value=sq==null?null:position.board[sq],from=value?foot(sq):null;
+   const direction=to=>{const p=foot(to);return facingOf(p.x-from.x,p.y-from.y);};
+   const directions=from?[...new Set(destinations.filter(to=>to!==sq).map(direction))]:[],attackDirections=from?[...new Set(captures.filter(to=>to!==sq).map(direction))]:[],key=value?`${sq}:${value}:${directions.join(',')}:${attackDirections.join(',')}`:'';
+   if(key!==movePrefetchKey){movePrefetchKey=key;bodyRuntime?.releaseMovePrefetch();if(value&&bodyRuntime)void bodyRuntime.prefetchMoves(characterOf(value),armyOf(value),directions,attackDirections);}
    if(value&&bodyRuntime)void bodyRuntime.warm(characterOf(value),armyOf(value),true);
    if(sq!==selected){
    if(animation?.exitBody)endMove();
