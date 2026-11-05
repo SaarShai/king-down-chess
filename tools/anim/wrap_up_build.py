@@ -5,6 +5,7 @@ Input:
 - A pass list: [{"character", "facing", "frames"?, "stride"?, "replace"?, "leftOut"?}]. frames defaults to
   ~/kd-runs/wa1/frames/<character>-white-<facing>. stride sets the value by hand. replace allows a shipped facing.
   leftOut names why a walk stays out: the tool skips it, and each one lowers the 240 target by 2.
+- --base-report extends a clean, already picked pin. Its report must match the pin and counts, with no gaps or faults.
 - The picks in <r5>/<pick>/manifest-map.json and the in-between maps given with --overlay.
 
 Output in --out: catalog/, runtime-selection.json, strides.json, records/, report.json, and with --runtime, runtime-png/.
@@ -64,6 +65,7 @@ SAFE_OVERLAP = 0.85
 NO_WALK_BANKS = {'knight', 'paladin'}
 NO_MOVE_PICK = {'paladin-white'}
 WALK_TARGET = 240
+TOP_RANGE_EXCEPTIONS = json.loads((HERE / 'move-range-exceptions.json').read_text())['topRangeAt160ByBank']
 PICK_PYTHON = ('/private/tmp/claude-501/-Users-za-Documents-king-down-chess--new-/'
                '67f26e3d-8b43-4e8e-8d12-b2002f26e705/scratchpad/runs/movement-redraw/recolor-venv/bin/python')
 STUDY = (Path.home() / 'Documents/king down chess (new)/anim-out/session-backup-2026-11-01/scratchpad/'
@@ -229,7 +231,8 @@ def walk_banks(catalog, walk, army, paths, geometry, stride):
                           'uniformScale': 1, 'translation': [0, 0]} for i, digest in enumerate(hashes)]}
     source_sha = write_bank(catalog, source)
     ranges = motion_ranges(paths)
-    if ranges['topRangeAt160'] > 9.9 or ranges['groundRangeAt160'] > 20.6:
+    limit = TOP_RANGE_EXCEPTIONS.get(f'{character}/{army}/{ident}', 9.9)
+    if ranges['topRangeAt160'] > limit or ranges['groundRangeAt160'] > 20.6:
         raise ValueError(f'{character} {ident}: motion range {ranges} is over the move gate')
     scale = GAME_HEIGHT.get(character, 130) / geometry['registrationHeightPx']
     transform = {'character': character, 'army': army, 'canonicalPivot': geometry['pivot'],
@@ -448,6 +451,19 @@ def check(catalog, base_catalog, base_manifest, manifest, selection, new_keys, f
     return faults
 
 
+def picked_base_report(path, selection):
+    if not path:
+        return None
+    base_report = json.loads(path.read_text())
+    kinds = {kind: sum(e['kind'] == kind for e in selection['entries']) for kind in ('idle', 'turn', 'attack', 'move')}
+    if (base_report.get('catalogSha256') != selection['catalogSha256'] or base_report.get('faults') != []
+            or base_report.get('failed') != {} or base_report.get('runtimePng') != 'pass'
+            or base_report.get('framesWithNoPickColour', {}).get('total') != 0
+            or base_report.get('selectionKinds') != kinds):
+        raise ValueError('the base report does not prove a clean build of this pin')
+    return base_report
+
+
 def build(args):
     out = args.out.resolve()
     work = out / 'work'
@@ -457,6 +473,7 @@ def build(args):
     runtime = json.loads(git_show(ref, RUNTIME_REL))
     if sha_file(base / 'manifest.json') != selection['catalogSha256']:
         raise ValueError('the base catalog does not match the pin at the merge base')
+    base_report = picked_base_report(args.base_report, selection)
     size = sum(p.stat().st_size for p in base.rglob('*') if p.is_file())
     if shutil.disk_usage(Path.home()).free - size < 30 * 1024**3:
         raise ValueError('the catalog copy would take free disk below 30 GiB')
@@ -485,6 +502,10 @@ def build(args):
     work.mkdir()
 
     strides = wrap_up_strides.measure(walks, args.study, work / 'stride')
+    if base_report:
+        previous = json.loads(git_show(ref, f'{SPECS}/wrap-up-strides.json'))
+        strides = {**previous, 'walks': {**previous['walks'], **strides['walks']},
+                   'shippedBacktest': {**previous['shippedBacktest'], **strides['shippedBacktest']}}
     dump(out / 'strides.json', strides)
     report = {'base': {'commit': ref, 'catalogSha256': selection['catalogSha256']}, 'walks': {}, 'failed': {}, 'leftOut': left_out}
 
@@ -555,13 +576,18 @@ def build(args):
                                  'needsLook': record['needsLook'], 'picks': [p[1] for p in pick_results if p[0] == name],
                                  'moveBanks': {army: entries[1]['sha256'] for army, _paths, entries in built}}
 
-    shipped_fixes = trim_maester_se(catalog, selection) + queen_black_se(catalog, selection)
+    shipped_fixes = [] if base_report else trim_maester_se(catalog, selection) + queen_black_se(catalog, selection)
     new_entries += shipped_fixes
     new_keys |= {(e['character'], e['army'], e['id']) for e in shipped_fixes if e['kind'] == 'move'}
     report['shippedFixes'] = {f"{e['character']}/{e['id']}": e['sha256'] for e in shipped_fixes if e['kind'] == 'move'}
     new_ids = {(e['character'], e['army'], e['id']) for e in new_entries}
     entries = [e for e in base_manifest['entries'] if (e['character'], e['army'], e['id']) not in new_ids]
-    entries, frames_map, banks_map, gaps = apply_picks(catalog, entries, table, new_keys)
+    if base_report:
+        # The base pin and its clean report cover these unchanged banks; new walks take their picks above.
+        frames_map, banks_map, gaps = {}, {}, []
+        report['basePickReportSha256'] = sha_file(args.base_report)
+    else:
+        entries, frames_map, banks_map, gaps = apply_picks(catalog, entries, table, new_keys)
     manifest = {**base_manifest, 'entries': entries + new_entries}
     catalog_sha = dump(catalog / 'manifest.json', manifest)
     shutil.copyfile(catalog / 'manifest.json', catalog / 'catalogs' / f'{catalog_sha}.json')
@@ -637,6 +663,7 @@ def main():
     parser.add_argument('--pass-list', required=True, type=Path)
     parser.add_argument('--out', type=Path, default=Path.home() / 'kd-runs/wrap-up')
     parser.add_argument('--base-catalog', type=Path, default=ROOT.parents[2] / CATALOG_REL)
+    parser.add_argument('--base-report', type=Path, help='clean build report for an already picked base pin; keep its banks unchanged')
     parser.add_argument('--r5', type=Path, default=Path.home() / 'kd-runs/army-r5')
     parser.add_argument('--overlay', type=Path, action='append', default=[], help='a map in r6 form; repeat in order: later maps replace earlier ones')
     parser.add_argument('--study', type=Path, default=STUDY)

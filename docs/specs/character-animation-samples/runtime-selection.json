@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "ready",
-  "catalogSha256": "d9bdfe957c8cc913787b29a71d1a19281001b4c5e26f01a203e1f8f6f3e5e3c6",
+  "catalogSha256": "26df6c96f75bfe98e9c5d4f7965e11f55973a745c44b7763eac0defa23b0328d",
   "entries": [
     {
       "character": "pawn",
@@ -6682,6 +6682,78 @@
       "id": "black-walk-SE",
       "manifest": "banks/e8c2a8fc249629a294dfded43d79051317ab96fdc88f3537bcea4312c6852c0e.json",
       "sha256": "e8c2a8fc249629a294dfded43d79051317ab96fdc88f3537bcea4312c6852c0e"
+    },
+    {
+      "character": "guard",
+      "army": "white",
+      "kind": "move",
+      "direction": "NE",
+      "id": "white-walk-NE",
+      "manifest": "banks/e2a8ed25b2342e873516c953caee28f82d8b381c82f2f9e0f485b86921a02dec.json",
+      "sha256": "e2a8ed25b2342e873516c953caee28f82d8b381c82f2f9e0f485b86921a02dec"
+    },
+    {
+      "character": "guard",
+      "army": "black",
+      "kind": "move",
+      "direction": "NE",
+      "id": "black-walk-NE",
+      "manifest": "banks/22450ac635f5b6cc7ec8442617bf2a9e73b3f5d89abd25fba56b0b470d81dfb1.json",
+      "sha256": "22450ac635f5b6cc7ec8442617bf2a9e73b3f5d89abd25fba56b0b470d81dfb1"
+    },
+    {
+      "character": "king-flame",
+      "army": "white",
+      "kind": "move",
+      "direction": "NE",
+      "id": "white-walk-NE",
+      "manifest": "banks/0fef7c0811e2e7911a878e710264a8df69ce66bf5368fd8713428f157407933b.json",
+      "sha256": "0fef7c0811e2e7911a878e710264a8df69ce66bf5368fd8713428f157407933b"
+    },
+    {
+      "character": "king-flame",
+      "army": "black",
+      "kind": "move",
+      "direction": "NE",
+      "id": "black-walk-NE",
+      "manifest": "banks/51e8aac90caa42a28648c9697aa00534afdcc8eaa09930d107f23ccc3b1cbda4.json",
+      "sha256": "51e8aac90caa42a28648c9697aa00534afdcc8eaa09930d107f23ccc3b1cbda4"
+    },
+    {
+      "character": "king-mud",
+      "army": "white",
+      "kind": "move",
+      "direction": "E",
+      "id": "white-walk-E",
+      "manifest": "banks/d0231e4c8b6aeca284a03f109f2123f9fd206bc5216e9db6658b492f59d48c0a.json",
+      "sha256": "d0231e4c8b6aeca284a03f109f2123f9fd206bc5216e9db6658b492f59d48c0a"
+    },
+    {
+      "character": "king-mud",
+      "army": "black",
+      "kind": "move",
+      "direction": "E",
+      "id": "black-walk-E",
+      "manifest": "banks/fe38d62793ee4f54ea275d5a53793b98681242c2c61f8d15c4afc4e89e3887b9.json",
+      "sha256": "fe38d62793ee4f54ea275d5a53793b98681242c2c61f8d15c4afc4e89e3887b9"
+    },
+    {
+      "character": "ogre",
+      "army": "white",
+      "kind": "move",
+      "direction": "SW",
+      "id": "white-walk-SW",
+      "manifest": "banks/38f0dd9bc61060e04749a80b0631eb6b878e37d81b270ca8e02289452922f828.json",
+      "sha256": "38f0dd9bc61060e04749a80b0631eb6b878e37d81b270ca8e02289452922f828"
+    },
+    {
+      "character": "ogre",
+      "army": "black",
+      "kind": "move",
+      "direction": "SW",
+      "id": "black-walk-SW",
+      "manifest": "banks/2f2c740668c5c4fe6d31508f3a173fee3d1c84a0b641dd48c3f34c7ea133778b.json",
+      "sha256": "2f2c740668c5c4fe6d31508f3a173fee3d1c84a0b641dd48c3f34c7ea133778b"
     }
   ],
   "strideSource": {
@@ -6689,7 +6761,7 @@
     "sha256": "3cdb14902fad50e64b6881d0453ad004b7c1fbc9086fa8aeaf14447ff22a7a11",
     "rule": "Visual check at game size; one stride for every bank in the file.",
     "addedFile": "wrap-up-strides.json",
-    "addedSha256": "511b80c77788f73896a84766736bf174257fbdd7287c5ea8e5d3af856b9c70a5",
+    "addedSha256": "7b0ad3d37685487f698569921d53d5f27c68c263f045933a01675333f1c4c30e",
     "addedRule": "Study method; each value from a fallback rule needs a look at game size."
   }
 }

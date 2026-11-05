@@ -154,6 +154,8 @@ def measure(walks, study_path, work):
         key = walk_id(walk['character'], walk['facing'])
         a, b = a_rows.get(key, {}), b_rows.get(key, {})
         stride, rule, look = decide(walk, a, b, medians)
+        if len(walk['facing']) == 1 and 640 / stride < 520 and rule != 'both methods agree':
+            raise ValueError(f'{key}: straight move under 520 ms needs both methods to agree; set a checked fallback')
         records[key] = {'strideSquaresPerCycle': round(stride, 3), 'rule': rule, 'needsLook': look,
                         'methodA': {'stride': a.get('stride'), 'confidence': a.get('confidence')},
                         'methodB': {'stride': b.get('stride'), 'confidence': b.get('confidence')}}

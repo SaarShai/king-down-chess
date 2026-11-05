@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
-import { runMoveGates } from './move-gates.mjs';
+import { moveTopRangeLimit, runMoveGates } from './move-gates.mjs';
 
 it('checks the painted source order, holds, placement and motion ranges', () => {
  const source=Array.from({length:4},(_,i)=>({sha256:String(i),durationMs:120,scale:1,translation:[0,0],pivot:[10,20]}));
@@ -13,4 +14,16 @@ it('checks the painted source order, holds, placement and motion ranges', () => 
  expect(runMoveGates({...args,restHashes:new Set(['0'])}).failures).toContain('painted-keys');
  expect(runMoveGates({...args,catalogHashes:new Set(['0','1','2'])}).failures).toContain('painted-keys');
  expect(runMoveGates({...args,ranges:{topRangeAt160:10,groundRangeAt160:20.6}}).failures).toContain('range');
+ const exceptions=JSON.parse(readFileSync(new URL('./move-range-exceptions.json',import.meta.url),'utf8')).topRangeAt160ByBank;
+ expect(Object.keys(exceptions)).toHaveLength(8);
+ for(const [key,limit] of Object.entries(exceptions)){
+  const [character,army,id]=key.split('/'),approved={...bank,character,army,id};
+  expect(runMoveGates({...args,bank:approved,ranges:{topRangeAt160:limit,groundRangeAt160:20.6}}).status).toBe('pass');
+  expect(runMoveGates({...args,bank:approved,ranges:{topRangeAt160:Number(limit)+.01,groundRangeAt160:20.6}}).failures).toContain('range');
+  expect(runMoveGates({...args,bank:approved,ranges:{topRangeAt160:limit,groundRangeAt160:20.61}}).failures).toContain('range');
+  for(const other of [{...approved,character:'pawn'},{...approved,army:'other'},{...approved,id:id+'-other'}]){
+   expect(moveTopRangeLimit(other)).toBe(9.9);
+   expect(runMoveGates({...args,bank:other,ranges:{topRangeAt160:10,groundRangeAt160:20.6}}).failures).toContain('range');
+  }
+ }
 });

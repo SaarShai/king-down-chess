@@ -1,0 +1,41 @@
+{
+  "baseCatalogSha256": "d9bdfe957c8cc913787b29a71d1a19281001b4c5e26f01a203e1f8f6f3e5e3c6",
+  "catalogSha256": "26df6c96f75bfe98e9c5d4f7965e11f55973a745c44b7763eac0defa23b0328d",
+  "banks": 814,
+  "selectionKinds": {
+    "turn": 272,
+    "attack": 256,
+    "idle": 46,
+    "move": 240
+  },
+  "baseSelectedBanksKept": 806,
+  "baseCatalogEntriesKept": 1181,
+  "baseCatalogFilesKept": 14490,
+  "addedMoveBanks": 8,
+  "addedFrames": 32,
+  "allPicksMapped": true,
+  "unmappedFrames": 0,
+  "basePickReportSha256": "158d3f5ee4049b0b4695f015d67eb7551cacc8295a4dc4bf2b649f2e4d65dde5",
+  "newFrameAlpha": "pass; transparent exterior, white and black alpha equal",
+  "ownerApproval": {
+    "date": "2026-11-05",
+    "quote": "they're all fine.",
+    "scope": "all sequences, with the four left-out walks"
+  },
+  "look": {
+    "image": "/Users/za/kd-runs/fin-walks/black-4.png",
+    "poses": 16,
+    "tiles": [
+      "light",
+      "dark"
+    ],
+    "result": "No colour-mask fault seen. Ogre SW hands and raised thighs stay dark. White cloth stays at the waist."
+  },
+  "focusedTests": {
+    "files": 4,
+    "cases": 21,
+    "boardUnitCases": 70,
+    "status": "pass",
+    "runs": 1
+  }
+}

@@ -464,6 +464,58 @@
         "stride": 0.7192,
         "confidence": "high"
       }
+    },
+    "guard/white/NE": {
+      "strideSquaresPerCycle": 0.92,
+      "rule": "character median: no usable measure",
+      "needsLook": true,
+      "methodA": {
+        "stride": 1.509,
+        "confidence": "low"
+      },
+      "methodB": {
+        "stride": 0.4293,
+        "confidence": "low"
+      }
+    },
+    "king-flame/white/NE": {
+      "strideSquaresPerCycle": 0.826,
+      "rule": "method A low, within 30% of the character median",
+      "needsLook": true,
+      "methodA": {
+        "stride": 0.826,
+        "confidence": "low"
+      },
+      "methodB": {
+        "stride": 0.2533,
+        "confidence": "low"
+      }
+    },
+    "king-mud/white/E": {
+      "strideSquaresPerCycle": 0.986,
+      "rule": "both methods agree",
+      "needsLook": false,
+      "methodA": {
+        "stride": 1.004,
+        "confidence": "high"
+      },
+      "methodB": {
+        "stride": 0.9679,
+        "confidence": "medium"
+      }
+    },
+    "ogre/white/SW": {
+      "strideSquaresPerCycle": 0.582,
+      "rule": "method A high",
+      "needsLook": false,
+      "methodA": {
+        "stride": 0.582,
+        "confidence": "high"
+      },
+      "methodB": {
+        "stride": 0.2068,
+        "confidence": "low"
+      }
     }
   },
   "shippedBacktest": {
@@ -471,14 +523,14 @@
       "study": 0.92,
       "methodA": 1.016,
       "confidenceA": "high",
-      "methodB": 1.0162,
-      "confidenceB": "medium"
+      "methodB": 0.9174,
+      "confidenceB": "low"
     },
     "guard/white/SE": {
       "study": 0.7,
       "methodA": 0.845,
       "confidenceA": "medium",
-      "methodB": 0.1763,
+      "methodB": 0.2246,
       "confidenceB": "low"
     },
     "guard/white/S": {
@@ -528,6 +580,13 @@
       "methodA": 0.633,
       "confidenceA": "low",
       "methodB": 0.0696,
+      "confidenceB": "low"
+    },
+    "king-flame/white/SE": {
+      "study": 0.76,
+      "methodA": 1.439,
+      "confidenceA": "high",
+      "methodB": 0.5198,
       "confidenceB": "low"
     }
   }

@@ -1,0 +1,13 @@
+{
+  "reason": "Owner approved by eye, 2026-11-05.",
+  "topRangeAt160ByBank": {
+    "ogre/white/white-walk-SW": 11.62,
+    "ogre/black/black-walk-SW": 11.62,
+    "guard/white/white-walk-NE": 10.91,
+    "guard/black/black-walk-NE": 10.91,
+    "king-flame/white/white-walk-NE": 10.0,
+    "king-flame/black/black-walk-NE": 10.0,
+    "king-mud/white/white-walk-E": 9.94,
+    "king-mud/black/black-walk-E": 9.94
+  }
+}
