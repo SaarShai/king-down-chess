@@ -83,6 +83,10 @@ const BASE: Row[] = [
   // The ogre steps, takes, and pushes friends, enemies, and an immune guard.
   { name: 'ogre', fen: '7k/8/8/3p4/2POg3/8/8/K7 w - - 0 1', counts: [14, 150, 2030],
     has: [move('d4', 'd3'), take('d4', 'd5', 'd5'), move('d4', 'd5', { shove: { from: parseSq('d5'), to: parseSq('d6') } }), move('d4', 'c4', { shove: { from: parseSq('c4'), to: parseSq('b4') } }), move('d4', 'e4', { shove: { from: parseSq('e4'), to: parseSq('f4') } })] },
+  // The ogre cannot push a king, although the square beyond the king is empty.
+  { name: 'ogre spares kings', fen: '7k/8/8/8/8/3K4/3O4/8 w - - 0 1', counts: [14, 42, 597],
+    has: [move('d2', 'c2')],
+    lacks: [{ shove: { from: parseSq('d3'), to: parseSq('d4') } }] },
   // Quiet and capture promotions offer the four standard pieces.
   { name: 'promotion', fen: 'k3r3/3P4/8/8/8/8/8/7K w - - 0 1', counts: [11, 91, 849],
     has: ([N, B, R, Q] as const).flatMap(promo => [move('d7', 'd8', { promo }), { ...take('d7', 'e8', 'e8'), promo }]) },
@@ -115,11 +119,15 @@ const POWERS: Row[] = ([
   { name: 'Haste', fen: '7k/8/8/8/3N4/8/8/K7 w - - 0 1', counts: [22, 114, 917],
     has: [{ power: 'haste' }] },
   // Flight moves a piece to an empty square in its own half.
-  { name: 'Flight', fen: '7k/8/8/8/3N4/8/8/K7 w - - 0 1', counts: [41, 121],
-    has: [move('d4', 'h2', { power: 'flight' })] },
+  { name: 'Flight', fen: '7k/8/8/8/3N4/4P3/8/K7 w - - 0 1', counts: [63, 187],
+    has: [move('d4', 'h2', { power: 'flight' }), move('d4', 'h1', { power: 'flight' }), move('e3', 'h2', { power: 'flight' })],
+    // A pawn cannot land on its own back rank.
+    lacks: [move('e3', 'h1', { power: 'flight' })] },
   // Sacrifice replaces a pawn with a piece in its reserve.
-  { name: 'Sacrifice', fen: '7k/8/8/8/8/3P4/8/K7 w - - 0 1 lRN', counts: [6, 18, 183],
-    has: [{ power: 'sacrifice' }] },
+  { name: 'Sacrifice', fen: '7k/8/8/8/8/3P4/8/K7 w - - 0 1 lRNG', counts: [6, 18, 183],
+    has: [{ power: 'sacrifice', promo: R }],
+    // A lost guard stays in the reserve.
+    lacks: [{ power: 'sacrifice', promo: G }] },
   // The always-on March lets a pawn double-step away from its start rank.
   { name: 'March', fen: '7k/8/8/8/8/3P4/8/K7 w - - 0 1', counts: [5, 15, 102],
     has: [move('d3', 'd5', { captures: [] })] },
@@ -136,9 +144,10 @@ const POWERS: Row[] = ([
   { name: 'DeathTouch', fen: '7k/8/8/3n4/8/3Kp3/8/8 w - - 0 1', counts: [7, 69, 442],
     has: [take('d3', 'd3', 'e3'), take('d3', 'd3', 'd5')] },
   // Darkness keeps straight pawn steps, adds diagonal steps and forward takes, and extends the king's step.
-  { name: 'Darkness', fen: '7k/8/8/3p4/3P4/8/5P2/3K4 w - - 0 1', counts: [17, 53, 877],
+  { name: 'Darkness', fen: '7k/8/8/3pp3/3P4/8/5P2/3K4 w - - 0 1', counts: [16, 80, 1178],
     has: [move('f2', 'f4'), move('f2', 'e3'), take('d4', 'd5', 'd5'), move('d1', 'f1')],
-    lacks: [move('d4', 'e5', { captures: [parseSq('e5')] })] },
+    // The enemy pawn on e5 is safe: a Darkness pawn takes only straight forward.
+    lacks: [take('d4', 'e5', 'e5')] },
 ] satisfies Row[]).map(row => ({ ...row, rules: powerRules(row.name as PowerName) }));
 
 const CARDS: Row[] = [
@@ -146,15 +155,17 @@ const CARDS: Row[] = [
   ...([
     ['Freeze', 'freeze', [15, 152]], ['IceWall', 'ward', [10, 175]],
     ['Strike', 'strike', [36, 104]], ['Haste', 'haste', [22, 145]],
-    ['Flight', 'flight', [41, 121]], ['Sacrifice', 'sacrifice', [6, 18]],
+    ['Flight', 'flight', [63, 187]], ['Sacrifice', 'sacrifice', [6, 18]],
     ['March', 'march', [5, 15]], ['Leap', 'leap', [13, 36]],
   ] as const).map(([name, power, counts]) => ({
     ...POWERS.find(row => row.name === name)!, name: `card ${name}`, rules: hand(name),
     counts: [...counts], has: [{ power }],
   })),
   // Salvation drops a lost piece on its home rank.
-  { name: 'card Salvation', fen: '7k/8/8/8/8/3P4/8/K7 w - - 0 1 lRN', rules: hand('Salvation'), counts: [18, 51],
-    has: [{ power: 'salvation', drop: R }] },
+  { name: 'card Salvation', fen: '7k/8/8/8/8/3P4/8/K7 w - - 0 1 lRNG', rules: hand('Salvation'), counts: [18, 51],
+    has: [{ power: 'salvation', drop: R }],
+    // A lost guard stays in the reserve.
+    lacks: [{ power: 'salvation', drop: G }] },
   // Mirror spends itself to copy another card that stays in the hand.
   { name: 'card MirrorB', fen: '7k/8/8/3n4/8/8/3R4/K7 w - - 0 1', rules: hand('MirrorB', 'Freeze'), counts: [16, 171],
     has: [{ power: 'freeze', via: 'mirrorb' }] },

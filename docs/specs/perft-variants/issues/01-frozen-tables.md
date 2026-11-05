@@ -23,7 +23,7 @@ Shipped code stays unchanged. This branch has no push or pull request.
 
 ## Result
 
-- The test file has 71 fixed positions. Each count covers depths 1 and 2; most also cover depth 3.
+- The test file has 72 fixed positions. Each count covers depths 1 and 2; most also cover depth 3.
 - The default rows do not call `setRules`. The two fixed armies hold every kind in `POOL`.
 - Legal-move checks show the named piece action, power, or card. The table covers all 12 powers and all 21 released cards.
 - The path check compares full move objects, keys after apply and undo, and legal moves after apply. It walks two plies from each table position except the known double-turn fault.
@@ -33,8 +33,8 @@ Shipped code stays unchanged. This branch has no push or pull request.
 ## Evidence
 
 - Two final runs use `KINGDOWN_PERFT_PRINT=1 KINGDOWN_TEST_FILE='src/rules/perft-variants.test.ts' npm test`.
-- Each run passes 142 checks, with 2 expected failures. The full file run takes 1.30 s and 1.29 s. All 71 printed rows match.
-- The stable printed table has SHA-256 `b3e7579dd246771075b754fb1436e9f2486f5b4e2fc28f397fa2590cb51a22c0` (JSON name/count pairs, with no spaces).
+- Each run passes 144 checks, with 2 expected failures. The full file run takes about 1.4 s. Two runs give the same counts.
+- After the independent review, four cases were added: a Darkness pawn cannot take on a diagonal, an ogre cannot push a king, a lost guard does not return (Sacrifice, Salvation), and a pawn cannot use Flight to its own back rank. A deliberate one-line engine break of each rule fails its row.
 - `npm run typecheck` passes. `git diff --check` passes.
 - A local one-line change stops Beast chains. The `beast chain` table row fails: `[12, 56, 662]` becomes `[11, 53, 595]`. No other row fails. The engine is then restored byte for byte.
 - The full suite and browser checks do not run. The requested `npm test` command also runs its fixed 70 art checks; all pass.
