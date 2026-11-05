@@ -50,6 +50,8 @@ KINGDOWN_TEST_FILE='tools/{anim/{move-gates,promote-painted-moves,wrap-up},chara
 
 Result: 4 files and 21 cases pass. Both type checks pass. The same command runs the 70 board unit cases; all pass. Build log: `/Users/za/kd-runs/fin-walks/build.log`. Test log: `/Users/za/kd-runs/fin-walks/tests.log`. The PR holds the CI result.
 
+The first CI verification step fails only in the new report test: its import of the image builder needs NumPy. The report reader now lives in `wrap_up_report.py`, with standard-library imports only. The test uses `python3 -S`, so image packages cannot hide this error. Only this failed test runs again locally; it passes, with both type checks and the 70 board unit cases. All 10 browser jobs pass in the first CI round. The catalog and art stay unchanged.
+
 No local browser check or `test:docs` runs. No full local test suite, new play check, separate reviewer, judge round or image call runs. No merge, catalog promotion or deploy runs.
 
 ## Build findings kept for later work

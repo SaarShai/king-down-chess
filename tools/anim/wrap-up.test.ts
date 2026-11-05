@@ -4,9 +4,9 @@ import { expect, it } from 'vitest';
 
 it('checks picked-base proof and the straight move speed rule', () => {
  const script = `
-import copy, json, pathlib, sys, tempfile
+import json, pathlib, sys, tempfile
 sys.path.insert(0, sys.argv[1])
-import wrap_up_build as build
+import wrap_up_report as report
 import wrap_up_strides as strides
 selection = {'catalogSha256':'pin', 'entries':[{'kind':'move'}]}
 proof = {'catalogSha256':'pin', 'faults':[], 'failed':{}, 'runtimePng':'pass',
@@ -14,12 +14,12 @@ proof = {'catalogSha256':'pin', 'faults':[], 'failed':{}, 'runtimePng':'pass',
 with tempfile.TemporaryDirectory() as tmp:
  path = pathlib.Path(tmp)/'report.json'
  path.write_text(json.dumps(proof))
- assert build.picked_base_report(path, selection) == proof
- assert build.picked_base_report(None, selection) is None
+ assert report.picked_base_report(path, selection) == proof
+ assert report.picked_base_report(None, selection) is None
  for field, bad in [('catalogSha256','other'), ('faults',['bad']), ('failed',{'walk':'bad'}),
                     ('runtimePng','fail'), ('framesWithNoPickColour',{'total':1}), ('selectionKinds',{})]:
   path.write_text(json.dumps({**proof, field:bad}))
-  try: build.picked_base_report(path, selection)
+  try: report.picked_base_report(path, selection)
   except ValueError: pass
   else: raise AssertionError(field)
  assert strides.decide({'character':'ogre','facing':'N'}, {}, {}, {'kings':1.76})[0] == 1.0
@@ -35,5 +35,5 @@ with tempfile.TemporaryDirectory() as tmp:
  except ValueError as error: assert 'under 520 ms' in str(error)
  else: raise AssertionError('one method must not set a short straight move')
 `;
- expect(() => execFileSync('/usr/bin/python3', ['-c', script, resolve('tools/anim')], { stdio: 'pipe' })).not.toThrow();
+ expect(() => execFileSync('python3', ['-S', '-c', script, resolve('tools/anim')], { stdio: 'pipe' })).not.toThrow();
 });

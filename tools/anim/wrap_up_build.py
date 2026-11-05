@@ -47,6 +47,7 @@ sys.path.insert(0, str(HERE))
 import recolor  # noqa: E402
 import wrap_up_picks  # noqa: E402
 import wrap_up_strides  # noqa: E402
+from wrap_up_report import picked_base_report  # noqa: E402
 
 SPECS = 'docs/specs/character-animation-samples'
 SELECTION_REL = f'{SPECS}/runtime-selection.json'
@@ -449,19 +450,6 @@ def check(catalog, base_catalog, base_manifest, manifest, selection, new_keys, f
     if final and kinds.get('move') != target:
         faults.append(f"move banks: {kinds.get('move')}, not {target}")
     return faults
-
-
-def picked_base_report(path, selection):
-    if not path:
-        return None
-    base_report = json.loads(path.read_text())
-    kinds = {kind: sum(e['kind'] == kind for e in selection['entries']) for kind in ('idle', 'turn', 'attack', 'move')}
-    if (base_report.get('catalogSha256') != selection['catalogSha256'] or base_report.get('faults') != []
-            or base_report.get('failed') != {} or base_report.get('runtimePng') != 'pass'
-            or base_report.get('framesWithNoPickColour', {}).get('total') != 0
-            or base_report.get('selectionKinds') != kinds):
-        raise ValueError('the base report does not prove a clean build of this pin')
-    return base_report
 
 
 def build(args):

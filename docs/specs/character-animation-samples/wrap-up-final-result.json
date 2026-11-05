@@ -37,5 +37,12 @@
     "boardUnitCases": 70,
     "status": "pass",
     "runs": 1
+  },
+  "ciFixFocusedTest": {
+    "file": "tools/anim/wrap-up.test.ts",
+    "cases": 1,
+    "boardUnitCases": 70,
+    "status": "pass",
+    "pythonSitePackages": false
   }
 }
