@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {P,R,Q,L,M,G,piece,parseSq,makeMove} from './rules.mjs';
-import {createPosition,actionsFor,layouts} from './model.mjs';
-import {chargeAt,swapAt,CHARGE_CONTACT} from './motion.mjs';
-import {figures,actionAt,deformPoint,registeredPoint} from '../court-motion.mjs';
+import {P,R,Q,L,M,G,piece,parseSq,makeMove} from '../../../docs/2d-first-pieces/board/rules.mjs';
+import {createPosition,actionsFor,layouts} from '../../../docs/2d-first-pieces/board/model.mjs';
+import {chargeAt,swapAt,CHARGE_CONTACT} from './board/motion.mjs';
+import {figures,actionAt,deformPoint,registeredPoint} from './court-motion.mjs';
 const sq=parseSq;
 test('Queen rays, Paladin survival/sacrifice and Maester swaps use production rules for both armies',()=>{
  for(const side of [0,1]){

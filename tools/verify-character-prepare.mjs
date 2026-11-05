@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { env, launch, trapErrors, assertNoErrors } from './lib/checks.mjs';
-import { turnRoute } from '../docs/2d-first-pieces/board/character-runtime.mjs';
+import { turnRoute } from '../src/render/painted/character-runtime.mjs';
 
 const browser=await launch();
 try {
@@ -53,7 +53,7 @@ try {
  const waitFor=predicate=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error(`request wait timed out: started=${started}, closed=${closed}`)),12000);notify=()=>{if(predicate()){clearTimeout(timer);resolve();}};notify();});
  try{
   const page=await browser.newPage();await page.goto(env('PLAYABLE_URL'));
-  const source=await readFile(new URL('../docs/2d-first-pieces/board/character-runtime.mjs',import.meta.url),'utf8'),base=`http://127.0.0.1:${server.address().port}/`;
+  const source=await readFile(new URL('../src/render/painted/character-runtime.mjs',import.meta.url),'utf8'),base=`http://127.0.0.1:${server.address().port}/`;
   await page.evaluate(async({source,base})=>{
    const moduleUrl=URL.createObjectURL(new Blob([source],{type:'text/javascript'})),{createCharacterRuntime}=await import(moduleUrl);URL.revokeObjectURL(moduleUrl);
    const banks=Array.from({length:7},(_,i)=>({id:`b${i}`,character:`p${i}`,army:'white',kind:'idle',facing:'SE',durationMs:100,pivot:[0,0],registrationHeightPx:1,frames:[{url:`image-${i}`,timeMs:0}]}));

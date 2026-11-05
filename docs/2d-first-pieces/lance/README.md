@@ -1,6 +1,6 @@
 # Pawn with a lance — continuous 2D study
 
-2026-09-26. [Open the Pawn preview](http://127.0.0.1:5192/lance/). The owner asked to apply the accepted Archer cursor animation to the Pawn and his lance.
+2026-09-26. [Open the Pawn preview](http://127.0.0.1:5192/docs/2d-first-pieces/lance/). The owner asked to apply the accepted Archer cursor animation to the Pawn and his lance.
 
 Move the pointer in the preview to aim, then click to thrust. Dragging changes aim without attacking. On touch, drag to aim and use **Thrust lance**; the native Aim height slider is an alternative. Keyboard: Up/Down adjust elevation, Home returns to level, Enter/Space thrust. Slow motion shows anticipation, contact and recovery. Reduce motion defaults to the system preference and skips the moving attack while preserving aim and hit feedback.
 
@@ -11,7 +11,7 @@ Move the pointer in the preview to aim, then click to thrust. Dragging changes a
 - The actual transparent gutter is at x=762. Source windows are `[0,0,762,1024]` and `[762,0,774,1024]`, preserving the complete lance tips and shields. Each army has calibrated shoulder/weapon coordinates and display offsets so army changes keep the figure in approximately the same place.
 - A small shoulder mesh provides **20° up / 24° down** aiming. The gauntlet and straight lance move together. Smoothing follows the same approach as the accepted Archer. An attack requested while aiming waits briefly for that aim.
 - The 800 ms thrust has a short wind-up, 46 px forward jab, contact and recovery. The upper body shifts into the jab; the stance tapers to fixed boot soles. The aimed arm receives one rigid translation separately from the body deformation, so a low lance cannot bend as it crosses the leg-height region. Slow motion takes 2.4 seconds.
-- Canvas 2D drawing and native pointer/keyboard controls; no new dependency. `../painted-mesh.mjs` contains the affine texture routine shared with the Archer, and `../aim-study.css` contains the common preview styling. Each piece retains its own pose geometry and action timing.
+- Canvas 2D drawing and native pointer/keyboard controls; no new dependency. `src/render/painted/painted-mesh.mjs` contains the affine texture routine shared with the Archer, and `../aim-study.css` contains the common preview styling. Each piece retains its own pose geometry and action timing.
 
 The focused study does not add walking, alternate facings, a full-body turn, or new game rules. The existing two-piece board keeps its earlier Pawn animation; the playable game is unchanged. Acceptance of the new Pawn artwork remains with the owner.
 

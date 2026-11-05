@@ -1,6 +1,6 @@
 # Painted Paladin — 2026-09-26
 
-Open [the character preview](http://127.0.0.1:5192/paladin/) or [its board position](http://127.0.0.1:5192/board/?position=paladin).
+Open [the character preview](http://127.0.0.1:5192/docs/2d-first-pieces/paladin/) or [its board position](http://127.0.0.1:5192/docs/2d-first-pieces/board/?position=paladin).
 
 Grey beard, square pauldrons, gold chest cross and complete two-handed hammer. Ivory/charcoal armour AND tabard dominate; narrow red stripe.
 
@@ -11,7 +11,7 @@ The initial Paladin had a pale tabard on the charcoal army. A targeted colour ed
 
 Hands, head and entire hammer translate rigidly during the brace; a short lower-leg transition keeps actual boots fixed. Board travel uses anticipation and a shallow bound, then capture/recovery or self-removal. This is not an articulated hammer swing.
 
-The shared renderer is `../court-motion.mjs`; the preview controls live in `../court-study.mjs`. Source origins are registered separately for the two armies without editing their bitmaps. Hold pose exposes the maximum deformation for inspection. Reset and army changes cancel the current action; keyboard, slow motion and reduced motion are supported.
+The shared renderer is `src/render/painted/court-motion.mjs`; the preview controls live in `../court-study.mjs`. Source origins are registered separately for the two armies without editing their bitmaps. Hold pose exposes the maximum deformation for inspection. Reset and army changes cancel the current action; keyboard, slow motion and reduced motion are supported.
 
 ## Verification
 

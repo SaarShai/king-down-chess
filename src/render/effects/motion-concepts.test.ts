@@ -10,7 +10,7 @@ import { viewBoard } from './view-harness';
 import { drawHero } from './card-hero';
 import { drawSpell } from './card-spell';
 import { drawFirewall, drawFreeze } from './materials';
-import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from '../painted/scene.mjs';
 vi.mock('./card-hero', async original => ({ ...await original<typeof import('./card-hero')>(), drawHero: vi.fn() }));
 vi.mock('./card-spell', async original => ({ ...await original<typeof import('./card-spell')>(), drawSpell: vi.fn() }));
 vi.mock('./materials', () => ({ drawFreeze: vi.fn(), drawIceWall: vi.fn(), drawFirewall: vi.fn() }));

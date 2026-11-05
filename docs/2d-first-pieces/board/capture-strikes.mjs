@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 const dir = new URL('./strikes/', import.meta.url);
-const url = process.env.STUDY_URL || 'http://127.0.0.1:5192/board/';
+const url = process.env.STUDY_URL || 'http://127.0.0.1:5192/docs/2d-first-pieces/board/';
 const cases = [
   { name: 'bishop-ivory', layout: 'bishop', from: null, to: 'e2', times: [0, 250, 420, 470, 494, 520, 600, 800, 1150], status: 'Ivory Bishop captured on e2.', counts: ['4', '3'] },
   { name: 'bishop-charcoal', layout: 'bishop', from: 'f5', to: 'c2', times: [0, 250, 420, 470, 494, 520, 600, 800, 1150], status: 'Charcoal Bishop captured on c2.', counts: ['3', '4'] },

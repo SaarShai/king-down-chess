@@ -1,6 +1,6 @@
 # Painted Queen — 2026-09-26
 
-Open [the character preview](http://127.0.0.1:5192/queen/) or [its board position](http://127.0.0.1:5192/board/?position=queen).
+Open [the character preview](http://127.0.0.1:5192/docs/2d-first-pieces/queen/) or [its board position](http://127.0.0.1:5192/docs/2d-first-pieces/board/?position=queen).
 
 Crown, gold eye mask, brown bob, high collar and complete spiral skirt. Narrow red edging is the recognition accent.
 
@@ -9,7 +9,7 @@ Crown, gold eye mask, brown bob, high collar and complete spiral skirt. Narrow r
 The built-in image generation tool used the original King Down reference and accepted painted Knight as style/palette input. Exact prompts, original reference, final transparent 1536×1024 PNG and hash/provenance are saved in this directory. [Provenance](provenance.json); [initial prompt](prompt.txt). 
 Small rigid upper-body weight shift; only lower skirt bands deform, with the lower hem fixed. No independent hand animation or drawn walking cycle.
 
-The shared renderer is `../court-motion.mjs`; the preview controls live in `../court-study.mjs`. Source origins are registered separately for the two armies without editing their bitmaps. Hold pose exposes the maximum deformation for inspection. Reset and army changes cancel the current action; keyboard, slow motion and reduced motion are supported.
+The shared renderer is `src/render/painted/court-motion.mjs`; the preview controls live in `../court-study.mjs`. Source origins are registered separately for the two armies without editing their bitmaps. Hold pose exposes the maximum deformation for inspection. Reset and army changes cancel the current action; keyboard, slow motion and reduced motion are supported.
 
 ## Verification
 

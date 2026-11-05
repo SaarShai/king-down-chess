@@ -1,6 +1,6 @@
 # Painted Knight
 
-2026-09-26. Fourth piece, after Pawn, Archer and Ogre. [Character preview](http://127.0.0.1:5192/knight/) · [Board position](http://127.0.0.1:5192/board/?position=knight).
+2026-09-26. Fourth piece, after Pawn, Archer and Ogre. [Character preview](http://127.0.0.1:5192/docs/2d-first-pieces/knight/) · [Board position](http://127.0.0.1:5192/docs/2d-first-pieces/board/?position=knight).
 
 ## Artwork
 

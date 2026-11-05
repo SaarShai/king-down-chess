@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {PUSH,shift,pushAt,palmAt} from './motion.mjs';
-import {createPosition,actionsFor,destination} from '../board/model.mjs';
-import {P,A,O,piece,parseSq,makeMove} from '../board/rules.mjs';
+import {createPosition,actionsFor,destination} from '../../../../docs/2d-first-pieces/board/model.mjs';
+import {P,A,O,piece,parseSq,makeMove} from '../../../../docs/2d-first-pieces/board/rules.mjs';
 const at=parseSq, count=p=>Array.from(p.board).filter(Boolean).length;
 test('Ogre shove preserves complete upper-body geometry, planted feet, and recovery',()=>{
  const upper=[{x:380,y:180},{x:220,y:320},{x:640,y:410},{x:480,y:525}];

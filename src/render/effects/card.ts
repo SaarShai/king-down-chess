@@ -1,7 +1,7 @@
 import type { GameRules } from '../../game-rules';
 import { TAG_POWER, colorOf, typeOf, K, P, type Move, type Position } from '../../rules/engine';
 import { RELEASED_CARDS } from '../../content/cards';
-import type { PaintedScene, SceneEffect } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene, SceneEffect } from '../painted/scene.mjs';
 import { HEROES, drawHero } from './card-hero';
 import { MOVEMENT_IDS, MOVEMENT_DURATIONS, drawMovement } from './card-movement';
 import { SPELL_DURATIONS, drawSpell } from './card-spell';

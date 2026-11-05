@@ -1,6 +1,6 @@
 # Painted Ogre
 
-2026-09-26. The third painted character, following Pawn and Archer. [Character preview](http://127.0.0.1:5192/ogre/) · [Board encounter](http://127.0.0.1:5192/board/?position=ogre).
+2026-09-26. The third painted character, following Pawn and Archer. [Character preview](http://127.0.0.1:5192/docs/2d-first-pieces/ogre/) · [Board encounter](http://127.0.0.1:5192/docs/2d-first-pieces/board/?position=ogre).
 
 ## Artwork and provenance
 

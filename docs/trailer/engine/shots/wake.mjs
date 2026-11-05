@@ -16,9 +16,9 @@ import { ease, bezier, keys, remap, ring, noise, camera, sparks, shockwave, bloo
 import { FPS } from '../timeline.mjs';
 import * as R from '../../../2d-first-pieces/board/rules.mjs';
 import { actionsFor } from '../../../2d-first-pieces/board/model.mjs';
-import { createScene, PAD, TILE } from '../../../2d-first-pieces/board/scene.mjs';
-import { tipAt, thrustAt, THRUST, MIN_ANGLE, MAX_ANGLE } from '../../../2d-first-pieces/lance/aiming.mjs';
-import * as knight from '../../../2d-first-pieces/knight/motion.mjs';
+import { createScene, PAD, TILE } from '../../../../src/render/painted/scene.mjs';
+import { tipAt, thrustAt, THRUST, MIN_ANGLE, MAX_ANGLE } from '../../../../src/render/painted/lance/aiming.mjs';
+import * as knight from '../../../../src/render/painted/knight/motion.mjs';
 
 // ---- Timing (shot seconds). Hits sit on the 120 BPM grid: 0.5 s beats, 0.25 s half-beats. ----
 const DROP_T = [0.5, 1.5];      // the drop ignites (a beat), then lands (a beat)

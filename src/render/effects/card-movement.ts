@@ -1,4 +1,4 @@
-import type { PaintedScene } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene } from '../painted/scene.mjs';
 import type { CardFrame, CardLayer, Point } from './card-types';
 
 // Material follows the same intact figure motion as the study player.

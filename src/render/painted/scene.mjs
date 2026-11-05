@@ -1,24 +1,24 @@
 // The painted board scene: art, poses, capture animations and effects drawn on one canvas.
 // Shared by the board trial (prototype.mjs) and the game's painted look (src/render/PaintedView.ts).
 // Rules helpers are passed in, so the scene never bundles its own copy of the engine.
-import { clamp } from '../painted-mesh.mjs';
+import { clamp } from './painted-mesh.mjs';
 import {createCharacterRuntime,facingOf,anchorAt,bankPointToWorld} from './character-runtime.mjs';
-import * as archer from '../wrist-bow/aiming.mjs';
-import * as pawn from '../lance/aiming.mjs';
-import * as ogre from '../ogre/motion.mjs';
-import * as knight from '../knight/motion.mjs';
-import * as bishop from '../bishop/motion.mjs';
-import * as rook from '../rook/motion.mjs';
-import * as guard from '../guard/motion.mjs';
-import * as court from '../court-motion.mjs';
-import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
+import * as archer from './wrist-bow/aiming.mjs';
+import * as pawn from './lance/aiming.mjs';
+import * as ogre from './ogre/motion.mjs';
+import * as knight from './knight/motion.mjs';
+import * as bishop from './bishop/motion.mjs';
+import * as rook from './rook/motion.mjs';
+import * as guard from './guard/motion.mjs';
+import * as court from './court-motion.mjs';
+import {chargeAt,CHARGE_CONTACT,swapAt} from './board/motion.mjs';
 import {BLOW,KING_BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
 import {GAITS,GAIT_OF,idleAt,paintedPace,paintedTravel} from './gait.mjs';
 import {createKingEffects,phaseOffset} from './king-effects.mjs';
 import {KING_FILES} from './king-sheets.mjs';
 import {DEATHS,THEMED,drawDeath,kingBodyBounds} from './king-captures.mjs';
-import * as pawnIdle from '../lance/idle.mjs';
-import {CLIPS,frameAt,drawFrame as drawClipFrame,inCell} from '../clips/clips.mjs';
+import * as pawnIdle from './idle.mjs';
+import {CLIPS,frameAt,drawFrame as drawClipFrame,inCell} from './clips.mjs';
 import {SHADE,shadowField,shadowWeights,fxFade} from './contact-shadow.mjs';
 export const SIZE=960, PAD=32, TILE=112;
 /** The floor round the board, by default: the trial, the trailer and the plugin page draw it. */
@@ -34,10 +34,10 @@ export function paintFloor(ctx,floor,headroom){
  if(floor){ctx.fillStyle=floor;ctx.fillRect(0,-headroom,SIZE,SIZE+headroom);}
 }
 // One literal URL per image: bundlers resolve and copy each file (a template string would not).
-const ART_FILES={beast:new URL('../beast/beast.webp',import.meta.url).href,queen:new URL('../queen/queen.webp',import.meta.url).href,paladin:new URL('../paladin/paladin.webp',import.meta.url).href,maester:new URL('../maester/maester.webp',import.meta.url).href,pawn:new URL('../lance/pawn.webp',import.meta.url).href,archer:new URL('../wrist-bow/archer.webp',import.meta.url).href,ogre:new URL('../ogre/ogre.webp',import.meta.url).href,knight:new URL('../knight/knight.webp',import.meta.url).href,bishop:new URL('../bishop/bishop.webp',import.meta.url).href,rook:new URL('../rook/rook.webp',import.meta.url).href,guard:new URL('../guard/guard.webp',import.meta.url).href};
+const ART_FILES={beast:new URL('../../../docs/2d-first-pieces/beast/beast.webp',import.meta.url).href,queen:new URL('../../../docs/2d-first-pieces/queen/queen.webp',import.meta.url).href,paladin:new URL('../../../docs/2d-first-pieces/paladin/paladin.webp',import.meta.url).href,maester:new URL('../../../docs/2d-first-pieces/maester/maester.webp',import.meta.url).href,pawn:new URL('../../../docs/2d-first-pieces/lance/pawn.webp',import.meta.url).href,archer:new URL('../../../docs/2d-first-pieces/wrist-bow/archer.webp',import.meta.url).href,ogre:new URL('../../../docs/2d-first-pieces/ogre/ogre.webp',import.meta.url).href,knight:new URL('../../../docs/2d-first-pieces/knight/knight.webp',import.meta.url).href,bishop:new URL('../../../docs/2d-first-pieces/bishop/bishop.webp',import.meta.url).href,rook:new URL('../../../docs/2d-first-pieces/rook/rook.webp',import.meta.url).href,guard:new URL('../../../docs/2d-first-pieces/guard/guard.webp',import.meta.url).href};
 // One sheet per king design (king-sheets.mjs); a side draws the king it plays (setKings).
 // Painted stone board inspired by the original King Down board's capital (board-art/README.md).
-const BOARD_ART=new URL('../board-art/stone-board.webp',import.meta.url).href;
+const BOARD_ART=new URL('../../../docs/2d-first-pieces/board-art/stone-board.webp',import.meta.url).href;
 /**
  * pieces: {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName,LETTERS?} from the rules engine.
  * closeup: optional {panel,title,ctx} for steep Archer shots; without it the Archer shoots on the board.

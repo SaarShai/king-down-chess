@@ -8,7 +8,7 @@
 //   shadow  shadow scale (1 = at rest).
 // New move kinds (for example the kings' powers) add an entry to GAITS and name it in GAIT_OF,
 // or play it directly with scene.play(move, {gait: 'name'}).
-import {clamp} from '../painted-mesh.mjs';
+import {clamp} from './painted-mesh.mjs';
 const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
 const smoother=t=>{t=clamp(t,0,1);return t*t*t*(t*(t*6-15)+10);};
 const span=(u,a,b)=>clamp((u-a)/(b-a),0,1);

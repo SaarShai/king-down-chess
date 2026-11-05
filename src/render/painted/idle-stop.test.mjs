@@ -16,8 +16,8 @@ const realSetTimeout=setTimeout;
 globalThis.setTimeout=(fn,ms)=>{timers.push({fn,at:now+ms});return timers.length;};
 globalThis.clearTimeout=()=>{};
 const {createScene}=await import('./scene.mjs');
-const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName,parseSq}=await import('./rules.mjs');
-const {createPosition}=await import('./model.mjs');
+const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName,parseSq}=await import('../../../docs/2d-first-pieces/board/rules.mjs');
+const {createPosition}=await import('../../../docs/2d-first-pieces/board/model.mjs');
 globalThis.setTimeout=realSetTimeout;
 
 /** Advance the clock in 33 ms steps, running each due frame and timer; returns the time of the last frame. */

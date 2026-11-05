@@ -1,4 +1,4 @@
-import type { PaintedScene, SceneEffect } from '../../../docs/2d-first-pieces/board/scene.mjs';
+import type { PaintedScene, SceneEffect } from '../painted/scene.mjs';
 import type { Move, Position } from '../../rules/engine';
 
 // The owner-approved promotion reveal (motion concepts, ticket 86): after the pawn arrives, gold dust from the painted

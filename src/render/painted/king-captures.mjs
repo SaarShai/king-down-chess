@@ -13,7 +13,7 @@
 //           near an edge back over the king, on the back rank along the band above the board)
 // The king's own motion is blows.mjs KING_BLOW; these effects start at its strike. Times are ms after the strike, at Normal speed (Fast halves them).
 // Units are board units (the board is 960 wide).
-import {clamp} from '../painted-mesh.mjs';
+import {clamp} from './painted-mesh.mjs';
 import {drawHand,drawCrack} from './skeleton-hands.mjs';
 import {LEAF_GRADIENT,VINE} from './mud-palette.mjs';
 

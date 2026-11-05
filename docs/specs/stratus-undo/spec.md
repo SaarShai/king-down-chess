@@ -19,7 +19,7 @@ The scene keeps the move's clock while the rewind runs, and it draws from that c
 
 ## Files
 
-- `docs/2d-first-pieces/board/scene.mjs` and `scene.d.mts`: `prepareUndo`, `rewindUndo`, `resetKingEffects`, the rewind clock in the draw and tick paths.
+- `src/render/painted/scene.mjs` and `scene.d.mts`: `prepareUndo`, `rewindUndo`, `resetKingEffects`, the rewind clock in the draw and tick paths.
 - `src/render/PaintedView.ts`: `prepareUndo` and `resetEffects` reach the scene; a pending Undo skips the normal cancel.
 - `src/move-moments.ts`: the Undo gesture offers the last move to the view before the game rolls back.
 - `src/screen/play.ts`: a different Game object clears the effect history.

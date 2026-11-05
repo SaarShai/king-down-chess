@@ -5,7 +5,7 @@
 //         board's warm top-left light;
 //   oval  drawn each frame in its place as the figure leaves the floor, where it will land;
 //   lying a pool under the body of a figure that tips over or lies on the floor.
-import {clamp} from '../painted-mesh.mjs';
+import {clamp} from './painted-mesh.mjs';
 
 // Strengths are [light stone, dark wood]: a shadow takes the mix by how dark the floor under it is.
 export const SHADE={q:1.5,shear:.6,cast:.26,rgb:[40,30,24],core:[.62,.94],soft:[.45,.7],air:[.6,.7],pool:.4};

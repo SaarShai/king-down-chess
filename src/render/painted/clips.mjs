@@ -4,7 +4,7 @@
 // 1152 px sprite at `factor` of its size. Both armies' clips end on the drawing they start with.
 import {FRAMES} from './frames.mjs';
 // One literal URL per image: bundlers resolve and copy each file.
-const FILES={knight:new URL('../knight/tap.webp',import.meta.url).href,rook:new URL('../rook/slam.webp',import.meta.url).href};
+const FILES={knight:new URL('../../../docs/2d-first-pieces/knight/tap.webp',import.meta.url).href,rook:new URL('../../../docs/2d-first-pieces/rook/slam.webp',import.meta.url).href};
 export const CLIPS=Object.fromEntries(Object.entries(FRAMES).map(([name,f])=>[name,{...f,file:FILES[name],duration:f.sequence.length/f.fps*1000}]));
 /** The drawing clip `name` shows `ms` after it starts, or null before it starts and once it has ended. */
 export function frameAt(name,ms){
