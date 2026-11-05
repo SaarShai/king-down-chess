@@ -13,12 +13,15 @@ import warnings
 import numpy as np
 from PIL import Image
 from scipy.cluster.vq import kmeans2
-from scipy.ndimage import distance_transform_edt, gaussian_filter
+from scipy.ndimage import binary_erosion, distance_transform_edt, gaussian_filter
 from scipy.spatial import cKDTree
 from skimage.color import lab2rgb, rgb2lab
 
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG_PATH = Path('docs/specs/character-animation-samples/preview/consolidated-animations')
+# Lab units per body height for the place on the body, and the neighbour blend of the spatial map.
+SPATIAL_X, SPATIAL_Y = 30, 80
+SPATIAL_SAMPLES, SPATIAL_NEIGHBOURS, SPATIAL_SIGMA, SPATIAL_BLUR, SPATIAL_CURVE = 40000, 24, 5, 1.2, 0.8
 
 
 def default_catalog():
@@ -113,6 +116,93 @@ def apply_parts(frame, mapping, pivot):
         edge = (alpha > 0) & ~visible & (distance <= 2) & used[indices[0], indices[1]]
         result[edge, :3] = result[indices[0][edge], indices[1][edge], :3]
     return result
+
+
+def body_coords(alpha):
+    """Pixel positions in body heights: y from the top of the figure, x from its centre line."""
+    ys, xs = np.nonzero(alpha >= 128)
+    if not len(ys):
+        raise ValueError('frame has no opaque pixels')
+    height = ys.max() - ys.min() + 1
+    y, x = np.indices(alpha.shape)
+    return (x - np.median(xs)) / height, (y - ys.min()) / height
+
+
+def fit_box(image):
+    """Put the target figure on the source figure's box: the two armies were drawn apart, at a little other size and place."""
+    box = Image.fromarray(image, 'RGBA').getchannel('A').point(lambda value: 255 if value >= 128 else 0).getbbox()
+    if box is None:
+        raise ValueError('frame has no opaque pixels')
+    return box
+
+
+def aligned_target(source, target):
+    """The target moved and scaled so that its figure box equals the source figure box, on the source canvas."""
+    left, top, right, bottom = fit_box(source)
+    figure = Image.fromarray(target, 'RGBA').crop(fit_box(target)).resize((right - left, bottom - top), Image.Resampling.LANCZOS)
+    canvas = Image.new('RGBA', (source.shape[1], source.shape[0]))
+    canvas.paste(figure, (left, top))
+    return np.array(canvas)
+
+
+def overlap(source, target):
+    """Alpha overlap of two standing poses after box alignment. Colour samples from a pair under about 0.85 are unsafe."""
+    a, b = source[:, :, 3] >= 128, aligned_target(source, target)[:, :, 3] >= 128
+    return float((a & b).sum() / (a | b).sum())
+
+
+def fit_spatial(source, target):
+    """A colour map from one standing pose to the other army's standing pose in the same facing. Two parts with one colour
+    in white can differ in black (cream hair and cream robe), so each sample also keeps its place on the body."""
+    target = aligned_target(source, target)
+    x, y = (rgb2lab(image[:, :, :3] / 255.0) for image in (source, target))
+    mask = binary_erosion((source[:, :, 3] >= 230) & (target[:, :, 3] >= 230), iterations=2)
+    if mask.sum() < 256:
+        raise ValueError('standing poses have too little opaque overlap')
+    bx, by = body_coords(source[:, :, 3])
+    rng = np.random.default_rng(18)
+    picked = rng.choice(mask.sum(), min(SPATIAL_SAMPLES, int(mask.sum())), replace=False)
+    return {'mode': 'spatial',
+            'points': np.column_stack((x[mask], bx[mask] * SPATIAL_X, by[mask] * SPATIAL_Y))[picked],
+            'deltas': (y[mask] - x[mask])[picked],
+            'targetL': np.percentile(y[target[:, :, 3] >= 128, 0], np.linspace(0, 100, 101))}
+
+
+def apply_spatial(frames, mapping):
+    """Map all poses of one walk. One lightness curve for the walk, so that the highlights of the target come back and no
+    pose gets its own tone."""
+    mapped = []
+    for frame in frames:
+        alpha = frame[:, :, 3]
+        lab = rgb2lab(frame[:, :, :3] / 255.0)
+        bx, by = body_coords(alpha)
+        visible = alpha > 0
+        query = np.column_stack((lab[visible], bx[visible] * SPATIAL_X, by[visible] * SPATIAL_Y))
+        distance, index = cKDTree(mapping['points']).query(query, k=SPATIAL_NEIGHBOURS, workers=1)
+        weights = np.exp(-(distance ** 2 - distance[:, :1] ** 2) / (2 * SPATIAL_SIGMA ** 2))
+        weights /= weights.sum(axis=1, keepdims=True)
+        delta = np.zeros(lab.shape)
+        delta[visible] = (mapping['deltas'][index] * weights[:, :, None]).sum(axis=1)
+        # A light blur removes single-pixel noise. Line art keeps its own lightness, as lab is added back.
+        cover = gaussian_filter(visible.astype(float), SPATIAL_BLUR)
+        delta = np.dstack([gaussian_filter(delta[:, :, i], SPATIAL_BLUR) for i in range(3)]) / np.maximum(cover, 1e-6)[:, :, None]
+        mapped.append(lab + delta)
+    q = np.linspace(0, 100, 101)
+    pooled = np.concatenate([lab[frame[:, :, 3] >= 128, 0] for lab, frame in zip(mapped, frames)])
+    source = np.maximum.accumulate(np.percentile(pooled, q))
+    results = []
+    for lab, frame in zip(mapped, frames):
+        alpha = frame[:, :, 3]
+        curved = np.interp(lab[:, :, 0], source, mapping['targetL'])
+        lab[:, :, 0] = np.clip(lab[:, :, 0] + SPATIAL_CURVE * (curved - lab[:, :, 0]), 0, 100)
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', message='Conversion from CIE-LAB')
+            rgb = np.rint(np.clip(lab2rgb(lab), 0, 1) * 255).astype(np.uint8)
+        edge, idx = edge_reference(alpha)
+        rgb[edge] = rgb[idx[0][edge], idx[1][edge]]
+        rgb[alpha == 0] = 0
+        results.append(np.dstack((rgb, alpha)))
+    return results
 
 
 def apply(frame, mapping, pivot=None):

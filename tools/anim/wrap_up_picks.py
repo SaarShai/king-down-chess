@@ -5,13 +5,12 @@ The pipelines live in <r5>/<pick>/work. They were written for catalog frames. Th
 segment and recolour code on new poses, with the loop p1-p2-p3-p4-p1 as the only frame neighbours.
 No pipeline file changes. Each pick runs in its own process, because the pipelines share module names.
 
-Usage: wrap_up_picks.py --pick king-mud-black --facing E --input <dir> --white <dir> --output <dir> [--r5 <dir>]
+Usage: wrap_up_picks.py --pick ogre-black --facing E --input <dir> --white <dir> --output <dir> [--r5 <dir>]
 <dir> holds 001.png to 004.png at catalog scale. Input for a black pick is the tone-mapped frame.
 Input for king-stratus-white is the white frame. --white holds the white poses. Alpha never changes.
 
-King Mud needs the white poses. The tone map turns all its cream to the blue-grey of the black cape, but the black
-master keeps the ivory bone, and the mud masks find bone by colour. So the masks come from the white pose. The crown,
-claws and named parts take the white colours, and the named parts then take the dark map of the pick.
+Black Mud and black Stratus do not run here. wrap_up_build.py maps their walks from the pick colours of the standing pose.
+Their cream parts have one colour in white and other colours in black, so a mask on the white pose failed on shoulders.
 """
 import argparse
 from pathlib import Path
@@ -23,69 +22,18 @@ from PIL import Image
 
 warnings.filterwarnings('ignore')
 BACK = {'N', 'NE', 'NW'}
-PICKS = ('ogre-black', 'king-mud-black', 'king-stratus-black', 'king-stratus-white')
+PICKS = ('ogre-black', 'king-stratus-white')
+# Line art closes a raised thigh, toes or a hand in the hip band as if they were cloth, and white skin has the cloth colour.
+# (facing, pose index): (x, y, area) of each piece, with the catalog-scale area. A remade pose fails the area test.
+OGRE_NOT_CLOTH = {('SW', 3): ((522, 463, 9803), (519, 522, 654), (542, 538, 553), (553, 561, 401)),
+                  ('W', 0): ((584, 455, 8125),), ('W', 1): ((385, 408, 6984),), ('W', 2): ((663, 402, 6126),)}
 
 
 def loop_pairs(count):
     return [tuple(sorted((i, (i + 1) % count))) for i in range(count)]
 
 
-def mud(frames, facing, whites):
-    import seg4
-    import final as F
-    from scipy.sparse import coo_matrix
-    from scipy.sparse.csgraph import connected_components
-    count = len(frames)
-    srcs = dict(enumerate(whites))
-    raw = {}
-    for i, src in srcs.items():
-        g = seg4.segment(src, face=facing not in BACK)
-        raw[i] = dict(label=g['label'].astype(np.int64), crown=g['crown'], claw=g['claw'], other=g['other'])
-    F.neighbours = lambda: {i: {(i - 1) % count, (i + 1) % count} for i in srcs}
-    heads = F.head_filter(raw, srcs)
-    labels, forced = {}, {}
-    for i in srcs:
-        label = raw[i]['label'].copy()
-        label[(label == 1) & ~heads[i]] = 0
-        label[heads[i]] = 1
-        labels[i] = label
-        forced[i] = raw[i]['crown'] | raw[i]['claw']
-    # The vote of lock.py in the way-1 pilot, with no approved key. Pixels that hold still share a label.
-    height, width = frames[0].shape[:2]
-    total = height * width
-    rows, cols = [], []
-    for a, b in loop_pairs(count):
-        still = np.nonzero(F.stable_mask(srcs[a], srcs[b]).ravel())[0]
-        rows.append(a * total + still)
-        cols.append(b * total + still)
-    rows, cols = np.concatenate(rows), np.concatenate(cols)
-    voted_all = np.concatenate([labels[i].ravel() for i in srcs])
-    tracked_all = np.zeros(total * count, bool)
-    if len(rows):
-        nodes, inverse = np.unique(np.concatenate([rows, cols]), return_inverse=True)
-        r, c = inverse[:len(rows)], inverse[len(rows):]
-        graph = coo_matrix((np.ones(len(r), np.int8), (r, c)), shape=(len(nodes),) * 2)
-        groups, group = connected_components(graph, directed=False)
-        flat = voted_all[nodes]
-        hold = np.concatenate([forced[i].ravel() for i in srcs])[nodes]
-        major = np.bincount(group * 4 + flat, minlength=groups * 4).reshape(groups, 4).argmax(1)
-        major[np.bincount(group, weights=hold, minlength=groups) > 0] = 0
-        voted_all[nodes] = major[group]
-        tracked_all[nodes] = True
-    results = []
-    for i, src in srcs.items():
-        voted = voted_all[i * total:(i + 1) * total].reshape(height, width)
-        tracked = tracked_all[i * total:(i + 1) * total].reshape(height, width)
-        final = F.coherent(labels[i].astype(np.uint8), voted.astype(np.uint8), tracked, src).astype(np.int64)
-        final[forced[i]] = 0
-        base = frames[i].copy()
-        ivory = (final > 0) | forced[i]
-        base[ivory, :3] = src[ivory, :3]
-        results.append(F.recolour(base, final))
-    return results
-
-
-def ogre_cloth(white):
+def ogre_cloth(white, not_cloth=()):
     """The r5 cloth test looks for the blue cloth of the old black art. A white pose has cream cloth, as near to the skin
     as its folds are, so a tone map cannot show it. Line art closes the cloth. On the master this gives IoU 0.875 with
     the r5 mask. Keep the light areas that sit at the hips and stop above the feet."""
@@ -97,9 +45,12 @@ def ogre_cloth(white):
     top, height = rows[0], rows[-1] - rows[0]
     labels, _count = ndi.label(ndi.binary_erosion(visible & (lightness >= 48), iterations=1))
     cloth = np.zeros(visible.shape, bool)
+    dropped = {int(labels[y, x]) for x, y, area in not_cloth if abs((labels == labels[y, x]).sum() - area) <= 0.2 * area}
     for index, box in enumerate(ndi.find_objects(labels), 1):
         piece = labels[box] == index
         area = int(piece.sum())
+        if index in dropped:
+            continue
         ys = np.nonzero(piece)[0] + box[0].start
         if 400 <= area < 25000 and 0.5 <= (ys.mean() - top) / height <= 0.78 and (ys.max() - top) / height <= 0.86:
             cloth[box] |= piece
@@ -123,11 +74,11 @@ def ogre(frames, facing, whites):
         tusks.append(O.tusk_mask(lab, visible, scale))
     tusks, _log = O.fill_tusks(frames, tusks, loop=True)
     previous, results = None, []
-    for rgba, tusk, white in zip(frames, tusks, whites):
+    for pose, (rgba, tusk, white) in enumerate(zip(frames, tusks, whites)):
         weights = G.parts(rgba, tusk)
         lab = rgb2lab(rgba[:, :, :3] / 255.0)
         visible = rgba[:, :, 3] >= 128
-        cloth, folds = ogre_cloth(white)
+        cloth, folds = ogre_cloth(white, OGRE_NOT_CLOTH.get((facing, pose), ()))
         weights['cloth'] = np.where(cloth, 1.0, 0.0)
         weights['body'] = np.where(cloth, 0.0, weights['body'])
         weights['interior'] = folds
@@ -139,44 +90,22 @@ def ogre(frames, facing, whites):
     return results
 
 
-def stratus_black(frames, facing, whites):
-    import lib as L
-    import seg4 as S
-    classes, labs = [], []
-    for image in frames:
-        cls, lab = S.segment(image, None)
-        cls = S.clean(cls, lab)
-        classes.append(S.split_torso(cls, lab, image[..., 3] >= 128, None).astype(np.int8))
-        labs.append(L.lab(image).astype(np.float32))
-    # The rounds of temporal.py, with the loop as the only edges.
-    still = {}
-    for a, b in loop_pairs(len(frames)):
-        alpha_a, alpha_b = frames[a][..., 3], frames[b][..., 3]
-        still[(a, b)] = ((alpha_a >= 128) & (alpha_b >= 128) & (alpha_a == alpha_b)
-                         & (np.sqrt(((labs[a] - labs[b]) ** 2).sum(-1)) < 3.0))
-    for _ in range(8):
-        changed, updated = 0, []
-        for i, own in enumerate(classes):
-            votes = np.zeros((6,) + own.shape, np.int16)
-            for k in range(-1, 5):
-                votes[k + 1] += own == k
-            any_still = np.zeros(own.shape, bool)
-            for other in ((i - 1) % len(frames), (i + 1) % len(frames)):
-                mask = still[tuple(sorted((i, other)))]
-                any_still |= mask
-                for k in range(-1, 5):
-                    votes[k + 1] += mask & (classes[other] == k)
-            best = votes.argmax(0) - 1
-            own_votes = np.take_along_axis(votes, (own.astype(np.int64) + 1)[None], 0)[0]
-            take = any_still & (votes.max(0) > own_votes) & (own >= 0) & (best >= 0)
-            result = own.copy()
-            result[take] = best[take]
-            changed += int(take.sum())
-            updated.append(result)
-        classes = updated
-        if not changed:
-            break
-    return [S.recolour(image, cls.astype(np.int32), L.lab(image))[0] for image, cls in zip(frames, classes)]
+def stratus_cape_rim(rgba):
+    """Black Stratus: the rest poses keep a teal rim on the cape, the attack keys have none, so it flashes. The owner asked
+    for shades of dark. Pull teal pixels (green-side a, blue-side b; the steel has a near 0) to neutral and darken them. A pixel that holds a blend of rim
+    and cape takes a part of the change, so in-between frames match their keys. Alpha never changes."""
+    from skimage.color import lab2rgb, rgb2lab
+    lab = rgb2lab(rgba[..., :3] / 255.0)
+    weight = np.clip((-lab[..., 1] - 1.5) / 3, 0, 1) * (lab[..., 2] < 2)
+    weight = weight * weight * (3 - 2 * weight)
+    weight[(rgba[..., 3] == 0) | (lab[..., 0] > 62)] = 0
+    new = lab.copy()
+    new[..., 0] = lab[..., 0] * (1 - 0.38 * weight)
+    new[..., 1:] = lab[..., 1:] * (1 - 0.95 * weight[..., None])
+    out = rgba.copy()
+    changed = weight > 0
+    out[changed, :3] = np.rint(lab2rgb(new[changed][None])[0] * 255).astype(np.uint8)
+    return out
 
 
 def stratus_white(frames, facing, whites):
@@ -190,7 +119,7 @@ def stratus_white(frames, facing, whites):
     return [X.recolour(sources[i], labels[i])[0] for i in sources]
 
 
-RUN = {'ogre-black': ogre, 'king-mud-black': mud, 'king-stratus-black': stratus_black, 'king-stratus-white': stratus_white}
+RUN = {'ogre-black': ogre, 'king-stratus-white': stratus_white}
 
 
 def main():

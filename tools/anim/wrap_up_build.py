@@ -11,8 +11,10 @@ Nothing in the base catalog or the worktree changes, unless --apply copies the r
 
 Steps:
 1. Copy the base catalog. Measure strides (wrap_up_strides.py).
-2. White poses go to catalog scale. Black poses come from the tone map fitted on the base rest masters.
-3. The pick pipeline runs on walks of ogre-black, king-mud-black, king-stratus-black and king-stratus-white.
+2. White poses go to catalog scale. Black poses come from a colour map fitted on the standing pose in the same facing:
+   white against the black frame, with its pick colours when the character has a pick (recolor.fit_spatial).
+3. The pick pipeline runs on walks of ogre-black and king-stratus-white. White Ogre skin has the colour of its cloth, so
+   the map cannot split them. Ogre black alone uses the old tone map, as the input of its pipeline.
 4. Each ready idle, turn, attack and move bank of a pick takes its new frames by frame hash, so one source frame gives
    one output. The source bank of a move changes with it, because the move gates compare the two.
    The paladin-white walks stay as they are: the runtime does not play them.
@@ -38,6 +40,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 sys.path.insert(0, str(HERE))
 import recolor  # noqa: E402
+import wrap_up_picks  # noqa: E402
 import wrap_up_strides  # noqa: E402
 
 SPECS = 'docs/specs/character-animation-samples'
@@ -51,8 +54,9 @@ ALL_PICKS = {'rook-black': ('rook', 'black'), 'paladin-white': ('paladin', 'whit
              'ogre-black': ('ogre', 'black'), 'king-frost-black': ('king-frost', 'black'),
              'king-mud-black': ('king-mud', 'black'), 'king-stratus-black': ('king-stratus', 'black'),
              'king-stratus-white': ('king-stratus', 'white')}
-WALK_PICKS = {('ogre', 'black'): 'ogre-black', ('king-mud', 'black'): 'king-mud-black',
-              ('king-stratus', 'black'): 'king-stratus-black', ('king-stratus', 'white'): 'king-stratus-white'}
+WALK_PICKS = {('ogre', 'black'): 'ogre-black', ('king-stratus', 'white'): 'king-stratus-white'}
+RING = ('N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW')
+SAFE_OVERLAP = 0.85
 NO_WALK_BANKS = {'knight', 'paladin'}
 NO_MOVE_PICK = {'paladin-white'}
 WALK_TARGET = 240
@@ -122,23 +126,60 @@ def geometry_for(walk, meta, runtime):
 
 def prepare_walk(job):
     """One process per walk: catalog-scale white poses, then tone-mapped black poses. Files only."""
-    walk, geometry, work, white_master, black_master = job
+    walk, geometry, work, white_master, black_master, standing = job
     name = f"{walk['character']}-{walk['facing']}"
     white_dir, black_dir = Path(work) / 'white' / name, Path(work) / 'black' / name
     white_dir.mkdir(parents=True, exist_ok=True)
     black_dir.mkdir(parents=True, exist_ok=True)
-    mapping = recolor.fit(read_rgba(white_master), read_rgba(black_master))
+    poses = []
     for pose in range(1, 5):
         with Image.open(Path(walk['frames']) / f'{pose:03}.png') as source:
             if source.mode != 'RGBA':
                 raise ValueError(f'{name} pose {pose}: expected RGBA')
             image = source.resize(tuple(geometry['canvasSize']), Image.Resampling.LANCZOS)
         image.save(white_dir / f'{pose:03}.png')
-        white = read_rgba(white_dir / f'{pose:03}.png')
-        black = recolor.apply(white, mapping)
+        poses.append(read_rgba(white_dir / f'{pose:03}.png'))
+    if walk['character'] == 'ogre':
+        mapping = recolor.fit(read_rgba(white_master), read_rgba(black_master))
+        blacks = [recolor.apply(white, mapping) for white in poses]
+    else:
+        blacks = recolor.apply_spatial(poses, recolor.fit_spatial(*fit_pair(standing)))
+        if walk['character'] == 'king-stratus':
+            blacks = [wrap_up_picks.stratus_cape_rim(black) for black in blacks]
+    for pose, (white, black) in enumerate(zip(poses, blacks), 1):
         recolor.gate(white, black)
         Image.fromarray(black).save(black_dir / f'{pose:03}.png')
     return name
+
+
+def fit_pair(standing):
+    """The first facing in the list whose two standing poses overlap well. Else the best one."""
+    pairs = [(read_rgba(white), read_rgba(black)) for white, black in standing]
+    scores = [recolor.overlap(*pair) for pair in pairs]
+    best = next((i for i, score in enumerate(scores) if score >= SAFE_OVERLAP), int(np.argmax(scores)))
+    return pairs[best]
+
+
+def standing_pairs(catalog, selection, character, facing, table):
+    """(white frame, black frame) of the standing pose in this facing, then in the two facings beside it.
+    The black frame takes its pick colours from the table."""
+    index = RING.index(facing)
+    pairs = []
+    for wanted in (facing, RING[(index + 1) % 8], RING[index - 1]):
+        for entry in selection['entries']:
+            ends = entry['id'].split('-')[-2:]
+            if (entry['character'], entry['army'], entry['kind']) != (character, 'black', 'turn') or wanted not in ends:
+                continue
+            position = 0 if ends[0] == wanted else -1
+            other = next(e for e in selection['entries'] if e['character'] == character and e['army'] == 'white'
+                         and e['id'] == entry['id'].replace('black-', 'white-', 1))
+            old = json.loads((catalog / entry['manifest']).read_text())['frames'][position]['sha256']
+            light = json.loads((catalog / other['manifest']).read_text())['frames'][position]['sha256']
+            pairs.append((str(catalog / 'assets' / f'{light}.png'), str(table.get(old, catalog / 'assets' / f'{old}.png'))))
+            break
+    if not pairs:
+        raise ValueError(f'{character} {facing}: no standing pose')
+    return pairs
 
 
 def run_pick(job):
@@ -206,18 +247,11 @@ def walk_banks(catalog, walk, army, paths, geometry, stride):
 
 
 def load_overlay(path, table):
-    """Accept the two map forms of the pilots: {old: {path}} (way 1) and {frames: [{shipped, final}]} (way 2)."""
-    data = json.loads(Path(path).read_text())
-    if 'frames' in data:
-        pairs = [(frame['shipped'], path.parent / frame['final']) for frame in data['frames']]
-    else:
-        pairs = []
-        for old, record in data.items():
-            candidates = [path.parent / record['path'], path.parent.parent / record['path']]
-            pairs.append((old, next((c for c in candidates if c.is_file()), candidates[0])))
+    """An r6 or r7 map: {byOldSha256: {old: [path, ...]}}. A later map replaces an earlier one, frame by frame."""
+    path = Path(path)
+    data = json.loads(path.read_text())
+    pairs = [(old, path.parent / paths[0]) for old, paths in data['byOldSha256'].items()]
     for old, file in pairs:
-        if old in table and sha_file(table[old]) != sha_file(file):
-            raise ValueError(f'overlay {path}: {old[:12]} has two different outputs')
         table[old] = file
     return len(pairs)
 
@@ -392,6 +426,7 @@ def build(args):
     dump(out / 'strides.json', strides)
     report = {'base': {'commit': ref, 'catalogSha256': selection['catalogSha256']}, 'walks': {}, 'failed': {}}
 
+    table, overlay_counts = pick_tables(args.r5, args.overlay)
     jobs = []
     for walk in walks:
         name = f"{walk['character']}-{walk['facing']}"
@@ -399,7 +434,8 @@ def build(args):
             meta = json.loads((Path(walk['frames']) / 'meta.json').read_text())
             geometry = geometry_for(walk, meta, runtime)
             source = json.loads(git_show(ref, f"tools/anim/sources/{walk['character']}.json"))['masters']
-            jobs.append((walk, geometry, str(work), str(base / source['white']['path']), str(base / source['black']['path'])))
+            standing = standing_pairs(base, selection, walk['character'], walk['facing'], table)
+            jobs.append((walk, geometry, str(work), str(base / source['white']['path']), str(base / source['black']['path']), standing))
         except (ValueError, KeyError, OSError, subprocess.CalledProcessError) as error:
             report['failed'][name] = str(error)
     with ProcessPoolExecutor(args.jobs) as pool:
@@ -459,7 +495,6 @@ def build(args):
 
     new_ids = {(e['character'], e['army'], e['id']) for e in new_entries}
     entries = [e for e in base_manifest['entries'] if (e['character'], e['army'], e['id']) not in new_ids]
-    table, overlay_counts = pick_tables(args.r5, args.overlay)
     entries, frames_map, banks_map, gaps = apply_picks(catalog, entries, table, new_keys)
     manifest = {**base_manifest, 'entries': entries + new_entries}
     catalog_sha = dump(catalog / 'manifest.json', manifest)
@@ -537,7 +572,7 @@ def main():
     parser.add_argument('--out', type=Path, default=Path.home() / 'kd-runs/wrap-up')
     parser.add_argument('--base-catalog', type=Path, default=ROOT.parents[2] / CATALOG_REL)
     parser.add_argument('--r5', type=Path, default=Path.home() / 'kd-runs/army-r5')
-    parser.add_argument('--overlay', type=Path, action='append', default=[], help='an in-between map; repeat for each')
+    parser.add_argument('--overlay', type=Path, action='append', default=[], help='a map in r6 form; repeat in order: later maps replace earlier ones')
     parser.add_argument('--study', type=Path, default=STUDY)
     parser.add_argument('--jobs', type=int, default=6)
     parser.add_argument('--final', action='store_true', help='stop on any open item')
