@@ -1,6 +1,6 @@
 # Close the animation records
 
-Status: ready for PR; CI pending
+Status: records prepared. [PR 255](https://github.com/SaarShai/king-down-chess/pull/255) holds the current check and merge state.
 
 ## Plan and checks
 
@@ -20,5 +20,5 @@ Status: ready for PR; CI pending
 - Source records: `~/kd-runs/wrap-up-plan.md`, `log.md`, `rules.md`, `hub-status.md`, issue 39 and `TAKEOVER.md`.
 - Local check: `npm run test:docs` passes once: 17 files, 186 checks pass, one check skipped. No local full-suite or browser run.
 - `git diff --check` passes. The diff has only three Markdown files. All eight lessons are in the existing recipe and gates; no dated lesson is added.
-- CI: pending on the records PR. The owner handles merge and deploy. No independent reviewer is used, as the owner directs.
+- CI: see PR 255 for the result on the current head. The final report is `~/kd-runs/fin-records/fin-records.md`. The owner handles merge and deploy. No independent reviewer is used, as the owner directs.
 - Left as it is: MAIN and its local edits; issue 39; the catalog, runtime selection and walk banks. The external hub and rules carry the current status and worker instructions.
