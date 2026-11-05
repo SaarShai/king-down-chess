@@ -250,6 +250,6 @@ def main():
     try:
         provenance=collect(root,args.main,args.include_old_drive,args.m1) if args.command!='backup' else None
         if args.command!='collect':backup(root,provenance,args.seed_old_drive)
-        if provenance and any('collection_error' in row for row in json.loads(provenance.read_text())):raise RuntimeError('M1 collection incomplete; card backup verified, retry when M1 is reachable')
+        if provenance and any('collection_error' in row for row in json.loads(provenance.read_text())):raise RuntimeError('M1 collection incomplete; results backup verified, retry when M1 is reachable')
     finally:lock.rmdir()
 if __name__=='__main__':main()
