@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "ready",
-  "catalogSha256": "0467714b9af161c65062ee86fa9f5069eabc6292756bb2f293d841dca3fe2c52",
+  "catalogSha256": "340e92eb521feac8f985b0befd5c83e68546288ab93a9245e7d916ebfc7773dc",
   "entries": [
     {
       "character": "pawn",
@@ -3968,8 +3968,8 @@
       "army": "white",
       "kind": "attack",
       "id": "white-attack-NE",
-      "manifest": "banks/4fa486e1094da5876ae6c50825db4c4437d954a72c3ce458ebda30088abe373b.json",
-      "sha256": "4fa486e1094da5876ae6c50825db4c4437d954a72c3ce458ebda30088abe373b"
+      "manifest": "banks/37a59039fa4840069795345d07558c3e49e11ce95e722929a286566cdb23cada.json",
+      "sha256": "37a59039fa4840069795345d07558c3e49e11ce95e722929a286566cdb23cada"
     },
     {
       "character": "king-frost",
@@ -3984,24 +3984,24 @@
       "army": "white",
       "kind": "attack",
       "id": "white-attack-SE",
-      "manifest": "banks/777dde3e6039842c72fbb625bce35f15b281cbc38cb7371f2dec2461eda99a48.json",
-      "sha256": "777dde3e6039842c72fbb625bce35f15b281cbc38cb7371f2dec2461eda99a48"
+      "manifest": "banks/1052ea73c91a9587026bdb89e657f428310c36a6c4a605eae74ef0941cfffaea.json",
+      "sha256": "1052ea73c91a9587026bdb89e657f428310c36a6c4a605eae74ef0941cfffaea"
     },
     {
       "character": "king-frost",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-S",
-      "manifest": "banks/7c4251da3e76de918216fa4d3310f54406236ff87b55d3ef78112d367872ac55.json",
-      "sha256": "7c4251da3e76de918216fa4d3310f54406236ff87b55d3ef78112d367872ac55"
+      "manifest": "banks/1c7a2ed90461da07cd90a670f133933981312001b23fa62a6bcf16d0d05eefd4.json",
+      "sha256": "1c7a2ed90461da07cd90a670f133933981312001b23fa62a6bcf16d0d05eefd4"
     },
     {
       "character": "king-frost",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-SW",
-      "manifest": "banks/52ec0b35ef98d9dc2e511617c675505d3bfb4e51eb1b7430e878c5f46c1f8130.json",
-      "sha256": "52ec0b35ef98d9dc2e511617c675505d3bfb4e51eb1b7430e878c5f46c1f8130"
+      "manifest": "banks/0d4af8c71411e120a345512eee09dd0a4c29448ff17a842175461dfdd0287829.json",
+      "sha256": "0d4af8c71411e120a345512eee09dd0a4c29448ff17a842175461dfdd0287829"
     },
     {
       "character": "king-frost",
@@ -4032,8 +4032,8 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-NE",
-      "manifest": "banks/174183c1b82c0286bffe1b2eacfb750c32403e557460fb955af51bf75e3c90c1.json",
-      "sha256": "174183c1b82c0286bffe1b2eacfb750c32403e557460fb955af51bf75e3c90c1"
+      "manifest": "banks/552b2283fc8710a6f25cfad6ff31a52a1b04e69982bd2c57284f9a4fe9d6e314.json",
+      "sha256": "552b2283fc8710a6f25cfad6ff31a52a1b04e69982bd2c57284f9a4fe9d6e314"
     },
     {
       "character": "king-frost",
@@ -4048,24 +4048,24 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-SE",
-      "manifest": "banks/cdf71b9a3908a2404565fc7942cc6ba391597a145c84a93d4fe009d2f1c4daf2.json",
-      "sha256": "cdf71b9a3908a2404565fc7942cc6ba391597a145c84a93d4fe009d2f1c4daf2"
+      "manifest": "banks/9915619c402b7c862bb3374fb8f518e78bac820de637242dbf1415253c79ff17.json",
+      "sha256": "9915619c402b7c862bb3374fb8f518e78bac820de637242dbf1415253c79ff17"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-S",
-      "manifest": "banks/851aedeec0a5c18a307fd9da84a74e8cc7eafcb2b4074f53862b39baa3ed3b37.json",
-      "sha256": "851aedeec0a5c18a307fd9da84a74e8cc7eafcb2b4074f53862b39baa3ed3b37"
+      "manifest": "banks/ca7073992f45ef6993c0e32866592a7d5dff8bc4a17f3003ee4fed102eedfb6f.json",
+      "sha256": "ca7073992f45ef6993c0e32866592a7d5dff8bc4a17f3003ee4fed102eedfb6f"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-SW",
-      "manifest": "banks/a9b9dbd120c5e7285abea8cad61491ba68f331e7cb92abd0387a0fee4ede0a2f.json",
-      "sha256": "a9b9dbd120c5e7285abea8cad61491ba68f331e7cb92abd0387a0fee4ede0a2f"
+      "manifest": "banks/edbc9dd42eb3fca57e19bb3fee9b898096c68a6a0574934cdfbad4bb5bcbe3a5.json",
+      "sha256": "edbc9dd42eb3fca57e19bb3fee9b898096c68a6a0574934cdfbad4bb5bcbe3a5"
     },
     {
       "character": "king-frost",
