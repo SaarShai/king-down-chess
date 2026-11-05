@@ -165,6 +165,8 @@ try {
 
   await stageMate('normal'); await endTurn(page);
   await page.locator('.kd-words').waitFor({ state: 'attached' });
+  // A press during board motion is a skip and keeps Menu closed (A8); a slow runner can still draw the fall here.
+  await page.waitForFunction(() => !window.view.scene.animating && !window.view.scene.falling);
   await pressMenu(page, 'Settings');
   await page.locator('#menu-back').focus(); await page.keyboard.press('Space');
   assert.equal(await page.locator('#menu-title').textContent(), 'Menu', 'Space works on the sheet button');
