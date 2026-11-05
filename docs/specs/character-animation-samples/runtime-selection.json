@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "status": "ready",
-  "catalogSha256": "340e92eb521feac8f985b0befd5c83e68546288ab93a9245e7d916ebfc7773dc",
+  "catalogSha256": "d9bdfe957c8cc913787b29a71d1a19281001b4c5e26f01a203e1f8f6f3e5e3c6",
   "entries": [
     {
       "character": "pawn",
@@ -320,8 +320,8 @@
       "army": "black",
       "kind": "turn",
       "id": "black-turn-SE-S",
-      "manifest": "banks/0b7386c74f51305a3b4777fa4bdee967fa8a2d6707f5619727bcc8e94d2f7847.json",
-      "sha256": "0b7386c74f51305a3b4777fa4bdee967fa8a2d6707f5619727bcc8e94d2f7847"
+      "manifest": "banks/5734a83437c9f8b0b1ecbf2dbb48d43f7311ab1236b2304e96a3795e42ba8e24.json",
+      "sha256": "5734a83437c9f8b0b1ecbf2dbb48d43f7311ab1236b2304e96a3795e42ba8e24"
     },
     {
       "character": "ogre",
@@ -384,56 +384,56 @@
       "army": "black",
       "kind": "turn",
       "id": "black-turn-S-SW",
-      "manifest": "banks/783ba1e5879d82d344741c00296c1da81ef62650737a68131ea46d8be5749f24.json",
-      "sha256": "783ba1e5879d82d344741c00296c1da81ef62650737a68131ea46d8be5749f24"
+      "manifest": "banks/6c3eb3d5bd42014d7e05a4fe7c22c687b67d68ed0f3f94abc52992db2e51f00d.json",
+      "sha256": "6c3eb3d5bd42014d7e05a4fe7c22c687b67d68ed0f3f94abc52992db2e51f00d"
     },
     {
       "character": "ogre",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-SW-W",
-      "manifest": "banks/7b6c940ddb77157f7513c1c83ad826db8ee154385a36b42c3b85937aaa0e5021.json",
-      "sha256": "7b6c940ddb77157f7513c1c83ad826db8ee154385a36b42c3b85937aaa0e5021"
+      "manifest": "banks/5dc13bfaffdc3ec39f5142653fb8dc229429d11e71e3a7f9034d338a369757de.json",
+      "sha256": "5dc13bfaffdc3ec39f5142653fb8dc229429d11e71e3a7f9034d338a369757de"
     },
     {
       "character": "ogre",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-W-NW",
-      "manifest": "banks/0d2d0fce9e2e35a6623bd426f7f58a0ee95b12c3542d2ee08043d8c2712f4ffe.json",
-      "sha256": "0d2d0fce9e2e35a6623bd426f7f58a0ee95b12c3542d2ee08043d8c2712f4ffe"
+      "manifest": "banks/1f0762275255a351a7e6d7fde5792dc57354da63052d95089ab12287bc27f3a8.json",
+      "sha256": "1f0762275255a351a7e6d7fde5792dc57354da63052d95089ab12287bc27f3a8"
     },
     {
       "character": "ogre",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-NW-N",
-      "manifest": "banks/02370cc01bb804fd23ac6183f75d2a97262f796ae0f766157efb3e8f4733727f.json",
-      "sha256": "02370cc01bb804fd23ac6183f75d2a97262f796ae0f766157efb3e8f4733727f"
+      "manifest": "banks/8be0fd222043af607b9c2c5ad7f7e4b10cb8a48160f0c4593ffdeef1de99ba1a.json",
+      "sha256": "8be0fd222043af607b9c2c5ad7f7e4b10cb8a48160f0c4593ffdeef1de99ba1a"
     },
     {
       "character": "ogre",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-E-SE",
-      "manifest": "banks/b41bd307c19076595cfc817d66a953ccb5515a8ae8bc5c453406e90edd223fc9.json",
-      "sha256": "b41bd307c19076595cfc817d66a953ccb5515a8ae8bc5c453406e90edd223fc9"
+      "manifest": "banks/1f16cbf2b825db9cb22bd7642d83e74ebc8084218c2934d8601515f13caf925f.json",
+      "sha256": "1f16cbf2b825db9cb22bd7642d83e74ebc8084218c2934d8601515f13caf925f"
     },
     {
       "character": "ogre",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-N-NE",
-      "manifest": "banks/3618efba20dc25315385dd770650d0347b6616d09f9ce2f7aab8ecaade9bf03f.json",
-      "sha256": "3618efba20dc25315385dd770650d0347b6616d09f9ce2f7aab8ecaade9bf03f"
+      "manifest": "banks/042caba1378e63b4e11efc31c3d8e20189e108b25514412f2bc9b3308e275a9f.json",
+      "sha256": "042caba1378e63b4e11efc31c3d8e20189e108b25514412f2bc9b3308e275a9f"
     },
     {
       "character": "ogre",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-NE-E",
-      "manifest": "banks/5fbfb7e61248ff1526b4e27ff6975cba28e79db0638cdac29feda428b2187e85.json",
-      "sha256": "5fbfb7e61248ff1526b4e27ff6975cba28e79db0638cdac29feda428b2187e85"
+      "manifest": "banks/cf8ce462afd0e607aeffbe277005e2e9e9d8afdad2aa1a19554f0d9d136475cf.json",
+      "sha256": "cf8ce462afd0e607aeffbe277005e2e9e9d8afdad2aa1a19554f0d9d136475cf"
     },
     {
       "character": "ogre",
@@ -448,8 +448,8 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-E",
-      "manifest": "banks/c3200345ca352e5cf5be2d451e7daff389de4aa27d35f6528bfe266cef751b45.json",
-      "sha256": "c3200345ca352e5cf5be2d451e7daff389de4aa27d35f6528bfe266cef751b45"
+      "manifest": "banks/47b94d98a5afca519ecba73e6fd2f9b3705d257d6bbb2e6426674d36e096cb97.json",
+      "sha256": "47b94d98a5afca519ecba73e6fd2f9b3705d257d6bbb2e6426674d36e096cb97"
     },
     {
       "character": "ogre",
@@ -464,8 +464,8 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-SE",
-      "manifest": "banks/e17767daccd943bd339be963b0c1c1235bbdc94addf52a6561a4580269cfcecd.json",
-      "sha256": "e17767daccd943bd339be963b0c1c1235bbdc94addf52a6561a4580269cfcecd"
+      "manifest": "banks/4beb48444e30a9ed8988e1fd82305dd474e5842c58a3b222a6ec1538d2200940.json",
+      "sha256": "4beb48444e30a9ed8988e1fd82305dd474e5842c58a3b222a6ec1538d2200940"
     },
     {
       "character": "ogre",
@@ -480,8 +480,8 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-W",
-      "manifest": "banks/55805834becaf12caee3e47ce30e86eac059f3dc6edbea7f38e3390bde6c7535.json",
-      "sha256": "55805834becaf12caee3e47ce30e86eac059f3dc6edbea7f38e3390bde6c7535"
+      "manifest": "banks/79ac6b9bc47f7d2b0d16acd0e8842f26c5991bf0725299331a28a86941b90965.json",
+      "sha256": "79ac6b9bc47f7d2b0d16acd0e8842f26c5991bf0725299331a28a86941b90965"
     },
     {
       "character": "ogre",
@@ -496,8 +496,8 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-N",
-      "manifest": "banks/f1c0cd2d18f606bdba1cd9ca7f6c60d6330d5bd5297bc403185d7df04ba98591.json",
-      "sha256": "f1c0cd2d18f606bdba1cd9ca7f6c60d6330d5bd5297bc403185d7df04ba98591"
+      "manifest": "banks/683a22817d9f32d032bf593d346497f9b03f138a51210c3eb1610f33306d1f9f.json",
+      "sha256": "683a22817d9f32d032bf593d346497f9b03f138a51210c3eb1610f33306d1f9f"
     },
     {
       "character": "ogre",
@@ -512,8 +512,8 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-SW",
-      "manifest": "banks/1b5c1407fb129ef6f4ca9ee4e62afadb8ee2f4d07885bce61b4c37faf5922d84.json",
-      "sha256": "1b5c1407fb129ef6f4ca9ee4e62afadb8ee2f4d07885bce61b4c37faf5922d84"
+      "manifest": "banks/300ea797621b4a1ace028611e6ffdb5774d150179359f4927447e5568913b9b3.json",
+      "sha256": "300ea797621b4a1ace028611e6ffdb5774d150179359f4927447e5568913b9b3"
     },
     {
       "character": "ogre",
@@ -528,8 +528,8 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-NE",
-      "manifest": "banks/4bba4ea5073c7e952b1dde6112ff0efe4a088ba6222ebe47ad1b7c0be563141b.json",
-      "sha256": "4bba4ea5073c7e952b1dde6112ff0efe4a088ba6222ebe47ad1b7c0be563141b"
+      "manifest": "banks/ad79161db25fb1b93fdf9ee33b2496dbb83b3bebb4f8ca2c32e7583f3a454880.json",
+      "sha256": "ad79161db25fb1b93fdf9ee33b2496dbb83b3bebb4f8ca2c32e7583f3a454880"
     },
     {
       "character": "ogre",
@@ -544,8 +544,8 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-NW",
-      "manifest": "banks/ebb8ecc6002969753e8e1aa23ca640ffc677b659ee98696d52348b517a5f5f51.json",
-      "sha256": "ebb8ecc6002969753e8e1aa23ca640ffc677b659ee98696d52348b517a5f5f51"
+      "manifest": "banks/4886ef90df57ec1cf4a8a48b9d46699cc7093c5d42af7656229cfe8d5661079a.json",
+      "sha256": "4886ef90df57ec1cf4a8a48b9d46699cc7093c5d42af7656229cfe8d5661079a"
     },
     {
       "character": "ogre",
@@ -560,16 +560,16 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-S",
-      "manifest": "banks/9f676d805a97045a4917dab1748fda6989ffe6bbcdaf6ecb09f294cb23ba0d82.json",
-      "sha256": "9f676d805a97045a4917dab1748fda6989ffe6bbcdaf6ecb09f294cb23ba0d82"
+      "manifest": "banks/8e4b9cef57bd6b68514b99e7876709160760e4b2566d15bddc370ef5da7c2bf3.json",
+      "sha256": "8e4b9cef57bd6b68514b99e7876709160760e4b2566d15bddc370ef5da7c2bf3"
     },
     {
       "character": "ogre",
       "army": "black",
       "kind": "idle",
       "id": "black-idle-clap",
-      "manifest": "banks/95ededcea6980b518340e18d0af3a9453fbe94ebb47f0a2f74bae9be1ce8f6b1.json",
-      "sha256": "95ededcea6980b518340e18d0af3a9453fbe94ebb47f0a2f74bae9be1ce8f6b1"
+      "manifest": "banks/605b273463d4a146c984625c353c2db238d7e08574736eff214b1a26362a1b9f.json",
+      "sha256": "605b273463d4a146c984625c353c2db238d7e08574736eff214b1a26362a1b9f"
     },
     {
       "character": "ogre",
@@ -1856,136 +1856,136 @@
       "army": "white",
       "kind": "attack",
       "id": "white-attack-E",
-      "manifest": "banks/f3cec53f776d3168fada4400b9f48c6ec5e8e70dfaa65eded8c476a2aaaf5985.json",
-      "sha256": "f3cec53f776d3168fada4400b9f48c6ec5e8e70dfaa65eded8c476a2aaaf5985"
+      "manifest": "banks/2619f32ddbd062e8913c972079329cad97b499a8ff62f11d5f0de6a9e54860f2.json",
+      "sha256": "2619f32ddbd062e8913c972079329cad97b499a8ff62f11d5f0de6a9e54860f2"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-N",
-      "manifest": "banks/5b81d9a66dbc6db07cb3c3202b91b5fa0469a80ef57dea364eb4b70d6fa403bb.json",
-      "sha256": "5b81d9a66dbc6db07cb3c3202b91b5fa0469a80ef57dea364eb4b70d6fa403bb"
+      "manifest": "banks/db42e5aa45d67454ab9e23af0c5fead3d5f967dee2273fa8b945bdd97ec8fff2.json",
+      "sha256": "db42e5aa45d67454ab9e23af0c5fead3d5f967dee2273fa8b945bdd97ec8fff2"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-NE",
-      "manifest": "banks/8ee74ed0a1328c1ffaf6b2a3b18870e7d6bfbe281a0ce8b21b289b41828942bc.json",
-      "sha256": "8ee74ed0a1328c1ffaf6b2a3b18870e7d6bfbe281a0ce8b21b289b41828942bc"
+      "manifest": "banks/ce00ee59785eafa461b7f75be21b3c4265d9d31cf58bac20210e6b50f23fa23e.json",
+      "sha256": "ce00ee59785eafa461b7f75be21b3c4265d9d31cf58bac20210e6b50f23fa23e"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-NW",
-      "manifest": "banks/975aede3db3ec19530a5817f8bc5eba487cbc179086e71ca38f80a6b99fce201.json",
-      "sha256": "975aede3db3ec19530a5817f8bc5eba487cbc179086e71ca38f80a6b99fce201"
+      "manifest": "banks/ff10c02ce669d5c21c5b4cb169a3e6d3f825fe6576fb3d1bc7c828f073658da1.json",
+      "sha256": "ff10c02ce669d5c21c5b4cb169a3e6d3f825fe6576fb3d1bc7c828f073658da1"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-S",
-      "manifest": "banks/c73c828ce8285fdd0f3e72f09800cf094a61aa32d0e1566f378dc6b5f2a90454.json",
-      "sha256": "c73c828ce8285fdd0f3e72f09800cf094a61aa32d0e1566f378dc6b5f2a90454"
+      "manifest": "banks/50c3ba27553310b4f02646b6e0a7b3479b55369eca64933e4b6072ac9da7988c.json",
+      "sha256": "50c3ba27553310b4f02646b6e0a7b3479b55369eca64933e4b6072ac9da7988c"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-SE",
-      "manifest": "banks/daa7f2e2b852ed296bb935465faa92a31618819b9a5f87a127d6ed523b3185b6.json",
-      "sha256": "daa7f2e2b852ed296bb935465faa92a31618819b9a5f87a127d6ed523b3185b6"
+      "manifest": "banks/6af60eeb56831398dc16026ec1eb11c7fd52943965179f0d8ef6f0a5cb3002a2.json",
+      "sha256": "6af60eeb56831398dc16026ec1eb11c7fd52943965179f0d8ef6f0a5cb3002a2"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-SW",
-      "manifest": "banks/f80c026409be844ab34162c25814f8ca481626626a7e52d567151775c0c1776c.json",
-      "sha256": "f80c026409be844ab34162c25814f8ca481626626a7e52d567151775c0c1776c"
+      "manifest": "banks/88c814b341e070b41e2770639c6ea6acb6a36b65e94665bf69f9dffbebbd6fbf.json",
+      "sha256": "88c814b341e070b41e2770639c6ea6acb6a36b65e94665bf69f9dffbebbd6fbf"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-W",
-      "manifest": "banks/6cb721930bcdd820ee6a42b5796c0b0aa9e632b162b25f29a0118128429e6c43.json",
-      "sha256": "6cb721930bcdd820ee6a42b5796c0b0aa9e632b162b25f29a0118128429e6c43"
+      "manifest": "banks/b10fa8c779c70b32632e38883e5e58c0b2d50e2c9fb0e2de2253bdf08e9886b3.json",
+      "sha256": "b10fa8c779c70b32632e38883e5e58c0b2d50e2c9fb0e2de2253bdf08e9886b3"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "idle",
       "id": "white-idle-hammer-transfer",
-      "manifest": "banks/6a551021deef462d26c5c77f8c76f638834936f858381fbf540aac387269cb8f.json",
-      "sha256": "6a551021deef462d26c5c77f8c76f638834936f858381fbf540aac387269cb8f"
+      "manifest": "banks/2ce4fce9b02effceaffe311519f55e598e116be4cd694b329e6c0a3f39b75452.json",
+      "sha256": "2ce4fce9b02effceaffe311519f55e598e116be4cd694b329e6c0a3f39b75452"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-E-SE",
-      "manifest": "banks/5c9818fcb474f64b894f4d9da165bdca626d64e7e037f93420447a972097325e.json",
-      "sha256": "5c9818fcb474f64b894f4d9da165bdca626d64e7e037f93420447a972097325e"
+      "manifest": "banks/fbccd8b850de43931507a909a4fe1a76df377dcd02404cffc6662af4043704f4.json",
+      "sha256": "fbccd8b850de43931507a909a4fe1a76df377dcd02404cffc6662af4043704f4"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-N-NE",
-      "manifest": "banks/c70585dfff16c5407bd96d02f975d01e8778d81654d497bc9ea92f14f9370871.json",
-      "sha256": "c70585dfff16c5407bd96d02f975d01e8778d81654d497bc9ea92f14f9370871"
+      "manifest": "banks/62abd39bda63eda33345f490bf8ac599c015b66c6e2d47a6df403393b807ed6d.json",
+      "sha256": "62abd39bda63eda33345f490bf8ac599c015b66c6e2d47a6df403393b807ed6d"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-NE-E",
-      "manifest": "banks/821a69873f1a731aec04fcd05ca12f3b3fce9183b3ff986038ec5d69bc25bd49.json",
-      "sha256": "821a69873f1a731aec04fcd05ca12f3b3fce9183b3ff986038ec5d69bc25bd49"
+      "manifest": "banks/f6b9bf8b184c90e3173d848eaecaee585aa38c95c24adb184a76847d49d9925f.json",
+      "sha256": "f6b9bf8b184c90e3173d848eaecaee585aa38c95c24adb184a76847d49d9925f"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-NW-N",
-      "manifest": "banks/6065b27767c9de6a6923284aa631f76a1a18bbfe138310f64afdc4e32515788f.json",
-      "sha256": "6065b27767c9de6a6923284aa631f76a1a18bbfe138310f64afdc4e32515788f"
+      "manifest": "banks/df9fb3a411981e6a1b5fa924fd147904fe7a00c5401b7c7bfffffe0211c77bd5.json",
+      "sha256": "df9fb3a411981e6a1b5fa924fd147904fe7a00c5401b7c7bfffffe0211c77bd5"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-S-SW",
-      "manifest": "banks/f40f326a10ad3cefccedb508cbc68994f13cbf949646c5e79912640dd0b0d76a.json",
-      "sha256": "f40f326a10ad3cefccedb508cbc68994f13cbf949646c5e79912640dd0b0d76a"
+      "manifest": "banks/4596e2458228b02e64ab28fd3b88b8c64e6f15941c5ec8972d964cc782e1480d.json",
+      "sha256": "4596e2458228b02e64ab28fd3b88b8c64e6f15941c5ec8972d964cc782e1480d"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-SE-S",
-      "manifest": "banks/ace0c5bb98ffe050dec13ed39d1ac5fffb82b243ebee1e0e6fa7bdaadc09a699.json",
-      "sha256": "ace0c5bb98ffe050dec13ed39d1ac5fffb82b243ebee1e0e6fa7bdaadc09a699"
+      "manifest": "banks/5d1fa81d3b5e7324e8711af74d749bf37916839f1445b4042acacfc7805a904d.json",
+      "sha256": "5d1fa81d3b5e7324e8711af74d749bf37916839f1445b4042acacfc7805a904d"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-SW-W",
-      "manifest": "banks/3aed35bd54dcaf578d5cb4c593060ca3fd372dd09333fa3bc556148d135bc652.json",
-      "sha256": "3aed35bd54dcaf578d5cb4c593060ca3fd372dd09333fa3bc556148d135bc652"
+      "manifest": "banks/7e108d7b77907602978c35f8d4d2ddc3471ccd3a9f644e03f0af71a227902cc4.json",
+      "sha256": "7e108d7b77907602978c35f8d4d2ddc3471ccd3a9f644e03f0af71a227902cc4"
     },
     {
       "character": "paladin",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-W-NW",
-      "manifest": "banks/c90884d623fce78889476ba251b47e1243be4f2ce7c2397c78552e40098fdd55.json",
-      "sha256": "c90884d623fce78889476ba251b47e1243be4f2ce7c2397c78552e40098fdd55"
+      "manifest": "banks/39fdff46373d067ab768145b408e6ef0dd0097974f01d94362a124665d3dda53.json",
+      "sha256": "39fdff46373d067ab768145b408e6ef0dd0097974f01d94362a124665d3dda53"
     },
     {
       "character": "queen",
@@ -2248,120 +2248,120 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-E",
-      "manifest": "banks/965dc4d147591c505013d35649a4183fc5b0d0656ddfa3eda3391218002a5650.json",
-      "sha256": "965dc4d147591c505013d35649a4183fc5b0d0656ddfa3eda3391218002a5650"
+      "manifest": "banks/d92be4934a579f8ae709c0df0a1e71e0552dd74bb17fffc4f65fae78c7020b30.json",
+      "sha256": "d92be4934a579f8ae709c0df0a1e71e0552dd74bb17fffc4f65fae78c7020b30"
     },
     {
       "character": "beast",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-N",
-      "manifest": "banks/f69271b97b69972357aaf0fda63c25f2d59bdb890f8bce46533d9bc49450d195.json",
-      "sha256": "f69271b97b69972357aaf0fda63c25f2d59bdb890f8bce46533d9bc49450d195"
+      "manifest": "banks/f2a2c04a4012ece8eaeb743a2adbd3fae03dbedee95e5031ea924a8198778365.json",
+      "sha256": "f2a2c04a4012ece8eaeb743a2adbd3fae03dbedee95e5031ea924a8198778365"
     },
     {
       "character": "beast",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-NE",
-      "manifest": "banks/e8539033baa9d5692f73b22ccbaa81338c0fa9ff4bea84caacc3b2439622f556.json",
-      "sha256": "e8539033baa9d5692f73b22ccbaa81338c0fa9ff4bea84caacc3b2439622f556"
+      "manifest": "banks/bce18bc4f63d593258822965f0e8cdb953f232bc583c5838da70e0e19300ecad.json",
+      "sha256": "bce18bc4f63d593258822965f0e8cdb953f232bc583c5838da70e0e19300ecad"
     },
     {
       "character": "beast",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-S",
-      "manifest": "banks/5df60939b514226a878ee6d3c27b0e6b1b3428bd1319996a6fab8109216bc81b.json",
-      "sha256": "5df60939b514226a878ee6d3c27b0e6b1b3428bd1319996a6fab8109216bc81b"
+      "manifest": "banks/1ef4b7e2d76591a2d72c930304de1b1f8ac0d096ee6d3358ef79a40a5f278a89.json",
+      "sha256": "1ef4b7e2d76591a2d72c930304de1b1f8ac0d096ee6d3358ef79a40a5f278a89"
     },
     {
       "character": "beast",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-SE",
-      "manifest": "banks/e33a654c5942e77e2e1482837e67ca63e799b6e9f9bbc0f450f6a3361b944756.json",
-      "sha256": "e33a654c5942e77e2e1482837e67ca63e799b6e9f9bbc0f450f6a3361b944756"
+      "manifest": "banks/34b21f289d224276bb7311e11a7693cec67f34fbc195c8946c4466115c0701c0.json",
+      "sha256": "34b21f289d224276bb7311e11a7693cec67f34fbc195c8946c4466115c0701c0"
     },
     {
       "character": "beast",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-SW",
-      "manifest": "banks/02b43e92d85a9496b900279692b7c8defa10033233244598e207d8d46cc231f6.json",
-      "sha256": "02b43e92d85a9496b900279692b7c8defa10033233244598e207d8d46cc231f6"
+      "manifest": "banks/83fa1229ad3712f2b5919bc6d34df0779096f806a40617c8cd9d302c4d477d51.json",
+      "sha256": "83fa1229ad3712f2b5919bc6d34df0779096f806a40617c8cd9d302c4d477d51"
     },
     {
       "character": "beast",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-W",
-      "manifest": "banks/6ea7156521ae8ff41c580620a1165ba205a6226aecaf806c6a809b2f52eb1341.json",
-      "sha256": "6ea7156521ae8ff41c580620a1165ba205a6226aecaf806c6a809b2f52eb1341"
+      "manifest": "banks/b7d5b240f2c4ba3cdbe6038aa2913150380459a4551ad54816a24a3c20ace70a.json",
+      "sha256": "b7d5b240f2c4ba3cdbe6038aa2913150380459a4551ad54816a24a3c20ace70a"
     },
     {
       "character": "beast",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-NW",
-      "manifest": "banks/7ae67b8b4892ddf9e4f5aa2ec2b8342e9259091fc99b47de70594da033353292.json",
-      "sha256": "7ae67b8b4892ddf9e4f5aa2ec2b8342e9259091fc99b47de70594da033353292"
+      "manifest": "banks/4b303cd2ffb3c0a457e9b8065908301d329481146cc205071e25a74d7713bb95.json",
+      "sha256": "4b303cd2ffb3c0a457e9b8065908301d329481146cc205071e25a74d7713bb95"
     },
     {
       "character": "beast",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-E-SE",
-      "manifest": "banks/14571e7fa0c5c6eac6f9a7c663057cdbf7391736bd537c6593c8c74b04e3477d.json",
-      "sha256": "14571e7fa0c5c6eac6f9a7c663057cdbf7391736bd537c6593c8c74b04e3477d"
+      "manifest": "banks/2e840f881e1e7d2b72d0fb4feff61aafe9269e9d785c8fa9eaeab60f98ae269b.json",
+      "sha256": "2e840f881e1e7d2b72d0fb4feff61aafe9269e9d785c8fa9eaeab60f98ae269b"
     },
     {
       "character": "beast",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-N-NE",
-      "manifest": "banks/47a6cfcdb4b533665576f5cdcb56befba6adfafd6c40f499ac38ee44ee378d89.json",
-      "sha256": "47a6cfcdb4b533665576f5cdcb56befba6adfafd6c40f499ac38ee44ee378d89"
+      "manifest": "banks/1e47a26d4ba95334ccfa008ca8fa8fd9f6917ce2a6a321850983af30bba7ce2c.json",
+      "sha256": "1e47a26d4ba95334ccfa008ca8fa8fd9f6917ce2a6a321850983af30bba7ce2c"
     },
     {
       "character": "beast",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-NW-N",
-      "manifest": "banks/a5a537d337aea1f793f92af712c8ce4cf4d450c794c61c10b36dbf2b81516cf5.json",
-      "sha256": "a5a537d337aea1f793f92af712c8ce4cf4d450c794c61c10b36dbf2b81516cf5"
+      "manifest": "banks/e5fa6fc089be32cd77937a7e0cb37083c76dc3238a37128d6089b569e347cad5.json",
+      "sha256": "e5fa6fc089be32cd77937a7e0cb37083c76dc3238a37128d6089b569e347cad5"
     },
     {
       "character": "beast",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-S-SW",
-      "manifest": "banks/dbf6d2bac3eaaf660ceacb4641484f65dae34bf8c4986ec77e0cdba31ae8b133.json",
-      "sha256": "dbf6d2bac3eaaf660ceacb4641484f65dae34bf8c4986ec77e0cdba31ae8b133"
+      "manifest": "banks/6b358c59e234257d221189f348affa331ec016d934170496ac41bde47e867666.json",
+      "sha256": "6b358c59e234257d221189f348affa331ec016d934170496ac41bde47e867666"
     },
     {
       "character": "beast",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-SE-S",
-      "manifest": "banks/4105823e497f15db31aa2544830531f81ac15a82e1762f796047e00e923de470.json",
-      "sha256": "4105823e497f15db31aa2544830531f81ac15a82e1762f796047e00e923de470"
+      "manifest": "banks/e8a58f6a1d880edf889a6bd62f790a7bf9e142cac96536dc4f3d350467f0bdb3.json",
+      "sha256": "e8a58f6a1d880edf889a6bd62f790a7bf9e142cac96536dc4f3d350467f0bdb3"
     },
     {
       "character": "beast",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-SW-W",
-      "manifest": "banks/e4484230daea14dbaffe0c7604b4356c377014c7c6735bc297316a69c8ab977f.json",
-      "sha256": "e4484230daea14dbaffe0c7604b4356c377014c7c6735bc297316a69c8ab977f"
+      "manifest": "banks/20361c2138029fd3b6dd7ad24c06c8a1cfc86f8f714ce1d3d468c04926f8b056.json",
+      "sha256": "20361c2138029fd3b6dd7ad24c06c8a1cfc86f8f714ce1d3d468c04926f8b056"
     },
     {
       "character": "beast",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-W-NW",
-      "manifest": "banks/a724b51f9b72819bec40a9fffd02af330ccfc1b8248605861319330e1d16547a.json",
-      "sha256": "a724b51f9b72819bec40a9fffd02af330ccfc1b8248605861319330e1d16547a"
+      "manifest": "banks/80c2d58c1dbe833a9813d99e5927cb4439efdc4476ee33f302369bae934f3c81.json",
+      "sha256": "80c2d58c1dbe833a9813d99e5927cb4439efdc4476ee33f302369bae934f3c81"
     },
     {
       "character": "beast",
@@ -2552,64 +2552,64 @@
       "army": "black",
       "kind": "turn",
       "id": "black-turn-SE-S",
-      "manifest": "banks/500650652593030c73879583dbcf5177439df859db605cb0a1c8cb682c5b98a5.json",
-      "sha256": "500650652593030c73879583dbcf5177439df859db605cb0a1c8cb682c5b98a5"
+      "manifest": "banks/125f3f002bed4afe9b2f28ba63a1e68331b81c2915b0fbc7a1bc6dba77b62177.json",
+      "sha256": "125f3f002bed4afe9b2f28ba63a1e68331b81c2915b0fbc7a1bc6dba77b62177"
     },
     {
       "character": "rook",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-S-SW",
-      "manifest": "banks/96bf1f032cf2101517dbb5cd186fed48c5a5786a7f38740f4b3ba33d1f1bb175.json",
-      "sha256": "96bf1f032cf2101517dbb5cd186fed48c5a5786a7f38740f4b3ba33d1f1bb175"
+      "manifest": "banks/69d0d9fd0f6e0b5056f24fc83d19534a87b0c0ddb7abe7530738f72ec6767be9.json",
+      "sha256": "69d0d9fd0f6e0b5056f24fc83d19534a87b0c0ddb7abe7530738f72ec6767be9"
     },
     {
       "character": "rook",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-SW-W",
-      "manifest": "banks/12aeac240726f0d291a62261f2fde52fabfe9e409fb8db6657465d008a58c84c.json",
-      "sha256": "12aeac240726f0d291a62261f2fde52fabfe9e409fb8db6657465d008a58c84c"
+      "manifest": "banks/3cee88fcd3c2933586c65d1488830acea3ea1338136f711d095bef73c08e7e0c.json",
+      "sha256": "3cee88fcd3c2933586c65d1488830acea3ea1338136f711d095bef73c08e7e0c"
     },
     {
       "character": "rook",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-NW-N",
-      "manifest": "banks/5f0f52bd09f38ebddf67e091179ed87b686197d8c59eb9f9fa56f7a04da63306.json",
-      "sha256": "5f0f52bd09f38ebddf67e091179ed87b686197d8c59eb9f9fa56f7a04da63306"
+      "manifest": "banks/99f0f5e939cfcceb8e283ec0fabe2298d8343cee72f073d7e1c885aa3184c224.json",
+      "sha256": "99f0f5e939cfcceb8e283ec0fabe2298d8343cee72f073d7e1c885aa3184c224"
     },
     {
       "character": "rook",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-N-NE",
-      "manifest": "banks/645ffa643dd6a3ddae78061e5ff22672d9ccbcfcaafe8e00d32c52a1a3f5bc17.json",
-      "sha256": "645ffa643dd6a3ddae78061e5ff22672d9ccbcfcaafe8e00d32c52a1a3f5bc17"
+      "manifest": "banks/28da6cae4160143a9bb4668b27411149c1ef4ef720aed82fdffaa15b36a5d809.json",
+      "sha256": "28da6cae4160143a9bb4668b27411149c1ef4ef720aed82fdffaa15b36a5d809"
     },
     {
       "character": "rook",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-W-NW",
-      "manifest": "banks/74f10c9968776bdb8e053f28809a171568a6f13ca661f0e1d9971d67a73557de.json",
-      "sha256": "74f10c9968776bdb8e053f28809a171568a6f13ca661f0e1d9971d67a73557de"
+      "manifest": "banks/6968d1ed76dc4b9a67db1a5c632f45ec40196626f0edba29164d50e3129a5e22.json",
+      "sha256": "6968d1ed76dc4b9a67db1a5c632f45ec40196626f0edba29164d50e3129a5e22"
     },
     {
       "character": "rook",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-NE-E",
-      "manifest": "banks/ce7ef7d7f116f5a8095cefc30d7f40520e4b06381b83e07cc5b98bfa69af0a88.json",
-      "sha256": "ce7ef7d7f116f5a8095cefc30d7f40520e4b06381b83e07cc5b98bfa69af0a88"
+      "manifest": "banks/ebe794a02b8c32591db79b688e9d3f654a2bd938ed1ec47c2a0236550cc8f421.json",
+      "sha256": "ebe794a02b8c32591db79b688e9d3f654a2bd938ed1ec47c2a0236550cc8f421"
     },
     {
       "character": "rook",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-SE-E",
-      "manifest": "banks/b629b6ac53a17151267b1ec0821d359c36c23fbe1c45f6633df872d7b1c66133.json",
-      "sha256": "b629b6ac53a17151267b1ec0821d359c36c23fbe1c45f6633df872d7b1c66133"
+      "manifest": "banks/03f1b5f5eca9393fc149d853fcbed98f873a126a8eda8d57876da66d324aaaa8.json",
+      "sha256": "03f1b5f5eca9393fc149d853fcbed98f873a126a8eda8d57876da66d324aaaa8"
     },
     {
       "character": "rook",
@@ -2680,72 +2680,72 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-NW",
-      "manifest": "banks/bd0eb303a039d7631a17c9c46200192a34fa88ff51db94fc9d5ae6d9ac4c90a4.json",
-      "sha256": "bd0eb303a039d7631a17c9c46200192a34fa88ff51db94fc9d5ae6d9ac4c90a4"
+      "manifest": "banks/e2c8eb805a274723255b13b2443fe13fa121119f0cd93ed94204c237ad51ab0e.json",
+      "sha256": "e2c8eb805a274723255b13b2443fe13fa121119f0cd93ed94204c237ad51ab0e"
     },
     {
       "character": "rook",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-N",
-      "manifest": "banks/5daa34704db88a3c05cffe7785215b9bc0a7186f838dee443d438ece4e58affe.json",
-      "sha256": "5daa34704db88a3c05cffe7785215b9bc0a7186f838dee443d438ece4e58affe"
+      "manifest": "banks/7dfbfb8a52912af16ee9c85d97d9b54c907ae9c25c4288e0bdf23643c7666c21.json",
+      "sha256": "7dfbfb8a52912af16ee9c85d97d9b54c907ae9c25c4288e0bdf23643c7666c21"
     },
     {
       "character": "rook",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-NE",
-      "manifest": "banks/8e9d1d8cd372c1674fea7338172fcd1506a0363796425f4c5cf54e09e6d556d6.json",
-      "sha256": "8e9d1d8cd372c1674fea7338172fcd1506a0363796425f4c5cf54e09e6d556d6"
+      "manifest": "banks/66f8225275a69668c73d3bf9fb4c7350e2b985414204c20980941bd8530c03ce.json",
+      "sha256": "66f8225275a69668c73d3bf9fb4c7350e2b985414204c20980941bd8530c03ce"
     },
     {
       "character": "rook",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-E",
-      "manifest": "banks/7f0959a9c53f09886371bce4a763cc475619dd40e09e7393ec020ad3a8541b94.json",
-      "sha256": "7f0959a9c53f09886371bce4a763cc475619dd40e09e7393ec020ad3a8541b94"
+      "manifest": "banks/4cfb8c8b9ef0043116a4a9548cd3b4b7bb1ab36034b547f0bd97957b41990582.json",
+      "sha256": "4cfb8c8b9ef0043116a4a9548cd3b4b7bb1ab36034b547f0bd97957b41990582"
     },
     {
       "character": "rook",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-SE",
-      "manifest": "banks/cf39d8898e61063ef01edc3b6ab44f100a0d4286db27ed8c34cfc770d681051d.json",
-      "sha256": "cf39d8898e61063ef01edc3b6ab44f100a0d4286db27ed8c34cfc770d681051d"
+      "manifest": "banks/dee14c69d52388811084c40037ec042a7e331469b049d988786c5842903c1500.json",
+      "sha256": "dee14c69d52388811084c40037ec042a7e331469b049d988786c5842903c1500"
     },
     {
       "character": "rook",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-S",
-      "manifest": "banks/3271272d80c176828f573bb649c040e4d26c1093c02be6fe06ea9bd78262e658.json",
-      "sha256": "3271272d80c176828f573bb649c040e4d26c1093c02be6fe06ea9bd78262e658"
+      "manifest": "banks/eb19c481a163210b484fec9102b52dfd793980a88d805ea994a16a76a9306b9d.json",
+      "sha256": "eb19c481a163210b484fec9102b52dfd793980a88d805ea994a16a76a9306b9d"
     },
     {
       "character": "rook",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-SW",
-      "manifest": "banks/4f0edf254feafe04e1aa2b93a274d069ed7864e81c573056bb3cc894a10d5b4c.json",
-      "sha256": "4f0edf254feafe04e1aa2b93a274d069ed7864e81c573056bb3cc894a10d5b4c"
+      "manifest": "banks/21275e33ebd12ed4a43485cbac9d49d24445d3fc24ea614bbcd92eb2b2d1947c.json",
+      "sha256": "21275e33ebd12ed4a43485cbac9d49d24445d3fc24ea614bbcd92eb2b2d1947c"
     },
     {
       "character": "rook",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-W",
-      "manifest": "banks/9d8ac7cb6b4896382554407eeedcbe926f637894f3576853d31a8c43c57a885c.json",
-      "sha256": "9d8ac7cb6b4896382554407eeedcbe926f637894f3576853d31a8c43c57a885c"
+      "manifest": "banks/6fe8a65541be917b115deb3168a82c21c59f1fc3ed3890557b865fcb2e11457c.json",
+      "sha256": "6fe8a65541be917b115deb3168a82c21c59f1fc3ed3890557b865fcb2e11457c"
     },
     {
       "character": "rook",
       "army": "black",
       "kind": "idle",
       "id": "black-idle-slam",
-      "manifest": "banks/fb1e9370bcba7816c0e647dc593d2eda0cd416ceeb37bb767c9e22a0692ed150.json",
-      "sha256": "fb1e9370bcba7816c0e647dc593d2eda0cd416ceeb37bb767c9e22a0692ed150"
+      "manifest": "banks/63adc5edc3a60bc715cfbe559a07f3f5a608eb2a963280a7414a966acaf3b524.json",
+      "sha256": "63adc5edc3a60bc715cfbe559a07f3f5a608eb2a963280a7414a966acaf3b524"
     },
     {
       "character": "guard",
@@ -2960,64 +2960,64 @@
       "army": "black",
       "kind": "turn",
       "id": "black-turn-E-SE",
-      "manifest": "banks/44323ef62a40960071d59addfb1b7da3060c95025949fb6d203ff1c12c16522b.json",
-      "sha256": "44323ef62a40960071d59addfb1b7da3060c95025949fb6d203ff1c12c16522b"
+      "manifest": "banks/e4d472198f42badf227913259e59545a1207a5d59852d5d2430c4d127d41376c.json",
+      "sha256": "e4d472198f42badf227913259e59545a1207a5d59852d5d2430c4d127d41376c"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-SE-S",
-      "manifest": "banks/20d378f2bcf4079c07ca06b26f2a71032e11b082c60bd216244522e5d1a807f2.json",
-      "sha256": "20d378f2bcf4079c07ca06b26f2a71032e11b082c60bd216244522e5d1a807f2"
+      "manifest": "banks/73f855b91cf9adf1bc4fb6ce3b8739e800d78da4bd54ea32281fad3129ac9c5f.json",
+      "sha256": "73f855b91cf9adf1bc4fb6ce3b8739e800d78da4bd54ea32281fad3129ac9c5f"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-S-SW",
-      "manifest": "banks/170ff28867bab264b5fa73213d618fb3394f4bea476d77079ddcb074df8a609d.json",
-      "sha256": "170ff28867bab264b5fa73213d618fb3394f4bea476d77079ddcb074df8a609d"
+      "manifest": "banks/efc8320a65cbe46e3bb074e68d3b8810ebf2a1b7abc81fd706d8b3dd93d4910c.json",
+      "sha256": "efc8320a65cbe46e3bb074e68d3b8810ebf2a1b7abc81fd706d8b3dd93d4910c"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-SW-W",
-      "manifest": "banks/9638bd836c4b1f3cb3eaf458b7d3317370f872bda14cbfce511070193d2bcd80.json",
-      "sha256": "9638bd836c4b1f3cb3eaf458b7d3317370f872bda14cbfce511070193d2bcd80"
+      "manifest": "banks/1dd1debd16649675ea92b8cf9b67145e4e676b7c42b207424047d7c0ee0806ec.json",
+      "sha256": "1dd1debd16649675ea92b8cf9b67145e4e676b7c42b207424047d7c0ee0806ec"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-W-NW",
-      "manifest": "banks/d6044035c6b85d03f74bb9c6516f23f5f5f103bcaa8a2c970c1200a804aa163d.json",
-      "sha256": "d6044035c6b85d03f74bb9c6516f23f5f5f103bcaa8a2c970c1200a804aa163d"
+      "manifest": "banks/960e5384e6db46eaab81db62617b5052ebb8640572cbff9072e44a6b49c809bd.json",
+      "sha256": "960e5384e6db46eaab81db62617b5052ebb8640572cbff9072e44a6b49c809bd"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-NW-N",
-      "manifest": "banks/7a442471114f5239809093d9284778d98e3b5a69efdc93959f54af2c6a2512ed.json",
-      "sha256": "7a442471114f5239809093d9284778d98e3b5a69efdc93959f54af2c6a2512ed"
+      "manifest": "banks/80bc95d5bb5181bd518e3c7d4c07c45714b2e8a6a1c83fdf10a1fec3706996b1.json",
+      "sha256": "80bc95d5bb5181bd518e3c7d4c07c45714b2e8a6a1c83fdf10a1fec3706996b1"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-N-NE",
-      "manifest": "banks/cd041262ddc2a653ae7140d16d18715336ea65cf2a45f31add36dca7f1774fa9.json",
-      "sha256": "cd041262ddc2a653ae7140d16d18715336ea65cf2a45f31add36dca7f1774fa9"
+      "manifest": "banks/286e4b01f3af271fc27857d1c88cfb5d45f2819abf482c8d45d1b2654a42cb44.json",
+      "sha256": "286e4b01f3af271fc27857d1c88cfb5d45f2819abf482c8d45d1b2654a42cb44"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-NE-E",
-      "manifest": "banks/a0a145e990207b701aa96a713749c27d1f4a469099dbb9a92f8aec5205f3ae86.json",
-      "sha256": "a0a145e990207b701aa96a713749c27d1f4a469099dbb9a92f8aec5205f3ae86"
+      "manifest": "banks/32f6c5cb0d8289d4c0f0d67028b6288f59ca17d62efc075d5750979d9471f962.json",
+      "sha256": "32f6c5cb0d8289d4c0f0d67028b6288f59ca17d62efc075d5750979d9471f962"
     },
     {
       "character": "king-frost",
@@ -3032,8 +3032,8 @@
       "army": "black",
       "kind": "idle",
       "id": "black-idle-helmet-glance",
-      "manifest": "banks/6187e0bd6127414c1cbf14e6d27c62f25b95e6943c7c3d4e944ecd669d6e01a0.json",
-      "sha256": "6187e0bd6127414c1cbf14e6d27c62f25b95e6943c7c3d4e944ecd669d6e01a0"
+      "manifest": "banks/601a5d1a6525099a0a8087204b5d616f8ac5f7b890e24091f982fe96cdf227e6.json",
+      "sha256": "601a5d1a6525099a0a8087204b5d616f8ac5f7b890e24091f982fe96cdf227e6"
     },
     {
       "character": "king-flame",
@@ -3392,64 +3392,64 @@
       "army": "black",
       "kind": "turn",
       "id": "black-turn-SE-S",
-      "manifest": "banks/7591108dea36da7d0fadaf969aa6c4bc3a2d3db2f412246cebbba2cca068d994.json",
-      "sha256": "7591108dea36da7d0fadaf969aa6c4bc3a2d3db2f412246cebbba2cca068d994"
+      "manifest": "banks/e703921d8befae6570e7b3f26e096ebaac8312d537c9617d069bc50aee1c5b86.json",
+      "sha256": "e703921d8befae6570e7b3f26e096ebaac8312d537c9617d069bc50aee1c5b86"
     },
     {
       "character": "king-mud",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-S-SW",
-      "manifest": "banks/45ff11ce2c749432193338ffed073af7dd8d62b7a58ccca684277ed486933f02.json",
-      "sha256": "45ff11ce2c749432193338ffed073af7dd8d62b7a58ccca684277ed486933f02"
+      "manifest": "banks/8fdee9eef377b72c59fda9454f2ed1b6bae11669f9c3814c1120b80f36c9bfca.json",
+      "sha256": "8fdee9eef377b72c59fda9454f2ed1b6bae11669f9c3814c1120b80f36c9bfca"
     },
     {
       "character": "king-mud",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-E-SE",
-      "manifest": "banks/865f7389c2c113558d5f287e972fefb3e66557b091c2a174f3699eecb06caadb.json",
-      "sha256": "865f7389c2c113558d5f287e972fefb3e66557b091c2a174f3699eecb06caadb"
+      "manifest": "banks/12dc09d5044b09f875c174724ba9637ce408da4ba4c1f14ca2d3ec910c1584df.json",
+      "sha256": "12dc09d5044b09f875c174724ba9637ce408da4ba4c1f14ca2d3ec910c1584df"
     },
     {
       "character": "king-mud",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-SW-W",
-      "manifest": "banks/1df2f283d7175491d713be5c00373ab41c8e0040cfa176f47af747c7ea9162e3.json",
-      "sha256": "1df2f283d7175491d713be5c00373ab41c8e0040cfa176f47af747c7ea9162e3"
+      "manifest": "banks/9a7374cbd3ecbdfdd175c8eb0477ed593399055d8d45f40b2c92e0157f3675c9.json",
+      "sha256": "9a7374cbd3ecbdfdd175c8eb0477ed593399055d8d45f40b2c92e0157f3675c9"
     },
     {
       "character": "king-mud",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-W-NW",
-      "manifest": "banks/d77d6b678206902a099d208e0d74e04d73dbb67a59435b6113be90e432b17d03.json",
-      "sha256": "d77d6b678206902a099d208e0d74e04d73dbb67a59435b6113be90e432b17d03"
+      "manifest": "banks/a118a285d6332807dce4e987903cbd655a413fae7984752b6dcb0c3fd5ec4233.json",
+      "sha256": "a118a285d6332807dce4e987903cbd655a413fae7984752b6dcb0c3fd5ec4233"
     },
     {
       "character": "king-mud",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-NW-N",
-      "manifest": "banks/b11b7a82ad248e9febd47d68eb6bf50f0e6ce42050f8e0b5f858cb28070fb47e.json",
-      "sha256": "b11b7a82ad248e9febd47d68eb6bf50f0e6ce42050f8e0b5f858cb28070fb47e"
+      "manifest": "banks/8c3e40ec7b9b6de652d2063b179dee6d35dc01f1af83f7b46ef3702759f9b641.json",
+      "sha256": "8c3e40ec7b9b6de652d2063b179dee6d35dc01f1af83f7b46ef3702759f9b641"
     },
     {
       "character": "king-mud",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-N-NE",
-      "manifest": "banks/19e3dbf84e693f9e9c7f2efa16d62a34948867904e70e0995f1b1f1a0a91e4f5.json",
-      "sha256": "19e3dbf84e693f9e9c7f2efa16d62a34948867904e70e0995f1b1f1a0a91e4f5"
+      "manifest": "banks/f0494081a5b2b2c157eb99c143ae95a08be29f00a23f7cb8c78331b80379ac4e.json",
+      "sha256": "f0494081a5b2b2c157eb99c143ae95a08be29f00a23f7cb8c78331b80379ac4e"
     },
     {
       "character": "king-mud",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-NE-E",
-      "manifest": "banks/7ba16aba621add734a8963eb1afc881a490c4ba6858f6ebd19e63d17181af01e.json",
-      "sha256": "7ba16aba621add734a8963eb1afc881a490c4ba6858f6ebd19e63d17181af01e"
+      "manifest": "banks/202882bda6e9bc1593152623d6ab7062a07134fad5f1defc71825c6a940cc0e0.json",
+      "sha256": "202882bda6e9bc1593152623d6ab7062a07134fad5f1defc71825c6a940cc0e0"
     },
     {
       "character": "king-mud",
@@ -3464,8 +3464,8 @@
       "army": "black",
       "kind": "idle",
       "id": "black-idle-claw-curl-SE",
-      "manifest": "banks/42da3795930fd2496cdd8c43ddd258c6521ec74219a4666d9ac6b9f9ac3ffbac.json",
-      "sha256": "42da3795930fd2496cdd8c43ddd258c6521ec74219a4666d9ac6b9f9ac3ffbac"
+      "manifest": "banks/b4265a3bd1359540a249bdf97448560a1118cdfc582c9746edc0ece3b21d666d.json",
+      "sha256": "b4265a3bd1359540a249bdf97448560a1118cdfc582c9746edc0ece3b21d666d"
     },
     {
       "character": "king-spirit",
@@ -3616,160 +3616,160 @@
       "army": "black",
       "kind": "idle",
       "id": "king-stratus-black-idle-continuous-4s",
-      "manifest": "banks/22978b5d4a971b58816413f30e5c36784a8075b6c5b0845bbaf84f073712520b.json",
-      "sha256": "22978b5d4a971b58816413f30e5c36784a8075b6c5b0845bbaf84f073712520b"
+      "manifest": "banks/be065810f95b6b79ef946639cd4f5482821e0f115a807868921d3cbaf80f9e7f.json",
+      "sha256": "be065810f95b6b79ef946639cd4f5482821e0f115a807868921d3cbaf80f9e7f"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "idle",
       "id": "king-stratus-black-idle-occasional-12s",
-      "manifest": "banks/1c800ee913b68e5e98872bdd5df5c05957eb0db23a1927798f2d42afb04c6eee.json",
-      "sha256": "1c800ee913b68e5e98872bdd5df5c05957eb0db23a1927798f2d42afb04c6eee"
+      "manifest": "banks/8395f9b0b0e35529b0043fd0e66713c23b4e02ba77cf1948fa720efd00dd453b.json",
+      "sha256": "8395f9b0b0e35529b0043fd0e66713c23b4e02ba77cf1948fa720efd00dd453b"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-E-SE",
-      "manifest": "banks/4ad7a52c448949bb2870149e9d00c2f978553c8f3d503d5712b05e58459d6807.json",
-      "sha256": "4ad7a52c448949bb2870149e9d00c2f978553c8f3d503d5712b05e58459d6807"
+      "manifest": "banks/2bedf9e0c6097765faf2c93ca43037581e0d7b0e1c2b67165d9ffb444082da2a.json",
+      "sha256": "2bedf9e0c6097765faf2c93ca43037581e0d7b0e1c2b67165d9ffb444082da2a"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-N-NE",
-      "manifest": "banks/39133c5b5f9945896ef1e015149d0ae20a4c4d32273310c072dda8f799c186f0.json",
-      "sha256": "39133c5b5f9945896ef1e015149d0ae20a4c4d32273310c072dda8f799c186f0"
+      "manifest": "banks/8d5ae0ae80f7178610444abd6299231dc0556b72363af0f198d3d8f06f00eafc.json",
+      "sha256": "8d5ae0ae80f7178610444abd6299231dc0556b72363af0f198d3d8f06f00eafc"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-NE-E",
-      "manifest": "banks/ce8443909d5f2bfa34f5745f957793348d1171648b3005705e0fa665f8a9ca0d.json",
-      "sha256": "ce8443909d5f2bfa34f5745f957793348d1171648b3005705e0fa665f8a9ca0d"
+      "manifest": "banks/dca9ebc85ca077107b5cb3484b61c9e446daa5e0dc37908a97e5ad231bdb416b.json",
+      "sha256": "dca9ebc85ca077107b5cb3484b61c9e446daa5e0dc37908a97e5ad231bdb416b"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-NW-N",
-      "manifest": "banks/70c607f3f2e6dbf3d8bdc06629dd1a4fd2fe493b3ed0b95a4ec0dbb00407568a.json",
-      "sha256": "70c607f3f2e6dbf3d8bdc06629dd1a4fd2fe493b3ed0b95a4ec0dbb00407568a"
+      "manifest": "banks/8568ca21cc6f02935d4c9c03e8b27f7265de23214650a9c50e51bece2376b3c7.json",
+      "sha256": "8568ca21cc6f02935d4c9c03e8b27f7265de23214650a9c50e51bece2376b3c7"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-S-SW",
-      "manifest": "banks/4603b0c7f8f408fde835df65e42e12eae3ca61d4cfe4c7ebedcb5f2ecfbe656d.json",
-      "sha256": "4603b0c7f8f408fde835df65e42e12eae3ca61d4cfe4c7ebedcb5f2ecfbe656d"
+      "manifest": "banks/211e52eeb2e8ef8d14ddaed82c159cae46bc4ff948dde1849c28ba074bcacbf1.json",
+      "sha256": "211e52eeb2e8ef8d14ddaed82c159cae46bc4ff948dde1849c28ba074bcacbf1"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-SE-S",
-      "manifest": "banks/5a6cba8bdde4e415b678e07555f8dfc103d501127dc9204bbce466fb40855f9b.json",
-      "sha256": "5a6cba8bdde4e415b678e07555f8dfc103d501127dc9204bbce466fb40855f9b"
+      "manifest": "banks/4bcb9910badde3a182635b3e1ad832d27998ba3de91ea189e14dbcffe03238f9.json",
+      "sha256": "4bcb9910badde3a182635b3e1ad832d27998ba3de91ea189e14dbcffe03238f9"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-SW-W",
-      "manifest": "banks/2c7581c436306e47305b9e31cfbca8c73e2ecdbb7ee4eb5d80fc0d785f18add2.json",
-      "sha256": "2c7581c436306e47305b9e31cfbca8c73e2ecdbb7ee4eb5d80fc0d785f18add2"
+      "manifest": "banks/9d9946a75fb7296d1d95c62f15f023bdf53a9d8294d973101e4a14b4890e1bb1.json",
+      "sha256": "9d9946a75fb7296d1d95c62f15f023bdf53a9d8294d973101e4a14b4890e1bb1"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-W-NW",
-      "manifest": "banks/8c5dcd795c656f91bafab5824b4e707dae10befce91990ea73f3d76dadb649d6.json",
-      "sha256": "8c5dcd795c656f91bafab5824b4e707dae10befce91990ea73f3d76dadb649d6"
+      "manifest": "banks/ee71729f8db935a219197dc90c9a4e14336aca325f7aad400a57b7b4b40a8711.json",
+      "sha256": "ee71729f8db935a219197dc90c9a4e14336aca325f7aad400a57b7b4b40a8711"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "idle",
       "id": "king-stratus-white-idle-continuous-4s",
-      "manifest": "banks/27b4cf0b37104c8e13fe5e2a964ec6cd7cc57c5b21ffe4cada2892a0ce98d0f0.json",
-      "sha256": "27b4cf0b37104c8e13fe5e2a964ec6cd7cc57c5b21ffe4cada2892a0ce98d0f0"
+      "manifest": "banks/0a7d818a69620e20a9127d2c62262cb191e8bc79f8e279087f1e122afe3e8581.json",
+      "sha256": "0a7d818a69620e20a9127d2c62262cb191e8bc79f8e279087f1e122afe3e8581"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "idle",
       "id": "king-stratus-white-idle-occasional-12s",
-      "manifest": "banks/4a2da14b5f023b75aac11faf6ad4390a8dd1e1e07a4eb8b3f294d949bc720417.json",
-      "sha256": "4a2da14b5f023b75aac11faf6ad4390a8dd1e1e07a4eb8b3f294d949bc720417"
+      "manifest": "banks/5a04612d8329be8fb135a313c672106b3fc3ccee7c9afab90d9d94a61661c6d2.json",
+      "sha256": "5a04612d8329be8fb135a313c672106b3fc3ccee7c9afab90d9d94a61661c6d2"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-E-SE",
-      "manifest": "banks/c6444f7617a7e4a1cda0fde1e2e598aaeef1657b01644e3c1d07cf836e2e6cb2.json",
-      "sha256": "c6444f7617a7e4a1cda0fde1e2e598aaeef1657b01644e3c1d07cf836e2e6cb2"
+      "manifest": "banks/cc21d07bc10633fc9a8b609a1d2ddb9d4ab1fe1535e09e72324f262fbead3c16.json",
+      "sha256": "cc21d07bc10633fc9a8b609a1d2ddb9d4ab1fe1535e09e72324f262fbead3c16"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-N-NE",
-      "manifest": "banks/1fff0265fda6453033560c6dcae4464fd79c043389d414163dec69027daedf39.json",
-      "sha256": "1fff0265fda6453033560c6dcae4464fd79c043389d414163dec69027daedf39"
+      "manifest": "banks/51c780607ede7dec990f36adb4b27c83be09a02c5a962704c83036b017d1f874.json",
+      "sha256": "51c780607ede7dec990f36adb4b27c83be09a02c5a962704c83036b017d1f874"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-NE-E",
-      "manifest": "banks/0cb5820226911735e0a283a0259fef6fe7aed29bf856ceef77fb7d14b64ac1fd.json",
-      "sha256": "0cb5820226911735e0a283a0259fef6fe7aed29bf856ceef77fb7d14b64ac1fd"
+      "manifest": "banks/40ad6c05725a7e46f8e27f716f1a87e72959d6cced635ebf1def771287020456.json",
+      "sha256": "40ad6c05725a7e46f8e27f716f1a87e72959d6cced635ebf1def771287020456"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-NW-N",
-      "manifest": "banks/234d8ddac2fc790ad68b4105e0d140a78c5090b37e57d9d31d3d43dfec87088b.json",
-      "sha256": "234d8ddac2fc790ad68b4105e0d140a78c5090b37e57d9d31d3d43dfec87088b"
+      "manifest": "banks/60833756d1e75a23b0aad5c5b03ec53e572b69cacee3f6701c7d682224b7c7f9.json",
+      "sha256": "60833756d1e75a23b0aad5c5b03ec53e572b69cacee3f6701c7d682224b7c7f9"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-S-SW",
-      "manifest": "banks/e2a69f19e090c1a4847b7ba71d46ac2e6b8a8733a4c57088dccfb63dd237c815.json",
-      "sha256": "e2a69f19e090c1a4847b7ba71d46ac2e6b8a8733a4c57088dccfb63dd237c815"
+      "manifest": "banks/d2fc8dcb6cd67e018f864a4b6c50b3c26826d21e2fe5baec45388e42fcf67b8a.json",
+      "sha256": "d2fc8dcb6cd67e018f864a4b6c50b3c26826d21e2fe5baec45388e42fcf67b8a"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-SE-S",
-      "manifest": "banks/f8e1683e1b4b67220627f7d8b5e36444ea120695bfd048754c5f16d83d2be6ed.json",
-      "sha256": "f8e1683e1b4b67220627f7d8b5e36444ea120695bfd048754c5f16d83d2be6ed"
+      "manifest": "banks/8e6829aa3042ab5abaa71d8756cdc8e7c78349033d8b30b3119efc0d90c7d65e.json",
+      "sha256": "8e6829aa3042ab5abaa71d8756cdc8e7c78349033d8b30b3119efc0d90c7d65e"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-SW-W",
-      "manifest": "banks/da7a85cbd4f5969b62c36d61d87c3ff90f8528e6d44f42c7384e3e286bb21056.json",
-      "sha256": "da7a85cbd4f5969b62c36d61d87c3ff90f8528e6d44f42c7384e3e286bb21056"
+      "manifest": "banks/ae4ae01dcde76d4d98f4f000e27def5a8ea82b85d5732f2df51550839ca301dc.json",
+      "sha256": "ae4ae01dcde76d4d98f4f000e27def5a8ea82b85d5732f2df51550839ca301dc"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "turn",
       "id": "white-turn-W-NW",
-      "manifest": "banks/2ebdf3e678edbd2e32b43e4e7686ee81fa52acf26426fe0c675cb53419acff79.json",
-      "sha256": "2ebdf3e678edbd2e32b43e4e7686ee81fa52acf26426fe0c675cb53419acff79"
+      "manifest": "banks/7ee9b24ae31baf88e9e84f57ede8a89a7cc56c6888d04085b7d760fc4c207d8b.json",
+      "sha256": "7ee9b24ae31baf88e9e84f57ede8a89a7cc56c6888d04085b7d760fc4c207d8b"
     },
     {
       "character": "queen",
@@ -3792,16 +3792,16 @@
       "army": "black",
       "kind": "idle",
       "id": "black-idle-chain-pull",
-      "manifest": "banks/ae64e5dd0c9b204f11d2187b980ff8ea8a4872fe8cfd39b657bc9259cf4c0bfa.json",
-      "sha256": "ae64e5dd0c9b204f11d2187b980ff8ea8a4872fe8cfd39b657bc9259cf4c0bfa"
+      "manifest": "banks/b6fb9a0f8ab58c905c340fdf6c6e4b28786157abbc2c9aa98c0c6c342711059c.json",
+      "sha256": "b6fb9a0f8ab58c905c340fdf6c6e4b28786157abbc2c9aa98c0c6c342711059c"
     },
     {
       "character": "beast",
       "army": "black",
       "kind": "turn",
       "id": "black-turn-NE-E",
-      "manifest": "banks/9badf1ea5985004f67dea51533a2f170c560fec1a4da150101da352f11e825e5.json",
-      "sha256": "9badf1ea5985004f67dea51533a2f170c560fec1a4da150101da352f11e825e5"
+      "manifest": "banks/d1563adb58d245e260b2ec4d9843c12c8ba9b9bc6d1efde5f9505cc48e81a30f.json",
+      "sha256": "d1563adb58d245e260b2ec4d9843c12c8ba9b9bc6d1efde5f9505cc48e81a30f"
     },
     {
       "character": "beast",
@@ -4024,64 +4024,64 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-N",
-      "manifest": "banks/abcd33e5dc7670eca6666cd778a6426b1b28c24114888dd2ae45f21af67b3121.json",
-      "sha256": "abcd33e5dc7670eca6666cd778a6426b1b28c24114888dd2ae45f21af67b3121"
+      "manifest": "banks/824a22db2eefef7c0c453feeaea0048b4c2ef8044ce67bbc5039ef9dffa91b21.json",
+      "sha256": "824a22db2eefef7c0c453feeaea0048b4c2ef8044ce67bbc5039ef9dffa91b21"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-NE",
-      "manifest": "banks/552b2283fc8710a6f25cfad6ff31a52a1b04e69982bd2c57284f9a4fe9d6e314.json",
-      "sha256": "552b2283fc8710a6f25cfad6ff31a52a1b04e69982bd2c57284f9a4fe9d6e314"
+      "manifest": "banks/e417d6d8bea86495a4e2a2b78e689c7ff83380d64022f5a7a06ee99eacfedba3.json",
+      "sha256": "e417d6d8bea86495a4e2a2b78e689c7ff83380d64022f5a7a06ee99eacfedba3"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-E",
-      "manifest": "banks/708b4dbc123049d841e54152ba54777856d13ad9fd10bd1104339e57feaac499.json",
-      "sha256": "708b4dbc123049d841e54152ba54777856d13ad9fd10bd1104339e57feaac499"
+      "manifest": "banks/e773a7a672c2411844fe176a46c4f2e63baca4c8b403ea165de7adabc59fc186.json",
+      "sha256": "e773a7a672c2411844fe176a46c4f2e63baca4c8b403ea165de7adabc59fc186"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-SE",
-      "manifest": "banks/9915619c402b7c862bb3374fb8f518e78bac820de637242dbf1415253c79ff17.json",
-      "sha256": "9915619c402b7c862bb3374fb8f518e78bac820de637242dbf1415253c79ff17"
+      "manifest": "banks/015b357f8d8e41858beb8b695dc8f3b78cb16cdd556468f49c987c7a9de4cfcf.json",
+      "sha256": "015b357f8d8e41858beb8b695dc8f3b78cb16cdd556468f49c987c7a9de4cfcf"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-S",
-      "manifest": "banks/ca7073992f45ef6993c0e32866592a7d5dff8bc4a17f3003ee4fed102eedfb6f.json",
-      "sha256": "ca7073992f45ef6993c0e32866592a7d5dff8bc4a17f3003ee4fed102eedfb6f"
+      "manifest": "banks/16ba83f5ab564697ece706e738a5ab4b790b02f9a9ba9cb90850af89f705086e.json",
+      "sha256": "16ba83f5ab564697ece706e738a5ab4b790b02f9a9ba9cb90850af89f705086e"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-SW",
-      "manifest": "banks/edbc9dd42eb3fca57e19bb3fee9b898096c68a6a0574934cdfbad4bb5bcbe3a5.json",
-      "sha256": "edbc9dd42eb3fca57e19bb3fee9b898096c68a6a0574934cdfbad4bb5bcbe3a5"
+      "manifest": "banks/e43742b26af5f8c5bafe3b6598af7edb32e1cfce256708a29483c591a796d8a1.json",
+      "sha256": "e43742b26af5f8c5bafe3b6598af7edb32e1cfce256708a29483c591a796d8a1"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-W",
-      "manifest": "banks/105332a4dfba135cfae1fc916f6ee2d17eeac709cf72adaa1c28142bbe750a86.json",
-      "sha256": "105332a4dfba135cfae1fc916f6ee2d17eeac709cf72adaa1c28142bbe750a86"
+      "manifest": "banks/48dbdd026bd287a06a003d572da4b536eb9e80bec183e4f32ebd07c705ce2f88.json",
+      "sha256": "48dbdd026bd287a06a003d572da4b536eb9e80bec183e4f32ebd07c705ce2f88"
     },
     {
       "character": "king-frost",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-NW",
-      "manifest": "banks/7cdf6c93a63b398d321f7ee2cc3aa5254dfe153fe1487ae04b440f27aabe7213.json",
-      "sha256": "7cdf6c93a63b398d321f7ee2cc3aa5254dfe153fe1487ae04b440f27aabe7213"
+      "manifest": "banks/49b6ab798d4d6063d6f3553353ea74a41ba942528526a297be716cdc9103519f.json",
+      "sha256": "49b6ab798d4d6063d6f3553353ea74a41ba942528526a297be716cdc9103519f"
     },
     {
       "character": "king-mud",
@@ -4152,64 +4152,64 @@
       "army": "black",
       "kind": "attack",
       "id": "black-attack-N",
-      "manifest": "banks/1a50ee9abe79465090bbf7526ce0ceca8cd3540a2d7df367c77bb460cc0db604.json",
-      "sha256": "1a50ee9abe79465090bbf7526ce0ceca8cd3540a2d7df367c77bb460cc0db604"
+      "manifest": "banks/920eb4d053c151140c640b95bf58ab0093169c743e52298c169b06ff92aff7ed.json",
+      "sha256": "920eb4d053c151140c640b95bf58ab0093169c743e52298c169b06ff92aff7ed"
     },
     {
       "character": "king-mud",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-NE",
-      "manifest": "banks/ad13c52e726bfc21292b3bcf4424832a454365c0ee8e01e77c76785a0baf981e.json",
-      "sha256": "ad13c52e726bfc21292b3bcf4424832a454365c0ee8e01e77c76785a0baf981e"
+      "manifest": "banks/2862ddd6b202b8dd578740b496ce33077ca311e3764b444f0d3d9c5f9424308f.json",
+      "sha256": "2862ddd6b202b8dd578740b496ce33077ca311e3764b444f0d3d9c5f9424308f"
     },
     {
       "character": "king-mud",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-E",
-      "manifest": "banks/fd31094987e00129004f0438af0f3ef425dcf20b86febe2db93d5a0a36ebf61a.json",
-      "sha256": "fd31094987e00129004f0438af0f3ef425dcf20b86febe2db93d5a0a36ebf61a"
+      "manifest": "banks/336eb99214d1c541a29e47035b087e0f3362f09da3a19daa4aa787b6cbca271e.json",
+      "sha256": "336eb99214d1c541a29e47035b087e0f3362f09da3a19daa4aa787b6cbca271e"
     },
     {
       "character": "king-mud",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-SE",
-      "manifest": "banks/5803230628e7b1eb80212896e122eec5ea1635cdb004f82d01fef7f405a8bea3.json",
-      "sha256": "5803230628e7b1eb80212896e122eec5ea1635cdb004f82d01fef7f405a8bea3"
+      "manifest": "banks/866326e9cccf0f131c4e3916e9d688f5fa31fc2fdf9eba275daef5b24ea0a611.json",
+      "sha256": "866326e9cccf0f131c4e3916e9d688f5fa31fc2fdf9eba275daef5b24ea0a611"
     },
     {
       "character": "king-mud",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-S",
-      "manifest": "banks/f7e50403ccb8b12c09d5fde5f32c40b683548a252fb9213a782bea2bee8e8ece.json",
-      "sha256": "f7e50403ccb8b12c09d5fde5f32c40b683548a252fb9213a782bea2bee8e8ece"
+      "manifest": "banks/7a5119e17e0f7045855b6f3e93e1c384d26cf8ad7242709c2477950970320409.json",
+      "sha256": "7a5119e17e0f7045855b6f3e93e1c384d26cf8ad7242709c2477950970320409"
     },
     {
       "character": "king-mud",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-SW",
-      "manifest": "banks/1bfd1a8ec3995841536729364a603dde072597ce094f6830d3f9059e8dd84b7a.json",
-      "sha256": "1bfd1a8ec3995841536729364a603dde072597ce094f6830d3f9059e8dd84b7a"
+      "manifest": "banks/ffb32f1266234be9eb9ec982ad6aacbc0d9ccc1d6cdde4f2c35385f62fbe324f.json",
+      "sha256": "ffb32f1266234be9eb9ec982ad6aacbc0d9ccc1d6cdde4f2c35385f62fbe324f"
     },
     {
       "character": "king-mud",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-W",
-      "manifest": "banks/921b7a52664f58ec4d622b5de17f37307691ca1089524bd83e2e7d0bcd6873bb.json",
-      "sha256": "921b7a52664f58ec4d622b5de17f37307691ca1089524bd83e2e7d0bcd6873bb"
+      "manifest": "banks/ecb1b5e336f758a2dde02bc702b5b01986c1d454478531946b63af5208c4aa85.json",
+      "sha256": "ecb1b5e336f758a2dde02bc702b5b01986c1d454478531946b63af5208c4aa85"
     },
     {
       "character": "king-mud",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-NW",
-      "manifest": "banks/bdb3f8287fef254e0a188ff3505c54ff43702a90486eeb24bcb7fcaa0ced707c.json",
-      "sha256": "bdb3f8287fef254e0a188ff3505c54ff43702a90486eeb24bcb7fcaa0ced707c"
+      "manifest": "banks/6ff0609186754429b3882c8b9eb424f3bf2fe400ff4653dba35af48e7f8795b5.json",
+      "sha256": "6ff0609186754429b3882c8b9eb424f3bf2fe400ff4653dba35af48e7f8795b5"
     },
     {
       "character": "king-shadow",
@@ -4472,128 +4472,128 @@
       "army": "white",
       "kind": "attack",
       "id": "white-attack-N",
-      "manifest": "banks/035fc0192e6abedb2e069cbc5197418c71e45eaf8e3a3d07d250ac2262f9fc9c.json",
-      "sha256": "035fc0192e6abedb2e069cbc5197418c71e45eaf8e3a3d07d250ac2262f9fc9c"
+      "manifest": "banks/d0ee4121dd8f499fc23c01cbddf28ea105a7c6ba37cb2574c789190ab82b1ebc.json",
+      "sha256": "d0ee4121dd8f499fc23c01cbddf28ea105a7c6ba37cb2574c789190ab82b1ebc"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-NE",
-      "manifest": "banks/a55d961c6e78a094d8e9b69e0041f3d943dca94c2e10e32018f739c50a4011a5.json",
-      "sha256": "a55d961c6e78a094d8e9b69e0041f3d943dca94c2e10e32018f739c50a4011a5"
+      "manifest": "banks/79bf361572ab8e4b91061e07dcad149c33d5992a349b0002a39f858367638afa.json",
+      "sha256": "79bf361572ab8e4b91061e07dcad149c33d5992a349b0002a39f858367638afa"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-E",
-      "manifest": "banks/ec916aa0ef6bf98341b80fd2b8b08b8c8b732739218fd383a27c0142d5128028.json",
-      "sha256": "ec916aa0ef6bf98341b80fd2b8b08b8c8b732739218fd383a27c0142d5128028"
+      "manifest": "banks/29919647cfb70501b6525d09ad800a60bb9878ca5a2070ac82cbfb8629e3769d.json",
+      "sha256": "29919647cfb70501b6525d09ad800a60bb9878ca5a2070ac82cbfb8629e3769d"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-SE",
-      "manifest": "banks/c6fe701b1b796299ef78de3a478efb2a241d54d390a4b9c028eb88e78bb7beac.json",
-      "sha256": "c6fe701b1b796299ef78de3a478efb2a241d54d390a4b9c028eb88e78bb7beac"
+      "manifest": "banks/60bcea4b90cc71db8eb9f02b5292f55249941dd7878dd5d8bde967cbc6112920.json",
+      "sha256": "60bcea4b90cc71db8eb9f02b5292f55249941dd7878dd5d8bde967cbc6112920"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-S",
-      "manifest": "banks/f5188263b1880b70067f142c402e9e08ace80c677fe2c66fbe846432ea5a431f.json",
-      "sha256": "f5188263b1880b70067f142c402e9e08ace80c677fe2c66fbe846432ea5a431f"
+      "manifest": "banks/1df6f9a0da22918e54024e4d4e52568070ecd10fb1f61e011d402ebb9a392a69.json",
+      "sha256": "1df6f9a0da22918e54024e4d4e52568070ecd10fb1f61e011d402ebb9a392a69"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-SW",
-      "manifest": "banks/7dd86238dc3df0b71fa85c4e3f8f5ff74ed0b49734f97afb2ef4cf6dc28daeab.json",
-      "sha256": "7dd86238dc3df0b71fa85c4e3f8f5ff74ed0b49734f97afb2ef4cf6dc28daeab"
+      "manifest": "banks/cb1df6543476484146da7e5d7874817c3219f913e3b564f7777e70385146f019.json",
+      "sha256": "cb1df6543476484146da7e5d7874817c3219f913e3b564f7777e70385146f019"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-W",
-      "manifest": "banks/4e9f6d6a9c543ea9ca8d77a2e571245a04140496a58dcce87c0d5f362d1b7c95.json",
-      "sha256": "4e9f6d6a9c543ea9ca8d77a2e571245a04140496a58dcce87c0d5f362d1b7c95"
+      "manifest": "banks/23a55fbc29453080faf3b782caad2c6b441bcbfbd92fa133e2377acf936f7b8d.json",
+      "sha256": "23a55fbc29453080faf3b782caad2c6b441bcbfbd92fa133e2377acf936f7b8d"
     },
     {
       "character": "king-stratus",
       "army": "white",
       "kind": "attack",
       "id": "white-attack-NW",
-      "manifest": "banks/6633a0d24e33bd4015fc9df2fcfda935afb0e343151e555b299047722c0d3fe3.json",
-      "sha256": "6633a0d24e33bd4015fc9df2fcfda935afb0e343151e555b299047722c0d3fe3"
+      "manifest": "banks/9a8f89196d9830a4eb2def75e3ea4cdfd31d1b814160485f3b2969cb6877f20b.json",
+      "sha256": "9a8f89196d9830a4eb2def75e3ea4cdfd31d1b814160485f3b2969cb6877f20b"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-N",
-      "manifest": "banks/a2e722c2a67c6c03e97a5f0bd555108ebbb1b237b0cee35c50192b675ba4aae0.json",
-      "sha256": "a2e722c2a67c6c03e97a5f0bd555108ebbb1b237b0cee35c50192b675ba4aae0"
+      "manifest": "banks/8e78a5f77ddeacdd6af41508d064b948520b64446cdd6d6cdd60fc799e660392.json",
+      "sha256": "8e78a5f77ddeacdd6af41508d064b948520b64446cdd6d6cdd60fc799e660392"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-NE",
-      "manifest": "banks/1aeeb14e9c95e451988780582a43bcea85fad5f5df3df208792121fdb2e9865e.json",
-      "sha256": "1aeeb14e9c95e451988780582a43bcea85fad5f5df3df208792121fdb2e9865e"
+      "manifest": "banks/712c7e792deb961b2736dc1195f8dc3880832fcb6b3438cfe2f599bc9ed36595.json",
+      "sha256": "712c7e792deb961b2736dc1195f8dc3880832fcb6b3438cfe2f599bc9ed36595"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-E",
-      "manifest": "banks/429ff87f641f52cfd111a13eeaffdfb8e47f8010062312763e3b1f875f01183b.json",
-      "sha256": "429ff87f641f52cfd111a13eeaffdfb8e47f8010062312763e3b1f875f01183b"
+      "manifest": "banks/33777f1354a06f72f20b96a7186e8b3b04ed565f5c7e8892042890f61ddf084a.json",
+      "sha256": "33777f1354a06f72f20b96a7186e8b3b04ed565f5c7e8892042890f61ddf084a"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-SE",
-      "manifest": "banks/f84ca2c3c0b8085ede403e73388cb4a3e7f5fa2fad1e3a616890b65225900c8e.json",
-      "sha256": "f84ca2c3c0b8085ede403e73388cb4a3e7f5fa2fad1e3a616890b65225900c8e"
+      "manifest": "banks/21a13fae520ac5f6843c2722a0d7e52506cc6e65ff8aef2d4547a10040e9e241.json",
+      "sha256": "21a13fae520ac5f6843c2722a0d7e52506cc6e65ff8aef2d4547a10040e9e241"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-S",
-      "manifest": "banks/ed585fa975da4e95e0455c9fb44e7ce98bc458015b1a3648b01788199964b3a4.json",
-      "sha256": "ed585fa975da4e95e0455c9fb44e7ce98bc458015b1a3648b01788199964b3a4"
+      "manifest": "banks/5b9689b9be99844c4b33ea804b9f40f73ca16f99571add2434c26251743c3945.json",
+      "sha256": "5b9689b9be99844c4b33ea804b9f40f73ca16f99571add2434c26251743c3945"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-SW",
-      "manifest": "banks/049404909bdcd84a292b8ffb56467f7b5d89108f06a804665aa3827b26776ce0.json",
-      "sha256": "049404909bdcd84a292b8ffb56467f7b5d89108f06a804665aa3827b26776ce0"
+      "manifest": "banks/5de9e4144ec28a2e9a837f8f2dc9f54c45a977acab3edfe0108863d9c6eb6035.json",
+      "sha256": "5de9e4144ec28a2e9a837f8f2dc9f54c45a977acab3edfe0108863d9c6eb6035"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-W",
-      "manifest": "banks/fb061c65fa1383e7a53c46b37311398fb5efc76724619e7aae348fea0a442d3f.json",
-      "sha256": "fb061c65fa1383e7a53c46b37311398fb5efc76724619e7aae348fea0a442d3f"
+      "manifest": "banks/23f37e9fb510656633d38b484e2e36effa1586267efd7c8912712007cec39e52.json",
+      "sha256": "23f37e9fb510656633d38b484e2e36effa1586267efd7c8912712007cec39e52"
     },
     {
       "character": "king-stratus",
       "army": "black",
       "kind": "attack",
       "id": "black-attack-NW",
-      "manifest": "banks/6a2c83b5132abaeadceb86f1d966c0ed1a26109d57ef70d31e152b19adaab826.json",
-      "sha256": "6a2c83b5132abaeadceb86f1d966c0ed1a26109d57ef70d31e152b19adaab826"
+      "manifest": "banks/fdcfb11f54b7b75d9bbb93fb7fbc4890b0df65a0df6a570838632905794ad7bc.json",
+      "sha256": "fdcfb11f54b7b75d9bbb93fb7fbc4890b0df65a0df6a570838632905794ad7bc"
     },
     {
       "character": "archer",
@@ -4817,8 +4817,8 @@
       "kind": "move",
       "direction": "N",
       "id": "black-walk-N",
-      "manifest": "banks/96f153042aef5798c1037083292050ddf24de924bd80b331c220d656078975b5.json",
-      "sha256": "96f153042aef5798c1037083292050ddf24de924bd80b331c220d656078975b5"
+      "manifest": "banks/1eb95b3a15e591e94ea8341ba9c06aa79588ec2eeb818d6f92925734cdc0cd5e.json",
+      "sha256": "1eb95b3a15e591e94ea8341ba9c06aa79588ec2eeb818d6f92925734cdc0cd5e"
     },
     {
       "character": "beast",
@@ -4826,8 +4826,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "black-walk-NE",
-      "manifest": "banks/e6441c17af9d3b71034b22bdb637eed9fd2b92f2008e94cbe351fed8c6497199.json",
-      "sha256": "e6441c17af9d3b71034b22bdb637eed9fd2b92f2008e94cbe351fed8c6497199"
+      "manifest": "banks/57d79c336ee855d994549f423831fc0c9062ba645e33b213742954a255cb98cd.json",
+      "sha256": "57d79c336ee855d994549f423831fc0c9062ba645e33b213742954a255cb98cd"
     },
     {
       "character": "beast",
@@ -4835,8 +4835,8 @@
       "kind": "move",
       "direction": "E",
       "id": "black-walk-E",
-      "manifest": "banks/70c139ffa2b251a32d6f21842cc6462c617f7aff454e20ef6c94ba7e5d4a0784.json",
-      "sha256": "70c139ffa2b251a32d6f21842cc6462c617f7aff454e20ef6c94ba7e5d4a0784"
+      "manifest": "banks/70987d7b45722b24c8d14b9fbc96ffabb4da96e3e06c94117c91dc1952ad6b91.json",
+      "sha256": "70987d7b45722b24c8d14b9fbc96ffabb4da96e3e06c94117c91dc1952ad6b91"
     },
     {
       "character": "beast",
@@ -4844,8 +4844,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/0c5ac939cc108b9d06bb9f1173dae83b9068d04ee71ce41a4bc22b874b61e7ae.json",
-      "sha256": "0c5ac939cc108b9d06bb9f1173dae83b9068d04ee71ce41a4bc22b874b61e7ae"
+      "manifest": "banks/f3c5a1b01cac20079cf9cf8e6381518f37d4f48e30116e75f614dffa164993dd.json",
+      "sha256": "f3c5a1b01cac20079cf9cf8e6381518f37d4f48e30116e75f614dffa164993dd"
     },
     {
       "character": "beast",
@@ -4853,8 +4853,8 @@
       "kind": "move",
       "direction": "S",
       "id": "black-walk-S",
-      "manifest": "banks/f378efaaa521c9bc31c73bed3d106763e8e6a89da2090c772952e63dc61078cb.json",
-      "sha256": "f378efaaa521c9bc31c73bed3d106763e8e6a89da2090c772952e63dc61078cb"
+      "manifest": "banks/84e9975602d31b059ad33db31c84b0e40d83ec9d81072853f875a706b2665077.json",
+      "sha256": "84e9975602d31b059ad33db31c84b0e40d83ec9d81072853f875a706b2665077"
     },
     {
       "character": "beast",
@@ -4862,8 +4862,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "black-walk-SW",
-      "manifest": "banks/c7af49e812f7870aed81d44d51e303684165ecd2fc0db126ecdcb0b64ddbd113.json",
-      "sha256": "c7af49e812f7870aed81d44d51e303684165ecd2fc0db126ecdcb0b64ddbd113"
+      "manifest": "banks/b8ccb88e07360b341fec17afa86c69042a1111ecaba59dfb4b5569faaf334362.json",
+      "sha256": "b8ccb88e07360b341fec17afa86c69042a1111ecaba59dfb4b5569faaf334362"
     },
     {
       "character": "beast",
@@ -4871,8 +4871,8 @@
       "kind": "move",
       "direction": "W",
       "id": "black-walk-W",
-      "manifest": "banks/2a22ab3f4edfc850fd714312a94be0b6f459250c2b3c48fb36f539e4f8c1ad81.json",
-      "sha256": "2a22ab3f4edfc850fd714312a94be0b6f459250c2b3c48fb36f539e4f8c1ad81"
+      "manifest": "banks/0ae1166a02c91e8991debefa81293a56c72c3b8a942acc1b2f270cb42a45a314.json",
+      "sha256": "0ae1166a02c91e8991debefa81293a56c72c3b8a942acc1b2f270cb42a45a314"
     },
     {
       "character": "beast",
@@ -4880,8 +4880,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "black-walk-NW",
-      "manifest": "banks/58c23bb751153279dbf186a500f6d3212563bea111d9be1443cc0d9563c40245.json",
-      "sha256": "58c23bb751153279dbf186a500f6d3212563bea111d9be1443cc0d9563c40245"
+      "manifest": "banks/4ee389a0efa992071617ba0cd47e996a5c8dd36da34b43e27646d67a2108a154.json",
+      "sha256": "4ee389a0efa992071617ba0cd47e996a5c8dd36da34b43e27646d67a2108a154"
     },
     {
       "character": "bishop",
@@ -5082,24 +5082,6 @@
       "sha256": "f9a5ae04119a6900545c6954cb4c8f073abed80c9fa85f83777ca4bfd2069b9d"
     },
     {
-      "character": "king-flame",
-      "army": "white",
-      "kind": "move",
-      "direction": "SE",
-      "id": "white-walk-SE",
-      "manifest": "banks/814afe1e7e2ce77c2c40b92db7bb07aeac44995057310f7159c5f7b43ac8d4d2.json",
-      "sha256": "814afe1e7e2ce77c2c40b92db7bb07aeac44995057310f7159c5f7b43ac8d4d2"
-    },
-    {
-      "character": "king-flame",
-      "army": "black",
-      "kind": "move",
-      "direction": "SE",
-      "id": "black-walk-SE",
-      "manifest": "banks/539b8f7cc0352535e1180503a74c0bf1af30dd2db5c90d85d447cee5c59e8e34.json",
-      "sha256": "539b8f7cc0352535e1180503a74c0bf1af30dd2db5c90d85d447cee5c59e8e34"
-    },
-    {
       "character": "king-frost",
       "army": "white",
       "kind": "move",
@@ -5177,8 +5159,8 @@
       "kind": "move",
       "direction": "N",
       "id": "black-walk-N",
-      "manifest": "banks/15914ea66012142807d3e2aafb6733de0c71791b4b744e6e5307de1a5eea3e84.json",
-      "sha256": "15914ea66012142807d3e2aafb6733de0c71791b4b744e6e5307de1a5eea3e84"
+      "manifest": "banks/4a4c53ac1d7617097c786d94e46a772a70fc9d48d42d3340a79047d478a3f5f3.json",
+      "sha256": "4a4c53ac1d7617097c786d94e46a772a70fc9d48d42d3340a79047d478a3f5f3"
     },
     {
       "character": "king-frost",
@@ -5186,8 +5168,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "black-walk-NE",
-      "manifest": "banks/64d85e8e25c856eddd3c95f31a1b6b4b574f021897337862b4993469db318a08.json",
-      "sha256": "64d85e8e25c856eddd3c95f31a1b6b4b574f021897337862b4993469db318a08"
+      "manifest": "banks/0152e2e05b26f56f9278951c72836de60d7fef6b5aa233a95e4648820c63d7d3.json",
+      "sha256": "0152e2e05b26f56f9278951c72836de60d7fef6b5aa233a95e4648820c63d7d3"
     },
     {
       "character": "king-frost",
@@ -5195,8 +5177,8 @@
       "kind": "move",
       "direction": "E",
       "id": "black-walk-E",
-      "manifest": "banks/a2e71a0596a36775a30f0a276be88317dc9c02820880650639d3fe07086955b0.json",
-      "sha256": "a2e71a0596a36775a30f0a276be88317dc9c02820880650639d3fe07086955b0"
+      "manifest": "banks/466b9a6687acc1e5fe65d486896a0b42a79bba72e3f3d69af710a0a8f4cc2dfa.json",
+      "sha256": "466b9a6687acc1e5fe65d486896a0b42a79bba72e3f3d69af710a0a8f4cc2dfa"
     },
     {
       "character": "king-frost",
@@ -5204,8 +5186,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/0418053896d0ca4e53ab8cc89259e9626be05c51c047e303e9e6b866aa72403f.json",
-      "sha256": "0418053896d0ca4e53ab8cc89259e9626be05c51c047e303e9e6b866aa72403f"
+      "manifest": "banks/d27a14b91183277f12e40bc4789fbc802c1ecf91635d76f508f10e612adf37d6.json",
+      "sha256": "d27a14b91183277f12e40bc4789fbc802c1ecf91635d76f508f10e612adf37d6"
     },
     {
       "character": "king-frost",
@@ -5213,8 +5195,8 @@
       "kind": "move",
       "direction": "S",
       "id": "black-walk-S",
-      "manifest": "banks/ccd1a509861a121c9d84c503857ef5acd845843fa7c0e2f1d5ba2d3c76dba858.json",
-      "sha256": "ccd1a509861a121c9d84c503857ef5acd845843fa7c0e2f1d5ba2d3c76dba858"
+      "manifest": "banks/2184d7fea906f198d3d3491738c24ae170e5f6edbdf5f2e08c66d59b5aae50d3.json",
+      "sha256": "2184d7fea906f198d3d3491738c24ae170e5f6edbdf5f2e08c66d59b5aae50d3"
     },
     {
       "character": "king-frost",
@@ -5222,8 +5204,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "black-walk-SW",
-      "manifest": "banks/12928593546636f17ee9bb7ef54946c651074f567eafb62db04f6006f7d0bb48.json",
-      "sha256": "12928593546636f17ee9bb7ef54946c651074f567eafb62db04f6006f7d0bb48"
+      "manifest": "banks/2aabec4f2c511339008c51420d292184618d015595777bb4a051e3ccf0e22f5c.json",
+      "sha256": "2aabec4f2c511339008c51420d292184618d015595777bb4a051e3ccf0e22f5c"
     },
     {
       "character": "king-frost",
@@ -5231,8 +5213,8 @@
       "kind": "move",
       "direction": "W",
       "id": "black-walk-W",
-      "manifest": "banks/8c8f91f451b7056d71db19ecdc5d33fc3538eca02459e3024d21a1755abc0631.json",
-      "sha256": "8c8f91f451b7056d71db19ecdc5d33fc3538eca02459e3024d21a1755abc0631"
+      "manifest": "banks/5b1d5abb32059c14362fe13cd8e2da48d7bff4db5c5c9cea1526df121aa15225.json",
+      "sha256": "5b1d5abb32059c14362fe13cd8e2da48d7bff4db5c5c9cea1526df121aa15225"
     },
     {
       "character": "king-frost",
@@ -5240,8 +5222,8 @@
       "kind": "move",
       "direction": "NW",
       "id": "black-walk-NW",
-      "manifest": "banks/ded718a6b41e8965157bba826115d24114fe8bb913a1a23cb59699722e34e147.json",
-      "sha256": "ded718a6b41e8965157bba826115d24114fe8bb913a1a23cb59699722e34e147"
+      "manifest": "banks/13cd6d1302a92cf21bdfa9c1d683291b92f1a31cbe1ae029922efb7b485f6db4.json",
+      "sha256": "13cd6d1302a92cf21bdfa9c1d683291b92f1a31cbe1ae029922efb7b485f6db4"
     },
     {
       "character": "king-shadow",
@@ -5544,15 +5526,6 @@
       "character": "maester",
       "army": "white",
       "kind": "move",
-      "direction": "SE",
-      "id": "white-walk-SE",
-      "manifest": "banks/325e49ff5e72ac41c6d7910cd1db91abeca47825e8ffcef6da4c575a75d0efa5.json",
-      "sha256": "325e49ff5e72ac41c6d7910cd1db91abeca47825e8ffcef6da4c575a75d0efa5"
-    },
-    {
-      "character": "maester",
-      "army": "white",
-      "kind": "move",
       "direction": "SW",
       "id": "white-walk-SW",
       "manifest": "banks/24d3889f43a995219da66128b5a51df9f5cb89ea2a138feda1f8305b138f96fc.json",
@@ -5566,15 +5539,6 @@
       "id": "black-walk-N",
       "manifest": "banks/36830c0a3ad2ed708590cf612ce81e80e83c127b95ecf4ff6a945161404ee565.json",
       "sha256": "36830c0a3ad2ed708590cf612ce81e80e83c127b95ecf4ff6a945161404ee565"
-    },
-    {
-      "character": "maester",
-      "army": "black",
-      "kind": "move",
-      "direction": "SE",
-      "id": "black-walk-SE",
-      "manifest": "banks/684a4160d97f7f922c44c224d008a4dd3346d6522355d4919f995cd72aa8626c.json",
-      "sha256": "684a4160d97f7f922c44c224d008a4dd3346d6522355d4919f995cd72aa8626c"
     },
     {
       "character": "maester",
@@ -5618,8 +5582,8 @@
       "kind": "move",
       "direction": "N",
       "id": "black-walk-N",
-      "manifest": "banks/7d1490a102dee127c36edaeeed726afd5f1d091fb986d51261466aae8c42d03b.json",
-      "sha256": "7d1490a102dee127c36edaeeed726afd5f1d091fb986d51261466aae8c42d03b"
+      "manifest": "banks/cc7cefca5422648f3b54a82ce9e185202bddc2a2883f22804557b448e366e26d.json",
+      "sha256": "cc7cefca5422648f3b54a82ce9e185202bddc2a2883f22804557b448e366e26d"
     },
     {
       "character": "ogre",
@@ -5627,8 +5591,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "black-walk-NE",
-      "manifest": "banks/54f51b033a2bcad794d90bcc3d60ea53225a67dd86a92b2a3efc0b968b9baba8.json",
-      "sha256": "54f51b033a2bcad794d90bcc3d60ea53225a67dd86a92b2a3efc0b968b9baba8"
+      "manifest": "banks/15c1bc9a87b7f80b500daf53754b39bc65c25b6c0bb465e1297f028f72b72c55.json",
+      "sha256": "15c1bc9a87b7f80b500daf53754b39bc65c25b6c0bb465e1297f028f72b72c55"
     },
     {
       "character": "ogre",
@@ -5636,8 +5600,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/a22144b37ab232f230ed498e0a5d06093d52c6c92adb94918f10c1dddc8eb311.json",
-      "sha256": "a22144b37ab232f230ed498e0a5d06093d52c6c92adb94918f10c1dddc8eb311"
+      "manifest": "banks/8e7ac47ecebdc33d6fbd08c3e90fac15138e416493f7acc7f7fd42bd8b2c4baf.json",
+      "sha256": "8e7ac47ecebdc33d6fbd08c3e90fac15138e416493f7acc7f7fd42bd8b2c4baf"
     },
     {
       "character": "pawn",
@@ -5886,15 +5850,6 @@
       "character": "queen",
       "army": "black",
       "kind": "move",
-      "direction": "SE",
-      "id": "black-walk-SE",
-      "manifest": "banks/6668e40eb30773d96951b9386e309078ff5364821431257f34b9c789d60183c9.json",
-      "sha256": "6668e40eb30773d96951b9386e309078ff5364821431257f34b9c789d60183c9"
-    },
-    {
-      "character": "queen",
-      "army": "black",
-      "kind": "move",
       "direction": "S",
       "id": "black-walk-S",
       "manifest": "banks/c135bc0119c5837efafb7f613151167f215f8d9372ef6f6d7b14a09cbe342b72.json",
@@ -6005,8 +5960,8 @@
       "kind": "move",
       "direction": "N",
       "id": "black-walk-N",
-      "manifest": "banks/48c0a584c7bec83fe829a3266cdadc0cd3b08f275daa622f06be0e7a51d49ebc.json",
-      "sha256": "48c0a584c7bec83fe829a3266cdadc0cd3b08f275daa622f06be0e7a51d49ebc"
+      "manifest": "banks/7af166d4912082ff270f38efa5dbab0aa5589ccb6e9ba506b6b6ba3d7f17cc4b.json",
+      "sha256": "7af166d4912082ff270f38efa5dbab0aa5589ccb6e9ba506b6b6ba3d7f17cc4b"
     },
     {
       "character": "rook",
@@ -6014,8 +5969,8 @@
       "kind": "move",
       "direction": "NE",
       "id": "black-walk-NE",
-      "manifest": "banks/2e450e7379e320a846f9a7f2957732779447b57598e0ebda0890c311d4b12405.json",
-      "sha256": "2e450e7379e320a846f9a7f2957732779447b57598e0ebda0890c311d4b12405"
+      "manifest": "banks/cd375565d25afcbde736f08491ac642f1ac0eaef4c51beda43cb9603bcbaeb68.json",
+      "sha256": "cd375565d25afcbde736f08491ac642f1ac0eaef4c51beda43cb9603bcbaeb68"
     },
     {
       "character": "rook",
@@ -6023,8 +5978,8 @@
       "kind": "move",
       "direction": "E",
       "id": "black-walk-E",
-      "manifest": "banks/028d61e03169b15ce5fe600bb18e94831d91e068bb6f1d0bbd4655e392a46345.json",
-      "sha256": "028d61e03169b15ce5fe600bb18e94831d91e068bb6f1d0bbd4655e392a46345"
+      "manifest": "banks/64422e364f4a1f3578bd941a31f0b7d6f09a27460c31964ccf767292e9822ea8.json",
+      "sha256": "64422e364f4a1f3578bd941a31f0b7d6f09a27460c31964ccf767292e9822ea8"
     },
     {
       "character": "rook",
@@ -6032,8 +5987,8 @@
       "kind": "move",
       "direction": "SE",
       "id": "black-walk-SE",
-      "manifest": "banks/d22674b463c4aa0f95d549d091a282202fd0cf5e0013ff4f9ecc2faba293a42f.json",
-      "sha256": "d22674b463c4aa0f95d549d091a282202fd0cf5e0013ff4f9ecc2faba293a42f"
+      "manifest": "banks/8c6abe196874241c8578453d1ba01c8bcd075dd0cefbf37113c4df34fc5cebb4.json",
+      "sha256": "8c6abe196874241c8578453d1ba01c8bcd075dd0cefbf37113c4df34fc5cebb4"
     },
     {
       "character": "rook",
@@ -6041,8 +5996,8 @@
       "kind": "move",
       "direction": "S",
       "id": "black-walk-S",
-      "manifest": "banks/d63787b37af11b1309e6cdfc3c48644a359959faf4dbdb9e75d537fa99fe81f3.json",
-      "sha256": "d63787b37af11b1309e6cdfc3c48644a359959faf4dbdb9e75d537fa99fe81f3"
+      "manifest": "banks/5689cbc692795372ee6ee1db3b2adc1485129ad0f411456be42069075844a4df.json",
+      "sha256": "5689cbc692795372ee6ee1db3b2adc1485129ad0f411456be42069075844a4df"
     },
     {
       "character": "rook",
@@ -6050,8 +6005,8 @@
       "kind": "move",
       "direction": "SW",
       "id": "black-walk-SW",
-      "manifest": "banks/80705a575f81c505a0ff5869ba363ca732c7d55e51e78bab725c86e227a25f71.json",
-      "sha256": "80705a575f81c505a0ff5869ba363ca732c7d55e51e78bab725c86e227a25f71"
+      "manifest": "banks/a74e58c7ef270d1c9a1b1ab1c6b911e884652b6c83546634308e7ec8ec32abb6.json",
+      "sha256": "a74e58c7ef270d1c9a1b1ab1c6b911e884652b6c83546634308e7ec8ec32abb6"
     },
     {
       "character": "rook",
@@ -6059,8 +6014,8 @@
       "kind": "move",
       "direction": "W",
       "id": "black-walk-W",
-      "manifest": "banks/50fce23fddfa04e1db1452bb036793f6bb34b645d8e8873b08e1f179219c1f50.json",
-      "sha256": "50fce23fddfa04e1db1452bb036793f6bb34b645d8e8873b08e1f179219c1f50"
+      "manifest": "banks/1b6661be872d90de90e9bba551c7d013580655062c7efe516ba967432de6f51b.json",
+      "sha256": "1b6661be872d90de90e9bba551c7d013580655062c7efe516ba967432de6f51b"
     },
     {
       "character": "rook",
@@ -6068,13 +6023,673 @@
       "kind": "move",
       "direction": "NW",
       "id": "black-walk-NW",
-      "manifest": "banks/3757ae1b6234a794e5fb98aebaeae848f14e3de809e5977d36f833ff29922470.json",
-      "sha256": "3757ae1b6234a794e5fb98aebaeae848f14e3de809e5977d36f833ff29922470"
+      "manifest": "banks/a62d26bbac0d9c1cdaf3f6c56da72d589f5bf39770c3d42b30353535bc6ef0d7.json",
+      "sha256": "a62d26bbac0d9c1cdaf3f6c56da72d589f5bf39770c3d42b30353535bc6ef0d7"
+    },
+    {
+      "character": "guard",
+      "army": "white",
+      "kind": "move",
+      "direction": "N",
+      "id": "white-walk-N",
+      "manifest": "banks/017b4901527cd751c307de2c9e5eefb2e06c1ceaabc067a6473abc02dcd74244.json",
+      "sha256": "017b4901527cd751c307de2c9e5eefb2e06c1ceaabc067a6473abc02dcd74244"
+    },
+    {
+      "character": "guard",
+      "army": "black",
+      "kind": "move",
+      "direction": "N",
+      "id": "black-walk-N",
+      "manifest": "banks/05e779c4d11ceab1d983b0222eff169170dd6b9fcd1c017a0e32ad391993a0ba.json",
+      "sha256": "05e779c4d11ceab1d983b0222eff169170dd6b9fcd1c017a0e32ad391993a0ba"
+    },
+    {
+      "character": "guard",
+      "army": "white",
+      "kind": "move",
+      "direction": "NW",
+      "id": "white-walk-NW",
+      "manifest": "banks/375082c4811a21335244d26315926d8648f8faa47f8201afe9f86fd96571eea5.json",
+      "sha256": "375082c4811a21335244d26315926d8648f8faa47f8201afe9f86fd96571eea5"
+    },
+    {
+      "character": "guard",
+      "army": "black",
+      "kind": "move",
+      "direction": "NW",
+      "id": "black-walk-NW",
+      "manifest": "banks/84455057c4acce1ad3ce9cdfdeed05075c97f00d88b0f2f468b784db7fb52562.json",
+      "sha256": "84455057c4acce1ad3ce9cdfdeed05075c97f00d88b0f2f468b784db7fb52562"
+    },
+    {
+      "character": "guard",
+      "army": "white",
+      "kind": "move",
+      "direction": "SW",
+      "id": "white-walk-SW",
+      "manifest": "banks/8892843dcf25bd94bc21493b0d42b8e205e8b8f9ffd64155d4de32c8e578339e.json",
+      "sha256": "8892843dcf25bd94bc21493b0d42b8e205e8b8f9ffd64155d4de32c8e578339e"
+    },
+    {
+      "character": "guard",
+      "army": "black",
+      "kind": "move",
+      "direction": "SW",
+      "id": "black-walk-SW",
+      "manifest": "banks/781c0e509efb565f63dd56f2fea380a247d8e7dde95d5409800d7b2b1668d2f8.json",
+      "sha256": "781c0e509efb565f63dd56f2fea380a247d8e7dde95d5409800d7b2b1668d2f8"
+    },
+    {
+      "character": "guard",
+      "army": "white",
+      "kind": "move",
+      "direction": "W",
+      "id": "white-walk-W",
+      "manifest": "banks/d2bed0121c73c5c015ec25ff202224a7758fcbdca039424d5934a585fc8e565b.json",
+      "sha256": "d2bed0121c73c5c015ec25ff202224a7758fcbdca039424d5934a585fc8e565b"
+    },
+    {
+      "character": "guard",
+      "army": "black",
+      "kind": "move",
+      "direction": "W",
+      "id": "black-walk-W",
+      "manifest": "banks/c074b899af7d6bd3e4cf4b057b007af41016b681e123e2ff4b3b48a9b66ad16e.json",
+      "sha256": "c074b899af7d6bd3e4cf4b057b007af41016b681e123e2ff4b3b48a9b66ad16e"
+    },
+    {
+      "character": "king-flame",
+      "army": "white",
+      "kind": "move",
+      "direction": "E",
+      "id": "white-walk-E",
+      "manifest": "banks/396c9c1010990e05b76bb957a6657cf4703daaf8fbbd386c03153b2ed9800ca7.json",
+      "sha256": "396c9c1010990e05b76bb957a6657cf4703daaf8fbbd386c03153b2ed9800ca7"
+    },
+    {
+      "character": "king-flame",
+      "army": "black",
+      "kind": "move",
+      "direction": "E",
+      "id": "black-walk-E",
+      "manifest": "banks/51cc711fda8fc1030d0313b4c03a2be86e4ec61cbe2d36f3e4fbd7bfe7f41314.json",
+      "sha256": "51cc711fda8fc1030d0313b4c03a2be86e4ec61cbe2d36f3e4fbd7bfe7f41314"
+    },
+    {
+      "character": "king-flame",
+      "army": "white",
+      "kind": "move",
+      "direction": "N",
+      "id": "white-walk-N",
+      "manifest": "banks/9e990a31220fb7dfc86610226715bce75b4be603d8cc71273033392faa3fe2df.json",
+      "sha256": "9e990a31220fb7dfc86610226715bce75b4be603d8cc71273033392faa3fe2df"
+    },
+    {
+      "character": "king-flame",
+      "army": "black",
+      "kind": "move",
+      "direction": "N",
+      "id": "black-walk-N",
+      "manifest": "banks/40694a4014cec6f0ee8188b79495e7afbd32bb87ba9b28ab1496f1e3d1df0490.json",
+      "sha256": "40694a4014cec6f0ee8188b79495e7afbd32bb87ba9b28ab1496f1e3d1df0490"
+    },
+    {
+      "character": "king-flame",
+      "army": "white",
+      "kind": "move",
+      "direction": "NW",
+      "id": "white-walk-NW",
+      "manifest": "banks/aa64b97d1e0c6d79f6a7bb3b380158e561c77c9e362c561739cbe27f854a3bb4.json",
+      "sha256": "aa64b97d1e0c6d79f6a7bb3b380158e561c77c9e362c561739cbe27f854a3bb4"
+    },
+    {
+      "character": "king-flame",
+      "army": "black",
+      "kind": "move",
+      "direction": "NW",
+      "id": "black-walk-NW",
+      "manifest": "banks/8e0151abe068ac55f1b130b8be162647ff4aa80450c1ff960f1c80f1bad0276b.json",
+      "sha256": "8e0151abe068ac55f1b130b8be162647ff4aa80450c1ff960f1c80f1bad0276b"
+    },
+    {
+      "character": "king-flame",
+      "army": "white",
+      "kind": "move",
+      "direction": "S",
+      "id": "white-walk-S",
+      "manifest": "banks/c742fcfcb642545f789e0f8216aea90ac2fc4c0cdef885a6e102b47f76b1fdac.json",
+      "sha256": "c742fcfcb642545f789e0f8216aea90ac2fc4c0cdef885a6e102b47f76b1fdac"
+    },
+    {
+      "character": "king-flame",
+      "army": "black",
+      "kind": "move",
+      "direction": "S",
+      "id": "black-walk-S",
+      "manifest": "banks/f11f86dc09f14756022304d7c35ba2370e9a4a1b4f38f2083a94e7066d816d92.json",
+      "sha256": "f11f86dc09f14756022304d7c35ba2370e9a4a1b4f38f2083a94e7066d816d92"
+    },
+    {
+      "character": "king-flame",
+      "army": "white",
+      "kind": "move",
+      "direction": "SE",
+      "id": "white-walk-SE",
+      "manifest": "banks/c9e064eccb8f24a24c761f07702f08534bc22c716f525ff8c6f486541fbd33b7.json",
+      "sha256": "c9e064eccb8f24a24c761f07702f08534bc22c716f525ff8c6f486541fbd33b7"
+    },
+    {
+      "character": "king-flame",
+      "army": "black",
+      "kind": "move",
+      "direction": "SE",
+      "id": "black-walk-SE",
+      "manifest": "banks/a624530b66f39752723066325c5f214238ab8829d65f96491f8971a7ed29593b.json",
+      "sha256": "a624530b66f39752723066325c5f214238ab8829d65f96491f8971a7ed29593b"
+    },
+    {
+      "character": "king-flame",
+      "army": "white",
+      "kind": "move",
+      "direction": "SW",
+      "id": "white-walk-SW",
+      "manifest": "banks/e8e0efb68644c5dc60fed094b67ce38f659d4538a2decffd332388e0d268da85.json",
+      "sha256": "e8e0efb68644c5dc60fed094b67ce38f659d4538a2decffd332388e0d268da85"
+    },
+    {
+      "character": "king-flame",
+      "army": "black",
+      "kind": "move",
+      "direction": "SW",
+      "id": "black-walk-SW",
+      "manifest": "banks/91ac585738350e885812d67a724f8dcb589d08015b620250f6f7aa6bcf13f919.json",
+      "sha256": "91ac585738350e885812d67a724f8dcb589d08015b620250f6f7aa6bcf13f919"
+    },
+    {
+      "character": "king-flame",
+      "army": "white",
+      "kind": "move",
+      "direction": "W",
+      "id": "white-walk-W",
+      "manifest": "banks/0edbea0a8f81f78059e8aab561207e12b10f8f28cf1a596b981ba668616cd59f.json",
+      "sha256": "0edbea0a8f81f78059e8aab561207e12b10f8f28cf1a596b981ba668616cd59f"
+    },
+    {
+      "character": "king-flame",
+      "army": "black",
+      "kind": "move",
+      "direction": "W",
+      "id": "black-walk-W",
+      "manifest": "banks/0d8213601fbc6ac6b68a74fbdb107436685314404e7207588638702e9e549599.json",
+      "sha256": "0d8213601fbc6ac6b68a74fbdb107436685314404e7207588638702e9e549599"
+    },
+    {
+      "character": "king-mud",
+      "army": "white",
+      "kind": "move",
+      "direction": "N",
+      "id": "white-walk-N",
+      "manifest": "banks/3361317569a300e7c86b4663507c7544d65575e252295dbb5e4c912f2da81bf3.json",
+      "sha256": "3361317569a300e7c86b4663507c7544d65575e252295dbb5e4c912f2da81bf3"
+    },
+    {
+      "character": "king-mud",
+      "army": "black",
+      "kind": "move",
+      "direction": "N",
+      "id": "black-walk-N",
+      "manifest": "banks/e090f4bcdc484cba943348fef5430ca77882ce8fb9becab3fd7673a1cc3dedc2.json",
+      "sha256": "e090f4bcdc484cba943348fef5430ca77882ce8fb9becab3fd7673a1cc3dedc2"
+    },
+    {
+      "character": "king-mud",
+      "army": "white",
+      "kind": "move",
+      "direction": "NE",
+      "id": "white-walk-NE",
+      "manifest": "banks/f74cf9cb811cd2b34b8b0673b9f9996051adc64b0afff073536e9373a4d7b672.json",
+      "sha256": "f74cf9cb811cd2b34b8b0673b9f9996051adc64b0afff073536e9373a4d7b672"
+    },
+    {
+      "character": "king-mud",
+      "army": "black",
+      "kind": "move",
+      "direction": "NE",
+      "id": "black-walk-NE",
+      "manifest": "banks/3eec4a097e59b4a09fb53801c70cb9c640e1c9046209c6b38b4e1290abbb403d.json",
+      "sha256": "3eec4a097e59b4a09fb53801c70cb9c640e1c9046209c6b38b4e1290abbb403d"
+    },
+    {
+      "character": "king-mud",
+      "army": "white",
+      "kind": "move",
+      "direction": "NW",
+      "id": "white-walk-NW",
+      "manifest": "banks/2b4dbc954c578c7cd6a04dcf3c34555f9ed3419bc998634978a48f4d7f9192da.json",
+      "sha256": "2b4dbc954c578c7cd6a04dcf3c34555f9ed3419bc998634978a48f4d7f9192da"
+    },
+    {
+      "character": "king-mud",
+      "army": "black",
+      "kind": "move",
+      "direction": "NW",
+      "id": "black-walk-NW",
+      "manifest": "banks/867f52738e916af7ebf1a012ce2d27d7cd16c20666ab179538a7ad98ba50cfc4.json",
+      "sha256": "867f52738e916af7ebf1a012ce2d27d7cd16c20666ab179538a7ad98ba50cfc4"
+    },
+    {
+      "character": "king-mud",
+      "army": "white",
+      "kind": "move",
+      "direction": "S",
+      "id": "white-walk-S",
+      "manifest": "banks/2e34eb8cff555fc1bc261dff0084f48e7dc2af62d8bc6c1c10aec17bf800d801.json",
+      "sha256": "2e34eb8cff555fc1bc261dff0084f48e7dc2af62d8bc6c1c10aec17bf800d801"
+    },
+    {
+      "character": "king-mud",
+      "army": "black",
+      "kind": "move",
+      "direction": "S",
+      "id": "black-walk-S",
+      "manifest": "banks/269eb2e692751022212955c0fdbfaedc53d21ac7f48259e6f128b2917894a366.json",
+      "sha256": "269eb2e692751022212955c0fdbfaedc53d21ac7f48259e6f128b2917894a366"
+    },
+    {
+      "character": "king-mud",
+      "army": "white",
+      "kind": "move",
+      "direction": "SE",
+      "id": "white-walk-SE",
+      "manifest": "banks/91cf60606cf21879f369475202972cd3abcf92e435666fb4da4edfbcf88d018b.json",
+      "sha256": "91cf60606cf21879f369475202972cd3abcf92e435666fb4da4edfbcf88d018b"
+    },
+    {
+      "character": "king-mud",
+      "army": "black",
+      "kind": "move",
+      "direction": "SE",
+      "id": "black-walk-SE",
+      "manifest": "banks/309191cbdbaaae12a6c517be00ce6eb36aaaf4c8161345bb555ae5481593d27b.json",
+      "sha256": "309191cbdbaaae12a6c517be00ce6eb36aaaf4c8161345bb555ae5481593d27b"
+    },
+    {
+      "character": "king-mud",
+      "army": "white",
+      "kind": "move",
+      "direction": "SW",
+      "id": "white-walk-SW",
+      "manifest": "banks/f7affc635a7284a54e95b64a4b100bdf59f8773f1c0007076ebb07f51fef49f3.json",
+      "sha256": "f7affc635a7284a54e95b64a4b100bdf59f8773f1c0007076ebb07f51fef49f3"
+    },
+    {
+      "character": "king-mud",
+      "army": "black",
+      "kind": "move",
+      "direction": "SW",
+      "id": "black-walk-SW",
+      "manifest": "banks/71a1e422c0c76f074c3c6a02ffc6690fa892d4e0e7af2c44c1ee369cfee90e45.json",
+      "sha256": "71a1e422c0c76f074c3c6a02ffc6690fa892d4e0e7af2c44c1ee369cfee90e45"
+    },
+    {
+      "character": "king-mud",
+      "army": "white",
+      "kind": "move",
+      "direction": "W",
+      "id": "white-walk-W",
+      "manifest": "banks/e788d35937dc9b86c812f1c036eeafa0e6f2782a85d2f87b5bbd960a0ecc0991.json",
+      "sha256": "e788d35937dc9b86c812f1c036eeafa0e6f2782a85d2f87b5bbd960a0ecc0991"
+    },
+    {
+      "character": "king-mud",
+      "army": "black",
+      "kind": "move",
+      "direction": "W",
+      "id": "black-walk-W",
+      "manifest": "banks/fb5c65d20d2a7030c5b980622c9f7f2735ca64580337625a41df636b02bbf8d4.json",
+      "sha256": "fb5c65d20d2a7030c5b980622c9f7f2735ca64580337625a41df636b02bbf8d4"
+    },
+    {
+      "character": "king-stratus",
+      "army": "white",
+      "kind": "move",
+      "direction": "E",
+      "id": "white-walk-E",
+      "manifest": "banks/060bcc0c499d3215952e700f63959be010a57708854e6cfc40fdd0c0e8de58ce.json",
+      "sha256": "060bcc0c499d3215952e700f63959be010a57708854e6cfc40fdd0c0e8de58ce"
+    },
+    {
+      "character": "king-stratus",
+      "army": "black",
+      "kind": "move",
+      "direction": "E",
+      "id": "black-walk-E",
+      "manifest": "banks/dea59b59bd5646cc7fcf544d47d797189584a585ddc654a425aea859396b000c.json",
+      "sha256": "dea59b59bd5646cc7fcf544d47d797189584a585ddc654a425aea859396b000c"
+    },
+    {
+      "character": "king-stratus",
+      "army": "white",
+      "kind": "move",
+      "direction": "N",
+      "id": "white-walk-N",
+      "manifest": "banks/d3dbf9956cb35b118c67da9b35c0bd04b6f4b730326f8128088bf5878027ebcc.json",
+      "sha256": "d3dbf9956cb35b118c67da9b35c0bd04b6f4b730326f8128088bf5878027ebcc"
+    },
+    {
+      "character": "king-stratus",
+      "army": "black",
+      "kind": "move",
+      "direction": "N",
+      "id": "black-walk-N",
+      "manifest": "banks/7ec893dbfbe6c967e6e1024dd1a23324d5ab6696aba73f1d0663680b3221d465.json",
+      "sha256": "7ec893dbfbe6c967e6e1024dd1a23324d5ab6696aba73f1d0663680b3221d465"
+    },
+    {
+      "character": "king-stratus",
+      "army": "white",
+      "kind": "move",
+      "direction": "NE",
+      "id": "white-walk-NE",
+      "manifest": "banks/eb445e0bd5390fba9b96bcdcd075f19bc40892c1205b772890a274e972046026.json",
+      "sha256": "eb445e0bd5390fba9b96bcdcd075f19bc40892c1205b772890a274e972046026"
+    },
+    {
+      "character": "king-stratus",
+      "army": "black",
+      "kind": "move",
+      "direction": "NE",
+      "id": "black-walk-NE",
+      "manifest": "banks/825fde28b9a3c78bd1c05d7dd8b5f49178c220367f50ab161d7e4c907fc19d1c.json",
+      "sha256": "825fde28b9a3c78bd1c05d7dd8b5f49178c220367f50ab161d7e4c907fc19d1c"
+    },
+    {
+      "character": "king-stratus",
+      "army": "white",
+      "kind": "move",
+      "direction": "NW",
+      "id": "white-walk-NW",
+      "manifest": "banks/0740aa41bb315a08ffb8f6db52641c9a8d6c2b5449211efe05971dd4870aa392.json",
+      "sha256": "0740aa41bb315a08ffb8f6db52641c9a8d6c2b5449211efe05971dd4870aa392"
+    },
+    {
+      "character": "king-stratus",
+      "army": "black",
+      "kind": "move",
+      "direction": "NW",
+      "id": "black-walk-NW",
+      "manifest": "banks/50bf68425a4163c8a095ec34060f66c839310c4f324485c5cc5c5a5a6229ae34.json",
+      "sha256": "50bf68425a4163c8a095ec34060f66c839310c4f324485c5cc5c5a5a6229ae34"
+    },
+    {
+      "character": "king-stratus",
+      "army": "white",
+      "kind": "move",
+      "direction": "S",
+      "id": "white-walk-S",
+      "manifest": "banks/97335befa5ac6cd914ccab0a68edcc44aaaa4d5293a4c5ab2232f2104c4a2257.json",
+      "sha256": "97335befa5ac6cd914ccab0a68edcc44aaaa4d5293a4c5ab2232f2104c4a2257"
+    },
+    {
+      "character": "king-stratus",
+      "army": "black",
+      "kind": "move",
+      "direction": "S",
+      "id": "black-walk-S",
+      "manifest": "banks/cf6907a8947fba245f5b5b9e9c4c3d367518b5cc7c7fc70a80a276666bf76727.json",
+      "sha256": "cf6907a8947fba245f5b5b9e9c4c3d367518b5cc7c7fc70a80a276666bf76727"
+    },
+    {
+      "character": "king-stratus",
+      "army": "white",
+      "kind": "move",
+      "direction": "SE",
+      "id": "white-walk-SE",
+      "manifest": "banks/2372a207b0da93ca2f1d7d820e026e7082956b82bd35ca931693810e3fcddd29.json",
+      "sha256": "2372a207b0da93ca2f1d7d820e026e7082956b82bd35ca931693810e3fcddd29"
+    },
+    {
+      "character": "king-stratus",
+      "army": "black",
+      "kind": "move",
+      "direction": "SE",
+      "id": "black-walk-SE",
+      "manifest": "banks/34dbe228b8e8825b1ee08cf98f26bf338545c59be8d6c7f31569dd6e7250bd50.json",
+      "sha256": "34dbe228b8e8825b1ee08cf98f26bf338545c59be8d6c7f31569dd6e7250bd50"
+    },
+    {
+      "character": "king-stratus",
+      "army": "white",
+      "kind": "move",
+      "direction": "SW",
+      "id": "white-walk-SW",
+      "manifest": "banks/2fccad46d59b2265a36bdc78309e4a7811edddffed49edd7c10b76b13e88d442.json",
+      "sha256": "2fccad46d59b2265a36bdc78309e4a7811edddffed49edd7c10b76b13e88d442"
+    },
+    {
+      "character": "king-stratus",
+      "army": "black",
+      "kind": "move",
+      "direction": "SW",
+      "id": "black-walk-SW",
+      "manifest": "banks/2af7e6d41f622c75bf88ebe0dd58d81c2accb00bad02780a1c1e4f2be043e8ec.json",
+      "sha256": "2af7e6d41f622c75bf88ebe0dd58d81c2accb00bad02780a1c1e4f2be043e8ec"
+    },
+    {
+      "character": "king-stratus",
+      "army": "white",
+      "kind": "move",
+      "direction": "W",
+      "id": "white-walk-W",
+      "manifest": "banks/5d4eaade466ee94c0b113290894abd285568bc5ef85d17c34b7ee0adfa4c5249.json",
+      "sha256": "5d4eaade466ee94c0b113290894abd285568bc5ef85d17c34b7ee0adfa4c5249"
+    },
+    {
+      "character": "king-stratus",
+      "army": "black",
+      "kind": "move",
+      "direction": "W",
+      "id": "black-walk-W",
+      "manifest": "banks/9dca8667ce2ae7ac77db45523810a4977240440c308a0eb2c4b0074fc8ea7910.json",
+      "sha256": "9dca8667ce2ae7ac77db45523810a4977240440c308a0eb2c4b0074fc8ea7910"
+    },
+    {
+      "character": "maester",
+      "army": "white",
+      "kind": "move",
+      "direction": "E",
+      "id": "white-walk-E",
+      "manifest": "banks/a89cbb5f0382fcbe1a18a17f61563381742e6512cd7aa986da5c2e864ecb7ba8.json",
+      "sha256": "a89cbb5f0382fcbe1a18a17f61563381742e6512cd7aa986da5c2e864ecb7ba8"
+    },
+    {
+      "character": "maester",
+      "army": "black",
+      "kind": "move",
+      "direction": "E",
+      "id": "black-walk-E",
+      "manifest": "banks/a642c87673f184f494a3844cf0bffe0ff6dff2fd4a2124bb25849ce8c59e85f0.json",
+      "sha256": "a642c87673f184f494a3844cf0bffe0ff6dff2fd4a2124bb25849ce8c59e85f0"
+    },
+    {
+      "character": "maester",
+      "army": "white",
+      "kind": "move",
+      "direction": "NE",
+      "id": "white-walk-NE",
+      "manifest": "banks/2e968fb6716f0867fe03f911d73d8a511cf4fc30ca68c226e016a1ed56f3dd9f.json",
+      "sha256": "2e968fb6716f0867fe03f911d73d8a511cf4fc30ca68c226e016a1ed56f3dd9f"
+    },
+    {
+      "character": "maester",
+      "army": "black",
+      "kind": "move",
+      "direction": "NE",
+      "id": "black-walk-NE",
+      "manifest": "banks/e44d346739d34e3c00141b4bbffc9bfe9fa9657456cd60fa5fa1f9bbb7bdb6ed.json",
+      "sha256": "e44d346739d34e3c00141b4bbffc9bfe9fa9657456cd60fa5fa1f9bbb7bdb6ed"
+    },
+    {
+      "character": "maester",
+      "army": "white",
+      "kind": "move",
+      "direction": "NW",
+      "id": "white-walk-NW",
+      "manifest": "banks/779642de65c4e51f94a38e5e3e8d86c4846a767ff9f2034997f0b7a2f2f9fa58.json",
+      "sha256": "779642de65c4e51f94a38e5e3e8d86c4846a767ff9f2034997f0b7a2f2f9fa58"
+    },
+    {
+      "character": "maester",
+      "army": "black",
+      "kind": "move",
+      "direction": "NW",
+      "id": "black-walk-NW",
+      "manifest": "banks/6b971682d5783227285ef83b1ec3b3c0f5eb78a98c66966545b8e2dae5c4ad4c.json",
+      "sha256": "6b971682d5783227285ef83b1ec3b3c0f5eb78a98c66966545b8e2dae5c4ad4c"
+    },
+    {
+      "character": "maester",
+      "army": "white",
+      "kind": "move",
+      "direction": "S",
+      "id": "white-walk-S",
+      "manifest": "banks/1f4f0203589bd769845bf33f3da8826df12048ba35504492aee56a7713efa8c1.json",
+      "sha256": "1f4f0203589bd769845bf33f3da8826df12048ba35504492aee56a7713efa8c1"
+    },
+    {
+      "character": "maester",
+      "army": "black",
+      "kind": "move",
+      "direction": "S",
+      "id": "black-walk-S",
+      "manifest": "banks/821edc15b0727dcd4444860ca6a3c8bb271248324d7a950cd817839ea0778809.json",
+      "sha256": "821edc15b0727dcd4444860ca6a3c8bb271248324d7a950cd817839ea0778809"
+    },
+    {
+      "character": "maester",
+      "army": "white",
+      "kind": "move",
+      "direction": "W",
+      "id": "white-walk-W",
+      "manifest": "banks/d0b338ebd988d88bb03dcaa3a145085b8bf3e53ce4c701bbb4512604cb76d2a9.json",
+      "sha256": "d0b338ebd988d88bb03dcaa3a145085b8bf3e53ce4c701bbb4512604cb76d2a9"
+    },
+    {
+      "character": "maester",
+      "army": "black",
+      "kind": "move",
+      "direction": "W",
+      "id": "black-walk-W",
+      "manifest": "banks/62a2f3e5717c1ff5d6d38ffa67cdcf4e298af49e9c19c64aaf2e13307fd807ab.json",
+      "sha256": "62a2f3e5717c1ff5d6d38ffa67cdcf4e298af49e9c19c64aaf2e13307fd807ab"
+    },
+    {
+      "character": "ogre",
+      "army": "white",
+      "kind": "move",
+      "direction": "E",
+      "id": "white-walk-E",
+      "manifest": "banks/1e7da1090fcc864e3a8d0cec0b0f16bf9e5a8b4fe59476626c91ab2677c91ef9.json",
+      "sha256": "1e7da1090fcc864e3a8d0cec0b0f16bf9e5a8b4fe59476626c91ab2677c91ef9"
+    },
+    {
+      "character": "ogre",
+      "army": "black",
+      "kind": "move",
+      "direction": "E",
+      "id": "black-walk-E",
+      "manifest": "banks/7535023e26481166d7be466e448b4e6a042066c3eab462c87744de2baaf24ef7.json",
+      "sha256": "7535023e26481166d7be466e448b4e6a042066c3eab462c87744de2baaf24ef7"
+    },
+    {
+      "character": "ogre",
+      "army": "white",
+      "kind": "move",
+      "direction": "NW",
+      "id": "white-walk-NW",
+      "manifest": "banks/0ad242492948c9619cc79aa455633f7dd46e769ec745d701893abc6d4acb83fe.json",
+      "sha256": "0ad242492948c9619cc79aa455633f7dd46e769ec745d701893abc6d4acb83fe"
+    },
+    {
+      "character": "ogre",
+      "army": "black",
+      "kind": "move",
+      "direction": "NW",
+      "id": "black-walk-NW",
+      "manifest": "banks/b50a980e56c26f6b3a7ca4f8a7bc52610eff5b14b052e03b6b9e50b06b8542d2.json",
+      "sha256": "b50a980e56c26f6b3a7ca4f8a7bc52610eff5b14b052e03b6b9e50b06b8542d2"
+    },
+    {
+      "character": "ogre",
+      "army": "white",
+      "kind": "move",
+      "direction": "S",
+      "id": "white-walk-S",
+      "manifest": "banks/f68ff516559dac14ad1110563b5c3c096d71a9d61eb686c95c04dcda473ffaf1.json",
+      "sha256": "f68ff516559dac14ad1110563b5c3c096d71a9d61eb686c95c04dcda473ffaf1"
+    },
+    {
+      "character": "ogre",
+      "army": "black",
+      "kind": "move",
+      "direction": "S",
+      "id": "black-walk-S",
+      "manifest": "banks/89dff8bd6dc0b21b5e5d293fdd9e0e3002ad2e19d8f464f3f33f0be04ca7f333.json",
+      "sha256": "89dff8bd6dc0b21b5e5d293fdd9e0e3002ad2e19d8f464f3f33f0be04ca7f333"
+    },
+    {
+      "character": "ogre",
+      "army": "white",
+      "kind": "move",
+      "direction": "W",
+      "id": "white-walk-W",
+      "manifest": "banks/518edaa250c9f57c73b2d26e66deac86a23f8cc162488c8b7e5c62b4c1c1ee67.json",
+      "sha256": "518edaa250c9f57c73b2d26e66deac86a23f8cc162488c8b7e5c62b4c1c1ee67"
+    },
+    {
+      "character": "ogre",
+      "army": "black",
+      "kind": "move",
+      "direction": "W",
+      "id": "black-walk-W",
+      "manifest": "banks/edb1fc1be0dc49b9f814ec7a36e8b931f91465e85f1bc775080c76dfe2c8d095.json",
+      "sha256": "edb1fc1be0dc49b9f814ec7a36e8b931f91465e85f1bc775080c76dfe2c8d095"
+    },
+    {
+      "character": "maester",
+      "army": "white",
+      "kind": "move",
+      "direction": "SE",
+      "id": "white-walk-SE",
+      "manifest": "banks/beb95a5d4ef5fc48e3632b65834f2756e2c44a514c9efabdd6fda59c15ef1726.json",
+      "sha256": "beb95a5d4ef5fc48e3632b65834f2756e2c44a514c9efabdd6fda59c15ef1726"
+    },
+    {
+      "character": "maester",
+      "army": "black",
+      "kind": "move",
+      "direction": "SE",
+      "id": "black-walk-SE",
+      "manifest": "banks/a070bdfb4f587b7d0db10404f6b7dfba7f8efd0c88f8072059828bc9b9c6c2bc.json",
+      "sha256": "a070bdfb4f587b7d0db10404f6b7dfba7f8efd0c88f8072059828bc9b9c6c2bc"
+    },
+    {
+      "character": "queen",
+      "army": "black",
+      "kind": "move",
+      "direction": "SE",
+      "id": "black-walk-SE",
+      "manifest": "banks/e8c2a8fc249629a294dfded43d79051317ab96fdc88f3537bcea4312c6852c0e.json",
+      "sha256": "e8c2a8fc249629a294dfded43d79051317ab96fdc88f3537bcea4312c6852c0e"
     }
   ],
   "strideSource": {
     "file": "final-strides.json",
     "sha256": "3cdb14902fad50e64b6881d0453ad004b7c1fbc9086fa8aeaf14447ff22a7a11",
-    "rule": "Visual check at game size; one stride for every bank in the file."
+    "rule": "Visual check at game size; one stride for every bank in the file.",
+    "addedFile": "wrap-up-strides.json",
+    "addedSha256": "511b80c77788f73896a84766736bf174257fbdd7287c5ea8e5d3af856b9c70a5",
+    "addedRule": "Study method; each value from a fallback rule needs a look at game size."
   }
 }

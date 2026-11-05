@@ -2,8 +2,9 @@
 """Build the wrap-up character catalog: new walks, black walks and all colour picks, as a superset of the pinned one.
 
 Input:
-- A pass list: [{"character", "facing", "frames"?, "stride"?, "replace"?}]. frames defaults to
+- A pass list: [{"character", "facing", "frames"?, "stride"?, "replace"?, "leftOut"?}]. frames defaults to
   ~/kd-runs/wa1/frames/<character>-white-<facing>. stride sets the value by hand. replace allows a shipped facing.
+  leftOut names why a walk stays out: the tool skips it, and each one lowers the 240 target by 2.
 - The picks in <r5>/<pick>/manifest-map.json and the in-between maps given with --overlay.
 
 Output in --out: catalog/, runtime-selection.json, strides.json, records/, report.json, and with --runtime, runtime-png/.
@@ -20,7 +21,10 @@ Steps:
    The paladin-white walks stay as they are: the runtime does not play them.
 5. Write the manifest, the selection and the records, then check everything.
 
---final stops on any open item: not 240 move banks, a frame with no pick colour, or a failed walk.
+Two shipped banks change without new art (shipped-walk check): maester SE keeps its first 4 poses, and queen black SE
+comes from white SE by the colour map.
+
+--final stops on any open item: the wrong number of move banks, a frame with no pick colour, or a failed walk.
 """
 import argparse
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -65,6 +69,9 @@ PICK_PYTHON = ('/private/tmp/claude-501/-Users-za-Documents-king-down-chess--new
 STUDY = (Path.home() / 'Documents/king down chess (new)/anim-out/session-backup-2026-11-01/scratchpad/'
          'stride-study/final-strides.json')
 HEX = re.compile(r'[0-9a-f]{64}')
+# Frames 5 and 6 pop in size and foot height. Stride 0.667 keeps the speed: 1 x 640 / 960.
+MAESTER_SE_POSES, MAESTER_SE_STRIDE = 4, 0.667
+QUEEN_SE_STRIDE = 1.28
 
 
 def sha_file(path):
@@ -221,13 +228,7 @@ def walk_banks(catalog, walk, army, paths, geometry, stride):
               'frames': [{'sha256': digest, 'timeMs': i * 160, 'durationMs': 160, 'pivot': geometry['pivot'],
                           'uniformScale': 1, 'translation': [0, 0]} for i, digest in enumerate(hashes)]}
     source_sha = write_bank(catalog, source)
-    edges = [bounds(read_rgba(path)) for path in paths]
-    median = sorted(bottom - top for top, bottom in edges)[2]
-
-    def motion(axis):
-        values = [edge[axis] for edge in edges]
-        return round((max(values) - min(values)) * 160 / median * 100) / 100
-    ranges = {'topRangeAt160': motion(0), 'groundRangeAt160': motion(1)}
+    ranges = motion_ranges(paths)
     if ranges['topRangeAt160'] > 9.9 or ranges['groundRangeAt160'] > 20.6:
         raise ValueError(f'{character} {ident}: motion range {ranges} is over the move gate')
     scale = GAME_HEIGHT.get(character, 130) / geometry['registrationHeightPx']
@@ -244,6 +245,64 @@ def walk_banks(catalog, walk, army, paths, geometry, stride):
     move_entry = {'character': character, 'army': army, 'kind': 'move', 'id': ident, 'direction': facing,
                   'status': 'ready', 'manifest': f'banks/{move_sha}.json', 'sha256': move_sha}
     return source_entry, move_entry
+
+
+def add_source_and_move(catalog, character, army, facing, source, move):
+    """Write one source bank and its move bank. Return their two manifest entries."""
+    source_sha = write_bank(catalog, source)
+    move_sha = write_bank(catalog, {**move, 'walkSourceBankSha256': source_sha})
+    common = {'character': character, 'army': army, 'direction': facing}
+    return [{**common, 'kind': 'movement-study', 'id': f'{army}-walk-source-{facing}', 'status': 'draft',
+             'manifest': f'banks/{source_sha}.json', 'sha256': source_sha},
+            {**common, 'kind': 'move', 'id': f'{army}-walk-{facing}', 'status': 'ready',
+             'manifest': f'banks/{move_sha}.json', 'sha256': move_sha}]
+
+
+def banks_of(catalog, selection, character, army, facing):
+    """The shipped move bank and its source bank."""
+    entry = next(e for e in selection['entries'] if (e['character'], e['army'], e['id']) == (character, army, f'{army}-walk-{facing}'))
+    move = json.loads((catalog / entry['manifest']).read_text())
+    return move, json.loads((catalog / 'banks' / f"{move['walkSourceBankSha256']}.json").read_text())
+
+
+def motion_ranges(paths):
+    edges = [bounds(read_rgba(path)) for path in paths]
+    median = sorted(bottom - top for top, bottom in edges)[len(edges) // 2]
+    return {name: round((max(e[axis] for e in edges) - min(e[axis] for e in edges)) * 160 / median * 100) / 100
+            for axis, name in enumerate(('topRangeAt160', 'groundRangeAt160'))}
+
+
+def trim_maester_se(catalog, selection):
+    entries = []
+    for army in ('white', 'black'):
+        move, source = banks_of(catalog, selection, 'maester', army, 'SE')
+        trim = {'durationMs': 160 * MAESTER_SE_POSES, 'cycleMs': 160 * MAESTER_SE_POSES}
+        kept = move['frames'][:MAESTER_SE_POSES]
+        ranges = motion_ranges([catalog / 'assets' / f"{f['sha256']}.png" for f in kept])
+        entries += add_source_and_move(catalog, 'maester', army, 'SE', {**source, **trim, 'frames': source['frames'][:MAESTER_SE_POSES]},
+                                       {**move, **trim, 'frames': kept, 'strideSquares': MAESTER_SE_STRIDE, 'walkRanges': ranges})
+    return entries
+
+
+def queen_black_se(catalog, selection):
+    """Black SE takes white's drawings and white's placement, which belongs to them. Rest fields stay black."""
+    white_move, white_source = banks_of(catalog, selection, 'queen', 'white', 'SE')
+    black_move, _old = banks_of(catalog, selection, 'queen', 'black', 'SE')
+    poses = [read_rgba(catalog / 'assets' / f"{f['sha256']}.png") for f in white_move['frames']]
+    blacks = recolor.apply_spatial(poses, recolor.fit_spatial(*fit_pair(standing_pairs(catalog, selection, 'queen', 'SE', {}))))
+    table = {}
+    for frame, white, black in zip(white_move['frames'], poses, blacks):
+        recolor.gate(white, black)
+        pending = catalog / 'assets/pending.png'
+        Image.fromarray(black).save(pending)
+        digest = sha_file(pending)
+        pending.replace(catalog / 'assets' / f'{digest}.png')
+        table[frame['sha256']] = digest
+    source = {**remap(white_source, table), 'army': 'black'}
+    transform = {**white_move['walkRestTransform'], **{k: v for k, v in black_move['walkRestTransform'].items() if k in ('army', 'standSha256', 'idleSha256', 'idleBank')}}
+    move = {**remap(white_move, table), 'army': 'black', 'id': 'black-walk-SE', 'strideSquares': QUEEN_SE_STRIDE,
+            'walkRestTransform': transform}
+    return add_source_and_move(catalog, 'queen', 'black', 'SE', source, move)
 
 
 def load_overlay(path, table):
@@ -351,7 +410,7 @@ def write_records(out, ref, frames_map, banks_map):
     return written, others
 
 
-def check(catalog, base_catalog, base_manifest, manifest, selection, new_keys, frames_map, report, final):
+def check(catalog, base_catalog, base_manifest, manifest, selection, new_keys, frames_map, report, final, left_out):
     faults = []
     base_files = {p.relative_to(base_catalog) for p in base_catalog.rglob('*') if p.is_file()} - {Path('manifest.json')}
     missing = [str(p) for p in base_files if not (catalog / p).is_file()]
@@ -383,8 +442,9 @@ def check(catalog, base_catalog, base_manifest, manifest, selection, new_keys, f
     report['catalogMoveEntries'] = sum(e['kind'] == 'move' for e in manifest['entries'])
     if kinds.get('idle') != 46 or kinds.get('turn') != 272 or kinds.get('attack') != 256:
         faults.append(f'idle, turn or attack count changed: {kinds}')
-    if final and kinds.get('move') != WALK_TARGET:
-        faults.append(f"move banks: {kinds.get('move')}, not {WALK_TARGET}")
+    target = WALK_TARGET - 2 * len(left_out)
+    if final and kinds.get('move') != target:
+        faults.append(f"move banks: {kinds.get('move')}, not {target}")
     return faults
 
 
@@ -401,6 +461,8 @@ def build(args):
     if shutil.disk_usage(Path.home()).free - size < 30 * 1024**3:
         raise ValueError('the catalog copy would take free disk below 30 GiB')
     walks = json.loads(args.pass_list.read_text())
+    left_out = {f"{w['character']}-{w['facing']}": w['leftOut'] for w in walks if w.get('leftOut')}
+    walks = [w for w in walks if not w.get('leftOut')]
     selected = {(e['character'], e['army'], e['id']) for e in selection['entries']}
     seen = set()
     for walk in walks:
@@ -424,7 +486,7 @@ def build(args):
 
     strides = wrap_up_strides.measure(walks, args.study, work / 'stride')
     dump(out / 'strides.json', strides)
-    report = {'base': {'commit': ref, 'catalogSha256': selection['catalogSha256']}, 'walks': {}, 'failed': {}}
+    report = {'base': {'commit': ref, 'catalogSha256': selection['catalogSha256']}, 'walks': {}, 'failed': {}, 'leftOut': left_out}
 
     table, overlay_counts = pick_tables(args.r5, args.overlay)
     jobs = []
@@ -493,6 +555,10 @@ def build(args):
                                  'needsLook': record['needsLook'], 'picks': [p[1] for p in pick_results if p[0] == name],
                                  'moveBanks': {army: entries[1]['sha256'] for army, _paths, entries in built}}
 
+    shipped_fixes = trim_maester_se(catalog, selection) + queen_black_se(catalog, selection)
+    new_entries += shipped_fixes
+    new_keys |= {(e['character'], e['army'], e['id']) for e in shipped_fixes if e['kind'] == 'move'}
+    report['shippedFixes'] = {f"{e['character']}/{e['id']}": e['sha256'] for e in shipped_fixes if e['kind'] == 'move'}
     new_ids = {(e['character'], e['army'], e['id']) for e in new_entries}
     entries = [e for e in base_manifest['entries'] if (e['character'], e['army'], e['id']) not in new_ids]
     entries, frames_map, banks_map, gaps = apply_picks(catalog, entries, table, new_keys)
@@ -525,7 +591,7 @@ def build(args):
     report.update({'catalogSha256': catalog_sha, 'overlays': overlay_counts, 'pickFramesApplied': len(frames_map),
                    'pickBanksChanged': len(banks_map), 'framesWithNoPickColour': {'total': len(gaps), 'uniqueFrames': len({g['sha256'] for g in gaps}), 'byPick': summary},
                    'records': written, 'otherFilesWithOldHashes': others})
-    faults = check(catalog, base, base_manifest, manifest, new_selection, new_keys, frames_map, report, args.final)
+    faults = check(catalog, base, base_manifest, manifest, new_selection, new_keys, frames_map, report, args.final, left_out)
     if args.final and gaps:
         faults.append(f'{len(gaps)} bank frames have no pick colour')
     if args.final and report['failed']:

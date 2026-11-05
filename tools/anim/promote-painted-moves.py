@@ -16,7 +16,11 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-BASE = '77e83626a60d3ef8518d374409a9f8b9268460cfd65a545190b406782f20e363'
+BASE = '340e92eb521feac8f985b0befd5c83e68546288ab93a9245e7d916ebfc7773dc'
+MOVE_BANKS = 264
+# The colour picks change these banks on purpose. Every other entry of the base stays.
+PICKS = {('rook', 'black'), ('paladin', 'white'), ('beast', 'black'), ('ogre', 'black'), ('king-frost', 'black'),
+         ('king-mud', 'black'), ('king-stratus', 'black'), ('king-stratus', 'white')}
 SELECTION = ROOT / 'docs/specs/character-animation-samples/runtime-selection.json'
 PACKAGE = ROOT / 'public/character-runtime'
 
@@ -52,8 +56,8 @@ def promote(candidate, target, cache=None):
         raise ValueError('Candidate catalog does not match the selection')
     catalog = json.loads(proposed)
     moves = [e for e in catalog['entries'] if e['kind'] == 'move']
-    if len(moves) != 196:
-        raise ValueError('Expected 196 source move banks')
+    if len(moves) != MOVE_BANKS:
+        raise ValueError(f'Expected {MOVE_BANKS} source move banks')
     if shutil.disk_usage('/').free < 31 * 1024**3:
         raise ValueError('Need 31 GiB free for the rebuild and the 30 GiB floor')
     for sibling in ('alpha-recovery-review', 'army-effects-review', 'directional-attacks'):
@@ -68,7 +72,8 @@ def promote(candidate, target, cache=None):
             raise ValueError('Target catalog changed; rebuild the candidate against it')
         if previous_sha == BASE:
             base = json.loads(previous)
-            if [e for e in catalog['entries'] if e['kind'] != 'move'] != base['entries']:
+            kept = {json.dumps(e, sort_keys=True) for e in catalog['entries']}
+            if any(e['kind'] != 'move' and (e['character'], e['army']) not in PICKS and json.dumps(e, sort_keys=True) not in kept for e in base['entries']):
                 raise ValueError('Candidate changes the base catalog')
         additions = {}
         for entry in moves:

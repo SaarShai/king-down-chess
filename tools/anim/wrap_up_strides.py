@@ -9,6 +9,8 @@ poses. The rules come from the study:
 4. Method A low and within 30% of the character median: method A.
 5. Else the character median: E and W values of the study and of rules 1 and 2. With none, all facings. King Stratus
    floats, so contacts do not apply: it takes the median of the other kings.
+   Ogre has its own fallback: shipped N for straight facings and shipped SE for diagonals. Shipped NE is 1.76, and its
+   pose time is about 2 x SE, so it must not set the other walks.
 A walk from rule 3, 4 or 5 needs a look at game size. Shipped banks of the same characters also run. Their results go
 in the output beside the study value, so a reader can see how far the method moves from the checked values.
 
@@ -28,6 +30,7 @@ ROOT = HERE.parents[1]
 PYTHON = '/usr/bin/python3'
 GOOD = ('medium', 'high')
 SIDE = ('E', 'W')
+OGRE_FALLBACK = {'straight': 1.0, 'diagonal': 0.76}
 
 
 def walk_id(character, facing):
@@ -115,8 +118,10 @@ def decide(walk, a, b, medians):
         return a_value, f'method A {a_conf}', False
     median = medians.get(walk['character'])
     fallback = median or medians['kings']
+    if walk['character'] == 'ogre':
+        fallback = OGRE_FALLBACK['straight' if len(facing) == 1 else 'diagonal']
     if facing in ('N', 'S'):
-        return fallback, 'N/S: character side-view median', True
+        return fallback, 'N/S: ogre fallback' if walk['character'] == 'ogre' else 'N/S: character side-view median', True
     if a_value and abs(a_value - fallback) / fallback <= 0.3:
         return a_value, 'method A low, within 30% of the character median', True
     return fallback, 'character median: no usable measure', True

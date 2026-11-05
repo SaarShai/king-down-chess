@@ -11,10 +11,10 @@
     },
     "black": {
       "id": "black-turn-SE-E",
-      "bank": "banks/b629b6ac53a17151267b1ec0821d359c36c23fbe1c45f6633df872d7b1c66133.json",
-      "bankSha256": "b629b6ac53a17151267b1ec0821d359c36c23fbe1c45f6633df872d7b1c66133",
-      "path": "assets/460cc00d8f43916b294d29475067aff26b3ceaf99903c2d1c9f86d072446ac81.png",
-      "sha256": "460cc00d8f43916b294d29475067aff26b3ceaf99903c2d1c9f86d072446ac81"
+      "bank": "banks/03f1b5f5eca9393fc149d853fcbed98f873a126a8eda8d57876da66d324aaaa8.json",
+      "bankSha256": "03f1b5f5eca9393fc149d853fcbed98f873a126a8eda8d57876da66d324aaaa8",
+      "path": "assets/86cd84a76ee87c069f74959ef4a88e98cd703fe9520563efac1b1771088c6845.png",
+      "sha256": "86cd84a76ee87c069f74959ef4a88e98cd703fe9520563efac1b1771088c6845"
     }
   }
 }
