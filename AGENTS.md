@@ -55,6 +55,12 @@
 - The Light and Dark kings may be stronger than the other four, but they must balance each other. A king power never changes how other pieces move; a card may.
 - All things being equal or near equal, do not change or add rules. A rule that is hard to remember is not adopted on numbers alone.
 
+## Character animation
+- Every character frame and animation export keeps genuine transparency, including all interpolated frames. A dark-background preview is an incomplete diagnostic, not a usable sprite animation.
+- Read the [animation recipe and gates](docs/lessons/art-and-motion.md) before any animation work.
+- One owner go covers a whole animation batch.
+- Animation interpolation and frame rendering may run on the M1 or this Mac, whichever is free.
+
 ## Jev
 - Client: `tools/jev.ts`. Key: `TYPESAFE_API_KEY` or `~/.config/typesafe/key`; never print or commit it.
 - Every call carries a known-true and a known-false control; if they do not separate, the run is void.
