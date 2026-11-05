@@ -30,7 +30,7 @@ with tempfile.TemporaryDirectory() as tmp:
  bank = b'{"frames":[]}'; sha = hashlib.sha256(bank).hexdigest()
  (candidate/'banks'/f'{sha}.json').write_bytes(bank)
  entry = {'kind':'move','sha256':sha,'manifest':f'banks/{sha}.json'}
- proposed = json.dumps({'entries':[entry]*196}).encode()
+ proposed = json.dumps({'entries':[entry]*p.MOVE_BANKS}).encode()
  (candidate/'manifest.json').write_bytes(proposed)
  p.SELECTION = root/'selection.json'
  p.SELECTION.write_text(json.dumps({'catalogSha256':hashlib.sha256(proposed).hexdigest()}))

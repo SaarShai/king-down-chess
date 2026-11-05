@@ -3,10 +3,10 @@
   "facing": "SE",
   "masters": {
     "black": {
-      "bank": "banks/4105823e497f15db31aa2544830531f81ac15a82e1762f796047e00e923de470.json",
-      "bankSha256": "4105823e497f15db31aa2544830531f81ac15a82e1762f796047e00e923de470",
-      "path": "assets/68a757cc05a2afaa77e0afc7db472b4dd6415599a6e63f8b5eb55942bd050766.png",
-      "sha256": "68a757cc05a2afaa77e0afc7db472b4dd6415599a6e63f8b5eb55942bd050766",
+      "bank": "banks/e8a58f6a1d880edf889a6bd62f790a7bf9e142cac96536dc4f3d350467f0bdb3.json",
+      "bankSha256": "e8a58f6a1d880edf889a6bd62f790a7bf9e142cac96536dc4f3d350467f0bdb3",
+      "path": "assets/1206740126a76aaa13995db6c9e30b0351d3e342b050c3f40b8ee4d2488380fa.png",
+      "sha256": "1206740126a76aaa13995db6c9e30b0351d3e342b050c3f40b8ee4d2488380fa",
       "id": "black-turn-SE-S"
     },
     "white": {
