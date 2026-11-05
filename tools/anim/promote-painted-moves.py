@@ -16,11 +16,8 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-BASE = '340e92eb521feac8f985b0befd5c83e68546288ab93a9245e7d916ebfc7773dc'
-MOVE_BANKS = 264
-# The colour picks change these banks on purpose. Every other entry of the base stays.
-PICKS = {('rook', 'black'), ('paladin', 'white'), ('beast', 'black'), ('ogre', 'black'), ('king-frost', 'black'),
-         ('king-mud', 'black'), ('king-stratus', 'black'), ('king-stratus', 'white')}
+BASE = 'd9bdfe957c8cc913787b29a71d1a19281001b4c5e26f01a203e1f8f6f3e5e3c6'
+MOVE_BANKS = 272
 SELECTION = ROOT / 'docs/specs/character-animation-samples/runtime-selection.json'
 PACKAGE = ROOT / 'public/character-runtime'
 
@@ -73,7 +70,7 @@ def promote(candidate, target, cache=None):
         if previous_sha == BASE:
             base = json.loads(previous)
             kept = {json.dumps(e, sort_keys=True) for e in catalog['entries']}
-            if any(e['kind'] != 'move' and (e['character'], e['army']) not in PICKS and json.dumps(e, sort_keys=True) not in kept for e in base['entries']):
+            if any(json.dumps(e, sort_keys=True) not in kept for e in base['entries']):
                 raise ValueError('Candidate changes the base catalog')
         additions = {}
         for entry in moves:
